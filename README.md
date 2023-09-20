@@ -8,21 +8,21 @@ Inspired by the jackdest man alive
 
 Sections:
 
--Intro
+-[Intro](https://presidentsam100.github.io/#intro)
 
--Education
+-[Education](https://presidentsam100.github.io/#education)
 
--Work
+-[Work](https://presidentsam100.github.io/#work)
 
--Projects
+-[Projects](https://presidentsam100.github.io/#projects)
 
--Skills
+-[Skills](https://presidentsam100.github.io/#skills)
 
--Blog Page
+-[Blog Page](https://presidentsam100.github.io/#blog)
 
--Books
+-[Books](https://presidentsam100.github.io/#books)
 
--Contact
+-[Contact](https://presidentsam100.github.io/#contact)
 
 <br>
 
@@ -31,4 +31,3 @@ Coming soon:
 -Photos Section 
 
 -Activities Section
-
