@@ -1,56 +1,89 @@
 <!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>sam lu</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sam Lu</title>
+
+    <!-- Meta tags for SEO and social sharing -->
+    <meta property="og:title" content="Sam Lu" />
+    <meta property="og:type" content="article" />
+    <meta
+      property="og:description"
+      content="I'm Sam, a UT Austin CS student and software engineeer."
+    />
+    <meta name="author" content="Sam Lu" />
     <meta
       name="description"
       content="I'm Sam, a UT Austin CS student and software engineeer."
     />
-    <!-- to be stylized later-->
-    <link rel="stylesheet" href="style.css" /> 
+   <meta name="twitter:card" content="summary" />
+
+    <!-- Import the webpage's stylesheet -->
+    <link rel="stylesheet" href="style.css" />
+
+    <!-- Import Inter font -->
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+    </style>
+
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
   </head>
   <body>
+    <!-- The wrapper and content divs set margins and positioning -->
     <div class="wrapper">
       <div class="content" role="main">
         <div class="main-text">
           <div>
             <h1 class="title">
-              hello! i'm sam</span> 😎
+              hello! i'm <span style="color: #3c6dec"> sam</span> 😎
             </h1>
-            <h2 class="subtitle">
-              no i'm not the dr. seuss character
-            </h2>
+            <p id="byline">no i'm not the dr. seuss character</p>
           </div>
-          <div>
-            <p class="body-paragraph">
-              currently studying computer science and mathematics at ut austin. swe intern at ibm, linkedin, qualcomm, workiva, and other places.
-            </p>
-          </div>
-          <div>
-            <p class="body-paragraph">
-              more about me:
-            </p>
-          </div>
-          <div>
-          <ul class="body-paragraph">
-            <li>interested in entrepreneurship and fintech</li>
-            <li>scouting travel hotspots with geoguessr</li>
+          <p class="body-paragraph">
+            currently studying computer science and mathematics at ut austin. swe intern at ibm, linkedin, qualcomm, workiva, and other places.
+          </p>
+          <p class="body-paragraph">
+            more about me:
+          </p>
+         <ul class="body-paragraph">          
+              <li>interested in entrepreneurship and fintech</li>
+         	 <li>scouting travel hotspots with geoguessr</li>
             <li>hoping to become an accredited investor</li>
             <li>fluent in mandarin and maybe english</li>
             <li>ordering hot chocolate from coffee shops</li>
             <li>former aspiring full-time gaming youtuber</li>
             <li>only stem olympiad loser from my hs</li>
             <li>last rank threshold for ut auto-admit</li>
-            <li>[insert some other random facts here]</li>
+       	 <li>[insert some other random facts here]</li>
           </ul>
-          </div>
-  
+
           <p class="body-paragraph" style="color: #22a8f5">
-            <a href="mailto:samlu@utexas.edu" target="_blank">email</a>
-            <a href="https://www.linkedin.com/in/samblu/" target="_blank">linkedin</a>
-            <a href="https://www.instagram.com/presidentsamlu" target="_blank">insta</a>
+            <a href="mailto:samlu@utexas.edu" target="_blank">email ↗</a>
+            <a href="https://www.linkedin.com/in/samblu" target="_blank"
+              >linkedin ↗</a
+            ><a
+              href="https://instagram.com/presidentsamlu"
+              target="_blank"
+            >
+              insta ↗</a
+            >
           </p>
-          <p id="byline">made by sam lu (not you)</p>
+         <p id="byline">made by sam lu (not you)</p>
         </div>
       </div>
     </div>
