@@ -98,6 +98,14 @@ input {
   line-height: 1.5rem;
 }
 
+.bullet-point {
+  font-size: 0.9rem;
+  font-weight: 400;
+  font-style: normal;
+  color: #fff;
+  line-height: 1.5rem;
+}
+
 .emphasis {
   font-weight: 500;
 }
