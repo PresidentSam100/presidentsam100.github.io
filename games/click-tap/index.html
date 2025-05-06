@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0e1018" />
+  <title>ClickTap — speed test</title>
+  <style>
+    :root {
+      --bg: #0e1018; --panel: #181c28; --line: #283044; --text: #eef2f9; --muted: #8b93a7;
+      --lime: #c6ff3d; --cyan: #36f5ff; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: radial-gradient(900px 600px at 50% -10%, #1a2030 0%, var(--bg) 60%);
+      color: var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+      min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
+      overflow-x: hidden; user-select: none; touch-action: manipulation;
+    }
+    a { color: var(--lime); text-decoration: none; }
+    .wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
+
+    header.top { text-align: center; margin: 0.8rem 0 0.4rem; }
+    header.top h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; }
+    header.top h1 b { color: var(--lime); text-shadow: 0 0 18px rgba(198,255,61,.4); }
+    header.top p { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+
+    section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+    section[hidden] { display: none; }
+
+    .lbl { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+    .choices { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+    .choice {
+      cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--text);
+      border-radius: 14px; padding: 0.9rem 1.2rem; font-family: inherit; font-weight: 800; font-size: 1rem;
+      transition: border-color .15s, background .15s, color .15s; min-width: 92px; text-align: center;
+    }
+    .choice .sub { display: block; font-size: 0.66rem; font-weight: 600; color: var(--muted); margin-top: 2px; letter-spacing: 0.06em; }
+    .choice:hover { border-color: #3c4862; }
+    .choice.sel { border-color: var(--lime); color: var(--lime); background: #1c2417; box-shadow: 0 0 16px -4px var(--lime); }
+    .choice.sel .sub { color: #9bb56a; }
+
+    .btn {
+      cursor: pointer; border: none; border-radius: 14px; font-family: inherit; font-weight: 900; letter-spacing: 0.08em;
+      font-size: 1.2rem; color: #11160a; padding: 1rem 2.6rem; background: linear-gradient(180deg, #d8ff6a, var(--lime));
+      box-shadow: 0 10px 30px -8px rgba(198,255,61,.5), inset 0 -3px 0 rgba(0,0,0,.15);
+      transition: filter .15s, transform .08s;
+    }
+    .btn:hover { filter: brightness(1.06); }
+    .btn:active { transform: translateY(1px) scale(.98); }
+    .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; font-size: 0.95rem; padding: 0.7rem 1.4rem; letter-spacing: 0.04em; }
+    .best { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; }
+    .best b { color: var(--warn); }
+
+    /* play */
+    .hud { display: flex; gap: 0.6rem; width: 100%; }
+    .stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.55rem; text-align: center; }
+    .stat .k { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+    .stat .v { font-size: 1.7rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.05; }
+    #vTime { color: var(--cyan); } #vCps { color: var(--lime); } #vClicks { color: var(--text); }
+
+    .pad-wrap { position: relative; width: min(78vw, 300px); aspect-ratio: 1; display: grid; place-items: center; }
+    .ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; overflow: visible; }
+    .ring .bg { fill: none; stroke: #232a3a; stroke-width: 8; }
+    .ring .fg { fill: none; stroke: var(--cyan); stroke-width: 8; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(54,245,255,.6)); }
+    .pad {
+      width: 78%; aspect-ratio: 1; border-radius: 50%; cursor: pointer; display: grid; place-items: center; text-align: center;
+      background: radial-gradient(120px 120px at 50% 34%, #e8ffa0, var(--lime)); color: #14210a;
+      box-shadow: 0 18px 50px -12px rgba(198,255,61,.55), inset 0 -8px 22px rgba(0,0,0,.18);
+      transition: transform .06s ease; touch-action: manipulation;
+    }
+    .pad.pop { animation: pop .12s ease; }
+    @keyframes pop { 0% { transform: scale(.93); } 100% { transform: scale(1); } }
+    .pad .big { font-size: 3.6rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
+    .pad .small { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.04em; margin-top: 4px; opacity: .85; }
+    .hint { color: var(--muted); font-size: 0.9rem; min-height: 1.2em; text-align: center; }
+
+    /* results */
+    .final { font-size: 5rem; font-weight: 900; color: var(--lime); font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 0 30px rgba(198,255,61,.4); }
+    .final small { font-size: 1.1rem; color: var(--muted); font-weight: 800; }
+    .rating { font-size: 1.3rem; font-weight: 900; }
+    .summary { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+    .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.9rem; font-size: 0.85rem; font-weight: 700; }
+    .chip b { color: var(--cyan); }
+    .newbest { color: var(--warn); font-weight: 900; letter-spacing: 0.08em; min-height: 1.2em; }
+    .row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+    /* CPS-over-time line graph */
+    .graph { width: 100%; max-width: 340px; margin: 0.2rem auto 0; }
+    .graph .gtitle { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 4px; }
+    .graph svg.lg { width: 100%; height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(198,255,61,.15)); }
+    .graph .lg-x { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); margin-top: 1px; }
+    .graph .cap { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
+    .graph .cap b { color: var(--lime); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+    .mute { position: fixed; bottom: 14px; right: 14px; z-index: 50; cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; font-size: 1rem; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    }
+  </style>
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:800 13px/1 'Inter',system-ui,sans-serif;color:#c6ff3d;background:#1c2417;border:1px solid #c6ff3d;border-radius:8px;padding:8px 13px;box-shadow:0 0 12px rgba(198,255,61,.35)">&larr; Games</a>
+
+  <div class="wrap">
+    <header class="top">
+      <h1>Click<b>Tap</b></h1>
+      <p id="subtitle">how fast can you click?</p>
+    </header>
+
+    <!-- SETUP -->
+    <section id="setup">
+      <div style="text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;">
+        <span class="lbl">Duration</span>
+        <div class="choices" id="durChoices">
+          <button class="choice" data-dur="3">3s</button>
+          <button class="choice sel" data-dur="5">5s</button>
+          <button class="choice" data-dur="10">10s</button>
+        </div>
+      </div>
+      <button class="btn" id="startBtn">START</button>
+      <p class="best" id="setupBest"></p>
+    </section>
+
+    <!-- PLAY -->
+    <section id="play" hidden>
+      <div class="hud">
+        <div class="stat"><div class="k">Time</div><div class="v" id="vTime">5.0</div></div>
+        <div class="stat"><div class="k" id="kClicks">Clicks</div><div class="v" id="vClicks">0</div></div>
+        <div class="stat"><div class="k" id="kCps">CPS</div><div class="v" id="vCps">0.0</div></div>
+      </div>
+      <div class="pad-wrap">
+        <svg class="ring" viewBox="0 0 200 200"><circle class="bg" cx="100" cy="100" r="92"></circle><circle class="fg" id="ringFg" cx="100" cy="100" r="92"></circle></svg>
+        <div class="pad" id="pad"><div><div class="big" id="padCount">GO</div><div class="small" id="padSub"></div></div></div>
+      </div>
+      <p class="hint" id="hint"></p>
+      <button class="btn ghost" id="quitBtn">Cancel</button>
+    </section>
+
+    <!-- RESULT -->
+    <section id="result" hidden>
+      <div class="final"><span id="finalCps">0.0</span> <small id="finalUnit">CPS</small></div>
+      <div class="rating" id="rating"></div>
+      <div class="newbest" id="newBest"></div>
+      <div class="summary" id="summary"></div>
+      <div class="graph" id="graph"></div>
+      <div class="row" style="margin-top:.4rem;">
+        <button class="btn" id="againBtn">AGAIN</button>
+        <button class="btn ghost" id="settingsBtn">⚙ Settings</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+  (() => {
+    "use strict";
+    const $ = (id) => document.getElementById(id);
+    const setupEl = $("setup"), playEl = $("play"), resultEl = $("result");
+    const RING_C = 2 * Math.PI * 92;
+    $("ringFg").style.strokeDasharray = RING_C;
+
+    let input = "mouse", dur = 5;
+    let state = "setup";      // setup | ready | running | done
+    let clicks = 0, startT = 0, raf = 0, clickTimes = [];
+    let muted = false; // sound is muted globally via the shared top-right toggle (mute-toggle.js)
+
+    // Device-aware wording: desktop = click / CPS, touch = tap / TPS.
+    const TOUCH = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const VERB = TOUCH ? "Tap" : "Click";   // capitalized
+    const verb = TOUCH ? "tap" : "click";   // lowercase
+    const METRIC = TOUCH ? "TPS" : "CPS";
+    $("subtitle").textContent = "how fast can you " + verb + "?";
+    $("kClicks").textContent = TOUCH ? "Taps" : "Clicks";
+    $("kCps").textContent = METRIC;
+    $("finalUnit").textContent = METRIC;
+
+    // ---- audio ----
+    let actx = null;
+    function tick(freq) {
+      if (muted) return;
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+        o.type = "square"; o.frequency.value = freq || 1100;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.09, t + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.03);
+        o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.04);
+      } catch (e) {}
+    }
+    function chord(seq) { if (muted) return; seq.forEach((f, i) => setTimeout(() => tick(f), i * 70)); }
+    // A short rising blip for picking a setup option (Input / Duration).
+    function selectSound() {
+      if (muted) return;
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+        o.type = "triangle";
+        o.frequency.setValueAtTime(520, t);
+        o.frequency.exponentialRampToValueAtTime(800, t + 0.07);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.13, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+        o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.14);
+      } catch (e) {}
+    }
+
+    const bestKey = () => "clicktap_best_" + input + "_" + dur;
+    const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
+    // one-time migration of saved bests from the pre-rename prefix (folder was "click-rush")
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("clickrush_best_") === 0) {
+          const nk = "clicktap_best_" + k.slice("clickrush_best_".length);
+          if (localStorage.getItem(nk) == null) localStorage.setItem(nk, localStorage.getItem(k));
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {}
+    function showSetupBest() {
+      const b = getBest();
+      $("setupBest").innerHTML = b > 0 ? "Best for " + dur + "s: <b>" + b.toFixed(3) + " " + METRIC + "</b>" : "No record yet for this duration";
+    }
+
+    // ---- selection ----
+    $("durChoices").addEventListener("click", (e) => {
+      const c = e.target.closest(".choice"); if (!c) return;
+      dur = parseInt(c.dataset.dur, 10);
+      [...$("durChoices").children].forEach((x) => x.classList.toggle("sel", x === c));
+      selectSound();
+      showSetupBest();
+    });
+
+    // ---- flow ----
+    function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); }
+
+    function beginTest() {
+      state = "ready"; clicks = 0; clickTimes = [];
+      $("vTime").textContent = dur.toFixed(1); $("vClicks").textContent = "0"; $("vCps").textContent = "0.0";
+      $("ringFg").style.strokeDashoffset = "0";
+      $("padCount").textContent = VERB.toUpperCase();
+      $("padSub").textContent = "to start";
+      $("hint").textContent = VERB + " the pad as fast as you can!";
+      show(playEl);
+    }
+
+    function registerInput() {
+      if (state === "ready") { state = "running"; startT = performance.now(); $("padSub").textContent = ""; tickFrame(); }
+      if (state !== "running") return;
+      clicks++;
+      clickTimes.push((performance.now() - startT) / 1000);
+      $("padCount").textContent = clicks;
+      $("vClicks").textContent = clicks;
+      pop(); tick(900 + Math.random() * 300);
+    }
+    function pop() {
+      const p = $("pad"); p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
+    }
+
+    function tickFrame() {
+      cancelAnimationFrame(raf);
+      const step = () => {
+        const elapsed = (performance.now() - startT) / 1000;
+        const remain = Math.max(0, dur - elapsed);
+        $("vTime").textContent = remain.toFixed(1);
+        $("vCps").textContent = (clicks / Math.max(elapsed, 0.001)).toFixed(1);
+        $("ringFg").style.strokeDashoffset = RING_C * Math.min(1, elapsed / dur);
+        if (remain <= 0) { finish(); return; }
+        raf = requestAnimationFrame(step);
+      };
+      raf = requestAnimationFrame(step);
+    }
+
+    function finish() {
+      cancelAnimationFrame(raf);
+      state = "done";
+      const cps = clicks / dur;
+      $("finalCps").textContent = cps.toFixed(3);
+      const r = rating(cps); $("rating").textContent = r.t; $("rating").style.color = r.c;
+      $("summary").innerHTML =
+        '<span class="chip"><b>' + clicks + '</b> ' + verb + 's</span>' +
+        '<span class="chip">' + dur + 's</span>';
+      renderGraph();
+      const prev = getBest();
+      if (cps > prev) { localStorage.setItem(bestKey(), cps.toFixed(4)); $("newBest").textContent = "★ NEW BEST!"; chord([660, 880, 1175, 1568]); }
+      else { $("newBest").textContent = prev > 0 ? "Best: " + prev.toFixed(3) + " " + METRIC : ""; chord([523, 659]); }
+      show(resultEl);
+    }
+    function renderGraph() {
+      const N = 100, sigma = 0.5;            // Gaussian kernel — a smooth click-rate curve
+      const finalCps = clicks / dur;
+      const inv = 1 / (sigma * Math.sqrt(2 * Math.PI)), s2 = 2 * sigma * sigma, cut = sigma * 4;
+      // Mirror clicks across both ends so the curve stays level at the edges
+      // (a raw kernel under-counts near 0 and dur where part of it spills off-range).
+      const cs = [];
+      for (const ct of clickTimes) cs.push(ct, -ct, 2 * dur - ct);
+      const pts = []; let peak = 0;
+      for (let i = 0; i <= N; i++) {
+        const t = (dur * i) / N;
+        let r = 0;
+        for (const c of cs) { const d = t - c; if (d > -cut && d < cut) r += inv * Math.exp(-(d * d) / s2); }
+        if (r > peak) peak = r;
+        pts.push([t, r]);
+      }
+      // "nice" round axis scales
+      const niceStep = (range) => { const raw = range / 4, mag = Math.pow(10, Math.floor(Math.log10(raw || 1))), n = raw / mag; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag; };
+      const step = niceStep(Math.max(4, peak));
+      const niceMax = step * Math.max(1, Math.ceil((peak * 1.05) / step));
+      const tStep = dur <= 5 ? 1 : 2;        // x ticks every 1s (3/5s) or 2s (10s)
+      const VW = 300, VH = 134, PL = 30, PR = 12, PT = 10, yBase = 98, midY = (PT + yBase) / 2;
+      const X = (t) => PL + (t / dur) * (VW - PL - PR);
+      const Y = (c) => PT + (1 - c / niceMax) * (yBase - PT);
+      const ps = pts.map((p) => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1));
+      const line = "M" + ps.join(" L");
+      const area = "M" + X(0).toFixed(1) + "," + yBase + " L" + ps.join(" L") + " L" + X(dur).toFixed(1) + "," + yBase + " Z";
+      let grid = "";                          // horizontal gridlines + CPS tick labels
+      for (let v = 0; v <= niceMax + 1e-6; v += step) {
+        const y = Y(v).toFixed(1);
+        grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#2a3142" : "#1c2230") + '"/>' +
+                '<text x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#6b7385" font-size="8">' + v + '</text>';
+      }
+      let xticks = "";                        // vertical gridlines + second tick labels
+      for (let tt = 0; tt <= dur + 1e-6; tt += tStep) {
+        const x = X(tt).toFixed(1);
+        xticks += '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '" stroke="#161b27"/>' +
+                  '<text x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" fill="#6b7385" font-size="8">' + tt + '</text>';
+      }
+      const yAvg = Y(finalCps).toFixed(1);
+      $("graph").innerHTML =
+        '<div class="gtitle">' + verb + 's per second (' + METRIC + ') over time</div>' +
+        '<svg class="lg" viewBox="0 0 ' + VW + ' ' + VH + '">' +
+          '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(198,255,61,.32)"/><stop offset="1" stop-color="rgba(198,255,61,0)"/></linearGradient></defs>' +
+          grid + xticks +
+          '<path d="' + area + '" fill="url(#lgF)"/>' +
+          '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#36f5ff" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
+          '<path d="' + line + '" fill="none" stroke="#c6ff3d" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+          '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">' + METRIC + '</text>' +
+          '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">Time (s)</text>' +
+        '</svg>' +
+        '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> ' + METRIC + ' &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> ' + METRIC + '</div>';
+    }
+    function rating(c) {
+      if (c < 3) return { t: "Warming up", c: "var(--muted)" };
+      if (c < 5) return { t: "Casual", c: "var(--text)" };
+      if (c < 7) return { t: "Quick fingers", c: "var(--cyan)" };
+      if (c < 9) return { t: "Fast!", c: "var(--lime)" };
+      if (c < 11) return { t: "Lightning ⚡", c: "var(--warn)" };
+      if (c < 14) return { t: "Insane 🔥", c: "var(--bad)" };
+      return { t: "Autoclicker? 🤖", c: "var(--bad)" };
+    }
+
+    function quit() { cancelAnimationFrame(raf); state = "setup"; show(setupEl); showSetupBest(); }
+
+    // ---- input wiring ----
+    // Count clicks only within the visible circle pad (not the square corners).
+    $("pad").addEventListener("pointerdown", (e) => {
+      if (input !== "mouse") return;
+      if (state !== "ready" && state !== "running") return;
+      const r = $("pad").getBoundingClientRect();
+      const dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) > r.width / 2) return; // outside the circle → ignore
+      e.preventDefault();
+      registerInput();
+    });
+    // Esc still bails out of a run; there's no keyboard play mode anymore.
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && state !== "setup") quit();
+    });
+
+    $("startBtn").addEventListener("click", () => { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} beginTest(); });
+    $("quitBtn").addEventListener("click", quit);
+    $("againBtn").addEventListener("click", beginTest);
+    $("settingsBtn").addEventListener("click", quit);
+
+    showSetupBest();
+  })();
+  </script>
+</body>
+</html>

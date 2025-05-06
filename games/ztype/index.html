@@ -1,0 +1,1247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>ZType — Typing Defense</title>
+<style>
+  :root {
+    --bg: #0a0e1c;       /* deep-space navy — lifted off pure black to cut neon halation */
+    --bg2: #121a33;
+    --accent: #38f9d7;
+    --accent2: #43e8ff;
+    --danger: #ff4d6d;
+    --warn: #ffd166;
+    --text: #e6f1ff;
+    --muted: #92a3c9;    /* raised for legible labels/subtitles (was ~4:1) */
+    --dim: #46547e;      /* raised so hints & ghost borders are visible */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace;
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2550 0%, var(--bg2) 45%, var(--bg) 100%);
+    color: var(--text);
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+  }
+  #wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    image-rendering: optimizeQuality;
+  }
+
+  /* HUD — pinned to the bottom so it never covers falling words */
+  #hud {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 10px 22px 12px;
+    pointer-events: none;
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    z-index: 5;
+    background: linear-gradient(0deg, rgba(10,14,28,0.92) 30%, rgba(10,14,28,0) 100%);
+  }
+  .stat { display: flex; flex-direction: column; gap: 2px; }
+  .stat .label { color: var(--muted); font-size: 10px; }
+  .stat .value { color: var(--accent); font-size: 20px; font-weight: 700; letter-spacing: 0; }
+  .stat.right { align-items: flex-end; }
+  #hud .group { display: flex; gap: 28px; }
+  #lives { letter-spacing: 4px; font-size: 18px; }
+
+  /* Overlay screens */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    text-align: center;
+    background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.85), rgba(10,14,28,0.96));
+    backdrop-filter: blur(3px);
+    z-index: 10;
+    padding: 24px;
+  }
+  .overlay.hidden { display: none; }
+  /* Game-over screen stays see-through so the board keeps showing behind it. */
+  #overScreen {
+    background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.42), rgba(10,14,28,0.62));
+    backdrop-filter: blur(1px);
+  }
+  .title {
+    font-size: clamp(40px, 9vw, 92px);
+    font-weight: 800;
+    letter-spacing: 6px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 40px rgba(56,249,215,0.25);
+  }
+  .subtitle { color: var(--muted); font-size: 15px; letter-spacing: 2px; max-width: 540px; line-height: 1.7; }
+  .key { color: var(--accent); }
+  .btn {
+    margin-top: 8px;
+    pointer-events: auto;
+    cursor: pointer;
+    border: 1px solid var(--accent);
+    background: rgba(56,249,215,0.08);
+    color: var(--accent);
+    font-family: inherit;
+    font-size: 16px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    padding: 14px 34px;
+    border-radius: 6px;
+    transition: all .15s ease;
+  }
+  .btn:hover { background: rgba(56,249,215,0.18); box-shadow: 0 0 24px rgba(56,249,215,0.3); transform: translateY(-1px); }
+  .btn.ghost { border-color: var(--dim); color: var(--muted); background: transparent; }
+  .btn.ghost:hover { border-color: var(--muted); color: var(--text); box-shadow: none; }
+  .over-actions { display: flex; gap: 14px; margin-top: 8px; }
+  /* keyboard selection cursor on the game-over buttons */
+  .btn.sel { border-color: var(--accent); color: var(--accent); background: rgba(56,249,215,0.18); box-shadow: 0 0 24px rgba(56,249,215,0.35); transform: translateY(-1px); }
+  .btn.ghost.sel { border-color: var(--accent); color: var(--accent); }
+
+  .modes { display: flex; gap: 12px; margin-top: 4px; }
+  .mode {
+    pointer-events: auto; cursor: pointer;
+    border: 1px solid var(--dim); background: transparent; color: var(--muted);
+    font-family: inherit; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 9px 18px; border-radius: 20px; transition: all .15s ease;
+  }
+  .mode.active { border-color: var(--accent); color: var(--accent); background: rgba(56,249,215,0.07); }
+
+  .results { display: flex; gap: 40px; margin: 10px 0; }
+  .results .stat { align-items: center; }
+  .results .value { font-size: 34px; color: var(--text); }
+  .results .label { font-size: 11px; }
+  .gameover-title { color: var(--danger); -webkit-text-fill-color: var(--danger); background: none; text-shadow: 0 0 40px rgba(255,77,109,0.3); }
+  .best { color: var(--warn); font-size: 13px; letter-spacing: 2px; }
+
+  /* current typing indicator */
+  /* The typed prefix + caret are centered as a single group, so the whole thing
+     stays balanced under the ship as you type. The text→caret gap lives on the
+     prefix (margin-right), so when no word is locked the lone caret centers dead
+     on W/2 — directly under the ship — with nothing nudging it sideways. */
+  #typed {
+    position: absolute;
+    bottom: 14px; left: 0; right: 0; text-align: center;
+    font-size: 22px; color: var(--accent);
+    text-shadow: 0 0 18px rgba(56,249,215,0.5);
+    min-height: 28px; z-index: 6; pointer-events: none; white-space: nowrap;
+    visibility: hidden; /* shown only while playing (toggled in JS) */
+  }
+  #typed .prefix { letter-spacing: 3px; }
+  #typed .prefix:not(:empty) { margin-right: 3px; } /* gap only when a word is typed */
+  /* geometrically-centered caret (a thin bar) */
+  #typed .cursor {
+    display: inline-block; width: 3px; height: 1.05em; vertical-align: -0.16em;
+    background: var(--accent); border-radius: 1px;
+    box-shadow: 0 0 8px rgba(56,249,215,0.7);
+    animation: blink 1.05s steps(1) infinite;
+  }
+  @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+  .hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 2px; z-index: 5; pointer-events: none; }
+  /* invisible field that summons the mobile keyboard; we read its input */
+  #ti { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; background: transparent; color: transparent; pointer-events: none; z-index: -1; }
+  /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Cascadia Code',Consolas,'Courier New',monospace;letter-spacing:.5px;color:#38f9d7;background:rgba(10,14,28,.88);border:1px solid #46547e;border-radius:4px;padding:8px 12px">&larr; Games</a>
+<div id="wrap">
+  <canvas id="game"></canvas>
+  <input id="ti" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1" />
+
+  <div id="hud">
+    <div class="group">
+      <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
+      <div class="stat"><span class="label">Wave</span><span class="value" id="wave">1</span></div>
+      <div class="stat"><span class="label">Streak</span><span class="value" id="streak">0</span></div>
+      <div class="stat"><span class="label">Bombs</span><span class="value" id="bombs">0</span></div>
+    </div>
+    <div class="group">
+      <div class="stat right"><span class="label">WPM</span><span class="value" id="wpm">0</span></div>
+      <div class="stat right"><span class="label">Accuracy</span><span class="value" id="acc">100%</span></div>
+      <div class="stat right"><span class="label">Lives</span><span class="value" id="lives">♥♥♥</span></div>
+    </div>
+  </div>
+
+  <div id="typed"><span class="prefix"></span><span class="cursor"></span></div>
+  <div class="hint" id="hint"></div>
+
+  <!-- Start screen -->
+  <div class="overlay" id="startScreen">
+    <div class="title">ZTYPE</div>
+    <div class="subtitle">
+      Words rain from above. <span class="key">Type</span> them to lock on and blast them out of the sky
+      before they reach your line. Finish a word to fire.
+    </div>
+    <div class="modes" id="modes">
+      <button class="mode active" data-mode="normal">Normal</button>
+      <button class="mode" data-mode="zen">Zen</button>
+      <button class="mode" data-mode="hard">Hardcore</button>
+    </div>
+    <div class="subtitle" id="modeDesc" style="min-height:24px;color:var(--accent);font-size:13px;max-width:none;white-space:nowrap;"></div>
+    <div class="subtitle" style="font-size:12px;letter-spacing:1px;opacity:.8;"><span class="key">◂ ▸</span> choose mode · <span class="key">Enter</span> to start</div>
+    <button class="btn" id="startBtn">Start ▸</button>
+    <div class="best" id="startBest"></div>
+  </div>
+
+  <!-- Game over screen -->
+  <div class="overlay hidden" id="overScreen">
+    <div class="title gameover-title">GAME OVER</div>
+    <div class="results">
+      <div class="stat"><span class="value" id="r-score">0</span><span class="label">Score</span></div>
+      <div class="stat"><span class="value" id="r-wave">1</span><span class="label">Wave</span></div>
+      <div class="stat"><span class="value" id="r-streak">0</span><span class="label">Best Streak</span></div>
+      <div class="stat"><span class="value" id="r-wpm">0</span><span class="label">Peak WPM</span></div>
+      <div class="stat"><span class="value" id="r-acc">100%</span><span class="label">Accuracy</span></div>
+    </div>
+    <div class="best" id="overBest"></div>
+    <div class="over-actions">
+      <button class="btn" id="againBtn">Play Again ▸</button>
+      <button class="btn ghost" id="menuBtn">◂ Menu</button>
+    </div>
+    <div class="subtitle" style="font-size:12px;letter-spacing:1px;opacity:.8;"><span class="key">◂ ▸</span> choose · <span class="key">Enter</span> select · <span class="key">Esc</span> menu</div>
+  </div>
+</div>
+
+<script src="words.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Word bank ----------
+  // Tiers are built by LENGTH from a large common-English dictionary (words.js,
+  // ~9.8k words). A small inline list is the fallback if words.js fails to load.
+  const FALLBACK = ("the of and cat dog run sun key ice fox jet box car bee hat cup pen net bat " +
+    "field water laser orbit pixel cipher matrix falcon plasma signal copper marble jungle " +
+    "asynchronous quantum encryption algorithm trajectory equilibrium labyrinth serendipity").split(/\s+/);
+
+  function buildWordTiers() {
+    const bank = (typeof window !== "undefined" && Array.isArray(window.WORD_BANK) && window.WORD_BANK.length)
+      ? window.WORD_BANK : FALLBACK;
+    const tiers = { easy: [], medium: [], hard: [] };
+    for (const w of bank) {
+      const n = w.length;
+      if (n <= 4) tiers.easy.push(w);
+      else if (n <= 7) tiers.medium.push(w);
+      else if (n <= 12) tiers.hard.push(w); // skip very long (>12) — unfun to type
+    }
+    // guard against an empty tier (e.g. tiny fallback)
+    for (const t of ["easy", "medium", "hard"]) if (!tiers[t].length) tiers[t] = bank.slice();
+    return tiers;
+  }
+  const WORDS = buildWordTiers();
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById("game");
+  const ti = document.getElementById("ti"); // hidden field for mobile typing
+  const ctx = canvas.getContext("2d");
+  let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
+
+  function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = Math.floor(W * DPR);
+    canvas.height = Math.floor(H * DPR);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  // Bottom layout: the death line and ship sit above the bottom HUD bar.
+  const FLOOR_Y = () => H - 122; // death line — words landing here cost a life
+  const SHIP_Y  = () => H - 86;  // ship center (sits clear below the line band)
+
+  // ---------- DOM ----------
+  const el = {
+    score: document.getElementById("score"),
+    wave: document.getElementById("wave"),
+    wpm: document.getElementById("wpm"),
+    acc: document.getElementById("acc"),
+    lives: document.getElementById("lives"),
+    streak: document.getElementById("streak"),
+    bombs: document.getElementById("bombs"),
+    typedPrefix: document.querySelector("#typed .prefix"),
+    typedCursor: document.querySelector("#typed .cursor"),
+    typed: document.getElementById("typed"),
+    hint: document.getElementById("hint"),
+    startScreen: document.getElementById("startScreen"),
+    overScreen: document.getElementById("overScreen"),
+    startBtn: document.getElementById("startBtn"),
+    againBtn: document.getElementById("againBtn"),
+    menuBtn: document.getElementById("menuBtn"),
+    startBest: document.getElementById("startBest"),
+    modeDesc: document.getElementById("modeDesc"),
+    overBest: document.getElementById("overBest"),
+    rScore: document.getElementById("r-score"),
+    rWave: document.getElementById("r-wave"),
+    rStreak: document.getElementById("r-streak"),
+    rWpm: document.getElementById("r-wpm"),
+    rAcc: document.getElementById("r-acc"),
+    modes: document.getElementById("modes"),
+  };
+
+  // ---------- Game state ----------
+  const MODES = {
+    normal: { lives: 3, bombs: 3, baseSpeed: 22, spawnEvery: 0.85, speedRamp: 1.0, label: "Normal", noTypos: false,
+      desc: "3 lives, 3 bombs. Typos are free — only a landed word costs you." },
+    zen:    { lives: 99, bombs: Infinity, baseSpeed: 16, spawnEvery: 1.2, speedRamp: 0.55, label: "Zen", noTypos: false,
+      desc: "Endless. No lives lost, unlimited bombs — relax and build speed." },
+    hard:   { lives: 1, bombs: 0, baseSpeed: 34, spawnEvery: 0.55, speedRamp: 1.5, label: "Hardcore", noTypos: true,
+      desc: "1 life, no bombs. One typo or one landed word ends the run." },
+  };
+
+  let mode = "normal";
+  let state = "start"; // start | playing | over
+  let words = [];       // active falling words
+  let particles = [];
+  let bullets = [];
+  let ship = { x: 0, y: 0, angle: 0 }; // angle: 0 = pointing straight up
+  let target = null;    // currently locked word
+  let typedLen = 0;
+  let lingerWord = null; // word fully typed but not yet destroyed — keep showing its letters
+  let bombs = 0;        // remaining smart-bombs
+  let bomb = null;      // active bomb sweep effect
+
+  let score = 0;
+  let wave = 1;
+  let lives = 3;
+  let spawnTimer = 0;
+  let spawnInterval = 1.9;
+  let elapsed = 0;
+  let wordsCleared = 0;
+
+  // typing stats
+  let correctKeys = 0;
+  let totalKeys = 0;
+  // WPM measured over ACTIVE typing time only (idle gaps between words excluded)
+  let lastKeyTime = 0;
+  let activeMs = 0;        // accumulated time spent mid-burst
+  let activeChars = 0;     // chars typed during that active time
+  let peakWpm = 0;
+  // combo / streak
+  let combo = 0;
+  let maxCombo = 0;
+
+  let lastTime = 0;
+  // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+  const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
+  let shake = 0;
+
+  // ---------- Helpers ----------
+  const rand = (a, b) => a + Math.random() * (b - a);
+  const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+  // ---------- Sound (Web Audio, synthesized — no asset files) ----------
+  const Sound = (() => {
+    let ctx = null, master = null;
+
+    function ensure() {
+      if (ctx) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      ctx = new AC();
+      master = ctx.createGain();
+      master.gain.value = 0.5;
+      master.connect(ctx.destination);
+    }
+    // browsers require a user gesture before audio can start
+    function resume() { ensure(); if (ctx && ctx.state === "suspended") ctx.resume(); }
+
+    function tone(freq, dur, type, gain, slideTo, delay) {
+      if (!ctx) return;
+      const t0 = ctx.currentTime + (delay || 0);
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = type || "sine";
+      osc.frequency.setValueAtTime(freq, t0);
+      if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(gain, t0 + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      osc.connect(g); g.connect(master);
+      osc.start(t0); osc.stop(t0 + dur + 0.02);
+    }
+
+    function noise(dur, gain, filterFreq) {
+      if (!ctx) return;
+      const t0 = ctx.currentTime;
+      const n = Math.floor(ctx.sampleRate * dur);
+      const buf = ctx.createBuffer(1, n, ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = filterFreq || 1200;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      src.connect(f); f.connect(g); g.connect(master);
+      src.start(t0); src.stop(t0 + dur);
+    }
+
+    return {
+      resume,
+      key()    { tone(620 + Math.random() * 80, 0.05, "square", 0.06); },
+      kill()   { tone(880, 0.12, "sawtooth", 0.14, 240); tone(440, 0.18, "triangle", 0.1, 160, 0.02); noise(0.18, 0.18, 2200); },
+      typo()   { tone(150, 0.16, "square", 0.16, 90); },
+      land()   { tone(90, 0.5, "sine", 0.32, 40); noise(0.4, 0.25, 380); },
+      select() { tone(520, 0.07, "triangle", 0.12, 720); },
+      start()  { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.14, "triangle", 0.12, null, i * 0.07)); },
+      over()   { [440, 349, 262, 196].forEach((f, i) => tone(f, 0.28, "sawtooth", 0.14, null, i * 0.12)); },
+      bomb()   { tone(140, 0.55, "sawtooth", 0.3, 50); tone(70, 0.6, "sine", 0.3, 30); noise(0.55, 0.4, 900); },
+      denied() { tone(200, 0.1, "square", 0.12, 120); tone(150, 0.12, "square", 0.1, 90, 0.08); },
+    };
+  })();
+
+  function bestKey() { return "wordfall_best_" + mode; }
+  function getBest() { return parseInt(localStorage.getItem(bestKey()) || "0", 10); }
+  function setBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch (e) {} }
+
+  function showBest(node) {
+    if (mode === "zen") {
+      node.textContent = "Zen — endless practice, no score to beat";
+      return;
+    }
+    const b = getBest();
+    node.textContent = b > 0 ? "Best (" + MODES[mode].label + "): " + b : "";
+  }
+
+  // ---------- Word spawning ----------
+  // Shuffled "bags": each tier is drawn without replacement and reshuffled only
+  // when exhausted, so the same word can't reappear until the whole tier cycles.
+  function shuffle(a) {
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = (Math.random() * (i + 1)) | 0;
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  const bags = {};
+  function buildBags() {
+    for (const tier of ["easy", "medium", "hard"]) {
+      // dedupe then shuffle
+      bags[tier] = { items: shuffle([...new Set(WORDS[tier])]), i: 0 };
+    }
+  }
+  buildBags();
+
+  function drawFromTier(tier) {
+    const bag = bags[tier];
+    if (bag.i >= bag.items.length) { shuffle(bag.items); bag.i = 0; }
+    return bag.items[bag.i++];
+  }
+
+  function chooseTier() {
+    // difficulty grows with wave
+    const r = Math.random();
+    if (wave <= 2) return r < 0.8 ? "easy" : "medium";
+    if (wave <= 5) return r < 0.45 ? "easy" : (r < 0.85 ? "medium" : "hard");
+    return r < 0.2 ? "easy" : (r < 0.65 ? "medium" : "hard");
+  }
+
+  function spawnWord() {
+    // Locking is by first letter, so at most one active word per starting letter
+    // (26 max). If every starting letter on screen is taken, skip this spawn
+    // rather than forcing an ambiguous duplicate.
+    const used = new Set(words.map(w => w.text[0]));
+    if (used.size >= 26) return;
+
+    const tier = chooseTier();
+    let text = drawFromTier(tier);
+    let attempts = 0;
+    while (attempts < 40 && (used.has(text[0]) || words.some(w => w.text === text))) {
+      text = drawFromTier(tier);
+      attempts++;
+    }
+    if (used.has(text[0])) return; // couldn't find a free starting letter this tick
+    ctx.font = "20px monospace";
+    const wPx = ctx.measureText(text).width + 26;
+    const margin = 30;
+    const x = rand(margin, Math.max(margin, W - wPx - margin));
+    const speed = MODES[mode].baseSpeed + (wave - 1) * 3.2 * MODES[mode].speedRamp + rand(-4, 6);
+    words.push({
+      text,
+      x,
+      y: -20,
+      w: wPx,
+      speed,
+      done: 0,        // chars destroyed
+      dying: false,   // fully typed, awaiting final bullet
+      hue: rand(0, 40) + 165, // teal-ish range
+    });
+  }
+
+  // ---------- Targeting / typing ----------
+  function handleChar(ch) {
+    if (state !== "playing") return;
+    totalKeys++;
+
+    if (!target) {
+      // find a word whose next char matches; prefer the lowest (most urgent).
+      // Skip "dying" words (fully typed, awaiting their final bullet).
+      let candidate = null;
+      for (const w of words) {
+        if (!w.dying && w.done < w.text.length && w.text[w.done] === ch) {
+          if (!candidate || w.y > candidate.y) candidate = w;
+        }
+      }
+      if (candidate) {
+        lingerWord = null; // starting a new word clears the previous typed-out word
+        target = candidate;
+        target.done++;
+        typedLen = target.done;
+        correctKeys++;
+        registerWpmKey();
+        spawnMuzzle();
+        const done = target.done >= target.text.length;
+        fireBullet(target, done); // final bullet is the one that destroys the word
+        Sound.key(); // every letter fires a bullet, so play the firing sound
+        if (done) completeWord(target);
+        flashTyped();
+      } else {
+        miss();
+      }
+    } else {
+      if (target.text[target.done] === ch) {
+        target.done++;
+        typedLen = target.done;
+        correctKeys++;
+        registerWpmKey();
+        const done = target.done >= target.text.length;
+        fireBullet(target, done);
+        Sound.key(); // every letter fires a bullet, so play the firing sound
+        if (done) completeWord(target);
+        flashTyped();
+      } else {
+        miss();
+      }
+    }
+    updateTypedDisplay();
+  }
+
+  const IDLE_CAP = 1500; // ms; gaps longer than this count as "waiting", not typing
+  function registerWpmKey() {
+    const now = performance.now();
+    if (lastKeyTime > 0) {
+      const delta = now - lastKeyTime;
+      if (delta <= IDLE_CAP) { activeMs += delta; activeChars++; }
+    }
+    lastKeyTime = now;
+  }
+
+  function miss() {
+    el.typed.style.color = "var(--danger)";
+    el.typedCursor.style.background = "var(--danger)";
+    setTimeout(() => {
+      el.typed.style.color = "var(--accent)";
+      el.typedCursor.style.background = "var(--accent)";
+    }, 120);
+    combo = 0; // any typo breaks the streak
+    Sound.typo();
+
+    if (MODES[mode].noTypos) {
+      // Hardcore: every keystroke must land. A typo costs a life.
+      lives--;
+      shake = 14;
+      explode(ship.x, ship.y, 0, 24); // red burst at the ship
+      target = null; typedLen = 0; updateTypedDisplay();
+      refreshHud();
+      if (lives <= 0) gameOver();
+    } else {
+      refreshHud();
+    }
+  }
+
+  function flashTyped() {
+    el.typed.style.transform = "scale(1.08)";
+    setTimeout(() => { el.typed.style.transform = "scale(1)"; }, 60);
+  }
+
+  function updateTypedDisplay() {
+    // Only update the prefix TEXT — never recreate the cursor element, or its
+    // blink animation restarts on every keystroke.
+    if (state !== "playing") { el.typed.style.visibility = "hidden"; el.typedPrefix.textContent = ""; return; }
+    el.typed.style.visibility = "visible";
+    if (target && target.done < target.text.length) {
+      el.typedPrefix.textContent = target.text.slice(0, target.done);
+    } else if (lingerWord) {
+      // word fully typed, awaiting its bullet — show every letter, including the last
+      el.typedPrefix.textContent = lingerWord.text;
+    } else {
+      el.typedPrefix.textContent = "";
+    }
+  }
+
+  // Last letter typed: mark the word "dying" and release the lock so the next
+  // word can be started. The word keeps falling until its final bullet lands
+  // (or it crosses the line — see the words update loop), then destroyWord runs.
+  function completeWord(w) {
+    w.dying = true;
+    lingerWord = w; // keep the full word (incl. last letter) on screen until its box is destroyed
+    if (target === w) { target = null; typedLen = 0; }
+    updateTypedDisplay();
+  }
+
+  function destroyWord(w) {
+    const idx = words.indexOf(w);
+    if (idx < 0) return; // already gone (e.g. caught by a bomb)
+    words.splice(idx, 1);
+    if (target === w) { target = null; typedLen = 0; }
+    if (lingerWord === w) lingerWord = null; // its box is gone — stop showing the typed letters
+    updateTypedDisplay();
+
+    // streak: each clean word raises the combo and its score multiplier
+    combo++;
+    maxCombo = Math.max(maxCombo, combo);
+    const comboMult = 1 + Math.min(combo, 25) * 0.04; // up to 2x at a 25 streak
+
+    // scoring: base + length bonus + speed bonus + wave multiplier + combo
+    const lenBonus = w.text.length * 12;
+    const heightBonus = Math.floor((w.y / H) * 40); // reward late clears slightly less
+    const gained = Math.floor((50 + lenBonus + heightBonus) * (1 + wave * 0.1) * comboMult);
+    score += gained;
+    wordsCleared++;
+
+    explode(w.x + w.w / 2, w.y, w.hue, 28);
+    scorePop(w.x + w.w / 2, w.y, "+" + gained);
+    shake = Math.min(shake + 3, 10);
+    Sound.kill();
+
+    // wave progression
+    if (wordsCleared % 12 === 0) {
+      wave++;
+      spawnInterval = Math.max(0.3, MODES[mode].spawnEvery - (wave - 1) * 0.05);
+    }
+    refreshHud();
+  }
+
+  function wordLanded(w) {
+    const idx = words.indexOf(w);
+    if (idx >= 0) words.splice(idx, 1);
+    if (target === w) { target = null; typedLen = 0; updateTypedDisplay(); }
+    if (mode !== "zen") lives--;
+    combo = 0; // a landed word breaks the streak too
+    explode(w.x + w.w / 2, FLOOR_Y(), 0, 36); // red-ish
+    shake = 14;
+    Sound.land();
+    refreshHud();
+    if (lives <= 0) gameOver();
+  }
+
+  // ---------- Smart bomb ----------
+  // A wall of fire rises from the death line, vaporizing every word in the
+  // bottom band — the panic button for words about to land.
+  const BOMB_SPEED = 1100;       // px/sec the front rises
+  const BOMB_RISE = () => H * 0.45; // how far up it clears
+
+  function useBomb() {
+    if (state !== "playing" || bomb) return; // one at a time
+    if (bombs <= 0) { Sound.denied(); return; }
+    if (bombs !== Infinity) bombs--;
+    bomb = { y: FLOOR_Y(), topY: FLOOR_Y() - BOMB_RISE() };
+    shake = Math.max(shake, 12);
+    Sound.bomb();
+    refreshHud();
+  }
+
+  function destroyWordByBomb(w) {
+    const idx = words.indexOf(w);
+    if (idx >= 0) words.splice(idx, 1);
+    if (target === w) { target = null; typedLen = 0; updateTypedDisplay(); }
+    if (lingerWord === w) { lingerWord = null; updateTypedDisplay(); }
+    explode(w.x + w.w / 2, w.y, 30, 22); // orange burst (no skill score / combo)
+    Sound.kill(); // same explosion sound as a typed-out word
+    score += 10; // small consolation points
+    scorePop(w.x + w.w / 2, w.y, "+10", "#ff9c40"); // orange to mark bomb kills
+  }
+
+  // ---------- Effects ----------
+  function fireBullet(w, fatal) {
+    bullets.push({
+      x: ship.x, y: ship.y,
+      tx: w.x + w.w / 2, ty: w.y,
+      target: w,
+      t: 0,
+      speed: rand(0.06, 0.09),
+      fatal: !!fatal, // the bullet that actually destroys the word on impact
+    });
+  }
+
+  function spawnMuzzle() {
+    for (let i = 0; i < 6; i++) {
+      particles.push({
+        x: ship.x, y: ship.y,
+        vx: rand(-40, 40), vy: rand(-120, -40),
+        life: rand(0.2, 0.4), age: 0, size: rand(1, 2.5), hue: 175, kind: "spark",
+      });
+    }
+  }
+
+  function explode(x, y, hue, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = rand(40, 260);
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+        life: rand(0.4, 0.9), age: 0,
+        size: rand(1.5, 4), hue: hue + rand(-15, 15), kind: "spark",
+      });
+    }
+  }
+
+  function scorePop(x, y, txt, color) {
+    particles.push({ x, y, vx: 0, vy: -34, life: 0.9, age: 0, kind: "text", txt, color });
+  }
+
+  // ---------- Game loop ----------
+  function update(dt) {
+    elapsed += dt;
+    // Keep a target number of words on screen that grows with the wave, capped
+    // safely below the 26-letter ceiling. Spawn at the mode's rate while under
+    // target, so the screen stays busy and tops up as words are cleared/landed.
+    const desired = Math.min(22, Math.round(4 + wave * 1.6));
+    spawnTimer += dt;
+    if (spawnTimer >= spawnInterval) {
+      spawnTimer = 0;
+      if (words.length < desired) spawnWord();
+    }
+
+    // words
+    for (let i = words.length - 1; i >= 0; i--) {
+      const w = words[i];
+      w.y += w.speed * dt;
+      if (w.y >= FLOOR_Y()) {
+        // A fully-typed word that slips past the line still counts as a kill
+        // (you typed it in time) — no life lost. Otherwise it's a landing.
+        if (w.dying) destroyWord(w); else wordLanded(w);
+      }
+    }
+
+    // smart bomb: rising front destroys every word it has passed
+    if (bomb) {
+      bomb.y -= BOMB_SPEED * dt;
+      for (let i = words.length - 1; i >= 0; i--) {
+        if (words[i].y >= bomb.y) destroyWordByBomb(words[i]);
+      }
+      refreshHud();
+      if (bomb.y <= bomb.topY) bomb = null;
+    }
+
+    // bullets
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.t += b.speed * 60 * dt;
+      if (b.target && words.indexOf(b.target) >= 0) {
+        b.tx = b.target.x + b.target.w / 2;
+        b.ty = b.target.y;
+      }
+      if (b.t >= 1) {
+        // a fatal bullet reaching its still-dying word destroys it now
+        if (b.fatal && b.target && b.target.dying && words.indexOf(b.target) >= 0) {
+          destroyWord(b.target);
+        } else {
+          explode(b.tx, b.ty, 178, 4); // ordinary impact puff
+        }
+        bullets.splice(i, 1);
+      }
+    }
+
+    // particles
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age >= p.life) { particles.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.kind === "spark") { p.vy += 220 * dt; p.vx *= 0.98; }
+    }
+
+    // aim the ship at the locked word (track it as it falls); ease back to
+    // straight up when nothing is locked.
+    let desiredAngle = 0;
+    if (target && words.indexOf(target) >= 0) {
+      const tx = target.x + target.w / 2, ty = target.y;
+      desiredAngle = Math.atan2(ty - SHIP_Y(), tx - W / 2) + Math.PI / 2;
+    }
+    let diff = desiredAngle - ship.angle;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+    ship.angle += diff * Math.min(1, dt * 14); // smooth turn
+
+    // live WPM (active typing only). Decay the active timer when idle so a long
+    // pause doesn't get "credited" later, and so the readout settles toward 0.
+    if (lastKeyTime > 0 && performance.now() - lastKeyTime > IDLE_CAP) {
+      // idle: leave accumulated totals, just stop counting new time
+    }
+    if (activeChars >= 3 && activeMs > 0) {
+      const mins = activeMs / 60000;
+      const wpm = Math.round((activeChars / 5) / mins);
+      peakWpm = Math.max(peakWpm, wpm);
+      el.wpm.textContent = wpm;
+    }
+
+    if (shake > 0) shake = Math.max(0, shake - dt * 30);
+  }
+
+  // After game over the round is finished, but we keep the scene alive behind
+  // the translucent overlay: words keep drifting down (removed at the floor with
+  // no penalty), bullets fly out, particles fade. No spawning, scoring, or lives.
+  function coast(dt) {
+    for (let i = words.length - 1; i >= 0; i--) {
+      const w = words[i];
+      w.y += w.speed * dt;
+      if (w.y >= FLOOR_Y()) {
+        // same crash-at-the-line burst as a live landing, just no life cost
+        words.splice(i, 1);
+        explode(w.x + w.w / 2, FLOOR_Y(), 0, 36); // red-ish
+        shake = Math.max(shake, 8);
+        Sound.land();
+      }
+    }
+    for (let i = bullets.length - 1; i >= 0; i--) {
+      const b = bullets[i];
+      b.t += b.speed * 60 * dt;
+      if (b.t >= 1) bullets.splice(i, 1);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.age += dt;
+      if (p.age >= p.life) { particles.splice(i, 1); continue; }
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      if (p.kind === "spark") { p.vy += 220 * dt; p.vx *= 0.98; }
+    }
+    if (shake > 0) shake = Math.max(0, shake - dt * 30);
+  }
+
+  // ---------- Rendering ----------
+  let starfield = [];
+  function initStars() {
+    starfield = [];
+    for (let i = 0; i < 90; i++) {
+      starfield.push({ x: Math.random() * W, y: Math.random() * H, z: rand(0.3, 1), r: rand(0.4, 1.6) });
+    }
+  }
+  initStars();
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    let ox = 0, oy = 0;
+    if (shake > 0 && !reducedMotion()) { ox = rand(-shake, shake); oy = rand(-shake, shake); }
+    ctx.save();
+    ctx.translate(ox, oy);
+
+    // stars
+    for (const s of starfield) {
+      s.y += s.z * 14 * (1 / 60);
+      if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+      ctx.globalAlpha = 0.25 + s.z * 0.5;
+      ctx.fillStyle = "#9fb4ff";
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // danger line
+    const lineY = FLOOR_Y();
+    const grad = ctx.createLinearGradient(0, lineY - 14, 0, lineY + 14);
+    grad.addColorStop(0, "rgba(255,77,109,0)");
+    grad.addColorStop(1, "rgba(255,77,109,0.22)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, lineY - 14, W, 28);
+    ctx.strokeStyle = "rgba(255,77,109,0.5)";
+    ctx.setLineDash([10, 8]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, lineY); ctx.lineTo(W, lineY); ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ship
+    ship.x = W / 2; ship.y = SHIP_Y();
+    drawShip(ship.x, ship.y, ship.angle);
+
+    // bullets
+    for (const b of bullets) {
+      const x = b.x + (b.tx - b.x) * b.t;
+      const y = b.y + (b.ty - b.y) * b.t;
+      ctx.strokeStyle = "rgba(67,232,255,0.9)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      const px = b.x + (b.tx - b.x) * Math.max(0, b.t - 0.06);
+      const py = b.y + (b.ty - b.y) * Math.max(0, b.t - 0.06);
+      ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
+      ctx.fillStyle = "#bdfbff";
+      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // words — draw order controls overlap layering. Priority (drawn on top):
+    // locked word > dying words (typed, awaiting their bullet) > normal words.
+    // Within the same priority, words closer to the bottom (larger y) sit on top.
+    ctx.textBaseline = "middle";
+    const layer = (w) => (w === target ? 2 : (w.dying ? 1 : 0));
+    const drawOrder = words.slice().sort((a, b) => {
+      const la = layer(a), lb = layer(b);
+      if (la !== lb) return la - lb; // higher priority drawn later (on top)
+      return a.y - b.y;
+    });
+    for (const w of drawOrder) {
+      drawWord(w);
+    }
+
+    // smart-bomb wall of fire (rising from the death line)
+    if (bomb) {
+      const bot = FLOOR_Y(), top = bomb.y;
+      // Fade the whole wall out over the back half of its rise so it dissolves
+      // instead of vanishing the instant it reaches the top.
+      const progress = Math.min(1, (bot - bomb.y) / BOMB_RISE());
+      const fade = progress < 0.5 ? 1 : Math.max(0, 1 - (progress - 0.5) / 0.5);
+      ctx.globalAlpha = fade;
+      const g = ctx.createLinearGradient(0, top, 0, bot);
+      g.addColorStop(0, "rgba(255,180,60,0)");
+      g.addColorStop(0.5, "rgba(255,140,40,0.3)");
+      g.addColorStop(1, "rgba(255,90,30,0.5)");
+      ctx.fillStyle = g;
+      ctx.fillRect(0, top, W, bot - top);
+      // bright leading edge
+      ctx.fillStyle = "rgba(255,240,190,0.9)";
+      ctx.fillRect(0, top - 3, W, 6);
+      // flickering embers along the front
+      for (let i = 0; i < 3; i++) {
+        ctx.fillStyle = "rgba(255," + (180 + Math.random() * 60 | 0) + ",80,0.8)";
+        const ex = Math.random() * W;
+        ctx.fillRect(ex, top - rand(2, 10), rand(2, 5), rand(4, 10));
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // particles
+    for (const p of particles) {
+      const t = 1 - p.age / p.life;
+      if (p.kind === "text") {
+        ctx.globalAlpha = Math.min(1, t * 1.4);
+        ctx.fillStyle = p.color || "#ffd166";
+        ctx.font = "700 20px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(p.txt, p.x, p.y);
+        ctx.globalAlpha = 1;
+      } else {
+        ctx.globalAlpha = t;
+        ctx.fillStyle = "hsl(" + p.hue + ",90%,65%)";
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.globalAlpha = 1;
+
+    ctx.restore();
+  }
+
+  function drawShip(x, y, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle || 0); // aim the nose toward the locked word
+    // glow
+    ctx.shadowColor = "rgba(56,249,215,0.8)";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = "#38f9d7";
+    ctx.beginPath();
+    ctx.moveTo(0, -16);
+    ctx.lineTo(13, 12);
+    ctx.lineTo(0, 5);
+    ctx.lineTo(-13, 12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // cockpit
+    ctx.fillStyle = "#0b0f1f";
+    ctx.beginPath();
+    ctx.arc(0, -2, 3, 0, Math.PI * 2);
+    ctx.fill();
+    // thruster flicker
+    ctx.fillStyle = "rgba(67,232,255," + (0.5 + Math.random() * 0.4) + ")";
+    ctx.beginPath();
+    ctx.moveTo(-5, 9);
+    ctx.lineTo(0, 9 + rand(6, 14));
+    ctx.lineTo(5, 9);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function drawWord(w) {
+    const cx = w.x + w.w / 2;
+    // dying words (fully typed, awaiting their final bullet) keep the locked glow
+    const isTarget = w === target || w.dying;
+    const urgency = Math.max(0, Math.min(1, (w.y / FLOOR_Y())));
+    const baseHue = w.hue;
+
+    ctx.font = "20px monospace";
+    ctx.textAlign = "left";
+
+    // capsule background
+    const padX = 13, hgt = 30;
+    const bx = w.x, by = w.y - hgt / 2;
+    ctx.beginPath();
+    roundRect(bx, by, w.w, hgt, 8);
+    if (isTarget) {
+      ctx.fillStyle = "rgba(56,249,215,0.12)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(56,249,215,0.9)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = "rgba(10,16,32,0.55)";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(" + Math.round(120 + urgency * 135) + "," + Math.round(160 - urgency * 110) + "," + Math.round(200 - urgency * 120) + ",0.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+
+    // text: typed portion vs remaining
+    const tx = w.x + padX;
+    const done = w.done;
+    const typedPart = w.text.slice(0, done);
+    const restPart = w.text.slice(done);
+
+    if (typedPart) {
+      ctx.fillStyle = "#38f9d7";
+      ctx.shadowColor = "rgba(56,249,215,0.6)";
+      ctx.shadowBlur = 8;
+      ctx.fillText(typedPart, tx, w.y);
+      ctx.shadowBlur = 0;
+    }
+    const typedW = ctx.measureText(typedPart).width;
+    // remaining color shifts toward danger as it falls
+    const rr = Math.round(180 + urgency * 75);
+    const rg = Math.round(200 - urgency * 120);
+    const rb = Math.round(220 - urgency * 130);
+    ctx.fillStyle = isTarget ? "#e6f1ff" : "rgb(" + rr + "," + rg + "," + rb + ")";
+    ctx.fillText(restPart, tx + typedW, w.y);
+  }
+
+  function roundRect(x, y, w, h, r) {
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- Main loop ----------
+  function loop(now) {
+    requestAnimationFrame(loop);
+    const dt = Math.min(0.05, (now - lastTime) / 1000) || 0;
+    lastTime = now;
+    if (state === "playing") update(dt);
+    else if (state === "over") coast(dt);
+    draw();
+  }
+  requestAnimationFrame(loop);
+
+  // ---------- HUD ----------
+  function refreshHud() {
+    el.score.textContent = score;
+    el.wave.textContent = wave;
+    el.streak.textContent = combo + (combo >= 5 ? "🔥" : "");
+    el.bombs.textContent = bombs === Infinity ? "∞" : ("💣".repeat(Math.max(0, bombs)) || "—");
+    if (mode === "zen") {
+      el.lives.textContent = "∞";
+    } else {
+      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "—";
+    }
+    const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
+    el.acc.textContent = accuracy + "%";
+  }
+
+  // ---------- Game flow ----------
+  function startGame() {
+    state = "playing";
+    words = []; particles = []; bullets = []; target = null; typedLen = 0; lingerWord = null;
+    ship.angle = 0;
+    score = 0; wave = 1; wordsCleared = 0;
+    lives = MODES[mode].lives;
+    bombs = MODES[mode].bombs; bomb = null;
+    spawnInterval = MODES[mode].spawnEvery;
+    spawnTimer = spawnInterval - 0.3;
+    elapsed = 0;
+    correctKeys = 0; totalKeys = 0; peakWpm = 0;
+    lastKeyTime = 0; activeMs = 0; activeChars = 0;
+    combo = 0; maxCombo = 0;
+    buildBags(); // fresh shuffle each game
+    el.wpm.textContent = "0";
+    updateTypedDisplay(); // show the ready cursor
+    el.hint.textContent = MODES[mode].noTypos
+      ? "HARDCORE — one typo ends the run. Esc to quit."
+      : (bombs > 0 ? "Type to fire · Enter = smart bomb · Esc to quit."
+                   : "Type to fire · Esc to quit.");
+    el.startScreen.classList.add("hidden");
+    el.overScreen.classList.add("hidden");
+    initStars();
+    refreshHud();
+    Sound.resume(); Sound.start();
+    ti.value = "";
+    try { ti.focus(); } catch (e) {} // open the mobile keyboard
+  }
+
+  function gameOver() {
+    state = "over";
+    try { ti.blur(); } catch (e) {} // close the mobile keyboard
+    const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
+    el.rScore.textContent = score;
+    el.rWave.textContent = wave;
+    el.rStreak.textContent = maxCombo;
+    el.rWpm.textContent = peakWpm;
+    el.rAcc.textContent = accuracy + "%";
+    updateTypedDisplay();
+    el.hint.textContent = "";
+
+    if (mode === "zen") {
+      el.overBest.textContent = "Zen session ended — nice flow.";
+    } else if (score > getBest()) {
+      setBest(score);
+      el.overBest.textContent = "★ New best for " + MODES[mode].label + "!";
+    } else {
+      el.overBest.textContent = "Best (" + MODES[mode].label + "): " + getBest();
+    }
+    el.overScreen.classList.remove("hidden");
+    overSel = 0; updateOverSelection();
+    Sound.over();
+  }
+
+  // game-over button selection (0 = Play Again, 1 = Menu)
+  let overSel = 0;
+  const overBtns = [el.againBtn, el.menuBtn];
+  function updateOverSelection() {
+    overBtns.forEach((b, i) => b.classList.toggle("sel", i === overSel));
+  }
+  function activateOverSelection() {
+    if (overSel === 0) { Sound.resume(); startGame(); }
+    else quitToMenu();
+  }
+
+  function quitToMenu() {
+    state = "start";
+    words = []; particles = []; bullets = []; target = null; bomb = null;
+    updateTypedDisplay();
+    el.hint.textContent = "";
+    el.overScreen.classList.add("hidden");
+    el.startScreen.classList.remove("hidden");
+    showBest(el.startBest);
+  }
+
+  // ---------- Input ----------
+  window.addEventListener("keydown", (e) => {
+    Sound.resume(); // unlock audio on first key
+    if (e.key === "Escape") {
+      if (state === "playing") gameOver();
+      else if (state === "over") quitToMenu();
+      return;
+    }
+    if (state === "playing" && e.key === "Enter") {
+      e.preventDefault();
+      useBomb();
+    } else if (state === "playing" && e.target !== ti && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+      // letters typed into the hidden mobile field are handled by its input
+      // event instead (avoids double-counting); this covers desktop typing
+      e.preventDefault();
+      handleChar(e.key.toLowerCase());
+    } else if (state === "start" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      cycleMode(e.key === "ArrowRight" ? 1 : -1);
+    } else if (state === "over" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+      e.preventDefault();
+      overSel = e.key === "ArrowRight" ? 1 : 0;
+      updateOverSelection();
+      Sound.select();
+    } else if (state === "over" && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      activateOverSelection();
+    } else if (state === "start" && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      startGame();
+    }
+  });
+
+  // Mobile typing: read characters from the hidden field's input event.
+  ti.addEventListener("input", () => {
+    const v = ti.value;
+    ti.value = "";
+    if (state !== "playing") return;
+    for (const ch of v) {
+      if (/[a-zA-Z]/.test(ch)) handleChar(ch.toLowerCase());
+    }
+  });
+  // Tapping the play area (re)opens the keyboard / keeps focus during play.
+  canvas.addEventListener("pointerdown", () => {
+    Sound.resume();
+    if (state === "playing") { try { ti.focus(); } catch (e) {} }
+  });
+
+  el.startBtn.addEventListener("click", () => { Sound.resume(); startGame(); });
+  el.againBtn.addEventListener("click", () => { Sound.resume(); startGame(); });
+  el.menuBtn.addEventListener("click", quitToMenu);
+  // keep the keyboard cursor in sync when the mouse hovers a button
+  el.againBtn.addEventListener("mouseenter", () => { overSel = 0; updateOverSelection(); });
+  el.menuBtn.addEventListener("mouseenter", () => { overSel = 1; updateOverSelection(); });
+
+  function selectMode(name, quiet) {
+    mode = name;
+    [...el.modes.children].forEach(b => b.classList.toggle("active", b.dataset.mode === name));
+    el.modeDesc.textContent = MODES[name].desc;
+    el.modeDesc.style.color = MODES[name].noTypos ? "var(--danger)" : "var(--accent)";
+    showBest(el.startBest);
+    if (!quiet) { Sound.resume(); Sound.select(); }
+  }
+
+  function cycleMode(dir) {
+    const names = [...el.modes.children].map(b => b.dataset.mode);
+    const i = (names.indexOf(mode) + dir + names.length) % names.length;
+    selectMode(names[i]);
+  }
+
+  el.modes.addEventListener("click", (e) => {
+    const btn = e.target.closest(".mode");
+    if (!btn) return;
+    selectMode(btn.dataset.mode);
+  });
+
+  selectMode(mode, true);
+})();
+</script>
+</body>
+</html>

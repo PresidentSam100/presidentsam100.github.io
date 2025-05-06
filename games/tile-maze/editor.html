@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Tile Maze — Level Editor</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+  </head>
+  <body>
+    <div class="app">
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Segoe UI',system-ui,sans-serif;color:#eef1ff;background:#1d2240;border:1px solid #2c3568;border-radius:8px;padding:8px 13px">&larr; Games</a>
+      <header class="topbar">
+        <div class="title">
+          <h1>Level&nbsp;Editor</h1>
+          <p class="tag">Paint tiles, test-play with the real engine, and export your level.</p>
+        </div>
+        <a class="btn" href="./index.html">← Back to game</a>
+      </header>
+
+      <main class="ed-stage">
+        <!-- board -->
+        <section class="ed-boardcol">
+          <div class="ed-status" id="status">Paint your level, then Test or Check.</div>
+          <div class="board-frame ed-frame" id="frame">
+            <div class="board" id="edBoard"></div>
+          </div>
+          <div class="dpad ed-dpad" id="testPad" hidden aria-label="test movement">
+            <button class="dbtn up" data-dir="up" aria-label="up">▲</button>
+            <button class="dbtn left" data-dir="left" aria-label="left">◀</button>
+            <button class="dbtn down" data-dir="down" aria-label="down">▼</button>
+            <button class="dbtn right" data-dir="right" aria-label="right">▶</button>
+          </div>
+        </section>
+
+        <!-- controls -->
+        <aside class="ed-side">
+          <h3>Palette</h3>
+          <div class="palette" id="palette"></div>
+          <p class="ed-pal-desc" id="palDesc"></p>
+
+          <h3>Board</h3>
+          <div class="ed-row">
+            <label>W <input type="number" id="wIn" min="3" max="20" value="8" /></label>
+            <label>H <input type="number" id="hIn" min="3" max="20" value="6" /></label>
+            <button class="btn" id="frameBtn" title="Draw a red wall border">Frame</button>
+            <button class="btn" id="fillBtn" title="Fill the whole board with the selected tile">Fill</button>
+            <button class="btn" id="newBtn" title="Reset to an empty walled room">New</button>
+          </div>
+
+          <h3>Details</h3>
+          <label class="ed-field">Name <input type="text" id="nameIn" maxlength="40" placeholder="My Level" /></label>
+          <label class="ed-field">Hint <input type="text" id="hintIn" maxlength="120" placeholder="A tip for the player" /></label>
+
+          <h3>Actions</h3>
+          <div class="ed-row">
+            <button class="btn primary" id="testBtn">▶ Test</button>
+            <button class="btn" id="checkBtn">✓ Check solvable</button>
+          </div>
+          <div class="ed-row">
+            <button class="btn" id="saveBtn">💾 Save</button>
+            <button class="btn" id="exportBtn">⤓ Export</button>
+            <button class="btn" id="importBtn">⤒ Import</button>
+          </div>
+
+          <h3>My saved levels</h3>
+          <div class="ed-saved" id="saved"></div>
+        </aside>
+      </main>
+
+      <!-- import/export drawer -->
+      <section class="ed-io" id="ioPanel" hidden>
+        <div class="ed-io-head">
+          <span id="ioTitle">Export</span>
+          <span class="ed-io-btns">
+            <button class="btn" id="copyBtn">Copy</button>
+            <button class="btn" id="loadBtn" hidden>Load into editor</button>
+            <button class="btn" id="ioClose">Close</button>
+          </span>
+        </div>
+        <textarea id="ioText" spellcheck="false"></textarea>
+        <p class="ed-io-note" id="ioNote"></p>
+      </section>
+    </div>
+
+    <!-- test-play overlay -->
+    <div class="overlay ed-overlay" id="testOverlay" hidden>
+      <div class="overlay-card">
+        <h2 id="testTitle">Solved! 🎉</h2>
+        <p id="testSub"></p>
+        <div class="overlay-actions">
+          <button class="btn" id="testReplay">Replay</button>
+          <button class="btn primary" id="testDone">Back to editing</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="audio.js"></script>
+    <script src="anim.js"></script>
+    <script src="editor.js"></script>
+  </body>
+</html>

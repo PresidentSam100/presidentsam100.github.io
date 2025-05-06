@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Reaction — Sam Lu</title>
+  <meta name="description" content="Tap the instant the screen flashes. Ten attempts, fastest average reaction time wins. A reflex game by Sam Lu." />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    gtag("js", new Date());
+    gtag("config", "G-H1K8QYFCV5");
+  </script>
+
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+
+    :root {
+      --bg: #0c0e15; --panel: #141826; --text: #eef2f9; --muted: #8b93a7;
+      --accent: #22a8f5; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c; --line: #232838;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      background: radial-gradient(1200px 700px at 50% -10%, #161b2c 0%, var(--bg) 60%);
+      color: var(--text); font-family: "Inter", system-ui, sans-serif;
+      min-height: 100%; display: flex; flex-direction: column; align-items: center;
+      padding: 1rem; overflow-x: hidden;
+    }
+    a { color: var(--accent); text-decoration: none; font-weight: 600; }
+    .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; position: relative; z-index: 30; }
+    .wrap { width: 100%; max-width: 560px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
+
+    header.top { text-align: center; margin: 0.6rem 0 0.4rem; }
+    header.top h1 { font-size: 1.9rem; font-weight: 900; margin: 0; letter-spacing: -0.02em; }
+    header.top p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.85rem; }
+
+    .hud { display: flex; gap: 0.5rem; margin: 0.9rem 0 0.2rem; }
+    .stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.5rem 0.5rem; text-align: center; }
+    .stat .label { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+    .stat .value { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+    /* Big reaction panel — the whole thing is the tap target */
+    .panel {
+      position: relative; flex: 1; min-height: 320px; margin-top: 0.7rem; border-radius: 18px;
+      border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center;
+      text-align: center; padding: 1.2rem; cursor: pointer; user-select: none; touch-action: manipulation;
+      transition: background 0.06s linear, color 0.06s linear, border-color 0.15s ease;
+      background: var(--panel); overflow: hidden;
+    }
+    /* particle canvas sits behind the panel text; only painted while Visual FX is on */
+    .panel-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .panel .big, .panel .sub, .panel .rating { position: relative; z-index: 1; }
+    .panel.idle   { background: var(--panel); }
+    .panel.wait   { background: #3b1822; border-color: #5a2233; color: #ffc2cc; }
+    .panel.go     { background: #12b073; border-color: #0d9460; color: #04140c; }
+    .panel.toosoon{ background: #5a2f12; border-color: #7a4420; color: #ffd9b3; }
+    .panel.result { background: var(--panel); }
+    .panel .big { font-size: 2.8rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
+    .panel .big.ms { font-size: 3.6rem; font-variant-numeric: tabular-nums; }
+    .panel .big.ms small { font-size: 1.3rem; font-weight: 800; opacity: 0.7; }
+    .panel .sub { margin-top: 0.5rem; font-size: 0.95rem; font-weight: 600; opacity: 0.92; max-width: 30ch; }
+    .panel .rating { margin-top: 0.4rem; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.02em; }
+
+    .times { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; margin: 0.8rem 0 0.2rem; min-height: 1.6rem; }
+    .chip { font-size: 0.78rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0.22rem 0.55rem; }
+    .chip.cur { color: var(--text); border-color: var(--accent); }
+    .chip.pen { color: var(--bad); border-color: #5a2233; background: #2a141a; }
+
+    .footer-controls { display: flex; gap: 0.6rem; align-items: center; justify-content: center; margin: 0.7rem 0 0.3rem; }
+    .mute { cursor: pointer; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 1rem; }
+    .hint { color: var(--muted); font-size: 0.78rem; text-align: center; margin-top: 0.1rem; }
+
+    /* overlay card */
+    .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8,10,16,0.82); backdrop-filter: blur(3px); z-index: 20; padding: 1rem; }
+    .overlay.show { display: flex; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 1.6rem 1.4rem; max-width: 440px; width: 100%; text-align: center; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7); }
+    .card h2 { margin: 0 0 0.3rem; font-size: 1.9rem; font-weight: 900; }
+    .card p { color: var(--muted); margin: 0.35rem 0; line-height: 1.5; font-size: 0.92rem; }
+    .card .big { font-size: 3rem; font-weight: 900; margin: 0.4rem 0 0.1rem; font-variant-numeric: tabular-nums; }
+    .card .big small { font-size: 1.1rem; color: var(--muted); font-weight: 700; }
+    .rules { text-align: left; font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 1rem; }
+    .rules li { margin: 0.25rem 0; }
+    .summary { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; margin: 0.7rem 0 0.2rem; }
+    .btn { cursor: pointer; background: var(--accent); color: #04121f; border: none; border-radius: 10px; padding: 0.8rem 1.6rem; font-family: inherit; font-size: 1.05rem; font-weight: 800; transition: filter 0.15s ease, transform 0.08s ease; }
+    .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+    .btn:active { transform: scale(0.97); }
+
+    /* tasteful entrance + result motion (auto-disabled by reduce-motion) */
+    .overlay.show .card { animation: cardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
+    @keyframes cardRise { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+    .card .big { animation: rPop 0.42s cubic-bezier(0.2,1.25,0.4,1) 0.08s backwards; }
+    @keyframes rPop { 0% { opacity: 0; transform: scale(0.72); } 60% { transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+    /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+</head>
+<body>
+  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#eef2f9;background:#141826;border:1px solid #232838;border-radius:8px;padding:8px 13px">&larr; Games</a>
+
+  <div class="wrap">
+    <header class="top">
+      <h1>⚡ Reaction</h1>
+      <p>tap the instant the screen turns green</p>
+    </header>
+
+    <div class="hud">
+      <div class="stat"><div class="label">Attempt</div><div class="value" id="attempt">—</div></div>
+      <div class="stat"><div class="label">Last</div><div class="value" id="last">—</div></div>
+      <div class="stat"><div class="label">Avg</div><div class="value" id="avg">—</div></div>
+      <div class="stat"><div class="label">Best avg</div><div class="value" id="best">—</div></div>
+    </div>
+
+    <div class="panel idle" id="panel">
+      <div class="big" id="panel-big">⚡ Reaction</div>
+      <div class="sub" id="panel-sub">press start to begin</div>
+      <div class="rating" id="panel-rating"></div>
+    </div>
+
+    <div class="times" id="times"></div>
+
+    <p class="hint">tap the panel or press <b>Space</b> the moment it flashes green — don't jump early!</p>
+  </div>
+
+  <div class="overlay show" id="overlay"><div class="card" id="card"></div></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var BEST_KEY = "reaction_best";   // lowest average reaction (ms) ever
+    var TRIALS = 10;
+    var MIN_WAIT = 1500, MAX_WAIT = 7000; // wide, randomized pre-flash delay (ms)
+    var PENALTY = 10000;              // a false start scores this (ms) for the attempt
+
+    var $ = function (id) { return document.getElementById(id); };
+    var panel = $("panel"), pBig = $("panel-big"), pSub = $("panel-sub"), pRating = $("panel-rating");
+    var elAttempt = $("attempt"), elLast = $("last"), elAvg = $("avg"), elBest = $("best");
+    var elTimes = $("times"), ov = $("overlay"), card = $("card");
+
+    // state: menu | wait | go | result | toosoon | done
+    var state = "menu";
+    var trial = 0, results = [], penal = [], flashAt = 0, timerId = 0;
+    var best = parseFloat(load(BEST_KEY)) || 0;
+
+    function load(k) { try { return localStorage.getItem(k) || "0"; } catch (e) { return "0"; } }
+    function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
+
+    // ------------------------------------------------ particle field (Visual FX)
+    // A gentle drift of glowing motes inside the panel during the "wait" and "go"
+    // states — purely decorative. Honors the global "✨ Visual FX" toggle: while
+    // FX is off (RM_ON), nothing is drawn, so the panel stays clean.
+    var FX = (function () {
+      var cv = document.createElement("canvas");
+      cv.className = "panel-fx"; cv.setAttribute("aria-hidden", "true");
+      panel.insertBefore(cv, panel.firstChild);
+      var ctx = cv.getContext("2d");
+      var W = 0, H = 0, DPR = 1, ps = [], raf = 0, on = false, color = "255,194,204", rate = 0.5, acc = 0, wasReduced = false;
+
+      function reduced() { return !!(window.RM_ON && window.RM_ON()); }
+      function size() {
+        var r = panel.getBoundingClientRect();
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+        W = r.width; H = r.height;
+        cv.width = Math.max(1, Math.round(W * DPR)); cv.height = Math.max(1, Math.round(H * DPR));
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      function spawn() {
+        ps.push({ x: Math.random() * W, y: H + 6, r: 1 + Math.random() * 2.4,
+          vy: -(0.18 + Math.random() * 0.5), a: 0, sway: Math.random() * 6.28,
+          ss: 0.012 + Math.random() * 0.02, amp: 0.15 + Math.random() * 0.4 });
+      }
+      // Pre-fill the whole box (random heights, already partly faded-in) so the
+      // field looks continuous from the first frame instead of building up from the floor.
+      function seed(n) {
+        for (var i = 0; i < n; i++) {
+          ps.push({ x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 2.4,
+            vy: -(0.18 + Math.random() * 0.5), a: 0.2 + Math.random() * 0.4, sway: Math.random() * 6.28,
+            ss: 0.012 + Math.random() * 0.02, amp: 0.15 + Math.random() * 0.4 });
+        }
+      }
+      function frame() {
+        if (!on) return;
+        ctx.clearRect(0, 0, W, H);
+        if (reduced()) { ps.length = 0; wasReduced = true; raf = requestAnimationFrame(frame); return; } // FX off -> draw nothing
+        if (wasReduced) { wasReduced = false; size(); seed(42); } // FX flipped back on -> refill the box
+        acc += rate;
+        while (acc >= 1) { acc--; if (ps.length < 60) spawn(); }
+        for (var i = ps.length - 1; i >= 0; i--) {
+          var p = ps[i];
+          p.sway += p.ss; p.x += Math.sin(p.sway) * p.amp; p.y += p.vy;
+          p.a = Math.min(p.a + 0.02, 0.42); // fade in once, then hold — no fade-out
+          if (p.y < -p.r) { ps.splice(i, 1); continue; } // only gone once it clears the top edge
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+          ctx.fillStyle = "rgba(" + color + "," + p.a.toFixed(3) + ")";
+          ctx.shadowColor = "rgba(" + color + ",0.5)"; ctx.shadowBlur = 5;
+          ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        raf = requestAnimationFrame(frame);
+      }
+      return {
+        // Start (or, if already running, just recolor) the field. The particles
+        // persist across attempts so the effect is one continuous drift, not a
+        // fresh build-up each round.
+        start: function (c, r) {
+          color = c; rate = r || 0.5;
+          if (!on) { size(); if (!reduced()) seed(42); on = true; raf = requestAnimationFrame(frame); }
+        },
+        stop: function () {
+          on = false; if (raf) { cancelAnimationFrame(raf); raf = 0; }
+          if (W) ctx.clearRect(0, 0, W, H); ps.length = 0;
+        },
+        resize: function () { if (on) size(); }
+      };
+    })();
+    window.addEventListener("resize", function () { FX.resize(); });
+
+    // ------------------------------------------------ sound (no cue on the flash)
+    var Sound = {
+      ctx: null, muted: false, // muting is handled globally by the shared toggle (mute-toggle.js)
+      load: function () { this.muted = false; },
+      init: function () { if (this.ctx) return; try { var AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); } catch (e) { this.ctx = null; } },
+      beep: function (f, dur, vol, type) {
+        if (this.muted || !this.ctx) return;
+        var t = this.ctx.currentTime, o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type || "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol || 0.2, t + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + (dur || 0.12));
+        o.connect(g); g.connect(this.ctx.destination); o.start(t); o.stop(t + (dur || 0.12) + 0.02);
+      },
+      tap: function () { this.beep(620, 0.07, 0.18, "triangle"); },
+      early: function () { this.beep(180, 0.35, 0.3, "sawtooth"); },
+      done: function () { var s = this; [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { s.beep(f, 0.16, 0.2, "triangle"); }, i * 110); }); },
+    };
+    Sound.load();
+
+    // ------------------------------------------------ helpers
+    var f1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); }; // reaction times → 1 decimal
+    function avg(arr) { if (!arr.length) return 0; var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i]; return Math.round(s / arr.length * 10) / 10; }
+    function rate(ms) {
+      if (ms < 180) return { t: "⚡ lightning", c: "var(--good)" };
+      if (ms < 230) return { t: "very fast", c: "var(--good)" };
+      if (ms < 280) return { t: "fast", c: "var(--good)" };
+      if (ms < 340) return { t: "average", c: "var(--warn)" };
+      if (ms < 450) return { t: "a bit slow", c: "var(--warn)" };
+      return { t: "slow", c: "var(--bad)" };
+    }
+    function renderHud() {
+      elAttempt.textContent = state === "menu" ? "—" : Math.min(trial, TRIALS) + "/" + TRIALS;
+      elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "—";
+      elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "—";
+      elBest.textContent = best ? f1(best) + " ms" : "—";
+    }
+    function renderTimes() {
+      var html = "";
+      for (var i = 0; i < TRIALS; i++) {
+        if (i < results.length) html += penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + f1(results[i]) + '</span>';
+        else if (i === results.length && state !== "menu" && state !== "done") html += '<span class="chip cur">' + (i + 1) + '</span>';
+        else html += '<span class="chip">·</span>';
+      }
+      elTimes.innerHTML = html;
+    }
+
+    // ------------------------------------------------ flow
+    function showStart() {
+      state = "menu"; trial = 0; results = []; penal = []; FX.stop();
+      panel.className = "panel idle"; pBig.className = "big"; pBig.textContent = "⚡ Reaction"; pSub.textContent = "press start to begin"; pRating.textContent = "";
+      renderHud(); renderTimes();
+      card.innerHTML =
+        '<h2>⚡ Reaction</h2>' +
+        '<p>Wait for the screen to flash <b style="color:var(--good)">green</b>, then tap as fast as you can.</p>' +
+        '<ul class="rules">' +
+          '<li><b>' + TRIALS + ' attempts.</b> The wait before each flash is random so you can&rsquo;t time it.</li>' +
+          '<li>Your score is the <b>average</b> reaction across all ' + TRIALS + ' — lower is better.</li>' +
+          '<li>Jump <b>early</b> and you get an <b>✗</b> — that attempt is scored as a <b>' + (PENALTY / 1000).toFixed(1) + 's</b> penalty, so don&rsquo;t guess!</li>' +
+        '</ul>' +
+        '<button class="btn" id="btn-start">Start</button>';
+      ov.classList.add("show");
+      $("btn-start").addEventListener("click", begin);
+    }
+
+    function begin() { Sound.init(); trial = 0; results = []; penal = []; ov.classList.remove("show"); nextAttempt(); }
+
+    function nextAttempt() {
+      trial++;
+      if (trial > TRIALS) { finish(); return; }
+      renderHud(); renderTimes();
+      arm();
+    }
+
+    // red "wait" screen, then flash green after a random delay
+    function arm() {
+      state = "wait";
+      panel.className = "panel wait"; pBig.className = "big"; pBig.textContent = "Wait for it…"; pSub.textContent = "attempt " + trial + " of " + TRIALS; pRating.textContent = "";
+      FX.start("255,194,204", 0.5); // warm motes drifting up during the wait
+      var delay = MIN_WAIT + Math.random() * (MAX_WAIT - MIN_WAIT);
+      timerId = setTimeout(flash, delay);
+    }
+    function flash() {
+      state = "go"; flashAt = performance.now();
+      panel.className = "panel go"; pBig.className = "big"; pBig.textContent = "TAP!"; pSub.textContent = ""; pRating.textContent = "";
+      FX.start("236,255,245", 1.1); // bright sparkles burst over the green "TAP!" flash
+    }
+
+    // false start: the attempt is burned and scored as a fixed penalty time
+    function tooSoon() {
+      clearTimeout(timerId); FX.start("255,194,204", 0.5); // keep the field running between attempts
+      results.push(PENALTY); penal.push(true); Sound.early();
+      renderHud(); renderTimes();
+      if (results.length >= TRIALS) { finish(); return; }
+      state = "toosoon";
+      panel.className = "panel toosoon"; pBig.className = "big"; pBig.textContent = "✗ Too soon!";
+      pSub.textContent = "jumped early — scored " + (PENALTY / 1000).toFixed(1) + "s · tap to continue";
+      pRating.style.color = "var(--bad)"; pRating.textContent = "penalty";
+    }
+
+    function record() {
+      FX.start("255,194,204", 0.5); // calm the field back down between attempts (keeps it running)
+      var ms = Math.round((performance.now() - flashAt) * 10) / 10;
+      results.push(ms); penal.push(false); Sound.tap();
+      var r = rate(ms);
+      renderHud(); renderTimes();
+      if (results.length >= TRIALS) { finish(); return; }
+      state = "result";
+      panel.className = "panel result"; pBig.className = "big ms"; pBig.innerHTML = f1(ms) + '<small> ms</small>'; pSub.textContent = "tap to continue"; pRating.style.color = r.c; pRating.textContent = r.t;
+    }
+
+    function finish() {
+      state = "done"; FX.stop();
+      var a = avg(results);
+      var valid = results.filter(function (x, i) { return !penal[i]; });
+      var bestSingle = valid.length ? Math.min.apply(null, valid) : null;
+      var fouls = penal.filter(Boolean).length;
+      var record = (best === 0 || a < best);
+      if (record) { best = a; save(BEST_KEY, best); }
+      renderHud();
+      var r = rate(a);
+      var chips = results.map(function (x, i) { return penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + f1(x) + '</span>'; }).join("");
+      panel.className = "panel idle"; pBig.className = "big"; pBig.textContent = "Done!"; pSub.textContent = ""; pRating.textContent = "";
+      card.innerHTML =
+        '<h2>Results</h2>' +
+        '<div class="big" style="color:' + r.c + '">' + f1(a) + '<small> ms avg</small></div>' +
+        '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + '</p>' +
+        '<p>' + (record ? "🏆 new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "—" : f1(bestSingle) + " ms") + '</p>' +
+        '<div class="summary">' + chips + '</div>' +
+        '<button class="btn" id="btn-again" style="margin-top:0.6rem;">Play again</button>';
+      ov.classList.add("show");
+      Sound.done();
+      $("btn-again").addEventListener("click", begin);
+    }
+
+    // ------------------------------------------------ input
+    function press() {
+      if (state === "wait") tooSoon();
+      else if (state === "go") record();
+      else if (state === "result") nextAttempt();
+      else if (state === "toosoon") nextAttempt(); // penalty already recorded — move on
+    }
+    panel.addEventListener("pointerdown", function (e) { e.preventDefault(); press(); });
+    document.addEventListener("keydown", function (e) {
+      if (e.code !== "Space" && e.code !== "Enter") return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (ov.classList.contains("show")) { var b = card.querySelector(".btn"); if (b) b.click(); return; }
+      press();
+    });
+
+    // ------------------------------------------------ boot
+    renderHud(); renderTimes(); showStart();
+  })();
+  </script>
+</body>
+</html>

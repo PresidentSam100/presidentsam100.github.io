@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0c0716" />
+  <title>Neon Pinball (beta)</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&display=swap");
+
+    :root {
+      --bg: #0c0716; --panel: #160d2b; --line: #2a1b4d;
+      --cyan: #36f5ff; --mag: #ff3df0; --amber: #ffd23f; --good: #46e6a0; --text: #ece6ff; --muted: #9b8ec9;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      background: radial-gradient(900px 600px at 50% -10%, #1b1140 0%, var(--bg) 60%);
+      color: var(--text); font-family: "Orbitron", system-ui, sans-serif;
+      min-height: 100%; display: flex; flex-direction: column; align-items: center;
+      overflow: hidden; user-select: none; touch-action: none;
+    }
+
+    .stage { position: relative; width: 100%; max-width: 520px; flex: 1; display: flex; flex-direction: column; padding: 6px; }
+
+    /* HUD */
+    .hud { display: flex; gap: 6px; padding: 6px 4px 2px; }
+    .hud .cell { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 5px 6px; text-align: center; box-shadow: inset 0 0 18px rgba(54,245,255,0.06); }
+    .hud .lbl { font-size: 9px; letter-spacing: 2px; color: var(--muted); font-weight: 700; }
+    .hud .val { font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; }
+    #score { color: var(--cyan); text-shadow: 0 0 10px rgba(54,245,255,.5); }
+    #best  { color: var(--good); }
+    #mult  { color: var(--amber); }
+    #balls { color: var(--mag); }
+
+    .lamps { display: flex; gap: 6px; justify-content: center; padding: 4px 0 2px; min-height: 22px; }
+    .lamp { font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); opacity: .5; transition: all .15s ease; }
+    .lamp.on { opacity: 1; }
+    .lamp.save.on { color: var(--good); border-color: var(--good); box-shadow: 0 0 10px rgba(70,230,160,.5); }
+    .lamp.mb.on   { color: var(--mag);  border-color: var(--mag);  box-shadow: 0 0 10px rgba(255,61,240,.5); }
+    .lamp.tilt.on { color: #ff5d6c; border-color: #ff5d6c; box-shadow: 0 0 10px rgba(255,93,108,.6); animation: tiltflash .25s steps(2) infinite; }
+    @keyframes tiltflash { 50% { opacity: .35; } }
+
+    .wrap { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+    canvas#pf { display: block; width: auto; height: 100%; max-width: 100%; border-radius: 14px;
+      border: 1px solid var(--line); box-shadow: 0 0 40px rgba(54,245,255,.12), inset 0 0 60px rgba(0,0,0,.6); touch-action: none; }
+
+    /* event ticker */
+    #ticker { position: absolute; top: 14%; left: 0; right: 0; text-align: center; pointer-events: none;
+      font-size: 30px; font-weight: 900; letter-spacing: 2px; color: var(--mag);
+      text-shadow: 0 0 18px rgba(255,61,240,.7); opacity: 0; transition: opacity .15s ease; z-index: 4; }
+    #ticker.show { opacity: 1; animation: pop .4s ease; }
+    @keyframes pop { 0% { transform: scale(.6); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+    /* overlays */
+    .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 18px;
+      background: radial-gradient(700px 500px at 50% 40%, rgba(40,20,80,.7), rgba(8,4,18,.94)); backdrop-filter: blur(4px); }
+    .overlay.hidden { display: none; }
+    .card { text-align: center; max-width: 440px; width: 100%; }
+    .title { font-size: clamp(34px, 11vw, 66px); font-weight: 900; letter-spacing: 3px; line-height: .95;
+      background: linear-gradient(180deg, var(--cyan), var(--mag)); -webkit-background-clip: text; background-clip: text; color: transparent;
+      text-shadow: 0 0 50px rgba(255,61,240,.3); }
+    .sub { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 14px auto 18px; max-width: 360px; }
+    .keys { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; font-size: 12px; color: var(--text); text-align: left; max-width: 320px; margin: 0 auto 20px; }
+    .keys b { color: var(--cyan); font-weight: 700; }
+    .modes { display: flex; flex-direction: column; gap: 9px; margin: 0 auto 12px; max-width: 380px; }
+    .mode-card { cursor: pointer; pointer-events: auto; text-align: left; background: rgba(255,255,255,.03);
+      border: 1px solid var(--mc); border-radius: 12px; padding: 11px 14px; color: var(--text); font-family: inherit;
+      box-shadow: 0 0 16px -6px var(--mc); transition: filter .15s ease, transform .08s ease, background .15s ease; }
+    .mode-card:hover { filter: brightness(1.12); background: rgba(255,255,255,.07); }
+    .mode-card:active { transform: scale(.985); }
+    .mc-name { display: block; font-weight: 900; letter-spacing: 1.5px; font-size: 15px; color: var(--mc); }
+    .mc-desc { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
+    .big { font-size: 14px; color: var(--muted); }
+    .final { font-size: 52px; font-weight: 900; color: var(--cyan); font-variant-numeric: tabular-nums; text-shadow: 0 0 20px rgba(54,245,255,.5); margin: 6px 0; }
+    .btn { cursor: pointer; pointer-events: auto; border: none; border-radius: 10px; font-family: inherit; font-weight: 900; letter-spacing: 2px;
+      font-size: 17px; color: #08121a; padding: 14px 40px; background: linear-gradient(180deg, var(--cyan), #1aa6cf);
+      box-shadow: 0 8px 26px rgba(54,245,255,.35), inset 0 -3px 0 rgba(0,0,0,.2); transition: filter .15s ease, transform .08s ease; }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active { transform: translateY(1px) scale(.98); }
+
+    /* mobile launch button */
+    #launchBtn { position: absolute; bottom: 14px; right: 12px; z-index: 6; display: none;
+      padding: 12px 16px; border-radius: 12px; border: 1px solid var(--cyan); background: rgba(8,4,18,.7); color: var(--cyan);
+      font-family: inherit; font-weight: 800; font-size: 13px; letter-spacing: 1px; box-shadow: 0 0 14px rgba(54,245,255,.35); }
+    @media (pointer: coarse) { #launchBtn.show { display: block; } }
+    .flip-hint { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); pointer-events: none; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+    }
+  </style>
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Orbitron',system-ui,sans-serif;letter-spacing:.5px;color:#36f5ff;background:rgba(10,6,24,.85);border:1px solid #36f5ff;border-radius:6px;padding:8px 12px;box-shadow:0 0 12px rgba(54,245,255,.4)">&larr; Games</a>
+
+  <div class="stage">
+    <div class="hud">
+      <div class="cell"><div class="lbl">SCORE</div><div class="val" id="score">0</div></div>
+      <div class="cell"><div class="lbl">BALL</div><div class="val" id="balls">1</div></div>
+      <div class="cell"><div class="lbl">MULT</div><div class="val" id="mult">x1</div></div>
+      <div class="cell"><div class="lbl">BEST</div><div class="val" id="best">0</div></div>
+    </div>
+    <div class="lamps">
+      <span class="lamp save" id="lampSave">BALL&nbsp;SAVE</span>
+      <span class="lamp mb" id="lampMb">MULTIBALL</span>
+      <span class="lamp tilt" id="lampTilt">TILT</span>
+    </div>
+
+    <div class="wrap">
+      <canvas id="pf" width="440" height="760" aria-label="Pinball playfield"></canvas>
+      <div id="ticker"></div>
+      <button id="launchBtn">⟰ LAUNCH</button>
+      <div class="flip-hint" id="flipHint"></div>
+    </div>
+  </div>
+
+  <!-- Start / table select -->
+  <div class="overlay" id="startScreen">
+    <div class="card">
+      <div class="title" style="font-size:clamp(30px,9vw,56px)">NEON PINBALL</div>
+      <div style="margin-top:6px;"><span style="display:inline-block;font-size:11px;font-weight:800;letter-spacing:3px;color:#ffd23f;border:1px solid #ffd23f;border-radius:999px;padding:2px 11px;box-shadow:0 0 10px rgba(255,210,63,.35)">BETA</span></div>
+      <p class="sub" style="margin:10px 0 12px;">Pick a table.</p>
+      <div class="modes">
+        <button class="mode-card" data-mode="classic" style="--mc:#36f5ff">
+          <span class="mc-name">CLASSIC FAN</span>
+          <span class="mc-desc">Symmetrical neon layout · fan ramps · 3 pop bumpers · side target banks</span>
+        </button>
+        <button class="mode-card" data-mode="speedway" style="--mc:#b06bff">
+          <span class="mc-name">SYNTHWAVE SPEEDWAY</span>
+          <span class="mc-desc">Fast &amp; asymmetrical · upper-right flipper · neon mega-ramp · long orbit</span>
+        </button>
+        <button class="mode-card" data-mode="tactical" style="--mc:#46e6a0">
+          <span class="mc-name">CYBER-NOIR TACTICAL</span>
+          <span class="mc-desc">Dense stop-and-go · scoops &amp; ball locks · drop banks · mini upper playfield</span>
+        </button>
+      </div>
+      <p class="big" style="font-size:11px;margin:2px 0;">◂/A · ▸/L flippers &nbsp;·&nbsp; hold Space to launch &nbsp;·&nbsp; Z/M nudge</p>
+      <p class="big" id="startBest" style="margin-top:6px;"></p>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay hidden" id="overScreen">
+    <div class="card">
+      <div class="title" style="font-size:clamp(28px,9vw,52px)">GAME OVER</div>
+      <div class="final" id="finalScore">0</div>
+      <p class="big" id="overBest"></p>
+      <button class="btn" id="againBtn" style="margin-top:16px;">PLAY AGAIN</button>
+      <button class="btn ghost" id="modesBtn" style="margin-top:10px;background:transparent;color:var(--muted);box-shadow:none;border:1px solid var(--line);font-size:13px;padding:10px 24px;">⟲ CHANGE TABLE</button>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Demolition Row</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Demolition Row — drop plus-shaped blocks, connect 4+ of a color, chain cascades and clear the board." />
+    <link rel="stylesheet" href="styles.css" />
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+  <body>
+    <div class="wrap">
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Rajdhani',system-ui,sans-serif;color:#eef0f4;background:#373b44;border:1px solid #565b68;border-radius:8px;padding:8px 13px">&larr; Games</a>
+      <div style="text-align:center">
+        <h1 class="title">Demolition Row 🧱</h1>
+        <p class="subtitle">drop plus-shaped blocks · connect 4+ of a color · chain cascades · don't top out</p>
+      </div>
+
+      <div id="game-area" style="display:none; width:100%;">
+        <div class="row" style="margin-bottom:0.4rem;">
+          <button class="btn ghost" id="menu-btn">☰ Menu</button>
+          <button class="btn ghost" id="pause-btn">⏸ Pause</button>
+          <span class="stat" id="mode-label"></span>
+        </div>
+        <div class="boards" id="boards"></div>
+      </div>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <!-- Main menu -->
+    <div class="overlay" id="menu">
+      <div class="card">
+        <h2>Demolition Row 🧱</h2>
+        <p>Plus-shaped blocks fall from the top. Move, rotate, and drop them so <b>4 or more</b> same-colored blocks connect (up/down/left/right) — they demolish, the rest fall, and chains cascade. Clear the stack and don't let it reach the pink line!</p>
+
+        <div class="group">
+          <div class="lbl">Mode</div>
+          <div class="row" id="mode-pick">
+            <button class="btn sel" data-mode="stage">50-Stage</button>
+            <button class="btn" data-mode="endless">Endless</button>
+            <button class="btn" data-mode="vs">VS</button>
+          </div>
+        </div>
+
+        <div class="group" id="vs-opts" style="display:none;">
+          <div class="lbl">Players</div>
+          <div class="row" id="count-pick">
+            <button class="btn sel" data-count="2">2</button>
+            <button class="btn" data-count="3">3</button>
+            <button class="btn" data-count="4">4</button>
+          </div>
+          <div class="lbl" style="margin-top:0.7rem;">Each player — tap to switch Human/CPU; pick each CPU's difficulty</div>
+          <div id="player-rows">
+            <div class="prow" data-slot="0">
+              <button class="btn ptoggle" data-slot="0">P1: Human</button>
+              <select class="diffsel" data-slot="0" aria-label="P1 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="1">
+              <button class="btn ptoggle" data-slot="1">P2: CPU</button>
+              <select class="diffsel" data-slot="1" aria-label="P2 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="2">
+              <button class="btn ptoggle" data-slot="2">P3: CPU</button>
+              <select class="diffsel" data-slot="2" aria-label="P3 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="3">
+              <button class="btn ptoggle" data-slot="3">P4: CPU</button>
+              <select class="diffsel" data-slot="3" aria-label="P4 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+          </div>
+          <div class="lbl" style="margin-top:0.7rem;">Match Format</div>
+          <div class="row" id="fmt-pick">
+            <button class="btn" data-fmt="1">First to 1</button>
+            <button class="btn sel" data-fmt="2">First to 2</button>
+            <button class="btn" data-fmt="3">First to 3</button>
+            <button class="btn" data-fmt="inf">∞ Infinite</button>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:1rem;">
+          <button class="btn" id="play-btn" style="padding:0.7rem 1.6rem;font-size:1.05rem;">Play</button>
+        </div>
+        <div class="keys" id="keys-help"></div>
+
+        <details class="dict-wrap">
+          <summary>Power-ups &amp; blocks</summary>
+          <div class="dict-item"><b>⛓ Iron</b> — clears two full vertical columns.</div>
+          <div class="dict-item"><b>💎 Crystal</b> — a colorless wildcard plus; press rotate to cycle it to a color, then drop it to join a match.</div>
+          <div class="dict-item"><b>⚡ Thunder</b> — erases every block of one color, then cascades.</div>
+          <div class="dict-item"><b>🐌 Slow</b> — slows the fall speed for a while (single-player only).</div>
+          <div class="dict-item"><b>★ Star</b> — appears in Endless; demolish 3 to trigger the <b>×20</b> bonus period.</div>
+          <div class="dict-item"><b>▦ Stone</b> — obstacle; can't be color-matched, but cracks when adjacent blocks clear (breaks after 3 hits).</div>
+          <div class="dict-item">Demolish blocks to fill the gauge — a power-up is then awarded as the <b>center of your next plus</b> piece.</div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Pause overlay (translucent so the game shows behind it) -->
+    <div class="overlay hidden" id="pause" style="background: rgba(8,9,14,0.55);">
+      <div class="card" style="max-width: 340px;">
+        <h2>Paused</h2>
+        <div class="row" style="margin-top: 0.7rem;">
+          <button class="btn" id="pause-resume">Resume</button>
+          <button class="btn ghost" id="pause-restart">Restart</button>
+          <button class="btn ghost" id="pause-menu">Main Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div class="overlay hidden" id="result">
+      <div class="card">
+        <h2 id="result-title">Game Over</h2>
+        <p id="result-msg"></p>
+        <div class="row">
+          <button class="btn" id="result-again">Play Again</button>
+          <button class="btn ghost" id="result-menu">Main Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

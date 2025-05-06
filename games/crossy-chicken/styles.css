@@ -1,0 +1,42 @@
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: radial-gradient(circle at 50% 20%, #1d2638, #0b0f17 70%);
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #wrap {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #game {
+    display: block;
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 0 4px rgba(255,255,255,.04);
+    background: #8fce46;
+    image-rendering: optimizeQuality;
+  }
+  #hint {
+    position: fixed;
+    bottom: 8px;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,.35);
+    font-size: 12px;
+    letter-spacing: .5px;
+    pointer-events: none;
+  }
+/* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

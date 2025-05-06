@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Uno — Sam Lu</title>
+
+    <meta property="og:title" content="Uno — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:description"
+      content="Play Uno against the CPU — full rules: Draw 2, Skip, Reverse, Wilds, Wild Draw Four (with challenges), Shuffle Hands, and customizable wilds."
+    />
+    <meta name="author" content="Sam Lu" />
+    <meta
+      name="description"
+      content="Play Uno against the CPU in your browser."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="styles.css" />
+
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+
+    <!-- Shared per-game toggles: ✨ Visual FX (reduce motion) + 🔊 mute.
+         motion-toggle must load first; it exposes window.RM_ON(). -->
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+  </head>
+
+  <body>
+    <div class="uno-wrapper">
+      <a href="../" class="back-link nav-back-games" aria-label="Back to games">← Games</a>
+      <header class="uno-header">
+        <div class="uno-logo">UNO</div>
+        <p class="subtitle">
+          Match color, number, or symbol — empty your hand and call UNO!
+        </p>
+      </header>
+
+      <!-- ===================== SETUP ===================== -->
+      <div id="setup">
+        <div class="panel">
+          <h2>New Game</h2>
+
+          <div class="field">
+            <label>Number of players (you + CPUs)</label>
+            <div class="seg" id="playerSeg">
+              <button data-n="2">2</button>
+              <button data-n="3">3</button>
+              <button data-n="4" class="active">4</button>
+              <button data-n="5">5</button>
+              <button data-n="6">6</button>
+              <button data-n="7">7</button>
+              <button data-n="8">8</button>
+              <button data-n="9">9</button>
+              <button data-n="10">10</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Win condition</label>
+            <div class="seg" id="modeSeg">
+              <button data-m="single" class="active">First to empty hand</button>
+              <button data-m="points">Points — first to 500</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>Customizable wild cards (3) — write your own rule</label>
+            <input type="text" id="custom0" maxlength="60"
+              value="Everyone besides you draws a card" />
+            <input type="text" id="custom1" maxlength="60" style="margin-top:6px"
+              value="Next player skips a turn AND draws 1" />
+            <input type="text" id="custom2" maxlength="60" style="margin-top:6px"
+              value="You may immediately play a second card" />
+            <div class="hint">
+              These 3 wilds can be played on anything and let you pick the color.
+              The rule is shown to everyone when played — enforce it yourselves
+              (honor system).
+            </div>
+          </div>
+
+          <button class="btn" id="startBtn">Deal & Play</button>
+        </div>
+
+        <div class="panel">
+          <h2>How it plays here</h2>
+          <p class="subtitle" style="margin:0">
+            You play against CPU opponents. Click a glowing card to play it, or
+            draw from the deck. Includes Draw 2, Skip, Reverse, Wild, Wild Draw
+            Four (with challenges), Wild Shuffle Hands, and your custom wilds.
+            When a player hits one card, hit <b>UNO!</b> in time — or catch
+            someone who forgets.
+          </p>
+        </div>
+      </div>
+
+      <!-- ===================== GAME ===================== -->
+      <div id="game">
+        <div class="scoreboard" id="scoreboard"></div>
+        <div class="opponents" id="opponents"></div>
+
+        <div class="center">
+          <div class="pile">
+            <div class="plabel">Draw</div>
+            <div class="deck-stack" id="deckStack">
+              <div class="card back"></div>
+            </div>
+            <div class="plabel" id="deckCount" style="margin-top:6px"></div>
+          </div>
+          <div class="pile">
+            <div class="plabel">Discard</div>
+            <div id="discardPile"></div>
+            <div class="color-dot" id="colorDot" style="margin-top:8px;justify-content:center"></div>
+          </div>
+        </div>
+
+        <div class="dir" id="dirIndicator"></div>
+
+        <div class="hand-wrap">
+          <div class="hand-label" id="handLabel">Your hand</div>
+          <div class="hand" id="hand"></div>
+        </div>
+
+        <div class="controls" id="controls"></div>
+
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+
+    <!-- overlay + toast -->
+    <div class="overlay" id="overlay">
+      <div class="modal" id="modal"></div>
+    </div>
+    <div id="toast"></div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

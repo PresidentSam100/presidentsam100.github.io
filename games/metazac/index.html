@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <title>Metazac</title>
+    <meta name="author" content="Sam Lu" />
+    <meta
+      name="description"
+      content="Metazac — Zetamac meets Bloons. Solve math to pop the balloons before they escape!"
+    />
+
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap");
+
+      :root {
+        --bg: #1a1140;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel-solid: #271a4f;
+        --text: #fdf7ff;
+        --muted: #b3a6d6;
+        --accent: #ff5e8a;
+        --accent2: #ffcf3f;
+        --line: rgba(255, 255, 255, 0.14);
+        --bad: #ff5d6c;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        margin: 0;
+        background:
+          radial-gradient(1100px 720px at 50% -8%, #4a2a8f 0%, rgba(74, 42, 143, 0) 60%),
+          radial-gradient(900px 620px at 92% 112%, #b83a7a 0%, rgba(184, 58, 122, 0) 55%),
+          var(--bg);
+        background-attachment: fixed;
+        color: var(--text);
+        font-family: "Nunito", system-ui, sans-serif;
+        touch-action: manipulation;
+      }
+      .wrap {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem 1rem 2rem;
+        gap: 0.85rem;
+      }
+      .back-link {
+        align-self: flex-start;
+        display: inline-block;
+        color: #3a0f23;
+        background: var(--accent2);
+        text-decoration: none;
+        font-family: "Fredoka", sans-serif;
+        font-weight: 600;
+        font-size: 0.85rem;
+        padding: 6px 13px;
+        border-radius: 999px;
+        box-shadow: 0 3px 0 #c79a16, 0 5px 10px rgba(0, 0, 0, 0.3);
+      }
+      .back-link:hover {
+        filter: brightness(1.06);
+      }
+
+      .topbar {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .title {
+        font-family: "Fredoka", sans-serif;
+        font-size: 2.7rem;
+        font-weight: 700;
+        margin: 0;
+        line-height: 1;
+        background: linear-gradient(95deg, var(--accent), var(--accent2));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 2px 6px rgba(255, 94, 138, 0.35));
+      }
+      .subtitle {
+        margin: 0.35rem 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      .stats {
+        display: flex;
+        gap: 0.55rem;
+      }
+      .stat {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0.4rem 0.85rem;
+        text-align: center;
+        min-width: 70px;
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+      }
+      .stat .label {
+        font-size: 0.6rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .stat .val {
+        font-family: "Fredoka", sans-serif;
+        font-size: 1.4rem;
+        font-weight: 700;
+      }
+      #lives .val {
+        color: var(--bad);
+        letter-spacing: 1px;
+      }
+
+      .stage {
+        position: relative;
+        width: 100%;
+        max-width: 900px;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        display: block;
+        background: linear-gradient(180deg, #2a1c5a 0%, #170f33 100%);
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      }
+
+      .answer-row {
+        width: 100%;
+        max-width: 900px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45rem;
+      }
+      #answer {
+        width: 100%;
+        max-width: 420px;
+        font-family: "Fredoka", sans-serif;
+        font-size: 1.5rem;
+        font-weight: 600;
+        text-align: center;
+        color: var(--text);
+        background: var(--panel-solid);
+        border: 2px solid var(--line);
+        border-radius: 14px;
+        padding: 0.6rem 1rem;
+        outline: none;
+        transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+      }
+      #answer:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px rgba(255, 94, 138, 0.18);
+      }
+      #answer.wrong {
+        border-color: var(--bad);
+        background: #3a1620;
+        animation: shake 0.18s ease;
+      }
+      @keyframes shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-6px); }
+        75% { transform: translateX(6px); }
+      }
+      .hint {
+        color: var(--muted);
+        font-size: 0.82rem;
+        text-align: center;
+      }
+
+      .btn {
+        cursor: pointer;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 999px;
+        padding: 0.6rem 1.3rem;
+        font-family: "Fredoka", sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        box-shadow: 0 4px 0 #d63a64, 0 7px 14px rgba(0, 0, 0, 0.32);
+        transition: filter 0.15s ease, transform 0.08s ease, box-shadow 0.08s ease;
+      }
+      .btn:hover {
+        filter: brightness(1.07);
+      }
+      .btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 2px 0 #d63a64, 0 4px 10px rgba(0, 0, 0, 0.3);
+      }
+      .btn.ghost {
+        background: transparent;
+        color: var(--text);
+        border: 2px solid var(--line);
+        box-shadow: none;
+      }
+      .btn.ghost:active {
+        transform: none;
+        box-shadow: none;
+      }
+      .btn-row {
+        display: flex;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1rem;
+        text-align: center;
+        padding: 1.5rem;
+        background: rgba(22, 14, 48, 0.9);
+        border-radius: 18px;
+        -webkit-backdrop-filter: blur(3px);
+        backdrop-filter: blur(3px);
+      }
+      .overlay.hidden {
+        display: none;
+      }
+      /* game-over screen is see-through so the balloons keep showing behind it */
+      #overlay-over {
+        background: rgba(22, 14, 48, 0.6);
+      }
+      .overlay h2 {
+        margin: 0;
+        font-family: "Fredoka", sans-serif;
+        font-size: 2.3rem;
+        font-weight: 700;
+        color: var(--accent2);
+      }
+      .overlay p {
+        margin: 0;
+        color: var(--muted);
+        max-width: 480px;
+        line-height: 1.5;
+      }
+      .legend {
+        display: flex;
+        gap: 0.8rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .dot {
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .settings {
+        width: 100%;
+        max-width: 470px;
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        text-align: left;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+        -webkit-backdrop-filter: blur(6px);
+        backdrop-filter: blur(6px);
+      }
+      .opt {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        font-size: 0.92rem;
+      }
+      .opt .name {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-weight: 700;
+        min-width: 122px;
+        cursor: pointer;
+      }
+      .opt .range {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        flex-wrap: wrap;
+        color: var(--muted);
+      }
+      .opt input[type="number"] {
+        width: 54px;
+        background: var(--panel-solid);
+        border: 1px solid var(--line);
+        color: var(--text);
+        border-radius: 8px;
+        padding: 0.25rem 0.3rem;
+        font-family: inherit;
+        font-size: 0.9rem;
+        text-align: center;
+      }
+      .opt input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+      .opt .note {
+        color: var(--muted);
+        font-size: 0.82rem;
+        font-style: italic;
+      }
+
+      #byline {
+        color: #8a7db5;
+        font-size: 75%;
+        margin-top: 0.25rem;
+      }
+      /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+  <body>
+    <div class="wrap">
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Nunito',system-ui,sans-serif;color:#fdf7ff;background:#271a4f;border:1px solid #3a2a6b;border-radius:10px;padding:8px 13px">&larr; Games</a>
+
+      <div class="topbar">
+        <div>
+          <h1 class="title">Metazac</h1>
+          <p class="subtitle">zetamac × bloons — pop the balloons by solving their math</p>
+        </div>
+        <div class="stats">
+          <div class="stat" id="lives"><div class="label">Lives</div><div class="val" id="lives-val">♥♥♥</div></div>
+          <div class="stat"><div class="label">Score</div><div class="val" id="score-val">0</div></div>
+          <div class="stat"><div class="label">Best</div><div class="val" id="best-val">0</div></div>
+        </div>
+      </div>
+
+      <div class="stage">
+        <canvas id="game" width="900" height="600"></canvas>
+
+        <div class="overlay" id="overlay-start">
+          <h2>Metazac 🎈➗</h2>
+          <p>
+            Balloons carry math problems down the track. Type an answer to pop
+            the closest matching one before it escapes — every escape costs a
+            life. Faster colors give more points!
+          </p>
+          <div class="settings">
+            <div class="opt">
+              <label class="name"><input type="checkbox" id="add-on" checked /> Addition</label>
+              <span class="range">
+                (<input type="number" id="add-min1" value="2" />to<input type="number" id="add-max1" value="100" />)
+                +
+                (<input type="number" id="add-min2" value="2" />to<input type="number" id="add-max2" value="100" />)
+              </span>
+            </div>
+            <div class="opt">
+              <label class="name"><input type="checkbox" id="sub-on" checked /> Subtraction</label>
+              <span class="note">addition in reverse</span>
+            </div>
+            <div class="opt">
+              <label class="name"><input type="checkbox" id="mul-on" checked /> Multiplication</label>
+              <span class="range">
+                (<input type="number" id="mul-min1" value="2" />to<input type="number" id="mul-max1" value="12" />)
+                ×
+                (<input type="number" id="mul-min2" value="2" />to<input type="number" id="mul-max2" value="100" />)
+              </span>
+            </div>
+            <div class="opt">
+              <label class="name"><input type="checkbox" id="div-on" checked /> Division</label>
+              <span class="note">multiplication in reverse</span>
+            </div>
+          </div>
+          <div class="legend">
+            <span><i class="dot" style="background:#ff5fa2"></i>pink — fastest</span>
+            <span><i class="dot" style="background:#ffd23f"></i>yellow</span>
+            <span><i class="dot" style="background:#36c759"></i>green</span>
+            <span><i class="dot" style="background:#3f7bff"></i>blue</span>
+            <span><i class="dot" style="background:#ff4d4d"></i>red — slowest</span>
+          </div>
+          <button class="btn" id="start-btn">Start (Enter)</button>
+        </div>
+
+        <div class="overlay hidden" id="overlay-over">
+          <h2>Game Over</h2>
+          <p id="over-msg">Final score: 0</p>
+          <div class="btn-row">
+            <button class="btn" id="retry-btn">Play Again (Enter)</button>
+            <button class="btn ghost" id="menu-btn">Main Menu</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="answer-row">
+        <input
+          id="answer"
+          type="text"
+          inputmode="numeric"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          placeholder="type an answer…"
+        />
+        <span class="hint">press Enter to pop the closest matching balloon</span>
+      </div>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <script>
+      (function () {
+        var W = 900, H = 600;
+        var BEST_KEY = "metazac_best";
+
+        var canvas = document.getElementById("game");
+        var ctx = canvas.getContext("2d");
+        var input = document.getElementById("answer");
+        var scoreEl = document.getElementById("score-val");
+        var bestEl = document.getElementById("best-val");
+        var livesEl = document.getElementById("lives-val");
+        var overlayStart = document.getElementById("overlay-start");
+        var overlayOver = document.getElementById("overlay-over");
+        var overMsg = document.getElementById("over-msg");
+
+        // High-DPI crispness.
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = W * dpr;
+        canvas.height = H * dpr;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // --- track (winding polyline) ---
+        var wp = [
+          { x: -60, y: 95 },
+          { x: 790, y: 95 },
+          { x: 790, y: 215 },
+          { x: 110, y: 215 },
+          { x: 110, y: 335 },
+          { x: 790, y: 335 },
+          { x: 790, y: 455 },
+          { x: 110, y: 455 },
+          { x: 110, y: 555 },
+          { x: 980, y: 555 }, // exit (off-screen right)
+        ];
+        var segs = [];
+        var TOTAL = 0;
+        for (var i = 0; i < wp.length - 1; i++) {
+          var dx = wp[i + 1].x - wp[i].x;
+          var dy = wp[i + 1].y - wp[i].y;
+          var len = Math.hypot(dx, dy);
+          segs.push({ a: wp[i], b: wp[i + 1], len: len, acc: TOTAL });
+          TOTAL += len;
+        }
+        function posAt(d) {
+          if (d <= 0) return { x: wp[0].x, y: wp[0].y };
+          for (var i = 0; i < segs.length; i++) {
+            var s = segs[i];
+            if (d <= s.acc + s.len) {
+              var t = (d - s.acc) / s.len;
+              return { x: s.a.x + (s.b.x - s.a.x) * t, y: s.a.y + (s.b.y - s.a.y) * t };
+            }
+          }
+          return { x: wp[wp.length - 1].x, y: wp[wp.length - 1].y };
+        }
+
+        // --- colors / balloons ---
+        var COLORS = {
+          red: { fill: "#ff4d4d", glow: "#ff8a8a", text: "#1a1a1a", speed: 70, pts: 1 },
+          blue: { fill: "#3f7bff", glow: "#8fb0ff", text: "#1a1a1a", speed: 95, pts: 2 },
+          green: { fill: "#36c759", glow: "#8af0a3", text: "#1a1a1a", speed: 125, pts: 3 },
+          yellow: { fill: "#ffd23f", glow: "#fff0a8", text: "#1a1a1a", speed: 160, pts: 4 },
+          pink: { fill: "#ff5fa2", glow: "#ffb3d4", text: "#1a1a1a", speed: 205, pts: 5 },
+        };
+
+        var bloons = [];
+        // Zetamac-style ranges. Subtraction reuses addition's ranges (in
+        // reverse); division reuses multiplication's (in reverse).
+        var config = {
+          add: { on: true, min1: 2, max1: 100, min2: 2, max2: 100 },
+          sub: { on: true },
+          mul: { on: true, min1: 2, max1: 12, min2: 2, max2: 100 },
+          div: { on: true },
+        };
+        var state = "start"; // start | playing | over
+        var score = 0, best = 0, lives = 3;
+        var gameTime = 0, spawnTimer = 0, leakFlash = 0;
+
+        function randInt(a, b) {
+          return a + Math.floor(Math.random() * (b - a + 1));
+        }
+
+        // --- sound (Web Audio, generated; no asset files) ---
+        var actx = null;
+        function ensureAudio() {
+          if (!actx) {
+            try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+            catch (e) { actx = null; }
+          }
+          if (actx && actx.state === "suspended") actx.resume();
+        }
+        function tone(f0, f1, dur, type, vol, delay) {
+          if (!actx) return;
+          var t = actx.currentTime + (delay || 0);
+          var osc = actx.createOscillator();
+          var g = actx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(f0, t);
+          if (f1 && f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1, t + dur);
+          g.gain.setValueAtTime(vol, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          osc.connect(g); g.connect(actx.destination);
+          osc.start(t); osc.stop(t + dur);
+        }
+        function playPop() {
+          if (!actx) return;
+          tone(660, 1050, 0.09, "triangle", 0.22); // bright blip
+          // short noise burst for the "pop"
+          var dur = 0.055, t = actx.currentTime;
+          var buf = actx.createBuffer(1, Math.floor(actx.sampleRate * dur), actx.sampleRate);
+          var d = buf.getChannelData(0);
+          for (var i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+          var src = actx.createBufferSource(); src.buffer = buf;
+          var g = actx.createGain();
+          g.gain.setValueAtTime(0.18, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          src.connect(g); g.connect(actx.destination); src.start(t);
+        }
+        function playLeak() {
+          tone(320, 80, 0.38, "sawtooth", 0.25); // descending buzz = lost life
+        }
+        function playWrong() {
+          tone(200, 150, 0.13, "square", 0.18); // short low blip = wrong answer
+        }
+        function playGameOver() {
+          // descending G–E–C–G jingle, last note held = distinct "game over"
+          tone(392, 392, 0.18, "triangle", 0.26, 0.0);
+          tone(330, 330, 0.18, "triangle", 0.26, 0.15);
+          tone(262, 262, 0.18, "triangle", 0.26, 0.3);
+          tone(196, 196, 0.6, "triangle", 0.28, 0.46);
+        }
+
+        // Build a problem from the configured ranges (Zetamac rules).
+        function makeProblem() {
+          var ops = [];
+          if (config.add.on) ops.push("add");
+          if (config.sub.on) ops.push("sub");
+          if (config.mul.on) ops.push("mul");
+          if (config.div.on) ops.push("div");
+          if (!ops.length) ops.push("add");
+          var op = ops[randInt(0, ops.length - 1)];
+          var a, b, ans, text, sum, prod;
+          if (op === "add") {
+            a = randInt(config.add.min1, config.add.max1);
+            b = randInt(config.add.min2, config.add.max2);
+            ans = a + b; text = a + " + " + b;
+          } else if (op === "sub") {
+            a = randInt(config.add.min1, config.add.max1);
+            b = randInt(config.add.min2, config.add.max2);
+            sum = a + b; // show the sum minus one operand → other operand
+            if (Math.random() < 0.5) { ans = b; text = sum + " − " + a; }
+            else { ans = a; text = sum + " − " + b; }
+          } else if (op === "mul") {
+            a = randInt(config.mul.min1, config.mul.max1);
+            b = randInt(config.mul.min2, config.mul.max2);
+            ans = a * b; text = a + " × " + b;
+          } else {
+            a = randInt(config.mul.min1, config.mul.max1);
+            b = randInt(config.mul.min2, config.mul.max2);
+            prod = a * b; // show the product divided by one operand → other
+            if (Math.random() < 0.5) { ans = b; text = prod + " / " + a; }
+            else { ans = a; text = prod + " / " + b; }
+          }
+          return { ans: ans, text: text };
+        }
+
+        // Read the settings form into `config` (with validation), persist it,
+        // and write normalized values back to the inputs.
+        function readConfig() {
+          function num(id, dflt) {
+            var v = parseInt(document.getElementById(id).value, 10);
+            if (isNaN(v) || v < 0) v = dflt;
+            return v;
+          }
+          function range(id1, id2, d1, d2) {
+            var mn = num(id1, d1), mx = num(id2, d2);
+            if (mx < mn) { var t = mn; mn = mx; mx = t; }
+            document.getElementById(id1).value = mn;
+            document.getElementById(id2).value = mx;
+            return [mn, mx];
+          }
+          var a1 = range("add-min1", "add-max1", 2, 100);
+          var a2 = range("add-min2", "add-max2", 2, 100);
+          var m1 = range("mul-min1", "mul-max1", 2, 12);
+          var m2 = range("mul-min2", "mul-max2", 2, 100);
+          config = {
+            add: { on: document.getElementById("add-on").checked, min1: a1[0], max1: a1[1], min2: a2[0], max2: a2[1] },
+            sub: { on: document.getElementById("sub-on").checked },
+            mul: { on: document.getElementById("mul-on").checked, min1: m1[0], max1: m1[1], min2: m2[0], max2: m2[1] },
+            div: { on: document.getElementById("div-on").checked },
+          };
+          if (!config.add.on && !config.sub.on && !config.mul.on && !config.div.on) {
+            config.add.on = true;
+            document.getElementById("add-on").checked = true;
+          }
+          try { localStorage.setItem("metazac_config", JSON.stringify(config)); } catch (e) {}
+        }
+
+        // Restore a saved settings form, if any.
+        function loadConfig() {
+          var saved;
+          try { saved = JSON.parse(localStorage.getItem("metazac_config") || "null"); } catch (e) {}
+          if (!saved) return;
+          function set(id, v) { var el = document.getElementById(id); if (el != null) el.value = v; }
+          function chk(id, v) { var el = document.getElementById(id); if (el != null) el.checked = !!v; }
+          if (saved.add) {
+            chk("add-on", saved.add.on);
+            set("add-min1", saved.add.min1); set("add-max1", saved.add.max1);
+            set("add-min2", saved.add.min2); set("add-max2", saved.add.max2);
+          }
+          if (saved.sub) chk("sub-on", saved.sub.on);
+          if (saved.mul) {
+            chk("mul-on", saved.mul.on);
+            set("mul-min1", saved.mul.min1); set("mul-max1", saved.mul.max1);
+            set("mul-min2", saved.mul.min2); set("mul-max2", saved.mul.max2);
+          }
+          if (saved.div) chk("div-on", saved.div.on);
+        }
+
+        function pickColor() {
+          var pool = ["red", "blue"];
+          if (gameTime > 16) pool.push("green");
+          if (gameTime > 38) pool.push("yellow");
+          if (gameTime > 66) pool.push("pink");
+          return pool[randInt(0, pool.length - 1)];
+        }
+
+        function spawnBloon() {
+          var color = pickColor();
+          // Keep answers unique among balloons currently on screen, so a typed
+          // answer is never ambiguous. Popping balloons no longer count.
+          var used = {};
+          for (var i = 0; i < bloons.length; i++) {
+            if (!bloons[i].popping) used[bloons[i].ans] = true;
+          }
+          var prob = makeProblem();
+          var tries = 0;
+          while (used[prob.ans] && tries < 40) { prob = makeProblem(); tries++; }
+          bloons.push({
+            dist: 0,
+            color: color,
+            speed: COLORS[color].speed,
+            ans: prob.ans,
+            text: prob.text,
+            popping: false,
+            pop: 0,
+            x: wp[0].x,
+            y: wp[0].y,
+          });
+        }
+
+        function reset() {
+          bloons = [];
+          score = 0;
+          lives = 3;
+          gameTime = 0;
+          spawnTimer = 0.6;
+          leakFlash = 0;
+          updateHud();
+        }
+
+        function updateHud() {
+          scoreEl.textContent = score;
+          bestEl.textContent = best;
+          livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "—";
+        }
+
+        function popBloon(b) {
+          b.popping = true;
+          b.pop = 0;
+          playPop();
+          score += COLORS[b.color].pts;
+          if (score > best) {
+            best = score;
+            try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
+          }
+          updateHud();
+        }
+
+        function checkAnswer() {
+          var raw = input.value.trim();
+          if (raw === "") return false;
+          var num = parseInt(raw, 10);
+          if (isNaN(num)) return false;
+          var target = null;
+          for (var i = 0; i < bloons.length; i++) {
+            var b = bloons[i];
+            if (b.popping || b.ans !== num) continue;
+            if (!target || b.dist > target.dist) target = b; // furthest along = most urgent
+          }
+          if (target) {
+            popBloon(target);
+            input.value = "";
+            return true;
+          }
+          return false;
+        }
+
+        function flashWrong() {
+          input.classList.remove("wrong");
+          void input.offsetWidth; // restart animation
+          input.classList.add("wrong");
+        }
+
+        // --- loop ---
+        function update(dt) {
+          if (state === "playing") {
+            gameTime += dt;
+            spawnTimer -= dt;
+            if (spawnTimer <= 0) {
+              spawnBloon();
+              spawnTimer = Math.max(1.0, 3.2 - gameTime / 45);
+            }
+          }
+
+          var speedMul = 1 + gameTime / 110; // gradual ramp
+          for (var i = bloons.length - 1; i >= 0; i--) {
+            var b = bloons[i];
+            if (b.popping) {
+              b.pop += dt / 0.18;
+              if (b.pop >= 1) bloons.splice(i, 1);
+              continue;
+            }
+            b.dist += b.speed * speedMul * dt;
+            var p = posAt(b.dist);
+            b.x = p.x; b.y = p.y;
+            if (b.dist >= TOTAL) {
+              bloons.splice(i, 1);
+              if (state === "playing") {
+                lives--;
+                leakFlash = 1;
+                updateHud();
+                if (lives <= 0) endGame(); // plays its own game-over sound
+                else playLeak();
+              }
+              // already game over: balloon just drifts off, no penalty
+            }
+          }
+          if (leakFlash > 0) leakFlash = Math.max(0, leakFlash - dt * 2.2);
+        }
+
+        function drawTrack() {
+          // base track
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = "#262b36";
+          ctx.lineWidth = 40;
+          strokePath();
+          ctx.strokeStyle = "#1b1f28";
+          ctx.lineWidth = 30;
+          strokePath();
+          // dashed center
+          ctx.setLineDash([10, 14]);
+          ctx.strokeStyle = "#3a4150";
+          ctx.lineWidth = 3;
+          strokePath();
+          ctx.setLineDash([]);
+
+          // start portal
+          var s = wp[0];
+          drawMarker(80, 95, "#36c759", "START");
+          // exit / danger
+          var lastInBounds = { x: 900, y: 555 };
+          drawMarker(lastInBounds.x - 36, lastInBounds.y, "#ff4d4d", "EXIT");
+        }
+        function strokePath() {
+          ctx.beginPath();
+          ctx.moveTo(wp[0].x, wp[0].y);
+          for (var i = 1; i < wp.length; i++) ctx.lineTo(wp[i].x, wp[i].y);
+          ctx.stroke();
+        }
+        function drawMarker(x, y, color, label) {
+          ctx.save();
+          ctx.fillStyle = color;
+          ctx.globalAlpha = 0.85;
+          ctx.beginPath();
+          ctx.arc(x, y, 7, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = "rgba(255,255,255,0.55)";
+          ctx.font = "700 11px Inter, sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, x, y - 14);
+          ctx.restore();
+        }
+
+        function drawBloon(b) {
+          var c = COLORS[b.color];
+          ctx.font = "800 15px Inter, sans-serif";
+          var tw = ctx.measureText(b.text).width;
+          var rx = Math.max(30, tw / 2 + 15); // widen to fit the equation
+          var ry = 30;
+          var rmax = Math.max(rx, ry);
+          ctx.save();
+          ctx.translate(b.x, b.y);
+          if (b.popping) {
+            // burst: expanding fading ring + shrinking balloon
+            var e = b.pop;
+            ctx.globalAlpha = 1 - e;
+            ctx.strokeStyle = c.glow;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, rmax + e * 26, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = (1 - e) * 0.8;
+            ctx.scale(1 - e * 0.6, 1 - e * 0.6);
+          }
+          // knot
+          ctx.fillStyle = c.fill;
+          ctx.beginPath();
+          ctx.moveTo(-5, ry * 0.86);
+          ctx.lineTo(5, ry * 0.86);
+          ctx.lineTo(0, ry * 1.12);
+          ctx.closePath();
+          ctx.fill();
+          // body
+          var grad = ctx.createRadialGradient(-8, -10, 4, 0, 0, rmax + 6);
+          grad.addColorStop(0, c.glow);
+          grad.addColorStop(1, c.fill);
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+          ctx.fill();
+          // shine
+          ctx.fillStyle = "rgba(255,255,255,0.35)";
+          ctx.beginPath();
+          ctx.ellipse(-rx * 0.32, -11, 5, 8, -0.5, 0, Math.PI * 2);
+          ctx.fill();
+          // equation — outlined so digits/operators stay legible over the
+          // balloon's light gradient center
+          if (!b.popping || b.pop < 0.5) {
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(255,255,255,0.95)"; // white outline for the dark text
+            ctx.strokeText(b.text, 0, 0);
+            ctx.fillStyle = c.text;
+            ctx.fillText(b.text, 0, 0);
+          }
+          ctx.restore();
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, W, H);
+          drawTrack();
+          // draw furthest-along last so urgent balloons sit on top
+          var sorted = bloons.slice().sort(function (a, b) { return a.dist - b.dist; });
+          for (var i = 0; i < sorted.length; i++) drawBloon(sorted[i]);
+          if (leakFlash > 0) {
+            ctx.fillStyle = "rgba(255,60,72," + (leakFlash * 0.35) + ")";
+            ctx.fillRect(0, 0, W, H);
+          }
+        }
+
+        var lastTs = 0;
+        function frame(ts) {
+          requestAnimationFrame(frame);
+          if (!lastTs) lastTs = ts;
+          var dt = (ts - lastTs) / 1000;
+          lastTs = ts;
+          if (dt > 0.1) dt = 0.1; // clamp after tab switch
+          if (state === "playing" || state === "over") update(dt);
+          draw();
+        }
+        requestAnimationFrame(frame);
+
+        // --- state transitions ---
+        function startGame() {
+          ensureAudio(); // first user gesture — unlock/resume audio
+          readConfig();
+          reset();
+          state = "playing";
+          overlayStart.classList.add("hidden");
+          overlayOver.classList.add("hidden");
+          input.value = "";
+          input.disabled = false; // typing only allowed while playing
+          input.focus();
+        }
+        function endGame() {
+          state = "over";
+          playGameOver();
+          overMsg.textContent = "Final score: " + score + "  ·  best: " + best;
+          overlayOver.classList.remove("hidden"); // show immediately
+          input.value = "";
+          input.disabled = true; // no typing/answering until a new game
+          input.blur();
+        }
+
+        // Return to the start screen (where the settings live).
+        function goToMenu() {
+          state = "start";
+          bloons = [];
+          score = 0;
+          lives = 3;
+          updateHud();
+          input.value = "";
+          input.disabled = true;
+          overlayOver.classList.add("hidden");
+          overlayStart.classList.remove("hidden");
+        }
+
+        // --- input ---
+        input.addEventListener("input", function () {
+          // sanitize only; answers are submitted with Enter (so a partial
+          // answer like "20" never auto-pops a "205" balloon)
+          input.value = input.value.replace(/[^0-9]/g, "");
+          input.classList.remove("wrong"); // typing again clears the red flash
+        });
+        // also clear the red once the shake animation finishes
+        input.addEventListener("animationend", function () {
+          input.classList.remove("wrong");
+        });
+        document.addEventListener("keydown", function (e) {
+          if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            startGame();
+            return;
+          }
+          if (state === "playing") {
+            // keep focus on the answer box no matter what
+            if (document.activeElement !== input) input.focus();
+            if (e.key === "Enter") {
+              if (!checkAnswer()) {
+                if (input.value !== "") { flashWrong(); playWrong(); }
+                input.value = "";
+              }
+            }
+          }
+        });
+
+        document.getElementById("start-btn").addEventListener("click", startGame);
+        document.getElementById("retry-btn").addEventListener("click", startGame);
+        document.getElementById("menu-btn").addEventListener("click", goToMenu);
+        canvas.addEventListener("pointerdown", function () {
+          if (state === "playing") input.focus();
+        });
+
+        try { best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0; } catch (e) {}
+        loadConfig();
+        input.disabled = true; // enabled only once a game starts
+        updateHud();
+      })();
+    </script>
+  </body>
+</html>

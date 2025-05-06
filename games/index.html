@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sam Lu — Games</title>
+
+    <!-- Meta tags for SEO and social sharing -->
+    <meta property="og:title" content="Sam Lu — Games" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:description"
+      content="A collection of browser games coded by Sam Lu. Pick one and play!"
+    />
+    <meta name="author" content="Sam Lu" />
+    <meta
+      name="description"
+      content="A collection of browser games coded by Sam Lu. Pick one and play!"
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Import the homepage's stylesheet for shared variables/fonts -->
+    <link rel="stylesheet" href="../style.css" />
+
+    <!-- Import Inter font -->
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+    </style>
+
+    <!-- Games-specific styles -->
+    <style>
+      .games-wrapper {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+
+      .games-header {
+        margin-bottom: 2rem;
+      }
+
+      .games-header .title {
+        margin-bottom: 0.25rem;
+      }
+
+      .back-link {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+      }
+
+      .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+
+      .game-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 1.25rem;
+        background: #111;
+        border: 1px solid #222;
+        border-radius: 12px;
+        color: #fff;
+        transition: transform 0.18s ease, border-color 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .game-card:hover {
+        transform: translateY(-4px);
+        border-color: #3c6dec;
+        background: #15151c;
+        color: #fff;
+      }
+
+      .game-card .icon {
+        font-size: 2.25rem;
+        line-height: 1;
+      }
+
+      .game-card .name {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+
+      .game-card .desc {
+        font-size: 0.85rem;
+        color: #999;
+        font-weight: 400;
+        line-height: 1.25rem;
+      }
+
+      .game-card .play {
+        margin-top: auto;
+        padding-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #22a8f5;
+        font-weight: 600;
+      }
+
+      .reset-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+      }
+
+      #reset-scores {
+        cursor: pointer;
+        background: #111;
+        color: #ff6b6b;
+        border: 1px solid #3a1f1f;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: border-color 0.18s ease, background 0.18s ease;
+      }
+
+      #reset-scores:hover {
+        border-color: #ff6b6b;
+        background: #1a1111;
+      }
+
+      #random-game {
+        cursor: pointer;
+        background: #111;
+        color: #22a8f5;
+        border: 1px solid #1f2a3a;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: border-color 0.18s ease, background 0.18s ease;
+      }
+
+      #random-game:hover {
+        border-color: #22a8f5;
+        background: #111620;
+      }
+
+      #reset-msg {
+        font-size: 0.85rem;
+        color: #69f7be;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      #reset-msg.show {
+        opacity: 1;
+      }
+    </style>
+
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <div class="games-wrapper">
+      <a href="../" class="back-link">← back to home</a>
+
+      <div class="games-header">
+        <h1 class="title">games 🎮</h1>
+        <p class="body-paragraph">
+          a little arcade of browser games i coded. pick one and play!
+        </p>
+        <div class="reset-row">
+          <button id="random-game" type="button">🎲 random game</button>
+          <button id="reset-scores" type="button">🗑️ reset all high scores</button>
+          <span id="reset-msg" role="status" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <div class="games-grid">
+        <a class="game-card" href="./neon-pinball/">
+          <span class="icon">🪩</span>
+          <span class="name">Neon Pinball <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">BETA</sup></span>
+          <span class="desc">physics pinball — bumpers, multiball, tilt</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./chess/">
+          <span class="icon">♟️</span>
+          <span class="name">Chess <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">BETA</sup></span>
+          <span class="desc">classic 2-player, plus 3-player hex & 4-player modes</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./uno/">
+          <span class="icon">🃏</span>
+          <span class="name">Uno</span>
+          <span class="desc">match color, number & symbol to outplay the CPU</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./logicgate/">
+          <span class="icon">💡</span>
+          <span class="name">LogicGate</span>
+          <span class="desc">wire up logic gates to light the bulb</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./set/">
+          <span class="icon">🔷</span>
+          <span class="name">Set</span>
+          <span class="desc">spot trios where every feature is all-same or all-different</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./galaga/">
+          <span class="icon">👾</span>
+          <span class="name">Galaga</span>
+          <span class="desc">classic space shooter — blast the swarm</span>
+          <span class="play">play →</span>
+        </a>
+        <a class="game-card" href="./demolition-row/">
+          <span class="icon">🧱</span>
+          <span class="name">Demolition Row</span>
+          <span class="desc">connect 4+ blocks, chain cascades, beat the line</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./battleship/">
+          <span class="icon">🚢</span>
+          <span class="name">Battleship</span>
+          <span class="desc">place your fleet, sink the CPU's fleet — 3 AI levels</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./flappy-world/">
+          <span class="icon">🐤</span>
+          <span class="name">Flappy World</span>
+          <span class="desc">tap to flap through the pipes</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./doodle-jump/">
+          <span class="icon">🐸</span>
+          <span class="name">Doodle Jump</span>
+          <span class="desc">bounce ever higher up the platforms</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./crossy-chicken/">
+          <span class="icon">🐔</span>
+          <span class="name">Crossy Chicken</span>
+          <span class="desc">cross the road, dodge the traffic</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./rush-hour/">
+          <span class="icon">🏎️</span>
+          <span class="name">Rush Hour</span>
+          <span class="desc">pixel highway dodger — day & night modes</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./tile-maze/">
+          <span class="icon">🎨</span>
+          <span class="name">Tile Maze</span>
+          <span class="desc">navigate the colorful maze</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./ztype/">
+          <span class="icon">⌨️</span>
+          <span class="name">ZType</span>
+          <span class="desc">typing defense — type to destroy</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./metazac/">
+          <span class="icon">🎈</span>
+          <span class="name">Metazac</span>
+          <span class="desc">zetamac × bloons — pop balloons with mental math</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./speedle/">
+          <span class="icon">🔤</span>
+          <span class="name">Speedle</span>
+          <span class="desc">speed wordle — survive the clock, or race to 10</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./2048/">
+          <span class="icon">🔢</span>
+          <span class="name">2048</span>
+          <span class="desc">slide and merge tiles to reach 2048</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./pop-the-lock/">
+          <span class="icon">🔒</span>
+          <span class="name">Pop the Lock</span>
+          <span class="desc">time your taps to crack the lock</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./connect-four/">
+          <span class="icon">🔴</span>
+          <span class="name">Connect Four</span>
+          <span class="desc">drop discs, line up four to win</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./dots-and-boxes/">
+          <span class="icon">▦</span>
+          <span class="name">Dots and Boxes</span>
+          <span class="desc">claim the most boxes on the grid</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./stopwatch/">
+          <span class="icon">⏱️</span>
+          <span class="name">Stopwatch</span>
+          <span class="desc">stop the hidden clock on the target time</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./reaction/">
+          <span class="icon">⚡</span>
+          <span class="name">Reaction</span>
+          <span class="desc">tap the instant it flashes — fastest average wins</span>
+          <span class="play">play →</span>
+        </a>
+        <a class="game-card" href="./click-tap/">
+          <span class="icon">🖱️</span>
+          <span class="name">ClickTap</span>
+          <span class="desc">clicks/taps-per-second speed test</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./pong/">
+          <span class="icon">🏓</span>
+          <span class="name">Pong</span>
+          <span class="desc">the original paddle classic</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./tic-tac-toe/">
+          <span class="icon">⭕</span>
+          <span class="name">Tic-Tac-Toe</span>
+          <span class="desc">three in a row, the timeless duel</span>
+          <span class="play">play →</span>
+        </a>
+      </div>
+
+      <p id="byline" style="margin-top: 2.5rem">made by sam lu (not you)</p>
+    </div>
+
+    <script>
+      // Random game picker — jumps to a random game from the grid.
+      (function () {
+        var btn = document.getElementById("random-game");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cards = document.querySelectorAll(".games-grid .game-card");
+          if (!cards.length) return;
+          var pick = cards[Math.floor(Math.random() * cards.length)];
+          var href = pick.getAttribute("href");
+          if (href) window.location.href = href;
+        });
+      })();
+    </script>
+
+    <script>
+      // Clears saved high scores / bests for every game. All games are served
+      // from this same origin, so their localStorage is reachable from here.
+      // We only remove score keys — game settings (mute, skin, lives mode,
+      // reduced flash, etc.) are deliberately left alone.
+      (function () {
+        // Exact keys to remove.
+        var EXACT = [
+          "logicgate_progress", // LogicGate (solved levels / unlocked)
+          "set_best_time", // Set (fastest deck-clear time)
+          "pinball_best", // Neon Pinball
+          "galaga_high", // Galaga
+          "dj_high", // Doodle Jump
+          "popthelock.best", // Pop the Lock
+          "tileMaze.v1", // Tile Maze (saved progress / bests)
+          "game2048_best", // 2048 (normal)
+          "game2048_best_fib", // 2048 (fibonacci)
+          "metazac_best", // Metazac
+          "demolitionRow_endlessBest", // Demolition Row (endless)
+          "stopwatch_best", // Stopwatch
+          "reaction_best", // Reaction
+          "speedle_best_sprint", // Speedle (sprint — most words in 30s)
+          "speedle_best_race", // Speedle (race — fastest time to 10)
+          "rushhour_best_day", // Rush Hour (best distance — day)
+          "rushhour_best_night", // Rush Hour (best distance — night)
+        ];
+        // Any key starting with one of these prefixes (covers per-mode keys).
+        var PREFIXES = [
+          "battleship_record", // Battleship (win/loss record)
+          "clicktap_best_", // ClickTap (all duration combos)
+          "flappyWorld_hiScore", // Flappy World (all lives modes)
+          "wordfall_best_", // ZType (all modes) — legacy key, kept to preserve saved scores
+          "crossy_high_", // Crossy Chicken (all modes)
+          "crossy_bestcoins_", // Crossy Chicken best-run coins
+        ];
+
+        function matches(key) {
+          if (EXACT.indexOf(key) !== -1) return true;
+          for (var i = 0; i < PREFIXES.length; i++) {
+            if (key.indexOf(PREFIXES[i]) === 0) return true;
+          }
+          return false;
+        }
+
+        var btn = document.getElementById("reset-scores");
+        var msg = document.getElementById("reset-msg");
+
+        btn.addEventListener("click", function () {
+          if (
+            !window.confirm(
+              "Reset all saved high scores for every game?\n\n" +
+                "This only clears scores stored on THIS browser/device — " +
+                "nobody else is affected."
+            )
+          ) {
+            return;
+          }
+
+          var removed = 0;
+          try {
+            // Collect first, then remove (removing while iterating shifts indexes).
+            var toRemove = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (key && matches(key)) toRemove.push(key);
+            }
+            for (var j = 0; j < toRemove.length; j++) {
+              localStorage.removeItem(toRemove[j]);
+              removed++;
+            }
+          } catch (e) {
+            /* localStorage blocked (private mode, etc.) — nothing to clear */
+          }
+
+          msg.textContent =
+            removed > 0
+              ? "✓ cleared high scores for " + removed + " game record" +
+                (removed === 1 ? "" : "s")
+              : "✓ no saved high scores on this device";
+          msg.classList.add("show");
+          setTimeout(function () {
+            msg.classList.remove("show");
+          }, 4000);
+        });
+      })();
+    </script>
+  </body>
+</html>

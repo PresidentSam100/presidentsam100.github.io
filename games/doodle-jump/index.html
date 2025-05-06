@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Doodle Jump Clone</title>
+  <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Segoe UI',system-ui,sans-serif;color:#fff;background:rgba(0,0,0,.32);border:none;border-radius:10px;padding:9px 14px">&larr; Games</a>
+  <div id="game-container">
+    <canvas id="game" width="400" height="600"></canvas>
+
+    <!-- Touch controls (shown only on touch devices) -->
+    <div id="touch-controls">
+      <button id="btn-left" class="touch-btn" aria-label="Move left">◀</button>
+      <button id="btn-shoot" class="touch-btn shoot" aria-label="Shoot">🎯</button>
+      <button id="btn-right" class="touch-btn" aria-label="Move right">▶</button>
+    </div>
+
+  </div>
+
+  <p id="hint">Move: ← → / A D &nbsp;•&nbsp; Shoot: Space / Up / Click-to-aim &nbsp;•&nbsp; Pause: P / Esc</p>
+
+  <script src="js/utils.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/platforms.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/bullet.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

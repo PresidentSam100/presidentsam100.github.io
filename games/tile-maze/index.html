@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Tile Maze</title>
+    <link rel="stylesheet" href="styles.css" />
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+  <body>
+    <div class="app">
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Segoe UI',system-ui,sans-serif;color:#eef1ff;background:#1d2240;border:1px solid #2c3568;border-radius:8px;padding:8px 13px">&larr; Games</a>
+      <header class="topbar">
+        <div class="title">
+          <h1>Tile&nbsp;Maze</h1>
+          <p class="tag">Navigate the resort's colored tiles to the goal.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn" id="guideBtn" type="button">❔ Tile Guide</button>
+          <a class="btn editor-link" href="./editor.html">✎ Level Editor</a>
+        </div>
+      </header>
+
+      <main class="stage">
+        <section class="boardwrap">
+          <div class="levelhead">
+            <div>
+              <span class="lvlnum" id="lvlNum">1</span>
+              <span class="lvlname" id="lvlName">First Steps</span>
+            </div>
+            <div class="headright">
+              <div class="moves">Moves: <span id="moveCount">0</span></div>
+              <div class="flavor" id="flavor">
+                <span class="flavor-label">Flavor</span>
+                <span class="flavor-value" id="flavorValue">Plain</span>
+              </div>
+            </div>
+          </div>
+          <p class="hint" id="hint"></p>
+
+          <div class="board-frame">
+            <div class="board" id="board"></div>
+            <div class="player" id="player"><span class="soul"></span></div>
+            <div class="overlay" id="overlay" hidden>
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Level Complete!</h2>
+                <p id="overlaySub"></p>
+                <div class="overlay-actions">
+                  <button class="btn" id="overlayReplay">Replay</button>
+                  <button class="btn primary" id="overlayNext">Next Level →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dpad" aria-label="movement controls">
+            <button class="dbtn up" data-dir="up" aria-label="up">▲</button>
+            <button class="dbtn left" data-dir="left" aria-label="left">◀</button>
+            <button class="dbtn down" data-dir="down" aria-label="down">▼</button>
+            <button class="dbtn right" data-dir="right" aria-label="right">▶</button>
+          </div>
+
+          <div class="toolbar">
+            <button class="btn" id="prevBtn">◀ Prev</button>
+            <button class="btn" id="resetBtn">↺ Reset (R)</button>
+            <button class="btn" id="nextBtn">Next ▶</button>
+          </div>
+        </section>
+
+        <aside class="side">
+          <h3>Levels</h3>
+          <div class="levelpick" id="levelPick"></div>
+
+          <p class="credit">
+            Arrow keys / WASD to move · R to reset.<br />
+            New to the tiles? Tap <b>❔ Tile Guide</b> up top.
+          </p>
+        </aside>
+      </main>
+    </div>
+
+    <!-- Tile Guide modal (opened from the topbar) -->
+    <div class="guide-overlay" id="guideOverlay" hidden>
+      <div class="guide-card" role="dialog" aria-modal="true" aria-label="Tile Guide">
+        <button class="guide-close" id="guideClose" type="button" aria-label="Close">✕</button>
+        <h2>Tile Guide</h2>
+        <ul class="legend" id="legend"></ul>
+      </div>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="audio.js"></script>
+    <script src="anim.js"></script>
+    <script src="levels.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>

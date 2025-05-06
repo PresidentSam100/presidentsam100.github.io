@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#2f8f7e" />
+  <title>Pop the Lock</title>
+  <link rel="stylesheet" href="style.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Segoe UI',system-ui,sans-serif;color:#ffffff;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.5);border-radius:999px;padding:9px 16px">&larr; Games</a>
+  <div id="app">
+    <header class="hud">
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span id="score" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LEVEL</span>
+        <span id="level" class="hud-value">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BEST</span>
+        <span id="best" class="hud-value">0</span>
+      </div>
+    </header>
+
+    <main class="stage">
+      <canvas id="game" width="600" height="600" aria-label="Pop the Lock game board"></canvas>
+
+      <!-- Start / Game over overlay -->
+      <div id="overlay" class="overlay">
+        <div class="panel">
+          <h1 class="title">POP<span>THE</span>LOCK</h1>
+          <p id="overlay-msg" class="subtitle">Tap when the dial hits the notch.</p>
+          <button id="play" class="btn">PLAY</button>
+          <div class="themes" id="themes" role="group" aria-label="Background color">
+            <button class="swatch" data-theme="teal"   style="--sw:#2f8f7e" aria-label="Teal background"></button>
+            <button class="swatch" data-theme="indigo" style="--sw:#3b4a7a" aria-label="Indigo background"></button>
+            <button class="swatch" data-theme="plum"   style="--sw:#5a4a82" aria-label="Plum background"></button>
+            <button class="swatch" data-theme="coral"  style="--sw:#d96a5e" aria-label="Coral background"></button>
+          </div>
+          <p class="hint">Click / Tap / Space&nbsp;&nbsp;•&nbsp;&nbsp;Don't miss the mark.</p>
+        </div>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
