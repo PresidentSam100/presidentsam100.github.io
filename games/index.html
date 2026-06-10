@@ -101,6 +101,43 @@
         color: #22a8f5;
         font-weight: 600;
       }
+
+      .reset-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+      }
+
+      #reset-scores {
+        cursor: pointer;
+        background: #111;
+        color: #ff6b6b;
+        border: 1px solid #3a1f1f;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: border-color 0.18s ease, background 0.18s ease;
+      }
+
+      #reset-scores:hover {
+        border-color: #ff6b6b;
+        background: #1a1111;
+      }
+
+      #reset-msg {
+        font-size: 0.85rem;
+        color: #69f7be;
+        font-weight: 600;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+      }
+
+      #reset-msg.show {
+        opacity: 1;
+      }
     </style>
 
     <!-- Google tag (gtag.js) -->
@@ -127,6 +164,10 @@
         <p class="body-paragraph">
           a little arcade of browser games i coded. pick one and play!
         </p>
+        <div class="reset-row">
+          <button id="reset-scores" type="button">🗑️ reset all high scores</button>
+          <span id="reset-msg" role="status" aria-live="polite"></span>
+        </div>
       </div>
 
       <div class="games-grid">
@@ -134,13 +175,6 @@
           <span class="icon">👾</span>
           <span class="name">Galaga</span>
           <span class="desc">classic space shooter — blast the swarm</span>
-          <span class="play">play →</span>
-        </a>
-
-        <a class="game-card" href="./flappy-world/index.html">
-          <span class="icon">🐤</span>
-          <span class="name">Flappy World</span>
-          <span class="desc">tap to flap through the pipes</span>
           <span class="play">play →</span>
         </a>
 
@@ -158,6 +192,13 @@
           <span class="play">play →</span>
         </a>
 
+        <a class="game-card" href="./2048/index.html">
+          <span class="icon">🔢</span>
+          <span class="name">2048</span>
+          <span class="desc">slide and merge tiles to reach 2048</span>
+          <span class="play">play →</span>
+        </a>
+
         <a class="game-card" href="./ztype/index.html">
           <span class="icon">⌨️</span>
           <span class="name">WordFall</span>
@@ -165,17 +206,10 @@
           <span class="play">play →</span>
         </a>
 
-        <a class="game-card" href="./pong/index.html">
-          <span class="icon">🏓</span>
-          <span class="name">Pong</span>
-          <span class="desc">the original paddle classic</span>
-          <span class="play">play →</span>
-        </a>
-
-        <a class="game-card" href="./pop-the-lock/index.html">
-          <span class="icon">🔒</span>
-          <span class="name">Pop the Lock</span>
-          <span class="desc">time your taps to crack the lock</span>
+        <a class="game-card" href="./flappy-world/index.html">
+          <span class="icon">🐤</span>
+          <span class="name">Flappy World</span>
+          <span class="desc">tap to flap through the pipes</span>
           <span class="play">play →</span>
         </a>
 
@@ -186,10 +220,24 @@
           <span class="play">play →</span>
         </a>
 
+        <a class="game-card" href="./pop-the-lock/index.html">
+          <span class="icon">🔒</span>
+          <span class="name">Pop the Lock</span>
+          <span class="desc">time your taps to crack the lock</span>
+          <span class="play">play →</span>
+        </a>
+
         <a class="game-card" href="./connect-four/index.html">
           <span class="icon">🔴</span>
           <span class="name">Connect Four</span>
           <span class="desc">drop discs, line up four to win</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./pong/index.html">
+          <span class="icon">🏓</span>
+          <span class="name">Pong</span>
+          <span class="desc">the original paddle classic</span>
           <span class="play">play →</span>
         </a>
 
@@ -210,5 +258,78 @@
 
       <p id="byline" style="margin-top: 2.5rem">made by sam lu (not you)</p>
     </div>
+
+    <script>
+      // Clears saved high scores / bests for every game. All games are served
+      // from this same origin, so their localStorage is reachable from here.
+      // We only remove score keys — game settings (mute, skin, lives mode,
+      // reduced flash, etc.) are deliberately left alone.
+      (function () {
+        // Exact keys to remove.
+        var EXACT = [
+          "galaga_high", // Galaga
+          "dj_high", // Doodle Jump
+          "popthelock.best", // Pop the Lock
+          "colorTileMaze.v1", // Color Tile Maze (saved progress / bests)
+          "game2048_best", // 2048
+        ];
+        // Any key starting with one of these prefixes (covers per-mode keys).
+        var PREFIXES = [
+          "flappyWorld_hiScore", // Flappy World (all lives modes)
+          "wordfall_best_", // WordFall / ztype (all modes)
+          "crossy_high_", // Crossy Chicken (all modes)
+          "crossy_bestcoins_", // Crossy Chicken best-run coins
+        ];
+
+        function matches(key) {
+          if (EXACT.indexOf(key) !== -1) return true;
+          for (var i = 0; i < PREFIXES.length; i++) {
+            if (key.indexOf(PREFIXES[i]) === 0) return true;
+          }
+          return false;
+        }
+
+        var btn = document.getElementById("reset-scores");
+        var msg = document.getElementById("reset-msg");
+
+        btn.addEventListener("click", function () {
+          if (
+            !window.confirm(
+              "Reset all saved high scores for every game?\n\n" +
+                "This only clears scores stored on THIS browser/device — " +
+                "nobody else is affected."
+            )
+          ) {
+            return;
+          }
+
+          var removed = 0;
+          try {
+            // Collect first, then remove (removing while iterating shifts indexes).
+            var toRemove = [];
+            for (var i = 0; i < localStorage.length; i++) {
+              var key = localStorage.key(i);
+              if (key && matches(key)) toRemove.push(key);
+            }
+            for (var j = 0; j < toRemove.length; j++) {
+              localStorage.removeItem(toRemove[j]);
+              removed++;
+            }
+          } catch (e) {
+            /* localStorage blocked (private mode, etc.) — nothing to clear */
+          }
+
+          msg.textContent =
+            removed > 0
+              ? "✓ cleared high scores for " + removed + " game record" +
+                (removed === 1 ? "" : "s")
+              : "✓ no saved high scores on this device";
+          msg.classList.add("show");
+          setTimeout(function () {
+            msg.classList.remove("show");
+          }, 4000);
+        });
+      })();
+    </script>
   </body>
 </html>

@@ -50,16 +50,20 @@ a:hover {
 
 .wrapper {
   min-height: var(--wrapper-height);
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 1rem;
 }
 
 .content {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
 }
 
 .title {
@@ -85,8 +89,6 @@ input {
 }
 
 .main-text {
-  margin-left: 5%;
-  margin-right: 5%;
   z-index: 2;
 }
 
@@ -113,9 +115,6 @@ input {
 @media only screen and (min-width: 600px) {
   .title {
     font-size: 2.5rem;
-  }
-  .main-text {
-    margin-right: 10%;
   }
 }
 
