@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#10141f" />
+  <title>Pop the Lock</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="hud">
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span id="score" class="hud-value">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">LEVEL</span>
+        <span id="level" class="hud-value">1</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">BEST</span>
+        <span id="best" class="hud-value">0</span>
+      </div>
+    </header>
+
+    <main class="stage">
+      <canvas id="game" width="600" height="600" aria-label="Pop the Lock game board"></canvas>
+
+      <!-- Start / Game over overlay -->
+      <div id="overlay" class="overlay">
+        <div class="panel">
+          <h1 class="title">POP<span>THE</span>LOCK</h1>
+          <p id="overlay-msg" class="subtitle">Tap when the dial hits the notch.</p>
+          <button id="play" class="btn">PLAY</button>
+          <p class="hint">Click / Tap / Space&nbsp;&nbsp;•&nbsp;&nbsp;Don't miss the mark.</p>
+        </div>
+      </div>
+    </main>
+
+    <button id="mute" class="mute" aria-label="Toggle sound" title="Toggle sound">🔊</button>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>

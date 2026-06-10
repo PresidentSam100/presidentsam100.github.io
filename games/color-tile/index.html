@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Color Tile Maze</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="title">
+          <h1>Color&nbsp;Tile&nbsp;Maze</h1>
+          <p class="tag">Navigate the resort's colored tiles to the goal.</p>
+        </div>
+        <div class="flavor" id="flavor">
+          <span class="flavor-label">Flavor</span>
+          <span class="flavor-value" id="flavorValue">Plain</span>
+        </div>
+      </header>
+
+      <main class="stage">
+        <section class="boardwrap">
+          <div class="levelhead">
+            <div>
+              <span class="lvlnum" id="lvlNum">1</span>
+              <span class="lvlname" id="lvlName">First Steps</span>
+            </div>
+            <div class="moves">Moves: <span id="moveCount">0</span></div>
+          </div>
+          <p class="hint" id="hint"></p>
+
+          <div class="board-frame">
+            <div class="board" id="board"></div>
+            <div class="player" id="player"><span class="soul"></span></div>
+            <div class="overlay" id="overlay" hidden>
+              <div class="overlay-card">
+                <h2 id="overlayTitle">Level Complete!</h2>
+                <p id="overlaySub"></p>
+                <div class="overlay-actions">
+                  <button class="btn" id="overlayReplay">Replay</button>
+                  <button class="btn primary" id="overlayNext">Next Level →</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="dpad" aria-label="movement controls">
+            <button class="dbtn up" data-dir="up" aria-label="up">▲</button>
+            <button class="dbtn left" data-dir="left" aria-label="left">◀</button>
+            <button class="dbtn down" data-dir="down" aria-label="down">▼</button>
+            <button class="dbtn right" data-dir="right" aria-label="right">▶</button>
+          </div>
+
+          <div class="toolbar">
+            <button class="btn" id="prevBtn">◀ Prev</button>
+            <button class="btn" id="resetBtn">↺ Reset (R)</button>
+            <button class="btn" id="muteBtn">🔊 Sound</button>
+            <button class="btn" id="nextBtn">Next ▶</button>
+          </div>
+        </section>
+
+        <aside class="side">
+          <h3>Tile Guide</h3>
+          <ul class="legend" id="legend"></ul>
+
+          <h3>Levels</h3>
+          <div class="levelpick" id="levelPick"></div>
+
+          <p class="credit">
+            Arrow keys / WASD to move · R to reset.<br />
+            Tile rules from the MTT Resort color puzzle.
+          </p>
+        </aside>
+      </main>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="levels.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>

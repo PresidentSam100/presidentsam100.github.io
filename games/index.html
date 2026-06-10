@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Sam Lu — Games</title>
+
+    <!-- Meta tags for SEO and social sharing -->
+    <meta property="og:title" content="Sam Lu — Games" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:description"
+      content="A collection of browser games coded by Sam Lu. Pick one and play!"
+    />
+    <meta name="author" content="Sam Lu" />
+    <meta
+      name="description"
+      content="A collection of browser games coded by Sam Lu. Pick one and play!"
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <!-- Import the homepage's stylesheet for shared variables/fonts -->
+    <link rel="stylesheet" href="../style.css" />
+
+    <!-- Import Inter font -->
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap");
+    </style>
+
+    <!-- Games-specific styles -->
+    <style>
+      .games-wrapper {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 3rem 1.25rem 4rem;
+      }
+
+      .games-header {
+        margin-bottom: 2rem;
+      }
+
+      .games-header .title {
+        margin-bottom: 0.25rem;
+      }
+
+      .back-link {
+        display: inline-block;
+        margin-bottom: 1.5rem;
+        font-size: 0.95rem;
+      }
+
+      .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+      }
+
+      .game-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+        padding: 1.25rem;
+        background: #111;
+        border: 1px solid #222;
+        border-radius: 12px;
+        color: #fff;
+        transition: transform 0.18s ease, border-color 0.18s ease,
+          background 0.18s ease;
+      }
+
+      .game-card:hover {
+        transform: translateY(-4px);
+        border-color: #3c6dec;
+        background: #15151c;
+        color: #fff;
+      }
+
+      .game-card .icon {
+        font-size: 2.25rem;
+        line-height: 1;
+      }
+
+      .game-card .name {
+        font-weight: 700;
+        font-size: 1.05rem;
+      }
+
+      .game-card .desc {
+        font-size: 0.85rem;
+        color: #999;
+        font-weight: 400;
+        line-height: 1.25rem;
+      }
+
+      .game-card .play {
+        margin-top: auto;
+        padding-top: 0.5rem;
+        font-size: 0.85rem;
+        color: #22a8f5;
+        font-weight: 600;
+      }
+    </style>
+
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <div class="games-wrapper">
+      <a href="../index.html" class="back-link">← back to home</a>
+
+      <div class="games-header">
+        <h1 class="title">games 🎮</h1>
+        <p class="body-paragraph">
+          a little arcade of browser games i coded. pick one and play!
+        </p>
+      </div>
+
+      <div class="games-grid">
+        <a class="game-card" href="./galaga/index.html">
+          <span class="icon">👾</span>
+          <span class="name">Galaga</span>
+          <span class="desc">classic space shooter — blast the swarm</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./flappy-world/index.html">
+          <span class="icon">🐤</span>
+          <span class="name">Flappy World</span>
+          <span class="desc">tap to flap through the pipes</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./crossy-road/index.html">
+          <span class="icon">🐔</span>
+          <span class="name">Crossy Chicken</span>
+          <span class="desc">cross the road, dodge the traffic</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./doodle-jump/index.html">
+          <span class="icon">🦘</span>
+          <span class="name">Doodle Jump</span>
+          <span class="desc">bounce ever higher up the platforms</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./ztype/index.html">
+          <span class="icon">⌨️</span>
+          <span class="name">WordFall</span>
+          <span class="desc">typing defense — type to destroy</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./pong/index.html">
+          <span class="icon">🏓</span>
+          <span class="name">Pong</span>
+          <span class="desc">the original paddle classic</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./pop-the-lock/index.html">
+          <span class="icon">🔒</span>
+          <span class="name">Pop the Lock</span>
+          <span class="desc">time your taps to crack the lock</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./color-tile/index.html">
+          <span class="icon">🎨</span>
+          <span class="name">Color Tile Maze</span>
+          <span class="desc">navigate the colorful maze</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./connect-four/index.html">
+          <span class="icon">🔴</span>
+          <span class="name">Connect Four</span>
+          <span class="desc">drop discs, line up four to win</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./dots-and-boxes/index.html">
+          <span class="icon">▦</span>
+          <span class="name">Dots and Boxes</span>
+          <span class="desc">claim the most boxes on the grid</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./tic-tac-toe/index.html">
+          <span class="icon">⭕</span>
+          <span class="name">Tic-Tac-Toe</span>
+          <span class="desc">three in a row, the timeless duel</span>
+          <span class="play">play →</span>
+        </a>
+      </div>
+
+      <p id="byline" style="margin-top: 2.5rem">made by sam lu (not you)</p>
+    </div>
+  </body>
+</html>

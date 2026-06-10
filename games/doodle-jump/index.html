@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Doodle Jump Clone</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="game-container">
+    <canvas id="game" width="400" height="600"></canvas>
+
+    <!-- Touch controls (shown only on touch devices) -->
+    <div id="touch-controls">
+      <button id="btn-left" class="touch-btn" aria-label="Move left">◀</button>
+      <button id="btn-right" class="touch-btn" aria-label="Move right">▶</button>
+    </div>
+
+    <button id="mute-btn" title="Toggle sound">🔊</button>
+  </div>
+
+  <p id="hint">Move: ← → / A D &nbsp;•&nbsp; Shoot: Space / Up / Click-to-aim &nbsp;•&nbsp; Pause: P / Esc</p>
+
+  <script src="js/utils.js"></script>
+  <script src="js/sound.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/platforms.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/enemies.js"></script>
+  <script src="js/bullet.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
