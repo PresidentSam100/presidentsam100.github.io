@@ -88,5 +88,16 @@ class Input {
     };
     bind("btn-left", (v) => (this.btnLeft = v));
     bind("btn-right", (v) => (this.btnRight = v));
+
+    // Middle "shoot" button — fires straight up, like the Space key.
+    const shootBtn = document.getElementById("btn-shoot");
+    if (shootBtn) {
+      shootBtn.addEventListener("pointerdown", (e) => {
+        e.preventDefault();
+        Sfx.resume();
+        this.shots.push(null); // straight up
+        this.action = true;    // also doubles as start/restart
+      });
+    }
   }
 }

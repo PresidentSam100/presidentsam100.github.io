@@ -22,6 +22,7 @@
     display: block;
     max-width: 95vw;
     max-height: 95vh;
+    touch-action: none; /* drags move paddles, never scroll the page */
   }
   .overlay {
     position: fixed;
@@ -147,6 +148,25 @@ document.addEventListener("keydown", e => {
 });
 document.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
+// --- Touch controls: drag on your half of the screen to move that paddle ---
+let leftTarget = null, rightTarget = null;
+function handleTouches(e) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  let lT = null, rT = null;
+  for (const t of e.touches) {
+    const x = (t.clientX - rect.left) / rect.width * W;
+    const y = (t.clientY - rect.top) / rect.height * H;
+    if (x < W / 2) lT = y; else rT = y;
+  }
+  leftTarget = lT;
+  rightTarget = rT;
+}
+canvas.addEventListener("touchstart", e => { initAudio(); handleTouches(e); }, { passive: false });
+canvas.addEventListener("touchmove", handleTouches, { passive: false });
+canvas.addEventListener("touchend", handleTouches, { passive: false });
+canvas.addEventListener("touchcancel", handleTouches, { passive: false });
+
 function resetBall(dir) {
   ball.x = W / 2;
   ball.y = H / 2;
@@ -176,15 +196,23 @@ function clampPaddle(p) {
 function update() {
   if (state !== "playing") return;
 
-  // Left paddle: W / S
-  if (keys["w"]) left.y -= PADDLE_SPEED;
-  if (keys["s"]) left.y += PADDLE_SPEED;
+  // Left paddle: touch drag, else W / S
+  if (leftTarget !== null) {
+    left.y = leftTarget - PADDLE_H / 2;
+  } else {
+    if (keys["w"]) left.y -= PADDLE_SPEED;
+    if (keys["s"]) left.y += PADDLE_SPEED;
+  }
   clampPaddle(left);
 
-  // Right paddle: human (arrows) or AI
+  // Right paddle: human (touch drag / arrows) or AI
   if (players === 2) {
-    if (keys["arrowup"]) right.y -= PADDLE_SPEED;
-    if (keys["arrowdown"]) right.y += PADDLE_SPEED;
+    if (rightTarget !== null) {
+      right.y = rightTarget - PADDLE_H / 2;
+    } else {
+      if (keys["arrowup"]) right.y -= PADDLE_SPEED;
+      if (keys["arrowdown"]) right.y += PADDLE_SPEED;
+    }
   } else {
     const target = ball.y - PADDLE_H / 2;
     const diff = target - right.y;
@@ -290,7 +318,7 @@ document.getElementById("again").addEventListener("click", () => {
 });
 
 controlsEl.textContent =
-  "Left paddle: W / S keys.  Right paddle: ↑ / ↓ arrows (2P).  First to " + WIN_SCORE + " wins.";
+  "Desktop: W/S (left) · ↑/↓ arrows (right, 2P).  Mobile: drag on your half of the screen.  First to " + WIN_SCORE + " wins.";
 
 loop();
 </script>

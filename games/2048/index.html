@@ -142,6 +142,7 @@
         background: var(--board);
         border-radius: 12px;
         --cells: 4;
+        touch-action: none; /* swipes control the game, never scroll the page */
       }
       .grid-bg {
         position: absolute;
@@ -637,6 +638,12 @@
             tracking = true;
           },
           { passive: true }
+        );
+        // block the page from scrolling/navigating while swiping on the board
+        board.addEventListener(
+          "touchmove",
+          function (e) { if (tracking) e.preventDefault(); },
+          { passive: false }
         );
         board.addEventListener(
           "touchend",

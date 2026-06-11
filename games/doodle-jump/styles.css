@@ -76,6 +76,8 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 .touch-btn:active { background: rgba(255, 255, 255, 0.55); }
+.touch-btn.shoot { background: rgba(120, 200, 255, 0.42); color: #fff; }
+.touch-btn.shoot:active { background: rgba(120, 200, 255, 0.7); }
 
 /* Show touch controls only on coarse pointers (phones/tablets) */
 @media (pointer: coarse) {

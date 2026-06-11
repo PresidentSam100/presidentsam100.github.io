@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 <title>WordFall — Typing Defense</title>
 <style>
   :root {
@@ -159,11 +159,14 @@
   }
   @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
   .hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 2px; z-index: 5; pointer-events: none; }
+  /* invisible field that summons the mobile keyboard; we read its input */
+  #ti { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; background: transparent; color: transparent; pointer-events: none; z-index: -1; }
 </style>
 </head>
 <body>
 <div id="wrap">
   <canvas id="game"></canvas>
+  <input id="ti" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1" />
 
   <div id="hud">
     <div class="group">
@@ -249,6 +252,7 @@
 
   // ---------- Canvas setup ----------
   const canvas = document.getElementById("game");
+  const ti = document.getElementById("ti"); // hidden field for mobile typing
   const ctx = canvas.getContext("2d");
   let W = 0, H = 0, DPR = Math.min(window.devicePixelRatio || 1, 2);
 
@@ -1095,10 +1099,13 @@
     initStars();
     refreshHud();
     Sound.resume(); Sound.start();
+    ti.value = "";
+    try { ti.focus(); } catch (e) {} // open the mobile keyboard
   }
 
   function gameOver() {
     state = "over";
+    try { ti.blur(); } catch (e) {} // close the mobile keyboard
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.rScore.textContent = score;
     el.rWave.textContent = wave;
@@ -1153,7 +1160,9 @@
     if (state === "playing" && e.key === "Enter") {
       e.preventDefault();
       useBomb();
-    } else if (state === "playing" && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+    } else if (state === "playing" && e.target !== ti && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
+      // letters typed into the hidden mobile field are handled by its input
+      // event instead (avoids double-counting); this covers desktop typing
       e.preventDefault();
       handleChar(e.key.toLowerCase());
     } else if (state === "start" && (e.key === "ArrowLeft" || e.key === "ArrowRight")) {
@@ -1171,6 +1180,21 @@
       e.preventDefault();
       startGame();
     }
+  });
+
+  // Mobile typing: read characters from the hidden field's input event.
+  ti.addEventListener("input", () => {
+    const v = ti.value;
+    ti.value = "";
+    if (state !== "playing") return;
+    for (const ch of v) {
+      if (/[a-zA-Z]/.test(ch)) handleChar(ch.toLowerCase());
+    }
+  });
+  // Tapping the play area (re)opens the keyboard / keeps focus during play.
+  canvas.addEventListener("pointerdown", () => {
+    Sound.resume();
+    if (state === "playing") { try { ti.focus(); } catch (e) {} }
   });
 
   el.startBtn.addEventListener("click", () => { Sound.resume(); startGame(); });

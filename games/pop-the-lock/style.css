@@ -19,6 +19,8 @@
 html, body {
   height: 100%;
   overflow: hidden;
+  /* dark base so no white strip shows when the mobile URL bar shifts */
+  background: var(--bg-0);
 }
 
 body {
