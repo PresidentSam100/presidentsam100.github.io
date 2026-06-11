@@ -55,6 +55,36 @@
   }
   .btn:hover { background: #ccc; transform: scale(1.04); }
   .hidden { display: none; }
+
+  /* On-screen paddle arrows (touch devices only) */
+  .pong-ctrl {
+    position: fixed;
+    bottom: 18px;
+    display: none;
+    flex-direction: column;
+    gap: 16px;
+    z-index: 20;
+  }
+  #ctrl-left { left: 16px; }
+  #ctrl-right { right: 16px; }
+  .pbtn {
+    width: 76px;
+    height: 76px;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    font-size: 30px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: none;
+    user-select: none;
+  }
+  .pbtn:active { background: rgba(255, 255, 255, 0.4); }
+  @media (pointer: coarse) {
+    body.playing #ctrl-left { display: flex; }
+    body.playing.p2 #ctrl-right { display: flex; }
+  }
 </style>
 </head>
 <body>
@@ -70,6 +100,16 @@
 <div id="gameover" class="overlay hidden">
   <h1 id="winner"></h1>
   <button class="btn" id="again">Play Again</button>
+</div>
+
+<!-- On-screen paddle controls (mobile) -->
+<div id="ctrl-left" class="pong-ctrl">
+  <button class="pbtn" data-side="left" data-dir="up" aria-label="Left paddle up">▲</button>
+  <button class="pbtn" data-side="left" data-dir="down" aria-label="Left paddle down">▼</button>
+</div>
+<div id="ctrl-right" class="pong-ctrl">
+  <button class="pbtn" data-side="right" data-dir="up" aria-label="Right paddle up">▲</button>
+  <button class="pbtn" data-side="right" data-dir="down" aria-label="Right paddle down">▼</button>
 </div>
 
 <script>
@@ -148,24 +188,24 @@ document.addEventListener("keydown", e => {
 });
 document.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
 
-// --- Touch controls: drag on your half of the screen to move that paddle ---
-let leftTarget = null, rightTarget = null;
-function handleTouches(e) {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  let lT = null, rT = null;
-  for (const t of e.touches) {
-    const x = (t.clientX - rect.left) / rect.width * W;
-    const y = (t.clientY - rect.top) / rect.height * H;
-    if (x < W / 2) lT = y; else rT = y;
-  }
-  leftTarget = lT;
-  rightTarget = rT;
+// --- On-screen arrow buttons (mobile): up/down per player ---
+let leftUp = false, leftDown = false, rightUp = false, rightDown = false;
+function bindPongBtn(el) {
+  const side = el.dataset.side, dir = el.dataset.dir;
+  const set = (v) => {
+    if (side === "left") { if (dir === "up") leftUp = v; else leftDown = v; }
+    else { if (dir === "up") rightUp = v; else rightDown = v; }
+  };
+  const press = (e) => { e.preventDefault(); initAudio(); set(true); };
+  const release = (e) => { e.preventDefault(); set(false); };
+  el.addEventListener("touchstart", press, { passive: false });
+  el.addEventListener("touchend", release, { passive: false });
+  el.addEventListener("touchcancel", release, { passive: false });
+  el.addEventListener("mousedown", press);
+  el.addEventListener("mouseup", release);
+  el.addEventListener("mouseleave", release);
 }
-canvas.addEventListener("touchstart", e => { initAudio(); handleTouches(e); }, { passive: false });
-canvas.addEventListener("touchmove", handleTouches, { passive: false });
-canvas.addEventListener("touchend", handleTouches, { passive: false });
-canvas.addEventListener("touchcancel", handleTouches, { passive: false });
+document.querySelectorAll(".pbtn").forEach(bindPongBtn);
 
 function resetBall(dir) {
   ball.x = W / 2;
@@ -186,6 +226,8 @@ function startGame(mode) {
   state = "playing";
   menu.classList.add("hidden");
   gameover.classList.add("hidden");
+  document.body.classList.add("playing");
+  document.body.classList.toggle("p2", players === 2); // show right arrows in 2P
 }
 
 function clampPaddle(p) {
@@ -196,23 +238,15 @@ function clampPaddle(p) {
 function update() {
   if (state !== "playing") return;
 
-  // Left paddle: touch drag, else W / S
-  if (leftTarget !== null) {
-    left.y = leftTarget - PADDLE_H / 2;
-  } else {
-    if (keys["w"]) left.y -= PADDLE_SPEED;
-    if (keys["s"]) left.y += PADDLE_SPEED;
-  }
+  // Left paddle: W/S or on-screen arrows
+  if (keys["w"] || leftUp) left.y -= PADDLE_SPEED;
+  if (keys["s"] || leftDown) left.y += PADDLE_SPEED;
   clampPaddle(left);
 
-  // Right paddle: human (touch drag / arrows) or AI
+  // Right paddle: human (arrows / on-screen) or AI
   if (players === 2) {
-    if (rightTarget !== null) {
-      right.y = rightTarget - PADDLE_H / 2;
-    } else {
-      if (keys["arrowup"]) right.y -= PADDLE_SPEED;
-      if (keys["arrowdown"]) right.y += PADDLE_SPEED;
-    }
+    if (keys["arrowup"] || rightUp) right.y -= PADDLE_SPEED;
+    if (keys["arrowdown"] || rightDown) right.y += PADDLE_SPEED;
   } else {
     const target = ball.y - PADDLE_H / 2;
     const diff = target - right.y;
@@ -266,6 +300,7 @@ function afterPoint(dir) {
     else who = left.score > right.score ? "Left Wins!" : "Right Wins!";
     winnerEl.textContent = who;
     gameover.classList.remove("hidden");
+    document.body.classList.remove("playing");
     if (left.score > right.score) sounds.winLeft(); else sounds.winRight();
     return;
   }
@@ -315,10 +350,11 @@ document.getElementById("again").addEventListener("click", () => {
   state = "menu";
   gameover.classList.add("hidden");
   menu.classList.remove("hidden");
+  document.body.classList.remove("playing");
 });
 
 controlsEl.textContent =
-  "Desktop: W/S (left) · ↑/↓ arrows (right, 2P).  Mobile: drag on your half of the screen.  First to " + WIN_SCORE + " wins.";
+  "Desktop: W/S (left) · ↑/↓ arrows (right, 2P).  Mobile: on-screen ▲ ▼ buttons.  First to " + WIN_SCORE + " wins.";
 
 loop();
 </script>

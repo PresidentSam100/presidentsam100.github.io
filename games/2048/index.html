@@ -107,8 +107,8 @@
         max-width: 460px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
+        justify-content: center;
+        gap: 0.6rem;
       }
       .hint {
         color: var(--muted);
@@ -281,7 +281,7 @@
       <div class="topbar">
         <div>
           <h1 class="title">2048</h1>
-          <p class="subtitle">join the tiles, reach <b>2048</b>!</p>
+          <p class="subtitle">join the tiles, reach <b id="target">2048</b>!</p>
         </div>
         <div class="scores">
           <div class="score-box">
@@ -296,8 +296,8 @@
       </div>
 
       <div class="controls">
-        <span class="hint">arrow keys / WASD &middot; or swipe</span>
-        <button class="btn" id="new-game">New Game</button>
+        <button class="btn" id="mode-normal">Normal</button>
+        <button class="btn" id="mode-fib">Fibonacci</button>
       </div>
 
       <div class="board-wrap">
@@ -326,12 +326,37 @@
         var GAP = 12; // must match --gap in CSS
         var ANIM_MS = 90; // must match .tile transition duration
         var OVERLAY_DELAY = 400; // pause before the win/game-over screen shows
-        var BEST_KEY = "game2048_best";
+
+        var MODE_KEY = "game2048_mode";
+        var mode = "normal"; // "normal" | "fib"
+        function bestKey() { return mode === "fib" ? "game2048_best_fib" : "game2048_best"; }
+        function winValue() { return mode === "fib" ? 2584 : 2048; }
+
+        // Fibonacci mode: tiles merge only with the adjacent Fibonacci number
+        // (1+1=2, 1+2=3, 2+3=5, 3+5=8, …) up to the 2584 winning tile.
+        var FIB = [1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584];
+        var FIB_DISTINCT = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 987, 1597, 2584];
+        var FIB_COLORS = ["#60a5fa","#38bdf8","#22d3ee","#2dd4bf","#34d399","#4ade80","#a3e635","#facc15","#fbbf24","#fb923c","#f97316","#ef4444","#f43f5e","#ec4899","#d946ef","#a855f7","#f5c518"];
+        function fibPairResult(a, b) {
+          var lo = Math.min(a, b), hi = Math.max(a, b);
+          for (var i = 0; i < FIB.length - 1; i++) {
+            if (FIB[i] === lo && FIB[i + 1] === hi) return lo + hi;
+          }
+          return 0;
+        }
+        // result of merging two tile values in the current mode (0 = no merge)
+        function mergeResult(a, b) {
+          if (mode === "fib") return fibPairResult(a, b);
+          return a === b ? a + b : 0;
+        }
 
         var tilesEl = document.getElementById("tiles");
         var gridBgEl = document.getElementById("grid-bg");
         var scoreEl = document.getElementById("score");
         var bestEl = document.getElementById("best");
+        var targetEl = document.getElementById("target");
+        var normalBtn = document.getElementById("mode-normal");
+        var fibBtn = document.getElementById("mode-fib");
         var overlay = document.getElementById("overlay");
         var overlayTitle = document.getElementById("overlay-title");
         var overlayMsg = document.getElementById("overlay-msg");
@@ -349,6 +374,45 @@
         }
         function lsSet(k, v) {
           try { localStorage.setItem(k, v); } catch (e) {}
+        }
+
+        // --- sound (Web Audio, generated; no asset files) ---
+        var actx = null;
+        function ensureAudio() {
+          if (!actx) {
+            try { actx = new (window.AudioContext || window.webkitAudioContext)(); }
+            catch (e) { actx = null; }
+          }
+          if (actx && actx.state === "suspended") actx.resume();
+        }
+        function tone(f0, f1, dur, type, vol, delay) {
+          if (!actx) return;
+          var t = actx.currentTime + (delay || 0);
+          var o = actx.createOscillator();
+          var g = actx.createGain();
+          o.type = type;
+          o.frequency.setValueAtTime(f0, t);
+          if (f1 && f1 !== f0) o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+          g.gain.setValueAtTime(vol, t);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+          o.connect(g); g.connect(actx.destination);
+          o.start(t); o.stop(t + dur);
+        }
+        function playMove() { tone(200, 150, 0.07, "sine", 0.12); } // soft slide
+        function playMerge() { tone(430, 660, 0.14, "triangle", 0.22); } // bright pop
+        function playWin() {
+          // celebratory rising C–E–G–C
+          tone(523, 523, 0.16, "triangle", 0.24, 0.0);
+          tone(659, 659, 0.16, "triangle", 0.24, 0.13);
+          tone(784, 784, 0.16, "triangle", 0.24, 0.26);
+          tone(1047, 1047, 0.5, "triangle", 0.26, 0.39);
+        }
+        function playGameOver() {
+          // descending G–E–C–G, last note held
+          tone(392, 392, 0.18, "triangle", 0.24, 0.0);
+          tone(330, 330, 0.18, "triangle", 0.24, 0.15);
+          tone(262, 262, 0.18, "triangle", 0.24, 0.3);
+          tone(196, 196, 0.6, "triangle", 0.26, 0.46);
         }
 
         // Static background cells (built once).
@@ -370,6 +434,31 @@
           return v <= 2048 ? "t" + v : "t-big";
         }
 
+        function luminance(hex) {
+          var r = parseInt(hex.substr(1, 2), 16);
+          var g = parseInt(hex.substr(3, 2), 16);
+          var b = parseInt(hex.substr(5, 2), 16);
+          return 0.299 * r + 0.587 * g + 0.114 * b;
+        }
+        // Style a tile's inner element for the current mode. Normal mode uses
+        // the .tN palette classes; Fibonacci mode colors by sequence rank.
+        function applyTileStyle(inner, val) {
+          if (mode === "fib") {
+            var i = FIB_DISTINCT.indexOf(val);
+            var col = i >= 0 ? FIB_COLORS[i] : "#2a2a38";
+            inner.className = "tile-inner";
+            inner.style.background = col;
+            inner.style.color = luminance(col) > 150 ? "#1a1a1a" : "#fff";
+            inner.style.fontSize = val >= 1000 ? "clamp(0.85rem,5vw,1.4rem)"
+              : val >= 100 ? "clamp(1rem,6vw,1.7rem)" : "";
+          } else {
+            inner.className = "tile-inner " + tileClass(val);
+            inner.style.background = "";
+            inner.style.color = "";
+            inner.style.fontSize = "";
+          }
+        }
+
         function placeEl(t) {
           t.el.style.width = cellSize + "px";
           t.el.style.height = cellSize + "px";
@@ -382,9 +471,9 @@
           var el = document.createElement("div");
           el.className = "tile";
           var inner = document.createElement("div");
-          inner.className = "tile-inner " + tileClass(val);
           inner.textContent = val;
           el.appendChild(inner);
+          applyTileStyle(inner, val);
           tilesEl.appendChild(el);
           var t = { id: nextId++, val: val, r: r, c: c, el: el, inner: inner, merged: false };
           tiles[t.id] = t;
@@ -404,10 +493,12 @@
           delete tiles[t.id];
         }
 
-        // Source tiles from a merge are removed after their slide finishes.
-        // We track them so a follow-up move can flush them immediately (and
-        // cancel the stale timer) — keeping rapid moves glitch-free.
+        // After a merge: the two source tiles slide to the target and are
+        // removed once they arrive (`pending`); the doubled result tile stays
+        // hidden during the slide, then pops in (`pendingMerges`). Tracking
+        // both lets a quick follow-up move resolve them instantly.
         var pending = [];
+        var pendingMerges = [];
         var pendingTimer = null;
         function flushPending() {
           if (pendingTimer) {
@@ -416,6 +507,15 @@
           }
           for (var i = 0; i < pending.length; i++) removeTile(pending[i]);
           pending = [];
+          for (var j = 0; j < pendingMerges.length; j++) {
+            var m = pendingMerges[j];
+            if (m && m.inner && m.el.parentNode) {
+              m.inner.style.opacity = "";   // reveal the merged tile
+              m.el.style.zIndex = "3";
+              m.inner.classList.add("pop");
+            }
+          }
+          pendingMerges = [];
         }
 
         function emptyCells() {
@@ -429,7 +529,10 @@
           var cells = emptyCells();
           if (!cells.length) return null;
           var s = cells[Math.floor(Math.random() * cells.length)];
-          return makeTile(s.r, s.c, Math.random() < 0.9 ? 2 : 4, "appear");
+          var v = mode === "fib"
+            ? (Math.random() < 0.7 ? 1 : 2)
+            : (Math.random() < 0.9 ? 2 : 4);
+          return makeTile(s.r, s.c, v, "appear");
         }
 
         function inBounds(r, c) {
@@ -463,12 +566,13 @@
 
         function move(dir) {
           if (over) return;
+          ensureAudio(); // unlock/resume on this user gesture
           measure();
           flushPending(); // clear any leftovers from a still-animating prior move
           var v = VECTORS[dir];
           var trav = buildTraversals(v);
           var moved = false, gained = 0;
-          var toRemove = [];
+          var toRemove = [], mergeNow = [];
 
           // Reset per-move flags and restore established tiles to the base
           // stacking level (last move's spawn/merge z-index no longer applies).
@@ -486,16 +590,21 @@
                 ? grid[f.next.r][f.next.c]
                 : null;
 
-              if (ahead && ahead.val === tile.val && !ahead.merged) {
-                // Merge: both source tiles slide into the target cell, then a
-                // new doubled tile pops in and the sources are removed.
-                var tr = f.next.r, tc = f.next.c, nv = tile.val * 2;
+              var nv = (ahead && !ahead.merged) ? mergeResult(tile.val, ahead.val) : 0;
+              if (nv > 0) {
+                // Both source tiles slide into the target cell, then the result
+                // tile pops in (kept hidden until they arrive); sources removed.
+                var tr = f.next.r, tc = f.next.c;
                 grid[r][c] = null;
                 tile.r = tr; tile.c = tc; placeEl(tile);
                 toRemove.push(tile, ahead);
-                var m = makeTile(tr, tc, nv, "pop");
+                // Create the doubled tile but keep it hidden until both source
+                // tiles have slid into the target cell — then it pops in.
+                var m = makeTile(tr, tc, nv, null);
                 m.merged = true;
+                m.inner.style.opacity = "0";
                 grid[tr][tc] = m;
+                mergeNow.push(m);
                 gained += nv;
                 moved = true;
               } else {
@@ -512,11 +621,14 @@
 
           if (!moved) return;
 
+          if (gained > 0) playMerge(); else playMove(); // merge vs plain slide
+
           score += gained;
           updateScore();
 
           if (toRemove.length) {
             pending = toRemove;
+            pendingMerges = mergeNow;
             pendingTimer = setTimeout(flushPending, ANIM_MS);
           }
 
@@ -528,7 +640,7 @@
           scoreEl.textContent = score;
           if (score > best) {
             best = score;
-            lsSet(BEST_KEY, String(best));
+            lsSet(bestKey(), String(best));
           }
           bestEl.textContent = best;
         }
@@ -539,34 +651,35 @@
             for (var c = 0; c < SIZE; c++) {
               var t = grid[r][c];
               if (!t) continue;
-              if (c + 1 < SIZE && grid[r][c + 1] && grid[r][c + 1].val === t.val)
-                return true;
-              if (r + 1 < SIZE && grid[r + 1][c] && grid[r + 1][c].val === t.val)
-                return true;
+              var right = c + 1 < SIZE ? grid[r][c + 1] : null;
+              var down = r + 1 < SIZE ? grid[r + 1][c] : null;
+              if (right && mergeResult(t.val, right.val) > 0) return true;
+              if (down && mergeResult(t.val, down.val) > 0) return true;
             }
           }
           return false;
         }
 
-        function reached2048() {
+        function reachedWin() {
           for (var r = 0; r < SIZE; r++)
             for (var c = 0; c < SIZE; c++)
-              if (grid[r][c] && grid[r][c].val >= 2048) return true;
+              if (grid[r][c] && grid[r][c].val >= winValue()) return true;
           return false;
         }
 
         function checkState() {
           // Flags are set now (to lock input), but the overlay is revealed
           // after a short delay so the final slide/merge finishes first.
-          if (!won && !keepPlaying && reached2048()) {
+          if (!won && !keepPlaying && reachedWin()) {
             won = true;
             setTimeout(function () {
               if (!won || keepPlaying || over) return; // cancelled / moved on
               overlayTitle.textContent = "You win! 🎉";
               overlayMsg.textContent =
-                "You made 2048. Keep going for a higher score?";
+                "You reached " + winValue() + "! Keep going for a higher score?";
               keepGoingBtn.style.display = "";
               overlay.classList.add("show");
+              playWin();
             }, OVERLAY_DELAY);
             return;
           }
@@ -578,6 +691,7 @@
               overlayMsg.textContent = "No more moves. Final score: " + score;
               keepGoingBtn.style.display = "none";
               overlay.classList.add("show");
+              playGameOver();
             }, OVERLAY_DELAY);
           }
         }
@@ -597,6 +711,7 @@
             pendingTimer = null;
           }
           pending = [];
+          pendingMerges = [];
           tilesEl.innerHTML = "";
           tiles = {};
           nextId = 1;
@@ -660,18 +775,35 @@
           { passive: true }
         );
 
-        document.getElementById("new-game").addEventListener("click", newGame);
         document.getElementById("overlay-retry").addEventListener("click", newGame);
         keepGoingBtn.addEventListener("click", function () {
           keepPlaying = true;
           overlay.classList.remove("show");
         });
 
+        // Update goal text, best score, and which mode button is highlighted.
+        function refreshMeta() {
+          best = parseInt(lsGet(bestKey(), "0"), 10) || 0;
+          bestEl.textContent = best;
+          targetEl.textContent = String(winValue());
+          normalBtn.classList.toggle("ghost", mode !== "normal");
+          fibBtn.classList.toggle("ghost", mode !== "fib");
+        }
+        // Pick a mode and start a fresh game (clicking the active mode = new game).
+        function selectMode(m) {
+          mode = m;
+          lsSet(MODE_KEY, m);
+          refreshMeta();
+          newGame();
+        }
+        normalBtn.addEventListener("click", function () { selectMode("normal"); });
+        fibBtn.addEventListener("click", function () { selectMode("fib"); });
+
         window.addEventListener("resize", relayout);
         window.addEventListener("load", relayout);
 
-        best = parseInt(lsGet(BEST_KEY, "0"), 10) || 0;
-        bestEl.textContent = best;
+        mode = lsGet(MODE_KEY, "normal") === "fib" ? "fib" : "normal";
+        refreshMeta();
         newGame();
       })();
     </script>
