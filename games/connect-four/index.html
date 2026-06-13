@@ -5,28 +5,29 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Connect Four</title>
 <style>
-  :root { --bg:#1e1e2e; --fg:#cdd6f4; --frame:#3a5cc7; --frame-dark:#2c4099; --empty:#181825;
-          --red:#f38ba8; --yellow:#f9e2af; --accent:#89b4fa; }
+  :root { --bg:#0e3b34; --fg:#f5efe2; --frame:#d9a441; --frame-dark:#b07e2a; --empty:#0a2e29;
+          --red:#e4564d; --yellow:#f4d35e; --accent:#ffffff; --panel:#114138; --line:#1d5045; }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-         background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; gap:16px; padding:20px; }
-  h1 { margin:0; font-weight:600; letter-spacing:1px; }
+         background:radial-gradient(1200px 600px at 50% -10%, #14564b 0%, var(--bg) 55%); color:var(--fg);
+         font-family:Georgia,"Times New Roman",serif; gap:16px; padding:20px; }
+  h1 { margin:0; font-weight:700; letter-spacing:1px; color:var(--frame); text-shadow:0 2px 0 rgba(0,0,0,.35); }
   #status { font-size:1.2rem; min-height:1.5em; font-weight:500; }
   #board { background:var(--empty); padding:12px; border-radius:14px; display:grid;
            grid-template-columns:repeat(7,1fr); gap:8px; box-shadow:0 8px 24px rgba(0,0,0,.4);
            position:relative; overflow:hidden; }
   .cell { width:62px; height:62px; border-radius:50%; background:var(--empty); cursor:pointer;
           transition:transform .05s; box-shadow:inset 0 3px 6px rgba(0,0,0,.5); }
-  .cell.red { background:radial-gradient(circle at 35% 30%, #ff9bb0, var(--red)); }
+  .cell.red { background:radial-gradient(circle at 35% 30%, #ff897e, var(--red)); }
   .cell.yellow { background:radial-gradient(circle at 35% 30%, #fff2c9, var(--yellow)); }
   .cell.win { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); }
-  .col-hover { background:var(--frame-dark) !important; }
+  .col-hover { background:#176054 !important; }
   /* colored frame sitting in FRONT of the discs, with circular holes punched out */
   .frame-layer { position:absolute; top:0; left:0; pointer-events:none; z-index:2; }
   .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
-  button.btn, select { background:#313244; color:var(--fg); border:1px solid #45475a; border-radius:8px;
-                       padding:8px 14px; font-size:.95rem; cursor:pointer; }
-  button.btn:hover { background:#45475a; }
+  button.btn, select { background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:8px;
+                       padding:8px 14px; font-size:.95rem; font-family:inherit; cursor:pointer; }
+  button.btn:hover { background:#17564a; }
   .score { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
 
   /* drop animation — gravity free-fall, then bouncy-ball settle.
@@ -47,7 +48,7 @@
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
                    align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-overlay.open { display:flex; }
-  .modal { background:var(--bg); border:1px solid #45475a; border-radius:14px; max-width:420px;
+  .modal { background:var(--panel); border:1px solid var(--line); border-radius:14px; max-width:420px;
            padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
   .modal h2 { margin:0 0 12px; }
   .modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
@@ -57,7 +58,7 @@
 </style>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:14px;left:14px;z-index:99999;text-decoration:none;font:600 13px/1 system-ui,-apple-system,Segoe UI,sans-serif;color:#cdd6f4;background:#313244;border:1px solid #45475a;border-radius:8px;padding:8px 13px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 Georgia,'Times New Roman',serif;color:#f5efe2;background:#114138;border:1px solid #1d5045;border-radius:8px;padding:8px 13px">&larr; Games</a>
   <h1>Connect Four</h1>
   <div id="status">Your turn (Red)</div>
   <div id="board"></div>

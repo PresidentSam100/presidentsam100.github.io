@@ -27,6 +27,39 @@
   let best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
   bestEl.textContent = best;
 
+  // ---- Background themes (player-selectable, persisted) ----
+  // `ring` is the darker lock-band shade drawn on the canvas to match each bg.
+  const THEMES = {
+    teal:   { bg: "#2f8f7e", ring: "#237063" },
+    indigo: { bg: "#3b4a7a", ring: "#2c3a63" },
+    plum:   { bg: "#5a4a82", ring: "#44386b" },
+    coral:  { bg: "#d96a5e", ring: "#b84f45" },
+  };
+  const THEME_KEY = "popthelock.theme";
+  const themesEl = document.getElementById("themes");
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  let themeName = THEMES[localStorage.getItem(THEME_KEY)] ? localStorage.getItem(THEME_KEY) : "teal";
+  let ringColor = THEMES[themeName].ring;
+
+  function applyTheme(name) {
+    if (!THEMES[name]) name = "teal";
+    themeName = name;
+    const t = THEMES[name];
+    ringColor = t.ring;
+    document.documentElement.style.background = t.bg;
+    document.body.style.background = t.bg;
+    if (themeMeta) themeMeta.setAttribute("content", t.bg);
+    localStorage.setItem(THEME_KEY, name);
+    themesEl.querySelectorAll(".swatch").forEach((s) =>
+      s.classList.toggle("active", s.dataset.theme === name)
+    );
+  }
+  themesEl.addEventListener("click", (e) => {
+    const sw = e.target.closest(".swatch");
+    if (sw) applyTheme(sw.dataset.theme);
+  });
+  applyTheme(themeName);
+
   // ---- Audio (WebAudio, no assets) ----
   let muted = localStorage.getItem("popthelock.muted") === "1";
   muteBtn.textContent = muted ? "🔇" : "🔊";
@@ -146,7 +179,7 @@
     tol = tolerance(level);
     flash = 1;
     sndLevel();
-    spawnBurst(target, "#46e6a0", 26);
+    spawnBurst(target, "#ffffff", 26);
     placeTarget();
   }
 
@@ -229,7 +262,7 @@
 
     // Track ring
     ctx.lineWidth = Math.max(10, R * 0.085);
-    ctx.strokeStyle = "#232a3b";
+    ctx.strokeStyle = ringColor;
     ctx.beginPath();
     ctx.arc(cx, cy, R, 0, TAU);
     ctx.stroke();
@@ -237,7 +270,7 @@
     // Success flash ring
     if (flash > 0) {
       flash = Math.max(0, flash - dt / 280);
-      ctx.strokeStyle = `rgba(70,230,160,${flash * 0.8})`;
+      ctx.strokeStyle = `rgba(255,255,255,${flash * 0.85})`;
       ctx.lineWidth = Math.max(10, R * 0.085) + 8 * flash;
       ctx.beginPath();
       ctx.arc(cx, cy, R, 0, TAU);
@@ -279,7 +312,7 @@
     if (state === State.PLAY) {
       ctx.font = `800 ${R * 0.5}px "Segoe UI", system-ui, sans-serif`;
       ctx.fillText(score, cx, cy - R * 0.04);
-      ctx.fillStyle = "#7c879c";
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
       ctx.font = `700 ${R * 0.13}px "Segoe UI", system-ui, sans-serif`;
       const remain = popsNeeded - popsDone;
       ctx.fillText(`${remain} TO UNLOCK`, cx, cy + R * 0.34);

@@ -31,7 +31,7 @@
       padding: 1rem; overflow-x: hidden;
     }
     a { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; }
+    .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; position: relative; z-index: 30; }
     .wrap { width: 100%; max-width: 560px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
 
     header.top { text-align: center; margin: 0.6rem 0 0.4rem; }
@@ -88,7 +88,7 @@
   </style>
 </head>
 <body>
-  <a href="../" class="back-link">← games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#eef2f9;background:#141826;border:1px solid #232838;border-radius:8px;padding:8px 13px">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
@@ -126,7 +126,7 @@
     var BEST_KEY = "reaction_best";   // lowest average reaction (ms) ever
     var TRIALS = 10;
     var MIN_WAIT = 1500, MAX_WAIT = 7000; // wide, randomized pre-flash delay (ms)
-    var PENALTY = 2000;               // a false start scores this (ms) for the attempt
+    var PENALTY = 10000;              // a false start scores this (ms) for the attempt
 
     var $ = function (id) { return document.getElementById(id); };
     var panel = $("panel"), pBig = $("panel-big"), pSub = $("panel-sub"), pRating = $("panel-rating");
@@ -270,8 +270,7 @@
         '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + '</p>' +
         '<p>' + (record ? "🏆 new best average!" : "best avg " + best + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "—" : bestSingle + " ms") + '</p>' +
         '<div class="summary">' + chips + '</div>' +
-        '<button class="btn" id="btn-again" style="margin-top:0.6rem;">Play again</button>' +
-        '<div style="margin-top:0.7rem;"><a href="../">← back to games</a></div>';
+        '<button class="btn" id="btn-again" style="margin-top:0.6rem;">Play again</button>';
       ov.classList.add("show");
       Sound.done();
       $("btn-again").addEventListener("click", begin);

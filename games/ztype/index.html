@@ -3,24 +3,24 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>WordFall — Typing Defense</title>
+<title>ZType — Typing Defense</title>
 <style>
   :root {
-    --bg: #05060c;
-    --bg2: #0b0f1f;
+    --bg: #0a0e1c;       /* deep-space navy — lifted off pure black to cut neon halation */
+    --bg2: #121a33;
     --accent: #38f9d7;
     --accent2: #43e8ff;
     --danger: #ff4d6d;
     --warn: #ffd166;
     --text: #e6f1ff;
-    --muted: #6b7a99;
-    --dim: #2a3450;
+    --muted: #92a3c9;    /* raised for legible labels/subtitles (was ~4:1) */
+    --dim: #46547e;      /* raised so hints & ghost borders are visible */
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
     font-family: "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace;
-    background: radial-gradient(1200px 700px at 50% -10%, #131a35 0%, var(--bg2) 45%, var(--bg) 100%);
+    background: radial-gradient(1200px 700px at 50% -10%, #1b2550 0%, var(--bg2) 45%, var(--bg) 100%);
     color: var(--text);
     overflow: hidden;
     -webkit-font-smoothing: antialiased;
@@ -54,7 +54,7 @@
     letter-spacing: 1px;
     text-transform: uppercase;
     z-index: 5;
-    background: linear-gradient(0deg, rgba(5,6,12,0.92) 30%, rgba(5,6,12,0) 100%);
+    background: linear-gradient(0deg, rgba(10,14,28,0.92) 30%, rgba(10,14,28,0) 100%);
   }
   .stat { display: flex; flex-direction: column; gap: 2px; }
   .stat .label { color: var(--muted); font-size: 10px; }
@@ -73,7 +73,7 @@
     justify-content: center;
     gap: 18px;
     text-align: center;
-    background: radial-gradient(900px 500px at 50% 40%, rgba(15,22,48,0.85), rgba(5,6,12,0.96));
+    background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.85), rgba(10,14,28,0.96));
     backdrop-filter: blur(3px);
     z-index: 10;
     padding: 24px;
@@ -81,7 +81,7 @@
   .overlay.hidden { display: none; }
   /* Game-over screen stays see-through so the board keeps showing behind it. */
   #overScreen {
-    background: radial-gradient(900px 500px at 50% 40%, rgba(15,22,48,0.42), rgba(5,6,12,0.62));
+    background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.42), rgba(10,14,28,0.62));
     backdrop-filter: blur(1px);
   }
   .title {
@@ -164,7 +164,7 @@
 </style>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Cascadia Code',Consolas,'Courier New',monospace;letter-spacing:.5px;color:#38f9d7;background:rgba(5,6,12,.88);border:1px solid #2a3450;border-radius:4px;padding:8px 12px">&larr; games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Cascadia Code',Consolas,'Courier New',monospace;letter-spacing:.5px;color:#38f9d7;background:rgba(10,14,28,.88);border:1px solid #46547e;border-radius:4px;padding:8px 12px">&larr; Games</a>
 <div id="wrap">
   <canvas id="game"></canvas>
   <input id="ti" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1" />
@@ -188,7 +188,7 @@
 
   <!-- Start screen -->
   <div class="overlay" id="startScreen">
-    <div class="title">WORDFALL</div>
+    <div class="title">ZTYPE</div>
     <div class="subtitle">
       Words rain from above. <span class="key">Type</span> them to lock on and blast them out of the sky
       before they reach your line. Finish a word to fire.

@@ -5,17 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dots and Boxes</title>
 <style>
-  :root { --bg:#1e1e2e; --fg:#cdd6f4; --dot:#cdd6f4; --line-empty:#45475a; --line-hover:#89b4fa;
-          --human:#f38ba8; --ai:#f9e2af; --human-box:rgba(243,139,168,.30); --ai-box:rgba(249,226,175,.30); }
+  :root { --bg:#eef0e6; --paper:#fbfaf3; --fg:#33414f; --dot:#33414f; --line-empty:#c4cbd2; --line-hover:#5b8fd0;
+          --human:#d2362f; --ai:#2f6fb0; --human-box:rgba(210,54,47,.16); --ai-box:rgba(47,111,176,.16); }
   * { box-sizing:border-box; }
   body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-         background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; gap:14px; padding:20px; }
-  h1 { margin:0; font-weight:600; letter-spacing:1px; }
+         background-color:var(--bg);
+         background-image:linear-gradient(rgba(120,140,160,.14) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(120,140,160,.14) 1px, transparent 1px);
+         background-size:24px 24px;
+         color:var(--fg); font-family:"Trebuchet MS",Verdana,Geneva,sans-serif; gap:14px; padding:20px; }
+  h1 { margin:0; font-weight:700; letter-spacing:1px; }
   #status { font-size:1.15rem; min-height:1.5em; font-weight:500; }
   .scoreboard { display:flex; gap:26px; font-size:1.05rem; }
   .scoreboard .me { color:var(--human); } .scoreboard .ai { color:var(--ai); }
   .record { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
-  svg { background:#181825; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.4); touch-action:none; }
+  svg { background:var(--paper); border:1px solid #d8dcc9; border-radius:14px; box-shadow:0 6px 18px rgba(60,70,80,.18); touch-action:none; }
   .dot { fill:var(--dot); }
   .line { stroke:var(--line-empty); stroke-width:6; stroke-linecap:round; cursor:pointer; transition:stroke .1s; }
   .line:hover { stroke:var(--line-hover); }
@@ -24,9 +28,9 @@
   .box-fill { transition:fill .2s; }
   .box-label { font-weight:700; font-size:18px; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
   .controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
-  button.btn, select { background:#313244; color:var(--fg); border:1px solid #45475a; border-radius:8px;
-                       padding:8px 14px; font-size:.95rem; cursor:pointer; }
-  button.btn:hover { background:#45475a; }
+  button.btn, select { background:#fff; color:var(--fg); border:1px solid #c4cbd2; border-radius:8px;
+                       padding:8px 14px; font-size:.95rem; font-family:inherit; cursor:pointer; }
+  button.btn:hover { background:#eef2f7; }
 
   /* line draw animation */
   .line.draw-anim { stroke-dasharray:1; stroke-dashoffset:1; animation:lineDraw .26s ease-out forwards; }
@@ -36,7 +40,7 @@
   .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
                    align-items:center; justify-content:center; padding:20px; z-index:10; }
   .modal-overlay.open { display:flex; }
-  .modal { background:var(--bg); border:1px solid #45475a; border-radius:14px; max-width:430px;
+  .modal { background:var(--paper); border:1px solid #c4cbd2; border-radius:14px; max-width:430px;
            padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
   .modal h2 { margin:0 0 12px; }
   .modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
@@ -44,7 +48,7 @@
 </style>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:14px;left:14px;z-index:99999;text-decoration:none;font:600 13px/1 system-ui,-apple-system,Segoe UI,sans-serif;color:#cdd6f4;background:#313244;border:1px solid #45475a;border-radius:8px;padding:8px 13px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Trebuchet MS',Verdana,sans-serif;color:#33414f;background:#fff;border:1px solid #c4cbd2;border-radius:8px;padding:8px 13px">&larr; Games</a>
   <h1>Dots and Boxes</h1>
   <div class="scoreboard">
     <span class="me">You: <b id="hscore">0</b></span>

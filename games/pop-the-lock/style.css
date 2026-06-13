@@ -1,12 +1,12 @@
 :root {
-  --bg-0: #0b0e16;
-  --bg-1: #10141f;
-  --ring: #232a3b;
+  --bg: #2f8f7e;          /* flat arcade teal (default; player-switchable) */
+  --bg-deep: #237063;     /* darker teal for the lock band */
+  --ring: rgba(255, 255, 255, 0.32);
   --accent: #ffd23f;
   --accent-2: #ff5d73;
-  --good: #46e6a0;
-  --text: #e8ecf5;
-  --muted: #7c879c;
+  --good: #ffffff;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.75);
 }
 
 * {
@@ -19,15 +19,14 @@
 html, body {
   height: 100%;
   overflow: hidden;
-  /* dark base so no white strip shows when the mobile URL bar shifts */
-  background: var(--bg-0);
+  /* flat teal base so no off-color strip shows when the mobile URL bar shifts */
+  background: var(--bg);
 }
 
 body {
   font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
-  background:
-    radial-gradient(1200px 800px at 50% -10%, #1b2335 0%, var(--bg-1) 45%, var(--bg-0) 100%);
+  background: var(--bg);
   user-select: none;
 }
 
@@ -97,8 +96,8 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(8, 11, 18, 0.72);
-  backdrop-filter: blur(6px);
+  background: rgba(6, 50, 42, 0.42);
+  backdrop-filter: blur(3px);
   transition: opacity 0.25s ease;
   z-index: 4;
 }
@@ -167,8 +166,33 @@ body {
 .btn:hover { transform: translateY(-2px); }
 .btn:active { transform: translateY(1px) scale(0.98); }
 
-.hint {
+/* ---------- Theme swatches ---------- */
+.themes {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
   margin-top: 22px;
+}
+
+.swatch {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--sw);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.swatch:hover { transform: scale(1.1); }
+.swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
+  transform: scale(1.12);
+}
+
+.hint {
+  margin-top: 18px;
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.5px;

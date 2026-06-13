@@ -16,22 +16,22 @@
   </script>
 
   <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap");
 
     :root {
-      --bg: #0c0e15; --panel: #141826; --text: #eef2f9; --muted: #8b93a7;
-      --accent: #22a8f5; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c; --line: #232838;
+      --bg: #17120e; --panel: #211a14; --text: #f6eee2; --muted: #a8977f;
+      --accent: #ff9f1c; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c; --line: #332a20;
     }
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     html, body { margin: 0; height: 100%; }
     body {
-      background: radial-gradient(1200px 700px at 50% -10%, #161b2c 0%, var(--bg) 60%);
-      color: var(--text); font-family: "Inter", system-ui, sans-serif;
+      background: radial-gradient(1200px 700px at 50% -10%, #2a201a 0%, var(--bg) 60%);
+      color: var(--text); font-family: "Oswald", system-ui, sans-serif;
       min-height: 100%; display: flex; flex-direction: column; align-items: center;
       padding: 1rem; overflow-x: hidden;
     }
     a { color: var(--accent); text-decoration: none; font-weight: 600; }
-    .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; }
+    .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; position: relative; z-index: 30; }
     .wrap { width: 100%; max-width: 520px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
 
     header.top { text-align: center; margin: 0.6rem 0 0.4rem; }
@@ -48,7 +48,7 @@
     .budget { margin: 0.9rem 0 0.2rem; }
     .budget .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.32rem; }
     .budget .row b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
-    .meter { height: 14px; background: #0a0c14; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+    .meter { height: 14px; background: #120d09; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
     .meter > span { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--good), var(--warn) 70%, var(--bad)); transition: width 0.45s cubic-bezier(.2,.8,.2,1); }
 
     /* Main stage */
@@ -61,9 +61,9 @@
     .btn-main {
       margin-top: 1.3rem; width: 200px; height: 200px; border-radius: 50%;
       border: none; cursor: pointer; font-family: inherit; font-weight: 900;
-      font-size: 1.7rem; letter-spacing: 0.06em; color: #04121f;
-      background: radial-gradient(120px 120px at 50% 35%, #6fd0ff, var(--accent));
-      box-shadow: 0 12px 40px -10px rgba(34,168,245,0.6), inset 0 -6px 18px rgba(0,0,0,0.25);
+      font-size: 1.7rem; letter-spacing: 0.06em; color: #2a1500;
+      background: radial-gradient(120px 120px at 50% 35%, #ffc46b, var(--accent));
+      box-shadow: 0 12px 40px -10px rgba(255,159,28,0.55), inset 0 -6px 18px rgba(0,0,0,0.25);
       transition: transform 0.08s ease, filter 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
       user-select: none; touch-action: manipulation;
     }
@@ -91,7 +91,7 @@
     .rules { text-align: left; font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 1rem; }
     .rules li { margin: 0.25rem 0; }
     .btn {
-      cursor: pointer; background: var(--accent); color: #04121f; border: none; border-radius: 10px;
+      cursor: pointer; background: var(--accent); color: #2a1500; border: none; border-radius: 10px;
       padding: 0.8rem 1.6rem; font-family: inherit; font-size: 1.05rem; font-weight: 800;
       transition: filter 0.15s ease, transform 0.08s ease;
     }
@@ -101,8 +101,8 @@
 
     /* mode picker on the start card */
     .modepick { display: flex; gap: 0.5rem; margin: 0.2rem 0 1rem; }
-    .modebtn { flex: 1; cursor: pointer; background: #0e1220; border: 1px solid var(--line); color: var(--muted); border-radius: 10px; padding: 0.65rem 0.5rem; font-family: inherit; font-weight: 800; font-size: 0.95rem; transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
-    .modebtn.sel { border-color: var(--accent); color: var(--text); background: #15233a; }
+    .modebtn { flex: 1; cursor: pointer; background: #1a140e; border: 1px solid var(--line); color: var(--muted); border-radius: 10px; padding: 0.65rem 0.5rem; font-family: inherit; font-weight: 800; font-size: 0.95rem; transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
+    .modebtn.sel { border-color: var(--accent); color: var(--text); background: #2e2212; }
     .modebtn small { display: block; font-weight: 500; font-size: 0.68rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
 
     .footer-controls { display: flex; gap: 0.6rem; align-items: center; justify-content: center; margin: 0.8rem 0 0.4rem; }
@@ -113,7 +113,7 @@
   </style>
 </head>
 <body>
-  <a href="../" class="back-link">← games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Oswald',system-ui,sans-serif;color:#f6eee2;background:#211a14;border:1px solid #332a20;border-radius:8px;padding:8px 13px">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
@@ -354,7 +354,7 @@
           'total would be ' + fmt(info.projected) + 's (over the 1.000s limit)' +
         '</div>' +
         '<button class="btn" id="btn-again">Play again</button>' +
-        '<div style="margin-top:0.7rem;"><button class="btn ghost" id="btn-mode">change mode</button> &nbsp;·&nbsp; <a href="../">← games</a></div>';
+        '<div style="margin-top:0.7rem;"><button class="btn ghost" id="btn-mode">change mode</button></div>';
       ovCard.classList.add("show");
       $("btn-again").addEventListener("click", beginGame);
       $("btn-mode").addEventListener("click", showStartCard);
