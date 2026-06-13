@@ -10,7 +10,7 @@
   </head>
   <body>
     <div class="wrap">
-      <a class="back-link" href="../">← back to games</a>
+      <a class="btn ghost back-link" href="../">← Games</a>
       <div style="text-align:center">
         <h1 class="title">Demolition Row 🧱</h1>
         <p class="subtitle">drop plus-shaped blocks · connect 4+ of a color · chain cascades · don't top out</p>
@@ -51,20 +51,31 @@
             <button class="btn" data-count="3">3</button>
             <button class="btn" data-count="4">4</button>
           </div>
-          <div class="lbl" style="margin-top:0.7rem;">Each player (tap to toggle)</div>
-          <div class="row" id="ptype-pick">
-            <button class="btn ptoggle" data-slot="0">P1: Human</button>
-            <button class="btn ptoggle" data-slot="1">P2: CPU</button>
-            <button class="btn ptoggle" data-slot="2">P3: CPU</button>
-            <button class="btn ptoggle" data-slot="3">P4: CPU</button>
-          </div>
-          <div id="diff-group">
-            <div class="lbl" style="margin-top:0.7rem;">CPU Difficulty</div>
-            <div class="row" id="diff-pick">
-              <button class="btn" data-diff="easy">Easy</button>
-              <button class="btn sel" data-diff="normal">Normal</button>
-              <button class="btn" data-diff="hard">Hard</button>
-              <button class="btn" data-diff="impossible">Impossible</button>
+          <div class="lbl" style="margin-top:0.7rem;">Each player — tap to switch Human/CPU; pick each CPU's difficulty</div>
+          <div id="player-rows">
+            <div class="prow" data-slot="0">
+              <button class="btn ptoggle" data-slot="0">P1: Human</button>
+              <select class="diffsel" data-slot="0" aria-label="P1 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="1">
+              <button class="btn ptoggle" data-slot="1">P2: CPU</button>
+              <select class="diffsel" data-slot="1" aria-label="P2 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="2">
+              <button class="btn ptoggle" data-slot="2">P3: CPU</button>
+              <select class="diffsel" data-slot="2" aria-label="P3 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
+            </div>
+            <div class="prow" data-slot="3">
+              <button class="btn ptoggle" data-slot="3">P4: CPU</button>
+              <select class="diffsel" data-slot="3" aria-label="P4 CPU difficulty">
+                <option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="impossible">Impossible</option><option value="kaizo">Kaizo</option>
+              </select>
             </div>
           </div>
           <div class="lbl" style="margin-top:0.7rem;">Match Format</div>
@@ -72,6 +83,7 @@
             <button class="btn" data-fmt="1">First to 1</button>
             <button class="btn sel" data-fmt="2">First to 2</button>
             <button class="btn" data-fmt="3">First to 3</button>
+            <button class="btn" data-fmt="inf">∞ Infinite</button>
           </div>
         </div>
 

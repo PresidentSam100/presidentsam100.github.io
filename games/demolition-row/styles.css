@@ -4,7 +4,7 @@
       html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "Inter", sans-serif; }
       a { color: #22a8f5; text-decoration: none; font-weight: 600; }
       .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 2rem; gap: 0.8rem; }
-      .back-link { align-self: flex-start; font-size: 0.95rem; }
+      .back-link { position: fixed; top: 10px; left: 10px; z-index: 30; font-size: 0.85rem; }
       h1.title { font-size: 2.1rem; font-weight: 800; margin: 0; }
       .subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
       .boards { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
@@ -30,6 +30,9 @@
       .btn.ghost { background: transparent; border: 1px solid #39405a; }
       .btn.sel { outline: 2px solid #ffd23f; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+      .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
+      .diffsel { background: #0d0f14; color: var(--text); border: 1px solid #39405a; border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+      .diffsel:focus { outline: 2px solid var(--accent); }
       .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem; background: rgba(8,9,14,0.92); }
       .overlay.hidden { display: none; }
       .card { background: var(--panel); border: 1px solid #262a3a; border-radius: 14px; padding: 1.4rem 1.5rem; max-width: 560px; width: 100%; text-align: center; }

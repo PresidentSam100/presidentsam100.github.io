@@ -48,14 +48,21 @@
       }
 
       .back-link {
-        align-self: flex-start;
-        color: #22a8f5;
+        position: fixed;
+        top: 12px;
+        left: 12px;
+        z-index: 50;
+        display: inline-block;
+        color: #fff;
+        background: var(--accent);
         text-decoration: none;
-        font-weight: 600;
-        font-size: 0.95rem;
+        font-weight: 700;
+        font-size: 0.85rem;
+        padding: 6px 12px;
+        border-radius: 8px;
       }
       .back-link:hover {
-        color: #028fe0;
+        filter: brightness(1.12);
       }
 
       .topbar {

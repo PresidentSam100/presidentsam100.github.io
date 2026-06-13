@@ -21,7 +21,7 @@
       vsGoalLineRow: 10, // VS goal sits lower — win = stack within the bottom 3 rows
       cell: 38, colors: 5, minGroup: 4,
       stoneDurability: 3,
-      gaugeMax: 22,            // normal blocks cleared to fill the bonus gauge
+      gaugeMax: 800,           // score (pre-bonus) needed per powerup; higher = rarer/more-earned. combos fill it faster via the chain multiplier
       bonusDurationMs: 8000, bonusMultiplier: 20,
       // falling speed (ms per row); per-stage/level speed-up
       baseFallMs: 800, fallDecreasePerStage: 32, minFallMs: 140,
@@ -32,11 +32,12 @@
       stage: { startHeight: 5, heightPerStage: 0.1, maxHeight: 7, fillDensity: 0.9, total: 50 },
       endless: { startHeight: 3, fillDensity: 0.88, levelEverySec: 25, maxLevel: 99 },
       vs: { startHeight: 6, fillDensity: 0.95 },
-      cpu: { // reactMs = pace · mistake = chance of a random placement · look = next-piece lookahead weight · lookChance = how often lookahead is used
+      cpu: { // reactMs = pace · mistake = chance of a random placement · look = next-piece lookahead weight · lookChance = how often lookahead is used · smart = board-quality eval
         easy:       { reactMs: 950, mistake: 0.20, look: 0,    lookChance: 0 },
         normal:     { reactMs: 600, mistake: 0.10, look: 0.45, lookChance: 0.5 },
         hard:       { reactMs: 360, mistake: 0.02, look: 0.6,  lookChance: 1 },
-        impossible: { reactMs: 170, mistake: 0,    look: 0.9,  lookChance: 1 }, // never errs, fastest, deepest lookahead
+        impossible: { reactMs: 170, mistake: 0,    look: 0.9,  lookChance: 1 }, // never errs, deep lookahead
+        kaizo:      { reactMs: 120, mistake: 0,    look: 1.0,  lookChance: 1, smart: true }, // + board-quality eval: plays for the unknown future. top tier.
       },
     };
     const COLOR_HEX = ["#ff8c2b", "#34c759", "#3f8cff", "#a25cff", "#ff4db8"]; // orange green blue purple magenta
@@ -186,14 +187,14 @@
       constructor(cfg, rng, opts) {
         this.cfg = cfg; this.rng = rng; this.opts = opts || {};
         this.grid = emptyGrid(cfg.cols, cfg.rows);
-        this.score = 0; this.gauge = 0; this.pendingSpecial = null;
+        this.score = 0; this.gauge = 0; this.pq = []; // pq = powerup queue (one dispensed per piece)
         this.starCount = 0; this.bonusUntil = 0; this.slowUntil = 0;
         this.piece = null; this.fallProgress = 0; this.fallMs = cfg.baseFallMs;
         this.alive = true; this.cleared = false;
         // settle state machine: 'control' | 'falling' | 'flashing'
         this.phase = "control"; this.fallVel = 0; this.chain = 0; this.muted = false; this.clearingThunder = false;
         this.spawnT = 1; this.softHeld = false; // grow-in progress; soft-drop held
-        this.settleTotals = { normals: 0, stones: 0, stars: 0 }; this.settleGained = 0;
+        this.settleTotals = { normals: 0, stones: 0, stars: 0 }; this.settleGained = 0; this.settleGaugeGain = 0;
         this.pendingClear = []; this.flashUntil = 0; this.thunderQueue = []; this.ironCrush = false;
         this.allowStars = false; this.allowSlow = true;
         this.fx = []; this.debris = []; this.shake = 0; this.flash = null;
@@ -224,7 +225,7 @@
       // type 'iron' = 2x2; 'plus' = 5-cell plus (mono=crystal). Each plus cell
       // is {t:'n',c,aug} (color, optional powerup) or {t:'s'} (stone).
       generateSpec() {
-        const ps = this.pendingSpecial; this.pendingSpecial = null;
+        const ps = this.pq.length ? this.pq.shift() : null; // pull one banked powerup onto this piece
         if (ps === "iron") return { type: "iron" };
         if (ps === "crystal") return { type: "plus", mono: true, crystalColor: -1 }; // -1 = uncolored white crystal
         const keys = ["C", "U", "D", "L", "R"], cells = {};
@@ -298,7 +299,7 @@
       // ---- lock -> animated settle -> flash -> clear -> cascade ----
       lock() {
         const p = this.piece; if (!p) return;
-        this.chain = 0; this.settleTotals = { normals: 0, stones: 0, stars: 0 }; this.settleGained = 0; this.thunderQueue = []; this.clearingThunder = false; this.ironCrush = false;
+        this.chain = 0; this.settleTotals = { normals: 0, stones: 0, stars: 0 }; this.settleGained = 0; this.settleGaugeGain = 0; this.thunderQueue = []; this.clearingThunder = false; this.ironCrush = false;
         if (p.type === "iron") {
           // crush its two columns through the same flash → clear → cascade pipeline as
           // a match. The iron crush itself is heavy: powerup blocks in its path are
@@ -382,21 +383,27 @@
       tallyClear(r) {
         this.settleTotals.normals += r.normals; this.settleTotals.stones += r.stones; this.settleTotals.stars += r.stars;
         this.settleGained += this.scoreFor(r, this.chain);
+        this.settleGaugeGain += (r.normals * this.cfg.pts.normal + r.stones * this.cfg.pts.stone + r.stars * this.cfg.pts.star) * this.chain; // gauge fills by the (pre-bonus) score gained — combos pump it via the chain multiplier
         if (r.augSlow > 0) { this.slowUntil = this.now() + this.cfg.slowDurationMs; this.flashBanner("SLOW", "#43e8ff"); }
         for (const color of r.augThunder) if (this.thunderQueue.indexOf(color) < 0) this.thunderQueue.push(color);
       }
       finishSettle() {
-        if (this.chain > 0) { this.afterClear(this.settleTotals, this.settleGained); if (this.chain >= 2) this.flashBanner("CHAIN x" + this.chain, "#46e6a0"); }
+        if (this.chain > 0) { this.afterClear(this.settleTotals, this.settleGained, this.settleGaugeGain); if (this.chain >= 2) this.flashBanner("CHAIN x" + this.chain, "#46e6a0"); }
         if (toppedOut(this.grid, this.cfg.topLineRow)) this.die();
         this.phase = "control";
         if (this.alive && !this.cleared) this.spawnPiece();
       }
       scoreFor(r, chain) { const p = this.cfg.pts; const base = r.normals * p.normal + r.stones * p.stone + r.stars * p.star; return base * chain * (this.bonusActive() ? this.cfg.bonusMultiplier : 1); }
-      afterClear(total, gained) {
+      afterClear(total, gained, gaugeGain) {
         this.score += gained;
-        this.gauge += total.normals;
-        if (this.gauge >= this.cfg.gaugeMax && !this.pendingSpecial) { this.gauge = 0; this.pendingSpecial = this.rollSpecial(); this.flashBanner("BONUS READY", "#ffd23f"); }
-        else if (this.gauge > this.cfg.gaugeMax) this.gauge = this.cfg.gaugeMax;
+        this.gauge += gaugeGain;                        // combo-weighted fill (chains pump it faster)
+        let awarded = 0;
+        while (this.gauge >= this.cfg.gaugeMax) {        // each full bar banks one powerup; the remainder carries over (no waste, no overfill)
+          this.gauge -= this.cfg.gaugeMax;
+          this.pq.push(this.rollSpecial());             // queued — dispensed one per piece, not all at once
+          awarded++;
+        }
+        if (awarded > 0) this.flashBanner(awarded > 1 ? "BONUS x" + awarded + "!" : "BONUS READY", "#ffd23f");
         if (total.stars > 0) { this.starCount += total.stars; while (this.starCount >= 3) { this.starCount -= 3; this.bonusUntil = this.now() + this.cfg.bonusDurationMs; this.flashBanner("x20 BONUS!", "#ffd23f"); } }
         if (this.opts.useGoal && belowGoal(this.grid, this.opts.goalRow)) this.cleared = true;
       }
@@ -430,7 +437,7 @@
     // keep the stack low). Difficulty tunes reaction time, mistakes, specials.
     class CPU {
       constructor(board, diff, rng) { this.b = board; this.d = CONFIG.cpu[diff]; this.rng = rng; this.next = 0; this.plan = null; this.planFor = null; }
-      moveMs() { return Math.max(80, this.d.reactMs * 0.32); } // time between visible moves
+      moveMs() { return Math.max(this.d.smart ? 50 : 80, this.d.reactMs * 0.32); } // time between visible moves (kaizo is quicker-fingered)
       // Plays like a human: pick a target, then nudge the piece toward it one
       // move/rotation at a time, and only then drop.
       think(now) {
@@ -524,7 +531,32 @@
         const danger = (topLine + 3) - tr;          // > 0 once the stack climbs into the top band
         if (danger > 0) s -= danger * danger * 10;   // quadratic: gentle up high, severe near the line
         if (tr < topLine) s -= 1e5;                  // a placement that overflows the line = effective loss
+        if (this.d.smart) s += this.qualityBonus(o.sim); // kaizo: value board health for unknown future pieces
         return s;
+      }
+      // Static board-quality heuristic (kaizo only): rewards positions that stay
+      // workable no matter what falls next — flat surface + "primed" near-matches,
+      // minus stranded lone blocks that can never be matched away.
+      qualityBonus(grid) {
+        const cols = grid[0].length, rows = grid.length;
+        const heights = new Array(cols).fill(0), tops = new Array(cols).fill(rows);
+        for (let c = 0; c < cols; c++) for (let r = 0; r < rows; r++) { if (grid[r][c]) { heights[c] = rows - r; tops[c] = r; break; } }
+        // bumpiness: jagged surfaces waste future pieces / punch gaps
+        let bump = 0;
+        for (let c = 1; c < cols; c++) bump += Math.abs(heights[c] - heights[c - 1]);
+        // primed groups: same-color clusters one block short of a 4-clear (after a
+        // cascade, nothing is >=4, so every group of 3 is "ready to pop")
+        let primed = 0;
+        for (const g of findGroups(grid, 3)) if (g.length === 3) primed++;
+        // stranded singles: a colored block whose 4 neighbours are none its color
+        let stranded = 0;
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+          const cell = grid[r][c]; if (!cell || cell.t !== "n") continue;
+          let friend = false;
+          for (const [dr, dc] of DIRS) { const nr = r + dr, nc = c + dc; if (!inb(grid, nr, nc)) continue; const nb = grid[nr][nc]; if (nb && nb.t === "n" && nb.c === cell.c) { friend = true; break; } }
+          if (!friend) stranded++;
+        }
+        return primed * 8 - bump * 1.1 - stranded * 1.5;
       }
       // Drop a plus (given cells) at column c and resolve; null if it can't go there.
       dropOutcome(grid, cells, c) {
@@ -798,7 +830,7 @@
         document.getElementById("mode-label").textContent = this.modeLabel();
         this.loop = this.loop.bind(this); this.raf = requestAnimationFrame(this.loop);
       }
-      modeLabel() { if (this.mode === "stage") return "50-Stage Mode"; if (this.mode === "endless") return "Endless Mode"; const cpus = this.opts.ptypes.slice(0, this.opts.players).filter((t) => t === "cpu").length; return "VS · first to " + this.opts.fmt + " · " + this.opts.players + " players" + (cpus ? " · " + cpus + " CPU" : ""); }
+      modeLabel() { if (this.mode === "stage") return "50-Stage Mode"; if (this.mode === "endless") return "Endless Mode"; const cpus = this.opts.ptypes.slice(0, this.opts.players).filter((t) => t === "cpu").length; const fmtTxt = this.opts.fmt === Infinity ? "∞ infinite" : "first to " + this.opts.fmt; return "VS · " + fmtTxt + " · " + this.opts.players + " players" + (cpus ? " · " + cpus + " CPU" : ""); }
       ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
       lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
@@ -826,7 +858,7 @@
         // per-board mute toggle
         const mbtn = hud.querySelector(".pmute");
         mbtn.addEventListener("click", () => { board.muted = !board.muted; mbtn.textContent = board.muted ? "🔇" : "🔊"; mbtn.classList.toggle("off", board.muted); });
-        const p = { board, hud, canvas, renderer: new Renderer(board, canvas), nextCanvas: hud.querySelector(".next"), cpu: isCpu ? new CPU(board, this.opts.diff, makeRNG(seed + 999)) : null, name, isCpu };
+        const p = { board, hud, canvas, renderer: new Renderer(board, canvas), nextCanvas: hud.querySelector(".next"), cpu: isCpu ? new CPU(board, (this.opts.diffs && this.opts.diffs[i]) || "normal", makeRNG(seed + 999)) : null, name, isCpu };
         this.fitCanvas(canvas);
         return p;
       }
@@ -837,7 +869,7 @@
         board.grid = emptyGrid(CONFIG.cols, CONFIG.rows);
         board.fill(Math.min(s.maxHeight, Math.round(s.startHeight + (stage - 1) * s.heightPerStage)), s.fillDensity, board.stoneRateNow(), 0);
         board.fallMs = Math.max(CONFIG.minFallMs, CONFIG.baseFallMs - (stage - 1) * CONFIG.fallDecreasePerStage);
-        board.stage = stage; board.cleared = false; board.alive = true; board.pendingSpecial = null; board.nextSpec = null; board.spawnPiece();
+        board.stage = stage; board.cleared = false; board.alive = true; board.pq = []; board.nextSpec = null; board.spawnPiece();
       }
       // One shared garbage layout (occupancy + stone positions) for all boards.
       genVSStructure() {
@@ -860,7 +892,7 @@
       }
       setupVSRound(board) {
         this.fillFromStructure(board, this.vsStructure);
-        board.fallMs = CONFIG.baseFallMs; board.cleared = false; board.alive = true; board.score = 0; board.gauge = 0; board.pendingSpecial = null; board.nextSpec = null; board.spawnPiece();
+        board.fallMs = CONFIG.baseFallMs; board.cleared = false; board.alive = true; board.score = 0; board.gauge = 0; board.pq = []; board.nextSpec = null; board.spawnPiece();
       }
 
       loop(t) {
@@ -916,8 +948,9 @@
         q("[data-score]").textContent = b.score;
         q("[data-gauge]").style.width = Math.min(100, (b.gauge / CONFIG.gaugeMax) * 100) + "%";
         const sp = q("[data-special]");
-        sp.innerHTML = b.pendingSpecial ? ("Next piece: <b>" + SPECIAL_NAME[b.pendingSpecial] + "</b>") : "&nbsp;";
-        const w = q("[data-wins]"); if (w) w.textContent = this.mode === "vs" ? "Wins " + (b.wins || 0) + " (match " + (b.matchWins || 0) + "/" + this.opts.fmt + ")" : "";
+        const nextPow = b.pq && b.pq.length ? b.pq[0] : null; // next powerup waiting in the queue
+        sp.innerHTML = nextPow ? ("Banked: <b>" + SPECIAL_NAME[nextPow] + "</b>" + (b.pq.length > 1 ? " +" + (b.pq.length - 1) : "")) : "&nbsp;";
+        const w = q("[data-wins]"); if (w) w.textContent = this.mode === "vs" ? "Wins " + (b.wins || 0) + " (match " + (b.matchWins || 0) + "/" + (this.opts.fmt === Infinity ? "∞" : this.opts.fmt) + ")" : "";
         const ex = q("[data-extra]");
         if (this.mode === "stage") ex.innerHTML = "Stage <b>" + b.stage + "</b>/50 · Spd <b>" + (CONFIG.baseFallMs / b.fallMs).toFixed(1) + "x</b>";
         else if (this.mode === "endless") ex.innerHTML = "Lvl <b>" + b.level + "</b> · Best <b>" + Math.max(b.high || 0, b.score) + "</b>";
@@ -995,30 +1028,35 @@
 
     // ------------------------------ Menu ---------------------------------
     const menu = document.getElementById("menu");
-    const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diff: "normal", fmt: 2 };
+    const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diffs: ["normal", "normal", "normal", "normal"], fmt: 2 };
     function pickGroup(id, attr, cb) { document.getElementById(id).addEventListener("click", (e) => { const btn = e.target.closest("button[" + attr + "]"); if (!btn) return; [...e.currentTarget.querySelectorAll("button")].forEach((b) => b.classList.remove("sel")); btn.classList.add("sel"); cb(btn.getAttribute(attr)); }); }
     pickGroup("mode-pick", "data-mode", (v) => { sel.mode = v; document.getElementById("vs-opts").style.display = v === "vs" ? "" : "none"; });
     pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
-    pickGroup("diff-pick", "data-diff", (v) => (sel.diff = v));
-    pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = parseInt(v, 10)));
-    // per-slot Human/CPU toggles
-    document.getElementById("ptype-pick").addEventListener("click", (e) => {
+    pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
+    // per-slot Human/CPU toggle + per-CPU difficulty dropdown
+    document.getElementById("player-rows").addEventListener("click", (e) => {
       const btn = e.target.closest("button.ptoggle"); if (!btn) return;
       const slot = +btn.getAttribute("data-slot");
       sel.ptypes[slot] = sel.ptypes[slot] === "human" ? "cpu" : "human";
       updateVsOpts();
     });
+    document.getElementById("player-rows").addEventListener("change", (e) => {
+      const s = e.target.closest("select.diffsel"); if (!s) return;
+      sel.diffs[+s.getAttribute("data-slot")] = s.value;
+    });
     function updateVsOpts() {
       const labels = ["P1", "P2", "P3", "P4"];
-      document.querySelectorAll("#ptype-pick .ptoggle").forEach((btn) => {
-        const slot = +btn.getAttribute("data-slot");
-        btn.style.display = slot < sel.players ? "" : "none";
+      document.querySelectorAll("#player-rows .prow").forEach((row) => {
+        const slot = +row.getAttribute("data-slot");
+        row.style.display = slot < sel.players ? "" : "none";
         const cpu = sel.ptypes[slot] === "cpu";
+        const btn = row.querySelector(".ptoggle");
         btn.textContent = labels[slot] + ": " + (cpu ? "CPU" : "Human");
         btn.classList.toggle("sel", cpu);
+        const ds = row.querySelector(".diffsel");
+        ds.style.display = cpu ? "" : "none";
+        ds.value = sel.diffs[slot];
       });
-      const anyCpu = sel.ptypes.slice(0, sel.players).some((t) => t === "cpu");
-      document.getElementById("diff-group").style.display = anyCpu ? "" : "none";
     }
     updateVsOpts();
     function updateKeysHelp() {
@@ -1040,7 +1078,7 @@
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";
-      if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diff: sel.diff, fmt: sel.fmt, carryWins: carryWins || null });
+      if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
     document.getElementById("menu-btn").addEventListener("click", toMenu);
