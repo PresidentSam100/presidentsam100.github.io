@@ -88,7 +88,7 @@
 
     /* CPS-over-time line graph */
     .graph { width: 100%; max-width: 340px; margin: 0.2rem auto 0; }
-    .graph .gtitle { font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 4px; }
+    .graph .gtitle { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 4px; }
     .graph svg.lg { width: 100%; height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(198,255,61,.15)); }
     .graph .lg-x { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); margin-top: 1px; }
     .graph .cap { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
@@ -284,36 +284,42 @@
         if (r > peak) peak = r;
         pts.push([t, r]);
       }
-      // "nice" round Y scale + CPS ticks
+      // "nice" round axis scales
       const niceStep = (range) => { const raw = range / 4, mag = Math.pow(10, Math.floor(Math.log10(raw || 1))), n = raw / mag; return (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10) * mag; };
       const step = niceStep(Math.max(4, peak));
       const niceMax = step * Math.max(1, Math.ceil((peak * 1.05) / step));
-      const VW = 300, VH = 120, PL = 22, PR = 10, PT = 10, yBase = 100;
+      const tStep = dur <= 5 ? 1 : 2;        // x ticks every 1s (3/5s) or 2s (10s)
+      const VW = 300, VH = 134, PL = 30, PR = 12, PT = 10, yBase = 98, midY = (PT + yBase) / 2;
       const X = (t) => PL + (t / dur) * (VW - PL - PR);
       const Y = (c) => PT + (1 - c / niceMax) * (yBase - PT);
       const ps = pts.map((p) => X(p[0]).toFixed(1) + "," + Y(p[1]).toFixed(1));
       const line = "M" + ps.join(" L");
       const area = "M" + X(0).toFixed(1) + "," + yBase + " L" + ps.join(" L") + " L" + X(dur).toFixed(1) + "," + yBase + " Z";
-      let grid = "";
+      let grid = "";                          // horizontal gridlines + CPS tick labels
       for (let v = 0; v <= niceMax + 1e-6; v += step) {
         const y = Y(v).toFixed(1);
-        grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#2a3142" : "#1d2331") + '"/>' +
-                '<text x="' + (PL - 4) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#6b7385" font-size="8">' + v + '</text>';
+        grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#2a3142" : "#1c2230") + '"/>' +
+                '<text x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#6b7385" font-size="8">' + v + '</text>';
+      }
+      let xticks = "";                        // vertical gridlines + second tick labels
+      for (let tt = 0; tt <= dur + 1e-6; tt += tStep) {
+        const x = X(tt).toFixed(1);
+        xticks += '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '" stroke="#161b27"/>' +
+                  '<text x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" fill="#6b7385" font-size="8">' + tt + '</text>';
       }
       const yAvg = Y(finalCps).toFixed(1);
       $("graph").innerHTML =
-        '<div class="gtitle">CPS over time</div>' +
+        '<div class="gtitle">clicks per second (CPS) over time</div>' +
         '<svg class="lg" viewBox="0 0 ' + VW + ' ' + VH + '">' +
           '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(198,255,61,.32)"/><stop offset="1" stop-color="rgba(198,255,61,0)"/></linearGradient></defs>' +
-          '<text x="1" y="8" fill="#6b7385" font-size="7" font-weight="700">CPS</text>' +
-          grid +
-          '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#36f5ff" stroke-width="1" stroke-dasharray="4 4" opacity=".6"/>' +
+          grid + xticks +
           '<path d="' + area + '" fill="url(#lgF)"/>' +
+          '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#36f5ff" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
           '<path d="' + line + '" fill="none" stroke="#c6ff3d" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-          '<text x="' + PL + '" y="' + (yBase + 13) + '" fill="#6b7385" font-size="8">0s</text>' +
-          '<text x="' + (VW - PR) + '" y="' + (yBase + 13) + '" text-anchor="end" fill="#6b7385" font-size="8">' + dur + 's</text>' +
+          '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">CPS</text>' +
+          '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">Time (s)</text>' +
         '</svg>' +
-        '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> CPS</div>';
+        '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> CPS &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> CPS</div>';
     }
     function rating(c) {
       if (c < 3) return { t: "Warming up", c: "var(--muted)" };
