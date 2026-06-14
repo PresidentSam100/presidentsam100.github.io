@@ -183,11 +183,17 @@
           <span class="desc">classic space shooter — blast the swarm</span>
           <span class="play">play →</span>
         </a>
-
         <a class="game-card" href="./demolition-row/">
           <span class="icon">🧱</span>
           <span class="name">Demolition Row</span>
           <span class="desc">connect 4+ blocks, chain cascades, beat the line</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./battleship/">
+          <span class="icon">🚢</span>
+          <span class="name">Battleship</span>
+          <span class="desc">place your fleet, sink the CPU's fleet — 3 AI levels</span>
           <span class="play">play →</span>
         </a>
 
@@ -321,6 +327,7 @@
         ];
         // Any key starting with one of these prefixes (covers per-mode keys).
         var PREFIXES = [
+          "battleship_record", // Battleship (win/loss record)
           "clickrush_best_", // Click Rush (all input/duration combos)
           "flappyWorld_hiScore", // Flappy World (all lives modes)
           "wordfall_best_", // ZType (all modes) — legacy key, kept to preserve saved scores

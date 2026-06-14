@@ -59,6 +59,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../coinflip.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Trebuchet MS',Verdana,sans-serif;color:#33414f;background:#fff;border:1px solid #c4cbd2;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -191,7 +192,13 @@ function newGame() {
   turn = HUMAN; gameOver = false; busy = false; lastLine = null;
   draw();
   updateScores();
-  setStatus('Your turn');
+  if (window.coinFlip) {
+    setStatus('Flipping for first move…');
+    coinFlip({ you: 'You (Y)', cpu: 'CPU (A)', accent: '#2f6fb0', youColor: '#d2362f', cpuColor: '#2f6fb0' }, function (who) {
+      if (who === 'cpu') { turn = AI; busy = true; setStatus('AI thinking…'); setTimeout(aiTurn, 400); }
+      else setStatus('Your turn');
+    });
+  } else setStatus('Your turn');
 }
 
 // --- geometry ---

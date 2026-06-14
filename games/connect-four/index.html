@@ -70,6 +70,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../coinflip.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 Georgia,'Times New Roman',serif;color:#f5efe2;background:#114138;border:1px solid #1d5045;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -185,8 +186,14 @@ function init() {
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
   gameOver = false; busy = false; animMove = null;
   buildDOM();
-  setStatus('Your turn (Red)');
   render();
+  if (window.coinFlip) {
+    setStatus('Flipping for first move…');
+    coinFlip({ you: 'You (Red)', cpu: 'CPU (Yellow)', accent: '#d9a441', youColor: '#e4564d', cpuColor: '#f4d35e' }, function (who) {
+      if (who === 'cpu') { busy = true; setStatus('AI thinking…'); setTimeout(function () { aiMove(); busy = false; }, 600); }
+      else setStatus('Your turn (Red)');
+    });
+  } else setStatus('Your turn (Red)');
 }
 
 function buildDOM() {

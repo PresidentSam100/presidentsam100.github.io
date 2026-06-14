@@ -57,6 +57,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../coinflip.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 system-ui,-apple-system,Segoe UI,sans-serif;color:#cdd6f4;background:#313244;border:1px solid #45475a;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -177,8 +178,14 @@ function init() {
     btn.addEventListener('click', () => humanMove(i));
     boardEl.appendChild(btn);
   }
-  setStatus('Your turn (X)');
   render();
+  if (window.coinFlip) {
+    setStatus('Flipping for first move…');
+    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#89b4fa', youColor: '#f38ba8', cpuColor: '#a6e3a1' }, function (who) {
+      if (who === 'cpu') { setStatus('AI thinking…'); setTimeout(aiMove, 450); }
+      else setStatus('Your turn (X)');
+    });
+  } else setStatus('Your turn (X)');
 }
 
 function render() {
