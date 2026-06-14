@@ -110,7 +110,18 @@
     .mode-pill { font-size: 0.78rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0.3rem 0.7rem; }
     .hint { color: var(--muted); font-size: 0.78rem; text-align: center; margin-top: 0.2rem; }
     .hidden { display: none !important; }
-  </style>
+    /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script src="../motion-toggle.js"></script>
 </head>
 <body>
   <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Oswald',system-ui,sans-serif;color:#f6eee2;background:#211a14;border:1px solid #332a20;border-radius:8px;padding:8px 13px">&larr; Games</a>

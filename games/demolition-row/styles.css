@@ -25,9 +25,10 @@
       .stars { font-size: 0.85rem; }
       .bonus-tag { color: #ffd23f; font-weight: 800; }
       canvas.board { background: #20232b; border-radius: 10px; touch-action: none; display: block; }
-      .btn { cursor: pointer; background: var(--accent); color: #2a0716; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-family: inherit; font-size: 0.95rem; font-weight: 700; transition: filter 0.15s ease; }
-      .btn:hover { filter: brightness(1.12); }
-      .btn.ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease; }
+      .btn { cursor: pointer; background: var(--accent); color: #2a0716; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-family: inherit; font-size: 0.95rem; font-weight: 700; transition: filter 0.15s ease, transform 0.08s ease; }
+      .btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+      .btn:active { transform: scale(0.97); }
+      .btn.ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
       .btn.ghost:hover { filter: none; background: rgba(255,46,126,0.12); border-color: var(--accent); color: var(--accent); }
       .btn.sel { outline: 2px solid #ffd23f; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
@@ -51,3 +52,16 @@
       .dict-item { font-size: 0.82rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid #3a3f49; }
       .dict-item b { color: var(--text); }
       #byline { color: #5a627a; font-size: 75%; margin-top: 0.4rem; }
+      /* tasteful overlay entrance (auto-disabled by reduce-motion) */
+      .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
+      @keyframes drCardRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+/* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

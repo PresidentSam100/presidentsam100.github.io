@@ -1,6 +1,8 @@
 // ============================================================
 // CONSTANTS
 // ============================================================
+// Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
 const CANVAS_W = 480;
 const CANVAS_H = 854;
 const GRAVITY = 2000;
@@ -1900,9 +1902,11 @@ class Game {
 
     if (this.shakeTime > 0) {
       this.shakeTime -= dt || 0;
-      const offsetX = Math.sin(this.blinkTimer * 50) * 6;
-      const offsetY = Math.cos(this.blinkTimer * 50) * 6;
-      ctx.translate(offsetX, offsetY);
+      if (!reducedMotion()) {
+        const offsetX = Math.sin(this.blinkTimer * 50) * 6;
+        const offsetY = Math.cos(this.blinkTimer * 50) * 6;
+        ctx.translate(offsetX, offsetY);
+      }
     }
 
     this.background.draw(ctx);

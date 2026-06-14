@@ -20,7 +20,8 @@
           transition:transform .05s; box-shadow:inset 0 3px 6px rgba(0,0,0,.5); }
   .cell.red { background:radial-gradient(circle at 35% 30%, #ff897e, var(--red)); }
   .cell.yellow { background:radial-gradient(circle at 35% 30%, #fff2c9, var(--yellow)); }
-  .cell.win { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); }
+  .cell.win { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); animation:cfWin 1.1s ease-in-out infinite; }
+  @keyframes cfWin { 0%,100% { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); } 50% { box-shadow:inset 0 0 0 5px var(--accent), 0 0 16px rgba(255,255,255,.5), inset 0 3px 6px rgba(0,0,0,.5); } }
   .col-hover { background:#176054 !important; }
   /* colored frame sitting in FRONT of the discs, with circular holes punched out */
   .frame-layer { position:absolute; top:0; left:0; pointer-events:none; z-index:2; }
@@ -53,9 +54,22 @@
   .modal h2 { margin:0 0 12px; }
   .modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
   .modal .btn { width:100%; }
+  .modal-overlay.open .modal { animation:cfModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
+  @keyframes cfModalIn { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:none; } }
 
   @media (max-width:560px){ .cell{ width:42px; height:42px; } }
+  /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
+<script src="../motion-toggle.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 Georgia,'Times New Roman',serif;color:#f5efe2;background:#114138;border:1px solid #1d5045;border-radius:8px;padding:8px 13px">&larr; Games</a>

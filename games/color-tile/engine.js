@@ -77,6 +77,7 @@
     let win = false,
       bounced = false,
       blocked = false,
+      hitWall = false,
       sound = false;
     let guard = 0;
 
@@ -85,6 +86,7 @@
       const ch = tileAt(grid, next.r, next.c);
 
       if (isWall(ch)) {
+        hitWall = true;
         if (steps.length === 0) blocked = true; // nothing moved
         break; // stay on `cur`
       }
@@ -128,6 +130,7 @@
       win,
       bounced,
       blocked,
+      hitWall,
       sound,
     };
   }

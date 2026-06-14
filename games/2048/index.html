@@ -279,8 +279,19 @@
         font-size: 75%;
         margin-top: 0.5rem;
       }
-    </style>
-  </head>
+      /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+  <script src="../motion-toggle.js"></script>
+</head>
   <body>
     <div class="wrap">
       <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -636,7 +647,9 @@
           if (toRemove.length) {
             pending = toRemove;
             pendingMerges = mergeNow;
-            pendingTimer = setTimeout(flushPending, ANIM_MS);
+            // With reduced motion the slide is instant, so reveal the merged tile
+            // immediately instead of waiting out the (now non-existent) slide.
+            pendingTimer = setTimeout(flushPending, (window.RM_ON && window.RM_ON()) ? 0 : ANIM_MS);
           }
 
           addRandom();

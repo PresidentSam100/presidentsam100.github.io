@@ -250,6 +250,14 @@
     setFlavor(state.flavor);
     refreshLive();
 
+    // A slide that traveled and then stopped against a wall (e.g. ice into a red
+    // block) should bump into it and settle back. Only with motion enabled —
+    // when reduced, skip the nudge (and its brief input lock).
+    if (res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) {
+      SFX.thud();
+      bump(dir);
+    }
+
     locked = false;
     if (res.win) completeLevel();
   }

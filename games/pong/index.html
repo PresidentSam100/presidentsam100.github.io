@@ -85,7 +85,29 @@
     body.playing #ctrl-left { display: flex; }
     body.playing.p2 #ctrl-right { display: flex; }
   }
+
+  /* tasteful entrance + interaction motion (auto-disabled by reduce-motion) */
+  .overlay:not(.hidden) { animation: ovFade 0.3s ease both; }
+  .overlay:not(.hidden) h1 { text-shadow: 0 0 22px rgba(255,255,255,0.2); animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) backwards, titleGlow 3.4s ease-in-out 0.6s infinite; }
+  .overlay:not(.hidden) p { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.08s backwards; }
+  .overlay:not(.hidden) .btn { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.16s backwards; }
+  .btn:active { transform: scale(0.96); }
+  @keyframes ovFade { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes ovUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @keyframes titleGlow { 0%, 100% { text-shadow: 0 0 18px rgba(255,255,255,0.15); } 50% { text-shadow: 0 0 32px rgba(255,255,255,0.42); } }
+
+  /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
+<script src="../motion-toggle.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:1px;color:#000;background:#fff;border:none;border-radius:6px;padding:8px 13px">&larr; Games</a>

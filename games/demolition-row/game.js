@@ -1,4 +1,6 @@
     "use strict";
+    // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+    var reducedMotion = function () { return !!(window.RM_ON && window.RM_ON()); };
     /* =====================================================================
      * Demolition Row — Wii Party U "Demolition Row" inspired clone.
      *
@@ -617,7 +619,7 @@
         ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
         for (let c = 0; c <= cols; c++) { ctx.beginPath(); ctx.moveTo(c * cell, topY); ctx.lineTo(c * cell, H); ctx.stroke(); }
         for (let r = b.cfg.topLineRow; r <= rows; r++) { ctx.beginPath(); ctx.moveTo(0, r * cell); ctx.lineTo(W, r * cell); ctx.stroke(); }
-        const shakeX = b.shake > 0 ? (Math.random() * 2 - 1) * 6 * b.shake : 0;
+        const shakeX = (b.shake > 0 && !reducedMotion()) ? (Math.random() * 2 - 1) * 6 * b.shake : 0;
         ctx.save(); ctx.translate(shakeX, 0);
         // blocks render at their animated offset (cell.oy = rows left to fall)
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const x = b.grid[r][c]; if (x) this.drawCell(x, c * cell, (r - (x.oy || 0)) * cell); }

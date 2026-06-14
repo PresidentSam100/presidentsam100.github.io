@@ -83,9 +83,26 @@
     .rules li { margin: 0.25rem 0; }
     .summary { display: flex; flex-wrap: wrap; gap: 0.35rem; justify-content: center; margin: 0.7rem 0 0.2rem; }
     .btn { cursor: pointer; background: var(--accent); color: #04121f; border: none; border-radius: 10px; padding: 0.8rem 1.6rem; font-family: inherit; font-size: 1.05rem; font-weight: 800; transition: filter 0.15s ease, transform 0.08s ease; }
-    .btn:hover { filter: brightness(1.08); }
+    .btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
     .btn:active { transform: scale(0.97); }
-  </style>
+
+    /* tasteful entrance + result motion (auto-disabled by reduce-motion) */
+    .overlay.show .card { animation: cardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
+    @keyframes cardRise { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: none; } }
+    .card .big { animation: rPop 0.42s cubic-bezier(0.2,1.25,0.4,1) 0.08s backwards; }
+    @keyframes rPop { 0% { opacity: 0; transform: scale(0.72); } 60% { transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
+    /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+     transitions, and motion effects (pulse, shake, drop, blink, glows). */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+<script src="../motion-toggle.js"></script>
 </head>
 <body>
   <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#eef2f9;background:#141826;border:1px solid #232838;border-radius:8px;padding:8px 13px">&larr; Games</a>

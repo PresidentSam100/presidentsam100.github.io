@@ -36,7 +36,11 @@ const T_MOMIJI = 'momiji';
 const T_ENTERPRISE = 'enterprise';
 
 // Shared animation clock (frame index for wing flapping etc.)
-const ANIM = { flap: 0, time: 0, reducedFlash: false };
+// Reduced Flash follows this game's reduce-motion setting (motion-toggle.js): set at load,
+// and updated live when the player flips the top-right Motion toggle. The pause-menu
+// "Reduced Flash" option still works as a manual override.
+const ANIM = { flap: 0, time: 0, reducedFlash: !!(window.RM_ON && window.RM_ON()) };
+window.addEventListener("reducemotionchange", function (e) { ANIM.reducedFlash = e.detail.on; });
 
 // ---- math helpers ---------------------------------------------------------
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

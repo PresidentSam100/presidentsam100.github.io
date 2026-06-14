@@ -116,6 +116,8 @@
 
   let particles = [];
   let canRestart = false;  // gates tap-to-restart until the game-over panel is up
+  // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+  const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
   let shakeTime = 0;
   let flash = 0;           // success ring flash 0..1
   let lastTs = 0;
@@ -252,7 +254,7 @@
     let sx = 0, sy = 0;
     if (shakeTime > 0) {
       shakeTime -= dt;
-      const m = (shakeTime / 320) * 8;
+      const m = reducedMotion() ? 0 : (shakeTime / 320) * 8;
       sx = rand(-m, m); sy = rand(-m, m);
     }
 

@@ -191,6 +191,22 @@ function coinPop() {
     });
   } catch (e) {}
 }
+// soft UI blip when moving the menu selection (dir < 0 = up/prev, dir > 0 = down/next)
+function menuTick(dir) {
+  try {
+    const a = AC(), t = a.currentTime, out = makeOut(0.16, 0);
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = "triangle";
+    const base = dir < 0 ? 620 : 480; // up = brighter, down = lower
+    o.frequency.setValueAtTime(base, t);
+    o.frequency.exponentialRampToValueAtTime(base * 1.15, t + 0.025);
+    o.connect(g); g.connect(out);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.22, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07);
+    o.start(t); o.stop(t + 0.08);
+  } catch (e) {}
+}
 // wailing police siren (pitch wobbles between two tones) as a chase appears
 // continuous wailing siren that runs for the duration of a chase; gain is set each frame from proximity
 function startSiren(row) {
@@ -1175,8 +1191,8 @@ window.addEventListener("keydown", (e) => {
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   if (k === "m") { toggleMute(); return; } // mute works in any state
   if (state === "menu") {
-    if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") menuSel = (menuSel + MODES.length - 1) % MODES.length;
-    else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") menuSel = (menuSel + 1) % MODES.length;
+    if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") { menuSel = (menuSel + MODES.length - 1) % MODES.length; menuTick(-1); }
+    else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") { menuSel = (menuSel + 1) % MODES.length; menuTick(1); }
     else if (k === "c") cycleSkin();
     else if (k === " " || k === "enter") startSelectedMode();
     return;
