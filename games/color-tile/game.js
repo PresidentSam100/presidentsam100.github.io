@@ -345,6 +345,15 @@
   document.getElementById("overlayReplay").addEventListener("click", () => loadLevel(current));
   document.getElementById("overlayNext").addEventListener("click", () => loadLevel(current + 1));
 
+  // ----- Tile Guide modal -----
+  const guideOverlay = document.getElementById("guideOverlay");
+  const openGuide = () => { guideOverlay.hidden = false; };
+  const closeGuide = () => { guideOverlay.hidden = true; };
+  document.getElementById("guideBtn").addEventListener("click", openGuide);
+  document.getElementById("guideClose").addEventListener("click", closeGuide);
+  guideOverlay.addEventListener("click", (e) => { if (e.target === guideOverlay) closeGuide(); });
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !guideOverlay.hidden) closeGuide(); });
+
 
   window.addEventListener("resize", () => {
     computeCell();

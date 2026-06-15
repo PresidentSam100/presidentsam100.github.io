@@ -16,7 +16,10 @@
           <h1>Color&nbsp;Tile&nbsp;Maze</h1>
           <p class="tag">Navigate the resort's colored tiles to the goal.</p>
         </div>
-        <a class="btn editor-link" href="./editor.html">✎ Level Editor</a>
+        <div class="topbar-actions">
+          <button class="btn" id="guideBtn" type="button">❔ Tile Guide</button>
+          <a class="btn editor-link" href="./editor.html">✎ Level Editor</a>
+        </div>
       </header>
 
       <main class="stage">
@@ -66,18 +69,24 @@
         </section>
 
         <aside class="side">
-          <h3>Tile Guide</h3>
-          <ul class="legend" id="legend"></ul>
-
           <h3>Levels</h3>
           <div class="levelpick" id="levelPick"></div>
 
           <p class="credit">
             Arrow keys / WASD to move · R to reset.<br />
-            Tile rules from the MTT Resort color puzzle.
+            New to the tiles? Tap <b>❔ Tile Guide</b> up top.
           </p>
         </aside>
       </main>
+    </div>
+
+    <!-- Tile Guide modal (opened from the topbar) -->
+    <div class="guide-overlay" id="guideOverlay" hidden>
+      <div class="guide-card" role="dialog" aria-modal="true" aria-label="Tile Guide">
+        <button class="guide-close" id="guideClose" type="button" aria-label="Close">✕</button>
+        <h2>Tile Guide</h2>
+        <ul class="legend" id="legend"></ul>
+      </div>
     </div>
 
     <script src="engine.js"></script>

@@ -21,6 +21,11 @@
 
 * { box-sizing: border-box; }
 
+/* Reserve the scrollbar gutter so the page width (and the fixed top-right
+   Mute / Visual FX buttons) stays put whether or not a page scrolls — keeps
+   the game and the level editor visually consistent. */
+html { scrollbar-gutter: stable; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -310,6 +315,29 @@ html, body {
 .lvlbtn.current { outline: 2px solid var(--accent); }
 
 .credit { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.credit b { color: var(--ink); }
+
+/* topbar button group (Tile Guide + Level Editor) */
+.topbar-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+/* Tile Guide modal */
+.guide-overlay {
+  position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+  padding: 20px; background: rgba(8, 10, 22, 0.78); animation: fade 200ms ease;
+}
+.guide-overlay[hidden] { display: none; }
+.guide-card {
+  position: relative; width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto;
+  background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.guide-card h2 { margin: 0 0 16px; font-size: 22px; color: var(--accent); }
+.guide-card .legend { margin: 0; }
+.guide-close {
+  position: absolute; top: 12px; right: 12px; background: transparent; border: none;
+  color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px;
+}
+.guide-close:hover { color: var(--ink); }
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {

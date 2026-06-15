@@ -12,8 +12,9 @@
 (function () {
   "use strict";
 
-  // Per-game key from the folder name: /games/<id>/[index.html] -> <id>
-  var seg = location.pathname.replace(/\/(index\.html?)?$/i, "").split("/").filter(Boolean);
+  // Per-game key from the folder name: /games/<id>/[anything.html] -> <id>
+  // (strips any trailing *.html so sub-pages like editor.html share the game's setting)
+  var seg = location.pathname.replace(/\/([^/]*\.html?)?$/i, "").split("/").filter(Boolean);
   var id = seg[seg.length - 1] || "site";
   var KEY = "reduceMotion:" + id;
   var CSS =
