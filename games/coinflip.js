@@ -72,13 +72,17 @@
     }
 
     if (reduce) {
-      // ---- flash: snap between the two names a handful of times ----
+      // ---- flash version of the reel: cycle the two names with no smooth
+      // motion, but with decelerating gaps so it visibly slows to a stop on the
+      // winner (like the slot machine winding down, just in discrete flashes) ----
       win.innerHTML = '<div class="cf-nm" style="height:100%;display:flex;align-items:center;justify-content:center"></div>';
       var nm = win.querySelector(".cf-nm");
-      var fseq = buildSeq(12), fL = fseq.length, fi = 0;
+      var fseq = buildSeq(13), fL = fseq.length, fi = 0;
+      // gaps grow from ~55ms to ~225ms so each flip lingers a little longer than the last
+      function flashGap(i) { return 55 + Math.round(170 * Math.pow(i / (fL - 1), 1.7)); }
       (function step() {
         var v = fseq[fi]; nm.textContent = sFaces[v]; nm.style.color = cols[v]; tick(v); fi++;
-        if (fi < fL) setTimeout(step, 80);
+        if (fi < fL) setTimeout(step, flashGap(fi));
         else finish();
       })();
     } else {

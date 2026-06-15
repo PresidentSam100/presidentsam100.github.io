@@ -56,6 +56,23 @@
   .btn:hover { background: #ccc; transform: scale(1.04); }
   .hidden { display: none; }
 
+  /* Pre-game countdown: lighter overlay so the board stays visible behind it */
+  #countdown { background: rgba(0, 0, 0, 0.5); gap: 30px; pointer-events: none; z-index: 15; }
+  .count-num {
+    font-size: clamp(80px, 20vw, 170px); font-weight: 700; line-height: 1;
+    text-shadow: 0 0 34px rgba(255, 255, 255, 0.35);
+  }
+  .count-controls { display: flex; gap: 44px; }
+  .count-controls > div { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .count-controls b { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.65; font-weight: 700; }
+  .count-controls span {
+    font-size: 22px; font-weight: 600; padding: 8px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 8px; min-width: 96px;
+  }
+  /* countdown number pops on each tick (auto-disabled by reduce-motion) */
+  .count-num { animation: countPop 0.9s ease both; }
+  @keyframes countPop { 0% { opacity: 0; transform: scale(1.45); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0.92; transform: scale(1); } }
+
   /* On-screen paddle arrows (touch devices only) */
   .pong-ctrl {
     position: fixed;
@@ -108,6 +125,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:1px;color:#000;background:#fff;border:none;border-radius:6px;padding:8px 13px">&larr; Games</a>
@@ -123,6 +141,14 @@
 <div id="gameover" class="overlay hidden">
   <h1 id="winner"></h1>
   <button class="btn" id="again">Play Again</button>
+</div>
+
+<div id="countdown" class="overlay hidden">
+  <div class="count-num" id="count-num">3</div>
+  <div class="count-controls">
+    <div><b id="count-left-label">Player 1</b><span id="count-left">W / S</span></div>
+    <div><b id="count-right-label">Player 2</b><span id="count-right">↑ / ↓</span></div>
+  </div>
 </div>
 
 <!-- On-screen paddle controls (mobile) -->
@@ -151,9 +177,15 @@ const menu = document.getElementById("menu");
 const gameover = document.getElementById("gameover");
 const winnerEl = document.getElementById("winner");
 const controlsEl = document.getElementById("controls");
+const countdownEl = document.getElementById("countdown");
+const countNumEl = document.getElementById("count-num");
+const countRightLabelEl = document.getElementById("count-right-label");
+const countRightEl = document.getElementById("count-right");
 
-let state = "menu";     // "menu" | "playing" | "gameover"
+let state = "menu";     // "menu" | "countdown" | "playing" | "gameover"
 let players = 1;        // 1 = vs AI, 2 = vs human
+let pendingDir = 1;     // direction the ball will launch once the countdown ends
+let countdownTimer = null;
 
 // --- Sound (Web Audio API, no files needed) ---
 let audioCtx = null;
@@ -245,12 +277,49 @@ function startGame(mode) {
   left.score = 0;
   right.score = 0;
   left.y = right.y = H / 2 - PADDLE_H / 2;
-  resetBall(Math.random() < 0.5 ? -1 : 1);
-  state = "playing";
+  // park the ball at center, frozen — it launches when the countdown ends
+  ball.x = W / 2; ball.y = H / 2; ball.vx = 0; ball.vy = 0;
+  pendingDir = Math.random() < 0.5 ? -1 : 1;
   menu.classList.add("hidden");
   gameover.classList.add("hidden");
   document.body.classList.add("playing");
   document.body.classList.toggle("p2", players === 2); // show right arrows in 2P
+  startCountdown();
+}
+
+// 3-second countdown before play: shows both players' controls, then launches.
+function startCountdown() {
+  state = "countdown";
+  // Right side is a human (↑/↓) in 2P, otherwise the CPU plays it.
+  countRightLabelEl.textContent = players === 2 ? "Player 2" : "CPU";
+  countRightEl.textContent = players === 2 ? "↑ / ↓" : "Auto";
+  countdownEl.classList.remove("hidden");
+
+  let n = 3;
+  showCount(n);
+  clearInterval(countdownTimer);
+  countdownTimer = setInterval(() => {
+    n--;
+    if (n > 0) {
+      showCount(n);
+    } else {
+      clearInterval(countdownTimer);
+      countdownTimer = null;
+      countdownEl.classList.add("hidden"); // controls vanish as play begins
+      tone(660, 0.18, "square", 0.2);      // "go!"
+      state = "playing";
+      resetBall(pendingDir);
+    }
+  }, 1000);
+}
+
+// Update the big number and restart its pop animation, with a tick beep.
+function showCount(n) {
+  countNumEl.textContent = n;
+  countNumEl.style.animation = "none";
+  void countNumEl.offsetWidth; // reflow so the animation replays each tick
+  countNumEl.style.animation = "";
+  tone(440, 0.1, "square", 0.16);
 }
 
 function clampPaddle(p) {
@@ -259,7 +328,7 @@ function clampPaddle(p) {
 }
 
 function update() {
-  if (state !== "playing") return;
+  if (state !== "playing" && state !== "countdown") return;
 
   // Left paddle: W/S or on-screen arrows
   if (keys["w"] || leftUp) left.y -= PADDLE_SPEED;
@@ -278,6 +347,8 @@ function update() {
     else right.y = target;
   }
   clampPaddle(right);
+
+  if (state !== "playing") return; // ball stays frozen during the countdown
 
   // Ball movement
   ball.x += ball.vx;

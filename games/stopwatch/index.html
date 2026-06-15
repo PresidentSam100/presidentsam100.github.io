@@ -122,6 +122,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
 </head>
 <body>
   <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Oswald',system-ui,sans-serif;color:#f6eee2;background:#211a14;border:1px solid #332a20;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -155,7 +156,6 @@
     </div>
 
     <div class="footer-controls">
-      <button class="mute" id="mute" title="Toggle sound">🔊</button>
       <span class="mode-pill" id="mode-pill"></span>
     </div>
     <p class="hint">tap the button or press <b>Space</b> — start, then stop when you think the time is up</p>
@@ -182,7 +182,7 @@
     var elTargetLine = $("target-line"), elTargetBig = $("target-big"), elSub = $("sub");
     var elBtn = $("btn"), elResult = $("result");
     var ovCard = $("overlay-card"), cardInner = $("card-inner");
-    var muteBtn = $("mute"), modePill = $("mode-pill");
+    var modePill = $("mode-pill");
 
     // ---- state ----
     var state = "menu";       // menu | counting | result | gameover (ready handled inline)
@@ -198,8 +198,8 @@
 
     // ---------------------------------------------------------- sound
     var Sound = {
-      ctx: null, muted: false,
-      load: function () { try { this.muted = localStorage.getItem("stopwatch_muted") === "1"; } catch (e) {} },
+      ctx: null, muted: false, // muting is handled globally by the shared toggle (mute-toggle.js)
+      load: function () { this.muted = false; },
       init: function () { if (this.ctx) return; try { var AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); } catch (e) { this.ctx = null; } },
       beep: function (freq, dur, vol, type) {
         if (this.muted || !this.ctx) return;
@@ -216,13 +216,6 @@
       fail: function () { this.beep(200, 0.4, 0.3, "sawtooth"); this.beep(120, 0.45, 0.18, "square"); },
     };
     Sound.load();
-    function updateMuteBtn() { muteBtn.textContent = Sound.muted ? "🔇" : "🔊"; }
-    updateMuteBtn();
-    muteBtn.addEventListener("click", function () {
-      Sound.muted = !Sound.muted;
-      try { localStorage.setItem("stopwatch_muted", Sound.muted ? "1" : "0"); } catch (e) {}
-      updateMuteBtn();
-    });
 
     // ---------------------------------------------------------- helpers
     function fmt(n, d) { return Number(n).toFixed(d === undefined ? 3 : d); }

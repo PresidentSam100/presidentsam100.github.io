@@ -473,7 +473,6 @@ function lsGet(k, dflt) { try { const v = localStorage.getItem(k); return v == n
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 function loadHigh(mode) { return +lsGet(highKey(mode), 0); }
 function loadBestCoins(mode) { return +lsGet(bestCoinsKey(mode), 0); }
-muted = lsGet("crossy_mute", "0") === "1";
 let highScore = loadHigh(gameMode);
 let bestCoins = loadBestCoins(gameMode); // coins from the best run, shown next to "Best"
 let prevHigh = 0; // best at the start of this run (for the "NEW BEST!" flourish)
@@ -1189,7 +1188,6 @@ function cycleSkin() {
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
-  if (k === "m") { toggleMute(); return; } // mute works in any state
   if (state === "menu") {
     if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") { menuSel = (menuSel + MODES.length - 1) % MODES.length; menuTick(-1); }
     else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") { menuSel = (menuSel + 1) % MODES.length; menuTick(1); }
@@ -1717,9 +1715,6 @@ function drawHUD() {
   ctx.fillStyle = "rgba(255,255,255,.8)";
   ctx.fillText("BEST " + highScore, 18, 70);
   if (coins > 0) { ctx.fillStyle = "#ffd23d"; ctx.fillText("🪙 " + coins, 18, 88); }
-  // mute indicator, top-right
-  ctx.textAlign = "right"; ctx.fillStyle = "rgba(255,255,255,.7)";
-  ctx.fillText(muted ? "🔇 (M)" : "🔊 (M)", W - 12, 20);
 }
 
 function drawButton(b, fill, label, sub, hi, selected) {

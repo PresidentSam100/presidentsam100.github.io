@@ -93,11 +93,11 @@
     @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
   </style>
   <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
   <script src="../coinflip.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:800 13px/1 'Inter',system-ui,sans-serif;color:#36cfff;background:#0f1f30;border:1px solid #36cfff;border-radius:8px;padding:8px 13px;box-shadow:0 0 12px rgba(54,207,255,.35)">&larr; Games</a>
-<button class="mute" id="mute" title="Sound on/off">🔊</button>
 
   <div class="wrap">
     <header class="top"><h1>Battle<b>ship</b></h1></header>
@@ -152,8 +152,7 @@
     const coordLabel = (r, c) => LETTERS[r] + c;
 
     // ---- audio ----
-    let actx = null, muted = localStorage.getItem("battleship_mute") === "1";
-    $("mute").textContent = muted ? "🔇" : "🔊";
+    let actx = null, muted = false; // muting is handled globally by the shared toggle (mute-toggle.js)
     function snd(f, dur, type, vol, slideTo) {
       if (muted) return;
       try {
@@ -190,7 +189,7 @@
     };
 
     // ---- state ----
-    let playerBoard, enemyBoard, playerShips, enemyShips, phase, turn, placeIdx, orient, cpuTargets;
+    let playerBoard, enemyBoard, playerShips, enemyShips, phase, turn, placeIdx, orient, cpuTargets, round = 0;
     let hoverR = -1, hoverC = -1;   // last hovered cell on the placement grid
     let difficulty = localStorage.getItem("battleship_diff") || "medium";
     let rec = JSON.parse(localStorage.getItem("battleship_record") || '{"w":0,"l":0}');
@@ -330,6 +329,9 @@
     // ---- battle ----
     function startBattle() {
       if (placeIdx < SHIPS.length) return;
+      // Bump the round so any still-pending async work (a coin-flip callback or a
+      // queued CPU turn) from the previous game is recognized as stale and ignored.
+      round++;
       try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
       enemyBoard = emptyBoard(); enemyShips = makeShips(); placeRandom(enemyBoard, enemyShips);
       phase = "battle"; turn = "player"; cpuTargets = [];
@@ -337,12 +339,21 @@
       $("playerTitle").textContent = "Your Fleet (under fire)";
       render();
       if (window.coinFlip) {
+        const myRound = round;
         coinFlip({ you: "You", cpu: "CPU", accent: "#36cfff" }, function (who) {
+          if (myRound !== round) return; // a new game was started before this flip resolved
           turn = who === "cpu" ? "cpu" : "player"; render();
-          if (turn === "cpu") { status('<span class="warn">CPU fires first…</span>'); setTimeout(cpuTurn, 750); }
+          if (turn === "cpu") { status('<span class="warn">CPU fires first…</span>'); scheduleCpu(750); }
           else status('<span class="ok">Battle!</span> Fire at enemy waters.');
         });
       } else status('<span class="ok">Battle!</span> Fire at enemy waters.');
+    }
+
+    // Queue the CPU's turn but only let it run if we're still in the same game —
+    // starting a new game bumps the round and cancels any pending CPU turn.
+    function scheduleCpu(delay) {
+      const myRound = round;
+      setTimeout(() => { if (myRound === round) cpuTurn(); }, delay);
     }
 
     function attack(board, r, c) {
@@ -363,7 +374,7 @@
       render(); flashHit(enemyGrid, res, r, c);
       if (allSunk(enemyShips)) { setTimeout(() => gameOver("player"), res.sunk ? 650 : 150); return; }
       if (res.hit) status('<span class="hit">HIT at ' + coordLabel(r, c) + "!</span>" + (res.sunk ? " Sank their " + res.ship.name + "." : " Fire again."));
-      else { status("Miss at " + coordLabel(r, c) + " — <span class=\"warn\">CPU's turn…</span>"); turn = "cpu"; render(); setTimeout(cpuTurn, 800); }
+      else { status("Miss at " + coordLabel(r, c) + " — <span class=\"warn\">CPU's turn…</span>"); turn = "cpu"; render(); scheduleCpu(800); }
     });
     enemyGrid.addEventListener("mouseover", (e) => { const cell = e.target.closest(".cell"); if (cell && phase === "battle" && turn === "player") $("coord").textContent = "🎯 " + coordLabel(+cell.dataset.r, +cell.dataset.c); });
     enemyGrid.addEventListener("mouseleave", () => { $("coord").textContent = ""; });
@@ -430,7 +441,7 @@
       if (res.hit) { cpuOnHit(r, c, res.ship, res.sunk); res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
       render(); flashHit(playerGrid, res, r, c);
       if (allSunk(playerShips)) { setTimeout(() => gameOver("cpu"), res.sunk ? 650 : 150); return; }
-      if (res.hit) { status('CPU <span class="hit">HIT</span> at ' + coordLabel(r, c) + (res.sunk ? " — sank your " + res.ship.name + "!" : "…")); setTimeout(cpuTurn, 800); }
+      if (res.hit) { status('CPU <span class="hit">HIT</span> at ' + coordLabel(r, c) + (res.sunk ? " — sank your " + res.ship.name + "!" : "…")); scheduleCpu(800); }
       else { status("CPU missed at " + coordLabel(r, c) + ' — <span class="ok">your turn.</span>'); turn = "player"; render(); }
     }
 
@@ -445,6 +456,9 @@
     }
 
     function newGame() {
+      // Bump the round so a pending CPU turn or coin-flip callback from the
+      // finished game can't fire on top of the fresh placement screen.
+      round++;
       $("over").classList.add("hidden");
       playerBoard = emptyBoard(); enemyBoard = emptyBoard(); playerShips = makeShips(); enemyShips = makeShips();
       placeIdx = 0; orient = "h"; phase = "place"; turn = "player"; cpuTargets = [];
@@ -467,7 +481,6 @@
     });
 
     $("againBtn").addEventListener("click", newGame);
-    $("mute").addEventListener("click", () => { muted = !muted; localStorage.setItem("battleship_mute", muted ? "1" : "0"); $("mute").textContent = muted ? "🔇" : "🔊"; });
 
     newGame();
   })();

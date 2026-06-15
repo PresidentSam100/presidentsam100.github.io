@@ -70,7 +70,7 @@
     return actx;
   }
   function tone(freq, dur, type, gain, slideTo) {
-    if (save.muted) return;
+    // muting is handled globally by the shared top-right toggle (mute-toggle.js)
     const ac = audio();
     if (!ac) return;
     const t = ac.currentTime;
@@ -345,14 +345,6 @@
   document.getElementById("overlayReplay").addEventListener("click", () => loadLevel(current));
   document.getElementById("overlayNext").addEventListener("click", () => loadLevel(current + 1));
 
-  const muteBtn = document.getElementById("muteBtn");
-  function updateMuteBtn() { muteBtn.textContent = save.muted ? "🔇 Muted" : "🔊 Sound"; }
-  muteBtn.addEventListener("click", () => {
-    save.muted = !save.muted;
-    persist();
-    updateMuteBtn();
-    if (!save.muted) SFX.green();
-  });
 
   window.addEventListener("resize", () => {
     computeCell();
@@ -361,6 +353,5 @@
 
   // ----- boot -----
   renderLegend();
-  updateMuteBtn();
   loadLevel(Math.min(save.unlocked - 1, LEVELS.length - 1));
 })();

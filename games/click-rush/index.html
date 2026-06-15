@@ -101,10 +101,10 @@
     }
   </style>
   <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:800 13px/1 'Inter',system-ui,sans-serif;color:#c6ff3d;background:#1c2417;border:1px solid #c6ff3d;border-radius:8px;padding:8px 13px;box-shadow:0 0 12px rgba(198,255,61,.35)">&larr; Games</a>
-<button class="mute" id="mute" title="Sound on/off">🔊</button>
 
   <div class="wrap">
     <header class="top">
@@ -173,8 +173,7 @@
     let input = "mouse", dur = 5;
     let state = "setup";      // setup | ready | running | done
     let clicks = 0, startT = 0, raf = 0, clickTimes = [];
-    let muted = localStorage.getItem("clickrush_mute") === "1";
-    $("mute").textContent = muted ? "🔇" : "🔊";
+    let muted = false; // sound is muted globally via the shared top-right toggle (mute-toggle.js)
 
     // ---- audio ----
     let actx = null;
@@ -190,6 +189,20 @@
       } catch (e) {}
     }
     function chord(seq) { if (muted) return; seq.forEach((f, i) => setTimeout(() => tick(f), i * 70)); }
+    // A short rising blip for picking a setup option (Input / Duration).
+    function selectSound() {
+      if (muted) return;
+      try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+        o.type = "triangle";
+        o.frequency.setValueAtTime(520, t);
+        o.frequency.exponentialRampToValueAtTime(800, t + 0.07);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.13, t + 0.004);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+        o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.14);
+      } catch (e) {}
+    }
 
     const bestKey = () => "clickrush_best_" + input + "_" + dur;
     const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
@@ -203,12 +216,14 @@
       const c = e.target.closest(".choice"); if (!c) return;
       input = c.dataset.input;
       [...$("inputChoices").children].forEach((x) => x.classList.toggle("sel", x === c));
+      selectSound();
       showSetupBest();
     });
     $("durChoices").addEventListener("click", (e) => {
       const c = e.target.closest(".choice"); if (!c) return;
       dur = parseInt(c.dataset.dur, 10);
       [...$("durChoices").children].forEach((x) => x.classList.toggle("sel", x === c));
+      selectSound();
       showSetupBest();
     });
 
@@ -359,7 +374,6 @@
     $("quitBtn").addEventListener("click", quit);
     $("againBtn").addEventListener("click", beginTest);
     $("settingsBtn").addEventListener("click", quit);
-    $("mute").addEventListener("click", () => { muted = !muted; localStorage.setItem("clickrush_mute", muted ? "1" : "0"); $("mute").textContent = muted ? "🔇" : "🔊"; });
 
     showSetupBest();
   })();

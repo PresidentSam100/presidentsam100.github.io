@@ -23,16 +23,8 @@
   // different-density monitor or browser zoom). setTransform is reset by sizing.
   window.addEventListener("resize", setupHiDPI);
 
-  // Mute toggle (persisted)
-  Sfx.muted = Store.get("dj_muted", "0") === "1";
-  const muteBtn = document.getElementById("mute-btn");
-  muteBtn.textContent = Sfx.muted ? "🔇" : "🔊";
-  muteBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    Sfx.muted = !Sfx.muted;
-    muteBtn.textContent = Sfx.muted ? "🔇" : "🔊";
-    Store.set("dj_muted", Sfx.muted ? "1" : "0");
-  });
+  // Muting is handled globally by the shared top-right toggle (mute-toggle.js).
+  Sfx.muted = false;
   // Keep canvas clicks from being eaten by the button area only; the button
   // itself stops propagation above.
 

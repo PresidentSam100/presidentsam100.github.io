@@ -53,7 +53,7 @@
     // Tiny synthesized SFX engine (Web Audio, no files). Created on first gesture.
     const SFX = {
       ctx: null, master: null, muted: false,
-      load() { try { this.muted = localStorage.getItem("demolitionRow_muted") === "1"; } catch (e) {} },
+      load() { this.muted = false; }, // global muting handled by the shared toggle (mute-toggle.js); per-board mute stays
       init() { if (this.ctx) return; try { const AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); this.master = this.ctx.createGain(); this.master.gain.value = 0.32; this.master.connect(this.ctx.destination); } catch (e) { this.ctx = null; } },
       resume() { try { if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); } catch (e) {} },
       setMuted(m) { this.muted = m; try { localStorage.setItem("demolitionRow_muted", m ? "1" : "0"); } catch (e) {} },
@@ -999,7 +999,6 @@
     function handleKey(e) {
       if (!GAME) return;
       SFX.resume();
-      if ((e.key === "m" || e.key === "M") && !e.repeat) { toggleMute(); return; }
       if (e.key === "Escape") { if (!e.repeat) GAME.pauseToggle(); e.preventDefault(); return; }
       if (GAME.state !== "playing") return;
       for (const s of SCHEMES) {
@@ -1073,10 +1072,6 @@
     updateKeysHelp();
 
     function toMenu() { if (GAME) GAME.destroy(); document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); }
-    function updateMuteBtn() { const el = document.getElementById("mute-btn"); if (el) el.textContent = SFX.muted ? "🔇" : "🔊"; }
-    function toggleMute() { SFX.init(); SFX.setMuted(!SFX.muted); updateMuteBtn(); }
-    document.getElementById("mute-btn").addEventListener("click", toggleMute);
-    updateMuteBtn();
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";

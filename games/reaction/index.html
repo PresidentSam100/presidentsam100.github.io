@@ -49,11 +49,14 @@
       border: 1px solid var(--line); display: flex; flex-direction: column; align-items: center; justify-content: center;
       text-align: center; padding: 1.2rem; cursor: pointer; user-select: none; touch-action: manipulation;
       transition: background 0.06s linear, color 0.06s linear, border-color 0.15s ease;
-      background: var(--panel);
+      background: var(--panel); overflow: hidden;
     }
+    /* particle canvas sits behind the panel text; only painted while Visual FX is on */
+    .panel-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+    .panel .big, .panel .sub, .panel .rating { position: relative; z-index: 1; }
     .panel.idle   { background: var(--panel); }
     .panel.wait   { background: #3b1822; border-color: #5a2233; color: #ffc2cc; }
-    .panel.go     { background: var(--good); border-color: #2fce8a; color: #06150d; }
+    .panel.go     { background: #12b073; border-color: #0d9460; color: #04140c; }
     .panel.toosoon{ background: #5a2f12; border-color: #7a4420; color: #ffd9b3; }
     .panel.result { background: var(--panel); }
     .panel .big { font-size: 2.8rem; font-weight: 900; letter-spacing: -0.02em; line-height: 1.05; }
@@ -103,6 +106,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
 </head>
 <body>
   <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#eef2f9;background:#141826;border:1px solid #232838;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -128,9 +132,6 @@
 
     <div class="times" id="times"></div>
 
-    <div class="footer-controls">
-      <button class="mute" id="mute" title="Toggle sound">🔊</button>
-    </div>
     <p class="hint">tap the panel or press <b>Space</b> the moment it flashes green — don't jump early!</p>
   </div>
 
@@ -148,7 +149,7 @@
     var $ = function (id) { return document.getElementById(id); };
     var panel = $("panel"), pBig = $("panel-big"), pSub = $("panel-sub"), pRating = $("panel-rating");
     var elAttempt = $("attempt"), elLast = $("last"), elAvg = $("avg"), elBest = $("best");
-    var elTimes = $("times"), ov = $("overlay"), card = $("card"), muteBtn = $("mute");
+    var elTimes = $("times"), ov = $("overlay"), card = $("card");
 
     // state: menu | wait | go | result | toosoon | done
     var state = "menu";
@@ -158,10 +159,80 @@
     function load(k) { try { return localStorage.getItem(k) || "0"; } catch (e) { return "0"; } }
     function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
 
+    // ------------------------------------------------ particle field (Visual FX)
+    // A gentle drift of glowing motes inside the panel during the "wait" and "go"
+    // states — purely decorative. Honors the global "✨ Visual FX" toggle: while
+    // FX is off (RM_ON), nothing is drawn, so the panel stays clean.
+    var FX = (function () {
+      var cv = document.createElement("canvas");
+      cv.className = "panel-fx"; cv.setAttribute("aria-hidden", "true");
+      panel.insertBefore(cv, panel.firstChild);
+      var ctx = cv.getContext("2d");
+      var W = 0, H = 0, DPR = 1, ps = [], raf = 0, on = false, color = "255,194,204", rate = 0.5, acc = 0, wasReduced = false;
+
+      function reduced() { return !!(window.RM_ON && window.RM_ON()); }
+      function size() {
+        var r = panel.getBoundingClientRect();
+        DPR = Math.min(window.devicePixelRatio || 1, 2);
+        W = r.width; H = r.height;
+        cv.width = Math.max(1, Math.round(W * DPR)); cv.height = Math.max(1, Math.round(H * DPR));
+        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      }
+      function spawn() {
+        ps.push({ x: Math.random() * W, y: H + 6, r: 1 + Math.random() * 2.4,
+          vy: -(0.18 + Math.random() * 0.5), a: 0, sway: Math.random() * 6.28,
+          ss: 0.012 + Math.random() * 0.02, amp: 0.15 + Math.random() * 0.4 });
+      }
+      // Pre-fill the whole box (random heights, already partly faded-in) so the
+      // field looks continuous from the first frame instead of building up from the floor.
+      function seed(n) {
+        for (var i = 0; i < n; i++) {
+          ps.push({ x: Math.random() * W, y: Math.random() * H, r: 1 + Math.random() * 2.4,
+            vy: -(0.18 + Math.random() * 0.5), a: 0.2 + Math.random() * 0.4, sway: Math.random() * 6.28,
+            ss: 0.012 + Math.random() * 0.02, amp: 0.15 + Math.random() * 0.4 });
+        }
+      }
+      function frame() {
+        if (!on) return;
+        ctx.clearRect(0, 0, W, H);
+        if (reduced()) { ps.length = 0; wasReduced = true; raf = requestAnimationFrame(frame); return; } // FX off -> draw nothing
+        if (wasReduced) { wasReduced = false; size(); seed(42); } // FX flipped back on -> refill the box
+        acc += rate;
+        while (acc >= 1) { acc--; if (ps.length < 60) spawn(); }
+        for (var i = ps.length - 1; i >= 0; i--) {
+          var p = ps[i];
+          p.sway += p.ss; p.x += Math.sin(p.sway) * p.amp; p.y += p.vy;
+          p.a = Math.min(p.a + 0.02, 0.42); // fade in once, then hold — no fade-out
+          if (p.y < -p.r) { ps.splice(i, 1); continue; } // only gone once it clears the top edge
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+          ctx.fillStyle = "rgba(" + color + "," + p.a.toFixed(3) + ")";
+          ctx.shadowColor = "rgba(" + color + ",0.5)"; ctx.shadowBlur = 5;
+          ctx.fill();
+        }
+        ctx.shadowBlur = 0;
+        raf = requestAnimationFrame(frame);
+      }
+      return {
+        // Start (or, if already running, just recolor) the field. The particles
+        // persist across attempts so the effect is one continuous drift, not a
+        // fresh build-up each round.
+        start: function (c, r) {
+          color = c; rate = r || 0.5;
+          if (!on) { size(); if (!reduced()) seed(42); on = true; raf = requestAnimationFrame(frame); }
+        },
+        stop: function () {
+          on = false; if (raf) { cancelAnimationFrame(raf); raf = 0; }
+          if (W) ctx.clearRect(0, 0, W, H); ps.length = 0;
+        },
+        resize: function () { if (on) size(); }
+      };
+    })();
+    window.addEventListener("resize", function () { FX.resize(); });
+
     // ------------------------------------------------ sound (no cue on the flash)
     var Sound = {
-      ctx: null, muted: false,
-      load: function () { try { this.muted = localStorage.getItem("reaction_muted") === "1"; } catch (e) {} },
+      ctx: null, muted: false, // muting is handled globally by the shared toggle (mute-toggle.js)
+      load: function () { this.muted = false; },
       init: function () { if (this.ctx) return; try { var AC = window.AudioContext || window.webkitAudioContext; this.ctx = new AC(); } catch (e) { this.ctx = null; } },
       beep: function (f, dur, vol, type) {
         if (this.muted || !this.ctx) return;
@@ -176,11 +247,6 @@
       done: function () { var s = this; [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { s.beep(f, 0.16, 0.2, "triangle"); }, i * 110); }); },
     };
     Sound.load();
-    function updateMute() { muteBtn.textContent = Sound.muted ? "🔇" : "🔊"; }
-    updateMute();
-    muteBtn.addEventListener("click", function () {
-      Sound.muted = !Sound.muted; save("reaction_muted", Sound.muted ? "1" : "0"); updateMute();
-    });
 
     // ------------------------------------------------ helpers
     function avg(arr) { if (!arr.length) return 0; var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i]; return Math.round(s / arr.length); }
@@ -210,14 +276,14 @@
 
     // ------------------------------------------------ flow
     function showStart() {
-      state = "menu"; trial = 0; results = []; penal = [];
+      state = "menu"; trial = 0; results = []; penal = []; FX.stop();
       panel.className = "panel idle"; pBig.className = "big"; pBig.textContent = "⚡ Reaction"; pSub.textContent = "press start to begin"; pRating.textContent = "";
       renderHud(); renderTimes();
       card.innerHTML =
         '<h2>⚡ Reaction</h2>' +
         '<p>Wait for the screen to flash <b style="color:var(--good)">green</b>, then tap as fast as you can.</p>' +
         '<ul class="rules">' +
-          '<li><b>' + TRIALS + ' attempts.</b> The wait before each flash is random (' + (MIN_WAIT / 1000) + '&ndash;' + (MAX_WAIT / 1000) + 's) so you can&rsquo;t time it.</li>' +
+          '<li><b>' + TRIALS + ' attempts.</b> The wait before each flash is random so you can&rsquo;t time it.</li>' +
           '<li>Your score is the <b>average</b> reaction across all ' + TRIALS + ' — lower is better.</li>' +
           '<li>Jump <b>early</b> and you get an <b>✗</b> — that attempt is scored as a <b>' + (PENALTY / 1000).toFixed(1) + 's</b> penalty, so don&rsquo;t guess!</li>' +
         '</ul>' +
@@ -239,17 +305,19 @@
     function arm() {
       state = "wait";
       panel.className = "panel wait"; pBig.className = "big"; pBig.textContent = "Wait for it…"; pSub.textContent = "attempt " + trial + " of " + TRIALS; pRating.textContent = "";
+      FX.start("255,194,204", 0.5); // warm motes drifting up during the wait
       var delay = MIN_WAIT + Math.random() * (MAX_WAIT - MIN_WAIT);
       timerId = setTimeout(flash, delay);
     }
     function flash() {
       state = "go"; flashAt = performance.now();
       panel.className = "panel go"; pBig.className = "big"; pBig.textContent = "TAP!"; pSub.textContent = ""; pRating.textContent = "";
+      FX.start("236,255,245", 1.1); // bright sparkles burst over the green "TAP!" flash
     }
 
     // false start: the attempt is burned and scored as a fixed penalty time
     function tooSoon() {
-      clearTimeout(timerId);
+      clearTimeout(timerId); FX.start("255,194,204", 0.5); // keep the field running between attempts
       results.push(PENALTY); penal.push(true); Sound.early();
       renderHud(); renderTimes();
       if (results.length >= TRIALS) { finish(); return; }
@@ -260,6 +328,7 @@
     }
 
     function record() {
+      FX.start("255,194,204", 0.5); // calm the field back down between attempts (keeps it running)
       var ms = Math.round(performance.now() - flashAt);
       results.push(ms); penal.push(false); Sound.tap();
       var r = rate(ms);
@@ -270,7 +339,7 @@
     }
 
     function finish() {
-      state = "done";
+      state = "done"; FX.stop();
       var a = avg(results);
       var valid = results.filter(function (x, i) { return !penal[i]; });
       var bestSingle = valid.length ? Math.min.apply(null, valid) : null;

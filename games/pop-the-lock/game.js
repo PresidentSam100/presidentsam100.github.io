@@ -19,7 +19,6 @@
   const overlay = document.getElementById("overlay");
   const overlayMsg = document.getElementById("overlay-msg");
   const playBtn = document.getElementById("play");
-  const muteBtn = document.getElementById("mute");
   const stage = document.querySelector(".stage");
 
   // ---- Persistent best ----
@@ -61,8 +60,7 @@
   applyTheme(themeName);
 
   // ---- Audio (WebAudio, no assets) ----
-  let muted = localStorage.getItem("popthelock.muted") === "1";
-  muteBtn.textContent = muted ? "🔇" : "🔊";
+  let muted = false; // muting is handled globally by the shared toggle (mute-toggle.js)
   let audioCtx = null;
 
   function beep(freq, dur = 0.08, type = "sine", gain = 0.18) {
@@ -223,12 +221,6 @@
     if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); onTap(); }
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
-  muteBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    muted = !muted;
-    muteBtn.textContent = muted ? "🔇" : "🔊";
-    localStorage.setItem("popthelock.muted", muted ? "1" : "0");
-  });
 
   // ---- Particles ----
   function spawnBurst(angle, color, n = 16) {

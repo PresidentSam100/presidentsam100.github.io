@@ -1796,7 +1796,6 @@ class Game {
       // pause menu captures input while paused
       if (this.mode === 'paused') {
         if (k === 'p') this.togglePause();
-        else if (k === 'm') { const muted = Sound.toggleMute(); this.flashMute = muted ? 'MUTED' : 'SOUND ON'; this.flashMuteT = 1; }
         else this.pauseMenuKey(k);
         return;
       }
@@ -1807,7 +1806,6 @@ class Game {
       if (k === 'arrowup' || k === 'arrowdown') this.onMenuKey(k);
       if (k === 'enter') this.onStartKey();
       if (k === 'p') this.togglePause();
-      if (k === 'm') { const muted = Sound.toggleMute(); this.flashMute = muted ? 'MUTED' : 'SOUND ON'; this.flashMuteT = 1; }
     };
     const up = (e) => {
       const k = e.key.toLowerCase();

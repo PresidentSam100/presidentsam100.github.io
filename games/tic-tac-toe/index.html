@@ -57,6 +57,7 @@
   }
 </style>
 <script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
 <script src="../coinflip.js"></script>
 </head>
 <body>
@@ -70,12 +71,6 @@
         <option value="hard" selected>Unbeatable</option>
         <option value="medium">Medium</option>
         <option value="easy">Easy</option>
-      </select>
-    </label>
-    <label>Animation:
-      <select id="animate">
-        <option value="on" selected>On</option>
-        <option value="off">Off</option>
       </select>
     </label>
     <button class="btn" id="rules">Rules</button>
@@ -102,9 +97,10 @@ const HUMAN = 'X', AI = 'O';
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const diffEl = document.getElementById('difficulty');
-let board, gameOver, lastMove, score = { w:0, l:0, d:0 };
-const animEl = document.getElementById('animate');
-function animOn(){ return animEl.value === 'on'; }
+let board, gameOver, lastMove, turn, round = 0, score = { w:0, l:0, d:0 };
+// Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
+// (or OS reduced-motion) means no mark-draw animation and a shorter AI delay.
+function animOn(){ return !(window.RM_ON && window.RM_ON()); }
 
 const LINES = [
   [0,1,2],[3,4,5],[6,7,8], // rows
@@ -167,9 +163,13 @@ function sfxLose(){ melody([[392,0.16,0.12],[311,0.16,0.12],[262,0.16,0.12],[196
 function sfxDraw(){ melody([[440,0.2,0.18],[440,0.3,0.3]], 'sine'); }
 
 function init() {
+  // Bump the round so any still-pending async work (a coin-flip callback or a
+  // queued AI move) from the previous game is recognized as stale and ignored.
+  round++;
   board = Array(9).fill('');
   gameOver = false;
   lastMove = -1;
+  turn = null; // nobody can move until the coin flip resolves
   boardEl.innerHTML = '';
   for (let i = 0; i < 9; i++) {
     const btn = document.createElement('button');
@@ -180,19 +180,21 @@ function init() {
   }
   render();
   if (window.coinFlip) {
+    const myRound = round;
     setStatus('Flipping for first move…');
     coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#89b4fa', youColor: '#f38ba8', cpuColor: '#a6e3a1' }, function (who) {
-      if (who === 'cpu') { setStatus('AI thinking…'); setTimeout(aiMove, 450); }
-      else setStatus('Your turn (X)');
+      if (myRound !== round) return; // a new game was started before this flip resolved
+      if (who === 'cpu') { turn = AI; setStatus('AI thinking…'); scheduleAI(450); }
+      else { turn = HUMAN; render(); setStatus('Your turn (X)'); }
     });
-  } else setStatus('Your turn (X)');
+  } else { turn = HUMAN; render(); setStatus('Your turn (X)'); }
 }
 
 function render() {
   [...boardEl.children].forEach((c, i) => {
     const p = board[i];
     c.className = 'cell' + (p === 'X' ? ' x' : p === 'O' ? ' o' : '');
-    c.disabled = p !== '' || gameOver;
+    c.disabled = p !== '' || gameOver || turn !== HUMAN;
     c.innerHTML = p ? markSVG(p, animOn() && i === lastMove) : '';
   });
 }
@@ -219,14 +221,24 @@ function winner(b) {
 }
 
 function humanMove(i) {
-  if (gameOver || board[i]) return;
+  // Only accept a click when it's actually the human's turn and the cell is free —
+  // this blocks rapid clicks from sneaking in extra moves during the AI's think delay.
+  if (gameOver || board[i] || turn !== HUMAN) return;
+  turn = AI;
   board[i] = HUMAN;
   lastMove = i;
   sfxHuman();
   if (checkEnd()) return;
   render();
   setStatus('AI thinking…');
-  setTimeout(aiMove, animOn() ? 450 : 250);
+  scheduleAI(animOn() ? 450 : 250);
+}
+
+// Queue the AI's move but only let it run if we're still in the same game —
+// pressing "New Game" while the AI is "thinking" bumps the round and cancels it.
+function scheduleAI(delay) {
+  const myRound = round;
+  setTimeout(() => { if (myRound === round) aiMove(); }, delay);
 }
 
 function aiMove() {
@@ -235,6 +247,7 @@ function aiMove() {
   lastMove = i;
   sfxAI();
   if (checkEnd()) return;
+  turn = HUMAN;
   render();
   setStatus('Your turn (X)');
 }
