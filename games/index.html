@@ -127,6 +127,23 @@
         background: #1a1111;
       }
 
+      #random-game {
+        cursor: pointer;
+        background: #111;
+        color: #22a8f5;
+        border: 1px solid #1f2a3a;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: border-color 0.18s ease, background 0.18s ease;
+      }
+
+      #random-game:hover {
+        border-color: #22a8f5;
+        background: #111620;
+      }
+
       #reset-msg {
         font-size: 0.85rem;
         color: #69f7be;
@@ -165,6 +182,7 @@
           a little arcade of browser games i coded. pick one and play!
         </p>
         <div class="reset-row">
+          <button id="random-game" type="button">🎲 random game</button>
           <button id="reset-scores" type="button">🗑️ reset all high scores</button>
           <span id="reset-msg" role="status" aria-live="polite"></span>
         </div>
@@ -312,6 +330,21 @@
 
       <p id="byline" style="margin-top: 2.5rem">made by sam lu (not you)</p>
     </div>
+
+    <script>
+      // Random game picker — jumps to a random game from the grid.
+      (function () {
+        var btn = document.getElementById("random-game");
+        if (!btn) return;
+        btn.addEventListener("click", function () {
+          var cards = document.querySelectorAll(".games-grid .game-card");
+          if (!cards.length) return;
+          var pick = cards[Math.floor(Math.random() * cards.length)];
+          var href = pick.getAttribute("href");
+          if (href) window.location.href = href;
+        });
+      })();
+    </script>
 
     <script>
       // Clears saved high scores / bests for every game. All games are served
