@@ -239,13 +239,17 @@
     // sideways motion-blur trail from a short position history — visible during AND
     // just after a lane change (a merging car, or your car moving left/right).
     // Stays empty/quiet when the car is just driving straight.
-    function drawTrail(trail, w, h, base) {
+    function drawTrail(trail, w, h, base, active) {
       var n = trail.length;
       if (n < 2) return;
       var minx = Infinity, maxx = -Infinity;
       for (var i = 0; i < n; i++) { var x = trail[i].x; if (x < minx) minx = x; if (x > maxx) maxx = x; }
-      if (maxx - minx < 3) return; // only blur when actually moving sideways
-      for (var j = 0; j < n - 1; j++) drawGhostBody(trail[j].x, trail[j].y, w, h, base, 0.34 * (j + 1) / n);
+      // While the car is actively merging / changing lanes, always show the blur
+      // (the eased start & end barely move, so a spread threshold would hide it).
+      // Once the move ends, keep lingering only while the recent path still spans width.
+      if (!active && maxx - minx < 2) return;
+      var cy = trail[n - 1].y; // horizontal smear at the car's current height
+      for (var j = 0; j < n - 1; j++) drawGhostBody(trail[j].x, cy, w, h, base, 0.34 * (j + 1) / n);
     }
 
     // ----- layout / sizing ---------------------------------------------
@@ -489,10 +493,10 @@
       if (fx) drawSpeedStreaks();
       for (var i = 0; i < obstacles.length; i++) {
         var o = obstacles[i];
-        if (fx) drawTrail(o.trail, o.w, o.h, o.color); // blur while merging
+        if (fx) drawTrail(o.trail, o.w, o.h, o.color, o.merging); // blur through the whole merge
         drawVehicleAt(o.cx, o.y, o.w, o.h, o.type, o.color, (o.pending && o.y >= H * 0.12) ? o.mergeDir : 0);
       }
-      if (fx) drawTrail(player.trail, carW, carH, PLAYER_BASE); // blur on lane change
+      if (fx) drawTrail(player.trail, carW, carH, PLAYER_BASE, Math.abs(player.x - laneX(player.lane)) > 0.5); // blur through the lane change
       drawVehicleAt(player.x, playerY, carW, carH, "car", PLAYER_BASE, 0);
 
       if (mode === "night") {

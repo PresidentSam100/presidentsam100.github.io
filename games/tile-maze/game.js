@@ -1,4 +1,4 @@
-/* Color Tile Maze - browser UI controller. */
+/* Tile Maze - browser UI controller. */
 (function () {
   "use strict";
 
@@ -44,7 +44,9 @@
   const hintEl = document.getElementById("hint");
 
   // ----- persistence -----
-  const SAVE_KEY = "colorTileMaze.v1";
+  const SAVE_KEY = "tileMaze.v1";
+  // one-time migration from the pre-rename key (folder was "color-tile")
+  try { const _o = localStorage.getItem("colorTileMaze.v1"); if (_o != null && localStorage.getItem(SAVE_KEY) == null) { localStorage.setItem(SAVE_KEY, _o); localStorage.removeItem("colorTileMaze.v1"); } } catch (e) {}
   const save = loadSave();
   function loadSave() {
     try {

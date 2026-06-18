@@ -1,4 +1,4 @@
-/* Color Tile Maze — level editor.
+/* Tile Maze — level editor.
    Reuses the shared rules engine (engine.js) for test-play + solvability,
    so a level that passes here behaves identically in the real game. */
 (function () {
@@ -44,7 +44,9 @@
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n | 0));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const makeGrid = (nc, nr, fill) => { const g = []; for (let r = 0; r < nr; r++) g.push(new Array(nc).fill(fill)); return g; };
-  const STORE = "colorTileMaze.customLevels";
+  const STORE = "tileMaze.customLevels";
+  // one-time migration from the pre-rename key (folder was "color-tile")
+  try { const _o = localStorage.getItem("colorTileMaze.customLevels"); if (_o != null && localStorage.getItem(STORE) == null) { localStorage.setItem(STORE, _o); localStorage.removeItem("colorTileMaze.customLevels"); } } catch (e) {}
 
   // ---- rendering ----
   function computeCell() {

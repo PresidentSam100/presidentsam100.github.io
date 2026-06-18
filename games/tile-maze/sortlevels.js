@@ -26,7 +26,7 @@ function renderLevel(l) {
 }
 
 const header = `/*
- * Color Tile Maze - level definitions.
+ * Tile Maze - level definitions.
  * Each grid row must be the same length. See engine.js for the tile legend.
  * Levels 1-8 are a deliberate tutorial onramp (one mechanic at a time);
  * levels 9+ are ordered by DIFFICULTY (see analyze.js, not just move count).

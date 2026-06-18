@@ -207,8 +207,19 @@
       } catch (e) {}
     }
 
-    const bestKey = () => "clickrush_best_" + input + "_" + dur;
+    const bestKey = () => "clicktap_best_" + input + "_" + dur;
     const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
+    // one-time migration of saved bests from the pre-rename prefix (folder was "click-rush")
+    try {
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf("clickrush_best_") === 0) {
+          const nk = "clicktap_best_" + k.slice("clickrush_best_".length);
+          if (localStorage.getItem(nk) == null) localStorage.setItem(nk, localStorage.getItem(k));
+          localStorage.removeItem(k);
+        }
+      }
+    } catch (e) {}
     function showSetupBest() {
       const b = getBest();
       $("setupBest").innerHTML = b > 0 ? "Best for " + dur + "s: <b>" + b.toFixed(3) + " " + METRIC + "</b>" : "No record yet for this duration";

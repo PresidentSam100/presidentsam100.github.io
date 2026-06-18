@@ -1,5 +1,5 @@
 /*
- * Color Tile Maze - shared rules engine.
+ * Tile Maze - shared rules engine.
  * Pure logic, no DOM. Used by both the browser game (game.js)
  * and the Node level verifier (verify.js).
  *
