@@ -103,6 +103,16 @@
     body.playing.p2 #ctrl-right { display: flex; }
   }
 
+  /* Instructions: one sentence per line; show only the relevant control set.
+     Desktop (fine pointer) sees keyboard controls; touch devices see the on-screen
+     buttons line — never both. */
+  #controls span { display: block; line-height: 1.7; }
+  #controls .ctrl-mobile { display: none; }
+  @media (pointer: coarse) {
+    #controls .ctrl-desktop { display: none; }
+    #controls .ctrl-mobile { display: block; }
+  }
+
   /* tasteful entrance + interaction motion (auto-disabled by reduce-motion) */
   .overlay:not(.hidden) { animation: ovFade 0.3s ease both; }
   .overlay:not(.hidden) h1 { text-shadow: 0 0 22px rgba(255,255,255,0.2); animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) backwards, titleGlow 3.4s ease-in-out 0.6s infinite; }
@@ -135,7 +145,11 @@
   <h1>PONG</h1>
   <button class="btn" data-mode="1">1 Player</button>
   <button class="btn" data-mode="2">2 Players</button>
-  <p id="controls"></p>
+  <p id="controls">
+    <span class="ctrl-desktop">Desktop: W/S (left) · ↑/↓ arrows (right, 2P).</span>
+    <span class="ctrl-mobile">Mobile: on-screen ▲ ▼ buttons.</span>
+    <span class="ctrl-win"></span>
+  </p>
 </div>
 
 <div id="gameover" class="overlay hidden">
@@ -179,6 +193,7 @@ const winnerEl = document.getElementById("winner");
 const controlsEl = document.getElementById("controls");
 const countdownEl = document.getElementById("countdown");
 const countNumEl = document.getElementById("count-num");
+const countLeftEl = document.getElementById("count-left");
 const countRightLabelEl = document.getElementById("count-right-label");
 const countRightEl = document.getElementById("count-right");
 
@@ -263,8 +278,9 @@ function bindPongBtn(el) {
 document.querySelectorAll(".pbtn").forEach(bindPongBtn);
 
 function resetBall(dir) {
-  ball.x = W / 2;
-  ball.y = H / 2;
+  // center the SQUARE (top-left origin) so it sits dead-center, not offset by its size
+  ball.x = (W - BALL_SIZE) / 2;
+  ball.y = (H - BALL_SIZE) / 2;
   const angle = (Math.random() * 0.5 - 0.25) * Math.PI; // -45deg..45deg
   const speed = 6;
   ball.vx = dir * speed * Math.cos(angle);
@@ -278,8 +294,9 @@ function startGame(mode) {
   right.score = 0;
   left.y = right.y = H / 2 - PADDLE_H / 2;
   // park the ball at center, frozen — it launches when the countdown ends
-  ball.x = W / 2; ball.y = H / 2; ball.vx = 0; ball.vy = 0;
-  pendingDir = Math.random() < 0.5 ? -1 : 1;
+  ball.x = (W - BALL_SIZE) / 2; ball.y = (H - BALL_SIZE) / 2; ball.vx = 0; ball.vy = 0;
+  pendingDir = Math.random() < 0.5 ? -1 : 1; // random first serve: left or right player
+
   menu.classList.add("hidden");
   gameover.classList.add("hidden");
   document.body.classList.add("playing");
@@ -290,9 +307,13 @@ function startGame(mode) {
 // 3-second countdown before play: shows both players' controls, then launches.
 function startCountdown() {
   state = "countdown";
-  // Right side is a human (↑/↓) in 2P, otherwise the CPU plays it.
+  // On touch devices the on-screen ▲▼ buttons are the controls, so don't show the
+  // keyboard hints (W/S, ↑/↓) or "Auto" — those only apply on desktop.
+  const touch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  const setCtl = (el, t) => { el.textContent = t; el.style.display = t ? "" : "none"; };
   countRightLabelEl.textContent = players === 2 ? "Player 2" : "CPU";
-  countRightEl.textContent = players === 2 ? "↑ / ↓" : "Auto";
+  setCtl(countLeftEl, touch ? "▲ ▼" : "W / S");
+  setCtl(countRightEl, players === 2 ? (touch ? "▲ ▼" : "↑ / ↓") : "Auto");
   countdownEl.classList.remove("hidden");
 
   let n = 3;
@@ -447,8 +468,7 @@ document.getElementById("again").addEventListener("click", () => {
   document.body.classList.remove("playing");
 });
 
-controlsEl.textContent =
-  "Desktop: W/S (left) · ↑/↓ arrows (right, 2P).  Mobile: on-screen ▲ ▼ buttons.  First to " + WIN_SCORE + " wins.";
+controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " wins.";
 
 loop();
 </script>

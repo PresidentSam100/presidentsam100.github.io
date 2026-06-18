@@ -45,6 +45,17 @@
   .modal h2 { margin:0 0 12px; }
   .modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
   .modal .btn { width:100%; }
+  /* mode-select overlay (choose game mode before the game starts) */
+  .mode-group { margin:0 0 16px; }
+  .mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
+  .opts { display:flex; flex-direction:column; gap:8px; }  /* difficulty stacks vertically */
+  .opt { background:var(--cell); color:var(--fg); border:1px solid var(--cell-hover);
+         border-radius:8px; padding:9px 12px; font-size:.92rem; font-family:inherit; cursor:pointer; }
+  .opt:hover { background:var(--cell-hover); }
+  .opt.sel { background:var(--accent); color:var(--bg); border-color:var(--accent); font-weight:700; }
+  #startGame { width:100%; margin-top:6px; }
+  #modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
+  #modeModal .modal { background:var(--cell); }
   /* Accessibility: honor prefers-reduced-motion — neutralize animations,
      transitions, and motion effects (pulse, shake, drop, blink, glows). */
   @media (prefers-reduced-motion: reduce) {
@@ -66,14 +77,15 @@
   <div id="status">Your turn (X)</div>
   <div id="board"></div>
   <div class="controls">
-    <label>Difficulty:
+    <label style="display:none">Difficulty:
       <select id="difficulty">
-        <option value="hard" selected>Unbeatable</option>
+        <option value="hard" selected>Hard</option>
         <option value="medium">Medium</option>
         <option value="easy">Easy</option>
       </select>
     </label>
     <button class="btn" id="rules">Rules</button>
+    <button class="btn" id="restart">Restart</button>
     <button class="btn" id="reset">New Game</button>
   </div>
   <div class="score">
@@ -89,6 +101,21 @@
          Get three of your marks in a row — horizontally, vertically, or diagonally — to win.
          If the board fills up with no three-in-a-row, it's a draw.</p>
       <button class="btn" id="closeRules">Got it</button>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modeModal">
+    <div class="modal">
+      <h2>New Game</h2>
+      <div class="mode-group">
+        <div class="mode-label">Difficulty</div>
+        <div class="opts" data-target="difficulty">
+          <button class="opt" data-value="easy">Easy</button>
+          <button class="opt" data-value="medium">Normal</button>
+          <button class="opt sel" data-value="hard">Hard</button>
+        </div>
+      </div>
+      <button class="btn" id="startGame">Start Game</button>
     </div>
   </div>
 
@@ -328,14 +355,37 @@ function minimax(b, depth, isMax, alpha, beta) {
   }
 }
 
-document.getElementById('reset').addEventListener('click', init);
+// --- mode selection (shown first; choosing a mode → coin flip → game) ---
+const modeModal = document.getElementById('modeModal');
+function showModeModal(){ modeModal.classList.add('open'); }
+function setupModeModal(onStart){
+  modeModal.querySelectorAll('.opts').forEach(group => {
+    const sel = document.getElementById(group.dataset.target);
+    group.querySelectorAll('.opt').forEach(opt => {
+      opt.addEventListener('click', () => {
+        group.querySelectorAll('.opt').forEach(o => o.classList.remove('sel'));
+        opt.classList.add('sel');
+        if (sel) sel.value = opt.dataset.value;
+      });
+    });
+  });
+  document.getElementById('startGame').addEventListener('click', () => {
+    modeModal.classList.remove('open');
+    onStart();
+  });
+}
+
+// "New Game" returns to mode selection; "Restart" replays the current mode.
+document.getElementById('reset').addEventListener('click', showModeModal);
+document.getElementById('restart').addEventListener('click', init);
 
 const rulesModal = document.getElementById('rulesModal');
 document.getElementById('rules').addEventListener('click', () => rulesModal.classList.add('open'));
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
 
-init();
+setupModeModal(init);
+showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 </script>
 </body>
