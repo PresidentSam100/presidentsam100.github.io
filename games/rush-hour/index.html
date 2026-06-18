@@ -153,6 +153,7 @@
     var PLAYER_BASE = "#39b6ff";
     var TRUCK_PROB = 0.1;
     var TRUCK_LEN = 1.8;   // truck height as a multiple of a car (kept short enough to stay fair)
+    var MERGE_PROB = 0.2;  // chance a car will signal and change lanes on the way down
 
     function shade(hex, amt) { // amt<0 → darker, amt>0 → lighter
       var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
@@ -172,7 +173,7 @@
       return g;
     }
     // Cars face UP (front = top). Headlights at the front, taillights at the rear.
-    function drawVehicleAt(cx, cy, w, h, type, base) {
+    function drawVehicleAt(cx, cy, w, h, type, base, signalDir) {
       var x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
       ctx.fillStyle = "rgba(0,0,0,0.30)"; // drop shadow, down-right
       rr(x + Math.round(w * 0.09), y + Math.round(h * 0.05), w, h, w * 0.28); ctx.fill();
@@ -196,6 +197,13 @@
       ctx.fillStyle = "#ff3b3b";
       rr(x + w * 0.15, y + h * 0.92, w * 0.2, h * 0.045, 2); ctx.fill();
       rr(x + w * 0.65, y + h * 0.92, w * 0.2, h * 0.045, 2); ctx.fill();
+      // flashing turn signal (amber) on the side the car is merging toward
+      if (signalDir && blinkOn) {
+        ctx.fillStyle = "#ffb12e";
+        var sx = signalDir < 0 ? x + w * 0.14 : x + w * 0.66;
+        rr(sx, y + h * 0.02, w * 0.2, h * 0.06, 2); ctx.fill();
+        rr(sx, y + h * 0.89, w * 0.2, h * 0.06, 2); ctx.fill();
+      }
     }
     function drawTruck(x, y, w, h, base) {
       var cabH = h * 0.28, trY = y + h * 0.33, trH = h * 0.67;
@@ -216,6 +224,28 @@
       var g = ctx.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
+    }
+
+    // Visual FX = the inverse of the shared "reduce motion" toggle. When ON we add
+    // speed streaks + per-car motion blur; when OFF the scene is the crisp static one.
+    function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+    // 0 at base speed → 1 at top speed; scales how strong the motion FX read.
+    function speedFx() { return Math.max(0, Math.min(1, (speed - BASE_SPEED) / 420)); }
+    function drawGhostBody(cx, cy, w, h, base, alpha) {
+      ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = base;
+      rr(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h, w * 0.28); ctx.fill();
+      ctx.restore();
+    }
+    // sideways motion-blur trail from a short position history — visible during AND
+    // just after a lane change (a merging car, or your car moving left/right).
+    // Stays empty/quiet when the car is just driving straight.
+    function drawTrail(trail, w, h, base) {
+      var n = trail.length;
+      if (n < 2) return;
+      var minx = Infinity, maxx = -Infinity;
+      for (var i = 0; i < n; i++) { var x = trail[i].x; if (x < minx) minx = x; if (x > maxx) maxx = x; }
+      if (maxx - minx < 3) return; // only blur when actually moving sideways
+      for (var j = 0; j < n - 1; j++) drawGhostBody(trail[j].x, trail[j].y, w, h, base, 0.34 * (j + 1) / n);
     }
 
     // ----- layout / sizing ---------------------------------------------
@@ -239,14 +269,15 @@
       laneW = road.w / LANES;
       carW = laneW * 0.62; carH = Math.min(carW * 1.9, H * 0.17);
       playerY = H - carH * 0.7 - 14;
-      buildGrass();
+      buildGrass(); buildStreaks();
       if (player) player.x = laneX(player.lane);
     }
     function laneX(i) { return road.x + laneW * (i + 0.5); }
 
     // ----- game state ---------------------------------------------------
     var mode = "day";
-    var player = { lane: 2, x: 0 };
+    var blinkOn = false; // shared turn-signal blink phase
+    var player = { lane: 2, x: 0, trail: [] };
     var obstacles = [];               // {lane, y, w, h, type, color}
     var speed = 0, score = 0, scroll = 0, running = false, lastMilestone = 0;
     var corridorLane = 2, waveAcc = 0;
@@ -254,13 +285,13 @@
     var BASE_SPEED = 320;
     var F = 0.6;                       // every car falls at this fraction of your speed → you blow past them
     var JIT = 0;                       // vertical scatter within a wave (set from carH in reset)
-    function curSpeed() { return BASE_SPEED + Math.min(score * 0.55, 520); }
+    function curSpeed() { return BASE_SPEED + Math.min(score * 0.32, 420); } // gentler difficulty ramp
     function waveGap() { return carH * 3.2; }                              // base vertical spacing between waves
     function fillProb() { return Math.min(0.62, 0.46 + score * 0.0002); }  // chance each non-corridor lane gets a car
 
     function reset() {
       obstacles = []; speed = BASE_SPEED; score = 0; scroll = 0; lastMilestone = 0;
-      player.lane = 2; player.x = laneX(2);
+      player.lane = 2; player.x = laneX(2); player.trail = [];
       // start on an EMPTY road in the middle; traffic streams in from the top.
       // waveAcc primed so the first wave appears immediately at the top edge.
       corridorLane = 2; waveAcc = waveGap(); JIT = carH * 0.65;
@@ -275,10 +306,19 @@
     // ALL five lanes (no middle bias); each non-corridor lane fills only with some
     // probability and every car gets a little vertical scatter, so the traffic
     // looks natural instead of a robotic row of three abreast.
-    function laneTopEdge(l) { // top edge (smallest y - h/2) of the highest vehicle in a lane
+    // A committed merge reserves BOTH its current lane and its target lane (mergeTo),
+    // so spacing/clearance checks treat it as occupying both for its whole descent.
+    function laneTopEdge(l) { // top edge of the highest vehicle that occupies lane l
       var t = Infinity;
-      for (var i = 0; i < obstacles.length; i++) if (obstacles[i].lane === l) t = Math.min(t, obstacles[i].y - obstacles[i].h / 2);
+      for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.lane === l || o.mergeTo === l) t = Math.min(t, o.y - o.h / 2); }
       return t;
+    }
+    function laneClearAround(self, l) { // is lane l free of other vehicles near self's y?
+      for (var i = 0; i < obstacles.length; i++) {
+        var p = obstacles[i]; if (p === self) continue;
+        if ((p.lane === l || p.mergeTo === l) && Math.abs(p.y - self.y) < (self.h + p.h) / 2 + carH * 0.5) return false;
+      }
+      return true;
     }
     function makeVehicle(l) {
       var truck = Math.random() < TRUCK_PROB;
@@ -286,12 +326,35 @@
       var w = truck ? carW * 0.98 : carW;
       var yNew = -h / 2 - Math.random() * JIT; // enters from the top, with vertical scatter
       // height-aware room check: never overlap the vehicle ahead in this lane
-      if (laneTopEdge(l) - (yNew + h / 2) < carH * 0.5) return;
-      obstacles.push({ lane: l, y: yNew, w: w, h: h, type: truck ? "truck" : "car", color: CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0] });
+      if (laneTopEdge(l) - (yNew + h / 2) < carH * 0.5) return null;
+      var o = { lane: l, y: yNew, w: w, h: h, type: truck ? "truck" : "car",
+                color: CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0],
+                cx: laneX(l), trail: [], pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: corridorLane };
+      obstacles.push(o);
+      return o;
+    }
+    // Commit a merge ONLY if the target lane is a non-corridor lane and is clear
+    // right now. Because all cars share one speed, "clear now" stays clear, and we
+    // reserve the target via mergeTo so nothing spawns into it — so a committed
+    // merge ALWAYS executes. The signal is only ever lit for such a valid merge.
+    function tryAssignMerge(o) {
+      var dirs = Math.random() < 0.5 ? [-1, 1] : [1, -1];
+      for (var k = 0; k < 2; k++) {
+        var dir = dirs[k], tl = o.lane + dir;
+        if (tl < 0 || tl >= LANES || tl === o.wc) continue;     // never into the corridor lane
+        if (!laneClearAround(o, tl)) continue;                  // target spot must be open
+        o.mergeTo = tl; o.mergeDir = dir; o.pending = true;     // committed → will merge
+        return;
+      }
     }
     function spawnWave() {
-      var pf = fillProb();
+      var pf = fillProb(), start = obstacles.length;
       for (var l = 0; l < LANES; l++) { if (l === corridorLane) continue; if (Math.random() > pf) continue; makeVehicle(l); }
+      // after the whole wave exists, let some cars commit to a (validated) merge
+      for (var i = start; i < obstacles.length; i++) {
+        var o = obstacles[i];
+        if (o.type === "car" && Math.random() < MERGE_PROB) tryAssignMerge(o);
+      }
     }
     function roamCorridor() {
       corridorLane = Math.max(0, Math.min(LANES - 1, corridorLane + ((Math.random() * 3) | 0) - 1));
@@ -320,8 +383,7 @@
 
     // ----- collision ----------------------------------------------------
     function hit(o) {
-      var ox = laneX(o.lane);
-      return Math.abs(player.x - ox) < (carW + o.w) / 2 - carW * 0.16 &&
+      return Math.abs(player.x - o.cx) < (carW + o.w) / 2 - carW * 0.16 &&
              Math.abs(playerY - o.y) < (carH + o.h) / 2 - carH * 0.14;
     }
 
@@ -338,15 +400,29 @@
 
       var tx = laneX(player.lane);
       player.x += (tx - player.x) * Math.min(1, dt * 20); // snappy lane changes
+      player.trail.push({ x: player.x, y: playerY }); if (player.trail.length > 7) player.trail.shift();
 
       // generate a new wave every fixed vertical interval
       waveAcc += speed * F * dt;
       if (waveAcc >= waveGap()) { waveAcc -= waveGap(); newWave(); }
 
+      var mStart = H * 0.42, mSpan = H * 0.2; // merge starts ~42% down, completes ~62% (≈2/3) — time to react
       for (var i = obstacles.length - 1; i >= 0; i--) {
         var o = obstacles[i];
         o.y += speed * F * dt; // uniform descent (< player) → you overtake everyone
         if (o.y - o.h / 2 > H) { obstacles.splice(i, 1); continue; }
+        // committed merge: glide from the current lane into the (reserved) target,
+        // completing ~2/3 down. It was pre-validated, so it always executes safely.
+        if (o.mergeTo >= 0 && !o.merging && o.y >= mStart) { o.merging = true; o.mergeStartY = o.y; }
+        if (o.merging) {
+          var t = Math.min(1, (o.y - o.mergeStartY) / mSpan);
+          var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease in-out
+          o.cx = laneX(o.lane) + (laneX(o.mergeTo) - laneX(o.lane)) * e;
+          if (t >= 1) { o.lane = o.mergeTo; o.mergeTo = -1; o.merging = false; o.pending = false; o.cx = laneX(o.lane); }
+        } else {
+          o.cx = laneX(o.lane);
+        }
+        o.trail.push({ x: o.cx, y: o.y }); if (o.trail.length > 7) o.trail.shift();
         if (hit(o)) { gameOver(); break; }
       }
 
@@ -362,6 +438,20 @@
     function buildGrass() {
       grassSpeck = [];
       for (var i = 0; i < 64; i++) grassSpeck.push({ side: Math.random() < 0.5 ? 0 : 1, x: Math.random(), y: Math.random() * GRASS_PERIOD, s: Math.random() < 0.5 ? 0 : 1, sz: 3 + (Math.random() * 4 | 0) });
+    }
+    var streaks = null, STREAK_PERIOD = 300;
+    function buildStreaks() {
+      streaks = [];
+      for (var i = 0; i < 26; i++) streaks.push({ x: road.x + Math.random() * road.w, len: 36 + Math.random() * 70, a: 0.5 + Math.random() * 0.5, ph: Math.random() * STREAK_PERIOD });
+    }
+    function drawSpeedStreaks() { // thin vertical streaks rushing past → sense of speed (Visual FX on)
+      if (!streaks) buildStreaks();
+      var sf = speedFx(), off = (scroll * 1.6) % STREAK_PERIOD, night = mode === "night";
+      for (var i = 0; i < streaks.length; i++) {
+        var s = streaks[i], len = s.len * (0.6 + 0.9 * sf), al = (0.04 + 0.09 * sf) * s.a * (night ? 0.7 : 1);
+        ctx.fillStyle = "rgba(255,255,255," + al.toFixed(3) + ")";
+        for (var y = (s.ph + off) % STREAK_PERIOD - STREAK_PERIOD; y < H; y += STREAK_PERIOD) ctx.fillRect(Math.round(s.x), Math.round(y), 2, len);
+      }
     }
     function drawRoad() {
       var night = mode === "night", rightW = W - (road.x + road.w);
@@ -393,9 +483,17 @@
       }
     }
     function render() {
+      blinkOn = (Math.floor(performance.now() / 270) % 2) === 0;
       drawRoad();
-      for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; drawVehicleAt(laneX(o.lane), o.y, o.w, o.h, o.type, o.color); }
-      drawVehicleAt(player.x, playerY, carW, carH, "car", PLAYER_BASE);
+      var fx = fxOn();
+      if (fx) drawSpeedStreaks();
+      for (var i = 0; i < obstacles.length; i++) {
+        var o = obstacles[i];
+        if (fx) drawTrail(o.trail, o.w, o.h, o.color); // blur while merging
+        drawVehicleAt(o.cx, o.y, o.w, o.h, o.type, o.color, (o.pending && o.y >= H * 0.12) ? o.mergeDir : 0);
+      }
+      if (fx) drawTrail(player.trail, carW, carH, PLAYER_BASE); // blur on lane change
+      drawVehicleAt(player.x, playerY, carW, carH, "car", PLAYER_BASE, 0);
 
       if (mode === "night") {
         // darkness with a headlight wash in front of the player
@@ -415,11 +513,12 @@
         ctx.save();
         ctx.globalCompositeOperation = "lighter";
         for (var j = 0; j < obstacles.length; j++) {
-          var v = obstacles[j], ox = laneX(v.lane), oy = v.y, hw = v.w * 0.28, hh = v.h * 0.42;
+          var v = obstacles[j], ox = v.cx, oy = v.y, hw = v.w * 0.28, hh = v.h * 0.42;
           glow(ox - hw, oy + hh, v.w * 0.62, "rgba(255,70,70,0.85)");
           glow(ox + hw, oy + hh, v.w * 0.62, "rgba(255,70,70,0.85)");
           glow(ox - hw, oy - hh, v.w * 0.42, "rgba(255,240,200,0.45)");
           glow(ox + hw, oy - hh, v.w * 0.42, "rgba(255,240,200,0.45)");
+          if (v.pending && v.y >= H * 0.12 && blinkOn) { var sgx = ox + v.mergeDir * hw; glow(sgx, oy - hh, v.w * 0.5, "rgba(255,175,45,0.95)"); glow(sgx, oy + hh, v.w * 0.5, "rgba(255,175,45,0.95)"); }
         }
         glow(player.x - carW * 0.28, playerY - carH * 0.46, carW * 0.95, "rgba(255,245,210,0.95)");
         glow(player.x + carW * 0.28, playerY - carH * 0.46, carW * 0.95, "rgba(255,245,210,0.95)");
