@@ -154,7 +154,7 @@
     // state: menu | wait | go | result | toosoon | done
     var state = "menu";
     var trial = 0, results = [], penal = [], flashAt = 0, timerId = 0;
-    var best = parseInt(load(BEST_KEY), 10) || 0;
+    var best = parseFloat(load(BEST_KEY)) || 0;
 
     function load(k) { try { return localStorage.getItem(k) || "0"; } catch (e) { return "0"; } }
     function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
@@ -249,7 +249,8 @@
     Sound.load();
 
     // ------------------------------------------------ helpers
-    function avg(arr) { if (!arr.length) return 0; var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i]; return Math.round(s / arr.length); }
+    var f1 = function (x) { return (Math.round(x * 10) / 10).toFixed(1); }; // reaction times → 1 decimal
+    function avg(arr) { if (!arr.length) return 0; var s = 0; for (var i = 0; i < arr.length; i++) s += arr[i]; return Math.round(s / arr.length * 10) / 10; }
     function rate(ms) {
       if (ms < 180) return { t: "⚡ lightning", c: "var(--good)" };
       if (ms < 230) return { t: "very fast", c: "var(--good)" };
@@ -260,14 +261,14 @@
     }
     function renderHud() {
       elAttempt.textContent = state === "menu" ? "—" : Math.min(trial, TRIALS) + "/" + TRIALS;
-      elLast.textContent = results.length ? results[results.length - 1] + " ms" : "—";
-      elAvg.textContent = results.length ? avg(results) + " ms" : "—";
-      elBest.textContent = best ? best + " ms" : "—";
+      elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "—";
+      elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "—";
+      elBest.textContent = best ? f1(best) + " ms" : "—";
     }
     function renderTimes() {
       var html = "";
       for (var i = 0; i < TRIALS; i++) {
-        if (i < results.length) html += penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + results[i] + '</span>';
+        if (i < results.length) html += penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + f1(results[i]) + '</span>';
         else if (i === results.length && state !== "menu" && state !== "done") html += '<span class="chip cur">' + (i + 1) + '</span>';
         else html += '<span class="chip">·</span>';
       }
@@ -329,13 +330,13 @@
 
     function record() {
       FX.start("255,194,204", 0.5); // calm the field back down between attempts (keeps it running)
-      var ms = Math.round(performance.now() - flashAt);
+      var ms = Math.round((performance.now() - flashAt) * 10) / 10;
       results.push(ms); penal.push(false); Sound.tap();
       var r = rate(ms);
       renderHud(); renderTimes();
       if (results.length >= TRIALS) { finish(); return; }
       state = "result";
-      panel.className = "panel result"; pBig.className = "big ms"; pBig.innerHTML = ms + '<small> ms</small>'; pSub.textContent = "tap to continue"; pRating.style.color = r.c; pRating.textContent = r.t;
+      panel.className = "panel result"; pBig.className = "big ms"; pBig.innerHTML = f1(ms) + '<small> ms</small>'; pSub.textContent = "tap to continue"; pRating.style.color = r.c; pRating.textContent = r.t;
     }
 
     function finish() {
@@ -348,13 +349,13 @@
       if (record) { best = a; save(BEST_KEY, best); }
       renderHud();
       var r = rate(a);
-      var chips = results.map(function (x, i) { return penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + x + '</span>'; }).join("");
+      var chips = results.map(function (x, i) { return penal[i] ? '<span class="chip pen">✗</span>' : '<span class="chip">' + f1(x) + '</span>'; }).join("");
       panel.className = "panel idle"; pBig.className = "big"; pBig.textContent = "Done!"; pSub.textContent = ""; pRating.textContent = "";
       card.innerHTML =
         '<h2>Results</h2>' +
-        '<div class="big" style="color:' + r.c + '">' + a + '<small> ms avg</small></div>' +
+        '<div class="big" style="color:' + r.c + '">' + f1(a) + '<small> ms avg</small></div>' +
         '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + '</p>' +
-        '<p>' + (record ? "🏆 new best average!" : "best avg " + best + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "—" : bestSingle + " ms") + '</p>' +
+        '<p>' + (record ? "🏆 new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "—" : f1(bestSingle) + " ms") + '</p>' +
         '<div class="summary">' + chips + '</div>' +
         '<button class="btn" id="btn-again" style="margin-top:0.6rem;">Play again</button>';
       ov.classList.add("show");

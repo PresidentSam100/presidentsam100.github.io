@@ -45,7 +45,8 @@ body {
   display: flex;
   justify-content: space-around;
   padding: 22px 16px 6px;
-  z-index: 3;
+  position: relative; /* lift the Score/Level/Best above the overlay dim so they stay readable */
+  z-index: 5;
 }
 
 .hud-item {
@@ -91,7 +92,7 @@ body {
 
 /* ---------- Overlay ---------- */
 .overlay {
-  position: absolute;
+  position: fixed;   /* cover the WHOLE screen (incl. the HUD strip) so the dim + fade are uniform */
   inset: 0;
   display: flex;
   align-items: center;

@@ -350,6 +350,7 @@ function clampPaddle(p) {
 
 function update() {
   if (state !== "playing" && state !== "countdown") return;
+  const ly0 = left.y, ry0 = right.y; // remember pre-move y for motion-blur velocity
 
   // Left paddle: W/S or on-screen arrows
   if (keys["w"] || leftUp) left.y -= PADDLE_SPEED;
@@ -368,6 +369,7 @@ function update() {
     else right.y = target;
   }
   clampPaddle(right);
+  left.dy = left.y - ly0; right.dy = right.y - ry0; // per-frame paddle movement
 
   if (state !== "playing") return; // ball stays frozen during the countdown
 
@@ -423,6 +425,20 @@ function afterPoint(dir) {
   resetBall(dir);
 }
 
+// Visual FX = inverse of the shared "reduce motion" toggle.
+function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+// trailing copies opposite the motion direction → motion blur (longer & more
+// visible at the head, fading out along the trail)
+function motionGhosts(x, y, w, h, dx, dy) {
+  if (!dx && !dy) return;
+  const STEPS = 5;
+  for (let k = 1; k <= STEPS; k++) {
+    ctx.globalAlpha = 0.26 * (1 - (k - 1) / STEPS);
+    ctx.fillRect(x - dx * k, y - dy * k, w, h);
+  }
+  ctx.globalAlpha = 1;
+}
+
 function draw() {
   ctx.clearRect(0, 0, W, H);
 
@@ -443,11 +459,15 @@ function draw() {
   ctx.fillText(left.score, W / 2 - 60, 60);
   ctx.fillText(right.score, W / 2 + 60, 60);
 
-  // paddles
+  // paddles + ball, with a slight motion blur when Visual FX is on
+  ctx.fillStyle = "#fff";
+  if (fxOn() && (state === "playing" || state === "countdown")) {
+    motionGhosts(left.x, left.y, PADDLE_W, PADDLE_H, 0, left.dy || 0);
+    motionGhosts(right.x, right.y, PADDLE_W, PADDLE_H, 0, right.dy || 0);
+    motionGhosts(ball.x, ball.y, BALL_SIZE, BALL_SIZE, ball.vx, ball.vy);
+  }
   ctx.fillRect(left.x, left.y, PADDLE_W, PADDLE_H);
   ctx.fillRect(right.x, right.y, PADDLE_W, PADDLE_H);
-
-  // ball
   ctx.fillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE);
 }
 
