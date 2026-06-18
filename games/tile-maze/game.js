@@ -62,45 +62,8 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
   }
 
-  // ----- audio -----
-  let actx = null;
-  function audio() {
-    if (!actx) {
-      const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC) actx = new AC();
-    }
-    return actx;
-  }
-  function tone(freq, dur, type, gain, slideTo) {
-    // muting is handled globally by the shared top-right toggle (mute-toggle.js)
-    const ac = audio();
-    if (!ac) return;
-    const t = ac.currentTime;
-    const osc = ac.createOscillator();
-    const g = ac.createGain();
-    osc.type = type || "sine";
-    osc.frequency.setValueAtTime(freq, t);
-    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain || 0.12, t + 0.01);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g).connect(ac.destination);
-    osc.start(t);
-    osc.stop(t + dur + 0.02);
-  }
-  const SFX = {
-    step: () => tone(180, 0.05, "triangle", 0.05),
-    green: () => tone(660, 0.18, "sine", 0.14),
-    orange: () => tone(330, 0.12, "square", 0.08),
-    slide: () => tone(520, 0.14, "sine", 0.08, 240),
-    bounce: () => { tone(120, 0.16, "sawtooth", 0.14); },
-    thud: () => tone(90, 0.1, "sine", 0.1),
-    win: () => {
-      [523, 659, 784, 1047].forEach((f, i) =>
-        setTimeout(() => tone(f, 0.22, "triangle", 0.13), i * 110)
-      );
-    },
-  };
+  // ----- audio (shared cues from audio.js) -----
+  const SFX = window.TileSFX;
 
   // ----- game state -----
   let current = 0; // level index
@@ -213,13 +176,36 @@
   }
 
   // ----- movement -----
+  // Animation context handed to the shared TileAnim module (also used by the editor).
+  function animCtx() {
+    return {
+      playerEl,
+      gap: GAP,
+      cell: () => cell,
+      grid: () => grid,
+      reduced: () => !!(window.RM_ON && window.RM_ON()),
+      from: { r: state.r, c: state.c }, // tile the player is leaving (for midpoint speed blend)
+      setFlavor,
+      sfx: SFX,
+      // briefly light up the electric tile that zapped you
+      flashTile: (r, c) => {
+        const el = boardEl.children[r * grid[0].length + c];
+        if (el) { el.classList.add("zapping"); setTimeout(() => el.classList.remove("zapping"), 340); }
+      },
+    };
+  }
+
   async function doMove(dir) {
-    if (locked || won || bumping) return;
+    if (locked || won) return;
     const res = E.resolveMove(grid, state, dir);
+    const A = window.TileAnim;          // shared animation module (guarded so a load hiccup never freezes play)
 
     if (res.blocked) {
+      // pushed straight into a wall — thud + a little bump back
+      locked = true;
       SFX.thud();
-      bump(dir);
+      if (A) await A.bump(animCtx(), dir, state);
+      locked = false;
       return;
     }
 
@@ -227,27 +213,9 @@
     moves++;
     moveCountEl.textContent = moves;
 
-    const slideMove = res.steps.some((s) => grid[s.r][s.c] === "u");
-    playerEl.classList.toggle("sliding", slideMove);
-    const dt = slideMove ? 75 : 115;
+    if (A) await A.play(animCtx(), res);
+    else placePlayer(res.final.r, res.final.c, false);
 
-    for (let i = 0; i < res.steps.length; i++) {
-      const s = res.steps[i];
-      placePlayer(s.r, s.c, true);
-      if (s.flavor) setFlavor(s.flavor);
-
-      const ch = grid[s.r][s.c];
-      const isRebound = res.bounced && i === res.steps.length - 1;
-      if (isRebound) SFX.bounce();
-      else if (ch === "g") SFX.green();
-      else if (ch === "o") SFX.orange();
-      else if (ch === "u") SFX.slide();
-      else SFX.step();
-
-      await sleep(dt);
-    }
-
-    playerEl.classList.remove("sliding");
     state = res.final;
     setFlavor(state.flavor);
     refreshLive();
@@ -255,36 +223,13 @@
     // A slide that traveled and then stopped against a wall (e.g. ice into a red
     // block) should bump into it and settle back. Only with motion enabled —
     // when reduced, skip the nudge (and its brief input lock).
-    if (res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) {
+    if (A && res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) {
       SFX.thud();
-      bump(dir);
+      await A.bump(animCtx(), dir, state);
     }
 
     locked = false;
     if (res.win) completeLevel();
-  }
-
-  // Nudge a short way toward the wall, then settle back — relative to the
-  // player's current tile (no full-position keyframe that would snap to 0,0).
-  let bumping = false;
-  function bump(dir) {
-    if (bumping) return;
-    bumping = true;
-    const d = E.DELTA[dir];
-    const baseX = state.c * (cell + GAP);
-    const baseY = state.r * (cell + GAP);
-    const nudge = Math.min(16, cell * 0.34);
-    playerEl.style.transition = "transform 80ms ease-out";
-    playerEl.style.transform =
-      `translate(${baseX + d.c * nudge}px, ${baseY + d.r * nudge}px)`;
-    setTimeout(() => {
-      playerEl.style.transition = "transform 130ms ease-in";
-      playerEl.style.transform = `translate(${baseX}px, ${baseY}px)`;
-      setTimeout(() => {
-        playerEl.style.transition = "";
-        bumping = false;
-      }, 140);
-    }, 90);
   }
 
   // ----- side panel -----

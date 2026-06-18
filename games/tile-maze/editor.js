@@ -48,6 +48,9 @@
   // one-time migration from the pre-rename key (folder was "color-tile")
   try { const _o = localStorage.getItem("colorTileMaze.customLevels"); if (_o != null && localStorage.getItem(STORE) == null) { localStorage.setItem(STORE, _o); localStorage.removeItem("colorTileMaze.customLevels"); } } catch (e) {}
 
+  // ---- audio (shared cues from audio.js) ----
+  const SFX = window.TileSFX;
+
   // ---- rendering ----
   function computeCell() {
     const maxW = Math.min((frame.parentElement.clientWidth || 520), 560);
@@ -174,19 +177,36 @@
     testOverlay.hidden = true; tstate = null;
     renderBoard(); updateStatus();
   }
+  // Shared animation context — same shape the real game passes to TileAnim
+  // (continuous slides, electric zap, slower water, wall bump), but silent.
+  function tCtx() {
+    return {
+      playerEl,
+      gap: GAP,
+      cell: () => cell,
+      grid: () => grid,
+      reduced: () => !!(window.RM_ON && window.RM_ON()),
+      from: tstate ? { r: tstate.r, c: tstate.c } : null, // tile the player is leaving (midpoint speed blend)
+      setFlavor,
+      sfx: SFX,
+      flashTile: (r, c) => {
+        const el = edBoard.children[r * cols + c];
+        if (el) { el.classList.add("zapping"); setTimeout(() => el.classList.remove("zapping"), 340); }
+      },
+    };
+  }
   async function testMove(dir) {
     if (mode !== "test" || tlocked || twon) return;
     const res = E.resolveMove(grid, tstate, dir);
-    if (res.blocked) return;
+    const A = window.TileAnim;          // shared animation module (guarded so a load hiccup never freezes test-play)
+    if (res.blocked) { tlocked = true; SFX.thud(); if (A) await A.bump(tCtx(), dir, tstate); tlocked = false; return; }
     tlocked = true; tmoves++;
-    const slide = res.steps.some((s) => grid[s.r][s.c] === "u");
-    playerEl.classList.toggle("sliding", slide);
-    const dt = slide ? 70 : 105;
-    for (const s of res.steps) { placePlayer(s.r, s.c, true); if (s.flavor) setFlavor(s.flavor); await sleep(dt); }
-    playerEl.classList.remove("sliding");
+    if (A) await A.play(tCtx(), res);
+    else placePlayer(res.final.r, res.final.c, false);
     tstate = res.final; setFlavor(tstate.flavor); refreshLive();
+    if (A && res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(), dir, tstate); }
     tlocked = false;
-    if (res.win) { twon = true; testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; setTimeout(() => { testOverlay.hidden = false; }, 250); }
+    if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; setTimeout(() => { testOverlay.hidden = false; }, 250); }
   }
 
   // ---- import / export ----

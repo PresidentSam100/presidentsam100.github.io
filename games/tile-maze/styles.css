@@ -214,6 +214,24 @@ html, body {
   box-shadow: 0 0 16px rgba(244, 207, 51, 0.9), 0 4px 8px rgba(0, 0, 0, 0.4);
 }
 
+/* Electric "zap" while a yellow / live-water tile bounces you back.
+   Shakes + electrifies the soul only (transform on the soul, so it never
+   fights the player's position transform). */
+.player.zap .soul { animation: tmZap 300ms linear; }
+@keyframes tmZap {
+  0%   { transform: translate(0, 0);   filter: brightness(2.2); box-shadow: 0 0 12px 4px #ffe96b, 0 0 26px 10px rgba(255, 233, 107, 0.7); }
+  20%  { transform: translate(-3px, 1px); }
+  40%  { transform: translate(3px, -1px); filter: brightness(2.6); }
+  60%  { transform: translate(-3px, -1px); box-shadow: 0 0 14px 5px #fff6b0, 0 0 30px 12px rgba(255, 233, 107, 0.85); }
+  80%  { transform: translate(2px, 1px);  filter: brightness(2.2); }
+  100% { transform: translate(0, 0);   filter: brightness(1); }
+}
+.tile.zapping { animation: tmTileZap 340ms ease; position: relative; z-index: 4; }
+@keyframes tmTileZap {
+  0%, 100% { filter: none; }
+  45% { filter: brightness(1.7); box-shadow: inset 0 0 0 3px #fff, 0 0 18px 6px #ffe96b; }
+}
+
 /* Win overlay */
 .overlay[hidden] { display: none; }
 .overlay {

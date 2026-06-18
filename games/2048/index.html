@@ -107,7 +107,10 @@
       .score-box .val {
         font-size: 1.4rem;
         font-weight: 800;
+        display: inline-block;       /* so the pop scales tightly around the number */
+        transform-origin: center;
       }
+      .score-box .val.pop { animation: pop 0.18s ease; }
 
       .controls {
         width: 100%;
@@ -658,12 +661,22 @@
         }
 
         function updateScore() {
-          scoreEl.textContent = score;
           if (score > best) {
             best = score;
             lsSet(bestKey(), String(best));
           }
-          bestEl.textContent = best;
+          popUpdate(scoreEl, score);
+          popUpdate(bestEl, best);
+        }
+
+        // Set a score field and give it a little pop — but only when the value
+        // actually changes, and not when Visual FX is off (reduce motion).
+        function popUpdate(el, v) {
+          v = String(v);
+          if (el.textContent === v) return;
+          el.textContent = v;
+          if (window.RM_ON && window.RM_ON()) return;
+          el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
         }
 
         function hasMoves() {
