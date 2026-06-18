@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#0e1018" />
-  <title>Click Rush — clicks per second</title>
+  <title>ClickTap — speed test</title>
   <style>
     :root {
       --bg: #0e1018; --panel: #181c28; --line: #283044; --text: #eef2f9; --muted: #8b93a7;
@@ -108,19 +108,12 @@
 
   <div class="wrap">
     <header class="top">
-      <h1>Click<b>Rush</b></h1>
-      <p>how fast can you click?</p>
+      <h1>Click<b>Tap</b></h1>
+      <p id="subtitle">how fast can you click?</p>
     </header>
 
     <!-- SETUP -->
     <section id="setup">
-      <div style="text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;">
-        <span class="lbl">Input</span>
-        <div class="choices" id="inputChoices">
-          <button class="choice sel" data-input="mouse">🖱️ Mouse<span class="sub">click / tap</span></button>
-          <button class="choice" data-input="keyboard">⌨️ Keyboard<span class="sub">mash any key</span></button>
-        </div>
-      </div>
       <div style="text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;">
         <span class="lbl">Duration</span>
         <div class="choices" id="durChoices">
@@ -137,8 +130,8 @@
     <section id="play" hidden>
       <div class="hud">
         <div class="stat"><div class="k">Time</div><div class="v" id="vTime">5.0</div></div>
-        <div class="stat"><div class="k">Clicks</div><div class="v" id="vClicks">0</div></div>
-        <div class="stat"><div class="k">CPS</div><div class="v" id="vCps">0.0</div></div>
+        <div class="stat"><div class="k" id="kClicks">Clicks</div><div class="v" id="vClicks">0</div></div>
+        <div class="stat"><div class="k" id="kCps">CPS</div><div class="v" id="vCps">0.0</div></div>
       </div>
       <div class="pad-wrap">
         <svg class="ring" viewBox="0 0 200 200"><circle class="bg" cx="100" cy="100" r="92"></circle><circle class="fg" id="ringFg" cx="100" cy="100" r="92"></circle></svg>
@@ -150,7 +143,7 @@
 
     <!-- RESULT -->
     <section id="result" hidden>
-      <div class="final"><span id="finalCps">0.0</span> <small>CPS</small></div>
+      <div class="final"><span id="finalCps">0.0</span> <small id="finalUnit">CPS</small></div>
       <div class="rating" id="rating"></div>
       <div class="newbest" id="newBest"></div>
       <div class="summary" id="summary"></div>
@@ -174,6 +167,16 @@
     let state = "setup";      // setup | ready | running | done
     let clicks = 0, startT = 0, raf = 0, clickTimes = [];
     let muted = false; // sound is muted globally via the shared top-right toggle (mute-toggle.js)
+
+    // Device-aware wording: desktop = click / CPS, touch = tap / TPS.
+    const TOUCH = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+    const VERB = TOUCH ? "Tap" : "Click";   // capitalized
+    const verb = TOUCH ? "tap" : "click";   // lowercase
+    const METRIC = TOUCH ? "TPS" : "CPS";
+    $("subtitle").textContent = "how fast can you " + verb + "?";
+    $("kClicks").textContent = TOUCH ? "Taps" : "Clicks";
+    $("kCps").textContent = METRIC;
+    $("finalUnit").textContent = METRIC;
 
     // ---- audio ----
     let actx = null;
@@ -208,17 +211,10 @@
     const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
     function showSetupBest() {
       const b = getBest();
-      $("setupBest").innerHTML = b > 0 ? "Best for " + input + " · " + dur + "s: <b>" + b.toFixed(2) + " CPS</b>" : "No record yet for this combo";
+      $("setupBest").innerHTML = b > 0 ? "Best for " + dur + "s: <b>" + b.toFixed(3) + " " + METRIC + "</b>" : "No record yet for this duration";
     }
 
     // ---- selection ----
-    $("inputChoices").addEventListener("click", (e) => {
-      const c = e.target.closest(".choice"); if (!c) return;
-      input = c.dataset.input;
-      [...$("inputChoices").children].forEach((x) => x.classList.toggle("sel", x === c));
-      selectSound();
-      showSetupBest();
-    });
     $("durChoices").addEventListener("click", (e) => {
       const c = e.target.closest(".choice"); if (!c) return;
       dur = parseInt(c.dataset.dur, 10);
@@ -234,9 +230,9 @@
       state = "ready"; clicks = 0; clickTimes = [];
       $("vTime").textContent = dur.toFixed(1); $("vClicks").textContent = "0"; $("vCps").textContent = "0.0";
       $("ringFg").style.strokeDashoffset = "0";
-      $("padCount").textContent = input === "mouse" ? "CLICK" : "PRESS";
+      $("padCount").textContent = VERB.toUpperCase();
       $("padSub").textContent = "to start";
-      $("hint").textContent = input === "mouse" ? "Click the pad as fast as you can!" : "Mash any key as fast as you can!";
+      $("hint").textContent = VERB + " the pad as fast as you can!";
       show(playEl);
     }
 
@@ -271,16 +267,15 @@
       cancelAnimationFrame(raf);
       state = "done";
       const cps = clicks / dur;
-      $("finalCps").textContent = cps.toFixed(2);
+      $("finalCps").textContent = cps.toFixed(3);
       const r = rating(cps); $("rating").textContent = r.t; $("rating").style.color = r.c;
       $("summary").innerHTML =
-        '<span class="chip"><b>' + clicks + '</b> clicks</span>' +
-        '<span class="chip">' + dur + 's</span>' +
-        '<span class="chip">' + (input === "mouse" ? "🖱️ mouse" : "⌨️ keyboard") + "</span>";
+        '<span class="chip"><b>' + clicks + '</b> ' + verb + 's</span>' +
+        '<span class="chip">' + dur + 's</span>';
       renderGraph();
       const prev = getBest();
       if (cps > prev) { localStorage.setItem(bestKey(), cps.toFixed(4)); $("newBest").textContent = "★ NEW BEST!"; chord([660, 880, 1175, 1568]); }
-      else { $("newBest").textContent = prev > 0 ? "Best: " + prev.toFixed(2) + " CPS" : ""; chord([523, 659]); }
+      else { $("newBest").textContent = prev > 0 ? "Best: " + prev.toFixed(3) + " " + METRIC : ""; chord([523, 659]); }
       show(resultEl);
     }
     function renderGraph() {
@@ -324,17 +319,17 @@
       }
       const yAvg = Y(finalCps).toFixed(1);
       $("graph").innerHTML =
-        '<div class="gtitle">clicks per second (CPS) over time</div>' +
+        '<div class="gtitle">' + verb + 's per second (' + METRIC + ') over time</div>' +
         '<svg class="lg" viewBox="0 0 ' + VW + ' ' + VH + '">' +
           '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(198,255,61,.32)"/><stop offset="1" stop-color="rgba(198,255,61,0)"/></linearGradient></defs>' +
           grid + xticks +
           '<path d="' + area + '" fill="url(#lgF)"/>' +
           '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#36f5ff" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
           '<path d="' + line + '" fill="none" stroke="#c6ff3d" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-          '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">CPS</text>' +
+          '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">' + METRIC + '</text>' +
           '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">Time (s)</text>' +
         '</svg>' +
-        '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> CPS &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> CPS</div>';
+        '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> ' + METRIC + ' &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> ' + METRIC + '</div>';
     }
     function rating(c) {
       if (c < 3) return { t: "Warming up", c: "var(--muted)" };
@@ -359,15 +354,9 @@
       e.preventDefault();
       registerInput();
     });
-    const IGNORE = ["Escape", "Tab", "Shift", "Control", "Alt", "Meta", "CapsLock", "ContextMenu", "Insert"];
+    // Esc still bails out of a run; there's no keyboard play mode anymore.
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" && state !== "setup") { quit(); return; }
-      if (input !== "keyboard") return;
-      if (state !== "ready" && state !== "running") return;
-      if (e.repeat) return;
-      if (IGNORE.includes(e.key) || /^F\d+$/.test(e.key)) return;
-      e.preventDefault();
-      registerInput();
+      if (e.key === "Escape" && state !== "setup") quit();
     });
 
     $("startBtn").addEventListener("click", () => { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} beginTest(); });
