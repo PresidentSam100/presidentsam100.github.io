@@ -44,13 +44,14 @@
     .stat .value { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 1px; }
     .stat.warn .value { color: var(--bad); }
 
-    /* floating "+10s" that rises out of the Time stat on each Sprint solve */
-    .time-bonus {
+    /* floating bonus that rises out of a stat on each solve:
+       "+10s" out of Time (Sprint), "+1" out of Solved (every mode) */
+    .time-bonus, .score-bonus {
       position: absolute; left: 0; right: 0; top: -0.5rem; text-align: center;
       color: var(--good); font-weight: 900; font-size: 1rem; font-variant-numeric: tabular-nums;
       pointer-events: none; opacity: 0; text-shadow: 0 1px 6px rgba(70,230,160,0.45);
     }
-    .time-bonus.show { animation: bonusRise 0.9s ease forwards; }
+    .time-bonus.show, .score-bonus.show { animation: bonusRise 0.9s ease forwards; }
     @keyframes bonusRise {
       0% { opacity: 0; transform: translateY(8px) scale(0.8); }
       18% { opacity: 1; transform: translateY(0) scale(1.12); }
@@ -154,7 +155,7 @@
 
     <div class="hud">
       <div class="stat" id="stat-a"><div class="label" id="label-a">Time</div><div class="value" id="value-a">—</div><div class="time-bonus" id="time-bonus"></div></div>
-      <div class="stat"><div class="label">Solved</div><div class="value" id="value-solved">0</div></div>
+      <div class="stat"><div class="label">Solved</div><div class="value" id="value-solved">0</div><div class="score-bonus" id="score-bonus"></div></div>
       <div class="stat"><div class="label" id="label-best">Best</div><div class="value" id="value-best">—</div></div>
     </div>
 
@@ -299,6 +300,7 @@
     var boardEl = $("board"), kbEl = $("kb"), msgEl = $("msg"), ov = $("overlay"), card = $("card");
     var labelA = $("label-a"), valueA = $("value-a"), statA = $("stat-a"), timeBonus = $("time-bonus");
     var valueSolved = $("value-solved"), labelBest = $("label-best"), valueBest = $("value-best");
+    var scoreBonus = $("score-bonus");
 
     function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
     function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
@@ -358,6 +360,7 @@
     var grid = [];             // grid[r] = array of letters
     var tileEls = [];          // tileEls[r][c]
     var startTime = 0, timerRAF = 0, sprintDeadline = 0;
+    var raceFinishMs = null;   // elapsed time captured the instant the Race is won (so the end-screen delay doesn't inflate it)
     var lastCountSec = 0;      // last whole second announced by the countdown beep
     var letterState = {};      // best-known state per letter for keyboard tint
     var locked = false;        // brief lock while a word resolves
@@ -407,6 +410,14 @@
       timeBonus.classList.add("show");
     }
 
+    // float a "+1" up out of the Solved stat on every correct word
+    function showScoreBonus() {
+      scoreBonus.textContent = "+1";
+      scoreBonus.classList.remove("show");
+      void scoreBonus.offsetWidth; // force reflow so the animation replays
+      scoreBonus.classList.add("show");
+    }
+
     // ----- timer / hud --------------------------------------------------
     function fmt(ms) {
       var s = ms / 1000;
@@ -436,7 +447,7 @@
           lastCountSec = secLeft;
           SND.count(secLeft);
         }
-        if (left <= 0) { endGame(); return; }
+        if (left <= 0) { sprintTimeUp(); return; }
       } else {
         valueA.textContent = ((now - startTime) / 1000).toFixed(1);
       }
@@ -521,18 +532,29 @@
     // ----- word resolution ---------------------------------------------
     function wordSolved() {
       locked = true;
-      solved++;
-      valueSolved.textContent = String(solved);
-      SND.solve();
-      if (mode === "race" && solved >= RACE_TARGET) {
-        setMsg("✓ " + answer.toUpperCase(), "var(--good)");
-        endGame();
-        return;
-      }
+      // Sprint: bank the +10s the instant the word is correct — before the
+      // score/sound/animation work — so a solve landing right as the clock
+      // nears 0 always counts and can never trip the time-up (✗ / game-over)
+      // path. This runs synchronously inside submit(), so the extended deadline
+      // is in place before the next timer tick can check it.
       if (mode === "sprint") {
-        // each solve buys more time — keep solving to keep the clock alive
         sprintDeadline += SPRINT_BONUS * 1000;
         showTimeBonus();
+      }
+      solved++;
+      valueSolved.textContent = String(solved);
+      showScoreBonus();
+      SND.solve();
+      if (mode === "race" && solved >= RACE_TARGET) {
+        // freeze the clock at the winning instant, then let the final solve
+        // (green tiles + "+1") play before the end screen covers the board
+        raceFinishMs = Math.round(performance.now() - startTime);
+        playing = false;
+        cancelAnimationFrame(timerRAF);
+        valueA.textContent = fmt(raceFinishMs);
+        setMsg("✓ " + answer.toUpperCase(), "var(--good)");
+        setTimeout(endGame, 900);
+        return;
       }
       setMsg("✓ " + answer.toUpperCase(), "var(--good)");
       setTimeout(function () { newWord(); }, 450);
@@ -546,11 +568,25 @@
       setTimeout(function () { newWord(); }, 900);
     }
 
+    // Sprint clock hit zero mid-word: stop the timer and reveal the unsolved
+    // answer in red with ✗ (same as a 6-guess miss) before the end screen shows.
+    function sprintTimeUp() {
+      playing = false;
+      cancelAnimationFrame(timerRAF);
+      locked = true;
+      valueA.textContent = "0.0";
+      statA.classList.add("warn");
+      SND.fail();
+      setMsg("✗ " + answer.toUpperCase(), "var(--bad)");
+      setTimeout(endGame, 1100);
+    }
+
     // ----- start / end --------------------------------------------------
     function startGame(m) {
       mode = m;
       playing = true;
       solved = 0;
+      raceFinishMs = null;
       valueSolved.textContent = "0";
       labelA.textContent = mode === "sprint" ? "Time left" : "Time";
       labelBest.textContent = mode === "sprint" ? "Best (words)" : "Best (time)";
@@ -585,7 +621,7 @@
           '<button class="btn" id="btn-again">Play again</button>' +
           '<br><button class="btn ghost" id="btn-menu">Change mode</button>';
       } else {
-        var elapsed = Math.round(performance.now() - startTime);
+        var elapsed = (raceFinishMs != null) ? raceFinishMs : Math.round(performance.now() - startTime);
         var done = solved >= RACE_TARGET;
         var bestR = parseInt(load(BEST_RACE), 10) || 0;
         if (done && (bestR === 0 || elapsed < bestR)) { bestR = elapsed; save(BEST_RACE, bestR); record = true; }
