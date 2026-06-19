@@ -269,14 +269,21 @@ function scheduleAI(delay) {
 }
 
 function aiMove() {
+  const myRound = round;
   const i = chooseAIMove();
   board[i] = AI;
   lastMove = i;
   sfxAI();
-  if (checkEnd()) return;
-  turn = HUMAN;
-  render();
-  setStatus('Your turn (X)');
+  if (checkEnd()) return;        // game over → checkEnd renders mark + highlight; cells stay disabled
+  render();                      // draw the AI mark; turn is still AI, so cells stay disabled WHILE it animates
+  const wait = animOn() ? 360 : 0;
+  setTimeout(() => {
+    if (myRound !== round) return;
+    lastMove = -1;               // don't replay the draw animation on the enabling render
+    turn = HUMAN;
+    render();                    // only NOW hand control back — cells become hoverable/clickable
+    setStatus('Your turn (X)');
+  }, wait);
 }
 
 function checkEnd() {

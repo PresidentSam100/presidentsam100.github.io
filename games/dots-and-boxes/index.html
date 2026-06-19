@@ -22,7 +22,8 @@
   svg { background:var(--paper); border:1px solid #d8dcc9; border-radius:14px; box-shadow:0 6px 18px rgba(60,70,80,.18); touch-action:none; }
   .dot { fill:var(--dot); }
   .line { stroke:var(--line-empty); stroke-width:6; stroke-linecap:round; cursor:pointer; transition:stroke .1s; }
-  .line:hover { stroke:var(--line-hover); }
+  /* preview the line in a slightly lighter shade of YOUR colour, only on your turn */
+  #board.playable .line:not(.taken):hover { stroke:#e8675f; }
   .line.taken { cursor:default; }
   .line.human { stroke:var(--human); } .line.ai { stroke:var(--ai); }
   .box-fill { transition:fill .2s; }
@@ -233,8 +234,9 @@ function newGame() {
       if (myRound !== round) return; // a new game was started before this flip resolved
       if (who === 'cpu') { turn = AI; busy = true; setStatus('AI thinking…'); scheduleAI(400); }
       else setStatus('Your turn');
+      syncPlayable();
     });
-  } else setStatus('Your turn');
+  } else { setStatus('Your turn'); syncPlayable(); }
 }
 
 // --- geometry ---
@@ -279,7 +281,12 @@ function draw() {
     dot.setAttribute('r', 6); dot.setAttribute('class','dot');
     boardEl.appendChild(dot);
   }
+  syncPlayable();
 }
+
+// Board accepts hover/clicks only on the human's turn — not during AI
+// processing (incl. the line-draw animation) or after the game ends.
+function syncPlayable(){ boardEl.classList.toggle('playable', !gameOver && !busy && turn === HUMAN); }
 
 function isLast(type,r,c){
   return animOn() && lastLine && lastLine.type===type && lastLine.r===r && lastLine.c===c;
@@ -334,6 +341,7 @@ function play(type, r, c) {
   if (checkOver()) return;
   if (made === 0) { turn = AI; setStatus('AI thinking…'); busy = true; scheduleAI(350); }
   else setStatus('You completed a box — go again!');
+  syncPlayable();
 }
 
 // Queue the AI's turn but only let it run if we're still in the same game —
@@ -344,6 +352,7 @@ function scheduleAI(delay) {
 }
 
 function aiTurn() {
+  const myRound = round;
   // AI keeps moving while it completes boxes
   const mv = chooseAIMove();
   const made = placeLine(mv.type, mv.r, mv.c, AI);
@@ -352,9 +361,15 @@ function aiTurn() {
   if (made > 0) sfxClaim(AI);
   lastLine = { type: mv.type, r: mv.r, c: mv.c };
   draw(); updateScores();
-  if (checkOver()) { busy = false; return; }
+  if (checkOver()) { busy = false; syncPlayable(); return; }
   if (made > 0) { setStatus('AI completed a box — goes again…'); scheduleAI(350); }
-  else { turn = HUMAN; busy = false; setStatus('Your turn'); }
+  else {
+    // Hand the turn back only AFTER the AI's line finishes drawing, so the
+    // human can't move (or hover-highlight) while the move is still animating.
+    setStatus('Your turn');
+    const wait = animOn() ? 300 : 0;
+    setTimeout(() => { if (myRound !== round) return; turn = HUMAN; busy = false; syncPlayable(); }, wait);
+  }
 }
 
 function checkOver() {
@@ -365,6 +380,7 @@ function checkOver() {
     else if (scores.ai > scores.human) { record.l++; setStatus(`AI wins ${scores.ai}–${scores.human}.`); sfxLose(); }
     else { record.d++; setStatus(`Draw ${scores.human}–${scores.ai}.`); sfxDraw(); }
     updateRecord();
+    syncPlayable();
     return true;
   }
   return false;

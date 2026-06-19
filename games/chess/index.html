@@ -36,8 +36,13 @@
   .sq.sel::before { content:""; position:absolute; inset:0; background:var(--sel); opacity:.55; }
   .sq.last::before { content:""; position:absolute; inset:0; background:var(--last); opacity:.42; }
   .sq.check::after { content:""; position:absolute; inset:0; background:radial-gradient(circle, var(--check) 30%, transparent 72%); opacity:.85; }
-  .sq .pc { position:relative; z-index:2; }
-  .sq .pc.fill { text-shadow:0 0 1px rgba(0,0,0,.85), 0 1px 1px rgba(0,0,0,.5); }
+  /* Clean even outline drawn BEHIND the fill (paint-order) so detailed glyphs
+     like the bishop stay crisp — and contrasting per piece so they read on both
+     light and dark squares. .lt = light piece → dark outline; .dk = dark/colored
+     piece → light outline. */
+  .sq .pc { position:relative; z-index:2; font-weight:400; paint-order:stroke fill; }
+  .sq .pc.lt { -webkit-text-stroke:.045em #1c140d; text-shadow:0 .03em .05em rgba(0,0,0,.45); }
+  .sq .pc.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
   .sq .pc.dead { opacity:.4; filter:grayscale(.6); }
   .sq .dot { position:absolute; z-index:1; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.7; }
   .sq.cap .dot { width:86%; height:86%; background:transparent; border:5px solid var(--move); opacity:.7; }
@@ -297,7 +302,12 @@
     render(); setStatus();
   }
 
-  function glyphOf(p){ return (G.mode===2 && p.o==="w") ? OUTLINE[p.t] : FILLED[p.t]; }
+  // Always use the solid (filled) glyphs and tint them; an outline class added in
+  // render() keeps every piece readable on both light and dark squares.
+  function glyphOf(p){ return FILLED[p.t]; }
+  function lum(hex){ const h=hex.replace("#",""); const s=h.length===3?h.split("").map(x=>x+x).join(""):h;
+    const r=parseInt(s.slice(0,2),16), g=parseInt(s.slice(2,4),16), b=parseInt(s.slice(4,6),16);
+    return (0.2126*r + 0.7152*g + 0.0722*b) / 255; }
 
   function render(){
     boardEl.innerHTML="";
@@ -314,8 +324,9 @@
       if(i===inCk) sq.classList.add("check");
       const mv=G.legal.find(m=>m.to===i);
       if(mv){ const d=document.createElement("div"); d.className="dot"; sq.appendChild(d); if(mv.cap) sq.classList.add("cap"); }
-      if(p){ const g=document.createElement("span"); g.className="pc"+(p.o==="w"&&G.mode===2?"":" fill")+(p.dead?" dead":"");
-        g.textContent=glyphOf(p); g.style.color=G.players[p.o].color; sq.appendChild(g); }
+      if(p){ const g=document.createElement("span"); const col=G.players[p.o].color;
+        g.className="pc "+(lum(col)>0.55?"lt":"dk")+(p.dead?" dead":"");
+        g.textContent=glyphOf(p); g.style.color=col; sq.appendChild(g); }
       sq.addEventListener("click",()=>onSquare(i));
       boardEl.appendChild(sq);
     }

@@ -142,6 +142,7 @@ const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const diffEl = document.getElementById('difficulty');
 let board, gameOver, busy, animMove, round = 0, score = { w:0, l:0, d:0 };
+let hoverColIdx = -1; // column the cursor is currently over (to re-highlight after the AI moves)
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
 // (or OS reduced-motion) means no drop animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
@@ -213,7 +214,7 @@ function init() {
   // queued AI move) from the previous game is recognized as stale and ignored.
   round++;
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
-  gameOver = false; busy = false; animMove = null;
+  gameOver = false; busy = false; animMove = null; hoverColIdx = -1;
   buildDOM();
   render();
   if (window.coinFlip) {
@@ -231,7 +232,19 @@ function init() {
 // pressing "New Game" while the AI is "thinking" bumps the round and cancels it.
 function scheduleAI(delay) {
   const myRound = round;
-  setTimeout(() => { if (myRound !== round) return; aiMove(); busy = false; }, delay);
+  setTimeout(() => {
+    if (myRound !== round) return;
+    aiMove();
+    // Keep input locked until the AI's disc finishes dropping, THEN release and
+    // re-highlight whatever column the cursor is over (CSS :hover won't re-fire
+    // on its own without mouse movement).
+    const settle = animOn() ? 760 : 60;
+    setTimeout(() => {
+      if (myRound !== round) return;
+      busy = false;
+      if (hoverColIdx >= 0) hoverCol(hoverColIdx, true);
+    }, settle);
+  }, delay);
 }
 
 function buildDOM() {
@@ -242,8 +255,8 @@ function buildDOM() {
       cell.className = 'cell';
       cell.dataset.r = r; cell.dataset.c = c;
       cell.addEventListener('click', () => humanMove(c));
-      cell.addEventListener('mouseenter', () => hoverCol(c, true));
-      cell.addEventListener('mouseleave', () => hoverCol(c, false));
+      cell.addEventListener('mouseenter', () => { hoverColIdx = c; hoverCol(c, true); });
+      cell.addEventListener('mouseleave', () => { if (hoverColIdx === c) hoverColIdx = -1; hoverCol(c, false); });
       boardEl.appendChild(cell);
     }
   }
