@@ -280,11 +280,12 @@ h1.title {
   margin-bottom: 1rem;
 }
 .opp {
+  box-sizing: border-box;
+  width: 164px; /* fixed — never resizes with card count, so all CPUs match */
   background: linear-gradient(180deg, #1a1a22, #131319);
   border: 2px solid #2a2a36;
   border-radius: 14px;
-  padding: 0.65rem 0.9rem;
-  min-width: 124px;
+  padding: 0.65rem 0.6rem;
   text-align: center;
   transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
 }

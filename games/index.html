@@ -205,8 +205,15 @@
 
         <a class="game-card" href="./uno/">
           <span class="icon">🃏</span>
-          <span class="name">Uno <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">NEW</sup></span>
+          <span class="name">Uno</span>
           <span class="desc">match color, number & symbol to outplay the CPU</span>
+          <span class="play">play →</span>
+        </a>
+
+        <a class="game-card" href="./logicgate/">
+          <span class="icon">💡</span>
+          <span class="name">LogicGate</span>
+          <span class="desc">wire up logic gates to light the bulb</span>
           <span class="play">play →</span>
         </a>
 
@@ -375,6 +382,7 @@
       (function () {
         // Exact keys to remove.
         var EXACT = [
+          "logicgate_progress", // LogicGate (solved levels / unlocked)
           "pinball_best", // Neon Pinball
           "galaga_high", // Galaga
           "dj_high", // Doodle Jump

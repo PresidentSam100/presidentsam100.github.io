@@ -153,8 +153,10 @@ document.getElementById("startBtn").addEventListener("click", function () {
 // ----------------------------------------------------------------
 function playerNames(n) {
   var names = ["You"];
-  var bots = ["CPU West", "CPU North", "CPU East"];
-  for (var i = 0; i < n - 1; i++) names.push(bots[i]);
+  // up to 9 CPUs (2–10 players total), named alphabetically A→I
+  var bots = ["CPU Ada", "CPU Bolt", "CPU Cyra", "CPU Dex", "CPU Echo",
+    "CPU Flux", "CPU Gizmo", "CPU Halo", "CPU Ion"];
+  for (var i = 0; i < n - 1; i++) names.push(bots[i] || "CPU " + (i + 1));
   return names;
 }
 
@@ -193,8 +195,8 @@ function startHand(dealer) {
   G.discard.push(starter);
   G.currentColor = starter.color;
 
-  // player to the left of the dealer goes first (clockwise = +1)
-  G.currentPlayerIndex = neighbor(dealer, 1);
+  // a random player takes the first turn each hand
+  G.currentPlayerIndex = Math.floor(Math.random() * G.players.length);
 
   log("New hand dealt. " + G.players[G.currentPlayerIndex].name + " starts.");
   beginTurn();
@@ -203,24 +205,43 @@ function startHand(dealer) {
 // ----------------------------------------------------------------
 //  Turn lifecycle
 // ----------------------------------------------------------------
+// The constant gap before a player may act: a fixed "think" pace (scaled only by
+// table size, so it's constant within a game) plus any time left on an in-flight
+// draw animation so it never gets cut off. Same for every turn, every action.
+function turnGap() {
+  var n = G ? G.players.length : 4;
+  var think = Math.max(380, 850 - Math.max(0, n - 4) * 80);
+  return think + Math.max(0, drawAnimUntil - Date.now());
+}
+
 function beginTurn() {
+  if (!G) return; // a scheduled turn fired after quitting to menu
   G.drawnIndex = -1;
   if (G.over) {
     render();
     return;
   }
-  var p = G.players[G.currentPlayerIndex];
-  // Set busy BEFORE rendering so the human's hand is drawn with the
-  // correct playable state (otherwise cards never get the .playable class
-  // and can't be tapped until after a draw forces another render).
-  G.busy = !p.isHuman;
+  // Uniform pacing: after the previous action (and its animation) finishes,
+  // EVERY next player — CPU or human — gets the same pause before they can move.
+  // So a play, a forced draw, or drawing an unplayable card all lead to the same
+  // gap before the next player acts.
+  var who = G.currentPlayerIndex;
+  G.busy = true; // nobody acts (no AI move, human cards inactive) during the pause
   render();
-  if (!p.isHuman) {
-    setTimeout(cpuTurn, 850);
-  }
+  var delay = turnGap();
+  setTimeout(function () {
+    if (!G || G.over || G.currentPlayerIndex !== who) return;
+    if (G.players[who].isHuman) {
+      G.busy = false;
+      render(); // activate the human's cards
+    } else {
+      cpuTurn();
+    }
+  }, delay);
 }
 
 function passTurn(pi) {
+  if (!G) return;
   G.currentPlayerIndex = neighbor(pi, 1);
   beginTurn();
 }
@@ -258,6 +279,7 @@ function reshuffle() {
 // pi: player index, idx: index in that player's hand.
 // For wilds, chosenColor must be supplied (or it'll be picked for CPU).
 function playCard(pi, idx, chosenColor, done) {
+  if (!G) return;
   var player = G.players[pi];
 
   // Capture where the card flies FROM before mutating state/DOM: the human's
@@ -523,7 +545,7 @@ function pickCatcher(pi) {
 //  CPU turn
 // ----------------------------------------------------------------
 function cpuTurn() {
-  if (G.over) return;
+  if (!G || G.over) return;
   var pi = G.currentPlayerIndex;
   var hand = G.players[pi].hand;
 
@@ -536,15 +558,18 @@ function cpuTurn() {
     // draw one
     var got = drawCards(pi, 1);
     render();
+    // Let the drawn card finish gliding in, then play it / pass. The constant
+    // inter-turn pause is applied uniformly in beginTurn after this.
+    var wait = Math.max(0, drawAnimUntil - Date.now());
     if (got.length && canPlay(got[0])) {
       var di = hand.length - 1;
       log(G.players[pi].name + " draws and plays it.");
       setTimeout(function () {
         playCard(pi, di, chooseColor(pi), null);
-      }, 600);
+      }, wait);
     } else {
       log(G.players[pi].name + " draws and passes.");
-      setTimeout(function () { passTurn(pi); }, 600);
+      setTimeout(function () { passTurn(pi); }, wait);
     }
     return;
   }
@@ -629,16 +654,20 @@ function onHumanDraw() {
   if (G.drawnIndex >= 0) return; // already drew this turn
   G.busy = true;
   var got = drawCards(0, 1);
-  render();
   if (got.length && canPlay(got[0])) {
+    // Set the "may play the drawn card" state BEFORE rendering so we render only
+    // ONCE. A second render would re-run the hand FLIP, capture the just-drawn
+    // card and clobber its deck-to-hand glide animation.
     G.drawnIndex = G.players[0].hand.length - 1;
-    log("You drew " + describe(got[0]) + " — play it or pass.");
     G.busy = false;
-    renderControls();
+    log("You drew " + describe(got[0]) + " — play it or pass.");
     render();
   } else {
     log("You drew " + (got.length ? describe(got[0]) : "nothing") + " and pass.");
-    setTimeout(function () { passTurn(0); }, 650);
+    render();
+    // let the drawn card finish gliding in; the constant inter-turn pause is
+    // then applied uniformly in beginTurn.
+    setTimeout(function () { passTurn(0); }, Math.max(0, drawAnimUntil - Date.now()));
   }
 }
 
@@ -693,6 +722,13 @@ function fxOn() {
 // re-render, then after, animate each surviving element from its old spot to
 // its new one. Used so hand cards / CPU mini-cards slide when a card is
 // played or drawn. Only runs when Visual FX is on.
+// Cards whose draw-from-deck glide (flyDraw) is in progress. The hand FLIP must
+// leave these alone, or a re-render mid-glide clobbers the animation.
+var glidingKeys = {};
+// Timestamp (ms) the current draw animation finishes — the next player's turn
+// waits for this so its re-render doesn't cut the glide off.
+var drawAnimUntil = 0;
+
 function captureRects(els) {
   var map = {};
   for (var i = 0; i < els.length; i++) {
@@ -703,21 +739,27 @@ function captureRects(els) {
 }
 function playFlip(els, oldRects) {
   if (!oldRects) return;
+  // Compute every element's offset first. If ANY moved, animate them ALL together
+  // (don't skip the ones already near target) — otherwise a re-render landing
+  // mid-slide desyncs the group and the spacing looks uneven.
   var moved = [];
+  var any = false;
   for (var i = 0; i < els.length; i++) {
     var el = els[i];
     var k = el.getAttribute("data-flipkey");
-    if (k == null || !oldRects[k]) continue;
+    if (k == null || !oldRects[k] || glidingKeys[k]) continue;
     var prev = oldRects[k];
     var now = el.getBoundingClientRect();
-    var dx = prev.left - now.left;
-    var dy = prev.top - now.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
-    el.style.transition = "none";
-    el.style.transform = "translate(" + dx + "px," + dy + "px)";
+    el._fdx = prev.left - now.left;
+    el._fdy = prev.top - now.top;
     moved.push(el);
+    if (Math.abs(el._fdx) >= 1 || Math.abs(el._fdy) >= 1) any = true;
   }
-  if (!moved.length) return;
+  if (!any) return;
+  moved.forEach(function (el) {
+    el.style.transition = "none";
+    el.style.transform = "translate(" + el._fdx + "px," + el._fdy + "px)";
+  });
   requestAnimationFrame(function () {
     moved.forEach(function (el) {
       el.style.transition = "transform 0.3s cubic-bezier(.2,.7,.3,1)";
@@ -876,86 +918,76 @@ function flyCard(card, srcRect, opts, onDone) {
   setTimeout(cleanup, 560); // safety net if transitionend doesn't fire
 }
 
-// Animate `n` face-down cards flying from the draw pile to where the drawn
-// card(s) actually land — the RIGHT end of the human's hand, or the right
-// end of a CPU's mini-card row (cards are appended there). Deferred one
-// frame so the caller's re-render has placed the new card first.
+// Animate a draw from the pile. Deferred one frame so the caller's re-render
+// has already placed the drawn card(s). The ACTUAL newly-drawn cards glide in
+// from the draw pile and settle into place (left-to-right) — no separate
+// phantom card ever spawns.
+//   • Human: the real hand card(s) glide from the deck to the right of the hand.
+//   • CPU: the real mini-card(s) shrink in from the deck into the panel.
+var DRAW_STAGGER = 55; // ms between consecutive cards
+var DRAW_TRANS = 0.3; // seconds per card glide
 function flyDraw(pi, n) {
   if (reducedMotion()) return;
+  var animCount = Math.min(n, 7);
+  var glideMs = (animCount - 1) * DRAW_STAGGER + DRAW_TRANS * 1000 + 90;
+  // Hold off the next player's move until the draw animation finishes (so the
+  // turn's re-render doesn't cut it off). beginTurn reads this.
+  drawAnimUntil = Math.max(drawAnimUntil, Date.now() + glideMs);
+  // For the human, flag the freshly drawn cards (by key) so the hand FLIP skips
+  // them while they glide — even across the re-renders a penalty draw triggers.
+  if (pi === 0 && G && G.players[0]) {
+    var hand = G.players[0].hand;
+    var keys = [];
+    for (var q = Math.max(0, hand.length - n); q < hand.length; q++) {
+      var key = "c" + hand[q].id;
+      keys.push(key);
+      glidingKeys[key] = true;
+    }
+    setTimeout(function () {
+      keys.forEach(function (k) { delete glidingKeys[k]; });
+    }, glideMs + 120);
+  }
   requestAnimationFrame(function () {
     var deck = document.getElementById("deckStack");
     if (!deck) return;
     var dr = deck.getBoundingClientRect();
-    var count = Math.min(n, 4); // cap visual flies so big penalties don't spam
-    for (var i = 0; i < count; i++) {
-      (function (k) {
+    var dcx = dr.left + dr.width / 2, dcy = dr.top + dr.height / 2;
+
+    var els, startScale;
+    if (pi === 0) {
+      els = document.querySelectorAll("#hand .card");
+      startScale = 1; // a full-size card gliding from the deck to the hand
+    } else {
+      var opp = document.querySelectorAll("#opponents .opp")[pi - 1];
+      els = opp ? opp.querySelectorAll(".mini-back") : [];
+      startScale = 3.2; // a mini-card starts ~full-card size at the deck, then shrinks in
+    }
+    var startIdx = els.length - n; // first (leftmost) of the freshly drawn cards
+    for (var j = 0; j < animCount; j++) {
+      var el = els[startIdx + j];
+      if (!el) continue;
+      var r = el.getBoundingClientRect();
+      el.style.transition = "none";
+      el.style.transform =
+        "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
+        (dcy - (r.top + r.height / 2)) + "px) scale(" + startScale + ")";
+      el.style.opacity = "0.4";
+      (function (node, delay) {
         setTimeout(function () {
-          var tgt = drawTargetRect(pi);
-          if (tgt) spawnDrawFly(dr, tgt, pi);
-        }, k * 95);
-      })(i);
+          requestAnimationFrame(function () {
+            node.style.transition =
+              "transform " + DRAW_TRANS + "s cubic-bezier(.3,.6,.3,1), opacity 0.24s ease";
+            node.style.transform = "";
+            node.style.opacity = "";
+            node.addEventListener("transitionend", function clr() {
+              node.style.transition = "";
+              node.removeEventListener("transitionend", clr);
+            });
+          });
+        }, delay);
+      })(el, j * DRAW_STAGGER);
     }
   });
-}
-
-// The rect of the just-drawn card's resting place: the last hand card
-// (human) or the last mini-card (CPU); falls back to the container.
-function drawTargetRect(pi) {
-  if (pi === 0) {
-    var cards = document.querySelectorAll("#hand .card");
-    if (cards.length) return cards[cards.length - 1].getBoundingClientRect();
-    var hand = document.getElementById("hand");
-    return hand ? hand.getBoundingClientRect() : null;
-  }
-  var opp = document.querySelectorAll("#opponents .opp")[pi - 1];
-  if (!opp) return null;
-  var mbs = opp.querySelectorAll(".mini-back");
-  if (mbs.length) return mbs[mbs.length - 1].getBoundingClientRect();
-  return opp.getBoundingClientRect();
-}
-
-function spawnDrawFly(dr, tgt, pi) {
-  var wrap = document.createElement("div");
-  wrap.innerHTML = '<div class="card back"></div>';
-  var el = wrap.firstChild;
-  el.classList.add("flying-card");
-  el.style.position = "fixed";
-  el.style.margin = "0";
-  var CW = dr.width || 80,
-    CH = dr.height || 114;
-  el.style.width = CW + "px";
-  el.style.height = CH + "px";
-  el.style.boxSizing = "border-box";
-  var srcCx = dr.left + dr.width / 2,
-    srcCy = dr.top + dr.height / 2;
-  el.style.left = srcCx - CW / 2 + "px";
-  el.style.top = srcCy - CH / 2 + "px";
-  el.style.transition =
-    "transform 0.42s cubic-bezier(.3,.6,.3,1), opacity 0.18s ease 0.24s";
-  document.body.appendChild(el);
-
-  // Land centered on the drawn card's resting spot, shrinking to its size.
-  var tCx = tgt.left + tgt.width / 2;
-  var tCy = tgt.top + tgt.height / 2;
-  var endScale = pi === 0 ? 1 : Math.max(0.18, tgt.height / CH);
-  var dx = tCx - srcCx,
-    dy = tCy - srcCy;
-
-  el.style.transform = "translate(0,0) scale(1)";
-  void el.offsetWidth;
-  requestAnimationFrame(function () {
-    el.style.transform =
-      "translate(" + dx + "px," + dy + "px) scale(" + endScale + ")";
-    el.style.opacity = "0";
-  });
-  var done = false;
-  var cleanup = function () {
-    if (done) return;
-    done = true;
-    if (el.parentNode) el.parentNode.removeChild(el);
-  };
-  el.addEventListener("transitionend", cleanup, { once: true });
-  setTimeout(cleanup, 520);
 }
 
 function cardHTML(card, opts) {
@@ -980,14 +1012,14 @@ function cardHTML(card, opts) {
 
 function render() {
   if (!G) return;
-  // Before re-rendering, snapshot card/mini-card positions so they can
-  // slide to their new spots after a play or draw (FX-on only).
+  // Before re-rendering, snapshot the human hand's card positions so they can
+  // slide to their new spots after a play or draw (FX-on only). The CPU
+  // mini-cards are NOT slid — they're tiny and overlapping, so a per-card slide
+  // desyncs and makes their spacing look uneven; they snap to perfectly even
+  // positions every render instead.
   var fx = fxOn();
   var handOld = fx
     ? captureRects(document.querySelectorAll("#hand .card"))
-    : null;
-  var oppOld = fx
-    ? captureRects(document.querySelectorAll("#opponents .mini-back"))
     : null;
 
   // scoreboard (points mode)
@@ -1013,9 +1045,17 @@ function render() {
     // always shown accurately no matter how many cards a player holds.
     var backs = "";
     var n = p.hand.length;
-    var MB_W = 16, FULL_STEP = 18, MAX_ROW = 7 * FULL_STEP;
-    var step = n <= 7 ? FULL_STEP : Math.max(4, (MAX_ROW - MB_W) / (n - 1));
-    var ml = (step - MB_W).toFixed(2);
+    // CARD_W is the rendered mini-card width (16px box + 2px border). Use an
+    // INTEGER center-to-center step so every gap is identical AND every card
+    // lands on the same sub-pixel phase (otherwise borders anti-alias unevenly
+    // and the spacing looks inconsistent). Beyond 7 cards they overlap to keep
+    // the row about the width of 7 cards.
+    var CARD_W = 18, GAP = 2;
+    var MAX_SPAN = 6 * (CARD_W + GAP) + CARD_W; // 7 cards wide
+    var step = n <= 7
+      ? CARD_W + GAP
+      : Math.max(6, Math.round((MAX_SPAN - CARD_W) / (n - 1)));
+    var ml = step - CARD_W; // integer margin-left between adjacent cards
     for (var b = 0; b < n; b++) {
       backs +=
         '<div class="mini-back" data-flipkey="' + i + "-" + b + '"' +
@@ -1084,10 +1124,9 @@ function render() {
     "Your hand (" + human.hand.length + ")" +
     (human.hand.length === 1 && human.calledUno ? " — UNO!" : "");
 
-  // Slide surviving cards/mini-cards from their old positions to the new ones.
+  // Slide the human's surviving hand cards from their old positions to the new.
   if (fx) {
     playFlip(document.querySelectorAll("#hand .card"), handOld);
-    playFlip(document.querySelectorAll("#opponents .mini-back"), oppOld);
   }
 
   renderControls();
