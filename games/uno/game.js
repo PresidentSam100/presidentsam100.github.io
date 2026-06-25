@@ -1135,15 +1135,18 @@ function render() {
 function renderControls() {
   var c = document.getElementById("controls");
   var myTurn = !G.over && G.players[G.currentPlayerIndex].isHuman && !G.busy;
+  var canDraw = myTurn && G.drawnIndex < 0;
   var ds = document.getElementById("deckStack");
-  ds.classList.toggle("disabled", !myTurn || G.drawnIndex >= 0);
-  ds.onclick = myTurn && G.drawnIndex < 0 ? onHumanDraw : null;
+  ds.classList.toggle("disabled", !canDraw);
+  ds.onclick = canDraw ? onHumanDraw : null;
 
-  var html = "";
+  // Draw is always shown (dimmed + disabled when it's not your turn). When you've
+  // drawn a card you can still play, a Pass button appears next to it.
+  var html =
+    '<button class="btn secondary" id="drawBtn"' + (canDraw ? "" : " disabled") +
+    ">Draw a card</button>";
   if (myTurn && G.drawnIndex >= 0) {
     html += '<button class="btn secondary" id="passBtn">Pass</button>';
-  } else if (myTurn) {
-    html += '<button class="btn secondary" id="drawBtn">Draw a card</button>';
   }
   html += '<button class="btn warn" id="newHandBtn" style="margin-left:auto">Quit to menu</button>';
   c.innerHTML = html;

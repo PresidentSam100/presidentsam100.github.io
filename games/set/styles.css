@@ -1,0 +1,505 @@
+/* =====================================================================
+   Set — styled as a warm card-table "salon": emerald felt background,
+   ivory cards, brass/gold accents and a rounded display face. Deliberately
+   distinct from the dark arcade theme the other games share.
+
+   NOTE: the class/id hooks here are a contract with game.js —
+   .card / .selected / .good / .bad / .hint / .dealt, #msg(.good/.bad/.info),
+   and the .stat / .btn / overlay structure. Restyle freely, but keep them.
+   ===================================================================== */
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap");
+
+:root {
+  --felt-1: #18745a;
+  --felt-2: #0e5240;
+  --felt-3: #08301f;
+  --ivory: #f7f0df;
+  --ivory-edge: #e4d8b8;
+  --ink: #1d2a24;
+  --gold: #e7c067;
+  --gold-deep: #c79a3a;
+  --emerald: #34c98a;
+  --coral: #e8694a;
+  --amber: #f3b13c;
+  --line: rgba(231, 192, 103, 0.28);
+}
+
+html,
+body {
+  margin: 0;
+  color: var(--ivory);
+  font-family: "Inter", sans-serif;
+  background-color: var(--felt-2);
+  /* layered felt: a soft spotlight, a deep vignette, and a faint diamond
+     lattice that nods to the game's shapes */
+  background-image:
+    repeating-linear-gradient(
+      60deg,
+      rgba(255, 255, 255, 0.018) 0 2px,
+      transparent 2px 22px
+    ),
+    repeating-linear-gradient(
+      -60deg,
+      rgba(0, 0, 0, 0.05) 0 2px,
+      transparent 2px 22px
+    ),
+    radial-gradient(120% 80% at 50% -10%, var(--felt-1) 0%, var(--felt-2) 48%, var(--felt-3) 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+.wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3.3rem 1rem 1rem;
+  box-sizing: border-box;
+  min-height: 100vh; /* fallback */
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* keep the chrome at its natural height; only the board flexes to fill */
+.set-header,
+.hud,
+#msg,
+.controls,
+.rules,
+#byline {
+  flex: 0 0 auto;
+}
+
+/* back button — brass plate, top-left */
+.back-link {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 99999;
+  font: 700 13px/1 "Fredoka", "Inter", sans-serif;
+  letter-spacing: 0.02em;
+  color: var(--felt-3);
+  /* longhand so getComputedStyle().backgroundColor resolves to a solid color —
+     the shared mute / Visual-FX toggles copy that to theme themselves. */
+  background-color: var(--gold);
+  background-image: linear-gradient(180deg, #f1d98f, var(--gold));
+  border: 1px solid var(--gold-deep);
+  border-radius: 999px;
+  padding: 9px 15px;
+  text-decoration: none;
+  box-shadow: 0 3px 0 var(--gold-deep), 0 6px 14px rgba(0, 0, 0, 0.35);
+  -webkit-tap-highlight-color: transparent;
+}
+.back-link:hover {
+  color: var(--felt-3);
+  transform: translateY(1px);
+  box-shadow: 0 2px 0 var(--gold-deep), 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* header */
+.set-header {
+  text-align: center;
+  margin-bottom: 0.6rem;
+}
+.set-title {
+  font-family: "Fredoka", "Inter", sans-serif;
+  font-weight: 700;
+  font-size: 2.1rem;
+  line-height: 1;
+  letter-spacing: 0.4em;
+  margin: 0 0 0.25rem;
+  padding-left: 0.4em; /* optical re-center for the tracking */
+  color: var(--gold);
+  text-shadow: 0 1px 0 var(--gold-deep), 0 2px 0 rgba(0, 0, 0, 0.25),
+    0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.subtitle {
+  color: #d8e9df;
+  font-size: 0.85rem;
+  line-height: 1.3rem;
+  max-width: 33rem;
+  margin: 0 auto;
+}
+.subtitle b {
+  color: var(--ivory);
+}
+.subtitle em {
+  font-style: normal;
+  color: var(--gold);
+  font-weight: 600;
+}
+
+/* hud — brass-rimmed felt chips */
+.hud {
+  display: flex;
+  justify-content: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  margin: 0.6rem 0;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 66px;
+  background: rgba(6, 40, 28, 0.55);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.45rem 0.9rem;
+  backdrop-filter: blur(2px);
+}
+.stat .k {
+  font: 600 0.62rem/1 "Fredoka", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+}
+.stat .v {
+  margin-top: 0.18rem;
+  font-family: "Fredoka", sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--ivory);
+  font-variant-numeric: tabular-nums;
+}
+
+/* board — flexes to fill the leftover viewport height; it's a size container
+   so the cards inside can be sized from its width AND height (no page scroll) */
+#board {
+  flex: 1 1 0;
+  min-height: 0;
+  container-type: size;
+  display: grid;
+  grid-template-columns: repeat(3, auto);
+  justify-content: center;
+  align-content: center;
+  gap: var(--gap);
+  --gap: 0.7rem;
+  --rows: 4; /* updated live by game.js as cards are dealt/cleared */
+}
+
+/* a card — ivory stock with a soft brass edge and bottom bevel */
+.card {
+  position: relative;
+  background: linear-gradient(180deg, #fffaf0, var(--ivory));
+  border: 1px solid var(--ivory-edge);
+  border-radius: 14px;
+  /* Card height is the smaller of: what fits the board's height for the
+     current row count, and what keeps the 5:3.2 ratio within the width. */
+  --cardH: min(
+    calc((100cqh - (var(--rows) - 1) * var(--gap)) / var(--rows)),
+    calc((100cqw - 2 * var(--gap)) / 3 * 3.2 / 5)
+  );
+  width: calc(var(--cardH) * 5 / 3.2);
+  height: var(--cardH);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7%;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 2px 0 #cdbf9a, 0 6px 14px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 5px 0 #cdbf9a, 0 12px 22px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+/* Visual FX off (reduce motion): the FX toggle reports aria-pressed="true".
+   Drop the hover lift/shadow so there's genuinely no motion on hover. */
+html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
+  transform: none;
+  box-shadow: 0 2px 0 #cdbf9a, 0 6px 14px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+.card.selected {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold), 0 0 0 6px rgba(231, 192, 103, 0.3),
+    0 8px 18px rgba(0, 0, 0, 0.4);
+}
+.card.good {
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px var(--emerald), 0 0 22px rgba(52, 201, 138, 0.55);
+  animation: pop 0.34s ease;
+}
+.card.bad {
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px var(--coral), 0 0 18px rgba(232, 105, 74, 0.5);
+  animation: shake 0.34s ease;
+}
+.card.hint {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 3px var(--amber), 0 0 20px rgba(243, 177, 60, 0.6);
+  animation: hintPulse 1s ease infinite;
+}
+
+.card .sym {
+  width: 26%;
+  height: auto;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
+}
+
+/* claimed cards slide out to the right (through the imaginary right column) */
+.card.exit-right {
+  animation: exitRight 0.36s cubic-bezier(0.55, 0, 0.85, 0.3) forwards;
+  pointer-events: none;
+  z-index: 3;
+}
+@keyframes exitRight {
+  from {
+    opacity: 1;
+    transform: none;
+  }
+  to {
+    opacity: 0;
+    transform: translateX(185%) scale(0.82);
+  }
+}
+
+/* replacements arrive from the left (through the imaginary left column) */
+.card.enter-left {
+  animation: enterLeft 0.42s cubic-bezier(0.2, 0.8, 0.25, 1);
+  z-index: 2;
+}
+@keyframes enterLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-185%) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* dealt-in / feedback animations */
+.card.dealt {
+  animation: dealIn 0.3s ease;
+}
+@keyframes dealIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) rotate(-2deg) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  45% {
+    transform: scale(1.07);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-6px);
+  }
+  75% {
+    transform: translateX(6px);
+  }
+}
+@keyframes hintPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px var(--amber), 0 0 14px rgba(243, 177, 60, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--amber), 0 0 26px rgba(243, 177, 60, 0.85);
+  }
+}
+
+/* message line */
+#msg {
+  text-align: center;
+  min-height: 1.35rem;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 500;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  margin: 0.55rem 0 0.15rem;
+  color: #cfe3d8;
+}
+#msg.good {
+  color: var(--emerald);
+}
+#msg.bad {
+  color: var(--coral);
+}
+#msg.info {
+  color: var(--gold);
+}
+
+/* controls — brass primary, ivory secondary */
+.controls {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.btn {
+  cursor: pointer;
+  font: 600 0.92rem "Fredoka", "Inter", sans-serif;
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  background: linear-gradient(180deg, #fffaf0, var(--ivory));
+  border: 1px solid var(--ivory-edge);
+  border-radius: 999px;
+  padding: 0.6rem 1.15rem;
+  box-shadow: 0 3px 0 #cdbf9a, 0 5px 12px rgba(0, 0, 0, 0.28);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+}
+.btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+  box-shadow: 0 5px 0 #cdbf9a, 0 9px 16px rgba(0, 0, 0, 0.32);
+}
+.btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #cdbf9a, 0 2px 6px rgba(0, 0, 0, 0.28);
+}
+.btn.primary {
+  color: var(--felt-3);
+  background: linear-gradient(180deg, #f3dc94, var(--gold));
+  border-color: var(--gold-deep);
+  box-shadow: 0 3px 0 var(--gold-deep), 0 5px 12px rgba(0, 0, 0, 0.3);
+}
+.btn.primary:hover {
+  box-shadow: 0 5px 0 var(--gold-deep), 0 9px 16px rgba(0, 0, 0, 0.34);
+}
+.btn.primary:active {
+  box-shadow: 0 1px 0 var(--gold-deep), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+/* Visual FX off: no lift on the control buttons either (match the cards). */
+html:has(.rm-toggle[aria-pressed="true"]) .btn:hover {
+  transform: none;
+  box-shadow: 0 3px 0 #cdbf9a, 0 5px 12px rgba(0, 0, 0, 0.28);
+}
+html:has(.rm-toggle[aria-pressed="true"]) .btn.primary:hover {
+  box-shadow: 0 3px 0 var(--gold-deep), 0 5px 12px rgba(0, 0, 0, 0.3);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: 0 3px 0 #cdbf9a;
+}
+
+/* rules */
+.rules {
+  margin: 0.9rem auto 0;
+  max-width: 35rem;
+  background: rgba(6, 40, 28, 0.5);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.4rem 1.2rem;
+}
+.rules summary {
+  cursor: pointer;
+  font-family: "Fredoka", sans-serif;
+  font-weight: 600;
+  color: var(--gold);
+  padding: 0.6rem 0;
+  list-style: none;
+  width: fit-content;
+  transition: transform 0.12s ease, filter 0.12s ease;
+}
+.rules summary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.12);
+}
+/* Visual FX off: keep the summary still on hover too. */
+html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
+  transform: none;
+}
+.rules summary::-webkit-details-marker {
+  display: none;
+}
+.rules summary::before {
+  content: "♦ ";
+}
+.rules[open] summary::before {
+  content: "♦ ";
+  opacity: 0.6;
+}
+.rules p {
+  color: #cfe3d8;
+  font-size: 0.9rem;
+  line-height: 1.55rem;
+}
+.rules b {
+  color: var(--ivory);
+}
+.rules em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+#byline {
+  color: rgba(216, 233, 223, 0.55);
+  font-size: 75%;
+  text-align: center;
+}
+
+/* overlay */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(4, 24, 16, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9998;
+  padding: 1rem;
+}
+.overlay[hidden] {
+  display: none;
+}
+.overlay-card {
+  background: linear-gradient(180deg, #0f5240, #0a3a2c);
+  border: 1px solid var(--gold);
+  border-radius: 18px;
+  padding: 1.9rem 1.7rem;
+  text-align: center;
+  max-width: 22rem;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+}
+.overlay-card h2 {
+  font-family: "Fredoka", sans-serif;
+  color: var(--gold);
+  margin: 0 0 0.6rem;
+}
+.overlay-card p {
+  color: #d8e9df;
+  line-height: 1.55rem;
+  margin: 0 0 1.3rem;
+}
+.overlay-card p b {
+  color: var(--ivory);
+}
+
+@media (max-width: 460px) {
+  #board {
+    gap: 0.55rem;
+  }
+  .set-title {
+    font-size: 2.3rem;
+    letter-spacing: 0.3em;
+    padding-left: 0.3em;
+  }
+  .card .sym {
+    width: 28%;
+  }
+}

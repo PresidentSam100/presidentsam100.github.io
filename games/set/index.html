@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Set — Sam Lu</title>
+
+    <meta property="og:title" content="Set — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta
+      property="og:description"
+      content="The classic card game Set: find groups of three cards where every feature — number, shape, shading and color — is all the same or all different."
+    />
+    <meta name="author" content="Sam Lu" />
+    <meta
+      name="description"
+      content="Play Set — spot the trios where number, shape, shading and color are each all-same or all-different."
+    />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="stylesheet" href="../../style.css" />
+    <link rel="stylesheet" href="styles.css" />
+
+    <!-- Google tag (gtag.js) -->
+    <script
+      async
+      src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"
+    ></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+
+    <!-- Shared per-game toggles: ✨ Visual FX (reduce motion) + 🔊 mute. -->
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+  </head>
+
+  <body>
+    <!-- Global SVG defs: striped fills, one pattern per color. Referenced by
+         the per-symbol SVGs via fill="url(#stripe-COLOR)". -->
+    <svg width="0" height="0" aria-hidden="true" style="position: absolute">
+      <defs>
+        <pattern id="stripe-red" width="8" height="8" patternUnits="userSpaceOnUse">
+          <line x1="2" y1="0" x2="2" y2="8" stroke="#e3342f" stroke-width="2.4" />
+        </pattern>
+        <pattern id="stripe-green" width="8" height="8" patternUnits="userSpaceOnUse">
+          <line x1="2" y1="0" x2="2" y2="8" stroke="#2f9e44" stroke-width="2.4" />
+        </pattern>
+        <pattern id="stripe-purple" width="8" height="8" patternUnits="userSpaceOnUse">
+          <line x1="2" y1="0" x2="2" y2="8" stroke="#7048e8" stroke-width="2.4" />
+        </pattern>
+      </defs>
+    </svg>
+
+    <a href="../" class="back-link nav-back-games" aria-label="Back to games">← Games</a>
+
+    <div class="wrap">
+      <header class="set-header">
+        <h1 class="set-title">SET</h1>
+        <p class="subtitle">
+          Find a trio where <b>number</b>, <b>shape</b>, <b>shading</b> &amp;
+          <b>color</b> are each <em>all&nbsp;same</em> or <em>all&nbsp;different</em>.
+        </p>
+      </header>
+
+      <div class="hud">
+        <div class="stat"><span class="k">Sets</span><span class="v" id="statSets">0</span></div>
+        <div class="stat"><span class="k">Deck</span><span class="v" id="statDeck">81</span></div>
+        <div class="stat"><span class="k">Time</span><span class="v" id="statTime">0:00</span></div>
+        <div class="stat"><span class="k">Best</span><span class="v" id="statBest">—</span></div>
+      </div>
+
+      <div id="board" aria-label="Set board"></div>
+
+      <p id="msg" role="status" aria-live="polite"></p>
+
+      <div class="controls">
+        <button class="btn" id="addBtn" type="button">＋ Add 3 cards</button>
+        <button class="btn" id="hintBtn" type="button">💡 Hint</button>
+        <button class="btn primary" id="newBtn" type="button">↻ New game</button>
+      </div>
+
+      <details class="rules">
+        <summary>How to play</summary>
+        <p>
+          Every card has four features: <b>number</b> (1, 2 or 3 shapes),
+          <b>shape</b> (diamond, squiggle, oval), <b>shading</b> (solid,
+          striped, open) and <b>color</b> (red, green, purple). The 81 cards
+          cover every combination exactly once.
+        </p>
+        <p>
+          Click three cards to claim a <b>Set</b>. A valid Set is one where, for
+          <em>each</em> of the four features, the three cards are either
+          <b>all the same</b> or <b>all different</b> — never two-and-one.
+          Spot one, click its three cards, and they're replaced from the deck.
+        </p>
+        <p>
+          Stuck? <b>Hint</b> glows one (then two) cards of a real Set, but it
+          costs <b>+30 seconds</b> on the clock each time. If there's truly no
+          Set on the table, <b>Add 3 cards</b> deals more (it warns you if a Set
+          was actually hiding). Clear the whole deck to win — fastest time
+          (penalties included) is saved as your best.
+        </p>
+      </details>
+
+      <p id="byline" style="margin-top: 0.7rem">made by sam lu (not you)</p>
+    </div>
+
+    <div id="overlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <h2 id="ovTitle">Board cleared! 🎉</h2>
+        <p id="ovBody"></p>
+        <button class="btn primary" id="ovBtn" type="button">Play again</button>
+      </div>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
