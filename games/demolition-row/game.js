@@ -820,6 +820,35 @@
 
     // ------------------------------ Game ---------------------------------
     const SPECIAL_NAME = { iron: "⛓ Iron", crystal: "💎 Crystal", thunder: "⚡ Thunder", slow: "🐌 Slow" };
+    function ordinal(n) {
+      const rem100 = n % 100;
+      if (rem100 >= 11 && rem100 <= 13) return n + "th";
+      switch (n % 10) {
+        case 1: return n + "st";
+        case 2: return n + "nd";
+        case 3: return n + "rd";
+        default: return n + "th";
+      }
+    }
+    // Groups players by win count and lists them ranked highest-first, tied
+    // players sharing a place ("A & B tied for 2nd place: 1 win").
+    function buildLeaderboard(players) {
+      const groups = new Map();
+      for (const p of players) {
+        const w = p.board.wins || 0;
+        if (!groups.has(w)) groups.set(w, []);
+        groups.get(w).push(p.name);
+      }
+      const winCounts = [...groups.keys()].sort((a, b) => b - a);
+      return winCounts.map((w, i) => {
+        const names = groups.get(w);
+        const place = ordinal(i + 1) + " place";
+        const who = names.length > 1
+          ? names.slice(0, -1).join(", ") + " & " + names[names.length - 1] + " tied for " + place
+          : names[0] + " won " + place;
+        return who + ": " + w + " win" + (w === 1 ? "" : "s");
+      }).join("\n");
+    }
     class Game {
       constructor(opts) {
         this.opts = opts; this.mode = opts.mode; this.players = []; this.state = "playing"; this.last = 0; this.raf = null;
@@ -935,7 +964,7 @@
         winners.forEach((w) => { w.board.wins = (w.board.wins || 0) + 1; w.board.matchWins = (w.board.matchWins || 0) + 1; }); // each tied clearer scores
         this.players.forEach((p) => p.board.flashBanner(draw ? "DRAW" : (won.has(p) ? (shared ? "TIE WIN!" : "WIN!") : "LOSE"), draw ? "#cfd6e6" : (won.has(p) ? "#46e6a0" : "#ff5d6c")));
         this.state = "roundpause";
-        const summary = this.players.map((p) => p.name + " " + (p.board.wins || 0)).join(" · ");
+        const summary = buildLeaderboard(this.players);
         const champs = winners.filter((w) => w.board.matchWins >= this.opts.fmt); // reached first-to-N this round
         const matchOver = champs.length > 0;
         if (matchOver) SFX.matchWin(); else SFX.win();
@@ -1035,10 +1064,16 @@
     pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
     pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
     // per-slot Human/CPU toggle + per-CPU difficulty dropdown
+    const MAX_HUMANS = 2; // more local humans than that gets unwieldy on one keyboard
     document.getElementById("player-rows").addEventListener("click", (e) => {
       const btn = e.target.closest("button.ptoggle"); if (!btn) return;
       const slot = +btn.getAttribute("data-slot");
-      sel.ptypes[slot] = sel.ptypes[slot] === "human" ? "cpu" : "human";
+      const goingHuman = sel.ptypes[slot] !== "human";
+      if (goingHuman) {
+        const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
+        if (humanCount >= MAX_HUMANS) return; // already at the human cap — ignore
+      }
+      sel.ptypes[slot] = goingHuman ? "human" : "cpu";
       updateVsOpts();
     });
     document.getElementById("player-rows").addEventListener("change", (e) => {
@@ -1047,6 +1082,7 @@
     });
     function updateVsOpts() {
       const labels = ["P1", "P2", "P3", "P4"];
+      const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
       document.querySelectorAll("#player-rows .prow").forEach((row) => {
         const slot = +row.getAttribute("data-slot");
         row.style.display = slot < sel.players ? "" : "none";
@@ -1054,6 +1090,9 @@
         const btn = row.querySelector(".ptoggle");
         btn.textContent = labels[slot] + ": " + (cpu ? "CPU" : "Human");
         btn.classList.toggle("sel", cpu);
+        const capped = cpu && humanCount >= MAX_HUMANS;
+        btn.disabled = capped;
+        btn.title = capped ? "Max " + MAX_HUMANS + " human players" : "";
         const ds = row.querySelector(".diffsel");
         ds.style.display = cpu ? "" : "none";
         ds.value = sel.diffs[slot];

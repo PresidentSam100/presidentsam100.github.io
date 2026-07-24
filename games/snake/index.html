@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Snake</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Snake — classic grid snake with twists: teleport portals, obstacle mazes, and local 2-player mode." />
+    <link rel="stylesheet" href="styles.css" />
+  <script src="../motion-toggle.js"></script>
+  <script src="../mute-toggle.js"></script>
+</head>
+  <body>
+    <div class="wrap">
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Rajdhani',system-ui,sans-serif;color:#eef0f4;background:#1b1f27;border:1px solid #33394a;border-radius:8px;padding:8px 13px">&larr; Games</a>
+      <div style="text-align:center">
+        <h1 class="title">Snake 🐍</h1>
+        <p class="subtitle">classic grid snake · teleport portals · obstacle mazes · local 2-player</p>
+      </div>
+
+      <div id="game-area" style="display:none; width:100%;">
+        <div class="row" style="margin-bottom:0.5rem;">
+          <button class="btn ghost" id="menu-btn">☰ Menu</button>
+          <button class="btn ghost" id="pause-btn">⏸ Pause</button>
+          <span class="stat" id="score-label"></span>
+          <span class="stat" id="best-label"></span>
+          <span class="stat" id="match-label"></span>
+        </div>
+
+        <div class="board-wrap">
+          <canvas id="board" class="board" width="440" height="440"></canvas>
+        </div>
+
+        <div class="dpads" id="dpads">
+          <div class="dpad-block" id="dpad-p1">
+            <div class="dpad-name p1-color">P1</div>
+            <div class="dpad">
+              <button class="dbtn up" data-player="0" data-dir="up" aria-label="P1 up">▲</button>
+              <button class="dbtn left" data-player="0" data-dir="left" aria-label="P1 left">◀</button>
+              <button class="dbtn right" data-player="0" data-dir="right" aria-label="P1 right">▶</button>
+              <button class="dbtn down" data-player="0" data-dir="down" aria-label="P1 down">▼</button>
+            </div>
+          </div>
+          <div class="dpad-block" id="dpad-p2">
+            <div class="dpad-name p2-color">P2</div>
+            <div class="dpad">
+              <button class="dbtn up" data-player="1" data-dir="up" aria-label="P2 up">▲</button>
+              <button class="dbtn left" data-player="1" data-dir="left" aria-label="P2 left">◀</button>
+              <button class="dbtn right" data-player="1" data-dir="right" aria-label="P2 right">▶</button>
+              <button class="dbtn down" data-player="1" data-dir="down" aria-label="P2 down">▼</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <!-- Main menu -->
+    <div class="overlay" id="menu">
+      <div class="card">
+        <h2>Snake 🐍</h2>
+        <p>Eat food to grow, avoid crashing into walls, obstacles, or a body (yours or theirs). Turn on twists for teleport portals and obstacle mazes, or bring a friend for local 2-player.</p>
+
+        <div class="group">
+          <div class="lbl">Mode</div>
+          <div class="row" id="mode-pick">
+            <button class="btn sel" data-mode="solo">Solo</button>
+            <button class="btn" data-mode="two">2-Player</button>
+          </div>
+        </div>
+
+        <div class="group">
+          <div class="lbl">Twists</div>
+          <div class="row" id="twist-pick">
+            <button class="btn" id="portals-toggle" data-on="0">🌀 Portals: Off</button>
+          </div>
+          <div class="row" id="obstacles-pick" style="margin-top:0.5rem;">
+            <button class="btn sel" data-obstacles="none">No Obstacles</button>
+            <button class="btn" data-obstacles="light">Light</button>
+            <button class="btn" data-obstacles="heavy">Heavy</button>
+          </div>
+        </div>
+
+        <div class="group" id="vs-opts" style="display:none;">
+          <div class="lbl">Match Format</div>
+          <div class="row" id="fmt-pick">
+            <button class="btn" data-fmt="1">First to 1</button>
+            <button class="btn sel" data-fmt="2">First to 2</button>
+            <button class="btn" data-fmt="3">First to 3</button>
+            <button class="btn" data-fmt="inf">∞ Infinite</button>
+          </div>
+        </div>
+
+        <div class="row" style="margin-top:1rem;">
+          <button class="btn" id="play-btn" style="padding:0.7rem 1.6rem;font-size:1.05rem;">Play</button>
+        </div>
+        <div class="keys" id="keys-help"></div>
+
+        <details class="dict-wrap">
+          <summary>Legend &amp; twists</summary>
+          <div class="dict-item"><b>🍎 Food</b> — eat it to grow one segment and speed up slightly.</div>
+          <div class="dict-item"><b>▦ Obstacles</b> — solid blocks scattered on the board; crashing into one ends your run.</div>
+          <div class="dict-item"><b>🌀 Portals</b> — two color-matched pairs (orange↔orange, purple↔purple); enter one end, exit the other end of the same color still moving the same direction. They relocate every few food eaten.</div>
+          <div class="dict-item"><b>🐍🐍 2-Player</b> — share the board and the food. Crash into a wall, obstacle, yourself, or the other snake and you're out. Head-on collisions kill both.</div>
+        </details>
+      </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div class="overlay hidden" id="pause" style="background: rgba(6,8,12,0.55);">
+      <div class="card" style="max-width: 340px;">
+        <h2>Paused</h2>
+        <div class="row" style="margin-top: 0.7rem;">
+          <button class="btn" id="pause-resume">Resume</button>
+          <button class="btn ghost" id="pause-restart">Restart</button>
+          <button class="btn ghost" id="pause-menu">Main Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div class="overlay hidden" id="result">
+      <div class="card">
+        <h2 id="result-title">Game Over</h2>
+        <p id="result-msg"></p>
+        <div class="row">
+          <button class="btn" id="result-primary">Play Again</button>
+          <button class="btn ghost" id="result-menu">Main Menu</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>

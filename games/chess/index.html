@@ -79,6 +79,17 @@
              padding:11px 14px; font-family:inherit; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; }
   .modebtn:hover { background:#37301f; } .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
   .modebtn .tag { font-size:.62rem; font-weight:800; letter-spacing:.05em; padding:3px 8px; border-radius:999px; background:var(--move); color:#10240c; white-space:nowrap; }
+  .setup-section { margin:.9rem 0; text-align:left; }
+  .setup-section h3 { font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 .4rem; text-align:center; }
+  .chipgrp { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+  .chip { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:999px;
+          padding:6px 12px; font-family:inherit; font-weight:700; font-size:.82rem; }
+  .chip:hover { background:#37301f; }
+  .chip.sel { border-color:var(--accent); color:var(--accent); background:rgba(224,164,88,.14); }
+  .pchip .clk { font-variant-numeric:tabular-nums; font-weight:800; font-size:1rem; }
+  .pchip.warn { border-color:var(--check); }
+  .pchip.warn .clk { color:var(--check); animation:clkPulse 1s ease-in-out infinite; }
+  @keyframes clkPulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
   .promo { display:flex; gap:8px; justify-content:center; }
   .promo button { font-size:2.4rem; background:var(--light); border:2px solid transparent; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1; }
   .promo button:hover { border-color:var(--sel); }
@@ -98,6 +109,8 @@
   <div class="boardwrap"><div id="board"></div></div>
   <div class="side">
     <div id="side2">
+      <div class="pchip" id="clkW" style="display:none"><span class="dot2" style="background:#fbf2e2"></span><span class="nm">White</span><span class="clk" id="clkWVal">--:--</span></div>
+      <div class="pchip" id="clkB" style="display:none"><span class="dot2" style="background:#2a211a"></span><span class="nm">Black</span><span class="clk" id="clkBVal">--:--</span></div>
       <div class="tray"><h3>Captured by White</h3><div class="caps" id="capW">&nbsp;</div></div>
       <div class="tray"><h3>Captured by Black</h3><div class="caps" id="capB">&nbsp;</div></div>
     </div>
@@ -119,6 +132,57 @@
     <button class="modebtn" data-mode="4"><span>4 Players<small>14×14 cross board · free-for-all</small></span><span class="tag">Play</span></button>
     <button class="modebtn" data-mode="3"><span>3 Players<small>Hexagonal board · center rosette</small></span><span class="tag">Play</span></button>
   </div>
+</div></div>
+
+<div class="overlay" id="setup2Menu"><div class="card">
+  <h2>2 Players</h2>
+  <p>Choose your opponent and a time control.</p>
+
+  <div class="setup-section">
+    <h3>Opponent</h3>
+    <div class="modes" id="opponentPick">
+      <button class="modebtn sel" data-opp="local"><span>Local (hot-seat)<small>Share one device, take turns</small></span><span class="tag">Pick</span></button>
+      <button class="modebtn" data-opp="cpu"><span>vs CPU<small>Play against the computer</small></span><span class="tag">Pick</span></button>
+    </div>
+  </div>
+
+  <div class="setup-section" id="cpuOpts" style="display:none">
+    <h3>Difficulty</h3>
+    <div class="chipgrp" id="diffPick">
+      <button class="chip" data-diff="easy">Easy</button>
+      <button class="chip sel" data-diff="medium">Medium</button>
+      <button class="chip" data-diff="hard">Hard</button>
+      <button class="chip" data-diff="master">Master</button>
+    </div>
+    <h3 style="margin-top:.7rem">Play as</h3>
+    <div class="chipgrp" id="sidePick">
+      <button class="chip sel" data-side="w">White</button>
+      <button class="chip" data-side="b">Black</button>
+      <button class="chip" data-side="random">Random</button>
+    </div>
+  </div>
+
+  <div class="setup-section">
+    <h3>Time Control</h3>
+    <div class="chipgrp" id="basePick">
+      <button class="chip sel" data-base="0">∞ None</button>
+      <button class="chip" data-base="1">1 min</button>
+      <button class="chip" data-base="3">3 min</button>
+      <button class="chip" data-base="5">5 min</button>
+      <button class="chip" data-base="10">10 min</button>
+      <button class="chip" data-base="15">15 min</button>
+      <button class="chip" data-base="30">30 min</button>
+    </div>
+    <div class="chipgrp" id="incPick" style="display:none;margin-top:.5rem">
+      <button class="chip sel" data-inc="0">+0s</button>
+      <button class="chip" data-inc="1">+1s</button>
+      <button class="chip" data-inc="2">+2s</button>
+      <button class="chip" data-inc="5">+5s</button>
+      <button class="chip" data-inc="10">+10s</button>
+    </div>
+  </div>
+
+  <button class="btn primary" id="setup2Start" style="width:100%;margin-top:.4rem">Start Game</button>
 </div></div>
 
 <div class="overlay" id="endMenu"><div class="card">
@@ -285,11 +349,37 @@
 
   // ============================================================ controller
   let G=null, flipped=false, pendingPromo=null;
+  let setup2 = { opponent:"local", difficulty:"medium", side:"w", base:0, inc:0 }; // last-used 2P setup
+  let cpuThinking=false, cpuRequestId=0, worker=null, workerFailed=false;
   const boardEl=$("board"), statusEl=$("status");
 
-  function start(mode, ending){
+  function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+  function modeLabel2P(){
+    let s = "2 Players · ";
+    s += G.vsCPU ? ("vs CPU ("+cap(G.difficulty)+") · you play "+(G.cpuColor==="w"?"Black":"White")) : "local";
+    if(G.clock && G.clock.enabled) s += " · " + Math.round(G.clock.w/60000) + "+" + Math.round(G.clock.inc/1000);
+    return s;
+  }
+
+  function start(mode, ending, setup){
+    cancelCpuThink();
     G = mode===4 ? make4P(ending) : make2P();
-    flipped=false;
+    if(mode===2){
+      const s = setup || setup2; setup2 = s;
+      G.vsCPU = s.opponent==="cpu";
+      G.difficulty = s.difficulty;
+      // s.side is the HUMAN's chosen color — the CPU plays the opposite side.
+      const humanSide = s.side==="random" ? (Math.random()<0.5?"w":"b") : s.side;
+      G.cpuColor = G.vsCPU ? (humanSide==="w"?"b":"w") : null;
+      const baseMs = (s.base|0)*60000;
+      G.clock = baseMs>0
+        ? { enabled:true, w:baseMs, b:baseMs, inc:(s.inc|0)*1000, running:null, lastTick:Date.now() }
+        : { enabled:false, w:0, b:0, inc:0, running:null, lastTick:Date.now() };
+      flipped = G.vsCPU && G.cpuColor==="w";
+    } else {
+      G.vsCPU=false; G.cpuColor=null; G.difficulty=null; G.clock=null;
+      flipped=false;
+    }
     boardEl.style.setProperty("--sq", mode===4 ? "min(6.2vw,40px)" : "min(11vw,62px)");
     boardEl.style.gridTemplateColumns = "repeat("+G.dim+", var(--sq))";
     boardEl.style.gridTemplateRows = "repeat("+G.dim+", var(--sq))";
@@ -298,8 +388,10 @@
     $("flipBtn").style.display = mode===4 ? "none" : "block";
     $("modeLabel").textContent = mode===4
       ? ("4 Players · " + ({1:"first checkmate wins",2:"takeover",3:"frozen pieces"}[ending]))
-      : "2 Players · local";
+      : modeLabel2P();
     render(); setStatus();
+    if(mode===2 && G.clock.enabled) setClockRunning("w");
+    if(mode===2 && G.vsCPU && G.turn===G.cpuColor) requestCpuMove();
   }
 
   // Always use the solid (filled) glyphs and tint them; an outline class added in
@@ -336,7 +428,53 @@
       // colour captured glyphs
       [["capW","b"],["capB","w"]].forEach(([id])=>{});
     } else renderPlayers();
+    renderClocks();
   }
+
+  // ============================================================ clock
+  function hasSufficientMaterial(b,col){
+    let minors=0;
+    for(const p of b){ if(!p||p.dead||p.o!==col) continue;
+      if(p.t==="p"||p.t==="r"||p.t==="q") return true;
+      if(p.t==="n"||p.t==="b") minors++; }
+    return minors>=2;
+  }
+  function flushElapsed(){
+    if(G.clock && G.clock.running){ const now=Date.now();
+      G.clock[G.clock.running] = Math.max(0, G.clock[G.clock.running]-(now-G.clock.lastTick));
+      G.clock.lastTick=now; }
+  }
+  function setClockRunning(color){ if(!G.clock) return; flushElapsed(); G.clock.running=color; G.clock.lastTick=Date.now(); }
+  function fmtClock(ms){ ms=Math.max(0,ms); const s=Math.ceil(ms/1000), m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r; }
+  function renderClocks(){
+    const has = !!(G.clock && G.clock.enabled);
+    $("clkW").style.display = has ? "flex" : "none";
+    $("clkB").style.display = has ? "flex" : "none";
+    if(!has) return;
+    $("clkWVal").textContent = fmtClock(G.clock.w);
+    $("clkBVal").textContent = fmtClock(G.clock.b);
+    $("clkW").classList.toggle("turn", G.clock.running==="w" && !G.over);
+    $("clkB").classList.toggle("turn", G.clock.running==="b" && !G.over);
+    $("clkW").classList.toggle("warn", G.clock.w<=20000 && G.clock.w>0);
+    $("clkB").classList.toggle("warn", G.clock.b<=20000 && G.clock.b>0);
+  }
+  function flagLoss(color){
+    if(G.over) return;
+    const winner = color==="w" ? "b" : "w";
+    if(!hasSufficientMaterial(G.board,winner)){
+      endGame("Draw", G.players[color].name+" ran out of time, but "+G.players[winner].name+" doesn't have enough material to checkmate.");
+    } else {
+      G.winner=winner; SFX.win();
+      gameOver(G.players[winner].name+" wins!", G.players[color].name+" ran out of time.");
+    }
+  }
+  function tick(){
+    if(!G || !G.clock || !G.clock.enabled || !G.clock.running || G.over) return;
+    flushElapsed();
+    if(G.clock[G.clock.running] <= 0){ flagLoss(G.clock.running); return; }
+    renderClocks();
+  }
+  setInterval(tick, 100);
   function renderPlayers(){
     const wrap=$("side4"); wrap.innerHTML="";
     for(const o of G.order){
@@ -353,12 +491,13 @@
   function setStatus(check){
     if(G.over) return;
     const pl=G.players[G.turn];
-    statusEl.innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move'
-      + (check?' — <b style="color:var(--check)">Check!</b>':'');
+    let extra = check?' — <b style="color:var(--check)">Check!</b>':'';
+    if(G.vsCPU && G.turn===G.cpuColor) extra += ' <span style="color:var(--muted)">— thinking…</span>';
+    statusEl.innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move' + extra;
   }
 
   function onSquare(i){
-    if(G.over) return; const p=G.board[i];
+    if(G.over || cpuThinking) return; const p=G.board[i];
     if(p && !p.dead && p.o===G.turn){ G.sel=i; G.legal=legalFor(G,i); render(); return; }
     if(G.sel>=0){ const m=G.legal.find(mm=>mm.to===i);
       if(m){ if(m.promo){ askPromo(m); return; } doMove(m); return; } }
@@ -377,13 +516,15 @@
   function snapshot(){
     return { board:G.board.map(p=>p), turn:G.turn, ep:G.ep, last:G.last,
       castle:G.castle?Object.assign({},G.castle):null,
-      players:JSON.parse(JSON.stringify(G.players)), capList:G.capList.slice(), over:G.over, winner:G.winner };
+      players:JSON.parse(JSON.stringify(G.players)), capList:G.capList.slice(), over:G.over, winner:G.winner,
+      clock: G.clock ? { enabled:G.clock.enabled, w:G.clock.w, b:G.clock.b, inc:G.clock.inc, running:G.clock.running } : null };
   }
 
   function doMove(m, promoType){
     const b=G.board, p=b[m.from], col=p.o;
     const captured = m.ep ? b[G.ep.victim] : b[m.to];
     G.history.push(snapshot());
+    if(G.clock && G.clock.enabled) G.clock[col] += G.clock.inc;
 
     G.board = applyTo(G,b,m,promoType);
     if(captured) G.capList.push({by:col, t:captured.t});
@@ -412,8 +553,10 @@
       const nxt=nextAlive(cur);
       if(nxt===null){ return endGame("Draw","No players remain able to move."); }
       if(anyLegal(G,nxt)){
-        G.turn=nxt; const ck=inCheck(G,G.board,nxt);
-        if(ck) SFX.check(); render(); setStatus(ck); return;
+        G.turn=nxt; setClockRunning(nxt); const ck=inCheck(G,G.board,nxt);
+        if(ck) SFX.check(); render(); setStatus(ck);
+        if(G.vsCPU && nxt===G.cpuColor) requestCpuMove();
+        return;
       }
       // no legal moves for nxt
       if(inCheck(G,G.board,nxt)){
@@ -457,7 +600,7 @@
     gameOver(G.players[last].name+" wins!", G.players[last].name+" is the last player standing.");
     return;
   }
-  function gameOver(title,msg){ G.over=true;
+  function gameOver(title,msg){ setClockRunning(null); G.over=true;
     statusEl.innerHTML='<b>'+title+'</b>';
     if(G.mode===4) renderPlayers();
     if(title.indexOf("Draw")<0 && G.ending!==1) SFX.win();
@@ -465,12 +608,91 @@
   }
   function endGame(title,msg){ G.over=true; SFX.draw(); render(); gameOver(title,msg); }
 
-  function undo(){
-    if(!G.history.length) return;
+  function popOnce(){
     const h=G.history.pop();
     G.board=h.board.map(p=>p); G.turn=h.turn; G.ep=h.ep; G.last=h.last; G.castle=h.castle;
     G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[];
+    if(h.clock) G.clock = { enabled:h.clock.enabled, w:h.clock.w, b:h.clock.b, inc:h.clock.inc, running:h.clock.running, lastTick:Date.now() };
+  }
+  // Vs CPU, undo always hands control back to the human: a completed CPU
+  // reply pops twice (its move + the human move before it); a cancelled
+  // mid-think undo pops just the human's move, since the CPU never moved.
+  function undo(){
+    if(!G.history.length) return;
+    if(cpuThinking) cancelCpuThink();
+    popOnce();
+    while(G.vsCPU && !G.over && G.turn===G.cpuColor && G.history.length) popOnce();
+    if(G.clock) G.clock.lastTick=Date.now();
     $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G,G.board,G.turn));
+  }
+
+  // ============================================================ CPU (worker)
+  // Small material-only 1-ply fallback used only if the Worker can't run at
+  // all (construction throws, or a runtime error) — keeps the game playable,
+  // just noticeably weaker than the real search, until the page is reloaded.
+  function legalMovesOnBoard(b,col){
+    const out=[];
+    for(let i=0;i<b.length;i++){ const p=b[i]; if(p&&!p.dead&&p.o===col){
+      for(const m of genPseudo(G,b,i)) if(!inCheck(G,applyTo(G,b,m,"q"),col)) out.push(m);
+    }}
+    return out;
+  }
+  function fallbackCpuMove(){
+    const col=G.turn, moves=legalMovesOnBoard(G.board,col);
+    if(!moves.length) return null;
+    let best=moves[0], bestScore=-Infinity;
+    for(const m of moves){
+      const nb=applyTo(G,G.board,m,"q");
+      let s=0; for(const p of nb) if(p&&!p.dead) s += (p.o===col?1:-1)*VAL[p.t];
+      if(s>bestScore){ bestScore=s; best=m; }
+    }
+    return best;
+  }
+  function ensureWorker(){
+    if(worker||workerFailed) return;
+    try{
+      worker=new Worker("cpu-worker.js");
+      worker.onmessage=onCpuMessage;
+      worker.onerror=onCpuError;
+    }catch(e){ workerFailed=true; worker=null; }
+  }
+  function onCpuMessage(ev){
+    const msg=ev.data;
+    if(!msg||msg.requestId!==cpuRequestId) return;      // stale response — discard
+    cpuThinking=false;
+    if(G.over||!G.vsCPU||G.turn!==G.cpuColor) return;    // state moved on (undo/new game) — discard
+    const mv = (msg.type==="move" && msg.move) ? msg.move : fallbackCpuMove();
+    if(mv) doMove(mv,"q");
+  }
+  function onCpuError(){
+    workerFailed=true; try{ worker.terminate(); }catch(e){} worker=null;
+    if(cpuThinking && !G.over && G.vsCPU && G.turn===G.cpuColor){
+      cpuThinking=false;
+      const mv=fallbackCpuMove(); if(mv) doMove(mv,"q");
+    }
+  }
+  function cancelCpuThink(){
+    cpuRequestId++; cpuThinking=false;
+    if(worker){ try{ worker.terminate(); }catch(e){} worker=null; }
+  }
+  function requestCpuMove(){
+    if(!G||G.over||!G.vsCPU||G.turn!==G.cpuColor) return;
+    cpuThinking=true;
+    const myId=++cpuRequestId;
+    const tier=G.difficulty||"medium";
+    const BUDGET={ easy:60, medium:400, hard:1000, master:1800 };
+    const DEPTH ={ easy:2, medium:4, hard:6, master:8 };
+    let budgetMs=BUDGET[tier]||400;
+    if(G.clock && G.clock.enabled) budgetMs=Math.min(budgetMs, Math.max(40, G.clock[G.cpuColor]*0.04));
+    ensureWorker();
+    if(!worker){ cpuThinking=false; const mv=fallbackCpuMove(); if(mv) doMove(mv,"q"); return; }
+    try{
+      worker.postMessage({ type:"think", requestId:myId,
+        board:G.board.map(p=>p?{o:p.o,t:p.t,dead:!!p.dead}:null),
+        turn:G.turn, castle:G.castle?Object.assign({},G.castle):null,
+        ep:G.ep?{sq:G.ep.sq,victim:G.ep.victim}:null,
+        difficulty:tier, budgetMs, maxDepth:DEPTH[tier]||4 });
+    }catch(e){ cpuThinking=false; const mv=fallbackCpuMove(); if(mv) doMove(mv,"q"); }
   }
 
   // ============================================================ wiring
@@ -484,11 +706,44 @@
     if(mode==="3"){ window.location.href="./three.html"; return; }
     $("menu").classList.remove("show");
     if(mode==="4") $("endMenu").classList.add("show");
-    else start(2);
+    else $("setup2Menu").classList.add("show");
   }));
   document.querySelectorAll("#endMenu .modebtn").forEach(b=> b.addEventListener("click",()=>{
     $("endMenu").classList.remove("show"); start(4, parseInt(b.dataset.end,10));
   }));
+
+  // ---- 2P setup menu (opponent / difficulty / side / time control) ----
+  $("opponentPick").addEventListener("click",(e)=>{
+    const b=e.target.closest(".modebtn"); if(!b) return;
+    setup2.opponent=b.dataset.opp;
+    [...$("opponentPick").children].forEach(x=>x.classList.toggle("sel", x===b));
+    $("cpuOpts").style.display = setup2.opponent==="cpu" ? "block" : "none";
+  });
+  $("diffPick").addEventListener("click",(e)=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    setup2.difficulty=b.dataset.diff;
+    [...$("diffPick").children].forEach(x=>x.classList.toggle("sel", x===b));
+  });
+  $("sidePick").addEventListener("click",(e)=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    setup2.side=b.dataset.side;
+    [...$("sidePick").children].forEach(x=>x.classList.toggle("sel", x===b));
+  });
+  $("basePick").addEventListener("click",(e)=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    setup2.base=parseInt(b.dataset.base,10);
+    [...$("basePick").children].forEach(x=>x.classList.toggle("sel", x===b));
+    $("incPick").style.display = setup2.base>0 ? "flex" : "none";
+  });
+  $("incPick").addEventListener("click",(e)=>{
+    const b=e.target.closest(".chip"); if(!b) return;
+    setup2.inc=parseInt(b.dataset.inc,10);
+    [...$("incPick").children].forEach(x=>x.classList.toggle("sel", x===b));
+  });
+  $("setup2Start").addEventListener("click",()=>{
+    $("setup2Menu").classList.remove("show");
+    start(2, null, Object.assign({}, setup2));
+  });
 
   start(2);  // build a board behind the menu
 })();

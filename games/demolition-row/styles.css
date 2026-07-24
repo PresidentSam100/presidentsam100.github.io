@@ -31,6 +31,7 @@
       .btn.ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
       .btn.ghost:hover { filter: none; background: rgba(255,46,126,0.12); border-color: var(--accent); color: var(--accent); }
       .btn.sel { outline: 2px solid #ffd23f; }
+      .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
       .diffsel { background: #2a2d34; color: var(--text); border: 1px solid #565b68; border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
@@ -40,6 +41,7 @@
       .card { background: var(--panel); border: 1px solid #474c58; border-radius: 14px; padding: 1.4rem 1.5rem; max-width: 560px; width: 100%; text-align: center; }
       .card h2 { margin: 0 0 0.3rem; font-size: 1.8rem; font-weight: 800; }
       .card p { color: var(--muted); margin: 0.3rem 0 0.9rem; line-height: 1.5; font-size: 0.92rem; }
+      #result-msg { white-space: pre-line; }
       .group { margin: 0.7rem 0; }
       .group .lbl { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 0.35rem; }
       .keys { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-top: 0.5rem; }

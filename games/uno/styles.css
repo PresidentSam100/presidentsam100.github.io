@@ -554,6 +554,9 @@ h1.title {
   opacity: 1;
   font-weight: 600;
 }
+.log-player {
+  font-weight: 800;
+}
 
 /* On wide screens, pin the log as a sidebar on the right so it's always in view.
    The game stays CENTERED (margin auto) but its width is capped to leave equal

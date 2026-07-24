@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tic-Tac-Toe</title>
 <style>
-  :root { --bg:#1e1e2e; --fg:#cdd6f4; --accent:#89b4fa; --x:#f38ba8; --o:#a6e3a1; --cell:#313244; --cell-hover:#45475a; }
+  :root { --bg:#1e1e2e; --fg:#cdd6f4; --accent:#89b4fa; --x:#f38ba8; --o:#a6e3a1; --cell:#313244; --cell-hover:#45475a; --draw:#6c7086; }
   * { box-sizing: border-box; }
   body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
          background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; gap:18px; }
@@ -25,6 +25,35 @@
                         padding:8px 14px; font-size:.95rem; cursor:pointer; }
   button.btn:hover { background:var(--cell-hover); }
   .score { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
+
+  /* Ultimate mode: a 3x3 grid of 3x3 sub-boards. Sized so the whole thing
+     lands close to the classic board's footprint (~304px). */
+  #uboard { display:none; grid-template-columns:repeat(3,96px); grid-template-rows:repeat(3,96px); gap:8px; }
+  .subboard { position:relative; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+              gap:3px; border-radius:8px; transition:box-shadow .15s, opacity .15s; }
+  .subboard.active { box-shadow:0 0 0 2px var(--accent); }
+  .subboard.locked .ucell { opacity:.55; }
+  .ucell { background:var(--cell); border:none; border-radius:4px; font-size:1.15rem; font-weight:700; color:var(--fg);
+           cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
+           transition:background .15s, transform .05s; }
+  .ucell:hover:not(:disabled) { background:var(--cell-hover); }
+  .ucell:active:not(:disabled) { transform:scale(.9); }
+  .ucell:disabled { cursor:default; }
+  .ucell.x { color:var(--x); }
+  .ucell.o { color:var(--o); }
+  .ucell.win { background:var(--accent); }
+  .ucell.win .stroke { stroke:var(--bg); }
+  /* Once a sub-board is decided, its mini-grid stays faintly visible
+     underneath (dimmed, not hidden) and a giant mark claims the whole
+     square on top — same idea as the main board's win state, scaled up. */
+  .subboard.done .ucell { opacity:.22; }
+  .subboard-mark { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+                    border-radius:8px; font-size:2.4rem; font-weight:800; }
+  .subboard.done .subboard-mark { display:flex; }
+  .subboard.done-x .subboard-mark { background:rgba(243,139,168,.3); color:var(--x); }
+  .subboard.done-o .subboard-mark { background:rgba(166,227,161,.3); color:var(--o); }
+  .subboard.done-draw .subboard-mark { background:rgba(108,112,134,.3); color:var(--draw); font-size:2rem; }
+  .subboard-mark .mark { width:80%; height:80%; }
 
   /* drawn marks */
   .mark { width:78%; height:78%; }
@@ -50,9 +79,12 @@
   .mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
   .opts { display:flex; flex-direction:column; gap:8px; }  /* difficulty stacks vertically */
   .opt { background:var(--cell); color:var(--fg); border:1px solid var(--cell-hover);
-         border-radius:8px; padding:9px 12px; font-size:.92rem; font-family:inherit; cursor:pointer; }
+         border-radius:8px; padding:9px 12px; font-size:.92rem; font-weight:700; font-family:inherit; cursor:pointer; }
   .opt:hover { background:var(--cell-hover); }
-  .opt.sel { background:var(--accent); color:var(--bg); border-color:var(--accent); font-weight:700; }
+  /* Selected state is color/background only — font-weight stays constant so
+     selecting a longer label (e.g. "Ultimate (9x9)") never makes it wider
+     and reflows the modal's width. */
+  .opt.sel { background:var(--accent); color:var(--bg); border-color:var(--accent); }
   #startGame { width:100%; margin-top:6px; }
   #modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
   #modeModal .modal { background:var(--cell); }
@@ -76,7 +108,14 @@
   <h1>Tic-Tac-Toe</h1>
   <div id="status">Your turn (X)</div>
   <div id="board"></div>
+  <div id="uboard"></div>
   <div class="controls">
+    <label style="display:none">Board:
+      <select id="boardModeSel">
+        <option value="classic" selected>Classic</option>
+        <option value="ultimate">Ultimate</option>
+      </select>
+    </label>
     <label style="display:none">Difficulty:
       <select id="difficulty">
         <option value="hard" selected>Hard</option>
@@ -97,7 +136,7 @@
   <div class="modal-overlay" id="rulesModal">
     <div class="modal">
       <h2>How to Play</h2>
-      <p>Take turns marking squares on the 3×3 grid. You are <b>X</b>, the computer is <b>O</b>.
+      <p id="rulesText">Take turns marking squares on the 3×3 grid. You are <b>X</b>, the computer is <b>O</b>.
          Get three of your marks in a row — horizontally, vertically, or diagonally — to win.
          If the board fills up with no three-in-a-row, it's a draw.</p>
       <button class="btn" id="closeRules">Got it</button>
@@ -107,6 +146,13 @@
   <div class="modal-overlay" id="modeModal">
     <div class="modal">
       <h2>New Game</h2>
+      <div class="mode-group">
+        <div class="mode-label">Board</div>
+        <div class="opts" data-target="boardModeSel">
+          <button class="opt sel" data-value="classic">Classic (3×3)</button>
+          <button class="opt" data-value="ultimate">Ultimate (9×9)</button>
+        </div>
+      </div>
       <div class="mode-group">
         <div class="mode-label">Difficulty</div>
         <div class="opts" data-target="difficulty">
@@ -122,9 +168,12 @@
 <script>
 const HUMAN = 'X', AI = 'O';
 const boardEl = document.getElementById('board');
+const uboardEl = document.getElementById('uboard');
 const statusEl = document.getElementById('status');
 const diffEl = document.getElementById('difficulty');
+const boardModeSelEl = document.getElementById('boardModeSel');
 let board, gameOver, lastMove, turn, round = 0, score = { w:0, l:0, d:0 };
+let boardMode = 'classic'; // 'classic' (3x3) | 'ultimate' (9 nested 3x3 boards)
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
 // (or OS reduced-motion) means no mark-draw animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
@@ -362,6 +411,249 @@ function minimax(b, depth, isMax, alpha, beta) {
   }
 }
 
+// ============================================================
+//  ULTIMATE MODE — 9 nested 3x3 boards. Winning a sub-board claims it for
+//  that player on the macro board; a full sub-board with no 3-in-a-row is
+//  voided — blocked for both players, not won by either.
+// ============================================================
+let uBoards, uMacro, activeSub, uGameOver, uLastMove, uTurn;
+
+function macroResult(macro) {
+  for (const line of LINES) {
+    const [a, b, c] = line;
+    if (macro[a] && macro[a] !== 'draw' && macro[a] === macro[b] && macro[a] === macro[c]) return { player: macro[a], line };
+  }
+  if (macro.every(x => x)) return { player: 'draw', line: null }; // every sub-board decided, no 3-in-a-row
+  return null;
+}
+
+// The sub-board(s) currently legal to play in: just the forced target
+// (whatever board matches the cell your opponent last played), unless that
+// board is already decided — then it's any open board, a free choice.
+function uLegalSubs() {
+  if (activeSub !== -1 && !uMacro[activeSub]) return [activeSub];
+  return [...Array(9).keys()].filter(i => !uMacro[i]);
+}
+
+function uInit() {
+  round++;
+  uBoards = Array.from({ length: 9 }, () => Array(9).fill(''));
+  uMacro = Array(9).fill('');
+  activeSub = -1;
+  uGameOver = false;
+  uLastMove = null;
+  uTurn = null;
+  uRender();
+  if (window.coinFlip) {
+    const myRound = round;
+    setStatus('Flipping for first move…');
+    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#89b4fa', youColor: '#f38ba8', cpuColor: '#a6e3a1' }, function (who) {
+      if (myRound !== round) return;
+      if (who === 'cpu') { uTurn = AI; setStatus('AI thinking…'); uScheduleAI(450); }
+      else { uTurn = HUMAN; uRender(); setStatus('Your turn (X) — play in the highlighted board'); }
+    });
+  } else { uTurn = HUMAN; uRender(); setStatus('Your turn (X) — play in the highlighted board'); }
+}
+
+function uScheduleAI(delay) {
+  const myRound = round;
+  setTimeout(() => { if (myRound === round) uAiMove(); }, delay);
+}
+
+function uRender() {
+  uboardEl.innerHTML = '';
+  const legal = (!uGameOver && uTurn === HUMAN) ? new Set(uLegalSubs()) : new Set();
+  for (let s = 0; s < 9; s++) {
+    const sub = document.createElement('div');
+    sub.className = 'subboard';
+    const done = uMacro[s];
+    if (done) sub.classList.add('done', 'done-' + (done === 'draw' ? 'draw' : done.toLowerCase()));
+    else if (legal.has(s)) sub.classList.add('active');
+    else if (!uGameOver) sub.classList.add('locked');
+    for (let c = 0; c < 9; c++) {
+      const p = uBoards[s][c];
+      const btn = document.createElement('button');
+      btn.className = 'ucell' + (p === 'X' ? ' x' : p === 'O' ? ' o' : '');
+      const isLast = !!(uLastMove && uLastMove.sub === s && uLastMove.cell === c);
+      btn.innerHTML = p ? markSVG(p, animOn() && isLast) : '';
+      btn.disabled = !!p || !!done || !legal.has(s) || uGameOver;
+      btn.addEventListener('click', () => uHumanMove(s, c));
+      sub.appendChild(btn);
+    }
+    const markWrap = document.createElement('div');
+    markWrap.className = 'subboard-mark';
+    if (done === 'draw') markWrap.textContent = '—';
+    else if (done) markWrap.innerHTML = markSVG(done, false);
+    sub.appendChild(markWrap);
+    uboardEl.appendChild(sub);
+  }
+}
+
+function uHumanMove(sub, cell) {
+  if (uGameOver || uTurn !== HUMAN || uMacro[sub] || uBoards[sub][cell]) return;
+  if (!uLegalSubs().includes(sub)) return;
+  uTurn = AI;
+  uApplyMoveReal(sub, cell, HUMAN);
+  sfxHuman();
+  if (uCheckEnd()) return;
+  uRender();
+  setStatus('AI thinking…');
+  uScheduleAI(animOn() ? 450 : 250);
+}
+
+function uAiMove() {
+  const myRound = round;
+  const { sub, cell } = uChooseAIMove();
+  uApplyMoveReal(sub, cell, AI);
+  sfxAI();
+  if (uCheckEnd()) return;
+  uRender();
+  const wait = animOn() ? 360 : 0;
+  setTimeout(() => {
+    if (myRound !== round) return;
+    uLastMove = null;
+    uTurn = HUMAN;
+    uRender();
+    setStatus('Your turn (X) — play in the highlighted board');
+  }, wait);
+}
+
+// Applies a real move to the live game state (uApplyMove/uUndoMove below do
+// the same job on these same arrays but for the AI's search, which reverts
+// every move it tries).
+function uApplyMoveReal(sub, cell, mark) {
+  uBoards[sub][cell] = mark;
+  uLastMove = { sub, cell };
+  if (!uMacro[sub]) {
+    const r = winner(uBoards[sub]);
+    if (r) uMacro[sub] = r.player === 'draw' ? 'draw' : r.player;
+  }
+  activeSub = uMacro[cell] ? -1 : cell;
+}
+
+function uCheckEnd() {
+  const res = macroResult(uMacro);
+  if (!res) return false;
+  uGameOver = true;
+  uRender();
+  if (res.player === 'draw') {
+    score.d++; setStatus("It's a draw!"); sfxDraw();
+  } else if (res.player === HUMAN) {
+    score.w++; setStatus('You win! 🎉'); uHighlight(res.line); sfxWin();
+  } else {
+    score.l++; setStatus('AI wins!'); uHighlight(res.line); sfxLose();
+  }
+  updateScore();
+  return true;
+}
+
+function uHighlight(line) {
+  if (!line) return;
+  const subs = uboardEl.children;
+  line.forEach(i => { const mark = subs[i].querySelector('.subboard-mark'); if (mark) mark.style.boxShadow = '0 0 0 3px var(--accent) inset'; });
+}
+
+// --- Ultimate AI ---
+// The full game tree is far too large to search exhaustively (branching up
+// to 81), so this is a depth-limited minimax over a heuristic evaluation
+// rather than the classic mode's exhaustive terminal-only search.
+function uEmptyLegalCells() {
+  const moves = [];
+  for (const s of uLegalSubs()) for (let c = 0; c < 9; c++) if (uBoards[s][c] === '') moves.push({ sub: s, cell: c });
+  return moves;
+}
+function uApplyMove(move, mark) {
+  const { sub, cell } = move;
+  const prevActive = activeSub, prevMacroSub = uMacro[sub];
+  uBoards[sub][cell] = mark;
+  if (!prevMacroSub) {
+    const r = winner(uBoards[sub]);
+    if (r) uMacro[sub] = r.player === 'draw' ? 'draw' : r.player;
+  }
+  activeSub = uMacro[cell] ? -1 : cell;
+  return { sub, cell, prevActive, prevMacroSub };
+}
+function uUndoMove(undo) {
+  uBoards[undo.sub][undo.cell] = '';
+  uMacro[undo.sub] = undo.prevMacroSub;
+  activeSub = undo.prevActive;
+}
+// How much in-a-row potential a mark has across a 9-cell board (either a
+// sub-board's own cells, or the macro board of sub-board outcomes) — a line
+// only counts if the opponent (or a voided/drawn board) hasn't blocked it.
+function uLineScore(cells, mark, opp) {
+  let score = 0;
+  for (const [a, b, c] of LINES) {
+    const vals = [cells[a], cells[b], cells[c]];
+    const mine = vals.filter(v => v === mark).length;
+    const blocked = vals.some(v => v === opp || v === 'draw');
+    if (mine === 0 || blocked) continue;
+    score += mine === 3 ? 1000 : mine === 2 ? 40 : 4;
+  }
+  return score;
+}
+const SUB_WEIGHT = [3, 2, 3, 2, 4, 2, 3, 2, 3]; // center sub-board matters most, like classic TTT cells
+function uStaticEval(mark) {
+  const opp = mark === 'X' ? 'O' : 'X';
+  let score = uLineScore(uMacro, mark, opp) * 15 - uLineScore(uMacro, opp, mark) * 15;
+  for (let i = 0; i < 9; i++) {
+    if (uMacro[i]) continue;
+    score += (uLineScore(uBoards[i], mark, opp) - uLineScore(uBoards[i], opp, mark)) * SUB_WEIGHT[i];
+  }
+  return score;
+}
+function uMinimax(depth, isMax, alpha, beta, aiMark, humanMark) {
+  const res = macroResult(uMacro);
+  if (res) {
+    if (res.player === aiMark) return 100000 - depth;
+    if (res.player === humanMark) return depth - 100000;
+    return 0;
+  }
+  if (depth === 0) return uStaticEval(aiMark);
+  const moves = uEmptyLegalCells();
+  if (isMax) {
+    let best = -Infinity;
+    for (const m of moves) {
+      const undo = uApplyMove(m, aiMark);
+      best = Math.max(best, uMinimax(depth - 1, false, alpha, beta, aiMark, humanMark));
+      uUndoMove(undo);
+      alpha = Math.max(alpha, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  } else {
+    let best = Infinity;
+    for (const m of moves) {
+      const undo = uApplyMove(m, humanMark);
+      best = Math.min(best, uMinimax(depth - 1, true, alpha, beta, aiMark, humanMark));
+      uUndoMove(undo);
+      beta = Math.min(beta, best);
+      if (beta <= alpha) break;
+    }
+    return best;
+  }
+}
+function uChooseAIMove() {
+  const diff = diffEl.value;
+  const moves = uEmptyLegalCells();
+  if (diff === 'easy') return moves[Math.random() * moves.length | 0];
+  if (diff === 'medium' && Math.random() < 0.35) return moves[Math.random() * moves.length | 0];
+  // A free-choice turn (activeSub === -1) can open up dozens of legal moves,
+  // so search shallower there to stay fast; a turn constrained to one
+  // sub-board (<=9 options) can afford to look deeper.
+  const constrained = activeSub !== -1 && !uMacro[activeSub];
+  const depth = diff === 'hard' ? (constrained ? 2 : 1) : (constrained ? 1 : 0);
+  let bestScore = -Infinity, bestMoves = [];
+  for (const m of moves) {
+    const undo = uApplyMove(m, AI);
+    const s = uMinimax(depth, false, -Infinity, Infinity, AI, HUMAN);
+    uUndoMove(undo);
+    if (s > bestScore) { bestScore = s; bestMoves = [m]; }
+    else if (s === bestScore) bestMoves.push(m);
+  }
+  return bestMoves[Math.random() * bestMoves.length | 0];
+}
+
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
 const modeModal = document.getElementById('modeModal');
 function showModeModal(){ modeModal.classList.add('open'); }
@@ -382,18 +674,46 @@ function setupModeModal(onStart){
   });
 }
 
+// Switches the visible board and kicks off the right game for whichever
+// board type is currently selected.
+function startSelectedMode() {
+  boardMode = boardModeSelEl.value;
+  boardEl.style.display = boardMode === 'classic' ? 'grid' : 'none';
+  uboardEl.style.display = boardMode === 'ultimate' ? 'grid' : 'none';
+  if (boardMode === 'ultimate') uInit(); else init();
+}
+function restartCurrent() { if (boardMode === 'ultimate') uInit(); else init(); }
+
 // "New Game" returns to mode selection; "Restart" replays the current mode.
 document.getElementById('reset').addEventListener('click', showModeModal);
-document.getElementById('restart').addEventListener('click', init);
+document.getElementById('restart').addEventListener('click', restartCurrent);
 
+const CLASSIC_RULES = `Take turns marking squares on the 3×3 grid. You are <b>X</b>, the computer is <b>O</b>.
+  Get three of your marks in a row — horizontally, vertically, or diagonally — to win.
+  If the board fills up with no three-in-a-row, it's a draw.`;
+const ULTIMATE_RULES = `Nine small 3×3 boards make one big 3×3 board. Win a small board with three in a row
+  to claim it (<b>X</b> or <b>O</b>) on the big board — three claimed boards in a row wins the whole game.
+  If a small board fills up with no winner, it's <b>voided</b>: blocked for both sides. The twist —
+  whichever square you play in a small board sends your opponent to that same-numbered small board next.
+  If that board is already decided, they get a free choice of any open board instead.`;
 const rulesModal = document.getElementById('rulesModal');
-document.getElementById('rules').addEventListener('click', () => rulesModal.classList.add('open'));
+const rulesTextEl = document.getElementById('rulesText');
+document.getElementById('rules').addEventListener('click', () => {
+  rulesTextEl.innerHTML = boardMode === 'ultimate' ? ULTIMATE_RULES : CLASSIC_RULES;
+  rulesModal.classList.add('open');
+});
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
 
-setupModeModal(init);
+setupModeModal(startSelectedMode);
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
+
+window.__TTT_TEST__ = {
+  uReset: () => { uBoards = Array.from({ length: 9 }, () => Array(9).fill('')); uMacro = Array(9).fill(''); activeSub = -1; },
+  uApplyMoveReal, uChooseAIMove, uEmptyLegalCells, macroResult, uRender,
+  getState: () => ({ uBoards: uBoards.map(b => b.slice()), uMacro: uMacro.slice(), activeSub }),
+};
 </script>
 </body>
 </html>

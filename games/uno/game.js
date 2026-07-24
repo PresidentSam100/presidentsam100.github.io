@@ -21,6 +21,11 @@ var GLYPH = {
   custom: "★",
 };
 var POINTS = { skip: 20, reverse: 20, draw2: 20 };
+// Distinct hues for up to 10 players in the log, chosen to stay clear of the
+// four Uno card colors (red/yellow/green/blue) so a player's name is never
+// mistaken for a card-color callout.
+var PLAYER_HUES = [335, 70, 95, 160, 178, 235, 255, 275, 295, 315];
+function playerColor(pi) { return "hsl(" + PLAYER_HUES[pi % PLAYER_HUES.length] + ", 72%, 62%)"; }
 
 // ----------------------------------------------------------------
 //  Game state
@@ -198,7 +203,7 @@ function startHand(dealer) {
   // a random player takes the first turn each hand
   G.currentPlayerIndex = Math.floor(Math.random() * G.players.length);
 
-  log("New hand dealt. " + G.players[G.currentPlayerIndex].name + " starts.");
+  log(["New hand dealt. ", { player: G.currentPlayerIndex }, " starts."]);
   beginTurn();
 }
 
@@ -306,8 +311,8 @@ function playCard(pi, idx, chosenColor, done) {
     G.discard.push(card);
     G.currentColor = isWildType(card) ? chosenColor : card.color;
 
-    log(player.name + " played " + describe(card) +
-      (isWildType(card) ? " → " + G.currentColor : ""));
+    log([{ player: pi }, " played " + describe(card) +
+      (isWildType(card) ? " → " + G.currentColor : "")]);
 
     render();
     sfxPlay(card);
@@ -362,7 +367,7 @@ function applyEffect(pi, card, prevColor, done) {
 
     case "skip": {
       var s = neighbor(pi, 1);
-      log(G.players[s].name + " is skipped.");
+      log([{ player: s }, " is skipped."]);
       G.currentPlayerIndex = neighbor(pi, 2);
       return finish();
     }
@@ -381,7 +386,7 @@ function applyEffect(pi, card, prevColor, done) {
     case "draw2": {
       var t = neighbor(pi, 1);
       drawCards(t, 2);
-      log(G.players[t].name + " draws 2 and is skipped.");
+      log([{ player: t }, " draws 2 and is skipped."]);
       G.currentPlayerIndex = neighbor(pi, 2);
       render();
       return finish();
@@ -436,7 +441,7 @@ function resolveWild4(pi, challengeColor, finish) {
 
   var applyNoChallenge = function () {
     drawCards(target, 4);
-    log(t.name + " draws 4 and is skipped.");
+    log([{ player: target }, " draws 4 and is skipped."]);
     G.currentPlayerIndex = neighbor(pi, 2);
     render();
     finish();
@@ -446,13 +451,13 @@ function resolveWild4(pi, challengeColor, finish) {
     if (wasIllegal) {
       // bluff caught → player draws 4, challenger plays next
       drawCards(pi, 4);
-      log("Challenge upheld! " + G.players[pi].name + " was bluffing and draws 4.");
+      log(["Challenge upheld! ", { player: pi }, " was bluffing and draws 4."]);
       toast("✅ Challenge won — they were bluffing!");
       G.currentPlayerIndex = target; // challenger's turn
     } else {
       // legal +4 → challenger draws 6 and loses turn
       drawCards(target, 6);
-      log("Challenge failed! " + t.name + " draws 6 and is skipped.");
+      log(["Challenge failed! ", { player: target }, " draws 6 and is skipped."]);
       toast("❌ Challenge failed — draw 6!");
       G.currentPlayerIndex = neighbor(pi, 2);
     }
@@ -471,7 +476,7 @@ function resolveWild4(pi, challengeColor, finish) {
     // or just a coin-flip-ish chance. CPUs challenge ~25% of the time.
     var suspicious = G.players[pi].hand.length <= 2 || Math.random() < 0.22;
     if (suspicious) {
-      log(t.name + " challenges the Wild Draw Four!");
+      log([{ player: target }, " challenges the Wild Draw Four!"]);
       setTimeout(applyChallenge, 500);
     } else {
       applyNoChallenge();
@@ -514,7 +519,7 @@ function unoWindow(pi, cont) {
       // a random CPU catches you
       var catcher = pickCatcher(pi);
       drawCards(pi, 2);
-      log(G.players[catcher].name + " caught you — you didn't call UNO! Draw 2.");
+      log([{ player: catcher }, " caught you — you didn't call UNO! Draw 2."]);
       toast("😱 " + G.players[catcher].name + " caught you! +2 cards");
       finishUno();
     }, 3200);
@@ -522,7 +527,7 @@ function unoWindow(pi, cont) {
     // CPU: usually calls in time. Sometimes forgets → human may catch it.
     if (Math.random() < 0.78) {
       p.calledUno = true;
-      log(p.name + " calls UNO!");
+      log([{ player: pi }, " calls UNO!"]);
       toast(p.name + " calls UNO!");
       sfxUno();
       cont();
@@ -563,12 +568,12 @@ function cpuTurn() {
     var wait = Math.max(0, drawAnimUntil - Date.now());
     if (got.length && canPlay(got[0])) {
       var di = hand.length - 1;
-      log(G.players[pi].name + " draws and plays it.");
+      log([{ player: pi }, " draws and plays it."]);
       setTimeout(function () {
         playCard(pi, di, chooseColor(pi), null);
       }, wait);
     } else {
-      log(G.players[pi].name + " draws and passes.");
+      log([{ player: pi }, " draws and passes."]);
       setTimeout(function () { passTurn(pi); }, wait);
     }
     return;
@@ -660,10 +665,10 @@ function onHumanDraw() {
     // card and clobber its deck-to-hand glide animation.
     G.drawnIndex = G.players[0].hand.length - 1;
     G.busy = false;
-    log("You drew " + describe(got[0]) + " — play it or pass.");
+    log([{ player: 0 }, " drew " + describe(got[0]) + " — play it or pass."]);
     render();
   } else {
-    log("You drew " + (got.length ? describe(got[0]) : "nothing") + " and pass.");
+    log([{ player: 0 }, " drew " + (got.length ? describe(got[0]) : "nothing") + " and pass."]);
     render();
     // let the drawn card finish gliding in; the constant inter-turn pause is
     // then applied uniformly in beginTurn.
@@ -1212,7 +1217,7 @@ function offerCatch(pi, cont) {
     hideOverlay();
     if (caught) {
       drawCards(pi, 2);
-      log("You caught " + G.players[pi].name + " — they forgot UNO! +2 cards.");
+      log([{ player: 0 }, " caught ", { player: pi }, " — they forgot UNO! +2 cards."]);
       toast("🎯 Caught " + G.players[pi].name + "! +2 cards");
     }
     render();
@@ -1314,10 +1319,24 @@ function toast(msg) {
   }, 2200);
 }
 
+// msg is either a plain string, or an array of segments where each segment
+// is a string or { player: playerIndex } — the latter renders that player's
+// name in their own color so the log is easy to follow at a glance.
 function log(msg) {
   var l = document.getElementById("log");
   var d = document.createElement("div");
-  d.textContent = msg;
+  var parts = typeof msg === "string" ? [msg] : msg;
+  parts.forEach(function (seg) {
+    if (seg && typeof seg === "object" && seg.player != null) {
+      var span = document.createElement("span");
+      span.className = "log-player";
+      span.style.color = playerColor(seg.player);
+      span.textContent = G.players[seg.player].name;
+      d.appendChild(span);
+    } else {
+      d.appendChild(document.createTextNode(String(seg)));
+    }
+  });
   l.appendChild(d);
   l.scrollTop = l.scrollHeight;
   while (l.children.length > 40) l.removeChild(l.firstChild);
