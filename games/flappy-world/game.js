@@ -2293,3 +2293,11 @@ class Game {
 // BOOT
 // ============================================================
 const game = new Game();
+
+// Tabbing away mid-flight used to end the run. Pause only — returning focus
+// must not un-pause a run the player paused on purpose.
+if (window.GameShell) {
+  GameShell.onAutoPause(() => {
+    if (game.gameState === 'PLAYING') game.togglePause();
+  });
+}
