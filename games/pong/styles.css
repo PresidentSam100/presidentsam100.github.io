@@ -1,0 +1,128 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%;
+  background: #0a0a0a;
+  color: #fff;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+#game {
+  background: #000;
+  border: 2px solid #fff;
+  display: block;
+  max-width: 95vw;
+  max-height: 95vh;
+  touch-action: none; /* drags move paddles, never scroll the page */
+}
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  text-align: center;
+  gap: 20px;
+}
+.overlay h1 {
+  font-size: clamp(40px, 10vw, 90px);
+  letter-spacing: 12px;
+  margin-bottom: 10px;
+}
+.overlay p { opacity: 0.7; max-width: 320px; line-height: 1.5; }
+.btn {
+  font: inherit;
+  font-size: 22px;
+  padding: 14px 40px;
+  min-width: 240px;
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.08s, background 0.15s;
+}
+.btn:hover { background: #ccc; transform: scale(1.04); }
+.hidden { display: none; }
+
+/* Pre-game countdown: lighter overlay so the board stays visible behind it */
+#countdown { background: rgba(0, 0, 0, 0.5); gap: 30px; pointer-events: none; z-index: 15; }
+.count-num {
+  font-size: clamp(80px, 20vw, 170px); font-weight: 700; line-height: 1;
+  text-shadow: 0 0 34px rgba(255, 255, 255, 0.35);
+}
+.count-controls { display: flex; gap: 44px; }
+.count-controls > div { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.count-controls b { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.65; font-weight: 700; }
+.count-controls span {
+  font-size: 22px; font-weight: 600; padding: 8px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 8px; min-width: 96px;
+}
+/* countdown number pops on each tick (auto-disabled by reduce-motion) */
+.count-num { animation: countPop 0.9s ease both; }
+@keyframes countPop { 0% { opacity: 0; transform: scale(1.45); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0.92; transform: scale(1); } }
+
+/* On-screen paddle arrows (touch devices only) */
+.pong-ctrl {
+  position: fixed;
+  bottom: 18px;
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 20;
+}
+#ctrl-left { left: 16px; }
+#ctrl-right { right: 16px; }
+.pbtn {
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 30px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  user-select: none;
+}
+.pbtn:active { background: rgba(255, 255, 255, 0.4); }
+@media (pointer: coarse) {
+  body.playing #ctrl-left { display: flex; }
+  body.playing.p2 #ctrl-right { display: flex; }
+}
+
+/* Instructions: one sentence per line; show only the relevant control set.
+   Desktop (fine pointer) sees keyboard controls; touch devices see the on-screen
+   buttons line — never both. */
+#controls span { display: block; line-height: 1.7; }
+#controls .ctrl-mobile { display: none; }
+@media (pointer: coarse) {
+  #controls .ctrl-desktop { display: none; }
+  #controls .ctrl-mobile { display: block; }
+}
+
+/* tasteful entrance + interaction motion (auto-disabled by reduce-motion) */
+.overlay:not(.hidden) { animation: ovFade 0.3s ease both; }
+.overlay:not(.hidden) h1 { text-shadow: 0 0 22px rgba(255,255,255,0.2); animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) backwards, titleGlow 3.4s ease-in-out 0.6s infinite; }
+.overlay:not(.hidden) p { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.08s backwards; }
+.overlay:not(.hidden) .btn { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.16s backwards; }
+.btn:active { transform: scale(0.96); }
+@keyframes ovFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ovUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes titleGlow { 0%, 100% { text-shadow: 0 0 18px rgba(255,255,255,0.15); } 50% { text-shadow: 0 0 32px rgba(255,255,255,0.42); } }
+
+/* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
