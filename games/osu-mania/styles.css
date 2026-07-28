@@ -1,0 +1,143 @@
+@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;700;800&display=swap");
+:root {
+  /* A stage-lighting palette (hot pink + violet) instead of the
+     lime/cyan pairing several other games on the site already use. */
+  --bg: #140a1e; --panel: #211230; --line: #3d2150; --text: #f8ecff; --muted: #a68fc7;
+  --pink: #ff4fa8; --violet: #b06bff; --good: #4fe0a8; --warn: #ffcf4d; --bad: #ff5d7a;
+  --col1: #ff5d7a; --col2: #ffcf4d; --col3: #4fe0a8; --col4: #b06bff;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background:
+    radial-gradient(760px 520px at 12% -8%, rgba(255,79,168,.22), transparent 62%),
+    radial-gradient(760px 520px at 90% 108%, rgba(176,107,255,.18), transparent 62%),
+    var(--bg);
+  color: var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+  min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
+  overflow-x: hidden; user-select: none; touch-action: manipulation;
+}
+a { color: var(--pink); text-decoration: none; }
+.wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
+
+header.top { text-align: center; margin: 0.8rem 0 0.4rem; }
+header.top h1 { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+header.top h1 b { color: var(--pink); text-shadow: 0 0 18px rgba(255,79,168,.45); }
+header.top p { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+
+section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
+section[hidden] { display: none; }
+
+.lbl { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+.choices { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+/* Angled corner-clip instead of the rounded pill shape most other games
+   on the site use for their choice/button chrome. */
+.choice {
+  cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--text);
+  clip-path: polygon(12px 0, 100% 0, 100% calc(100% - 12px), calc(100% - 12px) 100%, 0 100%, 0 12px);
+  padding: 0.9rem 1.2rem; font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 600; font-size: 1rem;
+  transition: border-color .15s, background .15s, color .15s; min-width: 92px; text-align: center;
+}
+.choice:hover { border-color: #5a3675; }
+.choice.sel { border-color: var(--pink); color: var(--pink); background: #33163a; box-shadow: 0 0 16px -4px var(--pink); }
+.choice.listening { border-color: var(--warn); color: var(--warn); animation: pulseListen 1s ease-in-out infinite; }
+@keyframes pulseListen { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+.keybtn { min-width: 64px; padding: 0.7rem 0.9rem; font-size: 1.1rem; }
+
+.btn {
+  cursor: pointer; border: none; font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700; letter-spacing: 0.06em;
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  font-size: 1.2rem; color: #200a1c; padding: 1rem 2.6rem; background: linear-gradient(180deg, #ff86c6, var(--pink));
+  box-shadow: 0 10px 30px -8px rgba(255,79,168,.55), inset 0 -3px 0 rgba(0,0,0,.15);
+  transition: filter .15s, transform .08s;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(1px) scale(.98); }
+.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; font-size: 0.95rem; padding: 0.7rem 1.4rem; letter-spacing: 0.04em; }
+.best { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; text-align: center; }
+.best b { color: var(--warn); }
+
+/* play */
+.hud { display: flex; gap: 0.6rem; width: 100%; max-width: 420px; }
+.stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 0.55rem; text-align: center; }
+.stat .k { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+.stat .v { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 1.7rem; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.05; }
+#vTime { color: var(--violet); } #vScore { color: var(--pink); } #vStreak { color: var(--warn); }
+
+.board { position: relative; display: flex; gap: 6px; width: min(94vw, 420px); height: min(60vh, 420px); margin: 0 auto; }
+.lane {
+  position: relative; flex: 1; background:
+    repeating-linear-gradient(155deg, rgba(255,255,255,0.025) 0 2px, transparent 2px 14px), var(--panel);
+  border: 1px solid var(--line); border-radius: 8px;
+  overflow: hidden; cursor: pointer; touch-action: manipulation;
+}
+.lane::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 46px; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,79,168,.7), rgba(176,107,255,.7), transparent);
+  box-shadow: 0 0 10px 1px rgba(255,79,168,.45);
+}
+.lane .key {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 44px; display: grid; place-items: center;
+  font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700; font-size: 1.1rem; color: var(--muted);
+  background: rgba(255,255,255,0.03); border-top: 1px solid var(--line); transition: background .08s, color .08s;
+}
+.lane[data-col="0"] .key { color: var(--col1); }
+.lane[data-col="1"] .key { color: var(--col2); }
+.lane[data-col="2"] .key { color: var(--col3); }
+.lane[data-col="3"] .key { color: var(--col4); }
+.lane.kdown .key { background: rgba(255,255,255,0.14); }
+.tile {
+  position: absolute; top: 0; left: 3px; right: 3px; height: 64px; border-radius: 6px;
+  background: linear-gradient(180deg, #341c42, #1c0f28); border: 1px solid #4a2960;
+  box-shadow: 0 6px 18px -6px rgba(0,0,0,.6);
+  display: grid; place-items: center; font-size: 1.4rem;
+}
+.lane[data-col="0"] .tile { box-shadow: 0 0 22px -4px var(--col1), 0 6px 18px -6px rgba(0,0,0,.6); border-color: var(--col1); }
+.lane[data-col="1"] .tile { box-shadow: 0 0 22px -4px var(--col2), 0 6px 18px -6px rgba(0,0,0,.6); border-color: var(--col2); }
+.lane[data-col="2"] .tile { box-shadow: 0 0 22px -4px var(--col3), 0 6px 18px -6px rgba(0,0,0,.6); border-color: var(--col3); }
+.lane[data-col="3"] .tile { box-shadow: 0 0 22px -4px var(--col4), 0 6px 18px -6px rgba(0,0,0,.6); border-color: var(--col4); }
+
+/* precision mode: smaller tile so it can sit fully inside the key zone, plus a highlighted target */
+.board.precision .tile { height: 28px; }
+.board.precision .lane .key { border-top: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,0.05); }
+.judge {
+  position: absolute; left: 0; right: 0; bottom: 54px; text-align: center;
+  font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700;
+  font-size: 0.95rem; letter-spacing: 0.03em; pointer-events: none; z-index: 6;
+  animation: judgePop .6s ease forwards;
+}
+@keyframes judgePop {
+  0% { opacity: 0; transform: translateY(6px) scale(.85); }
+  15% { opacity: 1; transform: translateY(-4px) scale(1.05); }
+  70% { opacity: 1; transform: translateY(-20px) scale(1); }
+  100% { opacity: 0; transform: translateY(-34px) scale(.95); }
+}
+.judge.perfect { color: var(--pink); text-shadow: 0 0 10px rgba(255,79,168,.6); }
+.judge.great { color: var(--violet); }
+.judge.good { color: var(--warn); }
+.judge.ok { color: var(--muted); }
+.judge.miss { color: var(--bad); }
+
+.timebar { width: min(94vw, 420px); height: 6px; background: var(--panel); border-radius: 999px; overflow: hidden; }
+.timebar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--violet), var(--pink)); transform-origin: left; transition: transform .08s linear; }
+.hint { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; text-align: center; }
+
+/* results */
+.final { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 5rem; font-weight: 700; color: var(--pink); font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 0 30px rgba(255,79,168,.45); }
+.final small { font-size: 1.1rem; color: var(--muted); font-weight: 800; }
+.rating { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 1.3rem; font-weight: 700; }
+.summary { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
+.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.9rem; font-size: 0.85rem; font-weight: 700; }
+.chip b { color: var(--violet); }
+.newbest { color: var(--warn); font-weight: 900; letter-spacing: 0.08em; min-height: 1.2em; }
+.row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
+
+.graph { width: 100%; max-width: 340px; margin: 0.2rem auto 0; }
+.graph .gtitle { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 4px; }
+.graph svg.lg { width: 100%; height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(255,79,168,.18)); }
+.graph .cap { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
+.graph .cap b { color: var(--pink); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+}
