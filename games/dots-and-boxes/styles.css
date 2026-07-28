@@ -1,0 +1,64 @@
+:root { --bg:#eef0e6; --paper:#fbfaf3; --fg:#33414f; --dot:#33414f; --line-empty:#c4cbd2; --line-hover:#5b8fd0;
+        --human:#d2362f; --ai:#2f6fb0; --human-box:rgba(210,54,47,.16); --ai-box:rgba(47,111,176,.16); }
+* { box-sizing:border-box; }
+body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
+       background-color:var(--bg);
+       background-image:linear-gradient(rgba(120,140,160,.14) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(120,140,160,.14) 1px, transparent 1px);
+       background-size:24px 24px;
+       color:var(--fg); font-family:"Trebuchet MS",Verdana,Geneva,sans-serif; gap:14px; padding:20px; }
+h1 { margin:0; font-weight:700; letter-spacing:1px; }
+#status { font-size:1.15rem; min-height:1.5em; font-weight:500; }
+.scoreboard { display:flex; gap:26px; font-size:1.05rem; }
+.scoreboard .me { color:var(--human); } .scoreboard .ai { color:var(--ai); }
+.record { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
+svg { background:var(--paper); border:1px solid #d8dcc9; border-radius:14px; box-shadow:0 6px 18px rgba(60,70,80,.18); touch-action:none; }
+.dot { fill:var(--dot); }
+.line { stroke:var(--line-empty); stroke-width:6; stroke-linecap:round; cursor:pointer; transition:stroke .1s; }
+/* preview the line in a slightly lighter shade of YOUR colour, only on your turn */
+#board.playable .line:not(.taken):hover { stroke:#e8675f; }
+.line.taken { cursor:default; }
+.line.human { stroke:var(--human); } .line.ai { stroke:var(--ai); }
+.box-fill { transition:fill .2s; }
+.box-label { font-weight:700; font-size:18px; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
+.controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
+button.btn, select { background:#fff; color:var(--fg); border:1px solid #c4cbd2; border-radius:8px;
+                     padding:8px 14px; font-size:.95rem; font-family:inherit; cursor:pointer; }
+button.btn:hover { background:#eef2f7; }
+
+/* line draw animation */
+.line.draw-anim { stroke-dasharray:1; stroke-dashoffset:1; animation:lineDraw .26s ease-out forwards; }
+@keyframes lineDraw { to { stroke-dashoffset:0; } }
+
+/* rules modal */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
+                 align-items:center; justify-content:center; padding:20px; z-index:10; }
+.modal-overlay.open { display:flex; }
+.modal { background:var(--paper); border:1px solid #c4cbd2; border-radius:14px; max-width:430px;
+         padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
+.modal h2 { margin:0 0 12px; }
+.modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
+.modal .btn { width:100%; }
+.modal-overlay.open .modal { animation:dbModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
+@keyframes dbModalIn { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:none; } }
+/* mode-select overlay (choose game mode before the game starts) */
+.mode-group { margin:0 0 16px; }
+.mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
+.opts { display:flex; gap:8px; flex-wrap:wrap; }
+.opts[data-target="size"] { display:grid; grid-template-columns:1fr 1fr; }  /* 4 sizes → 2×2 grid */
+.opt { flex:1 1 0; min-width:0; background:#fff; color:var(--fg); border:1px solid #c4cbd2;
+       border-radius:8px; padding:10px 6px; font-size:.9rem; font-family:inherit; cursor:pointer; white-space:nowrap; }
+.opt:hover { background:#eef2f7; }
+.opt.sel { background:var(--ai); color:#fff; border-color:var(--ai); font-weight:700; }
+#startGame { width:100%; margin-top:6px; }
+#modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
+/* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
