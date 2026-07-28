@@ -1,0 +1,90 @@
+
+:root {
+  --bg:#1a1714; --panel:#26211c; --line:#3a322a; --text:#f0e8dc; --muted:#a99a86;
+  --light:#e9d8b6; --dark:#9b6b43; --sel:#f4d35e; --move:#7fb069; --check:#e05d5d; --last:#cdb46a;
+  --accent:#e0a458;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+html,body { height:100%; }
+body {
+  background:radial-gradient(1100px 700px at 50% -10%, #2a241d, var(--bg));
+  color:var(--text); font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+  min-height:100%; display:flex; flex-direction:column; align-items:center;
+  padding:1rem; overflow-x:hidden;
+}
+h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem; }
+.sub { color:var(--muted); font-size:.85rem; margin-bottom:.4rem; }
+#status { font-size:1.05rem; font-weight:600; min-height:1.5em; margin:.3rem 0 .6rem; text-align:center; }
+
+.layout { display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
+.boardwrap { position:relative; }
+#board {
+  display:grid; --sq:min(11vw,62px); border-radius:8px; overflow:hidden; border:3px solid #2c2620;
+  box-shadow:0 16px 40px rgba(0,0,0,.5); touch-action:manipulation;
+}
+.sq { width:var(--sq); height:var(--sq); display:flex; align-items:center; justify-content:center;
+      position:relative; cursor:pointer; font-size:calc(var(--sq) * .8); line-height:1;
+      user-select:none; -webkit-user-select:none; }
+.sq.l { background:var(--light); } .sq.d { background:var(--dark); }
+.sq.off { background:transparent; cursor:default; }
+.sq.sel::before { content:""; position:absolute; inset:0; background:var(--sel); opacity:.55; }
+.sq.last::before { content:""; position:absolute; inset:0; background:var(--last); opacity:.42; }
+.sq.check::after { content:""; position:absolute; inset:0; background:radial-gradient(circle, var(--check) 30%, transparent 72%); opacity:.85; }
+/* Clean even outline drawn BEHIND the fill (paint-order) so detailed glyphs
+   like the bishop stay crisp — and contrasting per piece so they read on both
+   light and dark squares. .lt = light piece → dark outline; .dk = dark/colored
+   piece → light outline. */
+.sq .pc { position:relative; z-index:2; font-weight:400; paint-order:stroke fill; }
+.sq .pc.lt { -webkit-text-stroke:.045em #1c140d; text-shadow:0 .03em .05em rgba(0,0,0,.45); }
+.sq .pc.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
+.sq .pc.dead { opacity:.4; filter:grayscale(.6); }
+.sq .dot { position:absolute; z-index:1; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.7; }
+.sq.cap .dot { width:86%; height:86%; background:transparent; border:5px solid var(--move); opacity:.7; }
+.sq:hover:not(.empty):not(.off) { filter:brightness(1.06); }
+
+.side { display:flex; flex-direction:column; gap:12px; min-width:178px; max-width:230px; }
+.tray { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+.tray h3 { font-size:.66rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.tray .caps { font-size:1.35rem; min-height:1.4em; line-height:1.2; word-break:break-all; }
+.pchip { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line);
+         border-radius:10px; padding:8px 11px; font-weight:700; font-size:.92rem; }
+.pchip .dot2 { width:14px; height:14px; border-radius:50%; flex:0 0 auto; box-shadow:0 0 0 1px rgba(0,0,0,.3) inset; }
+.pchip .nm { flex:1; }
+.pchip .meta { font-size:.74rem; color:var(--muted); font-weight:600; }
+.pchip.turn { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
+.pchip.dead { opacity:.5; }
+.pchip.dead .nm { text-decoration:line-through; }
+
+.controls { display:flex; flex-direction:column; gap:8px; }
+button.btn { cursor:pointer; background:var(--panel); color:var(--text); border:1px solid var(--line);
+  border-radius:10px; padding:10px 14px; font-family:inherit; font-weight:700; font-size:.95rem; transition:background .15s, transform .05s; }
+button.btn:hover { background:#322a22; } button.btn:active { transform:translateY(1px); }
+button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
+
+.overlay { position:fixed; inset:0; background:rgba(10,8,5,.8); backdrop-filter:blur(3px);
+           display:none; align-items:center; justify-content:center; padding:1rem; z-index:50; }
+.overlay.show { display:flex; }
+.card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:26px 28px;
+        max-width:460px; width:100%; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6); }
+.card h2 { margin-bottom:6px; font-size:1.7rem; }
+.card p { color:var(--muted); line-height:1.55; margin-bottom:16px; font-size:.9rem; }
+.modes { display:flex; flex-direction:column; gap:10px; }
+.modebtn { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:10px;
+           padding:11px 14px; font-family:inherit; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; }
+.modebtn:hover { background:#37301f; } .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
+.modebtn .tag { font-size:.62rem; font-weight:800; letter-spacing:.05em; padding:3px 8px; border-radius:999px; background:var(--move); color:#10240c; white-space:nowrap; }
+.setup-section { margin:.9rem 0; text-align:left; }
+.setup-section h3 { font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 .4rem; text-align:center; }
+.chipgrp { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
+.chip { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:999px;
+        padding:6px 12px; font-family:inherit; font-weight:700; font-size:.82rem; }
+.chip:hover { background:#37301f; }
+.chip.sel { border-color:var(--accent); color:var(--accent); background:rgba(224,164,88,.14); }
+.pchip .clk { font-variant-numeric:tabular-nums; font-weight:800; font-size:1rem; }
+.pchip.warn { border-color:var(--check); }
+.pchip.warn .clk { color:var(--check); animation:clkPulse 1s ease-in-out infinite; }
+@keyframes clkPulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
+.promo { display:flex; gap:8px; justify-content:center; }
+.promo button { font-size:2.4rem; background:var(--light); border:2px solid transparent; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1; }
+.promo button:hover { border-color:var(--sel); }
+@media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
