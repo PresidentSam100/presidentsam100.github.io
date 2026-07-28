@@ -53,6 +53,14 @@
       details.dict-wrap[open] summary::after { content: " ▴"; }
       .dict-item { font-size: 0.82rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid #3a3f49; }
       .dict-item b { color: var(--text); }
+      /* On-screen control pad — the only input path on touch devices. */
+      .touchpad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; width: min(100%, 360px); margin: 0.8rem auto 0; touch-action: none; }
+      /* min-height 44px is the accessible tap-target floor on iOS/Android —
+         without it the shorter ⤓ Drop button lands at 37px. */
+      .tbtn { cursor: pointer; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; border-radius: 10px; padding: 0.8rem 0; min-height: 44px; font-family: inherit; font-size: 1.3rem; font-weight: 700; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease; }
+      .tbtn.rot { color: var(--purple); }
+      .tbtn.hard { grid-column: 1 / -1; padding: 0.6rem 0; font-size: 1rem; color: var(--accent); border-color: rgba(255,46,126,0.5); }
+      .tbtn.held, .tbtn:active { background: rgba(255,46,126,0.18); border-color: var(--accent); color: var(--accent); }
       #byline { color: #5a627a; font-size: 75%; margin-top: 0.4rem; }
       /* tasteful overlay entrance (auto-disabled by reduce-motion) */
       .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }

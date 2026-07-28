@@ -869,7 +869,9 @@
         const cfg = CONFIG, rng = makeRNG(seed), isVS = this.mode === "vs";
         const board = new Board(cfg, rng, { useGoal: isVS || this.mode === "stage", stage: 0, goalRow: isVS ? cfg.vsGoalLineRow : cfg.goalLineRow });
         board.allowSlow = !isVS; board.allowStars = this.mode === "endless";
-        if (this.mode === "stage") { this.setupStage(board, 1); }
+        // Stage mode kept no best at all — it showed a final score and threw it
+        // away. Endless already had one; this gives the other solo mode parity.
+        if (this.mode === "stage") { board.highKey = "demolitionRow_stageBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; this.setupStage(board, 1); }
         else if (this.mode === "endless") { board.level = 1; board.elapsed = 0; board.fill(cfg.endless.startHeight, cfg.endless.fillDensity, board.stoneRateNow(), cfg.starRate); board.fallMs = cfg.baseFallMs; board.highKey = "demolitionRow_endlessBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; board.spawnPiece(); }
         else { board.wins = (this.opts.carryWins && this.opts.carryWins[i]) || 0; board.matchWins = 0; this.setupVSRound(board); }
 
@@ -940,7 +942,10 @@
       }
       updateStage() {
         const b = this.players[0].board;
-        if (!b.alive) return this.end("Game Over", "You reached stage " + b.stage + ".\nFinal score: " + b.score);
+        if (!b.alive) {
+          if (b.highKey && b.score > b.high) { b.high = b.score; this.lsSet(b.highKey, String(b.high)); }
+          return this.end("Game Over", "You reached stage " + b.stage + ".\nFinal score: " + b.score + "\nBest: " + Math.max(b.high || 0, b.score));
+        }
         if (b.cleared) { if (b.stage >= CONFIG.stage.total) { SFX.matchWin(); return this.end("You Win! 🏆", "Cleared all 50 stages!\nScore: " + b.score); } const next = b.stage + 1; SFX.win(); b.flashBanner("STAGE " + next, "#46e6a0"); this.setupStage(b, next); }
       }
       updateEndless(dt) {
@@ -1056,6 +1061,58 @@
     window.addEventListener("keydown", handleKey);
     window.addEventListener("keyup", handleKeyUp);
 
+    // --------------------- On-screen controls ----------------------------
+    // Pointer input for the pad under the boards. It drives the first human
+    // board and mirrors handleKey's repeat rules: move & soft-drop repeat
+    // while held, rotate & hard-drop fire once per press.
+    const TOUCH_REPEAT_DELAY = 200, TOUCH_REPEAT_RATE = 70;
+    function touchBoard() {
+      if (!GAME || GAME.state !== "playing") return null;
+      const p = GAME.players.find((pl) => !pl.isCpu);
+      return p ? p.board : null;
+    }
+    (function wireTouchpad() {
+      const pad = document.getElementById("touchpad");
+      if (!pad) return;
+      let held = null, softBoard = null, delayT = 0, repeatT = 0;
+
+      function act(action) {
+        const b = touchBoard(); if (!b) return;
+        if (action === "left") b.movePiece(-1);
+        else if (action === "right") b.movePiece(1);
+        else if (action === "ccw") b.rotatePiece(-1);
+        else if (action === "cw") b.rotatePiece(1);
+        else if (action === "hard") b.hardDrop();
+      }
+      function release() {
+        clearTimeout(delayT); clearInterval(repeatT); delayT = repeatT = 0;
+        if (softBoard) { softBoard.softHeld = false; softBoard = null; }
+        if (held) { held.classList.remove("held"); held = null; }
+      }
+      pad.addEventListener("pointerdown", (e) => {
+        const btn = e.target.closest("button.tbtn"); if (!btn) return;
+        e.preventDefault();     // suppress the synthetic click, focus and scroll
+        SFX.resume();
+        release();              // one control at a time
+        held = btn; btn.classList.add("held");
+        const action = btn.getAttribute("data-act");
+        if (action === "soft") { softBoard = touchBoard(); if (softBoard) softBoard.softHeld = true; return; }
+        act(action);
+        if (action !== "left" && action !== "right") return;
+        delayT = setTimeout(() => { repeatT = setInterval(() => act(action), TOUCH_REPEAT_RATE); }, TOUCH_REPEAT_DELAY);
+      });
+      // Listen on the window, not the pad: a finger dragged off the button (or
+      // a pointer lost to a system gesture) must still stop the repeat and
+      // clear softHeld, otherwise the piece keeps moving on its own.
+      window.addEventListener("pointerup", release);
+      window.addEventListener("pointercancel", release);
+      window.addEventListener("blur", release);
+    })();
+
+    // Pieces kept falling while the tab was hidden. GAME.pause() already
+    // no-ops unless state is "playing", so this is safe to fire at any time.
+    if (window.GameShell) GameShell.onAutoPause(() => { if (GAME) GAME.pause(); });
+
     // ------------------------------ Menu ---------------------------------
     const menu = document.getElementById("menu");
     const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diffs: ["normal", "normal", "normal", "normal"], fmt: 2 };
@@ -1106,7 +1163,8 @@
         "<br><b>P2</b> <kbd>K</kbd><kbd>;</kbd> move · <kbd>I</kbd>/<kbd>P</kbd> rotate · <kbd>O</kbd> soft · <kbd>L</kbd> hard" +
         "<br><b>P3</b> numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard" +
         "<br><b>P4</b> <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
-        "<br>solo: any scheme works · <kbd>Esc</kbd> pause";
+        "<br>solo: any scheme works · <kbd>Esc</kbd> pause" +
+        "<br>on touch: use the on-screen pad below the board";
     }
     updateKeysHelp();
 
