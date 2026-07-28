@@ -1177,7 +1177,8 @@ function doMove(dx, dy) {
   }
 }
 
-function toggleMute() { muted = !muted; lsSet("crossy_mute", muted ? 1 : 0); applyMaster(); }
+// (No toggleMute here — muting is global, via the shared mute-toggle.js speaker
+//  button. `muted` below stays false and only `paused` drives applyMaster().)
 function cycleSkin() {
   for (let i = 1; i <= SKINS.length; i++) {
     const j = (skinSel + i) % SKINS.length;
@@ -1890,7 +1891,10 @@ requestAnimationFrame(frame);
 
 // auto-pause when the tab/window loses focus (resume manually so you're not caught out)
 function autoPause() { if (state === "playing" && !paused) { paused = true; applyMaster(); } }
-window.addEventListener("blur", autoPause);
-document.addEventListener("visibilitychange", () => { if (document.hidden) autoPause(); });
+if (window.GameShell) GameShell.onAutoPause(autoPause);
+else { // shell missing — keep the original listeners so the behaviour survives
+  window.addEventListener("blur", autoPause);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) autoPause(); });
+}
 
 })();
