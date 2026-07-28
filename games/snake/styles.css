@@ -44,7 +44,7 @@ canvas.board {
   align-items: center;
 }
 .dbtn {
-  width: 42px; height: 42px;
+  width: 44px; height: 44px;   /* accessible tap-target floor on iOS/Android */
   border-radius: 8px;
   background: #1b1f27;
   border: 1px solid #33394a;
@@ -52,8 +52,10 @@ canvas.board {
   font-size: 1.1rem;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;      /* a tap must never scroll the page mid-run */
 }
-.dbtn:active { background: #262c38; }
+.dbtn:active, .dbtn.held { background: #262c38; }
 .dbtn.up { grid-column: 2; grid-row: 1; }
 .dbtn.left { grid-column: 1; grid-row: 2; }
 .dbtn.right { grid-column: 3; grid-row: 2; }

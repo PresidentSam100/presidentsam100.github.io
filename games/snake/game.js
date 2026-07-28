@@ -252,11 +252,50 @@
     else if (wasdMap[k]) { setQueuedDir(0, wasdMap[k]); e.preventDefault(); }
   });
 
+  // Fire on pointerdown rather than click: a tap registers on touch-down, which
+  // matters at speed. preventDefault suppresses the synthetic click that would
+  // otherwise turn the snake a second time.
   Array.prototype.forEach.call(document.querySelectorAll(".dbtn"), function (btn) {
-    btn.addEventListener("click", function () {
+    btn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      // preventDefault suppresses :active on several mobile browsers, so drive
+      // the pressed look from a class instead (cleared on the window handlers).
+      btn.classList.add("held");
       setQueuedDir(Number(btn.dataset.player), DIR_BY_NAME[btn.dataset.dir]);
     });
   });
+
+  function clearHeldBtns() {
+    Array.prototype.forEach.call(document.querySelectorAll(".dbtn.held"), function (b) {
+      b.classList.remove("held");
+    });
+  }
+  window.addEventListener("pointerup", clearHeldBtns);
+  window.addEventListener("pointercancel", clearHeldBtns);
+
+  // Swipe anywhere on the board to turn — the natural touch idiom, and it beats
+  // reaching for the d-pad. Solo only: with two snakes on one board there is no
+  // way to tell whose swipe it is, so 2-player stays on the d-pads.
+  (function wireSwipe() {
+    var SWIPE_MIN = 24;                 // px before a drag counts as a swipe
+    var sx = 0, sy = 0, tracking = false;
+    canvas.addEventListener("pointerdown", function (e) {
+      if (G.mode === "two") return;
+      if (e.pointerType === "mouse") return;   // don't turn on a desktop click-drag
+      tracking = true; sx = e.clientX; sy = e.clientY;
+    });
+    canvas.addEventListener("pointermove", function (e) {
+      if (!tracking) return;
+      var dx = e.clientX - sx, dy = e.clientY - sy;
+      if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+      setQueuedDir(0, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP));
+      // Re-anchor instead of stopping, so one continuous drag can chain turns.
+      sx = e.clientX; sy = e.clientY;
+    });
+    function stop() { tracking = false; }
+    window.addEventListener("pointerup", stop);
+    window.addEventListener("pointercancel", stop);
+  })();
 
   // ---- pause / menu buttons ---------------------------------------------
   function togglePause() {
@@ -264,6 +303,14 @@
     G.paused = !G.paused;
     pauseOverlay.classList.toggle("hidden", !G.paused);
     document.getElementById("pause-btn").textContent = G.paused ? "▶ Resume" : "⏸ Pause";
+  }
+
+  // Switching tabs used to leave the snake crawling into a wall off-screen.
+  // Pause only — coming back must not un-pause a deliberate pause.
+  if (window.GameShell) {
+    GameShell.onAutoPause(function () {
+      if (G.running && !G.pendingEnd && !G.paused) togglePause();
+    });
   }
 
   document.getElementById("menu-btn").addEventListener("click", resetToMenu);
@@ -286,8 +333,8 @@
 
   function updateKeysHelp() {
     keysHelp.textContent = G.mode === "two"
-      ? "P1: WASD (green) · P2: Arrow Keys (blue) · Space: Pause"
-      : "Move: Arrow Keys or WASD · Space: Pause";
+      ? "P1: WASD (green) · P2: Arrow Keys (blue) · Space: Pause · touch: use the d-pads"
+      : "Move: Arrow Keys or WASD · Space: Pause · touch: swipe the board or use the d-pad";
   }
 
   var vsOpts = document.getElementById("vs-opts");
