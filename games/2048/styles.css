@@ -1,0 +1,281 @@
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
+
+    :root {
+      --bg: #000;
+      --board: #14141c;
+      --cell: #20202c;
+      --text: #fff;
+      --muted: #999;
+      --accent: #3c6dec;
+      --gap: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", sans-serif;
+      touch-action: manipulation;
+    }
+
+    .wrap {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.25rem 1rem 2rem;
+      gap: 1rem;
+    }
+
+    .back-link {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      z-index: 50;
+      display: inline-block;
+      color: #fff;
+      background: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 6px 12px;
+      border-radius: 8px;
+    }
+    .back-link:hover {
+      filter: brightness(1.12);
+    }
+
+    .topbar {
+      width: 100%;
+      max-width: 460px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    .title {
+      font-size: 2.75rem;
+      font-weight: 800;
+      margin: 0;
+      line-height: 1;
+    }
+    .subtitle {
+      margin: 0.4rem 0 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .scores {
+      display: flex;
+      gap: 0.6rem;
+    }
+    .score-box {
+      background: var(--board);
+      border-radius: 10px;
+      padding: 0.45rem 0.9rem;
+      text-align: center;
+      min-width: 78px;
+    }
+    .score-box .label {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .score-box .val {
+      font-size: 1.4rem;
+      font-weight: 800;
+      display: inline-block;       /* so the pop scales tightly around the number */
+      transform-origin: center;
+    }
+    .score-box .val.pop { animation: pop 0.18s ease; }
+
+    .controls {
+      width: 100%;
+      max-width: 460px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .btn {
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0.6rem 1.1rem;
+      font-family: inherit;
+      font-size: 0.95rem;
+      font-weight: 700;
+      transition: filter 0.15s ease;
+    }
+    .btn:hover {
+      filter: brightness(1.12);
+    }
+
+    .board-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 460px;
+    }
+    .board {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      background: var(--board);
+      border-radius: 12px;
+      --cells: 4;
+      touch-action: none; /* swipes control the game, never scroll the page */
+    }
+    .grid-bg {
+      position: absolute;
+      inset: var(--gap);
+      display: grid;
+      grid-template-columns: repeat(var(--cells), 1fr);
+      grid-template-rows: repeat(var(--cells), 1fr);
+      gap: var(--gap);
+    }
+    .grid-bg .cell {
+      background: var(--cell);
+      border-radius: 8px;
+    }
+    .tiles {
+      position: absolute;
+      inset: var(--gap);
+      pointer-events: none;
+    }
+
+    /* The OUTER .tile is absolutely positioned and animates its transform
+       (the slide). The INNER element handles spawn/merge "pop" scaling, so
+       the slide and the pop never fight over the same transform. */
+    .tile {
+      position: absolute;
+      top: 0;
+      left: 0;
+      z-index: 2;
+      transition: transform 90ms ease-in-out;
+      will-change: transform;
+    }
+    .tiles.no-anim .tile {
+      transition: none;
+    }
+    .tile-inner {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 8px;
+      font-weight: 800;
+      font-size: clamp(1.1rem, 7vw, 2rem);
+      color: #fff;
+      background: #2a2a38;
+    }
+    .tile-inner.appear {
+      animation: appear 0.14s ease;
+    }
+    .tile-inner.pop {
+      animation: pop 0.18s ease;
+    }
+    @keyframes appear {
+      from {
+        transform: scale(0.3);
+        opacity: 0;
+      }
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    @keyframes pop {
+      0% {
+        transform: scale(1);
+      }
+      55% {
+        transform: scale(1.18);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    /* Classic 2048 tile palette (selectors live on .tile-inner) */
+    .t2 { background: #3a3f4b; }
+    .t4 { background: #45506b; }
+    .t8 { background: #d97a3a; }
+    .t16 { background: #e06c2e; }
+    .t32 { background: #ec5d3a; }
+    .t64 { background: #f24a2c; }
+    .t128 { background: #edc850; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t256 { background: #edc342; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t512 { background: #edbd2f; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t1024 { background: #edb91c; color: #1a1a1a; font-size: clamp(0.85rem, 5vw, 1.4rem); }
+    .t2048 { background: #f5c518; color: #1a1a1a; font-size: clamp(0.85rem, 5vw, 1.4rem); box-shadow: 0 0 22px rgba(245, 197, 24, 0.6); }
+    .t-big { background: #111; color: #f5c518; border: 2px solid #f5c518; font-size: clamp(0.8rem, 4.5vw, 1.3rem); }
+
+    .overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10; /* above the tiles (which use z-index up to 3) */
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      background: rgba(10, 10, 14, 0.86);
+      border-radius: 12px;
+      text-align: center;
+      padding: 1rem;
+    }
+    .overlay.show {
+      display: flex;
+    }
+    .overlay h2 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 800;
+    }
+    .overlay p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .overlay .btn-row {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn.ghost {
+      background: transparent;
+      border: 1px solid #444;
+    }
+
+    #byline {
+      color: #666;
+      font-size: 75%;
+      margin-top: 0.5rem;
+    }
+    /* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
