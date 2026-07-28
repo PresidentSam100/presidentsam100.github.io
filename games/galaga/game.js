@@ -192,11 +192,8 @@ const Sound = {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   },
 
-  toggleMute() {
-    this.muted = !this.muted;
-    if (this.master) this.master.gain.value = this.muted ? 0 : 0.35;
-    return this.muted;
-  },
+  // (No toggleMute here — muting is global, via the shared mute-toggle.js
+  //  speaker button, which routes every AudioContext through a master gain.)
 
   // Core voice: a tone that sweeps from f0 to f1 over `dur` seconds.
   tone(f0, f1, dur, type = 'square', vol = 0.5) {
@@ -3051,6 +3048,14 @@ class Game {
 window.addEventListener('load', () => {
   const canvas = document.getElementById('screen');
   window.game = new Game(canvas);
+
+  // Hidden tab used to keep the swarm diving. togglePause() only acts when
+  // mode is 'playing', and the !== 'paused' check keeps it pause-only.
+  if (window.GameShell) {
+    GameShell.onAutoPause(() => {
+      if (window.game && window.game.mode === 'playing') window.game.togglePause();
+    });
+  }
 
   // ---- on-screen touch controls (mobile) ----
   const g = window.game;
