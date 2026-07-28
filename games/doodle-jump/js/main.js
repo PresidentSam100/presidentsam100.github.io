@@ -30,10 +30,13 @@
 
   // Auto-pause when the tab/window loses focus so the run isn't lost to a
   // background switch (the loop keeps drawing the paused overlay).
-  window.addEventListener("blur", () => game.requestPause());
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) game.requestPause();
-  });
+  if (window.GameShell) GameShell.onAutoPause(() => game.requestPause());
+  else { // shell missing — keep the original listeners so the behaviour survives
+    window.addEventListener("blur", () => game.requestPause());
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) game.requestPause();
+    });
+  }
 
   let last = performance.now();
   function frame(now) {

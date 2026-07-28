@@ -18,7 +18,10 @@ html, body {
 
 #game-container {
   position: relative;
-  height: min(92vh, 600px);
+  /* Width is derived from height by aspect-ratio, so height has to be capped
+     by the viewport WIDTH too — otherwise a 390px phone got a 400px board and
+     the page scrolled sideways. The 1.5rem allows for body padding. */
+  height: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400));
   aspect-ratio: 400 / 600;
 }
 
