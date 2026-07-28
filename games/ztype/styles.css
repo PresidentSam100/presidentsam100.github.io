@@ -1,0 +1,174 @@
+:root {
+  --bg: #0a0e1c;       /* deep-space navy — lifted off pure black to cut neon halation */
+  --bg2: #121a33;
+  --accent: #38f9d7;
+  --accent2: #43e8ff;
+  --danger: #ff4d6d;
+  --warn: #ffd166;
+  --text: #e6f1ff;
+  --muted: #92a3c9;    /* raised for legible labels/subtitles (was ~4:1) */
+  --dim: #46547e;      /* raised so hints & ghost borders are visible */
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace;
+  background: radial-gradient(1200px 700px at 50% -10%, #1b2550 0%, var(--bg2) 45%, var(--bg) 100%);
+  color: var(--text);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+#wrap {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: optimizeQuality;
+}
+
+/* HUD — pinned to the bottom so it never covers falling words */
+#hud {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 10px 22px 12px;
+  pointer-events: none;
+  font-size: 13px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  z-index: 5;
+  background: linear-gradient(0deg, rgba(10,14,28,0.92) 30%, rgba(10,14,28,0) 100%);
+}
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .label { color: var(--muted); font-size: 10px; }
+.stat .value { color: var(--accent); font-size: 20px; font-weight: 700; letter-spacing: 0; }
+.stat.right { align-items: flex-end; }
+#hud .group { display: flex; gap: 28px; }
+/* Phone widths: the six HUD stats plus 22px side padding overran a 390px
+   viewport and scrolled the page sideways. Tighten, don't hide. */
+@media (max-width: 480px) {
+  #hud { padding: 8px 10px 10px; font-size: 11px; }
+  #hud .group { gap: 14px; }
+  .stat .value { font-size: 16px; }
+  .stat .label { font-size: 9px; }
+}
+#lives { letter-spacing: 4px; font-size: 18px; }
+
+/* Overlay screens */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  text-align: center;
+  background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.85), rgba(10,14,28,0.96));
+  backdrop-filter: blur(3px);
+  z-index: 10;
+  padding: 24px;
+}
+.overlay.hidden { display: none; }
+/* Game-over screen stays see-through so the board keeps showing behind it. */
+#overScreen {
+  background: radial-gradient(900px 500px at 50% 40%, rgba(27,37,80,0.42), rgba(10,14,28,0.62));
+  backdrop-filter: blur(1px);
+}
+.title {
+  font-size: clamp(40px, 9vw, 92px);
+  font-weight: 800;
+  letter-spacing: 6px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 40px rgba(56,249,215,0.25);
+}
+.subtitle { color: var(--muted); font-size: 15px; letter-spacing: 2px; max-width: 540px; line-height: 1.7; }
+.key { color: var(--accent); }
+.btn {
+  margin-top: 8px;
+  pointer-events: auto;
+  cursor: pointer;
+  border: 1px solid var(--accent);
+  background: rgba(56,249,215,0.08);
+  color: var(--accent);
+  font-family: inherit;
+  font-size: 16px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  padding: 14px 34px;
+  border-radius: 6px;
+  transition: all .15s ease;
+}
+.btn:hover { background: rgba(56,249,215,0.18); box-shadow: 0 0 24px rgba(56,249,215,0.3); transform: translateY(-1px); }
+.btn.ghost { border-color: var(--dim); color: var(--muted); background: transparent; }
+.btn.ghost:hover { border-color: var(--muted); color: var(--text); box-shadow: none; }
+.over-actions { display: flex; gap: 14px; margin-top: 8px; }
+/* keyboard selection cursor on the game-over buttons */
+.btn.sel { border-color: var(--accent); color: var(--accent); background: rgba(56,249,215,0.18); box-shadow: 0 0 24px rgba(56,249,215,0.35); transform: translateY(-1px); }
+.btn.ghost.sel { border-color: var(--accent); color: var(--accent); }
+
+.modes { display: flex; gap: 12px; margin-top: 4px; }
+.mode {
+  pointer-events: auto; cursor: pointer;
+  border: 1px solid var(--dim); background: transparent; color: var(--muted);
+  font-family: inherit; font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+  padding: 9px 18px; border-radius: 20px; transition: all .15s ease;
+}
+.mode.active { border-color: var(--accent); color: var(--accent); background: rgba(56,249,215,0.07); }
+
+.results { display: flex; gap: 40px; margin: 10px 0; }
+.results .stat { align-items: center; }
+.results .value { font-size: 34px; color: var(--text); }
+.results .label { font-size: 11px; }
+.gameover-title { color: var(--danger); -webkit-text-fill-color: var(--danger); background: none; text-shadow: 0 0 40px rgba(255,77,109,0.3); }
+.best { color: var(--warn); font-size: 13px; letter-spacing: 2px; }
+
+/* current typing indicator */
+/* The typed prefix + caret are centered as a single group, so the whole thing
+   stays balanced under the ship as you type. The text→caret gap lives on the
+   prefix (margin-right), so when no word is locked the lone caret centers dead
+   on W/2 — directly under the ship — with nothing nudging it sideways. */
+#typed {
+  position: absolute;
+  bottom: 14px; left: 0; right: 0; text-align: center;
+  font-size: 22px; color: var(--accent);
+  text-shadow: 0 0 18px rgba(56,249,215,0.5);
+  min-height: 28px; z-index: 6; pointer-events: none; white-space: nowrap;
+  visibility: hidden; /* shown only while playing (toggled in JS) */
+}
+#typed .prefix { letter-spacing: 3px; }
+#typed .prefix:not(:empty) { margin-right: 3px; } /* gap only when a word is typed */
+/* geometrically-centered caret (a thin bar) */
+#typed .cursor {
+  display: inline-block; width: 3px; height: 1.05em; vertical-align: -0.16em;
+  background: var(--accent); border-radius: 1px;
+  box-shadow: 0 0 8px rgba(56,249,215,0.7);
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+.hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 2px; z-index: 5; pointer-events: none; }
+/* invisible field that summons the mobile keyboard; we read its input */
+#ti { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; background: transparent; color: transparent; pointer-events: none; z-index: -1; }
+/* Accessibility: honor prefers-reduced-motion — neutralize animations,
+   transitions, and motion effects (pulse, shake, drop, blink, glows). */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
