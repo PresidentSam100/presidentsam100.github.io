@@ -574,8 +574,14 @@
 
   // ---------- loop ----------
   let last = 0;
+  // Pause (P / Esc / tab-switch). Physics is skipped while paused; draw()
+  // still runs so the table stays visible behind the overlay.
+  const PAUSE = window.GameShell
+    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready" })
+    : { isPaused: () => false };
   function loop(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016); last = ts;
+    if (PAUSE.isPaused()) { last = ts; draw(); requestAnimationFrame(loop); return; }
     if (state === "play" || state === "ready") {
       if (state === "ready" && plunger.pulling) plunger.charge = Math.min(1, plunger.charge + dt * 1.1);
       physics(dt);
