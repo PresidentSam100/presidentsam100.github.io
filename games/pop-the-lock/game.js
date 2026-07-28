@@ -330,10 +330,17 @@
   }
 
   // ---- Main loop ----
+  // Pause (P / Esc / tab-switch). The dial freezes; draw() keeps running so
+  // the lock stays on screen behind the overlay.
+  const PAUSE = window.GameShell
+    ? GameShell.pausable({ canPause: () => state === State.PLAY })
+    : { isPaused: () => false };
+
   function loop(ts) {
     const dt = Math.min(48, ts - lastTs || 16);
     lastTs = ts;
 
+    if (PAUSE.isPaused()) { draw(0); requestAnimationFrame(loop); return; }
     if (state === State.PLAY) {
       dial += dir * speed * dt;
       dial = ((dial % TAU) + TAU) % TAU;
