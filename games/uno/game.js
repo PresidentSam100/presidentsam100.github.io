@@ -1264,10 +1264,16 @@ function showWild4Choice(layer, cb) {
   };
 }
 
+var UNO_REC = window.GameShell ? GameShell.record("uno_record") : null;
+
 function showResult(winner, gained, reached500) {
   var w = G.players[winner];
   var title = w.isHuman ? "🎉 You win the hand!" : w.name + " wins the hand";
   var body = "";
+  // Count a GAME, not a hand: in points mode the game ends at 500, otherwise
+  // a single hand is the whole game. Recording every hand would inflate the
+  // tally in points mode, where a long game is many hands.
+  if (UNO_REC && (cfg.mode !== "points" || reached500)) UNO_REC.add(w.isHuman ? "w" : "l");
   if (cfg.mode === "points") {
     body += "<p>" + w.name + " scored <b>" + gained + "</b> points." +
       " Totals — " +
@@ -1286,7 +1292,11 @@ function showResult(winner, gained, reached500) {
       '<button class="btn secondary" id="menuBtn">Menu</button>';
   }
 
-  modal.innerHTML = "<h3>" + title + "</h3>" + body +
+  var recLine = UNO_REC
+    ? '<p style="opacity:.7;font-size:.9rem;margin:.4rem 0 0">Record vs CPU — ' + UNO_REC.text() + "</p>"
+    : "";
+
+  modal.innerHTML = "<h3>" + title + "</h3>" + body + recLine +
     '<div class="modal-btns">' + btns + "</div>";
   overlay.classList.add("show");
 
