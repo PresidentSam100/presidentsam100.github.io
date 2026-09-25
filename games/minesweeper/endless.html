@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%92%A3%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Minesweeper Endless</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Minesweeper Endless — the minefield keeps coming. Flag every mine before it reaches the line. A browser game by Sam Lu." />
+    <meta property="og:title" content="Minesweeper Endless — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="An endless-runner twist on Minesweeper: the field scrolls down, and every mine has to be flagged before it hits the bottom." />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="stylesheet" href="styles.css" />
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+    <script src="../game-shell.js"></script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+
+    <div class="wrap">
+      <header class="head">
+        <h1 class="title">Minesweeper</h1>
+        <p class="subtitle">flag every mine before it hits the line</p>
+      </header>
+
+      <nav class="modes" aria-label="Mode">
+        <a class="mode" href="./">Classic</a>
+        <a class="mode sel" href="endless.html" aria-current="page">Endless ♾️</a>
+      </nav>
+
+      <div class="field" id="field">
+        <div class="hud">
+          <div class="hud-stat"><div class="led" id="defused">000</div><small>defused</small></div>
+          <button class="face" id="face" type="button" aria-label="New run" title="New run (N)">🙂</button>
+          <div class="hud-stat"><div class="led" id="score">000</div><small>rows</small></div>
+        </div>
+        <div class="runner" id="runner" tabindex="0" aria-label="Scrolling minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
+      </div>
+
+      <p id="status" role="status" aria-live="polite"></p>
+
+      <div class="opts">
+        <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
+      </div>
+
+      <p id="stats"></p>
+
+      <details class="rules">
+        <summary>How to play</summary>
+        <p>
+          The minefield scrolls down toward the <b>red line</b>. When a row
+          touches it, every mine in that row has to be flagged 🚩 — an
+          unflagged mine goes off and the run is over.
+        </p>
+        <p>
+          Flags have to be right: a 🚩 on a <b>safe</b> tile that reaches the
+          line also ends the run, so you can't just flag everything. Dig safe
+          tiles to reveal numbers, same as classic — a number counts the mines
+          in its eight neighbours, including the rows above and below. Digging
+          a mine ends the run too. You get <b>one life</b>.
+        </p>
+        <p>
+          The bottom rows start open, so there's something to read right away.
+          The field starts moving on your first dig or flag, and it speeds up
+          (and gets denser) the longer you last. Your score is how many rows
+          you get past the line.
+        </p>
+        <p>
+          <b>Mouse:</b> left-click digs, right-click flags, click a finished
+          number to chord. <b>Touch:</b> tap digs, long-press flags (or switch
+          to <b>🚩 Tap flags</b>). <b>Keyboard:</b> arrows move, <b>Space</b>
+          digs, <b>F</b> flags, <b>N</b> restarts, <b>P</b>/<b>Esc</b> pauses.
+        </p>
+      </details>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <script src="endless.js"></script>
+  </body>
+</html>

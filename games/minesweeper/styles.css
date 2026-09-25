@@ -247,7 +247,8 @@ body {
 }
 
 /* pause: the shared overlay is see-through, so hide the numbers too */
-.field.paused .board {
+.field.paused .board,
+.field.paused .runner {
   filter: blur(9px);
   pointer-events: none;
 }
@@ -426,6 +427,116 @@ body {
   color: #666;
   font-size: 75%;
   margin: 0.25rem 0 0;
+}
+
+/* ---- Classic | Endless switch (both pages) ------------------------------ */
+.modes {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.25rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.mode {
+  padding: 0.4rem 0.95rem;
+  border-radius: 7px;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.88rem;
+  text-decoration: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.mode:hover {
+  color: var(--text);
+  background: #1c1c28;
+}
+.mode.sel {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---- endless ------------------------------------------------------------ */
+.hud-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+.hud-stat small {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* The viewport. Rows are absolutely placed and moved by JS every frame —
+   never by a CSS transition, which Visual FX off would flatten to nothing. */
+.runner {
+  position: relative;
+  overflow: hidden;
+  background: var(--frame);
+  border: 1px solid var(--line);
+  border-radius: 0 0 10px 10px;
+  outline: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.runner:focus-visible:not(.mouse) {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+/* rows fade in under the top edge */
+.runner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 22px;
+  background: linear-gradient(var(--frame), transparent);
+  z-index: 2;
+  pointer-events: none;
+}
+/* the line */
+.runner::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: var(--bad);
+  box-shadow: 0 0 14px 2px rgba(255, 92, 92, 0.55);
+  z-index: 2;
+  pointer-events: none;
+}
+.erow {
+  position: absolute;
+  left: 6px;
+  bottom: 3px;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), var(--cell));
+  grid-auto-rows: var(--cell);
+  gap: var(--gap);
+  will-change: transform;
+}
+/* the row about to be judged */
+.erow.near .c:not(.open):not(.flag) {
+  background: #4a2a35;
+  animation: warn 0.5s ease-in-out infinite alternate;
+}
+@keyframes warn {
+  to { background: #6a2f3c; }
+}
+.erow.judged {
+  opacity: 0.4;
+}
+.c.ok {
+  background: #1d3a2d;
+  box-shadow: none;
 }
 
 /* Accessibility: honor prefers-reduced-motion. JS also skips the ripple

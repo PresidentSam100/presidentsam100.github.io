@@ -26,7 +26,7 @@
   const GUTTER = 10;          // .wrap side padding
   const MAX_W = 1000;
   const MIN_CELL = 18, MAX_CELL = 38, COMFY_CELL = 24;
-  const CHROME_H = 330;       // title + HUD + controls, for the height fit
+  const CHROME_H = 380;       // title + mode switch + HUD + controls, for the height fit
   const LONG_PRESS_MS = 380;
   const RIPPLE_MS = 16, RIPPLE_CAP = 420;
 
@@ -49,7 +49,7 @@
   const customForm = $("customForm");
   const cwEl = $("cw"), chEl = $("ch"), cmEl = $("cm");
   const customTag = $("customTag");
-  const levelBtns = Array.from(document.querySelectorAll(".lvl"));
+  const levelBtns = Array.from(document.querySelectorAll(".lvl[data-level]"));
 
   const reduced = () => !!(window.RM_ON && window.RM_ON());
 
