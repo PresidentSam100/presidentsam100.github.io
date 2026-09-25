@@ -53,10 +53,17 @@
     if (actx && actx.state === "suspended") actx.resume();
     return actx;
   }
-  function tone(freq, dur, type, gain, slideTo) {
+  // Browsers only let audio start from a user gesture, and tick() runs from
+  // requestAnimationFrame — so create/resume the context on any gesture, or
+  // Safari/iOS leaves it suspended for good.
+  ["pointerdown", "pointerup", "touchend", "keydown", "click"].forEach(function (type) {
+    document.addEventListener(type, function () { audio(); }, true);
+  });
+  // `delay` schedules on the audio clock, so multi-part sounds stay in step.
+  function tone(freq, dur, type, gain, slideTo, delay) {
     var ac = audio();
     if (!ac) return;
-    var t = ac.currentTime;
+    var t = ac.currentTime + (delay || 0);
     var osc = ac.createOscillator(), g = ac.createGain();
     osc.type = type || "sine";
     osc.frequency.setValueAtTime(freq, t);
@@ -68,10 +75,50 @@
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
+  var noiseBuf = null;
+  function noise(dur, gain, filterType, freq, freqTo) {
+    var ac = audio();
+    if (!ac) return;
+    if (!noiseBuf) {
+      noiseBuf = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.5), ac.sampleRate);
+      var data = noiseBuf.getChannelData(0);
+      for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }
+    var t = ac.currentTime;
+    var src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noiseBuf;
+    f.type = filterType;
+    f.frequency.setValueAtTime(freq, t);
+    if (freqTo) f.frequency.exponentialRampToValueAtTime(freqTo, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(ac.destination);
+    src.start(t);
+    src.stop(t + dur + 0.02);
+  }
+  // Crash sounds keep their energy above ~200 Hz, where small laptop/phone
+  // speakers can actually reproduce it; a sub-200 Hz crash loses most of its
+  // punch on them.
   var SFX = {
     eat: function () { tone(660, 0.09, "triangle", 0.14); },
-    portal: function () { tone(880, 0.14, "sine", 0.1, 440); },
-    crash: function () { tone(120, 0.22, "sawtooth", 0.14, 55); },
+    // Fires on every turn, up to ~14/s at top speed — short, and a notch quieter than eat.
+    turn: function (player) { var f = player ? 440 : 560; tone(f, 0.05, "square", 0.05, f * 0.75); },
+    // Enter and exit land on the same tick: swoop down into one end, back up out of the other.
+    portal: function () {
+      tone(1100, 0.12, "triangle", 0.14, 220);
+      tone(220, 0.16, "triangle", 0.14, 1100, 0.1);
+    },
+    // Walls and obstacles: a hard thud.
+    wall: function () {
+      tone(220, 0.25, "square", 0.12, 80);
+      noise(0.12, 0.3, "lowpass", 1800);
+    },
+    // Own body, the other snake, or a head-on: a crunch.
+    body: function () {
+      noise(0.3, 0.32, "bandpass", 2600, 400);
+      tone(330, 0.28, "sawtooth", 0.1, 90);
+    },
     win: function () { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { tone(f, 0.2, "triangle", 0.12); }, i * 100); }); },
   };
 
@@ -367,11 +414,17 @@
   function tick() {
     var n = G.snakes.length;
     var moves = new Array(n), portalTriggered = false;
+    var turned = new Array(n).fill(false);
 
     for (var i = 0; i < n; i++) {
       var s = G.snakes[i];
       if (!s.alive) { moves[i] = null; continue; }
-      if (s.queuedDir) { s.dir = s.queuedDir; s.queuedDir = null; }
+      if (s.queuedDir) {
+        // Pressing the direction you're already heading is not a turn.
+        if (s.queuedDir !== s.dir) turned[i] = true;
+        s.dir = s.queuedDir;
+        s.queuedDir = null;
+      }
       moves[i] = { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y };
     }
 
@@ -392,12 +445,12 @@
       return grew ? s.body : s.body.slice(0, s.body.length - 1);
     }
 
-    var dead = new Array(n).fill(false);
+    var dead = new Array(n).fill(false), hitWall = new Array(n).fill(false);
     for (var a = 0; a < n; a++) {
       var nh = moves[a];
       if (!nh) continue;
-      if (nh.x < 0 || nh.x >= COLS || nh.y < 0 || nh.y >= ROWS) { dead[a] = true; continue; }
-      if (G.obstacleKeys && G.obstacleKeys[key(nh)]) { dead[a] = true; continue; }
+      if (nh.x < 0 || nh.x >= COLS || nh.y < 0 || nh.y >= ROWS) { dead[a] = true; hitWall[a] = true; continue; }
+      if (G.obstacleKeys && G.obstacleKeys[key(nh)]) { dead[a] = true; hitWall[a] = true; continue; }
       for (var b = 0; b < n; b++) {
         var other = G.snakes[b];
         if (!other.alive) continue;
@@ -415,17 +468,23 @@
       }
     }
 
-    var anyCrash = false, foodClaimed = false;
+    var anyCrash = false, wallCrash = false, bodyCrash = false, foodClaimed = false;
     for (var k = 0; k < n; k++) {
       var sn = G.snakes[k];
       if (!sn.alive) continue;
-      if (dead[k]) { sn.alive = false; anyCrash = true; continue; }
+      if (dead[k]) {
+        sn.alive = false; anyCrash = true;
+        if (hitWall[k]) wallCrash = true; else bodyCrash = true;
+        continue; // no turn click on the tick you die — let the crash play clean
+      }
+      if (turned[k]) SFX.turn(k);
       sn.body.unshift(moves[k]);
       if (ate[k]) { sn.score++; foodClaimed = true; }
       else sn.body.pop();
     }
     if (foodClaimed) { G.food = null; spawnFood(); SFX.eat(); G.interval = Math.max(MIN_INTERVAL, G.interval - SPEED_STEP); }
-    if (anyCrash) SFX.crash();
+    if (wallCrash) SFX.wall();
+    if (bodyCrash) SFX.body();
 
     if (portalTriggered) {
       G.portalEvents++;
