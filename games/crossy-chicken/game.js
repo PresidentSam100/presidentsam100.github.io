@@ -504,6 +504,8 @@ let squashT = 0;                // brief landing-squash timer for the hop animat
 const SQUASH_DUR = 0.13;
 let scorePopT = 0;              // brief HUD score "pop" timer, started on each 50-point milestone
 const SCORE_POP_DUR = 0.7;     // a little under a second so a fast run still shows the grow-and-shrink
+let coinPops = [];              // floating "+1"s over just-collected coins
+const COIN_POP_DUR = 0.8;
 
 function difficulty() {
   const base = Math.min(2.3, 1 + maxRow * 0.012); // original ramp up to score ~108
@@ -987,6 +989,8 @@ function updatePlaying(dt) {
   const crow = getRow(player.gy);
   if (crow.coin && !crow.coin.got && Math.abs(player.gx - coinColOf(crow)) < 0.5) {
     crow.coin.got = true; coins++; coinPop();
+    // anchored to the coin's row (not the screen) so it stays over the chicken while the camera catches up
+    coinPops.push({ x: coinColOf(crow) * TILE + TILE / 2, r: player.gy, t: 0 });
     checkMilestone(); // a coin can push the score across a 50-boundary too
   }
 
@@ -1083,7 +1087,7 @@ function resetWorld() {
   player.gy = 0;
   player.face = "up";
   renderGx = player.gx; renderGy = player.gy;
-  hopTimer = 0; idleTime = 0; maxRow = 0; lastMilestone = 0; coins = 0; squashT = 0; scorePopT = 0; eagle = null; deathAnim = null; policeTimer = rand(4, 12); bufferedMove = null; hopCarrying = false;
+  hopTimer = 0; idleTime = 0; maxRow = 0; lastMilestone = 0; coins = 0; squashT = 0; scorePopT = 0; coinPops = []; eagle = null; deathAnim = null; policeTimer = rand(4, 12); bufferedMove = null; hopCarrying = false;
   ensureRows(VIS_ROWS + 3);
   cameraY = autoScrollY = -player.gy * TILE - H * 0.62;
 }
@@ -1341,6 +1345,16 @@ function drawCoin(col, top) {
   ctx.beginPath(); ctx.ellipse(cx, cy, 4 + 7 * wob, 11, 0, 0, 7); ctx.fill();
   ctx.fillStyle = "#ffe680";
   ctx.beginPath(); ctx.ellipse(cx, cy, 2 + 4 * wob, 7, 0, 0, 7); ctx.fill();
+}
+
+// gold "+1" that floats up from a collected coin, clear of the chicken's head, and fades out
+function drawCoinPops() {
+  for (const p of coinPops) {
+    const k = p.t / COIN_POP_DUR;                // 0 at pickup → 1
+    ctx.globalAlpha = k < 0.5 ? 1 : 2 * (1 - k); // hold, then fade over the back half
+    textCenter("+1", p.x, rowTopY(p.r) + TILE / 2 - 36 - 40 * k * (2 - k), 24, "#ffd23d");
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawTree(x, y) {
@@ -1860,6 +1874,7 @@ function render() {
     if (row && row.type === "road" && row.siren)
       drawPoliceWarning(row, rowTopY(r));
   }
+  drawCoinPops(); // over everything in the scene, including the margin shade
   ctx.restore();
 
   if (state !== "menu") drawHUD();
@@ -1877,6 +1892,7 @@ function frame(now) {
   dt = Math.min(dt, 0.05);
   if (!paused) {
     if (scorePopT > 0) scorePopT -= dt; // HUD score-pop easing — ticks in every state so it settles even after death
+    if (coinPops.length) { for (const p of coinPops) p.t += dt; coinPops = coinPops.filter(p => p.t < COIN_POP_DUR); }
     if (state === "playing") updatePlaying(dt);
     else if (state === "dying") updateDying(dt);
     else if (state === "eagle") updateEagle(dt);
