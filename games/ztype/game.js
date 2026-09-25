@@ -488,10 +488,12 @@
   // ---------- Game loop ----------
   function update(dt) {
     elapsed += dt;
-    // Keep a target number of words on screen that grows with the wave, capped
-    // safely below the 26-letter ceiling. Spawn at the mode's rate while under
-    // target, so the screen stays busy and tops up as words are cleared/landed.
-    const desired = Math.min(22, Math.round(4 + wave * 1.6));
+    // Keep a target number of words on screen that grows with the wave (20 at
+    // wave 1), capped safely below the 26-letter ceiling. Screens narrower than
+    // 1024px get proportionally fewer (~8 on a phone) so words don't pile up.
+    // Spawn at the mode's rate while under target, so the screen stays busy and
+    // tops up as words are cleared/landed.
+    const desired = Math.max(6, Math.round(Math.min(22, 19 + wave) * Math.min(1, W / 1024)));
     spawnTimer += dt;
     if (spawnTimer >= spawnInterval) {
       spawnTimer = 0;
