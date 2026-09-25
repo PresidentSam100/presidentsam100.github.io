@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%92%A3%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Minesweeper</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Minesweeper — clear the field without setting off a mine. A browser game by Sam Lu." />
+    <meta property="og:title" content="Minesweeper — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Minesweeper — flag the mines, chord the numbers, clear the field. Beginner, Intermediate, Expert and custom boards." />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="stylesheet" href="styles.css" />
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+    <script src="../game-shell.js"></script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+
+    <div class="wrap">
+      <header class="head">
+        <h1 class="title">Minesweeper</h1>
+        <p class="subtitle">clear the field without setting off a mine</p>
+      </header>
+
+      <div class="field" id="field">
+        <div class="hud">
+          <div class="led" id="counter" aria-label="Mines left">010</div>
+          <button class="face" id="face" type="button" aria-label="New game" title="New game (N)">🙂</button>
+          <div class="led" id="timer" aria-label="Seconds">000</div>
+        </div>
+        <div class="board-scroll" id="scroll">
+          <div class="board" id="board" tabindex="0" aria-label="Minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
+        </div>
+      </div>
+
+      <p id="status" role="status" aria-live="polite"></p>
+
+      <div class="levels" role="group" aria-label="Difficulty">
+        <button class="lvl" type="button" data-level="beginner">Beginner<small>9×9 · 10</small></button>
+        <button class="lvl" type="button" data-level="intermediate">Intermediate<small>16×16 · 40</small></button>
+        <button class="lvl" type="button" data-level="expert">Expert<small>30×16 · 99</small></button>
+        <button class="lvl" type="button" data-level="custom">Custom<small id="customTag">20×12 · 40</small></button>
+      </div>
+
+      <form class="custom" id="customForm" hidden>
+        <label>Width <input type="number" id="cw" inputmode="numeric" min="5" max="40" required /></label>
+        <label>Height <input type="number" id="ch" inputmode="numeric" min="5" max="30" required /></label>
+        <label>Mines <input type="number" id="cm" inputmode="numeric" min="1" required /></label>
+        <button class="btn primary" type="submit">Start</button>
+      </form>
+
+      <div class="opts">
+        <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
+        <label class="check"><input type="checkbox" id="qmarks" /> <span>? marks</span></label>
+      </div>
+
+      <p id="stats"></p>
+
+      <details class="rules">
+        <summary>How to play</summary>
+        <p>
+          Some squares hide mines. Dig a square to open it: a number tells you
+          how many of its eight neighbours are mines. Open every safe square to
+          win — you never need to flag, but it helps. Your first dig is always
+          safe and always opens a patch of the board.
+        </p>
+        <p>
+          <b>Mouse:</b> left-click digs, right-click plants a 🚩. Click a number
+          whose flags are all placed (or press both buttons on it, or the middle
+          button) to <b>chord</b> — that opens all its other neighbours at once.
+          A wrong flag means a chord can blow up, so be sure.
+        </p>
+        <p>
+          <b>Touch:</b> tap digs, long-press flags. Switch <b>⛏️ Tap digs</b> to
+          <b>🚩 Tap flags</b> to swap them. Tap a finished number to chord.
+        </p>
+        <p>
+          <b>Keyboard:</b> click the board (or Tab to it), then arrow keys move,
+          <b>Space</b>/<b>Enter</b> digs or chords, <b>F</b> flags, <b>N</b>
+          starts a new game, <b>P</b>/<b>Esc</b> pauses.
+        </p>
+        <p>
+          Turn on <b>? marks</b> to have right-click cycle 🚩 → ? → blank. Best
+          times are kept for Beginner, Intermediate and Expert; custom boards
+          aren't ranked.
+        </p>
+      </details>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
