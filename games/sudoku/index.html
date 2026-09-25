@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A7%A9%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sudoku</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Sudoku — fill the grid so every row, column and box holds 1 to 9. A browser game by Sam Lu." />
+    <meta property="og:title" content="Sudoku — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Sudoku — fresh puzzles every game, graded Easy to Expert by the techniques they need. Notes, hints, undo." />
+    <meta name="twitter:card" content="summary" />
+
+    <link rel="stylesheet" href="styles.css" />
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+    <script src="../game-shell.js"></script>
+
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+
+    <div class="wrap">
+      <header class="head">
+        <h1 class="title">Sudoku</h1>
+        <p class="subtitle">every row, column and box holds 1 to 9 exactly once</p>
+      </header>
+
+      <div class="field" id="field">
+        <div class="hud">
+          <div class="hud-level" id="levelTag">Easy</div>
+          <div class="hud-right">
+            <div class="clock" id="timer" aria-label="Time">0:00</div>
+            <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause" title="Pause (P)">⏸</button>
+          </div>
+        </div>
+        <div class="board-frame">
+          <div class="board" id="board" aria-label="Sudoku grid. Arrow keys move, 1 to 9 fills, Shift plus a digit adds a note, Backspace clears." aria-describedby="status"></div>
+          <div class="loading" id="loading" hidden>generating a puzzle…</div>
+        </div>
+      </div>
+
+      <p id="status" role="status" aria-live="polite"></p>
+
+      <div class="pad" id="pad" role="group" aria-label="Digits"></div>
+
+      <div class="tools" role="group" aria-label="Tools">
+        <button class="tool" id="undoBtn" type="button" title="Undo (Ctrl+Z)"><span class="ti">↶</span>Undo</button>
+        <button class="tool" id="eraseBtn" type="button" title="Erase (Backspace)"><span class="ti">⌫</span>Erase</button>
+        <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Notes (N)"><span class="ti">✏️</span>Notes<b class="badge" id="notesBadge">off</b></button>
+        <button class="tool" id="hintBtn" type="button" title="Hint"><span class="ti">💡</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
+      </div>
+
+      <div class="levels" role="group" aria-label="Difficulty">
+        <button class="lvl" type="button" data-level="easy">Easy<small>warm-up</small></button>
+        <button class="lvl" type="button" data-level="medium">Medium<small>fewer clues</small></button>
+        <button class="lvl" type="button" data-level="hard">Hard<small>pairs &amp; pointing</small></button>
+        <button class="lvl" type="button" data-level="expert">Expert<small>wings &amp; fish</small></button>
+      </div>
+
+      <div class="opts">
+        <button class="btn" id="newBtn" type="button">🔄 New puzzle</button>
+      </div>
+
+      <p id="stats"></p>
+
+      <details class="rules">
+        <summary>How to play</summary>
+        <p>
+          Fill every empty square with a digit from 1 to 9 so that no digit
+          repeats in any row, any column or any of the nine 3×3 boxes. Every
+          puzzle has exactly one answer, and you never have to guess — it can
+          always be reasoned out.
+        </p>
+        <p>
+          <b>Tap or click</b> a square, then a digit on the pad. Tap the same
+          digit again to take it back. Turn on <b>✏️ Notes</b> to pencil in
+          small candidates instead; placing a digit clears it from the notes
+          it can see. Digits that break a rule turn red.
+        </p>
+        <p>
+          <b>Keyboard:</b> arrow keys move, <b>1</b>–<b>9</b> fill,
+          <b>Shift</b>+digit adds a note, <b>Backspace</b>/<b>0</b> clears,
+          <b>N</b> toggles notes, <b>Ctrl</b>+<b>Z</b> undoes,
+          <b>P</b>/<b>Esc</b> pauses.
+        </p>
+        <p>
+          <b>💡 Hint</b> first points out any wrong digit or notes that are
+          missing the answer; otherwise it fills in the next square you could
+          have found and says how. Every level is graded by the hardest trick
+          it needs: Easy and Medium only need singles, Hard needs pointing
+          pairs and naked/hidden pairs, Expert needs X-Wings, Swordfish or
+          XY-Wings.
+        </p>
+        <p>
+          Each level keeps its own game in progress, so switching levels never
+          loses one. Best times count only for puzzles solved without hints.
+        </p>
+      </details>
+
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <script src="engine.js"></script>
+    <script src="game.js"></script>
+  </body>
+</html>

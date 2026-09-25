@@ -204,6 +204,13 @@
           <span class="play">play →</span>
         </a>
 
+        <a class="game-card" href="./sudoku/">
+          <span class="icon">🧩</span>
+          <span class="name">Sudoku</span>
+          <span class="desc">fresh puzzles, easy to expert — notes, hints &amp; undo</span>
+          <span class="play">play →</span>
+        </a>
+
         <a class="game-card" href="./minesweeper/">
           <span class="icon">💣</span>
           <span class="name">Minesweeper</span>
@@ -448,6 +455,8 @@
           "crossy_bestcoins_", // Crossy Chicken best-run coins
           "minesweeper_best_", // Minesweeper (best time per difficulty + endless best rows)
           "minesweeper_stats_", // Minesweeper (games won / played)
+          "sudoku_best_", // Sudoku (best hint-free time per level; in-progress saves are kept)
+          "sudoku_stats_", // Sudoku (puzzles solved per level)
         ];
 
         function matches(key) {
