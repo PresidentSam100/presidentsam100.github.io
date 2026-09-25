@@ -103,7 +103,7 @@ section[hidden] { display: none; }
 .judge {
   position: absolute; left: 0; right: 0; bottom: 54px; text-align: center;
   font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700;
-  font-size: 0.95rem; letter-spacing: 0.03em; pointer-events: none; z-index: 6;
+  font-size: 0.95rem; letter-spacing: 0.03em; pointer-events: none; z-index: 6; white-space: nowrap;
   animation: judgePop .6s ease forwards;
 }
 @keyframes judgePop {

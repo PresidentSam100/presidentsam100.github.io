@@ -111,8 +111,8 @@
 
   function defaultHint() {
     return mode === "precision"
-      ? "press right when the tile sits fully inside the highlighted key zone — the fuller the overlap, the more points. Bad timing — or pressing an empty lane — breaks your streak!"
-      : "click a key above to rebind it — each lane needs a unique key. Pressing a lane with nothing in it counts as a miss!";
+      ? "press right when the tile sits fully inside the highlighted key zone — the fuller the overlap, the more points. Bad timing breaks your streak, and pressing an empty lane costs 50 points!"
+      : "click a key above to rebind it — each lane needs a unique key. Hit tiles as they reach the keys — pressing too early or on an empty lane costs you a note!";
   }
 
   $("modeChoices").addEventListener("click", (e) => {
@@ -220,15 +220,31 @@
   function pressCol(col) {
     if (state !== "running") return;
     const inLane = tiles.filter((x) => x.col === col && !x.resolved);
-    if (!inLane.length) { registerMiss(null, col); return; } // nothing here — counts as a miss, same as letting a tile expire
+    if (!inLane.length) { registerMiss(null, col, true); return; } // nothing here — a stray press, penalised
     const t = inLane.reduce((lowest, x) => (x.lastY > lowest.lastY ? x : lowest));
-    if (mode === "precision") registerPrecisionHit(t); else registerHit(t);
+    if (mode === "precision") { registerPrecisionHit(t); return; }
+    // Attack mode used to accept a press no matter how far up the lane the
+    // tile still was, so mashing every key scored like perfect play. Now the
+    // tile has to have reached the hit window; pressing before that is a
+    // miss, but the tile keeps falling so it can still be hit on time.
+    if (!inHitWindow(t)) { registerMiss(null, col, true); return; }
+    registerHit(t);
+  }
+
+  // Attack-mode window: the tile's bottom edge must be within this many px
+  // above the key zone (or already overlapping it).
+  const ATTACK_WINDOW_PX = 48;
+  function inHitWindow(t) {
+    const laneEl = lanes[t.col];
+    const keyEl = laneEl.querySelector(".key");
+    const zoneTop = (t.laneH || laneEl.clientHeight) - (keyEl ? keyEl.offsetHeight : 44);
+    return t.lastY + t.el.offsetHeight >= zoneTop - ATTACK_WINDOW_PX;
   }
 
   function registerHit(t) {
     t.resolved = true;
     removeTile(t);
-    score++; streak++; if (streak > bestStreak) bestStreak = streak;
+    score++; hitsCount++; streak++; if (streak > bestStreak) bestStreak = streak;
     hitTimes.push((performance.now() - startT) / 1000);
     $("vScore").textContent = score;
     $("vStreak").textContent = streak;
@@ -260,7 +276,7 @@
     const overlap = Math.max(0, Math.min(y + th, zoneBottom) - Math.max(y, zoneTop));
     const frac = th > 0 ? Math.min(1, overlap / th) : 0;
     const j = judgeFraction(frac);
-    if (j.points <= 0) { registerMiss(t); return; }
+    if (j.points <= 0) { registerMiss(t, t.col, true); return; }
 
     t.resolved = true;
     removeTile(t);
@@ -287,12 +303,21 @@
   // t is the tile that expired/was pressed-too-early, or null for a press
   // into an empty lane — either way it counts as a miss (col is passed
   // explicitly when t is null).
-  function registerMiss(t, col) {
+  const ATTACK_PENALTY = 1, PRECISION_PENALTY = 50;
+  function registerMiss(t, col, pressed) {
     if (t) { col = t.col; t.resolved = true; removeTile(t); }
     misses++; streak = 0;
     $("vStreak").textContent = "0";
     flashLane(col, false);
-    if (mode === "precision") showJudgment(col, "MISS", "miss");
+    // A wrong press (too early, or into an empty lane) also costs score, so
+    // mashing every key loses more than it gains. A tile that simply falls
+    // past unpressed only breaks the streak.
+    let label = "MISS";
+    if (pressed) {
+      const penalty = Math.min(score, mode === "precision" ? PRECISION_PENALTY : ATTACK_PENALTY);
+      if (penalty > 0) { score -= penalty; $("vScore").textContent = score; label += " −" + penalty; }
+    }
+    showJudgment(col, label, "miss");
     if (t) clearTileEl(t, "miss");
     missSound();
   }
@@ -413,7 +438,7 @@
     $("finalUnit").textContent = mode === "precision" ? "points" : "notes";
     const r = mode === "precision" ? ratingPrecision(hitsCount > 0 ? score / hitsCount : 0) : rating(score / dur);
     $("rating").textContent = r.t; $("rating").style.color = r.c;
-    const hits = mode === "precision" ? hitsCount : score;
+    const hits = hitsCount;
     const total = hits + misses;
     const acc = total > 0 ? Math.round((hits / total) * 100) : 0;
     let summary = "";
@@ -444,7 +469,7 @@
 
   function renderGraph() {
     const N = 100, sigma = 0.5;
-    const finalRate = (mode === "precision" ? hitsCount : score) / dur;
+    const finalRate = hitsCount / dur;
     const inv = 1 / (sigma * Math.sqrt(2 * Math.PI)), s2 = 2 * sigma * sigma, cut = sigma * 4;
     const cs = [];
     for (const ct of hitTimes) cs.push(ct, -ct, 2 * dur - ct);
