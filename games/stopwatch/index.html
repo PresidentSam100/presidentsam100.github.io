@@ -26,16 +26,16 @@
     <meta name="author" content="Sam Lu" />
 </head>
 <body>
-  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Oswald',system-ui,sans-serif;color:#f6eee2;background:#211a14;border:1px solid #332a20;border-radius:8px;padding:8px 13px">&larr; Games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 14px/1 'Varela Round',system-ui,sans-serif;color:#b8323d;background:#fffaf0;border:2px solid #e8505b;border-radius:999px;box-shadow:0 3px 0 #c43c47;padding:7px 14px">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
-      <h1>⏱ Stopwatch</h1>
-      <p>stop the hidden clock as close to the target as you can</p>
+      <h1>Stopwatch</h1>
+      <p>bake every tray to the second &middot; stop the clock right on the target</p>
     </header>
 
     <div class="hud">
-      <div class="stat"><div class="label">Score</div><div class="value" id="score">0</div></div>
+      <div class="stat"><div class="label">Baked</div><div class="value" id="score">0</div></div>
       <div class="stat"><div class="label">Round</div><div class="value" id="round">—</div></div>
       <div class="stat"><div class="label">Best</div><div class="value" id="best">0</div></div>
     </div>
@@ -46,20 +46,33 @@
       <div class="row" style="margin-top:0.32rem;"><span>Margin remaining</span><b id="margin">1.000 s</b></div>
     </div>
 
-    <div class="stage">
-      <div class="target-line" id="target-line">get ready…</div>
-      <div class="target-big" id="target-big">—</div>
+    <!-- the whole stage is the tap target (game.js). data-phase / data-bake /
+         data-mode on it drive the oven: see styles.css -->
+    <div class="stage" data-phase="idle">
+      <div class="oven">
+        <div class="oven-top">
+          <div class="display">
+            <div class="target-line" id="target-line">get ready…</div>
+            <div class="target-big" id="target-big">—</div>
+          </div>
+          <span class="knob" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>
+        </div>
+        <div class="oven-body">
+          <div class="door" aria-hidden="true">
+            <div class="window"><div class="tray"><i class="cookie"></i><i class="cookie"></i><i class="cookie"></i><i class="cookie"></i></div></div>
+            <div class="handle"></div>
+          </div>
+          <button class="btn-main" id="btn" disabled>START</button>
+        </div>
+      </div>
       <div class="sub" id="sub">press start to begin</div>
-
-      <button class="btn-main" id="btn" disabled>START</button>
-
       <div class="result" id="result"></div>
     </div>
 
     <div class="footer-controls">
       <span class="mode-pill" id="mode-pill"></span>
     </div>
-    <p class="hint">tap the button or press <b>Space</b> — start, then stop when you think the time is up</p>
+    <p class="hint">tap the oven or press <b>Space</b> — once to put the tray in, again to take it out</p>
   </div>
 
   <!-- Start / Game over overlay -->

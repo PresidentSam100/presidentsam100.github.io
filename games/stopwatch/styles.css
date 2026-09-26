@@ -1,97 +1,214 @@
-  @import url("https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;600;700&display=swap");
+  @import url("https://fonts.googleapis.com/css2?family=Pacifico&family=Share+Tech+Mono&family=Varela+Round&display=swap");
 
+  /* A retro kitchen: a gingham tablecloth, a mint oven with a digital
+     display, and a kitchen-timer dial for START / STOP. Each round a tray of
+     cookies goes in; game.js sets data-phase (idle | ready | baking | done),
+     data-bake (perfect | golden | pale | raw | dark | burnt) and data-mode
+     (hidden | visible) on .stage, and the tray is drawn from those. */
+  @property --dough { syntax: "<color>"; inherits: true; initial-value: #f3e2bf; }
   :root {
-    --bg: #17120e; --panel: #211a14; --text: #f6eee2; --muted: #a8977f;
-    --accent: #ff9f1c; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c; --line: #332a20;
+    --cream: #fffaf0; --ink: #3d2a26; --muted: #7a625a; --cherry: #e8505b; --cherry-dark: #b8323d;
+    --mint: #9fdcc6; --mint-dark: #6fbfa5; --butter: #ffe8a3;
+    /* game.js colours results with these */
+    --good: #2f8a4a; --warn: #b77400; --bad: #c9303c; --text: var(--ink); --accent: var(--cherry);
+    /* the cookies at each doneness */
+    --raw: #f3e2bf; --pale: #ebd09c; --golden: #d99a45; --dark: #97592a; --burnt: #3b2618;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; height: 100%; }
   body {
-    background: radial-gradient(1200px 700px at 50% -10%, #2a201a 0%, var(--bg) 60%);
-    color: var(--text); font-family: "Oswald", system-ui, sans-serif;
+    /* red gingham */
+    background:
+      repeating-linear-gradient(0deg, rgba(232, 80, 91, 0.32) 0 22px, transparent 22px 44px),
+      repeating-linear-gradient(90deg, rgba(232, 80, 91, 0.32) 0 22px, transparent 22px 44px),
+      #fff6ef;
+    color: var(--ink); font-family: "Varela Round", system-ui, sans-serif;
     min-height: 100%; display: flex; flex-direction: column; align-items: center;
     padding: 1rem; overflow-x: hidden;
   }
-  a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  a { color: var(--cherry-dark); text-decoration: none; font-weight: 600; }
   .back-link { align-self: flex-start; font-size: 0.95rem; opacity: 0.85; position: relative; z-index: 30; }
   .wrap { width: 100%; max-width: 520px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
 
-  header.top { text-align: center; margin: 0.6rem 0 0.4rem; }
-  header.top h1 { font-size: 1.9rem; font-weight: 900; margin: 0; letter-spacing: -0.02em; }
-  header.top p { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.85rem; }
+  header.top { text-align: center; margin: 0.4rem 0 0.2rem; }
+  header.top h1 { font-family: "Pacifico", cursive; font-size: 2.3rem; font-weight: 400; margin: 0; line-height: 1.25; color: var(--cherry-dark); text-shadow: 2px 2px 0 var(--cream), 3px 3px 0 rgba(184, 50, 61, 0.25); }
+  header.top p { margin: 0.1rem auto 0; color: var(--ink); font-size: 0.85rem; background: rgba(255, 250, 240, 0.9); display: inline-block; padding: 0.15rem 0.7rem; border-radius: 999px; }
 
-  /* HUD */
-  .hud { display: flex; gap: 0.6rem; margin: 0.9rem 0 0.2rem; }
-  .stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.55rem 0.7rem; text-align: center; }
-  .stat .label { font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
-  .stat .value { font-size: 1.35rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 1px; }
+  /* HUD: little recipe cards */
+  .hud { display: flex; gap: 0.6rem; margin: 0.8rem 0 0.2rem; }
+  .stat {
+    flex: 1; padding: 0.45rem 0.6rem; text-align: center; border-radius: 10px;
+    background: var(--cream); border: 2px solid var(--cherry); box-shadow: 0 3px 0 var(--cherry-dark);
+  }
+  .stat .label { font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cherry-dark); font-weight: 700; }
+  .stat .value { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; color: var(--ink); }
 
-  /* Budget meter */
-  .budget { margin: 0.9rem 0 0.2rem; }
-  .budget .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.78rem; color: var(--muted); margin-bottom: 0.32rem; }
-  .budget .row b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 700; }
-  .meter { height: 14px; background: #120d09; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
-  .meter > span { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--good), var(--warn) 70%, var(--bad)); transition: width 0.45s cubic-bezier(.2,.8,.2,1); }
+  /* the error budget, as an oven thermometer */
+  .budget { margin: 0.8rem 0 0.2rem; padding: 0.55rem 0.75rem 0.6rem; background: var(--cream); border-radius: 12px; box-shadow: 0 3px 0 rgba(184, 50, 61, 0.35); }
+  .budget .row { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem; }
+  .budget .row b { color: var(--ink); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .meter { height: 14px; background: #f4e6d6; border: 2px solid var(--ink); border-radius: 999px; overflow: hidden; }
+  .meter > span { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, #ffd166, #ff8a3d 60%, var(--cherry)); transition: width 0.45s cubic-bezier(.2,.8,.2,1); }
 
-  /* Main stage */
-  .stage { position: relative; flex: 1; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 0.6rem; }
-  .target-line { color: var(--muted); font-size: 0.95rem; font-weight: 600; letter-spacing: 0.02em; min-height: 1.2em; }
-  .target-big { font-size: 3.6rem; font-weight: 900; line-height: 1; letter-spacing: -0.03em; margin: 0.15rem 0 0.1rem; }
-  .target-big small { font-size: 1.4rem; font-weight: 800; color: var(--muted); }
-  .sub { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; text-align: center; padding: 0 0.5rem; }
+  /* ---- the stage: the oven ------------------------------------------------ */
+  .stage { position: relative; flex: 1; min-height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; margin-top: 0.7rem; }
+  .oven {
+    width: 100%; max-width: 420px; padding: 10px 12px 14px; border-radius: 22px;
+    background: linear-gradient(180deg, #b6e7d5, var(--mint) 40%, var(--mint-dark));
+    border: 3px solid #4e9a83; box-shadow: 0 8px 0 #3f8470, 0 18px 28px -10px rgba(60, 40, 30, 0.45);
+  }
+  .oven-top { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .display {
+    flex: 1; min-width: 0; padding: 6px 12px 8px; border-radius: 12px; text-align: center;
+    background: #1f2a26; border: 3px solid #d7e9e2; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.6);
+  }
+  .target-line { color: #ffcf8a; font-size: 0.78rem; letter-spacing: 0.06em; min-height: 1.2em; opacity: 0.85; }
+  .target-big { font-family: "Share Tech Mono", monospace; font-size: 2.9rem; line-height: 1; color: #ffb347; text-shadow: 0 0 10px rgba(255, 170, 60, 0.55); font-variant-numeric: tabular-nums; }
+  .target-big small { font-size: 1.2rem; color: #ffcf8a; }
+  .knob { flex: none; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #fffaf0, #d9d2c3); border: 3px solid #4e9a83; box-shadow: 0 2px 0 #3f8470; position: relative; }
+  .knob::after { content: ""; position: absolute; left: 50%; top: 3px; width: 3px; height: 11px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); }
+  .knob + .knob::after { transform: rotate(120deg); transform-origin: 50% 11px; }
 
+  .oven-body { display: flex; align-items: center; gap: 12px; }
+  .door { flex: 1; min-width: 0; position: relative; padding: 18px 12px 12px; border-radius: 14px; background: #f7fbf9; border: 3px solid #4e9a83; }
+  .handle { position: absolute; top: 5px; left: 18%; right: 18%; height: 7px; border-radius: 4px; background: linear-gradient(#e9eeec, #b9c4c0); border: 1px solid #8a9994; }
+  .window {
+    position: relative; height: 104px; border-radius: 10px; overflow: hidden;
+    border: 3px solid #3d4a45; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12px;
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, #ffd79a, #e9a04e 70%, #b8672a);   /* oven light on */
+    transition: background 0.25s ease;
+  }
+  /* the heating element glows while it bakes */
+  .window::before {
+    content: ""; position: absolute; left: 8%; right: 8%; top: 8px; height: 4px; border-radius: 2px;
+    background: #7a3b1d; transition: background 0.3s ease, box-shadow 0.3s ease;
+  }
+  .stage[data-phase="baking"] .window::before { background: #ff6a2b; box-shadow: 0 0 10px 2px rgba(255, 106, 43, 0.8); }
+  .tray { display: flex; gap: 6%; justify-content: center; width: 90%; padding: 6px 6px 7px; border-radius: 6px; background: #8d9a96; box-shadow: 0 3px 0 #5d6865; --dough: var(--raw); }
+  .cookie {
+    width: 20%; aspect-ratio: 1; border-radius: 50%;
+    background:
+      radial-gradient(circle at 30% 34%, #3a2214 0 8%, transparent 9%),
+      radial-gradient(circle at 66% 42%, #3a2214 0 7%, transparent 8%),
+      radial-gradient(circle at 44% 70%, #3a2214 0 8%, transparent 9%),
+      radial-gradient(circle at 38% 30%, rgba(255, 255, 255, 0.35), transparent 45%),
+      var(--dough);
+    box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.18), 0 1px 0 rgba(0, 0, 0, 0.25);
+  }
+  /* Visible mode: the cookies brown as they bake, golden right at the target
+     (game.js sets --t), then on toward burnt. Hidden mode: the light is off. */
+  .stage[data-phase="baking"][data-anim="on"] .tray { animation: bakeUp var(--t, 5s) linear forwards, bakeOver 1.5s linear var(--t, 5s) forwards; }
+  @keyframes bakeUp { from { --dough: var(--raw); } to { --dough: var(--golden); } }
+  @keyframes bakeOver { from { --dough: var(--golden); } to { --dough: var(--burnt); } }
+  .stage[data-phase="baking"][data-mode="hidden"] .window { background: #1a1512; }
+  .stage[data-phase="baking"][data-mode="hidden"] .tray { visibility: hidden; }
+  /* out of the oven */
+  .stage[data-bake="perfect"] .tray, .stage[data-bake="golden"] .tray { --dough: var(--golden); }
+  .stage[data-bake="pale"] .tray { --dough: var(--pale); }
+  .stage[data-bake="raw"] .tray { --dough: var(--raw); }
+  .stage[data-bake="dark"] .tray { --dough: var(--dark); }
+  .stage[data-bake="burnt"] .tray { --dough: var(--burnt); }
+  /* burnt: smoke rolls up; perfect: a little sparkle */
+  .window::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; }
+  .stage[data-bake="burnt"] .window::after {
+    opacity: 1; animation: smoke 1.2s ease-out;
+    background: radial-gradient(circle at 30% 40%, rgba(90, 80, 75, 0.7) 0 16%, transparent 17%),
+                radial-gradient(circle at 52% 28%, rgba(110, 100, 95, 0.65) 0 20%, transparent 21%),
+                radial-gradient(circle at 72% 42%, rgba(90, 80, 75, 0.6) 0 15%, transparent 16%);
+  }
+  @keyframes smoke { from { opacity: 0; transform: translateY(20px) scale(0.7); } }
+  .stage[data-bake="perfect"] .window::after {
+    content: "\2728"; opacity: 1; display: flex; align-items: flex-start; justify-content: flex-end; padding: 6px 10px;
+    font-size: 1.4rem; animation: sparkle 0.6s ease-out;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  }
+  @keyframes sparkle { from { opacity: 0; transform: scale(0.4) rotate(-30deg); } }
+
+  /* START / STOP: a kitchen-timer dial */
   .btn-main {
-    margin-top: 1.3rem; width: 200px; height: 200px; border-radius: 50%;
-    border: none; cursor: pointer; font-family: inherit; font-weight: 900;
-    font-size: 1.7rem; letter-spacing: 0.06em; color: #2a1500;
-    background: radial-gradient(120px 120px at 50% 35%, #ffc46b, var(--accent));
-    box-shadow: 0 12px 40px -10px rgba(255,159,28,0.55), inset 0 -6px 18px rgba(0,0,0,0.25);
-    transition: transform 0.08s ease, filter 0.15s ease, background 0.2s ease, box-shadow 0.2s ease;
+    flex: none; width: 122px; height: 122px; border-radius: 50%;
+    border: 4px solid var(--cherry-dark); cursor: pointer; font-family: inherit; font-weight: 700;
+    font-size: 1.2rem; letter-spacing: 0.08em; color: var(--cherry-dark);
+    background:
+      radial-gradient(circle, var(--cream) 0 56%, transparent 57%),
+      repeating-conic-gradient(var(--ink) 0 2deg, transparent 2deg 15deg),
+      radial-gradient(circle, var(--cream) 0 70%, #f2e6d2 71%);
+    box-shadow: 0 6px 0 var(--cherry-dark), 0 12px 18px -8px rgba(60, 20, 20, 0.5);
+    transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.2s ease;
     user-select: none; touch-action: manipulation;
   }
-  .btn-main:active { transform: scale(0.96); }
-  .btn-main.stop { color: #1a0608; background: radial-gradient(120px 120px at 50% 35%, #ff97a3, var(--bad)); box-shadow: 0 12px 40px -10px rgba(255,93,108,0.6), inset 0 -6px 18px rgba(0,0,0,0.25); }
+  .btn-main:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--cherry-dark); }
+  .btn-main.stop {
+    color: var(--cream);
+    background:
+      radial-gradient(circle, var(--cherry) 0 56%, transparent 57%),
+      repeating-conic-gradient(var(--cream) 0 2deg, transparent 2deg 15deg),
+      radial-gradient(circle, var(--cherry) 0 70%, var(--cherry-dark) 71%);
+  }
   .btn-main.counting { animation: pulse 1.1s ease-in-out infinite; }
-  .btn-main:disabled { opacity: 0.45; cursor: default; filter: grayscale(0.4); animation: none; }
-  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.045); } }
+  .btn-main:disabled { opacity: 0.5; cursor: default; animation: none; }
+  .btn-main:focus-visible { outline: 3px solid var(--ink); outline-offset: 4px; }
+  @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+
+  .sub { color: var(--ink); font-size: 0.88rem; min-height: 1.2em; text-align: center; margin-top: 0.8rem; padding: 0.15rem 0.7rem; background: rgba(255, 250, 240, 0.9); border-radius: 999px; }
+  .sub:empty { background: none; }
 
   /* Result readout */
   .result { min-height: 4.2rem; text-align: center; margin-top: 0.4rem; }
-  .result .you { font-size: 2.1rem; font-weight: 900; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+  .result:not(:empty) { background: var(--cream); border-radius: 14px; padding: 0.35rem 1rem 0.5rem; box-shadow: 0 3px 0 rgba(184, 50, 61, 0.35); }
+  .result .you { font-family: "Share Tech Mono", monospace; font-size: 2.1rem; font-variant-numeric: tabular-nums; color: var(--ink); }
   .result .delta { font-size: 1rem; font-weight: 700; margin-top: 0.1rem; }
 
-  /* Big center overlay (countdown / game over) */
-  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8,10,16,0.82); backdrop-filter: blur(3px); z-index: 20; padding: 1rem; }
+  /* start / game-over overlay: a recipe card */
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(90, 30, 35, 0.45); z-index: 20; padding: 1rem; overflow-y: auto; }
   .overlay.show { display: flex; }
-
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 1.6rem 1.4rem; max-width: 420px; width: 100%; text-align: center; box-shadow: 0 24px 60px -20px rgba(0,0,0,0.7); }
-  .card h2 { margin: 0 0 0.3rem; font-size: 1.9rem; font-weight: 900; }
-  .card p { color: var(--muted); margin: 0.35rem 0; line-height: 1.5; font-size: 0.92rem; }
-  .card .big { font-size: 3rem; font-weight: 900; margin: 0.4rem 0 0.1rem; }
-  .card .big small { font-size: 1.1rem; color: var(--muted); font-weight: 700; }
-  .bust { background: #1b1016; border: 1px solid #3a1f28; border-radius: 12px; padding: 0.7rem 0.8rem; font-size: 0.85rem; color: #ffb3bd; margin: 0.8rem 0; font-variant-numeric: tabular-nums; }
-  .rules { text-align: left; font-size: 0.86rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 1rem; }
-  .rules li { margin: 0.25rem 0; }
-  .btn {
-    cursor: pointer; background: var(--accent); color: #2a1500; border: none; border-radius: 10px;
-    padding: 0.8rem 1.6rem; font-family: inherit; font-size: 1.05rem; font-weight: 800;
-    transition: filter 0.15s ease, transform 0.08s ease;
+  .card {
+    margin: auto; max-width: 420px; width: 100%; padding: 1.5rem 1.4rem; text-align: center; border-radius: 16px; color: var(--ink);
+    background: repeating-linear-gradient(180deg, transparent 0 27px, rgba(120, 170, 200, 0.28) 27px 28px), var(--cream);
+    border-top: 14px solid var(--cherry);
+    box-shadow: 0 8px 0 rgba(184, 50, 61, 0.35), 0 24px 50px -16px rgba(60, 20, 20, 0.55);
   }
-  .btn:hover { filter: brightness(1.08); }
-  .btn:active { transform: scale(0.97); }
-  .btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); font-weight: 700; font-size: 0.9rem; padding: 0.6rem 1rem; }
+  .card h2 { margin: 0 0 0.2rem; font-family: "Pacifico", cursive; font-size: 2.1rem; font-weight: 400; color: var(--cherry-dark); }
+  .card p { color: var(--muted); margin: 0.35rem 0; line-height: 1.5; font-size: 0.93rem; }
+  .card p b { color: var(--ink); }
+  .card .big { font-size: 3rem; font-weight: 700; margin: 0.4rem 0 0.1rem; color: var(--ink); }
+  .card .big small { font-size: 1.1rem; color: var(--muted); font-weight: 700; }
+  .bust { background: #fde8e8; border: 2px dashed var(--cherry); border-radius: 12px; padding: 0.7rem 0.8rem; font-size: 0.86rem; color: #8a2430; margin: 0.8rem 0; font-variant-numeric: tabular-nums; }
+  .rules { text-align: left; font-size: 0.88rem; color: var(--muted); line-height: 1.55; margin: 0.6rem 0 1rem; }
+  .rules li { margin: 0.25rem 0; }
+  .rules b { color: var(--ink); }
+  .btn {
+    cursor: pointer; background: var(--cherry); color: var(--cream); border: none; border-radius: 999px;
+    padding: 0.8rem 1.8rem; font-family: inherit; font-size: 1.05rem; font-weight: 700;
+    box-shadow: 0 4px 0 var(--cherry-dark);
+    transition: filter 0.15s ease, transform 0.08s ease, box-shadow 0.08s ease;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--cherry-dark); }
+  .btn:focus-visible, .modebtn:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+  .btn.ghost { background: transparent; color: var(--cherry-dark); border: 2px solid var(--cherry); box-shadow: none; font-size: 0.9rem; padding: 0.55rem 1.1rem; }
 
   /* mode picker on the start card */
-  .modepick { display: flex; gap: 0.5rem; margin: 0.2rem 0 1rem; }
-  .modebtn { flex: 1; cursor: pointer; background: #1a140e; border: 1px solid var(--line); color: var(--muted); border-radius: 10px; padding: 0.65rem 0.5rem; font-family: inherit; font-weight: 800; font-size: 0.95rem; transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
-  .modebtn.sel { border-color: var(--accent); color: var(--text); background: #2e2212; }
-  .modebtn small { display: block; font-weight: 500; font-size: 0.68rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
+  .modepick { display: flex; gap: 0.5rem; margin: 0.4rem 0 0.9rem; }
+  .modebtn { flex: 1; cursor: pointer; background: #fff; border: 2px solid #e6d6cc; color: var(--muted); border-radius: 12px; padding: 0.6rem 0.5rem; font-family: inherit; font-weight: 700; font-size: 0.95rem; transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease; }
+  .modebtn.sel { border-color: var(--cherry); color: var(--ink); background: #fff0ee; box-shadow: 0 3px 0 var(--cherry-dark); }
+  .modebtn small { display: block; font-weight: 400; font-size: 0.7rem; color: var(--muted); margin-top: 2px; line-height: 1.3; }
 
-  .footer-controls { display: flex; gap: 0.6rem; align-items: center; justify-content: center; margin: 0.8rem 0 0.4rem; }
-  .mute { cursor: pointer; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 1rem; }
-  .mode-pill { font-size: 0.78rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0.3rem 0.7rem; }
-  .hint { color: var(--muted); font-size: 0.78rem; text-align: center; margin-top: 0.2rem; }
+  .footer-controls { display: flex; gap: 0.6rem; align-items: center; justify-content: center; margin: 0.7rem 0 0.3rem; }
+  .mute { cursor: pointer; background: var(--cream); border: 2px solid var(--cherry); color: var(--ink); border-radius: 8px; padding: 0.35rem 0.6rem; font-size: 1rem; }
+  .mode-pill { font-size: 0.8rem; font-weight: 700; color: var(--ink); background: var(--cream); border: 2px solid var(--cherry); border-radius: 999px; padding: 0.25rem 0.75rem; }
+  .hint { color: var(--ink); font-size: 0.78rem; text-align: center; margin: 0.2rem auto 0; background: rgba(255, 250, 240, 0.9); padding: 0.2rem 0.7rem; border-radius: 999px; }
+  .hint b { color: var(--cherry-dark); }
   .hidden { display: none !important; }
+
+  /* below ~700px the fixed back / sound / FX buttons reach the centred title */
+  @media (max-width: 700px) {
+    header.top { margin-top: 2.5rem; }
+    header.top h1 { font-size: 2rem; }
+    .btn-main { width: 104px; height: 104px; font-size: 1.05rem; }
+    .window { height: 92px; }
+    .target-big { font-size: 2.4rem; }
+  }
   /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {

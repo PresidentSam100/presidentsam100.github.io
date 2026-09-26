@@ -14,6 +14,7 @@
   var elBtn = $("btn"), elResult = $("result");
   var ovCard = $("overlay-card"), cardInner = $("card-inner");
   var modePill = $("mode-pill");
+  var elStage = document.querySelector(".stage");
 
   // ---- state ----
   var state = "menu";       // menu | counting | result | gameover (ready handled inline)
@@ -56,6 +57,20 @@
     while (t === lastTarget); // avoid an immediate repeat
     lastTarget = t; return t;
   }
+  // How the tray comes out: on the same 0.12s / 0.30s lines as the result
+  // colours, pale then raw when early, dark then burnt when late.
+  var BAKE = {
+    perfect: "perfectly golden!", golden: "nicely golden",
+    pale: "a little underbaked", raw: "still raw dough",
+    dark: "a bit overdone", burnt: "burnt to a crisp",
+  };
+  function doneness(error, late) {
+    if (error < 0.05) return "perfect";
+    if (error < 0.12) return "golden";
+    if (error < 0.30) return late ? "dark" : "pale";
+    return late ? "burnt" : "raw";
+  }
+
   function renderBudget() {
     var pctv = Math.min(100, (cumError / LIMIT) * 100);
     elFill.style.width = pctv + "%";
@@ -68,24 +83,25 @@
   // ---------------------------------------------------------- flow
   function showStartCard() {
     state = "menu"; ready = false; busy = false;
+    elStage.dataset.phase = "idle"; delete elStage.dataset.bake;
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     elBtn.disabled = true; elBtn.className = "btn-main"; elBtn.textContent = "START";
     elResult.textContent = ""; elTargetBig.textContent = "—"; elTargetLine.textContent = "get ready…"; elSub.textContent = "press start to begin";
     updateModePill();
     cardInner.innerHTML =
-      '<h2>⏱ Stopwatch</h2>' +
-      '<p>Tap <b>START</b> to begin a round, then <b>STOP</b> when you think the target time has passed.</p>' +
+      '<h2>Stopwatch</h2>' +
+      '<p>Each round a tray of cookies goes in the oven. Tap <b>START</b> to put it in, then <b>STOP</b> when you think the target time is up.</p>' +
       '<div class="modepick">' +
-        '<button class="modebtn" data-mode="hidden">🙈 Hidden<small>clock is hidden — estimate it</small></button>' +
-        '<button class="modebtn" data-mode="visible">👁 Visible<small>clock ticks on screen — react</small></button>' +
+        '<button class="modebtn" data-mode="hidden">🙈 Hidden<small>oven light off — estimate it</small></button>' +
+        '<button class="modebtn" data-mode="visible">👁 Visible<small>watch the clock and the cookies — react</small></button>' +
       '</div>' +
       '<ul class="rules">' +
         '<li>Each round gives a target from <b>1&ndash;10&nbsp;seconds</b>.</li>' +
-        '<li>Your miss = |your time &minus; target|, to the millisecond.</li>' +
+        '<li>Your miss = |your time &minus; target|, to the millisecond. Early comes out pale, late comes out burnt.</li>' +
         '<li>Misses <b>add up</b>. When the total passes <b>1.000&nbsp;s</b>, it&rsquo;s game over.</li>' +
         '<li>+1 point for every clock you stop in time.</li>' +
       '</ul>' +
-      '<button class="btn" id="btn-start">Start game</button>';
+      '<button class="btn" id="btn-start">Start baking</button>';
     ovCard.classList.add("show");
     var btns = cardInner.querySelectorAll(".modebtn");
     function syncSel() { for (var i = 0; i < btns.length; i++) { var m = btns[i].getAttribute("data-mode") === "visible"; btns[i].classList.toggle("sel", m === visibleMode); } }
@@ -114,6 +130,8 @@
     elTargetLine.textContent = "stop the clock at";
     elTargetBig.innerHTML = target + '<small>s</small>';
     elSub.textContent = "tap START, then STOP when " + target + "s have passed";
+    elStage.dataset.phase = "ready"; delete elStage.dataset.bake;
+    elStage.style.setProperty("--t", target + "s"); // browning reaches golden right at the target
   }
 
   function onStart() {
@@ -121,6 +139,11 @@
     ready = false; state = "counting";
     startStamp = performance.now();
     elBtn.className = "btn-main stop counting"; elBtn.textContent = "STOP";
+    elStage.dataset.mode = visibleMode ? "visible" : "hidden";
+    // with Visual FX off the browning would jump straight to golden: a false
+    // cue, so it simply doesn't run
+    elStage.dataset.anim = (window.RM_ON && window.RM_ON()) ? "off" : "on";
+    elStage.dataset.phase = "baking";
     if (visibleMode) {
       elTargetLine.textContent = "stop at " + target + "s";
       elTargetBig.innerHTML = '0.000<small>s</small>';
@@ -159,7 +182,8 @@
     var late = elapsed >= target;
     elResult.innerHTML =
       '<div class="you">' + fmt(elapsed) + '<small style="font-size:1rem;color:var(--muted);">s</small></div>' +
-      '<div class="delta" style="color:' + col + '">' + (late ? "over" : "under") + ' by ' + fmt(error) + 's</div>';
+      '<div class="delta" style="color:' + col + '">' + (late ? "over" : "under") + ' by ' + fmt(error) + 's &middot; ' + BAKE[doneness(error, late)] + '</div>';
+    elStage.dataset.phase = "done"; elStage.dataset.bake = doneness(error, late);
 
     if (bust) {
       Sound.fail();
@@ -180,7 +204,7 @@
     if (record) { best = score; saveBest(best); }
     setHud();
     cardInner.innerHTML =
-      '<h2>Game Over</h2>' +
+      '<h2>Kitchen closed</h2>' +
       '<div class="big">' + score + '<small> pts</small></div>' +
       '<p>' + (record ? "🏆 new best!" : "best " + best) + '</p>' +
       '<div class="bust">' +
@@ -188,7 +212,7 @@
         'you stopped at <b>' + fmt(info.elapsed) + 's</b> — off by <b>' + fmt(info.error) + 's</b><br>' +
         'total would be ' + fmt(info.projected) + 's (over the 1.000s limit)' +
       '</div>' +
-      '<button class="btn" id="btn-again">Play again</button>' +
+      '<button class="btn" id="btn-again">Bake again</button>' +
       '<div style="margin-top:0.7rem;"><button class="btn ghost" id="btn-mode">change mode</button></div>';
     ovCard.classList.add("show");
     $("btn-again").addEventListener("click", beginGame);
