@@ -4,16 +4,16 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%90%8D%3C%2Ftext%3E%3C%2Fsvg%3E" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-    <title>Snake</title>
+    <title>Slither</title>
     <meta name="author" content="Sam Lu" />
-    <meta name="description" content="Snake — classic grid snake with twists: teleport portals, obstacle mazes, and local 2-player mode." />
+    <meta name="description" content="Slither — classic grid snake with portals and local 2-player, plus a Labyrinth campaign: eat every apple, reach the exit, beat the clock." />
     <link rel="stylesheet" href="styles.css" />
   <script src="../motion-toggle.js"></script>
   <script src="../mute-toggle.js"></script>
   <script src="../game-shell.js"></script>
-    <meta property="og:title" content="Snake — Sam Lu" />
+    <meta property="og:title" content="Slither — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Snake — classic grid snake — portals, obstacles &amp; 2-player. A browser game by Sam Lu." />
+    <meta property="og:description" content="Slither — classic snake, local 2-player, and a Labyrinth campaign with portals, ghosting and enemy snakes. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
@@ -28,8 +28,8 @@
     <div class="wrap">
       <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Rajdhani',system-ui,sans-serif;color:#eef0f4;background:#1b1f27;border:1px solid #33394a;border-radius:8px;padding:8px 13px">&larr; Games</a>
       <div style="text-align:center">
-        <h1 class="title">Snake 🐍</h1>
-        <p class="subtitle">classic grid snake · teleport portals · obstacle mazes · local 2-player</p>
+        <h1 class="title">Slither 🐍</h1>
+        <p class="subtitle">classic snake · labyrinth campaign · local 2-player</p>
       </div>
 
       <div id="game-area" style="display:none; width:100%;">
@@ -39,6 +39,18 @@
           <span class="stat" id="score-label"></span>
           <span class="stat" id="best-label"></span>
           <span class="stat" id="match-label"></span>
+        </div>
+
+        <div class="lab-hud" id="lab-hud" style="display:none;">
+          <div class="row lab-stats">
+            <span class="stat" id="lab-level"></span>
+            <span class="stat" id="lab-apples"></span>
+            <span class="stat" id="lab-time"></span>
+            <span class="stat lab-chip" id="lab-blink" title="Teleports: click or tap a cell"></span>
+            <span class="stat lab-chip" id="lab-ghost" title="Ghost meter: hold G, right-click, or 👻">👻 <span class="lab-meter"><i id="lab-ghostfill"></i></span></span>
+          </div>
+          <div class="lab-timebar" id="lab-timebar"><i id="lab-timefill"></i></div>
+          <p class="lab-hint" id="lab-hint"></p>
         </div>
 
         <div class="board-wrap">
@@ -64,6 +76,13 @@
               <button class="dbtn down" data-player="1" data-dir="down" aria-label="P2 down">▼</button>
             </div>
           </div>
+          <div class="dpad-block" id="lab-btns" style="display:none;">
+            <div class="dpad-name">Hold</div>
+            <div class="lab-btn-row">
+              <button class="pbtn" id="ghost-btn" aria-label="Hold to ghost through walls">👻</button>
+              <button class="pbtn" id="dash-btn" aria-label="Hold to dash">⚡</button>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -73,18 +92,19 @@
     <!-- Main menu -->
     <div class="overlay" id="menu">
       <div class="card">
-        <h2>Snake 🐍</h2>
-        <p>Eat food to grow, avoid crashing into walls, obstacles, or a body (yours or theirs). Turn on twists for teleport portals and obstacle mazes, or bring a friend for local 2-player.</p>
+        <h2>Slither 🐍</h2>
+        <p id="menu-blurb">Eat food to grow, and don't crash into walls, obstacles, or a body (yours or theirs). Play classic, bring a friend for local 2-player, or take on the Labyrinth.</p>
 
         <div class="group">
           <div class="lbl">Mode</div>
           <div class="row" id="mode-pick">
-            <button class="btn sel" data-mode="solo">Solo</button>
+            <button class="btn sel" data-mode="solo">Classic</button>
             <button class="btn" data-mode="two">2-Player</button>
+            <button class="btn" data-mode="lab">🏛️ Labyrinth</button>
           </div>
         </div>
 
-        <div class="group">
+        <div class="group" id="twists-group">
           <div class="lbl">Twists</div>
           <div class="row" id="twist-pick">
             <button class="btn" id="portals-toggle" data-on="0">🌀 Portals: Off</button>
@@ -106,17 +126,37 @@
           </div>
         </div>
 
+        <div class="group" id="lab-opts" style="display:none;">
+          <div class="lbl">Levels</div>
+          <div id="lab-levels"></div>
+        </div>
+
         <div class="row" style="margin-top:1rem;">
           <button class="btn" id="play-btn" style="padding:0.7rem 1.6rem;font-size:1.05rem;">Play</button>
         </div>
         <div class="keys" id="keys-help"></div>
 
-        <details class="dict-wrap">
+        <details class="dict-wrap" id="legend-classic">
           <summary>Legend &amp; twists</summary>
           <div class="dict-item"><b>🍎 Food</b> — eat it to grow one segment and speed up slightly.</div>
-          <div class="dict-item"><b>▦ Obstacles</b> — solid blocks scattered on the board; crashing into one ends your run.</div>
-          <div class="dict-item"><b>🌀 Portals</b> — two color-matched pairs (orange↔orange, purple↔purple); enter one end, exit the other end of the same color still moving the same direction. They relocate every few food eaten.</div>
+          <div class="dict-item"><b>▦ Obstacles</b> — solid blocks scattered across the board; crashing into one ends your run.</div>
+          <div class="dict-item"><b>🌀 Portals</b> — two color-matched pairs (orange↔orange, purple↔purple); enter one end, exit the other end of the same color still moving the same direction. They jump to new spots every third time a snake goes through one.</div>
           <div class="dict-item"><b>🐍🐍 2-Player</b> — share the board and the food. Crash into a wall, obstacle, yourself, or the other snake and you're out. Head-on collisions kill both.</div>
+        </details>
+
+        <details class="dict-wrap" id="legend-lab" style="display:none;">
+          <summary>Labyrinth legend</summary>
+          <div class="dict-item"><b>🍎 → 🚪</b> — eat every red apple to unlock the arch, then reach it before the clock runs out. A locked arch is a wall. Crash and you retry the level instantly — no lives.</div>
+          <div class="dict-item"><b>✦ Blink apple</b> — one teleport: click (or tap) any open cell and your head jumps there.</div>
+          <div class="dict-item"><b>👻 Ghost apple</b> — fills the ghost meter. Hold G, right-click, or 👻 to pass through walls, doors and bodies. Ghosts can't use the exit.</div>
+          <div class="dict-item"><b>🍏 Fast apple</b> — a permanent speed-up for this level. Hold Shift (or ⚡) any time to dash.</div>
+          <div class="dict-item"><b>🌀 Portals</b> — matching colors are linked; you keep your heading.</div>
+          <div class="dict-item"><b>🧊 Ice</b> — you can't turn on it. Queue your turn for when you slide off.</div>
+          <div class="dict-item"><b>🟧 Doors &amp; switches</b> — rolling over a switch flips every door: shut ones open, open ones shut.</div>
+          <div class="dict-item"><b>🔺 Spikes</b> — they rise and fall on a beat, flashing red just before rising. Raised spikes cut any part of you.</div>
+          <div class="dict-item"><b>✂ Cutter</b> — trims whoever enters it down to three segments.</div>
+          <div class="dict-item"><b>⬛ Darkness</b> — snakes vanish in it. Apples don't.</div>
+          <div class="dict-item"><b>🐍 Enemies</b> — <span style="color:#4da3ff">wanderers</span> roam, <span style="color:#d648ff">hunters</span> try to cut you off, <span style="color:#ff9f1c">munchers</span> race you for apples (apples they eat still count). Your head hitting them kills you; their head hitting you kills them.</div>
         </details>
       </div>
     </div>
@@ -145,6 +185,9 @@
       </div>
     </div>
 
+    <script src="levels.js"></script>
+    <script src="labyrinth-engine.js"></script>
+    <script src="labyrinth.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

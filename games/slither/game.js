@@ -1,6 +1,9 @@
-/* Snake — classic grid snake with twists: teleport portals, obstacle
-   mazes, and a local 2-player mode. No assets; canvas + synthesized SFX.
-   Muting is handled globally by the shared top-right toggle (mute-toggle.js). */
+/* Slither — classic grid snake with twists (teleport portals, scattered
+   obstacles, local 2-player), plus the Labyrinth campaign, which lives in
+   labyrinth.js / labyrinth-engine.js / levels.js and runs on this page's
+   shell: menu, overlays, input routing and sound. No assets; canvas +
+   synthesized SFX. Muting is handled globally by the shared top-right
+   toggle (mute-toggle.js). */
 (function () {
   "use strict";
 
@@ -35,13 +38,27 @@
   var resultMsg = document.getElementById("result-msg");
   var resultPrimary = document.getElementById("result-primary");
   var keysHelp = document.getElementById("keys-help");
+  var pauseBtn = document.getElementById("pause-btn");
+  var playBtn = document.getElementById("play-btn");
+  var twistsGroup = document.getElementById("twists-group");
+  var labOpts = document.getElementById("lab-opts");
+  var labLevels = document.getElementById("lab-levels");
+  var labHud = document.getElementById("lab-hud");
+  var labBtns = document.getElementById("lab-btns");
+  var legendClassic = document.getElementById("legend-classic");
+  var legendLab = document.getElementById("legend-lab");
 
-  (function setupCanvas() {
+  // Labyrinth levels come in different sizes, so the board is resized per
+  // level. Setting canvas.width resets the context, so the DPR transform
+  // has to be reapplied every time.
+  function resizeBoard(pxW, pxH, cssWidth) {
     var dpr = window.devicePixelRatio || 1;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
+    canvas.width = Math.round(pxW * dpr);
+    canvas.height = Math.round(pxH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  })();
+    canvas.style.width = cssWidth;
+  }
+  resizeBoard(W, H, "min(94vw, 440px)");
 
   // ---- sound (synthesized, routed through the shared mute shim) ---------
   var actx = null;
@@ -241,7 +258,8 @@
     pauseOverlay.classList.add("hidden");
     resultOverlay.classList.add("hidden");
     gameArea.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:0.6rem;width:100%;";
-    dpadP2.style.display = G.mode === "two" ? "" : "none";
+    setModeChrome();
+    resizeBoard(W, H, "min(94vw, 440px)");
 
     var cfg = spawnConfig(G.mode);
     G.snakes = cfg.map(function (c) {
@@ -275,10 +293,60 @@
     G.paused = false;
     G.pendingEnd = false;
     loopToken++;
+    if (lab) lab.stop();
     gameArea.style.display = "none";
     pauseOverlay.classList.add("hidden");
     resultOverlay.classList.add("hidden");
     menuOverlay.classList.remove("hidden");
+    refreshLabMenu();
+  }
+
+  // Which HUD pieces and touch controls the current mode shows.
+  function setModeChrome() {
+    var isLab = G.mode === "lab";
+    dpadP2.style.display = G.mode === "two" ? "" : "none";
+    labHud.style.display = isLab ? "" : "none";
+    labBtns.style.display = isLab ? "" : "none";
+    [scoreLabel, bestLabel, matchLabel].forEach(function (el) { el.style.display = isLab ? "none" : ""; });
+  }
+
+  // ---- Labyrinth host ------------------------------------------------------
+  // Everything the Labyrinth module needs from this page, in one place.
+  var lab = window.SlitherLabyrinth ? window.SlitherLabyrinth({
+    canvas: canvas,
+    ctx: ctx,
+    tone: tone,
+    noise: noise,
+    SFX: SFX,
+    showBoard: function (pxW, pxH, maxCssW) {
+      menuOverlay.classList.add("hidden");
+      pauseOverlay.classList.add("hidden");
+      resultOverlay.classList.add("hidden");
+      gameArea.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:0.6rem;width:100%;";
+      setModeChrome();
+      // Fit the width, and keep tall levels from pushing the d-pad off-screen.
+      var cssWidth = "min(94vw, " + maxCssW + "px, calc(66vh * " + (pxW / pxH).toFixed(4) + "))";
+      resizeBoard(pxW, pxH, cssWidth);
+      labHud.style.width = cssWidth;
+      pauseBtn.textContent = "⏸ Pause";
+    },
+    setPaused: function (paused) {
+      pauseOverlay.classList.toggle("hidden", !paused);
+      pauseBtn.textContent = paused ? "▶ Resume" : "⏸ Pause";
+    },
+    showResult: function (opts) { showResult(opts); },
+    clickResult: function () { if (!resultOverlay.classList.contains("hidden")) resultPrimary.click(); },
+    toMenu: function () { resetToMenu(); },
+  }) : null;
+
+  function refreshLabMenu() {
+    var isLab = G.mode === "lab" && !!lab;
+    twistsGroup.style.display = isLab ? "none" : "";
+    labOpts.style.display = isLab ? "" : "none";
+    legendClassic.style.display = isLab ? "none" : "";
+    legendLab.style.display = isLab ? "" : "none";
+    if (isLab) lab.buildLevelGrid(labLevels);
+    playBtn.textContent = isLab ? "Play Level " + (lab.continueIndex() + 1) : "Play";
   }
 
   // ---- input ----------------------------------------------------------------
@@ -289,14 +357,26 @@
     s.queuedDir = dir;
   }
 
+  // The d-pads and swipe steer through here, so the Labyrinth gets them too.
+  function steer(playerIdx, dir) {
+    if (G.mode === "lab") { if (lab && playerIdx === 0) lab.steer(dir); return; }
+    setQueuedDir(playerIdx, dir);
+  }
+
   document.addEventListener("keydown", function (e) {
     if (gameArea.style.display === "none") return; // menu open, ignore
+    // Enter takes the result card's main action (Play Again / Next Round / Retry).
+    if (e.key === "Enter" && !resultOverlay.classList.contains("hidden")) { resultPrimary.click(); e.preventDefault(); return; }
+    if (G.mode === "lab") { if (lab) lab.keydown(e); return; }
     var k = e.key;
     if (k === " " || k === "Spacebar") { togglePause(); e.preventDefault(); return; }
     var arrowMap = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
     var wasdMap = { w: UP, a: LEFT, s: DOWN, d: RIGHT, W: UP, A: LEFT, S: DOWN, D: RIGHT };
     if (arrowMap[k]) { setQueuedDir(G.mode === "two" ? 1 : 0, arrowMap[k]); e.preventDefault(); }
     else if (wasdMap[k]) { setQueuedDir(0, wasdMap[k]); e.preventDefault(); }
+  });
+  document.addEventListener("keyup", function (e) {
+    if (G.mode === "lab" && lab) lab.keyup(e);
   });
 
   // Fire on pointerdown rather than click: a tap registers on touch-down, which
@@ -308,7 +388,7 @@
       // preventDefault suppresses :active on several mobile browsers, so drive
       // the pressed look from a class instead (cleared on the window handlers).
       btn.classList.add("held");
-      setQueuedDir(Number(btn.dataset.player), DIR_BY_NAME[btn.dataset.dir]);
+      steer(Number(btn.dataset.player), DIR_BY_NAME[btn.dataset.dir]);
     });
   });
 
@@ -335,7 +415,7 @@
       if (!tracking) return;
       var dx = e.clientX - sx, dy = e.clientY - sy;
       if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
-      setQueuedDir(0, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP));
+      steer(0, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP));
       // Re-anchor instead of stopping, so one continuous drag can chain turns.
       sx = e.clientX; sy = e.clientY;
     });
@@ -346,6 +426,7 @@
 
   // ---- pause / menu buttons ---------------------------------------------
   function togglePause() {
+    if (G.mode === "lab") { if (lab) lab.togglePause(); return; }
     if (!G.running || G.pendingEnd) return;
     G.paused = !G.paused;
     pauseOverlay.classList.toggle("hidden", !G.paused);
@@ -356,14 +437,21 @@
   // Pause only — coming back must not un-pause a deliberate pause.
   if (window.GameShell) {
     GameShell.onAutoPause(function () {
+      if (G.mode === "lab") { if (lab) lab.autoPause(); return; }
       if (G.running && !G.pendingEnd && !G.paused) togglePause();
     });
   }
 
   document.getElementById("menu-btn").addEventListener("click", resetToMenu);
   document.getElementById("pause-btn").addEventListener("click", togglePause);
-  document.getElementById("pause-resume").addEventListener("click", function () { if (G.paused) togglePause(); });
-  document.getElementById("pause-restart").addEventListener("click", function () { startRound(); });
+  document.getElementById("pause-resume").addEventListener("click", function () {
+    if (G.mode === "lab") { if (lab && lab.isPaused()) lab.togglePause(); return; }
+    if (G.paused) togglePause();
+  });
+  document.getElementById("pause-restart").addEventListener("click", function () {
+    if (G.mode === "lab") { if (lab) lab.restart(); return; }
+    startRound();
+  });
   document.getElementById("pause-menu").addEventListener("click", resetToMenu);
   document.getElementById("result-menu").addEventListener("click", resetToMenu);
 
@@ -381,13 +469,16 @@
   function updateKeysHelp() {
     keysHelp.textContent = G.mode === "two"
       ? "P1: WASD (green) · P2: Arrow Keys (blue) · Space: Pause · touch: use the d-pads"
-      : "Move: Arrow Keys or WASD · Space: Pause · touch: swipe the board or use the d-pad";
+      : G.mode === "lab"
+        ? "Move: Arrows / WASD · hold Shift: dash · hold G or right-click: ghost · click a cell: teleport · R: retry · Space: pause · touch: swipe to steer, tap to teleport, hold 👻 / ⚡"
+        : "Move: Arrow Keys or WASD · Space: Pause · touch: swipe the board or use the d-pad";
   }
 
   var vsOpts = document.getElementById("vs-opts");
   exclusiveSelect(document.getElementById("mode-pick"), "[data-mode]", function (btn) {
     G.mode = btn.dataset.mode;
     vsOpts.style.display = G.mode === "two" ? "" : "none";
+    refreshLabMenu();
     updateKeysHelp();
   });
 
@@ -406,7 +497,10 @@
     G.matchFormat = btn.dataset.fmt;
   });
 
-  document.getElementById("play-btn").addEventListener("click", startMatch);
+  playBtn.addEventListener("click", function () {
+    if (G.mode === "lab") { if (lab) lab.start(lab.continueIndex()); return; }
+    startMatch();
+  });
 
   updateKeysHelp();
 
