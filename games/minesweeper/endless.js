@@ -1,14 +1,18 @@
 /* =====================================================================
-   Minesweeper Endless — the field scrolls down toward a red line.
+   Minesweeper Endless — the field scrolls down into a black
+   out-of-bounds strip, one row tall, under a red line.
 
-   When a row touches the line it's judged: an unflagged mine goes off,
-   and so does a flag on a safe tile (otherwise flagging everything
-   would win). Digging a mine is fatal too. One life.
+   Once a row has slid all the way into the strip it's judged: an
+   unflagged mine goes off, and so does a flag on a safe tile (otherwise
+   flagging everything would win). Digging a mine is fatal too. One life.
+   The strip takes the clicks, so a row that's partway in can still be
+   played through the part of it that's above the line.
 
    Rows have absolute indices r = 0, 1, 2 … counting up from the bottom
    of the first screen, and `pos` is how many rows the field has moved,
-   so row r is judged once pos > r. Rows are generated a couple above the
-   top edge before they scroll in, so every visible number already knows
+   so row r's bottom edge reaches the line at pos = r and the row is
+   judged once pos > r + OOB. Rows are generated a couple above the top
+   edge before they scroll in, so every visible number already knows
    about the row above it.
    ===================================================================== */
 (function () {
@@ -16,10 +20,11 @@
 
   // ---- tuning: first guesses, adjust by feel ---------------------------
   const COLS = 10;
+  const OOB = 1;                // rows of out-of-bounds strip under the line
   const RUNWAY = 2;             // mine-free rows that start open
-  const SPEED0 = 0.2;           // rows per second at the start
-  const SPEED_STEP = 0.0025;    // added per row survived
-  const SPEED_MAX = 0.6;
+  const SPEED0 = 0.15;          // rows per second at the start
+  const SPEED_MAX = 0.45;       // eased toward, never reached
+  const SPEED_TAU = 120;        // rows survived to close ~63% of the gap
   // Mines per 10-tile row (2.5 = 25%, above classic Expert's 20.6%). At a
   // random 12% a simulated field opened 85% of its safe tiles by itself —
   // a zero patch keeps flooding each new row. So each row gets a fixed
@@ -70,7 +75,9 @@
   let flagMode = false;
   let cursor = { r: RUNWAY, c: COLS >> 1 }, kbd = false;
 
-  const speed = () => Math.min(SPEED_MAX, SPEED0 + score * SPEED_STEP);
+  // Speeds up by 0.0025 rows/s per row at first, then levels off instead of
+  // running into a ceiling: 0.25 at 50 rows, 0.32 at 100, 0.39 at 200.
+  const speed = () => SPEED_MAX - (SPEED_MAX - SPEED0) * Math.exp(-score / SPEED_TAU);
   const minesFor = (r) => (r < RUNWAY ? 0 : Math.min(MINES_MAX, MINES0 + (r - RUNWAY) * MINES_STEP));
 
   // ---- sound (Web Audio, generated; mute-toggle.js gates the output) -----
@@ -132,12 +139,14 @@
     const avail = Math.min(document.documentElement.clientWidth - 2 * GUTTER, 700) - WINDOW - 2 * BEVEL;
     cellPx = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.floor((avail - (COLS - 1) * GAP) / COLS)));
     pitch = cellPx + GAP;
-    visRows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, Math.floor((window.innerHeight - CHROME_H) / pitch)));
+    // the strip comes out of the same height budget as the rows
+    visRows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, Math.floor((window.innerHeight - CHROME_H) / pitch) - OOB));
     runnerEl.style.setProperty("--cell", cellPx + "px");
     runnerEl.style.setProperty("--cols", COLS);
-    // border-box: the bevel is inside these; +3 is the red line under the rows
+    runnerEl.style.setProperty("--oob", OOB * pitch + "px");
+    // border-box: the bevel is inside these; the red line is the strip's top edge
     runnerEl.style.width = COLS * pitch - GAP + 2 * BEVEL + "px";
-    runnerEl.style.height = visRows * pitch + 3 + 2 * BEVEL + "px";
+    runnerEl.style.height = (visRows + OOB) * pitch + 2 * BEVEL + "px";
   }
 
   // ---- rows --------------------------------------------------------------
@@ -257,8 +266,9 @@
     }
   }
 
-  // Every frame: move each row, tint the one about to be judged, and drop
-  // rows that are well past the line.
+  // Every frame: move each row, tint the one about to be judged (from when
+  // its bottom edge reaches the line), and drop rows that are well past the
+  // strip.
   function place() {
     for (const row of rows.values()) {
       if (row.r < nextJudge - 2) {
@@ -268,7 +278,7 @@
       }
       const y = (row.r - pos) * pitch;
       row.el.style.transform = "translate3d(0," + (-y).toFixed(2) + "px,0)";
-      row.el.classList.toggle("near", !row.judged && state !== "over" && row.r - pos < 1);
+      row.el.classList.toggle("near", !row.judged && state !== "over" && row.r + OOB - pos < 1);
     }
   }
 
@@ -328,7 +338,7 @@
     renderHud();
     renderFace();
     renderStats();
-    setStatus("Dig or flag to start — flag every mine before it reaches the red line.");
+    setStatus("Dig or flag to start — flag every mine before it slides out of bounds.");
   }
 
   function begin() {
@@ -409,7 +419,7 @@
     return count;
   }
 
-  // The row touched the line.
+  // The row is all the way into the strip.
   function judge(row) {
     row.judged = true;
     row.el.classList.add("judged");
@@ -425,8 +435,8 @@
         row.els[c].classList.add("ok");
       }
     }
-    if (missed.length) return gameOver(missed.concat(wrong), "A mine reached the line.");
-    if (wrong.length) return gameOver(wrong, "A flag on a safe tile reached the line.");
+    if (missed.length) return gameOver(missed.concat(wrong), "A mine went out of bounds.");
+    if (wrong.length) return gameOver(wrong, "A flag on a safe tile went out of bounds.");
     defused += saved;
     if (row.r >= RUNWAY) score++;
     if (saved) sfx.defuse();
@@ -441,7 +451,10 @@
       for (let c = 0; c < COLS; c++) {
         const el = row.els[c];
         const hot = isBad.has(row.r + ":" + c);
-        if (hot) row.el.classList.remove("judged"); // don't dim the row that ended it
+        if (hot) {
+          row.el.classList.remove("judged"); // don't dim the row that ended it
+          row.el.classList.add("hot"); // and lift it over the strip
+        }
         if (row.mine[c] && row.cell[c] !== FLAG) {
           el.className = "c open mine" + (hot ? " boom" : "");
           el.textContent = "💣";
@@ -477,8 +490,8 @@
     lastT = t;
     if (state === "playing" && !PAUSE.isPaused()) {
       pos += speed() * dt;
-      // a long frame can carry more than one row over the line
-      while (state === "playing" && pos > nextJudge) judge(rows.get(nextJudge++));
+      // a long frame can carry more than one row into the strip
+      while (state === "playing" && pos > nextJudge + OOB) judge(rows.get(nextJudge++));
       updateLive();
       if (kbd && cursor.r < nextJudge) setCursor(nextJudge, cursor.c);
     }

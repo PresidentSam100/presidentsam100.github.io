@@ -595,22 +595,26 @@ body > .gs-pause {
   z-index: 2;
   pointer-events: none;
 }
-/* the line */
+/* the out-of-bounds strip, one row tall (--oob, set by endless.js), with
+   the red line as its top edge. A row is judged once it's all the way in.
+   It takes clicks and taps itself, so only the part of a tile above the
+   line can be played. See-through, so the tiles still show as they sink. */
 .runner::after {
   content: "";
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 3px;
-  background: #ff0000;
+  height: var(--oob);
+  box-sizing: border-box;
+  border-top: 3px solid #ff0000;
+  background: rgba(0, 0, 0, 0.65);
   z-index: 2;
-  pointer-events: none;
 }
 .erow {
   position: absolute;
   left: 0;
-  bottom: 3px;
+  bottom: var(--oob);
   display: grid;
   grid-template-columns: repeat(var(--cols), var(--cell));
   grid-auto-rows: var(--cell);
@@ -627,6 +631,10 @@ body > .gs-pause {
 }
 .erow.judged {
   opacity: 0.45;
+}
+/* the row that ended the run, lifted over the strip so the boom shows */
+.erow.hot {
+  z-index: 3;
 }
 .c.ok {
   background: #9fd49f;

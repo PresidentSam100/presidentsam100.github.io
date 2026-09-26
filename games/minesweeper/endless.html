@@ -6,10 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Minesweeper Endless</title>
     <meta name="author" content="Sam Lu" />
-    <meta name="description" content="Minesweeper Endless — the minefield keeps coming. Flag every mine before it reaches the line. A browser game by Sam Lu." />
+    <meta name="description" content="Minesweeper Endless — the minefield keeps coming. Flag every mine before it slides out of bounds. A browser game by Sam Lu." />
     <meta property="og:title" content="Minesweeper Endless — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="An endless-runner twist on Minesweeper: the field scrolls down, and every mine has to be flagged before it hits the bottom." />
+    <meta property="og:description" content="An endless-runner twist on Minesweeper: the field scrolls down, and every mine has to be flagged before it slides out of bounds." />
     <meta name="twitter:card" content="summary" />
 
     <link rel="stylesheet" href="styles.css" />
@@ -50,7 +50,7 @@
           <div class="runner" id="runner" tabindex="0" aria-label="Scrolling minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
         </div>
 
-        <p id="status" role="status" aria-live="polite" data-idle="Flag every mine before it hits the line."></p>
+        <p id="status" role="status" aria-live="polite" data-idle="Flag every mine before it slides out of bounds."></p>
       </section>
 
       <section class="window options-window" aria-labelledby="optsTitle">
@@ -66,13 +66,16 @@
       <details class="rules window">
         <summary class="titlebar">How to play</summary>
         <p>
-          The minefield scrolls down toward the <b>red line</b>. When a row
-          touches it, every mine in that row has to be flagged 🚩 — an
-          unflagged mine goes off and the run is over.
+          The minefield scrolls down past the <b>red line</b> into the black
+          <b>out-of-bounds</b> strip. Once a row has slid all the way in,
+          every mine in that row has to be flagged 🚩 — an unflagged mine
+          goes off and the run is over. You can't click inside the strip,
+          but a row that's only partway in can still be played through the
+          part of it that's above the line.
         </p>
         <p>
-          Flags have to be right: a 🚩 on a <b>safe</b> tile that reaches the
-          line also ends the run, so you can't just flag everything. Dig safe
+          Flags have to be right: a 🚩 on a <b>safe</b> tile that goes out of
+          bounds also ends the run, so you can't just flag everything. Dig safe
           tiles to reveal numbers, same as classic — a number counts the mines
           in its eight neighbours, including the rows above and below. Digging
           a mine ends the run too. You get <b>one life</b>.
