@@ -268,6 +268,7 @@
     G.obstacles = generateObstacles(G.snakes, OBSTACLE_COUNTS[G.obstacleLevel] || 0);
     G.obstacleKeys = {};
     G.obstacles.forEach(function (o) { G.obstacleKeys[key(o)] = true; });
+    floorLayer = null; // repainted with this round's blocks
     G.food = null;
     G.portals = [];
     G.portalEvents = 0;
@@ -661,83 +662,55 @@
   }
 
   // ---- render ---------------------------------------------------------------
-  function roundedRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
+  // Temple floor and fallen blocks are painted once per round into an
+  // offscreen layer (temple-art.js); portals, the apple and the serpents are
+  // drawn live on top. P1 is jade, P2 lapis.
+  var Art = window.SlitherArt;
+  var floorLayer = null;
+
+  function buildFloor() {
+    floorLayer = Art.makeLayer(W, H);
+    var g = floorLayer.ctx, th = Art.THEMES.classic;
+    for (var y = 0; y < ROWS; y++) {
+      for (var x = 0; x < COLS; x++) {
+        var k = x + "," + y, seed = y * COLS + x;
+        if (!G.obstacleKeys || !G.obstacleKeys[k]) { Art.floor(g, x * CELL, y * CELL, CELL, th, seed); continue; }
+        var block = function (dx, dy) { return !!G.obstacleKeys[(x + dx) + "," + (y + dy)]; };
+        Art.wall(g, x * CELL, y * CELL, CELL, th, seed, { n: !block(0, -1), s: !block(0, 1), w: !block(-1, 0), e: !block(1, 0) });
+      }
+    }
   }
 
-  function drawSnake(s) {
-    var isP2 = s.color === "p2";
-    ctx.globalAlpha = s.alive ? 1 : 0.32;
-    for (var i = s.body.length - 1; i >= 0; i--) {
-      var seg = s.body[i];
-      var t = 1 - i / Math.max(1, s.body.length - 1);
-      var base = isP2 ? [34, 168, 245] : [57, 255, 136];
-      var shade = 0.45 + 0.55 * t;
-      ctx.fillStyle = "rgb(" + Math.round(base[0] * shade) + "," + Math.round(base[1] * shade) + "," + Math.round(base[2] * shade) + ")";
-      var pad = i === 0 ? 1 : 2;
-      roundedRect(seg.x * CELL + pad, seg.y * CELL + pad, CELL - pad * 2, CELL - pad * 2, i === 0 ? 6 : 4);
-      ctx.fill();
-    }
-    if (s.alive) {
-      var head = s.body[0];
-      var cx = head.x * CELL + CELL / 2, cy = head.y * CELL + CELL / 2;
-      var ex = s.dir.x * 4, ey = s.dir.y * 4;
-      var perpX = -s.dir.y * 4, perpY = s.dir.x * 4;
-      ctx.fillStyle = "#0b1016";
-      ctx.beginPath(); ctx.arc(cx + ex + perpX * 0.5, cy + ey + perpY * 0.5, 1.6, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx + ex - perpX * 0.5, cy + ey - perpY * 0.5, 1.6, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+  function drawSnake(s, idx, now, fx) {
+    Art.serpent(ctx, s.body.map(function (seg) { return { x: seg.x * CELL + CELL / 2, y: seg.y * CELL + CELL / 2 }; }), {
+      cell: CELL,
+      pal: Art.SERPENTS[s.color === "p2" ? "lapis" : "jade"],
+      alpha: s.alive ? 1 : 0.5,
+      dir: s.dir,
+      dead: !s.alive,   // turned to stone
+      t: now, fx: fx, seed: idx,
+    });
   }
 
   function render() {
-    ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = "#11151d";
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.strokeStyle = "rgba(255,255,255,0.035)";
-    ctx.lineWidth = 1;
-    for (var gx = 1; gx < COLS; gx++) { ctx.beginPath(); ctx.moveTo(gx * CELL + 0.5, 0); ctx.lineTo(gx * CELL + 0.5, H); ctx.stroke(); }
-    for (var gy = 1; gy < ROWS; gy++) { ctx.beginPath(); ctx.moveTo(0, gy * CELL + 0.5); ctx.lineTo(W, gy * CELL + 0.5); ctx.stroke(); }
-
-    ctx.fillStyle = "#4a4f5b";
-    G.obstacles.forEach(function (o) {
-      roundedRect(o.x * CELL + 1, o.y * CELL + 1, CELL - 2, CELL - 2, 4);
-      ctx.fill();
-    });
-
-    var reduced = window.RM_ON && window.RM_ON();
-    var pulse = reduced ? 0 : Math.sin(performance.now() / 220) * 2;
+    if (!floorLayer) buildFloor();
+    var now = performance.now(), fx = !(window.RM_ON && window.RM_ON());
+    ctx.drawImage(floorLayer.canvas, 0, 0, W, H);
 
     G.portals.forEach(function (pr) {
       [pr.a, pr.b].forEach(function (p) {
         var cx = p.x * CELL + CELL / 2, cy = p.y * CELL + CELL / 2;
-        ctx.strokeStyle = pr.color;
-        ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.arc(cx, cy, CELL / 2 - 3 + pulse * 0.4, 0, Math.PI * 2); ctx.stroke();
-        ctx.fillStyle = pr.color;
-        ctx.globalAlpha = 0.35;
-        ctx.beginPath(); ctx.arc(cx, cy, CELL / 2 - 6, 0, Math.PI * 2); ctx.fill();
-        ctx.globalAlpha = 1;
+        Art.portalFrame(ctx, cx, cy, CELL / 2 - 0.5);
+        Art.portalGlow(ctx, cx, cy, CELL / 2 - 0.5, pr.color, now, fx);
       });
     });
 
     if (G.food) {
-      var fx = G.food.x * CELL + CELL / 2, fy = G.food.y * CELL + CELL / 2;
-      var bob = reduced ? 0 : Math.sin(performance.now() / 180) * 1.5;
-      ctx.font = (CELL - 3) + "px serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("🍎", fx, fy + bob);
+      var bob = fx ? Math.sin(now / 180) * 1.5 : 0;
+      Art.fruit(ctx, G.food.x * CELL + CELL / 2, G.food.y * CELL + CELL / 2 + bob, CELL - 4, "🍎");
     }
 
-    G.snakes.forEach(drawSnake);
+    G.snakes.forEach(function (s, i) { drawSnake(s, i, now, fx); });
   }
 
   function beginLoop() {

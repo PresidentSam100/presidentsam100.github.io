@@ -29,13 +29,13 @@ window.SlitherLabyrinth = function (host) {
     dashBtn: document.getElementById("dash-btn"),
   };
 
-  var THEMES = {
-    Garden: { floor: "#0f1612", grid: "rgba(160,255,190,0.04)", wall: "#2d5a3a", hi: "#4f8f5f", lo: "#1a3322" },
-    Ruins: { floor: "#15120e", grid: "rgba(255,220,160,0.04)", wall: "#6b5536", hi: "#9c7f52", lo: "#3d301f" },
-    Citadel: { floor: "#110f18", grid: "rgba(200,170,255,0.045)", wall: "#453a6b", hi: "#6d5ea3", lo: "#261f3d" },
-  };
-  var PORTAL_COLORS = ["#ff8c2b", "#a25cff", "#22d3ee", "#f472b6"];
-  var SNAKE_RGB = { player: [57, 255, 136], wander: [77, 163, 255], hunt: [214, 72, 255], munch: [255, 159, 28] };
+  // Temple look: Garden is a mossy courtyard, Ruins sandstone, Citadel
+  // obsidian with gold inlay (temple-art.js). Serpents are carved from
+  // jade (you), lapis (wanderers), amethyst (hunters) and carnelian (munchers).
+  var Art = window.SlitherArt;
+  var THEMES = Art.THEMES;
+  var PORTAL_COLORS = ["#ff9a3c", "#b36bff", "#3fd6ec", "#ff7ac0"];
+  var SERPENT_OF = { player: "jade", wander: "lapis", hunt: "amethyst", munch: "carnelian" };
 
   // ---- progress --------------------------------------------------------------
   // { best: { <level id>: <best clear time in ms> } } — keyed by id, not index,
@@ -116,7 +116,7 @@ window.SlitherLabyrinth = function (host) {
   // ---- state -----------------------------------------------------------------
   var st = null, levelIdx = 0, theme = THEMES.Garden;
   var active = false, paused = false, token = 0, lastTs = 0;
-  var fx = [], hover = -1, tap = null, lastTickSec = -1, endTimer = null;
+  var effects = [], hover = -1, tap = null, lastTickSec = -1, endTimer = null;
   var held = { ghostKey: false, ghostMouse: false, ghostBtn: false, dashKey: false, dashBtn: false };
 
   function syncHeld() {
@@ -141,9 +141,10 @@ window.SlitherLabyrinth = function (host) {
     theme = THEMES[level.zone] || THEMES.Garden;
     clearTimeout(endTimer);
     active = true; paused = false;
-    fx = []; tap = null; lastTs = 0; lastTickSec = -1;
+    effects = []; tap = null; lastTs = 0; lastTickSec = -1;
     clearHeld();
     host.showBoard(st.cols * CELL, st.rows * CELL, st.cols * 30);
+    buildLayer();
     el.level.innerHTML = "<b>" + (levelIdx + 1) + "</b> · " + level.name;
     el.hint.textContent = level.hint || "";
     el.timeBar.style.display = st.timeLimit ? "" : "none";
@@ -262,7 +263,7 @@ window.SlitherLabyrinth = function (host) {
   wireHoldButton(el.dashBtn, "dashBtn");
 
   // ---- events -> sound / effects / results ---------------------------------------
-  function burst(i, color) { fx.push({ i: i, color: color, t0: performance.now() }); }
+  function burst(i, color) { effects.push({ i: i, color: color, t0: performance.now() }); }
 
   function drainEvents() {
     var evs = st.events;
@@ -279,7 +280,7 @@ window.SlitherLabyrinth = function (host) {
         case "blinkFail": sfx.deny(); break;
         case "switch": sfx.flip(); burst(e.at, "#ffc53d"); break;
         case "cut": sfx.cut(); burst(e.at, "#dfe6f0"); break;
-        case "enemyDied": sfx.pop(); burst(e.at, rgb(SNAKE_RGB[e.kind] || SNAKE_RGB.wander, 1)); break;
+        case "enemyDied": sfx.pop(); burst(e.at, Art.rgb(Art.SERPENTS[SERPENT_OF[e.kind] || "lapis"].body)); break;
         case "dead": onDead(e); break;
         case "win": onWin(); break;
       }
@@ -335,11 +336,12 @@ window.SlitherLabyrinth = function (host) {
     if (!st) return;
     el.apples.innerHTML = st.applesLeft > 0 ? "🍎 <b>" + st.applesLeft + "</b> left" : "🚪 <b>exit open</b>";
     var showTime = st.timeLimit ? st.timeLeft : st.elapsed;
-    el.time.innerHTML = "⏱ <b>" + secs(showTime) + "</b>";
+    el.time.innerHTML = "⌛ <b>" + secs(showTime) + "</b>";
     if (st.timeLimit) {
       var f = Math.max(0, st.timeLeft / st.timeLimit);
       el.timeFill.style.width = (f * 100).toFixed(2) + "%";
-      el.timeFill.style.background = f > 0.5 ? "#39ff88" : f > 0.25 ? "#ffd23f" : f > 0.1 ? "#ff9f1c" : "#ff4d6d";
+      // Sand runs from gold to ember as the clock drains.
+      el.timeFill.style.backgroundColor = f > 0.5 ? "#e8c26a" : f > 0.25 ? "#e3a24c" : f > 0.1 ? "#e0763a" : "#e5484d";
     }
     el.blink.style.display = st.teleports > 0 ? "" : "none";
     el.blink.innerHTML = "✦ <b>×" + st.teleports + "</b>";
@@ -370,235 +372,101 @@ window.SlitherLabyrinth = function (host) {
   }
 
   // ---- drawing ---------------------------------------------------------------------
-  function rgb(c, a) { return "rgba(" + c[0] + "," + c[1] + "," + c[2] + "," + a + ")"; }
+  // Tiles that never change are painted once per level into `layer`;
+  // `live` lists the cells whose look depends on state and is redrawn each frame.
+  var layer = null, live = [];
   function cx(i) { return (i % st.cols) * CELL + CELL / 2; }
   function cy(i) { return Math.floor(i / st.cols) * CELL + CELL / 2; }
-  function rr(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r);
-    ctx.arcTo(x, y, x + w, y, r);
-    ctx.closePath();
-  }
   function isWall(x, y) { return x < 0 || y < 0 || x >= st.cols || y >= st.rows || st.tiles[y * st.cols + x] === T.WALL; }
 
-  function drawTiles(now, reduced) {
-    var pulse = reduced ? 0 : Math.sin(now / 220);
+  function buildLayer() {
+    layer = Art.makeLayer(st.cols * CELL, st.rows * CELL);
+    live = [];
+    var g = layer.ctx;
     for (var y = 0; y < st.rows; y++) {
       for (var x = 0; x < st.cols; x++) {
-        var i = y * st.cols + x, t = st.tiles[i], px = x * CELL, py = y * CELL;
+        var i = y * st.cols + x, t = st.tiles[i], px = x * CELL, py = y * CELL, seed = i + levelIdx * 7919;
         if (t === T.WALL) {
-          ctx.fillStyle = theme.wall;
-          ctx.fillRect(px, py, CELL, CELL);
-          if (!isWall(x, y - 1)) { ctx.fillStyle = theme.hi; ctx.fillRect(px, py, CELL, 3); }
-          if (!isWall(x, y + 1)) { ctx.fillStyle = theme.lo; ctx.fillRect(px, py + CELL - 4, CELL, 4); }
-          if (!isWall(x - 1, y)) { ctx.fillStyle = theme.hi; ctx.globalAlpha = 0.5; ctx.fillRect(px, py, 2, CELL); ctx.globalAlpha = 1; }
-          if (!isWall(x + 1, y)) { ctx.fillStyle = theme.lo; ctx.globalAlpha = 0.7; ctx.fillRect(px + CELL - 2, py, 2, CELL); ctx.globalAlpha = 1; }
-        } else if (t === T.ICE) {
-          ctx.fillStyle = "#16324a";
-          ctx.fillRect(px, py, CELL, CELL);
-          ctx.strokeStyle = "rgba(170,225,255,0.35)";
-          ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(px + 5, py + CELL - 7); ctx.lineTo(px + 12, py + 6); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(px + 12, py + CELL - 4); ctx.lineTo(px + 17, py + 12); ctx.stroke();
-        } else if (t === T.DOOR_SHUT || t === T.DOOR_OPEN) {
-          if (E.isDoorShut(st, i)) {
-            ctx.fillStyle = "#c9891a";
-            rr(px + 1, py + 1, CELL - 2, CELL - 2, 3); ctx.fill();
-            ctx.fillStyle = "#7a4f0c";
-            ctx.fillRect(px + 6, py + 3, 3, CELL - 6);
-            ctx.fillRect(px + CELL - 9, py + 3, 3, CELL - 6);
-          } else {
-            ctx.strokeStyle = "rgba(255,197,61,0.45)";
-            ctx.lineWidth = 1.5;
-            ctx.setLineDash([3, 3]);
-            rr(px + 2.5, py + 2.5, CELL - 5, CELL - 5, 3); ctx.stroke();
-            ctx.setLineDash([]);
-          }
-        } else if (t === T.SWITCH) {
-          ctx.fillStyle = "#231d10";
-          ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = "#ffc53d"; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2); ctx.stroke();
-          ctx.fillStyle = st.flipped ? "#ffc53d" : "rgba(255,197,61,0.25)";
-          ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 8, 0, Math.PI * 2); ctx.fill();
-        } else if (t === T.SPIKE_A || t === T.SPIKE_B) {
-          ctx.fillStyle = "#1c2029";
-          ctx.fillRect(px + 1, py + 1, CELL - 2, CELL - 2);
-          var up = E.spikeUp(st, i);
-          var warn = !up && st.status === "play" && st.spikeTimer < E.CFG.spikeWarnMs;
-          for (var s = 0; s < 4; s++) {
-            var sx = px + (s % 2 ? CELL * 0.7 : CELL * 0.3), sy = py + (s < 2 ? CELL * 0.3 : CELL * 0.72);
-            if (up) {
-              ctx.fillStyle = "#dfe5ef";
-              ctx.beginPath(); ctx.moveTo(sx - 4, sy + 4); ctx.lineTo(sx, sy - 5); ctx.lineTo(sx + 4, sy + 4); ctx.closePath(); ctx.fill();
-              ctx.fillStyle = "#ff4d6d";
-              ctx.beginPath(); ctx.arc(sx, sy - 4, 1.2, 0, Math.PI * 2); ctx.fill();
-            } else {
-              ctx.fillStyle = warn && (reduced || Math.floor(now / 90) % 2) ? "#ff4d6d" : "#4a5263";
-              ctx.beginPath(); ctx.arc(sx, sy, 1.8, 0, Math.PI * 2); ctx.fill();
-            }
-          }
-        } else if (t === T.CUTTER) {
-          ctx.fillStyle = "#262c38";
-          rr(px + 1, py + 1, CELL - 2, CELL - 2, 4); ctx.fill();
-          ctx.fillStyle = "#dfe6f0";
-          ctx.font = (CELL - 8) + "px serif";
-          ctx.textAlign = "center"; ctx.textBaseline = "middle";
-          ctx.fillText("✂", px + CELL / 2, py + CELL / 2 + 1);
-        } else if (t === T.DARK) {
-          ctx.fillStyle = "#07080c";
-          ctx.fillRect(px, py, CELL, CELL);
-        } else if (t === T.PORTAL) {
-          var col = PORTAL_COLORS[st.lv.portalId[i] % PORTAL_COLORS.length];
-          ctx.strokeStyle = col; ctx.lineWidth = 3;
-          ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 3 + pulse * 0.8, 0, Math.PI * 2); ctx.stroke();
-          ctx.fillStyle = col; ctx.globalAlpha = 0.35;
-          ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 7, 0, Math.PI * 2); ctx.fill();
-          ctx.globalAlpha = 1;
-        } else if (t === T.EXIT) {
-          drawExit(px, py, now, reduced);
+          Art.wall(g, px, py, CELL, theme, seed, { n: !isWall(x, y - 1), s: !isWall(x, y + 1), w: !isWall(x - 1, y), e: !isWall(x + 1, y) });
+          continue;
         }
+        if (t === T.ICE) Art.ice(g, px, py, CELL, seed);
+        else if (t === T.DARK) Art.darkFloor(g, px, py, CELL);
+        else Art.floor(g, px, py, CELL, theme, seed);
+        if (t === T.CUTTER) Art.cutter(g, px, py, CELL);
+        else if (t === T.PORTAL) { Art.portalFrame(g, px + CELL / 2, py + CELL / 2, CELL / 2 - 1); live.push(i); }
+        else if (t === T.DOOR_SHUT || t === T.DOOR_OPEN || t === T.SWITCH || t === T.SPIKE_A || t === T.SPIKE_B || t === T.EXIT) live.push(i);
       }
     }
   }
 
-  function drawExit(px, py, now, reduced) {
-    var open = st.applesLeft === 0;
-    var glow = open && !reduced ? 0.55 + 0.45 * Math.sin(now / 160) : 1;
-    if (open) {
-      ctx.fillStyle = "rgba(255,210,63," + (0.22 * glow).toFixed(3) + ")";
-      ctx.fillRect(px - 3, py - 3, CELL + 6, CELL + 6);
-    }
-    // Stone arch: two pillars and a rounded top.
-    ctx.fillStyle = open ? "#ffd23f" : "#6c7385";
-    ctx.beginPath();
-    ctx.moveTo(px + 2, py + CELL - 1);
-    ctx.lineTo(px + 2, py + CELL / 2);
-    ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 2, Math.PI, 0);
-    ctx.lineTo(px + CELL - 2, py + CELL - 1);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = open ? "#2a1f00" : "#1a1d26";
-    ctx.beginPath();
-    ctx.moveTo(px + 7, py + CELL - 1);
-    ctx.lineTo(px + 7, py + CELL / 2 + 1);
-    ctx.arc(px + CELL / 2, py + CELL / 2 + 1, CELL / 2 - 7, Math.PI, 0);
-    ctx.lineTo(px + CELL - 7, py + CELL - 1);
-    ctx.closePath();
-    ctx.fill();
-    if (!open) {
-      ctx.fillStyle = "#c9ced8";
-      ctx.fillRect(px + CELL / 2 - 3, py + CELL / 2 + 1, 6, 5);
-      ctx.strokeStyle = "#c9ced8"; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(px + CELL / 2, py + CELL / 2 + 1, 2.5, Math.PI, 0); ctx.stroke();
+  function drawLive(now, fx) {
+    var warn = st.status === "play" && st.spikeTimer < E.CFG.spikeWarnMs;
+    var blinkOn = !fx || Math.floor(now / 90) % 2 === 1;
+    for (var k = 0; k < live.length; k++) {
+      var i = live[k], t = st.tiles[i], px = (i % st.cols) * CELL, py = Math.floor(i / st.cols) * CELL;
+      if (t === T.DOOR_SHUT || t === T.DOOR_OPEN) Art.door(ctx, px, py, CELL, E.isDoorShut(st, i));
+      else if (t === T.SWITCH) Art.plate(ctx, px, py, CELL, st.flipped);
+      else if (t === T.SPIKE_A || t === T.SPIKE_B) { var up = E.spikeUp(st, i); Art.spikes(ctx, px, py, CELL, up, !up && warn && blinkOn); }
+      else if (t === T.EXIT) Art.doorway(ctx, px, py, CELL, st.applesLeft === 0, now, fx);
+      else if (t === T.PORTAL) Art.portalGlow(ctx, px + CELL / 2, py + CELL / 2, CELL / 2 - 1, PORTAL_COLORS[st.lv.portalId[i] % PORTAL_COLORS.length], now, fx);
     }
   }
 
-  function drawItem(i, item, now, reduced) {
-    var x = cx(i), y = cy(i) + (reduced ? 0 : Math.sin(now / 180 + i) * 1.3);
-    if (item === "apple" || item === "fast") {
-      ctx.font = (CELL - 5) + "px serif";
-      ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillText(item === "apple" ? "🍎" : "🍏", x, y + 1);
-    } else if (item === "blink") {
-      var g = ctx.createRadialGradient(x - 2, y - 2, 1, x, y, CELL / 2 - 2);
-      g.addColorStop(0, "#f0dcff"); g.addColorStop(0.5, "#a44dff"); g.addColorStop(1, "#4c1a8a");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.arc(x, y, CELL / 2 - 3, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(x, y - 6); ctx.lineTo(x + 1.6, y - 1.6); ctx.lineTo(x + 6, y); ctx.lineTo(x + 1.6, y + 1.6);
-      ctx.lineTo(x, y + 6); ctx.lineTo(x - 1.6, y + 1.6); ctx.lineTo(x - 6, y); ctx.lineTo(x - 1.6, y - 1.6);
-      ctx.closePath(); ctx.fill();
-    } else if (item === "ghost") {
-      ctx.globalAlpha = 0.85;
-      ctx.fillStyle = "#d9f7ff";
-      ctx.beginPath();
-      ctx.arc(x, y - 1, CELL / 2 - 4, Math.PI, 0);
-      ctx.lineTo(x + CELL / 2 - 4, y + 7);
-      ctx.lineTo(x + 3, y + 4); ctx.lineTo(x, y + 7); ctx.lineTo(x - 3, y + 4);
-      ctx.lineTo(x - CELL / 2 + 4, y + 7);
-      ctx.closePath(); ctx.fill();
-      ctx.globalAlpha = 1;
-      ctx.fillStyle = "#16324a";
-      ctx.beginPath(); ctx.arc(x - 3, y - 1, 1.6, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x + 3, y - 1, 1.6, 0, Math.PI * 2); ctx.fill();
-    }
+  function drawItem(i, item, now, fx) {
+    var x = cx(i), y = cy(i) + (fx ? Math.sin(now / 180 + i) * 1.3 : 0);
+    if (item === "apple") Art.fruit(ctx, x, y, CELL - 6, "🍎");
+    else if (item === "fast") Art.fruit(ctx, x, y, CELL - 6, "🍏");
+    else if (item === "blink") Art.gem(ctx, x, y, CELL * 0.3);
+    else if (item === "ghost") Art.wisp(ctx, x, y, CELL * 0.3, now, fx);
   }
 
-  function drawSnake(s, now) {
-    var base = SNAKE_RGB[s.kind] || SNAKE_RGB.wander, alpha = 1;
-    if (!s.alive) {
-      if (s === st.player) alpha = 0.55;
-      else { alpha = 1 - (st.elapsed - s.diedAt) / 450; if (alpha <= 0) return; }
+  function drawSnake(s, idx, now, fx) {
+    var alpha = 1, isPlayer = s === st.player;
+    if (!s.alive && !isPlayer) {
+      alpha = 1 - (st.elapsed - s.diedAt) / 450;
+      if (alpha <= 0) return;
     }
-    var ghost = s === st.player && st.ghostActive && s.alive;
-    if (ghost) { base = [200, 245, 255]; alpha = 0.5; }
-    var body = s.body, n = body.length, w = CELL * 0.7;
-    ctx.globalAlpha = alpha;
-    ctx.lineCap = "round";
-    ctx.lineWidth = w;
-    for (var k = n - 1; k >= 1; k--) {
-      var a = body[k], b = body[k - 1];
-      var shade = 0.45 + 0.55 * (1 - k / Math.max(1, n - 1));
-      ctx.strokeStyle = rgb([Math.round(base[0] * shade), Math.round(base[1] * shade), Math.round(base[2] * shade)], 1);
-      var adjacent = a !== b && Math.abs(a % st.cols - b % st.cols) + Math.abs(Math.floor(a / st.cols) - Math.floor(b / st.cols)) === 1;
-      ctx.beginPath();
-      ctx.moveTo(cx(a), cy(a));
-      ctx.lineTo(adjacent ? cx(b) : cx(a) + 0.01, adjacent ? cy(b) : cy(a)); // a portal or blink gap: just a dot
-      ctx.stroke();
-    }
-    // Head.
-    var h = body[0], hx = cx(h), hy = cy(h);
-    ctx.fillStyle = rgb(base, 1);
-    ctx.beginPath(); ctx.arc(hx, hy, CELL * 0.42, 0, Math.PI * 2); ctx.fill();
-    var d = s.dir < 0 ? 1 : s.dir, fx_ = E.DX[d], fy_ = E.DY[d];
-    var ex = fx_ * 4, ey = fy_ * 4, px = -fy_ * 4, py = fx_ * 4;
-    if (s === st.player && !s.alive) {
-      ctx.strokeStyle = "#ff4d6d"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
-      ctx.beginPath(); ctx.moveTo(hx - 5, hy - 5); ctx.lineTo(hx + 5, hy + 5); ctx.moveTo(hx + 5, hy - 5); ctx.lineTo(hx - 5, hy + 5); ctx.stroke();
-    } else {
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath(); ctx.arc(hx + ex + px * 0.6, hy + ey + py * 0.6, 2.8, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(hx + ex - px * 0.6, hy + ey - py * 0.6, 2.8, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = s.kind === "hunt" ? "#ff2a2a" : "#0b1016";
-      ctx.beginPath(); ctx.arc(hx + ex * 1.2 + px * 0.6, hy + ey * 1.2 + py * 0.6, 1.4, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(hx + ex * 1.2 - px * 0.6, hy + ey * 1.2 - py * 0.6, 1.4, 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    var ghost = isPlayer && s.alive && st.ghostActive;
+    Art.serpent(ctx, s.body.map(function (i) { return { x: cx(i), y: cy(i) }; }), {
+      cell: CELL,
+      pal: Art.SERPENTS[SERPENT_OF[s.kind] || "lapis"],
+      alpha: ghost ? 0.55 : alpha,
+      dir: s.dir >= 0 ? { x: E.DX[s.dir], y: E.DY[s.dir] } : null,
+      ghost: ghost,
+      dead: isPlayer && !s.alive,   // turned to stone
+      cross: isPlayer && !s.alive,
+      t: now, fx: fx, seed: idx,
+    });
   }
 
   function render(now) {
-    if (!st) return;
-    var reduced = !!(window.RM_ON && window.RM_ON());
+    if (!st || !layer) return;
+    var fx = !(window.RM_ON && window.RM_ON());
     var W = st.cols * CELL, H = st.rows * CELL;
-    ctx.fillStyle = theme.floor;
-    ctx.fillRect(0, 0, W, H);
-    ctx.strokeStyle = theme.grid;
-    ctx.lineWidth = 1;
-    for (var gx = 1; gx < st.cols; gx++) { ctx.beginPath(); ctx.moveTo(gx * CELL + 0.5, 0); ctx.lineTo(gx * CELL + 0.5, H); ctx.stroke(); }
-    for (var gy = 1; gy < st.rows; gy++) { ctx.beginPath(); ctx.moveTo(0, gy * CELL + 0.5); ctx.lineTo(W, gy * CELL + 0.5); ctx.stroke(); }
-
-    drawTiles(now, reduced);
+    ctx.drawImage(layer.canvas, 0, 0, W, H);
+    drawLive(now, fx);
     var keys = Object.keys(st.items);
-    keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, reduced); });
-    for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], now);
+    keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, fx); });
+    for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, now, fx);
 
-    // Darkness hides snakes, not the apples you're hunting for.
+    // Unlit halls hide serpents, not the apples you're hunting for.
     for (var i = 0; i < st.tiles.length; i++) {
       if (st.tiles[i] !== T.DARK) continue;
-      ctx.fillStyle = "#050609";
-      ctx.fillRect((i % st.cols) * CELL, Math.floor(i / st.cols) * CELL, CELL, CELL);
-      if (st.items[i]) { ctx.globalAlpha = 0.75; drawItem(i, st.items[i], now, reduced); ctx.globalAlpha = 1; }
+      var px = (i % st.cols) * CELL, py = Math.floor(i / st.cols) * CELL;
+      ctx.fillStyle = "#08070a";
+      ctx.fillRect(px, py, CELL, CELL);
+      if (fx) {
+        var e = Art.hash(i, Math.floor(now / 140));
+        if (e < 0.05) { ctx.fillStyle = "rgba(255,140,60," + (0.08 + e) + ")"; ctx.fillRect(px + e * 300 % (CELL - 3), py + e * 700 % (CELL - 3), 2, 2); }
+      }
+      if (st.items[i]) { ctx.globalAlpha = 0.8; drawItem(i, st.items[i], now, fx); ctx.globalAlpha = 1; }
     }
 
     // Teleport aim.
     if (st.teleports > 0 && hover >= 0 && st.status === "play" && !paused) {
       var ok = E.canBlinkTo(st, hover);
-      ctx.strokeStyle = ok ? "#c58bff" : "#ff4d6d";
+      ctx.strokeStyle = ok ? "#c99bff" : "#ff5a4a";
       ctx.lineWidth = 2;
       ctx.setLineDash([4, 3]);
       ctx.beginPath(); ctx.arc(cx(hover), cy(hover), CELL / 2 - 2, 0, Math.PI * 2); ctx.stroke();
@@ -606,25 +474,28 @@ window.SlitherLabyrinth = function (host) {
     }
 
     // Pickup / death bursts.
-    fx = fx.filter(function (f) {
+    effects = effects.filter(function (f) {
       var t = (now - f.t0) / 380;
       if (t >= 1 || t < 0) return t < 0;
       ctx.strokeStyle = f.color;
       ctx.globalAlpha = 1 - t;
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(cx(f.i), cy(f.i), CELL * (reduced ? 0.55 : 0.35 + t * 0.7), 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx(f.i), cy(f.i), CELL * (fx ? 0.35 + t * 0.7 : 0.55), 0, Math.PI * 2); ctx.stroke();
       ctx.globalAlpha = 1;
       return true;
     });
 
     if (st.status === "ready") {
-      ctx.fillStyle = "rgba(5,7,10,0.62)";
+      ctx.fillStyle = "rgba(14,11,8,0.78)";
       ctx.fillRect(0, H / 2 - 22, W, 44);
-      ctx.fillStyle = "#e6edf3";
-      ctx.font = "700 16px Rajdhani, system-ui, sans-serif";
+      ctx.fillStyle = "rgba(214,176,96,0.8)";
+      ctx.fillRect(0, H / 2 - 22, W, 1.5);
+      ctx.fillRect(0, H / 2 + 20.5, W, 1.5);
+      ctx.fillStyle = "#f3e6c4";
+      ctx.font = "700 15px Cinzel, Georgia, serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      ctx.fillText(touch ? "Swipe or tap the d-pad to start" : "Press an arrow key or WASD to start", W / 2, H / 2);
+      ctx.fillText(touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or WASD to begin", W / 2, H / 2 + 1);
     }
   }
 

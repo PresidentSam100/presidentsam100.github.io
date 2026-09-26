@@ -13,10 +13,11 @@ snakes along the way. A crash restarts the level instantly; there are no lives.
 |---|---|
 | `index.html` | the page: menu, HUD, overlays, touch controls |
 | `game.js` | page shell (menus, overlays, input routing, sound) and Classic / 2-Player |
+| `temple-art.js` | the temple-ruins look, shared by both modes: stone serpents, floors, walls, traps, doorway |
 | `labyrinth.js` | Labyrinth mode: level select, HUD, input, drawing, saved progress |
 | `labyrinth-engine.js` | Labyrinth rules — pure, no DOM; the tile legend is at the top |
 | `levels.js` | the 20 levels |
-| `styles.css` | styles |
+| `styles.css` | page styles: torch-lit temple wall, sandstone tablets, stone controls |
 
 Saved data: `snake_best` (Classic best — the key predates the rename) and
 `slither_labyrinth` (best clear time per level id). Both are listed in the
