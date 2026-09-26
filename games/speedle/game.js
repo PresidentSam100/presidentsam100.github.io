@@ -126,6 +126,17 @@
     for (var j = 0; j < WORDS.length; j++) WORDSET[WORDS[j]] = 1;
   })();
 
+  // Face values printed in the corner of each wooden tile. Decoration only —
+  // Speedle scores words, not letters.
+  var PTS = { a: 1, b: 3, c: 3, d: 2, e: 1, f: 4, g: 2, h: 4, i: 1, j: 8, k: 5, l: 1, m: 3,
+    n: 1, o: 1, p: 3, q: 10, r: 1, s: 1, t: 1, u: 1, v: 4, w: 4, x: 8, y: 4, z: 10 };
+  // a word spelled out in little tiles, for the menu card's title and legend
+  function tilesHTML(word, cls) {
+    return word.split("").map(function (ch) {
+      return '<span class="mini' + (cls ? " " + cls : "") + '" data-pts="' + PTS[ch] + '">' + ch + "</span>";
+    }).join("");
+  }
+
   var $ = function (id) { return document.getElementById(id); };
   var boardEl = $("board"), kbEl = $("kb"), msgEl = $("msg"), ov = $("overlay"), card = $("card");
   var labelA = $("label-a"), valueA = $("value-a"), statA = $("stat-a"), timeBonus = $("time-bonus");
@@ -176,6 +187,7 @@
     b.className = "key" + (wide ? " wide" : "");
     b.textContent = label;
     b.type = "button";
+    if (!wide) b.dataset.pts = PTS[code];
     b.addEventListener("click", function () { handleKey(code); });
     if (code.length === 1) keyEls[code] = b;
     return b;
@@ -294,6 +306,7 @@
         grid[rowIdx][colIdx] = "";
         var t = tileEls[rowIdx][colIdx];
         t.textContent = ""; t.classList.remove("filled");
+        delete t.dataset.pts;
       }
       return;
     }
@@ -301,6 +314,7 @@
       grid[rowIdx][colIdx] = code;
       var tile = tileEls[rowIdx][colIdx];
       tile.textContent = code;
+      tile.dataset.pts = PTS[code];
       tile.classList.add("filled", "pop");
       setTimeout((function (el) { return function () { el.classList.remove("pop"); }; })(tile), 100);
       colIdx++;
@@ -476,12 +490,12 @@
     var bestS = parseInt(load(BEST_SPRINT), 10) || 0;
     var bestR = parseInt(load(BEST_RACE), 10) || 0;
     card.innerHTML =
-      '<h2>🔤 Speedle</h2>' +
+      '<h2 class="card-title" aria-label="Speedle">' + tilesHTML("speedle") + '</h2>' +
       '<p>Wordle, against the clock. Solve 5-letter words back-to-back — each solve loads the next instantly.</p>' +
       '<ul class="rules">' +
-        '<li>🟩 right letter, right spot</li>' +
-        '<li>🟨 right letter, wrong spot</li>' +
-        '<li>⬛ letter not in the word</li>' +
+        '<li><span class="legend">' + tilesHTML("g", "green") + '</span>right letter, right spot</li>' +
+        '<li><span class="legend">' + tilesHTML("y", "yellow") + '</span>right letter, wrong spot</li>' +
+        '<li><span class="legend">' + tilesHTML("x", "gray") + '</span>letter not in the word</li>' +
         '<li>' + MAX_GUESSES + ' guesses each — miss all ' + MAX_GUESSES + ' and it skips, no credit.</li>' +
       '</ul>' +
       '<div class="modes">' +
