@@ -27,7 +27,26 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 system-ui,-apple-system,Segoe UI,sans-serif;color:#cdd6f4;background:#313244;border:1px solid #45475a;border-radius:8px;padding:8px 13px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:400 16px/1 'Patrick Hand','Comic Sans MS',cursive;color:#eef0e6;background:#2a3b33;border:2px solid #b07a45;border-radius:6px;padding:6px 12px">&larr; Games</a>
+
+  <!-- chalk texture for the drawn marks: a slightly shaky edge, then grain -->
+  <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
+    <filter id="chalk" filterUnits="userSpaceOnUse" x="-5" y="-5" width="110" height="110">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="3" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1.6" numOctaves="1" seed="8" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.4 1.75" result="h"/>
+      <feComposite in="d" in2="h" operator="in"/>
+    </filter>
+    <!-- Ultimate's marks are ~22px: grain only, coarser per unit, no shake -->
+    <filter id="chalk-sm" filterUnits="userSpaceOnUse" x="-5" y="-5" width="110" height="110">
+      <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="1" seed="5" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.8 1.6" result="h"/>
+      <feComposite in="SourceGraphic" in2="h" operator="in"/>
+    </filter>
+  </svg>
+
+  <main class="slate">
   <h1>Tic-Tac-Toe</h1>
   <div id="status">Your turn (X)</div>
   <div id="board"></div>
@@ -55,6 +74,7 @@
     <span>Losses: <b id="l">0</b></span>
     <span>Draws: <b id="d">0</b></span>
   </div>
+  </main>
 
   <div class="modal-overlay" id="rulesModal">
     <div class="modal">

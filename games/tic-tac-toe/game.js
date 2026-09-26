@@ -83,6 +83,7 @@ function init() {
   lastMove = -1;
   turn = null; // nobody can move until the coin flip resolves
   boardEl.innerHTML = '';
+  delete boardEl.dataset.win;
   for (let i = 0; i < 9; i++) {
     const btn = document.createElement('button');
     btn.className = 'cell';
@@ -94,7 +95,7 @@ function init() {
   if (window.coinFlip) {
     const myRound = round;
     setStatus('Flipping for first move…');
-    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#89b4fa', youColor: '#f38ba8', cpuColor: '#a6e3a1' }, function (who) {
+    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
       if (myRound !== round) return; // a new game was started before this flip resolved
       if (who === 'cpu') { turn = AI; setStatus('AI thinking…'); scheduleAI(450); }
       else { turn = HUMAN; render(); setStatus('Your turn (X)'); }
@@ -190,6 +191,7 @@ function checkEnd() {
 function highlight(line) {
   if (!line) return;
   line.forEach(i => boardEl.children[i].classList.add('win'));
+  boardEl.dataset.win = LINES.indexOf(line);   // styles.css strikes through that row/column/diagonal
 }
 
 function updateScore() {
@@ -284,7 +286,7 @@ function uInit() {
   if (window.coinFlip) {
     const myRound = round;
     setStatus('Flipping for first move…');
-    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#89b4fa', youColor: '#f38ba8', cpuColor: '#a6e3a1' }, function (who) {
+    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
       if (myRound !== round) return;
       if (who === 'cpu') { uTurn = AI; setStatus('AI thinking…'); uScheduleAI(450); }
       else { uTurn = HUMAN; uRender(); setStatus('Your turn (X) — play in the highlighted board'); }

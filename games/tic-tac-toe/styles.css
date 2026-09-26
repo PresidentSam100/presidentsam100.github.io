@@ -1,87 +1,225 @@
+@import url("https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@400;700&family=Patrick+Hand&display=swap");
 
-:root { --bg:#1e1e2e; --fg:#cdd6f4; --accent:#89b4fa; --x:#f38ba8; --o:#a6e3a1; --cell:#313244; --cell-hover:#45475a; --draw:#6c7086; }
+/* A classroom chalkboard: a framed slate on the wall, the grid drawn as a
+   shaky #, marks in coloured chalk (the #chalk filter in index.html), and a
+   chalk strike through the winning line. */
+:root {
+  --wall: #cdbfa4;
+  --slate: #2a3b33;
+  --slate-2: #22312a;
+  --oak: #b07a45;
+  --oak-dark: #7a4e27;
+  --chalk: #eef0e6;
+  --chalk-dim: rgba(238, 240, 230, 0.55);
+  --x: #f7a6b8;        /* pink chalk: you */
+  --o: #9fd4f7;        /* blue chalk: the computer */
+  --accent: #f3dd7a;   /* yellow chalk: highlights, the win line */
+  --draw: #b9c0b5;
+  /* one cell; shrinks so the slate and its frame fit a 320px screen */
+  --c: min(96px, calc((100vw - 64px) / 3));
+  /* hand-drawn outline for chalk buttons */
+  --wobble: 255px 14px 225px 16px / 15px 225px 14px 255px;
+  /* specks of dust on the slate */
+  --dust: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -.9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23d)' opacity='.35'/%3E%3C/svg%3E");
+}
 * { box-sizing: border-box; }
-body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-       background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; gap:18px; }
-h1 { margin:0; font-weight:600; letter-spacing:1px; }
-#status { font-size:1.2rem; min-height:1.5em; font-weight:500; }
-#board { display:grid; grid-template-columns:repeat(3,96px); grid-template-rows:repeat(3,96px); gap:8px; }
-.cell { background:var(--cell); border:none; border-radius:12px; font-size:3rem; font-weight:700; color:var(--fg);
-        cursor:pointer; display:flex; align-items:center; justify-content:center; transition:background .15s, transform .05s; }
-.cell:hover:not(:disabled) { background:var(--cell-hover); }
-.cell:active:not(:disabled) { transform:scale(.95); }
-.cell:disabled { cursor:default; }
-.cell.x { color:var(--x); }
-.cell.o { color:var(--o); }
-.cell.win { background:var(--accent); }
-.controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
-button.btn, select { background:var(--cell); color:var(--fg); border:1px solid var(--cell-hover); border-radius:8px;
-                      padding:8px 14px; font-size:.95rem; cursor:pointer; }
-button.btn:hover { background:var(--cell-hover); }
-.score { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
+body {
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 64px 16px 48px;
+  background:
+    radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%),
+    var(--wall);
+  color: var(--chalk); font-family: "Patrick Hand", "Comic Sans MS", cursive;
+}
+.defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
-/* Ultimate mode: a 3x3 grid of 3x3 sub-boards. Sized so the whole thing
-   lands close to the classic board's footprint (~304px). */
-#uboard { display:none; grid-template-columns:repeat(3,96px); grid-template-rows:repeat(3,96px); gap:8px; }
-.subboard { position:relative; display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
-            gap:3px; border-radius:8px; transition:box-shadow .15s, opacity .15s; }
-.subboard.active { box-shadow:0 0 0 2px var(--accent); }
-.subboard.locked .ucell { opacity:.55; }
-.ucell { background:var(--cell); border:none; border-radius:4px; font-size:1.15rem; font-weight:700; color:var(--fg);
-         cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;
-         transition:background .15s, transform .05s; }
-.ucell:hover:not(:disabled) { background:var(--cell-hover); }
-.ucell:active:not(:disabled) { transform:scale(.9); }
-.ucell:disabled { cursor:default; }
-.ucell.x { color:var(--x); }
-.ucell.o { color:var(--o); }
-.ucell.win { background:var(--accent); }
-.ucell.win .stroke { stroke:var(--bg); }
-/* Once a sub-board is decided, its mini-grid stays faintly visible
-   underneath (dimmed, not hidden) and a giant mark claims the whole
-   square on top — same idea as the main board's win state, scaled up. */
-.subboard.done .ucell { opacity:.22; }
-.subboard-mark { position:absolute; inset:0; display:none; align-items:center; justify-content:center;
-                  border-radius:8px; font-size:2.4rem; font-weight:800; }
-.subboard.done .subboard-mark { display:flex; }
-.subboard.done-x .subboard-mark { background:rgba(243,139,168,.3); color:var(--x); }
-.subboard.done-o .subboard-mark { background:rgba(166,227,161,.3); color:var(--o); }
-.subboard.done-draw .subboard-mark { background:rgba(108,112,134,.3); color:var(--draw); font-size:2rem; }
-.subboard-mark .mark { width:80%; height:80%; }
+/* ---- the slate ------------------------------------------------------------ */
+.slate {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  width: min(440px, 100%);
+  padding: 22px 12px 30px;
+  border-radius: 4px;
+  background:
+    var(--dust),
+    /* eraser smudges */
+    radial-gradient(ellipse 60% 30% at 25% 20%, rgba(238, 240, 230, 0.06), transparent 70%),
+    radial-gradient(ellipse 50% 25% at 80% 75%, rgba(238, 240, 230, 0.05), transparent 70%),
+    linear-gradient(170deg, var(--slate), var(--slate-2));
+  box-shadow:
+    inset 0 0 50px rgba(0, 0, 0, 0.45),
+    0 0 0 10px var(--oak), 0 0 0 12px var(--oak-dark),
+    0 22px 40px rgba(60, 40, 20, 0.45);
+}
+/* the chalk tray, with a stick of chalk, a pink one and an eraser */
+.slate::after {
+  content: ""; position: absolute; left: 12%; right: 12%; bottom: -26px; height: 14px;
+  border-radius: 0 0 5px 5px;
+  background:
+    linear-gradient(#fbfbf4, #d9dccf) 18% 1px / 34px 6px no-repeat,
+    linear-gradient(#ffc1cf, #e89aac) 30% 1px / 22px 6px no-repeat,
+    linear-gradient(#5b6470, #3b424c) 76% 0 / 52px 9px no-repeat,
+    linear-gradient(#caa06b, #caa06b) 76% 9px / 52px 3px no-repeat,
+    linear-gradient(180deg, #c08a53, var(--oak-dark));
+  box-shadow: 0 4px 8px rgba(60, 40, 20, 0.35);
+}
 
-/* drawn marks */
-.mark { width:78%; height:78%; }
-.stroke { fill:none; stroke-width:12; stroke-linecap:round; }
-.x .stroke { stroke:var(--x); }
-.o .stroke { stroke:var(--o); }
-.cell.win .stroke { stroke:var(--bg); }
-.mark.animate .stroke { stroke-dasharray:1; stroke-dashoffset:1; animation:draw .32s ease-out forwards; }
-.mark.animate .stroke.s2 { animation-delay:.16s; }
-@keyframes draw { to { stroke-dashoffset:0; } }
+h1 {
+  margin: 0; font-family: "Cabin Sketch", "Patrick Hand", cursive; font-weight: 700;
+  font-size: 2.6rem; line-height: 1; letter-spacing: 1px; color: var(--chalk);
+  transform: rotate(-1.5deg);
+}
+#status { font-size: 1.45rem; min-height: 1.5em; color: var(--accent); text-align: center; }
 
-/* rules modal */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
-                 align-items:center; justify-content:center; padding:20px; z-index:10; }
-.modal-overlay.open { display:flex; }
-.modal { background:var(--bg); border:1px solid var(--cell-hover); border-radius:14px; max-width:420px;
-         padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
-.modal h2 { margin:0 0 12px; }
-.modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
-.modal .btn { width:100%; }
+/* ---- classic board: a hand-drawn # ---------------------------------------- */
+/* initial display only: game.js sets display inline when a mode starts */
+#board {
+  display: grid; position: relative;
+  grid-template-columns: repeat(3, var(--c)); grid-template-rows: repeat(3, var(--c)); gap: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300' preserveAspectRatio='none'%3E%3Cfilter id='c' x='-5%25' y='-5%25' width='110%25' height='110%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='2' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='3' xChannelSelector='R' yChannelSelector='G' result='d'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' seed='6' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 1.7' result='h'/%3E%3CfeComposite in='d' in2='h' operator='in'/%3E%3C/filter%3E%3Cg filter='url(%23c)' fill='none' stroke='%23eef0e6' stroke-width='5' stroke-linecap='round' opacity='.9'%3E%3Cpath d='M101 10 C99 80 103 200 99 290'/%3E%3Cpath d='M199 8 C202 100 197 210 201 292'/%3E%3Cpath d='M10 101 C90 97 210 104 290 99'/%3E%3Cpath d='M8 199 C100 203 200 196 292 201'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.cell {
+  background: transparent; border: none; border-radius: 50%; padding: 0;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.05s;
+}
+.cell:hover:not(:disabled) { background: radial-gradient(circle, rgba(238, 240, 230, 0.09), transparent 68%); }
+.cell:active:not(:disabled) { transform: scale(0.95); }
+.cell:disabled { cursor: default; }
+
+/* the winning line, struck through in yellow chalk; game.js sets data-win
+   to the index of the line in LINES (rows, then columns, then diagonals) */
+#board[data-win]::after {
+  --len: calc(var(--c) * 2.75);
+  content: ""; position: absolute; pointer-events: none;
+  left: calc(50% - var(--len) / 2); top: calc(50% - 5px);
+  width: var(--len); height: 10px; border-radius: 6px;
+  background: var(--accent);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.6 0 0 0 2.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='40'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.6 0 0 0 2.1'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  opacity: 0.92;
+  animation: strike 0.35s ease-out;
+}
+#board[data-win="0"]::after { transform: translateY(calc(var(--c) * -1)) rotate(-1deg); }
+#board[data-win="1"]::after { transform: rotate(1deg); }
+#board[data-win="2"]::after { transform: translateY(var(--c)) rotate(-1deg); }
+#board[data-win="3"]::after { transform: translateX(calc(var(--c) * -1)) rotate(91deg); }
+#board[data-win="4"]::after { transform: rotate(89deg); }
+#board[data-win="5"]::after { transform: translateX(var(--c)) rotate(91deg); }
+#board[data-win="6"]::after { --len: calc(var(--c) * 3.7); transform: rotate(45deg); }
+#board[data-win="7"]::after { --len: calc(var(--c) * 3.7); transform: rotate(-45deg); }
+@keyframes strike { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+
+/* ---- controls + score ------------------------------------------------------ */
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+button.btn, select, .opt {
+  background: transparent; color: var(--chalk);
+  border: 2px solid var(--chalk-dim); border-radius: var(--wobble);
+  padding: 6px 16px; font-family: inherit; font-size: 1.15rem; font-weight: 400; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+button.btn:hover, .opt:hover { background: rgba(238, 240, 230, 0.08); border-color: var(--chalk); }
+button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-visible {
+  outline: 2px dashed var(--accent); outline-offset: 3px;
+}
+.score { display: flex; gap: 20px; font-size: 1.15rem; color: var(--chalk-dim); }
+.score b { font-weight: 400; color: var(--chalk); font-size: 1.3rem; }
+
+/* ---- Ultimate: a big # of nine little #s ---------------------------------- */
+#uboard {
+  display: none;
+  grid-template-columns: repeat(3, var(--c)); grid-template-rows: repeat(3, var(--c)); gap: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 300' preserveAspectRatio='none'%3E%3Cfilter id='c' x='-5%25' y='-5%25' width='110%25' height='110%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' seed='4' result='n'/%3E%3CfeDisplacementMap in='SourceGraphic' in2='n' scale='3' xChannelSelector='R' yChannelSelector='G' result='d'/%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.4' seed='6' result='g'/%3E%3CfeColorMatrix in='g' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2.2 1.7' result='h'/%3E%3CfeComposite in='d' in2='h' operator='in'/%3E%3C/filter%3E%3Cg filter='url(%23c)' fill='none' stroke='%23eef0e6' stroke-width='6' stroke-linecap='round' opacity='.85'%3E%3Cpath d='M100 4 C99 80 102 200 100 296'/%3E%3Cpath d='M200 3 C201 100 198 210 200 297'/%3E%3Cpath d='M4 100 C90 98 210 102 296 100'/%3E%3Cpath d='M3 200 C100 202 200 198 297 200'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+}
+.subboard {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); gap: 0;
+  margin: 7px; border-radius: 6px; transition: background 0.15s;
+}
+/* the small # lives on a pseudo-element so locked and decided boards can
+   fade their lines, not just their marks */
+.subboard::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90' preserveAspectRatio='none'%3E%3Cg fill='none' stroke='%23eef0e6' stroke-width='1.6' stroke-linecap='round' opacity='.75'%3E%3Cpath d='M30 3 C29 30 31 60 30 87'/%3E%3Cpath d='M60 3 C61 30 59 60 60 87'/%3E%3Cpath d='M3 30 C30 29 60 31 87 30'/%3E%3Cpath d='M3 60 C30 61 60 59 87 60'/%3E%3C/g%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transition: opacity 0.15s;
+}
+.subboard.locked::before { opacity: 0.35; }
+.subboard.done::before { opacity: 0.12; }
+/* where you must play: a dashed yellow box drawn around it */
+.subboard.active { background: rgba(243, 221, 122, 0.08); }
+.subboard.active::after {
+  content: ""; position: absolute; inset: -4px; z-index: 3; pointer-events: none;
+  border: 2px dashed var(--accent); border-radius: var(--wobble);
+}
+.subboard.locked .ucell { opacity: 0.45; }
+.ucell {
+  position: relative; z-index: 1;
+  background: transparent; border: none; border-radius: 50%; padding: 0;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s, transform 0.05s;
+}
+.ucell:hover:not(:disabled) { background: radial-gradient(circle, rgba(238, 240, 230, 0.12), transparent 70%); }
+.ucell:active:not(:disabled) { transform: scale(0.9); }
+.ucell:disabled { cursor: default; }
+/* once a small board is decided its grid fades and a big mark claims it */
+.subboard.done .ucell { opacity: 0.15; }
+.subboard-mark {
+  position: absolute; inset: 0; z-index: 2; display: none; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 2.4rem;
+}
+.subboard.done .subboard-mark { display: flex; }
+.subboard.done-x .subboard-mark { background: radial-gradient(circle, rgba(247, 166, 184, 0.12), transparent 70%); }
+.subboard.done-o .subboard-mark { background: radial-gradient(circle, rgba(159, 212, 247, 0.12), transparent 70%); }
+.subboard.done-draw .subboard-mark { color: var(--draw); font-size: 3.2rem; }
+.subboard-mark .mark { width: 84%; height: 84%; }
+
+/* ---- drawn marks ------------------------------------------------------------ */
+.mark { width: 76%; height: 76%; overflow: visible; }
+.stroke { fill: none; stroke-width: 11; stroke-linecap: round; filter: url(#chalk); }
+.ucell .stroke { stroke-width: 13; filter: url(#chalk-sm); }
+.x .stroke, .done-x .stroke { stroke: var(--x); }
+.o .stroke, .done-o .stroke { stroke: var(--o); }
+.mark.animate .stroke { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.32s ease-out forwards; }
+.mark.animate .stroke.s2 { animation-delay: 0.16s; }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+
+/* ---- modals: a smaller slate ----------------------------------------------- */
+.modal-overlay {
+  position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+  padding: 28px; z-index: 10; background: rgba(40, 30, 18, 0.55);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  max-width: 420px; padding: 24px 26px; border-radius: 4px; color: var(--chalk);
+  background: var(--dust), linear-gradient(170deg, var(--slate), var(--slate-2));
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 0 8px var(--oak), 0 0 0 10px var(--oak-dark), 0 20px 40px rgba(40, 25, 10, 0.5);
+}
+.modal h2 { margin: 0 0 12px; font-family: "Cabin Sketch", "Patrick Hand", cursive; font-weight: 700; font-size: 2rem; }
+.modal p { line-height: 1.45; margin: 0 0 18px; font-size: 1.15rem; }
+.modal b { font-weight: 400; color: var(--accent); }
+.modal .btn { width: 100%; }
 /* mode-select overlay (choose game mode before the game starts) */
-.mode-group { margin:0 0 16px; }
-.mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
-.opts { display:flex; flex-direction:column; gap:8px; }  /* difficulty stacks vertically */
-.opt { background:var(--cell); color:var(--fg); border:1px solid var(--cell-hover);
-       border-radius:8px; padding:9px 12px; font-size:.92rem; font-weight:700; font-family:inherit; cursor:pointer; }
-.opt:hover { background:var(--cell-hover); }
-/* Selected state is color/background only — font-weight stays constant so
-   selecting a longer label (e.g. "Ultimate (9x9)") never makes it wider
-   and reflows the modal's width. */
-.opt.sel { background:var(--accent); color:var(--bg); border-color:var(--accent); }
-#startGame { width:100%; margin-top:6px; }
-#modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
-#modeModal .modal { background:var(--cell); }
+.mode-group { margin: 0 0 16px; }
+.mode-label { font-size: 1rem; color: var(--chalk-dim); margin-bottom: 8px; letter-spacing: 0.04em; }
+.opts { display: flex; flex-direction: column; gap: 8px; }  /* difficulty stacks vertically */
+/* Selected state is colour only — border width and font weight stay
+   constant so picking a longer label never reflows the modal's width. */
+.opt.sel { background: rgba(243, 221, 122, 0.14); border-color: var(--accent); color: var(--accent); }
+#startGame { width: 100%; margin-top: 6px; border-color: var(--chalk); }
+#modeModal { background: radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%), var(--wall); }   /* opaque start screen — hide game chrome behind it */
+
+/* short screens: pull everything in so the whole slate fits without
+   scrolling, as the plain version did */
+@media (max-height: 740px) {
+  body { padding: 52px 10px 36px; }
+  .slate { gap: 8px; padding: 12px 10px 18px; }
+  h1 { font-size: 1.9rem; }
+  #status { font-size: 1.1rem; }
+  button.btn { font-size: 1rem; padding: 3px 12px; }
+  .score { font-size: 1rem; }
+  .score b { font-size: 1.1rem; }
+}
+
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {
