@@ -1,26 +1,100 @@
       @import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap");
-      /* A frozen lake on a winter day: a pale snowy page, frosted-glass cards,
-         and the board as a window onto dark lake ice where the blocks are
-         coloured ice (drawn in game.js's Renderer). The lake stays dark so the
-         five block colours and the canvas banners keep their contrast. */
+      /* A frozen lake on a winter day. The page is the scene: a pale sky, a
+         misty far shore of pines, snow-covered pines at the edges, and the lake
+         itself running down the page under the game, snow-dusted ice with
+         cracks, skate trails, trapped bubbles and drifts, with snow falling.
+         Cards are frosted, with snow piled on top and icicles underneath. Each
+         board is a window onto dark clear ice where the blocks are coloured
+         ice (drawn in game.js's Renderer). That ice stays dark so the five
+         block colours and the canvas banners keep their contrast. */
       :root {
-        --bg: #e6f3fb; --panel: rgba(255, 255, 255, 0.82); --text: #16324f; --muted: #52708c;
+        --bg: #e6f3fb; --panel: rgba(243, 250, 255, 0.9); --text: #16324f; --muted: #46657f;
         --accent: #2f8fe0; --ice: #5ec8ff; --line: rgba(22, 50, 79, 0.18);
         --warn: #b86e00; --danger: #d9434a; --wins: #5b45c9;
+        /* where the far shore meets the ice: between the subtitle and the
+           Menu / Pause row, so no text sits on the dark pines */
+        --horizon: 86px;
+        /* the near pines in each corner, and the far shore's tile */
+        --pine-w: 240px; --pine-h: 190px; --pine-x: -34px;
+        --shore-w: 720px; --shore-h: 64px;
+        /* scenery, as SVG images. html paints the sky and shores, body::before the lake */
+        --shore: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='720' height='64' viewBox='0 0 720 64'%3E%3Cpath fill='%23d8e9f5' d='M0 64V38C90 24 170 30 240 36S400 22 480 32S640 28 720 38V64Z'/%3E%3Cpath fill='%23b3cadc' d='M233.2 47.6 L234.5 51.9 L233.8 52.2 L235.4 56 L234.3 56.3 L236.5 59.5 L233.6 59.5 L233.6 60.3 L232.8 60.3 L232.8 59.5 L229.9 59.5 L232 56.3 L230.9 56 L232.5 52.2 L231.8 51.9ZM52.2 42.8 L53.9 48.6 L53 48.9 L55.1 54 L53.7 54.3 L56.5 58.7 L52.7 58.7 L52.7 59.7 L51.6 59.7 L51.6 58.7 L47.8 58.7 L50.6 54.3 L49.2 54 L51.3 48.9 L50.4 48.6ZM41.8 42.5 L43.5 48.1 L42.6 48.5 L44.7 53.4 L43.3 53.8 L46.1 58.1 L42.3 58.1 L42.3 59.1 L41.2 59.1 L41.2 58.1 L37.4 58.1 L40.2 53.8 L38.8 53.4 L40.9 48.5 L40 48.1ZM312.2 47.4 L313.4 51.4 L312.8 51.6 L314.3 55.2 L313.3 55.4 L315.3 58.5 L312.6 58.5 L312.6 59.2 L311.9 59.2 L311.9 58.5 L309.2 58.5 L311.1 55.4 L310.1 55.2 L311.6 51.6 L311 51.4ZM305.7 39.2 L307.7 46 L306.7 46.4 L309.2 52.4 L307.5 52.8 L310.9 58 L306.3 58 L306.3 59.2 L305 59.2 L305 58 L300.4 58 L303.8 52.8 L302.1 52.4 L304.6 46.4 L303.6 46ZM160.7 43 L162.6 49.1 L161.7 49.4 L163.9 54.8 L162.4 55.2 L165.4 59.8 L161.3 59.8 L161.3 60.9 L160.2 60.9 L160.2 59.8 L156.1 59.8 L159.1 55.2 L157.6 54.8 L159.8 49.4 L158.9 49.1ZM415.5 45.6 L417.1 50.8 L416.3 51.1 L418.2 55.7 L417 56 L419.5 60 L416 60 L416 61 L415 61 L415 60 L411.5 60 L414.1 56 L412.8 55.7 L414.7 51.1 L413.9 50.8ZM33.5 39.1 L35.7 46.1 L34.6 46.5 L37.2 52.6 L35.5 53 L38.9 58.4 L34.2 58.4 L34.2 59.6 L32.9 59.6 L32.9 58.4 L28.2 58.4 L31.6 53 L29.9 52.6 L32.5 46.5 L31.4 46.1ZM103.9 47.3 L105.1 51.5 L104.5 51.7 L106 55.4 L105 55.7 L107.1 58.9 L104.2 58.9 L104.2 59.6 L103.5 59.6 L103.5 58.9 L100.7 58.9 L102.7 55.7 L101.7 55.4 L103.2 51.7 L102.6 51.5ZM587.6 47.2 L589 51.6 L588.3 51.9 L589.9 55.7 L588.8 56 L591 59.4 L588 59.4 L588 60.2 L587.2 60.2 L587.2 59.4 L584.2 59.4 L586.4 56 L585.3 55.7 L586.9 51.9 L586.3 51.6ZM460 45 L461.6 50.1 L460.8 50.4 L462.7 55 L461.4 55.3 L463.9 59.2 L460.5 59.2 L460.5 60.1 L459.5 60.1 L459.5 59.2 L456.1 59.2 L458.6 55.3 L457.3 55 L459.2 50.4 L458.4 50.1ZM45.2 47.8 L46.4 51.7 L45.8 52 L47.3 55.4 L46.3 55.7 L48.2 58.7 L45.6 58.7 L45.6 59.4 L44.8 59.4 L44.8 58.7 L42.2 58.7 L44.1 55.7 L43.1 55.4 L44.6 52 L44 51.7ZM489.9 43.9 L491.5 49.3 L490.7 49.6 L492.7 54.3 L491.4 54.6 L494 58.7 L490.4 58.7 L490.4 59.6 L489.4 59.6 L489.4 58.7 L485.8 58.7 L488.4 54.6 L487.1 54.3 L489.1 49.6 L488.3 49.3ZM421.6 43.6 L423.3 49 L422.4 49.4 L424.4 54.2 L423.1 54.5 L425.8 58.6 L422.1 58.6 L422.1 59.6 L421.1 59.6 L421.1 58.6 L417.4 58.6 L420.1 54.5 L418.8 54.2 L420.8 49.4 L419.9 49ZM572 40.8 L573.9 47.2 L572.9 47.5 L575.3 53.1 L573.7 53.5 L576.8 58.4 L572.5 58.4 L572.5 59.5 L571.4 59.5 L571.4 58.4 L567.1 58.4 L570.2 53.5 L568.6 53.1 L571 47.5 L570 47.2ZM413.6 44 L415.3 49.7 L414.5 50 L416.6 55 L415.2 55.4 L417.9 59.7 L414.1 59.7 L414.1 60.8 L413.1 60.8 L413.1 59.7 L409.2 59.7 L412 55.4 L410.6 55 L412.7 50 L411.8 49.7ZM525.2 46.8 L526.7 51.6 L525.9 51.9 L527.7 56.1 L526.5 56.4 L528.9 60.1 L525.6 60.1 L525.6 61 L524.8 61 L524.8 60.1 L521.5 60.1 L523.9 56.4 L522.7 56.1 L524.5 51.9 L523.7 51.6ZM85 44.9 L86.6 50.2 L85.8 50.5 L87.8 55.2 L86.5 55.5 L89.1 59.6 L85.5 59.6 L85.5 60.5 L84.5 60.5 L84.5 59.6 L81 59.6 L83.5 55.5 L82.2 55.2 L84.2 50.5 L83.4 50.2ZM109.4 42.7 L111.1 48.3 L110.3 48.6 L112.3 53.5 L111 53.8 L113.7 58.1 L109.9 58.1 L109.9 59.1 L108.9 59.1 L108.9 58.1 L105.2 58.1 L107.9 53.8 L106.5 53.5 L108.6 48.6 L107.7 48.3ZM481.1 40.7 L483.1 47.3 L482.1 47.7 L484.5 53.5 L482.9 53.9 L486.2 59 L481.7 59 L481.7 60.1 L480.5 60.1 L480.5 59 L476.1 59 L479.3 53.9 L477.7 53.5 L480.1 47.7 L479.1 47.3ZM630.3 45.9 L631.8 50.9 L631.1 51.1 L632.9 55.5 L631.7 55.8 L634.1 59.5 L630.8 59.5 L630.8 60.4 L629.9 60.4 L629.9 59.5 L626.6 59.5 L629 55.8 L627.8 55.5 L629.6 51.1 L628.8 50.9ZM427.9 42.5 L429.8 48.4 L428.9 48.8 L431 54 L429.6 54.4 L432.5 58.9 L428.5 58.9 L428.5 59.9 L427.4 59.9 L427.4 58.9 L423.4 58.9 L426.3 54.4 L424.9 54 L427 48.8 L426.1 48.4ZM604.8 38.6 L607 45.8 L605.9 46.3 L608.6 52.7 L606.8 53.1 L610.3 58.7 L605.4 58.7 L605.4 59.9 L604.1 59.9 L604.1 58.7 L599.2 58.7 L602.8 53.1 L601 52.7 L603.7 46.3 L602.6 45.8ZM478.2 48.7 L479.4 52.7 L478.8 52.9 L480.3 56.4 L479.3 56.7 L481.2 59.7 L478.6 59.7 L478.6 60.4 L477.8 60.4 L477.8 59.7 L475.2 59.7 L477.1 56.7 L476.1 56.4 L477.6 52.9 L477 52.7ZM465.9 38.7 L468.2 46.2 L467.1 46.6 L469.8 53.2 L468 53.6 L471.6 59.3 L466.6 59.3 L466.6 60.6 L465.2 60.6 L465.2 59.3 L460.2 59.3 L463.9 53.6 L462.1 53.2 L464.8 46.6 L463.7 46.2ZM204.9 45.1 L206.5 50.3 L205.7 50.6 L207.6 55.2 L206.3 55.5 L208.9 59.4 L205.4 59.4 L205.4 60.3 L204.4 60.3 L204.4 59.4 L200.9 59.4 L203.5 55.5 L202.2 55.2 L204.1 50.6 L203.3 50.3ZM16.2 43.3 L17.9 48.7 L17.1 49 L19.1 53.9 L17.8 54.2 L20.4 58.4 L16.7 58.4 L16.7 59.3 L15.7 59.3 L15.7 58.4 L12.1 58.4 L14.7 54.2 L13.4 53.9 L15.4 49 L14.6 48.7ZM736.2 43.3 L737.9 48.7 L737.1 49 L739.1 53.9 L737.8 54.2 L740.4 58.4 L736.7 58.4 L736.7 59.3 L735.7 59.3 L735.7 58.4 L732.1 58.4 L734.7 54.2 L733.4 53.9 L735.4 49 L734.6 48.7ZM84.3 48.9 L85.5 52.8 L84.9 53.1 L86.4 56.6 L85.4 56.8 L87.3 59.8 L84.7 59.8 L84.7 60.5 L83.9 60.5 L83.9 59.8 L81.3 59.8 L83.2 56.8 L82.2 56.6 L83.7 53.1 L83.1 52.8ZM93.1 46.1 L94.6 50.7 L93.8 51 L95.6 55.1 L94.4 55.4 L96.7 59 L93.6 59 L93.6 59.8 L92.7 59.8 L92.7 59 L89.6 59 L91.8 55.4 L90.7 55.1 L92.4 51 L91.7 50.7ZM627.4 48 L628.7 52.1 L628 52.3 L629.5 55.9 L628.5 56.1 L630.5 59.2 L627.8 59.2 L627.8 59.9 L627.1 59.9 L627.1 59.2 L624.3 59.2 L626.3 56.1 L625.3 55.9 L626.8 52.3 L626.2 52.1Z'/%3E%3Cpath fill='%238eaec6' d='M395.6 31.5 L398.9 42.4 L397.3 43.1 L401.3 52.7 L398.6 53.4 L404 61.7 L396.6 61.7 L396.6 63.6 L394.6 63.6 L394.6 61.7 L387.2 61.7 L392.6 53.4 L389.9 52.7 L393.9 43.1 L392.3 42.4ZM622.1 40.4 L624.4 48 L623.2 48.5 L626 55.2 L624.2 55.6 L627.9 61.5 L622.8 61.5 L622.8 62.8 L621.4 62.8 L621.4 61.5 L616.2 61.5 L620 55.6 L618.1 55.2 L620.9 48.5 L619.7 48ZM258.3 31.8 L261.7 42.7 L260 43.3 L264 53 L261.3 53.6 L266.7 62 L259.3 62 L259.3 63.9 L257.3 63.9 L257.3 62 L250 62 L255.3 53.6 L252.6 53 L256.6 43.3 L255 42.7ZM108.7 41.6 L110.8 48.7 L109.7 49.1 L112.3 55.4 L110.6 55.8 L114.1 61.2 L109.3 61.2 L109.3 62.5 L108 62.5 L108 61.2 L103.2 61.2 L106.7 55.8 L105 55.4 L107.6 49.1 L106.5 48.7ZM168 37.4 L170.7 46.2 L169.3 46.7 L172.6 54.4 L170.4 54.9 L174.7 61.6 L168.8 61.6 L168.8 63.2 L167.2 63.2 L167.2 61.6 L161.3 61.6 L165.6 54.9 L163.4 54.4 L166.7 46.7 L165.3 46.2ZM189.2 44.8 L191.1 50.9 L190.1 51.3 L192.4 56.7 L190.9 57.1 L193.9 61.8 L189.7 61.8 L189.7 62.8 L188.6 62.8 L188.6 61.8 L184.5 61.8 L187.5 57.1 L186 56.7 L188.2 51.3 L187.3 50.9ZM265.9 36.8 L268.7 46 L267.3 46.6 L270.6 54.7 L268.4 55.2 L272.9 62.3 L266.7 62.3 L266.7 63.9 L265 63.9 L265 62.3 L258.8 62.3 L263.3 55.2 L261.1 54.7 L264.5 46.6 L263 46ZM497.2 37 L499.9 45.9 L498.5 46.4 L501.8 54.3 L499.6 54.8 L504 61.7 L498 61.7 L498 63.2 L496.3 63.2 L496.3 61.7 L490.3 61.7 L494.7 54.8 L492.5 54.3 L495.8 46.4 L494.4 45.9ZM486.9 44.9 L488.8 51.3 L487.8 51.7 L490.2 57.4 L488.6 57.8 L491.8 62.7 L487.5 62.7 L487.5 63.8 L486.3 63.8 L486.3 62.7 L482 62.7 L485.1 57.8 L483.5 57.4 L485.9 51.7 L484.9 51.3ZM561.6 31.6 L564.9 42.5 L563.2 43.1 L567.2 52.7 L564.6 53.4 L569.9 61.7 L562.6 61.7 L562.6 63.6 L560.6 63.6 L560.6 61.7 L553.3 61.7 L558.6 53.4 L555.9 52.7 L559.9 43.1 L558.3 42.5ZM282.5 37.8 L285 46.1 L283.8 46.6 L286.8 53.9 L284.8 54.4 L288.9 60.7 L283.3 60.7 L283.3 62.2 L281.8 62.2 L281.8 60.7 L276.2 60.7 L280.2 54.4 L278.2 53.9 L281.2 46.6 L280 46.1ZM456.7 43.1 L458.7 49.6 L457.7 50 L460 55.7 L458.5 56.1 L461.6 61 L457.3 61 L457.3 62.1 L456.1 62.1 L456.1 61 L451.7 61 L454.9 56.1 L453.3 55.7 L455.7 50 L454.7 49.6ZM150.3 42.1 L152.5 49.1 L151.4 49.5 L154 55.7 L152.2 56.1 L155.7 61.4 L151 61.4 L151 62.7 L149.7 62.7 L149.7 61.4 L145 61.4 L148.4 56.1 L146.7 55.7 L149.2 49.5 L148.2 49.1ZM37.9 44.3 L39.7 50.4 L38.8 50.8 L41 56.2 L39.5 56.5 L42.5 61.2 L38.4 61.2 L38.4 62.3 L37.3 62.3 L37.3 61.2 L33.2 61.2 L36.2 56.5 L34.7 56.2 L36.9 50.8 L36 50.4ZM73.1 38.2 L75.5 46.3 L74.3 46.8 L77.3 54 L75.3 54.4 L79.2 60.6 L73.8 60.6 L73.8 62.1 L72.3 62.1 L72.3 60.6 L66.9 60.6 L70.8 54.4 L68.8 54 L71.8 46.8 L70.6 46.3Z'/%3E%3Cpath fill='%23f4f9fd' d='M0 64V59C60 56 120 61 180 58S300 56 360 59S480 61 540 58S660 56 720 59V64Z'/%3E%3C/svg%3E");
+        --pines-l: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='190' viewBox='0 0 240 190'%3E%3Cg%3E%3Cpath fill='%233a6a84' d='M70 11 L87.2 67.1 L78.6 70.4 L99.2 119.9 L85.4 123.2 L112.9 166.1 L75.1 166.1 L75.1 176 L64.9 176 L64.9 166.1 L27.1 166.1 L54.6 123.2 L40.8 119.9 L61.4 70.4 L52.8 67.1Z'/%3E%3Cpath fill='%23f7fbfe' d='M70 11 L77.7 37.4 L72.6 40.7 L68.3 34.1 L62.3 39.1ZM84.6 110 q8.6 -8.2 17.2 0 q-8.6 3.3 -17.2 0ZM38.3 110 q8.6 -8.2 17.2 0 q-8.6 3.3 -17.2 0ZM92.3 156.2 q10.3 -8.2 20.6 0 q-10.3 3.3 -20.6 0ZM27.1 156.2 q10.3 -8.2 20.6 0 q-10.3 3.3 -20.6 0Z'/%3E%3Cpath fill='%232f5b73' d='M150 56 L162.5 96.8 L156.2 99.2 L171.2 135.2 L161.2 137.6 L181.2 168.8 L153.7 168.8 L153.7 176 L146.3 176 L146.3 168.8 L118.8 168.8 L138.8 137.6 L128.8 135.2 L143.8 99.2 L137.5 96.8Z'/%3E%3Cpath fill='%23f7fbfe' d='M150 56 L155.6 75.2 L151.9 77.6 L148.8 72.8 L144.4 76.4ZM160.6 128 q6.2 -6 12.5 0 q-6.2 2.4 -12.5 0ZM126.9 128 q6.2 -6 12.5 0 q-6.2 2.4 -12.5 0ZM166.2 161.6 q7.5 -6 15 0 q-7.5 2.4 -15 0ZM118.8 161.6 q7.5 -6 15 0 q-7.5 2.4 -15 0Z'/%3E%3Cpath fill='%2344768f' d='M28 66 L39.4 103.4 L33.7 105.6 L47.4 138.6 L38.3 140.8 L56.6 169.4 L31.4 169.4 L31.4 176 L24.6 176 L24.6 169.4 L-0.6 169.4 L17.7 140.8 L8.6 138.6 L22.3 105.6 L16.6 103.4Z'/%3E%3Cpath fill='%23f7fbfe' d='M28 66 L33.1 83.6 L29.7 85.8 L26.9 81.4 L22.9 84.7ZM37.7 132 q5.7 -5.5 11.4 0 q-5.7 2.2 -11.4 0ZM6.8 132 q5.7 -5.5 11.4 0 q-5.7 2.2 -11.4 0ZM42.9 162.8 q6.9 -5.5 13.7 0 q-6.9 2.2 -13.7 0ZM-0.6 162.8 q6.9 -5.5 13.7 0 q-6.9 2.2 -13.7 0Z'/%3E%3Cpath fill='%2335637b' d='M205 96 L213.3 123.2 L209.2 124.8 L219.1 148.8 L212.5 150.4 L225.8 171.2 L207.5 171.2 L207.5 176 L202.5 176 L202.5 171.2 L184.2 171.2 L197.5 150.4 L190.9 148.8 L200.8 124.8 L196.7 123.2Z'/%3E%3Cpath fill='%23f7fbfe' d='M205 96 L208.7 108.8 L206.2 110.4 L204.2 107.2 L201.3 109.6ZM212.1 144 q4.2 -4 8.3 0 q-4.2 1.6 -8.3 0ZM189.6 144 q4.2 -4 8.3 0 q-4.2 1.6 -8.3 0ZM215.8 166.4 q5 -4 10 0 q-5 1.6 -10 0ZM184.2 166.4 q5 -4 10 0 q-5 1.6 -10 0Z'/%3E%3Cpath fill='%234a7c95' d='M110 106 L117.3 129.8 L113.6 131.2 L122.4 152.2 L116.6 153.6 L128.2 171.8 L112.2 171.8 L112.2 176 L107.8 176 L107.8 171.8 L91.8 171.8 L103.4 153.6 L97.6 152.2 L106.4 131.2 L102.7 129.8Z'/%3E%3Cpath fill='%23f7fbfe' d='M110 106 L113.3 117.2 L111.1 118.6 L109.3 115.8 L106.7 117.9ZM116.2 148 q3.6 -3.5 7.3 0 q-3.6 1.4 -7.3 0ZM96.5 148 q3.6 -3.5 7.3 0 q-3.6 1.4 -7.3 0ZM119.5 167.6 q4.4 -3.5 8.7 0 q-4.4 1.4 -8.7 0ZM91.8 167.6 q4.4 -3.5 8.7 0 q-4.4 1.4 -8.7 0Z'/%3E%3Cpath fill='%23f4f9fd' d='M0 190V172C40 164 90 170 130 175S210 168 240 176V190Z'/%3E%3Cpath fill='none' stroke='%23cfe3f0' stroke-width='2' d='M0 184C60 178 150 186 240 182'/%3E%3C/g%3E%3C/svg%3E");
+        --pines-r: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='190' viewBox='0 0 240 190'%3E%3Cg transform='translate(240 0) scale(-1 1)'%3E%3Cpath fill='%233a6a84' d='M70 11 L87.2 67.1 L78.6 70.4 L99.2 119.9 L85.4 123.2 L112.9 166.1 L75.1 166.1 L75.1 176 L64.9 176 L64.9 166.1 L27.1 166.1 L54.6 123.2 L40.8 119.9 L61.4 70.4 L52.8 67.1Z'/%3E%3Cpath fill='%23f7fbfe' d='M70 11 L77.7 37.4 L72.6 40.7 L68.3 34.1 L62.3 39.1ZM84.6 110 q8.6 -8.2 17.2 0 q-8.6 3.3 -17.2 0ZM38.3 110 q8.6 -8.2 17.2 0 q-8.6 3.3 -17.2 0ZM92.3 156.2 q10.3 -8.2 20.6 0 q-10.3 3.3 -20.6 0ZM27.1 156.2 q10.3 -8.2 20.6 0 q-10.3 3.3 -20.6 0Z'/%3E%3Cpath fill='%232f5b73' d='M150 56 L162.5 96.8 L156.2 99.2 L171.2 135.2 L161.2 137.6 L181.2 168.8 L153.7 168.8 L153.7 176 L146.3 176 L146.3 168.8 L118.8 168.8 L138.8 137.6 L128.8 135.2 L143.8 99.2 L137.5 96.8Z'/%3E%3Cpath fill='%23f7fbfe' d='M150 56 L155.6 75.2 L151.9 77.6 L148.8 72.8 L144.4 76.4ZM160.6 128 q6.2 -6 12.5 0 q-6.2 2.4 -12.5 0ZM126.9 128 q6.2 -6 12.5 0 q-6.2 2.4 -12.5 0ZM166.2 161.6 q7.5 -6 15 0 q-7.5 2.4 -15 0ZM118.8 161.6 q7.5 -6 15 0 q-7.5 2.4 -15 0Z'/%3E%3Cpath fill='%2344768f' d='M28 66 L39.4 103.4 L33.7 105.6 L47.4 138.6 L38.3 140.8 L56.6 169.4 L31.4 169.4 L31.4 176 L24.6 176 L24.6 169.4 L-0.6 169.4 L17.7 140.8 L8.6 138.6 L22.3 105.6 L16.6 103.4Z'/%3E%3Cpath fill='%23f7fbfe' d='M28 66 L33.1 83.6 L29.7 85.8 L26.9 81.4 L22.9 84.7ZM37.7 132 q5.7 -5.5 11.4 0 q-5.7 2.2 -11.4 0ZM6.8 132 q5.7 -5.5 11.4 0 q-5.7 2.2 -11.4 0ZM42.9 162.8 q6.9 -5.5 13.7 0 q-6.9 2.2 -13.7 0ZM-0.6 162.8 q6.9 -5.5 13.7 0 q-6.9 2.2 -13.7 0Z'/%3E%3Cpath fill='%2335637b' d='M205 96 L213.3 123.2 L209.2 124.8 L219.1 148.8 L212.5 150.4 L225.8 171.2 L207.5 171.2 L207.5 176 L202.5 176 L202.5 171.2 L184.2 171.2 L197.5 150.4 L190.9 148.8 L200.8 124.8 L196.7 123.2Z'/%3E%3Cpath fill='%23f7fbfe' d='M205 96 L208.7 108.8 L206.2 110.4 L204.2 107.2 L201.3 109.6ZM212.1 144 q4.2 -4 8.3 0 q-4.2 1.6 -8.3 0ZM189.6 144 q4.2 -4 8.3 0 q-4.2 1.6 -8.3 0ZM215.8 166.4 q5 -4 10 0 q-5 1.6 -10 0ZM184.2 166.4 q5 -4 10 0 q-5 1.6 -10 0Z'/%3E%3Cpath fill='%234a7c95' d='M110 106 L117.3 129.8 L113.6 131.2 L122.4 152.2 L116.6 153.6 L128.2 171.8 L112.2 171.8 L112.2 176 L107.8 176 L107.8 171.8 L91.8 171.8 L103.4 153.6 L97.6 152.2 L106.4 131.2 L102.7 129.8Z'/%3E%3Cpath fill='%23f7fbfe' d='M110 106 L113.3 117.2 L111.1 118.6 L109.3 115.8 L106.7 117.9ZM116.2 148 q3.6 -3.5 7.3 0 q-3.6 1.4 -7.3 0ZM96.5 148 q3.6 -3.5 7.3 0 q-3.6 1.4 -7.3 0ZM119.5 167.6 q4.4 -3.5 8.7 0 q-4.4 1.4 -8.7 0ZM91.8 167.6 q4.4 -3.5 8.7 0 q-4.4 1.4 -8.7 0Z'/%3E%3Cpath fill='%23f4f9fd' d='M0 190V172C40 164 90 170 130 175S210 168 240 176V190Z'/%3E%3Cpath fill='none' stroke='%23cfe3f0' stroke-width='2' d='M0 184C60 178 150 186 240 182'/%3E%3C/g%3E%3C/svg%3E");
+        --cracks: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='460' height='380' viewBox='0 0 460 380'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cg stroke='%237fabcb' stroke-opacity='.45' stroke-width='1.1'%3E%3Cpath d='M-10 96L46 110L88 84L150 122L196 104'/%3E%3Cpath d='M88 84L80 36L104 8'/%3E%3Cpath d='M150 122L160 168'/%3E%3Cpath d='M250 262L300 236L360 270L420 252L470 266'/%3E%3Cpath d='M300 236L318 182L372 168'/%3E%3Cpath d='M360 270L352 318'/%3E%3Cpath d='M30 330L80 312L112 342'/%3E%3C/g%3E%3Cg stroke='%23ffffff' stroke-opacity='.7' stroke-width='1'%3E%3Cpath d='M-10 98L46 112L88 86L150 124L196 106'/%3E%3Cpath d='M250 264L300 238L360 272L420 254L470 268'/%3E%3Cpath d='M300 238L318 184L372 170'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        --skate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='640' viewBox='0 0 900 640'%3E%3Cg fill='none' stroke-linecap='round'%3E%3Cg stroke='%23ffffff' stroke-opacity='.75' stroke-width='1.4'%3E%3Cpath d='M40 520C180 440 300 470 380 400S420 240 560 230S760 330 860 250'/%3E%3Cpath d='M470 600C520 520 640 520 660 580S560 650 520 600S560 470 700 470'/%3E%3Cpath d='M120 120C220 60 330 110 300 170S160 190 190 120S380 40 470 90'/%3E%3C/g%3E%3Cg stroke='%238fb8d6' stroke-opacity='.35' stroke-width='1'%3E%3Cpath d='M40 523C180 443 300 473 380 403S420 243 560 233S760 333 860 253'/%3E%3Cpath d='M120 123C220 63 330 113 300 173S160 193 190 123S380 43 470 93'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        --bubbles: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='620' height='520' viewBox='0 0 620 520'%3E%3Cg fill='%23ffffff' fill-opacity='.6' stroke='%239cc5e2' stroke-opacity='.55' stroke-width='.8'%3E%3Cellipse cx='92.3' cy='60' rx='7.4' ry='4.1'/%3E%3Cellipse cx='86.9' cy='66.1' rx='4.6' ry='2.5'/%3E%3Cellipse cx='97' cy='76' rx='4.1' ry='2.2'/%3E%3Cellipse cx='89.7' cy='75.8' rx='5.6' ry='3.1'/%3E%3Cellipse cx='86.9' cy='83.2' rx='4' ry='2.2'/%3E%3Cellipse cx='423.2' cy='330' rx='7.2' ry='4'/%3E%3Cellipse cx='430.6' cy='335.4' rx='7.8' ry='4.3'/%3E%3Cellipse cx='420.5' cy='343.2' rx='5.9' ry='3.3'/%3E%3Cellipse cx='437.3' cy='351.3' rx='7.9' ry='4.3'/%3E%3Cellipse cx='427.3' cy='352' rx='4.7' ry='2.6'/%3E%3Cellipse cx='430.7' cy='366.7' rx='7' ry='3.8'/%3E%3Cellipse cx='244.5' cy='440' rx='5' ry='2.7'/%3E%3Cellipse cx='257.1' cy='447.4' rx='7.9' ry='4.4'/%3E%3Cellipse cx='254.8' cy='451.4' rx='7.2' ry='4'/%3E%3Cellipse cx='537.1' cy='120' rx='5.8' ry='3.2'/%3E%3Cellipse cx='535.6' cy='125.8' rx='3.6' ry='2'/%3E%3Cellipse cx='549.1' cy='132.7' rx='6.6' ry='3.6'/%3E%3Cellipse cx='549.8' cy='143.6' rx='7.7' ry='4.2'/%3E%3C/g%3E%3C/svg%3E");
+        --drift: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1100' height='720' viewBox='0 0 1100 720'%3E%3Cdefs%3E%3CradialGradient id='d'%3E%3Cstop offset='0' stop-color='%23fff' stop-opacity='.75'/%3E%3Cstop offset='1' stop-color='%23fff' stop-opacity='0'/%3E%3C/radialGradient%3E%3C/defs%3E%3Cg fill='url(%23d)'%3E%3Cellipse cx='270' cy='210' rx='220' ry='32' transform='rotate(-6 270 210)'/%3E%3Cellipse cx='820' cy='110' rx='230' ry='28' transform='rotate(4 820 110)'/%3E%3Cellipse cx='600' cy='540' rx='250' ry='38' transform='rotate(-3 600 540)'/%3E%3Cellipse cx='170' cy='640' rx='130' ry='24'/%3E%3C/g%3E%3C/svg%3E");
+        --icicles: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='20' viewBox='0 0 64 20'%3E%3Cg fill='%23e9f7ff' stroke='%238fcdf2' stroke-width='.8' stroke-linejoin='round'%3E%3Cpath d='M2 0H9L5.5 15Z'/%3E%3Cpath d='M14 0H19L16.5 8Z'/%3E%3Cpath d='M24 0H33L28.5 19Z'/%3E%3Cpath d='M38 0H43L40.5 10Z'/%3E%3Cpath d='M48 0H56L52 14Z'/%3E%3Cpath d='M59 0H63L61 6Z'/%3E%3C/g%3E%3Cg stroke='%23fff' stroke-width='1' stroke-linecap='round'%3E%3Cpath d='M4.5 2L5.5 9'/%3E%3Cpath d='M27 2L28.3 12'/%3E%3Cpath d='M50.5 2L51.6 9'/%3E%3C/g%3E%3C/svg%3E");
       }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body {
-        margin: 0; color: var(--text); font-family: "Quicksand", system-ui, sans-serif;
+      html, body { margin: 0; color: var(--text); font-family: "Quicksand", system-ui, sans-serif; }
+      /* The scene scrolls with the page, so the horizon stays under the
+         subtitle. The near pines stand on the shore: their snowbank is under
+         the lake, which paints above this. */
+      html {
+        /* the pines' bases are 176/190 of the way down their image */
         background:
-          radial-gradient(1000px 520px at 50% -12%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
-          linear-gradient(180deg, #d4ecfa 0%, var(--bg) 45%, #f3f9fd 100%) fixed;
-        background-color: var(--bg);
+          var(--pines-l) left var(--pine-x) top calc(var(--horizon) - var(--pine-h) * 0.926) / var(--pine-w) var(--pine-h) no-repeat,
+          var(--pines-r) right var(--pine-x) top calc(var(--horizon) - var(--pine-h) * 0.926) / var(--pine-w) var(--pine-h) no-repeat,
+          var(--shore) 0 calc(var(--horizon) - var(--shore-h)) / var(--shore-w) var(--shore-h) repeat-x,
+          radial-gradient(300px 130px at 76% 0, rgba(255, 251, 230, 0.9), rgba(255, 251, 230, 0) 70%),
+          linear-gradient(180deg, #a9d3ef 0%, #d6ebf8 100%) 0 0 / 100% var(--horizon) no-repeat;
+        background-color: #c9e3f4;
       }
+      body { position: relative; min-height: 100vh; }
+      /* the lake, from the shore to the bottom of the page. Paler near the
+         shore, where the HUD text sits on it. */
+      body::before {
+        content: ""; position: absolute; left: 0; right: 0; top: var(--horizon); bottom: 0; z-index: -1;
+        background:
+          linear-gradient(180deg, #f4f9fd 0, rgba(244, 249, 253, 0) 70px) 0 0 / 100% 70px no-repeat,
+          var(--drift) 0 0 / 1100px 720px,
+          var(--skate) -120px 40px / 900px 640px,
+          var(--bubbles) 60px 0 / 620px 520px,
+          var(--cracks) 0 0 / 460px 380px,
+          linear-gradient(180deg, #dcedf8 0, #c9e3f4 280px, #b5d7ed 760px) 0 0 / 100% 760px no-repeat;
+        background-color: #b5d7ed;
+      }
+      /* falling snow, over the scene and under everything else. Two layers
+         fall at different speeds, each moving exactly one tile so the loop is
+         seamless. Transform only, so it never repaints around the live boards;
+         the Visual FX toggle (and reduced motion) stops it where it is. */
+      .snow { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+      .snow::before, .snow::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; will-change: transform; }
+      .snow::before {
+        top: -240px; background-size: 240px 240px;
+        background-image:
+          radial-gradient(circle at 26px 34px, #fff 0 1.4px, rgba(90, 140, 185, 0.35) 1.9px, transparent 2.4px),
+          radial-gradient(circle at 132px 12px, #fff 0 1.2px, rgba(90, 140, 185, 0.35) 1.7px, transparent 2.2px),
+          radial-gradient(circle at 208px 96px, #fff 0 1.5px, rgba(90, 140, 185, 0.35) 2px, transparent 2.5px),
+          radial-gradient(circle at 74px 150px, #fff 0 1.2px, rgba(90, 140, 185, 0.35) 1.7px, transparent 2.2px),
+          radial-gradient(circle at 170px 196px, #fff 0 1.4px, rgba(90, 140, 185, 0.35) 1.9px, transparent 2.4px),
+          radial-gradient(circle at 12px 222px, #fff 0 1.1px, rgba(90, 140, 185, 0.35) 1.6px, transparent 2.1px);
+        animation: drSnowFar 18s linear infinite;
+      }
+      .snow::after {
+        top: -360px; background-size: 360px 360px;
+        background-image:
+          radial-gradient(circle at 60px 70px, #fff 0 2.4px, rgba(90, 140, 185, 0.3) 3px, transparent 3.6px),
+          radial-gradient(circle at 250px 30px, #fff 0 2.1px, rgba(90, 140, 185, 0.3) 2.7px, transparent 3.3px),
+          radial-gradient(circle at 310px 230px, #fff 0 2.6px, rgba(90, 140, 185, 0.3) 3.2px, transparent 3.8px),
+          radial-gradient(circle at 140px 290px, #fff 0 2.2px, rgba(90, 140, 185, 0.3) 2.8px, transparent 3.4px);
+        animation: drSnowNear 11s linear infinite;
+      }
+      @keyframes drSnowFar { to { transform: translateY(240px); } }
+      @keyframes drSnowNear { to { transform: translateY(360px); } }
       a { color: var(--accent); text-decoration: none; font-weight: 600; }
       .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 2rem; gap: 0.8rem; }
       .back-link { position: fixed; top: 10px; left: 10px; z-index: 30; font-size: 0.85rem; }
-      h1.title { font-size: 2.1rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
-      .subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; font-weight: 600; }
+      /* the header sits on the sky and the misty far pines: a frost halo keeps it legible */
+      h1.title { font-size: 2.1rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-shadow: 0 1px 0 #fff, 0 0 14px rgba(240, 248, 253, 0.95); }
+      .subtitle { margin: 0.2rem 0 0; color: #34536f; font-size: 0.9rem; font-weight: 600; text-shadow: 0 0 2px #eef7fc, 0 0 6px #eef7fc, 0 0 10px #eef7fc; }
+      /* the menu card has its own title, so the page's header steps aside behind it */
+      body:has(#menu:not(.hidden)) .head, body:has(#menu:not(.hidden)) #byline { visibility: hidden; }
+      /* between phone and desktop widths the subtitle fits on one line and the
+         mode label lands on the far pines, so it gets the same halo */
+      #mode-label { text-shadow: 0 0 2px #eef7fc, 0 0 6px #eef7fc, 0 0 10px #eef7fc; }
       .boards { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
       .board-col { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
       .hud { width: 100%; display: flex; flex-direction: column; gap: 0.35rem; }
@@ -73,7 +147,15 @@
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
       .diffsel { background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-      .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem; background: rgba(214, 236, 250, 0.9); }
+      /* a light frost over the lake, thicker at the bottom corners like a
+         cold window, so the scene still shows around the card */
+      .overlay {
+        position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem;
+        background:
+          radial-gradient(circle at 0 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 300px),
+          radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 300px),
+          rgba(226, 241, 251, 0.3);
+      }
       .overlay.hidden { display: none; }
       /* a card taller than the screen (VS options on a small phone) scrolls
          instead of losing its top and bottom; margin:auto still centres it */
@@ -82,9 +164,28 @@
       /* solid frost, not backdrop-filter: the pause overlay sits over a
          live canvas and a blur would repaint every frame */
       .card {
+        position: relative;
         background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 18px;
         padding: 1.4rem 1.5rem; max-width: 560px; width: 100%; text-align: center;
         box-shadow: 0 20px 50px -18px rgba(22, 60, 100, 0.45), inset 0 1px 0 #fff;
+      }
+      /* snow piled on the top edge: lumps on top, a band, drips hanging over.
+         Two lump sizes and two drip sizes repeat at different widths, so the
+         edge doesn't look stamped. */
+      .card::before {
+        content: ""; position: absolute; left: -6px; right: -6px; top: -14px; height: 31px; border-radius: 12px; pointer-events: none;
+        background:
+          radial-gradient(22px 8px at 50% 100%, #fff 96%, rgba(255, 255, 255, 0)) 0 0 / 71px 8px repeat-x,
+          radial-gradient(13px 6px at 50% 100%, #fff 96%, rgba(255, 255, 255, 0)) 29px 2px / 43px 6px repeat-x,
+          linear-gradient(180deg, #fff, #eef8ff) 0 7px / 100% 13px no-repeat,
+          radial-gradient(14px 10px at 50% 0, #eef8ff 96%, rgba(238, 248, 255, 0)) 8px 19px / 59px 11px repeat-x,
+          radial-gradient(7px 6px at 50% 0, #eef8ff 96%, rgba(238, 248, 255, 0)) 31px 19px / 37px 6px repeat-x;
+        filter: drop-shadow(0 2px 1.5px rgba(22, 60, 100, 0.18));
+      }
+      /* icicles hanging from the bottom edge */
+      .card::after {
+        content: ""; position: absolute; left: 22px; right: 22px; top: calc(100% - 1px); height: 20px; pointer-events: none;
+        background: var(--icicles) 0 0 / 64px 20px repeat-x;
       }
       .card h2 { margin: 0 0 0.3rem; font-size: 1.8rem; font-weight: 700; }
       .card p { color: var(--muted); margin: 0.3rem 0 0.9rem; line-height: 1.5; font-size: 0.95rem; font-weight: 500; }
@@ -119,9 +220,17 @@
       /* tasteful overlay entrance (auto-disabled by reduce-motion) */
       .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
       @keyframes drCardRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+      /* narrower windows: the subtitle reaches toward the corners, so the
+         near pines shrink back into them */
+      @media (max-width: 1000px) {
+        :root { --pine-w: 110px; --pine-h: 87px; --pine-x: -50px; }
+      }
       /* phones: clear the fixed back / sound / FX buttons, and keep the
          wider Quicksand text from growing the menu card */
       @media (max-width: 700px) {
+        /* the header is taller and the subtitle wraps across the full
+           width, so the near pines go and the far shore shrinks */
+        :root { --horizon: 124px; --pines-l: none; --pines-r: none; --shore-w: 540px; --shore-h: 48px; }
         .wrap { padding-top: 3.1rem; gap: 0.5rem; }
         h1.title { font-size: 1.7rem; }
         .subtitle { font-size: 0.8rem; }
