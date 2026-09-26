@@ -1,70 +1,136 @@
-      @import url("https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap");
-      :root { --bg: #2c2f36; --panel: #373b44; --text: #eef0f4; --muted: #9aa1b0; --accent: #ff2e7e; --pink: #ff4d9d; --purple: #a25cff; }
+      @import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap");
+      /* A frozen lake on a winter day: a pale snowy page, frosted-glass cards,
+         and the board as a window onto dark lake ice where the blocks are
+         coloured ice (drawn in game.js's Renderer). The lake stays dark so the
+         five block colours and the canvas banners keep their contrast. */
+      :root {
+        --bg: #e6f3fb; --panel: rgba(255, 255, 255, 0.82); --text: #16324f; --muted: #52708c;
+        --accent: #2f8fe0; --ice: #5ec8ff; --line: rgba(22, 50, 79, 0.18);
+        --warn: #b86e00; --danger: #d9434a; --wins: #5b45c9;
+      }
       * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-      html, body { margin: 0; background: radial-gradient(1000px 600px at 50% -10%, #383c45 0%, var(--bg) 60%); color: var(--text); font-family: "Rajdhani", system-ui, sans-serif; }
+      html, body {
+        margin: 0; color: var(--text); font-family: "Quicksand", system-ui, sans-serif;
+        background:
+          radial-gradient(1000px 520px at 50% -12%, #ffffff 0%, rgba(255, 255, 255, 0) 70%),
+          linear-gradient(180deg, #d4ecfa 0%, var(--bg) 45%, #f3f9fd 100%) fixed;
+        background-color: var(--bg);
+      }
       a { color: var(--accent); text-decoration: none; font-weight: 600; }
       .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 2rem; gap: 0.8rem; }
       .back-link { position: fixed; top: 10px; left: 10px; z-index: 30; font-size: 0.85rem; }
-      h1.title { font-size: 2.1rem; font-weight: 800; margin: 0; }
-      .subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.85rem; }
+      h1.title { font-size: 2.1rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+      .subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.9rem; font-weight: 600; }
       .boards { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
       .board-col { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
       .hud { width: 100%; display: flex; flex-direction: column; gap: 0.35rem; }
       .hud-row { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; }
-      .hud .name { font-weight: 800; font-size: 1.05rem; }
-      .hud .wins { color: var(--purple); font-weight: 800; }
-      .pmute { background: none; border: 1px solid #565b68; border-radius: 6px; padding: 1px 5px; font-size: 0.85rem; line-height: 1.3; cursor: pointer; opacity: 0.85; }
-      .pmute:hover { border-color: #7a8090; opacity: 1; }
-      .pmute.off { opacity: 0.5; border-color: #4a4f5b; }
-      .stat { font-size: 0.85rem; color: var(--muted); }
+      .hud .name { font-weight: 700; font-size: 1.05rem; }
+      .hud .wins { color: var(--wins); font-weight: 700; }
+      .pmute { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; font-size: 0.85rem; line-height: 1.3; cursor: pointer; opacity: 0.9; }
+      .pmute:hover { border-color: var(--accent); opacity: 1; }
+      .pmute.off { opacity: 0.5; }
+      .stat { font-size: 0.88rem; color: var(--muted); font-weight: 600; }
       .stat b { color: var(--text); font-variant-numeric: tabular-nums; }
-      .meter { height: 8px; border-radius: 5px; background: #23262e; overflow: hidden; }
-      .meter > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #ffd23f, #ff8c2b); transition: width 0.12s ease; }
-      .special { font-size: 0.85rem; min-height: 1.2em; }
-      .special b { color: #ffd23f; }
-      .stars { font-size: 0.85rem; }
-      .bonus-tag { color: #ffd23f; font-weight: 800; }
-      canvas.board { background: #20232b; border-radius: 10px; touch-action: none; display: block; }
-      .btn { cursor: pointer; background: var(--accent); color: #2a0716; border: none; border-radius: 8px; padding: 0.55rem 1rem; font-family: inherit; font-size: 0.95rem; font-weight: 700; transition: filter 0.15s ease, transform 0.08s ease; }
-      .btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
-      .btn:active { transform: scale(0.97); }
-      .btn.ghost { background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease; }
-      .btn.ghost:hover { filter: none; background: rgba(255,46,126,0.12); border-color: var(--accent); color: var(--accent); }
-      .btn.sel { outline: 2px solid #ffd23f; }
+      .meter { height: 8px; border-radius: 5px; background: rgba(22, 50, 79, 0.12); overflow: hidden; box-shadow: inset 0 1px 2px rgba(22, 50, 79, 0.15); }
+      .meter > span { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #9befff, #3c8dff); transition: width 0.12s ease; }
+      .special { font-size: 0.88rem; min-height: 1.2em; font-weight: 600; }
+      .special b { color: var(--warn); }
+      .stars { font-size: 0.88rem; font-weight: 600; }
+      .bonus-tag { color: var(--warn); font-weight: 700; }
+      /* the lake. No border or padding here: fitCanvas sizes this element
+         inline and border-box would eat into the drawing area. */
+      canvas.board {
+        border-radius: 12px; touch-action: none; display: block;
+        background:
+          url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='300' viewBox='0 0 240 300'%3E%3Cg fill='none' stroke='%23cfefff' stroke-opacity='.13' stroke-width='1.2' stroke-linecap='round'%3E%3Cpath d='M-5 70 L40 84 L72 60 L118 92 L150 78'/%3E%3Cpath d='M72 60 L66 22'/%3E%3Cpath d='M160 190 L200 170 L246 196'/%3E%3Cpath d='M200 170 L214 128 L250 118'/%3E%3Cpath d='M20 250 L64 236 L90 262 L130 244'/%3E%3C/g%3E%3C/svg%3E") 0 0 / 240px 300px,
+          radial-gradient(ellipse 70% 40% at 30% 18%, rgba(200, 240, 255, 0.16), transparent 70%),
+          radial-gradient(ellipse 60% 35% at 75% 70%, rgba(200, 240, 255, 0.1), transparent 70%),
+          linear-gradient(180deg, #1c4b70 0%, #123a5c 55%, #0d2e4b 100%);
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85), 0 0 0 4px rgba(22, 50, 79, 0.2), 0 14px 30px -10px rgba(22, 60, 100, 0.55);
+      }
+      canvas.next { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+      .btn {
+        cursor: pointer; color: #fff; border: none; border-radius: 10px; padding: 0.55rem 1rem;
+        background: linear-gradient(180deg, #6fd0ff, var(--accent));
+        box-shadow: 0 2px 0 #1f6fb8, 0 6px 14px -6px rgba(31, 111, 184, 0.6);
+        font-family: inherit; font-size: 0.95rem; font-weight: 700;
+        transition: filter 0.15s ease, transform 0.08s ease;
+      }
+      .btn:hover { filter: brightness(1.06); transform: translateY(-1px); }
+      .btn:active { transform: translateY(1px); }
+      .btn.ghost {
+        background: rgba(255, 255, 255, 0.72); color: var(--text); border: 1px solid var(--line); box-shadow: none;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.08s ease;
+      }
+      .btn.ghost:hover { filter: none; background: #fff; border-color: var(--accent); color: var(--accent); }
+      /* menu choices: frosted when off, solid ice when chosen */
+      .card .group .btn { background: rgba(255, 255, 255, 0.75); color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+      .card .group .btn:hover { border-color: var(--accent); }
+      .card .group .btn.sel { background: linear-gradient(180deg, #6fd0ff, var(--accent)); color: #fff; border-color: #1f6fb8; box-shadow: 0 2px 0 #1f6fb8; }
+      .btn:focus-visible, .tbtn:focus-visible, .diffsel:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
       .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
-      .diffsel { background: #2a2d34; color: var(--text); border: 1px solid #565b68; border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
-      .diffsel:focus { outline: 2px solid var(--accent); }
-      .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem; background: rgba(8,9,14,0.92); }
+      .diffsel { background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+      .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem; background: rgba(214, 236, 250, 0.9); }
       .overlay.hidden { display: none; }
-      .card { background: var(--panel); border: 1px solid #474c58; border-radius: 14px; padding: 1.4rem 1.5rem; max-width: 560px; width: 100%; text-align: center; }
-      .card h2 { margin: 0 0 0.3rem; font-size: 1.8rem; font-weight: 800; }
-      .card p { color: var(--muted); margin: 0.3rem 0 0.9rem; line-height: 1.5; font-size: 0.92rem; }
+      /* a card taller than the screen (VS options on a small phone) scrolls
+         instead of losing its top and bottom; margin:auto still centres it */
+      .overlay { overflow-y: auto; }
+      .overlay > .card { margin: auto; }
+      /* solid frost, not backdrop-filter: the pause overlay sits over a
+         live canvas and a blur would repaint every frame */
+      .card {
+        background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.95); border-radius: 18px;
+        padding: 1.4rem 1.5rem; max-width: 560px; width: 100%; text-align: center;
+        box-shadow: 0 20px 50px -18px rgba(22, 60, 100, 0.45), inset 0 1px 0 #fff;
+      }
+      .card h2 { margin: 0 0 0.3rem; font-size: 1.8rem; font-weight: 700; }
+      .card p { color: var(--muted); margin: 0.3rem 0 0.9rem; line-height: 1.5; font-size: 0.95rem; font-weight: 500; }
+      .card p b { color: var(--text); }
       #result-msg { white-space: pre-line; }
       .group { margin: 0.7rem 0; }
       .group .lbl { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 0.35rem; }
-      .keys { color: var(--muted); font-size: 0.8rem; line-height: 1.7; margin-top: 0.5rem; }
-      kbd { background: #2a2d34; border: 1px solid #565b68; border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font-size: 0.78rem; color: var(--text); }
-      details.dict-wrap { text-align: left; margin-top: 0.9rem; background: #262931; border: 1px solid #474c58; border-radius: 10px; padding: 0.4rem 0.85rem; }
+      .keys { color: var(--muted); font-size: 0.82rem; line-height: 1.7; margin-top: 0.5rem; font-weight: 600; }
+      kbd { background: #fff; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font-size: 0.78rem; color: var(--text); }
+      details.dict-wrap { text-align: left; margin-top: 0.9rem; background: rgba(255, 255, 255, 0.6); border: 1px solid var(--line); border-radius: 12px; padding: 0.4rem 0.85rem; }
       details.dict-wrap summary { cursor: pointer; font-weight: 700; font-size: 0.9rem; padding: 0.35rem 0; list-style: none; }
       details.dict-wrap summary::-webkit-details-marker { display: none; }
       details.dict-wrap summary::after { content: " ▾"; color: var(--muted); }
       details.dict-wrap[open] summary::after { content: " ▴"; }
-      .dict-item { font-size: 0.82rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid #3a3f49; }
+      .dict-item { font-size: 0.85rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid var(--line); font-weight: 500; }
       .dict-item b { color: var(--text); }
       /* On-screen control pad — the only input path on touch devices. */
       .touchpad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; width: min(100%, 360px); margin: 0.8rem auto 0; touch-action: none; }
       /* min-height 44px is the accessible tap-target floor on iOS/Android —
          without it the shorter ⤓ Drop button lands at 37px. */
-      .tbtn { cursor: pointer; background: rgba(255,255,255,0.05); color: var(--text); border: 1px solid #565b68; border-radius: 10px; padding: 0.8rem 0; min-height: 44px; font-family: inherit; font-size: 1.3rem; font-weight: 700; line-height: 1; touch-action: none; user-select: none; -webkit-user-select: none; transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease; }
-      .tbtn.rot { color: var(--purple); }
-      .tbtn.hard { grid-column: 1 / -1; padding: 0.6rem 0; font-size: 1rem; color: var(--accent); border-color: rgba(255,46,126,0.5); }
-      .tbtn.held, .tbtn:active { background: rgba(255,46,126,0.18); border-color: var(--accent); color: var(--accent); }
-      #byline { color: #5a627a; font-size: 75%; margin-top: 0.4rem; }
+      .tbtn {
+        cursor: pointer; background: rgba(255, 255, 255, 0.8); color: var(--text); border: 1px solid var(--line); border-radius: 12px;
+        padding: 0.8rem 0; min-height: 44px; font-family: inherit; font-size: 1.3rem; font-weight: 700; line-height: 1;
+        box-shadow: 0 2px 0 rgba(22, 50, 79, 0.15);
+        touch-action: none; user-select: none; -webkit-user-select: none;
+        transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+      }
+      .tbtn.rot { color: var(--accent); }
+      .tbtn.hard { grid-column: 1 / -1; padding: 0.6rem 0; font-size: 1rem; color: var(--danger); border-color: rgba(217, 67, 74, 0.45); }
+      .tbtn.held, .tbtn:active { background: #d6f0ff; border-color: var(--accent); color: var(--accent); box-shadow: none; }
+      #byline { color: var(--muted); font-size: 75%; margin-top: 0.4rem; }
       /* tasteful overlay entrance (auto-disabled by reduce-motion) */
       .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
       @keyframes drCardRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+      /* phones: clear the fixed back / sound / FX buttons, and keep the
+         wider Quicksand text from growing the menu card */
+      @media (max-width: 700px) {
+        .wrap { padding-top: 3.1rem; gap: 0.5rem; }
+        h1.title { font-size: 1.7rem; }
+        .subtitle { font-size: 0.8rem; }
+        .card { padding: 1.1rem 1rem; }
+        .card h2 { font-size: 1.5rem; }
+        .card p { font-size: 0.88rem; line-height: 1.4; margin-bottom: 0.6rem; }
+        .keys { font-size: 0.76rem; line-height: 1.6; }
+        .group { margin: 0.5rem 0; }
+      }
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {

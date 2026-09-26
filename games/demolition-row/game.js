@@ -9,7 +9,7 @@
      * them; after a piece locks, gravity settles every cell, then any group
      * of 4+ orthogonally-connected same-colored blocks DEMOLISHES, the stack
      * falls, and chains CASCADE until none remain. Top out (stack over the
-     * pink line) = loss. VS: race to clear below the purple goal line.
+     * red line) = loss. VS: race to clear below the pale goal line.
      *
      * Split into: CONFIG · RNG · pure grid logic · Board (state + pieces) ·
      * CPU · Renderer · Game (modes) · Input · Menu.
@@ -18,8 +18,8 @@
     // ----------------------------- CONFIG --------------------------------
     const CONFIG = {
       cols: 9, rows: 14,  // top 3 rows are an off-grid spawn buffer above the line
-      topLineRow: 3,    // pink line at the top of the visible field; loss = a block overflows ABOVE it
-      goalLineRow: 9,   // purple line (50-Stage): clear/win when topmost block row > this
+      topLineRow: 3,    // red line at the top of the visible field; loss = a block overflows ABOVE it
+      goalLineRow: 9,   // pale ice-blue line (50-Stage): clear/win when topmost block row > this
       vsGoalLineRow: 10, // VS goal sits lower — win = stack within the bottom 3 rows
       cell: 38, colors: 5, minGroup: 4,
       stoneDurability: 3,
@@ -603,10 +603,13 @@
 
     // ---------------------------- Renderer -------------------------------
     const SPECIAL_GLYPH = { iron: "⛓", thunder: "⚡", slow: "🐌", crystal: "🌈" };
+    // pre-drawn ice blocks, one per colour / size / pixel ratio (see iceSprite)
+    const ICE_SPRITES = new Map();
     class Renderer {
       constructor(board, canvas) {
         this.b = board; this.canvas = canvas; this.ctx = canvas.getContext("2d"); this.cell = board.cfg.cell;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.dpr = dpr;
         canvas.width = board.cfg.cols * this.cell * dpr; canvas.height = board.cfg.rows * this.cell * dpr;
         canvas.style.width = board.cfg.cols * this.cell + "px"; canvas.style.height = board.cfg.rows * this.cell + "px";
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -616,7 +619,7 @@
         ctx.clearRect(0, 0, W, H);
         // grid lines only in the visible field; the spawn buffer above the line stays blank
         const topY = b.cfg.topLineRow * cell;
-        ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(200,235,255,0.07)"; ctx.lineWidth = 1;
         for (let c = 0; c <= cols; c++) { ctx.beginPath(); ctx.moveTo(c * cell, topY); ctx.lineTo(c * cell, H); ctx.stroke(); }
         for (let r = b.cfg.topLineRow; r <= rows; r++) { ctx.beginPath(); ctx.moveTo(0, r * cell); ctx.lineTo(W, r * cell); ctx.stroke(); }
         const shakeX = (b.shake > 0 && !reducedMotion()) ? (Math.random() * 2 - 1) * 6 * b.shake : 0;
@@ -627,10 +630,20 @@
         if (b.phase === "flashing") { const k = 0.35 + 0.45 * Math.abs(Math.sin(b.now() * 0.02)); ctx.fillStyle = "rgba(255,255,255," + k + ")"; for (const [r, c] of b.pendingClear) { this.rr(c * cell + 2, r * cell + 2, cell - 4, cell - 4, 6); ctx.fill(); } }
         if (b.piece && b.alive && !b.cleared) this.drawPiece();
         ctx.restore();
-        this.drawLine(b.cfg.topLineRow * cell, "#ff4d9d", "TOP");
-        if (b.opts.useGoal) this.drawLine((b.opts.goalRow + 1) * cell, "#a25cff", "GOAL"); // line marks the win zone boundary; no goal in Endless
+        this.drawLine(b.cfg.topLineRow * cell, "#ff6b6b", "TOP");
+        if (b.opts.useGoal) this.drawLine((b.opts.goalRow + 1) * cell, "#9ff3ff", "GOAL"); // line marks the win zone boundary; no goal in Endless
         const now = b.now(); b.fx = b.fx.filter((f) => now - f.t < 240);
-        for (const f of b.fx) { const k = 1 - (now - f.t) / 240; ctx.fillStyle = "rgba(255,255,255," + (0.6 * k) + ")"; const s = cell * (1 + (1 - k) * 0.4); ctx.fillRect(f.c * cell + (cell - s) / 2, f.r * cell + (cell - s) / 2, s, s); }
+        // cleared blocks shatter: four ice shards fly out diagonally and fade
+        // (plain paths, no gradients: Thunder can clear dozens at once)
+        for (const f of b.fx) {
+          const k = 1 - (now - f.t) / 240, e = 1 - k, cx = (f.c + 0.5) * cell, cy = (f.r + 0.5) * cell;
+          ctx.fillStyle = "rgba(235,250,255," + (0.6 * k) + ")";
+          for (let i = 0; i < 4; i++) {
+            const a = Math.PI / 4 + i * Math.PI / 2, d = cell * (0.1 + 0.55 * e), sz = cell * 0.22 * k + 2;
+            const px = cx + Math.cos(a) * d, py = cy + Math.sin(a) * d;
+            ctx.beginPath(); ctx.moveTo(px, py - sz); ctx.lineTo(px + sz * 0.6, py + sz * 0.5); ctx.lineTo(px - sz * 0.6, py + sz * 0.5); ctx.closePath(); ctx.fill();
+          }
+        }
         // stone-break debris: shards arc out under gravity and fade
         if (b.debris.length) {
           b.debris = b.debris.filter((d) => now - d.t < d.life);
@@ -638,16 +651,16 @@
             const e = now - d.t, k = 1 - e / d.life;
             const x = d.x + d.vx * e, y = d.y + d.vy * e + 0.5 * 0.0009 * e * e;
             ctx.save(); ctx.globalAlpha = Math.max(0, k); ctx.translate(x, y); ctx.rotate(d.rot + d.vr * e);
-            ctx.fillStyle = "rgb(" + d.shade + "," + (d.shade + 8) + "," + (d.shade + 18) + ")";
+            ctx.fillStyle = "rgb(" + (d.shade + 20) + "," + (d.shade + 42) + "," + Math.min(255, d.shade + 70) + ")";
             ctx.fillRect(-d.size / 2, -d.size / 2, d.size, d.size);
             ctx.restore();
           }
           ctx.globalAlpha = 1;
         }
         if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.04);
-        if (b.flash && now < b.flash.until) { ctx.fillStyle = b.flash.color; ctx.font = "800 24px Inter, sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = Math.min(1, (b.flash.until - now) / 400); ctx.fillText(b.flash.text, W / 2, H * 0.4); ctx.globalAlpha = 1; }
+        if (b.flash && now < b.flash.until) { ctx.fillStyle = b.flash.color; ctx.font = "700 26px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = Math.min(1, (b.flash.until - now) / 400); ctx.fillText(b.flash.text, W / 2, H * 0.4); ctx.globalAlpha = 1; }
         // persistent overlay for an eliminated board (e.g. while other VS players continue)
-        if (!b.alive && !b.cleared) { ctx.fillStyle = "rgba(8,9,14,0.62)"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#ff5d6c"; ctx.font = "800 22px Inter, sans-serif"; ctx.textAlign = "center"; ctx.fillText("TOPPED OUT", W / 2, H * 0.45); }
+        if (!b.alive && !b.cleared) { ctx.fillStyle = "rgba(10,30,52,0.62)"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#ff8a8a"; ctx.font = "700 22px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.fillText("TOPPED OUT", W / 2, H * 0.45); }
       }
       drawPiece() {
         const b = this.b, p = b.piece, cell = this.cell, ctx = this.ctx;
@@ -678,7 +691,7 @@
       }
       drawIron(x, y) {
         const ctx = this.ctx, s = this.cell, pad = 2, X = x + pad, Y = y + pad, W = s - pad * 2, H = s - pad * 2;
-        const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#aab2c4"); g.addColorStop(1, "#5b6275");
+        const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#d2dde9"); g.addColorStop(1, "#6a7d94");
         ctx.fillStyle = g; this.rr(X, Y, W, H, 5); ctx.fill();
         ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2; this.rr(X, Y, W, H, 5); ctx.stroke();
         ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓", x + s / 2, y + s / 2 + 1); ctx.textBaseline = "alphabetic";
@@ -724,19 +737,25 @@
         ctx.restore();
         ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; this.rr(X + 1, Y + 1, W - 2, H - 2, r); ctx.stroke();
       }
-      drawLine(y, color, label) { const ctx = this.ctx, W = this.b.cfg.cols * this.cell, yy = Math.max(2, y); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "700 10px Inter, sans-serif"; ctx.textAlign = "left"; ctx.fillText(label, 4, yy < 12 ? yy + 12 : yy - 3); }
+      drawLine(y, color, label) { const ctx = this.ctx, W = this.b.cfg.cols * this.cell, yy = Math.max(2, y); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "700 11px Quicksand, sans-serif"; ctx.textAlign = "left"; ctx.fillText(label, 4, yy < 12 ? yy + 12 : yy - 3); }
       drawCell(cell, x, y, active) {
         const ctx = this.ctx, s = this.cell, pad = 2, r = 6, X = x + pad, Y = y + pad, W = s - pad * 2, H = s - pad * 2;
         const round = (col) => { ctx.fillStyle = col; this.rr(X, Y, W, H, r); ctx.fill(); };
-        if (cell.t === "n") { round(COLOR_HEX[cell.c]); ctx.fillStyle = "rgba(255,255,255,0.22)"; this.rr(X, Y, W, H * 0.4, r); ctx.fill(); if (active) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; this.rr(X, Y, W, H, r); ctx.stroke(); } if (cell.aug) this.drawAug(cell.aug, x + s / 2, y + s / 2); }
+        if (cell.t === "n") { ctx.drawImage(this.iceSprite(cell.c, W, H, r), X, Y, W, H); if (active) { ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; this.rr(X, Y, W, H, r); ctx.stroke(); } if (cell.aug) this.drawAug(cell.aug, x + s / 2, y + s / 2); }
         else if (cell.t === "s") {
           const dur = CONFIG.stoneDurability, h = cell.h == null ? dur : cell.h;
           const dmg = dur > 1 ? Math.min(1, Math.max(0, (dur - h) / (dur - 1))) : 0; // 0 pristine .. 1 nearly broken
           if (cell.cs == null) cell.cs = Math.random(); // stable per-block crack seed
-          round(this.mix("#828a99", "#434957", dmg)); // body darkens with damage
+          round(this.mix("#8ea3b8", "#43566b", dmg)); // body darkens with damage (mix() wants #rrggbb)
           ctx.save(); this.rr(X, Y, W, H, r); ctx.clip();
           ctx.fillStyle = "rgba(255,255,255," + (0.16 * (1 - dmg)) + ")"; ctx.fillRect(X, Y, W, H * 0.4); // top sheen fades
           ctx.fillStyle = "rgba(0,0,0," + (0.1 + 0.22 * dmg) + ")"; ctx.fillRect(X, Y + H * 0.6, W, H * 0.4); // bottom bruise grows
+          // thin snow cap, kept narrow so stones never read as white crystals or the clear flash
+          ctx.fillStyle = "rgba(240,249,255," + (0.8 - 0.35 * dmg) + ")";
+          ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X + W, Y); ctx.lineTo(X + W, Y + H * 0.15);
+          ctx.quadraticCurveTo(X + W * 0.82, Y + H * 0.25, X + W * 0.64, Y + H * 0.16);
+          ctx.quadraticCurveTo(X + W * 0.46, Y + H * 0.09, X + W * 0.3, Y + H * 0.19);
+          ctx.quadraticCurveTo(X + W * 0.14, Y + H * 0.27, X, Y + H * 0.14); ctx.closePath(); ctx.fill();
           if (dmg > 0) {
             this.drawCracks(X, Y, W, H, dmg, cell.cs);
             if (dmg >= 0.66) { // chunks knocked out of corners when badly broken
@@ -747,10 +766,34 @@
           }
           ctx.restore();
           ctx.strokeStyle = "rgba(0,0,0,0.5)"; ctx.lineWidth = 1.5; this.rr(X, Y, W, H, r); ctx.stroke();
-          ctx.font = "800 18px Inter"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+          ctx.font = "700 18px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillStyle = "rgba(8,10,16,0.85)"; ctx.fillText(String(h), x + s / 2 + 0.5, y + s / 2 + 1.5);
           ctx.fillStyle = "#eef2f9"; ctx.fillText(String(h), x + s / 2, y + s / 2 + 1); ctx.textBaseline = "alphabetic";
         }
+      }
+      // Ice on a coloured block: a frosted upper band, one diagonal glint and a
+      // deeper lower edge, then a pale rim. The body keeps its full colour so the
+      // five colours stay distinct; the rim separates blue blocks from the lake.
+      // Drawn once per colour and stamped with drawImage: clipping and
+      // re-stroking every block on four boards each frame was measurably slower.
+      iceSprite(c, W, H, r) {
+        const dpr = this.dpr || 1, key = c + "|" + W + "x" + H + "@" + dpr;
+        let cv = ICE_SPRITES.get(key);
+        if (cv) return cv;
+        cv = document.createElement("canvas");
+        cv.width = Math.ceil(W * dpr); cv.height = Math.ceil(H * dpr);
+        const g = cv.getContext("2d"); g.scale(dpr, dpr);
+        const rr = (x, y, w, h, rad) => { g.beginPath(); g.moveTo(x + rad, y); g.arcTo(x + w, y, x + w, y + h, rad); g.arcTo(x + w, y + h, x, y + h, rad); g.arcTo(x, y + h, x, y, rad); g.arcTo(x, y, x + w, y, rad); g.closePath(); };
+        g.fillStyle = COLOR_HEX[c]; rr(0, 0, W, H, r); g.fill();
+        g.save(); rr(0, 0, W, H, r); g.clip();
+        g.fillStyle = "rgba(255,255,255,0.18)"; g.fillRect(0, 0, W, H * 0.36);
+        g.fillStyle = "rgba(255,255,255,0.5)";
+        g.beginPath(); g.moveTo(W * 0.12, H * 0.52); g.lineTo(W * 0.52, H * 0.12); g.lineTo(W * 0.64, H * 0.12); g.lineTo(W * 0.12, H * 0.64); g.closePath(); g.fill();
+        g.fillStyle = "rgba(10,30,60,0.2)"; g.fillRect(0, H * 0.8, W, H * 0.2);
+        g.restore();
+        g.strokeStyle = "rgba(225,245,255,0.7)"; g.lineWidth = 1.5; rr(0.75, 0.75, W - 1.5, H - 1.5, r - 0.5); g.stroke();
+        ICE_SPRITES.set(key, cv);
+        return cv;
       }
       // colour lerp between two #rrggbb hex strings
       mix(a, b, t) {
@@ -802,7 +845,7 @@
       if (spec.type === "iron") {
         for (const [gx, gy] of [[0.5, 0.5], [1.5, 0.5], [0.5, 1.5], [1.5, 1.5]]) {
           const X = gx * cell + 2, Y = gy * cell + 2, W = cell - 4, H = cell - 4;
-          const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#aab2c4"); g.addColorStop(1, "#5b6275"); ctx.fillStyle = g; rr(X, Y, W, H, 5); ctx.fill();
+          const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#d2dde9"); g.addColorStop(1, "#6a7d94"); ctx.fillStyle = g; rr(X, Y, W, H, 5); ctx.fill();
         }
         ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓", cell * 1.5, cell * 1.5); ctx.textBaseline = "alphabetic";
         return;
@@ -810,9 +853,15 @@
       const cellAt = (key) => spec.mono ? { t: "n", c: spec.crystalColor, aug: null } : spec.cells[key];
       for (const [key, gx, gy] of [["U", 1, 0], ["L", 0, 1], ["C", 1, 1], ["R", 2, 1], ["D", 1, 2]]) {
         const X = gx * cell + 2, Y = gy * cell + 2, W = cell - 4, H = cell - 4, cs = cellAt(key);
-        if (cs.t === "s") { ctx.fillStyle = "#6b7280"; }
+        if (cs.t === "s") { ctx.fillStyle = "#8ea3b8"; }
         else ctx.fillStyle = cs.c < 0 ? "#dfe6f2" : COLOR_HEX[cs.c];
         rr(X, Y, W, H, 5); ctx.fill();
+        if (!spec.mono && cs.t === "n") {   // same ice gloss as the board, smaller
+          ctx.save(); rr(X, Y, W, H, 5); ctx.clip();
+          ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.fillRect(X, Y, W, H * 0.36);
+          ctx.restore();
+          ctx.strokeStyle = "rgba(225,245,255,0.7)"; ctx.lineWidth = 1; rr(X + 0.5, Y + 0.5, W - 1, H - 1, 5); ctx.stroke();
+        }
         if (spec.mono) { ctx.fillStyle = "rgba(255,255,255,0.45)"; ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X + W, Y); ctx.lineTo(X, Y + H); ctx.closePath(); ctx.fill(); ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 1; rr(X + 0.5, Y + 0.5, W - 1, H - 1, 5); ctx.stroke(); }
         if (cs.t === "n" && cs.aug) drawAug(cs.aug, X + W / 2, Y + H / 2);
       }
@@ -884,7 +933,7 @@
           '<div class="hud-row"><span class="stat">Score <b data-score>0</b></span><span class="stat" data-extra></span></div>' +
           '<div class="meter"><span data-gauge></span></div>' +
           '<div class="hud-row" style="align-items:center;"><span class="special" data-special>&nbsp;</span>' +
-            '<span class="stat" style="display:flex;align-items:center;gap:6px;">Next <canvas class="next" width="66" height="66" style="background:#0d0f17;border-radius:6px;"></canvas></span></div>' +
+            '<span class="stat" style="display:flex;align-items:center;gap:6px;">Next <canvas class="next" width="66" height="66" style="background:#123a5c;border-radius:6px;"></canvas></span></div>' +
           (this.mode === "endless" ? '<div class="stars" data-stars></div>' : "");
         const canvas = document.createElement("canvas"); canvas.className = "board";
         col.appendChild(hud); col.appendChild(canvas); this.boardsEl.appendChild(col);
