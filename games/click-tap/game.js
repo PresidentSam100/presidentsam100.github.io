@@ -5,6 +5,30 @@
   const RING_C = 2 * Math.PI * 92;
   $("ringFg").style.strokeDasharray = RING_C;
 
+  // ---- the garden: every click plants something in the soil ----
+  // What grows depends on your pace over the last second, so a fast run
+  // fills the bed with sunflowers and a slow one with sprouts.
+  const bedEl = $("bed");
+  const FLOWERS = [["🌱", "🌿"], ["🌷", "🌼"], ["🌸", "🌺", "💐"], ["🌻", "🌹"]];
+  const MAX_FLOWERS = 240;   // autoclickers exist; keep the newest, drop the oldest
+  function plant() {
+    const now = clickTimes[clickTimes.length - 1];
+    let recent = 0;
+    for (let i = clickTimes.length - 1; i >= 0 && now - clickTimes[i] < 1; i--) recent++;
+    const kinds = FLOWERS[recent < 4 ? 0 : recent < 7 ? 1 : recent < 10 ? 2 : 3];
+    const f = document.createElement("span");
+    f.className = "flower";
+    f.textContent = kinds[(Math.random() * kinds.length) | 0];
+    // uniform over a disc, kept inside the rim
+    const a = Math.random() * 2 * Math.PI, r = Math.sqrt(Math.random()) * 0.4;
+    f.style.left = (50 + Math.cos(a) * r * 100).toFixed(1) + "%";
+    f.style.top = (50 + Math.sin(a) * r * 100).toFixed(1) + "%";
+    f.style.setProperty("--s", (0.8 + Math.random() * 0.45).toFixed(2));
+    f.style.setProperty("--r", ((Math.random() - 0.5) * 26).toFixed(0) + "deg");
+    bedEl.appendChild(f);
+    if (bedEl.childElementCount > MAX_FLOWERS) bedEl.firstElementChild.remove();
+  }
+
   let input = "mouse", dur = 5;
   let state = "setup";      // setup | ready | running | done
   let clicks = 0, startT = 0, raf = 0, clickTimes = [];
@@ -85,7 +109,8 @@
     $("ringFg").style.strokeDashoffset = "0";
     $("padCount").textContent = VERB.toUpperCase();
     $("padSub").textContent = "to start";
-    $("hint").textContent = VERB + " the pad as fast as you can!";
+    $("hint").textContent = VERB + " the soil as fast as you can!";
+    bedEl.replaceChildren();
     show(playEl);
   }
 
@@ -96,6 +121,7 @@
     clickTimes.push((performance.now() - startT) / 1000);
     $("padCount").textContent = clicks;
     $("vClicks").textContent = clicks;
+    plant();
     pop(); tick(900 + Math.random() * 300);
   }
   function pop() {
@@ -126,6 +152,7 @@
       '<span class="chip"><b>' + clicks + '</b> ' + verb + 's</span>' +
       '<span class="chip">' + dur + 's</span>';
     renderGraph();
+    $("harvest").innerHTML = bedEl.innerHTML;   // the garden you grew, replanted on the results card
     const prev = getBest();
     if (cps > prev) { localStorage.setItem(bestKey(), cps.toFixed(4)); $("newBest").textContent = "★ NEW BEST!"; chord([660, 880, 1175, 1568]); }
     else { $("newBest").textContent = prev > 0 ? "Best: " + prev.toFixed(3) + " " + METRIC : ""; chord([523, 659]); }
@@ -161,26 +188,26 @@
     let grid = "";                          // horizontal gridlines + CPS tick labels
     for (let v = 0; v <= niceMax + 1e-6; v += step) {
       const y = Y(v).toFixed(1);
-      grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#2a3142" : "#1c2230") + '"/>' +
-              '<text x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#6b7385" font-size="8">' + v + '</text>';
+      grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#c9bd9c" : "#e8dfc6") + '"/>' +
+              '<text x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#7c7458" font-size="8">' + v + '</text>';
     }
     let xticks = "";                        // vertical gridlines + second tick labels
     for (let tt = 0; tt <= dur + 1e-6; tt += tStep) {
       const x = X(tt).toFixed(1);
-      xticks += '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '" stroke="#161b27"/>' +
-                '<text x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" fill="#6b7385" font-size="8">' + tt + '</text>';
+      xticks += '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '" stroke="#efe7d2"/>' +
+                '<text x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" fill="#7c7458" font-size="8">' + tt + '</text>';
     }
     const yAvg = Y(finalCps).toFixed(1);
     $("graph").innerHTML =
       '<div class="gtitle">' + verb + 's per second (' + METRIC + ') over time</div>' +
       '<svg class="lg" viewBox="0 0 ' + VW + ' ' + VH + '">' +
-        '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(198,255,61,.32)"/><stop offset="1" stop-color="rgba(198,255,61,0)"/></linearGradient></defs>' +
+        '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(79,154,51,.32)"/><stop offset="1" stop-color="rgba(79,154,51,0)"/></linearGradient></defs>' +
         grid + xticks +
         '<path d="' + area + '" fill="url(#lgF)"/>' +
-        '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#36f5ff" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
-        '<path d="' + line + '" fill="none" stroke="#c6ff3d" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-        '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">' + METRIC + '</text>' +
-        '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">Time (s)</text>' +
+        '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#2b7fc2" stroke-width="1" stroke-dasharray="4 4" opacity=".75"/>' +
+        '<path d="' + line + '" fill="none" stroke="#3f8f2f" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#6f7a5e" font-size="8" font-weight="700">' + METRIC + '</text>' +
+        '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#6f7a5e" font-size="8" font-weight="700">Time (s)</text>' +
       '</svg>' +
       '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> ' + METRIC + ' &nbsp;·&nbsp; avg <b>' + finalCps.toFixed(1) + '</b> ' + METRIC + '</div>';
   }

@@ -1,92 +1,199 @@
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap");
+
+/* A garden on a sunny day: sky over a mowed lawn, a round soil bed for a
+   pad, and a flower for every click (game.js plants them). The stats are
+   seed packets; the results sit on a cream card with the finished garden. */
 :root {
-  --bg: #0e1018; --panel: #181c28; --line: #283044; --text: #eef2f9; --muted: #8b93a7;
-  --lime: #c6ff3d; --cyan: #36f5ff; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c;
+  --sky: #aee0ff;
+  --grass: #93d35f;
+  --grass-2: #87c954;
+  --leaf: #4f9a33;
+  --leaf-dark: #2f6420;
+  --paper: #fffaf0;
+  --ink: #1f4d1a;
+  /* game.js colours the rating with these; readable on the lawn and card */
+  --text: #24421b;
+  --muted: #5c6b4c;
+  --cyan: #2b7fc2;
+  --lime: #3f8f2f;
+  --good: #3f8f2f;
+  --warn: #9a6a00;
+  --bad: #d8433a;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  background: radial-gradient(900px 600px at 50% -10%, #1a2030 0%, var(--bg) 60%);
-  color: var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+  background:
+    linear-gradient(to bottom, var(--sky) 0, #dcf3ff 84px, rgba(220, 243, 255, 0) 150px),
+    repeating-linear-gradient(90deg, var(--grass) 0 48px, var(--grass-2) 48px 96px);
+  background-repeat: no-repeat, repeat;   /* the sky once, at the top; lawn all the way down */
+  background-color: var(--grass);
+  color: var(--text); font-family: "Baloo 2", system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
   overflow-x: hidden; user-select: none; touch-action: manipulation;
 }
-a { color: var(--lime); text-decoration: none; }
+a { color: var(--leaf-dark); text-decoration: none; }
 .wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
 
 header.top { text-align: center; margin: 0.8rem 0 0.4rem; }
-header.top h1 { font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; }
-header.top h1 b { color: var(--lime); text-shadow: 0 0 18px rgba(198,255,61,.4); }
-header.top p { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+header.top h1 { font-size: 2.3rem; font-weight: 800; line-height: 1.1; letter-spacing: -0.01em; color: var(--ink); }
+header.top h1 b { color: #e8578a; }
+header.top p { color: #2f5f25; font-size: 1rem; font-weight: 600; }
 
 section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
 section[hidden] { display: none; }
 
-.lbl { font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+.lbl { font-size: 0.8rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink); font-weight: 800; }
 .choices { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
 .choice {
-  cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--text);
-  border-radius: 14px; padding: 0.9rem 1.2rem; font-family: inherit; font-weight: 800; font-size: 1rem;
-  transition: border-color .15s, background .15s, color .15s; min-width: 92px; text-align: center;
+  cursor: pointer; background: var(--paper); border: 2px solid #b9d99a; color: #2e5b22;
+  border-radius: 16px; padding: 0.7rem 1.2rem; font-family: inherit; font-weight: 800; font-size: 1.15rem;
+  box-shadow: 0 3px 0 #9cc27a; min-width: 92px; text-align: center;
+  transition: background .15s, color .15s, transform .08s;
 }
-.choice .sub { display: block; font-size: 0.66rem; font-weight: 600; color: var(--muted); margin-top: 2px; letter-spacing: 0.06em; }
-.choice:hover { border-color: #3c4862; }
-.choice.sel { border-color: var(--lime); color: var(--lime); background: #1c2417; box-shadow: 0 0 16px -4px var(--lime); }
-.choice.sel .sub { color: #9bb56a; }
+.choice:hover { background: #fff; }
+.choice:active { transform: translateY(2px); box-shadow: 0 1px 0 #9cc27a; }
+.choice.sel { background: var(--leaf); border-color: #3d7d27; color: #fff; box-shadow: 0 3px 0 var(--leaf-dark); }
 
 .btn {
-  cursor: pointer; border: none; border-radius: 14px; font-family: inherit; font-weight: 900; letter-spacing: 0.08em;
-  font-size: 1.2rem; color: #11160a; padding: 1rem 2.6rem; background: linear-gradient(180deg, #d8ff6a, var(--lime));
-  box-shadow: 0 10px 30px -8px rgba(198,255,61,.5), inset 0 -3px 0 rgba(0,0,0,.15);
-  transition: filter .15s, transform .08s;
+  cursor: pointer; border: none; border-radius: 16px; font-family: inherit; font-weight: 800; letter-spacing: 0.08em;
+  font-size: 1.3rem; color: #fff; padding: 0.8rem 2.6rem;
+  background: linear-gradient(180deg, #6cc04a, var(--leaf));
+  box-shadow: 0 4px 0 var(--leaf-dark), 0 12px 24px -8px rgba(30, 70, 20, 0.45);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  transition: filter .15s, transform .08s, box-shadow .08s;
 }
 .btn:hover { filter: brightness(1.06); }
-.btn:active { transform: translateY(1px) scale(.98); }
-.btn.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); box-shadow: none; font-size: 0.95rem; padding: 0.7rem 1.4rem; letter-spacing: 0.04em; }
-.best { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; }
+.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--leaf-dark); }
+.btn.ghost {
+  background: var(--paper); color: #2e5b22; border: 2px solid #9cc27a; box-shadow: 0 3px 0 #7fae5c;
+  font-size: 1rem; padding: 0.55rem 1.3rem; letter-spacing: 0.03em; text-shadow: none;
+}
+.btn:focus-visible, .choice:focus-visible { outline: 3px solid #e8578a; outline-offset: 3px; }
+.best {
+  color: var(--ink); font-size: 0.95rem; min-height: 1.2em; font-weight: 600;
+  background: rgba(255, 250, 240, 0.88); padding: 0.2rem 0.9rem; border-radius: 999px;
+}
 .best b { color: var(--warn); }
 
-/* play */
+/* ---- play: seed-packet stats ------------------------------------------------ */
 .hud { display: flex; gap: 0.6rem; width: 100%; }
-.stat { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 0.55rem; text-align: center; }
-.stat .k { font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
-.stat .v { font-size: 1.7rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.05; }
-#vTime { color: var(--cyan); } #vCps { color: var(--lime); } #vClicks { color: var(--text); }
+.stat {
+  --band: var(--leaf);
+  flex: 1; padding: 0 0.5rem 0.4rem; text-align: center; border-radius: 8px;
+  background: linear-gradient(var(--band) 0 1.45rem, var(--paper) 1.45rem);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12), 0 8px 16px -6px rgba(30, 70, 20, 0.35);
+}
+.stat:nth-child(1) { --band: #4aa3df; }
+.stat:nth-child(2) { --band: #e8578a; }
+.stat:nth-child(3) { --band: #e39b16; }
+.stat .k { height: 1.45rem; line-height: 1.5rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; font-weight: 800; }
+.stat .v { font-size: 1.8rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--ink); }
 
 .pad-wrap { position: relative; width: min(78vw, 300px); aspect-ratio: 1; display: grid; place-items: center; }
 .ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; overflow: visible; }
-.ring .bg { fill: none; stroke: #232a3a; stroke-width: 8; }
-.ring .fg { fill: none; stroke: var(--cyan); stroke-width: 8; stroke-linecap: round; filter: drop-shadow(0 0 6px rgba(54,245,255,.6)); }
+.ring .bg { fill: none; stroke: rgba(255, 250, 240, 0.65); stroke-width: 8; }
+.ring .fg { fill: none; stroke: #ffcf33; stroke-width: 8; stroke-linecap: round; filter: drop-shadow(0 1px 1px rgba(120, 80, 0, 0.35)); }
+
+/* the soil bed. Everything visible is inside the circle game.js hit-tests,
+   so the rim is an inset shadow, not a ring outside the pad. */
 .pad {
+  position: relative; overflow: hidden;
   width: 78%; aspect-ratio: 1; border-radius: 50%; cursor: pointer; display: grid; place-items: center; text-align: center;
-  background: radial-gradient(120px 120px at 50% 34%, #e8ffa0, var(--lime)); color: #14210a;
-  box-shadow: 0 18px 50px -12px rgba(198,255,61,.55), inset 0 -8px 22px rgba(0,0,0,.18);
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, 0.2) 1px, transparent 1.6px) 0 0 / 9px 9px,
+    radial-gradient(circle, rgba(255, 225, 190, 0.12) 1px, transparent 1.6px) 4px 5px / 11px 11px,
+    radial-gradient(circle at 50% 36%, #8f5e38, #5b381e 72%);
+  box-shadow: inset 0 0 0 7px #7d5a36, inset 0 0 0 9px #5e4125, inset 0 10px 18px rgba(0, 0, 0, 0.35), 0 14px 30px -12px rgba(40, 30, 10, 0.55);
   transition: transform .06s ease; touch-action: manipulation;
 }
 .pad.pop { animation: pop .12s ease; }
-@keyframes pop { 0% { transform: scale(.93); } 100% { transform: scale(1); } }
-.pad .big { font-size: 3.6rem; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; }
-.pad .small { font-size: 0.85rem; font-weight: 800; letter-spacing: 0.04em; margin-top: 4px; opacity: .85; }
-.hint { color: var(--muted); font-size: 0.9rem; min-height: 1.2em; text-align: center; }
+@keyframes pop { 0% { transform: scale(.95); } 100% { transform: scale(1); } }
 
-/* results */
-.final { font-size: 5rem; font-weight: 900; color: var(--lime); font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 0 30px rgba(198,255,61,.4); }
+/* flowers: absolutely placed, out of hit-testing, sized with the bed */
+.bed, .harvest { container-type: size; contain: strict; }
+.bed { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+.flower {
+  position: absolute; pointer-events: none; line-height: 1;
+  font-size: 11cqw;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+  transform: translate(-50%, -70%) rotate(var(--r, 0deg)) scale(var(--s, 1));
+  transform-origin: 50% 90%;
+  /* no filter/drop-shadow here: on hundreds of animating flowers it tripled
+     worst-case frame times on a throttled phone */
+  animation: grow .22s cubic-bezier(.3, 1.6, .5, 1);
+}
+@keyframes grow { from { transform: translate(-50%, -70%) rotate(var(--r, 0deg)) scale(0); } }
+
+/* the count sits on a little plant-marker sign so it reads over a full bed */
+.pad .sign {
+  position: relative; z-index: 1; pointer-events: none;
+  min-width: 42%; padding: 0.35rem 0.8rem 0.3rem; border-radius: 14px;
+  background: var(--paper); color: var(--ink);
+  box-shadow: 0 3px 0 #d7c9a4, 0 8px 16px -6px rgba(0, 0, 0, 0.45);
+}
+.pad .big { font-size: 3.2rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; padding-top: 0.2rem; }
+.pad .small { font-size: 0.9rem; font-weight: 700; letter-spacing: 0.04em; color: var(--muted); }
+.pad .small:empty { display: none; }
+.hint { color: var(--ink); font-size: 1rem; font-weight: 700; min-height: 1.2em; text-align: center; }
+
+/* ---- results: a cream card with the garden you grew ------------------------- */
+#result {
+  flex: 0 0 auto; margin: auto 0; gap: 0.75rem;
+  padding: 1.1rem 1rem 1.3rem; border-radius: 20px; background: var(--paper);
+  box-shadow: 0 6px 0 #d7c9a4, 0 22px 40px -12px rgba(30, 60, 20, 0.45);
+}
+.harvest {
+  position: relative; flex: none; width: 120px; height: 120px; border-radius: 50%; overflow: hidden;
+  background:
+    radial-gradient(circle, rgba(0, 0, 0, 0.2) 1px, transparent 1.6px) 0 0 / 7px 7px,
+    radial-gradient(circle at 50% 36%, #8f5e38, #5b381e 72%);
+  box-shadow: inset 0 0 0 5px #7d5a36, inset 0 6px 12px rgba(0, 0, 0, 0.35);
+}
+.final { font-size: 4.4rem; font-weight: 800; color: var(--lime); font-variant-numeric: tabular-nums; line-height: 1; }
 .final small { font-size: 1.1rem; color: var(--muted); font-weight: 800; }
-.rating { font-size: 1.3rem; font-weight: 900; }
+.rating { font-size: 1.4rem; font-weight: 800; line-height: 1.1; }
 .summary { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; }
-.chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 0.4rem 0.9rem; font-size: 0.85rem; font-weight: 700; }
+.chip { background: #eef6e4; border: 1px solid #cfe3b8; border-radius: 999px; padding: 0.25rem 0.9rem; font-size: 0.95rem; font-weight: 700; color: var(--text); }
 .chip b { color: var(--cyan); }
-.newbest { color: var(--warn); font-weight: 900; letter-spacing: 0.08em; min-height: 1.2em; }
+.newbest { color: var(--warn); font-weight: 800; letter-spacing: 0.08em; min-height: 1.2em; }
+.newbest:empty { display: none; }
 .row { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; }
 
-/* CPS-over-time line graph */
-.graph { width: 100%; max-width: 340px; margin: 0.2rem auto 0; }
-.graph .gtitle { font-size: 0.62rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 4px; }
-.graph svg.lg { width: 100%; height: auto; display: block; filter: drop-shadow(0 2px 6px rgba(198,255,61,.15)); }
+/* CPS-over-time line graph (its colours are set in game.js) */
+.graph { width: 100%; max-width: 340px; margin: 0 auto; }
+.graph .gtitle { font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 2px; }
+.graph svg.lg { width: 100%; height: auto; display: block; }
 .graph .lg-x { display: flex; justify-content: space-between; font-size: 0.58rem; color: var(--muted); margin-top: 1px; }
-.graph .cap { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
+.graph .cap { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .graph .cap b { color: var(--lime); font-weight: 800; font-variant-numeric: tabular-nums; }
 
-.mute { position: fixed; bottom: 14px; right: 14px; z-index: 50; cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; font-size: 1rem; }
+.mute { position: fixed; bottom: 14px; right: 14px; z-index: 50; cursor: pointer; background: var(--paper); border: 2px solid #9cc27a; color: var(--ink); border-radius: 10px; padding: 7px 10px; font-size: 1rem; }
+
+/* below ~700px the fixed back / sound / FX buttons reach the centred title */
+@media (max-width: 700px) {
+  header.top { margin-top: 2.5rem; }
+  header.top h1 { font-size: 2.1rem; }
+}
+/* short screens: keep every screen, results included, on one page */
+@media (max-height: 760px) {
+  header.top { margin-bottom: 0.2rem; }
+  header.top h1 { font-size: 1.9rem; }
+  section { gap: 0.75rem; }
+  #result { gap: 0.45rem; padding: 0.8rem 0.9rem 1rem; }
+  .harvest { width: 84px; height: 84px; }
+  .final { font-size: 3.3rem; }
+  .rating { font-size: 1.2rem; }
+  .graph { max-width: 290px; }
+  .btn { font-size: 1.15rem; padding: 0.65rem 2.2rem; }
+}
+/* the smallest phones (568px tall) */
+@media (max-height: 620px) {
+  header.top p { display: none; }
+  .harvest { width: 64px; height: 64px; }
+  .final { font-size: 2.8rem; }
+  .graph { max-width: 250px; }
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }

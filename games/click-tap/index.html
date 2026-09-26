@@ -4,7 +4,7 @@
     <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%96%B1%EF%B8%8F%3C%2Ftext%3E%3C%2Fsvg%3E" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#0e1018" />
+  <meta name="theme-color" content="#aee0ff" />
   <title>ClickTap — speed test</title>
     <link rel="stylesheet" href="styles.css" />
   <script src="../motion-toggle.js"></script>
@@ -25,7 +25,7 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:800 13px/1 'Inter',system-ui,sans-serif;color:#c6ff3d;background:#1c2417;border:1px solid #c6ff3d;border-radius:8px;padding:8px 13px;box-shadow:0 0 12px rgba(198,255,61,.35)">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 14px/1 'Baloo 2',system-ui,sans-serif;color:#2e5b22;background:#fffaf0;border:2px solid #9cc27a;border-radius:12px;box-shadow:0 3px 0 #7fae5c;padding:7px 12px">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
@@ -56,7 +56,10 @@
       </div>
       <div class="pad-wrap">
         <svg class="ring" viewBox="0 0 200 200"><circle class="bg" cx="100" cy="100" r="92"></circle><circle class="fg" id="ringFg" cx="100" cy="100" r="92"></circle></svg>
-        <div class="pad" id="pad"><div><div class="big" id="padCount">GO</div><div class="small" id="padSub"></div></div></div>
+        <div class="pad" id="pad">
+          <div class="bed" id="bed" aria-hidden="true"></div>
+          <div class="sign"><div class="big" id="padCount">GO</div><div class="small" id="padSub"></div></div>
+        </div>
       </div>
       <p class="hint" id="hint"></p>
       <button class="btn ghost" id="quitBtn">Cancel</button>
@@ -64,6 +67,7 @@
 
     <!-- RESULT -->
     <section id="result" hidden>
+      <div class="harvest" id="harvest" aria-hidden="true"></div>
       <div class="final"><span id="finalCps">0.0</span> <small id="finalUnit">CPS</small></div>
       <div class="rating" id="rating"></div>
       <div class="newbest" id="newBest"></div>
