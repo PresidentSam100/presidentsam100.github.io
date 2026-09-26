@@ -26,12 +26,12 @@
     <meta name="author" content="Sam Lu" />
 </head>
 <body>
-  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#eef2f9;background:#141826;border:1px solid #232838;border-radius:8px;padding:8px 13px">&larr; Games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 14px/1 'Arvo',Georgia,serif;color:#4a2410;background:#f6e3bb;border:2px solid #4a2410;border-radius:6px;box-shadow:2px 2px 0 #4a2410;padding:7px 12px">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
-      <h1>⚡ Reaction</h1>
-      <p>tap the instant the screen turns green</p>
+      <h1>Reaction</h1>
+      <p>a high-noon quick-draw &middot; draw the instant you see <b>DRAW!</b></p>
     </header>
 
     <div class="hud">
@@ -42,17 +42,21 @@
     </div>
 
     <div class="panel idle" id="panel">
-      <div class="big" id="panel-big">⚡ Reaction</div>
+      <!-- you (left) and the other gunslinger (right); styles.css does the shooting -->
+      <div class="duelist you"><svg viewBox="0 0 60 100" aria-hidden="true" focusable="false"><ellipse class="dl-dust" cx="30" cy="97" rx="14" ry="4"/><g class="dl-legs"><rect x="17" y="62" width="7" height="34" rx="1.5"/><rect x="28" y="62" width="7" height="34" rx="1.5"/></g><g class="dl-upper"><g class="dl-hat"><ellipse cx="26" cy="14" rx="15" ry="2.8"/><rect x="19" y="3" width="14" height="11" rx="3"/></g><circle cx="26" cy="20" r="5.5"/><path d="M16 27 H36 L40 64 H12 Z"/><g class="dl-arm"><rect x="32" y="29" width="6" height="23" rx="3"/><rect class="dl-gun" x="33" y="49" width="4.5" height="13" rx="1"/><polygon class="dl-flash" points="35.5,60 38.5,65 45,64 40,68 43,75 35.5,70.5 28,75 31,68 26,64 32.5,65"/><circle class="dl-smoke" cx="36" cy="75" r="5"/></g></g></svg></div>
+      <div class="duelist foe"><svg viewBox="0 0 60 100" aria-hidden="true" focusable="false"><ellipse class="dl-dust" cx="30" cy="97" rx="14" ry="4"/><g class="dl-legs"><rect x="17" y="62" width="7" height="34" rx="1.5"/><rect x="28" y="62" width="7" height="34" rx="1.5"/></g><g class="dl-upper"><g class="dl-hat"><ellipse cx="26" cy="14" rx="15" ry="2.8"/><rect x="19" y="3" width="14" height="11" rx="3"/></g><circle cx="26" cy="20" r="5.5"/><path d="M16 27 H36 L40 64 H12 Z"/><g class="dl-arm"><rect x="32" y="29" width="6" height="23" rx="3"/><rect class="dl-gun" x="33" y="49" width="4.5" height="13" rx="1"/><polygon class="dl-flash" points="35.5,60 38.5,65 45,64 40,68 43,75 35.5,70.5 28,75 31,68 26,64 32.5,65"/><circle class="dl-smoke" cx="36" cy="75" r="5"/></g></g></svg></div>
+      <div class="bullet" aria-hidden="true"></div>
+      <div class="big" id="panel-big">Reaction</div>
       <div class="sub" id="panel-sub">press start to begin</div>
       <div class="rating" id="panel-rating"></div>
     </div>
 
     <div class="times" id="times"></div>
 
-    <p class="hint">tap the panel or press <b>Space</b> the moment it flashes green — don't jump early!</p>
+    <p class="hint">tap the street or press <b>Space</b> the moment it says <b>DRAW!</b> — don't draw early!</p>
   </div>
 
-  <div class="overlay show" id="overlay"><div class="card" id="card"></div></div>
+  <div class="overlay show" id="overlay"><div class="poster"><div class="card" id="card"></div></div></div>
 
 <script src="game.js"></script>
 </body>
