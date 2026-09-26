@@ -21,8 +21,9 @@
 
   const HIDDEN = 0, OPEN = 1, FLAG = 2, QUESTION = 3;
 
-  const GAP = 2;              // must match --gap in CSS
-  const FRAME = 2 * 6 + 2;    // board padding + scroll border, both sides
+  const GAP = 0;              // must match --gap in CSS (classic tiles touch)
+  // .board-scroll's sunken border + .field padding + .window padding, both sides
+  const FRAME = 2 * 3 + 2 * 6 + 2 * 3;
   const GUTTER = 10;          // .wrap side padding
   const MAX_W = 1000;
   const MIN_CELL = 18, MAX_CELL = 38, COMFY_CELL = 24;

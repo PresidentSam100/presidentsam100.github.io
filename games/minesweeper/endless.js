@@ -34,8 +34,9 @@
 
   const HIDDEN = 0, OPEN = 1, FLAG = 2;
 
-  const GAP = 2;                // must match --gap in CSS
-  const PAD = 6;                // .erow left inset
+  const GAP = 0;                // must match --gap in CSS (classic tiles touch)
+  const BEVEL = 3;              // .runner's sunken border, each side
+  const WINDOW = 2 * 3 + 2 * 6; // .window padding + .field padding, both sides
   const GUTTER = 10;            // .wrap side padding
   const MIN_CELL = 22, MAX_CELL = 40;
   const MIN_ROWS = 9, MAX_ROWS = 15;
@@ -128,14 +129,15 @@
 
   // ---- layout ------------------------------------------------------------
   function layout() {
-    const avail = Math.min(document.documentElement.clientWidth - 2 * GUTTER, 700) - 2 * PAD - 2;
+    const avail = Math.min(document.documentElement.clientWidth - 2 * GUTTER, 700) - WINDOW - 2 * BEVEL;
     cellPx = Math.max(MIN_CELL, Math.min(MAX_CELL, Math.floor((avail - (COLS - 1) * GAP) / COLS)));
     pitch = cellPx + GAP;
     visRows = Math.max(MIN_ROWS, Math.min(MAX_ROWS, Math.floor((window.innerHeight - CHROME_H) / pitch)));
     runnerEl.style.setProperty("--cell", cellPx + "px");
     runnerEl.style.setProperty("--cols", COLS);
-    runnerEl.style.width = COLS * pitch - GAP + 2 * PAD + "px";
-    runnerEl.style.height = visRows * pitch + 3 + "px";
+    // border-box: the bevel is inside these; +3 is the red line under the rows
+    runnerEl.style.width = COLS * pitch - GAP + 2 * BEVEL + "px";
+    runnerEl.style.height = visRows * pitch + 3 + 2 * BEVEL + "px";
   }
 
   // ---- rows --------------------------------------------------------------

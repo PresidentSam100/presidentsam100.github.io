@@ -27,38 +27,44 @@
     </script>
   </head>
   <body>
-    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 Tahoma,'Segoe UI',Geneva,sans-serif;color:#000;background:#c0c0c0;border:none;border-radius:0;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #fff,inset -2px -2px #808080,inset 2px 2px #dfdfdf;padding:9px 13px">&larr; Games</a>
 
     <div class="wrap">
-      <header class="head">
-        <h1 class="title">Minesweeper</h1>
-        <p class="subtitle">flag every mine before it hits the line</p>
-      </header>
+      <section class="window game-window" aria-labelledby="gameTitle">
+        <header class="titlebar">
+          <span class="tb-icon" aria-hidden="true">💣</span>
+          <h1 class="title" id="gameTitle">Minesweeper</h1>
+          <a class="tb-close" href="../" aria-label="Close: back to games">&times;</a>
+        </header>
+        <nav class="modes" aria-label="Mode">
+          <a class="mode" href="./">Classic</a>
+          <a class="mode sel" href="endless.html" aria-current="page">Endless ♾️</a>
+        </nav>
 
-      <nav class="modes" aria-label="Mode">
-        <a class="mode" href="./">Classic</a>
-        <a class="mode sel" href="endless.html" aria-current="page">Endless ♾️</a>
-      </nav>
-
-      <div class="field" id="field">
-        <div class="hud">
-          <div class="hud-stat"><div class="led" id="defused">000</div><small>defused</small></div>
-          <button class="face" id="face" type="button" aria-label="New run" title="New run (N)">🙂</button>
-          <div class="hud-stat"><div class="led" id="score">000</div><small>rows</small></div>
+        <div class="field" id="field">
+          <div class="hud">
+            <div class="hud-stat"><div class="led" id="defused">000</div><small>defused</small></div>
+            <button class="face" id="face" type="button" aria-label="New run" title="New run (N)">🙂</button>
+            <div class="hud-stat"><div class="led" id="score">000</div><small>rows</small></div>
+          </div>
+          <div class="runner" id="runner" tabindex="0" aria-label="Scrolling minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
         </div>
-        <div class="runner" id="runner" tabindex="0" aria-label="Scrolling minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
-      </div>
 
-      <p id="status" role="status" aria-live="polite"></p>
+        <p id="status" role="status" aria-live="polite" data-idle="Flag every mine before it hits the line."></p>
+      </section>
 
-      <div class="opts">
-        <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
-      </div>
+      <section class="window options-window" aria-labelledby="optsTitle">
+        <header class="titlebar"><h2 class="title" id="optsTitle">Options</h2></header>
+        <div class="window-body">
+          <div class="opts">
+            <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
+          </div>
+          <p id="stats"></p>
+        </div>
+      </section>
 
-      <p id="stats"></p>
-
-      <details class="rules">
-        <summary>How to play</summary>
+      <details class="rules window">
+        <summary class="titlebar">How to play</summary>
         <p>
           The minefield scrolls down toward the <b>red line</b>. When a row
           touches it, every mine in that row has to be flagged 🚩 — an

@@ -27,55 +27,62 @@
     </script>
   </head>
   <body>
-    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 Tahoma,'Segoe UI',Geneva,sans-serif;color:#000;background:#c0c0c0;border:none;border-radius:0;box-shadow:inset -1px -1px #0a0a0a,inset 1px 1px #fff,inset -2px -2px #808080,inset 2px 2px #dfdfdf;padding:9px 13px">&larr; Games</a>
 
     <div class="wrap">
-      <header class="head">
-        <h1 class="title">Minesweeper</h1>
-        <p class="subtitle">clear the field without setting off a mine</p>
-      </header>
+      <section class="window game-window" aria-labelledby="gameTitle">
+        <header class="titlebar">
+          <span class="tb-icon" aria-hidden="true">💣</span>
+          <h1 class="title" id="gameTitle">Minesweeper</h1>
+          <a class="tb-close" href="../" aria-label="Close: back to games">&times;</a>
+        </header>
+        <nav class="modes" aria-label="Mode">
+          <a class="mode sel" href="./" aria-current="page">Classic</a>
+          <a class="mode" href="endless.html">Endless ♾️</a>
+        </nav>
 
-      <nav class="modes" aria-label="Mode">
-        <a class="mode sel" href="./" aria-current="page">Classic</a>
-        <a class="mode" href="endless.html">Endless ♾️</a>
-      </nav>
-
-      <div class="field" id="field">
-        <div class="hud">
-          <div class="led" id="counter" aria-label="Mines left">010</div>
-          <button class="face" id="face" type="button" aria-label="New game" title="New game (N)">🙂</button>
-          <div class="led" id="timer" aria-label="Seconds">000</div>
+        <div class="field" id="field">
+          <div class="hud">
+            <div class="led" id="counter" aria-label="Mines left">010</div>
+            <button class="face" id="face" type="button" aria-label="New game" title="New game (N)">🙂</button>
+            <div class="led" id="timer" aria-label="Seconds">000</div>
+          </div>
+          <div class="board-scroll" id="scroll">
+            <div class="board" id="board" tabindex="0" aria-label="Minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
+          </div>
         </div>
-        <div class="board-scroll" id="scroll">
-          <div class="board" id="board" tabindex="0" aria-label="Minefield. Arrow keys move, Space digs, F flags." aria-describedby="status"></div>
+
+        <p id="status" role="status" aria-live="polite" data-idle="Clear the field without setting off a mine."></p>
+      </section>
+
+      <section class="window options-window" aria-labelledby="optsTitle">
+        <header class="titlebar"><h2 class="title" id="optsTitle">Options</h2></header>
+        <div class="window-body">
+          <div class="levels" role="group" aria-label="Difficulty">
+            <button class="lvl" type="button" data-level="beginner">Beginner<small>9×9 · 10</small></button>
+            <button class="lvl" type="button" data-level="intermediate">Intermediate<small>16×16 · 40</small></button>
+            <button class="lvl" type="button" data-level="expert">Expert<small>30×16 · 99</small></button>
+            <button class="lvl" type="button" data-level="custom">Custom<small id="customTag">20×12 · 40</small></button>
+          </div>
+
+          <form class="custom" id="customForm" hidden>
+            <label>Width <input type="number" id="cw" inputmode="numeric" min="5" max="40" required /></label>
+            <label>Height <input type="number" id="ch" inputmode="numeric" min="5" max="30" required /></label>
+            <label>Mines <input type="number" id="cm" inputmode="numeric" min="1" required /></label>
+            <button class="btn primary" type="submit">Start</button>
+          </form>
+
+          <div class="opts">
+            <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
+            <label class="check"><input type="checkbox" id="qmarks" /> <span>? marks</span></label>
+          </div>
+
+          <p id="stats"></p>
         </div>
-      </div>
+      </section>
 
-      <p id="status" role="status" aria-live="polite"></p>
-
-      <div class="levels" role="group" aria-label="Difficulty">
-        <button class="lvl" type="button" data-level="beginner">Beginner<small>9×9 · 10</small></button>
-        <button class="lvl" type="button" data-level="intermediate">Intermediate<small>16×16 · 40</small></button>
-        <button class="lvl" type="button" data-level="expert">Expert<small>30×16 · 99</small></button>
-        <button class="lvl" type="button" data-level="custom">Custom<small id="customTag">20×12 · 40</small></button>
-      </div>
-
-      <form class="custom" id="customForm" hidden>
-        <label>Width <input type="number" id="cw" inputmode="numeric" min="5" max="40" required /></label>
-        <label>Height <input type="number" id="ch" inputmode="numeric" min="5" max="30" required /></label>
-        <label>Mines <input type="number" id="cm" inputmode="numeric" min="1" required /></label>
-        <button class="btn primary" type="submit">Start</button>
-      </form>
-
-      <div class="opts">
-        <button class="btn" id="modeBtn" type="button" aria-pressed="false" title="What a tap or left click does">⛏️ Tap digs</button>
-        <label class="check"><input type="checkbox" id="qmarks" /> <span>? marks</span></label>
-      </div>
-
-      <p id="stats"></p>
-
-      <details class="rules">
-        <summary>How to play</summary>
+      <details class="rules window">
+        <summary class="titlebar">How to play</summary>
         <p>
           Some squares hide mines. Dig a square to open it: a number tells you
           how many of its eight neighbours are mines. Open every safe square to

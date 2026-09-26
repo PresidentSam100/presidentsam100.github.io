@@ -1,24 +1,29 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
+/* A 90s desktop: grey windows with blue title bars on a teal desktop,
+   raised tiles that sink when dug, red LED counters and the classic number
+   colours. Frames and tiles are all bevels: two light and two dark 1px
+   edges, swapped for "sunken".
 
+   game.js and endless.js size the board from these measurements: tiles
+   touch (--gap 0), .board-scroll / .runner have a 3px border, .field is
+   padded 6px and .window 3px. Change them together. */
 :root {
-  --bg: #000;
-  --panel: #14141c;
-  --line: #262633;
-  --frame: #0c0d12;
-  --tile: #2c3242;
-  --tile-hi: #373e53;
-  --open: #181a22;
-  --text: #eef0f4;
-  --muted: #9aa1b0;
-  --accent: #3c6dec;
-  --good: #69f7be;
-  --bad: #ff5c5c;
-  --led: #ff4d4d;
-  --gap: 2px;
+  --desk: #008080;
+  --face: #c0c0c0;       /* window and tile grey */
+  --hi: #ffffff;
+  --lite: #dfdfdf;
+  --shadow: #808080;
+  --dark: #0a0a0a;
+  --navy: #000080;
+  --text: #000;
+  --good: #006b00;
+  --bad: #c00000;
+  --led: #ff1a1a;
+  --gap: 0px;
   --cell: 30px;
   --cols: 9;
-  /* raised-tile bevel; also the "from" state of the reveal animation */
-  --bevel: inset 2px 2px 0 rgba(255, 255, 255, 0.09), inset -2px -2px 0 rgba(0, 0, 0, 0.38);
+  --raised: inset -1px -1px var(--dark), inset 1px 1px var(--hi), inset -2px -2px var(--shadow), inset 2px 2px var(--lite);
+  --sunken: inset -1px -1px var(--hi), inset 1px 1px var(--shadow), inset -2px -2px var(--lite), inset 2px 2px var(--dark);
+  --ui: Tahoma, "MS Sans Serif", "Microsoft Sans Serif", "Segoe UI", Geneva, Verdana, sans-serif;
 }
 
 * {
@@ -29,9 +34,10 @@
 html,
 body {
   margin: 0;
-  background: var(--bg);
+  background: var(--desk);
   color: var(--text);
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: var(--ui);
+  font-size: 13px;
 }
 
 .wrap {
@@ -41,29 +47,94 @@ body {
   align-items: center;
   /* top room for the fixed back / FX / mute buttons */
   padding: 60px 10px 2rem;
-  gap: 0.85rem;
+  gap: 14px;
 }
 
-.head {
-  text-align: center;
+/* ---- windows ------------------------------------------------------------- */
+.window {
+  max-width: 100%;
+  padding: 3px;
+  background: var(--face);
+  box-shadow: var(--raised);
 }
-.title {
-  font-size: 2.4rem;
-  font-weight: 800;
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 22px;
+  padding: 2px 3px 2px 4px;
+  background: linear-gradient(90deg, var(--navy), #1084d0);
+  color: #fff;
+}
+.titlebar .title {
+  flex: 1;
   margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   line-height: 1;
+  white-space: nowrap;
 }
-.subtitle {
-  margin: 0.4rem 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
+.tb-icon {
+  font-size: 13px;
+  line-height: 1;
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+/* the one title-bar button, and it's real: back to the games list */
+.tb-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 16px;
+  padding-bottom: 2px;
+  background: var(--face);
+  color: var(--text);
+  box-shadow: var(--raised);
+  font: 700 14px/1 var(--ui);
+  text-decoration: none;
+}
+.tb-close:active {
+  box-shadow: var(--sunken);
+}
+.window-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 8px;
+}
+
+/* ---- Classic | Endless: the menu bar (both pages) ------------------------ */
+.modes {
+  display: flex;
+  gap: 2px;
+  padding: 2px 2px 3px;
+}
+.mode {
+  padding: 3px 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.mode:hover {
+  box-shadow: inset -1px -1px var(--shadow), inset 1px 1px var(--hi);
+}
+.mode.sel {
+  background: var(--navy);
+  color: #fff;
+}
+.mode.sel:hover {
+  box-shadow: none;
 }
 
 /* ---- field: HUD + board ------------------------------------------------ */
 .field {
   display: flex;
   flex-direction: column;
+  gap: 6px;
   max-width: 100%;
+  padding: 6px;
+  box-shadow: inset 1px 1px var(--hi), inset -1px -1px var(--shadow);
 }
 
 .hud {
@@ -71,59 +142,62 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px 10px 0 0;
-  border-bottom: none;
-  padding: 0.5rem 0.6rem;
+  padding: 5px 6px;
+  box-shadow: var(--sunken);
 }
 
 .led {
-  font-family: ui-monospace, "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-family: "Courier New", ui-monospace, Consolas, monospace;
   font-weight: 700;
-  font-size: 1.45rem;
-  letter-spacing: 0.08em;
+  font-size: 1.7rem;
+  line-height: 1;
+  letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   color: var(--led);
-  background: #050507;
-  border: 1px solid #2c1616;
-  border-radius: 6px;
-  padding: 0.18rem 0.45rem;
-  min-width: 4.3ch;
+  background: #000;
+  padding: 3px 4px 2px;
+  min-width: 3.6ch;
   text-align: center;
-  text-shadow: 0 0 8px rgba(255, 77, 77, 0.55);
+  box-shadow: inset -1px -1px var(--hi), inset 1px 1px var(--shadow);
 }
 
 .face {
   cursor: pointer;
-  width: 2.6rem;
-  height: 2.6rem;
-  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  font-size: 1.45rem;
   line-height: 1;
   border: none;
-  border-radius: 10px;
-  background: var(--tile);
-  box-shadow: var(--bevel);
+  background: var(--face);
+  box-shadow: var(--raised);
   font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
 }
-.face:hover {
-  background: var(--tile-hi);
-}
 .face:active {
-  background: var(--open);
-  box-shadow: none;
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--shadow);
+  padding: 2px 0 0 2px;
 }
 .face:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 1px dotted var(--text);
+  outline-offset: -5px;
 }
 
+/* the sunken frame is a real border: tiles would cover an inset shadow */
 .board-scroll {
   max-width: 100%;
   overflow: auto;
-  background: var(--frame);
-  border: 1px solid var(--line);
-  border-radius: 0 0 10px 10px;
+  background: var(--face);
+  border: 3px solid;
+  border-color: var(--shadow) var(--hi) var(--hi) var(--shadow);
+}
+
+/* raised-tile bevel, scaled a little with the tile; also the "from" state
+   of the reveal animation. Declared here, not on :root, because the scripts
+   set --cell on these two elements and a :root value would never see it. */
+.board,
+.runner {
+  --bw: max(2px, calc(var(--cell) * 0.1));
+  --bevel: inset calc(var(--bw) * -1) calc(var(--bw) * -1) 0 var(--shadow), inset var(--bw) var(--bw) 0 var(--hi);
 }
 
 .board {
@@ -131,7 +205,7 @@ body {
   grid-template-columns: repeat(var(--cols), var(--cell));
   grid-auto-rows: var(--cell);
   gap: var(--gap);
-  padding: 6px;
+  padding: 0;
   width: max-content;
   margin: 0 auto;
   outline: none;
@@ -141,36 +215,38 @@ body {
   touch-action: manipulation;
 }
 /* .mouse: mousedown focuses the board so keys work straight after a click,
-   and Chrome would otherwise treat that as :focus-visible */
+   and Chrome would otherwise treat that as :focus-visible. An outline, not an
+   inset shadow, because the tiles would paint over the shadow. */
 .board:focus-visible:not(.mouse) {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  outline: 2px dotted var(--navy);
+  outline-offset: -2px;
 }
 
 .c {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 3px;
-  background: var(--tile);
+  background: var(--face);
   box-shadow: var(--bevel);
-  font-weight: 800;
-  font-size: calc(var(--cell) * 0.58);
+  color: var(--text);
+  font-weight: 700;
+  font-size: calc(var(--cell) * 0.62);
   line-height: 1;
   cursor: pointer;
   overflow: hidden;
 }
 @media (hover: hover) {
   .c:not(.open):hover {
-    background: var(--tile-hi);
+    background: #c8c8c8;
   }
 }
-.c.down {
-  background: var(--open);
-  box-shadow: none;
+/* dug (or held down): flat, with the thin grey grid line of an open field */
+.c.down,
+.c.open {
+  background: var(--face);
+  box-shadow: inset 1px 1px 0 var(--shadow);
 }
 .c.open {
-  background: var(--open);
-  box-shadow: none;
   cursor: default;
 }
 .c.open.num {
@@ -183,31 +259,25 @@ body {
   font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
 }
 .c.q {
-  color: #ffd23f;
-}
-.c.mine {
-  background: #341b22;
+  color: var(--text);
 }
 .c.boom {
-  background: var(--bad);
-}
-.c.wrong {
-  background: #2b1d22;
+  background: #ff0000;
 }
 .c.cur {
-  outline: 2px solid #ffd23f;
-  outline-offset: -2px;
+  outline: 2px dotted var(--text);
+  outline-offset: -4px;
 }
 
-/* classic number colours, brightened for a dark board */
-.n1 { color: #6ea8fe; }
-.n2 { color: #5fd38d; }
-.n3 { color: #ff6b6b; }
-.n4 { color: #b197fc; }
-.n5 { color: #ffa94d; }
-.n6 { color: #3bc9db; }
-.n7 { color: #f1f3f5; }
-.n8 { color: #adb5bd; }
+/* the classic number colours */
+.n1 { color: #0000ff; }
+.n2 { color: #007b00; }
+.n3 { color: #ff0000; }
+.n4 { color: #00007b; }
+.n5 { color: #7b0000; }
+.n6 { color: #007b7b; }
+.n7 { color: #000000; }
+.n8 { color: #7b7b7b; }
 
 /* Reveal ripple: each cell starts looking like a covered tile and opens
    after --d. JS only adds this class (and the delay) when Visual FX is on. */
@@ -216,7 +286,7 @@ body {
 }
 @keyframes open {
   from {
-    background-color: var(--tile);
+    background-color: var(--face);
     box-shadow: var(--bevel);
     font-size: 0;
   }
@@ -240,11 +310,6 @@ body {
   60% { transform: translate(3px, -1px); }
   80% { transform: translate(-1px, 1px); }
 }
-.field.won .board-scroll {
-  border-color: var(--good);
-  box-shadow: 0 0 22px rgba(105, 247, 190, 0.28);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
 
 /* pause: the shared overlay is see-through, so hide the numbers too */
 .field.paused .board,
@@ -253,53 +318,72 @@ body {
   pointer-events: none;
 }
 
+/* ---- status bar ----------------------------------------------------------- */
+/* #status, not a class: setStatus() replaces its className with the tone.
+   contain: inline-size stops a long message widening the window. */
 #status {
-  margin: 0;
-  min-height: 1.4em;
-  text-align: center;
-  font-weight: 700;
-  font-size: 0.95rem;
+  contain: inline-size;
+  margin: 3px 0 0;
+  min-height: 1.6em;
+  padding: 3px 6px;
+  line-height: 1.3;
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--hi);
 }
-#status.good { color: var(--good); }
-#status.bad { color: var(--bad); }
+#status:empty::before {
+  content: attr(data-idle);
+  color: #404040;
+}
+#status.good { color: var(--good); font-weight: 700; }
+#status.bad { color: var(--bad); font-weight: 700; }
 
 /* ---- controls ----------------------------------------------------------- */
 .levels {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.45rem;
+  gap: 6px;
+}
+.lvl,
+.btn {
+  cursor: pointer;
+  background: var(--face);
+  color: var(--text);
+  border: none;
+  border-radius: 0;
+  box-shadow: var(--raised);
+  font-family: inherit;
+  font-size: 13px;
 }
 .lvl {
-  cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.15rem;
+  gap: 2px;
   min-width: 6.4rem;
-  padding: 0.5rem 0.8rem;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  font-family: inherit;
-  font-size: 0.9rem;
+  padding: 6px 10px;
   font-weight: 700;
   line-height: 1.1;
-  transition: border-color 0.15s ease, background 0.15s ease;
 }
 .lvl small {
-  font-weight: 500;
-  font-size: 0.72rem;
-  color: var(--muted);
+  font-weight: 400;
+  font-size: 11px;
+  color: #404040;
 }
-.lvl:hover {
-  border-color: #3d3d52;
-  background: #191923;
+/* the chosen level stays pushed in */
+.lvl.sel,
+.lvl:active,
+.btn:active,
+#modeBtn[aria-pressed="true"] {
+  box-shadow: var(--sunken);
+  background:
+    repeating-conic-gradient(var(--face) 0 25%, #dcdcdc 0 50%) 0 0 / 2px 2px;
 }
-.lvl.sel {
-  border-color: var(--accent);
-  background: #151a2c;
+.lvl:focus-visible,
+.btn:focus-visible,
+.mode:focus-visible,
+.rules summary:focus-visible {
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
 }
 
 .custom {
@@ -307,11 +391,9 @@ body {
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: center;
-  gap: 0.55rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 0.7rem 0.8rem;
+  gap: 8px;
+  padding: 10px;
+  box-shadow: inset 1px 1px var(--shadow), inset -1px -1px var(--hi), inset 2px 2px var(--hi), inset -2px -2px var(--shadow);
 }
 .custom[hidden] {
   display: none;
@@ -319,25 +401,23 @@ body {
 .custom label {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--muted);
+  gap: 3px;
+  font-size: 12px;
 }
 .custom input {
   width: 4.6rem;
-  padding: 0.45rem 0.5rem;
-  border-radius: 7px;
-  border: 1px solid #34344a;
-  background: #0b0b10;
+  padding: 4px 5px;
+  border: none;
+  border-radius: 0;
+  background: #fff;
   color: var(--text);
+  box-shadow: var(--sunken);
   font-family: inherit;
-  font-size: 0.95rem;
-  font-weight: 700;
+  font-size: 13px;
 }
 .custom input:focus {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
 }
 
 .opts {
@@ -345,115 +425,129 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 0.6rem;
+  gap: 12px;
 }
-
 .btn {
-  cursor: pointer;
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0.55rem 1rem;
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 700;
-  transition: border-color 0.15s ease, filter 0.15s ease;
+  padding: 6px 14px;
+  min-width: 5.5rem;
 }
-.btn:hover {
-  border-color: #3d3d52;
-}
+/* the default button gets the extra black outline */
 .btn.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.btn.primary:hover {
-  filter: brightness(1.12);
-}
-#modeBtn[aria-pressed="true"] {
-  border-color: #e0484b;
-  background: #221418;
+  box-shadow: inset 0 0 0 1px var(--dark), inset -2px -2px var(--dark), inset 2px 2px var(--hi), inset -3px -3px var(--shadow), inset 3px 3px var(--lite);
+  font-weight: 700;
 }
 
 .check {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--muted);
+  gap: 6px;
   cursor: pointer;
   user-select: none;
 }
 .check input {
-  width: 1rem;
-  height: 1rem;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  width: 13px;
+  height: 13px;
+  background: #fff;
+  box-shadow: var(--sunken);
   cursor: pointer;
+}
+.check input:checked {
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 13 13'%3E%3Cpath d='M3 6l2 2 5-5v2l-5 5-2-2z' fill='%23000'/%3E%3C/svg%3E") center / 13px 13px no-repeat;
+}
+.check input:focus-visible + span {
+  outline: 1px dotted var(--text);
 }
 
 #stats {
+  contain: inline-size;
+  width: 100%;
   margin: 0;
-  color: var(--muted);
-  font-size: 0.85rem;
+  color: #202020;
+  font-size: 12px;
   text-align: center;
 }
-#stats b {
-  color: var(--text);
-}
 
+/* ---- how to play: a window you can roll up --------------------------------- */
 .rules {
   width: 100%;
   max-width: 520px;
-  color: var(--muted);
-  font-size: 0.88rem;
   line-height: 1.45;
 }
 .rules summary {
   cursor: pointer;
-  text-align: center;
+  list-style: none;
   font-weight: 700;
-  color: var(--text);
+}
+.rules summary::-webkit-details-marker {
+  display: none;
+}
+.rules summary::before {
+  content: "▸";
+  width: 1em;
+  font-size: 12px;
+}
+.rules[open] summary::before {
+  content: "▾";
 }
 .rules p {
-  margin: 0.6rem 0 0;
+  margin: 8px 10px 0;
 }
-.rules b {
-  color: var(--text);
+.rules p:last-child {
+  margin-bottom: 10px;
 }
 
 #byline {
-  color: #666;
-  font-size: 75%;
-  margin: 0.25rem 0 0;
+  color: #d8f0f0;
+  font-size: 11px;
+  margin: 0;
 }
 
-/* ---- Classic | Endless switch (both pages) ------------------------------ */
-.modes {
-  display: flex;
-  gap: 0.3rem;
-  padding: 0.25rem;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 10px;
+/* ---- the shared pause overlay, as a dialog box ----------------------------- */
+body > .gs-pause {
+  background: rgba(0, 64, 64, 0.35);
+  font-family: var(--ui);
 }
-.mode {
-  padding: 0.4rem 0.95rem;
-  border-radius: 7px;
-  color: var(--muted);
-  font-weight: 700;
-  font-size: 0.88rem;
-  text-decoration: none;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-.mode:hover {
+.gs-pause .gs-pause-card {
+  padding: 3px 3px 14px;
+  border: none;
+  border-radius: 0;
+  background: var(--face);
   color: var(--text);
-  background: #1c1c28;
+  box-shadow: var(--raised), 3px 3px 0 rgba(0, 0, 0, 0.35);
+  min-width: 240px;
 }
-.mode.sel {
-  background: var(--accent);
+.gs-pause .gs-pause-card h2 {
+  margin: 0 0 12px;
+  padding: 4px 6px;
+  background: linear-gradient(90deg, var(--navy), #1084d0);
   color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+}
+.gs-pause .gs-pause-card p {
+  margin: 0 12px 14px;
+  color: var(--text);
+  font-size: 13px;
+}
+.gs-pause .gs-pause-card button {
+  min-height: 0;
+  padding: 6px 18px;
+  border: none;
+  border-radius: 0;
+  background: var(--face);
+  color: var(--text);
+  box-shadow: inset 0 0 0 1px var(--dark), inset -2px -2px var(--dark), inset 2px 2px var(--hi), inset -3px -3px var(--shadow), inset 3px 3px var(--lite);
+  font: 700 13px var(--ui);
+}
+.gs-pause .gs-pause-card button:hover {
+  background: var(--face);
+}
+.gs-pause .gs-pause-card button:active {
+  box-shadow: var(--sunken);
 }
 
 /* ---- endless ------------------------------------------------------------ */
@@ -461,24 +555,24 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.2rem;
+  gap: 3px;
 }
 .hud-stat small {
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--muted);
-  font-weight: 700;
+  color: #202020;
 }
 
 /* The viewport. Rows are absolutely placed and moved by JS every frame —
-   never by a CSS transition, which Visual FX off would flatten to nothing. */
+   never by a CSS transition, which Visual FX off would flatten to nothing.
+   endless.js sets its size, bevel included (border-box). */
 .runner {
   position: relative;
   overflow: hidden;
-  background: var(--frame);
-  border: 1px solid var(--line);
-  border-radius: 0 0 10px 10px;
+  background: #b4b4b4;
+  border: 3px solid;
+  border-color: var(--shadow) var(--hi) var(--hi) var(--shadow);
   outline: none;
   user-select: none;
   -webkit-user-select: none;
@@ -486,7 +580,8 @@ body {
   touch-action: manipulation;
 }
 .runner:focus-visible:not(.mouse) {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  outline: 2px dotted var(--navy);
+  outline-offset: -2px;
 }
 /* rows fade in under the top edge */
 .runner::before {
@@ -496,7 +591,7 @@ body {
   right: 0;
   top: 0;
   height: 22px;
-  background: linear-gradient(var(--frame), transparent);
+  background: linear-gradient(#b4b4b4, transparent);
   z-index: 2;
   pointer-events: none;
 }
@@ -508,14 +603,13 @@ body {
   right: 0;
   bottom: 0;
   height: 3px;
-  background: var(--bad);
-  box-shadow: 0 0 14px 2px rgba(255, 92, 92, 0.55);
+  background: #ff0000;
   z-index: 2;
   pointer-events: none;
 }
 .erow {
   position: absolute;
-  left: 6px;
+  left: 0;
   bottom: 3px;
   display: grid;
   grid-template-columns: repeat(var(--cols), var(--cell));
@@ -525,18 +619,18 @@ body {
 }
 /* the row about to be judged */
 .erow.near .c:not(.open):not(.flag) {
-  background: #4a2a35;
+  background: #e0a8a8;
   animation: warn 0.5s ease-in-out infinite alternate;
 }
 @keyframes warn {
-  to { background: #6a2f3c; }
+  to { background: #f07c7c; }
 }
 .erow.judged {
-  opacity: 0.4;
+  opacity: 0.45;
 }
 .c.ok {
-  background: #1d3a2d;
-  box-shadow: none;
+  background: #9fd49f;
+  box-shadow: inset 1px 1px 0 var(--shadow);
 }
 
 /* Accessibility: honor prefers-reduced-motion. JS also skips the ripple
