@@ -27,25 +27,36 @@
     </script>
   </head>
   <body>
-    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+    <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Newsreader',Georgia,serif;color:#1b1a17;background:#f3ecdc;border:1px solid #1b1a17;border-radius:3px;padding:8px 13px">&larr; Games</a>
 
     <div class="wrap">
-      <header class="head">
-        <h1 class="title">Sudoku</h1>
-        <p class="subtitle">every row, column and box holds 1 to 9 exactly once</p>
+    <main class="sheet">
+      <header class="mast">
+        <p class="ear ear-l">Every row, column and box holds <b>1 to 9</b> exactly once.</p>
+        <p class="nameplate">The Daily Grid</p>
+        <p class="ear ear-r"><b>Forecast</b> <span id="forecast">sunny, singles all day</span></p>
+        <div class="dateline">
+          <span id="dateline"></span>
+          <span class="dl-mid">Puzzles &amp; Games</span>
+          <span id="puzzleNo">No. &mdash;</span>
+        </div>
       </header>
 
       <div class="field" id="field">
         <div class="hud">
-          <div class="hud-level" id="levelTag">Easy</div>
+          <div class="hud-left">
+            <h1 class="title">Sudoku</h1>
+            <div class="hud-level" id="levelTag">Easy</div>
+          </div>
           <div class="hud-right">
             <div class="clock" id="timer" aria-label="Time">0:00</div>
-            <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause" title="Pause (P)">⏸</button>
+            <button class="icon-btn" id="pauseBtn" type="button" aria-label="Pause" title="Pause (P)">&#x23F8;&#xFE0E;</button>
           </div>
         </div>
         <div class="board-frame">
           <div class="board" id="board" aria-label="Sudoku grid. Arrow keys move, 1 to 9 fills, Shift plus a digit adds a note, Backspace clears." aria-describedby="status"></div>
-          <div class="loading" id="loading" hidden>generating a puzzle…</div>
+          <div class="loading" id="loading" hidden>printing a fresh puzzle&hellip;</div>
+          <div class="stamp" id="stamp" aria-hidden="true" hidden><b>Solved</b><span id="stampNote"></span></div>
         </div>
       </div>
 
@@ -54,21 +65,21 @@
       <div class="pad" id="pad" role="group" aria-label="Digits"></div>
 
       <div class="tools" role="group" aria-label="Tools">
-        <button class="tool" id="undoBtn" type="button" title="Undo (Ctrl+Z)"><span class="ti">↶</span>Undo</button>
-        <button class="tool" id="eraseBtn" type="button" title="Erase (Backspace)"><span class="ti">⌫</span>Erase</button>
-        <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Notes (N)"><span class="ti">✏️</span>Notes<b class="badge" id="notesBadge">off</b></button>
-        <button class="tool" id="hintBtn" type="button" title="Hint"><span class="ti">💡</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
+        <button class="tool" id="undoBtn" type="button" title="Undo (Ctrl+Z)"><span class="ti">&#x21B6;</span>Undo</button>
+        <button class="tool" id="eraseBtn" type="button" title="Erase (Backspace)"><span class="ti">&#x232B;</span>Erase</button>
+        <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Pencil marks (N)"><span class="ti">&#x270E;&#xFE0E;</span>Pencil<b class="badge" id="notesBadge">off</b></button>
+        <button class="tool" id="hintBtn" type="button" title="Hint"><span class="ti">&#x261E;&#xFE0E;</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
       </div>
 
       <div class="levels" role="group" aria-label="Difficulty">
-        <button class="lvl" type="button" data-level="easy">Easy<small>warm-up</small></button>
-        <button class="lvl" type="button" data-level="medium">Medium<small>fewer clues</small></button>
-        <button class="lvl" type="button" data-level="hard">Hard<small>pairs &amp; pointing</small></button>
-        <button class="lvl" type="button" data-level="expert">Expert<small>wings &amp; fish</small></button>
+        <button class="lvl" type="button" data-level="easy"><span class="stars" aria-hidden="true">&#x2605;<i>&#x2605;&#x2605;&#x2605;</i></span>Easy<small>warm-up</small></button>
+        <button class="lvl" type="button" data-level="medium"><span class="stars" aria-hidden="true">&#x2605;&#x2605;<i>&#x2605;&#x2605;</i></span>Medium<small>fewer clues</small></button>
+        <button class="lvl" type="button" data-level="hard"><span class="stars" aria-hidden="true">&#x2605;&#x2605;&#x2605;<i>&#x2605;</i></span>Hard<small>pairs &amp; pointing</small></button>
+        <button class="lvl" type="button" data-level="expert"><span class="stars" aria-hidden="true">&#x2605;&#x2605;&#x2605;&#x2605;</span>Expert<small>wings &amp; fish</small></button>
       </div>
 
       <div class="opts">
-        <button class="btn" id="newBtn" type="button">🔄 New puzzle</button>
+        <button class="btn" id="newBtn" type="button">New puzzle</button>
       </div>
 
       <p id="stats"></p>
@@ -83,7 +94,7 @@
         </p>
         <p>
           <b>Tap or click</b> a square, then a digit on the pad. Tap the same
-          digit again to take it back. Turn on <b>✏️ Notes</b> to pencil in
+          digit again to take it back. Turn on <b>✎&#xFE0E; Pencil</b> to pencil in
           small candidates instead; placing a digit clears it from the notes
           it can see. Digits that break a rule turn red.
         </p>
@@ -94,7 +105,7 @@
           <b>P</b>/<b>Esc</b> pauses.
         </p>
         <p>
-          <b>💡 Hint</b> first points out any wrong digit or notes that are
+          <b>☞&#xFE0E; Hint</b> first points out any wrong digit or notes that are
           missing the answer; otherwise it fills in the next square you could
           have found and says how. Every level is graded by the hardest trick
           it needs: Easy and Medium only need singles, Hard needs pointing
@@ -108,6 +119,7 @@
       </details>
 
       <p id="byline">made by sam lu (not you)</p>
+    </main>
     </div>
 
     <script src="engine.js"></script>

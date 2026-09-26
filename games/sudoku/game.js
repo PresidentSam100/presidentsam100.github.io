@@ -16,10 +16,16 @@
 
   const E = window.SudokuEngine;
   const LABEL = { easy: "Easy", medium: "Medium", hard: "Hard", expert: "Expert" };
+  // the masthead's weather ear, in the techniques each level asks for
+  const FORECAST = {
+    easy: "sunny, singles all day",
+    medium: "fair, hidden singles later",
+    hard: "cloudy, with pointing pairs",
+    expert: "storms; X-Wings likely",
+  };
 
-  const GUTTER = 10;          // .wrap side padding
   const MIN_SIZE = 300, MAX_SIZE = 500;
-  const CHROME_H = 380;       // title + HUD + status + pad + tools, kept on screen with the board
+  const CHROME_H = 380;       // masthead + HUD + status + pad + tools, kept on screen with the board
   const LOADING_DELAY = 150;  // don't flash "generating…" for a fast puzzle
   const UNDO_CAP = 500;
 
@@ -38,6 +44,11 @@
   const statsEl = $("stats");
   const timerEl = $("timer");
   const levelTag = $("levelTag");
+  const forecastEl = $("forecast");
+  const puzzleNoEl = $("puzzleNo");
+  const stampEl = $("stamp");
+  const stampNote = $("stampNote");
+  const sheetEl = document.querySelector(".sheet");
   const pauseBtn = $("pauseBtn");
   const padEl = $("pad");
   const undoBtn = $("undoBtn");
@@ -135,6 +146,7 @@
     erase() { tone(420, 300, 0.07, "triangle", 0.09); },
     undo() { tone(520, 390, 0.07, "triangle", 0.08); },
     bad() { tone(190, 140, 0.16, "sawtooth", 0.07); },
+    stamp() { tone(140, 55, 0.14, "sine", 0.3); tone(900, 300, 0.04, "square", 0.03); },
     unit() {
       tone(659, 659, 0.12, "triangle", 0.12, 0);
       tone(784, 784, 0.12, "triangle", 0.12, 0.07);
@@ -208,8 +220,12 @@
   }
 
   // ---- layout ------------------------------------------------------------
+  // The sheet's padding changes at the narrow-screen breakpoint, so measure
+  // its content box rather than assume a gutter.
   function layout() {
-    const w = Math.min(document.documentElement.clientWidth - 2 * GUTTER, MAX_SIZE);
+    const cs = getComputedStyle(sheetEl);
+    const inner = sheetEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const w = Math.min(inner, MAX_SIZE);
     const h = window.innerHeight - CHROME_H;
     const size = Math.floor(Math.min(w, Math.max(h, MIN_SIZE)));
     document.documentElement.style.setProperty("--size", size + "px");
@@ -312,10 +328,25 @@
     statusEl.className = tone || "";
   }
 
+  // A stable "issue number" per puzzle, so a resumed game keeps its number.
+  function puzzleNo(puzzle) {
+    let h = 2166136261;
+    for (const v of puzzle) h = Math.imul(h ^ v, 16777619);
+    return 1000 + ((h >>> 0) % 9000);
+  }
+
   function renderLevel() {
     levelBtns.forEach((b) => b.classList.toggle("sel", b.dataset.level === prefs.level));
-    const clues = game && game.level === prefs.level && state !== "loading" ? given.reduce((a, b) => a + b, 0) : 0;
+    const ready = game && game.level === prefs.level && state !== "loading";
+    const clues = ready ? given.reduce((a, b) => a + b, 0) : 0;
     levelTag.innerHTML = LABEL[prefs.level] + (clues ? "<small>" + clues + " clues</small>" : "");
+    forecastEl.textContent = FORECAST[prefs.level];
+    puzzleNoEl.textContent = "No. " + (ready ? puzzleNo(game.puzzle) : "—");
+  }
+
+  function hideStamp() {
+    clearTimeout(stampTimer);
+    stampEl.hidden = true;
   }
 
   function readStats(lvl) {
@@ -412,7 +443,7 @@
   };
 
   // ---- starting games ----------------------------------------------------
-  let loadToken = 0, loadingTimer = 0;
+  let loadToken = 0, loadingTimer = 0, stampTimer = 0;
 
   function startGame(g, saved) {
     clearTimeout(loadingTimer);
@@ -428,6 +459,7 @@
     state = "playing";
     fxCls.fill("");
     fieldEl.classList.remove("won");
+    hideStamp();
     computeConflicts();
     renderAll();
     renderLevel();
@@ -460,6 +492,7 @@
     sel = -1;
     elapsedMs = 0;
     fieldEl.classList.remove("won");
+    hideStamp();
     computeConflicts();
     renderAll();
     renderLevel();
@@ -605,6 +638,7 @@
     "XYZ-Wing": "an XYZ-Wing",
     "Swordfish": "a Swordfish",
   };
+  const HINT = "\u261E\uFE0E ";   // printer's fist; FE0E keeps it out of emoji fonts
   const unitName = (u) => (u < 9 ? "row " + (u + 1) : u < 18 ? "column " + (u - 8) : "this box");
 
   function flagCells(list, text) {
@@ -633,8 +667,8 @@
       if (vals[i] && vals[i] !== sol[i]) wrong.push(i);
       else if (!vals[i] && notes[i] && !(notes[i] & (1 << (sol[i] - 1)))) lost.push(i);
     }
-    if (wrong.length) return flagCells(wrong, "💡 That " + vals[wrong.indexOf(sel) >= 0 ? sel : wrong[0]] + " doesn't belong here — clear it and look again.");
-    if (lost.length) return flagCells(lost, "💡 Your notes here have ruled out the answer.");
+    if (wrong.length) return flagCells(wrong, HINT + "That " + vals[wrong.indexOf(sel) >= 0 ? sel : wrong[0]] + " doesn't belong here — clear it and look again.");
+    if (lost.length) return flagCells(lost, HINT + "Your notes here have ruled out the answer.");
 
     const step = E.nextStep(Array.from(vals));
     let i, msg;
@@ -652,7 +686,7 @@
     }
     useHint();
     sel = i;
-    setStatus("💡 " + msg, "info");
+    setStatus(HINT + msg, "info");
     sfx.hint();
     setDigit(i, sol[i], true);   // a win here overwrites the hint message
     fx(i, "hinted", 1100);
@@ -668,12 +702,28 @@
 
     // floor at 1: best().get() reads a stored 0 as "no time yet"
     const secs = Math.max(1, Math.round(elapsed() / 1000));
-    let msg = "🎉 Solved in " + fmt(secs * 1000);
-    if (game.hints) msg += " with " + game.hints + " hint" + (game.hints === 1 ? "" : "s") + " (unranked)";
-    else if (bestFor(game.level).submit(secs)) msg += " — new best!";
+    timerEl.textContent = fmt(secs * 1000);   // the clock floors; match the stamp
+    const hintNote = game.hints + " hint" + (game.hints === 1 ? "" : "s");
+    let msg = "Solved in " + fmt(secs * 1000);
+    let note = fmt(secs * 1000);
+    if (game.hints) {
+      msg += " with " + hintNote + " (unranked)";
+      note += " · " + hintNote;
+    } else if (bestFor(game.level).submit(secs)) {
+      msg += " — new best!";
+      note += " · new best";
+    }
     addSolved(game.level);
 
     fieldEl.classList.add("won");
+    // the stamp comes down once the ripple has crossed the board
+    stampNote.textContent = note;
+    clearTimeout(stampTimer);
+    stampTimer = setTimeout(() => {
+      if (state !== "won") return;
+      stampEl.hidden = false;
+      sfx.stamp();
+    }, reduced() ? 0 : 750);
     if (!reduced()) {
       for (let j = 0; j < 81; j++) {
         const dist = Math.max(Math.abs(E.ROW_OF[j] - E.ROW_OF[last]), Math.abs(E.COL_OF[j] - E.COL_OF[last]));
@@ -693,7 +743,7 @@
     canPause: () => state === "playing",
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
-      pauseBtn.textContent = paused ? "▶" : "⏸";
+      pauseBtn.textContent = paused ? "\u25B6\uFE0E" : "\u23F8\uFE0E";
       pauseBtn.setAttribute("aria-label", paused ? "Resume" : "Pause");
       if (paused) {
         stopClock();
@@ -786,7 +836,7 @@
   newBtn.addEventListener("click", () => {
     ensureAudio();
     if (state === "playing" && hasProgress() && !armed) {
-      newBtn.textContent = "⚠️ Tap again to drop this game";
+      newBtn.textContent = "Tap again to scrap this one";
       armed = setTimeout(() => { armed = 0; newBtn.textContent = NEW_LABEL; }, 3000);
       return;
     }
@@ -805,6 +855,9 @@
     resizeTimer = setTimeout(layout, 100);
   });
 
+  $("dateline").textContent = new Date().toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric", year: "numeric",
+  });
   layout();
   openLevel(prefs.level, false);
 })();
