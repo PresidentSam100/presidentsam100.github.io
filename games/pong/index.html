@@ -25,7 +25,21 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Segoe UI',system-ui,sans-serif;letter-spacing:1px;color:#000;background:#fff;border:none;border-radius:6px;padding:8px 13px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:400 19px/1 'VT323',ui-monospace,monospace;letter-spacing:1px;color:#eaf6ff;background:#1b1f25;border:1px solid #3a414a;border-radius:6px;box-shadow:0 2px 0 #0b0d10;padding:5px 12px 6px">&larr; Games</a>
+<!-- A 1970s TV set: wood cabinet, a chrome-trimmed tube in the middle and a
+     panel either side (badge and speaker; dials and power), so the screen sits
+     at the centre.
+     The game and its menus play on the screen; .crt lays the tube's scanlines,
+     glare and rolling band over everything on it. -->
+<div class="tv">
+  <div class="antenna" aria-hidden="true"></div>
+  <div class="cabinet">
+    <div class="panel left" aria-hidden="true">
+      <div class="badge"><b>SAM LU</b><small>SOLID STATE</small></div>
+      <div class="grille"></div>
+      <small class="model">MODEL 72</small>
+    </div>
+    <div class="bezel"><div class="mask"><div class="screen" id="screen">
 <canvas id="game" width="800" height="500"></canvas>
 
 <div id="menu" class="overlay">
@@ -41,7 +55,7 @@
 
 <div id="gameover" class="overlay hidden">
   <h1 id="winner"></h1>
-  <p id="record" style="margin:0 0 .6rem;opacity:.75;font-size:.9rem"></p>
+  <p id="record"></p>
   <button class="btn" id="again">Play Again</button>
 </div>
 
@@ -51,6 +65,21 @@
     <div><b id="count-left-label">Player 1</b><span id="count-left">W / S</span></div>
     <div><b id="count-right-label">Player 2</b><span id="count-right">↑ / ↓</span></div>
   </div>
+</div>
+
+<div class="crt" aria-hidden="true"><i class="roll"></i></div>
+<div class="poweron" aria-hidden="true"></div>
+    </div></div></div>
+    <div class="panel right" aria-hidden="true">
+      <div class="knobs">
+        <div class="knob"><div class="dial channel"></div><small>CHANNEL</small></div>
+        <div class="knob"><div class="dial volume"></div><small>VOLUME</small></div>
+      </div>
+      <div class="grille"></div>
+      <div class="power"><i class="led"></i><small>ON</small></div>
+    </div>
+  </div>
+  <div class="feet" aria-hidden="true"></div>
 </div>
 
 <!-- On-screen paddle controls (mobile) -->

@@ -174,7 +174,6 @@ function clampPaddle(p) {
 
 function update() {
   if (state !== "playing" && state !== "countdown") return;
-  const ly0 = left.y, ry0 = right.y; // remember pre-move y for motion-blur velocity
 
   // Left paddle: W/S or on-screen arrows
   if (keys["w"] || leftUp) left.y -= PADDLE_SPEED;
@@ -193,7 +192,6 @@ function update() {
     else right.y = target;
   }
   clampPaddle(right);
-  left.dy = left.y - ly0; right.dy = right.y - ry0; // per-frame paddle movement
 
   if (state !== "playing") return; // ball stays frozen during the countdown
 
@@ -259,23 +257,48 @@ function afterPoint(dir) {
 
 // Visual FX = inverse of the shared "reduce motion" toggle.
 function fxOn() { return !(window.RM_ON && window.RM_ON()); }
-// trailing copies opposite the motion direction → motion blur (longer & more
-// visible at the head, fading out along the trail)
-function motionGhosts(x, y, w, h, dx, dy) {
-  if (!dx && !dy) return;
-  const STEPS = 5;
-  for (let k = 1; k <= STEPS; k++) {
-    ctx.globalAlpha = 0.26 * (1 - (k - 1) / STEPS);
-    ctx.fillRect(x - dx * k, y - dy * k, w, h);
+
+const TUBE = "#0b0e0d";          // the picture tube's black (matches the CSS)
+const PHOSPHOR = "#eaf6ff";      // its blue-white glow
+
+// Score digits as chunky blocks on a 3x5 grid, like the 1972 machine's.
+const DIGITS = {
+  0: ["111", "101", "101", "101", "111"], 1: ["001", "001", "001", "001", "001"],
+  2: ["111", "001", "111", "100", "111"], 3: ["111", "001", "111", "001", "111"],
+  4: ["101", "101", "111", "001", "001"], 5: ["111", "100", "111", "001", "111"],
+  6: ["111", "100", "111", "101", "111"], 7: ["111", "001", "001", "001", "001"],
+  8: ["111", "101", "111", "101", "111"], 9: ["111", "101", "111", "001", "111"],
+};
+const PIX = 10; // one block of a digit
+function drawNumber(n, cx, top) {
+  const s = String(n), w = s.length * 3 * PIX + (s.length - 1) * PIX;
+  let x = cx - w / 2;
+  for (const ch of s) {
+    DIGITS[ch].forEach((row, r) => {
+      for (let c = 0; c < 3; c++) if (row[c] === "1") ctx.fillRect(x + c * PIX, top + r * PIX, PIX, PIX);
+    });
+    x += 4 * PIX;
   }
-  ctx.globalAlpha = 1;
 }
 
 function draw() {
-  ctx.clearRect(0, 0, W, H);
+  const fx = fxOn();
+  if (fx) {
+    // phosphor afterglow: fade the last frame instead of wiping it, so moving
+    // things leave a short trail (at 0.5 a frame, gone within a few frames)
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = "rgba(11,14,13,0.5)";
+    ctx.fillRect(0, 0, W, H);
+    ctx.shadowColor = "rgba(170,215,255,0.85)";
+    ctx.shadowBlur = 16;
+  } else {
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = TUBE;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // center dashed line
-  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.strokeStyle = "rgba(234,246,255,0.45)";
   ctx.lineWidth = 4;
   ctx.setLineDash([12, 16]);
   ctx.beginPath();
@@ -284,23 +307,14 @@ function draw() {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // scores
-  ctx.fillStyle = "#fff";
-  ctx.font = "48px 'Segoe UI', sans-serif";
-  ctx.textAlign = "center";
-  ctx.fillText(left.score, W / 2 - 60, 60);
-  ctx.fillText(right.score, W / 2 + 60, 60);
-
-  // paddles + ball, with a slight motion blur when Visual FX is on
-  ctx.fillStyle = "#fff";
-  if (fxOn() && (state === "playing" || state === "countdown")) {
-    motionGhosts(left.x, left.y, PADDLE_W, PADDLE_H, 0, left.dy || 0);
-    motionGhosts(right.x, right.y, PADDLE_W, PADDLE_H, 0, right.dy || 0);
-    motionGhosts(ball.x, ball.y, BALL_SIZE, BALL_SIZE, ball.vx, ball.vy);
-  }
+  // scores, paddles, ball
+  ctx.fillStyle = PHOSPHOR;
+  drawNumber(left.score, W / 2 - 80, 28);
+  drawNumber(right.score, W / 2 + 80, 28);
   ctx.fillRect(left.x, left.y, PADDLE_W, PADDLE_H);
   ctx.fillRect(right.x, right.y, PADDLE_W, PADDLE_H);
   ctx.fillRect(ball.x, ball.y, BALL_SIZE, BALL_SIZE);
+  ctx.shadowBlur = 0;
 }
 
 function loop() {

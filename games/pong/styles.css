@@ -1,72 +1,214 @@
+@import url("https://fonts.googleapis.com/css2?family=VT323&display=swap");
+/* Pong on a 1970s TV in a dark room. The set is a walnut cabinet with a
+   chrome-trimmed picture tube in the middle, a panel either side (badge and
+   speaker grille; channel and volume dials, grille and power light) so the
+   screen sits at the centre, and rabbit-ear antennas; the screen's glow
+   spills onto the wall. On the tube: scanlines, darkened corners, glass
+   glare and a slow rolling band, over a phosphor picture that game.js draws
+   with a glow and a short afterglow trail. The menus show on the screen. */
+:root {
+  --phosphor: #eaf6ff;
+  --glow: rgba(170, 215, 255, 0.75);
+  --tube: #0b0e0d;
+  --panel-w: 150px;
+  /* the tube's width: capped by the window's width and, since the page
+     can't scroll, by its height too (the screen is 8:5) */
+  --sw: min(720px, calc(100vw - 2 * var(--panel-w) - 160px), calc((100vh - 190px) * 1.6));
+  --wood: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='340' viewBox='0 0 900 340'%3E%3Cfilter id='g' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.0035 0.11' numOctaves='3' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0.16  0 0 0 0 0.08  0 0 0 0 0.03  0 0 0 1.6 -0.55'/%3E%3C/filter%3E%3Crect width='900' height='340' filter='url(%23g)'/%3E%3C/svg%3E");
+}
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body {
   height: 100%;
-  background: #0a0a0a;
-  color: #fff;
-  font-family: "Segoe UI", system-ui, sans-serif;
+  color: var(--phosphor);
+  font-family: "VT323", ui-monospace, monospace;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
 }
+/* a dark room at night: striped wallpaper, lit blue-white by the set */
+body {
+  background:
+    radial-gradient(ellipse 50% 42% at 50% 52%, rgba(150, 190, 255, 0.17), rgba(150, 190, 255, 0) 72%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.022) 0 46px, rgba(0, 0, 0, 0.06) 46px 92px),
+    linear-gradient(180deg, #1b2129, #10141a 70%, #0b0e12);
+  background-color: #10141a;
+}
+
+/* ---- the set ---- */
+.tv { position: relative; padding-top: 86px; }
+/* panel | tube | panel: equal sides keep the screen centred */
+.cabinet {
+  position: relative; display: grid; grid-template-columns: var(--panel-w) auto var(--panel-w); gap: 18px; padding: 22px;
+  border-radius: 26px;
+  background: var(--wood) 0 0 / 100% 100% no-repeat, linear-gradient(180deg, #6e4125, #4d2b16 60%, #3b2010);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 220, 180, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.35),
+    inset 3px 0 0 rgba(255, 220, 180, 0.08), inset -3px 0 0 rgba(0, 0, 0, 0.25),
+    0 22px 40px -12px rgba(0, 0, 0, 0.7), 0 0 60px rgba(120, 170, 255, 0.08);
+}
+/* chrome trim, then the black mask, then the tube */
+.bezel {
+  padding: 5px; border-radius: 34px / 30px;
+  background: linear-gradient(145deg, #eef1f4, #9aa1a9 30%, #f4f6f8 52%, #7d848c 75%, #d6dade);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.mask { padding: 12px; border-radius: 30px / 26px; background: linear-gradient(180deg, #1c1d20, #0e0f11); box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8); }
+.screen {
+  position: relative; width: var(--sw); overflow: hidden; container-type: inline-size;
+  border-radius: 24px / 20px; background: var(--tube);
+}
 #game {
-  background: #000;
-  border: 2px solid #fff;
-  display: block;
-  max-width: 95vw;
-  max-height: 95vh;
+  display: block; width: 100%; height: auto; background: var(--tube);
   touch-action: none; /* drags move paddles, never scroll the page */
 }
+
+/* ---- the tube's glass, over everything on the screen; never takes a click ---- */
+.crt {
+  position: absolute; inset: 0; z-index: 30; pointer-events: none; border-radius: inherit;
+  background:
+    repeating-linear-gradient(180deg, rgba(0, 0, 0, 0) 0 2px, rgba(0, 0, 0, 0.26) 2px 3px),
+    /* corners darken, the edges (where the paddles run) barely do */
+    radial-gradient(ellipse 75% 75% at 50% 50%, rgba(0, 0, 0, 0) 62%, rgba(0, 0, 0, 0.6) 100%);
+  box-shadow: inset 0 0 2cqw 0.2cqw rgba(0, 0, 0, 0.55);
+}
+.crt::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit;
+  background:
+    radial-gradient(ellipse 55% 38% at 28% 16%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(158deg, rgba(255, 255, 255, 0.04) 0 18%, rgba(255, 255, 255, 0) 34%);
+}
+/* a faint band rolling down the picture; Visual FX off stops it */
+.crt .roll {
+  position: absolute; left: 0; right: 0; top: -25%; height: 25%;
+  background: linear-gradient(180deg, rgba(200, 230, 255, 0), rgba(200, 230, 255, 0.05), rgba(200, 230, 255, 0));
+  animation: roll 7s linear infinite; will-change: transform;
+}
+@keyframes roll { to { transform: translateY(500%); } }
+/* switching on: the picture opens out from a bright line across the middle */
+.poweron { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; border-radius: inherit; }
+.poweron::before, .poweron::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 50%; background: var(--tube);
+  animation: tvOn 0.75s cubic-bezier(0.5, 0, 0.2, 1) 0.15s both;
+}
+.poweron::before { top: 0; box-shadow: 0 1px 6px 1px rgba(220, 240, 255, 0.95); --to: -101%; }
+.poweron::after { bottom: 0; box-shadow: 0 -1px 6px 1px rgba(220, 240, 255, 0.95); --to: 101%; }
+@keyframes tvOn { to { transform: translateY(var(--to)); box-shadow: none; } }
+
+/* ---- the side panels ---- */
+.panel {
+  min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+  gap: 14px; padding: 16px 12px; border-radius: 14px;
+  background: repeating-linear-gradient(90deg, #2c2d31 0 1px, #232428 1px 3px);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 220, 180, 0.15);
+  font-family: system-ui, sans-serif; color: #b9bfc6;
+}
+.panel small { font-size: 9px; font-weight: 700; letter-spacing: 0.18em; }
+.badge {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; width: 100%; padding: 6px 4px;
+  border-radius: 6px; background: linear-gradient(180deg, #e9ecef, #9aa1a8 55%, #d7dbdf);
+  box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(0, 0, 0, 0.6);
+  color: #2a2d31;
+}
+.badge b { font-family: "VT323", monospace; font-weight: 400; font-size: 22px; letter-spacing: 0.12em; line-height: 1; }
+.badge small { font-size: 8px; color: #3c4147; }
+.knobs { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.knob { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.dial {
+  position: relative; width: 62px; aspect-ratio: 1; border-radius: 50%;
+  background: radial-gradient(circle at 40% 34%, #fbfbfb, #c3c8cd 36%, #7a8087 72%, #43474d);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.6), inset 0 -2px 3px rgba(0, 0, 0, 0.35);
+}
+.dial.volume { width: 46px; }
+/* the tick ring round each dial */
+.dial::before {
+  content: ""; position: absolute; inset: -9px; border-radius: 50%;
+  background: repeating-conic-gradient(from -1deg, #cfd4d9 0 2deg, transparent 2deg 30deg);
+  -webkit-mask: radial-gradient(circle, transparent 0 64%, #000 65% 72%, transparent 73%);
+  mask: radial-gradient(circle, transparent 0 64%, #000 65% 72%, transparent 73%);
+}
+/* the pointer line */
+.dial::after {
+  content: ""; position: absolute; left: calc(50% - 2px); top: 7%; width: 4px; height: 43%; border-radius: 2px;
+  background: #2a2d31; transform-origin: 50% 100%; transform: rotate(var(--turn, 0deg));
+}
+.dial.channel { --turn: 60deg; }
+.dial.volume { --turn: -40deg; }
+.grille {
+  width: 100%; flex: 1; min-height: 60px; border-radius: 8px;
+  background: repeating-linear-gradient(180deg, #0d0e10 0 3px, #3a3c40 3px 5px);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+.power { display: flex; align-items: center; gap: 7px; }
+.model { color: #8e959d; }
+.led { width: 9px; height: 9px; border-radius: 50%; background: #ff4a3d; box-shadow: 0 0 8px 1px rgba(255, 74, 61, 0.8); }
+
+/* rabbit ears: a dome on the cabinet, two chrome rods */
+.antenna {
+  position: absolute; top: 60px; left: 50%; width: 56px; height: 28px; margin-left: -28px;
+  border-radius: 28px 28px 4px 4px; background: radial-gradient(circle at 40% 30%, #4b4f55, #1d1f23 70%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+}
+.antenna::before, .antenna::after {
+  content: ""; position: absolute; bottom: 20px; left: calc(50% - 2px); width: 4px; height: 96px; border-radius: 2px;
+  background:
+    radial-gradient(circle at 50% 3px, #f2f4f6 0 3px, #8b9199 4px, transparent 5px),
+    linear-gradient(90deg, #7f868e, #eef1f4 45%, #8a9199);
+  transform-origin: 50% 100%;
+}
+.antenna::before { transform: rotate(-30deg); }
+.antenna::after { transform: rotate(26deg); }
+/* two rubber feet and the shadow under the set */
+.feet { position: relative; height: 16px; margin: 0 60px; }
+.feet::before, .feet::after { content: ""; position: absolute; top: 0; width: 46px; height: 10px; border-radius: 0 0 6px 6px; background: #17181b; }
+.feet::before { left: 0; }
+.feet::after { right: 0; }
+.tv::after {
+  content: ""; position: absolute; left: 6%; right: 6%; bottom: -6px; height: 20px; z-index: -1;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0) 70%);
+}
+
+/* ---- what's on the screen ---- */
 .overlay {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
+  position: absolute; inset: 0; z-index: 10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: clamp(5px, 2.2cqw, 18px);
+  background: rgba(6, 9, 8, 0.72);
   text-align: center;
-  gap: 20px;
+  text-shadow: 0 0 6px var(--glow), 0 0 18px rgba(150, 200, 255, 0.3);
 }
 .overlay h1 {
-  font-size: clamp(40px, 10vw, 90px);
-  letter-spacing: 12px;
-  margin-bottom: 10px;
+  font-weight: 400; font-size: clamp(30px, 13cqw, 104px); line-height: 0.9; letter-spacing: 0.28em; margin: 0 0 clamp(0px, 1cqw, 8px) 0.28em;
 }
-.overlay p { opacity: 0.7; max-width: 320px; line-height: 1.5; }
+#winner { letter-spacing: 0.08em; margin-left: 0.08em; font-size: clamp(28px, 10cqw, 84px); }
+.overlay p { opacity: 0.8; max-width: 88%; line-height: 1.25; font-size: clamp(13px, 2.9cqw, 22px); }
+#record { opacity: 0.75; }
 .btn {
-  font: inherit;
-  font-size: 22px;
-  padding: 14px 40px;
-  min-width: 240px;
-  background: #fff;
-  color: #000;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: transform 0.08s, background 0.15s;
+  font: inherit; font-size: clamp(15px, 3.9cqw, 30px); line-height: 1; letter-spacing: 0.08em;
+  padding: 0.28em 1.2em 0.34em; min-width: 9.5em;
+  color: var(--phosphor); background: transparent; border: 2px solid currentColor; border-radius: 4px;
+  text-shadow: inherit; box-shadow: 0 0 10px rgba(150, 200, 255, 0.35), inset 0 0 10px rgba(150, 200, 255, 0.2);
+  cursor: pointer; transition: background 0.12s, color 0.12s;
 }
-.btn:hover { background: #ccc; transform: scale(1.04); }
+/* hover inverts, like a highlighted item on an old set's menu */
+.btn:hover, .btn:focus-visible { background: var(--phosphor); color: var(--tube); text-shadow: none; outline: none; }
 .hidden { display: none; }
 
 /* Pre-game countdown: lighter overlay so the board stays visible behind it */
-#countdown { background: rgba(0, 0, 0, 0.5); gap: 30px; pointer-events: none; z-index: 15; }
-.count-num {
-  font-size: clamp(80px, 20vw, 170px); font-weight: 700; line-height: 1;
-  text-shadow: 0 0 34px rgba(255, 255, 255, 0.35);
-}
-.count-controls { display: flex; gap: 44px; }
-.count-controls > div { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.count-controls b { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.65; font-weight: 700; }
+#countdown { background: rgba(6, 9, 8, 0.35); gap: clamp(8px, 3.5cqw, 30px); pointer-events: none; z-index: 15; }
+.count-num { font-size: clamp(48px, 24cqw, 180px); line-height: 0.85; }
+.count-controls { display: flex; gap: clamp(18px, 6cqw, 44px); }
+.count-controls > div { display: flex; flex-direction: column; align-items: center; gap: clamp(3px, 1cqw, 8px); }
+.count-controls b { font-weight: 400; font-size: clamp(13px, 2.6cqw, 20px); letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; }
 .count-controls span {
-  font-size: 22px; font-weight: 600; padding: 8px 18px;
-  border: 1px solid rgba(255, 255, 255, 0.45); border-radius: 8px; min-width: 96px;
+  font-size: clamp(15px, 3.4cqw, 26px); padding: 0.15em 0.7em; min-width: 4.4em;
+  border: 1px solid rgba(234, 246, 255, 0.5); border-radius: 4px;
 }
 /* countdown number pops on each tick (auto-disabled by reduce-motion) */
 .count-num { animation: countPop 0.9s ease both; }
 @keyframes countPop { 0% { opacity: 0; transform: scale(1.45); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0.92; transform: scale(1); } }
 
-/* On-screen paddle arrows (touch devices only) */
+/* On-screen paddle arrows (touch devices only): chunky remote-control buttons */
 .pong-ctrl {
   position: fixed;
   bottom: 18px;
@@ -80,17 +222,18 @@ html, body {
 .pbtn {
   width: 76px;
   height: 76px;
-  border-radius: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  border-radius: 16px;
+  border: 1px solid #3a414a;
+  background: linear-gradient(180deg, #2a2f36, #1a1d22);
+  box-shadow: 0 4px 0 #0b0d10, inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  color: var(--phosphor);
   font-size: 30px;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
   user-select: none;
 }
-.pbtn:active { background: rgba(255, 255, 255, 0.4); }
+.pbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0b0d10; background: #2f353d; }
 @media (pointer: coarse) {
   body.playing #ctrl-left { display: flex; }
   body.playing.p2 #ctrl-right { display: flex; }
@@ -99,22 +242,60 @@ html, body {
 /* Instructions: one sentence per line; show only the relevant control set.
    Desktop (fine pointer) sees keyboard controls; touch devices see the on-screen
    buttons line — never both. */
-#controls span { display: block; line-height: 1.7; }
+#controls span { display: block; line-height: 1.25; }
 #controls .ctrl-mobile { display: none; }
 @media (pointer: coarse) {
   #controls .ctrl-desktop { display: none; }
   #controls .ctrl-mobile { display: block; }
 }
 
+/* ---- smaller windows ---- */
+/* narrow: the screen on top, the two panels side by side under it */
+@media (max-width: 700px) {
+  :root { --sw: min(720px, calc(100vw - 76px), calc((100vh - 290px) * 1.6)); }
+  .tv { padding-top: 72px; }
+  .antenna { top: 46px; }
+  .cabinet { grid-template-columns: 1fr 1fr; grid-template-areas: "screen screen" "left right"; gap: 12px; padding: 16px; border-radius: 22px; }
+  .bezel { grid-area: screen; justify-self: center; }
+  .panel.left { grid-area: left; }
+  .panel.right { grid-area: right; }
+  .panel { flex-direction: row; padding: 8px 10px; gap: 10px; }
+  .model { display: none; }
+  .badge { width: auto; flex: none; padding: 4px 8px; }
+  .badge b { font-size: 16px; }
+  .knobs { flex-direction: row; gap: 14px; }
+  .knob small { display: none; }
+  .dial { width: 34px; }
+  .dial.volume { width: 28px; }
+  .dial::before { inset: -6px; }
+  .grille { min-height: 30px; height: 30px; flex: 1; }
+  .power small { display: none; }
+}
+/* short (a phone on its side): no antenna, a slimmer cabinet, and the set
+   starts below the fixed back / sound / FX buttons */
+@media (max-height: 520px) {
+  :root { --panel-w: 120px; --sw: min(720px, calc(100vw - 2 * var(--panel-w) - 110px), calc((100vh - 124px) * 1.6)); }
+  body { padding-top: 46px; }
+  .tv { padding-top: 0; }
+  .antenna { display: none; }
+  .cabinet { padding: 12px; gap: 12px; }
+  .mask { padding: 8px; }
+  .panel { padding: 10px 8px; gap: 8px; }
+  .knob small { display: none; }
+  .dial { width: 40px; }
+  .dial.volume { width: 32px; }
+  .badge b { font-size: 17px; }
+  .feet { height: 8px; }
+}
+
 /* tasteful entrance + interaction motion (auto-disabled by reduce-motion) */
 .overlay:not(.hidden) { animation: ovFade 0.3s ease both; }
-.overlay:not(.hidden) h1 { text-shadow: 0 0 22px rgba(255,255,255,0.2); animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) backwards, titleGlow 3.4s ease-in-out 0.6s infinite; }
+.overlay:not(.hidden) h1 { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) backwards; }
 .overlay:not(.hidden) p { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.08s backwards; }
 .overlay:not(.hidden) .btn { animation: ovUp 0.5s cubic-bezier(0.2,0.8,0.2,1) 0.16s backwards; }
 .btn:active { transform: scale(0.96); }
 @keyframes ovFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ovUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
-@keyframes titleGlow { 0%, 100% { text-shadow: 0 0 18px rgba(255,255,255,0.15); } 50% { text-shadow: 0 0 32px rgba(255,255,255,0.42); } }
 
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
