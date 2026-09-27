@@ -188,6 +188,8 @@ body::before {
 }
 #status { font-size: 0.9rem; font-weight: 600; color: var(--muted); }
 #status.win { color: var(--on); text-shadow: 0 0 12px var(--glow); }
+#status.fail { color: #ff7373; }
+#status.ready { color: var(--on); }
 
 /* board */
 #board {
