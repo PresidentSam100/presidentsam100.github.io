@@ -452,6 +452,41 @@
     }
     return best;
   }
+  // Humans don't reply instantly, so the CPU's move is held until it has
+  // visibly "thought" for a while; the search itself (budgetMs) is unchanged,
+  // this only paces when the move lands. The pace scales with the clock —
+  // roughly remaining/30 plus most of the increment — with quick replies in
+  // the opening and now and then (a "book move", an obvious recapture), an
+  // occasional long think when time allows, a hurry in time trouble, and
+  // never a hold long enough to flag itself.
+  const THINK_RANGE={ easy:[800,2400], medium:[1000,3200], hard:[1200,4200], master:[1400,5500] };
+  let cpuHoldTimer=null, cpuThinkStart=0;
+  function pacedThinkMs(){
+    const range=THINK_RANGE[G.difficulty]||THINK_RANGE.medium, lo=range[0], hi=range[1];
+    let t = lo + Math.pow(Math.random(),1.6)*(hi-lo);       // jittered, skewed quick
+    const moveNo=G.history.length>>1;
+    if(moveNo<3) t*=0.35;                                    // opening: near-book speed
+    else if(Math.random()<0.2) t*=0.35;                      // the odd quick, "obvious" reply
+    if(G.clock && G.clock.enabled){
+      const mine=G.clock[G.cpuColor];
+      const pace=(mine/30 + G.clock.inc*0.7)*(0.6+Math.random()*0.9);
+      if(pace>hi*2 && Math.random()<0.12) t=hi*(1.5+Math.random()); // a long think, time permitting
+      t=Math.min(t, Math.max(250,pace));
+      if(mine<20000) t=Math.min(t, Math.max(200, mine/25));  // time trouble: hurry
+      t=Math.min(t, Math.max(120, mine-2000));               // never think into a flag
+    }
+    return t;
+  }
+  function playCpuMovePaced(mv, myId){
+    const wait=Math.max(0, pacedThinkMs()-(Date.now()-cpuThinkStart));
+    cpuHoldTimer=setTimeout(()=>{
+      cpuHoldTimer=null;
+      if(myId!==cpuRequestId) return;                        // undo / new game during the hold
+      cpuThinking=false;
+      if(G.over||!G.vsCPU||G.turn!==G.cpuColor) return;
+      if(mv) doMove(mv,"q");
+    }, wait);
+  }
   function ensureWorker(){
     if(worker||workerFailed) return;
     try{
@@ -463,25 +498,25 @@
   function onCpuMessage(ev){
     const msg=ev.data;
     if(!msg||msg.requestId!==cpuRequestId) return;      // stale response — discard
-    cpuThinking=false;
-    if(G.over||!G.vsCPU||G.turn!==G.cpuColor) return;    // state moved on (undo/new game) — discard
+    if(G.over||!G.vsCPU||G.turn!==G.cpuColor){ cpuThinking=false; return; } // state moved on — discard
     const mv = (msg.type==="move" && msg.move) ? msg.move : fallbackCpuMove();
-    if(mv) doMove(mv,"q");
+    playCpuMovePaced(mv, msg.requestId);                 // held until it has "thought" long enough
   }
   function onCpuError(){
     workerFailed=true; try{ worker.terminate(); }catch(e){} worker=null;
     if(cpuThinking && !G.over && G.vsCPU && G.turn===G.cpuColor){
-      cpuThinking=false;
-      const mv=fallbackCpuMove(); if(mv) doMove(mv,"q");
+      playCpuMovePaced(fallbackCpuMove(), cpuRequestId);
     }
   }
   function cancelCpuThink(){
     cpuRequestId++; cpuThinking=false;
+    if(cpuHoldTimer){ clearTimeout(cpuHoldTimer); cpuHoldTimer=null; }
     if(worker){ try{ worker.terminate(); }catch(e){} worker=null; }
   }
   function requestCpuMove(){
     if(!G||G.over||!G.vsCPU||G.turn!==G.cpuColor) return;
     cpuThinking=true;
+    cpuThinkStart=Date.now();
     const myId=++cpuRequestId;
     const tier=G.difficulty||"medium";
     const BUDGET={ easy:60, medium:400, hard:1000, master:1800 };
@@ -489,14 +524,14 @@
     let budgetMs=BUDGET[tier]||400;
     if(G.clock && G.clock.enabled) budgetMs=Math.min(budgetMs, Math.max(40, G.clock[G.cpuColor]*0.04));
     ensureWorker();
-    if(!worker){ cpuThinking=false; const mv=fallbackCpuMove(); if(mv) doMove(mv,"q"); return; }
+    if(!worker){ playCpuMovePaced(fallbackCpuMove(), myId); return; }
     try{
       worker.postMessage({ type:"think", requestId:myId,
         board:G.board.map(p=>p?{o:p.o,t:p.t,dead:!!p.dead}:null),
         turn:G.turn, castle:G.castle?Object.assign({},G.castle):null,
         ep:G.ep?{sq:G.ep.sq,victim:G.ep.victim}:null,
         difficulty:tier, budgetMs, maxDepth:DEPTH[tier]||4 });
-    }catch(e){ cpuThinking=false; const mv=fallbackCpuMove(); if(mv) doMove(mv,"q"); }
+    }catch(e){ playCpuMovePaced(fallbackCpuMove(), myId); }
   }
 
   // ============================================================ wiring
