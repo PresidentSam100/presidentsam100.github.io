@@ -1,18 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%E2%8C%A8%EF%B8%8F%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%94%AE%3C%2Ftext%3E%3C%2Fsvg%3E" />
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>ZType — Typing Defense</title>
+<title>ZType — Spellcaster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="styles.css" />
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
-    <meta name="description" content="ZType — typing defense — type to destroy. A browser game by Sam Lu." />
+    <meta name="description" content="ZType — spellcasting typing defense — type the spirits' true names to banish them. A browser game by Sam Lu." />
     <meta property="og:title" content="ZType — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="ZType — typing defense — type to destroy. A browser game by Sam Lu." />
+    <meta property="og:description" content="ZType — spellcasting typing defense — type to banish. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
     <!-- Google tag (gtag.js) -->
@@ -25,7 +27,7 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Cascadia Code',Consolas,'Courier New',monospace;letter-spacing:.5px;color:#38f9d7;background:rgba(10,14,28,.88);border:1px solid #46547e;border-radius:4px;padding:8px 12px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 12px/1 'Cinzel',Georgia,serif;letter-spacing:.5px;color:#c9a2ff;background:rgba(18,12,36,.88);border:1px solid #564a85;border-radius:4px;padding:8px 12px">&larr; Games</a>
 <div id="wrap">
   <canvas id="game"></canvas>
   <input id="ti" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true" tabindex="-1" />
@@ -35,7 +37,7 @@
       <div class="stat"><span class="label">Score</span><span class="value" id="score">0</span></div>
       <div class="stat"><span class="label">Wave</span><span class="value" id="wave">1</span></div>
       <div class="stat"><span class="label">Streak</span><span class="value" id="streak">0</span></div>
-      <div class="stat"><span class="label">Bombs</span><span class="value" id="bombs">0</span></div>
+      <div class="stat"><span class="label">Nova</span><span class="value" id="bombs">0</span></div>
     </div>
     <div class="group">
       <div class="stat right"><span class="label">WPM</span><span class="value" id="wpm">0</span></div>
@@ -51,8 +53,8 @@
   <div class="overlay" id="startScreen">
     <div class="title">ZTYPE</div>
     <div class="subtitle">
-      Words rain from above. <span class="key">Type</span> them to lock on and blast them out of the sky
-      before they reach your line. Finish a word to fire.
+      Spirits drift down through the night, each bound to a word.
+      <span class="key">Type</span> a spirit's true name to banish it before it crosses the ward.
     </div>
     <div class="modes" id="modes">
       <button class="mode active" data-mode="normal">Normal</button>
@@ -61,7 +63,7 @@
     </div>
     <div class="subtitle" id="modeDesc" style="min-height:24px;color:var(--accent);font-size:13px;max-width:100%;"></div>
     <div class="subtitle" style="font-size:12px;letter-spacing:1px;opacity:.8;"><span class="key">◂ ▸</span> choose mode · <span class="key">Enter</span> to start</div>
-    <button class="btn" id="startBtn">Start ▸</button>
+    <button class="btn" id="startBtn">Begin ▸</button>
     <div class="best" id="startBest"></div>
   </div>
 

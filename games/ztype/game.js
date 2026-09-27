@@ -75,11 +75,11 @@
   // ---------- Game state ----------
   const MODES = {
     normal: { lives: 3, bombs: 3, baseSpeed: 22, spawnEvery: 0.85, speedRamp: 1.0, label: "Normal", noTypos: false,
-      desc: "3 lives, 3 bombs. Typos are free — only a landed word costs you." },
+      desc: "3 lives, 3 novas. Typos are free — only a spirit crossing the ward costs you." },
     zen:    { lives: 99, bombs: Infinity, baseSpeed: 16, spawnEvery: 1.2, speedRamp: 0.55, label: "Zen", noTypos: false,
-      desc: "Endless. No lives lost, unlimited bombs — relax and build speed." },
+      desc: "Endless. No lives lost, unlimited novas — relax and build speed." },
     hard:   { lives: 1, bombs: 0, baseSpeed: 34, spawnEvery: 0.55, speedRamp: 1.5, label: "Hardcore", noTypos: true,
-      desc: "1 life, no bombs. One typo or one landed word ends the run." },
+      desc: "1 life, no novas. One typo or one spirit through the ward ends the run." },
   };
 
   let mode = "normal";
@@ -258,7 +258,8 @@
       speed,
       done: 0,        // chars destroyed
       dying: false,   // fully typed, awaiting final bullet
-      hue: rand(0, 40) + 165, // teal-ish range
+      hue: Math.random() < 0.55 ? rand(252, 292) : rand(150, 172), // violet or spectral green
+      bob: rand(0, Math.PI * 2), // wisp hover phase
     });
   }
 
@@ -394,6 +395,7 @@
     wordsCleared++;
 
     explode(w.x + w.w / 2, w.y, w.hue, 28);
+    particles.push({ x: w.x + w.w / 2, y: w.y, vx: 0, vy: 0, life: 0.5, age: 0, kind: "ring", hue: w.hue });
     scorePop(w.x + w.w / 2, w.y, "+" + gained);
     shake = Math.min(shake + 3, 10);
     Sound.kill();
@@ -447,9 +449,14 @@
   }
 
   // ---------- Effects ----------
+  const WIZ_SCALE = 1.35;
+  function staffTip() {
+    return { x: ship.x + Math.sin(ship.angle) * 30 * WIZ_SCALE, y: ship.y - Math.cos(ship.angle) * 30 * WIZ_SCALE };
+  }
   function fireBullet(w, fatal) {
+    const tip = staffTip();
     bullets.push({
-      x: ship.x, y: ship.y,
+      x: tip.x, y: tip.y,
       tx: w.x + w.w / 2, ty: w.y,
       target: w,
       t: 0,
@@ -459,11 +466,12 @@
   }
 
   function spawnMuzzle() {
+    const tip = staffTip();
     for (let i = 0; i < 6; i++) {
       particles.push({
-        x: ship.x, y: ship.y,
+        x: tip.x, y: tip.y,
         vx: rand(-40, 40), vy: rand(-120, -40),
-        life: rand(0.2, 0.4), age: 0, size: rand(1, 2.5), hue: 175, kind: "spark",
+        life: rand(0.2, 0.4), age: 0, size: rand(1, 2.5), hue: 272, kind: "spark",
       });
     }
   }
@@ -609,14 +617,24 @@
   }
 
   // ---------- Rendering ----------
-  let starfield = [];
+  let starfield = [], fog = [], pines = [];
   function initStars() {
     starfield = [];
     for (let i = 0; i < 90; i++) {
       starfield.push({ x: Math.random() * W, y: Math.random() * H, z: rand(0.3, 1), r: rand(0.4, 1.6) });
     }
+    fog = [];
+    for (let i = 0; i < 4; i++) {
+      fog.push({ x: Math.random() * W, y: H * rand(0.35, 0.8), rx: rand(160, 320), ry: rand(26, 52),
+                 v: rand(4, 11) * (i % 2 ? 1 : -1), a: rand(0.04, 0.09) });
+    }
+    pines = [];
+    for (let x = -20; x < W + 40; x += rand(34, 70)) {
+      pines.push({ x, h: rand(26, 70), w: rand(16, 34) });
+    }
   }
   initStars();
+  window.addEventListener("resize", initStars);
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
@@ -626,48 +644,121 @@
     ctx.save();
     ctx.translate(ox, oy);
 
-    // stars
+    const T = performance.now() / 1000;
+
+    // stars — slow drift, warm arcane white
     for (const s of starfield) {
       s.y += s.z * 14 * (1 / 60);
       if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
-      ctx.globalAlpha = 0.25 + s.z * 0.5;
-      ctx.fillStyle = "#9fb4ff";
+      ctx.globalAlpha = 0.22 + s.z * 0.45;
+      ctx.fillStyle = "#d8d2ff";
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalAlpha = 1;
 
-    // danger line
+    // a low waning moon
+    const mx = W * 0.84, my = H * 0.16;
+    const mg = ctx.createRadialGradient(mx, my, 8, mx, my, 90);
+    mg.addColorStop(0, "rgba(240,235,255,0.28)");
+    mg.addColorStop(1, "rgba(240,235,255,0)");
+    ctx.fillStyle = mg;
+    ctx.beginPath(); ctx.arc(mx, my, 90, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#efe9ff";
+    ctx.beginPath(); ctx.arc(mx, my, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#cfc4f2";
+    ctx.beginPath(); ctx.arc(mx - 9, my + 2, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + 8, my - 8, 2.8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(mx + 5, my + 11, 2.2, 0, Math.PI * 2); ctx.fill();
+
+    // silhouetted pines along the bottom of the sky
     const lineY = FLOOR_Y();
-    const grad = ctx.createLinearGradient(0, lineY - 14, 0, lineY + 14);
-    grad.addColorStop(0, "rgba(255,77,109,0)");
-    grad.addColorStop(1, "rgba(255,77,109,0.22)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, lineY - 14, W, 28);
-    ctx.strokeStyle = "rgba(255,77,109,0.5)";
-    ctx.setLineDash([10, 8]);
-    ctx.lineWidth = 1;
+    ctx.fillStyle = "rgba(16,10,34,0.9)";
+    for (const t of pines) {
+      ctx.beginPath();
+      ctx.moveTo(t.x, lineY + 18);
+      ctx.lineTo(t.x + t.w / 2, lineY + 18 - t.h);
+      ctx.lineTo(t.x + t.w, lineY + 18);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // drifting fog banks
+    for (const f of fog) {
+      if (!reducedMotion()) {
+        f.x += f.v * (1 / 60);
+        if (f.x - f.rx > W) f.x = -f.rx;
+        if (f.x + f.rx < 0) f.x = W + f.rx;
+      }
+      const fgrad = ctx.createRadialGradient(f.x, f.y, 4, f.x, f.y, f.rx);
+      fgrad.addColorStop(0, "rgba(150,130,220," + f.a + ")");
+      fgrad.addColorStop(1, "rgba(150,130,220,0)");
+      ctx.fillStyle = fgrad;
+      ctx.beginPath();
+      ctx.ellipse(f.x, f.y, f.rx, f.ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // the WARD — a shimmering rune barrier; spirits crossing it cost a life
+    const wgrad = ctx.createLinearGradient(0, lineY - 16, 0, lineY + 16);
+    wgrad.addColorStop(0, "rgba(177,140,255,0)");
+    wgrad.addColorStop(1, "rgba(177,140,255,0.2)");
+    ctx.fillStyle = wgrad;
+    ctx.fillRect(0, lineY - 16, W, 32);
+    ctx.strokeStyle = "rgba(214,187,255," + (0.4 + 0.15 * Math.sin(T * 2.2)) + ")";
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(0, lineY); ctx.lineTo(W, lineY); ctx.stroke();
-    ctx.setLineDash([]);
+    // rune glyphs pulsing along the ward
+    ctx.strokeStyle = "#e7c86f";
+    ctx.lineWidth = 1.6;
+    ctx.lineCap = "round";
+    for (let gx = 45; gx < W; gx += 96) {
+      ctx.globalAlpha = 0.3 + 0.28 * Math.sin(T * 1.7 + gx * 0.11);
+      const gy = lineY;
+      ctx.beginPath();
+      const k = (gx / 96) % 3 | 0;
+      if (k === 0) { // ᚠ-ish
+        ctx.moveTo(gx, gy - 7); ctx.lineTo(gx, gy + 7);
+        ctx.moveTo(gx, gy - 6); ctx.lineTo(gx + 6, gy - 2);
+        ctx.moveTo(gx, gy - 1); ctx.lineTo(gx + 6, gy + 3);
+      } else if (k === 1) { // ᚷ-ish
+        ctx.moveTo(gx - 5, gy - 6); ctx.lineTo(gx + 5, gy + 6);
+        ctx.moveTo(gx + 5, gy - 6); ctx.lineTo(gx - 5, gy + 6);
+      } else { // ᛗ-ish
+        ctx.moveTo(gx - 5, gy + 7); ctx.lineTo(gx - 5, gy - 7);
+        ctx.lineTo(gx, gy); ctx.lineTo(gx + 5, gy - 7);
+        ctx.lineTo(gx + 5, gy + 7);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
 
-    // ship
+    // the spellcaster
     ship.x = W / 2; ship.y = SHIP_Y();
-    drawShip(ship.x, ship.y, ship.angle);
+    drawWizard(ship.x, ship.y, ship.angle);
 
-    // bullets
+    // spell bolts — a bright head with a wavering violet tail
     for (const b of bullets) {
       const x = b.x + (b.tx - b.x) * b.t;
       const y = b.y + (b.ty - b.y) * b.t;
-      ctx.strokeStyle = "rgba(67,232,255,0.9)";
+      const dx = b.tx - b.x, dy = b.ty - b.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len, ny = dx / len; // sideways unit, for the wave
+      ctx.strokeStyle = "rgba(177,140,255,0.85)";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      const px = b.x + (b.tx - b.x) * Math.max(0, b.t - 0.06);
-      const py = b.y + (b.ty - b.y) * Math.max(0, b.t - 0.06);
-      ctx.moveTo(px, py); ctx.lineTo(x, y); ctx.stroke();
-      ctx.fillStyle = "#bdfbff";
-      ctx.beginPath(); ctx.arc(x, y, 2.5, 0, Math.PI * 2); ctx.fill();
+      for (let k = 0; k <= 4; k++) {
+        const tt = Math.max(0, b.t - 0.02 * k);
+        const wob = Math.sin(tt * 40 + k * 1.7) * 3 * (k / 4);
+        const sx2 = b.x + dx * tt + nx * wob;
+        const sy2 = b.y + dy * tt + ny * wob;
+        if (k === 0) ctx.moveTo(sx2, sy2); else ctx.lineTo(sx2, sy2);
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#ffe9b0";
+      ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
     }
 
     // words — draw order controls overlap layering. Priority (drawn on top):
@@ -684,7 +775,7 @@
       drawWord(w);
     }
 
-    // smart-bomb wall of fire (rising from the death line)
+    // banishing nova (rising from the ward)
     if (bomb) {
       const bot = FLOOR_Y(), top = bomb.y;
       // Fade the whole wall out over the back half of its rise so it dissolves
@@ -693,19 +784,19 @@
       const fade = progress < 0.5 ? 1 : Math.max(0, 1 - (progress - 0.5) / 0.5);
       ctx.globalAlpha = fade;
       const g = ctx.createLinearGradient(0, top, 0, bot);
-      g.addColorStop(0, "rgba(255,180,60,0)");
-      g.addColorStop(0.5, "rgba(255,140,40,0.3)");
-      g.addColorStop(1, "rgba(255,90,30,0.5)");
+      g.addColorStop(0, "rgba(255,224,140,0)");
+      g.addColorStop(0.5, "rgba(231,200,111,0.28)");
+      g.addColorStop(1, "rgba(177,140,255,0.45)");
       ctx.fillStyle = g;
       ctx.fillRect(0, top, W, bot - top);
       // bright leading edge
-      ctx.fillStyle = "rgba(255,240,190,0.9)";
+      ctx.fillStyle = "rgba(255,244,214,0.9)";
       ctx.fillRect(0, top - 3, W, 6);
-      // flickering embers along the front
+      // golden sparks along the front
       for (let i = 0; i < 3; i++) {
-        ctx.fillStyle = "rgba(255," + (180 + Math.random() * 60 | 0) + ",80,0.8)";
+        ctx.fillStyle = "rgba(255," + (210 + Math.random() * 40 | 0) + ",140,0.85)";
         const ex = Math.random() * W;
-        ctx.fillRect(ex, top - rand(2, 10), rand(2, 5), rand(4, 10));
+        ctx.fillRect(ex, top - rand(2, 10), rand(2, 4), rand(4, 10));
       }
       ctx.globalAlpha = 1;
     }
@@ -713,7 +804,22 @@
     // particles
     for (const p of particles) {
       const t = 1 - p.age / p.life;
-      if (p.kind === "text") {
+      if (p.kind === "ring") {
+        ctx.globalAlpha = t;
+        const R = 8 + (1 - t) * 30;
+        ctx.strokeStyle = "hsl(" + p.hue + ",80%,72%)";
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.stroke();
+        ctx.lineWidth = 1.4;
+        for (let k = 0; k < 4; k++) { // sigil ticks on the ring
+          const a = k * Math.PI / 2 + (1 - t) * 1.5;
+          ctx.beginPath();
+          ctx.moveTo(p.x + Math.cos(a) * (R - 4), p.y + Math.sin(a) * (R - 4));
+          ctx.lineTo(p.x + Math.cos(a) * (R + 4), p.y + Math.sin(a) * (R + 4));
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+      } else if (p.kind === "text") {
         ctx.globalAlpha = Math.min(1, t * 1.4);
         ctx.fillStyle = p.color || "#ffd166";
         ctx.font = "700 20px monospace";
@@ -733,86 +839,144 @@
     ctx.restore();
   }
 
-  function drawShip(x, y, angle) {
+  // The wizard stands fast; only the staff swings to aim (angle 0 = straight up).
+  function drawWizard(x, y, angle) {
+    const T = performance.now() / 1000;
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(angle || 0); // aim the nose toward the locked word
-    // glow
-    ctx.shadowColor = "rgba(56,249,215,0.8)";
-    ctx.shadowBlur = 18;
-    ctx.fillStyle = "#38f9d7";
+    ctx.scale(WIZ_SCALE, WIZ_SCALE);
+    // robe
+    ctx.fillStyle = "#3b2a68";
     ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(13, 12);
-    ctx.lineTo(0, 5);
-    ctx.lineTo(-13, 12);
+    ctx.moveTo(0, -14);
+    ctx.quadraticCurveTo(-13, -4, -12 + Math.sin(T * 2.4) * 1.5, 16);
+    ctx.lineTo(12 + Math.sin(T * 2.1) * 1.5, 16);
+    ctx.quadraticCurveTo(13, -4, 0, -14);
     ctx.closePath();
     ctx.fill();
+    ctx.strokeStyle = "#241a45";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // gold trim at the hem
+    ctx.strokeStyle = "#e7c86f";
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-10, 13); ctx.lineTo(10, 13); ctx.stroke();
+    // face in the hood
+    ctx.fillStyle = "#1a1233";
+    ctx.beginPath(); ctx.arc(0, -12, 6.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#ffd166"; // glowing eyes
+    ctx.fillRect(-3.4, -13.5, 2.1, 2.1);
+    ctx.fillRect(1.3, -13.5, 2.1, 2.1);
+    // pointed hat, tilted slightly toward the aim
+    ctx.save();
+    ctx.rotate((angle || 0) * 0.15);
+    ctx.fillStyle = "#4a3581";
+    ctx.beginPath();
+    ctx.moveTo(-11, -16);
+    ctx.lineTo(11, -16);
+    ctx.lineTo(2.5, -21);
+    ctx.lineTo(4, -36);
+    ctx.lineTo(-4.5, -20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#241a45";
+    ctx.stroke();
+    ctx.fillStyle = "#e7c86f"; // star on the hat
+    ctx.font = "9px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("★", -1, -22);
+    ctx.restore();
+    // staff, aimed at the locked spirit
+    ctx.save();
+    ctx.rotate(angle || 0);
+    ctx.strokeStyle = "#7a5a34";
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(6, 10); ctx.lineTo(0, -26); ctx.stroke();
+    // the orb at its tip
+    const flick = 0.6 + Math.random() * 0.4;
+    ctx.shadowColor = "rgba(177,140,255,0.9)";
+    ctx.shadowBlur = 16 * flick;
+    ctx.fillStyle = "#c9a2ff";
+    ctx.beginPath(); ctx.arc(0, -30, 5, 0, Math.PI * 2); ctx.fill();
     ctx.shadowBlur = 0;
-    // cockpit
-    ctx.fillStyle = "#0b0f1f";
-    ctx.beginPath();
-    ctx.arc(0, -2, 3, 0, Math.PI * 2);
-    ctx.fill();
-    // thruster flicker
-    ctx.fillStyle = "rgba(67,232,255," + (0.5 + Math.random() * 0.4) + ")";
-    ctx.beginPath();
-    ctx.moveTo(-5, 9);
-    ctx.lineTo(0, 9 + rand(6, 14));
-    ctx.lineTo(5, 9);
-    ctx.closePath();
-    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.beginPath(); ctx.arc(-1.4, -31.4, 1.7, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
     ctx.restore();
   }
 
   function drawWord(w) {
     const cx = w.x + w.w / 2;
-    // dying words (fully typed, awaiting their final bullet) keep the locked glow
+    // dying words (fully typed, awaiting their final bolt) keep the locked glow
     const isTarget = w === target || w.dying;
     const urgency = Math.max(0, Math.min(1, (w.y / FLOOR_Y())));
-    const baseHue = w.hue;
+    const T = performance.now() / 1000;
+
+    // the spirit itself: a wisp hovering above its true name
+    const bobY = reducedMotion() ? 0 : Math.sin(T * 2.3 + w.bob) * 2.5;
+    const wy = w.y - 27 + bobY;
+    const bodyCol = "hsla(" + w.hue + ",70%,72%,0.85)";
+    ctx.fillStyle = bodyCol;
+    ctx.beginPath();
+    ctx.arc(cx, wy, 8, Math.PI, 0);                 // dome
+    const sway = reducedMotion() ? 0 : Math.sin(T * 5 + w.bob) * 2;
+    ctx.quadraticCurveTo(cx + 8, wy + 8, cx + 4 + sway, wy + 11);   // trailing hem
+    ctx.quadraticCurveTo(cx, wy + 6, cx - 4 + sway, wy + 11);
+    ctx.quadraticCurveTo(cx - 8, wy + 8, cx - 8, wy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#1a1233"; // eyes
+    ctx.beginPath();
+    ctx.arc(cx - 3, wy - 1, 1.5, 0, Math.PI * 2);
+    ctx.arc(cx + 3, wy - 1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+    if (isTarget) { // banishing glow around a locked spirit
+      ctx.strokeStyle = "rgba(231,200,111,0.8)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, wy + 2, 12, 0, Math.PI * 2); ctx.stroke();
+    }
 
     ctx.font = "20px monospace";
     ctx.textAlign = "left";
 
-    // capsule background
+    // the name-scroll under the spirit
     const padX = 13, hgt = 30;
     const bx = w.x, by = w.y - hgt / 2;
     ctx.beginPath();
     roundRect(bx, by, w.w, hgt, 8);
     if (isTarget) {
-      ctx.fillStyle = "rgba(56,249,215,0.12)";
+      ctx.fillStyle = "rgba(231,200,111,0.12)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(56,249,215,0.9)";
+      ctx.strokeStyle = "rgba(231,200,111,0.9)";
       ctx.lineWidth = 1.5;
       ctx.stroke();
     } else {
-      ctx.fillStyle = "rgba(10,16,32,0.55)";
+      ctx.fillStyle = "rgba(24,16,46,0.66)";
       ctx.fill();
-      ctx.strokeStyle = "rgba(" + Math.round(120 + urgency * 135) + "," + Math.round(160 - urgency * 110) + "," + Math.round(200 - urgency * 120) + ",0.5)";
+      ctx.strokeStyle = "rgba(" + Math.round(140 + urgency * 115) + "," + Math.round(120 - urgency * 70) + "," + Math.round(210 - urgency * 130) + ",0.55)";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
 
-    // text: typed portion vs remaining
+    // text: chanted portion vs remaining
     const tx = w.x + padX;
     const done = w.done;
     const typedPart = w.text.slice(0, done);
     const restPart = w.text.slice(done);
 
     if (typedPart) {
-      ctx.fillStyle = "#38f9d7";
-      ctx.shadowColor = "rgba(56,249,215,0.6)";
+      ctx.fillStyle = "#ffd166";
+      ctx.shadowColor = "rgba(255,209,102,0.6)";
       ctx.shadowBlur = 8;
       ctx.fillText(typedPart, tx, w.y);
       ctx.shadowBlur = 0;
     }
     const typedW = ctx.measureText(typedPart).width;
-    // remaining color shifts toward danger as it falls
-    const rr = Math.round(180 + urgency * 75);
-    const rg = Math.round(200 - urgency * 120);
-    const rb = Math.round(220 - urgency * 130);
-    ctx.fillStyle = isTarget ? "#e6f1ff" : "rgb(" + rr + "," + rg + "," + rb + ")";
+    // remaining letters shift toward danger as the spirit nears the ward
+    const rr = Math.round(196 + urgency * 59);
+    const rg = Math.round(190 - urgency * 110);
+    const rb = Math.round(235 - urgency * 145);
+    ctx.fillStyle = isTarget ? "#fdf6e3" : "rgb(" + rr + "," + rg + "," + rb + ")";
     ctx.fillText(restPart, tx + typedW, w.y);
   }
 
@@ -848,7 +1012,7 @@
     el.score.textContent = score;
     el.wave.textContent = wave;
     el.streak.textContent = combo + (combo >= 5 ? "🔥" : "");
-    el.bombs.textContent = bombs === Infinity ? "∞" : ("💣".repeat(Math.max(0, bombs)) || "—");
+    el.bombs.textContent = bombs === Infinity ? "∞" : ("✦".repeat(Math.max(0, bombs)) || "—");
     if (mode === "zen") {
       el.lives.textContent = "∞";
     } else {
@@ -876,9 +1040,9 @@
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
     el.hint.textContent = MODES[mode].noTypos
-      ? "HARDCORE — one typo ends the run. Esc to quit."
-      : (bombs > 0 ? "Type to fire · Enter = smart bomb · Esc to quit."
-                   : "Type to fire · Esc to quit.");
+      ? "HARDCORE — one typo ends the run. Esc to pause."
+      : (bombs > 0 ? "Type to cast · Enter = banishing nova · Esc to pause."
+                   : "Type to cast · Esc to pause.");
     el.startScreen.classList.add("hidden");
     el.overScreen.classList.add("hidden");
     initStars();
@@ -1014,4 +1178,13 @@
   });
 
   selectMode(mode, true);
+
+  // test hook
+  window.__game = {
+    get state() { return state; },
+    get words() { return words; },
+    get score() { return score; },
+    get lives() { return lives; },
+    get target() { return target; },
+  };
 })();
