@@ -201,8 +201,8 @@
       if (e.key === "Enter" || e.key === " ") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
       return;
     }
-    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { e.preventDefault(); move(-1); }
-    else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { e.preventDefault(); move(1); }
+    if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { e.preventDefault(); if (!e.repeat) move(-1); }
+    else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") { e.preventDefault(); if (!e.repeat) move(1); }
   });
   cv.addEventListener("pointerdown", function (e) {
     if (!running) return;
