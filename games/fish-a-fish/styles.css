@@ -1,0 +1,100 @@
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap");
+
+/* Fish-A-Fish: a soft dawn pond. The canvas is the whole page; the menu and
+   result cards float over it. Rounded, friendly type (Fredoka). */
+:root {
+  --ink: #17262c;
+  --paper: #f4f9fb;
+  --card: rgba(23, 38, 44, 0.82);
+  --edge: rgba(244, 230, 196, 0.55);
+}
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: #223c44;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: "Fredoka", system-ui, sans-serif;
+  color: var(--paper);
+}
+#stage { position: fixed; inset: 0; display: block; }
+
+.nav-back-games {
+  position: fixed; top: 12px; left: 12px; z-index: 99999;
+  text-decoration: none; font: 600 15px/1 "Fredoka", system-ui, sans-serif; letter-spacing: 0.02em;
+  color: var(--paper); background: rgba(23, 38, 44, 0.72);
+  border: 1px solid var(--edge); border-radius: 999px; padding: 8px 15px 9px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- HUD -------------------------------------------------------------------- */
+.hud {
+  position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 10;
+  display: flex; align-items: baseline; gap: 13px; pointer-events: none;
+  text-shadow: 0 2px 0 rgba(23, 38, 44, 0.85), 0 0 14px rgba(23, 38, 44, 0.5);
+}
+.hud[hidden] { display: none; }
+.hud .score { font-weight: 700; font-size: clamp(28px, 5vw, 42px); min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
+.hud #hud-sub { font-size: clamp(17px, 3vw, 23px); font-weight: 600; font-variant-numeric: tabular-nums; }
+.hud #hud-sub.strikes { color: #ff9e8a; letter-spacing: 0.18em; }
+.hud #hud-sub.time.low { color: #ffd06a; }
+.hud .streak { font-size: clamp(14px, 2.4vw, 19px); font-weight: 600; color: #cfe6da; }
+.hud .streak.on { color: #ffe082; }
+@media (max-width: 640px) { .hud { top: 58px; } }
+
+/* ---- panels ------------------------------------------------------------------ */
+.panel { position: fixed; inset: 0; z-index: 20; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.panel[hidden] { display: none; }
+.panel .card {
+  pointer-events: auto;
+  background: var(--card); border: 1px solid var(--edge); border-radius: 18px;
+  padding: 16px 20px; width: min(92vw, 470px); text-align: center;
+  box-shadow: 0 18px 50px rgba(10, 20, 24, 0.45);
+  backdrop-filter: blur(2px);
+}
+.panel button {
+  pointer-events: auto; cursor: pointer; font: inherit; color: var(--paper);
+  background: rgba(244, 249, 251, 0.1); border: 1px solid var(--edge); border-radius: 12px;
+  padding: 9px 16px; font-weight: 600;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+.panel button:hover, .panel button:focus-visible { background: rgba(232, 120, 74, 0.55); outline: none; }
+.panel button:active { transform: translateY(1px); }
+kbd {
+  font: 600 0.72em "Fredoka", system-ui, sans-serif; color: #ffe9c4;
+  border: 1px solid rgba(255, 233, 196, 0.5); border-bottom-width: 2px; border-radius: 5px;
+  padding: 0 5px 1px; margin-left: 2px;
+}
+
+.menu { justify-content: flex-start; padding: max(7vh, 54px) 12px 12px; }
+.menu h1 {
+  margin: 0; font-weight: 700; letter-spacing: 0.01em;
+  font-size: clamp(40px, 9vw, 76px); line-height: 1.05;
+  text-shadow: 0 3px 0 rgba(23, 38, 44, 0.8), 0 0 26px rgba(23, 38, 44, 0.45);
+}
+.menu .tag {
+  margin: 2px 0 0; font-size: clamp(15px, 2.6vw, 19px); font-weight: 600;
+  text-shadow: 0 2px 0 rgba(23, 38, 44, 0.8), 0 0 12px rgba(23, 38, 44, 0.6);
+}
+.menu .card { margin-top: auto; margin-bottom: max(3vh, 12px); }
+.menu .how { margin: 0 0 12px; font-size: 0.86rem; font-weight: 400; line-height: 1.45; color: #dcebef; }
+.menu .how b { color: #ffe9c4; font-weight: 600; }
+.menu .modes { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.menu .modes button { flex: 1 1 130px; display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; }
+.menu .modes small { font-size: 0.72rem; font-weight: 400; color: #cfdfe4; }
+.menu .bests { margin: 10px 0 0; font-size: 0.82rem; color: #cfdfe4; }
+
+.over { justify-content: center; padding: 12px; }
+.over h2 { margin: 0; font-size: clamp(26px, 5.4vw, 40px); font-weight: 700; }
+.over .big { margin: 6px 0 0; font-size: 1.25rem; font-weight: 600; }
+.over .stats { margin: 3px 0 14px; font-size: 0.9rem; color: #cfdfe4; }
+.over .row { display: flex; gap: 10px; justify-content: center; }
+
+/* Short landscape screens: let the menu card share the bottom with the reeds. */
+@media (max-height: 500px) {
+  .menu { padding-top: 46px; }
+  .menu .how { display: none; }
+  .menu h1 { font-size: clamp(30px, 7vh, 44px); }
+}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%8E%A3%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Fish-A-Fish</title>
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Fish-A-Fish — whack-a-mole at a dawn pond: nine bobbers, nine keys, strike when the fish bites. A browser game by Sam Lu." />
+    <meta property="og:title" content="Fish-A-Fish — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Fish-A-Fish — whack-a-mole at a dawn pond: nine bobbers, nine keys, strike when the fish bites. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The pond fills the screen (art.js draws it, game.js runs it). The nine
+     fishing spots live on the canvas; the overlays on top are DOM. -->
+<canvas id="stage" aria-label="A pond at dawn with nine fishing spots; press a spot's key when its bobber plunges"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="score" id="hud-score">0</div>
+  <div id="hud-sub"></div>
+  <div id="hud-streak" class="streak"></div>
+</div>
+
+<section class="panel menu" id="menu">
+  <h1>Fish‑A‑Fish</h1>
+  <p class="tag">Whack‑a‑mole, gone fishing.</p>
+  <div class="card">
+    <p class="how">
+      Nine bobbers, nine keys — <b>Q W E</b> / <b>A S D</b> / <b>Z X C</b> (or tap a spot).
+      Ripples mean a fish is sniffing; when the bobber <b>plunges</b>, strike its key.
+      Striking during the ripples scares it off, an empty spot splashes <b>−2</b>,
+      and the old boot isn't worth hooking (<b>−5</b>). Five catches in a row double
+      your points; ten triple them. <b>Full Pond</b> plays the whole keyboard —
+      and when a number's tag turns gold and shows its symbol (<b>!</b> <b>%</b> <b>&amp;</b>…),
+      only <b>Shift</b>&#8202;+&#8202;that key hooks it.
+    </p>
+    <div class="modes">
+      <button type="button" id="play-daybreak"><b>Daybreak</b><small>60 seconds of first light <kbd>1</kbd></small></button>
+      <button type="button" id="play-endless"><b>Endless</b><small>3 get away and the pond goes quiet <kbd>2</kbd></small></button>
+      <button type="button" id="play-fullpond"><b>Full Pond</b><small>numbers &amp; all 26 letters — a gold tag wants <b>Shift</b> <kbd>3</kbd></small></button>
+    </div>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel over" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">The sun is up</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Again <kbd>Enter</kbd></button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
