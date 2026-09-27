@@ -14,11 +14,11 @@
 .ed-boardcol { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .ed-status {
   width: 100%; min-height: 1.4em; text-align: center;
-  background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--panel); border: 1px solid var(--line);
   border-radius: 10px; padding: 8px 12px; font-size: 0.9rem; color: var(--ink);
 }
-.ed-status.good { color: #bff7c4; border-color: rgba(87, 216, 106, 0.5); }
-.ed-status.bad { color: #ffc2bd; border-color: rgba(176, 57, 47, 0.7); }
+.ed-status.good { color: #1c7c3a; border-color: rgba(46, 139, 87, 0.55); }
+.ed-status.bad { color: #b0392f; border-color: rgba(176, 57, 47, 0.55); }
 
 .ed-frame { touch-action: none; }
 #edBoard { touch-action: none; }
@@ -37,7 +37,7 @@
 .palette { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .swatch-btn {
   position: relative; aspect-ratio: 1; border-radius: 10px; cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.12); background: var(--void);
+  border: 2px solid var(--line); background: var(--void);
   display: flex; align-items: flex-end; justify-content: center; padding: 3px;
   font-size: 0.6rem; font-weight: 700; color: rgba(255, 255, 255, 0.85);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); overflow: hidden;
@@ -46,7 +46,7 @@
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
   font-size: 1.05rem;
 }
-.swatch-btn.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.35); }
+.swatch-btn.sel { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 111, 97, 0.4); }
 .sw-pink { background: var(--pink); } .sw-green { background: var(--green); }
 .sw-yellow { background: var(--yellow); color: #4a3a00; }
 .sw-orange { background: var(--orange); }
@@ -70,7 +70,7 @@
 .ed-row input[type="number"] { width: 56px; }
 .ed-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.78rem; color: var(--muted); margin-bottom: 10px; }
 input[type="number"], input[type="text"], textarea {
-  background: var(--bg2); color: var(--ink); border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--panel); color: var(--ink); border: 1px solid var(--line);
   border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.9rem;
 }
 input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 0; }
@@ -78,7 +78,7 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .ed-saved { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow: auto; }
 .ed-saved .saved-item {
   display: flex; align-items: center; gap: 6px;
-  background: var(--bg2); border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg2); border: 1px solid var(--line);
   border-radius: 8px; padding: 6px 8px;
 }
 .ed-saved .saved-item .nm { flex: 1; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -86,7 +86,7 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
 .ed-saved .empty { color: var(--muted); font-size: 0.84rem; padding: 4px 2px; }
 
 /* import/export drawer */
-.ed-io { margin-top: 20px; background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 14px; }
+.ed-io { margin-top: 20px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
 .ed-io-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-weight: 700; }
 .ed-io-btns { display: flex; gap: 8px; }
 #ioText { width: 100%; min-height: 200px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 0.82rem; line-height: 1.45; resize: vertical; white-space: pre; }

@@ -1,3 +1,10 @@
+@import url("https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@600;700;800&display=swap");
+/* A poolside resort seen from above. The page is the sun-lit deck — cream
+   stone with grout lines, a palm over one corner, a lifebuoy by the other —
+   and the maze itself is a run of glossy ceramic tiles floating in the pool:
+   the board's background is water with light caustics, and the void tiles
+   just let it show through. The player is a beach ball, tinted by flavor.
+   The level editor shares these variables and tile styles. */
 :root {
   --cell: 64px;
   --gap: 4px;
@@ -9,14 +16,19 @@
   --orange: #ef8b2c;
   --purple: #a05bd6;
   --blue: #36a3e6;
-  --void: #11131c;
+  --void: #0d7ea3;
 
-  --bg: #0d1020;
-  --bg2: #161a30;
-  --panel: #1d2240;
-  --ink: #eef1ff;
-  --muted: #9aa3cf;
-  --accent: #ffd166;
+  --bg: #f5ecd9;
+  --bg2: #fdf8ec;
+  --panel: #ffffff;
+  --ink: #143c4b;
+  --muted: #5d7c8a;
+  --accent: #ff6f61;
+  --line: rgba(20, 60, 75, 0.18);
+  --sand: #dcc9a3;
+  --caustics: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%23ffffff' stroke-linecap='round'%3E%3Cpath d='M0 20.1 L10 22.5 L20 24.2 L30 25 L40 24.7 L50 23.4 L60 21.3 L70 18.6 L80 15.9 L90 13.5 L100 11.8 L110 11 L120 11.3 L130 12.6 L140 14.7 L150 17.4 L160 20.1' stroke-opacity='0.5' stroke-width='2.4'/%3E%3Cpath d='M0 64.9 L10 62.8 L20 60 L30 56.9 L40 54 L50 51.6 L60 50.3 L70 50.1 L80 51.1 L90 53.2 L100 56 L110 59.1 L120 62 L130 64.4 L140 65.7 L150 65.9 L160 64.9' stroke-opacity='0.38' stroke-width='2'/%3E%3Cpath d='M0 91.3 L10 91 L20 91.8 L30 93.5 L40 95.8 L50 98.6 L60 101.2 L70 103.3 L80 104.7 L90 105 L100 104.2 L110 102.5 L120 100.2 L130 97.4 L140 94.8 L150 92.7 L160 91.3' stroke-opacity='0.5' stroke-width='2.4'/%3E%3Cpath d='M0 145.5 L10 146 L20 145.3 L30 143.5 L40 140.9 L50 137.8 L60 134.8 L70 132.2 L80 130.5 L90 130 L100 130.7 L110 132.5 L120 135.1 L130 138.2 L140 141.2 L150 143.8 L160 145.5' stroke-opacity='0.38' stroke-width='2'/%3E%3Cpath d='M35 0 L35.9 10 L35.9 20 L34.9 30 L33.2 40 L31.1 50 L28.7 60 L26.6 70 L25 80 L24.1 90 L24.1 100 L25.1 110 L26.8 120 L28.9 130 L31.3 140 L33.4 150 L35 160' stroke-opacity='0.3' stroke-width='2'/%3E%3Cpath d='M85.6 0 L82.9 10 L80.8 20 L79.4 30 L79 40 L79.7 50 L81.3 60 L83.7 70 L86.4 80 L89.1 90 L91.2 100 L92.6 110 L93 120 L92.3 130 L90.7 140 L88.3 150 L85.6 160' stroke-opacity='0.38' stroke-width='2'/%3E%3Cpath d='M128.4 0 L129.7 10 L131.7 20 L134 30 L136.3 40 L138.2 50 L139.5 60 L140 70 L139.6 80 L138.3 90 L136.3 100 L134 110 L131.7 120 L129.8 130 L128.5 140 L128 150 L128.4 160' stroke-opacity='0.3' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E");
+  --palm: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='240' viewBox='0 0 260 240'%3E%3Cg transform='translate(6 6)'%3E%3Cpath d='M0 0 Q97.9 46.5 204.5 66.4' fill='none' stroke='%232e8b57' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M21.9 10 Q39.6 3 47.8 -7.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M21.9 10 Q24.6 28.9 32.7 39.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M43.9 19.4 Q60.3 13.3 67.5 3.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M43.9 19.4 Q46.1 36.6 53.8 45.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M66.2 28.1 Q81.1 23 87.3 14.1' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M66.2 28.1 Q67.8 43.7 75.1 51.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M88.7 36.1 Q102.2 32 107.4 23.7' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M88.7 36.1 Q89.7 50.1 96.6 57.1' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M111.5 43.5 Q123.5 40.3 127.8 32.7' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M111.5 43.5 Q111.8 55.9 118.3 61.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M134.4 50.2 Q144.9 48 148.3 41' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M134.4 50.2 Q134.1 61 140.2 65.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M157.5 56.3 Q166.6 55 169 48.7' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M157.5 56.3 Q156.7 65.4 162.4 69.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M180.9 61.7 Q188.6 61.4 190 55.7' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M180.9 61.7 Q179.4 69.2 184.7 71.9' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M0 0 Q59 78.8 137.9 137.9' fill='none' stroke='%233aa06a' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M13.4 17.3 Q32.4 19.1 44.3 13.7' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M13.4 17.3 Q7.3 35.4 9.8 48.2' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M27.2 34.1 Q44.5 36.1 55.3 30.8' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M27.2 34.1 Q21.3 50.4 24 62.1' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M41.6 50.4 Q57.1 52.6 66.7 47.5' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M41.6 50.4 Q35.9 65 38.7 75.5' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M56.4 66.2 Q70.2 68.6 78.7 63.6' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M56.4 66.2 Q50.9 79.1 53.8 88.5' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M71.7 81.5 Q83.8 84.1 91.1 79.3' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M71.7 81.5 Q66.4 92.7 69.5 100.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M87.5 96.3 Q97.9 99.2 104.1 94.4' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M87.5 96.3 Q82.4 105.8 85.6 112.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M103.8 110.7 Q112.5 113.7 117.5 109.1' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M103.8 110.7 Q98.9 118.4 102.2 124.4' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M120.6 124.5 Q127.6 127.7 131.4 123.3' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M120.6 124.5 Q115.9 130.6 119.4 135.3' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M0 0 Q15.9 84.7 58.1 159.7' fill='none' stroke='%232e8b57' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M3.9 18.7 Q20.3 28.4 33.4 28.5' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M3.9 18.7 Q-9.3 32.5 -12.4 45.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M8.4 37.2 Q23.2 46.3 35.1 46.1' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M8.4 37.2 Q-3.9 49.5 -6.4 61.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M13.5 55.4 Q26.7 64 37.6 63.4' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M13.5 55.4 Q2.2 66.2 0.3 77' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M19.3 73.4 Q30.9 81.4 40.6 80.5' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M19.3 73.4 Q8.9 82.7 7.6 92.5' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M25.8 91.1 Q35.7 98.6 44.4 97.3' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M25.8 91.1 Q16.3 99 15.6 107.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32.9 108.6 Q41.1 115.6 48.7 113.9' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32.9 108.6 Q24.3 115.1 24.2 122.8' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M40.7 125.9 Q47.3 132.3 53.7 130.3' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M40.7 125.9 Q32.9 130.9 33.5 137.6' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M49.1 142.9 Q54 148.8 59.4 146.4' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M49.1 142.9 Q42.3 146.4 43.4 152.2' fill='none' stroke='%232e8b57' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M0 0 Q83.8 19.9 169.6 11.9' fill='none' stroke='%233aa06a' stroke-width='5' stroke-linecap='round'/%3E%3Cpath d='M18.6 4.1 Q34.2 -7 39.6 -18.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M18.6 4.1 Q25.9 21.7 36.2 29.7' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M37.3 7.5 Q51.7 -2.3 56.4 -13.4' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M37.3 7.5 Q43.6 23.7 53.3 30.7' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M56.1 10.2 Q69.3 1.6 73.2 -8.5' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M56.1 10.2 Q61.4 25 70.4 31.1' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M74.9 12.2 Q86.9 4.9 90 -4.4' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M74.9 12.2 Q79.2 25.5 87.6 30.7' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M93.7 13.5 Q104.6 7.5 106.9 -0.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M93.7 13.5 Q97.1 25.4 104.8 29.6' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M112.6 14.1 Q122.3 9.4 123.9 1.8' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M112.6 14.1 Q115 24.6 122 27.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M131.6 14.1 Q140.1 10.6 140.9 3.9' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M131.6 14.1 Q132.9 23.1 139.4 25.4' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M150.6 13.3 Q157.9 11.2 157.9 5.3' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M150.6 13.3 Q150.9 21 156.7 22.3' fill='none' stroke='%233aa06a' stroke-width='4' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E");
+  --buoy: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Ccircle cx='60' cy='60' r='46' fill='none' stroke='%23ffffff' stroke-width='26'/%3E%3Cg stroke='%23ff6f61' stroke-width='26' fill='none'%3E%3Cpath d='M60 14 A46 46 0 0 1 92.5 27.5' /%3E%3Cpath d='M106 60 A46 46 0 0 1 92.5 92.5'/%3E%3Cpath d='M60 106 A46 46 0 0 1 27.5 92.5'/%3E%3Cpath d='M14 60 A46 46 0 0 1 27.5 27.5'/%3E%3C/g%3E%3Ccircle cx='60' cy='60' r='46' fill='none' stroke='rgba(10,60,80,.5)' stroke-width='2'/%3E%3Ccircle cx='60' cy='60' r='33' fill='none' stroke='rgba(10,60,80,.5)' stroke-width='2'/%3E%3Ccircle cx='60' cy='60' r='59' fill='none' stroke='rgba(10,60,80,.35)' stroke-width='2' stroke-dasharray='6 10'/%3E%3C/svg%3E");
 }
 
 * { box-sizing: border-box; }
@@ -24,17 +36,28 @@
 /* Reserve the scrollbar gutter so the page width (and the fixed top-right
    Mute / Visual FX buttons) stays put whether or not a page scrolls — keeps
    the game and the level editor visually consistent. */
-html { scrollbar-gutter: stable; }
+html { scrollbar-gutter: stable; background: var(--bg); }
 
 html, body {
   margin: 0;
   height: 100%;
-  background: radial-gradient(1200px 700px at 70% -10%, #2a2350, var(--bg)) fixed;
   color: var(--ink);
-  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-family: "Nunito", "Segoe UI", system-ui, sans-serif;
   -webkit-user-select: none;
   user-select: none;
   touch-action: manipulation;
+}
+/* the deck: cream stone slabs, sun glare from the top right, a palm leaning
+   over the top-left corner and a lifebuoy resting near the bottom-right */
+body {
+  background:
+    var(--palm) no-repeat -52px -58px / 290px auto,
+    var(--buoy) no-repeat right 26px bottom 34px / 108px auto,
+    radial-gradient(560px 340px at 92% -4%, rgba(255, 246, 205, 0.9), rgba(255, 246, 205, 0) 70%),
+    repeating-linear-gradient(0deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
+    repeating-linear-gradient(90deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
+    linear-gradient(180deg, #faf3e3, var(--bg));
+  background-attachment: fixed;
 }
 
 .app {
@@ -51,32 +74,36 @@ html, body {
   flex-wrap: wrap;
   margin-bottom: 14px;
 }
+/* the resort sign */
 .title h1 {
   margin: 0;
+  font-family: "Righteous", "Nunito", sans-serif;
+  font-weight: 400;
   font-size: clamp(24px, 4vw, 40px);
   letter-spacing: 1px;
-  background: linear-gradient(90deg, var(--pink), var(--yellow), var(--blue), var(--purple));
+  background: linear-gradient(90deg, var(--accent), #f2a93b 45%, #1fa3c4);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 2px 10px rgba(160, 91, 214, 0.35));
+  filter: drop-shadow(0 2px 0 rgba(255, 255, 255, 0.9)) drop-shadow(0 4px 10px rgba(180, 120, 40, 0.25));
 }
-.tag { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+.tag { margin: 2px 0 0; color: var(--muted); font-size: 14px; font-weight: 700; }
 
 .flavor {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 5px 12px;
+  box-shadow: 0 2px 0 rgba(20, 60, 75, 0.12);
 }
-.flavor-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); }
-.flavor-value { font-size: 16px; font-weight: 700; line-height: 1.1; }
+.flavor-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 800; }
+.flavor-value { font-size: 16px; font-weight: 800; line-height: 1.1; }
 .editor-link { white-space: nowrap; }
 .flavor[data-flavor="Orange"] .flavor-value { color: var(--orange); }
-.flavor[data-flavor="Lemon"] .flavor-value { color: var(--yellow); }
+.flavor[data-flavor="Lemon"] .flavor-value { color: #c9a514; }
 .flavor[data-flavor="Plain"] .flavor-value { color: var(--ink); }
 
 .stage {
@@ -87,14 +114,27 @@ html, body {
 }
 @media (max-width: 860px) {
   .stage { grid-template-columns: 1fr; }
+  /* start below the fixed Games / sound / FX buttons, and tuck the palm
+     further into the corner so it stays off the title */
+  .app { padding-top: 56px; }
+  body {
+    background:
+      var(--palm) no-repeat -110px -120px / 240px auto,
+      var(--buoy) no-repeat right 18px bottom 22px / 84px auto,
+      radial-gradient(420px 260px at 92% -4%, rgba(255, 246, 205, 0.9), rgba(255, 246, 205, 0) 70%),
+      repeating-linear-gradient(0deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
+      repeating-linear-gradient(90deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
+      linear-gradient(180deg, #faf3e3, var(--bg));
+    background-attachment: fixed;
+  }
 }
 
 .boardwrap {
   background: var(--bg2);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--line);
   border-radius: 18px;
   padding: 16px;
-  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 3px 0 rgba(160, 125, 70, 0.25), 0 18px 40px -18px rgba(120, 90, 40, 0.45);
 }
 
 .levelhead {
@@ -114,13 +154,14 @@ html, body {
   padding: 0 6px;
   border-radius: 8px;
   background: var(--accent);
-  color: #20140a;
+  color: #fff;
   font-weight: 800;
   margin-right: 8px;
+  box-shadow: 0 2px 0 #c94b3e;
 }
-.lvlname { font-size: 20px; font-weight: 700; }
-.moves { color: var(--muted); font-variant-numeric: tabular-nums; }
-.hint { color: var(--muted); margin: 8px 0 14px; min-height: 38px; font-size: 14px; }
+.lvlname { font-size: 20px; font-weight: 800; }
+.moves { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.hint { color: var(--muted); font-weight: 600; margin: 8px 0 14px; min-height: 38px; font-size: 14px; }
 
 .board-frame {
   position: relative;
@@ -128,27 +169,40 @@ html, body {
   max-width: 100%;
   margin: 0 auto;
 }
+/* the pool: water and caustics under the tiles, ringed by stone coping */
 .board {
   display: grid;
   gap: var(--gap);
   padding: var(--gap);
-  background: var(--void);
+  background:
+    var(--caustics) 0 0 / 160px 160px,
+    radial-gradient(120% 90% at 28% 10%, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(180deg, #3cb9dc, #1390b8 60%, var(--void));
   border-radius: 12px;
+  box-shadow:
+    inset 0 3px 12px rgba(0, 45, 65, 0.4),
+    0 0 0 6px #efe2c4,
+    0 0 0 7px rgba(150, 118, 70, 0.45),
+    0 16px 34px -14px rgba(30, 90, 110, 0.5);
 }
 
+/* ceramic tiles floating in the water */
 .tile {
   width: var(--cell);
   height: var(--cell);
   border-radius: 9px;
   position: relative;
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22), inset 0 3px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.22), inset 0 3px 0 rgba(255, 255, 255, 0.28), 0 3px 4px rgba(0, 40, 60, 0.3);
 }
 .t-void { background: transparent; box-shadow: none; }
 .t-pink { background: var(--pink); }
 .t-green { background: var(--green); }
+/* the walls: terracotta planter brick */
 .t-red {
-  background: repeating-linear-gradient(45deg, var(--red), var(--red) 10px, #962f26 10px, #962f26 20px);
-  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.35);
+  background:
+    linear-gradient(0deg, rgba(255, 255, 255, 0.14) 0 2px, transparent 2px) 0 0 / 100% 16px repeat-y,
+    repeating-linear-gradient(45deg, var(--red), var(--red) 10px, #962f26 10px, #962f26 20px);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.35), 0 3px 4px rgba(0, 40, 60, 0.3);
 }
 .t-yellow { background: var(--yellow); }
 .t-orange { background: var(--orange); }
@@ -181,9 +235,9 @@ html, body {
 .t-start::after { content: "START"; font-size: calc(var(--cell) * 0.16); letter-spacing: 1px; color: rgba(70, 0, 45, 0.55); }
 .t-goal::after { content: "🏁"; }
 .t-blue.live::after { content: "⚡"; color: rgba(255, 255, 255, 0.85); font-size: calc(var(--cell) * 0.5); }
-.t-blue.live { box-shadow: inset 0 0 0 3px rgba(244, 207, 51, 0.8), inset 0 -4px 0 rgba(0, 0, 0, 0.22); }
+.t-blue.live { box-shadow: inset 0 0 0 3px rgba(244, 207, 51, 0.8), inset 0 -4px 0 rgba(0, 0, 0, 0.22), 0 3px 4px rgba(0, 40, 60, 0.3); }
 
-/* Player */
+/* Player: a beach ball (flavors recolor it) */
 .player {
   position: absolute;
   top: var(--gap);
@@ -198,11 +252,15 @@ html, body {
 }
 .player.sliding { transition: transform 70ms linear; }
 .soul {
-  width: calc(var(--cell) * 0.5);
-  height: calc(var(--cell) * 0.5);
+  width: calc(var(--cell) * 0.56);
+  height: calc(var(--cell) * 0.56);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, #ffffff, #d7dcff 60%, #aab2ff);
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.85), 0 4px 8px rgba(0, 0, 0, 0.4);
+  border: 2px solid rgba(10, 55, 75, 0.4);
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.95) 0 10%, rgba(255, 255, 255, 0) 34%),
+    radial-gradient(circle at 50% 50%, #ffffff 0 17%, rgba(255, 255, 255, 0) 18%),
+    conic-gradient(var(--accent) 0 60deg, #ffffff 0 120deg, #1fa3c4 0 180deg, #ffffff 0 240deg, var(--yellow) 0 300deg, #ffffff 0 360deg);
+  box-shadow: 0 3px 6px rgba(0, 40, 60, 0.35), 0 0 12px rgba(255, 255, 255, 0.55);
   transition: background 160ms, box-shadow 160ms;
 }
 .player[data-flavor="Orange"] .soul {
@@ -239,22 +297,22 @@ html, body {
   inset: 0;
   display: grid;
   place-items: center;
-  background: rgba(8, 10, 22, 0.78);
+  background: rgba(9, 60, 78, 0.55);
   border-radius: 12px;
   z-index: 10;
   animation: fade 200ms ease;
 }
 @keyframes fade { from { opacity: 0; } }
 .overlay-card {
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg2);
+  border: 1px solid var(--line);
   border-radius: 16px;
   padding: 26px 30px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 3px 0 rgba(160, 125, 70, 0.3), 0 20px 60px rgba(10, 50, 65, 0.45);
 }
-.overlay-card h2 { margin: 0 0 6px; font-size: 26px; color: var(--accent); }
-.overlay-card p { margin: 0 0 16px; color: var(--muted); }
+.overlay-card h2 { margin: 0 0 6px; font-family: "Righteous", "Nunito", sans-serif; font-weight: 400; font-size: 26px; color: var(--accent); }
+.overlay-card p { margin: 0 0 16px; color: var(--muted); font-weight: 600; }
 .overlay-actions { display: flex; gap: 10px; justify-content: center; }
 
 /* D-pad */
@@ -267,16 +325,16 @@ html, body {
   margin: 18px auto 6px;
 }
 .dbtn {
-  border: none;
+  border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--panel);
   color: var(--ink);
   font-size: 20px;
   cursor: pointer;
-  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 0 var(--sand);
   transition: transform 60ms, background 120ms;
 }
-.dbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+.dbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--sand); }
 .dbtn.up { grid-area: 1 / 2; }
 .dbtn.left { grid-area: 2 / 1; }
 .dbtn.down { grid-area: 2 / 2; }
@@ -290,49 +348,57 @@ html, body {
   margin-top: 10px;
 }
 .btn {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
   background: var(--panel);
   color: var(--ink);
   padding: 9px 14px;
   border-radius: 10px;
   cursor: pointer;
+  font: inherit;
   font-size: 14px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 rgba(20, 60, 75, 0.12);
   transition: background 120ms, transform 60ms;
 }
-.btn:hover { background: #2a3060; }
+.btn:hover { background: #eef8fa; }
 .btn:active { transform: translateY(1px); }
-.btn.primary { background: var(--accent); color: #20140a; font-weight: 700; border-color: transparent; }
+.btn.primary { background: var(--accent); color: #fff; font-weight: 800; border-color: transparent; box-shadow: 0 2px 0 #c94b3e; }
 
-/* Side panel */
+/* Side panel: a folded towel, coral and teal stripes along the top */
 .side {
-  background: var(--bg2);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background:
+    repeating-linear-gradient(90deg, var(--accent) 0 26px, #fff 26px 34px, #1fa3c4 34px 60px, #fff 60px 68px) top / 100% 9px no-repeat,
+    var(--bg2);
+  border: 1px solid var(--line);
   border-radius: 18px;
-  padding: 16px 18px;
+  padding: 22px 18px 16px;
+  box-shadow: 0 3px 0 rgba(160, 125, 70, 0.25), 0 18px 40px -18px rgba(120, 90, 40, 0.45);
 }
 .side h3 { margin: 6px 0 10px; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
 .legend { list-style: none; margin: 0 0 18px; padding: 0; display: grid; gap: 8px; }
 .legend li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.3; }
 .swatch { flex: 0 0 auto; width: 20px; height: 20px; border-radius: 6px; margin-top: 1px; box-shadow: inset 0 -2px 0 rgba(0,0,0,0.25); }
 .legend b { color: var(--ink); }
-.legend span { color: var(--muted); }
+.legend span { color: var(--muted); font-weight: 600; }
 
 .levelpick { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 16px; }
 .lvlbtn {
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--line);
   background: var(--panel);
   color: var(--ink);
   padding: 10px 0;
   border-radius: 10px;
   cursor: pointer;
-  font-weight: 700;
+  font: inherit;
+  font-weight: 800;
   position: relative;
+  box-shadow: 0 2px 0 rgba(20, 60, 75, 0.12);
 }
 .lvlbtn.locked { opacity: 0.4; cursor: not-allowed; }
-.lvlbtn.done::after { content: "✓"; position: absolute; top: 2px; right: 5px; font-size: 10px; color: var(--green); }
+.lvlbtn.done::after { content: "✓"; position: absolute; top: 2px; right: 5px; font-size: 10px; color: #1c8a3a; }
 .lvlbtn.current { outline: 2px solid var(--accent); }
 
-.credit { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.credit { color: var(--muted); font-weight: 600; font-size: 12px; line-height: 1.5; }
 .credit b { color: var(--ink); }
 
 /* topbar button group (Tile Guide + Level Editor) */
@@ -341,15 +407,16 @@ html, body {
 /* Tile Guide modal */
 .guide-overlay {
   position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
-  padding: 20px; background: rgba(8, 10, 22, 0.78); animation: fade 200ms ease;
+  padding: 20px; background: rgba(9, 60, 78, 0.55); animation: fade 200ms ease;
 }
 .guide-overlay[hidden] { display: none; }
 .guide-card {
   position: relative; width: 100%; max-width: 440px; max-height: 85vh; overflow-y: auto;
-  background: var(--panel); border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 16px; padding: 24px 26px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 16px; padding: 24px 26px;
+  box-shadow: 0 3px 0 rgba(160, 125, 70, 0.3), 0 20px 60px rgba(10, 50, 65, 0.45);
 }
-.guide-card h2 { margin: 0 0 16px; font-size: 22px; color: var(--accent); }
+.guide-card h2 { margin: 0 0 16px; font-family: "Righteous", "Nunito", sans-serif; font-weight: 400; font-size: 22px; color: var(--accent); }
 .guide-card .legend { margin: 0; }
 .guide-close {
   position: absolute; top: 12px; right: 12px; background: transparent; border: none;
