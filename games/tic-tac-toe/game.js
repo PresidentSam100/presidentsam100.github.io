@@ -9,7 +9,10 @@ const boardModeSelEl = document.getElementById('boardModeSel');
 // reload. Seed from the persisted record and write back on every update.
 const REC = window.GameShell ? GameShell.record("tictactoe_record") : null;
 let board, gameOver, lastMove, turn, round = 0, score = REC ? REC.get() : { w:0, l:0, d:0 };
-let boardMode = 'classic'; // 'classic' (3x3) | 'ultimate' (9 nested 3x3 boards)
+let boardMode = 'classic'; // classic | ultimate | wild | misere | chaos | gomoku
+let placeSym = 'X';   // the symbol the human will place next (wild / order & chaos)
+let lastMover = null; // 'human' | 'ai' — who made the latest mark (wild: the finisher wins)
+const symPickEl = document.getElementById('symPick');
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
 // (or OS reduced-motion) means no mark-draw animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
@@ -81,6 +84,9 @@ function init() {
   board = Array(9).fill('');
   gameOver = false;
   lastMove = -1;
+  lastMover = null;
+  placeSym = 'X';
+  renderSymPick();
   turn = null; // nobody can move until the coin flip resolves
   boardEl.innerHTML = '';
   delete boardEl.dataset.win;
@@ -95,12 +101,14 @@ function init() {
   if (window.coinFlip) {
     const myRound = round;
     setStatus('Flipping for first move…');
-    coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
+    const youLbl = boardMode === 'wild' ? 'You' : 'You (X)';
+    const cpuLbl = boardMode === 'wild' ? 'CPU' : 'CPU (O)';
+    coinFlip({ you: youLbl, cpu: cpuLbl, accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
       if (myRound !== round) return; // a new game was started before this flip resolved
       if (who === 'cpu') { turn = AI; setStatus('AI thinking…'); scheduleAI(450); }
-      else { turn = HUMAN; render(); setStatus('Your turn (X)'); }
+      else { turn = HUMAN; render(); setStatus(humanPrompt()); }
     });
-  } else { turn = HUMAN; render(); setStatus('Your turn (X)'); }
+  } else { turn = HUMAN; render(); setStatus(humanPrompt()); }
 }
 
 function render() {
@@ -124,6 +132,25 @@ function markSVG(p, animate) {
 
 function setStatus(t) { statusEl.textContent = t; }
 
+// The X/O picker for modes where both players may place either symbol.
+function pickerModes() { return boardMode === 'wild' || boardMode === 'chaos'; }
+function renderSymPick() {
+  if (!symPickEl) return;
+  symPickEl.style.display = pickerModes() ? 'flex' : 'none';
+  symPickEl.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('sel', b.dataset.sym === placeSym));
+}
+if (symPickEl) symPickEl.querySelectorAll('button').forEach(b => {
+  b.addEventListener('click', () => { placeSym = b.dataset.sym; renderSymPick(); });
+});
+
+// The human's-turn prompt, per mode.
+function humanPrompt() {
+  if (boardMode === 'wild') return 'Your turn — place an X or an O';
+  if (boardMode === 'misere') return 'Your turn (X) — do NOT make three in a row';
+  return 'Your turn (X)';
+}
+
 function winner(b) {
   for (const line of LINES) {
     const [a,bb,c] = line;
@@ -138,8 +165,9 @@ function humanMove(i) {
   // this blocks rapid clicks from sneaking in extra moves during the AI's think delay.
   if (gameOver || board[i] || turn !== HUMAN) return;
   turn = AI;
-  board[i] = HUMAN;
+  board[i] = boardMode === 'wild' ? placeSym : HUMAN;
   lastMove = i;
+  lastMover = 'human';
   sfxHuman();
   if (checkEnd()) return;
   render();
@@ -156,9 +184,16 @@ function scheduleAI(delay) {
 
 function aiMove() {
   const myRound = round;
-  const i = chooseAIMove();
-  board[i] = AI;
-  lastMove = i;
+  if (boardMode === 'wild') {
+    const mv = wildChooseAIMove();
+    board[mv.i] = mv.sym;
+    lastMove = mv.i;
+  } else {
+    const i = chooseAIMove();
+    board[i] = AI;
+    lastMove = i;
+  }
+  lastMover = 'ai';
   sfxAI();
   if (checkEnd()) return;        // game over → checkEnd renders mark + highlight; cells stay disabled
   render();                      // draw the AI mark; turn is still AI, so cells stay disabled WHILE it animates
@@ -168,7 +203,7 @@ function aiMove() {
     lastMove = -1;               // don't replay the draw animation on the enabling render
     turn = HUMAN;
     render();                    // only NOW hand control back — cells become hoverable/clickable
-    setStatus('Your turn (X)');
+    setStatus(humanPrompt());
   }, wait);
 }
 
@@ -177,12 +212,21 @@ function checkEnd() {
   if (!res) return false;
   gameOver = true;
   render();
-  if (res.player === 'draw') {
+  let outcome;
+  if (res.player === 'draw') outcome = 'd';
+  else if (boardMode === 'wild') outcome = lastMover === 'human' ? 'w' : 'l';    // finishing any line wins
+  else if (boardMode === 'misere') outcome = res.player === HUMAN ? 'l' : 'w';   // making a line LOSES
+  else outcome = res.player === HUMAN ? 'w' : 'l';
+  if (outcome === 'd') {
     score.d++; setStatus("It's a draw!"); sfxDraw();
-  } else if (res.player === HUMAN) {
-    score.w++; setStatus('You win! 🎉'); highlight(res.line); sfxWin();
+  } else if (outcome === 'w') {
+    score.w++;
+    setStatus(boardMode === 'misere' ? 'The AI made three in a row — you win! 🎉' : 'You win! 🎉');
+    highlight(res.line); sfxWin();
   } else {
-    score.l++; setStatus('AI wins!'); highlight(res.line); sfxLose();
+    score.l++;
+    setStatus(boardMode === 'misere' ? 'Three in a row — you lose!' : 'AI wins!');
+    highlight(res.line); sfxLose();
   }
   updateScore();
   return true;
@@ -190,8 +234,15 @@ function checkEnd() {
 
 function highlight(line) {
   if (!line) return;
-  line.forEach(i => boardEl.children[i].classList.add('win'));
-  boardEl.dataset.win = LINES.indexOf(line);   // styles.css strikes through that row/column/diagonal
+  // Wait for the final mark's draw animation (two strokes, ~0.5s) before
+  // striking through — the chalk line lands after the mark, not on top of it.
+  const myRound = round;
+  const wait = animOn() ? 520 : 0;
+  setTimeout(() => {
+    if (myRound !== round) return; // a new game replaced this one mid-wait
+    line.forEach(i => boardEl.children[i].classList.add('win'));
+    boardEl.dataset.win = LINES.indexOf(line); // styles.css strikes through that line
+  }, wait);
 }
 
 function updateScore() {
@@ -209,7 +260,7 @@ function chooseAIMove() {
   const empties = emptyCells(board);
   if (diff === 'easy') return empties[Math.random()*empties.length|0];
   if (diff === 'medium' && Math.random() < 0.4) return empties[Math.random()*empties.length|0];
-  // hard / medium: minimax
+  // hard / medium: minimax (misère flips who a finished line is GOOD for)
   let bestScore = -Infinity, bestMove = empties[0];
   for (const i of empties) {
     board[i] = AI;
@@ -220,11 +271,65 @@ function chooseAIMove() {
   return bestMove;
 }
 
+// Wild mode: either player may place either symbol; completing any line of
+// three wins. The 3^9 state space is tiny, so a memoized negamax plays it
+// perfectly ("value for the player about to move").
+const wildMemo = new Map();
+function wildLine(b) {
+  for (const [a, bb, c] of LINES) if (b[a] && b[a] === b[bb] && b[a] === b[c]) return true;
+  return false;
+}
+function wildValue(b) {
+  const key = b.join('.');
+  if (wildMemo.has(key)) return wildMemo.get(key);
+  let best = -2;
+  outer:
+  for (let i = 0; i < 9; i++) {
+    if (b[i]) continue;
+    for (const sym of ['X', 'O']) {
+      b[i] = sym;
+      let v;
+      if (wildLine(b)) v = 1;               // completing a line wins on the spot
+      else if (b.every(x => x)) v = 0;      // full board, no line: draw
+      else v = -wildValue(b);
+      b[i] = '';
+      if (v > best) best = v;
+      if (best === 1) break outer;
+    }
+  }
+  wildMemo.set(key, best);
+  return best;
+}
+function wildChooseAIMove() {
+  const diff = diffEl.value;
+  const empties = emptyCells(board);
+  const rnd = () => ({ i: empties[Math.random() * empties.length | 0], sym: Math.random() < 0.5 ? 'X' : 'O' });
+  if (diff === 'easy') return rnd();
+  if (diff === 'medium' && Math.random() < 0.4) return rnd();
+  let best = -2, moves = [];
+  for (const i of empties) {
+    for (const sym of ['X', 'O']) {
+      board[i] = sym;
+      let v;
+      if (wildLine(board)) v = 1;
+      else if (board.every(x => x)) v = 0;
+      else v = -wildValue(board);
+      board[i] = '';
+      if (v > best) { best = v; moves = [{ i, sym }]; }
+      else if (v === best) moves.push({ i, sym });
+    }
+  }
+  return moves[Math.random() * moves.length | 0];
+}
+
 function minimax(b, depth, isMax, alpha, beta) {
   const res = winner(b);
   if (res) {
-    if (res.player === AI) return 10 - depth;
-    if (res.player === HUMAN) return depth - 10;
+    // Misère: whoever MADE the line loses, so a finished line is bad news for
+    // its own symbol — the classic scores flip.
+    const mis = boardMode === 'misere';
+    if (res.player === AI) return mis ? depth - 10 : 10 - depth;
+    if (res.player === HUMAN) return mis ? 10 - depth : depth - 10;
     return 0;
   }
   if (isMax) {
@@ -493,6 +598,284 @@ function uChooseAIMove() {
   return bestMoves[Math.random() * bestMoves.length | 0];
 }
 
+// ============================================================
+//  GRID MODES — Order & Chaos (6×6: both sides place X or O; Order wants
+//  five-in-a-row of EITHER symbol, Chaos wants the board full without one)
+//  and Gomoku (15×15: X vs O, EXACTLY five in a row wins — six is no win).
+// ============================================================
+const gboardEl = document.getElementById('gboard');
+let gN = 6, gBoard = [], gTurn = null, gGameOver = false, gLastMove = -1;
+let gWindows = [], gWinByCell = [];
+let chaosHumanRole = 'order';
+
+function buildWindows(n, k) {
+  const wins = [], dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++)
+    for (const [dr, dc] of dirs) {
+      const er = r + dr * (k - 1), ec = c + dc * (k - 1);
+      if (er < 0 || er >= n || ec < 0 || ec >= n) continue;
+      const cells = [];
+      for (let j = 0; j < k; j++) cells.push((r + dr * j) * n + (c + dc * j));
+      wins.push(cells);
+    }
+  return wins;
+}
+
+// The winning run, if any. Gomoku demands EXACTLY five (an overline of six or
+// more keeps the game going); Order & Chaos takes five or more.
+function gWinRun(b) {
+  const n = gN, dirs = [[0, 1], [1, 0], [1, 1], [1, -1]];
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) {
+    const v = b[r * n + c];
+    if (!v) continue;
+    for (const [dr, dc] of dirs) {
+      const pr = r - dr, pc = c - dc;
+      if (pr >= 0 && pr < n && pc >= 0 && pc < n && b[pr * n + pc] === v) continue; // not the run's start
+      let rr = r, cc = c;
+      const cells = [];
+      while (rr >= 0 && rr < n && cc >= 0 && cc < n && b[rr * n + cc] === v) {
+        cells.push(rr * n + cc); rr += dr; cc += dc;
+      }
+      if (boardMode === 'gomoku' ? cells.length === 5 : cells.length >= 5)
+        return { sym: v, cells: cells.slice(0, 5) };
+    }
+  }
+  return null;
+}
+
+function gPrompt() {
+  if (boardMode === 'gomoku') return 'Your turn (X) — make exactly five in a row';
+  return chaosHumanRole === 'order'
+    ? 'Your turn (Order) — build five in a row, any mix of symbols'
+    : 'Your turn (Chaos) — break up every five-in-a-row threat';
+}
+
+function gInit() {
+  round++;
+  gN = boardMode === 'gomoku' ? 15 : 6;
+  gBoard = Array(gN * gN).fill('');
+  gGameOver = false; gLastMove = -1; gTurn = null;
+  lastMover = null; placeSym = 'X';
+  const sideSel = document.getElementById('chaosSide');
+  chaosHumanRole = sideSel ? sideSel.value : 'order';
+  gWindows = buildWindows(gN, 5);
+  gWinByCell = Array.from({ length: gN * gN }, () => []);
+  gWindows.forEach((wcells, wi) => wcells.forEach(i => gWinByCell[i].push(wi)));
+  renderSymPick();
+  gboardEl.dataset.size = gN;
+  gboardEl.style.gridTemplateColumns = 'repeat(' + gN + ', 1fr)';
+  gboardEl.style.gridTemplateRows = 'repeat(' + gN + ', 1fr)'; // rows pinned too, or cells resize as marks land
+  gboardEl.innerHTML = '';
+  for (let i = 0; i < gN * gN; i++) {
+    const btn = document.createElement('button');
+    btn.className = 'gcell';
+    btn.addEventListener('click', () => gHumanMove(i));
+    gboardEl.appendChild(btn);
+  }
+  gRender();
+  const you = boardMode === 'gomoku' ? 'You (X)' : (chaosHumanRole === 'order' ? 'You (Order)' : 'You (Chaos)');
+  const cpu = boardMode === 'gomoku' ? 'CPU (O)' : (chaosHumanRole === 'order' ? 'CPU (Chaos)' : 'CPU (Order)');
+  if (window.coinFlip) {
+    const myRound = round;
+    setStatus('Flipping for first move…');
+    coinFlip({ you, cpu, accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
+      if (myRound !== round) return;
+      if (who === 'cpu') { gTurn = AI; setStatus('AI thinking…'); gScheduleAI(500); }
+      else { gTurn = HUMAN; gRender(); setStatus(gPrompt()); }
+    });
+  } else { gTurn = HUMAN; gRender(); setStatus(gPrompt()); }
+}
+
+function gRender() {
+  for (let i = 0; i < gBoard.length; i++) {
+    const c = gboardEl.children[i], pm = gBoard[i];
+    const win = c.classList.contains('win');
+    c.className = 'gcell' + (pm === 'X' ? ' x' : pm === 'O' ? ' o' : '') + (win ? ' win' : '');
+    c.disabled = !!pm || gGameOver || gTurn !== HUMAN;
+    c.innerHTML = pm ? markSVG(pm, animOn() && i === gLastMove) : '';
+  }
+}
+
+function gHumanMove(i) {
+  if (gGameOver || gBoard[i] || gTurn !== HUMAN) return;
+  gTurn = AI;
+  gBoard[i] = boardMode === 'chaos' ? placeSym : HUMAN;
+  gLastMove = i; lastMover = 'human';
+  sfxHuman();
+  if (gCheckEnd()) return;
+  gRender();
+  setStatus('AI thinking…');
+  gScheduleAI(animOn() ? 450 : 250);
+}
+
+function gScheduleAI(delay) {
+  const myRound = round;
+  setTimeout(() => { if (myRound === round) gAiMove(); }, delay);
+}
+
+function gAiMove() {
+  const myRound = round;
+  const mv = boardMode === 'gomoku' ? gomokuChooseAI() : chaosChooseAI();
+  gBoard[mv.i] = mv.sym;
+  gLastMove = mv.i; lastMover = 'ai';
+  sfxAI();
+  if (gCheckEnd()) return;
+  gRender();
+  const wait = animOn() ? 360 : 0;
+  setTimeout(() => {
+    if (myRound !== round) return;
+    gLastMove = -1; gTurn = HUMAN; gRender(); setStatus(gPrompt());
+  }, wait);
+}
+
+function gCheckEnd() {
+  const run = gWinRun(gBoard);
+  let outcome = null;
+  if (run) outcome = boardMode === 'gomoku'
+    ? (run.sym === HUMAN ? 'w' : 'l')
+    : (chaosHumanRole === 'order' ? 'w' : 'l');      // any five: Order's point
+  else if (gBoard.every(x => x))
+    outcome = boardMode === 'gomoku' ? 'd' : (chaosHumanRole === 'chaos' ? 'w' : 'l');
+  if (!outcome) return false;
+  gGameOver = true;
+  gRender();
+  if (run) run.cells.forEach(i => gboardEl.children[i].classList.add('win'));
+  if (outcome === 'd') { score.d++; setStatus("It's a draw!"); sfxDraw(); }
+  else if (outcome === 'w') {
+    score.w++;
+    setStatus(boardMode === 'chaos' && chaosHumanRole === 'chaos'
+      ? 'The board filled with no five — Chaos wins! 🎉' : 'You win! 🎉');
+    sfxWin();
+  } else {
+    score.l++;
+    setStatus(boardMode === 'chaos' && chaosHumanRole === 'order'
+      ? 'The board filled with no five — Chaos wins.' : 'AI wins!');
+    sfxLose();
+  }
+  updateScore();
+  return true;
+}
+
+// --- Order & Chaos AI ---
+// Order's fuel: windows of five whose non-empty cells are all ONE symbol.
+// 10^count per window, so a single four outweighs any pile of pairs.
+function orderPotential(b) {
+  let total = 0;
+  for (const wcells of gWindows) {
+    let x = 0, o = 0;
+    for (const i of wcells) { if (b[i] === 'X') x++; else if (b[i] === 'O') o++; }
+    if (x && o) continue;
+    const cnt = x + o;
+    if (cnt) total += Math.pow(10, cnt);
+  }
+  return total;
+}
+// windows one move from a five: pure with exactly four filled
+function openFours(b) {
+  let n4 = 0;
+  for (const wcells of gWindows) {
+    let x = 0, o = 0, empty = 0;
+    for (const i of wcells) { if (b[i] === 'X') x++; else if (b[i] === 'O') o++; else empty++; }
+    if (x && o) continue;
+    if (empty === 1 && x + o === 4) n4++;
+  }
+  return n4;
+}
+function gEmpty(b) { const out = []; for (let i = 0; i < b.length; i++) if (!b[i]) out.push(i); return out; }
+
+function chaosChooseAI() {
+  const aiRole = chaosHumanRole === 'order' ? 'chaos' : 'order';
+  const empties = gEmpty(gBoard);
+  const diff = diffEl.value;
+  const safeRandom = () => { // random, but Chaos never gift-wraps a five
+    for (let t = 0; t < 24; t++) {
+      const m = { i: empties[Math.random() * empties.length | 0], sym: Math.random() < 0.5 ? 'X' : 'O' };
+      gBoard[m.i] = m.sym;
+      const run = gWinRun(gBoard);
+      gBoard[m.i] = '';
+      if (aiRole === 'order' || !run) return m;
+    }
+    return { i: empties[Math.random() * empties.length | 0], sym: 'X' };
+  };
+  if (diff === 'easy') return safeRandom();
+  if (diff === 'medium' && Math.random() < 0.35) return safeRandom();
+  let best = null, bestScore = -Infinity;
+  for (const i of empties) {
+    for (const sym of ['X', 'O']) {
+      gBoard[i] = sym;
+      let sc;
+      const run = gWinRun(gBoard);
+      if (run) sc = aiRole === 'order' ? 1e12 : -1e12; // finishing five: jackpot or suicide
+      else {
+        const pot = orderPotential(gBoard);
+        const fours = openFours(gBoard);
+        sc = aiRole === 'order'
+          ? pot + fours * 1e8                     // an open four means five next turn
+          : -pot - fours * 1e9;                   // Chaos must never leave one standing
+      }
+      gBoard[i] = '';
+      sc += Math.random(); // shuffle ties
+      if (sc > bestScore) { bestScore = sc; best = { i, sym }; }
+    }
+  }
+  return best;
+}
+
+// --- Gomoku AI ---
+// Heuristic over the windows through each candidate cell (cells near stones):
+// build my lines, break theirs; immediate fives and forced blocks first.
+const GK_ME = [0, 4, 46, 420, 5200, 120000];
+const GK_FOE = [0, 3, 40, 390, 4900, 100000];
+function gomokuCandidates() {
+  const n = gN, set = new Set();
+  let any = false;
+  for (let i = 0; i < gBoard.length; i++) {
+    if (!gBoard[i]) continue;
+    any = true;
+    const r = i / n | 0, c = i % n;
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+      const rr = r + dr, cc = c + dc;
+      if (rr < 0 || rr >= n || cc < 0 || cc >= n) continue;
+      const j = rr * n + cc;
+      if (!gBoard[j]) set.add(j);
+    }
+  }
+  if (!any) return [(n * n) / 2 | 0];
+  return [...set];
+}
+function gomokuChooseAI() {
+  const diff = diffEl.value;
+  const cands = gomokuCandidates();
+  const rnd = () => ({ i: cands[Math.random() * cands.length | 0], sym: AI });
+  if (diff === 'easy') return rnd();
+  for (const i of cands) { // win on the spot
+    gBoard[i] = AI;
+    const run = gWinRun(gBoard);
+    gBoard[i] = '';
+    if (run && run.sym === AI) return { i, sym: AI };
+  }
+  for (const i of cands) { // deny the human's five
+    gBoard[i] = HUMAN;
+    const run = gWinRun(gBoard);
+    gBoard[i] = '';
+    if (run && run.sym === HUMAN) return { i, sym: AI };
+  }
+  if (diff === 'medium' && Math.random() < 0.3) return rnd();
+  let best = cands[0], bestScore = -Infinity;
+  for (const i of cands) {
+    let sc = Math.random();
+    for (const wi of gWinByCell[i]) {
+      let x = 0, o = 0;
+      for (const j of gWindows[wi]) { if (gBoard[j] === AI) x++; else if (gBoard[j] === HUMAN) o++; }
+      if (x && o) continue;
+      if (!o) sc += GK_ME[x + 1];
+      else sc += GK_FOE[o];
+    }
+    if (sc > bestScore) { bestScore = sc; best = i; }
+  }
+  return { i: best, sym: AI };
+}
+
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
 const modeModal = document.getElementById('modeModal');
 function showModeModal(){ modeModal.classList.add('open'); }
@@ -504,6 +887,9 @@ function setupModeModal(onStart){
         group.querySelectorAll('.opt').forEach(o => o.classList.remove('sel'));
         opt.classList.add('sel');
         if (sel) sel.value = opt.dataset.value;
+        const sideGroup = document.getElementById('chaosSideGroup');
+        if (sideGroup && group.dataset.target === 'boardModeSel')
+          sideGroup.style.display = opt.dataset.value === 'chaos' ? '' : 'none';
       });
     });
   });
@@ -515,13 +901,22 @@ function setupModeModal(onStart){
 
 // Switches the visible board and kicks off the right game for whichever
 // board type is currently selected.
+function isGridMode() { return boardMode === 'chaos' || boardMode === 'gomoku'; }
 function startSelectedMode() {
   boardMode = boardModeSelEl.value;
-  boardEl.style.display = boardMode === 'classic' ? 'grid' : 'none';
+  const classicFamily = boardMode === 'classic' || boardMode === 'wild' || boardMode === 'misere';
+  boardEl.style.display = classicFamily ? 'grid' : 'none';
   uboardEl.style.display = boardMode === 'ultimate' ? 'grid' : 'none';
-  if (boardMode === 'ultimate') uInit(); else init();
+  gboardEl.style.display = isGridMode() ? 'grid' : 'none';
+  if (boardMode === 'ultimate') uInit();
+  else if (isGridMode()) gInit();
+  else init();
 }
-function restartCurrent() { if (boardMode === 'ultimate') uInit(); else init(); }
+function restartCurrent() {
+  if (boardMode === 'ultimate') uInit();
+  else if (isGridMode()) gInit();
+  else init();
+}
 
 // "New Game" returns to mode selection; "Restart" replays the current mode.
 document.getElementById('reset').addEventListener('click', showModeModal);
@@ -535,10 +930,27 @@ const ULTIMATE_RULES = `Nine small 3×3 boards make one big 3×3 board. Win a sm
   If a small board fills up with no winner, it's <b>voided</b>: blocked for both sides. The twist —
   whichever square you play in a small board sends your opponent to that same-numbered small board next.
   If that board is already decided, they get a free choice of any open board instead.`;
+const WILD_RULES = `Both players may place an <b>X or an O</b> on any turn — pick your symbol
+  with the toggle above the board. Whoever completes any line of three matching symbols wins,
+  no matter whose symbols they are. Watch out: a careless mark can hand the AI the finish.`;
+const MISERE_RULES = `Reverse tic-tac-toe: making <b>three in a row loses</b>. You are <b>X</b>,
+  the computer is <b>O</b>. Dodge every line and force the AI into completing one.
+  A full board with no line is a draw.`;
+const CHAOS_RULES = `A 6×6 duel of roles. Both players place <b>X or O</b> (pick with the toggle).
+  <b>Order</b> wins by making five in a row of either symbol — <b>Chaos</b> wins if the board
+  fills with no five anywhere. Choose your side when starting the game.`;
+const GOMOKU_RULES = `A 15×15 board. You are <b>X</b>, the computer is <b>O</b>. Make a row of
+  <b>exactly five</b> of your marks — horizontally, vertically, or diagonally. Six or more in
+  a row does not count, so mind your overlines.`;
 const rulesModal = document.getElementById('rulesModal');
 const rulesTextEl = document.getElementById('rulesText');
 document.getElementById('rules').addEventListener('click', () => {
-  rulesTextEl.innerHTML = boardMode === 'ultimate' ? ULTIMATE_RULES : CLASSIC_RULES;
+  rulesTextEl.innerHTML =
+    boardMode === 'ultimate' ? ULTIMATE_RULES :
+    boardMode === 'wild' ? WILD_RULES :
+    boardMode === 'misere' ? MISERE_RULES :
+    boardMode === 'chaos' ? CHAOS_RULES :
+    boardMode === 'gomoku' ? GOMOKU_RULES : CLASSIC_RULES;
   rulesModal.classList.add('open');
 });
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
@@ -549,6 +961,14 @@ showModeModal();   // pick a mode first, then the coin flip decides who goes fir
 updateScore();
 
 window.__TTT_TEST__ = {
+  get board() { return board; },
+  get gBoard() { return gBoard; },
+  get boardMode() { return boardMode; },
+  get turn() { return turn; },
+  get gTurn() { return gTurn; },
+  gWinRun: () => gWinRun(gBoard),
+  wildValue, gHumanMove, humanMove,
+  setPlaceSym: (v) => { placeSym = v; renderSymPick(); },
   uReset: () => { uBoards = Array.from({ length: 9 }, () => Array(9).fill('')); uMacro = Array(9).fill(''); activeSub = -1; },
   uApplyMoveReal, uChooseAIMove, uEmptyLegalCells, macroResult, uRender,
   getState: () => ({ uBoards: uBoards.map(b => b.slice()), uMacro: uMacro.slice(), activeSub }),

@@ -49,19 +49,35 @@
   <main class="slate">
   <h1>Tic-Tac-Toe</h1>
   <div id="status">Your turn (X)</div>
+  <div id="symPick" style="display:none" aria-label="Symbol to place">
+    <span class="sp-label">Place:</span>
+    <button type="button" data-sym="X" class="sel">✕</button>
+    <button type="button" data-sym="O">◯</button>
+  </div>
   <div id="board"></div>
   <div id="uboard"></div>
+  <div id="gboard" style="display:none"></div>
   <div class="controls">
     <label style="display:none">Board:
       <select id="boardModeSel">
         <option value="classic" selected>Classic</option>
         <option value="ultimate">Ultimate</option>
+        <option value="wild">Wild</option>
+        <option value="misere">Misère</option>
+        <option value="chaos">Order & Chaos</option>
+        <option value="gomoku">Gomoku</option>
+      </select>
+    </label>
+    <label style="display:none">Side:
+      <select id="chaosSide">
+        <option value="order" selected>Order</option>
+        <option value="chaos">Chaos</option>
       </select>
     </label>
     <label style="display:none">Difficulty:
       <select id="difficulty">
-        <option value="hard" selected>Hard</option>
-        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+        <option value="medium" selected>Medium</option>
         <option value="easy">Easy</option>
       </select>
     </label>
@@ -94,14 +110,25 @@
         <div class="opts" data-target="boardModeSel">
           <button class="opt sel" data-value="classic">Classic (3×3)</button>
           <button class="opt" data-value="ultimate">Ultimate (9×9)</button>
+          <button class="opt" data-value="wild">Wild — place X or O</button>
+          <button class="opt" data-value="misere">Misère — lines lose</button>
+          <button class="opt" data-value="chaos">Order & Chaos (6×6)</button>
+          <button class="opt" data-value="gomoku">Gomoku (15×15)</button>
+        </div>
+      </div>
+      <div class="mode-group" id="chaosSideGroup" style="display:none">
+        <div class="mode-label">Your side</div>
+        <div class="opts" data-target="chaosSide">
+          <button class="opt sel" data-value="order">Order — make five</button>
+          <button class="opt" data-value="chaos">Chaos — prevent it</button>
         </div>
       </div>
       <div class="mode-group">
         <div class="mode-label">Difficulty</div>
         <div class="opts" data-target="difficulty">
           <button class="opt" data-value="easy">Easy</button>
-          <button class="opt" data-value="medium">Normal</button>
-          <button class="opt sel" data-value="hard">Hard</button>
+          <button class="opt sel" data-value="medium">Normal</button>
+          <button class="opt" data-value="hard">Hard</button>
         </div>
       </div>
       <button class="btn" id="startGame">Start Game</button>

@@ -87,6 +87,33 @@ h1 {
 .cell:active:not(:disabled) { transform: scale(0.95); }
 .cell:disabled { cursor: default; }
 
+/* ---- symbol picker (Wild / Order & Chaos) --------------------------------- */
+#symPick { display: flex; align-items: center; gap: 8px; }
+#symPick .sp-label { font-size: 1.1rem; color: var(--chalk); opacity: 0.8; }
+#symPick button {
+  font: 700 1.3rem/1 "Cabin Sketch", "Patrick Hand", cursive;
+  width: 44px; height: 40px; cursor: pointer;
+  color: var(--chalk); background: transparent;
+  border: 2px dashed rgba(238, 240, 230, 0.35); border-radius: 10px;
+}
+#symPick button.sel { border-style: solid; border-color: var(--accent); color: var(--accent); }
+#symPick button:hover { background: rgba(238, 240, 230, 0.08); }
+
+/* ---- grid boards: Order & Chaos (6×6) and Gomoku (15×15) ------------------- */
+#gboard {
+  display: grid; gap: 0; position: relative;
+  width: min(408px, 92vw); aspect-ratio: 1;
+}
+.gcell {
+  background: transparent; padding: 0; cursor: pointer;
+  border: 1px solid rgba(238, 240, 230, 0.22); border-radius: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.gcell:hover:not(:disabled) { background: rgba(238, 240, 230, 0.09); }
+.gcell:disabled { cursor: default; }
+.gcell .mark { width: 82%; height: 82%; }
+.gcell.win { background: rgba(243, 221, 122, 0.22); box-shadow: inset 0 0 0 2px var(--accent); }
+
 /* the winning line, struck through in yellow chalk; game.js sets data-win
    to the index of the line in LINES (rows, then columns, then diagonals) */
 #board[data-win]::after {
