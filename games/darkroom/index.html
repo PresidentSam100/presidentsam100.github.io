@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%93%B7%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darkroom</title>
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Darkroom — nonogram puzzles under a red safelight: solve the clues and a photo develops. No guessing ever needed. A browser game by Sam Lu." />
+    <meta property="og:title" content="Darkroom — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Darkroom — nonogram puzzles under a red safelight: solve the clues and a photo develops. No guessing ever needed. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+<div class="safelight" aria-hidden="true"></div>
+
+<!-- The menu: the daily negative, then each roll of film as a strip of frames. -->
+<main class="panel" id="menu">
+  <h1>Darkroom</h1>
+  <p class="tag">Nonograms under the safelight — solve the clues and a photo develops.</p>
+  <p class="how">
+    The numbers are the runs of dark cells in that row or column, in order, with at
+    least one gap between runs. <b>Click / drag</b> uses the tool on the toolbar —
+    <b>🖐 develop</b> or <b>✕ mark</b> where nothing goes — switch with the button or the
+    <b>1</b> / <b>2</b> keys. On a mouse, <b>right-click</b> always marks ✕. Developing a wrong cell <b>fogs the print</b>: it turns
+    into ✕ for you and costs <b>+30&#8202;s</b> on the clock — finish with no fog for a flawless print. Every negative is
+    provably solvable with <b>no guessing</b>. Keys: arrows + <b>Z</b> develop, <b>X</b> mark.
+  </p>
+  <button type="button" class="daily" id="daily-btn"><b>Daily negative</b><small id="daily-sub"></small></button>
+  <div id="rolls"></div>
+  <div class="menu-foot">
+    <button type="button" id="to-gallery">🖼 The gallery</button>
+    <span id="tally"></span>
+  </div>
+</main>
+
+<!-- One puzzle: the sheet of photo paper on the easel. -->
+<div class="hudbar" id="hud" hidden>
+  <button type="button" id="hud-back" aria-label="Back to the darkroom">←</button>
+  <span id="hud-label"></span>
+  <span id="hud-time">0:00</span>
+  <span id="hud-fog"></span>
+  <div class="toolset" role="group" aria-label="The tool used by clicks and taps">
+    <button type="button" id="tool-fill" aria-pressed="true">🖐 develop <kbd>1</kbd></button>
+    <button type="button" id="tool-mark" aria-pressed="false">✕ mark <kbd>2</kbd></button>
+  </div>
+  <button type="button" id="hud-restart" aria-label="Restart this negative">↺</button>
+</div>
+<div class="easel" id="easel" hidden>
+  <canvas id="board" aria-label="The nonogram grid"></canvas>
+</div>
+
+<!-- The print develops. -->
+<section class="panel card" id="win" hidden>
+  <h2 id="win-name"></h2>
+  <canvas id="win-print" aria-hidden="true"></canvas>
+  <p id="win-stats"></p>
+  <div class="row">
+    <button type="button" id="win-next">Next negative</button>
+    <button type="button" id="win-share" hidden>Share</button>
+    <button type="button" id="win-menu">Darkroom</button>
+  </div>
+</section>
+<div class="share-out" id="share-out" hidden><textarea readonly rows="3"></textarea></div>
+
+<!-- Solved prints, hanging to dry. -->
+<main class="panel" id="gallery" hidden>
+  <h1>The gallery</h1>
+  <p class="tag">Every print you've developed, hung up to dry.</p>
+  <p id="gallery-empty">Nothing yet — the trays are clean and the paper is fresh.</p>
+  <div id="wires"></div>
+  <div class="menu-foot"><button type="button" id="gallery-back">← The darkroom</button></div>
+</main>
+
+<script src="nono.js"></script>
+<script src="puzzles.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

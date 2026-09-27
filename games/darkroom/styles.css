@@ -1,0 +1,187 @@
+@import url("https://fonts.googleapis.com/css2?family=Special+Elite&display=swap");
+
+/* Darkroom: a near-black room washed red by a safelight. The photo paper
+   (the puzzle) is the one bright thing in the room. */
+:root {
+  --room: #16090b;
+  --red: #c43e2c;
+  --glow: #ff6a4a;
+  --ink: #2a1114;
+  --paper: #efe6d2;
+  --text: #f0c9b8;
+  --dim: #b98d80;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse 90% 55% at 50% -10%, rgba(255, 90, 50, 0.28), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, #200c0e 0%, var(--room) 60%);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; align-items: center;
+  padding: 58px 12px 24px;
+  -webkit-tap-highlight-color: transparent;
+}
+/* The safelight itself: a small hooded lamp at the top of the room. */
+.safelight {
+  position: fixed; top: 0; left: 50%; transform: translateX(-50%);
+  width: 74px; height: 26px; border-radius: 0 0 40px 40px;
+  background: linear-gradient(180deg, #3a1712, #7a2417);
+  box-shadow: 0 0 34px 10px rgba(255, 90, 50, 0.4), inset 0 -4px 8px rgba(255, 140, 90, 0.55);
+  z-index: 5; pointer-events: none;
+}
+
+.nav-back-games {
+  position: fixed; top: 12px; left: 12px; z-index: 99999;
+  text-decoration: none; font: 400 15px/1 "Special Elite", ui-monospace, monospace;
+  color: var(--text); background: rgba(42, 17, 20, 0.9);
+  border: 1px solid rgba(196, 62, 44, 0.6); border-radius: 6px; padding: 8px 13px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+button {
+  font: inherit; color: var(--text); cursor: pointer;
+  background: rgba(58, 23, 18, 0.75); border: 1px solid rgba(196, 62, 44, 0.55); border-radius: 8px;
+  padding: 8px 14px;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+button:hover, button:focus-visible { background: rgba(122, 36, 23, 0.9); outline: none; }
+button:active { transform: translateY(1px); }
+
+/* ---- panels -------------------------------------------------------------- */
+.panel { width: min(94vw, 640px); text-align: center; }
+.panel[hidden] { display: none; }
+h1 {
+  margin: 0 0 2px; font: 400 clamp(34px, 7vw, 54px)/1.1 "Special Elite", ui-monospace, monospace;
+  color: #ffb49a; text-shadow: 0 0 18px rgba(255, 90, 50, 0.5);
+}
+.tag { margin: 0 0 12px; color: var(--dim); font-size: 0.92rem; }
+.how {
+  margin: 0 auto 14px; max-width: 560px; text-align: left;
+  font-size: 0.82rem; line-height: 1.5; color: var(--dim);
+  background: rgba(42, 17, 20, 0.55); border: 1px solid rgba(196, 62, 44, 0.3); border-radius: 10px;
+  padding: 10px 13px;
+}
+.how b { color: var(--text); }
+
+.daily {
+  display: flex; flex-direction: column; gap: 2px; align-items: center;
+  width: 100%; padding: 10px; margin-bottom: 14px;
+  border-width: 2px; font-size: 1.02rem;
+}
+.daily b { font-family: "Special Elite", ui-monospace, monospace; letter-spacing: 0.02em; }
+.daily small { color: var(--dim); font-size: 0.78rem; }
+
+/* Rolls of film: each a dark strip with sprocket holes and numbered frames. */
+.roll { margin: 0 0 14px; text-align: left; }
+.roll h2 { margin: 0 0 6px; font: 400 1.05rem "Special Elite", ui-monospace, monospace; color: #ffb49a; }
+.roll h2 small { color: var(--dim); font-size: 0.75rem; font-family: system-ui, sans-serif; }
+.strip {
+  display: flex; gap: 8px; overflow-x: auto; padding: 12px 10px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 10px, rgba(240, 201, 184, 0.16) 10px 16px, transparent 16px 26px) top / 100% 7px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 10px, rgba(240, 201, 184, 0.16) 10px 16px, transparent 16px 26px) bottom / 100% 7px no-repeat,
+    #1d0d0f;
+  border-radius: 6px; border: 1px solid rgba(196, 62, 44, 0.3);
+  scrollbar-width: thin;
+}
+.frame {
+  flex: 0 0 auto; width: 62px; height: 62px; padding: 3px;
+  display: flex; align-items: center; justify-content: center; position: relative;
+  background: #241012; border: 1px solid rgba(196, 62, 44, 0.45); border-radius: 4px;
+}
+.frame b { font: 400 1.25rem "Special Elite", ui-monospace, monospace; color: rgba(240, 201, 184, 0.5); }
+.frame i {
+  position: absolute; right: 5px; bottom: 5px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--glow); box-shadow: 0 0 6px var(--glow);
+}
+.frame.done { background: #efe6d2; }
+.frame canvas { max-width: 100%; max-height: 100%; image-rendering: pixelated; }
+.menu-foot { display: flex; gap: 12px; align-items: center; justify-content: center; margin-top: 4px; }
+#tally { color: var(--dim); font-size: 0.85rem; }
+
+/* ---- the puzzle --------------------------------------------------------------- */
+.hudbar {
+  display: flex; gap: 10px; align-items: center; justify-content: center; flex-wrap: wrap;
+  margin-bottom: 10px; font-size: 0.9rem;
+  width: min(94vw, 760px);
+}
+.hudbar[hidden] { display: none; }
+#hud-label { font-family: "Special Elite", ui-monospace, monospace; color: #ffb49a; }
+#hud-time { font-variant-numeric: tabular-nums; min-width: 3.2em; text-align: center; transition: color 0.4s ease; }
+#hud-time.penalty { color: #ff6a4a; transition: none; }
+#hud-fog { color: var(--dim); }
+#hud-fog.fogged { color: #ff9d7d; }
+#hud-back, #hud-restart { padding: 5px 11px; }
+/* Both tools side by side; the active one is lit. */
+.toolset { display: inline-flex; }
+.toolset button {
+  padding: 5px 11px; font-family: "Special Elite", ui-monospace, monospace;
+  background: rgba(30, 12, 13, 0.7); color: var(--dim); border-color: rgba(196, 62, 44, 0.4);
+}
+.toolset button:first-child { border-radius: 8px 0 0 8px; border-right-width: 0; }
+.toolset button:last-child { border-radius: 0 8px 8px 0; }
+.toolset button.on {
+  background: rgba(122, 36, 23, 0.95); color: #ffd9c4;
+  box-shadow: inset 0 0 0 1px rgba(255, 154, 122, 0.55), 0 0 10px rgba(255, 90, 50, 0.25);
+}
+.toolset kbd {
+  font: 600 0.68em system-ui, sans-serif; color: inherit; opacity: 0.75;
+  border: 1px solid currentColor; border-radius: 4px; padding: 0 4px 1px; margin-left: 3px;
+}
+
+/* The sheet of photo paper in the easel's steel border. */
+.easel {
+  margin-top: 3vh;
+  padding: 9px; border-radius: 4px;
+  background: linear-gradient(160deg, #3c3630, #17130f 70%);
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 190, 160, 0.25);
+}
+.easel[hidden] { display: none; }
+#board { display: block; border-radius: 2px; cursor: crosshair; touch-action: none; }
+/* The cursor shows the tool in hand: a dark cell for develop, a red X for mark. */
+#board.tool-fill { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%3E%3Cpath%20d%3D%22M12%201v5M12%2018v5M1%2012h5M18%2012h5%22%20stroke%3D%22%23f6efe0%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M12%201v5M12%2018v5M1%2012h5M18%2012h5%22%20stroke%3D%22%232a1114%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%2F%3E%3Crect%20x%3D%227.5%22%20y%3D%227.5%22%20width%3D%229%22%20height%3D%229%22%20fill%3D%22%232a1114%22%20stroke%3D%22%23f6efe0%22%20stroke-width%3D%221.5%22%2F%3E%3C%2Fsvg%3E") 12 12, crosshair; }
+#board.tool-mark { cursor: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%3E%3Cpath%20d%3D%22M12%201v5M12%2018v5M1%2012h5M18%2012h5%22%20stroke%3D%22%23f6efe0%22%20stroke-width%3D%224%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M12%201v5M12%2018v5M1%2012h5M18%2012h5%22%20stroke%3D%22%232a1114%22%20stroke-width%3D%221.8%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M8.2%208.2l7.6%207.6M15.8%208.2l-7.6%207.6%22%20stroke%3D%22%23f6efe0%22%20stroke-width%3D%224.6%22%20stroke-linecap%3D%22round%22%2F%3E%3Cpath%20d%3D%22M8.2%208.2l7.6%207.6M15.8%208.2l-7.6%207.6%22%20stroke%3D%22%23c43e2c%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%2F%3E%3C%2Fsvg%3E") 12 12, crosshair; }
+
+/* ---- the developed print ---------------------------------------------------------- */
+.card {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 30;
+  background: rgba(30, 12, 13, 0.96); border: 1px solid rgba(196, 62, 44, 0.6); border-radius: 12px;
+  padding: 18px 22px; width: min(92vw, 380px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.7);
+}
+.card h2 { margin: 0 0 10px; font: 400 1.5rem "Special Elite", ui-monospace, monospace; color: #ffb49a; }
+.card canvas { background: #f4efe4; padding: 6px; border-radius: 2px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6); image-rendering: pixelated; }
+.card p { margin: 10px 0 14px; color: var(--dim); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.share-out { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); z-index: 31; width: min(92vw, 380px); }
+.share-out textarea { width: 100%; font: 0.8rem/1.4 ui-monospace, monospace; border-radius: 8px; border: 0; padding: 8px; background: #efe6d2; color: #2a1114; }
+
+/* ---- the gallery ------------------------------------------------------------------- */
+#wires { display: flex; flex-wrap: wrap; gap: 22px 18px; justify-content: center; padding: 26px 6px 6px; }
+#gallery-empty { color: var(--dim); }
+.print {
+  margin: 0; position: relative;
+  background: #f4efe4; padding: 7px 7px 4px; border-radius: 2px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+  transform: rotate(-1.2deg);
+}
+.print:nth-child(2n) { transform: rotate(1.4deg); }
+.print:nth-child(3n) { transform: rotate(-0.5deg); }
+/* The clothespin and the wire above each print. */
+.print::before {
+  content: ""; position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+  width: 10px; height: 16px; border-radius: 3px;
+  background: linear-gradient(180deg, #8a5a3a, #5c3b26);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+.print::after {
+  content: ""; position: absolute; top: -9px; left: -30px; right: -30px; height: 1px;
+  background: rgba(240, 201, 184, 0.35);
+}
+.print canvas { display: block; image-rendering: pixelated; }
+.print figcaption { font-size: 0.68rem; color: #5c4636; padding-top: 3px; text-align: center; font-family: "Special Elite", ui-monospace, monospace; }
+.print figcaption b { display: block; font-size: 0.8rem; color: #2a1114; }
+.print.flawless figcaption b::after { content: " ★"; color: #a5762a; }
