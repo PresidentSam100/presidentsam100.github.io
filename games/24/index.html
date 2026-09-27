@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%93%B1%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24</title>
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="24 — make 24 from four cards with + − × ÷, on a 2000s candybar phone. A browser game by Sam Lu." />
+    <meta property="og:title" content="24 — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="24 — make 24 from four cards with + − × ÷, on a 2000s candybar phone. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- A 2000s candybar phone. The game runs on its 84×48 LCD (lcd.js). Below
+     the screen: the C key, the big Navi key (its label is shown at the
+     bottom of the screen) and the up/down rocker; then the keypad, whose
+     small print says what each key does in the game. -->
+<main class="phone" aria-label="24, played on a phone">
+  <div class="earpiece" aria-hidden="true"></div>
+  <div class="brand" aria-hidden="true">SAM LU</div>
+  <div class="bezel">
+    <div class="glass" id="glass">
+      <canvas id="lcd" role="img" aria-label="The phone's screen"></canvas>
+    </div>
+    <span class="sr" id="lcd-live" aria-live="polite"></span>
+  </div>
+
+  <div class="controls">
+    <button type="button" class="key clear" data-key="C" aria-label="C: back or undo (hold to reset)">C</button>
+    <button type="button" class="key navi" data-key="navi" aria-label="Navi key: the action shown at the bottom of the screen"><span></span></button>
+    <div class="rocker">
+      <button type="button" class="key up" data-key="up" aria-label="Scroll up">▲</button>
+      <button type="button" class="key down" data-key="down" aria-label="Scroll down">▼</button>
+    </div>
+  </div>
+
+  <div class="keypad">
+    <button type="button" class="key num" data-key="1" aria-label="1: card 1"><b>1</b><small>card</small></button>
+    <button type="button" class="key num" data-key="2" aria-label="2: card 2"><b>2</b><small>card</small></button>
+    <button type="button" class="key num" data-key="3" aria-label="3: card 3"><b>3</b><small>card</small></button>
+    <button type="button" class="key num" data-key="4" aria-label="4: card 4"><b>4</b><small>card</small></button>
+    <button type="button" class="key num" data-key="5" aria-label="5: plus"><b>5</b><small class="op">+</small></button>
+    <button type="button" class="key num" data-key="6" aria-label="6: minus"><b>6</b><small class="op">−</small></button>
+    <button type="button" class="key num" data-key="7" aria-label="7: times"><b>7</b><small class="op">×</small></button>
+    <button type="button" class="key num" data-key="8" aria-label="8: divide"><b>8</b><small class="op">÷</small></button>
+    <button type="button" class="key num" data-key="9" aria-label="9: hint"><b>9</b><small>hint</small></button>
+    <button type="button" class="key num" data-key="*" aria-label="Star: undo"><b>*</b><small>undo</small></button>
+    <button type="button" class="key num" data-key="0" aria-label="0: reset the hand"><b>0</b><small>reset</small></button>
+    <button type="button" class="key num" data-key="#" aria-label="Hash: skip"><b>#</b><small>skip</small></button>
+  </div>
+  <div class="mic" aria-hidden="true"></div>
+</main>
+
+<p class="keys-help">Keyboard: <b>1–4</b> cards · <b>+ − × /</b> (or 5–8) · <b>Backspace</b> undo · <b>R</b> reset · <b>H</b> hint · <b>#</b> skip · <b>Enter</b> Navi · <b>↑ ↓</b> scroll · <b>Esc</b> pause</p>
+<div class="share-out" id="share-out" hidden>
+  <p>Copy your result:</p>
+  <textarea readonly rows="3"></textarea>
+</div>
+
+<script src="solver.js"></script>
+<script src="puzzles.js"></script>
+<script src="lcd.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
