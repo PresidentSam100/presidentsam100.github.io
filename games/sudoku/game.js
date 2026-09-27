@@ -740,6 +740,7 @@
   // Only while the clock runs. The shared overlay is see-through, so the
   // board is blurred too; otherwise pausing is free thinking time.
   const PAUSE = GameShell.pausable({
+    button: false,                       // the clock has its own pause button
     canPause: () => state === "playing",
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);

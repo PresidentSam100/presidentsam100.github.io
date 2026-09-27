@@ -2647,4 +2647,11 @@ if (window.GameShell) {
   GameShell.onAutoPause(() => {
     if (game.gameState === 'PLAYING') game.togglePause();
   });
+  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
+  if (GameShell.pauseButton) GameShell.pauseButton({
+    keys: ['p'],
+    canPause: () => game.gameState === 'PLAYING',
+    isPaused: () => game.gameState === 'PAUSED',
+    toggle: () => game.togglePause(),
+  });
 }

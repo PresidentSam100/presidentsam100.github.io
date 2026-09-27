@@ -1908,7 +1908,14 @@ requestAnimationFrame(frame);
 // auto-pause when the tab/window loses focus (resume manually so you're not caught out)
 function autoPause() { if (state === "playing" && !paused) { paused = true; applyMaster(); } }
 if (window.GameShell) GameShell.onAutoPause(autoPause);
-else { // shell missing — keep the original listeners so the behaviour survives
+// the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+  keys: ["p", "Escape"],
+  canPause: () => state === "playing",
+  isPaused: () => paused,
+  toggle: () => { if (state === "playing") { paused = !paused; applyMaster(); } },
+});
+if (!window.GameShell) { // shell missing — keep the original listeners so the behaviour survives
   window.addEventListener("blur", autoPause);
   document.addEventListener("visibilitychange", () => { if (document.hidden) autoPause(); });
 }

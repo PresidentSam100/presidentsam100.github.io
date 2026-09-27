@@ -3055,6 +3055,13 @@ window.addEventListener('load', () => {
     GameShell.onAutoPause(() => {
       if (window.game && window.game.mode === 'playing') window.game.togglePause();
     });
+    // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
+    if (GameShell.pauseButton) GameShell.pauseButton({
+      keys: ['p'],
+      canPause: () => window.game.mode === 'playing',
+      isPaused: () => window.game.mode === 'paused',
+      toggle: () => window.game.togglePause(),
+    });
   }
 
   // ---- on-screen touch controls (mobile) ----

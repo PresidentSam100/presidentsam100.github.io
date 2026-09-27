@@ -31,6 +31,13 @@
   // Auto-pause when the tab/window loses focus so the run isn't lost to a
   // background switch (the loop keeps drawing the paused overlay).
   if (window.GameShell) GameShell.onAutoPause(() => game.requestPause());
+  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+  if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+    keys: ["p", "Escape"],
+    canPause: () => game.state === "play",
+    isPaused: () => game.paused,
+    toggle: () => { if (game.state === "play") game.paused = !game.paused; },
+  });
   else { // shell missing — keep the original listeners so the behaviour survives
     window.addEventListener("blur", () => game.requestPause());
     document.addEventListener("visibilitychange", () => {
