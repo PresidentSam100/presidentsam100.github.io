@@ -33,7 +33,7 @@
 </head>
   <body>
     <div class="wrap">
-      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Nunito',system-ui,sans-serif;color:#fdf7ff;background:#271a4f;border:1px solid #3a2a6b;border-radius:10px;padding:8px 13px">&larr; Games</a>
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:400 15px/1 'Titan One','Nunito',system-ui,sans-serif;letter-spacing:.02em;color:#2a1a12;background:#fff4dc;border:3px solid #2a1a12;border-radius:999px;box-shadow:0 3px 0 #2a1a12;padding:7px 14px 6px">&larr; Games</a>
 
       <div class="topbar">
         <div>
@@ -51,11 +51,16 @@
         <canvas id="game" width="900" height="600"></canvas>
 
         <div class="overlay" id="overlay-start">
+          <div class="board">
           <h2>Metazac 🎈➗</h2>
           <p>
             Balloons carry math problems down the track. Type an answer to pop
             the closest matching one before it escapes — every escape costs a
             life. Faster colors give more points!
+          </p>
+          <p class="power-note">
+            <b>Space</b> — <b>dart storm</b>: the monkey pops the 5 balloons
+            nearest the exit, one at a time. It recharges in 45 seconds.
           </p>
           <div class="settings">
             <div class="opt">
@@ -91,29 +96,46 @@
             <span><i class="dot" style="background:#ff4d4d"></i>red — slowest</span>
           </div>
           <button class="btn" id="start-btn">Start (Enter)</button>
+          </div>
         </div>
 
         <div class="overlay hidden" id="overlay-over">
+          <div class="board">
           <h2>Game Over</h2>
           <p id="over-msg">Final score: 0</p>
           <div class="btn-row">
             <button class="btn" id="retry-btn">Play Again (Enter)</button>
             <button class="btn ghost" id="menu-btn">Main Menu</button>
           </div>
+          </div>
         </div>
       </div>
 
       <div class="answer-row">
-        <input
-          id="answer"
-          type="text"
-          inputmode="numeric"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false"
-          placeholder="type an answer…"
-        />
-        <span class="hint">press Enter to pop the closest matching balloon</span>
+        <div class="answer-line">
+          <input
+            id="answer"
+            type="text"
+            inputmode="numeric"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            placeholder="type an answer…"
+          />
+          <!-- the dart storm (Space): shows its charge, glows when ready -->
+          <button class="power" id="power-btn" type="button" aria-label="Dart storm (Space)" title="Dart storm — Space">
+            <span class="power-face">
+              <svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="#2a1a12" stroke-width="2" stroke-linejoin="round">
+                <path d="M9 31 L27 13" stroke-width="3.5" stroke-linecap="round"/>
+                <path d="M27 13 L34 6 L31 16 Z" fill="#2a1a12"/>
+                <path d="M11 29 L4 30 L8 25 Z M11 29 L10 36 L15 32 Z" fill="#e0362c"/>
+              </g></svg>
+            </span>
+            <span class="power-num" id="power-num">×5</span>
+            <span class="power-key">SPACE</span>
+          </button>
+        </div>
+        <span class="hint">Enter pops the closest matching balloon · Space throws a dart storm</span>
       </div>
 
       <p id="byline">made by sam lu (not you)</p>
