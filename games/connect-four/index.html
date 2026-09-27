@@ -30,7 +30,19 @@
   <h1>Connect <span class="four">Four</span></h1>
   <div id="status">Your turn (Red)</div>
   <div class="stand"><div id="board"></div></div>
+  <div id="powerTray" style="display:none">
+    <button class="pbtn" data-power="anvil" title="Crushes every disc in a column">🔨 Anvil</button>
+    <button class="pbtn" data-power="bomb" title="Blasts the opponent's discs around where it lands">💣 Bomb</button>
+    <button class="pbtn" data-power="wall" title="A neutral blocker — and you move again">🧱 Wall</button>
+    <span id="cpuPowers"></span>
+  </div>
   <div class="controls">
+    <label style="display:none">Mode:
+      <select id="gameModeSel">
+        <option value="classic" selected>Classic</option>
+        <option value="power">Power Checkers</option>
+      </select>
+    </label>
     <label style="display:none">Difficulty:
       <select id="difficulty">
         <option value="6">Hard</option>
@@ -54,6 +66,10 @@
       <p>Drop colored discs into the grid by clicking a column. You are <b>Red</b>,
          the computer is <b>Yellow</b>. Discs stack from the bottom up. Be the first to line
          up four of your discs in a row — horizontally, vertically, or diagonally — to win.</p>
+      <p><b>Power Checkers</b> gives each side three one-shot powers: the <b>🔨 Anvil</b> crushes
+         every disc in a column, the <b>💣 Bomb</b> drops in and blasts the opponent's discs
+         around it (survivors fall), and the <b>🧱 Wall</b> is a neutral blocker that counts for
+         nobody — and you take another turn. Click a power to arm it, then click a column.</p>
       <button class="btn" id="closeRules">Got it</button>
     </div>
   </div>
@@ -61,6 +77,13 @@
   <div class="modal-overlay" id="modeModal">
     <div class="modal">
       <h2>New Game</h2>
+      <div class="mode-group">
+        <div class="mode-label">Mode</div>
+        <div class="opts" data-target="gameModeSel">
+          <button class="opt sel" data-value="classic">Classic</button>
+          <button class="opt" data-value="power">Power Checkers</button>
+        </div>
+      </div>
       <div class="mode-group">
         <div class="mode-label">Difficulty</div>
         <div class="opts" data-target="difficulty">

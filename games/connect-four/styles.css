@@ -198,3 +198,50 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
     scroll-behavior: auto !important;
   }
 }
+
+/* ---- Power Checkers ---------------------------------------------------- */
+#powerTray {
+  display: flex; align-items: center; gap: 10px; margin-top: 14px;
+  flex-wrap: wrap; justify-content: center;
+}
+.pbtn {
+  font: 800 15px/1 "Nunito", system-ui, sans-serif;
+  color: #163f96; background: #fff; cursor: pointer;
+  border: 3px solid #2161d6; border-radius: 999px;
+  box-shadow: 0 3px 0 #163f96; padding: 9px 14px;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.pbtn:hover:not(.used) { transform: translateY(-1px); }
+.pbtn.armed { background: #ffe9a8; border-color: #d8930f; box-shadow: 0 3px 0 #a86e08, 0 0 14px rgba(247, 198, 47, 0.7); }
+.pbtn.used { opacity: 0.35; cursor: default; pointer-events: none; }
+#cpuPowers { font: 800 14px/1 "Nunito", system-ui, sans-serif; color: #163f96; letter-spacing: 2px; }
+#cpuPowers .used { opacity: 0.25; filter: grayscale(1); }
+
+/* wall disc: poured concrete with mortar lines */
+.cell.wall {
+  background:
+    linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)) 50% 33% / 78% 2px no-repeat,
+    linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)) 50% 66% / 78% 2px no-repeat,
+    linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)) 35% 50% / 2px 30% no-repeat,
+    radial-gradient(circle at 35% 30%, #b7bcc4, #82878f 70%, #5f646c);
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.35), inset 0 3px 4px rgba(255, 255, 255, 0.35);
+}
+/* the lit bomb, shown for a beat before it goes off */
+.cell.bombdisc {
+  background: radial-gradient(circle at 35% 30%, #4a4f57, #23262b 70%, #101216);
+  box-shadow: inset 0 -4px 6px rgba(0, 0, 0, 0.5), 0 0 12px 3px rgba(255, 120, 40, 0.8);
+  animation: fuse 0.5s steps(2) infinite;
+}
+@keyframes fuse { 50% { box-shadow: inset 0 -4px 6px rgba(0,0,0,.5), 0 0 20px 6px rgba(255,190,60,.95); } }
+/* blast flash on destroyed discs */
+.cell.boom { animation: boomflash 0.5s ease-out; }
+@keyframes boomflash {
+  0% { box-shadow: 0 0 0 0 rgba(255, 170, 40, 0.9); filter: brightness(2.4); }
+  100% { box-shadow: 0 0 22px 12px rgba(255, 170, 40, 0); filter: brightness(1); }
+}
+/* the anvil's shockwave running down a column */
+.cell.crush { animation: crushflash 0.45s ease-in; }
+@keyframes crushflash {
+  0% { filter: brightness(1.6); transform: translateY(-3px); }
+  100% { filter: brightness(0.6); transform: translateY(2px); }
+}

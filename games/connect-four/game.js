@@ -1,5 +1,9 @@
 const ROWS = 6, COLS = 7;
 const HUMAN = 1, AI = 2; // 1=Red, 2=Yellow
+const WALL = 3;          // a neutral blocker disc — counts for nobody
+// Power Checkers: each side gets each of these once per game.
+let mode = 'classic';    // 'classic' | 'power'
+let powers, armedPower = null, aiExtra = false;
 const boardEl = document.getElementById('board');
 const statusEl = document.getElementById('status');
 const diffEl = document.getElementById('difficulty');
@@ -49,6 +53,24 @@ function dropSound(base){
     src.connect(cg).connect(ctx.destination); src.start(t);
   });
 }
+function sfxBoom(){
+  const ctx = actx(), t = ctx.currentTime, len = ctx.sampleRate * 0.5 | 0;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const f = ctx.createBiquadFilter(); f.type = 'lowpass';
+  f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(120, t + 0.45);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0.5, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.5);
+  src.connect(f); f.connect(g); g.connect(ctx.destination); src.start(t);
+}
+function sfxCrush(){
+  const ctx = actx(), t = ctx.currentTime;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'sine'; o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(40, t + 0.3);
+  g.gain.setValueAtTime(0.45, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+  o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.36);
+}
+function sfxWall(){ dropSound(120); }
 function sfxHuman(){ dropSound(180); } // Red disc — lower, heavier
 function sfxAI(){ dropSound(260); }    // Yellow disc — higher, brighter
 
@@ -77,9 +99,15 @@ function init() {
   // Bump the round so any still-pending async work (a coin-flip callback or a
   // queued AI move) from the previous game is recognized as stale and ignored.
   round++;
+  const modeSel = document.getElementById('gameModeSel');
+  mode = modeSel ? modeSel.value : 'classic';
+  document.body.dataset.mode = mode;
+  powers = { [HUMAN]: { anvil: 1, bomb: 1, wall: 1 }, [AI]: { anvil: 1, bomb: 1, wall: 1 } };
+  armedPower = null; aiExtra = false;
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
   gameOver = false; busy = false; animMove = null; hoverColIdx = -1;
   buildDOM();
+  renderPowers();
   render();
   if (window.coinFlip) {
     const myRound = round;
@@ -98,6 +126,15 @@ function scheduleAI(delay) {
   const myRound = round;
   setTimeout(() => {
     if (myRound !== round) return;
+    if (mode === 'power') {
+      const pp = aiPowerPlay();
+      if (pp) {
+        if (pp.kind === 'wall') aiExtra = true;
+        setStatus('CPU plays the ' + POWER_INFO[pp.kind].name + ' ' + POWER_INFO[pp.kind].icon);
+        usePower(AI, pp.kind, pp.c);
+        return; // usePower manages busy and the turn hand-off
+      }
+    }
     aiMove();
     // Keep input locked until the AI's disc finishes dropping, THEN release and
     // re-highlight whatever column the cursor is over (CSS :hover won't re-fire
@@ -177,7 +214,7 @@ function hoverCol(c, on) {
 function render(winCells) {
   cells().forEach(cell => {
     const r = +cell.dataset.r, c = +cell.dataset.c, v = board[r][c];
-    let cls = 'cell' + (v === HUMAN ? ' red' : v === AI ? ' yellow' : '');
+    let cls = 'cell' + (v === HUMAN ? ' red' : v === AI ? ' yellow' : v === WALL ? ' wall' : v === 4 ? ' bombdisc' : '');
     if (winCells && winCells.some(([wr,wc]) => wr===r && wc===c)) cls += ' win';
     if (animOn() && animMove && animMove.r === r && animMove.c === c) {
       cls += ' drop';
@@ -198,7 +235,8 @@ function dropRow(b, c) {
 }
 
 function humanMove(c) {
-  if (gameOver || busy) return;
+  if (gameOver || busy || aiExtra) return;
+  if (armedPower) return usePower(HUMAN, armedPower, c);
   const r = dropRow(board, c);
   if (r < 0) return;
   board[r][c] = HUMAN;
@@ -320,8 +358,9 @@ function evaluate(b) {
     for (const [dr,dc] of DIRS) {
       const er = r+dr*3, ec = c+dc*3;
       if (er<0||er>=ROWS||ec<0||ec>=COLS) continue;
-      let ai=0, hu=0, empty=0;
-      for (let k=0;k<4;k++){ const v=b[r+dr*k][c+dc*k]; if(v===AI)ai++; else if(v===HUMAN)hu++; else empty++; }
+      let ai=0, hu=0, empty=0, walled=false;
+      for (let k=0;k<4;k++){ const v=b[r+dr*k][c+dc*k]; if(v===AI)ai++; else if(v===HUMAN)hu++; else if(v===WALL)walled=true; else empty++; }
+      if (walled) continue; // a wall kills the window for both sides
       score += windowScore(ai, hu, empty);
     }
   }
@@ -337,6 +376,231 @@ function windowScore(ai, hu, empty) {
   if (hu === 2 && empty === 2) return -10;
   if (hu === 1 && empty === 3) return -1;
   return 0;
+}
+
+// ============================================================
+//  POWER CHECKERS — one Anvil, Bomb and Wall per side per game.
+//  Anvil: crushes every disc in a column. Bomb: lands, then blasts the
+//  OPPONENT's discs around it and gravity resettles. Wall: a neutral
+//  blocker disc that counts for nobody — and grants an extra turn.
+// ============================================================
+const POWER_INFO = {
+  anvil: { icon: '🔨', name: 'Anvil', tip: 'Crushes every disc in a column' },
+  bomb:  { icon: '💣', name: 'Bomb',  tip: "Blasts the opponent's discs around where it lands" },
+  wall:  { icon: '🧱', name: 'Wall',  tip: 'A neutral blocker — and you move again' },
+};
+
+function renderPowers() {
+  const tray = document.getElementById('powerTray');
+  const cpu = document.getElementById('cpuPowers');
+  if (!tray) return;
+  if (mode !== 'power') { tray.style.display = 'none'; if (cpu) cpu.style.display = 'none'; return; }
+  tray.style.display = 'flex';
+  tray.querySelectorAll('.pbtn').forEach(btn => {
+    const kind = btn.dataset.power;
+    btn.classList.toggle('used', !powers[HUMAN][kind]);
+    btn.classList.toggle('armed', armedPower === kind);
+  });
+  if (cpu) {
+    cpu.style.display = '';
+    cpu.innerHTML = 'CPU: ' + ['anvil', 'bomb', 'wall']
+      .map(k => `<span class="${powers[AI][k] ? '' : 'used'}">${POWER_INFO[k].icon}</span>`).join(' ');
+  }
+}
+
+document.querySelectorAll('#powerTray .pbtn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (gameOver || busy || aiExtra || mode !== 'power') return;
+    const kind = btn.dataset.power;
+    if (!powers[HUMAN][kind]) return;
+    armedPower = armedPower === kind ? null : kind;
+    setStatus(armedPower ? POWER_INFO[kind].icon + ' ' + POWER_INFO[kind].name + ' armed — click a column' : 'Your turn (Red)');
+    renderPowers();
+  });
+});
+
+function colCells(c) { return cells().filter(cell => +cell.dataset.c === c); }
+
+// settle floating discs after a blast — each column compacts downward
+function applyGravity(b) {
+  for (let c = 0; c < COLS; c++) {
+    const stack = [];
+    for (let r = ROWS - 1; r >= 0; r--) if (b[r][c] !== 0) stack.push(b[r][c]);
+    for (let r = ROWS - 1; r >= 0; r--) b[r][c] = stack[ROWS - 1 - r] !== undefined ? stack[ROWS - 1 - r] : 0;
+  }
+}
+
+// After discs are removed, either side might suddenly have four — the player
+// who acted gets the point if both line up at once.
+function checkEndAfter(mover) {
+  const win = findWin(board);
+  if (win) {
+    let w = win;
+    if (win.player !== mover) { // prefer the mover's own line if one exists too
+      const all = [];
+      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+        const p2 = board[r][c]; if (p2 !== HUMAN && p2 !== AI) continue;
+        for (const [dr, dc] of DIRS) {
+          const run = [[r, c]];
+          for (let k = 1; k < 4; k++) {
+            const nr = r + dr * k, nc = c + dc * k;
+            if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS || board[nr][nc] !== p2) break;
+            run.push([nr, nc]);
+          }
+          if (run.length === 4) all.push({ player: p2, cells: run });
+        }
+      }
+      w = all.find(x => x.player === mover) || win;
+    }
+    gameOver = true;
+    render(w.cells);
+    if (w.player === HUMAN) { score.w++; setStatus('You win! 🎉'); sfxWin(); }
+    else { score.l++; setStatus('AI wins!'); sfxLose(); }
+    updateScore();
+    renderPowers();
+    return true;
+  }
+  if (board[0].every(v => v !== 0)) {
+    gameOver = true; render();
+    score.d++; setStatus("It's a draw!"); sfxDraw(); updateScore();
+    return true;
+  }
+  return false;
+}
+
+function usePower(player, kind, c) {
+  const myRound = round;
+  const isHuman = player === HUMAN;
+  if (isHuman) { armedPower = null; }
+  powers[player][kind]--;
+  renderPowers();
+  busy = true;
+
+  const finish = (mover, extraTurn) => {
+    applyGravity(board);
+    render();
+    if (checkEndAfter(mover)) { busy = false; return; }
+    if (extraTurn) {
+      if (isHuman) {
+        busy = false;
+        setStatus('🧱 Wall placed — take another turn!');
+      } else {
+        setStatus('CPU walls up and moves again…');
+        setTimeout(() => { if (myRound === round) { aiExtra = false; aiMoveWrapped(); } }, animOn() ? 900 : 200);
+      }
+      return;
+    }
+    if (isHuman) { setStatus('AI thinking…'); scheduleAI(animOn() ? 820 : 200); }
+    else { setStatus('Your turn (Red)'); busy = false; }
+  };
+
+  if (kind === 'anvil') {
+    (isHuman ? sfxCrush : sfxCrush)();
+    colCells(c).forEach(cell => cell.classList.add('crush'));
+    setTimeout(() => {
+      if (myRound !== round) return;
+      for (let r = 0; r < ROWS; r++) board[r][c] = 0;
+      colCells(c).forEach(cell => cell.classList.remove('crush'));
+      finish(player, false);
+    }, animOn() ? 480 : 60);
+    return;
+  }
+
+  if (kind === 'bomb') {
+    const r = dropRow(board, c);
+    if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; } // full column — refund
+    board[r][c] = 4; // the lit bomb, shown for a beat
+    render();
+    dropSound(90);
+    setTimeout(() => {
+      if (myRound !== round) return;
+      const foe = player === HUMAN ? AI : HUMAN;
+      board[r][c] = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        if (board[nr][nc] === foe) {
+          board[nr][nc] = 0;
+          const el = cells().find(x => +x.dataset.r === nr && +x.dataset.c === nc);
+          if (el) { el.classList.add('boom'); setTimeout(() => el.classList.remove('boom'), 500); }
+        }
+      }
+      sfxBoom();
+      setTimeout(() => { if (myRound === round) finish(player, false); }, animOn() ? 420 : 60);
+    }, animOn() ? 520 : 80);
+    return;
+  }
+
+  // wall
+  const r = dropRow(board, c);
+  if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; }
+  board[r][c] = WALL;
+  animMove = { r, c };
+  sfxWall();
+  render();
+  setTimeout(() => { if (myRound === round) finish(player, true); }, animOn() ? 520 : 60);
+}
+
+// --- the AI's power instincts (power mode only) ---
+function humanWinningCols() {
+  const wins = [];
+  for (const c of validCols(board)) {
+    const r = dropRow(board, c);
+    board[r][c] = HUMAN;
+    if (findWin(board)) wins.push({ c, r });
+    board[r][c] = 0;
+  }
+  return wins;
+}
+function aiPowerPlay() {
+  if (mode !== 'power') return null;
+  // never spend a power when a normal drop wins outright
+  for (const c of validCols(board)) {
+    const r = dropRow(board, c);
+    board[r][c] = AI;
+    const w = findWin(board);
+    board[r][c] = 0;
+    if (w) return null;
+  }
+  const threats = humanWinningCols();
+  // Wall the human's winning square — the blocker also buys an extra turn.
+  if (threats.length && powers[AI].wall) return { kind: 'wall', c: threats[0].c };
+  // Bomb a juicy cluster (3+ red discs around a landing spot), or any cluster
+  // when the human threatens in two places at once.
+  if (powers[AI].bomb) {
+    let best = null, bestN = threats.length >= 2 ? 1 : 2;
+    for (const c of validCols(board)) {
+      const r = dropRow(board, c);
+      let n = 0;
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && board[nr][nc] === HUMAN) n++;
+      }
+      if (n > bestN) { bestN = n; best = c; }
+    }
+    if (best !== null) return { kind: 'bomb', c: best };
+  }
+  // Anvil a column the human owns (3+ red, at most 1 yellow).
+  if (powers[AI].anvil) {
+    for (let c = 0; c < COLS; c++) {
+      let hu = 0, ai = 0;
+      for (let r = 0; r < ROWS; r++) { if (board[r][c] === HUMAN) hu++; else if (board[r][c] === AI) ai++; }
+      if (hu >= 3 && ai <= 1) return { kind: 'anvil', c };
+    }
+  }
+  return null;
+}
+function aiMoveWrapped() { // the CPU's bonus move after its wall
+  const myRound = round;
+  const pp = aiPowerPlay();
+  if (pp) {
+    if (pp.kind === 'wall') aiExtra = true;
+    setStatus('CPU plays the ' + POWER_INFO[pp.kind].name + ' ' + POWER_INFO[pp.kind].icon);
+    usePower(AI, pp.kind, pp.c);
+    return;
+  }
+  aiMove();
+  setTimeout(() => { if (myRound === round) busy = false; }, animOn() ? 760 : 60);
 }
 
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
@@ -378,3 +642,14 @@ window.addEventListener('resize', () => {
 setupModeModal(init);
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
+
+// test hook
+window.__game = {
+  get board() { return board; },
+  get powers() { return powers; },
+  get mode() { return mode; },
+  get busy() { return busy; },
+  get gameOver() { return gameOver; },
+  usePower, humanMove, applyGravity,
+  arm: (k) => { armedPower = k; },
+};
