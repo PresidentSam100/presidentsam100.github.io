@@ -1085,6 +1085,46 @@ class PipeManager {
   }
 }
 
+// ---- enemy drawing: outlined, shaded cartoon shapes to match the world ----
+const EOUT = '#1d1633';           // the enemies' outline colour
+function ell(ctx, x, y, rx, ry, rot = 0) {
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2);
+}
+// Fill the current path, then outline it (line 0 = no outline)
+function paint(ctx, fill, line = 2.2) {
+  ctx.fillStyle = fill;
+  ctx.fill();
+  if (line) {
+    ctx.lineWidth = line;
+    ctx.strokeStyle = EOUT;
+    ctx.stroke();
+  }
+}
+// A ball lit from the upper left
+function lit(ctx, x, y, r, light, dark) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+  g.addColorStop(0, light);
+  g.addColorStop(1, dark);
+  return g;
+}
+// A cartoon eye: white, a pupil looking along (lx, ly), a shine
+function eye(ctx, x, y, rx, ry, lx = -1, ly = 0) {
+  ell(ctx, x, y, rx, ry);
+  paint(ctx, '#ffffff', 1.8);
+  const px = x + lx * rx * 0.35, py = y + ly * ry * 0.3;
+  ell(ctx, px, py, rx * 0.52, ry * 0.62);
+  paint(ctx, '#111111', 0);
+  ell(ctx, px + rx * 0.18, py - ry * 0.25, rx * 0.2, ry * 0.2);
+  paint(ctx, '#ffffff', 0);
+}
+function steel(ctx, y0, y1) {
+  const g = ctx.createLinearGradient(0, y0, 0, y1);
+  g.addColorStop(0, '#f2f5f8');
+  g.addColorStop(1, '#8a949e');
+  return g;
+}
+
 // ============================================================
 // HAMMER
 // ============================================================
@@ -1110,13 +1150,18 @@ class Hammer {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rot);
-    // Handle
-    ctx.fillStyle = '#5D4037';
-    ctx.fillRect(-4, -18, 8, 36);
-    // Head
-    ctx.fillStyle = '#795548';
-    ctx.fillRect(-14, -24, 28, 12);
-    ctx.fillRect(-14, 12, 28, 12);
+    ctx.lineJoin = 'round';
+    // Wooden handle with a grip
+    rrect(ctx, -3.5, -14, 7, 34, 3);
+    paint(ctx, '#c08445', 2);
+    ctx.fillStyle = '#7a4a1e';
+    ctx.fillRect(-3, 10, 6, 3);
+    ctx.fillRect(-3, 15, 6, 3);
+    // Steel head with a shine
+    rrect(ctx, -14, -26, 28, 14, 4);
+    paint(ctx, steel(ctx, -26, -12), 2.4);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillRect(-11, -23, 14, 2.5);
     ctx.restore();
   }
 
@@ -1157,41 +1202,73 @@ class HammerBro {
   }
 
   draw(ctx) {
+    // A helmeted Koopa with a green shell, facing the bird, swinging a hammer.
+    // (The hammers it throws are drawn by EnemyManager so they outlive it.)
     const x = this.x;
     const y = this.y;
+    ctx.save();
+    ctx.lineJoin = 'round';
 
-    // Hat
-    ctx.fillStyle = '#C62828';
-    ctx.fillRect(x - 14, y - 42, 28, 12);
-    ctx.fillRect(x - 10, y - 54, 20, 14);
+    // Shell on the back, with a pale rim
+    ell(ctx, x + 9, y - 2, 13, 16);
+    paint(ctx, lit(ctx, x + 9, y - 2, 16, '#8ae866', '#2f8a2a'));
+    ell(ctx, x + 9, y - 2, 10.5, 13.5);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#fff4d8';
+    ctx.stroke();
 
-    // Face
-    ctx.fillStyle = '#FFCC80';
-    ctx.fillRect(x - 12, y - 30, 24, 20);
+    // Feet
+    ell(ctx, x - 8, y + 18, 9, 5);
+    paint(ctx, '#e8732a');
+    ell(ctx, x + 7, y + 18, 9, 5);
+    paint(ctx, '#e8732a');
 
-    // Eyes
-    ctx.fillStyle = 'white';
-    ctx.fillRect(x - 8, y - 28, 6, 6);
-    ctx.fillRect(x + 2, y - 28, 6, 6);
-    ctx.fillStyle = '#212121';
-    ctx.fillRect(x - 6, y - 26, 3, 3);
-    ctx.fillRect(x + 4, y - 26, 3, 3);
+    // Body with a pale, ridged belly plate
+    ell(ctx, x - 2, y + 2, 12, 15);
+    paint(ctx, '#f5d24a');
+    ell(ctx, x - 5, y + 4, 7, 11);
+    paint(ctx, '#fff4c8', 1.5);
+    ctx.strokeStyle = 'rgba(160,120,40,0.5)';
+    ctx.lineWidth = 1.2;
+    for (const ly of [y, y + 5, y + 10]) {
+      ctx.beginPath();
+      ctx.moveTo(x - 10, ly);
+      ctx.lineTo(x, ly);
+      ctx.stroke();
+    }
 
-    // Overalls
-    ctx.fillStyle = '#1565C0';
-    ctx.fillRect(x - 14, y - 10, 28, 26);
+    // Raised arm with a hammer (drawn after the head, see below)
+    const arm = () => {
+      ctx.save();
+      ctx.translate(x + 7, y - 10);
+      ctx.rotate(0.45 + Math.sin(this.time * 6) * 0.3);
+      rrect(ctx, -2.5, -18, 5, 18, 2.5);
+      paint(ctx, '#f5d24a', 1.8);
+      rrect(ctx, -1.8, -30, 3.6, 14, 1.5);
+      paint(ctx, '#c08445', 1.5);
+      rrect(ctx, -7, -36, 14, 8, 2.5);
+      paint(ctx, steel(ctx, -36, -28), 1.8);
+      ctx.restore();
+    };
 
-    // Shirt
-    ctx.fillStyle = '#C62828';
-    ctx.fillRect(x - 12, y - 10, 10, 12);
-    ctx.fillRect(x + 2, y - 10, 10, 12);
+    // Head, snout forward
+    ell(ctx, x - 3, y - 26, 12, 12);
+    paint(ctx, lit(ctx, x - 3, y - 26, 12, '#fff0a0', '#e9b92c'));
+    ell(ctx, x - 13, y - 22, 7, 5.5);
+    paint(ctx, '#f5d24a');
+    eye(ctx, x - 7, y - 29, 3.8, 5, -1, 0.2);
 
-    // Shoes
-    ctx.fillStyle = '#212121';
-    ctx.fillRect(x - 16, y + 14, 16, 8);
-    ctx.fillRect(x, y + 14, 16, 8);
+    // Helmet: a grey-white dome with a rim
+    ctx.beginPath();
+    ctx.ellipse(x - 2, y - 33, 13, 12, 0, Math.PI, Math.PI * 2);
+    ctx.closePath();
+    paint(ctx, lit(ctx, x - 6, y - 40, 14, '#ffffff', '#b8c2cc'));
+    ell(ctx, x - 2, y - 33, 14, 3);
+    paint(ctx, '#9aa5b0', 1.8);
 
-    // Hammers are drawn by EnemyManager so they persist after the Bro leaves
+    // the hammer arm, raised up and back behind the helmet
+    arm();
+    ctx.restore();
   }
 
   getHitboxes() {
@@ -1220,52 +1297,61 @@ class BulletBill {
   draw(ctx) {
     const x = this.x;
     const y = this.y;
-
-    // Body
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.roundRect(x - 28, y - 14, 50, 28, 4);
-    ctx.fill();
-
-    // Left cap (semicircle)
-    ctx.beginPath();
-    ctx.arc(x - 28, y, 14, Math.PI / 2, Math.PI * 3 / 2);
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(x - 6, y - 5, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 6, y - 5, 5, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.arc(x - 5, y - 5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 7, y - 5, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Frown
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(x, y + 6, 8, 0.2, Math.PI - 0.2);
-    ctx.stroke();
+    ctx.save();
+    ctx.lineJoin = 'round';
 
     // Speed lines
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = 'round';
     for (let i = 0; i < 3; i++) {
-      const ly = y - 6 + i * 6;
+      const ly = y - 7 + i * 7;
       ctx.beginPath();
-      ctx.moveTo(x + 22, ly);
-      ctx.lineTo(x + 38, ly);
+      ctx.moveTo(x + 28, ly);
+      ctx.lineTo(x + 44 - i * 3, ly);
       ctx.stroke();
     }
+
+    // Rear rim
+    rrect(ctx, x + 12, y - 15, 10, 30, 3);
+    const rim = ctx.createLinearGradient(0, y - 15, 0, y + 15);
+    rim.addColorStop(0, '#d3d9de');
+    rim.addColorStop(1, '#6c747c');
+    paint(ctx, rim, 2.4);
+
+    // Body: a glossy black bullet, round nose forward
+    ctx.beginPath();
+    ctx.moveTo(x + 13, y - 14);
+    ctx.lineTo(x - 14, y - 14);
+    ctx.arc(x - 14, y, 14, -Math.PI / 2, Math.PI / 2, true);
+    ctx.lineTo(x + 13, y + 14);
+    ctx.closePath();
+    const body = ctx.createLinearGradient(0, y - 14, 0, y + 14);
+    body.addColorStop(0, '#5f6570');
+    body.addColorStop(0.35, '#2a2e35');
+    body.addColorStop(1, '#0e0f12');
+    paint(ctx, body, 2.4);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(x - 12, y - 9);
+    ctx.lineTo(x + 8, y - 9);
+    ctx.stroke();
+
+    // An angry eye looking ahead, and a little white glove
+    ell(ctx, x - 12, y - 3, 5.5, 6.5);
+    paint(ctx, '#ffffff', 1.6);
+    ell(ctx, x - 14, y - 2, 2.6, 3.4);
+    paint(ctx, '#111111', 0);
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(x - 19, y - 12);
+    ctx.lineTo(x - 7, y - 8);
+    ctx.stroke();
+    ell(ctx, x - 1, y + 9, 5, 4);
+    paint(ctx, '#ffffff', 1.6);
+    ctx.restore();
   }
 
   getHitbox() {
@@ -1297,46 +1383,53 @@ class FlyingKoopa {
   }
 
   draw(ctx) {
+    // A green-shelled paratroopa, facing the bird, wings flapping
     const x = this.x;
     const y = this.y;
     const wScale = Math.abs(Math.sin(this.flapTime)) * 0.7 + 0.3;
 
     ctx.save();
     ctx.translate(x, y);
+    ctx.lineJoin = 'round';
 
-    // Wings
-    ctx.fillStyle = '#F5F5F5';
+    // Wing on the shell
     ctx.save();
+    ctx.translate(7, -8);
     ctx.scale(1, wScale);
+    ell(ctx, 0, -8, 11, 9, -0.5);
+    paint(ctx, '#ffffff', 2);
+    ell(ctx, 9, -5, 8, 6, -0.2);
+    paint(ctx, '#ffffff', 2);
+    ctx.strokeStyle = 'rgba(29,22,51,0.35)';
+    ctx.lineWidth = 1.2;
     ctx.beginPath();
-    ctx.ellipse(-22, -8, 18, 12, -0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(22, -8, 18, 12, 0.4, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(-4, -8);
+    ctx.lineTo(4, -2);
+    ctx.moveTo(1, -12);
+    ctx.lineTo(8, -4);
+    ctx.stroke();
     ctx.restore();
 
-    // Shell
-    ctx.fillStyle = '#EF5350';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 18, 14, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Feet
+    ell(ctx, -4, 13, 5, 3.5);
+    paint(ctx, '#e8732a', 1.8);
+    ell(ctx, 8, 13, 5, 3.5);
+    paint(ctx, '#e8732a', 1.8);
 
-    // Body
-    ctx.fillStyle = '#66BB6A';
-    ctx.beginPath();
-    ctx.ellipse(0, -8, 12, 10, 0, 0, Math.PI * 2);
-    ctx.fill();
+    // Shell with a pale rim and a scute
+    ell(ctx, 4, 2, 15, 12);
+    paint(ctx, lit(ctx, 4, 2, 15, '#8ae866', '#2f8a2a'));
+    ell(ctx, 4, 10, 14, 3.5);
+    paint(ctx, '#fff4d8', 1.8);
+    ell(ctx, 5, -1, 6, 4.5);
+    paint(ctx, 'rgba(210,255,180,0.55)', 0);
 
-    // Eye
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(5, -10, 5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.arc(6, -10, 2.5, 0, Math.PI * 2);
-    ctx.fill();
+    // Head out front
+    ell(ctx, -11, -6, 8.5, 8);
+    paint(ctx, lit(ctx, -11, -6, 8, '#fff0a0', '#e9b92c'));
+    ell(ctx, -18, -3, 3.8, 2.8);
+    paint(ctx, '#f5d24a', 1.6);
+    eye(ctx, -13, -8, 3.2, 4.2, -1, 0.1);
 
     ctx.restore();
   }
@@ -1412,62 +1505,65 @@ class PiranhaPlant {
     const HEAD_R = 16;
     const stemLen = STEM_MAX * this.extension;
     ctx.save();
-    ctx.translate(this.x, 0);
+    ctx.translate(this.x, this.attachY);
+    // Drawn growing upward; one hanging from a top pipe is the same, flipped
+    if (this.direction === 'down') ctx.scale(1, -1);
+    ctx.lineJoin = 'round';
 
     // Stem
-    ctx.fillStyle = '#388E3C';
-    if (this.direction === 'down') {
-      ctx.fillRect(-4, this.attachY, 8, stemLen);
-    } else {
-      ctx.fillRect(-4, this.attachY - stemLen, 8, stemLen);
+    if (stemLen > 0) {
+      rrect(ctx, -4, -stemLen, 8, stemLen + 2, 3);
+      paint(ctx, '#3faa2e', 2);
+    }
+    // Two leaves at the base, unfolding as it rises
+    if (this.extension > 0.5) {
+      const k = (this.extension - 0.5) * 2;
+      ell(ctx, -9 * k, -6, 9 * k, 4 * k, 0.5);
+      paint(ctx, '#5cc84a', 1.8);
+      ell(ctx, 9 * k, -6, 9 * k, 4 * k, -0.5);
+      paint(ctx, '#5cc84a', 1.8);
     }
 
-    // Head (only when sufficiently extended)
+    // Head (only when sufficiently extended): a spotted red ball whose
+    // mouth, lined with white lips and teeth, chomps open and shut
     if (this.extension > 0.3) {
-      const headY = (this.direction === 'down')
-        ? this.attachY + stemLen
-        : this.attachY - stemLen;
-
-      ctx.fillStyle = '#E53935';
-      ctx.beginPath();
-      ctx.arc(0, headY, HEAD_R, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Spots
-      ctx.fillStyle = 'white';
-      const spotPos = [[-6, -6], [6, -6], [-7, 4], [7, 4]];
-      for (const [sx, sy] of spotPos) {
+      ctx.save();
+      ctx.translate(0, -stemLen);
+      ell(ctx, 0, 0, HEAD_R, HEAD_R);
+      paint(ctx, lit(ctx, 0, 0, HEAD_R, '#ff7a6e', '#c62828'), 2.4);
+      ctx.fillStyle = '#ffffff';
+      for (const [sx, sy, sr] of [[-9, 4, 3], [9, 4, 3], [-5, 11, 2.4], [5, 11, 2.4]]) {
         ctx.beginPath();
-        ctx.arc(sx, headY + sy, 3, 0, Math.PI * 2);
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
         ctx.fill();
       }
-
-      // Eyes
-      ctx.fillStyle = 'white';
+      const open = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(performance.now() / 110));
+      const a0 = -Math.PI / 2 - open, a1 = -Math.PI / 2 + open;
       ctx.beginPath();
-      ctx.arc(-5, headY - 3, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(5, headY - 3, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#212121';
-      ctx.beginPath();
-      ctx.arc(-4, headY - 3, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(6, headY - 3, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Mouth
-      ctx.strokeStyle = 'white';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      if (this.direction === 'down') {
-        ctx.arc(0, headY + 3, 7, 0, Math.PI);
-      } else {
-        ctx.arc(0, headY - 3, 7, Math.PI, Math.PI * 2);
+      ctx.moveTo(0, 1);
+      ctx.arc(0, 1, HEAD_R - 1, a0, a1);
+      ctx.closePath();
+      paint(ctx, '#5a0b0b', 0);
+      // lips along both edges of the mouth, with a tooth on each
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      for (const a of [a0, a1]) {
+        const ex = Math.cos(a) * (HEAD_R - 1), ey = 1 + Math.sin(a) * (HEAD_R - 1);
+        ctx.beginPath();
+        ctx.moveTo(0, 1);
+        ctx.lineTo(ex, ey);
+        ctx.stroke();
+        const tx = ex * 0.55, ty = 1 + (ey - 1) * 0.55, inward = a === a0 ? 1 : -1;
+        ctx.beginPath();
+        ctx.moveTo(tx - 2, ty);
+        ctx.lineTo(tx + 2, ty);
+        ctx.lineTo(tx + inward * 4, ty - 4);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
       }
-      ctx.stroke();
+      ctx.restore();
     }
 
     ctx.restore();
@@ -1518,33 +1614,55 @@ class Boo {
     ctx.globalAlpha = Math.max(0, Math.min(1, this.alpha));
     ctx.translate(this.x, this.y);
     ctx.scale(this.scale, this.scale);
+    ctx.lineJoin = 'round';
 
-    // Body (rounded rectangle shape)
-    ctx.fillStyle = '#FAFAFA';
+    // A little tail, then the round body over it
     ctx.beginPath();
-    ctx.roundRect(-20, -22, 40, 38, 12);
+    ctx.moveTo(12, 6);
+    ctx.quadraticCurveTo(28, 8, 25, 21);
+    ctx.quadraticCurveTo(18, 14, 6, 14);
+    ctx.closePath();
+    paint(ctx, '#e3e9f2', 2.2);
+    ell(ctx, 0, -3, 20, 20);
+    paint(ctx, lit(ctx, 0, -3, 22, '#ffffff', '#d4dce8'), 2.4);
+
+    // Stubby arms
+    ell(ctx, -18, 5, 6, 4, -0.5);
+    paint(ctx, '#ffffff', 2);
+    ell(ctx, 16, 3, 5, 3.5, 0.5);
+    paint(ctx, '#ffffff', 2);
+
+    // Tall eyes with a shine
+    for (const ex of [-7, 5]) {
+      ell(ctx, ex, -9, 3.5, 6);
+      paint(ctx, '#111111', 0);
+      ell(ctx, ex + 1.2, -12, 1.2, 1.8);
+      paint(ctx, '#ffffff', 0);
+    }
+    // Blush
+    ctx.fillStyle = 'rgba(255,120,160,0.45)';
+    ell(ctx, -13, 0, 3.2, 2);
+    ctx.fill();
+    ell(ctx, 11, 0, 3.2, 2);
     ctx.fill();
 
-    // Wavy bottom edge
-    ctx.fillStyle = '#FAFAFA';
+    // An open mouth with a tongue and two fangs
     ctx.beginPath();
-    ctx.arc(-14, 16, 8, 0, Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(0, 18, 8, 0, Math.PI);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(14, 16, 8, 0, Math.PI);
-    ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.ellipse(-7, -6, 5, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(7, -6, 5, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(-10, 2);
+    ctx.quadraticCurveTo(-1, 17, 8, 2);
+    ctx.closePath();
+    paint(ctx, '#7a1020', 2);
+    ell(ctx, -1, 9, 4, 3);
+    paint(ctx, '#ff7a9a', 0);
+    ctx.fillStyle = '#ffffff';
+    for (const fx of [-6, 3]) {
+      ctx.beginPath();
+      ctx.moveTo(fx - 2, 2.5);
+      ctx.lineTo(fx, 7);
+      ctx.lineTo(fx + 2, 2.5);
+      ctx.closePath();
+      ctx.fill();
+    }
 
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -1581,48 +1699,37 @@ class Spiny {
   draw(ctx) {
     const x = this.x;
     const y = this.y;
+    ctx.save();
+    ctx.lineJoin = 'round';
 
-    // Body
-    ctx.fillStyle = '#E53935';
-    ctx.beginPath();
-    ctx.arc(x, y, 16, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spikes
-    ctx.fillStyle = '#B71C1C';
+    // Cream spikes all round
     for (let i = 0; i < 8; i++) {
-      const angle = i * (Math.PI * 2 / 8);
-      const sx = x + Math.cos(angle) * 14;
-      const sy = y + Math.sin(angle) * 14;
-      const ex = x + Math.cos(angle) * 24;
-      const ey = y + Math.sin(angle) * 24;
-      const lx = x + Math.cos(angle + 0.3) * 16;
-      const ly = y + Math.sin(angle + 0.3) * 16;
-      const rx = x + Math.cos(angle - 0.3) * 16;
-      const ry = y + Math.sin(angle - 0.3) * 16;
+      const a = i * (Math.PI / 4) + Math.PI / 8;
       ctx.beginPath();
-      ctx.moveTo(ex, ey);
-      ctx.lineTo(lx, ly);
-      ctx.lineTo(rx, ry);
+      ctx.moveTo(x + Math.cos(a) * 25, y + Math.sin(a) * 25);
+      ctx.lineTo(x + Math.cos(a + 0.34) * 14, y + Math.sin(a + 0.34) * 14);
+      ctx.lineTo(x + Math.cos(a - 0.34) * 14, y + Math.sin(a - 0.34) * 14);
       ctx.closePath();
-      ctx.fill();
+      paint(ctx, '#fff1d0', 2);
     }
 
-    // Eyes
-    ctx.fillStyle = 'white';
+    // Red shell
+    ell(ctx, x, y, 16, 16);
+    paint(ctx, lit(ctx, x, y, 16, '#ff8a7a', '#c62828'), 2.4);
+
+    // Angry eyes
+    eye(ctx, x - 5, y - 1, 3.4, 4.2, 0, 0.3);
+    eye(ctx, x + 5, y - 1, 3.4, 4.2, 0, 0.3);
+    ctx.strokeStyle = EOUT;
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
     ctx.beginPath();
-    ctx.arc(x - 5, y - 4, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 5, y - 4, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.arc(x - 4, y - 4, 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 6, y - 4, 2, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(x - 9, y - 8);
+    ctx.lineTo(x - 2, y - 5);
+    ctx.moveTo(x + 9, y - 8);
+    ctx.lineTo(x + 2, y - 5);
+    ctx.stroke();
+    ctx.restore();
   }
 
   getHitbox() {
@@ -1658,60 +1765,46 @@ class Lakitu {
   }
 
   draw(ctx) {
+    // Lakitu in his glasses, riding a smiling cloud.
+    // (The Spinies he drops are drawn by EnemyManager so they outlive him.)
     const x = this.x;
     const y = this.y;
+    ctx.save();
+    ctx.lineJoin = 'round';
 
-    // Cloud (three overlapping circles)
-    ctx.fillStyle = '#F5F5F5';
+    // Green shell on his back
     ctx.beginPath();
-    ctx.arc(x, y + 10, 22, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x - 18, y + 16, 16, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 18, y + 16, 16, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.ellipse(x + 5, y - 12, 15, 14, 0, Math.PI, Math.PI * 2);
+    ctx.closePath();
+    paint(ctx, lit(ctx, x + 5, y - 18, 15, '#8ae866', '#2f8a2a'));
 
-    // Shadow circles
-    ctx.fillStyle = '#E0E0E0';
-    ctx.beginPath();
-    ctx.arc(x, y + 14, 20, 0, Math.PI);
-    ctx.fill();
+    // Head, snout forward
+    ell(ctx, x - 2, y - 22, 11, 11);
+    paint(ctx, lit(ctx, x - 2, y - 22, 11, '#fff0a0', '#e9b92c'));
+    ell(ctx, x - 12, y - 18, 5.5, 4.5);
+    paint(ctx, '#f5d24a', 1.8);
 
-    // Shell on back
-    ctx.fillStyle = '#795548';
-    ctx.beginPath();
-    ctx.arc(x + 6, y - 10, 14, Math.PI, Math.PI * 2);
-    ctx.fill();
+    // Round glasses
+    for (const gx of [x - 8, x + 1]) {
+      ell(ctx, gx, y - 25, 4.6, 4.6);
+      paint(ctx, 'rgba(255,255,255,0.95)', 1.8);
+      ell(ctx, gx - 1.2, y - 24.6, 1.8, 2.2);
+      paint(ctx, '#111111', 0);
+    }
 
-    // Body (turtle green)
-    ctx.fillStyle = '#388E3C';
-    ctx.fillRect(x - 14, y - 18, 28, 22);
-
-    // Face
-    ctx.fillStyle = '#FFCC80';
-    ctx.beginPath();
-    ctx.ellipse(x, y - 8, 12, 10, 0, 0, Math.PI * 2);
+    // The cloud he rides, in front of his lower half, with a face
+    blob(ctx, [[x, y + 6, 18], [x - 19, y + 10, 13], [x + 19, y + 10, 13]], '#ffffff', 'rgba(70,120,200,0.6)', 2.5);
+    ctx.fillStyle = '#1d1633';
+    ell(ctx, x - 6, y + 6, 1.8, 2.6);
     ctx.fill();
-
-    // Eyes
-    ctx.fillStyle = 'white';
-    ctx.beginPath();
-    ctx.arc(x - 4, y - 10, 3.5, 0, Math.PI * 2);
+    ell(ctx, x + 6, y + 6, 1.8, 2.6);
     ctx.fill();
+    ctx.strokeStyle = '#1d1633';
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.arc(x + 4, y - 10, 3.5, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = '#212121';
-    ctx.beginPath();
-    ctx.arc(x - 3, y - 10, 1.8, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x + 5, y - 10, 1.8, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Spinies are drawn by EnemyManager so they persist after the Lakitu leaves
+    ctx.arc(x, y + 9, 5, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+    ctx.restore();
   }
 
   getHitboxes() {
@@ -2404,7 +2497,7 @@ class Game {
       ['#E53935',     'Piranha Plant',  'Rises from a pipe before you arrive.'],
       ['#212121',     'Bullet Bill',    'Fast horizontal missile — no escape.'],
       ['#66BB6A',     'Flying Koopa',   'Zig-zags through the air on a sine path.'],
-      ['#1565C0',     'Hammer Bro',     'Bobs in place, throws arcing hammers.'],
+      ['#f5d24a',     'Hammer Bro',     'Bobs in place, throws arcing hammers.'],
       ['#FAFAFA',     'Lakitu',         'Rides a cloud and drops Spinies.'],
       ['#C62828',     'Spiny',          'Spiked shell that falls from Lakitu.'],
       ['#F5F5F5',     'Boo',            'Ghost that chases you — stops when close.'],
