@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AA%90%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Science Fair</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Schoolbell&family=Gochi+Hand&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Science Fair — Simon on a school-project solar system: paper planets on strings play a growing tune; repeat it. A browser game by Sam Lu." />
+    <meta property="og:title" content="Science Fair — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Science Fair — Simon on a school-project solar system: paper planets on strings play a growing tune; repeat it. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The corkboard diorama. game.js hangs the planets from the ruler,
+     each one a real <button>, and flies the paper rocket between them. -->
+<div id="board" aria-label="A corkboard solar system; repeat the sequence the planets play">
+  <div id="ruler" aria-hidden="true"></div>
+  <div id="wire" aria-hidden="true" hidden></div>
+  <div id="planets"></div>
+  <div id="asteroids" aria-hidden="true"></div>
+  <div id="ship" aria-hidden="true"></div>
+</div>
+
+<!-- An index card pinned up top keeps score. -->
+<div class="hud paper-card" id="hud" hidden>
+  <div id="hud-round">Round 1</div>
+  <div id="hud-say">watch…</div>
+</div>
+
+<section class="panel" id="menu">
+  <div class="sheet">
+    <h1>THE SOLAR SYSTEM</h1>
+    <p class="byline">a memory experiment · by&nbsp;Sam, grade&nbsp;4</p>
+    <p class="how">
+      The planets play a tune, one note longer every round — <b>repeat it</b> by
+      tapping them or pressing their number keys. One wrong planet and the
+      project falls off the board.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="classic"><b>Classic</b><small>the 4 rocky planets <kbd>1</kbd></small></button>
+        <button type="button" data-v="grand"><b>Grand Tour</b><small>all 9 cutouts <kbd>2</kbd></small></button>
+        <button type="button" data-v="daily"><b>Field Trip</b><small id="daily-small">today's tune · 3 launches <kbd>3</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Blast off</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="sheet rubric">
+    <h2 id="over-title">Project review</h2>
+    <p class="big" id="over-msg"></p>
+    <div class="grade" id="over-grade" aria-hidden="true"></div>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Again <kbd>Enter</kbd></button>
+      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

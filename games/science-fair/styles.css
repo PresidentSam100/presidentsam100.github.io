@@ -1,0 +1,314 @@
+/* =====================================================================
+   Science Fair — a school-project solar system on a corkboard.
+   Construction-paper planets on visible threads, foil asteroids, a
+   notebook-paper menu taped to the board.
+   ===================================================================== */
+
+:root {
+  --cork: #b98a5f;
+  --cork-dark: #96683f;
+  --frame: #7a5230;
+  --ink: #2b3a67;          /* ballpoint blue */
+  --pen: #cf3f3f;          /* teacher's red pen */
+  --paper: #fdfbf2;
+  --thread: rgba(245, 240, 228, 0.85);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: "Schoolbell", "Comic Sans MS", cursive;
+  color: var(--ink);
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255, 236, 200, 0.22), rgba(0, 0, 0, 0.3) 130%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='c'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.55 0 0 0 0 0.38 0 0 0 0 0.22 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23c)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='340' height='340'%3E%3Cfilter id='d'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.08' numOctaves='2' seed='9'/%3E%3CfeColorMatrix values='0 0 0 0 0.83 0 0 0 0 0.65 0 0 0 0 0.45 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='340' height='340' filter='url(%23d)'/%3E%3C/svg%3E"),
+    var(--cork);
+}
+
+/* The wooden frame around the whole board. */
+body::after {
+  content: "";
+  position: fixed; inset: 0; pointer-events: none; z-index: 40;
+  border: 12px solid var(--frame);
+  box-shadow:
+    inset 0 0 0 2px #5d3c20,
+    inset 0 0 26px rgba(0, 0, 0, 0.35);
+}
+@media (max-width: 640px) { body::after { border-width: 7px; } }
+
+.nav-back-games {
+  position: fixed; top: 18px; left: 20px; z-index: 50;
+  font-family: "Schoolbell", cursive;
+  background: var(--paper); color: var(--ink);
+  border: 1.5px solid #cbbf9d; border-radius: 4px;
+  padding: 5px 12px; text-decoration: none; font-size: 17px;
+  box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.25);
+  transform: rotate(-1.5deg);
+}
+.nav-back-games:hover { transform: rotate(0deg) scale(1.04); }
+
+/* ---- the diorama ---------------------------------------------------- */
+
+#board { position: fixed; inset: 0; }
+
+/* the wooden ruler the solar system hangs from */
+#ruler, #wire { position: absolute; z-index: 2; }
+#ruler {
+  left: 4%; right: 4%; top: 44px; height: 20px;
+  background:
+    repeating-linear-gradient(90deg, transparent 0 9px, rgba(74, 48, 22, 0.55) 9px 10.5px) 0 0 / 100% 45% no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 45px, rgba(74, 48, 22, 0.7) 45px 47px) 0 0 / 100% 70% no-repeat,
+    linear-gradient(#e8c98f, #cfa561);
+  border: 1.5px solid #8a6634; border-radius: 3px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+/* a second string of yarn for the bottom row on narrow screens */
+#wire {
+  left: 2%; right: 2%; height: 3px; border-radius: 3px;
+  background: var(--thread);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
+}
+
+/* one hanging cutout: string + planet button + masking-tape tag */
+.hang {
+  position: absolute; z-index: 3;
+  display: flex; flex-direction: column; align-items: center;
+  transform-origin: 50% 0;
+}
+.hang .string { width: 2px; background: var(--thread); box-shadow: 1px 0 1px rgba(0,0,0,0.2); }
+.hang .knot { width: 7px; height: 7px; border-radius: 50%; background: var(--thread); margin-top: -4px; }
+
+.hang button.pad {
+  display: block; border: 0; padding: 0; background: none; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(2px 4px 3px rgba(0, 0, 0, 0.35));
+  transition: transform 0.12s ease, filter 0.12s ease;
+  touch-action: manipulation;
+}
+.hang button.pad svg { display: block; width: 100%; height: auto; }
+.hang button.pad:active { transform: scale(0.95); }
+.hang button.pad:focus { outline: none; }
+.hang button.pad:focus-visible { outline: 3px dashed var(--ink); outline-offset: 5px; border-radius: 50%; }
+
+/* the planet that's currently singing */
+.hang.lit button.pad {
+  filter: drop-shadow(0 0 14px rgba(255, 244, 180, 0.95)) drop-shadow(0 0 30px rgba(255, 226, 120, 0.6))
+          brightness(1.22) saturate(1.25);
+  transform: scale(1.09);
+}
+.hang.wrong button.pad { animation: shake 0.4s ease; filter: drop-shadow(0 0 12px rgba(220, 60, 40, 0.8)) saturate(0.6); }
+.hang.answer button.pad { animation: nod 0.45s ease 2; filter: drop-shadow(0 0 14px rgba(150, 230, 120, 0.9)) brightness(1.15); }
+@keyframes shake { 0%,100% { transform: translateX(0);} 25% { transform: translateX(-6px) rotate(-3deg);} 65% { transform: translateX(5px) rotate(2deg);} }
+@keyframes nod { 0%,100% { transform: scale(1);} 50% { transform: scale(1.12);} }
+
+/* planets that aren't part of this unit (Classic mode) */
+.hang.dim { opacity: 0.45; }
+.hang.dim button.pad { cursor: default; filter: saturate(0.35) drop-shadow(1px 2px 2px rgba(0,0,0,0.3)); }
+
+/* masking-tape label */
+.hang .tag {
+  margin-top: 4px; padding: 1px 9px 0;
+  background: rgba(250, 244, 222, 0.92);
+  border-left: 1px dashed rgba(160, 150, 120, 0.8);
+  border-right: 1px dashed rgba(160, 150, 120, 0.8);
+  box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.25);
+  font-size: 15px; line-height: 1.25; text-align: center; color: #4a3a22;
+  transform: rotate(var(--tagtilt, -2deg));
+  white-space: nowrap; pointer-events: none;
+}
+.hang .tag kbd {
+  font-family: inherit; font-size: 12px; color: var(--paper);
+  background: var(--ink); border-radius: 3px; padding: 0 5px; margin-right: 4px;
+}
+.hang .tag small { display: block; font-size: 11px; color: var(--pen); margin-top: -3px; }
+
+/* gentle sway on the string — off when reduce-motion is on */
+.fxon .hang.sway { animation: sway var(--swaydur, 5s) ease-in-out infinite alternate; animation-delay: var(--swaydelay, 0s); }
+@keyframes sway { from { transform: rotate(var(--swaydeg, 1.6deg)); } to { transform: rotate(calc(var(--swaydeg, 1.6deg) * -1)); } }
+
+/* foil asteroids: hung decor; in Field Trip they count your launches */
+.roid {
+  position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: center;
+  transform-origin: 50% 0; pointer-events: none;
+}
+.roid .string { width: 1.5px; background: var(--thread); }
+.roid svg { width: 100%; height: auto; filter: drop-shadow(1px 3px 2px rgba(0, 0, 0, 0.35)); }
+.roid.spent svg { opacity: 0.35; filter: saturate(0) drop-shadow(1px 2px 2px rgba(0,0,0,0.25)); }
+.roid .x {
+  position: absolute; top: 38%; font-size: 30px; color: var(--pen); font-weight: bold;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.3); transform: rotate(-8deg);
+}
+.fxon .roid { animation: sway var(--swaydur, 6s) ease-in-out infinite alternate; animation-delay: var(--swaydelay, 0s); }
+
+/* the paper rocket that flies to whichever planet is singing */
+#ship { position: absolute; z-index: 6; width: 44px; pointer-events: none; will-change: transform; }
+#ship svg { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 3px rgba(0, 0, 0, 0.35)); }
+#ship .flame { opacity: 0; }
+#ship.flying .flame { opacity: 1; }
+.fxon #ship.flying .flame { animation: flick 0.14s steps(2) infinite; }
+@keyframes flick { from { transform: scaleY(1); } to { transform: scaleY(0.75); } }
+
+/* paper stars, the corner sun, the project's title banner */
+.star { position: absolute; z-index: 1; pointer-events: none; transform: rotate(var(--tilt, 8deg)); }
+.star svg { display: block; width: 100%; height: auto; filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3)); }
+#sun { position: absolute; z-index: 1; pointer-events: none; }
+#sun svg { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.3)); }
+.fxon #sun { animation: sunspin 240s linear infinite; }
+@keyframes sunspin { to { transform: rotate(360deg); } }
+#banner {
+  position: absolute; z-index: 2; left: 50%; bottom: 24px; transform: translateX(-50%) rotate(-1.2deg);
+  padding: 3px 22px 5px; font-size: 19px; color: var(--ink);
+  white-space: nowrap; pointer-events: none;
+}
+#banner b { color: var(--pen); }
+#banner::before, #banner::after {
+  content: ""; position: absolute; top: -9px; width: 46px; height: 17px;
+  background: rgba(250, 244, 222, 0.75); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+#banner::before { left: -12px; transform: rotate(-28deg); }
+#banner::after { right: -12px; transform: rotate(24deg); }
+@media (max-width: 640px) { #banner { font-size: 14px; padding: 2px 14px 3px; } }
+
+/* decorative pushpins */
+.pin {
+  position: absolute; z-index: 4; width: 15px; height: 15px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff8 0 18%, transparent 20%), var(--pin, #d95555);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4), inset -2px -2px 3px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+/* ---- the index-card HUD --------------------------------------------- */
+
+.paper-card {
+  background:
+    repeating-linear-gradient(180deg, transparent 0 21px, rgba(120, 160, 210, 0.5) 21px 22px),
+    var(--paper);
+  border: 1px solid #d8d0b4; border-radius: 3px;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.hud {
+  position: fixed; top: 14px; left: 50%; z-index: 20;
+  transform: translateX(-50%) rotate(1.2deg);
+  padding: 6px 22px 8px; text-align: center; min-width: 150px;
+}
+.hud::before {
+  content: ""; position: absolute; top: -7px; left: 50%; margin-left: -7px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fff8 0 18%, transparent 20%), #4a7fd0;
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.4);
+}
+#hud-round { font-size: 24px; line-height: 1.1; }
+#hud-say { font-size: 15px; color: var(--pen); min-height: 19px; }
+
+/* ---- panels: menu + report card -------------------------------------- */
+
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(58, 36, 18, 0.35);
+}
+.panel[hidden] { display: none; }
+
+.sheet {
+  position: relative;
+  width: min(430px, 100%);
+  background:
+    linear-gradient(90deg, transparent 0 30px, rgba(224, 118, 118, 0.55) 30px 31.5px, transparent 31.5px),
+    repeating-linear-gradient(180deg, transparent 0 26px, rgba(120, 160, 210, 0.45) 26px 27px),
+    var(--paper);
+  border: 1px solid #d8d0b4; border-radius: 3px;
+  box-shadow: 3px 5px 14px rgba(0, 0, 0, 0.4);
+  padding: 26px 22px 22px 42px;
+  transform: rotate(-0.8deg);
+}
+/* tape on the top corners */
+.sheet::before, .sheet::after {
+  content: ""; position: absolute; top: -12px; width: 74px; height: 24px;
+  background: rgba(250, 244, 222, 0.75);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.sheet::before { left: -18px; transform: rotate(-32deg); }
+.sheet::after { right: -18px; transform: rotate(28deg); }
+
+.sheet h1 { font-size: 33px; letter-spacing: 1px; line-height: 1.05; }
+.sheet h1, .sheet h2 { color: var(--ink); text-decoration: underline wavy rgba(224, 118, 118, 0.7) 2px; text-underline-offset: 6px; }
+.sheet .byline { color: #6b6a5d; font-size: 16px; margin: 8px 0 10px; }
+.sheet .how { font-size: 16.5px; line-height: 1.45; margin-bottom: 14px; }
+.sheet .how b { color: var(--pen); }
+
+.pick .seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.seg button {
+  font-family: inherit; font-size: 17px; text-align: left; cursor: pointer;
+  color: var(--ink);
+  background: rgba(255, 255, 255, 0.55);
+  border: 1.6px solid #b9b092; border-radius: 6px;
+  padding: 7px 12px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.seg button small { font-size: 13.5px; color: #6b6a5d; }
+.seg button.on {
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1.4px var(--ink), 2px 2px 0 rgba(43, 58, 103, 0.25);
+  background: #fff;
+}
+.seg button.on b::before { content: "✓ "; color: var(--pen); }
+
+kbd {
+  font-family: inherit; font-size: 12.5px;
+  background: var(--ink); color: var(--paper);
+  border-radius: 4px; padding: 1px 6px 2px;
+}
+
+.playbtn {
+  font-family: inherit; font-size: 22px; width: 100%; cursor: pointer;
+  color: var(--paper); background: var(--ink);
+  border: 0; border-radius: 8px; padding: 10px;
+  box-shadow: 3px 3px 0 rgba(43, 58, 103, 0.35);
+}
+.playbtn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(43, 58, 103, 0.35); }
+.playbtn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(43, 58, 103, 0.35); }
+.playbtn kbd { background: rgba(253, 251, 242, 0.25); }
+
+.bests { margin-top: 12px; font-size: 15px; color: #6b6a5d; min-height: 19px; }
+
+/* the report card */
+.rubric { text-align: center; padding-left: 22px; }
+.rubric h2 { font-size: 27px; }
+.rubric .big { font-size: 40px; margin: 10px 0 2px; }
+.rubric .stats { font-size: 16px; color: #6b6a5d; margin: 6px 0 16px; white-space: pre-line; }
+.grade {
+  position: absolute; top: 14px; right: 14px;
+  width: 74px; height: 74px; border-radius: 50%;
+  border: 3px solid var(--pen); color: var(--pen);
+  font-size: 34px; line-height: 68px;
+  transform: rotate(9deg);
+  font-family: "Gochi Hand", "Schoolbell", cursive;
+}
+.grade.gold::after { content: "⭐"; position: absolute; font-size: 22px; top: -14px; right: -10px; transform: rotate(14deg); }
+.rubric .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.rubric .row button {
+  font-family: inherit; font-size: 18px; cursor: pointer;
+  color: var(--ink); background: #fff;
+  border: 1.6px solid var(--ink); border-radius: 7px; padding: 8px 16px;
+  box-shadow: 2px 2px 0 rgba(43, 58, 103, 0.3);
+}
+.rubric .row button:first-child { background: var(--ink); color: var(--paper); }
+.rubric .row button:active { transform: translate(1px, 1px); box-shadow: none; }
+
+/* ---- small screens ---------------------------------------------------- */
+@media (max-width: 640px) {
+  /* the corner buttons own the top edge on a phone — pin the score card
+     near the bottom of the board instead */
+  .hud { top: auto; bottom: 62px; min-width: 120px; padding: 4px 14px 6px; }
+  #hud-round { font-size: 20px; }
+  .sheet h1 { font-size: 27px; }
+  #ruler { top: 58px; }
+  .hang .tag { font-size: 12px; padding: 1px 6px 0; }
+  .hang .tag kbd { font-size: 10px; padding: 0 4px; }
+  .hang .tag small { font-size: 9px; }
+}
