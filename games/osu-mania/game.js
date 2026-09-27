@@ -381,7 +381,9 @@
   const PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: () => state === "running",
-        keys: ["p"],
+        // Escape only: lanes are rebindable to ANY key (P included), and Esc
+        // can never be a lane key because it cancels a rebind.
+        keys: ["Escape"],
         onChange: (paused) => {
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;

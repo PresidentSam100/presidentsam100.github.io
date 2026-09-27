@@ -339,8 +339,9 @@
     document.getElementById("again").focus({ preventScroll: true });
   }
 
-  // Pause: the shared shell's overlay, keys (Esc / P) and ⏸ button.
-  var P = window.GameShell ? GameShell.pausable({ canPause: function () { return state === "play"; } })
+  // Pause: the shared shell's overlay, key and ⏸ button. Escape only —
+  // P is a fishing key on the letter layouts, so it must never pause.
+  var P = window.GameShell ? GameShell.pausable({ canPause: function () { return state === "play"; }, keys: ["Escape"] })
     : { isPaused: function () { return false; } };
 
   // ---- input ------------------------------------------------------------------------------
