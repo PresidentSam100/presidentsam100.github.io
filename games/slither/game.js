@@ -318,6 +318,7 @@
     ctx: ctx,
     tone: tone,
     noise: noise,
+    audio: audio,
     SFX: SFX,
     showBoard: function (pxW, pxH, maxCssW) {
       menuOverlay.classList.add("hidden");
@@ -338,6 +339,12 @@
     showResult: function (opts) { showResult(opts); },
     clickResult: function () { if (!resultOverlay.classList.contains("hidden")) resultPrimary.click(); },
     toMenu: function () { resetToMenu(); },
+    // A two-player arena needs player 2's d-pad on touch screens; the hold
+    // buttons (ghost / dash, P1 only, and arenas have no ghost apples) make way.
+    showP2Pad: function (show) {
+      dpadP2.style.display = show ? "" : "none";
+      labBtns.style.display = show || G.mode !== "lab" ? "none" : "";
+    },
   }) : null;
 
   function refreshLabMenu() {
@@ -360,8 +367,12 @@
 
   // The d-pads and swipe steer through here, so the Labyrinth gets them too.
   function steer(playerIdx, dir) {
-    if (G.mode === "lab") { if (lab && playerIdx === 0) lab.steer(dir); return; }
+    if (G.mode === "lab") { if (lab) lab.steer(dir, playerIdx); return; }
     setQueuedDir(playerIdx, dir);
+  }
+  // Letting go of a direction (the Labyrinth sprints while one is held).
+  function unsteer(playerIdx, dir) {
+    if (G.mode === "lab" && lab) lab.unsteer(dir, playerIdx);
   }
 
   document.addEventListener("keydown", function (e) {
@@ -396,6 +407,7 @@
   function clearHeldBtns() {
     Array.prototype.forEach.call(document.querySelectorAll(".dbtn.held"), function (b) {
       b.classList.remove("held");
+      unsteer(Number(b.dataset.player), DIR_BY_NAME[b.dataset.dir]);
     });
   }
   window.addEventListener("pointerup", clearHeldBtns);
@@ -406,7 +418,7 @@
   // way to tell whose swipe it is, so 2-player stays on the d-pads.
   (function wireSwipe() {
     var SWIPE_MIN = 24;                 // px before a drag counts as a swipe
-    var sx = 0, sy = 0, tracking = false;
+    var sx = 0, sy = 0, tracking = false, swiped = null;
     canvas.addEventListener("pointerdown", function (e) {
       if (G.mode === "two") return;
       if (e.pointerType === "mouse") return;   // don't turn on a desktop click-drag
@@ -416,13 +428,69 @@
       if (!tracking) return;
       var dx = e.clientX - sx, dy = e.clientY - sy;
       if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
-      steer(0, Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP));
+      swiped = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP);
+      steer(0, swiped);   // keep the finger down after a swipe to sprint
       // Re-anchor instead of stopping, so one continuous drag can chain turns.
       sx = e.clientX; sy = e.clientY;
     });
-    function stop() { tracking = false; }
+    function stop() { tracking = false; if (swiped) { unsteer(0, swiped); swiped = null; } }
     window.addEventListener("pointerup", stop);
     window.addEventListener("pointercancel", stop);
+  })();
+
+  // ---- gamepads ----------------------------------------------------------
+  // Pad 1 steers P1 and pad 2 steers P2 (d-pad or left stick). A stick is
+  // held all the time, so holding it never sprints; a quick double flick
+  // does, until the stick returns to centre. In the Labyrinth: A dashes, B
+  // ghosts. Start pauses, or takes the result card's main action, or starts
+  // from the menu.
+  (function wirePads() {
+    if (!navigator.getGamepads) return;
+    var prev = [{ dir: null, btn: {} }, { dir: null, btn: {} }], polling = false;
+    function pressed(gp, i) { var b = gp.buttons[i]; return !!b && (b.pressed || b.value > 0.5); }
+    // The stick engages past 0.6 and lets go under 0.35, so a wobble near
+    // the edge can't read as a double flick.
+    function padDir(gp, was) {
+      var x = gp.axes[0] || 0, y = gp.axes[1] || 0;
+      if (pressed(gp, 12)) return UP;
+      if (pressed(gp, 13)) return DOWN;
+      if (pressed(gp, 14)) return LEFT;
+      if (pressed(gp, 15)) return RIGHT;
+      var m = Math.max(Math.abs(x), Math.abs(y));
+      if (m < (was ? 0.35 : 0.6)) return null;
+      return Math.abs(x) > Math.abs(y) ? (x > 0 ? RIGHT : LEFT) : (y > 0 ? DOWN : UP);
+    }
+    function edge(p, gp, i) { var on = pressed(gp, i), was = !!prev[p].btn[i]; prev[p].btn[i] = on; return on && !was ? 1 : !on && was ? -1 : 0; }
+    function poll() {
+      var pads = navigator.getGamepads(), any = false;
+      for (var p = 0; p < 2; p++) {
+        var gp = pads[p];
+        if (!gp) continue;
+        any = true;
+        var playing = gameArea.style.display !== "none";
+        var d = padDir(gp, prev[p].dir);
+        if (d !== prev[p].dir) {
+          if (prev[p].dir) unsteer(p, prev[p].dir);
+          if (d && playing && (p === 0 || G.mode === "two" || G.mode === "lab")) {
+            if (G.mode === "lab" && lab) lab.padSteer(d, p); else steer(p, d);
+          }
+          prev[p].dir = d;
+        }
+        var start = edge(p, gp, 9), a = edge(p, gp, 0), b = edge(p, gp, 1);
+        if (start === 1 || (a === 1 && !resultOverlay.classList.contains("hidden"))) {
+          if (!resultOverlay.classList.contains("hidden")) resultPrimary.click();
+          else if (!menuOverlay.classList.contains("hidden")) playBtn.click();
+          else if (start === 1) togglePause();
+          continue;
+        }
+        if (G.mode === "lab" && lab && p === 0) {
+          if (a) lab.padHold("dashPad", a === 1);
+          if (b) lab.padHold("ghostPad", b === 1);
+        }
+      }
+      if (any) requestAnimationFrame(poll); else polling = false;
+    }
+    window.addEventListener("gamepadconnected", function () { if (!polling) { polling = true; requestAnimationFrame(poll); } });
   })();
 
   // ---- pause / menu buttons ---------------------------------------------
@@ -471,7 +539,7 @@
     keysHelp.textContent = G.mode === "two"
       ? "P1: WASD (green) · P2: Arrow Keys (blue) · Space: Pause · touch: use the d-pads"
       : G.mode === "lab"
-        ? "Move: Arrows / WASD · hold Shift: dash · hold G or right-click: ghost · click a cell: teleport · R: retry · Space: pause · touch: swipe to steer, tap to teleport, hold 👻 / ⚡"
+        ? "Move: Arrows / WASD (hold or double-tap to sprint) · Shift: dash · G or right-click: ghost · click a cell: teleport · click a 🖱 switch (or 1/2/3) · R: retry · M: music · Space: pause · Arena for two: P1 WASD, P2 arrows · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡"
         : "Move: Arrow Keys or WASD · Space: Pause · touch: swipe the board or use the d-pad";
   }
 
@@ -742,6 +810,29 @@
 
     if (G.running || G.pendingEnd) requestAnimationFrame(function (ts2) { frame(ts2, token); });
   }
+
+  // A shared or play-tested level: "#play=<code>" (see levelcode.js).
+  function playFromHash() {
+    var m = /#play=(v1\.[A-Za-z0-9_-]+)/.exec(location.hash);
+    if (!m || !lab || !window.SlitherLevelCode) return;
+    var level;
+    try {
+      level = window.SlitherLevelCode.decode(m[1]);
+      var errs = window.SlitherEngine.parse(level).errors;
+      if (errs.length) throw new Error(errs[0]);
+    } catch (e) {
+      alert("That level link doesn't work: " + (e.message || e));
+      return;
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("#mode-pick [data-mode]"), function (b) { b.classList.toggle("sel", b.dataset.mode === "lab"); });
+    G.mode = "lab";
+    vsOpts.style.display = "none";
+    refreshLabMenu();
+    updateKeysHelp();
+    lab.startCustom(level);
+  }
+  window.addEventListener("hashchange", playFromHash);
+  playFromHash();
 
   render(); // static preview frame behind the menu
 })();

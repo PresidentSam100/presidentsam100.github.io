@@ -126,6 +126,19 @@ canvas.board {
 .lab-stats .stat { color: #d9c9a6; }
 #lab-level { font-family: var(--display); font-weight: 700; font-size: 0.82rem; letter-spacing: 0.04em; }
 .lab-chip { display: inline-flex; align-items: center; gap: 0.3rem; }
+/* Pack runs (Ziggy rules) on the level select. */
+.lab-runs { text-align: left; margin: 0.2rem 0 0.4rem; padding: 0.45rem 0.65rem; border: 1px solid rgba(122,92,52,0.35); border-radius: 10px; background: rgba(255,248,230,0.35); }
+.lab-runs p { margin: 0.15rem 0 0.45rem; font-size: 0.82rem; color: var(--ink-muted); line-height: 1.3; }
+.lab-runs .row { display: flex; flex-wrap: wrap; gap: 0.4rem; justify-content: flex-start; }
+.lab-runs .btn { font-size: 0.82rem; padding: 0.35rem 0.7rem; }
+.lab-runs .btn small { font-weight: 700; opacity: 0.8; margin-left: 0.25rem; }
+.lab-runs .btn.cont { border-color: #8a6420; box-shadow: 0 0 0 2px var(--gold); }
+.lab-runs .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: grayscale(0.4); }
+.lab-runs > summary { cursor: pointer; list-style: none; margin: 0; }
+.lab-runs > summary::-webkit-details-marker { display: none; }
+.lab-runs > summary::before { content: "▸ "; display: inline-block; transition: transform 0.15s ease; }
+.lab-runs[open] > summary::before { transform: rotate(90deg); }
+.lab-runs[open] > summary { margin-bottom: 0.2rem; }
 .lab-meter { display: inline-block; width: 54px; height: 7px; border-radius: 4px; background: #120e0a; border: 1px solid #3a2f22; overflow: hidden; vertical-align: middle; }
 .lab-meter i { display: block; height: 100%; width: 0; background: #cdefff; transition: width 0.12s linear; }
 #lab-ghost.on .lab-meter i { background: #8fe4ff; box-shadow: 0 0 6px #8fe4ff; }
@@ -261,6 +274,7 @@ details.dict-wrap[open] summary::after { content: " ▴"; }
 #byline { color: #7d6e55; font-size: 75%; margin-top: 0.4rem; }
 
 /* ---- level select: small carved tiles ---------------------------------------------- */
+.lab-tools { margin-top: 0.6rem; }
 #lab-levels { display: flex; flex-direction: column; gap: 0.35rem; max-height: 46vh; overflow-y: auto; padding: 0 0.2rem 0.3rem; }
 .lab-zone { font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: #7a5c34; font-weight: 700; text-align: left; margin-top: 0.3rem; }
 .lab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 0.45rem; }

@@ -9,7 +9,8 @@
 window.SlitherLabyrinth = function (host) {
   "use strict";
 
-  var E = window.SlitherEngine, T = E.T, LEVELS = window.SLITHER_LEVELS || [];
+  var E = window.SlitherEngine, T = E.T, LEVELS = window.SLITHER_LEVELS || [], STAGES = window.SLITHER_STAGES || [];
+  var ARENAS = window.SLITHER_ARENAS || [];
   var PROGRESS_KEY = "slither_labyrinth"; // also listed in the hub's reset-scores block
   var CELL = 24;
   var canvas = host.canvas, ctx = host.ctx;
@@ -25,6 +26,10 @@ window.SlitherLabyrinth = function (host) {
     timeBar: document.getElementById("lab-timebar"),
     timeFill: document.getElementById("lab-timefill"),
     hint: document.getElementById("lab-hint"),
+    lock: document.getElementById("lab-lock"),
+    twins: document.getElementById("lab-twins"),
+    boss: document.getElementById("lab-boss"),
+    lives: document.getElementById("lab-lives"),
     ghostBtn: document.getElementById("ghost-btn"),
     dashBtn: document.getElementById("dash-btn"),
   };
@@ -34,8 +39,9 @@ window.SlitherLabyrinth = function (host) {
   // jade (you), lapis (wanderers), amethyst (hunters) and carnelian (munchers).
   var Art = window.SlitherArt;
   var THEMES = Art.THEMES;
-  var PORTAL_COLORS = ["#ff9a3c", "#b36bff", "#3fd6ec", "#ff7ac0"];
-  var SERPENT_OF = { player: "jade", wander: "lapis", hunt: "amethyst", munch: "carnelian" };
+  // Zones are the packs (Ziggy's Easy / Advanced / Expert / Master): the
+  // lives mode runs a whole zone on one pool of lives.
+  var PACK_OF = { Garden: "Easy", Ruins: "Advanced", Citadel: "Expert", Foundry: "Expert", Astral: "Master" };
 
   // ---- progress --------------------------------------------------------------
   // { best: { <level id>: <best clear time in ms> } } — keyed by id, not index,
@@ -54,22 +60,167 @@ window.SlitherLabyrinth = function (host) {
   function furthestDone() { var m = -1; for (var i = 0; i < LEVELS.length; i++) if (isDone(i)) m = i; return m; }
   // You may leave one level unbeaten and move on — being hard-stuck on a
   // single level was the loudest complaint about Ziggy's Labyrinth.
-  function isUnlocked(i) { return i <= furthestDone() + 2; }
+  function isUnlocked(i) { return i <= furthestDone() + 2 || !!(progress.warped && progress.warped[LEVELS[i].id]); }
   function continueIndex() {
     for (var i = 0; i < LEVELS.length; i++) if (!isDone(i) && isUnlocked(i)) return i;
     return 0;
   }
   function secs(ms) { return (ms / 1000).toFixed(1); }
 
+  // ---- pack runs (Ziggy rules) ----------------------------------------------------
+  // Play a whole zone on one pool of lives, as in Ziggy's Labyrinth: 9 to start,
+  // one back for each 1-up, and one for every 50 apples on the counter (golden
+  // apples add 5; clearing a level adds a time bonus of one apple per 5 s left).
+  // Crashing, restarting or quitting mid-level costs a life; at zero the run is
+  // over. The run is saved (progress.run) so it survives closing the tab.
+  var RUN = { lives: 9, perLife: 50, bonusEvery: 5 };
+  var inRun = false;
+  function zoneFirst(zone) { for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].zone === zone) return i; return -1; }
+  function zoneLast(zone) { var m = -1; for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].zone === zone) m = i; return m; }
+  function zones() { var z = []; LEVELS.forEach(function (lv) { if (z.indexOf(lv.zone) === -1) z.push(lv.zone); }); return z; }
+  function startRun(zone) {
+    if (progress.run && !confirm("Give up your " + progress.run.zone + " run (level " + (progress.run.idx + 1) + ", ×" + progress.run.lives + " lives)?")) return;
+    progress.run = { zone: zone, idx: zoneFirst(zone), lives: RUN.lives, apples: 0 };
+    saveProgress();
+    start(progress.run.idx, true);
+  }
+  function continueRun() { if (progress.run) start(progress.run.idx, true); }
+  function addApples(n) {
+    var r = progress.run;
+    if (!r || !n) return;
+    r.apples += n;
+    while (r.apples >= RUN.perLife) { r.apples -= RUN.perLife; r.lives++; sfxOneUp(); }
+    saveProgress();
+  }
+  function sfxOneUp() { [660, 880, 1320].forEach(function (f, i) { tone(f, 0.12, "square", 0.07, null, i * 0.08); }); }
+  // A life lost to a crash, a restart or leaving mid-level. True if the run is over.
+  function loseLife() {
+    var r = progress.run;
+    if (!r) return false;
+    r.lives--;
+    if (r.lives <= 0) { progress.run = null; saveProgress(); return true; }
+    saveProgress();
+    return false;
+  }
+
+  // The extra modes sit in collapsible panels above the level grid, so on a
+  // phone the campaign levels stay in reach. Open panels stay open.
+  var openPanels = {};
+  function panel(key, title, forceOpen) {
+    var box = document.createElement("details");
+    box.className = "lab-runs";
+    box.open = !!forceOpen || !!openPanels[key];
+    box.addEventListener("toggle", function () { openPanels[key] = box.open; });
+    var h = document.createElement("summary");
+    h.className = "lab-zone";
+    h.textContent = title;
+    box.appendChild(h);
+    return box;
+  }
+
+  function buildRuns(container) {
+    var box = panel("runs", "❤ Pack runs · Ziggy rules", progress.run);
+    var p = document.createElement("p");
+    p.textContent = "Play a whole zone on " + RUN.lives + " lives. 1-ups, every " + RUN.perLife + " apples and leftover time win lives back; crashing, restarting or quitting costs one.";
+    box.appendChild(p);
+    var row = document.createElement("div");
+    row.className = "row";
+    if (progress.run) {
+      var c = document.createElement("button");
+      c.type = "button"; c.className = "btn cont";
+      c.textContent = "▶ Continue " + progress.run.zone + " · level " + (progress.run.idx + 1) + " · ❤ ×" + progress.run.lives;
+      c.addEventListener("click", continueRun);
+      row.appendChild(c);
+    }
+    zones().forEach(function (zone) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.disabled = !isUnlocked(zoneFirst(zone));
+      b.textContent = zone;
+      var best = progress.runs && progress.runs[zone];
+      if (best != null) { var s = document.createElement("small"); s.textContent = "🏆 ×" + best; b.appendChild(s); }
+      b.title = b.disabled ? "Reach this zone first" : "Start a " + zone + " run with " + RUN.lives + " lives";
+      b.addEventListener("click", function () { startRun(zone); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    container.appendChild(box);
+  }
+
+  // Stages: Classic rules (endless apples, no exit) on hand-built boards.
+  function stageBest(id) { return (progress.stageBest && progress.stageBest[id]) || 0; }
+  function buildStages(container) {
+    if (!STAGES.length) return;
+    var box = panel("stages", "🍎 Stages · Classic rules", false);
+    var p = document.createElement("p");
+    p.textContent = "Endless apples on hand-built boards: every apple grows another. No exit, no clock; grow as long as you can.";
+    box.appendChild(p);
+    var row = document.createElement("div");
+    row.className = "row";
+    STAGES.forEach(function (sg, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.textContent = sg.name;
+      var best = stageBest(sg.id);
+      if (best) { var s = document.createElement("small"); s.textContent = "🍎 " + best; b.appendChild(s); }
+      b.title = sg.hint || sg.name;
+      b.addEventListener("click", function () { startStage(i); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    container.appendChild(box);
+  }
+
+  // Arena: last snake standing against rival bots, one or two players here.
+  var ARENA_WINS = 3, arenaPlayers = 1, tally = null;
+  var RIVAL_PALS = ["garnet", "topaz", "ivory", "carnelian"];
+  function buildArenas(container) {
+    if (!ARENAS.length) return;
+    var box = panel("arena", "🏟 Arena · last snake standing", false);
+    var p = document.createElement("p");
+    p.textContent = "You (and a friend on this device) against rival snakes. Apples keep growing; the last snake alive takes the round, first to " + ARENA_WINS + " takes the match.";
+    box.appendChild(p);
+    var who = document.createElement("div");
+    who.className = "row";
+    [1, 2].forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn" + (arenaPlayers === n ? " sel" : "");
+      b.textContent = n === 1 ? "1 player" : "2 players";
+      b.title = n === 1 ? "You against three rivals" : "P1 (WASD) and P2 (arrow keys) against two rivals";
+      b.addEventListener("click", function () {
+        arenaPlayers = n;
+        Array.prototype.forEach.call(who.children, function (x) { x.classList.toggle("sel", x === b); });
+      });
+      who.appendChild(b);
+    });
+    box.appendChild(who);
+    var row = document.createElement("div");
+    row.className = "row";
+    row.style.marginTop = "0.4rem";
+    ARENAS.forEach(function (a, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.textContent = "🏟 " + a.name;
+      b.title = a.hint || a.name;
+      b.addEventListener("click", function () { startArena(i, true); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    container.appendChild(box);
+  }
+
   function buildLevelGrid(container) {
     container.innerHTML = "";
+    buildRuns(container);
+    buildStages(container);
+    buildArenas(container);
     var zone = null, grid = null;
     LEVELS.forEach(function (lv, i) {
       if (lv.zone !== zone) {
         zone = lv.zone;
         var h = document.createElement("div");
         h.className = "lab-zone";
-        h.textContent = zone;
+        h.textContent = zone + (PACK_OF[zone] ? " · " + PACK_OF[zone] : "");
         container.appendChild(h);
         grid = document.createElement("div");
         grid.className = "lab-grid";
@@ -91,6 +242,34 @@ window.SlitherLabyrinth = function (host) {
       b.addEventListener("click", function () { start(i); });
       grid.appendChild(b);
     });
+    // Levels made in the editor (editor.html) and saved to "My levels".
+    var mine = myLevels();
+    if (mine.length) {
+      var h = document.createElement("div");
+      h.className = "lab-zone";
+      h.textContent = "My levels";
+      container.appendChild(h);
+      var g = document.createElement("div");
+      g.className = "lab-grid";
+      mine.forEach(function (lv) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "lab-lv";
+        b.title = lv.name || "Custom level";
+        var num = document.createElement("b"); num.textContent = "✎";
+        var name = document.createElement("span"); name.textContent = lv.name || "Custom level";
+        b.appendChild(num); b.appendChild(name);
+        b.addEventListener("click", function () { startCustom(lv); });
+        g.appendChild(b);
+      });
+      container.appendChild(g);
+    }
+  }
+  function myLevels() {
+    try {
+      var m = JSON.parse(localStorage.getItem("slither_custom") || "[]");
+      return Array.isArray(m) ? m.filter(function (lv) { return lv && Array.isArray(lv.grid) && !E.parse(lv).errors.length; }) : [];
+    } catch (e) { return []; }
   }
 
   // ---- sound -------------------------------------------------------------------
@@ -113,16 +292,54 @@ window.SlitherLabyrinth = function (host) {
     tick: function () { tone(1050, 0.05, "square", 0.05); },
   };
 
+  // ---- music -------------------------------------------------------------------
+  // One tune per zone (music.js); M or the menu button turns it off and on.
+  var music = window.SlitherMusic ? window.SlitherMusic(host.audio || function () { return null; }) : null;
+  var musicBtn = document.getElementById("music-btn");
+  function musicLabel() { if (musicBtn) { musicBtn.textContent = "🎵 Music: " + (music && music.isOn() ? "On" : "Off"); musicBtn.classList.toggle("sel", !!music && music.isOn()); } }
+  function toggleMusic() {
+    if (!music) return;
+    music.setOn(!music.isOn());
+    if (music.isOn() && active && st && !paused) music.play(st.level.zone);
+    musicLabel();
+  }
+  if (musicBtn) { if (!music) musicBtn.style.display = "none"; musicBtn.addEventListener("click", toggleMusic); musicLabel(); }
+
   // ---- state -----------------------------------------------------------------
   var st = null, levelIdx = 0, theme = THEMES.Garden;
   var active = false, paused = false, token = 0, lastTs = 0;
   var effects = [], hover = -1, tap = null, lastTickSec = -1, endTimer = null;
-  var held = { ghostKey: false, ghostMouse: false, ghostBtn: false, dashKey: false, dashBtn: false };
+  var held = { ghostKey: false, ghostMouse: false, ghostBtn: false, ghostPad: false, dashKey: false, dashBtn: false, dashPad: false };
+  // Sprint the Ziggy way: hold a direction for a moment, or tap it twice.
+  var SPRINT = { holdMs: 400, doubleTapMs: 280 };
+  var dirHold = { p1: newHold(), p2: newHold() };
+  function newHold() { return { d: -1, timer: 0, last: -1, lastAt: 0, sprint: false }; }
+  // noHold: a gamepad stick is held all the time, so only a double flick sprints.
+  function pressDir(ctrl, d, noHold) {
+    if (!active || !st || paused || (st.status !== "play" && st.status !== "ready")) return;
+    if (ctrl === "p2" && !twoPlayer()) return;
+    var h = dirHold[ctrl], now = performance.now();
+    clearTimeout(h.timer);
+    h.sprint = h.last === d && now - h.lastAt < SPRINT.doubleTapMs;   // double tap
+    h.last = d; h.lastAt = now; h.d = d;
+    if (!noHold) h.timer = setTimeout(function () { if (h.d === d) { h.sprint = true; syncHeld(); } }, SPRINT.holdMs);
+    E.turn(st, d, ctrl);
+    syncHeld();
+  }
+  function releaseDir(ctrl, d) {
+    var h = dirHold[ctrl];
+    if (d != null && h.d !== d) return;
+    clearTimeout(h.timer);
+    h.d = -1; h.sprint = false;
+    syncHeld();
+  }
+  function vecDir(v) { return v.y < 0 ? 0 : v.x > 0 ? 1 : v.y > 0 ? 2 : 3; }
 
   function syncHeld() {
     if (!st) return;
-    E.setGhost(st, held.ghostKey || held.ghostMouse || held.ghostBtn);
-    E.setDash(st, held.dashKey || held.dashBtn);
+    E.setGhost(st, held.ghostKey || held.ghostMouse || held.ghostBtn || held.ghostPad);
+    E.setDash(st, held.dashKey || held.dashBtn || held.dashPad || dirHold.p1.sprint);
+    E.setDash(st, dirHold.p2.sprint, "p2");
     el.ghostBtn.classList.toggle("held", held.ghostBtn);
     el.dashBtn.classList.toggle("held", held.dashBtn);
   }
@@ -131,21 +348,52 @@ window.SlitherLabyrinth = function (host) {
   // would otherwise stay stuck on.
   function clearHeld() {
     for (var k in held) held[k] = false;
+    ["p1", "p2"].forEach(function (c) { clearTimeout(dirHold[c].timer); dirHold[c] = newHold(); });
     syncHeld();
   }
 
-  function start(i) {
+  // A level that isn't part of the campaign: from My levels or a share link.
+  // It plays exactly the same but doesn't touch campaign progress.
+  var custom = null, stageIdx = -1, arenaIdx = -1;
+  function start(i, viaRun) {
+    custom = null; stageIdx = -1; arenaIdx = -1;
+    inRun = !!viaRun && !!progress.run;
     levelIdx = Math.max(0, Math.min(LEVELS.length - 1, i));
-    var level = LEVELS[levelIdx];
-    st = E.create(level);
+    launch(LEVELS[levelIdx]);
+  }
+  function startArena(i, fresh) {
+    custom = null; inRun = false; stageIdx = -1; levelIdx = -1;
+    arenaIdx = i;
+    if (fresh || !tally) tally = { p1: 0, p2: 0, rival: 0 };
+    launch(ARENAS[i]);
+  }
+  function startStage(i) {
+    custom = null; inRun = false; arenaIdx = -1;
+    stageIdx = i;
+    levelIdx = -1;
+    launch(STAGES[i]);
+  }
+  function startCustom(level) {
+    custom = level;
+    inRun = false; stageIdx = -1; arenaIdx = -1;
+    levelIdx = -1;
+    launch(level);
+  }
+  function launch(level) {
+    st = E.create(level, { players: arenaIdx >= 0 ? arenaPlayers : 1 });
+    // 1-ups and golden apples only exist on pack runs.
+    if (!inRun) Object.keys(st.items).forEach(function (k) { if (st.items[k] === "oneup" || st.items[k] === "gold") delete st.items[k]; });
     theme = THEMES[level.zone] || THEMES.Garden;
     clearTimeout(endTimer);
     active = true; paused = false;
     effects = []; tap = null; lastTs = 0; lastTickSec = -1;
     clearHeld();
     host.showBoard(st.cols * CELL, st.rows * CELL, st.cols * 30);
+    if (music) music.play(level.zone);
+    if (host.showP2Pad) host.showP2Pad(twoPlayer());
     buildLayer();
-    el.level.innerHTML = "<b>" + (levelIdx + 1) + "</b> · " + level.name;
+    el.level.innerHTML = custom ? "<b>✎</b> · " + escapeHtml(level.name || "Custom level") : stageIdx >= 0 ? "<b>Stage</b> · " + level.name
+      : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
     el.hint.textContent = level.hint || "";
     el.timeBar.style.display = st.timeLimit ? "" : "none";
     updateHud();
@@ -153,8 +401,46 @@ window.SlitherLabyrinth = function (host) {
     var tk = token;
     requestAnimationFrame(function (ts) { frame(ts, tk); });
   }
-  function restart() { if (st) start(levelIdx); }
+  function restart() {
+    if (custom) { launch(custom); return; }
+    if (stageIdx >= 0) { recordStage(); startStage(stageIdx); return; }
+    if (arenaIdx >= 0) { startArena(arenaIdx, false); return; }
+    if (!st) return;
+    // On a run, giving up an attempt in progress costs a life, like crashing.
+    if (inRun && st.status === "play") {
+      if (loseLife()) { runOver(); return; }
+    }
+    // A level already cleared on a run can't be replayed for more apples.
+    if (inRun && progress.run) { start(progress.run.idx, true); return; }
+    start(levelIdx, false);
+  }
+  function runOver() {
+    var lv = LEVELS[levelIdx];
+    stopLoop();
+    inRun = false;
+    paused = false;
+    host.setPaused(false);
+    host.showResult({
+      title: "Run over 💀",
+      msg: "Out of lives on level " + (levelIdx + 1) + " · " + lv.name + ". Start the " + lv.zone + " pack again from the level select.",
+      primaryLabel: "Level Select",
+      primaryFn: host.toMenu,
+    });
+  }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function stopLoop() {
+    active = false;
+    token++;
+    clearTimeout(endTimer);
+    clearHeld();
+  }
   function stop() {
+    if (music) music.stop();
+    // Leaving a run mid-level costs a life (or quitting would be a free retry).
+    if (inRun && st && st.status === "play") loseLife();
+    if (st && st.stage && st.status === "play") recordStage();   // quitting still keeps your score
+    if (host.showP2Pad) host.showP2Pad(false);
+    inRun = false;
     active = false;
     paused = false;
     token++;
@@ -167,6 +453,7 @@ window.SlitherLabyrinth = function (host) {
     paused = !paused;
     clearHeld();
     host.setPaused(paused);
+    if (music) { if (paused) music.stop(); else music.play(st.level.zone); }
   }
   function autoPause() {
     clearHeld();
@@ -181,25 +468,53 @@ window.SlitherLabyrinth = function (host) {
     // Shift turns "g" into "G" and "w" into "W" — compare in lower case.
     var k = (e.key || "").toLowerCase();
     if (k === "r") { restart(); e.preventDefault(); return; }
-    if (st.status === "dead" || st.status === "won") {
+    if (k === "m") { toggleMusic(); e.preventDefault(); return; }
+    if (st.status === "dead" || st.status === "won" || st.status === "over") {
       if (k === " " || k === "spacebar") { host.clickResult(); e.preventDefault(); }
       return;
     }
     if (k === " " || k === "spacebar" || k === "p" || k === "escape") { togglePause(); e.preventDefault(); return; }
     if (paused) return;
-    if (KEY_DIRS.hasOwnProperty(k)) { E.turn(st, KEY_DIRS[k]); e.preventDefault(); return; }
+    if (KEY_DIRS.hasOwnProperty(k)) {
+      if (!e.repeat) pressDir(keyCtrl(k), KEY_DIRS[k]);
+      e.preventDefault(); return;
+    }
     if (k === "shift") { held.dashKey = true; syncHeld(); return; }
+    if (k === "1" || k === "2" || k === "3") { clickColor(Number(k) - 1); e.preventDefault(); return; }
     if (k === "g") { held.ghostKey = true; syncHeld(); e.preventDefault(); }
   }
+  function keyCtrl(k) { return twoPlayer() && k.indexOf("arrow") === 0 ? "p2" : "p1"; }
   function keyup(e) {
     var k = (e.key || "").toLowerCase();
+    if (KEY_DIRS.hasOwnProperty(k)) releaseDir(keyCtrl(k), KEY_DIRS[k]);
     if (k === "shift") { held.dashKey = false; syncHeld(); }
     if (k === "g") { held.ghostKey = false; syncHeld(); }
   }
   // From the shared d-pad and swipe handlers in game.js ({x,y} vectors).
-  function steer(v) {
-    if (!active || !st || paused || st.status === "dead" || st.status === "won") return;
-    E.turn(st, v.y < 0 ? 0 : v.x > 0 ? 1 : v.y > 0 ? 2 : 3);
+  function steer(v, playerIdx) { pressDir(playerIdx === 1 ? "p2" : "p1", vecDir(v)); }
+  function padSteer(v, playerIdx) { pressDir(playerIdx === 1 ? "p2" : "p1", vecDir(v), true); }
+  function unsteer(v, playerIdx) { releaseDir(playerIdx === 1 ? "p2" : "p1", v ? vecDir(v) : null); }
+  // Gamepad buttons: dash and ghost holds for player 1.
+  function padHold(name, on) {
+    if (!active || !st) return;
+    if (held[name] === on) return;
+    held[name] = on;
+    syncHeld();
+  }
+  function twoPlayer() { return !!st && st.arena && st.snakes.some(function (s) { return s.ctrl === "p2"; }); }
+
+  // Keyboard stand-in for clicking: presses the nearest click-switch of a
+  // colour (1 amber, 2 cyan, 3 magenta), so the mouse is never required.
+  function clickColor(c) {
+    var p = E.primary(st, "p1");
+    if (!p || st.status !== "play") return;
+    var best = -1, bd = Infinity, hx = p.body[0] % st.cols, hy = Math.floor(p.body[0] / st.cols);
+    for (var i = 0; i < st.tiles.length; i++) {
+      if (st.tiles[i] !== T.CLICK || (st.lv.doorColor[i] || 0) !== c) continue;
+      var d = Math.abs(i % st.cols - hx) + Math.abs(Math.floor(i / st.cols) - hy);
+      if (d < bd) { bd = d; best = i; }
+    }
+    if (best >= 0 && E.click(st, best, "p1") === "denied") sfx.deny();
   }
 
   function cellAt(e) {
@@ -210,8 +525,8 @@ window.SlitherLabyrinth = function (host) {
     return y * st.cols + x;
   }
   function tryBlink(i) {
-    if (!st || st.status !== "play" || paused || st.teleports <= 0 || i < 0) return;
-    if (!E.blink(st, i)) sfx.deny();
+    if (!st || st.status !== "play" || paused || i < 0) return;
+    if (E.click(st, i, "p1") === "denied") sfx.deny();
   }
 
   canvas.addEventListener("contextmenu", function (e) { if (active) e.preventDefault(); });
@@ -223,22 +538,26 @@ window.SlitherLabyrinth = function (host) {
       return;
     }
     // Touch: a quick, still tap teleports; anything that moves is a swipe,
-    // which game.js already turns into steering.
+    // which game.js already turns into steering. Either way the finger is
+    // the cursor (Mouse Eaters chase it, Storm tiles steer by it).
     tap = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+    E.setCursor(st, cellAt(e));
   });
   canvas.addEventListener("pointermove", function (e) {
     if (!active || !st) return;
     if (e.pointerType === "mouse") {
       hover = cellAt(e);
+      E.setCursor(st, hover);
       // A second mouse button pressed while another is down fires no new
       // pointerdown — only `buttons` changes.
       var g = (e.buttons & 2) !== 0;
       if (g !== held.ghostMouse) { held.ghostMouse = g; syncHeld(); }
-    } else if (tap && (Math.abs(e.clientX - tap.x) > 10 || Math.abs(e.clientY - tap.y) > 10)) {
-      tap = null;
+    } else {
+      if (e.buttons || e.pressure) E.setCursor(st, cellAt(e));
+      if (tap && (Math.abs(e.clientX - tap.x) > 10 || Math.abs(e.clientY - tap.y) > 10)) tap = null;
     }
   });
-  canvas.addEventListener("pointerleave", function () { hover = -1; });
+  canvas.addEventListener("pointerleave", function (e) { hover = -1; if (st && e.pointerType === "mouse") E.setCursor(st, -1); });
   window.addEventListener("pointerup", function (e) {
     if (!active) return;
     if (e.pointerType === "mouse" && held.ghostMouse && !(e.buttons & 2)) { held.ghostMouse = false; syncHeld(); }
@@ -271,17 +590,36 @@ window.SlitherLabyrinth = function (host) {
     st.events = [];
     evs.forEach(function (e) {
       switch (e.type) {
-        case "apple": host.SFX.eat(); burst(e.at, "#ff4d6d"); break;
+        case "apple": host.SFX.eat(); burst(e.at, "#ff4d6d"); if (inRun) addApples(1); break;
         case "stolen": sfx.stolen(); burst(e.at, "#ff9f1c"); break;
         case "open": sfx.open(); break;
-        case "power": sfx.power(e.item); burst(e.at, e.item === "blink" ? "#b86bff" : e.item === "ghost" ? "#bff3ff" : "#8cff66"); break;
+        case "power":
+          if (e.item === "oneup") { sfxOneUp(); burst(e.at, "#ff9a3c"); if (inRun && progress.run) { progress.run.lives++; saveProgress(); } break; }
+          if (e.item === "gold") { host.SFX.eat(); burst(e.at, "#f2c037"); if (inRun) addApples(5); break; }
+          sfx.power(e.item); burst(e.at, e.item === "blink" ? "#b86bff" : e.item === "ghost" ? "#bff3ff" : "#8cff66"); break;
         case "portal": if (e.player) host.SFX.portal(); break;
         case "blink": sfx.blink(); burst(e.from, "#b86bff"); burst(e.to, "#b86bff"); break;
         case "blinkFail": sfx.deny(); break;
         case "switch": sfx.flip(); burst(e.at, "#ffc53d"); break;
         case "cut": sfx.cut(); burst(e.at, "#dfe6f0"); break;
-        case "enemyDied": sfx.pop(); burst(e.at, Art.rgb(Art.SERPENTS[SERPENT_OF[e.kind] || "lapis"].body)); break;
+        case "melon": sfx.stolen(); burst(e.at, "#4fd06a"); break;
+        case "dream": sfx.power("ghost"); break;
+        case "bounce": tone(300, 0.08, "square", 0.06, 600); break;
+        case "clone": sfx.power("blink"); burst(e.at, "#9ff0c4"); break;
+        case "appleSpawn": burst(e.at, "#ffd7df"); break;
+        case "stud": tone(520, 0.07, "square", 0.06, 260); tone(260, 0.1, "square", 0.05, 520, 0.06); burst(e.at, "#f1c27d"); break;
+        case "bossHit": sfx.pop(); tone(220, 0.35, "sawtooth", 0.1, 90); burst(e.at, "#ffcf4a"); break;
+        case "bossDown": host.SFX.win(); noise(0.6, 0.3, "lowpass", 1200, 200); break;
+        case "worms": noise(0.3, 0.18, "bandpass", 900, 2400); break;
+        case "flowers": tone(1400, 0.08, "square", 0.05, 900); tone(1400, 0.08, "square", 0.05, 900, 0.12); break;
+        case "heartSpawn": tone(880, 0.12, "triangle", 0.07, 1320); burst(e.at, "#ffcf4a"); break;
+        case "snakeDied": if (st.status === "play") { host.SFX.body(); burst(e.at, "#ff5a4a"); } break;
+        case "storm": noise(0.25, 0.22, "bandpass", 3000, 600); tone(900, 0.12, "sawtooth", 0.05, 1800); break;
+        case "cursorEaten": sfx.pop(); sfx.deny(); burst(e.at, "#ff70b0"); clearHeld(); break;
+        case "infinity": sfx.power("fast"); burst(e.at, "#7dffb0"); break;
+        case "enemyDied": sfx.pop(); burst(e.at, Art.rgb(Art.serpentFor(e.kind).body)); break;
         case "dead": onDead(e); break;
+        case "arenaOver": onArenaOver(e); break;
         case "win": onWin(); break;
       }
     });
@@ -303,11 +641,16 @@ window.SlitherLabyrinth = function (host) {
     else host.SFX.wall();
     clearHeld();
     var words = DEATHS[e.cause] || DEATHS.wall;
+    if (e.cause === "locked" && st.boss && st.boss.alive) words = [words[0], "The exit stays sealed while the Serpent King lives."];
+    if (st.stage) { stageOver(words); return; }
+    var over = inRun && loseLife();
+    var left = inRun && progress.run ? "  ·  ❤ ×" + progress.run.lives + " left" : "";
     endTimer = setTimeout(function () {
       if (!active) return;
+      if (over) { runOver(); return; }
       host.showResult({
         title: words[0],
-        msg: words[1] + "  ·  R or Enter to retry",
+        msg: words[1] + left + "  ·  R or Enter to retry",
         primaryLabel: "Retry",
         primaryFn: restart,
       });
@@ -316,11 +659,48 @@ window.SlitherLabyrinth = function (host) {
   function onWin() {
     host.SFX.win();
     clearHeld();
+    if (custom) {
+      var tc = st.elapsed;
+      endTimer = setTimeout(function () {
+        if (!active) return;
+        host.showResult({ title: "Level clear! 🎉", msg: "Time " + secs(tc) + "s", primaryLabel: "Play Again", primaryFn: restart });
+      }, 550);
+      return;
+    }
     var level = LEVELS[levelIdx], t = st.elapsed, prev = progress.best[level.id];
     var isBest = prev == null || t < prev;
     if (isBest) { progress.best[level.id] = Math.round(t); saveProgress(); }
+    // A warp arch skips ahead: the level counts as cleared, and the target
+    // stays unlocked even if you quit before finishing it.
+    var warpIdx = -1;
+    if (st.warp) {
+      for (var w = 0; w < LEVELS.length; w++) if (LEVELS[w].id === st.warp) warpIdx = w;
+    }
+    if (warpIdx >= 0 && inRun && progress.run && LEVELS[warpIdx].zone === level.zone) {
+      progress.warped = progress.warped || {};
+      progress.warped[st.warp] = true;
+      runWin("Warp! Skipping ahead · Time " + secs(t) + "s", warpIdx);
+      return;
+    }
+    if (warpIdx >= 0) {
+      progress.warped = progress.warped || {};
+      progress.warped[st.warp] = true;
+      saveProgress();
+      var target = LEVELS[warpIdx];
+      endTimer = setTimeout(function () {
+        if (!active) return;
+        host.showResult({
+          title: "Warp! 🌀",
+          msg: "Skipping ahead to level " + (warpIdx + 1) + " · " + target.name + "  ·  Time " + secs(t) + "s",
+          primaryLabel: "Warp →",
+          primaryFn: function () { start(warpIdx); },
+        });
+      }, 550);
+      return;
+    }
     var last = levelIdx === LEVELS.length - 1;
     var msg = "Time " + secs(t) + "s" + (isBest ? (prev != null ? " — new best! 🎉" : "") : "  ·  Best " + secs(prev) + "s");
+    if (inRun && progress.run) { runWin(msg, warpIdx); return; }
     endTimer = setTimeout(function () {
       if (!active) return;
       if (last) {
@@ -331,10 +711,87 @@ window.SlitherLabyrinth = function (host) {
     }, 550);
   }
 
+  // An arena round is over: tally it, and maybe the match.
+  function onArenaOver(e) {
+    var human = e.winner === "p1" || e.winner === "p2";
+    if (human) host.SFX.win(); else host.SFX.wall();
+    clearHeld();
+    var two = twoPlayer();
+    var names = { p1: two ? "P1" : "You", p2: "P2", rival: "Rivals" };
+    var title = e.winner === "p1" ? (two ? "P1 takes the round! 🟢" : "You take the round! 🏆")
+      : e.winner === "p2" ? "P2 takes the round! 🔵" : e.winner === "rival" ? "A rival takes the round 🐍" : "Nobody's left: a draw 💥";
+    if (arenaIdx < 0) {
+      endTimer = setTimeout(function () { if (active) host.showResult({ title: title, msg: "R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart }); }, 650);
+      return;
+    }
+    if (tally[e.winner] != null) tally[e.winner]++;
+    var line = (two ? ["p1", "p2", "rival"] : ["p1", "rival"]).map(function (k) { return names[k] + " " + tally[k]; }).join(" · ");
+    var champ = tally[e.winner] >= ARENA_WINS ? e.winner : null;
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      if (champ) {
+        host.showResult({
+          title: champ === "rival" ? "The rivals take the match 🐍" : names[champ] + (champ === "p1" && !two ? " win the match! 🏆" : " wins the match! 🏆"),
+          msg: line, primaryLabel: "New Match", primaryFn: function () { startArena(arenaIdx, true); },
+        });
+      } else {
+        host.showResult({ title: title, msg: line + "  ·  first to " + ARENA_WINS, primaryLabel: "Next Round →", primaryFn: function () { startArena(arenaIdx, false); } });
+      }
+    }, 650);
+  }
+
+  // A stage ends when you crash: score it.
+  // Returns the previous best (0 for none).
+  function recordStage() {
+    if (stageIdx < 0 || !st || !st.stage) return 0;
+    var id = STAGES[stageIdx].id, best = stageBest(id);
+    if (st.score > best) { progress.stageBest = progress.stageBest || {}; progress.stageBest[id] = st.score; saveProgress(); }
+    return best;
+  }
+  function stageOver(words) {
+    var score = st.score, best = recordStage();
+    var msg = "Score " + score + " 🍎" + (stageIdx < 0 ? "" : score > best ? (best ? " — new best! 🎉" : "") : "  ·  Best " + best);
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      host.showResult({ title: words[0], msg: msg + "  ·  R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart });
+    }, 650);
+  }
+
+  // A level cleared on a run: time bonus, then the next level of the zone
+  // (or the warp target), or the pack is done.
+  function runWin(msg, warpIdx) {
+    var r = progress.run, zone = LEVELS[levelIdx].zone;
+    var bonus = st.timeLimit ? Math.floor(st.timeLeft / 1000 / RUN.bonusEvery) : 0;
+    addApples(bonus);
+    var next = warpIdx >= 0 ? warpIdx : levelIdx + 1;
+    var stats = (bonus ? "  ·  time bonus +" + bonus + " 🍎" : "") + "  ·  ❤ ×" + r.lives;
+    if (next > zoneLast(zone) || LEVELS[next].zone !== zone) {
+      progress.runs = progress.runs || {};
+      progress.runs[zone] = Math.max(progress.runs[zone] || 0, r.lives);
+      progress.run = null;
+      saveProgress();
+      endTimer = setTimeout(function () {
+        if (!active) return;
+        host.showResult({ title: zone + " pack cleared! 🏆", msg: "Ziggy rules, with ❤ ×" + r.lives + " to spare.", primaryLabel: "Level Select", primaryFn: host.toMenu });
+      }, 550);
+      return;
+    }
+    r.idx = next;
+    saveProgress();
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      host.showResult({ title: "Level clear! 🎉", msg: msg + stats, primaryLabel: "Next Level →", primaryFn: function () { start(next, true); } });
+    }, 550);
+  }
+
   // ---- HUD ---------------------------------------------------------------------
   function updateHud() {
     if (!st) return;
-    el.apples.innerHTML = st.applesLeft > 0 ? "🍎 <b>" + st.applesLeft + "</b> left" : "🚪 <b>exit open</b>";
+    if (st.arena) {
+      var left = st.snakes.filter(function (s) { return s.alive && (s.ctrl || s.kind === "rival"); }).length;
+      el.apples.innerHTML = "🐍 <b>" + left + "</b> left" + (tally && arenaIdx >= 0 ? " · 🏆 " + (twoPlayer() ? "P1 " + tally.p1 + " · P2 " + tally.p2 : "You " + tally.p1) + " · Rivals " + tally.rival : "");
+    } else if (st.stage) el.apples.innerHTML = "🍎 <b>" + st.score + "</b>" + (stageIdx >= 0 && stageBest(STAGES[stageIdx].id) ? " · best " + stageBest(STAGES[stageIdx].id) : "");
+    else el.apples.innerHTML = st.applesLeft > 0 ? "🍎 <b>" + st.applesLeft + "</b> left" : E.exitOpen(st) ? "🚪 <b>exit open</b>" : "🚪 <b>sealed</b>";
     var showTime = st.timeLimit ? st.timeLeft : st.elapsed;
     el.time.innerHTML = "⌛ <b>" + secs(showTime) + "</b>";
     if (st.timeLimit) {
@@ -343,12 +800,26 @@ window.SlitherLabyrinth = function (host) {
       // Sand runs from gold to ember as the clock drains.
       el.timeFill.style.backgroundColor = f > 0.5 ? "#e8c26a" : f > 0.25 ? "#e3a24c" : f > 0.1 ? "#e0763a" : "#e5484d";
     }
-    el.blink.style.display = st.teleports > 0 ? "" : "none";
-    el.blink.innerHTML = "✦ <b>×" + st.teleports + "</b>";
-    var showGhost = st.ghost > 0 || st.ghostActive;
+    var r = st.res.p1;
+    el.blink.style.display = r.teleports > 0 ? "" : "none";
+    el.blink.innerHTML = "✦ <b>×" + r.teleports + "</b>";
+    var showGhost = r.ghost > 0 || r.ghostActive;
     el.ghost.style.display = showGhost ? "" : "none";
-    el.ghostFill.style.width = (st.ghost / E.CFG.ghostMax * 100).toFixed(1) + "%";
-    el.ghost.classList.toggle("on", st.ghostActive);
+    el.ghostFill.style.width = (r.ghost / E.CFG.ghostMax * 100).toFixed(1) + "%";
+    el.ghost.classList.toggle("on", r.ghostActive);
+    el.lock.style.display = r.mouseLock > 0 ? "" : "none";
+    el.boss.style.display = st.boss ? "" : "none";
+    if (st.boss) {
+      var hearts = "";
+      for (var hp = 0; hp < st.bossMax; hp++) hearts += hp < st.bossHp ? "♥" : "♡";
+      el.boss.innerHTML = st.boss.alive ? "👁 <b>" + hearts + "</b>" : "👁 <b>defeated</b>";
+    }
+    el.lives.style.display = inRun && progress.run ? "" : "none";
+    if (inRun && progress.run) el.lives.innerHTML = "❤ <b>×" + progress.run.lives + "</b> · 🍎 <b>" + progress.run.apples + "</b>/" + RUN.perLife;
+    var mine = E.playersOf(st, "p1").length;
+    el.twins.style.display = mine > 1 ? "" : "none";
+    el.twins.innerHTML = "🐍 <b>×" + mine + "</b>";
+    if (r.mouseLock > 0) el.lock.innerHTML = "🖱✖ <b>" + Math.ceil(r.mouseLock / 1000) + "s</b>";
   }
 
   // ---- loop ----------------------------------------------------------------------
@@ -391,25 +862,39 @@ window.SlitherLabyrinth = function (host) {
           continue;
         }
         if (t === T.ICE) Art.ice(g, px, py, CELL, seed);
+        else if (t === T.STORM) Art.storm(g, px, py, CELL, seed);
+        else if (t === T.DREAM) {
+          var isD = function (xx, yy) { return xx >= 0 && yy >= 0 && xx < st.cols && yy < st.rows && st.tiles[yy * st.cols + xx] === T.DREAM; };
+          Art.dream(g, px, py, CELL, seed, { n: !isD(x, y - 1), s: !isD(x, y + 1), w: !isD(x - 1, y), e: !isD(x + 1, y) });
+        }
         else if (t === T.DARK) Art.darkFloor(g, px, py, CELL);
         else Art.floor(g, px, py, CELL, theme, seed);
         if (t === T.CUTTER) Art.cutter(g, px, py, CELL);
+        else if (t === T.STUD) Art.stud(g, px, py, CELL);
+        else if (t === T.INFINITY) Art.infinity(g, px, py, CELL);
+        else if (t === T.CLONER) Art.cloner(g, px, py, CELL);
+        else if (t === T.OUTLET) Art.outlet(g, px, py, CELL);
+        else if (t === T.TELE || t === T.TELE_OUT) live.push(i);
         else if (t === T.PORTAL) { Art.portalFrame(g, px + CELL / 2, py + CELL / 2, CELL / 2 - 1); live.push(i); }
-        else if (t === T.DOOR_SHUT || t === T.DOOR_OPEN || t === T.SWITCH || t === T.SPIKE_A || t === T.SPIKE_B || t === T.EXIT) live.push(i);
+        else if (t === T.DOOR_SHUT || t === T.DOOR_OPEN || t === T.SWITCH || t === T.CLICK || t === T.SPIKE_A || t === T.SPIKE_B || t === T.EXIT || t === T.WARP) live.push(i);
       }
     }
   }
 
   function drawLive(now, fx) {
-    var warn = st.status === "play" && st.spikeTimer < E.CFG.spikeWarnMs;
+    var warn = st.status === "play" && !st.lv.hasStuds && st.spikeTimer < E.CFG.spikeWarnMs;
     var blinkOn = !fx || Math.floor(now / 90) % 2 === 1;
     for (var k = 0; k < live.length; k++) {
       var i = live[k], t = st.tiles[i], px = (i % st.cols) * CELL, py = Math.floor(i / st.cols) * CELL;
-      if (t === T.DOOR_SHUT || t === T.DOOR_OPEN) Art.door(ctx, px, py, CELL, E.isDoorShut(st, i));
-      else if (t === T.SWITCH) Art.plate(ctx, px, py, CELL, st.flipped);
+      var col = st.lv.doorColor[i] || 0;
+      if (t === T.DOOR_SHUT || t === T.DOOR_OPEN) Art.door(ctx, px, py, CELL, E.isDoorShut(st, i), col);
+      else if (t === T.SWITCH) Art.plate(ctx, px, py, CELL, st.flip[col], col);
+      else if (t === T.CLICK) Art.clickSwitch(ctx, px, py, CELL, st.flip[col], col);
       else if (t === T.SPIKE_A || t === T.SPIKE_B) { var up = E.spikeUp(st, i); Art.spikes(ctx, px, py, CELL, up, !up && warn && blinkOn); }
-      else if (t === T.EXIT) Art.doorway(ctx, px, py, CELL, st.applesLeft === 0, now, fx);
-      else if (t === T.PORTAL) Art.portalGlow(ctx, px + CELL / 2, py + CELL / 2, CELL / 2 - 1, PORTAL_COLORS[st.lv.portalId[i] % PORTAL_COLORS.length], now, fx);
+      else if (t === T.EXIT) Art.doorway(ctx, px, py, CELL, E.exitOpen(st), now, fx);
+      else if (t === T.WARP) Art.warpway(ctx, px, py, CELL, E.exitOpen(st), now, fx);
+      else if (t === T.TELE || t === T.TELE_OUT) Art.telePad(ctx, px, py, CELL, t === T.TELE, st.lv.teleId[i] || 0, now, fx);
+      else if (t === T.PORTAL) Art.portalGlow(ctx, px + CELL / 2, py + CELL / 2, CELL / 2 - 1, Art.PORTAL_COLORS[st.lv.portalId[i] % 4], now, fx);
     }
   }
 
@@ -419,18 +904,24 @@ window.SlitherLabyrinth = function (host) {
     else if (item === "fast") Art.fruit(ctx, x, y, CELL - 6, "🍏");
     else if (item === "blink") Art.gem(ctx, x, y, CELL * 0.3);
     else if (item === "ghost") Art.wisp(ctx, x, y, CELL * 0.3, now, fx);
+    else Art.itemArt(ctx, item, x, y, CELL, now, fx);
   }
 
   function drawSnake(s, idx, now, fx) {
-    var alpha = 1, isPlayer = s === st.player;
+    var alpha = 1, isPlayer = !!s.ctrl || s.kind === "rival";
     if (!s.alive && !isPlayer) {
       alpha = 1 - (st.elapsed - s.diedAt) / 450;
       if (alpha <= 0) return;
     }
-    var ghost = isPlayer && s.alive && st.ghostActive;
+    var ghost = !!s.ctrl && s.alive && st.res[s.ctrl].ghostActive;
+    // Shooting through a dream block, a snake is a skeleton (ghosts just phase).
+    var skeleton = s.alive && st.tiles[s.body[0]] === T.DREAM && !(E.KINDS[s.kind] && E.KINDS[s.kind].phase);
     Art.serpent(ctx, s.body.map(function (i) { return { x: cx(i), y: cy(i) }; }), {
       cell: CELL,
-      pal: Art.SERPENTS[SERPENT_OF[s.kind] || "lapis"],
+      pal: skeleton ? Art.SERPENTS.bone : s.alive && st.tiles[s.body[0]] === T.STORM ? Art.SERPENTS.volt
+        : s.ctrl === "p2" ? Art.SERPENTS.lapis : s.kind === "rival" ? Art.SERPENTS[RIVAL_PALS[(s.rivalNo || 0) % RIVAL_PALS.length]] : Art.serpentFor(s.kind),
+      scale: s.kind === "boss" ? 1.7 : 1,
+      cyclops: s.kind === "boss",
       alpha: ghost ? 0.55 : alpha,
       dir: s.dir >= 0 ? { x: E.DX[s.dir], y: E.DY[s.dir] } : null,
       ghost: ghost,
@@ -448,6 +939,7 @@ window.SlitherLabyrinth = function (host) {
     drawLive(now, fx);
     var keys = Object.keys(st.items);
     keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, fx); });
+    st.flowers.forEach(function (f) { Art.flower(ctx, (f.cell % st.cols) * CELL, Math.floor(f.cell / st.cols) * CELL, CELL, f.armed, now, fx); });
     for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, now, fx);
 
     // Unlit halls hide serpents, not the apples you're hunting for.
@@ -463,8 +955,29 @@ window.SlitherLabyrinth = function (host) {
       if (st.items[i]) { ctx.globalAlpha = 0.8; drawItem(i, st.items[i], now, fx); ctx.globalAlpha = 1; }
     }
 
+    // In a storm the cursor steers: draw the arc from your head to it.
+    var sp = E.primary(st, "p1");
+    if (sp && st.tiles[sp.body[0]] === T.STORM && st.cursor >= 0 && st.res.p1.mouseLock <= 0) {
+      ctx.strokeStyle = "rgba(190,230,255,0.75)"; ctx.lineWidth = 1.5;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath(); ctx.moveTo(cx(sp.body[0]), cy(sp.body[0])); ctx.lineTo(cx(st.cursor), cy(st.cursor)); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // Where the engine thinks the cursor is — Mouse Eaters hunt it, so show it.
+    if (st.cursor >= 0 && st.snakes.some(function (s) { return s.alive && s.kind === "mouse"; })) {
+      var mx = cx(st.cursor), my = cy(st.cursor), locked = st.res.p1.mouseLock > 0;
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = locked ? "#8a8a8a" : "#fff4e0";
+      ctx.strokeStyle = "#1b1204"; ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(mx - 3, my - 7); ctx.lineTo(mx - 3, my + 5); ctx.lineTo(mx, my + 2); ctx.lineTo(mx + 2.5, my + 7);
+      ctx.lineTo(mx + 4.5, my + 6); ctx.lineTo(mx + 2, my + 1.5); ctx.lineTo(mx + 6, my + 1.5); ctx.closePath();
+      ctx.fill(); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
     // Teleport aim.
-    if (st.teleports > 0 && hover >= 0 && st.status === "play" && !paused) {
+    if (st.res.p1.teleports > 0 && hover >= 0 && st.status === "play" && !paused) {
       var ok = E.canBlinkTo(st, hover);
       ctx.strokeStyle = ok ? "#c99bff" : "#ff5a4a";
       ctx.lineWidth = 2;
@@ -495,15 +1008,18 @@ window.SlitherLabyrinth = function (host) {
       ctx.font = "700 15px Cinzel, Georgia, serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      ctx.fillText(touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or WASD to begin", W / 2, H / 2 + 1);
+      ctx.fillText(twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: WASD · P2: arrow keys · steer to begin")
+        : touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or WASD to begin", W / 2, H / 2 + 1);
     }
   }
 
   return {
     start: start, restart: restart, stop: stop,
     togglePause: togglePause, autoPause: autoPause, isPaused: function () { return paused; },
-    keydown: keydown, keyup: keyup, steer: steer,
-    buildLevelGrid: buildLevelGrid, continueIndex: continueIndex,
+    keydown: keydown, keyup: keyup, steer: steer, padSteer: padSteer, unsteer: unsteer, padHold: padHold,
+    isOver: function () { return !!st && (st.status === "dead" || st.status === "won" || st.status === "over"); },
+    buildLevelGrid: buildLevelGrid, continueIndex: continueIndex, startCustom: startCustom,
+    startRun: startRun, continueRun: continueRun, startStage: startStage, startArena: startArena,
     levelCount: function () { return LEVELS.length; },
   };
 };

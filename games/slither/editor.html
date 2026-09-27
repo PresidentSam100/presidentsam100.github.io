@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%90%8D%3C%2Ftext%3E%3C%2Fsvg%3E" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Slither — Level editor</title>
+    <meta name="author" content="Sam Lu" />
+    <meta name="description" content="Build your own Slither labyrinth levels, check they can be finished, and share them as a link." />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+    <script src="../motion-toggle.js"></script>
+    <script src="../mute-toggle.js"></script>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+  </head>
+  <body>
+    <a href="./" class="nav-back-games" aria-label="Back to Slither" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Cinzel',Georgia,serif;letter-spacing:0.04em;color:#f0d898;background:linear-gradient(180deg,#5c4e3b,#3a3025);border:1px solid #1c160f;border-radius:7px;box-shadow:inset 0 1px 0 rgba(255,235,190,0.22),0 3px 0 #0d0a07;padding:8px 13px">&larr; Slither</a>
+    <div class="wrap ed-wrap">
+      <div style="text-align:center">
+        <h1 class="title">Level Editor</h1>
+        <p class="subtitle">paint a labyrinth · check it · share it</p>
+      </div>
+
+      <div class="ed-layout">
+        <aside class="ed-panel" aria-label="Tiles">
+          <div class="ed-panel-title">Tiles</div>
+          <div id="ed-palette"></div>
+          <p class="ed-tip" id="ed-tip">Pick a tile, then paint. Right-click paints floor.</p>
+        </aside>
+
+        <main class="ed-main">
+          <div class="row ed-toolbar">
+            <div class="row ed-seg" id="ed-tools">
+              <button class="btn sel" data-tool="paint" title="Paint (P)">✎ Paint</button>
+              <button class="btn" data-tool="rect" title="Rectangle (R)">▭ Box</button>
+              <button class="btn" data-tool="fill" title="Fill (F)">◧ Fill</button>
+            </div>
+            <button class="btn" id="ed-undo" title="Undo (Ctrl+Z)">↶</button>
+            <button class="btn" id="ed-redo" title="Redo (Ctrl+Y)">↷</button>
+            <button class="btn" id="ed-border" title="Wall in the whole edge">▢ Border</button>
+            <button class="btn" id="ed-clear" title="Start a blank level">✕ New</button>
+          </div>
+          <div class="ed-canvas-wrap"><canvas id="ed-board" class="board"></canvas></div>
+          <p class="ed-status" id="ed-status" role="status" aria-live="polite"></p>
+        </main>
+
+        <aside class="ed-panel ed-meta" aria-label="Level settings">
+          <div class="ed-panel-title">Level</div>
+          <label>Name <input id="ed-name" maxlength="40" /></label>
+          <label>Look
+            <select id="ed-zone"></select>
+          </label>
+          <div class="ed-pair">
+            <label>Width <input id="ed-cols" type="number" min="6" max="60" /></label>
+            <label>Height <input id="ed-rows" type="number" min="6" max="60" /></label>
+          </div>
+          <label>Time limit, seconds <input id="ed-time" type="number" min="0" max="999" /> <small>0 = untimed</small></label>
+          <label>Hint <textarea id="ed-hint" rows="3" maxlength="240"></textarea></label>
+          <label id="ed-warps-row" hidden>Warp targets <input id="ed-warps" placeholder="level ids, in reading order" /></label>
+          <label id="ed-tele-row" hidden>Reverse teleporters <input id="ed-tele" placeholder="digits, e.g. 57" maxlength="5" /></label>
+          <label id="ed-boss-row" hidden>Boss health <input id="ed-bosshp" type="number" min="1" max="9" /></label>
+          <label class="ed-check"><input type="checkbox" id="ed-enemyswitch" /> Enemies can press switches</label>
+          <label>Rules
+            <select id="ed-mode">
+              <option value="">Campaign: eat the apples, reach the exit</option>
+              <option value="stage">Stage: endless apples, no exit</option>
+              <option value="arena">Arena: last snake standing (s, r)</option>
+            </select>
+          </label>
+
+          <div class="ed-actions">
+            <button class="btn" id="ed-check">✓ Check it can be finished</button>
+            <p class="ed-result" id="ed-result"></p>
+            <button class="btn" id="ed-play">▶ Play it</button>
+            <button class="btn" id="ed-save">💾 Save to my levels</button>
+            <button class="btn" id="ed-share">🔗 Copy share link</button>
+            <div class="row">
+              <button class="btn" id="ed-export">Export</button>
+              <button class="btn" id="ed-import">Import</button>
+            </div>
+            <label>Start from a campaign level
+              <select id="ed-open"><option value="">—</option></select>
+            </label>
+          </div>
+
+          <div class="ed-panel-title">My levels</div>
+          <div id="ed-mine"></div>
+        </aside>
+      </div>
+      <p id="byline">made by sam lu (not you)</p>
+    </div>
+
+    <dialog class="card ed-dialog" id="ed-io">
+      <h2 id="ed-io-title">Export</h2>
+      <p id="ed-io-help"></p>
+      <textarea id="ed-io-text" rows="10" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn" id="ed-io-ok">Done</button>
+        <button class="btn" id="ed-io-cancel">Cancel</button>
+      </div>
+    </dialog>
+
+    <script src="temple-art.js"></script>
+    <script src="labyrinth-engine.js"></script>
+    <script src="levelcode.js"></script>
+    <script src="levels.js"></script>
+    <script src="editor.js"></script>
+  </body>
+</html>

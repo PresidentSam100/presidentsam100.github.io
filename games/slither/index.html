@@ -48,6 +48,10 @@
             <span class="stat" id="lab-time"></span>
             <span class="stat lab-chip" id="lab-blink" title="Teleports: click or tap a cell"></span>
             <span class="stat lab-chip" id="lab-ghost" title="Ghost meter: hold G, right-click, or 👻">👻 <span class="lab-meter"><i id="lab-ghostfill"></i></span></span>
+            <span class="stat lab-chip" id="lab-lock" title="A Mouse Eater ate your cursor: mouse powers are stalled" style="display:none;"></span>
+            <span class="stat lab-chip" id="lab-twins" title="Snakes you control" style="display:none;"></span>
+            <span class="stat lab-chip" id="lab-boss" title="The boss's health: eat damage fruit to wound it" style="display:none;"></span>
+            <span class="stat lab-chip" id="lab-lives" title="Pack run: lives left, and apples toward the next extra life" style="display:none;"></span>
           </div>
           <div class="lab-timebar" id="lab-timebar"><i id="lab-timefill"></i></div>
           <p class="lab-hint" id="lab-hint"></p>
@@ -129,6 +133,7 @@
         <div class="group" id="lab-opts" style="display:none;">
           <div class="lbl">Levels</div>
           <div id="lab-levels"></div>
+          <div class="row lab-tools"><a class="btn" id="editor-link" href="editor.html">🛠 Level editor</a><button class="btn" id="music-btn" type="button" title="Music for each zone (M)">🎵 Music: On</button></div>
         </div>
 
         <div class="row" style="margin-top:1rem;">
@@ -146,17 +151,22 @@
 
         <details class="dict-wrap" id="legend-lab" style="display:none;">
           <summary>Labyrinth legend</summary>
-          <div class="dict-item"><b>🍎 → 🚪</b> — eat every red apple to unlock the arch, then reach it before the clock runs out. A locked arch is a wall. Crash and you retry the level instantly — no lives.</div>
+          <div class="dict-item"><b>🍎 → 🚪</b> — eat every red apple to unlock the arch, then reach it before the clock runs out. A locked arch is a wall. Crash and you retry the level at once; a second arch 🌀 (warp) skips ahead.</div>
+          <div class="dict-item"><b>❤ Pack runs</b> — Ziggy's rules: a whole zone on 9 lives. 1-ups, every 50 apples and leftover time (1 apple per 5 s) win lives back; crashing, restarting or quitting costs one. 1-ups and 🟡 golden apples (+5 apples) only appear on runs.</div>
+          <div class="dict-item"><b>🍎 Stages</b> — Classic rules on hand-built boards: apples keep growing back, you speed up, no exit. <b>🏟 Arena</b> — last snake standing against rival snakes, with a friend on the same keyboard (P1 WASD, P2 arrows) if you like.</div>
           <div class="dict-item"><b>✦ Blink apple</b> — one teleport: click (or tap) any open cell and your head jumps there.</div>
           <div class="dict-item"><b>👻 Ghost apple</b> — fills the ghost meter. Hold G, right-click, or 👻 to pass through walls, doors and bodies. Ghosts can't use the exit.</div>
-          <div class="dict-item"><b>🍏 Fast apple</b> — a permanent speed-up for this level. Hold Shift (or ⚡) any time to dash.</div>
-          <div class="dict-item"><b>🌀 Portals</b> — matching colors are linked; you keep your heading.</div>
+          <div class="dict-item"><b>🍏 Fast apple</b> — a permanent speed-up for this level. Sprint any time: hold a direction for a moment, tap it twice, or hold Shift / ⚡.</div>
+          <div class="dict-item"><b>🍉 Watermelon</b> — only enemies can eat it; to you it's a wall.</div>
+          <div class="dict-item"><b>🌀 Portals &amp; pads</b> — matching portals are linked and you keep your heading. Numbered teleport pads only send one way.</div>
           <div class="dict-item"><b>🧊 Ice</b> — you can't turn on it. Queue your turn for when you slide off.</div>
-          <div class="dict-item"><b>🟧 Doors &amp; switches</b> — rolling over a switch flips every door: shut ones open, open ones shut.</div>
-          <div class="dict-item"><b>🔺 Spikes</b> — they rise and fall on a beat, flashing red just before rising. Raised spikes cut any part of you.</div>
-          <div class="dict-item"><b>✂ Cutter</b> — trims whoever enters it down to three segments.</div>
+          <div class="dict-item"><b>💭 Dream blocks</b> — you shoot straight through as a skeleton: no steering, you pass through yourself, and a wall bounces you back. <b>⚡ Storm tiles</b> — you fly fast toward your pointer (your finger on a phone; arrow keys without one).</div>
+          <div class="dict-item"><b>🟧 Doors &amp; switches</b> — doors come in amber, cyan and magenta. Rolling over a round switch flips every door of its colour: shut ones open, open ones shut. Square 🖱 switches flip when you click or tap them (or press 1 / 2 / 3).</div>
+          <div class="dict-item"><b>🔺 Spikes</b> — they rise and fall on a beat, flashing red just before rising. Raised spikes cut any part of you. In a level with <b>bronze studs</b> there's no beat: stepping on a stud flips every spike field, so make sure your tail is clear first.</div>
+          <div class="dict-item"><b>✂ Cutter</b> — trims whoever enters it down to three segments. <b>∞ Infinity machine</b> — whoever enters it grows every move until a cutter. <b>Cloner</b> — a twin appears at the outlet and obeys your turns.</div>
           <div class="dict-item"><b>⬛ Darkness</b> — snakes vanish in it. Apples don't.</div>
-          <div class="dict-item"><b>🐍 Enemies</b> — <span style="color:#2553b8">wanderers</span> roam, <span style="color:#7b2fb8">hunters</span> try to cut you off, <span style="color:#b4531a">munchers</span> race you for apples (apples they eat still count). Your head hitting them kills you; their head hitting you kills them.</div>
+          <div class="dict-item"><b>🐍 Enemies</b> — <span style="color:#2553b8">wanderers</span> roam, <span style="color:#7b2fb8">hunters</span> try to cut you off, <span style="color:#b4531a">munchers</span> race you for apples, drifters go straight then turn right, loopers circle with a wall on their right, zippers are just fast, metal snakes shrug off spikes, copycats copy your turns, ghosts glide or hunt through walls, Mouse Eaters chase your cursor and stall your mouse powers, and the Rainbow never crashes — box it in. Your head hitting them kills you; their head hitting you kills them.</div>
+          <div class="dict-item"><b>👁 Serpent King</b> — the boss slides through walls after you, summons worms and grows spike flowers (a flashing red ring warns first). Only golden damage fruit hurts it; the exit opens when it falls.</div>
         </details>
       </div>
     </div>
@@ -186,8 +196,12 @@
     </div>
 
     <script src="temple-art.js"></script>
+    <script src="levelcode.js"></script>
     <script src="levels.js"></script>
+    <script src="stages.js"></script>
+    <script src="arenas.js"></script>
     <script src="labyrinth-engine.js"></script>
+    <script src="music.js"></script>
     <script src="labyrinth.js"></script>
     <script src="game.js"></script>
   </body>
