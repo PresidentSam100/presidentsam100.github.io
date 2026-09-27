@@ -88,7 +88,12 @@
         font-size: 1.05rem;
       }
 
+      /* Descriptions are capped at two lines — write them short (~70 chars). */
       .game-card .desc {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
         font-size: 0.85rem;
         color: #999;
         font-weight: 400;
@@ -193,7 +198,7 @@
         <a class="game-card" href="./neon-pinball/">
           <span class="icon">🪩</span>
           <span class="name">Neon Pinball <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">BETA</sup></span>
-          <span class="desc">physics pinball — bumpers, multiball, tilt</span>
+          <span class="desc">physics pinball — skill shots, kickback, loops, multiball jackpots</span>
           <span class="play">play →</span>
         </a>
 
@@ -256,7 +261,7 @@
         <a class="game-card" href="./darkroom/">
           <span class="icon">📷</span>
           <span class="name">Darkroom</span>
-          <span class="desc">nonograms under a red safelight — solve the clues and a photo develops, no guessing ever</span>
+          <span class="desc">nonogram logic under the safelight — solve the clues, develop the photo</span>
           <span class="play">play →</span>
         </a>
 
@@ -277,7 +282,7 @@
         <a class="game-card" href="./fish-a-fish/">
           <span class="icon">🎣</span>
           <span class="name">Fish-A-Fish</span>
-          <span class="desc">whack-a-mole at a dawn pond — nine bobbers, nine keys, strike when the fish bites</span>
+          <span class="desc">whack-a-mole fishing — strike each key as its bobber plunges</span>
           <span class="play">play →</span>
         </a>
 
