@@ -45,116 +45,63 @@
     tick: function () { beep(760, 0.05, 0.07, "square"); }
   };
 
-  // ----- vehicles (procedural, soft-shaded top-down) -----------------
-  // Realistic car colours, matching the reference art.
+  // ----- palette helpers -----------------------------------------------
   var CAR_COLORS = ["#b5392f", "#2f6fb0", "#26456e", "#e7e8e2", "#bcc0c6", "#868a91", "#2a2e35"];
   var PLAYER_BASE = "#39b6ff";
   var TRUCK_PROB = 0.1;
-  var TRUCK_LEN = 1.8;   // truck height as a multiple of a car (kept short enough to stay fair)
+  var TRUCK_LEN = 1.8;   // truck length as a multiple of a car (kept short enough to stay fair)
   var MERGE_PROB = 0.2;  // chance a car will signal and change lanes on the way down
 
-  function shade(hex, amt) { // amt<0 → darker, amt>0 → lighter
-    var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-    var t = amt < 0 ? 0 : 255, a = Math.abs(amt);
-    r = Math.round(r + (t - r) * a); g = Math.round(g + (t - g) * a); b = Math.round(b + (t - b) * a);
-    return "rgb(" + r + "," + g + "," + b + ")";
-  }
-  function rr(x, y, w, h, r) {
-    r = Math.min(r, w / 2, h / 2);
-    ctx.beginPath(); ctx.moveTo(x + r, y);
-    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
-    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-  }
-  function bodyGradient(x, w, base) {
-    var g = ctx.createLinearGradient(x, 0, x + w, 0);
-    g.addColorStop(0, shade(base, -0.3)); g.addColorStop(0.5, shade(base, 0.16)); g.addColorStop(1, shade(base, -0.3));
-    return g;
-  }
-  // Cars face UP (front = top). Headlights at the front, taillights at the rear.
-  function drawVehicleAt(cx, cy, w, h, type, base, signalDir) {
-    var x = Math.round(cx - w / 2), y = Math.round(cy - h / 2);
-    ctx.fillStyle = "rgba(0,0,0,0.30)"; // drop shadow, down-right
-    rr(x + Math.round(w * 0.09), y + Math.round(h * 0.05), w, h, w * 0.28); ctx.fill();
-    if (type === "truck") return drawTruck(x, y, w, h, base);
-    ctx.fillStyle = bodyGradient(x, w, base); rr(x, y, w, h, w * 0.28); ctx.fill();
-    ctx.lineWidth = Math.max(1, w * 0.05); ctx.strokeStyle = shade(base, -0.5); rr(x, y, w, h, w * 0.28); ctx.stroke();
-    // side mirrors
-    ctx.fillStyle = shade(base, -0.12);
-    ctx.fillRect(x - Math.round(w * 0.05), y + Math.round(h * 0.3), Math.round(w * 0.07), Math.round(h * 0.045));
-    ctx.fillRect(x + w - Math.round(w * 0.02), y + Math.round(h * 0.3), Math.round(w * 0.07), Math.round(h * 0.045));
-    // roof highlight (centre band)
-    ctx.fillStyle = shade(base, 0.24); rr(x + w * 0.2, y + h * 0.37, w * 0.6, h * 0.26, w * 0.12); ctx.fill();
-    // glass: windshield + rear window
-    ctx.fillStyle = "#0f1320";
-    rr(x + w * 0.17, y + h * 0.16, w * 0.66, h * 0.16, w * 0.09); ctx.fill();
-    rr(x + w * 0.17, y + h * 0.67, w * 0.66, h * 0.14, w * 0.09); ctx.fill();
-    // headlights (front) + taillights (rear)
-    ctx.fillStyle = "#fff6cf";
-    rr(x + w * 0.15, y + h * 0.035, w * 0.2, h * 0.045, 2); ctx.fill();
-    rr(x + w * 0.65, y + h * 0.035, w * 0.2, h * 0.045, 2); ctx.fill();
-    ctx.fillStyle = "#ff3b3b";
-    rr(x + w * 0.15, y + h * 0.92, w * 0.2, h * 0.045, 2); ctx.fill();
-    rr(x + w * 0.65, y + h * 0.92, w * 0.2, h * 0.045, 2); ctx.fill();
-    // flashing turn signal (amber) on the side the car is merging toward
-    if (signalDir && blinkOn) {
-      ctx.fillStyle = "#ffb12e";
-      var sx = signalDir < 0 ? x + w * 0.14 : x + w * 0.66;
-      rr(sx, y + h * 0.02, w * 0.2, h * 0.06, 2); ctx.fill();
-      rr(sx, y + h * 0.89, w * 0.2, h * 0.06, 2); ctx.fill();
+  var rgbCache = {};
+  function rgbOf(col) { // "#rrggbb" or "rgb(r,g,b)" — shade/mix results chain
+    var c = rgbCache[col];
+    if (!c) {
+      if (col.charAt(0) === "#") {
+        var n = parseInt(col.slice(1), 16);
+        c = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+      } else {
+        var m = /rgb\((\d+),(\d+),(\d+)\)/.exec(col);
+        c = m ? [+m[1], +m[2], +m[3]] : [0, 0, 0];
+      }
+      rgbCache[col] = c;
     }
+    return c;
   }
-  function drawTruck(x, y, w, h, base) {
-    var cabH = h * 0.28, trY = y + h * 0.33, trH = h * 0.67;
-    // trailer
-    ctx.fillStyle = "#d7d8d2"; rr(x + w * 0.05, trY, w * 0.9, trH, w * 0.14); ctx.fill();
-    ctx.lineWidth = Math.max(1, w * 0.045); ctx.strokeStyle = shade("#d7d8d2", -0.45); rr(x + w * 0.05, trY, w * 0.9, trH, w * 0.14); ctx.stroke();
-    ctx.strokeStyle = "rgba(0,0,0,0.16)"; ctx.lineWidth = 1;
-    for (var i = 1; i < 8; i++) { var ly = Math.round(trY + trH * i / 8); ctx.beginPath(); ctx.moveTo(x + w * 0.08, ly); ctx.lineTo(x + w * 0.92, ly); ctx.stroke(); }
-    ctx.fillStyle = "#ff3b3b"; rr(x + w * 0.12, y + h * 0.965, w * 0.18, h * 0.025, 2); ctx.fill(); rr(x + w * 0.7, y + h * 0.965, w * 0.18, h * 0.025, 2); ctx.fill();
-    // cab
-    ctx.fillStyle = bodyGradient(x + w * 0.06, w * 0.88, base); rr(x + w * 0.06, y, w * 0.88, cabH, w * 0.22); ctx.fill();
-    ctx.lineWidth = Math.max(1, w * 0.05); ctx.strokeStyle = shade(base, -0.5); rr(x + w * 0.06, y, w * 0.88, cabH, w * 0.22); ctx.stroke();
-    ctx.fillStyle = "#0f1320"; rr(x + w * 0.18, y + cabH * 0.52, w * 0.64, cabH * 0.36, w * 0.06); ctx.fill();
-    ctx.fillStyle = "#fff6cf"; rr(x + w * 0.16, y + h * 0.008, w * 0.16, h * 0.022, 2); ctx.fill(); rr(x + w * 0.68, y + h * 0.008, w * 0.16, h * 0.022, 2); ctx.fill();
+  function shade(hex, amt) { // amt<0 → darker, amt>0 → lighter
+    var c = rgbOf(hex), t = amt < 0 ? 0 : 255, a = Math.abs(amt);
+    return "rgb(" + Math.round(c[0] + (t - c[0]) * a) + "," + Math.round(c[1] + (t - c[1]) * a) + "," + Math.round(c[2] + (t - c[2]) * a) + ")";
   }
+  function mix(hexA, hexB, t) { // blend two hex colours
+    var a = rgbOf(hexA), b = rgbOf(hexB);
+    return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + "," + Math.round(a[1] + (b[1] - a[1]) * t) + "," + Math.round(a[2] + (b[2] - a[2]) * t) + ")";
+  }
+  function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  function glow(x, y, r, color) {
-    var g = ctx.createRadialGradient(x, y, 0, x, y, r);
-    g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill();
-  }
-
-  // Visual FX = the inverse of the shared "reduce motion" toggle. When ON we add
-  // speed streaks + per-car motion blur; when OFF the scene is the crisp static one.
+  // Visual FX = the inverse of the shared "reduce motion" toggle. When ON the
+  // camera lives: banking, angle changes, the menu orbit, speed sway. When OFF
+  // it stays locked to the plain chase view.
   function fxOn() { return !(window.RM_ON && window.RM_ON()); }
-  // 0 at base speed → 1 at top speed; scales how strong the motion FX read.
   function speedFx() { return Math.max(0, Math.min(1, (speed - BASE_SPEED) / 420)); }
-  function drawGhostBody(cx, cy, w, h, base, alpha) {
-    ctx.save(); ctx.globalAlpha = alpha; ctx.fillStyle = base;
-    rr(Math.round(cx - w / 2), Math.round(cy - h / 2), w, h, w * 0.28); ctx.fill();
-    ctx.restore();
-  }
-  // sideways motion-blur trail from a short position history — visible during AND
-  // just after a lane change (a merging car, or your car moving left/right).
-  // Stays empty/quiet when the car is just driving straight.
-  function drawTrail(trail, w, h, base, active) {
-    var n = trail.length;
-    if (n < 2) return;
-    var minx = Infinity, maxx = -Infinity;
-    for (var i = 0; i < n; i++) { var x = trail[i].x; if (x < minx) minx = x; if (x > maxx) maxx = x; }
-    // While the car is actively merging / changing lanes, always show the blur
-    // (the eased start & end barely move, so a spread threshold would hide it).
-    // Once the move ends, keep lingering only while the recent path still spans width.
-    if (!active && maxx - minx < 2) return;
-    var cy = trail[n - 1].y; // horizontal smear at the car's current height
-    for (var j = 0; j < n - 1; j++) drawGhostBody(trail[j].x, cy, w, h, base, 0.34 * (j + 1) / n);
-  }
 
-  // ----- layout / sizing ---------------------------------------------
-  var W = 0, H = 0, DPR = 1;
-  var road = { x: 0, w: 0 };
-  var laneW = 0, carW = 0, carH = 0, playerY = 0;
+  // ----- gameplay space --------------------------------------------------
+  // Gameplay runs in a FIXED virtual top-down space (identical on every
+  // screen); only the camera projection below touches the real canvas.
+  var VW = 420, VH = 640;
+  var road = { x: 30, w: 360 };
+  var laneW = road.w / LANES;              // 72
+  var carW = laneW * 0.62;                 // ~44.6
+  var carH = carW * 1.9;                   // ~84.8
+  var playerY = VH - carH * 0.7 - 14;      // ~566
+  var K = 0.05;                            // metres per virtual pixel
+  function laneX(i) { return road.x + laneW * (i + 0.5); }
+  function wx(vx) { return (vx - VW / 2) * K; }         // virtual x → world metres
+  function wz(vy) { return (playerY - vy) * K; }        // virtual y → metres ahead
+  var LANE_M = laneW * K;                  // 3.6 m
+  var ROAD_HALF = (road.w / 2) * K;        // 9 m
+  var CAR_WM = carW * K, CAR_LM = carH * K;
 
+  // ----- canvas sizing ---------------------------------------------------
+  var W = 0, H = 0, DPR = 1, CX = 0, CY = 0, FOCAL = 0;
   function resize() {
     var maxW = stage.clientWidth || 400;
     var availH = Math.max(360, window.innerHeight - stage.getBoundingClientRect().top - 70);
@@ -165,21 +112,14 @@
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
     cv.style.width = W + "px"; cv.style.height = H + "px";
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    ctx.imageSmoothingEnabled = false;
-    var shoulder = Math.max(10, W * 0.07);
-    road.x = shoulder; road.w = W - shoulder * 2;
-    laneW = road.w / LANES;
-    carW = laneW * 0.62; carH = Math.min(carW * 1.9, H * 0.17);
-    playerY = H - carH * 0.7 - 14;
-    buildGrass(); buildStreaks();
-    if (player) player.x = laneX(player.lane);
+    CX = W / 2; CY = H * 0.46;
+    FOCAL = Math.max(W * 0.95, H * 0.62);
   }
-  function laneX(i) { return road.x + laneW * (i + 0.5); }
 
   // ----- game state ---------------------------------------------------
   var mode = "day";
   var blinkOn = false; // shared turn-signal blink phase
-  var player = { lane: 2, x: 0, trail: [] };
+  var player = { lane: 2, x: 0 };
   var obstacles = [];               // {lane, y, w, h, type, color}
   var speed = 0, score = 0, scroll = 0, running = false, lastMilestone = 0;
   var corridorLane = 2, waveAcc = 0;
@@ -193,29 +133,22 @@
 
   function reset() {
     obstacles = []; speed = BASE_SPEED; score = 0; scroll = 0; lastMilestone = 0;
-    player.lane = 2; player.x = laneX(2); player.trail = [];
-    // start on an EMPTY road in the middle; traffic streams in from the top.
-    // waveAcc primed so the first wave appears immediately at the top edge.
+    player.lane = 2; player.x = laneX(2);
     corridorLane = 2; waveAcc = waveGap(); JIT = carH * 0.65;
+    camPresetIdx = 0; camFrom = null; camT = 1; shakeT = 0;
   }
 
-  // ----- traffic generation ------------------------------------------
+  // ----- traffic generation (unchanged rules, virtual space) ------------
   // Cars are generated in WAVES descending from the top, all at the SAME speed —
-  // so same-lane cars keep their spacing and never rear-end, and the pattern
-  // stays coherent as it scrolls. Each wave keeps one "corridor" lane open, and
-  // the corridor only steps by ≤1 lane between waves, so the open lanes form a
-  // continuous drivable diagonal: NO dead ends. The corridor random-walks across
-  // ALL five lanes (no middle bias); each non-corridor lane fills only with some
-  // probability and every car gets a little vertical scatter, so the traffic
-  // looks natural instead of a robotic row of three abreast.
-  // A committed merge reserves BOTH its current lane and its target lane (mergeTo),
-  // so spacing/clearance checks treat it as occupying both for its whole descent.
-  function laneTopEdge(l) { // top edge of the highest vehicle that occupies lane l
+  // so same-lane cars keep their spacing and never rear-end. Each wave keeps one
+  // "corridor" lane open and the corridor only steps by ≤1 lane between waves,
+  // so the open lanes form a continuous drivable diagonal: NO dead ends.
+  function laneTopEdge(l) {
     var t = Infinity;
     for (var i = 0; i < obstacles.length; i++) { var o = obstacles[i]; if (o.lane === l || o.mergeTo === l) t = Math.min(t, o.y - o.h / 2); }
     return t;
   }
-  function laneClearAround(self, l) { // is lane l free of other vehicles near self's y?
+  function laneClearAround(self, l) {
     for (var i = 0; i < obstacles.length; i++) {
       var p = obstacles[i]; if (p === self) continue;
       if ((p.lane === l || p.mergeTo === l) && Math.abs(p.y - self.y) < (self.h + p.h) / 2 + carH * 0.5) return false;
@@ -226,33 +159,27 @@
     var truck = Math.random() < TRUCK_PROB;
     var h = truck ? carH * TRUCK_LEN : carH;
     var w = truck ? carW * 0.98 : carW;
-    var yNew = -h / 2 - Math.random() * JIT; // enters from the top, with vertical scatter
-    // height-aware room check: never overlap the vehicle ahead in this lane
+    var yNew = -h / 2 - Math.random() * JIT;
     if (laneTopEdge(l) - (yNew + h / 2) < carH * 0.5) return null;
     var o = { lane: l, y: yNew, w: w, h: h, type: truck ? "truck" : "car",
               color: CAR_COLORS[(Math.random() * CAR_COLORS.length) | 0],
-              cx: laneX(l), trail: [], pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: corridorLane };
+              cx: laneX(l), pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: corridorLane };
     obstacles.push(o);
     return o;
   }
-  // Commit a merge ONLY if the target lane is a non-corridor lane and is clear
-  // right now. Because all cars share one speed, "clear now" stays clear, and we
-  // reserve the target via mergeTo so nothing spawns into it — so a committed
-  // merge ALWAYS executes. The signal is only ever lit for such a valid merge.
   function tryAssignMerge(o) {
     var dirs = Math.random() < 0.5 ? [-1, 1] : [1, -1];
     for (var k = 0; k < 2; k++) {
       var dir = dirs[k], tl = o.lane + dir;
-      if (tl < 0 || tl >= LANES || tl === o.wc) continue;     // never into the corridor lane
-      if (!laneClearAround(o, tl)) continue;                  // target spot must be open
-      o.mergeTo = tl; o.mergeDir = dir; o.pending = true;     // committed → will merge
+      if (tl < 0 || tl >= LANES || tl === o.wc) continue;
+      if (!laneClearAround(o, tl)) continue;
+      o.mergeTo = tl; o.mergeDir = dir; o.pending = true;
       return;
     }
   }
   function spawnWave() {
     var pf = fillProb(), start = obstacles.length;
     for (var l = 0; l < LANES; l++) { if (l === corridorLane) continue; if (Math.random() > pf) continue; makeVehicle(l); }
-    // after the whole wave exists, let some cars commit to a (validated) merge
     for (var i = start; i < obstacles.length; i++) {
       var o = obstacles[i];
       if (o.type === "car" && Math.random() < MERGE_PROB) tryAssignMerge(o);
@@ -283,160 +210,453 @@
     move(e.clientX - r.left < r.width / 2 ? -1 : 1);
   });
 
-  // ----- collision ----------------------------------------------------
+  // ----- collision ------------------------------------------------------
   function hit(o) {
     return Math.abs(player.x - o.cx) < (carW + o.w) / 2 - carW * 0.16 &&
            Math.abs(playerY - o.y) < (carH + o.h) / 2 - carH * 0.14;
   }
 
+  // ============================ 3D CAMERA ================================
+  // A tiny pipeline: world (metres; x lateral, y up, z ahead of the player)
+  // → camera space (yaw → pitch → roll) → near-plane clip → perspective.
+  var cam = { ex: 0, ey: 4.6, ez: -7.5, yaw: 0, pitch: 0.34, roll: 0 };
+  var NEAR = 0.28;
+  var cyw = 1, syw = 0, cpt = 1, spt = 0, crl = 1, srl = 0;
+  function camReady() {
+    cyw = Math.cos(cam.yaw); syw = Math.sin(cam.yaw);
+    cpt = Math.cos(cam.pitch); spt = Math.sin(cam.pitch);
+    crl = Math.cos(cam.roll); srl = Math.sin(cam.roll);
+  }
+  function camSpace(x, y, z) {
+    var dx = x - cam.ex, dy = y - cam.ey, dz = z - cam.ez;
+    var x1 = dx * cyw - dz * syw, z1 = dx * syw + dz * cyw;   // yaw
+    var y2 = dy * cpt + z1 * spt, z2 = -dy * spt + z1 * cpt;  // pitch (＋ looks down)
+    return { x: x1 * crl - y2 * srl, y: x1 * srl + y2 * crl, z: z2 };
+  }
+  function toScreen(p) { return { x: CX + FOCAL * p.x / p.z, y: CY - FOCAL * p.y / p.z }; }
+  // Sutherland–Hodgman against the z=NEAR plane, in camera space.
+  function clipNear(pts) {
+    var out = [];
+    for (var i = 0; i < pts.length; i++) {
+      var a = pts[i], b = pts[(i + 1) % pts.length];
+      var ain = a.z >= NEAR, bin = b.z >= NEAR;
+      if (ain) out.push(a);
+      if (ain !== bin) {
+        var t = (NEAR - a.z) / (b.z - a.z);
+        out.push({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, z: NEAR });
+      }
+    }
+    return out;
+  }
+  // Fill a world-space polygon. pts = flat array [x,y,z, x,y,z, ...]
+  function poly(pts, fill) {
+    var cs = [];
+    for (var i = 0; i < pts.length; i += 3) cs.push(camSpace(pts[i], pts[i + 1], pts[i + 2]));
+    cs = clipNear(cs);
+    if (cs.length < 3) return;
+    ctx.fillStyle = fill;
+    ctx.beginPath();
+    var s0 = toScreen(cs[0]);
+    ctx.moveTo(s0.x, s0.y);
+    for (var j = 1; j < cs.length; j++) { var s = toScreen(cs[j]); ctx.lineTo(s.x, s.y); }
+    ctx.closePath();
+    ctx.fill();
+  }
+  // Distance haze toward the horizon colour — it also hides traffic spawning in.
+  function fogAt(z) { return clamp01((z - 15) / 13); }
+  function fogged(hex, z) { var f = fogAt(z); return f <= 0 ? hex : mix(hex, HAZE, f); }
+
+  // An axis-aligned box: draws only the faces the eye can see, sun-shaded.
+  // faceCols may override {top, front, back, left, right}.
+  function box(x0, x1, y0, y1, z0, z1, base, faceCols) {
+    var zc = (z0 + z1) / 2, fc = faceCols || {};
+    function col(name, amt) { return fogged(fc[name] || shade(base, amt), zc); }
+    if (cam.ey > y1) poly([x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1], col("top", NIGHT ? 0.06 : 0.2));
+    if (cam.ez < z0) poly([x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0], col("front", NIGHT ? -0.5 : -0.26));
+    if (cam.ez > z1) poly([x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1], col("back", NIGHT ? -0.4 : -0.06));
+    if (cam.ex < x0) poly([x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0], col("left", NIGHT ? -0.46 : -0.16));
+    if (cam.ex > x1) poly([x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0], col("right", NIGHT ? -0.52 : -0.4));
+  }
+
+  function glow(sx, sy, r, color) {
+    var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, r);
+    g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(sx, sy, r, 0, 6.2832); ctx.fill();
+  }
+  // project a world point; null when behind the near plane
+  function pt(x, y, z) {
+    var c = camSpace(x, y, z);
+    if (c.z < NEAR) return null;
+    var s = toScreen(c); s.z = c.z;
+    return s;
+  }
+  // a far-away anchor for sun / moon / stars: eye + direction * 500
+  function skyPt(dx, dy, dz) { return pt(cam.ex + dx * 500, cam.ey + dy * 500, cam.ez + dz * 500); }
+
+  // ----- camera presets ---------------------------------------------------
+  // Offsets are relative to an anchor that partially follows the player's
+  // lateral position, so lane changes read as real sideways motion.
+  var PRESETS = [
+    { eye: [0, 4.6, -7.5], tgt: [0, 1.0, 7] },      // chase
+    { eye: [4.6, 5.2, -6.8], tgt: [-0.6, 0.8, 7] }, // quarter right
+    { eye: [0, 9.5, -10.5], tgt: [0, 0, 8] },       // high crane
+    { eye: [-4.6, 5.2, -6.8], tgt: [0.6, 0.8, 7] }  // quarter left
+  ];
+  var camPresetIdx = 0, camFrom = null, camT = 1;
+  var bank = 0, shakeT = 0, prevPX = 0;
+  function smooth(t) { return t * t * (3 - 2 * t); }
+  function lookAt(ex, ey, ez, tx, ty, tz) {
+    cam.ex = ex; cam.ey = ey; cam.ez = ez;
+    var dx = tx - ex, dy = ty - ey, dz = tz - ez;
+    cam.yaw = Math.atan2(dx, dz);
+    cam.pitch = Math.atan2(-dy, Math.hypot(dx, dz));
+  }
+  function setPreset(i) {
+    if (i === camPresetIdx) return;
+    camFrom = PRESETS[camPresetIdx];
+    camPresetIdx = i;
+    camT = 0;
+  }
+  function updateCamera(now, dt) {
+    var px = wx(player.x);
+    var anchor = px * 0.8;
+    if (!running && fxOn()) {
+      // cinematic orbit around the (possibly crashed) car on menu screens
+      var th = now * 0.00021;
+      lookAt(px + Math.sin(th) * 10.5, 4.4 + Math.sin(th * 0.6) * 1.4, -Math.cos(th) * 10.5,
+             px, 0.9, 2.5);
+      cam.roll = 0;
+      camReady();
+      return;
+    }
+    var p = fxOn() ? PRESETS[camPresetIdx] : PRESETS[0];
+    var e = p.eye, t = p.tgt;
+    if (fxOn() && camFrom && camT < 1) {
+      camT = Math.min(1, camT + dt / 1.6);
+      var s = smooth(camT), f0 = camFrom;
+      e = [f0.eye[0] + (e[0] - f0.eye[0]) * s, f0.eye[1] + (e[1] - f0.eye[1]) * s, f0.eye[2] + (e[2] - f0.eye[2]) * s];
+      t = [f0.tgt[0] + (t[0] - f0.tgt[0]) * s, f0.tgt[1] + (t[1] - f0.tgt[1]) * s, f0.tgt[2] + (t[2] - f0.tgt[2]) * s];
+    }
+    // speed sway + crash shake (Visual FX only)
+    var swx = 0, swy = 0;
+    if (fxOn() && running) {
+      var sf = speedFx();
+      swx = Math.sin(now * 0.0137) * 0.05 * sf;
+      swy = Math.sin(now * 0.0171) * 0.04 * sf;
+    }
+    if (shakeT > 0) {
+      shakeT = Math.max(0, shakeT - dt);
+      if (fxOn()) { swx += (Math.random() - 0.5) * shakeT * 1.6; swy += (Math.random() - 0.5) * shakeT * 1.2; }
+    }
+    lookAt(anchor + e[0] + swx, e[1] + swy, e[2], anchor + t[0], t[1], t[2]);
+    // banking: roll into the lane change, then settle
+    var vx = dt > 0 ? (px - prevPX) / dt : 0;
+    prevPX = px;
+    var targetBank = fxOn() ? Math.max(-0.075, Math.min(0.075, vx * 0.012)) : 0;
+    bank += (targetBank - bank) * Math.min(1, dt * 6);
+    cam.roll = bank;
+    camReady();
+  }
+
+  // ----- scenery ----------------------------------------------------------
+  var NIGHT = false, HAZE = "#c7d2c3";
+  var hills = [];
+  (function buildHills() {
+    for (var layer = 0; layer < 2; layer++) {
+      var z = layer ? 40 : 46, seg = [];
+      for (var x = -70; x <= 70; x += 10) {
+        seg.push({ x: x, h: 3 + Math.abs(Math.sin(x * 0.11 + layer * 2.3)) * (layer ? 6 : 11) + Math.sin(x * 0.31 + layer) * 1.5 });
+      }
+      hills.push({ z: z, seg: seg });
+    }
+  })();
+  var stars = [];
+  (function buildStars() {
+    for (var i = 0; i < 90; i++) {
+      var a = Math.random() * Math.PI * 2, y = 0.08 + Math.random() * 0.85;
+      var r = Math.sqrt(Math.max(0, 1 - y * y));
+      stars.push({ x: Math.sin(a) * r, y: y, z: Math.cos(a) * r, s: Math.random() < 0.3 ? 2 : 1, a: 0.4 + Math.random() * 0.6 });
+    }
+  })();
+
+  function drawSky() {
+    var hz = pt(cam.ex + Math.sin(cam.yaw) * 400, 0, cam.ez + Math.cos(cam.yaw) * 400);
+    var hy = hz ? Math.max(0, Math.min(H, hz.y)) : H * 0.4;
+    var g = ctx.createLinearGradient(0, 0, 0, Math.max(hy, 1));
+    if (NIGHT) { g.addColorStop(0, "#04050d"); g.addColorStop(1, "#111a31"); }
+    else { g.addColorStop(0, "#7fbde4"); g.addColorStop(1, "#e6f0d2"); }
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, hy + 1);
+    ctx.fillStyle = HAZE;
+    ctx.fillRect(0, hy, W, H - hy);
+    if (NIGHT) {
+      for (var i = 0; i < stars.length; i++) {
+        var st = stars[i], s = skyPt(st.x, st.y, st.z);
+        if (!s || s.y > hy) continue;
+        ctx.fillStyle = "rgba(230,236,255," + st.a + ")";
+        ctx.fillRect(s.x, s.y, st.s, st.s);
+      }
+      var m = skyPt(-0.42, 0.5, 0.75);
+      if (m) {
+        glow(m.x, m.y, 46, "rgba(190,205,255,0.25)");
+        ctx.fillStyle = "#e8ecf7"; ctx.beginPath(); ctx.arc(m.x, m.y, 15, 0, 6.2832); ctx.fill();
+        ctx.fillStyle = "#c9d2e6"; ctx.beginPath(); ctx.arc(m.x - 4, m.y + 3, 3, 0, 6.2832);
+        ctx.arc(m.x + 5, m.y - 4, 2.2, 0, 6.2832); ctx.fill();
+      }
+    } else {
+      var s2 = skyPt(0.5, 0.42, 0.75);
+      if (s2) {
+        glow(s2.x, s2.y, 70, "rgba(255,244,190,0.55)");
+        ctx.fillStyle = "#fff3c2"; ctx.beginPath(); ctx.arc(s2.x, s2.y, 20, 0, 6.2832); ctx.fill();
+      }
+      ctx.fillStyle = "rgba(255,255,255,0.75)";
+      var clouds = [[-0.55, 0.3, 0.7, 44], [0.2, 0.36, 0.8, 60], [0.75, 0.26, 0.55, 36]];
+      for (var c = 0; c < clouds.length; c++) {
+        var cd = clouds[c], cp = skyPt(cd[0], cd[1], cd[2]);
+        if (!cp || cp.y > hy) continue;
+        ctx.beginPath();
+        ctx.ellipse(cp.x, cp.y, cd[3], cd[3] * 0.32, 0, 0, 6.2832);
+        ctx.ellipse(cp.x - cd[3] * 0.55, cp.y + cd[3] * 0.1, cd[3] * 0.5, cd[3] * 0.2, 0, 0, 6.2832);
+        ctx.ellipse(cp.x + cd[3] * 0.5, cp.y + cd[3] * 0.08, cd[3] * 0.55, cd[3] * 0.22, 0, 0, 6.2832);
+        ctx.fill();
+      }
+    }
+    // hills, mostly hazed
+    for (var l = 0; l < hills.length; l++) {
+      var hl = hills[l], base = NIGHT ? (l ? "#0d1424" : "#0a101d") : (l ? "#9dba8c" : "#b4c9a4");
+      var fill = mix(base, HAZE, l ? 0.45 : 0.68);
+      var pts = [];
+      for (var k = 0; k < hl.seg.length; k++) pts.push(hl.seg[k].x, hl.seg[k].h, hl.z);
+      pts.push(hl.seg[hl.seg.length - 1].x, 0, hl.z);
+      pts.push(hl.seg[0].x, 0, hl.z);
+      poly(pts, fill);
+    }
+  }
+
+  function drawGround() {
+    var ws = scroll * K;   // total metres scrolled
+    var gA = NIGHT ? "#141f10" : "#5f8f3e", gB = NIGHT ? "#121c0e" : "#5a883a";
+    var rA = NIGHT ? "#15161d" : "#8d8f96", rB = NIGHT ? "#16171f" : "#91939a";
+    // ground + road in scroll-locked 2 m strips (banding = visible speed)
+    var s0 = -16 - (ws % 2), z, idx, zf;
+    // all grass first, then all road, so the strip overlaps never cross layers
+    for (z = s0; z < 34; z += 2) {
+      idx = Math.round((z + ws) / 2) & 1;
+      zf = z + 2.07; // slight overlap so no seams show between strips
+      poly([-70, 0, z, 70, 0, z, 70, 0, zf, -70, 0, zf], fogged(idx ? gA : gB, z + 1));
+    }
+    for (z = s0; z < 34; z += 2) {
+      idx = Math.round((z + ws) / 2) & 1;
+      zf = z + 2.07;
+      poly([-ROAD_HALF, 0.01, z, ROAD_HALF, 0.01, z, ROAD_HALF, 0.01, zf, -ROAD_HALF, 0.01, zf], fogged(idx ? rA : rB, z + 1));
+    }
+    // solid edge lines
+    var edge = NIGHT ? "#4a4a3e" : "#eceadc";
+    for (z = s0; z < 34; z += 2) {
+      var zf2 = z + 2.07, fe = fogged(edge, z + 1);
+      poly([-ROAD_HALF, 0.02, z, -ROAD_HALF + 0.22, 0.02, z, -ROAD_HALF + 0.22, 0.02, zf2, -ROAD_HALF, 0.02, zf2], fe);
+      poly([ROAD_HALF - 0.22, 0.02, z, ROAD_HALF, 0.02, z, ROAD_HALF, 0.02, zf2, ROAD_HALF - 0.22, 0.02, zf2], fe);
+    }
+    // dashed lane dividers
+    var dash = NIGHT ? "#3f4034" : "#e8e6d8";
+    var period = 58 * K, dlen = 30 * K;             // same rhythm as the old top-down road
+    var d0 = -14 - (ws % period);
+    for (var l = 1; l < LANES; l++) {
+      var x = -ROAD_HALF + LANE_M * l;
+      for (var dz = d0; dz < 34; dz += period) {
+        poly([x - 0.07, 0.02, dz, x + 0.07, 0.02, dz, x + 0.07, 0.02, dz + dlen, x - 0.07, 0.02, dz + dlen], fogged(dash, dz));
+      }
+    }
+  }
+
+  function drawRoadside() {
+    var ws = scroll * K;
+    // trees on both shoulders (billboards on a real trunk position)
+    var GAP = 8.5;
+    var t0 = -12 - (ws % GAP);
+    for (var z = t0; z < 32; z += GAP) {
+      var idx = Math.round((z + ws) / GAP);
+      for (var side = -1; side <= 1; side += 2) {
+        if (((idx + (side > 0 ? 1 : 0)) & 1) === 0) continue;   // stagger the two sides
+        var tx = side * (11.5 + ((idx * 7919) % 5));
+        var s = pt(tx, 0, z);
+        if (!s) continue;
+        var sc = FOCAL / s.z, f = fogAt(z);
+        var trunkH = 0.9 * sc, canopyR = (1.3 + ((idx * 31) % 3) * 0.25) * sc;
+        ctx.fillStyle = mix(NIGHT ? "#191410" : "#6d4b2a", HAZE, f);
+        ctx.fillRect(s.x - 0.09 * sc, s.y - trunkH, 0.18 * sc, trunkH);
+        ctx.fillStyle = mix(NIGHT ? "#0d1a10" : "#3f7a33", HAZE, f);
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y - trunkH - canopyR * 1.9);
+        ctx.lineTo(s.x + canopyR, s.y - trunkH * 0.6);
+        ctx.lineTo(s.x - canopyR, s.y - trunkH * 0.6);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    if (NIGHT) {
+      // street lamps along the road edge, with pools of light
+      var LGAP = 13, l0 = -13 - (ws % LGAP);
+      for (var lz = l0; lz < 30; lz += LGAP) {
+        var lidx = Math.round((lz + ws) / LGAP);
+        var side2 = (lidx & 1) ? -1 : 1;
+        var lx = side2 * (ROAD_HALF + 0.7);
+        poly([lx + side2 * 1.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz + 2.6, lx + side2 * 1.2, 0.03, lz + 2.6],
+             "rgba(255,214,140," + (0.10 * (1 - fogAt(lz))).toFixed(3) + ")");
+        var base2 = pt(lx, 0, lz), head = pt(lx - side2 * 0.9, 4.4, lz);
+        if (!base2 || !head) continue;
+        ctx.strokeStyle = mix("#2a2d36", HAZE, fogAt(lz));
+        ctx.lineWidth = Math.max(1, FOCAL / base2.z * 0.1);
+        ctx.beginPath();
+        ctx.moveTo(base2.x, base2.y);
+        ctx.lineTo(base2.x, head.y - 6);
+        ctx.lineTo(head.x, head.y);
+        ctx.stroke();
+        glow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140,0.8)");
+      }
+    }
+  }
+
+  // ----- vehicles as 3D boxes ---------------------------------------------
+  var GLASS = "#10141f";
+  function drawCar3D(wxc, z, base, halfW, halfL, isTruck, signalDir, litT) {
+    var body = base;
+    // litT 1 = fully lit (your own car, or right inside your beam); 0 = darkness
+    if (NIGHT) body = litT >= 1 ? mix(base, "#0a0f1c", 0.12) : mix(mix(base, "#070910", 0.72), base, clamp01(litT) * 0.75);
+    var x0 = wxc - halfW, x1 = wxc + halfW, z0 = z - halfL, z1 = z + halfL;
+    // dark under-skirt / wheels
+    box(x0 + 0.06, x1 - 0.06, 0, 0.22, z0 + 0.12, z1 - 0.12, NIGHT ? "#05060a" : "#181a20");
+    if (isTruck) {
+      var cabZ0 = z1 - 1.7;
+      box(x0, x1, 0.22, 1.55, cabZ0, z1, body);                                  // cab
+      var trl = NIGHT ? mix("#d7d8d2", "#0a0c13", 0.6 - clamp01(litT) * 0.4) : "#d7d8d2";
+      box(x0 + 0.04, x1 - 0.04, 0.22, 2.45, z0, cabZ0 - 0.25, trl);              // trailer
+    } else {
+      box(x0, x1, 0.22, 0.92, z0, z1, body);                                     // body
+      box(x0 + 0.2, x1 - 0.2, 0.92, 1.42, z0 + halfL * 0.55, z1 - halfL * 0.62,  // cabin
+          body, { front: GLASS, back: GLASS, left: shade(GLASS, 0.12), right: shade(GLASS, 0.12), top: foggedRoof(body, z) });
+    }
+    // taillights face the camera (everyone drives away from you)
+    var ty = isTruck ? 0.8 : 0.6, tz = z0 - 0.02;
+    var tc = fogged(NIGHT ? "#ff5a4a" : "#c22a22", z);
+    poly([x0 + 0.16, ty - 0.1, tz, x0 + 0.55, ty - 0.1, tz, x0 + 0.55, ty + 0.1, tz, x0 + 0.16, ty + 0.1, tz], tc);
+    poly([x1 - 0.55, ty - 0.1, tz, x1 - 0.16, ty - 0.1, tz, x1 - 0.16, ty + 0.1, tz, x1 - 0.55, ty + 0.1, tz], tc);
+    // amber turn signal on the merging side, front + rear
+    if (signalDir && blinkOn) {
+      var sx0 = signalDir < 0 ? x0 - 0.02 : x1 - 0.24, sx1 = signalDir < 0 ? x0 + 0.24 : x1 + 0.02;
+      var amber = "#ffb12e";
+      poly([sx0, ty - 0.08, tz, sx1, ty - 0.08, tz, sx1, ty + 0.14, tz, sx0, ty + 0.14, tz], amber);
+      poly([sx0, ty - 0.08, z1 + 0.02, sx1, ty - 0.08, z1 + 0.02, sx1, ty + 0.14, z1 + 0.02, sx0, ty + 0.14, z1 + 0.02], amber);
+      if (NIGHT) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, z0); if (sp2) glow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)"); }
+    }
+  }
+  function foggedRoof(body, z) { return fogged(shade(body, NIGHT ? 0.02 : 0.14), z); }
+
+  function drawPlayer3D() {
+    var pxw = wx(player.x);
+    drawCar3D(pxw, 0, PLAYER_BASE, CAR_WM / 2, CAR_LM / 2, false, 0, 1);
+    if (NIGHT) {
+      // headlight beam on the tarmac ahead
+      poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196,0.10)");
+      poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196,0.13)");
+      var h1 = pt(pxw - 0.6, 0.55, CAR_LM / 2), h2 = pt(pxw + 0.6, 0.55, CAR_LM / 2);
+      if (h1) glow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), "rgba(255,246,205,0.9)");
+      if (h2) glow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), "rgba(255,246,205,0.9)");
+    }
+  }
+
+  // ----- render -------------------------------------------------------
+  function render(now) {
+    NIGHT = mode === "night";
+    HAZE = NIGHT ? "#0b101c" : "#c7d2c3";
+    blinkOn = (Math.floor(now / 270) % 2) === 0;
+    ctx.clearRect(0, 0, W, H);
+    drawSky();
+    drawGround();
+    drawRoadside();
+
+    // painter's order: everything far → near, the player among them
+    var list = [];
+    for (var i = 0; i < obstacles.length; i++) {
+      var o = obstacles[i];
+      list.push({ z: wz(o.y), o: o });
+    }
+    list.push({ z: 0, player: true });
+    list.sort(function (a, b) { return b.z - a.z; });
+    var pxw = wx(player.x);
+    for (var j = 0; j < list.length; j++) {
+      var it = list[j];
+      if (it.player) { drawPlayer3D(); continue; }
+      var v = it.o, vwx = wx(v.cx);
+      // at night your beam lights the cars just ahead of you
+      var lit = NIGHT ? clamp01(1 - it.z / 19) * (Math.abs(vwx - pxw) < 3.4 ? 1 : 0.15) : 1;
+      drawCar3D(vwx, it.z, v.color, (v.w * K) / 2, (v.h * K) / 2, v.type === "truck",
+                (v.pending && v.y >= VH * 0.12) ? v.mergeDir : 0, lit);
+      if (NIGHT) {
+        var tl = pt(vwx - v.w * K * 0.3, 0.6, it.z - v.h * K / 2);
+        var tr = pt(vwx + v.w * K * 0.3, 0.6, it.z - v.h * K / 2);
+        var gr = 1 - fogAt(it.z);
+        if (tl && gr > 0) glow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * 0.42), "rgba(255,74,64," + (0.8 * gr).toFixed(2) + ")");
+        if (tr && gr > 0) glow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * 0.42), "rgba(255,74,64," + (0.8 * gr).toFixed(2) + ")");
+      }
+    }
+  }
+
   // ----- loop ---------------------------------------------------------
   var lastT = 0, raf = 0;
-  // Pause (P / Esc / tab-switch). lastT is reset on resume so the clamped
-  // dt doesn't teleport the car forward by the paused duration.
   var PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: function () { return !!running; },
         onChange: function (paused) { if (!paused) lastT = 0; }
       })
     : { isPaused: function () { return false; } };
-  function frame(now) {
-    raf = requestAnimationFrame(frame);
-    if (!running) { return; }
-    if (PAUSE.isPaused()) { lastT = now; return; }
-    var dt = Math.min(0.05, (now - lastT) / 1000 || 0); lastT = now;
 
+  function update(dt) {
     speed = curSpeed();
     score += speed * dt * 0.05;
-    scroll = (scroll + speed * dt) % 5800; // 5800 = 100·58 = 29·200 → seamless dashes & grass
+    scroll = (scroll + speed * dt) % 116000; // 116000·K = 5800 m → seamless for every scenery period
 
     var tx = laneX(player.lane);
     player.x += (tx - player.x) * Math.min(1, dt * 20); // snappy lane changes
-    player.trail.push({ x: player.x, y: playerY }); if (player.trail.length > 7) player.trail.shift();
 
-    // generate a new wave every fixed vertical interval
     waveAcc += speed * F * dt;
     if (waveAcc >= waveGap()) { waveAcc -= waveGap(); newWave(); }
 
-    var mStart = H * 0.42, mSpan = H * 0.2; // merge starts ~42% down, completes ~62% (≈2/3) — time to react
+    var mStart = VH * 0.42, mSpan = VH * 0.2; // merge starts ~42% down, completes ~62% — time to react
     for (var i = obstacles.length - 1; i >= 0; i--) {
       var o = obstacles[i];
-      o.y += speed * F * dt; // uniform descent (< player) → you overtake everyone
-      if (o.y - o.h / 2 > H) { obstacles.splice(i, 1); continue; }
-      // committed merge: glide from the current lane into the (reserved) target,
-      // completing ~2/3 down. It was pre-validated, so it always executes safely.
+      o.y += speed * F * dt;
+      if (o.y - o.h / 2 > VH + 170) { obstacles.splice(i, 1); continue; } // well behind every camera angle
       if (o.mergeTo >= 0 && !o.merging && o.y >= mStart) { o.merging = true; o.mergeStartY = o.y; }
       if (o.merging) {
         var t = Math.min(1, (o.y - o.mergeStartY) / mSpan);
-        var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; // ease in-out
+        var e = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
         o.cx = laneX(o.lane) + (laneX(o.mergeTo) - laneX(o.lane)) * e;
         if (t >= 1) { o.lane = o.mergeTo; o.mergeTo = -1; o.merging = false; o.pending = false; o.cx = laneX(o.lane); }
       } else {
         o.cx = laneX(o.lane);
       }
-      o.trail.push({ x: o.cx, y: o.y }); if (o.trail.length > 7) o.trail.shift();
       if (hit(o)) { gameOver(); break; }
     }
 
-    if (Math.floor(score / 500) > lastMilestone) { lastMilestone = Math.floor(score / 500); SND.tick(); }
+    if (Math.floor(score / 500) > lastMilestone) {
+      lastMilestone = Math.floor(score / 500);
+      SND.tick();
+      // a new camera angle for every 500 m milestone (Visual FX on)
+      if (fxOn()) setPreset(lastMilestone % PRESETS.length);
+    }
 
-    render();
     elDist.textContent = Math.floor(score);
     elSpeed.textContent = Math.round(speed / 3.4);
   }
 
-  // ----- render -------------------------------------------------------
-  var grassSpeck = null, GRASS_PERIOD = 200;
-  function buildGrass() {
-    grassSpeck = [];
-    for (var i = 0; i < 64; i++) grassSpeck.push({ side: Math.random() < 0.5 ? 0 : 1, x: Math.random(), y: Math.random() * GRASS_PERIOD, s: Math.random() < 0.5 ? 0 : 1, sz: 3 + (Math.random() * 4 | 0) });
-  }
-  var streaks = null, STREAK_PERIOD = 300;
-  function buildStreaks() {
-    streaks = [];
-    for (var i = 0; i < 26; i++) streaks.push({ x: road.x + Math.random() * road.w, len: 36 + Math.random() * 70, a: 0.5 + Math.random() * 0.5, ph: Math.random() * STREAK_PERIOD });
-  }
-  function drawSpeedStreaks() { // thin vertical streaks rushing past → sense of speed (Visual FX on)
-    if (!streaks) buildStreaks();
-    var sf = speedFx(), off = (scroll * 1.6) % STREAK_PERIOD, night = mode === "night";
-    for (var i = 0; i < streaks.length; i++) {
-      var s = streaks[i], len = s.len * (0.6 + 0.9 * sf), al = (0.04 + 0.09 * sf) * s.a * (night ? 0.7 : 1);
-      ctx.fillStyle = "rgba(255,255,255," + al.toFixed(3) + ")";
-      for (var y = (s.ph + off) % STREAK_PERIOD - STREAK_PERIOD; y < H; y += STREAK_PERIOD) ctx.fillRect(Math.round(s.x), Math.round(y), 2, len);
-    }
-  }
-  function drawRoad() {
-    var night = mode === "night", rightW = W - (road.x + road.w);
-    // grass shoulders
-    ctx.fillStyle = night ? "#1b2a16" : "#5f8f3e";
-    ctx.fillRect(0, 0, road.x, H); ctx.fillRect(road.x + road.w, 0, rightW, H);
-    if (!grassSpeck) buildGrass();
-    var off = scroll % GRASS_PERIOD;
-    for (var i = 0; i < grassSpeck.length; i++) {
-      var sp = grassSpeck[i];
-      var gx = sp.side === 0 ? Math.round(sp.x * (road.x - sp.sz)) : Math.round(road.x + road.w + sp.x * (rightW - sp.sz));
-      ctx.fillStyle = night ? (sp.s ? "#14210f" : "#223018") : (sp.s ? "#4e7c31" : "#6fa148");
-      for (var yy = (sp.y + off) % GRASS_PERIOD - GRASS_PERIOD; yy < H; yy += GRASS_PERIOD) ctx.fillRect(gx, Math.round(yy), sp.sz, sp.sz);
-    }
-    // road: subtle per-lane shading
-    for (var l = 0; l < LANES; l++) {
-      ctx.fillStyle = night ? (l % 2 ? "#14151b" : "#181922") : (l % 2 ? "#8b8d94" : "#92949b");
-      ctx.fillRect(Math.round(road.x + laneW * l), 0, Math.ceil(laneW) + 1, H);
-    }
-    // solid white edge lines
-    ctx.fillStyle = night ? "#3a3a30" : "#eceadc";
-    ctx.fillRect(road.x - 4, 0, 4, H); ctx.fillRect(road.x + road.w, 0, 4, H);
-    // dashed lane dividers (scrolling)
-    ctx.fillStyle = night ? "#34343f" : "#eceadc";
-    var dashH = 30, period = 58;
-    for (var l2 = 1; l2 < LANES; l2++) {
-      var lx = Math.round(road.x + laneW * l2 - 3);
-      for (var y = (scroll % period) - period; y < H; y += period) ctx.fillRect(lx, Math.round(y), 5, dashH);
-    }
-  }
-  function render() {
-    blinkOn = (Math.floor(performance.now() / 270) % 2) === 0;
-    drawRoad();
-    var fx = fxOn();
-    if (fx) drawSpeedStreaks();
-    for (var i = 0; i < obstacles.length; i++) {
-      var o = obstacles[i];
-      if (fx) drawTrail(o.trail, o.w, o.h, o.color, o.merging); // blur through the whole merge
-      drawVehicleAt(o.cx, o.y, o.w, o.h, o.type, o.color, (o.pending && o.y >= H * 0.12) ? o.mergeDir : 0);
-    }
-    if (fx) drawTrail(player.trail, carW, carH, PLAYER_BASE, Math.abs(player.x - laneX(player.lane)) > 0.5); // blur through the lane change
-    drawVehicleAt(player.x, playerY, carW, carH, "car", PLAYER_BASE, 0);
-
-    if (mode === "night") {
-      // darkness with a headlight wash in front of the player
-      var bx = player.x, by = playerY - carH * 0.8;
-      ctx.save();
-      ctx.translate(bx, by); ctx.scale(1.15, 2.0);
-      var R = Math.max(W, H) * 0.42;
-      var g = ctx.createRadialGradient(0, 0, 0, 0, 0, R);
-      g.addColorStop(0, "rgba(5,5,12,0)");
-      g.addColorStop(0.5, "rgba(5,5,12,0.32)");
-      g.addColorStop(0.8, "rgba(5,5,12,0.86)");
-      g.addColorStop(1, "rgba(5,5,12,0.97)");
-      ctx.fillStyle = g; ctx.fillRect(-W * 2, -H * 2, W * 4, H * 4);
-      ctx.restore();
-
-      // lights punch through the dark (other vehicles visible only by their lamps)
-      ctx.save();
-      ctx.globalCompositeOperation = "lighter";
-      for (var j = 0; j < obstacles.length; j++) {
-        var v = obstacles[j], ox = v.cx, oy = v.y, hw = v.w * 0.28, hh = v.h * 0.42;
-        glow(ox - hw, oy + hh, v.w * 0.62, "rgba(255,70,70,0.85)");
-        glow(ox + hw, oy + hh, v.w * 0.62, "rgba(255,70,70,0.85)");
-        glow(ox - hw, oy - hh, v.w * 0.42, "rgba(255,240,200,0.45)");
-        glow(ox + hw, oy - hh, v.w * 0.42, "rgba(255,240,200,0.45)");
-        if (v.pending && v.y >= H * 0.12 && blinkOn) { var sgx = ox + v.mergeDir * hw; glow(sgx, oy - hh, v.w * 0.5, "rgba(255,175,45,0.95)"); glow(sgx, oy + hh, v.w * 0.5, "rgba(255,175,45,0.95)"); }
-      }
-      glow(player.x - carW * 0.28, playerY - carH * 0.46, carW * 0.95, "rgba(255,245,210,0.95)");
-      glow(player.x + carW * 0.28, playerY - carH * 0.46, carW * 0.95, "rgba(255,245,210,0.95)");
-      glow(player.x - carW * 0.28, playerY + carH * 0.42, carW * 0.5, "rgba(255,70,70,0.8)");
-      glow(player.x + carW * 0.28, playerY + carH * 0.42, carW * 0.5, "rgba(255,70,70,0.8)");
-      ctx.restore();
-    }
+  function frame(now) {
+    raf = requestAnimationFrame(frame);
+    if (PAUSE.isPaused()) { lastT = now; return; } // freeze the scene behind the pause veil
+    var dt = Math.min(0.05, (now - lastT) / 1000 || 0); lastT = now;
+    if (running) update(dt);
+    updateCamera(now, dt);
+    render(now);
   }
 
   // ----- flow ---------------------------------------------------------
@@ -450,18 +670,18 @@
     ov.classList.remove("show");
     elDist.textContent = "0"; elSpeed.textContent = "0";
     renderBest();
-    lastT = performance.now();
+    lastT = 0;
   }
 
   function gameOver() {
     running = false;
+    shakeT = 0.55;
     crashSound();
     var d = Math.floor(score);
     var best = parseInt(load(bestKey()), 10) || 0;
     var record = d > best;
     if (record) { best = d; save(bestKey(), best); }
     renderBest();
-    render();
     card.innerHTML =
       '<h2>CRASH!</h2>' +
       '<div class="big">' + d + '<small> M</small></div>' +
@@ -479,7 +699,7 @@
     running = false;
     var bd = parseInt(load(BEST_DAY), 10) || 0;
     var bn = parseInt(load(BEST_NIGHT), 10) || 0;
-    mode = "day"; render(); // draw a lit preview behind the card
+    mode = "day"; // a lit orbiting preview behind the card
     card.innerHTML =
       '<h2>RUSH HOUR</h2>' +
       '<p>You\'re the fast one. Slice through ' + LANES + ' lanes of slower traffic and rack up distance.</p>' +
@@ -499,8 +719,25 @@
   }
 
   // ----- boot ---------------------------------------------------------
-  window.addEventListener("resize", function () { resize(); if (!running) render(); });
+  window.addEventListener("resize", resize);
   resize();
+  player.x = laneX(2);
+  prevPX = wx(player.x);
+  camReady();
   raf = requestAnimationFrame(frame);
   showMenu();
+
+  // test hook
+  window.__game = {
+    get running() { return running; },
+    get score() { return score; },
+    get mode() { return mode; },
+    get obstacles() { return obstacles; },
+    get player() { return player; },
+    get cam() { return cam; },
+    get preset() { return camPresetIdx; },
+    setPreset: setPreset,
+    addScore: function (n) { score += n; },
+    start: start
+  };
 })();
