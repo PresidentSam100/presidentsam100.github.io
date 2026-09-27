@@ -1,13 +1,32 @@
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,500;0,700;0,800;1,800&display=swap");
+    /* Seven-segment digits for the LCD (DSEG, SIL Open Font License) */
+    @font-face {
+      font-family: "DSEG7";
+      src: url("https://cdn.jsdelivr.net/npm/dseg@0.46.0/fonts/DSEG7-Classic/DSEG7Classic-BoldItalic.woff2") format("woff2");
+      font-weight: 700;
+      font-style: italic;
+      font-display: swap;
+    }
 
+    /* A retro pocket calculator on a desk. The graphite body carries a brand
+       line and a solar strip, the scores sit on a green LCD with the unlit
+       segments showing faintly, and the board is the keypad: empty cells
+       are key slots and tiles are raised plastic keys. Each pair of values
+       gets its own key colour (grey number keys, teal, blue memory keys,
+       yellow shift, orange, red), and 2048 lights up like the display. */
     :root {
-      --bg: #000;
-      --board: #14141c;
-      --cell: #20202c;
+      --desk: #cfd7df;
+      --body: #353a42;
+      --body-dark: #272b31;
+      --panel: #2a2e35;
+      --slot: #16181c;
+      --lcd: #b7c49c;
+      --ink: #1f2a19;
+      --print: #c9ced6;       /* legends printed on the body */
       --text: #fff;
-      --muted: #999;
-      --accent: #3c6dec;
-      --gap: 12px;
+      --muted: #8d949e;
+      --orange: #f07a2a;
+      --gap: 12px;            /* must match GAP in game.js */
     }
 
     * {
@@ -18,10 +37,19 @@
     html,
     body {
       margin: 0;
-      background: var(--bg);
       color: var(--text);
-      font-family: "Inter", sans-serif;
+      font-family: "Rubik", system-ui, sans-serif;
       touch-action: manipulation;
+    }
+    /* the desk: cool grey laminate with a fine speckle, lit from above */
+    html {
+      background:
+        radial-gradient(900px 600px at 50% 20%, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0) 70%),
+        radial-gradient(circle at 3px 3px, rgba(60, 72, 86, 0.08) 0 1px, transparent 1.5px) 0 0 / 9px 9px,
+        radial-gradient(circle at 6px 7px, rgba(255, 255, 255, 0.35) 0 0.8px, transparent 1.3px) 0 0 / 13px 11px,
+        linear-gradient(180deg, #d9e0e7, #b7c1cb);
+      background-color: var(--desk);
+      min-height: 100%;
     }
 
     .wrap {
@@ -30,114 +58,230 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 1.25rem 1rem 2rem;
-      gap: 1rem;
+      padding: 1rem 1rem 1.5rem;
+      gap: 0.9rem;
     }
 
-    .back-link {
-      position: fixed;
-      top: 12px;
-      left: 12px;
-      z-index: 50;
-      display: inline-block;
-      color: #fff;
-      background: var(--accent);
-      text-decoration: none;
-      font-weight: 700;
-      font-size: 0.85rem;
-      padding: 6px 12px;
-      border-radius: 8px;
-    }
-    .back-link:hover {
-      filter: brightness(1.12);
-    }
-
-    .topbar {
-      width: 100%;
-      max-width: 460px;
+    /* ---- the calculator body ---- */
+    .calc {
+      /* the keypad sets the width; on short screens it shrinks so the whole
+         calculator fits without scrolling */
+      --pad-w: min(460px, calc(100vw - 2rem - 28px), calc(100svh - 306px));
+      width: calc(var(--pad-w) + 28px);
+      min-width: 300px;
+      max-width: calc(100vw - 1rem);
+      padding: 16px 14px 18px;
+      border-radius: 26px 26px 34px 34px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 40%),
+        linear-gradient(180deg, var(--body), var(--body-dark));
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.12),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.3),
+        0 2px 0 #1b1e22,
+        0 18px 40px -12px rgba(30, 40, 55, 0.55),
+        0 40px 70px -30px rgba(30, 40, 55, 0.45);
       display: flex;
-      align-items: flex-end;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .calc-head {
+      display: flex;
+      align-items: center;
       justify-content: space-between;
-      gap: 1rem;
+      gap: 0.8rem;
+      padding: 0 4px;
     }
-
-    .title {
-      font-size: 2.75rem;
-      font-weight: 800;
-      margin: 0;
-      line-height: 1;
-    }
-    .subtitle {
-      margin: 0.4rem 0 0;
-      color: var(--muted);
-      font-size: 0.9rem;
-    }
-
-    .scores {
+    .brand {
       display: flex;
-      gap: 0.6rem;
+      align-items: baseline;
+      gap: 0.55rem;
+      min-width: 0;
     }
-    .score-box {
-      background: var(--board);
-      border-radius: 10px;
-      padding: 0.45rem 0.9rem;
-      text-align: center;
-      min-width: 78px;
+    .maker {
+      font-size: 0.8rem;
+      font-weight: 800;
+      letter-spacing: 0.22em;
+      color: var(--print);
+    }
+    /* the model number */
+    .title {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 800;
+      font-style: italic;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: #e9ecf0;
+      text-shadow: 0 1px 0 rgba(0, 0, 0, 0.5);
+    }
+    /* solar strip: four dark cells in a recessed frame */
+    .solar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2px;
+      width: 104px;
+      height: 26px;
+      padding: 3px;
+      border-radius: 5px;
+      background: #1b1d21;
+      box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.7), 0 1px 0 rgba(255, 255, 255, 0.1);
+      flex: none;
+    }
+    .solar i {
+      border-radius: 2px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.07) 0 1px, transparent 1px 5px),
+        linear-gradient(180deg, #4b3439, #2e1f23);
+    }
+
+    /* ---- the LCD ---- */
+    .lcd {
+      position: relative;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: end;
+      gap: 0.2rem 0.8rem;
+      padding: 8px 12px 9px;
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0) 22%),
+        linear-gradient(170deg, #c3cfa7, var(--lcd) 60%, #a9b78f);
+      color: var(--ink);
+      /* the dark bezel around the glass */
+      box-shadow:
+        0 0 0 5px #1c1f24,
+        0 0 0 6px rgba(255, 255, 255, 0.08),
+        inset 0 2px 5px rgba(0, 0, 0, 0.35);
+      margin: 5px 5px 2px;
+      overflow: hidden;
     }
     .score-box .label {
-      font-size: 0.65rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--muted);
+      font-size: 0.62rem;
       font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.8;
     }
+    .digits {
+      position: relative;
+      text-align: right;
+      font-family: "DSEG7", "Rubik", monospace;
+      font-weight: 700;
+      font-style: italic;
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+    /* unlit segments, showing faintly behind the lit ones */
+    .digits .ghost {
+      position: absolute;
+      right: 0;
+      top: 0;
+      opacity: 0.09;
+      pointer-events: none;
+    }
+    /* Best sits in an auto-width column, so there the ghost row sets the
+       width and the digits lie over it, instead of spilling out the left */
+    .score-box.best .digits .ghost { position: static; }
+    .score-box.best .digits .val { position: absolute; right: 0; top: 0; }
+    .score-box.best .digits { font-size: 1rem; }
+    .score-box.main .digits { font-size: clamp(1.7rem, 7.5vw, 2.3rem); }
     .score-box .val {
-      font-size: 1.4rem;
-      font-weight: 800;
       display: inline-block;       /* so the pop scales tightly around the number */
-      transform-origin: center;
+      position: relative;
+      transform-origin: right center;
     }
     .score-box .val.pop { animation: pop 0.18s ease; }
 
+    .subtitle {
+      margin: 0;
+      padding: 0 6px;
+      text-align: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .subtitle b { color: var(--print); }
+
+    /* ---- keys: shared look for every button on the body ---- */
+    .btn {
+      cursor: pointer;
+      position: relative;
+      border: none;
+      border-radius: 9px;
+      padding: 0.55rem 1rem 0.6rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      color: #eef0f3;
+      background: linear-gradient(180deg, #5a616c, #454b55);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        0 3px 0 #1a1d21,
+        0 5px 8px rgba(0, 0, 0, 0.35);
+      transition: transform 0.06s ease, box-shadow 0.06s ease, filter 0.15s ease;
+    }
+    .btn:hover { filter: brightness(1.1); }
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+        0 1px 0 #1a1d21,
+        0 2px 4px rgba(0, 0, 0, 0.35);
+    }
+    .btn:focus-visible { outline: 2px solid #9fd0ff; outline-offset: 3px; }
+
+    /* mode keys (the inactive one is .ghost) and the AC key */
     .controls {
-      width: 100%;
-      max-width: 460px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.6rem;
     }
-    .hint {
-      color: var(--muted);
-      font-size: 0.85rem;
-    }
-    .btn {
-      cursor: pointer;
-      background: var(--accent);
+    .controls .btn:not(.ghost) {
+      background: linear-gradient(180deg, #5d93ea, #3d72d6);
       color: #fff;
-      border: none;
-      border-radius: 8px;
-      padding: 0.6rem 1.1rem;
-      font-family: inherit;
-      font-size: 0.95rem;
-      font-weight: 700;
-      transition: filter 0.15s ease;
     }
-    .btn:hover {
-      filter: brightness(1.12);
+    /* a lit LED on the mode that's on */
+    .controls .btn:not(.ghost):not(.key-ac)::after {
+      content: "";
+      position: absolute;
+      top: 5px;
+      right: 6px;
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #d8ff8a;
+      box-shadow: 0 0 6px #c6f06a;
+    }
+    .controls .btn.key-ac {
+      background: linear-gradient(180deg, #f79050, var(--orange));
+      color: #fff;
+      margin-left: 0.4rem;
     }
 
+    /* ---- the keypad ---- */
     .board-wrap {
       position: relative;
-      width: 100%;
-      max-width: 460px;
+      width: var(--pad-w);
+      max-width: 100%;
+      align-self: center;
     }
     .board {
       position: relative;
       width: 100%;
       aspect-ratio: 1 / 1;
-      background: var(--board);
-      border-radius: 12px;
+      border-radius: 14px;
+      background:
+        repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 3px),
+        var(--panel);
+      box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.08);
       --cells: 4;
       touch-action: none; /* swipes control the game, never scroll the page */
     }
@@ -149,9 +293,11 @@
       grid-template-rows: repeat(var(--cells), 1fr);
       gap: var(--gap);
     }
+    /* an empty key slot, sunk into the panel */
     .grid-bg .cell {
-      background: var(--cell);
-      border-radius: 8px;
+      background: var(--slot);
+      border-radius: 10px;
+      box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(255, 255, 255, 0.07);
     }
     .tiles {
       position: absolute;
@@ -173,17 +319,33 @@
     .tiles.no-anim .tile {
       transition: none;
     }
+    /* A raised key. The bevel and gloss live in box-shadow and ::before,
+       not the background, because Fibonacci mode sets the background inline. */
     .tile-inner {
+      position: relative;
       width: 100%;
       height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      border-radius: 8px;
+      border-radius: 10px;
       font-weight: 800;
       font-size: clamp(1.1rem, 7vw, 2rem);
       color: #fff;
-      background: #2a2a38;
+      background: #5a616c;
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.4),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.2),
+        0 4px 0 rgba(0, 0, 0, 0.55),
+        0 7px 10px rgba(0, 0, 0, 0.4);
+    }
+    .tile-inner::before {
+      content: "";
+      position: absolute;
+      inset: 3px 4px 45%;
+      border-radius: 7px 7px 12px 12px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0));
+      pointer-events: none;
     }
     .tile-inner.appear {
       animation: appear 0.14s ease;
@@ -213,20 +375,37 @@
       }
     }
 
-    /* Classic 2048 tile palette (selectors live on .tile-inner) */
-    .t2 { background: #3a3f4b; }
-    .t4 { background: #45506b; }
-    .t8 { background: #d97a3a; }
-    .t16 { background: #e06c2e; }
-    .t32 { background: #ec5d3a; }
-    .t64 { background: #f24a2c; }
-    .t128 { background: #edc850; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
-    .t256 { background: #edc342; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
-    .t512 { background: #edbd2f; color: #1a1a1a; font-size: clamp(1rem, 6vw, 1.7rem); }
-    .t1024 { background: #edb91c; color: #1a1a1a; font-size: clamp(0.85rem, 5vw, 1.4rem); }
-    .t2048 { background: #f5c518; color: #1a1a1a; font-size: clamp(0.85rem, 5vw, 1.4rem); box-shadow: 0 0 22px rgba(245, 197, 24, 0.6); }
-    .t-big { background: #111; color: #f5c518; border: 2px solid #f5c518; font-size: clamp(0.8rem, 4.5vw, 1.3rem); }
+    /* Key colours, a pair per hue with a clear light/dark step inside each
+       pair (selectors live on .tile-inner) */
+    .t2 { background: #eef0f3; color: #2a2f36; }
+    .t4 { background: #c3cad3; color: #2a2f36; }
+    .t8 { background: #a8e2dc; color: #134341; }
+    .t16 { background: #25998f; }
+    .t32 { background: #a9c6f5; color: #14305e; }
+    .t64 { background: #3a6ed4; }
+    .t128 { background: #f6d860; color: #3d3000; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t256 { background: #d99a12; color: #2b1d00; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t512 { background: #f47a2a; font-size: clamp(1rem, 6vw, 1.7rem); }
+    .t1024 { background: #d8372c; font-size: clamp(0.85rem, 5vw, 1.4rem); }
+    /* 2048 lights up like the display */
+    .t2048 {
+      background: #c9f26c; color: #1f2a19; font-size: clamp(0.85rem, 5vw, 1.4rem);
+      box-shadow:
+        inset 0 2px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -4px 0 rgba(0, 0, 0, 0.15),
+        0 4px 0 rgba(0, 0, 0, 0.55),
+        0 0 22px rgba(201, 242, 108, 0.65);
+    }
+    .t-big {
+      background: #111316; color: #c9f26c; font-size: clamp(0.8rem, 4.5vw, 1.3rem);
+      box-shadow:
+        inset 0 0 0 2px #c9f26c,
+        inset 0 2px 0 rgba(255, 255, 255, 0.25),
+        0 4px 0 rgba(0, 0, 0, 0.55),
+        0 0 16px rgba(201, 242, 108, 0.4);
+    }
 
+    /* win / game over: a big LCD panel over the keypad */
     .overlay {
       position: absolute;
       inset: 0;
@@ -236,10 +415,14 @@
       align-items: center;
       justify-content: center;
       gap: 0.8rem;
-      background: rgba(10, 10, 14, 0.86);
-      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0) 20%),
+        linear-gradient(170deg, rgba(195, 207, 167, 0.95), rgba(169, 183, 143, 0.95));
+      color: var(--ink);
+      border-radius: 14px;
+      box-shadow: inset 0 0 0 5px #1c1f24, inset 0 3px 10px rgba(0, 0, 0, 0.35);
       text-align: center;
-      padding: 1rem;
+      padding: 1.5rem;
     }
     .overlay.show {
       display: flex;
@@ -248,10 +431,13 @@
       margin: 0;
       font-size: 2rem;
       font-weight: 800;
+      font-style: italic;
+      letter-spacing: 0.02em;
     }
     .overlay p {
       margin: 0;
-      color: var(--muted);
+      font-weight: 500;
+      opacity: 0.85;
     }
     .overlay .btn-row {
       display: flex;
@@ -259,15 +445,13 @@
       flex-wrap: wrap;
       justify-content: center;
     }
-    .btn.ghost {
-      background: transparent;
-      border: 1px solid #444;
-    }
+    .overlay .btn { background: linear-gradient(180deg, #f79050, var(--orange)); color: #fff; }
+    .overlay .btn.ghost { background: linear-gradient(180deg, #5a616c, #454b55); }
 
     #byline {
-      color: #666;
+      color: #5d6773;
       font-size: 75%;
-      margin-top: 0.5rem;
+      margin: 0;
     }
     /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */

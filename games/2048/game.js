@@ -465,6 +465,7 @@
   );
 
   document.getElementById("overlay-retry").addEventListener("click", newGame);
+  document.getElementById("new-game").addEventListener("click", newGame); // the AC key
   keepGoingBtn.addEventListener("click", function () {
     keepPlaying = true;
     overlay.classList.remove("show");

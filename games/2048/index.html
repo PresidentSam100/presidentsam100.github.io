@@ -29,43 +29,50 @@
 </head>
   <body>
     <div class="wrap">
-      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',sans-serif;color:#eef0f4;background:#1c1c26;border:1px solid #2e2e3c;border-radius:8px;padding:8px 13px">&larr; Games</a>
+      <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Rubik',system-ui,sans-serif;color:#eef0f3;background:#454b55;border:1px solid #272b31;border-radius:8px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.18),0 2px 0 #1a1d21;padding:8px 13px">&larr; Games</a>
 
-      <div class="topbar">
-        <div>
-          <h1 class="title">2048</h1>
-          <p class="subtitle">join the tiles, reach <b id="target">2048</b>!</p>
-        </div>
-        <div class="scores">
-          <div class="score-box">
-            <div class="label">Score</div>
-            <div class="val" id="score">0</div>
+      <div class="calc">
+        <div class="calc-head">
+          <div class="brand">
+            <span class="maker" aria-hidden="true">SAM LU</span>
+            <h1 class="title">2048</h1>
           </div>
-          <div class="score-box">
+          <div class="solar" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        </div>
+
+        <div class="lcd">
+          <div class="score-box best">
             <div class="label">Best</div>
-            <div class="val" id="best">0</div>
+            <div class="digits"><span class="ghost" aria-hidden="true">888888</span><span class="val" id="best">0</span></div>
+          </div>
+          <div class="score-box main">
+            <div class="label">Score</div>
+            <div class="digits"><span class="ghost" aria-hidden="true">8888888</span><span class="val" id="score">0</span></div>
           </div>
         </div>
-      </div>
 
-      <div class="controls">
-        <button class="btn" id="mode-normal">Normal</button>
-        <button class="btn" id="mode-fib">Fibonacci</button>
-      </div>
+        <p class="subtitle">join the tiles, reach <b id="target">2048</b>!</p>
 
-      <div class="board-wrap">
-        <div class="board" id="board">
-          <div class="grid-bg" id="grid-bg"></div>
-          <div class="tiles" id="tiles"></div>
+        <div class="controls">
+          <button class="btn" id="mode-normal">Normal</button>
+          <button class="btn" id="mode-fib">Fibonacci</button>
+          <button class="btn key-ac" id="new-game" title="New game" aria-label="New game">AC</button>
         </div>
-        <div class="overlay" id="overlay">
-          <h2 id="overlay-title">Game Over</h2>
-          <p id="overlay-msg"></p>
-          <div class="btn-row">
-            <button class="btn" id="overlay-retry">Try Again</button>
-            <button class="btn ghost" id="overlay-keepgoing" style="display:none">
-              Keep Going
-            </button>
+
+        <div class="board-wrap">
+          <div class="board" id="board">
+            <div class="grid-bg" id="grid-bg"></div>
+            <div class="tiles" id="tiles"></div>
+          </div>
+          <div class="overlay" id="overlay">
+            <h2 id="overlay-title">Game Over</h2>
+            <p id="overlay-msg"></p>
+            <div class="btn-row">
+              <button class="btn" id="overlay-retry">Try Again</button>
+              <button class="btn ghost" id="overlay-keepgoing" style="display:none">
+                Keep Going
+              </button>
+            </div>
           </div>
         </div>
       </div>
