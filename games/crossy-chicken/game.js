@@ -52,6 +52,31 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
+// ---------- 2.5D voxel blocks ----------
+// The camera looks from the front and above. A block standing on footprint
+// (x, y0, w, d) with height h draws a lit top face and a darker front face and
+// rises upward on screen; the far-to-near row loop keeps the occlusion right.
+const shadeCache = {};
+function shadeC(col, amt) {
+  const key = col + "|" + amt;
+  let v = shadeCache[key];
+  if (!v) {
+    let cr, cg, cb;
+    if (col[0] === "#") { const n = parseInt(col.slice(1), 16); cr = n >> 16 & 255; cg = n >> 8 & 255; cb = n & 255; }
+    else { const m = /rgb\((\d+),(\d+),(\d+)\)/.exec(col); cr = +m[1]; cg = +m[2]; cb = +m[3]; }
+    const t = amt < 0 ? 0 : 255, a = Math.abs(amt);
+    v = shadeCache[key] = "rgb(" + Math.round(cr + (t - cr) * a) + "," + Math.round(cg + (t - cg) * a) + "," + Math.round(cb + (t - cb) * a) + ")";
+  }
+  return v;
+}
+function block(x, y0, w, d, h, col, r) {
+  r = r == null ? 3 : r;
+  ctx.fillStyle = shadeC(col, -0.24);
+  roundRect(x, y0 + d - h, w, h, r); ctx.fill();   // front face
+  ctx.fillStyle = shadeC(col, 0.12);
+  roundRect(x, y0 - h, w, d, r); ctx.fill();       // top face
+}
+
 // ---------- audio (tiny, no assets) ----------
 let actx = null, masterGain = null;
 let muted = false;
@@ -501,6 +526,48 @@ let eagle = null;
 let policeTimer = 0;            // global scheduler: seconds until the next police chase on a random lane
 let paused = false;
 let squashT = 0;                // brief landing-squash timer for the hop animation
+let feathers = [];              // burst of feathers on a crash death
+let dusts = [];                 // little landing puffs at the chicken's feet
+function spawnFeathers(sx, wy, col) {
+  for (let i = 0; i < 12; i++) feathers.push({
+    x: sx + rand(-8, 8), wy: wy + rand(-10, 2),
+    vx: rand(-110, 110), vy: rand(-190, -40),
+    rot: rand(0, 6.3), vr: rand(-7, 7), t: 0, col
+  });
+}
+function spawnDust(sx, wy) {
+  for (let i = 0; i < 5; i++) dusts.push({ x: sx + rand(-12, 12), wy: wy + rand(-2, 2), vx: rand(-26, 26), t: 0 });
+}
+function updateFx(dt) {
+  if (feathers.length) {
+    for (const f of feathers) { f.t += dt; f.x += f.vx * dt; f.wy += f.vy * dt; f.vy += 300 * dt; f.rot += f.vr * dt; }
+    feathers = feathers.filter(f => f.t < 0.9);
+  }
+  if (dusts.length) {
+    for (const d of dusts) { d.t += dt; d.x += d.vx * dt; d.wy -= 10 * dt; }
+    dusts = dusts.filter(d => d.t < 0.4);
+  }
+}
+function drawFx() { // particles live in world space, so they stay put as the camera scrolls
+  for (const d of dusts) {
+    const k = d.t / 0.4;
+    ctx.fillStyle = "rgba(255,252,235," + (0.5 * (1 - k)).toFixed(2) + ")";
+    ctx.beginPath(); ctx.arc(d.x, d.wy - cameraY, 3 + 9 * k, 0, 7); ctx.fill();
+  }
+  for (const f of feathers) {
+    const k = f.t / 0.9;
+    ctx.save();
+    ctx.translate(f.x, f.wy - cameraY);
+    ctx.rotate(f.rot);
+    ctx.globalAlpha = k > 0.6 ? 1 - (k - 0.6) / 0.4 : 1;
+    ctx.fillStyle = f.col;
+    ctx.beginPath(); ctx.ellipse(0, 0, 6, 2.6, 0, 0, 7); ctx.fill();
+    ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-5, 0); ctx.lineTo(5, 0); ctx.stroke();
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
 const SQUASH_DUR = 0.13;
 let scorePopT = 0;              // brief HUD score "pop" timer, started on each 50-point milestone
 const SCORE_POP_DUR = 0.7;     // a little under a second so a fast run still shows the grow-and-shrink
@@ -958,7 +1025,7 @@ function updatePlaying(dt) {
   const landed = hopTimer <= 0;
   const justLanded = wasAir && landed;
   if (squashT > 0) squashT -= dt;
-  if (justLanded) squashT = SQUASH_DUR; // little landing-squash for the hop animation
+  if (justLanded) { squashT = SQUASH_DUR; spawnDust((renderGx + 0.5) * TILE, -renderGy * TILE + 12); } // landing squash + dust puff
 
   // mid-hop along a log: ride its momentum so a sideways hop nets one cell relative to the log
   if (!landed && hopCarrying) {
@@ -1045,6 +1112,8 @@ function death(cause, carryVX, dir) {
     dur: (cause === "trainhit" || cause === "carjump" || cause === "swept") ? 1.1 : 0.9
   };
   sfx(cause === "water" || cause === "swept" ? "splash" : "crash");
+  if (cause !== "water" && cause !== "swept")
+    spawnFeathers((renderGx + 0.5) * TILE, -renderGy * TILE, (SKINS[skinSel] || SKINS[0]).body);
   cluck(0.6, true); // loud panicked death squawk
   saveScore();
 }
@@ -1087,7 +1156,7 @@ function resetWorld() {
   player.gy = 0;
   player.face = "up";
   renderGx = player.gx; renderGy = player.gy;
-  hopTimer = 0; idleTime = 0; maxRow = 0; lastMilestone = 0; coins = 0; squashT = 0; scorePopT = 0; coinPops = []; eagle = null; deathAnim = null; policeTimer = rand(4, 12); bufferedMove = null; hopCarrying = false;
+  hopTimer = 0; idleTime = 0; maxRow = 0; lastMilestone = 0; coins = 0; squashT = 0; scorePopT = 0; coinPops = []; eagle = null; deathAnim = null; policeTimer = rand(4, 12); bufferedMove = null; hopCarrying = false; feathers = []; dusts = [];
   ensureRows(VIS_ROWS + 3);
   cameraY = autoScrollY = -player.gy * TILE - H * 0.62;
 }
@@ -1193,6 +1262,7 @@ function cycleSkin() {
 window.addEventListener("keydown", (e) => {
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
+  if (e.repeat) return; // one hop per physical press — holding a key must not auto-hop
   if (state === "menu") {
     if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") { menuSel = (menuSel + MODES.length - 1) % MODES.length; menuTick(-1); }
     else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") { menuSel = (menuSel + 1) % MODES.length; menuTick(1); }
@@ -1272,9 +1342,9 @@ function drawRow(r, row) {
   if (row.type === "grass") {
     ctx.fillStyle = (mod(r, 2) === 0) ? "#9bd64f" : "#90cf47";
     ctx.fillRect(SCENE_L, top, W, TILE);
-    // subtle top edge
-    ctx.fillStyle = "rgba(0,0,0,.04)";
-    ctx.fillRect(SCENE_L, top, W, 5);
+    // terraced edge: a soft shade at the far edge of every grass step
+    ctx.fillStyle = "rgba(0,0,0,.06)";
+    ctx.fillRect(SCENE_L, top, W, 6);
     // decorations
     for (const d of row.decos) {
       const x = (d.col + d.dx) * TILE, y = top + d.dy * TILE;
@@ -1316,19 +1386,32 @@ function drawRow(r, row) {
     drawSignal(row, top); // signal sits in front of the train (it's on the near edge)
 
   } else if (row.type === "river") {
-    ctx.fillStyle = "#2f7fd6";
+    // sunken water: darker base, a shore shadow cast by the far bank, and two
+    // ripple bands drifting in opposite directions
+    ctx.fillStyle = "#2b6fc2";
     ctx.fillRect(SCENE_L, top, W, TILE);
-    ctx.fillStyle = "rgba(255,255,255,.08)";
-    const wob = (performance.now() / 130) % 40;
+    const shoreG = ctx.createLinearGradient(0, top, 0, top + 15);
+    shoreG.addColorStop(0, "rgba(6,24,54,.45)");
+    shoreG.addColorStop(1, "rgba(6,24,54,0)");
+    ctx.fillStyle = shoreG;
+    ctx.fillRect(SCENE_L, top, W, 15);
+    const t1 = (performance.now() / 130) % 40, t2 = 40 - (performance.now() / 210) % 40;
+    ctx.fillStyle = "rgba(255,255,255,.10)";
     for (let x = SCENE_L; x < SCENE_R; x += 40) {
-      ctx.beginPath();
-      ctx.arc(x + wob, top + TILE * 0.35, 6, 0, Math.PI);
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(x + t1, top + TILE * 0.32, 6, 0, Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + t2 + 20, top + TILE * 0.68, 5, Math.PI, 0); ctx.fill();
     }
-    ctx.fillStyle = "rgba(0,0,0,.10)";
-    ctx.fillRect(SCENE_L, top, W, 4); ctx.fillRect(SCENE_L, top + TILE - 4, W, 4);
     for (const it of row.items) drawPlatform(row, it, top);
     if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top); // sits on the log and rides along with it
+  }
+
+  // the near shore's cliff face: land rises out of the water just beyond it
+  const beyond = rows[r + 1];
+  if (row.type !== "river" && beyond && beyond.type === "river") {
+    ctx.fillStyle = "#6f5a33";
+    ctx.fillRect(SCENE_L, top - 7, W, 7);
+    ctx.fillStyle = "rgba(255,255,255,.22)";
+    ctx.fillRect(SCENE_L, top - 7, W, 2);
   }
 }
 
@@ -1358,54 +1441,55 @@ function drawCoinPops() {
 }
 
 function drawTree(x, y) {
-  ctx.fillStyle = "rgba(0,0,0,.18)";
-  ctx.beginPath(); ctx.ellipse(x, y + 14, 16, 6, 0, 0, 7); ctx.fill();
-  ctx.fillStyle = "#7a4a25";
-  ctx.fillRect(x - 5, y - 4, 10, 20);
-  ctx.fillStyle = "#2f8f3e";
-  ctx.beginPath(); ctx.arc(x, y - 14, 17, 0, 7); ctx.fill();
-  ctx.fillStyle = "#39a64a";
-  ctx.beginPath(); ctx.arc(x - 6, y - 8, 11, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(x + 7, y - 18, 10, 0, 7); ctx.fill();
+  // a toy-block tree: trunk cube under two stacked canopy slabs
+  ctx.fillStyle = "rgba(0,0,0,.20)";
+  ctx.beginPath(); ctx.ellipse(x, y + 14, 17, 6, 0, 0, 7); ctx.fill();
+  block(x - 6, y + 2, 12, 8, 16, "#8a5a2e", 2);
+  block(x - 17, y - 6, 34, 14, 22, "#2f8f3e", 5);
+  block(x - 11, y - 10, 22, 10, 16, "#43b257", 5);
+  ctx.fillStyle = "rgba(255,255,255,.20)";
+  roundRect(x - 8, y - 24, 12, 4, 2); ctx.fill();
 }
 
 function drawVehicle(row, it, top) {
   const x = it.x * TILE, w = it.len * TILE; // roads use linear positions
   if (x > W + TILE || x + w < -TILE) return;
-  const y = top + TILE * 0.18, h = TILE * 0.64;
   const facingRight = row.dir > 0;
+  const y0 = top + TILE * 0.24, d = TILE * 0.5;
 
-  // shadow
+  // shadow, and wheels peeking out under the body
   ctx.fillStyle = "rgba(0,0,0,.22)";
-  roundRect(x + 4, y + h - 6, w - 8, 9, 5); ctx.fill();
+  roundRect(x + 3, y0 + d - 6, w - 6, 9, 5); ctx.fill();
+  ctx.fillStyle = "#1b1b1f";
+  ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
+  ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
 
   if (it.type === "truck") {
-    // trailer
-    ctx.fillStyle = "#e9e9ee";
-    roundRect(facingRight ? x : x + w * 0.30, y, w * 0.70, h, 6); ctx.fill();
-    ctx.fillStyle = "rgba(0,0,0,.10)";
-    roundRect(facingRight ? x : x + w * 0.30, y, w * 0.70, h, 6); ctx.fill();
-    // cab
-    ctx.fillStyle = it.color;
-    const cabX = facingRight ? x + w * 0.70 : x;
-    roundRect(cabX, y, w * 0.30, h, 6); ctx.fill();
-    ctx.fillStyle = "#bfe4ff";
-    roundRect(facingRight ? cabX + 6 : cabX + 4, y + 6, w * 0.30 - 10, h * 0.42, 3); ctx.fill();
+    const cabW = w * 0.26, trailW = w * 0.66;
+    const cabX = facingRight ? x + w - cabW : x;
+    const trailX = facingRight ? x + 2 : x + w - trailW - 2;
+    block(cabX, y0, cabW, d, 16, it.color, 4);
+    ctx.fillStyle = "#bfe4ff"; // windshield strip on the cab's front face
+    roundRect(cabX + 3, y0 + d - 14, cabW - 6, 7, 2); ctx.fill();
+    block(trailX, y0, trailW, d, 30, "#e9e9ee", 3);
+    ctx.strokeStyle = "rgba(0,0,0,.14)"; ctx.lineWidth = 2; // container ridges
+    for (let i = 1; i < 4; i++) {
+      const lx = trailX + trailW * i / 4;
+      ctx.beginPath(); ctx.moveTo(lx, y0 + d - 30); ctx.lineTo(lx, y0 + d - 2); ctx.stroke();
+    }
   } else {
-    ctx.fillStyle = it.color;
-    roundRect(x, y, w, h, 9); ctx.fill();
-    // windows
-    ctx.fillStyle = "#bfe4ff";
-    roundRect(x + w * 0.18, y + 6, w * 0.64, h * 0.40, 4); ctx.fill();
-    // headlight
-    ctx.fillStyle = "#fff3b0";
-    const hx = facingRight ? x + w - 5 : x + 1;
-    ctx.fillRect(hx, y + h * 0.30, 4, h * 0.4);
+    block(x + 2, y0, w - 4, d, 13, it.color, 5);          // body
+    const cabW = w * 0.5, cabX = x + w * 0.25;
+    block(cabX, y0 + 2, cabW, d - 4, 25, it.color, 4);    // raised cabin
+    ctx.fillStyle = "#bfe4ff";                            // wrap-around glass
+    roundRect(cabX + 2, y0 + d - 25, cabW - 4, 9, 3); ctx.fill();
+    ctx.fillStyle = "#fff3b0";                            // headlights, leading edge
+    const hx = facingRight ? x + w - 9 : x + 3;
+    ctx.fillRect(hx, y0 + d - 12, 6, 5);
+    ctx.fillStyle = "#e04438";                            // taillight, trailing edge
+    const tx2 = facingRight ? x + 3 : x + w - 8;
+    ctx.fillRect(tx2, y0 + d - 12, 5, 5);
   }
-  // wheels
-  ctx.fillStyle = "#1b1b1f";
-  ctx.beginPath(); ctx.arc(x + w * 0.22, y + h, 5, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(x + w * 0.78, y + h, 5, 0, 7); ctx.fill();
 }
 
 function drawPoliceWarning(row, top) {
@@ -1430,59 +1514,54 @@ function drawPoliceCar(row, top) {
   const p = row.police;
   const x = p.x * TILE, w = p.len * TILE;
   if (x > W + TILE || x + w < -TILE) return;
-  const y = top + TILE * 0.18, h = TILE * 0.64;
   const facingRight = p.dir > 0;
   const flash = (((performance.now() / 110) | 0) % 2) === 0;
+  const y0 = top + TILE * 0.24, d = TILE * 0.5;
   // speed streaks trailing behind
   ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2;
   for (let i = 0; i < 3; i++) {
-    const sy = y + h * (0.28 + i * 0.22);
+    const sy = y0 + d - 8 - i * 9;
     const bx = facingRight ? x - 4 : x + w + 4;
     ctx.beginPath(); ctx.moveTo(bx, sy); ctx.lineTo(bx + (facingRight ? -24 : 24), sy); ctx.stroke();
   }
-  // shadow
+  // shadow + wheels
   ctx.fillStyle = "rgba(0,0,0,.22)";
-  roundRect(x + 4, y + h - 6, w - 8, 9, 5); ctx.fill();
+  roundRect(x + 3, y0 + d - 6, w - 6, 9, 5); ctx.fill();
+  ctx.fillStyle = "#1b1b1f";
+  ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
+  ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
 
   if (p.type === "firetruck") {
-    // red fire truck (truck-sized): body + cab + ladder
-    ctx.fillStyle = "#d11f1f";
-    roundRect(x, y, w, h, 7); ctx.fill();
-    ctx.fillStyle = "#a81616"; // cab section at the front
-    const cabX = facingRight ? x + w - w * 0.28 : x;
-    roundRect(cabX, y, w * 0.28, h, 7); ctx.fill();
+    block(x + 2, y0, w - 4, d, 16, "#d11f1f", 4);
+    const cabW = w * 0.26;
+    const cabX = facingRight ? x + w - cabW - 2 : x + 2;
+    block(cabX, y0 + 2, cabW, d - 4, 26, "#a81616", 3);
     ctx.fillStyle = "#bfe4ff";
-    roundRect(facingRight ? cabX + 5 : cabX + 4, y + 6, w * 0.28 - 10, h * 0.42, 3); ctx.fill();
-    ctx.strokeStyle = "#d9d9de"; ctx.lineWidth = 3; // ladder
-    ctx.beginPath(); ctx.moveTo(x + w * 0.1, y + 7); ctx.lineTo(x + w * 0.72, y + 7); ctx.stroke();
+    roundRect(cabX + 3, y0 + d - 26, cabW - 6, 8, 2); ctx.fill();
+    ctx.strokeStyle = "#d9d9de"; ctx.lineWidth = 3; // ladder along the roof
+    ctx.beginPath(); ctx.moveTo(x + w * 0.08, y0 - 10); ctx.lineTo(x + w * 0.66, y0 - 10); ctx.stroke();
     ctx.fillStyle = "#fff"; ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("FIRE", x + w * (facingRight ? 0.4 : 0.6), y + h * 0.82);
-    // flashing red light
-    ctx.fillStyle = flash ? "#ff2b2b" : "#7a0f0f";
-    roundRect(x + w * 0.40, y - 8, w * 0.20, 9, 3); ctx.fill();
+    ctx.fillText("FIRE", x + w * (facingRight ? 0.4 : 0.6), y0 + d - 6);
+    ctx.fillStyle = flash ? "#ff2b2b" : "#7a0f0f"; // flashing beacon on the cab roof
+    roundRect(cabX + cabW * 0.28, y0 - 20, cabW * 0.44, 7, 3); ctx.fill();
   } else {
-    // police car (car-sized): white body, livery, blue/red bar
-    ctx.fillStyle = "#f2f2f5";
-    roundRect(x, y, w, h, 9); ctx.fill();
-    ctx.fillStyle = "#1b1b22";
-    ctx.fillRect(x + w * 0.28, y + h * 0.5, w * 0.44, 6);
+    block(x + 2, y0, w - 4, d, 13, "#f2f2f5", 5);
+    const cabW = w * 0.5, cabX = x + w * 0.25;
+    block(cabX, y0 + 2, cabW, d - 4, 25, "#f2f2f5", 4);
+    ctx.fillStyle = "#1b1b22"; // livery stripe on the body's front face
+    ctx.fillRect(x + w * 0.2, y0 + d - 9, w * 0.6, 4);
     ctx.fillStyle = "#bfe4ff";
-    roundRect(x + w * 0.18, y + 6, w * 0.64, h * 0.40, 4); ctx.fill();
-    ctx.fillStyle = flash ? "#ff3030" : "#3a6bff"; // flashing light bar
-    roundRect(x + w * 0.32, y - 8, w * 0.36, 9, 3); ctx.fill();
-    ctx.fillStyle = "rgba(255,255,255,.45)";
-    roundRect(x + w * 0.46, y - 8, w * 0.08, 9, 2); ctx.fill();
+    roundRect(cabX + 2, y0 + d - 25, cabW - 4, 8, 3); ctx.fill();
+    ctx.fillStyle = flash ? "#ff3030" : "#3a6bff"; // light bar on the roof
+    roundRect(cabX + cabW * 0.22, y0 - 21, cabW * 0.56, 7, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.5)";
+    roundRect(cabX + cabW * 0.44, y0 - 21, cabW * 0.12, 7, 2); ctx.fill();
     ctx.fillStyle = "#1b1b22"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("POLICE", x + w / 2, y + h * 0.82);
+    ctx.fillText("POLICE", x + w / 2, y0 + d - 3);
   }
-  // wheels
-  ctx.fillStyle = "#1b1b1f";
-  ctx.beginPath(); ctx.arc(x + w * 0.22, y + h, 5, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.arc(x + w * 0.78, y + h, 5, 0, 7); ctx.fill();
-  // headlight
-  ctx.fillStyle = "#fff3b0";
-  const hx = facingRight ? x + w - 5 : x + 1;
-  ctx.fillRect(hx, y + h * 0.30, 4, h * 0.4);
+  ctx.fillStyle = "#fff3b0"; // headlights on the leading edge
+  const hx = facingRight ? x + w - 9 : x + 3;
+  ctx.fillRect(hx, y0 + d - 12, 6, 5);
 }
 
 function drawPlatform(row, it, top) {
@@ -1491,24 +1570,30 @@ function drawPlatform(row, it, top) {
   if (x > W + TILE || x + w < -TILE) return;
   if (it.type === "pad") {
     const cx = x + TILE / 2, cy = top + TILE / 2;
+    ctx.fillStyle = "rgba(6,32,64,.35)"; // resting shadow in the water
+    ctx.beginPath(); ctx.ellipse(cx + 3, cy + 5, TILE * 0.37, TILE * 0.3, 0, 0, 7); ctx.fill();
     ctx.fillStyle = "#2f9d4d";
     ctx.beginPath(); ctx.arc(cx, cy, TILE * 0.36, 0, 7); ctx.fill();
     ctx.fillStyle = "#247a3c";
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, TILE * 0.36, -0.5, 0.3); ctx.fill();
+    ctx.fillStyle = "#59c274"; // rim light
+    ctx.beginPath(); ctx.arc(cx, cy, TILE * 0.3, 3.4, 5.2); ctx.stroke();
     ctx.fillStyle = "#ff77a8";
     ctx.beginPath(); ctx.arc(cx + 6, cy - 6, 4, 0, 7); ctx.fill();
   } else {
-    const y = top + TILE * 0.16, h = TILE * 0.68;
-    ctx.fillStyle = "rgba(0,0,0,.18)";
-    roundRect(x + 4, y + h - 4, w - 8, 7, 4); ctx.fill();
-    ctx.fillStyle = "#7a4a24";
-    roundRect(x + 4, y, w - 8, h, 10); ctx.fill();
-    ctx.strokeStyle = "rgba(0,0,0,.20)"; ctx.lineWidth = 2;
-    for (let i = 1; i < it.len; i++) {
-      ctx.beginPath(); ctx.moveTo(x + i * TILE, y + 4); ctx.lineTo(x + i * TILE, y + h - 4); ctx.stroke();
-    }
-    ctx.fillStyle = "#8a5a2e";
-    roundRect(x + 8, y + 5, w - 16, 6, 3); ctx.fill();
+    // a floating log: rounded block with grain lines and cut-end rings
+    const y0 = top + TILE * 0.26, d = TILE * 0.48, h = 10;
+    ctx.fillStyle = "rgba(6,32,64,.35)";
+    roundRect(x + 6, y0 + d - 4, w - 12, 8, 4); ctx.fill();
+    block(x + 4, y0, w - 8, d, h, "#7a4a24", 7);
+    ctx.strokeStyle = "rgba(0,0,0,.16)"; ctx.lineWidth = 2; // grain along the top
+    ctx.beginPath();
+    ctx.moveTo(x + 10, y0 - h + d * 0.32); ctx.lineTo(x + w - 10, y0 - h + d * 0.32);
+    ctx.moveTo(x + 14, y0 - h + d * 0.66); ctx.lineTo(x + w - 14, y0 - h + d * 0.66);
+    ctx.stroke();
+    ctx.fillStyle = "#9a6a38"; // end grain
+    ctx.beginPath(); ctx.ellipse(x + 9, y0 + d - h / 2 - 1, 4, 5, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + w - 9, y0 + d - h / 2 - 1, 4, 5, 0, 0, 7); ctx.fill();
   }
 }
 
@@ -1529,54 +1614,66 @@ function drawSignal(row, top) {
 
 function drawTrain(row, top) {
   const x = row.trainX * TILE, w = row.trainLen * TILE;
-  const y = top + TILE * 0.1, h = TILE * 0.8;
+  const y0 = top + TILE * 0.22, d = TILE * 0.56, h = 34;
   ctx.fillStyle = "rgba(0,0,0,.25)";
-  roundRect(x + 4, y + h - 5, w - 8, 9, 5); ctx.fill();
-  ctx.fillStyle = "#c0392b";
-  roundRect(x, y, w, h, 10); ctx.fill();
-  ctx.fillStyle = "rgba(255,255,255,.15)";
-  roundRect(x, y, w, h * 0.4, 10); ctx.fill();
-  // windows
-  ctx.fillStyle = "#1c2533";
+  roundRect(x + 4, y0 + d - 6, w - 8, 10, 5); ctx.fill();
   for (let i = 0; i < row.trainLen; i++) {
-    roundRect(x + i * TILE + 12, y + 10, TILE - 24, h * 0.4, 4); ctx.fill();
+    const cx2 = x + i * TILE + 2, cw = TILE - 5;
+    block(cx2, y0, cw, d, h, i === 0 || i === row.trainLen - 1 ? "#a93226" : "#c0392b", 4);
+    ctx.fillStyle = "#1c2533"; // window band on the front face
+    roundRect(cx2 + 6, y0 + d - h + 7, cw - 12, 11, 3); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.18)"; // roof sheen
+    roundRect(cx2 + 4, y0 - h + 3, cw - 8, 5, 2); ctx.fill();
   }
-  // nose highlight at front
-  ctx.fillStyle = "#ffd23d";
+  ctx.fillStyle = "#ffd23d"; // glowing nose at the front
   const nx = row.dir > 0 ? x + w - 8 : x + 2;
-  ctx.fillRect(nx, y + h * 0.3, 6, h * 0.4);
+  ctx.fillRect(nx, y0 + d - h + 6, 6, h - 12);
 }
 
 // Draws the chicken centered at (sx, sy) with optional squash/stretch and rotation (for death poses).
 function drawChicken(sx, sy, sclX, sclY, rot, f, skin) {
+  // a voxel chick: body cube, head cube nudged toward its facing, comb slab,
+  // beak, wing patch. Same footprint and transform contract as the old sprite.
   const sk = skin || SKINS[skinSel] || SKINS[0];
+  const dx = f === "left" ? -1 : f === "right" ? 1 : 0;
   ctx.save();
   ctx.translate(sx, sy);
   if (rot) ctx.rotate(rot);
   ctx.scale(sclX, sclY);
-  // tail
-  ctx.fillStyle = sk.tail;
-  ctx.beginPath(); ctx.arc(0, 8, 14, 0, 7); ctx.fill();
-  // body
-  ctx.fillStyle = sk.body;
-  roundRect(-13, -14, 26, 26, 10); ctx.fill();
-  // comb
-  ctx.fillStyle = sk.comb;
-  ctx.beginPath(); ctx.arc(-4, -16, 4, 0, 7); ctx.arc(2, -17, 4, 0, 7); ctx.fill();
-  // eyes
-  ctx.fillStyle = "#222";
-  const ex = f === "left" ? -5 : f === "right" ? 5 : 0;
-  ctx.beginPath(); ctx.arc(-5 + ex * 0.4, -6, 2.2, 0, 7); ctx.arc(5 + ex * 0.4, -6, 2.2, 0, 7); ctx.fill();
-  // beak
+  // tail slab: at the back for side hops, small and up top when walking away
+  if (f === "up") block(-5, -2, 10, 4, 10, sk.tail, 3);
+  else block(dx <= 0 ? 7 : -13, 3, 6, 5, 12, sk.tail, 2);
+  // body cube
+  block(-12, 4, 24, 8, 18, sk.body, 5);
+  // feet
+  ctx.fillStyle = shadeC(sk.beak, -0.15);
+  ctx.fillRect(-8, 12, 5, 3); ctx.fillRect(3, 12, 5, 3);
+  // wing patch on the body
+  ctx.fillStyle = shadeC(sk.body, -0.12);
+  roundRect(dx >= 0 ? -10 : 3, -2, 7, 9, 3); ctx.fill();
+  // head cube + comb
+  block(-7 + dx * 5, -10, 14, 6, 12, sk.body, 4);
+  block(-3 + dx * 5, -19, 6, 3, 5, sk.comb, 1);
+  // face
   ctx.fillStyle = sk.beak;
-  let bx = 0, by = -2;
-  if (f === "left") bx = -14; else if (f === "right") bx = 14;
-  else if (f === "down") by = 8; else by = -12;
-  ctx.beginPath();
-  ctx.moveTo(bx, by);
-  ctx.lineTo(bx + (f === "left" ? -7 : f === "right" ? 7 : 5), by + (f === "down" ? 6 : f === "up" ? -4 : 3));
-  ctx.lineTo(bx + (f === "left" ? -7 : f === "right" ? 7 : -5), by + (f === "down" ? 6 : f === "up" ? -4 : 6));
-  ctx.closePath(); ctx.fill();
+  if (f === "left" || f === "right") {
+    const ex = dx * 12;
+    ctx.beginPath();
+    ctx.moveTo(ex, -16); ctx.lineTo(ex + dx * 8, -12); ctx.lineTo(ex, -8);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#222";
+    ctx.fillRect(dx * 5 + (dx > 0 ? 2 : -5), -15, 3, 3);
+  } else if (f === "down") {
+    ctx.beginPath();
+    ctx.moveTo(-4, -9); ctx.lineTo(4, -9); ctx.lineTo(0, -4);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#222";
+    ctx.fillRect(-5, -15, 3, 3); ctx.fillRect(2, -15, 3, 3);
+  } else { // "up" — seen from behind: wing hints, no face
+    ctx.fillStyle = shadeC(sk.body, -0.16);
+    roundRect(-12, -4, 5, 12, 2); ctx.fill();
+    roundRect(7, -4, 5, 12, 2); ctx.fill();
+  }
   ctx.restore();
 }
 
@@ -1624,7 +1721,7 @@ function drawDeathState() {
     const r = Math.round(da.gy), top = rowTopY(r), row = rows[r];
     ctx.save();
     ctx.beginPath(); ctx.rect(SCENE_L, top, W, TILE); ctx.clip(); // keep the splash on the water row only
-    drawSplash(sx, sy, t);
+    drawSplash(sx, sy, t, da.face);
     ctx.restore();
     if (row && row.type === "river") {
       for (const it of row.items) drawPlatform(row, it, top); // splash sits under logs/pads
@@ -1644,7 +1741,7 @@ function drawDeathState() {
   ctx.beginPath(); ctx.ellipse(sx, sy + 14, 18, 7, 0, 0, 7); ctx.fill();
 
   if (da.cause === "trainhit") {
-    drawChicken(sx, sy, 0.85, 0.85, t * 14, "down"); // tumbling away with the train
+    drawChicken(sx, sy, 0.85, 0.85, t * 14, da.face); // tumbling away with the train, still facing its last hop
   } else if (da.cause === "carjump") {
     const p = clamp(t / 0.14, 0, 1); // squished thin against the vehicle, carried along
     const sclX = 1 - 0.7 * p;
@@ -1659,11 +1756,11 @@ function drawDeathState() {
   }
 }
 
-function drawSplash(sx, sy, t) {
-  // chicken sinking
+function drawSplash(sx, sy, t, face) {
+  // chicken sinking — still facing the way it last hopped
   if (t < 0.28) {
     ctx.save(); ctx.globalAlpha = 1 - t / 0.28;
-    drawChicken(sx, sy + t * 45, 1 - t * 1.6, 1, 0, "down");
+    drawChicken(sx, sy + t * 45, 1 - t * 1.6, 1, 0, face || "down");
     ctx.restore();
   }
   // expanding ripple rings
@@ -1732,11 +1829,27 @@ function drawHUD() {
   if (coins > 0) { ctx.fillStyle = "#ffd23d"; ctx.fillText("🪙 " + coins, 18, 88); }
 }
 
+// soft tinted dim over the scene, in place of the old flat near-black wash
+function veil(alpha) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, "rgba(22,44,30," + (alpha * 0.85).toFixed(2) + ")");
+  g.addColorStop(1, "rgba(10,26,36," + alpha + ")");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
 function drawButton(b, fill, label, sub, hi, selected) {
+  // a chunky toy button: solid face sitting on a darker lip, like the back pill
+  ctx.fillStyle = shadeC(fill, -0.4);
+  roundRect(b.x, b.y + 4, b.w, b.h, 14); ctx.fill();
   ctx.fillStyle = fill;
-  roundRect(b.x, b.y, b.w, b.h, 12); ctx.fill();
+  roundRect(b.x, b.y, b.w, b.h, 14); ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2.5;
+    roundRect(b.x + 2.5, b.y + 2.5, b.w - 5, b.h - 5, 11); ctx.stroke();
+  }
   ctx.textBaseline = "middle";
-  ctx.fillStyle = selected ? "#1b2030" : "#fff";
+  ctx.fillStyle = "#2c3a18";
   ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
   if (sub == null && hi == null) { // simple centred button (game-over screen)
     ctx.textAlign = "center";
@@ -1747,33 +1860,54 @@ function drawButton(b, fill, label, sub, hi, selected) {
   ctx.fillText(label, b.x + 18, b.y + b.h / 2 + (sub ? -8 : 0));
   if (sub) {
     ctx.font = "13px 'Trebuchet MS', sans-serif";
-    ctx.fillStyle = selected ? "rgba(27,32,48,.8)" : "rgba(255,255,255,.6)";
+    ctx.fillStyle = "rgba(44,58,24,.72)";
     ctx.fillText(sub, b.x + 18, b.y + b.h / 2 + 12);
   }
   if (hi != null) {
     ctx.textAlign = "right";
     ctx.font = "bold 15px 'Trebuchet MS', sans-serif";
-    ctx.fillStyle = selected ? "#1b2030" : "rgba(255,255,255,.7)";
+    ctx.fillStyle = "rgba(44,58,24,.78)";
     ctx.fillText("BEST " + hi, b.x + b.w - 16, b.y + b.h / 2);
   }
 }
 
 function drawMenu() {
-  ctx.fillStyle = "rgba(10,14,22,.6)"; ctx.fillRect(0, 0, W, H);
-  textCenter("CROSSY", W / 2, H * 0.15, 54, "#fff");
-  textCenter("CHICKEN", W / 2, H * 0.15 + 48, 54, "#ffd23d");
-  textCenter("Select a mode", W / 2, H * 0.30, 20, "#dfe6f0");
+  veil(0.52);
+  const bob = Math.sin(performance.now() / 300) * 4;
+  ctx.save();
+  ctx.translate(W / 2, H * 0.15);
+  ctx.rotate(-0.03);
+  textCenter("CROSSY", 0, 0, 56, "#fff");
+  textCenter("CHICKEN", 0, 50, 56, "#ffd23d");
+  ctx.restore();
+  // a pair of voxel chickens flanking the title, bobbing in time
+  drawChicken(W / 2 - 168, H * 0.15 + 30 + bob, 1.25, 1.25, -0.06, "right", SKINS[skinSel]);
+  drawChicken(W / 2 + 168, H * 0.15 + 30 - bob, 1.25, 1.25, 0.06, "left", SKINS[skinSel]);
+  textCenter("Select a mode", W / 2, H * 0.30, 20, "#eaf2dc");
   const rects = menuButtonRects();
   MODES.forEach((m, i) => {
     const sel = i === menuSel;
-    drawButton(rects[i], sel ? "rgba(255,210,61,.92)" : "rgba(255,255,255,.14)", m.label, m.desc, loadHigh(m.id), sel);
+    drawButton(rects[i], sel ? "#ffd23d" : "#f6f2e4", m.label, m.desc, loadHigh(m.id), sel);
   });
-  // skin selector with a live preview of the current chicken
+  // skin selector: the current chicken spins on a little turntable so the
+  // whole bird shows, with the caption clear underneath. The turn is faked by
+  // cycling the four facings and squashing edge-on between them.
   const sk = SKINS[skinSel], be = bestEver();
-  drawChicken(W / 2 - 96, H * 0.785, 1, 1, 0, "up", sk);
-  textCenter("Skin: " + sk.name + "   (C to change)", W / 2 + 16, H * 0.785, 17, "#fff");
+  const px2 = W / 2, py2 = H * 0.75;
+  ctx.fillStyle = "rgba(0,0,0,.25)"; // turntable shadow
+  ctx.beginPath(); ctx.ellipse(px2, py2 + 20, 26, 8, 0, 0, 7); ctx.fill();
+  if (window.RM_ON && window.RM_ON()) {
+    drawChicken(px2, py2, 1.35, 1.35, 0, "down", sk); // reduced motion: still, facing you
+  } else {
+    const spin = (performance.now() / 850) % 4;
+    const faceSeq = ["down", "right", "up", "left"]; // one clockwise turn
+    const pp = spin - Math.floor(spin);
+    const wobble = 0.3 + 0.7 * Math.sin(pp * Math.PI); // edge-on between facings
+    drawChicken(px2, py2, 1.35 * wobble, 1.35, 0, faceSeq[Math.floor(spin)], sk);
+  }
+  textCenter("Skin: " + sk.name + "   (C to change)", W / 2, H * 0.815, 17, "#fff");
   const nextLocked = SKINS.find(s => be < s.unlock);
-  if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.785 + 24, 13, "rgba(255,255,255,.55)");
+  if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
   textCenter("↑ ↓ select  •  SPACE / tap to play", W / 2, H * 0.90, 18, "#fff");
@@ -1781,7 +1915,7 @@ function drawMenu() {
 }
 
 function drawDead() {
-  ctx.fillStyle = "rgba(10,14,22,.62)"; ctx.fillRect(0, 0, W, H);
+  veil(0.56);
   const msg = {
     runover: "FLATTENED!", carjump: "SPLATTED INTO A CAR!", trainhit: "HIT BY A TRAIN!",
     water: "SPLASH! You drowned", swept: "Swept down the river!", eagle: "The eagle got you!"
@@ -1800,13 +1934,13 @@ function drawDead() {
   textCenter((mode ? mode.label : "") + "  —  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
   textCenter("Best  " + highScore + (bestCoins ? "    (🪙 " + bestCoins + ")" : ""), W / 2, H * 0.39 + 30, 18, "#dfe6f0");
   const r = deadButtonRects();
-  drawButton(r[0], "rgba(255,210,61,.92)", "Play Again", null, null, true);
-  drawButton(r[1], "rgba(255,255,255,.16)", "Main Menu", null, null, false);
+  drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
+  drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false);
   textCenter("SPACE: play again  •  ESC: menu  •  M: mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
 }
 
 function drawPauseOverlay() {
-  ctx.fillStyle = "rgba(10,14,22,.6)"; ctx.fillRect(0, 0, W, H);
+  veil(0.52);
   textCenter("PAUSED", W / 2, H * 0.42, 56, "#fff");
   const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
@@ -1874,6 +2008,7 @@ function render() {
     if (row && row.type === "road" && row.siren)
       drawPoliceWarning(row, rowTopY(r));
   }
+  drawFx();       // feathers and landing dust over the scene
   drawCoinPops(); // over everything in the scene, including the margin shade
   ctx.restore();
 
@@ -1893,6 +2028,7 @@ function frame(now) {
   if (!paused) {
     if (scorePopT > 0) scorePopT -= dt; // HUD score-pop easing — ticks in every state so it settles even after death
     if (coinPops.length) { for (const p of coinPops) p.t += dt; coinPops = coinPops.filter(p => p.t < COIN_POP_DUR); }
+    updateFx(dt);
     if (state === "playing") updatePlaying(dt);
     else if (state === "dying") updateDying(dt);
     else if (state === "eagle") updateEagle(dt);
@@ -1919,5 +2055,13 @@ if (!window.GameShell) { // shell missing — keep the original listeners so the
   window.addEventListener("blur", autoPause);
   document.addEventListener("visibilitychange", () => { if (document.hidden) autoPause(); });
 }
+
+// test hook
+window.__game = {
+  get state() { return state; },
+  get score() { return score(); },
+  get player() { return player; },
+  spawnFeathers, spawnDust, death
+};
 
 })();

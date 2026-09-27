@@ -1,8 +1,14 @@
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     height: 100%;
-    background: radial-gradient(circle at 50% 20%, #1d2638, #0b0f17 70%);
+    /* a sunny toy-box sky behind the diorama: sun glow, soft clouds, grass haze */
+    background:
+      radial-gradient(circle at 84% 10%, rgba(255, 242, 178, 0.95), rgba(255, 242, 178, 0) 24%),
+      radial-gradient(150px 44px at 16% 20%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(190px 52px at 74% 30%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(120px 36px at 42% 10%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%),
+      linear-gradient(#79c2ec 0%, #a9def4 55%, #c9e8b8 100%);
     font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     overflow: hidden;
     touch-action: none;
@@ -15,19 +21,24 @@
   }
   #game {
     display: block;
-    border-radius: 14px;
-    box-shadow: 0 24px 60px rgba(0,0,0,.6), 0 0 0 4px rgba(255,255,255,.04);
+    border-radius: 16px;
+    box-shadow:
+      0 0 0 5px rgba(255, 255, 255, 0.6),
+      0 0 0 9px rgba(70, 120, 55, 0.28),
+      0 30px 60px rgba(30, 60, 25, 0.45);
     background: #8fce46;
     image-rendering: optimizeQuality;
   }
   #hint {
     position: fixed;
-    bottom: 8px;
+    bottom: 10px;
     width: 100%;
     text-align: center;
-    color: rgba(255,255,255,.35);
-    font-size: 12px;
-    letter-spacing: .5px;
+    color: #2c4a1c;
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: .4px;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
     pointer-events: none;
   }
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
