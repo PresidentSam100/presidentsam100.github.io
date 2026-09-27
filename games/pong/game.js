@@ -116,6 +116,7 @@ function startGame(mode) {
   players = mode;
   left.score = 0;
   right.score = 0;
+  antennaReset();
   left.y = right.y = H / 2 - PADDLE_H / 2;
   // park the ball at center, frozen — it launches when the countdown ends
   ball.x = (W - BALL_SIZE) / 2; ball.y = (H - BALL_SIZE) / 2; ball.vx = 0; ball.vy = 0;
@@ -231,6 +232,28 @@ function collide(p, dir) {
   }
 }
 
+// The rabbit ears react to the match: the scorer's rod flashes, and at the end
+// the winner's tip turns green while the loser's turns red.
+const antennaEl = document.querySelector(".antenna");
+let antennaTimer = 0;
+function antennaFlash(side) { // "l" | "r"
+  if (!antennaEl) return;
+  antennaEl.classList.remove("flash-l", "flash-r");
+  void antennaEl.offsetWidth; // restart the animation if the same side scores twice
+  antennaEl.classList.add("flash-" + side);
+  clearTimeout(antennaTimer);
+  antennaTimer = setTimeout(() => antennaEl.classList.remove("flash-l", "flash-r"), 950);
+}
+function antennaVerdict(leftWon) {
+  if (!antennaEl) return;
+  antennaEl.classList.remove("flash-l", "flash-r");
+  antennaEl.classList.add(leftWon ? "win-l" : "win-r", leftWon ? "lose-r" : "lose-l");
+}
+function antennaReset() {
+  if (!antennaEl) return;
+  antennaEl.classList.remove("flash-l", "flash-r", "win-l", "win-r", "lose-l", "lose-r");
+}
+
 function afterPoint(dir) {
   if (left.score >= WIN_SCORE || right.score >= WIN_SCORE) {
     state = "gameover";
@@ -249,14 +272,19 @@ function afterPoint(dir) {
     gameover.classList.remove("hidden");
     document.body.classList.remove("playing");
     if (left.score > right.score) sounds.winLeft(); else sounds.winRight();
+    antennaVerdict(left.score > right.score);
     return;
   }
   if (dir === -1) sounds.scoreLeft(); else sounds.scoreRight();
+  antennaFlash(dir === -1 ? "l" : "r");
   resetBall(dir);
 }
 
 // Visual FX = inverse of the shared "reduce motion" toggle.
 function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+
+// test hook
+window.__game = { left, right, afterPoint, get state() { return state; } };
 
 const TUBE = "#0b0e0d";          // the picture tube's black (matches the CSS)
 const PHOSPHOR = "#eaf6ff";      // its blue-white glow

@@ -151,13 +151,38 @@ body {
 }
 .antenna::before, .antenna::after {
   content: ""; position: absolute; bottom: 20px; left: calc(50% - 2px); width: 4px; height: 96px; border-radius: 2px;
-  background:
-    radial-gradient(circle at 50% 3px, #f2f4f6 0 3px, #8b9199 4px, transparent 5px),
-    linear-gradient(90deg, #7f868e, #eef1f4 45%, #8a9199);
   transform-origin: 50% 100%;
 }
-.antenna::before { transform: rotate(-30deg); }
-.antenna::after { transform: rotate(26deg); }
+/* each rod's ball tip takes its colour from a custom property, so scoring can
+   flash it and the endgame can paint winner/loser */
+.antenna::before {
+  transform: rotate(-30deg);
+  background:
+    radial-gradient(circle at 50% 3px, var(--tipL, #f2f4f6) 0 3px, #8b9199 4px, transparent 5px),
+    linear-gradient(90deg, #7f868e, #eef1f4 45%, #8a9199);
+}
+.antenna::after {
+  transform: rotate(26deg);
+  background:
+    radial-gradient(circle at 50% 3px, var(--tipR, #f2f4f6) 0 3px, #8b9199 4px, transparent 5px),
+    linear-gradient(90deg, #7f868e, #eef1f4 45%, #8a9199);
+}
+/* a point: the scorer's antenna blinks like it caught the signal */
+.antenna.flash-l::before { animation: tip-flash 0.9s steps(2) 1; }
+.antenna.flash-r::after { animation: tip-flash 0.9s steps(2) 1; }
+@keyframes tip-flash {
+  0%, 40%, 80% { filter: drop-shadow(0 0 7px #ffd166) brightness(1.9); }
+  20%, 60%, 100% { filter: none; }
+}
+/* the match ends: winner's ear glows green, loser's smoulders red */
+.antenna.win-l::before, .antenna.win-r::after {
+  --tipL: #58e08a; --tipR: #58e08a;
+  filter: drop-shadow(0 0 8px rgba(88, 224, 138, 0.9));
+}
+.antenna.lose-l::before, .antenna.lose-r::after {
+  --tipL: #ff4a3d; --tipR: #ff4a3d;
+  filter: drop-shadow(0 0 6px rgba(255, 74, 61, 0.7)) brightness(0.8);
+}
 /* two rubber feet and the shadow under the set */
 .feet { position: relative; height: 16px; margin: 0 60px; }
 .feet::before, .feet::after { content: ""; position: absolute; top: 0; width: 46px; height: 10px; border-radius: 0 0 6px 6px; background: #17181b; }
