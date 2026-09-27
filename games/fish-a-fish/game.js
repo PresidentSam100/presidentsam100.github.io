@@ -9,24 +9,36 @@
    the old boot costs 5. Catches build a streak: from 5 in a row points
    double, from 10 they triple.
 
-   Modes: Daybreak (60 seconds), Endless (three fish got away and the
-   pond goes quiet; it keeps speeding up) and Full Pond: 60 seconds on the
-   whole keyboard — the number row and all 26 letters, laid out like the
-   real rows. A number-row fish sometimes asks for its SYMBOL (!, %, &,
-   ...), and then only Shift + that key hooks it.
+   Two toggles, remembered between visits:
+   - Round: Daybreak (60 seconds) or Endless (three fish get away and the
+     pond goes quiet; it keeps speeding up).
+   - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
+     Whole keyboard (the number row too — a number-row fish sometimes asks
+     for its SYMBOL (!, %, &, ...), and then only Shift + that key hooks it).
+   Each of the six combinations keeps its own best score.
    ===================================================================== */
 (function () {
   "use strict";
   var Art = window.FishArt, SPECIES = Art.SPECIES;
   var canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
-  var store = window.GameShell ? GameShell.store : { getNum: function (k, f) { return f; }, set: function () {} };
-  var KEYS = { daybreak: "fishafish_best_daybreak", endless: "fishafish_best_endless", fullpond: "fishafish_best_fullpond" };
+  var store = window.GameShell ? GameShell.store
+    : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {} };
+  function bestKey(clock, kb) { return "fishafish_best_" + clock + "_" + kb; }
+  // One-time move of the original three bests into the combo keys they were:
+  // Daybreak/Endless were the nine-key pond, Full Pond was 60s on the board.
+  [["fishafish_best_daybreak", bestKey("daybreak", "nine")],
+   ["fishafish_best_endless", bestKey("endless", "nine")],
+   ["fishafish_best_fullpond", bestKey("daybreak", "all")]].forEach(function (m) {
+    var old = store.getNum(m[0], 0);
+    if (old > 0 && store.getNum(m[1], 0) === 0) store.set(m[1], old);
+  });
 
   // Two layouts, matched by physical key position (e.code), so other
   // keyboard layouts play the same spots: the 3x3 lesson pond, and the
   // whole keyboard (numbers, then 10 / 9 / 7 letters, staggered like the
   // real rows).
-  var ROWS9 = ["QWE", "ASD", "ZXC"], ROWS26 = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+  var ROWS9 = ["QWE", "ASD", "ZXC"], ROWSLET = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"],
+    ROWS26 = ["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
   // What Shift prints over each digit (as on a US board; the physical key
   // plus Shift is what's checked, so other layouts still play).
   var SHIFT_SYM = { "1": "!", "2": "@", "3": "#", "4": "$", "5": "%", "6": "^", "7": "&", "8": "*", "9": "(", "0": ")" };
@@ -35,8 +47,16 @@
   }
   var LAYOUTS = {
     nine: { rows: ROWS9, codes: codesOf(ROWS9), labels: ROWS9.join("").split("") },
+    letters: { rows: ROWSLET, codes: codesOf(ROWSLET), labels: ROWSLET.join("").split("") },
     all: { rows: ROWS26, codes: codesOf(ROWS26), labels: ROWS26.join("").split("") },
   };
+  // The two menu toggles, remembered between visits.
+  var pref = {
+    clock: store.get("fishafish_clock", "daybreak"),
+    kb: store.get("fishafish_kb", "nine"),
+  };
+  if (pref.clock !== "endless") pref.clock = "daybreak";
+  if (!LAYOUTS[pref.kb]) pref.kb = "nine";
   // Show what the letter keys print on this keyboard, where the browser can
   // say. (The digit row keeps 1-0: on layouts like AZERTY the unshifted row
   // prints accents, and relabelling would only add confusion.)
@@ -80,15 +100,17 @@
         });
       }
     } else {
-      // The whole keyboard: four centred rows, like the board itself.
+      // The keyboard layouts: centred rows, staggered like the board itself
+      // (three letter rows, or the number row plus those three).
       var gap = Math.min(W * 0.092, Math.max(30, W * 0.075));
       var b26 = Math.max(8.5, Math.min(17, gap * 0.32));
+      var step = layout.rows.length === 4 ? 0.225 : 0.29;
       layout.rows.forEach(function (rowStr, row) {
         for (var c = 0; c < rowStr.length; c++) {
           spots.push({
-            digitRow: row === 0,
+            digitRow: rowStr.charAt(0) >= "0" && rowStr.charAt(0) <= "9",
             x: W * 0.5 + (c - (rowStr.length - 1) / 2) * gap,
-            y: waterY + (H - waterY) * (0.13 + row * 0.225),
+            y: waterY + (H - waterY) * (0.14 + row * step),
             r: b26 * (0.9 + row * 0.08),
           });
         }
@@ -258,15 +280,31 @@
     overTitle: document.getElementById("over-title"), overMsg: document.getElementById("over-msg"), overStats: document.getElementById("over-stats"),
     bests: document.getElementById("bests"),
   };
+  var KB_NAME = { nine: "Condensed", letters: "All letters", all: "Whole keyboard" };
   function bestsText() {
-    return "Best · Daybreak " + store.getNum(KEYS.daybreak, 0) + " · Endless " + store.getNum(KEYS.endless, 0) + " · Full Pond " + store.getNum(KEYS.fullpond, 0);
+    return "Best on " + KB_NAME[pref.kb].toLowerCase() + " · Daybreak " +
+      store.getNum(bestKey("daybreak", pref.kb), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb), 0);
   }
+  // Reflect the toggles in the menu, and remember them.
+  function renderPicks() {
+    ["pick-clock", "pick-kb"].forEach(function (id) {
+      var which = id === "pick-clock" ? pref.clock : pref.kb;
+      var btns = document.getElementById(id).querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("sel", btns[i].dataset.v === which);
+    });
+    ui.bests.textContent = bestsText();
+  }
+  var kbNow = "nine";
   function start(m) {
-    mode = m;
-    var want = m === "fullpond" ? LAYOUTS.all : LAYOUTS.nine;
+    // Legacy names (test hooks / old shortcuts) still work as presets.
+    if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; }
+    else if (m === "daybreak" || m === "endless") pref.clock = m;
+    mode = pref.clock;
+    kbNow = pref.kb;
+    var want = LAYOUTS[kbNow];
     if (layout !== want) { layout = want; resize(); }
     score = 0; streak = 0; bestStreak = 0; caught = 0; strikes = 0; elapsed = 0;
-    timeLeft = m === "endless" ? 0 : 60;
+    timeLeft = mode === "endless" ? 0 : 60;
     spawnIn = 0.7; popups = []; leaps = []; drops = []; rings = []; lastTick = -1;
     resetSpots();
     state = "play";
@@ -279,7 +317,7 @@
     resetSpots();
     popups = []; leaps = []; drops = [];
     ui.menu.hidden = false; ui.over.hidden = true; ui.hud.hidden = true;
-    ui.bests.textContent = bestsText();
+    renderPicks();
   }
   var finishTimer = 0;
   function finish(reason, delay) {
@@ -290,12 +328,13 @@
   }
   function showOver(reason) {
     state = "over";
-    var key = KEYS[mode], prev = store.getNum(key, 0), isBest = score > prev;
+    var key = bestKey(mode, kbNow), prev = store.getNum(key, 0), isBest = score > prev;
     if (isBest) store.set(key, score);
     SFX.gong(0); SFX.gong(0.4);
     ui.overTitle.textContent = reason === "quiet" ? "The pond went quiet" : "The sun is up";
     ui.overMsg.textContent = score + (score === 1 ? " point" : " points") + (isBest ? " · new best!" : " · best " + prev);
-    ui.overStats.textContent = caught + (caught === 1 ? " fish" : " fish") + " · best streak " + bestStreak;
+    ui.overStats.textContent = caught + (caught === 1 ? " fish" : " fish") + " · best streak " + bestStreak +
+      " · " + (mode === "endless" ? "Endless" : "Daybreak") + ", " + KB_NAME[kbNow].toLowerCase();
     ui.over.hidden = false; ui.hud.hidden = true;
     document.getElementById("again").focus({ preventScroll: true });
   }
@@ -314,10 +353,13 @@
     }
     if (e.repeat) return;
     if (state === "menu") {
-      if (e.key === "1") start("daybreak");
-      else if (e.key === "2") start("endless");
-      else if (e.key === "3") start("fullpond");
-      else if (e.key === "Enter") start("daybreak");
+      var mk = e.key.toLowerCase();
+      if (e.key === "1") { pref.clock = "daybreak"; savePicks(); }
+      else if (e.key === "2") { pref.clock = "endless"; savePicks(); }
+      else if (mk === "c") { pref.kb = "nine"; savePicks(); }
+      else if (mk === "l") { pref.kb = "letters"; savePicks(); }
+      else if (mk === "w") { pref.kb = "all"; savePicks(); }
+      else if (e.key === "Enter") start();
     } else if (state === "over") {
       if (e.key === "Enter" || e.key === "r" || e.key === "R") { e.preventDefault(); start(mode); }
       else if (e.key === "Escape") toMenu();
@@ -334,9 +376,20 @@
     if (best >= 0 && bd < spots[best].r * 3.2) press(best, null);
   });
   canvas.addEventListener("contextmenu", function (e) { e.preventDefault(); });
-  document.getElementById("play-daybreak").addEventListener("click", function () { start("daybreak"); });
-  document.getElementById("play-endless").addEventListener("click", function () { start("endless"); });
-  document.getElementById("play-fullpond").addEventListener("click", function () { start("fullpond"); });
+  function savePicks() {
+    store.set("fishafish_clock", pref.clock);
+    store.set("fishafish_kb", pref.kb);
+    renderPicks();
+  }
+  ["pick-clock", "pick-kb"].forEach(function (id) {
+    document.getElementById(id).addEventListener("click", function (e) {
+      var b = e.target.closest("button");
+      if (!b) return;
+      if (id === "pick-clock") pref.clock = b.dataset.v; else pref.kb = b.dataset.v;
+      savePicks();
+    });
+  });
+  document.getElementById("play").addEventListener("click", function () { start(); });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   document.getElementById("to-menu").addEventListener("click", toMenu);
 
@@ -352,10 +405,11 @@
         if (timeLeft <= 0) { timeLeft = 0; finish("sunup", 400); }
       }
       spawnIn -= dt;
-      var maxActive = 1 + Math.floor(d * (mode === "fullpond" ? 3.9 : 2.95));
+      var wide = spots.length;
+      var maxActive = 1 + Math.floor(d * (wide > 30 ? 3.9 : wide > 9 ? 3.6 : 2.95));
       if (spawnIn <= 0) {
         if (activeCount() < maxActive) spawn();
-        spawnIn = lerp(1.25, mode === "fullpond" ? 0.4 : 0.5, d) * rand(0.8, 1.2);
+        spawnIn = lerp(1.25, wide > 30 ? 0.4 : wide > 9 ? 0.45 : 0.5, d) * rand(0.8, 1.2);
       }
       spots.forEach(function (s) {
         if (s.phase === "idle") return;
@@ -364,7 +418,8 @@
           s.phase = "bite"; s.t = 0;
           // Finding one key among 36 takes longer than one among 9 — and a
           // symbol fish needs a hand on Shift too.
-          var slow = mode === "fullpond" ? (s.sym ? 1.55 : 1.28) : 1;
+          // Finding one key among 26 or 36 takes longer than one among 9.
+          var slow = spots.length > 9 ? (s.sym ? 1.55 : 1.28) : 1;
           s.dur = (s.what === "junk" ? lerp(1.5, 0.95, d) : lerp(1.7, 0.8, d) * slow * (s.what === "golden" ? 0.65 : 1));
           if (s.what !== "junk") SFX.bite();
         } else if (s.phase === "bite" && s.t >= s.dur) {
@@ -470,7 +525,7 @@
     start: start, toMenu: toMenu, press: press,
     state: function () {
       return { state: state, mode: mode, score: score, streak: streak, caught: caught, strikes: strikes,
-        timeLeft: timeLeft, paused: P.isPaused(), spots: spots.map(function (s) { return s.phase + (s.what ? ":" + s.what : "") + (s.sym ? "!" : ""); }), labels: layout.labels.join("") };
+        kb: kbNow, timeLeft: timeLeft, paused: P.isPaused(), spots: spots.map(function (s) { return s.phase + (s.what ? ":" + s.what : "") + (s.sym ? "!" : ""); }), labels: layout.labels.join("") };
     },
     // Deterministic control: stop the spawner and place things by hand.
     hold: function () { spawnIn = 1e9; resetSpots(); },

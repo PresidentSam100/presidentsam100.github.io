@@ -42,19 +42,29 @@
   <p class="tag">Whack‑a‑mole, gone fishing.</p>
   <div class="card">
     <p class="how">
-      Nine bobbers, nine keys — <b>Q W E</b> / <b>A S D</b> / <b>Z X C</b> (or tap a spot).
-      Ripples mean a fish is sniffing; when the bobber <b>plunges</b>, strike its key.
-      Striking during the ripples scares it off, an empty spot splashes <b>−2</b>,
-      and the old boot isn't worth hooking (<b>−5</b>). Five catches in a row double
-      your points; ten triple them. <b>Full Pond</b> plays the whole keyboard —
-      and when a number's tag turns gold and shows its symbol (<b>!</b> <b>%</b> <b>&amp;</b>…),
-      only <b>Shift</b>&#8202;+&#8202;that key hooks it.
+      Every bobber has a key (or tap a spot). Ripples mean a fish is sniffing;
+      when the bobber <b>plunges</b>, strike its key. Striking during the ripples
+      scares it off, an empty spot splashes <b>−2</b>, and the old boot isn't worth
+      hooking (<b>−5</b>). Five catches in a row double your points; ten triple them.
+      On the <b>whole keyboard</b>, when a number's tag turns gold and shows its
+      symbol (<b>!</b> <b>%</b> <b>&amp;</b>…), only <b>Shift</b>&#8202;+&#8202;that key hooks it.
     </p>
-    <div class="modes">
-      <button type="button" id="play-daybreak"><b>Daybreak</b><small>60 seconds of first light <kbd>1</kbd></small></button>
-      <button type="button" id="play-endless"><b>Endless</b><small>3 get away and the pond goes quiet <kbd>2</kbd></small></button>
-      <button type="button" id="play-fullpond"><b>Full Pond</b><small>numbers &amp; all 26 letters — a gold tag wants <b>Shift</b> <kbd>3</kbd></small></button>
+    <div class="pick">
+      <span class="picklab">Round</span>
+      <div class="seg" id="pick-clock">
+        <button type="button" data-v="daybreak"><b>Daybreak</b><small>60 seconds <kbd>1</kbd></small></button>
+        <button type="button" data-v="endless"><b>Endless</b><small>3 get away, done <kbd>2</kbd></small></button>
+      </div>
     </div>
+    <div class="pick">
+      <span class="picklab">Keys</span>
+      <div class="seg" id="pick-kb">
+        <button type="button" data-v="nine"><b>Condensed</b><small>Q W E · A S D · Z X C <kbd>C</kbd></small></button>
+        <button type="button" data-v="letters"><b>All letters</b><small>the 26 letter keys <kbd>L</kbd></small></button>
+        <button type="button" data-v="all"><b>Whole keyboard</b><small>numbers &amp; <b>Shift</b> symbols <kbd>W</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Cast off</b> <kbd>Enter</kbd></button>
     <p class="bests" id="bests"></p>
   </div>
 </section>

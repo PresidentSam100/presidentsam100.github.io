@@ -81,9 +81,17 @@ kbd {
 .menu .card { margin-top: auto; margin-bottom: max(3vh, 12px); }
 .menu .how { margin: 0 0 12px; font-size: 0.86rem; font-weight: 400; line-height: 1.45; color: #dcebef; }
 .menu .how b { color: #ffe9c4; font-weight: 600; }
-.menu .modes { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
-.menu .modes button { flex: 1 1 130px; display: flex; flex-direction: column; gap: 2px; padding: 9px 10px; }
-.menu .modes small { font-size: 0.72rem; font-weight: 400; color: #cfdfe4; }
+/* the two toggles: Round (daybreak / endless) and Keys (which keyboard) */
+.menu .pick { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; text-align: left; }
+.menu .picklab {
+  flex: 0 0 44px; display: flex; align-items: center; justify-content: flex-end;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #9fc0c9;
+}
+.menu .seg { flex: 1; display: flex; gap: 6px; }
+.menu .seg button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; }
+.menu .seg small { font-size: 0.68rem; font-weight: 400; color: #cfdfe4; }
+.menu .seg button.sel { background: rgba(232, 120, 74, 0.55); border-color: #ffd9a8; box-shadow: inset 0 0 0 1px rgba(255, 233, 196, 0.7); }
+.menu .playbtn { display: block; width: 100%; margin-top: 12px; padding: 11px 16px; font-size: 1.08rem; background: rgba(232, 120, 74, 0.4); }
 .menu .bests { margin: 10px 0 0; font-size: 0.82rem; color: #cfdfe4; }
 
 .over { justify-content: center; padding: 12px; }
