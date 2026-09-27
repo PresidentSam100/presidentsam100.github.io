@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%E2%8C%9A%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Lights Out</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Lights Out on a tray of hunter pocket watches: every click swings five lids — shut them all. A browser game by Sam Lu." />
+    <meta property="og:title" content="Lights Out — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Lights Out on a tray of hunter pocket watches: every click swings five lids — shut them all. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The watchmaker's tray: navy velvet, brass corners, the plaque, and a
+     grid of hunter pocket watches (each one a real <button>). -->
+<main id="tray">
+  <header class="plaque" id="plaque">
+    <h1>LIGHTS OUT</h1>
+    <p id="plaque-sub">shut every lid</p>
+  </header>
+
+  <div class="hudline" id="hudline" hidden>
+    <span id="hud-mode"></span>
+    <span id="hud-moves">0 moves</span>
+    <span id="hud-par"></span>
+    <button type="button" id="hint" title="A hint costs one move">hint</button>
+  </div>
+  <div class="spring" id="spring" hidden aria-label="Mainspring: moves left">
+    <div class="spring-bar" id="spring-bar"></div>
+    <span class="spring-label" id="spring-label"></span>
+  </div>
+
+  <div id="board" role="grid" aria-label="A tray of pocket watches; clicking one flips its lid and its neighbours'"></div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h2>The Watchmaker's Tray</h2>
+    <p class="how">
+      Tap a watch and its hinged lid snaps over — <b>along with its four
+      neighbours'</b>. Shut every lid to finish. Open dials tell the real
+      time; the trick is that every press flips five at once.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="windup"><b>Wind-up</b><small>levels on a move budget <kbd>1</kbd></small></button>
+        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's tray, share your moves <kbd>2</kbd></small></button>
+        <button type="button" data-v="zen"><b>Zen</b><small>no budget, pick a size <kbd>3</kbd></small></button>
+      </div>
+      <div class="seg sizes" id="pick-size" hidden>
+        <button type="button" data-n="3"><b>3×3</b></button>
+        <button type="button" data-n="5"><b>5×5</b></button>
+        <button type="button" data-n="7"><b>7×7</b></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Open the tray</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">All lids shut</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Next <kbd>Enter</kbd></button>
+      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
