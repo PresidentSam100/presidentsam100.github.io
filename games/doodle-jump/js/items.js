@@ -37,12 +37,17 @@ class Booster {
     // 0 -> 1 -> 0 over the animation, so it eases out and back to rest
     const k = this.anim > 0 ? Math.sin((1 - this.anim / BOOST_ANIM) * Math.PI) : 0;
 
+    ctx.lineJoin = "round";
     if (this.kind === "trampoline") {
       const bow = k * 6; // the mat flexes downward as it launches you
-      ctx.fillStyle = "#333";
+      // inked legs
+      ctx.fillStyle = "#3a4158";
       ctx.fillRect(this.x + 2, sy + 5, 4, this.h - 2);
       ctx.fillRect(this.x + this.w - 6, sy + 5, 4, this.h - 2);
+      // coral mat with an ink outline
       ctx.fillStyle = "#e0457b";
+      ctx.strokeStyle = "#2f3550";
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(this.x - 2, sy + 1);
       ctx.quadraticCurveTo(this.x + this.w / 2, sy + 1 + bow, this.x + this.w + 2, sy + 1);
@@ -50,19 +55,20 @@ class Booster {
       ctx.quadraticCurveTo(this.x + this.w / 2, sy + 6 + bow, this.x - 2, sy + 6);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.moveTo(this.x, sy + 2.5);
       ctx.quadraticCurveTo(this.x + this.w / 2, sy + 2.5 + bow, this.x + this.w, sy + 2.5);
       ctx.stroke();
     } else {
-      // coil spring that stretches upward when sprung
+      // coil spring that stretches upward when sprung, drawn in ink
       const extra = k * 12;
       const baseY = sy + this.h;        // bottom (sits on the platform top)
       const topPlate = sy - extra;      // top rises as it extends
       const totalH = this.h + extra;
-      ctx.strokeStyle = "#555";
+      ctx.strokeStyle = "#3a4158";
       ctx.lineWidth = 2;
       ctx.beginPath();
       const coils = 3;
@@ -72,9 +78,12 @@ class Booster {
         ctx.lineTo(this.x + this.w, yy - 3);
       }
       ctx.stroke();
-      ctx.fillStyle = "#666";
+      ctx.fillStyle = "#c3cad2";
+      ctx.strokeStyle = "#2f3550";
+      ctx.lineWidth = 1.6;
       roundRect(ctx, this.x - 2, topPlate - 3, this.w + 4, 5, 2);
       ctx.fill();
+      ctx.stroke();
     }
   }
 }
@@ -85,16 +94,18 @@ const GearArt = {
   // Twin-thruster jetpack: two orange tanks with their own nozzles; `flame`
   // adds twin exhaust plumes. (x, y) is the top-left of a 16x28 footprint.
   jetpack(ctx, x, y, flame) {
-    // two tanks side by side
+    // two tanks side by side, inked
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 1.6;
     ctx.fillStyle = "#ff8c1a";
-    roundRect(ctx, x, y, 7, 24, 3); ctx.fill();
-    roundRect(ctx, x + 9, y, 7, 24, 3); ctx.fill();
+    roundRect(ctx, x, y, 7, 24, 3); ctx.fill(); ctx.stroke();
+    roundRect(ctx, x + 9, y, 7, 24, 3); ctx.fill(); ctx.stroke();
     // highlights
     ctx.fillStyle = "#ffd27f";
     roundRect(ctx, x + 1.5, y + 3, 2.5, 12, 1); ctx.fill();
     roundRect(ctx, x + 10.5, y + 3, 2.5, 12, 1); ctx.fill();
     // twin nozzles
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = "#3a4158";
     ctx.fillRect(x + 1, y + 24, 5, 4);
     ctx.fillRect(x + 10, y + 24, 5, 4);
     // twin flames
@@ -113,15 +124,17 @@ const GearArt = {
   // Propeller "beanie": a little cap with a short mast and two spinning blades.
   // (cx, cy) is the base of the cap.
   propeller(ctx, cx, cy, spin) {
-    // cap dome + brim
+    // cap dome + brim, inked
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 1.6;
     ctx.fillStyle = "#8a5cff";
     ctx.beginPath();
     ctx.arc(cx, cy, 10, Math.PI, Math.PI * 2); // top half
-    ctx.fill();
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#6a3fd6";
-    roundRect(ctx, cx - 12, cy - 2, 24, 4, 2); ctx.fill();
+    roundRect(ctx, cx - 12, cy - 2, 24, 4, 2); ctx.fill(); ctx.stroke();
     // mast
-    ctx.strokeStyle = "#444"; ctx.lineWidth = 2;
+    ctx.strokeStyle = "#3a4158"; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(cx, cy - 9); ctx.lineTo(cx, cy - 15); ctx.stroke();
     // two blades spinning around the hub at the top of the mast
     const hy = cy - 16;
@@ -129,10 +142,12 @@ const GearArt = {
     ctx.translate(cx, hy);
     ctx.rotate(spin);
     ctx.fillStyle = "#e0457b";
-    ctx.beginPath(); ctx.ellipse(9, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-9, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.ellipse(9, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(-9, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = "#333";
+    ctx.fillStyle = "#3a4158";
     ctx.beginPath(); ctx.arc(cx, hy, 2.5, 0, Math.PI * 2); ctx.fill();
   },
 
@@ -141,7 +156,7 @@ const GearArt = {
   // coil + sole extend ~13px below y.
   springShoe(ctx, x, y) {
     // steel coil zig-zagging down to the sole
-    ctx.strokeStyle = "#9aa3ad";
+    ctx.strokeStyle = "#3a4158";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(x - 4, y + 1);

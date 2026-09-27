@@ -140,39 +140,71 @@ class Enemy {
     ctx.restore();
   }
 
+  // A crayon-purple scribble monster: ink outline, hatch shading, zigzag teeth.
   _renderMonster(ctx, sy) {
-    ctx.fillStyle = "#9b3df0";
+    ctx.lineJoin = "round";
+    // horns first, so the body outline overlaps their base
+    ctx.fillStyle = "#8f4fd6";
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(this.x + 10, sy + 3); ctx.lineTo(this.x + 4, sy - 8); ctx.lineTo(this.x + 18, sy + 3);
+    ctx.moveTo(this.x + this.w - 10, sy + 3); ctx.lineTo(this.x + this.w - 4, sy - 8); ctx.lineTo(this.x + this.w - 18, sy + 3);
+    ctx.fill();
+    ctx.stroke();
+    // body
+    ctx.fillStyle = "#a86ef0";
     roundRect(ctx, this.x, sy, this.w, this.h, 12);
     ctx.fill();
-    // horns
-    ctx.fillStyle = "#7a25c4";
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+    // hatch shading down the left side
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.35;
     ctx.beginPath();
-    ctx.moveTo(this.x + 10, sy + 2); ctx.lineTo(this.x + 4, sy - 8); ctx.lineTo(this.x + 18, sy + 2);
-    ctx.moveTo(this.x + this.w - 10, sy + 2); ctx.lineTo(this.x + this.w - 4, sy - 8); ctx.lineTo(this.x + this.w - 18, sy + 2);
-    ctx.fill();
+    for (let k = 0; k < 3; k++) {
+      ctx.moveTo(this.x + 5 + k * 5, sy + this.h - 6);
+      ctx.lineTo(this.x + 10 + k * 5, sy + 8);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
     // eyes
     ctx.fillStyle = "#fff";
+    ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.arc(this.x + 17, sy + 18, 7, 0, Math.PI * 2);
-    ctx.arc(this.x + this.w - 17, sy + 18, 7, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.arc(this.x + 17, sy + 17, 7, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(this.x + this.w - 17, sy + 17, 7, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
     ctx.fillStyle = "#111";
     ctx.beginPath();
-    ctx.arc(this.x + 18, sy + 19, 3, 0, Math.PI * 2);
-    ctx.arc(this.x + this.w - 16, sy + 19, 3, 0, Math.PI * 2);
+    ctx.arc(this.x + 18, sy + 18, 3, 0, Math.PI * 2);
+    ctx.arc(this.x + this.w - 16, sy + 18, 3, 0, Math.PI * 2);
     ctx.fill();
-    // mouth
-    ctx.fillStyle = "#3a0d63";
-    roundRect(ctx, this.x + 14, sy + 28, this.w - 28, 8, 3);
+    // a zigzag mouth full of doodle teeth
+    ctx.fillStyle = "#fff";
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    const mx = this.x + 12, mw = this.w - 24, my = sy + 29;
+    ctx.moveTo(mx, my);
+    for (let k = 0; k < 4; k++) {
+      ctx.lineTo(mx + mw * (k + 0.5) / 4, my + 7);
+      ctx.lineTo(mx + mw * (k + 1) / 4, my);
+    }
+    ctx.closePath();
     ctx.fill();
+    ctx.stroke();
   }
 
+  // A doodled saucer: ink outlines, and a beam sketched as a green wash with
+  // dashed pencil edges.
   _renderUfo(ctx, sy) {
-    // beam (drawn in screen space relative to sy)
     const b = this.beam;
+    ctx.lineJoin = "round";
     const grad = ctx.createLinearGradient(0, sy + this.h, 0, sy + this.h + b.h);
-    grad.addColorStop(0, "rgba(120,230,120,0.5)");
-    grad.addColorStop(1, "rgba(120,230,120,0)");
+    grad.addColorStop(0, "rgba(120,220,120,0.4)");
+    grad.addColorStop(1, "rgba(120,220,120,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.moveTo(this.cx - b.w / 2, sy + this.h);
@@ -181,46 +213,76 @@ class Enemy {
     ctx.lineTo(this.cx - b.w / 2 - 12, sy + this.h + b.h);
     ctx.closePath();
     ctx.fill();
-    // saucer body
-    ctx.fillStyle = "#9aa3ad";
+    // dashed pencil edges on the beam
+    ctx.strokeStyle = "rgba(60,140,70,0.55)";
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([6, 5]);
     ctx.beginPath();
-    ctx.ellipse(this.cx, sy + this.h * 0.62, this.w / 2, this.h * 0.38, 0, 0, Math.PI * 2);
-    ctx.fill();
-    // dome
-    ctx.fillStyle = "#7fd8ff";
+    ctx.moveTo(this.cx - b.w / 2, sy + this.h);
+    ctx.lineTo(this.cx - b.w / 2 - 12, sy + this.h + b.h);
+    ctx.moveTo(this.cx + b.w / 2, sy + this.h);
+    ctx.lineTo(this.cx + b.w / 2 + 12, sy + this.h + b.h);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // dome behind the hull
+    ctx.fillStyle = "#a5e0f7";
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.ellipse(this.cx, sy + this.h * 0.5, this.w * 0.3, this.h * 0.5, 0, Math.PI, 0);
     ctx.fill();
+    ctx.stroke();
+    // saucer hull
+    ctx.fillStyle = "#c3cad2";
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.ellipse(this.cx, sy + this.h * 0.62, this.w / 2, this.h * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
     // lights
     ctx.fillStyle = "#ffe14d";
+    ctx.lineWidth = 1.4;
     for (let i = -2; i <= 2; i++) {
       ctx.beginPath();
-      ctx.arc(this.cx + i * 12, sy + this.h * 0.78, 2.5, 0, Math.PI * 2);
+      ctx.arc(this.cx + i * 12, sy + this.h * 0.78, 2.6, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
     }
   }
 
+  // The hole in the page: a scribbled-out ink blot with a turning spiral and
+  // a dashed pencil warning ring.
   _renderBlackHole(ctx, sy) {
     const r = this.w / 2;
     const cx = this.cx, cy = sy + this.h / 2;
     const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r);
-    grad.addColorStop(0, "#000");
-    grad.addColorStop(0.6, "#3a1a5a");
-    grad.addColorStop(1, "rgba(90,40,140,0)");
+    grad.addColorStop(0, "#12141f");
+    grad.addColorStop(0.62, "#2c3350");
+    grad.addColorStop(1, "rgba(47,53,80,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
-    // swirl
-    ctx.strokeStyle = "rgba(180,120,240,0.7)";
+    // turning spiral, in pale ink
+    ctx.strokeStyle = "rgba(170,180,214,0.75)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     for (let a = 0; a < Math.PI * 4; a += 0.2) {
-      const rr = (a / (Math.PI * 4)) * r * 0.85;
+      const rr = (a / (Math.PI * 4)) * r * 0.8;
       const px = cx + Math.cos(a + this.t * 3) * rr;
       const py = cy + Math.sin(a + this.t * 3) * rr;
       if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.stroke();
+    // dashed pencil ring, slowly turning the other way
+    ctx.strokeStyle = "rgba(47,53,80,0.6)";
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([7, 6]);
+    ctx.lineDashOffset = -this.t * 14;
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.lineDashOffset = 0;
   }
 }

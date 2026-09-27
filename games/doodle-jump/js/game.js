@@ -628,12 +628,25 @@ class Game {
   // ----- rendering --------------------------------------------------------
   render() {
     const ctx = this.ctx;
-    // sky
-    const sky = ctx.createLinearGradient(0, 0, 0, CONFIG.H);
-    sky.addColorStop(0, "#cfeffd");
-    sky.addColorStop(1, "#eaf6ff");
-    ctx.fillStyle = sky;
+    // A sheet of graph paper. The grid lives in world space (it scrolls with
+    // the platforms), so climbing reads as moving up one long page.
+    ctx.fillStyle = "#fdfbf2";
     ctx.fillRect(0, 0, CONFIG.W, CONFIG.H);
+    const CELL = 25;
+    ctx.strokeStyle = "rgba(126, 168, 197, 0.33)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = 0.5; x <= CONFIG.W; x += CELL) { ctx.moveTo(x, 0); ctx.lineTo(x, CONFIG.H); }
+    const oy = CELL - (((this.cameraY % CELL) + CELL) % CELL);
+    for (let y = oy + 0.5 - CELL; y <= CONFIG.H; y += CELL) { ctx.moveTo(0, y); ctx.lineTo(CONFIG.W, y); }
+    ctx.stroke();
+    // the notebook's red margin rule
+    ctx.strokeStyle = "rgba(224, 90, 90, 0.4)";
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(33.5, 0);
+    ctx.lineTo(33.5, CONFIG.H);
+    ctx.stroke();
 
     this.renderBackground(ctx);
 
@@ -654,59 +667,121 @@ class Game {
     if (this.paused && this.state === "play") this.renderPause(ctx);
   }
 
-  // Soft clouds that scroll slower than the world, giving a parallax sense of
-  // height. Placement is procedural and infinite: one cloud band every BAND
-  // world-units, with a deterministic hash deciding each band's cloud, so the
-  // pattern is stable as the camera pans without storing any state.
+  // Pencil scribbles in the margins that scroll slower than the world, giving
+  // a parallax sense of height. Placement is procedural and infinite: one
+  // doodle band every BAND world-units, with a deterministic hash deciding
+  // each band's drawing, so the pattern is stable as the camera pans.
   renderBackground(ctx) {
-    const factor = 0.35;            // < 1 -> clouds drift slower than platforms
-    const BAND = 200;               // vertical spacing between cloud rows
+    const factor = 0.35;            // < 1 -> doodles drift slower than platforms
+    const BAND = 230;               // vertical spacing between doodle rows
     const off = this.cameraY * factor;
-    const startBand = Math.floor((off - 60) / BAND);
-    const endBand = Math.ceil((off + CONFIG.H + 60) / BAND);
+    const startBand = Math.floor((off - 80) / BAND);
+    const endBand = Math.ceil((off + CONFIG.H + 80) / BAND);
 
     ctx.save();
-    ctx.fillStyle = "#ffffff";
+    ctx.strokeStyle = "#9aa7c0";
+    ctx.lineWidth = 1.7;
+    ctx.lineCap = "round";
     for (let b = startBand; b <= endBand; b++) {
-      const cx = hash01(b) * CONFIG.W;
+      const cx = 30 + hash01(b) * (CONFIG.W - 60);
       const cy = b * BAND - off;
-      const scale = 0.7 + hash01(b * 7 + 1) * 0.7;
-      ctx.globalAlpha = 0.28 + hash01(b * 13 + 5) * 0.18;
-      this._cloud(ctx, cx, cy, scale);
+      const scale = 0.75 + hash01(b * 7 + 1) * 0.6;
+      ctx.globalAlpha = 0.3 + hash01(b * 13 + 5) * 0.22;
+      this._doodle(ctx, cx, cy, scale, Math.floor(hash01(b * 3 + 2) * 4));
     }
     ctx.restore();
   }
 
-  // A puffy cloud built from a few overlapping circles, centred at (x, y).
-  _cloud(ctx, x, y, s) {
+  // One margin scribble, centred at (x, y): a star, a spiral, a cloud
+  // outline, or a ringed planet — all plain pencil strokes.
+  _doodle(ctx, x, y, s, kind) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(s, s);
+    ctx.rotate((kind - 1.5) * 0.2);
     ctx.beginPath();
-    ctx.ellipse(x, y, 26 * s, 16 * s, 0, 0, Math.PI * 2);
-    ctx.ellipse(x - 22 * s, y + 4 * s, 16 * s, 11 * s, 0, 0, Math.PI * 2);
-    ctx.ellipse(x + 22 * s, y + 4 * s, 18 * s, 12 * s, 0, 0, Math.PI * 2);
-    ctx.ellipse(x + 4 * s, y - 10 * s, 15 * s, 11 * s, 0, 0, Math.PI * 2);
-    ctx.fill();
+    if (kind === 0) {          // five-point star, drawn in one zig-zag stroke
+      for (let i = 0; i <= 10; i++) {
+        const a = -Math.PI / 2 + i * Math.PI / 5;
+        const r = i % 2 ? 8 : 19;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+    } else if (kind === 1) {   // loose spiral
+      for (let a = 0; a <= Math.PI * 4.6; a += 0.25) {
+        const r = 2 + a * 1.7;
+        ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r * 0.85);
+      }
+    } else if (kind === 2) {   // cloud outline
+      ctx.arc(-16, 4, 9, Math.PI * 0.4, Math.PI * 1.2);
+      ctx.arc(-4, -6, 11, Math.PI * 0.8, Math.PI * 1.9);
+      ctx.arc(12, -2, 9, Math.PI * 1.2, Math.PI * 2.15);
+      ctx.arc(6, 8, 8, Math.PI * 1.7, Math.PI * 0.6);
+      ctx.closePath();
+    } else {                   // ringed planet
+      ctx.arc(0, 0, 12, 0, Math.PI * 2);
+      ctx.moveTo(-22, 6);
+      ctx.ellipse(0, 0, 22, 7, -0.25, Math.PI * 0.94, Math.PI * 2.06);
+    }
+    ctx.stroke();
+    ctx.restore();
   }
 
   renderHUD(ctx) {
-    ctx.fillStyle = "#2b2b3a";
-    ctx.font = "bold 26px Segoe UI, Arial";
+    ctx.fillStyle = "#2f3550";
+    ctx.font = '26px "Permanent Marker", "Segoe UI", Arial';
     ctx.textAlign = "left";
-    ctx.fillText(String(this.score), 14, 36);
-    ctx.font = "13px Segoe UI, Arial";
-    ctx.fillStyle = "rgba(40,40,60,0.6)";
-    ctx.fillText("Best " + this.high, 14, 54);
+    ctx.fillText(String(this.score), 14, 34);
+    ctx.font = '13px "Permanent Marker", "Segoe UI", Arial';
+    ctx.fillStyle = "rgba(47,53,80,0.6)";
+    ctx.fillText("best " + this.high, 15, 52);
   }
 
+  // A slightly tilted paper note, pinned over a dimmed page, everything in
+  // marker: the title gets a hand-drawn underline.
   _panel(ctx, title, lines) {
-    ctx.fillStyle = "rgba(20,16,40,0.55)";
+    ctx.save();
+    ctx.fillStyle = "rgba(47, 53, 80, 0.28)";
     ctx.fillRect(0, 0, CONFIG.W, CONFIG.H);
+    const w = CONFIG.W - 56, h = 118 + lines.length * 27;
+    ctx.translate(CONFIG.W / 2, CONFIG.H / 2 - 24);
+    ctx.rotate(-0.02);
+    ctx.fillStyle = "rgba(47,53,80,0.25)";
+    roundRect(ctx, -w / 2 + 5, -h / 2 + 7, w, h, 4);
+    ctx.fill();
+    ctx.fillStyle = "#fffdf4";
+    roundRect(ctx, -w / 2, -h / 2, w, h, 4);
+    ctx.fill();
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // ruled lines on the note
+    ctx.strokeStyle = "rgba(126,168,197,0.35)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let ly = -h / 2 + 58; ly < h / 2 - 12; ly += 27) { ctx.moveTo(-w / 2 + 12, ly); ctx.lineTo(w / 2 - 12, ly); }
+    ctx.stroke();
+    // a strip of tape at the top
+    ctx.save();
+    ctx.rotate(0.05);
+    ctx.fillStyle = "rgba(235, 225, 170, 0.8)";
+    ctx.fillRect(-34, -h / 2 - 12, 68, 20);
+    ctx.restore();
+
     ctx.textAlign = "center";
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 40px Segoe UI, Arial";
-    ctx.fillText(title, CONFIG.W / 2, CONFIG.H / 2 - 70);
-    ctx.font = "18px Segoe UI, Arial";
-    let y = CONFIG.H / 2 - 20;
-    for (const ln of lines) { ctx.fillText(ln, CONFIG.W / 2, y); y += 28; }
+    ctx.fillStyle = "#2f3550";
+    ctx.font = '34px "Permanent Marker", "Segoe UI", Arial';
+    ctx.fillText(title, 0, -h / 2 + 44);
+    const tw = ctx.measureText(title).width;
+    ctx.strokeStyle = "#e05a5a";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-tw / 2 - 6, -h / 2 + 53);
+    ctx.quadraticCurveTo(0, -h / 2 + 58, tw / 2 + 8, -h / 2 + 51);
+    ctx.stroke();
+    ctx.font = '16px "Permanent Marker", "Segoe UI", Arial';
+    let y = -h / 2 + 79;
+    for (const ln of lines) { ctx.fillText(ln, 0, y); y += 27; }
+    ctx.restore();
     ctx.textAlign = "left";
   }
 

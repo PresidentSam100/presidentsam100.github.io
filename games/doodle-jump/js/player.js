@@ -139,14 +139,21 @@ class Player {
     // Power-up gear drawn behind the body
     if (this.powerup) this._renderPowerup(ctx, sy);
 
-    // Body (lime doodle blob)
+    // Body (lime doodle blob), now with a proper ink outline
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = "#2f3550";
     ctx.fillStyle = this.invincible ? "#9be36a" : "#7ed957";
     roundRect(ctx, this.x + 6, sy + 8, this.w - 12, this.h - 12, 14);
     ctx.fill();
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
     // little legs
     ctx.fillStyle = "#5fb53e";
+    ctx.lineWidth = 1.6;
     ctx.fillRect(this.x + 12, sy + this.h - 8, 7, 8);
+    ctx.strokeRect(this.x + 12, sy + this.h - 8, 7, 8);
     ctx.fillRect(this.x + this.w - 19, sy + this.h - 8, 7, 8);
+    ctx.strokeRect(this.x + this.w - 19, sy + this.h - 8, 7, 8);
     // Spring shoes strapped to the feet while charges remain — and through the
     // final rise until they drop near its apex (springyDropPending).
     if (this.springy > 0 || this.springyDropPending) {
@@ -154,18 +161,23 @@ class Player {
       GearArt.springShoe(ctx, this.x + this.w - 15, sy + this.h - 1);
     }
     // snout (points toward facing)
-    ctx.fillStyle = "#7ed957";
+    ctx.fillStyle = this.invincible ? "#9be36a" : "#7ed957";
     const snoutDir = this.facing;
     ctx.beginPath();
     ctx.ellipse(cx + snoutDir * 12, sy + 26, 12, 9, 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.stroke();
 
     // eyes
     ctx.fillStyle = "#fff";
+    ctx.lineWidth = 1.7;
     ctx.beginPath();
     ctx.arc(cx - 6, sy + 16, 6, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
     ctx.arc(cx + 8, sy + 16, 6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fill(); ctx.stroke();
     if (this.renderMode === "dizzy") {
       // X_X eyes when stunned by a monster
       ctx.strokeStyle = "#222";
@@ -201,7 +213,7 @@ class Player {
 
     // Remaining spring-shoe bounces, shown as a small badge under the feet.
     if (this.springy > 0) {
-      ctx.font = "bold 12px Segoe UI, Arial";
+      ctx.font = '12px "Permanent Marker", "Segoe UI", Arial';
       ctx.textAlign = "center";
       ctx.lineWidth = 3;
       ctx.strokeStyle = "rgba(255,255,255,0.9)";

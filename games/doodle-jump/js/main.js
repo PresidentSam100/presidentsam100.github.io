@@ -15,6 +15,9 @@
   }
   setupHiDPI();
 
+  // The canvas text uses the page's marker font once it has loaded.
+  if (document.fonts && document.fonts.load) document.fonts.load('26px "Permanent Marker"');
+
   const input = new Input(canvas);
   const game = new Game(canvas, input);
   window.__game = game; // debug/automation hook

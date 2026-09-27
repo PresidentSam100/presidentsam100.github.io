@@ -27,6 +27,10 @@ class Platform {
     this.booster = null;      // optional Booster (spring/trampoline) on top
     this.powerup = null;      // optional PowerUp (jetpack/propeller) on top
 
+    // A stable per-platform wobble seed, so the hand-drawn outline doesn't
+    // shimmer as frames redraw.
+    this.seed = ((x * 13 + y * 7) % 97 + 97) % 97;
+
     // Movement setup
     if (type === PT.BLUE) {
       this.vx = rand(60, 110) * (chance(0.5) ? 1 : -1);
@@ -131,43 +135,36 @@ class Platform {
       ctx.globalAlpha = fade > 0.78 ? clamp(1 - (fade - 0.78) / 0.22, 0, 1) : 1;
     }
 
+    // Doodled sketches: a flat crayon fill inside a wobbly ink outline, with a
+    // couple of hatch strokes. Colors keep their meanings.
     const cols = {
-      [PT.GREEN]:  ["#5fcf52", "#3da832"],
-      [PT.BLUE]:   ["#52a7ef", "#2f78c4"],
-      [PT.GRAY]:   ["#b9c0c9", "#8a939e"],
-      [PT.WHITE]:  ["#ffffff", "#d4dde6"],
-      [PT.YELLOW]: ["#ffd84d", "#e6b800"],
-      [PT.BROWN]:  ["#b07a45", "#8a5a2d"],
+      [PT.GREEN]:  ["#6fd45e", "#2e7d27"],
+      [PT.BLUE]:   ["#5fb0f2", "#2a629e"],
+      [PT.GRAY]:   ["#c3cad2", "#5d6773"],
+      [PT.WHITE]:  ["#ffffff", "#8a97a8"],
+      [PT.YELLOW]: ["#ffd84d", "#a67f00"],
+      [PT.BROWN]:  ["#b07a45", "#5e3c1c"],
     }[this.type];
 
-    // body
-    const grad = ctx.createLinearGradient(0, sy, 0, sy + this.h);
-    grad.addColorStop(0, cols[0]);
-    grad.addColorStop(1, cols[1]);
-    ctx.fillStyle = grad;
-    roundRect(ctx, this.x, sy, this.w, this.h, 7);
-    ctx.fill();
-    // subtle top highlight
-    ctx.fillStyle = "rgba(255,255,255,0.35)";
-    roundRect(ctx, this.x + 4, sy + 3, this.w - 8, 4, 2);
-    ctx.fill();
+    this._sketchBody(ctx, this.x, sy, cols[0], cols[1]);
 
     // reddening overlay as a yellow platform is about to explode
     if (fade > 0) {
       ctx.fillStyle = `rgba(225,40,25,${0.9 * fade})`;
-      roundRect(ctx, this.x, sy, this.w, this.h, 7);
+      roundRect(ctx, this.x, sy, this.w, this.h, 8);
       ctx.fill();
     }
 
     if (this.type === PT.BROWN) {
-      // crack lines to hint it's fake
-      ctx.strokeStyle = "rgba(60,30,10,0.6)";
-      ctx.lineWidth = 1.5;
+      // a jagged crack to hint it's fake
+      ctx.strokeStyle = "rgba(50,25,8,0.75)";
+      ctx.lineWidth = 1.7;
       ctx.beginPath();
-      ctx.moveTo(this.x + this.w * 0.35, sy + 2);
-      ctx.lineTo(this.x + this.w * 0.45, sy + this.h - 2);
-      ctx.moveTo(this.x + this.w * 0.7, sy + 2);
-      ctx.lineTo(this.x + this.w * 0.6, sy + this.h - 2);
+      ctx.moveTo(this.x + this.w * 0.32, sy + 1);
+      ctx.lineTo(this.x + this.w * 0.44, sy + this.h * 0.55);
+      ctx.lineTo(this.x + this.w * 0.38, sy + this.h - 1);
+      ctx.moveTo(this.x + this.w * 0.44, sy + this.h * 0.55);
+      ctx.lineTo(this.x + this.w * 0.62, sy + this.h * 0.4);
       ctx.stroke();
     }
 
@@ -180,14 +177,60 @@ class Platform {
   _renderBroken(ctx, sy) {
     const t = this.breakT / 0.5;
     ctx.globalAlpha = clamp(1 - t, 0, 1);
-    const col = this.type === PT.BROWN ? "#8a5a2d" : "#d4dde6";
-    ctx.fillStyle = col;
+    const cols = this.type === PT.BROWN ? ["#8a5a2d", "#5e3c1c"] : ["#e8eef4", "#8a97a8"];
+    ctx.fillStyle = cols[0];
+    ctx.strokeStyle = cols[1];
+    ctx.lineWidth = 1.8;
     const drop = t * 90;
     const split = t * 26;
     // left half tilts/falls left, right half right
     roundRect(ctx, this.x - split, sy + drop, this.w / 2 - 2, this.h, 5);
     ctx.fill();
+    ctx.stroke();
     roundRect(ctx, this.x + this.w / 2 + 2 + split, sy + drop, this.w / 2 - 2, this.h, 5);
     ctx.fill();
+    ctx.stroke();
+  }
+
+  // The doodled body: fill, a wobbly two-pass ink outline whose bumps come
+  // from the platform's seed, hatch strokes on the left, a chalk highlight.
+  _sketchBody(ctx, x, sy, fill, ink) {
+    const w = this.w, h = this.h, sd = this.seed;
+    ctx.fillStyle = fill;
+    roundRect(ctx, x, sy, w, h, 8);
+    ctx.fill();
+    ctx.strokeStyle = ink;
+    ctx.lineCap = "round";
+    for (let pass = 0; pass < 2; pass++) {
+      const j = (k) => (((sd * (k + 3) * (pass + 2)) % 7) - 3) * 0.35;
+      ctx.lineWidth = pass ? 1.1 : 1.8;
+      ctx.globalAlpha = pass ? 0.55 : 0.9;
+      ctx.beginPath();
+      ctx.moveTo(x + 6 + j(1), sy + j(2));
+      ctx.quadraticCurveTo(x + w * 0.5 + j(3), sy - 1.4 + j(4), x + w - 6 + j(5), sy + j(6));
+      ctx.quadraticCurveTo(x + w + 1.4 + j(7), sy + h * 0.5, x + w - 6 + j(8), sy + h + j(9));
+      ctx.quadraticCurveTo(x + w * 0.5 + j(10), sy + h + 1.4 + j(11), x + 6 + j(12), sy + h + j(13));
+      ctx.quadraticCurveTo(x - 1.4 + j(14), sy + h * 0.5, x + 6 + j(1), sy + j(2));
+      ctx.stroke();
+    }
+    // hatch strokes
+    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    for (let k = 0; k < 3; k++) {
+      const hx = x + 8 + k * 6 + ((sd + k) % 3);
+      ctx.moveTo(hx, sy + h - 3);
+      ctx.lineTo(hx + 5, sy + 3);
+    }
+    ctx.stroke();
+    // chalk highlight
+    ctx.strokeStyle = "rgba(255,255,255,0.55)";
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x + 10, sy + 4.5);
+    ctx.quadraticCurveTo(x + w * 0.45, sy + 2.5, x + w - 14, sy + 4);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 }

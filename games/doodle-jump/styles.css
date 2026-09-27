@@ -1,8 +1,16 @@
+@import url("https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap");
+/* A doodled notebook on a wooden desk: the canvas is the graph-paper page
+   (game.js draws the grid, margin rule and pencil doodles), framed by a
+   spiral binding on the left and sitting on warm desk planks. */
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
   height: 100%;
-  background: #1b1530;
+  background:
+    radial-gradient(900px 500px at 50% 0%, rgba(255, 235, 200, 0.2), rgba(255, 235, 200, 0) 70%),
+    repeating-linear-gradient(90deg, rgba(60, 32, 10, 0.16) 0 2px, rgba(255, 230, 190, 0.05) 2px 5px, rgba(0, 0, 0, 0) 5px 128px),
+    linear-gradient(180deg, #9a6b3f, #7c5330);
+  background-color: #8a5e37;
   color: #fff;
   font-family: "Segoe UI", system-ui, Arial, sans-serif;
   display: flex;
@@ -18,6 +26,12 @@ html, body {
 
 #game-container {
   position: relative;
+  /* the page's edge and the desk shadow under the notebook */
+  border-radius: 6px 14px 14px 6px;
+  box-shadow:
+    -3px 0 0 #efe9d8, 3px 0 0 #efe9d8, 0 3px 0 #efe9d8, 0 -3px 0 #efe9d8,
+    -3px 4px 0 #d9d2bd, 3px 6px 0 #d9d2bd,
+    6px 18px 30px rgba(40, 20, 5, 0.5);
   /* Width is derived from height by aspect-ratio, so height has to be capped
      by the viewport WIDTH too — otherwise a 390px phone got a 400px board and
      the page scrolled sideways. The 1.5rem allows for body padding. */
@@ -29,16 +43,31 @@ html, body {
   display: block;
   width: 100%;
   height: 100%;
-  background: linear-gradient(#cfeffd, #eaf6ff);
-  border-radius: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  background: #fdfbf2;
+  border-radius: 6px 14px 14px 6px;
   image-rendering: optimizeQuality;
+}
+/* the spiral binding, hanging over the page's left edge */
+#game-container::before {
+  content: "";
+  position: absolute;
+  left: -17px;
+  top: 4%;
+  bottom: 4%;
+  width: 30px;
+  z-index: 5;
+  pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='30' height='34' viewBox='0 0 30 34'%3E%3Ccircle cx='17' cy='17' r='5.2' fill='%230f0d18'/%3E%3Cpath d='M4 24 C 4 10 26 10 26 21' fill='none' stroke='%23555d68' stroke-width='4.6' stroke-linecap='round'/%3E%3Cpath d='M4 24 C 4 10 26 10 26 21' fill='none' stroke='%23c8cfd8' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E") center top / 30px 34px repeat-y;
 }
 
 #hint {
+  font-family: "Permanent Marker", "Segoe UI", cursive;
   font-size: 13px;
-  opacity: 0.7;
+  letter-spacing: 0.02em;
+  color: #ffe9c8;
+  opacity: 0.85;
   text-align: center;
+  text-shadow: 0 1px 2px rgba(40, 20, 5, 0.6);
 }
 
 #mute-btn {
@@ -47,14 +76,15 @@ html, body {
   right: 8px;
   width: 38px;
   height: 38px;
-  border: none;
+  border: 2px solid #2f3550;
   border-radius: 10px;
-  background: rgba(0, 0, 0, 0.25);
-  color: #fff;
+  background: #fffdf4;
+  color: #2f3550;
   font-size: 18px;
   cursor: pointer;
+  box-shadow: 0 2px 0 #2f3550;
 }
-#mute-btn:hover { background: rgba(0, 0, 0, 0.4); }
+#mute-btn:hover { background: #f4efdd; }
 
 /* Touch controls */
 #touch-controls {
