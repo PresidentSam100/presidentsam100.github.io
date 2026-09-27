@@ -39,6 +39,7 @@
   const flavorEl = document.getElementById("flavor");
   const flavorValue = document.getElementById("flavorValue");
   const moveCountEl = document.getElementById("moveCount");
+  const timeEl = document.getElementById("timeVal");
   const lvlNumEl = document.getElementById("lvlNum");
   const lvlNameEl = document.getElementById("lvlName");
   const hintEl = document.getElementById("hint");
@@ -51,11 +52,11 @@
   function loadSave() {
     try {
       return Object.assign(
-        { unlocked: 1, completed: [], muted: false },
+        { unlocked: 1, completed: [], muted: false, bestTimes: {} },
         JSON.parse(localStorage.getItem(SAVE_KEY) || "{}")
       );
     } catch (e) {
-      return { unlocked: 1, completed: [], muted: false };
+      return { unlocked: 1, completed: [], muted: false, bestTimes: {} };
     }
   }
   function persist() {
@@ -74,6 +75,22 @@
   let won = false;
   let cell = 64;
   const GAP = 4;
+
+  // ----- level timer -----
+  // Starts on the first real move (reading the board is free), stops on the
+  // win; the per-level best is stored by level NAME, so re-sorting the level
+  // order never mixes up records.
+  let runStartTs = null;
+  function fmtTime(ms) {
+    const t = Math.max(0, ms) / 1000;
+    if (t < 60) return t.toFixed(1) + "s";
+    const m = Math.floor(t / 60);
+    const rest = t - m * 60;
+    return m + ":" + (rest < 10 ? "0" : "") + rest.toFixed(1);
+  }
+  setInterval(() => {
+    if (runStartTs !== null && !won) timeEl.textContent = fmtTime(Date.now() - runStartTs);
+  }, 100);
 
   function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
@@ -144,8 +161,10 @@
     won = false;
     locked = false;
     moves = 0;
+    runStartTs = null;
     overlayEl.hidden = true;
     moveCountEl.textContent = "0";
+    timeEl.textContent = "0.0s";
     lvlNumEl.textContent = current + 1;
     lvlNameEl.textContent = lvl.name;
     hintEl.textContent = lvl.hint;
@@ -161,15 +180,26 @@
 
   function completeLevel() {
     won = true;
+    const ms = runStartTs === null ? 0 : Date.now() - runStartTs;
+    timeEl.textContent = fmtTime(ms);
+    if (!save.bestTimes) save.bestTimes = {};
+    const prevBest = save.bestTimes[LEVELS[current].name];
+    const record = prevBest === undefined || ms < prevBest;
+    if (record) save.bestTimes[LEVELS[current].name] = ms;
     if (!save.completed.includes(current)) save.completed.push(current);
     if (current + 1 < LEVELS.length) save.unlocked = Math.max(save.unlocked, current + 2);
     persist();
     SFX.win();
     const last = current + 1 >= LEVELS.length;
+    const timeBit = record && prevBest !== undefined
+      ? `${fmtTime(ms)} — new best!`
+      : prevBest !== undefined
+        ? `${fmtTime(ms)} (best ${fmtTime(Math.min(prevBest, ms))})`
+        : fmtTime(ms);
     overlayTitle.textContent = last ? "Resort Cleared! 🎉" : "Level Complete!";
     overlaySub.textContent = last
-      ? `You finished all ${LEVELS.length} levels in ${moves} moves on this one.`
-      : `Solved in ${moves} moves.`;
+      ? `You finished all ${LEVELS.length} levels — this one in ${moves} moves and ${timeBit}.`
+      : `Solved in ${moves} moves · ${timeBit}.`;
     document.getElementById("overlayNext").style.display = last ? "none" : "";
     setTimeout(() => { overlayEl.hidden = false; }, 350);
     renderLevelPicker();
@@ -210,6 +240,7 @@
     }
 
     locked = true;
+    if (runStartTs === null) runStartTs = Date.now();  // the clock starts on your first move
     moves++;
     moveCountEl.textContent = moves;
 
@@ -256,7 +287,8 @@
       const b = document.createElement("button");
       b.className = "lvlbtn";
       b.textContent = i + 1;
-      b.title = lvl.name;
+      const bt = save.bestTimes && save.bestTimes[lvl.name];
+      b.title = lvl.name + (bt !== undefined ? " — best " + fmtTime(bt) : "");
       const unlocked = i < save.unlocked;
       if (!unlocked) b.classList.add("locked");
       if (save.completed.includes(i)) b.classList.add("done");
@@ -273,6 +305,7 @@
     W: "up", S: "down", A: "left", D: "right",
   };
   window.addEventListener("keydown", (e) => {
+    if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press — holding does nothing
     if (e.key === "r" || e.key === "R") { loadLevel(current); return; }
     const dir = KEYMAP[e.key];
     if (dir) { e.preventDefault(); doMove(dir); }
