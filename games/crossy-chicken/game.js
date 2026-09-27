@@ -966,8 +966,13 @@ function riverUpdate(dt) {
     const delta = row.dir * row.speed * dt; // carried by the log (pads have speed 0)
     player.gx += delta;
     renderGx += delta; // move the render in lockstep with the log; the lerp smoothly settles the centering snap
-    // carried into the shaded margin → swept away riding the log (not a drown-in-place)
-    if (player.gx > COLS - 0.5 || player.gx < -0.5) death("swept", row.dir * row.speed, row.dir);
+    // carried into the shaded margin → swept away riding the log (not a
+    // drown-in-place). Only when the log is carrying the chicken OUTWARD: a
+    // log moving back toward the play area is bringing it to safety, so a
+    // landing that edged past the line on an inbound log survives the ride.
+    if ((player.gx > COLS - 0.5 && row.dir > 0) || (player.gx < -0.5 && row.dir < 0)) {
+      death("swept", row.dir * row.speed, row.dir);
+    }
   } else {
     death("water"); // no platform under us → fell in and drowned
   }
@@ -1178,14 +1183,22 @@ function goToMenu() { deathAnim = null; state = "menu"; }
 // so it snaps to the log's spacing on entry (mirrors the snap-to-grid we already do on exit).
 function snapToPlatform(row, ngx) {
   const cx = ngx + 0.5, TOL = 0.3;
-  let best = null, bestDist = Infinity;
+  // Prefer cells that keep the chicken inside the reachable area: landing near
+  // the edge must never snap the chicken's position out past the swept
+  // boundary when a perfectly good in-bounds cell of the same log is at hand.
+  let best = null, bestDist = Infinity, bestOut = true;
   for (const it of row.items) {
     const c = itemCol(row, it);
     if (cx >= c - TOL && cx <= c + it.len + TOL) {
-      const k = clamp(Math.round(cx - c - 0.5), 0, it.len - 1);
-      const aligned = c + k; // gx so the chicken sits centered on that cell of the platform
-      const dist = Math.abs(aligned + 0.5 - cx);
-      if (dist < bestDist) { bestDist = dist; best = aligned; }
+      for (let k = 0; k < it.len; k++) {
+        const aligned = c + k; // gx so the chicken sits centered on that cell of the platform
+        const dist = Math.abs(aligned + 0.5 - cx);
+        if (dist > TOL + 0.5) continue; // only cells actually under / beside the chicken
+        const out = aligned > COLS - 0.5 || aligned < -0.5;
+        if ((bestOut && !out) || (out === bestOut && dist < bestDist)) {
+          bestDist = dist; best = aligned; bestOut = out;
+        }
+      }
     }
   }
   return best != null ? best : ngx; // no platform under the target → stays put (and drowns)
@@ -1402,7 +1415,7 @@ function drawRow(r, row) {
       ctx.beginPath(); ctx.arc(x + t2 + 20, top + TILE * 0.68, 5, Math.PI, 0); ctx.fill();
     }
     for (const it of row.items) drawPlatform(row, it, top);
-    if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top); // sits on the log and rides along with it
+    if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top, -10); // riding the log, raised onto its top face
   }
 
   // the near shore's cliff face: land rises out of the water just beyond it
@@ -1419,8 +1432,8 @@ function drawRow(r, row) {
 function coinColOf(row) { const c = row.coin; return c.log ? itemCol(row, c.log) + c.k : c.col; }
 
 // spinning gold coin
-function drawCoin(col, top) {
-  const cx = col * TILE + TILE / 2, cy = top + TILE / 2;
+function drawCoin(col, top, yOff) {
+  const cx = col * TILE + TILE / 2, cy = top + TILE / 2 + (yOff || 0);
   const wob = Math.abs(Math.cos(performance.now() / 260)); // 0..1 spin
   ctx.fillStyle = "rgba(0,0,0,.18)";
   ctx.beginPath(); ctx.ellipse(cx, cy + 13, 9, 4, 0, 0, 7); ctx.fill();
@@ -1725,7 +1738,7 @@ function drawDeathState() {
     ctx.restore();
     if (row && row.type === "river") {
       for (const it of row.items) drawPlatform(row, it, top); // splash sits under logs/pads
-      if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top); // ...and the coin stays on top of its pad/log
+      if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top, -10); // ...and the coin stays on top of its pad/log
     }
     return;
   }
@@ -1871,6 +1884,66 @@ function drawButton(b, fill, label, sub, hi, selected) {
   }
 }
 
+// ---------- true-3D chick for the skin turntable ----------
+// The chick as axis-aligned boxes in local space (x right, y up, z toward the
+// beak), rotated around Y by `th` and projected with the same oblique camera
+// the game world fakes (screen y = -height + depth). Faces are painter-sorted
+// and shaded by their rotated normals, so the turn reads as genuine 3D.
+function drawChick3D(cx, cy, s, th, sk) {
+  const cosT = Math.cos(th), sinT = Math.sin(th);
+  const proj = (x, y, z) => {
+    const xr = x * cosT + z * sinT, zr = -x * sinT + z * cosT;
+    return { x: cx + xr * s, y: cy - y * s + zr * 0.5 * s, z: zr };
+  };
+  const wing = shadeC(sk.body, -0.12), foot = shadeC(sk.beak, -0.15);
+  const boxes = [
+    { b: [-12, 12, 4, 22, -8, 8], c: sk.body },      // body
+    { b: [-7, 7, 22, 34, -3, 9], c: sk.body },       // head
+    { b: [-3, 3, 34, 39, -1, 5], c: sk.comb },       // comb
+    { b: [-2.5, 2.5, 25, 29, 9, 16], c: sk.beak },   // beak
+    { b: [-5, 5, 12, 20, -15, -8], c: sk.tail },     // tail
+    { b: [-14.5, -12, 8, 19, -6, 4], c: wing },      // wings
+    { b: [12, 14.5, 8, 19, -6, 4], c: wing },
+    // feet go in a base layer (pri 0) under everything else: the belly has no
+    // underside face, so without this the far foot pokes below the body's
+    // silhouette mid-turn and flickers between "in front" and "behind"
+    { b: [-8, -3, 0, 4, -3, 3], c: foot, pri: 0 },
+    { b: [3, 8, 0, 4, -3, 3], c: foot, pri: 0 },
+    { b: [-7.9, -7, 27, 30.5, 3, 6.5], c: "#222" },  // eyes, on the head's sides
+    { b: [7, 7.9, 27, 30.5, 3, 6.5], c: "#222" }
+  ];
+  const quads = [];
+  for (const bx of boxes) {
+    const [x0, x1, y0, y1, z0, z1] = bx.b;
+    // each face: its 4 corners and its outward normal (local space)
+    const F = [
+      [[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], 0, 1, 0],  // top
+      [[x0, y0, z0], [x1, y0, z0], [x1, y0, z1], [x0, y0, z1], 0, -1, 0], // bottom
+      [[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1], 0, 0, 1],  // front
+      [[x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], 0, 0, -1], // back
+      [[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0], -1, 0, 0], // left
+      [[x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 1, 0, 0]   // right
+    ];
+    for (const f of F) {
+      const pts = [proj(...f[0]), proj(...f[1]), proj(...f[2]), proj(...f[3])];
+      const nz = -f[4] * sinT + f[6] * cosT; // the normal's rotated z (toward viewer)
+      const ny = f[5];
+      if (ny < 0) continue; // bottoms never show from this camera
+      const amt = ny > 0 ? 0.15 : -0.34 + 0.3 * Math.max(0, nz);
+      quads.push({ pri: bx.pri == null ? 1 : bx.pri, z: (pts[0].z + pts[1].z + pts[2].z + pts[3].z) / 4, pts, c: shadeC(bx.c, amt) });
+    }
+  }
+  quads.sort((a, b) => (a.pri - b.pri) || (a.z - b.z)); // base layer, then far faces first
+  for (const q of quads) {
+    ctx.fillStyle = q.c;
+    ctx.beginPath();
+    ctx.moveTo(q.pts[0].x, q.pts[0].y);
+    for (let i = 1; i < 4; i++) ctx.lineTo(q.pts[i].x, q.pts[i].y);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
 function drawMenu() {
   veil(0.52);
   const bob = Math.sin(performance.now() / 300) * 4;
@@ -1889,22 +1962,15 @@ function drawMenu() {
     const sel = i === menuSel;
     drawButton(rects[i], sel ? "#ffd23d" : "#f6f2e4", m.label, m.desc, loadHigh(m.id), sel);
   });
-  // skin selector: the current chicken spins on a little turntable so the
-  // whole bird shows, with the caption clear underneath. The turn is faked by
-  // cycling the four facings and squashing edge-on between them.
+  // skin selector: the current chicken turns on a real 3D turntable — the
+  // bird is modelled as boxes, rotated around the vertical axis and projected,
+  // so its corners orbit and its shading shifts as it spins.
   const sk = SKINS[skinSel], be = bestEver();
-  const px2 = W / 2, py2 = H * 0.75;
+  const px2 = W / 2, py2 = H * 0.775;
   ctx.fillStyle = "rgba(0,0,0,.25)"; // turntable shadow
-  ctx.beginPath(); ctx.ellipse(px2, py2 + 20, 26, 8, 0, 0, 7); ctx.fill();
-  if (window.RM_ON && window.RM_ON()) {
-    drawChicken(px2, py2, 1.35, 1.35, 0, "down", sk); // reduced motion: still, facing you
-  } else {
-    const spin = (performance.now() / 850) % 4;
-    const faceSeq = ["down", "right", "up", "left"]; // one clockwise turn
-    const pp = spin - Math.floor(spin);
-    const wobble = 0.3 + 0.7 * Math.sin(pp * Math.PI); // edge-on between facings
-    drawChicken(px2, py2, 1.35 * wobble, 1.35, 0, faceSeq[Math.floor(spin)], sk);
-  }
+  ctx.beginPath(); ctx.ellipse(px2, py2 + 3, 27, 8, 0, 0, 7); ctx.fill();
+  const th = (window.RM_ON && window.RM_ON()) ? 0 : (performance.now() / 2400) * Math.PI * 2;
+  drawChick3D(px2, py2, 1.15, th, sk);
   textCenter("Skin: " + sk.name + "   (C to change)", W / 2, H * 0.815, 17, "#fff");
   const nextLocked = SKINS.find(s => be < s.unlock);
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
@@ -2061,7 +2127,7 @@ window.__game = {
   get state() { return state; },
   get score() { return score(); },
   get player() { return player; },
-  spawnFeathers, spawnDust, death
+  spawnFeathers, spawnDust, death, snapToPlatform
 };
 
 })();
