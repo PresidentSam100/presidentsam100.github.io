@@ -1,0 +1,127 @@
+/* =====================================================================
+   Tall Order — a pastel bakery. The game is all canvas; these styles
+   dress the HUD and the two panels like handwritten bakery signage.
+   ===================================================================== */
+
+:root {
+  --cream: #fdf6ea;
+  --pink: #f26d8d;
+  --berry: #b03a48;
+  --ink: #5a4a52;
+  --dim: #9a8791;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: "Fredoka", "Comic Sans MS", sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+  background: #f9e8ee;
+}
+
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  color: var(--berry); text-decoration: none;
+  background: rgba(253, 246, 234, 0.92);
+  border: 2px solid #eecfd8; border-radius: 999px;
+  padding: 6px 14px;
+  box-shadow: 0 2px 6px rgba(176, 58, 72, 0.15);
+}
+.nav-back-games:hover { border-color: var(--pink); }
+
+/* ---- HUD: the order ticket ------------------------------------------- */
+.hud {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+  text-align: center; pointer-events: none;
+  background: rgba(253, 246, 234, 0.92);
+  border: 2px solid #eecfd8; border-radius: 16px;
+  padding: 4px 22px 7px;
+  box-shadow: 0 3px 10px rgba(176, 58, 72, 0.15);
+}
+.hud .tiers { font-size: 30px; font-weight: 700; color: var(--berry); line-height: 1.05; }
+.hud #hud-sub { font-size: 12px; letter-spacing: 2px; color: var(--dim); text-transform: uppercase; }
+.hud #hud-flavour { font-size: 13px; color: var(--pink); font-weight: 600; min-height: 17px; }
+
+@media (max-width: 640px) {
+  .hud { top: auto; bottom: 18px; }
+  .hud .tiers { font-size: 24px; }
+}
+
+/* ---- panels ------------------------------------------------------------ */
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(90, 40, 56, 0.32);
+}
+.panel[hidden] { display: none; }
+
+.card {
+  width: min(430px, 100%);
+  background: var(--cream);
+  border: 3px solid #f4d5dd; border-radius: 22px;
+  box-shadow: 0 14px 44px rgba(90, 40, 56, 0.35);
+  padding: 24px 24px 20px;
+}
+.card h1, .card h2 {
+  font-weight: 700; color: var(--berry); letter-spacing: 0.5px;
+}
+.card h1 { font-size: 34px; }
+.card h2 { font-size: 26px; }
+.card .tag { color: var(--pink); font-weight: 600; margin: 0 0 10px; }
+.card .how { font-size: 15.5px; line-height: 1.5; margin-bottom: 14px; }
+.card .how b { color: var(--berry); }
+
+.pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 17px; text-align: left; cursor: pointer;
+  color: var(--ink); background: #fff;
+  border: 2px solid #eecfd8; border-radius: 12px; padding: 9px 14px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.seg button small { font-size: 13px; color: var(--dim); }
+.seg button.on { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(242, 109, 141, 0.25); }
+.seg button.on b { color: var(--berry); }
+
+kbd {
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  background: var(--berry); color: var(--cream);
+  border-radius: 6px; padding: 1px 7px;
+}
+
+.playbtn {
+  font-family: inherit; font-size: 21px; font-weight: 700; width: 100%; cursor: pointer;
+  color: #fff; background: linear-gradient(170deg, #f78da8, var(--pink) 60%, #e05577);
+  border: 0; border-radius: 14px; padding: 12px;
+  box-shadow: 0 5px 0 #c04061, 0 8px 18px rgba(176, 58, 72, 0.3);
+}
+.playbtn:hover { filter: brightness(1.05); }
+.playbtn:active { transform: translateY(3px); box-shadow: 0 2px 0 #c04061; }
+.playbtn kbd { background: rgba(255, 255, 255, 0.25); color: #fff; }
+
+.bests { margin-top: 12px; font-size: 14px; color: var(--dim); min-height: 18px; text-align: center; }
+
+.card .big { font-size: 40px; font-weight: 700; color: var(--berry); margin: 6px 0 2px; }
+.card .stats { font-size: 15px; color: var(--dim); margin: 4px 0 16px; white-space: pre-line; line-height: 1.5; }
+.card .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.card .row button {
+  font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer;
+  color: var(--ink); background: #fff;
+  border: 2px solid #eecfd8; border-radius: 12px; padding: 9px 18px;
+}
+.card .row button:first-child {
+  color: #fff; background: linear-gradient(170deg, #f78da8, var(--pink));
+  border-color: #e05577;
+}
+.card .row button:hover { filter: brightness(1.05); }
+.card .row button:active { transform: translateY(1px); }
+
+@media (max-width: 640px) {
+  .card h1 { font-size: 28px; }
+  .card .big { font-size: 32px; }
+}

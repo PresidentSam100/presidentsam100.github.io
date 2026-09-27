@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%8D%B0%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Tall Order</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Tall Order — stack a cake tower in the bakery: drop each sliding tier, misses get trimmed to crumbs. A browser game by Sam Lu." />
+    <meta property="og:title" content="Tall Order — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Tall Order — stack a cake tower in the bakery: drop each sliding tier, misses get trimmed to crumbs. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The bakery. Everything is painted on this canvas by game.js. -->
+<canvas id="stage" aria-label="A pastel bakery: drop each sliding cake tier onto the tower; overhang gets trimmed off"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <div class="tiers" id="hud-tiers">0</div>
+  <div id="hud-sub">tiers</div>
+  <div id="hud-flavour"></div>
+</div>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Tall Order</h1>
+    <p class="tag">the bakery stacker</p>
+    <p class="how">
+      A fresh tier glides out of the oven — <b>tap to drop it</b> on the
+      tower. Whatever hangs over the edge is trimmed to crumbs, and the
+      next tier is only as wide as what's left. Drop it <b>dead centre</b>
+      and the oven dings: perfect tiers keep their frosting, and back-to-back
+      perfects let the cake grow back.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="bakery"><b>Bakery</b><small>a gentle morning <kbd>1</kbd></small></button>
+        <button type="button" data-v="rush"><b>Rush order</b><small>fast from the first tier <kbd>2</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Preheat</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">Order served!</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Bake another <kbd>Enter</kbd></button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
