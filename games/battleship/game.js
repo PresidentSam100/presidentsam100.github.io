@@ -107,17 +107,21 @@
     grid.querySelectorAll(".cell").forEach((cell) => {
       const r = +cell.dataset.r, c = +cell.dataset.c, b = board[r][c];
       cell.className = "cell"; cell.textContent = "";
-      if (b.attacked) {
-        if (b.ship) { cell.classList.add(b.ship.sunk ? "sunk" : "hit"); cell.textContent = b.ship.sunk ? "" : "✕"; }
-        else { cell.classList.add("miss"); cell.textContent = "•"; }
-      } else if (showShips && b.ship) {
+      // A ship's hull shows on your own board (hits burn on top of it) and on
+      // the enemy's once it's sunk. A hit on a live enemy ship shows no hull:
+      // its bow or orientation would give away which way to fire next.
+      const visible = b.ship && (showShips || b.ship.sunk);
+      if (visible) {
         const sh = b.ship, cs = sh.cells;
         const horiz = cs.length > 1 && cs[0][0] === cs[cs.length - 1][0];
         cell.classList.add("ship", "ship" + (sh.idx % 5), horiz ? "sh" : "sv");
         if (cs[0][0] === r && cs[0][1] === c) cell.classList.add("scap-a");
         if (cs[cs.length - 1][0] === r && cs[cs.length - 1][1] === c) cell.classList.add("scap-b");
       }
-      else { cell.classList.add("water"); }
+      if (b.attacked) {
+        if (b.ship) { cell.classList.add(b.ship.sunk ? "sunk" : "hit"); cell.textContent = b.ship.sunk ? "" : "✕"; }
+        else { cell.classList.add("miss"); cell.textContent = "•"; }
+      } else if (!visible) { cell.classList.add("water"); }
     });
   }
   function fleetHTML(ships, placedCount) {
@@ -198,7 +202,7 @@
     render();
     if (window.coinFlip) {
       const myRound = round;
-      coinFlip({ you: "You", cpu: "CPU", accent: "#36cfff" }, function (who) {
+      coinFlip({ you: "You", cpu: "CPU", accent: "#f2c230" }, function (who) {
         if (myRound !== round) return; // a new game was started before this flip resolved
         turn = who === "cpu" ? "cpu" : "player"; render();
         if (turn === "cpu") { status('<span class="warn">CPU fires first…</span>'); scheduleCpu(750); }

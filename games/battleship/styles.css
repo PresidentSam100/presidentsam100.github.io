@@ -1,87 +1,285 @@
-
+@import url("https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@500;600;700&display=swap");
+/* A warship's plotting room. The page is riveted battleship-grey deck plate
+   with stencilled markings and hazard stripes. Your fleet sits on open sea,
+   seen from above: grey hulls with a bridge at the stern and a gun turret on
+   the pointed bow, burning where they're hit. Enemy waters are a radar
+   screen with range rings and a turning sweep: misses are faint returns,
+   hits are bright blips, and a ship only shows up once it's sunk. */
 :root {
-  --bg: #07101c; --panel: #0f1f30; --line: #1e3850; --text: #e6f1fb; --muted: #7e98b3;
-  --accent: #36cfff; --ship: #5577a0; --hit: #ff5b54; --miss: #21384e; --sunk: #8a2230;
-  --water: #102a42; --good: #46e6a0; --warn: #ffd23f; --bad: #ff5d6c;
+  --text: #f1f4f6; --label: #e3e8ec; --dim: #aeb7bf;
+  --hazard: #f2c230; --hazard-hi: #ffd65a;
+  --radar: #7dffa8;
+  --hit: #ff6b4a; --good: #7dffa8; --warn: #ffd65a; --bad: #ff6b5a;
+  --steel-dark: #2c3237;
+  --hdr: 1.5rem;          /* row/column label size */
+  --pad: 6px;             /* the instrument frame around each grid */
+  --plate: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='180' viewBox='0 0 260 180'%3E%3Cpath d='M0 178.5H260M258.5 0V180' stroke='%233b4248' stroke-width='3'/%3E%3Cpath d='M0 176.5H257M256.5 0V177' stroke='%239aa3ab' stroke-opacity='.45' stroke-width='1'/%3E%3Cg fill='%234a5259'%3E%3Ccircle cx='13' cy='171' r='2.2'/%3E%3Ccircle cx='39' cy='171' r='2.2'/%3E%3Ccircle cx='65' cy='171' r='2.2'/%3E%3Ccircle cx='91' cy='171' r='2.2'/%3E%3Ccircle cx='117' cy='171' r='2.2'/%3E%3Ccircle cx='143' cy='171' r='2.2'/%3E%3Ccircle cx='169' cy='171' r='2.2'/%3E%3Ccircle cx='195' cy='171' r='2.2'/%3E%3Ccircle cx='221' cy='171' r='2.2'/%3E%3Ccircle cx='247' cy='171' r='2.2'/%3E%3Ccircle cx='251' cy='13' r='2.2'/%3E%3Ccircle cx='251' cy='39' r='2.2'/%3E%3Ccircle cx='251' cy='65' r='2.2'/%3E%3Ccircle cx='251' cy='91' r='2.2'/%3E%3Ccircle cx='251' cy='117' r='2.2'/%3E%3Ccircle cx='251' cy='143' r='2.2'/%3E%3C/g%3E%3Cg fill='%23c3cad0' fill-opacity='.55' transform='translate(-.7 -.7)'%3E%3Ccircle cx='13' cy='171' r='1.1'/%3E%3Ccircle cx='39' cy='171' r='1.1'/%3E%3Ccircle cx='65' cy='171' r='1.1'/%3E%3Ccircle cx='91' cy='171' r='1.1'/%3E%3Ccircle cx='117' cy='171' r='1.1'/%3E%3Ccircle cx='143' cy='171' r='1.1'/%3E%3Ccircle cx='169' cy='171' r='1.1'/%3E%3Ccircle cx='195' cy='171' r='1.1'/%3E%3Ccircle cx='221' cy='171' r='1.1'/%3E%3Ccircle cx='247' cy='171' r='1.1'/%3E%3Ccircle cx='251' cy='13' r='1.1'/%3E%3Ccircle cx='251' cy='39' r='1.1'/%3E%3Ccircle cx='251' cy='65' r='1.1'/%3E%3Ccircle cx='251' cy='91' r='1.1'/%3E%3Ccircle cx='251' cy='117' r='1.1'/%3E%3Ccircle cx='251' cy='143' r='1.1'/%3E%3C/g%3E%3C/svg%3E");
+  --waves: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='96' viewBox='0 0 120 96'%3E%3Cg fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-width='1.3' stroke-opacity='.28'%3E%3Cpath d='M8 18q5-5 10 0t10 0'/%3E%3Cpath d='M66 8q4-4 8 0t8 0'/%3E%3Cpath d='M84 52q5-5 10 0t10 0'/%3E%3Cpath d='M22 70q4-4 8 0t8 0'/%3E%3Cpath d='M52 88q5-5 10 0'/%3E%3Cpath d='M100 84q4-4 8 0'/%3E%3Cpath d='M40 40q4-4 8 0'/%3E%3C/g%3E%3C/svg%3E");
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
 html, body { min-height: 100%; }
 body {
-  background: radial-gradient(900px 600px at 50% -10%, #123 0%, var(--bg) 60%);
-  color: var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+  background:
+    var(--plate) 0 0 / 260px 180px,
+    radial-gradient(1000px 600px at 50% 0%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #737c84, #555e66);
+  background-color: #646d75;
+  color: var(--text); font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   display: flex; flex-direction: column; align-items: center; padding: 0.8rem; min-height: 100vh; user-select: none;
 }
-a { color: var(--accent); text-decoration: none; }
+a { color: var(--hazard); text-decoration: none; }
 .wrap { width: 100%; max-width: 940px; }
 
-header.top { text-align: center; margin: 0.4rem 0 0.6rem; }
-header.top h1 { font-size: 1.9rem; font-weight: 900; letter-spacing: -0.01em; }
-header.top h1 b { color: var(--accent); }
-#status { text-align: center; font-size: 0.95rem; font-weight: 700; min-height: 1.4em; margin: 0.2rem 0 0.6rem; }
+header.top { text-align: center; margin: 0.4rem 0 0.7rem; }
+header.top h1 {
+  font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 2.3rem; letter-spacing: 0.04em;
+  color: var(--text); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+header.top h1 b { color: var(--hazard); font-weight: 400; }
+/* hazard stripe under the title */
+header.top::after {
+  content: ""; display: block; width: 180px; height: 8px; margin: 0.45rem auto 0; border-radius: 2px;
+  background: repeating-linear-gradient(-45deg, var(--hazard) 0 10px, #1d2226 10px 20px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+/* status: a dark readout strip set into the plate */
+#status {
+  width: fit-content; max-width: 100%; min-height: 2.1em; margin: 0.2rem auto 0.6rem; padding: 0.4rem 0.95rem;
+  text-align: center; font-size: 1.02rem; font-weight: 600; letter-spacing: 0.02em; color: #e9eef2;
+  background: #1d2226; border: 1px solid #0f1215; border-radius: 8px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+#status:empty { visibility: hidden; }
 #status .hit { color: var(--hit); } #status .ok { color: var(--good); } #status .warn { color: var(--warn); }
+#status b { color: var(--hazard-hi); }
 
-.boards { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; margin-top: 0.6rem; }
+.boards { display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap; margin-top: 0.6rem; }
 .bcol { flex: 1 1 360px; max-width: 440px; }
 .bcol[hidden] { display: none; }
-.bcol h2 { font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 800; text-align: center; margin-bottom: 0.4rem; display: flex; justify-content: center; gap: 8px; align-items: center;
-  height: 1.6rem; line-height: 1; overflow: hidden; }
-.bcol h2 #coord { color: var(--accent); font-weight: 900; letter-spacing: 1px; }
+.bcol h2 {
+  font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 0.92rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--label); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+  text-align: center; margin-bottom: 0.4rem; display: flex; justify-content: center; gap: 8px; align-items: center;
+  height: 1.6rem; line-height: 1; overflow: hidden;
+}
+.bcol h2 #coord { color: var(--hazard-hi); letter-spacing: 1px; font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1.05rem; }
 
-.grid { display: grid; grid-template-columns: 1.5rem repeat(10, 1fr); gap: 3px; }
-.chead, .rhead { color: var(--muted); font-size: 0.68rem; font-weight: 800; display: grid; place-items: center; }
+/* ---- the grids: an instrument frame with labels, the sea or the radar
+   drawn under the cells by ::before ---- */
+.grid {
+  position: relative; display: grid; gap: 0; padding: var(--pad); border-radius: 10px;
+  grid-template-columns: var(--hdr) repeat(10, 1fr); grid-template-rows: var(--hdr);
+  background: linear-gradient(180deg, #3a4148, var(--steel-dark));
+  border: 1px solid #1c2024;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 0 rgba(0, 0, 0, 0.3), 0 12px 24px -10px rgba(0, 0, 0, 0.55);
+}
+.grid::before {
+  content: ""; position: absolute; pointer-events: none;
+  top: calc(var(--pad) + var(--hdr)); left: calc(var(--pad) + var(--hdr)); right: var(--pad); bottom: var(--pad);
+  border-radius: 3px;
+}
+/* your waters: open sea from above */
+.grid:not(.enemy)::before {
+  background:
+    var(--waves) 0 0 / 72px 58px,
+    radial-gradient(ellipse 70% 50% at 28% 18%, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(160deg, #3aa3cb, #237aa8 55%, #1a6390);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 3px 8px rgba(0, 0, 0, 0.3);
+}
+/* enemy waters: a radar screen, round in the square, with a crosshair and range rings */
+.grid.enemy::before {
+  background:
+    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(125, 255, 168, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    linear-gradient(180deg, transparent calc(50% - 0.5px), rgba(125, 255, 168, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    radial-gradient(circle closest-side, transparent 0 24.3%, rgba(125, 255, 168, 0.3) 24.3% 25%, transparent 25% 49.3%, rgba(125, 255, 168, 0.3) 49.3% 50%,
+      transparent 50% 74.3%, rgba(125, 255, 168, 0.3) 74.3% 75%, transparent 75% 98.8%, rgba(125, 255, 168, 0.55) 98.8% 100%, transparent 100%),
+    radial-gradient(circle closest-side, #0f4428 0%, #0a2c19 72%, #05190d 99.5%, #020a05 100%);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 18px rgba(0, 0, 0, 0.6);
+}
+/* the sweep: one wedge turning over the screen. Transform only; the Visual
+   FX toggle stops it where it is. Above the cells but never takes a click. */
+.grid.enemy::after {
+  content: ""; position: absolute; pointer-events: none; z-index: 3; border-radius: 50%;
+  top: calc(var(--pad) + var(--hdr)); left: calc(var(--pad) + var(--hdr)); right: var(--pad); bottom: var(--pad);
+  background: conic-gradient(from 0deg, rgba(125, 255, 168, 0) 0deg 290deg, rgba(125, 255, 168, 0.06) 305deg, rgba(125, 255, 168, 0.28) 357deg, rgba(190, 255, 210, 0.75) 360deg);
+  animation: sweep 4.5s linear infinite; will-change: transform;
+}
+@keyframes sweep { to { transform: rotate(360deg); } }
+
+.chead, .rhead { color: var(--label); font-size: 0.8rem; font-weight: 700; display: grid; place-items: center; }
 .corner { }
-.cell { aspect-ratio: 1; border-radius: 3px; background: var(--water); display: grid; place-items: center;
-  font-size: 0.85rem; font-weight: 800; color: #fff; transition: background .1s, outline-color .1s; outline: 2px solid transparent; }
-.cell.ship { background: var(--ship); border-radius: 0; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.18); }
-.cell.ship0 { background: #5b7da6; } .cell.ship1 { background: #4f8a92; } .cell.ship2 { background: #7d6fa8; }
-.cell.ship3 { background: #6a9f5e; } .cell.ship4 { background: #b08a52; }
-.cell.ship.sh.scap-a { border-top-left-radius: 9px; border-bottom-left-radius: 9px; }
-.cell.ship.sh.scap-b { border-top-right-radius: 9px; border-bottom-right-radius: 9px; }
-.cell.ship.sv.scap-a { border-top-left-radius: 9px; border-top-right-radius: 9px; }
-.cell.ship.sv.scap-b { border-bottom-left-radius: 9px; border-bottom-right-radius: 9px; }
-.cell.hit { background: radial-gradient(circle at 50% 38%, #ffc46a, #ff5b54 55%, #a8241f); box-shadow: inset 0 0 0 1px rgba(255,200,120,.4); }
-.cell.sunk { background: #4f141c; box-shadow: inset 0 0 0 1px rgba(255,90,90,.18); }
-.cell.miss { background: var(--miss); color: var(--muted); }
-@keyframes hitflash { 0% { transform: scale(1.35); box-shadow: 0 0 18px 5px rgba(255,150,70,.9); } 100% { transform: scale(1); box-shadow: none; } }
+.cell {
+  position: relative; aspect-ratio: 1; display: grid; place-items: center;
+  font-size: 0.85rem; font-weight: 700; color: transparent;   /* the ✕ / • marks are drawn instead */
+  transition: background-color .1s, outline-color .1s;
+  outline: 2px solid transparent; outline-offset: -2px;       /* stays inside the cell with no gap between cells */
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.1);      /* chart lines */
+}
+.grid.enemy .cell { box-shadow: inset -1px -1px 0 rgba(125, 255, 168, 0.09); }
+.cell::before, .cell::after { content: none; position: absolute; pointer-events: none; }
+
+/* ---- hulls, drawn by ::before across each ship's cells ---- */
+.cell.ship::before { content: ""; }
+.cell.ship.sh::before {
+  inset: 17% 0;
+  background:
+    linear-gradient(90deg, transparent calc(100% - 1px), rgba(0, 0, 0, 0.22) calc(100% - 1px)),
+    linear-gradient(180deg, transparent 44%, rgba(255, 255, 255, 0.22) 44% 56%, transparent 56%),
+    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+.cell.ship.sv::before {
+  inset: 0 17%;
+  background:
+    linear-gradient(180deg, transparent calc(100% - 1px), rgba(0, 0, 0, 0.22) calc(100% - 1px)),
+    linear-gradient(90deg, transparent 44%, rgba(255, 255, 255, 0.22) 44% 56%, transparent 56%),
+    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+/* stern: rounded, with the bridge on it */
+.cell.ship.sh.scap-a::before {
+  border-radius: 45% 0 0 45% / 50% 0 0 50%;
+  background:
+    linear-gradient(180deg, #e2e7eb, #a9b3bb) 58% 50% / 40% 58% no-repeat,
+    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+.cell.ship.sv.scap-a::before {
+  border-radius: 50% 50% 0 0 / 45% 45% 0 0;
+  background:
+    linear-gradient(90deg, #e2e7eb, #a9b3bb) 50% 58% / 58% 40% no-repeat,
+    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+/* bow: pointed, with a gun turret and its barrel */
+.cell.ship.sh.scap-b::before {
+  clip-path: polygon(0 0, 46% 0, 100% 50%, 46% 100%, 0 100%);
+  background:
+    radial-gradient(circle at 30% 50%, #6b747c 0 17%, #3b4248 18% 22%, transparent 23%),
+    linear-gradient(180deg, transparent 44%, #3b4248 44% 56%, transparent 56%) 45% 0 / 34% 100% no-repeat,
+    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+.cell.ship.sv.scap-b::before {
+  clip-path: polygon(0 0, 100% 0, 100% 54%, 50% 100%, 0 54%);
+  background:
+    radial-gradient(circle at 50% 30%, #6b747c 0 17%, #3b4248 18% 22%, transparent 23%),
+    linear-gradient(90deg, transparent 44%, #3b4248 44% 56%, transparent 56%) 0 45% / 100% 34% no-repeat,
+    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+}
+/* five greys, so the ships stay tellable apart */
+.cell.ship0 { --hull-hi: #c3cbd2; --hull: #97a2ac; --hull-lo: #6f7a84; }
+.cell.ship1 { --hull-hi: #b6c7cc; --hull: #8a9ea4; --hull-lo: #64787e; }
+.cell.ship2 { --hull-hi: #c6c5cf; --hull: #9998a5; --hull-lo: #717080; }
+.cell.ship3 { --hull-hi: #bcc8ba; --hull: #8f9d8e; --hull-lo: #6a776a; }
+.cell.ship4 { --hull-hi: #cdc6b8; --hull: #a29a8a; --hull-lo: #7b7365; }
+
+/* ---- your waters: splashes, fires, wrecks ---- */
+.grid:not(.enemy) .cell.miss::after {
+  content: ""; inset: 0;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0 9%, rgba(255, 255, 255, 0) 11% 23%, rgba(255, 255, 255, 0.6) 25% 31%, rgba(255, 255, 255, 0) 33%);
+}
+.grid:not(.enemy) .cell.hit::after {
+  content: ""; inset: 0;
+  background:
+    radial-gradient(circle at 50% 56%, #fff4b8 0 10%, #ffb23c 22%, #ff5a26 38%, rgba(255, 70, 30, 0) 56%),
+    radial-gradient(circle at 60% 30%, rgba(40, 40, 40, 0.55) 0 14%, rgba(40, 40, 40, 0) 34%);
+}
+.cell.ship.sunk { --hull-hi: #6b5a52; --hull: #473a35; --hull-lo: #2d2421; }
+.grid:not(.enemy) .cell.sunk::after {
+  content: ""; inset: 20%;
+  background: radial-gradient(circle, rgba(255, 110, 60, 0.55) 0 18%, rgba(255, 80, 40, 0) 60%);
+}
+
+/* ---- enemy waters: returns on the radar ---- */
+.grid.enemy .cell.miss::after {
+  content: ""; inset: 0;
+  background: radial-gradient(circle, rgba(125, 255, 168, 0.6) 0 10%, rgba(125, 255, 168, 0) 13%);
+}
+/* a hit you still have to finish off: a bright blip with a lock-on ring */
+.grid.enemy .cell.hit::after {
+  content: ""; inset: 4%; border-radius: 50%;
+  background: radial-gradient(circle, #fff1c2 0 13%, #ffa04a 26%, #ff5a2e 40%, rgba(255, 80, 40, 0) 60%);
+  box-shadow: inset 0 0 0 2px rgba(255, 120, 70, 0.9), 0 0 10px rgba(255, 110, 60, 0.7);
+}
+/* sunk: the wreck shows as a dark red silhouette */
+.grid.enemy .cell.ship.sunk { --hull-hi: #8a3a30; --hull: #5e231d; --hull-lo: #3f1612; }
+/* game over: the ships you never sank appear as radar contacts */
+.grid.enemy .cell.ship:not(.sunk) { --hull-hi: rgba(125, 255, 168, 0.55); --hull: rgba(125, 255, 168, 0.32); --hull-lo: rgba(125, 255, 168, 0.2); }
+
+@keyframes hitflash { 0% { transform: scale(1.35); box-shadow: 0 0 18px 5px rgba(255, 150, 70, 0.9); } 100% { transform: scale(1); box-shadow: none; } }
 .cell.hitflash { animation: hitflash 0.42s ease; z-index: 2; }
 @keyframes sink { 0% { transform: translateY(-3px) scale(1.05); } 45% { transform: translateY(2px) scale(.92) rotate(-3deg); } 100% { transform: translateY(0) scale(1) rotate(0); } }
 .cell.sinking { animation: sink 0.6s ease; }
 .cell.preview { outline-color: var(--good); }
 .cell.previewbad { outline-color: var(--bad); }
 .grid.enemy.active .cell.water { cursor: crosshair; }
-.grid.enemy.active .cell.water:hover { background: #1d4a6e; outline-color: var(--accent); }
+.grid.enemy.active .cell.water:hover { background-color: rgba(125, 255, 168, 0.16); outline-color: var(--radar); }
 
-.fleet { display: flex; flex-wrap: nowrap; gap: 3px; justify-content: center; align-items: center; padding-left: 1.53rem; margin-top: 0.6rem; min-height: 1.5rem; }
-.ftag { display: inline-flex; align-items: center; justify-content: center; line-height: 1; min-height: 1.25rem; font-size: 0.6rem; font-weight: 700; border: 1px solid var(--line); border-radius: 999px; padding: 0 7px; color: var(--muted); white-space: nowrap; }
-.ftag.sunk { color: var(--bad); border-color: var(--bad); text-decoration: line-through; opacity: .8; }
-.ftag.placed { color: var(--accent); border-color: var(--accent); }
+/* ---- fleet tags: stencilled steel labels ---- */
+.fleet { display: flex; flex-wrap: nowrap; gap: 3px; justify-content: center; align-items: center; padding-left: calc(var(--hdr) + var(--pad)); margin-top: 0.6rem; min-height: 1.5rem; }
+.ftag {
+  display: inline-flex; align-items: center; justify-content: center; line-height: 1; min-height: 1.3rem;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; white-space: nowrap;
+  padding: 0 7px; border-radius: 4px; color: var(--label);
+  background: #2b3136; border: 1px solid #1c2024; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+.ftag.sunk { color: var(--bad); border-color: rgba(255, 107, 90, 0.7); text-decoration: line-through; }
+.ftag.placed { color: var(--good); border-color: rgba(125, 255, 168, 0.6); }
 
-.controls { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center; margin-top: 0.9rem; }
-.placing { font-size: 0.9rem; font-weight: 700; color: var(--muted); width: 100%; text-align: center; }
-.placing b { color: var(--accent); }
-.btn { cursor: pointer; border: none; border-radius: 10px; font-family: inherit; font-weight: 800; font-size: 0.92rem;
-  color: #06121d; padding: 0.6rem 1.2rem; background: linear-gradient(180deg, #5fe0ff, var(--accent));
-  box-shadow: 0 6px 18px -6px rgba(54,207,255,.5); transition: filter .15s, transform .08s; }
-.btn:hover { filter: brightness(1.07); } .btn:active { transform: translateY(1px) scale(.98); }
-.btn:disabled { opacity: .4; cursor: default; filter: grayscale(.4); }
-.btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line); box-shadow: none; }
+/* ---- controls: steel buttons and a hazard-yellow launch button ---- */
+.controls { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; align-items: center; margin-top: 1rem; }
+.placing { font-size: 1.05rem; font-weight: 600; color: var(--text); width: 100%; text-align: center; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45); }
+.placing b { color: var(--hazard-hi); }
+.btn {
+  cursor: pointer; border: 1px solid #8a6a0c; border-radius: 8px; font-family: "Black Ops One", "Barlow Condensed", sans-serif;
+  font-weight: 400; font-size: 0.95rem; letter-spacing: 0.04em; color: #1d2226; padding: 0.6rem 1.2rem;
+  background: linear-gradient(180deg, var(--hazard-hi), #e3aa18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 3px 0 #8a6a0c, 0 6px 12px rgba(0, 0, 0, 0.3);
+  transition: filter .15s, transform .08s, box-shadow .08s;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #8a6a0c, 0 2px 5px rgba(0, 0, 0, 0.3); }
+.btn:disabled { opacity: .45; cursor: default; filter: grayscale(.5); transform: none; }
+.btn.ghost {
+  font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1rem; color: #eef2f5;
+  background: linear-gradient(180deg, #58626c, #434c55); border-color: #262b30;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #22272c, 0 6px 12px rgba(0, 0, 0, 0.25);
+}
+.btn.ghost:active { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 0 #22272c, 0 2px 5px rgba(0, 0, 0, 0.25); }
+.btn:focus-visible, .dbtn:focus-visible { outline: 2px solid var(--hazard-hi); outline-offset: 3px; }
 .diffrow { width: 100%; display: flex; gap: 7px; justify-content: center; align-items: center; margin-bottom: 0.3rem; }
-.diffrow .lbl2 { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 800; margin-right: 2px; }
-.dbtn { cursor: pointer; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 5px 13px; font-family: inherit; font-weight: 800; font-size: 0.8rem; transition: border-color .15s, color .15s, background .15s; }
-.dbtn:hover { border-color: #3c4862; }
-.dbtn.sel { border-color: var(--accent); color: var(--accent); background: rgba(54,207,255,.12); }
+.diffrow .lbl2 { font-size: 0.85rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label); font-weight: 700; margin-right: 2px; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45); }
+.dbtn {
+  cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.92rem; color: var(--dim);
+  background: #2b3136; border: 1px solid #1c2024; border-radius: 6px; padding: 5px 13px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 0 #1c2024;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.dbtn:hover { color: var(--label); }
+.dbtn.sel { color: var(--radar); border-color: rgba(125, 255, 168, 0.7); background: #1d2a22; box-shadow: inset 0 0 8px rgba(125, 255, 168, 0.25), 0 2px 0 #1c2024; }
 .btn small { display: inline-grid; place-items: center; min-width: 1.15em; height: 1.15em; margin-left: 4px; padding: 0 2px;
-  font-size: 0.74em; font-weight: 800; border: 1px solid currentColor; border-radius: 4px; opacity: 0.6; }
+  font-family: "Barlow Condensed", sans-serif; font-size: 0.74em; font-weight: 700; border: 1px solid currentColor; border-radius: 4px; opacity: 0.6; }
 
+/* ---- the end card: a riveted plate ---- */
 .overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1rem;
-  background: radial-gradient(600px 400px at 50% 40%, rgba(20,50,80,.7), rgba(5,12,22,.95)); backdrop-filter: blur(4px); }
+  background: rgba(22, 26, 30, 0.7); backdrop-filter: blur(3px); }
 .overlay.hidden { display: none; }
-.card { text-align: center; max-width: 360px; }
-.card h2 { font-size: 2.4rem; font-weight: 900; margin-bottom: 0.3rem; }
-.card p { color: var(--muted); margin: 0.4rem 0 1rem; }
-.record { font-size: 0.85rem; color: var(--muted); margin-top: 0.8rem; }
-.record b { color: var(--accent); }
+.card {
+  position: relative; text-align: center; max-width: 380px; width: 100%; padding: 1.8rem 1.8rem 1.3rem; border-radius: 12px; overflow: hidden;
+  background: var(--plate) -40px -30px / 260px 180px, linear-gradient(180deg, #737c84, #59626a);
+  border: 1px solid #262b30; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 20px 50px -10px rgba(0, 0, 0, 0.6);
+}
+.card::before {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 8px;
+  background: repeating-linear-gradient(-45deg, var(--hazard) 0 10px, #1d2226 10px 20px);
+}
+.card h2 { font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 2.3rem; letter-spacing: 0.03em; margin-bottom: 0.3rem; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.card p { color: var(--label); margin: 0.4rem 0 1rem; font-size: 1.1rem; font-weight: 500; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+.record { font-size: 1rem; color: var(--label); margin-top: 0.9rem; }
+.record b { color: var(--hazard-hi); }
 
-.mute { position: fixed; bottom: 14px; right: 14px; z-index: 50; cursor: pointer; background: var(--panel); border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 7px 10px; font-size: 1rem; }
+.mute { position: fixed; bottom: 14px; right: 14px; z-index: 50; cursor: pointer; background: #2b3136; border: 1px solid #1c2024; color: var(--label); border-radius: 8px; padding: 7px 10px; font-size: 1rem; }
+
+/* phones: start below the fixed back / sound / FX buttons */
+@media (max-width: 640px) {
+  body { padding-top: 3.4rem; }
+  header.top h1 { font-size: 2rem; }
+}
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }
