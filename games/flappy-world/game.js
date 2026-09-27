@@ -23,6 +23,266 @@ function clamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 // ============================================================
+// ART — a cartoon Mario-world look. Scenery is painted once onto
+// offscreen canvases and stamped each frame; the same pictures also
+// dress the page around the canvas, so wide screens show more world
+// instead of black bars.
+// ============================================================
+const FONT = '"Luckiest Guy", "Arial Black", Impact, sans-serif';
+const INK = '#20124d';            // outline colour for text and UI
+const GROUND_Y = CANVAS_H - 80;   // top of the ground strip
+
+function offscreen(w, h) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  return c;
+}
+// Rounded-rectangle path (falls back to a plain rectangle on old browsers)
+function rrect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y, w, h, r); else ctx.rect(x, y, w, h);
+}
+// Cartoon text: a thick dark outline under the fill, plus an optional drop
+function outlined(ctx, text, x, y, size, fill, opts = {}) {
+  const line = opts.line ?? Math.max(3, size * 0.16);
+  ctx.font = size + 'px ' + FONT;
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  if (opts.drop !== 0) {
+    ctx.fillStyle = opts.dropColor || 'rgba(20,10,60,0.35)';
+    ctx.strokeStyle = opts.dropColor || 'rgba(20,10,60,0.35)';
+    ctx.lineWidth = line;
+    const d = opts.drop ?? Math.max(2, size * 0.07);
+    ctx.strokeText(text, x, y + d);
+    ctx.fillText(text, x, y + d);
+  }
+  ctx.strokeStyle = opts.outline || INK;
+  ctx.lineWidth = line;
+  ctx.strokeText(text, x, y);
+  ctx.fillStyle = fill;
+  ctx.fillText(text, x, y);
+}
+// A white card with a dark outline and a hard drop shadow
+function card(ctx, x, y, w, h, fill = '#fffdf6') {
+  rrect(ctx, x + 6, y + 8, w, h, 22);
+  ctx.fillStyle = 'rgba(20,10,60,0.28)';
+  ctx.fill();
+  rrect(ctx, x, y, w, h, 22);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+}
+// A chunky 3D button: a darker slab under the face
+function button(ctx, b, face, under, text, textColor, size = 22) {
+  rrect(ctx, b.x, b.y + 5, b.w, b.h, 14);
+  ctx.fillStyle = under;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+  rrect(ctx, b.x, b.y, b.w, b.h, 14);
+  ctx.fillStyle = face;
+  ctx.fill();
+  ctx.stroke();
+  ctx.font = size + 'px ' + FONT;
+  ctx.fillStyle = textColor;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, b.x + b.w / 2, b.y + b.h / 2 + 2);
+}
+function heart(ctx, cx, cy, s, fill) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy + s * 0.9);
+  ctx.bezierCurveTo(cx - s * 1.4, cy, cx - s * 0.9, cy - s * 1.1, cx, cy - s * 0.35);
+  ctx.bezierCurveTo(cx + s * 0.9, cy - s * 1.1, cx + s * 1.4, cy, cx, cy + s * 0.9);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
+}
+
+// Shapes made of overlapping circles (clouds, bushes): outline circles
+// first, then the fill on top, so only the outer edge shows a line.
+function blob(g, circles, fill, edge, edgeW) {
+  g.fillStyle = edge;
+  for (const [x, y, r] of circles) { g.beginPath(); g.arc(x, y, r + edgeW, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = fill;
+  for (const [x, y, r] of circles) { g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); }
+}
+
+const CLOUD_SHAPES = [
+  [[38, 60, 24], [66, 44, 30], [100, 42, 26], [126, 58, 22], [62, 66, 22], [96, 66, 22]],
+  [[34, 58, 20], [60, 48, 26], [88, 38, 28], [116, 50, 24], [138, 62, 16], [74, 66, 20], [108, 68, 18]],
+  [[42, 58, 22], [72, 46, 26], [102, 54, 22], [70, 66, 20]],
+];
+function makeCloud(shape) {
+  const c = offscreen(170, 96), g = c.getContext('2d');
+  blob(g, shape, '#ffffff', 'rgba(70,120,200,0.45)', 3);
+  // a soft blue shade along the underside
+  g.globalCompositeOperation = 'source-atop';
+  const sh = g.createLinearGradient(0, 40, 0, 92);
+  sh.addColorStop(0, 'rgba(200,228,255,0)');
+  sh.addColorStop(1, 'rgba(170,210,250,0.9)');
+  g.fillStyle = sh;
+  g.fillRect(0, 0, 170, 96);
+  return c;
+}
+
+// Rolling hills, two rows, tiling across a 960px strip
+function makeHills() {
+  const W = 960, H = 230, c = offscreen(W, H), g = c.getContext('2d');
+  const rows = [
+    { top: '#cdf0b8', bot: '#9fdc86', edge: '#5fae4f', hills: [[90, 330, 160], [430, 380, 120], [770, 300, 175]] },
+    { top: '#9be27c', bot: '#62c248', edge: '#2f8a2a', hills: [[250, 280, 200], [600, 240, 145], [905, 250, 180]] },
+  ];
+  for (const row of rows) {
+    for (const [cx0, w, h] of row.hills) {
+      for (const dx of [-W, 0, W]) {
+        const cx = cx0 + dx;
+        g.beginPath();
+        g.ellipse(cx, H, w / 2, h, 0, Math.PI, Math.PI * 2);
+        const grad = g.createLinearGradient(0, H - h, 0, H);
+        grad.addColorStop(0, row.top);
+        grad.addColorStop(1, row.bot);
+        g.fillStyle = grad;
+        g.fill();
+        g.lineWidth = 4;
+        g.strokeStyle = row.edge;
+        g.stroke();
+        // a highlight near the crest, and a few darker spots
+        g.save();
+        g.clip();
+        g.fillStyle = 'rgba(255,255,255,0.28)';
+        g.beginPath();
+        g.ellipse(cx - w * 0.14, H - h * 0.78, w * 0.13, h * 0.09, -0.35, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = 'rgba(40,110,40,0.22)';
+        for (const [fx, fy, fr] of [[0.18, 0.45, 0.05], [-0.12, 0.3, 0.035], [0.05, 0.62, 0.04]]) {
+          g.beginPath();
+          g.ellipse(cx + w * fx, H - h * fy, w * fr, w * fr * 0.7, 0, 0, Math.PI * 2);
+          g.fill();
+        }
+        g.restore();
+      }
+    }
+  }
+  return c;
+}
+
+// A row of bushes along the ground, tiling across a 960px strip
+function makeBushes() {
+  const W = 960, H = 80, c = offscreen(W, H), g = c.getContext('2d');
+  const bushes = [[70, 1], [300, 0.8], [520, 1.15], [760, 0.9]];
+  for (const [bx0, s] of bushes) {
+    for (const dx of [-W, 0, W]) {
+      const bx = bx0 + dx;
+      const circles = [[bx - 34 * s, H - 14, 18 * s], [bx - 10 * s, H - 24 * s, 24 * s], [bx + 18 * s, H - 20 * s, 21 * s], [bx + 40 * s, H - 12, 15 * s]];
+      blob(g, circles, '#47b83a', '#1f6a1c', 3);
+      g.fillStyle = 'rgba(160,240,120,0.55)';
+      for (const [x, y, r] of circles) { g.beginPath(); g.arc(x - r * 0.3, y - r * 0.35, r * 0.28, 0, Math.PI * 2); g.fill(); }
+    }
+  }
+  return c;
+}
+
+// One ground tile (64 x 80): a grassy lip over two rows of bricks, staggered
+function makeGroundTile() {
+  const W = 64, H = 80, c = offscreen(W, H), g = c.getContext('2d');
+  const top = 16;
+  // bricks
+  const brick = (x, y, w, h) => {
+    g.fillStyle = '#d9883a'; g.fillRect(x, y, w, h);
+    g.fillStyle = '#f5b56c'; g.fillRect(x, y, w, 3); g.fillRect(x, y, 3, h);
+    g.fillStyle = '#a7581c'; g.fillRect(x, y + h - 3, w, 3); g.fillRect(x + w - 3, y, 3, h);
+    g.strokeStyle = '#5a2e0e'; g.lineWidth = 2; g.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  };
+  brick(0, top, 32, 32); brick(32, top, 32, 32);
+  brick(-16, top + 32, 32, 32); brick(16, top + 32, 32, 32); brick(48, top + 32, 32, 32);
+  // grass lip with a scalloped edge hanging over the bricks
+  const grad = g.createLinearGradient(0, 0, 0, top + 6);
+  grad.addColorStop(0, '#8ae866');
+  grad.addColorStop(1, '#3faa2e');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, W, top);
+  for (let x = 4; x < W; x += 8) { g.beginPath(); g.arc(x, top, 4, 0, Math.PI); g.fill(); }
+  g.strokeStyle = '#1f5a14'; g.lineWidth = 2;
+  g.beginPath();
+  for (let x = 4; x < W; x += 8) { g.moveTo(x - 4, top); g.arc(x, top, 4, Math.PI, 0, true); }
+  g.stroke();
+  g.fillStyle = 'rgba(255,255,255,0.35)';
+  g.fillRect(0, 2, W, 3);
+  g.strokeStyle = '#1f5a14'; g.beginPath(); g.moveTo(0, 1); g.lineTo(W, 1); g.stroke();
+  return c;
+}
+
+// Painted once and shared: init() makes a new Background every game.
+let ART = null;
+function art() {
+  if (!ART) ART = {
+    clouds: CLOUD_SHAPES.map(makeCloud),
+    hills: makeHills(),
+    bushes: makeBushes(),
+    ground: makeGroundTile(),
+  };
+  return ART;
+}
+// Dress the page around the canvas with the same scenery, sized so it
+// lines up with the canvas when the canvas fills the window's height.
+function dressPage() {
+  const a = art();
+  const strip = offscreen(960, 280), g = strip.getContext('2d');
+  [[40, 40, 190], [300, 120, 150], [560, 30, 210], [800, 140, 160]].forEach(([x, y, w], i) =>
+    g.drawImage(a.clouds[i % a.clouds.length], x, y, w, w * 96 / 170));
+  const vh = n => (n / CANVAS_H * 100).toFixed(2) + 'vh';
+  document.body.style.background = [
+    `url(${a.ground.toDataURL()}) 0 100% / auto ${vh(80)} repeat-x`,
+    `url(${a.bushes.toDataURL()}) 0 calc(100% - ${vh(80)}) / auto ${vh(80)} repeat-x`,
+    `url(${a.hills.toDataURL()}) 0 calc(100% - ${vh(80)}) / auto ${vh(230)} repeat-x`,
+    `url(${strip.toDataURL()}) 0 3vh / auto ${vh(280)} repeat-x`,
+    'linear-gradient(180deg, #3f9df5 0%, #8fd0ff 55%, #d4f1ff 80%, #e9f9ff 100%)',
+  ].join(', ');
+}
+
+// Warp pipes: a rounded, lit tube with a dark outline
+const PIPE_GREEN = { dark: '#1d4f19', shade: '#2e8a28', base: '#47b83a', light: '#8fe36a', hi: '#d2f9b6' };
+const PIPE_PURPLE = { dark: '#35105a', shade: '#6a1f9a', base: '#9040c8', light: '#c790ea', hi: '#f0dcfb' };
+function pipeFill(ctx, x, w, pal) {
+  const g = ctx.createLinearGradient(x, 0, x + w, 0);
+  g.addColorStop(0, pal.shade);
+  g.addColorStop(0.16, pal.light);
+  g.addColorStop(0.28, pal.hi);
+  g.addColorStop(0.42, pal.base);
+  g.addColorStop(0.82, pal.shade);
+  g.addColorStop(1, pal.dark);
+  return g;
+}
+function pipeBody(ctx, x, y, w, h, pal) {
+  if (h <= 0) return;
+  ctx.fillStyle = pipeFill(ctx, x, w, pal);
+  ctx.fillRect(x, y, w, h);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = pal.dark;
+  ctx.strokeRect(x, y, w, h);
+}
+// bodyBelow: the tube continues below the cap (so the lip's shadow falls there)
+function pipeCap(ctx, x, y, w, h, pal, bodyBelow) {
+  // the lip's shadow on the tube
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.fillRect(x + 4, bodyBelow ? y + h : y - 6, w - 8, 6);
+  rrect(ctx, x, y, w, h, 4);
+  ctx.fillStyle = pipeFill(ctx, x, w, pal);
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = pal.dark;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.fillRect(x + 3, y + 3, w - 6, 3);
+}
+
+// ============================================================
 // BIRD CLASS
 // ============================================================
 class Bird {
@@ -65,43 +325,86 @@ class Bird {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.rotation * Math.PI / 180);
+    const OUT = '#0b2f6b';
+    ctx.lineJoin = 'round';
 
-    // Wing (drawn before body so it appears behind)
-    const wingY = Math.sin(this.flapTime * 15) * 8;
+    // Tail feathers
     ctx.beginPath();
-    ctx.ellipse(-10, wingY, 10, 6, -0.3, 0, Math.PI * 2);
-    ctx.fillStyle = '#42A5F5';
+    ctx.moveTo(-14, -3);
+    ctx.lineTo(-25, -9);
+    ctx.lineTo(-22, 0);
+    ctx.lineTo(-25, 7);
+    ctx.lineTo(-14, 4);
+    ctx.closePath();
+    ctx.fillStyle = '#1f5fc4';
     ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = OUT;
+    ctx.stroke();
 
-    // Body - blue oval
+    // Body: a lit blue ball with a pale belly
+    const body = ctx.createRadialGradient(-5, -7, 2, 0, 0, 19);
+    body.addColorStop(0, '#8cc9ff');
+    body.addColorStop(0.55, '#3a86ec');
+    body.addColorStop(1, '#1d56c2');
     ctx.beginPath();
     ctx.ellipse(0, 0, 17, 14, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#1565C0';
+    ctx.fillStyle = body;
     ctx.fill();
-    ctx.strokeStyle = '#0D47A1';
+    ctx.save();
+    ctx.clip();
+    ctx.beginPath();
+    ctx.ellipse(4, 8, 11, 7, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#d6ecff';
+    ctx.fill();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 17, 14, 0, 0, Math.PI * 2);
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = OUT;
+    ctx.stroke();
+
+    // Wing, flapping
+    const wingY = Math.sin(this.flapTime * 15) * 8;
+    ctx.beginPath();
+    ctx.ellipse(-7, 2 + wingY * 0.7, 10, 6.5, -0.35, 0, Math.PI * 2);
+    ctx.fillStyle = '#a8d8ff';
+    ctx.fill();
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Eye - white
+    // Eye, with a shine
     ctx.beginPath();
     ctx.arc(8, -5, 7, 0, Math.PI * 2);
     ctx.fillStyle = 'white';
     ctx.fill();
-
-    // Pupil
+    ctx.stroke();
     ctx.beginPath();
-    ctx.arc(9, -4, 3, 0, Math.PI * 2);
-    ctx.fillStyle = 'black';
+    ctx.arc(10, -4, 3.3, 0, Math.PI * 2);
+    ctx.fillStyle = '#111';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(11, -5.3, 1.2, 0, Math.PI * 2);
+    ctx.fillStyle = 'white';
     ctx.fill();
 
-    // Beak - orange triangle
+    // Cheek
     ctx.beginPath();
-    ctx.moveTo(17, 0);
-    ctx.lineTo(23, 4);
-    ctx.lineTo(17, 8);
-    ctx.closePath();
-    ctx.fillStyle = '#FF6F00';
+    ctx.ellipse(5, 4, 3.2, 2, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,120,160,0.55)';
     ctx.fill();
+
+    // Beak, in two parts
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = '#7a3d00';
+    ctx.beginPath();
+    ctx.moveTo(15, -1); ctx.lineTo(25, 2.5); ctx.lineTo(15, 4.5); ctx.closePath();
+    ctx.fillStyle = '#ffb81c';
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(15, 4.5); ctx.lineTo(22, 6); ctx.lineTo(15, 8.5); ctx.closePath();
+    ctx.fillStyle = '#ff8a00';
+    ctx.fill(); ctx.stroke();
 
     ctx.restore();
   }
@@ -119,102 +422,80 @@ class Background {
     this.clouds1 = [];
     this.clouds2 = [];
     this.groundScroll = 0;       // pixels of ground scroll (wraps mod tile width)
+    this.hillScroll = 0;         // hills and bushes drift slower, for depth
+    this.bushScroll = 0;
 
-    for (let i = 0; i < 18; i++) {
+    for (let i = 0; i < 7; i++) {
       this.clouds1.push({
         x: Math.random() * CANVAS_W,
         y: 30 + Math.random() * 200,
-        w: 60 + Math.random() * 40,
-        h: 25 + Math.random() * 20,
-        speedMult: 0.3
+        w: 70 + Math.random() * 40,
+        speedMult: 0.3,
+        v: i % CLOUD_SHAPES.length,
       });
     }
 
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 4; i++) {
       this.clouds2.push({
         x: Math.random() * CANVAS_W,
         y: 40 + Math.random() * 220,
-        w: 90 + Math.random() * 50,
-        h: 40 + Math.random() * 25,
-        speedMult: 0.5
+        w: 120 + Math.random() * 50,
+        speedMult: 0.5,
+        v: (i + 1) % CLOUD_SHAPES.length,
       });
     }
   }
 
   update(dt, speed) {
-    for (const c of this.clouds1) {
+    for (const c of this.clouds1.concat(this.clouds2)) {
       c.x -= c.speedMult * speed * dt;
       if (c.x < -c.w) c.x = CANVAS_W + c.w;
     }
-    for (const c of this.clouds2) {
-      c.x -= c.speedMult * speed * dt;
-      if (c.x < -c.w) c.x = CANVAS_W + c.w;
-    }
-    // Ground scrolls at full world speed; wrap modulo tile width (32 px)
-    this.groundScroll = (this.groundScroll + speed * dt) % 32;
+    // Ground scrolls at full world speed; wrap modulo its tile width (64 px)
+    this.groundScroll = (this.groundScroll + speed * dt) % 64;
+    this.hillScroll = (this.hillScroll + speed * dt * 0.15) % 960;
+    this.bushScroll = (this.bushScroll + speed * dt * 0.45) % 960;
   }
 
-  draw(ctx) {
-    // Sky gradient
-    const grad = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
-    grad.addColorStop(0, '#87CEEB');
-    grad.addColorStop(0.6, '#B3E5FC');
-    grad.addColorStop(0.85, '#DCEDC8');
-    grad.addColorStop(1, '#A5D6A7');
-    ctx.fillStyle = grad;
+  // Everything behind the pipes: sky, sun, clouds, hills, bushes
+  drawSky(ctx) {
+    const a = art();
+    if (!this.sky) {
+      this.sky = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+      this.sky.addColorStop(0, '#3f9df5');
+      this.sky.addColorStop(0.55, '#8fd0ff');
+      this.sky.addColorStop(0.8, '#d4f1ff');
+      this.sky.addColorStop(1, '#e9f9ff');
+      this.sun = ctx.createRadialGradient(392, 118, 0, 392, 118, 95);
+      this.sun.addColorStop(0, '#fffbe0');
+      this.sun.addColorStop(0.28, '#fff3b0');
+      this.sun.addColorStop(0.3, 'rgba(255,240,170,0.45)');
+      this.sun.addColorStop(1, 'rgba(255,240,170,0)');
+    }
+    ctx.fillStyle = this.sky;
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    ctx.fillStyle = this.sun;
+    ctx.fillRect(290, 16, 204, 204);
 
-    // Cloud layer 1 (slower, background)
+    const cloud = (c) => ctx.drawImage(a.clouds[c.v], c.x - c.w / 2, c.y - c.w * 0.28, c.w, c.w * 96 / 170);
     ctx.globalAlpha = 0.85;
-    ctx.fillStyle = 'white';
-    for (const c of this.clouds1) {
-      ctx.beginPath();
-      ctx.ellipse(c.x, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    this.clouds1.forEach(cloud);
     ctx.globalAlpha = 1;
+    this.clouds2.forEach(cloud);
 
-    // Cloud layer 2 (faster, with shadows)
-    for (const c of this.clouds2) {
-      // Shadow
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = '#888';
-      ctx.beginPath();
-      ctx.ellipse(c.x + 3, c.y + 3, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Body
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = 'white';
-      ctx.beginPath();
-      ctx.ellipse(c.x, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
+    this.strip(ctx, a.hills, this.hillScroll, GROUND_Y - a.hills.height);
+    this.strip(ctx, a.bushes, this.bushScroll, GROUND_Y - a.bushes.height);
+  }
 
-    // Ground (solid base)
-    ctx.fillStyle = '#558B2F';
-    ctx.fillRect(0, CANVAS_H - 80, CANVAS_W, 80);
-    ctx.fillStyle = '#795548';
-    ctx.fillRect(0, CANVAS_H - 80, CANVAS_W, 8);
+  // Repeat a tiling picture across the canvas; whole-pixel steps so the
+  // seams between copies never show
+  strip(ctx, img, off, y) {
+    for (let x = Math.round(-off); x < CANVAS_W; x += img.width) ctx.drawImage(img, x, y);
+  }
 
-    // Scrolling texture lines — offset by groundScroll so the ground appears to move
-    const off = this.groundScroll;
-    ctx.strokeStyle = '#5D4037';
-    ctx.lineWidth = 1.5;
-    for (let i = -1; i <= Math.ceil(CANVAS_W / 32) + 1; i++) {
-      const x = i * 32 - off;
-      ctx.beginPath();
-      ctx.moveTo(x, CANVAS_H - 72);
-      ctx.lineTo(x, CANVAS_H);
-      ctx.stroke();
-    }
-
-    // Lighter grass tufts on the top strip, also scrolling
-    ctx.fillStyle = '#7CB342';
-    for (let i = -1; i <= Math.ceil(CANVAS_W / 24) + 1; i++) {
-      const x = i * 24 - (off * 0.75);
-      ctx.fillRect(x, CANVAS_H - 80, 8, 4);
-    }
+  // The brick ground, drawn in front of the pipes so they rise out of it
+  drawGround(ctx) {
+    this.strip(ctx, art().ground, this.groundScroll, GROUND_Y);
   }
 }
 
@@ -243,11 +524,9 @@ class Particle {
   draw(ctx) {
     ctx.globalAlpha = Math.max(0, this.life);
     if (this.text !== null) {
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillStyle = this.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(this.text, this.x, this.y);
+      outlined(ctx, this.text, this.x, this.y, 24, this.color, { drop: 0, line: 5 });
     } else {
       ctx.fillStyle = this.color;
       ctx.beginPath();
@@ -303,25 +582,13 @@ class BasePipe {
     const topH = this.gapY - this.gapH / 2;
     const botY = this.gapY + this.gapH / 2;
 
-    // Top pipe body
-    ctx.fillStyle = '#4CAF50';
-    ctx.strokeStyle = '#2E7D32';
-    ctx.lineWidth = 2;
-    ctx.fillRect(this.x, 0, PIPE_W, topH);
-    ctx.strokeRect(this.x, 0, PIPE_W, topH);
+    // Tubes (the top one starts just above the canvas so its outline doesn't show)
+    pipeBody(ctx, this.x, -4, PIPE_W, topH + 4, PIPE_GREEN);
+    pipeBody(ctx, this.x, botY, PIPE_W, CANVAS_H + 200 - botY, PIPE_GREEN);
 
-    // Bottom pipe body
-    ctx.fillRect(this.x, botY, PIPE_W, CANVAS_H + 200 - botY);
-    ctx.strokeRect(this.x, botY, PIPE_W, CANVAS_H + 200 - botY);
-
-    // Top cap
-    ctx.fillStyle = '#66BB6A';
-    ctx.fillRect(this.x - 4, topH - 20, PIPE_W + 8, 20);
-    ctx.strokeRect(this.x - 4, topH - 20, PIPE_W + 8, 20);
-
-    // Bottom cap
-    ctx.fillRect(this.x - 4, botY, PIPE_W + 8, 20);
-    ctx.strokeRect(this.x - 4, botY, PIPE_W + 8, 20);
+    // Caps facing the gap
+    pipeCap(ctx, this.x - 4, topH - 20, PIPE_W + 8, 20, PIPE_GREEN, false);
+    pipeCap(ctx, this.x - 4, botY, PIPE_W + 8, 20, PIPE_GREEN, true);
   }
 
   getHitboxes() {
@@ -446,36 +713,22 @@ class SeqPipe {
   }
 
   draw(ctx) {
-    ctx.fillStyle = '#7B1FA2';
-    ctx.strokeStyle = '#4A148C';
-    ctx.lineWidth = 2;
-
     // Three solid sections
-    ctx.fillRect(this.x, 0, PIPE_W, 170);
-    ctx.strokeRect(this.x, 0, PIPE_W, 170);
-    ctx.fillRect(this.x, 320, PIPE_W, 180);
-    ctx.strokeRect(this.x, 320, PIPE_W, 180);
-    ctx.fillRect(this.x, 650, PIPE_W, CANVAS_H + 200 - 650);
-    ctx.strokeRect(this.x, 650, PIPE_W, CANVAS_H + 200 - 650);
+    pipeBody(ctx, this.x, -4, PIPE_W, 174, PIPE_PURPLE);
+    pipeBody(ctx, this.x, 320, PIPE_W, 180, PIPE_PURPLE);
+    pipeBody(ctx, this.x, 650, PIPE_W, CANVAS_H + 200 - 650, PIPE_PURPLE);
 
-    // Caps (purple, slightly lighter)
-    ctx.fillStyle = '#9C27B0';
-    // Bottom of top solid (y=150, inner face downward)
-    ctx.fillRect(this.x - 4, 150, PIPE_W + 8, 20);
-    // Top of middle solid (y=320, inner face upward)
-    ctx.fillRect(this.x - 4, 300, PIPE_W + 8, 20);
-    // Bottom of middle solid (y=480, inner face downward)
-    ctx.fillRect(this.x - 4, 480, PIPE_W + 8, 20);
-    // Top of bottom solid (y=650, inner face upward)
-    ctx.fillRect(this.x - 4, 630, PIPE_W + 8, 20);
+    // Caps facing each gap
+    pipeCap(ctx, this.x - 4, 150, PIPE_W + 8, 20, PIPE_PURPLE, false);   // bottom of the top section
+    pipeCap(ctx, this.x - 4, 300, PIPE_W + 8, 20, PIPE_PURPLE, true);    // top of the middle section
+    pipeCap(ctx, this.x - 4, 480, PIPE_W + 8, 20, PIPE_PURPLE, false);   // bottom of the middle section
+    pipeCap(ctx, this.x - 4, 630, PIPE_W + 8, 20, PIPE_PURPLE, true);    // top of the bottom section
 
     // x2 labels in gaps
-    ctx.fillStyle = '#E1BEE7';
-    ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('x2', this.x + PIPE_W / 2, 245);
-    ctx.fillText('x2', this.x + PIPE_W / 2, 575);
+    outlined(ctx, 'x2', this.x + PIPE_W / 2, 245, 26, '#f0dcfb', { drop: 0, line: 5 });
+    outlined(ctx, 'x2', this.x + PIPE_W / 2, 575, 26, '#f0dcfb', { drop: 0, line: 5 });
   }
 
   getHitboxes() {
@@ -1639,6 +1892,9 @@ class Game {
   constructor() {
     this.canvas = document.getElementById('gameCanvas');
     this.ctx = this.canvas.getContext('2d');
+    // The canvas only uses the cartoon font once it's loaded, so ask for it now
+    if (document.fonts && document.fonts.load) document.fonts.load('40px "Luckiest Guy"');
+    dressPage();
     // Per-mode high scores (legacy single-key migrated into 1-life slot)
     const legacy = parseInt(localStorage.getItem('flappyWorld_hiScore')) || 0;
     this.hiScores = {
@@ -1813,8 +2069,8 @@ class Game {
 
     // On menu / game-over / info: bird hovers, world stays still, no obstacles spawn
     if (this.gameState === 'MENU' || this.gameState === 'GAMEOVER' || this.gameState === 'INFO') {
-      // On menu we move the bird up into its own zone so it doesn't sit on top of UI buttons
-      const hoverPos = (this.gameState === 'MENU') ? { x: 240, y: 218 } : null;
+      // On the menu the bird hovers in its own spot, between the title and the card
+      const hoverPos = (this.gameState === 'MENU') ? { x: 240, y: 256 } : null;
       this.bird.idle(dt, this.blinkTimer, hoverPos);
       this.background.update(dt, BASE_SCROLL * 0.3);
       this.particles.update(dt);
@@ -1909,8 +2165,9 @@ class Game {
       }
     }
 
-    this.background.draw(ctx);
+    this.background.drawSky(ctx);
     this.pipeManager.draw(ctx);
+    this.background.drawGround(ctx);
     this.enemyManager.draw(ctx);
     this.particles.draw(ctx);
     // During i-frames, bird strobes off on alternating frames
@@ -1929,129 +2186,113 @@ class Game {
   drawHUD(ctx) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
-    // Shadow
-    ctx.font = 'bold 52px sans-serif';
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillText(this.score, CANVAS_W / 2 + 2, 22);
-    // Main
-    ctx.fillStyle = 'white';
-    ctx.fillText(this.score, CANVAS_W / 2, 20);
+    outlined(ctx, String(this.score), CANVAS_W / 2, 20, 60, '#ffffff', { line: 10 });
 
     if (this.worldTimer > 0) {
-      ctx.font = 'bold 28px sans-serif';
-      ctx.fillStyle = '#FFD600';
-      ctx.textBaseline = 'top';
-      ctx.fillText(this.worldText, CANVAS_W / 2, 80);
+      outlined(ctx, this.worldText.toUpperCase(), CANVAS_W / 2, 92, 32, '#ffd23f', { line: 7 });
     }
 
     // Lives indicator (only shown in 3-life mode)
     if (this.maxLives > 1) {
-      ctx.textAlign = 'right';
-      ctx.textBaseline = 'top';
-      ctx.font = 'bold 32px sans-serif';
       for (let i = 0; i < this.maxLives; i++) {
-        const filled = i < this.lives;
-        ctx.fillStyle = filled ? '#E53935' : 'rgba(255,255,255,0.25)';
-        ctx.fillText('♥', CANVAS_W - 16 - i * 32, 22);
+        heart(ctx, CANVAS_W - 30 - i * 34, 38, 12, i < this.lives ? '#ff4a5a' : 'rgba(255,255,255,0.5)');
       }
     }
   }
 
-  drawMenu(ctx) {
-    // Soft overlay so background still shows through
-    ctx.fillStyle = 'rgba(0,0,0,0.30)';
-    ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+  // A word with every letter its own colour, like the Mario logo; letters bob
+  // gently unless Visual FX is off
+  drawTitleWord(ctx, word, y, size, shift) {
+    const COLORS = ['#ffd23f', '#ff5a4a', '#4fb3ff', '#6fdc4c'];
+    ctx.font = size + 'px ' + FONT;
+    const letters = [...word];
+    const widths = letters.map(ch => ctx.measureText(ch).width);
+    const gap = 2;
+    let x = CANVAS_W / 2 - (widths.reduce((s, w) => s + w, 0) + gap * (letters.length - 1)) / 2;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    letters.forEach((ch, i) => {
+      const bob = reducedMotion() ? 0 : Math.sin(this.blinkTimer * 3 + i * 0.6) * 3;
+      outlined(ctx, ch, x, y + bob, size, COLORS[(i + shift) % COLORS.length], { line: 9, drop: 5 });
+      x += widths[i] + gap;
+    });
+    ctx.textAlign = 'center';
+  }
 
+  drawMenu(ctx) {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Title — sized to fit canvas width with stroke
-    ctx.font = 'bold 56px sans-serif';
-    ctx.strokeStyle = '#FF6D00';
-    ctx.lineWidth = 4;
-    ctx.strokeText('FLAPPY WORLD', CANVAS_W / 2, 110);
-    ctx.fillStyle = '#FFD600';
-    ctx.fillText('FLAPPY WORLD', CANVAS_W / 2, 110);
+    this.drawTitleWord(ctx, 'FLAPPY', 92, 70, 0);
+    this.drawTitleWord(ctx, 'WORLD', 160, 70, 2);
 
-    // Subtitle
-    ctx.font = 'bold 20px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText('Mario Obstacles Edition', CANVAS_W / 2, 158);
+    // Subtitle on a red ribbon
+    rrect(ctx, 110, 198, 260, 34, 10);
+    ctx.fillStyle = '#e8413a';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.font = '17px ' + FONT;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('MARIO OBSTACLES EDITION', CANVAS_W / 2, 217);
 
-    // Bird preview — gets its own zone in the upper-middle
-    this.bird.draw(ctx);
+    // The bird hovers between the title and the card (see update)
+
+    card(ctx, 50, 288, 380, 250);
 
     // High score badge — shows the active mode's best
-    ctx.font = 'bold 22px sans-serif';
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(CANVAS_W / 2 - 130, 300, 260, 46);
-    ctx.fillStyle = '#FFF176';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('★ ' + this.livesMode + '-LIFE BEST: ' + this.hiScores[this.livesMode] + ' ★', CANVAS_W / 2, 323);
+    rrect(ctx, 95, 303, 290, 40, 20);
+    ctx.fillStyle = '#fff3c4';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.font = '20px ' + FONT;
+    ctx.fillStyle = '#7a5200';
+    ctx.fillText('★ ' + this.livesMode + '-LIFE BEST: ' + this.hiScores[this.livesMode] + ' ★', CANVAS_W / 2, 325);
 
-    // Mode label
-    ctx.font = 'bold 16px sans-serif';
-    ctx.fillStyle = '#E0E0E0';
+    ctx.font = '15px ' + FONT;
+    ctx.fillStyle = '#6a6f86';
     ctx.fillText('CHOOSE MODE', CANVAS_W / 2, 368);
 
     // Mode buttons
     for (const b of this.modeButtons) {
       const selected = (this.livesMode === b.mode);
-      ctx.fillStyle = selected ? '#FFD600' : 'rgba(0,0,0,0.5)';
-      ctx.fillRect(b.x, b.y, b.w, b.h);
-      ctx.strokeStyle = selected ? '#FF6D00' : 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = selected ? 4 : 2;
-      ctx.strokeRect(b.x, b.y, b.w, b.h);
-      ctx.fillStyle = selected ? '#212121' : 'white';
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
+      button(ctx, b, selected ? '#ffd23f' : '#ffffff', selected ? '#d99a00' : '#b9c3d8', b.label, INK, 24);
     }
 
     // Guide button
-    const g = this.guideButton;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    ctx.fillRect(g.x, g.y, g.w, g.h);
-    ctx.strokeStyle = '#90CAF9';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(g.x, g.y, g.w, g.h);
-    ctx.fillStyle = '#90CAF9';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillText(g.label, g.x + g.w / 2, g.y + g.h / 2);
+    button(ctx, this.guideButton, '#dff0ff', '#8fb8e8', this.guideButton.label, '#1c5fb8', 18);
 
     // Blinking call-to-action
     if (Math.floor(this.blinkTimer * 1.6) % 2 === 0) {
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillStyle = 'white';
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-      ctx.lineWidth = 4;
-      ctx.strokeText('PRESS SPACE TO START', CANVAS_W / 2, 590);
-      ctx.fillText('PRESS SPACE TO START', CANVAS_W / 2, 590);
+      outlined(ctx, 'PRESS SPACE TO START', CANVAS_W / 2, 590, 30, '#ffffff', { line: 7 });
     }
 
     // Controls hint
-    ctx.font = '13px sans-serif';
-    ctx.fillStyle = '#E0E0E0';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.strokeText('SPACE / CLICK / TAP to flap   ·   P pause   ·   1 / 3 switch mode   ·   I guide', CANVAS_W / 2, 638);
+    ctx.fillStyle = INK;
     ctx.fillText('SPACE / CLICK / TAP to flap   ·   P pause   ·   1 / 3 switch mode   ·   I guide', CANVAS_W / 2, 638);
   }
 
   drawGameOver(ctx) {
-    // Overlay
-    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillStyle = 'rgba(20,20,70,0.28)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    card(ctx, 50, 110, 380, 470);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    outlined(ctx, 'GAME OVER', CANVAS_W / 2, 165, 54, '#ff4a3d', { line: 9, drop: 5 });
 
-    // GAME OVER
-    ctx.font = 'bold 64px sans-serif';
-    ctx.fillStyle = '#D32F2F';
-    ctx.fillText('GAME OVER', CANVAS_W / 2, 160);
-
-    // Score
-    ctx.font = 'bold 44px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText(this.score, CANVAS_W / 2, 240);
+    ctx.font = '16px ' + FONT;
+    ctx.fillStyle = '#6a6f86';
+    ctx.fillText('SCORE', CANVAS_W / 2, 212);
+    outlined(ctx, String(this.score), CANVAS_W / 2, 250, 50, '#ffffff', { line: 9 });
 
     // Medal
     const cx = CANVAS_W / 2;
@@ -2083,70 +2324,71 @@ class Game {
       labelColor = 'white';
     }
 
+    // a white rim, the medal face, a shine
+    ctx.beginPath();
+    ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fillStyle = medalFill;
     ctx.fill();
-    ctx.strokeStyle = 'white';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
     ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx - r * 0.32, cy - r * 0.36, r * 0.28, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fill();
 
-    ctx.font = 'bold 30px sans-serif';
+    ctx.font = '34px ' + FONT;
     ctx.fillStyle = labelColor;
-    ctx.fillText(medalLabel, cx, cy);
+    ctx.fillText(medalLabel, cx, cy + 2);
 
     // Best score
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText(this.livesMode + '-LIFE BEST: ' + this.hiScores[this.livesMode], CANVAS_W / 2, 410);
+    ctx.font = '24px ' + FONT;
+    ctx.fillStyle = INK;
+    ctx.fillText(this.livesMode + '-LIFE BEST: ' + this.hiScores[this.livesMode], CANVAS_W / 2, 412);
 
     // NEW BEST indicator
     if (this.newBestThisRound && this.score === this.hiScores[this.livesMode]) {
-      ctx.font = 'bold 30px sans-serif';
-      ctx.fillStyle = '#FFD600';
-      ctx.shadowColor = '#FF6D00';
-      ctx.shadowBlur = 12;
-      ctx.fillText('★ NEW BEST! ★', CANVAS_W / 2, 455);
-      ctx.shadowBlur = 0;
+      outlined(ctx, '★ NEW BEST! ★', CANVAS_W / 2, 455, 30, '#ffd23f', { line: 7 });
     }
 
     // Blinking restart prompt
     if (Math.floor(this.blinkTimer * 2) % 2 === 0) {
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillStyle = 'white';
-      ctx.fillText('TAP / SPACE TO PLAY AGAIN', CANVAS_W / 2, 530);
+      ctx.font = '22px ' + FONT;
+      ctx.fillStyle = '#1c5fb8';
+      ctx.fillText('TAP / SPACE TO PLAY AGAIN', CANVAS_W / 2, 512);
     }
-    ctx.font = '16px sans-serif';
-    ctx.fillStyle = '#BDBDBD';
-    ctx.fillText('M for menu (change mode)', CANVAS_W / 2, 575);
+    ctx.font = 'bold 15px sans-serif';
+    ctx.fillStyle = '#6a6f86';
+    ctx.fillText('M for menu (change mode)', CANVAS_W / 2, 550);
   }
 
   drawPause(ctx) {
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillStyle = 'rgba(20,20,70,0.35)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    card(ctx, 90, CANVAS_H / 2 - 90, 300, 170);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-
-    ctx.font = 'bold 60px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText('PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30);
-
-    ctx.font = 'bold 24px sans-serif';
-    ctx.fillStyle = '#BDBDBD';
-    ctx.fillText('P TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 30);
+    outlined(ctx, 'PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30, 54, '#4fb3ff', { line: 9, drop: 5 });
+    ctx.font = '20px ' + FONT;
+    ctx.fillStyle = '#6a6f86';
+    ctx.fillText('P TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
   }
 
   drawInfo(ctx) {
-    // Solid dark background so the world doesn't distract
-    ctx.fillStyle = 'rgba(20,30,55,0.92)';
+    ctx.fillStyle = 'rgba(20,20,70,0.35)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+    card(ctx, 12, 14, CANVAS_W - 30, CANVAS_H - 34);
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = 'bold 32px sans-serif';
-    ctx.fillStyle = '#FFD600';
-    ctx.fillText('OBSTACLE GUIDE', CANVAS_W / 2, 48);
+    outlined(ctx, 'OBSTACLE GUIDE', CANVAS_W / 2, 56, 34, '#ffd23f', { line: 8, drop: 4 });
 
     // Entries: [color swatch, name, description]
     const entries = [
@@ -2168,10 +2410,10 @@ class Game {
       ['#F5F5F5',     'Boo',            'Ghost that chases you — stops when close.'],
     ];
 
-    const startY = 90;
-    const rowH = 34;
+    const startY = 96;
+    const rowH = 40;
     const swatchSize = 22;
-    const leftPad = 24;
+    const leftPad = 30;
     const nameX = leftPad + swatchSize + 12;
 
     ctx.textAlign = 'left';
@@ -2181,30 +2423,42 @@ class Game {
       const cy = startY + i * rowH + swatchSize / 2;
 
       // Swatch
+      rrect(ctx, leftPad, cy - swatchSize / 2, swatchSize, swatchSize, 6);
       ctx.fillStyle = color;
-      ctx.fillRect(leftPad, cy - swatchSize / 2, swatchSize, swatchSize);
-      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(leftPad, cy - swatchSize / 2, swatchSize, swatchSize);
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
       // Name
-      ctx.font = 'bold 16px sans-serif';
-      ctx.fillStyle = '#FFEB3B';
-      ctx.fillText(name, nameX, cy);
+      ctx.font = '16px ' + FONT;
+      ctx.fillStyle = INK;
+      ctx.fillText(name, nameX, cy + 1);
 
-      // Description
-      ctx.font = '14px sans-serif';
-      ctx.fillStyle = '#E0E0E0';
+      // Description, after the name (measured in the name's font); a long
+      // one wraps onto a second line rather than running off the card
       const nameW = ctx.measureText(name).width;
-      ctx.fillText(desc, nameX + Math.max(110, nameW + 14), cy);
+      const descX = nameX + Math.max(112, nameW + 12);
+      const maxW = CANVAS_W - 34 - descX;
+      ctx.font = '13px sans-serif';
+      ctx.fillStyle = '#4a4f66';
+      if (ctx.measureText(desc).width <= maxW) {
+        ctx.fillText(desc, descX, cy);
+      } else {
+        const words = desc.split(' ');
+        let line1 = '';
+        while (words.length && ctx.measureText(line1 + words[0]).width <= maxW) line1 += words.shift() + ' ';
+        ctx.fillText(line1.trim(), descX, cy - 8);
+        ctx.fillText(words.join(' '), descX, cy + 8);
+      }
     }
 
     // Back hint
     ctx.textAlign = 'center';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.fillStyle = '#90CAF9';
     if (Math.floor(this.blinkTimer * 1.6) % 2 === 0) {
-      ctx.fillText('TAP / SPACE / I to return', CANVAS_W / 2, CANVAS_H - 36);
+      ctx.font = '18px ' + FONT;
+      ctx.fillStyle = '#1c5fb8';
+      ctx.fillText('TAP / SPACE / I TO RETURN', CANVAS_W / 2, CANVAS_H - 46);
     }
   }
 

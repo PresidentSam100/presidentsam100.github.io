@@ -1,6 +1,13 @@
+@import url("https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap");
+    /* game.js paints the world onto the canvas and dresses the page with the
+       same sky, hills, bushes and brick ground (dressPage), so wide screens
+       show more world instead of black bars. The sky colour here is only a
+       fallback until that runs. A faint dim outside the canvas marks the
+       play area. */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
-    canvas { display: block; cursor: pointer; touch-action: none; }
+    body { background: #8fd0ff; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+    canvas { display: block; cursor: pointer; touch-action: none;
+             box-shadow: 0 0 0 100vmax rgba(10, 30, 80, 0.16), 0 0 40px rgba(10, 30, 80, 0.45); }
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {
