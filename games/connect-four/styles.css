@@ -1,70 +1,193 @@
-:root { --bg:#0e3b34; --fg:#f5efe2; --frame:#d9a441; --frame-dark:#b07e2a; --empty:#0a2e29;
-        --red:#e4564d; --yellow:#f4d35e; --accent:#ffffff; --panel:#114138; --line:#1d5045; }
-* { box-sizing:border-box; }
-body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-       background:radial-gradient(1200px 600px at 50% -10%, #14564b 0%, var(--bg) 55%); color:var(--fg);
-       font-family:Georgia,"Times New Roman",serif; gap:16px; padding:20px; }
-h1 { margin:0; font-weight:700; letter-spacing:1px; color:var(--frame); text-shadow:0 2px 0 rgba(0,0,0,.35); }
-#status { font-size:1.2rem; min-height:1.5em; font-weight:500; }
-#board { background:var(--empty); padding:12px; border-radius:14px; display:grid;
-         grid-template-columns:repeat(7,1fr); gap:8px; box-shadow:0 8px 24px rgba(0,0,0,.4);
-         position:relative; overflow:hidden; }
-.cell { width:62px; height:62px; border-radius:50%; background:var(--empty); cursor:pointer;
-        transition:transform .05s; box-shadow:inset 0 3px 6px rgba(0,0,0,.5); }
-.cell.red { background:radial-gradient(circle at 35% 30%, #ff897e, var(--red)); }
-.cell.yellow { background:radial-gradient(circle at 35% 30%, #fff2c9, var(--yellow)); }
-.cell.win { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); animation:cfWin 1.1s ease-in-out infinite; }
-@keyframes cfWin { 0%,100% { box-shadow:inset 0 0 0 4px var(--accent), inset 0 3px 6px rgba(0,0,0,.5); } 50% { box-shadow:inset 0 0 0 5px var(--accent), 0 0 16px rgba(255,255,255,.5), inset 0 3px 6px rgba(0,0,0,.5); } }
-.col-hover { background:#176054 !important; }
-/* colored frame sitting in FRONT of the discs, with circular holes punched out */
-.frame-layer { position:absolute; top:0; left:0; pointer-events:none; z-index:2; }
-.controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
-button.btn, select { background:var(--panel); color:var(--fg); border:1px solid var(--line); border-radius:8px;
-                     padding:8px 14px; font-size:.95rem; font-family:inherit; cursor:pointer; }
-button.btn:hover { background:#17564a; }
-.score { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
+@import url("https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800;900&display=swap");
+/* The classic toy on a playroom wall. The frame is glossy blue plastic
+   (drawn by buildFrame in game.js) with rimmed holes you can see the wall
+   through, slots along the top edge and a stand at each side. Discs are
+   red and yellow checkers with the raised ring. Everything else is chunky
+   toy-box UI: a red-and-yellow logo outlined in blue, white pills with a
+   hard blue edge, and a lavender wall scattered with confetti. */
+:root {
+  --blue: #2161d6; --blue-dark: #163f96; --blue-hi: #4f8cf2;
+  --red: #e4463d; --red-dark: #a8261f;
+  --yellow: #f7c62f; --yellow-dark: #c78f0a;
+  --ink: #1b2b5c; --muted: #52608c;
+  --wall: #e9e5ff;
+  --confetti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='380' height='320' viewBox='0 0 380 320'%3E%3Cg opacity='.42'%3E%3Ccircle cx='118.6' cy='34.6' r='5.8' fill='%23e4564d'/%3E%3Ccircle cx='273.2' cy='286.4' r='6' fill='none' stroke='%23f2b821' stroke-width='3'/%3E%3Cpath d='M93 88.9L100 100.9L86 100.9Z' fill='%232f6fe0' transform='rotate(316.6 93 95.9)' stroke='%232f6fe0' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M30.8 54.5q4-7 8 0t8 0t8 0' fill='none' stroke='%231fb39c' stroke-width='3' stroke-linecap='round' transform='rotate(117.5 42.8 54.5)'/%3E%3Crect x='188.4' y='261.7' width='12' height='5' rx='2.5' fill='%239a6cf0' transform='rotate(84.1 194.4 264.2)'/%3E%3Ccircle cx='256.1' cy='94.2' r='5.6' fill='%23e4564d'/%3E%3Ccircle cx='33.5' cy='282.7' r='6' fill='none' stroke='%23f2b821' stroke-width='3'/%3E%3Cpath d='M18 100.2L25 112.2L11 112.2Z' fill='%232f6fe0' transform='rotate(272.9 18 107.2)' stroke='%232f6fe0' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M330.6 15.5q4-7 8 0t8 0t8 0' fill='none' stroke='%231fb39c' stroke-width='3' stroke-linecap='round' transform='rotate(202.7 342.6 15.5)'/%3E%3Crect x='165.2' y='97.1' width='12' height='5' rx='2.5' fill='%239a6cf0' transform='rotate(104.7 171.2 99.6)'/%3E%3Ccircle cx='169.2' cy='174.9' r='4.5' fill='%23e4564d'/%3E%3Ccircle cx='134.5' cy='256.7' r='6' fill='none' stroke='%23f2b821' stroke-width='3'/%3E%3Cpath d='M200 28.8L207 40.8L193 40.8Z' fill='%232f6fe0' transform='rotate(203.8 200 35.8)' stroke='%232f6fe0' stroke-width='2' stroke-linejoin='round'/%3E%3Cpath d='M239.5 49.1q4-7 8 0t8 0t8 0' fill='none' stroke='%231fb39c' stroke-width='3' stroke-linecap='round' transform='rotate(121.3 251.5 49.1)'/%3E%3Crect x='22.9' y='172.3' width='12' height='5' rx='2.5' fill='%239a6cf0' transform='rotate(147.6 28.9 174.8)'/%3E%3Ccircle cx='134.3' cy='181' r='4' fill='%23e4564d'/%3E%3Ccircle cx='340.3' cy='199.3' r='6' fill='none' stroke='%23f2b821' stroke-width='3'/%3E%3C/g%3E%3C/svg%3E");
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; padding: 20px; color: var(--ink); font-family: "Nunito", system-ui, sans-serif; font-weight: 800;
+  background:
+    var(--confetti) 0 0 / 380px 320px,
+    radial-gradient(900px 520px at 50% 0%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #efecff, #dcd5fb);
+  background-color: var(--wall);
+}
+/* the logo: red and yellow letters outlined in blue, like the box */
+h1 {
+  margin: 0; font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; font-size: 3rem; line-height: 1; letter-spacing: 0.02em;
+  color: var(--red);
+  text-shadow:
+    -2px -2px 0 var(--blue-dark), 2px -2px 0 var(--blue-dark), -2px 2px 0 var(--blue-dark), 2px 2px 0 var(--blue-dark),
+    0 -2px 0 var(--blue-dark), 0 2px 0 var(--blue-dark), -2px 0 0 var(--blue-dark), 2px 0 0 var(--blue-dark),
+    0 6px 0 var(--blue-dark), 0 9px 14px rgba(40, 30, 110, 0.3);
+}
+h1 .four { color: var(--yellow); }
+/* status: a white pill with a hard blue edge */
+#status {
+  min-height: 1.5em; font-size: 1.1rem; font-weight: 900; color: var(--blue-dark);
+  background: #fff; border: 3px solid var(--blue); border-radius: 999px; padding: 0.3rem 1.1rem;
+  box-shadow: 0 4px 0 var(--blue-dark);
+}
+#status:empty { visibility: hidden; }
+
+/* ---- the toy: the board plus its two side stands ---- */
+.stand { position: relative; padding: 0 0 22px; margin-top: 4px; }
+/* a soft shadow where the feet meet the floor */
+.stand { background: radial-gradient(ellipse 58% 12px at 50% calc(100% - 9px), rgba(40, 30, 110, 0.28), rgba(40, 30, 110, 0) 100%); }
+/* each stand: a rail up the side of the frame and a wide foot at the bottom */
+.stand::before, .stand::after {
+  content: ""; position: absolute; bottom: 6px; width: 60px; height: 58%; z-index: 3; pointer-events: none;
+  background: linear-gradient(90deg, var(--blue-hi), var(--blue) 45%, var(--blue-dark));
+  clip-path: polygon(38% 0, 62% 0, 64% 78%, 100% 90%, 100% 100%, 0 100%, 0 90%, 36% 78%);
+  filter: drop-shadow(0 2px 0 var(--blue-dark));
+}
+.stand::before { left: -30px; }
+.stand::after { right: -30px; }
+
+#board {
+  padding: 12px; border-radius: 18px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+  position: relative; overflow: hidden; z-index: 2;
+  box-shadow: 0 10px 0 -2px var(--blue-dark), 0 18px 30px -8px rgba(40, 30, 110, 0.45);
+}
+/* each hole looks through to the wall; a faint tint gives it depth */
+.cell {
+  width: 62px; height: 62px; border-radius: 50%; cursor: pointer; background: rgba(30, 30, 110, 0.07);
+  transition: transform .05s, background-color .12s;
+}
+/* discs: a glossy face, a raised ring near the rim, and a darker edge */
+.cell.red {
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.6) 0 9%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle, #ef5a50 0 44%, #b82c25 45% 48%, #ff8a7f 50% 55%, #e4463d 57% 84%, #b8302a 88%, #8f1f1a 100%);
+}
+.cell.yellow {
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.7) 0 9%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle, #ffd24a 0 44%, #d19a0e 45% 48%, #fff0a6 50% 55%, #f7c62f 57% 84%, #d9a117 88%, #b07a06 100%);
+}
+.cell.win { box-shadow: inset 0 0 0 4px #fff, 0 0 0 0 rgba(255, 255, 255, 0); animation: cfWin 1.1s ease-in-out infinite; }
+@keyframes cfWin { 0%, 100% { box-shadow: inset 0 0 0 4px #fff; } 50% { box-shadow: inset 0 0 0 6px #fff, inset 0 0 18px rgba(255, 255, 255, 0.9); } }
+/* the column you're aiming at: its empty holes glow your colour */
+.col-hover { background: rgba(228, 70, 61, 0.26) !important; }
+/* the plastic frame in FRONT of the discs, holes punched out */
+.frame-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+
+/* ---- buttons: chunky toy pills ---- */
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+button.btn, select {
+  cursor: pointer; font-family: inherit; font-weight: 900; font-size: 1rem; color: var(--blue-dark);
+  background: #fff; border: 3px solid var(--blue); border-radius: 999px; padding: 0.45rem 1.2rem;
+  box-shadow: 0 4px 0 var(--blue-dark); transition: transform .08s, box-shadow .08s, background-color .15s;
+}
+button.btn:hover { background: #f1f5ff; }
+button.btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--blue-dark); }
+button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+#reset { background: var(--yellow); border-color: var(--yellow-dark); color: #4a3200; box-shadow: 0 4px 0 var(--yellow-dark); }
+#reset:hover { background: #ffd54f; }
+#reset:active { box-shadow: 0 1px 0 var(--yellow-dark); }
+
+/* tally: three little chips */
+.score { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; font-size: 0.95rem; font-weight: 800; color: var(--muted); }
+.score span { background: rgba(255, 255, 255, 0.85); border: 2px solid #c9d0f5; border-radius: 999px; padding: 0.2rem 0.8rem; }
+.score b { color: var(--blue-dark); font-weight: 900; }
 
 /* drop animation — gravity free-fall, then bouncy-ball settle.
    Per-keyframe easing: falls accelerate (ease-in), rises decelerate (ease-out). */
-.cell.drop { animation:drop .72s linear; }
+.cell.drop { animation: drop .72s linear; }
 @keyframes drop {
-  0%   { transform:translateY(var(--dy)); animation-timing-function:cubic-bezier(.45,0,.9,.55); }
-  46%  { transform:translateY(0);          animation-timing-function:cubic-bezier(.1,.5,.45,1); }
-  63%  { transform:translateY(-26px);      animation-timing-function:cubic-bezier(.45,0,.9,.55); }
-  77%  { transform:translateY(0);          animation-timing-function:cubic-bezier(.1,.5,.45,1); }
-  88%  { transform:translateY(-9px);       animation-timing-function:cubic-bezier(.45,0,.9,.55); }
-  95%  { transform:translateY(0);          animation-timing-function:cubic-bezier(.1,.5,.45,1); }
-  98%  { transform:translateY(-3px);       animation-timing-function:cubic-bezier(.45,0,.9,.55); }
-  100% { transform:translateY(0); }
+  0%   { transform: translateY(var(--dy)); animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  46%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  63%  { transform: translateY(-26px);      animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  77%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  88%  { transform: translateY(-9px);       animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  95%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  98%  { transform: translateY(-3px);       animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  100% { transform: translateY(0); }
 }
 /* If the winning disc is also the one just dropped, run BOTH animations: the
    drop (transform) once AND the win flash (box-shadow) forever — otherwise the
    drop's `animation` shorthand overrides the flash and that tile doesn't pulse. */
-.cell.win.drop { animation:drop .72s linear, cfWin 1.1s ease-in-out infinite; }
+.cell.win.drop { animation: drop .72s linear, cfWin 1.1s ease-in-out infinite; }
 
-/* rules modal */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
-                 align-items:center; justify-content:center; padding:20px; z-index:10; }
-.modal-overlay.open { display:flex; }
-.modal { background:var(--panel); border:1px solid var(--line); border-radius:14px; max-width:420px;
-         padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
-.modal h2 { margin:0 0 12px; }
-.modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
-.modal .btn { width:100%; }
-.modal-overlay.open .modal { animation:cfModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
-@keyframes cfModalIn { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:none; } }
+/* ---- pop-ups: white toy-box cards with a hard blue edge ---- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(40, 30, 110, 0.4); display: none;
+                 align-items: center; justify-content: center; padding: 20px; z-index: 10; }
+.modal-overlay.open { display: flex; }
+.modal {
+  position: relative; background: #fff; border: 4px solid var(--blue); border-radius: 24px; max-width: 420px; width: 100%;
+  padding: 24px 26px 26px; box-shadow: 0 8px 0 var(--blue-dark), 0 24px 50px -12px rgba(40, 30, 110, 0.45);
+}
+.modal h2 { margin: 0 0 12px; font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; font-size: 2rem; letter-spacing: 0.02em; color: var(--blue); }
+.modal p { line-height: 1.55; margin: 0 0 20px; font-weight: 700; color: var(--muted); }
+.modal p b { color: var(--ink); }
+.modal .btn { width: 100%; }
+.modal-overlay.open .modal { animation: cfModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
+@keyframes cfModalIn { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
 /* mode-select overlay (choose game mode before the game starts) */
-.mode-group { margin:0 0 16px; }
-.mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
-.opts { display:flex; flex-direction:column; gap:8px; }  /* difficulty stacks vertically */
-.opt { background:var(--panel); color:var(--fg); border:1px solid var(--line);
-       border-radius:8px; padding:9px 12px; font-size:.92rem; font-family:inherit; cursor:pointer; }
-.opt:hover { background:#17564a; }
-.opt.sel { background:var(--frame); color:var(--bg); border-color:var(--frame); font-weight:700; }
-#startGame { width:100%; margin-top:6px; }
-#modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
+.mode-group { margin: 0 0 18px; }
+.mode-label { font-size: 0.8rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.opts { display: flex; flex-direction: column; gap: 9px; }  /* difficulty stacks vertically */
+.opt {
+  cursor: pointer; font-family: inherit; font-weight: 900; font-size: 1rem; color: var(--blue-dark);
+  background: #f3f5ff; border: 3px solid #c9d0f5; border-radius: 14px; padding: 9px 12px;
+  transition: background-color .15s, border-color .15s;
+}
+.opt:hover { border-color: var(--blue-hi); }
+.opt.sel { background: var(--yellow); border-color: var(--yellow-dark); color: #4a3200; box-shadow: 0 3px 0 var(--yellow-dark); }
+#startGame { margin-top: 8px; background: var(--red); border-color: var(--red-dark); color: #fff; box-shadow: 0 4px 0 var(--red-dark); font-size: 1.1rem; }
+#startGame:hover { background: #ef5249; }
+#startGame:active { box-shadow: 0 1px 0 var(--red-dark); }
+#closeRules { background: var(--blue); color: #fff; border-color: var(--blue-dark); }
+#closeRules:hover { background: var(--blue-hi); }
+/* the opening screen: the playroom wall itself, with a red and a yellow
+   disc tucked behind the card's corners */
+#modeModal {
+  background:
+    var(--confetti) 0 0 / 380px 320px,
+    radial-gradient(900px 520px at 50% 0%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%),
+    linear-gradient(180deg, #efecff, #dcd5fb);
+  background-color: var(--wall);
+}
+/* no entrance here: the animation would make the card its own stacking
+   context and pull the discs in front of it for a moment */
+#modeModal.open .modal { animation: none; }
+#modeModal .modal::before, #modeModal .modal::after {
+  content: ""; position: absolute; width: 84px; height: 84px; border-radius: 50%; z-index: -1;
+  box-shadow: 0 6px 12px rgba(40, 30, 110, 0.25);
+}
+#modeModal .modal::before {
+  top: -34px; left: -30px; transform: rotate(-12deg);
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.6) 0 9%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle, #ef5a50 0 44%, #b82c25 45% 48%, #ff8a7f 50% 55%, #e4463d 57% 84%, #b8302a 88%, #8f1f1a 100%);
+}
+#modeModal .modal::after {
+  bottom: -30px; right: -28px; transform: rotate(10deg);
+  background:
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.7) 0 9%, rgba(255, 255, 255, 0) 24%),
+    radial-gradient(circle, #ffd24a 0 44%, #d19a0e 45% 48%, #fff0a6 50% 55%, #f7c62f 57% 84%, #d9a117 88%, #b07a06 100%);
+}
 
-@media (max-width:560px){ .cell{ width:42px; height:42px; } }
+@media (max-width: 560px) {
+  body { padding: 56px 12px 20px; gap: 12px; }
+  h1 { font-size: 2.3rem; }
+  #board { padding: 10px; gap: 7px; }
+  .cell { width: 40px; height: 40px; }
+  .stand::before, .stand::after { width: 44px; }
+  .stand::before { left: -20px; }
+  .stand::after { right: -20px; }
+}
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {

@@ -84,7 +84,7 @@ function init() {
   if (window.coinFlip) {
     const myRound = round;
     setStatus('Flipping for first move…');
-    coinFlip({ you: 'You (Red)', cpu: 'CPU (Yellow)', accent: '#d9a441', youColor: '#e4564d', cpuColor: '#f4d35e' }, function (who) {
+    coinFlip({ you: 'You (Red)', cpu: 'CPU (Yellow)', accent: '#2161d6', youColor: '#e4463d', cpuColor: '#f7c62f' }, function (who) {
       if (myRound !== round) return; // a new game was started before this flip resolved
       if (who === 'cpu') { busy = true; setStatus('AI thinking…'); scheduleAI(600); }
       else setStatus('Your turn (Red)');
@@ -127,27 +127,41 @@ function buildDOM() {
   buildFrame();
 }
 
-// Builds the SVG frame that overlays the discs: a solid colored sheet with a
-// circular hole cut out over each cell, so discs are only seen through the holes.
+// Builds the SVG frame that overlays the discs: a sheet of glossy blue plastic
+// with a circular hole cut out over each cell, so discs are only seen through
+// the holes. Each hole gets a moulded rim, and each column a slot on top.
 function buildFrame() {
   const old = boardEl.querySelector('.frame-layer');
   if (old) old.remove();
   const W = boardEl.clientWidth, H = boardEl.clientHeight;
-  const br = boardEl.getBoundingClientRect();
   const NS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('class', 'frame-layer');
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  const holes = cells().map(cell => {
-    const r = cell.getBoundingClientRect();
-    const cx = r.left - br.left + r.width / 2;
-    const cy = r.top - br.top + r.height / 2;
-    return `<circle cx="${cx}" cy="${cy}" r="${r.width / 2}" fill="black"/>`;
-  }).join('');
+  // layout offsets, not bounding boxes, so a disc mid-drop can't shift its hole
+  const spots = cells().map(cell => ({
+    cx: cell.offsetLeft + cell.offsetWidth / 2,
+    cy: cell.offsetTop + cell.offsetHeight / 2,
+    r: cell.offsetWidth / 2,
+  }));
+  const holes = spots.map(s => `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r}" fill="black"/>`).join('');
+  // the rim: shadowed at the top of the hole, lit at the bottom
+  const rims = spots.map(s => `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r + 1.2}" fill="none" stroke="url(#c4rim)" stroke-width="2.5"/>`).join('');
+  const slots = spots.slice(0, COLS).map(s =>
+    `<rect x="${s.cx - s.r * 0.62}" y="3" width="${s.r * 1.24}" height="5" rx="2.5" fill="#0f2e70"/>`).join('');
   svg.innerHTML =
-    `<defs><mask id="holes"><rect width="${W}" height="${H}" fill="white"/>${holes}</mask></defs>` +
-    `<rect width="${W}" height="${H}" rx="14" style="fill:var(--frame)" mask="url(#holes)"/>`;
+    `<defs><mask id="holes"><rect width="${W}" height="${H}" fill="white"/>${holes}</mask>` +
+    `<linearGradient id="c4body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f7ff0"/>` +
+    `<stop offset=".55" stop-color="#2161d6"/><stop offset="1" stop-color="#1a4fb8"/></linearGradient>` +
+    `<linearGradient id="c4gloss" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".3"/>` +
+    `<stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>` +
+    `<linearGradient id="c4rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b2566" stop-opacity=".7"/>` +
+    `<stop offset=".55" stop-color="#0b2566" stop-opacity=".15"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient></defs>` +
+    `<g mask="url(#holes)"><rect width="${W}" height="${H}" rx="18" fill="url(#c4body)"/>` +
+    `<rect width="${W}" height="${H * 0.42}" rx="18" fill="url(#c4gloss)"/></g>` +
+    rims + slots +
+    `<rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" rx="17" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`;
   boardEl.appendChild(svg);
 }
 
