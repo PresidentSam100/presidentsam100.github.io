@@ -212,6 +212,12 @@
       if(p){ const g=document.createElement("span"); const col=G.players[p.o].color;
         g.className="pc "+(lum(col)>0.55?"lt":"dk")+(p.dead?" dead":"");
         g.textContent=glyphOf(p); g.style.color=col; sq.appendChild(g); }
+      // board coordinates on the frame-side edge squares (2-player board only)
+      if(G.mode===2){
+        const fileRow = flipped ? 0 : G.dim-1, rankCol = flipped ? G.dim-1 : 0;
+        if(r===fileRow){ const f=document.createElement("i"); f.className="coord f"; f.textContent="abcdefgh"[c]||""; sq.appendChild(f); }
+        if(c===rankCol){ const k=document.createElement("i"); k.className="coord rk"; k.textContent=G.dim-r; sq.appendChild(k); }
+      }
       sq.addEventListener("click",()=>onSquare(i));
       boardEl.appendChild(sq);
     }

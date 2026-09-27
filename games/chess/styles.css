@@ -1,13 +1,17 @@
-
+/* A marble tournament set in a quiet slate room. The board is one veined
+   marble slab — the light squares show it bare, the dark squares tint it
+   graphite so the veins run on through — in a walnut frame with a brass
+   inlay, with coordinates on the frame side of the edge squares. */
 :root {
-  --bg:#1a1714; --panel:#26211c; --line:#3a322a; --text:#f0e8dc; --muted:#a99a86;
-  --light:#e9d8b6; --dark:#9b6b43; --sel:#f4d35e; --move:#7fb069; --check:#e05d5d; --last:#cdb46a;
+  --bg:#232830; --panel:#2b323c; --line:#3e4754; --text:#e8ecf2; --muted:#9aa6b6;
+  --light:#e7e1d1; --dark:#3c4552; --sel:#f4d35e; --move:#7fb069; --check:#e05d5d; --last:#cdb46a;
   --accent:#e0a458;
+  --marble:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='420' height='420'%3E%3Cfilter id='m' x='0' y='0' width='100%25' height='100%25'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.008 0.017' numOctaves='4' seed='11'/%3E%3CfeColorMatrix values='0 0 0 0 0.38  0 0 0 0 0.44  0 0 0 0 0.53  0 0 0 1.7 -0.62'/%3E%3C/filter%3E%3Crect width='420' height='420' filter='url(%23m)'/%3E%3C/svg%3E");
 }
 * { box-sizing:border-box; margin:0; padding:0; }
 html,body { height:100%; }
 body {
-  background:radial-gradient(1100px 700px at 50% -10%, #2a241d, var(--bg));
+  background:radial-gradient(1100px 700px at 50% -10%, #333c49, var(--bg));
   color:var(--text); font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
   min-height:100%; display:flex; flex-direction:column; align-items:center;
   padding:1rem; overflow-x:hidden;
@@ -19,14 +23,32 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
 .layout { display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap; justify-content:center; }
 .boardwrap { position:relative; }
 #board {
-  display:grid; --sq:min(11vw,62px); border-radius:8px; overflow:hidden; border:3px solid #2c2620;
-  box-shadow:0 16px 40px rgba(0,0,0,.5); touch-action:manipulation;
+  display:grid; --sq:min(11vw,62px); border-radius:4px; overflow:visible; touch-action:manipulation;
+  background:var(--marble) 0 0 / 420px 420px, linear-gradient(160deg, #efe9da, #ddd5c2);
+  /* walnut frame with a brass inlay line */
+  border:10px solid transparent;
+  border-image:linear-gradient(160deg, #55402c, #38281a) 1;
+  box-shadow:
+    0 0 0 1px #2a1f14,
+    inset 0 0 0 1px rgba(224,164,88,.75),
+    0 0 0 4px rgba(224,164,88,.28),
+    0 24px 50px rgba(8,10,14,.6);
 }
 .sq { width:var(--sq); height:var(--sq); display:flex; align-items:center; justify-content:center;
       position:relative; cursor:pointer; font-size:calc(var(--sq) * .8); line-height:1;
       user-select:none; -webkit-user-select:none; }
-.sq.l { background:var(--light); } .sq.d { background:var(--dark); }
-.sq.off { background:transparent; cursor:default; }
+/* light squares: the bare slab, faintly warmed; dark: a graphite tint the
+   veins still show through */
+.sq.l { background:rgba(240,233,216,.55); box-shadow:inset 0 0 0 .5px rgba(90,100,115,.25); }
+.sq.d { background:rgba(46,54,66,.85); box-shadow:inset 0 0 0 .5px rgba(20,24,30,.5); }
+.sq.off { background:#232830; box-shadow:none; cursor:default; }
+/* frame coordinates on the edge squares (set by render() in 2-player mode) */
+.sq .coord { position:absolute; z-index:1; font-size:calc(var(--sq) * .17); font-weight:700; line-height:1;
+  letter-spacing:.02em; pointer-events:none; font-family:Georgia,"Times New Roman",serif; }
+.sq .coord.f { right:6%; bottom:4%; }
+.sq .coord.rk { left:6%; top:5%; }
+.sq.l .coord { color:rgba(80,90,105,.75); }
+.sq.d .coord { color:rgba(226,220,204,.6); }
 .sq.sel::before { content:""; position:absolute; inset:0; background:var(--sel); opacity:.55; }
 .sq.last::before { content:""; position:absolute; inset:0; background:var(--last); opacity:.42; }
 .sq.check::after { content:""; position:absolute; inset:0; background:radial-gradient(circle, var(--check) 30%, transparent 72%); opacity:.85; }
@@ -35,7 +57,7 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
    light and dark squares. .lt = light piece → dark outline; .dk = dark/colored
    piece → light outline. */
 .sq .pc { position:relative; z-index:2; font-weight:400; paint-order:stroke fill; }
-.sq .pc.lt { -webkit-text-stroke:.045em #1c140d; text-shadow:0 .03em .05em rgba(0,0,0,.45); }
+.sq .pc.lt { -webkit-text-stroke:.045em #191d24; text-shadow:0 .04em .06em rgba(8,10,14,.5); }
 .sq .pc.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
 .sq .pc.dead { opacity:.4; filter:grayscale(.6); }
 .sq .dot { position:absolute; z-index:1; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.7; }
@@ -58,10 +80,10 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
 .controls { display:flex; flex-direction:column; gap:8px; }
 button.btn { cursor:pointer; background:var(--panel); color:var(--text); border:1px solid var(--line);
   border-radius:10px; padding:10px 14px; font-family:inherit; font-weight:700; font-size:.95rem; transition:background .15s, transform .05s; }
-button.btn:hover { background:#322a22; } button.btn:active { transform:translateY(1px); }
+button.btn:hover { background:#343d49; } button.btn:active { transform:translateY(1px); }
 button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
 
-.overlay { position:fixed; inset:0; background:rgba(10,8,5,.8); backdrop-filter:blur(3px);
+.overlay { position:fixed; inset:0; background:rgba(8,11,16,.8); backdrop-filter:blur(3px);
            display:none; align-items:center; justify-content:center; padding:1rem; z-index:50; }
 .overlay.show { display:flex; }
 .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:26px 28px;
@@ -69,22 +91,25 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
 .card h2 { margin-bottom:6px; font-size:1.7rem; }
 .card p { color:var(--muted); line-height:1.55; margin-bottom:16px; font-size:.9rem; }
 .modes { display:flex; flex-direction:column; gap:10px; }
-.modebtn { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:10px;
+.modebtn { cursor:pointer; background:#323b47; color:var(--text); border:1px solid var(--line); border-radius:10px;
            padding:11px 14px; font-family:inherit; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; }
-.modebtn:hover { background:#37301f; } .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
+.modebtn:hover { background:#3a4452; } .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
 .modebtn .tag { font-size:.62rem; font-weight:800; letter-spacing:.05em; padding:3px 8px; border-radius:999px; background:var(--move); color:#10240c; white-space:nowrap; }
 .setup-section { margin:.9rem 0; text-align:left; }
 .setup-section h3 { font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:0 0 .4rem; text-align:center; }
 .chipgrp { display:flex; gap:6px; flex-wrap:wrap; justify-content:center; }
-.chip { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:999px;
+.chip { cursor:pointer; background:#323b47; color:var(--text); border:1px solid var(--line); border-radius:999px;
         padding:6px 12px; font-family:inherit; font-weight:700; font-size:.82rem; }
-.chip:hover { background:#37301f; }
+.chip:hover { background:#3a4452; }
 .chip.sel { border-color:var(--accent); color:var(--accent); background:rgba(224,164,88,.14); }
 .pchip .clk { font-variant-numeric:tabular-nums; font-weight:800; font-size:1rem; }
 .pchip.warn { border-color:var(--check); }
 .pchip.warn .clk { color:var(--check); animation:clkPulse 1s ease-in-out infinite; }
 @keyframes clkPulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
 .promo { display:flex; gap:8px; justify-content:center; }
-.promo button { font-size:2.4rem; background:var(--light); border:2px solid transparent; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1; }
+.promo button { font-size:2.4rem; background:var(--marble) 0 0 / 420px 420px, linear-gradient(160deg, #efe9da, #ddd5c2);
+  border:2px solid #55402c; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1; }
 .promo button:hover { border-color:var(--sel); }
+/* phones: start below the fixed Games / sound / FX buttons */
+@media (max-width:640px){ body { padding-top:3.2rem; } }
 @media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }
