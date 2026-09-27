@@ -1,0 +1,207 @@
+/* Asteroids — a pulp sci-fi comic book. The play field is the issue's big
+   splash panel: aged newsprint page, halftone dots, thick ink borders, and
+   Bangers lettering everywhere. Ink is #1a1430, paper is #f6ecce. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  min-height: 100%;
+  /* aged newsprint: warm paper, a faint halftone dot screen, corner vignette */
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 40%),
+    radial-gradient(rgba(196, 128, 60, 0.16) 1.2px, rgba(0, 0, 0, 0) 1.4px),
+    radial-gradient(circle at 50% 45%, #f8f0d8, #f1e4bd 60%, #dcc898);
+  background-size: auto, 11px 11px, auto;
+  background-color: #f1e4bd;
+  color: #1a1430;
+  font-family: "Bangers", "Segoe UI", system-ui, cursive;
+}
+
+body {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 14px 16px 28px;
+}
+
+#page {
+  /* the panel is 720x560; the last clamp keeps masthead + panel + captions
+     inside the viewport height on short desktop screens */
+  width: min(96vw, 820px, calc((100vh - 240px) * 1.2857));
+  min-width: min(96vw, 340px);
+  margin-top: 6px;
+}
+
+/* ---- masthead -------------------------------------------------------- */
+#masthead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 12px;
+}
+
+#masthead h1 {
+  font-size: clamp(44px, 9vw, 84px);
+  font-weight: 400;
+  letter-spacing: 0.045em;
+  color: #e23b46;
+  -webkit-text-stroke: 2px #1a1430;
+  text-shadow:
+    3px 3px 0 #1a1430,
+    6px 6px 0 #ffcf3f,
+    7px 7px 0 #1a1430;
+  transform: rotate(-1.2deg);
+  line-height: 0.95;
+}
+
+.issue-box {
+  position: absolute;
+  left: 0;
+  top: 12px;
+  background: #fff8e7;
+  border: 3px solid #1a1430;
+  box-shadow: 3px 3px 0 #1a1430;
+  padding: 5px 9px 4px;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+  text-align: center;
+  transform: rotate(-4deg);
+  line-height: 1.05;
+}
+.issue-box span { display: block; color: #e23b46; font-size: 17px; }
+
+.star-burst {
+  position: absolute;
+  right: -4px;
+  top: 2px;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffcf3f;
+  border: 3px solid #1a1430;
+  clip-path: polygon(50% 0%, 61% 16%, 79% 8%, 81% 27%, 100% 30%, 90% 46%,
+    100% 62%, 82% 67%, 84% 86%, 65% 81%, 55% 100%, 44% 82%, 26% 92%, 25% 71%,
+    5% 70%, 15% 53%, 0% 40%, 18% 32%, 13% 12%, 33% 17%);
+  transform: rotate(7deg);
+}
+.star-burst span {
+  font-size: 13.5px;
+  line-height: 1.05;
+  text-align: center;
+  letter-spacing: 0.04em;
+  transform: rotate(-4deg);
+}
+
+/* ---- the splash panel ------------------------------------------------ */
+#panel {
+  position: relative;
+  border: 5px solid #1a1430;
+  border-radius: 4px;
+  box-shadow: 7px 7px 0 rgba(26, 20, 48, 0.85);
+  background: #232a55;
+  line-height: 0;
+}
+
+#screen {
+  display: block;
+  width: 100%;
+  height: auto;
+  outline: none;
+}
+
+/* ---- caption strip ---------------------------------------------------- */
+#captions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 12px;
+  justify-content: center;
+  padding: 18px 4px 0;
+}
+
+.cap {
+  background: #ffcf3f;
+  border: 3px solid #1a1430;
+  box-shadow: 3px 3px 0 #1a1430;
+  padding: 5px 11px 3px;
+  font-size: 16px;
+  letter-spacing: 0.07em;
+  transform: rotate(-0.6deg);
+}
+.cap:nth-child(even) { transform: rotate(0.8deg); background: #fff8e7; }
+
+/* ---- touch controls (coarse pointers only) ---------------------------- */
+#touch-controls { display: none; }
+
+@media (pointer: coarse) {
+  #touch-controls {
+    display: flex;
+    justify-content: space-between;
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 10px;
+    padding: 0 12px;
+    pointer-events: none;
+  }
+  .tc-side { display: flex; gap: 12px; }
+  .tbtn {
+    pointer-events: auto;
+    width: 58px;
+    height: 58px;
+    border: 3px solid #1a1430;
+    border-radius: 50%;
+    background: rgba(255, 248, 231, 0.88);
+    color: #1a1430;
+    font-size: 20px;
+    font-family: inherit;
+    box-shadow: 3px 3px 0 rgba(26, 20, 48, 0.8);
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .tbtn.fire { background: #e23b46; color: #fff8e7; }
+  .tbtn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 rgba(26, 20, 48, 0.8); }
+}
+
+@media (max-width: 640px) {
+  body { padding: 10px 10px 20px; }
+  #masthead { padding-top: 52px; }             /* clear the fixed button rows */
+  .issue-box { top: 44px; }
+  .star-burst { width: 74px; height: 74px; top: 40px; right: 0; }
+  .star-burst span { font-size: 11px; }
+  .cap { font-size: 13px; padding: 4px 8px 2px; }
+}
+
+/* ---- pause card: match the comic ------------------------------------- */
+.gs-pause-card {
+  background: #fff8e7;
+  color: #1a1430;
+  border: 4px solid #1a1430;
+  border-radius: 6px;
+  box-shadow: 6px 6px 0 #1a1430;
+  font-family: "Bangers", "Segoe UI", cursive;
+}
+.gs-pause-card h2 { letter-spacing: 0.06em; color: #e23b46; font-weight: 400; }
+.gs-pause-card p { letter-spacing: 0.05em; }
+.gs-pause-card button {
+  background: #ffcf3f;
+  color: #1a1430;
+  border: 3px solid #1a1430;
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 #1a1430;
+  font-family: inherit;
+  letter-spacing: 0.06em;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
