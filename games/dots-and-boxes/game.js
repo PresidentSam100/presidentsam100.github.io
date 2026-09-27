@@ -82,13 +82,13 @@ function newGame() {
   vLines = Array.from({length:N}, () => Array(N+1).fill(''));
   boxes  = Array.from({length:N}, () => Array(N).fill(''));
   scores = { human:0, ai:0 };
-  turn = HUMAN; gameOver = false; busy = false; lastLine = null;
+  turn = HUMAN; gameOver = false; busy = false; lastLine = null; lastClaimed = [];
   draw();
   updateScores();
   if (window.coinFlip) {
     const myRound = round;
     setStatus('Flipping for first move…');
-    coinFlip({ you: 'You (Y)', cpu: 'CPU (A)', accent: '#2f6fb0', youColor: '#d2362f', cpuColor: '#2f6fb0' }, function (who) {
+    coinFlip({ you: 'You (Y)', cpu: 'CPU (A)', accent: '#3fb6ff', youColor: '#ff5a6e', cpuColor: '#3fb6ff' }, function (who) {
       if (myRound !== round) return; // a new game was started before this flip resolved
       if (who === 'cpu') { turn = AI; busy = true; setStatus('AI thinking…'); scheduleAI(400); }
       else setStatus('Your turn');
@@ -101,43 +101,75 @@ function newGame() {
 const PAD = 36, GAP = 84;
 function px(i){ return PAD + i*GAP; }
 
+// The board is a city map at night: lines become roads, dots are street
+// lamps, and a claimed box becomes a city block lit in its owner's colour.
+const LOT = 13;          // a block's inset from the road centre lines (road + sidewalk)
+// Window patterns and the glow filter, rebuilt with each draw. The filter's
+// region is the whole board, not each element's bounding box: a straight road
+// has a zero-width box, which would leave it no room to draw in at all.
+const DEFS = '<defs>' +
+  '<filter id="glow" filterUnits="userSpaceOnUse" x="0" y="0" width="100%" height="100%"><feGaussianBlur stdDeviation="2.2" result="b"/>' +
+  '<feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>' +
+  [HUMAN, AI].map(o => `<pattern id="win-${o}" width="12" height="12" patternUnits="userSpaceOnUse">` +
+    `<rect class="win ${o}" x="2" y="2" width="3" height="3"/><rect class="win ${o}" x="8" y="2" width="3" height="3" opacity=".35"/>` +
+    `<rect class="win ${o}" x="2" y="8" width="3" height="3" opacity=".75"/><rect class="win ${o}" x="8" y="8" width="3" height="3" opacity=".15"/></pattern>`).join('') +
+  '</defs>';
+// Buildings on a lot, as fractions [x, y, w, h]: the same box always gets the
+// same layout, so redrawing after each move doesn't reshuffle the city.
+const LAYOUTS = [
+  [[0, 0, 1, 1]],
+  [[0, 0, .58, 1], [.68, 0, .32, 1]],
+  [[0, 0, 1, .44], [0, .56, .46, .44], [.56, .56, .44, .44]],
+  [[0, 0, .46, .46], [.56, 0, .44, .46], [0, .56, .46, .44], [.56, .56, .44, .44]],
+];
+let lastClaimed = [];    // boxes the latest line completed; they light up as they're drawn
+
+function el(tag, attrs, cls) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (cls) e.setAttribute('class', cls);
+  return e;
+}
+
+function drawBlock(r, c, owner) {
+  const lit = animOn() && lastClaimed.some(([br, bc]) => br === r && bc === c);
+  const g = el('g', { filter: 'url(#glow)' }, 'block ' + owner + (lit ? ' lit-anim' : ''));
+  const x0 = px(c) + LOT, y0 = px(r) + LOT, L = GAP - 2 * LOT;
+  for (const [fx, fy, fw, fh] of LAYOUTS[(r * 7 + c * 13 + N * 3) % LAYOUTS.length]) {
+    const box = { x: x0 + fx * L, y: y0 + fy * L, width: fw * L, height: fh * L, rx: 2 };
+    g.appendChild(el('rect', box, 'bldg'));
+    g.appendChild(el('rect', Object.assign({ fill: `url(#win-${owner})` }, box), 'lights'));
+  }
+  // a rooftop pad with the owner's letter
+  const cx = px(c) + GAP / 2, cy = px(r) + GAP / 2;
+  g.appendChild(el('circle', { cx, cy, r: 10 }, 'pad'));
+  const t = el('text', { x: cx, y: cy }, 'pad-letter');
+  t.textContent = owner === HUMAN ? 'Y' : 'A';
+  g.appendChild(t);
+  boardEl.appendChild(g);
+}
+
 function draw() {
   const dim = PAD*2 + N*GAP;
   boardEl.setAttribute('width', dim);
   boardEl.setAttribute('height', dim);
-  boardEl.innerHTML = '';
+  boardEl.setAttribute('viewBox', `0 0 ${dim} ${dim}`);   // lets CSS shrink it on a phone
+  boardEl.innerHTML = DEFS;
 
-  // box fills + labels
-  for (let r=0;r<N;r++) for (let c=0;c<N;c++) {
-    const rect = document.createElementNS(SVGNS,'rect');
-    rect.setAttribute('x', px(c)); rect.setAttribute('y', px(r));
-    rect.setAttribute('width', GAP); rect.setAttribute('height', GAP);
-    rect.setAttribute('class','box-fill');
-    rect.setAttribute('fill', boxes[r][c]==='human' ? 'var(--human-box)' : boxes[r][c]==='ai' ? 'var(--ai-box)' : 'transparent');
-    boardEl.appendChild(rect);
-    if (boxes[r][c]) {
-      const t = document.createElementNS(SVGNS,'text');
-      t.setAttribute('x', px(c)+GAP/2); t.setAttribute('y', px(r)+GAP/2);
-      t.setAttribute('class','box-label');
-      t.setAttribute('fill', boxes[r][c]==='human' ? 'var(--human)' : 'var(--ai)');
-      t.textContent = boxes[r][c]==='human' ? 'Y' : 'A';
-      boardEl.appendChild(t);
-    }
-  }
+  // claimed blocks
+  for (let r=0;r<N;r++) for (let c=0;c<N;c++) if (boxes[r][c]) drawBlock(r, c, boxes[r][c]);
 
-  // horizontal lines
+  // horizontal roads
   for (let r=0;r<=N;r++) for (let c=0;c<N;c++)
     addLine(px(c), px(r), px(c+1), px(r), hLines[r][c], () => play('h', r, c), isLast('h',r,c));
-  // vertical lines
+  // vertical roads
   for (let r=0;r<N;r++) for (let c=0;c<=N;c++)
     addLine(px(c), px(r), px(c), px(r+1), vLines[r][c], () => play('v', r, c), isLast('v',r,c));
 
-  // dots on top
+  // street lamps at every corner, on top
   for (let r=0;r<=N;r++) for (let c=0;c<=N;c++) {
-    const dot = document.createElementNS(SVGNS,'circle');
-    dot.setAttribute('cx', px(c)); dot.setAttribute('cy', px(r));
-    dot.setAttribute('r', 6); dot.setAttribute('class','dot');
-    boardEl.appendChild(dot);
+    boardEl.appendChild(el('circle', { cx: px(c), cy: px(r), r: 12 }, 'lamp-halo'));
+    boardEl.appendChild(el('circle', { cx: px(c), cy: px(r), r: 4.5 }, 'dot'));
   }
   syncPlayable();
 }
@@ -151,13 +183,20 @@ function isLast(type,r,c){
 }
 
 function addLine(x1,y1,x2,y2,owner,onClick,animate) {
-  const ln = document.createElementNS(SVGNS,'line');
-  ln.setAttribute('x1',x1); ln.setAttribute('y1',y1);
-  ln.setAttribute('x2',x2); ln.setAttribute('y2',y2);
-  ln.setAttribute('class','line' + (owner ? ' taken '+owner : '') + (animate ? ' draw-anim' : ''));
-  if (animate) ln.setAttribute('pathLength','1');
-  if (!owner) ln.addEventListener('click', onClick);
-  boardEl.appendChild(ln);
+  const ends = { x1, y1, x2, y2 };
+  if (owner) {
+    // a built road: asphalt, with a glowing lane down the middle in the builder's colour
+    const anim = animate ? ' draw-anim' : '';
+    const extra = animate ? { pathLength: 1 } : {};
+    boardEl.appendChild(el('line', Object.assign({}, ends, extra), 'road' + anim));
+    boardEl.appendChild(el('line', Object.assign({ filter: 'url(#glow)' }, ends, extra), 'lane ' + owner + anim));
+  } else {
+    // a planned road: a faint dashed marking, under a wide band that takes the click
+    boardEl.appendChild(el('line', ends, 'plan'));
+    const ln = el('line', ends, 'line');
+    ln.addEventListener('click', onClick);
+    boardEl.appendChild(ln);
+  }
 }
 
 function setStatus(t){ statusEl.textContent = t; }
@@ -170,8 +209,9 @@ function updateScores() {
 function placeLine(type, r, c, owner) {
   if (type === 'h') hLines[r][c] = owner; else vLines[r][c] = owner;
   let completed = 0;
+  lastClaimed = [];
   for (const [br,bc] of boxesTouching(type, r, c)) {
-    if (boxComplete(br,bc) && !boxes[br][bc]) { boxes[br][bc] = owner; completed++; }
+    if (boxComplete(br,bc) && !boxes[br][bc]) { boxes[br][bc] = owner; completed++; lastClaimed.push([br, bc]); }
   }
   return completed;
 }

@@ -1,57 +1,155 @@
-:root { --bg:#eef0e6; --paper:#fbfaf3; --fg:#33414f; --dot:#33414f; --line-empty:#c4cbd2; --line-hover:#5b8fd0;
-        --human:#d2362f; --ai:#2f6fb0; --human-box:rgba(210,54,47,.16); --ai-box:rgba(47,111,176,.16); }
-* { box-sizing:border-box; }
-body { margin:0; min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
-       background-color:var(--bg);
-       background-image:linear-gradient(rgba(120,140,160,.14) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(120,140,160,.14) 1px, transparent 1px);
-       background-size:24px 24px;
-       color:var(--fg); font-family:"Trebuchet MS",Verdana,Geneva,sans-serif; gap:14px; padding:20px; }
-h1 { margin:0; font-weight:700; letter-spacing:1px; }
-#status { font-size:1.15rem; min-height:1.5em; font-weight:500; }
-.scoreboard { display:flex; gap:26px; font-size:1.05rem; }
-.scoreboard .me { color:var(--human); } .scoreboard .ai { color:var(--ai); }
-.record { display:flex; gap:18px; font-size:.95rem; opacity:.85; }
-svg { background:var(--paper); border:1px solid #d8dcc9; border-radius:14px; box-shadow:0 6px 18px rgba(60,70,80,.18); touch-action:none; }
-.dot { fill:var(--dot); }
-.line { stroke:var(--line-empty); stroke-width:6; stroke-linecap:round; cursor:pointer; transition:stroke .1s; }
-/* preview the line in a slightly lighter shade of YOUR colour, only on your turn */
-#board.playable .line:not(.taken):hover { stroke:#e8675f; }
-.line.taken { cursor:default; }
-.line.human { stroke:var(--human); } .line.ai { stroke:var(--ai); }
-.box-fill { transition:fill .2s; }
-.box-label { font-weight:700; font-size:18px; text-anchor:middle; dominant-baseline:central; pointer-events:none; }
-.controls { display:flex; gap:10px; align-items:center; flex-wrap:wrap; justify-content:center; }
-button.btn, select { background:#fff; color:var(--fg); border:1px solid #c4cbd2; border-radius:8px;
-                     padding:8px 14px; font-size:.95rem; font-family:inherit; cursor:pointer; }
-button.btn:hover { background:#eef2f7; }
+@import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,500;9..40,700&display=swap");
+/* A city map at night. The board (drawn by game.js) is a dark street plan:
+   dots are street lamps, an undrawn line is a faint dashed planned road, a
+   drawn line is asphalt with a glowing lane in its builder's colour, and a
+   claimed box becomes a city block whose windows light up in the owner's
+   colour, with a rooftop pad carrying Y or A. You are neon coral, the AI
+   neon cyan. The page is the night sky over a skyline, and the title is a
+   neon sign. */
+:root {
+  --human: #ff5a6e; --ai: #3fb6ff;
+  --ink: #e9eefc; --muted: #9aa7c7;
+  --glass: rgba(18, 26, 50, 0.82); --edge: rgba(150, 180, 255, 0.22);
+  --sign: "Bebas Neue", "DM Sans", sans-serif;
+  --skyline: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='170' viewBox='0 0 1200 170'%3E%3Cg fill='%2318223f'%3E%3Crect x='-10' y='68.1' width='72.1' height='101.9'/%3E%3Crect x='63' y='107.6' width='56.8' height='62.4'/%3E%3Crect x='89.9' y='93.6' width='2' height='14'/%3E%3Crect x='119.7' y='50.8' width='59.9' height='119.2'/%3E%3Crect x='180.9' y='78.7' width='71.6' height='91.3'/%3E%3Crect x='215.2' y='64.7' width='2' height='14'/%3E%3Crect x='253.3' y='96.5' width='67.7' height='73.5'/%3E%3Crect x='323.8' y='70.1' width='88.6' height='99.9'/%3E%3Crect x='366.6' y='56.1' width='2' height='14'/%3E%3Crect x='413.1' y='86.3' width='52.8' height='83.7'/%3E%3Crect x='438' y='72.3' width='2' height='14'/%3E%3Crect x='470.3' y='54.5' width='65.6' height='115.5'/%3E%3Crect x='501.6' y='40.5' width='2' height='14'/%3E%3Crect x='537.4' y='96.9' width='59.1' height='73.1'/%3E%3Crect x='565.5' y='82.9' width='2' height='14'/%3E%3Crect x='599.3' y='110' width='61' height='60'/%3E%3Crect x='664.9' y='69.9' width='54.7' height='100.1'/%3E%3Crect x='690.7' y='55.9' width='2' height='14'/%3E%3Crect x='719' y='61.6' width='65.2' height='108.4'/%3E%3Crect x='783.2' y='94.7' width='79.3' height='75.3'/%3E%3Crect x='821.4' y='80.7' width='2' height='14'/%3E%3Crect x='866.2' y='83.7' width='48.6' height='86.3'/%3E%3Crect x='915.6' y='61.9' width='68.6' height='108.1'/%3E%3Crect x='948.4' y='47.9' width='2' height='14'/%3E%3Crect x='984.9' y='101.9' width='46.4' height='68.1'/%3E%3Crect x='1032.1' y='84.2' width='46.4' height='85.8'/%3E%3Crect x='1081.8' y='50.2' width='46.1' height='119.8'/%3E%3Crect x='1103.4' y='36.2' width='2' height='14'/%3E%3Crect x='1130.8' y='100.8' width='52.5' height='69.2'/%3E%3Crect x='1155.6' y='86.8' width='2' height='14'/%3E%3Crect x='1184.1' y='92.8' width='77.4' height='77.2'/%3E%3Crect x='1221.3' y='78.8' width='2' height='14'/%3E%3C/g%3E%3Cg opacity='.35'%3E%3Crect x='19' y='76' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='27' y='85' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='35' y='94' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='11' y='121' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='27' y='130' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='43' y='130' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='3' y='139' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='-5' y='157' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='100' y='115' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='84' y='133' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='164' y='85' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='156' y='139' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='156' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='164' y='157' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='193' y='86' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='241' y='86' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='201' y='113' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='185' y='149' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='298' y='104' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='282' y='113' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='266' y='158' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='298' y='158' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='384' y='78' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='336' y='123' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='336' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='344' y='150' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='368' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='450' y='112' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='426' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='450' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='483' y='71' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='475' y='89' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='515' y='116' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='475' y='161' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='558' y='140' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='612' y='117' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='652' y='126' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='636' y='135' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='693' y='95' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='693' y='149' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='820' y='120' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='836' y='147' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='820' y='156' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='887' y='118' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='903' y='127' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='879' y='136' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='960' y='96' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='928' y='105' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='920' y='132' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1005' y='127' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='1021' y='163' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1102' y='112' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='1102' y='139' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1086' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1175' y='126' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1135' y='144' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1151' y='153' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='1175' y='162' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1245' y='100' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1189' y='136' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1213' y='136' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1197' y='145' width='3' height='4' fill='%23ffd98a'/%3E%3C/g%3E%3Cg fill='%230a0f1f'%3E%3Crect x='-10' y='97.6' width='46.5' height='72.4'/%3E%3Crect x='11.7' y='83.6' width='2' height='14'/%3E%3Crect x='38.9' y='99' width='53.6' height='71'/%3E%3Crect x='95.8' y='125.5' width='53.9' height='44.5'/%3E%3Crect x='121.3' y='111.5' width='2' height='14'/%3E%3Crect x='151.9' y='129.3' width='33.3' height='40.7'/%3E%3Crect x='190.1' y='80.6' width='68' height='89.4'/%3E%3Crect x='260.8' y='123.1' width='63.8' height='46.9'/%3E%3Crect x='326.8' y='78.1' width='69.5' height='91.9'/%3E%3Crect x='397.5' y='136.6' width='31' height='33.4'/%3E%3Crect x='411.5' y='122.6' width='2' height='14'/%3E%3Crect x='429.1' y='90' width='38.2' height='80'/%3E%3Crect x='446.7' y='76' width='2' height='14'/%3E%3Crect x='472.3' y='108.3' width='62.1' height='61.7'/%3E%3Crect x='538.9' y='79.6' width='72.9' height='90.4'/%3E%3Crect x='614.2' y='124.9' width='63.2' height='45.1'/%3E%3Crect x='679.9' y='78.1' width='37.1' height='91.9'/%3E%3Crect x='717.6' y='117.9' width='65.1' height='52.1'/%3E%3Crect x='748.7' y='103.9' width='2' height='14'/%3E%3Crect x='783.9' y='131.6' width='80.1' height='38.4'/%3E%3Crect x='863.6' y='84.4' width='36.7' height='85.6'/%3E%3Crect x='900' y='76.3' width='46.8' height='93.7'/%3E%3Crect x='950.5' y='110.3' width='54' height='59.7'/%3E%3Crect x='1007' y='128.7' width='70.5' height='41.3'/%3E%3Crect x='1040.7' y='114.7' width='2' height='14'/%3E%3Crect x='1081.7' y='107.3' width='49.6' height='62.7'/%3E%3Crect x='1135.9' y='140.6' width='63.5' height='29.4'/%3E%3C/g%3E%3Cg opacity='.8'%3E%3Crect x='3' y='105' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='27' y='105' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='-5' y='123' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='19' y='123' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='3' y='132' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='19' y='132' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='11' y='141' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='11' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='43' y='125' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='67' y='125' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='51' y='134' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='59' y='152' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='124' y='142' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='132' y='160' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='156' y='146' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='172' y='155' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='227' y='88' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='195' y='97' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='219' y='106' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='243' y='106' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='195' y='133' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='211' y='133' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='227' y='142' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='227' y='151' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='195' y='160' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='265' y='140' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='273' y='140' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='289' y='140' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='265' y='149' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='289' y='149' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='331' y='86' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='387' y='95' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='371' y='113' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='339' y='131' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='339' y='149' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='363' y='149' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='418' y='162' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='450' y='107' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='434' y='116' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='442' y='125' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='442' y='143' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='458' y='161' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='509' y='116' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='525' y='116' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='477' y='134' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='517' y='134' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='485' y='143' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='525' y='143' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='543' y='87' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='575' y='87' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='543' y='105' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='551' y='105' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='559' y='114' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='583' y='123' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='567' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='591' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='635' y='150' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='684' y='95' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='700' y='122' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='762' y='134' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='770' y='152' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='820' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='852' y='148' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='868' y='92' width='3' height='4' fill='%23ff8a98'/%3E%3Crect x='876' y='101' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='936' y='102' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='904' y='111' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='936' y='138' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='928' y='147' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='979' y='127' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='971' y='136' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='995' y='163' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1028' y='145' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1102' y='133' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1118' y='160' width='3' height='4' fill='%237fd4ff'/%3E%3Crect x='1140' y='157' width='3' height='4' fill='%23ffd98a'/%3E%3Crect x='1180' y='157' width='3' height='4' fill='%23ffd98a'/%3E%3C/g%3E%3C/svg%3E");
+  --stars: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='220' viewBox='0 0 300 220'%3E%3Ccircle cx='69.8' cy='167.9' r='1.1' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='128.9' cy='108' r='0.8' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='97.7' cy='103.2' r='1.3' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='40.6' cy='147.5' r='1.2' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='266.7' cy='206.9' r='0.6' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='114.2' cy='102.6' r='0.9' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='189.2' cy='195.4' r='0.7' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='117.5' cy='40.1' r='1.1' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='67.6' cy='196.6' r='0.9' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='295.6' cy='71.9' r='0.9' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='85.6' cy='117.5' r='1.3' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='79.6' cy='150.4' r='1' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='201.4' cy='82.7' r='1.1' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='247.2' cy='65.4' r='0.6' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='37.7' cy='192.5' r='1.3' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='72' cy='194' r='1.2' fill='%23fff' fill-opacity='0.4'/%3E%3Ccircle cx='91.7' cy='109.4' r='0.6' fill='%23fff' fill-opacity='0.3'/%3E%3Ccircle cx='119.2' cy='26.3' r='0.6' fill='%23fff' fill-opacity='0.5'/%3E%3Ccircle cx='90.2' cy='201.4' r='1.3' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='82.5' cy='167.1' r='0.8' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='127.1' cy='152.2' r='1.1' fill='%23fff' fill-opacity='0.6'/%3E%3Ccircle cx='225.8' cy='75.3' r='0.6' fill='%23fff' fill-opacity='0.4'/%3E%3C/svg%3E");
+}
+* { box-sizing: border-box; }
+/* night sky: a moon, stars, the city's glow low on the horizon */
+body {
+  margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; padding: 16px 20px 24px; color: var(--ink); font-family: "DM Sans", system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 86% 11%, #fdf6dc 0 26px, rgba(253, 246, 220, 0.18) 27px 44px, rgba(253, 246, 220, 0) 70px),
+    var(--stars) 0 0 / 300px 220px,
+    radial-gradient(ellipse 90% 40% at 50% 105%, rgba(255, 150, 120, 0.22), rgba(255, 150, 120, 0) 70%),
+    linear-gradient(180deg, #060a18 0%, #0c1430 55%, #1a1f44 100%);
+  background-color: #0b1128;
+}
+/* the skyline along the bottom, behind everything */
+body::before {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 170px; z-index: -1; pointer-events: none;
+  background: var(--skyline) 0 100% / 1200px 170px repeat-x;
+}
+/* the title as a neon sign */
+h1 {
+  margin: 0; font-family: var(--sign); font-weight: 400; font-size: 3.1rem; line-height: 1; letter-spacing: 0.06em; color: #fff4f6;
+  text-shadow: 0 0 4px #fff, 0 0 12px var(--human), 0 0 28px var(--human);
+}
+h1 .and { font-size: 0.6em; vertical-align: 0.35em; color: #fff; text-shadow: 0 0 4px #fff, 0 0 12px #b58cff, 0 0 26px #b58cff; }
+h1 .boxes { color: #eefaff; text-shadow: 0 0 4px #fff, 0 0 12px var(--ai), 0 0 28px var(--ai); }
+#status {
+  font-size: 1.05rem; min-height: 1.5em; font-weight: 700; padding: 0.35rem 1rem; border-radius: 999px;
+  background: var(--glass); border: 1px solid var(--edge);
+}
+#status:empty { visibility: hidden; }
+/* the tally: two district badges */
+.scoreboard { display: flex; gap: 12px; font-size: 1rem; font-weight: 700; }
+.scoreboard span {
+  display: inline-flex; align-items: baseline; gap: 0.5rem; padding: 0.3rem 0.9rem 0.25rem; border-radius: 10px;
+  background: var(--glass); border: 1px solid var(--edge); border-left: 4px solid currentColor;
+}
+.scoreboard b { font-family: var(--sign); font-weight: 400; font-size: 1.6rem; line-height: 1; text-shadow: 0 0 10px currentColor; }
+.scoreboard .me { color: var(--human); } .scoreboard .ai { color: var(--ai); }
+.record { display: flex; gap: 10px; font-size: 0.9rem; color: var(--muted); }
+.record span { padding: 0.2rem 0.7rem; border-radius: 999px; background: rgba(12, 18, 40, 0.7); border: 1px solid var(--edge); }
+.record b { color: var(--ink); }
+
+/* ---- the map ---- */
+svg#board {
+  max-width: 100%; height: auto; border-radius: 16px; touch-action: none;
+  background:
+    linear-gradient(rgba(120, 150, 220, 0.05) 1px, transparent 1px) 0 0 / 21px 21px,
+    linear-gradient(90deg, rgba(120, 150, 220, 0.05) 1px, transparent 1px) 0 0 / 21px 21px,
+    radial-gradient(ellipse at 50% 40%, #131c38, #0a1024 75%);
+  border: 1px solid var(--edge);
+  box-shadow: 0 0 0 6px rgba(10, 16, 36, 0.6), 0 18px 40px -12px rgba(0, 0, 0, 0.8), 0 0 60px rgba(90, 120, 255, 0.12);
+}
+/* street lamps */
+.dot { fill: #ffe6b0; }
+.lamp-halo { fill: rgba(255, 210, 130, 0.14); }
+/* planned roads, and the wide band over each that takes the click */
+.plan { stroke: rgba(180, 200, 245, 0.3); stroke-width: 1.5; stroke-dasharray: 4 5; pointer-events: none; }
+.line { stroke: rgba(140, 170, 230, 0.07); stroke-width: 14; stroke-linecap: round; cursor: pointer; transition: stroke .1s; }
+/* your turn: the road you'd build shows in your colour */
+#board.playable .line:hover { stroke: rgba(255, 90, 110, 0.45); }
+#board:not(.playable) .line { cursor: default; }
+/* built roads */
+.road { stroke: #262d40; stroke-width: 14; stroke-linecap: round; }
+.lane { stroke-width: 3; stroke-linecap: round; }
+.lane.human { stroke: var(--human); } .lane.ai { stroke: var(--ai); }
+/* city blocks */
+.block .bldg { stroke-width: 1.2; }
+.block.human .bldg { fill: #2b1622; stroke: var(--human); }
+.block.ai .bldg { fill: #0f2337; stroke: var(--ai); }
+.win.human { fill: #ffb0ba; } .win.ai { fill: #b4e6ff; }
+.block .pad { fill: rgba(6, 10, 22, 0.8); stroke-width: 1.5; }
+.block.human .pad { stroke: var(--human); } .block.ai .pad { stroke: var(--ai); }
+.pad-letter { font-family: var(--sign); font-size: 15px; text-anchor: middle; dominant-baseline: central; }
+.block.human .pad-letter { fill: var(--human); } .block.ai .pad-letter { fill: var(--ai); }
+/* a newly claimed block switches its lights on */
+.block.lit-anim { animation: lightUp 0.55s ease-out both; transform-box: fill-box; transform-origin: center; }
+@keyframes lightUp { 0% { opacity: 0; transform: scale(0.86); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1); } }
+
+/* ---- buttons ---- */
+.controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+button.btn, select {
+  cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.95rem; color: var(--ink);
+  background: var(--glass); border: 1px solid var(--edge); border-radius: 10px; padding: 8px 16px;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+}
+button.btn:hover { border-color: rgba(150, 190, 255, 0.6); box-shadow: 0 0 14px rgba(90, 150, 255, 0.25); }
+button.btn:focus-visible, .opt:focus-visible { outline: 2px solid var(--ai); outline-offset: 3px; }
+#reset { border-color: rgba(255, 90, 110, 0.6); box-shadow: 0 0 12px rgba(255, 90, 110, 0.25); }
 
 /* line draw animation */
-.line.draw-anim { stroke-dasharray:1; stroke-dashoffset:1; animation:lineDraw .26s ease-out forwards; }
-@keyframes lineDraw { to { stroke-dashoffset:0; } }
+.draw-anim { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lineDraw .26s ease-out forwards; }
+@keyframes lineDraw { to { stroke-dashoffset: 0; } }
 
-/* rules modal */
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none;
-                 align-items:center; justify-content:center; padding:20px; z-index:10; }
-.modal-overlay.open { display:flex; }
-.modal { background:var(--paper); border:1px solid #c4cbd2; border-radius:14px; max-width:430px;
-         padding:24px 26px; box-shadow:0 12px 40px rgba(0,0,0,.5); }
-.modal h2 { margin:0 0 12px; }
-.modal p { line-height:1.55; margin:0 0 18px; opacity:.9; }
-.modal .btn { width:100%; }
-.modal-overlay.open .modal { animation:dbModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
-@keyframes dbModalIn { from { opacity:0; transform:translateY(14px) scale(0.97); } to { opacity:1; transform:none; } }
+/* ---- pop-ups: dark glass cards ---- */
+.modal-overlay { position: fixed; inset: 0; background: rgba(4, 7, 18, 0.65); display: none;
+                 align-items: center; justify-content: center; padding: 20px; z-index: 10; }
+.modal-overlay.open { display: flex; }
+.modal {
+  background: rgba(16, 23, 46, 0.95); border: 1px solid var(--edge); border-radius: 16px; max-width: 430px; width: 100%;
+  padding: 24px 26px; box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.7), 0 0 40px rgba(90, 120, 255, 0.12);
+}
+.modal h2 {
+  margin: 0 0 12px; font-family: var(--sign); font-weight: 400; font-size: 2.2rem; letter-spacing: 0.05em; line-height: 1;
+  color: #eefaff; text-shadow: 0 0 10px var(--ai);
+}
+.modal p { line-height: 1.55; margin: 0 0 18px; color: var(--muted); }
+.modal p b { color: var(--ink); }
+.modal .btn { width: 100%; }
+.modal-overlay.open .modal { animation: dbModalIn 0.3s cubic-bezier(0.2,0.8,0.2,1) both; }
+@keyframes dbModalIn { from { opacity: 0; transform: translateY(14px) scale(0.97); } to { opacity: 1; transform: none; } }
 /* mode-select overlay (choose game mode before the game starts) */
-.mode-group { margin:0 0 16px; }
-.mode-label { font-size:.85rem; opacity:.8; margin-bottom:8px; }
-.opts { display:flex; gap:8px; flex-wrap:wrap; }
-.opts[data-target="size"] { display:grid; grid-template-columns:1fr 1fr; }  /* 4 sizes → 2×2 grid */
-.opt { flex:1 1 0; min-width:0; background:#fff; color:var(--fg); border:1px solid #c4cbd2;
-       border-radius:8px; padding:10px 6px; font-size:.9rem; font-family:inherit; cursor:pointer; white-space:nowrap; }
-.opt:hover { background:#eef2f7; }
-.opt.sel { background:var(--ai); color:#fff; border-color:var(--ai); font-weight:700; }
-#startGame { width:100%; margin-top:6px; }
-#modeModal { background:var(--bg); }   /* opaque start screen — hide game chrome behind it */
+.mode-group { margin: 0 0 16px; }
+.mode-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.opts { display: flex; gap: 8px; flex-wrap: wrap; }
+.opts[data-target="size"] { display: grid; grid-template-columns: 1fr 1fr; }  /* 4 sizes → 2×2 grid */
+.opt {
+  flex: 1 1 0; min-width: 0; cursor: pointer; font-family: inherit; font-weight: 700; font-size: 0.92rem; white-space: nowrap;
+  color: var(--ink); background: rgba(10, 16, 36, 0.8); border: 1px solid var(--edge); border-radius: 10px; padding: 10px 6px;
+  transition: border-color .15s, background-color .15s;
+}
+.opt:hover { border-color: rgba(150, 190, 255, 0.55); }
+.opt.sel { color: #04121e; background: var(--ai); border-color: var(--ai); box-shadow: 0 0 14px rgba(63, 182, 255, 0.45); }
+#startGame { margin-top: 6px; color: #fff; background: linear-gradient(180deg, #ff6f80, #e8455a); border-color: #ff8795; box-shadow: 0 0 16px rgba(255, 90, 110, 0.4); }
+#closeRules { color: #04121e; background: var(--ai); border-color: var(--ai); }
+/* the opening screen: the night city itself, behind the card */
+#modeModal {
+  background:
+    var(--skyline) 0 100% / 1200px 170px repeat-x,
+    radial-gradient(circle at 86% 11%, #fdf6dc 0 26px, rgba(253, 246, 220, 0.18) 27px 44px, rgba(253, 246, 220, 0) 70px),
+    var(--stars) 0 0 / 300px 220px,
+    radial-gradient(ellipse 90% 40% at 50% 105%, rgba(255, 150, 120, 0.22), rgba(255, 150, 120, 0) 70%),
+    linear-gradient(180deg, #060a18 0%, #0c1430 55%, #1a1f44 100%);
+}
+@media (max-width: 560px) {
+  body { padding: 56px 12px 40px; gap: 12px; }
+  h1 { font-size: 2.5rem; }
+}
 /* Accessibility: honor prefers-reduced-motion — neutralize animations,
    transitions, and motion effects (pulse, shake, drop, blink, glows). */
 @media (prefers-reduced-motion: reduce) {
