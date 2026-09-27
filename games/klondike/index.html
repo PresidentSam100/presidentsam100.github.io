@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%83%8F%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Klondike</title>
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Klondike — the classic solitaire dealt at a Yukon prospector's camp under the northern lights, with draw 1 or 3, unlimited undo and a daily claim. A browser game by Sam Lu." />
+    <meta property="og:title" content="Klondike — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Klondike — the classic solitaire dealt at a Yukon prospector's camp under the northern lights, with draw 1 or 3, unlimited undo and a daily claim. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The Yukon night: aurora, snow and pines on this fixed canvas. -->
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<!-- The prospector's table: rough boards, an oil-lamp pool of light,
+     gold pans for the foundations. -->
+<main class="camp">
+  <header class="sign">
+    <h1 id="win-title">KLONDIKE</h1>
+  </header>
+  <div class="menubar" role="menubar">
+    <div class="menu" id="menu-game">
+      <button type="button" class="mtop" aria-haspopup="true" aria-expanded="false">Game ▾</button>
+      <div class="mlist" role="menu" hidden>
+        <button type="button" role="menuitem" id="m-new">Deal new <kbd>F2</kbd></button>
+        <button type="button" role="menuitem" id="m-restart">Restart this deal <kbd>R</kbd></button>
+        <button type="button" role="menuitem" id="m-undo">Undo <kbd>U</kbd></button>
+        <button type="button" role="menuitem" id="m-hint">Hint <kbd>H</kbd></button>
+        <hr />
+        <button type="button" role="menuitem" id="m-draw3" aria-checked="false"><i class="check"></i>Draw three</button>
+        <hr />
+        <button type="button" role="menuitem" id="m-daily">Daily claim</button>
+      </div>
+    </div>
+    <div class="menu" id="menu-help">
+      <button type="button" class="mtop" aria-haspopup="true" aria-expanded="false">Help ▾</button>
+      <div class="mlist" role="menu" hidden>
+        <button type="button" role="menuitem" id="m-rules">How to play…</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="field" id="field" aria-label="The solitaire table">
+    <div class="slot stock" id="slot-stock" title="Stock: click to draw"><span>↻</span></div>
+    <div class="slot" id="slot-waste"></div>
+    <div class="slot pan" id="slot-f0"></div>
+    <div class="slot pan" id="slot-f1"></div>
+    <div class="slot pan" id="slot-f2"></div>
+    <div class="slot pan" id="slot-f3"></div>
+    <div class="slot tab" id="slot-t0"></div><div class="slot tab" id="slot-t1"></div>
+    <div class="slot tab" id="slot-t2"></div><div class="slot tab" id="slot-t3"></div>
+    <div class="slot tab" id="slot-t4"></div><div class="slot tab" id="slot-t5"></div>
+    <div class="slot tab" id="slot-t6"></div>
+    <canvas id="cascade" aria-hidden="true"></canvas>
+    <button type="button" id="autofinish" hidden>⛏ Pan it all <kbd>Enter</kbd></button>
+  </div>
+
+  <div class="statusbar">
+    <span id="st-time">0:00</span>
+    <span id="st-moves">0 moves</span>
+    <span id="st-stock"></span>
+    <span id="st-best"></span>
+  </div>
+</main>
+
+<!-- A wooden notice board for wins and the rules. -->
+<div class="shade" id="shade" hidden>
+  <div class="msgbox" role="dialog" aria-labelledby="mb-title">
+    <div class="mb-title" id="mb-title">Klondike</div>
+    <div class="mb-body" id="mb-body"></div>
+    <div class="mb-row" id="mb-row"></div>
+  </div>
+</div>
+
+<script src="cards.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

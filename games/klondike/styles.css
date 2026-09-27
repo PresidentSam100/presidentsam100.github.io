@@ -1,0 +1,229 @@
+@import url("https://fonts.googleapis.com/css2?family=Sancreek&family=Bitter:wght@400;600;700&display=swap");
+
+/* Klondike — a prospector's camp in the Yukon night. The aurora and snow
+   live on the #sky canvas; here it's the table: rough boards in a pool
+   of lamplight, gold pans for the foundations, parchment cards.
+   Card geometry comes from --cw (set by game.js to fit the screen). */
+:root {
+  --cw: 72px;
+  --ch: calc(var(--cw) * 1.4);
+  --wood1: #5d4126;
+  --wood2: #46301b;
+  --wood3: #2e1f10;
+  --paper: #f6eed8;
+  --ink: #2b2015;
+  --red: #b0352a;
+  --gold: #e9b640;
+  --lamplight: rgba(255, 190, 100, 0.16);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body {
+  min-height: 100svh;
+  background: #0a1424;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 56px 10px 24px;
+  font-family: Bitter, Georgia, serif;
+  font-size: 13px; color: var(--paper);
+  -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#sky { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; }
+
+.nav-back-games {
+  position: fixed; top: 12px; left: 12px; z-index: 99999;
+  text-decoration: none; font: 700 14px/1 Bitter, Georgia, serif;
+  color: #ffe9b0; background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  border: 1px solid #1d1409; border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.25), 0 3px 8px rgba(0, 0, 0, 0.5);
+  padding: 7px 13px;
+}
+
+/* ---- the camp table ----------------------------------------------------- */
+.camp { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+.sign { position: relative; margin-bottom: 2px; z-index: 1; }
+/* The hanging sign: two ropes and a plank. */
+.sign::before, .sign::after {
+  content: ""; position: absolute; top: -56px; width: 2px; height: 58px; z-index: -1;
+  background: repeating-linear-gradient(180deg, #a8834e 0 4px, #8a6a3c 4px 8px);
+}
+.sign::before { left: 22%; transform: rotate(6deg); }
+.sign::after { right: 22%; transform: rotate(-6deg); }
+.sign h1 {
+  margin: 0;
+  font: 400 clamp(28px, 7vw, 44px)/1.2 Sancreek, Georgia, serif;
+  letter-spacing: 0.04em; text-align: center; white-space: nowrap;
+  color: #ffd98a;
+  background: linear-gradient(180deg, var(--wood1), var(--wood3));
+  border: 2px solid #1d1409; border-radius: 8px;
+  box-shadow: inset 0 2px 0 rgba(255, 220, 150, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.45), 0 6px 14px rgba(0, 0, 0, 0.55);
+  padding: 2px 24px 6px;
+  text-shadow: 0 2px 0 #1d1409, 0 0 18px rgba(255, 200, 90, 0.35);
+}
+
+.menubar { display: flex; gap: 8px; margin: 10px 0 8px; position: relative; z-index: 60; }
+.mtop {
+  font: 600 13px Bitter, Georgia, serif; color: #ffe9b0; cursor: pointer;
+  background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  border: 1px solid #1d1409; border-radius: 6px; padding: 6px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.25), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.menu.open .mtop, .mtop:hover { filter: brightness(1.15); }
+.menu { position: relative; }
+.mlist {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 70; min-width: 210px;
+  background: linear-gradient(180deg, #4c3520, var(--wood3));
+  border: 2px solid #1d1409; border-radius: 8px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.6);
+  padding: 5px;
+}
+.mlist button {
+  display: flex; width: 100%; align-items: center; gap: 6px;
+  font: 600 13px Bitter, Georgia, serif; color: var(--paper);
+  text-align: left; background: none; border: 0; border-radius: 5px;
+  padding: 7px 10px 7px 24px; cursor: pointer; position: relative;
+}
+.mlist button:hover { background: rgba(233, 182, 64, 0.22); color: #ffe9b0; }
+.mlist kbd { margin-left: auto; font: inherit; opacity: 0.6; }
+.mlist hr { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.5); border-bottom: 1px solid rgba(255, 220, 150, 0.15); margin: 4px 4px; }
+.mlist .check { position: absolute; left: 8px; color: var(--gold); }
+.mlist [aria-checked="true"] .check::before { content: "✓"; font-weight: 700; }
+
+/* ---- the boards ---------------------------------------------------------- */
+.field {
+  position: relative;
+  border-radius: 10px;
+  border: 3px solid #1d1409;
+  /* rough planks, seams every board-width, warmed by the lamp overhead */
+  background:
+    radial-gradient(ellipse 78% 58% at 50% 28%, var(--lamplight), transparent 72%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 2px, transparent 2px 86px),
+    repeating-linear-gradient(0deg, rgba(255, 220, 150, 0.028) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, #52391f, #3a2914);
+  overflow: hidden;
+  touch-action: none;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55), 0 14px 34px rgba(0, 0, 0, 0.6);
+}
+.slot {
+  position: absolute;
+  width: var(--cw); height: var(--ch);
+  border: 2px dashed rgba(246, 238, 216, 0.26);
+  border-radius: calc(var(--cw) * 0.09);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(246, 238, 216, 0.35); font-size: calc(var(--cw) * 0.38); font-weight: 700;
+}
+/* Foundations are gold pans: a round pan with one nugget waiting in it. */
+.slot.pan { border: 0; }
+.slot.pan::before {
+  content: ""; position: absolute; inset: -4% -16%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 38%, #191410 0%, #221a12 44%, #4a3d31 68%, #6b5a45 78%, #33251a 86%);
+  box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+.slot.pan::after {
+  content: ""; position: absolute; left: 50%; top: 52%; width: 30%; height: 15%;
+  transform: translate(-50%, -50%) rotate(-18deg);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe9a8, var(--gold) 60%, #8a5f10);
+  box-shadow: 0 0 8px rgba(233, 182, 64, 0.5);
+}
+.slot.pan.done::before { box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.8), 0 0 20px 5px rgba(233, 182, 64, 0.55); }
+.slot.stock span { transform: translateY(-2px); }
+.slot.hintdst { border-color: var(--gold); border-style: solid; box-shadow: 0 0 0 2px rgba(233, 182, 64, 0.65); }
+
+/* ---- cards: aged paper ---------------------------------------------------- */
+.card {
+  position: absolute; left: 0; top: 0;
+  width: var(--cw); height: var(--ch);
+  border-radius: calc(var(--cw) * 0.09);
+  background: radial-gradient(ellipse at 30% 20%, #fff8e6, var(--paper) 60%, #e7dcbc 100%);
+  border: 1px solid #6b5a3a;
+  box-shadow: 1px 2px 2px rgba(0, 0, 0, 0.45);
+  transition: transform 0.16s ease;
+  will-change: transform;
+  color: var(--ink);
+}
+.card.noanim { transition: none; }
+.card.drag { z-index: 900 !important; box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.6); transition: none; }
+.card.hintsrc { outline: 2px solid var(--gold); outline-offset: -2px; }
+.card .idx {
+  position: absolute; top: 2px; left: 4px; line-height: 1;
+  font-weight: 700; font-size: calc(var(--cw) * 0.23);
+  font-family: Bitter, Georgia, serif;
+  text-align: center; white-space: pre-line;
+}
+.card .idx small { display: block; font-size: calc(var(--cw) * 0.22); }
+.card .pip {
+  position: absolute; right: 6%; bottom: 2%;
+  font-size: calc(var(--cw) * 0.62); line-height: 1;
+}
+.card .face {
+  position: absolute; inset: 14% 12%;
+  border: 1px solid currentColor; border-radius: 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 400; font-size: calc(var(--cw) * 0.52);
+  font-family: Sancreek, Georgia, serif;
+  background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(107, 90, 58, 0.10) 4px 8px);
+}
+.card.red { color: var(--red); }
+/* the back: deep green with a gold lattice, like an oilcloth map wrap */
+.card.down { color: transparent; }
+.card.down .idx, .card.down .pip, .card.down .face { display: none; }
+.card.down::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: calc(var(--cw) * 0.08);
+  background:
+    repeating-linear-gradient(45deg, transparent 0 6px, rgba(233, 182, 64, 0.26) 6px 7px),
+    repeating-linear-gradient(-45deg, transparent 0 6px, rgba(233, 182, 64, 0.26) 6px 7px),
+    linear-gradient(160deg, #1d4a33, #123122);
+  border: 2px solid #d9c690;
+}
+
+#cascade { position: absolute; inset: 0; width: 100%; height: 100%; display: none; z-index: 950; }
+#cascade.on { display: block; }
+
+#autofinish {
+  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 940;
+  font: 700 15px Bitter, Georgia, serif; color: #2b2015; cursor: pointer;
+  background: linear-gradient(180deg, #ffe9a8, var(--gold) 70%, #b07f1c);
+  border: 2px solid #6b4e10; border-radius: 8px; padding: 9px 18px;
+  box-shadow: 0 0 18px rgba(233, 182, 64, 0.5), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+#autofinish kbd { font: inherit; opacity: 0.55; }
+
+.statusbar { display: flex; gap: 6px; margin-top: 8px; width: 100%; }
+.statusbar span {
+  font: 600 12px Bitter, Georgia, serif; color: #ffe9b0;
+  background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  border: 1px solid #1d1409; border-radius: 5px;
+  padding: 4px 10px; min-width: 64px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.2);
+}
+.statusbar span:last-child { margin-left: auto; }
+
+/* ---- the notice board ------------------------------------------------------ */
+.shade { position: fixed; inset: 0; z-index: 1000; background: rgba(4, 8, 16, 0.55); display: flex; align-items: center; justify-content: center; padding: 12px; }
+.shade[hidden] { display: none; }
+.msgbox {
+  width: min(92vw, 380px);
+  background: linear-gradient(180deg, #4c3520, var(--wood3));
+  border: 3px solid #1d1409; border-radius: 10px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  padding: 4px 4px 12px;
+}
+.mb-title {
+  font: 400 24px/1.3 Sancreek, Georgia, serif; color: #ffd98a; text-align: center;
+  padding: 8px 10px 2px; text-shadow: 0 2px 0 #1d1409;
+}
+.mb-body { padding: 6px 16px 12px; font-size: 13px; line-height: 1.55; color: var(--paper); text-align: center; }
+.mb-body b { font-size: 16px; color: #ffe9b0; }
+.mb-body small { color: #c9b896; }
+.mb-body ul { margin: 6px 0 0; padding-left: 18px; text-align: left; }
+.mb-row { display: flex; gap: 8px; justify-content: center; padding: 0 10px; flex-wrap: wrap; }
+.mb-row button {
+  font: 700 13px Bitter, Georgia, serif; color: #ffe9b0; min-width: 92px; padding: 8px 14px; cursor: pointer;
+  background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  border: 1px solid #1d1409; border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.25), 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.mb-row button:hover, .mb-row button:focus-visible { filter: brightness(1.15); outline: none; }
