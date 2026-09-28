@@ -5,7 +5,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Stopwatch — Sam Lu</title>
-  <meta name="description" content="Stop the hidden clock as close to the target as you can. A precision timing game by Sam Lu." />
+  <meta name="description" content="Stop a hunter pocket watch's sweep hand dead on the mark — in Hidden mode the lid snaps shut and you time it blind. A precision game by Sam Lu." />
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
@@ -16,55 +16,54 @@
     gtag("config", "G-H1K8QYFCV5");
   </script>
 
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
     <meta property="og:title" content="Stopwatch — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Stopwatch — stop the hidden clock on the target time. A browser game by Sam Lu." />
+    <meta property="og:description" content="Stopwatch — stop the hunter watch's sweep hand dead on the mark; Hidden mode shuts the lid. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
 </head>
 <body>
-  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 14px/1 'Varela Round',system-ui,sans-serif;color:#b8323d;background:#fffaf0;border:2px solid #e8505b;border-radius:999px;box-shadow:0 3px 0 #c43c47;padding:7px 14px">&larr; Games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
 
   <div class="wrap">
     <header class="top">
       <h1>Stopwatch</h1>
-      <p>bake every tray to the second &middot; stop the clock right on the target</p>
+      <p>a hunter pocket watch &middot; stop the sweep hand dead on the mark</p>
     </header>
 
     <div class="hud">
-      <div class="stat"><div class="label">Baked</div><div class="value" id="score">0</div></div>
+      <div class="stat"><div class="label">Regulated</div><div class="value" id="score">0</div></div>
       <div class="stat"><div class="label">Round</div><div class="value" id="round">—</div></div>
       <div class="stat"><div class="label">Best</div><div class="value" id="best">0</div></div>
     </div>
 
     <div class="budget">
-      <div class="row"><span>Error budget used</span><span><b id="used">0.000</b> / 1.000 s</span></div>
+      <div class="row"><span>Drift on the service card</span><span><b id="used">0.000</b> / 1.000 s</span></div>
       <div class="meter"><span id="meter-fill"></span></div>
-      <div class="row" style="margin-top:0.32rem;"><span>Margin remaining</span><b id="margin">1.000 s</b></div>
+      <div class="row" style="margin-top:0.32rem;"><span>Tolerance left</span><b id="margin">1.000 s</b></div>
     </div>
 
     <!-- the whole stage is the tap target (game.js). data-phase / data-bake /
-         data-mode on it drive the oven: see styles.css -->
+         data-mode on it drive the watch: see styles.css. The dial, the hand
+         and the engraved lid are built into .case by game.js at boot. -->
     <div class="stage" data-phase="idle">
-      <div class="oven">
-        <div class="oven-top">
-          <div class="display">
-            <div class="target-line" id="target-line">get ready…</div>
-            <div class="target-big" id="target-big">—</div>
-          </div>
-          <span class="knob" aria-hidden="true"></span><span class="knob" aria-hidden="true"></span>
-        </div>
-        <div class="oven-body">
-          <div class="door" aria-hidden="true">
-            <div class="window"><div class="tray"><i class="cookie"></i><i class="cookie"></i><i class="cookie"></i><i class="cookie"></i></div></div>
-            <div class="handle"></div>
-          </div>
-          <button class="btn-main" id="btn" disabled>START</button>
-        </div>
+      <div class="watch" aria-hidden="true">
+        <span class="bow"></span>
+        <span class="crown"></span>
+        <div class="case" id="case"></div>
+        <span class="chain" aria-hidden="true"></span>
       </div>
+      <div class="display">
+        <div class="target-line" id="target-line">get ready…</div>
+        <div class="target-big" id="target-big">—</div>
+      </div>
+      <button class="btn-main" id="btn" disabled>START</button>
       <div class="sub" id="sub">press start to begin</div>
       <div class="result" id="result"></div>
     </div>
@@ -72,7 +71,7 @@
     <div class="footer-controls">
       <span class="mode-pill" id="mode-pill"></span>
     </div>
-    <p class="hint">tap the oven or press <b>Space</b> — once to put the tray in, again to take it out</p>
+    <p class="hint">tap the watch or press <b>Space</b> — once to start the sweep, again to stop it</p>
   </div>
 
   <!-- Start / Game over overlay -->
