@@ -427,6 +427,7 @@
   window.addEventListener("keydown", function (e) {
     if (e.key in KEYMAP) {
       e.preventDefault();
+      if (e.repeat) return; // one slide per physical press — holding must not auto-slide
       move(KEYMAP[e.key]);
     }
   });

@@ -218,7 +218,7 @@
 
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); onTap(); });
   window.addEventListener("keydown", (e) => {
-    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); onTap(); }
+    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); if (!e.repeat) onTap(); }
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
 

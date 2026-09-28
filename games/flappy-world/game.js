@@ -2026,8 +2026,10 @@ class Game {
     document.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
+        if (e.repeat) return; // one flap per physical press — no hold-to-hover
         this.handleInput();
       }
+      if (e.repeat) return;
       if (e.code === 'KeyP') this.togglePause();
       if (this.gameState === 'MENU') {
         if (e.code === 'Digit1' || e.code === 'Numpad1') this.setLivesMode(1);

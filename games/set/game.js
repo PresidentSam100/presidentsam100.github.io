@@ -532,6 +532,7 @@
   });
   boardEl.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.repeat) return; // one toggle per physical press
     var el = e.target.closest(".card");
     if (!el) return;
     e.preventDefault();

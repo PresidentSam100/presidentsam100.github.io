@@ -513,9 +513,9 @@
       if (e.key === "Enter") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
       return;
     }
-    if (e.key === "Enter") { e.preventDefault(); handleKey("enter"); }
-    else if (e.key === "Backspace") { e.preventDefault(); handleKey("back"); }
-    else if (/^[a-zA-Z]$/.test(e.key)) { handleKey(e.key.toLowerCase()); }
+    if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) handleKey("enter"); }
+    else if (e.key === "Backspace") { e.preventDefault(); handleKey("back"); } // repeat allowed: hold to erase
+    else if (/^[a-zA-Z]$/.test(e.key)) { if (!e.repeat) handleKey(e.key.toLowerCase()); }
   });
 
   // ----- boot ---------------------------------------------------------
