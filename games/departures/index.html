@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%9B%AB%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Departures</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=B612+Mono:wght@400;700&family=Barlow+Condensed:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Departures — name every country before final boarding: each one you type clatters onto the split-flap board. A browser game by Sam Lu." />
+    <meta property="og:title" content="Departures — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Departures — name every country before final boarding: each one you type clatters onto the split-flap board. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The big split-flap board in the terminal. -->
+<main id="hall">
+  <header id="board-top">
+    <div class="sign">INTERNATIONAL&nbsp;DEPARTURES</div>
+    <div class="clockwrap">
+      <span id="clock" class="flap-cells">15:00</span>
+      <span id="total" class="flap-cells">0/197</span>
+    </div>
+  </header>
+
+  <div id="regions"></div>
+
+  <ol id="log" aria-live="polite" aria-label="Countries you have named"></ol>
+
+  <form id="desk" autocomplete="off">
+    <label for="answer">DESTINATION</label>
+    <input id="answer" type="text" maxlength="46" autocomplete="off"
+           autocapitalize="off" autocorrect="off" spellcheck="false"
+           placeholder="type a country…" aria-label="Type a country's name" />
+    <span id="hint" hidden>press <kbd>Enter</kbd></span>
+    <button type="button" id="giveup">Final call</button>
+  </form>
+  <div id="toast" hidden></div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>DEPARTURES</h1>
+    <p class="tag">name every country before final boarding</p>
+    <p class="how">
+      Type countries — every one you name <b>clatters onto the board</b> and
+      its region counter flips. Exact names board themselves as you type;
+      <kbd>Enter</kbd> also forgives a small typo (and settles Niger vs
+      Nigeria). Common names count: UK, Burma, DRC…
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="world"><b>The World</b><small>all 197 · 15:00 <kbd>1</kbd></small></button>
+        <button type="button" data-v="continent"><b>One Continent</b><small>a shorter run <kbd>2</kbd></small></button>
+      </div>
+      <div class="seg regions" id="pick-region" hidden>
+        <button type="button" data-r="EU">Europe</button>
+        <button type="button" data-r="AS">Asia</button>
+        <button type="button" data-r="AF">Africa</button>
+        <button type="button" data-r="AM">Americas</button>
+        <button type="button" data-r="OC">Oceania</button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Open the gates</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card wide">
+    <h2 id="over-title">Final boarding</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div id="missed" class="missed"></div>
+    <div class="row">
+      <button type="button" id="again">Fly again <kbd>Enter</kbd></button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="../passport/data.js"></script>
+<script src="../passport/judge.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
