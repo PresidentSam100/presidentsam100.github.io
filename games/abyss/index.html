@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A6%91%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Abyss</title>
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Abyss — the falling-block classic sunk into the deep sea: bioluminescent tetrominoes, sonar ghosts, full SRS spins. A browser game by Sam Lu." />
+    <meta property="og:title" content="Abyss — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Abyss — the falling-block classic sunk into the deep sea: bioluminescent tetrominoes, sonar ghosts, full SRS spins. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The water column. art.js paints the sea, game.js runs the well. -->
+<canvas id="stage" aria-label="A deep-sea well of glowing falling blocks; clear full rows"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <span id="hud-score">0</span>
+  <span id="hud-lines">0 rows</span>
+  <span id="hud-depth">100m</span>
+</div>
+
+<!-- touch controls (shown only on touch devices) -->
+<div id="pad" hidden>
+  <button type="button" id="p-hold" aria-label="Hold piece">⊞</button>
+  <button type="button" id="p-left" aria-label="Move left">◀</button>
+  <button type="button" id="p-rot" aria-label="Rotate">⟳</button>
+  <button type="button" id="p-right" aria-label="Move right">▶</button>
+  <button type="button" id="p-soft" aria-label="Soft drop">▽</button>
+  <button type="button" id="p-hard" aria-label="Hard drop">▼</button>
+</div>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>ABYSS</h1>
+    <p class="tag">the falling-block classic, fathoms down</p>
+    <p class="how">
+      Bioluminescent tetrominoes sink toward the seabed. Stack them tight and
+      full rows dissolve in a sonar sweep. The dashed outline is the
+      <b>sonar echo</b> — exactly where your piece will settle.
+    </p>
+    <p class="keys">
+      <kbd>←</kbd><kbd>→</kbd> move · <kbd>↓</kbd> soft drop · <kbd>Space</kbd> hard drop<br>
+      <kbd>↑</kbd>/<kbd>X</kbd> and <kbd>Z</kbd> spin · <kbd>C</kbd>/<kbd>Shift</kbd> hold · <kbd>Esc</kbd> pause
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="descent"><b>Descent</b><small>marathon — ever deeper, ever faster <kbd>1</kbd></small></button>
+        <button type="button" data-v="sprint"><b>Sprint 40</b><small>forty rows against the clock <kbd>2</kbd></small></button>
+        <button type="button" data-v="krill"><b>Krill</b><small>small fry too: 1-, 2- and 3-cell drifters <kbd>3</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Dive</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">Crush depth</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Dive again <kbd>Enter</kbd></button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
