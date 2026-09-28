@@ -114,15 +114,11 @@
         arcStroke(er * 0.5, r * 0.09, r * 0.1, 0.2 * Math.PI, 0.8 * Math.PI);
         blush("rgba(230,90,90,0.45)");
         break;
-      case 7: // grapefruit: sour face — flat brows, puckered mouth
+      case 7: // grapefruit: deadpan — the same flat brows, now over a plain smile
         dot(-ex, ey, er); dot(ex, ey, er);
         g.beginPath(); g.moveTo(-ex - er, ey - er * 1.6); g.lineTo(-ex + er, ey - er * 1.6); g.stroke();
         g.beginPath(); g.moveTo(ex - er, ey - er * 1.6); g.lineTo(ex + er, ey - er * 1.6); g.stroke();
-        g.beginPath(); g.arc(0, r * 0.12, r * 0.06, 0, 7); g.stroke();
-        g.fillStyle = "#f87d95"; // a proper tongue, hanging down — big enough to read tiny
-        g.beginPath(); g.arc(0, r * 0.22, r * 0.115, 0, Math.PI); g.closePath(); g.fill();
-        g.beginPath(); g.arc(0, r * 0.22, r * 0.115, 0, Math.PI); g.closePath(); g.stroke();
-        g.fillStyle = INK;
+        arcStroke(0, r * 0.02, r * 0.2, 0.2 * Math.PI, 0.8 * Math.PI);
         break;
       case 8: // pineapple: too cool — a shades bar and a smirk
         g.fillRect(-ex - er * 1.6, ey - er * 0.9, (ex + er * 1.6) * 2, er * 1.8);
@@ -131,8 +127,9 @@
         g.beginPath(); g.moveTo(-r * 0.06, r * 0.14); g.quadraticCurveTo(r * 0.1, r * 0.2, r * 0.16, r * 0.1); g.stroke();
         break;
       case 9: // melon: the serene elder, spectacles and closed eyes
-        arcStroke(-ex, ey, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI); // ∪ closed eyes
-        arcStroke(ex, ey, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI);
+        // a ∪ arc draws below its centre, so lift it to sit mid-lens
+        arcStroke(-ex, ey - er * 0.8, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI); // ∪ closed eyes
+        arcStroke(ex, ey - er * 0.8, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI);
         g.lineWidth = lw * 0.7;
         arcStroke(-ex, ey, er * 2, 0, 7); arcStroke(ex, ey, er * 2, 0, 7); // glasses
         g.beginPath(); g.moveTo(-ex + er * 2, ey); g.lineTo(ex - er * 2, ey); g.stroke();
