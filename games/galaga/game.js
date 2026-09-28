@@ -399,7 +399,7 @@ const Sprites = {};
   const flyPal = { R: '#ff3b3b', W: '#ffffff', B: '#2f6bff' };
   Sprites.butterfly = [makeSprite(flyDown, flyPal), makeSprite(flyUp, flyPal)];
 
-  // ----- Boss Galaga two frames (green = full health) -------------------
+  // ----- Flagship two frames (green = full health) -----------------------
   const bossDown = [
     '......G..G......',
     '.....GGGGGG.....',
@@ -1022,7 +1022,7 @@ class Enemy {
     const side = this.x < WIDTH / 2 ? 1 : -1;
     const prof = game.profile || DEFAULT_PROFILE;
     // canonical: dive shape follows the enemy type; an escorting Goei flies
-    // like the Boss Galaga it protects
+    // like the Flagship it protects
     const kind = this.isEscort ? T_BOSS : this.type;
     let style = TYPE_DIVE[kind] || 'swoop';
     if (game.finalAttack && kind === T_BEE) style = 'circle'; // end-of-stage Zako circling
@@ -1478,7 +1478,7 @@ const DIVE_STYLES = {
 };
 
 // Canonical dive behaviour by enemy type: Zako -> bee ambush dive,
-// Goei -> zig-zag, Boss Galaga -> loop then dive. Escorting Goeis fly like a boss.
+// Goei -> zig-zag, Flagship -> loop then dive. Escorting Goeis fly like a boss.
 const TYPE_DIVE = { [T_BEE]: 'beeDive', [T_BUTTERFLY]: 'zigzag', [T_BOSS]: 'loop' };
 
 // transformed-enemy group bonus (for downing all three) and the per-stage rotation
@@ -1580,8 +1580,8 @@ function stageProfile(stage) {
 const DEFAULT_PROFILE = stageProfile(1);
 
 // The 5-row formation layout: 4 bosses, 16 butterflies, 20 bees = 40 enemies.
-// The canonical Galaga formation as rows, each a single type, so every entrance
-// wave is one uniform type: 4 Boss Galagas, 16 Butterflies, 20 Bees = 40.
+// The canonical arcade formation as rows, each a single type, so every entrance
+// wave is one uniform type: 4 Flagships, 16 Butterflies, 20 Bees = 40.
 //   row 0: 4 bosses (centre)   rows 1-2: 8 butterflies each   rows 3-4: 10 bees each
 function formationRows() {
   const rows = [];
@@ -1627,9 +1627,9 @@ const ENCYCLOPEDIA = [
   { sprite: 'butterfly', name: 'GOEI (BUTTERFLY)', pts: '80 / 160', desc: [
     'Sixteen form the middle rows. They',
     'dive in a zig-zag toward you, and',
-    'escort a Boss Galaga, flying like it',
+    'escort a Flagship, flying like it',
     'while on guard duty.'] },
-  { sprite: 'boss', name: 'BOSS GALAGA', pts: '150 / 400 / 800 / 1600', desc: [
+  { sprite: 'boss', name: 'FLAGSHIP', pts: '150 / 400 / 800 / 1600', desc: [
     'Four command the top row. Takes two',
     'hits (turns blue). Alternates a',
     'loop-dive with escorts and a tractor',
@@ -1930,7 +1930,7 @@ class Game {
 
   nextStage() {
     this.stage++;
-    if (this.stage > 255) { this.gameComplete(); return; } // Galaga tops out at 255
+    if (this.stage > 255) { this.gameComplete(); return; } // the arcade original tops out at 255
     this.profile = stageProfile(this.stage);
     Object.assign(FORMATION, this.profile.sway); // per-stage swarm movement
     this.enemies = [];
@@ -2085,7 +2085,7 @@ class Game {
 
   buildBonus() {
     // A challenging stage: one enemy type (rotating through 8 line-ups) plus
-    // four Boss Galagas, in 5 waves of 8. They fly through and never attack.
+    // four Flagships, in 5 waves of 8. They fly through and never attack.
     // challenging stages run 3, 7, 11, … so this is the (n-1)th one, cycling 0..7
     const ci = (Math.floor((this.stage - 3) / 4) % CHALLENGE_TYPES.length + CHALLENGE_TYPES.length) % CHALLENGE_TYPES.length;
     const spec = CHALLENGE_TYPES[ci];
@@ -2135,7 +2135,7 @@ class Game {
     if (form.length === 0) return;
     const prof = this.profile;
 
-    // Boss Galagas alternate two behaviours: (1) loop-dive (with optional Goei
+    // Flagships alternate two behaviours: (1) loop-dive (with optional Goei
     // escorts) and (2) the tractor beam. They use ONLY behaviour 1 while a
     // fighter is captured, you have a Dual Fighter, or the formation has broken
     // up (most of the swarm destroyed).
@@ -2331,7 +2331,7 @@ class Game {
     else
       this.addPopup(e.x, e.y, '' + pts, popupCol);
 
-    // canonical: downing a Boss Galaga mid-dive makes all enemies hold fire briefly
+    // canonical: downing a Flagship mid-dive makes all enemies hold fire briefly
     if (e.type === T_BOSS && diving) { this.fireFreeze = 3.0; this.triggerFlash('#ffffff', 0.5); }
 
     // shot the capturing boss: mid-dive -> rescue; in formation -> the captive
@@ -2988,7 +2988,7 @@ class Game {
   }
 
   drawAttract(ctx) {
-    this.text(ctx, 'GALAGA', WIDTH / 2, 128, 48, '#ff3b5c', 'center');
+    this.text(ctx, 'SPACER', WIDTH / 2, 128, 48, '#ff3b5c', 'center');
     this.text(ctx, 'JAVASCRIPT EDITION', WIDTH / 2, 164, 12, '#18e0ff', 'center');
 
     // high score (the enemy line-up lives in the E guide now)

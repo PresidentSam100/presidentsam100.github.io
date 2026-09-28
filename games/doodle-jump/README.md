@@ -1,6 +1,6 @@
-# Doodle Jump Clone
+# Poodle Jump
 
-A web-ready Doodle Jump clone built with HTML5 Canvas and plain JavaScript — no
+A web-ready jumper in the Doodle Jump style (starring a poodle), built with HTML5 Canvas and plain JavaScript — no
 build step, no dependencies, no asset files (everything is drawn with code and
 the sound effects are synthesized with the Web Audio API).
 

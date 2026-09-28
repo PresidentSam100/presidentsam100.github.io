@@ -1950,8 +1950,8 @@ function drawMenu() {
   ctx.save();
   ctx.translate(W / 2, H * 0.15);
   ctx.rotate(-0.03);
-  textCenter("CROSSY", 0, 0, 56, "#fff");
-  textCenter("CHICKEN", 0, 50, 56, "#ffd23d");
+  textCenter("ROAD", 0, 0, 56, "#fff");
+  textCenter("BIRD", 0, 50, 56, "#ffd23d");
   ctx.restore();
   // a pair of voxel chickens flanking the title, bobbing in time
   drawChicken(W / 2 - 168, H * 0.15 + 30 + bob, 1.25, 1.25, -0.06, "right", SKINS[skinSel]);

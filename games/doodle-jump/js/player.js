@@ -1,6 +1,6 @@
 "use strict";
 
-// The doodle character. Moves left/right, bounces automatically, shoots, and
+// The poodle character. Moves left/right, bounces automatically, shoots, and
 // can be carried by a power-up (which grants temporary invincibility).
 class Player {
   constructor() {
@@ -139,35 +139,84 @@ class Player {
     // Power-up gear drawn behind the body
     if (this.powerup) this._renderPowerup(ctx, sy);
 
-    // Body (lime doodle blob), now with a proper ink outline
+    // Body: a doodled poodle — cream curls, same ink outline as before
+    const coat = this.invincible ? "#fff8ea" : "#f2e7d2";
+    const coatDk = "#dcc9a6";
     ctx.lineJoin = "round";
     ctx.strokeStyle = "#2f3550";
-    ctx.fillStyle = this.invincible ? "#9be36a" : "#7ed957";
+    ctx.fillStyle = coat;
     roundRect(ctx, this.x + 6, sy + 8, this.w - 12, this.h - 12, 14);
     ctx.fill();
     ctx.lineWidth = 2.2;
     ctx.stroke();
-    // little legs
-    ctx.fillStyle = "#5fb53e";
+    // the top-knot: scalloped curls along the crown
+    ctx.beginPath();
+    ctx.arc(this.x + 13, sy + 9, 5, Math.PI, 0);
+    ctx.arc(this.x + 22, sy + 7, 6.5, Math.PI, 0);
+    ctx.arc(this.x + 31, sy + 9, 5, Math.PI, 0);
+    ctx.fillStyle = coat;
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // floppy ears hanging beside the head
+    ctx.fillStyle = coatDk;
+    ctx.beginPath();
+    ctx.ellipse(this.x + 4.5, sy + 21, 5.5, 10, 0.25, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(this.x + this.w - 4.5, sy + 21, 5.5, 10, -0.25, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // pom tail on the trailing side
+    ctx.fillStyle = coat;
+    ctx.beginPath();
+    ctx.arc(cx - this.facing * (this.w / 2 - 1), sy + 31, 6, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    // legs with pom ankles
+    ctx.fillStyle = coatDk;
     ctx.lineWidth = 1.6;
     ctx.fillRect(this.x + 12, sy + this.h - 8, 7, 8);
     ctx.strokeRect(this.x + 12, sy + this.h - 8, 7, 8);
     ctx.fillRect(this.x + this.w - 19, sy + this.h - 8, 7, 8);
     ctx.strokeRect(this.x + this.w - 19, sy + this.h - 8, 7, 8);
+    ctx.fillStyle = coat;
+    ctx.beginPath();
+    ctx.arc(this.x + 15.5, sy + this.h - 8, 4.5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(this.x + this.w - 15.5, sy + this.h - 8, 4.5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
     // Spring shoes strapped to the feet while charges remain — and through the
     // final rise until they drop near its apex (springyDropPending).
     if (this.springy > 0 || this.springyDropPending) {
       GearArt.springShoe(ctx, this.x + 15, sy + this.h - 1);
       GearArt.springShoe(ctx, this.x + this.w - 15, sy + this.h - 1);
     }
-    // snout (points toward facing)
-    ctx.fillStyle = this.invincible ? "#9be36a" : "#7ed957";
+    // muzzle (points toward facing) with a bean nose
+    ctx.fillStyle = coat;
     const snoutDir = this.facing;
     ctx.beginPath();
     ctx.ellipse(cx + snoutDir * 12, sy + 26, 12, 9, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.lineWidth = 2;
     ctx.stroke();
+    ctx.fillStyle = "#2f3550";
+    ctx.beginPath();
+    ctx.ellipse(cx + snoutDir * 19, sy + 24, 3.2, 2.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // collar with a little tag
+    ctx.strokeStyle = "#e0457b";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(this.x + 9, sy + 35);
+    ctx.quadraticCurveTo(cx, sy + 39, this.x + this.w - 9, sy + 35);
+    ctx.stroke();
+    ctx.strokeStyle = "#2f3550";
+    ctx.fillStyle = "#ffd23f";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(cx, sy + 40, 3, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.lineWidth = 2;
 
     // eyes
     ctx.fillStyle = "#fff";

@@ -1,4 +1,4 @@
-/* Asteroids — classic rock-blasting, drawn as a pulp sci-fi comic.
+/* Meteor Menace! — classic rock-blasting, drawn as a pulp sci-fi comic.
    Chrome rocket with ink outlines, craggy inked boulders, halftone-dot space,
    and every big kill goes off as a KRAK!/BLAM! starburst panel. */
 (function () {
@@ -732,7 +732,7 @@
         capBox(W / 2, 120, "CHAPTER " + wave + ": METEOR STORM!", { center: true, size: 27, rot: -0.02 });
       }
     } else if (state === "menu") {
-      title("ASTEROIDS", "PRESS ENTER TO BLAST OFF!");
+      title("METEOR MENACE!", "PRESS ENTER TO BLAST OFF!");
       drawShipAt(W / 2 + Math.cos(time * 0.7) * 30, H * 0.68 + Math.sin(time * 1.1) * 10, -0.5 + Math.sin(time * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
       title("THE END...?", "PRESS ENTER FOR THE NEXT ISSUE");

@@ -752,7 +752,7 @@
     var bn = parseInt(load(BEST_NIGHT), 10) || 0;
     mode = "day"; // a lit orbiting preview behind the card
     card.innerHTML =
-      '<h2>RUSH HOUR</h2>' +
+      '<h2>QUICK MINUTE</h2>' +
       '<p>You\'re the fast one. Slice through ' + LANES + ' lanes of slower traffic and rack up distance.</p>' +
       '<ul class="rules">' +
         '<li>← → or <b>A / D</b> to change lanes (tap left/right on mobile).</li>' +

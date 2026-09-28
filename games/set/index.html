@@ -5,18 +5,18 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Set — Sam Lu</title>
+    <title>Hash — Sam Lu</title>
 
-    <meta property="og:title" content="Set — Sam Lu" />
+    <meta property="og:title" content="Hash — Sam Lu" />
     <meta property="og:type" content="website" />
     <meta
       property="og:description"
-      content="The classic card game Set: find groups of three cards where every feature — number, shape, shading and color — is all the same or all different."
+      content="Hash — find groups of three cards where every feature (number, shape, shading, color) is all the same or all different."
     />
     <meta name="author" content="Sam Lu" />
     <meta
       name="description"
-      content="Play Set — spot the trios where number, shape, shading and color are each all-same or all-different."
+      content="Play Hash — spot the trios where number, shape, shading and color are each all-same or all-different."
     />
     <meta name="twitter:card" content="summary" />
 
@@ -63,7 +63,7 @@
 
     <div class="wrap">
       <header class="set-header">
-        <h1 class="set-title">SET</h1>
+        <h1 class="set-title">HASH</h1>
         <p class="subtitle">
           Find a trio where <b>number</b>, <b>shape</b>, <b>shading</b> &amp;
           <b>color</b> are each <em>all&nbsp;same</em> or <em>all&nbsp;different</em>.
@@ -71,13 +71,13 @@
       </header>
 
       <div class="hud">
-        <div class="stat"><span class="k">Sets</span><span class="v" id="statSets">0</span></div>
+        <div class="stat"><span class="k">Hashes</span><span class="v" id="statSets">0</span></div>
         <div class="stat"><span class="k">Deck</span><span class="v" id="statDeck">81</span></div>
         <div class="stat"><span class="k">Time</span><span class="v" id="statTime">0:00</span></div>
         <div class="stat"><span class="k">Best</span><span class="v" id="statBest">—</span></div>
       </div>
 
-      <div id="board" aria-label="Set board"></div>
+      <div id="board" aria-label="Hash board"></div>
 
       <p id="msg" role="status" aria-live="polite"></p>
 
@@ -96,15 +96,15 @@
           cover every combination exactly once.
         </p>
         <p>
-          Click three cards to claim a <b>Set</b>. A valid Set is one where, for
+          Click three cards to claim a <b>Hash</b>. A valid Hash is one where, for
           <em>each</em> of the four features, the three cards are either
           <b>all the same</b> or <b>all different</b> — never two-and-one.
           Spot one, click its three cards, and they're replaced from the deck.
         </p>
         <p>
-          Stuck? <b>Hint</b> glows one (then two) cards of a real Set, but it
+          Stuck? <b>Hint</b> glows one (then two) cards of a real Hash, but it
           costs <b>+30 seconds</b> on the clock each time. If there's truly no
-          Set on the table, <b>Add 3 cards</b> deals more (it warns you if a Set
+          Hash on the table, <b>Add 3 cards</b> deals more (it warns you if a Hash
           was actually hiding). Clear the whole deck to win — fastest time
           (penalties included) is saved as your best.
         </p>

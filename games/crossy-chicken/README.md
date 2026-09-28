@@ -1,4 +1,4 @@
-# Crossy Chicken
+# Road Bird
 
 A self-contained [Crossy Road](https://en.wikipedia.org/wiki/Crossy_Road)-style game in a single HTML file. No build step, no dependencies, no server required.
 

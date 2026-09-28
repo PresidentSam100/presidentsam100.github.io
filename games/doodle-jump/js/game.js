@@ -516,7 +516,7 @@ class Game {
   }
 
   // Begin a death sequence. Types:
-  //   "fall"      -> missed every platform; camera follows the doodle down
+  //   "fall"      -> missed every platform; camera follows the poodle down
   //   "bump"      -> hit a monster / ufo side; dizzy, then falls
   //   "abduct"    -> caught in a ufo beam; sucked up into the saucer
   //   "blackhole" -> spiralled into a black hole
@@ -597,9 +597,9 @@ class Game {
       return;
     }
 
-    // Falling: the doodle plummets while the camera smoothly pans down to chase
+    // Falling: the poodle plummets while the camera smoothly pans down to chase
     // it (so platforms above scroll naturally up and off, rather than cutting).
-    // After a beat the camera settles and the doodle drops out of the bottom.
+    // After a beat the camera settles and the poodle drops out of the bottom.
     d.fallT += dt;
     p.vy += CONFIG.GRAVITY * dt;
     p.y += p.vy * dt;
@@ -609,7 +609,7 @@ class Game {
     if (d.type === "bump") p.spin += dt * 7; // keep wobbling while dizzy
 
     if (d.fallT < 1.3) {
-      // ease the camera toward keeping the doodle ~45% down the screen
+      // ease the camera toward keeping the poodle ~45% down the screen
       const target = p.y - CONFIG.H * 0.45;
       this.cameraY += (target - this.cameraY) * clamp(7 * dt, 0, 1);
     } else if (p.y - this.cameraY > CONFIG.H + 80 || d.fallT > 3.0) {
@@ -652,7 +652,7 @@ class Game {
 
     // The world is always drawn (also during death) so the camera pan reads
     // naturally — platforms scroll up and off as the camera chases the falling
-    // doodle, leaving empty sky rather than cutting abruptly.
+    // poodle, leaving empty sky rather than cutting abruptly.
     for (const plat of this.platforms) plat.render(ctx, this.cameraY);
     for (const e of this.enemies) e.render(ctx, this.cameraY);
     for (const gr of this.gears) gr.render(ctx, this.cameraY);
@@ -669,7 +669,7 @@ class Game {
 
   // Pencil scribbles in the margins that scroll slower than the world, giving
   // a parallax sense of height. Placement is procedural and infinite: one
-  // doodle band every BAND world-units, with a deterministic hash deciding
+  // poodle band every BAND world-units, with a deterministic hash deciding
   // each band's drawing, so the pattern is stable as the camera pans.
   renderBackground(ctx) {
     const factor = 0.35;            // < 1 -> doodles drift slower than platforms

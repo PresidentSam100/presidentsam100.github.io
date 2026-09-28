@@ -318,7 +318,7 @@
   function claimGood() {
     setsFound++;
     goodSound();
-    setMsg("Set! ✓", "good");
+    setMsg("Hash! ✓", "good");
     locked = true;
     var cardEls = boardEl.querySelectorAll(".card");
     var sel = selected.slice(); // the three claimed grid positions
@@ -403,7 +403,7 @@
 
   function claimBad() {
     badSound();
-    setMsg("Not a Set — two-and-one somewhere.", "bad");
+    setMsg("Not a Hash — two-and-one somewhere.", "bad");
     var cards = boardEl.querySelectorAll(".card");
     selected.forEach(function (i) {
       if (cards[i]) cards[i].classList.add("bad");
@@ -425,7 +425,7 @@
     if (deck.length === 0) return;
     if (findSet(board)) {
       // There WAS a set — gentle nudge, no new cards.
-      setMsg("There's already a Set on the table — keep looking! 👀", "info");
+      setMsg("There's already a Hash on the table — keep looking! 👀", "info");
       badSound();
       return;
     }
@@ -439,7 +439,7 @@
     if (locked || over) return;
     var trio = findSet(board);
     if (!trio) {
-      setMsg("No Set on the table — add more cards.", "info");
+      setMsg("No Hash on the table — add more cards.", "info");
       return;
     }
     // Highlight one card of a valid set; reveal a second on a repeat press.
@@ -448,7 +448,7 @@
     var reveal = Math.min(already + 1, 2); // never give away all three
     if (reveal <= already) {
       // Both cards are already showing — no new info, so no extra charge.
-      setMsg("Two cards of a Set are already glowing. 💡", "info");
+      setMsg("Two cards of a Hash are already glowing. 💡", "info");
       return;
     }
     for (var i = 0; i < reveal; i++) {
@@ -461,7 +461,7 @@
     statTime.textContent = fmtTime(elapsed + penalty);
     setMsg(
       (reveal === 1
-        ? "Hint: one card of a Set is glowing. 💡"
+        ? "Hint: one card of a Hash is glowing. 💡"
         : "Hint: two cards of a Set are glowing. 💡") + " (+30s)",
       "info"
     );

@@ -22,7 +22,7 @@ var GLYPH = {
 };
 var POINTS = { skip: 20, reverse: 20, draw2: 20 };
 // Distinct hues for up to 10 players in the log, chosen to stay clear of the
-// four Uno card colors (red/yellow/green/blue) so a player's name is never
+// four classic card colors (red/yellow/green/blue) so a player's name is never
 // mistaken for a card-color callout.
 var PLAYER_HUES = [335, 70, 95, 160, 178, 235, 255, 275, 295, 315];
 function playerColor(pi) { return "hsl(" + PLAYER_HUES[pi % PLAYER_HUES.length] + ", 72%, 62%)"; }
@@ -261,7 +261,7 @@ function drawCards(pi, n) {
     G.players[pi].hand.push(c);
     got.push(c);
   }
-  // drawing more than one card means you no longer "have UNO"
+  // drawing more than one card means you no longer "have YI"
   if (G.players[pi].hand.length !== 1) G.players[pi].calledUno = false;
   if (got.length) {
     flyDraw(pi, got.length);
@@ -326,7 +326,7 @@ function playCard(pi, idx, chosenColor, done) {
       return endHand(pi);
     }
 
-    // UNO window if this play left them at exactly one card
+    // YI window if this play left them at exactly one card
     unoWindow(pi, function () {
       applyEffect(pi, card, prevColor, done);
     });
@@ -485,9 +485,9 @@ function resolveWild4(pi, challengeColor, finish) {
 }
 
 // ----------------------------------------------------------------
-//  UNO call window
+//  YI call window
 // ----------------------------------------------------------------
-// Called after a play. If `pi` now has exactly 1 card, run the UNO logic,
+// Called after a play. If `pi` now has exactly 1 card, run the YI logic,
 // then call cont().
 function unoWindow(pi, cont) {
   var p = G.players[pi];
@@ -496,7 +496,7 @@ function unoWindow(pi, cont) {
   }
 
   if (p.isHuman) {
-    // Human must press UNO within a short window or get caught.
+    // Human must press YI within a short window or get caught.
     var caught = false;
     var done = false;
     var timer = null;
@@ -510,7 +510,7 @@ function unoWindow(pi, cont) {
     showUnoButton(function () {
       // pressed in time
       p.calledUno = true;
-      toast("🗣️ UNO!");
+      toast("🗣️ YI!");
       sfxUno();
       finishUno();
     });
@@ -519,7 +519,7 @@ function unoWindow(pi, cont) {
       // a random CPU catches you
       var catcher = pickCatcher(pi);
       drawCards(pi, 2);
-      log([{ player: catcher }, " caught you — you didn't call UNO! Draw 2."]);
+      log([{ player: catcher }, " caught you — you didn't call YI! Draw 2."]);
       toast("😱 " + G.players[catcher].name + " caught you! +2 cards");
       finishUno();
     }, 3200);
@@ -527,8 +527,8 @@ function unoWindow(pi, cont) {
     // CPU: usually calls in time. Sometimes forgets → human may catch it.
     if (Math.random() < 0.78) {
       p.calledUno = true;
-      log([{ player: pi }, " calls UNO!"]);
-      toast(p.name + " calls UNO!");
+      log([{ player: pi }, " calls YI!"]);
+      toast(p.name + " calls YI!");
       sfxUno();
       cont();
     } else {
@@ -1073,7 +1073,7 @@ function render() {
       '<div class="ocount">' + p.hand.length + " cards</div>" +
       '<div class="mini-backs">' + backs + "</div>" +
       (p.hand.length === 1 && p.calledUno
-        ? '<span class="badge-uno">UNO</span>'
+        ? '<span class="badge-uno">YI</span>'
         : "") +
       "</div>";
   }
@@ -1201,7 +1201,7 @@ function showColorPicker(cb) {
 function showUnoButton(cb) {
   modal.innerHTML =
     "<h3>One card left!</h3><p>Call it before someone catches you.</p>" +
-    '<button class="btn uno" id="unoBtn" style="font-size:1.4rem;padding:0.9rem 2.4rem">UNO!</button>';
+    '<button class="btn uno" id="unoBtn" style="font-size:1.4rem;padding:0.9rem 2.4rem">YI!</button>';
   overlay.classList.add("show");
   document.getElementById("unoBtn").onclick = function () {
     cb();
@@ -1217,7 +1217,7 @@ function offerCatch(pi, cont) {
     hideOverlay();
     if (caught) {
       drawCards(pi, 2);
-      log([{ player: 0 }, " caught ", { player: pi }, " — they forgot UNO! +2 cards."]);
+      log([{ player: 0 }, " caught ", { player: pi }, " — they forgot YI! +2 cards."]);
       toast("🎯 Caught " + G.players[pi].name + "! +2 cards");
     }
     render();
@@ -1225,7 +1225,7 @@ function offerCatch(pi, cont) {
   };
   modal.innerHTML =
     "<h3>" + G.players[pi].name + " has one card…</h3>" +
-    "<p>They didn't call UNO! Catch them before the next turn.</p>" +
+    "<p>They didn't call YI! Catch them before the next turn.</p>" +
     '<button class="btn uno" id="catchBtn" style="font-size:1.2rem;padding:0.8rem 2rem">Catch them!</button>';
   overlay.classList.add("show");
   document.getElementById("catchBtn").onclick = function () { finish(true); };

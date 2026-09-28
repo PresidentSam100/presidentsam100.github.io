@@ -1,6 +1,6 @@
-# GALAGA — JavaScript Edition
+# Spacer — JavaScript Edition
 
-A from-scratch clone of the 1981 Namco arcade classic, built with vanilla
+A from-scratch homage to the 1981 Namco arcade classic, built with vanilla
 HTML5 Canvas + JavaScript. **Everything lives in a single self-contained
 `index.html`** (inline CSS + JS) — no build step, no dependencies, no asset
 files. Just open it in a browser (double-click works; it runs from `file://`)
@@ -54,7 +54,7 @@ Press **E** on the title screen for an in-game **encyclopedia** with two tabs �
 **← / →** browses entries, **↑ / ↓** switches tab, **E / Esc** returns:
 
 - **Enemies** — every type with an animated sprite, name, point values, and a
-  short lore blurb (Zako, Goei, Boss Galaga, Captured Fighter, the transformed
+  short lore blurb (Zako, Goei, Flagships, Captured Fighter, the transformed
   trios Ogawamushi / Ei / Galboss, the challenging-stage specials Tonbo / Momiji
   / Spaceship, and our custom Raider).
 - **Power-ups** — each of the six (Spread, Pierce, Rapid, Shield, Speed, Hunter)
@@ -110,7 +110,7 @@ chasing score.
     bottom and comes **back up to ambush you from behind** before exiting the top.
   - **Goei (Butterfly)** — dives in a **zig-zag** toward you; when escorting a
     Boss it flies like the Boss instead.
-  - **Boss Galaga** — alternates **(1) loop-then-dive** (sometimes leading 1–2
+  - **Flagships** — alternates **(1) loop-then-dive** (sometimes leading 1–2
     Goei escorts) and **(2)** flying to a random spot to deploy its **tractor
     beam**. Uses only the dive while a fighter is captured / you're dual / the
     formation is broken. Downing a Boss mid-dive makes every enemy **hold fire
@@ -132,7 +132,7 @@ chasing score.
 
 **Challenging / bonus stages** (stages 3, 7, 11, 15, …)
 - Each is **one rotating enemy line-up** (Zako, Goei, Tonbo, Ogawamushi, Momiji,
-  Ei, Galboss, Enterprise) **plus four Boss Galagas**, in 5 waves of 8 — flying
+  Ei, Galboss, Enterprise) **plus four Flagships**, in 5 waves of 8 — flying
   through in patterns, never attacking.
 - **Clear a whole wave** for a bonus (1000–3000). Per-hit scoring, and a
   **PERFECT 10,000** for shooting all 40.
