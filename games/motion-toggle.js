@@ -1,7 +1,7 @@
 /* =====================================================================
    Per-game "Reduce motion" toggle.
    - Storage key is derived from the game's folder, so each game remembers
-     its OWN setting (e.g. /games/galaga/ -> "reduceMotion:galaga").
+     its OWN setting (e.g. /games/spacer/ -> "reduceMotion:spacer").
    - Injects a motion-neutralizing <style> before first paint (no flash).
    - Builds a fixed top-right toggle button that auto-themes to match the
      game's "← Games" back button.
