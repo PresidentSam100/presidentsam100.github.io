@@ -119,9 +119,9 @@
         g.beginPath(); g.moveTo(-ex - er, ey - er * 1.6); g.lineTo(-ex + er, ey - er * 1.6); g.stroke();
         g.beginPath(); g.moveTo(ex - er, ey - er * 1.6); g.lineTo(ex + er, ey - er * 1.6); g.stroke();
         g.beginPath(); g.arc(0, r * 0.12, r * 0.06, 0, 7); g.stroke();
-        g.fillStyle = "#e2635c"; // a proper tongue, hanging down
-        g.beginPath(); g.arc(0, r * 0.21, r * 0.08, 0, Math.PI); g.closePath(); g.fill();
-        g.beginPath(); g.arc(0, r * 0.21, r * 0.08, 0, Math.PI); g.closePath(); g.stroke();
+        g.fillStyle = "#f87d95"; // a proper tongue, hanging down — big enough to read tiny
+        g.beginPath(); g.arc(0, r * 0.22, r * 0.115, 0, Math.PI); g.closePath(); g.fill();
+        g.beginPath(); g.arc(0, r * 0.22, r * 0.115, 0, Math.PI); g.closePath(); g.stroke();
         g.fillStyle = INK;
         break;
       case 8: // pineapple: too cool — a shades bar and a smirk
@@ -615,7 +615,7 @@
     return g;
   }
   var nextCtx = hiDpi("next", 86, 86);
-  var chainCtx = hiDpi("chain", 86, 356);
+  var chainCtx = hiDpi("chain", 100, 410);
   function refreshHud() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = Math.max(best.get(), score);
@@ -630,15 +630,15 @@
   }
   function drawChain() { // the little evolution ladder
     var g = chainCtx;
-    g.clearRect(0, 0, 86, 356);
+    g.clearRect(0, 0, 100, 410);
     g.strokeStyle = "rgba(160,106,51,0.5)";
     g.lineWidth = 2;
-    g.beginPath(); g.moveTo(43, 16); g.lineTo(43, 340); g.stroke();
+    g.beginPath(); g.moveTo(50, 20); g.lineTo(50, 390); g.stroke();
     for (var i = 0; i < TIERS.length; i++) {
-      var y = 18 + i * 31;
+      var y = 22 + i * 37;
       var sp = SPRITES[i];
-      var scale = Math.min(1, 12.5 / TIERS[i].r);
-      g.save(); g.translate(43, y); g.scale(scale, scale);
+      var scale = Math.min(1, 17 / TIERS[i].r);
+      g.save(); g.translate(50, y); g.scale(scale, scale);
       g.drawImage(sp.c, -sp.off, -sp.off);
       g.restore();
     }
