@@ -1,0 +1,304 @@
+/* =====================================================================
+   Passport — a flag quiz at the border desk.
+   A worn passport lies open on the officer's counter: the left page
+   holds the flag postcard and four destination tags, the right page
+   collects your ink stamps. Typewriter type, stamp thunks in CSS.
+   ===================================================================== */
+
+:root {
+  --desk: #2e2320;
+  --paper: #f4ecd8;
+  --paper-dk: #e6dabe;
+  --ink: #37405a;          /* passport-office blue-black */
+  --faint: #8a7f68;
+  --entry: #2e7d4f;        /* entry-stamp green  */
+  --deny: #b8323d;         /* denied red         */
+  --gold: #c2a15c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: "Courier Prime", "Courier New", monospace;
+  color: var(--ink);
+  overflow-x: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 214, 140, 0.1), transparent 55%),
+    radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, 0.55), transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='w'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012 0.09' numOctaves='3' seed='4'/%3E%3CfeColorMatrix values='0 0 0 0 0.22 0 0 0 0 0.16 0 0 0 0 0.12 0 0 0 0.6 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23w)'/%3E%3C/svg%3E"),
+    var(--desk);
+}
+
+.nav-back-games {
+  position: fixed; top: 14px; left: 16px; z-index: 50;
+  font: 700 14px/1 "Courier Prime", monospace;
+  color: var(--paper); text-decoration: none;
+  background: rgba(46, 35, 32, 0.9);
+  border: 1.5px solid var(--gold); border-radius: 5px;
+  padding: 7px 12px; letter-spacing: 1px;
+}
+.nav-back-games:hover { color: #fff; border-color: #e8cf96; }
+
+/* ---- the booklet ------------------------------------------------------ */
+#desk {
+  min-height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 58px 14px 26px;
+}
+.booklet {
+  position: relative;
+  display: grid; grid-template-columns: 1fr 1fr;
+  width: min(880px, 100%);
+  min-height: 520px;
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 0 8px #5a2d2a, 0 0 0 9px #3d1e1c;
+  background: var(--paper);
+}
+/* the spine */
+.booklet::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 50%; width: 26px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, rgba(80, 60, 30, 0.25) 35%, rgba(60, 40, 20, 0.4) 50%, rgba(80, 60, 30, 0.25) 65%, transparent);
+  pointer-events: none; z-index: 3;
+}
+.page {
+  position: relative; padding: 22px 26px 24px;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255, 255, 255, 0.35), transparent 60%),
+    repeating-linear-gradient(0deg, transparent 0 34px, rgba(138, 127, 104, 0.12) 34px 35px),
+    var(--paper);
+}
+.page-l { border-radius: 12px 0 0 12px; }
+.page-r { border-radius: 0 12px 12px 0; background-color: var(--paper-dk); }
+/* faint guilloché waves, like real visa pages */
+.page::after {
+  content: ""; position: absolute; inset: 8px; pointer-events: none; border-radius: 8px;
+  background:
+    repeating-radial-gradient(circle at 20% 110%, transparent 0 9px, rgba(90, 110, 160, 0.05) 9px 10px),
+    repeating-radial-gradient(circle at 90% -10%, transparent 0 11px, rgba(160, 90, 90, 0.05) 11px 12px);
+}
+
+.hudline {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 13px; letter-spacing: 1px; color: var(--faint);
+  border-bottom: 1.5px dashed rgba(138, 127, 104, 0.5);
+  padding-bottom: 6px; margin-bottom: 14px; position: relative; z-index: 4;
+}
+.hudline #hud-score { color: var(--ink); font-weight: 700; font-size: 15px; }
+.hudline #hud-extra { font-weight: 700; }
+.hudline #hud-extra.warn { color: var(--deny); }
+
+/* ---- the flag postcard -------------------------------------------------- */
+.postcard {
+  position: relative; z-index: 4;
+  background: #fff;
+  padding: 10px 10px 6px;
+  box-shadow: 0 4px 12px rgba(55, 40, 20, 0.3);
+  transform: rotate(-1.2deg);
+  margin: 0 auto; width: fit-content; max-width: 100%;
+}
+/* the tape holding it to the page */
+.postcard::before {
+  content: ""; position: absolute; top: -10px; left: 50%; transform: translateX(-50%) rotate(2deg);
+  width: 92px; height: 20px; background: rgba(244, 236, 216, 0.7);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+#flag {
+  display: block; height: 148px; max-width: min(320px, 62vw);
+  object-fit: contain;
+  border: 1px solid rgba(55, 64, 90, 0.25);
+  background: #eee;
+  user-select: none; -webkit-user-drag: none;
+}
+.postcard figcaption {
+  font-family: "Kalam", cursive; font-size: 14px; color: #6b6250;
+  text-align: center; padding-top: 4px;
+}
+
+/* ---- destination tags ----------------------------------------------------- */
+.tags { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; position: relative; z-index: 4; }
+.tags[hidden], .typed[hidden] { display: none; }
+.tag {
+  position: relative;
+  font: 700 15px/1.3 "Courier Prime", monospace; letter-spacing: 0.5px;
+  text-align: left; cursor: pointer; color: var(--ink);
+  background: #fbf6e9;
+  border: 1.5px solid #c9bc9c; border-radius: 4px 12px 12px 4px;
+  padding: 11px 12px 11px 10px;
+  box-shadow: 0 2px 5px rgba(55, 40, 20, 0.2);
+  display: flex; align-items: center; gap: 8px;
+  min-height: 52px;
+}
+.tag::after {  /* the tag's string hole */
+  content: ""; position: absolute; right: 7px; top: 50%; transform: translateY(-50%);
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--paper); border: 1.5px solid #c9bc9c;
+}
+.tag kbd {
+  font-family: inherit; font-size: 11px; flex: 0 0 auto;
+  background: var(--ink); color: var(--paper);
+  border-radius: 3px; padding: 1px 6px;
+}
+.tag span { padding-right: 12px; }
+.tag:hover { border-color: var(--ink); }
+.tag:disabled { cursor: default; }
+.tag.hit { background: #e2f2e5; border-color: var(--entry); color: var(--entry); }
+.tag.bad { background: #f8e2e3; border-color: var(--deny); color: var(--deny); }
+.tag:focus { outline: none; }
+.tag:focus-visible { outline: 2.5px dashed var(--ink); outline-offset: 3px; }
+
+/* ---- the typed answer: a form line on the passport page --------------------- */
+.typed { margin-top: 22px; position: relative; z-index: 4; }
+.typed label {
+  display: block; font-size: 11px; letter-spacing: 3px; color: var(--faint); margin-bottom: 5px;
+}
+.typed-row { display: flex; gap: 8px; }
+#answer {
+  flex: 1; min-width: 0;
+  font: 700 17px/1.3 "Courier Prime", monospace; letter-spacing: 1px;
+  color: var(--ink); background: transparent;
+  border: 0; border-bottom: 2px dotted #a99b7c; border-radius: 0;
+  padding: 6px 2px;
+}
+#answer:focus { outline: none; border-bottom-color: var(--ink); }
+#answer::placeholder { color: #b3a888; font-weight: 400; }
+#answer.hit { color: var(--entry); border-bottom-color: var(--entry); }
+#answer.bad { color: var(--deny); border-bottom-color: var(--deny); text-decoration: line-through; }
+#stamp-btn {
+  font: 700 14px/1 "Courier Prime", monospace; letter-spacing: 1px; cursor: pointer;
+  color: var(--paper); background: var(--ink);
+  border: 0; border-radius: 6px; padding: 10px 14px;
+  flex: 0 0 auto;
+}
+#stamp-btn:hover { filter: brightness(1.15); }
+#stamp-btn:active { transform: translateY(1px); }
+#stamp-btn kbd { background: rgba(244, 236, 216, 0.25); }
+#stamp-btn:disabled { opacity: 0.5; cursor: default; }
+.typed-note { font-family: "Kalam", cursive; font-size: 12px; color: var(--faint); margin-top: 7px; }
+
+.seg.styles { flex-direction: row !important; }
+.seg.styles button { flex: 1; }
+
+/* ---- stamps ----------------------------------------------------------------- */
+.page-head {
+  font-size: 12px; letter-spacing: 4px; color: var(--faint); text-align: center;
+  border-bottom: 1.5px dashed rgba(138, 127, 104, 0.5); padding-bottom: 6px;
+}
+.stamps {
+  display: flex; flex-wrap: wrap; gap: 9px; align-content: flex-start;
+  padding: 14px 4px; min-height: 300px; position: relative; z-index: 4;
+}
+.mini {
+  --sc: var(--entry);
+  font-family: "Courier Prime", monospace; font-weight: 700;
+  font-size: 10.5px; line-height: 1.25; letter-spacing: 0.5px;
+  color: var(--sc); border: 2px solid var(--sc);
+  padding: 4px 7px; text-align: center;
+  transform: rotate(var(--rot, -4deg));
+  opacity: 0.85; mix-blend-mode: multiply;
+  border-radius: var(--shape, 50%);
+  max-width: 108px;
+}
+.mini.deny { --sc: var(--deny); }
+.mini small { display: block; font-size: 8px; font-weight: 400; letter-spacing: 1px; }
+
+/* the big feedback stamp that thunks onto the right page */
+.big-stamp {
+  --sc: var(--entry);
+  position: absolute; top: 42%; left: 50%; z-index: 6;
+  transform: translate(-50%, -50%) rotate(-8deg) scale(1);
+  font-family: "Courier Prime", monospace; font-weight: 700;
+  color: var(--sc); border: 5px solid var(--sc);
+  border-radius: 14px; padding: 12px 20px;
+  font-size: 25px; letter-spacing: 3px; text-align: center;
+  mix-blend-mode: multiply; opacity: 0.9;
+  pointer-events: none; white-space: nowrap;
+}
+.big-stamp small { display: block; font-size: 12px; letter-spacing: 2px; }
+.big-stamp.deny { --sc: var(--deny); border-radius: 6px; transform: translate(-50%, -50%) rotate(6deg); }
+.fxon .big-stamp.thunk { animation: thunk 0.32s cubic-bezier(0.2, 2.2, 0.4, 1); }
+@keyframes thunk {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(-8deg) scale(2.1); }
+  60% { opacity: 0.95; transform: translate(-50%, -50%) rotate(-8deg) scale(0.96); }
+  100% { opacity: 0.9; transform: translate(-50%, -50%) rotate(-8deg) scale(1); }
+}
+.fxon .big-stamp.deny.thunk { animation: thunkd 0.32s cubic-bezier(0.2, 2.2, 0.4, 1); }
+@keyframes thunkd {
+  0% { opacity: 0; transform: translate(-50%, -50%) rotate(6deg) scale(2.1); }
+  60% { opacity: 0.95; transform: translate(-50%, -50%) rotate(6deg) scale(0.96); }
+  100% { opacity: 0.9; transform: translate(-50%, -50%) rotate(6deg) scale(1); }
+}
+
+/* ---- panels -------------------------------------------------------------------- */
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(20, 14, 12, 0.6);
+}
+.panel[hidden] { display: none; }
+.card {
+  width: min(430px, 100%);
+  background: var(--paper);
+  border-radius: 10px;
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 0 6px #5a2d2a, 0 0 0 7px #3d1e1c;
+  padding: 24px 24px 20px;
+}
+.card h1, .card h2 { letter-spacing: 3px; text-transform: uppercase; }
+.card h1 { font-size: 27px; }
+.card h2 { font-size: 22px; }
+.card .tag-line { font-family: "Kalam", cursive; color: #6b6250; margin: 3px 0 10px; }
+.card .how { font-size: 14.5px; line-height: 1.55; margin-bottom: 14px; }
+.card .how b { color: var(--deny); }
+
+.pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 15px; text-align: left; cursor: pointer;
+  color: var(--ink); background: #fbf6e9;
+  border: 1.5px solid #c9bc9c; border-radius: 6px; padding: 9px 12px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.seg button b { letter-spacing: 1px; }
+.seg button small { font-size: 12px; color: var(--faint); text-align: right; }
+.seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); background: #fff; }
+
+kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(--paper); border-radius: 3px; padding: 1px 6px; }
+
+.playbtn {
+  font-family: inherit; font-weight: 700; font-size: 18px; letter-spacing: 1px;
+  width: 100%; cursor: pointer;
+  color: var(--paper); background: var(--ink);
+  border: 0; border-radius: 8px; padding: 12px;
+  box-shadow: 0 4px 0 #232a3d;
+}
+.playbtn:hover { filter: brightness(1.15); }
+.playbtn:active { transform: translateY(2px); box-shadow: 0 2px 0 #232a3d; }
+.playbtn kbd { background: rgba(244, 236, 216, 0.25); }
+.bests { margin-top: 12px; font-size: 13px; color: var(--faint); min-height: 17px; text-align: center; }
+
+.card .big { font-size: 38px; font-weight: 700; margin: 8px 0 2px; }
+.card .big small { font-size: 15px; color: var(--faint); }
+.card .stats { font-size: 13.5px; color: #6b6250; margin: 4px 0 16px; white-space: pre-line; line-height: 1.6; }
+.card .row { display: flex; gap: 10px; flex-wrap: wrap; }
+.card .row button {
+  font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+  color: var(--ink); background: #fbf6e9;
+  border: 1.5px solid #c9bc9c; border-radius: 7px; padding: 9px 16px;
+}
+.card .row button:first-child { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.card .row button:active { transform: translateY(1px); }
+
+/* ---- small screens ---------------------------------------------------------------- */
+@media (max-width: 760px) {
+  #desk { padding-top: 64px; align-items: flex-start; }
+  .booklet { grid-template-columns: 1fr; min-height: 0; }
+  .booklet::before { display: none; }
+  .page-l { border-radius: 12px 12px 0 0; }
+  .page-r { border-radius: 0 0 12px 12px; }
+  .stamps { min-height: 74px; padding: 10px 2px; }
+  #flag { height: 118px; }
+  .tags { grid-template-columns: 1fr; gap: 8px; }
+  .tag { min-height: 44px; padding: 8px 10px; }
+  .big-stamp { position: fixed; top: 38%; font-size: 21px; }
+}

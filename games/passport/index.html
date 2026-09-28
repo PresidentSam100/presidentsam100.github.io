@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%9B%82%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Passport</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://flagcdn.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Kalam:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Passport — the flag quiz: name each country's flag and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
+    <meta property="og:title" content="Passport — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Passport — the flag quiz: name each country's flag and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The open passport on a customs desk. Left page: the flag postcard and
+     the four destination tags. Right page: your stamps. -->
+<main id="desk">
+  <div class="booklet" id="booklet">
+    <section class="page page-l">
+      <div class="hudline">
+        <span id="hud-mode"></span>
+        <span id="hud-score">0 stamps</span>
+        <span id="hud-extra"></span>
+      </div>
+      <figure class="postcard" id="postcard">
+        <img id="flag" alt="A country's flag" draggable="false" />
+        <figcaption id="post-cap">whose flag is this?</figcaption>
+      </figure>
+      <div class="tags" id="tags">
+        <button type="button" class="tag" data-i="0"><kbd>1</kbd><span></span></button>
+        <button type="button" class="tag" data-i="1"><kbd>2</kbd><span></span></button>
+        <button type="button" class="tag" data-i="2"><kbd>3</kbd><span></span></button>
+        <button type="button" class="tag" data-i="3"><kbd>4</kbd><span></span></button>
+      </div>
+      <form class="typed" id="typed" hidden autocomplete="off">
+        <label for="answer">STATE / ÉTAT</label>
+        <div class="typed-row">
+          <input id="answer" type="text" maxlength="40" autocomplete="off"
+                 autocapitalize="off" autocorrect="off" spellcheck="false"
+                 placeholder="type the country…" aria-label="Type the country's name" />
+          <button type="submit" id="stamp-btn">Stamp <kbd>Enter</kbd></button>
+        </div>
+        <div class="typed-note" id="typed-note">one small typo is forgiven · common names count (UK, Burma…)</div>
+      </form>
+    </section>
+    <section class="page page-r">
+      <div class="page-head">ENTRIES · VISAS</div>
+      <div class="stamps" id="stamps"></div>
+      <div class="big-stamp" id="big-stamp" hidden></div>
+    </section>
+  </div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Passport</h1>
+    <p class="tag-line">the flag quiz at the border desk</p>
+    <p class="how">
+      One flag, four destinations — pick the right country and the officer
+      stamps you through. Guess wrong and the page gets a red
+      <b>DENIED</b>.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="tour"><b>World Tour</b><small>endless — three denials end it <kbd>1</kbd></small></button>
+        <button type="button" data-v="dash"><b>Layover Dash</b><small>60 seconds, wrong costs 3 <kbd>2</kbd></small></button>
+        <button type="button" data-v="daily"><b>Visa Run</b><small id="daily-small">today's 10 flags, shareable <kbd>3</kbd></small></button>
+      </div>
+      <div class="seg styles" id="pick-style">
+        <button type="button" data-s="tags"><b>🏷 Tags</b><small>pick from four <kbd>T</kbd></small></button>
+        <button type="button" data-s="typed"><b>⌨ Typed</b><small>spell it out <kbd>Y</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Approach the desk</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">Trip over</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Travel again <kbd>Enter</kbd></button>
+      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="data.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
