@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%9A%B0%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Steamfitter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Saira+Condensed:wght@500;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Steamfitter — lay copper pipe ahead of the rising water in the boiler room. A browser game by Sam Lu." />
+    <meta property="og:title" content="Steamfitter — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Steamfitter — build the pipeline before the water catches you. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:400 15px/1 'Saira Stencil One',system-ui,sans-serif;letter-spacing:.5px;color:#e8b64c;background:#23262c;border:2px solid #6f5a2e;border-radius:8px;box-shadow:0 3px 0 #141619;padding:8px 13px">&larr; Games</a>
+
+  <div id="wrap">
+    <aside id="left">
+      <div class="panel">
+        <div class="lbl">Queue</div>
+        <canvas id="queue" width="80" height="330"></canvas>
+        <button id="pickToggle" class="pick-toggle" type="button">Queue: Free ▾</button>
+      </div>
+    </aside>
+
+    <div id="center">
+      <div id="modeBar">
+        <button class="mbtn" data-mode="panic" type="button">🔥 Panic</button>
+        <button class="mbtn" data-mode="puzzle" type="button">♾️ Endless</button>
+        <button class="mbtn sel" data-mode="levels" type="button">🧩 Levels</button>
+      </div>
+      <div id="howLine">Click a pipe to turn it a quarter clockwise — connect the tank to the drain.</div>
+      <div id="board">
+        <canvas id="game" width="640" height="490"></canvas>
+        <div id="levelSelect" class="hidden"></div>
+      </div>
+      <div id="editor" class="hidden">
+        <div id="editTools">
+          <button class="etool epipe" data-tool="straight" data-shape="straight" type="button" title="Straight — drag to place, click to rotate"><span class="eico">┃</span> Straight</button>
+          <button class="etool epipe sel" data-tool="bend" data-shape="bend" type="button" title="Bend — drag to place, click to rotate"><span class="eico">┗</span> Bend</button>
+          <button class="etool epipe" data-tool="tee" data-shape="tee" type="button" title="T-junction — drag to place, click to rotate"><span class="eico">┳</span> Tee</button>
+          <button class="etool epipe" data-tool="cross" data-shape="cross" type="button" title="Cross — drag to place"><span class="eico">╋</span> Cross</button>
+          <button class="etool epipe" data-tool="cap" data-shape="cap" type="button" title="Cap — drag to place, click to rotate"><span class="eico">╹</span> Cap</button>
+          <button class="etool" data-tool="src" type="button" title="Source (left edge)">🚰 Source</button>
+          <button class="etool" data-tool="drain" type="button" title="Drain (right edge)">🕳 Drain</button>
+          <button class="etool" data-tool="block" type="button" title="Blocked plate">⬛ Block</button>
+          <button class="etool" data-tool="erase" type="button" title="Erase">✖ Erase</button>
+        </div>
+        <div id="editRow">
+          <input id="editName" type="text" maxlength="22" placeholder="Level name" />
+          <button class="btn" id="editTest" type="button">▶ Test</button>
+          <button class="btn" id="editSave" type="button">💾 Save</button>
+          <button class="btn ghost" id="editClear" type="button">Clear</button>
+          <button class="btn ghost" id="editBack" type="button">◂ Back</button>
+        </div>
+        <div id="editMsg"></div>
+      </div>
+    </div>
+
+    <aside id="right">
+      <div class="panel">
+        <div class="lbl">Pressure</div>
+        <canvas id="gauge" width="120" height="120"></canvas>
+        <div class="gauge-note" id="flowNote">water rising…</div>
+      </div>
+      <div class="panel">
+        <div class="lbl">Level</div>
+        <div class="val" id="level">1</div>
+        <div class="lbl" id="scoreLbl">Score</div>
+        <div class="val" id="score">0</div>
+        <div class="lbl" id="bestLbl">Best</div>
+        <div class="val small" id="best">0</div>
+      </div>
+      <button class="btn" id="ffBtn" title="Hold to fast-forward (or hold Space)">⏩ Open valve</button>
+    </aside>
+  </div>
+
+  <div id="overScreen" class="overlay hidden">
+    <div class="card">
+      <h2 id="overTitle">The boiler flooded!</h2>
+      <p id="overDetail"></p>
+      <div class="big" id="finalScore">0</div>
+      <p id="overBest"></p>
+      <button class="btn" id="againBtn">New shift ▸</button>
+    </div>
+  </div>
+
+  <div id="levelBanner" class="banner hidden"></div>
+
+<script src="levels.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

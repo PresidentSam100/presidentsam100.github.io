@@ -1,0 +1,36 @@
+/* Steamfitter levels - generated & verified solvable (gen-levels2.js).
+   9x7 row-major SOLVED layout; the game scrambles at play time. Legend:
+   . empty, # block, o source, O drain, h H, v V, a NE, b NW, c SE, d SW,
+   x X, N/E/S/W caps, t TN, u TE, y TS, z TW (T-junctions). */
+window.STEAMFITTER_LEVELS = [
+  { n: "First Fitting", s: 3, d: 3, g: ".......................chd.ohhhhb.aO..........................." },
+  { n: "Short Run", s: 2, d: 4, g: ".x..h..c.....v..d.ohhhhhd........v........ahO.................." },
+  { n: "The Elbow", s: 1, d: 5, g: ".........ohd....a..cb.......v.....a..ahd........ahhhhO....v...." },
+  { n: "Down the Line", s: 3, d: 1, g: "....h..v..chhhhhhO.v.......ob.................x................" },
+  { n: "Two Turns", s: 5, d: 2, g: "............h...x..h....dcO......cb......cb..ohhhhb.........x.." },
+  { n: "Scatter", s: 2, d: 5, g: ".x....b....c......ohhd........v.v....x.ahhhd........aO.......a." },
+  { n: "The Detour", s: 4, d: 0, g: ".......cO..avv..v.....chhb.....v..d.ohhhb.c.........a....c..x.." },
+  { n: "Backwash", s: 0, d: 6, g: "ohhhd.....b..ad........vv......vahd.....h..v...c....v......d.aO" },
+  { n: "Zigzag", s: 3, d: 3, g: ".....a......chhhd....v...v.ohhb...aO...........x...........bd.." },
+  { n: "Crowded Cellar", s: 1, d: 4, g: ".........ohhhd.a......v......a.ahhd..c..dd.aO.c.b..c......dc..." },
+  { n: "The Gauntlet", s: 5, d: 1, g: "...............dcO.c.chhhb...dv##.....cba....ohba.............." },
+  { n: "Around the Post", s: 2, d: 5, g: "..................ohhd#.h.....ahd......v#v......b.adcO.....hab." },
+  { n: "First Tee", s: 3, d: 3, g: "...chhhd....v...z..chbx..v.ob.....aO.x..ya........v.......zb..." },
+  { n: "Boiler Maze", s: 0, d: 6, g: "ohhhd.a......v.#....h#v........ahhd..a.x.#.v...x..v.v........aO" },
+  { n: "Caps Off", s: 4, d: 2, g: ".WN.......chhd.x...vSdahhhO.v.vE....ob.........x.c......N......" },
+  { n: "Junction Box", s: 6, d: 0, g: "......chO......v.....x..v......uhb......v......udv....ohbabh..." },
+  { n: "Pressure Drop", s: 1, d: 5, g: "..bchhd..ohhb..ad....dh..v......d.v..x.ad.dv.......xaO.v...c..." },
+  { n: "Cross Traffic", s: 3, d: 3, g: ".a.a.c....db.h.x...hachhhd.oddvv..aO.v.v...a..ahbb.v...c...x.h." },
+  { n: "Branch Line", s: 2, d: 4, g: "....dt.....a#.....odc..b....v........z.....cO.ad#chhb...uhb.d.." },
+  { n: "The Coil", s: 0, d: 5, g: "ohd..cc....vv..a...cb...d...ada.......vchhhd..dab...aO..b..b..." },
+  { n: "Steamworks", s: 5, d: 1, g: "..W.ucyd....chbaaO...vNu.u...cb.c....aad...N.ohhb...y..ztx.t..." },
+  { n: "Deep Plumbing", s: 3, d: 3, g: "...cdchd..chbab.u..v.c..hu.obz..u.aO...bz........bt............" },
+  { n: "The Wringer", s: 6, d: 1, g: "..cd.xxb...vahhhhO.cb...c...v#.#a#...v...v.x..v.a..a..ob.va..d." },
+  { n: "Overflow", s: 1, d: 5, g: ".........od.z......vh.......ay.h.u...ubt.x....vchhhhhO.abuc...." },
+  { n: "Iron Knot", s: 4, d: 2, g: ".chd..cd..adahhbz..czE.W.aO.v....c..ob...........c..S.........." },
+  { n: "The Long Way", s: 0, d: 6, g: "odd....v..ad........v........v.d......v.chdc..cb.v.v...ahhb.ahO" },
+  { n: "Chokepoint", s: 3, d: 3, g: ".bc.#.....chd#.cd..vdu..vv.obav.cbaO..uahb.x...a.#.....c..#y..." },
+  { n: "Full Bore", s: 2, d: 4, g: ".cyE.......S..ctd.od.chb.v..advz..v...uv..SaO..vv......tab..u.." },
+  { n: "The Labyrinth", s: 5, d: 1, g: ".h..bcd.....b.vahO.y#..v#b...c.#v.....#ydv#..ohdvvz.....abab..." },
+  { n: "Master Fitter", s: 0, d: 6, g: "od.yd.St..v.vv.....vcbz.....abcb.....yyadh.......vN......athhhO" }
+];
