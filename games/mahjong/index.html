@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%80%84%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mahjong</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;900&family=Lora:ital,wght@0,500;0,700;1,500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Mahjong solitaire — clear the 144-tile turtle pair by free pair; every deal is winnable. A browser game by Sam Lu." />
+    <meta property="og:title" content="Mahjong — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Mahjong solitaire — clear the 144-tile turtle pair by free pair; every deal is winnable. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The scholar's desk. Tiles are real buttons laid out by game.js. -->
+<main id="desk">
+  <div class="hudline" id="hudline" hidden>
+    <span id="hud-time">0:00</span>
+    <span id="hud-left">144 tiles</span>
+    <span id="hud-pairs"></span>
+    <span class="hud-btns">
+      <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <kbd>H</kbd></button>
+      <button type="button" id="btn-undo" title="Take back (+15s)">Undo <kbd>U</kbd></button>
+      <button type="button" id="btn-shuffle" title="Reshuffle what's left (+60s)">Shuffle <kbd>S</kbd></button>
+    </span>
+  </div>
+  <div id="board" role="grid" aria-label="A mahjong solitaire layout; match free pairs to clear it"></div>
+  <div class="blossom" aria-hidden="true"></div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Mahjong</h1>
+    <p class="tag">the tile-matching solitaire, on the scholar's desk</p>
+    <p class="how">
+      Clear all 144 tiles by removing <b>free pairs</b> — a tile is free
+      when nothing rests on it and its left <em>or</em> right side is open.
+      Flowers match any flower, seasons any season. Every deal here is
+      <b>winnable</b>; hints cost +30s, undo +15s, a reshuffle +60s.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="classic"><b>Classic</b><small>a fresh turtle, fastest clear <kbd>1</kbd></small></button>
+        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's turtle, shareable <kbd>2</kbd></small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Deal the turtle</b> <kbd>Enter</kbd></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">The desk is clear</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Deal again <kbd>Enter</kbd></button>
+      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
