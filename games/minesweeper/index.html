@@ -9,7 +9,7 @@
     <meta name="description" content="Minesweeper — clear the field without setting off a mine. A browser game by Sam Lu." />
     <meta property="og:title" content="Minesweeper — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Minesweeper — flag the mines, chord the numbers, clear the field. Beginner, Intermediate, Expert and custom boards." />
+    <meta property="og:description" content="Minesweeper — flag the mines, chord the numbers, clear the field. Beginner, Intermediate, Expert, custom boards, and a shared daily board." />
     <meta name="twitter:card" content="summary" />
 
     <link rel="stylesheet" href="styles.css" />
@@ -37,7 +37,8 @@
           <a class="tb-close" href="../" aria-label="Close: back to games">&times;</a>
         </header>
         <nav class="modes" aria-label="Mode">
-          <a class="mode sel" href="./" aria-current="page">Classic</a>
+          <a class="mode sel" href="./" id="navClassic" aria-current="page">Classic</a>
+          <a class="mode" href="./?daily" id="navDaily">Daily 📅</a>
           <a class="mode" href="endless.html">Endless ♾️</a>
         </nav>
 
@@ -78,6 +79,7 @@
           </div>
 
           <p id="stats"></p>
+          <button class="btn" id="share" type="button" hidden>Share result</button>
         </div>
       </section>
 
@@ -108,6 +110,12 @@
           Turn on <b>? marks</b> to have right-click cycle 🚩 → ? → blank. Best
           times are kept for Beginner, Intermediate and Expert; custom boards
           aren't ranked.
+        </p>
+        <p>
+          <b>Daily:</b> one shared 16×16 board a day — everyone in the world
+          gets the same mines, with a starting patch already opened. Hit one
+          and you can retry; the day's record keeps your first clear and how
+          many tries it took.
         </p>
       </details>
 

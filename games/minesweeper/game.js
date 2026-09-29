@@ -32,10 +32,46 @@
   const RIPPLE_MS = 16, RIPPLE_CAP = 420;
 
   // Keys: scores match the hub's "reset all high scores" prefixes
-  // (minesweeper_best_ / minesweeper_stats_); prefs deliberately don't.
+  // (minesweeper_best_ / minesweeper_stats_ / minesweeper_daily); prefs
+  // deliberately don't.
   const PREFS_KEY = "minesweeper_prefs";
+  const DAILY_KEY = "minesweeper_daily";
   const bestFor = (lvl) => GameShell.best("minesweeper_best_" + lvl, { higher: false });
   const statsKey = (lvl) => "minesweeper_stats_" + lvl;
+
+  // ---- daily -------------------------------------------------------------
+  // One shared board a day. Mines come from the date seed instead of the
+  // first dig, so every player sweeps the same field — first-click safety
+  // is replaced by an auto-opened starting patch.
+  const DAILY = new URLSearchParams(location.search).has("daily");
+  const DAILY_L = { w: 16, h: 16, m: 40, label: "Daily" };
+  const DAY0 = Date.UTC(2026, 8, 29); // daily No. 1
+  function today() {
+    const d = new Date();
+    const utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    const n = Math.round((utc - DAY0) / 86400000) + 1;
+    const mm = ("0" + (d.getMonth() + 1)).slice(-2), dd = ("0" + d.getDate()).slice(-2);
+    return { n: n, ymd: d.getFullYear() + "-" + mm + "-" + dd };
+  }
+  function readDaily() {
+    const t = today();
+    try {
+      const d = JSON.parse(GameShell.store.get(DAILY_KEY, "null"));
+      if (d && d.ymd === t.ymd) return d;
+    } catch (e) {}
+    return { ymd: t.ymd, n: t.n, tries: 0, secs: 0, done: false };
+  }
+  const writeDaily = (d) => GameShell.store.set(DAILY_KEY, JSON.stringify(d));
+
+  function mulberry(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
 
   const $ = (id) => document.getElementById(id);
   const fieldEl = $("field");
@@ -51,6 +87,8 @@
   const cwEl = $("cw"), chEl = $("ch"), cmEl = $("cm");
   const customTag = $("customTag");
   const levelBtns = Array.from(document.querySelectorAll(".lvl[data-level]"));
+  const levelsBox = document.querySelector(".levels");
+  const shareEl = $("share");
 
   const reduced = () => !!(window.RM_ON && window.RM_ON());
 
@@ -79,7 +117,8 @@
   // ---- game state --------------------------------------------------------
   let W, H, M, N;
   let mine, adj, cell, NB, els;
-  let state;                 // "ready" (no mines yet) | "playing" | "won" | "lost"
+  let state;                 // "ready" (clock not started) | "playing" | "won" | "lost"
+  let minesPlaced = false;   // daily boards are dealt before the first dig
   let opened, flags;
   let elapsedMs = 0, runningSince = 0, tickTimer = 0;
   let flagMode = false;
@@ -160,14 +199,18 @@
   }
 
   // ---- board setup -------------------------------------------------------
+  const levelSpec = () =>
+    DAILY ? DAILY_L : prefs.level === "custom" ? prefs.custom : LEVELS[prefs.level];
+
   function newGame() {
     stopClock();
     elapsedMs = 0;
     state = "ready";
+    minesPlaced = false;
     opened = 0;
     flags = 0;
 
-    const L = prefs.level === "custom" ? prefs.custom : LEVELS[prefs.level];
+    const L = levelSpec();
     let w = L.w, h = L.h;
     if (shouldTranspose(w, h)) { const t = w; w = h; h = t; }
     W = w; H = h; M = L.m; N = W * H;
@@ -202,6 +245,7 @@
 
     fieldEl.classList.remove("won", "shake");
     layout();
+    if (DAILY) dealDaily();
     renderCounter();
     renderTime();
     setStatus("");
@@ -210,7 +254,8 @@
     renderStats();
   }
 
-  function placeMines(safe) {
+  function placeMines(safe, rng) {
+    rng = rng || Math.random;
     const banned = new Uint8Array(N);
     // Keep the whole 3×3 clear when the density allows it, else just the cell.
     const zone = [safe].concat(NB[safe]);
@@ -219,7 +264,7 @@
     const pool = [];
     for (let j = 0; j < N; j++) if (!banned[j]) pool.push(j);
     for (let k = 0; k < M; k++) {
-      const r = k + Math.floor(Math.random() * (pool.length - k));
+      const r = k + Math.floor(rng() * (pool.length - k));
       const t = pool[k]; pool[k] = pool[r]; pool[r] = t;
       mine[pool[k]] = 1;
     }
@@ -228,6 +273,16 @@
       for (const x of NB[j]) n += mine[x];
       adj[j] = n;
     }
+    minesPlaced = true;
+  }
+
+  // Deal today's board: seeded start cell, seeded mines banned in its 3×3
+  // (so the start is always a 0), then open the starting patch for free.
+  function dealDaily() {
+    const rng = mulberry(((today().n * 2654435761) >>> 0) ^ 0x5eed);
+    const start = Math.floor(rng() * N);
+    placeMines(start, rng);
+    openFrom([start]);
   }
 
   // ---- painting ----------------------------------------------------------
@@ -270,6 +325,11 @@
   }
 
   function renderLevel() {
+    if (DAILY) {
+      levelsBox.hidden = true;
+      customForm.hidden = true;
+      return;
+    }
     levelBtns.forEach((b) => b.classList.toggle("sel", b.dataset.level === prefs.level));
     customForm.hidden = prefs.level !== "custom";
     const c = prefs.custom;
@@ -285,7 +345,7 @@
     return { p: 0, w: 0 };
   }
   function addStat(won) {
-    if (prefs.level === "custom") return;
+    if (DAILY || prefs.level === "custom") return;
     const s = readStats(prefs.level);
     s.p++;
     if (won) s.w++;
@@ -293,6 +353,18 @@
   }
 
   function renderStats() {
+    if (DAILY) {
+      const d = readDaily();
+      statsEl.innerHTML =
+        "<b>Daily No. " + d.n + "</b> · " + W + "×" + H + " · " + M + " mines — " +
+        (d.done
+          ? "cleared in <b>" + d.secs.toFixed(2) + " s</b> on try " + d.tries + " ✓"
+          : d.tries
+            ? d.tries + (d.tries === 1 ? " try" : " tries") + " so far"
+            : "the same board for everyone today");
+      shareEl.hidden = !d.done;
+      return;
+    }
     if (prefs.level === "custom") {
       statsEl.innerHTML = "<b>Custom</b> " + W + "×" + H + " · " + M + " mines — custom boards aren't ranked";
       return;
@@ -325,15 +397,18 @@
   const live = () => (state === "ready" || state === "playing") && !PAUSE.isPaused();
   const covered = (i) => cell[i] === HIDDEN || cell[i] === QUESTION;
 
+  function begin() {
+    if (state !== "ready") return;
+    state = "playing";
+    startClock();
+  }
+
   function dig(i) {
     if (!live()) return;
     if (cell[i] === OPEN) return chord(i);
     if (cell[i] === FLAG) return;
-    if (state === "ready") {
-      placeMines(i);
-      state = "playing";
-      startClock();
-    }
+    if (!minesPlaced) placeMines(i);
+    begin();
     if (mine[i]) return lose([i]);
     openFrom([i]);
   }
@@ -347,6 +422,7 @@
       else if (covered(j)) targets.push(j);
     }
     if (f !== adj[i] || !targets.length) return;
+    begin(); // on the daily, a chord off the free patch can be the first move
     const hits = targets.filter((j) => mine[j]);
     if (hits.length) return lose(hits);
     openFrom(targets);
@@ -415,7 +491,18 @@
     // floor at 0.01: best().get() reads a stored 0 as "no time yet"
     const secs = Math.max(0.01, Math.round(elapsed() / 10) / 100);
     let msg = "🎉 Cleared in " + secs.toFixed(2) + " s";
-    if (prefs.level !== "custom") {
+    if (DAILY) {
+      const d = readDaily();
+      if (!d.done) {
+        d.done = true;
+        d.tries++;
+        d.secs = secs;
+        writeDaily(d);
+        msg += " — daily No. " + d.n + " on try " + d.tries + "!";
+      } else {
+        msg += " — recorded earlier: " + d.secs.toFixed(2) + " s";
+      }
+    } else if (prefs.level !== "custom") {
       if (bestFor(prefs.level).submit(secs)) msg += " — new best!";
     }
     addStat(true);
@@ -451,6 +538,10 @@
       fieldEl.classList.remove("shake");
       void fieldEl.offsetWidth; // restart the animation
       fieldEl.classList.add("shake");
+    }
+    if (DAILY) {
+      const d = readDaily();
+      if (!d.done) { d.tries++; writeDaily(d); }
     }
     addStat(false);
     setStatus("💥 Boom! Tap 🙂 or press N to try again.", "bad");
@@ -707,6 +798,35 @@
     modeBtn.textContent = flagMode ? "🚩 Tap flags" : "⛏️ Tap digs";
   });
 
+  function shareDaily() {
+    const d = readDaily();
+    const text =
+      "Minesweeper · Daily No. " + d.n + " (" + d.ymd + ")\n" +
+      "Cleared in " + d.secs.toFixed(2) + " s on try " + d.tries + " 💣\n" +
+      location.origin + location.pathname + "?daily";
+    const copied = () => {
+      shareEl.textContent = "copied!";
+      setTimeout(() => { shareEl.textContent = "Share result"; }, 1400);
+    };
+    const fallback = () => { try { window.prompt("Copy your result:", text); } catch (e) {} };
+    if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
+      navigator.share({ text: text }).catch((e2) => { if (!e2 || e2.name !== "AbortError") fallback(); });
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(copied, fallback);
+    else fallback();
+  }
+  shareEl.addEventListener("click", shareDaily);
+
+  if (DAILY) {
+    const navC = $("navClassic"), navD = $("navDaily");
+    navC.classList.remove("sel");
+    navC.removeAttribute("aria-current");
+    navD.classList.add("sel");
+    navD.setAttribute("aria-current", "page");
+    document.title = "Minesweeper — Daily";
+  }
+
   qmarksEl.checked = prefs.qmarks;
   qmarksEl.addEventListener("change", () => {
     prefs.qmarks = qmarksEl.checked;
@@ -722,8 +842,8 @@
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
-      if (state === "ready" && flags === 0) {
-        const L = prefs.level === "custom" ? prefs.custom : LEVELS[prefs.level];
+      if (state === "ready" && flags === 0 && !DAILY) {
+        const L = levelSpec();
         const wantTall = shouldTranspose(L.w, L.h);
         if (wantTall !== (W !== L.w)) return newGame();
       }
