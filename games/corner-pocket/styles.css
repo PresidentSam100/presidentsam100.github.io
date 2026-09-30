@@ -1,0 +1,162 @@
+/* Corner Pocket — a late-night pool hall: one lamp over green cloth, walnut
+   rails, brass trim, everything else falling off into the dark. */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: #0d0906;
+  color: #f4e3b5;
+  font-family: "Oswald", "Segoe UI", system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#table {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  display: block;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ---- overlays ------------------------------------------------------------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  padding: 64px 14px 16px;
+  background: radial-gradient(80% 70% at 50% 40%, rgba(20, 12, 6, 0.55), rgba(8, 5, 3, 0.86));
+  overflow-y: auto;
+}
+.overlay.hidden { display: none; }
+
+.card {
+  width: min(420px, 100%);
+  margin: auto;
+  background:
+    linear-gradient(180deg, rgba(255, 236, 190, 0.06), rgba(255, 236, 190, 0) 40%),
+    #2b1a0e;
+  border: 2px solid #c9a45c;
+  border-radius: 16px;
+  box-shadow: 0 5px 0 #1b0f07, 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 5px rgba(201, 164, 92, 0.12);
+  padding: 22px 24px 20px;
+  text-align: center;
+}
+.card h1 { font-size: 38px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; line-height: 1.05; color: #f7e6b8; text-shadow: 0 2px 0 #1b0f07; }
+.card h2 { font-size: 30px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #f7e6b8; }
+.card h3 { font-size: 20px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; margin-bottom: 8px; }
+.card p { font-family: system-ui, "Segoe UI", sans-serif; }
+.sub { color: #cdb27a; font-size: 14px; margin: 4px 0 16px; }
+.small { font-size: 13px; color: #cdb27a; margin: 8px 0 14px; line-height: 1.4; }
+#overWhy { font-size: 16px; color: #e9d6a6; margin: 8px 0 6px; }
+.rec { font-size: 13px; color: #b89a62; min-height: 1.2em; margin: 10px 0 14px; }
+
+/* the 8-ball badge on the menu */
+.badge {
+  width: 64px; height: 64px; margin: 0 auto 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #6a6a6a 0%, #1e1e1f 38%, #050505 100%);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center;
+}
+.badge span {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #f5f1e6; color: #111;
+  font: 700 18px/28px "Oswald", system-ui, sans-serif;
+}
+
+.field { margin: 10px 0; }
+.lbl { font-size: 11px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #b89a62; margin-bottom: 6px; }
+.seg {
+  display: inline-flex;
+  background: #1a0f07;
+  border: 1px solid rgba(201, 164, 92, 0.45);
+  border-radius: 11px;
+  padding: 3px;
+  gap: 3px;
+}
+.seg button {
+  font: 600 15px/1 "Oswald", system-ui, sans-serif;
+  letter-spacing: .5px;
+  color: #cdb27a;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  padding: 9px 16px;
+  cursor: pointer;
+}
+.seg button[aria-checked="true"] {
+  color: #1b0f07;
+  background: linear-gradient(180deg, #e8c97c, #c9a45c);
+  box-shadow: 0 2px 0 #7a5a26;
+}
+.seg button:focus-visible, .btn:focus-visible, summary:focus-visible { outline: 2px solid #f4e3b5; outline-offset: 2px; }
+
+.btn {
+  font: 700 18px/1 "Oswald", system-ui, sans-serif;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #10250f;
+  background: linear-gradient(180deg, #7ed58a, #3fa052);
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 4px 0 #1f5a2a;
+  padding: 13px 28px;
+  cursor: pointer;
+}
+.btn:hover { filter: brightness(1.08); }
+.btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #1f5a2a; }
+.btn.ghost {
+  color: #f4e3b5;
+  background: transparent;
+  border: 2px solid rgba(201, 164, 92, 0.7);
+  box-shadow: 0 3px 0 #1b0f07;
+  padding: 11px 20px;
+}
+.row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+.how { margin-top: 16px; text-align: left; font-family: system-ui, "Segoe UI", sans-serif; }
+.how summary {
+  cursor: pointer;
+  font: 600 13px/1 "Oswald", system-ui, sans-serif;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: #cdb27a; text-align: center; list-style: none;
+}
+.how summary::-webkit-details-marker { display: none; }
+.how summary::after { content: " \25BE"; }
+.how[open] summary::after { content: " \25B4"; }
+.how ul { margin: 10px 0 0 18px; font-size: 13px; line-height: 1.5; color: #e9d6a6; }
+.how li { margin: 4px 0; }
+kbd {
+  display: inline-block;
+  font: 600 11px/1 system-ui, sans-serif;
+  padding: 2px 5px;
+  border: 1px solid rgba(201, 164, 92, 0.6);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: #f4e3b5;
+  background: #1a0f07;
+}
+
+#spinCanvas { display: block; margin: 6px auto 0; width: 200px; height: 200px; touch-action: none; cursor: crosshair; }
+
+@media (max-height: 560px) {
+  .overlay { padding-top: 56px; }
+  .card { padding: 14px 18px; }
+  .card h1 { font-size: 28px; }
+  .badge { width: 44px; height: 44px; margin-bottom: 6px; }
+  .badge span { width: 20px; height: 20px; font-size: 13px; line-height: 20px; }
+  .sub { margin-bottom: 8px; }
+  .field { margin: 6px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

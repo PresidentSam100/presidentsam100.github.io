@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%8E%B1%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Corner Pocket</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+<script src="../coinflip.js"></script>
+    <meta name="description" content="Corner Pocket — 8-ball pool against the CPU or a friend. Pot your group, call your pocket, sink the 8. A browser game by Sam Lu." />
+    <meta property="og:title" content="Corner Pocket — Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Corner Pocket — 8-ball pool in a late-night pool hall, vs the CPU or a friend. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:600 14px/1 'Oswald',system-ui,sans-serif;letter-spacing:.5px;color:#f4e3b5;background:#3a2414;border:2px solid #c9a45c;border-radius:10px;box-shadow:0 3px 0 #1b0f07;padding:8px 14px">&larr; Games</a>
+
+  <canvas id="table" aria-label="Pool table"></canvas>
+
+  <div id="menu" class="overlay">
+    <div class="card menu-card">
+      <div class="badge" aria-hidden="true"><span>8</span></div>
+      <h1>Corner Pocket</h1>
+      <p class="sub">8-ball pool &middot; pot your group, then sink the 8</p>
+
+      <div class="field">
+        <div class="lbl">Opponent</div>
+        <div class="seg" id="modeSeg" role="radiogroup" aria-label="Opponent">
+          <button type="button" data-mode="cpu" role="radio">vs CPU</button>
+          <button type="button" data-mode="2p" role="radio">2 Players</button>
+        </div>
+      </div>
+      <div class="field" id="levelField">
+        <div class="lbl">CPU</div>
+        <div class="seg" id="levelSeg" role="radiogroup" aria-label="CPU level">
+          <button type="button" data-level="0" role="radio">Easy</button>
+          <button type="button" data-level="1" role="radio">Medium</button>
+          <button type="button" data-level="2" role="radio">Hard</button>
+        </div>
+      </div>
+      <p class="rec" id="recLine">&nbsp;</p>
+      <button type="button" class="btn" id="startBtn">Rack &rsquo;em &#9656;</button>
+
+      <details class="how">
+        <summary>How to play</summary>
+        <ul>
+          <li><b>Aim:</b> press on the table and drag &mdash; the cue ball heads for your finger. Fine-tune with the ribbed wheel, the mouse wheel or <kbd>&larr;</kbd> <kbd>&rarr;</kbd>.</li>
+          <li><b>Shoot:</b> pull the cue down the power bar and let go, or hold <kbd>Space</kbd> and release.</li>
+          <li><b>Spin:</b> tap the cue ball icon to strike above centre (follow), below (draw) or to the side (english). <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> work too.</li>
+          <li>Break from behind the line. The table is open until someone pots a ball &mdash; that's their group, solids or stripes.</li>
+          <li>Fouls give the other player ball in hand anywhere: scratching, missing everything, hitting the wrong ball first, or no ball reaching a cushion.</li>
+          <li>Cleared your group? Tap a pocket to call the 8, then sink it there to win. The 8 early, the 8 with a scratch or the 8 in the wrong pocket loses.</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <div id="over" class="overlay hidden">
+    <div class="card">
+      <h2 id="overTitle">You win!</h2>
+      <p id="overWhy"></p>
+      <p class="rec" id="overRec"></p>
+      <div class="row">
+        <button type="button" class="btn" id="againBtn">Rematch &#9656;</button>
+        <button type="button" class="btn ghost" id="toMenuBtn">Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="spinPad" class="overlay hidden">
+    <div class="card spin-card">
+      <h3>Cue ball spin</h3>
+      <canvas id="spinCanvas" width="200" height="200" aria-label="Where the cue strikes the cue ball"></canvas>
+      <p class="small">Above centre follows &middot; below draws back &middot; sides bend the rebound</p>
+      <div class="row">
+        <button type="button" class="btn ghost" id="spinReset">Centre</button>
+        <button type="button" class="btn" id="spinDone">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmQuit" class="overlay hidden">
+    <div class="card">
+      <h3>Leave this rack?</h3>
+      <p class="small">The game in progress will be abandoned.</p>
+      <div class="row">
+        <button type="button" class="btn" id="quitYes">Back to menu</button>
+        <button type="button" class="btn ghost" id="quitNo">Keep playing</button>
+      </div>
+    </div>
+  </div>
+
+<script src="physics.js"></script>
+<script src="rules.js"></script>
+<script src="ai.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
