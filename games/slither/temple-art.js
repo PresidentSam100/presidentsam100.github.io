@@ -649,6 +649,121 @@ window.SlitherArt = (function () {
     ctx.beginPath(); ctx.arc(cx - r * 0.28, cy + r * 0.2, r * 0.13, 0, Math.PI * 2); ctx.arc(cx + r * 0.28, cy + r * 0.2, r * 0.13, 0, Math.PI * 2); ctx.fill();
   }
 
+  // ---- maze chase ----------------------------------------------------------------
+  // Beads: little gold offerings. Hundreds sit on a board at once, so they are
+  // two flat circles — no gradients, no shadows.
+  function bead(ctx, cx, cy, c) {
+    var r = Math.max(1.6, c * 0.1);
+    ctx.fillStyle = "#b8862e";
+    ctx.beginPath(); ctx.arc(cx, cy + 0.6, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#f6d98a";
+    ctx.beginPath(); ctx.arc(cx - r * 0.2, cy - r * 0.2, r * 0.72, 0, Math.PI * 2); ctx.fill();
+  }
+  // Sunstone: a gold sun disc that pulses; eat it and the guardians take fright.
+  function sunstone(ctx, cx, cy, c, t, fx) {
+    var pulse = fx ? 0.5 + 0.5 * Math.sin((t || 0) / 160) : 0.6, r = c * 0.26;
+    var g = ctx.createRadialGradient(cx, cy, 1, cx, cy, r * 2.2);
+    g.addColorStop(0, "rgba(255,214,110," + (0.35 + 0.3 * pulse).toFixed(3) + ")"); g.addColorStop(1, "rgba(255,214,110,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 2.2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#f2b33a";
+    ctx.beginPath();
+    for (var k = 0; k < 16; k++) {
+      var a = k * Math.PI / 8 + (fx ? (t || 0) / 2400 : 0), rr = k % 2 ? r * 0.95 : r * 1.45;
+      ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#ffe7a3"; ctx.strokeStyle = "#9a5f12"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#c9811f";
+    ctx.beginPath(); ctx.arc(cx, cy, r * 0.3, 0, Math.PI * 2); ctx.fill();
+  }
+  // The shrine gate: a bronze lattice only guardians pass (static layer).
+  function gate(g, px, py, c) {
+    g.fillStyle = "rgba(0,0,0,0.35)";
+    g.fillRect(px, py + c * 0.36, c, c * 0.34);
+    g.fillStyle = "#b37a34"; g.strokeStyle = "#4a2c0c"; g.lineWidth = 1;
+    g.fillRect(px, py + c * 0.3, c, c * 0.12); g.strokeRect(px + 0.5, py + c * 0.3 + 0.5, c - 1, c * 0.12 - 1);
+    g.fillRect(px, py + c * 0.6, c, c * 0.12); g.strokeRect(px + 0.5, py + c * 0.6 + 0.5, c - 1, c * 0.12 - 1);
+    for (var k = 0; k < 3; k++) {
+      var x = px + c * (0.2 + k * 0.3) - 1.5;
+      g.fillStyle = "#d9a24e"; g.fillRect(x, py + c * 0.22, 3, c * 0.58);
+      g.strokeRect(x + 0.5, py + c * 0.22 + 0.5, 2, c * 0.58 - 1);
+    }
+  }
+  // Temple guardians: flame spirits behind carved masks, one gem colour each.
+  var GUARDIANS = [
+    { body: [255, 112, 58], light: [255, 222, 150], dark: [132, 30, 8], name: "Ember" },
+    { body: [178, 96, 240], light: [232, 204, 255], dark: [72, 22, 122], name: "Amethyst" },
+    { body: [66, 140, 238], light: [184, 218, 255], dark: [18, 48, 122], name: "Lapis" },
+    { body: [236, 190, 52], light: [255, 242, 172], dark: [116, 80, 8], name: "Topaz" },
+  ];
+  var FRIGHT = { body: [128, 180, 255], light: [226, 240, 255], dark: [34, 62, 140] };
+  var FLASH = { body: [236, 238, 255], light: [255, 255, 255], dark: [120, 124, 170] };
+  //   o: { persona, look: "hunt" | "fright" | "flash" | "eyes", dir: {x, y}, t, fx }
+  function guardian(ctx, cx, cy, c, o) {
+    var t = o.t || 0, fx = o.fx, d = o.dir || { x: 0, y: 1 };
+    var r = c * 0.42, bob = fx ? Math.sin(t / 210 + o.persona * 1.7) * c * 0.05 : 0;
+    cy += bob;
+    if (o.look === "eyes") {
+      // eaten: just its two ember eyes, streaking home
+      for (var s = -1; s <= 1; s += 2) {
+        var ex = cx + s * r * 0.34 + d.x * r * 0.15, ey = cy - r * 0.05 + d.y * r * 0.15;
+        var gl = ctx.createRadialGradient(ex, ey, 0.5, ex, ey, r * 0.45);
+        gl.addColorStop(0, "rgba(255,236,190,0.95)"); gl.addColorStop(1, "rgba(255,160,60,0)");
+        ctx.fillStyle = gl;
+        ctx.beginPath(); ctx.arc(ex, ey, r * 0.45, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff6dc";
+        ctx.beginPath(); ctx.arc(ex, ey, r * 0.13, 0, Math.PI * 2); ctx.fill();
+      }
+      return;
+    }
+    var pal = o.look === "fright" ? FRIGHT : o.look === "flash" ? FLASH : GUARDIANS[o.persona % 4];
+    var sway = fx ? Math.sin(t / 90 + o.persona) * r * 0.12 : 0, top = cy - r * 1.3;
+    // halo
+    var halo = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.6);
+    halo.addColorStop(0, rgb(pal.body, 0.35)); halo.addColorStop(1, rgb(pal.body, 0));
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.6, 0, Math.PI * 2); ctx.fill();
+    // the flame: a pointed crown over a rounded base
+    var body = ctx.createLinearGradient(cx, top, cx, cy + r);
+    body.addColorStop(0, rgb(pal.light)); body.addColorStop(0.45, rgb(pal.body)); body.addColorStop(1, rgb(pal.dark));
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(cx + sway, top);
+    ctx.quadraticCurveTo(cx + r * 0.35, cy - r * 0.75, cx + r * 0.62, cy - r * 0.95);   // a side tongue
+    ctx.quadraticCurveTo(cx + r * 0.6, cy - r * 0.45, cx + r * 0.95, cy + r * 0.05);
+    ctx.arc(cx, cy + r * 0.05, r * 0.95, 0, Math.PI);
+    ctx.quadraticCurveTo(cx - r * 0.6, cy - r * 0.45, cx - r * 0.62, cy - r * 0.95);
+    ctx.quadraticCurveTo(cx - r * 0.35, cy - r * 0.75, cx + sway, top);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = rgb(pal.dark); ctx.lineWidth = 1.2; ctx.stroke();
+    // the carved mask
+    var mx = cx, my = cy + r * 0.08, mw = r * 0.78, mh = r * 0.5;
+    ctx.fillStyle = o.look === "hunt" ? "#efe2c4" : "#2a3350";
+    ctx.strokeStyle = o.look === "hunt" ? "#5a4526" : "#0e1428"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.ellipse(mx, my, mw, mh, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    if (o.look === "hunt") {
+      // slit eyes that watch where it's going
+      var lx = d.x * r * 0.14, ly = d.y * r * 0.1;
+      ctx.fillStyle = "#1b0f06";
+      for (var e = -1; e <= 1; e += 2) {
+        ctx.beginPath(); ctx.ellipse(mx + e * r * 0.34 + lx, my - r * 0.04 + ly, r * 0.2, r * 0.09, e * 0.25, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = rgb(pal.body);
+      for (var e2 = -1; e2 <= 1; e2 += 2) { ctx.beginPath(); ctx.arc(mx + e2 * r * 0.34 + lx * 1.4, my - r * 0.04 + ly * 1.4, r * 0.06, 0, Math.PI * 2); ctx.fill(); }
+    } else {
+      // frightened: round startled eyes and a trembling mouth
+      ctx.fillStyle = "#f4f7ff";
+      for (var f = -1; f <= 1; f += 2) { ctx.beginPath(); ctx.arc(mx + f * r * 0.3, my - r * 0.1, r * 0.1, 0, Math.PI * 2); ctx.fill(); }
+      ctx.strokeStyle = "#f4f7ff"; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (var w = 0; w <= 6; w++) ctx.lineTo(mx - r * 0.42 + w * r * 0.14, my + r * 0.2 + (w % 2 ? -1 : 1) * r * 0.06);
+      ctx.stroke();
+    }
+  }
+
   // ---- serpents ----------------------------------------------------------------
   // pts: segment centres, head first, in pixels. Segments stacked on one cell
   // (a snake still coiled at its start) collapse into a coil; segments that
@@ -791,5 +906,6 @@ window.SlitherArt = (function () {
     floor: floor, wall: wall, ice: ice, dream: dream, storm: storm, darkFloor: darkFloor, cutter: cutter, portalFrame: portalFrame,
     portalGlow: portalGlow, door: door, plate: plate, clickSwitch: clickSwitch, spikes: spikes, doorway: doorway, warpway: warpway, DOOR: DOOR,
     fruit: fruit, gem: gem, wisp: wisp, melon: melon, itemArt: itemArt, telePad: telePad, infinity: infinity, cloner: cloner, outlet: outlet, flower: flower, stud: stud, serpent: serpent,
+    bead: bead, sunstone: sunstone, gate: gate, guardian: guardian, GUARDIANS: GUARDIANS,
   };
 })();

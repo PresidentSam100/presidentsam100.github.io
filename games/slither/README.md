@@ -36,6 +36,16 @@ The Labyrinth menu also offers:
   friend on the same device (P1 on WASD, P2 on the arrow keys, or the second
   d-pad). First to 3 rounds wins. Ziggy's online Arena is not included: it
   would need a server.
+- **Maze Chase**: a maze-chase in the temple. Eat every gold bead while
+  four temple guardians hunt you, on 3 lives. The snake never grows here,
+  walls stop it instead of killing it, a turn pressed early waits for the
+  next opening, and pressing backwards flips it end for end. Sunstones
+  frighten the guardians for a few seconds so you can bite them (200, 400,
+  800, 1600); a golden apple bonus appears at the start twice a maze. Each
+  guardian hunts its own way (one heads straight for you, one cuts in
+  ahead, one pincers you with the first, one keeps its distance up close),
+  and they all break off to scatter to their corners now and then. The four
+  mazes loop, a little faster each time round.
 - **Level editor** (`editor.html`): paint levels, have the checker prove
   they can be finished, then save them to "My levels" or share them as a link
   (`#play=...`).
@@ -58,10 +68,11 @@ Controls:
 | `game.js` | page shell (menus, overlays, input routing, sound, gamepads) and Classic / 2-Player |
 | `temple-art.js` | the temple look shared by every mode: stone serpents, floors, walls, traps, items, the boss |
 | `labyrinth.js` | Labyrinth mode: level select, pack runs, stages, arena, HUD, input, drawing, saved progress |
-| `labyrinth-engine.js` | Labyrinth rules. It is pure (no DOM); the tile legend (`LEGEND`) is at the top |
+| `labyrinth-engine.js` | Labyrinth rules. It is pure (no DOM); the tile legend (`LEGEND`) is at the top. The Maze Chase rules sit in their own section and only run for `mode: "chase"` |
 | `levels.js` | the 44 campaign levels |
 | `stages.js` | the Stages boards (`mode: "stage"`) |
 | `arenas.js` | the Arena maps (`mode: "arena"`) |
+| `chases.js` | the Maze Chase mazes (`mode: "chase"`); their extra glyphs are listed at the top |
 | `music.js` | one generated tune per zone |
 | `levelcode.js` | share codes for levels (`#play=` / `#edit=` links) |
 | `editor.html`, `editor.css`, `editor.js` | the level editor |
@@ -72,7 +83,8 @@ Saved data:
 
 - `snake_best`: the Classic best (the key predates the rename).
 - `slither_labyrinth`: best clear time per level id, warps taken, the pack
-  run in progress and the best run per zone, and the best score per stage.
+  run in progress and the best run per zone, the best score per stage, and
+  the best Maze Chase score.
 - `slither_custom` and `slither_editor_draft`: the editor's levels.
 - `slither_music`: the music on/off choice.
 

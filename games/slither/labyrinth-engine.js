@@ -34,7 +34,7 @@
     FLOOR: 0, WALL: 1, EXIT: 2, ICE: 3, DOOR_SHUT: 4, DOOR_OPEN: 5,
     SWITCH: 6, SPIKE_A: 7, SPIKE_B: 8, CUTTER: 9, DARK: 10, PORTAL: 11,
     WARP: 12, CLICK: 13, TELE: 14, TELE_OUT: 15, INFINITY: 16, CLONER: 17,
-    OUTLET: 18, DREAM: 19, STORM: 20, STUD: 21,
+    OUTLET: 18, DREAM: 19, STORM: 20, STUD: 21, GATE: 22,
   };
   var COLORS = ["amber", "cyan", "magenta"];
 
@@ -116,6 +116,12 @@
     "r": { enemy: "rival", group: "enemies", name: "Arena rival", desc: "Arena: a rival snake that hunts apples, grows, and tries to outlast you.", ready: true },
     "@": { enemy: "boss", group: "enemies", name: "Serpent King", desc: "Boss: a giant one-eyed serpent that hunts through walls, summons worms and grows spike flowers. Only damage fruit hurts it; the exit opens when it falls.", ready: true },
   };
+  // Maze chase glyphs (chases.js). Their group isn't one the editor lists, and
+  // parse rejects them anywhere but a maze chase. In a chase maze every "."
+  // also carries a bead.
+  LEGEND["0"] = { item: "sunstone", group: "chase", name: "Sunstone", desc: "Maze chase: the guardians take fright for a few seconds, and you can bite them.", ready: true };
+  LEGEND["u"] = { guard: true, group: "chase", name: "Guardian", desc: "Maze chase: where a temple guardian starts. The first (reading order) starts outside the shrine, the rest inside.", ready: true };
+  LEGEND["="] = { tile: T.GATE, group: "chase", name: "Shrine gate", desc: "Maze chase: only guardians pass.", ready: true };
   for (var dg = 1; dg <= 4; dg++) LEGEND[String(dg)] = { portal: dg, group: "terrain", name: "Portal " + dg, desc: "Pairs with the other " + dg + "; you keep your heading.", ready: true };
   for (dg = 5; dg <= 9; dg++) LEGEND[String(dg)] = { tele: dg, group: "terrain", name: "Teleporter " + dg, desc: "One-way: the first " + dg + " (reading order) sends you to the second; list the digit under Reverse teleporters to flip it.", ready: true };
 
@@ -143,6 +149,20 @@
     maxSnakes: 40,
   };
 
+  // Maze chase tuning. Times in ms; speeds are ms per cell.
+  var CHASE = {
+    len: 4,                                   // the snake never grows in a chase
+    playerMs: 128, playerMinMs: 100, playerStepMs: 3,
+    guardMs: 160, guardMinMs: 108, guardStepMs: 7,    // guardians quicken every round…
+    frightMs: 240, eyesMs: 70, houseMs: 190,
+    fright: 6500, frightMin: 1500, frightStep: 700,   // …and sunstones wear off sooner
+    phases: [7000, 20000, 7000, 20000, 5000, 20000, 5000], // scatter, hunt, scatter… then hunt for good
+    release: [0, 1500, 5000, 9000],           // when each guardian leaves the shrine, after a (re)start
+    bead: 10, sunstone: 50, guard: 200, lives: 3, extraLifeAt: 10000,
+    bonusAt: [0.3, 0.7], bonusMs: 9500,       // a golden apple appears at the start at these shares of the beads
+    bonus: [100, 300, 500, 700, 1000, 2000, 3000, 5000],
+  };
+
   // Directions: 0 up, 1 right, 2 down, 3 left.
   var DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   var EPS = 1e-6;
@@ -153,8 +173,9 @@
     var errors = [];
     var tiles = new Array(cols * rows), items = {}, partner = {}, portalId = {}, doorColor = {};
     var pairs = {}, teles = {}, enemies = [], starts = { p1: -1, p2: -1 }, exits = 0, apples = 0;
-    var warps = [], cloners = [], outlets = [], hearts = [];
+    var warps = [], cloners = [], outlets = [], hearts = [], guards = [], beads = 0;
     var used = {};
+    var mode = level.mode || "campaign";
     for (var y = 0; y < rows; y++) {
       if (grid[y].length !== cols) errors.push("row " + y + " is " + grid[y].length + " wide, expected " + cols);
       for (var x = 0; x < cols; x++) {
@@ -176,7 +197,10 @@
           items[i] = L.item;
           if (L.item === "apple") apples++;
           if (L.item === "heart") hearts.push(i);
+          if (L.item === "sunstone") beads++;
         }
+        if (mode === "chase" && ch === ".") { items[i] = "bead"; beads++; }
+        if (L.guard) guards.push(i);
         if (L.enemy) enemies.push({ kind: L.enemy, at: i, dir: L.dir });
         if (L.start) {
           if (starts[L.start] >= 0) errors.push("more than one " + L.name.toLowerCase());
@@ -222,8 +246,16 @@
     if (cloners.length !== outlets.length) errors.push(cloners.length + " cloner(s) but " + outlets.length + " outlet(s)");
     var outletOf = {};
     cloners.forEach(function (c, n) { if (outlets[n] != null) outletOf[c] = outlets[n]; });
-    var mode = level.mode || "campaign";
     if (starts.p1 < 0) errors.push("no start (S)");
+    if (mode !== "chase" && (guards.length || used["0"] || used["="])) errors.push("guardians (u), sunstones (0) and shrine gates (=) only work in a maze chase");
+    if (mode === "chase") {
+      if (exits) errors.push("a maze chase has no exit: eating every bead clears it");
+      if (!guards.length) errors.push("a maze chase needs a guardian (u)");
+      if (guards.length > 4) errors.push("at most four guardians (u)");
+      if (enemies.length) errors.push("only guardians (u) hunt in a maze chase");
+      if (guards.length > 1 && !used["="]) errors.push("guardians in the shrine need a gate (=) to leave by");
+      if (!beads) errors.push("a maze chase needs beads (.) to eat");
+    }
     if (!exits && mode === "campaign") errors.push("no exit (E)");
     if (mode === "stage" && exits) errors.push("a stage has no exit: its apples never run out");
     if (mode === "arena" && exits) errors.push("an arena has no exit: the last snake standing wins");
@@ -239,6 +271,7 @@
       teleTo: teleTo, teleId: teleId, doorColor: doorColor, outletOf: outletOf,
       warps: warps, warpTarget: (level.warps || []).slice(), hearts: hearts,
       enemies: enemies, start: starts.p1, start2: starts.p2, apples: apples, errors: errors, used: used, mode: mode,
+      guards: guards, beads: beads,
       hasSpikes: tiles.some(function (t) { return t === T.SPIKE_A || t === T.SPIKE_B; }),
       hasStuds: tiles.indexOf(T.STUD) !== -1,
     };
@@ -288,8 +321,13 @@
       stage: lv.mode === "stage", score: 0,
       arena: lv.mode === "arena", winner: null,
     };
-    st.player = makeSnake(st, "player", lv.start, CFG.startLen, speed, "p1");
+    if (lv.mode === "chase") {
+      var round = (opts.chase && opts.chase.round) || 1;
+      speed = level.speed || Math.max(CHASE.playerMinMs, CHASE.playerMs - CHASE.playerStepMs * (round - 1));
+    }
+    st.player = makeSnake(st, "player", lv.start, lv.mode === "chase" ? CHASE.len : CFG.startLen, speed, "p1");
     st.snakes.push(st.player);
+    if (lv.mode === "chase") chaseSetup(st, opts.chase || {});
     // Arena: player 2 (or, in a one-player game, a rival) starts at s.
     var rivals = 0;
     if (st.arena && lv.start2 >= 0) {
@@ -369,6 +407,7 @@
     // Enemies never take an exit; a locked exit is a wall; a ghost floats
     // through the arch without leaving.
     if (t === T.EXIT || t === T.WARP) return !isPlayer(s) || (!ghost && !exitOpen(st));
+    if (t === T.GATE) return true;   // the shrine gate lets only guardians through, and they aren't snakes
     // Watermelons are for enemies only; to a player they're a wall.
     if (st.items[i] === "melon" && isPlayer(s)) return !ghost;
     return false;
@@ -396,6 +435,7 @@
   // lands on consecutive cells instead of the second press being swallowed.
   function turn(st, d, ctrl) {
     ctrl = ctrl || "p1";
+    if (st.chase) { chaseTurn(st, d); return; }
     var mine = playersOf(st, ctrl);
     if (!mine.length) return;
     if (st.status === "ready") {
@@ -444,8 +484,11 @@
     if (r.teleports <= 0) return "";
     return blink(st, i, ctrl) ? "blink" : "denied";
   }
-  function setGhost(st, held, ctrl) { st.res[ctrl || "p1"].ghostHeld = !!held; }
+  // A chase has no ghosting and no sprint: players hold directions all the
+  // time there, and holding one is how sprint is triggered.
+  function setGhost(st, held, ctrl) { if (!st.chase) st.res[ctrl || "p1"].ghostHeld = !!held; }
   function setDash(st, held, ctrl) {
+    if (st.chase) return;
     var r = st.res[ctrl || "p1"];
     held = !!held;
     if (held === r.dashHeld) return;
@@ -974,9 +1017,345 @@
     });
   }
 
+  // ---- maze chase -------------------------------------------------------------
+  // mode "chase" (chases.js): eat every bead (".") and sunstone ("0") to clear
+  // the maze while temple guardians ("u") hunt you. The snake keeps its
+  // length, flips end for end when you press backwards, and walls stop it
+  // rather than kill it; a turn you press early waits for the next opening.
+  // Only a guardian touching the snake kills — unless a sunstone has
+  // frightened them, when your head can bite them instead.
+  //
+  // Guardians aren't snakes. They live in st.guards, move on their own
+  // timers in chaseAdvance, and nothing in the snake machinery (bodies,
+  // head-ons, pathing, apples) ever sees them. Each has a way of hunting
+  // (by persona, in reading order of the "u"s) and they all take turns
+  // between hunting and scattering to their own corners.
+  //   states: "house" (waiting in the shrine), "leave" (heading out through
+  //   the gate), "roam", "eaten" (a spark flying back to the shrine).
+  var CORNERS = [function (st) { return { x: st.cols - 2, y: -3 }; }, function () { return { x: 1, y: -3 }; },
+                 function (st) { return { x: st.cols - 1, y: st.rows + 2 }; }, function (st) { return { x: 0, y: st.rows + 2 }; }];
+
+  function chaseSetup(st, run) {
+    var C = st.chase = {
+      score: run.score || 0, lives: run.lives != null ? run.lives : CHASE.lives, round: run.round || 1, extraGiven: !!run.extraGiven,
+      left: st.lv.beads, eaten: 0, want: -1, fright: 0, chain: 0, phase: 0, scatter: true, modeLeft: CHASE.phases[0],
+      clock: 0, bonusLeft: 0, exit: -1, den: -1,
+    };
+    // The shrine door: flood out from the start without crossing a gate; a
+    // gate's outside neighbour is the exit, its inside neighbour the den.
+    var out = {}, q = [st.lv.start];
+    out[st.lv.start] = true;
+    for (var k = 0; k < q.length; k++) {
+      for (var d = 0; d < 4; d++) {
+        var n = moveTarget(st, q[k], d);
+        if (n < 0 || out[n] || st.tiles[n] === T.WALL || st.tiles[n] === T.GATE) continue;
+        out[n] = true; q.push(n);
+      }
+    }
+    for (var i = 0; i < st.tiles.length && C.exit < 0; i++) {
+      if (st.tiles[i] !== T.GATE) continue;
+      for (var e = 0; e < 4; e++) {
+        var m = neighbor(st, i, e);
+        if (m < 0 || st.tiles[m] === T.WALL || st.tiles[m] === T.GATE) continue;
+        if (out[m]) C.exit = m; else C.den = m;
+      }
+    }
+    if (C.exit < 0) C.exit = st.lv.guards[0];
+    if (C.den < 0) C.den = C.exit;
+    st.guards = st.lv.guards.map(function (at, p) {
+      return { persona: p, home: at, cell: at, dir: 3, state: "house", fright: false, timer: 0 };
+    });
+    chasePlace(st);
+  }
+
+  // Everyone back to their starting spots (a new maze, or after being caught).
+  function chasePlace(st) {
+    var C = st.chase, s = st.player;
+    s.body = [];
+    for (var k = 0; k < CHASE.len; k++) s.body.push(st.lv.start);
+    s.dir = -1; s.queue = []; s.alive = true; s.timer = s.baseMs;
+    st.guards.forEach(function (g) {
+      g.cell = g.home; g.dir = 3; g.fright = false;
+      g.state = g.persona === 0 && g.home !== C.den ? "roam" : "house";
+      g.timer = guardMs(st, g);
+    });
+    C.want = -1; C.fright = 0; C.chain = 0; C.phase = 0; C.scatter = true; C.modeLeft = CHASE.phases[0]; C.clock = 0;
+    if (C.bonusLeft > 0) { C.bonusLeft = 0; if (st.items[st.lv.start] === "gold") delete st.items[st.lv.start]; }
+  }
+  // After a catch with lives to spare: back to the start, beads as they were.
+  function chaseRespawn(st) {
+    if (!st.chase || st.status !== "caught") return;
+    chasePlace(st);
+    st.status = "ready";
+  }
+
+  function chaseTurn(st, d) {
+    var C = st.chase;
+    if (st.status === "ready") {
+      st.status = "play";
+      st.player.dir = d;
+      C.want = d;
+      st.events.push({ type: "start" });
+      return;
+    }
+    if (st.status === "play") C.want = d;
+  }
+
+  function guardMs(st, g) {
+    if (g.state === "eaten") return CHASE.eyesMs;
+    if (g.state === "house" || g.state === "leave") return CHASE.houseMs;
+    if (g.fright) return CHASE.frightMs;
+    return Math.max(CHASE.guardMinMs, CHASE.guardMs - CHASE.guardStepMs * (st.chase.round - 1));
+  }
+  function frightFor(round) { return Math.max(CHASE.frightMin, CHASE.fright - CHASE.frightStep * (round - 1)); }
+
+  // Can the snake's head go `d` right now? Walls, the gate and its own body
+  // (all but the tail, which moves on) stop it.
+  function chaseOpen(st, s, d) {
+    var n = moveTarget(st, s.body[0], d);
+    if (n < 0) return false;
+    var t = st.tiles[n];
+    if (t === T.WALL || t === T.GATE || t === T.EXIT || t === T.WARP || isDoorShut(st, n)) return false;
+    for (var k = 0; k < s.body.length - 1; k++) if (s.body[k] === n) return false;
+    return true;
+  }
+  // Flip end for end: the tail becomes the head, facing on along the body.
+  function chaseFlip(st, s, want) {
+    s.body.reverse();
+    var h = s.body[0], nb = -1, d = -1;
+    for (var k = 1; k < s.body.length; k++) if (s.body[k] !== h) { nb = s.body[k]; break; }
+    if (nb >= 0) for (var q = 0; q < 4; q++) if (moveTarget(st, nb, q) === h) d = q;
+    s.dir = d >= 0 ? d : want;
+    st.events.push({ type: "flip", at: h });
+  }
+
+  function chaseScore(st, pts) {
+    var C = st.chase;
+    C.score += pts;
+    if (!C.extraGiven && C.score >= CHASE.extraLifeAt) {
+      C.extraGiven = true;
+      C.lives++;
+      st.events.push({ type: "extraLife", lives: C.lives });
+    }
+  }
+
+  function chasePlayerMove(st) {
+    var C = st.chase, s = st.player;
+    if (C.want >= 0 && s.dir >= 0 && C.want === (s.dir + 2) % 4) chaseFlip(st, s, C.want);
+    var d = C.want >= 0 && chaseOpen(st, s, C.want) ? C.want : s.dir >= 0 && chaseOpen(st, s, s.dir) ? s.dir : -1;
+    if (d < 0) return;   // blocked: wait here until a way opens
+    var from = s.body[0], n = moveTarget(st, from, d), step = neighbor(st, from, d);
+    s.dir = d;
+    s.body.unshift(n);
+    s.body.pop();
+    if (step >= 0 && st.tiles[step] === T.PORTAL) st.events.push({ type: "portal", from: from, to: n, player: true });
+    var it = st.items[n];
+    if (it === "bead" || it === "sunstone") {
+      delete st.items[n];
+      C.left--; C.eaten++;
+      chaseScore(st, it === "bead" ? CHASE.bead : CHASE.sunstone);
+      st.events.push({ type: it, at: n });
+      if (it === "sunstone") chaseFright(st);
+      var due = CHASE.bonusAt.some(function (f) { return C.eaten === Math.round(st.lv.beads * f); });
+      if (due && C.left && !st.items[st.lv.start]) {
+        st.items[st.lv.start] = "gold";
+        C.bonusLeft = CHASE.bonusMs;
+        st.events.push({ type: "bonusSpawn", at: st.lv.start });
+      }
+      if (!C.left) {
+        st.status = "won";
+        st.events.push({ type: "chaseClear", at: n, score: C.score });
+      }
+    } else if (it === "gold") {
+      delete st.items[n];
+      C.bonusLeft = 0;
+      var pts = CHASE.bonus[Math.min(C.round, CHASE.bonus.length) - 1];
+      chaseScore(st, pts);
+      st.events.push({ type: "bonus", at: n, points: pts });
+    }
+  }
+
+  function chaseFright(st) {
+    var C = st.chase;
+    C.fright = frightFor(C.round);
+    C.chain = 0;
+    st.guards.forEach(function (g) {
+      if (g.state === "eaten") return;
+      g.fright = true;
+      if (g.state === "roam") g.dir = (g.dir + 2) % 4;
+    });
+  }
+  function chaseUnfright(st) {
+    st.chase.fright = 0;
+    st.guards.forEach(function (g) { g.fright = false; });
+  }
+  // Hunt and scatter take turns; every switch turns the roaming guardians round.
+  function chaseNextPhase(st) {
+    var C = st.chase;
+    C.phase++;
+    C.scatter = C.phase % 2 === 0;
+    C.modeLeft = C.phase < CHASE.phases.length ? CHASE.phases[C.phase] : Infinity;
+    st.guards.forEach(function (g) { if (g.state === "roam") g.dir = (g.dir + 2) % 4; });
+  }
+
+  function guardPassable(st, n, gate) {
+    if (n < 0) return false;
+    var t = st.tiles[n];
+    if (t === T.WALL || t === T.EXIT || t === T.WARP || isDoorShut(st, n)) return false;
+    return t !== T.GATE || gate;
+  }
+  // First step of a shortest way from `from` to `to` (gates allowed), or -1.
+  function guardPath(st, from, to) {
+    if (from === to) return -1;
+    var seen = {}, q = [];
+    seen[from] = true;
+    for (var d = 0; d < 4; d++) {
+      var n = moveTarget(st, from, d);
+      if (!guardPassable(st, n, true) || seen[n]) continue;
+      if (n === to) return d;
+      seen[n] = true; q.push({ c: n, d: d });
+    }
+    for (var k = 0; k < q.length; k++) {
+      for (var e = 0; e < 4; e++) {
+        var m = moveTarget(st, q[k].c, e);
+        if (!guardPassable(st, m, true) || seen[m]) continue;
+        if (m === to) return q[k].d;
+        seen[m] = true; q.push({ c: m, d: q[k].d });
+      }
+    }
+    return -1;
+  }
+  // Where a roaming guardian wants to be.
+  function guardTarget(st, g) {
+    var C = st.chase, p = st.player, h = p.body[0];
+    var hx = h % st.cols, hy = Math.floor(h / st.cols), pd = p.dir >= 0 ? p.dir : 3;
+    if (C.scatter) return CORNERS[g.persona](st);
+    if (g.persona === 1) return { x: hx + 4 * DX[pd], y: hy + 4 * DY[pd] };          // cuts in ahead of you
+    if (g.persona === 2) {                                                        // pincers you with the first
+      var lead = st.guards[0], ax = hx + 2 * DX[pd], ay = hy + 2 * DY[pd];
+      return { x: 2 * ax - lead.cell % st.cols, y: 2 * ay - Math.floor(lead.cell / st.cols) };
+    }
+    if (g.persona === 3) {                                                        // bold from afar, shy up close
+      var dx = g.cell % st.cols - hx, dy = Math.floor(g.cell / st.cols) - hy;
+      if (dx * dx + dy * dy <= 64) return CORNERS[3](st);
+    }
+    return { x: hx, y: hy };                                                      // straight for you
+  }
+  // Roaming: never straight back unless it's the only way; at a fork take the
+  // step nearest the target (ties: up, left, down, right). Frightened, pick at random.
+  function guardRoamStep(st, g) {
+    var rev = (g.dir + 2) % 4, opts = [];
+    [0, 3, 2, 1].forEach(function (d) {
+      if (d === rev) return;
+      var n = moveTarget(st, g.cell, d);
+      if (guardPassable(st, n, false)) opts.push({ d: d, n: n });
+    });
+    if (!opts.length) return guardPassable(st, moveTarget(st, g.cell, rev), false) ? rev : -1;
+    if (g.fright) return opts[Math.floor(Math.random() * opts.length)].d;
+    var t = guardTarget(st, g), best = opts[0].d, bd = Infinity;
+    opts.forEach(function (o) {
+      var x = o.n % st.cols - t.x, y = Math.floor(o.n / st.cols) - t.y, dd = x * x + y * y;
+      if (dd < bd) { bd = dd; best = o.d; }
+    });
+    return best;
+  }
+  function guardMove(st, g) {
+    var C = st.chase, d;
+    if (g.state === "house") {
+      if (C.clock < CHASE.release[g.persona]) return;
+      g.state = "leave";
+    }
+    if (g.state === "leave" || g.state === "eaten") {
+      var goal = g.state === "leave" ? C.exit : C.den;
+      if (g.cell === goal) {
+        // out of the shrine: start roaming (westward first); eyes home: head straight back out
+        if (g.state === "leave") { g.state = "roam"; g.dir = 3; } else g.state = "leave";
+        return;
+      }
+      d = guardPath(st, g.cell, goal);
+    } else d = guardRoamStep(st, g);
+    if (d < 0) return;
+    g.dir = d;
+    g.cell = moveTarget(st, g.cell, d);
+  }
+
+  // Any guardian on the snake? Checked after every single move, so a head
+  // and a guardian meeting in one instant, or one entering a cell a tail has
+  // just left, resolve in the order the moves actually happened.
+  function chaseTouch(st) {
+    var C = st.chase, p = st.player, head = p.body[0];
+    for (var k = 0; k < st.guards.length && st.status === "play"; k++) {
+      var g = st.guards[k];
+      if (g.state === "house" || g.state === "eaten") continue;
+      if (g.fright) {
+        if (g.cell !== head) continue;
+        C.chain++;
+        var pts = CHASE.guard * Math.pow(2, Math.min(C.chain, 4) - 1);
+        chaseScore(st, pts);
+        g.state = "eaten"; g.fright = false;
+        st.events.push({ type: "guardEaten", at: g.cell, persona: g.persona, points: pts });
+        continue;
+      }
+      if (p.body.indexOf(g.cell) === -1) continue;
+      C.lives--;
+      p.alive = false;
+      p.diedAt = st.elapsed;
+      st.events.push({ type: "caught", at: head, persona: g.persona, lives: C.lives });
+      if (C.lives > 0) st.status = "caught";
+      else {
+        st.status = "dead"; st.cause = "caught";
+        st.events.push({ type: "chaseOver", score: C.score });
+      }
+    }
+  }
+
+  // The chase's own clock: the snake, each guardian, the fright, the hunt /
+  // scatter schedule and the bonus apple, event by event.
+  function chaseAdvance(st, dt) {
+    if (st.status !== "play") return;
+    var C = st.chase, p = st.player;
+    dt = Math.min(Math.max(dt, 0), CFG.maxStepMs);
+    while (dt > EPS && st.status === "play") {
+      var next = dt;
+      if (p.timer < next) next = p.timer;
+      st.guards.forEach(function (g) { if (g.timer < next) next = g.timer; });
+      if (C.fright > 0) { if (C.fright < next) next = C.fright; }
+      else if (C.modeLeft < next) next = C.modeLeft;
+      if (C.bonusLeft > 0 && C.bonusLeft < next) next = C.bonusLeft;
+      next = Math.max(next, 0);
+      p.timer -= next;
+      st.guards.forEach(function (g) { g.timer -= next; });
+      // the schedule stands still while the guardians are frightened
+      if (C.fright > 0) { C.fright -= next; if (C.fright <= EPS) chaseUnfright(st); }
+      else { C.modeLeft -= next; if (C.modeLeft <= EPS) chaseNextPhase(st); }
+      if (C.bonusLeft > 0) {
+        C.bonusLeft -= next;
+        if (C.bonusLeft <= EPS) { C.bonusLeft = 0; if (st.items[st.lv.start] === "gold") { delete st.items[st.lv.start]; st.events.push({ type: "bonusGone" }); } }
+      }
+      C.clock += next;
+      st.elapsed += next;
+      dt -= next;
+      if (p.timer <= EPS) {
+        chasePlayerMove(st);
+        p.timer += p.baseMs;
+        if (st.status === "play") chaseTouch(st);
+        if (st.status !== "play") break;
+      }
+      for (var k = 0; k < st.guards.length; k++) {
+        var g = st.guards[k];
+        if (g.timer > EPS) continue;
+        guardMove(st, g);
+        g.timer += guardMs(st, g);
+        chaseTouch(st);
+        if (st.status !== "play") break;
+      }
+    }
+  }
+
   // Walk time forward by `dt` ms, stopping at every snake move, spike flip
   // and the time limit, in order.
   function advance(st, dt) {
+    if (st.chase) { chaseAdvance(st, dt); return; }
     if (st.status !== "play") return;
     dt = Math.min(Math.max(dt, 0), CFG.maxStepMs);
     var timed = st.timeLeft !== Infinity;
@@ -1017,8 +1396,8 @@
   }
 
   return {
-    T: T, CFG: CFG, DX: DX, DY: DY, LEGEND: LEGEND, KINDS: KINDS, COLORS: COLORS,
-    parse: parse, create: create, advance: advance,
+    T: T, CFG: CFG, DX: DX, DY: DY, LEGEND: LEGEND, KINDS: KINDS, COLORS: COLORS, CHASE: CHASE,
+    parse: parse, create: create, advance: advance, chaseRespawn: chaseRespawn,
     turn: turn, blink: blink, click: click, canBlinkTo: canBlinkTo, setGhost: setGhost, setDash: setDash, setCursor: setCursor,
     spikeUp: spikeUp, isDoorShut: isDoorShut, exitOpen: exitOpen, neighbor: neighbor, moveTarget: moveTarget, solidFor: solidFor,
     isPlayer: isPlayer, primary: primary, playersOf: playersOf, flowerAt: flowerAt,

@@ -10,7 +10,7 @@ window.SlitherLabyrinth = function (host) {
   "use strict";
 
   var E = window.SlitherEngine, T = E.T, LEVELS = window.SLITHER_LEVELS || [], STAGES = window.SLITHER_STAGES || [];
-  var ARENAS = window.SLITHER_ARENAS || [];
+  var ARENAS = window.SLITHER_ARENAS || [], CHASES = window.SLITHER_CHASES || [];
   var PROGRESS_KEY = "slither_labyrinth"; // also listed in the hub's reset-scores block
   var CELL = 24;
   var canvas = host.canvas, ctx = host.ctx;
@@ -32,6 +32,7 @@ window.SlitherLabyrinth = function (host) {
     lives: document.getElementById("lab-lives"),
     ghostBtn: document.getElementById("ghost-btn"),
     dashBtn: document.getElementById("dash-btn"),
+    holdName: document.querySelector("#lab-btns .dpad-name"),
   };
 
   // Temple look: Garden is a mossy courtyard, Ruins sandstone, Citadel
@@ -209,11 +210,38 @@ window.SlitherLabyrinth = function (host) {
     container.appendChild(box);
   }
 
+  // Maze chase: eat every bead while the temple guardians hunt you. A run
+  // carries score and lives from maze to maze; the mazes loop, faster each time.
+  var chaseRun = null;
+  function chaseBest() { return progress.chaseBest || 0; }
+  function buildChases(container) {
+    if (!CHASES.length) return;
+    var box = panel("chase", "👻 Maze Chase · outrun the guardians", false);
+    var p = document.createElement("p");
+    p.textContent = "Eat every bead while four temple guardians hunt you. A sunstone turns them: bite them while they flee. " +
+      "Press backwards to flip end for end. " + E.CHASE.lives + " lives; each maze you clear, the next is faster.";
+    box.appendChild(p);
+    var row = document.createElement("div");
+    row.className = "row";
+    CHASES.forEach(function (c, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.textContent = "👻 " + c.name;
+      if (i === 0 && chaseBest()) { var s = document.createElement("small"); s.textContent = "🏆 " + chaseBest(); b.appendChild(s); }
+      b.title = i === 0 ? "Start the chase" : "Start the chase in " + c.name;
+      b.addEventListener("click", function () { startChase(i, true); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    container.appendChild(box);
+  }
+
   function buildLevelGrid(container) {
     container.innerHTML = "";
     buildRuns(container);
     buildStages(container);
     buildArenas(container);
+    buildChases(container);
     var zone = null, grid = null;
     LEVELS.forEach(function (lv, i) {
       if (lv.zone !== zone) {
@@ -290,6 +318,11 @@ window.SlitherLabyrinth = function (host) {
     spike: function () { noise(0.2, 0.3, "highpass", 2500, 800); tone(880, 0.2, "sawtooth", 0.08, 220); },
     timeUp: function () { tone(440, 0.22, "square", 0.09, 330); tone(330, 0.35, "square", 0.09, 160, 0.2); },
     tick: function () { tone(1050, 0.05, "square", 0.05); },
+    // maze chase
+    bead: (function () { var hi = false; return function () { hi = !hi; tone(hi ? 900 : 680, 0.045, "triangle", 0.045); }; })(),
+    sunstone: function () { tone(330, 0.3, "sawtooth", 0.06, 880); tone(660, 0.3, "triangle", 0.07, 1320, 0.05); },
+    bite: function () { tone(1200, 0.08, "square", 0.06, 300); tone(400, 0.2, "triangle", 0.08, 1600, 0.06); },
+    flip: function () { tone(520, 0.05, "sine", 0.05, 780); },
   };
 
   // ---- music -------------------------------------------------------------------
@@ -354,33 +387,41 @@ window.SlitherLabyrinth = function (host) {
 
   // A level that isn't part of the campaign: from My levels or a share link.
   // It plays exactly the same but doesn't touch campaign progress.
-  var custom = null, stageIdx = -1, arenaIdx = -1;
+  var custom = null, stageIdx = -1, arenaIdx = -1, chaseIdx = -1;
   function start(i, viaRun) {
-    custom = null; stageIdx = -1; arenaIdx = -1;
+    custom = null; stageIdx = -1; arenaIdx = -1; chaseIdx = -1;
     inRun = !!viaRun && !!progress.run;
     levelIdx = Math.max(0, Math.min(LEVELS.length - 1, i));
     launch(LEVELS[levelIdx]);
   }
   function startArena(i, fresh) {
-    custom = null; inRun = false; stageIdx = -1; levelIdx = -1;
+    custom = null; inRun = false; stageIdx = -1; levelIdx = -1; chaseIdx = -1;
     arenaIdx = i;
     if (fresh || !tally) tally = { p1: 0, p2: 0, rival: 0 };
     launch(ARENAS[i]);
   }
   function startStage(i) {
-    custom = null; inRun = false; arenaIdx = -1;
+    custom = null; inRun = false; arenaIdx = -1; chaseIdx = -1;
     stageIdx = i;
     levelIdx = -1;
     launch(STAGES[i]);
   }
+  function startChase(i, fresh) {
+    custom = null; inRun = false; stageIdx = -1; arenaIdx = -1; levelIdx = -1;
+    chaseIdx = i;
+    if (fresh || !chaseRun) chaseRun = { score: 0, lives: E.CHASE.lives, round: 1, extraGiven: false, first: i };
+    launch(CHASES[i]);
+  }
   function startCustom(level) {
     custom = level;
-    inRun = false; stageIdx = -1; arenaIdx = -1;
+    inRun = false; stageIdx = -1; arenaIdx = -1; chaseIdx = -1;
     levelIdx = -1;
     launch(level);
   }
   function launch(level) {
-    st = E.create(level, { players: arenaIdx >= 0 ? arenaPlayers : 1 });
+    st = E.create(level, { players: arenaIdx >= 0 ? arenaPlayers : 1, chase: chaseIdx >= 0 ? chaseRun : null });
+    // A chase has no ghosting or sprint, so its touch buttons (and their label) go.
+    el.ghostBtn.style.display = el.dashBtn.style.display = el.holdName.style.display = st.chase ? "none" : "";
     // 1-ups and golden apples only exist on pack runs.
     if (!inRun) Object.keys(st.items).forEach(function (k) { if (st.items[k] === "oneup" || st.items[k] === "gold") delete st.items[k]; });
     theme = THEMES[level.zone] || THEMES.Garden;
@@ -393,7 +434,8 @@ window.SlitherLabyrinth = function (host) {
     if (host.showP2Pad) host.showP2Pad(twoPlayer());
     buildLayer();
     el.level.innerHTML = custom ? "<b>✎</b> · " + escapeHtml(level.name || "Custom level") : stageIdx >= 0 ? "<b>Stage</b> · " + level.name
-      : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
+      : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : chaseIdx >= 0 ? "<b>Chase</b> · " + level.name + " · maze " + st.chase.round
+      : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
     el.hint.textContent = level.hint || "";
     el.timeBar.style.display = st.timeLimit ? "" : "none";
     updateHud();
@@ -403,6 +445,7 @@ window.SlitherLabyrinth = function (host) {
   }
   function restart() {
     if (custom) { launch(custom); return; }
+    if (chaseIdx >= 0) { recordChase(); startChase(chaseRun ? chaseRun.first : chaseIdx, true); return; }
     if (stageIdx >= 0) { recordStage(); startStage(stageIdx); return; }
     if (arenaIdx >= 0) { startArena(arenaIdx, false); return; }
     if (!st) return;
@@ -439,6 +482,7 @@ window.SlitherLabyrinth = function (host) {
     // Leaving a run mid-level costs a life (or quitting would be a free retry).
     if (inRun && st && st.status === "play") loseLife();
     if (st && st.stage && st.status === "play") recordStage();   // quitting still keeps your score
+    if (st && st.chase) recordChase();
     if (host.showP2Pad) host.showP2Pad(false);
     inRun = false;
     active = false;
@@ -583,6 +627,7 @@ window.SlitherLabyrinth = function (host) {
 
   // ---- events -> sound / effects / results ---------------------------------------
   function burst(i, color) { effects.push({ i: i, color: color, t0: performance.now() }); }
+  function popup(i, text, color) { effects.push({ i: i, text: text, color: color || "#ffe7a3", t0: performance.now(), life: 900 }); }
 
   function drainEvents() {
     var evs = st.events;
@@ -621,6 +666,17 @@ window.SlitherLabyrinth = function (host) {
         case "dead": onDead(e); break;
         case "arenaOver": onArenaOver(e); break;
         case "win": onWin(); break;
+        // maze chase
+        case "bead": sfx.bead(); break;
+        case "sunstone": sfx.sunstone(); burst(e.at, "#ffd36e"); break;
+        case "guardEaten": sfx.bite(); popup(e.at, String(e.points), Art.rgb(Art.GUARDIANS[e.persona % 4].light)); break;
+        case "bonusSpawn": burst(e.at, "#f2c037"); break;
+        case "bonus": host.SFX.eat(); popup(e.at, String(e.points), "#f2c037"); break;
+        case "extraLife": sfxOneUp(); break;
+        case "flip": sfx.flip(); break;
+        case "caught": onCaught(e); break;
+        case "chaseOver": onChaseOver(); break;
+        case "chaseClear": onChaseClear(); break;
       }
     });
   }
@@ -740,6 +796,49 @@ window.SlitherLabyrinth = function (host) {
     }, 650);
   }
 
+  // ---- maze chase results ---------------------------------------------------------
+  // Keeps the best chase score; returns the best before this run.
+  function recordChase() {
+    var prev = chaseBest();
+    if (chaseIdx >= 0 && st && st.chase && st.chase.score > prev) { progress.chaseBest = st.chase.score; saveProgress(); }
+    return prev;
+  }
+  // Caught with lives to spare: a beat to see it, then everyone back to their spots.
+  function onCaught(e) {
+    host.SFX.body();
+    burst(e.at, "#ff5a4a");
+    clearHeld();
+    if (e.lives > 0) {
+      endTimer = setTimeout(function () {
+        if (!active || !st || st.status !== "caught") return;
+        E.chaseRespawn(st);
+      }, 1500);
+    }
+  }
+  function onChaseOver() {
+    var score = st.chase.score, round = st.chase.round, prev = recordChase();
+    var msg = "Score " + score + (score > prev ? (prev ? " — new best! 🎉" : "") : "  ·  Best " + prev) + "  ·  maze " + round;
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      host.showResult({ title: "The guardians got you 👻", msg: msg + "  ·  R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart });
+    }, 900);
+  }
+  function onChaseClear() {
+    host.SFX.win();
+    clearHeld();
+    var C = st.chase, next = (chaseIdx + 1) % CHASES.length;
+    recordChase();
+    chaseRun = { score: C.score, lives: C.lives, round: C.round + 1, extraGiven: C.extraGiven, first: chaseRun ? chaseRun.first : chaseIdx };
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      host.showResult({
+        title: "Maze clear! ✨",
+        msg: "Score " + C.score + "  ·  ❤ ×" + C.lives + "  ·  next: " + CHASES[next].name + ", a little faster",
+        primaryLabel: "Next Maze →", primaryFn: function () { startChase(next, false); },
+      });
+    }, 700);
+  }
+
   // A stage ends when you crash: score it.
   // Returns the previous best (0 for none).
   function recordStage() {
@@ -787,6 +886,15 @@ window.SlitherLabyrinth = function (host) {
   // ---- HUD ---------------------------------------------------------------------
   function updateHud() {
     if (!st) return;
+    if (st.chase) {
+      var C = st.chase, best = Math.max(chaseBest(), C.score);
+      el.apples.innerHTML = "✦ <b>" + C.score + "</b>" + (best ? " · best " + best : "");
+      el.time.innerHTML = "● <b>" + C.left + "</b> left";
+      el.lives.style.display = "";
+      el.lives.innerHTML = "❤ <b>×" + C.lives + "</b>";
+      el.blink.style.display = el.ghost.style.display = el.lock.style.display = el.boss.style.display = el.twins.style.display = "none";
+      return;
+    }
     if (st.arena) {
       var left = st.snakes.filter(function (s) { return s.alive && (s.ctrl || s.kind === "rival"); }).length;
       el.apples.innerHTML = "🐍 <b>" + left + "</b> left" + (tally && arenaIdx >= 0 ? " · 🏆 " + (twoPlayer() ? "P1 " + tally.p1 + " · P2 " + tally.p2 : "You " + tally.p1) + " · Rivals " + tally.rival : "");
@@ -874,6 +982,7 @@ window.SlitherLabyrinth = function (host) {
         else if (t === T.INFINITY) Art.infinity(g, px, py, CELL);
         else if (t === T.CLONER) Art.cloner(g, px, py, CELL);
         else if (t === T.OUTLET) Art.outlet(g, px, py, CELL);
+        else if (t === T.GATE) Art.gate(g, px, py, CELL);
         else if (t === T.TELE || t === T.TELE_OUT) live.push(i);
         else if (t === T.PORTAL) { Art.portalFrame(g, px + CELL / 2, py + CELL / 2, CELL / 2 - 1); live.push(i); }
         else if (t === T.DOOR_SHUT || t === T.DOOR_OPEN || t === T.SWITCH || t === T.CLICK || t === T.SPIKE_A || t === T.SPIKE_B || t === T.EXIT || t === T.WARP) live.push(i);
@@ -899,6 +1008,8 @@ window.SlitherLabyrinth = function (host) {
   }
 
   function drawItem(i, item, now, fx) {
+    if (item === "bead") { Art.bead(ctx, cx(i), cy(i), CELL); return; }   // hundreds of them: they sit still
+    if (item === "sunstone") { Art.sunstone(ctx, cx(i), cy(i), CELL, now, fx); return; }
     var x = cx(i), y = cy(i) + (fx ? Math.sin(now / 180 + i) * 1.3 : 0);
     if (item === "apple") Art.fruit(ctx, x, y, CELL - 6, "🍎");
     else if (item === "fast") Art.fruit(ctx, x, y, CELL - 6, "🍏");
@@ -931,6 +1042,17 @@ window.SlitherLabyrinth = function (host) {
     });
   }
 
+  // The guardians: hunting, frightened (flashing as the fright wears off), or
+  // just their eyes flying home.
+  function drawGuards(now, fx) {
+    var C = st.chase, ending = C.fright > 0 && C.fright < 1800;
+    st.guards.forEach(function (g) {
+      var look = g.state === "eaten" ? "eyes" : !g.fright ? "hunt"
+        : ending && (!fx || Math.floor(now / 170) % 2 === 1) ? "flash" : "fright";
+      Art.guardian(ctx, cx(g.cell), cy(g.cell), CELL, { persona: g.persona, look: look, dir: { x: E.DX[g.dir], y: E.DY[g.dir] }, t: now, fx: fx });
+    });
+  }
+
   function render(now) {
     if (!st || !layer) return;
     var fx = !(window.RM_ON && window.RM_ON());
@@ -941,6 +1063,7 @@ window.SlitherLabyrinth = function (host) {
     keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, fx); });
     st.flowers.forEach(function (f) { Art.flower(ctx, (f.cell % st.cols) * CELL, Math.floor(f.cell / st.cols) * CELL, CELL, f.armed, now, fx); });
     for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, now, fx);
+    if (st.chase) drawGuards(now, fx);
 
     // Unlit halls hide serpents, not the apples you're hunting for.
     for (var i = 0; i < st.tiles.length; i++) {
@@ -986,10 +1109,22 @@ window.SlitherLabyrinth = function (host) {
       ctx.setLineDash([]);
     }
 
-    // Pickup / death bursts.
+    // Pickup / death bursts, and the points a bite or a bonus scores.
     effects = effects.filter(function (f) {
-      var t = (now - f.t0) / 380;
+      var t = (now - f.t0) / (f.life || 380);
       if (t >= 1 || t < 0) return t < 0;
+      if (f.text) {
+        ctx.globalAlpha = Math.min(1, (1 - t) * 1.6);
+        ctx.font = "700 12px Cinzel, Georgia, serif";
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.lineWidth = 3; ctx.strokeStyle = "rgba(14,11,8,0.85)";
+        var ty = cy(f.i) - (fx ? t * 14 : 6);
+        ctx.strokeText(f.text, cx(f.i), ty);
+        ctx.fillStyle = f.color;
+        ctx.fillText(f.text, cx(f.i), ty);
+        ctx.globalAlpha = 1;
+        return true;
+      }
       ctx.strokeStyle = f.color;
       ctx.globalAlpha = 1 - t;
       ctx.lineWidth = 2;
@@ -1019,7 +1154,7 @@ window.SlitherLabyrinth = function (host) {
     keydown: keydown, keyup: keyup, steer: steer, padSteer: padSteer, unsteer: unsteer, padHold: padHold,
     isOver: function () { return !!st && (st.status === "dead" || st.status === "won" || st.status === "over"); },
     buildLevelGrid: buildLevelGrid, continueIndex: continueIndex, startCustom: startCustom,
-    startRun: startRun, continueRun: continueRun, startStage: startStage, startArena: startArena,
+    startRun: startRun, continueRun: continueRun, startStage: startStage, startArena: startArena, startChase: startChase,
     levelCount: function () { return LEVELS.length; },
   };
 };
