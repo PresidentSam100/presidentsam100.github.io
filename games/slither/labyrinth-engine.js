@@ -34,7 +34,7 @@
     FLOOR: 0, WALL: 1, EXIT: 2, ICE: 3, DOOR_SHUT: 4, DOOR_OPEN: 5,
     SWITCH: 6, SPIKE_A: 7, SPIKE_B: 8, CUTTER: 9, DARK: 10, PORTAL: 11,
     WARP: 12, CLICK: 13, TELE: 14, TELE_OUT: 15, INFINITY: 16, CLONER: 17,
-    OUTLET: 18, DREAM: 19, STORM: 20, STUD: 21, GATE: 22,
+    OUTLET: 18, DREAM: 19, STORM: 20, STUD: 21, GATE: 22, URN: 23,
   };
   var COLORS = ["amber", "cyan", "magenta"];
 
@@ -163,6 +163,15 @@
     bonus: [100, 300, 500, 700, 1000, 2000, 3000, 5000],
   };
 
+  // Fire eggs tuning (blast arena). Times in ms; speeds are ms per cell.
+  var BLAST = {
+    len: 3, ms: 170, speedStep: 14, speedMax: 3,
+    fuse: 2400, flame: 550, range: 2, rangeMax: 7, eggs: 1, eggsMax: 5,
+    urns: 0.62,                               // share of open floor that starts as clay urns…
+    hidden: 0.3, kinds: ["fire", "fire", "egg", "egg", "speed"],   // …and how many hide a power-up
+    closeAt: 90000, closeEvery: 180,          // then the arena closes in from the edges
+  };
+
   // Directions: 0 up, 1 right, 2 down, 3 left.
   var DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
   var EPS = 1e-6;
@@ -258,10 +267,13 @@
     }
     if (!exits && mode === "campaign") errors.push("no exit (E)");
     if (mode === "stage" && exits) errors.push("a stage has no exit: its apples never run out");
-    if (mode === "arena" && exits) errors.push("an arena has no exit: the last snake standing wins");
-    if (mode === "arena" && starts.p2 < 0 && !enemies.some(function (e) { return e.kind === "rival"; })) errors.push("an arena needs someone to beat: a player 2 start (s) or a rival (r)");
-    if (mode !== "arena" && starts.p2 >= 0) errors.push("a player 2 start (s) only works in an arena");
-    if (mode !== "arena" && enemies.some(function (e) { return e.kind === "rival"; })) errors.push("rivals (r) only work in an arena");
+    var versus = mode === "arena" || mode === "blast";
+    if (versus && exits) errors.push("an arena has no exit: the last snake standing wins");
+    if (versus && starts.p2 < 0 && !enemies.some(function (e) { return e.kind === "rival"; })) errors.push("an arena needs someone to beat: a player 2 start (s) or a rival (r)");
+    if (!versus && starts.p2 >= 0) errors.push("a player 2 start (s) only works in an arena");
+    if (!versus && enemies.some(function (e) { return e.kind === "rival"; })) errors.push("rivals (r) only work in an arena");
+    if (mode === "blast" && enemies.some(function (e) { return e.kind !== "rival"; })) errors.push("only rivals (r) play in a fire-egg arena");
+    if (mode === "blast" && enemies.length > 3) errors.push("at most four snakes in a fire-egg arena");
     if (warps.length && (!level.warps || level.warps.length < warps.length)) errors.push("warp exit(s) need a target in the level's warps list");
     var bosses = enemies.filter(function (e) { return e.kind === "boss"; }).length;
     if (bosses > 1) errors.push("only one boss (@) per level");
@@ -328,6 +340,7 @@
     st.player = makeSnake(st, "player", lv.start, lv.mode === "chase" ? CHASE.len : CFG.startLen, speed, "p1");
     st.snakes.push(st.player);
     if (lv.mode === "chase") chaseSetup(st, opts.chase || {});
+    if (lv.mode === "blast") { blastSetup(st, opts); return st; }
     // Arena: player 2 (or, in a one-player game, a rival) starts at s.
     var rivals = 0;
     if (st.arena && lv.start2 >= 0) {
@@ -407,7 +420,7 @@
     // Enemies never take an exit; a locked exit is a wall; a ghost floats
     // through the arch without leaving.
     if (t === T.EXIT || t === T.WARP) return !isPlayer(s) || (!ghost && !exitOpen(st));
-    if (t === T.GATE) return true;   // the shrine gate lets only guardians through, and they aren't snakes
+    if (t === T.GATE || t === T.URN) return true;   // the shrine gate lets only guardians through, and they aren't snakes
     // Watermelons are for enemies only; to a player they're a wall.
     if (st.items[i] === "melon" && isPlayer(s)) return !ghost;
     return false;
@@ -436,6 +449,7 @@
   function turn(st, d, ctrl) {
     ctrl = ctrl || "p1";
     if (st.chase) { chaseTurn(st, d); return; }
+    if (st.blast) { blastTurn(st, d, ctrl); return; }
     var mine = playersOf(st, ctrl);
     if (!mine.length) return;
     if (st.status === "ready") {
@@ -486,9 +500,9 @@
   }
   // A chase has no ghosting and no sprint: players hold directions all the
   // time there, and holding one is how sprint is triggered.
-  function setGhost(st, held, ctrl) { if (!st.chase) st.res[ctrl || "p1"].ghostHeld = !!held; }
+  function setGhost(st, held, ctrl) { if (!st.chase && !st.blast) st.res[ctrl || "p1"].ghostHeld = !!held; }
   function setDash(st, held, ctrl) {
-    if (st.chase) return;
+    if (st.chase || st.blast) return;
     var r = st.res[ctrl || "p1"];
     held = !!held;
     if (held === r.dashHeld) return;
@@ -1126,7 +1140,7 @@
     for (var k = 1; k < s.body.length; k++) if (s.body[k] !== h) { nb = s.body[k]; break; }
     if (nb >= 0) for (var q = 0; q < 4; q++) if (moveTarget(st, nb, q) === h) d = q;
     s.dir = d >= 0 ? d : want;
-    st.events.push({ type: "flip", at: h });
+    st.events.push({ type: "flip", at: h, ctrl: s.ctrl });
   }
 
   function chaseScore(st, pts) {
@@ -1352,10 +1366,424 @@
     }
   }
 
+  // ---- fire eggs (blast arena) ----------------------------------------------------
+  // mode "blast" (blasts.js): a snake lays a fire egg where its head is. After
+  // a fuse the egg bursts into a cross of flame that shatters clay urns, sets
+  // off any egg it reaches and burns every snake it touches. Some urns hide a
+  // power-up. Last snake standing takes the round; after two minutes the
+  // arena closes in from the edges. Snakes move as in the maze chase — fixed
+  // length, walls stop rather than kill, pressing backwards flips — so only
+  // fire (or the closing walls) kills. Eggs block heads; a body slides over.
+  // Players and rival snakes all live in st.snakes, but only this section
+  // moves them.
+  function blastSetup(st, opts) {
+    var lv = st.lv, rnd = opts.rng || Math.random, rivals = 0;
+    // cpuOnly: every snake is a rival (a match to watch, and how the rivals get tested)
+    var B = st.blast = { eggs: [], flames: [], hidden: {}, clock: 0, closing: false, closeTimer: 0, order: null, closed: [], cpuOnly: !!opts.cpuOnly };
+    st.snakes = [];
+    function add(at, ctrl) {
+      var s = makeSnake(st, ctrl ? "player" : "rival", at, BLAST.len, BLAST.ms, ctrl);
+      s.want = -1; s.cap = BLAST.eggs; s.range = BLAST.range; s.spd = 0; s.out = 0;
+      s.moving = false; s.stepOnce = false; s.lastMove = -Infinity;
+      if (!ctrl) s.rivalNo = rivals++;
+      st.snakes.push(s);
+      return s;
+    }
+    var starts = [lv.start];
+    st.player = add(lv.start, B.cpuOnly ? null : "p1");
+    if (lv.start2 >= 0) { add(lv.start2, opts.players === 2 && !B.cpuOnly ? "p2" : null); starts.push(lv.start2); }
+    lv.enemies.forEach(function (e) { add(e.at, null); starts.push(e.at); });
+    // Clay urns fill the open floor ("."; a space stays bare), except the two
+    // cells either way from each start, so everyone can uncoil.
+    var grid = st.level.grid, density = st.level.urns != null ? st.level.urns : BLAST.urns;
+    for (var i = 0; i < st.tiles.length; i++) {
+      var x = i % st.cols, y = Math.floor(i / st.cols);
+      if (st.tiles[i] !== T.FLOOR || grid[y].charAt(x) !== ".") continue;
+      var nearStart = starts.some(function (s) {
+        var sx = s % st.cols, sy = Math.floor(s / st.cols);
+        return (sx === x && Math.abs(sy - y) <= 2) || (sy === y && Math.abs(sx - x) <= 2);
+      });
+      if (nearStart || rnd() >= density) continue;
+      st.tiles[i] = T.URN;
+      if (rnd() < BLAST.hidden) B.hidden[i] = BLAST.kinds[Math.floor(rnd() * BLAST.kinds.length)];
+    }
+  }
+
+  // In a blast arena a snake only slithers while a direction is held (a tap
+  // still moves it one cell), so it can wait out a burst like anyone else.
+  function blastTurn(st, d, ctrl) {
+    var s = primary(st, ctrl);
+    if (!s) return;
+    if (st.status === "ready") { st.status = "play"; st.events.push({ type: "start" }); }
+    if (st.status !== "play") return;
+    // setting off from a standstill: step now, not at the next tick of its clock
+    if (!s.moving && st.elapsed - s.lastMove >= blastMs(s)) s.timer = 0;
+    s.want = d;
+    s.moving = true;
+    s.stepOnce = true;
+    if (s.dir < 0) s.dir = d;
+  }
+  function blastStop(st, ctrl) {
+    var s = st.blast && primary(st, ctrl || "p1");
+    if (s) s.moving = false;
+  }
+  function blastMs(s) { return BLAST.ms - BLAST.speedStep * s.spd; }
+  function eggAt(st, c) {
+    var eggs = st.blast.eggs;
+    for (var k = 0; k < eggs.length; k++) if (eggs[k].cell === c) return eggs[k];
+    return null;
+  }
+  // Is c blocked for snake s's head? Walls, urns, eggs and every body — its
+  // own tail excepted, since that moves on.
+  function blastSolid(st, s, c) {
+    var t = st.tiles[c];
+    if (t === T.WALL || t === T.URN || t === T.GATE || isDoorShut(st, c) || eggAt(st, c)) return true;
+    for (var k = 0; k < st.snakes.length; k++) {
+      var o = st.snakes[k];
+      if (!o.alive) continue;
+      var lim = o === s ? o.body.length - 1 : o.body.length;
+      for (var j = 0; j < lim; j++) if (o.body[j] === c) return true;
+    }
+    return false;
+  }
+  function blastOpen(st, s, d) {
+    var n = moveTarget(st, s.body[0], d);
+    return n >= 0 && !blastSolid(st, s, n);
+  }
+  function blastMove(st, s) {
+    if (!s.moving && !s.stepOnce) return;
+    s.stepOnce = false;
+    if (s.want >= 0 && s.dir >= 0 && s.want === (s.dir + 2) % 4) chaseFlip(st, s, s.want);
+    var d = s.want >= 0 && blastOpen(st, s, s.want) ? s.want : s.dir >= 0 && blastOpen(st, s, s.dir) ? s.dir : -1;
+    if (d < 0) return;
+    var n = moveTarget(st, s.body[0], d);
+    s.dir = d;
+    s.body.unshift(n);
+    s.body.pop();
+    s.lastMove = st.elapsed;
+    var it = st.items[n];
+    if (it === "fire" || it === "egg" || it === "speed") {
+      delete st.items[n];
+      if (it === "fire") s.range = Math.min(BLAST.rangeMax, s.range + 1);
+      else if (it === "egg") s.cap = Math.min(BLAST.eggsMax, s.cap + 1);
+      else s.spd = Math.min(BLAST.speedMax, s.spd + 1);
+      st.events.push({ type: "powerUp", item: it, at: n, ctrl: s.ctrl, rivalNo: s.rivalNo });
+    }
+  }
+  function layEgg(st, s) {
+    var cell = s.body[0];
+    if (s.out >= s.cap || eggAt(st, cell)) return false;
+    st.blast.eggs.push({ cell: cell, owner: s, fuse: BLAST.fuse, range: s.range });
+    s.out++;
+    st.events.push({ type: "eggLaid", at: cell, ctrl: s.ctrl });
+    return true;
+  }
+  // A player lays an egg (Space / E, or the 🥚 button).
+  function blastLay(st, ctrl) {
+    if (!st.blast || st.status !== "play") return false;
+    var s = primary(st, ctrl || "p1");
+    return !!s && layEgg(st, s);
+  }
+
+  // The cells a burst from `cell` reaches: out to `range` each way, stopped
+  // by walls; an urn or another egg takes the flame and stops it there.
+  function blastLines(st, cell, range, isEgg) {
+    var out = [cell];
+    for (var d = 0; d < 4; d++) {
+      var c = cell;
+      for (var k = 1; k <= range; k++) {
+        c = neighbor(st, c, d);
+        if (c < 0 || st.tiles[c] === T.WALL) break;
+        out.push(c);
+        if (st.tiles[c] === T.URN || isEgg(c)) break;
+      }
+    }
+    return out;
+  }
+  function burst(st, egg) {
+    var B = st.blast, i = B.eggs.indexOf(egg);
+    if (i < 0) return;
+    B.eggs.splice(i, 1);
+    egg.owner.out = Math.max(0, egg.owner.out - 1);
+    var cells = blastLines(st, egg.cell, egg.range, function (c) { return !!eggAt(st, c); }), chained = [];
+    cells.forEach(function (c) {
+      if (st.tiles[c] === T.URN) {
+        // the urn takes this flame, so what it hid survives it
+        st.tiles[c] = T.FLOOR;
+        if (B.hidden[c]) { st.items[c] = B.hidden[c]; delete B.hidden[c]; }
+        st.events.push({ type: "urn", at: c });
+      } else if (c !== egg.cell && st.items[c]) {
+        delete st.items[c];
+        st.events.push({ type: "burnItem", at: c });
+      }
+      var other = eggAt(st, c);
+      if (other && other !== egg) chained.push(other);
+      var f = null;
+      for (var k = 0; k < B.flames.length; k++) if (B.flames[k].cell === c) f = B.flames[k];
+      if (f) { f.ms = BLAST.flame; f.owner = egg.owner; } else B.flames.push({ cell: c, ms: BLAST.flame, owner: egg.owner });
+    });
+    st.events.push({ type: "burst", at: egg.cell, cells: cells, ctrl: egg.owner.ctrl });
+    chained.forEach(function (e) { burst(st, e); });
+  }
+  // by: whose egg lit the flame (null when the walls closed in)
+  function blastKill(st, s, cause, at, by) {
+    s.alive = false;
+    s.diedAt = st.elapsed;
+    st.events.push({ type: "burnt", at: at, cause: cause, ctrl: s.ctrl, rivalNo: s.rivalNo, own: by === s,
+                     byCtrl: by ? by.ctrl : null, byRival: by && !by.ctrl ? by.rivalNo : -1 });
+  }
+  function blastBurn(st) {
+    var B = st.blast;
+    if (!B.flames.length) return;
+    var hot = {};
+    B.flames.forEach(function (f) { hot[f.cell] = f; });
+    st.snakes.forEach(function (s) {
+      if (!s.alive) return;
+      for (var k = 0; k < s.body.length; k++) {
+        var f = hot[s.body[k]];
+        if (f) { blastKill(st, s, "fire", s.body[k], f.owner); return; }
+      }
+    });
+  }
+  // The round ends when at most one snake is left, or no human is.
+  function blastCheck(st) {
+    if (st.status !== "play") return;
+    var alive = st.snakes.filter(function (s) { return s.alive; }), humans = alive.filter(isPlayer);
+    if (alive.length > 1 && (humans.length || st.blast.cpuOnly)) return;
+    var w = alive.length === 1 ? alive[0] : null;
+    st.status = "over";
+    st.winner = w ? (isPlayer(w) ? w.ctrl : "rival") : alive.length ? "rival" : "draw";
+    st.events.push({ type: "blastOver", winner: st.winner, rivalNo: w && !isPlayer(w) ? w.rivalNo : -1, at: w ? w.body[0] : -1 });
+  }
+  // The closing walls: ring by ring from the edge inward, clockwise.
+  function closeOrder(st) {
+    var out = [], seen = {};
+    for (var k = 0; 2 * k < Math.min(st.cols, st.rows); k++) {
+      var x0 = k, y0 = k, x1 = st.cols - 1 - k, y1 = st.rows - 1 - k, ring = [], x, y;
+      for (x = x0; x <= x1; x++) ring.push(y0 * st.cols + x);
+      for (y = y0 + 1; y <= y1; y++) ring.push(y * st.cols + x1);
+      if (y1 > y0) for (x = x1 - 1; x >= x0; x--) ring.push(y1 * st.cols + x);
+      if (x1 > x0) for (y = y1 - 1; y > y0; y--) ring.push(y * st.cols + x0);
+      ring.forEach(function (c) { if (!seen[c] && st.tiles[c] !== T.WALL) { seen[c] = true; out.push(c); } });
+    }
+    return out;
+  }
+  function closeOne(st) {
+    var B = st.blast;
+    while (B.order.length) {
+      var c = B.order.shift();
+      if (st.tiles[c] === T.WALL) continue;
+      st.tiles[c] = T.WALL;
+      B.closed.push(c);
+      delete st.items[c];
+      delete B.hidden[c];
+      var e = eggAt(st, c);
+      if (e) { B.eggs.splice(B.eggs.indexOf(e), 1); e.owner.out = Math.max(0, e.owner.out - 1); }
+      st.snakes.forEach(function (s) { if (s.alive && s.body.indexOf(c) !== -1) blastKill(st, s, "crushed", c); });
+      st.events.push({ type: "closed", at: c });
+      return;
+    }
+  }
+
+  // ---- rival brains -------------------------------------------------------------
+  // When fire will reach each cell (ms from now, chain reactions included), and
+  // how long the flames already there keep burning. `extra` is an egg the
+  // rival is thinking of laying.
+  function blastDanger(st, extra) {
+    var B = st.blast, n = st.tiles.length;
+    var eggs = B.eggs.map(function (e) { return { cell: e.cell, t: e.fuse, range: e.range }; });
+    if (extra) eggs.push(extra);
+    var cellsOf = {};
+    eggs.forEach(function (e) { cellsOf[e.cell] = true; });
+    var isEgg = function (c) { return !!cellsOf[c]; };
+    var lines = eggs.map(function (e) { return blastLines(st, e.cell, e.range, isEgg); });
+    for (var pass = 0, changed = true; changed && pass < 12; pass++) {
+      changed = false;
+      for (var a = 0; a < eggs.length; a++) {
+        for (var b = 0; b < eggs.length; b++) {
+          if (a !== b && eggs[b].t > eggs[a].t && lines[a].indexOf(eggs[b].cell) !== -1) { eggs[b].t = eggs[a].t; changed = true; }
+        }
+      }
+    }
+    var at = new Array(n), burn = new Array(n), wall = new Array(n);
+    for (var i = 0; i < n; i++) { at[i] = Infinity; burn[i] = 0; wall[i] = Infinity; }
+    eggs.forEach(function (e, k) { lines[k].forEach(function (c) { if (e.t < at[c]) at[c] = e.t; }); });
+    B.flames.forEach(function (f) { if (f.ms > burn[f.cell]) burn[f.cell] = f.ms; });
+    // the closing walls: when each of the next cells in line will be taken
+    if (B.closing) {
+      var ahead = Math.min(B.order.length, 60);
+      for (var j = 0; j < ahead; j++) wall[B.order[j]] = B.closeTimer + j * BLAST.closeEvery;
+    }
+    return { at: at, burn: burn, wall: wall };
+  }
+  // Would a snake part on cell c between t0 and t1 get burnt (or walled in)?
+  function hotDuring(D, c, t0, t1) {
+    if (D.burn[c] > 0 && t0 < D.burn[c] + 60) return true;
+    if (t1 > D.wall[c] - 300) return true;
+    var a = D.at[c];
+    return a !== Infinity && t1 > a - 80 && t0 < a + BLAST.flame + 80;
+  }
+  function doomed(D, c) { return D.at[c] !== Infinity || D.burn[c] > 0 || D.wall[c] !== Infinity; }
+  // Where snake s can get to: a breadth-first walk from its head (or from its
+  // tail, if it flips), stepping only where no part of it will be burnt as its
+  // body follows. Each node knows its first move and whether it's a haven (it
+  // and the cells the body will rest on never burn). score(node) picks the goal.
+  // avoid: keep out of every blast zone altogether (unless escaping, a snake
+  // that wanders back into the fire it just left dithers there until it burns).
+  function blastRoute(st, s, D, score, avoid) {
+    var ms = blastMs(s), L = s.body.length, head = s.body[0], tail = s.body[L - 1];
+    var seen = {}, q = [], best = null, bestV = -Infinity;
+    // its own body is in the way of any route (and no route doubles back through it)
+    s.body.forEach(function (c) { seen[c] = true; });
+    function push(c, from, first, flip) {
+      if (c < 0 || seen[c] || blastSolid(st, s, c) || (avoid && doomed(D, c))) return;
+      seen[c] = true;
+      var steps = from ? from.steps + 1 : 1, t0 = s.timer + (steps - 1) * ms;
+      if (hotDuring(D, c, t0, t0 + (L + 1) * ms)) return;
+      var node = { c: c, from: from, first: first, flip: flip, steps: steps };
+      // The cells the whole body will lie on: the path's last few, plus, on a
+      // short route, the ones it hasn't left yet. `soon` is when the first of
+      // them burns (or walls in); a haven is where none ever do.
+      var soon = Infinity, p = node, k = 0;
+      function mark(cell) { soon = Math.min(soon, D.burn[cell] > 0 ? 0 : D.at[cell], D.wall[cell]); }
+      for (; k < L && p; k++, p = p.from) mark(p.c);
+      var rest = flip ? s.body.slice().reverse() : s.body;
+      for (var j = 0; k < L; j++, k++) mark(rest[j]);
+      node.soon = soon;
+      node.haven = soon === Infinity;
+      q.push(node);
+    }
+    for (var d = 0; d < 4; d++) {
+      var n = moveTarget(st, head, d);
+      if (n !== s.body[1]) push(n, null, d, false);
+    }
+    if (s.dir >= 0 && L > 1 && tail !== head) {
+      // flipping: the tail becomes the head and sets off any way but back up the body
+      for (var e = 0; e < 4; e++) {
+        var fn = moveTarget(st, tail, e);
+        if (fn !== s.body[L - 2]) push(fn, null, e, true);
+      }
+    }
+    for (var k2 = 0; k2 < q.length; k2++) {
+      var node = q[k2], v = score(node);
+      if (v > bestV) { bestV = v; best = node; }
+      if (node.steps > 24) continue;
+      for (var d2 = 0; d2 < 4; d2++) push(moveTarget(st, node.c, d2), node, node.first, node.flip);
+    }
+    return best;
+  }
+  function rivalBlast(st, s) {
+    var D = blastDanger(st), L = s.body.length, ms = blastMs(s);
+    var foes = st.snakes.filter(function (o) { return o.alive && o !== s; });
+    var urnsLeft = 0;
+    for (var u = 0; u < st.tiles.length; u++) if (st.tiles[u] === T.URN) urnsLeft++;
+    function foeDist(c) {
+      var x = c % st.cols, y = Math.floor(c / st.cols), m = Infinity;
+      foes.forEach(function (o) { var h = o.body[0]; m = Math.min(m, Math.abs(h % st.cols - x) + Math.abs(Math.floor(h / st.cols) - y)); });
+      return m;
+    }
+    // A rival flips and turns in one move (a player presses back, then the turn).
+    function steer(node) {
+      s.moving = !!node;
+      if (!node) return;
+      if (node.flip) chaseFlip(st, s, node.first);
+      s.want = node.first;
+    }
+    // Flipping costs a little, so a snake doesn't dither end for end.
+    var escape = function (node) {
+      if (node.haven) return 10000 - node.steps * 10 - (node.flip ? 25 : 0) + Math.random();
+      return Math.min(node.soon, 8000) / 10 - node.steps;   // no haven: put the fire off as long as possible
+    };
+    var threatened = s.body.some(function (c) { return doomed(D, c); });
+    if (threatened) { steer(blastRoute(st, s, D, escape)); return; }
+    // Lay an egg when it would crack an urn or catch a rival — and only with
+    // a way out before it bursts.
+    var head = s.body[0];
+    if (s.out < s.cap && !eggAt(st, head)) {
+      var hits = blastLines(st, head, s.range, function (c) { return !!eggAt(st, c); });
+      var value = 0;
+      hits.forEach(function (c) {
+        if (st.tiles[c] === T.URN) value += 1;
+        foes.forEach(function (o) {
+          if (o.body.indexOf(c) !== -1) value += 3;
+          else if (o.body[0] !== c) for (var d = 0; d < 4; d++) if (neighbor(st, o.body[0], d) === c) { value += 1; break; }   // a head about to step in
+        });
+      });
+      if (value > 0) {
+        var D2 = blastDanger(st, { cell: head, t: BLAST.fuse, range: s.range });
+        var out = blastRoute(st, s, D2, function (node) { return node.haven ? 10000 - node.steps * 10 + Math.random() : -Infinity; });
+        if (out && out.haven && out.steps * ms < BLAST.fuse - 400) { layEgg(st, s); steer(out); return; }
+      }
+    }
+    // Otherwise go for power-ups, urns to crack and rivals to catch — by safe
+    // paths only, never through a blast zone.
+    var roam = blastRoute(st, s, D, function (node) {
+      if (!node.haven) return -5000 + Math.min(node.soon, 8000) / 10 - node.steps;
+      var c = node.c, v = -node.steps * 6 - (node.flip ? 30 : 0) + Math.random() * 4;
+      var it = st.items[c];
+      if (it === "fire" || it === "egg" || it === "speed") v += 400;
+      for (var d = 0; d < 4; d++) { var nb = neighbor(st, c, d); if (nb >= 0 && st.tiles[nb] === T.URN) { v += 50; break; } }
+      // hunt: close in on the nearest rival, harder once the urns run out
+      var fd = foeDist(c);
+      if (fd <= s.range + 1) v += 60; else v -= fd * (urnsLeft > 12 ? 2 : 5);
+      return v;
+    }, true);
+    // Safe where it is but hemmed in by blast zones: wait for them to burn out.
+    steer(roam);
+  }
+
+  function blastAdvance(st, dt) {
+    if (st.status !== "play") return;
+    var B = st.blast;
+    dt = Math.min(Math.max(dt, 0), CFG.maxStepMs);
+    while (dt > EPS && st.status === "play") {
+      var next = dt;
+      st.snakes.forEach(function (s) { if (s.alive && s.timer < next) next = s.timer; });
+      B.eggs.forEach(function (e) { if (e.fuse < next) next = e.fuse; });
+      B.flames.forEach(function (f) { if (f.ms < next) next = f.ms; });
+      if (!B.closing) { if (BLAST.closeAt - B.clock < next) next = BLAST.closeAt - B.clock; }
+      else if (B.closeTimer < next) next = B.closeTimer;
+      next = Math.max(next, 0);
+      st.snakes.forEach(function (s) { if (s.alive) s.timer -= next; });
+      B.eggs.forEach(function (e) { e.fuse -= next; });
+      B.flames.forEach(function (f) { f.ms -= next; });
+      if (B.closing) B.closeTimer -= next;
+      B.clock += next;
+      st.elapsed += next;
+      dt -= next;
+      B.flames = B.flames.filter(function (f) { return f.ms > EPS; });
+      if (!B.closing && B.clock >= BLAST.closeAt - EPS) {
+        B.closing = true; B.closeTimer = 0; B.order = closeOrder(st);
+        st.events.push({ type: "closing" });
+      }
+      if (B.closing && B.closeTimer <= EPS) { closeOne(st); B.closeTimer += BLAST.closeEvery; }
+      for (var guard = 0; guard < 60; guard++) {
+        var due = null;
+        for (var k = 0; k < B.eggs.length; k++) if (B.eggs[k].fuse <= EPS) { due = B.eggs[k]; break; }
+        if (!due) break;
+        burst(st, due);
+      }
+      blastBurn(st);
+      blastCheck(st);
+      if (st.status !== "play") break;
+      for (var m = 0; m < st.snakes.length; m++) {
+        var s = st.snakes[m];
+        if (!s.alive || s.timer > EPS) continue;
+        if (!s.ctrl) rivalBlast(st, s);
+        blastMove(st, s);
+        s.timer += blastMs(s);
+        blastBurn(st);
+        blastCheck(st);
+        if (st.status !== "play") break;
+      }
+    }
+  }
+
   // Walk time forward by `dt` ms, stopping at every snake move, spike flip
   // and the time limit, in order.
   function advance(st, dt) {
     if (st.chase) { chaseAdvance(st, dt); return; }
+    if (st.blast) { blastAdvance(st, dt); return; }
     if (st.status !== "play") return;
     dt = Math.min(Math.max(dt, 0), CFG.maxStepMs);
     var timed = st.timeLeft !== Infinity;
@@ -1396,8 +1824,8 @@
   }
 
   return {
-    T: T, CFG: CFG, DX: DX, DY: DY, LEGEND: LEGEND, KINDS: KINDS, COLORS: COLORS, CHASE: CHASE,
-    parse: parse, create: create, advance: advance, chaseRespawn: chaseRespawn,
+    T: T, CFG: CFG, DX: DX, DY: DY, LEGEND: LEGEND, KINDS: KINDS, COLORS: COLORS, CHASE: CHASE, BLAST: BLAST,
+    parse: parse, create: create, advance: advance, chaseRespawn: chaseRespawn, blastLay: blastLay, blastStop: blastStop,
     turn: turn, blink: blink, click: click, canBlinkTo: canBlinkTo, setGhost: setGhost, setDash: setDash, setCursor: setCursor,
     spikeUp: spikeUp, isDoorShut: isDoorShut, exitOpen: exitOpen, neighbor: neighbor, moveTarget: moveTarget, solidFor: solidFor,
     isPlayer: isPlayer, primary: primary, playersOf: playersOf, flowerAt: flowerAt,

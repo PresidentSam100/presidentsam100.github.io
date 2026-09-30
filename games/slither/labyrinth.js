@@ -10,7 +10,7 @@ window.SlitherLabyrinth = function (host) {
   "use strict";
 
   var E = window.SlitherEngine, T = E.T, LEVELS = window.SLITHER_LEVELS || [], STAGES = window.SLITHER_STAGES || [];
-  var ARENAS = window.SLITHER_ARENAS || [], CHASES = window.SLITHER_CHASES || [];
+  var ARENAS = window.SLITHER_ARENAS || [], CHASES = window.SLITHER_CHASES || [], BLASTS = window.SLITHER_BLASTS || [];
   var PROGRESS_KEY = "slither_labyrinth"; // also listed in the hub's reset-scores block
   var CELL = 24;
   var canvas = host.canvas, ctx = host.ctx;
@@ -33,6 +33,7 @@ window.SlitherLabyrinth = function (host) {
     ghostBtn: document.getElementById("ghost-btn"),
     dashBtn: document.getElementById("dash-btn"),
     holdName: document.querySelector("#lab-btns .dpad-name"),
+    eggBtns: Array.prototype.slice.call(document.querySelectorAll(".ebtn")),
   };
 
   // Temple look: Garden is a mossy courtyard, Ruins sandstone, Citadel
@@ -236,12 +237,52 @@ window.SlitherLabyrinth = function (host) {
     container.appendChild(box);
   }
 
+  // Fire eggs: a blast arena. Lay eggs, crack urns, burn the rivals; first to
+  // 3 rounds takes the match, like the Arena.
+  var blastPlayers = 1, blastTally = null;
+  function buildBlasts(container) {
+    if (!BLASTS.length) return;
+    var box = panel("blast", "🥚 Fire Eggs · blast arena", false);
+    var p = document.createElement("p");
+    p.textContent = "Lay fire eggs: each bursts into a cross of flame that cracks clay urns and burns any snake it touches. " +
+      "Hold a direction to slither, let go to stop; Space or E lays an egg. Last snake standing takes the round, first to " + ARENA_WINS + " the match.";
+    box.appendChild(p);
+    var who = document.createElement("div");
+    who.className = "row";
+    [1, 2].forEach(function (n) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn" + (blastPlayers === n ? " sel" : "");
+      b.textContent = n === 1 ? "1 player" : "2 players";
+      b.title = n === 1 ? "You against three rivals" : "P1 (WASD, Space) and P2 (arrows, Enter) against two rivals";
+      b.addEventListener("click", function () {
+        blastPlayers = n;
+        Array.prototype.forEach.call(who.children, function (x) { x.classList.toggle("sel", x === b); });
+      });
+      who.appendChild(b);
+    });
+    box.appendChild(who);
+    var row = document.createElement("div");
+    row.className = "row";
+    row.style.marginTop = "0.4rem";
+    BLASTS.forEach(function (a, i) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "btn";
+      b.textContent = "🥚 " + a.name;
+      b.title = a.name;
+      b.addEventListener("click", function () { startBlast(i, true); });
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    container.appendChild(box);
+  }
+
   function buildLevelGrid(container) {
     container.innerHTML = "";
     buildRuns(container);
     buildStages(container);
     buildArenas(container);
     buildChases(container);
+    buildBlasts(container);
     var zone = null, grid = null;
     LEVELS.forEach(function (lv, i) {
       if (lv.zone !== zone) {
@@ -323,6 +364,11 @@ window.SlitherLabyrinth = function (host) {
     sunstone: function () { tone(330, 0.3, "sawtooth", 0.06, 880); tone(660, 0.3, "triangle", 0.07, 1320, 0.05); },
     bite: function () { tone(1200, 0.08, "square", 0.06, 300); tone(400, 0.2, "triangle", 0.08, 1600, 0.06); },
     flip: function () { tone(520, 0.05, "sine", 0.05, 780); },
+    // fire eggs
+    lay: function () { tone(300, 0.08, "sine", 0.09, 180); },
+    boom: function () { noise(0.45, 0.32, "lowpass", 900, 120); tone(90, 0.35, "sawtooth", 0.08, 45); },
+    crack: function () { noise(0.1, 0.12, "highpass", 1800); },
+    wall: function () { tone(70, 0.08, "square", 0.04); },
   };
 
   // ---- music -------------------------------------------------------------------
@@ -356,10 +402,19 @@ window.SlitherLabyrinth = function (host) {
     h.sprint = h.last === d && now - h.lastAt < SPRINT.doubleTapMs;   // double tap
     h.last = d; h.lastAt = now; h.d = d;
     if (!noHold) h.timer = setTimeout(function () { if (h.d === d) { h.sprint = true; syncHeld(); } }, SPRINT.holdMs);
+    if (st.blast) { var hs = heldDirs[ctrl]; if (hs.indexOf(d) === -1) hs.push(d); }
     E.turn(st, d, ctrl);
     syncHeld();
   }
+  // In a blast arena a snake only slithers while a direction is held: letting
+  // go of one falls back on any other still held, and letting go of all stops it.
+  var heldDirs = { p1: [], p2: [] };
   function releaseDir(ctrl, d) {
+    if (st && st.blast) {
+      var hs = heldDirs[ctrl];
+      if (d == null) hs.length = 0; else if (hs.indexOf(d) !== -1) hs.splice(hs.indexOf(d), 1);
+      if (hs.length) E.turn(st, hs[hs.length - 1], ctrl); else E.blastStop(st, ctrl);
+    }
     var h = dirHold[ctrl];
     if (d != null && h.d !== d) return;
     clearTimeout(h.timer);
@@ -381,47 +436,59 @@ window.SlitherLabyrinth = function (host) {
   // would otherwise stay stuck on.
   function clearHeld() {
     for (var k in held) held[k] = false;
-    ["p1", "p2"].forEach(function (c) { clearTimeout(dirHold[c].timer); dirHold[c] = newHold(); });
+    ["p1", "p2"].forEach(function (c) {
+      clearTimeout(dirHold[c].timer); dirHold[c] = newHold();
+      heldDirs[c].length = 0;
+      if (st && st.blast) E.blastStop(st, c);
+    });
     syncHeld();
   }
 
   // A level that isn't part of the campaign: from My levels or a share link.
   // It plays exactly the same but doesn't touch campaign progress.
-  var custom = null, stageIdx = -1, arenaIdx = -1, chaseIdx = -1;
+  var custom = null, stageIdx = -1, arenaIdx = -1, chaseIdx = -1, blastIdx = -1;
   function start(i, viaRun) {
-    custom = null; stageIdx = -1; arenaIdx = -1; chaseIdx = -1;
+    custom = null; stageIdx = -1; arenaIdx = -1; chaseIdx = -1; blastIdx = -1;
     inRun = !!viaRun && !!progress.run;
     levelIdx = Math.max(0, Math.min(LEVELS.length - 1, i));
     launch(LEVELS[levelIdx]);
   }
   function startArena(i, fresh) {
-    custom = null; inRun = false; stageIdx = -1; levelIdx = -1; chaseIdx = -1;
+    custom = null; inRun = false; stageIdx = -1; levelIdx = -1; chaseIdx = -1; blastIdx = -1;
     arenaIdx = i;
     if (fresh || !tally) tally = { p1: 0, p2: 0, rival: 0 };
     launch(ARENAS[i]);
   }
   function startStage(i) {
-    custom = null; inRun = false; arenaIdx = -1; chaseIdx = -1;
+    custom = null; inRun = false; arenaIdx = -1; chaseIdx = -1; blastIdx = -1;
     stageIdx = i;
     levelIdx = -1;
     launch(STAGES[i]);
   }
   function startChase(i, fresh) {
-    custom = null; inRun = false; stageIdx = -1; arenaIdx = -1; levelIdx = -1;
+    custom = null; inRun = false; stageIdx = -1; arenaIdx = -1; levelIdx = -1; blastIdx = -1;
     chaseIdx = i;
     if (fresh || !chaseRun) chaseRun = { score: 0, lives: E.CHASE.lives, round: 1, extraGiven: false, first: i };
     launch(CHASES[i]);
   }
+  function startBlast(i, fresh) {
+    custom = null; inRun = false; stageIdx = -1; arenaIdx = -1; levelIdx = -1; chaseIdx = -1;
+    blastIdx = i;
+    if (fresh || !blastTally) blastTally = { p1: 0, p2: 0, rival: 0 };
+    launch(BLASTS[i]);
+  }
   function startCustom(level) {
     custom = level;
-    inRun = false; stageIdx = -1; arenaIdx = -1; chaseIdx = -1;
+    inRun = false; stageIdx = -1; arenaIdx = -1; chaseIdx = -1; blastIdx = -1;
     levelIdx = -1;
     launch(level);
   }
   function launch(level) {
-    st = E.create(level, { players: arenaIdx >= 0 ? arenaPlayers : 1, chase: chaseIdx >= 0 ? chaseRun : null });
-    // A chase has no ghosting or sprint, so its touch buttons (and their label) go.
-    el.ghostBtn.style.display = el.dashBtn.style.display = el.holdName.style.display = st.chase ? "none" : "";
+    st = E.create(level, { players: arenaIdx >= 0 ? arenaPlayers : blastIdx >= 0 ? blastPlayers : 1, chase: chaseIdx >= 0 ? chaseRun : null });
+    // A chase or a blast arena has no ghosting or sprint, so those touch buttons
+    // (and their label) go; a blast arena gets its lay-egg buttons instead.
+    el.ghostBtn.style.display = el.dashBtn.style.display = el.holdName.style.display = st.chase || st.blast ? "none" : "";
+    el.eggBtns.forEach(function (b) { b.style.display = st.blast ? "" : "none"; });
     // 1-ups and golden apples only exist on pack runs.
     if (!inRun) Object.keys(st.items).forEach(function (k) { if (st.items[k] === "oneup" || st.items[k] === "gold") delete st.items[k]; });
     theme = THEMES[level.zone] || THEMES.Garden;
@@ -435,6 +502,7 @@ window.SlitherLabyrinth = function (host) {
     buildLayer();
     el.level.innerHTML = custom ? "<b>✎</b> · " + escapeHtml(level.name || "Custom level") : stageIdx >= 0 ? "<b>Stage</b> · " + level.name
       : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : chaseIdx >= 0 ? "<b>Chase</b> · " + level.name + " · maze " + st.chase.round
+      : blastIdx >= 0 ? "<b>Fire Eggs</b> · " + level.name
       : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
     el.hint.textContent = level.hint || "";
     el.timeBar.style.display = st.timeLimit ? "" : "none";
@@ -446,6 +514,7 @@ window.SlitherLabyrinth = function (host) {
   function restart() {
     if (custom) { launch(custom); return; }
     if (chaseIdx >= 0) { recordChase(); startChase(chaseRun ? chaseRun.first : chaseIdx, true); return; }
+    if (blastIdx >= 0) { startBlast(blastIdx, false); return; }
     if (stageIdx >= 0) { recordStage(); startStage(stageIdx); return; }
     if (arenaIdx >= 0) { startArena(arenaIdx, false); return; }
     if (!st) return;
@@ -514,8 +583,14 @@ window.SlitherLabyrinth = function (host) {
     if (k === "r") { restart(); e.preventDefault(); return; }
     if (k === "m") { toggleMusic(); e.preventDefault(); return; }
     if (st.status === "dead" || st.status === "won" || st.status === "over") {
-      if (k === " " || k === "spacebar") { host.clickResult(); e.preventDefault(); }
+      // (in a blast arena Space is the egg key, so mashing it mustn't skip the result)
+      if ((k === " " || k === "spacebar") && !st.blast) { host.clickResult(); e.preventDefault(); }
       return;
+    }
+    // Fire eggs: Space or E lays P1's egg, Enter P2's (or P1's alone); P / Esc pause.
+    if (st.blast && !paused && (k === " " || k === "spacebar" || k === "e" || k === "enter")) {
+      if (!e.repeat) E.blastLay(st, k === "enter" && twoPlayer() ? "p2" : "p1");
+      e.preventDefault(); return;
     }
     if (k === " " || k === "spacebar" || k === "p" || k === "escape") { togglePause(); e.preventDefault(); return; }
     if (paused) return;
@@ -545,7 +620,13 @@ window.SlitherLabyrinth = function (host) {
     held[name] = on;
     syncHeld();
   }
-  function twoPlayer() { return !!st && st.arena && st.snakes.some(function (s) { return s.ctrl === "p2"; }); }
+  function twoPlayer() { return !!st && (st.arena || st.blast) && st.snakes.some(function (s) { return s.ctrl === "p2"; }); }
+  // Gamepad A in a blast arena: lay an egg for that pad's player. True if handled.
+  function padLay(p) {
+    if (!active || !st || !st.blast || paused) return false;
+    E.blastLay(st, p === 1 && twoPlayer() ? "p2" : "p1");
+    return true;
+  }
 
   // Keyboard stand-in for clicking: presses the nearest click-switch of a
   // colour (1 amber, 2 cyan, 3 magenta), so the mouse is never required.
@@ -624,6 +705,13 @@ window.SlitherLabyrinth = function (host) {
   }
   wireHoldButton(el.ghostBtn, "ghostBtn");
   wireHoldButton(el.dashBtn, "dashBtn");
+  el.eggBtns.forEach(function (b) {
+    b.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      if (active && st && st.blast && !paused) E.blastLay(st, b.dataset.player === "1" ? "p2" : "p1");
+    });
+    b.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+  });
 
   // ---- events -> sound / effects / results ---------------------------------------
   function burst(i, color) { effects.push({ i: i, color: color, t0: performance.now() }); }
@@ -633,6 +721,7 @@ window.SlitherLabyrinth = function (host) {
     var evs = st.events;
     if (!evs.length) return;
     st.events = [];
+    var booms = 0, cracks = 0, walls = 0;
     evs.forEach(function (e) {
       switch (e.type) {
         case "apple": host.SFX.eat(); burst(e.at, "#ff4d6d"); if (inRun) addApples(1); break;
@@ -673,12 +762,26 @@ window.SlitherLabyrinth = function (host) {
         case "bonusSpawn": burst(e.at, "#f2c037"); break;
         case "bonus": host.SFX.eat(); popup(e.at, String(e.points), "#f2c037"); break;
         case "extraLife": sfxOneUp(); break;
-        case "flip": sfx.flip(); break;
+        case "flip": if (e.ctrl) sfx.flip(); break;
+        // fire eggs
+        case "eggLaid": sfx.lay(); break;
+        case "burst": booms++; break;
+        case "urn": cracks++; break;
+        case "burnItem": burst(e.at, "#ffb347"); break;
+        case "powerUp": if (e.ctrl) sfx.power("fast"); burst(e.at, "#ffe7a3"); popup(e.at, Art.POWER_SIGN[e.item], "#ffe7a3"); break;
+        case "burnt": if (e.ctrl) host.SFX.body(); else sfx.pop(); burst(e.at, "#ff5a4a"); break;
+        case "closing": sfx.timeUp(); break;
+        case "closed": walls++; break;
+        case "blastOver": onBlastOver(e); break;
         case "caught": onCaught(e); break;
         case "chaseOver": onChaseOver(); break;
         case "chaseClear": onChaseClear(); break;
       }
     });
+    // one boom, crack and thud a frame, however many eggs go off together
+    if (booms) sfx.boom();
+    if (cracks) sfx.crack();
+    if (walls) sfx.wall();
   }
 
   var DEATHS = {
@@ -796,6 +899,32 @@ window.SlitherLabyrinth = function (host) {
     }, 650);
   }
 
+  // ---- fire eggs results --------------------------------------------------------------
+  // A blast round is over: tally it, and maybe the match (first to ARENA_WINS).
+  function onBlastOver(e) {
+    var human = e.winner === "p1" || e.winner === "p2";
+    if (human) host.SFX.win(); else host.SFX.wall();
+    clearHeld();
+    var two = twoPlayer();
+    var names = { p1: two ? "P1" : "You", p2: "P2", rival: "Rivals" };
+    var title = e.winner === "p1" ? (two ? "P1 takes the round! 🟢" : "You take the round! 🏆")
+      : e.winner === "p2" ? "P2 takes the round! 🔵" : e.winner === "rival" ? "A rival takes the round 🐍" : "Nobody's left: a draw 💥";
+    if (blastTally[e.winner] != null) blastTally[e.winner]++;
+    var line = (two ? ["p1", "p2", "rival"] : ["p1", "rival"]).map(function (k) { return names[k] + " " + blastTally[k]; }).join(" · ");
+    var champ = blastTally[e.winner] >= ARENA_WINS ? e.winner : null;
+    endTimer = setTimeout(function () {
+      if (!active) return;
+      if (champ) {
+        host.showResult({
+          title: champ === "rival" ? "The rivals take the match 🐍" : names[champ] + (champ === "p1" && !two ? " win the match! 🏆" : " wins the match! 🏆"),
+          msg: line, primaryLabel: "New Match", primaryFn: function () { startBlast(blastIdx, true); },
+        });
+      } else {
+        host.showResult({ title: title, msg: line + "  ·  first to " + ARENA_WINS, primaryLabel: "Next Round →", primaryFn: function () { startBlast(blastIdx, false); } });
+      }
+    }, 900);
+  }
+
   // ---- maze chase results ---------------------------------------------------------
   // Keeps the best chase score; returns the best before this run.
   function recordChase() {
@@ -886,6 +1015,23 @@ window.SlitherLabyrinth = function (host) {
   // ---- HUD ---------------------------------------------------------------------
   function updateHud() {
     if (!st) return;
+    if (st.blast) {
+      var B = st.blast, two = twoPlayer(), left = st.snakes.filter(function (s) { return s.alive; }).length;
+      el.apples.innerHTML = "🐍 <b>" + left + "</b> left" + (blastTally
+        ? " · 🏆 " + (two ? "P1 " + blastTally.p1 + " · P2 " + blastTally.p2 : "You " + blastTally.p1) + " · Rivals " + blastTally.rival : "");
+      var ms = Math.max(0, E.BLAST.closeAt - B.clock), sec = Math.ceil(ms / 1000);
+      el.time.innerHTML = B.closing ? "🧱 <b>closing in</b>" : "⌛ <b>" + Math.floor(sec / 60) + ":" + ("0" + sec % 60).slice(-2) + "</b>";
+      var kit = function (ctrl) {
+        var s = st.snakes.filter(function (x) { return x.ctrl === ctrl; })[0];
+        return s ? "🥚" + s.cap + " 🔥" + s.range + (s.spd ? " ⚡" + s.spd : "") : "";
+      };
+      el.lives.style.display = "";
+      el.lives.title = "Eggs at once · blast range · speed";
+      el.lives.innerHTML = two ? "P1 " + kit("p1") + " · P2 " + kit("p2") : kit("p1");
+      el.blink.style.display = el.ghost.style.display = el.lock.style.display = el.boss.style.display = el.twins.style.display = "none";
+      return;
+    }
+    el.lives.title = st.chase ? "Lives left" : "Pack run: lives left, and apples toward the next extra life";
     if (st.chase) {
       var C = st.chase, best = Math.max(chaseBest(), C.score);
       el.apples.innerHTML = "✦ <b>" + C.score + "</b>" + (best ? " · best " + best : "");
@@ -1009,6 +1155,7 @@ window.SlitherLabyrinth = function (host) {
 
   function drawItem(i, item, now, fx) {
     if (item === "bead") { Art.bead(ctx, cx(i), cy(i), CELL); return; }   // hundreds of them: they sit still
+    if (item === "fire" || item === "egg" || item === "speed") { Art.powerTablet(ctx, cx(i), cy(i), CELL, item, now, fx); return; }
     if (item === "sunstone") { Art.sunstone(ctx, cx(i), cy(i), CELL, now, fx); return; }
     var x = cx(i), y = cy(i) + (fx ? Math.sin(now / 180 + i) * 1.3 : 0);
     if (item === "apple") Art.fruit(ctx, x, y, CELL - 6, "🍎");
@@ -1020,6 +1167,8 @@ window.SlitherLabyrinth = function (host) {
 
   function drawSnake(s, idx, now, fx) {
     var alpha = 1, isPlayer = !!s.ctrl || s.kind === "rival";
+    // in a blast arena the fallen turn to stone and crumble away, clearing the floor
+    if (st.blast && !s.alive) { alpha = 1 - (st.elapsed - s.diedAt) / 900; if (alpha <= 0) return; }
     if (!s.alive && !isPlayer) {
       alpha = 1 - (st.elapsed - s.diedAt) / 450;
       if (alpha <= 0) return;
@@ -1053,6 +1202,38 @@ window.SlitherLabyrinth = function (host) {
     });
   }
 
+  // Fire eggs, under the snakes: urns, walls the arena has closed in, the next
+  // cells to close (flashing), and the eggs themselves.
+  function drawBlastUnder(now, fx) {
+    var B = st.blast, i, x, y;
+    for (i = 0; i < st.tiles.length; i++) if (st.tiles[i] === T.URN) Art.urn(ctx, (i % st.cols) * CELL, Math.floor(i / st.cols) * CELL, CELL, i);
+    B.closed.forEach(function (c) {
+      x = c % st.cols; y = Math.floor(c / st.cols);
+      Art.wall(ctx, x * CELL, y * CELL, CELL, theme, c, { n: !isWall(x, y - 1), s: !isWall(x, y + 1), w: !isWall(x - 1, y), e: !isWall(x + 1, y) });
+    });
+    if (B.closing && B.order && (!fx || Math.floor(now / 150) % 2 === 0)) {
+      ctx.strokeStyle = "rgba(255,80,60,0.9)"; ctx.lineWidth = 2;
+      for (var k = 0; k < Math.min(3, B.order.length); k++) {
+        var c = B.order[k];
+        ctx.strokeRect((c % st.cols) * CELL + 2, Math.floor(c / st.cols) * CELL + 2, CELL - 4, CELL - 4);
+      }
+    }
+    B.eggs.forEach(function (e) { Art.fireEgg(ctx, cx(e.cell), cy(e.cell), CELL, e.fuse / E.BLAST.fuse, now, fx, e.cell); });
+  }
+  // Flames go over everything; each cell reaches toward its burning neighbours
+  // so a burst reads as one cross, and fades as it dies.
+  function drawFlames(now, fx) {
+    var hot = {};
+    st.blast.flames.forEach(function (f) { hot[f.cell] = true; });
+    st.blast.flames.forEach(function (f) {
+      var i = f.cell, x = i % st.cols, y = Math.floor(i / st.cols);
+      var arms = { n: y > 0 && !!hot[i - st.cols], s: y < st.rows - 1 && !!hot[i + st.cols], w: x > 0 && !!hot[i - 1], e: x < st.cols - 1 && !!hot[i + 1] };
+      ctx.globalAlpha = Math.min(1, f.ms / 200);
+      Art.flame(ctx, x * CELL, y * CELL, CELL, arms, now, fx, i);
+      ctx.globalAlpha = 1;
+    });
+  }
+
   function render(now) {
     if (!st || !layer) return;
     var fx = !(window.RM_ON && window.RM_ON());
@@ -1062,8 +1243,10 @@ window.SlitherLabyrinth = function (host) {
     var keys = Object.keys(st.items);
     keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, fx); });
     st.flowers.forEach(function (f) { Art.flower(ctx, (f.cell % st.cols) * CELL, Math.floor(f.cell / st.cols) * CELL, CELL, f.armed, now, fx); });
+    if (st.blast) drawBlastUnder(now, fx);
     for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, now, fx);
     if (st.chase) drawGuards(now, fx);
+    if (st.blast) drawFlames(now, fx);
 
     // Unlit halls hide serpents, not the apples you're hunting for.
     for (var i = 0; i < st.tiles.length; i++) {
@@ -1143,7 +1326,9 @@ window.SlitherLabyrinth = function (host) {
       ctx.font = "700 15px Cinzel, Georgia, serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      ctx.fillText(twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: WASD · P2: arrow keys · steer to begin")
+      ctx.fillText(st.blast ? (twoPlayer() ? (touch ? "Hold a d-pad to slither · 🥚 lays an egg" : "P1: WASD + Space · P2: arrows + Enter · move to begin")
+          : touch ? "Hold the d-pad to slither · 🥚 lays an egg" : "Hold an arrow key to slither · Space lays an egg")
+        : twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: WASD · P2: arrow keys · steer to begin")
         : touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or WASD to begin", W / 2, H / 2 + 1);
     }
   }
@@ -1155,6 +1340,7 @@ window.SlitherLabyrinth = function (host) {
     isOver: function () { return !!st && (st.status === "dead" || st.status === "won" || st.status === "over"); },
     buildLevelGrid: buildLevelGrid, continueIndex: continueIndex, startCustom: startCustom,
     startRun: startRun, continueRun: continueRun, startStage: startStage, startArena: startArena, startChase: startChase,
+    startBlast: startBlast, padLay: padLay,
     levelCount: function () { return LEVELS.length; },
   };
 };

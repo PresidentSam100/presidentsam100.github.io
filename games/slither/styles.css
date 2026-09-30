@@ -165,7 +165,7 @@ canvas.board {
   justify-items: center;
   align-items: center;
 }
-.dbtn {
+.dbtn, .ebtn {
   width: 44px; height: 44px;   /* accessible tap-target floor on iOS/Android */
   border-radius: 8px;
   background: linear-gradient(180deg, #5c4e3b, #3a3025);
@@ -178,7 +178,9 @@ canvas.board {
   touch-action: none;      /* a tap must never scroll the page mid-run */
   box-shadow: inset 0 1px 0 rgba(255,235,190,0.25), 0 3px 0 #0d0a07;
 }
-.dbtn:active, .dbtn.held { transform: translateY(2px); background: #3a3025; box-shadow: inset 0 1px 0 rgba(255,235,190,0.12), 0 1px 0 #0d0a07; }
+.dbtn:active, .dbtn.held, .ebtn:active { transform: translateY(2px); background: #3a3025; box-shadow: inset 0 1px 0 rgba(255,235,190,0.12), 0 1px 0 #0d0a07; }
+/* Fire Eggs: lay an egg, in the d-pad's empty top-right corner */
+.ebtn { grid-column: 3; grid-row: 1; border-color: #b8652a; background: linear-gradient(180deg, #7a4a2a, #4a2c18); }
 .dbtn.up { grid-column: 2; grid-row: 1; }
 .dbtn.left { grid-column: 1; grid-row: 2; }
 .dbtn.right { grid-column: 3; grid-row: 2; }

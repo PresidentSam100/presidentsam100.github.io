@@ -442,8 +442,8 @@
   // Pad 1 steers P1 and pad 2 steers P2 (d-pad or left stick). A stick is
   // held all the time, so holding it never sprints; a quick double flick
   // does, until the stick returns to centre. In the Labyrinth: A dashes, B
-  // ghosts. Start pauses, or takes the result card's main action, or starts
-  // from the menu.
+  // ghosts (in Fire Eggs, A lays an egg). Start pauses, or takes the result
+  // card's main action, or starts from the menu.
   (function wirePads() {
     if (!navigator.getGamepads) return;
     var prev = [{ dir: null, btn: {} }, { dir: null, btn: {} }], polling = false;
@@ -483,6 +483,8 @@
           else if (start === 1) togglePause();
           continue;
         }
+        // Fire Eggs: A lays an egg, for either pad's player
+        if (G.mode === "lab" && lab && a === 1 && lab.padLay(p)) continue;
         if (G.mode === "lab" && lab && p === 0) {
           if (a) lab.padHold("dashPad", a === 1);
           if (b) lab.padHold("ghostPad", b === 1);

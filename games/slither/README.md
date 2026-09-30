@@ -46,6 +46,17 @@ The Labyrinth menu also offers:
   ahead, one pincers you with the first, one keeps its distance up close),
   and they all break off to scatter to their corners now and then. The four
   mazes loop, a little faster each time round.
+- **Fire Eggs**: a blast arena. You (and a friend on this device) against
+  rival snakes: lay a fire egg where your head is, and after a moment it
+  bursts into a cross of flame that cracks clay urns, sets off other eggs
+  and burns any snake it touches. Urns (scattered fresh each round) hide
+  power-ups: 🔥 longer blasts, 🥚 more eggs at once, ⚡ speed. Snakes here
+  keep their length and only slither while a direction is held, walls and
+  urns stop them, and pressing backwards flips them; only fire (or the
+  closing walls, 90 s in) kills. Last snake standing takes the round,
+  first to 3 the match. The rival snakes read a danger map of every egg
+  (chain reactions included), lay an egg only with a way out, and wait out
+  a burst rather than wander back into it.
 - **Level editor** (`editor.html`): paint levels, have the checker prove
   they can be finished, then save them to "My levels" or share them as a link
   (`#play=...`).
@@ -58,6 +69,8 @@ Controls:
 - **Ghost**: G, right-click, or 👻.
 - **Blink**: click or tap a cell.
 - **Click switches**: 1, 2 and 3.
+- **Fire eggs**: Space or E lays one (P2: Enter), as do the 🥚 buttons and a
+  gamepad's A; in Fire Eggs, P or Esc pauses.
 - **Other keys**: R retries, M toggles the music, and Space pauses.
 
 ## Runtime files (loaded by the browser)
@@ -68,11 +81,12 @@ Controls:
 | `game.js` | page shell (menus, overlays, input routing, sound, gamepads) and Classic / 2-Player |
 | `temple-art.js` | the temple look shared by every mode: stone serpents, floors, walls, traps, items, the boss |
 | `labyrinth.js` | Labyrinth mode: level select, pack runs, stages, arena, HUD, input, drawing, saved progress |
-| `labyrinth-engine.js` | Labyrinth rules. It is pure (no DOM); the tile legend (`LEGEND`) is at the top. The Maze Chase rules sit in their own section and only run for `mode: "chase"` |
+| `labyrinth-engine.js` | Labyrinth rules. It is pure (no DOM); the tile legend (`LEGEND`) is at the top. The Maze Chase and Fire Eggs rules each sit in their own section and only run for `mode: "chase"` / `mode: "blast"` |
 | `levels.js` | the 44 campaign levels |
 | `stages.js` | the Stages boards (`mode: "stage"`) |
 | `arenas.js` | the Arena maps (`mode: "arena"`) |
 | `chases.js` | the Maze Chase mazes (`mode: "chase"`); their extra glyphs are listed at the top |
+| `blasts.js` | the Fire Eggs arenas (`mode: "blast"`) |
 | `music.js` | one generated tune per zone |
 | `levelcode.js` | share codes for levels (`#play=` / `#edit=` links) |
 | `editor.html`, `editor.css`, `editor.js` | the level editor |

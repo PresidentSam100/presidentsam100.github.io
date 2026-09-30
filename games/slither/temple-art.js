@@ -764,6 +764,91 @@ window.SlitherArt = (function () {
     }
   }
 
+  // ---- fire eggs -----------------------------------------------------------------
+  // A clay urn: terracotta, a painted band, a dark mouth. Drawn live (they break).
+  function urn(ctx, px, py, c, seed) {
+    var cx = px + c / 2, cy = py + c / 2 + c * 0.06, v = hash(seed, 3) * 0.16 - 0.08;
+    var body = shade([181, 101, 47], 1 + v), lite = shade([222, 146, 86], 1 + v), dark = shade([106, 51, 20], 1 + v);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath(); ctx.ellipse(cx, cy + c * 0.36, c * 0.34, c * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+    var g = ctx.createRadialGradient(cx - c * 0.12, cy - c * 0.08, 1, cx, cy, c * 0.42);
+    g.addColorStop(0, rgb(lite)); g.addColorStop(0.7, rgb(body)); g.addColorStop(1, rgb(dark));
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(cx - c * 0.14, cy - c * 0.34);
+    ctx.quadraticCurveTo(cx - c * 0.44, cy - c * 0.12, cx - c * 0.3, cy + c * 0.26);
+    ctx.quadraticCurveTo(cx, cy + c * 0.42, cx + c * 0.3, cy + c * 0.26);
+    ctx.quadraticCurveTo(cx + c * 0.44, cy - c * 0.12, cx + c * 0.14, cy - c * 0.34);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = rgb(dark); ctx.lineWidth = 1; ctx.stroke();
+    // painted band
+    ctx.strokeStyle = "rgba(40,18,6,0.7)"; ctx.lineWidth = Math.max(1.2, c * 0.06);
+    ctx.beginPath(); ctx.moveTo(cx - c * 0.34, cy + c * 0.02); ctx.quadraticCurveTo(cx, cy + c * 0.1, cx + c * 0.34, cy + c * 0.02); ctx.stroke();
+    // lip and mouth
+    ctx.fillStyle = rgb(lite);
+    ctx.beginPath(); ctx.ellipse(cx, cy - c * 0.34, c * 0.19, c * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#2a1406";
+    ctx.beginPath(); ctx.ellipse(cx, cy - c * 0.34, c * 0.12, c * 0.04, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // A fire egg: speckled shell that glows hotter, pulses faster and cracks as
+  // its fuse (left, from 1 down to 0) runs out.
+  function fireEgg(ctx, cx, cy, c, left, t, fx, seed) {
+    var heat = 1 - Math.max(0, Math.min(1, left));
+    var pulse = fx ? 1 + Math.sin((t || 0) / (140 - heat * 100)) * (0.03 + heat * 0.05) : 1;
+    var rx = c * 0.27 * pulse, ry = c * 0.35 * pulse;
+    var glow = ctx.createRadialGradient(cx, cy, 1, cx, cy, c * 0.7);
+    glow.addColorStop(0, "rgba(255,120,40," + (0.25 + heat * 0.5).toFixed(3) + ")"); glow.addColorStop(1, "rgba(255,120,40,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(cx, cy, c * 0.7, 0, Math.PI * 2); ctx.fill();
+    var shell = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.4, 1, cx, cy, ry * 1.1);
+    shell.addColorStop(0, "#fff7e6"); shell.addColorStop(0.6, heat > 0.6 ? "#ffc27a" : "#f1ddb8"); shell.addColorStop(1, heat > 0.6 ? "#e0532a" : "#c89a62");
+    ctx.fillStyle = shell;
+    ctx.beginPath(); ctx.ellipse(cx, cy + c * 0.02, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#7a3a12"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "rgba(170,60,20,0.75)";
+    for (var k = 0; k < 6; k++) {
+      var a = hash(seed || 1, k) * Math.PI * 2, d = 0.25 + hash(seed || 1, k + 9) * 0.55;
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * rx * d, cy + Math.sin(a) * ry * d, Math.max(1, c * 0.035), 0, Math.PI * 2); ctx.fill();
+    }
+    if (heat > 0.6) {   // cracks of fire showing through
+      ctx.strokeStyle = "rgba(255,220,120,0.95)"; ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(cx - rx * 0.6, cy - ry * 0.1); ctx.lineTo(cx - rx * 0.2, cy + ry * 0.12); ctx.lineTo(cx + rx * 0.1, cy - ry * 0.15); ctx.lineTo(cx + rx * 0.55, cy + ry * 0.08);
+      ctx.stroke();
+    }
+  }
+  // A cell of flame; arms say which neighbours burn too, so the cross joins up.
+  function flame(ctx, px, py, c, arms, t, fx, seed) {
+    var cx = px + c / 2, cy = py + c / 2, f = fx ? 0.9 + 0.1 * hash(seed, Math.floor((t || 0) / 60)) : 1;
+    [[0.78, "rgba(214,64,24,0.85)"], [0.54, "rgba(255,150,40,0.95)"], [0.28, "rgba(255,238,160,1)"]].forEach(function (layer) {
+      var w = c * layer[0] * f, h = w / 2;
+      ctx.fillStyle = layer[1];
+      ctx.beginPath(); ctx.arc(cx, cy, h, 0, Math.PI * 2); ctx.fill();
+      if (arms.n) ctx.fillRect(cx - h, py, w, c / 2);
+      if (arms.s) ctx.fillRect(cx - h, cy, w, c / 2);
+      if (arms.w) ctx.fillRect(px, cy - h, c / 2, w);
+      if (arms.e) ctx.fillRect(cx, cy - h, c / 2, w);
+    });
+  }
+  // A power-up: a small stone tablet with its sign.
+  var POWER_SIGN = { fire: "🔥", egg: "🥚", speed: "⚡" };
+  function powerTablet(ctx, cx, cy, c, item, t, fx) {
+    var s = c * 0.72, y = cy + (fx ? Math.sin((t || 0) / 220 + cx) * 1.2 : 0);
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(cx - s / 2 + 1.5, y - s / 2 + 2, s, s);
+    ctx.fillStyle = "#cdb689"; ctx.strokeStyle = "#5a4526"; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(cx - s / 2 + 3, y - s / 2); ctx.lineTo(cx + s / 2 - 3, y - s / 2); ctx.quadraticCurveTo(cx + s / 2, y - s / 2, cx + s / 2, y - s / 2 + 3);
+    ctx.lineTo(cx + s / 2, y + s / 2 - 3); ctx.quadraticCurveTo(cx + s / 2, y + s / 2, cx + s / 2 - 3, y + s / 2);
+    ctx.lineTo(cx - s / 2 + 3, y + s / 2); ctx.quadraticCurveTo(cx - s / 2, y + s / 2, cx - s / 2, y + s / 2 - 3);
+    ctx.lineTo(cx - s / 2, y - s / 2 + 3); ctx.quadraticCurveTo(cx - s / 2, y - s / 2, cx - s / 2 + 3, y - s / 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#000";   // colour emoji take this alpha, so it must be opaque
+    ctx.font = Math.round(s * 0.66) + "px serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(POWER_SIGN[item] || "?", cx, y + 1);
+  }
+
   // ---- serpents ----------------------------------------------------------------
   // pts: segment centres, head first, in pixels. Segments stacked on one cell
   // (a snake still coiled at its start) collapse into a coil; segments that
@@ -907,5 +992,6 @@ window.SlitherArt = (function () {
     portalGlow: portalGlow, door: door, plate: plate, clickSwitch: clickSwitch, spikes: spikes, doorway: doorway, warpway: warpway, DOOR: DOOR,
     fruit: fruit, gem: gem, wisp: wisp, melon: melon, itemArt: itemArt, telePad: telePad, infinity: infinity, cloner: cloner, outlet: outlet, flower: flower, stud: stud, serpent: serpent,
     bead: bead, sunstone: sunstone, gate: gate, guardian: guardian, GUARDIANS: GUARDIANS,
+    urn: urn, fireEgg: fireEgg, flame: flame, powerTablet: powerTablet, POWER_SIGN: POWER_SIGN,
   };
 })();
