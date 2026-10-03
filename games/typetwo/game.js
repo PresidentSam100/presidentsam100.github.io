@@ -265,7 +265,9 @@
 
   // ---------- Targeting / typing ----------
   function handleChar(ch) {
-    if (state !== "playing") return;
+    // not while paused: the spirits are frozen, so a keystroke mustn't count
+    // (it can still arrive through the hidden field's input event)
+    if (state !== "playing" || PAUSE.isPaused()) return;
     totalKeys++;
 
     if (!target) {
@@ -764,6 +766,8 @@
     // words — draw order controls overlap layering. Priority (drawn on top):
     // locked word > dying words (typed, awaiting their bullet) > normal words.
     // Within the same priority, words closer to the bottom (larger y) sit on top.
+    // Two passes: every spirit first, then every name-scroll, so a wisp hovering
+    // above a lower word never covers the letters of the word being typed.
     ctx.textBaseline = "middle";
     const layer = (w) => (w === target ? 2 : (w.dying ? 1 : 0));
     const drawOrder = words.slice().sort((a, b) => {
@@ -771,9 +775,8 @@
       if (la !== lb) return la - lb; // higher priority drawn later (on top)
       return a.y - b.y;
     });
-    for (const w of drawOrder) {
-      drawWord(w);
-    }
+    for (const w of drawOrder) drawSpirit(w);
+    for (const w of drawOrder) drawName(w);
 
     // banishing nova (rising from the ward)
     if (bomb) {
@@ -905,11 +908,11 @@
     ctx.restore();
   }
 
-  function drawWord(w) {
+  // dying words (fully typed, awaiting their final bolt) keep the locked glow
+  function isLocked(w) { return w === target || w.dying; }
+
+  function drawSpirit(w) {
     const cx = w.x + w.w / 2;
-    // dying words (fully typed, awaiting their final bolt) keep the locked glow
-    const isTarget = w === target || w.dying;
-    const urgency = Math.max(0, Math.min(1, (w.y / FLOOR_Y())));
     const T = performance.now() / 1000;
 
     // the spirit itself: a wisp hovering above its true name
@@ -930,11 +933,16 @@
     ctx.arc(cx - 3, wy - 1, 1.5, 0, Math.PI * 2);
     ctx.arc(cx + 3, wy - 1, 1.5, 0, Math.PI * 2);
     ctx.fill();
-    if (isTarget) { // banishing glow around a locked spirit
+    if (isLocked(w)) { // banishing glow around a locked spirit
       ctx.strokeStyle = "rgba(231,200,111,0.8)";
       ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(cx, wy + 2, 12, 0, Math.PI * 2); ctx.stroke();
     }
+  }
+
+  function drawName(w) {
+    const isTarget = isLocked(w);
+    const urgency = Math.max(0, Math.min(1, (w.y / FLOOR_Y())));
 
     ctx.font = "20px monospace";
     ctx.textAlign = "left";
@@ -944,6 +952,10 @@
     const bx = w.x, by = w.y - hgt / 2;
     ctx.beginPath();
     roundRect(bx, by, w.w, hgt, 8);
+    // a near-opaque night-sky backing first, so a wisp behind the scroll
+    // can't show through the (very faint) locked tint
+    ctx.fillStyle = "rgba(18,12,36,0.92)";
+    ctx.fill();
     if (isTarget) {
       ctx.fillStyle = "rgba(231,200,111,0.12)";
       ctx.fill();
@@ -1109,6 +1121,8 @@
       if (state === "over") quitToMenu();
       return;
     }
+    // paused: letters and Enter (the bomb) wait until Esc resumes the run
+    if (state === "playing" && PAUSE.isPaused()) return;
     if (state === "playing" && e.key === "Enter") {
       e.preventDefault();
       useBomb();
