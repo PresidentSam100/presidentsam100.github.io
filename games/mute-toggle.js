@@ -9,6 +9,7 @@
    - Remembers its OWN setting per game (key "mute:<id>", derived from the
      folder), and themes itself to match the game's "← Games" back button.
    - Exposes window.MUTE_ON() and fires a "mutechange" event on toggle.
+   - Keys: M or "[" (just "[" on a page with <html data-letter-keys="off">).
 
    Include in <head> AFTER motion-toggle.js:
      <script src="../mute-toggle.js"></script>
@@ -88,13 +89,58 @@
     else btn.style.right = "12px";
   }
 
+  // ---- keyboard: M, or "[" ---------------------------------------------
+  // "[" works in every game. M works too, unless the page opts letters out
+  // with <html data-letter-keys="off"> — typing games, and games that
+  // already use M for something. Text fields are left alone, except one
+  // marked data-game-input (the box a typing game plays in): "[" still
+  // works there, and the letters stay the player's.
+  function lettersOn() { return document.documentElement.getAttribute("data-letter-keys") !== "off"; }
+  function isKey(e, letter, sym) {
+    if (!e.key || e.repeat || e.metaKey) return false;   // autofill sends keydowns with no key
+    // AltGr (Ctrl+Alt) is how some layouts type the brackets
+    if ((e.ctrlKey || e.altKey) && !(e.key === sym && e.ctrlKey && e.altKey)) return false;
+    var t = e.target, tag = t && t.tagName;
+    var typing = tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
+      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+    if (e.key === sym) return !typing || t.hasAttribute("data-game-input");
+    return !typing && lettersOn() && e.key.toLowerCase() === letter;
+  }
+
+  var btn = null, shown = "";
+  function toggle() {
+    muted = !muted;
+    try { localStorage.setItem(KEY, muted ? "1" : "0"); } catch (e) {}
+    applyGain();
+    render();
+    window.dispatchEvent(new CustomEvent("mutechange", { detail: { muted: muted } }));
+  }
+  // Like the ⏸ button: the key shows in the label only on wide screens (as a
+  // keycap; its style lives in motion-toggle.js); the tooltip and aria-label
+  // always name it
+  function render() {
+    if (!btn) return;
+    var key = lettersOn() ? "M" : "[";
+    btn.setAttribute("aria-pressed", muted ? "true" : "false");
+    btn.setAttribute("aria-label", "Mute or unmute this game (" + key + ")");
+    btn.setAttribute("aria-keyshortcuts", lettersOn() ? "M [" : "[");
+    btn.title = "Mute / unmute sound for this game — " + (lettersOn() ? "M or [" : "[");
+    var html = (muted ? "🔇" : "🔊") + (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");
+    if (html !== shown) { btn.innerHTML = html; shown = html; }
+    btn.style.opacity = muted ? "0.72" : "1";
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (!btn || !isKey(e, "m", "[")) return;
+    e.preventDefault();
+    toggle();
+  });
+
   function build() {
     if (document.querySelector(".mute-toggle")) return;
-    var btn = document.createElement("button");
+    btn = document.createElement("button");
     btn.className = "mute-toggle";
     btn.type = "button";
-    btn.setAttribute("aria-label", "Mute or unmute this game");
-    btn.title = "Mute / unmute sound for this game";
     btn.style.cssText =
       "position:fixed;top:12px;z-index:99999;cursor:pointer;font-weight:700;font-size:15px;line-height:1;" +
       "border-radius:8px;padding:8px 11px;-webkit-tap-highlight-color:transparent;";
@@ -115,26 +161,14 @@
       btn.style.border = "1px solid rgba(255,255,255,0.22)";
     }
 
-    function render() {
-      btn.setAttribute("aria-pressed", muted ? "true" : "false");
-      btn.textContent = muted ? "🔇" : "🔊";
-      btn.style.opacity = muted ? "0.72" : "1";
-    }
     render();
-
-    btn.addEventListener("click", function () {
-      muted = !muted;
-      try { localStorage.setItem(KEY, muted ? "1" : "0"); } catch (e) {}
-      applyGain();
-      render();
-      window.dispatchEvent(new CustomEvent("mutechange", { detail: { muted: muted } }));
-    });
+    btn.addEventListener("click", toggle);
 
     document.body.appendChild(btn);
     place(btn);
     requestAnimationFrame(function () { place(btn); });   // after the FX button settles
     setTimeout(function () { place(btn); }, 80);
-    window.addEventListener("resize", function () { place(btn); });
+    window.addEventListener("resize", function () { render(); place(btn); });
     window.addEventListener("reducemotionchange", function () { setTimeout(function () { place(btn); }, 0); });
   }
 

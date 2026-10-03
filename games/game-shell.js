@@ -232,6 +232,10 @@
     }
     return out.join(" / ");
   }
+  // the same keys as keycaps (<kbd class="gs-kbd">, styled by motion-toggle.js)
+  function keyCaps(keys) {
+    return keyLabel(keys).split(" / ").map(function (k) { return '<kbd class="gs-kbd">' + k + "</kbd>"; }).join("/");
+  }
 
   function pausable(opts) {
     opts = opts || {};
@@ -253,7 +257,7 @@
       el.setAttribute("aria-label", title);
       el.innerHTML =
         '<div class="gs-pause-card"><h2>' + title + "</h2>" +
-        "<p>tap resume or press " + keyLabel(keys) + " to continue</p>" +
+        "<p>tap resume or press " + keyCaps(keys) + " to continue</p>" +
         '<button type="button">▶ Resume</button></div>';
       el.querySelector("button").addEventListener("click", function () { setPaused(false); });
       var look = backLinkLook();
@@ -332,7 +336,7 @@
   // going where it was) and never reaches the game's own tap handlers.
   function pauseButton(api) {
     var keys = api.keys || ["Escape", "p"];
-    var label = keyLabel(keys);
+    var label = keyLabel(keys), caps = keyCaps(keys), shown = "";
     var isPaused = api.isPaused || function () { return false; };
     var canPause = api.canPause || function () { return true; };
     var btn = null;
@@ -343,9 +347,9 @@
     function render() {
       if (!btn) return;
       var p = isPaused(), ok = p || canPause();
-      var text = p ? "▶" : "⏸";
-      if (!narrow()) text += p ? " Resume" : " Pause (" + label + ")";
-      if (btn.textContent !== text) btn.textContent = text;
+      var html = p ? "▶" : "⏸";
+      if (!narrow()) html += (p ? " Resume " : " Pause ") + caps;
+      if (html !== shown) { btn.innerHTML = html; shown = html; }
       btn.setAttribute("aria-disabled", ok ? "false" : "true");
       btn.setAttribute("aria-label", p ? "Resume (" + label + ")" : "Pause (" + label + ")");
       btn.title = ok ? (p ? "Resume — " : "Pause — ") + label : "Pausing works during a game (" + label + ")";

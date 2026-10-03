@@ -1791,8 +1791,9 @@ class Game {
         this.mode = 'gallery'; this.galleryIndex = 0; this.galleryTab = 0; Sound.coin(); return;
       }
       // pause menu captures input while paused
+      // P or Esc pauses and resumes, as in the site's other games
       if (this.mode === 'paused') {
-        if (k === 'p') this.togglePause();
+        if (k === 'p' || k === 'escape') this.togglePause();
         else this.pauseMenuKey(k);
         return;
       }
@@ -1802,7 +1803,7 @@ class Game {
       if (k === ' ') this.input.fire = true;
       if (k === 'arrowup' || k === 'arrowdown') this.onMenuKey(k);
       if (k === 'enter') this.onStartKey();
-      if (k === 'p') this.togglePause();
+      if (k === 'p' || k === 'escape') this.togglePause();
     };
     const up = (e) => {
       const k = e.key.toLowerCase();
@@ -3055,9 +3056,9 @@ window.addEventListener('load', () => {
     GameShell.onAutoPause(() => {
       if (window.game && window.game.mode === 'playing') window.game.togglePause();
     });
-    // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
+    // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
     if (GameShell.pauseButton) GameShell.pauseButton({
-      keys: ['p'],
+      keys: ['p', 'Escape'],
       canPause: () => window.game.mode === 'playing',
       isPaused: () => window.game.mode === 'paused',
       toggle: () => window.game.togglePause(),

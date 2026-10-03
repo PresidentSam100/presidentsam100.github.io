@@ -745,7 +745,7 @@
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
       pauseBtn.textContent = paused ? "\u25B6\uFE0E" : "\u23F8\uFE0E";
-      pauseBtn.setAttribute("aria-label", paused ? "Resume" : "Pause");
+      pauseBtn.setAttribute("aria-label", paused ? "Resume (P or Esc)" : "Pause (P or Esc)");
       if (paused) {
         stopClock();
         save();

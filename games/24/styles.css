@@ -134,7 +134,7 @@ body {
 .mic { width: 3%; aspect-ratio: 1; border-radius: 50%; margin-top: calc(var(--pw) * 0.05); background: #070b16; box-shadow: inset 0 1px 2px #000, 0 1px 0 rgba(255,255,255,0.15); }
 
 .keys-help { margin: 0; max-width: 560px; text-align: center; font-size: 0.8rem; line-height: 1.5; color: #9aa1b0; }
-.keys-help b { color: #d6dae4; font-weight: 700; }
+.keys-help b, .keys-help .gs-kbd { color: #d6dae4; font-weight: 700; }
 .share-out { max-width: 420px; width: 92vw; text-align: center; font-size: 0.85rem; }
 .share-out p { margin: 0 0 6px; }
 .share-out textarea { width: 100%; font: 0.85rem/1.4 ui-monospace, monospace; color: #1b2230; background: #e9eef6; border-radius: 8px; border: 0; padding: 8px; }

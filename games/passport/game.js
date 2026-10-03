@@ -307,6 +307,7 @@
 
   function finish() {
     state = "over";
+    $("answer").blur();                // or M / F / S would read as typing
     var lines = [], isBest = false;
     if (mode === "daily") {
       var d = readDaily(), was = d.done;
@@ -337,7 +338,7 @@
     var text = "Passport · Visa Run #" + d.n + " (" + d.ymd + ")\n" +
       d.score + "/10 stamps" + (d.typed ? " · typed" : "") + " 🛂\n" +
       location.origin + location.pathname;
-    function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").textContent = "Share result"; }, 1400); }
+    function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").innerHTML = "Share result <kbd>S</kbd>"; }, 1400); }
     function fallback() { try { window.prompt("Copy your result:", text); } catch (e) {} }
     if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
       navigator.share({ text: text }).catch(function (e2) { if (!e2 || e2.name !== "AbortError") fallback(); });
@@ -404,6 +405,7 @@
   }
   function toMenu() {
     state = "menu";
+    $("answer").blur();
     $("over").hidden = true; $("menu").hidden = false;
     paintMenu();
   }
@@ -437,26 +439,37 @@
     keys: ["Escape"]
   }) : { isPaused: function () { return false; } };
 
+  // sound (M / "[") and Visual FX (V / "]") are handled by the shared
+  // mute-toggle.js and motion-toggle.js; #answer is marked data-game-input
+  // so the bracket keys still work while typing a country
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.repeat) return;
+    var k = (e.key || "").toLowerCase();
     if (P.isPaused()) return;
     if (state === "ask" && style !== "typed" && e.key >= "1" && e.key <= "4") { e.preventDefault(); answer(+e.key - 1); return; }
+    // Enter is preventDefault-ed so a mouse-focused button (say the sound
+    // toggle) doesn't also fire on the same press
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["tour", "dash", "daily"][+e.key - 1];
         store.set("passport_mode", mode);
         paintMenu();
-      } else if (e.key.toLowerCase() === "t" || e.key.toLowerCase() === "y") {
-        style = e.key.toLowerCase() === "t" ? "tags" : "typed";
+      } else if (k === "t" || k === "y") {
+        style = k === "t" ? "tags" : "typed";
         store.set("passport_style", style);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter") { e.preventDefault(); startRun(mode); }
+      else if (e.key === "Escape") {
+        var back = document.querySelector(".nav-back-games");
+        location.href = back ? back.href : "../";
+      }
       return;
     }
     if (state === "over") {
-      if (e.key === "Enter") startRun(mode);
+      if (e.key === "Enter") { e.preventDefault(); startRun(mode); }
       else if (e.key === "Escape") toMenu();
+      else if (k === "s" && !$("share").hidden) shareDaily();
       return;
     }
     if ((state === "ask" || state === "reveal") && e.key === "Escape" && mode !== "dash") toMenu();

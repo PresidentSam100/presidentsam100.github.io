@@ -628,9 +628,20 @@
     announce();
   });
   window.addEventListener("pagehide", dailyPending);
+  function canPause() {
+    return (screen === Game || screen === Options || screen === Confirm) && G && (G.mode === "timed" || G.mode === "daily") && !G.over && !G.celebrate;
+  }
   if (window.GameShell) GameShell.onAutoPause(function () {
     dailyPending();
-    if ((screen === Game || screen === Options || screen === Confirm) && G && (G.mode === "timed" || G.mode === "daily") && !G.over && !G.celebrate) go(Paused);
+    if (canPause()) go(Paused);
+  });
+  // the ⏸ corner button. Only timed and daily games have a clock to stop;
+  // in classic and hard, Esc opens Options and the button stays dimmed.
+  if (window.GameShell) GameShell.pauseButton({
+    keys: ["Escape"],
+    canPause: canPause,
+    isPaused: function () { return screen === Paused; },
+    toggle: function () { audio(); go(screen === Paused ? Game : Paused); }
   });
 
   // ---- size and loop ------------------------------------------------------------------------------

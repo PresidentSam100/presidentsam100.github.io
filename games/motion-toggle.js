@@ -7,6 +7,7 @@
      game's "← Games" back button.
    - Exposes window.RM_ON() so canvas games can gate JS shake/flash live,
      and fires a "reducemotionchange" event on toggle.
+   - Keys: V or "]" (just "]" on a page with <html data-letter-keys="off">).
    Include with:  <script src="../motion-toggle.js"></script>  (in <head>)
    ===================================================================== */
 (function () {
@@ -65,13 +66,77 @@
     (document.head || document.documentElement).appendChild(st);
   })();
 
+  // Keycaps for shortcut hints: <kbd class="gs-kbd">. Used by this button,
+  // the sound and ⏸ buttons, the pause card, and games' own hint text.
+  // :where() keeps them at zero specificity, so a game that already styles
+  // its kbd keys (Passport, Abyss, Demolition Row…) gets its own look; the
+  // rest get this one, drawn in the colour of the text around it. Inside the
+  // corner buttons the caps get negative margins so the buttons don't grow.
+  (function injectKeycaps() {
+    if (document.getElementById("gs-kbd-style")) return;
+    var st = document.createElement("style");
+    st.id = "gs-kbd-style";
+    st.textContent =
+      ":where(.gs-kbd){display:inline-block;box-sizing:border-box;min-width:1.6em;padding:.12em .4em .1em;margin:0 .06em;" +
+      "font-family:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:1.15;text-align:center;" +
+      "vertical-align:.06em;white-space:nowrap;color:inherit;" +
+      "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
+      "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
+      ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}";
+    (document.head || document.documentElement).appendChild(st);
+  })();
+
+  // ---- keyboard: V, or "]" ---------------------------------------------
+  // Same rules as the sound button's M / "[" (see mute-toggle.js): "]"
+  // works in every game; V too unless <html data-letter-keys="off">; text
+  // fields are left alone except one marked data-game-input, where only
+  // "]" works.
+  function lettersOn() { return document.documentElement.getAttribute("data-letter-keys") !== "off"; }
+  function isKey(e, letter, sym) {
+    if (!e.key || e.repeat || e.metaKey) return false;   // autofill sends keydowns with no key
+    // AltGr (Ctrl+Alt) is how some layouts type the brackets
+    if ((e.ctrlKey || e.altKey) && !(e.key === sym && e.ctrlKey && e.altKey)) return false;
+    var t = e.target, tag = t && t.tagName;
+    var typing = tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
+      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+    if (e.key === sym) return !typing || t.hasAttribute("data-game-input");
+    return !typing && lettersOn() && e.key.toLowerCase() === letter;
+  }
+
+  var btn = null, shown = "";
+  function toggle() {
+    var on = !reduced();
+    try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (e) {}
+    apply(on);
+    render();
+    window.dispatchEvent(new CustomEvent("reducemotionchange", { detail: { on: on } }));
+  }
+  // Like the ⏸ button: the key shows in the label only on wide screens;
+  // the tooltip and aria-label always name it
+  function render() {
+    if (!btn) return;
+    var r = reduced(), key = lettersOn() ? "V" : "]";
+    btn.setAttribute("aria-pressed", r ? "true" : "false");
+    btn.setAttribute("aria-label", "Toggle visual effects for this game (" + key + ")");
+    btn.setAttribute("aria-keyshortcuts", lettersOn() ? "V ]" : "]");
+    btn.title = "Toggle visual effects for this game (shake, flash, glow, animations) — " + (lettersOn() ? "V or ]" : "]");
+    var html = (r ? "✨ Visual FX: off" : "✨ Visual FX: on") +
+      (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");
+    if (html !== shown) { btn.innerHTML = html; shown = html; }
+    btn.style.opacity = r ? "0.72" : "1";
+  }
+
+  document.addEventListener("keydown", function (e) {
+    if (!btn || !isKey(e, "v", "]")) return;
+    e.preventDefault();
+    toggle();
+  });
+
   function build() {
     if (document.querySelector(".rm-toggle")) return;
-    var btn = document.createElement("button");
+    btn = document.createElement("button");
     btn.className = "rm-toggle";
     btn.type = "button";
-    btn.setAttribute("aria-label", "Toggle visual effects for this game");
-    btn.title = "Toggle visual effects for this game (shake, flash, glow, animations)";
     btn.style.cssText =
       "position:fixed;top:12px;right:12px;z-index:99999;cursor:pointer;" +
       "font-weight:700;font-size:13px;line-height:1;border-radius:8px;" +
@@ -100,23 +165,12 @@
       btn.style.border = "1px solid rgba(255,255,255,0.22)";
     }
 
-    function render() {
-      var r = reduced();
-      btn.setAttribute("aria-pressed", r ? "true" : "false");
-      btn.textContent = r ? "✨ Visual FX: off" : "✨ Visual FX: on";
-      btn.style.opacity = r ? "0.72" : "1";
-    }
     render();
-
-    btn.addEventListener("click", function () {
-      var on = !reduced();
-      try { localStorage.setItem(KEY, on ? "1" : "0"); } catch (e) {}
-      apply(on);
-      render();
-      window.dispatchEvent(new CustomEvent("reducemotionchange", { detail: { on: on } }));
-    });
+    btn.addEventListener("click", toggle);
 
     document.body.appendChild(btn);
+    // the sound and ⏸ buttons re-place themselves on resize after this runs
+    window.addEventListener("resize", render);
   }
 
   if (document.body) build();

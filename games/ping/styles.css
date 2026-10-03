@@ -269,6 +269,9 @@ body {
    buttons line — never both. */
 #controls span { display: block; line-height: 1.25; }
 #controls .ctrl-mobile { display: none; }
+/* keycaps (shared style, motion-toggle.js): VT323 has one weight, and a
+   faux-bold cap smears its letters, so keep them regular */
+.gs-kbd { font-weight: 400; }
 @media (pointer: coarse) {
   #controls .ctrl-desktop { display: none; }
   #controls .ctrl-mobile { display: block; }

@@ -29,7 +29,7 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" title="Back to games (Esc on the menu)" aria-keyshortcuts="Escape">&larr; Games</a>
 
 <!-- The open passport on a customs desk. Left page: the flag postcard and
      the four destination tags. Right page: your stamps. -->
@@ -54,7 +54,7 @@
       <form class="typed" id="typed" hidden autocomplete="off">
         <label for="answer">STATE / ÉTAT</label>
         <div class="typed-row">
-          <input id="answer" type="text" maxlength="40" autocomplete="off"
+          <input id="answer" data-game-input type="text" maxlength="40" autocomplete="off"
                  autocapitalize="off" autocorrect="off" spellcheck="false"
                  placeholder="type the country…" aria-label="Type the country's name" />
           <button type="submit" id="stamp-btn">Stamp <kbd>Enter</kbd></button>
@@ -92,6 +92,7 @@
     </div>
     <button type="button" class="playbtn" id="play"><b>Approach the desk</b> <kbd>Enter</kbd></button>
     <p class="bests" id="bests"></p>
+    <p class="keys"><kbd>M</kbd>/<kbd>[</kbd> sound · <kbd>V</kbd>/<kbd>]</kbd> visual FX · <kbd>Esc</kbd> back to games</p>
   </div>
 </section>
 
@@ -102,7 +103,7 @@
     <p class="stats" id="over-stats"></p>
     <div class="row">
       <button type="button" id="again">Travel again <kbd>Enter</kbd></button>
-      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="share" hidden>Share result <kbd>S</kbd></button>
       <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
     </div>
   </div>

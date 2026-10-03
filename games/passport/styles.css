@@ -276,6 +276,7 @@ kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(
 .playbtn:active { transform: translateY(2px); box-shadow: 0 2px 0 #232a3d; }
 .playbtn kbd { background: rgba(244, 236, 216, 0.25); }
 .bests { margin-top: 12px; font-size: 13px; color: var(--faint); min-height: 17px; text-align: center; }
+.keys { margin-top: 6px; font-size: 12px; color: var(--faint); text-align: center; }
 
 .card .big { font-size: 38px; font-weight: 700; margin: 8px 0 2px; }
 .card .big small { font-size: 15px; color: var(--faint); }

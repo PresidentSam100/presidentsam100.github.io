@@ -2030,7 +2030,8 @@ class Game {
         this.handleInput();
       }
       if (e.repeat) return;
-      if (e.code === 'KeyP') this.togglePause();
+      // P or Esc pauses, as in the site's other games
+      if (e.code === 'KeyP' || e.code === 'Escape') this.togglePause();
       if (this.gameState === 'MENU') {
         if (e.code === 'Digit1' || e.code === 'Numpad1') this.setLivesMode(1);
         if (e.code === 'Digit3' || e.code === 'Numpad3') this.setLivesMode(3);
@@ -2038,7 +2039,7 @@ class Game {
       } else if (e.code === 'KeyI' && this.gameState === 'INFO') {
         this.gameState = 'MENU';
       }
-      if (e.code === 'KeyM' && this.gameState === 'GAMEOVER') {
+      if ((e.code === 'KeyM' || e.code === 'Escape') && this.gameState === 'GAMEOVER') {
         this.init();
       }
     });
@@ -2460,7 +2461,7 @@ class Game {
     }
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = '#6a6f86';
-    ctx.fillText('M for menu (change mode)', CANVAS_W / 2, 550);
+    ctx.fillText('M or Esc for menu (change mode)', CANVAS_W / 2, 550);
   }
 
   drawPause(ctx) {
@@ -2473,7 +2474,7 @@ class Game {
     outlined(ctx, 'PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30, 54, '#4fb3ff', { line: 9, drop: 5 });
     ctx.font = '20px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    ctx.fillText('P TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
+    ctx.fillText('P OR ESC TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
   }
 
   drawInfo(ctx) {
@@ -2649,9 +2650,9 @@ if (window.GameShell) {
   GameShell.onAutoPause(() => {
     if (game.gameState === 'PLAYING') game.togglePause();
   });
-  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
+  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
   if (GameShell.pauseButton) GameShell.pauseButton({
-    keys: ['p'],
+    keys: ['p', 'Escape'],
     canPause: () => game.gameState === 'PLAYING',
     isPaused: () => game.gameState === 'PAUSED',
     toggle: () => game.togglePause(),

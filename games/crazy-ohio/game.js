@@ -19,7 +19,12 @@
   function loadKeybinds() {
     try {
       const arr = JSON.parse(localStorage.getItem(KEYS_STORAGE) || "null");
-      if (Array.isArray(arr) && arr.length === 4 && new Set(arr).size === 4) return arr;
+      if (Array.isArray(arr) && arr.length === 4 && new Set(arr).size === 4) {
+        // P is the pause key now; a lane saved on it moves to a free default
+        const p = arr.indexOf("KeyP");
+        if (p >= 0) arr[p] = ["KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyD", "KeyS"].find((k) => arr.indexOf(k) === -1);
+        return arr;
+      }
     } catch (e) {}
     return defaultKeybinds();
   }
@@ -369,11 +374,13 @@
     tickFrame();
   }
 
-  // Pause on "P", NOT Escape — Escape already quits the run further down, and
-  // binding both meant the overlay appeared while the game quit underneath.
-  // Lane keys are matched on e.code, so "p" only collides if a player rebinds
-  // a lane to KeyP; auto-pause stays state-based so a tab-switch always works.
-  // Every clock here is anchored to
+  // Esc or P pauses a running game, as in the site's other timed games. Esc
+  // never quits a run any more (it used to, on the same press as the pause,
+  // so the overlay appeared while the game quit underneath); it only backs
+  // out of the countdown and the results. P can't be a lane key: rebinding
+  // refuses it, and a lane saved on it before this moves to a free key
+  // (loadKeybinds). Auto-pause stays state-based so a tab-switch always
+  // works. Every clock here is anchored to
   // performance.now(), so resuming shifts startT, the next spawn and every
   // in-flight tile by the paused duration; otherwise the whole column would
   // teleport to the judgement line and register a wall of misses.
@@ -381,9 +388,7 @@
   const PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: () => state === "running",
-        // Escape only: lanes are rebindable to ANY key (P included), and Esc
-        // can never be a lane key because it cancels a rebind.
-        keys: ["Escape"],
+        keys: ["Escape", "p"],
         onChange: (paused) => {
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;
@@ -543,6 +548,7 @@
   }
 
   function quit() {
+    if (PAUSE.isPaused()) PAUSE.resume();
     cancelAnimationFrame(raf);
     clearInterval(countdownIv);
     state = "setup";
@@ -573,6 +579,11 @@
       }
       if (IGNORE_CODES.indexOf(e.code) >= 0) return;
       e.preventDefault();
+      if (e.code === "KeyP") {
+        $("setupHint").textContent = "P pauses the game — try a different key";
+        errSound();
+        return;
+      }
       const takenBy = KEYBINDS.indexOf(e.code);
       if (takenBy >= 0 && takenBy !== rebindCol) {
         $("setupHint").textContent = keyLabel(e.code) + " is already lane " + (takenBy + 1) + " — try a different key";
@@ -589,7 +600,8 @@
       return;
     }
     if (e.repeat) return;
-    if (e.key === "Escape" && state !== "setup") { quit(); return; }
+    // (while running, Esc is the pause key — GameShell handles it)
+    if (e.key === "Escape" && (state === "countdown" || state === "done")) { quit(); return; }
     const col = KEYBINDS.indexOf(e.code);
     if (col === -1) return;
     if (state !== "running") return;

@@ -175,6 +175,7 @@ function clampPaddle(p) {
 
 function update() {
   if (state !== "playing" && state !== "countdown") return;
+  if (PAUSE && PAUSE.isPaused()) return;
 
   // Left paddle: W/S or on-screen arrows
   if (keys["w"] || leftUp) left.y -= PADDLE_SPEED;
@@ -363,5 +364,9 @@ document.getElementById("again").addEventListener("click", () => {
 });
 
 controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " wins.";
+
+// Pause: Esc or P, or the ⏸ corner button. Rallies only; the countdown is
+// three seconds on its own timer, so it just runs out.
+const PAUSE = window.GameShell ? GameShell.pausable({ canPause: () => state === "playing" }) : null;
 
 loop();

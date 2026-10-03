@@ -39,6 +39,15 @@
   var resultPrimary = document.getElementById("result-primary");
   var keysHelp = document.getElementById("keys-help");
   var pauseBtn = document.getElementById("pause-btn");
+  // P or Esc pauses in every mode, as in the site's other games. Classic and
+  // 2-Player also keep Space; the Labyrinth's blast arenas use Space for
+  // Fire Eggs, so the label names the keys that always work.
+  function k(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
+  function pauseLabel(paused, inLab) {
+    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + k("P") + "/" + k("Esc");
+    pauseBtn.title = (paused ? "Resume" : "Pause") + " (P / Esc" + (inLab ? "" : " / Space") + ")";
+    pauseBtn.setAttribute("aria-keyshortcuts", inLab ? "P Escape" : "P Escape Space");
+  }
   var playBtn = document.getElementById("play-btn");
   var twistsGroup = document.getElementById("twists-group");
   var labOpts = document.getElementById("lab-opts");
@@ -281,7 +290,7 @@
     G.pendingEnd = false;
     G.running = true;
     G.paused = false;
-    document.getElementById("pause-btn").textContent = "⏸ Pause";
+    pauseLabel(false, false);
 
     updateHud();
     beginLoop();
@@ -330,11 +339,11 @@
       var cssWidth = "min(94vw, " + maxCssW + "px, calc(66vh * " + (pxW / pxH).toFixed(4) + "))";
       resizeBoard(pxW, pxH, cssWidth);
       labHud.style.width = cssWidth;
-      pauseBtn.textContent = "⏸ Pause";
+      pauseLabel(false, true);
     },
     setPaused: function (paused) {
       pauseOverlay.classList.toggle("hidden", !paused);
-      pauseBtn.textContent = paused ? "▶ Resume" : "⏸ Pause";
+      pauseLabel(paused, true);
     },
     showResult: function (opts) { showResult(opts); },
     clickResult: function () { if (!resultOverlay.classList.contains("hidden")) resultPrimary.click(); },
@@ -381,7 +390,7 @@
     if (e.key === "Enter" && !resultOverlay.classList.contains("hidden")) { resultPrimary.click(); e.preventDefault(); return; }
     if (G.mode === "lab") { if (lab) lab.keydown(e); return; }
     var k = e.key;
-    if (k === " " || k === "Spacebar") { togglePause(); e.preventDefault(); return; }
+    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { togglePause(); e.preventDefault(); return; }
     var arrowMap = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
     var wasdMap = { w: UP, a: LEFT, s: DOWN, d: RIGHT, W: UP, A: LEFT, S: DOWN, D: RIGHT };
     if (arrowMap[k]) { setQueuedDir(G.mode === "two" ? 1 : 0, arrowMap[k]); e.preventDefault(); }
@@ -501,7 +510,7 @@
     if (!G.running || G.pendingEnd) return;
     G.paused = !G.paused;
     pauseOverlay.classList.toggle("hidden", !G.paused);
-    document.getElementById("pause-btn").textContent = G.paused ? "▶ Resume" : "⏸ Pause";
+    pauseLabel(G.paused, false);
   }
 
   // Switching tabs used to leave the snake crawling into a wall off-screen.
@@ -538,11 +547,12 @@
   }
 
   function updateKeysHelp() {
-    keysHelp.textContent = G.mode === "two"
-      ? "P1: WASD (green) · P2: Arrow Keys (blue) · Space: Pause · touch: use the d-pads"
+    var wasd = k("W") + k("A") + k("S") + k("D");
+    keysHelp.innerHTML = G.mode === "two"
+      ? "P1: " + wasd + " (green) · P2: Arrow Keys (blue) · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: use the d-pads"
       : G.mode === "lab"
-        ? "Move: Arrows / WASD (hold or double-tap to sprint) · Shift: dash · G or right-click: ghost · click a cell: teleport · click a 🖱 switch (or 1/2/3) · R: retry · M: music · Space: pause · Arena for two: P1 WASD, P2 arrows · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡"
-        : "Move: Arrow Keys or WASD · Space: Pause · touch: swipe the board or use the d-pad";
+        ? "Move: Arrows / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + "/" + k("Esc") + ": pause · Arena for two: P1 " + wasd + ", P2 arrows · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡"
+        : "Move: Arrow Keys or " + wasd + " · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad";
   }
 
   var vsOpts = document.getElementById("vs-opts");
