@@ -548,11 +548,12 @@
 
   function updateKeysHelp() {
     var wasd = k("W") + k("A") + k("S") + k("D");
+    var arrows = k("↑") + k("←") + k("↓") + k("→");   // same order as W A S D
     keysHelp.innerHTML = G.mode === "two"
-      ? "P1: " + wasd + " (green) · P2: Arrow Keys (blue) · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: use the d-pads"
+      ? "P1: " + wasd + " (green) · P2: " + arrows + " (blue) · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: use the d-pads"
       : G.mode === "lab"
-        ? "Move: Arrows / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + "/" + k("Esc") + ": pause · Arena for two: P1 " + wasd + ", P2 arrows · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡"
-        : "Move: Arrow Keys or " + wasd + " · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad";
+        ? "Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + "/" + k("Esc") + ": pause · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡"
+        : "Move: " + arrows + " or " + wasd + " · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad";
   }
 
   var vsOpts = document.getElementById("vs-opts");
