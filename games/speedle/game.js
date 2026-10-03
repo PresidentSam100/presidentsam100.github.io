@@ -509,6 +509,7 @@
 
   // ----- physical keyboard -------------------------------------------
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
       if (e.key === "Enter") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
       return;

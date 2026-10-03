@@ -425,6 +425,7 @@
     ArrowDown: 3, s: 3, S: 3,
   };
   window.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.key in KEYMAP) {
       e.preventDefault();
       if (e.repeat) return; // one slide per physical press — holding must not auto-slide

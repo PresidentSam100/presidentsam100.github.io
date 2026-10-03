@@ -167,6 +167,7 @@
     " ": "fire"
   };
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     var k = KEYMAP[e.key];
     if (k) { input[k] = true; e.preventDefault(); }
     if (e.key === "Enter" && state !== "play") { start(); e.preventDefault(); }

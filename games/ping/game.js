@@ -76,6 +76,7 @@ const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0 };
 
 const keys = {};
 document.addEventListener("keydown", e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
   keys[e.key.toLowerCase()] = true;
   // stop page scrolling on arrows
   if (["arrowup", "arrowdown"].includes(e.key.toLowerCase())) e.preventDefault();

@@ -332,6 +332,7 @@
   }
   // keyboard shortcuts
   window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (phase === "over") { if (e.key === "Enter") { e.preventDefault(); newGame(); } return; }
     if (phase !== "place") return;
     const onBtn = document.activeElement && document.activeElement.tagName === "BUTTON";

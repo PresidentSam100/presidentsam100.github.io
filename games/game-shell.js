@@ -300,6 +300,7 @@
 
     document.addEventListener("keydown", function (e) {
       if (!e.key) return;                // autofill sends keydowns with no key
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // Ctrl+P is Print, not pause
       var hit = false;
       for (var i = 0; i < keys.length; i++) {
         if (e.key === keys[i] || e.key.toLowerCase() === String(keys[i]).toLowerCase()) { hit = true; break; }

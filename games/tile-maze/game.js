@@ -305,6 +305,7 @@
     W: "up", S: "down", A: "left", D: "right",
   };
   window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press — holding does nothing
     if (e.key === "r" || e.key === "R") { loadLevel(current); return; }
     const dir = KEYMAP[e.key];

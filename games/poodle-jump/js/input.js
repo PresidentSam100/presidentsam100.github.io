@@ -44,6 +44,7 @@ class Input {
   _bindKeyboard() {
     window.addEventListener("keydown", (e) => {
       Sfx.resume();
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       // Prevent the page from scrolling on arrows/space
       if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space"].includes(e.code)) {
         e.preventDefault();

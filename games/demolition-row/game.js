@@ -1081,6 +1081,7 @@
     }
     function handleKey(e) {
       if (!GAME) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       SFX.resume();
       if (e.key === "Escape") { if (!e.repeat) GAME.pauseToggle(); e.preventDefault(); return; }
       if (GAME.state !== "playing") return;

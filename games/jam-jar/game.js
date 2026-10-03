@@ -809,6 +809,7 @@
     if (state === "play") drop();
   });
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.key === "ArrowLeft") { e.preventDefault(); aimX -= e.repeat ? 14 : 22; }
     else if (e.key === "ArrowRight") { e.preventDefault(); aimX += e.repeat ? 14 : 22; }
     else if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat) drop(); }

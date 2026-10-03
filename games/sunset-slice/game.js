@@ -369,6 +369,7 @@
   document.getElementById("quit").addEventListener("click", toMenu);
   ui.pauseBtn.addEventListener("click", function () { setPaused(true); });
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.key === "Escape" || e.key === "p" || e.key === "P") {
       if (state === "play") { setPaused(!paused); e.preventDefault(); }
       else if (state === "over" && e.key === "Escape") toMenu();

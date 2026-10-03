@@ -386,6 +386,7 @@
 
   document.addEventListener("keydown", function (e) {
     if (gameArea.style.display === "none") return; // menu open, ignore
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // Enter takes the result card's main action (Play Again / Next Round / Retry).
     if (e.key === "Enter" && !resultOverlay.classList.contains("hidden")) { resultPrimary.click(); e.preventDefault(); return; }
     if (G.mode === "lab") { if (lab) lab.keydown(e); return; }

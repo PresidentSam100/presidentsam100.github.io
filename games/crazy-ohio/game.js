@@ -601,6 +601,7 @@
       return;
     }
     if (e.repeat) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // (while running, Esc is the pause key — GameShell handles it)
     if (e.key === "Escape" && (state === "countdown" || state === "done")) { quit(); return; }
     const col = KEYBINDS.indexOf(e.code);

@@ -197,6 +197,7 @@
     if (n !== player.lane) { player.lane = n; SND.lane(); }
   }
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
       if (e.key === "Enter" || e.key === " ") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
       return;

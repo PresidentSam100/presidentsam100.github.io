@@ -2030,6 +2030,7 @@ class Game {
       this.handleInput(p.x, p.y);
     });
     document.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
         if (e.repeat) return; // one flap per physical press — no hold-to-hover

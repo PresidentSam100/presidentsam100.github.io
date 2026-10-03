@@ -1774,6 +1774,7 @@ class Game {
   // ---- input ------------------------------------------------------------
   bindInput() {
     const down = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       const k = e.key.toLowerCase();
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k))
         e.preventDefault();

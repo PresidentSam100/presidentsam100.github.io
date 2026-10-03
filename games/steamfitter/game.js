@@ -1017,6 +1017,7 @@
     // a space typed into a text field (the editor's level name) is just a space
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.key === " ") { e.preventDefault(); ffOn(); }
   });
   document.addEventListener("keyup", function (e) { if (e.key === " ") ffOff(); });

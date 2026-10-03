@@ -1179,6 +1179,7 @@
   }
 
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey) return;   // browser shortcuts aren't game keys (Alt stays: it's the fine-aim modifier)
     if (modalOpen()) {
       // Esc just closes the spin pad; it mustn't reach the pause key too
       if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { closeSpin(); e.stopImmediatePropagation(); }

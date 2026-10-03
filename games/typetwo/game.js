@@ -1121,6 +1121,7 @@
       if (state === "over") quitToMenu();
       return;
     }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // paused: letters and Enter (the bomb) wait until Esc resumes the run
     if (state === "playing" && PAUSE.isPaused()) return;
     if (state === "playing" && e.key === "Enter") {
