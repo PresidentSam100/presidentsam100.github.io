@@ -297,6 +297,7 @@
     });
 
     document.addEventListener("keydown", function (e) {
+      if (!e.key) return;                // autofill sends keydowns with no key
       var hit = false;
       for (var i = 0; i < keys.length; i++) {
         if (e.key === keys[i] || e.key.toLowerCase() === String(keys[i]).toLowerCase()) { hit = true; break; }
@@ -310,6 +311,9 @@
         var t = e.target;
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       }
+      // Claim the key only when it pauses or resumes something: on a menu or
+      // end screen, Esc and P (and Ctrl+P, Print) keep their usual behaviour
+      if (!paused && !canPause()) return;
       e.preventDefault();
       setPaused(!paused);
     });
