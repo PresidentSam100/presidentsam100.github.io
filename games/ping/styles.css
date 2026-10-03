@@ -229,6 +229,8 @@ body {
   font-size: clamp(15px, 3.4cqw, 26px); padding: 0.15em 0.7em; min-width: 4.4em;
   border: 1px solid rgba(234, 246, 255, 0.5); border-radius: 4px;
 }
+/* keyboard controls are keycaps already, so no box around them */
+.count-controls span.keys { border-color: transparent; text-align: center; }
 /* countdown number pops on each tick (auto-disabled by reduce-motion) */
 .count-num { animation: countPop 0.9s ease both; }
 @keyframes countPop { 0% { opacity: 0; transform: scale(1.45); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0.92; transform: scale(1); } }

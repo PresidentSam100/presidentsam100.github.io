@@ -135,10 +135,17 @@ function startCountdown() {
   // On touch devices the on-screen ▲▼ buttons are the controls, so don't show the
   // keyboard hints (W/S, ↑/↓) or "Auto" — those only apply on desktop.
   const touch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
-  const setCtl = (el, t) => { el.textContent = t; el.style.display = t ? "" : "none"; };
+  // keyboard controls show as keycaps (shared style, ../motion-toggle.js); the
+  // touch arrows and "Auto" aren't keys, so they keep the plain boxed label
+  const setCtl = (el, t, keys) => {
+    if (keys) el.innerHTML = keys.map(k => '<kbd class="gs-kbd">' + k + "</kbd>").join("/");
+    else el.textContent = t;
+    el.classList.toggle("keys", !!keys);
+    el.style.display = t || keys ? "" : "none";
+  };
   countRightLabelEl.textContent = players === 2 ? "Player 2" : "CPU";
-  setCtl(countLeftEl, touch ? "▲ ▼" : "W / S");
-  setCtl(countRightEl, players === 2 ? (touch ? "▲ ▼" : "↑ / ↓") : "Auto");
+  setCtl(countLeftEl, "▲ ▼", touch ? null : ["W", "S"]);
+  setCtl(countRightEl, players === 2 ? "▲ ▼" : "Auto", players === 2 && !touch ? ["↑", "↓"] : null);
   countdownEl.classList.remove("hidden");
 
   let n = 3;
