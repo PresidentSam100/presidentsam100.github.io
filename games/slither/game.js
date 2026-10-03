@@ -44,7 +44,7 @@
   // Fire Eggs, so the label names the keys that always work.
   function k(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
   function pauseLabel(paused, inLab) {
-    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + k("P") + "/" + k("Esc");
+    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + '<span class="gs-keys">' + k("P") + "/" + k("Esc") + "</span>";
     pauseBtn.title = (paused ? "Resume" : "Pause") + " (P / Esc" + (inLab ? "" : " / Space") + ")";
     pauseBtn.setAttribute("aria-keyshortcuts", inLab ? "P Escape" : "P Escape Space");
   }

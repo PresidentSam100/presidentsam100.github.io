@@ -72,6 +72,8 @@
   // its kbd keys (Passport, Abyss, Demolition Row…) gets its own look; the
   // rest get this one, drawn in the colour of the text around it. Inside the
   // corner buttons the caps get negative margins so the buttons don't grow.
+  // A button's keys wrapped in <span class="gs-keys"> hide on touch-only
+  // devices (no hover), where there's no keyboard to press them on.
   (function injectKeycaps() {
     if (document.getElementById("gs-kbd-style")) return;
     var st = document.createElement("style");
@@ -82,7 +84,8 @@
       "vertical-align:.06em;white-space:nowrap;color:inherit;" +
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
-      ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}";
+      ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}" +
+      "@media (hover:none){.gs-keys{display:none}}";
     (document.head || document.documentElement).appendChild(st);
   })();
 
