@@ -223,7 +223,8 @@
   // now, but a press only ever resolves the one closest to the hit zone;
   // any others still falling in that same lane are untouched.
   function pressCol(col) {
-    if (state !== "running") return;
+    // paused: the tiles are frozen, so a press mustn't hit, miss or cost points
+    if (state !== "running" || PAUSE.isPaused()) return;
     const inLane = tiles.filter((x) => x.col === col && !x.resolved);
     if (!inLane.length) { registerMiss(null, col, true); return; } // nothing here — a stray press, penalised
     const t = inLane.reduce((lowest, x) => (x.lastY > lowest.lastY ? x : lowest));
@@ -562,7 +563,7 @@
   lanes.forEach((l) => {
     const col = +l.dataset.col;
     l.addEventListener("pointerdown", (e) => {
-      if (state !== "running") return;
+      if (state !== "running" || PAUSE.isPaused()) return;
       e.preventDefault();
       l.classList.add("kdown"); setTimeout(() => l.classList.remove("kdown"), 90);
       pressCol(col);
@@ -604,7 +605,7 @@
     if (e.key === "Escape" && (state === "countdown" || state === "done")) { quit(); return; }
     const col = KEYBINDS.indexOf(e.code);
     if (col === -1) return;
-    if (state !== "running") return;
+    if (state !== "running" || PAUSE.isPaused()) return;
     e.preventDefault();
     lanes[col].classList.add("kdown"); setTimeout(() => lanes[col].classList.remove("kdown"), 90);
     pressCol(col);
