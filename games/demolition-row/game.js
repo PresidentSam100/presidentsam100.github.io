@@ -1217,7 +1217,10 @@
     }
     updateKeysHelp();
 
-    function toMenu() { if (GAME) GAME.destroy(); document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); }
+    // dropping GAME (not just stopping its loop) switches the board keys off:
+    // handleKey bails without a game, so letters type into the menu's
+    // dropdowns again and Esc can't pop the pause card over the menu
+    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); }
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";
