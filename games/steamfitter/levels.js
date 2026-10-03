@@ -1,7 +1,9 @@
 /* Steamfitter levels - generated & verified solvable (gen-levels2.js).
    9x7 row-major SOLVED layout; the game scrambles at play time. Legend:
    . empty, # block, o source, O drain, h H, v V, a NE, b NW, c SE, d SW,
-   x X, N/E/S/W caps, t TN, u TE, y TS, z TW (T-junctions). */
+   x X (crossover), N/E/S/W caps, t TN, u TE, y TS, z TW (T-junctions),
+   j J (4-way junction). Levels 31-36, the junction set, came from a seeded
+   generator: carved route, junctions and tees placed on it, decoys around. */
 window.STEAMFITTER_LEVELS = [
   { n: "First Fitting", s: 3, d: 3, g: ".......................chd.ohhhhb.aO..........................." },
   { n: "Short Run", s: 2, d: 4, g: ".x..h..c.....v..d.ohhhhhd........v........ahO.................." },
@@ -32,5 +34,11 @@ window.STEAMFITTER_LEVELS = [
   { n: "Chokepoint", s: 3, d: 3, g: ".bc.#.....chd#.cd..vdu..vv.obav.cbaO..uahb.x...a.#.....c..#y..." },
   { n: "Full Bore", s: 2, d: 4, g: ".cyE.......S..ctd.od.chb.v..advz..v...uv..SaO..vv......tab..u.." },
   { n: "The Labyrinth", s: 5, d: 1, g: ".h..bcd.....b.vahO.y#..v#b...c.#v.....#ydv#..ohdvvz.....abab..." },
-  { n: "Master Fitter", s: 0, d: 6, g: "od.yd.St..v.vv.....vcbz.....abcb.....yyadh.......vN......athhhO" }
+  { n: "Master Fitter", s: 0, d: 6, g: "od.yd.St..v.vv.....vcbz.....abcb.....yyadh.......vN......athhhO" },
+  { n: "Four Ways", s: 5, d: 3, g: ".a..y.................x.d...c..bchhO.cthdahd.ob.hajdv.......aj." },
+  { n: "Crossroads", s: 2, d: 3, g: ".ud#..cd..vahdyvj.ob.cbcbv..cdjhb.aO.ab..x.#......c.c....xc...." },
+  { n: "Manifold", s: 1, d: 4, g: "..cdv.a..ohbtjd.a....b.ajd....z.#cb...#vchbcO.jzvatjv..h.ytvab." },
+  { n: "Switchyard", s: 2, d: 4, g: "..d..chd..cdjdv.v.obatvjdv....cbcbv...#ajt#aO.c.bbx#v....xv.ud." },
+  { n: "Grand Central", s: 1, d: 1, g: ".hhchjcd.ohdvubvaO.cjbvuj#...h.vvb....a.vad......jav...#.#ahbd." },
+  { n: "Waterworks", s: 1, d: 4, g: ".vd.#....od#y.zx#..vchhhdt..jvchjv...ubjhtbcO...vcz#v...cabahj." }
 ];

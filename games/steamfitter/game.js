@@ -13,15 +13,18 @@
 
   // ---- pipe geometry ----------------------------------------------------------
   var PORTS = { H: ["W", "E"], V: ["N", "S"], NE: ["N", "E"], NW: ["N", "W"], SE: ["S", "E"], SW: ["S", "W"], X: ["N", "S", "E", "W"],
+    J: ["N", "E", "S", "W"],   // 4-way junction
     CN: ["N"], CE: ["E"], CS: ["S"], CW: ["W"],
     TN: ["E", "W", "N"], TE: ["N", "S", "E"], TS: ["E", "W", "S"], TW: ["N", "S", "W"] };   // T-junctions: 3 ports
-  // Connectivity groups: which ports flow into each other. X is TWO independent
-  // channels; a T is one 3-port junction; a cap is a single dead-end port.
+  // Connectivity groups: which ports flow into each other. X is a crossover,
+  // TWO independent channels; J is a 4-way junction and a T a 3-way one (water
+  // can turn either way); a cap is a single dead-end port.
   var GROUPS = { H: [["W", "E"]], V: [["N", "S"]], NE: [["N", "E"]], NW: [["N", "W"]], SE: [["S", "E"]], SW: [["S", "W"]],
-    X: [["N", "S"], ["E", "W"]], CN: [["N"]], CE: [["E"]], CS: [["S"]], CW: [["W"]],
+    X: [["N", "S"], ["E", "W"]], J: [["N", "E", "S", "W"]], CN: [["N"]], CE: [["E"]], CS: [["S"]], CW: [["W"]],
     TN: [["E", "W", "N"]], TE: [["N", "S", "E"]], TS: [["E", "W", "S"]], TW: [["N", "S", "W"]] };
   var T_BAR = { TN: "H", TS: "H", TE: "V", TW: "V" }, T_STEM = { TN: "N", TS: "S", TE: "E", TW: "W" };   // caps: one port, sealed end
   function isCap(type) { return type.charAt(0) === "C"; }
+  function isJunction(type) { return type === "J" || type.charAt(0) === "T"; }
   var OPP = { N: "S", S: "N", E: "W", W: "E" };
   var DXY = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
   var PORT_PT = { N: [0, -TS / 2], S: [0, TS / 2], E: [TS / 2, 0], W: [-TS / 2, 0] };
@@ -33,7 +36,7 @@
     SW: { cx: -TS / 2, cy: TS / 2, ang: { S: 0, W: -Math.PI / 2 } },
   };
   function exitFor(type, enter) {
-    if (type === "X") return OPP[enter];
+    if (type === "X" || type === "J") return OPP[enter];
     var p = PORTS[type];
     return p[0] === enter ? p[1] : p[0];
   }
@@ -126,6 +129,18 @@
       var c = mkCanvas(TS), g = c.getContext("2d");
       g.translate(TS / 2, TS / 2);
       if (type === "X") {
+        // a crossover: two separate channels, so the across pipe bridges over
+        // the down pipe (no junction ring; that look belongs to the T)
+        strokePipeBody(g, "V");
+        g.fillStyle = "rgba(0,0,0,0.5)";               // the bridge's shadow on the pipe beneath
+        g.fillRect(-15, -20, 30, 40);
+        strokePipeBody(g, "H");
+        [-17, 17].forEach(function (x) {                // collars where it clears the lower pipe
+          g.fillStyle = "#8a6a2e"; g.strokeStyle = "#2a2015"; g.lineWidth = 1.5;
+          g.fillRect(x - 2.5, -16, 5, 32); g.strokeRect(x - 2.5, -16, 5, 32);
+        });
+      } else if (type === "J") {
+        // a 4-way junction: one chamber, so it wears the T's junction ring
         strokePipeBody(g, "V");
         strokePipeBody(g, "H");
         g.lineWidth = 4; g.strokeStyle = "#3c2517";
@@ -203,7 +218,7 @@
   var bannerTimer = 0;
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
 
-  var ROT = { H: "V", V: "H", NE: "SE", SE: "SW", SW: "NW", NW: "NE", X: "X",
+  var ROT = { H: "V", V: "H", NE: "SE", SE: "SW", SW: "NW", NW: "NE", X: "X", J: "J",
     CN: "CE", CE: "CS", CS: "CW", CW: "CN",
     TN: "TE", TE: "TS", TS: "TW", TW: "TN" }; // 90° clockwise
   function typeFor(a, b) { // the piece whose two ports are a and b
@@ -293,11 +308,18 @@
       var t = typeFor(enter, exit);
       grid[cells[i].r][cells[i].c] = { kind: "pipe", type: t, fillA: 0, fillB: 0, dirA: null, dirB: null };
     }
+    // from level 3 the odd 4-way junction stands in for a path piece: it
+    // connects every way, so it never needs turning (and is never the first
+    // piece, which the anti-solved nudge below turns)
+    if (level >= 3) for (i = 1; i < cells.length - 1; i++) {
+      if (Math.random() < Math.min(0.12, 0.03 * (level - 2))) grid[cells[i].r][cells[i].c].type = "J";
+    }
     // decoy pipes on some empty plates
     var decoyP = Math.min(0.45, 0.15 + level * 0.05);
     for (var rr = 0; rr < ROWS; rr++) for (var cc = 0; cc < COLS; cc++) {
       if (grid[rr][cc].kind === "empty" && Math.random() < decoyP) {
-        grid[rr][cc] = { kind: "pipe", type: PIECES[(Math.random() * 6) | 0], fillA: 0, fillB: 0, dirA: null, dirB: null, decoy: true };
+        var dt = level >= 3 && Math.random() < 0.08 ? "J" : PIECES[(Math.random() * 6) | 0];
+        grid[rr][cc] = { kind: "pipe", type: dt, fillA: 0, fillB: 0, dirA: null, dirB: null, decoy: true };
       }
     }
     // scramble every piece, then make sure it isn't accidentally solved
@@ -308,6 +330,12 @@
       for (var sp2 = 0; sp2 < spins; sp2++) cell.type = ROT[cell.type];
     }
     if (traceConnected()) { var f = grid[cells[0].r][cells[0].c]; f.type = ROT[f.type]; }
+    // junctions can open other routes, so keep turning path pieces (never a
+    // junction, which turning can't change) until the line really is broken
+    for (var guard = 0; guard < 60 && traceConnected(); guard++) {
+      var pk = cells[(Math.random() * cells.length) | 0], pc = grid[pk.r][pk.c];
+      if (pc.type !== "J") pc.type = ROT[pc.type];
+    }
     water = null; doneSegs = []; distance = 0; goal = pathLen;
     moves = 0; flowing = false; countdown = 0;
     document.getElementById("level").textContent = level;
@@ -386,7 +414,11 @@
     }
     for (var i = 0; i < chain.length; i++) {
       var seg = chain[i];
-      seg.vtype = (seg.exit === OPP[seg.enter]) ? (axisOf(seg.enter) === "V" ? "V" : "H") : typeFor(seg.enter, seg.exit);
+      var ct = grid[seg.r][seg.c].type;
+      // tees and crossovers keep their own type: waterPath draws a tee through
+      // its junction and a crossover's down channel under its bridge
+      seg.vtype = isJunction(ct) || ct === "X" ? ct
+        : (seg.exit === OPP[seg.enter]) ? (axisOf(seg.enter) === "V" ? "V" : "H") : typeFor(seg.enter, seg.exit);
     }
     return chain;
   }
@@ -477,7 +509,7 @@
       if (!flowPath || !flowPath.length) { spill(edgePoint(srcR, 1, "W")); return; }
       goal = flowPath.length; flowIdx = 0;
       var s0 = flowPath[0];
-      water = { r: s0.r, c: s0.c, enter: s0.enter, vtype: s0.vtype, t: 0 };
+      water = { r: s0.r, c: s0.c, enter: s0.enter, exit: s0.exit, vtype: s0.vtype, t: 0 };
       return;
     }
     var r = srcR + DXY[srcDir][1], c = srcC + DXY[srcDir][0];
@@ -512,13 +544,13 @@
   }
   function completeFlowSegment() {
     var seg = flowPath[flowIdx];
-    doneSegs.push({ r: seg.r, c: seg.c, type: seg.vtype, enter: seg.enter });
+    doneSegs.push({ r: seg.r, c: seg.c, type: seg.vtype, enter: seg.enter, exit: seg.exit });
     distance++; flowIdx++;
     sfxTick(false);
     refreshHud();
     if (flowIdx >= flowPath.length) { drainReached(); return; }
     var nx = flowPath[flowIdx];
-    water = { r: nx.r, c: nx.c, enter: nx.enter, vtype: nx.vtype, t: 0 };
+    water = { r: nx.r, c: nx.c, enter: nx.enter, exit: nx.exit, vtype: nx.vtype, t: 0 };
   }
   function completeSegment() {
     var cell = grid[water.r][water.c];
@@ -661,7 +693,7 @@
   }
 
   // ---- drawing ------------------------------------------------------------------
-  function waterPath(g, type, enter, t0, t1) {
+  function waterPath(g, type, enter, t0, t1, exit) {
     // stroke the watered stretch of a piece from progress t0 to t1 (0..1)
     g.beginPath();
     if (type === "H" || type === "V" || type === "X") {
@@ -669,8 +701,32 @@
       var from = PORT_PT[enter];
       var to = PORT_PT[OPP[enter]];
       if (type !== "X" && axis === "H" && enter !== "W" && enter !== "E") { from = PORT_PT[PORTS[type][0]]; to = PORT_PT[PORTS[type][1]]; }
-      g.moveTo(from[0] + (to[0] - from[0]) * t0, from[1] + (to[1] - from[1]) * t0);
-      g.lineTo(from[0] + (to[0] - from[0]) * t1, from[1] + (to[1] - from[1]) * t1);
+      var line = function (a, b) {
+        g.moveTo(from[0] + (to[0] - from[0]) * a, from[1] + (to[1] - from[1]) * a);
+        g.lineTo(from[0] + (to[0] - from[0]) * b, from[1] + (to[1] - from[1]) * b);
+      };
+      // a crossover's down channel runs under the bridge, out of sight
+      var h0 = (TS / 2 - 20) / TS, h1 = 1 - h0;
+      if (type === "X" && axis === "V") {
+        if (t0 < h0) line(t0, Math.min(t1, h0));
+        if (t1 > h1) line(Math.max(t0, h1), t1);
+      } else line(t0, t1);
+    } else if (isJunction(type)) {
+      // a tee or 4-way junction: water runs port → centre → port along the
+      // pipe (no curve), and once it reaches the junction it fills the spare
+      // arms too, out to their flanges, as water would
+      var ex = exit || exitFor(type, enter), pa = PORT_PT[enter], pz = PORT_PT[ex];
+      var at = function (t) { return t <= 0.5 ? [pa[0] * (1 - 2 * t), pa[1] * (1 - 2 * t)] : [pz[0] * (2 * t - 1), pz[1] * (2 * t - 1)]; };
+      var q0 = at(t0), q1 = at(t1);
+      g.moveTo(q0[0], q0[1]);
+      if (t0 < 0.5 && t1 > 0.5) g.lineTo(0, 0);
+      g.lineTo(q1[0], q1[1]);
+      if (t1 > 0.5) PORTS[type].forEach(function (port) {
+        if (port === enter || port === ex) return;
+        // a dead end: stop short so the rounded tip stays inside the flange
+        var q = PORT_PT[port], k = (t1 - 0.5) * 2 * (TS / 2 - 8) / (TS / 2);
+        g.moveTo(0, 0); g.lineTo(q[0] * k, q[1] * k);
+      });
     } else if (isCap(type)) {
       var fromC = PORT_PT[enter];
       g.moveTo(fromC[0] * (1 - t0), fromC[1] * (1 - t0));
@@ -682,16 +738,16 @@
       g.arc(b.cx, b.cy, TS / 2, s, e, a1 < a0);
     }
   }
-  function strokeWater(g, type, enter, t0, t1, head) {
+  function strokeWater(g, type, enter, t0, t1, head, exit) {
     g.save();
     g.lineCap = "round";
     g.shadowColor = "rgba(87,217,207,0.7)";
     g.shadowBlur = reduced() ? 0 : 8;
     g.lineWidth = 13; g.strokeStyle = "#2ea9a0";
-    waterPath(g, type, enter, t0, t1); g.stroke();
+    waterPath(g, type, enter, t0, t1, exit); g.stroke();
     g.shadowBlur = 0;
     g.lineWidth = 6; g.strokeStyle = "#8ceee6";
-    waterPath(g, type, enter, t0, t1); g.stroke();
+    waterPath(g, type, enter, t0, t1, exit); g.stroke();
     g.restore();
   }
 
@@ -770,14 +826,14 @@
       seg = doneSegs[i];
       ctx.save();
       ctx.translate(OX + seg.c * TS + TS / 2, OY + seg.r * TS + TS / 2);
-      strokeWater(ctx, seg.type, seg.enter, 0, 1);
+      strokeWater(ctx, seg.type, seg.enter, 0, 1, false, seg.exit);
       ctx.restore();
     }
     if (water) {
       var wc = grid[water.r][water.c];
       ctx.save();
       ctx.translate(OX + water.c * TS + TS / 2, OY + water.r * TS + TS / 2);
-      strokeWater(ctx, water.vtype || wc.type, water.enter, 0, Math.min(1, water.t), true);
+      strokeWater(ctx, water.vtype || wc.type, water.enter, 0, Math.min(1, water.t), true, water.exit);
       ctx.restore();
     }
     if (srcR >= 0 && srcR < ROWS) drawSource(ctx);
@@ -958,6 +1014,9 @@
   ffBtn.addEventListener("pointerdown", ffOn);
   ["pointerup", "pointerleave", "pointercancel"].forEach(function (t) { ffBtn.addEventListener(t, ffOff); });
   document.addEventListener("keydown", function (e) {
+    // a space typed into a text field (the editor's level name) is just a space
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     if (e.key === " ") { e.preventDefault(); ffOn(); }
   });
   document.addEventListener("keyup", function (e) { if (e.key === " ") ffOff(); });
@@ -1002,10 +1061,10 @@
   var LV = window.STEAMFITTER_LEVELS || [];
   var DECODE = { ".": { kind: "empty" }, "#": { kind: "block" }, "o": { kind: "src" }, "O": { kind: "drain" },
     "h": "H", "v": "V", "a": "NE", "b": "NW", "c": "SE", "d": "SW", "x": "X", "N": "CN", "E": "CE", "S": "CS", "W": "CW",
-    "t": "TN", "u": "TE", "y": "TS", "z": "TW" };
-  var ENC = { H: "h", V: "v", NE: "a", NW: "b", SE: "c", SW: "d", X: "x", CN: "N", CE: "E", CS: "S", CW: "W", TN: "t", TE: "u", TS: "y", TW: "z" };
+    "t": "TN", "u": "TE", "y": "TS", "z": "TW", "j": "J" };
+  var ENC = { H: "h", V: "v", NE: "a", NW: "b", SE: "c", SW: "d", X: "x", CN: "N", CE: "E", CS: "S", CW: "W", TN: "t", TE: "u", TS: "y", TW: "z", J: "j" };
   var EDIT_CYCLE = { H: "V", V: "NE", NE: "NW", NW: "SE", SE: "SW", SW: "X", X: "CN", CN: "CE", CE: "CS", CS: "CW", CW: "H" };
-  var DEFAULT_ORI = { straight: "H", bend: "NE", cross: "X", cap: "CN", tee: "TN" }; // one distinct pipe per shape family
+  var DEFAULT_ORI = { straight: "H", bend: "NE", cross: "X", junction: "J", cap: "CN", tee: "TN" }; // one distinct pipe per shape family
   var curLevel = -1, editing = false, isCustom = false, editTool = "pipe", editCustomIdx = -1;
   var editStash = null, testingEditor = false;
   var progress = loadProgress(), customLevels = loadCustom();
