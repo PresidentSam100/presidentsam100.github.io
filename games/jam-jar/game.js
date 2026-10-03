@@ -10,7 +10,8 @@
 
   // jar interior
   var JL = 58, JR = W - 58, FLOOR = H - 34, RIM = 96;
-  var LOSE_Y = 152;      // the fill line — settled fruit above this ends the run
+  var GLASS = 9;         // glass thickness, drawn just OUTSIDE the walls above
+  var LOSE_Y = 116;      // the fill line — settled fruit above this ends the run
   var DROP_Y = 64;
 
   // ---- the fruit chain -------------------------------------------------------
@@ -158,99 +159,120 @@
     g.closePath(); g.fill();
   }
   var SPRITES = [];
+  // the grapefruit's pores are scattered once, so every drawing of it — in
+  // the jar, in Next, on the ladder — is the same fruit
+  var PORES = [];
+  for (var pI0 = 0; pI0 < 14; pI0++) PORES.push([Math.random() * Math.PI * 2, Math.sqrt(Math.random()) * 0.75]);
+  // Paints tier ti as vectors at its true radius, centred on the origin. Any
+  // scale already on g applies to the paths themselves, so a small copy is
+  // as crisp as the big one.
+  function paintFruit(g, ti) {
+    var t = TIERS[ti], r = t.r;
+    // body
+    var grad = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
+    grad.addColorStop(0, lighten(t.col, 0.28));
+    grad.addColorStop(0.72, t.col);
+    grad.addColorStop(1, t.dark);
+    g.fillStyle = grad;
+    g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
+    g.strokeStyle = t.dark; g.lineWidth = Math.max(1.6, r * 0.045);
+    g.beginPath(); g.arc(0, 0, r - g.lineWidth / 2 + 0.5, 0, 7); g.stroke();
+    // per-fruit decorations
+    g.strokeStyle = t.dark; g.fillStyle = t.dark; g.lineCap = "round";
+    if (ti === 0) { // blueberry crown
+      g.lineWidth = 1.6;
+      for (var a = 0; a < 5; a++) {
+        var an = -Math.PI / 2 + (a - 2) * 0.28;
+        g.beginPath();
+        g.moveTo(Math.cos(an) * r * 0.62, Math.sin(an) * r * 0.62 - r * 0.12);
+        g.lineTo(Math.cos(an) * r * 0.8, Math.sin(an) * r * 0.8 - r * 0.12);
+        g.stroke();
+      }
+    } else if (ti === 1) { // cherry stem
+      g.lineWidth = 2.4;
+      g.beginPath(); g.moveTo(0, -r * 0.85); g.quadraticCurveTo(r * 0.32, -r * 1.25, r * 0.15, -r * 1.45); g.stroke();
+    } else if (ti === 2) { // strawberry seeds
+      g.fillStyle = "#ffe9a8";
+      for (var i = 0; i < 8; i++) {
+        var sa = i / 8 * Math.PI * 2 + 0.4;
+        g.beginPath(); g.ellipse(Math.cos(sa) * r * 0.55, Math.sin(sa) * r * 0.55, r * 0.05, r * 0.08, sa, 0, 7); g.fill();
+      }
+    } else if (ti === 3) { // plum sheen
+      g.strokeStyle = "rgba(255,255,255,0.5)"; g.lineWidth = r * 0.09;
+      g.beginPath(); g.arc(0, 0, r * 0.7, -2.4, -1.7); g.stroke();
+    } else if (ti === 4 || ti === 6) { // apricot / peach crease
+      g.lineWidth = Math.max(1.6, r * 0.035); g.globalAlpha = 0.5;
+      g.beginPath(); g.moveTo(0, -r * 0.9); g.quadraticCurveTo(r * 0.22, 0, 0, r * 0.9); g.stroke();
+      g.globalAlpha = 1;
+    } else if (ti === 5) { // apple stem + leaf
+      g.strokeStyle = "#6b4423"; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(0, -r * 0.9); g.lineTo(0, -r * 1.12); g.stroke();
+      g.fillStyle = "#4d8a2a";
+      g.beginPath(); g.ellipse(r * 0.16, -r * 1.05, r * 0.16, r * 0.08, -0.5, 0, 7); g.fill();
+    } else if (ti === 7) { // grapefruit pores
+      g.globalAlpha = 0.35;
+      for (var pI = 0; pI < PORES.length; pI++) {
+        var pa = PORES[pI][0], pd = PORES[pI][1] * r;
+        g.beginPath(); g.arc(Math.cos(pa) * pd, Math.sin(pa) * pd + r * 0.15, r * 0.03, 0, 7); g.fill();
+      }
+      g.globalAlpha = 1;
+    } else if (ti === 8) { // pineapple: diamond crosshatch + leafy crown
+      g.save();
+      g.beginPath(); g.arc(0, 0, r - 2, 0, 7); g.clip();
+      g.strokeStyle = "rgba(179,134,31,0.65)"; g.lineWidth = Math.max(1.4, r * 0.03);
+      for (var q = -4; q <= 4; q++) {
+        g.beginPath(); g.moveTo(q * r * 0.42 - r, -r); g.lineTo(q * r * 0.42 + r, r); g.stroke();
+        g.beginPath(); g.moveTo(q * r * 0.42 + r, -r); g.lineTo(q * r * 0.42 - r, r); g.stroke();
+      }
+      g.restore();
+      g.fillStyle = "#4d8a2a"; // the crown
+      for (var lf = -2; lf <= 2; lf++) {
+        g.beginPath();
+        g.moveTo(lf * r * 0.16, -r * 0.82);
+        g.lineTo(lf * r * 0.3, -r * 1.28);
+        g.lineTo(lf * r * 0.16 + r * 0.12, -r * 0.86);
+        g.closePath(); g.fill();
+      }
+    } else if (ti === 9) { // melon netting, clipped to the body
+      g.save();
+      g.beginPath(); g.arc(0, 0, r - 2.5, 0, 7); g.clip();
+      g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 1.4; g.globalAlpha = 0.8;
+      for (var m = -3; m <= 3; m++) {
+        g.beginPath(); g.arc(m * r * 0.5, 0, r * 0.85, -1.1, 1.1); g.stroke();
+        g.beginPath(); g.arc(0, m * r * 0.5, r * 0.85, Math.PI / 2 - 1.1, Math.PI / 2 + 1.1); g.stroke();
+      }
+      g.globalAlpha = 1;
+      g.restore();
+    } else if (ti === 10) { // watermelon stripes
+      g.save();
+      g.beginPath(); g.arc(0, 0, r - 2, 0, 7); g.clip();
+      g.strokeStyle = "#26702f"; g.lineWidth = r * 0.16;
+      for (var w = -2; w <= 2; w++) {
+        g.beginPath(); g.moveTo(w * r * 0.42, -r * 1.1); g.quadraticCurveTo(w * r * 0.62, 0, w * r * 0.42, r * 1.1); g.stroke();
+      }
+      g.restore();
+    }
+    faceFor(g, r, ti);
+  }
   function buildSprites() {
     SPRITES = TIERS.map(function (t, ti) {
-      var r = t.r, pad = 14, s = document.createElement("canvas");
+      var r = t.r, pad = 16, s = document.createElement("canvas"); // room for the cherry's stem tip
       s.width = s.height = (r + pad) * 2;
       var g = s.getContext("2d");
       g.translate(r + pad, r + pad);
-      // body
-      var grad = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
-      grad.addColorStop(0, lighten(t.col, 0.28));
-      grad.addColorStop(0.72, t.col);
-      grad.addColorStop(1, t.dark);
-      g.fillStyle = grad;
-      g.beginPath(); g.arc(0, 0, r, 0, 7); g.fill();
-      g.strokeStyle = t.dark; g.lineWidth = Math.max(1.6, r * 0.045);
-      g.beginPath(); g.arc(0, 0, r - g.lineWidth / 2 + 0.5, 0, 7); g.stroke();
-      // per-fruit decorations
-      g.strokeStyle = t.dark; g.fillStyle = t.dark; g.lineCap = "round";
-      if (ti === 0) { // blueberry crown
-        g.lineWidth = 1.6;
-        for (var a = 0; a < 5; a++) {
-          var an = -Math.PI / 2 + (a - 2) * 0.28;
-          g.beginPath();
-          g.moveTo(Math.cos(an) * r * 0.62, Math.sin(an) * r * 0.62 - r * 0.12);
-          g.lineTo(Math.cos(an) * r * 0.8, Math.sin(an) * r * 0.8 - r * 0.12);
-          g.stroke();
-        }
-      } else if (ti === 1) { // cherry stem
-        g.lineWidth = 2.4;
-        g.beginPath(); g.moveTo(0, -r * 0.85); g.quadraticCurveTo(r * 0.35, -r * 1.4, r * 0.15, -r * 1.7); g.stroke();
-      } else if (ti === 2) { // strawberry seeds
-        g.fillStyle = "#ffe9a8";
-        for (var i = 0; i < 8; i++) {
-          var sa = i / 8 * Math.PI * 2 + 0.4;
-          g.beginPath(); g.ellipse(Math.cos(sa) * r * 0.55, Math.sin(sa) * r * 0.55, r * 0.05, r * 0.08, sa, 0, 7); g.fill();
-        }
-      } else if (ti === 3) { // plum sheen
-        g.strokeStyle = "rgba(255,255,255,0.5)"; g.lineWidth = r * 0.09;
-        g.beginPath(); g.arc(0, 0, r * 0.7, -2.4, -1.7); g.stroke();
-      } else if (ti === 4 || ti === 6) { // apricot / peach crease
-        g.lineWidth = Math.max(1.6, r * 0.035); g.globalAlpha = 0.5;
-        g.beginPath(); g.moveTo(0, -r * 0.9); g.quadraticCurveTo(r * 0.22, 0, 0, r * 0.9); g.stroke();
-        g.globalAlpha = 1;
-      } else if (ti === 5) { // apple stem + leaf
-        g.strokeStyle = "#6b4423"; g.lineWidth = 3;
-        g.beginPath(); g.moveTo(0, -r * 0.9); g.lineTo(0, -r * 1.12); g.stroke();
-        g.fillStyle = "#4d8a2a";
-        g.beginPath(); g.ellipse(r * 0.16, -r * 1.05, r * 0.16, r * 0.08, -0.5, 0, 7); g.fill();
-      } else if (ti === 7) { // grapefruit pores
-        g.globalAlpha = 0.35;
-        for (var pI = 0; pI < 14; pI++) {
-          var pa = Math.random() * Math.PI * 2, pd = Math.sqrt(Math.random()) * r * 0.75;
-          g.beginPath(); g.arc(Math.cos(pa) * pd, Math.sin(pa) * pd + r * 0.15, r * 0.03, 0, 7); g.fill();
-        }
-        g.globalAlpha = 1;
-      } else if (ti === 8) { // pineapple: diamond crosshatch + leafy crown
-        g.save();
-        g.beginPath(); g.arc(0, 0, r - 2, 0, 7); g.clip();
-        g.strokeStyle = "rgba(179,134,31,0.65)"; g.lineWidth = Math.max(1.4, r * 0.03);
-        for (var q = -4; q <= 4; q++) {
-          g.beginPath(); g.moveTo(q * r * 0.42 - r, -r); g.lineTo(q * r * 0.42 + r, r); g.stroke();
-          g.beginPath(); g.moveTo(q * r * 0.42 + r, -r); g.lineTo(q * r * 0.42 - r, r); g.stroke();
-        }
-        g.restore();
-        g.fillStyle = "#4d8a2a"; // the crown
-        for (var lf = -2; lf <= 2; lf++) {
-          g.beginPath();
-          g.moveTo(lf * r * 0.16, -r * 0.82);
-          g.lineTo(lf * r * 0.3, -r * 1.28);
-          g.lineTo(lf * r * 0.16 + r * 0.12, -r * 0.86);
-          g.closePath(); g.fill();
-        }
-      } else if (ti === 9) { // melon netting, clipped to the body
-        g.save();
-        g.beginPath(); g.arc(0, 0, r - 2.5, 0, 7); g.clip();
-        g.strokeStyle = "rgba(255,255,255,0.55)"; g.lineWidth = 1.4; g.globalAlpha = 0.8;
-        for (var m = -3; m <= 3; m++) {
-          g.beginPath(); g.arc(m * r * 0.5, 0, r * 0.85, -1.1, 1.1); g.stroke();
-          g.beginPath(); g.arc(0, m * r * 0.5, r * 0.85, Math.PI / 2 - 1.1, Math.PI / 2 + 1.1); g.stroke();
-        }
-        g.globalAlpha = 1;
-        g.restore();
-      } else if (ti === 10) { // watermelon stripes
-        g.save();
-        g.beginPath(); g.arc(0, 0, r - 2, 0, 7); g.clip();
-        g.strokeStyle = "#26702f"; g.lineWidth = r * 0.16;
-        for (var w = -2; w <= 2; w++) {
-          g.beginPath(); g.moveTo(w * r * 0.42, -r * 1.1); g.quadraticCurveTo(w * r * 0.62, 0, w * r * 0.42, r * 1.1); g.stroke();
-        }
-        g.restore();
-      }
-      faceFor(g, r, ti);
-      return { c: s, off: r + pad };
+      paintFruit(g, ti);
+      return { c: s, off: r + pad, ext: inkRows(s, r + pad) };
     });
+  }
+  // how far a sprite's ink reaches above and below its centre — stems,
+  // leaves and crowns included — read off the finished pixels
+  function inkRows(s, off) {
+    var n = s.width, px = s.getContext("2d").getImageData(0, 0, n, n).data;
+    function inked(y) { for (var x = 0; x < n; x++) if (px[(y * n + x) * 4 + 3] > 24) return true; return false; }
+    var top = 0, bot = n - 1;
+    while (top < bot && !inked(top)) top++;
+    while (bot > top && !inked(bot)) bot--;
+    return { up: off - top, down: bot + 1 - off };
   }
   function lighten(hex, amt) {
     var n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g2 = n >> 8 & 255, b = n & 255;
@@ -278,8 +300,11 @@
 
   function makeFruit(x, y, tier) {
     var r = TIERS[tier].r;
-    return { x: x, y: y, vx: 0, vy: 0, r: r, tier: tier, im: 1 / (r * r), mergeCd: 0.1,
-             rot: Math.random() * 0.4 - 0.2, w: 0, touch: false, contacted: false, dead: false };
+    // weight goes with volume (r³), like real fruit: a peach outweighs a
+    // berry ~47×, so it barrels through berries while a berry barely nudges it
+    return { x: x, y: y, px: x, py: y, vx: 0, vy: 0, r: r, tier: tier, im: 1 / (r * r * r), mergeCd: 0.1,
+             rot: 0, w: 0, // upright, just as it hung before the drop touch: false, contacted: false, dead: false,
+             rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
 
   function drop() {
@@ -295,6 +320,7 @@
 
   // ---- physics ---------------------------------------------------------------
   var GRAV = 1500, REST = 0.22, WALL_REST = 0.38, MU = 0.15;
+  var MERGE_SLOP = 2; // px — twins this close count as touching
   function physics(dt) {
     var i, j, f;
     for (i = 0; i < fruits.length; i++) {
@@ -305,6 +331,8 @@
       f.w *= 0.999;
       f.touch = false;
       f.supMin = Infinity; f.supMax = -Infinity; f.supSide = 0; f.supNy = 0; f.supFlat = false;
+      f.rollNx = 0; f.rollNy = -Infinity; f.rollOn = null;
+      f.px = f.x; f.py = f.y;
       // clamp: nothing should ever be moving absurdly fast inside a jar
       if (f.vx > 1200) f.vx = 1200; if (f.vx < -1200) f.vx = -1200;
       if (f.vy > 1600) f.vy = 1600; if (f.vy < -1600) f.vy = -1600;
@@ -324,16 +352,22 @@
           var dx = b.x - a.x, dy = b.y - a.y;
           var rr = a.r + b.r;
           var d2 = dx * dx + dy * dy;
-          if (d2 >= rr * rr || d2 === 0) continue;
+          if (d2 === 0) continue;
+          // same tier touching → merge (queued; each fruit merges once per
+          // frame). "Touching" gets a hair of slop: resting twins settle a
+          // fraction of a pixel apart, and the sprites draw a touch past r, so
+          // demanding real overlap left pairs that looked squished together
+          // sitting unmerged forever
+          if (iter === 0 && a.tier === b.tier && a.mergeCd <= 0 && b.mergeCd <= 0 &&
+              d2 < (rr + MERGE_SLOP) * (rr + MERGE_SLOP)) {
+            a.dead = b.dead = true;
+            merges.push([a, b]);
+            break; // a is spent — it mustn't merge with (or shove) anyone else
+          }
+          if (d2 >= rr * rr) continue;
           var d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
           var overlap = rr - d;
           a.contacted = b.contacted = true;
-          // same tier touching → merge (queued; each fruit merges once per frame)
-          if (iter === 0 && a.tier === b.tier && a.mergeCd <= 0 && b.mergeCd <= 0) {
-            a.dead = b.dead = true;
-            merges.push([a, b]);
-            continue;
-          }
           a.touch = b.touch = true;
           // support bookkeeping: is the other fruit holding this one up, and
           // from which side? (drives cradled-vs-perched behaviour below)
@@ -347,7 +381,17 @@
             if (sideB < b.supMin) b.supMin = sideB;
             if (sideB > b.supMax) b.supMax = sideB;
             if (-ny > b.supNy) { b.supNy = -ny; b.supSide = sideB; }
+          } else { // side by side: each props the other up from that side
+            var sideS = a.x - b.x;
+            if (sideS < a.supMin) a.supMin = sideS;
+            if (sideS > a.supMax) a.supMax = sideS;
+            if (-sideS < b.supMin) b.supMin = -sideS;
+            if (-sideS > b.supMax) b.supMax = -sideS;
           }
+          // the surface each one rolls on: whichever contact sits most
+          // squarely underneath it (normals point from the fruit to it)
+          if (ny > a.rollNy) { a.rollNx = nx; a.rollNy = ny; a.rollOn = b; }
+          if (-ny > b.rollNy) { b.rollNx = -nx; b.rollNy = -ny; b.rollOn = a; }
           var tm = a.im + b.im;
           var push = overlap / tm * 0.85;
           a.x -= nx * push * a.im; a.y -= ny * push * a.im;
@@ -386,26 +430,56 @@
           if (f.vy > 60) f.vy = -f.vy * 0.28;   // a real bounce on a hard landing
           else if (f.vy > 0) f.vy = 0;
           f.contacted = f.touch = true;
-          f.onFloor = true;
           f.supFlat = true;
-        } else f.onFloor = false;
+        }
+        // pressed against the glass? (with a hair of tolerance: once clamped,
+        // a resting fruit sits exactly on the line, and the later passes add
+        // no gravity to push it back over)
+        f.pinL = f.x - f.r < JL + 0.5;
+        f.pinR = f.x + f.r > JR - 0.5;
+        f.onFloor = f.y + f.r > FLOOR - 0.5;
+        // the glass props a fruit up from the side just like a neighbour
+        // would — so one resting on a single fruit and leaning on the wall
+        // is wedged, not balancing (it was being tipped into the glass)
+        if (f.pinL && f.supMax < f.r) f.supMax = f.r;
+        if (f.pinR && f.supMin > -f.r) f.supMin = -f.r;
+        if (f.onFloor) { f.rollNx = 0; f.rollNy = 1; f.rollOn = null; }
+        else if (f.rollNy < 0 && (f.pinL || f.pinR)) { f.rollNx = f.pinL ? -1 : 1; f.rollNy = 0; f.rollOn = null; }
       }
     }
-    // rolling: anything in contact turns with its own travel (ω → v/r), and
-    // floor-rollers feel a touch of rolling resistance instead of a handbrake
+    stack();
+    unjam();
+    // rolling: anything in contact turns with its travel ACROSS the surface it
+    // rolls on — the floor, the curve of another fruit, the glass — so
+    // ω = (speed along that surface, relative to it) / r. Travel means how far
+    // it really moved this step, not vx: in a packed pile vx is mostly push
+    // the position passes cancel out, and following it set settled fruit
+    // spinning in place. Floor-rollers feel a touch of rolling resistance
+    // instead of a handbrake.
+    for (i = 0; i < fruits.length; i++) {
+      f = fruits[i];
+      f.mvx = (f.x - f.px) / dt; f.mvy = (f.y - f.py) / dt;
+    }
     for (i = 0; i < fruits.length; i++) {
       f = fruits[i];
       if (f.touch) {
-        f.w += (f.vx / f.r - f.w) * Math.min(1, dt * 20);
-        // Cradled = the floor, or supports on BOTH sides. Perched = balanced
-        // on one off-centre contact — that fruit must tip and roll off, so it
-        // never gets the sleep treatment.
+        if (f.rollNy > -Infinity) {
+          var s = f.rollOn, rvx = f.mvx, rvy = f.mvy;
+          if (s && !s.dead) { rvx -= s.mvx; rvy -= s.mvy; }
+          var spin = (rvx * f.rollNy - rvy * f.rollNx) / f.r;
+          f.w += (spin - f.w) * Math.min(1, dt * 20);
+        }
+        // Cradled = the floor, or held up from below with something propping
+        // BOTH sides (another fruit underneath, a neighbour beside it, or the
+        // glass). Perched = balanced on one off-centre contact with nothing on
+        // the side it leans to — that fruit must tip and roll off, so it never
+        // gets the sleep treatment.
         var lip = f.r * 0.08;
-        var cradled = f.supFlat || (f.supMin < -lip && f.supMax > lip);
+        var cradled = f.supFlat || (f.supNy > 0 && f.supMin < -lip && f.supMax > lip);
         f.perched = false;
         if (cradled) {
           f.tipDir = 0;
-          if (Math.abs(f.vx) < 12) f.w *= 0.82; // resting fruit stops turning
+          if (f.mvx * f.mvx + f.mvy * f.mvy < 144) f.w *= 0.82; // resting fruit stops turning
           // free-rolling stays free; slow creep meets static-style friction,
           // and near-rest contact all but freezes (kills wedge-creep for good)
           if (f.onFloor) f.vx *= Math.abs(f.vx) < 25 ? 0.9 : 0.995;
@@ -424,6 +498,7 @@
         }
       } else {
         f.tipDir = 0;
+        f.perched = false; // airborne: its next landing gets full grip
       }
       var wMax = 900 / f.r;                      // never a blur, even for berries
       if (f.w > wMax) f.w = wMax; if (f.w < -wMax) f.w = -wMax;
@@ -434,7 +509,8 @@
     var danger = false;
     for (i = 0; i < fruits.length; i++) {
       f = fruits[i];
-      if (f.contacted && f.y - f.r * 0.4 < LOSE_Y && Math.abs(f.vy) < 90 && Math.abs(f.vx) < 90) { danger = true; break; }
+      // over = its top edge is past the drawn line, exactly what you see
+      if (f.contacted && f.y - f.r < LOSE_Y && Math.abs(f.vy) < 90 && Math.abs(f.vx) < 90) { danger = true; break; }
     }
     dangerT = danger ? dangerT + dt : Math.max(0, dangerT - dt * 2);
     if (dangerT > 1.15 && state === "play") gameOver();
@@ -447,6 +523,64 @@
       p.t += dt;
       if (p.t > p.life) { particles.splice(i, 1); continue; }
       p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt;
+    }
+  }
+
+  // The passes above trade pushes in proportion to mass, which is right for a
+  // collision but hopeless for a pile: a berry pinned under a grapefruit is 19×
+  // lighter, so it can't pass the floor's support up to it and the big fruit
+  // slowly sinks through the little one. So finish by walking the jar bottom-up
+  // and lifting each fruit clear of anything it RESTS on (lower fruit already
+  // settled, treated as solid), cancelling whatever velocity was still driving
+  // it down into them. Side-by-side contacts stay with the solver above.
+  var STACK_NY = 0.35;
+  function stack() {
+    var order = fruits.slice().sort(function (p, q) { return q.y - p.y; });
+    for (var i = 0; i < order.length; i++) {
+      var u = order[i];
+      for (var pass = 0; pass < 3; pass++) {
+        var moved = false;
+        for (var j = 0; j < i; j++) {
+          var l = order[j];
+          var sx = u.x - l.x, sy = u.y - l.y, rr = u.r + l.r, d2 = sx * sx + sy * sy;
+          if (d2 >= rr * rr || d2 === 0) continue;
+          var d = Math.sqrt(d2), nx = sx / d, ny = sy / d; // l → u
+          if (ny > -STACK_NY) continue;                    // beside l, not on it
+          var ov = rr - d;
+          u.x += nx * ov; u.y += ny * ov;
+          var vn = (u.vx - l.vx) * nx + (u.vy - l.vy) * ny;
+          if (vn < 0) { u.vx -= nx * vn; u.vy -= ny * vn; }
+          moved = true;
+        }
+        if (u.x - u.r < JL) { u.x = JL + u.r; if (u.vx < 0) u.vx = 0; }
+        if (u.x + u.r > JR) { u.x = JR - u.r; if (u.vx > 0) u.vx = 0; }
+        if (!moved) break;
+      }
+    }
+  }
+
+  // Whatever overlap is STILL left is a jam — a berry wedged in a gap between
+  // heavy fruit that's too narrow for it. Splitting by weight can't clear it
+  // (the berry takes every push and gets pushed straight back), so split the
+  // leftover evenly: the berry is solid too, and the big fruit have to make
+  // room. Position only; momentum stays with the impulses above.
+  function unjam() {
+    for (var i = 0; i < fruits.length; i++) {
+      var a = fruits[i];
+      for (var j = i + 1; j < fruits.length; j++) {
+        var b = fruits[j];
+        var dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r, d2 = dx * dx + dy * dy;
+        if (d2 >= (rr - 1) * (rr - 1) || d2 === 0) continue; // a pixel of give is fine
+        var d = Math.sqrt(d2), h = (rr - d) / 2;
+        a.x -= dx / d * h; a.y -= dy / d * h;
+        b.x += dx / d * h; b.y += dy / d * h;
+      }
+    }
+    for (i = 0; i < fruits.length; i++) {
+      var f = fruits[i];
+      if (f.x - f.r < JL) f.x = JL + f.r;
+      if (f.x + f.r > JR) f.x = JR - f.r;
+      if (f.y + f.r > FLOOR) f.y = FLOOR - f.r;
     }
   }
 
@@ -474,11 +608,17 @@
           var rr2 = nf.r + o.r;
           var dd = Math.sqrt(ddx * ddx + ddy * ddy) || 0.01;
           if (dd >= rr2) continue;
-          var ov = rr2 - dd, tm2 = nf.im + o.im;
-          nf.x += ddx / dd * ov * (nf.im / tm2);
-          nf.y += ddy / dd * ov * (nf.im / tm2);
-          o.x -= ddx / dd * ov * (o.im / tm2);
-          o.y -= ddy / dd * ov * (o.im / tm2);
+          // a neighbour already pressed against the glass can't be shoved
+          // into it, so on that axis the newborn has to make the room itself
+          var ux = ddx / dd, uy = ddy / dd;
+          var ox = (o.pinL && ux > 0) || (o.pinR && ux < 0) ? 0 : 1;
+          var oy = o.onFloor && uy < 0 ? 0 : 1;
+          var ov = rr2 - dd, s = ov / (nf.im + o.im * (ox * ux * ux + oy * uy * uy));
+          nf.x += ux * s * nf.im; nf.y += uy * s * nf.im;
+          o.x -= ox * ux * s * o.im; o.y -= oy * uy * s * o.im;
+          if (o.x - o.r < JL) o.x = JL + o.r;
+          if (o.x + o.r > JR) o.x = JR - o.r;
+          if (o.y + o.r > FLOOR) o.y = FLOOR - o.r;
           moved = true;
         }
         if (nf.x - nf.r < JL) { nf.x = JL + nf.r; moved = true; }
@@ -486,6 +626,7 @@
         if (nf.y + nf.r > FLOOR) { nf.y = FLOOR - nf.r; moved = true; }
         if (!moved) break;
       }
+      nf.px = nf.x; nf.py = nf.y; // its travel this step starts here, not mid-shove
       fruits.push(nf);
       score += MERGE_SCORE[t + 1];
       sfxMerge(t + 1);
@@ -529,7 +670,7 @@
 
     // glass back wall (a whisper of tint)
     ctx.fillStyle = "rgba(190, 225, 235, 0.16)";
-    ctx.fillRect(JL - 8, RIM, JR - JL + 16, FLOOR - RIM + 14);
+    ctx.fillRect(JL - GLASS, RIM, JR - JL + GLASS * 2, FLOOR - RIM + GLASS);
 
     // the fill line
     var warn = dangerT > 0.03;
@@ -577,27 +718,30 @@
     }
     ctx.globalAlpha = 1;
 
-    // glass jar in front: walls, bottom, rim, highlight
+    // glass jar in front: walls, bottom, rim, highlight. The glass's INNER
+    // face sits exactly on the walls and floor the fruit collide with, so
+    // fruit come to rest against the glass rather than a few px shy of it.
+    var g = GLASS / 2, C = 16; // stroke runs down the middle of the glass
     ctx.lineCap = "round";
     ctx.strokeStyle = "rgba(215, 240, 248, 0.5)";
-    ctx.lineWidth = 9;
+    ctx.lineWidth = GLASS;
     ctx.beginPath();
-    ctx.moveTo(JL - 9, RIM - 8);
-    ctx.lineTo(JL - 9, FLOOR - 6);
-    ctx.quadraticCurveTo(JL - 9, FLOOR + 10, JL + 10, FLOOR + 10);
-    ctx.lineTo(JR - 10, FLOOR + 10);
-    ctx.quadraticCurveTo(JR + 9, FLOOR + 10, JR + 9, FLOOR - 6);
-    ctx.lineTo(JR + 9, RIM - 8);
+    ctx.moveTo(JL - g, RIM - 8);
+    ctx.lineTo(JL - g, FLOOR + g - C);
+    ctx.quadraticCurveTo(JL - g, FLOOR + g, JL - g + C, FLOOR + g);
+    ctx.lineTo(JR + g - C, FLOOR + g);
+    ctx.quadraticCurveTo(JR + g, FLOOR + g, JR + g, FLOOR + g - C);
+    ctx.lineTo(JR + g, RIM - 8);
     ctx.stroke();
-    // inner sparkle on the left wall
+    // a sparkle down the left pane
     ctx.strokeStyle = "rgba(255,255,255,0.55)";
     ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(JL + 2, RIM + 40); ctx.lineTo(JL + 2, RIM + 150); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(JL - g, RIM + 40); ctx.lineTo(JL - g, RIM + 150); ctx.stroke();
     // rim lip
     ctx.strokeStyle = "rgba(200, 232, 242, 0.75)";
     ctx.lineWidth = 7;
-    ctx.beginPath(); ctx.moveTo(JL - 16, RIM - 10); ctx.lineTo(JL - 2, RIM - 10); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(JR + 2, RIM - 10); ctx.lineTo(JR + 16, RIM - 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(JL - g - 7, RIM - 10); ctx.lineTo(JL - g + 7, RIM - 10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(JR + g - 7, RIM - 10); ctx.lineTo(JR + g + 7, RIM - 10); ctx.stroke();
   }
 
   // ---- HUD -------------------------------------------------------------------
@@ -611,32 +755,45 @@
     g.setTransform(DPR2, 0, 0, DPR2, 0, 0);
     return g;
   }
+  var CHAIN_W = 100, ICON_R = 15, CHAIN = chainLayout();
   var nextCtx = hiDpi("next", 86, 86);
-  var chainCtx = hiDpi("chain", 100, 410);
+  var chainCtx = hiDpi("chain", CHAIN_W, CHAIN.h);
   function refreshHud() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = Math.max(best.get(), score);
     nextCtx.clearRect(0, 0, 86, 86);
-    var sp = SPRITES[next];
     var scale = Math.min(1, 34 / TIERS[next].r);
     nextCtx.save();
     nextCtx.translate(43, 43);
     nextCtx.scale(scale, scale);
-    nextCtx.drawImage(sp.c, -sp.off, -sp.off);
+    paintFruit(nextCtx, next); // vectors at the panel's own resolution
     nextCtx.restore();
   }
-  function drawChain() { // the little evolution ladder
-    var g = chainCtx;
-    g.clearRect(0, 0, 100, 410);
+  // The little evolution ladder. Every fruit at one body size, painted as
+  // vectors at the panel's resolution (not a big sprite squashed down, which
+  // came out jagged for the large fruit and soft for the small), on an even
+  // step that's just tall enough for the tallest stem or crown to sit in the
+  // gap instead of on the fruit above.
+  function chainLayout() {
+    var i, slots = [], step = 0, edge = 4;
+    for (i = 0; i < TIERS.length; i++) {
+      var k = ICON_R / TIERS[i].r, ext = SPRITES[i].ext;
+      slots.push({ k: k, up: ext.up * k, down: ext.down * k });
+      if (i) step = Math.max(step, slots[i - 1].down + slots[i].up + 3);
+    }
+    for (i = 0; i < slots.length; i++) slots[i].y = edge + slots[0].up + i * step;
+    var last = slots[slots.length - 1];
+    return { slots: slots, h: Math.ceil(last.y + last.down + edge) };
+  }
+  function drawChain() {
+    var g = chainCtx, slots = CHAIN.slots;
+    g.clearRect(0, 0, CHAIN_W, CHAIN.h);
     g.strokeStyle = "rgba(160,106,51,0.5)";
     g.lineWidth = 2;
-    g.beginPath(); g.moveTo(50, 20); g.lineTo(50, 390); g.stroke();
-    for (var i = 0; i < TIERS.length; i++) {
-      var y = 22 + i * 37;
-      var sp = SPRITES[i];
-      var scale = Math.min(1, 17 / TIERS[i].r);
-      g.save(); g.translate(50, y); g.scale(scale, scale);
-      g.drawImage(sp.c, -sp.off, -sp.off);
+    g.beginPath(); g.moveTo(CHAIN_W / 2, slots[0].y); g.lineTo(CHAIN_W / 2, slots[slots.length - 1].y); g.stroke();
+    for (var i = 0; i < slots.length; i++) {
+      g.save(); g.translate(CHAIN_W / 2, slots[i].y); g.scale(slots[i].k, slots[i].k);
+      paintFruit(g, i);
       g.restore();
     }
   }
