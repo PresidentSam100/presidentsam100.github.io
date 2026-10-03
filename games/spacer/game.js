@@ -2867,17 +2867,17 @@ class Game {
         const yy = HEIGHT / 2 - 28 + i * 30;
         this.menuItem(ctx, item, WIDTH / 2, yy, sel ? 16 : 14, sel ? '#ffd23f' : '#8fa0d8', sel);
       });
-      this.text(ctx, '↑↓ SELECT   ENTER OK   P RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center');
+      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center');
     } else if (this.mode === 'complete') {
       this.text(ctx, 'CONGRATULATIONS', WIDTH / 2, HEIGHT / 2 - 40, 20, '#ffd23f', 'center');
       this.text(ctx, 'ALL 255 STAGES CLEARED!', WIDTH / 2, HEIGHT / 2 - 10, 14, '#18e0ff', 'center');
       this.text(ctx, 'FINAL SCORE  ' + this.score, WIDTH / 2, HEIGHT / 2 + 18, 13, '#fff', 'center');
       if (this.blinkOn())
-        this.text(ctx, 'PRESS ENTER', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center');
+        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center');
     } else if (this.mode === 'gameover') {
       this.text(ctx, 'GAME OVER', WIDTH / 2, HEIGHT / 2 - 10, 24, '#ff3b5c', 'center');
       if (this.blinkOn())
-        this.text(ctx, 'PRESS ENTER', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center');
+        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center');
     }
 
     if (this.flashMuteT > 0)
@@ -3009,9 +3009,9 @@ class Game {
     this.text(ctx, 'CAPTURE & RESCUE FOR DUAL FIGHTER!', WIDTH / 2, 452, 10, '#8fa0d8', 'center');
 
     if (this.blinkOn())
-      this.text(ctx, '↑↓ MODE    ←→ STAGE    ENTER START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center');
-    this.text(ctx, 'E   ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
-    this.text(ctx, 'F   REDUCED FLASH: ' + (this.reducedFlash ? 'ON' : 'OFF'), WIDTH / 2, HEIGHT - 16, 10, '#8fa0d8', 'center');
+      this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center');
+    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
+    this.keys(ctx, '[F] REDUCED FLASH: ' + (this.reducedFlash ? 'ON' : 'OFF'), WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center');
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {
@@ -3020,6 +3020,18 @@ class Game {
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
     ctx.fillText(str, x, y);
+  }
+
+  // like text(), but each [KEY] is drawn as a keycap (GameShell.drawKeys).
+  // Arrow keys use ▲▼◀▶: Courier New has no ↑↓←→, and the fallback glyphs
+  // come out too small to read inside a keycap
+  keys(ctx, str, x, y, size, color, align = 'left') {
+    if (!(window.GameShell && GameShell.drawKeys)) { this.text(ctx, str.replace(/[[\]]/g, ''), x, y, size, color, align); return; }
+    ctx.font = 'bold ' + size + 'px "Courier New", monospace';
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    GameShell.drawKeys(ctx, str, x, y);
   }
 
   // a centred menu item; when selected, ▶ ◀ flank it without shifting the label

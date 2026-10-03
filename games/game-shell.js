@@ -24,6 +24,8 @@
      GameShell.pausable(opts)               -> pause overlay + key + ⏸ button
      GameShell.pauseButton(api)             -> just the ⏸ button, for a game
                                                with its own pause screen
+     GameShell.drawKeys(ctx, str, x, y)     -> canvas text with [KEY] drawn
+                                               as keycaps
    ===================================================================== */
 (function () {
   "use strict";
@@ -417,6 +419,54 @@
     return { render: render };
   }
 
+  // ---- canvas keycaps -------------------------------------------------
+  // The canvas version of <kbd class="gs-kbd">, for games that draw their key
+  // hints on a canvas: every [KEY] in `str` becomes a keycap, the rest is
+  // plain text. Uses the context's current font, fillStyle, textAlign and
+  // textBaseline, so it sits where a fillText of the same string would.
+  //   opts.outline: { width, color } strokes the plain text first (for games
+  //                 that outline their captions); keycaps then get a solid
+  //                 fill in that colour so they stay readable too
+  //   GameShell.drawKeys(ctx, "[P] or [Esc] to resume", W / 2, y);
+  function drawKeys(ctx, str, x, y, opts) {
+    opts = opts || {};
+    var parts = String(str).split(/(\[[^\]]+\])/).filter(function (t) { return t; });
+    var isKey = function (t) { return t.charAt(0) === "[" && t.charAt(t.length - 1) === "]" && t.length > 2; };
+    var m = /(\d+(?:\.\d+)?)px/.exec(ctx.font);
+    var px = m ? parseFloat(m[1]) : 12;
+    var padX = px * 0.32, gap = px * 0.14;
+    var widths = parts.map(function (t) {
+      return isKey(t) ? ctx.measureText(t.slice(1, -1)).width + padX * 2 + gap * 2 : ctx.measureText(t).width;
+    });
+    var total = widths.reduce(function (a, b) { return a + b; }, 0);
+    var align = ctx.textAlign;
+    var cx = align === "center" ? x - total / 2 : (align === "right" || align === "end") ? x - total : x;
+    var cap = ctx.measureText("M");
+    var asc = cap.actualBoundingBoxAscent || px * 0.7, desc = cap.actualBoundingBoxDescent || 0;
+    var padY = px * 0.22, color = ctx.fillStyle, a0 = ctx.globalAlpha;
+    ctx.save();
+    ctx.textAlign = "left";
+    parts.forEach(function (t, i) {
+      if (!isKey(t)) {
+        if (opts.outline) { ctx.lineWidth = opts.outline.width; ctx.strokeStyle = opts.outline.color; ctx.lineJoin = "round"; ctx.strokeText(t, cx, y); }
+        ctx.fillStyle = color; ctx.fillText(t, cx, y);
+      } else {
+        var bx = cx + gap, bw = widths[i] - gap * 2, by = y - asc - padY, bh = asc + desc + padY * 2, r = Math.min(px * 0.28, bh / 2);
+        ctx.beginPath();
+        ctx.moveTo(bx + r, by); ctx.arcTo(bx + bw, by, bx + bw, by + bh, r); ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+        ctx.arcTo(bx, by + bh, bx, by, r); ctx.arcTo(bx, by, bx + bw, by, r); ctx.closePath();
+        if (opts.outline) { ctx.globalAlpha = a0 * 0.92; ctx.fillStyle = opts.outline.color; ctx.fill(); }
+        ctx.globalAlpha = a0 * 0.14; ctx.fillStyle = color; ctx.fill();
+        ctx.globalAlpha = a0 * 0.55; ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, px / 13); ctx.stroke();
+        ctx.fillRect(bx + r * 0.6, by + bh - ctx.lineWidth, bw - r * 1.2, ctx.lineWidth * 1.6);   // the keycap's deeper bottom edge
+        ctx.globalAlpha = a0; ctx.fillStyle = color;
+        ctx.fillText(t.slice(1, -1), bx + padX, y);
+      }
+      cx += widths[i];
+    });
+    ctx.restore();
+  }
+
   function onAutoPause(fn) {
     if (typeof fn === "function") pauseHandlers.push(fn);
   }
@@ -427,6 +477,7 @@
     record: record,
     pausable: pausable,
     pauseButton: pauseButton,
+    drawKeys: drawKeys,
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

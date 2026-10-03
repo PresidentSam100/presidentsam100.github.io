@@ -29,6 +29,12 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 // instead of black bars.
 // ============================================================
 const FONT = '"Luckiest Guy", "Arial Black", Impact, sans-serif';
+// key hints with each [KEY] drawn as a keycap (GameShell.drawKeys, the canvas
+// twin of the page's <kbd> keycaps); plain text if the shell isn't loaded
+function keyHint(ctx, str, x, y, opts) {
+  if (window.GameShell && GameShell.drawKeys) GameShell.drawKeys(ctx, str, x, y, opts);
+  else ctx.fillText(str.replace(/[[\]]/g, ''), x, y);
+}
 const INK = '#20124d';            // outline colour for text and UI
 const GROUND_Y = CANVAS_H - 80;   // top of the ground strip
 
@@ -2370,10 +2376,11 @@ class Game {
     ctx.font = 'bold 13px sans-serif';
     ctx.lineJoin = 'round';
     ctx.lineWidth = 4;
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.strokeText('SPACE / CLICK / TAP to flap   ·   P pause   ·   1 / 3 switch mode   ·   I guide', CANVAS_W / 2, 638);
     ctx.fillStyle = INK;
-    ctx.fillText('SPACE / CLICK / TAP to flap   ·   P pause   ·   1 / 3 switch mode   ·   I guide', CANVAS_W / 2, 638);
+    // two lines: with keycaps the controls no longer fit across the canvas
+    const hintOutline = { outline: { width: 4, color: 'rgba(255,255,255,0.9)' } };
+    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] / [Esc] pause', CANVAS_W / 2, 634, hintOutline);
+    keyHint(ctx, '[1] / [3] switch mode   ·   [I] guide', CANVAS_W / 2, 658, hintOutline);
   }
 
   drawGameOver(ctx) {
@@ -2457,11 +2464,11 @@ class Game {
     if (Math.floor(this.blinkTimer * 2) % 2 === 0) {
       ctx.font = '22px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      ctx.fillText('TAP / SPACE TO PLAY AGAIN', CANVAS_W / 2, 512);
+      keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512);
     }
     ctx.font = 'bold 15px sans-serif';
     ctx.fillStyle = '#6a6f86';
-    ctx.fillText('M or Esc for menu (change mode)', CANVAS_W / 2, 550);
+    keyHint(ctx, '[M] or [Esc] for menu (change mode)', CANVAS_W / 2, 550);
   }
 
   drawPause(ctx) {
@@ -2474,7 +2481,7 @@ class Game {
     outlined(ctx, 'PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30, 54, '#4fb3ff', { line: 9, drop: 5 });
     ctx.font = '20px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    ctx.fillText('P OR ESC TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
+    keyHint(ctx, '[P] OR [ESC] TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
   }
 
   drawInfo(ctx) {
@@ -2554,7 +2561,7 @@ class Game {
     if (Math.floor(this.blinkTimer * 1.6) % 2 === 0) {
       ctx.font = '18px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      ctx.fillText('TAP / SPACE / I TO RETURN', CANVAS_W / 2, CANVAS_H - 46);
+      keyHint(ctx, 'TAP / [SPACE] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46);
     }
   }
 
