@@ -793,7 +793,8 @@ class BlinkPipe extends BasePipe {
       super.draw(ctx);
       ctx.globalAlpha = 1;
     } else if (this.cyclePhase === 'warning') {
-      const flicker = Math.abs(Math.sin(this.cycleTime * 20 * Math.PI));
+      // Visual FX off: a steady half-faded pipe (+ the "!") instead of a ~20Hz flicker
+      const flicker = reducedMotion() ? 0.5 : Math.abs(Math.sin(this.cycleTime * 20 * Math.PI));
       ctx.globalAlpha = flicker;
       super.draw(ctx);
       ctx.globalAlpha = 1;
@@ -2273,9 +2274,14 @@ class Game {
     this.background.drawGround(ctx);
     this.enemyManager.draw(ctx);
     this.particles.draw(ctx);
-    // During i-frames, bird strobes off on alternating frames
-    const strobe = this.invincibleTime > 0 && Math.floor(this.blinkTimer * 14) % 2 === 0;
-    if (!strobe) this.bird.draw(ctx);
+    // During i-frames the bird strobes off on alternating frames; with Visual FX
+    // off it's drawn steadily at half opacity instead (same cue, no strobe)
+    if (this.invincibleTime > 0 && reducedMotion()) {
+      ctx.globalAlpha = 0.5; this.bird.draw(ctx); ctx.globalAlpha = 1;
+    } else {
+      const strobe = this.invincibleTime > 0 && Math.floor(this.blinkTimer * 14) % 2 === 0;
+      if (!strobe) this.bird.draw(ctx);
+    }
 
     if (this.gameState === 'PLAYING' || this.gameState === 'PAUSED') this.drawHUD(ctx);
     if (this.gameState === 'MENU') this.drawMenu(ctx);
@@ -2369,7 +2375,7 @@ class Game {
     button(ctx, this.guideButton, '#dff0ff', '#8fb8e8', this.guideButton.label, '#1c5fb8', 18);
 
     // Blinking call-to-action
-    if (Math.floor(this.blinkTimer * 1.6) % 2 === 0) {
+    if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       outlined(ctx, 'PRESS SPACE TO START', CANVAS_W / 2, 590, 30, '#ffffff', { line: 7 });
     }
 
@@ -2462,7 +2468,7 @@ class Game {
     }
 
     // Blinking restart prompt
-    if (Math.floor(this.blinkTimer * 2) % 2 === 0) {
+    if (reducedMotion() || Math.floor(this.blinkTimer * 2) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '22px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
       keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512);
@@ -2559,7 +2565,7 @@ class Game {
 
     // Back hint
     ctx.textAlign = 'center';
-    if (Math.floor(this.blinkTimer * 1.6) % 2 === 0) {
+    if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '18px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
       keyHint(ctx, 'TAP / [SPACE] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46);

@@ -847,8 +847,16 @@
     for (var i = 0; i < sorted.length; i++) drawBloon(sorted[i]);
     drawDarts();
     if (leakFlash > 0) {
-      ctx.fillStyle = "rgba(255,60,72," + (leakFlash * 0.35) + ")";
-      ctx.fillRect(0, 0, W, H);
+      if (window.RM_ON && window.RM_ON()) {
+        // Visual FX off: a red frame round the edge instead of a full-screen flash
+        var bw = 14;
+        ctx.fillStyle = "rgba(255,60,72," + (leakFlash * 0.7) + ")";
+        ctx.fillRect(0, 0, W, bw); ctx.fillRect(0, H - bw, W, bw);
+        ctx.fillRect(0, bw, bw, H - 2 * bw); ctx.fillRect(W - bw, bw, bw, H - 2 * bw);
+      } else {
+        ctx.fillStyle = "rgba(255,60,72," + (leakFlash * 0.35) + ")";
+        ctx.fillRect(0, 0, W, H);
+      }
     }
   }
 

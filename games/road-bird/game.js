@@ -1506,12 +1506,15 @@ function drawVehicle(row, it, top) {
   }
 }
 
+// Visual FX off (motion-toggle.js): warning lights burn steadily instead of flashing
+function fxOff() { return !!(window.RM_ON && window.RM_ON()); }
+
 function drawPoliceWarning(row, top) {
   const p = row.police;
   if (!row.siren || p.state !== "clearing") return; // brief edge flash before it enters; the car has its own light during the sweep
   const onLeft = p.dir > 0;              // glow on the side the police car comes from
   const ex = onLeft ? SCENE_L : SCENE_R; // start at the very screen edge so it covers the shaded margin too
-  const flash = (((performance.now() / 130) | 0) % 2) === 0;
+  const flash = fxOff() || (((performance.now() / 130) | 0) % 2) === 0;   // steady red with FX off
   const col = flash ? "#ff3030" : "#3a6bff";
   const reach = PAD * TILE + TILE * 1.6; // span the margin + the boundary grid cell
   const g = ctx.createRadialGradient(ex, top + TILE / 2, 4, ex, top + TILE / 2, reach);
@@ -1529,7 +1532,7 @@ function drawPoliceCar(row, top) {
   const x = p.x * TILE, w = p.len * TILE;
   if (x > W + TILE || x + w < -TILE) return;
   const facingRight = p.dir > 0;
-  const flash = (((performance.now() / 110) | 0) % 2) === 0;
+  const steady = fxOff(), flash = steady || (((performance.now() / 110) | 0) % 2) === 0;
   const y0 = top + TILE * 0.24, d = TILE * 0.5;
   // speed streaks trailing behind
   ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 2;
@@ -1566,8 +1569,14 @@ function drawPoliceCar(row, top) {
     ctx.fillRect(x + w * 0.2, y0 + d - 9, w * 0.6, 4);
     ctx.fillStyle = "#bfe4ff";
     roundRect(cabX + 2, y0 + d - 25, cabW - 4, 8, 3); ctx.fill();
-    ctx.fillStyle = flash ? "#ff3030" : "#3a6bff"; // light bar on the roof
-    roundRect(cabX + cabW * 0.22, y0 - 21, cabW * 0.56, 7, 3); ctx.fill();
+    // light bar on the roof: flashing red / blue, or (Visual FX off) a steady two-tone bar
+    if (steady) {
+      ctx.fillStyle = "#ff3030"; roundRect(cabX + cabW * 0.22, y0 - 21, cabW * 0.28, 7, 3); ctx.fill();
+      ctx.fillStyle = "#3a6bff"; roundRect(cabX + cabW * 0.5, y0 - 21, cabW * 0.28, 7, 3); ctx.fill();
+    } else {
+      ctx.fillStyle = flash ? "#ff3030" : "#3a6bff";
+      roundRect(cabX + cabW * 0.22, y0 - 21, cabW * 0.56, 7, 3); ctx.fill();
+    }
     ctx.fillStyle = "rgba(255,255,255,.5)";
     roundRect(cabX + cabW * 0.44, y0 - 21, cabW * 0.12, 7, 2); ctx.fill();
     ctx.fillStyle = "#1b1b22"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center";
@@ -1620,7 +1629,7 @@ function drawSignal(row, top) {
   ctx.fillStyle = "#111";
   roundRect(x, top + 2, 16, 16, 4); ctx.fill();
   // flashes only while warning (before the train); dark once the train is on the track
-  const lit = row.state === "warn" && (((row.blink * 6) | 0) % 2) === 0;
+  const lit = row.state === "warn" && (fxOff() || (((row.blink * 6) | 0) % 2) === 0);   // steady while warning with FX off
   ctx.fillStyle = lit ? "#ff2b2b" : "#5a1414";
   ctx.beginPath(); ctx.arc(x + 8, top + 10, 5, 0, 7); ctx.fill();
   if (lit) { ctx.fillStyle = "rgba(255,60,60,.45)"; ctx.beginPath(); ctx.arc(x + 8, top + 10, 10, 0, 7); ctx.fill(); }

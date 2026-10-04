@@ -515,7 +515,16 @@
       ctx.strokeText(pp.text, pp.x, py); ctx.fillText(pp.text, pp.x, py);
     }
     ctx.restore();
-    if (flash > 0) { ctx.fillStyle = "rgba(255,248,235," + Math.min(1, flash).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+    if (flash > 0) {
+      if (fx()) { ctx.fillStyle = "rgba(255,248,235," + Math.min(1, flash).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+      else {
+        // Visual FX off: the bomb shows as a warm glow round the edges, not a full-screen flash
+        var vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.7);
+        vg.addColorStop(0, "rgba(255,90,60,0)");
+        vg.addColorStop(1, "rgba(255,90,60," + Math.min(1, flash * 2).toFixed(3) + ")");
+        ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+      }
+    }
   }
   // The blade: a white streak that tapers toward its tail over ~130 ms.
   function drawTrail(t) {

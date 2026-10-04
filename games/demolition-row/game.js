@@ -415,7 +415,8 @@
       // A burst of stone shards where a stone block was destroyed.
       addBreakFx(coords) {
         const now = this.now(), s = this.cfg.cell;
-        for (const [r, c] of coords) {
+        // (no debris with Visual FX off; the shake is skipped at draw time too)
+        if (!reducedMotion()) for (const [r, c] of coords) {
           const cx = (c + 0.5) * s, cy = (r + 0.5) * s;
           for (let i = 0; i < 8; i++) {
             const a = Math.random() * Math.PI * 2, sp = 0.05 + Math.random() * 0.13; // px/ms
@@ -627,7 +628,8 @@
         // blocks render at their animated offset (cell.oy = rows left to fall)
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) { const x = b.grid[r][c]; if (x) this.drawCell(x, c * cell, (r - (x.oy || 0)) * cell); }
         // flash matched groups just before they clear
-        if (b.phase === "flashing") { const k = 0.35 + 0.45 * Math.abs(Math.sin(b.now() * 0.02)); ctx.fillStyle = "rgba(255,255,255," + k + ")"; for (const [r, c] of b.pendingClear) { this.rr(c * cell + 2, r * cell + 2, cell - 4, cell - 4, 6); ctx.fill(); } }
+        // (Visual FX off: a steady highlight instead of the pulse)
+        if (b.phase === "flashing") { const k = reducedMotion() ? 0.6 : 0.35 + 0.45 * Math.abs(Math.sin(b.now() * 0.02)); ctx.fillStyle = "rgba(255,255,255," + k + ")"; for (const [r, c] of b.pendingClear) { this.rr(c * cell + 2, r * cell + 2, cell - 4, cell - 4, 6); ctx.fill(); } }
         if (b.piece && b.alive && !b.cleared) this.drawPiece();
         ctx.restore();
         this.drawLine(b.cfg.topLineRow * cell, "#ff6b6b", "TOP");
@@ -635,7 +637,8 @@
         const now = b.now(); b.fx = b.fx.filter((f) => now - f.t < 240);
         // cleared blocks shatter: four ice shards fly out diagonally and fade
         // (plain paths, no gradients: Thunder can clear dozens at once)
-        for (const f of b.fx) {
+        // (no shards with Visual FX off: Thunder and chains can clear dozens at once)
+        if (!reducedMotion()) for (const f of b.fx) {
           const k = 1 - (now - f.t) / 240, e = 1 - k, cx = (f.c + 0.5) * cell, cy = (f.r + 0.5) * cell;
           ctx.fillStyle = "rgba(235,250,255," + (0.6 * k) + ")";
           for (let i = 0; i < 4; i++) {

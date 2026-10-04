@@ -114,7 +114,7 @@ const GearArt = {
       for (const nx of [x + 3.5, x + 12.5]) {
         ctx.beginPath();
         ctx.moveTo(nx - 3, y + 28);
-        ctx.lineTo(nx, y + 28 + rand(7, 15));
+        ctx.lineTo(nx, y + 28 + (window.RM_ON && window.RM_ON() ? 11 : rand(7, 15)));   // steady flame with Visual FX off
         ctx.lineTo(nx + 3, y + 28);
         ctx.fill();
       }

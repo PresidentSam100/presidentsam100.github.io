@@ -503,7 +503,7 @@
     ctx.lineJoin = "round";
     // flame first, so the hull outline overlaps it
     if (opts.thrust) {
-      var fl = 1 + 0.35 * Math.sin(time * 40);
+      var fl = fx() ? 1 + 0.35 * Math.sin(time * 40) : 1;   // steady flame with Visual FX off
       ctx.fillStyle = "#ff8c1a";
       ctx.strokeStyle = INK; ctx.lineWidth = 2;
       ctx.beginPath();
@@ -708,7 +708,8 @@
 
     // ship (blinks while under grace)
     if (ship && state === "play") {
-      var blink = ship.grace > 0 && Math.floor(ship.grace * 8) % 2 === 0;
+      // blinks under grace with Visual FX on; off, it stays steady (the dashed ring marks grace)
+      var blink = fx() && ship.grace > 0 && Math.floor(ship.grace * 8) % 2 === 0;
       if (!blink) drawShipAt(ship.x, ship.y, ship.a, { thrust: ship.thrusting });
       if (ship.grace > 0) {
         ctx.strokeStyle = "rgba(246,240,220,0.55)";
@@ -767,7 +768,7 @@
     ctx.fillText(big, 0, -12);
     ctx.restore();
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
-    var pulse = Math.floor(time * 1.6) % 2 === 0;
+    var pulse = !fx() || Math.floor(time * 1.6) % 2 === 0;   // steady with Visual FX off
     capBox(W / 2, H * 0.36 + 64, sub, { center: true, size: 22, fill: pulse ? PAPER : YELLOW, rot: 0.015 });
   }
 

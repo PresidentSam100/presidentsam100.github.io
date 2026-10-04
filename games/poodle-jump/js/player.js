@@ -251,13 +251,18 @@ class Player {
     // Invincibility shimmer: a solid ring while flying, and a fast blink during
     // the post-power-up grace window so the player can read that protection is
     // ending and dodge/shoot any enemy overhead before it does.
-    const graceBlink = !this.invincible && this.grace > 0 && Math.floor(this.grace * 20) % 2 === 0;
+    // With Visual FX off the grace window is a steady dashed ring instead of
+    // the fast (~10Hz) blink: same "protection is ending" cue, no strobe.
+    const fxOff = !!(window.RM_ON && window.RM_ON());
+    const graceBlink = !this.invincible && this.grace > 0 && (fxOff || Math.floor(this.grace * 20) % 2 === 0);
     if (this.invincible || graceBlink) {
       ctx.strokeStyle = this.invincible ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.5)";
       ctx.lineWidth = 2;
+      if (!this.invincible && fxOff) ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.arc(cx, sy + this.h / 2, this.w / 2 + 4, 0, Math.PI * 2);
       ctx.stroke();
+      ctx.setLineDash([]);
     }
 
     // Remaining spring-shoe bounces, shown as a small badge under the feet.
