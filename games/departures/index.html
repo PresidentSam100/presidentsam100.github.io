@@ -64,11 +64,16 @@
       its region counter flips. Exact names board themselves as you type;
       <kbd>Enter</kbd> also forgives a small typo (and settles Niger vs
       Nigeria). Common names count: UK, Burma, DRC…
+      Or name their <b>capitals</b>: each city you name departs its country.
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
         <button type="button" data-v="world"><b>The World</b><small>all 197 · 15:00 <kbd>1</kbd></small></button>
         <button type="button" data-v="continent"><b>One Continent</b><small>a shorter run <kbd>2</kbd></small></button>
+      </div>
+      <div class="seg regions" id="pick-target" aria-label="Name the countries or their capitals">
+        <button type="button" data-t="countries">Countries <kbd>N</kbd></button>
+        <button type="button" data-t="capitals">Capitals <kbd>C</kbd></button>
       </div>
       <div class="seg regions" id="pick-region" hidden>
         <button type="button" data-r="EU">Europe</button>
@@ -91,13 +96,14 @@
     <div id="missed" class="missed"></div>
     <div class="row">
       <button type="button" id="again">Fly again <kbd>Enter</kbd></button>
-      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+      <button type="button" id="to-menu">Modes <span class="gs-keys"><kbd title="Backspace">⌫</kbd></span></button>
     </div>
   </div>
 </section>
 
 <script src="../passport/data.js"></script>
 <script src="../passport/judge.js"></script>
+<script src="../passport/capitals.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

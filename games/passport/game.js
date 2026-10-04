@@ -13,6 +13,14 @@
      dash   sixty seconds; a wrong answer costs three of them.
      daily  Visa Run: ten seeded flags, same for everyone; the first
             run of the day is the recorded, shareable result.
+
+   Questions (what the officer asks for; capitals.js knows the cities)
+     country  the flag → its country (the original game)
+     capital  the flag and the country's name → its capital
+     capflag  the flag alone → its capital
+     both     the flag → its country, then its capital: one stamp per
+              country, and a slip at either step is a denial
+   Each has its own bests and its own Visa Run (the same ten flags).
    ===================================================================== */
 (function () {
   "use strict";
@@ -25,14 +33,20 @@
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
   };
+  // the question types; a country run keeps the keys it always had, and
+  // the others add their name (passport_best_tour_typed_capflag…)
+  var ASKS = ["country", "capital", "capflag", "both"];
+  var ASK_LABEL = { country: "", capital: "capitals, country named", capflag: "capitals, flag only", both: "country + capital" };
+  var ASK_KEYS = { c: "country", a: "capital", f: "capflag", b: "both" };   // on the menu
+  function askSuffix(a) { return a === "country" ? "" : "_" + a; }
+
   function mkBest(k) { return window.GameShell ? GameShell.best(k, { higher: true }) : null; }
-  var bests = {
-    tour: mkBest("passport_best_tour"),
-    dash: mkBest("passport_best_dash"),
-    tour_typed: mkBest("passport_best_tour_typed"),
-    dash_typed: mkBest("passport_best_dash_typed")
-  };
-  function bestFor(m, st) { return m === "daily" ? null : bests[m + (st === "typed" ? "_typed" : "")]; }
+  var bests = {};
+  function bestFor(m, st, a) {
+    if (m === "daily") return null;
+    var k = "passport_best_" + m + (st === "typed" ? "_typed" : "") + askSuffix(a);
+    return bests[k] || (bests[k] = mkBest(k));
+  }
 
   function mulberry(seed) {
     var a = seed >>> 0;
@@ -60,15 +74,18 @@
     var mm = ("0" + (d.getMonth() + 1)).slice(-2), dd = ("0" + d.getDate()).slice(-2);
     return { n: n, ymd: d.getFullYear() + "-" + mm + "-" + dd };
   }
-  function readDaily() {
+  // one record per question type (passport_daily, passport_daily_capital…);
+  // with no type given, the one picked on the menu
+  function dailyKey(a) { return "passport_daily" + askSuffix(a || ask); }
+  function readDaily(a) {
     var t = today();
     try {
-      var d = JSON.parse(store.get("passport_daily", "null"));
+      var d = JSON.parse(store.get(dailyKey(a), "null"));
       if (d && d.ymd === t.ymd) return d;
     } catch (e) {}
     return { ymd: t.ymd, n: t.n, score: 0, done: false };
   }
-  function writeDaily(d) { store.set("passport_daily", JSON.stringify(d)); }
+  function writeDaily(d) { store.set(dailyKey(), JSON.stringify(d)); }
 
   // ---- picking flags and their lookalikes --------------------------------
   var byFam = {}, byRegion = {};
@@ -95,9 +112,27 @@
     return shuffled(out, rng);
   }
 
+  // a capital question's tags: the right city and three capitals of the
+  // same region (topped up from anywhere), never the same city twice
+  function capital(ci) { return window.CapitalJudge.of(ci); }
+  function capOptionsFor(ci, rng) {
+    var used = {}, seen = {}, out = [];
+    function add(i) {
+      var n = window.CountryJudge.norm(capital(i));
+      if (used[i] || seen[n]) return false;
+      used[i] = seen[n] = true; out.push(i); return true;
+    }
+    add(ci);
+    var p = shuffled(byRegion[C[ci][2]], rng);
+    for (var k = 0; k < p.length && out.length < 4; k++) add(p[k]);
+    while (out.length < 4) add(Math.floor(rng() * C.length));
+    return shuffled(out, rng);
+  }
+
   function url(code) { return "https://flagcdn.com/" + code + ".svg"; }
 
-  // ---- the typed-answer judge lives in judge.js (shared with Departures)
+  // ---- the typed-answer judges live in judge.js and capitals.js (shared
+  // with Departures)
   function resolveTyped(raw) { return window.CountryJudge.resolve(raw); }
 
   // ---- sound ----------------------------------------------------------------
@@ -158,9 +193,13 @@
   if (["tour", "dash", "daily"].indexOf(mode) === -1) mode = "tour";
   var style = store.get("passport_style", "tags");
   if (style !== "tags" && style !== "typed") style = "tags";
+  var ask = store.get("passport_ask", "country");
+  if (ASKS.indexOf(ask) === -1) ask = "country";
   var score = 0, denials = 0, qNum = 0, remaining = 60;
   var rng = Math.random, dailySet = null, recent = [];
-  var cur = null;                    // { ci, opts:[ci x4], correct: idx in opts }
+  // { ci, opts:[ci x4] country tags, caps:[ci x4] capital tags (or null),
+  //   step: "country" | "capital" (what's asked now), correct: idx in its tags }
+  var cur = null;
   var turbo = false, lastTick = -1;
   var preload = new Image();
   var MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
@@ -190,14 +229,18 @@
       .concat(shuffled(t2, r).slice(0, 4))
       .concat(shuffled(t3, r).slice(0, 2));
     picks = shuffled(picks, r);
+    // the capital tags draw from their own seed, one per question type, so
+    // the flags and the country tags come out as they always have
+    var rc = ask === "country" ? null : mulberry((((n * 2654435761) >>> 0) ^ 0xCA9170) + ASKS.indexOf(ask));
     return picks.map(function (ci) {
       var opts = optionsFor(ci, r);
-      return { ci: ci, opts: opts };
+      return { ci: ci, opts: opts, caps: rc ? capOptionsFor(ci, rc) : null };
     });
   }
 
   // ---- flow ------------------------------------------------------------------------
   function startRun(m) {
+    clearTimeout(revealT);
     if (m) mode = m;
     store.set("passport_mode", mode);
     audio();
@@ -214,36 +257,72 @@
     if (mode === "daily") {
       if (qNum > dailySet.length) { finish(); return; }
       var q = dailySet[qNum - 1];
-      cur = { ci: q.ci, opts: q.opts };
+      cur = { ci: q.ci, opts: q.opts, caps: q.caps };
     } else {
       var ci = pickTour();
-      cur = { ci: ci, opts: optionsFor(ci, Math.random) };
+      cur = { ci: ci, opts: optionsFor(ci, Math.random), caps: ask === "country" ? null : capOptionsFor(ci, Math.random) };
     }
-    cur.correct = cur.opts.indexOf(cur.ci);
     var c = C[cur.ci];
     $("flag").src = url(c[0]);
-    $("post-cap").textContent = mode === "daily" ? "flag " + qNum + " of " + dailySet.length : "whose flag is this?";
     var typed = style === "typed";
     $("tags").hidden = typed;
     $("typed").hidden = !typed;
     if (typed) {
       var inp = $("answer");
-      inp.value = ""; inp.disabled = false;
-      inp.classList.remove("hit", "bad");
+      inp.disabled = false;
       $("stamp-btn").disabled = false;
       setTimeout(function () { inp.focus(); }, 0);
-    } else {
-      var tags = document.querySelectorAll("#tags .tag");
-      tags.forEach(function (t, i) {
-        t.querySelector("span").textContent = C[cur.opts[i]][1];
-        t.classList.remove("hit", "bad");
-        t.disabled = false;
-      });
     }
+    pose(ask === "capital" || ask === "capflag" ? "capital" : "country");
     state = "ask";
     hud();
     // keep the next flag warm (tour and dash re-roll, so this is best effort)
     if (mode === "daily" && qNum < dailySet.length) preload.src = url(C[dailySet[qNum].ci][0]);
+  }
+
+  // put one step's question on the page: the line under the flag, and the
+  // four tags or an empty answer line with the right label
+  var TYPED_COPY = {
+    country: ["STATE / ÉTAT", "type the country…", "Type the country's name",
+      "one small typo is forgiven · common names count (UK, Burma…)"],
+    capital: ["CAPITAL / CAPITALE", "type the capital…", "Type the capital's name",
+      "one small typo is forgiven · old names and second seats count (Kiev, La Paz…)"]
+  };
+  function pose(step) {
+    var cap = step === "capital", list = cap ? cur.caps : cur.opts, name = "<b>" + C[cur.ci][1] + "</b>";
+    cur.step = step;
+    cur.correct = list.indexOf(cur.ci);
+    var q = mode === "daily" ? "flag " + qNum + " of " + dailySet.length : "whose flag is this?";
+    $("post-cap").innerHTML =
+      !cap ? q + (ask === "both" ? " (then its capital)" : "") :
+      ask === "capital" ? "capital of " + name + "?" :
+      ask === "both" ? name + " ✓ — and its capital?" :
+      "name its capital";                 // flag only: the country stays a secret
+    if (style === "typed") {
+      var inp = $("answer"), t = TYPED_COPY[step];
+      inp.value = "";
+      inp.classList.remove("hit", "bad");
+      document.querySelector("#typed label").textContent = t[0];
+      inp.placeholder = t[1];
+      inp.setAttribute("aria-label", t[2]);
+      $("typed-note").textContent = t[3];
+    } else {
+      document.querySelectorAll("#tags .tag").forEach(function (t, i) {
+        t.querySelector("span").textContent = cap ? capital(list[i]) : C[list[i]][1];
+        t.classList.remove("hit", "bad");
+        t.disabled = false;
+      });
+    }
+  }
+
+  // Country, then capital: the country was right, so on to its capital
+  // with no stamp yet. Typed clears the box at once (and keeps the focus);
+  // the tags hold a beat first, so a double tap can't answer the capital blind.
+  function stepUp() {
+    tickSnd();
+    if (style === "typed") { pose("capital"); return; }
+    state = "reveal";
+    revealT = setTimeout(function () { pose("capital"); state = "ask"; }, turbo ? 60 : 450);
   }
 
   function answer(i) {
@@ -253,6 +332,7 @@
     var right = i === cur.correct;
     tags[cur.correct].classList.add("hit");
     if (!right) tags[i].classList.add("bad");
+    if (right && ask === "both" && cur.step === "country") { stepUp(); return; }
     conclude(right);
   }
 
@@ -260,22 +340,31 @@
     if (state !== "ask" || style !== "typed") return;
     var raw = $("answer").value.trim();
     if (raw.length < 2) return;
-    var right = resolveTyped(raw) === cur.ci;
+    var right = cur.step === "capital" ? window.CapitalJudge.matches(raw, cur.ci) : resolveTyped(raw) === cur.ci;
+    if (right && ask === "both" && cur.step === "country") { stepUp(); return; }
     var inp = $("answer");
     inp.disabled = true; $("stamp-btn").disabled = true;
     inp.classList.add(right ? "hit" : "bad");
     conclude(right);
   }
 
+  // the pending "next question" after a stamp (or the capital step after a
+  // right country); leaving the run cancels it, or it would bring the
+  // question back over the menu
+  var revealT = 0;
   function conclude(right) {
     state = "reveal";
-    var c = C[cur.ci];
+    var c = C[cur.ci], name = c[1].toUpperCase();
+    // a capital question names the city as well, each on its own line
+    var city = ask === "country" ? "" : capital(cur.ci).toUpperCase(), capQ = cur.step === "capital";
 
     var big = $("big-stamp");
     big.className = "big-stamp" + (right ? "" : " deny");
     big.innerHTML = right
-      ? "ENTRY<small>" + c[1].toUpperCase() + "</small><small>" + dateStamp() + "</small>"
-      : "DENIED<small>IT WAS " + c[1].toUpperCase() + "</small>";
+      ? "ENTRY" + (city ? "<small>" + city + "</small>" : "") + "<small>" + name + "</small><small>" + dateStamp() + "</small>"
+      : !city ? "DENIED<small>IT WAS " + name + "</small>"
+      : capQ ? "DENIED<small>IT WAS " + city + "</small><small>" + name + "</small>"
+      : "DENIED<small>IT WAS " + name + "</small><small>CAPITAL " + city + "</small>";
     big.hidden = false;
     if (fx()) { big.classList.remove("thunk"); void big.offsetWidth; big.classList.add("thunk"); }
 
@@ -283,9 +372,8 @@
     mini.className = "mini" + (right ? "" : " deny");
     mini.style.setProperty("--rot", ((Math.random() * 16) - 8).toFixed(1) + "deg");
     mini.style.setProperty("--shape", ["50%", "6px", "50% / 34%", "14px"][Math.floor(Math.random() * 4)]);
-    mini.innerHTML = right
-      ? c[0].toUpperCase() + "<small>ENTRY · " + dateStamp().slice(0, 6) + "</small>"
-      : c[0].toUpperCase() + "<small>DENIED</small>";
+    mini.innerHTML = c[0].toUpperCase() + (city ? '<small class="city">' + city + "</small>" : "") +
+      (right ? "<small>ENTRY · " + dateStamp().slice(0, 6) + "</small>" : "<small>DENIED</small>");
     $("stamps").appendChild(mini);
 
     if (right) { score++; thunk(); if (score % 10 === 0) ding(); }
@@ -298,7 +386,8 @@
     var overNow =
       (mode === "tour" && denials >= 3) ||
       (mode === "dash" && remaining <= 0);
-    setTimeout(function () {
+    // (kept, so going to the menu mid-reveal cancels it: toMenu / startRun)
+    revealT = setTimeout(function () {
       $("big-stamp").hidden = true;
       if (overNow) finish();
       else nextQ();
@@ -315,17 +404,18 @@
       var rec = readDaily();
       $("over-title").textContent = "Visa run complete";
       $("over-msg").innerHTML = score + "<small> / " + dailySet.length + " stamps</small>";
-      lines.push("Visa Run #" + rec.n + (was ? " — recorded earlier: " + rec.score + "/10" :
-        score === 10 ? " — a spotless passport!" : ""));
+      lines.push("Visa Run #" + rec.n + (ASK_LABEL[ask] ? " · " + ASK_LABEL[ask] : "") +
+        (was ? " — recorded earlier: " + rec.score + "/10" : score === 10 ? " — a spotless passport!" : ""));
       $("again").innerHTML = "Once more (just for fun) <kbd>Enter</kbd>";
       $("share").hidden = false;
     } else {
-      var b = bestFor(mode, style);
+      var b = bestFor(mode, style, ask);
       isBest = b ? b.submit(score) : false;
       $("over-title").textContent = mode === "tour" ? "The border is closed" : "Final boarding call";
       $("over-msg").innerHTML = score + "<small> stamp" + (score === 1 ? "" : "s") + "</small>";
       lines.push(mode === "tour" ? "three denials on your record" : "the sixty seconds are up");
-      lines.push(isBest ? "a new record — frequent flyer! ✈" : "best: " + (b ? b.get() : score));
+      lines.push(isBest ? "a new record — frequent flyer! ✈" :
+        "best" + (ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "") + ": " + (b ? b.get() : score));
       $("again").innerHTML = "Travel again <kbd>Enter</kbd>";
       $("share").hidden = true;
     }
@@ -335,7 +425,7 @@
 
   function shareDaily() {
     var d = readDaily();
-    var text = "Passport · Visa Run #" + d.n + " (" + d.ymd + ")\n" +
+    var text = "Passport · Visa Run #" + d.n + (ASK_LABEL[ask] ? " · " + ASK_LABEL[ask] : "") + " (" + d.ymd + ")\n" +
       d.score + "/10 stamps" + (d.typed ? " · typed" : "") + " 🛂\n" +
       location.origin + location.pathname;
     function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").innerHTML = "Share result <kbd>S</kbd>"; }, 1400); }
@@ -383,7 +473,7 @@
   $("flag").addEventListener("error", function () {
     if (state !== "ask") return;
     state = "reveal";
-    setTimeout(function () { qNum--; nextQ(); }, 200);
+    revealT = setTimeout(function () { qNum--; nextQ(); }, 200);
   });
 
   // ---- menu ----------------------------------------------------------------------
@@ -398,14 +488,28 @@
     document.querySelectorAll("#pick-style button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-s") === style);
     });
+    document.querySelectorAll("#pick-ask button").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-a") === ask);
+    });
+    // the bests of the question type picked (a country best is never a capitals one)
     var parts = [];
-    if (bests.tour && bests.tour.get()) parts.push("Tour " + bests.tour.get());
-    if (bests.dash && bests.dash.get()) parts.push("Dash " + bests.dash.get());
-    if (bests.tour_typed && bests.tour_typed.get()) parts.push("Tour·typed " + bests.tour_typed.get());
-    if (bests.dash_typed && bests.dash_typed.get()) parts.push("Dash·typed " + bests.dash_typed.get());
-    $("bests").textContent = parts.length ? "most stamps: " + parts.join(" · ") : "a brand-new passport — no stamps yet";
+    [["tour", "tags", "Tour"], ["dash", "tags", "Dash"], ["tour", "typed", "Tour·typed"], ["dash", "typed", "Dash·typed"]].forEach(function (p) {
+      var b = bestFor(p[0], p[1], ask);
+      if (b && b.get()) parts.push(p[2] + " " + b.get());
+    });
+    var which = ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "";
+    $("bests").textContent = parts.length ? "most stamps" + which + ": " + parts.join(" · ")
+      : which ? "no stamps yet" + which : "a brand-new passport — no stamps yet";
+  }
+  // (only between runs: a question on screen was built for its type)
+  function setAsk(a) {
+    if (ASKS.indexOf(a) === -1 || state === "ask" || state === "reveal") return;
+    ask = a;
+    store.set("passport_ask", ask);
+    if (state === "menu") paintMenu();
   }
   function toMenu() {
+    clearTimeout(revealT);
     state = "menu";
     $("answer").blur();
     $("over").hidden = true; $("menu").hidden = false;
@@ -429,6 +533,9 @@
       paintMenu();
     });
   });
+  document.querySelectorAll("#pick-ask button").forEach(function (b) {
+    b.addEventListener("click", function () { setAsk(b.getAttribute("data-a")); });
+  });
   $("typed").addEventListener("submit", function (e) { e.preventDefault(); typedSubmit(); });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -443,7 +550,13 @@
 
   // sound (M / "[") and Visual FX (V / "]") are handled by the shared
   // mute-toggle.js and motion-toggle.js; #answer is marked data-game-input
-  // so the bracket keys still work while typing a country
+  // so the bracket keys still work while typing a country.
+  // Esc is left alone outside a dash (where it pauses), so the shared
+  // motion-toggle.js takes it to the games page from the menu, the end
+  // screen and a tour or visa run. Backspace goes to this game's menu
+  // instead, from the end screen and mid-run, but never from a text field:
+  // in typed style the answer box needs it, so there it has no key.
+  function backKey(e) { return e.key === "Backspace" && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || ""); }
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.repeat) return;
@@ -461,20 +574,17 @@
         style = k === "t" ? "tags" : "typed";
         store.set("passport_style", style);
         paintMenu();
-      } else if (e.key === "Enter") { e.preventDefault(); startRun(mode); }
-      else if (e.key === "Escape") {
-        var back = document.querySelector(".nav-back-games");
-        location.href = back ? back.href : "../";
-      }
+      } else if (ASK_KEYS[k]) setAsk(ASK_KEYS[k]);
+      else if (e.key === "Enter") { e.preventDefault(); startRun(mode); }
       return;
     }
     if (state === "over") {
       if (e.key === "Enter") { e.preventDefault(); startRun(mode); }
-      else if (e.key === "Escape") toMenu();
+      else if (backKey(e)) { e.preventDefault(); toMenu(); }
       else if (k === "s" && !$("share").hidden) shareDaily();
       return;
     }
-    if ((state === "ask" || state === "reveal") && e.key === "Escape" && mode !== "dash") toMenu();
+    if ((state === "ask" || state === "reveal") && mode !== "dash" && style !== "typed" && backKey(e)) { e.preventDefault(); toMenu(); }
   });
 
   // demo flag behind the menu
@@ -488,9 +598,16 @@
     score: function () { return score; },
     denials: function () { return denials; },
     timeLeft: function () { return remaining; },
+    // the question on screen: `step` is what's asked now ("country" or
+    // "capital"), `correct` the right tag's index for that step and
+    // `answer` the name to type for it
     current: function () {
-      return cur ? { code: C[cur.ci][0], name: C[cur.ci][1], correct: cur.correct,
-        options: cur.opts.map(function (o) { return C[o][1]; }) } : null;
+      if (!cur) return null;
+      var cap = cur.step === "capital";
+      return { code: C[cur.ci][0], name: C[cur.ci][1], capital: capital(cur.ci), ci: cur.ci,
+        ask: ask, step: cur.step, correct: cur.correct,
+        answer: cap ? capital(cur.ci) : C[cur.ci][1],
+        options: (cap ? cur.caps : cur.opts).map(function (o) { return cap ? capital(o) : C[o][1]; }) };
     },
     answer: answer,
     start: startRun,
@@ -499,7 +616,10 @@
     daily: readDaily,
     style: function () { return style; },
     setStyle: function (st) { style = st; store.set("passport_style", st); },
+    ask: function () { return ask; },
+    setAsk: setAsk,                     // "country" | "capital" | "capflag" | "both"
     type: function (text) { $("answer").value = text; typedSubmit(); },
-    resolve: function (raw) { var r = resolveTyped(raw); return r === -1 ? null : C[r][0]; }
+    resolve: function (raw) { var r = resolveTyped(raw); return r === -1 ? null : C[r][0]; },
+    resolveCapital: function (raw) { var r = window.CapitalJudge.resolve(raw); return r === -1 ? null : C[r][0]; }
   };
 })();

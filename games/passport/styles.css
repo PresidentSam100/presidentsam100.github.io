@@ -202,6 +202,7 @@ body {
 }
 .mini.deny { --sc: var(--deny); }
 .mini small { display: block; font-size: 8px; font-weight: 400; letter-spacing: 1px; }
+.mini small.city { font-weight: 700; letter-spacing: 0.5px; }
 
 /* the big feedback stamp that thunks onto the right page */
 .big-stamp {
@@ -231,14 +232,17 @@ body {
 }
 
 /* ---- panels -------------------------------------------------------------------- */
+/* the card centres itself with auto margins, so on a screen too short for
+   it the panel scrolls from its top instead of cutting the top off */
 .panel {
   position: fixed; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
   padding: 26px 16px; overflow-y: auto;
   background: rgba(20, 14, 12, 0.6);
 }
 .panel[hidden] { display: none; }
 .card {
+  margin: auto 0;
   width: min(430px, 100%);
   background: var(--paper);
   border-radius: 10px;
@@ -262,6 +266,10 @@ body {
 .seg button b { letter-spacing: 1px; }
 .seg button small { font-size: 12px; color: var(--faint); text-align: right; }
 .seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); background: #fff; }
+/* what's asked: two by two, each label over its note */
+.pick .seg.asks { display: grid; grid-template-columns: 1fr 1fr; }
+.seg.asks button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; padding: 6px 10px; font-size: 14px; }
+.seg.asks button small { font-size: 11.5px; text-align: left; }
 
 kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(--paper); border-radius: 3px; padding: 1px 6px; }
 
@@ -302,4 +310,20 @@ kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(
   .tags { grid-template-columns: 1fr; gap: 8px; }
   .tag { min-height: 44px; padding: 8px 10px; }
   .big-stamp { position: fixed; top: 38%; font-size: 21px; }
+}
+/* short screens: the menu tightens up so it still fits in one view */
+@media (max-height: 760px) {
+  .card { padding: 18px 20px 16px; }
+  .card h1 { font-size: 24px; }
+  .card .tag-line { margin: 1px 0 6px; }
+  .card .how { font-size: 13.5px; line-height: 1.45; margin-bottom: 10px; }
+  .pick .seg { gap: 6px; margin-bottom: 8px; }
+  .seg button { padding: 7px 11px; }
+  .seg.asks button { padding: 5px 9px; }
+  .playbtn { padding: 10px; }
+  .bests { margin-top: 8px; }
+}
+/* a phone with no keyboard has no use for the key line */
+@media (hover: none) and (pointer: coarse) and (max-width: 600px) {
+  .keys { display: none; }
 }

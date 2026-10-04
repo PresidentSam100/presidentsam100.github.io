@@ -13,10 +13,10 @@
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
-    <meta name="description" content="Passport — the flag quiz: name each country's flag and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
+    <meta name="description" content="Passport — the flag quiz: name each country's flag (or its capital) and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
     <meta property="og:title" content="Passport — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Passport — the flag quiz: name each country's flag and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
+    <meta property="og:description" content="Passport — the flag quiz: name each country's flag (or its capital) and collect its entry stamp; three denials end the world tour. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
     <!-- Google tag (gtag.js) -->
@@ -75,9 +75,9 @@
     <h1>Passport</h1>
     <p class="tag-line">the flag quiz at the border desk</p>
     <p class="how">
-      One flag, four destinations — pick the right country and the officer
-      stamps you through. Guess wrong and the page gets a red
-      <b>DENIED</b>.
+      One flag, four destinations — name the right country (or its
+      capital) and the officer stamps you through. Guess wrong and the
+      page gets a red <b>DENIED</b>.
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
@@ -88,6 +88,13 @@
       <div class="seg styles" id="pick-style">
         <button type="button" data-s="tags"><b>🏷 Tags</b><small>pick from four <kbd>T</kbd></small></button>
         <button type="button" data-s="typed"><b>⌨ Typed</b><small>spell it out <kbd>Y</kbd></small></button>
+      </div>
+      <!-- what the officer asks for -->
+      <div class="seg asks" id="pick-ask">
+        <button type="button" data-a="country"><b>Country</b><small>from its flag <kbd>C</kbd></small></button>
+        <button type="button" data-a="capital"><b>Capital</b><small>country named <kbd>A</kbd></small></button>
+        <button type="button" data-a="capflag"><b>Flag → capital</b><small>no name given <kbd>F</kbd></small></button>
+        <button type="button" data-a="both"><b>Both</b><small>country, then capital <kbd>B</kbd></small></button>
       </div>
     </div>
     <button type="button" class="playbtn" id="play"><b>Approach the desk</b> <kbd>Enter</kbd></button>
@@ -104,13 +111,14 @@
     <div class="row">
       <button type="button" id="again">Travel again <kbd>Enter</kbd></button>
       <button type="button" id="share" hidden>Share result <kbd>S</kbd></button>
-      <button type="button" id="to-menu">Modes <kbd>Esc</kbd></button>
+      <button type="button" id="to-menu">Modes <kbd title="Backspace">⌫</kbd></button>
     </div>
   </div>
 </section>
 
 <script src="data.js"></script>
 <script src="judge.js"></script>
+<script src="capitals.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

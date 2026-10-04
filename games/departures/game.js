@@ -9,12 +9,15 @@
    (one typo on six-plus letters, never across two countries).
 
    Modes: the whole world on 15:00, or one continent on a shorter clock.
-   Best per board = most countries; ties broken by the faster clock.
+   Either names the countries or, with Capitals, their capital cities
+   (../passport/capitals.js): a city boards the country it's the capital of.
+   Best per board (and per countries / capitals) = most named; ties broken
+   by the faster clock.
    ===================================================================== */
 (function () {
   "use strict";
 
-  var C = window.FlagData, J = window.CountryJudge;
+  var C = window.FlagData, J = window.CountryJudge, K = window.CapitalJudge;
   function $(id) { return document.getElementById(id); }
   function fx() { return !(window.RM_ON && window.RM_ON()); }
 
@@ -27,13 +30,19 @@
   var TIMERS = { world: 900, EU: 240, AS: 240, AF: 270, AM: 180, OC: 90 };
 
   // Names that must wait for Enter: exact matches that are also a strict
-  // prefix of a different country's name or alias.
-  var DEFER = {};
-  J.names.forEach(function (a) {
-    J.names.forEach(function (b) {
-      if (a.ci !== b.ci && b.n.length > a.n.length && b.n.indexOf(a.n) === 0) DEFER[a.n] = true;
+  // prefix of a different country's name or alias. Naming capitals, also of
+  // a longer name for the same city, so typing "Mexico City" (or "Kuwait
+  // City", "Washington DC") doesn't board at "Mexico" and strand " City".
+  function deferOf(names, sameCountryToo) {
+    var d = {};
+    names.forEach(function (a) {
+      names.forEach(function (b) {
+        if ((a.ci !== b.ci || sameCountryToo) && b.n.length > a.n.length && b.n.indexOf(a.n) === 0) d[a.n] = true;
+      });
     });
-  });
+    return d;
+  }
+  var DEFER_N = deferOf(J.names), DEFER_C = deferOf(K.names, true);
 
   // ---- state -----------------------------------------------------------
   var state = "menu";              // menu | play | over
@@ -41,10 +50,17 @@
   if (mode !== "world" && mode !== "continent") mode = "world";
   var region = store.get("departures_region", "EU");
   if (!TIMERS[region]) region = "EU";
+  // what to name: "countries", or "capitals" (a capital boards its country)
+  var target = store.get("departures_target", "countries");
+  if (target !== "capitals") target = "countries";
+  function caps() { return target === "capitals"; }
+  function judge() { return caps() ? K : J; }
+  function deferred(v) { return !!(caps() ? DEFER_C : DEFER_N)[v]; }
+  function label(ci) { return caps() ? K.of(ci) : C[ci][1]; }   // what the board calls it
   var pool = [], found = {}, foundCount = 0, perRegion = {}, perRegionFound = {};
   var timeLeft = 900, timeTotal = 900, playing = false, endedByBell = false;
 
-  function boardKey() { return mode === "world" ? "world" : region; }
+  function boardKey(t) { return (mode === "world" ? "world" : region) + ((t || target) === "capitals" ? "-cap" : ""); }
   function readBests() {
     try { var b = JSON.parse(store.get("departures_best", "null")); if (b) return b; } catch (e) {}
     return {};
@@ -151,14 +167,15 @@
     }, 34);
   }
 
-  function addRow(name, rc, missed) {
+  function addRow(name, rc, missed, country) {
     var log = $("log");
     var idle = log.querySelector(".idle");
     if (idle) idle.remove();
     var li = document.createElement("li");
     li.className = (missed ? "missed" : "new");
-    li.innerHTML = '<span class="dest"></span><span class="via">' + rc + '</span><span class="status">' +
-      (missed ? "CANCELLED" : "DEPARTED") + "</span>";
+    li.innerHTML = '<span class="dest"></span>' + (country ? '<span class="cty"></span>' : "") +
+      '<span class="via">' + rc + '</span><span class="status">' + (missed ? "CANCELLED" : "DEPARTED") + "</span>";
+    if (country) li.querySelector(".cty").textContent = country.toUpperCase();
     log.insertBefore(li, log.firstChild);
     if (missed) li.querySelector(".dest").textContent = name.toUpperCase();
     else settleText(li.querySelector(".dest"), name.toUpperCase());
@@ -184,7 +201,7 @@
     found[ci] = true; foundCount++;
     var rc = C[ci][2];
     perRegionFound[rc]++;
-    addRow(C[ci][1], rc, false);
+    addRow(label(ci), rc, false, caps() ? C[ci][1] : "");
     clatter();
     gateUpdate(rc);
     hud();
@@ -199,9 +216,10 @@
     clearTimeout(toast._t);
     toast._t = setTimeout(function () { t.hidden = true; }, 1300);
   }
-  function exactIndex(v) {
-    for (var k = 0; k < J.names.length; k++) {
-      if (J.names[k].n === v) return J.names[k].ci;
+  function exactIndex(v, names) {
+    names = names || judge().names;
+    for (var k = 0; k < names.length; k++) {
+      if (names[k].n === v) return names[k].ci;
     }
     return -1;
   }
@@ -212,13 +230,22 @@
     if (!v) return;
     var ci = -1;
     if (auto) {
-      $("hint").hidden = !DEFER[v];
-      if (DEFER[v]) return;                                  // Niger vs Nigeria: Enter decides
+      $("hint").hidden = !deferred(v);
+      if (deferred(v)) return;                               // Niger vs Nigeria: Enter decides
       ci = exactIndex(v);
       if (ci === -1) return;                                 // keep typing
     } else {
       ci = exactIndex(v);
-      if (ci === -1) ci = J.resolve(raw);
+      if (ci === -1) ci = judge().resolve(raw);
+      // naming capitals, a country's own name gets a nudge rather than a shake
+      if (ci === -1 && caps()) {
+        var asCountry = exactIndex(v, J.names);
+        if (asCountry !== -1) {
+          toast(C[asCountry][1].toUpperCase() + " — NAME ITS CAPITAL");
+          dupThock();
+          return;
+        }
+      }
       if (ci === -1) {
         var el = $("answer");
         el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
@@ -230,13 +257,13 @@
       }
     }
     if (!inPool[ci]) {
-      toast(C[ci][1].toUpperCase() + " — WRONG TERMINAL (" + C[ci][2] + ")");
+      toast(label(ci).toUpperCase() + " — WRONG TERMINAL (" + C[ci][2] + ")");
       dupThock();
       $("answer").value = "";
       return;
     }
     if (found[ci]) {
-      toast(C[ci][1].toUpperCase() + " — ALREADY DEPARTED");
+      toast(label(ci).toUpperCase() + " — ALREADY DEPARTED");
       dupThock();
       $("answer").value = "";
       $("hint").hidden = true;
@@ -259,7 +286,7 @@
       if (mode === "continent" && c[2] !== region) return;
       pool.push(i); inPool[i] = true; perRegion[c[2]]++;
     });
-    timeTotal = TIMERS[boardKey()];
+    timeTotal = TIMERS[mode === "world" ? "world" : region];   // (the same clock for countries or capitals)
     timeLeft = timeTotal;
     buildGates();
     $("log").innerHTML = '<li class="idle">— the board is waiting for its first departure —</li>';
@@ -284,7 +311,7 @@
     var mm = Math.floor(tUsed / 60000), ss = Math.floor(tUsed / 1000) % 60;
     var lines = [
       (mode === "world" ? "the world" : ({ EU: "Europe", AS: "Asia", AF: "Africa", AM: "the Americas", OC: "Oceania" })[region]) +
-        " · " + mm + ":" + ("0" + ss).slice(-2) + " on the clock",
+        (caps() ? " · capitals" : "") + " · " + mm + ":" + ("0" + ss).slice(-2) + " on the clock",
       isBest ? "a new record — see the world! 🛫" : bestLine()
     ];
     $("over-stats").textContent = lines.join("\n");
@@ -297,7 +324,9 @@
       var names = [];
       pool.forEach(function (ci) {
         if (C[ci][2] !== rg[0]) return;
-        names.push(found[ci] ? "<span>" + C[ci][1] + "</span>" : "<b>" + C[ci][1] + "</b>");
+        // naming capitals, each city is listed with its country
+        var nm = caps() ? label(ci) + " <i>(" + C[ci][1] + ")</i>" : C[ci][1];
+        names.push(found[ci] ? "<span>" + nm + "</span>" : "<b>" + nm + "</b>");
       });
       var h = document.createElement("div");
       h.innerHTML = "<h3>" + rg[1] + " — " + perRegionFound[rg[0]] + "/" + perRegion[rg[0]] + "</h3>" + names.join(" · ");
@@ -306,7 +335,7 @@
     // and the board clatters out the ones that got away (a taste of them)
     var missedOnBoard = 0;
     pool.forEach(function (ci) {
-      if (!found[ci] && missedOnBoard < 8) { addRow(C[ci][1], C[ci][2], true); missedOnBoard++; }
+      if (!found[ci] && missedOnBoard < 8) { addRow(label(ci), C[ci][2], true, caps() ? C[ci][1] : ""); missedOnBoard++; }
     });
     $("over").hidden = false;
   }
@@ -339,10 +368,22 @@
     document.querySelectorAll("#pick-region button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-r") === region);
     });
-    var b = readBests(), parts = [];
-    if (b.world) parts.push("World " + b.world.n + "/197");
-    REGIONS.forEach(function (rg) { if (b[rg[0]]) parts.push(rg[1].charAt(0) + rg[1].slice(1).toLowerCase() + " " + b[rg[0]].n); });
-    $("bests").textContent = parts.length ? "best boards: " + parts.join(" · ") : "no flights on the record yet";
+    document.querySelectorAll("#pick-target button").forEach(function (b) {
+      b.classList.toggle("on", b.getAttribute("data-t") === target);
+    });
+    var a = $("answer");
+    a.placeholder = caps() ? "type a capital…" : "type a country…";
+    a.setAttribute("aria-label", caps() ? "Type a capital city" : "Type a country's name");
+    // the bests for what's being named (a capitals board keeps its own)
+    var b = readBests(), parts = [], sfx = caps() ? "-cap" : "";
+    if (b["world" + sfx]) parts.push("World " + b["world" + sfx].n + "/197");
+    REGIONS.forEach(function (rg) { var r = b[rg[0] + sfx]; if (r) parts.push(rg[1].charAt(0) + rg[1].slice(1).toLowerCase() + " " + r.n); });
+    $("bests").textContent = parts.length ? "best " + (caps() ? "capitals " : "") + "boards: " + parts.join(" · ") : "no flights on the record yet";
+  }
+  function setTarget(t) {
+    target = t === "capitals" ? "capitals" : "countries";
+    store.set("departures_target", target);
+    paintMenu();
   }
   function toMenu() {
     state = "menu"; playing = false;
@@ -363,6 +404,9 @@
       paintMenu();
     });
   });
+  document.querySelectorAll("#pick-target button").forEach(function (b) {
+    b.addEventListener("click", function () { setTarget(b.getAttribute("data-t")); });
+  });
   $("play").addEventListener("click", function () { startRun(mode, region); });
   $("again").addEventListener("click", function () { startRun(mode, region); });
   $("to-menu").addEventListener("click", toMenu);
@@ -379,16 +423,20 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (P.isPaused() || e.repeat) return;
     if (state === "menu") {
+      var k = e.key.toLowerCase();
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "world" : "continent";
         store.set("departures_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode, region);
+      } else if (k === "n" || k === "c") setTarget(k === "c" ? "capitals" : "countries");
+      else if (e.key === "Enter") startRun(mode, region);
       return;
     }
+    // the results: Backspace back to the modes (the answer box is disabled
+    // here, so it can't be a deletion); Esc is left to leave for the games page
     if (state === "over") {
       if (e.key === "Enter") startRun(mode, region);
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace" && !(e.target === $("answer") && !$("answer").disabled)) { e.preventDefault(); toMenu(); }
       return;
     }
     // during play, keep the desk focused so every letter lands on the board
@@ -415,6 +463,8 @@
     giveUp: function () { if (state === "play") finish(false); },
     toMenu: toMenu,
     bests: readBests,
-    deferred: function (name) { return !!DEFER[J.norm(name)]; }
+    deferred: function (name) { return deferred(J.norm(name)); },
+    target: function () { return target; },
+    setTarget: setTarget
   };
 })();
