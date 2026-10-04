@@ -327,3 +327,10 @@ body {
 @keyframes ovFade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ovUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
 
+
+/* the shared pause card (game-shell.js): VT323 has a single weight, so no
+   faux bold, and it runs small, so a size up */
+.gs-pause-card h2, .gs-pause-card button { font-weight: 400; letter-spacing: 1px; }
+.gs-pause-card h2 { font-size: 2.1rem; }
+.gs-pause-card p { font-size: 1.1rem; }
+.gs-pause-card button { font-size: 1.3rem; }

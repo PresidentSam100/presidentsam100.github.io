@@ -54,3 +54,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 /* phones: start below the fixed row of Games / pause / sound / FX buttons */
 @media (max-width: 700px) { body { padding-top: 3.3rem; } }
 
+
+/* the shared pause card (game-shell.js) in the pixel face, like the menus */
+.gs-pause-card h2, .gs-pause-card button { font-family: var(--pix); font-weight: 400; }
+.gs-pause-card h2 { font-size: 1.05rem; line-height: 1.4; margin-bottom: 0.6rem; }
+.gs-pause-card button { font-size: 0.72rem; line-height: 1.3; }

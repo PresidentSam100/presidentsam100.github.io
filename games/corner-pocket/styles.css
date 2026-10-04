@@ -153,3 +153,18 @@ kbd {
   .field { margin: 6px 0; }
 }
 
+
+/* the shared "who goes first?" coin flip (coinflip.js), as a walnut card like the menus */
+.cf-overlay {
+  background: radial-gradient(80% 70% at 50% 40%, rgba(20, 12, 6, 0.55), rgba(8, 5, 3, 0.86));
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.cf-card {
+  padding: 22px 34px 20px; border: 2px solid #c9a45c; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 236, 190, 0.06), rgba(255, 236, 190, 0) 40%), #2b1a0e;
+  box-shadow: 0 5px 0 #1b0f07, 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 0 0 5px rgba(201, 164, 92, 0.12);
+}
+.cf-title { font-weight: 600; font-size: 0.85rem; letter-spacing: 0.16em; color: #cdb27a; }
+.cf-window { font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 0 #1b0f07; }
+.cf-sub { font-size: 1.05rem; font-weight: 600; color: #e9d6a6; }
+.cf-q { color: #b89a62; }

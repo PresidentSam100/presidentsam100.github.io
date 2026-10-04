@@ -212,3 +212,9 @@ body[data-mode="panic"] #queue { cursor: pointer; }
 }
 .pick-toggle:hover { border-color: #cf9f3d; }
 body[data-pick="forced"] .pick-toggle { color: #f0c96a; border-color: #cf9f3d; }
+
+/* the shared pause card (game-shell.js): the stencil face (one weight) for
+   the title, the condensed face for the rest, like the game's own panels */
+.gs-pause-card h2, .gs-pause-card button { font-weight: 400; letter-spacing: 0.5px; }
+.gs-pause-card p, .gs-pause-card textarea { font-family: "Saira Condensed", system-ui, sans-serif; font-weight: 500; }
+.gs-pause-card button { font-family: "Saira Condensed", system-ui, sans-serif; font-weight: 700; font-size: 1.05rem; }

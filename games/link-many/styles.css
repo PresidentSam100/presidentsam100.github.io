@@ -235,3 +235,15 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
   0% { filter: brightness(1.6); transform: translateY(-3px); }
   100% { filter: brightness(0.6); transform: translateY(2px); }
 }
+
+/* the shared "who goes first?" coin flip (coinflip.js), as one of the white modals */
+.cf-overlay { background: rgba(40, 30, 110, 0.4); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.cf-card {
+  padding: 22px 34px 24px; background: #fff; border: 4px solid var(--blue); border-radius: 24px;
+  box-shadow: 0 8px 0 var(--blue-dark), 0 24px 50px -12px rgba(40, 30, 110, 0.45);
+}
+.cf-title { font-weight: 900; font-size: 0.8rem; letter-spacing: 0.12em; color: var(--muted); }
+.cf-window { font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; letter-spacing: 0.02em; }
+.cf-window .cf-nm { text-shadow: 0 3px 0 rgba(27, 43, 92, 0.25); }
+.cf-sub { font-weight: 800; color: var(--muted); }
+.cf-q { color: var(--blue); }

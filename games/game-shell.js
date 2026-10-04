@@ -26,6 +26,9 @@
                                                with its own pause screen
      GameShell.drawKeys(ctx, str, x, y)     -> canvas text with [KEY] drawn
                                                as keycaps
+     GameShell.confirm(opts, cb)            -> themed stand-ins for the
+     GameShell.alert(opts, cb)                 browser's confirm / alert /
+     GameShell.copyBox(opts)                   "copy this" prompt boxes
    ===================================================================== */
 (function () {
   "use strict";
@@ -186,16 +189,28 @@
     ".gs-pause[hidden]{display:none!important}" +
     ":where(.gs-pause-card){background:var(--gs-bg,rgba(22,25,33,0.97));color:var(--gs-fg,#eef0f4);" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.16));border-radius:var(--gs-radius,14px);box-shadow:var(--gs-shadow,none);" +
-    "padding:1.3rem 1.6rem;text-align:center;max-width:min(90vw,330px)}" +
+    "padding:1.3rem 1.6rem;text-align:center;max-width:min(90vw,330px);" +
+    // (a see-through back-link colour would let the game's text show through)
+    "-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}" +
     ":where(.gs-pause-card h2){margin:0 0 .2rem;font-size:1.5rem;font-weight:800}" +
     ":where(.gs-pause-card p){margin:0 0 .9rem;font-size:.85rem;opacity:.75}" +
     ":where(.gs-pause-card button){cursor:pointer;min-height:44px;padding:.6rem 1.4rem;border-radius:var(--gs-btn-radius,9px);" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(255,255,255,0.09));color:inherit;" +
-    "box-shadow:var(--gs-shadow,none);font:700 1rem/1 inherit;-webkit-tap-highlight-color:transparent}" +
+    "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:1rem;font-weight:700;line-height:1;-webkit-tap-highlight-color:transparent}" +
     ":where(.gs-pause-card button:hover){filter:brightness(1.1)}" +
     ".gs-pause-btn{transition:filter .15s ease,opacity .15s ease,outline-color .15s ease;outline:2px solid transparent;outline-offset:2px}" +
     ".gs-pause-btn[aria-disabled=false]:hover{filter:brightness(1.12)}" +
-    ".gs-pause-btn:focus-visible{outline-color:currentColor;outline-offset:3px}";
+    ".gs-pause-btn:focus-visible{outline-color:currentColor;outline-offset:3px}" +
+    // the themed dialogs (GameShell.confirm / alert / copyBox) reuse the card
+    ":where(.gs-dialog-card){max-width:min(92vw,380px)}" +
+    // a copy box is as wide as it may be, so the text in it wraps less
+    ":where(.gs-dialog-copy){box-sizing:border-box;width:min(92vw,380px)}" +
+    ":where(.gs-dialog-card p){font-size:.95rem;opacity:.85;white-space:pre-line}" +
+    ":where(.gs-dialog-row){display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center}" +
+    ":where(.gs-dialog-card .gs-dialog-alt){background:transparent;box-shadow:none}" +
+    ":where(.gs-dialog-card textarea){display:block;box-sizing:border-box;width:100%;margin:0 0 .9rem;padding:.55rem .65rem;" +
+    "resize:none;font-family:inherit;font-size:.9rem;line-height:1.35;text-align:left;color:inherit;background:rgba(0,0,0,0.22);" +
+    "border:var(--gs-border,1px solid rgba(255,255,255,0.22));border-radius:8px;white-space:pre-wrap}";
   function injectPauseCss() {
     if (document.getElementById("gs-pause-style")) return;
     var st = document.createElement("style");
@@ -205,14 +220,19 @@
   }
 
   // The game's "← Games" link, as a set of styles to borrow (null if it has
-  // none, or its background is clear or a gradient: then the neutral look stays)
+  // none, or its background is clear: then the neutral look stays). A link
+  // painted with only a gradient (Salvo's steel, Slither's bronze, 24's
+  // phone shell) lends the gradient.
   function backLinkLook() {
     var back = document.querySelector(".nav-back-games");
     if (!back) return null;
     var cs = getComputedStyle(back);
     var bg = cs.backgroundColor, m = /rgba?\(([^)]+)\)/.exec(bg);
     var alpha = m ? (m[1].split(",")[3] === undefined ? 1 : parseFloat(m[1].split(",")[3])) : 1;
-    if (!bg || bg === "transparent" || alpha < 0.5) return null;
+    if (!bg || bg === "transparent" || alpha < 0.5) {
+      if (/gradient\(/.test(cs.backgroundImage || "")) bg = cs.backgroundImage;
+      else return null;
+    }
     return {
       bg: bg,
       fg: cs.color,
@@ -222,6 +242,20 @@
       radius: parseFloat(cs.borderTopLeftRadius) || 0,
       shadow: cs.boxShadow && cs.boxShadow !== "none" ? cs.boxShadow : ""
     };
+  }
+
+  // Give a card overlay (pause card, dialog) the back link's look
+  function applyLook(el) {
+    var look = backLinkLook();
+    if (!look) return;
+    el.style.setProperty("--gs-bg", look.bg);
+    el.style.setProperty("--gs-fg", look.fg);
+    el.style.setProperty("--gs-font", look.font);
+    el.style.setProperty("--gs-border", look.border);
+    el.style.setProperty("--gs-radius", Math.min(Math.max(look.radius, 10), 22) + "px");
+    el.style.setProperty("--gs-btn-radius", Math.min(Math.max(look.radius, 8), 999) + "px");
+    el.style.setProperty("--gs-btn-bg", look.bg);
+    if (look.shadow) el.style.setProperty("--gs-shadow", look.shadow);
   }
 
   // "Esc", "P", "P / Esc" — the keys as a player would read them
@@ -262,17 +296,7 @@
         "<p>tap resume or press " + keyCaps(keys) + " to continue</p>" +
         '<button type="button">▶ Resume</button></div>';
       el.querySelector("button").addEventListener("click", function () { setPaused(false); });
-      var look = backLinkLook();
-      if (look) {
-        el.style.setProperty("--gs-bg", look.bg);
-        el.style.setProperty("--gs-fg", look.fg);
-        el.style.setProperty("--gs-font", look.font);
-        el.style.setProperty("--gs-border", look.border);
-        el.style.setProperty("--gs-radius", Math.min(Math.max(look.radius, 10), 22) + "px");
-        el.style.setProperty("--gs-btn-radius", Math.min(Math.max(look.radius, 8), 999) + "px");
-        el.style.setProperty("--gs-btn-bg", look.bg);
-        if (look.shadow) el.style.setProperty("--gs-shadow", look.shadow);
-      }
+      applyLook(el);
       document.body.appendChild(el);
       return el;
     }
@@ -476,6 +500,188 @@
     ctx.restore();
   }
 
+  // ---- themed dialogs ---------------------------------------------------
+  // In-page stand-ins for the browser's confirm(), alert() and prompt()
+  // boxes, which ignore the game's look. They're built like the pause card
+  // (same classes, the same borrowed "← Games" look), so a game that
+  // restyles .gs-pause-card restyles these too; .gs-dialog / .gs-dialog-card
+  // are there for anything dialog-only.
+  //
+  //   GameShell.confirm({ title: "Delete this level?", text: "…", ok: "Delete", cancel: "Keep it" },
+  //                     function (yes) { if (yes) … });
+  //   GameShell.alert({ title: "That link didn't work", text: "…" }, function () { … });
+  //   GameShell.copyBox({ title: "Copy your result", text: shareText });
+  //
+  // Each also returns a Promise (true / false for confirm). Unlike the
+  // browser's boxes they don't stop the page, so the code that should wait
+  // for the answer goes in the callback. While one is open the game under it
+  // gets no keys or clicks: Enter picks the main button, Esc the other one,
+  // Tab moves between them, and a click outside the card counts as Esc.
+  var openDialog = null;
+
+  function escHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+  }
+
+  // o: { title, text, copy, role, buttons: [{ label, key, value, main, click }] }
+  // A button's `key` ("Enter" / "Esc") is the key that presses it.
+  function showDialog(o, done) {
+    injectPauseCss();
+    if (openDialog) openDialog.dismiss();            // one at a time
+    var prevFocus = document.activeElement;
+    var resolve = null;
+    var promise = typeof Promise === "function" ? new Promise(function (r) { resolve = r; }) : null;
+
+    var el = document.createElement("div");
+    el.className = "gs-pause gs-dialog";
+    el.style.zIndex = "100001";                      // over the corner buttons and the pause card
+    el.setAttribute("role", o.role || "dialog");
+    el.setAttribute("aria-modal", "true");
+    el.setAttribute("aria-label", o.title);
+    var card = document.createElement("div");
+    card.className = "gs-pause-card gs-dialog-card" + (o.copy != null ? " gs-dialog-copy" : "");
+    var h = document.createElement("h2");
+    h.textContent = o.title;
+    card.appendChild(h);
+    if (o.text) {
+      var p = document.createElement("p");
+      p.textContent = o.text;
+      card.appendChild(p);
+    }
+    var ta = null;
+    if (o.copy != null) {
+      ta = document.createElement("textarea");
+      ta.readOnly = true;
+      ta.value = String(o.copy);
+      ta.rows = Math.min(8, ta.value.split("\n").length + 1);   // a row to spare for a wrapped link
+      ta.setAttribute("aria-label", o.title);
+      ta.addEventListener("focus", function () { ta.select(); });
+      card.appendChild(ta);
+    }
+    var row = document.createElement("div");
+    row.className = "gs-dialog-row";
+    var byKey = {}, cancelValue;
+    var btns = o.buttons.map(function (b) {
+      var bt = document.createElement("button");
+      bt.type = "button";
+      if (!b.main) bt.className = "gs-dialog-alt";
+      bt.innerHTML = escHtml(b.label) + (b.key ? ' <span class="gs-keys"><kbd class="gs-kbd">' + b.key + "</kbd></span>" : "");
+      bt.addEventListener("click", function () { if (b.click) b.click(bt, close); else close(b.value); });
+      if (b.key) byKey[b.key] = bt;
+      if (b.key === "Esc") cancelValue = b.value;
+      row.appendChild(bt);
+      return bt;
+    });
+    card.appendChild(row);
+    el.appendChild(card);
+    applyLook(el);
+    // a one-button dialog (alert) closes on Esc too
+    if (!byKey.Esc && btns.length === 1) byKey.Esc = btns[0];
+
+    // keys: nothing reaches the game while the dialog is up
+    function onKey(e) {
+      e.stopImmediatePropagation();
+      // Enter's keypress clicks the focused button, so when Enter is what
+      // opened the dialog its keypress would press the button just focused
+      // (Enter is handled on keydown instead)
+      if (e.type === "keypress") { e.preventDefault(); return; }
+      if (e.type !== "keydown") return;
+      if (e.key === "Tab") {
+        var all = (ta ? [ta] : []).concat(btns), i = all.indexOf(document.activeElement);
+        i = i < 0 ? 0 : (i + (e.shiftKey ? all.length - 1 : 1)) % all.length;
+        all[i].focus();
+        e.preventDefault();
+      } else if (e.key === "Enter" || e.key === "Escape") {
+        e.preventDefault();
+        var bt = byKey[e.key === "Enter" ? "Enter" : "Esc"];
+        if (bt && !e.repeat) bt.click();
+      }
+      // anything else keeps its default action (Space presses the focused
+      // button; Ctrl+C / Ctrl+A / the arrows work in the copy box)
+    }
+    // clicks and taps stop at the overlay; one outside the card is Esc
+    function stop(e) { e.stopPropagation(); }
+    ["pointerdown", "pointerup", "mousedown", "mouseup", "touchstart", "touchend", "wheel", "contextmenu"].forEach(function (t) {
+      el.addEventListener(t, stop, t.indexOf("touch") === 0 || t === "wheel" ? { passive: true } : false);
+    });
+    el.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (e.target === el && byKey.Esc) byKey.Esc.click();
+    });
+
+    function close(v) {
+      if (!el.parentNode) return;
+      el.parentNode.removeChild(el);
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onKey, true);
+      window.removeEventListener("keypress", onKey, true);
+      if (openDialog && openDialog.el === el) openDialog = null;
+      try { if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true }); } catch (e) {}
+      try { if (done) done(v); } catch (e) { setTimeout(function () { throw e; }); }
+      if (resolve) resolve(v);
+    }
+
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onKey, true);
+    window.addEventListener("keypress", onKey, true);
+    (document.body || document.documentElement).appendChild(el);
+    openDialog = { el: el, dismiss: function () { close(cancelValue); } };
+    if (ta) ta.focus(); else (byKey.Enter || btns[0]).focus();
+    return promise;
+  }
+
+  function confirmBox(opts, cb) {
+    opts = typeof opts === "string" ? { title: opts } : opts || {};
+    return showDialog({
+      title: opts.title || "Are you sure?",
+      text: opts.text,
+      role: "alertdialog",
+      buttons: [
+        { label: opts.cancel || "Cancel", key: "Esc", value: false },
+        { label: opts.ok || "OK", key: "Enter", value: true, main: true }
+      ]
+    }, cb);
+  }
+
+  function alertBox(opts, cb) {
+    opts = typeof opts === "string" ? { title: opts } : opts || {};
+    return showDialog({
+      title: opts.title || "",
+      text: opts.text,
+      role: "alertdialog",
+      // Esc closes it too (and is what a click outside the card presses)
+      buttons: [{ label: opts.ok || "OK", key: "Enter", value: undefined, main: true }]
+    }, function () { if (cb) cb(); });
+  }
+
+  // For when navigator.clipboard isn't allowed: the text, selected, with a
+  // Copy button (which tries the older copy command) and a Done button.
+  function copyBox(opts, cb) {
+    opts = typeof opts === "string" ? { text: opts } : opts || {};
+    var text = String(opts.text || "");
+    var apple = /Mac|iP(hone|ad|od)/.test(navigator.platform || navigator.userAgent || "");
+    return showDialog({
+      title: opts.title || "Copy your result",
+      text: opts.note,
+      copy: text,
+      buttons: [
+        { label: "Done", key: "Esc", value: false },
+        { label: "Copy", key: "Enter", main: true, click: function (bt, close) {
+          var area = bt.parentNode.parentNode.querySelector("textarea");
+          area.focus(); area.select();
+          var ok = false;
+          try { ok = document.execCommand("copy"); } catch (e) {}
+          if (ok) {
+            bt.textContent = "✓ Copied";
+            setTimeout(function () { close(true); }, 700);
+          } else {
+            bt.innerHTML = 'Press <kbd class="gs-kbd">' + (apple ? "⌘" : "Ctrl") + '</kbd>+<kbd class="gs-kbd">C</kbd>';
+          }
+        } }
+      ]
+    }, cb);
+  }
+
   function onAutoPause(fn) {
     if (typeof fn === "function") pauseHandlers.push(fn);
   }
@@ -487,6 +693,9 @@
     pausable: pausable,
     pauseButton: pauseButton,
     drawKeys: drawKeys,
+    confirm: confirmBox,
+    alert: alertBox,
+    copyBox: copyBox,
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

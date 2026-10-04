@@ -125,3 +125,6 @@ kbd {
   .card h1 { font-size: 28px; }
   .card .big { font-size: 32px; }
 }
+
+/* the shared pause card's backdrop (game-shell.js), in the berry of the frosting */
+.gs-pause { background: rgba(90, 40, 56, 0.32); }

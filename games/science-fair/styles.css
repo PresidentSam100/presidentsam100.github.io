@@ -312,3 +312,10 @@ kbd {
   .hang .tag kbd { font-size: 10px; padding: 0 4px; }
   .hang .tag small { font-size: 9px; }
 }
+
+/* the shared pause card / dialogs (game-shell.js): Schoolbell has a single
+   weight, so no faux bold */
+.gs-pause-card h2, .gs-pause-card button { font-weight: 400; }
+.gs-pause-card h2 { font-size: 1.8rem; }
+.gs-pause-card p { font-size: 1rem; }
+.gs-pause-card button { font-size: 1.15rem; }

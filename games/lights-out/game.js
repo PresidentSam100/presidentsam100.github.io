@@ -409,7 +409,8 @@
       "Shut in " + d.moves + " moves · par " + d.par + " ⌚\n" +
       location.origin + location.pathname;
     function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").textContent = "Share result"; }, 1400); }
-    function fallback() { try { window.prompt("Copy your result:", text); } catch (e) {} }
+    // (the clipboard wasn't allowed: show the result to copy, in the game's own look)
+    function fallback() { if (window.GameShell) GameShell.copyBox({ title: "Copy your result", text: text }); else try { window.prompt("Copy your result:", text); } catch (e) {} }
     if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
       navigator.share({ text: text }).catch(function (e2) { if (!e2 || e2.name !== "AbortError") fallback(); });
       return;

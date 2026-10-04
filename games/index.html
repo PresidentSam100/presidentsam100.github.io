@@ -161,6 +161,103 @@
       #reset-msg.show {
         opacity: 1;
       }
+
+      /* "reset all high scores?" — the page's own card look, not the browser's box */
+      #reset-dialog {
+        width: min(92vw, 400px);
+        padding: 0;
+        background: #111;
+        color: #fff;
+        border: 1px solid #3a1f1f;
+        border-radius: 12px;
+        box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.75);
+        font-family: inherit;
+      }
+
+      #reset-dialog::backdrop {
+        background: rgba(0, 0, 0, 0.62);
+      }
+
+      #reset-dialog .dialog-card {
+        padding: 1.35rem 1.5rem 1.25rem;
+      }
+
+      #reset-dialog h2 {
+        margin: 0 0 0.5rem;
+        font-size: 1.15rem;
+        font-weight: 700;
+      }
+
+      #reset-dialog p {
+        margin: 0 0 1.25rem;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        color: #999;
+      }
+
+      #reset-dialog .dialog-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.6rem;
+      }
+
+      #reset-dialog button {
+        cursor: pointer;
+        background: #111;
+        border-radius: 8px;
+        padding: 0.55rem 1rem;
+        font-family: inherit;
+        font-size: 0.9rem;
+        font-weight: 600;
+        transition: border-color 0.18s ease, background 0.18s ease;
+      }
+
+      #reset-dialog .dialog-cancel {
+        color: #ccc;
+        border: 1px solid #2a2a2a;
+      }
+
+      #reset-dialog .dialog-cancel:hover {
+        border-color: #666;
+        background: #161616;
+      }
+
+      #reset-dialog .dialog-ok {
+        color: #ff6b6b;
+        border: 1px solid #3a1f1f;
+      }
+
+      #reset-dialog .dialog-ok:hover {
+        border-color: #ff6b6b;
+        background: #1a1111;
+      }
+
+      #reset-dialog kbd {
+        display: inline-block;
+        box-sizing: border-box;
+        min-width: 1.6em;
+        margin-left: 0.35em;
+        padding: 0.12em 0.4em 0.1em;
+        font-family: inherit;
+        font-size: 0.78em;
+        font-weight: 700;
+        line-height: 1.15;
+        text-align: center;
+        color: inherit;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid currentColor;
+        border-bottom-width: 2px;
+        border-radius: 0.3em;
+        opacity: 0.8;
+      }
+
+      /* touch-only devices have no keyboard to press them on */
+      @media (hover: none) {
+        #reset-dialog kbd {
+          display: none;
+        }
+      }
     </style>
 
     <!-- Google tag (gtag.js) -->
@@ -192,6 +289,19 @@
           <button id="reset-scores" type="button">🗑️ reset all high scores</button>
           <span id="reset-msg" role="status" aria-live="polite"></span>
         </div>
+        <dialog id="reset-dialog" aria-labelledby="reset-dialog-title">
+          <div class="dialog-card">
+            <h2 id="reset-dialog-title">Reset all saved high scores?</h2>
+            <p>
+              This clears every game's high scores stored on this
+              browser / device. Nobody else is affected.
+            </p>
+            <div class="dialog-row">
+              <button type="button" class="dialog-cancel" data-v="no">Cancel <kbd>Esc</kbd></button>
+              <button type="button" class="dialog-ok" data-v="yes">Reset scores <kbd>Enter</kbd></button>
+            </div>
+          </div>
+        </dialog>
       </div>
 
       <div class="games-grid">
@@ -630,17 +740,46 @@
         var btn = document.getElementById("reset-scores");
         var msg = document.getElementById("reset-msg");
 
+        var dlg = document.getElementById("reset-dialog");
+
+        // Ask first, in the page's own dialog (Enter resets, Esc or a click
+        // outside cancels); the browser's confirm() only where <dialog> isn't
         btn.addEventListener("click", function () {
-          if (
-            !window.confirm(
-              "Reset all saved high scores for every game?\n\n" +
-                "This only clears scores stored on THIS browser/device — " +
-                "nobody else is affected."
-            )
-          ) {
+          if (typeof dlg.showModal !== "function") {
+            if (
+              window.confirm(
+                "Reset all saved high scores for every game?\n\n" +
+                  "This only clears scores stored on THIS browser/device — " +
+                  "nobody else is affected."
+              )
+            ) {
+              resetScores();
+            }
             return;
           }
+          dlg.returnValue = "";
+          dlg.showModal();
+          dlg.querySelector(".dialog-ok").focus();
+        });
 
+        if (typeof dlg.showModal === "function") {
+          dlg.addEventListener("click", function (e) {
+            var b = e.target.closest ? e.target.closest("[data-v]") : null;
+            if (b) dlg.close(b.getAttribute("data-v"));
+            else if (e.target === dlg) dlg.close("no"); // the backdrop
+          });
+          dlg.addEventListener("keydown", function (e) {
+            if (e.key === "Enter" && !e.repeat) {
+              e.preventDefault();
+              dlg.close("yes");
+            }
+          });
+          dlg.addEventListener("close", function () {
+            if (dlg.returnValue === "yes") resetScores();
+          });
+        }
+
+        function resetScores() {
           var removed = 0;
           try {
             // Collect first, then remove (removing while iterating shifts indexes).
@@ -666,7 +805,7 @@
           setTimeout(function () {
             msg.classList.remove("show");
           }, 4000);
-        });
+        }
       })();
     </script>
   </body>
