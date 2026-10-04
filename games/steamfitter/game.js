@@ -215,6 +215,7 @@
   var srcR, srcC, srcDir;
   var water, countdown, ffHeld = false;
   var doneSegs, particles, hoverRC = null;
+  var spillAt = null;   // {x, y} where the water spilled; its puddle stays until the board resets
   var bannerTimer = 0;
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
 
@@ -268,7 +269,7 @@
     queueSel = 0;
     for (var q = 0; q < 5; q++) queue.push(rndPiece());
     water = null;
-    doneSegs = [];
+    doneSegs = []; spillAt = null;
     distance = 0;
     goal = 6 + level * 2;
     countdown = Math.max(5, 15 - level);
@@ -336,7 +337,7 @@
       var pk = cells[(Math.random() * cells.length) | 0], pc = grid[pk.r][pk.c];
       if (pc.type !== "J") pc.type = ROT[pc.type];
     }
-    water = null; doneSegs = []; distance = 0; goal = pathLen;
+    water = null; doneSegs = []; spillAt = null; distance = 0; goal = pathLen;
     moves = 0; flowing = false; countdown = 0;
     document.getElementById("level").textContent = level;
     refreshHud();
@@ -618,6 +619,7 @@
   function spill(pt) {
     water = null;
     sfxSpill();
+    spillAt = { x: pt.x, y: pt.y };   // the puddle, in both modes; the spray below is Visual FX only
     for (var i = 0; i < (reduced() ? 0 : 26); i++) {
       var a = Math.random() * Math.PI * 2, sp = 40 + Math.random() * 180;
       particles.push({ x: pt.x, y: pt.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 120, t: 0, life: 0.6 + Math.random() * 0.4, col: "#57d9cf", s: 2 + Math.random() * 3 });
@@ -657,7 +659,26 @@
     }
   }
   function scorePop(r, c, txt) {
-    particles.push({ x: OX + c * TS + TS / 2, y: OY + r * TS, vx: 0, vy: -30, t: 0, life: 0.8, txt: txt });
+    particles.push({ x: OX + c * TS + TS / 2, y: OY + r * TS, y0: OY + r * TS, vx: 0, vy: -30, t: 0, life: 0.8, txt: txt });
+  }
+  // The spill, drawn still in both modes: a puddle with a crown of drops at
+  // the spot the water got out. It stays until the next board.
+  function drawSpill(g, s) {
+    g.save();
+    g.translate(s.x, s.y);
+    g.fillStyle = "rgba(46,169,160,0.88)";
+    g.beginPath();
+    g.ellipse(0, 6, 24, 11, 0, 0, 7);
+    g.ellipse(-14, 2, 12, 8, -0.3, 0, 7);
+    g.ellipse(13, 3, 13, 7, 0.25, 0, 7);
+    g.fill();
+    g.fillStyle = "rgba(140,238,230,0.8)";
+    g.beginPath(); g.ellipse(-4, 3, 9, 3.5, 0, 0, 7); g.fill();
+    g.fillStyle = "#57d9cf";
+    [[-17, -12, 3.2], [-8, -19, 2.6], [3, -22, 3.4], [13, -16, 2.6], [20, -8, 2.2]].forEach(function (d) {
+      g.beginPath(); g.arc(d[0], d[1], d[2], 0, 7); g.fill();
+    });
+    g.restore();
   }
 
   // ---- update -------------------------------------------------------------------
@@ -777,9 +798,9 @@
     g.moveTo(-11, 0); g.lineTo(11, 0);
     g.moveTo(0, -11); g.lineTo(0, 11);
     g.stroke();
-    // pre-flow arrow pulses at the spout
+    // pre-flow arrow pulses at the spout (with Visual FX off it stays lit, steady)
     if (!water && state === "play" && countdown > 0) {
-      var a = 0.4 + 0.4 * Math.sin(performance.now() / 250);
+      var a = reduced() ? 0.75 : 0.4 + 0.4 * Math.sin(performance.now() / 250);
       g.fillStyle = "rgba(87,217,207," + a.toFixed(2) + ")";
       g.save();
       g.translate(p[0] * 1.35, p[1] * 1.35);
@@ -868,15 +889,19 @@
       ctx.strokeStyle = "rgba(240,201,106,0.85)"; ctx.lineWidth = 3;
       ctx.strokeRect(OX + hoverRC.c * TS + 2, OY + hoverRC.r * TS + 2, TS - 4, TS - 4);
     }
+    if (spillAt) drawSpill(ctx, spillAt);
     // particles + score pops
     for (i = 0; i < particles.length; i++) {
       var p = particles[i], k = p.t / p.life;
       if (p.txt) {
-        ctx.globalAlpha = 1 - k;
+        // a score pop rises and fades; with Visual FX off it holds still and
+        // solid where it appeared until its life runs out (update() drops it)
+        var still = reduced();
+        ctx.globalAlpha = still ? 1 : 1 - k;
         ctx.fillStyle = "#e8b64c";
         ctx.font = "700 20px 'Saira Condensed', sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(p.txt, p.x, p.y);
+        ctx.fillText(p.txt, p.x, still ? p.y0 : p.y);
       } else {
         ctx.globalAlpha = (1 - k) * (p.steam ? 0.5 : 0.9);
         ctx.fillStyle = p.col;
@@ -1134,7 +1159,7 @@
     var _fp = findFlowPath(); goal = _fp ? _fp.length : 0;
     scrambleGrid(((idx + 1) * 2654435761) % 2147483647);
     curLevel = idx; isCustom = !!custom; editing = false;
-    water = null; doneSegs = []; particles = []; distance = 0; moves = 0; flowing = false; countdown = 0;
+    water = null; doneSegs = []; spillAt = null; particles = []; distance = 0; moves = 0; flowing = false; countdown = 0;
     state = "play";
     document.getElementById("level").textContent = custom ? "★" : (idx + 1);
     hideSelect();
@@ -1147,7 +1172,7 @@
 
   // ---- level select ----
   function showSelect() {
-    state = "select"; editing = false; water = null; doneSegs = [];
+    state = "select"; editing = false; water = null; doneSegs = []; spillAt = null;
     document.body.dataset.screen = "select";
     buildSelectDOM();
     document.getElementById("levelSelect").classList.remove("hidden");
@@ -1193,7 +1218,7 @@
       document.getElementById("editName").value = "";
     }
     findEdges();
-    water = null; doneSegs = []; particles = []; distance = 0; goal = 0;
+    water = null; doneSegs = []; spillAt = null; particles = []; distance = 0; goal = 0;
     document.getElementById("editor").classList.remove("hidden");
     setEditTool("bend"); editMsg("Drag a pipe onto the grid, then click it to rotate. Save or Test when it connects.");
   }
@@ -1232,7 +1257,7 @@
     document.getElementById("editName").value = editStash.n || "";
     editCustomIdx = editStash.idx;
     findEdges();
-    water = null; doneSegs = []; particles = []; distance = 0; goal = 0;
+    water = null; doneSegs = []; spillAt = null; particles = []; distance = 0; goal = 0;
     document.getElementById("editor").classList.remove("hidden");
     document.getElementById("overScreen").classList.add("hidden");
     setEditTool("bend"); editMsg(msg || "Back in the editor.");
@@ -1329,6 +1354,8 @@
     get queueSel() { return queueSel; },
     get panicPick() { return panicPick; },
     get drainR() { return drainR; },
+    get spillAt() { return spillAt; },
+    get particles() { return particles; },
     startNow: function () { countdown = 0.01; },
     reset: reset,
     levelCount: LV.length,

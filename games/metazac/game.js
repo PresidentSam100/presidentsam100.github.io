@@ -315,10 +315,15 @@
     return false;
   }
 
+  var wrongT = 0;
   function flashWrong() {
     input.classList.remove("wrong");
     void input.offsetWidth; // restart animation
     input.classList.add("wrong");
+    // FX off has no shake, so no animationend to clear the red: a timer does
+    // (with FX on, animationend has already cleared it by then)
+    clearTimeout(wrongT);
+    wrongT = setTimeout(function () { input.classList.remove("wrong"); }, 450);
   }
 
   // --- loop ---
@@ -861,6 +866,7 @@
   }
 
   function powerReady() { return power.left === 0 && power.cd === 0; }
+  var nopeT = 0;
   function usePower() {
     if (state !== "playing" || PAUSE.isPaused()) return;
     if (!powerReady()) {
@@ -868,6 +874,9 @@
       powerBtn.classList.remove("nope");
       void powerBtn.offsetWidth;
       powerBtn.classList.add("nope");
+      // FX off shows .nope as a held red ring (styles.css), so it comes off on a timer
+      clearTimeout(nopeT);
+      nopeT = setTimeout(function () { powerBtn.classList.remove("nope"); }, 450);
       return;
     }
     power.left = POWER_SHOTS;

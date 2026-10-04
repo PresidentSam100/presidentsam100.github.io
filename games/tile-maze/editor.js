@@ -191,9 +191,12 @@
       from: tstate ? { r: tstate.r, c: tstate.c } : null, // tile the player is leaving (midpoint speed blend)
       setFlavor,
       sfx: SFX,
+      tileEl: (r, c) => edBoard.children[r * cols + c],
+      // with Visual FX off the zapped tile holds still and lit, a little longer
       flashTile: (r, c) => {
         const el = edBoard.children[r * cols + c];
-        if (el) { el.classList.add("zapping"); setTimeout(() => el.classList.remove("zapping"), 340); }
+        const ms = window.RM_ON && window.RM_ON() ? 500 : 340;
+        if (el) { el.classList.add("zapping"); clearTimeout(el._zapT); el._zapT = setTimeout(() => el.classList.remove("zapping"), ms); }
       },
     };
   }
@@ -206,7 +209,10 @@
     if (A) await A.play(tCtx(), res);
     else placePlayer(res.final.r, res.final.c, false);
     tstate = res.final; setFlavor(tstate.flavor); refreshLive();
-    if (A && res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(), dir, tstate); }
+    if (A && res.hitWall && !res.win) {
+      if (!(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(), dir, tstate); }
+      else if (A.markBump) A.markBump(playerEl, dir);   // FX off: no nudge or lock, but the wall side is marked
+    }
     tlocked = false;
     if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; setTimeout(() => { testOverlay.hidden = false; }, 250); }
   }

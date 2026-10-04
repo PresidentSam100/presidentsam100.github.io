@@ -217,10 +217,13 @@
       from: { r: state.r, c: state.c }, // tile the player is leaving (for midpoint speed blend)
       setFlavor,
       sfx: SFX,
-      // briefly light up the electric tile that zapped you
+      tileEl: (r, c) => boardEl.children[r * grid[0].length + c],
+      // briefly light up the electric tile that zapped you (with Visual FX
+      // off it holds still and lit, a little longer: 500 ms)
       flashTile: (r, c) => {
         const el = boardEl.children[r * grid[0].length + c];
-        if (el) { el.classList.add("zapping"); setTimeout(() => el.classList.remove("zapping"), 340); }
+        const ms = window.RM_ON && window.RM_ON() ? 500 : 340;
+        if (el) { el.classList.add("zapping"); clearTimeout(el._zapT); el._zapT = setTimeout(() => el.classList.remove("zapping"), ms); }
       },
     };
   }
@@ -253,10 +256,13 @@
 
     // A slide that traveled and then stopped against a wall (e.g. ice into a red
     // block) should bump into it and settle back. Only with motion enabled —
-    // when reduced, skip the nudge (and its brief input lock).
-    if (A && res.hitWall && !res.win && !(window.RM_ON && window.RM_ON())) {
-      SFX.thud();
-      await A.bump(animCtx(), dir, state);
+    // when reduced, skip the nudge (and its brief input lock), but still mark
+    // the wall side of the ball, as a blocked move does.
+    if (A && res.hitWall && !res.win) {
+      if (!(window.RM_ON && window.RM_ON())) {
+        SFX.thud();
+        await A.bump(animCtx(), dir, state);
+      } else if (A.markBump) A.markBump(playerEl, dir);
     }
 
     locked = false;

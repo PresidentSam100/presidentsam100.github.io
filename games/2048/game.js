@@ -162,6 +162,9 @@
     else if (anim === "pop") el.style.zIndex = "3";
     placeEl(t); // first placement on a fresh node does not transition
     if (anim) inner.classList.add(anim);
+    // .is-new / .is-merged mark what the last move added, until the next
+    // move; only drawn with Visual FX off, where nothing pops in (styles.css)
+    if (anim === "appear") inner.classList.add("is-new");
     return t;
   }
 
@@ -189,7 +192,7 @@
       if (m && m.inner && m.el.parentNode) {
         m.inner.style.opacity = "";   // reveal the merged tile
         m.el.style.zIndex = "3";
-        m.inner.classList.add("pop");
+        m.inner.classList.add("pop", "is-merged");
       }
     }
     pendingMerges = [];
@@ -298,6 +301,10 @@
 
     if (!moved) return;
 
+    // a real move (a blocked swipe keeps them): the last move's new / merged
+    // marks give way to this one's
+    for (var k in tiles) tiles[k].inner.classList.remove("is-new", "is-merged");
+
     if (gained > 0) playMerge(); else playMove(); // merge vs plain slide
 
     score += gained;
@@ -325,12 +332,20 @@
   }
 
   // Set a score field and give it a little pop — but only when the value
-  // actually changes, and not when Visual FX is off (reduce motion).
+  // actually changes. With Visual FX off there's no pop: the field is marked
+  // .chg (a steady darker backing, styles.css) for CHG_MS instead; each new
+  // change re-arms the timer, so quick moves hold it rather than blink it.
+  var CHG_MS = 600;
   function popUpdate(el, v) {
     v = String(v);
     if (el.textContent === v) return;
     el.textContent = v;
-    if (window.RM_ON && window.RM_ON()) return;
+    if (window.RM_ON && window.RM_ON()) {
+      el.classList.add("chg");
+      clearTimeout(el._chgTimer);
+      el._chgTimer = setTimeout(function () { el.classList.remove("chg"); }, CHG_MS);
+      return;
+    }
     el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
   }
 

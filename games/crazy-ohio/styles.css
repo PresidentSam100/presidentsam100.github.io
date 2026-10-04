@@ -117,6 +117,9 @@ section[hidden] { display: none; }
 .judge.good { color: var(--warn); }
 .judge.ok { color: var(--muted); }
 .judge.miss { color: var(--bad); }
+/* Visual FX off: judgePop would jump to its last frame (opacity 0), so the label
+   holds still, fully shown, until game.js removes it after 620ms */
+html.fx-off .judge { animation: none; }
 
 .timebar { width: min(94vw, 420px); height: 6px; background: var(--panel); border-radius: 999px; overflow: hidden; }
 .timebar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--violet), var(--pink)); transform-origin: left; transition: transform .08s linear; }

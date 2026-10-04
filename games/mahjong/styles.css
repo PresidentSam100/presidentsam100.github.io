@@ -105,6 +105,11 @@ button.tile:focus { outline: none; }
 button.tile.free:focus-visible { outline: 3px dashed var(--inkblue); outline-offset: 2px; }
 
 body:not(.fxon) button.tile { transition: none !important; animation: none !important; }
+/* With Visual FX off (no tile animations, above) a hint holds the glow at its
+   peak and a blocked tile gets a red edge, until game.js clears the class
+   (1.65s / 450ms) */
+body:not(.fxon) button.tile.hintg { filter: brightness(1.25) drop-shadow(0 0 10px rgba(201, 162, 75, 0.9)); outline: 3px solid var(--gold); outline-offset: -1px; }
+body:not(.fxon) button.tile.shake { outline: 3px solid var(--lacquer); outline-offset: -1px; }
 
 /* a plum-blossom branch in the corner, painted in CSS */
 .blossom { position: fixed; right: -30px; bottom: -20px; width: 220px; height: 190px; pointer-events: none; opacity: 0.85; z-index: 1;

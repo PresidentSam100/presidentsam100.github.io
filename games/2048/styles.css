@@ -193,6 +193,13 @@
       transform-origin: right center;
     }
     .score-box .val.pop { animation: pop 0.18s ease; }
+    /* Visual FX off: no pop, so a changed number holds a darker backing on
+       the glass for a moment instead (game.js adds .chg, then clears it) */
+    html.fx-off .score-box .val.chg {
+      background: rgba(31, 42, 25, 0.16);
+      box-shadow: 0 0 0 3px rgba(31, 42, 25, 0.16), inset 0 -2px 0 rgba(31, 42, 25, 0.6);
+      border-radius: 2px;
+    }
 
     .subtitle {
       margin: 0;
@@ -373,6 +380,30 @@
       100% {
         transform: scale(1);
       }
+    }
+    /* Visual FX off: nothing pops in, so the keys the last move added stay
+       marked until the next move (game.js sets the classes): a merged key
+       gets a lit ring round it, a new key a lit LED in its corner */
+    html.fx-off .tile-inner.is-merged::after {
+      content: "";
+      position: absolute;
+      inset: -5px;
+      border: 2px solid #d8ff8a;
+      border-radius: 15px;
+      box-shadow: 0 0 8px rgba(198, 240, 106, 0.6);
+      pointer-events: none;
+    }
+    html.fx-off .tile-inner.is-new::after {
+      content: "";
+      position: absolute;
+      top: 6px;
+      right: 7px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #d8ff8a;
+      box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.45), 0 0 6px #c6f06a;
+      pointer-events: none;
     }
 
     /* Key colours, a pair per hue with a clear light/dark step inside each

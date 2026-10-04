@@ -299,6 +299,7 @@
   let shake = 0, flash = 0, flashColor = "255,61,240";
   let kickbackLit = true, kickbackFlash = 0;
   let skillLane = -1, skillUntil = 0;
+  let skillDrawn = "";   // how the last frame drew the skill lane (test hook)
   let comboAt = 0, comboN = 0;
   let extraBalls = 0, extraAwarded = 0;
   const EXTRA_AT = [200000, 600000];
@@ -638,8 +639,10 @@
   }
   function flipHint() {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    if (state === "ready") { $("flipHint").innerHTML = coarse ? "" : 'Hold <kbd class="gs-kbd">Space</kbd>, release to launch — hit the flashing lane'; if (coarse) $("launchBtn").classList.add("show"); }
+    // with Visual FX off the skill lane is outlined, not flashing
+    if (state === "ready") { $("flipHint").innerHTML = coarse ? "" : 'Hold <kbd class="gs-kbd">Space</kbd>, release to launch — hit the ' + (reduced() ? "outlined" : "flashing") + " lane"; if (coarse) $("launchBtn").classList.add("show"); }
   }
+  window.addEventListener("reducemotionchange", () => { if (state === "ready") flipHint(); });
 
   // ---------- render ----------
   function draw() {
@@ -673,13 +676,24 @@
     ctx.beginPath(); ctx.moveTo(386, 712); ctx.lineTo(304, 700); ctx.lineTo(244, 752); ctx.lineTo(386, 752); ctx.closePath(); ctx.fill();
 
     // top rollover lanes: lamps in real channels (the guides are walls)
+    skillDrawn = "";
     T.lanes.forEach((l, i) => {
       const isSkill = state === "play" && i === skillLane && now < skillUntil;
+      // Visual FX off: the skill lane can't flash, so it holds a cyan channel
+      // in a dashed cyan frame instead, told apart from the lanes merely lit
+      // (its lamp still shows whether it's lit)
+      const steadySkill = isSkill && reduced();
       const on = l.lit || (isSkill && blinkOn);
-      ctx.fillStyle = on ? "rgba(255,210,63,0.25)" : "rgba(255,255,255,0.04)";
+      ctx.fillStyle = steadySkill ? "rgba(54,245,255,0.22)" : on ? "rgba(255,210,63,0.25)" : "rgba(255,255,255,0.04)";
       ctx.fillRect(l.cx - l.hw, l.y - l.h / 2, l.hw * 2, l.h);
+      if (steadySkill) {
+        ctx.strokeStyle = "#36f5ff"; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+        ctx.strokeRect(l.cx - l.hw + 1, l.y - l.h / 2 + 1, l.hw * 2 - 2, l.h - 2);
+        ctx.setLineDash([]);
+        skillDrawn = "steady:" + i;
+      } else if (isSkill) skillDrawn = (blinkOn ? "flash-on:" : "flash-off:") + i;
       ctx.shadowColor = th.glow; ctx.shadowBlur = on ? 10 : 0;
-      ctx.fillStyle = on ? th.lane : "#534a73";
+      ctx.fillStyle = steadySkill && !l.lit ? "#36f5ff" : on ? th.lane : "#534a73";
       ctx.beginPath(); ctx.arc(l.cx, l.y - l.h / 2 + 8, 4, 0, 7); ctx.fill();
       ctx.shadowBlur = 0;
     });
@@ -894,7 +908,7 @@
 
   // ---------- test hooks (not used by play) ----------
   window.NeonPinball = {
-    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured })), kickbackLit, skillLane, multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
+    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured })), kickbackLit, skillLane, skillDrawn, skillLeft: Math.max(0, Math.round(skillUntil - performance.now())), multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
     start: startGame,
     place: (x, y, vx, vy) => { const b = balls[0]; if (!b) return; b.inLane = false; b.captured = null; b.x = x; b.y = y; b.vx = vx || 0; b.vy = vy || 0; if (state === "ready") state = "play"; },
     flip: (side, up) => setFlip(side, up),

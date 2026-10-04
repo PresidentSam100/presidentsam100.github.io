@@ -378,22 +378,25 @@
         bctx.fillStyle = "rgba(239,230,210," + (1 - age).toFixed(3) + ")";
         bctx.fillRect(gx + dx * cell + 1, gy + dy * cell + 1, cell - 1, cell - 1);
       }
-      for (var fl = flashes.length - 1; fl >= 0; fl--) {
-        var F = flashes[fl], fa = (t - F.t0) / 450;
-        if (fa > 1) { flashes.splice(fl, 1); continue; }
-        var fxx = F.i % cur.w, fyy = Math.floor(F.i / cur.w);
-        bctx.fillStyle = "rgba(196,62,44," + (0.5 * (1 - fa)).toFixed(3) + ")";
-        bctx.fillRect(gx + fxx * cell, gy + fyy * cell, cell, cell);
-      }
     }
-    // The cost of a fogged cell drifts up off it.
+    // A fogged cell blushes red: it fades out with Visual FX on, and holds
+    // still at full strength for the same 450 ms with it off.
+    for (var fl = flashes.length - 1; fl >= 0; fl--) {
+      var F = flashes[fl], fa = (t - F.t0) / 450;
+      if (fa > 1) { flashes.splice(fl, 1); continue; }
+      var fxx = F.i % cur.w, fyy = Math.floor(F.i / cur.w);
+      bctx.fillStyle = "rgba(196,62,44," + (0.5 * (f ? 1 - fa : 1)).toFixed(3) + ")";
+      bctx.fillRect(gx + fxx * cell, gy + fyy * cell, cell, cell);
+    }
+    // The cost of a fogged cell drifts up off it (with Visual FX off it holds
+    // still and solid on the cell for its 1.1 s).
     for (var ft = floats.length - 1; ft >= 0; ft--) {
       var FL = floats[ft], fla = (t - FL.t0) / 1100;
       if (fla > 1) { floats.splice(ft, 1); continue; }
       var flx = FL.i % cur.w, fly = Math.floor(FL.i / cur.w);
       bctx.font = "700 " + Math.max(11, Math.round(cell * 0.5)) + "px 'Special Elite', ui-monospace, monospace";
       bctx.textAlign = "center";
-      bctx.fillStyle = "rgba(196,62,44," + (1 - fla).toFixed(3) + ")";
+      bctx.fillStyle = "rgba(196,62,44," + (f ? 1 - fla : 1).toFixed(3) + ")";
       bctx.fillText("+0:30", gx + flx * cell + cell / 2, gy + fly * cell + cell * 0.55 - (f ? fla * cell * 0.9 : 0));
     }
     // Keyboard cursor.
@@ -652,7 +655,8 @@
     state: function () {
       return { screen: screen, id: cur && (cur.isDaily ? "daily" : cur.p.id), won: !!(cur && cur.won),
         filled: cur && cur.filled, ink: cur && cur.ink, fog: cur && cur.fog, ms: cur && Math.round(cur.ms),
-        paused: P.isPaused(), cells: cur ? cur.cells.join("") : "" };
+        paused: P.isPaused(), cells: cur ? cur.cells.join("") : "",
+        flashes: flashes.length, floats: floats.length };
     },
     art: function () { return cur ? cur.p.rows : null; },
     cellRect: function (x, y) {

@@ -439,8 +439,11 @@
   }
 
   // ---- draw ---------------------------------------------------------------------------------
+  // What the last frame drew for cues that differ with Visual FX off (test hook).
+  var cues = { escapeWarn: [] };
   function draw(t) {
     var f = fx();
+    cues.escapeWarn = [];
     Art.scene(ctx, W, H, t, f);
     if (state === "menu") Art.boat(ctx, W * 0.82, waterY + (H - waterY) * 0.22, Math.max(0.6, Math.min(1.3, H / 640)));
     var playing = state === "play" || state === "ending";
@@ -453,8 +456,16 @@
         if (s.what === "junk") Art.junk(ctx, s.x, s.y + s.r * 0.3, s.r * 1.5, t);
         else {
           Art.shadowFish(ctx, s.x + s.r * 0.2, s.y + s.r * 0.7, s.r * (s.what === "golden" ? 1.5 : 1.8), t);
-          // The last moment flashes: it's about to get away.
-          if (s.dur - s.t < 0.35 && f && Math.floor(t / 90) % 2 === 0) Art.ring(ctx, s.x, s.y, s.r * 2.1, 0.7);
+          // The last moment flashes: it's about to get away. With Visual FX
+          // off the same ring holds steady and dashed instead of blinking.
+          if (s.dur - s.t < 0.35) {
+            if (!f) {
+              ctx.setLineDash([s.r * 0.35, s.r * 0.25]);
+              Art.ring(ctx, s.x, s.y, s.r * 2.1, 0.7);
+              ctx.setLineDash([]);
+              cues.escapeWarn.push(i);
+            } else if (Math.floor(t / 90) % 2 === 0) Art.ring(ctx, s.x, s.y, s.r * 2.1, 0.7);
+          }
         }
       }
       if (s.what !== "junk" || s.phase !== "bite") Art.bobber(ctx, s.x, s.y, s.r * 0.55, dip, 0, t);
@@ -540,5 +551,7 @@
     tickSpot: function (i, dt) { var s = spots[i]; s.t += dt; },
     setTime: function (v) { timeLeft = v; },
     geometry: function () { return spots.map(function (s) { return { x: s.x, y: s.y, r: s.r }; }); },
+    // spots whose steady (Visual FX off) escape warning was drawn last frame
+    cues: function () { return { escapeWarn: cues.escapeWarn.slice() }; },
   };
 })();

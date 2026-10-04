@@ -388,6 +388,9 @@
     if (!isFree(pos, i, live)) {
       var el = els[i];
       el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+      // FX off shows .shake as a held red edge (styles.css), so a timer takes it off
+      clearTimeout(el.shakeT);
+      el.shakeT = setTimeout(function () { el.classList.remove("shake"); }, 450);
       thunk();
       return;
     }
@@ -447,6 +450,10 @@
     pr.forEach(function (i) {
       var el = els[i];
       el.classList.remove("hintg"); void el.offsetWidth; el.classList.add("hintg");
+      // FX off holds the glow still (styles.css): it comes off once the two
+      // 0.8s pulses would have finished
+      clearTimeout(el.hintT);
+      el.hintT = setTimeout(function () { el.classList.remove("hintg"); }, 1650);
     });
     hud();
   }

@@ -174,6 +174,12 @@ body {
   0%, 40%, 80% { filter: drop-shadow(0 0 7px #ffd166) brightness(1.9); }
   20%, 60%, 100% { filter: none; }
 }
+/* Visual FX off: no blink — the scorer's rod just stays lit for the same
+   0.95s (game.js removes the class on a timer) */
+html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
+  animation: none;
+  filter: drop-shadow(0 0 7px #ffd166) brightness(1.9);
+}
 /* the match ends: winner's ear glows green, loser's smoulders red */
 .antenna.win-l::before, .antenna.win-r::after {
   --tipL: #58e08a; --tipR: #58e08a;

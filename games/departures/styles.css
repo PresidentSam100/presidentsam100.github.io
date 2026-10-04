@@ -91,6 +91,9 @@ body {
 }
 .fxon .gate.pulse { animation: gatepulse 0.4s ease; }
 @keyframes gatepulse { 0% { background: #2a2416; } 100% { background: var(--board); } }
+/* Visual FX off: the gate holds the pulse's warm tint, still, until game.js
+   clears .pulse (450ms) */
+body:not(.fxon) .gate.pulse { background: #2a2416; }
 .gate.done { border-color: var(--green); }
 .gate.done .rname { color: var(--green); }
 .gate.done .rcount { color: var(--green); }
@@ -125,6 +128,10 @@ body {
   from { transform: scaleY(0.1); filter: brightness(2); }
   to { transform: scaleY(1); }
 }
+/* Visual FX off: no flap, so a country just named holds amber on a lit row
+   until game.js clears .fresh (800ms) */
+body:not(.fxon) #log li.fresh { background: rgba(255, 201, 77, 0.08); }
+body:not(.fxon) #log li.fresh .dest { color: var(--amber); }
 /* the idle board hint */
 #log .idle {
   border: 0; color: var(--muted); font-weight: 400; letter-spacing: 2px;
@@ -152,6 +159,9 @@ body {
 #answer::placeholder { color: #5a5f66; text-transform: none; }
 #answer.shake { animation: shake 0.3s ease; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(4px); } }
+/* Visual FX off: no shake, so a name the board doesn't know turns the box red
+   until game.js clears .shake (500ms) */
+body:not(.fxon) #answer.shake { animation: none; color: var(--red); border-color: var(--red); }
 #hint { font-size: 13px; color: var(--amber); white-space: nowrap; }
 #hint kbd { font-family: inherit; border: 1px solid var(--amber-dim); border-radius: 4px; padding: 0 5px; }
 #giveup {

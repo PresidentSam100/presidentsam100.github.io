@@ -97,6 +97,8 @@ body {
 .card .tag { color: var(--muted); font-style: italic; margin: 4px 0 12px; }
 .card .how { font-size: 14.5px; line-height: 1.55; margin-bottom: 10px; }
 .card .how b { color: var(--glow); }
+/* the sweep is Visual FX on only; with it off the help names the wall marks */
+html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
 .card .keys { font-size: 12.5px; line-height: 2; color: var(--muted); margin-bottom: 12px; }
 
 kbd {

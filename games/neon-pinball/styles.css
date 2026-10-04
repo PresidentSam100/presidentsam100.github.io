@@ -64,6 +64,9 @@ canvas#pf { display: block; width: auto; height: 100%; max-width: 100%; border-r
 .mc-name { display: block; font-weight: 900; letter-spacing: 1.5px; font-size: 15px; color: var(--mc); }
 .mc-desc { display: block; font-size: 10.5px; color: var(--muted); margin-top: 3px; line-height: 1.5; }
 .big { font-size: 14px; color: var(--muted); }
+/* the skill lane flashes with Visual FX on and is outlined with it off,
+   so the start card names whichever one the table draws */
+html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
 .final { font-size: 52px; font-weight: 900; color: var(--cyan); font-variant-numeric: tabular-nums; text-shadow: 0 0 20px rgba(54,245,255,.5); margin: 6px 0; }
 .btn { cursor: pointer; pointer-events: auto; border: none; border-radius: 10px; font-family: inherit; font-weight: 900; letter-spacing: 2px;
   font-size: 17px; color: #08121a; padding: 14px 40px; background: linear-gradient(180deg, var(--cyan), #1aa6cf);

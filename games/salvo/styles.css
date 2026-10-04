@@ -96,8 +96,8 @@ header.top::after {
     radial-gradient(circle closest-side, #0f4428 0%, #0a2c19 72%, #05190d 99.5%, #020a05 100%);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5), inset 0 0 18px rgba(0, 0, 0, 0.6);
 }
-/* the sweep: one wedge turning over the screen. Transform only; the Visual
-   FX toggle stops it where it is. Above the cells but never takes a click. */
+/* the sweep: one wedge turning over the screen. Transform only. Above the
+   cells but never takes a click. */
 .grid.enemy::after {
   content: ""; position: absolute; pointer-events: none; z-index: 3; border-radius: 50%;
   top: calc(var(--pad) + var(--hdr)); left: calc(var(--pad) + var(--hdr)); right: var(--pad); bottom: var(--pad);
@@ -105,6 +105,12 @@ header.top::after {
   animation: sweep 4.5s linear infinite; will-change: transform;
 }
 @keyframes sweep { to { transform: rotate(360deg); } }
+/* Visual FX off: the wedge holds still, so it goes under the cells — the
+   same beam on the screen, but never sitting over a return or the
+   last-shot mark (the hit burst it would otherwise stack under is cut
+   with FX off anyway) */
+html.fx-off .grid.enemy::after { animation: none; z-index: 0; }
+html.fx-off .grid.enemy .cell { z-index: 1; }
 
 .chead, .rhead { color: var(--label); font-size: 0.8rem; font-weight: 700; display: grid; place-items: center; }
 .corner { }
@@ -208,6 +214,10 @@ header.top::after {
 .cell.sinking { animation: sink 0.6s ease; }
 .cell.preview { outline-color: var(--good); }
 .cell.previewbad { outline-color: var(--bad); }
+/* the last shot at each grid (yours on the radar, the CPU's on your sea):
+   a dashed hazard-yellow frame, the same with Visual FX on or off, until
+   the next shot at that grid */
+.cell.last { outline: 2px dashed var(--hazard-hi); outline-offset: -2px; }
 .grid.enemy.active .cell.water { cursor: crosshair; }
 .grid.enemy.active .cell.water:hover { background-color: rgba(125, 255, 168, 0.16); outline-color: var(--radar); }
 

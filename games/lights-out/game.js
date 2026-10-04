@@ -258,13 +258,14 @@
     if (y < size - 1) affected.push(i + size);
     applyToggle(open, i, size);
     moves++;
-    // the chorus: the pressed watch swings now, neighbours follow
+    // the chorus: the pressed watch swings now, neighbours follow. With FX off
+    // the lids all snap at once, but the hinge clicks keep their ripple (five
+    // at the same instant stacked into one loud click)
+    var lidDelay = fx();
     affected.forEach(function (j, k) {
       var delay = k === 0 ? 0 : 40 + k * 34;
-      setTimeout(function () {
-        cells[j].classList.toggle("open", !!open[j]);
-        click(!open[j]);
-      }, fx() ? delay : 0);
+      setTimeout(function () { cells[j].classList.toggle("open", !!open[j]); }, lidDelay ? delay : 0);
+      setTimeout(function () { click(!open[j]); }, delay);
     });
     hud();
     if (weight(open) === 0) { win(); return; }
@@ -280,9 +281,14 @@
       if (sol.mask[i]) {
         moves++;                                           // a hint costs one move
         hud();
-        cells[i].classList.remove("glint");
-        void cells[i].offsetWidth;
-        cells[i].classList.add("glint");
+        var w = cells[i];
+        w.classList.remove("glint");
+        void w.offsetWidth;
+        w.classList.add("glint");
+        // FX off holds the glint still (styles.css), so it comes off on a timer
+        // once the three 0.9s glints would have finished
+        clearTimeout(w.glintT);
+        w.glintT = setTimeout(function () { w.classList.remove("glint"); }, 2750);
         break;
       }
     }

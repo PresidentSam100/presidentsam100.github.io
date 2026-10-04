@@ -156,6 +156,9 @@ body {
 .card.noanim { transition: none; }
 .card.drag { z-index: 900 !important; box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.6); transition: none; }
 .card.hintsrc { outline: 2px solid var(--gold); outline-offset: -2px; }
+/* Visual FX off: cards jump instead of gliding, so one that just moved wears
+   a gold rim where it landed for a moment (game.js clears it on a timer) */
+html.fx-off .card.landed { box-shadow: 0 0 0 2px var(--gold), 0 0 12px 2px rgba(233, 182, 64, 0.6); }
 .card .idx {
   position: absolute; top: 2px; left: 4px; line-height: 1;
   font-weight: 700; font-size: calc(var(--cw) * 0.23);

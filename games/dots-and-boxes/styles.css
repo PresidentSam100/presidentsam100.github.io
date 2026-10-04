@@ -105,6 +105,13 @@ button.btn:focus-visible, .opt:focus-visible { outline: 2px solid var(--ai); out
 /* line draw animation */
 .draw-anim { stroke-dasharray: 1; stroke-dashoffset: 1; animation: lineDraw .26s ease-out forwards; }
 @keyframes lineDraw { to { stroke-dashoffset: 0; } }
+/* the last road built, in both FX modes: a white pin in the builder's colour
+   at its middle, until the next move. With FX on it lands once the road has
+   drawn in; with FX off it's simply there. */
+.last-mark { fill: #fff; stroke-width: 2.5; pointer-events: none; animation: lastMarkIn .16s ease-out .26s both; }
+.last-mark.human { stroke: var(--human); } .last-mark.ai { stroke: var(--ai); }
+@keyframes lastMarkIn { from { opacity: 0; } }
+html.fx-off .last-mark { animation: none; }
 
 /* ---- pop-ups: dark glass cards ---- */
 .modal-overlay { position: fixed; inset: 0; background: rgba(4, 7, 18, 0.65); display: none;

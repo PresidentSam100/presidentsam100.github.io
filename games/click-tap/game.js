@@ -111,6 +111,7 @@
     $("padSub").textContent = "to start";
     $("hint").textContent = VERB + " the soil as fast as you can!";
     bedEl.replaceChildren();
+    clearTimeout(pressT); $("pad").classList.remove("pressed");
     show(playEl);
   }
 
@@ -124,8 +125,15 @@
     plant();
     pop(); tick(900 + Math.random() * 300);
   }
+  // Each click presses the soil in for a moment (both modes, on a timer), and
+  // with Visual FX on the pad also springs back. Kept short so a fast run
+  // still reads as separate presses, not one long hold.
+  let pressT = 0;
   function pop() {
     const p = $("pad"); p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
+    p.classList.add("pressed");
+    clearTimeout(pressT);
+    pressT = setTimeout(() => p.classList.remove("pressed"), 150);
   }
 
   function tickFrame() {

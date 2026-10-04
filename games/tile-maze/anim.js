@@ -6,7 +6,12 @@
        tiles — the first half of a step runs at the tile you're leaving, the
        second half at the tile you're entering;
      • an electric "zap" hold on yellow / live-water before the rebound;
-     • a wall "bump" (slower when you're standing in water). */
+     • a wall "bump" (slower when you're standing in water).
+   Event marks that hold still in both modes, cleared by timers (with Visual
+   FX off there's no transitionend / animationend to wait for):
+     • a bar on the side of the ball that met a wall (player[data-bump]);
+     • Visual FX off only: a slide jumps straight to its last tile, so the
+       tiles it crossed get a brief dashed trail (.tile.trail). */
 (function (root, factory) {
   const mod = factory();
   if (typeof window !== "undefined") window.TileAnim = mod;
@@ -22,6 +27,28 @@
   const ICE = 75;     // purple ice — fast (sliding)
   const ZAP = 300;    // electric zap hold before the rebound
   const REBOUND = 150;
+  const MARK = 500;   // how long the still wall-bump bar and slide trail stay
+
+  // The wall-bump bar: data-bump="up|down|left|right" on the player for MARK ms.
+  function markBump(el, dir) {
+    if (!el || !DELTA[dir]) return;
+    el.dataset.bump = dir;
+    clearTimeout(el._bumpT);
+    el._bumpT = setTimeout(() => { delete el.dataset.bump; }, MARK);
+  }
+  function clearBump(el) { clearTimeout(el._bumpT); delete el.dataset.bump; }
+
+  // The slide trail (Visual FX off): a class on each crossed tile for MARK ms.
+  function markTrail(ctx, tiles) {
+    if (!ctx.tileEl) return;
+    tiles.forEach((t) => {
+      const te = ctx.tileEl(t.r, t.c);
+      if (!te) return;
+      te.classList.add("trail");
+      clearTimeout(te._trailT);
+      te._trailT = setTimeout(() => te.classList.remove("trail"), MARK);
+    });
+  }
 
   function perTile(grid, t) {
     const ch = grid[t.r][t.c];
@@ -77,6 +104,7 @@
     const cg = ctx.cell() + ctx.gap;
     const center = (s) => ({ x: s.c * cg, y: s.r * cg });
     const reduced = !!(ctx.reduced && ctx.reduced());
+    clearBump(el);   // a move away takes the last bump's bar with it
 
     const bounced = !!res.bounced;
     const forward = bounced ? steps.slice(0, -1) : steps;
@@ -86,8 +114,14 @@
     let fwdFlavor = null;
     for (let i = forward.length - 1; i >= 0; i--) if (forward[i].flavor) { fwdFlavor = forward[i].flavor; break; }
 
-    // Reduced motion: jump to the final tile, keep the cues.
+    // Reduced motion: jump to the final tile, keep the cues. A jump of more
+    // than one tile (an ice slide) leaves a trail on the tiles it crossed —
+    // where it started and what it slid over — so you can see where you went.
     if (reduced) {
+      const fin = res.final;
+      const crossed = [ctx.from || forward[0]].concat(bounced ? forward.slice(0, -1) : forward)
+        .filter((t) => t.r !== fin.r || t.c !== fin.c);
+      if (crossed.length > 1) markTrail(ctx, crossed);
       el.style.transition = "none"; el.style.transform = "translate(" + (res.final.c * cg) + "px, " + (res.final.r * cg) + "px)";
       void el.offsetWidth; el.style.transition = "";
       if (fwdFlavor) ctx.setFlavor(fwdFlavor);
@@ -133,6 +167,9 @@
 
   // Nudge toward a wall the player tried to enter, then settle back. Awaitable.
   // pos = the player's current resting tile {r,c}; slower when that tile is water.
+  // The bar on the wall side shows in both modes; with Visual FX off the ball
+  // doesn't nudge (the flattened transition only made it twitch), but the
+  // promise takes just as long, so the input lock is the same in both modes.
   function bump(ctx, dir, pos) {
     const d = DELTA[dir];
     if (!d) return Promise.resolve();
@@ -142,6 +179,8 @@
     const nudge = Math.min(16, ctx.cell() * 0.34);
     const slow = ctx.grid()[pos.r][pos.c] === "b";
     const out = slow ? 150 : 80, back = slow ? 235 : 130;
+    markBump(el, dir);
+    if (ctx.reduced && ctx.reduced()) return wait(out + back + 20);
     return new Promise((resolve) => {
       el.style.transition = "transform " + out + "ms ease-out";
       el.style.transform = "translate(" + (baseX + d.c * nudge) + "px, " + (baseY + d.r * nudge) + "px)";
@@ -153,5 +192,5 @@
     });
   }
 
-  return { play, bump };
+  return { play, bump, markBump };
 });

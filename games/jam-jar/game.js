@@ -522,6 +522,11 @@
       var p = particles[i];
       p.t += dt;
       if (p.t > p.life) { particles.splice(i, 1); continue; }
+      if (p.still) { // the FX-off merge ring doesn't fly; it goes if its fruit merges on
+        if (p.f && p.f.dead) particles.splice(i, 1);
+        continue;
+      }
+      if (p.ring) continue; // the merge ring stays where the fruits met (it has no velocity: moving it made it NaN, so it never drew)
       p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt;
     }
   }
@@ -591,6 +596,7 @@
     if (t === TIERS.length - 1) {             // two watermelons vanish in glory
       score += 100;
       sfxMelon();
+      mergeMark(mx, my, TIERS[t].r, TIERS[t].col, null);
     } else {
       var nf = makeFruit(mx, my, t + 1);
       nf.vx = (pa.vx + pb.vx) / 2;
@@ -628,6 +634,7 @@
       }
       nf.px = nf.x; nf.py = nf.y; // its travel this step starts here, not mid-shove
       fruits.push(nf);
+      mergeMark(nf.x, nf.y, nf.r, TIERS[t].col, nf);
       score += MERGE_SCORE[t + 1];
       sfxMerge(t + 1);
       if (t + 1 === TIERS.length - 1) sfxMelon(); // first watermelon fanfare
@@ -642,6 +649,16 @@
       particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, t: 0, life: 0.5 + Math.random() * 0.3, col: col, s: 2 + Math.random() * 3.5 });
     }
     particles.push({ x: x, y: y, t: 0, life: 0.35, ring: true, col: col, s: r });
+  }
+
+  // Visual FX off: juice() makes no splatter, so a merge gets a steady ring in
+  // the juice colour instead: round the newborn fruit (following it as it
+  // settles) or, for two watermelons, where they vanished. It holds for
+  // MARK_LIFE seconds of play, then the particle update drops it.
+  var MARK_LIFE = 0.5;
+  function mergeMark(x, y, r, col, fruit) {
+    if (!reduced()) return;
+    particles.push({ x: x, y: y, t: 0, life: MARK_LIFE, still: true, col: col, s: r + 5, f: fruit });
   }
 
   function gameOver() {
@@ -674,8 +691,9 @@
 
     // the fill line
     var warn = dangerT > 0.03;
+    // the warning pulses with Visual FX on; with it off it holds steady
     ctx.strokeStyle = warn
-      ? "rgba(210, 60, 40," + (0.55 + 0.35 * Math.sin(T * 10)) + ")"
+      ? "rgba(210, 60, 40," + (reduced() ? 0.85 : 0.55 + 0.35 * Math.sin(T * 10)) + ")"
       : "rgba(160, 106, 51, 0.5)";
     ctx.setLineDash([9, 7]);
     ctx.lineWidth = warn ? 2.5 : 1.5;
@@ -707,6 +725,15 @@
     // juice
     for (i = 0; i < particles.length; i++) {
       var p = particles[i], k = p.t / p.life;
+      if (p.still) { // FX off: a steady merge ring, no growth or fade
+        var rx = p.f ? p.f.x : p.x, ry = p.f ? p.f.y : p.y;
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = p.col; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(rx, ry, p.s, 0, 7); ctx.stroke();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(rx, ry, p.s, 0, 7); ctx.stroke();
+        continue;
+      }
       ctx.globalAlpha = 1 - k;
       if (p.ring) {
         ctx.strokeStyle = p.col; ctx.lineWidth = 3;
@@ -845,6 +872,7 @@
     get state() { return state; },
     get score() { return score; },
     get dangerT() { return dangerT; },
+    get particles() { return particles; },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
     drop: drop,

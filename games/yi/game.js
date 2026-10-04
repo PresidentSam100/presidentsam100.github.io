@@ -183,6 +183,8 @@ function startHand(dealer) {
     busy: true,
     over: false,
     drawnIndex: -1, // index in human hand of card just drawn (awaiting decision)
+    discardBy: -1, // who played the top discard (-1: the starter card)
+    drew: {}, // player index -> cards drawn since another player last acted
   };
 
   // deal 7 to each
@@ -251,8 +253,17 @@ function passTurn(pi) {
   beginTurn();
 }
 
+// With Visual FX off, plays and draws don't fly, so the table marks them
+// instead: the discard says who played it (G.discardBy), and a CPU that drew
+// shows "+n" by its count (G.drew) until another player acts. render() draws
+// both; styles.css only shows them under html.fx-off.
+function noteAct(pi) {
+  for (var k in G.drew) if (+k !== pi) delete G.drew[k];
+}
+
 // Draw n cards to player pi (reshuffling discard if needed). Returns drawn cards.
 function drawCards(pi, n) {
+  noteAct(pi);
   var got = [];
   for (var i = 0; i < n; i++) {
     if (G.deck.length === 0) reshuffle();
@@ -264,6 +275,7 @@ function drawCards(pi, n) {
   // drawing more than one card means you no longer "have YI"
   if (G.players[pi].hand.length !== 1) G.players[pi].calledUno = false;
   if (got.length) {
+    G.drew[pi] = (G.drew[pi] || 0) + got.length;
     flyDraw(pi, got.length);
     sfxDraw();
   }
@@ -302,6 +314,7 @@ function playCard(pi, idx, chosenColor, done) {
 
   var card = player.hand.splice(idx, 1)[0];
   player.calledUno = false;
+  noteAct(pi);
   // Reflect the move immediately: the player's hand/count drops by one the
   // instant they play, before the card finishes flying to the discard pile.
   render();
@@ -309,6 +322,7 @@ function playCard(pi, idx, chosenColor, done) {
   flyCard(card, srcRect, { flip: pi !== 0 }, function () {
     var prevColor = G.currentColor; // color active *before* this card (wild4 challenge)
     G.discard.push(card);
+    G.discardBy = pi;
     G.currentColor = isWildType(card) ? chosenColor : card.color;
 
     log([{ player: pi }, " played " + describe(card) +
@@ -1070,7 +1084,8 @@ function render() {
     html +=
       '<div class="opp' + (active ? " active" : "") + '">' +
       '<div class="oname">' + p.name + "</div>" +
-      '<div class="ocount">' + p.hand.length + " cards</div>" +
+      '<div class="ocount">' + p.hand.length + " cards" +
+      (G.drew[i] ? ' <b class="drew">+' + G.drew[i] + "</b>" : "") + "</div>" +
       '<div class="mini-backs">' + backs + "</div>" +
       (p.hand.length === 1 && p.calledUno
         ? '<span class="badge-uno">YI</span>'
@@ -1081,6 +1096,19 @@ function render() {
 
   // discard
   document.getElementById("discardPile").innerHTML = cardHTML(topCard(), {});
+  // ...and who played it (shown with Visual FX off; see noteAct)
+  var byEl = document.getElementById("playedBy");
+  if (byEl) {
+    byEl.textContent = "";
+    if (G.discardBy >= 0) {
+      var who = document.createElement("span");
+      who.className = "log-player";
+      who.style.color = playerColor(G.discardBy);
+      who.textContent = G.players[G.discardBy].name;
+      byEl.appendChild(who);
+      byEl.appendChild(document.createTextNode(" played"));
+    }
+  }
   // active color dot
   document.getElementById("colorDot").innerHTML =
     '<span class="dot" style="background:' + COLOR_HEX[G.currentColor] +

@@ -839,6 +839,7 @@ class Player {
     this.state = 'spawning';    // spawning | alive | dying | captured | gone
     this.t = 0;
     this.invuln = 1.0;          // brief spawn protection
+    this.invulnCue = '';        // how the last draw showed it: 'flicker' | 'steady' | '' (test hook)
     this.captureBoss = null;    // boss pulling this ship up (capture anim)
     this.spin = 0;
     this.powers = {};           // active power-ups -> remaining seconds (stackable)
@@ -915,8 +916,11 @@ class Player {
       ctx.restore();
     }
 
-    // flicker while invulnerable
-    if (this.invuln > 0 && !ANIM.reducedFlash && Math.floor(this.t * 16) % 2 === 0 && this.state !== 'captured')
+    // flicker while invulnerable; with Visual FX off the ship holds steady at
+    // half opacity instead, so protection still shows without a strobe
+    const invulnShown = this.invuln > 0 && this.state !== 'captured';
+    this.invulnCue = invulnShown ? (ANIM.reducedFlash ? 'steady' : 'flicker') : '';
+    if (invulnShown && !ANIM.reducedFlash && Math.floor(this.t * 16) % 2 === 0)
       return;
 
     const sprite = this.state === 'captured' ? Sprites.playerCaptured : Sprites.player;
@@ -929,12 +933,15 @@ class Player {
       ctx.restore();
       return;
     }
+    ctx.save();
+    if (invulnShown && ANIM.reducedFlash) ctx.globalAlpha = 0.5;
     if (this.dual) {
       ctx.drawImage(Sprites.player, this.x - 13 - dw / 2, this.y - dh / 2, dw, dh);
       ctx.drawImage(Sprites.player, this.x + 13 - dw / 2, this.y - dh / 2, dw, dh);
     } else {
       ctx.drawImage(Sprites.player, this.x - dw / 2, this.y - dh / 2, dw, dh);
     }
+    ctx.restore();
   }
 }
 

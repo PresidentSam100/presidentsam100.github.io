@@ -303,6 +303,9 @@
 
   function showJudgment(col, label, cls) {
     const l = lanes[col];
+    // FX off: labels hold still instead of rising away (styles.css), so a new one
+    // replaces the lane's last one rather than printing on top of it
+    if (window.RM_ON && window.RM_ON()) l.querySelectorAll(".judge").forEach((j) => j.remove());
     const el = document.createElement("div");
     el.className = "judge " + cls;
     el.textContent = label;

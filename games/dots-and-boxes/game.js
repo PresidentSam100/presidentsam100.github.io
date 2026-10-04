@@ -178,18 +178,23 @@ function draw() {
 // processing (incl. the line-draw animation) or after the game ends.
 function syncPlayable(){ boardEl.classList.toggle('playable', !gameOver && !busy && turn === HUMAN); }
 
+// The latest line, in both FX modes: it gets a marker until the next move.
+// Only the draw-in animation is left to Visual FX.
 function isLast(type,r,c){
-  return animOn() && lastLine && lastLine.type===type && lastLine.r===r && lastLine.c===c;
+  return !!lastLine && lastLine.type===type && lastLine.r===r && lastLine.c===c;
 }
 
-function addLine(x1,y1,x2,y2,owner,onClick,animate) {
+function addLine(x1,y1,x2,y2,owner,onClick,last) {
   const ends = { x1, y1, x2, y2 };
   if (owner) {
     // a built road: asphalt, with a glowing lane down the middle in the builder's colour
+    const animate = last && animOn();
     const anim = animate ? ' draw-anim' : '';
     const extra = animate ? { pathLength: 1 } : {};
     boardEl.appendChild(el('line', Object.assign({}, ends, extra), 'road' + anim));
     boardEl.appendChild(el('line', Object.assign({ filter: 'url(#glow)' }, ends, extra), 'lane ' + owner + anim));
+    // the last road built: a pin at its middle in the builder's colour
+    if (last) boardEl.appendChild(el('circle', { cx: (x1 + x2) / 2, cy: (y1 + y2) / 2, r: 5 }, 'last-mark ' + owner));
   } else {
     // a planned road: a faint dashed marking, under a wide band that takes the click
     boardEl.appendChild(el('line', ends, 'plan'));

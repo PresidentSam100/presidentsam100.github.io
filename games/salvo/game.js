@@ -49,6 +49,7 @@
   // ---- state ----
   let playerBoard, enemyBoard, playerShips, enemyShips, phase, turn, placeIdx, orient, cpuTargets, round = 0;
   let hoverR = -1, hoverC = -1;   // last hovered cell on the placement grid
+  let lastShot = { player: null, enemy: null };   // latest shot at each grid, as [r, c]
   let difficulty = localStorage.getItem("battleship_diff") || "medium";
   let rec = JSON.parse(localStorage.getItem("battleship_record") || '{"w":0,"l":0}');
 
@@ -103,10 +104,14 @@
   }
 
   // ---- render ----
-  function renderBoard(grid, board, showShips) {
+  // last: [r, c] of the latest shot at this grid, framed until the next one
+  // (the same in both Visual FX modes: the hit burst is FX-on only, and a
+  // miss has no animation at all)
+  function renderBoard(grid, board, showShips, last) {
     grid.querySelectorAll(".cell").forEach((cell) => {
       const r = +cell.dataset.r, c = +cell.dataset.c, b = board[r][c];
       cell.className = "cell"; cell.textContent = "";
+      if (last && last[0] === r && last[1] === c) cell.classList.add("last");
       // A ship's hull shows on your own board (hits burn on top of it) and on
       // the enemy's once it's sunk. A hit on a live enemy ship shows no hull:
       // its bow or orientation would give away which way to fire next.
@@ -131,8 +136,8 @@
     }).join("");
   }
   function render() {
-    renderBoard(playerGrid, playerBoard, true);
-    renderBoard(enemyGrid, enemyBoard, phase === "over");
+    renderBoard(playerGrid, playerBoard, true, lastShot.player);
+    renderBoard(enemyGrid, enemyBoard, phase === "over", lastShot.enemy);
     enemyGrid.classList.toggle("active", phase === "battle" && turn === "player");
     $("enemyFleet").innerHTML = fleetHTML(enemyShips);
     $("playerFleet").innerHTML = fleetHTML(playerShips, phase === "place" ? placeIdx : null);
@@ -196,7 +201,7 @@
     round++;
     try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
     enemyBoard = emptyBoard(); enemyShips = makeShips(); placeRandom(enemyBoard, enemyShips);
-    phase = "battle"; turn = "player"; cpuTargets = [];
+    phase = "battle"; turn = "player"; cpuTargets = []; lastShot = { player: null, enemy: null };
     $("enemyCol").hidden = false; $("placeControls").style.display = "none";
     $("playerTitle").textContent = "Your Fleet (under fire)";
     render();
@@ -231,7 +236,7 @@
   enemyGrid.addEventListener("click", (e) => {
     const cell = e.target.closest(".cell"); if (!cell || phase !== "battle" || turn !== "player") return;
     const r = +cell.dataset.r, c = +cell.dataset.c; if (enemyBoard[r][c].attacked) return;
-    const res = attack(enemyBoard, r, c);
+    const res = attack(enemyBoard, r, c); lastShot.enemy = [r, c];
     if (res.hit) { res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
     render(); flashHit(enemyGrid, res, r, c);
     if (allSunk(enemyShips)) { setTimeout(() => gameOver("player"), res.sunk ? 650 : 150); return; }
@@ -299,7 +304,7 @@
   }
   function cpuTurn() {
     if (phase !== "battle") return;
-    const [r, c] = cpuPick(); const res = attack(playerBoard, r, c);
+    const [r, c] = cpuPick(); const res = attack(playerBoard, r, c); lastShot.player = [r, c];
     if (res.hit) { cpuOnHit(r, c, res.ship, res.sunk); res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
     render(); flashHit(playerGrid, res, r, c);
     if (allSunk(playerShips)) { setTimeout(() => gameOver("cpu"), res.sunk ? 650 : 150); return; }
@@ -323,7 +328,7 @@
     round++;
     $("over").classList.add("hidden");
     playerBoard = emptyBoard(); enemyBoard = emptyBoard(); playerShips = makeShips(); enemyShips = makeShips();
-    placeIdx = 0; orient = "h"; phase = "place"; turn = "player"; cpuTargets = [];
+    placeIdx = 0; orient = "h"; phase = "place"; turn = "player"; cpuTargets = []; lastShot = { player: null, enemy: null };
     $("enemyCol").hidden = true; $("placeControls").style.display = "flex";
     $("playerTitle").textContent = "Your Fleet";
     $("coord").textContent = "";

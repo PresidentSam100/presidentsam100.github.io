@@ -117,6 +117,9 @@
     if (!g) return;
     g.querySelector("b").textContent = perRegionFound[rc];
     g.classList.remove("pulse"); void g.offsetWidth; g.classList.add("pulse");
+    // FX off holds the pulse's tint still (styles.css), so a timer clears it
+    clearTimeout(g.pulseT);
+    g.pulseT = setTimeout(function () { g.classList.remove("pulse"); }, 450);
     if (perRegionFound[rc] === perRegion[rc]) { g.classList.add("done"); regionChime(); }
   }
 
@@ -159,6 +162,11 @@
     log.insertBefore(li, log.firstChild);
     if (missed) li.querySelector(".dest").textContent = name.toUpperCase();
     else settleText(li.querySelector(".dest"), name.toUpperCase());
+    if (!missed) {
+      // FX off has no flap, so .fresh marks the new departure for a moment (styles.css)
+      li.classList.add("fresh");
+      setTimeout(function () { li.classList.remove("fresh"); }, 800);
+    }
     while (log.children.length > 40) log.removeChild(log.lastChild);
   }
 
@@ -214,6 +222,9 @@
       if (ci === -1) {
         var el = $("answer");
         el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+        // FX off shows .shake as a red box (styles.css), so a timer clears it
+        clearTimeout(el.shakeT);
+        el.shakeT = setTimeout(function () { el.classList.remove("shake"); }, 500);
         dupThock();
         return;
       }

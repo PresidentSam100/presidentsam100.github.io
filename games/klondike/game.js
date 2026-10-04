@@ -124,11 +124,20 @@
       els.set(el.dataset.key, el);
     });
   }
+  // Visual FX off: cards jump instead of gliding, so a card that comes to rest
+  // somewhere new wears a gold rim there for 600 ms (each card on its own timer).
+  function landed(el) {
+    el.classList.add("landed");
+    clearTimeout(el._landT);
+    el._landT = setTimeout(function () { el.classList.remove("landed"); }, 600);
+  }
   // Where every card belongs right now; z-order follows pile order.
   function position(instant) {
-    var z = 1;
+    var z = 1, mark = !instant && !fx();
     function put(c, x, y) {
-      var el = cardEl(c);
+      var el = cardEl(c), at = x + "," + y;
+      if (mark && el._at !== at) landed(el);
+      el._at = at;
       el.classList.toggle("down", !c.up);
       if (instant) el.classList.add("noanim");
       el.style.zIndex = z++;

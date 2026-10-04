@@ -264,6 +264,11 @@ body {
 .c.boom {
   background: #ff0000;
 }
+/* a cleared board, in both FX modes: every mine, now flagged, sits on green,
+   the colour endless mode gives a cleared row */
+.field.won .c.flag {
+  background: #9fd49f;
+}
 .c.cur {
   outline: 2px dotted var(--text);
   outline-offset: -4px;

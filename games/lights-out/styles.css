@@ -154,6 +154,12 @@ button.watch:active { transform: scale(0.96); }
   0%, 100% { filter: drop-shadow(2px 5px 6px rgba(0, 0, 0, 0.55)); }
   50% { filter: drop-shadow(0 0 14px rgba(232, 207, 150, 0.95)) drop-shadow(0 0 26px rgba(232, 207, 150, 0.5)); }
 }
+/* Visual FX off: the glint holds at its brightest, still, until game.js
+   clears it (2.75s, when the three glints would have finished) */
+body:not(.fxon) .watch.glint {
+  animation: none;
+  filter: drop-shadow(0 0 14px rgba(232, 207, 150, 0.95)) drop-shadow(0 0 26px rgba(232, 207, 150, 0.5));
+}
 
 /* reduce motion: lids snap instantly */
 body:not(.fxon) .lid { transition: none; }

@@ -326,7 +326,9 @@ body {
 }
 
 /* ---- effects ------------------------------------------------------------ */
-/* game.js only adds these (and their --d delays) when Visual FX is on */
+/* short-lived classes from fx() in game.js; --d staggers them into a wave
+   with Visual FX on. With FX off the animations end at once, so the ones that
+   carry a game event hold a still look instead (html.fx-off rules below) */
 .c .v {
   display: inline-block;
 }
@@ -347,6 +349,16 @@ body {
   0% { opacity: 0; transform: rotate(25deg) scale(1.4); }
   15%, 65% { opacity: 1; transform: rotate(25deg) scale(1); }
   100% { opacity: 0; transform: rotate(25deg) scale(1); }
+}
+/* Visual FX off: a finished row / column / box holds the green all at once,
+   and the hint's blue ring stays drawn, each until fx() clears its class */
+html.fx-off .c.unit {
+  animation: none;
+  background-color: #d6ecae;
+}
+html.fx-off .c.hinted::after {
+  animation: none;
+  opacity: 1;
 }
 .c.oops {
   animation: oops 0.4s ease-out;

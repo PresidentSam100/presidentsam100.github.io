@@ -78,6 +78,14 @@ h1 .four { color: var(--yellow); }
 }
 .cell.win { box-shadow: inset 0 0 0 4px #fff, 0 0 0 0 rgba(255, 255, 255, 0); animation: cfWin 1.1s ease-in-out infinite; }
 @keyframes cfWin { 0%, 100% { box-shadow: inset 0 0 0 4px #fff; } 50% { box-shadow: inset 0 0 0 6px #fff, inset 0 0 18px rgba(255, 255, 255, 0.9); } }
+/* the last disc dropped (or wall placed), in both FX modes: a small white dot
+   in its middle until the next move */
+.cell.last { position: relative; }
+.cell.last::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 22%; height: 22%; border-radius: 50%;
+  transform: translate(-50%, -50%); background: #fff; box-shadow: 0 0 0 2px rgba(27, 43, 92, 0.55);
+  pointer-events: none;
+}
 /* the column you're aiming at: its empty holes glow your colour */
 .col-hover { background: rgba(228, 70, 61, 0.26) !important; }
 /* the plastic frame in FRONT of the discs, holes punched out */
@@ -235,6 +243,12 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
   0% { filter: brightness(1.6); transform: translateY(-3px); }
   100% { filter: brightness(0.6); transform: translateY(2px); }
 }
+/* Visual FX off: the blast and the shockwave are cut short, so the cells a
+   bomb or anvil hit keep a scorch ring (and the holes a sooty tint) for a
+   moment after the discs resettle (game.js scorchCells). A winning line
+   keeps its own ring. */
+.cell.blasted:not(.win) { box-shadow: inset 0 0 0 4px #ff8a1f, inset 0 0 14px rgba(255, 120, 30, 0.55); }
+.cell.blasted:not(.red):not(.yellow):not(.wall) { background: rgba(120, 60, 20, 0.28); }
 
 /* the shared "who goes first?" coin flip (coinflip.js), as one of the white modals */
 .cf-overlay { background: rgba(40, 30, 110, 0.4); -webkit-backdrop-filter: none; backdrop-filter: none; }

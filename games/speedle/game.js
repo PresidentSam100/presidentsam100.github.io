@@ -256,6 +256,7 @@
     timeBonus.classList.remove("show");
     void timeBonus.offsetWidth; // force reflow so the animation replays
     timeBonus.classList.add("show");
+    clearBonusLater(timeBonus);
   }
 
   // float a "+1" up out of the Solved stat on every correct word
@@ -264,6 +265,14 @@
     scoreBonus.classList.remove("show");
     void scoreBonus.offsetWidth; // force reflow so the animation replays
     scoreBonus.classList.add("show");
+    clearBonusLater(scoreBonus);
+  }
+
+  // With FX off a bonus holds still instead of fading (styles.css), so it comes
+  // down on a timer once the 0.9s rise is over; with FX on it's long gone by then
+  function clearBonusLater(el) {
+    clearTimeout(el.hideT);
+    el.hideT = setTimeout(function () { el.classList.remove("show"); }, 950);
   }
 
   // ----- timer / hud --------------------------------------------------
@@ -403,6 +412,10 @@
     if (!row) return;
     row.classList.add("shake");
     setTimeout(function () { row.classList.remove("shake"); }, 340);
+    // FX off: the shake ends at once, so .bad gives the row a red edge (styles.css)
+    row.classList.add("bad");
+    clearTimeout(row.badT);
+    row.badT = setTimeout(function () { row.classList.remove("bad"); }, 500);
   }
 
   // ----- word resolution ---------------------------------------------

@@ -87,6 +87,11 @@
   var clearingRows = [], clearT = 0, sweep = 0;
   var das = { L: null, R: null }, softHeld = false, softT = 0;
   var particles = [], flashT = 0, gravOverride = 0;
+  // Visual FX off has no bubbles or sweep, so two still sonar marks stand in
+  // (draw-only, on their own timers; they never hold up play):
+  //   dropMark  a hard drop's faint streak, start row down to where it landed
+  //   clearMark pointers on both walls at the rows that just cleared
+  var dropMark = null, clearMark = null;
 
   function newBag() {
     var b = (mode === "krill" ? TYPES : "IJLOSTZ").split("");
@@ -159,6 +164,9 @@
             y: from + (to - from) * Math.random(), vy: -(3 + Math.random() * 5), life: 0.7 });
         }
       });
+    } else if (to > from) {
+      // taken before lock(), which may spawn the next piece over `piece`
+      dropMark = { t: piece.t, cells: cellsOf(piece.t, piece.r, piece.x, to), dist: to - from, life: 0.35 };
     }
     piece.y = to;
     sndWhoosh();
@@ -197,6 +205,9 @@
       state = "clearing";
       clearT = fx() ? 0.32 : 0.08;
       sweep = 0;
+      // FX off: the 80ms clear is too quick to read, so the walls keep
+      // pointing at those rows a while after they collapse
+      if (!fx()) clearMark = { rows: full.slice(), life: 0.5 };
       var n = full.length;
       var base = LINE_SCORE[n] * level;
       if (n === 4) { if (b2b) base = Math.floor(base * 1.5); b2b = true; }
@@ -231,6 +242,7 @@
       for (var x2 = 0; x2 < COLS; x2++) grid[x2] = 0;
     });
     clearingRows = [];
+    dropMark = null;                       // the rows it ran through just moved
     if (mode === "sprint" && lines >= goal) { finish(); return; }
     state = "play";
     spawnNext();
@@ -260,7 +272,7 @@
     grid = new Uint8Array(ROWS * COLS);
     queue = []; bag = []; hold = null; canHold = true;
     score = 0; lines = 0; level = 1; b2b = false; playMs = 0;
-    particles = []; clearingRows = []; flashT = 0;
+    particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null;
     das.L = null; das.R = null; softHeld = false;
     $("menu").hidden = true; $("over").hidden = true;
     $("hud").hidden = false;
@@ -374,7 +386,9 @@
     return 0;
   }
 
+  var drawn = { drop: false, clear: [] };   // the FX-off marks the last frame drew (test hook)
   function draw(t, dt) {
+    drawn.drop = false; drawn.clear = [];
     var danger = state === "play" || state === "clearing" ? Math.max(0, (stackHeight() - 14) / 6) : 0;
     sea.draw(g, t, dt, fx(), danger);
     if (state === "menu") return;
@@ -419,6 +433,43 @@
         g.fillStyle = grd;
         g.fillRect(px(0), py(ry), Math.max(0, sx - px(0)), cell);
       });
+    }
+
+    // Visual FX off: the still sonar marks (see dropMark / clearMark)
+    if (dropMark) {
+      dropMark.life -= dt;
+      if (dropMark.life <= 0) dropMark = null;
+      else {
+        // a faint streak down each column the piece fell through, to its top cell
+        var dsp = A.SPECIES[dropMark.t], tops = {};
+        dropMark.cells.forEach(function (c) { if (!(c[0] in tops) || c[1] < tops[c[0]]) tops[c[0]] = c[1]; });
+        Object.keys(tops).forEach(function (k) {
+          var bot = tops[k], top = Math.max(HID, bot - dropMark.dist);
+          if (bot <= top) return;
+          var grd = g.createLinearGradient(0, py(top), 0, py(bot));
+          grd.addColorStop(0, dsp.glow + "0)");
+          grd.addColorStop(1, dsp.glow + "0.3)");
+          g.fillStyle = grd;
+          g.fillRect(px(+k) + cell * 0.2, py(top), cell * 0.6, py(bot) - py(top));
+        });
+        drawn.drop = true;
+      }
+    }
+    if (clearMark) {
+      clearMark.life -= dt;
+      if (clearMark.life <= 0) clearMark = null;
+      else {
+        // pointers just outside both walls (rows shift on collapse, so the
+        // marks stay out of the well)
+        g.fillStyle = "rgba(160,245,255,0.9)";
+        clearMark.rows.forEach(function (ry) {
+          if (ry < HID) return;
+          var my = py(ry) + cell / 2, h = cell * 0.32, lx = px(0) - 6, rx = px(COLS) + 6;
+          g.beginPath(); g.moveTo(lx, my); g.lineTo(lx - 5, my - h); g.lineTo(lx - 5, my + h); g.closePath(); g.fill();
+          g.beginPath(); g.moveTo(rx, my); g.lineTo(rx + 5, my - h); g.lineTo(rx + 5, my + h); g.closePath(); g.fill();
+          drawn.clear.push(ry - HID);
+        });
+      }
     }
 
     if (state === "play") {
@@ -702,7 +753,12 @@
       },
       setGoal: function (n) { goal = n; hudDom(); },
       setGrav: function (ms) { gravOverride = ms; },
-      setPiece: function (t) { piece = { t: t, r: 0, x: t === "O" ? 4 : 3, y: 0 }; }
+      setPiece: function (t) { piece = { t: t, r: 0, x: t === "O" ? 4 : 3, y: 0 }; },
+      // the Visual FX off marks: what the last frame drew, and time left (s)
+      marks: function () {
+        return { dropDrawn: drawn.drop, clearDrawn: drawn.clear.slice(),
+          dropLeft: dropMark ? dropMark.life : 0, clearLeft: clearMark ? clearMark.life : 0 };
+      }
     }
   };
 })();

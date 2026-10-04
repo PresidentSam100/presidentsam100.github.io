@@ -208,9 +208,13 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 /* Visual FX off (reduce motion): the FX toggle reports aria-pressed="true".
-   Drop the hover lift/shadow so there's genuinely no motion on hover. */
+   Drop the hover lift/shadow so there's genuinely no motion on hover. The
+   shadow reset is for plain cards only: on a selected / claimed / wrong /
+   hinted card it would wipe the ring off the card under the cursor. */
 html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
   transform: none;
+}
+html:has(.rm-toggle[aria-pressed="true"]) .card:not(.selected):not(.good):not(.bad):not(.hint):hover {
   box-shadow: 0 2px 0 #cdbf9a, 0 6px 14px rgba(0, 0, 0, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
 }
@@ -256,6 +260,15 @@ html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
     opacity: 0;
     transform: translateX(185%) scale(0.82);
   }
+}
+/* Visual FX off: no slide, and the cut-short animation would leave three
+   blank holes until the refill. The trio stays put in the claimed (green)
+   look instead, until the new cards are dealt into its slots. */
+html.fx-off .card.exit-right {
+  animation: none;
+  opacity: 1;
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px var(--emerald), 0 0 22px rgba(52, 201, 138, 0.55);
 }
 
 /* replacements arrive from the left (through the imaginary left column) */

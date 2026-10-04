@@ -203,6 +203,12 @@
       25% { transform: translateX(-6px); }
       75% { transform: translateX(6px); }
     }
+    /* Visual FX off: no shake, so a wrong answer holds the pink with a red
+       rim until game.js clears .wrong (450ms, or the next keystroke) */
+    html.fx-off #answer.wrong {
+      animation: none;
+      border-color: var(--bad);
+    }
     /* the dart-storm button: a round badge with a dart. While it recharges a
        dark sweep covers it (game.js sets --cd, 1 = just used, 0 = ready);
        ready, it glows gold. */
@@ -246,6 +252,10 @@
     .power.firing .power-face { background: radial-gradient(circle at 40% 35%, #ffffff, #ffd23f 60%, #f08a24); }
     .power.idle { opacity: 0.6; cursor: default; }
     .power.nope { animation: shake 0.18s ease; }
+    /* Visual FX off: a storm that isn't ready gets a red ring instead of the
+       shake, until game.js clears .nope (450ms) */
+    html.fx-off .power.nope { animation: none; }
+    html.fx-off .power.nope .power-face { box-shadow: 0 4px 0 var(--ink), 0 0 0 4px var(--bad); }
     .power-num {
       position: absolute;
       top: -9px;

@@ -41,7 +41,8 @@ The inline script is organised in sections you can search for:
   grabbing a power-up (its colour), capture (blue), stage clear (cyan) and a
   PERFECT bonus (gold), plus bright explosion pops and the usual blinking/pulsing
   UI. Turning it **off** suppresses **all** of that — no screen flashes, no
-  explosion flash, steady HUD/prompts, no rapid spawn flicker, and steady
+  explosion flash, steady HUD/prompts, no rapid spawn flicker (a protected
+  ship holds at half opacity instead), and steady
   power-up/shield/carrier glows and bombs — gentle for photosensitive players.
   (The screen flashes are one-shot fades, not strobes, so the default stays
   comfortable too.)

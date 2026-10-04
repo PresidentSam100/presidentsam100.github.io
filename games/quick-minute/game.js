@@ -9,6 +9,7 @@
   var stage = $("stage"), cv = $("cv"), ctx = cv.getContext("2d");
   var ov = $("overlay"), card = $("card");
   var elDist = $("value-dist"), elSpeed = $("value-speed"), elBest = $("value-best");
+  var elMile = $("milestone");
 
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
@@ -615,7 +616,8 @@
   function render(now) {
     NIGHT = mode === "night";
     HAZE = NIGHT ? "#0b101c" : "#c7d2c3";
-    blinkOn = (Math.floor(now / 270) % 2) === 0;
+    // turn signals blink with Visual FX on; with it off they stay lit, steady
+    blinkOn = !fxOn() || (Math.floor(now / 270) % 2) === 0;
     GLOWS = []; HOLES = [];
     ctx.clearRect(0, 0, W, H);
     drawSky();
@@ -694,6 +696,7 @@
     if (Math.floor(score / 500) > lastMilestone) {
       lastMilestone = Math.floor(score / 500);
       SND.tick();
+      showMilestone(lastMilestone);
       // a new camera angle for every 500 m milestone (Visual FX on)
       if (fxOn()) setPreset(lastMilestone % PRESETS.length);
     }
@@ -714,10 +717,26 @@
   // ----- flow ---------------------------------------------------------
   function renderBest() { elBest.textContent = String(parseInt(load(bestKey()), 10) || 0); }
 
+  // Event cues that hold still in both modes, cleared by timers (not
+  // animationend, which never fires with Visual FX off): a banner for each
+  // 500 m milestone, and a red rim on the road for a moment after a crash.
+  var mileTimer = 0, crashTimer = 0;
+  function showMilestone(n) {
+    elMile.textContent = (n * 500) + " M";
+    elMile.classList.add("show");
+    clearTimeout(mileTimer);
+    mileTimer = setTimeout(function () { elMile.classList.remove("show"); }, 1200);
+  }
+  function clearCues() {
+    clearTimeout(mileTimer); clearTimeout(crashTimer);
+    elMile.classList.remove("show"); stage.classList.remove("crash");
+  }
+
   function start(m) {
     mode = m;
     ac();
     reset();
+    clearCues();
     running = true;
     ov.classList.remove("show");
     elDist.textContent = "0"; elSpeed.textContent = "0";
@@ -728,6 +747,9 @@
   function gameOver() {
     running = false;
     shakeT = 0.55;
+    stage.classList.add("crash");
+    clearTimeout(crashTimer);
+    crashTimer = setTimeout(function () { stage.classList.remove("crash"); }, 600);
     crashSound();
     var d = Math.floor(score);
     var best = parseInt(load(bestKey()), 10) || 0;

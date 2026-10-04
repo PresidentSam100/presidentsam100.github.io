@@ -555,11 +555,11 @@
       const cells = E.UNITS[u];
       if (!cells.every((j) => vals[j] && !conflict[j])) continue;
       done++;
-      if (fxOn) {
-        for (const j of cells) {
-          const dist = Math.max(Math.abs(E.ROW_OF[j] - E.ROW_OF[i]), Math.abs(E.COL_OF[j] - E.COL_OF[i]));
-          fx(j, "unit", 520, dist * 45);
-        }
+      // FX on: a wave out from the new digit; FX off: the whole unit tints at
+      // once (styles.css), so finishing one never goes by on sound alone
+      for (const j of cells) {
+        const dist = Math.max(Math.abs(E.ROW_OF[j] - E.ROW_OF[i]), Math.abs(E.COL_OF[j] - E.COL_OF[i]));
+        fx(j, "unit", 520, fxOn ? dist * 45 : 0);
       }
     }
     if (done) sfx.unit();

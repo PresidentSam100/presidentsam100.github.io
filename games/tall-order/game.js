@@ -213,7 +213,9 @@
   }
 
   // ---- garnish ---------------------------------------------------------------------
-  function pop(wx, wy, text) { if (fx()) pops.push({ x: wx, y: wy, text: text, age: 0 }); }
+  // the words ("perfect!", "+grow") show in both modes; with Visual FX off
+  // they hold still and solid for their second instead of rising and fading
+  function pop(wx, wy, text) { pops.push({ x: wx, y: wy, text: text, age: 0 }); }
   function burst(wx, wy, count) {
     if (!fx()) return;
     for (var i = 0; i < count; i++) {
@@ -348,12 +350,13 @@
       else A.sprinkle(g, s.x, sy(s.y), s.rot, 5, s.col);
     });
     g.globalAlpha = 1;
+    var moving = fx();
     pops.forEach(function (p) {
-      g.globalAlpha = clamp(1 - p.age, 0, 1);
+      g.globalAlpha = moving ? clamp(1 - p.age, 0, 1) : 1;
       g.fillStyle = "#b03a48";
       g.font = "700 22px Fredoka, sans-serif";
       g.textAlign = "center";
-      g.fillText(p.text, p.x, sy(p.y) - p.age * 40);
+      g.fillText(p.text, p.x, sy(p.y) - (moving ? p.age * 40 : 0));
     });
     g.globalAlpha = 1;
   }
@@ -384,8 +387,9 @@
       A.cherry(g, tx, ty - 6, 9);
       var nC = Math.min(5, Math.floor(tiers.length / 10));
       for (var c = 0; c < nC; c++) {
-        A.candle(g, tx - 40 - c * 22, ty + 4, 11, fx());
-        A.candle(g, tx + 40 + c * 22, ty + 4, 11, fx());
+        // the flames are still art, so they're lit in both modes
+        A.candle(g, tx - 40 - c * 22, ty + 4, 11, true);
+        A.candle(g, tx + 40 + c * 22, ty + 4, 11, true);
       }
     }
     g.restore();
@@ -479,6 +483,7 @@
     sliderReady: function () { return !!slider && slider.mode === "slide"; },
     topX: function () { return tiers[tiers.length - 1].x; },
     perfects: function () { return perfects; },
+    pops: function () { return pops.map(function (p) { return { text: p.text, age: p.age }; }); },
     drop: drop,
     placeAndDrop: function (offset) {
       if (!slider || slider.mode !== "slide") return false;

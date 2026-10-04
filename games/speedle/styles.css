@@ -81,6 +81,9 @@ header.top p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.95rem; fon
   55% { opacity: 1; transform: translateY(-8px) scale(1); }
   100% { opacity: 0; transform: translateY(-22px) scale(0.95); }
 }
+/* Visual FX off: bonusRise would jump to its last frame (opacity 0), so the
+   bonus holds still at its risen spot, fully shown, until game.js clears .show */
+html.fx-off .time-bonus.show, html.fx-off .score-bonus.show { animation: none; opacity: 1; transform: translateY(-8px); }
 
 /* ---- board: walnut with carved slots ------------------------------------- */
 .board {
@@ -123,6 +126,9 @@ header.top p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.95rem; fon
 @keyframes pop { from { transform: translateY(-12px) scale(1.12); } }
 .row.shake { animation: shake 0.34s ease; }
 @keyframes shake { 10%,90%{transform:translateX(-2px)} 20%,80%{transform:translateX(4px)} 30%,50%,70%{transform:translateX(-7px)} 40%,60%{transform:translateX(7px)} }
+/* Visual FX off: the shake ends at once, so the row's slots hold a red edge
+   instead (game.js adds .bad with the shake and clears it after 500ms) */
+html.fx-off .row.bad .tile { outline: 2px solid var(--bad); outline-offset: -2px; }
 .tile.flip { animation: flip 0.3s ease; }
 @keyframes flip { 0%{transform:translateY(-2px) rotateX(0)} 50%{transform:translateY(-2px) rotateX(90deg)} 100%{transform:translateY(-2px) rotateX(0)} }
 

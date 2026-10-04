@@ -11,6 +11,10 @@ const diffEl = document.getElementById('difficulty');
 const REC = window.GameShell ? GameShell.record("connectfour_record") : null;
 let board, gameOver, busy, animMove, round = 0, score = REC ? REC.get() : { w:0, l:0, d:0 };
 let hoverColIdx = -1; // column the cursor is currently over (to re-highlight after the AI moves)
+// The last disc dropped (or wall placed) carries a dot until the next move, in
+// both FX modes. `scorch`: with Visual FX off, the cells a bomb or anvil just
+// hit (see scorchCells). render() draws both, as it rewrites every className.
+let lastDisc = null, scorch = null;
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
 // (or OS reduced-motion) means no drop animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
@@ -105,7 +109,7 @@ function init() {
   powers = { [HUMAN]: { anvil: 1, bomb: 1, wall: 1 }, [AI]: { anvil: 1, bomb: 1, wall: 1 } };
   armedPower = null; aiExtra = false;
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
-  gameOver = false; busy = false; animMove = null; hoverColIdx = -1;
+  gameOver = false; busy = false; animMove = null; hoverColIdx = -1; lastDisc = null; scorch = null;
   buildDOM();
   renderPowers();
   render();
@@ -216,6 +220,8 @@ function render(winCells) {
     const r = +cell.dataset.r, c = +cell.dataset.c, v = board[r][c];
     let cls = 'cell' + (v === HUMAN ? ' red' : v === AI ? ' yellow' : v === WALL ? ' wall' : v === 4 ? ' bombdisc' : '');
     if (winCells && winCells.some(([wr,wc]) => wr===r && wc===c)) cls += ' win';
+    if (v && lastDisc && lastDisc.r === r && lastDisc.c === c) cls += ' last';
+    if (scorch && scorch.some(([sr,sc]) => sr===r && sc===c)) cls += ' blasted';
     if (animOn() && animMove && animMove.r === r && animMove.c === c) {
       cls += ' drop';
       const h = cell.getBoundingClientRect().height || 62;
@@ -240,7 +246,7 @@ function humanMove(c) {
   const r = dropRow(board, c);
   if (r < 0) return;
   board[r][c] = HUMAN;
-  animMove = { r, c };
+  animMove = lastDisc = { r, c };
   sfxHuman();
   if (checkEnd()) return;
   render();
@@ -253,7 +259,7 @@ function aiMove() {
   const c = chooseAIMove();
   const r = dropRow(board, c);
   board[r][c] = AI;
-  animMove = { r, c };
+  animMove = lastDisc = { r, c };
   sfxAI();
   if (checkEnd()) return;
   render();
@@ -468,6 +474,23 @@ function checkEndAfter(mover) {
   return false;
 }
 
+// Visual FX off: the bomb's flash and the anvil's shockwave are cut to nothing
+// and the discs resettle at once, so the cells they hit keep a scorch mark for
+// SCORCH_MS after (render() draws it; the timer only strips the class, since a
+// plain re-render would also drop a winning line's highlight). FX on shows the
+// blast itself.
+const SCORCH_MS = 900;
+function scorchCells(list) {
+  if (animOn()) return;
+  const myRound = round;
+  scorch = list;
+  setTimeout(() => {
+    if (myRound !== round || scorch !== list) return;
+    scorch = null;
+    boardEl.querySelectorAll('.cell.blasted').forEach(cell => cell.classList.remove('blasted'));
+  }, SCORCH_MS);
+}
+
 function usePower(player, kind, c) {
   const myRound = round;
   const isHuman = player === HUMAN;
@@ -496,11 +519,13 @@ function usePower(player, kind, c) {
 
   if (kind === 'anvil') {
     (isHuman ? sfxCrush : sfxCrush)();
+    lastDisc = null; // the anvil is this move, and may crush the old last disc
     colCells(c).forEach(cell => cell.classList.add('crush'));
     setTimeout(() => {
       if (myRound !== round) return;
       for (let r = 0; r < ROWS; r++) board[r][c] = 0;
       colCells(c).forEach(cell => cell.classList.remove('crush'));
+      scorchCells(Array.from({ length: ROWS }, (_, r) => [r, c]));
       finish(player, false);
     }, animOn() ? 480 : 60);
     return;
@@ -510,15 +535,18 @@ function usePower(player, kind, c) {
     const r = dropRow(board, c);
     if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; } // full column — refund
     board[r][c] = 4; // the lit bomb, shown for a beat
+    lastDisc = null; // the bomb is this move, and its blast may move the old last disc
     render();
     dropSound(90);
     setTimeout(() => {
       if (myRound !== round) return;
       const foe = player === HUMAN ? AI : HUMAN;
+      const zone = []; // the 3×3 the blast covers, for the FX-off scorch
       board[r][c] = 0;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
         const nr = r + dr, nc = c + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        zone.push([nr, nc]);
         if (board[nr][nc] === foe) {
           board[nr][nc] = 0;
           const el = cells().find(x => +x.dataset.r === nr && +x.dataset.c === nc);
@@ -526,7 +554,7 @@ function usePower(player, kind, c) {
         }
       }
       sfxBoom();
-      setTimeout(() => { if (myRound === round) finish(player, false); }, animOn() ? 420 : 60);
+      setTimeout(() => { if (myRound === round) { scorchCells(zone); finish(player, false); } }, animOn() ? 420 : 60);
     }, animOn() ? 520 : 80);
     return;
   }
@@ -535,7 +563,7 @@ function usePower(player, kind, c) {
   const r = dropRow(board, c);
   if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; }
   board[r][c] = WALL;
-  animMove = { r, c };
+  animMove = lastDisc = { r, c };
   sfxWall();
   render();
   setTimeout(() => { if (myRound === round) finish(player, true); }, animOn() ? 520 : 60);
@@ -650,6 +678,8 @@ window.__game = {
   get mode() { return mode; },
   get busy() { return busy; },
   get gameOver() { return gameOver; },
+  get lastDisc() { return lastDisc; },
+  get scorch() { return scorch; },
   usePower, humanMove, applyGravity,
   arm: (k) => { armedPower = k; },
 };

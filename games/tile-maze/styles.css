@@ -289,6 +289,28 @@ body {
   0%, 100% { filter: none; }
   45% { filter: brightness(1.7); box-shadow: inset 0 0 0 3px #fff, 0 0 18px 6px #ffe96b; }
 }
+/* Visual FX off: the zapped tile holds still and lit at the flash's peak
+   (game.js / editor.js take the class off on a timer, 500 ms) */
+html.fx-off .tile.zapping { animation: none; filter: brightness(1.7); box-shadow: inset 0 0 0 3px #fff, 0 0 18px 6px #ffe96b; }
+
+/* A move into a wall: a brick-red bar on the side of the ball that met it,
+   held still for half a second in both modes (anim.js sets data-bump and
+   clears it on a timer; with Visual FX on the ball also nudges at the wall).
+   All four insets are set so the bar fills its strip whatever the player's
+   centring does to positioned children. */
+.player[data-bump]::after {
+  content: ""; position: absolute; justify-self: stretch; align-self: stretch;
+  border-radius: 3px; background: #962f26; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+}
+.player[data-bump="up"]::after    { top: 4%; bottom: calc(96% - 5px); left: 24%; right: 24%; }
+.player[data-bump="down"]::after  { bottom: 4%; top: calc(96% - 5px); left: 24%; right: 24%; }
+.player[data-bump="left"]::after  { left: 4%; right: calc(96% - 5px); top: 24%; bottom: 24%; }
+.player[data-bump="right"]::after { right: 4%; left: calc(96% - 5px); top: 24%; bottom: 24%; }
+
+/* Visual FX off: an ice slide jumps straight to its last tile, so the tiles
+   it crossed wear a dashed ring for half a second (anim.js adds .trail and
+   takes it off on a timer) */
+.tile.trail { outline: 3px dashed rgba(255, 255, 255, 0.9); outline-offset: -6px; }
 
 /* Win overlay */
 .overlay[hidden] { display: none; }
