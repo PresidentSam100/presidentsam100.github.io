@@ -27,7 +27,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       mt: document.querySelector(".mute-toggle").title,
     }));
     check(pg + ": corner labels show " + (off ? "[ ]" : "M V") + " keycaps",
-      lab.m.endsWith(cap(off ? "[" : "M")) && lab.f.endsWith(cap(off ? "]" : "V")) && (!lab.p || lab.p.includes('<kbd class="gs-kbd">')) &&
+      // (Speedle's ⏸ is always off, so it names no key)
+      lab.m.endsWith(cap(off ? "[" : "M")) && lab.f.endsWith(cap(off ? "]" : "V")) && (!lab.p || lab.p.includes('<kbd class="gs-kbd">') || pg === "speedle/") &&
       (off ? !/M or/.test(lab.mt) : /M or \[/.test(lab.mt)), lab);
 
     const st = () => p.evaluate(() => ({ m: MUTE_ON(), f: RM_ON() }));

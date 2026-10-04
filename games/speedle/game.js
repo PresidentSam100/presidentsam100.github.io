@@ -8,6 +8,8 @@
   var MAX_GUESSES = 6;       // attempts per word
   var BEST_SPRINT = "speedle_best_sprint"; // most words solved in a sprint
   var BEST_RACE = "speedle_best_race";     // fastest ms to RACE_TARGET words
+  var BEST_SPRINT_HARD = "speedle_best_sprint_hard", BEST_RACE_HARD = "speedle_best_race_hard"; // the same, in Hard mode
+  var HARD_PREF = "speedle_hard";          // "1" when Hard mode is on (a setting, not a score)
 
   // 5-letter word pool — used both as answers and as the accepted-guess
   // dictionary (a guess must be in this list to count).
@@ -144,6 +146,8 @@
   var scoreBonus = $("score-bonus");
 
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  // a key hint as a keycap (shared style from ../motion-toggle.js; hidden on touch-only devices)
+  function keycap(k) { return ' <span class="gs-keys"><kbd class="gs-kbd">' + k + '</kbd></span>'; }
   function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
 
   // ----- sound --------------------------------------------------------
@@ -205,6 +209,8 @@
   var raceFinishMs = null;   // elapsed time captured the instant the Race is won (so the end-screen delay doesn't inflate it)
   var lastCountSec = 0;      // last whole second announced by the countdown beep
   var letterState = {};      // best-known state per letter for keyboard tint
+  var hard = false;          // Hard mode: revealed clues must be used (set from HARD_PREF at boot)
+  var rowResults = [];       // this word's scored guesses: [{ guess, result }]
   var locked = false;        // brief lock while a word resolves
 
   function buildBoard() {
@@ -233,7 +239,7 @@
 
   function newWord() {
     answer = WORDS[(Math.random() * WORDS.length) | 0];
-    rowIdx = 0; colIdx = 0; locked = false;
+    rowIdx = 0; colIdx = 0; locked = false; rowResults = [];
     buildBoard();
     resetKeyboardTint();
     setMsg(""); // clear the previous ✓/✗ result the moment the next word loads
@@ -265,12 +271,14 @@
     var s = ms / 1000;
     return s.toFixed(1);
   }
+  // Hard mode keeps its own records
+  function bestKey(m) { return m === "sprint" ? (hard ? BEST_SPRINT_HARD : BEST_SPRINT) : (hard ? BEST_RACE_HARD : BEST_RACE); }
   function renderBest() {
     if (mode === "sprint") {
-      var b = parseInt(load(BEST_SPRINT), 10) || 0;
+      var b = parseInt(load(bestKey("sprint")), 10) || 0;
       valueBest.textContent = b ? String(b) : "—";
     } else {
-      var r = parseInt(load(BEST_RACE), 10) || 0;
+      var r = parseInt(load(bestKey("race")), 10) || 0;
       valueBest.textContent = r ? fmt(r) + "s" : "—";
     }
   }
@@ -326,16 +334,40 @@
     if (colIdx < 5) { rowShake(); setMsg("not enough letters"); return; }
     var guess = grid[rowIdx].join("");
     if (!WORDSET[guess]) { rowShake(); setMsg("not in word list"); SND.bad(); return; }
+    var miss = hard ? hardMiss(guess) : "";
+    if (miss) { rowShake(); setMsg(miss); SND.bad(); return; }
     setMsg("");
 
     // score the guess (handles duplicate letters correctly)
     var result = scoreGuess(guess, answer);
+    rowResults.push({ guess: guess, result: result });
     paintRow(rowIdx, guess, result);
 
     if (guess === answer) { wordSolved(); return; }
 
     rowIdx++; colIdx = 0;
     if (rowIdx >= MAX_GUESSES) { wordFailed(); }
+  }
+
+  // Hard mode, as in Wordle: every clue already shown for this word has to be
+  // used. A green letter stays in its spot, and each letter appears at least
+  // as often as one guess's greens + yellows showed it. "" when the guess is ok.
+  var ORD = ["1st", "2nd", "3rd", "4th", "5th"];
+  function hardMiss(guess) {
+    var need = {}, i, r, ch;
+    for (r = 0; r < rowResults.length; r++) {
+      var g = rowResults[r].guess, res = rowResults[r].result;
+      for (i = 0; i < 5; i++) if (res[i] === "green" && guess[i] !== g[i]) return ORD[i] + " letter must be " + g[i].toUpperCase();
+    }
+    for (r = 0; r < rowResults.length; r++) {
+      var shown = {};
+      for (i = 0; i < 5; i++) if (rowResults[r].result[i] !== "gray") { ch = rowResults[r].guess[i]; shown[ch] = (shown[ch] || 0) + 1; }
+      for (ch in shown) need[ch] = Math.max(need[ch] || 0, shown[ch]);
+    }
+    for (ch in need) {
+      if (guess.split(ch).length - 1 < need[ch]) return "guess must contain " + (need[ch] > 1 ? need[ch] + " " + ch.toUpperCase() + "s" : ch.toUpperCase());
+    }
+    return "";
   }
 
   function scoreGuess(guess, ans) {
@@ -433,7 +465,7 @@
     raceFinishMs = null;
     valueSolved.textContent = "0";
     labelA.textContent = mode === "sprint" ? "Time left" : "Time";
-    labelBest.textContent = mode === "sprint" ? "Best (words)" : "Best (time)";
+    labelBest.textContent = (mode === "sprint" ? "Best (words" : "Best (time") + (hard ? ", hard)" : ")");
     statA.classList.remove("warn");
     lastCountSec = 0;
     renderBest();
@@ -454,29 +486,29 @@
     SND.over();
     var record = false, line2 = "";
     if (mode === "sprint") {
-      var best = parseInt(load(BEST_SPRINT), 10) || 0;
-      if (solved > best) { best = solved; save(BEST_SPRINT, best); record = true; }
+      var best = parseInt(load(bestKey("sprint")), 10) || 0;
+      if (solved > best) { best = solved; save(bestKey("sprint"), best); record = true; }
       line2 = record ? "🏆 new best!" : "best " + best + " word" + (best === 1 ? "" : "s");
       card.innerHTML =
         '<h2>Time!</h2>' +
         '<div class="big">' + solved + '<small> word' + (solved === 1 ? '' : 's') + '</small></div>' +
         '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' + line2 + '</p>' +
-        '<p>' + SPRINT_SECONDS + 's start · +' + SPRINT_BONUS + 's per word</p>' +
-        '<button class="btn" id="btn-again">Play again</button>' +
-        '<br><button class="btn ghost" id="btn-menu">Change mode</button>';
+        '<p>' + SPRINT_SECONDS + 's start · +' + SPRINT_BONUS + 's per word' + (hard ? ' · hard mode' : '') + '</p>' +
+        '<button class="btn" id="btn-again">Play again' + keycap("Enter") + '</button>' +
+        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("Esc") + '</button>';
     } else {
       var elapsed = (raceFinishMs != null) ? raceFinishMs : Math.round(performance.now() - startTime);
       var done = solved >= RACE_TARGET;
-      var bestR = parseInt(load(BEST_RACE), 10) || 0;
-      if (done && (bestR === 0 || elapsed < bestR)) { bestR = elapsed; save(BEST_RACE, bestR); record = true; }
+      var bestR = parseInt(load(bestKey("race")), 10) || 0;
+      if (done && (bestR === 0 || elapsed < bestR)) { bestR = elapsed; save(bestKey("race"), bestR); record = true; }
       line2 = record ? "🏆 new best time!" : (bestR ? "best " + fmt(bestR) + "s" : "");
       card.innerHTML =
         '<h2>' + (done ? 'Finished!' : 'Stopped') + '</h2>' +
         '<div class="big">' + fmt(elapsed) + '<small>s</small></div>' +
         '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' + line2 + '</p>' +
-        '<p>' + solved + ' of ' + RACE_TARGET + ' words</p>' +
-        '<button class="btn" id="btn-again">Play again</button>' +
-        '<br><button class="btn ghost" id="btn-menu">Change mode</button>';
+        '<p>' + solved + ' of ' + RACE_TARGET + ' words' + (hard ? ' · hard mode' : '') + '</p>' +
+        '<button class="btn" id="btn-again">Play again' + keycap("Enter") + '</button>' +
+        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("Esc") + '</button>';
     }
     ov.classList.add("show");
     $("btn-again").addEventListener("click", function () { startGame(mode); });
@@ -487,8 +519,8 @@
   function showMenu() {
     playing = false;
     cancelAnimationFrame(timerRAF);
-    var bestS = parseInt(load(BEST_SPRINT), 10) || 0;
-    var bestR = parseInt(load(BEST_RACE), 10) || 0;
+    var bestS = parseInt(load(bestKey("sprint")), 10) || 0;
+    var bestR = parseInt(load(bestKey("race")), 10) || 0;
     card.innerHTML =
       '<h2 class="card-title" aria-label="Speedle">' + tilesHTML("speedle") + '</h2>' +
       '<p>Wordle, against the clock. Solve 5-letter words back-to-back — each solve loads the next instantly.</p>' +
@@ -499,10 +531,14 @@
         '<li>' + MAX_GUESSES + ' guesses each — miss all ' + MAX_GUESSES + ' and it skips, no credit.</li>' +
       '</ul>' +
       '<div class="modes">' +
-        '<button class="mode-btn" id="m-sprint"><div class="t">⏱️ Sprint</div><div class="d">' + SPRINT_SECONDS + 's start, +' + SPRINT_BONUS + 's per word</div><div class="b">' + (bestS ? 'best ' + bestS : '') + '</div></button>' +
-        '<button class="mode-btn" id="m-race"><div class="t">🏁 Race to ' + RACE_TARGET + '</div><div class="d">' + RACE_TARGET + ' words, fastest time</div><div class="b">' + (bestR ? 'best ' + fmt(bestR) + 's' : '') + '</div></button>' +
-      '</div>';
+        '<button class="mode-btn" id="m-sprint"><div class="t">⏱️ Sprint' + keycap("1") + '</div><div class="d">' + SPRINT_SECONDS + 's start, +' + SPRINT_BONUS + 's per word</div><div class="b">' + (bestS ? 'best ' + bestS : '') + '</div></button>' +
+        '<button class="mode-btn" id="m-race"><div class="t">🏁 Race to ' + RACE_TARGET + keycap("2") + '</div><div class="d">' + RACE_TARGET + ' words, fastest time</div><div class="b">' + (bestR ? 'best ' + fmt(bestR) + 's' : '') + '</div></button>' +
+      '</div>' +
+      '<button class="hard-btn' + (hard ? ' on' : '') + '" id="m-hard" type="button" aria-pressed="' + hard + '">' +
+        '<span class="t">' + (hard ? '🔒 Hard mode: on' : '🔓 Hard mode: off') + keycap("H") + '</span>' +
+        '<span class="d">revealed clues must be used in later guesses · its own bests</span></button>';
     ov.classList.add("show");
+    $("m-hard").addEventListener("click", function () { hard = !hard; save(HARD_PREF, hard ? "1" : "0"); showMenu(); $("m-hard").focus(); });
     $("m-sprint").addEventListener("click", function () { startGame("sprint"); });
     $("m-race").addEventListener("click", function () { startGame("race"); });
   }
@@ -511,7 +547,16 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
+      if (e.repeat) return;
+      if ($("m-sprint")) {   // the menu: 1 / 2 pick a mode, H toggles Hard mode
+        if (e.key === "1") { e.preventDefault(); startGame("sprint"); }
+        else if (e.key === "2") { e.preventDefault(); startGame("race"); }
+        else if (e.key === "h" || e.key === "H") { e.preventDefault(); $("m-hard").click(); }
+        return;
+      }
+      // the end card: Enter plays again, Esc goes back to the modes
       if (e.key === "Enter") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
+      else if (e.key === "Escape") { var m = $("btn-menu"); if (m) { e.preventDefault(); m.click(); } }
       return;
     }
     if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) handleKey("enter"); }
@@ -519,7 +564,18 @@
     else if (/^[a-zA-Z]$/.test(e.key)) { if (!e.repeat) handleKey(e.key.toLowerCase()); }
   });
 
+  // the ⏸ button is shown, so it's plain the game has none, but it stays off:
+  // with the clock stopped you could study the board for free
+  if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+    keys: [],
+    canPause: function () { return false; },
+    isPaused: function () { return false; },
+    toggle: function () {},
+    offTitle: "Speedle can't be paused: the clock always runs"
+  });
+
   // ----- boot ---------------------------------------------------------
+  hard = load(HARD_PREF) === "1";
   buildKeyboard();
   buildBoard();
   showMenu();

@@ -27,8 +27,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, g);
   }
 
+  // ---- Speedle: the ⏸ button shows but never pauses (a stopped clock would be a free look)
+  let p = await lib.open(ctx, base, "games/speedle/");
+  const sp = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return b && { off: b.getAttribute("aria-disabled"), title: b.title, text: b.textContent }; });
+  const spMenu = await sp();
+  await p.click("#m-sprint"); await p.waitForTimeout(300);
+  const spPlay = await sp();
+  // (force: Playwright won't click an aria-disabled button, but a player's click still lands on it)
+  await p.click(".gs-pause-btn", { force: true }); await p.keyboard.press("Escape"); await p.keyboard.press("p");
+  const spAfter = await sp(), spCard = await card(p);
+  const typedP = await p.evaluate(() => [...document.querySelectorAll(".tile")].map((t) => t.textContent).join("").includes("p"));   // P still types a letter
+  check("speedle: ⏸ is shown, always off, says why; clicking it or Esc doesn't pause",
+    spMenu && spMenu.off === "true" && spPlay.off === "true" && /can't be paused/.test(spPlay.title) && spAfter.off === "true" && !spCard && typedP,
+    { spMenu, spPlay, spAfter, spCard, typedP });
+  await done(p, "speedle");
+
   // ---- Ping: a rally pauses, the ball freezes
-  let p = await lib.open(ctx, base, "games/ping/");
+  p = await lib.open(ctx, base, "games/ping/");
   await p.click('#menu .btn[data-mode="1"]'); await p.waitForTimeout(3400);
   await p.keyboard.press("p");
   const x0 = await p.evaluate(() => ball.x); await p.waitForTimeout(300); const x1 = await p.evaluate(() => ball.x);

@@ -339,11 +339,18 @@
   //
   //   GameShell.pauseButton({ toggle, isPaused, canPause, keys: ["p"] });
   //
+  // offTitle replaces the dimmed button's "Pausing works during a game"
+  // tooltip, for a game that shows the button but never pauses (keys: [],
+  // canPause always false), so players see why:
+  //
+  //   GameShell.pauseButton({ keys: [], canPause: () => false, offTitle: "…" });
+  //
   // A click never takes focus (so the game's Space / Enter / typing keeps
   // going where it was) and never reaches the game's own tap handlers.
   function pauseButton(api) {
     var keys = api.keys || ["Escape", "p"];
-    var label = keyLabel(keys), caps = keyCaps(keys), shown = "";
+    var label = keyLabel(keys), caps = keys.length ? " " + keyCaps(keys) : "", shown = "";
+    var keyNote = label ? " (" + label + ")" : "";
     var isPaused = api.isPaused || function () { return false; };
     var canPause = api.canPause || function () { return true; };
     var btn = null;
@@ -355,11 +362,12 @@
       if (!btn) return;
       var p = isPaused(), ok = p || canPause();
       var html = p ? "▶" : "⏸";
-      if (!narrow()) html += (p ? " Resume " : " Pause ") + caps;
+      if (!narrow()) html += (p ? " Resume" : " Pause") + caps;
       if (html !== shown) { btn.innerHTML = html; shown = html; }
       btn.setAttribute("aria-disabled", ok ? "false" : "true");
-      btn.setAttribute("aria-label", p ? "Resume (" + label + ")" : "Pause (" + label + ")");
-      btn.title = ok ? (p ? "Resume — " : "Pause — ") + label : "Pausing works during a game (" + label + ")";
+      var off = !ok && api.offTitle;
+      btn.setAttribute("aria-label", off ? api.offTitle : (p ? "Resume" : "Pause") + keyNote);
+      btn.title = ok ? (p ? "Resume" : "Pause") + (label ? " — " + label : "") : off || "Pausing works during a game" + keyNote;
       btn.style.opacity = ok ? "1" : "0.45";
       btn.style.cursor = ok ? "pointer" : "default";
     }

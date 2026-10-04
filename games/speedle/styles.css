@@ -194,6 +194,22 @@ header.top p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.95rem; fon
 .mode-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--walnut-edge), 0 2px 4px rgba(0, 0, 0, 0.35); }
 .mode-btn .t { font-size: 1.1rem; font-weight: 700; }
 .mode-btn .d { font-size: 0.8rem; color: #d9bf95; margin-top: 0.2rem; }
+/* Hard mode toggle, on the light-wood menu card: a dashed outline when
+   off, the mode buttons' walnut when on */
+.hard-btn {
+  display: block; width: 100%; margin: 0.2rem 0 0.4rem; padding: 0.55rem 0.8rem; cursor: pointer; text-align: center;
+  font: inherit; color: var(--ink); background: rgba(255, 245, 225, 0.35);
+  border: 2px dashed #9c7443; border-radius: 10px;
+  transition: background 0.15s ease, transform 0.12s ease;
+}
+.hard-btn:hover { background: rgba(255, 245, 225, 0.6); }
+.hard-btn:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
+.hard-btn .t { display: block; font-weight: 700; font-size: 0.95rem; }
+.hard-btn .d { display: block; font-size: 0.76rem; color: #7a5b3b; margin-top: 0.15rem; }
+.hard-btn.on { color: #f3e2c3; background: var(--walnut); border: 2px solid var(--walnut-edge); box-shadow: 0 3px 0 var(--walnut-edge); }
+.hard-btn.on:hover { background: var(--walnut); transform: translateY(-1px); }
+.hard-btn.on .t { color: var(--warn); }
+.hard-btn.on .d { color: #d9bf95; }
 .mode-btn .b { font-size: 0.78rem; color: #aee38c; margin-top: 0.35rem; font-weight: 700; min-height: 0.9rem; }
 .btn {
   cursor: pointer; border: none; border-radius: 9px; padding: 0.8rem 1.7rem;
