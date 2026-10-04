@@ -37,6 +37,20 @@ async function newContext(browser, opts) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 1280, height: 900 } }, opts || {}));
   await ctx.route(/googletagmanager|fonts\.googleapis|fonts\.gstatic/, (r) => r.fulfill({ body: "" }));
   await ctx.route(/flagcdn\.com/, (r) => r.fulfill({ contentType: "image/svg+xml", body: FLAG }));
+  // Leaving a game for the games page (Home, or an Esc no game code claimed)
+  // is counted on the page (page.leaves), not followed: a 204 reply keeps the
+  // page where it is, so a test can press keys on a menu and carry on.
+  await ctx.route(/\/games\/(index\.html)?$/, (r) => {
+    const req = r.request();
+    let from = "";
+    try { from = req.frame().url(); } catch (e) {}
+    if (req.isNavigationRequest() && /\/games\/[^/]+\//.test(from)) {
+      const pg = req.frame().page();
+      pg.leaves = (pg.leaves || 0) + 1;
+      return r.fulfill({ status: 204, body: "" });
+    }
+    return r.continue();
+  });
   return ctx;
 }
 
@@ -71,6 +85,7 @@ function tally(suite) {
 async function open(ctx, base, url, opts) {
   const p = await ctx.newPage();
   p.errs = [];
+  p.leaves = 0;   // trips to the games page (see newContext)
   p.on("pageerror", (e) => p.errs.push(e.message));
   if (opts && opts.before) await opts.before(p);
   await p.goto(base + url, { waitUntil: "domcontentloaded" });

@@ -1043,6 +1043,11 @@
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    // Esc leaves for the games page unless something claims it. In the level
+    // editor (and on a test run's "passed" banner, on its way back there)
+    // that would throw the unsaved level away, so claim it and do nothing:
+    // the editor's own Back / Save are the ways out.
+    if (e.key === "Escape" && (state === "edit" || (testingEditor && mode === "levels" && state === "levelend"))) { e.preventDefault(); return; }
     if (e.key === " ") { e.preventDefault(); ffOn(); }
   });
   document.addEventListener("keyup", function (e) { if (e.key === " ") ffOff(); });

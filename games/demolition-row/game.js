@@ -1086,7 +1086,11 @@
       if (!GAME) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       SFX.resume();
-      if (e.key === "Escape") { if (!e.repeat) GAME.pauseToggle(); e.preventDefault(); return; }
+      // Esc is claimed only when it pauses or resumes; anywhere else (the result
+      // card, the beat between VS rounds) it's left to leave for the games page
+      if (e.key === "Escape") { if (GAME.state === "playing" || GAME.state === "paused") { if (!e.repeat) GAME.pauseToggle(); e.preventDefault(); } return; }
+      // on the result card Backspace is its Main Menu button
+      if (e.key === "Backspace" && GAME.state === "result") { if (!e.repeat) toMenu(); e.preventDefault(); return; }
       if (GAME.state !== "playing") return;
       for (const s of SCHEMES) {
         const action = schemeAction(s, e); if (!action) continue;

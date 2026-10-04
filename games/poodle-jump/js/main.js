@@ -21,6 +21,9 @@
   const input = new Input(canvas);
   const game = new Game(canvas, input);
   window.__game = game; // debug/automation hook
+  // Esc pauses / resumes only in play, so it's claimed only then; on the
+  // start and game-over notes (and while falling) it leaves for the games page
+  input.claimEsc = () => game.state === "play";
 
   // Re-apply when the device pixel ratio changes (e.g. dragging the window to a
   // different-density monitor or browser zoom). setTransform is reset by sizing.

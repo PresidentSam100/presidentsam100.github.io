@@ -284,6 +284,7 @@
   var best = window.GameShell ? GameShell.best("jamjar_best", { higher: true }) : { get: function () { return 0; }, submit: function () {} };
   var fruits = [], particles = [];
   var state = "play"; // play | over
+  var dropped = false; // a fruit has gone into this jar (until then Esc leaves, see the pause)
   var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0;
   var current = 0, next = 0;
   function rndTier() { var r = Math.random(); return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
@@ -291,7 +292,7 @@
 
   function reset() {
     fruits = []; particles = [];
-    score = 0; dropCd = 0; dangerT = 0; state = "play";
+    score = 0; dropCd = 0; dangerT = 0; state = "play"; dropped = false;
     current = rndTier(); next = rndTier();
     refreshHud();
     drawChain();
@@ -312,6 +313,7 @@
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     fruits.push(makeFruit(x, DROP_Y, current));
+    dropped = true;
     sfxDrop();
     current = next; next = rndTier();
     dropCd = 0.45;
@@ -848,6 +850,14 @@
   var P = window.GameShell
     ? GameShell.pausable({ canPause: function () { return state === "play"; } })
     : { isPaused: function () { return false; } };
+  // The game opens on an empty jar, already in play. Until the first fruit
+  // drops there's nothing to lose, so Esc is the way out: this capture-phase
+  // listener keeps that Esc from the pause (which listens on document, in the
+  // bubble phase), nothing claims it, and the shared handler leaves for the
+  // games page. P and the ⏸ button still pause.
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && state === "play" && !dropped && !P.isPaused()) e.stopPropagation();
+  }, true);
 
   var last = performance.now();
   function loop(now) {

@@ -14,6 +14,10 @@ class Input {
     this.shots = [];
     this.action = false;    // start / restart pressed
     this.pause = false;     // pause/resume toggle pressed (P / Esc)
+    // Whether the loop will act on Esc (main.js: only in play). Only then is
+    // it claimed (preventDefault); otherwise the shared motion-toggle.js
+    // takes it to the games page.
+    this.claimEsc = () => false;
 
     this._bindKeyboard();
     this._bindPointer();
@@ -58,6 +62,7 @@ class Input {
       }
       if (e.code === "Enter") this.action = true;
       if (e.code === "KeyP" || e.code === "Escape") this.pause = true;
+      if (e.code === "Escape" && this.claimEsc()) e.preventDefault();
     });
 
     window.addEventListener("keyup", (e) => { this.keys[e.code] = false; });

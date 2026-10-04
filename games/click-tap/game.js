@@ -242,9 +242,16 @@
     e.preventDefault();
     registerInput();
   });
-  // Esc still bails out of a run; there's no keyboard play mode anymore.
+  // Backspace bails out of a run, or leaves the results, for the setup screen;
+  // there's no keyboard play mode anymore. There's no pause either, so Esc is
+  // left unclaimed everywhere and leaves for the games page (motion-toggle.js).
   window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && state !== "setup") quit();
+    if (e.key !== "Backspace" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) && !t.disabled) return;
+    if (state === "setup") return;
+    e.preventDefault();
+    quit();
   });
 
   $("startBtn").addEventListener("click", () => { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} beginTest(); });

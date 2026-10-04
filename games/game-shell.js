@@ -369,6 +369,10 @@
   //
   //   GameShell.pauseButton({ keys: [], canPause: () => false, offTitle: "…" });
   //
+  // It can also be a function, read each time the button updates, for a game
+  // where only some modes never pause (24: Classic and Hard have no clock).
+  // Returning "" keeps the usual tooltip.
+  //
   // A click never takes focus (so the game's Space / Enter / typing keeps
   // going where it was) and never reaches the game's own tap handlers.
   function pauseButton(api) {
@@ -389,8 +393,8 @@
       if (!narrow()) html += (p ? " Resume" : " Pause") + caps;
       if (html !== shown) { btn.innerHTML = html; shown = html; }
       btn.setAttribute("aria-disabled", ok ? "false" : "true");
-      var off = !ok && api.offTitle;
-      btn.setAttribute("aria-label", off ? api.offTitle : (p ? "Resume" : "Pause") + keyNote);
+      var off = !ok && (typeof api.offTitle === "function" ? api.offTitle() : api.offTitle);
+      btn.setAttribute("aria-label", off ? off : (p ? "Resume" : "Pause") + keyNote);
       btn.title = ok ? (p ? "Resume" : "Pause") + (label ? " — " + label : "") : off || "Pausing works during a game" + keyNote;
       btn.style.opacity = ok ? "1" : "0.45";
       btn.style.cursor = ok ? "pointer" : "default";

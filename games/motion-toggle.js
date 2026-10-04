@@ -18,6 +18,8 @@
      picks; games shouldn't add their own @media (prefers-reduced-motion)
      copy, which would beat the player's explicit "FX on".
    - Keys: V or "]" (just "]" on a page with <html data-letter-keys="off">).
+   - Also the way out for every game: Home, or an Esc the game didn't use,
+     goes to the games page (see "Home or Esc" below).
    Include with:  <script src="../motion-toggle.js"></script>  (in <head>)
    ===================================================================== */
 (function () {
@@ -100,7 +102,7 @@
       "vertical-align:.06em;white-space:nowrap;color:inherit;" +
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
-      ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}" +
+      ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd,.nav-back-games .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}" +
       "@media (hover:none){.gs-keys{display:none}}";
     (document.head || document.documentElement).appendChild(st);
   })();
@@ -111,15 +113,58 @@
   // fields are left alone except one marked data-game-input, where only
   // "]" works.
   function lettersOn() { return document.documentElement.getAttribute("data-letter-keys") !== "off"; }
+  // a key pressed in a text field (but not a checkbox, button, slider…)
+  function typingIn(t) {
+    var tag = t && t.tagName;
+    return tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
+      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+  }
   function isKey(e, letter, sym) {
     if (!e.key || e.repeat || e.metaKey) return false;   // autofill sends keydowns with no key
     // AltGr (Ctrl+Alt) is how some layouts type the brackets
     if ((e.ctrlKey || e.altKey) && !(e.key === sym && e.ctrlKey && e.altKey)) return false;
-    var t = e.target, tag = t && t.tagName;
-    var typing = tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
-      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+    var t = e.target, typing = typingIn(t);
     if (e.key === sym) return !typing || t.hasAttribute("data-game-input");
     return !typing && lettersOn() && e.key.toLowerCase() === letter;
+  }
+
+  // ---- keyboard: Home or Esc -> the games page ----------------------------
+  // Home leaves for the games list from anywhere in a game. Esc does too,
+  // unless the game acted on it: pausing or resuming, closing a panel,
+  // stepping back out of a sub-screen. Every game marks such an Esc by
+  // calling preventDefault(), so this needs no idea which screen is up; it
+  // listens first (capture) and decides once the key has been through the
+  // game's own handlers. Neither key works from a text field (except the
+  // game's own answer box, marked data-game-input) or while a GameShell
+  // dialog is up. A page whose Esc must never leave (an editor, where it
+  // would throw away work) sets <html data-esc-leaves="off">.
+  var GAMES_URL = new URL("../", location.href).href;
+  function leaveKey(e) {
+    if ((e.key !== "Escape" && e.key !== "Home") || e.repeat) return false;
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return false;
+    if (typingIn(e.target) && !e.target.hasAttribute("data-game-input")) return false;
+    if (e.key === "Escape" && document.documentElement.getAttribute("data-esc-leaves") === "off") return false;
+    return !document.querySelector(".gs-dialog");   // a dialog answers Esc itself, and Home waits for it
+  }
+  window.addEventListener("keydown", function (e) {
+    if (!leaveKey(e)) return;
+    setTimeout(function () { if (!e.defaultPrevented) location.href = GAMES_URL; }, 0);
+  }, true);
+
+  // The "← Games" button names the key, like the ✨ and 🔊 buttons do (only
+  // where it leads to the games page: Slither's editor links back to Slither)
+  function markBack() {
+    var back = document.querySelector(".nav-back-games");
+    if (!back || back.href !== GAMES_URL) return;
+    back.setAttribute("aria-keyshortcuts", "Home Escape");
+    back.title = "Back to the games — Home, or Esc when nothing's in play";
+    var cap = back.querySelector(".gs-back-key"), wide = window.innerWidth >= 1200;
+    if (wide && !cap) {
+      cap = document.createElement("span");
+      cap.className = "gs-keys gs-back-key";
+      cap.innerHTML = ' <kbd class="gs-kbd">Home</kbd>';
+      back.appendChild(cap);
+    } else if (!wide && cap) back.removeChild(cap);
   }
 
   var btn = null, shown = "";
@@ -191,8 +236,9 @@
     btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
 
     document.body.appendChild(btn);
+    markBack();
     // the sound and ⏸ buttons re-place themselves on resize after this runs
-    window.addEventListener("resize", render);
+    window.addEventListener("resize", function () { render(); markBack(); });
   }
 
   if (document.body) build();

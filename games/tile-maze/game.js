@@ -339,7 +339,8 @@
   document.getElementById("guideBtn").addEventListener("click", openGuide);
   document.getElementById("guideClose").addEventListener("click", closeGuide);
   guideOverlay.addEventListener("click", (e) => { if (e.target === guideOverlay) closeGuide(); });
-  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !guideOverlay.hidden) closeGuide(); });
+  // Esc closes the guide, and claims the key so it doesn't also leave for the games page
+  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !guideOverlay.hidden) { e.preventDefault(); closeGuide(); } });
 
 
   window.addEventListener("resize", () => {

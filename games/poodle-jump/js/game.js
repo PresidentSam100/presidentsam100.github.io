@@ -807,6 +807,7 @@ class Game {
       "Best: " + this.high,
       "",
       "[Space] or click to play again",
+      "[Esc] all games",
     ]);
   }
 

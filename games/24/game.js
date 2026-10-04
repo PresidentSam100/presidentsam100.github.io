@@ -478,7 +478,8 @@
       center("Best " + store.getNum(KEYS.timed, 0), 23, "M");
       navi("Again");
     },
-    key: function (k) { if (k === "navi") newGame("timed"); else if (k === "C" || k === "esc") quitToMenu(); },
+    // C (Backspace) goes to the menu; Esc isn't used here, so it leaves for the games page
+    key: function (k) { if (k === "navi") newGame("timed"); else if (k === "C") quitToMenu(); },
     speak: function () { return "Time's up. " + G.solved + " solved."; },
   };
 
@@ -495,9 +496,12 @@
       else center("C: menu", 31, "M");
       navi("Share");
     },
+    // C (Backspace) goes to the menu. Esc does too when this was opened from
+    // the menu (no game: G is null), like Scores; after a finished Daily it's
+    // an end screen, and Esc leaves for the games page (see escActs)
     key: function (k, t) {
       if (k === "navi") share();
-      else if (k === "C" || k === "esc") quitToMenu();
+      else if (k === "C" || (k === "esc" && !G)) quitToMenu();
     },
     speak: function () { return "Daily done."; },
   };
@@ -580,11 +584,25 @@
     "Backspace": "C", "Delete": "C", "c": "C", "C": "C", "Enter": "navi", " ": "navi",
     "ArrowUp": "up", "ArrowDown": "down", "Escape": "esc", "#": "#", "h": "9", "H": "9", "r": "0", "R": "0", "s": "#", "S": "#",
   };
+  // Esc is claimed only where it does something: pausing (Options in Classic
+  // and Hard), resuming, closing Options or a Confirm, or stepping back out
+  // of Scores, How to play, or a Daily result opened from the menu. On the
+  // main menu and the end screens (Time's up, a finished Daily, an Answer)
+  // it's left alone, so the shared motion-toggle.js takes it to the games
+  // page; C / Backspace leads from those to this game's menu (a Daily's
+  // Answer by way of its result). The Game screen claims it even through
+  // the "24!" flash, when it does nothing, so a pause pressed just then
+  // never throws the run away.
+  function escActs() {
+    if (screen === DailyDone) return !G;
+    return screen === Game || screen === Options || screen === Confirm || screen === Paused || screen === Scores || screen === Help;
+  }
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target && /textarea|input/i.test(e.target.tagName)) return;
     var k = /^[0-9]$/.test(e.key) ? e.key : KB[e.key];
     if (!k) return;
+    if (k === "esc" && !escActs()) return;
     e.preventDefault();
     if (e.repeat && k !== "up" && k !== "down") return;
     press(k);
@@ -636,10 +654,15 @@
     if (canPause()) go(Paused);
   });
   // the ⏸ corner button. Only timed and daily games have a clock to stop;
-  // in classic and hard, Esc opens Options and the button stays dimmed.
+  // in classic and hard, Esc opens Options and the button stays dimmed, and
+  // says why (on the menus it keeps the usual "works during a game")
   if (window.GameShell) GameShell.pauseButton({
     keys: ["Escape"],
     canPause: canPause,
+    offTitle: function () {
+      var untimed = (screen === Game || screen === Options || screen === Confirm) && G && !G.over && (G.mode === "classic" || G.mode === "hard");
+      return untimed ? "No clock in " + (G.mode === "hard" ? "Hard" : "Classic") + " to pause (Esc opens Options)" : "";
+    },
     isPaused: function () { return screen === Paused; },
     toggle: function () { audio(); go(screen === Paused ? Game : Paused); }
   });

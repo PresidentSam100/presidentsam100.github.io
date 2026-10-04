@@ -389,9 +389,14 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // Enter takes the result card's main action (Play Again / Next Round / Retry).
     if (e.key === "Enter" && !resultOverlay.classList.contains("hidden")) { resultPrimary.click(); e.preventDefault(); return; }
+    // Backspace takes it back to the main menu, in every mode; Esc there is
+    // left to ../motion-toggle.js, which takes it to the games page.
+    if (e.key === "Backspace" && !resultOverlay.classList.contains("hidden")) { resetToMenu(); e.preventDefault(); return; }
     if (G.mode === "lab") { if (lab) lab.keydown(e); return; }
     var k = e.key;
-    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { togglePause(); e.preventDefault(); return; }
+    // Esc is claimed only when it pauses or resumes (not on the result card,
+    // or while a crash plays out), so otherwise it leaves for the games page
+    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { if (togglePause() || k !== "Escape") e.preventDefault(); return; }
     var arrowMap = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
     var wasdMap = { w: UP, a: LEFT, s: DOWN, d: RIGHT, W: UP, A: LEFT, S: DOWN, D: RIGHT };
     if (arrowMap[k]) { setQueuedDir(G.mode === "two" ? 1 : 0, arrowMap[k]); e.preventDefault(); }
@@ -506,12 +511,14 @@
   })();
 
   // ---- pause / menu buttons ---------------------------------------------
+  // (true when it paused or resumed: the keys claim Esc only then)
   function togglePause() {
-    if (G.mode === "lab") { if (lab) lab.togglePause(); return; }
-    if (!G.running || G.pendingEnd) return;
+    if (G.mode === "lab") return lab ? lab.togglePause() : false;
+    if (!G.running || G.pendingEnd) return false;
     G.paused = !G.paused;
     pauseOverlay.classList.toggle("hidden", !G.paused);
     pauseLabel(G.paused, false);
+    return true;
   }
 
   // Switching tabs used to leave the snake crawling into a wall off-screen.

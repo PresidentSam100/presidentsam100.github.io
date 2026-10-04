@@ -7,7 +7,7 @@ const HOOK = ["  // ----- boot ---", `  window.__speedle = { setAnswer: function
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const p = await ctx.newPage();
-  p.errs = []; p.on("pageerror", (e) => p.errs.push(e.message));
+  p.errs = []; p.leaves = 0; p.on("pageerror", (e) => p.errs.push(e.message));
   await lib.injectScript(p, "games/speedle/game.js", [HOOK]);
   await p.goto(base + "games/speedle/", { waitUntil: "domcontentloaded" });
   await p.evaluate(() => localStorage.clear()); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
@@ -62,7 +62,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("speedle normal: any word-list guess goes, the scoreboard doesn't say hard", off.pressed === "false" && n1.accepted && n2.accepted && !/hard/.test(label), { off, n1, n2, label });
 
   // keyboard: on the menu 1 / 2 pick a mode and H toggles Hard; on the end card
-  // Enter plays again and Esc returns to the modes — each shown as a keycap
+  // Enter plays again and Backspace returns to the modes (Esc leaves for the
+  // games page) — each shown as a keycap
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
   const caps = await p.evaluate(() => ["#m-sprint", "#m-race", "#m-hard"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
   const k0 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k1 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k2 = (await hardBtn()).pressed;
@@ -70,7 +71,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   const race = await p.evaluate(() => ({ overlay: document.getElementById("overlay").classList.contains("show"), label: document.getElementById("label-a").textContent }));
   await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
   const endCaps = await p.evaluate(() => ["#btn-again", "#btn-menu"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  const escLeaves = p.leaves === 1 && !(await p.evaluate(() => !!document.getElementById("m-sprint")));
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   const backToMenu = await p.evaluate(() => !!document.getElementById("m-sprint"));
   await p.keyboard.press("1"); await p.waitForTimeout(200);
   const sprint = await p.evaluate(() => document.getElementById("label-a").textContent);
@@ -79,8 +82,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const again = await p.evaluate(() => !document.getElementById("overlay").classList.contains("show") && document.getElementById("label-a").textContent);
   check("speedle keys: menu shows 1 / 2 / H keycaps, H toggles Hard, 2 starts Race, 1 starts Sprint",
     caps.join() === "1,2,H" && k1 !== k0 && k2 === k0 && !race.overlay && race.label === "Time" && /Time left/.test(sprint), { caps, k0, k1, k2, race, sprint });
-  check("speedle keys: the end card shows Enter / Esc keycaps; Esc goes back to the modes, Enter plays again",
-    endCaps.join() === "Enter,Esc" && backToMenu && /Time left/.test(again), { endCaps, backToMenu, again });
+  check("speedle keys: the end card shows Enter / ⌫ keycaps; Esc leaves, Backspace goes back to the modes, Enter plays again",
+    endCaps.join() === "Enter,⌫" && escLeaves && backToMenu && /Time left/.test(again), { endCaps, escLeaves, backToMenu, again });
 
   check("speedle: no page errors", p.errs.length === 0, p.errs);
   await p.close();

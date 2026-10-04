@@ -665,9 +665,10 @@
       } else if (e.key === "Enter") startRun(mode);
       return;
     }
+    // the results: Backspace back to the modes; Esc (unclaimed) leaves for the games page
     if (state === "over") {
       if (e.key === "Enter") startRun(mode);
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });
   document.addEventListener("keyup", function (e) {

@@ -982,6 +982,18 @@
       startGame();
       return;
     }
+    // Backspace on the game-over card goes back to the start screen (Esc is
+    // left to ../motion-toggle.js, which takes it to the games page). Never
+    // from an enabled text field, and not in the first moments: a Backspace
+    // fixing an answer as the last life slips away mustn't skip the card.
+    if (state === "over" && e.key === "Backspace") {
+      var t = e.target;
+      if (e.repeat || performance.now() - endedAt < 700) return;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA") && !t.disabled) return;
+      e.preventDefault();
+      goToMenu();
+      return;
+    }
     if (state === "playing") {
       if (PAUSE.isPaused()) return;           // no answering (or storms) while paused
       // keep focus on the answer box no matter what

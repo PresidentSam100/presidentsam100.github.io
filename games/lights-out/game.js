@@ -493,13 +493,16 @@
       } else if (e.key === "Enter") startRun(mode);
       return;
     }
+    // Backspace goes back to the modes, from the results or mid-tray (there's
+    // no pause here); Esc is left to ../motion-toggle.js, which takes it to
+    // the games page
     if (state === "over" && !$("over").hidden) {
       if (e.key === "Enter") $("again").click();
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
       return;
     }
     if (state === "play") {
-      if (e.key === "Escape") { toMenu(); return; }
+      if (e.key === "Backspace") { e.preventDefault(); toMenu(); return; }
       if (e.key.toLowerCase() === "h") { hint(); return; }
       // arrows walk the tray, Enter/Space presses (native button click)
       var K = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -n, ArrowDown: n }[e.key];

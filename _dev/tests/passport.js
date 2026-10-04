@@ -1,6 +1,7 @@
 // Passport's keyboard: S shares, M / V and [ / ] reach the corner buttons (but
-// not while typing an answer), Esc steps back, and a typed run that ends leaves
-// the keys working.
+// not while typing an answer), Backspace goes back to Passport's menu and Esc
+// leaves for the games page (both on the end screen and mid-run), and a typed
+// run that ends leaves the keys working.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser, { permissions: ["clipboard-read", "clipboard-write"] });
   const st = (p) => p.evaluate(() => ({ m: MUTE_ON(), f: RM_ON() }));
@@ -25,8 +26,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const started = await p.evaluate(() => ({ s: Passport.state(), m: MUTE_ON() }));
   check("passport: Enter after clicking the sound button starts the run without re-toggling it", started.s === "ask" && started.m === clickedMute, started);
   await p.click(".mute-toggle");
-  await p.keyboard.press("Escape");
-  check("passport: Esc mid-tour returns to the menu", (await p.evaluate(() => Passport.state())) === "menu");
+  await p.keyboard.press("Backspace");
+  check("passport: Backspace mid-tour returns to the menu (and doesn't leave)", (await p.evaluate(() => Passport.state())) === "menu" && p.leaves === 0, p.leaves);
 
   // typed mode: letters belong to the answer, [ still mutes
   await p.keyboard.press("y"); await p.keyboard.press("Enter");
@@ -38,10 +39,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   const t2 = await p.evaluate(() => ({ m: MUTE_ON(), v: document.getElementById("answer").value }));
   await p.keyboard.press("BracketLeft");
   check("passport typed: letters go in the answer, [ mutes without typing", t1.m === t0.m && t1.f === t0.f && t1.v === "mvsMVS" && t2.m === !t1.m && t2.v === "mvsMVS", { t0, t1, t2 });
-  await p.keyboard.press("Escape");
+  // in the answer box Backspace deletes; Esc leaves for the games page
+  await p.keyboard.press("Backspace");
+  const bs = await p.evaluate(() => ({ s: Passport.state(), v: document.getElementById("answer").value }));
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  check("passport typed: Backspace deletes a letter (stays in the run), Esc leaves", bs.s === "ask" && bs.v === "mvsMV" && p.leaves === 1, { bs, leaves: p.leaves });
+  await p.evaluate(() => Passport.toMenu());
   const afterEsc = await p.evaluate(() => ({ s: Passport.state(), ae: document.activeElement.id || document.activeElement.tagName }));
   const e0 = await st(p); await p.keyboard.press("m"); await p.keyboard.press("v"); const e1 = await st(p); await p.keyboard.press("m"); await p.keyboard.press("v");
-  check("passport: after Esc from a typed run, the answer box lets go and M / V work on the menu", afterEsc.s === "menu" && afterEsc.ae !== "answer" && e1.m === !e0.m && e1.f === !e0.f, { afterEsc, e0, e1 });
+  check("passport: back on the menu from a typed run, the answer box lets go and M / V work", afterEsc.s === "menu" && afterEsc.ae !== "answer" && e1.m === !e0.m && e1.f === !e0.f, { afterEsc, e0, e1 });
   await p.keyboard.press("t");
 
   // Dash: M works while paused
@@ -52,7 +58,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("passport dash: M works while paused, Esc resumes", dashPaused && pm === !m0.m && (await p.evaluate(() => document.querySelector(".gs-pause").hidden && Passport.state())) === "ask", { dashPaused, pm });
   await p.evaluate(() => Passport.toMenu());
 
-  // Visa Run: S shares, the hint survives "copied!"; Esc → menu → games list
+  // Visa Run: S shares, the hint survives "copied!"; Backspace → menu; Esc → games list
   await p.keyboard.press("3"); await p.evaluate(() => Passport.fast()); await p.keyboard.press("Enter");
   for (let i = 0; i < 10; i++) {
     await p.waitForFunction(() => Passport.state() === "ask" || Passport.state() === "over");
@@ -70,10 +76,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   const restored = await p.evaluate(() => document.getElementById("share").innerHTML);
   check("passport visa run: S copies the result, the S keycap comes back after 'copied!'",
     !sh.hidden && /<kbd>S<\/kbd>/.test(sh.html) && copied === "copied!" && /Visa Run #\d+/.test(clip) && restored === "Share result <kbd>S</kbd>", { sh, copied, clip, restored });
-  await p.keyboard.press("Escape");
-  check("passport: Esc on the end screen returns to the menu", (await p.evaluate(() => Passport.state())) === "menu");
-  await Promise.all([p.waitForURL((u) => !/passport/.test(u.toString())), p.keyboard.press("Escape")]);
-  check("passport: Esc on the menu goes back to the games list", /\/games\/$/.test(p.url()), p.url());
+  const l0 = p.leaves;
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  const l1 = p.leaves;
+  await p.keyboard.press("Backspace");
+  check("passport: on the end screen Esc leaves for the games list, Backspace returns to the menu", l1 === l0 + 1 && (await p.evaluate(() => Passport.state())) === "menu", { l0, l1 });
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  check("passport: Esc on the menu goes back to the games list (once)", p.leaves === l1 + 1, p.leaves);
   check("passport: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 

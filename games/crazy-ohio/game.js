@@ -384,8 +384,10 @@
 
   // Esc or P pauses a running game, as in the site's other timed games. Esc
   // never quits a run any more (it used to, on the same press as the pause,
-  // so the overlay appeared while the game quit underneath); it only backs
-  // out of the countdown and the results. P can't be a lane key: rebinding
+  // so the overlay appeared while the game quit underneath). In the
+  // countdown and on the results it's left to the shared motion-toggle.js,
+  // which goes to the games page; Backspace backs out of those to setup
+  // (see the keydown handler). P can't be a lane key: rebinding
   // refuses it, and a lane saved on it before this moves to a free key
   // (loadKeybinds). Auto-pause stays state-based so a tab-switch always
   // works. Every clock here is anchored to
@@ -580,7 +582,8 @@
   window.addEventListener("keydown", (e) => {
     // Rebind mode intercepts the very next keypress, wherever we are.
     if (rebindCol >= 0) {
-      if (e.key === "Escape") {
+      if (e.key === "Escape") {   // claimed: it cancels, rather than leaving the page
+        e.preventDefault();
         rebindCol = -1; renderKeybindButtons();
         $("setupHint").textContent = defaultHint();
         return;
@@ -609,8 +612,11 @@
     }
     if (e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    // (while running, Esc is the pause key — GameShell handles it)
-    if (e.key === "Escape" && (state === "countdown" || state === "done")) { quit(); return; }
+    // Backspace backs out of the countdown and the results to setup, unless a
+    // lane is bound to it (a lane key hammered as a run starts or ends mustn't
+    // quit). Esc isn't claimed there, so it leaves for the games page; while
+    // running, Esc is the pause key (GameShell handles it).
+    if (e.key === "Backspace" && (state === "countdown" || state === "done") && KEYBINDS.indexOf(e.code) === -1) { e.preventDefault(); quit(); return; }
     const col = KEYBINDS.indexOf(e.code);
     if (col === -1) return;
     if (state !== "running" || PAUSE.isPaused()) return;

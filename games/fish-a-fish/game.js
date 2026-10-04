@@ -362,8 +362,9 @@
       else if (mk === "w") { pref.kb = "all"; savePicks(); }
       else if (e.key === "Enter") start();
     } else if (state === "over") {
+      // Backspace back to the modes; Esc is left to leave for the games page
       if (e.key === "Enter" || e.key === "r" || e.key === "R") { e.preventDefault(); start(mode); }
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });
   canvas.addEventListener("pointerdown", function (e) {

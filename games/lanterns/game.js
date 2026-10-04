@@ -97,6 +97,7 @@
 
   // ---- state --------------------------------------------------------------------
   var state = "menu";                  // menu | play | over
+  var endedAt = 0;                     // when the last night ended (see the keys)
   var mode = store.get("lanterns_mode", "festival");
   if (mode !== "festival" && mode !== "tone") mode = "festival";
   var script = store.get("lanterns_script", "simp");   // simp | trad
@@ -235,6 +236,10 @@
   }
   function gameOver() {
     state = "over";
+    endedAt = performance.now();
+    // let go of the typing box, so Backspace here means "back to the modes"
+    // (startRun focuses it again)
+    $("kbd").blur();
     gong(true);
     var b = bests[mode];
     var isBest = b ? b.submit(score) : false;
@@ -471,9 +476,15 @@
     }
     if (state === "over") {
       if (e.key === "Enter") startRun(mode);
-      else if (e.key === "Escape") toMenu();
+      // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
+      // which takes it to the games page). Never from a text field, and not
+      // in the first moments: in play Backspace lets go of a lantern, so one
+      // pressed as the last lantern slips away mustn't skip the results.
+      else if (e.key === "Backspace" && !typingIn(e.target) && performance.now() - endedAt >= 700) { e.preventDefault(); toMenu(); }
     }
   });
+  // a text field the player could be typing in (a disabled one doesn't count)
+  function typingIn(t) { return !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || !!t.isContentEditable) && !t.disabled; }
   // mobile keyboards deliver text through the hidden input instead
   $("kbd").addEventListener("input", function () {
     var v = this.value;

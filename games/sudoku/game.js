@@ -754,6 +754,15 @@
       }
     },
   });
+  // The page opens on a board, already playing. Until something is filled in
+  // there's nothing to lose (the puzzle and its clock are saved on the way
+  // out), so Esc is the way out: this capture-phase listener keeps that Esc
+  // from the pause (which listens on document, in the bubble phase), nothing
+  // claims it, and the shared handler leaves for the games page. P and the
+  // clock's ⏸ still pause a fresh board.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && state === "playing" && !PAUSE.isPaused() && !hasProgress()) e.stopPropagation();
+  }, true);
 
   // ---- input wiring ------------------------------------------------------
   boardEl.addEventListener("pointerdown", (e) => {

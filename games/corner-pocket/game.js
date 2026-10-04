@@ -1181,8 +1181,10 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey) return;   // browser shortcuts aren't game keys (Alt stays: it's the fine-aim modifier)
     if (modalOpen()) {
-      // Esc just closes the spin pad; it mustn't reach the pause key too
-      if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { closeSpin(); e.stopImmediatePropagation(); }
+      // Esc just closes the spin pad (claimed, so the page stays); it mustn't reach the pause key too
+      if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); e.stopImmediatePropagation(); }
+      // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
+      else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }
       return;
     }
     if (G.phase !== "aim" || (Pz && Pz.isPaused())) return;

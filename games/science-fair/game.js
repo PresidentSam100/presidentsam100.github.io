@@ -528,9 +528,11 @@
       } else if (e.key === "Enter") startRun(mode);
       return;
     }
+    // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
+    // which takes it to the games page)
     if (state === "over") {
       if (e.key === "Enter" && !$("again").hidden) startRun(mode);
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });
 

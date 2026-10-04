@@ -1,5 +1,5 @@
 // Pausing, consistently: Esc pauses during play everywhere a game pauses (P too
-// where P isn't a game key), Esc backs out on end screens, the shared pause only
+// where P isn't a game key), Backspace backs out of end screens (Esc leaves), the shared pause only
 // claims its keys when something pauses, and paused games ignore play input.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -65,9 +65,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     dim === "true" && live === "false" && s1 === "paused" && s2 === "game" && s3 === "paused", { dim, live, s1, s2, s3 });
   await done(p, "24");
 
-  // ---- Crazy Ohio: Esc / P pause a run; Esc backs out of the countdown and the
-  // results; P can't be a lane key; paused lane presses don't count
-  p = await ctx.newPage(); p.errs = []; p.on("pageerror", (e) => p.errs.push(e.message));
+  // ---- 24: in Classic and Hard the dimmed ⏸ says there's no clock, not "works during a game"
+  p = await lib.open(ctx, base, "games/24/");
+  const tip = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return { off: b.getAttribute("aria-disabled"), title: b.title, aria: b.getAttribute("aria-label") }; });
+  const onMenu = await tip();
+  await p.keyboard.press("1"); await p.waitForTimeout(400);
+  const classic = await tip();
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
+  await p.keyboard.press("4"); await p.waitForTimeout(400);
+  const hard = await tip();
+  check("24: in Classic / Hard the dimmed ⏸ explains there's no clock; on the menu it says it works during a game",
+    /during a game/.test(onMenu.title) && classic.off === "true" && /No clock in Classic/.test(classic.title) && classic.aria === classic.title &&
+    hard.off === "true" && /No clock in Hard/.test(hard.title), { onMenu, classic, hard });
+  await done(p, "24 untimed");
+
+  // ---- Crazy Ohio: Esc / P pause a run; in the countdown and on the results
+  // Backspace backs out to setup and Esc leaves for the games page; P can't be
+  // a lane key; paused lane presses don't count
+  p = await ctx.newPage(); p.errs = []; p.leaves = 0; p.on("pageerror", (e) => p.errs.push(e.message));
   await lib.injectScript(p, "games/crazy-ohio/game.js", [
     ["function registerMiss(t, col, pressed) {", "function registerMiss(t, col, pressed) { if (pressed) window.__press = (window.__press || 0) + 1;"],
     ["function registerHit(t) {", "function registerHit(t) { window.__press = (window.__press || 0) + 1;"],
@@ -78,8 +93,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("crazy-ohio: ⏸ button names Esc / P", (await btn(p)) === "⏸ Pause Esc/P", await btn(p));
   await p.click('#durChoices [data-dur="15"]').catch(() => {});
   await p.click("#startBtn"); await p.waitForTimeout(400);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-  check("crazy-ohio: Esc in the countdown backs out to setup", (await sec()) === "setup" && !(await card(p)), await sec());
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  const cdLeaves = p.leaves;
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
+  check("crazy-ohio countdown: Esc leaves for the games page, Backspace backs out to setup", cdLeaves === 1 && (await sec()) === "setup" && !(await card(p)), { cdLeaves, sec: await sec() });
   await p.click("#startBtn"); await p.waitForTimeout(3800);
   await p.keyboard.press("Escape"); await p.waitForTimeout(150); const a1 = { sec: await sec(), paused: await card(p) };
   const before = await p.evaluate(() => window.__press || 0);
@@ -93,14 +110,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("crazy-ohio: lane presses while paused don't count; after resuming they do", during === before && after > during, { before, during, after });
   await p.waitForFunction(() => !document.getElementById("result").hidden, null, { timeout: 60000 });
   const sb = await p.evaluate(() => document.getElementById("settingsBtn").innerHTML);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-  check("crazy-ohio results: Settings shows an Esc keycap, Esc goes to setup", /gs-kbd">Esc/.test(sb) && (await sec()) === "setup", { sb, sec: await sec() });
+  const rl0 = p.leaves;
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  const rl1 = p.leaves;
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
+  check("crazy-ohio results: Settings shows a ⌫ keycap; Esc leaves, Backspace goes to setup", /title="Backspace">⌫/.test(sb) && rl1 === rl0 + 1 && (await sec()) === "setup", { sb, rl0, rl1, sec: await sec() });
   await p.click('.keybtn[data-col="0"]'); await p.keyboard.press("p"); await p.waitForTimeout(100);
   check("crazy-ohio: rebinding refuses P", /P pauses the game/.test(await p.evaluate(() => document.getElementById("setupHint").textContent)));
-  await p.keyboard.press("Escape");
+  const kl = p.leaves;
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  check("crazy-ohio: Esc cancels a rebind without leaving", p.leaves === kl && !/press any key/.test(await p.evaluate(() => document.getElementById("setupHint").textContent)), p.leaves);
   await done(p, "crazy-ohio");
 
-  // ---- Flappy World: Esc pauses as well as P; Esc on game over goes to the menu
+  // ---- Flappy World: Esc pauses as well as P; on game over Backspace goes to the menu (Esc leaves)
   p = await lib.open(ctx, base, "games/flappy-world/");
   check("flappy-world: ⏸ button names P / Esc", (await btn(p)) === "⏸ Pause P/Esc", await btn(p));
   await p.keyboard.press("Space"); await p.waitForTimeout(300);
@@ -109,8 +131,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); const f2 = await p.evaluate(() => game.gameState);
   check("flappy-world: Esc pauses and resumes", f0 === "PLAYING" && f1 === "PAUSED" && f2 === "PLAYING", { f0, f1, f2 });
   await p.waitForFunction(() => game.gameState === "GAMEOVER", null, { timeout: 15000 }); await p.waitForTimeout(200);
-  await p.keyboard.press("Escape");
-  check("flappy-world: Esc on the game-over screen goes to the menu", (await p.evaluate(() => game.gameState)) === "MENU");
+  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  const fl = p.leaves;
+  await p.keyboard.press("Backspace");
+  check("flappy-world game over: Esc leaves, Backspace goes to the menu", fl === 1 && (await p.evaluate(() => game.gameState)) === "MENU", { fl });
   await done(p, "flappy-world");
 
   // ---- Spacer: Esc pauses and resumes as well as P

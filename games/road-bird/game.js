@@ -1284,13 +1284,16 @@ window.addEventListener("keydown", (e) => {
     else if (k === " " || k === "enter") startSelectedMode();
     return;
   }
+  // Esc is claimed only to pause / resume; on the menu, the game-over screen
+  // and the death animations the shared motion-toggle.js takes it to the
+  // games page, and Backspace is the way back to this game's menu
   if (state === "dead") {
     if (k === " " || k === "enter") startCurrentMode();          // play again, same mode
-    else if (k === "escape" || k === "backspace") goToMenu();
+    else if (k === "backspace") { e.preventDefault(); goToMenu(); }
     return;
   }
   if (state !== "playing") return; // ignore movement during death/eagle animations
-  if (k === "p" || k === "escape") { paused = !paused; applyMaster(); return; } // pause toggle
+  if (k === "p" || k === "escape") { e.preventDefault(); paused = !paused; applyMaster(); return; } // pause toggle
   if (paused) return;
   if (k === "arrowup" || k === "w") move(0, 1);
   else if (k === "arrowdown" || k === "s") move(0, -1);
@@ -1994,7 +1997,7 @@ function drawMenu() {
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  keysCenter("[↑][↓] select  •  [SPACE] / tap to play", W / 2, H * 0.90, 18, "#fff");
+  keysCenter("[↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff");
   ctx.globalAlpha = 1;
 }
 
@@ -2020,7 +2023,7 @@ function drawDead() {
   const r = deadButtonRects();
   drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
   drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false);
-  keysCenter("[SPACE] play again  •  [ESC] menu  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
+  keysCenter("[SPACE] play again  •  [⌫] menu  •  [ESC] games  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
 }
 
 function drawPauseOverlay() {

@@ -147,7 +147,8 @@
 
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   // a key hint as a keycap (shared style from ../motion-toggle.js; hidden on touch-only devices)
-  function keycap(k) { return ' <span class="gs-keys"><kbd class="gs-kbd">' + k + '</kbd></span>'; }
+  // (title: the key's name, for a symbol cap like ⌫)
+  function keycap(k, title) { return ' <span class="gs-keys"><kbd class="gs-kbd"' + (title ? ' title="' + title + '"' : '') + '>' + k + '</kbd></span>'; }
   function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
 
   // ----- sound --------------------------------------------------------
@@ -508,7 +509,7 @@
         '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' + line2 + '</p>' +
         '<p>' + SPRINT_SECONDS + 's start · +' + SPRINT_BONUS + 's per word' + (hard ? ' · hard mode' : '') + '</p>' +
         '<button class="btn" id="btn-again">Play again' + keycap("Enter") + '</button>' +
-        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("Esc") + '</button>';
+        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("⌫", "Backspace") + '</button>';
     } else {
       var elapsed = (raceFinishMs != null) ? raceFinishMs : Math.round(performance.now() - startTime);
       var done = solved >= RACE_TARGET;
@@ -521,7 +522,7 @@
         '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' + line2 + '</p>' +
         '<p>' + solved + ' of ' + RACE_TARGET + ' words' + (hard ? ' · hard mode' : '') + '</p>' +
         '<button class="btn" id="btn-again">Play again' + keycap("Enter") + '</button>' +
-        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("Esc") + '</button>';
+        '<br><button class="btn ghost" id="btn-menu">Change mode' + keycap("⌫", "Backspace") + '</button>';
     }
     ov.classList.add("show");
     $("btn-again").addEventListener("click", function () { startGame(mode); });
@@ -567,9 +568,11 @@
         else if (e.key === "h" || e.key === "H") { e.preventDefault(); $("m-hard").click(); }
         return;
       }
-      // the end card: Enter plays again, Esc goes back to the modes
+      // the end card: Enter plays again, Backspace goes back to the modes (no
+      // letters are typed here, and a held erase is a repeat, skipped above).
+      // Esc isn't claimed, so it leaves for the games page.
       if (e.key === "Enter") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
-      else if (e.key === "Escape") { var m = $("btn-menu"); if (m) { e.preventDefault(); m.click(); } }
+      else if (e.key === "Backspace") { var m = $("btn-menu"); if (m) { e.preventDefault(); m.click(); } }
       return;
     }
     if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) handleKey("enter"); }

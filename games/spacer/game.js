@@ -1792,6 +1792,13 @@ class Game {
       const k = e.key.toLowerCase();
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k))
         e.preventDefault();
+      // Esc is claimed where it acts (closing the guide, pausing, resuming),
+      // and through the stage banners, when it does nothing, so a pause
+      // pressed then never throws a run away. On the title and the game-over
+      // and complete screens the shared motion-toggle.js takes it to the
+      // games page.
+      if (k === 'escape' && ['gallery', 'playing', 'paused', 'ready', 'cleared', 'bonusResult'].includes(this.mode))
+        e.preventDefault();
       Sound.init();
       Sound.resume();
       // guide (gallery) captures input while open: ←→ browse, ↑↓ switch tab
@@ -3029,7 +3036,7 @@ class Game {
 
     if (this.blinkOn())
       this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center');
-    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
+    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE   [ESC] GAMES', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
     this.keys(ctx, '[V] VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON'), WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center');
   }
 

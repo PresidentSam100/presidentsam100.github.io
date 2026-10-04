@@ -1123,8 +1123,9 @@
       // Escape now PAUSES a live run (handled by GameShell.pausable above) —
       // it used to end the run outright, which fought the pause overlay: the
       // game was already over behind it. Every letter key is typing input, so
-      // Escape is the only key free to be the pause key here.
-      if (state === "over") quitToMenu();
+      // Escape is the only key free to be the pause key here. Anywhere else
+      // it isn't claimed, so it leaves for the games page (Backspace is the
+      // game-over screen's way back to the menu, below).
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
@@ -1149,6 +1150,11 @@
     } else if (state === "over" && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       activateOverSelection();
+    } else if (state === "over" && e.key === "Backspace" && !e.repeat && e.target !== ti) {
+      // game over: Backspace goes back to the menu (Esc leaves for the games
+      // page); not from the typing field, nor an erase still held from play
+      e.preventDefault();
+      quitToMenu();
     } else if (state === "start" && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       startGame();

@@ -576,12 +576,14 @@ window.SlitherLabyrinth = function (host) {
     clearHeld();
   }
 
+  // (true when it paused or resumed: the keys claim Esc only then)
   function togglePause() {
-    if (!active || !st || (st.status !== "play" && st.status !== "ready")) return;
+    if (!active || !st || (st.status !== "play" && st.status !== "ready")) return false;
     paused = !paused;
     clearHeld();
     host.setPaused(paused);
     if (music) { if (paused) music.stop(); else music.play(st.level.zone); }
+    return true;
   }
   function autoPause() {
     clearHeld();
@@ -607,7 +609,9 @@ window.SlitherLabyrinth = function (host) {
       if (!e.repeat) E.blastLay(st, k === "enter" && twoPlayer() ? "p2" : "p1");
       e.preventDefault(); return;
     }
-    if (k === " " || k === "spacebar" || k === "p" || k === "escape") { togglePause(); e.preventDefault(); return; }
+    // Esc is claimed only when it pauses or resumes (not while a Maze Chase
+    // catch plays out), so otherwise ../motion-toggle.js takes it to the games page
+    if (k === " " || k === "spacebar" || k === "p" || k === "escape") { if (togglePause() || k !== "escape") e.preventDefault(); return; }
     if (paused) return;
     if (KEY_DIRS.hasOwnProperty(k)) {
       if (!e.repeat) pressDir(keyCtrl(k), KEY_DIRS[k]);

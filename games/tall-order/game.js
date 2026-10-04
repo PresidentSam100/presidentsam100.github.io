@@ -432,9 +432,11 @@
       } else if (e.key === "Enter") startRun(mode);
       return;
     }
+    // the end card: Enter bakes another, Backspace goes back to the modes;
+    // Esc isn't claimed, so it leaves for the games page
     if (state === "over") {
       if (e.key === "Enter") startRun(mode);
-      else if (e.key === "Escape") toMenu();
+      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });
 

@@ -2038,16 +2038,21 @@ class Game {
         this.handleInput();
       }
       if (e.repeat) return;
-      // P or Esc pauses, as in the site's other games
+      // P or Esc pauses, as in the site's other games. Esc is claimed only when
+      // it pauses or resumes, or closes the guide; on the menu and the game-over
+      // card it's left unclaimed, so it leaves for the games page
+      if (e.code === 'Escape' && (this.gameState === 'PLAYING' || this.gameState === 'PAUSED' || this.gameState === 'INFO')) e.preventDefault();
       if (e.code === 'KeyP' || e.code === 'Escape') this.togglePause();
       if (this.gameState === 'MENU') {
         if (e.code === 'Digit1' || e.code === 'Numpad1') this.setLivesMode(1);
         if (e.code === 'Digit3' || e.code === 'Numpad3') this.setLivesMode(3);
         if (e.code === 'KeyI') { this.gameState = 'INFO'; this.playSound('flap'); }
-      } else if (e.code === 'KeyI' && this.gameState === 'INFO') {
+      } else if ((e.code === 'KeyI' || e.code === 'Escape') && this.gameState === 'INFO') {
         this.gameState = 'MENU';
       }
-      if ((e.code === 'KeyM' || e.code === 'Escape') && this.gameState === 'GAMEOVER') {
+      // M or Backspace: from the game-over card back to the menu
+      if ((e.code === 'KeyM' || e.code === 'Backspace') && this.gameState === 'GAMEOVER') {
+        if (e.code === 'Backspace') e.preventDefault();
         this.init();
       }
     });
@@ -2481,7 +2486,7 @@ class Game {
     }
     ctx.font = '16px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    keyHint(ctx, '[M] or [Esc] for menu (change mode)', CANVAS_W / 2, 550);
+    keyHint(ctx, '[M] or [⌫] for menu (change mode)', CANVAS_W / 2, 550);
   }
 
   drawPause(ctx) {
