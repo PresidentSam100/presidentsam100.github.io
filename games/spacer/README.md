@@ -26,20 +26,21 @@ The inline script is organised in sections you can search for:
 | ↑ ↓ | Select life mode (title screen) |
 | Enter | Start / restart |
 | E | Open the **enemy guide** (title screen) |
-| P | **Pause menu** (Resume / Restart / Reduced Flash / Quit) |
-| F | Toggle **reduced-flash** mode |
+| P / Esc | **Pause menu** (Resume / Restart / Visual FX / Quit) |
+| V (or F) | Toggle **Visual FX** (the site-wide switch, also the ✨ button) |
 | M | Mute |
 
 ## Accessibility
 
-- **Pause menu** (P): a real menu — **Resume**, **Restart** the run, toggle
-  **Reduced Flash**, or **Quit to Title** (↑↓ to select, Enter to confirm).
-- **Reduced-flash mode** (F, or via the pause menu; **remembered** across
-  sessions). With it **off** (default) the game has punchy juice: brief
+- **Pause menu** (P / Esc): a real menu — **Resume**, **Restart** the run, toggle
+  **Visual FX**, or **Quit to Title** (↑↓ to select, Enter to confirm).
+- **Visual FX** (V or F, the ✨ button, or the pause menu; **remembered** across
+  sessions, and the same switch every game on the site has). With it **on**
+  (default) the game has punchy juice: brief
   **full-screen colour flashes** on death (red), downing a diving Boss (white),
   grabbing a power-up (its colour), capture (blue), stage clear (cyan) and a
   PERFECT bonus (gold), plus bright explosion pops and the usual blinking/pulsing
-  UI. Turning it **on** suppresses **all** of that — no screen flashes, no
+  UI. Turning it **off** suppresses **all** of that — no screen flashes, no
   explosion flash, steady HUD/prompts, no rapid spawn flicker, and steady
   power-up/shield/carrier glows and bombs — gentle for photosensitive players.
   (The screen flashes are one-shot fades, not strobes, so the default stays

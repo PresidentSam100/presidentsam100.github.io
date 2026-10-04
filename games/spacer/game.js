@@ -36,9 +36,8 @@ const T_MOMIJI = 'momiji';
 const T_ENTERPRISE = 'enterprise';
 
 // Shared animation clock (frame index for wing flapping etc.)
-// Reduced Flash follows this game's reduce-motion setting (motion-toggle.js): set at load,
-// and updated live when the player flips the top-right Motion toggle. The pause-menu
-// "Reduced Flash" option still works as a manual override.
+// Reduced flash IS the site's Visual FX switch being off (motion-toggle.js): one
+// setting, shared by the top-right ✨ button, the V key, F, and the pause menu.
 const ANIM = { flap: 0, time: 0, reducedFlash: !!(window.RM_ON && window.RM_ON()) };
 window.addEventListener("reducemotionchange", function (e) { ANIM.reducedFlash = e.detail.on; });
 
@@ -1731,9 +1730,17 @@ class Game {
     this.pauseIndex = 0;       // selected item in the pause menu
     this.infinite = false;
 
-    // accessibility: reduced-flash mode (persisted) + screen-reader live region
-    this.reducedFlash = localStorage.getItem('galaga_reducedflash') === '1';
-    ANIM.reducedFlash = this.reducedFlash;
+    // accessibility: reduced flash = Visual FX off (see ANIM above), kept in step
+    // with the shared switch; plus a screen-reader live region
+    this.reducedFlash = ANIM.reducedFlash;
+    window.addEventListener('reducemotionchange', (e) => { this.reducedFlash = ANIM.reducedFlash = e.detail.on; });
+    // a choice saved by the old, separate reduced-flash toggle carries over once
+    let legacy = null;
+    try { legacy = localStorage.getItem('galaga_reducedflash'); localStorage.removeItem('galaga_reducedflash'); } catch (e) {}
+    if (legacy !== null) {
+      const carry = () => { if ((legacy === '1') !== this.reducedFlash) this.setReducedFlash(legacy === '1', true); };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', carry); else carry();
+    }
     this.srEl = document.getElementById('sr');
     this.lastAnnounce = '';
     this.flash = { a: 0, color: '#fff' }; // full-screen flash juice (skipped in reduced-flash)
@@ -1798,7 +1805,7 @@ class Game {
         else this.pauseMenuKey(k);
         return;
       }
-      if (k === 'f') { this.setReducedFlash(!this.reducedFlash); return; } // quick toggle
+      if (k === 'f') { this.setReducedFlash(!this.reducedFlash); return; } // the old quick toggle (V does the same, site-wide)
       if (k === 'arrowleft' || k === 'a') { this.input.left = true; this.onStageKey(-1); }
       if (k === 'arrowright' || k === 'd') { this.input.right = true; this.onStageKey(1); }
       if (k === ' ') this.input.fire = true;
@@ -1866,7 +1873,7 @@ class Game {
 
   // pause-menu items; some toggle in place, others act
   pauseItems() {
-    return ['RESUME', 'RESTART', 'REDUCED FLASH: ' + (this.reducedFlash ? 'ON' : 'OFF'), 'QUIT TO TITLE'];
+    return ['RESUME', 'RESTART', 'VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON'), 'QUIT TO TITLE'];
   }
 
   pauseMenuKey(k) {
@@ -1882,13 +1889,17 @@ class Game {
     }
   }
 
-  setReducedFlash(on) {
-    this.reducedFlash = on;
-    ANIM.reducedFlash = on;
-    localStorage.setItem('galaga_reducedflash', on ? '1' : '0');
-    this.flashMute = 'REDUCED FLASH ' + (on ? 'ON' : 'OFF'); // brief on-screen toast
+  // flips the site's Visual FX switch (the ✨ button), so this game, the button
+  // and the V key never disagree; the reducemotionchange event it fires updates
+  // this.reducedFlash. `quiet` skips the toast (the one-off carry-over).
+  setReducedFlash(on, quiet) {
+    const fx = document.querySelector('.rm-toggle');
+    if (fx) { if (on !== this.reducedFlash) fx.click(); }
+    else { this.reducedFlash = ANIM.reducedFlash = on; }
+    if (quiet) return;
+    this.flashMute = 'VISUAL FX ' + (on ? 'OFF' : 'ON'); // brief on-screen toast
     this.flashMuteT = 1.4;
-    this.announce('Reduced flash ' + (on ? 'on' : 'off') + '.');
+    this.announce('Visual effects ' + (on ? 'off' : 'on') + '.');
   }
 
   // one-shot full-screen colour flash (a brief fade, not a strobe). Reduced-flash
@@ -3012,7 +3023,7 @@ class Game {
     if (this.blinkOn())
       this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center');
     this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
-    this.keys(ctx, '[F] REDUCED FLASH: ' + (this.reducedFlash ? 'ON' : 'OFF'), WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center');
+    this.keys(ctx, '[V] VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON'), WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center');
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {

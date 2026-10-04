@@ -170,6 +170,9 @@
 
     render();
     btn.addEventListener("click", toggle);
+    // a mouse click doesn't take focus (Tab still reaches the button): a focused
+    // button would be clicked again by the Enter / Space a player presses next
+    btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
 
     document.body.appendChild(btn);
     // the sound and ⏸ buttons re-place themselves on resize after this runs
