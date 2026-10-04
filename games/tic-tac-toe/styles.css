@@ -247,13 +247,3 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
   .score b { font-size: 1.1rem; }
 }
 
-/* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

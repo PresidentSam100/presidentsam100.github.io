@@ -112,4 +112,3 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
 .promo button:hover { border-color:var(--sel); }
 /* phones: start below the fixed Games / sound / FX buttons */
 @media (max-width:640px){ body { padding-top:3.2rem; } }
-@media (prefers-reduced-motion: reduce){ *,*::before,*::after{ animation-duration:.001ms !important; transition-duration:.001ms !important; } }

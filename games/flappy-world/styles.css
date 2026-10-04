@@ -8,13 +8,3 @@
     body { background: #8fd0ff; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
     canvas { display: block; cursor: pointer; touch-action: none;
              box-shadow: 0 0 0 100vmax rgba(10, 30, 80, 0.16), 0 0 40px rgba(10, 30, 80, 0.45); }
-/* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

@@ -553,7 +553,8 @@
     timeMs += 200;
     hud();
   }, 200);
-  setInterval(function () { document.body.classList.toggle("fxon", fx()); }, 400);
+  // follow the ✨ switch the moment it flips (this used to poll every 400ms)
+  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
   document.body.classList.toggle("fxon", fx());
 
   // ---- menu -------------------------------------------------------------------------------

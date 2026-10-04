@@ -835,13 +835,3 @@ body > .gs-pause {
   }
 }
 
-/* Accessibility: honor prefers-reduced-motion. JS also skips the ripple
-   delays, which this block alone can't neutralize. */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

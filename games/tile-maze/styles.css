@@ -423,13 +423,3 @@ body {
   color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 4px;
 }
 .guide-close:hover { color: var(--ink); }
-/* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

@@ -374,7 +374,8 @@
     if (remaining <= 0 && state === "ask") { state = "over"; finish(); }
   }, 100);
 
-  setInterval(function () { document.body.classList.toggle("fxon", fx()); }, 400);
+  // follow the ✨ switch the moment it flips (this used to poll every 400ms)
+  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
   document.body.classList.toggle("fxon", fx());
 
   // a flag that can't load (offline, blocked CDN) skips without penalty

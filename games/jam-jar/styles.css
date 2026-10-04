@@ -112,10 +112,3 @@ body {
   body { padding-top: 56px; } /* clear the fixed back link */
 }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
-}

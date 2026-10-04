@@ -277,13 +277,3 @@
     .panel { --fw: 44px; --fh: 74px; }
     header.top h1 { font-size: 2.1rem; }
   }
-  /* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

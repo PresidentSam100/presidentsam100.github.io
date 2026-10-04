@@ -138,6 +138,3 @@ section[hidden] { display: none; }
 .graph .cap { text-align: center; font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
 .graph .cap b { color: var(--pink); font-weight: 800; font-variant-numeric: tabular-nums; }
 
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
-}

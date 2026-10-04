@@ -166,13 +166,3 @@ canvas {
 .hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 2px; z-index: 5; pointer-events: none; }
 /* invisible field that summons the mobile keyboard; we read its input */
 #ti { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; background: transparent; color: transparent; pointer-events: none; z-index: -1; }
-/* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

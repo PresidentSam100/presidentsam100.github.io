@@ -282,4 +282,3 @@ header.top::after {
   header.top h1 { font-size: 2rem; }
 }
 
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; } }

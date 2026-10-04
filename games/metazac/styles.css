@@ -541,13 +541,3 @@
       .board { padding: 1.1rem 0.9rem 1rem; gap: 0.6rem; }
       .overlay h2 { font-size: 1.8rem; }
     }
-    /* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

@@ -188,16 +188,6 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
   .stand::before { left: -20px; }
   .stand::after { right: -20px; }
 }
-/* Accessibility: honor prefers-reduced-motion — neutralize animations,
-   transitions, and motion effects (pulse, shake, drop, blink, glows). */
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}
 
 /* ---- Power Checkers ---------------------------------------------------- */
 #powerTray {

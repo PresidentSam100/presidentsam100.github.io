@@ -258,11 +258,3 @@ header.top p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.95rem; fon
 @media (max-height: 720px) and (max-width: 700px) {
   header.top { margin-top: 2.6rem; }
 }
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-    scroll-behavior: auto !important;
-  }
-}

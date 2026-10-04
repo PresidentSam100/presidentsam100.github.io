@@ -3,7 +3,8 @@
    who goes first, then calls back with "you" or "cpu".
 
    - Visual FX ON  -> a slot-machine reel that spins and decelerates.
-   - Visual FX OFF -> a quick flash between the two names (no motion easing).
+   - Visual FX OFF -> a neutral "?" for a few slow ticks, then the winner
+                      fades in once (alternating the names read as a strobe).
 
    Usage:
      coinFlip({ you: "You (X)", cpu: "CPU (O)", accent: "#89b4fa" },
@@ -72,19 +73,18 @@
     }
 
     if (reduce) {
-      // ---- flash version of the reel: cycle the two names with no smooth
-      // motion, but with decelerating gaps so it visibly slows to a stop on the
-      // winner (like the slot machine winding down, just in discrete flashes) ----
-      win.innerHTML = '<div class="cf-nm" style="height:100%;display:flex;align-items:center;justify-content:center"></div>';
+      // ---- calm version: the same card, a neutral "?" while it "flips" to a
+      // few slow ticks, then the winner fades in once. (It used to swap the two
+      // names in their colours from ~55ms apart, which read as a strobe.) The
+      // fade uses el.animate, which the FX-off CSS switch doesn't flatten. ----
+      win.innerHTML = '<div class="cf-nm" style="height:100%;display:flex;align-items:center;justify-content:center;color:#9aa6b8">?</div>';
       var nm = win.querySelector(".cf-nm");
-      var fseq = buildSeq(13), fL = fseq.length, fi = 0;
-      // gaps grow from ~55ms to ~225ms so each flip lingers a little longer than the last
-      function flashGap(i) { return 55 + Math.round(170 * Math.pow(i / (fL - 1), 1.7)); }
-      (function step() {
-        var v = fseq[fi]; nm.textContent = sFaces[v]; nm.style.color = cols[v]; tick(v); fi++;
-        if (fi < fL) setTimeout(step, flashGap(fi));
-        else finish();
-      })();
+      [0, 220, 440, 660].forEach(function (t, k) { setTimeout(function () { tick(k % 2); }, t); });
+      setTimeout(function () {
+        nm.textContent = sFaces[resIdx]; nm.style.color = cols[resIdx];
+        if (nm.animate) nm.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
+        finish();
+      }, 880);
     } else {
       // ---- slot-machine reel: a strip of names that spins up and decelerates ----
       var lineH = win.clientHeight || 70;

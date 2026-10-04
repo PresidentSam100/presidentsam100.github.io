@@ -5,8 +5,18 @@
    - Injects a motion-neutralizing <style> before first paint (no flash).
    - Builds a fixed top-right toggle button that auto-themes to match the
      game's "← Games" back button.
-   - Exposes window.RM_ON() so canvas games can gate JS shake/flash live,
-     and fires a "reducemotionchange" event on toggle.
+   - Exposes window.RM_ON() (true = FX off) and window.FX_ON() (true = FX on)
+     so canvas games can gate effects live, and fires a "reducemotionchange"
+     event (detail.on = FX off) on toggle.
+   - Marks <html> with "fx-on" or "fx-off" from head-parse time on, so a
+     game's CSS can style either mode on purpose (html.fx-on .x { … }).
+   - With FX off it also injects a blunt fallback that ends every CSS
+     animation / transition at once. A game that styles html.fx-off itself
+     opts out with <html data-fx-css="own"> (then FX off can mean calmer
+     motion, e.g. short fades, instead of none).
+   - Its default follows the OS "reduce motion" setting until the player
+     picks; games shouldn't add their own @media (prefers-reduced-motion)
+     copy, which would beat the player's explicit "FX on".
    - Keys: V or "]" (just "]" on a page with <html data-letter-keys="off">).
    Include with:  <script src="../motion-toggle.js"></script>  (in <head>)
    ===================================================================== */
@@ -19,9 +29,11 @@
   var id = seg[seg.length - 1] || "site";
   var KEY = "reduceMotion:" + id;
   var CSS =
-    "*,*::before,*::after{animation-duration:.001ms!important;" +
-    "animation-iteration-count:1!important;transition-duration:.001ms!important;" +
+    "*,*::before,*::after{animation-duration:.001ms!important;animation-delay:0s!important;" +
+    "animation-iteration-count:1!important;transition-duration:.001ms!important;transition-delay:0s!important;" +
     "scroll-behavior:auto!important}";
+  // a game that styles html.fx-off itself skips the blunt fallback
+  var OWN_CSS = document.documentElement.getAttribute("data-fx-css") === "own";
 
   // Effective state: an explicit per-game choice wins; otherwise fall back to
   // the OS "prefers-reduced-motion" setting.
@@ -34,10 +46,14 @@
     return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }
   window.RM_ON = reduced; // canvas games read this live each frame
+  window.FX_ON = function () { return !reduced(); };
 
   function apply(on) {
+    var html = document.documentElement;
+    html.classList.toggle("fx-off", !!on);
+    html.classList.toggle("fx-on", !on);
     var el = document.getElementById("rm-style");
-    if (on && !el) {
+    if (on && !el && !OWN_CSS) {
       el = document.createElement("style");
       el.id = "rm-style";
       el.textContent = CSS;
