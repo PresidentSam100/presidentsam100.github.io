@@ -2,8 +2,8 @@
    9x7 row-major SOLVED layout; the game scrambles at play time. Legend:
    . empty, # block, o source, O drain, h H, v V, a NE, b NW, c SE, d SW,
    x X (crossover), N/E/S/W caps, t TN, u TE, y TS, z TW (T-junctions),
-   j J (4-way junction). Levels 31-36, the junction set, came from a seeded
-   generator: carved route, junctions and tees placed on it, decoys around. */
+   j J (4-way junction). Levels 31-36, the junction set, come from the seeded
+   generator in _dev/tools/steamfitter-junction-levels.js. */
 window.STEAMFITTER_LEVELS = [
   { n: "First Fitting", s: 3, d: 3, g: ".......................chd.ohhhhb.aO..........................." },
   { n: "Short Run", s: 2, d: 4, g: ".x..h..c.....v..d.ohhhhhd........v........ahO.................." },

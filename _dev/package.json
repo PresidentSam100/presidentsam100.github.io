@@ -1,0 +1,12 @@
+{
+  "name": "presidentsam100-dev",
+  "private": true,
+  "description": "Browser tests and level tools for the games. Not published: Jekyll skips _dev/.",
+  "scripts": {
+    "test": "node run-tests.js",
+    "setup": "npm install && npx playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.0"
+  }
+}
