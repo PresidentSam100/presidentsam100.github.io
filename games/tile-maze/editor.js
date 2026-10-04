@@ -117,8 +117,10 @@
   // ---- validation / solving ----
   function counts() { let s = 0, x = 0; for (const row of grid) for (const ch of row) { if (ch === "S") s++; if (ch === "X") x++; } return { s, x }; }
   function validate() { const { s, x } = counts(); const m = []; if (s !== 1) m.push(s + " start (need 1)"); if (x !== 1) m.push(x + " goal (need 1)"); return { ok: !m.length, msgs: m }; }
-  function updateStatus(msg, kind) {
-    if (msg) { status.textContent = msg; status.className = "ed-status" + (kind ? " " + kind : ""); return; }
+  // html: msg is markup (keycaps), for fixed text only; names and other input go through textContent.
+  const kbd = (k) => '<kbd class="gs-kbd">' + k + "</kbd>";   // keycap (style: ../motion-toggle.js)
+  function updateStatus(msg, kind, html) {
+    if (msg) { if (html) status.innerHTML = msg; else status.textContent = msg; status.className = "ed-status" + (kind ? " " + kind : ""); return; }
     const v = validate();
     if (v.ok) { status.textContent = "Ready — " + cols + "×" + rows + ". Test or Check when you like."; status.className = "ed-status"; }
     else { status.textContent = "⚠ " + v.msgs.join(" · "); status.className = "ed-status bad"; }
@@ -162,7 +164,7 @@
     tstate = E.findStart(grid); tmoves = 0; twon = false; tlocked = false;
     testOverlay.hidden = true;
     renderBoard(); setFlavor("Plain"); placePlayer(tstate.r, tstate.c, false); refreshLive();
-    updateStatus("Test — arrows / WASD / pad to move, R to restart. Reach the 🏁.");
+    updateStatus("Test — " + ["↑", "←", "↓", "→"].map(kbd).join("") + " / " + ["W", "A", "S", "D"].map(kbd).join("") + " / pad to move, " + kbd("R") + " to restart. Reach the 🏁.", "", true);
   }
   function enterTest() {
     const v = validate(); if (!v.ok) { updateStatus("⚠ Fix first: " + v.msgs.join(" · "), "bad"); return; }

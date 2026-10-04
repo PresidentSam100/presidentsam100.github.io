@@ -224,7 +224,7 @@
       if (s.what !== "junk" && s.digitRow && shifted !== null && shifted !== undefined && shifted !== s.sym) {
         score = Math.max(0, score - 2);
         streak = 0;
-        popup(s.x, s.y - s.r * 2, s.sym ? "hold Shift!  -2" : "no Shift!  -2", "bad");
+        popup(s.x, s.y - s.r * 2, s.sym ? "hold [Shift]!  -2" : "no [Shift]!  -2", "bad");
         splashDrops(s.x, s.y, 6);
         SFX.splash();
         return;
@@ -489,8 +489,14 @@
       ctx.strokeStyle = "rgba(23,38,44," + (0.75 * (1 - pa)).toFixed(3) + ")";
       ctx.fillStyle = (pp.kind === "bad" ? "rgba(255,158,138," : pp.kind === "gold" ? "rgba(255,224,130," : "rgba(240,250,252,") + (1 - pa).toFixed(3) + ")";
       var py = pp.y - pa * 34;
-      ctx.strokeText(pp.text, pp.x, py);
-      ctx.fillText(pp.text, pp.x, py);
+      // a [KEY] in the text is drawn as a keycap (GameShell.drawKeys)
+      if (pp.text.indexOf("[") !== -1 && window.GameShell && GameShell.drawKeys) {
+        GameShell.drawKeys(ctx, pp.text, pp.x, py, { outline: { width: ctx.lineWidth, color: ctx.strokeStyle } });
+        continue;
+      }
+      var txt = pp.text.replace(/[[\]]/g, "");
+      ctx.strokeText(txt, pp.x, py);
+      ctx.fillText(txt, pp.x, py);
     }
   }
 

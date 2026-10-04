@@ -264,11 +264,16 @@
         ["Same deal", function () { closeBox(); newDeal(dealSeed, isDaily); }],
       ]);
   }
-  function shareDaily() {
+  function shareDaily(e) {
+    var btn = e && e.currentTarget;   // the Share button (read now: it's gone once the click is over)
     var t = today(), log = jget("klondike_daily"), d = log[t.ymd] || { t: timerMs, m: G.moves };
     var text = "Klondike · Daily claim #" + t.n + " (" + t.ymd + ")\nStruck gold in " + mmss(d.t) + " · " + d.m + " moves" + (d.d3 ? " · draw three" : "") + " ⛏️\n" + location.origin + location.pathname;
-    if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) { navigator.share({ text: text }).catch(function () {}); return; }
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+    function copied() { if (!btn) return; btn.textContent = "copied!"; setTimeout(function () { btn.textContent = "Share"; }, 1400); }
+    // (the clipboard wasn't allowed: show the result to copy, in the game's own look)
+    function fallback() { if (window.GameShell) GameShell.copyBox({ title: "Copy your result", text: text }); else try { window.prompt("Copy your result:", text); } catch (e3) {} }
+    if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) { navigator.share({ text: text }).catch(function (e2) { if (!e2 || e2.name !== "AbortError") fallback(); }); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(copied, fallback);
+    else fallback();
   }
 
   // The cascade: cards launch from the foundations and bounce off the floor,
@@ -520,7 +525,7 @@
       "<ul><li>On the table, stack downward in alternating colours; drag any face-up run.</li>" +
       "<li>Only a King may move to an empty column.</li>" +
       "<li>Click the stock to draw; double-click or right-click a card to send it home.</li>" +
-      "<li><b>U</b> undo · <b>H</b> hint · <b>R</b> restart · <b>F2</b> new deal.</li></ul>",
+      "<li><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal.</li></ul>",
       [["OK", closeBox]]);
   });
   $("autofinish").addEventListener("click", autoFinish);

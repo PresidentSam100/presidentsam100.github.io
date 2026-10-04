@@ -310,10 +310,13 @@
   function renderFace(pressing) {
     faceEl.textContent = state === "over" ? "😵" : pressing ? "😮" : "🙂";
   }
-  function setStatus(text, tone) {
-    statusEl.textContent = text;
+  // html: the text is markup (for a keycap) with anything dynamic escaped
+  function setStatus(text, tone, html) {
+    if (html) statusEl.innerHTML = text;
+    else statusEl.textContent = text;
     statusEl.className = tone || "";
   }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
   function renderStats() {
     const b = BEST.get();
     statsEl.innerHTML = "<b>Endless</b> · best <b>" + (b > 0 ? b + " rows" : "—") + "</b>";
@@ -474,9 +477,10 @@
     }
     const isBest = score > 0 && BEST.submit(score);
     setStatus(
-      "💥 " + why + " " + score + " row" + (score === 1 ? "" : "s") + ", " + defused + " defused" +
-        (isBest ? " — new best!" : ".") + " Tap 🙂 or press N to go again.",
-      "bad"
+      esc("💥 " + why + " " + score + " row" + (score === 1 ? "" : "s") + ", " + defused + " defused" +
+        (isBest ? " — new best!" : ".")) + ' Tap 🙂 or press <kbd class="gs-kbd">N</kbd> to go again.',
+      "bad",
+      true
     );
     renderStats();
   }

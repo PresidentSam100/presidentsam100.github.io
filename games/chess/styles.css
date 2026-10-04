@@ -57,8 +57,8 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
    light and dark squares. .lt = light piece → dark outline; .dk = dark/colored
    piece → light outline. */
 .sq .pc { position:relative; z-index:2; font-weight:400; paint-order:stroke fill; }
-.sq .pc.lt { -webkit-text-stroke:.045em #191d24; text-shadow:0 .04em .06em rgba(8,10,14,.5); }
-.sq .pc.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
+.sq .pc.lt, .promo button.lt { -webkit-text-stroke:.045em #191d24; text-shadow:0 .04em .06em rgba(8,10,14,.5); }
+.sq .pc.dk, .promo button.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
 .sq .pc.dead { opacity:.4; filter:grayscale(.6); }
 .sq .dot { position:absolute; z-index:1; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.7; }
 .sq.cap .dot { width:86%; height:86%; background:transparent; border:5px solid var(--move); opacity:.7; }
@@ -90,9 +90,10 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
         max-width:460px; width:100%; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6); }
 .card h2 { margin-bottom:6px; font-size:1.7rem; }
 .card p { color:var(--muted); line-height:1.55; margin-bottom:16px; font-size:.9rem; }
+#overMsg { white-space:pre-line; }   /* the vs-CPU record goes on its own line */
 .modes { display:flex; flex-direction:column; gap:10px; }
 .modebtn { cursor:pointer; background:#323b47; color:var(--text); border:1px solid var(--line); border-radius:10px;
-           padding:11px 14px; font-family:inherit; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; }
+           padding:11px 14px; font-family:inherit; font-size:1rem; font-weight:700; display:flex; justify-content:space-between; align-items:center; gap:10px; text-align:left; }
 .modebtn:hover { background:#3a4452; } .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
 .modebtn .tag { font-size:.62rem; font-weight:800; letter-spacing:.05em; padding:3px 8px; border-radius:999px; background:var(--move); color:#10240c; white-space:nowrap; }
 .setup-section { margin:.9rem 0; text-align:left; }
@@ -108,7 +109,8 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
 @keyframes clkPulse { 0%,100%{ opacity:1; } 50%{ opacity:.4; } }
 .promo { display:flex; gap:8px; justify-content:center; }
 .promo button { font-size:2.4rem; background:var(--marble) 0 0 / 420px 420px, linear-gradient(160deg, #efe9da, #ddd5c2);
-  border:2px solid #55402c; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1; }
+  border:2px solid #55402c; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1;
+  font-family:inherit; paint-order:stroke fill; }   /* outlined like the board's pieces (.lt / .dk above) */
 .promo button:hover { border-color:var(--sel); }
 /* phones: start below the fixed Games / sound / FX buttons */
 @media (max-width:640px){ body { padding-top:3.2rem; } }

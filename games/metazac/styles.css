@@ -282,7 +282,8 @@
       border-radius: 12px;
       padding: 0.4rem 0.8rem;
     }
-    .power-note b { color: var(--ink); }
+    .power-note b,
+    .power-note .gs-kbd { color: var(--ink); }
     .hint {
       font-size: 0.82rem;
       font-weight: 800;
@@ -318,6 +319,14 @@
     .btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
     .btn.ghost {
       background: linear-gradient(180deg, #6a9cff, #2f63e0);
+    }
+    /* the key on a button: a little cream cap, like the dart button's SPACE */
+    .btn .gs-kbd {
+      font-weight: 400;
+      color: var(--ink);
+      background: var(--cream);
+      border: 2px solid var(--ink);
+      text-shadow: none;
     }
     .btn-row {
       display: flex;
@@ -468,13 +477,33 @@
       font-weight: 800;
       font-size: 0.9rem;
       text-align: center;
+      -moz-appearance: textfield;
+      appearance: textfield;
     }
+    /* no spinner arrows: the numbers are typed */
+    .opt input[type="number"]::-webkit-inner-spin-button,
+    .opt input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    /* checkboxes: chunky cream boxes that turn button-green with an outlined tick */
     .opt input[type="checkbox"] {
-      width: 17px;
-      height: 17px;
-      accent-color: #3faa2e;
+      -webkit-appearance: none;
+      appearance: none;
+      flex: none;
+      width: 19px;
+      height: 19px;
+      margin: 0;
+      background: var(--cream);
+      border: 2px solid var(--ink);
+      border-radius: 6px;
       cursor: pointer;
     }
+    .opt input[type="checkbox"]:checked {
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cg fill='none' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7' stroke='%232a1a12' stroke-width='5'/%3E%3Cpath d='M3.5 8.5l3 3 6-7' stroke='%23fff' stroke-width='2.4'/%3E%3C/g%3E%3C/svg%3E") center / 13px 13px no-repeat,
+        linear-gradient(180deg, #7be34f, #3faa2e);
+    }
+    .opt input[type="checkbox"]:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
     .opt .note {
       color: var(--muted);
       font-size: 0.82rem;

@@ -34,6 +34,7 @@ body {
   position: fixed; top: 12px; left: 12px; z-index: 99999;
   text-decoration: none; font: 700 14px/1 Bitter, Georgia, serif;
   color: #ffe9b0; background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  background-color: var(--wood2);   /* the ✨ / 🔊 / ⏸ buttons and the pause card take this */
   border: 1px solid #1d1409; border-radius: 6px;
   box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.25), 0 3px 8px rgba(0, 0, 0, 0.5);
   padding: 7px 13px;
@@ -84,7 +85,16 @@ body {
   padding: 7px 10px 7px 24px; cursor: pointer; position: relative;
 }
 .mlist button:hover { background: rgba(233, 182, 64, 0.22); color: #ffe9b0; }
-.mlist kbd { margin-left: auto; font: inherit; opacity: 0.6; }
+.mlist .gs-keys { margin-left: auto; }
+/* keycaps: little wooden keys cut like the menu buttons (in the menus and the
+   rules; darker on the gold auto-finish button, below) */
+.mlist kbd, .mb-body kbd, #autofinish kbd {
+  display: inline-block; min-width: 1.7em; padding: 1px 5px;
+  font: 700 11px/1.15 Bitter, Georgia, serif; color: #ffe9b0; text-align: center;
+  background: linear-gradient(180deg, var(--wood1), var(--wood2));
+  border: 1px solid #1d1409; border-bottom-width: 2px; border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.25);
+}
 .mlist hr { border: 0; border-top: 1px solid rgba(0, 0, 0, 0.5); border-bottom: 1px solid rgba(255, 220, 150, 0.15); margin: 4px 4px; }
 .mlist .check { position: absolute; left: 8px; color: var(--gold); }
 .mlist [aria-checked="true"] .check::before { content: "✓"; font-weight: 700; }
@@ -189,7 +199,7 @@ body {
   border: 2px solid #6b4e10; border-radius: 8px; padding: 9px 18px;
   box-shadow: 0 0 18px rgba(233, 182, 64, 0.5), 0 4px 10px rgba(0, 0, 0, 0.5);
 }
-#autofinish kbd { font: inherit; opacity: 0.55; }
+#autofinish kbd { font-size: 12px; background: linear-gradient(180deg, var(--wood2), var(--wood3)); }
 
 .statusbar { display: flex; gap: 6px; margin-top: 8px; width: 100%; }
 .statusbar span {

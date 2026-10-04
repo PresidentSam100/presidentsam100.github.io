@@ -1,7 +1,7 @@
 /* =====================================================================
    Slither — Labyrinth levels.
 
-   Each level: { id, zone, name, hint, time (seconds; 0 = untimed), grid }
+   Each level: { id, zone, name, hint (a [Key] in it shows as a keycap), time (seconds; 0 = untimed), grid }
    plus optional speed (ms per cell), spikeMs, enemyMs ({ hunt: 230 }).
    `id` keys saved best times, so never reuse or rename one. Every grid row
    must be the same width. The tile legend is at the top of
@@ -40,7 +40,7 @@
     },
     {
       id: "zig-zag", zone: "Garden", name: "Zig Zag", time: 26,
-      hint: "Hold Shift (or ⚡) to dash. The clock is tight — the straightaways are where you win time back.",
+      hint: "Hold [Shift] (or ⚡) to dash. The clock is tight — the straightaways are where you win time back.",
       grid: [
         "########################",
         "#S.........a...........#",
@@ -96,7 +96,7 @@
     },
     {
       id: "phantom", zone: "Garden", name: "Phantom", time: 30,
-      hint: "Eat a 👻 apple, then hold G or right-click (or 👻 on touch) to phase through walls. Let go before the arch — ghosts can't leave.",
+      hint: "Eat a 👻 apple, then hold [G] or right-click (or 👻 on touch) to phase through walls. Let go before the arch — ghosts can't leave.",
       grid: [
         "####################",
         "#..................#",
@@ -388,7 +388,7 @@
     },
     {
       id: "chroma-lock", zone: "Citadel", name: "Chroma Lock", time: 90,
-      hint: "Each vault door has a twin on the exit corridor: open one and the other shuts. Square switches flip when you click them (or press 1 / 2); round ones when you roll over them.",
+      hint: "Each vault door has a twin on the exit corridor: open one and the other shuts. Square switches flip when you click them (or press [1] / [2]); round ones when you roll over them.",
       grid: [
         "########################",
         "#......#.......#.......#",
@@ -781,7 +781,7 @@
     },
     {
       id: "thunderhead", zone: "Astral", name: "Thunderhead", time: 30,
-      hint: "In the storm you fly toward your pointer (your finger on a phone; arrow keys without one). It's fast — and the pillars are still walls.",
+      hint: "In the storm you fly toward your pointer (your finger on a phone; [↑][←][↓][→] without one). It's fast — and the pillars are still walls.",
       grid: [
         "########################",
         "#......................#",

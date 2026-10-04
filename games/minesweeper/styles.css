@@ -499,6 +499,20 @@ body {
   margin-bottom: 10px;
 }
 
+/* ---- keycaps: little raised keys, like the buttons ----------------------- */
+/* (in the windows only: the corner buttons and the pause card keep the shared
+   keycaps) */
+.window .gs-kbd {
+  margin: 0 1px;
+  padding: 2px 4px;
+  border: none;
+  border-radius: 0;
+  background: var(--face);
+  color: var(--text);
+  box-shadow: var(--raised);
+  font: 700 11px/1 var(--ui);
+}
+
 #byline {
   color: #d8f0f0;
   font-size: 11px;
@@ -548,6 +562,30 @@ body > .gs-pause {
 }
 .gs-pause .gs-pause-card button:active {
   box-shadow: var(--sunken);
+}
+/* the copy box (GameShell.copyBox): the result in a white sunken field, the
+   buttons in a row inside the window's margins; only Copy is the default */
+.gs-pause .gs-pause-card textarea {
+  width: calc(100% - 24px);
+  margin: 0 12px 14px;
+  padding: 4px 5px;
+  border: none;
+  border-radius: 0;
+  background: #fff;
+  color: var(--text);
+  box-shadow: var(--sunken);
+  font: 12px/1.35 var(--ui);
+}
+.gs-pause .gs-pause-card textarea:focus {
+  outline: 1px dotted var(--text);
+  outline-offset: -4px;
+}
+.gs-pause .gs-dialog-row {
+  gap: 6px;
+  padding: 0 12px;
+}
+.gs-pause .gs-pause-card .gs-dialog-alt {
+  box-shadow: var(--raised);
 }
 
 /* ---- endless ------------------------------------------------------------ */

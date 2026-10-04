@@ -471,10 +471,14 @@
   }
 
   // ---- drawing helpers ---------------------------------------------------------
+  // each [KEY] in text is drawn as a keycap (GameShell.drawKeys), which is
+  // wider than its letters: the box grows to fit
   function capBox(x, y, text, opts) {
     opts = opts || {};
     ctx.font = (opts.size || 21) + "px " + FONT;
-    var w = ctx.measureText(text).width + 20;
+    var keys = window.GameShell ? (text.match(/\[[^\]]+\]/g) || []).length : 0;
+    var plain = text.replace(/[[\]]/g, "");
+    var w = ctx.measureText(plain).width + keys * (opts.size || 21) * 0.92 + 20;
     var h = (opts.size || 21) + 13;
     ctx.save();
     ctx.translate(x + (opts.center ? 0 : w / 2), y + h / 2);
@@ -487,7 +491,8 @@
     ctx.strokeRect(-w / 2, -h / 2, w, h);
     ctx.fillStyle = opts.color || INK;
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(text, 0, 2);
+    if (keys) GameShell.drawKeys(ctx, text, 0, 2);
+    else ctx.fillText(plain, 0, 2);
     ctx.restore();
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     return w;
@@ -734,10 +739,10 @@
         capBox(W / 2, 120, "CHAPTER " + wave + ": METEOR STORM!", { center: true, size: 27, rot: -0.02 });
       }
     } else if (state === "menu") {
-      title("METEOR MENACE!", "PRESS ENTER TO BLAST OFF!");
+      title("METEOR MENACE!", "PRESS [ENTER] TO BLAST OFF!");
       drawShipAt(W / 2 + Math.cos(time * 0.7) * 30, H * 0.68 + Math.sin(time * 1.1) * 10, -0.5 + Math.sin(time * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
-      title("THE END...?", "PRESS ENTER FOR THE NEXT ISSUE");
+      title("THE END...?", "PRESS [ENTER] FOR THE NEXT ISSUE");
       capBox(W / 2, H * 0.62, "SCORE " + score + "  ·  BEST " + best.get(), { center: true, size: 24 });
     }
   }

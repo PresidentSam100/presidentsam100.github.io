@@ -39,6 +39,11 @@
   window.addEventListener("resize", resize);
   resize();
 
+  // The page's monospace stack (body, styles.css) for the canvas text. A word's
+  // scroll is measured in it at spawn and the word drawn in it by drawName,
+  // so every canvas font here uses this one constant.
+  const MONO = '"SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace';
+
   // Bottom layout: the death line and ship sit above the bottom HUD bar.
   const FLOOR_Y = () => H - 122; // death line — words landing here cost a life
   const SHIP_Y  = () => H - 86;  // ship center (sits clear below the line band)
@@ -71,6 +76,7 @@
     rAcc: document.getElementById("r-acc"),
     modes: document.getElementById("modes"),
   };
+  const kbd = (k) => '<kbd class="gs-kbd">' + k + "</kbd>";   // keycap (style: ../motion-toggle.js)
 
   // ---------- Game state ----------
   const MODES = {
@@ -245,7 +251,7 @@
       attempts++;
     }
     if (used.has(text[0])) return; // couldn't find a free starting letter this tick
-    ctx.font = "20px monospace";
+    ctx.font = "20px " + MONO;
     const wPx = ctx.measureText(text).width + 26;
     const margin = 30;
     const x = rand(margin, Math.max(margin, W - wPx - margin));
@@ -825,7 +831,7 @@
       } else if (p.kind === "text") {
         ctx.globalAlpha = Math.min(1, t * 1.4);
         ctx.fillStyle = p.color || "#ffd166";
-        ctx.font = "700 20px monospace";
+        ctx.font = "700 20px " + MONO;
         ctx.textAlign = "center";
         ctx.fillText(p.txt, p.x, p.y);
         ctx.globalAlpha = 1;
@@ -885,7 +891,7 @@
     ctx.strokeStyle = "#241a45";
     ctx.stroke();
     ctx.fillStyle = "#e7c86f"; // star on the hat
-    ctx.font = "9px monospace";
+    ctx.font = "9px " + MONO;
     ctx.textAlign = "center";
     ctx.fillText("★", -1, -22);
     ctx.restore();
@@ -944,7 +950,7 @@
     const isTarget = isLocked(w);
     const urgency = Math.max(0, Math.min(1, (w.y / FLOOR_Y())));
 
-    ctx.font = "20px monospace";
+    ctx.font = "20px " + MONO;
     ctx.textAlign = "left";
 
     // the name-scroll under the spirit
@@ -1051,10 +1057,10 @@
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
-    el.hint.textContent = MODES[mode].noTypos
-      ? "HARDCORE — one typo ends the run. Esc to pause."
-      : (bombs > 0 ? "Type to cast · Enter = banishing nova · Esc to pause."
-                   : "Type to cast · Esc to pause.");
+    el.hint.innerHTML = MODES[mode].noTypos
+      ? "HARDCORE — one typo ends the run. " + kbd("Esc") + " to pause."
+      : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + kbd("Esc") + " to pause."
+                   : "Type to cast · " + kbd("Esc") + " to pause.");
     el.startScreen.classList.add("hidden");
     el.overScreen.classList.add("hidden");
     initStars();

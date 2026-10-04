@@ -225,7 +225,7 @@
   .footer-controls { display: flex; gap: 0.6rem; align-items: center; justify-content: center; margin: 0.7rem 0 0.3rem; }
   .mute { cursor: pointer; background: var(--paper); border: 2px solid var(--line); color: var(--ink); border-radius: 6px; padding: 0.35rem 0.6rem; font-size: 1rem; }
   .hint { color: var(--muted); font-size: 0.8rem; text-align: center; margin-top: 0.1rem; }
-  .hint b { color: var(--ink); }
+  .hint b, .hint .gs-kbd { color: var(--ink); }
 
   /* the menu and results: a poster nailed up in town. The drop shadow is on
      the wrapper because clip-path would cut it off the poster itself. */

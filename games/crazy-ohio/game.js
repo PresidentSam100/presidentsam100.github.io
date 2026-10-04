@@ -15,6 +15,10 @@
     if (code.indexOf("Digit") === 0) return code.slice(5);
     return LABELS[code] || code;
   }
+  // Keycaps for the setup hints (style: ../motion-toggle.js). The key's name is
+  // escaped, since keyLabel() hands back raw characters (\, ', `…).
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const kbd = (k) => '<kbd class="gs-kbd">' + esc(k) + "</kbd>";
   function defaultKeybinds() { return ["KeyF", "KeyG", "KeyH", "KeyJ"]; }
   function loadKeybinds() {
     try {
@@ -150,7 +154,7 @@
     const b = e.target.closest(".keybtn"); if (!b || state !== "setup") return;
     rebindCol = +b.dataset.col;
     renderKeybindButtons();
-    $("setupHint").textContent = "press any key for lane " + (rebindCol + 1) + "… (Esc to cancel)";
+    $("setupHint").innerHTML = "press any key for lane " + (rebindCol + 1) + "… (" + kbd("Esc") + " to cancel)";
   });
 
   function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); }
@@ -502,26 +506,26 @@
     let grid = "";
     for (let v = 0; v <= niceMax + 1e-6; v += step) {
       const y = Y(v).toFixed(1);
-      grid += '<line x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '" stroke="' + (v === 0 ? "#2a3142" : "#1c2230") + '"/>' +
-              '<text x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" fill="#6b7385" font-size="8">' + v + '</text>';
+      grid += '<line class="' + (v === 0 ? "lg-base" : "lg-grid") + '" x1="' + PL + '" y1="' + y + '" x2="' + (VW - PR) + '" y2="' + y + '"/>' +
+              '<text class="lg-tick" x="' + (PL - 5) + '" y="' + (Y(v) + 2.8).toFixed(1) + '" text-anchor="end" font-size="8">' + v + '</text>';
     }
     let xticks = "";
     for (let tt = 0; tt <= dur + 1e-6; tt += tStep) {
       const x = X(tt).toFixed(1);
-      xticks += '<line x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '" stroke="#161b27"/>' +
-                '<text x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" fill="#6b7385" font-size="8">' + tt + '</text>';
+      xticks += '<line class="lg-xtick" x1="' + x + '" y1="' + PT + '" x2="' + x + '" y2="' + yBase + '"/>' +
+                '<text class="lg-tick" x="' + x + '" y="' + (yBase + 11) + '" text-anchor="middle" font-size="8">' + tt + '</text>';
     }
     const yAvg = Y(finalRate).toFixed(1);
     $("graph").innerHTML =
       '<div class="gtitle">hits per second over time</div>' +
       '<svg class="lg" viewBox="0 0 ' + VW + ' ' + VH + '">' +
-        '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="rgba(255,79,168,.32)"/><stop offset="1" stop-color="rgba(255,79,168,0)"/></linearGradient></defs>' +
+        '<defs><linearGradient id="lgF" x1="0" y1="0" x2="0" y2="1"><stop class="lg-stop" offset="0" stop-opacity=".32"/><stop class="lg-stop" offset="1" stop-opacity="0"/></linearGradient></defs>' +
         grid + xticks +
         '<path d="' + area + '" fill="url(#lgF)"/>' +
-        '<line x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke="#b06bff" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
-        '<path d="' + line + '" fill="none" stroke="#ff4fa8" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
-        '<text transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">hits/s</text>' +
-        '<text x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" fill="#8b93a7" font-size="8" font-weight="700">Time (s)</text>' +
+        '<line class="lg-avg" x1="' + PL + '" y1="' + yAvg + '" x2="' + (VW - PR) + '" y2="' + yAvg + '" stroke-width="1" stroke-dasharray="4 4" opacity=".65"/>' +
+        '<path class="lg-line" d="' + line + '" fill="none" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>' +
+        '<text class="lg-axis" transform="rotate(-90 9 ' + midY + ')" x="9" y="' + midY + '" text-anchor="middle" font-size="8" font-weight="700">hits/s</text>' +
+        '<text class="lg-axis" x="' + ((PL + VW - PR) / 2) + '" y="' + (yBase + 23) + '" text-anchor="middle" font-size="8" font-weight="700">Time (s)</text>' +
       '</svg>' +
       '<div class="cap">peak <b>' + peak.toFixed(1) + '</b> hits/s &nbsp;·&nbsp; avg <b>' + finalRate.toFixed(1) + '</b> hits/s</div>';
   }
@@ -581,13 +585,13 @@
       if (IGNORE_CODES.indexOf(e.code) >= 0) return;
       e.preventDefault();
       if (e.code === "KeyP") {
-        $("setupHint").textContent = "P pauses the game — try a different key";
+        $("setupHint").innerHTML = kbd("P") + " pauses the game — try a different key";
         errSound();
         return;
       }
       const takenBy = KEYBINDS.indexOf(e.code);
       if (takenBy >= 0 && takenBy !== rebindCol) {
-        $("setupHint").textContent = keyLabel(e.code) + " is already lane " + (takenBy + 1) + " — try a different key";
+        $("setupHint").innerHTML = kbd(keyLabel(e.code)) + " is already lane " + (takenBy + 1) + " — try a different key";
         errSound();
         return;
       }

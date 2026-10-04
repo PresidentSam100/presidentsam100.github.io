@@ -780,7 +780,12 @@ class Game {
     ctx.stroke();
     ctx.font = '16px "Permanent Marker", "Segoe UI", Arial';
     let y = -h / 2 + 79;
-    for (const ln of lines) { ctx.fillText(ln, 0, y); y += 27; }
+    // each [KEY] in a line is drawn as a keycap (GameShell.drawKeys)
+    for (const ln of lines) {
+      if (window.GameShell) GameShell.drawKeys(ctx, ln, 0, y);
+      else ctx.fillText(ln.replace(/[[\]]/g, ""), 0, y);
+      y += 27;
+    }
     ctx.restore();
     ctx.textAlign = "left";
   }
@@ -788,11 +793,11 @@ class Game {
   renderStart(ctx) {
     this._panel(ctx, "Doodle Jump", [
       "Reach as high as you can!",
-      "← → / A D to move",
-      "Space / Up / click to shoot",
-      "P / Esc to pause",
+      "[←][→] / [A][D] to move",
+      "[Space] / [↑] / click to shoot",
+      "[P] / [Esc] to pause",
       "",
-      "Press Space or click to start",
+      "Press [Space] or click to start",
     ]);
   }
 
@@ -801,7 +806,7 @@ class Game {
       "Score: " + this.score,
       "Best: " + this.high,
       "",
-      "Space or click to play again",
+      "[Space] or click to play again",
     ]);
   }
 
@@ -809,7 +814,7 @@ class Game {
     this._panel(ctx, "Paused", [
       "Score: " + this.score,
       "",
-      "Press P or Esc to resume",
+      "Press [P] or [Esc] to resume",
     ]);
   }
 }

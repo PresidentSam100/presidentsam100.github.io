@@ -33,9 +33,9 @@
   .pchip.turn { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent); }
   .pchip.dead { opacity:.5; } .pchip.dead .nm { text-decoration:line-through; }
   .controls { display:flex; flex-direction:column; gap:8px; }
-  button.btn { cursor:pointer; background:var(--panel); color:var(--text); border:1px solid var(--line);
+  button.btn, a.btn { cursor:pointer; background:var(--panel); color:var(--text); border:1px solid var(--line);
     border-radius:10px; padding:10px 14px; font-family:inherit; font-weight:700; font-size:.95rem; }
-  button.btn:hover { background:#322a22; } button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
+  button.btn:hover, a.btn:hover { background:#322a22; } button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
   a.btn { text-decoration:none; text-align:center; display:block; }
   .overlay { position:fixed; inset:0; background:rgba(10,8,5,.8); backdrop-filter:blur(3px); display:none;
     align-items:center; justify-content:center; padding:1rem; z-index:50; }
@@ -45,11 +45,12 @@
   .card h2 { margin-bottom:6px; font-size:1.6rem; } .card p { color:var(--muted); line-height:1.55; margin-bottom:14px; font-size:.88rem; }
   .modes { display:flex; flex-direction:column; gap:10px; }
   .modebtn { cursor:pointer; background:#2e2820; color:var(--text); border:1px solid var(--line); border-radius:10px;
-    padding:11px 14px; font-weight:700; text-align:left; } .modebtn:hover { background:#37301f; }
+    padding:11px 14px; font-family:inherit; font-size:1rem; font-weight:700; text-align:left; } .modebtn:hover { background:#37301f; }
   .modebtn small { display:block; color:var(--muted); font-weight:500; font-size:.74rem; margin-top:2px; }
   .promo { display:flex; gap:8px; justify-content:center; }
   .promo button { font-size:2.3rem; width:62px; height:62px; border-radius:10px; border:2px solid transparent;
-    background:#cdbb96; cursor:pointer; } .promo button:hover { border-color:var(--sel); }
+    background:#cdbb96; cursor:pointer; font-family:"Segoe UI Symbol",system-ui,sans-serif;
+    paint-order:stroke fill; -webkit-text-stroke:.037em rgba(0,0,0,.55); } .promo button:hover { border-color:var(--sel); }
 </style>
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>

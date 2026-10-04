@@ -63,7 +63,9 @@ body {
 .app {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 16px clamp(12px, 3vw, 28px) 40px;
+  /* start below the fixed Games / sound / FX buttons: at any width short of
+     very wide, the header's right-hand buttons would sit under them */
+  padding: 56px clamp(12px, 3vw, 28px) 40px;
 }
 
 .topbar {
@@ -114,9 +116,7 @@ body {
 }
 @media (max-width: 860px) {
   .stage { grid-template-columns: 1fr; }
-  /* start below the fixed Games / sound / FX buttons, and tuck the palm
-     further into the corner so it stays off the title */
-  .app { padding-top: 56px; }
+  /* tuck the palm further into the corner so it stays off the title */
   body {
     background:
       var(--palm) no-repeat -110px -120px / 240px auto,
@@ -357,6 +357,7 @@ body {
   font: inherit;
   font-size: 14px;
   font-weight: 700;
+  text-decoration: none;   /* also used on <a> links (Level Editor, Back to game) */
   box-shadow: 0 2px 0 rgba(20, 60, 75, 0.12);
   transition: background 120ms, transform 60ms;
 }

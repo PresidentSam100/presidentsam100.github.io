@@ -81,7 +81,19 @@ window.SlitherLabyrinth = function (host) {
   function zoneLast(zone) { var m = -1; for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].zone === zone) m = i; return m; }
   function zones() { var z = []; LEVELS.forEach(function (lv) { if (z.indexOf(lv.zone) === -1) z.push(lv.zone); }); return z; }
   function startRun(zone) {
-    if (progress.run && !confirm("Give up your " + progress.run.zone + " run (level " + (progress.run.idx + 1) + ", ×" + progress.run.lives + " lives)?")) return;
+    var r = progress.run;
+    if (r && window.GameShell) {
+      GameShell.confirm({
+        title: "Give up your " + r.zone + " run?",
+        text: "You're on level " + (r.idx + 1) + " with ×" + r.lives + " lives.",
+        ok: "Give it up", cancel: "Keep it"
+      }, function (yes) { if (yes) beginRun(zone); });
+      return;
+    }
+    if (r && !confirm("Give up your " + r.zone + " run (level " + (r.idx + 1) + ", ×" + r.lives + " lives)?")) return;
+    beginRun(zone);
+  }
+  function beginRun(zone) {
     progress.run = { zone: zone, idx: zoneFirst(zone), lives: RUN.lives, apples: 0 };
     saveProgress();
     start(progress.run.idx, true);
@@ -244,8 +256,8 @@ window.SlitherLabyrinth = function (host) {
     if (!BLASTS.length) return;
     var box = panel("blast", "🥚 Fire Eggs · blast arena", false);
     var p = document.createElement("p");
-    p.textContent = "Lay fire eggs: each bursts into a cross of flame that cracks clay urns and burns any snake it touches. " +
-      "Hold a direction to slither, let go to stop; Space or E lays an egg. Last snake standing takes the round, first to " + ARENA_WINS + " the match.";
+    p.innerHTML = "Lay fire eggs: each bursts into a cross of flame that cracks clay urns and burns any snake it touches. " +
+      "Hold a direction to slither, let go to stop; " + kbd("Space") + " or " + kbd("E") + " lays an egg. Last snake standing takes the round, first to " + ARENA_WINS + " the match.";
     box.appendChild(p);
     var who = document.createElement("div");
     who.className = "row";
@@ -504,7 +516,7 @@ window.SlitherLabyrinth = function (host) {
       : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : chaseIdx >= 0 ? "<b>Chase</b> · " + level.name + " · maze " + st.chase.round
       : blastIdx >= 0 ? "<b>Fire Eggs</b> · " + level.name
       : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
-    el.hint.textContent = level.hint || "";
+    el.hint.innerHTML = hintHtml(level.hint || "");
     el.timeBar.style.display = st.timeLimit ? "" : "none";
     updateHud();
     token++;
@@ -540,6 +552,9 @@ window.SlitherLabyrinth = function (host) {
     });
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function kbd(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
+  // A hint marks its keys as [Shift]: the text is escaped first, then each [key] becomes a keycap.
+  function hintHtml(s) { return escapeHtml(s).replace(/\[([^\[\]]+)\]/g, function (m, t) { return kbd(t); }); }
   function stopLoop() {
     active = false;
     token++;
@@ -809,7 +824,8 @@ window.SlitherLabyrinth = function (host) {
       if (over) { runOver(); return; }
       host.showResult({
         title: words[0],
-        msg: words[1] + left + "  ·  R or Enter to retry",
+        msg: escapeHtml(words[1] + left) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to retry",
+        html: true,
         primaryLabel: "Retry",
         primaryFn: restart,
       });
@@ -880,7 +896,7 @@ window.SlitherLabyrinth = function (host) {
     var title = e.winner === "p1" ? (two ? "P1 takes the round! 🟢" : "You take the round! 🏆")
       : e.winner === "p2" ? "P2 takes the round! 🔵" : e.winner === "rival" ? "A rival takes the round 🐍" : "Nobody's left: a draw 💥";
     if (arenaIdx < 0) {
-      endTimer = setTimeout(function () { if (active) host.showResult({ title: title, msg: "R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart }); }, 650);
+      endTimer = setTimeout(function () { if (active) host.showResult({ title: title, msg: kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart }); }, 650);
       return;
     }
     if (tally[e.winner] != null) tally[e.winner]++;
@@ -949,7 +965,7 @@ window.SlitherLabyrinth = function (host) {
     var msg = "Score " + score + (score > prev ? (prev ? " — new best! 🎉" : "") : "  ·  Best " + prev) + "  ·  maze " + round;
     endTimer = setTimeout(function () {
       if (!active) return;
-      host.showResult({ title: "The guardians got you 👻", msg: msg + "  ·  R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart });
+      host.showResult({ title: "The guardians got you 👻", msg: escapeHtml(msg) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart });
     }, 900);
   }
   function onChaseClear() {
@@ -981,7 +997,7 @@ window.SlitherLabyrinth = function (host) {
     var msg = "Score " + score + " 🍎" + (stageIdx < 0 ? "" : score > best ? (best ? " — new best! 🎉" : "") : "  ·  Best " + best);
     endTimer = setTimeout(function () {
       if (!active) return;
-      host.showResult({ title: words[0], msg: msg + "  ·  R or Enter to play again", primaryLabel: "Play Again", primaryFn: restart });
+      host.showResult({ title: words[0], msg: escapeHtml(msg) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart });
     }, 650);
   }
 
@@ -1323,13 +1339,19 @@ window.SlitherLabyrinth = function (host) {
       ctx.fillRect(0, H / 2 - 22, W, 1.5);
       ctx.fillRect(0, H / 2 + 20.5, W, 1.5);
       ctx.fillStyle = "#f3e6c4";
-      ctx.font = "700 15px Cinzel, Georgia, serif";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      ctx.fillText(st.blast ? (twoPlayer() ? (touch ? "Hold a d-pad to slither · 🥚 lays an egg" : "P1: WASD + Space · P2: arrows + Enter · move to begin")
-          : touch ? "Hold the d-pad to slither · 🥚 lays an egg" : "Hold an arrow key to slither · Space lays an egg")
-        : twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: WASD · P2: arrow keys · steer to begin")
-        : touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or WASD to begin", W / 2, H / 2 + 1);
+      var ready = st.blast ? (twoPlayer() ? (touch ? "Hold a d-pad to slither · 🥚 lays an egg" : "P1: [W][A][S][D] + [Space] · P2: [↑][←][↓][→] + [Enter] · move to begin")
+          : touch ? "Hold the d-pad to slither · 🥚 lays an egg" : "Hold an arrow key to slither · [Space] lays an egg")
+        : twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: [W][A][S][D] · P2: [↑][←][↓][→] · steer to begin")
+        : touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or [W][A][S][D] to begin";
+      // Each [key] is drawn as a keycap (about 0.92em wider than its letter),
+      // so step the size down until the line fits the board.
+      var plain = ready.replace(/[\[\]]/g, ""), caps = (ready.match(/\[/g) || []).length, px = 15;
+      ctx.font = "700 15px Cinzel, Georgia, serif";
+      while (px > 9 && ctx.measureText(plain).width + caps * px * 0.92 > W - 16) ctx.font = "700 " + (--px) + "px Cinzel, Georgia, serif";
+      if (window.GameShell) GameShell.drawKeys(ctx, ready, W / 2, H / 2 + 1);
+      else ctx.fillText(plain, W / 2, H / 2 + 1);
     }
   }
 

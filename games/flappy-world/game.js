@@ -2376,11 +2376,17 @@ class Game {
 
     // Blinking call-to-action
     if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
-      outlined(ctx, 'PRESS SPACE TO START', CANVAS_W / 2, 590, 30, '#ffffff', { line: 7 });
+      // outlined() with a keycap: the same drop shadow, then the INK-outlined text
+      const cta = 'TAP / [SPACE] TO START';
+      ctx.font = '30px ' + FONT;
+      ctx.fillStyle = 'rgba(20,10,60,0.35)';
+      keyHint(ctx, cta, CANVAS_W / 2, 592, { outline: { width: 7, color: 'rgba(20,10,60,0.35)' } });
+      ctx.fillStyle = '#ffffff';
+      keyHint(ctx, cta, CANVAS_W / 2, 590, { outline: { width: 7, color: INK } });
     }
 
     // Controls hint
-    ctx.font = 'bold 13px sans-serif';
+    ctx.font = '13px ' + FONT;   // (Luckiest Guy has one weight: no faux bold)
     ctx.lineJoin = 'round';
     ctx.lineWidth = 4;
     ctx.fillStyle = INK;
@@ -2473,7 +2479,7 @@ class Game {
       ctx.fillStyle = '#1c5fb8';
       keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512);
     }
-    ctx.font = 'bold 15px sans-serif';
+    ctx.font = '16px ' + FONT;
     ctx.fillStyle = '#6a6f86';
     keyHint(ctx, '[M] or [Esc] for menu (change mode)', CANVAS_W / 2, 550);
   }
@@ -2550,7 +2556,7 @@ class Game {
       const nameW = ctx.measureText(name).width;
       const descX = nameX + Math.max(112, nameW + 12);
       const maxW = CANVAS_W - 34 - descX;
-      ctx.font = '13px sans-serif';
+      ctx.font = '13px ' + FONT;
       ctx.fillStyle = '#4a4f66';
       if (ctx.measureText(desc).width <= maxW) {
         ctx.fillText(desc, descX, cy);

@@ -273,11 +273,15 @@
     changed();
   });
   $("ed-clear").addEventListener("click", function () {
-    if (!confirm("Start a new blank level? (Your current one is kept in undo.)")) return;
-    pushUndo();
-    level = blank(24, 15);
-    fillForm();
-    changed();
+    function clear() {
+      pushUndo();
+      level = blank(24, 15);
+      fillForm();
+      changed();
+    }
+    if (!window.GameShell) { if (confirm("Start a new blank level? (Your current one is kept in undo.)")) clear(); return; }
+    GameShell.confirm({ title: "Start a new blank level?", text: "Your current one is kept in undo.", ok: "New level", cancel: "Cancel" },
+      function (yes) { if (yes) clear(); });
   });
   document.addEventListener("keydown", function (e) {
     if (/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || "")) return;
@@ -297,6 +301,7 @@
     $("ed-rows").value = rows();
     $("ed-time").value = level.time || 0;
     $("ed-hint").value = level.hint || "";
+    hintPreview();
     $("ed-warps").value = (level.warps || []).join(", ");
     $("ed-enemyswitch").checked = !!level.enemySwitches;
     $("ed-tele").value = level.teleReverse || "";
@@ -307,7 +312,16 @@
   $("ed-name").addEventListener("input", function () { level.name = this.value; changed(); });
   $("ed-zone").addEventListener("change", function () { level.zone = this.value; buildPalette(); changed(); });
   $("ed-time").addEventListener("change", function () { level.time = Math.max(0, Math.min(999, Math.round(Number(this.value) || 0))); this.value = level.time; changed(); });
-  $("ed-hint").addEventListener("input", function () { level.hint = this.value; changed(); });
+  $("ed-hint").addEventListener("input", function () { level.hint = this.value; hintPreview(); changed(); });
+  // The hint as players see it, when it has a [Key] in it (drawn as a keycap,
+  // the same way as labyrinth.js's hintHtml), so the brackets read as meant
+  function hintPreview() {
+    var v = $("ed-hint").value, pv = $("ed-hint-preview");
+    var esc = v.replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
+    var html = esc.replace(/\[([^\[\]]+)\]/g, function (m, t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; });
+    pv.hidden = html === esc;
+    pv.innerHTML = pv.hidden ? "" : "<small>Players see:</small> " + html;
+  }
   $("ed-warps").addEventListener("change", function () { level.warps = this.value.split(",").map(function (s) { return s.trim(); }).filter(Boolean); changed(); });
   $("ed-enemyswitch").addEventListener("change", function () { level.enemySwitches = this.checked; changed(); });
   $("ed-mode").addEventListener("change", function () { if (this.value) level.mode = this.value; else delete level.mode; changed(); });
@@ -422,9 +436,14 @@
       play.addEventListener("click", function () { window.open(playUrl(lv), "slither-play"); });
       var del = document.createElement("button"); del.className = "btn"; del.textContent = "✕";
       del.addEventListener("click", function () {
-        if (!confirm("Delete “" + (lv.name || lv.id) + "” from My levels?")) return;
-        store(MINE_KEY, mine().filter(function (m) { return m.id !== lv.id; }));
-        showMine();
+        function remove() {
+          store(MINE_KEY, mine().filter(function (m) { return m.id !== lv.id; }));
+          showMine();
+        }
+        var q = "Delete “" + (lv.name || lv.id) + "” from My levels?";
+        if (!window.GameShell) { if (confirm(q)) remove(); return; }
+        GameShell.confirm({ title: q, text: "This can't be undone.", ok: "Delete", cancel: "Keep it" },
+          function (yes) { if (yes) remove(); });
       });
       row.appendChild(name); row.appendChild(open); row.appendChild(play); row.appendChild(del);
       host.appendChild(row);

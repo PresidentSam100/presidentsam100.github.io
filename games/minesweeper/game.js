@@ -319,8 +319,10 @@
       state === "won" ? "😎" : state === "lost" ? "😵" : pressing ? "😮" : "🙂";
   }
 
-  function setStatus(text, tone) {
-    statusEl.textContent = text;
+  // html: the text is markup (for a keycap) with anything dynamic escaped
+  function setStatus(text, tone, html) {
+    if (html) statusEl.innerHTML = text;
+    else statusEl.textContent = text;
     statusEl.className = tone || "";
   }
 
@@ -544,7 +546,7 @@
       if (!d.done) { d.tries++; writeDaily(d); }
     }
     addStat(false);
-    setStatus("💥 Boom! Tap 🙂 or press N to try again.", "bad");
+    setStatus('💥 Boom! Tap 🙂 or press <kbd class="gs-kbd">N</kbd> to try again.', "bad", true);
     renderStats();
   }
 
@@ -808,7 +810,8 @@
       shareEl.textContent = "copied!";
       setTimeout(() => { shareEl.textContent = "Share result"; }, 1400);
     };
-    const fallback = () => { try { window.prompt("Copy your result:", text); } catch (e) {} };
+    // (the clipboard wasn't allowed: show the result to copy, in the game's own look)
+    const fallback = () => { if (window.GameShell) GameShell.copyBox({ title: "Copy your result", text: text }); else try { window.prompt("Copy your result:", text); } catch (e) {} };
     if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
       navigator.share({ text: text }).catch((e2) => { if (!e2 || e2.name !== "AbortError") fallback(); });
       return;

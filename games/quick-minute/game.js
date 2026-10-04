@@ -756,7 +756,7 @@
       '<h2>QUICK MINUTE</h2>' +
       '<p>You\'re the fast one. Slice through ' + LANES + ' lanes of slower traffic and rack up distance.</p>' +
       '<ul class="rules">' +
-        '<li>← → or <b>A / D</b> to change lanes (tap left/right on mobile).</li>' +
+        '<li><kbd class="gs-kbd">←</kbd><kbd class="gs-kbd">→</kbd> or <kbd class="gs-kbd">A</kbd> / <kbd class="gs-kbd">D</kbd> to change lanes (tap left/right on mobile).</li>' +
         '<li>Traffic moves at highway speed — you overtake it. The further you go, the faster it gets.</li>' +
         '<li>One crash ends the run. Distance is your score.</li>' +
       '</ul>' +

@@ -2997,7 +2997,7 @@ class Game {
       y += 22;
     }
 
-    this.text(ctx, '←→ BROWSE    ↑↓ ENEMIES/POWER-UPS    E/ESC BACK', WIDTH / 2, HEIGHT - 34, 10, '#fff', 'center');
+    this.keys(ctx, '[◀][▶] BROWSE   [▲][▼] ENEMIES/POWER-UPS   [E]/[ESC] BACK', WIDTH / 2, HEIGHT - 34, 10, '#fff', 'center');
   }
 
   drawAttract(ctx) {

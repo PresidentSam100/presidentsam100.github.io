@@ -307,6 +307,7 @@
     pendingPromo=m; const col=G.board[m.from].o, box=$("promoChoices"); box.innerHTML="";
     for(const t of ["q","r","b","n"]){ const btn=document.createElement("button");
       btn.textContent=FILLED[t]; btn.style.color=G.players[col].color;
+      btn.className=lum(G.players[col].color)>0.55?"lt":"dk";   // same outline as on the board
       btn.addEventListener("click",()=>{ $("promoOverlay").classList.remove("show"); doMove(pendingPromo,t); pendingPromo=null; });
       box.appendChild(btn); }
     $("promoOverlay").classList.add("show");

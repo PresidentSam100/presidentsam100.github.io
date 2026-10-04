@@ -164,5 +164,6 @@ canvas {
 }
 @keyframes blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
 .hint { position: absolute; top: 14px; left: 0; right: 0; text-align: center; color: var(--dim); font-size: 11px; letter-spacing: 2px; z-index: 5; pointer-events: none; }
+.hint .gs-kbd { color: var(--muted); letter-spacing: 0; }   /* caps drawn in --dim would all but vanish */
 /* invisible field that summons the mobile keyboard; we read its input */
 #ti { position: fixed; left: 0; bottom: 0; width: 1px; height: 1px; opacity: 0; border: 0; padding: 0; margin: 0; background: transparent; color: transparent; pointer-events: none; z-index: -1; }

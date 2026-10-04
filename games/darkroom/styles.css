@@ -127,10 +127,13 @@ h1 {
   background: rgba(122, 36, 23, 0.95); color: #ffd9c4;
   box-shadow: inset 0 0 0 1px rgba(255, 154, 122, 0.55), 0 0 10px rgba(255, 90, 50, 0.25);
 }
-.toolset kbd {
+/* Key names, on the tool buttons and in the how-to on the menu. */
+.toolset kbd, .how kbd {
   font: 600 0.68em system-ui, sans-serif; color: inherit; opacity: 0.75;
-  border: 1px solid currentColor; border-radius: 4px; padding: 0 4px 1px; margin-left: 3px;
+  border: 1px solid currentColor; border-radius: 4px; padding: 0 4px 1px;
 }
+.toolset kbd { margin-left: 3px; }
+.how kbd { font-size: 0.78em; color: var(--text); margin: 0 1px; }
 
 /* The sheet of photo paper in the easel's steel border. */
 .easel {

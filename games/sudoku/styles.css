@@ -715,6 +715,25 @@ body {
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--ink);
+  list-style: none;
+}
+.rules summary::-webkit-details-marker {
+  display: none;
+}
+/* a red-pen chevron instead of the browser's triangle; it turns down when open */
+.rules summary::before {
+  content: "";
+  display: inline-block;
+  width: 0.42em;
+  height: 0.42em;
+  margin-right: 0.7em;
+  vertical-align: 0.12em;
+  border-right: 2px solid var(--red);
+  border-bottom: 2px solid var(--red);
+  transform: rotate(-45deg);
+}
+.rules[open] summary::before {
+  transform: translateY(-0.15em) rotate(45deg);
 }
 .rules[open] summary {
   margin-bottom: 0.6rem;

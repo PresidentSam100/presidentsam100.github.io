@@ -638,7 +638,7 @@
   }
   function flipHint() {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    if (state === "ready") { $("flipHint").textContent = coarse ? "" : "Hold SPACE, release to launch — hit the flashing lane"; if (coarse) $("launchBtn").classList.add("show"); }
+    if (state === "ready") { $("flipHint").innerHTML = coarse ? "" : 'Hold <kbd class="gs-kbd">Space</kbd>, release to launch — hit the flashing lane'; if (coarse) $("launchBtn").classList.add("show"); }
   }
 
   // ---------- render ----------

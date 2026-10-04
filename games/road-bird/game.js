@@ -1840,13 +1840,21 @@ function textCenter(s, x, y, size, color) {
   ctx.strokeText(s, x, y);
   ctx.fillStyle = color; ctx.fillText(s, x, y);
 }
+// textCenter for key hints: each [KEY] in s is drawn as a keycap
+// (GameShell.drawKeys), outlined like the rest of the caption
+function keysCenter(s, x, y, size, color) {
+  ctx.font = "bold " + size + "px 'Trebuchet MS', sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = color;
+  window.GameShell.drawKeys(ctx, s, x, y, { outline: { width: Math.max(3, size * 0.14), color: "rgba(0,0,0,.55)" } });
+}
 
 function drawHUD() {
   // score number briefly grows then eases back each time we cross a 50-point milestone
   const k = scorePopT > 0 ? scorePopT / SCORE_POP_DUR : 0; // 1 at the ding → 0
   const ease = k * (2 - k);                                // easeOutQuad: peak synced to the ding, gentle settle
   textCenter(String(score()), 46, 40, 40 * (1 + 0.55 * ease), "#fff");
-  ctx.font = "bold 13px sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.font = "bold 13px 'Trebuchet MS', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,.8)";
   ctx.fillText("BEST " + highScore, 18, 70);
   if (coins > 0) { ctx.fillStyle = "#ffd23d"; ctx.fillText("🪙 " + coins, 18, 88); }
@@ -1981,12 +1989,12 @@ function drawMenu() {
   ctx.beginPath(); ctx.ellipse(px2, py2 + 3, 27, 8, 0, 0, 7); ctx.fill();
   const th = (window.RM_ON && window.RM_ON()) ? 0 : (performance.now() / 2400) * Math.PI * 2;
   drawChick3D(px2, py2, 1.15, th, sk);
-  textCenter("Skin: " + sk.name + "   (C to change)", W / 2, H * 0.815, 17, "#fff");
+  keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, H * 0.815, 17, "#fff");
   const nextLocked = SKINS.find(s => be < s.unlock);
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  textCenter("↑ ↓ select  •  SPACE / tap to play", W / 2, H * 0.90, 18, "#fff");
+  keysCenter("[↑][↓] select  •  [SPACE] / tap to play", W / 2, H * 0.90, 18, "#fff");
   ctx.globalAlpha = 1;
 }
 
@@ -2012,7 +2020,7 @@ function drawDead() {
   const r = deadButtonRects();
   drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
   drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false);
-  textCenter("SPACE: play again  •  ESC: menu  •  M: mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
+  keysCenter("[SPACE] play again  •  [ESC] menu  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
 }
 
 function drawPauseOverlay() {
@@ -2020,7 +2028,7 @@ function drawPauseOverlay() {
   textCenter("PAUSED", W / 2, H * 0.42, 56, "#fff");
   const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  textCenter("P / Esc to resume", W / 2, H * 0.54, 20, "#dfe6f0");
+  keysCenter("[P] / [Esc] to resume", W / 2, H * 0.54, 20, "#dfe6f0");
   ctx.globalAlpha = 1;
 }
 

@@ -496,7 +496,7 @@
           (hints === 1 ? "" : "s") +
           ")</span>"
         : "") +
-      (isBest ? "<br><span style='color:var(--good)'>New best time!</span>" : "");
+      (isBest ? "<br><span style='color:var(--emerald);font-weight:600'>New best time!</span>" : "");
     overlay.hidden = false;
   }
 

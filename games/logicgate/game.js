@@ -669,7 +669,7 @@
       status.textContent = "✗ The bulb stayed dark — change something and check again";
       status.className = "fail";
     } else if (complete) {
-      status.textContent = "Ready — press ⚡ Check (or Enter) to test it";
+      status.innerHTML = 'Ready — press ⚡ Check (or <kbd class="gs-kbd">Enter</kbd>) to test it';
       status.className = "ready";
     } else {
       if (mode === "gates") {
@@ -938,7 +938,7 @@
     document.getElementById("helpPanel").innerHTML =
       "<h3>How logic gates work</h3>" + legend +
       '<p class="leg-foot">Build your answer — place every gate, or set every switch ' +
-      "(each click cycles blank → 0 → 1 → 0…). Then press <b>⚡ Check</b> (or Enter) " +
+      '(each click cycles blank → 0 → 1 → 0…). Then press <b>⚡ Check</b> (or <kbd class="gs-kbd">Enter</kbd>) ' +
       "to send the signal through the wires and see if the bulb lights.</p>";
 
     document.getElementById("checkBtn").addEventListener("click", doCheck);

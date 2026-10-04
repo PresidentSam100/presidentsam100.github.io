@@ -210,7 +210,7 @@ header.top p { margin: 2px 0 0; font-style: italic; font-size: 0.85rem; color: v
   background: rgba(11, 18, 38, 0.7);
 }
 .hint { font-size: 0.78rem; color: var(--muted); text-align: center; margin: 12px 0 0; }
-.hint b { color: var(--ink); }
+.hint b, .hint .gs-kbd { color: var(--ink); }
 
 /* ---- overlay ----------------------------------------------------------------- */
 .overlay {

@@ -135,8 +135,23 @@ body {
 
 .keys-help { margin: 0; max-width: 560px; text-align: center; font-size: 0.8rem; line-height: 1.5; color: #9aa1b0; }
 .keys-help b, .keys-help .gs-kbd { color: #d6dae4; font-weight: 700; }
-.share-out { max-width: 420px; width: 92vw; text-align: center; font-size: 0.85rem; }
-.share-out p { margin: 0 0 6px; }
-.share-out textarea { width: 100%; font: 0.85rem/1.4 ui-monospace, monospace; color: #1b2230; background: #e9eef6; border-radius: 8px; border: 0; padding: 8px; }
+/* The copy box, for when the clipboard isn't allowed: a slab of the phone's
+   shell with the result on a backlit LCD in a dark bezel. (No display here:
+   it's shown and hidden with [hidden].) */
+.share-out {
+  max-width: 420px; width: 92vw; text-align: center; font-size: 0.85rem;
+  padding: 10px 12px 14px; color: #eef2fb;
+  background: linear-gradient(180deg, var(--shell-hi), var(--shell));
+  border: 1px solid #0c1428; border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 0 #0a1122;
+}
+.share-out p { margin: 0 0 8px; font-weight: 700; letter-spacing: 0.3px; }
+.share-out textarea {
+  display: block; width: 100%; resize: none;
+  font: 0.85rem/1.4 ui-monospace, monospace; color: #43523d; background: #c7f0d8;
+  border: 3px solid #0c1222; border-radius: 8px; padding: 8px;
+  box-shadow: inset 0 0 10px rgba(40, 70, 45, 0.45), 0 1px 0 rgba(255,255,255,0.18);
+}
+.share-out textarea:focus-visible { outline: 2px solid #ffd479; outline-offset: 2px; }
 
 @media (hover: none) { .keys-help { display: none; } }

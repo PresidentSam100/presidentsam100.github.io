@@ -146,7 +146,8 @@
       .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
-      .diffsel { background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
+      /* the CPU difficulty: the browser's arrow swapped for an ice-blue chevron */
+      .diffsel { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%232f8fe0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.6rem center / 12px 8px; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 1.9rem 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
       /* a light frost over the lake, thicker at the bottom corners like a
          cold window, so the scene still shows around the card */
       .overlay {

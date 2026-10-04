@@ -677,9 +677,10 @@
   }
 
   // ---- round end / results ------------------------------------------------
+  // opts.html: msg is markup (keycaps); the caller escapes whatever is dynamic in it.
   function showResult(opts) {
     resultTitle.textContent = opts.title;
-    resultMsg.textContent = opts.msg;
+    if (opts.html) resultMsg.innerHTML = opts.msg; else resultMsg.textContent = opts.msg;
     resultPrimary.textContent = opts.primaryLabel;
     resultPrimary.onclick = opts.primaryFn;
     resultOverlay.classList.remove("hidden");
@@ -835,7 +836,9 @@
       var errs = window.SlitherEngine.parse(level).errors;
       if (errs.length) throw new Error(errs[0]);
     } catch (e) {
-      alert("That level link doesn't work: " + (e.message || e));
+      var why = String(e.message || e);
+      if (window.GameShell) GameShell.alert({ title: "That level link doesn't work", text: why });
+      else alert("That level link doesn't work: " + why);
       return;
     }
     Array.prototype.forEach.call(document.querySelectorAll("#mode-pick [data-mode]"), function (b) { b.classList.toggle("sel", b.dataset.mode === "lab"); });

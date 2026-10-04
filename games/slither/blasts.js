@@ -15,7 +15,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = mod;
   if (typeof window !== "undefined") window.SLITHER_BLASTS = mod;
 })(this, function () {
-  var HINT = "Space or E lays a fire egg (P2: Enter). Crack urns for 🔥 longer blasts, 🥚 more eggs and ⚡ speed. Last snake standing wins.";
+  var HINT = "[Space] or [E] lays a fire egg (P2: [Enter]). Crack urns for 🔥 longer blasts, 🥚 more eggs and ⚡ speed. Last snake standing wins.";
   return [
     {
       id: "ember-court", zone: "Ruins", name: "Ember Court", mode: "blast", hint: HINT,

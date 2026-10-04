@@ -310,7 +310,7 @@
     g.lineWidth = 2;
     g.beginPath(); g.moveTo(x, y); g.lineTo(x + 26, y); g.stroke();
     g.fillStyle = "rgba(90,80,90,0.7)";
-    g.font = "italic 15px Georgia, serif";
+    g.font = "600 15px Fredoka, sans-serif";
     g.textAlign = "left";
     g.fillText(nTiers + " tiers!", x + 32, y + 5);
   }

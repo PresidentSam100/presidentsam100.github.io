@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="editor.css" />
     <script src="../motion-toggle.js"></script>
     <script src="../mute-toggle.js"></script>
+    <script src="../game-shell.js"></script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
     <script>
@@ -38,12 +39,12 @@
         <main class="ed-main">
           <div class="row ed-toolbar">
             <div class="row ed-seg" id="ed-tools">
-              <button class="btn sel" data-tool="paint" title="Paint (P)">✎ Paint</button>
-              <button class="btn" data-tool="rect" title="Rectangle (R)">▭ Box</button>
-              <button class="btn" data-tool="fill" title="Fill (F)">◧ Fill</button>
+              <button class="btn sel" data-tool="paint" title="Paint (P)">✎ Paint <span class="gs-keys"><kbd class="gs-kbd">P</kbd></span></button>
+              <button class="btn" data-tool="rect" title="Rectangle (R)">▭ Box <span class="gs-keys"><kbd class="gs-kbd">R</kbd></span></button>
+              <button class="btn" data-tool="fill" title="Fill (F)">◧ Fill <span class="gs-keys"><kbd class="gs-kbd">F</kbd></span></button>
             </div>
-            <button class="btn" id="ed-undo" title="Undo (Ctrl+Z)">↶</button>
-            <button class="btn" id="ed-redo" title="Redo (Ctrl+Y)">↷</button>
+            <button class="btn" id="ed-undo" title="Undo (Ctrl+Z)">↶ <span class="gs-keys"><kbd class="gs-kbd">Ctrl</kbd>+<kbd class="gs-kbd">Z</kbd></span></button>
+            <button class="btn" id="ed-redo" title="Redo (Ctrl+Y)">↷ <span class="gs-keys"><kbd class="gs-kbd">Ctrl</kbd>+<kbd class="gs-kbd">Y</kbd></span></button>
             <button class="btn" id="ed-border" title="Wall in the whole edge">▢ Border</button>
             <button class="btn" id="ed-clear" title="Start a blank level">✕ New</button>
           </div>
@@ -62,7 +63,8 @@
             <label>Height <input id="ed-rows" type="number" min="6" max="60" /></label>
           </div>
           <label>Time limit, seconds <input id="ed-time" type="number" min="0" max="999" /> <small>0 = untimed</small></label>
-          <label>Hint <textarea id="ed-hint" rows="3" maxlength="240"></textarea></label>
+          <label>Hint <textarea id="ed-hint" rows="3" maxlength="240"></textarea> <small>write a key as [Shift] to show it as a keycap</small></label>
+          <p class="ed-hint-preview" id="ed-hint-preview" hidden></p>
           <label id="ed-warps-row" hidden>Warp targets <input id="ed-warps" placeholder="level ids, in reading order" /></label>
           <label id="ed-tele-row" hidden>Reverse teleporters <input id="ed-tele" placeholder="digits, e.g. 57" maxlength="5" /></label>
           <label id="ed-boss-row" hidden>Boss health <input id="ed-bosshp" type="number" min="1" max="9" /></label>
