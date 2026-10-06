@@ -44,14 +44,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate(() => Departures.type("Kingstown"));
     const kk = await p.evaluate(() => ({ found: Departures.found(), ctys: [...document.querySelectorAll("#log li .cty")].slice(0, 2).map((e) => e.textContent) }));
     check("departures capitals: Kingston boards Jamaica and Kingstown St Vincent, each as typed", kk.found === 3 && kk.ctys[0] === "SAINT VINCENT AND THE GRENADINES" && kk.ctys[1] === "JAMAICA", kk);
-    // typed key by key, a full name with a shorter same-city alternate boards once, box empty
+    // typed key by key, a full name with a shorter same-city alternate boards
+    // once (at the short name) and the rest is let through: the box ends empty
     await p.focus("#answer");
     for (const t of ["mexico city", "washington dc", "kuwait"]) await p.keyboard.type(t, { delay: 15 });
-    const typed = await p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value, hint: !document.getElementById("hint").hidden }));
-    await p.keyboard.press("Enter");
-    const kw = await p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value }));
-    check("departures capitals: 'Mexico City' / 'Washington DC' typed key by key board cleanly; a bare 'Kuwait' waits for Enter",
-      typed.found === 5 && typed.box === "kuwait" && typed.hint && kw.found === 6 && kw.box === "", { typed, kw });
+    const typed = await p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value }));
+    check("departures capitals: 'Mexico City' / 'Washington DC' / 'Kuwait' typed key by key each board once, box empty",
+      typed.found === 6 && typed.box === "", typed);
     await p.evaluate(() => Departures.giveUp());
     const man = await p.evaluate(() => ({ html: document.getElementById("missed").innerHTML, stats: document.getElementById("over-stats").textContent, bests: Departures.bests() }));
     check("departures capitals: the manifest lists cities with their countries; the best is kept apart",
@@ -61,6 +60,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     const back = await p.evaluate(() => ({ t: Departures.target(), ph: document.getElementById("answer").placeholder }));
     check("departures: N goes back to naming countries", back.t === "countries" && /country/.test(back.ph), back);
     check("departures capitals: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- Departures, countries: a full name with a shorter name for the same
+  // country boards once and leaves nothing in the box; Niger still waits
+  {
+    const p = await lib.open(ctx, base, "games/departures/");
+    await p.evaluate(() => { Departures.setTarget("countries"); Departures.start("world"); });
+    await p.focus("#answer");
+    const box = () => p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value, hint: !document.getElementById("hint").hidden }));
+    for (const t of ["antigua and barbuda", "russian federation", "saint vincent and the grenadines", "united states of america"]) await p.keyboard.type(t, { delay: 15 });
+    const full = await box();
+    check("departures: Antigua and Barbuda / Russian Federation / … typed in full board once each, box empty", full.found === 4 && full.box === "", full);
+    await p.keyboard.type("bosnia", { delay: 15 }); await p.keyboard.type("andorra", { delay: 15 });
+    const next = await box();
+    check("departures: 'Bosnia' boards at once, and a new name typed after it (Andorra) still counts", next.found === 6 && next.box === "", next);
+    await p.keyboard.type("niger", { delay: 15 });
+    const ng = await box();
+    await p.keyboard.press("Enter");
+    const ng2 = await box();
+    check("departures: Niger still waits for Enter (Nigeria), then boards", ng.found === 6 && ng.hint && ng2.found === 7, { ng, ng2 });
+    check("departures countries: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
 

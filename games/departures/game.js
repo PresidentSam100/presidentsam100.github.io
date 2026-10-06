@@ -30,19 +30,47 @@
   var TIMERS = { world: 900, EU: 240, AS: 240, AF: 270, AM: 180, OC: 90 };
 
   // Names that must wait for Enter: exact matches that are also a strict
-  // prefix of a different country's name or alias. Naming capitals, also of
-  // a longer name for the same city, so typing "Mexico City" (or "Kuwait
-  // City", "Washington DC") doesn't board at "Mexico" and strand " City".
-  function deferOf(names, sameCountryToo) {
+  // prefix of a different country's name or alias (or capital), as Niger is
+  // of Nigeria. A longer name for the SAME country doesn't wait: "Antigua"
+  // boards at once, and the rest of "Antigua and Barbuda" is let through
+  // (see the tail, below).
+  function deferOf(names) {
     var d = {};
     names.forEach(function (a) {
       names.forEach(function (b) {
-        if ((a.ci !== b.ci || sameCountryToo) && b.n.length > a.n.length && b.n.indexOf(a.n) === 0) d[a.n] = true;
+        if (a.ci !== b.ci && b.n.length > a.n.length && b.n.indexOf(a.n) === 0) d[a.n] = true;
       });
     });
     return d;
   }
-  var DEFER_N = deferOf(J.names), DEFER_C = deferOf(K.names, true);
+  var DEFER_N = deferOf(J.names), DEFER_C = deferOf(K.names);
+
+  // The tail: when a name boards as soon as it's typed but the country (or
+  // city) also has a longer name starting with it — Antigua / Antigua and
+  // Barbuda, Russia / Russian Federation, Mexico / Mexico City — the rest of
+  // the longer name may still be on its way. While what's typed next is the
+  // start of that rest it's left alone, and once it's complete the box
+  // clears; anything else is a new answer as usual. Matched loosely (case,
+  // accents, spaces, punctuation), but keeping "the", since "and th…" is
+  // typed letter by letter on the way to "and the Grenadines".
+  function loose(str) {
+    str = String(str).toLowerCase();
+    try { str = str.normalize("NFD").replace(/[̀-ͯ]/g, ""); } catch (e) {}
+    return str.replace(/&/g, " and ").replace(/\bst\.?(?=\s)/g, "saint").replace(/[^a-z0-9]/g, "");
+  }
+  function fullNames(ci) {
+    var iso = C[ci][0];
+    return caps() ? (K.CAP[iso] || []) : [C[ci][1]].concat(J.ALIAS[iso] || []);
+  }
+  function tailsOf(ci, raw) {
+    var typed = loose(raw), out = [];
+    fullNames(ci).forEach(function (n) {
+      var f = loose(n);
+      if (f.length > typed.length && f.indexOf(typed) === 0) out.push(f.slice(typed.length));
+    });
+    return out;
+  }
+  var tail = null;
 
   // ---- state -----------------------------------------------------------
   var state = "menu";              // menu | play | over
@@ -236,6 +264,15 @@
     var raw = $("answer").value;
     var v = J.norm(raw);
     if (!v) return;
+    // the rest of a longer name for what just boarded (see the tail, above)
+    if (tail) {
+      var lv = loose(raw), into = tail.filter(function (r) { return r.indexOf(lv) === 0; });
+      if (into.length) {
+        if (into.indexOf(lv) !== -1 || !auto) { $("answer").value = ""; tail = null; }   // done (or Enter on it)
+        return;
+      }
+      tail = null;                                           // something else: a new answer
+    }
     var ci = -1;
     if (auto) {
       $("hint").hidden = !deferred(v);
@@ -277,7 +314,9 @@
       $("hint").hidden = true;
       return;
     }
+    var t = auto ? tailsOf(ci, raw) : [];
     accept(ci);
+    tail = t.length ? t : null;
   }
 
   // ---- runs ---------------------------------------------------------------------
@@ -300,6 +339,7 @@
     $("log").innerHTML = '<li class="idle">— the board is waiting for its first departure —</li>';
     $("menu").hidden = true; $("over").hidden = true;
     $("answer").value = ""; $("answer").disabled = false; $("hint").hidden = true;
+    tail = null;
     state = "play"; playing = true; endedByBell = false;
     runBest = readBests()[boardKey()] || null;
     hud();
