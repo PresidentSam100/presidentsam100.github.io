@@ -112,6 +112,21 @@
     return "osumania_best_" + parts.join("_");
   };
   const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
+  // The best is saved the moment a run earns it: once the score passes the
+  // best the run started with (runBest, what NEW BEST compares against), the
+  // stored best follows it live, so a tab closed mid-run keeps it. A wrong
+  // press can take the score back down, so it's the score that's kept, not
+  // its peak; under runBest the stored value goes back to exactly what it was.
+  let runBest = 0, runBestRaw = null, liveSaved = false;
+  function liveBest() {
+    try {
+      if (score > runBest) { localStorage.setItem(bestKey(), String(score)); liveSaved = true; }
+      else if (liveSaved) {
+        if (runBestRaw == null) localStorage.removeItem(bestKey()); else localStorage.setItem(bestKey(), runBestRaw);
+        liveSaved = false;
+      }
+    } catch (e) {}
+  }
   function showSetupBest() {
     const b = getBest();
     const unit = mode === "precision" ? "points" : "notes";
@@ -255,6 +270,7 @@
     t.resolved = true;
     removeTile(t);
     score++; hitsCount++; streak++; if (streak > bestStreak) bestStreak = streak;
+    liveBest();
     hitTimes.push((performance.now() - startT) / 1000);
     $("vScore").textContent = score;
     $("vStreak").textContent = streak;
@@ -291,6 +307,7 @@
     t.resolved = true;
     removeTile(t);
     score += j.points; streak++; if (streak > bestStreak) bestStreak = streak;
+    liveBest();
     hitsCount++; judgeCounts[j.cls]++;
     hitTimes.push((performance.now() - startT) / 1000);
     $("vScore").textContent = score;
@@ -328,7 +345,7 @@
     let label = "MISS";
     if (pressed) {
       const penalty = Math.min(score, mode === "precision" ? PRECISION_PENALTY : ATTACK_PENALTY);
-      if (penalty > 0) { score -= penalty; $("vScore").textContent = score; label += " −" + penalty; }
+      if (penalty > 0) { score -= penalty; $("vScore").textContent = score; label += " −" + penalty; liveBest(); }
     }
     showJudgment(col, label, "miss");
     if (t) clearTileEl(t, "miss");
@@ -345,6 +362,8 @@
     state = "countdown";
     score = 0; misses = 0; streak = 0; bestStreak = 0; hitTimes = [];
     hitsCount = 0; judgeCounts = { perfect: 0, great: 0, good: 0, ok: 0 };
+    runBest = getBest(); liveSaved = false;
+    try { runBestRaw = localStorage.getItem(bestKey()); } catch (e) { runBestRaw = null; }
     $("vScore").textContent = "0"; $("vStreak").textContent = "0";
     $("vTime").textContent = dur.toFixed(1);
     $("timeFill").style.transform = "scaleX(1)";
@@ -394,6 +413,8 @@
   // performance.now(), so resuming shifts startT, the next spawn and every
   // in-flight tile by the paused duration; otherwise the whole column would
   // teleport to the judgement line and register a wall of misses.
+  // Leaving uses the pause's default guard (game-shell.js): it asks first
+  // while a run is running or paused, not in the countdown or on the results.
   let pausedAt = 0;
   const PAUSE = window.GameShell
     ? GameShell.pausable({
@@ -477,9 +498,10 @@
       '<span class="chip">' + dur + 's</span>';
     $("summary").innerHTML = summary;
     renderGraph();
-    const prev = getBest();
+    const prev = runBest;
     const unit = mode === "precision" ? "points" : "notes";
-    if (score > prev) { localStorage.setItem(bestKey(), String(score)); $("newBest").textContent = "★ NEW BEST!"; chord([523.25, 659.25, 783.99, 1046.5]); }
+    liveBest();   // the end-of-run save: the final score, if it beat runBest
+    if (score > prev) { $("newBest").textContent = "★ NEW BEST!"; chord([523.25, 659.25, 783.99, 1046.5]); }
     else { $("newBest").textContent = prev > 0 ? "Best: " + prev + " " + unit : ""; chord([392, 493.88]); }
     show(resultEl);
   }

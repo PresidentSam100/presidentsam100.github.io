@@ -225,7 +225,7 @@ window.SlitherLabyrinth = function (host) {
 
   // Maze chase: eat every bead while the temple guardians hunt you. A run
   // carries score and lives from maze to maze; the mazes loop, faster each time.
-  var chaseRun = null;
+  var chaseRun = null, chaseRunBest = 0;   // (the best as this chase run began)
   function chaseBest() { return progress.chaseBest || 0; }
   function buildChases(container) {
     if (!CHASES.length) return;
@@ -471,16 +471,18 @@ window.SlitherLabyrinth = function (host) {
     if (fresh || !tally) tally = { p1: 0, p2: 0, rival: 0 };
     launch(ARENAS[i]);
   }
+  var stageRunBest = 0;   // the stage's best as this go began, for "new best!"
   function startStage(i) {
     custom = null; inRun = false; arenaIdx = -1; chaseIdx = -1; blastIdx = -1;
     stageIdx = i;
+    stageRunBest = stageBest(STAGES[i].id);
     levelIdx = -1;
     launch(STAGES[i]);
   }
   function startChase(i, fresh) {
     custom = null; inRun = false; stageIdx = -1; arenaIdx = -1; levelIdx = -1; blastIdx = -1;
     chaseIdx = i;
-    if (fresh || !chaseRun) chaseRun = { score: 0, lives: E.CHASE.lives, round: 1, extraGiven: false, first: i };
+    if (fresh || !chaseRun) { chaseRun = { score: 0, lives: E.CHASE.lives, round: 1, extraGiven: false, first: i }; chaseRunBest = chaseBest(); }
     launch(CHASES[i]);
   }
   function startBlast(i, fresh) {
@@ -801,6 +803,10 @@ window.SlitherLabyrinth = function (host) {
     if (booms) sfx.boom();
     if (cracks) sfx.crack();
     if (walls) sfx.wall();
+    // A stage or chase score is saved the moment it passes the best (not only
+    // when the go ends), so leaving or closing the tab mid-run keeps it
+    if (st.stage) recordStage();
+    if (st.chase) recordChase();
   }
 
   var DEATHS = {
@@ -965,7 +971,8 @@ window.SlitherLabyrinth = function (host) {
     }
   }
   function onChaseOver() {
-    var score = st.chase.score, round = st.chase.round, prev = recordChase();
+    var score = st.chase.score, round = st.chase.round, prev = chaseRunBest;
+    recordChase();
     var msg = "Score " + score + (score > prev ? (prev ? " — new best! 🎉" : "") : "  ·  Best " + prev) + "  ·  maze " + round;
     endTimer = setTimeout(function () {
       if (!active) return;
@@ -997,7 +1004,8 @@ window.SlitherLabyrinth = function (host) {
     return best;
   }
   function stageOver(words) {
-    var score = st.score, best = recordStage();
+    var score = st.score, best = stageRunBest;
+    recordStage();
     var msg = "Score " + score + " 🍎" + (stageIdx < 0 ? "" : score > best ? (best ? " — new best! 🎉" : "") : "  ·  Best " + best);
     endTimer = setTimeout(function () {
       if (!active) return;
@@ -1359,8 +1367,26 @@ window.SlitherLabyrinth = function (host) {
     }
   }
 
+  // For leaving the page (game.js): true while that would throw away
+  // something unsaved. A pack run is saved as it goes (its apples too), and
+  // leaving mid-level only means Continue starts that level over, without
+  // the life a quit costs, so it never asks. A level is in progress once the
+  // snake is moving; a stage once it has scored; a chase once it has scored
+  // (or cleared a maze), until the last life; an arena or fire-eggs match
+  // until someone has won it, between rounds too.
+  function inProgress() {
+    if (!active || !st) return false;
+    var s = st.status;
+    if (chaseIdx >= 0 && st.chase) return (s === "play" || s === "ready" || s === "caught" || s === "won") && (st.chase.score > 0 || st.chase.round > 1);
+    var t = arenaIdx >= 0 ? tally : blastIdx >= 0 ? blastTally : null;
+    if (t) return Math.max(t.p1, t.p2, t.rival) < ARENA_WINS && (s === "play" || t.p1 + t.p2 + t.rival > 0);
+    if (inRun) return false;
+    if (st.stage) return s === "play" && st.score > 0;
+    return s === "play";
+  }
+
   return {
-    start: start, restart: restart, stop: stop,
+    start: start, restart: restart, stop: stop, inProgress: inProgress,
     togglePause: togglePause, autoPause: autoPause, isPaused: function () { return paused; },
     keydown: keydown, keyup: keyup, steer: steer, padSteer: padSteer, unsteer: unsteer, padHold: padHold,
     isOver: function () { return !!st && (st.status === "dead" || st.status === "won" || st.status === "over"); },

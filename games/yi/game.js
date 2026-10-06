@@ -258,6 +258,7 @@ function passTurn(pi) {
 // shows "+n" by its count (G.drew) until another player acts. render() draws
 // both; styles.css only shows them under html.fx-off.
 function noteAct(pi) {
+  G.acted = true; // someone has played or drawn: the hand is under way (see guardLeave)
   for (var k in G.drew) if (+k !== pi) delete G.drew[k];
 }
 
@@ -1197,6 +1198,16 @@ function quitToMenu() {
   document.getElementById("setup").style.display = "block";
   hideOverlay();
 }
+
+// Leaving asks first while a game is under way: a hand someone has played or
+// drawn in, or a points game between hands (its totals live only in memory).
+// Not on the setup screen, nor once the game is decided.
+if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () {
+  if (!G) return false;
+  var pointsOn = cfg.mode === "points" && totals.some(function (t) { return t > 0; }) &&
+    Math.max.apply(null, totals) < 500;
+  return (!G.over && !!G.acted) || pointsOn;
+});
 
 // ----------------------------------------------------------------
 //  Overlays

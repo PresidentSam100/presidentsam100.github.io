@@ -213,6 +213,8 @@
   var hard = false;          // Hard mode: revealed clues must be used (set from HARD_PREF at boot)
   var rowResults = [];       // this word's scored guesses: [{ guess, result }]
   var locked = false;        // brief lock while a word resolves
+  var typedAny = false;      // a letter typed this run: from then on leaving asks first
+  var runBest = 0;           // this mode's best as the run began (the stored one climbs mid-run)
 
   function buildBoard() {
     boardEl.innerHTML = "";
@@ -336,6 +338,7 @@
       tile.classList.add("filled", "pop");
       setTimeout((function (el) { return function () { el.classList.remove("pop"); }; })(tile), 100);
       colIdx++;
+      typedAny = true;
       SND.key();
     }
   }
@@ -433,12 +436,16 @@
     }
     solved++;
     valueSolved.textContent = String(solved);
+    // Sprint: a word that takes the run past the best is saved as it's solved
+    if (mode === "sprint" && solved > runBest) save(bestKey("sprint"), solved);
     showScoreBonus();
     SND.solve();
     if (mode === "race" && solved >= RACE_TARGET) {
       // freeze the clock at the winning instant, then let the final solve
       // (green tiles + "+1") play before the end screen covers the board
       raceFinishMs = Math.round(performance.now() - startTime);
+      // a best time is saved this instant, not after that wait
+      if (runBest === 0 || raceFinishMs < runBest) save(bestKey("race"), raceFinishMs);
       playing = false;
       cancelAnimationFrame(timerRAF);
       valueA.textContent = fmt(raceFinishMs);
@@ -477,6 +484,8 @@
     playing = true;
     solved = 0;
     raceFinishMs = null;
+    typedAny = false;
+    runBest = parseInt(load(bestKey(mode)), 10) || 0;
     valueSolved.textContent = "0";
     labelA.textContent = mode === "sprint" ? "Time left" : "Time";
     labelBest.textContent = (mode === "sprint" ? "Best (words" : "Best (time") + (hard ? ", hard)" : ")");
@@ -500,8 +509,10 @@
     SND.over();
     var record = false, line2 = "";
     if (mode === "sprint") {
+      // (the best was saved as each word beat it; "new best" is against the run's start)
       var best = parseInt(load(bestKey("sprint")), 10) || 0;
-      if (solved > best) { best = solved; save(bestKey("sprint"), best); record = true; }
+      record = solved > runBest;
+      if (solved > best) { best = solved; save(bestKey("sprint"), best); }
       line2 = record ? "🏆 new best!" : "best " + best + " word" + (best === 1 ? "" : "s");
       card.innerHTML =
         '<h2>Time!</h2>' +
@@ -514,7 +525,8 @@
       var elapsed = (raceFinishMs != null) ? raceFinishMs : Math.round(performance.now() - startTime);
       var done = solved >= RACE_TARGET;
       var bestR = parseInt(load(bestKey("race")), 10) || 0;
-      if (done && (bestR === 0 || elapsed < bestR)) { bestR = elapsed; save(bestKey("race"), bestR); record = true; }
+      record = done && (runBest === 0 || elapsed < runBest);
+      if (record) { bestR = elapsed; save(bestKey("race"), bestR); }
       line2 = record ? "🏆 new best time!" : (bestR ? "best " + fmt(bestR) + "s" : "");
       card.innerHTML =
         '<h2>' + (done ? 'Finished!' : 'Stopped') + '</h2>' +
@@ -589,6 +601,9 @@
     toggle: function () {},
     offTitle: "Speedle can't be paused: the clock always runs"
   });
+  // Leaving mid-run asks first, once a letter's been typed (before that
+  // there's nothing to lose); the clock keeps running under the question
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () { return playing && typedAny; });
 
   // ----- boot ---------------------------------------------------------
   hard = load(HARD_PREF) === "1";

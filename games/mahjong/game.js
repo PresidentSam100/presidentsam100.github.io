@@ -556,6 +556,13 @@
     canPause: function () { return state === "play"; },
     keys: ["Escape", "p"]
   }) : { isPaused: function () { return false; } };
+  // Leaving asks first once the desk has been played (a pair taken, or a hint,
+  // undo or shuffle's penalty), paused included, pausing through P; a fresh
+  // deal loses nothing even with its clock running
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () { return state === "play" && (undoStack.length > 0 || penaltyMs > 0); },
+    pausable: P
+  });
   setInterval(function () {
     if (state !== "play" || P.isPaused()) return;
     timeMs += 200;

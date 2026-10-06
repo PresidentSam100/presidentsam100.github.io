@@ -100,6 +100,8 @@
   var ready = false;        // true between rounds, waiting for START
   var roundNum = 0, score = 0, cumError = 0, target = 0, lastTarget = 0;
   var startStamp = 0, busy = false, rafId = 0;
+  var runBest = 0;          // the best as the run began (the stored one climbs mid-run)
+  var busted = false;       // the last sweep blew the budget: the run's over, its end card on the way
   var visibleMode = false;  // false = clock hidden (estimate); true = clock shown (react)
   try { visibleMode = localStorage.getItem("stopwatch_mode") === "visible"; } catch (e) {}
   var best = parseInt(loadBest(), 10) || 0;
@@ -196,6 +198,7 @@
   function beginGame() {
     Sound.init();
     score = 0; cumError = 0; roundNum = 0; lastTarget = 0;
+    runBest = best; busted = false;
     setHud(); renderBudget(); updateModePill(); elResult.textContent = "";
     ovCard.classList.remove("show");
     nextRound(); // no countdown — the player starts each round themselves
@@ -270,6 +273,7 @@
     elStage.dataset.phase = "done"; elStage.dataset.bake = doneness(error, late);
 
     if (bust) {
+      busted = true;
       Sound.fail();
       setTimeout(function () { gameOver({ round: roundNum, target: target, elapsed: elapsed, error: error, projected: projected }); }, 950);
       return;
@@ -277,6 +281,8 @@
 
     // survived → score it
     cumError = projected; score++;
+    // a sweep that takes the run past the best is saved at once
+    if (score > best) { best = score; saveBest(best); }
     if (error < 0.05) Sound.perfect(); else Sound.good();
     setHud(); renderBudget();
     setTimeout(nextRound, 1350);
@@ -284,8 +290,8 @@
 
   function gameOver(info) {
     state = "gameover"; busy = false; ready = false;
-    var record = score > best;
-    if (record) { best = score; saveBest(best); }
+    var record = score > runBest;
+    if (score > best) { best = score; saveBest(best); }
     setHud();
     cardInner.innerHTML =
       '<h2>Back in the drawer</h2>' +
@@ -322,6 +328,13 @@
     // on the start / game-over overlays, Space/Enter activates the visible button
     if (ovCard.classList.contains("show")) { var b = cardInner.querySelector(".btn"); if (b) b.click(); return; }
     press();
+  });
+
+  // Leaving asks first while a run is under way: from the first sweep set
+  // going (round 1 still waiting on START has nothing to lose) until a bust
+  // ends it. No pause: the sweep runs on under the question.
+  if (window.GameShell) GameShell.guardLeave(function () {
+    return !busted && (state === "counting" || state === "result" || (state === "ready" && roundNum > 1));
   });
 
   // ---------------------------------------------------------- boot

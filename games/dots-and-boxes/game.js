@@ -399,6 +399,11 @@ document.getElementById('rules').addEventListener('click', () => rulesModal.clas
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
 
+// Leaving asks first once a road is built in a game still going (the AI's
+// turns too); not before the first move, once it's decided, or while the
+// mode picker is up (it only ever starts a new game)
+if (window.GameShell) GameShell.guardLeave(() => !!lastLine && gameOver === false && !modeModal.classList.contains('open'));
+
 updateRecord();    // paint the restored record before the first game starts
 setupModeModal(newGame);
 showModeModal();   // pick a mode first, then the coin flip decides who goes first

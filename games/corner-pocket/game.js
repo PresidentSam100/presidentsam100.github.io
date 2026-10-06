@@ -505,7 +505,8 @@
     called: -1, calledManual: false,
     acc: 0, waitT: 0, charging: false,
     cpu: null, sinking: [], toasts: [], lastTurn: -1, tally: [0, 0], pendingOver: null,
-    wheelOff: 0, placeBad: false, shotCall: -1
+    wheelOff: 0, placeBad: false, shotCall: -1,
+    shots: 0                // shots taken this rack (none yet: nothing to lose)
   };
   var drag = null;
 
@@ -517,7 +518,7 @@
     G.rng = P.rng((Math.random() * 4294967296) >>> 0);
     G.balls = P.rack(G.rng);
     G.st = Ru.newGame(breaker);
-    G.sinking = []; G.toasts = []; G.lastTurn = -1;
+    G.sinking = []; G.toasts = []; G.lastTurn = -1; G.shots = 0;
     G.aim = 0; G.power = 0; G.tip = { x: 0, y: 0 };
     beginTurn(true);
   }
@@ -561,6 +562,7 @@
 
   function shoot(angle, power, tipX, tipY, call) {
     if (G.phase !== "aim" && G.phase !== "cpu") return;
+    G.shots++;
     G.before = P.cloneBalls(G.balls);
     G.world = P.makeWorld(G.balls, true);
     P.strike(G.world, angle, power, tipX, tipY);
@@ -1321,6 +1323,13 @@
         onChange: function (p) { if (p) { G.charging = false; if (drag && drag.kind === "power") G.power = 0; drag = null; } }
       })
     : null;
+  // Leaving asks first (pausing the table) once a rack is under way: from the
+  // break, through the CPU's turns, to the shot that decides it. Before the
+  // break there's nothing to lose, and once it's decided the record is in.
+  if (Pz) GameShell.guardLeave({
+    active: function () { return G.shots > 0 && !G.pendingOver && ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0; },
+    pausable: Pz
+  });
 
   var last = performance.now(), frames = 0;
   function frame(now) {

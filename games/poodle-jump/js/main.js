@@ -50,6 +50,15 @@
       if (document.hidden) game.requestPause();
     });
   }
+  // A run is in progress (paused or not) from the first point until the
+  // poodle goes down: leaving then asks first, pausing underneath. The fall
+  // comes after the best is saved, so it doesn't ask.
+  if (window.GameShell) GameShell.guardLeave({
+    active: () => game.state === "play" && game.score > 0,
+    isPaused: () => game.paused,
+    pause: () => game.requestPause(),
+    resume: () => { game.paused = false; },
+  });
 
   let last = performance.now();
   function frame(now) {

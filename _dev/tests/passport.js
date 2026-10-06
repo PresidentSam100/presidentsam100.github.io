@@ -52,10 +52,10 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // Dash: M works while paused
   await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.keyboard.press("Escape");
-  const dashPaused = await p.evaluate(() => !document.querySelector(".gs-pause").hidden);
+  const dashPaused = await p.evaluate(() => !document.querySelector(".gs-pause:not(.gs-dialog)").hidden);
   await p.keyboard.press("m"); const pm = (await st(p)).m; await p.keyboard.press("m");
   await p.keyboard.press("Escape");
-  check("passport dash: M works while paused, Esc resumes", dashPaused && pm === !m0.m && (await p.evaluate(() => document.querySelector(".gs-pause").hidden && Passport.state())) === "ask", { dashPaused, pm });
+  check("passport dash: M works while paused, Esc resumes", dashPaused && pm === !m0.m && (await p.evaluate(() => document.querySelector(".gs-pause:not(.gs-dialog)").hidden && Passport.state())) === "ask", { dashPaused, pm });
   await p.evaluate(() => Passport.toMenu());
 
   // Visa Run: S shares, the hint survives "copied!"; Backspace → menu; Esc → games list

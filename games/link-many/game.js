@@ -11,6 +11,7 @@ const diffEl = document.getElementById('difficulty');
 const REC = window.GameShell ? GameShell.record("connectfour_record") : null;
 let board, gameOver, busy, animMove, round = 0, score = REC ? REC.get() : { w:0, l:0, d:0 };
 let hoverColIdx = -1; // column the cursor is currently over (to re-highlight after the AI moves)
+let youMoved = false; // the player has dropped a disc or played a power this game (see the leave guard)
 // The last disc dropped (or wall placed) carries a dot until the next move, in
 // both FX modes. `scorch`: with Visual FX off, the cells a bomb or anvil just
 // hit (see scorchCells). render() draws both, as it rewrites every className.
@@ -110,6 +111,7 @@ function init() {
   armedPower = null; aiExtra = false;
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
   gameOver = false; busy = false; animMove = null; hoverColIdx = -1; lastDisc = null; scorch = null;
+  youMoved = false;
   buildDOM();
   renderPowers();
   render();
@@ -246,6 +248,7 @@ function humanMove(c) {
   const r = dropRow(board, c);
   if (r < 0) return;
   board[r][c] = HUMAN;
+  youMoved = true;
   animMove = lastDisc = { r, c };
   sfxHuman();
   if (checkEnd()) return;
@@ -494,7 +497,7 @@ function scorchCells(list) {
 function usePower(player, kind, c) {
   const myRound = round;
   const isHuman = player === HUMAN;
-  if (isHuman) { armedPower = null; }
+  if (isHuman) { armedPower = null; youMoved = true; }
   powers[player][kind]--;
   renderPowers();
   busy = true;
@@ -654,6 +657,13 @@ function setupModeModal(onStart){
 // "New Game" returns to mode selection; "Restart" replays the current mode.
 document.getElementById('reset').addEventListener('click', showModeModal);
 document.getElementById('restart').addEventListener('click', init);
+
+// Leaving asks first from the player's first move until the game ends, the
+// CPU's turn included. The coin flip, a board with only the CPU's opening disc,
+// a finished game and the mode picker (which can only start a new game) lose
+// nothing. Turn-based with no clock, so there's nothing to pause.
+if (window.GameShell && GameShell.guardLeave)
+  GameShell.guardLeave(() => youMoved && !gameOver && !modeModal.classList.contains('open'));
 
 const rulesModal = document.getElementById('rulesModal');
 document.getElementById('rules').addEventListener('click', () => rulesModal.classList.add('open'));

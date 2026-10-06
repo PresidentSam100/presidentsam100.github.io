@@ -25,6 +25,8 @@ class Game {
     this.startCameraY = this.cameraY;
     this.bestY = this.player.y;
     this.score = 0;
+    this.liveHigh = 0;        // the best as last saved mid-run (see update)
+    this.liveSavedAt = -1e9;
     this.shootCd = 0;
     this.overTimer = 0;
     this.paused = false;
@@ -288,6 +290,13 @@ class Game {
     // Score from the highest point reached
     if (p.y < this.bestY) this.bestY = p.y;
     this.score = Math.floor((this.startY - this.bestY) / 10);
+    // The best is saved while the run passes it (at most four times a second),
+    // not only when the poodle goes down, so closing the tab mid-run keeps it.
+    // this.high stays the best as the run began until then.
+    if (this.score > this.high && this.score > this.liveHigh) {
+      const now = performance.now();
+      if (now - this.liveSavedAt >= 250) { this.liveHigh = this.score; this.liveSavedAt = now; Store.set("dj_high", this.score); }
+    }
 
     this.ensureContent();
 

@@ -227,7 +227,9 @@
       }
       var newLevel = 1 + Math.floor(lines / 10);
       if (mode !== "sprint" && newLevel > level) { level = newLevel; sndBell(); }
-      if (mode === "sprint" && lines >= goal) { /* finish after the sweep */ }
+      // the sprint is won here: its time is taken and saved now, and the
+      // results come up after the sweep (finish)
+      if (mode === "sprint" && lines >= goal) sprintWon();
     } else {
       spawnNext();
     }
@@ -277,17 +279,40 @@
     $("menu").hidden = true; $("over").hidden = true;
     $("hud").hidden = false;
     $("pad").hidden = !("ontouchstart" in window) && !navigator.maxTouchPoints;
+    var b = scoreBest();
+    startBest = b ? GameShell.store.getNum(b.key, NaN) : NaN;
+    sprintDone = false; sprintBest = false; sprintMs = 0;
     state = "play";
     resize();                            // the pad may have appeared
     spawnNext();
     hudDom();
   }
 
+  // ---- bests, saved the moment they're earned ----------------------------------
+  // A score best is written as soon as the run passes it, and again as it
+  // climbs; a sprint time the instant the last row clears (lock). So a tab
+  // closed mid-run, or a quit during the sweep, keeps it. startBest is the
+  // best as this run began (NaN: none yet), which "a new record" compares to.
+  var startBest = NaN, sprintDone = false, sprintBest = false, sprintMs = 0;
+  function scoreBest() { return mode === "descent" ? bestScore : mode === "krill" ? bestKrill : null; }
+  function newRecord() { return isNaN(startBest) || score > startBest; }
+  function liveBest() {
+    var b = scoreBest();
+    if (b && state !== "menu" && score > 0 && newRecord()) b.submit(score);
+  }
+  function sprintWon() {
+    if (sprintDone) return;
+    sprintDone = true;
+    sprintMs = playMs;
+    sprintBest = bestTime ? bestTime.submit(Math.round(sprintMs)) : false;
+  }
+
   function gameOver() {
     state = "over";
     sndAlarm();
-    var b = mode === "descent" ? bestScore : mode === "krill" ? bestKrill : null;
-    var isBest = b ? b.submit(score) : false;
+    var b = scoreBest();
+    var isBest = b ? newRecord() : false;
+    if (b) b.submit(score);
     $("over-title").textContent = mode === "sprint" ? "Lost with the current" : "Crush depth";
     $("over-msg").textContent = score.toLocaleString();
     $("over-stats").textContent =
@@ -298,10 +323,11 @@
     $("hud").hidden = true;
     $("over").hidden = false;
   }
-  function finish() {                       // sprint complete
+  function finish() {                       // sprint complete (saved at the lock)
     state = "over";
-    var t = playMs;
-    var isBest = bestTime ? bestTime.submit(Math.round(t)) : false;
+    sprintWon();                            // (already done at the lock)
+    var t = sprintMs;
+    var isBest = sprintBest;
     sndBell();
     $("over-title").textContent = "Forty rows, surfaced";
     $("over-msg").textContent = fmtTime(t);
@@ -549,6 +575,7 @@
   }
 
   function hudDom() {
+    liveBest();                              // every score change comes through here
     $("hud-score").textContent = score.toLocaleString();
     $("hud-lines").textContent = lines + (mode === "sprint" ? "/" + goal : "") + " rows";
     $("hud-depth").textContent = mode === "sprint" ? fmtTime(playMs) : (level * 100) + "m";
@@ -617,6 +644,12 @@
     canPause: function () { return state === "play" || state === "clearing"; },
     keys: ["Escape", "p"]
   }) : { isPaused: function () { return false; } };
+  // Leaving asks first while a run is on (paused too), as the pause default
+  // would, except once a sprint's last row is in: its time is saved by then
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () { return (P.isPaused() || state === "play" || state === "clearing") && !sprintDone; },
+    pausable: P
+  });
 
   var last = 0;
   function loop(now) {

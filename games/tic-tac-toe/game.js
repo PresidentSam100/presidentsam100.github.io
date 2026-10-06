@@ -960,6 +960,15 @@ setupModeModal(startSelectedMode);
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 
+// Leaving asks first while a game is under way: a mark on the board and no
+// result yet (the W/L/D record is only written when a game ends)
+if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () {
+  const marked = (b) => !!b && b.some(Boolean);
+  if (boardMode === 'ultimate') return !uGameOver && !!uBoards && uBoards.some(marked);
+  if (isGridMode()) return !gGameOver && marked(gBoard);
+  return !gameOver && marked(board);
+});
+
 window.__TTT_TEST__ = {
   get board() { return board; },
   get gBoard() { return gBoard; },

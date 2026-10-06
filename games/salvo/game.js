@@ -350,5 +350,10 @@
 
   $("againBtn").addEventListener("click", newGame);
 
+  // A battle is in progress from the first shot until a fleet is sunk (the
+  // win / loss is recorded only then): leaving asks first. Placing the fleet
+  // isn't a game yet. Turn-based, so there's nothing to pause.
+  if (window.GameShell) GameShell.guardLeave(() => phase === "battle" && !!(lastShot.enemy || lastShot.player));
+
   newGame();
 })();

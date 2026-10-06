@@ -265,7 +265,9 @@
       setTimeout(function () { if (screen === Game) go(DailyDone); }, 1100);
       return;
     }
-    if (G.mode === "timed") G.solved++;
+    // every best is saved the moment it's earned (Time attack's too, not only
+    // at time up), so closing the tab mid-run keeps it
+    if (G.mode === "timed") { G.solved++; bestSubmit(KEYS.timed, G.solved); }
     else if (!G.hinted) { G.streak++; bestSubmit(G.mode === "hard" ? KEYS.hard : KEYS.classic, G.streak); }
     setTimeout(function () { if (screen === Game && G && !G.over) { deal(null); announce(); } }, G.mode === "timed" ? 450 : 900);
   }
@@ -665,6 +667,22 @@
     },
     isPaused: function () { return screen === Paused; },
     toggle: function () { audio(); go(screen === Paused ? Game : Paused); }
+  });
+  // Leaving asks first while a Classic or Hard streak, or a Time attack run,
+  // is under way: something solved, or the cards on the table worked on (a
+  // fresh deal with nothing solved has nothing to lose). A Daily never asks:
+  // it saves its clock and resumes. Asking pauses a timed run (the clock
+  // stops, the cards hide) and Keep playing goes back to where it was.
+  var guardFrom = null;
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () {
+      if (!G || G.over || G.mode === "daily") return false;
+      if (screen !== Game && screen !== Options && screen !== Confirm && screen !== Paused) return false;
+      return G.streak > 0 || G.solved > 0 || G.hist.length > 0;
+    },
+    isPaused: function () { return screen === Paused; },
+    pause: function () { if (canPause()) { guardFrom = screen; go(Paused); } },
+    resume: function () { if (screen === Paused && guardFrom) go(guardFrom); guardFrom = null; }
   });
 
   // ---- size and loop ------------------------------------------------------------------------------

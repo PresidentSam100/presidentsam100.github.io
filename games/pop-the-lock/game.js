@@ -335,6 +335,9 @@
   const PAUSE = window.GameShell
     ? GameShell.pausable({ canPause: () => state === State.PLAY })
     : { isPaused: () => false };
+  // Leaving asks first once a run has a pop to lose (paused or not); the best
+  // is already saved on every pop
+  if (window.GameShell) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === State.PLAY) && score > 0, pausable: PAUSE });
 
   function loop(ts) {
     const dt = Math.min(48, ts - lastTs || 16);

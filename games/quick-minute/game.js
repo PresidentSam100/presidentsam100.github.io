@@ -665,9 +665,15 @@
       })
     : { isPaused: function () { return false; } };
 
+  // The best is saved while the run passes it (at most four times a second),
+  // not only at the crash, so closing the tab mid-run still keeps it.
+  // runBest is the best as the run started, for "NEW BEST!"
+  var runBest = 0, liveBest = 0, liveSavedAt = -1e9;
   function update(dt) {
     speed = curSpeed();
     score += speed * dt * 0.05;
+    var whole = Math.floor(score), nowMs = performance.now();
+    if (whole > liveBest && nowMs - liveSavedAt >= 250) { liveBest = whole; liveSavedAt = nowMs; save(bestKey(), whole); }
     scroll = (scroll + speed * dt) % 116000; // 116000·K = 5800 m → seamless for every scenery period
 
     var tx = laneX(player.lane);
@@ -741,6 +747,7 @@
     ov.classList.remove("show");
     elDist.textContent = "0"; elSpeed.textContent = "0";
     renderBest();
+    runBest = liveBest = parseInt(load(bestKey()), 10) || 0; liveSavedAt = -1e9;
     lastT = 0;
   }
 
@@ -753,8 +760,8 @@
     crashSound();
     var d = Math.floor(score);
     var best = parseInt(load(bestKey()), 10) || 0;
-    var record = d > best;
-    if (record) { best = d; save(bestKey(), best); }
+    var record = d > runBest;   // the stored best may already be this run's
+    if (d > best) { best = d; save(bestKey(), best); }
     renderBest();
     card.innerHTML =
       '<h2>CRASH!</h2>' +

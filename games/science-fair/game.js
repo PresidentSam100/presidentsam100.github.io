@@ -328,6 +328,13 @@
     });
   }
 
+  // The best round is saved the moment a round is cleared, and a Field Trip
+  // launch is recorded the moment it ends (before the "uh oh" beat), so
+  // leaving or closing the tab can't lose either. runBest is the best as the
+  // run began (NaN: none yet), for "a new best!"
+  var runBest = NaN;
+  function bestFor() { return mode === "classic" ? bestClassic : mode === "grand" ? bestGrand : null; }
+
   function startRun(m) {
     if (m) mode = m;
     store.set("scifair_mode", mode);
@@ -337,6 +344,8 @@
       if (d.used >= 3) { showOver(true); return; }
       dseq = dailySeq(d.n);
     }
+    var b = bestFor();
+    runBest = b ? store.getNum(b.key, NaN) : NaN;
     clearEvts(); clearFx();
     seq = []; at = 0;
     applyDim(); applyRoids();
@@ -381,6 +390,7 @@
       deadline = clock + (turbo ? 1500 : IN_TIMEOUT);
       if (at === seq.length) {
         state = "between";
+        if (bestFor()) bestFor().submit(seq.length);   // the round just cleared
         say(NICE[Math.floor(Math.random() * NICE.length)]);
         later(340, ding);
         later(950, nextRound);
@@ -392,6 +402,13 @@
 
   function miss(wrongIdx) {
     state = "dead";
+    var score = seq.length ? seq.length - 1 : 0;
+    if (mode === "daily") {
+      var d = readDaily();
+      d.used = Math.min(3, d.used + 1);
+      if (score > d.best) d.best = score;
+      writeDaily(d);
+    } else if (bestFor()) bestFor().submit(score);
     clearEvts(); clearFx();
     buzz();
     say("uh oh…");
@@ -416,17 +433,11 @@
     var statLines = [], isBest = false, d = null;
     if (mode === "daily") {
       d = readDaily();
-      if (!dailyDoneEarly) {
-        d.used = Math.min(3, d.used + 1);
-        if (score > d.best) d.best = score;
-        writeDaily(d);
-        applyRoids();
-      }
+      if (!dailyDoneEarly) applyRoids();   // (the launch was recorded as it ended, in miss)
       score = dailyDoneEarly ? d.best : score;
     }
     var g = grade(mode === "daily" ? readDaily().best : score);
-    if (mode === "classic" && bestClassic) isBest = bestClassic.submit(score);
-    if (mode === "grand" && bestGrand) isBest = bestGrand.submit(score);
+    if (bestFor()) { bestFor().submit(score); isBest = isNaN(runBest) || score > runBest; }
 
     $("over-title").textContent = TITLES[Math.floor(Math.random() * TITLES.length)];
     $("over-msg").textContent = "Round " + score;
@@ -512,6 +523,15 @@
     canPause: function () { return state === "watch" || state === "input" || state === "between"; },
     keys: ["Escape", "p"]
   }) : { isPaused: function () { return false; } };
+  // A run is in progress (paused or not) once a round is cleared, until the
+  // miss that ends it: leaving then asks first. A Field Trip launch left
+  // mid-way isn't counted, but the run is still lost.
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () {
+      return (P.isPaused() || state === "watch" || state === "input" || state === "between") && (seq.length > 1 || at > 0);
+    },
+    pausable: P
+  });
 
   // ---- keys ----------------------------------------------------------------------
   document.addEventListener("keydown", function (e) {

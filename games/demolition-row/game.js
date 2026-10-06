@@ -992,8 +992,16 @@
         else if (this.mode === "endless") this.updateEndless(dt);
         else this.updateVS();
       }
+      // The solo bests are saved the moment they're earned: once the score
+      // passes the best this run started with (b.high, which the HUD and the
+      // result card show against), each new score is written as it climbs, so
+      // a tab closed mid-run keeps it. The end-of-run save below stays too.
+      liveBest(b) {
+        if (b.highKey && b.score > b.high && b.score !== b.savedHigh) { b.savedHigh = b.score; this.lsSet(b.highKey, String(b.score)); }
+      }
       updateStage() {
         const b = this.players[0].board;
+        this.liveBest(b);
         if (!b.alive) {
           if (b.highKey && b.score > b.high) { b.high = b.score; this.lsSet(b.highKey, String(b.high)); }
           return this.end("Game Over", "You reached stage " + b.stage + ".\nFinal score: " + b.score + "\nBest: " + Math.max(b.high || 0, b.score));
@@ -1004,6 +1012,7 @@
         const b = this.players[0].board; b.elapsed += dt;
         const lvl = Math.min(CONFIG.endless.maxLevel, 1 + Math.floor(b.elapsed / 1000 / CONFIG.endless.levelEverySec));
         if (lvl !== b.level) { b.level = lvl; b.fallMs = Math.max(CONFIG.minFallMs, CONFIG.baseFallMs - (lvl - 1) * CONFIG.fallDecreasePerStage); }
+        this.liveBest(b);
         if (!b.alive) { if (b.score > b.high) { b.high = b.score; this.lsSet(b.highKey, String(b.high)); } return this.end("Game Over", "Level " + b.level + " · Score " + b.score + "\nBest: " + Math.max(b.high, b.score)); }
       }
       updateVS() {
@@ -1024,6 +1033,7 @@
         const summary = buildLeaderboard(this.players);
         const champs = winners.filter((w) => w.board.matchWins >= this.opts.fmt); // reached first-to-N this round
         const matchOver = champs.length > 0;
+        this.matchOver = matchOver;   // the beat before the result card: nothing left to lose
         if (matchOver) SFX.matchWin(); else SFX.win();
         if (matchOver) {
           const names = champs.map((w) => w.name).join(" & ");
@@ -1169,6 +1179,15 @@
     // Pieces kept falling while the tab was hidden. GAME.pause() already
     // no-ops unless state is "playing", so this is safe to fire at any time.
     if (window.GameShell) GameShell.onAutoPause(() => { if (GAME) GAME.pause(); });
+    // Leaving asks first while a game is on: playing, paused, or in the beat
+    // between VS rounds, but not once a match is won (that beat leads to the
+    // result card) or on the result card or menu. Asking pauses it.
+    if (window.GameShell) GameShell.guardLeave({
+      active: () => !!GAME && (GAME.state === "playing" || GAME.state === "paused" || (GAME.state === "roundpause" && !GAME.matchOver)),
+      isPaused: () => !!GAME && GAME.state === "paused",
+      pause: () => { if (GAME) GAME.pause(); },
+      resume: () => { if (GAME) GAME.resume(); }
+    });
 
     // ------------------------------ Menu ---------------------------------
     const menu = document.getElementById("menu");

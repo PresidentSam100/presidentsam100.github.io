@@ -530,6 +530,35 @@
     });
   }
 
+  // Leaving the page asks first while a game is in progress: a Classic run
+  // once it has scored (until the crash), a two-player match once anyone has
+  // scored, until someone has won it (between rounds too), and in the
+  // Labyrinth whatever labyrinth.js says (a pack run is saved, so never).
+  // The game is paused underneath with its own pause.
+  function matchWon() {
+    var need = G.matchFormat === "inf" ? Infinity : Number(G.matchFormat);
+    return G.matchWins[0] >= need || G.matchWins[1] >= need;
+  }
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () {
+      if (G.mode === "lab") return !!lab && lab.inProgress();
+      var scored = G.snakes.some(function (s) { return s.score > 0; });
+      if (G.mode === "solo") return G.running && !G.pendingEnd && scored;
+      if (matchWon()) return false;
+      if (G.running) return scored || G.matchWins[0] + G.matchWins[1] > 0;
+      return !resultOverlay.classList.contains("hidden") && G.matchWins[0] + G.matchWins[1] > 0;
+    },
+    isPaused: function () { return G.mode === "lab" ? !!lab && lab.isPaused() : G.paused; },
+    pause: function () {
+      if (G.mode === "lab") { if (lab && !lab.isPaused()) lab.togglePause(); }
+      else if (!G.paused) togglePause();
+    },
+    resume: function () {
+      if (G.mode === "lab") { if (lab && lab.isPaused()) lab.togglePause(); }
+      else if (G.paused) togglePause();
+    }
+  });
+
   document.getElementById("menu-btn").addEventListener("click", resetToMenu);
   document.getElementById("pause-btn").addEventListener("click", togglePause);
   document.getElementById("pause-resume").addEventListener("click", function () {
@@ -663,7 +692,12 @@
       }
       if (turned[k]) SFX.turn(k);
       sn.body.unshift(moves[k]);
-      if (ate[k]) { sn.score++; foodClaimed = true; }
+      if (ate[k]) {
+        sn.score++; foodClaimed = true;
+        // the best is saved the moment it's passed, not only at the crash
+        // (G.best stays the best as the round began, for "New Best!")
+        if (G.mode === "solo" && sn.score > G.best) saveBest(sn.score);
+      }
       else sn.body.pop();
     }
     if (foodClaimed) { G.food = null; spawnFood(); SFX.eat(); G.interval = Math.max(MIN_INTERVAL, G.interval - SPEED_STEP); }

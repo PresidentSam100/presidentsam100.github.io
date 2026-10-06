@@ -388,6 +388,7 @@
   var levelIndex = 0;
   var solved = false;
   var checked = false; // signals stay hidden until the player presses Check
+  var freshSig = ""; // boardSig() as the level was dealt (see the leave guard)
   var mode = loadMode();
   var progress = loadProgress();
 
@@ -459,6 +460,7 @@
     document.getElementById("levelName").textContent =
       "Level " + (levelIndex + 1) + " — " + lv.name;
     hideWin();
+    freshSig = boardSig();
   }
 
   // ---- layout --------------------------------------------------------
@@ -656,6 +658,12 @@
   }
   function boardComplete() {
     return mode === "gates" ? gatesLeftToPlace() === 0 : unsetSwitches() === 0;
+  }
+  // every gate and switch on the board, to tell a worked-on level from a fresh one
+  function boardSig() {
+    return nodes.map(function (n) {
+      return n.kind === "gate" ? n.type || "" : n.kind === "input" && n.value !== undefined ? n.value : "";
+    }).join(",");
   }
   function updateStatus(memo) {
     var out = memo[bulbId];
@@ -964,6 +972,13 @@
       clearTimeout(rt);
       rt = setTimeout(relayout, 120);
     });
+
+    // Leaving asks first while the level on the board has been worked on (a
+    // gate placed or a switch set) and isn't solved. Solves are saved
+    // (logicgate_progress), so a fresh or solved board leaves at once. No
+    // clock, so nothing to pause.
+    if (window.GameShell && GameShell.guardLeave)
+      GameShell.guardLeave(function () { return !solved && boardSig() !== freshSig; });
 
     loadLevel(Math.min(prog().unlocked, curLevels().length - 1));
   }

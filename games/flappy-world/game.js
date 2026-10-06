@@ -2207,6 +2207,7 @@ class Game {
         this.worldTimer = 2.5;
       }
     }
+    this.keepBest();
 
     // Boundary check — falling off-screen is always instant death
     if (this.bird.y < -60 || this.bird.y > CANVAS_H + 60) {
@@ -2247,12 +2248,19 @@ class Game {
     return false;
   }
 
-  die() {
+  // The mode's best is saved the moment the score passes it, not just at the
+  // crash, so closing the tab mid-flight keeps it. hiScores holds the best as
+  // the run began until this run beats it, so newBestThisRound stays honest.
+  keepBest() {
     if (this.score > this.hiScores[this.livesMode]) {
       this.hiScores[this.livesMode] = this.score;
       localStorage.setItem('flappyWorld_hiScore_' + this.livesMode, String(this.score));
       this.newBestThisRound = true;
     }
+  }
+
+  die() {
+    this.keepBest();
     this.particles.addBurst(this.bird.x, this.bird.y, '#FF5722', 12);
     this.shakeTime = 0.6;
     this.playSound('death');
@@ -2681,5 +2689,13 @@ if (window.GameShell) {
     canPause: () => game.gameState === 'PLAYING',
     isPaused: () => game.gameState === 'PAUSED',
     toggle: () => game.togglePause(),
+  });
+  // A flight under way (paused included) asks before leaving, paused through
+  // the game's own pause; the menu, the guide and the game-over card don't
+  if (GameShell.guardLeave) GameShell.guardLeave({
+    active: () => game.gameState === 'PLAYING' || game.gameState === 'PAUSED',
+    isPaused: () => game.gameState === 'PAUSED',
+    pause: () => { if (game.gameState === 'PLAYING') game.togglePause(); },
+    resume: () => { if (game.gameState === 'PAUSED') game.togglePause(); },
   });
 }

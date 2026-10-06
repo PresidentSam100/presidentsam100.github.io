@@ -591,5 +591,11 @@
     start(2, null, Object.assign({}, setup2));
   });
 
+  // Leaving asks first once a move is on the board of a game still in play
+  // (the CPU's turn too), but not from the mode menus: the board behind them
+  // is never resumed. Chess has no pause, so a clock keeps running meanwhile.
+  const menuUp=()=> ["menu","setup2Menu","endMenu"].some(id=>$(id).classList.contains("show"));
+  if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !menuUp());
+
   start(2);  // build a board behind the menu
 })();

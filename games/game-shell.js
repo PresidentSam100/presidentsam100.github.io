@@ -29,6 +29,8 @@
      GameShell.confirm(opts, cb)            -> themed stand-ins for the
      GameShell.alert(opts, cb)                 browser's confirm / alert /
      GameShell.copyBox(opts)                   "copy this" prompt boxes
+     GameShell.guardLeave(g)                -> what counts as a game in
+                                               progress, so leaving asks first
    ===================================================================== */
 (function () {
   "use strict";
@@ -314,6 +316,17 @@
     if (document.body) build();
     else document.addEventListener("DOMContentLoaded", build);
 
+    // By default a game this pauses is "in progress" whenever it's paused or
+    // could pause, so leaving then asks first; a game whose run is saved, or
+    // that has nothing to lose yet, says otherwise with guardLeave()
+    if (!leaveGuard || leaveGuard.auto) leaveGuard = {
+      auto: true,
+      active: function () { return paused || canPause(); },
+      isPaused: function () { return paused; },
+      pause: function () { setPaused(true); },
+      resume: function () { setPaused(false); }
+    };
+
     // `button: false` for a game that already shows its own pause control
     if (opts.button !== false) corner = pauseButton({
       keys: keys,
@@ -504,6 +517,50 @@
     ctx.restore();
   }
 
+  // ---- leaving mid-game -------------------------------------------------
+  // Home, an Esc the game didn't use, and the "← Games" button all leave for
+  // the games page (motion-toggle.js). While a game is in progress that
+  // leaving would throw away, they ask first: "Leave this game?", with the
+  // game paused underneath (Enter leaves, Esc keeps playing). Each game says
+  // what "in progress" means:
+  //
+  //   GameShell.guardLeave(function () { return state === "play"; });
+  //   GameShell.guardLeave({ active, pause, resume, isPaused, text });
+  //   GameShell.guardLeave({ active, pausable: P });   // pause through GameShell.pausable
+  //   GameShell.guardLeave(false);                     // never ask (the game saves itself)
+  //
+  // A game using GameShell.pausable gets a default (paused, or able to
+  // pause) until it calls this.
+  var leaveGuard = null;
+  function guardLeave(g) {
+    if (g === false || g == null) { leaveGuard = { active: function () { return false; } }; return; }
+    if (typeof g === "function") g = { active: g };
+    if (g.pausable) {
+      var P = g.pausable;
+      g.pause = g.pause || function () { P.pause(); };
+      g.resume = g.resume || function () { P.resume(); };
+      g.isPaused = g.isPaused || function () { return P.isPaused(); };
+    }
+    leaveGuard = g;
+  }
+  function leaveActive() {
+    try { return !!(leaveGuard && leaveGuard.active && leaveGuard.active()); } catch (e) { return false; }
+  }
+  // Called before leaving; go() leaves. True if it's asking (and go() waits).
+  function askLeave(go) {
+    if (!leaveActive()) return false;
+    var g = leaveGuard, wasPaused = false;
+    try { wasPaused = !!(g.isPaused && g.isPaused()); } catch (e) {}
+    if (!wasPaused && g.pause) { try { g.pause(); } catch (e) {} }
+    var text = typeof g.text === "function" ? g.text() : g.text;
+    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true },
+      function (yes) {
+        if (yes) go();
+        else if (!wasPaused && g.resume) { try { g.resume(); } catch (e) {} }
+      });
+    return true;
+  }
+
   // ---- themed dialogs ---------------------------------------------------
   // In-page stand-ins for the browser's confirm(), alert() and prompt()
   // boxes, which ignore the game's look. They're built like the pause card
@@ -512,6 +569,7 @@
   // are there for anything dialog-only.
   //
   //   GameShell.confirm({ title: "Delete this level?", text: "…", ok: "Delete", cancel: "Keep it" },
+  //   (safe: true focuses the cancel button, for a box a stray Space shouldn't answer)
   //                     function (yes) { if (yes) … });
   //   GameShell.alert({ title: "That link didn't work", text: "…" }, function () { … });
   //   GameShell.copyBox({ title: "Copy your result", text: shareText });
@@ -584,6 +642,9 @@
 
     // keys: nothing reaches the game while the dialog is up
     function onKey(e) {
+      // a key let go still reaches the game, so one held down when the dialog
+      // opened (a flipper, a thruster) isn't stuck down after it closes
+      if (e.type === "keyup") return;
       e.stopImmediatePropagation();
       // Enter's keypress clicks the focused button, so when Enter is what
       // opened the dialog its keypress would press the button just focused
@@ -630,7 +691,9 @@
     window.addEventListener("keypress", onKey, true);
     (document.body || document.documentElement).appendChild(el);
     openDialog = { el: el, dismiss: function () { close(cancelValue); } };
-    if (ta) ta.focus(); else (byKey.Enter || btns[0]).focus();
+    // focus the main button, or (o.safe) the one Esc presses: a reflex Space
+    // right after Home mustn't answer "Leave this game?" with Leave
+    if (ta) ta.focus(); else ((o.safe && byKey.Esc) || byKey.Enter || btns[0]).focus();
     return promise;
   }
 
@@ -640,6 +703,7 @@
       title: opts.title || "Are you sure?",
       text: opts.text,
       role: "alertdialog",
+      safe: !!opts.safe,
       buttons: [
         { label: opts.cancel || "Cancel", key: "Esc", value: false },
         { label: opts.ok || "OK", key: "Enter", value: true, main: true }
@@ -700,6 +764,9 @@
     confirm: confirmBox,
     alert: alertBox,
     copyBox: copyBox,
+    guardLeave: guardLeave,
+    leaveActive: leaveActive,
+    askLeave: askLeave,
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

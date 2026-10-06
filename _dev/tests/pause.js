@@ -3,7 +3,7 @@
 // claims its keys when something pauses, and paused games ignore play input.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
-  const card = (p) => p.evaluate(() => { const g = document.querySelector(".gs-pause"); return !!g && !g.hidden; });
+  const card = (p) => p.evaluate(() => { const g = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!g && !g.hidden; });   // (the pause card, not a dialog)
   const btn = (p) => p.evaluate(() => { const e = document.querySelector(".gs-pause-btn"); return e ? e.textContent : null; });
   const done = async (p, g) => { check(g + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
 
@@ -34,7 +34,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.click("#m-sprint"); await p.waitForTimeout(300);
   const spPlay = await sp();
   // (force: Playwright won't click an aria-disabled button, but a player's click still lands on it)
-  await p.click(".gs-pause-btn", { force: true }); await p.keyboard.press("Escape"); await p.keyboard.press("p");
+  // (Esc leaves at once here: nothing typed yet. The 300ms lets it decide before P types a letter)
+  await p.click(".gs-pause-btn", { force: true }); await p.keyboard.press("Escape"); await p.waitForTimeout(300); await p.keyboard.press("p");
   const spAfter = await sp(), spCard = await card(p);
   const typedP = await p.evaluate(() => [...document.querySelectorAll(".tile")].map((t) => t.textContent).join("").includes("p"));   // P still types a letter
   check("speedle: ⏸ is shown, always off, says why; clicking it or Esc doesn't pause",

@@ -219,7 +219,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await lib.open(ctx, base, "games/klondike/");
     const r = await p.evaluate(() => {
       const fill = (sel) => { const e = document.querySelector(sel); if (!e) return "missing"; const cs = getComputedStyle(e); return cs.backgroundImage !== "none" ? "gradient" : cs.backgroundColor; };
-      const ov = document.querySelector(".gs-pause");
+      const ov = document.querySelector(".gs-pause:not(.gs-dialog)");
       return { fx: fill(".rm-toggle"), mute: fill(".mute-toggle"), pause: fill(".gs-pause-btn"), card: ov ? ov.style.getPropertyValue("--gs-bg") : "missing" };
     });
     const filled = (v) => v && v !== "missing" && v !== "rgba(0, 0, 0, 0)" && v !== "transparent";

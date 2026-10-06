@@ -54,6 +54,7 @@
 </style>
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
 </head>
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Segoe UI',system-ui,sans-serif;color:#f0e8dc;background:#26211c;border:1px solid #3a322a;border-radius:8px;padding:8px 13px">&larr; Games</a>
@@ -315,6 +316,9 @@
   $("undoBtn").addEventListener("click",undo);
   $("ruleBtn").addEventListener("click",()=>$("menu").classList.add("show"));
   document.querySelectorAll("#menu .modebtn").forEach(b=>b.addEventListener("click",()=>{ $("menu").classList.remove("show"); start(parseInt(b.dataset.end,10)); }));
+  // Leaving asks first once a move is on the board of a game still in play,
+  // but not from the end-rule menu (picking a rule starts a new game)
+  if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !$("menu").classList.contains("show"));
   start(3); // build board behind menu (default frozen-pieces rule)
 })();
 </script>

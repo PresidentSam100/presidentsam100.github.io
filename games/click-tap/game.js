@@ -86,6 +86,15 @@
       }
     }
   } catch (e) {}
+  // The best is saved the moment a run earns it: the score is clicks / dur,
+  // so it only climbs, and each click past the old best is written at once
+  // (a tab closed mid-run keeps it). runBest is the best as the run began,
+  // which is what NEW BEST compares against.
+  let runBest = 0;
+  function liveBest() {
+    const cps = clicks / dur;
+    if (cps > runBest) { try { localStorage.setItem(bestKey(), cps.toFixed(4)); } catch (e) {} }
+  }
   function showSetupBest() {
     const b = getBest();
     $("setupBest").innerHTML = b > 0 ? "Best for " + dur + "s: <b>" + b.toFixed(3) + " " + METRIC + "</b>" : "No record yet for this duration";
@@ -104,7 +113,7 @@
   function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); }
 
   function beginTest() {
-    state = "ready"; clicks = 0; clickTimes = [];
+    state = "ready"; clicks = 0; clickTimes = []; runBest = getBest();
     $("vTime").textContent = dur.toFixed(1); $("vClicks").textContent = "0"; $("vCps").textContent = "0.0";
     $("ringFg").style.strokeDashoffset = "0";
     $("padCount").textContent = VERB.toUpperCase();
@@ -119,6 +128,7 @@
     if (state === "ready") { state = "running"; startT = performance.now(); $("padSub").textContent = ""; tickFrame(); }
     if (state !== "running") return;
     clicks++;
+    liveBest();
     clickTimes.push((performance.now() - startT) / 1000);
     $("padCount").textContent = clicks;
     $("vClicks").textContent = clicks;
@@ -161,8 +171,8 @@
       '<span class="chip">' + dur + 's</span>';
     renderGraph();
     $("harvest").innerHTML = bedEl.innerHTML;   // the garden you grew, replanted on the results card
-    const prev = getBest();
-    if (cps > prev) { localStorage.setItem(bestKey(), cps.toFixed(4)); $("newBest").textContent = "★ NEW BEST!"; chord([660, 880, 1175, 1568]); }
+    const prev = runBest;
+    if (cps > prev) { liveBest(); $("newBest").textContent = "★ NEW BEST!"; chord([660, 880, 1175, 1568]); }
     else { $("newBest").textContent = prev > 0 ? "Best: " + prev.toFixed(3) + " " + METRIC : ""; chord([523, 659]); }
     show(resultEl);
   }
@@ -230,6 +240,11 @@
   }
 
   function quit() { cancelAnimationFrame(raf); state = "setup"; show(setupEl); showSetupBest(); }
+
+  // Leaving asks first only mid-run, from the first click to the end (before
+  // that click nothing's been done). There's no pause, so the clock keeps
+  // running under the question.
+  if (window.GameShell) GameShell.guardLeave(() => state === "running");
 
   // ---- input wiring ----
   // Count clicks only within the visible circle pad (not the square corners).

@@ -1128,6 +1128,7 @@ function triggerEagle() {
   deathCause = "eagle";
   eagle = { t: 0, diveDur: 0.5, carryDur: 0.65, startY: -130, x: (renderGx + 0.5) * TILE, y: -130, grabbed: false };
   sfx("eagle"); // screech as it dives in
+  saveScore(); // (already saved as it was passed; the swoop can't change it)
 }
 function finalizeDeath(cause) {
   state = "dead";
@@ -1138,9 +1139,12 @@ function score() { return maxRow + coins; } // rows crossed + coins collected
 // Ding once for each new multiple-of-50 the *score* crosses (rows + coins), in every mode.
 // Tracks boundaries instead of testing `score % 50 === 0` so a coin that jumps the score
 // past a boundary still triggers exactly one ding.
+// Called whenever the score goes up, so it also saves the best the moment
+// the run passes it (not only at the death), and closing the tab keeps it.
 function checkMilestone() {
   const m = Math.floor(score() / 50);
   if (m > lastMilestone) { lastMilestone = m; milestoneDing(); scorePopT = SCORE_POP_DUR; }
+  saveScore();
 }
 function saveScore() {
   if (score() > highScore) {
@@ -2137,6 +2141,15 @@ if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
   canPause: () => state === "playing",
   isPaused: () => paused,
   toggle: () => { if (state === "playing") { paused = !paused; applyMaster(); } },
+});
+// A run is in progress (paused or not) from the first point until the
+// chicken dies: leaving then asks first, pausing underneath. The death and
+// eagle animations come after the best is saved, so they don't ask.
+if (window.GameShell) GameShell.guardLeave({
+  active: () => state === "playing" && score() > 0,
+  isPaused: () => paused,
+  pause: () => { if (state === "playing") { paused = true; applyMaster(); } },
+  resume: () => { paused = false; applyMaster(); },
 });
 if (!window.GameShell) { // shell missing — keep the original listeners so the behaviour survives
   window.addEventListener("blur", autoPause);

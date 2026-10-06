@@ -217,6 +217,9 @@
   var doneSegs, particles, hoverRC = null;
   var spillAt = null;   // {x, y} where the water spilled; its puddle stays until the board resets
   var bannerTimer = 0;
+  var runBest = 0;      // Panic's best as the run began (the stored one climbs mid-run)
+  var editBase = "";    // the editor's level as it opened, to tell unsaved work
+  var held = false;     // frozen while "Leave this game?" asks over a banner or the editor
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
 
   var ROT = { H: "V", V: "H", NE: "SE", SE: "SW", SW: "NW", NW: "NE", X: "X", J: "J",
@@ -435,6 +438,9 @@
     if (traceConnected()) {
       flowing = true;
       score += Math.max(50, 300 - moves * 5);
+      // solved: it counts now, not once the water has run to the drain
+      if (mode === "levels") recordSolve();
+      else if (mode === "puzzle") puzzleBest.submit(level + 1);
       startWater();
       noise(0.25, 0.2, 600);
     }
@@ -443,6 +449,7 @@
   function reset() {
     state = "play";
     level = 1; score = 0;
+    runBest = best.get();
     particles = [];
     editing = false;
     document.getElementById("levelSelect").classList.add("hidden");
@@ -477,6 +484,8 @@
     else { document.getElementById("best").textContent = Math.max(best.get(), score); document.getElementById("bestLbl").textContent = "Best"; }
     drawQueue();
   }
+  // Panic: a run that passes the best saves it as it does, not at the flood
+  function keepBest() { if (mode === "panic" && score > runBest) best.submit(score); }
 
   // ---- placing ------------------------------------------------------------------
   function place(r, c) {
@@ -559,6 +568,7 @@
     else { cell.fillB = 1; cell.dirB = water.enter; score += 300; sfxCross(); scorePop(water.r, water.c, "+300"); }
     distance++;
     score += ffHeld ? 100 : 50;
+    keepBest();
     sfxTick(ffHeld);
     doneSegs.push({ r: water.r, c: water.c, type: cell.type, enter: water.enter });
     if (isCap(cell.type)) return capped(water.r, water.c);
@@ -574,6 +584,7 @@
     if (distance >= goal) {
       state = "levelend";
       score += 250;
+      keepBest();
       scorePop(r, c, "SEALED +250");
       sfxLevel();
       banner("LINE CAPPED — LEVEL " + (level + 1));
@@ -586,22 +597,27 @@
       document.getElementById("overDetail").textContent =
         "The cap sealed the line at " + distance + " of the " + goal + " pipes it needed.";
       document.getElementById("finalScore").textContent = score;
-      document.getElementById("overBest").textContent = score >= best.get() ? "★ New best!" : "Best: " + best.get();
+      document.getElementById("overBest").textContent = score > runBest ? "★ New best!" : "Best: " + best.get();
       document.getElementById("overScreen").classList.remove("hidden");
     }
     refreshHud();
+  }
+  // A Levels solve: the level ticked off and its fewest moves kept (not for
+  // custom levels or an editor test). Saved the moment the line connects,
+  // before the water's run to the drain.
+  function recordSolve() {
+    if (testingEditor || isCustom || curLevel < 0) return;
+    progress.done[curLevel] = true;
+    var pb = progress.best[curLevel];
+    if (pb == null || moves < pb) progress.best[curLevel] = moves;
+    saveProgress();
   }
   function drainReached() {
     water = null;
     if (mode === "levels") {
       state = "levelend";
       if (testingEditor) { sfxLevel(); banner("TEST PASSED \u2014 it connects!"); bannerTimer = 1.4; refreshHud(); return; }
-      if (!isCustom && curLevel >= 0) {
-        progress.done[curLevel] = true;
-        var pb = progress.best[curLevel];
-        if (pb == null || moves < pb) progress.best[curLevel] = moves;
-        saveProgress();
-      }
+      recordSolve();   // (rotateAt recorded it as the line connected; this covers any other way here)
       sfxLevel();
       banner((isCustom ? "CUSTOM" : "LEVEL " + (curLevel + 1)) + " SOLVED — " + moves + " moves");
       bannerTimer = 1.8;
@@ -627,6 +643,7 @@
     if (distance >= goal) {
       state = "levelend";
       score += 200;
+      keepBest();
       sfxLevel();
       banner("SECTION SEALED — LEVEL " + (level + 1));
       bannerTimer = 1.8;
@@ -642,7 +659,8 @@
     document.getElementById("overDetail").textContent =
       "The water ran " + distance + " of the " + goal + " pipes it needed.";
     document.getElementById("finalScore").textContent = score;
-    document.getElementById("overBest").textContent = score >= best.get() ? "★ New best!" : "Best: " + best.get();
+    // (the best climbed with the run; "new best" is against where it stood at the start)
+    document.getElementById("overBest").textContent = score > runBest ? "★ New best!" : "Best: " + best.get();
     document.getElementById("overScreen").classList.remove("hidden");
   }
   function banner(txt) {
@@ -1058,12 +1076,36 @@
     ? GameShell.pausable({ canPause: function () { return state === "play"; } })
     : { isPaused: function () { return false; } };
 
+  // Leaving asks first while something unsaved is under way, paused or not:
+  //  - Levels: a level with turns on it, until it connects (then it's saved)
+  //  - Panic / Endless: a run, once a pipe is laid or turned (or past level 1),
+  //    banners between levels included; not once it floods (its best is saved)
+  //  - the level editor, and a test run from it, while the level isn't saved
+  // While it asks, play pauses; a banner or the editor just holds still.
+  function anyPipe() {
+    for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) if (grid[r][c].kind === "pipe") return true;
+    return false;
+  }
+  function inEditor() { return state === "edit" || (testingEditor && mode === "levels"); }
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+    active: function () {
+      if (inEditor()) return editorLevel() !== editBase;
+      if (mode === "levels") return state === "play" && moves > 0 && !flowing;
+      if (state !== "play" && state !== "levelend") return false;
+      return level > 1 || (mode === "puzzle" ? moves > 0 : anyPipe());
+    },
+    text: function () { return inEditor() ? "The level you're building isn't saved." : ""; },
+    pause: function () { if (state === "play") P.pause(); else held = true; },
+    resume: function () { held = false; P.resume(); },
+    isPaused: function () { return P.isPaused(); }
+  });
+
   var last = performance.now();
   function loop(now) {
     requestAnimationFrame(loop);
     var dt = Math.min((now - last) / 1000, 0.05);
     last = now;
-    if (!P.isPaused()) {
+    if (!P.isPaused() && !held) {
       update(dt);
       draw();
     }
@@ -1224,8 +1266,15 @@
     }
     findEdges();
     water = null; doneSegs = []; spillAt = null; particles = []; distance = 0; goal = 0;
+    editBase = editorLevel();
     document.getElementById("editor").classList.remove("hidden");
     setEditTool("bend"); editMsg("Drag a pipe onto the grid, then click it to rotate. Save or Test when it connects.");
+  }
+  // The level being built, as text: in a test run, the stashed copy it returns to.
+  // Anything other than editBase is unsaved work (the editor keeps no draft).
+  function editorLevel() {
+    if (state !== "edit" && testingEditor && editStash) return editStash.g + "|" + editStash.n;
+    return stringFromGrid() + "|" + (document.getElementById("editName").value || "");
   }
   function setEditTool(t) { editTool = t; var els = document.querySelectorAll("#editTools .etool"); for (var i = 0; i < els.length; i++) els[i].classList.toggle("sel", els[i].dataset.tool === t); }
   function editMsg(m) { var el = document.getElementById("editMsg"); if (el) el.textContent = m || ""; }

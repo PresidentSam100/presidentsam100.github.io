@@ -189,7 +189,16 @@
     $("btn-start").addEventListener("click", begin);
   }
 
-  function begin() { Sound.init(); clearTimeout(windowId); trial = 0; results = []; penal = []; late = []; ov.classList.remove("show"); nextAttempt(); }
+  function begin() { Sound.init(); clearTimeout(windowId); trial = 0; results = []; penal = []; late = []; runBest = best; ov.classList.remove("show"); nextAttempt(); }
+
+  // The best average is saved the instant the last duel is decided, before
+  // its shot plays out and the poster comes up, so leaving then keeps it.
+  // runBest is the best as the showdown began, for "new best average!"
+  var runBest = 0;
+  function keepBest() {
+    var a = avg(results);
+    if (best === 0 || a < best) { best = a; save(BEST_KEY, best); }
+  }
 
   function nextAttempt() {
     trial++;
@@ -228,7 +237,7 @@
     pSub.textContent = "he drew first — scored " + WINDOW_MS + " ms · tap to continue";
     pRating.style.color = "var(--bad)"; pRating.textContent = "outdrawn";
     panel.dataset.shot = "lose"; // he fires, you go down
-    if (state === "ending") { pSub.textContent = "he drew first"; setTimeout(finish, LAST_SHOT_MS); }
+    if (state === "ending") { keepBest(); pSub.textContent = "he drew first"; setTimeout(finish, LAST_SHOT_MS); }
   }
 
   // false start: the attempt is burned and scored as a fixed penalty time
@@ -241,7 +250,7 @@
     pSub.textContent = "you drew before the call — scored " + (PENALTY / 1000).toFixed(1) + "s · tap to continue";
     pRating.style.color = "var(--bad)"; pRating.textContent = "penalty";
     panel.dataset.shot = "lose"; // the other gunslinger fires, you go down
-    if (state === "ending") { pSub.textContent = "you drew before the call"; setTimeout(finish, LAST_SHOT_MS); }
+    if (state === "ending") { keepBest(); pSub.textContent = "you drew before the call"; setTimeout(finish, LAST_SHOT_MS); }
   }
 
   function record() {
@@ -255,7 +264,7 @@
     state = results.length >= TRIALS ? "ending" : "result";
     panel.className = "panel result"; pBig.className = "big ms"; pBig.innerHTML = f1(ms) + '<small> ms</small>'; pSub.textContent = "tap to continue"; pRating.style.color = r.c; pRating.textContent = r.t;
     panel.dataset.shot = shotTier(ms); // you fire; how hard he's hit depends on the time
-    if (state === "ending") { pSub.textContent = ""; setTimeout(finish, LAST_SHOT_MS); }
+    if (state === "ending") { keepBest(); pSub.textContent = ""; setTimeout(finish, LAST_SHOT_MS); }
   }
 
   function finish() {
@@ -264,8 +273,8 @@
     var valid = results.filter(function (x, i) { return !penal[i]; });
     var bestSingle = valid.length ? Math.min.apply(null, valid) : null;
     var fouls = penal.filter(Boolean).length, slow = late.filter(Boolean).length;
-    var record = (best === 0 || a < best);
-    if (record) { best = a; save(BEST_KEY, best); }
+    var record = (runBest === 0 || a < runBest);
+    keepBest();   // (already saved as the last duel ended)
     renderHud();
     var r = rate(a);
     var chips = results.map(function (x, i) { return chipHtml(i); }).join("");
@@ -297,6 +306,20 @@
     if (e.repeat) return;
     if (ov.classList.contains("show")) { var b = card.querySelector(".btn"); if (b) b.click(); return; }
     press();
+  });
+
+  // ------------------------------------------------ leaving mid-showdown
+  // Once a duel is scored, the showdown is in progress until the last one is
+  // decided: leaving then asks first. While it asks, a standoff under way is
+  // called off, and starts over on "Keep playing", so the box can't cost a duel.
+  var held = false;
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () { return results.length > 0 && ["wait", "go", "result", "toosoon", "late"].indexOf(state) >= 0; },
+    pause: function () {
+      if (state !== "wait" && state !== "go") return;
+      clearTimeout(timerId); clearTimeout(windowId); held = true;
+    },
+    resume: function () { if (held) { held = false; arm(); renderHud(); renderTimes(); } }
   });
 
   // ------------------------------------------------ boot

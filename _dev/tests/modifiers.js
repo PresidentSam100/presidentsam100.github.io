@@ -19,7 +19,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const [g, start, plain, combos] of cases) {
     const p = await lib.open(ctx, base, "games/" + g);
     if (start) await start(p);
-    const card = () => p.evaluate(() => { const x = document.querySelector(".gs-pause"); return !!x && !x.hidden; });
+    const card = () => p.evaluate(() => { const x = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!x && !x.hidden; });
     const pausedBefore = await card();
     const claimed = [];
     for (const k of combos) claimed.push(await lib.fireKey(p, k));

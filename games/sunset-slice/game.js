@@ -107,6 +107,7 @@
   var objs = [], halves = [], parts = [], gleams = [], inks = [], popups = [], trail = [], queue = [];
   var score = 0, lives = 0, timeLeft = 0, elapsed = 0, maxCombo = 0, nextWave = 0, flash = 0, shake = 0, overReason = "", nextId = 0;
   var menuPick = null, minVSeen = 9, badSeen = 0;   // (for tests: the highest peak, and broken objects dropped)
+  var runBest = 0, liveBest = 0;   // the mode's best as the run began, and as stored now (it's saved as the run passes it)
 
   // ---- spawning ------------------------------------------------------------------------------
   // Launch from just below the bottom edge so the object peaks at height `apex`
@@ -201,6 +202,7 @@
     var n = stroke.cuts;
     if (n >= 3 && state === "play") {
       score += n;
+      keepBest();
       maxCombo = Math.max(maxCombo, n);
       popups.push({ x: stroke.lastX, y: stroke.lastY - R, text: n + " cuts  +" + n, t0: now(), big: true });
       SFX.combo(n);
@@ -215,6 +217,7 @@
     if (o.type === "bomb") { bombHit(o); return; }
     var pts = TYPES[o.type].points;
     score += pts;
+    keepBest();
     stroke.cuts++; stroke.lastX = x; stroke.lastY = y;
     if (pts > 1) popups.push({ x: x, y: y - R, text: "+" + pts, t0: now() });
     splitInto(o, ang);
@@ -285,6 +288,11 @@
     overTitle: document.getElementById("over-title"), overMsg: document.getElementById("over-msg"), overStats: document.getElementById("over-stats"),
     bests: document.getElementById("bests"), pauseBtn: document.getElementById("pause-btn"),
   };
+  // A run that passes the mode's best saves it the moment it does, so closing
+  // the tab (or leaving during the end beat) can't lose a new best
+  function keepBest() {
+    if (mode && score > liveBest) { liveBest = score; store.set(KEYS[mode], score); }
+  }
   function bestsText() {
     return "Best · Duel " + store.getNum(KEYS.duel, 0) + " · Last Light " + store.getNum(KEYS.lastlight, 0) + " · Calm " + store.getNum(KEYS.calm, 0);
   }
@@ -293,6 +301,7 @@
     objs = []; halves = []; parts = []; gleams = []; inks = []; popups = []; queue = []; trail = [];
     score = 0; lives = M.lives; timeLeft = M.time; elapsed = 0; maxCombo = 0; nextWave = 0.6; flash = 0; shake = 0; overReason = "";
     menuObjs = []; menuPick = null; minVSeen = 9; badSeen = 0;
+    runBest = liveBest = store.getNum(KEYS[m], 0);
     state = "play"; paused = false;
     ui.menu.hidden = true; ui.over.hidden = true; ui.pause.hidden = true; ui.hud.hidden = false;
     SFX.start();
@@ -312,8 +321,9 @@
   }
   function showOver() {
     state = "over";
-    var key = KEYS[mode], prev = store.getNum(key, 0), isBest = score > prev;
-    if (isBest) store.set(key, score);
+    // (saved as the run passed it; "new best" is against the best as the run began)
+    var key = KEYS[mode], prev = runBest, isBest = score > prev;
+    if (score > store.getNum(key, 0)) store.set(key, score);
     SFX.end();
     ui.overTitle.textContent = { bomb: "The bomb went off", seals: "Out of seals", time: "The sun has set", calm: "Stillness" }[overReason] || "Done";
     ui.overMsg.textContent = score + (score === 1 ? " point" : " points") + (isBest ? " · new best!" : " · best " + prev);
@@ -378,6 +388,14 @@
     } else if (e.key === "Backspace" && state === "over") { e.preventDefault(); toMenu(); }
   });
   if (window.GameShell) GameShell.onAutoPause(function () { if (state === "play" && !paused) setPaused(true); });
+  // Leaving asks first during a run, paused or not, pausing it while it asks.
+  // The end beat ("ending") doesn't: the run is over and its best saved.
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+    active: function () { return state === "play"; },
+    pause: function () { setPaused(true); },
+    resume: function () { setPaused(false); },
+    isPaused: function () { return paused; }
+  });
 
   // ---- the loop ----------------------------------------------------------------------------------------
   var lastT = 0, lastTick = -1;

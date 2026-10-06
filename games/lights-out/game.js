@@ -171,6 +171,7 @@
 
   var n = 5, N = 25, open = new Uint8Array(25), cells = [];
   var moves = 0, par = 0, level = 1, budget = 0, dailyRecorded = false;
+  var wound = false;                  // wind-up: a level just wound, its "Next level" card up
 
   function levelSpec(L) {
     var t = [[3, 3], [3, 5], [4, 5], [4, 7], [5, 6], [5, 8], [5, 10], [5, 12]];
@@ -336,6 +337,7 @@
     $("spring").hidden = false;
     $("plaque-sub").textContent = "level " + level;
     state = "play";
+    wound = false;
     hud();
   }
 
@@ -356,6 +358,7 @@
     var overParVal = moves - par;
     var lines = [];
     if (mode === "windup") {
+      wound = true;
       if (bestLevel) bestLevel.submit(level);
       $("over-title").textContent = "Lid down — level " + level + " wound";
       $("over-msg").textContent = moves + " moves · par " + par;
@@ -536,6 +539,16 @@
   // follow the ✨ switch the moment it flips (this used to poll every 400ms)
   window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
   document.body.classList.toggle("fxon", fx());
+
+  // ---- leaving -----------------------------------------------------------------------
+  // Leaving asks first once a tray has been pressed (or hinted), and all through
+  // a wind-up run past level 1, its "Next level" card included. No tray is saved
+  // part-way (lightsout_zen keeps only tallies), so zen and daily trays count
+  // too; the menu, a fresh tray and the results don't. There's no pause.
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () {
+    if (state === "play") return moves > 0 || (mode === "windup" && level > 1);
+    return state === "over" && mode === "windup" && wound;
+  });
 
   // ---- go ---------------------------------------------------------------------------
   document.body.insertAdjacentHTML("beforeend", A.defsSVG() +

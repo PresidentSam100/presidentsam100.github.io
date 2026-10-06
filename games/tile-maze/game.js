@@ -81,6 +81,7 @@
   // win; the per-level best is stored by level NAME, so re-sorting the level
   // order never mixes up records.
   let runStartTs = null;
+  let heldAt = 0;   // while "Leave this game?" is up the clock holds (from then)
   function fmtTime(ms) {
     const t = Math.max(0, ms) / 1000;
     if (t < 60) return t.toFixed(1) + "s";
@@ -89,7 +90,7 @@
     return m + ":" + (rest < 10 ? "0" : "") + rest.toFixed(1);
   }
   setInterval(() => {
-    if (runStartTs !== null && !won) timeEl.textContent = fmtTime(Date.now() - runStartTs);
+    if (runStartTs !== null && !won && !heldAt) timeEl.textContent = fmtTime(Date.now() - runStartTs);
   }, 100);
 
   function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
@@ -178,7 +179,10 @@
     renderLevelPicker();
   }
 
-  function completeLevel() {
+  // The win is recorded the moment the winning move is made, before its slide
+  // plays out: the clock stops there, and the best time and progress are saved
+  let winInfo = null;
+  function recordWin() {
     won = true;
     const ms = runStartTs === null ? 0 : Date.now() - runStartTs;
     timeEl.textContent = fmtTime(ms);
@@ -189,6 +193,11 @@
     if (!save.completed.includes(current)) save.completed.push(current);
     if (current + 1 < LEVELS.length) save.unlocked = Math.max(save.unlocked, current + 2);
     persist();
+    winInfo = { ms, prevBest, record };
+  }
+
+  function completeLevel() {
+    const { ms, prevBest, record } = winInfo;
     SFX.win();
     const last = current + 1 >= LEVELS.length;
     const timeBit = record && prevBest !== undefined
@@ -246,6 +255,7 @@
     if (runStartTs === null) runStartTs = Date.now();  // the clock starts on your first move
     moves++;
     moveCountEl.textContent = moves;
+    if (res.win) recordWin();
 
     if (A) await A.play(animCtx(), res);
     else placePlayer(res.final.r, res.final.c, false);
@@ -342,6 +352,17 @@
   // Esc closes the guide, and claims the key so it doesn't also leave for the games page
   window.addEventListener("keydown", (e) => { if (e.key === "Escape" && !guideOverlay.hidden) { e.preventDefault(); closeGuide(); } });
 
+  // Leaving asks first once a level has moves on it and isn't won yet (a
+  // fresh board has nothing to lose). There's no pause, so while it asks the
+  // level clock just holds.
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+    active: () => moves > 0 && !won,
+    pause: () => { heldAt = Date.now(); },
+    resume: () => {
+      if (heldAt && runStartTs !== null) runStartTs += Date.now() - heldAt;
+      heldAt = 0;
+    },
+  });
 
   window.addEventListener("resize", () => {
     computeCell();

@@ -193,6 +193,13 @@
   function bestKey() { return "wordfall_best_" + mode; }
   function getBest() { return parseInt(localStorage.getItem(bestKey()) || "0", 10); }
   function setBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch (e) {} }
+  // A run that passes the best saves it the moment it does (kept in memory, so
+  // storage is only written, never read, mid-run). runBest is the best as the
+  // run began, for "New best"; Zen keeps no score.
+  let runBest = 0, liveBest = 0;
+  function keepBest() {
+    if (state === "playing" && mode !== "zen" && score > liveBest) { liveBest = score; setBest(score); }
+  }
 
   function showBest(node) {
     if (mode === "zen") {
@@ -400,6 +407,7 @@
     const heightBonus = Math.floor((w.y / H) * 40); // reward late clears slightly less
     const gained = Math.floor((50 + lenBonus + heightBonus) * (1 + wave * 0.1) * comboMult);
     score += gained;
+    keepBest();
     wordsCleared++;
 
     explode(w.x + w.w / 2, w.y, w.hue, 28);
@@ -453,6 +461,7 @@
     explode(w.x + w.w / 2, w.y, 30, 22); // orange burst (no skill score / combo)
     Sound.kill(); // same explosion sound as a typed-out word
     score += 10; // small consolation points
+    keepBest();
     scorePop(w.x + w.w / 2, w.y, "+10", "#ff9c40"); // orange to mark bomb kills
   }
 
@@ -1010,6 +1019,8 @@
   // ---------- Main loop ----------
   // Pause on Esc or a tab-switch. NOT "P" — this is a typing game, so the
   // letter keys all belong to the player.
+  // Its default leave guard is the right one: a run in play (paused or not)
+  // asks before leaving, paused underneath; menus and game over don't.
   const PAUSE = window.GameShell
     ? GameShell.pausable({ canPause: () => state === "playing", keys: ["Escape"] })
     : { isPaused: () => false };
@@ -1054,6 +1065,7 @@
     correctKeys = 0; totalKeys = 0; peakWpm = 0;
     lastKeyTime = 0; activeMs = 0; activeChars = 0;
     combo = 0; maxCombo = 0;
+    runBest = liveBest = mode === "zen" ? 0 : getBest();
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
@@ -1084,8 +1096,8 @@
 
     if (mode === "zen") {
       el.overBest.textContent = "Zen session ended — nice flow.";
-    } else if (score > getBest()) {
-      setBest(score);
+    } else if (score > runBest) {
+      setBest(score);   // (already saved as the run passed the old best)
       el.overBest.textContent = "★ New best for " + MODES[mode].label + "!";
     } else {
       el.overBest.textContent = "Best (" + MODES[mode].label + "): " + getBest();

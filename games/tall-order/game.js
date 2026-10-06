@@ -90,6 +90,7 @@
   var cam = 0, camTarget = 0;           // world y at screen top
   var baseX = 0, spawnTimer = 0, phaseTimer = 0, zoomP = 0, wallTint = 338;
   var shake = 0, ovenGlow = 0, bob = 0;
+  var runBest = 0;                      // the mode's best as the run began (the stored one climbs mid-run)
 
   function sizes() {
     H = clamp(Math.round(Hh * 0.052), 34, 50);
@@ -129,6 +130,7 @@
     sizes();
     tiers = []; perfects = 0; streak = 0;
     debris = []; sprinkles = []; pops = [];
+    runBest = bests[mode] ? bests[mode].get() : 0;
     // the base tier, resting on the stand
     tiers.push({ x: baseX, w: W0, fl: flavourFor(0), seed: 991, decos: withWx(A.decosFor(W0, 991), baseX, W0) });
     cam = -Hh * 0.82; camTarget = towerTopY() - Hh * 0.62;
@@ -155,6 +157,7 @@
     if (ow <= 4) {                                   // clean miss: served
       debris.push({ x: x, y: slider.y, w: w, fl: slider.fl, seed: slider.seed, vx: slider.dir * 60, vy: 60, rot: 0, vr: slider.dir * 2.4 });
       sndMiss();
+      if (bests[mode]) bests[mode].submit(tiers.length);   // the run is over: its result is in before the tumble
       state = "tumble"; phaseTimer = 0.8;
       slider = null;
       return;
@@ -189,6 +192,9 @@
     tiers.push({ x: x, w: w, fl: slider.fl, seed: slider.seed, decos: kept, squash: fx() ? 1 : 0 });
     slider = null;
     $("hud-tiers").textContent = "" + tiers.length;
+    // a tier that takes the tower past the best saves it now, not after the
+    // tumble and pull-back that end the run
+    if (tiers.length > runBest && bests[mode]) bests[mode].submit(tiers.length);
     camTarget = towerTopY() - Hh * 0.62;
 
     if (tiers.length % 10 === 0) {                    // growth-chart milestone
@@ -201,7 +207,8 @@
 
   function serveOver() {
     var n = tiers.length;
-    var b = bests[mode], isBest = b ? b.submit(n) : false;
+    // (saved as each tier beat it; "record" is against the best as the run began)
+    var b = bests[mode], isBest = b ? b.submit(n) || n > runBest : false;
     $("over-title").textContent = n >= 25 ? "A showstopper!" : n >= 12 ? "Order served!" : "Back to the oven";
     $("over-msg").textContent = n + (n === 1 ? " tier" : " tiers");
     $("over-stats").textContent =
@@ -401,6 +408,13 @@
     canPause: function () { return state === "play"; },
     keys: ["Escape", "p"]
   }) : { isPaused: function () { return false; } };
+  // Leaving asks first once a tier has been dropped onto the tower (paused or
+  // not; nothing's lost before then). Not in the tumble and pull-back after a
+  // miss: the run is over and its best already saved.
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+    active: function () { return state === "play" && tiers.length > 1; },
+    pausable: P
+  });
 
   var last = 0;
   function loop(now) {

@@ -43,6 +43,7 @@
   var tiles; // id -> tile { id, val, r, c, el, inner, merged }
   var nextId;
   var score, best, won, over, keepPlaying;
+  var moves = 0; // moves made this game (a fresh board has nothing to lose)
   var cellSize = 0, step = 0;
 
   function lsGet(k, d) {
@@ -300,6 +301,7 @@
     });
 
     if (!moved) return;
+    moves++;
 
     // a real move (a blocked swipe keeps them): the last move's new / merged
     // marks give way to this one's
@@ -422,6 +424,7 @@
     grid = [];
     for (var r = 0; r < SIZE; r++) grid.push([null, null, null, null]);
     score = 0;
+    moves = 0;
     won = false;
     over = false;
     keepPlaying = false;
@@ -508,6 +511,11 @@
 
   window.addEventListener("resize", relayout);
   window.addEventListener("load", relayout);
+
+  // Leaving asks first once a move has been made, until the board is stuck.
+  // The board isn't saved, but the best is (updateScore, as it climbs). The
+  // "You win!" card counts as in progress: the arrows still play under it.
+  if (window.GameShell) GameShell.guardLeave(function () { return moves > 0 && !over; });
 
   mode = lsGet(MODE_KEY, "normal") === "fib" ? "fib" : "normal";
   refreshMeta();

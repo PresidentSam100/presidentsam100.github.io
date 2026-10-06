@@ -40,6 +40,7 @@
   const GAP = 4;
   let cell = 48;
   let playerEl = null, tstate = null, tmoves = 0, tlocked = false, twon = false;
+  let kept = "";             // the level as last saved, loaded or started: anything else is unsaved work
 
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n | 0));
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -112,7 +113,15 @@
     for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) grid[r][c] = (r === 0 || c === 0 || r === rows - 1 || c === cols - 1) ? "r" : "p";
     if (rows >= 3 && cols >= 3) { grid[1][1] = "S"; grid[rows - 2][cols - 2] = "X"; }
     renderBoard(); updateStatus();
+    keep();   // an empty room is nothing to lose
   }
+
+  // ---- unsaved work ----
+  // The editor keeps no draft: only 💾 Save stores a level. So leaving (Home,
+  // ← Games) asks first while the board, name or hint differ from the level
+  // as it was last saved, loaded or started.
+  const snapshot = () => grid.map((r) => r.join("")).join("/") + "|" + nameIn.value + "|" + hintIn.value;
+  function keep() { kept = snapshot(); }
 
   // ---- validation / solving ----
   function counts() { let s = 0, x = 0; for (const row of grid) for (const ch of row) { if (ch === "S") s++; if (ch === "X") x++; } return { s, x }; }
@@ -251,6 +260,7 @@
     wIn.value = cols; hIn.value = rows;
     ioPanel.hidden = true;
     computeCell(); renderBoard(); updateStatus();
+    keep();   // (the pasted text is still wherever it came from)
   }
 
   // ---- saved levels (localStorage) ----
@@ -260,7 +270,7 @@
     const v = validate(); if (!v.ok) { updateStatus("⚠ Fix before saving: " + v.msgs.join(" · "), "bad"); return; }
     const a = loadSaved();
     a.push({ name: nameIn.value || "Untitled", hint: hintIn.value || "", grid: grid.map((r) => r.join("")) });
-    persistSaved(a); renderSaved();
+    persistSaved(a); renderSaved(); keep();
     updateStatus('💾 Saved "' + (nameIn.value || "Untitled") + '" (' + a.length + " total).", "good");
   }
   function loadSavedLevel(lvl) {
@@ -269,6 +279,7 @@
     nameIn.value = lvl.name || ""; hintIn.value = lvl.hint || "";
     wIn.value = cols; hIn.value = rows;
     computeCell(); renderBoard(); updateStatus();
+    keep();
   }
   function renderSaved() {
     const a = loadSaved(); saved.innerHTML = "";
@@ -344,4 +355,8 @@
   computeCell();
   newRoom();
   renderSaved();
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+    active: () => snapshot() !== kept,
+    text: "The level you're building isn't saved.",
+  });
 })();

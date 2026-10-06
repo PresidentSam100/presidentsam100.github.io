@@ -376,5 +376,9 @@ controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " 
 // Pause: Esc or P, or the ⏸ corner button. Rallies only; the countdown is
 // three seconds on its own timer, so it just runs out.
 const PAUSE = window.GameShell ? GameShell.pausable({ canPause: () => state === "playing" }) : null;
+// A match is in progress (paused or not) once a point has been scored, until
+// someone wins it: leaving then asks first. The countdown and a 0–0 rally
+// have nothing to lose yet.
+if (PAUSE) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === "playing") && left.score + right.score > 0, pausable: PAUSE });
 
 loop();

@@ -201,6 +201,10 @@
   //   step: "country" | "capital" (what's asked now), correct: idx in its tags }
   var cur = null;
   var turbo = false, lastTick = -1;
+  // for leaving mid-run and the live best (see conclude): `touched` once a
+  // flag has been answered, `ending` once the run is decided; runBest and
+  // dailyWas are the best and the Visa Run record as the run began
+  var touched = false, ending = false, runBest = NaN, dailyWas = false;
   var preload = new Image();
   var MONTHS = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
   function dateStamp() {
@@ -245,6 +249,10 @@
     store.set("passport_mode", mode);
     audio();
     score = 0; denials = 0; qNum = 0; remaining = 60; recent = []; lastTick = -1;
+    touched = ending = false;
+    var b = bestFor(mode, style, ask);
+    runBest = b ? GameShell.store.getNum(b.key, NaN) : NaN;   // (NaN: none yet)
+    dailyWas = mode === "daily" && readDaily().done;
     $("stamps").innerHTML = "";
     $("big-stamp").hidden = true;
     if (mode === "daily") dailySet = buildDaily(today().n);
@@ -319,6 +327,7 @@
   // with no stamp yet. Typed clears the box at once (and keeps the focus);
   // the tags hold a beat first, so a double tap can't answer the capital blind.
   function stepUp() {
+    touched = true;
     tickSnd();
     if (style === "typed") { pose("capital"); return; }
     state = "reveal";
@@ -386,6 +395,15 @@
     var overNow =
       (mode === "tour" && denials >= 3) ||
       (mode === "dash" && remaining <= 0);
+    // The best is saved with each stamp, and a Visa Run's result the moment
+    // its tenth flag is answered, before the stamp's beat, so leaving or
+    // closing the tab can't lose either; from then on the run is decided
+    var b = bestFor(mode, style, ask);
+    if (right && b) b.submit(score);
+    var lastFlag = mode === "daily" && qNum >= dailySet.length;
+    if (lastFlag) recordDaily();
+    touched = true;
+    ending = overNow || lastFlag;
     // (kept, so going to the menu mid-reveal cancels it: toMenu / startRun)
     revealT = setTimeout(function () {
       $("big-stamp").hidden = true;
@@ -394,13 +412,19 @@
     }, turbo ? 60 : right ? 950 : 1500);
   }
 
+  // the first Visa Run of the day is the one recorded
+  function recordDaily() {
+    var d = readDaily();
+    if (!d.done) { d.done = true; d.score = score; d.typed = style === "typed"; writeDaily(d); }
+  }
+
   function finish() {
     state = "over";
     $("answer").blur();                // or M / F / S would read as typing
     var lines = [], isBest = false;
     if (mode === "daily") {
-      var d = readDaily(), was = d.done;
-      if (!was) { d.done = true; d.score = score; d.typed = style === "typed"; writeDaily(d); }
+      var was = dailyWas;              // (this run's result was recorded with its last flag)
+      recordDaily();
       var rec = readDaily();
       $("over-title").textContent = "Visa run complete";
       $("over-msg").innerHTML = score + "<small> / " + dailySet.length + " stamps</small>";
@@ -410,7 +434,7 @@
       $("share").hidden = false;
     } else {
       var b = bestFor(mode, style, ask);
-      isBest = b ? b.submit(score) : false;
+      if (b) { b.submit(score); isBest = isNaN(runBest) || score > runBest; }
       $("over-title").textContent = mode === "tour" ? "The border is closed" : "Final boarding call";
       $("over-msg").innerHTML = score + "<small> stamp" + (score === 1 ? "" : "s") + "</small>";
       lines.push(mode === "tour" ? "three denials on your record" : "the sixty seconds are up");
@@ -547,6 +571,15 @@
     canPause: function () { return mode === "dash" && (state === "ask" || state === "reveal"); },
     keys: ["Escape"]
   }) : { isPaused: function () { return false; } };
+  // A run is in progress once a flag has been answered, until it's decided
+  // (the third denial, the clock running out, a Visa Run's tenth flag):
+  // leaving then asks first. A Visa Run left mid-way isn't recorded and can
+  // be run again, but the run itself is lost. A dash pauses underneath;
+  // a tour or visa run has no clock (P only pauses a dash).
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () { return (state === "ask" || state === "reveal") && touched && !ending; },
+    pausable: P
+  });
 
   // sound (M / "[") and Visual FX (V / "]") are handled by the shared
   // mute-toggle.js and motion-toggle.js; #answer is marked data-game-input

@@ -71,6 +71,7 @@
   let liveTop = -1;       // highest row with any part on screen
   let state = "ready";    // "ready" | "playing" | "over"
   let score = 0, defused = 0;
+  let runBest = NaN;      // the stored best as this run began (NaN: none yet)
   let cellPx = 32, pitch = 34, visRows = 12;
   let flagMode = false;
   let cursor = { r: RUNWAY, c: COLS >> 1 }, kbd = false;
@@ -332,6 +333,7 @@
     liveTop = -1;
     state = "ready";
     score = 0;
+    runBest = GameShell.store.getNum(BEST.key, NaN);
     defused = 0;
     cursor = { r: RUNWAY, c: COLS >> 1 };
     fieldEl.classList.remove("shake");
@@ -442,6 +444,8 @@
     if (wrong.length) return gameOver(wrong, "A flag on a safe tile went out of bounds.");
     defused += saved;
     if (row.r >= RUNWAY) score++;
+    // a new best is saved as each row earns it, not only when the run ends
+    if (score > 0) BEST.submit(score);
     if (saved) sfx.defuse();
     renderHud();
   }
@@ -475,7 +479,9 @@
       void fieldEl.offsetWidth; // restart the animation
       fieldEl.classList.add("shake");
     }
-    const isBest = score > 0 && BEST.submit(score);
+    if (score > 0) BEST.submit(score);
+    // against the best as the run began (the stored one kept pace in judge)
+    const isBest = score > 0 && (!isFinite(runBest) || score > runBest);
     setStatus(
       esc("💥 " + why + " " + score + " row" + (score === 1 ? "" : "s") + ", " + defused + " defused" +
         (isBest ? " — new best!" : ".")) + ' Tap 🙂 or press <kbd class="gs-kbd">N</kbd> to go again.',
@@ -506,7 +512,7 @@
   // ---- mouse -------------------------------------------------------------
   // The board moves under a still mouse, so every action reads the cell
   // from the event target at that moment rather than a tracked hover.
-  let lastTouch = 0;
+  let lastTouch = -Infinity;   // (not 0: that read as a touch for the page's first 0.8s, eating the first click)
   const fromTouch = () => performance.now() - lastTouch < 800;
   let btnL = false, btnR = false, chording = false, spent = false, downEl = null;
 

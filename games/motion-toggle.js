@@ -146,9 +146,26 @@
     if (e.key === "Escape" && document.documentElement.getAttribute("data-esc-leaves") === "off") return false;
     return !document.querySelector(".gs-dialog");   // a dialog answers Esc itself, and Home waits for it
   }
+  // With a game in progress, GameShell asks "Leave this game?" first
+  // (game-shell.js, guardLeave); otherwise it's straight out.
+  function leave(url) {
+    var go = function () { location.href = url; };
+    var gs = window.GameShell;
+    if (gs && gs.askLeave && gs.askLeave(go)) return;
+    go();
+  }
   window.addEventListener("keydown", function (e) {
     if (!leaveKey(e)) return;
-    setTimeout(function () { if (!e.defaultPrevented) location.href = GAMES_URL; }, 0);
+    setTimeout(function () { if (!e.defaultPrevented) leave(GAMES_URL); }, 0);
+  }, true);
+  // the "← Games" button asks the same way, and so does any other link out
+  // of a game marked data-leave (Tile Maze's editor "← Back to game"); a
+  // middle or Ctrl-click still opens a new tab without asking
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest(".nav-back-games, a[data-leave]");
+    if (!a || e.defaultPrevented || e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+    var gs = window.GameShell;
+    if (gs && gs.leaveActive && gs.leaveActive()) { e.preventDefault(); leave(a.href); }
   }, true);
 
   // The "← Games" button names the key, like the ✨ and 🔊 buttons do (only

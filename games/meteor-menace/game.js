@@ -197,6 +197,7 @@
   var best = window.GameShell ? GameShell.best("asteroids_best", { higher: true }) : { get: function () { return 0; }, submit: function () {} };
   var state = "menu";      // menu | play | over
   var score = 0, lives = 3, wave = 0, extraAt = 10000;
+  var savedBest = 0;       // the stored best this run has caught up to (see update)
   var ship = null, respawnT = 0;
   var rocks = [], bullets = [], ebullets = [], booms = [], words = [];
   var saucer = null, saucerT = 14, saucerBlipT = 0;
@@ -253,6 +254,7 @@
 
   function start() {
     score = 0; lives = 3; wave = 1; extraAt = 10000;
+    savedBest = best.get();
     rocks = []; bullets = []; ebullets = []; booms = []; words = [];
     saucer = null; saucerT = rand(14, 22);
     ship = newShip(); respawnT = 0; shake = 0;
@@ -449,6 +451,13 @@
         }
       }
       if (dead) killShip();
+    }
+
+    // ---- a new best is saved the moment the score passes it, not only when
+    // the run ends (savedBest keeps the other frames to a number compare)
+    if (state === "play" && score > savedBest) {
+      savedBest = score;
+      best.submit(score);
     }
 
     // ---- extra life + next wave

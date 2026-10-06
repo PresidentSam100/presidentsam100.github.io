@@ -2309,10 +2309,15 @@ class Game {
   }
 
   // ---- score / popups ---------------------------------------------------
+  // The high score is saved the moment the run passes it (not only at game
+  // over), so closing the tab mid-run still keeps it
   addScore(n) {
     if (this.player && this.player.hasPower('double')) n *= 2; // Double power-up
     this.score += n;
-    if (this.score > this.high) this.high = this.score;
+    if (this.score > this.high) {
+      this.high = this.score;
+      try { localStorage.setItem('galaga_high', '' + this.high); } catch (e) {}
+    }
   }
   addPopup(x, y, text, color = '#18e0ff') {
     this.popups.push({ x, y, text, color, t: 0, dur: 1.1 });
@@ -3100,6 +3105,21 @@ window.addEventListener('load', () => {
       canPause: () => window.game.mode === 'playing',
       isPaused: () => window.game.mode === 'paused',
       toggle: () => window.game.togglePause(),
+    });
+    // A run is in progress once it has scored, until game over: in play,
+    // paused, or on a READY / CLEARED / bonus banner. Leaving then asks first,
+    // with the run paused underneath; a banner holds too (its timer stops while
+    // paused, and resuming goes back to it).
+    const BANNERS = ['ready', 'cleared', 'bonusResult'];
+    GameShell.guardLeave({
+      active: () => ['playing', 'paused'].concat(BANNERS).includes(window.game.mode) && window.game.score > 0,
+      isPaused: () => window.game.mode === 'paused',
+      pause: () => {
+        const g = window.game;
+        if (g.mode === 'playing') g.togglePause();
+        else if (BANNERS.includes(g.mode)) { g.prevMode = g.mode; g.mode = 'paused'; g.pauseIndex = 0; }
+      },
+      resume: () => { if (window.game.mode === 'paused') window.game.togglePause(); },
     });
   }
 

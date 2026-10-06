@@ -134,6 +134,8 @@
   var HINT_PENALTY = 30000;
   var locked = false; // brief lock during good/bad animation
   var over = false;
+  var moved = false; // a Hash claimed, cards added or a hint taken this game
+  var gameNo = 0; // bumped by newGame, so a claim's slide-out from the last game stops
 
   var boardEl = document.getElementById("board");
   var msgEl = document.getElementById("msg");
@@ -317,11 +319,20 @@
 
   function claimGood() {
     setsFound++;
+    moved = true;
     goodSound();
     setMsg("Hash! ✓", "good");
     locked = true;
     var cardEls = boardEl.querySelectorAll(".card");
     var sel = selected.slice(); // the three claimed grid positions
+    var game = gameNo;
+
+    // The table's next state is settled now and only shown once the trio has
+    // slid out (phase 2), so the deck's last Hash stops the clock and saves a
+    // best time the moment it's claimed, not after the animation.
+    var newIds = replaceInPlace(sel);
+    newIds = newIds.concat(ensureSetAvailable());
+    var result = !findSet(board) && deck.length === 0 ? finish() : null;
 
     sel.forEach(function (i) {
       if (cardEls[i]) cardEls[i].classList.add("good");
@@ -338,16 +349,16 @@
       });
     }, 240);
 
-    // Phase 2 — once they've left, drop replacements INTO THE SAME CELLS so the
-    // other nine cards never move, and bring the new cards in from the left.
+    // Phase 2 — once they've left, show the replacements (dealt above) IN THE
+    // SAME CELLS so the other nine cards never move, and bring the new cards
+    // in from the left.
     setTimeout(function () {
-      var newIds = replaceInPlace(sel);
-      newIds = newIds.concat(ensureSetAvailable());
+      if (game !== gameNo) return; // a new game was dealt meanwhile
       selected = [];
       render(newIds, "enter-left");
       locked = false;
       updateAddBtn();
-      if (!findSet(board) && deck.length === 0) endGame();
+      if (result) endGame(result);
     }, 240 + 360);
   }
 
@@ -430,6 +441,7 @@
       return;
     }
     var dealt = dealUpTo(board.length + 3);
+    moved = true;
     setMsg("Dealt 3 more cards.", "info");
     render(dealt);
     updateAddBtn();
@@ -457,6 +469,7 @@
     hintSound();
     // Hints aren't free — add a 30s time penalty and show it on the clock now.
     penalty += HINT_PENALTY;
+    moved = true;
     elapsed = Date.now() - startTime;
     statTime.textContent = fmtTime(elapsed + penalty);
     setMsg(
@@ -468,7 +481,9 @@
   }
 
   // ---- end / start -----------------------------------------------------
-  function endGame() {
+  // The deck's last Hash is claimed: the clock stops and a best time is saved
+  // right then (claimGood), before the trio slides out...
+  function finish() {
     over = true;
     stopTimer();
     elapsed = Date.now() - startTime;
@@ -479,6 +494,12 @@
       saveBest(total);
       renderBest();
     }
+    return { total: total, isBest: isBest };
+  }
+
+  // ...and the board-cleared card follows once it has
+  function endGame(result) {
+    var total = result.total, isBest = result.isBest;
     var hints = Math.round(penalty / HINT_PENALTY);
     ovTitle.textContent = "Board cleared! 🎉";
     ovBody.innerHTML =
@@ -501,7 +522,9 @@
   }
 
   function newGame() {
+    gameNo++;
     over = false;
+    moved = false;
     locked = false;
     selected = [];
     setsFound = 0;
@@ -542,6 +565,14 @@
   hintBtn.addEventListener("click", onHint);
   newBtn.addEventListener("click", newGame);
   ovBtn.addEventListener("click", newGame);
+
+  // Leaving asks first once the game has begun (a Hash claimed, cards added
+  // or a hint taken) until the deck is cleared; an untouched deal loses
+  // nothing. There's no pause, so the clock runs on under the question.
+  if (window.GameShell && GameShell.guardLeave)
+    GameShell.guardLeave(function () {
+      return moved && !over;
+    });
 
   // ---- go --------------------------------------------------------------
   renderBest();

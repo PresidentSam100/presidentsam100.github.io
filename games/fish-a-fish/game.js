@@ -22,7 +22,7 @@
   var Art = window.FishArt, SPECIES = Art.SPECIES;
   var canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
   var store = window.GameShell ? GameShell.store
-    : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {} };
+    : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {}, remove: function () {} };
   function bestKey(clock, kb) { return "fishafish_best_" + clock + "_" + kb; }
   // One-time move of the original three bests into the combo keys they were:
   // Daybreak/Endless were the nine-key pond, Full Pond was 60s on the board.
@@ -222,7 +222,7 @@
       // A symbol fish only takes Shift + its key; a plain digit fish only the
       // bare key. The fish stays for another try.
       if (s.what !== "junk" && s.digitRow && shifted !== null && shifted !== undefined && shifted !== s.sym) {
-        score = Math.max(0, score - 2);
+        score = Math.max(0, score - 2); liveBest();
         streak = 0;
         popup(s.x, s.y - s.r * 2, s.sym ? "hold [Shift]!  -2" : "no [Shift]!  -2", "bad");
         splashDrops(s.x, s.y, 6);
@@ -230,7 +230,7 @@
         return;
       }
       if (s.what === "junk") {
-        score = Math.max(0, score - 5);
+        score = Math.max(0, score - 5); liveBest();
         streak = 0;
         s.phase = "idle";
         popup(s.x, s.y - s.r * 2, "an old boot  -5", "bad");
@@ -238,7 +238,7 @@
         SFX.boot();
       } else {
         var pts = SPECIES[s.what].points * mult();
-        score += pts;
+        score += pts; liveBest();
         streak++; caught++;
         bestStreak = Math.max(bestStreak, streak);
         leaps.push({ x: s.x, y: s.y, r: s.r, species: s.what, t0: now() });
@@ -255,7 +255,7 @@
       splashDrops(s.x, s.y, 6);
       SFX.splash();
     } else {
-      score = Math.max(0, score - 2);
+      score = Math.max(0, score - 2); liveBest();
       streak = 0;
       popup(s.x, s.y - s.r * 2, "-2", "bad");
       splashDrops(s.x, s.y, 8);
@@ -295,6 +295,20 @@
     ui.bests.textContent = bestsText();
   }
   var kbNow = "nine";
+  // The best is saved the moment a run earns it: once the score passes the
+  // best the run started with (runBest, what "new best!" compares against),
+  // the stored best follows it live, so a tab closed mid-run keeps it. A
+  // penalty can take the score back down, so it's the score that's kept, not
+  // its peak; under runBest the stored value goes back to exactly what it was.
+  var runBest = 0, runBestRaw = null, liveSaved = false;
+  function liveBest() {
+    var key = bestKey(mode, kbNow);
+    if (score > runBest) { store.set(key, score); liveSaved = true; }
+    else if (liveSaved) {
+      if (runBestRaw == null) store.remove(key); else store.set(key, runBestRaw);
+      liveSaved = false;
+    }
+  }
   function start(m) {
     // Legacy names (test hooks / old shortcuts) still work as presets.
     if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; }
@@ -304,6 +318,7 @@
     var want = LAYOUTS[kbNow];
     if (layout !== want) { layout = want; resize(); }
     score = 0; streak = 0; bestStreak = 0; caught = 0; strikes = 0; elapsed = 0;
+    runBest = store.getNum(bestKey(mode, kbNow), 0); runBestRaw = store.get(bestKey(mode, kbNow), null); liveSaved = false;
     timeLeft = mode === "endless" ? 0 : 60;
     spawnIn = 0.7; popups = []; leaps = []; drops = []; rings = []; lastTick = -1;
     resetSpots();
@@ -328,8 +343,8 @@
   }
   function showOver(reason) {
     state = "over";
-    var key = bestKey(mode, kbNow), prev = store.getNum(key, 0), isBest = score > prev;
-    if (isBest) store.set(key, score);
+    var prev = runBest, isBest = score > prev;
+    liveBest();   // the end-of-run save (the score is already in if it's a best)
     SFX.gong(0); SFX.gong(0.4);
     ui.overTitle.textContent = reason === "quiet" ? "The pond went quiet" : "The sun is up";
     ui.overMsg.textContent = score + (score === 1 ? " point" : " points") + (isBest ? " · new best!" : " · best " + prev);
@@ -341,6 +356,8 @@
 
   // Pause: the shared shell's overlay, key and ⏸ button. Escape only —
   // P is a fishing key on the letter layouts, so it must never pause.
+  // Leaving uses the pause's default guard (game-shell.js): it asks first
+  // while a run is on or paused, not in the "ending" beat (the best is in).
   var P = window.GameShell ? GameShell.pausable({ canPause: function () { return state === "play"; }, keys: ["Escape"] })
     : { isPaused: function () { return false; } };
 

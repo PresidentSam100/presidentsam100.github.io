@@ -754,6 +754,9 @@
       }
     },
   });
+  // Leaving never asks: every move, a pause and the way out (pagehide) save
+  // the puzzle and its clock, and the level picks up where it was left
+  GameShell.guardLeave(false);
   // The page opens on a board, already playing. Until something is filled in
   // there's nothing to lose (the puzzle and its clock are saved on the way
   // out), so Esc is the way out: this capture-phase listener keeps that Esc

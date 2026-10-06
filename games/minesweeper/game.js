@@ -554,7 +554,7 @@
   // Per-button mousedown/mouseup rather than Pointer Events: pressing a second
   // button while one is held only fires pointermove, which makes left+right
   // chording awkward. Touch is handled separately below.
-  let lastTouch = 0;
+  let lastTouch = -Infinity;   // (not 0: that read as a touch for the page's first 0.8s, eating the first click)
   const fromTouch = () => performance.now() - lastTouch < 800;
   let btnL = false, btnR = false, chording = false, spent = false, hover = -1;
   let pressed = [];

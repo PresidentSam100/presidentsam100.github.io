@@ -104,6 +104,7 @@
   if (script !== "simp" && script !== "trad") script = "simp";
   var lanterns = [], buffer = "";
   var score = 0, cleared = 0, escaped = 0, streak = 0;
+  var runBest = NaN;                   // the mode's best as the night began (NaN: none yet)
   var spawnT = 0, elapsed = 0;
   var riseMul = 1, spawnOff = false;         // test hooks
   var floats = [], sparks = [], bgDrifters = [];
@@ -189,6 +190,8 @@
     streak++; cleared++;
     var gain = Math.round(10 * l.keys[0].length * (1 + Math.min(10, streak - 1) * 0.1));
     score += gain;
+    // a new best is saved the moment it's earned, not only when the sky goes dark
+    if (bests[mode]) bests[mode].submit(score);
     clearChime();
     var fy = l.y - l.size * 0.8;
     floats.forEach(function (f) {                 // don't stack two glosses
@@ -221,6 +224,7 @@
     audio(); gong(false);
     lanterns = []; buffer = "";
     score = 0; cleared = 0; escaped = 0; streak = 0;
+    runBest = bests[mode] ? GameShell.store.getNum(bests[mode].key, NaN) : NaN;
     spawnT = 0.35; elapsed = 0; floats = []; sparks = [];
     riseMul = 1; spawnOff = false;
     $("menu").hidden = true; $("over").hidden = true;
@@ -242,7 +246,9 @@
     $("kbd").blur();
     gong(true);
     var b = bests[mode];
-    var isBest = b ? b.submit(score) : false;
+    if (b) b.submit(score);
+    // a record against the best as the night began (the stored one kept pace with light())
+    var isBest = b ? !isFinite(runBest) || score > runBest : false;
     $("over-title").textContent = cleared >= 40 ? "A sky full of light" : "The sky went dark";
     $("over-msg").innerHTML = score.toLocaleString() + "<small> · " + cleared + " lanterns lit</small>";
     $("over-stats").textContent =

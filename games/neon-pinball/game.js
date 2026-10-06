@@ -312,8 +312,12 @@
     el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
     clearTimeout(ticker._t); ticker._t = setTimeout(() => el.classList.remove("show"), 1100);
   }
+  // The best is saved the moment the score passes it (not only when a ball
+  // drains), so closing the tab mid-game still keeps it
+  const keepBest = () => { if (score > best) { best = score; localStorage.setItem("pinball_best", best); } };
   const addScore = (n) => {
     score += Math.round(n * mult);
+    keepBest();
     while (extraAwarded < EXTRA_AT.length && score >= EXTRA_AT[extraAwarded]) {
       extraAwarded++; extraBalls++; ticker("EXTRA BALL", "#46e6a0"); SFX.extra(); flashPulse(0.5, "70,230,160");
     }
@@ -380,7 +384,7 @@
     const tick = () => {
       if (b <= 0) { afterBonus(); return; }
       const take = Math.min(Math.max(500, Math.round(b / 14)), b); b -= take;
-      score += take * mult; SFX.bonus(); updateHUD(); setTimeout(tick, 40);
+      score += take * mult; keepBest(); SFX.bonus(); updateHUD(); setTimeout(tick, 40);
     };
     if (b > 0) { ticker("BONUS x" + mult, "#ffd23f"); setTimeout(tick, 500); } else setTimeout(afterBonus, 300);
   }
@@ -834,6 +838,11 @@
   const PAUSE = window.GameShell
     ? GameShell.pausable({ canPause: () => state === "play" || state === "ready" })
     : { isPaused: () => false };
+  // A game is in progress from the first launch to the last drain, the bonus
+  // count between balls included: leaving then asks first (on the plunger
+  // before the first launch there's nothing to lose yet)
+  const untouched = () => state === "ready" && ballNum === 1 && score === 0;
+  if (window.GameShell) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === "play" || state === "ready" || state === "drain") && !untouched(), pausable: PAUSE });
   function loop(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016); last = ts;
     if (PAUSE.isPaused()) { last = ts; draw(); requestAnimationFrame(loop); return; }

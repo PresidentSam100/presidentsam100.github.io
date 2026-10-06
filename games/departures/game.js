@@ -65,14 +65,21 @@
     try { var b = JSON.parse(store.get("departures_best", "null")); if (b) return b; } catch (e) {}
     return {};
   }
-  function submitBest(n, tUsed) {
-    var b = readBests(), k = boardKey(), cur = b[k];
-    if (!cur || n > cur.n || (n === cur.n && tUsed < cur.t)) {
-      b[k] = { n: n, t: tUsed };
-      store.set("departures_best", JSON.stringify(b));
-      return true;
-    }
-    return false;
+  function beats(cur, n, tUsed) { return !cur || n > cur.n || (n === cur.n && tUsed < cur.t); }
+  function writeBest(n, tUsed) {
+    var b = readBests();
+    b[boardKey()] = { n: n, t: tUsed };
+    store.set("departures_best", JSON.stringify(b));
+  }
+  // The best is saved the moment it's earned: each name that takes the run
+  // past the board's best (runBest, as it stood when the run began) writes
+  // it, with the clock as it is then, so a tab closed mid-run keeps it. A
+  // tie on names is only settled at the end, by the clock (finish), which
+  // also rewrites the record with the run's final time.
+  var runBest = null;
+  function usedMs() { return Math.round((timeTotal - Math.max(0, timeLeft)) * 1000); }
+  function liveBest() {
+    if (!runBest || foundCount > runBest.n) writeBest(foundCount, usedMs());
   }
 
   // ---- sound -------------------------------------------------------------
@@ -199,6 +206,7 @@
   var inPool = {};
   function accept(ci) {
     found[ci] = true; foundCount++;
+    liveBest();
     var rc = C[ci][2];
     perRegionFound[rc]++;
     addRow(label(ci), rc, false, caps() ? C[ci][1] : "");
@@ -293,6 +301,7 @@
     $("menu").hidden = true; $("over").hidden = true;
     $("answer").value = ""; $("answer").disabled = false; $("hint").hidden = true;
     state = "play"; playing = true; endedByBell = false;
+    runBest = readBests()[boardKey()] || null;
     hud();
     setTimeout(function () { $("answer").focus(); }, 0);
     paChime();
@@ -301,8 +310,9 @@
   function finish(allAboard) {
     state = "over"; playing = false;
     $("answer").disabled = true;
-    var tUsed = Math.round((timeTotal - Math.max(0, timeLeft)) * 1000);
-    var isBest = submitBest(foundCount, tUsed);
+    var tUsed = usedMs();
+    var isBest = beats(runBest, foundCount, tUsed);
+    if (isBest) writeBest(foundCount, tUsed);
     if (allAboard) winFanfare(); else endBuzz();
 
     $("over-title").textContent = allAboard ? "ALL ABOARD" :
@@ -418,6 +428,12 @@
     canPause: function () { return state === "play"; },
     keys: ["Escape"]                       // the letters belong to the answer box
   }) : { isPaused: function () { return false; } };
+  // Leaving asks first (and stops the clock) once a run has boarded a name;
+  // an empty board has nothing to lose yet
+  if (window.GameShell) GameShell.guardLeave({
+    active: function () { return state === "play" && foundCount > 0; },
+    pausable: P
+  });
 
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

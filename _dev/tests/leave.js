@@ -15,13 +15,33 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.mouse.move(5, 300);
       await p.keyboard.press(key); await settle(p);
       const want = key === "Escape" && EDITORS.includes(g) ? 0 : 1;
-      if (p.leaves !== want) (key === "Home" ? homeBad : escBad).push(g + " " + p.leaves);
+      // (nothing is in progress on an opening screen, so nothing asks first)
+      const asked = await p.evaluate(() => !!document.querySelector(".gs-dialog"));
+      if (p.leaves !== want || asked) (key === "Home" ? homeBad : escBad).push(g + " " + p.leaves + (asked ? " (asked)" : ""));
       if (p.errs.length) (key === "Home" ? homeBad : escBad).push(g + " errors: " + p.errs[0]);
       await p.close();
     }
   }
   check("Home leaves every game for the games page", homeBad.length === 0, homeBad);
   check("Esc on a game's opening screen leaves for the games page (editors excepted)", escBad.length === 0, escBad);
+
+  // ---- leaving mid-game asks first ("Leave this game?"), pausing the game
+  {
+    const p = await lib.open(ctx, base, "games/abyss/");
+    const st = () => p.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, paused: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    await p.keyboard.press("Enter"); await p.waitForTimeout(400);
+    await p.keyboard.press("Home"); await settle(p);
+    const asked = await st();
+    await p.keyboard.press("Escape"); await settle(p);
+    const kept = await st();
+    await p.click(".nav-back-games"); await settle(p);
+    const askedLink = await st();
+    await p.keyboard.press("Enter"); await settle(p);
+    check("mid-game, Home and ← Games ask 'Leave this game?' (game paused); Esc keeps playing, Enter leaves",
+      asked.dlg === "Leave this game?" && asked.paused && !kept.dlg && !kept.paused && askedLink.dlg === "Leave this game?" && p.leaves === 1,
+      { asked, kept, askedLink, leaves: p.leaves });
+    await p.close();
+  }
 
   // ---- the "← Games" button shows Home on wide screens
   {
@@ -42,7 +62,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await lib.open(ctx, base, "games/metazac/");
     await p.click("#start-btn"); await p.waitForTimeout(400);
     await p.focus("#answer"); await p.keyboard.press("Home"); await settle(p);
-    check("Home in a typing game's answer box leaves", p.leaves === 1, p.leaves);
+    // (mid-game, so it asks first: Home still works from the answer box)
+    const asked = await p.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent);
+    await p.keyboard.press("Enter"); await settle(p);
+    check("Home in a typing game's answer box works (asks mid-game, then leaves)", asked === "Leave this game?" && p.leaves === 1, { asked, leaves: p.leaves });
     await p.close();
   }
 

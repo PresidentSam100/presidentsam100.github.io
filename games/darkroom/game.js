@@ -627,6 +627,10 @@
 
   var P = window.GameShell ? GameShell.pausable({ canPause: function () { return screen === "puzzle" && cur && !cur.won; } })
     : { isPaused: function () { return false; } };
+  // Leaving never asks: an unfinished print is saved (on every stroke, and
+  // on pagehide) and picks up where it was. Bests are saved the instant a
+  // print is developed (win), before the reveal.
+  if (window.GameShell) GameShell.guardLeave(false);
 
   // ---- the loop -------------------------------------------------------------------------------
   var lastT = 0;

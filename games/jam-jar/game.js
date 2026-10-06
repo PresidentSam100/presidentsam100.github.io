@@ -286,6 +286,7 @@
   var state = "play"; // play | over
   var dropped = false; // a fruit has gone into this jar (until then Esc leaves, see the pause)
   var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0;
+  var runBest = 0; // the best as this jar began (the stored one climbs mid-run, see applyMerge)
   var current = 0, next = 0;
   function rndTier() { var r = Math.random(); return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
@@ -293,6 +294,7 @@
   function reset() {
     fruits = []; particles = [];
     score = 0; dropCd = 0; dangerT = 0; state = "play"; dropped = false;
+    runBest = best.get();
     current = rndTier(); next = rndTier();
     refreshHud();
     drawChain();
@@ -641,6 +643,9 @@
       sfxMerge(t + 1);
       if (t + 1 === TIERS.length - 1) sfxMelon(); // first watermelon fanfare
     }
+    // a new best is saved the moment the score passes it, not only when the
+    // jar overflows, so closing the tab mid-jar keeps it
+    best.submit(score);
     refreshHud();
   }
 
@@ -668,7 +673,8 @@
     best.submit(score);
     sfxOver();
     document.getElementById("finalScore").textContent = score;
-    document.getElementById("overBest").textContent = score >= best.get() ? "★ New best!" : "Best: " + best.get();
+    // (against the best as the jar began: the stored one has kept pace mid-run)
+    document.getElementById("overBest").textContent = score >= runBest ? "★ New best!" : "Best: " + best.get();
     document.getElementById("overScreen").classList.remove("hidden");
     refreshHud();
   }
@@ -858,6 +864,9 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && state === "play" && !dropped && !P.isPaused()) e.stopPropagation();
   }, true);
+  // For the same reason leaving asks first only once a fruit is in the jar
+  // (paused included), pausing through P; an empty jar and the overflow card don't
+  if (window.GameShell) GameShell.guardLeave({ active: function () { return state === "play" && dropped; }, pausable: P });
 
   var last = performance.now();
   function loop(now) {
