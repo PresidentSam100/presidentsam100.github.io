@@ -133,7 +133,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         await p.evaluate(() => TallOrder.placeAndDrop(1000)); await p.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 8000 }); },
       (p) => p.evaluate(() => TallOrder.state()), "menu"],
     ["typetwo", async (p) => { await p.click('.mode[data-mode="hard"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150); await p.keyboard.press("q");
-        await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 }); await p.waitForTimeout(200); },
+        await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 }); await p.waitForTimeout(1100); },   // (past the moment its keys wait, below)
       (p) => p.evaluate(() => __game.state), "start"],
     ["metazac", async (p) => { await p.click("#start-btn"); await p.waitForTimeout(400); await p.evaluate(() => window.__end()); await p.waitForTimeout(900); },
       (p) => p.evaluate(() => !document.getElementById("overlay-start").classList.contains("hidden") ? "menu" : !document.getElementById("overlay-over").classList.contains("hidden") ? "over" : "play"), "menu",
@@ -151,6 +151,54 @@ module.exports = async ({ browser, base, check, lib }) => {
     const s1 = await state(p);
     check(g + " end screen: Esc leaves, Backspace goes to the game's menu", s0 !== menu && l1 === 1 && s1 === menu && p.leaves === 1, { s0, l1, s1, leaves: p.leaves });
     check(g + " end screen: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- Typetwo: a Backspace or Enter pressed as the run ends doesn't skip the results
+  {
+    const p = await lib.open(ctx, base, "games/typetwo/");
+    await p.click('.mode[data-mode="hard"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150); await p.keyboard.press("q");
+    await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 });
+    await p.keyboard.press("Backspace"); await p.keyboard.press("Enter"); await p.waitForTimeout(100);
+    const s0 = await p.evaluate(() => __game.state);
+    await p.waitForTimeout(1000);
+    await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
+    const s1 = await p.evaluate(() => __game.state);
+    check("typetwo: a reflex Backspace / Enter at game over keeps the results; a second later Backspace goes to the menu", s0 === "over" && s1 === "start", { s0, s1 });
+    check("typetwo reflex: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- Esc on a short banner asks "Leave this game?", as Home does, with the game paused under the box
+  {
+    // 24, Time attack: Esc in the "24!" flash; the next hand is dealt and the clock stops while it asks
+    let p = await lib.open(ctx, base, "games/24/");
+    await p.keyboard.press("2"); await p.waitForTimeout(300);
+    const hand0 = await p.evaluate(() => {
+      const G = TwentyFour.state().G;
+      G.cards = TwentyFourSolver.fromInts([12, 12]);
+      ["1", "5", "2"].forEach((k) => TwentyFour.press(k));   // 12 + 12
+      return G.hand.join();
+    });
+    await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+    const a = await p.evaluate(() => { const s = TwentyFour.state(); return { screen: s.screen, hand: s.G.hand.join(), t: s.G.timeLeft, dlg: !!document.querySelector(".gs-dialog") }; });
+    await p.waitForTimeout(900);   // past the flash's own deal
+    const t2 = await p.evaluate(() => TwentyFour.state().G.timeLeft);
+    await p.keyboard.press("Escape"); await settle(p);
+    const b = await p.evaluate(() => { const s = TwentyFour.state(); return { screen: s.screen, hand: s.G.hand.join(), dlg: !!document.querySelector(".gs-dialog") }; });
+    check("24: Esc in the '24!' flash asks, paused with the next hand dealt; Keep playing returns to it",
+      a.dlg && a.screen === "paused" && a.hand !== hand0 && t2 === a.t && !b.dlg && b.screen === "game" && b.hand === a.hand && p.leaves === 0, { hand0, a, t2, b, leaves: p.leaves });
+    check("24 flash: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+    // Spacer: Esc on the READY banner, once the run has scored
+    p = await lib.open(ctx, base, "games/spacer/");
+    await p.evaluate(() => { game.startGame(); game.addScore(100); }); await p.waitForTimeout(150);
+    await p.keyboard.press("Escape"); await settle(p);
+    const m1 = await p.evaluate(() => ({ mode: game.mode, prev: game.prevMode, dlg: !!document.querySelector(".gs-dialog") }));
+    await p.keyboard.press("Escape"); await settle(p);
+    const m2 = await p.evaluate(() => game.mode);
+    check("spacer: Esc on the READY banner asks with the game paused; Keep playing returns to it", m1.dlg && m1.mode === "paused" && m1.prev === "ready" && m2 === "ready" && p.leaves === 0, { m1, m2, leaves: p.leaves });
+    check("spacer banner: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
 
@@ -172,7 +220,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const m0 = await p.evaluate(() => game.mode);
     await p.keyboard.press("Escape"); await settle(p);
     const m1 = await p.evaluate(() => game.mode);
-    await p.keyboard.press("Enter"); await p.waitForTimeout(2600);
+    await p.keyboard.press("Enter");
+    await p.waitForFunction(() => game.mode === "playing", null, { timeout: 10000 }).catch(() => {});   // (past the READY banner)
     await p.keyboard.press("Escape"); await settle(p);
     const m2 = await p.evaluate(() => game.mode);
     check("spacer: Esc closes the guide, and pauses a game, never leaving", m0 === "gallery" && m1 !== "gallery" && m2 === "paused" && p.leaves === 0, { m0, m1, m2, leaves: p.leaves });

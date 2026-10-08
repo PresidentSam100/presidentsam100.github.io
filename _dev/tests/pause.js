@@ -138,7 +138,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Spacer: Esc pauses and resumes as well as P
   p = await lib.open(ctx, base, "games/spacer/");
   check("spacer: ⏸ button names P / Esc", (await btn(p)) === "⏸ Pause P/Esc", await btn(p));
-  await p.keyboard.press("Enter"); await p.waitForTimeout(2500);
+  await p.keyboard.press("Enter");
+  // (past the READY banner, where Esc isn't the pause key: it asks to leave)
+  await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 10000 }).catch(() => {});
   const m = []; m.push(await p.evaluate(() => window.game.mode));
   for (const k of ["Escape", "Escape", "p"]) { await p.keyboard.press(k); m.push(await p.evaluate(() => window.game.mode)); }
   await p.keyboard.press("p");

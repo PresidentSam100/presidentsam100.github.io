@@ -1082,8 +1082,17 @@
     try { ti.focus(); } catch (e) {} // open the mobile keyboard
   }
 
+  // A key meant for play can land just after the run ends: Backspace to fix
+  // the typo that ended a Hardcore run, or Enter for a last bomb. For a
+  // moment after game over the results screen ignores them, so a reflex
+  // press doesn't skip straight past the results.
+  const OVER_GRACE_MS = 1000;
+  let overAt = 0;
+  const overSettled = () => performance.now() - overAt >= OVER_GRACE_MS;
+
   function gameOver() {
     state = "over";
+    overAt = performance.now();
     try { ti.blur(); } catch (e) {} // close the mobile keyboard
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.rScore.textContent = score;
@@ -1161,12 +1170,13 @@
       Sound.select();
     } else if (state === "over" && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
-      activateOverSelection();
+      if (overSettled()) activateOverSelection();
     } else if (state === "over" && e.key === "Backspace" && !e.repeat && e.target !== ti) {
       // game over: Backspace goes back to the menu (Esc leaves for the games
-      // page); not from the typing field, nor an erase still held from play
+      // page); not from the typing field, nor an erase still held from play,
+      // nor one pressed just as the run ended (overSettled)
       e.preventDefault();
-      quitToMenu();
+      if (overSettled()) quitToMenu();
     } else if (state === "start" && (e.key === "Enter" || e.key === " ")) {
       e.preventDefault();
       startGame();

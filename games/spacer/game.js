@@ -1792,12 +1792,12 @@ class Game {
       const k = e.key.toLowerCase();
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k))
         e.preventDefault();
-      // Esc is claimed where it acts (closing the guide, pausing, resuming),
-      // and through the stage banners, when it does nothing, so a pause
-      // pressed then never throws a run away. On the title and the game-over
-      // and complete screens the shared motion-toggle.js takes it to the
-      // games page.
-      if (k === 'escape' && ['gallery', 'playing', 'paused', 'ready', 'cleared', 'bonusResult'].includes(this.mode))
+      // Esc is claimed where it acts (closing the guide, pausing, resuming).
+      // Elsewhere the shared motion-toggle.js takes it to the games page: on
+      // a stage banner that asks "Leave this game?" first, as Home does, with
+      // the banner paused underneath (guardLeave, below); on the title and
+      // the game-over and complete screens it just goes.
+      if (k === 'escape' && ['gallery', 'playing', 'paused'].includes(this.mode))
         e.preventDefault();
       Sound.init();
       Sound.resume();

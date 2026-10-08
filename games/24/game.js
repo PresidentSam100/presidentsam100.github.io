@@ -269,7 +269,9 @@
     // at time up), so closing the tab mid-run keeps it
     if (G.mode === "timed") { G.solved++; bestSubmit(KEYS.timed, G.solved); }
     else if (!G.hinted) { G.streak++; bestSubmit(G.mode === "hard" ? KEYS.hard : KEYS.classic, G.streak); }
-    setTimeout(function () { if (screen === Game && G && !G.over) { deal(null); announce(); } }, G.mode === "timed" ? 450 : 900);
+    // (unless the next hand is already out: asking to leave deals it early)
+    var hand = G.hand;
+    setTimeout(function () { if (screen === Game && G && !G.over && G.hand === hand) { deal(null); announce(); } }, G.mode === "timed" ? 450 : 900);
   }
   function bestSubmit(key, v) { if (v > store.getNum(key, 0)) store.set(key, v); }
   function skip() {
@@ -592,11 +594,12 @@
   // main menu and the end screens (Time's up, a finished Daily, an Answer)
   // it's left alone, so the shared motion-toggle.js takes it to the games
   // page; C / Backspace leads from those to this game's menu (a Daily's
-  // Answer by way of its result). The Game screen claims it even through
-  // the "24!" flash, when it does nothing, so a pause pressed just then
-  // never throws the run away.
+  // Answer by way of its result). During the "24!" flash it's left alone
+  // too, so it asks "Leave this game?" as Home does, with a Time attack run
+  // paused underneath (see guardLeave below), instead of doing nothing.
   function escActs() {
     if (screen === DailyDone) return !G;
+    if (screen === Game && G && G.celebrate) return false;
     return screen === Game || screen === Options || screen === Confirm || screen === Paused || screen === Scores || screen === Help;
   }
   document.addEventListener("keydown", function (e) {
@@ -672,7 +675,9 @@
   // is under way: something solved, or the cards on the table worked on (a
   // fresh deal with nothing solved has nothing to lose). A Daily never asks:
   // it saves its clock and resumes. Asking pauses a timed run (the clock
-  // stops, the cards hide) and Keep playing goes back to where it was.
+  // stops, the cards hide) and Keep playing goes back to where it was. Asked
+  // during the "24!" flash, a timed run deals its next hand at once, so it
+  // can pause; otherwise the clock would start again behind the box.
   var guardFrom = null;
   if (window.GameShell) GameShell.guardLeave({
     active: function () {
@@ -681,7 +686,10 @@
       return G.streak > 0 || G.solved > 0 || G.hist.length > 0;
     },
     isPaused: function () { return screen === Paused; },
-    pause: function () { if (canPause()) { guardFrom = screen; go(Paused); } },
+    pause: function () {
+      if (screen === Game && G.celebrate && G.mode === "timed") deal(null);
+      if (canPause()) { guardFrom = screen; go(Paused); }
+    },
     resume: function () { if (screen === Paused && guardFrom) go(guardFrom); guardFrom = null; }
   });
 
