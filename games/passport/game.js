@@ -28,6 +28,22 @@
   var C = window.FlagData;
   function $(id) { return document.getElementById(id); }
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // Visual FX on: start a one-shot animation over (styles.css, "the desk
+  // moves"); with FX off the class is never set and nothing moves
+  function replay(el, cls) {
+    if (!el || !fx()) return;
+    el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls);
+  }
+  // the one-shot classes come off as their animation ends (or FX is switched
+  // off mid-way), so turning FX on later doesn't replay them: every stamp on
+  // the page inking in again
+  var ONE_SHOT = ["deal", "jolt", "bump", "fresh", "in"];
+  function oneShotDone(e) {
+    if (e.pseudoElement || !e.target.classList) return;
+    ONE_SHOT.forEach(function (c) { e.target.classList.remove(c); });
+  }
+  document.addEventListener("animationend", oneShotDone);
+  document.addEventListener("animationcancel", oneShotDone);
 
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
@@ -272,6 +288,8 @@
     }
     var c = C[cur.ci];
     $("flag").src = url(c[0]);
+    $("postcard").classList.remove("jolt");
+    replay($("postcard"), "deal");
     var typed = style === "typed";
     $("tags").hidden = typed;
     $("typed").hidden = !typed;
@@ -377,17 +395,18 @@
       : capQ ? "DENIED<small>IT WAS " + city + "</small><small>" + name + "</small>"
       : "DENIED<small>IT WAS " + name + "</small><small>CAPITAL " + city + "</small>";
     big.hidden = false;
-    if (fx()) { big.classList.remove("thunk"); void big.offsetWidth; big.classList.add("thunk"); }
+    replay(big, "thunk");
+    if (!right) { $("postcard").classList.remove("deal"); replay($("postcard"), "jolt"); }
 
     var mini = document.createElement("span");
-    mini.className = "mini" + (right ? "" : " deny");
+    mini.className = "mini" + (right ? "" : " deny") + (fx() ? " fresh" : "");
     mini.style.setProperty("--rot", ((Math.random() * 16) - 8).toFixed(1) + "deg");
     mini.style.setProperty("--shape", ["50%", "6px", "50% / 34%", "14px"][Math.floor(Math.random() * 4)]);
     mini.innerHTML = c[0].toUpperCase() + (city ? '<small class="city">' + city + "</small>" : "") +
       (right ? "<small>ENTRY · " + dateStamp().slice(0, 6) + "</small>" : "<small>DENIED</small>");
     $("stamps").appendChild(mini);
 
-    if (right) { score++; thunk(); if (score % 10 === 0) ding(); }
+    if (right) { score++; thunk(); if (score % 10 === 0) ding(); replay($("hud-score"), "bump"); }
     else {
       denials++; thunk(); buzz();
       if (mode === "dash") remaining = Math.max(0, remaining - 3);
@@ -448,6 +467,7 @@
     }
     $("over-stats").textContent = lines.join("\n");
     $("over").hidden = false;
+    replay(document.querySelector("#over .card"), "in");
   }
 
   function shareDaily() {
@@ -540,6 +560,7 @@
     state = "menu";
     $("answer").blur();
     $("over").hidden = true; $("menu").hidden = false;
+    replay(document.querySelector("#menu .card"), "in");
     paintMenu();
   }
 

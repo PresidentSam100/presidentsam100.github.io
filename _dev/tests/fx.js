@@ -231,4 +231,38 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("sunset-slice: a bomb glows red at the edges with FX off (centre untouched); flashes the whole screen with FX on",
     Math.abs(res["sunset-off"].center) < 12 && res["sunset-off"].edgeRed > 10 && res["sunset-on"].center > 8, { off: res["sunset-off"], on: res["sunset-on"] });
   await c3.close();
+
+  // ---- FX-3: Passport's desk moves with FX on (postcard, jolt, ink, stamp
+  // count); with FX off nothing does, the page looks the same, and turning FX
+  // back on doesn't make old stamps ink in again
+  {
+    const c4 = await lib.newContext(browser);
+    const p = await lib.open(c4, base, "games/passport/");
+    const anims = (sel) => p.evaluate((sel) => [...document.querySelectorAll(sel)].flatMap((e) => e.getAnimations({ subtree: true }).map((a) => a.animationName)).sort().join(), sel);
+    const ask = () => p.waitForFunction(() => Passport.state() === "ask", null, { timeout: 5000 });
+    await p.evaluate(() => Passport.start("tour")); await p.waitForTimeout(30);
+    const dealt = await anims("#postcard");
+    await p.waitForTimeout(400);
+    await p.evaluate(() => Passport.answer((Passport.current().correct + 1) % 4)); await p.waitForTimeout(30);
+    const denied = { postcard: await anims("#postcard"), tag: await anims(".tag.bad"), stamp: await anims("#big-stamp") };
+    await ask();
+    await p.evaluate(() => Passport.answer(Passport.current().correct)); await p.waitForTimeout(30);
+    const entry = { tag: await anims(".tag.hit"), mini: await anims("#stamps .mini:last-child"), score: await anims("#hud-score") };
+    check("passport, FX on: the postcard drops in, a denial jolts it, the stamp spreads ink and its copy inks in",
+      dealt === "deal" && denied.postcard === "jolt" && denied.tag === "wrongJolt" && denied.stamp === "inkRing,inkSpecks,thunkd" &&
+      entry.tag === "tagPress" && entry.mini === "inkIn" && entry.score === "bump", { dealt, denied, entry });
+    await ask();
+    await p.keyboard.press("v"); await p.waitForTimeout(50);
+    await p.evaluate(() => Passport.answer(Passport.current().correct)); await p.waitForTimeout(30);
+    const off = await anims("#postcard, .tag, #stamps .mini, #hud-score, #big-stamp");
+    const look = await p.evaluate(() => ({ postcard: getComputedStyle(document.getElementById("postcard")).transform, mini: getComputedStyle(document.querySelector("#stamps .mini:last-child")).opacity }));
+    await ask();
+    await p.keyboard.press("v"); await p.waitForTimeout(50);
+    const again = await anims("#stamps .mini, #hud-score, .card");
+    check("passport, FX off: nothing moves and the page is the same; FX back on doesn't replay old stamps",
+      off === "" && /^matrix\(0\.99/.test(look.postcard) && look.mini === "0.85" && again === "", { off, look, again });
+    check("passport FX: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+    await c4.close();
+  }
 };
