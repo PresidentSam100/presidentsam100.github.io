@@ -263,14 +263,16 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
+    // With Visual FX off the spiral and ring are drawn as they are, not turning
+    const turn = window.RM_ON && window.RM_ON() ? 0 : this.t;
     // turning spiral, in pale ink
     ctx.strokeStyle = "rgba(170,180,214,0.75)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     for (let a = 0; a < Math.PI * 4; a += 0.2) {
       const rr = (a / (Math.PI * 4)) * r * 0.8;
-      const px = cx + Math.cos(a + this.t * 3) * rr;
-      const py = cy + Math.sin(a + this.t * 3) * rr;
+      const px = cx + Math.cos(a + turn * 3) * rr;
+      const py = cy + Math.sin(a + turn * 3) * rr;
       if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.stroke();
@@ -278,7 +280,7 @@ class Enemy {
     ctx.strokeStyle = "rgba(47,53,80,0.6)";
     ctx.lineWidth = 1.6;
     ctx.setLineDash([7, 6]);
-    ctx.lineDashOffset = -this.t * 14;
+    ctx.lineDashOffset = -turn * 14;
     ctx.beginPath();
     ctx.arc(cx, cy, r * 0.82, 0, Math.PI * 2);
     ctx.stroke();

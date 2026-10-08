@@ -142,6 +142,34 @@
   }
   function withWx(decos, x, w) { decos.forEach(function (d) { d.wx = x + d.u * w; }); return decos; }
 
+  // A resize (a phone turned, a window narrowed) refits the sizes and slides
+  // everything over so the tower stands centred again. Left where it was, it
+  // could end up off screen, past the end of every tier's slide.
+  function refit() {
+    if (!tiers.length) return;
+    sizes();
+    var dx = Math.round(W / 2 - (tiers[0].x + tiers[0].w / 2));
+    tiers.forEach(function (t) { t.x += dx; t.decos.forEach(function (d) { d.wx += dx; }); });
+    debris.forEach(function (d) { d.x += dx; });
+    sprinkles.forEach(function (s) { s.x += dx; });
+    pops.forEach(function (p) { p.x += dx; });
+    if (slider) {
+      slider.x += dx;
+      if (slider.mode === "slide") {
+        // a slide across the new width, as spawnSlider lays it out
+        var span = Math.min(W * 0.92, W0 * 2.6);
+        slider.lo = (W - span) / 2;
+        slider.hi = Math.max(slider.lo, slider.lo + span - slider.w);
+        slider.x = clamp(slider.x, slider.lo, slider.hi);
+        slider.y = towerTopY() - 22;
+      }
+      slider.decos.forEach(function (d) { d.wx = slider.x + d.u * slider.w; });
+    }
+    if (state === "play") camTarget = towerTopY() - Hh * 0.62;
+    else if (state === "menu") cam = camTarget = -Hh * 0.82;
+  }
+  window.addEventListener("resize", refit);
+
   function drop() {
     if (state !== "play" || !slider || slider.mode !== "slide") return;
     slider.mode = "fall";
@@ -438,6 +466,9 @@
       return;
     }
     if (e.repeat) return;
+    // Enter on a focused button is that button's click (a mode, Modes…);
+    // starting a run here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "bakery" : "rush";
@@ -475,6 +506,9 @@
       store.set("tallorder_mode", mode);
       paintMenu();
     });
+    // a mouse click doesn't take focus (Tab still reaches it): left focused,
+    // the Enter that should start the run would press the mode again
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });

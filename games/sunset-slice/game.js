@@ -211,6 +211,9 @@
   }
 
   function slice(o, ang) {
+    // only a run in play cuts: the end beat after a bomb or the last second
+    // lets the same swipe pass through without scoring
+    if (state !== "play" && state !== "menu") return;
     o.cut = true;
     var x = o.u * W, y = o.v * H;
     if (state === "menu") { menuSliced(o, ang); return; }

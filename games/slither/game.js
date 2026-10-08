@@ -172,6 +172,7 @@
     portalEvents: 0,
     food: null,
     best: loadBest(),
+    runBest: 0,          // the best as this run began, for "New Best!"
     matchWins: [0, 0],
   };
 
@@ -287,6 +288,7 @@
     G.interval = BASE_INTERVAL;
     G.acc = 0;
     G.lastTime = 0;
+    G.runBest = G.best;
     G.pendingEnd = false;
     G.running = true;
     G.paused = false;
@@ -368,6 +370,9 @@
 
   // ---- input ----------------------------------------------------------------
   function setQueuedDir(playerIdx, dir) {
+    // Every Classic steer (keys, d-pad, swipe, gamepad) comes through here: a
+    // paused game takes none, or the turn would fire on resume
+    if (G.paused || !G.running) return;
     var s = G.snakes[playerIdx];
     if (!s || !s.alive) return;
     if (s.body.length > 1 && isOpposite(dir, s.dir)) return;
@@ -396,7 +401,8 @@
     var k = e.key;
     // Esc is claimed only when it pauses or resumes (not on the result card,
     // or while a crash plays out), so otherwise it leaves for the games page
-    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { if (togglePause() || k !== "Escape") e.preventDefault(); return; }
+    // (a held key pauses once: its repeats don't toggle it back)
+    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { if ((!e.repeat && togglePause()) || k !== "Escape") e.preventDefault(); return; }
     var arrowMap = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
     var wasdMap = { w: UP, a: LEFT, s: DOWN, d: RIGHT, W: UP, A: LEFT, S: DOWN, D: RIGHT };
     if (arrowMap[k]) { setQueuedDir(G.mode === "two" ? 1 : 0, arrowMap[k]); e.preventDefault(); }
@@ -694,9 +700,9 @@
       sn.body.unshift(moves[k]);
       if (ate[k]) {
         sn.score++; foodClaimed = true;
-        // the best is saved the moment it's passed, not only at the crash
-        // (G.best stays the best as the round began, for "New Best!")
-        if (G.mode === "solo" && sn.score > G.best) saveBest(sn.score);
+        // the best is saved (and shown) the moment it's passed, not only at
+        // the crash, so a run left by Restart or the menu still counts
+        if (G.mode === "solo" && sn.score > G.best) { G.best = sn.score; saveBest(G.best); }
       }
       else sn.body.pop();
     }
@@ -731,8 +737,7 @@
     G.running = false;
     if (G.mode === "solo") {
       var s = G.snakes[0];
-      var isNewBest = s.score > G.best;
-      if (isNewBest) { G.best = s.score; saveBest(G.best); }
+      var isNewBest = s.score > G.runBest;
       updateHud();
       showResult({
         title: "Game Over 🐍",
@@ -883,6 +888,10 @@
       return;
     }
     Array.prototype.forEach.call(document.querySelectorAll("#mode-pick [data-mode]"), function (b) { b.classList.toggle("sel", b.dataset.mode === "lab"); });
+    // A link can arrive mid-game (the editor's ▶ reuses its tab): stop a
+    // Classic or 2-Player round, or it plays on under the level
+    G.running = false; G.paused = false; G.pendingEnd = false;
+    loopToken++;
     G.mode = "lab";
     vsOpts.style.display = "none";
     refreshLabMenu();

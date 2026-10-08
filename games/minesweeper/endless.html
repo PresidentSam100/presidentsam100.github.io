@@ -34,12 +34,13 @@
         <header class="titlebar">
           <span class="tb-icon" aria-hidden="true">💣</span>
           <h1 class="title" id="gameTitle">Minesweeper</h1>
-          <a class="tb-close" href="../" aria-label="Close: back to games">&times;</a>
+          <!-- data-leave: mid-run these links ask first, like ← Games -->
+          <a class="tb-close" href="../" aria-label="Close: back to games" data-leave>&times;</a>
         </header>
         <nav class="modes" aria-label="Mode">
-          <a class="mode" href="./">Classic</a>
-          <a class="mode" href="./?daily">Daily 📅</a>
-          <a class="mode sel" href="endless.html" aria-current="page">Endless ♾️</a>
+          <a class="mode" href="./" data-leave>Classic</a>
+          <a class="mode" href="./?daily" data-leave>Daily 📅</a>
+          <a class="mode sel" href="endless.html" aria-current="page" data-leave>Endless ♾️</a>
         </nav>
 
         <div class="field" id="field">

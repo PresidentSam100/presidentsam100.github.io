@@ -73,8 +73,10 @@
     } catch (e) {}
   }
 
+  // (GameShell.store, so blocked storage can't stop the game running)
+  const store = window.GameShell ? GameShell.store : { getNum: (k, f) => f, set: () => {} };
   const bestKey = () => "clicktap_best_" + input + "_" + dur;
-  const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
+  const getBest = () => store.getNum(bestKey(), 0);
   // one-time migration of saved bests from the pre-rename prefix (folder was "click-rush")
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -93,7 +95,7 @@
   let runBest = 0;
   function liveBest() {
     const cps = clicks / dur;
-    if (cps > runBest) { try { localStorage.setItem(bestKey(), cps.toFixed(4)); } catch (e) {} }
+    if (cps > runBest) store.set(bestKey(), cps.toFixed(4));
   }
   function showSetupBest() {
     const b = getBest();

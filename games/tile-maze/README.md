@@ -4,9 +4,11 @@ A turn-based puzzle: slide through a grid of coloured tiles to reach the goal.
 Some tiles are ice (you keep sliding), some are water/poison (they change your
 "flavour"), some are walls. Levels live in `levels.js`.
 
-There is no timer and no game loop — moves are discrete, and `anim.js` only
-animates the transition between them. That's why the game has no pause: there
-is nothing running to pause.
+There is no game loop — moves are discrete, and `anim.js` only animates the
+transition between them. That's why the game has no pause: nothing runs between
+moves. The one thing that does run is each level's clock (from the first move to
+the win, for the per-level best time), and it holds instead: while "Leave this
+game?" is up, the tab is hidden, or the window is away.
 
 ## Runtime files (loaded by the browser)
 

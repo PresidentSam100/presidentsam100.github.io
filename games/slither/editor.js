@@ -192,8 +192,10 @@
 
   // ---- painting ------------------------------------------------------------------
   function cellAt(e) {
+    // (the board's border is outside the grid: measure from its inner edge)
     var r = canvas.getBoundingClientRect();
-    var x = Math.floor((e.clientX - r.left) / r.width * cols()), y = Math.floor((e.clientY - r.top) / r.height * rows());
+    var x = Math.floor((e.clientX - r.left - canvas.clientLeft) / canvas.clientWidth * cols());
+    var y = Math.floor((e.clientY - r.top - canvas.clientTop) / canvas.clientHeight * rows());
     return x >= 0 && y >= 0 && x < cols() && y < rows() ? { x: x, y: y } : null;
   }
   function paint(x, y, ch) {

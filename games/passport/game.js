@@ -276,10 +276,11 @@
     $("tags").hidden = typed;
     $("typed").hidden = !typed;
     if (typed) {
-      var inp = $("answer");
-      inp.disabled = false;
+      // (a flag dealt while a dash is paused waits, shut, for the resume)
+      var inp = $("answer"), shut = P.isPaused();
+      inp.disabled = shut;
       $("stamp-btn").disabled = false;
-      setTimeout(function () { inp.focus(); }, 0);
+      if (!shut) setTimeout(function () { inp.focus(); }, 0);
     }
     pose(ask === "capital" || ask === "capflag" ? "capital" : "country");
     state = "ask";
@@ -316,7 +317,7 @@
       $("typed-note").textContent = t[3];
     } else {
       document.querySelectorAll("#tags .tag").forEach(function (t, i) {
-        t.querySelector("span").textContent = cap ? capital(list[i]) : C[list[i]][1];
+        t.querySelector(".dest").textContent = cap ? capital(list[i]) : C[list[i]][1];
         t.classList.remove("hit", "bad");
         t.disabled = false;
       });
@@ -347,6 +348,7 @@
 
   function typedSubmit() {
     if (state !== "ask" || style !== "typed") return;
+    if (P.isPaused()) return;          // the clock is stopped, so no answers either
     var raw = $("answer").value.trim();
     if (raw.length < 2) return;
     var right = cur.step === "capital" ? window.CapitalJudge.matches(raw, cur.ci) : resolveTyped(raw) === cur.ci;
@@ -430,17 +432,18 @@
       $("over-msg").innerHTML = score + "<small> / " + dailySet.length + " stamps</small>";
       lines.push("Visa Run #" + rec.n + (ASK_LABEL[ask] ? " · " + ASK_LABEL[ask] : "") +
         (was ? " — recorded earlier: " + rec.score + "/10" : score === 10 ? " — a spotless passport!" : ""));
-      $("again").innerHTML = "Once more (just for fun) <kbd>Enter</kbd>";
+      $("again").innerHTML = 'Once more (just for fun) <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = false;
     } else {
       var b = bestFor(mode, style, ask);
-      if (b) { b.submit(score); isBest = isNaN(runBest) || score > runBest; }
+      // (a run with no stamps is never a record, even the first one)
+      if (b) { b.submit(score); isBest = score > 0 && (isNaN(runBest) || score > runBest); }
       $("over-title").textContent = mode === "tour" ? "The border is closed" : "Final boarding call";
       $("over-msg").innerHTML = score + "<small> stamp" + (score === 1 ? "" : "s") + "</small>";
       lines.push(mode === "tour" ? "three denials on your record" : "the sixty seconds are up");
       lines.push(isBest ? "a new record — frequent flyer! ✈" :
         "best" + (ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "") + ": " + (b ? b.get() : score));
-      $("again").innerHTML = "Travel again <kbd>Enter</kbd>";
+      $("again").innerHTML = 'Travel again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = true;
     }
     $("over-stats").textContent = lines.join("\n");
@@ -507,8 +510,8 @@
     });
     var d = readDaily();
     $("daily-small").innerHTML = d.done
-      ? "done: " + d.score + "/10 ✓ <kbd>3</kbd>"
-      : "today's 10 flags, shareable <kbd>3</kbd>";
+      ? "done: " + d.score + '/10 ✓ <span class="gs-keys"><kbd>3</kbd></span>'
+      : 'today\'s 10 flags, shareable <span class="gs-keys"><kbd>3</kbd></span>';
     document.querySelectorAll("#pick-style button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-s") === style);
     });
@@ -569,7 +572,14 @@
   // Escape only: in typed mode the letters belong to the answer field
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return mode === "dash" && (state === "ask" || state === "reveal"); },
-    keys: ["Escape"]
+    keys: ["Escape"],
+    // a typed dash's answer box is shut while paused, and handed back on resume
+    onChange: function (paused) {
+      if (style !== "typed") return;
+      var inp = $("answer");
+      if (paused) inp.disabled = true;
+      else if (state === "ask") { inp.disabled = false; inp.focus(); }
+    }
   }) : { isPaused: function () { return false; } };
   // A run is in progress once a flag has been answered, until it's decided
   // (the third denial, the clock running out, a Visa Run's tenth flag):

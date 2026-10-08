@@ -489,6 +489,9 @@
   keepGoingBtn.addEventListener("click", function () {
     keepPlaying = true;
     overlay.classList.remove("show");
+    // the winning move may have left no moves at all (the win card came up
+    // instead of Game Over): then keeping going is where it ends
+    checkState();
   });
 
   // Update goal text, best score, and which mode button is highlighted.

@@ -82,6 +82,10 @@ document.addEventListener("keydown", e => {
   if (["arrowup", "arrowdown"].includes(e.key.toLowerCase())) e.preventDefault();
 });
 document.addEventListener("keyup", e => { keys[e.key.toLowerCase()] = false; });
+// A key let go while the window is away never sends its keyup, so what's held
+// is forgotten when focus goes or the game pauses: no paddle drifting on its own.
+function releaseKeys() { for (const k in keys) keys[k] = false; }
+window.addEventListener("blur", releaseKeys);
 
 // --- On-screen arrow buttons (mobile): up/down per player ---
 let leftUp = false, leftDown = false, rightUp = false, rightDown = false;
@@ -354,8 +358,16 @@ function draw() {
   ctx.shadowBlur = 0;
 }
 
-function loop() {
-  update();
+// The game steps at a fixed 60 Hz whatever the screen's refresh rate: every
+// speed here is per 60 Hz step, so stepping once a frame played 2.4x fast on a
+// 144 Hz screen. A long frame catches up a few steps at most, never a spiral.
+const STEP = 1000 / 60;
+let stepAcc = 0, lastFrame = 0;
+function loop(now) {
+  if (lastFrame) stepAcc = Math.min(stepAcc + now - lastFrame, STEP * 5);
+  lastFrame = now;
+  // (a frame a hair early still takes its step, so 60 Hz never skips one)
+  while (stepAcc >= STEP - 1) { update(); stepAcc -= STEP; }
   draw();
   requestAnimationFrame(loop);
 }
@@ -375,10 +387,13 @@ controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " 
 
 // Pause: Esc or P, or the ⏸ corner button. Rallies only; the countdown is
 // three seconds on its own timer, so it just runs out.
-const PAUSE = window.GameShell ? GameShell.pausable({ canPause: () => state === "playing" }) : null;
+const PAUSE = window.GameShell ? GameShell.pausable({
+  canPause: () => state === "playing",
+  onChange: (paused) => { if (paused) releaseKeys(); }
+}) : null;
 // A match is in progress (paused or not) once a point has been scored, until
 // someone wins it: leaving then asks first. The countdown and a 0–0 rally
 // have nothing to lose yet.
 if (PAUSE) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === "playing") && left.score + right.score > 0, pausable: PAUSE });
 
-loop();
+requestAnimationFrame(loop);

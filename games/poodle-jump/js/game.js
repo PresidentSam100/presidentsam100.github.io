@@ -800,7 +800,7 @@ class Game {
   }
 
   renderStart(ctx) {
-    this._panel(ctx, "Doodle Jump", [
+    this._panel(ctx, "Poodle Jump", [
       "Reach as high as you can!",
       "[←][→] / [A][D] to move",
       "[Space] / [↑] / click to shoot",

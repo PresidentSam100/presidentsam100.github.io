@@ -432,6 +432,14 @@
         this.shake = Math.min(1, this.shake + 0.22);
       }
       flashBanner(text, color) { this.flash = { text, color, until: this.now() + 850 }; }
+      // These deadlines run on the clock, which a pause doesn't stop: on
+      // resume, each one still to come moves on by the time spent paused
+      shiftClock(since, d) {
+        if (this.bonusUntil > since) this.bonusUntil += d;
+        if (this.slowUntil > since) this.slowUntil += d;
+        if (this.flashUntil > since) this.flashUntil += d;
+        if (this.flash && this.flash.until > since) this.flash.until += d;
+      }
     }
 
     // ------------------------------- CPU ---------------------------------
@@ -1038,8 +1046,11 @@
         if (matchOver) {
           const names = champs.map((w) => w.name).join(" & ");
           const title = champs.length > 1 ? names + " tie for the win! 🏆" : names + " wins the match! 🏆";
-          setTimeout(() => this.end(title, summary), 700);
-        } else setTimeout(() => { this.vsStructure = this.genVSStructure(); this.players.forEach((p) => this.setupVSRound(p.board)); this.state = "playing"; this.last = 0; }, 1200);
+          this.roundTimer = setTimeout(() => this.end(title, summary), 700);
+        } else this.roundTimer = setTimeout(() => {
+          this.vsStructure = this.genVSStructure(); this.players.forEach((p) => this.setupVSRound(p.board)); this.state = "playing"; this.last = 0;
+          if (this.pauseNext) { this.pauseNext = false; this.pause(); } // paused during the beat
+        }, 1200);
       }
       updateHud(p) {
         const b = p.board, q = (s) => p.hud.querySelector(s);
@@ -1056,10 +1067,21 @@
         const st = q("[data-stars]"); if (st) { const filled = "★".repeat(b.starCount) + "☆".repeat(Math.max(0, 3 - b.starCount)); const bonus = b.bonusActive() ? ' · <span class="bonus-tag">x20 ' + Math.ceil((b.bonusUntil - b.now()) / 1000) + "s</span>" : ""; st.innerHTML = "Stars " + filled + " (" + b.starCount + "/3)" + bonus; }
       }
       end(title, msg) { this.state = "result"; cancelAnimationFrame(this.raf); document.getElementById("result-title").textContent = title; document.getElementById("result-msg").textContent = msg; document.getElementById("result").classList.remove("hidden"); }
-      pause() { if (this.state !== "playing") return; this.state = "paused"; document.getElementById("pause").classList.remove("hidden"); }
-      resume() { if (this.state !== "paused") return; this.state = "playing"; this.last = 0; document.getElementById("pause").classList.add("hidden"); }
+      pause() {
+        // the beat between VS rounds has nothing to stop yet, so the next round starts paused
+        if (this.state === "roundpause") { if (!this.matchOver) this.pauseNext = true; return; }
+        if (this.state !== "playing") return; this.state = "paused"; this.pausedAt = performance.now(); document.getElementById("pause").classList.remove("hidden");
+      }
+      resume() {
+        if (this.state === "roundpause") { this.pauseNext = false; return; }
+        if (this.state !== "paused") return; this.state = "playing"; this.last = 0;
+        const d = performance.now() - this.pausedAt; for (const p of this.players) p.board.shiftClock(this.pausedAt, d);
+        document.getElementById("pause").classList.add("hidden");
+      }
       pauseToggle() { if (this.state === "playing") this.pause(); else if (this.state === "paused") this.resume(); }
-      destroy() { cancelAnimationFrame(this.raf); }
+      // a round-end timer left running would put this game's result card (or
+      // its next round) over whatever comes next
+      destroy() { cancelAnimationFrame(this.raf); clearTimeout(this.roundTimer); }
     }
 
     // ------------------------------ Input --------------------------------

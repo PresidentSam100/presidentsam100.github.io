@@ -466,7 +466,14 @@
 
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    keys: ["Escape"]                       // the letters belong to the answer box
+    keys: ["Escape"],                      // the letters belong to the answer box
+    // the desk shuts while paused: with the clock stopped, a name typed then
+    // would board for free (and letters typed into it would board on resume)
+    onChange: function (paused) {
+      var a = $("answer");
+      a.disabled = paused;
+      if (!paused) a.focus();
+    }
   }) : { isPaused: function () { return false; } };
   // Leaving asks first (and stops the clock) once a run has boarded a name;
   // an empty board has nothing to lose yet

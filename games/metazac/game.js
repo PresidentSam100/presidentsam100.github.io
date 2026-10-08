@@ -169,10 +169,16 @@
       b = randInt(config.mul.min2, config.mul.max2);
       ans = a * b; text = a + " × " + b;
     } else {
-      a = randInt(config.mul.min1, config.mul.max1);
-      b = randInt(config.mul.min2, config.mul.max2);
+      // never divide by 0 ("0 / 0" has no one answer): re-roll a pair of
+      // zeros, and divide by whichever operand isn't 0
+      var tries = 0;
+      do {
+        a = randInt(config.mul.min1, config.mul.max1);
+        b = randInt(config.mul.min2, config.mul.max2);
+      } while (a === 0 && b === 0 && ++tries < 20);
       prod = a * b; // show the product divided by one operand → other
-      if (Math.random() < 0.5) { ans = b; text = prod + " / " + a; }
+      if (a === 0 && b === 0) { ans = 0; text = "0 × 0"; }   // both ranges are just 0: nothing to divide by
+      else if (b === 0 || (a !== 0 && Math.random() < 0.5)) { ans = b; text = prod + " / " + a; }
       else { ans = a; text = prod + " / " + b; }
     }
     return { ans: ans, text: text };
@@ -973,8 +979,21 @@
   input.addEventListener("animationend", function () {
     input.classList.remove("wrong");
   });
+  // A key the focused control acts on itself: Enter on a button or link,
+  // Space on a button or checkbox, either one in a settings box. That one is
+  // the control's, not "start" (Enter on a ticked checkbox still starts).
+  function controlKey(e) {
+    var t = e.target, tag = t && t.tagName;
+    if (!tag || t === input) return false;   // the answer box is the game itself
+    var field = tag === "TEXTAREA" || t.isContentEditable ||
+      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+    if (field) return true;
+    if (e.key === "Enter") return tag === "BUTTON" || tag === "A";
+    return tag === "BUTTON" || tag === "LABEL" || (tag === "INPUT" && /^(checkbox|radio)$/i.test(t.type));
+  }
   document.addEventListener("keydown", function (e) {
     if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ")) {
+      if (controlKey(e)) return;
       e.preventDefault();
       // Space is also the storm key: a held key, or one pressed as the last
       // life slips away, mustn't skip straight past the game-over card
@@ -1015,6 +1034,11 @@
   document.getElementById("start-btn").addEventListener("click", startGame);
   document.getElementById("retry-btn").addEventListener("click", startGame);
   document.getElementById("menu-btn").addEventListener("click", goToMenu);
+  // a mouse click on a card button doesn't leave it focused, so the next
+  // Enter starts a game instead of pressing it again (Tab still reaches it)
+  ["start-btn", "retry-btn", "menu-btn"].forEach(function (id) {
+    document.getElementById(id).addEventListener("mousedown", function (e) { e.preventDefault(); });
+  });
   // the power button: a click never takes focus from the answer box
   powerBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
   powerBtn.addEventListener("click", usePower);

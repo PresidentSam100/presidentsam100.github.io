@@ -156,6 +156,7 @@
 
   function start(mode, ending, setup){
     cancelCpuThink();
+    closePromo();
     G = mode===4 ? make4P(ending) : make2P();
     if(mode===2){
       const s = setup || setup2; setup2 = s;
@@ -238,6 +239,14 @@
       if(p.t==="n"||p.t==="b") minors++; }
     return minors>=2;
   }
+  // K v K, K+B v K, K+N v K: neither side can ever mate
+  function deadPosition(b){
+    let minors=0;
+    for(const p of b){ if(!p||p.dead||p.t==="k") continue;
+      if(p.t!=="n"&&p.t!=="b") return false;
+      minors++; }
+    return minors<=1;
+  }
   function flushElapsed(){
     if(G.clock && G.clock.running){ const now=Date.now();
       G.clock[G.clock.running] = Math.max(0, G.clock[G.clock.running]-(now-G.clock.lastTick));
@@ -312,6 +321,9 @@
       box.appendChild(btn); }
     $("promoOverlay").classList.add("show");
   }
+  // a game that ends (or is replaced) while the picker is up takes it away,
+  // or its move would land on whatever board comes next
+  function closePromo(){ $("promoOverlay").classList.remove("show"); pendingPromo=null; }
 
   function snapshot(){
     return { board:G.board.map(p=>p), turn:G.turn, ep:G.ep, last:G.last,
@@ -348,6 +360,8 @@
   function advance(mover){
     let guard=0;
     let cur=mover;
+    // 2-player: a position no sequence of moves can mate in is drawn at once
+    if(G.mode===2 && deadPosition(G.board)) return endGame("Draw","Insufficient material — neither side can checkmate.");
     while(true){
       if(aliveOwners(G).length<=1){ return finishLastStanding(); }
       const nxt=nextAlive(cur);
@@ -366,7 +380,9 @@
         if(aliveOwners(G).length<=1) return finishLastStanding();
         guard=0; cur=nxt; continue;        // board changed; keep scanning
       } else {
-        // stalemate -> skip this player this rotation
+        // stalemate: a draw between two players; with four, that player
+        // just sits this rotation out
+        if(G.mode===2) return endGame("Draw","Stalemate — "+G.players[nxt].name+" has no legal move.");
         cur=nxt; if(++guard>G.order.length) return endGame("Draw","Everyone is stalemated.");
         continue;
       }
@@ -401,7 +417,7 @@
     return;
   }
   const CHESS_REC = window.GameShell ? GameShell.record("chess_record") : null;
-  function gameOver(title,msg){ setClockRunning(null); G.over=true;
+  function gameOver(title,msg){ setClockRunning(null); G.over=true; closePromo();
     // Record only 2-player games against the CPU — local games and the 3/4-player
     // variants have no single "you" to credit. Every end path funnels through
     // here, and a win is always announced as "<player name> wins!".

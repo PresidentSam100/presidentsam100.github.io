@@ -85,6 +85,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("speedle keys: the end card shows Enter / ⌫ keycaps; Esc leaves, Backspace goes back to the modes, Enter plays again",
     endCaps.join() === "Enter,⌫" && escLeaves && backToMenu && /Time left/.test(again), { endCaps, escLeaves, backToMenu, again });
 
+  // a click on an on-screen key doesn't leave it focused, so a later Space
+  // (not a game key) can't press it again
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  await p.click("#m-sprint"); await p.waitForTimeout(200);
+  await p.click('#kb .key:not(.wide) >> text="a"');
+  await p.keyboard.press("Space"); await p.waitForTimeout(80);
+  const row0 = await p.evaluate(() => [...document.querySelectorAll("#board .row")[0].children].map((t) => t.textContent).join(""));
+  check("speedle: a clicked on-screen key keeps no focus, so Space doesn't type it again", row0 === "a", row0);
+
   check("speedle: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();

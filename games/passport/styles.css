@@ -135,12 +135,13 @@ body {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--paper); border: 1.5px solid #c9bc9c;
 }
+.tag .gs-keys { flex: 0 0 auto; }
 .tag kbd {
-  font-family: inherit; font-size: 11px; flex: 0 0 auto;
+  font-family: inherit; font-size: 11px;
   background: var(--ink); color: var(--paper);
   border-radius: 3px; padding: 1px 6px;
 }
-.tag span { padding-right: 12px; }
+.tag .dest { padding-right: 12px; }
 .tag:hover { border-color: var(--ink); }
 .tag:disabled { cursor: default; }
 .tag.hit { background: #e2f2e5; border-color: var(--entry); color: var(--entry); }

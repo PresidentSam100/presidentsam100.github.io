@@ -169,7 +169,12 @@
     if (!animate) { void playerEl.offsetWidth; playerEl.style.transition = ""; }
   }
   function setFlavor(f) { if (playerEl) playerEl.dataset.flavor = f; }
+  // R or Stop test can land mid-move: bumping testGen drops that move (as
+  // moveGen does in game.js), so it can't undo the restart or pop "Solved!"
+  // over the editor
+  let testGen = 0, overlayT = 0;
   function startTest() {
+    testGen++; clearTimeout(overlayT);
     tstate = E.findStart(grid); tmoves = 0; twon = false; tlocked = false;
     testOverlay.hidden = true;
     renderBoard(); setFlavor("Plain"); placePlayer(tstate.r, tstate.c, false); refreshLive();
@@ -183,6 +188,7 @@
     startTest();
   }
   function exitTest() {
+    testGen++; clearTimeout(overlayT);
     mode = "edit"; edBoard.classList.remove("testing"); testPad.hidden = true; $("testBtn").textContent = "▶ Test";
     if (playerEl) playerEl.hidden = true;
     testOverlay.hidden = true; tstate = null;
@@ -190,13 +196,14 @@
   }
   // Shared animation context — same shape the real game passes to TileAnim
   // (continuous slides, electric zap, slower water, wall bump), but silent.
-  function tCtx() {
+  function tCtx(gen) {
     return {
       playerEl,
       gap: GAP,
       cell: () => cell,
       grid: () => grid,
       reduced: () => !!(window.RM_ON && window.RM_ON()),
+      stale: () => gen !== testGen,    // a restart or Stop test replaced this move
       from: tstate ? { r: tstate.r, c: tstate.c } : null, // tile the player is leaving (midpoint speed blend)
       setFlavor,
       sfx: SFX,
@@ -213,17 +220,19 @@
     if (mode !== "test" || tlocked || twon) return;
     const res = E.resolveMove(grid, tstate, dir);
     const A = window.TileAnim;          // shared animation module (guarded so a load hiccup never freezes test-play)
-    if (res.blocked) { tlocked = true; SFX.thud(); if (A) await A.bump(tCtx(), dir, tstate); tlocked = false; return; }
+    const gen = testGen;
+    if (res.blocked) { tlocked = true; SFX.thud(); if (A) await A.bump(tCtx(gen), dir, tstate); if (gen === testGen) tlocked = false; return; }
     tlocked = true; tmoves++;
-    if (A) await A.play(tCtx(), res);
+    if (A) await A.play(tCtx(gen), res);
     else placePlayer(res.final.r, res.final.c, false);
+    if (gen !== testGen) return;
     tstate = res.final; setFlavor(tstate.flavor); refreshLive();
     if (A && res.hitWall && !res.win) {
-      if (!(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(), dir, tstate); }
+      if (!(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(gen), dir, tstate); if (gen !== testGen) return; }
       else if (A.markBump) A.markBump(playerEl, dir);   // FX off: no nudge or lock, but the wall side is marked
     }
     tlocked = false;
-    if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; setTimeout(() => { testOverlay.hidden = false; }, 250); }
+    if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; overlayT = setTimeout(() => { testOverlay.hidden = false; }, 250); }
   }
 
   // ---- import / export ----
@@ -322,8 +331,9 @@
     if (e.target && (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")) return;
     if (mode !== "test") return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    if (e.key === "r" || e.key === "R") { startTest(); return; }
     const dir = { ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right", w: "up", s: "down", a: "left", d: "right", W: "up", S: "down", A: "left", D: "right" }[e.key];
+    if (e.repeat) { if (dir) e.preventDefault(); return; }   // one move per press, as in the game
+    if (e.key === "r" || e.key === "R") { startTest(); return; }
     if (dir) { e.preventDefault(); testMove(dir); }
   });
 

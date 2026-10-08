@@ -370,6 +370,9 @@
       return;
     }
     if (e.repeat) return;
+    // Enter on a focused button is that button's click (a pick, Again, Modes…);
+    // casting off here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       var mk = e.key.toLowerCase();
       if (e.key === "1") { pref.clock = "daybreak"; savePicks(); }
@@ -406,6 +409,11 @@
       if (!b) return;
       if (id === "pick-clock") pref.clock = b.dataset.v; else pref.kb = b.dataset.v;
       savePicks();
+    });
+    // a mouse click on a pick doesn't take focus (Tab still reaches it): left
+    // focused, the Enter that should cast off would press the pick again
+    document.getElementById(id).addEventListener("mousedown", function (e) {
+      if (e.target.closest("button")) e.preventDefault();
     });
   });
   document.getElementById("play").addEventListener("click", function () { start(); });
@@ -465,15 +473,18 @@
     Art.scene(ctx, W, H, t, f);
     if (state === "menu") Art.boat(ctx, W * 0.82, waterY + (H - waterY) * 0.22, Math.max(0.6, Math.min(1.3, H / 640)));
     var playing = state === "play" || state === "ending";
+    // the bob, the shadow's wag and the boot's rocking run on this clock: with
+    // Visual FX off it stands still, so they're drawn as they are, unmoving
+    var tm = f ? t : 0;
     spots.forEach(function (s, i) {
       if (!playing) return;
       var dip = s.phase === "bite" && s.what !== "junk" ? Math.min(1, s.t * 6) : 0;
       if (s.phase === "hint" && f) Art.ring(ctx, s.x, s.y, s.r * (1.3 + (s.t / s.dur) * 1.2), 0.5 * (1 - s.t / s.dur) + 0.15);
       if (s.phase === "hint") Art.ring(ctx, s.x, s.y, s.r * 1.7, 0.3);
       if (s.phase === "bite") {
-        if (s.what === "junk") Art.junk(ctx, s.x, s.y + s.r * 0.3, s.r * 1.5, t);
+        if (s.what === "junk") Art.junk(ctx, s.x, s.y + s.r * 0.3, s.r * 1.5, tm);
         else {
-          Art.shadowFish(ctx, s.x + s.r * 0.2, s.y + s.r * 0.7, s.r * (s.what === "golden" ? 1.5 : 1.8), t);
+          Art.shadowFish(ctx, s.x + s.r * 0.2, s.y + s.r * 0.7, s.r * (s.what === "golden" ? 1.5 : 1.8), tm);
           // The last moment flashes: it's about to get away. With Visual FX
           // off the same ring holds steady and dashed instead of blinking.
           if (s.dur - s.t < 0.35) {
@@ -486,7 +497,7 @@
           }
         }
       }
-      if (s.what !== "junk" || s.phase !== "bite") Art.bobber(ctx, s.x, s.y, s.r * 0.55, dip, 0, t);
+      if (s.what !== "junk" || s.phase !== "bite") Art.bobber(ctx, s.x, s.y, s.r * 0.55, dip, 0, tm);
       var label = layout.labels[i];
       if (s.sym && s.phase !== "idle") label = SHIFT_SYM[label] || label;
       Art.tag(ctx, s.x, s.y + s.r * 1.55, s.r * 0.62, label, s.phase === "bite", s.sym && s.phase === "bite");

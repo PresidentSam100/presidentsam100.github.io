@@ -99,5 +99,64 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("passport typed dash: when the clock runs out, M toggles on the end screen", focused === "answer" && d1.s === "over" && d2.m === !d1.m && d2.v === d1.v, { focused, d1, d2 });
   check("passport (dash): no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // a typed Dash, paused: the answer box takes nothing and Enter stamps nothing; resumed, it's back in play
+  p = await lib.open(ctx, base, "games/passport/");
+  await p.evaluate(() => { Passport.setStyle("typed"); Passport.start("dash"); });
+  await p.waitForFunction(() => document.activeElement && document.activeElement.id === "answer");
+  const ans = await p.evaluate(() => Passport.current().answer);
+  await p.keyboard.press("Escape");
+  const pz = await p.evaluate(() => ({ paused: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, disabled: document.getElementById("answer").disabled }));
+  await p.keyboard.type(ans); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const pz2 = await p.evaluate(() => ({ score: Passport.score(), state: Passport.state(), v: document.getElementById("answer").value }));
+  await p.keyboard.press("Escape"); await p.waitForTimeout(50);
+  const rz = await p.evaluate(() => ({ disabled: document.getElementById("answer").disabled, ae: document.activeElement.id }));
+  await p.keyboard.type(ans); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const rz2 = await p.evaluate(() => Passport.score());
+  check("passport typed dash: paused, the answer box is shut and Enter stamps nothing; resumed, it's focused and stamps",
+    pz.paused && pz.disabled && pz2.score === 0 && pz2.state === "ask" && !rz.disabled && rz.ae === "answer" && rz2 === 1, { pz, pz2, rz, rz2 });
+  check("passport (paused dash): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // a first-ever tour: no stamps is no record; one stamp is
+  p = await lib.open(ctx, base, "games/passport/");
+  const tour = async (right) => {
+    await p.evaluate(() => { Passport.fast(); Passport.start("tour"); });
+    for (let k = 0, hits = right; k < 3 + right; k++) {
+      await p.waitForFunction(() => Passport.state() === "ask");
+      await p.evaluate((hit) => { const c = Passport.current(); Passport.answer(hit ? c.correct : (c.correct + 1) % 4); }, hits-- > 0);
+      await p.waitForFunction(() => Passport.state() !== "reveal");
+    }
+    await p.waitForFunction(() => Passport.state() === "over");
+    return p.evaluate(() => document.getElementById("over-stats").textContent);
+  };
+  const t0s = await tour(0), t1s = await tour(1);
+  check("passport: a first tour with no stamps isn't a new record; a later one with a stamp is",
+    !/new record/.test(t0s) && /new record/.test(t1s), { t0s, t1s });
+  await p.close();
   await ctx.close();
+
+  // keycaps on Passport's buttons show on a desktop and hide on a touch-only phone
+  // (Share's S is left out: its exact markup is checked above)
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c2 = await lib.newContext(browser, opts);
+    const q = await lib.open(c2, base, "games/passport/");
+    const odd = () => q.evaluate((phone) => [...document.querySelectorAll("#desk button kbd, #menu button kbd, #over button kbd")].filter((k) => !k.closest("#share")).filter((k) => {
+      const w = k.closest(".gs-keys");
+      return !w || !k.closest("button").contains(w) || (getComputedStyle(w).display === "none") !== phone;
+    }).map((k) => (k.closest("button").id || k.closest("button").className) + ":" + k.textContent), label === "phone");
+    const onMenu = await odd();
+    await q.evaluate(() => { Passport.fast(); Passport.start("tour"); });
+    for (let k = 0; k < 3; k++) {
+      await q.waitForFunction(() => Passport.state() === "ask");
+      await q.evaluate(() => { const c = Passport.current(); Passport.answer((c.correct + 1) % 4); });
+      await q.waitForFunction(() => Passport.state() !== "reveal");
+    }
+    await q.waitForFunction(() => Passport.state() === "over");
+    const onEnd = await odd();
+    check("passport, " + label + ": the keycaps on its buttons " + (label === "phone" ? "are hidden" : "show"), onMenu.length === 0 && onEnd.length === 0, { onMenu, onEnd });
+    await q.close();
+    await c2.close();
+  }
 };

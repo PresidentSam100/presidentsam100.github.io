@@ -1416,7 +1416,8 @@ function drawRow(r, row) {
     shoreG.addColorStop(1, "rgba(6,24,54,0)");
     ctx.fillStyle = shoreG;
     ctx.fillRect(SCENE_L, top, W, 15);
-    const t1 = (performance.now() / 130) % 40, t2 = 40 - (performance.now() / 210) % 40;
+    const rt = fxOff() ? 0 : performance.now();   // (Visual FX off: the ripples stay where they are)
+    const t1 = (rt / 130) % 40, t2 = 40 - (rt / 210) % 40;
     ctx.fillStyle = "rgba(255,255,255,.10)";
     for (let x = SCENE_L; x < SCENE_R; x += 40) {
       ctx.beginPath(); ctx.arc(x + t1, top + TILE * 0.32, 6, 0, Math.PI); ctx.fill();
@@ -1439,10 +1440,10 @@ function drawRow(r, row) {
 // current column of a coin — fixed for grass/road/pads, but rides its log on a moving river lane
 function coinColOf(row) { const c = row.coin; return c.log ? itemCol(row, c.log) + c.k : c.col; }
 
-// spinning gold coin
+// spinning gold coin (Visual FX off: face on, still)
 function drawCoin(col, top, yOff) {
   const cx = col * TILE + TILE / 2, cy = top + TILE / 2 + (yOff || 0);
-  const wob = Math.abs(Math.cos(performance.now() / 260)); // 0..1 spin
+  const wob = fxOff() ? 1 : Math.abs(Math.cos(performance.now() / 260)); // 0..1 spin
   ctx.fillStyle = "rgba(0,0,0,.18)";
   ctx.beginPath(); ctx.ellipse(cx, cy + 13, 9, 4, 0, 0, 7); ctx.fill();
   ctx.fillStyle = "#f4c020";
@@ -1813,7 +1814,7 @@ function drawSplash(sx, sy, t, face) {
 function drawEagle() {
   if (!eagle) return;
   const x = eagle.x, y = eagle.y;
-  const flap = Math.sin(performance.now() / 60) * 10;
+  const flap = fxOff() ? 0 : Math.sin(performance.now() / 60) * 10;   // (wings held spread with Visual FX off)
   // ground shadow that grows and darkens as the eagle drops toward the chicken
   const groundY = -renderGy * TILE - cameraY;
   const p = clamp((y - eagle.startY) / (groundY - eagle.startY), 0, 1); // 0 = high up, 1 = at the chicken
@@ -1971,7 +1972,9 @@ function drawChick3D(cx, cy, s, th, sk) {
 
 function drawMenu() {
   veil(0.52);
-  const bob = Math.sin(performance.now() / 300) * 4;
+  // (Visual FX off: the chickens stand still and the hint stays lit)
+  const still = fxOff();
+  const bob = still ? 0 : Math.sin(performance.now() / 300) * 4;
   ctx.save();
   ctx.translate(W / 2, H * 0.15);
   ctx.rotate(-0.03);
@@ -1994,12 +1997,12 @@ function drawMenu() {
   const px2 = W / 2, py2 = H * 0.775;
   ctx.fillStyle = "rgba(0,0,0,.25)"; // turntable shadow
   ctx.beginPath(); ctx.ellipse(px2, py2 + 3, 27, 8, 0, 0, 7); ctx.fill();
-  const th = (window.RM_ON && window.RM_ON()) ? 0 : (performance.now() / 2400) * Math.PI * 2;
+  const th = still ? 0 : (performance.now() / 2400) * Math.PI * 2;
   drawChick3D(px2, py2, 1.15, th, sk);
   keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, H * 0.815, 17, "#fff");
   const nextLocked = SKINS.find(s => be < s.unlock);
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
-  const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
+  const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
   keysCenter("[↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff");
   ctx.globalAlpha = 1;
@@ -2014,9 +2017,10 @@ function drawDead() {
   const mode = MODES.find(m => m.id === gameMode);
   textCenter("GAME OVER", W / 2, H * 0.17, 50, "#ff6b6b");
   textCenter(msg, W / 2, H * 0.17 + 40, 22, "#fff");
-  // "NEW BEST!" flourish when this run beat the previous best
+  // "NEW BEST!" flourish when this run beat the previous best (still, at full
+  // size, with Visual FX off)
   if (score() > prevHigh && score() > 0) {
-    const pop = 1 + 0.12 * Math.sin(performance.now() / 150);
+    const pop = fxOff() ? 1 : 1 + 0.12 * Math.sin(performance.now() / 150);
     ctx.save();
     ctx.translate(W / 2, H * 0.30); ctx.scale(pop, pop);
     textCenter("★ NEW BEST! ★", 0, 0, 26, "#ffe14d");
@@ -2033,7 +2037,7 @@ function drawDead() {
 function drawPauseOverlay() {
   veil(0.52);
   textCenter("PAUSED", W / 2, H * 0.42, 56, "#fff");
-  const pulse = 0.6 + 0.4 * Math.sin(performance.now() / 350);
+  const pulse = fxOff() ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);   // (steady with Visual FX off)
   ctx.globalAlpha = pulse;
   keysCenter("[P] / [Esc] to resume", W / 2, H * 0.54, 20, "#dfe6f0");
   ctx.globalAlpha = 1;

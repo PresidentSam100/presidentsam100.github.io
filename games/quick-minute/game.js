@@ -193,7 +193,7 @@
 
   // ----- input --------------------------------------------------------
   function move(dir) {
-    if (!running) return;
+    if (!running || PAUSE.isPaused()) return;   // paused: the traffic's frozen, so no picking a lane against it
     var n = Math.max(0, Math.min(LANES - 1, player.lane + dir));
     if (n !== player.lane) { player.lane = n; SND.lane(); }
   }

@@ -501,6 +501,14 @@ function usePower(player, kind, c) {
   powers[player][kind]--;
   renderPowers();
   busy = true;
+  // a bomb or wall aimed at a full column: the power comes back, still armed
+  // (as the status still says), so the next column clicked gets it
+  const refund = () => {
+    powers[player][kind]++;
+    if (isHuman) armedPower = kind;
+    busy = false;
+    renderPowers();
+  };
 
   const finish = (mover, extraTurn) => {
     applyGravity(board);
@@ -536,7 +544,7 @@ function usePower(player, kind, c) {
 
   if (kind === 'bomb') {
     const r = dropRow(board, c);
-    if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; } // full column — refund
+    if (r < 0) { refund(); return; } // full column
     board[r][c] = 4; // the lit bomb, shown for a beat
     lastDisc = null; // the bomb is this move, and its blast may move the old last disc
     render();
@@ -564,7 +572,7 @@ function usePower(player, kind, c) {
 
   // wall
   const r = dropRow(board, c);
-  if (r < 0) { powers[player][kind]++; busy = false; renderPowers(); return; }
+  if (r < 0) { refund(); return; }
   board[r][c] = WALL;
   animMove = lastDisc = { r, c };
   sfxWall();
@@ -669,6 +677,10 @@ const rulesModal = document.getElementById('rulesModal');
 document.getElementById('rules').addEventListener('click', () => rulesModal.classList.add('open'));
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
+// Esc with the Rules open closes them (claimed, so it doesn't also leave the game)
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && rulesModal.classList.contains('open')) { rulesModal.classList.remove('open'); e.preventDefault(); }
+});
 
 // keep the hole positions aligned if the board resizes (e.g. mobile breakpoint)
 let resizeTimer;

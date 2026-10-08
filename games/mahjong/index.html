@@ -37,9 +37,9 @@
     <span id="hud-left">144 tiles</span>
     <span id="hud-pairs"></span>
     <span class="hud-btns">
-      <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <kbd>H</kbd></button>
-      <button type="button" id="btn-undo" title="Take back (+15s)">Undo <kbd>U</kbd></button>
-      <button type="button" id="btn-shuffle" title="Reshuffle what's left (+60s)">Shuffle <kbd>S</kbd></button>
+      <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <span class="gs-keys"><kbd>H</kbd></span></button>
+      <button type="button" id="btn-undo" title="Take back (+15s)">Undo <span class="gs-keys"><kbd>U</kbd></span></button>
+      <button type="button" id="btn-shuffle" title="Reshuffle what's left (+60s)">Shuffle <span class="gs-keys"><kbd>S</kbd></span></button>
     </span>
   </div>
   <div id="board" role="grid" aria-label="A mahjong solitaire layout; match free pairs to clear it"></div>
@@ -58,11 +58,11 @@
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
-        <button type="button" data-v="classic"><b>Classic</b><small>a fresh turtle, fastest clear <kbd>1</kbd></small></button>
-        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's turtle, shareable <kbd>2</kbd></small></button>
+        <button type="button" data-v="classic"><b>Classic</b><small>a fresh turtle, fastest clear <span class="gs-keys"><kbd>1</kbd></span></small></button>
+        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's turtle, shareable <span class="gs-keys"><kbd>2</kbd></span></small></button>
       </div>
     </div>
-    <button type="button" class="playbtn" id="play"><b>Deal the turtle</b> <kbd>Enter</kbd></button>
+    <button type="button" class="playbtn" id="play"><b>Deal the turtle</b> <span class="gs-keys"><kbd>Enter</kbd></span></button>
     <p class="bests" id="bests"></p>
   </div>
 </section>
@@ -73,7 +73,7 @@
     <p class="big" id="over-msg"></p>
     <p class="stats" id="over-stats"></p>
     <div class="row">
-      <button type="button" id="again">Deal again <kbd>Enter</kbd></button>
+      <button type="button" id="again">Deal again <span class="gs-keys"><kbd>Enter</kbd></span></button>
       <button type="button" id="share" hidden>Share result</button>
       <button type="button" id="to-menu">Modes <span class="gs-keys"><kbd title="Backspace">⌫</kbd></span></button>
     </div>

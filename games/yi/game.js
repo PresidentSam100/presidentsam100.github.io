@@ -166,6 +166,7 @@ function playerNames(n) {
 }
 
 function startHand(dealer) {
+  clearTimers(); // nothing from the last hand carries into this one
   var n = cfg.players;
   var names = playerNames(n);
   var players = [];
@@ -210,6 +211,58 @@ function startHand(dealer) {
 }
 
 // ----------------------------------------------------------------
+//  Table timers
+// ----------------------------------------------------------------
+// Every wait in the flow of play (a turn's pause, a CPU's move, the YI call,
+// the catch window) goes through later(), so the table can be held: while
+// "Leave this game?" is up, and while the player is away. Each wait keeps the
+// time it had left. A wait belongs to the game that set it and never fires
+// into another one (Quit to menu, then Deal & Play).
+var timers = [];
+var holds = {}; // why the table is waiting: "leave", "away"
+
+function held() {
+  for (var k in holds) if (holds[k]) return true;
+  return false;
+}
+function later(fn, ms) {
+  var t = { fn: fn, left: Math.max(0, ms || 0), game: G, id: 0, at: 0 };
+  timers.push(t);
+  if (!held()) armTimer(t);
+  return { cancel: function () { dropTimer(t); } };
+}
+function armTimer(t) {
+  t.at = Date.now();
+  t.id = setTimeout(function () {
+    dropTimer(t);
+    if (G === t.game) t.fn();
+  }, t.left);
+}
+function dropTimer(t) {
+  clearTimeout(t.id);
+  var i = timers.indexOf(t);
+  if (i >= 0) timers.splice(i, 1);
+}
+function clearTimers() {
+  timers.forEach(function (t) { clearTimeout(t.id); });
+  timers = [];
+}
+function hold(why) {
+  if (!held()) {
+    timers.forEach(function (t) {
+      clearTimeout(t.id);
+      t.left = Math.max(0, t.left - (Date.now() - t.at));
+    });
+  }
+  holds[why] = true;
+}
+function release(why) {
+  if (!holds[why]) return;
+  delete holds[why];
+  if (!held()) timers.forEach(armTimer);
+}
+
+// ----------------------------------------------------------------
 //  Turn lifecycle
 // ----------------------------------------------------------------
 // The constant gap before a player may act: a fixed "think" pace (scaled only by
@@ -236,7 +289,7 @@ function beginTurn() {
   G.busy = true; // nobody acts (no AI move, human cards inactive) during the pause
   render();
   var delay = turnGap();
-  setTimeout(function () {
+  later(function () {
     if (!G || G.over || G.currentPlayerIndex !== who) return;
     if (G.players[who].isHuman) {
       G.busy = false;
@@ -320,7 +373,9 @@ function playCard(pi, idx, chosenColor, done) {
   // instant they play, before the card finishes flying to the discard pile.
   render();
 
+  var g = G;
   flyCard(card, srcRect, { flip: pi !== 0 }, function () {
+    if (G !== g) return; // quit to menu (or a new deal) while it flew
     var prevColor = G.currentColor; // color active *before* this card (wild4 challenge)
     G.discard.push(card);
     G.discardBy = pi;
@@ -492,7 +547,7 @@ function resolveWild4(pi, challengeColor, finish) {
     var suspicious = G.players[pi].hand.length <= 2 || Math.random() < 0.22;
     if (suspicious) {
       log([{ player: target }, " challenges the Wild Draw Four!"]);
-      setTimeout(applyChallenge, 500);
+      later(applyChallenge, 500);
     } else {
       applyNoChallenge();
     }
@@ -518,7 +573,7 @@ function unoWindow(pi, cont) {
     var finishUno = function () {
       if (done) return;
       done = true;
-      if (timer) clearTimeout(timer);
+      if (timer) timer.cancel();
       hideOverlay();
       cont();
     };
@@ -529,7 +584,7 @@ function unoWindow(pi, cont) {
       sfxUno();
       finishUno();
     });
-    timer = setTimeout(function () {
+    timer = later(function () {
       if (done) return;
       // a random CPU catches you
       var catcher = pickCatcher(pi);
@@ -584,12 +639,12 @@ function cpuTurn() {
     if (got.length && canPlay(got[0])) {
       var di = hand.length - 1;
       log([{ player: pi }, " draws and plays it."]);
-      setTimeout(function () {
+      later(function () {
         playCard(pi, di, chooseColor(pi), null);
       }, wait);
     } else {
       log([{ player: pi }, " draws and passes."]);
-      setTimeout(function () { passTurn(pi); }, wait);
+      later(function () { passTurn(pi); }, wait);
     }
     return;
   }
@@ -687,7 +742,7 @@ function onHumanDraw() {
     render();
     // let the drawn card finish gliding in; the constant inter-turn pause is
     // then applied uniformly in beginTurn.
-    setTimeout(function () { passTurn(0); }, Math.max(0, drawAnimUntil - Date.now()));
+    later(function () { passTurn(0); }, Math.max(0, drawAnimUntil - Date.now()));
   }
 }
 
@@ -1156,7 +1211,7 @@ function render() {
 
   document.getElementById("handLabel").textContent =
     "Your hand (" + human.hand.length + ")" +
-    (human.hand.length === 1 && human.calledUno ? " — UNO!" : "");
+    (human.hand.length === 1 && human.calledUno ? " — YI!" : "");
 
   // Slide the human's surviving hand cards from their old positions to the new.
   if (fx) {
@@ -1194,6 +1249,7 @@ function renderControls() {
 
 function quitToMenu() {
   G = null;
+  clearTimers();
   document.getElementById("game").style.display = "none";
   document.getElementById("setup").style.display = "block";
   hideOverlay();
@@ -1201,13 +1257,29 @@ function quitToMenu() {
 
 // Leaving asks first while a game is under way: a hand someone has played or
 // drawn in, or a points game between hands (its totals live only in memory).
-// Not on the setup screen, nor once the game is decided.
-if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () {
-  if (!G) return false;
-  var pointsOn = cfg.mode === "points" && totals.some(function (t) { return t > 0; }) &&
-    Math.max.apply(null, totals) < 500;
-  return (!G.over && !!G.acted) || pointsOn;
+// Not on the setup screen, nor once the game is decided. While it asks, the
+// table waits, so a YI call or a catch can't run out under the box.
+if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
+  active: function () {
+    if (!G) return false;
+    var pointsOn = cfg.mode === "points" && totals.some(function (t) { return t > 0; }) &&
+      Math.max.apply(null, totals) < 500;
+    return (!G.over && !!G.acted) || pointsOn;
+  },
+  pause: function () { hold("leave"); },
+  resume: function () { release("leave"); },
+  isPaused: function () { return !!holds.leave; },
 });
+
+// Away from the tab (hidden, or the window loses focus) the table waits too,
+// and carries on once the player is back: Yi has no pause screen to resume
+// from, and each wait still has the time it had left.
+if (window.GameShell && GameShell.onAutoPause) GameShell.onAutoPause(function () { hold("away"); });
+function backAtTable() {
+  if (!document.hidden) release("away");
+}
+document.addEventListener("visibilitychange", backAtTable);
+window.addEventListener("focus", backAtTable);
 
 // ----------------------------------------------------------------
 //  Overlays
@@ -1252,7 +1324,7 @@ function offerCatch(pi, cont) {
   var finish = function (caught) {
     if (done) return;
     done = true;
-    clearTimeout(timer);
+    timer.cancel();
     hideOverlay();
     if (caught) {
       drawCards(pi, 2);
@@ -1268,7 +1340,7 @@ function offerCatch(pi, cont) {
     '<button class="btn uno" id="catchBtn" style="font-size:1.2rem;padding:0.8rem 2rem">Catch them!</button>';
   overlay.classList.add("show");
   document.getElementById("catchBtn").onclick = function () { finish(true); };
-  var timer = setTimeout(function () { finish(false); }, 2600);
+  var timer = later(function () { finish(false); }, 2600);
 }
 
 function showWild4Choice(layer, cb) {
@@ -1322,7 +1394,8 @@ function showResult(winner, gained, reached500) {
   var btns;
   if (cfg.mode === "points" && reached500) {
     title = (w.isHuman ? "🏆 You reached 500 — game over!" : w.name + " reached 500!");
-    btns = '<button class="btn" id="rematchBtn">New game</button>';
+    btns = '<button class="btn" id="rematchBtn">New game</button>' +
+      '<button class="btn secondary" id="menuBtn">Menu</button>';
   } else if (cfg.mode === "points") {
     btns = '<button class="btn" id="nextHandBtn">Next hand</button>' +
       '<button class="btn secondary" id="menuBtn">Menu</button>';

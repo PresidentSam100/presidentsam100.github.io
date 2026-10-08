@@ -466,7 +466,10 @@
     renderStats();
     renderTime();
     setStatus(saved && hasProgress() ? "Picked up your " + LABEL[g.level] + " game where you left off." : "");
-    if (!PAUSE.isPaused()) startClock();
+    // A tab opened in the background (or left while this one was printing)
+    // never fires the hide that auto-pauses, so it starts paused instead
+    if (document.hidden) PAUSE.pause();
+    else if (!PAUSE.isPaused()) startClock();
     save();
     prefetch(g.level);
   }

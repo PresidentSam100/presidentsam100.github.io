@@ -293,6 +293,7 @@
 
   // ------------------------------------------------ input
   function press() {
+    if (held) { rearm(); return; }   // a duel called off while away: this tap starts it over
     if (state === "wait") tooSoon();
     else if (state === "go") record();
     else if (state === "result") nextAttempt();
@@ -301,6 +302,7 @@
   }
   panel.addEventListener("pointerdown", function (e) { e.preventDefault(); press(); });
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.code !== "Space" && e.code !== "Enter") return;
     e.preventDefault();
     if (e.repeat) return;
@@ -313,13 +315,25 @@
   // decided: leaving then asks first. While it asks, a standoff under way is
   // called off, and starts over on "Keep playing", so the box can't cost a duel.
   var held = false;
+  function hold() {
+    if (state !== "wait" && state !== "go") return;
+    clearTimeout(timerId); clearTimeout(windowId); held = true;
+  }
+  function rearm() { if (held) { held = false; arm(); renderHud(); renderTimes(); } }
   if (window.GameShell) GameShell.guardLeave({
     active: function () { return results.length > 0 && ["wait", "go", "result", "toosoon", "late"].indexOf(state) >= 0; },
-    pause: function () {
-      if (state !== "wait" && state !== "go") return;
-      clearTimeout(timerId); clearTimeout(windowId); held = true;
-    },
-    resume: function () { if (held) { held = false; arm(); renderHud(); renderTimes(); } }
+    pause: hold,
+    resume: rearm
+  });
+  // Switching tabs or windows mid-standoff calls it off the same way: its
+  // timers would call DRAW! and score the duel lost while nobody's looking.
+  // It waits, called off, for the next tap.
+  if (window.GameShell) GameShell.onAutoPause(function () {
+    hold();
+    if (!held) return;
+    FX.start("214,176,120", 0.5);
+    panel.className = "panel wait"; pBig.className = "big"; pBig.textContent = "Steady…"; pRating.textContent = "";
+    pSub.textContent = "called off · tap to start the duel again";
   });
 
   // ------------------------------------------------ boot

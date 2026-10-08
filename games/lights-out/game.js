@@ -21,6 +21,9 @@
   var A = window.LoArt;
   function $(id) { return document.getElementById(id); }
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // a button's keycap, hidden on touch-only devices (.gs-keys, motion-toggle.js)
+  function keyCap(k) { return '<span class="gs-keys"><kbd>' + k + "</kbd></span>"; }
+  var ENTER_CAP = " " + keyCap("Enter");
 
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
@@ -364,7 +367,7 @@
       $("over-msg").textContent = moves + " moves · par " + par;
       lines.push("mainspring had " + (budget - moves) + " to spare");
       lines.push("best run: level " + (bestLevel ? bestLevel.get() : level));
-      $("again").innerHTML = "Next level <kbd>Enter</kbd>";
+      $("again").innerHTML = "Next level" + ENTER_CAP;
       $("share").hidden = true;
     } else if (mode === "daily") {
       var d = readDaily();
@@ -379,7 +382,7 @@
       lines.push("daily tray No. " + rec.n + (dailyRecorded
         ? " — recorded earlier: " + rec.moves + " moves"
         : overParVal === 0 ? " — a perfect wind!" : ""));
-      $("again").innerHTML = "Once more (just for fun) <kbd>Enter</kbd>";
+      $("again").innerHTML = "Once more (just for fun)" + ENTER_CAP;
       $("share").hidden = false;
     } else {
       var z = readZen(), key = "s" + n;
@@ -391,7 +394,7 @@
       $("over-msg").textContent = moves + " moves · par " + par;
       lines.push(overParVal === 0 ? "a perfect wind!" : "+" + overParVal + " over par");
       lines.push(n + "×" + n + " trays shut: " + z["s" + n]);
-      $("again").innerHTML = "New tray <kbd>Enter</kbd>";
+      $("again").innerHTML = "New tray" + ENTER_CAP;
       $("share").hidden = true;
     }
     $("over-stats").textContent = lines.join("\n");
@@ -406,11 +409,17 @@
     $("over-msg").textContent = "level " + level;
     $("over-stats").textContent = (level > 1 ? "wound " + (level - 1) + (level === 2 ? " level" : " levels") + " · " : "") +
       "best run: level " + (bestLevel ? bestLevel.get() : 0);
-    $("again").innerHTML = "Wind again <kbd>Enter</kbd>";
+    $("again").innerHTML = "Wind again" + ENTER_CAP;
     $("share").hidden = true;
     setTimeout(showOver, 900);
   }
-  function showOver() { if (state === "over") $("over").hidden = false; }
+  // the card takes focus, so Enter is its Next / Again button and not the
+  // watch (or hint) a keyboard player last pressed
+  function showOver() {
+    if (state !== "over") return;
+    $("over").hidden = false;
+    $("again").focus({ preventScroll: true });
+  }
 
   function shareDaily() {
     var d = readDaily();
@@ -439,8 +448,8 @@
     });
     var d = readDaily();
     $("daily-small").innerHTML = d.done
-      ? "done: " + d.moves + " moves (par " + d.par + ") ✓ <kbd>2</kbd>"
-      : "today's tray, share your moves <kbd>2</kbd>";
+      ? "done: " + d.moves + " moves (par " + d.par + ") ✓ " + keyCap("2")
+      : "today's tray, share your moves " + keyCap("2");
     var parts = [];
     if (bestLevel && bestLevel.get()) parts.push("wind-up: level " + bestLevel.get());
     var z = readZen(), zp = [];
@@ -473,6 +482,11 @@
       paintMenu();
     });
   });
+  // a mouse click on a mode or size doesn't take focus (Tab still reaches it):
+  // left focused, the Enter that should open the tray would press it again
+  document.querySelectorAll("#pick-mode button, #pick-size button").forEach(function (b) {
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("hint").addEventListener("click", hint);
   $("share").addEventListener("click", shareDaily);
@@ -488,6 +502,9 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.repeat) return;
+    // Enter on a focused button is that button's click (a mode, Next, Modes…);
+    // starting a run here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["windup", "daily", "zen"][+e.key - 1];

@@ -103,7 +103,7 @@
   var script = store.get("lanterns_script", "simp");   // simp | trad
   if (script !== "simp" && script !== "trad") script = "simp";
   var lanterns = [], buffer = "";
-  var score = 0, cleared = 0, escaped = 0, streak = 0;
+  var score = 0, cleared = 0, escaped = 0, streak = 0, bestStreak = 0;
   var runBest = NaN;                   // the mode's best as the night began (NaN: none yet)
   var spawnT = 0, elapsed = 0;
   var riseMul = 1, spawnOff = false;         // test hooks
@@ -156,7 +156,9 @@
 
   // ---- typing ----------------------------------------------------------------------
   function handleChar(ch) {
-    if (state !== "play") return;
+    // paused, a letter still lands in the hidden #kbd box (it keeps focus,
+    // and the keydown handler leaves it alone), so it's refused here
+    if (state !== "play" || P.isPaused()) return;
     ch = ch.toLowerCase();
     var legal = mode === "tone" ? /^[a-z1-5]$/ : /^[a-z]$/;
     if (!legal.test(ch)) return;
@@ -188,6 +190,7 @@
   function light(l) {
     l.state = "lit"; l.litT = 0;
     streak++; cleared++;
+    if (streak > bestStreak) bestStreak = streak;
     var gain = Math.round(10 * l.keys[0].length * (1 + Math.min(10, streak - 1) * 0.1));
     score += gain;
     // a new best is saved the moment it's earned, not only when the sky goes dark
@@ -223,7 +226,7 @@
     store.set("lanterns_mode", mode);
     audio(); gong(false);
     lanterns = []; buffer = "";
-    score = 0; cleared = 0; escaped = 0; streak = 0;
+    score = 0; cleared = 0; escaped = 0; streak = 0; bestStreak = 0;
     runBest = bests[mode] ? GameShell.store.getNum(bests[mode].key, NaN) : NaN;
     spawnT = 0.35; elapsed = 0; floats = []; sparks = [];
     riseMul = 1; spawnOff = false;
@@ -248,11 +251,12 @@
     var b = bests[mode];
     if (b) b.submit(score);
     // a record against the best as the night began (the stored one kept pace with light())
-    var isBest = b ? !isFinite(runBest) || score > runBest : false;
+    // (a first night counts only if it lit something)
+    var isBest = b ? score > 0 && (!isFinite(runBest) || score > runBest) : false;
     $("over-title").textContent = cleared >= 40 ? "A sky full of light" : "The sky went dark";
     $("over-msg").innerHTML = score.toLocaleString() + "<small> · " + cleared + " lanterns lit</small>";
     $("over-stats").textContent =
-      (mode === "tone" ? "tone master" : "festival") + " · best streak counted ×" + (1 + Math.min(10, Math.max(0, streak - 1)) * 0.1).toFixed(1) + "\n" +
+      (mode === "tone" ? "tone master" : "festival") + " · best streak counted ×" + (1 + Math.min(10, Math.max(0, bestStreak - 1)) * 0.1).toFixed(1) + "\n" +
       (isBest ? "a new record night! 🏮" : "best: " + (b ? b.get().toLocaleString() : score));
     $("hud").hidden = true; $("echo").hidden = true;
     $("over").hidden = false;
@@ -308,6 +312,14 @@
     for (var i = 0; i < 90; i++) stars.push([Math.random() * W, Math.random() * H * 0.7, 0.5 + Math.random() * 1.2, Math.random() * 6.28]);
     bgDrifters = [];
     for (var d = 0; d < 7; d++) bgDrifters.push({ x: Math.random() * W, y: Math.random() * H, v: 6 + Math.random() * 8, s: 5 + Math.random() * 7 });
+    // a narrower window (a phone turned upright) brings the lanterns in with
+    // it, or one left off the edge would slip away unseen and cost a wish
+    lanterns.forEach(function (l) {
+      var half = l.size * (0.92 + (l.hanzi.length - 1) * 0.5) / 2 + 8;
+      l.x = Math.max(half, Math.min(W - half, l.x));
+    });
+    // the loop doesn't paint while paused, and resizing just cleared the canvas
+    if (P.isPaused()) draw(performance.now(), 0);
   }
   window.addEventListener("resize", resize);
 
@@ -370,7 +382,7 @@
     }
   }
 
-  function draw(t) {
+  function draw(t, dt) {
     var sky = g.createLinearGradient(0, 0, 0, H);
     sky.addColorStop(0, "#090a24");
     sky.addColorStop(0.6, "#151038");
@@ -387,15 +399,16 @@
     g.beginPath(); g.arc(W * 0.84, H * 0.14, 26, 0, 7); g.fill();
     g.fillStyle = "rgba(9,10,36,1)";
     g.beginPath(); g.arc(W * 0.84 - 11, H * 0.14 - 5, 22, 0, 7); g.fill();
-    // faraway lanterns already released
-    if (fx()) {
-      bgDrifters.forEach(function (d) {
-        d.y -= d.v * (1 / 60);
+    // faraway lanterns already released: they drift up with Visual FX on,
+    // and hang still with it off
+    bgDrifters.forEach(function (d) {
+      if (fx()) {
+        d.y -= d.v * (dt || 0);
         if (d.y < -20) { d.y = H + 20; d.x = Math.random() * W; }
-        g.fillStyle = "rgba(255,160,70,0.35)";
-        g.beginPath(); g.arc(d.x, d.y, d.s * 0.5, 0, 7); g.fill();
-      });
-    }
+      }
+      g.fillStyle = "rgba(255,160,70,0.35)";
+      g.beginPath(); g.arc(d.x, d.y, d.s * 0.5, 0, 7); g.fill();
+    });
     // rooftop silhouettes with a pagoda
     g.fillStyle = "#07061a";
     var base = H - 46;
@@ -436,9 +449,15 @@
     g.textAlign = "center";
     floats.forEach(function (f) {
       g.globalAlpha = Math.max(0, 1 - f.t / 1.6);
-      g.font = "800 19px Nunito, sans-serif";
+      // the pinyin and meaning are the point of lighting it, so they stay on
+      // screen: smaller if they're wider than it, and kept off its edges
+      var px = 19;
+      g.font = "800 " + px + "px Nunito, sans-serif";
+      var tw = g.measureText(f.text).width;
+      if (tw > W - 16) { px = Math.max(11, Math.floor(px * (W - 16) / tw)); g.font = "800 " + px + "px Nunito, sans-serif"; tw = g.measureText(f.text).width; }
+      var fx0 = Math.max(tw / 2 + 8, Math.min(W - tw / 2 - 8, f.x));
       g.fillStyle = "#ffe9cf";
-      g.fillText(f.text, f.x, f.y - f.t * 34);
+      g.fillText(f.text, fx0, f.y - f.t * 34);
       g.globalAlpha = 1;
     });
   }
@@ -455,7 +474,7 @@
     var dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (P.isPaused()) return;
     update(dt);
-    draw(now);
+    draw(now, dt);
   }
 
   // ---- input --------------------------------------------------------------------------------
@@ -468,6 +487,9 @@
       return;
     }
     if (e.repeat) return;
+    // Enter on a focused button is that button's click (Tone Master, Modes…);
+    // starting a run here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "festival" : "tone";
@@ -535,6 +557,11 @@
       store.set("lanterns_script", script);
       paintMenu();
     });
+  });
+  // a mouse click doesn't take focus (Tab still reaches them): left focused,
+  // the Enter that should start the night would press the pick again
+  document.querySelectorAll("#pick-mode button, #pick-script button").forEach(function (b) {
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });

@@ -22,8 +22,10 @@
   const stage = document.querySelector(".stage");
 
   // ---- Persistent best ----
+  // (GameShell.store, so blocked storage can't stop the game loading)
+  const store = window.GameShell ? GameShell.store : { get: (k, f) => f, set: () => {} };
   const BEST_KEY = "popthelock.best";
-  let best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0;
+  let best = parseInt(store.get(BEST_KEY, "0"), 10) || 0;
   bestEl.textContent = best;
 
   // ---- Background themes (player-selectable, persisted) ----
@@ -37,7 +39,7 @@
   const THEME_KEY = "popthelock.theme";
   const themesEl = document.getElementById("themes");
   const themeMeta = document.querySelector('meta[name="theme-color"]');
-  let themeName = THEMES[localStorage.getItem(THEME_KEY)] ? localStorage.getItem(THEME_KEY) : "teal";
+  let themeName = THEMES[store.get(THEME_KEY, "")] ? store.get(THEME_KEY, "") : "teal";
   let ringColor = THEMES[themeName].ring;
 
   function applyTheme(name) {
@@ -48,7 +50,7 @@
     document.documentElement.style.background = t.bg;
     document.body.style.background = t.bg;
     if (themeMeta) themeMeta.setAttribute("content", t.bg);
-    localStorage.setItem(THEME_KEY, name);
+    store.set(THEME_KEY, name);
     themesEl.querySelectorAll(".swatch").forEach((s) =>
       s.classList.toggle("active", s.dataset.theme === name)
     );
@@ -168,7 +170,7 @@
       placeTarget();
     }
     updateHud();
-    if (score > best) { best = score; localStorage.setItem(BEST_KEY, best); bestEl.textContent = best; }
+    if (score > best) { best = score; store.set(BEST_KEY, best); bestEl.textContent = best; }
   }
 
   function levelUp() {
@@ -205,6 +207,7 @@
 
   // ---- Input ----
   function onTap() {
+    if (PAUSE.isPaused()) return;   // the dial is frozen: a tap mustn't pop or miss
     if (state === State.MENU) { start(); return; }
     if (state === State.OVER) {
       if (canRestart) start();  // ignored during the post-loss buffer
@@ -218,6 +221,7 @@
 
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); onTap(); });
   window.addEventListener("keydown", (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); if (!e.repeat) onTap(); }
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });

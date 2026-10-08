@@ -70,7 +70,7 @@
   // Drive the player along a poly-line of waypoints, each segment with its own
   // duration, at constant velocity within the segment (rAF, so speed can vary
   // across the path — which a single CSS transition can't do).
-  function animatePath(el, pts, durs) {
+  function animatePath(el, pts, durs, stale) {
     const cum = [0];
     for (let k = 0; k < durs.length; k++) cum.push(cum[k] + durs[k]);
     const total = cum[cum.length - 1];
@@ -80,6 +80,7 @@
       el.style.transition = "none"; // rAF owns the transform now
       const start = performance.now();
       function frame(now) {
+        if (stale()) { resolve(); return; }   // the board was reset under it: the ball stays where that put it
         const e = now - start;
         if (e >= total) { set(pts[pts.length - 1]); resolve(); return; }
         let seg = 0;
@@ -95,12 +96,14 @@
 
   // Animate one resolved move. Returns a promise that settles when done.
   // ctx: { playerEl, gap, cell()->px, grid()->rows, reduced()->bool,
-  //        from:{r,c} (tile before the move), setFlavor(f), sfx|null, flashTile(r,c) }
+  //        from:{r,c} (tile before the move), setFlavor(f), sfx|null, flashTile(r,c),
+  //        stale()->bool (true once a reset or new level has replaced this move) }
   async function play(ctx, res) {
     const steps = res.steps;
     if (!steps || !steps.length) return;
     const grid = ctx.grid();
     const el = ctx.playerEl;
+    const stale = ctx.stale || (() => false);
     const cg = ctx.cell() + ctx.gap;
     const center = (s) => ({ x: s.c * cg, y: s.r * cg });
     const reduced = !!(ctx.reduced && ctx.reduced());
@@ -147,7 +150,8 @@
       pts.push({ x: (pa.x + pb.x) / 2, y: (pa.y + pb.y) / 2 }, pb);
       durs.push(perTile(grid, A) / 2, perTile(grid, B) / 2);
     }
-    await animatePath(el, pts, durs);
+    await animatePath(el, pts, durs, stale);
+    if (stale()) return;
     el.style.transition = "";
     if (!bounced) landSound(ctx, lastCh);
 
@@ -158,6 +162,7 @@
       ctx.sfx && ctx.sfx.bounce && ctx.sfx.bounce();
       await wait(ZAP);
       el.classList.remove("zap");
+      if (stale()) return;
       el.style.transition = "transform " + REBOUND + "ms ease-in";
       el.style.transform = "translate(" + (rebound.c * cg) + "px, " + (rebound.r * cg) + "px)";
       await wait(REBOUND);
@@ -181,10 +186,12 @@
     const out = slow ? 150 : 80, back = slow ? 235 : 130;
     markBump(el, dir);
     if (ctx.reduced && ctx.reduced()) return wait(out + back + 20);
+    const stale = ctx.stale || (() => false);
     return new Promise((resolve) => {
       el.style.transition = "transform " + out + "ms ease-out";
       el.style.transform = "translate(" + (baseX + d.c * nudge) + "px, " + (baseY + d.r * nudge) + "px)";
       setTimeout(() => {
+        if (stale()) { resolve(); return; }   // reset mid-bump: don't settle it back where it bumped
         el.style.transition = "transform " + back + "ms ease-in";
         el.style.transform = "translate(" + baseX + "px, " + baseY + "px)";
         setTimeout(() => { el.style.transition = ""; resolve(); }, back + 10);

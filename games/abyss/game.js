@@ -83,7 +83,7 @@
   if (["descent", "sprint", "krill"].indexOf(mode) === -1) mode = "descent";
   var grid, piece, hold, canHold, queue, bag;
   var score, lines, level, b2b, playMs, goal = 40;
-  var gravT, lockT, lockResets, grounded;
+  var gravT, lockT, lockResets, grounded, lowY = 0;   // lowY: the lowest row this piece has reached
   var clearingRows = [], clearT = 0, sweep = 0;
   var das = { L: null, R: null }, softHeld = false, softT = 0;
   var particles = [], flashT = 0, gravOverride = 0;
@@ -251,7 +251,7 @@
   }
   function spawn(t) {
     piece = { t: t, r: 0, x: BASE[t].n >= 3 ? 3 : 4, y: 0 };
-    gravT = 0; lockT = 0; lockResets = 0;
+    gravT = 0; lockT = 0; lockResets = 0; lowY = piece.y;
     if (!fits(piece.t, 0, piece.x, piece.y)) { gameOver(); }
   }
   function spawnNext() {
@@ -295,7 +295,7 @@
   // best as this run began (NaN: none yet), which "a new record" compares to.
   var startBest = NaN, sprintDone = false, sprintBest = false, sprintMs = 0;
   function scoreBest() { return mode === "descent" ? bestScore : mode === "krill" ? bestKrill : null; }
-  function newRecord() { return isNaN(startBest) || score > startBest; }
+  function newRecord() { return score > 0 && (isNaN(startBest) || score > startBest); }   // a 0 is no record, even the first time
   function liveBest() {
     var b = scoreBest();
     if (b && state !== "menu" && score > 0 && newRecord()) b.submit(score);
@@ -368,6 +368,9 @@
       while (softT >= 40) { softStep(); softT -= 40; }
     }
 
+    // a new lowest row is a fresh landing: the lock delay and its move resets
+    // start over, so a piece slid off a ledge doesn't lock as it touches down
+    if (piece.y > lowY) { lowY = piece.y; lockT = 0; lockResets = 0; }
     grounded = !fits(piece.t, piece.r, piece.x, piece.y + 1);
     if (grounded) {
       lockT += dt * 1000;
@@ -642,7 +645,8 @@
   // ---- loop ---------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play" || state === "clearing"; },
-    keys: ["Escape", "p"]
+    keys: ["Escape", "p"],
+    onChange: function (paused) { if (paused) letGo(); }
   }) : { isPaused: function () { return false; } };
   // Leaving asks first while a run is on (paused too), as the pause default
   // would, except once a sprint's last row is in: its time is saved by then
@@ -657,6 +661,8 @@
     var dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (P.isPaused()) return;
     update(dt);
+    // the Sprint clock runs every frame, not only when a piece locks
+    if (mode === "sprint" && (state === "play" || state === "clearing")) $("hud-depth").textContent = fmtTime(playMs);
     draw(now, dt);
   }
 
@@ -709,6 +715,10 @@
     if (e.code === "ArrowRight") das.R = null;
     if (e.code === "ArrowDown") softHeld = false;
   });
+  // A key let go in another tab, or under the pause card, sends no keyup
+  // here: drop the held moves on pause and on blur, so none runs on by itself
+  function letGo() { das.L = null; das.R = null; softHeld = false; }
+  window.addEventListener("blur", letGo);
 
   // touch pad
   function bindPad(id, down, up) {

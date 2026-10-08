@@ -498,9 +498,11 @@ body::before {
   align-items: center;
   gap: 0.9rem;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 24px var(--glow);
-  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* hidden once it has slid away, so its button can't keep focus (or Tab) off-screen */
+  visibility: hidden;
+  transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.3, 1), visibility 0s linear 0.35s;
 }
-#winBanner.show { transform: translateX(-50%) translateY(0); }
+#winBanner.show { transform: translateX(-50%) translateY(0); visibility: visible; transition-delay: 0s; }
 #winMsg { font-family: "JetBrains Mono", monospace; font-weight: 700; color: var(--on); }
 
 @media (max-width: 560px) {

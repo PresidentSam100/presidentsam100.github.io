@@ -302,6 +302,9 @@
   let skillDrawn = "";   // how the last frame drew the skill lane (test hook)
   let comboAt = 0, comboN = 0;
   let extraBalls = 0, extraAwarded = 0;
+  // The table's own clock (ms) for every timed window — ball save, skill
+  // shot, combos, multiball — so a pause or a tab-away holds them all
+  let playT = 0;
   const EXTRA_AT = [200000, 600000];
   const MAX_BALLS = 3;
   const $ = (id) => document.getElementById(id);
@@ -327,7 +330,7 @@
   const addShake = (v) => { if (!reduced()) shake = Math.max(shake, v); };
   // Quick follow-ups on the big shots chain into combos.
   function majorShot(label) {
-    const now = performance.now();
+    const now = playT;
     if (now - comboAt < 2200) {
       comboN = Math.min(comboN + 1, 5);
       const award = comboN * 2500;
@@ -342,7 +345,8 @@
   function startBall() {
     balls = [newBall()];
     plunger.charge = 0; mult = 1; bonus = 0; tiltMeter = 0; tilted = false;
-    saveUntil = performance.now() + 7000; saveUsed = false; multiball = false; jackpotValue = 0; mbQueue = [];
+    // the save is armed on the plunger; its 7 s start at the launch
+    saveUntil = Infinity; saveUsed = false; multiball = false; jackpotValue = 0; mbQueue = [];
     kickbackLit = true; comboN = 0; comboAt = 0;
     T.lanes.forEach((l) => (l.lit = false));
     T.inlanes.forEach((l) => (l.lit = false));
@@ -358,13 +362,25 @@
     const power = T.launch * (0.6 + 0.45 * plunger.charge);
     b.vy = -power; b.vx = (Math.random() - 0.5) * 20; b.inLane = false;
     plunger.charge = 0; plunger.pulling = false; state = "play";
-    skillUntil = performance.now() + 4200;
+    if (!saveUsed) saveUntil = playT + 7000;
+    skillUntil = playT + 4200;
     SFX.launch(); $("launchBtn").classList.remove("show"); $("flipHint").textContent = "";
+  }
+  // A ball that fell back down the shooter lane: on the plunger again, ready
+  // for another pull (the save waits for that launch). In multiball, where
+  // other balls are in play, it's simply shot back in.
+  function backToPlunger(b) {
+    b.x = T.ballStart.x; b.y = T.ballStart.y; b.vx = 0;
+    if (balls.length > 1) { b.vy = -T.launch * 0.92; return; }
+    b.vy = 0; b.inLane = true;
+    state = "ready"; plunger.charge = 0; skillUntil = 0;
+    if (!saveUsed) saveUntil = Infinity;
+    flipHint(); updateHUD();
   }
   function drainBall(b) {
     const i = balls.indexOf(b); if (i >= 0) balls.splice(i, 1);
     // Multiball grace: for its first seconds, drained balls auto-plunge back.
-    if (multiball && performance.now() < mbSaveUntil) {
+    if (multiball && playT < mbSaveUntil) {
       const nb = newBall(); nb.inLane = false; nb.vy = -T.launch * 0.92; nb.vx = (Math.random() - 0.5) * 20;
       balls.push(nb); ticker("BALL SAVED", "#46e6a0"); SFX.launch();
       return;
@@ -373,7 +389,7 @@
       if (multiball && balls.length === 1) { multiball = false; jackpotValue = 0; $("lampMb").classList.remove("on"); ticker("MULTIBALL OVER", "#9b8ec9"); }
       return;
     }
-    if (!multiball && !tilted && !saveUsed && performance.now() < saveUntil) {
+    if (!multiball && !tilted && !saveUsed && playT < saveUntil) {
       saveUsed = true; ticker("BALL SAVED", "#46e6a0"); SFX.extra();
       balls = [newBall()]; state = "ready"; plunger.charge = 0; flipHint(); updateHUD(); return;
     }
@@ -415,16 +431,16 @@
       addScore(15000); addBonus(2000); SFX.bankDone(); majorShot("BANK");
       if (multiball && jackpotValue === 0) relightJackpot();
       else if (!multiball) onLock("BANK");
-      bankT.forEach((x) => (x.resetAt = performance.now() + 1300));
+      bankT.forEach((x) => (x.resetAt = playT + 1300));
     }
   }
   function laneEnter(l) {
     const idx = T.lanes.indexOf(l);
-    if (skillLane === idx && performance.now() < skillUntil) {
+    if (skillLane === idx && playT < skillUntil) {
       skillUntil = 0; skillLane = -1;
       addScore(25000); addBonus(1000);
       ticker("SKILL SHOT", "#36f5ff"); SFX.skill(); flashPulse(0.5, "54,245,255"); majorShot("SKILL");
-    } else if (performance.now() >= skillUntil) skillUntil = 0;
+    } else if (playT >= skillUntil) skillUntil = 0;
     if (l.lit) return;
     l.lit = true; addScore(1500); addBonus(400); SFX.lane();
     if (T.lanes.every((x) => x.lit)) {
@@ -465,7 +481,7 @@
     sp.spin = 14; addScore(300 * n); addBonus(60 * n); SFX.spin();
   }
   function captureBall(b, sc) {
-    b.captured = sc; b.captureT = performance.now() + 650; b.vx = b.vy = 0;
+    b.captured = sc; b.captureT = playT + 650; b.vx = b.vy = 0;
     sc.lit = 1; SFX.scoop();
     if (multiball && sc.kind === "lock") {
       if (jackpotValue > 0) {
@@ -487,7 +503,7 @@
   }
   let mbJackpots = 0;
   function ejectBall(b) {
-    const sc = b.captured; b.captured = null; sc.coolUntil = performance.now() + 900;
+    const sc = b.captured; b.captured = null; sc.coolUntil = playT + 900;
     const ang = sc.eject != null ? sc.eject : -Math.PI / 2, pw = sc.power || 540;
     b.x = sc.x; b.y = sc.y - 4; b.vx = Math.cos(ang) * pw; b.vy = Math.sin(ang) * pw; SFX.kick();
   }
@@ -497,14 +513,13 @@
     else { ticker((label || "LOCK") + " " + locks + "/" + T.lockGoal, "#ff3df0"); }
   }
   function startMultiball() {
-    multiball = true; locks = 0; mbJackpots = 0; mbPops = 0; mbSaveUntil = performance.now() + 8000;
+    multiball = true; locks = 0; mbJackpots = 0; mbPops = 0; mbSaveUntil = playT + 8000;
     $("lampMb").classList.add("on");
     ticker("MULTIBALL!", "#ff3df0"); SFX.multiball(); flashPulse(0.6, "255,61,240");
     relightJackpot();
     // The locked balls kick out of the scoop one after another, like a real release.
     const sc = T.scoops.find((s) => s.kind === "lock") || { x: 220, y: 300, eject: -Math.PI / 2, power: 560 };
-    const now = performance.now();
-    mbQueue = [now + 350, now + 900].map((at) => ({ at, sc }));
+    mbQueue = [playT + 350, playT + 900].map((at) => ({ at, sc }));
   }
   function nudge(dir) {
     if (tilted || state !== "play") return;
@@ -516,18 +531,18 @@
   // ---------- physics ----------
   const MAXV = 1500;
   function flipTip(f) { return { x: f.px + f.len * Math.cos(f.theta), y: f.py + f.len * Math.sin(f.theta) }; }
+  const FLIP_SPEED = 40;   // rad/s
   function updateFlip(f, dt) {
     f.prev = f.theta;
-    const sp = 40, dir = Math.sign(f.target - f.theta), step = sp * dt;
+    const dir = Math.sign(f.target - f.theta), step = FLIP_SPEED * dt;
     if (Math.abs(f.target - f.theta) <= step) f.theta = f.target; else f.theta += dir * step;
     f.omega = (f.theta - f.prev) / dt;
   }
   function physics(dt) {
-    flippers.forEach((f) => updateFlip(f, dt));
-    T.targets.forEach((t) => { if (t.resetAt && performance.now() > t.resetAt) { t.down = false; t.resetAt = 0; } });
+    T.targets.forEach((t) => { if (t.resetAt && playT > t.resetAt) { t.down = false; t.resetAt = 0; } });
     // staged multiball release
     for (let i = mbQueue.length - 1; i >= 0; i--) {
-      if (performance.now() >= mbQueue[i].at) {
+      if (playT >= mbQueue[i].at) {
         const sc = mbQueue[i].sc, nb = newBall();
         nb.inLane = false; nb.x = sc.x; nb.y = sc.y - 4;
         // Released balls kick out at an angle, so they don't fall straight
@@ -535,20 +550,25 @@
         const side = mbQueue.length % 2 ? -1 : 1;
         const ang = (sc.eject != null ? sc.eject : -Math.PI / 2) + side * 0.5, pw = sc.power || 540;
         nb.vx = Math.cos(ang) * pw; nb.vy = Math.sin(ang) * pw;
-        sc.coolUntil = performance.now() + 2200;   // no instant self-served jackpots
+        sc.coolUntil = playT + 2200;   // no instant self-served jackpots
         balls.push(nb); SFX.kick(); mbQueue.splice(i, 1);
       }
     }
 
-    // Substep hard enough that the fastest ball can't tunnel a rail.
+    // Substep hard enough that the fastest ball can't tunnel a rail, and a
+    // swinging flipper's tip can't sweep past a ball between two looks: the
+    // flippers turn inside the substeps (once a frame, at 60 Hz a flip
+    // jumped ~40 px at the tip and went straight through a ball on it)
     let fastest = 0;
     for (const b of balls) fastest = Math.max(fastest, Math.hypot(b.vx, b.vy));
+    for (const f of flippers) if (f.theta !== f.target) fastest = Math.max(fastest, FLIP_SPEED * f.len);
     const SUB = clamp(Math.ceil((fastest * dt) / 3.2), 6, 14);
     const sub = dt / SUB;
     for (let s = 0; s < SUB; s++) {
+      for (const f of flippers) updateFlip(f, sub);
       for (let bi = balls.length - 1; bi >= 0; bi--) {
         const b = balls[bi];
-        if (b.captured) { b.x = b.captured.x; b.y = b.captured.y; if (performance.now() >= b.captureT) ejectBall(b); continue; }
+        if (b.captured) { b.x = b.captured.x; b.y = b.captured.y; if (playT >= b.captureT) ejectBall(b); continue; }
         if (b.inLane) { b.x = T.ballStart.x; b.vx = 0; b.vy += T.gravity * sub * 0.2; b.y += b.vy * sub; if (b.y > 724) { b.y = 724; b.vy = 0; } continue; }
 
         b.vy += T.gravity * sub;
@@ -572,8 +592,12 @@
           const h = collideSeg(b, f.px, f.py, tip.x, tip.y, f.r, 0.12, surf);
           if (h && f.omega !== 0) { b.vx += surf.x * 0.55; b.vy += surf.y * 0.55; }
         }
-        for (const sc of T.scoops) { if (performance.now() > sc.coolUntil && Math.hypot(b.x - sc.x, b.y - sc.y) < sc.r) { captureBall(b, sc); break; } }
+        for (const sc of T.scoops) { if (playT > sc.coolUntil && Math.hypot(b.x - sc.x, b.y - sc.y) < sc.r) { captureBall(b, sc); break; } }
 
+        // A plunge too weak to clear the gate falls back down the shooter
+        // lane (the one-way gate keeps any other ball out of it): it goes
+        // back on the plunger, as on a real table, not down the drain
+        if (b.x > 388 && b.y > T.ballStart.y && b.vy > 0) { backToPlunger(b); continue; }
         if (b.y > H + 30) { drainBall(b); continue; }
       }
     }
@@ -602,8 +626,8 @@
         const key = "loop" + lp.id, inside = b.x > lp.x0 && b.x < lp.x1 && b.y > lp.y0 && b.y < lp.y1;
         if (inside && !b.zone[key]) {
           b.zone[key] = true;
-          if (b.vy < -120) b.loopFrom = { id: lp.id, at: performance.now() };
-          else if (b.vy > 120 && b.loopFrom && b.loopFrom.id !== lp.id && performance.now() - b.loopFrom.at < 1700) {
+          if (b.vy < -120) b.loopFrom = { id: lp.id, at: playT };
+          else if (b.vy > 120 && b.loopFrom && b.loopFrom.id !== lp.id && playT - b.loopFrom.at < 1700) {
             b.loopFrom = null; loopPass(lp.id);
           }
         } else if (!inside) b.zone[key] = false;
@@ -636,7 +660,7 @@
   // ---------- HUD ----------
   let hudCache = "";
   function updateHUD() {
-    $("lampSave").classList.toggle("on", state !== "over" && state !== "start" && !saveUsed && performance.now() < saveUntil && !multiball);
+    $("lampSave").classList.toggle("on", state !== "over" && state !== "start" && !saveUsed && playT < saveUntil && !multiball);
     const sig = score + "|" + ballNum + "|" + mult + "|" + best; if (sig === hudCache) return; hudCache = sig;
     $("score").textContent = score.toLocaleString(); $("balls").textContent = ballNum;
     $("mult").textContent = "x" + mult; $("best").textContent = best.toLocaleString();
@@ -682,7 +706,7 @@
     // top rollover lanes: lamps in real channels (the guides are walls)
     skillDrawn = "";
     T.lanes.forEach((l, i) => {
-      const isSkill = state === "play" && i === skillLane && now < skillUntil;
+      const isSkill = state === "play" && i === skillLane && playT < skillUntil;
       // Visual FX off: the skill lane can't flash, so it holds a cyan channel
       // in a dashed cyan frame instead, told apart from the lanes merely lit
       // (its lamp still shows whether it's lit)
@@ -836,7 +860,7 @@
   // Pause (P / Esc / tab-switch). Physics is skipped while paused; draw()
   // still runs so the table stays visible behind the overlay.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready" })
+    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready", onChange: (paused) => { if (paused) letGo(); } })
     : { isPaused: () => false };
   // A game is in progress from the first launch to the last drain, the bonus
   // count between balls included: leaving then asks first (on the plunger
@@ -847,6 +871,7 @@
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016); last = ts;
     if (PAUSE.isPaused()) { last = ts; draw(); requestAnimationFrame(loop); return; }
     if (state === "play" || state === "ready") {
+      playT += dt * 1000;
       if (state === "ready" && plunger.pulling) plunger.charge = Math.min(1, plunger.charge + dt * 1.1);
       physics(dt);
     }
@@ -865,6 +890,7 @@
     const k = e.key.toLowerCase();
     if (["arrowleft", "arrowright", "arrowup", "arrowdown", " "].includes(k)) e.preventDefault();
     if (e.repeat) return;
+    if (PAUSE.isPaused()) return;   // no flipping, launching or nudging (to TILT) under the pause card
     if (state === "start" || state === "over") return;
     if (k === "arrowleft" || k === "a") setFlip("L", true);
     else if (k === "arrowright" || k === "l") setFlip("R", true);
@@ -873,6 +899,7 @@
     else if (k === "m" || k === "x") nudge(1);
   });
   window.addEventListener("keyup", (e) => {
+    if (PAUSE.isPaused()) return;   // (pausing already let go of everything)
     const k = e.key.toLowerCase();
     if (k === "arrowleft" || k === "a") setFlip("L", false);
     else if (k === "arrowright" || k === "l") setFlip("R", false);
@@ -891,9 +918,20 @@
   canvas.addEventListener("touchstart", (e) => touchSide(e, true), { passive: false });
   canvas.addEventListener("touchend", (e) => touchSide(e, false), { passive: false });
   canvas.addEventListener("touchcancel", (e) => touchSide(e, false), { passive: false });
+  // A key or finger let go under the pause card, or in another tab, sends no
+  // keyup / touchend here: drop the flippers and the plunger pull on pause
+  // and on blur, so nothing stays held
+  function letGo() {
+    flippers.forEach((f) => { f.up = false; f.target = f.rest; });
+    plunger.pulling = false; plunger.charge = 0;
+    for (const id in activeTouch) delete activeTouch[id];
+  }
+  window.addEventListener("blur", letGo);
   const lb = $("launchBtn");
   lb.addEventListener("touchstart", (e) => { e.preventDefault(); e.stopPropagation(); if (state === "ready") plunger.pulling = true; }, { passive: false });
-  lb.addEventListener("touchend", (e) => { e.preventDefault(); e.stopPropagation(); if (state === "ready" && plunger.pulling) launch(); }, { passive: false });
+  // (touchstart's preventDefault means no click follows, so a quick tap plunges
+  // as the click below does, instead of with the next to no pull it had)
+  lb.addEventListener("touchend", (e) => { e.preventDefault(); e.stopPropagation(); if (state === "ready" && plunger.pulling) { if (plunger.charge < 0.25) plunger.charge = 0.85; launch(); } }, { passive: false });
   lb.addEventListener("click", () => { if (state === "ready") { plunger.charge = 0.85; launch(); } });
 
   // ---------- start ----------
@@ -907,8 +945,11 @@
   }
   document.querySelectorAll(".mode-card").forEach((c) => c.addEventListener("click", () => startGame(c.dataset.mode)));
   $("againBtn").addEventListener("click", () => startGame(currentMode));
-  $("modesBtn").addEventListener("click", () => { $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); });
-  $("startBest").textContent = best > 0 ? "BEST  " + best.toLocaleString() : "";
+  // the start card's best, written each time the card comes up (a game just
+  // played may have raised it)
+  const showStartBest = () => { $("startBest").textContent = best > 0 ? "BEST  " + best.toLocaleString() : ""; };
+  $("modesBtn").addEventListener("click", () => { $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); showStartBest(); });
+  showStartBest();
   updateHUD();
 
   // deep-link: #classic / #speedway / #tactical auto-starts that table
@@ -917,7 +958,7 @@
 
   // ---------- test hooks (not used by play) ----------
   window.NeonPinball = {
-    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured })), kickbackLit, skillLane, skillDrawn, skillLeft: Math.max(0, Math.round(skillUntil - performance.now())), multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
+    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured })), kickbackLit, skillLane, skillDrawn, skillLeft: Math.max(0, Math.round(skillUntil - playT)), multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
     start: startGame,
     place: (x, y, vx, vy) => { const b = balls[0]; if (!b) return; b.inLane = false; b.captured = null; b.x = x; b.y = y; b.vx = vx || 0; b.vy = vy || 0; if (state === "ready") state = "play"; },
     flip: (side, up) => setFlip(side, up),

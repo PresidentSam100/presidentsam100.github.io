@@ -99,11 +99,14 @@
   }
   function place(el, x, y) { el.style.transform = "translate(" + x + "px," + y + "px)"; }
   function pileX(i) { return GAP + i * (CW + GAP); }
+  // how far apart draw-three fans the waste (drawn and hit-tested alike)
+  function fanStep() { return Math.round(CW * 0.42); }
 
   // ---- game + cards -------------------------------------------------------------
   var G = null, els = new Map(), timerMs = 0, running = false, started = false;
   var isDaily = false, dealSeed = 0, draw3 = store.get("klondike_draw3", "0") === "1";
   var finishing = false, cascadeOn = false;
+  var finishRun = 0;   // bumped by each auto-finish and each deal, so a stale one stops
 
   function cardEl(c) { return els.get(c.s + "-" + c.r); }
   function buildCards() {
@@ -148,7 +151,7 @@
     var w = G.waste.length, fan = G.draw3 ? Math.min(3, w) : 1;
     G.waste.forEach(function (c, i) {
       var k = i - (w - fan);
-      put(c, pileX(1) + Math.max(0, k) * Math.round(CW * 0.42), TOPY);
+      put(c, pileX(1) + Math.max(0, k) * fanStep(), TOPY);
     });
     G.found.forEach(function (f, fi) {
       f.forEach(function (c) { put(c, pileX(3 + fi), TOPY); });
@@ -174,6 +177,7 @@
     dealSeed = seed != null ? seed : ((Math.random() * 0x7fffffff) | 0);
     G = K.deal(dealSeed, draw3);
     timerMs = 0; running = false; started = false; finishing = false;
+    finishRun++;   // an auto-finish still flying cards home stops here
     stopCascade();
     $("autofinish").hidden = true;
     $("win-title").textContent = isDaily ? "KLONDIKE · DAILY CLAIM " + today().n : "KLONDIKE";
@@ -212,7 +216,8 @@
     afterChange();
   }
   function doUndo() {
-    if (finishing || cascadeOn) return;
+    // a won deal stays won: undoing it would let it be won, and counted, again
+    if (finishing || cascadeOn || K.won(G)) return;
     if (K.undo(G)) { SFX.undo(); position(); afterChange(); }
   }
   function afterChange() {
@@ -226,7 +231,9 @@
     if (!K.canAutoFinish(G) || finishing) return;
     finishing = true;
     $("autofinish").hidden = true;
+    var run = ++finishRun;
     (function step() {
+      if (run !== finishRun) return;   // a new deal came out meanwhile
       var names = ["waste", "t0", "t1", "t2", "t3", "t4", "t5", "t6"];
       var bestFrom = null, bestTo = null, bestRank = 99;
       names.forEach(function (nm) {
@@ -288,6 +295,10 @@
   // The cascade: cards launch from the foundations and bounce off the floor,
   // stamping trails — the canvas is never cleared. Click skips it.
   var casRun = 0;
+  // A click skips the cascade to the box. Its listener goes with the cascade
+  // however that ends, or a click in the next deal would bring this box back.
+  var casSkip = null;
+  function dropSkip() { if (casSkip) field.removeEventListener("pointerdown", casSkip); casSkip = null; }
   function startCascade(done) {
     cascadeOn = true;
     cascade.classList.add("on");
@@ -308,10 +319,12 @@
     }
     function finish() {
       if (casRun !== run) return;
+      dropSkip();
       cascadeOn = false;
       done && done();
     }
-    field.addEventListener("pointerdown", function skip() { casRun++; field.removeEventListener("pointerdown", skip); cascadeOn = false; done && done(); }, { once: true });
+    casSkip = function () { casRun++; dropSkip(); cascadeOn = false; done && done(); };
+    field.addEventListener("pointerdown", casSkip);
     (function frame() {
       if (casRun !== run) return;
       if (next < order.length && (active.length === 0 || active[active.length - 1].t > 14)) {
@@ -351,6 +364,7 @@
   }
   function stopCascade() {
     casRun++;
+    dropSkip();
     cascadeOn = false;
     cascade.classList.remove("on");
     els.forEach(function (el) { el.style.visibility = ""; });
@@ -366,7 +380,7 @@
     // waste (top card only)
     if (G.waste.length) {
       var wl = G.waste.length, fan = G.draw3 ? Math.min(3, wl) : 1;
-      var wx = pileX(1) + (fan - 1) * Math.round(CW * 0.3);
+      var wx = pileX(1) + (fan - 1) * fanStep();
       if (p.x >= wx && p.x <= wx + CW && p.y >= TOPY && p.y <= TOPY + CH) return { pile: "waste", index: wl - 1 };
     }
     for (var f = 0; f < 4; f++) {
@@ -540,6 +554,7 @@
   $("autofinish").addEventListener("click", autoFinish);
 
   document.addEventListener("keydown", function (e) {
+    if (PAUSE.isPaused()) return;   // the pause card's own keys still resume
     if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); doUndo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     // Esc closes the box and stops there: the pause listener (added below)

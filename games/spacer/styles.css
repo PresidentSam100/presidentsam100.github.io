@@ -44,11 +44,13 @@ html, body {
   image-rendering: pixelated;
   box-shadow: 0 0 24px rgba(24, 224, 255, 0.25);
   /* scale up from the native 448x576 while keeping the aspect ratio crisp;
-     height-driven so it stays centred and never overflows the viewport */
+     height-driven so it stays centred and never overflows the viewport. The
+     height is capped by the width too (less 44px: the cabinet's padding and
+     borders take 40), so a narrow screen shrinks the screen instead of
+     squashing it, as capping only the width did */
   aspect-ratio: 448 / 576;
-  height: min(760px, 88vh);
+  height: min(760px, 88vh, calc(min(94vw, 100vw - 44px) * 576 / 448));
   width: auto;
-  max-width: 94vw;
 }
 
 #controls {
@@ -141,5 +143,5 @@ html, body {
 @media (pointer: coarse) {
   #touch-controls { display: flex; }
   #controls { display: none; }
-  #screen { height: min(760px, 66vh); touch-action: none; }
+  #screen { height: min(760px, 66vh, calc(min(94vw, 100vw - 44px) * 576 / 448)); touch-action: none; }
 }

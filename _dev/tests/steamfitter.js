@@ -2,7 +2,9 @@
 // solved; Puzzle boards never start solved and get junctions from level 3;
 // tees / junctions / crossovers keep their own type on the flow path (so the
 // water is drawn through the junction, or under the bridge); the editor's
-// Junction and Crossover tools; spaces in a level name.
+// Junction and Crossover tools; spaces in a level name. Puzzle boards deal at
+// once (no runaway path carve) and still deal when every carve gives up;
+// Panic's hover ghost shows the queued pipe you picked.
 const HOOKS = [
   ["window.PipeMania = {", `window.PipeMania = {
     __n: function () { return LV.length; },
@@ -13,7 +15,18 @@ const HOOKS = [
     __puzzle: function (l) { level = l; newPuzzle(); var j = 0; for (var r = 0; r < ROWS; r++) for (var c = 0; c < COLS; c++) if (grid[r][c].type === "J") j++; return { solved: traceConnected(), j: j }; },
     __geom: function () { return { OX: OX, OY: OY, TS: TS }; },
     __enc: function () { return stringFromGrid(); },
+    __pathLen: function () { return pathLen; },
+    __spr: function (t) { return SPR[t]; },
 `],
+  // count the path carve's steps per board, and stop a runaway one (it froze the tab)
+  ["function newPuzzle() {", "function newPuzzle() { window.__dfsCalls = 0;"],
+  ["function dfs(r, c, path) {", 'function dfs(r, c, path) { if (++window.__dfsCalls > 200000) throw new Error("carve runaway: " + window.__dfsCalls);'],
+  // a shuffle that repeats under a seeded Math.random (a sort with a random
+  // comparator doesn't, run to run)
+  ['var dirs = ["N", "S", "E", "W"].sort(function () { return Math.random() - 0.5; });',
+    'var dirs = ["N", "S", "E", "W"]; for (var q = 3; q > 0; q--) { var w = (Math.random() * (q + 1)) | 0, tmp = dirs[q]; dirs[q] = dirs[w]; dirs[w] = tmp; }'],
+  // every carve try gives up
+  ["var path = carvePath();", "var path = window.__noCarve ? null : carvePath();"],
   // the victory lap at test speed
   ['if (mode === "puzzle" || mode === "levels") return 3.2;', 'if (mode === "puzzle" || mode === "levels") return 80;'],
 ];
@@ -25,6 +38,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   await lib.injectScript(p, "games/steamfitter/game.js", HOOKS);
   await p.goto(base + "games/steamfitter/", { waitUntil: "domcontentloaded" });
   await p.evaluate(() => localStorage.clear()); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(500);
+
+  // boards whose path carve ran for minutes (seeded Math.random; each took over
+  // 200k steps) now deal at once, and a board deals even if every carve gives up
+  const carve = await p.evaluate(() => {
+    const seeded = (s) => () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const orig = Math.random, out = [];
+    for (const [seed, l] of [[10, 10], [23, 10], [29, 10], [36, 3]]) {
+      Math.random = seeded(seed);
+      try { PipeMania.__puzzle(l); out.push(window.__dfsCalls); } catch (e) { out.push(e.message); } finally { Math.random = orig; }
+    }
+    return out;
+  });
+  check("puzzle: boards that froze the tab carving their path deal at once", carve.every((n) => typeof n === "number"), carve);
+  const fallback = await p.evaluate(() => {
+    window.__noCarve = true;
+    try { const r = PipeMania.__puzzle(5); return { len: PipeMania.__pathLen(), solved: r.solved }; } catch (e) { return e.message; } finally { window.__noCarve = false; }
+  });
+  check("puzzle: a board still deals when every carve try gives up", !!fallback && fallback.len >= 7 && fallback.solved === false, fallback);
 
   const n = await p.evaluate(() => PipeMania.__n());
   const notFlowing = [], startSolved = [];
@@ -59,6 +90,28 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("puzzle boards never start solved (96 boards, levels 1-8)", presolved === 0, presolved);
   check("puzzle junctions appear from level 3, not before", earlyJ === 0 && lateJ > 0, { earlyJ, lateJ });
+
+  // Panic: pick the third queued pipe, hover a plate: the ghost is that pipe
+  await p.evaluate(() => { __game.setMode("panic"); __game.setQueue(["H", "V", "NE", "NW", "SE"]); }); await p.waitForTimeout(150);
+  const qbox = await p.locator("#queue").boundingBox();
+  await p.mouse.click(qbox.x + qbox.width / 2, qbox.y + (290 - 2 * 64) / 330 * qbox.height);
+  const geo = await p.evaluate(() => PipeMania.__geom()), gbox = await p.locator("#game").boundingBox();
+  const gs = gbox.width / (await p.evaluate(() => document.getElementById("game").width));
+  const empty = await p.evaluate(() => { const g = __game.grid; for (let r = 0; r < g.length; r++) for (let c = 0; c < g[r].length; c++) if (g[r][c].kind === "empty") return { r, c }; });
+  await p.evaluate(() => {
+    const g = document.getElementById("game").getContext("2d"), draw = g.drawImage;
+    window.__ghosts = [];
+    g.drawImage = function (img) { if (Math.abs(this.globalAlpha - 0.45) < 0.01) window.__ghosts.push(img); return draw.apply(this, arguments); };
+  });
+  const gx = gbox.x + (geo.OX + (empty.c + 0.5) * geo.TS) * gs, gy = gbox.y + (geo.OY + (empty.r + 0.5) * geo.TS) * gs;
+  await p.mouse.move(gx - 5, gy); await p.mouse.move(gx, gy); await p.waitForTimeout(150);
+  const ghost = await p.evaluate(() => {
+    const g = window.__ghosts;
+    delete document.getElementById("game").getContext("2d").drawImage;
+    return { sel: __game.queueSel, drawn: g.length, picked: g.length > 0 && g.every((i) => i === PipeMania.__spr("NE")) };
+  });
+  await p.mouse.move(gbox.x - 20, gbox.y - 20);
+  check("panic: the hover ghost shows the queued pipe you picked", ghost.sel === 2 && ghost.picked, ghost);
 
   // the editor: Junction places J, Crossover places X, and the level code keeps both
   await p.evaluate(() => document.querySelector('#modeBar .mbtn[data-mode="levels"]').click()); await p.waitForTimeout(300);

@@ -173,8 +173,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet };\n})();"]]));
     const set = await p.evaluate(() => __h.findSet(__h.board));
     for (const i of set) await p.click('.card[data-idx="' + i + '"]');
-    await p.waitForTimeout(300);
-    const cards = await p.evaluate(() => [...document.querySelectorAll(".card.exit-right")].map((c) => { const cs = getComputedStyle(c); return cs.opacity + "|" + cs.animationName + "|" + /52, 201, 138/.test(cs.boxShadow); }));
+    // the claimed trio is up from about 240 ms to 600 ms after the last click:
+    // read it as soon as it shows (a fixed wait missed it on a busy machine)
+    const cards = await p.waitForFunction(() => {
+      const cs = [...document.querySelectorAll(".card.exit-right")];
+      return cs.length === 3 && cs.map((c) => { const s = getComputedStyle(c); return s.opacity + "|" + s.animationName + "|" + /52, 201, 138/.test(s.boxShadow); });
+    }, null, { timeout: 3000 }).then((h) => h.jsonValue(), () => []);
     check("hash, FX off: the claimed trio stays shown, green, until the refill", cards.length === 3 && cards.every((c) => c === "1|none|true"), cards);
     await done(p, "hash");
   }

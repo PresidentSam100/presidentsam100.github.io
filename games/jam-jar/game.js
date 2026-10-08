@@ -311,7 +311,7 @@
   }
 
   function drop() {
-    if (state !== "play" || dropCd > 0) return;
+    if (state !== "play" || dropCd > 0 || P.isPaused()) return;
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     fruits.push(makeFruit(x, DROP_Y, current));
@@ -673,8 +673,9 @@
     best.submit(score);
     sfxOver();
     document.getElementById("finalScore").textContent = score;
-    // (against the best as the jar began: the stored one has kept pace mid-run)
-    document.getElementById("overBest").textContent = score >= runBest ? "★ New best!" : "Best: " + best.get();
+    // (against the best as the jar began: the stored one has kept pace mid-run;
+    // a tie, or an empty first jar, isn't a new best)
+    document.getElementById("overBest").textContent = score > 0 && score > runBest ? "★ New best!" : "Best: " + best.get();
     document.getElementById("overScreen").classList.remove("hidden");
     refreshHud();
   }
@@ -845,6 +846,7 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    if (P.isPaused()) return;                          // paused: no aiming, no dropping
     if (e.key === "ArrowLeft") { e.preventDefault(); aimX -= e.repeat ? 14 : 22; }
     else if (e.key === "ArrowRight") { e.preventDefault(); aimX += e.repeat ? 14 : 22; }
     else if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat) drop(); }

@@ -81,7 +81,21 @@
   // win; the per-level best is stored by level NAME, so re-sorting the level
   // order never mixes up records.
   let runStartTs = null;
-  let heldAt = 0;   // while "Leave this game?" is up the clock holds (from then)
+  // While "Leave this game?" is up, or the tab or window is away, the clock
+  // holds (from heldAt); each reason lets go on its own, and the last one
+  // out moves the start on by the time held, so a best never counts it.
+  let heldAt = 0;
+  const holds = new Set();
+  function holdClock(why) {
+    if (!holds.size) heldAt = Date.now();
+    holds.add(why);
+  }
+  function releaseClock(why) {
+    if (!holds.delete(why) || holds.size) return;
+    // (a run begun during the hold counts from now)
+    if (heldAt && runStartTs !== null) runStartTs += Date.now() - Math.max(heldAt, runStartTs);
+    heldAt = 0;
+  }
   function fmtTime(ms) {
     const t = Math.max(0, ms) / 1000;
     if (t < 60) return t.toFixed(1) + "s";
@@ -96,14 +110,21 @@
   function sleep(ms) { return new Promise((res) => setTimeout(res, ms)); }
 
   // ----- rendering -----
+  // The room comes from the board's panel (.boardwrap), not the board frame:
+  // that one is only as wide as the board already drawn, so each level was
+  // sized from the last one (and the first from an empty board). The floor
+  // is low enough for a 15-wide level to fit a phone.
+  const wrapEl = boardEl.closest(".boardwrap");
   function computeCell() {
     const cols = grid[0].length;
     const rows = grid.length;
-    const frameW = Math.min(boardEl.parentElement.clientWidth || 520, 540);
+    const cs = getComputedStyle(wrapEl);
+    const roomW = wrapEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const frameW = Math.min(roomW || 520, 540);
     const maxH = Math.max(260, window.innerHeight - 360);
     const byW = (frameW - GAP * (cols + 1)) / cols;
     const byH = (maxH - GAP * (rows + 1)) / rows;
-    cell = Math.max(30, Math.min(64, Math.floor(Math.min(byW, byH))));
+    cell = Math.max(16, Math.min(64, Math.floor(Math.min(byW, byH))));
     document.documentElement.style.setProperty("--cell", cell + "px");
   }
 
@@ -155,10 +176,17 @@
   }
 
   // ----- level lifecycle -----
+  // A reset or a new level can land while a move is still animating: bumping
+  // moveGen drops that move (its slide, bump and win card), so it can't put
+  // the ball back where it was going or pop "Level Complete!" over this board.
+  let moveGen = 0;
+  let overlayT = 0;
   function loadLevel(idx) {
     current = Math.max(0, Math.min(LEVELS.length - 1, idx));
     const lvl = LEVELS[current];
     grid = lvl.grid.slice();
+    moveGen++;
+    clearTimeout(overlayT);
     won = false;
     locked = false;
     moves = 0;
@@ -210,19 +238,20 @@
       ? `You finished all ${LEVELS.length} levels — this one in ${moves} moves and ${timeBit}.`
       : `Solved in ${moves} moves · ${timeBit}.`;
     document.getElementById("overlayNext").style.display = last ? "none" : "";
-    setTimeout(() => { overlayEl.hidden = false; }, 350);
+    overlayT = setTimeout(() => { overlayEl.hidden = false; }, 350);
     renderLevelPicker();
   }
 
   // ----- movement -----
   // Animation context handed to the shared TileAnim module (also used by the editor).
-  function animCtx() {
+  function animCtx(gen) {
     return {
       playerEl,
       gap: GAP,
       cell: () => cell,
       grid: () => grid,
       reduced: () => !!(window.RM_ON && window.RM_ON()),
+      stale: () => gen !== moveGen,     // a reset or new level replaced this move
       from: { r: state.r, c: state.c }, // tile the player is leaving (for midpoint speed blend)
       setFlavor,
       sfx: SFX,
@@ -241,13 +270,14 @@
     if (locked || won) return;
     const res = E.resolveMove(grid, state, dir);
     const A = window.TileAnim;          // shared animation module (guarded so a load hiccup never freezes play)
+    const gen = moveGen;                // after each wait: if the board was reset meanwhile, this move is over
 
     if (res.blocked) {
       // pushed straight into a wall — thud + a little bump back
       locked = true;
       SFX.thud();
-      if (A) await A.bump(animCtx(), dir, state);
-      locked = false;
+      if (A) await A.bump(animCtx(gen), dir, state);
+      if (gen === moveGen) locked = false;
       return;
     }
 
@@ -257,8 +287,9 @@
     moveCountEl.textContent = moves;
     if (res.win) recordWin();
 
-    if (A) await A.play(animCtx(), res);
+    if (A) await A.play(animCtx(gen), res);
     else placePlayer(res.final.r, res.final.c, false);
+    if (gen !== moveGen) return;
 
     state = res.final;
     setFlavor(state.flavor);
@@ -271,7 +302,8 @@
     if (A && res.hitWall && !res.win) {
       if (!(window.RM_ON && window.RM_ON())) {
         SFX.thud();
-        await A.bump(animCtx(), dir, state);
+        await A.bump(animCtx(gen), dir, state);
+        if (gen !== moveGen) return;
       } else if (A.markBump) A.markBump(playerEl, dir);
     }
 
@@ -322,6 +354,7 @@
   };
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    if (!guideOverlay.hidden) return;   // the Tile Guide holds the board (and its arrows scroll the guide)
     if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press — holding does nothing
     if (e.key === "r" || e.key === "R") { loadLevel(current); return; }
     const dir = KEYMAP[e.key];
@@ -357,12 +390,16 @@
   // level clock just holds.
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
     active: () => moves > 0 && !won,
-    pause: () => { heldAt = Date.now(); },
-    resume: () => {
-      if (heldAt && runStartTs !== null) runStartTs += Date.now() - heldAt;
-      heldAt = 0;
-    },
+    pause: () => holdClock("leave"),
+    resume: () => releaseClock("leave"),
   });
+
+  // ...and so it does while the tab is hidden or the window is away
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) holdClock("away"); else if (document.hasFocus()) releaseClock("away");
+  });
+  window.addEventListener("blur", () => holdClock("away"));
+  window.addEventListener("focus", () => releaseClock("away"));
 
   window.addEventListener("resize", () => {
     computeCell();

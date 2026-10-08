@@ -15,6 +15,8 @@
 
   function $(id) { return document.getElementById(id); }
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // a button's keycap, hidden on touch-only devices (.gs-keys, motion-toggle.js)
+  function keyCap(k) { return '<span class="gs-keys"><kbd>' + k + "</kbd></span>"; }
 
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
@@ -439,9 +441,7 @@
     var prs = freePairs();
     if (!prs.length) {
       // nothing matches: point at the shuffle
-      var sb = $("btn-shuffle");
-      sb.style.outline = "3px solid #ffd23f";
-      setTimeout(function () { sb.style.outline = ""; }, 1200);
+      pointAt("btn-shuffle");
       if (!isNudge) thunk();
       return;
     }
@@ -457,9 +457,15 @@
     });
     hud();
   }
+  // a HUD button outlined for a moment: "try this"
+  function pointAt(id) {
+    var b = $(id);
+    b.style.outline = "3px solid #ffd23f";
+    clearTimeout(b.pointT);
+    b.pointT = setTimeout(function () { b.style.outline = ""; }, 1200);
+  }
   function reshuffle() {
-    if (state !== "play" || live.size < 4) return;
-    penaltyMs += 60000;
+    if (state !== "play" || (live.size < 4 && freePairs().length)) return;
     // remaining kinds regrouped into matchable pairs, re-dealt solvably
     var rem = [];
     live.forEach(function (i) { rem.push(kinds[i]); });
@@ -476,8 +482,17 @@
     var rng = Math.random;
     shuffle(pairs, rng);
     var dealt = dealOnto(pos, [...live], pairs, rng);
-    if (!dealt) { thunk(); return; }     // couldn't (vanishingly rare) — keep board
+    if (!dealt) {
+      // no solvable deal fits what's left (a lone stack, say): the board
+      // stays, it costs nothing, and taking a pair back is the way on
+      thunk();
+      note("no reshuffle fits — undo a pair");
+      pointAt("btn-undo");
+      return;
+    }
+    penaltyMs += 60000;
     kinds = Object.assign({}, kinds, dealt);
+    if (selected >= 0 && els[selected]) els[selected].classList.remove("sel");   // its face just changed
     selected = -1;
     layout();
     hud();
@@ -493,7 +508,7 @@
     live = new Set(pos.map(function (_, i) { return i; }));
     kinds = dealOnto(pos, [...live], pairPool(rng), rng);
     dailyRecorded = mode === "daily" ? readDaily().done : false;
-    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0;
+    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; hudNote = "";
     $("menu").hidden = true; $("over").hidden = true; $("hudline").hidden = false;
     state = "play";
     buildBoard();
@@ -503,10 +518,18 @@
     var s = Math.floor(ms / 1000);
     return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
   }
+  // a word in the HUD for a moment, in place of the pairs count
+  var hudNote = "", noteT = 0;
+  function note(t) {
+    hudNote = t;
+    clearTimeout(noteT);
+    noteT = setTimeout(function () { hudNote = ""; hud(); }, 2400);
+    hud();
+  }
   function hud() {
     $("hud-time").textContent = fmt(timeMs + penaltyMs);
     $("hud-left").textContent = live.size + " tiles";
-    $("hud-pairs").textContent = freePairs().length + " pairs open";
+    $("hud-pairs").textContent = hudNote || freePairs().length + " pairs open";
   }
   function win() {
     state = "over";
@@ -522,7 +545,7 @@
       lines.push("Daily turtle No. " + rec.n +
         (dailyRecorded ? " — recorded earlier: " + fmt(rec.ms) : ""));
       $("share").hidden = false;
-      $("again").innerHTML = "Once more (just for fun) <kbd>Enter</kbd>";
+      $("again").innerHTML = "Once more (just for fun) " + keyCap("Enter");
     } else {
       isBest = bestTime ? bestTime.submit(Math.round(total)) : false;
       $("over-title").textContent = "The desk is clear";
@@ -530,7 +553,7 @@
       lines.push(isBest ? "a new fastest clear! 🀄" :
         "best: " + (bestTime && bestTime.get() ? fmt(bestTime.get()) : fmt(total)));
       $("share").hidden = true;
-      $("again").innerHTML = "Deal again <kbd>Enter</kbd>";
+      $("again").innerHTML = "Deal again " + keyCap("Enter");
     }
     $("over-stats").textContent = lines.join("\n");
     $("hudline").hidden = true;
@@ -579,8 +602,8 @@
     });
     var d = readDaily();
     $("daily-small").innerHTML = d.done
-      ? "done: " + fmt(d.ms) + " ✓ <kbd>2</kbd>"
-      : "today's turtle, shareable <kbd>2</kbd>";
+      ? "done: " + fmt(d.ms) + " ✓ " + keyCap("2")
+      : "today's turtle, shareable " + keyCap("2");
     $("bests").textContent = bestTime && bestTime.get()
       ? "fastest clear: " + fmt(bestTime.get())
       : "no cleared desks yet";
@@ -598,6 +621,9 @@
       store.set("mahjong_mode", mode);
       paintMenu();
     });
+    // a mouse click doesn't take focus (Tab still reaches it): left focused,
+    // the Enter that should deal would press the mode again
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -608,11 +634,12 @@
   $("btn-shuffle").addEventListener("click", reshuffle);
 
   document.addEventListener("keydown", function (e) {
+    if (P.isPaused()) return;          // paused: no play keys, Ctrl+Z's undo included
     if (e.ctrlKey || e.metaKey || e.altKey) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && state === "play") { e.preventDefault(); undo(); }
       return;
     }
-    if (P.isPaused() || e.repeat) return;
+    if (e.repeat) return;
     if (state === "play") {
       var k = e.key.toLowerCase();
       if (k === "h") hint(false);
@@ -620,6 +647,9 @@
       else if (k === "s") reshuffle();
       return;
     }
+    // Enter on a focused button is that button's click (a mode, Share, Modes…);
+    // dealing here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "classic" : "daily";

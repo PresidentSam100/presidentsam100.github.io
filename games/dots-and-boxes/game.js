@@ -398,6 +398,13 @@ const rulesModal = document.getElementById('rulesModal');
 document.getElementById('rules').addEventListener('click', () => rulesModal.classList.add('open'));
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
+// Esc closes the Rules and stops there: preventDefault keeps ../motion-toggle.js
+// from taking it to the games page (or asking to, mid-game)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.ctrlKey || e.metaKey || e.altKey || !rulesModal.classList.contains('open')) return;
+  rulesModal.classList.remove('open');
+  e.preventDefault();
+});
 
 // Leaving asks first once a road is built in a game still going (the AI's
 // turns too); not before the first move, once it's decided, or while the

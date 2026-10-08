@@ -187,6 +187,7 @@ window.SlitherLabyrinth = function (host) {
 
   // Arena: last snake standing against rival bots, one or two players here.
   var ARENA_WINS = 3, arenaPlayers = 1, tally = null;
+  function matchWon(t) { return !!t && Math.max(t.p1, t.p2, t.rival) >= ARENA_WINS; }
   var RIVAL_PALS = ["garnet", "topaz", "ivory", "carnelian"];
   function buildArenas(container) {
     if (!ARENAS.length) return;
@@ -375,7 +376,7 @@ window.SlitherLabyrinth = function (host) {
     bead: (function () { var hi = false; return function () { hi = !hi; tone(hi ? 900 : 680, 0.045, "triangle", 0.045); }; })(),
     sunstone: function () { tone(330, 0.3, "sawtooth", 0.06, 880); tone(660, 0.3, "triangle", 0.07, 1320, 0.05); },
     bite: function () { tone(1200, 0.08, "square", 0.06, 300); tone(400, 0.2, "triangle", 0.08, 1600, 0.06); },
-    flip: function () { tone(520, 0.05, "sine", 0.05, 780); },
+    flipEnd: function () { tone(520, 0.05, "sine", 0.05, 780); },   // end for end (switches keep `flip`)
     // fire eggs
     lay: function () { tone(300, 0.08, "sine", 0.09, 180); },
     boom: function () { noise(0.45, 0.32, "lowpass", 900, 120); tone(90, 0.35, "sawtooth", 0.08, 45); },
@@ -528,10 +529,13 @@ window.SlitherLabyrinth = function (host) {
   function restart() {
     if (custom) { launch(custom); return; }
     if (chaseIdx >= 0) { recordChase(); startChase(chaseRun ? chaseRun.first : chaseIdx, true); return; }
-    if (blastIdx >= 0) { startBlast(blastIdx, false); return; }
+    // (a match that's been won starts over, like its New Match button)
+    if (blastIdx >= 0) { startBlast(blastIdx, matchWon(blastTally)); return; }
     if (stageIdx >= 0) { recordStage(); startStage(stageIdx); return; }
-    if (arenaIdx >= 0) { startArena(arenaIdx, false); return; }
+    if (arenaIdx >= 0) { startArena(arenaIdx, matchWon(tally)); return; }
     if (!st) return;
+    // A crash just took the run's last life: its "Run over" card is on the way.
+    if (inRun && !progress.run && st.status === "dead") return;
     // On a run, giving up an attempt in progress costs a life, like crashing.
     if (inRun && st.status === "play") {
       if (loseLife()) { runOver(); return; }
@@ -600,27 +604,29 @@ window.SlitherLabyrinth = function (host) {
     // Shift turns "g" into "G" and "w" into "W" — compare in lower case.
     var k = (e.key || "").toLowerCase();
     if (k === "r") { restart(); e.preventDefault(); return; }
-    if (k === "m") { toggleMusic(); e.preventDefault(); return; }
+    // (the toggles act once per press, not on a held key's repeats)
+    if (k === "m") { if (!e.repeat) toggleMusic(); e.preventDefault(); return; }
     if (st.status === "dead" || st.status === "won" || st.status === "over") {
       // (in a blast arena Space is the egg key, so mashing it mustn't skip the result)
       if ((k === " " || k === "spacebar") && !st.blast) { host.clickResult(); e.preventDefault(); }
       return;
     }
-    // Fire eggs: Space or E lays P1's egg, Enter P2's (or P1's alone); P / Esc pause.
-    if (st.blast && !paused && (k === " " || k === "spacebar" || k === "e" || k === "enter")) {
-      if (!e.repeat) E.blastLay(st, k === "enter" && twoPlayer() ? "p2" : "p1");
+    // Fire eggs: Space or E lays P1's egg, Enter P2's (or P1's alone); P / Esc
+    // pause. Paused, the egg keys do nothing (Space mustn't resume what it can't pause).
+    if (st.blast && (k === " " || k === "spacebar" || k === "e" || k === "enter")) {
+      if (!e.repeat && !paused) E.blastLay(st, k === "enter" && twoPlayer() ? "p2" : "p1");
       e.preventDefault(); return;
     }
     // Esc is claimed only when it pauses or resumes (not while a Maze Chase
     // catch plays out), so otherwise ../motion-toggle.js takes it to the games page
-    if (k === " " || k === "spacebar" || k === "p" || k === "escape") { if (togglePause() || k !== "escape") e.preventDefault(); return; }
+    if (k === " " || k === "spacebar" || k === "p" || k === "escape") { if ((!e.repeat && togglePause()) || k !== "escape") e.preventDefault(); return; }
     if (paused) return;
     if (KEY_DIRS.hasOwnProperty(k)) {
       if (!e.repeat) pressDir(keyCtrl(k), KEY_DIRS[k]);
       e.preventDefault(); return;
     }
     if (k === "shift") { held.dashKey = true; syncHeld(); return; }
-    if (k === "1" || k === "2" || k === "3") { clickColor(Number(k) - 1); e.preventDefault(); return; }
+    if (k === "1" || k === "2" || k === "3") { if (!e.repeat) clickColor(Number(k) - 1); e.preventDefault(); return; }
     if (k === "g") { held.ghostKey = true; syncHeld(); e.preventDefault(); }
   }
   function keyCtrl(k) { return twoPlayer() && k.indexOf("arrow") === 0 ? "p2" : "p1"; }
@@ -664,9 +670,10 @@ window.SlitherLabyrinth = function (host) {
   }
 
   function cellAt(e) {
+    // (the board's border is outside the grid: measure from its inner edge)
     var r = canvas.getBoundingClientRect();
-    var x = Math.floor((e.clientX - r.left) / r.width * st.cols);
-    var y = Math.floor((e.clientY - r.top) / r.height * st.rows);
+    var x = Math.floor((e.clientX - r.left - canvas.clientLeft) / canvas.clientWidth * st.cols);
+    var y = Math.floor((e.clientY - r.top - canvas.clientTop) / canvas.clientHeight * st.rows);
     if (x < 0 || y < 0 || x >= st.cols || y >= st.rows) return -1;
     return y * st.cols + x;
   }
@@ -783,7 +790,7 @@ window.SlitherLabyrinth = function (host) {
         case "bonusSpawn": burst(e.at, "#f2c037"); break;
         case "bonus": host.SFX.eat(); popup(e.at, String(e.points), "#f2c037"); break;
         case "extraLife": sfxOneUp(); break;
-        case "flip": if (e.ctrl) sfx.flip(); break;
+        case "flip": if (e.ctrl) sfx.flipEnd(); break;
         // fire eggs
         case "eggLaid": sfx.lay(); break;
         case "burst": booms++; break;
@@ -1379,7 +1386,7 @@ window.SlitherLabyrinth = function (host) {
     var s = st.status;
     if (chaseIdx >= 0 && st.chase) return (s === "play" || s === "ready" || s === "caught" || s === "won") && (st.chase.score > 0 || st.chase.round > 1);
     var t = arenaIdx >= 0 ? tally : blastIdx >= 0 ? blastTally : null;
-    if (t) return Math.max(t.p1, t.p2, t.rival) < ARENA_WINS && (s === "play" || t.p1 + t.p2 + t.rival > 0);
+    if (t) return !matchWon(t) && (s === "play" || t.p1 + t.p2 + t.rival > 0);
     if (inRun) return false;
     if (st.stage) return s === "play" && st.score > 0;
     return s === "play";

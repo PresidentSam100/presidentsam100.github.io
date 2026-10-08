@@ -486,7 +486,7 @@ html.fx-off .played-by {
   border-color: #3a3a48;
 }
 .card.back::after {
-  content: "UNO";
+  content: "YI";
   font-family: "Fredoka", "Inter", sans-serif;
   font-size: 0.85rem;
   font-weight: 700;

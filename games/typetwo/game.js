@@ -661,11 +661,14 @@
     ctx.save();
     ctx.translate(ox, oy);
 
-    const T = performance.now() / 1000;
+    // With Visual FX off the scene's clock stands still: the stars, the ward's
+    // shimmer and its runes are all drawn, just not moving
+    const still = reducedMotion();
+    const T = still ? 0 : performance.now() / 1000;
 
     // stars — slow drift, warm arcane white
     for (const s of starfield) {
-      s.y += s.z * 14 * (1 / 60);
+      if (!still) s.y += s.z * 14 * (1 / 60);
       if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
       ctx.globalAlpha = 0.22 + s.z * 0.45;
       ctx.fillStyle = "#d8d2ff";
@@ -859,7 +862,8 @@
 
   // The wizard stands fast; only the staff swings to aim (angle 0 = straight up).
   function drawWizard(x, y, angle) {
-    const T = performance.now() / 1000;
+    const still = reducedMotion();   // FX off: the robe hangs still and the orb glows steady
+    const T = still ? 0 : performance.now() / 1000;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(WIZ_SCALE, WIZ_SCALE);
@@ -911,7 +915,7 @@
     ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(6, 10); ctx.lineTo(0, -26); ctx.stroke();
     // the orb at its tip
-    const flick = 0.6 + Math.random() * 0.4;
+    const flick = still ? 0.8 : 0.6 + Math.random() * 0.4;
     ctx.shadowColor = "rgba(177,140,255,0.9)";
     ctx.shadowBlur = 16 * flick;
     ctx.fillStyle = "#c9a2ff";

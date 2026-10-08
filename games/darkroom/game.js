@@ -183,6 +183,7 @@
     ui.hudTop.hidden = screen !== "puzzle";
     ui.easel.hidden = screen !== "puzzle";
     ui.win.hidden = true;
+    ui.share.hidden = true;        // the copy-it-yourself box belongs to the win card
   }
 
   // ---- the daily -----------------------------------------------------------------------
@@ -568,7 +569,8 @@
     var a = albumGet();
     if (!cur.isDaily) {
       var old = a[cur.p.id];
-      if (!old || cur.ms < old.ms || (old.fog && !cur.fog)) a[cur.p.id] = { ms: Math.round(cur.ms), fog: cur.fog };
+      // a flawless print beats a fogged one, however fast; of two alike, the faster
+      if (!old || (old.fog && !cur.fog) || (!old.fog === !cur.fog && cur.ms < old.ms)) a[cur.p.id] = { ms: Math.round(cur.ms), fog: cur.fog };
       jset(K.album, a);
     } else {
       var dlog = jget(K.daily);
@@ -609,7 +611,7 @@
     var text = "Darkroom · Daily negative #" + t.n + " (" + t.ymd + ")\nDeveloped in " + mmss(d.ms) + (d.fog ? " · fog ×" + d.fog : " · flawless print 🏆") +
       "\n" + location.origin + location.pathname;
     function fallback() { ui.share.hidden = false; ui.share.querySelector("textarea").value = text; }
-    function copied() { $("win-share").textContent = "Copied!"; }
+    function copied() { $("win-share").textContent = "Copied!"; setTimeout(function () { $("win-share").textContent = "Share"; }, 1400); }
     if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
       navigator.share({ text: text }).catch(function (e2) { if (!e2 || e2.name !== "AbortError") fallback(); });
       return;

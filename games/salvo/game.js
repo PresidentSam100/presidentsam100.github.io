@@ -47,11 +47,14 @@
   };
 
   // ---- state ----
+  // phase: place | battle | ending (a fleet's sunk, the end card on its way) | over
   let playerBoard, enemyBoard, playerShips, enemyShips, phase, turn, placeIdx, orient, cpuTargets, round = 0;
   let hoverR = -1, hoverC = -1;   // last hovered cell on the placement grid
   let lastShot = { player: null, enemy: null };   // latest shot at each grid, as [r, c]
-  let difficulty = localStorage.getItem("battleship_diff") || "medium";
-  let rec = JSON.parse(localStorage.getItem("battleship_record") || '{"w":0,"l":0}');
+  // (GameShell.store, so blocked storage can't stop the game loading)
+  const store = window.GameShell ? GameShell.store : { get: (k, f) => f, set: () => {} };
+  let difficulty = store.get("battleship_diff", "medium");
+  let rec = JSON.parse(store.get("battleship_record", '{"w":0,"l":0}'));
 
   const emptyBoard = () => Array.from({ length: N }, () => Array.from({ length: N }, () => ({ ship: null, hit: false, attacked: false })));
   const makeShips = () => SHIPS.map((s, i) => ({ name: s.name, size: s.size, idx: i, cells: [], hits: 0, sunk: false }));
@@ -188,7 +191,7 @@
   $("startBtn").addEventListener("click", startBattle);
 
   function renderDiff() { document.querySelectorAll(".dbtn").forEach((b) => b.classList.toggle("sel", b.dataset.diff === difficulty)); }
-  document.querySelectorAll(".dbtn").forEach((b) => b.addEventListener("click", () => { difficulty = b.dataset.diff; localStorage.setItem("battleship_diff", difficulty); renderDiff(); }));
+  document.querySelectorAll(".dbtn").forEach((b) => b.addEventListener("click", () => { difficulty = b.dataset.diff; store.set("battleship_diff", difficulty); renderDiff(); }));
   renderDiff();
 
   function resetPlacement() { playerBoard = emptyBoard(); playerShips = makeShips(); placeIdx = 0; }
@@ -239,7 +242,8 @@
     const res = attack(enemyBoard, r, c); lastShot.enemy = [r, c];
     if (res.hit) { res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
     render(); flashHit(enemyGrid, res, r, c);
-    if (allSunk(enemyShips)) { setTimeout(() => gameOver("player"), res.sunk ? 650 : 150); return; }
+    // "ending" at once, so a shot fired before the end card can't win twice
+    if (allSunk(enemyShips)) { phase = "ending"; setTimeout(() => gameOver("player"), res.sunk ? 650 : 150); return; }
     if (res.hit) status('<span class="hit">HIT at ' + coordLabel(r, c) + "!</span>" + (res.sunk ? " Sank their " + res.ship.name + "." : " Fire again."));
     else { status("Miss at " + coordLabel(r, c) + " — <span class=\"warn\">CPU's turn…</span>"); turn = "cpu"; render(); scheduleCpu(800); }
   });
@@ -307,7 +311,7 @@
     const [r, c] = cpuPick(); const res = attack(playerBoard, r, c); lastShot.player = [r, c];
     if (res.hit) { cpuOnHit(r, c, res.ship, res.sunk); res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
     render(); flashHit(playerGrid, res, r, c);
-    if (allSunk(playerShips)) { setTimeout(() => gameOver("cpu"), res.sunk ? 650 : 150); return; }
+    if (allSunk(playerShips)) { phase = "ending"; setTimeout(() => gameOver("cpu"), res.sunk ? 650 : 150); return; }
     if (res.hit) { status('CPU <span class="hit">HIT</span> at ' + coordLabel(r, c) + (res.sunk ? " — sank your " + res.ship.name + "!" : "…")); scheduleCpu(800); }
     else { status("CPU missed at " + coordLabel(r, c) + ' — <span class="ok">your turn.</span>'); turn = "player"; render(); }
   }
@@ -317,7 +321,7 @@
     phase = "over"; render();
     if (winner === "player") { rec.w++; SFX.win(); $("overTitle").textContent = "🏆 Victory!"; $("overMsg").textContent = "You sank the entire enemy fleet."; }
     else { rec.l++; SFX.lose(); $("overTitle").textContent = "💥 Defeated"; $("overMsg").textContent = "The CPU sank your fleet."; }
-    localStorage.setItem("battleship_record", JSON.stringify(rec));
+    store.set("battleship_record", JSON.stringify(rec));
     $("record").innerHTML = "Record &nbsp; <b>" + rec.w + "</b> W &nbsp;·&nbsp; <b>" + rec.l + "</b> L";
     $("over").classList.remove("hidden");
   }
@@ -350,10 +354,10 @@
 
   $("againBtn").addEventListener("click", newGame);
 
-  // A battle is in progress from the first shot until a fleet is sunk (the
-  // win / loss is recorded only then): leaving asks first. Placing the fleet
+  // A battle is in progress from the first shot until the end card (the win /
+  // loss is recorded only then): leaving asks first. Placing the fleet
   // isn't a game yet. Turn-based, so there's nothing to pause.
-  if (window.GameShell) GameShell.guardLeave(() => phase === "battle" && !!(lastShot.enemy || lastShot.player));
+  if (window.GameShell) GameShell.guardLeave(() => (phase === "battle" || phase === "ending") && !!(lastShot.enemy || lastShot.player));
 
   newGame();
 })();

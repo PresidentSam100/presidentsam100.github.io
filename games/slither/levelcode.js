@@ -29,11 +29,21 @@
     if (typeof out.hint === "string") out.hint = out.hint.slice(0, 240);
     if (out.warps && !Array.isArray(out.warps)) delete out.warps;
     if (out.warps) out.warps = out.warps.filter(function (w) { return typeof w === "string"; }).slice(0, 8);
+    // Speeds and clocks too: a step of zero or less would never let the
+    // engine's clock move on, and the tab would hang. Zero or less means
+    // "the default" (the engine's own fallback), so it's dropped.
+    function ms(v, lo, hi) { return typeof v === "number" && v > 0 ? Math.max(lo, Math.min(hi, v)) : null; }
     if (out.enemyMs) {
       var em = {};
-      Object.keys(out.enemyMs).forEach(function (k) { if (typeof out.enemyMs[k] === "number") em[k] = out.enemyMs[k]; });
+      Object.keys(out.enemyMs).forEach(function (k) { var v = ms(out.enemyMs[k], 40, 5000); if (v != null) em[k] = v; });
       out.enemyMs = em;
     }
+    [["speed", 40, 1000], ["spikeMs", 200, 10000]].forEach(function (b) {
+      if (out[b[0]] == null) return;
+      var v = ms(out[b[0]], b[1], b[2]);
+      if (v == null) delete out[b[0]]; else out[b[0]] = v;
+    });
+    if (out.time != null) out.time = Math.max(0, Math.min(999, out.time) || 0);
     if (out.mode !== "stage" && out.mode !== "arena") delete out.mode;
     // Boss tuning from a shared link stays within sane bounds.
     [["bossHp", 1, 9], ["bossLen", 3, 30], ["bossAttackMs", 1500, 30000], ["flowers", 0, 8]].forEach(function (b) {

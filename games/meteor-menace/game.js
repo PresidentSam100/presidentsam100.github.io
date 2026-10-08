@@ -176,6 +176,11 @@
     var k = KEYMAP[e.key];
     if (k) input[k] = false;
   });
+  // A key let go in another window sends this page no keyup, so losing focus
+  // (or pausing) lets go of everything: the ship mustn't come back still
+  // thrusting. A key really still held repeats, which presses it again.
+  function releaseAll() { input.left = input.right = input.thrust = input.fire = false; }
+  window.addEventListener("blur", releaseAll);
   // touch buttons hold their flag while pressed
   [["t-left", "left"], ["t-right", "right"], ["t-thrust", "thrust"], ["t-fire", "fire"]].forEach(function (pair) {
     var el = document.getElementById(pair[0]);
@@ -749,7 +754,9 @@
       }
     } else if (state === "menu") {
       title("METEOR MENACE!", "PRESS [ENTER] TO BLAST OFF!");
-      drawShipAt(W / 2 + Math.cos(time * 0.7) * 30, H * 0.68 + Math.sin(time * 1.1) * 10, -0.5 + Math.sin(time * 0.5) * 0.2, { thrust: true, scale: 1.6 });
+      // the rocket drifts with Visual FX on; off, it holds one pose, flame lit
+      var mt = fx() ? time : 0;
+      drawShipAt(W / 2 + Math.cos(mt * 0.7) * 30, H * 0.68 + Math.sin(mt * 1.1) * 10, -0.5 + Math.sin(mt * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
       title("THE END...?", "PRESS [ENTER] FOR THE NEXT ISSUE");
       capBox(W / 2, H * 0.62, "SCORE " + score + "  ·  BEST " + best.get(), { center: true, size: 24 });
@@ -789,7 +796,7 @@
   // ---- pause + loop -----------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    onChange: function (p) { if (p) thrustSnd(false); }
+    onChange: function (p) { if (p) { thrustSnd(false); releaseAll(); } }
   }) : { isPaused: function () { return false; } };
 
   var last = performance.now();

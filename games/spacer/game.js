@@ -41,6 +41,11 @@ const T_ENTERPRISE = 'enterprise';
 const ANIM = { flap: 0, time: 0, reducedFlash: !!(window.RM_ON && window.RM_ON()) };
 window.addEventListener("reducemotionchange", function (e) { ANIM.reducedFlash = e.detail.on; });
 
+// Saved data (the high score) goes through GameShell.store, which shrugs off a
+// browser that blocks storage; a bare localStorage there stopped the game from
+// starting at all
+const Store = window.GameShell ? GameShell.store : { get: (k, f) => f, set: () => false, remove: () => {} };
+
 // ---- math helpers ---------------------------------------------------------
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -710,7 +715,7 @@ class PowerUp {
   update(dt) {
     this.t += dt;
     this.y += this.vy * dt;
-    this.x += Math.sin(this.t * 4) * 0.6;
+    this.x += Math.sin(this.t * 4) * 36 * dt; // per second, so it sways as far at 144 Hz as at 60
     if (this.y > HEIGHT + 20) this.dead = true;
   }
   draw(ctx) {
@@ -797,11 +802,12 @@ class Explosion {
   }
   update(dt) {
     this.t += dt;
+    const drag = Math.pow(0.92, dt * 60); // 0.92 a frame at 60 Hz, the same per second at any rate
     for (const p of this.parts) {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vx *= 0.92;
-      p.vy *= 0.92;
+      p.vx *= drag;
+      p.vy *= drag;
     }
     if (this.t >= this.dur) this.dead = true;
   }
@@ -1616,6 +1622,9 @@ function stageBadges(stage) {
   return out;
 }
 
+// the between-stage banners (READY, STAGE CLEAR, the bonus tally): part of a run
+const BANNER_MODES = ['ready', 'cleared', 'bonusResult'];
+
 // selectable life modes shown on the title screen
 const LIFE_MODES = [
   { name: '3 LIVES', lives: 3, infinite: false },
@@ -1726,7 +1735,7 @@ class Game {
     this.ctx.imageSmoothingEnabled = false;
 
     this.stars = new Starfield(90);
-    this.high = parseInt(localStorage.getItem('galaga_high') || '0', 10) || 0;
+    this.high = parseInt(Store.get('galaga_high', '0'), 10) || 0;
 
     this.input = { left: false, right: false, fire: false };
     this.time = 0;
@@ -1742,8 +1751,8 @@ class Game {
     this.reducedFlash = ANIM.reducedFlash;
     window.addEventListener('reducemotionchange', (e) => { this.reducedFlash = ANIM.reducedFlash = e.detail.on; });
     // a choice saved by the old, separate reduced-flash toggle carries over once
-    let legacy = null;
-    try { legacy = localStorage.getItem('galaga_reducedflash'); localStorage.removeItem('galaga_reducedflash'); } catch (e) {}
+    const legacy = Store.get('galaga_reducedflash', null);
+    Store.remove('galaga_reducedflash');
     if (legacy !== null) {
       const carry = () => { if ((legacy === '1') !== this.reducedFlash) this.setReducedFlash(legacy === '1', true); };
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', carry); else carry();
@@ -1801,6 +1810,10 @@ class Game {
         e.preventDefault();
       Sound.init();
       Sound.resume();
+      // a held P / Esc / F / Enter / E / Backspace acts once: its repeats would
+      // flip the pause, Visual FX or the guide back and forth (moving, firing
+      // and the stage picker still repeat)
+      if (e.repeat && ['p', 'escape', 'f', 'enter', 'e', 'backspace'].includes(k)) return;
       // guide (gallery) captures input while open: ←→ browse, ↑↓ switch tab
       if (this.mode === 'gallery') {
         if (k === 'arrowleft' || k === 'a') this.galleryNav(-1);
@@ -1819,6 +1832,10 @@ class Game {
         else this.pauseMenuKey(k);
         return;
       }
+      // Backspace on the end screens goes back to the title (Esc leaves for the games page)
+      if (k === 'backspace' && (this.mode === 'gameover' || this.mode === 'complete')) {
+        e.preventDefault(); this.resetToAttract(); this.announce('Back to the title.'); return;
+      }
       if (k === 'f') { this.setReducedFlash(!this.reducedFlash); return; } // the old quick toggle (V does the same, site-wide)
       if (k === 'arrowleft' || k === 'a') { this.input.left = true; this.onStageKey(-1); }
       if (k === 'arrowright' || k === 'd') { this.input.right = true; this.onStageKey(1); }
@@ -1835,10 +1852,19 @@ class Game {
     };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
+    // once focus goes, a held key's keyup lands in the other window (or
+    // never comes), so let go of everything rather than drift on return
+    window.addEventListener('blur', () => this.releaseKeys());
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this.releaseKeys(); });
   }
 
+  releaseKeys() { this.input.left = this.input.right = this.input.fire = false; }
+
+  // the life mode and start stage are picked on the title screen only: the
+  // game-over screen doesn't show them, so an arrow there (or one held as the
+  // ship died) would change the next run unseen
   onMenuKey(k) {
-    if (this.mode !== 'attract' && this.mode !== 'gameover') return;
+    if (this.mode !== 'attract') return;
     const dir = k === 'arrowup' ? -1 : 1;
     this.menuIndex = (this.menuIndex + dir + LIFE_MODES.length) % LIFE_MODES.length;
     Sound.bonusTick();
@@ -1846,7 +1872,7 @@ class Game {
 
   // pick the starting stage on the title screen (held arrows repeat)
   onStageKey(dir) {
-    if (this.mode !== 'attract' && this.mode !== 'gameover') return;
+    if (this.mode !== 'attract') return;
     const next = clamp(this.startStage + dir, 1, 255);
     if (next === this.startStage) return; // already at the limit -> no tick
     this.startStage = next;
@@ -1878,10 +1904,22 @@ class Game {
   togglePause() {
     if (this.mode === 'playing') {
       this.prevMode = this.mode; this.mode = 'paused'; this.pauseIndex = 0;
+      this.releaseKeys(); // resuming starts from nothing held
       this.announce('Paused. Resume, Restart, Reduced flash, or Quit.');
     } else if (this.mode === 'paused') {
       this.mode = this.prevMode || 'playing';
       this.announce('Resumed.');
+    }
+  }
+
+  // Pause wherever a run is going: in play, or on a stage banner, whose timer
+  // then holds (resuming goes back to it). For the window going away and for
+  // "Leave this game?"; P itself only pauses play.
+  pauseRun() {
+    if (this.mode === 'playing') this.togglePause();
+    else if (BANNER_MODES.includes(this.mode)) {
+      this.prevMode = this.mode; this.mode = 'paused'; this.pauseIndex = 0;
+      this.releaseKeys();
     }
   }
 
@@ -2316,7 +2354,7 @@ class Game {
     this.score += n;
     if (this.score > this.high) {
       this.high = this.score;
-      try { localStorage.setItem('galaga_high', '' + this.high); } catch (e) {}
+      Store.set('galaga_high', this.high);
     }
   }
   addPopup(x, y, text, color = '#18e0ff') {
@@ -2537,7 +2575,7 @@ class Game {
     this.mode = 'gameover';
     this.modeTimer = 0;
     if (this.score > this.high) this.high = this.score;
-    localStorage.setItem('galaga_high', '' + this.high);
+    Store.set('galaga_high', this.high);
     this.announce('Game over. Score ' + this.score + ', stage ' + this.stage + '. Press enter to restart.');
   }
 
@@ -2548,7 +2586,7 @@ class Game {
     this.enemies = [];
     this.bombs = [];
     if (this.score > this.high) this.high = this.score;
-    localStorage.setItem('galaga_high', '' + this.high);
+    Store.set('galaga_high', this.high);
     this.announce('Congratulations! All 255 stages cleared. Final score ' + this.score + '.');
     Sound.rescue();
   }
@@ -2905,10 +2943,12 @@ class Game {
       this.text(ctx, 'FINAL SCORE  ' + this.score, WIDTH / 2, HEIGHT / 2 + 18, 13, '#fff', 'center');
       if (this.blinkOn())
         this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center');
+      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center');
     } else if (this.mode === 'gameover') {
       this.text(ctx, 'GAME OVER', WIDTH / 2, HEIGHT / 2 - 10, 24, '#ff3b5c', 'center');
       if (this.blinkOn())
         this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center');
+      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center');
     }
 
     if (this.flashMuteT > 0)
@@ -3093,11 +3133,11 @@ window.addEventListener('load', () => {
   const canvas = document.getElementById('screen');
   window.game = new Game(canvas);
 
-  // Hidden tab used to keep the swarm diving. togglePause() only acts when
-  // mode is 'playing', and the !== 'paused' check keeps it pause-only.
+  // Hidden tab used to keep the swarm diving. pauseRun() only pauses (play
+  // or a stage banner), never resumes, so coming back stays paused.
   if (window.GameShell) {
     GameShell.onAutoPause(() => {
-      if (window.game && window.game.mode === 'playing') window.game.togglePause();
+      if (window.game) window.game.pauseRun();
     });
     // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
     if (GameShell.pauseButton) GameShell.pauseButton({
@@ -3110,15 +3150,10 @@ window.addEventListener('load', () => {
     // paused, or on a READY / CLEARED / bonus banner. Leaving then asks first,
     // with the run paused underneath; a banner holds too (its timer stops while
     // paused, and resuming goes back to it).
-    const BANNERS = ['ready', 'cleared', 'bonusResult'];
     GameShell.guardLeave({
-      active: () => ['playing', 'paused'].concat(BANNERS).includes(window.game.mode) && window.game.score > 0,
+      active: () => ['playing', 'paused'].concat(BANNER_MODES).includes(window.game.mode) && window.game.score > 0,
       isPaused: () => window.game.mode === 'paused',
-      pause: () => {
-        const g = window.game;
-        if (g.mode === 'playing') g.togglePause();
-        else if (BANNERS.includes(g.mode)) { g.prevMode = g.mode; g.mode = 'paused'; g.pauseIndex = 0; }
-      },
+      pause: () => window.game.pauseRun(),
       resume: () => { if (window.game.mode === 'paused') window.game.togglePause(); },
     });
   }

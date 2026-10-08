@@ -874,8 +874,8 @@ window.SlitherArt = (function () {
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    // Rainbows shift hue along the body and over time.
-    function hue(k) { return "hsl(" + Math.round(((o.t || 0) / 8 + k * 28) % 360) + ",85%,58%)"; }
+    // Rainbows shift hue along the body and (Visual FX on) over time.
+    function hue(k) { return "hsl(" + Math.round(((o.fx ? o.t || 0 : 0) / 8 + k * 28) % 360) + ",85%,58%)"; }
     function links(off, extra, style) {
       ctx.strokeStyle = style;
       for (var k = n - 1; k >= 1; k--) {

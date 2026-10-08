@@ -303,7 +303,9 @@
       if (path && (!bestPath || Math.abs(path.length - want) < Math.abs(bestPath.length - want))) bestPath = path;
       if (bestPath && bestPath.length >= want) break;
     }
-    var cells = bestPath;
+    // every try ran out of steps (it practically never happens): down column 1
+    // and along the drain's row always connects
+    var cells = bestPath || fallbackPath();
     pathLen = cells.length;
     // derive the correct piece for every path cell, then scramble it
     for (var i = 0; i < cells.length; i++) {
@@ -349,18 +351,23 @@
     if (b.c > a.c) return "E"; if (b.c < a.c) return "W";
     return b.r > a.r ? "S" : "N";
   }
+  // Backing out of a dead end frees its cells again, so a walk that has boxed
+  // itself in away from the drain tries nearly every route inside the box:
+  // millions of steps, a tab frozen for minutes. Each try gets a step budget
+  // instead, and newPuzzle's loop takes another.
+  var CARVE_STEPS = 2000;
   function carvePath() {
     var visited = {};
-    var out = null;
+    var out = null, steps = CARVE_STEPS;
     function key(r, c) { return r + "," + c; }
     function dfs(r, c, path) {
-      if (out) return;
+      if (out || steps-- <= 0) return;
       visited[key(r, c)] = true;
       path.push({ r: r, c: c });
       if (r === drainR && c === COLS - 2) { out = path.slice(); }
       else {
         var dirs = ["N", "S", "E", "W"].sort(function () { return Math.random() - 0.5; });
-        for (var i = 0; i < dirs.length && !out; i++) {
+        for (var i = 0; i < dirs.length && !out && steps > 0; i++) {
           var nr = r + DXY[dirs[i]][1], nc = c + DXY[dirs[i]][0];
           if (nr < 0 || nr >= ROWS || nc < 1 || nc > COLS - 2) continue;
           if (visited[key(nr, nc)]) continue;
@@ -372,6 +379,12 @@
     }
     dfs(srcR, 1, []);
     return out;
+  }
+  function fallbackPath() {
+    var path = [], step = drainR > srcR ? 1 : -1;
+    for (var r = srcR; r !== drainR; r += step) path.push({ r: r, c: 1 });
+    for (var c = 1; c <= COLS - 2; c++) path.push({ r: drainR, c: c });
+    return path;
   }
   // the ports you can leave through, having entered on `enter`
   function groupExits(type, enter) {
@@ -877,12 +890,13 @@
     }
     if (srcR >= 0 && srcR < ROWS) drawSource(ctx);
     if ((mode === "puzzle" || mode === "levels" || state === "edit") && drainR >= 0 && drainR < ROWS) drawDrain(ctx);
-    // ghost preview of the next piece under the cursor
+    // ghost preview, under the cursor, of the piece a click lays (the one
+    // picked from the queue)
     if (hoverRC && state === "play" && mode === "panic") {
       var hc = grid[hoverRC.r][hoverRC.c];
       var can = hc.kind === "empty" || (hc.kind === "pipe" && !hc.fillA && !hc.fillB);
       ctx.globalAlpha = can ? 0.45 : 0.15;
-      ctx.drawImage(SPR[queue[0]], OX + hoverRC.c * TS, OY + hoverRC.r * TS);
+      ctx.drawImage(SPR[queue[queueSel]], OX + hoverRC.c * TS, OY + hoverRC.r * TS);
       if (!can) {
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = "#d94f3d"; ctx.lineWidth = 3;

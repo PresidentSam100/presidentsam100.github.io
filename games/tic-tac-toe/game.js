@@ -646,7 +646,7 @@ function gWinRun(b) {
 function gPrompt() {
   if (boardMode === 'gomoku') return 'Your turn (X) — make exactly five in a row';
   return chaosHumanRole === 'order'
-    ? 'Your turn (Order) — build five in a row, any mix of symbols'
+    ? 'Your turn (Order) — build five in a row of one symbol, all X or all O'
     : 'Your turn (Chaos) — break up every five-in-a-row threat';
 }
 
@@ -955,6 +955,12 @@ document.getElementById('rules').addEventListener('click', () => {
 });
 document.getElementById('closeRules').addEventListener('click', () => rulesModal.classList.remove('open'));
 rulesModal.addEventListener('click', e => { if (e.target === rulesModal) rulesModal.classList.remove('open'); });
+// The open Rules card claims Esc: it closes the card, and doesn't also leave the game
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !rulesModal.classList.contains('open')) return;
+  rulesModal.classList.remove('open');
+  e.preventDefault();
+});
 
 setupModeModal(startSelectedMode);
 showModeModal();   // pick a mode first, then the coin flip decides who goes first

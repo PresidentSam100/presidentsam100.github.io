@@ -46,10 +46,10 @@
         <figcaption id="post-cap">whose flag is this?</figcaption>
       </figure>
       <div class="tags" id="tags">
-        <button type="button" class="tag" data-i="0"><kbd>1</kbd><span></span></button>
-        <button type="button" class="tag" data-i="1"><kbd>2</kbd><span></span></button>
-        <button type="button" class="tag" data-i="2"><kbd>3</kbd><span></span></button>
-        <button type="button" class="tag" data-i="3"><kbd>4</kbd><span></span></button>
+        <button type="button" class="tag" data-i="0"><span class="gs-keys"><kbd>1</kbd></span><span class="dest"></span></button>
+        <button type="button" class="tag" data-i="1"><span class="gs-keys"><kbd>2</kbd></span><span class="dest"></span></button>
+        <button type="button" class="tag" data-i="2"><span class="gs-keys"><kbd>3</kbd></span><span class="dest"></span></button>
+        <button type="button" class="tag" data-i="3"><span class="gs-keys"><kbd>4</kbd></span><span class="dest"></span></button>
       </div>
       <form class="typed" id="typed" hidden autocomplete="off">
         <label for="answer">STATE / ÉTAT</label>
@@ -57,7 +57,7 @@
           <input id="answer" data-game-input type="text" maxlength="40" autocomplete="off"
                  autocapitalize="off" autocorrect="off" spellcheck="false"
                  placeholder="type the country…" aria-label="Type the country's name" />
-          <button type="submit" id="stamp-btn">Stamp <kbd>Enter</kbd></button>
+          <button type="submit" id="stamp-btn">Stamp <span class="gs-keys"><kbd>Enter</kbd></span></button>
         </div>
         <div class="typed-note" id="typed-note">one small typo is forgiven · common names count (UK, Burma…)</div>
       </form>
@@ -81,23 +81,23 @@
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
-        <button type="button" data-v="tour"><b>World Tour</b><small>endless — three denials end it <kbd>1</kbd></small></button>
-        <button type="button" data-v="dash"><b>Layover Dash</b><small>60 seconds, wrong costs 3 <kbd>2</kbd></small></button>
-        <button type="button" data-v="daily"><b>Visa Run</b><small id="daily-small">today's 10 flags, shareable <kbd>3</kbd></small></button>
+        <button type="button" data-v="tour"><b>World Tour</b><small>endless — three denials end it <span class="gs-keys"><kbd>1</kbd></span></small></button>
+        <button type="button" data-v="dash"><b>Layover Dash</b><small>60 seconds, wrong costs 3 <span class="gs-keys"><kbd>2</kbd></span></small></button>
+        <button type="button" data-v="daily"><b>Visa Run</b><small id="daily-small">today's 10 flags, shareable <span class="gs-keys"><kbd>3</kbd></span></small></button>
       </div>
       <div class="seg styles" id="pick-style">
-        <button type="button" data-s="tags"><b>🏷 Tags</b><small>pick from four <kbd>T</kbd></small></button>
-        <button type="button" data-s="typed"><b>⌨ Typed</b><small>spell it out <kbd>Y</kbd></small></button>
+        <button type="button" data-s="tags"><b>🏷 Tags</b><small>pick from four <span class="gs-keys"><kbd>T</kbd></span></small></button>
+        <button type="button" data-s="typed"><b>⌨ Typed</b><small>spell it out <span class="gs-keys"><kbd>Y</kbd></span></small></button>
       </div>
       <!-- what the officer asks for -->
       <div class="seg asks" id="pick-ask">
-        <button type="button" data-a="country"><b>Country</b><small>from its flag <kbd>C</kbd></small></button>
-        <button type="button" data-a="capital"><b>Capital</b><small>country named <kbd>A</kbd></small></button>
-        <button type="button" data-a="capflag"><b>Flag → capital</b><small>no name given <kbd>F</kbd></small></button>
-        <button type="button" data-a="both"><b>Both</b><small>country, then capital <kbd>B</kbd></small></button>
+        <button type="button" data-a="country"><b>Country</b><small>from its flag <span class="gs-keys"><kbd>C</kbd></span></small></button>
+        <button type="button" data-a="capital"><b>Capital</b><small>country named <span class="gs-keys"><kbd>A</kbd></span></small></button>
+        <button type="button" data-a="capflag"><b>Flag → capital</b><small>no name given <span class="gs-keys"><kbd>F</kbd></span></small></button>
+        <button type="button" data-a="both"><b>Both</b><small>country, then capital <span class="gs-keys"><kbd>B</kbd></span></small></button>
       </div>
     </div>
-    <button type="button" class="playbtn" id="play"><b>Approach the desk</b> <kbd>Enter</kbd></button>
+    <button type="button" class="playbtn" id="play"><b>Approach the desk</b> <span class="gs-keys"><kbd>Enter</kbd></span></button>
     <p class="bests" id="bests"></p>
     <p class="keys"><kbd>M</kbd>/<kbd>[</kbd> sound · <kbd>V</kbd>/<kbd>]</kbd> visual FX · <kbd>Esc</kbd> back to games</p>
   </div>
@@ -109,9 +109,9 @@
     <p class="big" id="over-msg"></p>
     <p class="stats" id="over-stats"></p>
     <div class="row">
-      <button type="button" id="again">Travel again <kbd>Enter</kbd></button>
+      <button type="button" id="again">Travel again <span class="gs-keys"><kbd>Enter</kbd></span></button>
       <button type="button" id="share" hidden>Share result <kbd>S</kbd></button>
-      <button type="button" id="to-menu">Modes <kbd title="Backspace">⌫</kbd></button>
+      <button type="button" id="to-menu">Modes <span class="gs-keys"><kbd title="Backspace">⌫</kbd></span></button>
     </div>
   </div>
 </section>

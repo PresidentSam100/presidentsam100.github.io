@@ -3,6 +3,9 @@
 // ============================================================
 // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
 const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
+// Bests and the lives mode go through the shell's guarded storage: a browser
+// that blocks storage, or has no room left, must not stop the game
+const store = window.GameShell ? GameShell.store : { getNum: (k, f) => f, set: () => false };
 const CANVAS_W = 480;
 const CANVAS_H = 854;
 const GRAVITY = 2000;
@@ -313,7 +316,7 @@ class Bird {
     const bx = pos ? pos.x : 120;
     const by = pos ? pos.y : 400;
     this.x = bx;
-    this.y = by + Math.sin(t * 3) * 14;
+    this.y = by + (reducedMotion() ? 0 : Math.sin(t * 3) * 14);   // no bob with Visual FX off
     this.flapTime += dt * 10;
   }
 
@@ -1017,14 +1020,34 @@ class PipeManager {
     this.spawnCount = 0;
   }
 
+  // The highest gap centre the next pipe may have. Late on, pipes come so close
+  // together that a low gap then a high one could outrun the bird's climb
+  // (a flap every frame makes ~550 px/s). So: the lowest the last gap can sit,
+  // less what a hard-flapping bird (450 px/s) climbs between the two pipes and
+  // 110 px of room inside the gaps (less than the 160 a plain pipe gives, for
+  // the ones that narrow). Early on the pipes are far apart and this never binds.
+  highestNextGap(pipeX) {
+    const prev = this.pipes[this.pipes.length - 1];
+    if (!prev) return 0;
+    let low = prev.gapY, prevX = prev.x;
+    if (prev instanceof SeqPipe) low = 576;                                        // its lower gap
+    else if (prev instanceof MovingPipe) low = prev.baseGapY + prev.amplitude;     // the bottom of its swing
+    if (prev instanceof HorizPipe) prevX = prev.baseX - prev.totalScroll + prev.amplitude;   // its furthest slide right
+    // the time between the bird leaving that pipe and entering this one
+    // (the hitboxes are PIPE_W + 4 wide, the bird's 24)
+    const t = Math.max(0, (pipeX - prevX - (PIPE_W + 28)) / this.game.scrollSpeed);
+    return low - (110 + 450 * t);
+  }
+
   spawnPipe() {
     const gapH = PIPE_GAP;
     const pipeX = CANVAS_W + 10;
     const score = this.game.score;
 
-    // Random gapY across the playable vertical range
-    const minGapY = gapH / 2 + 80;
+    // Random gapY across the playable vertical range, but never higher above
+    // the last gap than a bird can climb before it reaches this pipe
     const maxGapY = CANVAS_H - gapH / 2 - 140;
+    const minGapY = Math.min(maxGapY, Math.max(gapH / 2 + 80, this.highestNextGap(pipeX)));
     const gapY = minGapY + Math.random() * (maxGapY - minGapY);
 
     // Weighted random pipe-type selection per score tier
@@ -1595,6 +1618,11 @@ class PiranhaPlant {
 // ============================================================
 // BOO
 // ============================================================
+// Seconds a Boo chases before it gives up: long enough to cross the screen and
+// haunt the bird a moment. Without an end it never left (it homes on a bird
+// that's always on screen), and every new one joined the swarm.
+const BOO_CHASE = 8;
+
 class Boo {
   constructor(x, y) {
     this.x = x;
@@ -1605,9 +1633,15 @@ class Boo {
     this.targetAlpha = 0.75;
   }
 
-  update(dt, birdX, birdY) {
+  update(dt, birdX, birdY, speed) {
     this.time += dt;
-    this.scale = 1 + Math.sin(this.time * 3) * 0.04;
+    this.scale = reducedMotion() ? 1 : 1 + Math.sin(this.time * 3) * 0.04;   // still with Visual FX off
+    if (this.time > BOO_CHASE) {
+      // Given up: it fades out, harmless, and drifts off with the world
+      this.x -= speed * dt;
+      this.alpha += (0 - this.alpha) * 5 * dt;
+      return;
+    }
     const dist = Math.hypot(birdX - this.x, birdY - this.y);
     this.targetAlpha = (dist < 130) ? 0.08 : 0.75;
     const angle = Math.atan2(birdY - this.y, birdX - this.x);
@@ -1676,7 +1710,7 @@ class Boo {
   }
 
   getHitbox() {
-    if (this.alpha > 0.4) {
+    if (this.alpha > 0.4 && this.time <= BOO_CHASE) {
       return { x: this.x - 20, y: this.y - 22, w: 40, h: 40 };
     }
     return null;
@@ -1913,7 +1947,7 @@ class EnemyManager {
     for (const e of this.bulletBills) e.update(dt);
     for (const e of this.flyingKoopas) e.update(dt, sp);
     for (const e of this.piranhaPlants) e.update(dt, sp, bx);
-    for (const e of this.boos) e.update(dt, bx, by);
+    for (const e of this.boos) e.update(dt, bx, by, sp);
     for (const e of this.lakitus) e.update(dt, sp);
     for (const h of this.hammers) h.update(dt, sp);
     for (const sp2 of this.spinies) sp2.update(dt, sp);
@@ -1996,13 +2030,12 @@ class Game {
     if (document.fonts && document.fonts.load) document.fonts.load('40px "Luckiest Guy"');
     dressPage();
     // Per-mode high scores (legacy single-key migrated into 1-life slot)
-    const legacy = parseInt(localStorage.getItem('flappyWorld_hiScore')) || 0;
+    const legacy = store.getNum('flappyWorld_hiScore', 0);
     this.hiScores = {
-      1: parseInt(localStorage.getItem('flappyWorld_hiScore_1')) || legacy,
-      3: parseInt(localStorage.getItem('flappyWorld_hiScore_3')) || 0,
+      1: store.getNum('flappyWorld_hiScore_1', 0) || legacy,
+      3: store.getNum('flappyWorld_hiScore_3', 0),
     };
-    const savedMode = parseInt(localStorage.getItem('flappyWorld_livesMode'));
-    this.livesMode = (savedMode === 3) ? 3 : 1;
+    this.livesMode = (store.getNum('flappyWorld_livesMode', 1) === 3) ? 3 : 1;
     this.audioCtx = null;
     this.newBestThisRound = false;
 
@@ -2025,7 +2058,10 @@ class Game {
       };
     };
 
-    this.canvas.addEventListener('click', (e) => {
+    // A press flaps at once (a click waits for the button to come back up);
+    // pointerdown is the one handler for mouse, touch and pen
+    this.canvas.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       e.preventDefault();
       const p = eventToCanvas(e.clientX, e.clientY);
       this.handleInput(p.x, p.y);
@@ -2056,16 +2092,9 @@ class Game {
         this.init();
       }
     });
-    this.canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      if (e.touches && e.touches.length > 0) {
-        const t = e.touches[0];
-        const p = eventToCanvas(t.clientX, t.clientY);
-        this.handleInput(p.x, p.y);
-      } else {
-        this.handleInput();
-      }
-    }, { passive: false });
+    // A tap already flapped through pointerdown; this only keeps it from also
+    // scrolling, zooming or sending a click
+    this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
 
     this.resize();
     this.init();
@@ -2101,6 +2130,7 @@ class Game {
     this.maxLives = this.livesMode;
     this.lives = this.maxLives;
     this.invincibleTime = 0;
+    this.overTimer = 0;       // the game-over card ignores restarts until this runs out
   }
 
   setLivesMode(m) {
@@ -2108,14 +2138,20 @@ class Game {
     this.livesMode = m;
     this.maxLives = m;
     this.lives = m;
-    localStorage.setItem('flappyWorld_livesMode', String(m));
+    store.set('flappyWorld_livesMode', String(m));
     this.playSound('flap');
   }
 
   gameLoop(ts) {
     const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
     this.lastTs = ts;
-    if (this.gameState !== 'GAMEOVER') this.update(dt);
+    if (this.gameState === 'GAMEOVER') {
+      // Behind the card the world holds still and the bird stays where it
+      // fell; the prompt still blinks, the crash's shake and burst play out
+      this.blinkTimer += dt;
+      this.overTimer = Math.max(0, this.overTimer - dt);
+      this.particles.update(dt);
+    } else this.update(dt);
     this.draw(dt);
     requestAnimationFrame(this.gameLoop);
   }
@@ -2155,6 +2191,8 @@ class Game {
         this.playSound('flap');
         break;
       case 'GAMEOVER':
+        // a flap mashed as you crash mustn't skip the card
+        if (this.overTimer > 0) break;
         this.setState('PLAYING');
         break;
       case 'INFO':
@@ -2254,7 +2292,7 @@ class Game {
   keepBest() {
     if (this.score > this.hiScores[this.livesMode]) {
       this.hiScores[this.livesMode] = this.score;
-      localStorage.setItem('flappyWorld_hiScore_' + this.livesMode, String(this.score));
+      store.set('flappyWorld_hiScore_' + this.livesMode, String(this.score));
       this.newBestThisRound = true;
     }
   }
@@ -2263,6 +2301,7 @@ class Game {
     this.keepBest();
     this.particles.addBurst(this.bird.x, this.bird.y, '#FF5722', 12);
     this.shakeTime = 0.6;
+    this.overTimer = 0.5;
     this.playSound('death');
     this.gameState = 'GAMEOVER';
   }
@@ -2536,7 +2575,7 @@ class Game {
       ['#f5d24a',     'Hammer Bro',     'Bobs in place, throws arcing hammers.'],
       ['#FAFAFA',     'Lakitu',         'Rides a cloud and drops Spinies.'],
       ['#C62828',     'Spiny',          'Spiked shell that falls from Lakitu.'],
-      ['#F5F5F5',     'Boo',            'Ghost that chases you — stops when close.'],
+      ['#F5F5F5',     'Boo',            'Ghost that chases you, then fades away.'],
     ];
 
     const startY = 96;

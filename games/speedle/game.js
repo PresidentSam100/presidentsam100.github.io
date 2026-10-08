@@ -194,6 +194,9 @@
     b.type = "button";
     if (!wide) b.dataset.pts = PTS[code];
     b.addEventListener("click", function () { handleKey(code); });
+    // a click doesn't take focus (Tab still reaches the keys): a focused key
+    // would be pressed again by a Space typed later
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
     if (code.length === 1) keyEls[code] = b;
     return b;
   }

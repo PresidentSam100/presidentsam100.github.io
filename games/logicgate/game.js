@@ -320,7 +320,7 @@
         G("NAND", G("OR", G("XOR", I(0), I(0)), I(0)), I(0)),
         G("AND", G("NOR", G("XNOR", I(0), I(0)), I(0)), I(0))) },
     { name: "Eleven's Edge",
-      hint: "Eleven switches on a crooked frame. Check what the root NAND actually needs first.",
+      hint: "Eleven switches on a crooked frame. Check what the root NOR actually needs first.",
       tree: G("NOR",
         G("AND", G("XOR", I(0), I(0)), G("OR", I(0), G("NOR", I(0), I(0)))),
         G("XNOR", G("NOR", I(0), G("AND", I(0), I(0))), G("OR", I(0), G("NAND", I(0), I(0))))) },
@@ -761,6 +761,9 @@
   }
   function beginDrag(type, source, e) {
     e.preventDefault();
+    // preventDefault keeps focus where it was, so a button clicked earlier
+    // (Reset, Next level) would take the Enter meant for Check
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     var ghost = document.createElement("div");
     ghost.className = "drag-ghost node gate filled g-" + type;
     ghost.innerHTML = '<span class="gname">' + type + "</span>";

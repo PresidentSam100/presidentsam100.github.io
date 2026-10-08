@@ -437,7 +437,8 @@
       score = dailyDoneEarly ? d.best : score;
     }
     var g = grade(mode === "daily" ? readDaily().best : score);
-    if (bestFor()) { bestFor().submit(score); isBest = isNaN(runBest) || score > runBest; }
+    // (round 0 is no best, even on a first run)
+    if (bestFor()) { bestFor().submit(score); isBest = score > 0 && (isNaN(runBest) || score > runBest); }
 
     $("over-title").textContent = TITLES[Math.floor(Math.random() * TITLES.length)];
     $("over-msg").textContent = "Round " + score;
@@ -451,13 +452,13 @@
       statLines.push("Field Trip #" + d.n + " · best today: round " + d.best);
       statLines.push(left > 0 ? (left + (left === 1 ? " launch" : " launches") + " left") : "all launches used — back tomorrow!");
       $("again").hidden = left <= 0;
-      $("again").innerHTML = "Launch again <kbd>Enter</kbd>";
+      $("again").innerHTML = 'Launch again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = false;
     } else {
       var b = mode === "classic" ? bestClassic : bestGrand;
       statLines.push(isBest ? "a new best! ⭐" : "best: round " + (b ? b.get() : 0));
       $("again").hidden = false;
-      $("again").innerHTML = "Again <kbd>Enter</kbd>";
+      $("again").innerHTML = 'Again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = true;
     }
     $("over-stats").textContent = statLines.join("\n");
@@ -488,10 +489,10 @@
   function paintMenu() {
     var segs = document.querySelectorAll("#pick-mode button");
     segs.forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === mode); });
-    var d = readDaily(), left = 3 - d.used;
-    $("daily-small").innerHTML = d.used === 0 ? "today's tune · 3 launches <kbd>3</kbd>" :
-      left > 0 ? "today: round " + d.best + " · " + left + " left <kbd>3</kbd>" :
-      "done: round " + d.best + " ✓ <kbd>3</kbd>";
+    var d = readDaily(), left = 3 - d.used, key = ' <span class="gs-keys"><kbd>3</kbd></span>';
+    $("daily-small").innerHTML = (d.used === 0 ? "today's tune · 3 launches" :
+      left > 0 ? "today: round " + d.best + " · " + left + " left" :
+      "done: round " + d.best + " ✓") + key;
     var parts = [];
     if (bestClassic && bestClassic.get()) parts.push("Classic " + bestClassic.get());
     if (bestGrand && bestGrand.get()) parts.push("Grand Tour " + bestGrand.get());

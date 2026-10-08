@@ -158,11 +158,22 @@
         if(tp && tp.o!==col && tp.t!=="k") out.push({to:cd.cell,cap:true,promo:isPromo(cd.cell,col)}); } }
     return out;
   }
-  // squares a piece threatens (pawn = diagonals only) — for check detection
+  // squares a piece threatens (pawn = diagonals only) — for check detection.
+  // Walked from the piece's own steps, not genMoves(): no move ever lands on a
+  // king (kings aren't capturable), so a move list never saw a check.
   function threatens(b,c,target){
     const p=b[c]; if(!p||p.dead) return false; const t=p.t;
     if(t==="p"){ for(const pd of PCAP[forwardDir(c,p.o)]){ const cd=step(c,pd); if(cd&&cd.cell===target) return true; } return false; }
-    for(const m of genMoves(b,c)) if(m.to===target) return true; // king/knight/sliders: attacks == move targets
+    if(t==="k"){ for(let d=0;d<8;d++){ const nx=step(c,d); if(nx&&nx.cell===target) return true; } return false; }
+    if(t==="n"){ for(const d of ORTH){ const s1=step(c,d); if(!s1)continue; const s2=step(s1.cell,s1.dir); if(!s2)continue;
+        for(const pd of PERP[s2.dir]){ const st=step(s2.cell,pd); if(st&&st.cell===target) return true; } } return false; }
+    // sliders: along each line until the first piece, which is hit too
+    const dirs = t==="r" ? ORTH : t==="b" ? DIAG : ORTH.concat(DIAG);
+    for(const d of dirs){ let cur={cell:c,dir:d}; const seen={};
+      while(true){ const nx=step(cur.cell,cur.dir); if(!nx||nx.cell===c||seen[nx.cell]) break; seen[nx.cell]=1;
+        if(nx.cell===target) return true;
+        if(b[nx.cell]) break;
+        cur=nx; } }
     return false;
   }
   function kingCell(b,col){ for(let c=0;c<96;c++){ const p=b[c]; if(p&&p.o===col&&p.t==="k"&&!p.dead) return c; } return -1; }

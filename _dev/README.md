@@ -25,6 +25,7 @@ VERBOSE=1 npm test   # print passing checks too
 | `modifiers` | Ctrl / Cmd / Alt shortcuts reach the browser instead of the game |
 | `touch` | Keycaps on games' own buttons hide on touch-only devices |
 | `steamfitter` | All levels solvable and scrambled; Puzzle boards; tee / junction / crossover water paths; the editor's tools |
+| `<game>` (`chess`, `slither`, `tile-maze`, …) | One suite per game for its own bugs once fixed: each check failed on the old code, so it guards that fix |
 
 Some suites add test hooks by serving a game's script with a few lines
 appended (`lib.injectScript`), so the shipped files carry no test-only code.

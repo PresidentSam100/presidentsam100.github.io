@@ -173,8 +173,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the hub's "reset all high scores" asks in its own dialog
   {
     const p = await lib.open(ctx, base, "games/", { before, waitCorner: false });
-    await p.evaluate(() => localStorage.setItem("lightsout_best", "5"));
+    // (with the pre-rename keys ClickTap and Tile Maze copy forward on load,
+    // which the reset has to clear as well, or the next visit restores them)
+    await p.evaluate(() => { localStorage.setItem("lightsout_best", "5"); localStorage.setItem("clickrush_best_mouse_10", "9"); localStorage.setItem("colorTileMaze.v1", "{}"); });
     const kept = () => p.evaluate(() => localStorage.getItem("lightsout_best"));
+    const legacy = () => p.evaluate(() => [localStorage.getItem("clickrush_best_mouse_10"), localStorage.getItem("colorTileMaze.v1")]);
     const open = () => p.evaluate(() => document.getElementById("reset-dialog").open);
     await p.click("#reset-scores"); await p.waitForTimeout(100);
     const o1 = await open();
@@ -185,6 +188,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const o3 = await open(), k2 = await kept();
     const msg = await p.evaluate(() => document.getElementById("reset-msg").textContent);
     check("hub: reset asks in the page's dialog; Esc keeps scores, Enter clears them", o1 && !o2 && k1 === "5" && !o3 && /cleared|no saved/.test(msg), { o1, o2, k1, o3, k2, msg });
+    const lg = await legacy();
+    check("hub: reset also clears ClickTap's and Tile Maze's pre-rename keys", lg[0] === null && lg[1] === null, lg);
     check("hub: no browser confirm()", (await native(p)).length === 0, await native(p));
     await done(p, "hub");
   }

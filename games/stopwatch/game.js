@@ -322,6 +322,7 @@
     if (state === "counting" || state === "ready") { e.preventDefault(); press(); }
   });
   document.addEventListener("keydown", function (e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.code !== "Space" && e.code !== "Enter") return;
     e.preventDefault();
     if (e.repeat) return;

@@ -571,6 +571,9 @@
     sfxCue(power);
   }
 
+  var FOUL = { scratch: "scratch", nohit: "no ball hit", wrongball: "wrong ball first",
+               eightfirst: "hit the 8 first", norail: "no rail after contact" };
+
   function endShot() {
     var res = Ru.resolve(G.st, G.before, G.world.ev, G.shotCall);
     var o = res.out, me = o.shooter, st = res.st;
@@ -578,8 +581,6 @@
     if (o.cueIn) { cue().on = false; }
     G.st = st;
     if (o.winner >= 0) { gameOver(o); return; }
-    var FOUL = { scratch: "scratch", nohit: "no ball hit", wrongball: "wrong ball first",
-                 eightfirst: "hit the 8 first", norail: "no rail after contact" };
     var yours = G.mode === "cpu" && st.turn === 0;
     if (o.foul) {
       sfxFoul();
@@ -601,7 +602,8 @@
     var W8 = {
       eight: (human0 && winner === 0 ? "You" : nameOf(winner)) + " sank the 8 in the called pocket.",
       early8: (human0 && loser === 0 ? "You" : nameOf(loser)) + " sank the 8 too early.",
-      foul8: (human0 && loser === 0 ? "You" : nameOf(loser)) + " scratched on the 8.",
+      // any foul on the 8 loses, and only a scratch is a scratch
+      foul8: (human0 && loser === 0 ? "You" : nameOf(loser)) + (o.foul === "scratch" ? " scratched on the 8." : " fouled on the 8: " + FOUL[o.foul] + "."),
       wrongpocket: (human0 && loser === 0 ? "You" : nameOf(loser)) + " sank the 8 in the wrong pocket."
     };
     var recText = "";
@@ -776,7 +778,8 @@
     }
     // ball in hand: the cue ball can be picked up
     if (st.inHand && G.phase === "aim") {
-      var c = cue(), pulse = 0.5 + 0.5 * Math.sin(performance.now() / 260);
+      // the ring breathes; with Visual FX off it holds at its middle brightness
+      var c = cue(), pulse = window.RM_ON && window.RM_ON() ? 0.5 : 0.5 + 0.5 * Math.sin(performance.now() / 260);
       ctx.strokeStyle = G.placeBad ? "rgba(255,90,80,0.95)" : "rgba(255,255,255," + (0.45 + 0.4 * pulse) + ")";
       ctx.lineWidth = px * 2;
       ctx.beginPath(); ctx.arc(c.x, c.y, R * 1.55, 0, Math.PI * 2); ctx.stroke();
@@ -803,10 +806,10 @@
   }
 
   function drawCalls(px) {
-    var t = performance.now() / 1000;
+    var t = performance.now() / 1000, still = !!(window.RM_ON && window.RM_ON());   // Visual FX off: the called ring doesn't throb
     for (var k = 0; k < 6; k++) {
       var h = holeOf(k), on = k === G.called;
-      ctx.beginPath(); ctx.arc(h.x, h.y, h.r + 0.012 + (on ? 0.004 * Math.sin(t * 5) : 0), 0, Math.PI * 2);
+      ctx.beginPath(); ctx.arc(h.x, h.y, h.r + 0.012 + (on && !still ? 0.004 * Math.sin(t * 5) : 0), 0, Math.PI * 2);
       ctx.strokeStyle = on ? "rgba(255,214,90,0.95)" : "rgba(255,255,255,0.25)";
       ctx.lineWidth = px * (on ? 3 : 1.5);
       ctx.stroke();
@@ -1157,17 +1160,26 @@
     if (d.kind === "power") {
       if (G.power >= 0.02 && G.phase === "aim") humanShoot();
       else G.power = 0;
-    } else if (d.kind === "cue") {
-      var c = cue(), kitchen = G.st.inHand === "kitchen";
-      if (!P.placeOk(G.balls, c.x, c.y, kitchen)) {
-        var spot = P.nearestFree(G.balls, c.x, c.y, kitchen);
-        c.x = spot.x; c.y = spot.y;
-      }
-      G.placeBad = false;
+    } else if (d.kind === "cue") dropCue();
+  }
+  // however a cue-ball drag ends, the ball lands on a legal spot, never left
+  // sitting on another ball
+  function dropCue() {
+    var c = cue(), kitchen = G.st.inHand === "kitchen";
+    if (!P.placeOk(G.balls, c.x, c.y, kitchen)) {
+      var spot = P.nearestFree(G.balls, c.x, c.y, kitchen);
+      c.x = spot.x; c.y = spot.y;
     }
+    G.placeBad = false;
+  }
+  // a drag cut short (a pause, a cancelled touch) shoots nothing
+  function cancelDrag() {
+    if (drag && drag.kind === "power") G.power = 0;
+    if (drag && drag.kind === "cue") dropCue();
+    drag = null;
   }
   window.addEventListener("pointerup", endDrag);
-  window.addEventListener("pointercancel", function () { if (drag && drag.kind === "power") G.power = 0; drag = null; });
+  window.addEventListener("pointercancel", cancelDrag);
   canvas.addEventListener("wheel", function (e) {
     if (G.phase !== "aim" || modalOpen()) return;
     e.preventDefault();
@@ -1176,6 +1188,7 @@
   }, { passive: false });
 
   function humanShoot() {
+    if (G.placeBad) { G.power = 0; return; }   // not with the cue ball on top of another
     var call = Ru.needsCall(G.st, G.balls) ? G.called : -1;
     shoot(G.aim, G.power, G.tip.x, G.tip.y, call);
   }
@@ -1185,6 +1198,8 @@
     if (modalOpen()) {
       // Esc just closes the spin pad (claimed, so the page stays); it mustn't reach the pause key too
       if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); e.stopImmediatePropagation(); }
+      // and on "Leave this rack?" it's Keep playing (not a pause on top of the question)
+      else if (e.key === "Escape" && quitOpen()) { e.preventDefault(); closeQuit(); e.stopImmediatePropagation(); }
       // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }
       return;
@@ -1308,10 +1323,15 @@
     menuEl.classList.remove("hidden");
     setTimeout(function () { document.getElementById("startBtn").focus(); }, 30);
   }
-  function openQuit() { document.getElementById("confirmQuit").classList.remove("hidden"); }
-  document.getElementById("quitNo").addEventListener("click", function () { document.getElementById("confirmQuit").classList.add("hidden"); releaseFocus(); });
+  // "Leave this rack?" holds the table while it asks: the CPU and a rolling
+  // shot wait (see frame), and a drag or a charging shot is let go
+  function quitOpen() { return !document.getElementById("confirmQuit").classList.contains("hidden"); }
+  function openQuit() { cancelDrag(); G.charging = false; document.getElementById("confirmQuit").classList.remove("hidden"); }
+  function closeQuit() { document.getElementById("confirmQuit").classList.add("hidden"); releaseFocus(); }
+  document.getElementById("quitNo").addEventListener("click", closeQuit);
   document.getElementById("quitYes").addEventListener("click", function () {
     document.getElementById("confirmQuit").classList.add("hidden");
+    document.getElementById("over").classList.add("hidden");   // a result card mustn't sit over the menu
     drag = null; G.charging = false;
     showMenu();
   });
@@ -1319,8 +1339,9 @@
   // ---- pause + loop ------------------------------------------------------------------------------
   var Pz = window.GameShell
     ? GameShell.pausable({
-        canPause: function () { return ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0; },
-        onChange: function (p) { if (p) { G.charging = false; if (drag && drag.kind === "power") G.power = 0; drag = null; } }
+        // (not under "Leave this rack?": that already holds the table, and the card would cover it)
+        canPause: function () { return ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0 && !quitOpen(); },
+        onChange: function (p) { if (p) { G.charging = false; cancelDrag(); } }
       })
     : null;
   // Leaving asks first (pausing the table) once a rack is under way: from the
@@ -1342,7 +1363,7 @@
       var b = chromeBand();
       if (b.x + ":" + b.w !== lastBand) layout();
     }
-    if (!(Pz && Pz.isPaused())) update(dt);
+    if (!(Pz && Pz.isPaused()) && !quitOpen()) update(dt);
     draw();
   }
 

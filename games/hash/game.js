@@ -135,6 +135,7 @@
   var locked = false; // brief lock during good/bad animation
   var over = false;
   var moved = false; // a Hash claimed, cards added or a hint taken this game
+  var hintIds = []; // ids of the cards a hint has lit, until the table changes
   var gameNo = 0; // bumped by newGame, so a claim's slide-out from the last game stops
 
   var boardEl = document.getElementById("board");
@@ -243,6 +244,8 @@
   // animClass: which one ("dealt" by default, "enter-left" for set refills).
   function render(animIds, animClass) {
     animClass = animClass || "dealt";
+    // the cards are rebuilt on every change: keep keyboard focus on the same spot
+    var focused = boardEl.contains(document.activeElement) ? +document.activeElement.dataset.idx : -1;
     boardEl.innerHTML = "";
     // 3 columns; widen rows gracefully when 12/15/18 cards.
     for (var i = 0; i < board.length; i++) {
@@ -265,10 +268,14 @@
       );
       el.innerHTML = cardHTML(card);
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
+      // a hinted card glows until it's picked (then it shows as picked)
+      else if (hintIds.indexOf(card.id) !== -1) el.classList.add("hint");
       if (animIds && animIds.indexOf(card.id) !== -1)
         el.classList.add(animClass);
       boardEl.appendChild(el);
     }
+    if (focused >= 0 && board.length)
+      boardEl.children[Math.min(focused, board.length - 1)].focus({ preventScroll: true });
     statSets.textContent = setsFound;
     statDeck.textContent = deck.length;
     // Tell the CSS how many rows are on the table so cards can be sized to
@@ -320,6 +327,7 @@
   function claimGood() {
     setsFound++;
     moved = true;
+    hintIds = []; // the table changes: a new hint is a new Hash
     goodSound();
     setMsg("Hash! ✓", "good");
     locked = true;
@@ -442,6 +450,7 @@
     }
     var dealt = dealUpTo(board.length + 3);
     moved = true;
+    hintIds = [];
     setMsg("Dealt 3 more cards.", "info");
     render(dealt);
     updateAddBtn();
@@ -455,17 +464,18 @@
       return;
     }
     // Highlight one card of a valid set; reveal a second on a repeat press.
-    var cards = boardEl.querySelectorAll(".card");
-    var already = boardEl.querySelectorAll(".card.hint").length;
+    // (The table is the same until hintIds is cleared, so findSet's trio is too.)
+    var already = hintIds.length;
     var reveal = Math.min(already + 1, 2); // never give away all three
     if (reveal <= already) {
       // Both cards are already showing — no new info, so no extra charge.
       setMsg("Two cards of a Hash are already glowing. 💡", "info");
       return;
     }
-    for (var i = 0; i < reveal; i++) {
-      if (cards[trio[i]]) cards[trio[i]].classList.add("hint");
-    }
+    hintIds = trio.slice(0, reveal).map(function (i) {
+      return board[i].id;
+    });
+    render();
     hintSound();
     // Hints aren't free — add a 30s time penalty and show it on the clock now.
     penalty += HINT_PENALTY;
@@ -475,7 +485,7 @@
     setMsg(
       (reveal === 1
         ? "Hint: one card of a Hash is glowing. 💡"
-        : "Hint: two cards of a Set are glowing. 💡") + " (+30s)",
+        : "Hint: two cards of a Hash are glowing. 💡") + " (+30s)",
       "info"
     );
   }
@@ -527,6 +537,7 @@
     moved = false;
     locked = false;
     selected = [];
+    hintIds = [];
     setsFound = 0;
     penalty = 0;
     deck = shuffle(buildDeck());
