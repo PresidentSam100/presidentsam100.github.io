@@ -7,14 +7,14 @@
   <meta name="theme-color" content="#140a1e" />
   <title>Crazy Ohio — 4K score attack</title>
   <meta name="author" content="Sam Lu" />
-  <meta name="description" content="Crazy Ohio — 4-key rhythm attack: notes fall down four lanes, hit them with your own keybinds (default F G H J). How many can you catch in 30 seconds?" />
+  <meta name="description" content="Crazy Ohio — 4-key rhythm attack: notes fall down four lanes, hit them with F G H J. How many can you catch in 30 seconds?" />
     <link rel="stylesheet" href="styles.css" />
   <script src="../motion-toggle.js"></script>
   <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
     <meta property="og:title" content="Crazy Ohio — Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Crazy Ohio — 4-key rhythm — hit the notes, remap your own keys. A browser game by Sam Lu." />
+    <meta property="og:description" content="Crazy Ohio — 4-key rhythm — hit the notes on F G H J. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
@@ -60,18 +60,15 @@
           <button class="choice" data-dur="45">45s</button>
         </div>
       </div>
-      <div style="text-align:center;display:flex;flex-direction:column;gap:.5rem;align-items:center;">
+      <div class="keysrow">
         <span class="lbl">Keys</span>
-        <div class="choices" id="keyBinds">
-          <button class="choice keybtn" data-col="0"></button>
-          <button class="choice keybtn" data-col="1"></button>
-          <button class="choice keybtn" data-col="2"></button>
-          <button class="choice keybtn" data-col="3"></button>
+        <div class="lanekeys" id="laneKeys" role="group" aria-label="Lane keys, left to right: F, G, H, J">
+          <kbd class="gs-kbd">F</kbd><kbd class="gs-kbd">G</kbd><kbd class="gs-kbd">H</kbd><kbd class="gs-kbd">J</kbd>
         </div>
       </div>
       <button class="btn" id="startBtn">START</button>
       <p class="best" id="setupBest"></p>
-      <p class="hint" id="setupHint">click a key above to rebind it — each lane needs a unique key. Pressing a lane with nothing in it counts as a miss!</p>
+      <p class="hint" id="setupHint">hit tiles as they reach the keys — pressing too early or on an empty lane costs you a note!</p>
     </section>
 
     <!-- PLAY -->

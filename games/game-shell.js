@@ -174,8 +174,8 @@
   //   });                                      //   pause control, so no ⏸ button
   //   ...inside the loop:  if (!P.isPaused()) { update(dt); }
   //
-  // `keys` matters: games where the player types (ztype) or remaps controls
-  // (osu-mania) must not swallow "p", so they pass ["Escape"] only.
+  // `keys` matters: games where the player types (ztype) must not swallow
+  // "p", so they pass ["Escape"] only.
   //
   // It also adds a ⏸ button to the top-right row (see pauseButton below), so
   // a player can see that the game pauses and how.

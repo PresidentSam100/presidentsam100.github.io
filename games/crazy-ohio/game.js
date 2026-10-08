@@ -3,51 +3,10 @@
   const $ = (id) => document.getElementById(id);
   const setupEl = $("setup"), playEl = $("play"), resultEl = $("result");
   const lanes = [...document.querySelectorAll(".lane")];
-  const KEYS_STORAGE = "osumania_keys";
-  const IGNORE_CODES = ["ShiftLeft","ShiftRight","ControlLeft","ControlRight","AltLeft","AltRight","MetaLeft","MetaRight","Tab"];
-  const LABELS = { Space:"Space", Semicolon:";", Quote:"'", Comma:",", Period:".", Slash:"/",
-    BracketLeft:"[", BracketRight:"]", Backslash:"\\", Minus:"-", Equal:"=", Backquote:"`",
-    ArrowLeft:"←", ArrowRight:"→", ArrowUp:"↑", ArrowDown:"↓", Enter:"⏎", Backspace:"⌫" };
-
-  function keyLabel(code) {
-    if (!code) return "?";
-    if (code.indexOf("Key") === 0) return code.slice(3);
-    if (code.indexOf("Digit") === 0) return code.slice(5);
-    return LABELS[code] || code;
-  }
-  // Keycaps for the setup hints (style: ../motion-toggle.js). The key's name is
-  // escaped, since keyLabel() hands back raw characters (\, ', `…).
-  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  const kbd = (k) => '<kbd class="gs-kbd">' + esc(k) + "</kbd>";
-  function defaultKeybinds() { return ["KeyF", "KeyG", "KeyH", "KeyJ"]; }
-  function loadKeybinds() {
-    try {
-      const arr = JSON.parse(localStorage.getItem(KEYS_STORAGE) || "null");
-      if (Array.isArray(arr) && arr.length === 4 && new Set(arr).size === 4) {
-        // P is the pause key now; a lane saved on it moves to a free default
-        const p = arr.indexOf("KeyP");
-        if (p >= 0) arr[p] = ["KeyF", "KeyG", "KeyH", "KeyJ", "KeyK", "KeyD", "KeyS"].find((k) => arr.indexOf(k) === -1);
-        return arr;
-      }
-    } catch (e) {}
-    return defaultKeybinds();
-  }
-  function saveKeybinds() { try { localStorage.setItem(KEYS_STORAGE, JSON.stringify(KEYBINDS)); } catch (e) {} }
-
-  let KEYBINDS = loadKeybinds();
-  let rebindCol = -1;
-
-  function renderKeybindButtons() {
-    document.querySelectorAll(".keybtn").forEach((b) => {
-      const c = +b.dataset.col;
-      b.textContent = rebindCol === c ? "…" : keyLabel(KEYBINDS[c]);
-      b.classList.toggle("listening", rebindCol === c);
-    });
-  }
-  function applyLaneLabels() {
-    lanes.forEach((l) => { const k = l.querySelector(".key"); if (k) k.textContent = keyLabel(KEYBINDS[+l.dataset.col]); });
-  }
-  renderKeybindButtons();
+  // The lanes are always F G H J, left to right, and can't be changed: the
+  // setup screen shows them as keycaps and each lane's hit zone is labelled.
+  // Matched by e.code, so they're the same four keys on any keyboard layout.
+  const LANE_KEYS = ["KeyF", "KeyG", "KeyH", "KeyJ"];
 
   const PRECISION_FALL_MS = 1000; // constant fall speed for precision mode (no ramp-up)
 
@@ -102,7 +61,6 @@
       o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 0.14);
     } catch (e) {}
   }
-  function errSound() { tone(220, 0.1, "square"); }
 
   const bestKey = () => {
     const parts = [];
@@ -136,7 +94,7 @@
   function defaultHint() {
     return mode === "precision"
       ? "press right when the tile sits fully inside the highlighted key zone — the fuller the overlap, the more points. Bad timing breaks your streak, and pressing an empty lane costs 50 points!"
-      : "click a key above to rebind it — each lane needs a unique key. Hit tiles as they reach the keys — pressing too early or on an empty lane costs you a note!";
+      : "hit tiles as they reach the keys — pressing too early or on an empty lane costs you a note!";
   }
 
   $("modeChoices").addEventListener("click", (e) => {
@@ -162,14 +120,6 @@
     [...$("durChoices").children].forEach((x) => x.classList.toggle("sel", x === c));
     selectSound();
     showSetupBest();
-  });
-
-  // ---- keybind rebinding (setup screen only) ----
-  $("keyBinds").addEventListener("click", (e) => {
-    const b = e.target.closest(".keybtn"); if (!b || state !== "setup") return;
-    rebindCol = +b.dataset.col;
-    renderKeybindButtons();
-    $("setupHint").innerHTML = "press any key for lane " + (rebindCol + 1) + "… (" + kbd("Esc") + " to cancel)";
   });
 
   function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); }
@@ -388,7 +338,7 @@
   }
   function makeKey(l) {
     const k = document.createElement("div");
-    k.className = "key"; k.textContent = keyLabel(KEYBINDS[+l.dataset.col]);
+    k.className = "key"; k.textContent = LANE_KEYS[+l.dataset.col].slice(3);
     return k;
   }
 
@@ -406,10 +356,8 @@
   // so the overlay appeared while the game quit underneath). In the
   // countdown and on the results it's left to the shared motion-toggle.js,
   // which goes to the games page; Backspace backs out of those to setup
-  // (see the keydown handler). P can't be a lane key: rebinding
-  // refuses it, and a lane saved on it before this moves to a free key
-  // (loadKeybinds). Auto-pause stays state-based so a tab-switch always
-  // works. Every clock here is anchored to
+  // (see the keydown handler). Auto-pause stays state-based so a
+  // tab-switch always works. Every clock here is anchored to
   // performance.now(), so resuming shifts startT, the next spawn and every
   // in-flight tile by the paused duration; otherwise the whole column would
   // teleport to the judgement line and register a wall of misses.
@@ -602,44 +550,13 @@
   });
 
   window.addEventListener("keydown", (e) => {
-    // Rebind mode intercepts the very next keypress, wherever we are.
-    if (rebindCol >= 0) {
-      if (e.key === "Escape") {   // claimed: it cancels, rather than leaving the page
-        e.preventDefault();
-        rebindCol = -1; renderKeybindButtons();
-        $("setupHint").textContent = defaultHint();
-        return;
-      }
-      if (IGNORE_CODES.indexOf(e.code) >= 0) return;
-      e.preventDefault();
-      if (e.code === "KeyP") {
-        $("setupHint").innerHTML = kbd("P") + " pauses the game — try a different key";
-        errSound();
-        return;
-      }
-      const takenBy = KEYBINDS.indexOf(e.code);
-      if (takenBy >= 0 && takenBy !== rebindCol) {
-        $("setupHint").innerHTML = kbd(keyLabel(e.code)) + " is already lane " + (takenBy + 1) + " — try a different key";
-        errSound();
-        return;
-      }
-      KEYBINDS[rebindCol] = e.code;
-      saveKeybinds();
-      rebindCol = -1;
-      renderKeybindButtons();
-      applyLaneLabels();
-      selectSound();
-      $("setupHint").textContent = defaultHint();
-      return;
-    }
     if (e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    // Backspace backs out of the countdown and the results to setup, unless a
-    // lane is bound to it (a lane key hammered as a run starts or ends mustn't
-    // quit). Esc isn't claimed there, so it leaves for the games page; while
-    // running, Esc is the pause key (GameShell handles it).
-    if (e.key === "Backspace" && (state === "countdown" || state === "done") && KEYBINDS.indexOf(e.code) === -1) { e.preventDefault(); quit(); return; }
-    const col = KEYBINDS.indexOf(e.code);
+    // Backspace backs out of the countdown and the results to setup. Esc isn't
+    // claimed there, so it leaves for the games page; while running, Esc is
+    // the pause key (GameShell handles it).
+    if (e.key === "Backspace" && (state === "countdown" || state === "done")) { e.preventDefault(); quit(); return; }
+    const col = LANE_KEYS.indexOf(e.code);
     if (col === -1) return;
     if (state !== "running" || PAUSE.isPaused()) return;
     e.preventDefault();

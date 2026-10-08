@@ -81,8 +81,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "24 untimed");
 
   // ---- Crazy Ohio: Esc / P pause a run; in the countdown and on the results
-  // Backspace backs out to setup and Esc leaves for the games page; P can't be
-  // a lane key; paused lane presses don't count
+  // Backspace backs out to setup and Esc leaves for the games page; paused
+  // lane presses don't count; the lanes are F G H J, shown on setup
   p = await ctx.newPage(); p.errs = []; p.leaves = 0; p.on("pageerror", (e) => p.errs.push(e.message));
   await lib.injectScript(p, "games/crazy-ohio/game.js", [
     ["function registerMiss(t, col, pressed) {", "function registerMiss(t, col, pressed) { if (pressed) window.__press = (window.__press || 0) + 1;"],
@@ -116,11 +116,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const rl1 = p.leaves;
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   check("crazy-ohio results: Settings shows a ⌫ keycap; Esc leaves, Backspace goes to setup", /title="Backspace">⌫/.test(sb) && rl1 === rl0 + 1 && (await sec()) === "setup", { sb, rl0, rl1, sec: await sec() });
-  await p.click('.keybtn[data-col="0"]'); await p.keyboard.press("p"); await p.waitForTimeout(100);
-  check("crazy-ohio: rebinding refuses P", /P pauses the game/.test(await p.evaluate(() => document.getElementById("setupHint").textContent)));
-  const kl = p.leaves;
-  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
-  check("crazy-ohio: Esc cancels a rebind without leaving", p.leaves === kl && !/press any key/.test(await p.evaluate(() => document.getElementById("setupHint").textContent)), p.leaves);
+  const lk = await p.evaluate(() => ({ caps: [...document.querySelectorAll("#laneKeys kbd")].map((k) => k.textContent).join(""), buttons: document.querySelectorAll("#laneKeys button, .keybtn").length }));
+  check("crazy-ohio: setup shows the lane keys F G H J as keycaps, nothing to rebind", lk.caps === "FGHJ" && lk.buttons === 0, lk);
   await done(p, "crazy-ohio");
 
   // ---- Flappy World: Esc pauses as well as P; on game over Backspace goes to the menu (Esc leaves)

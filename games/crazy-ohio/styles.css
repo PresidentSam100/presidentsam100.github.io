@@ -40,9 +40,17 @@ section[hidden] { display: none; }
 }
 .choice:hover { border-color: #5a3675; }
 .choice.sel { border-color: var(--pink); color: var(--pink); background: #33163a; box-shadow: 0 0 16px -4px var(--pink); }
-.choice.listening { border-color: var(--warn); color: var(--warn); animation: pulseListen 1s ease-in-out infinite; }
-@keyframes pulseListen { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
-.keybtn { min-width: 64px; padding: 0.7rem 0.9rem; font-size: 1.1rem; }
+/* The lanes' keys, F G H J: keycaps (the shared .gs-kbd), not buttons, as
+   they can't be changed, each in its lane's colour. Touch-only devices tap
+   the lanes instead, so the row hides there. */
+.keysrow { text-align: center; display: flex; flex-direction: column; gap: .5rem; align-items: center; }
+.lanekeys { display: flex; gap: 0.6rem; justify-content: center; }
+.lanekeys .gs-kbd { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 1.2rem; min-width: 2.3em; padding: .3em .5em .25em; }
+.lanekeys .gs-kbd:nth-child(1) { color: var(--col1); }
+.lanekeys .gs-kbd:nth-child(2) { color: var(--col2); }
+.lanekeys .gs-kbd:nth-child(3) { color: var(--col3); }
+.lanekeys .gs-kbd:nth-child(4) { color: var(--col4); }
+@media (hover: none) { .keysrow { display: none; } }
 
 .btn {
   cursor: pointer; border: none; font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700; letter-spacing: 0.06em;
