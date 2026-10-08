@@ -7,10 +7,33 @@
 //   VERBOSE=1 npm test          print passing checks too
 const fs = require("fs");
 const path = require("path");
+const { spawn } = require("child_process");
 const { chromium } = require("@playwright/test");
 const lib = require("./lib");
 
+// A full run outlasts a short sleep timer, and a PC that sleeps partway kills
+// the run (pages time out, then ERR_NETWORK_IO_SUSPENDED). On Windows a hidden
+// PowerShell asks for "system required" (the screen may still turn off) and
+// holds it until its stdin closes, which happens when this process exits,
+// however it exits. Elsewhere, nothing.
+function stayAwake() {
+  if (process.platform !== "win32") return;
+  const ps =
+    "Add-Type -Namespace RunTests -Name Power -MemberDefinition '[DllImport(\"kernel32.dll\")] public static extern uint SetThreadExecutionState(uint f);'\n" +
+    "[void][RunTests.Power]::SetThreadExecutionState([uint32]2147483649)\n" +   // ES_CONTINUOUS | ES_SYSTEM_REQUIRED
+    "[void][Console]::In.ReadToEnd()";
+  try {
+    const child = spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")],
+      { stdio: ["pipe", "ignore", "ignore"], windowsHide: true });
+    child.on("error", () => {});   // no PowerShell: run anyway
+    child.unref();
+    child.stdin.on("error", () => {});
+    child.stdin.unref();
+  } catch (e) {}
+}
+
 (async () => {
+  stayAwake();
   const all = fs.readdirSync(path.join(__dirname, "tests")).filter((f) => f.endsWith(".js")).map((f) => f.slice(0, -3)).sort();
   const want = process.argv.slice(2);
   const unknown = want.filter((w) => !all.includes(w));
