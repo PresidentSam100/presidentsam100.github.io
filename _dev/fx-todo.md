@@ -49,13 +49,15 @@ Done (checked in `tests/fx.js`):
 - Poodle Jump. Each landing squashes the poodle and kicks up pencil dust, the
   platform gives under it, it stretches with its speed, and a launch faster
   than a normal jump trails speed lines.
+- 2048. The keys ease into place and land with a squash along their slide, a
+  merge squashes the same way before it pops and flashes a lit ring, and the
+  points float up off the score.
 
 Thin today: Chess and its 3-player board (piece slides, captures to the tray,
 check pulse), LogicGate (signal flowing gate by gate), Road Bird (hop trail,
-coin sparkle), Tic-Tac-Toe (chalk dust), Stopwatch
-(perfect-stop ring), Steamfitter (eased quarter-turn), Yi (deal fan), Hash
-(deal flip), Minesweeper (win wave), 2048 (eased slide, merge squash), Speedle
-(staggered flip), Abyss (hard-drop trail), Corner Pocket (ball trails), Crazy
+coin sparkle), Tic-Tac-Toe (chalk dust), Stopwatch (perfect-stop ring),
+Steamfitter (eased quarter-turn), Yi (deal fan), Hash (deal flip), Minesweeper
+(win wave), Speedle (staggered flip), Abyss (hard-drop trail), Corner Pocket (ball trails), Crazy
 Ohio (hit bursts), Jam Jar (landing squash), Klondike (card arcs), Flappy World
 (medal shine), Spacer (shockwave), Typetwo (bolt trails).
 

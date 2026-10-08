@@ -381,6 +381,32 @@
         transform: scale(1);
       }
     }
+    /* Visual FX on (game.js animates these): the keys ease into place, a
+       merge flashes a lit ring out from its key, and the points float up off
+       the score. With FX off none of this exists. */
+    html.fx-on .tile { transition-timing-function: cubic-bezier(0.25, 0.85, 0.35, 1); }
+    .merge-ring {
+      position: absolute;
+      inset: -3px;
+      border: 2px solid #d8ff8a;
+      border-radius: 13px;
+      box-shadow: 0 0 10px rgba(198, 240, 106, 0.7);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .score-add {
+      position: absolute;
+      right: 0;
+      top: -13px;
+      font-family: "Rubik", system-ui, sans-serif;
+      font-size: 0.8rem;
+      font-style: normal;
+      font-weight: 800;
+      color: var(--ink);
+      opacity: 0;
+      pointer-events: none;
+    }
+
     /* Visual FX off: nothing pops in, so the keys the last move added stay
        marked until the next move (game.js sets the classes): a merged key
        gets a lit ring round it, a new key a lit LED in its corner */

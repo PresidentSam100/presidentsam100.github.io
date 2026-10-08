@@ -93,6 +93,46 @@
     tone(196, 196, 0.6, "triangle", 0.26, 0.46);
   }
 
+  // --- Visual FX on: extra motion (motion-toggle.js; RM_ON() is true when it's
+  // off). A key that slides lands with a small squash along its way, a merge
+  // squashes the same way before it pops and flashes a ring, and the points
+  // float up off the score. It's drawn with the Web Animations API, so it
+  // plays over the CSS appear / pop without touching their classes; with FX
+  // off none of it runs and the board looks as it always has.
+  function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+  var lastVec = null; // the direction of the last move, for the merge squash
+  // flattened along the travel axis, bulging across it (k = how much)
+  function squashed(v, k) {
+    return v.c ? "scale(" + (1 - k) + "," + (1 + k * 0.6) + ")" : "scale(" + (1 + k * 0.6) + "," + (1 - k) + ")";
+  }
+  function landFx(t, v) {
+    if (!t.inner.animate || !t.el.parentNode) return;
+    t.inner.animate([{ transform: "scale(1)" }, { transform: squashed(v, 0.1), offset: 0.4 }, { transform: "scale(1)" }],
+      { duration: 150, easing: "ease-out" });
+  }
+  function mergeFx(m, v) {
+    if (!m.inner.animate || !m.el.parentNode) return;
+    m.inner.animate([{ transform: squashed(v, 0.16) }, { transform: "scale(1.22)", offset: 0.5 }, { transform: "scale(1)" }],
+      { duration: 240, easing: "ease-out" });
+    var ring = document.createElement("div");
+    ring.className = "merge-ring";
+    m.el.appendChild(ring);
+    var a = ring.animate([{ transform: "scale(0.85)", opacity: 0.9 }, { transform: "scale(1.35)", opacity: 0 }],
+      { duration: 380, easing: "ease-out" });
+    a.onfinish = a.oncancel = function () { if (ring.parentNode) ring.parentNode.removeChild(ring); };
+  }
+  function scoreFloat(n) {
+    var box = scoreEl.parentNode;
+    if (!box.animate) return;
+    var s = document.createElement("span");
+    s.className = "score-add";
+    s.textContent = "+" + n;
+    box.appendChild(s);
+    var a = s.animate([{ transform: "translateY(4px)", opacity: 0 }, { transform: "translateY(0)", opacity: 0.95, offset: 0.2 }, { transform: "translateY(-12px)", opacity: 0 }],
+      { duration: 700, easing: "ease-out" });
+    a.onfinish = a.oncancel = function () { if (s.parentNode) s.parentNode.removeChild(s); };
+  }
+
   // Static background cells (built once).
   for (var i = 0; i < SIZE * SIZE; i++) {
     var bg = document.createElement("div");
@@ -194,6 +234,7 @@
         m.inner.style.opacity = "";   // reveal the merged tile
         m.el.style.zIndex = "3";
         m.inner.classList.add("pop", "is-merged");
+        if (fxOn() && lastVec) mergeFx(m, lastVec);
       }
     }
     pendingMerges = [];
@@ -253,7 +294,8 @@
     var v = VECTORS[dir];
     var trav = buildTraversals(v);
     var moved = false, gained = 0;
-    var toRemove = [], mergeNow = [];
+    var toRemove = [], mergeNow = [], slid = [];
+    lastVec = v;
 
     // Reset per-move flags and restore established tiles to the base
     // stacking level (last move's spawn/merge z-index no longer applies).
@@ -294,6 +336,7 @@
             grid[r][c] = null;
             grid[fr][fc] = tile;
             tile.r = fr; tile.c = fc; placeEl(tile);
+            slid.push(tile);
             moved = true;
           }
         }
@@ -311,6 +354,11 @@
 
     score += gained;
     updateScore();
+    if (fxOn()) {
+      if (gained > 0) scoreFloat(gained);
+      // the slid keys land as their slide ends
+      setTimeout(function () { if (fxOn()) slid.forEach(function (t) { landFx(t, v); }); }, ANIM_MS);
+    }
 
     if (toRemove.length) {
       pending = toRemove;

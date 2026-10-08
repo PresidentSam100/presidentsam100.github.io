@@ -317,4 +317,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("poodle-jump: a propeller's blades turn with FX on and hold still with it off", prop.on === false && prop.off === true, prop);
     await c5.close();
   }
+
+  // ---- FX-3: 2048 with FX on: the slid key lands with a squash, the merge
+  // squashes and flashes a ring, the points float up off the score; with FX
+  // off the same move plays with none of that, to the same board and score
+  {
+    const c6 = await lib.newContext(browser);
+    const HOOK = ["  newGame();\n})();", `  newGame();
+  window.__set2048 = function (rows) {
+    newGame(); tilesEl.innerHTML = ""; tiles = {}; grid = [];
+    for (var r = 0; r < 4; r++) grid.push([null, null, null, null]);
+    for (r = 0; r < 4; r++) for (var c = 0; c < 4; c++) if (rows[r][c]) makeTile(r, c, rows[r][c], null);
+  };
+})();`];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await lib.open(c6, base, "games/2048/", { before: async (pg) => {
+        await lib.injectScript(pg, "games/2048/game.js", [HOOK]);
+        await pg.addInitScript((off) => localStorage.setItem("reduceMotion:2048", off ? "1" : "0"), off);
+      } });
+      // a pair of 2s to merge on the top row, a 4 to slide on the next
+      await p.evaluate(() => __set2048([[2, 2, 0, 0], [0, 0, 4, 0], [0, 0, 0, 0], [0, 0, 0, 0]]));
+      const watch = p.evaluate(() => new Promise((res) => {
+        const s = { rings: 0, floats: 0, scripted: 0 };
+        const t0 = performance.now();
+        (function tick() {
+          s.rings = Math.max(s.rings, document.querySelectorAll(".merge-ring").length);
+          s.floats = Math.max(s.floats, document.querySelectorAll(".score-add").length);
+          // animations started from script (not the CSS appear / pop / slide)
+          const n = [...document.querySelectorAll(".tile-inner")].reduce((k, e) => k + e.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)).length, 0);
+          s.scripted = Math.max(s.scripted, n);
+          if (performance.now() - t0 < 600) requestAnimationFrame(tick);
+          else res(s);
+        })();
+      }));
+      await p.keyboard.press("ArrowLeft");
+      const s = await watch;
+      await p.waitForTimeout(1500);   // (the float takes 0.7 s; slack for a loaded machine)
+      s.after = await p.evaluate(() => ({
+        score: document.getElementById("score").textContent,
+        top: [...document.querySelectorAll(".tile-inner")].map((e) => e.textContent).sort().join(),
+        leftover: document.querySelectorAll(".merge-ring, .score-add").length,
+      }));
+      got[off ? "off" : "on"] = s;
+      check("2048 FX " + (off ? "off" : "on") + ": no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+    check("2048, FX on: the slid key lands and the merge squashes (scripted motion), a ring flashes, the points float up, then all of it clears",
+      got.on.scripted >= 2 && got.on.rings >= 1 && got.on.floats >= 1 && got.on.after.leftover === 0 && got.on.after.score === "4", got.on);
+    check("2048, FX off: the same move to the same board and score, with no ring, float or extra motion",
+      got.off.scripted === 0 && got.off.rings === 0 && got.off.floats === 0 && got.off.after.score === "4" && got.off.after.top.split(",").length === got.on.after.top.split(",").length, got.off);
+    await c6.close();
+  }
 };
