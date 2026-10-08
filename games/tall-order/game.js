@@ -185,7 +185,9 @@
     if (ow <= 4) {                                   // clean miss: served
       debris.push({ x: x, y: slider.y, w: w, fl: slider.fl, seed: slider.seed, vx: slider.dir * 60, vy: 60, rot: 0, vr: slider.dir * 2.4 });
       sndMiss();
-      if (bests[mode]) bests[mode].submit(tiers.length);   // the run is over: its result is in before the tumble
+      // the run is over: its result is in before the tumble (a run that placed
+      // nothing on the base it was given has no tower to record)
+      if (bests[mode] && tiers.length > 1) bests[mode].submit(tiers.length);
       state = "tumble"; phaseTimer = 0.8;
       slider = null;
       return;
@@ -235,13 +237,15 @@
 
   function serveOver() {
     var n = tiers.length;
-    // (saved as each tier beat it; "record" is against the best as the run began)
-    var b = bests[mode], isBest = b ? b.submit(n) || n > runBest : false;
+    // (saved as each tier beat it; "record" is against the best as the run
+    // began). The count includes the base the run starts on, so a run that
+    // placed no tier (n is 1) is never a record.
+    var b = bests[mode], isBest = b && n > 1 ? b.submit(n) || n > runBest : false;
     $("over-title").textContent = n >= 25 ? "A showstopper!" : n >= 12 ? "Order served!" : "Back to the oven";
     $("over-msg").textContent = n + (n === 1 ? " tier" : " tiers");
     $("over-stats").textContent =
       perfects + " perfect drop" + (perfects === 1 ? "" : "s") + "\n" +
-      (isBest ? "a new bakery record! 🍒" : "best: " + (b ? b.get() : n) + " tiers");
+      (isBest ? "a new bakery record! 🍒" : b && b.get() ? "best: " + b.get() + " tiers" : "no tower on the record board yet");
     $("hud").hidden = true;
     $("over").hidden = false;
     state = "over";

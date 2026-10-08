@@ -422,12 +422,19 @@
     // Record only 2-player games against the CPU — local games and the 3/4-player
     // variants have no single "you" to credit. Every end path funnels through
     // here, and a win is always announced as "<player name> wins!".
+    // A game counts once, the first time it ends: Undo can reopen it for
+    // play (G.recorded isn't in the undo snapshots), but replaying the end
+    // doesn't count it again; New Game starts a fresh G.
     if(CHESS_REC && G.mode===2 && G.vsCPU){
-      const human = G.cpuColor==="w" ? "b" : "w";
-      if(title.indexOf("Draw")===0) CHESS_REC.add("d");
-      else if(G.players[human] && title.indexOf(G.players[human].name+" wins")===0) CHESS_REC.add("w");
-      else CHESS_REC.add("l");
-      msg += "\n\nRecord vs CPU — " + CHESS_REC.text();
+      const again = G.recorded;
+      if(!again){
+        G.recorded = true;
+        const human = G.cpuColor==="w" ? "b" : "w";
+        if(title.indexOf("Draw")===0) CHESS_REC.add("d");
+        else if(G.players[human] && title.indexOf(G.players[human].name+" wins")===0) CHESS_REC.add("w");
+        else CHESS_REC.add("l");
+      }
+      msg += "\n\nRecord vs CPU — " + CHESS_REC.text() + (again ? "\n(this game's first result already counted)" : "");
     }
     statusEl.innerHTML='<b>'+title+'</b>';
     if(G.mode===4) renderPlayers();

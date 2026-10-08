@@ -346,11 +346,13 @@
     } catch (e) {}
     return { p: 0, w: 0 };
   }
-  function addStat(won) {
+  // A game counts as played ("p") from its first dig, as on Windows, so one
+  // dropped mid-game (N, 🙂, a level button, leaving) stays played and not
+  // won; a win then adds the win ("w"). The Daily keeps its own tries instead.
+  function addStat(k) {
     if (DAILY || prefs.level === "custom") return;
     const s = readStats(prefs.level);
-    s.p++;
-    if (won) s.w++;
+    s[k]++;
     GameShell.store.set(statsKey(prefs.level), JSON.stringify(s));
   }
 
@@ -403,6 +405,8 @@
     if (state !== "ready") return;
     state = "playing";
     startClock();
+    addStat("p");   // played from here on, however it ends (see addStat)
+    renderStats();
   }
 
   function dig(i) {
@@ -507,7 +511,7 @@
     } else if (prefs.level !== "custom") {
       if (bestFor(prefs.level).submit(secs)) msg += " — new best!";
     }
-    addStat(true);
+    addStat("w");   // (counted as played on its first dig)
     setStatus(msg, "good");
     renderStats();
   }
@@ -545,7 +549,7 @@
       const d = readDaily();
       if (!d.done) { d.tries++; writeDaily(d); }
     }
-    addStat(false);
+    // (no stat here: the game counted as played on its first dig)
     // (the key part hides on a touch-only device, where 🙂 is the way)
     setStatus('💥 Boom! Tap 🙂<span class="gs-keys"> or press <kbd class="gs-kbd">N</kbd></span> to try again.', "bad", true);
     renderStats();
@@ -762,6 +766,13 @@
       if (paused) stopClock();
       else if (state === "playing") startClock();
     },
+  });
+  // Leaving asks while a game is on (as pausable's default would), and on a
+  // ranked board says the game stays counted (see addStat)
+  GameShell.guardLeave({
+    active: () => PAUSE.isPaused() || state === "playing",
+    pausable: PAUSE,
+    text: () => (DAILY || prefs.level === "custom" ? "" : "The game in progress will be lost, and it still counts as played."),
   });
 
   // ---- controls ----------------------------------------------------------

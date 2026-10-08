@@ -56,6 +56,27 @@ module.exports = async ({ browser, base, check, lib }) => {
   const run = await p.evaluate(() => ({ state: TallOrder.state(), mode: localStorage.getItem("tallorder_mode") }));
   check("tall-order: after clicking Rush order then pressing 1, Enter starts a Bakery run and it stays Bakery", run.state === "play" && run.mode === "bakery", run);
   await done(p, "mouse then Enter");
+
+  // ---- the record: a run that drops nothing onto the base it was given isn't
+  // one (missing the first drop used to be "a new bakery record!" at 1 tier);
+  // one that places a tier is, and an old best still shows
+  const serve = async (placed, seedBest) => {
+    const pg = await open(ctx);
+    if (seedBest) await pg.evaluate((b) => localStorage.setItem("tallorder_best_bakery", b), seedBest);
+    await pg.evaluate(() => TallOrder.start("bakery"));
+    for (let i = 0; i <= placed; i++) {
+      await pg.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 4000 });
+      await pg.evaluate((miss) => TallOrder.placeAndDrop(miss ? 5000 : 0), i === placed);
+    }
+    await pg.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 10000 });
+    const r = await pg.evaluate(() => ({ stats: document.getElementById("over-stats").textContent, best: localStorage.getItem("tallorder_best_bakery") }));
+    await done(pg, "record " + placed + (seedBest ? " vs " + seedBest : ""));
+    return r;
+  };
+  const none = await serve(0), one = await serve(1), old = await serve(0, "5");
+  check("tall-order: missing the first drop isn't a record: nothing is saved and the card doesn't call it one", !/new bakery record/.test(none.stats) && none.best === null, none);
+  check("tall-order: a run that places a tier is a first record, saved (guard)", /new bakery record/.test(one.stats) && one.best === "2", one);
+  check("tall-order: after missing the first drop, the card shows the best already held (guard)", /best: 5 tiers/.test(old.stats) && old.best === "5", old);
   await ctx.close();
 
   // ---- the menu's "how" names the key on a desktop, and says tap on a phone,

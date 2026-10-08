@@ -400,7 +400,9 @@
     const tick = () => {
       if (b <= 0) { afterBonus(); return; }
       const take = Math.min(Math.max(500, Math.round(b / 14)), b); b -= take;
-      score += take * mult; keepBest(); SFX.bonus(); updateHUD(); setTimeout(tick, 40);
+      // through addScore (×mult once, the best kept): an extra ball the count
+      // crosses is awarded, and afterBonus shoots it, even after the last ball
+      addScore(take); SFX.bonus(); updateHUD(); setTimeout(tick, 40);
     };
     if (b > 0) { ticker("BONUS x" + mult, "#ffd23f"); setTimeout(tick, 500); } else setTimeout(afterBonus, 300);
   }

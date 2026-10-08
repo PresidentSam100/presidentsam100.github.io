@@ -90,4 +90,50 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "minesweeper endless " + label + " hints");
     await c2.close();
   }
+
+  // ---- won X of Y: a game counts as played from its first dig, like Windows did
+  const c3 = await lib.newContext(browser);
+  p = await lib.open(c3, base, "games/minesweeper/", { before: (pg) => lib.injectScript(pg, "games/minesweeper/game.js", [msHook]) });
+  const stats = () => p.evaluate(() => ({ s: localStorage.getItem("minesweeper_stats_beginner"), shown: document.getElementById("stats").textContent }));
+  await p.click('.c[data-i="40"]'); await settle(p);
+  const dug = await stats();
+  await p.keyboard.press("n"); await settle(p);   // dropped mid-game
+  const dropped = await stats();
+  await p.click('.c[data-i="40"]'); await settle(p);
+  const mine = await p.evaluate(() => __ms.mines().indexOf(1));
+  await p.click('.c[data-i="' + mine + '"]'); await settle(p);
+  const lostOne = await stats();
+  await p.click("#face"); await settle(p);
+  await p.click('.c[data-i="40"]'); await settle(p);
+  // dig every safe square (a mouse press and release on each)
+  await p.evaluate(() => __ms.mines().forEach((m, i) => {
+    if (m) return;
+    document.querySelector('.c[data-i="' + i + '"]').dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+    window.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+  }));
+  await settle(p);
+  const wonOne = await stats();
+  const face = await p.evaluate(() => document.getElementById("face").textContent);
+  check("minesweeper: a game counts as played from its first dig — dropping it (N) still counts, a loss isn't counted twice, a win adds a win",
+    dug.s === '{"p":1,"w":0}' && /won 0 of 1/.test(dug.shown) && dropped.s === '{"p":1,"w":0}' && lostOne.s === '{"p":2,"w":0}' &&
+      face === "😎" && wonOne.s === '{"p":3,"w":1}' && /won 1 of 3/.test(wonOne.shown), { dug, dropped, lostOne, face, wonOne });
+
+  // leaving mid-game says the game still counts
+  await p.click("#face"); await settle(p);
+  await p.click('.c[data-i="40"]'); await settle(p);
+  await p.keyboard.press("Home"); await settle(p);
+  const leaveText = await p.evaluate(() => { const d = document.querySelector(".gs-dialog p"); return d ? d.textContent : null; });
+  await p.keyboard.press("Escape"); await settle(p);
+  check("minesweeper: 'Leave this game?' mid-game says it still counts as played", !!leaveText && /counts as played/.test(leaveText), leaveText);
+  await done(p, "minesweeper stats");
+
+  // the Daily keeps its own record (tries), not these stats (guard)
+  p = await lib.open(c3, base, "games/minesweeper/?daily");
+  // (a covered square mid-board: the top-left ones sit under the fixed ← Games button)
+  const daily = await p.evaluate(() => { const c = [...document.querySelectorAll(".c:not(.open)")]; return c.length ? c[Math.floor(c.length / 2)].dataset.i : null; });
+  await p.click('.c[data-i="' + daily + '"]'); await settle(p);
+  const dailyStats = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^minesweeper_stats_/.test(k)));
+  check("minesweeper daily: a dig there leaves the won-of-played stats alone (guard)", daily !== null && dailyStats.length === 0, dailyStats);
+  await done(p, "minesweeper daily stats");
+  await c3.close();
 };

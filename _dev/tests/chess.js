@@ -212,5 +212,37 @@ module.exports = async ({ browser, base, check, lib }) => {
     after.moves === 1 && !after.over && !after.running && after.rec === rec0, { after, rec0 });
   check("chess (change mode): no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // ---- vs CPU, a game's result counts once: undo reopens it, but its next end isn't recorded again
+  p = await open2();
+  const rec = () => p.evaluate(() => JSON.parse(localStorage.getItem("chess_record") || "null"));
+  // a fresh game vs CPU (you're White): Black Ka8, White Kb6 + Qh7; Qc7 stalemates, Qh8 mates
+  const fresh3 = () => p.evaluate(() => {
+    ["overOverlay", "menu"].forEach((id) => document.getElementById(id).classList.remove("show"));
+    const C = __chess; C.start(2, null, { opponent: "cpu", difficulty: "easy", side: "w", base: 0, inc: 0 });
+    const G = C.G, b = new Array(64).fill(null);
+    b[0] = { o: "b", t: "k", dead: false }; b[17] = { o: "w", t: "k", dead: false }; b[15] = { o: "w", t: "q", dead: false };
+    G.board = b; G.castle = { wk: false, wq: false, bk: false, bq: false }; C.render();
+  });
+  const finish = async (to) => {
+    await p.evaluate((to) => { const C = __chess; C.doMove(C.legalFor(C.G, 15).find((m) => m.to === to)); }, to);
+    await p.waitForTimeout(450);
+  };
+  const undoIt = () => p.evaluate(() => document.getElementById("undoBtn").click());
+  await fresh3();
+  await finish(10);                    // stalemate: a draw
+  const r1 = await rec();
+  await undoIt(); await finish(7);     // undo, then mate instead
+  const r2 = await rec();
+  await undoIt(); await finish(7);     // and again
+  const r3 = await rec();
+  check("chess vs CPU: undo after a game ends lets it be replayed, but only its first result counts",
+    r1 && r1.d === 1 && r1.w === 0 && r2.d === 1 && r2.w === 0 && r3.d === 1 && r3.w === 0, { r1, r2, r3 });
+  await fresh3();
+  await finish(7);                     // New Game: a fresh game, recorded as usual
+  const r4 = await rec();
+  check("chess vs CPU: a new game's result is recorded as usual", r4.d === 1 && r4.w === 1 && r4.l === 0, r4);
+  check("chess (record): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
   await ctx.close();
 };

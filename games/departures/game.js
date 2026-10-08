@@ -12,7 +12,7 @@
    Either names the countries or, with Capitals, their capital cities
    (../passport/capitals.js): a city boards the country it's the capital of.
    Best per board (and per countries / capitals) = most named; ties broken
-   by the faster clock.
+   by the earlier last departure (when the last name boarded).
    ===================================================================== */
 (function () {
   "use strict";
@@ -99,15 +99,17 @@
     b[boardKey()] = { n: n, t: tUsed };
     store.set("departures_best", JSON.stringify(b));
   }
-  // The best is saved the moment it's earned: each name that takes the run
-  // past the board's best (runBest, as it stood when the run began) writes
-  // it, with the clock as it is then, so a tab closed mid-run keeps it. A
-  // tie on names is only settled at the end, by the clock (finish), which
-  // also rewrites the record with the run's final time.
-  var runBest = null;
+  // A run's time is when its last name boarded (lastMs), not when it ended:
+  // Final call or the bell can't make it later, and of two runs naming as
+  // many, the earlier last departure wins. So the best is settled the moment
+  // a name boards, and saved then, so a tab closed mid-run keeps it. It's
+  // weighed against what's saved now (this run's own save, or a better one
+  // from another tab), so nothing makes a saved best worse; runBest, the
+  // best as the run began, is what "a new record" compares against.
+  var runBest = null, lastMs = 0;
   function usedMs() { return Math.round((timeTotal - Math.max(0, timeLeft)) * 1000); }
   function liveBest() {
-    if (!runBest || foundCount > runBest.n) writeBest(foundCount, usedMs());
+    if (beats(readBests()[boardKey()], foundCount, lastMs)) writeBest(foundCount, lastMs);
   }
 
   // ---- sound -------------------------------------------------------------
@@ -234,6 +236,7 @@
   var inPool = {};
   function accept(ci) {
     found[ci] = true; foundCount++;
+    lastMs = usedMs();
     liveBest();
     var rc = C[ci][2];
     perRegionFound[rc]++;
@@ -341,7 +344,7 @@
     $("answer").value = ""; $("answer").disabled = false; $("hint").hidden = true;
     tail = null;
     state = "play"; playing = true; endedByBell = false;
-    runBest = readBests()[boardKey()] || null;
+    runBest = readBests()[boardKey()] || null; lastMs = 0;
     hud();
     setTimeout(function () { $("answer").focus(); }, 0);
     paChime();
@@ -350,18 +353,21 @@
   function finish(allAboard) {
     state = "over"; playing = false;
     $("answer").disabled = true;
-    var tUsed = usedMs();
-    var isBest = beats(runBest, foundCount, tUsed);
-    if (isBest) writeBest(foundCount, tUsed);
+    // (the run's time is its last departure, and saving only if it beats
+    // what's saved now can't make a record worse; see liveBest)
+    var isBest = beats(runBest, foundCount, lastMs);
+    liveBest();
     if (allAboard) winFanfare(); else endBuzz();
 
     $("over-title").textContent = allAboard ? "ALL ABOARD" :
       endedByBell ? "Final boarding" : "Gates closed";
     $("over-msg").textContent = foundCount + " / " + pool.length;
-    var mm = Math.floor(tUsed / 60000), ss = Math.floor(tUsed / 1000) % 60;
+    // the time shown is the one the record keeps (an empty board shows its clock)
+    var tShown = foundCount ? lastMs : usedMs();
+    var mm = Math.floor(tShown / 60000), ss = Math.floor(tShown / 1000) % 60;
     var lines = [
       (mode === "world" ? "the world" : ({ EU: "Europe", AS: "Asia", AF: "Africa", AM: "the Americas", OC: "Oceania" })[region]) +
-        (caps() ? " · capitals" : "") + " · " + mm + ":" + ("0" + ss).slice(-2) + " on the clock",
+        (caps() ? " · capitals" : "") + " · " + (foundCount ? "last departure " : "") + mm + ":" + ("0" + ss).slice(-2) + (foundCount ? "" : " on the clock"),
       isBest ? "a new record — see the world! 🛫" : bestLine()
     ];
     $("over-stats").textContent = lines.join("\n");

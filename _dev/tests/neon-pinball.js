@@ -7,6 +7,8 @@
 // (and performance.now) are stepped by the test, so physics runs at exactly
 // the refresh rate asked for, however busy the machine is.
 const HOOK = ["start: startGame,", "start: startGame, over: gameOver,"];
+// set up an end of ball: the bonus waiting to count, the multiplier, which ball, no ball save left
+const RIG = ["setScore: (n) => { addScore(n); },", "setScore: (n) => { addScore(n); }, rig: (o) => { if (o.bonus != null) bonus = o.bonus; if (o.mult != null) mult = o.mult; if (o.ball != null) ballNum = o.ball; saveUsed = true; },"];
 const STEPPED = () => {
   let t = 1000, q = [];
   performance.now = () => t;
@@ -23,7 +25,7 @@ const STEPPED = () => {
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   let ctx = await lib.newContext(browser);
-  let p = await lib.open(ctx, base, "games/neon-pinball/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/neon-pinball/game.js", [HOOK]); } });
+  let p = await lib.open(ctx, base, "games/neon-pinball/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/neon-pinball/game.js", [HOOK, RIG]); } });
   const st = () => p.evaluate(() => NeonPinball.state());
 
   // ---- flippers: a ball fed down the left inlane, flipped as it rolls d px
@@ -122,9 +124,29 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("neon-pinball: a pause holds the ball save and the skill shot", held2.skill > 3500 && held2.state === "ready" && held2.ball === 1, held2);
 
-  // ---- the start card's best after a game
-  const best = await p.evaluate(() => { NeonPinball.start("classic"); NeonPinball.setScore(12345); NeonPinball.over(); document.getElementById("modesBtn").click(); return document.getElementById("startBest").textContent; });
-  check("neon-pinball: the start card shows the best just set, after a game", /12,345/.test(best), best);
+  // ---- the end-of-ball bonus scores like any other points: 198,000 on the
+  // board, a 5,000 bonus at ×2, so the count crosses the 200k extra ball
+  const bonusEnd = async (ball) => {
+    await p.evaluate((ball) => {
+      NeonPinball.start("classic"); __frames(2);
+      NeonPinball.setScore(198000);
+      NeonPinball.rig({ bonus: 5000, mult: 2, ball });
+      NeonPinball.launchNow(0.9); __frames(5);
+      NeonPinball.place(220, 800, 0, 600); __frames(5);   // straight down the drain
+    }, ball);
+    // (the count runs on timers, not frames)
+    await p.waitForFunction(() => NeonPinball.state().state !== "drain", null, { timeout: 8000, polling: 50 });
+    return p.evaluate(() => { const s = NeonPinball.state(); return { state: s.state, ball: s.ballNum, score: s.score, extra: s.extraBalls, best: Number(localStorage.getItem("pinball_best")) }; });
+  };
+  const b1 = await bonusEnd(1);
+  check("neon-pinball: an extra ball the end-of-ball bonus crosses is awarded: shoot again", b1.state === "ready" && b1.ball === 1 && b1.extra === 0, b1);
+  check("neon-pinball: (guard) the bonus counts ×mult once, and the best is saved through it", b1.score === 208000 && b1.best === 208000, b1);
+  const b3 = await bonusEnd(3);
+  check("neon-pinball: on the last ball, an extra ball earned in the bonus count plays on instead of ending the game", b3.state === "ready" && b3.ball === 3 && b3.score === 208000, b3);
+
+  // ---- the start card's best after a game (above the 208,000 just above)
+  const best = await p.evaluate(() => { NeonPinball.start("classic"); NeonPinball.setScore(345678); NeonPinball.over(); document.getElementById("modesBtn").click(); return document.getElementById("startBest").textContent; });
+  check("neon-pinball: the start card shows the best just set, after a game", /345,678/.test(best), best);
   check("neon-pinball: no page errors", p.errs.length === 0, p.errs);
   await ctx.close();
 

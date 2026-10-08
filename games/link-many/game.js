@@ -665,9 +665,15 @@ function setupModeModal(onStart){
 // "New Game" returns to mode selection; "Restart" replays the current mode.
 // Mid-game either asks first (GameShell.askQuit, by the leave guard below);
 // New Game asks before its picker opens, as the picker has no way back.
+// A game given up this way counts as a loss, so quitting can't keep a losing
+// game off the record (leaving the page asks too, but records nothing). It's
+// checked again on the yes: the CPU may have finished the game meanwhile.
 function askThen(opts, go) {
-  if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, go);
-  else go();
+  if (!(window.GameShell && GameShell.askQuit)) { go(); return; }
+  GameShell.askQuit(Object.assign({ text: 'The game in progress will be lost.\nIt counts as a loss.' }, opts), () => {
+    if (GameShell.leaveActive()) { score.l++; updateScore(); }
+    go();
+  });
 }
 document.getElementById('reset').addEventListener('click', () => askThen({ title: 'Start a new game?', ok: 'New game' }, showModeModal));
 document.getElementById('restart').addEventListener('click', () => askThen({ title: 'Start over?', ok: 'Start over' }, init));

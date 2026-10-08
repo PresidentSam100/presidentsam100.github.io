@@ -133,5 +133,52 @@ module.exports = async ({ browser, base, check, lib }) => {
     how.desktop.keys > 0 && how.desktop.shown === how.desktop.keys && how.phone.shown === 0 && how.phone.wheel && how.phone.bar && how.phone.spin, how);
   await phone.close();
 
+  // ---- quitting to the menu through ☰: a rack under way vs the CPU counts as
+  // a loss (and the box says so); not before the break, not a two-player rack,
+  // not one already decided
+  // open ☰, read what the box says, press Back to menu; the stored records after
+  const quitRack = async (p) => {
+    const m = await p.evaluate(() => { const r = __pool.UI.menu; return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });
+    await p.mouse.click(m.x, m.y);
+    const said = await p.evaluate(() => /counts as a loss/.test(document.getElementById("confirmQuit").innerText));
+    await p.click("#quitYes"); await p.waitForTimeout(100);
+    const recs = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^cornerpocket_record/.test(k)).map((k) => k + "=" + localStorage.getItem(k)));
+    return { said, recs, menu: await p.evaluate(() => document.getElementById("recLine").textContent) };
+  };
+  const broken = (p) => p.evaluate(() => __pool.shoot(0, 0.5)).then(() => p.waitForFunction(() => __pool.G.shots === 1 && ["aim", "cpu"].includes(__pool.G.phase), null, { timeout: 15000 }));
+  const quits = {};
+  p = await open();
+  await start(p, "you"); await broken(p);
+  quits.underway = await quitRack(p);
+  await done(p, "quit under way");
+  p = await open();
+  await start(p, "you");
+  quits.beforeBreak = await quitRack(p);
+  await done(p, "quit before the break");
+  p = await open();
+  await p.click('#modeSeg button[data-mode="2p"]');
+  await start(p, "you"); await broken(p);
+  quits.twoPlayer = await quitRack(p);
+  await done(p, "quit two players");
+  p = await open();
+  await start(p, "you"); await broken(p);
+  await p.evaluate(() => {   // the rack ends: you foul on the 8 (a loss, recorded then)
+    const G = __pool.G, P = PoolPhysics;
+    G.balls.forEach((b) => { if (b.id >= 1 && b.id <= 8) b.on = false; });
+    G.st.isBreak = false; G.st.open = false; G.st.groups = ["solid", "stripe"]; G.st.turn = 0; G.st.inHand = null;
+    G.before = P.cloneBalls(G.balls); P.byId(G.before, 8).on = true;
+    G.world = { ev: { firstHit: 9, railAfter: true, pocketed: [{ id: 8, pocket: 2 }] } }; G.shotCall = 2;
+    __pool.endShot();
+    G.waitT = 1e9;   // (hold the result card back, so ☰ is still there to press)
+  });
+  quits.decided = await quitRack(p);
+  await done(p, "quit a decided rack");
+  const LOSS = "cornerpocket_record_medium=" + JSON.stringify({ w: 0, l: 1, d: 0 });
+  check("corner-pocket: quitting a rack under way vs the CPU to the menu counts as a loss, and the box says so first",
+    quits.underway.said && quits.underway.recs.join() === LOSS && /1 L/.test(quits.underway.menu), quits.underway);
+  check("corner-pocket: quitting before the break, a two-player rack or a decided one records nothing new, and the box doesn't say it counts",
+    !quits.beforeBreak.said && quits.beforeBreak.recs.length === 0 && !quits.twoPlayer.said && quits.twoPlayer.recs.length === 0 &&
+    !quits.decided.said && quits.decided.recs.join() === LOSS, { beforeBreak: quits.beforeBreak, twoPlayer: quits.twoPlayer, decided: quits.decided });
+
   await ctx.close();
 };

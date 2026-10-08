@@ -1326,10 +1326,22 @@
   // "Leave this rack?" holds the table while it asks: the CPU and a rolling
   // shot wait (see frame), and a drag or a charging shot is let go
   function quitOpen() { return !document.getElementById("confirmQuit").classList.contains("hidden"); }
-  function openQuit() { cancelDrag(); G.charging = false; document.getElementById("confirmQuit").classList.remove("hidden"); }
+  // A rack under way: from the break, through the CPU's turns, to the shot
+  // that decides it. Before the break there's nothing to lose, and once it's
+  // decided the record is in.
+  function rackUnderway() { return G.shots > 0 && !G.pendingOver && ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0; }
+  // Quitting one against the CPU for the menu is a loss, or a rack going badly
+  // could just be walked away from. (Leaving the page isn't counted.)
+  function quitIsLoss() { return G.mode === "cpu" && rackUnderway(); }
+  function openQuit() {
+    cancelDrag(); G.charging = false;
+    document.getElementById("quitLoss").hidden = !quitIsLoss();
+    document.getElementById("confirmQuit").classList.remove("hidden");
+  }
   function closeQuit() { document.getElementById("confirmQuit").classList.add("hidden"); releaseFocus(); }
   document.getElementById("quitNo").addEventListener("click", closeQuit);
   document.getElementById("quitYes").addEventListener("click", function () {
+    if (quitIsLoss()) record(G.level).add("l");
     document.getElementById("confirmQuit").classList.add("hidden");
     document.getElementById("over").classList.add("hidden");   // a result card mustn't sit over the menu
     drag = null; G.charging = false;
@@ -1344,13 +1356,8 @@
         onChange: function (p) { if (p) { G.charging = false; cancelDrag(); } }
       })
     : null;
-  // Leaving asks first (pausing the table) once a rack is under way: from the
-  // break, through the CPU's turns, to the shot that decides it. Before the
-  // break there's nothing to lose, and once it's decided the record is in.
-  if (Pz) GameShell.guardLeave({
-    active: function () { return G.shots > 0 && !G.pendingOver && ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0; },
-    pausable: Pz
-  });
+  // Leaving asks first (pausing the table) once a rack is under way
+  if (Pz) GameShell.guardLeave({ active: rackUnderway, pausable: Pz });
 
   var last = performance.now(), frames = 0;
   function frame(now) {
