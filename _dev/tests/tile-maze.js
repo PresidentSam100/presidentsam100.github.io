@@ -1,8 +1,9 @@
 // Tile Maze: the board fits its panel (and a phone) whatever level came
 // before; a reset or a new level drops the move still animating; the level
 // clock holds while the window is away; the Tile Guide holds the board; the
-// Level Editor link asks first mid-level; and the editor's test play does
-// the same on R / Stop test, one move per key press.
+// Level Editor link asks first mid-level; the editor's test play does the
+// same on R / Stop test, one move per key press; and key hints show only
+// where there's a keyboard.
 module.exports = async ({ browser, base, check, lib }) => {
   const seed = (save) => (pg) => pg.addInitScript((s) => { try { localStorage.setItem("tileMaze.v1", s); } catch (e) {} }, save);
   const cellPx = (p) => p.evaluate(() => parseInt(getComputedStyle(document.documentElement).getPropertyValue("--cell"), 10));
@@ -95,6 +96,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tile-maze: the Level Editor link asks before leaving a level in progress", e.dlg && /\/tile-maze\/$/.test(e.path), e);
   await done(p, "game");
 
+  // ---- the editor's Copy where the clipboard refuses (no permission): no error
+  p = await lib.open(ctx, base, "games/tile-maze/editor.html");
+  await p.evaluate(() => { if (navigator.clipboard) navigator.clipboard.writeText = () => Promise.reject(new Error("Write permission denied.")); });
+  await p.click("#exportBtn"); await p.waitForTimeout(100);
+  await p.click("#copyBtn"); await p.waitForTimeout(300);
+  check("tile-maze editor: Copy where the clipboard refuses throws no error (the copy falls back)", p.errs.length === 0, p.errs);
+  await p.close();
+
   // ---- the editor's test play: R and Stop test drop the move animating; held keys move once
   p = await lib.open(ctx, base, "games/tile-maze/editor.html");
   await p.click("#testBtn"); await p.waitForTimeout(100);
@@ -112,4 +121,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tile-maze editor: Stop test during the winning move brings no Solved! card over the editor", !solved, solved);
   await done(p, "editor");
   await ctx.close();
+
+  // ---- key hints: keys on a desktop; on a phone none (the game's legend), or the pad (the editor's test play)
+  const { devices } = require("@playwright/test");
+  const shown = (p, sel) => p.evaluate((sel) => { const el = document.querySelector(sel); return { keys: [...el.querySelectorAll("kbd")].some((k) => k.getClientRects().length > 0), text: el.innerText }; }, sel);
+  for (const [label, opts] of [["phone", devices["Pixel 7"]], ["desktop", {}]]) {
+    const phone = label === "phone";
+    ctx = await lib.newContext(browser, opts);
+    p = await lib.open(ctx, base, "games/tile-maze/");
+    const legend = await shown(p, ".credit");
+    check("tile-maze, " + label + ": the move / reset key legend " + (phone ? "is hidden (the Tile Guide line stays)" : "shows"),
+      legend.keys === !phone && /to move/.test(legend.text) === !phone && /Tile Guide/.test(legend.text), legend);
+    await done(p, label + " legend");
+    p = await lib.open(ctx, base, "games/tile-maze/editor.html");
+    await p.click("#testBtn"); await p.waitForTimeout(100);
+    const status = await shown(p, "#status");
+    check("tile-maze editor, " + label + ": test play's status " + (phone ? "says to tap the pad, naming no keys" : "names the keys"),
+      status.keys === !phone && /tap the pad/.test(status.text) === phone && /to restart/.test(status.text) === !phone, status);
+    await done(p, label + " editor status");
+    await ctx.close();
+  }
 };

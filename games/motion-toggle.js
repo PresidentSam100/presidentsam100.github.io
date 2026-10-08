@@ -91,7 +91,10 @@
   // rest get this one, drawn in the colour of the text around it. Inside the
   // corner buttons the caps get negative margins so the buttons don't grow.
   // A button's keys wrapped in <span class="gs-keys"> hide on touch-only
-  // devices (no hover), where there's no keyboard to press them on.
+  // devices (no hover), where there's no keyboard to press them on, and
+  // text in <span class="gs-touch"> shows only there: hint text pairs the two,
+  // <span class="gs-keys">press <kbd>Space</kbd></span><span class="gs-touch">tap</span>
+  // to start (GameShell.touchOnly() and drawKeys' `touch` do it on a canvas).
   (function injectKeycaps() {
     if (document.getElementById("gs-kbd-style")) return;
     var st = document.createElement("style");
@@ -103,7 +106,8 @@
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
       ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd,.nav-back-games .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}" +
-      "@media (hover:none){.gs-keys{display:none}}";
+      "@media (hover:none){.gs-keys{display:none}}" +
+      "@media not all and (hover:none){.gs-touch{display:none}}";
     (document.head || document.documentElement).appendChild(st);
   })();
 

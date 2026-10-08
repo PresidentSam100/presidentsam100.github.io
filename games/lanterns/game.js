@@ -1,11 +1,12 @@
 /* =====================================================================
    Lanterns — pinyin typing at the festival.
 
-   Paper lanterns rise with hanzi on them. Your first letter locks the
-   most urgent lantern whose pinyin starts that way (ZType-style); each
-   right letter climbs the word, a full match lights the lantern and it
-   soars, and a wrong letter thuds and breaks your streak without being
-   consumed. Backspace steps back (and lets go at zero). Type v for ü —
+   Paper lanterns rise with hanzi on them. Every letter narrows the field
+   to the lanterns whose pinyin starts that way; a full match lights the
+   most urgent one and it soars, and a wrong letter thuds and breaks your
+   streak without being consumed. A full match that's also the start of a
+   longer word up there (ni, with nian rising) waits a moment for the next
+   letter; Space lights it at once. Backspace steps back. Type v for ü —
    u is accepted too. Three lanterns lost to the dark end the night.
 
    Modes: festival (toneless pinyin) and tone (type the tone numbers,
@@ -103,6 +104,8 @@
   var script = store.get("lanterns_script", "simp");   // simp | trad
   if (script !== "simp" && script !== "trad") script = "simp";
   var lanterns = [], buffer = "";
+  var waiting = null, waitT = 0;       // a full match held while a longer word still fits (handleChar)
+  var WAIT = 0.5;                      // how long it waits for the next letter, in seconds of play
   var score = 0, cleared = 0, escaped = 0, streak = 0, bestStreak = 0;
   var runBest = NaN;                   // the mode's best as the night began (NaN: none yet)
   var spawnT = 0, elapsed = 0;
@@ -114,6 +117,13 @@
     if (!buffer) return [];
     return lanterns.filter(function (l) {
       return l.state === "up" && l.keys.some(function (k) { return k.indexOf(buffer) === 0; });
+    });
+  }
+
+  // a rising lantern whose pinyin goes on past the buffer (年 while "ni" is typed)
+  function longerFits() {
+    return candidates().some(function (l) {
+      return l.keys.some(function (k) { return k.length > buffer.length && k.indexOf(buffer) === 0; });
     });
   }
 
@@ -168,16 +178,32 @@
     var matches = lanterns.filter(function (l) {
       return l.state === "up" && l.keys.some(function (k) { return k.indexOf(nb) === 0; });
     });
-    if (!matches.length) { miss(); return; }   // not consumed
+    if (!matches.length) {
+      // a word left waiting (below) is what was meant: it lights, and this
+      // letter starts the next word
+      if (waiting) { light(waiting); handleChar(ch); return; }
+      miss(); return;                            // not consumed
+    }
     buffer = nb;
     tick();
+    waiting = null;
     var full = matches.filter(function (l) { return l.keys.some(function (k) { return k === nb; }); });
     if (full.length) {
       var pick = full[0];
       full.forEach(function (l) { if (l.y < pick.y) pick = l; });
-      light(pick);
+      // "ni" is all of 你 but only the start of 年 (nian): while a longer word
+      // up there still fits, the short one waits a moment for the next
+      // letter rather than lighting and leaving 年 untypeable. A letter that
+      // goes on to the longer word takes it; anything else, Space, or a
+      // moment's pause lights the short one.
+      if (longerFits()) { waiting = pick; waitT = 0; }
+      else light(pick);
     }
     echo();
+  }
+  // Space or Enter: light the word that's waiting, now
+  function lightWaiting() {
+    if (state === "play" && !P.isPaused() && waiting) light(waiting);
   }
   function miss() {
     thud();
@@ -209,10 +235,12 @@
       }
     }
     buffer = "";
+    waiting = null;
     hud(); echo();
   }
   function unlockBack() {
     if (buffer.length > 0) buffer = buffer.slice(0, -1);
+    waiting = null;
     echo();
   }
   function echo() {
@@ -225,7 +253,7 @@
     if (m) mode = m;
     store.set("lanterns_mode", mode);
     audio(); gong(false);
-    lanterns = []; buffer = "";
+    lanterns = []; buffer = ""; waiting = null;
     score = 0; cleared = 0; escaped = 0; streak = 0; bestStreak = 0;
     runBest = bests[mode] ? GameShell.store.getNum(bests[mode].key, NaN) : NaN;
     spawnT = 0.35; elapsed = 0; floats = []; sparks = [];
@@ -294,6 +322,13 @@
       }
     });
     lanterns = lanterns.filter(function (l) { return l.state !== "gone"; });
+    // a waiting word lights when its moment is up, or as soon as no longer
+    // word it could be is still up there; one that slipped away is let go
+    if (waiting && state === "play") {
+      waitT += dt;
+      if (waiting.state !== "up") waiting = null;
+      else if (waitT >= WAIT || !longerFits()) light(waiting);
+    }
     floats.forEach(function (f) { f.t += dt; });
     floats = floats.filter(function (f) { return f.t < 1.6; });
     sparks.forEach(function (s) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; s.t -= dt; });
@@ -483,6 +518,7 @@
     if (P.isPaused()) return;
     if (state === "play") {
       if (e.key === "Backspace") { e.preventDefault(); unlockBack(); return; }
+      if (e.key === " " || e.key === "Enter") { e.preventDefault(); lightWaiting(); return; }
       if (e.key.length === 1) { e.preventDefault(); handleChar(e.key); }
       return;
     }
@@ -518,7 +554,9 @@
     var v = this.value;
     this.value = "";
     if (state !== "play") return;
-    for (var i = 0; i < v.length; i++) handleChar(v[i]);
+    for (var i = 0; i < v.length; i++) {
+      if (v[i] === " ") lightWaiting(); else handleChar(v[i]);
+    }
   });
   cv.addEventListener("pointerdown", function () {
     if (state === "play") $("kbd").focus({ preventScroll: true });

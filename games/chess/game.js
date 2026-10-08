@@ -141,7 +141,7 @@
   }
 
   // ============================================================ controller
-  let G=null, flipped=false, pendingPromo=null;
+  let G=null, flipped=false, pendingPromo=null, endCardTimer=null;
   let setup2 = { opponent:"local", difficulty:"medium", side:"w", base:0, inc:0 }; // last-used 2P setup
   let cpuThinking=false, cpuRequestId=0, worker=null, workerFailed=false;
   const boardEl=$("board"), statusEl=$("status");
@@ -157,6 +157,7 @@
   function start(mode, ending, setup){
     cancelCpuThink();
     closePromo();
+    clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
     G = mode===4 ? make4P(ending) : make2P();
     if(mode===2){
       const s = setup || setup2; setup2 = s;
@@ -431,7 +432,8 @@
     statusEl.innerHTML='<b>'+title+'</b>';
     if(G.mode===4) renderPlayers();
     if(title.indexOf("Draw")<0 && G.ending!==1) SFX.win();
-    setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350);
+    clearTimeout(endCardTimer);
+    endCardTimer=setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350);
   }
   function endGame(title,msg){ G.over=true; SFX.draw(); render(); gameOver(title,msg); }
 
@@ -447,6 +449,7 @@
   function undo(){
     if(!G.history.length) return;
     if(cpuThinking) cancelCpuThink();
+    clearTimeout(endCardTimer);   // an undo just after the game ends: its end card mustn't show over the game again
     popOnce();
     while(G.vsCPU && !G.over && G.turn===G.cpuColor && G.history.length) popOnce();
     if(G.clock) G.clock.lastTick=Date.now();
@@ -562,7 +565,13 @@
   $("overAgain").addEventListener("click",()=>{ $("overOverlay").classList.remove("show"); start(G.mode, G.ending); });
   $("undoBtn").addEventListener("click", undo);
   $("flipBtn").addEventListener("click",()=>{ flipped=!flipped; render(); });
-  $("modeBtn").addEventListener("click",()=> $("menu").classList.add("show"));
+  // Change Mode throws the game away (the menu has no way back), so mid-game
+  // it asks first; the old game's CPU and clock stop with it, or a flag
+  // behind the menu would still count as a loss
+  $("modeBtn").addEventListener("click",()=>{
+    const go=()=>{ cancelCpuThink(); setClockRunning(null); renderClocks(); $("menu").classList.add("show"); };
+    if(window.GameShell && GameShell.askQuit) GameShell.askQuit({ title:"Quit this game?", ok:"Quit" }, go); else go();
+  });
   document.querySelectorAll("#menu .modebtn").forEach(b=> b.addEventListener("click",()=>{
     const mode=b.dataset.mode; if(b.disabled) return;
     if(mode==="3"){ window.location.href="./three.html"; return; }

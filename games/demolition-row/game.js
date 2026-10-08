@@ -1256,13 +1256,14 @@
     updateVsOpts();
     function updateKeysHelp() {
       const el = document.getElementById("keys-help");
+      // the key legend hides on a touch-only device (.gs-keys), leaving the pad's line
       el.innerHTML =
-        "<b>P1</b> <kbd>A</kbd><kbd>D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> rotate · <kbd>W</kbd> soft · <kbd>S</kbd> hard" +
+        '<span class="gs-keys"><b>P1</b> <kbd>A</kbd><kbd>D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> rotate · <kbd>W</kbd> soft · <kbd>S</kbd> hard' +
         "<br><b>P2</b> <kbd>K</kbd><kbd>;</kbd> move · <kbd>I</kbd>/<kbd>P</kbd> rotate · <kbd>O</kbd> soft · <kbd>L</kbd> hard" +
         "<br><b>P3</b> numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard" +
         "<br><b>P4</b> <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
-        "<br>solo: any scheme works · <kbd>Esc</kbd> pause" +
-        "<br>on touch: use the on-screen pad below the board";
+        "<br>solo: any scheme works · <kbd>Esc</kbd> pause<br></span>" +
+        "on touch: use the on-screen pad below the board";
     }
     updateKeysHelp();
 
@@ -1276,7 +1277,10 @@
       if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
-    document.getElementById("menu-btn").addEventListener("click", toMenu);
+    // ☰ Menu mid-run would throw the run away: ask first (paused under the box)
+    document.getElementById("menu-btn").addEventListener("click", () => {
+      if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();
+    });
     document.getElementById("pause-btn").addEventListener("click", () => GAME && GAME.pauseToggle());
     // "Play Again" keeps the running head-to-head wins (a continuing series)
     document.getElementById("result-again").addEventListener("click", () => startGame(GAME ? GAME.players.map((p) => p.board.wins || 0) : null));

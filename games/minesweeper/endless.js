@@ -484,7 +484,9 @@
     const isBest = score > 0 && (!isFinite(runBest) || score > runBest);
     setStatus(
       esc("💥 " + why + " " + score + " row" + (score === 1 ? "" : "s") + ", " + defused + " defused" +
-        (isBest ? " — new best!" : ".")) + ' Tap 🙂 or press <kbd class="gs-kbd">N</kbd> to go again.',
+        (isBest ? " — new best!" : ".")) +
+        // (the key part hides on a touch-only device, where 🙂 is the way)
+        ' Tap 🙂<span class="gs-keys"> or press <kbd class="gs-kbd">N</kbd></span> to go again.',
       "bad",
       true
     );

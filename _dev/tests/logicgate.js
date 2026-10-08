@@ -46,4 +46,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("logicgate: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();
+
+  // "press ⚡ Check (or Enter)": the Enter goes on a touch-only phone, the button stays
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c2 = await lib.newContext(browser, opts);
+    const q = await lib.open(c2, base, "games/logicgate/");
+    await q.click('.mode-btn[data-mode="inputs"]'); await q.waitForTimeout(100);
+    for (const id of await q.evaluate(() => [...document.querySelectorAll(".input.toggle")].map((n) => n.dataset.id)))
+      await q.click('.input.toggle[data-id="' + id + '"]');
+    await q.click("#helpBtn");
+    const r = await q.evaluate((phone) => {
+      const ks = [...document.querySelectorAll("#status kbd, #helpPanel kbd")];
+      return { keys: ks.length, odd: ks.filter((k) => { const w = k.closest(".gs-keys"); return !w || (getComputedStyle(w).display === "none") !== phone; }).map((k) => k.parentElement.id || k.textContent),
+        status: document.getElementById("status").innerText, help: document.querySelector("#helpPanel .leg-foot").innerText };
+    }, label === "phone");
+    const phone = label === "phone";
+    check("logicgate, " + label + ": 'press ⚡ Check' " + (phone ? "drops its Enter" : "names Enter too") + ", in the status line and the gates panel",
+      r.keys === 2 && r.odd.length === 0 && /press ⚡ Check/.test(r.status) && /Check/.test(r.help) && /Enter/.test(r.status + r.help) === !phone, r);
+    await q.close();
+    await c2.close();
+  }
 };

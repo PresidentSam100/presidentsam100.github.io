@@ -106,7 +106,8 @@
       el.className = "hang sway";
       el.innerHTML = '<span class="knot"></span><span class="string"></span>' +
         '<button type="button" class="pad" aria-label="' + p.name + ' — key ' + (i + 1) + '">' + box.html + "</button>" +
-        '<span class="tag"><kbd>' + (i + 1) + "</kbd>" + p.name +
+        // (the tag's key hides on a touch-only device, where the cutout is tapped)
+        '<span class="tag"><span class="gs-keys"><kbd>' + (i + 1) + "</kbd></span>" + p.name +
         (i === 8 ? "<small>still a planet!!</small>" : "") + "</span>";
       wrap.appendChild(el);
       var btn = el.querySelector("button");

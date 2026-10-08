@@ -86,4 +86,6 @@ html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
 .stage { min-height: 0; }
 @media (pointer: coarse) { #launchBtn.show { display: block; } }
 .flip-hint { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); pointer-events: none; }
+/* (where the LAUNCH button shows, the plunger line keeps clear of it) */
+@media (pointer: coarse) { .flip-hint { right: 120px; } }
 

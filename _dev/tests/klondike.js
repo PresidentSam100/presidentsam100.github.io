@@ -68,7 +68,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p");
 
   // ---- draw three: a press near the right edge of the top waste card picks it up
-  await p.evaluate(() => { document.getElementById("m-draw3").click(); Klondike.draw(); });
+  // (the toggle on an untouched deal, so it doesn't ask first)
+  await p.evaluate(() => { Klondike.deal(3); document.getElementById("m-draw3").click(); Klondike.draw(); });
   await p.waitForTimeout(250);
   const top = await p.evaluate(() => {
     const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
@@ -80,7 +81,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const grabbed = await p.evaluate((k) => document.querySelector('.card[data-key="' + k + '"]').classList.contains("drag"), top.key);
   await p.mouse.up();
   check("klondike: in draw three a press near the top waste card's right edge picks it up", top.n === 3 && grabbed, { top, grabbed });
-  await p.evaluate(() => document.getElementById("m-draw3").click());
+  await p.evaluate(() => { Klondike.deal(3); document.getElementById("m-draw3").click(); });
   check("klondike: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
@@ -93,6 +94,65 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { for (let i = 0; i < 4; i++) Klondike.move("t" + i, "f" + i, 1); });
   const w2 = await p.evaluate(() => ({ w: JSON.parse(localStorage.getItem("klondike_stats") || "{}").w || 0, won: Klondike.state().won }));
   check("klondike: a won deal can't be undone and won (and counted) again", w1 === 1 && w2.w === 1 && w2.won, { w1, w2 });
+  // (a guard: nothing asked before either) a won deal restarts at once
+  await p.keyboard.press("r"); await p.waitForTimeout(150);
+  const wonR = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), st: Klondike.state() }));
+  check("klondike: R on a won deal restarts it at once, without asking", !wonR.dlg && wonR.st.moves === 0 && !wonR.st.won, { dlg: wonR.dlg, moves: wonR.st.moves });
   check("klondike: no page errors (FX off)", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- mid-game, R, N / F2, the menu's Restart / Deal new and the draw
+  // toggle ask first, with the game paused underneath: Esc keeps playing,
+  // Enter goes (and the new deal isn't left paused)
+  p = await lib.open(ctx, base, "games/klondike/");
+  const dlg = () => p.evaluate(() => {
+    const d = document.querySelector(".gs-dialog");
+    return d && { title: d.querySelector("h2").textContent, ok: [...d.querySelectorAll("button")].pop().textContent, paused: Klondike.state().paused };
+  });
+  const press = (k) => async () => p.keyboard.press(k);
+  const click = (id) => async () => p.evaluate((id) => document.getElementById(id).click(), id);
+  const exits = [
+    ["R", press("r"), "Start over?", "Start over", (a, b) => b.seed === a.seed],
+    ["N", press("n"), "Start a new game?", "New game", (a, b) => b.seed !== a.seed],
+    ["F2", press("F2"), "Start a new game?", "New game", (a, b) => b.seed !== a.seed],
+    ["the menu's Restart this deal", click("m-restart"), "Start over?", "Start over", (a, b) => b.seed === a.seed],
+    ["the menu's Deal new", click("m-new"), "Start a new game?", "New game", (a, b) => b.seed !== a.seed],
+    ["the draw-three toggle", click("m-draw3"), "Start a new game?", "New game", (a, b) => b.draw3 !== a.draw3 && b.seed !== a.seed],
+    ["the menu's Daily claim", click("m-daily"), "Start a new game?", "New game", (a, b) => b.isDaily && !a.isDaily],
+  ];
+  for (const [name, act, title, ok, dealt] of exits) {
+    await p.evaluate(() => { Klondike.deal(7); Klondike.draw(); }); await p.waitForTimeout(80);   // a game in progress
+    const a = await p.evaluate(() => Klondike.state());
+    await act(); await p.waitForTimeout(120);
+    const d = await dlg();
+    await p.keyboard.press("Escape"); await p.waitForTimeout(120);
+    const kept = await p.evaluate(() => ({ st: Klondike.state(), dlg: !!document.querySelector(".gs-dialog") }));
+    await act(); await p.waitForTimeout(120);
+    await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    const went = await p.evaluate(() => ({ st: Klondike.state(), dlg: !!document.querySelector(".gs-dialog") }));
+    const okKept = !kept.dlg && !kept.st.paused && kept.st.seed === a.seed && kept.st.moves === a.moves && kept.st.draw3 === a.draw3;
+    const okWent = !went.dlg && !went.st.paused && went.st.moves === 0 && dealt(a, went.st);
+    check("klondike: mid-game, " + name + " asks \"" + title + "\" first; Esc keeps the game, Enter goes",
+      !!d && d.title === title && d.ok.indexOf(ok) === 0 && d.paused && okKept && okWent,
+      { d, kept: [kept.dlg, kept.st.paused, kept.st.seed, kept.st.moves], went: [went.dlg, went.st.paused, went.st.seed, went.st.moves, went.st.draw3] });
+  }
+  if ((await p.evaluate(() => Klondike.state().draw3))) await p.evaluate(() => document.getElementById("m-draw3").click());   // (a fresh deal: no ask)
+  // (a guard: nothing asked before either) an untouched deal goes at once
+  await p.evaluate(() => Klondike.deal(7)); await p.waitForTimeout(80);
+  await p.keyboard.press("n"); await p.waitForTimeout(120);
+  const fresh2 = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), seed: Klondike.state().seed }));
+  check("klondike: N on an untouched deal deals at once, without asking", !fresh2.dlg && fresh2.seed !== 7, fresh2);
+  check("klondike: no page errors (asking)", p.errs.length === 0, p.errs);
   await ctx.close();
+
+  // ---- the How to play key legend shows with a keyboard, hides on a touch-only phone
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/klondike/");
+    await q.evaluate(() => document.getElementById("m-rules").click()); await q.waitForTimeout(100);
+    const legend = await q.evaluate(() => { const li = [...document.querySelectorAll("#mb-body li")].find((x) => x.querySelector("kbd")); return li ? li.getClientRects().length > 0 : null; });
+    check("klondike: the How to play key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
+    await c.close();
+  }
 };

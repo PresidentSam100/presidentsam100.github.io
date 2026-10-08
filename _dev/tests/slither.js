@@ -1,8 +1,9 @@
 // Slither: Classic's best and its pause (steering and held keys), a level
 // link arriving mid-game, share-link bounds, and in the Labyrinth: the toggle
-// keys, a finished match's R, a pack run's last crash, Fire Eggs' pause, the
-// door switch's click, where a click lands on the board, and the Rainbow
-// with Visual FX off.
+// keys and R, a finished match's R, a pack run's last crash, Fire Eggs'
+// pause, the door switch's click, where a click lands on the board, and the
+// Rainbow with Visual FX off. Then the key hints: keys on a desktop, the
+// touch controls on a touch-only phone.
 const path = require("path");
 
 const G_HOOK = ["  var G = {", "  var G = window.__G = {"];
@@ -128,6 +129,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (let i = 0; i < 3; i++) await lib.fireKey(p, { key: "m", repeat: true });
   const m2 = await music();
   check("slither labyrinth: holding P pauses once and holding M toggles the music once", lp.every((x) => x) && m1 === "0" && m2 === "0", { lp, m1, m2 });
+  // (each restart makes a new state; a mark on the old one tells them apart)
+  const mark = () => p.evaluate(() => { __lab.st().__mark = true; });
+  const marked = () => p.evaluate(() => !!__lab.st().__mark);
+  await mark(); await lib.fireKey(p, { key: "r" }); const r1 = await marked();
+  await mark(); for (let i = 0; i < 3; i++) await lib.fireKey(p, { key: "r", repeat: true });
+  const r2 = await marked();
+  check("slither labyrinth: holding R restarts once", r1 === false && r2 === true, { r1, r2 });
   check("slither labyrinth: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
@@ -209,6 +217,61 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("slither: with Visual FX off the Rainbow's colours stand still (with it on they cycle)", rb.off && !rb.on, rb);
   await p.close();
-
   await ctx.close();
+
+  // ---- key hints: the keys on a desktop; on a touch-only phone, the touch
+  // controls that do the same (and no keycaps)
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const tctx = await lib.newContext(browser, opts), phone = label === "phone";
+    const tlab = (url) => lib.open(tctx, base, url || "games/slither/", { before: (pg) => lib.injectScript(pg, "games/slither/labyrinth.js", [LAB_HOOK]) });
+    // what an element shows: its keycaps on screen, and its visible text
+    const seen = (p, sel) => p.evaluate((sel) => {
+      const e = document.querySelector(sel);
+      return { kbd: [...e.querySelectorAll("kbd")].filter((k) => k.getClientRects().length).length, text: e.innerText };
+    }, sel);
+    // keys on a desktop; on the phone, no keys and the touch wording `re`
+    const hint = (s, re) => phone ? s.kbd === 0 && re.test(s.text) : s.kbd > 0;
+
+    p = await tlab();
+    const help = {};
+    for (const m of ["solo", "two", "lab"]) { await p.click('[data-mode="' + m + '"]'); help[m] = await seen(p, "#keys-help"); }
+    check("slither " + label + ": the menu's controls line names " + (phone ? "the touch controls" : "the keys"),
+      hint(help.solo, /Swipe the board/) && hint(help.two, /d-pads/) && hint(help.lab, /tap a cell to teleport/), help);
+    await p.evaluate(() => { document.getElementById("legend-lab").open = true; [...document.querySelectorAll("details.lab-runs")].forEach((d) => { d.open = true; }); });
+    const legend = await seen(p, "#legend-lab"), panels = await seen(p, "#lab-levels");
+    check("slither " + label + ": the Labyrinth legend and the Fire Eggs panel name " + (phone ? "the touch controls" : "the keys"),
+      hint(legend, /hold 👻 to pass through/i) && hint(panels, /🥚 lays an egg/), { legend: legend.kbd, panels: panels.kbd });
+    // level 2's hint, and the ready banner on the canvas (its fillText recorded)
+    await p.evaluate(() => {
+      const g = document.getElementById("board").getContext("2d"), fill = g.fillText.bind(g);
+      window.__drawn = []; g.fillText = function (t, x, y, w) { __drawn.push(String(t)); return fill(t, x, y, w); };
+      document.querySelectorAll(".lab-lv")[1].click();
+    });
+    await p.waitForTimeout(300);
+    const lvHint = await seen(p, "#lab-hint");
+    check("slither " + label + ": a level's hint names " + (phone ? "the touch control" : "the key"), hint(lvHint, /Hold ⚡ to dash/), lvHint);
+    const drawn = (await p.evaluate(() => __drawn.join("|")));
+    check("slither " + label + ": the ready banner says how to begin " + (phone ? "by touch (guard)" : "with keys (guard)"),
+      phone ? /Swipe or tap the d-pad/.test(drawn) && !/arrow key/.test(drawn) : /arrow key/.test(drawn) && !/Swipe/.test(drawn), drawn.slice(0, 300));
+    // crash at once (the start is under the top wall): the retry line
+    await p.keyboard.press("ArrowUp");
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 5000 });
+    const retry = await seen(p, "#result-msg");
+    check("slither " + label + ": the crash card's retry line names " + (phone ? "the Retry button" : "R / Enter"), hint(retry, /tap Retry/) && (phone || !/tap Retry/.test(retry.text)), retry);
+    await p.close();
+
+    // a stage's end card
+    p = await tlab();
+    await p.click('[data-mode="lab"]'); await p.waitForTimeout(200);
+    await p.evaluate(() => { const d = [...document.querySelectorAll("details.lab-runs")].find((x) => /Stages/.test(x.textContent)); d.open = true; d.querySelector(".row button").click(); });
+    await p.waitForTimeout(300);
+    await p.keyboard.press("ArrowUp");
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    const again = await seen(p, "#result-msg");
+    check("slither " + label + ": a stage's end card names " + (phone ? "the Play Again button" : "R / Enter"), hint(again, /tap Play Again/) && (phone || !/tap Play Again/.test(again.text)), again);
+    check("slither " + label + ": no page errors on the hints", p.errs.length === 0, p.errs);
+    await p.close();
+    await tctx.close();
+  }
 };

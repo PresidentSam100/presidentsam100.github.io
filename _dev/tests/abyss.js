@@ -88,10 +88,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const q = await lib.open(ctx, base, "games/abyss/", { before: (pg) => lib.injectScript(pg, "games/abyss/game.js", [HOOK]) });
     const shown = () => q.evaluate(() => [...document.querySelectorAll(".panel button kbd")].filter((k) => k.getClientRects().length).map((k) => k.closest("button").id || k.closest("button").dataset.v));
     const menu = await shown();
+    // the menu's key legend (the touch pad's buttons carry their own icons)
+    const legend = await q.evaluate(() => document.querySelector("#menu .keys").getClientRects().length > 0);
     await q.evaluate(() => { Abyss.start("descent"); Abyss.gameOver(); });
     const over = await shown();
     if (label === "phone") check("abyss: on a touch-only phone the buttons' keycaps are hidden", menu.length === 0 && over.length === 0, { menu, over });
     else check("abyss: with a keyboard the buttons' keycaps show", menu.length === 4 && over.length === 2, { menu, over });
+    check("abyss: the menu's key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
     await ctx.close();
   }
 };

@@ -1,7 +1,8 @@
 // Tall Order: a window resized mid-run (a rotated phone, a narrowed window)
 // keeps the tower on screen and in the slider's reach; Enter on a focused
 // mode button only picks the mode, and a mode clicked with the mouse is the
-// one Enter then starts; the buttons' keycaps hide on a touch-only phone.
+// one Enter then starts; on a touch-only phone the keycaps hide and the menu
+// says tap where it names Space.
 const HOOK = ["  // test hooks — the Playwright harness drives runs through these\n", `  window.__to = {
     slider: function () { return slider && { lo: slider.lo, hi: slider.hi, w: slider.w, x: slider.x }; },
     top: function () { var t = tiers[tiers.length - 1]; return { x: t.x, w: t.w }; },
@@ -57,11 +58,21 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "mouse then Enter");
   await ctx.close();
 
-  // ---- the keycaps on the menu and end-card buttons hide on a touch-only phone
-  ctx = await lib.newContext(browser, { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
-  p = await open(ctx);
-  const caps = await p.evaluate(() => [...document.querySelectorAll("button kbd")].map((k) => { const s = k.closest(".gs-keys"); return k.textContent + ":" + (s ? getComputedStyle(s).display : "unwrapped"); }));
-  check("tall-order: on a touch-only phone the buttons' keycaps are hidden", caps.length > 0 && caps.every((c) => /:none$/.test(c)), caps);
-  await done(p, "touch keycaps");
-  await ctx.close();
+  // ---- the menu's "how" names the key on a desktop, and says tap on a phone,
+  // where every keycap of the game's own (the pause card's aside) is hidden
+  const how = async (dev) => {
+    const c = await lib.newContext(browser, dev);
+    const pg = await open(c);
+    const r = await pg.evaluate(() => ({
+      how: document.querySelector("#menu .how").innerText,
+      caps: [...document.querySelectorAll("kbd")].filter((k) => !k.closest(".gs-pause")).map((k) => { const s = k.closest(".gs-keys"); return k.textContent + ":" + (s ? getComputedStyle(s).display : "unwrapped"); })
+    }));
+    await done(pg, "how to play");
+    await c.close();
+    return r;
+  };
+  const desk = await how({}), phone = await how(require("@playwright/test").devices["Pixel 7"]);
+  check("tall-order: on a desktop the menu says to tap or press Space to drop a tier", /press Space to drop/.test(desk.how), desk.how);
+  check("tall-order: on a touch-only phone the menu says to tap to drop a tier, and every keycap is hidden",
+    /tap to drop/.test(phone.how) && !/Space/.test(phone.how) && phone.caps.length > 0 && phone.caps.every((c) => /:none$/.test(c)), phone);
 };

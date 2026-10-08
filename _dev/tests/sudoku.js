@@ -35,6 +35,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("sudoku: the clock runs on a board you can see; a puzzle printed while the tab is hidden starts paused",
     shown.clock !== "0:00" && !shown.paused && printed.clock === "0:00" && printed.paused, { shown, printed });
   await done(p, "sudoku printed hidden");
-
   await ctx.close();
+
+  // ---- the Keyboard how-to shows with a keyboard, not on a phone (the tap one shows on both)
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const keys = label === "desktop";
+    const c2 = await lib.newContext(browser, opts);
+    p = await lib.open(c2, base, "games/sudoku/");
+    const how = await p.evaluate(() => { const d = document.querySelector(".rules"); d.open = true; return d.innerText; });
+    check("sudoku on a " + label + ": the Keyboard how-to " + (keys ? "shows" : "is hidden") + ", the tap how-to shows",
+      /Keyboard:/.test(how) === keys && /Tap or click/.test(how), how.slice(0, 400));
+    await done(p, "sudoku " + label + " hints");
+    await c2.close();
+  }
 };

@@ -490,7 +490,13 @@
   $("play").addEventListener("click", function () { startRun(mode); });
   $("hint").addEventListener("click", hint);
   $("share").addEventListener("click", shareDaily);
-  $("to-menu").addEventListener("click", toMenu);
+  // back to the modes, asking first while a run would be lost (a pressed
+  // tray, or a wind-up's "Next level" card); the results go at once
+  function askToMenu() {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu);
+    else toMenu();
+  }
+  $("to-menu").addEventListener("click", askToMenu);
   $("again").addEventListener("click", function () {
     if (mode === "windup") {
       if ($("over-title").textContent.indexOf("ran down") !== -1) { startRun("windup"); }
@@ -514,15 +520,15 @@
       return;
     }
     // Backspace goes back to the modes, from the results or mid-tray (there's
-    // no pause here); Esc is left to ../motion-toggle.js, which takes it to
-    // the games page
+    // no pause here), asking first mid-tray once there's something to lose;
+    // Esc is left to ../motion-toggle.js, which takes it to the games page
     if (state === "over" && !$("over").hidden) {
       if (e.key === "Enter") $("again").click();
-      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
+      else if (e.key === "Backspace") { e.preventDefault(); askToMenu(); }
       return;
     }
     if (state === "play") {
-      if (e.key === "Backspace") { e.preventDefault(); toMenu(); return; }
+      if (e.key === "Backspace") { e.preventDefault(); askToMenu(); return; }
       if (e.key.toLowerCase() === "h") { hint(); return; }
       // arrows walk the tray, Enter/Space presses (native button click)
       var K = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -n, ArrowDown: n }[e.key];

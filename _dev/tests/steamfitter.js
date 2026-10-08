@@ -131,5 +131,25 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   check("steamfitter: no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // a 2× screen: the board has twice the pixels, and a click turns the pipe under it
+  const retina = await lib.newContext(browser, { deviceScaleFactor: 2 });
+  const q = await retina.newPage();
+  q.errs = []; q.on("pageerror", (e) => q.errs.push(e.message));
+  await lib.injectScript(q, "games/steamfitter/game.js", HOOKS);
+  await q.goto(base + "games/steamfitter/", { waitUntil: "domcontentloaded" });
+  await q.evaluate(() => localStorage.clear()); await q.reload({ waitUntil: "domcontentloaded" }); await q.waitForTimeout(500);
+  await q.evaluate(() => PipeMania.__load(0)); await q.waitForTimeout(150);
+  const size = await q.evaluate(() => ({ w: document.getElementById("game").width, h: document.getElementById("game").height }));
+  const rg = await q.evaluate(() => PipeMania.__geom()), rbox = await q.locator("#game").boundingBox(), rs = rbox.width / 640;   // (640 × 490 logical)
+  const pipe = await q.evaluate(() => { const g = __game.grid; for (let r = 0; r < g.length; r++) for (let c = 0; c < g[r].length; c++) if (g[r][c].kind === "pipe") return { r, c, type: g[r][c].type }; });
+  await q.mouse.click(rbox.x + (rg.OX + (pipe.c + 0.5) * rg.TS) * rs, rbox.y + (rg.OY + (pipe.r + 0.5) * rg.TS) * rs); await q.waitForTimeout(200);
+  const turned = await q.evaluate((pc) => ({ moves: __game.moves, type: __game.grid[pc.r][pc.c].type }), pipe);
+  check("2× screen: the board has twice the pixels, and a click turns the pipe under it",
+    size.w === 1280 && size.h === 980 && turned.moves === 1 && turned.type !== pipe.type, { size, pipe, turned });
+  check("2× screen: frames draw with no page errors", q.errs.length === 0, q.errs);
+  await q.close();
+  await retina.close();
+
   await ctx.close();
 };

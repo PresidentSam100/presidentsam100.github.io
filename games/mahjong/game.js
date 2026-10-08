@@ -440,8 +440,10 @@
     if (state !== "play") return;
     var prs = freePairs();
     if (!prs.length) {
-      // nothing matches: point at the shuffle
-      pointAt("btn-shuffle");
+      // nothing matches: point at the shuffle, or at Undo when no reshuffle
+      // can fit what's left (a lone stack, say)
+      if (redeal()) pointAt("btn-shuffle");
+      else noRedeal();
       if (!isNudge) thunk();
       return;
     }
@@ -464,9 +466,9 @@
     clearTimeout(b.pointT);
     b.pointT = setTimeout(function () { b.style.outline = ""; }, 1200);
   }
-  function reshuffle() {
-    if (state !== "play" || (live.size < 4 && freePairs().length)) return;
-    // remaining kinds regrouped into matchable pairs, re-dealt solvably
+  // the remaining kinds regrouped into matchable pairs and re-dealt solvably
+  // onto the same spots; null when no solvable deal fits them
+  function redeal() {
     var rem = [];
     live.forEach(function (i) { rem.push(kinds[i]); });
     var groups = {};
@@ -481,13 +483,20 @@
     });
     var rng = Math.random;
     shuffle(pairs, rng);
-    var dealt = dealOnto(pos, [...live], pairs, rng);
+    return dealOnto(pos, [...live], pairs, rng);
+  }
+  // no reshuffle fits: taking a pair back is the way on
+  function noRedeal() {
+    note("no reshuffle fits — undo a pair");
+    pointAt("btn-undo");
+  }
+  function reshuffle() {
+    if (state !== "play" || (live.size < 4 && freePairs().length)) return;
+    var dealt = redeal();
     if (!dealt) {
-      // no solvable deal fits what's left (a lone stack, say): the board
-      // stays, it costs nothing, and taking a pair back is the way on
+      // the board stays, and it costs nothing
       thunk();
-      note("no reshuffle fits — undo a pair");
-      pointAt("btn-undo");
+      noRedeal();
       return;
     }
     penaltyMs += 60000;

@@ -178,7 +178,10 @@
     tstate = E.findStart(grid); tmoves = 0; twon = false; tlocked = false;
     testOverlay.hidden = true;
     renderBoard(); setFlavor("Plain"); placePlayer(tstate.r, tstate.c, false); refreshLive();
-    updateStatus("Test — " + ["↑", "←", "↓", "→"].map(kbd).join("") + " / " + ["W", "A", "S", "D"].map(kbd).join("") + " / pad to move, " + kbd("R") + " to restart. Reach the 🏁.", "", true);
+    // the keys show only where there's a keyboard; touch gets the pad
+    updateStatus("Test — " +
+      '<span class="gs-keys">' + ["↑", "←", "↓", "→"].map(kbd).join("") + " / " + ["W", "A", "S", "D"].map(kbd).join("") + " / pad to move, " + kbd("R") + " to restart.</span>" +
+      '<span class="gs-touch">tap the pad to move.</span> Reach the 🏁.', "", true);
   }
   function enterTest() {
     const v = validate(); if (!v.ok) { updateStatus("⚠ Fix first: " + v.msgs.join(" · "), "bad"); return; }
@@ -352,7 +355,9 @@
   copyBtn.addEventListener("click", () => {
     ioText.select();
     try { document.execCommand("copy"); } catch (e) {}
-    if (navigator.clipboard) { try { navigator.clipboard.writeText(ioText.value); } catch (e) {} }
+    // (writeText refuses by rejecting, which try/catch can't catch: without
+    // clipboard permission the execCommand copy above is the one that counts)
+    if (navigator.clipboard) { try { navigator.clipboard.writeText(ioText.value).catch(() => {}); } catch (e) {} }
     copyBtn.textContent = "Copied!"; setTimeout(() => (copyBtn.textContent = "Copy"), 1200);
   });
   $("testReplay").addEventListener("click", startTest);

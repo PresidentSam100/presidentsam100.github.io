@@ -23,7 +23,7 @@ VERBOSE=1 npm test   # print passing checks too
 | `pause` | Esc / P pause consistently; Esc backs out on end screens; paused games ignore play input; the shared pause only claims keys when it pauses something; Demolition Row's menu after quitting |
 | `passport` | Passport's keys: S to share, M / V, Esc back, typed mode |
 | `modifiers` | Ctrl / Cmd / Alt shortcuts reach the browser instead of the game |
-| `touch` | Keycaps on games' own buttons hide on touch-only devices |
+| `touch` | Keycaps on games' own buttons hide on touch-only devices; hint text and canvas hints (`.gs-keys` / `.gs-touch`, `GameShell.touchOnly()`, drawKeys' `touch`) swap keys for touch wording |
 | `steamfitter` | All levels solvable and scrambled; Puzzle boards; tee / junction / crossover water paths; the editor's tools |
 | `<game>` (`chess`, `slither`, `tile-maze`, …) | One suite per game for its own bugs once fixed: each check failed on the old code, so it guards that fix |
 

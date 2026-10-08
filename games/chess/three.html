@@ -71,7 +71,7 @@
       <button class="btn primary" id="newBtn">New Game</button>
       <button class="btn" id="undoBtn">↶ Undo</button>
       <button class="btn" id="ruleBtn">End Rule…</button>
-      <a class="btn" href="./index.html">⇆ 2 / 4 Player</a>
+      <a class="btn" href="./index.html" data-leave>⇆ 2 / 4 Player</a>
     </div>
   </div>
 </div>
@@ -196,8 +196,9 @@
       for(let f=0;f<8;f++){ b[cid(s,3,f)]={o,t:back[f],dead:false}; b[cid(s,2,f)]={o,t:"p",dead:false}; } }
     return b;
   }
-  let G=null, pendingPromo=null;
+  let G=null, pendingPromo=null, endCardTimer=null;
   function start(ending){
+    clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
     G={ board:newBoard(), turn:"r", players:{r:{alive:true},w:{alive:true},k:{alive:true}},
         ending, over:false, winner:null, sel:-1, legal:[], last:null, capList:[], history:[] };
     render(); setStatus();
@@ -316,8 +317,9 @@
     }
   }
   function over(title,msg){ G.over=true; $("status").innerHTML='<b>'+title+'</b>'; renderPlayers();
-    setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350); }
-  function undo(){ if(!G.history.length) return; const h=G.history.pop();
+    clearTimeout(endCardTimer);
+    endCardTimer=setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350); }
+  function undo(){ if(!G.history.length) return; clearTimeout(endCardTimer); const h=G.history.pop();
     G.board=h.board.map(x=>x); G.turn=h.turn; G.last=h.last; G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner;
     G.sel=-1; G.legal=[]; $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
 
@@ -325,7 +327,11 @@
   $("newBtn").addEventListener("click",()=>start(G.ending));
   $("overAgain").addEventListener("click",()=>{ $("overOverlay").classList.remove("show"); start(G.ending); });
   $("undoBtn").addEventListener("click",undo);
-  $("ruleBtn").addEventListener("click",()=>$("menu").classList.add("show"));
+  // the end-rule menu starts a new game (it has no way back), so mid-game it asks first
+  $("ruleBtn").addEventListener("click",()=>{
+    const go=()=>$("menu").classList.add("show");
+    if(window.GameShell && GameShell.askQuit) GameShell.askQuit({ title:"Quit this game?", ok:"Quit" }, go); else go();
+  });
   document.querySelectorAll("#menu .modebtn").forEach(b=>b.addEventListener("click",()=>{ $("menu").classList.remove("show"); start(parseInt(b.dataset.end,10)); }));
   // Leaving asks first once a move is on the board of a game still in play,
   // but not from the end-rule menu (picking a rule starts a new game)

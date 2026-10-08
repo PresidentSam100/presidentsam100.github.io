@@ -67,6 +67,15 @@ module.exports = async ({ browser, base, check, lib }) => {
       return !w || !k.closest("button").contains(w) || (getComputedStyle(w).display === "none") !== phone;
     }).map((k) => k.closest("button").id + ":" + k.textContent), label === "phone");
     check("darkroom, " + label + ": the tool buttons' keycaps " + (label === "phone" ? "are hidden" : "show"), odd.length === 0, odd);
+    // the how-to on the menu: its keys go on a phone, the rest of it stays
+    await q.evaluate(() => Darkroom.toMenu());
+    const how = await q.evaluate((phone) => {
+      const h = document.querySelector(".how"), ks = [...h.querySelectorAll("kbd")];
+      return { keys: ks.length, odd: ks.filter((k) => { const w = k.closest(".gs-keys"); return !w || (getComputedStyle(w).display === "none") !== phone; }).map((k) => k.textContent),
+        text: h.innerText.replace(/\s+/g, " ") };
+    }, label === "phone");
+    check("darkroom, " + label + ": the how-to's keys " + (label === "phone" ? "are hidden" : "show") + ", the rest reads on",
+      how.keys === 8 && how.odd.length === 0 && /switch with the button/.test(how.text) && /fogs the print/.test(how.text) && /Keys:/.test(how.text) === (label !== "phone"), how);
     await q.close();
     await c2.close();
   }

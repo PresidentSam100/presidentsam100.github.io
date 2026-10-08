@@ -16,9 +16,11 @@
   if (typeof window !== "undefined") window.SLITHER_BLASTS = mod;
 })(this, function () {
   var HINT = "[Space] or [E] lays a fire egg (P2: [Enter]). Crack urns for 🔥 longer blasts, 🥚 more eggs and ⚡ speed. Last snake standing wins.";
+  // (on a touch-only device: the 🥚 on each player's d-pad)
+  var TOUCH = "🥚 on the d-pad lays a fire egg. Crack urns for 🔥 longer blasts, 🥚 more eggs and ⚡ speed. Last snake standing wins.";
   return [
     {
-      id: "ember-court", zone: "Ruins", name: "Ember Court", mode: "blast", hint: HINT,
+      id: "ember-court", zone: "Ruins", name: "Ember Court", mode: "blast", hint: HINT, touchHint: TOUCH,
       grid: [
         "#####################",
         "#S.................r#",
@@ -36,7 +38,7 @@
       ],
     },
     {
-      id: "moss-garden", zone: "Garden", name: "Moss Garden", mode: "blast", hint: HINT, urns: 0.56,
+      id: "moss-garden", zone: "Garden", name: "Moss Garden", mode: "blast", hint: HINT, touchHint: TOUCH, urns: 0.56,
       grid: [
         "#####################",
         "#S.................r#",
@@ -54,7 +56,7 @@
       ],
     },
     {
-      id: "twin-halls", zone: "Citadel", name: "Twin Halls", mode: "blast", hint: HINT,
+      id: "twin-halls", zone: "Citadel", name: "Twin Halls", mode: "blast", hint: HINT, touchHint: TOUCH,
       grid: [
         "#####################",
         "#S.................r#",

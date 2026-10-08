@@ -22,7 +22,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         FishArt[fn] = function () { (window.__clock[fn] = window.__clock[fn] || []).push(arguments[arguments.length - 1]); return real.apply(this, arguments); };
       });
     });
-    await p.waitForTimeout(250);
+    // a few frames of each (counted, not timed: a busy machine draws fewer)
+    await p.waitForFunction(() => ["bobber", "shadowFish", "junk"].every((fn) => window.__clock[fn] && window.__clock[fn].length >= 4), null, { timeout: 10000 });
     const c = await p.evaluate(() => window.__clock);
     await done(p, "motion FX " + (off ? "off" : "on"));
     const still = (a) => !!a && a.length > 2 && a.every((t) => t === a[0]);
@@ -63,4 +64,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     keys.length >= 6 && keys.every((c) => c.wrap === "none") && plain === "QWEASDZXCShift", { keys, plain });
   await done(p, "touch keycaps");
   await ctx.close();
+
+  // ---- the menu's "how": keys on a desktop; on a phone, taps (and no Shift
+  // rule, which a tap doesn't need)
+  const how = async (dev) => {
+    const c = await lib.newContext(browser, dev);
+    const pg = await open(c);
+    const t = await pg.evaluate(() => document.querySelector("#menu .how").innerText);
+    await done(pg, "how to play");
+    await c.close();
+    return t;
+  };
+  const desk = await how({}), phone = await how(require("@playwright/test").devices["Pixel 7"]);
+  check("fish-a-fish: on a desktop the menu says each bobber has a key, and gives the Shift rule", /has a key/.test(desk) && /strike its key/.test(desk) && /Shift/.test(desk), desk);
+  check("fish-a-fish: on a touch-only phone the menu says to tap the bobbers, naming no keys",
+    /tap/i.test(phone) && !/\bkeys?\b/i.test(phone) && !/Shift/.test(phone), phone);
 };

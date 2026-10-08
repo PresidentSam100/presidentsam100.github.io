@@ -75,7 +75,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.waitForTimeout(1600);
   const restored = await p.evaluate(() => document.getElementById("share").innerHTML);
   check("passport visa run: S copies the result, the S keycap comes back after 'copied!'",
-    !sh.hidden && /<kbd>S<\/kbd>/.test(sh.html) && copied === "copied!" && /Visa Run #\d+/.test(clip) && restored === "Share result <kbd>S</kbd>", { sh, copied, clip, restored });
+    !sh.hidden && /^Share result .*<kbd>S<\/kbd>/.test(sh.html) && copied === "copied!" && /Visa Run #\d+/.test(clip) && restored === sh.html, { sh, copied, clip, restored });
   const l0 = p.leaves;
   await p.keyboard.press("Escape"); await p.waitForTimeout(200);
   const l1 = p.leaves;
@@ -136,16 +136,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.close();
   await ctx.close();
 
-  // keycaps on Passport's buttons show on a desktop and hide on a touch-only phone
-  // (Share's S is left out: its exact markup is checked above)
+  // keycaps on Passport's buttons, and the menu's key line, show on a desktop
+  // and hide on a touch-only phone or tablet
   const { devices } = require("@playwright/test");
-  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]], ["tablet", devices["iPad Mini"]]]) {
     const c2 = await lib.newContext(browser, opts);
     const q = await lib.open(c2, base, "games/passport/");
-    const odd = () => q.evaluate((phone) => [...document.querySelectorAll("#desk button kbd, #menu button kbd, #over button kbd")].filter((k) => !k.closest("#share")).filter((k) => {
-      const w = k.closest(".gs-keys");
-      return !w || !k.closest("button").contains(w) || (getComputedStyle(w).display === "none") !== phone;
-    }).map((k) => (k.closest("button").id || k.closest("button").className) + ":" + k.textContent), label === "phone");
+    const odd = () => q.evaluate((touch) => [...document.querySelectorAll("#desk button kbd, #menu button kbd, #over button kbd, #menu .keys kbd")].filter((k) => {
+      const w = k.closest(".gs-keys"), b = k.closest("button");
+      return !w || (b && !b.contains(w)) || (getComputedStyle(w).display === "none") !== touch;
+    }).map((k) => ((k.closest("button") || k.parentElement).id || (k.closest("button") || k.parentElement).className) + ":" + k.textContent), label !== "desktop");
     const onMenu = await odd();
     await q.evaluate(() => { Passport.fast(); Passport.start("tour"); });
     for (let k = 0; k < 3; k++) {
@@ -155,7 +155,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     await q.waitForFunction(() => Passport.state() === "over");
     const onEnd = await odd();
-    check("passport, " + label + ": the keycaps on its buttons " + (label === "phone" ? "are hidden" : "show"), onMenu.length === 0 && onEnd.length === 0, { onMenu, onEnd });
+    check("passport, " + label + ": the keycaps on its buttons and its key line " + (label === "desktop" ? "show" : "are hidden"), onMenu.length === 0 && onEnd.length === 0, { onMenu, onEnd });
     await q.close();
     await c2.close();
   }

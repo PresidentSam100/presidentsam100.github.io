@@ -258,7 +258,7 @@ window.SlitherLabyrinth = function (host) {
     var box = panel("blast", "🥚 Fire Eggs · blast arena", false);
     var p = document.createElement("p");
     p.innerHTML = "Lay fire eggs: each bursts into a cross of flame that cracks clay urns and burns any snake it touches. " +
-      "Hold a direction to slither, let go to stop; " + kbd("Space") + " or " + kbd("E") + " lays an egg. Last snake standing takes the round, first to " + ARENA_WINS + " the match.";
+      "Hold a direction to slither, let go to stop; " + keysOr(kbd("Space") + " or " + kbd("E"), "🥚") + " lays an egg. Last snake standing takes the round, first to " + ARENA_WINS + " the match.";
     box.appendChild(p);
     var who = document.createElement("div");
     who.className = "row";
@@ -519,7 +519,7 @@ window.SlitherLabyrinth = function (host) {
       : arenaIdx >= 0 ? "<b>Arena</b> · " + level.name : chaseIdx >= 0 ? "<b>Chase</b> · " + level.name + " · maze " + st.chase.round
       : blastIdx >= 0 ? "<b>Fire Eggs</b> · " + level.name
       : "<b>" + (levelIdx + 1) + "</b> · " + level.name;
-    el.hint.innerHTML = hintHtml(level.hint || "");
+    el.hint.innerHTML = hintHtml(level.hint || "", level.touchHint);
     el.timeBar.style.display = st.timeLimit ? "" : "none";
     updateHud();
     token++;
@@ -559,8 +559,17 @@ window.SlitherLabyrinth = function (host) {
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function kbd(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
+  // The keys, or on a touch-only device (no keyboard) the touch control that
+  // does the same (.gs-keys / .gs-touch: ../motion-toggle.js)
+  function keysOr(keys, touch) { return '<span class="gs-keys">' + keys + '</span><span class="gs-touch">' + touch + "</span>"; }
+  // "R or Enter to retry"; on touch, the result card's button that does it
+  function retryLine(what, button) { return keysOr(kbd("R") + " or " + kbd("Enter") + " to " + what, "tap " + button); }
   // A hint marks its keys as [Shift]: the text is escaped first, then each [key] becomes a keycap.
-  function hintHtml(s) { return escapeHtml(s).replace(/\[([^\[\]]+)\]/g, function (m, t) { return kbd(t); }); }
+  // A hint that names keys comes with its touch wording (the level's touchHint).
+  function hintHtml(s, touch) {
+    var html = escapeHtml(s).replace(/\[([^\[\]]+)\]/g, function (m, t) { return kbd(t); });
+    return touch ? keysOr(html, escapeHtml(touch)) : html;
+  }
   function stopLoop() {
     active = false;
     token++;
@@ -603,8 +612,8 @@ window.SlitherLabyrinth = function (host) {
     if (!active || !st) return;
     // Shift turns "g" into "G" and "w" into "W" — compare in lower case.
     var k = (e.key || "").toLowerCase();
-    if (k === "r") { restart(); e.preventDefault(); return; }
-    // (the toggles act once per press, not on a held key's repeats)
+    // (R and the toggles act once per press, not on a held key's repeats)
+    if (k === "r") { if (!e.repeat) restart(); e.preventDefault(); return; }
     if (k === "m") { if (!e.repeat) toggleMusic(); e.preventDefault(); return; }
     if (st.status === "dead" || st.status === "won" || st.status === "over") {
       // (in a blast arena Space is the egg key, so mashing it mustn't skip the result)
@@ -841,7 +850,7 @@ window.SlitherLabyrinth = function (host) {
       if (over) { runOver(); return; }
       host.showResult({
         title: words[0],
-        msg: escapeHtml(words[1] + left) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to retry",
+        msg: escapeHtml(words[1] + left) + "  ·  " + retryLine("retry", "Retry"),
         html: true,
         primaryLabel: "Retry",
         primaryFn: restart,
@@ -913,7 +922,7 @@ window.SlitherLabyrinth = function (host) {
     var title = e.winner === "p1" ? (two ? "P1 takes the round! 🟢" : "You take the round! 🏆")
       : e.winner === "p2" ? "P2 takes the round! 🔵" : e.winner === "rival" ? "A rival takes the round 🐍" : "Nobody's left: a draw 💥";
     if (arenaIdx < 0) {
-      endTimer = setTimeout(function () { if (active) host.showResult({ title: title, msg: kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart }); }, 650);
+      endTimer = setTimeout(function () { if (active) host.showResult({ title: title, msg: retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart }); }, 650);
       return;
     }
     if (tally[e.winner] != null) tally[e.winner]++;
@@ -983,7 +992,7 @@ window.SlitherLabyrinth = function (host) {
     var msg = "Score " + score + (score > prev ? (prev ? " — new best! 🎉" : "") : "  ·  Best " + prev) + "  ·  maze " + round;
     endTimer = setTimeout(function () {
       if (!active) return;
-      host.showResult({ title: "The guardians got you 👻", msg: escapeHtml(msg) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart });
+      host.showResult({ title: "The guardians got you 👻", msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });
     }, 900);
   }
   function onChaseClear() {
@@ -1016,7 +1025,7 @@ window.SlitherLabyrinth = function (host) {
     var msg = "Score " + score + " 🍎" + (stageIdx < 0 ? "" : score > best ? (best ? " — new best! 🎉" : "") : "  ·  Best " + best);
     endTimer = setTimeout(function () {
       if (!active) return;
-      host.showResult({ title: words[0], msg: escapeHtml(msg) + "  ·  " + kbd("R") + " or " + kbd("Enter") + " to play again", html: true, primaryLabel: "Play Again", primaryFn: restart });
+      host.showResult({ title: words[0], msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });
     }, 650);
   }
 
@@ -1359,17 +1368,18 @@ window.SlitherLabyrinth = function (host) {
       ctx.fillRect(0, H / 2 + 20.5, W, 1.5);
       ctx.fillStyle = "#f3e6c4";
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      var touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
-      var ready = st.blast ? (twoPlayer() ? (touch ? "Hold a d-pad to slither · 🥚 lays an egg" : "P1: [W][A][S][D] + [Space] · P2: [↑][←][↓][→] + [Enter] · move to begin")
-          : touch ? "Hold the d-pad to slither · 🥚 lays an egg" : "Hold an arrow key to slither · [Space] lays an egg")
-        : twoPlayer() ? (touch ? "Either d-pad starts the round" : "P1: [W][A][S][D] · P2: [↑][←][↓][→] · steer to begin")
-        : touch ? "Swipe or tap the d-pad to begin" : "Press an arrow key or [W][A][S][D] to begin";
+      // The keys, or on a touch-only device the touch controls (drawKeys' `touch`)
+      var keys = st.blast ? (twoPlayer() ? "P1: [W][A][S][D] + [Space] · P2: [↑][←][↓][→] + [Enter] · move to begin" : "Hold an arrow key to slither · [Space] lays an egg")
+        : twoPlayer() ? "P1: [W][A][S][D] · P2: [↑][←][↓][→] · steer to begin" : "Press an arrow key or [W][A][S][D] to begin";
+      var touch = st.blast ? (twoPlayer() ? "Hold a d-pad to slither · 🥚 lays an egg" : "Hold the d-pad to slither · 🥚 lays an egg")
+        : twoPlayer() ? "Either d-pad starts the round" : "Swipe or tap the d-pad to begin";
+      var ready = window.GameShell && GameShell.touchOnly() ? touch : keys;
       // Each [key] is drawn as a keycap (about 0.92em wider than its letter),
       // so step the size down until the line fits the board.
       var plain = ready.replace(/[\[\]]/g, ""), caps = (ready.match(/\[/g) || []).length, px = 15;
       ctx.font = "700 15px Cinzel, Georgia, serif";
       while (px > 9 && ctx.measureText(plain).width + caps * px * 0.92 > W - 16) ctx.font = "700 " + (--px) + "px Cinzel, Georgia, serif";
-      if (window.GameShell) GameShell.drawKeys(ctx, ready, W / 2, H / 2 + 1);
+      if (window.GameShell) GameShell.drawKeys(ctx, keys, W / 2, H / 2 + 1, { touch: touch });
       else ctx.fillText(plain, W / 2, H / 2 + 1);
     }
   }

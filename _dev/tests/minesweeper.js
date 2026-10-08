@@ -52,6 +52,42 @@ module.exports = async ({ browser, base, check, lib }) => {
   await Promise.all([p.waitForURL(/\?daily$/, { timeout: 8000 }).catch(() => {}), p.click("#navDaily")]);
   check("minesweeper: before the first dig the Daily tab opens at once, no box", /\?daily$/.test(p.url()) && !(await dlg(p)), p.url());
   await p.close();
-
   await ctx.close();
+
+  // ---- key hints: "press N" and the Keyboard how-to show with a keyboard, not on a phone
+  const { devices } = require("@playwright/test");
+  // where the mines are (Classic deals them on the first dig; Endless, a live row's mine)
+  const msHook = ["  syncMineMax();\n})();", "  syncMineMax();\n  window.__ms = { mines: () => Array.from(mine) };\n})();"];
+  const endHook = ["  newGame();\n  requestAnimationFrame(frame);", `  window.__mse = { mine: function () {
+    for (const row of rows.values()) if (isLive(row.r)) for (let c = 0; c < COLS; c++) if (row.mine[c]) return [row.r, c];
+    return null;
+  } };
+  newGame();
+  requestAnimationFrame(frame);`];
+  const rules = (p) => p.evaluate(() => { const d = document.querySelector(".rules"); d.open = true; return d.innerText; });
+  const status = (p) => p.evaluate(() => document.getElementById("status").innerText);
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const keys = label === "desktop";
+    const c2 = await lib.newContext(browser, opts);
+
+    p = await lib.open(c2, base, "games/minesweeper/", { before: (pg) => lib.injectScript(pg, "games/minesweeper/game.js", [msHook]) });
+    await p.click('.c[data-i="40"]'); await settle(p);
+    const m = await p.evaluate(() => __ms.mines().indexOf(1));
+    await p.click('.c[data-i="' + m + '"]'); await settle(p);
+    const lost = await status(p), how = await rules(p);
+    check("minesweeper on a " + label + ": the loss line " + (keys ? "names the N key" : "says tap 🙂, no key") + "; the Keyboard how-to " + (keys ? "shows" : "is hidden"),
+      /Boom/.test(lost) && /Tap 🙂/.test(lost) && /try again/.test(lost) && /press N/.test(lost) === keys &&
+        /Keyboard:/.test(how) === keys && /Touch:/.test(how), { lost, how: how.slice(-260) });
+    await done(p, "minesweeper " + label + " hints");
+
+    p = await lib.open(c2, base, "games/minesweeper/endless.html", { before: (pg) => lib.injectScript(pg, "games/minesweeper/endless.js", [endHook]) });
+    const at = await p.evaluate(() => __mse.mine());
+    await p.click('.c[data-r="' + at[0] + '"][data-c="' + at[1] + '"]'); await settle(p);
+    const over = await status(p), ehow = await rules(p);
+    check("minesweeper endless on a " + label + ": the run-over line " + (keys ? "names the N key" : "says tap 🙂, no key") + "; the Keyboard how-to " + (keys ? "shows" : "is hidden"),
+      /dug a mine/.test(over) && /Tap 🙂/.test(over) && /go again/.test(over) && /press N/.test(over) === keys &&
+        /Keyboard:/.test(ehow) === keys && /Touch:/.test(ehow), { over, how: ehow.slice(-260) });
+    await done(p, "minesweeper endless " + label + " hints");
+    await c2.close();
+  }
 };

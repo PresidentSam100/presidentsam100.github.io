@@ -1244,12 +1244,21 @@ function renderControls() {
   if (db) db.onclick = onHumanDraw;
   var pb = document.getElementById("passBtn");
   if (pb) pb.onclick = onHumanPass;
-  document.getElementById("newHandBtn").onclick = quitToMenu;
+  document.getElementById("newHandBtn").onclick = askQuitToMenu;
+}
+
+// Quit to menu asks first while a game is under way (see guardLeave below),
+// with the table waiting under the box; otherwise it goes at once. A result
+// screen's Menu button goes straight to quitToMenu.
+function askQuitToMenu() {
+  if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, quitToMenu);
+  else quitToMenu();
 }
 
 function quitToMenu() {
   G = null;
   clearTimers();
+  delete holds.leave; // the box that asked held the table; there's no table now
   document.getElementById("game").style.display = "none";
   document.getElementById("setup").style.display = "block";
   hideOverlay();

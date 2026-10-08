@@ -2,7 +2,9 @@
 // back to the title on Backspace; held keys let go when the window does;
 // the stage banners pause when the window is away; a held P / Esc / F acts
 // once; the game starts with storage blocked; capsules and explosions move
-// the same at 60 and 144 Hz; and the screen keeps its shape on narrow screens.
+// the same at 60 and 144 Hz; the screen keeps its shape on narrow screens;
+// on a phone the touch buttons work the title's pickers; and the canvas
+// hints say what a tap does on a phone, the keys on a desktop.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const st = (p) => p.evaluate(() => ({ mode: game.mode, stage: game.stage, startStage: game.startStage, menu: game.menuIndex, prev: game.prevMode, x: game.player && Math.round(game.player.x), input: Object.assign({}, game.input), fx: game.reducedFlash }));
@@ -111,4 +113,75 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, label);
     await c.close();
   }
+
+  // ---- on a phone the title's pickers are the touch buttons; a tap on the screen starts
+  let c = await lib.newContext(browser, devices["Pixel 7"]);
+  p = await lib.open(c, base, "games/spacer/");
+  for (const id of ["#t-right", "#t-right", "#t-right", "#t-left", "#t-fire"]) await p.tap(id);
+  const t0 = await st(p);
+  const touch = (type) => p.evaluate((type) => document.getElementById("t-right").dispatchEvent(new TouchEvent(type, { bubbles: true, cancelable: true })), type);
+  await touch("touchstart"); await p.waitForTimeout(700); await touch("touchend");
+  const t1 = await st(p);
+  await p.tap("#screen"); await p.waitForTimeout(100);
+  const t2 = Object.assign(await st(p), { lives: await p.evaluate(() => game.lives) });
+  await p.evaluate(() => { game.mode = "playing"; });
+  await p.tap("#t-left"); await p.tap("#t-fire");
+  const t3 = await st(p);
+  check("spacer, phone: on the title ◀ ▶ pick the start stage (held, they run on) and ● the life mode; a tap on the screen starts; in play they don't",
+    t0.startStage === 3 && t0.menu === 1 && t1.startStage >= 6 && t2.mode === "ready" && t2.stage === t1.startStage && t2.lives === 1 && t3.startStage === t1.startStage && t3.menu === 1,
+    { t0: [t0.startStage, t0.menu], t1: t1.startStage, t2: [t2.mode, t2.stage, t2.lives], t3: [t3.startStage, t3.menu] });
+
+  // ---- ...and the end screens get back to them: ● goes to the title (as
+  // Backspace does), once the screen has been up a moment; a tap plays again
+  const end = [];
+  for (const finish of ["gameOver", "gameComplete"]) {
+    await p.evaluate((f) => { game.startGame(); game[f](); }, finish);
+    await p.tap("#t-fire"); const reflex = (await st(p)).mode;   // a fire tap still going as the run ends
+    await p.waitForTimeout(1000);
+    await p.tap("#t-fire"); end.push([reflex, (await st(p)).mode]);
+  }
+  await p.evaluate(() => { game.startGame(); game.gameOver(); });
+  await p.tap("#screen"); await p.waitForTimeout(100);
+  const again = (await st(p)).mode;
+  check("spacer, phone: on GAME OVER and CONGRATULATIONS ● goes back to the title (not a reflex tap as the run ends); a tap on the screen plays again",
+    end[0][0] === "gameover" && end[0][1] === "attract" && end[1][0] === "complete" && end[1][1] === "attract" && again === "ready", { end, again });
+  await done(p, "touch pickers");
+  await c.close();
+
+  // ---- the canvas hints: what a tap does on a phone, the keys on a desktop
+  // (every string one frame draws, with Visual FX off so nothing is mid-blink;
+  // a keycap's label is drawn on its own, so a lone "ENTER" is a keycap)
+  const frameText = (p) => p.evaluate(() => new Promise((ok) => {
+    const ctx = document.getElementById("screen").getContext("2d"), seen = [], orig = ctx.fillText;
+    ctx.fillText = function (s) { seen.push(String(s)); return orig.apply(this, arguments); };
+    requestAnimationFrame(() => requestAnimationFrame(() => { delete ctx.fillText; ok(seen); }));
+  }));
+  const screens = async (p) => {
+    const out = { title: await frameText(p) };
+    await p.evaluate(() => { game.startGame(); game.mode = "playing"; game.togglePause(); }); out.pause = await frameText(p);
+    await p.evaluate(() => game.gameOver()); out.over = await frameText(p);
+    await p.evaluate(() => { game.startGame(); game.gameComplete(); }); out.done = await frameText(p);
+    return out;
+  };
+  const CAPS = ["ENTER", "ESC", "⌫", "E", "V", "P", "▲", "▼"];
+  const fxOff = (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:spacer", "1"); } catch (e) {} });
+  const has = (list, text) => list.some((s) => s.includes(text));
+  c = await lib.newContext(browser, devices["Pixel 7"]);
+  p = await lib.open(c, base, "games/spacer/", { before: fxOff });
+  const ph = await screens(p);
+  const phCaps = Object.values(ph).flat().filter((s) => CAPS.includes(s));
+  check("spacer, phone: the canvas hints say what a tap does (title, pause, end screens) and name no keys",
+    phCaps.length === 0 && has(ph.title, "TAP TO START") && has(ph.title, "VISUAL FX: OFF") && has(ph.pause, "TO RESUME") &&
+      ["over", "done"].every((s) => has(ph[s], "TAP TO PLAY AGAIN") && has(ph[s], "● TITLE")),
+    { phCaps, title: ph.title.filter((s) => /TAP|FX|◀ ▶/.test(s)), pause: ph.pause.filter((s) => /RESUME/.test(s)), over: ph.over.filter((s) => /TAP|TITLE/.test(s)) });
+  await done(p, "phone hints");
+  await c.close();
+  c = await lib.newContext(browser);
+  p = await lib.open(c, base, "games/spacer/", { before: fxOff });
+  const dk = await screens(p);
+  check("spacer, desktop: the canvas hints still name the keys",
+    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && ["P", "ESC"].every((k) => dk.pause.includes(k)) && ["ENTER", "⌫", "ESC"].every((k) => dk.over.includes(k) && dk.done.includes(k)) && !has(Object.values(dk).flat(), "TAP"),
+    { title: dk.title.filter((s) => CAPS.includes(s)), pause: dk.pause.filter((s) => CAPS.includes(s)) });
+  await done(p, "desktop hints");
+  await c.close();
 };

@@ -69,7 +69,9 @@
     parts.push(dur);
     return "osumania_best_" + parts.join("_");
   };
-  const getBest = () => parseFloat(localStorage.getItem(bestKey()) || "0") || 0;
+  // (GameShell.store, so blocked storage can't stop the game running)
+  const store = window.GameShell ? GameShell.store : { get: (k, f) => f, getNum: (k, f) => f, set: () => {}, remove: () => {} };
+  const getBest = () => store.getNum(bestKey(), 0);
   // The best is saved the moment a run earns it: once the score passes the
   // best the run started with (runBest, what NEW BEST compares against), the
   // stored best follows it live, so a tab closed mid-run keeps it. A wrong
@@ -77,13 +79,11 @@
   // its peak; under runBest the stored value goes back to exactly what it was.
   let runBest = 0, runBestRaw = null, liveSaved = false;
   function liveBest() {
-    try {
-      if (score > runBest) { localStorage.setItem(bestKey(), String(score)); liveSaved = true; }
-      else if (liveSaved) {
-        if (runBestRaw == null) localStorage.removeItem(bestKey()); else localStorage.setItem(bestKey(), runBestRaw);
-        liveSaved = false;
-      }
-    } catch (e) {}
+    if (score > runBest) { store.set(bestKey(), String(score)); liveSaved = true; }
+    else if (liveSaved) {
+      if (runBestRaw == null) store.remove(bestKey()); else store.set(bestKey(), runBestRaw);
+      liveSaved = false;
+    }
   }
   function showSetupBest() {
     const b = getBest();
@@ -313,7 +313,7 @@
     score = 0; misses = 0; streak = 0; bestStreak = 0; hitTimes = [];
     hitsCount = 0; judgeCounts = { perfect: 0, great: 0, good: 0, ok: 0 };
     runBest = getBest(); liveSaved = false;
-    try { runBestRaw = localStorage.getItem(bestKey()); } catch (e) { runBestRaw = null; }
+    runBestRaw = store.get(bestKey(), null);
     $("vScore").textContent = "0"; $("vStreak").textContent = "0";
     $("vTime").textContent = dur.toFixed(1);
     $("timeFill").style.transform = "scaleX(1)";
@@ -336,9 +336,10 @@
       }
     }, 500);
   }
+  // the lane's key, as a label that hides on touch-only devices (they tap the lanes)
   function makeKey(l) {
     const k = document.createElement("div");
-    k.className = "key"; k.textContent = LANE_KEYS[+l.dataset.col].slice(3);
+    k.className = "key"; k.innerHTML = '<span class="gs-keys">' + LANE_KEYS[+l.dataset.col].slice(3) + "</span>";
     return k;
   }
 
@@ -349,6 +350,9 @@
     lastSpawnCol = -1;
     nextSpawnAt = performance.now(); // spawn the first tile immediately
     tickFrame();
+    // The countdown can't pause, so a tab switch or a click elsewhere during
+    // it would start the clock with nobody watching: the run starts paused
+    if (window.GameShell && (document.hidden || !document.hasFocus())) PAUSE.pause();
   }
 
   // Esc or P pauses a running game, as in the site's other timed games. Esc

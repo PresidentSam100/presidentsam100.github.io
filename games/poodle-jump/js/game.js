@@ -789,24 +789,28 @@ class Game {
     ctx.stroke();
     ctx.font = '16px "Permanent Marker", "Segoe UI", Arial';
     let y = -h / 2 + 79;
-    // each [KEY] in a line is drawn as a keycap (GameShell.drawKeys)
+    // each [KEY] in a line is drawn as a keycap (GameShell.drawKeys); a line
+    // given as { keys, touch } says `touch` instead on a touch-only device
     for (const ln of lines) {
-      if (window.GameShell) GameShell.drawKeys(ctx, ln, 0, y);
-      else ctx.fillText(ln.replace(/[[\]]/g, ""), 0, y);
+      const s = typeof ln === "string" ? ln : ln.keys;
+      if (window.GameShell) GameShell.drawKeys(ctx, s, 0, y, typeof ln === "string" ? undefined : { touch: ln.touch });
+      else ctx.fillText(s.replace(/[[\]]/g, ""), 0, y);
       y += 27;
     }
     ctx.restore();
     ctx.textAlign = "left";
   }
 
+  // On a touch-only device the notes name the on-screen buttons (◀ 🎯 ▶,
+  // the ⏸ that turns ▶, "← Games") and taps instead of keys
   renderStart(ctx) {
     this._panel(ctx, "Poodle Jump", [
       "Reach as high as you can!",
-      "[←][→] / [A][D] to move",
-      "[Space] / [↑] / click to shoot",
-      "[P] / [Esc] to pause",
+      { keys: "[←][→] / [A][D] to move", touch: "◀ ▶ to move" },
+      { keys: "[Space] / [↑] / click to shoot", touch: "Tap or 🎯 to shoot" },
+      { keys: "[P] / [Esc] to pause", touch: "⏸ to pause" },
       "",
-      "Press [Space] or click to start",
+      { keys: "Press [Space] or click to start", touch: "Tap to start" },
     ]);
   }
 
@@ -815,8 +819,8 @@ class Game {
       "Score: " + this.score,
       "Best: " + this.high,
       "",
-      "[Space] or click to play again",
-      "[Esc] all games",
+      { keys: "[Space] or click to play again", touch: "Tap to play again" },
+      { keys: "[Esc] all games", touch: "← Games for all games" },
     ]);
   }
 
@@ -824,7 +828,7 @@ class Game {
     this._panel(ctx, "Paused", [
       "Score: " + this.score,
       "",
-      "Press [P] or [Esc] to resume",
+      { keys: "Press [P] or [Esc] to resume", touch: "Tap ▶ to resume" },
     ]);
   }
 }

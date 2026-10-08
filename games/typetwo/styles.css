@@ -65,6 +65,10 @@ canvas {
   .stat .label { font-size: 9px; }
 }
 #lives { letter-spacing: 4px; font-size: 18px; }
+/* Zen's End session button, small enough to sit with the stats */
+.btn.hud-end { margin: 0; align-self: center; padding: 7px 12px; font-size: 11px; letter-spacing: 2px; }
+.btn.hud-end[hidden] { display: none; }
+@media (max-width: 480px) { .btn.hud-end { padding: 6px 8px; font-size: 10px; letter-spacing: 1px; } }
 
 /* Overlay screens */
 .btn, .mode { font-family: "Cinzel", serif; font-weight: 600; }

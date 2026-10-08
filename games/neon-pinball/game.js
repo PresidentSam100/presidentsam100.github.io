@@ -667,8 +667,12 @@
   }
   function flipHint() {
     const coarse = window.matchMedia("(pointer: coarse)").matches;
-    // with Visual FX off the skill lane is outlined, not flashing
-    if (state === "ready") { $("flipHint").innerHTML = coarse ? "" : 'Hold <kbd class="gs-kbd">Space</kbd>, release to launch — hit the ' + (reduced() ? "outlined" : "flashing") + " lane"; if (coarse) $("launchBtn").classList.add("show"); }
+    // with Visual FX off the skill lane is outlined, not flashing; on a
+    // touch-only device the LAUNCH button stands in for Space
+    if (state === "ready") {
+      $("flipHint").innerHTML = '<span class="gs-keys">Hold <kbd class="gs-kbd">Space</kbd>, release to launch</span><span class="gs-touch">Tap ⟰ LAUNCH</span> — hit the ' + (reduced() ? "outlined" : "flashing") + " lane";
+      if (coarse) $("launchBtn").classList.add("show");
+    }
   }
   window.addEventListener("reducemotionchange", () => { if (state === "ready") flipHint(); });
 

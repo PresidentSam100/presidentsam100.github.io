@@ -6,7 +6,24 @@
 
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
-  var W = canvas.width, H = canvas.height;
+  var W = canvas.width, H = canvas.height;   // the logical size everything is drawn in
+
+  // Hi-DPI: the backing store is W×H times the device pixel ratio (up to 2),
+  // drawn through a matching transform, so the jar is sharp on retina screens
+  // and phones; the fruit sprites are painted at the same ratio (buildSprites).
+  // A ratio change (browser zoom, another screen) refits both.
+  var dpr = 1;
+  function fitCanvas() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  fitCanvas();
+  window.addEventListener("resize", function () {
+    if (Math.min(2, window.devicePixelRatio || 1) === dpr) return;
+    fitCanvas();
+    buildSprites();
+  });
 
   // jar interior
   var JL = 58, JR = W - 58, FLOOR = H - 34, RIM = 96;
@@ -254,25 +271,31 @@
     }
     faceFor(g, r, ti);
   }
+  // each sprite is `size` logical px square, painted at the canvas's pixel
+  // ratio (so drawn with an explicit size: drawSprite)
   function buildSprites() {
     SPRITES = TIERS.map(function (t, ti) {
       var r = t.r, pad = 16, s = document.createElement("canvas"); // room for the cherry's stem tip
-      s.width = s.height = (r + pad) * 2;
+      var size = (r + pad) * 2;
+      s.width = s.height = Math.round(size * dpr);
       var g = s.getContext("2d");
+      g.scale(dpr, dpr);
       g.translate(r + pad, r + pad);
       paintFruit(g, ti);
-      return { c: s, off: r + pad, ext: inkRows(s, r + pad) };
+      return { c: s, off: r + pad, size: size, ext: inkRows(s, r + pad, dpr) };
     });
   }
+  function drawSprite(sp, x, y) { ctx.drawImage(sp.c, x - sp.off, y - sp.off, sp.size, sp.size); }
   // how far a sprite's ink reaches above and below its centre — stems,
-  // leaves and crowns included — read off the finished pixels
-  function inkRows(s, off) {
+  // leaves and crowns included — read off the finished pixels (k of them
+  // to a logical px)
+  function inkRows(s, off, k) {
     var n = s.width, px = s.getContext("2d").getImageData(0, 0, n, n).data;
     function inked(y) { for (var x = 0; x < n; x++) if (px[(y * n + x) * 4 + 3] > 24) return true; return false; }
     var top = 0, bot = n - 1;
     while (top < bot && !inked(top)) top++;
     while (bot > top && !inked(bot)) bot--;
-    return { up: off - top, down: bot + 1 - off };
+    return { up: off - top / k, down: (bot + 1) / k - off };
   }
   function lighten(hex, amt) {
     var n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g2 = n >> 8 & 255, b = n & 255;
@@ -686,7 +709,7 @@
     ctx.save();
     ctx.translate(f.x, f.y);
     ctx.rotate(f.rot);
-    ctx.drawImage(sp.c, -sp.off, -sp.off);
+    drawSprite(sp, 0, 0);
     ctx.restore();
   }
 
@@ -723,8 +746,7 @@
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
       ctx.setLineDash([]);
       ctx.globalAlpha = dropCd > 0 ? 0.45 : 1;
-      var spc = SPRITES[current];
-      ctx.drawImage(spc.c, ax - spc.off, DROP_Y - spc.off);
+      drawSprite(SPRITES[current], ax, DROP_Y);
       ctx.globalAlpha = 1;
     }
 

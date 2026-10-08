@@ -36,4 +36,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("pop-the-lock: with storage blocked the game still starts", p.errs.length === 0 && !!blocked && blocked.state === "play", { errs: p.errs, blocked });
   await p.close();
   await ctx.close();
+
+  // the hint names Space with a keyboard; on a touch-only device, just Tap
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/pop-the-lock/");
+    const hint = await q.evaluate(() => document.querySelector(".hint").innerText.replace(/\s+/g, " "));
+    const ok = label === "desktop" ? /^Click \/ Tap \/ Space • Don't miss/.test(hint) : /^Tap • Don't miss/.test(hint);
+    check("pop-the-lock " + label + ": the hint " + (label === "desktop" ? "names Space" : "says Tap, no Space"), ok, hint);
+    await q.close();
+    await c.close();
+  }
 };

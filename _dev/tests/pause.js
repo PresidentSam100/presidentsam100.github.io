@@ -198,7 +198,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Demolition Row: after ☰ Menu the board keys are off
   p = await lib.open(ctx, base, "games/demolition-row/");
   await p.click("#play-btn"); await p.waitForTimeout(500);
-  await p.click("#menu-btn"); await p.waitForTimeout(200);
+  // mid-game ☰ Menu asks "Quit this game?" first; Enter quits
+  await p.click("#menu-btn"); await p.waitForSelector(".gs-dialog", { timeout: 3000 });
+  await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const claimed = await lib.fireKey(p, { key: "a" });
   await p.evaluate(() => { const el = document.querySelector("select.diffsel"); for (let n = el; n && n.id !== "menu"; n = n.parentElement) if (getComputedStyle(n).display === "none") n.style.display = "block"; });
   const sel = p.locator("select.diffsel").first();

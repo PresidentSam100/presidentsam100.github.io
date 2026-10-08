@@ -6,7 +6,16 @@
 
   var canvas = document.getElementById("screen");
   var ctx = canvas.getContext("2d");
-  var W = canvas.width, H = canvas.height;
+  var W = canvas.width, H = canvas.height;   // the logical size everything is drawn in
+  // Hi-DPI: the backing store (and the backdrop's) is W×H times the device
+  // pixel ratio, up to 2; render() draws through the matching transform.
+  // A ratio change (browser zoom, another screen) refits it.
+  var dpr = 1;
+  function fitCanvas() {
+    dpr = Math.min(2, window.devicePixelRatio || 1);
+    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  }
+  fitCanvas();
 
   var INK = "#1a1430";
   var PAPER = "#fff8e7";
@@ -101,13 +110,17 @@
     });
   }
 
-  // ---- the comic backdrop (drawn once) --------------------------------------
+  // ---- the comic backdrop (drawn once, and again if the pixel ratio changes)
   // Deep-space panel: flat indigo, a halftone dot screen, ink-sparkle stars,
   // a ringed planet in one corner and a comet in the other.
   var bg = document.createElement("canvas");
-  bg.width = W; bg.height = H;
-  (function paintBg() {
+  // the stars are scattered once, so a repaint keeps the same sky
+  var STARS = [];
+  for (var si = 0; si < 46; si++) STARS.push({ x: Math.random() * W, y: Math.random() * H, s: rand(1.4, 4.2), a: rand(0.35, 0.9).toFixed(2) });
+  function paintBg() {
+    bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
     var b = bg.getContext("2d");
+    b.setTransform(dpr, 0, 0, dpr, 0, 0);
     b.fillStyle = "#232a55";
     b.fillRect(0, 0, W, H);
     // halftone dots, larger toward the lower-left like a printed gradient
@@ -120,9 +133,9 @@
       }
     }
     // ink-sparkle stars (4-point crosses)
-    for (var i = 0; i < 46; i++) {
-      var sx = Math.random() * W, sy = Math.random() * H, s = rand(1.4, 4.2);
-      b.strokeStyle = "rgba(246,240,220," + rand(0.35, 0.9).toFixed(2) + ")";
+    for (var i = 0; i < STARS.length; i++) {
+      var sx = STARS[i].x, sy = STARS[i].y, s = STARS[i].s;
+      b.strokeStyle = "rgba(246,240,220," + STARS[i].a + ")";
       b.lineWidth = 1.4;
       b.beginPath();
       b.moveTo(sx - s, sy); b.lineTo(sx + s, sy);
@@ -156,7 +169,13 @@
     b.beginPath(); b.arc(90, 156, 5, 0, Math.PI * 2); b.fill();
     b.strokeStyle = INK; b.lineWidth = 2;
     b.beginPath(); b.arc(90, 156, 5, 0, Math.PI * 2); b.stroke();
-  })();
+  }
+  paintBg();
+  window.addEventListener("resize", function () {
+    if (Math.min(2, window.devicePixelRatio || 1) === dpr) return;
+    fitCanvas();
+    paintBg();
+  });
 
   // ---- input -----------------------------------------------------------------
   var input = { left: false, right: false, thrust: false, fire: false };
@@ -486,9 +505,11 @@
 
   // ---- drawing helpers ---------------------------------------------------------
   // each [KEY] in text is drawn as a keycap (GameShell.drawKeys), which is
-  // wider than its letters: the box grows to fit
+  // wider than its letters: the box grows to fit. opts.touch is what the box
+  // says instead on a touch-only device, where there are no keys to press.
   function capBox(x, y, text, opts) {
     opts = opts || {};
+    if (opts.touch != null && window.GameShell && GameShell.touchOnly && GameShell.touchOnly()) text = opts.touch;
     ctx.font = (opts.size || 21) + "px " + FONT;
     var keys = window.GameShell ? (text.match(/\[[^\]]+\]/g) || []).length : 0;
     var plain = text.replace(/[[\]]/g, "");
@@ -695,12 +716,12 @@
 
   // ---- render --------------------------------------------------------------
   function render() {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // logical units, at the screen's pixel ratio
     ctx.clearRect(0, 0, W, H);
     if (shake > 0 && fx()) {
       ctx.translate(rand(-1, 1) * shake * 14, rand(-1, 1) * shake * 14);
     }
-    ctx.drawImage(bg, 0, 0);
+    ctx.drawImage(bg, 0, 0, W, H);
 
     for (var i = 0; i < rocks.length; i++) drawRock(rocks[i]);
     if (saucer) drawSaucer(saucer);
@@ -753,17 +774,19 @@
         capBox(W / 2, 120, "CHAPTER " + wave + ": METEOR STORM!", { center: true, size: 27, rot: -0.02 });
       }
     } else if (state === "menu") {
-      title("METEOR MENACE!", "PRESS [ENTER] TO BLAST OFF!");
+      title("METEOR MENACE!", "PRESS [ENTER] TO BLAST OFF!", "TAP TO BLAST OFF!");
       // the rocket drifts with Visual FX on; off, it holds one pose, flame lit
       var mt = fx() ? time : 0;
       drawShipAt(W / 2 + Math.cos(mt * 0.7) * 30, H * 0.68 + Math.sin(mt * 1.1) * 10, -0.5 + Math.sin(mt * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
-      title("THE END...?", "PRESS [ENTER] FOR THE NEXT ISSUE");
+      title("THE END...?", "PRESS [ENTER] FOR THE NEXT ISSUE", "TAP FOR THE NEXT ISSUE");
       capBox(W / 2, H * 0.62, "SCORE " + score + "  ·  BEST " + best.get(), { center: true, size: 24 });
     }
   }
 
-  function title(big, sub) {
+  // `subTouch`: the line under the title on a touch-only device (a tap on the
+  // panel is what starts there)
+  function title(big, sub, subTouch) {
     ctx.save();
     // burst behind the title
     ctx.translate(W / 2, H * 0.36);
@@ -790,7 +813,7 @@
     ctx.restore();
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
     var pulse = !fx() || Math.floor(time * 1.6) % 2 === 0;   // steady with Visual FX off
-    capBox(W / 2, H * 0.36 + 64, sub, { center: true, size: 22, fill: pulse ? PAPER : YELLOW, rot: 0.015 });
+    capBox(W / 2, H * 0.36 + 64, sub, { center: true, size: 22, fill: pulse ? PAPER : YELLOW, rot: 0.015, touch: subTouch });
   }
 
   // ---- pause + loop -----------------------------------------------------------

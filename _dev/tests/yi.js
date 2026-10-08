@@ -94,5 +94,49 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("yi: the points game's final result (500 reached) has a Menu button back to setup", hasMenu && setup, { hasMenu, setup });
   await done(p, "yi points menu");
 
+  // ---- Quit to menu mid-hand asks, with the table waiting under the box
+  p = await lib.open(ctx, base, "games/yi/");
+  const adaStarts = () => p.evaluate(() => {
+    const r = Math.random; Math.random = () => 0.3;   // CPU Ada starts
+    document.getElementById("startBtn").click();
+    Math.random = r;
+  });
+  const quitBtn = () => p.evaluate(() => document.getElementById("newHandBtn").click());
+  const onSetup = () => p.evaluate(() => getComputedStyle(document.getElementById("setup")).display !== "none");
+  const adaMoved = () => p.waitForFunction(() => G && (G.discard.length > 1 || G.players[1].hand.length !== 7), null, { timeout: 6000 }).then(() => true, () => false);
+  await adaStarts();
+  await p.evaluate(() => { G.acted = true; });
+  await quitBtn(); await settle(p);
+  const box = await p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return d && { title: d.querySelector("h2").textContent, ok: [...d.querySelectorAll("button")].map((b) => b.textContent).join("|") }; });
+  await p.waitForTimeout(2000);
+  const waited = await p.evaluate(() => G && { ada: G.players[1].hand.length, discard: G.discard.length });
+  await p.keyboard.press("Escape"); await settle(p);
+  const kept = { dlg: await dlg(p), setup: await onSetup() };
+  const goesOn = await adaMoved();
+  await quitBtn(); await settle(p);
+  await p.keyboard.press("Enter"); await settle(p);
+  const quit = { setup: await onSetup(), g: await p.evaluate(() => G === null) };
+  await adaStarts();
+  const next = await adaMoved();   // nothing left holding the table after the box said Quit
+  check("yi: mid-hand, Quit to menu asks 'Quit this game?' with the table waiting; Esc keeps playing, Enter quits, and the next deal plays on",
+    !!box && box.title === "Quit this game?" && /Quit/.test(box.ok) && !!waited && waited.ada === 7 && waited.discard === 1 &&
+      !kept.dlg && !kept.setup && goesOn && quit.setup && quit.g && next,
+    { box, waited, kept, goesOn, quit, next });
+
+  // ...but with nothing played yet it goes at once, and so does a finished hand's Menu (guards)
+  await quitBtn(); await settle(p);
+  await p.keyboard.press("Enter"); await settle(p);   // (Ada has moved: that one asks)
+  await p.evaluate(() => { document.getElementById("startBtn").click(); document.getElementById("newHandBtn").click(); });
+  await settle(p);
+  const idle = { dlg: await dlg(p), setup: await onSetup() };
+  await p.click('#modeSeg button[data-m="points"]');
+  await deal(p);
+  await p.evaluate(() => { G.acted = true; totals[0] = 100; G.players[1].hand = [mk("red", "number", 5)]; endHand(0); });
+  await p.click("#menuBtn"); await settle(p);
+  const between = { dlg: await dlg(p), setup: await onSetup() };
+  check("yi: Quit to menu before anyone has moved, and Menu on a finished hand, go straight to setup",
+    !idle.dlg && idle.setup && !between.dlg && between.setup, { idle, between });
+  await done(p, "yi quit asks");
+
   await ctx.close();
 };

@@ -2046,6 +2046,9 @@ class Game {
     ];
     // Guide button on the menu
     this.guideButton = { x: 140, y: 470, w: 200, h: 48, label: 'OBSTACLE GUIDE' };
+    // Menu button on the game-over card: a touch screen's only way back to the
+    // lives switch and the guide (there's no M or Backspace to press)
+    this.menuButton = { x: 160, y: 572, w: 160, h: 46, label: 'MENU' };
 
     // Bind event listeners
     window.addEventListener('resize', () => this.resize());
@@ -2106,10 +2109,16 @@ class Game {
 
   resize() {
     const scale = Math.min(window.innerWidth / CANVAS_W, window.innerHeight / CANVAS_H);
-    this.canvas.width = CANVAS_W;
-    this.canvas.height = CANVAS_H;
-    this.canvas.style.width = (CANVAS_W * scale) + 'px';
-    this.canvas.style.height = (CANVAS_H * scale) + 'px';
+    const cssW = CANVAS_W * scale, cssH = CANVAS_H * scale;
+    // The backing store at device pixels (to 2x), so it's sharp on retina and
+    // phones; everything still draws in CANVAS_W x CANVAS_H units through the
+    // transform. (Runs again on a resize, which a zoom or a new screen sends.)
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.canvas.width = Math.round(cssW * dpr);
+    this.canvas.height = Math.round(cssH * dpr);
+    this.canvas.style.width = cssW + 'px';
+    this.canvas.style.height = cssH + 'px';
+    this.ctx.setTransform(this.canvas.width / CANVAS_W, 0, 0, this.canvas.height / CANVAS_H, 0, 0);
   }
 
   init() {
@@ -2190,11 +2199,18 @@ class Game {
         this.bird.flap();
         this.playSound('flap');
         break;
-      case 'GAMEOVER':
+      case 'GAMEOVER': {
         // a flap mashed as you crash mustn't skip the card
         if (this.overTimer > 0) break;
+        // MENU goes back to the menu, as M does; a tap anywhere else plays again
+        const m = this.menuButton;
+        if (x !== undefined && x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h) {
+          this.init();
+          break;
+        }
         this.setState('PLAYING');
         break;
+      }
       case 'INFO':
         // Any tap/click/space exits the guide back to the menu
         this.gameState = 'MENU';
@@ -2429,12 +2445,13 @@ class Game {
     // Blinking call-to-action
     if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       // outlined() with a keycap: the same drop shadow, then the INK-outlined text
-      const cta = 'TAP / [SPACE] TO START';
+      // (on a touch-only device, without the key: there's none to press)
+      const cta = 'TAP / [SPACE] TO START', touch = 'TAP TO START';
       ctx.font = '30px ' + FONT;
       ctx.fillStyle = 'rgba(20,10,60,0.35)';
-      keyHint(ctx, cta, CANVAS_W / 2, 592, { outline: { width: 7, color: 'rgba(20,10,60,0.35)' } });
+      keyHint(ctx, cta, CANVAS_W / 2, 592, { outline: { width: 7, color: 'rgba(20,10,60,0.35)' }, touch: touch });
       ctx.fillStyle = '#ffffff';
-      keyHint(ctx, cta, CANVAS_W / 2, 590, { outline: { width: 7, color: INK } });
+      keyHint(ctx, cta, CANVAS_W / 2, 590, { outline: { width: 7, color: INK }, touch: touch });
     }
 
     // Controls hint
@@ -2444,14 +2461,17 @@ class Game {
     ctx.fillStyle = INK;
     // two lines: with keycaps the controls no longer fit across the canvas
     const hintOutline = { outline: { width: 4, color: 'rgba(255,255,255,0.9)' } };
-    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] / [Esc] pause', CANVAS_W / 2, 634, hintOutline);
-    keyHint(ctx, '[1] / [3] switch mode   ·   [I] guide', CANVAS_W / 2, 658, hintOutline);
+    // touch-only: a tap flaps and the ⏸ button pauses; the mode and guide
+    // buttons above say the rest, so that line goes
+    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] / [Esc] pause', CANVAS_W / 2, 634,
+      Object.assign({ touch: 'TAP to flap   ·   ⏸ to pause' }, hintOutline));
+    keyHint(ctx, '[1] / [3] switch mode   ·   [I] guide', CANVAS_W / 2, 658, Object.assign({ touch: '' }, hintOutline));
   }
 
   drawGameOver(ctx) {
     ctx.fillStyle = 'rgba(20,20,70,0.28)';
     ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-    card(ctx, 50, 110, 380, 470);
+    card(ctx, 50, 110, 380, 530);   // (tall enough for the MENU button)
 
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -2529,11 +2549,13 @@ class Game {
     if (reducedMotion() || Math.floor(this.blinkTimer * 2) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '22px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512);
+      keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512, { touch: 'TAP TO PLAY AGAIN' });
     }
     ctx.font = '16px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    keyHint(ctx, '[M] or [⌫] for menu (change mode)', CANVAS_W / 2, 550);
+    keyHint(ctx, '[M] or [⌫] for menu (change mode)', CANVAS_W / 2, 550, { touch: 'TAP MENU TO CHANGE MODE' });
+    // the menu, for a tap or a click (handleInput)
+    button(ctx, this.menuButton, '#dff0ff', '#8fb8e8', this.menuButton.label, '#1c5fb8', 22);
   }
 
   drawPause(ctx) {
@@ -2546,7 +2568,7 @@ class Game {
     outlined(ctx, 'PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30, 54, '#4fb3ff', { line: 9, drop: 5 });
     ctx.font = '20px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    keyHint(ctx, '[P] OR [ESC] TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34);
+    keyHint(ctx, '[P] OR [ESC] TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34, { touch: 'TAP ▶ TO RESUME' });   // (the ⏸ button turns ▶)
   }
 
   drawInfo(ctx) {
@@ -2626,7 +2648,7 @@ class Game {
     if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '18px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      keyHint(ctx, 'TAP / [SPACE] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46);
+      keyHint(ctx, 'TAP / [SPACE] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46, { touch: 'TAP TO RETURN' });
     }
   }
 

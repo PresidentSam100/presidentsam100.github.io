@@ -304,6 +304,25 @@
       border-radius: 999px;
       padding: 0.15rem 0.7rem;
     }
+    /* Pop ✓: Enter for a phone's number pad, which has no Return key. Only on
+       touch-only devices (a keyboard has Enter); a little green play button. */
+    .pop {
+      display: none;
+      flex: none;
+      cursor: pointer;
+      font-family: var(--ui);
+      font-size: 1.1rem;
+      color: #ffffff;
+      background: linear-gradient(180deg, #7be34f, #3faa2e);
+      border: 3px solid var(--ink);
+      border-radius: 14px;
+      padding: 0.45rem 0.8rem 0.5rem;
+      box-shadow: 0 4px 0 var(--ink);
+      text-shadow: var(--outline);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .pop:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+    @media (hover: none) { .pop { display: block; } }
 
     /* buttons: a BTD green play button, and a blue one */
     .btn {

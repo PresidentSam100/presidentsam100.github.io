@@ -59,7 +59,7 @@
             life. Faster colors give more points!
           </p>
           <p class="power-note">
-            <kbd class="gs-kbd">Space</kbd> — <b>dart storm</b>: the monkey pops the 5 balloons
+            <span class="gs-keys"><kbd class="gs-kbd">Space</kbd></span><span class="gs-touch">The dart button</span> — <b>dart storm</b>: the monkey pops the 5 balloons
             nearest the exit, one at a time. It recharges in 45 seconds.
           </p>
           <div class="settings">
@@ -122,6 +122,9 @@
             spellcheck="false"
             placeholder="type an answer…"
           />
+          <!-- Pop ✓ answers like Enter, for a phone's number pad, which has no
+               Return key (it shows only on touch-only devices) -->
+          <button class="pop" id="pop-btn" type="button">Pop ✓</button>
           <!-- the dart storm (Space): shows its charge, glows when ready -->
           <button class="power" id="power-btn" type="button" aria-label="Dart storm (Space)" title="Dart storm — Space">
             <span class="power-face">
@@ -135,7 +138,7 @@
             <span class="gs-keys"><span class="power-key">SPACE</span></span>
           </button>
         </div>
-        <span class="hint"><kbd class="gs-kbd">Enter</kbd> pops the closest matching balloon · <kbd class="gs-kbd">Space</kbd> throws a dart storm</span>
+        <span class="hint"><span class="gs-keys"><kbd class="gs-kbd">Enter</kbd></span><span class="gs-touch">Pop ✓</span> pops the closest matching balloon · <span class="gs-keys"><kbd class="gs-kbd">Space</kbd></span><span class="gs-touch">the dart button</span> throws a dart storm</span>
       </div>
 
       <p id="byline">made by sam lu (not you)</p>

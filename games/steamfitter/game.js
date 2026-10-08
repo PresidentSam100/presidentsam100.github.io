@@ -6,7 +6,20 @@
 
   var canvas = document.getElementById("game");
   var ctx = canvas.getContext("2d");
-  var W = canvas.width, H = canvas.height;
+  var W = canvas.width, H = canvas.height;   // the board's logical size: everything draws in these units
+  // The backing store has the screen's pixels (up to 2 per CSS pixel), so the
+  // board is sharp on retina screens and phones. A browser zoom changes the
+  // ratio; setting the size resets the context, so the scale goes back on.
+  var boardDpr = 0;
+  function sizeBoard() {
+    var d = Math.min(2, window.devicePixelRatio || 1);
+    if (d === boardDpr) return;
+    boardDpr = d;
+    canvas.width = W * d; canvas.height = H * d;
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+  sizeBoard();
+  window.addEventListener("resize", sizeBoard);
 
   var COLS = 9, ROWS = 7, TS = 64;
   var OX = (W - COLS * TS) / 2, OY = (H - ROWS * TS) / 2;

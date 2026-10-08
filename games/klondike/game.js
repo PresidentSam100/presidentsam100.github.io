@@ -533,22 +533,37 @@
   function closeBox() { $("shade").hidden = true; }
   $("shade").addEventListener("click", function (e) { if (e.target === $("shade")) closeBox(); });
 
-  $("m-new").addEventListener("click", function () { newDeal(); });
-  $("m-restart").addEventListener("click", function () { newDeal(dealSeed, isDaily); });
+  // Restart, a new deal and the draw toggle throw the game in progress away:
+  // mid-game they ask first (GameShell.askQuit, by the leave guard), with the
+  // game paused underneath; going ahead deals unpaused. A fresh deal or a won
+  // one goes at once.
+  var START_OVER = { title: "Start over?", ok: "Start over" }, NEW_GAME = { title: "Start a new game?", ok: "New game" };
+  function askThen(opts, go) {
+    var run = function () { if (PAUSE.resume) PAUSE.resume(); go(); };
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, run); else run();
+  }
+  function restartDeal() { askThen(START_OVER, function () { newDeal(dealSeed, isDaily); }); }
+  function freshDeal() { askThen(NEW_GAME, function () { newDeal(); }); }
+
+  $("m-new").addEventListener("click", freshDeal);
+  $("m-restart").addEventListener("click", restartDeal);
   $("m-undo").addEventListener("click", doUndo);
   $("m-hint").addEventListener("click", showHint);
-  $("m-daily").addEventListener("click", function () { newDeal(today().n * 2654435761 % 0x7fffffff, true); });
+  $("m-daily").addEventListener("click", function () { askThen(NEW_GAME, function () { newDeal(today().n * 2654435761 % 0x7fffffff, true); }); });
   $("m-draw3").addEventListener("click", function () {
-    draw3 = !draw3;
-    store.set("klondike_draw3", draw3 ? "1" : "0");
-    newDeal(null, false);
+    askThen(NEW_GAME, function () {
+      draw3 = !draw3;
+      store.set("klondike_draw3", draw3 ? "1" : "0");
+      newDeal(null, false);
+    });
   });
   $("m-rules").addEventListener("click", function () {
     msgbox("How to play", "Fill the four gold pans from Ace to King, one suit each." +
       "<ul><li>On the table, stack downward in alternating colours; drag any face-up run.</li>" +
       "<li>Only a King may move to an empty column.</li>" +
       "<li>Click the stock to draw; double-click or right-click a card to send it home.</li>" +
-      "<li><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal.</li></ul>",
+      // (the key legend hides on a touch-only device: no keys to press)
+      '<li class="gs-keys"><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal.</li></ul>',
       [["OK", closeBox]]);
   });
   $("autofinish").addEventListener("click", autoFinish);
@@ -562,10 +577,10 @@
     // keeps ../motion-toggle.js from taking it to the games page
     if (!$("shade").hidden) { if (e.key === "Escape") { closeBox(); e.preventDefault(); e.stopImmediatePropagation(); } return; }
     var k = e.key.toLowerCase();
-    if (e.key === "F2" || k === "n") { e.preventDefault(); newDeal(); }
+    if (e.key === "F2" || k === "n") { e.preventDefault(); freshDeal(); }
     else if (k === "u") doUndo();
     else if (k === "h") showHint();
-    else if (k === "r") newDeal(dealSeed, isDaily);
+    else if (k === "r") restartDeal();
     else if (e.key === "Enter" && !$("autofinish").hidden) autoFinish();
   });
 

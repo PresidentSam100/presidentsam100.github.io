@@ -15,4 +15,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("stopwatch: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();
+
+  // the hint names Space with a keyboard; on a touch-only device, just the tap
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/stopwatch/");
+    const hint = await q.evaluate(() => document.querySelector(".hint").innerText);
+    const ok = label === "desktop" ? /^tap the watch or press Space — once/.test(hint) : /^tap the watch — once/.test(hint) && !/Space/.test(hint);
+    check("stopwatch " + label + ": the hint " + (label === "desktop" ? "names Space" : "says tap the watch, no Space"), ok, hint);
+    await q.close();
+    await c.close();
+  }
 };

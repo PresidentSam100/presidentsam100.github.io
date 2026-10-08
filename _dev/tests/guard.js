@@ -121,6 +121,27 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "tall-order space");
   }
 
+  // ---- GameShell.askQuit: a game's own New game / Restart asks the same
+  // question, but only while a game is in progress, with it paused underneath
+  {
+    const p = await lib.open(ctx, base, "games/tall-order/");
+    const ask = () => p.evaluate(() => { window.__went = 0; GameShell.askQuit({ title: "Start over?" }, () => { window.__went++; }); });
+    const box = () => p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return { open: !!d, title: d ? d.querySelector("h2").textContent : "", went: window.__went }; });
+    await ask(); const fresh = await box();
+    await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
+    await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForTimeout(400);
+    await ask(); const mid = await box();
+    const paused = await p.evaluate(() => GameShell.leaveActive() && !!document.querySelector(".gs-dialog"));
+    await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+    const kept = await box();
+    await ask(); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    const quit = await box();
+    check("askQuit: goes at once with no game in progress; mid-game asks first, Esc keeps playing, Enter goes",
+      !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && !kept.open && kept.went === 0 && !quit.open && quit.went === 1 && p.leaves === 0,
+      { fresh, mid, kept, quit, leaves: p.leaves });
+    await done(p, "askQuit");
+  }
+
   // ---- Tile Maze's editor: unsaved work makes "← Back to game" ask too
   {
     const p = await lib.open(ctx, base, "games/tile-maze/editor.html");

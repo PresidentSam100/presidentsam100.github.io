@@ -320,6 +320,13 @@
     }
     return false;
   }
+  // Enter, or the Pop ✓ button on a phone: pop a match, or flag a miss
+  function submitAnswer() {
+    if (!checkAnswer()) {
+      if (input.value !== "") { flashWrong(); playWrong(); }
+      input.value = "";
+    }
+  }
 
   var wrongT = 0;
   function flashWrong() {
@@ -1022,12 +1029,7 @@
         if (!e.repeat) usePower();
         return;
       }
-      if (e.key === "Enter") {
-        if (!checkAnswer()) {
-          if (input.value !== "") { flashWrong(); playWrong(); }
-          input.value = "";
-        }
-      }
+      if (e.key === "Enter") submitAnswer();
     }
   });
 
@@ -1042,6 +1044,14 @@
   // the power button: a click never takes focus from the answer box
   powerBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
   powerBtn.addEventListener("click", usePower);
+  // Pop ✓ (phones): the same, so the number pad stays up for the next answer
+  var popBtn = document.getElementById("pop-btn");
+  popBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  popBtn.addEventListener("click", function () {
+    if (state !== "playing" || PAUSE.isPaused()) return;
+    submitAnswer();
+    input.focus();
+  });
   canvas.addEventListener("pointerdown", function () {
     if (state === "playing") input.focus();
   });

@@ -17,4 +17,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("quick-minute: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();
+
+  // the hint and the menu's rule name the keys with a keyboard; on a
+  // touch-only device they say to tap the left or right side instead
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/quick-minute/");
+    const t = await q.evaluate(() => ({ hint: document.querySelector(".hint").innerText.replace(/\s+/g, " "), rule: document.querySelector("#card .rules li").innerText.replace(/\s+/g, " ") }));
+    const ok = label === "desktop"
+      ? /^←→ or A \/ D to switch lanes · on mobile, tap/.test(t.hint) && /^←→ or A \/ D to change lanes \(tap left\/right on mobile\)/.test(t.rule)
+      : t.hint === "tap the left or right side to switch lanes" && t.rule === "Tap left or right to change lanes.";
+    check("quick-minute " + label + ": the hint and the menu " + (label === "desktop" ? "name the keys" : "say to tap left or right, no keys"), ok, t);
+    await q.close();
+    await c.close();
+  }
 };

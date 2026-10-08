@@ -115,5 +115,23 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("corner-pocket: with Visual FX off the ball-in-hand ring and the called pocket hold still; with it on they pulse", still.off && !still.on, still);
 
+  // ---- How to play: its keys show on a desktop, not on a phone (the touch ways stay)
+  const { devices } = require("@playwright/test");
+  const phone = await lib.newContext(browser, devices["Pixel 7"]);
+  const how = {};
+  for (const [label, c] of [["desktop", ctx], ["phone", phone]]) {
+    p = await lib.open(c, base, "games/corner-pocket/");
+    how[label] = await p.evaluate(() => {
+      document.querySelector(".how").open = true;
+      const kbd = [...document.querySelectorAll(".how kbd")];
+      const text = document.querySelector(".how ul").innerText;
+      return { keys: kbd.length, shown: kbd.filter((k) => k.getClientRects().length > 0).length, wheel: /ribbed wheel/.test(text), bar: /power bar/.test(text), spin: /tap the cue ball icon/.test(text) };
+    });
+    await done(p, label + " how to play");
+  }
+  check("corner-pocket: How to play shows its keys on a desktop and hides them on a phone, keeping the touch ways",
+    how.desktop.keys > 0 && how.desktop.shown === how.desktop.keys && how.phone.shown === 0 && how.phone.wheel && how.phone.bar && how.phone.spin, how);
+  await phone.close();
+
   await ctx.close();
 };

@@ -1834,7 +1834,7 @@ class Game {
       }
       // Backspace on the end screens goes back to the title (Esc leaves for the games page)
       if (k === 'backspace' && (this.mode === 'gameover' || this.mode === 'complete')) {
-        e.preventDefault(); this.resetToAttract(); this.announce('Back to the title.'); return;
+        e.preventDefault(); this.toTitle(); return;
       }
       if (k === 'f') { this.setReducedFlash(!this.reducedFlash); return; } // the old quick toggle (V does the same, site-wide)
       if (k === 'arrowleft' || k === 'a') { this.input.left = true; this.onStageKey(-1); }
@@ -2574,6 +2574,7 @@ class Game {
   gameOver() {
     this.mode = 'gameover';
     this.modeTimer = 0;
+    this.endedAt = this.time;
     if (this.score > this.high) this.high = this.score;
     Store.set('galaga_high', this.high);
     this.announce('Game over. Score ' + this.score + ', stage ' + this.stage + '. Press enter to restart.');
@@ -2583,12 +2584,20 @@ class Game {
   gameComplete() {
     this.mode = 'complete';
     this.modeTimer = 0;
+    this.endedAt = this.time;
     this.enemies = [];
     this.bombs = [];
     if (this.score > this.high) this.high = this.score;
     Store.set('galaga_high', this.high);
     this.announce('Congratulations! All 255 stages cleared. Final score ' + this.score + '.');
     Sound.rescue();
+  }
+
+  // from an end screen back to the title, where the life mode and start
+  // stage are picked (Backspace; on touch, ●)
+  toTitle() {
+    this.resetToAttract();
+    this.announce('Back to the title.');
   }
 
   // ======================================================================
@@ -2936,19 +2945,21 @@ class Game {
         const yy = HEIGHT / 2 - 28 + i * 30;
         this.menuItem(ctx, item, WIDTH / 2, yy, sel ? 16 : 14, sel ? '#ffd23f' : '#8fa0d8', sel);
       });
-      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center');
+      // (on touch the menu has no way to pick; the corner ▶ button resumes)
+      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center', 'TAP ▶ UP TOP TO RESUME');
     } else if (this.mode === 'complete') {
       this.text(ctx, 'CONGRATULATIONS', WIDTH / 2, HEIGHT / 2 - 40, 20, '#ffd23f', 'center');
       this.text(ctx, 'ALL 255 STAGES CLEARED!', WIDTH / 2, HEIGHT / 2 - 10, 14, '#18e0ff', 'center');
       this.text(ctx, 'FINAL SCORE  ' + this.score, WIDTH / 2, HEIGHT / 2 + 18, 13, '#fff', 'center');
       if (this.blinkOn())
-        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center');
-      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center');
+        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
+      // (on touch ● is the way back to the title; ← Games says itself)
+      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center', '● TITLE');
     } else if (this.mode === 'gameover') {
       this.text(ctx, 'GAME OVER', WIDTH / 2, HEIGHT / 2 - 10, 24, '#ff3b5c', 'center');
       if (this.blinkOn())
-        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center');
-      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center');
+        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
+      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center', '● TITLE');
     }
 
     if (this.flashMuteT > 0)
@@ -3079,10 +3090,13 @@ class Game {
     this.text(ctx, '◀  START STAGE  ' + this.startStage + '  ▶', WIDTH / 2, 418, 14, '#18e0ff', 'center');
     this.text(ctx, 'CAPTURE & RESCUE FOR DUAL FIGHTER!', WIDTH / 2, 452, 10, '#8fa0d8', 'center');
 
+    // on touch the ◀ ● ▶ buttons are the pickers, a tap starts; the guide has
+    // no touch way in (and the ← Games button says itself); ✨ is the FX switch
+    const fx = 'VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON');
     if (this.blinkOn())
-      this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center');
-    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE   [ESC] GAMES', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center');
-    this.keys(ctx, '[V] VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON'), WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center');
+      this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
+    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE   [ESC] GAMES', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center', '');
+    this.keys(ctx, '[V] ' + fx, WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center', '✨ ' + fx);
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {
@@ -3095,14 +3109,16 @@ class Game {
 
   // like text(), but each [KEY] is drawn as a keycap (GameShell.drawKeys).
   // Arrow keys use ▲▼◀▶: Courier New has no ↑↓←→, and the fallback glyphs
-  // come out too small to read inside a keycap
-  keys(ctx, str, x, y, size, color, align = 'left') {
+  // come out too small to read inside a keycap. `touch` is what a touch-only
+  // device (no keys to press) reads instead, saying what a tap does there;
+  // "" draws nothing where touch has no way to do it
+  keys(ctx, str, x, y, size, color, align = 'left', touch) {
     if (!(window.GameShell && GameShell.drawKeys)) { this.text(ctx, str.replace(/[[\]]/g, ''), x, y, size, color, align); return; }
     ctx.font = 'bold ' + size + 'px "Courier New", monospace';
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
-    GameShell.drawKeys(ctx, str, x, y);
+    GameShell.drawKeys(ctx, str, x, y, touch == null ? undefined : { touch });
   }
 
   // a centred menu item; when selected, ▶ ◀ flank it without shifting the label
@@ -3159,13 +3175,25 @@ window.addEventListener('load', () => {
   }
 
   // ---- on-screen touch controls (mobile) ----
+  // On the title screen they're its pickers too, as the arrows are on a
+  // keyboard (onStageKey / onMenuKey act only there): ◀ ▶ step the start
+  // stage, and run on while held, as a held arrow does; ● steps the life mode.
+  // On the end screens ● goes back to that title, as Backspace does
   const g = window.game;
   const setInput = (prop, val) => { if (g && g.input) g.input[prop] = val; };
-  function bindHold(id, prop) {
+  function bindHold(id, prop, onTitle, runOn, onEnd) {
     const el = document.getElementById(id);
     if (!el) return;
-    const press = (e) => { e.preventDefault(); Sound.init(); Sound.resume(); setInput(prop, true); };
-    const release = (e) => { e.preventDefault(); setInput(prop, false); };
+    let repeat = 0;
+    const stop = () => { clearTimeout(repeat); repeat = 0; };
+    const step = () => { if (g.mode !== 'attract') return; onTitle(); repeat = setTimeout(step, 60); };
+    const press = (e) => {
+      e.preventDefault(); Sound.init(); Sound.resume(); setInput(prop, true);
+      stop();
+      if (g.mode === 'attract') { onTitle(); if (runOn) repeat = setTimeout(step, 400); }
+      else if (onEnd && (g.mode === 'gameover' || g.mode === 'complete')) onEnd();
+    };
+    const release = (e) => { e.preventDefault(); setInput(prop, false); stop(); };
     el.addEventListener('touchstart', press, { passive: false });
     el.addEventListener('touchend', release, { passive: false });
     el.addEventListener('touchcancel', release, { passive: false });
@@ -3173,9 +3201,11 @@ window.addEventListener('load', () => {
     el.addEventListener('mouseup', release);
     el.addEventListener('mouseleave', release);
   }
-  bindHold('t-left', 'left');
-  bindHold('t-right', 'right');
-  bindHold('t-fire', 'fire');
+  bindHold('t-left', 'left', () => g.onStageKey(-1), true);
+  bindHold('t-right', 'right', () => g.onStageKey(1), true);
+  // (only once the end screen has been up a moment: a fire tap still going as
+  // the run ended mustn't skip past it)
+  bindHold('t-fire', 'fire', () => g.onMenuKey('arrowdown'), false, () => { if (g.time - g.endedAt > 0.8) g.toTitle(); });
 
   // Tap the screen to start a game from the title / game-over / complete screens.
   canvas.addEventListener('touchstart', (e) => {

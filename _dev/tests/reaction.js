@@ -32,4 +32,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("reaction: Ctrl / Alt + Space or Enter are left to the browser (no false start)", claimed.every((x) => !x) && combo.state === "wait" && combo.results === 0, { claimed, combo });
   await p.close();
   await ctx.close();
+
+  // the hint names Space with a keyboard; on a touch-only device, just the tap
+  const { devices } = require("@playwright/test");
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/reaction/");
+    const hint = await q.evaluate(() => document.querySelector(".hint").innerText);
+    const ok = label === "desktop" ? /^tap the street or press Space the moment/.test(hint) : /^tap the street the moment/.test(hint) && !/Space/.test(hint);
+    check("reaction " + label + ": the hint " + (label === "desktop" ? "names Space" : "says tap the street, no Space"), ok, hint);
+    await q.close();
+    await c.close();
+  }
 };

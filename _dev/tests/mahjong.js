@@ -2,10 +2,12 @@
 // clicked with the mouse doesn't take over the run Enter then starts (a
 // Classic deal used to be recorded as the Daily); Ctrl+Z does nothing while
 // paused; a reshuffle drops the old selection, and one that can't re-deal
-// costs nothing and points at Undo; the buttons' keycaps hide on a phone.
+// costs nothing and points at Undo, and so does the no-pairs nudge when no
+// reshuffle can fit; the keycaps hide on a phone.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
-    setLive: function (a) { live = new Set(a); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); }
+    setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
+    nudge: function () { hint(true); }
   };
 })();`];
 
@@ -68,19 +70,39 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("mahjong: a reshuffle that can't re-deal adds no time, says so and points at Undo",
     stack.length === 4 && after.board === before.board && after.t - before.t < 2000 && /undo/i.test(after.note) && /solid/.test(after.undo), { before, after });
   await done(p, "pause and shuffle");
+
+  // ---- the no-pairs nudge points the way on: at Undo when no reshuffle can
+  // fit what's left (the four-high stack), at Shuffle when one can (a row of
+  // four whose free ends don't match)
+  const nudge = async (where, k) => {
+    const pg = await open(ctx);
+    await pg.evaluate(() => Mahjong.start("classic"));
+    const idx = await pg.evaluate((where) => Mahjong.pos().map((q, i) => (where === "stack" ? q[0] === 12 && q[1] === 6 : q[1] === 0 && q[2] === 0 && q[0] >= 2 && q[0] <= 8) ? i : -1).filter((i) => i >= 0), where);
+    await pg.evaluate((a) => { Mahjong.setLive(a[0], a[1]); Mahjong.nudge(); }, [idx, k]);
+    const r = await pg.evaluate(() => ({ undo: document.getElementById("btn-undo").style.outline, shuffle: document.getElementById("btn-shuffle").style.outline, note: document.getElementById("hud-pairs").textContent, pairs: Mahjong.freePairsCount() }));
+    await done(pg, "nudge " + where);
+    return Object.assign({ n: idx.length }, r);
+  };
+  const dead = await nudge("stack", ["d1", "d2", "d1", "d2"]);
+  check("mahjong: with no pairs and no reshuffle that fits, the nudge says so and points at Undo, not Shuffle",
+    dead.n === 4 && dead.pairs === 0 && /solid/.test(dead.undo) && !dead.shuffle && /undo/i.test(dead.note), dead);
+  const row = await nudge("row", ["d1", "d2", "d1", "d2"]);
+  check("mahjong: with no pairs but a reshuffle that fits, the nudge still points at Shuffle (guard)",
+    row.n === 4 && row.pairs === 0 && /solid/.test(row.shuffle) && !row.undo, row);
   await ctx.close();
 
-  // ---- the keycaps on the buttons hide on a touch-only phone: menu, HUD, end card
-  ctx = await lib.newContext(browser, { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  // ---- on a touch-only phone every keycap of the game's own is hidden (the
+  // shared pause card's are game-shell.js's): menu, HUD, end card
+  ctx = await lib.newContext(browser, require("@playwright/test").devices["Pixel 7"]);
   p = await open(ctx);
-  const caps = () => p.evaluate(() => [...document.querySelectorAll("button kbd")].map((k) => { const s = k.closest(".gs-keys"); return k.textContent + ":" + (s ? getComputedStyle(s).display : "unwrapped"); }));
+  const caps = () => p.evaluate(() => [...document.querySelectorAll("kbd")].filter((k) => !k.closest(".gs-pause")).map((k) => { const s = k.closest(".gs-keys"); return k.textContent + ":" + (s ? getComputedStyle(s).display : "unwrapped"); }));
   const onMenu = await caps();
   await p.evaluate(() => Mahjong.start("classic"));
   const inPlay = await caps();
   await clearDesk(p);
   const onCard = await caps();
   const hidden = (c) => c.length > 0 && c.every((x) => /:none$/.test(x));
-  check("mahjong: on a touch-only phone the buttons' keycaps are hidden, on the menu, the HUD and the end card", hidden(onMenu) && hidden(inPlay) && hidden(onCard), { onMenu, inPlay, onCard });
+  check("mahjong: on a touch-only phone every keycap is hidden, on the menu, the HUD and the end card", hidden(onMenu) && hidden(inPlay) && hidden(onCard), { onMenu, inPlay, onCard });
   await done(p, "touch keycaps");
   await ctx.close();
 };

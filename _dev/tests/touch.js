@@ -1,5 +1,6 @@
 // Keycaps on games' own buttons show on a desktop and hide on touch-only
-// devices (no keyboard to press them on).
+// devices (no keyboard to press them on); hint text and canvas hints swap
+// their keys for touch wording there.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
@@ -23,6 +24,24 @@ module.exports = async ({ browser, base, check, lib }) => {
 
     p = await lib.open(ctx, base, "games/crazy-ohio/");
     check(label + ": crazy-ohio's Settings keycap " + (want ? "shows" : "is hidden"), (await shown(p, "#settingsBtn")) === want);
+
+    // the shared pair for hint text, and its canvas twin: keys on a
+    // keyboard, the touch wording on a touch-only device
+    const pair = await p.evaluate(() => {
+      const d = document.body.appendChild(document.createElement("p"));
+      d.innerHTML = '<span class="gs-keys">press <kbd class="gs-kbd">Space</kbd></span><span class="gs-touch">tap</span> to start';
+      const vis = (s) => getComputedStyle(d.querySelector(s)).display !== "none";
+      const drawn = [];
+      const ctx2 = document.createElement("canvas").getContext("2d");
+      const fill = ctx2.fillText.bind(ctx2);
+      ctx2.fillText = (t, x, y) => { drawn.push(t); fill(t, x, y); };
+      GameShell.drawKeys(ctx2, "[Space] to start", 10, 10, { touch: "tap to start" });
+      const out = { keys: vis(".gs-keys"), touch: vis(".gs-touch"), touchOnly: GameShell.touchOnly(), drawn: drawn.join("|") };
+      d.remove();
+      return out;
+    });
+    check(label + ": hint text shows " + (want ? "its keys, not the touch wording" : "the touch wording, not its keys") + ", and so does a canvas hint",
+      pair.keys === want && pair.touch === !want && pair.touchOnly === !want && (want ? /Space/.test(pair.drawn) && !/tap/.test(pair.drawn) : pair.drawn === "tap to start"), pair);
     await p.close();
     await ctx.close();
   }

@@ -43,6 +43,8 @@
       <div class="stat right"><span class="label">WPM</span><span class="value" id="wpm">0</span></div>
       <div class="stat right"><span class="label">Accuracy</span><span class="value" id="acc">100%</span></div>
       <div class="stat right"><span class="label">Lives</span><span class="value" id="lives">♥♥♥</span></div>
+      <!-- Zen has no lives to lose, so this is how a session ends -->
+      <button class="btn ghost hud-end" id="endBtn" type="button" title="End this Zen session (End)" aria-keyshortcuts="End" hidden>End session <span class="gs-keys"><kbd class="gs-kbd">End</kbd></span></button>
     </div>
   </div>
 
@@ -62,7 +64,7 @@
       <button class="mode" data-mode="hard">Hardcore</button>
     </div>
     <div class="subtitle" id="modeDesc" style="min-height:24px;color:var(--accent);font-size:13px;max-width:100%;"></div>
-    <div class="subtitle" style="font-size:12px;letter-spacing:1px;opacity:.8;"><kbd class="gs-kbd key">◂</kbd><kbd class="gs-kbd key">▸</kbd> choose mode · <kbd class="gs-kbd key">Enter</kbd> to start</div>
+    <div class="subtitle gs-keys" style="font-size:12px;letter-spacing:1px;opacity:.8;"><kbd class="gs-kbd key">◂</kbd><kbd class="gs-kbd key">▸</kbd> choose mode · <kbd class="gs-kbd key">Enter</kbd> to start</div>
     <button class="btn" id="startBtn">Begin ▸</button>
     <div class="best" id="startBest"></div>
   </div>
@@ -82,7 +84,7 @@
       <button class="btn" id="againBtn">Play Again ▸</button>
       <button class="btn ghost" id="menuBtn">◂ Menu</button>
     </div>
-    <div class="subtitle" style="font-size:12px;letter-spacing:1px;opacity:.8;"><kbd class="gs-kbd key">◂</kbd><kbd class="gs-kbd key">▸</kbd> choose · <kbd class="gs-kbd key">Enter</kbd> select · <kbd class="gs-kbd key" title="Backspace">⌫</kbd> menu</div>
+    <div class="subtitle gs-keys" style="font-size:12px;letter-spacing:1px;opacity:.8;"><kbd class="gs-kbd key">◂</kbd><kbd class="gs-kbd key">▸</kbd> choose · <kbd class="gs-kbd key">Enter</kbd> select · <kbd class="gs-kbd key" title="Backspace">⌫</kbd> menu</div>
   </div>
 </div>
 

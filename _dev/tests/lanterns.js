@@ -57,6 +57,43 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("lanterns: the results show the night's best streak, not the one it ended on", /×1\.1/.test(streak), streak);
   await done(p, "results");
 
+  // ---- a short word that's the start of a longer one waits for the next letter
+  p = await open();
+  const up = () => p.evaluate(() => Lanterns.active().map((l) => l.hanzi).sort().join(""));
+  const fresh = async (...words) => {
+    await p.evaluate((words) => { Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0); words.forEach((w, i) => Lanterns.spawnWord(w, 0.2 + i * 0.3, 300 - i * 40)); }, words);
+    await p.waitForTimeout(50);
+  };
+  await fresh("你", "年");
+  await p.keyboard.type("nian"); await p.waitForTimeout(50);
+  const long = { up: await up(), lit: await p.evaluate(() => Lanterns.clearedCount()), streak: await p.evaluate(() => Lanterns.streakNow()) };
+  check("lanterns: with 你 up, typing nian lights 年 (ni doesn't light 你 on the way)", long.up === "你" && long.lit === 1 && long.streak === 1, long);
+  await fresh("你");
+  await p.keyboard.type("ni"); await p.waitForTimeout(50);
+  const alone = await up();
+  check("lanterns: 你 on its own still lights the moment ni is typed", alone === "", alone);
+  await fresh("你", "年");
+  await p.keyboard.type("ni"); await p.waitForTimeout(100);
+  const held = await up();
+  await p.waitForTimeout(700);
+  const after = await up();
+  check("lanterns: with 年 up, ni holds 你 a moment, then lights it", held === "你年" && after === "年", { held, after });
+  await fresh("你", "年");
+  await p.keyboard.type("ni"); await p.keyboard.press("Space"); await p.waitForTimeout(50);
+  const spaced = await up();
+  check("lanterns: Space lights the waiting 你 at once", spaced === "年", spaced);
+  await fresh("你", "年", "我");
+  await p.keyboard.type("niwo"); await p.waitForTimeout(50);
+  const next = { up: await up(), lit: await p.evaluate(() => Lanterns.clearedCount()) };
+  check("lanterns: a letter that doesn't go on to 年 lights the waiting 你 and starts the next word", next.up === "年" && next.lit === 2, next);
+  await fresh("你", "年");
+  await p.keyboard.type("ni"); await p.keyboard.press("Escape"); await p.waitForTimeout(900);
+  const pausedWait = await up();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(700);
+  const resumedWait = await up();
+  check("lanterns: a pause holds the wait; after resuming 你 lights", pausedWait === "你年" && resumedWait === "年", { pausedWait, resumedWait });
+  await done(p, "waiting word");
+
   // ---- narrowing the window brings a lantern near its right edge back in
   p = await open();
   await p.evaluate(() => { Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0); Lanterns.spawnWord("我", 0.95, 300); });

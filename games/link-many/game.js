@@ -663,8 +663,14 @@ function setupModeModal(onStart){
 }
 
 // "New Game" returns to mode selection; "Restart" replays the current mode.
-document.getElementById('reset').addEventListener('click', showModeModal);
-document.getElementById('restart').addEventListener('click', init);
+// Mid-game either asks first (GameShell.askQuit, by the leave guard below);
+// New Game asks before its picker opens, as the picker has no way back.
+function askThen(opts, go) {
+  if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, go);
+  else go();
+}
+document.getElementById('reset').addEventListener('click', () => askThen({ title: 'Start a new game?', ok: 'New game' }, showModeModal));
+document.getElementById('restart').addEventListener('click', () => askThen({ title: 'Start over?', ok: 'Start over' }, init));
 
 // Leaving asks first from the player's first move until the game ends, the
 // CPU's turn included. The coin flip, a board with only the CPU's opening disc,

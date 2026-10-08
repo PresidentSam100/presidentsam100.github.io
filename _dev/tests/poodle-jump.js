@@ -27,5 +27,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("poodle-jump: with Visual FX off a black hole is drawn still; with it on its spiral and ring turn", still.off === true && still.on === false, still);
 
+  // ---- the start, pause and game-over notes: keys on a desktop, touch wording on a phone
+  const { devices } = require("@playwright/test");
+  const phone = await lib.newContext(browser, devices["Pixel 7"]);
+  const KEYS = ["←", "→", "A", "D", "Space", "↑", "P", "Esc"], TOUCH = ["Tap to start", "Tap ▶ to resume", "Tap to play again"];
+  const notes = {};
+  for (const [label, c] of [["desktop", ctx], ["phone", phone]]) {
+    p = await lib.open(c, base, "games/poodle-jump/");
+    const drawn = (set) => p.evaluate((set) => new Promise((res) => {
+      eval(set);
+      const g = __game.ctx, o = g.fillText, seen = [];
+      g.fillText = function (t) { seen.push(String(t)); return o.apply(this, arguments); };
+      requestAnimationFrame(() => requestAnimationFrame(() => { g.fillText = o; res(seen); }));
+    }), set);
+    const all = [].concat(await drawn(""), await drawn("__game.start(); __game.paused = true"), await drawn("__game.paused = false; __game.state = 'over'"));
+    notes[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: TOUCH.filter((t) => all.includes(t)) };
+    await done(p, label + " notes");
+  }
+  check("poodle-jump: the start, pause and game-over notes show keys on a desktop and touch wording on a phone",
+    notes.desktop.keys.length === KEYS.length && notes.desktop.touch.length === 0 && notes.phone.keys.length === 0 && notes.phone.touch.length === TOUCH.length, notes);
+  await phone.close();
+
   await ctx.close();
 };

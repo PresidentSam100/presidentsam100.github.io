@@ -475,7 +475,7 @@
     var text = "Passport · Visa Run #" + d.n + (ASK_LABEL[ask] ? " · " + ASK_LABEL[ask] : "") + " (" + d.ymd + ")\n" +
       d.score + "/10 stamps" + (d.typed ? " · typed" : "") + " 🛂\n" +
       location.origin + location.pathname;
-    function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").innerHTML = "Share result <kbd>S</kbd>"; }, 1400); }
+    function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").innerHTML = 'Share result <span class="gs-keys"><kbd>S</kbd></span>'; }, 1400); }
     // (the clipboard wasn't allowed: show the result to copy, in the game's own look)
     function fallback() { if (window.GameShell) GameShell.copyBox({ title: "Copy your result", text: text }); else try { window.prompt("Copy your result:", text); } catch (e) {} }
     if (navigator.share && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {

@@ -546,7 +546,8 @@
       if (!d.done) { d.tries++; writeDaily(d); }
     }
     addStat(false);
-    setStatus('💥 Boom! Tap 🙂 or press <kbd class="gs-kbd">N</kbd> to try again.', "bad", true);
+    // (the key part hides on a touch-only device, where 🙂 is the way)
+    setStatus('💥 Boom! Tap 🙂<span class="gs-keys"> or press <kbd class="gs-kbd">N</kbd></span> to try again.', "bad", true);
     renderStats();
   }
 

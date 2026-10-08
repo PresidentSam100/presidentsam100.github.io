@@ -141,4 +141,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("neon-pinball: a quick tap on LAUNCH plunges the ball past the gate", tap.minY < 150, tap);
   check("neon-pinball: no page errors (touch)", p.errs.length === 0, p.errs);
   await ctx.close();
+
+  // ---- key hints: the start card's controls and the plunger line name keys
+  // with a keyboard, and the taps that work on a touch-only phone
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    ctx = await lib.newContext(browser, opts);
+    p = await lib.open(ctx, base, "games/neon-pinball/");
+    const card = await p.evaluate(() => document.getElementById("startScreen").innerText);
+    await p.evaluate(() => NeonPinball.start("classic"));
+    const hint = await p.evaluate(() => document.getElementById("flipHint").innerText);
+    if (label === "phone") check("neon-pinball: on a touch-only phone the start card and plunger line say tap / LAUNCH, no keys",
+      /tap the left or right half/.test(card) && /LAUNCH/.test(card) && !/Space|nudge/.test(card) && /LAUNCH/.test(hint) && /lane/.test(hint) && !/Space/.test(hint), { card, hint });
+    else check("neon-pinball: with a keyboard the start card and plunger line name the keys",
+      /Space/.test(card) && /nudge/.test(card) && !/tap the left/.test(card) && /Space/.test(hint) && !/LAUNCH/.test(hint), { card, hint });
+    await ctx.close();
+  }
 };

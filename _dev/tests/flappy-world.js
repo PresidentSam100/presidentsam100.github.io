@@ -43,7 +43,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const o0 = await p.evaluate(() => ({ bt: game.blinkTimer, px: game.particles.particles[0].y, y: game.bird.y }));
   await p.keyboard.press("Space");
   const early = await p.evaluate(() => game.gameState);
-  await p.waitForTimeout(600);
+  await p.waitForFunction(() => game.overTimer === 0, null, { timeout: 5000 }); await p.waitForTimeout(50);   // (game time: slower than the clock on a busy machine)
   const o1 = await p.evaluate(() => ({ bt: game.blinkTimer, px: game.particles.particles.length ? game.particles.particles[0].y : null, y: game.bird.y }));
   check("flappy-world: on the game-over card the prompt keeps blinking and the crash burst plays out; the bird stays where it fell",
     o1.bt > o0.bt + 0.3 && o1.px !== o0.px && o1.y === o0.y, { o0, o1 });
@@ -133,6 +133,77 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("flappy-world: with Visual FX off the menu bird and the Boos hold still; with it on they bob and pulse",
     still.off.bird && still.off.boo && !still.on.bird && !still.on.boo, still);
+
+  // ---- a phone: the game-over card's MENU goes back to the menu, whose lives
+  // switch and guide take taps too; a tap anywhere else plays again; neither
+  // in the half-second after the crash
+  const { devices } = require("@playwright/test");
+  const phone = await lib.newContext(browser, devices["Pixel 7"]);
+  p = await lib.open(phone, base, "games/flappy-world/");
+  // tap at a point in canvas units; the state after
+  const tapAt = async (x, y) => {
+    const r = await p.evaluate(([x, y]) => { const b = game.canvas.getBoundingClientRect(); return { x: b.left + x * b.width / CANVAS_W, y: b.top + y * b.height / CANVAS_H }; }, [x, y]);
+    await p.touchscreen.tap(r.x, r.y); await p.waitForTimeout(80);
+    return p.evaluate(() => game.gameState);
+  };
+  const menuAt = await p.evaluate(() => { const b = game.menuButton || { x: 160, y: 572, w: 160, h: 46 }; return [b.x + b.w / 2, b.y + b.h / 2]; });
+  const run = {};
+  run.start = await tapAt(240, 700);
+  await p.evaluate(() => game.die());
+  run.locked = await tapAt(...menuAt);
+  const unlocked = () => p.waitForFunction(() => game.overTimer === 0, null, { timeout: 5000 });   // (game time: slower than the clock on a busy machine)
+  await unlocked();
+  run.menu = await tapAt(...menuAt);
+  await tapAt(335, 415); run.lives = await p.evaluate(() => game.livesMode);   // the 3 LIVES button
+  run.guide = await tapAt(240, 494);                                          // OBSTACLE GUIDE
+  run.back = await tapAt(240, 300);
+  run.again = await tapAt(240, 700);
+  await p.evaluate(() => game.die()); await unlocked();
+  run.replay = await tapAt(240, 300);                                         // the card, away from MENU
+  check("flappy-world on a phone: the game-over card's MENU goes to the menu (where taps switch lives and open the guide); a tap elsewhere plays again; not in the half-second after a crash",
+    run.start === "PLAYING" && run.locked === "GAMEOVER" && run.menu === "MENU" && run.lives === 3 && run.guide === "INFO" && run.back === "MENU" && run.again === "PLAYING" && run.replay === "PLAYING", run);
+  await done(p, "phone menu");
+
+  // ---- the canvas hints: keys on a desktop, touch wording on a phone
+  // (Visual FX off, so the blinking prompts are drawn every frame)
+  const KEYS = ["SPACE", "Esc", "ESC", "1", "3", "I", "M", "⌫"];   // (not P: the FLAPPY title draws it, letter by letter)
+  const hints = {};
+  for (const [label, c] of [["desktop", ctx], ["phone", phone]]) {
+    p = await lib.open(c, base, "games/flappy-world/", fxOff(true));
+    const drawn = (set) => p.evaluate((set) => new Promise((res) => {
+      eval(set);
+      const g = game.ctx, o = g.fillText, seen = [];
+      g.fillText = function (t) { seen.push(String(t)); return o.apply(this, arguments); };
+      requestAnimationFrame(() => requestAnimationFrame(() => { g.fillText = o; res(seen); }));
+    }), set);
+    const all = [].concat(
+      await drawn(""),                                                            // the menu
+      await drawn("game.gameState = 'INFO'"),
+      await drawn("game.setState('PLAYING'); game.invincibleTime = 1e9; game.togglePause()"),
+      await drawn("game.togglePause(); game.die(); game.overTimer = 0"));
+    hints[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: ["TAP TO START", "TAP ▶ TO RESUME", "TAP TO RETURN", "TAP TO PLAY AGAIN"].filter((t) => all.includes(t)) };
+    await done(p, label + " hints");
+  }
+  check("flappy-world: the canvas hints show keys on a desktop and touch wording on a phone",
+    hints.desktop.keys.length >= 5 && hints.desktop.touch.length === 0 && hints.phone.keys.length === 0 && hints.phone.touch.length === 4, hints);
+
+  // ---- a 2x screen: the canvas is drawn at device pixels, taps land in place
+  const hi = await lib.newContext(browser, { deviceScaleFactor: 2 });
+  p = await lib.open(hi, base, "games/flappy-world/");
+  const sharp = await p.evaluate(() => {
+    const c = game.canvas, r = c.getBoundingClientRect();
+    const corner = c.getContext("2d").getImageData(c.width - 3, c.height - 3, 1, 1).data[3];   // the ground reaches the far corner
+    return { w: c.width, css: Math.round(r.width), corner };
+  });
+  const three = await p.evaluate(() => { const b = game.canvas.getBoundingClientRect(); return { x: b.left + 335 * b.width / CANVAS_W, y: b.top + 415 * b.height / CANVAS_H }; });
+  await p.mouse.click(three.x, three.y); await p.waitForTimeout(80);
+  const t2a = await p.evaluate(() => game.lastTs); await p.waitForTimeout(200);
+  const hiRun = { lives: await p.evaluate(() => game.livesMode), drawing: (await p.evaluate(() => game.lastTs)) > t2a };
+  check("flappy-world on a 2x screen: the canvas has twice its CSS pixels and fills them, a click lands on 3 LIVES, and it keeps drawing",
+    Math.abs(sharp.w - 2 * sharp.css) <= 2 && sharp.corner === 255 && hiRun.lives === 3 && hiRun.drawing, { sharp, hiRun });
+  await done(p, "2x");
+  await hi.close();
+  await phone.close();
 
   await ctx.close();
 };

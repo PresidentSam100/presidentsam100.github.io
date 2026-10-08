@@ -33,5 +33,34 @@ module.exports = async ({ browser, base, check, lib }) => {
   const rules = await p.evaluate(() => document.getElementById("rulesModal").classList.contains("open"));
   check("link-many: Esc with the Rules open closes them instead of leaving the game", !rules && p.leaves === 0, { rulesOpen: rules, leaves: p.leaves });
   await done(p, "rules Esc");
+
+  // ---- mid-game, Restart and New Game ask first: Esc keeps the game, Enter
+  // goes (New Game's picker only once it's said yes)
+  const title = (pg) => pg.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+  const ask = async (btn, want, after) => {
+    const pg = await open();
+    await pg.evaluate(() => __game.humanMove(3));
+    await pg.waitForFunction(() => !__game.busy, null, { timeout: 4000 });
+    const press = () => pg.evaluate((b) => document.querySelector(b).click(), btn);
+    await press(); await pg.waitForTimeout(80);
+    const t = await title(pg), picker0 = await pg.evaluate(() => document.getElementById("modeModal").classList.contains("open"));
+    await pg.keyboard.press("Escape"); await pg.waitForTimeout(80);
+    const kept = await pg.evaluate(() => __game.board[5][3]);
+    await press(); await pg.waitForTimeout(80);
+    await pg.keyboard.press("Enter"); await pg.waitForTimeout(150);
+    const went = await pg.evaluate(after);
+    await done(pg, btn + " asks");
+    return { t, picker0, kept, went, ok: t === want && !picker0 && kept === 1 && went && pg.leaves === 0 };
+  };
+  const restart = await ask("#restart", "Start over?", () => __game.board.every((r) => r.every((v) => v === 0)));
+  check("link-many: Restart mid-game asks \"Start over?\"; Esc keeps the game, Enter starts it over", restart.ok, restart);
+  const fresh = await ask("#reset", "Start a new game?", () => document.getElementById("modeModal").classList.contains("open"));
+  check("link-many: New Game mid-game asks \"Start a new game?\" before its picker opens; Enter opens it", fresh.ok, fresh);
+  // before the player's first disc there's nothing to lose: Restart goes at once
+  p = await open();
+  await p.click("#restart"); await p.waitForTimeout(80);
+  const none = await title(p);
+  check("link-many: Restart before the first move starts over without asking (guard)", none === null, none);
+  await done(p, "restart fresh");
   await ctx.close();
 };

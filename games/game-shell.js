@@ -26,11 +26,15 @@
                                                with its own pause screen
      GameShell.drawKeys(ctx, str, x, y)     -> canvas text with [KEY] drawn
                                                as keycaps
+     GameShell.touchOnly()                  -> true on a touch-only device
+                                               (no keys to name in a hint)
      GameShell.confirm(opts, cb)            -> themed stand-ins for the
      GameShell.alert(opts, cb)                 browser's confirm / alert /
      GameShell.copyBox(opts)                   "copy this" prompt boxes
      GameShell.guardLeave(g)                -> what counts as a game in
                                                progress, so leaving asks first
+     GameShell.askQuit(opts, go)            -> the same question before a
+                                               game's own New game / Restart
    ===================================================================== */
 (function () {
   "use strict";
@@ -469,6 +473,18 @@
     return { render: render };
   }
 
+  // ---- touch-only devices ---------------------------------------------
+  // True where there's no hover, so no keyboard to speak of: the same test
+  // as the CSS that hides .gs-keys and shows .gs-touch (motion-toggle.js).
+  // Read live, as a tablet can gain or lose its keyboard.
+  var noHover = null;
+  function touchOnly() {
+    try {
+      if (!noHover) noHover = window.matchMedia("(hover: none)");
+      return noHover.matches;
+    } catch (e) { return false; }
+  }
+
   // ---- canvas keycaps -------------------------------------------------
   // The canvas version of <kbd class="gs-kbd">, for games that draw their key
   // hints on a canvas: every [KEY] in `str` becomes a keycap, the rest is
@@ -477,9 +493,12 @@
   //   opts.outline: { width, color } strokes the plain text first (for games
   //                 that outline their captions); keycaps then get a solid
   //                 fill in that colour so they stay readable too
-  //   GameShell.drawKeys(ctx, "[P] or [Esc] to resume", W / 2, y);
+  //   opts.touch:   what to draw instead on a touch-only device, where
+  //                 there are no keys to press ("" draws nothing)
+  //   GameShell.drawKeys(ctx, "[P] or [Esc] to resume", W / 2, y, { touch: "tap to resume" });
   function drawKeys(ctx, str, x, y, opts) {
     opts = opts || {};
+    if (opts.touch != null && touchOnly()) str = opts.touch;
     var parts = String(str).split(/(\[[^\]]+\])/).filter(function (t) { return t; });
     var isKey = function (t) { return t.charAt(0) === "[" && t.charAt(t.length - 1) === "]" && t.length > 2; };
     var m = /(\d+(?:\.\d+)?)px/.exec(ctx.font);
@@ -557,6 +576,28 @@
       function (yes) {
         if (yes) go();
         else if (!wasPaused && g.resume) { try { g.resume(); } catch (e) {} }
+      });
+    return true;
+  }
+
+  // The same question for a game's own buttons and keys that throw the game
+  // in progress away without leaving the page (New game, Restart, Menu…):
+  // while guardLeave says a game is in progress it asks first, with the game
+  // paused underneath; otherwise go() runs at once.
+  //   GameShell.askQuit({ title: "Deal a new game?", ok: "New deal" }, newDeal);
+  function askQuit(opts, go) {
+    opts = opts || {};
+    if (!leaveActive()) { go(); return false; }
+    var g = leaveGuard, wasPaused = false;
+    try { wasPaused = !!(g.isPaused && g.isPaused()); } catch (e) {}
+    if (!wasPaused && g.pause) { try { g.pause(); } catch (e) {} }
+    var text = opts.text || (typeof g.text === "function" ? g.text() : g.text);
+    confirmBox({ title: opts.title || "Quit this game?", text: text || "The game in progress will be lost.", ok: opts.ok || "Quit", cancel: "Keep playing", safe: true },
+      function (yes) {
+        // the pause taken for the question goes either way: go() lands on a
+        // menu or a fresh game, which mustn't open under a pause card
+        if (!wasPaused && g.resume) { try { g.resume(); } catch (e) {} }
+        if (yes) go();
       });
     return true;
   }
@@ -761,12 +802,14 @@
     pausable: pausable,
     pauseButton: pauseButton,
     drawKeys: drawKeys,
+    touchOnly: touchOnly,
     confirm: confirmBox,
     alert: alertBox,
     copyBox: copyBox,
     guardLeave: guardLeave,
     leaveActive: leaveActive,
     askLeave: askLeave,
+    askQuit: askQuit,
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

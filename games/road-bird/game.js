@@ -21,12 +21,20 @@ const TRUCK_CHANCE = 0.32;      // chance a vehicle is a truck vs a car (shared 
 // ---------- canvas ----------
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.width = W;
-canvas.height = H;
+// The backing store has the screen's pixels (up to 2 per CSS pixel), so the
+// scene is sharp on retina screens and phones; everything still draws in W × H.
+let dpr = 0;
 function fit() {
   const s = Math.min(window.innerWidth / W, (window.innerHeight - 24) / H);
   canvas.style.width = Math.floor(W * s) + "px";
   canvas.style.height = Math.floor(H * s) + "px";
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  if (d !== dpr) {   // (a browser zoom changes it too; setting the size resets the context)
+    dpr = d;
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
 }
 window.addEventListener("resize", fit);
 fit();
@@ -1343,11 +1351,18 @@ function deadButtonRects() {
   const bw = 300, bh = 50, gap = 14, x = (W - bw) / 2, y0 = H * 0.60;
   return [{ x, y: y0, w: bw, h: bh }, { x, y: y0 + bh + gap, w: bw, h: bh }];
 }
+// the skin turntable and its label, under the mode buttons: a tap changes the
+// skin, as C does (a phone has no C)
+function skinRect() {
+  const top = H * 0.775 - 46;
+  return { x: W / 2 - 110, y: top, w: 220, h: H * 0.815 + 12 - top };
+}
 function handlePointer(clientX, clientY) {
   const p = canvasPos(clientX, clientY);
   if (state === "menu") {
     const rects = menuButtonRects();
     for (let i = 0; i < rects.length; i++) if (inRect(p, rects[i])) { menuSel = i; startSelectedMode(); return; }
+    if (inRect(p, skinRect())) cycleSkin();
   } else if (state === "dead") {
     const r = deadButtonRects();
     if (inRect(p, r[0])) startCurrentMode();
@@ -1849,12 +1864,13 @@ function textCenter(s, x, y, size, color) {
   ctx.fillStyle = color; ctx.fillText(s, x, y);
 }
 // textCenter for key hints: each [KEY] in s is drawn as a keycap
-// (GameShell.drawKeys), outlined like the rest of the caption
-function keysCenter(s, x, y, size, color) {
+// (GameShell.drawKeys), outlined like the rest of the caption; `touch` is
+// drawn instead on a touch-only device ("" for nothing)
+function keysCenter(s, x, y, size, color, touch) {
   ctx.font = "bold " + size + "px 'Trebuchet MS', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = color;
-  window.GameShell.drawKeys(ctx, s, x, y, { outline: { width: Math.max(3, size * 0.14), color: "rgba(0,0,0,.55)" } });
+  window.GameShell.drawKeys(ctx, s, x, y, { outline: { width: Math.max(3, size * 0.14), color: "rgba(0,0,0,.55)" }, touch: touch });
 }
 
 function drawHUD() {
@@ -1999,12 +2015,12 @@ function drawMenu() {
   ctx.beginPath(); ctx.ellipse(px2, py2 + 3, 27, 8, 0, 0, 7); ctx.fill();
   const th = still ? 0 : (performance.now() / 2400) * Math.PI * 2;
   drawChick3D(px2, py2, 1.15, th, sk);
-  keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, H * 0.815, 17, "#fff");
+  keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, H * 0.815, 17, "#fff", "Skin: " + sk.name + "   (tap to change)");
   const nextLocked = SKINS.find(s => be < s.unlock);
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  keysCenter("[↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff");
+  keysCenter("[↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
   ctx.globalAlpha = 1;
 }
 
@@ -2031,7 +2047,8 @@ function drawDead() {
   const r = deadButtonRects();
   drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
   drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false);
-  keysCenter("[SPACE] play again  •  [⌫] menu  •  [ESC] games  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)");
+  // (only keys, so nothing on a phone: the buttons above say it)
+  keysCenter("[SPACE] play again  •  [⌫] menu  •  [ESC] games  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)", "");
 }
 
 function drawPauseOverlay() {
@@ -2039,7 +2056,7 @@ function drawPauseOverlay() {
   textCenter("PAUSED", W / 2, H * 0.42, 56, "#fff");
   const pulse = fxOff() ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);   // (steady with Visual FX off)
   ctx.globalAlpha = pulse;
-  keysCenter("[P] / [Esc] to resume", W / 2, H * 0.54, 20, "#dfe6f0");
+  keysCenter("[P] / [Esc] to resume", W / 2, H * 0.54, 20, "#dfe6f0", "tap to resume");
   ctx.globalAlpha = 1;
 }
 

@@ -66,6 +66,7 @@
     startBtn: document.getElementById("startBtn"),
     againBtn: document.getElementById("againBtn"),
     menuBtn: document.getElementById("menuBtn"),
+    endBtn: document.getElementById("endBtn"),
     startBest: document.getElementById("startBest"),
     modeDesc: document.getElementById("modeDesc"),
     overBest: document.getElementById("overBest"),
@@ -1073,12 +1074,15 @@
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
+    // a phone's keyboard has Enter but no Esc: there, the ⏸ button pauses
+    const pauseKey = '<span class="gs-keys">' + kbd("Esc") + '</span><span class="gs-touch">⏸</span>';
     el.hint.innerHTML = MODES[mode].noTypos
-      ? "HARDCORE — one typo ends the run. " + kbd("Esc") + " to pause."
-      : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + kbd("Esc") + " to pause."
-                   : "Type to cast · " + kbd("Esc") + " to pause.");
+      ? "HARDCORE — one typo ends the run. " + pauseKey + " to pause."
+      : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + pauseKey + " to pause."
+                   : "Type to cast · " + pauseKey + " to pause.");
     el.startScreen.classList.add("hidden");
     el.overScreen.classList.add("hidden");
+    el.endBtn.hidden = mode !== "zen";   // Zen loses no lives, so it ends here
     initStars();
     refreshHud();
     Sound.resume(); Sound.start();
@@ -1097,6 +1101,7 @@
   function gameOver() {
     state = "over";
     overAt = performance.now();
+    el.endBtn.hidden = true;
     try { ti.blur(); } catch (e) {} // close the mobile keyboard
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.rScore.textContent = score;
@@ -1131,8 +1136,15 @@
     else quitToMenu();
   }
 
+  // A Zen session has no lives to run out of, so the player ends it: the End
+  // session button or End (a key no word uses), onto the usual results
+  function endZen() {
+    if (state === "playing" && mode === "zen" && !PAUSE.isPaused()) gameOver();
+  }
+
   function quitToMenu() {
     state = "start";
+    el.endBtn.hidden = true;
     words = []; particles = []; bullets = []; target = null; bomb = null;
     updateTypedDisplay();
     el.hint.textContent = "";
@@ -1159,6 +1171,9 @@
     if (state === "playing" && e.key === "Enter") {
       e.preventDefault();
       useBomb();
+    } else if (state === "playing" && e.key === "End" && mode === "zen" && !e.repeat) {
+      e.preventDefault();
+      endZen();
     } else if (state === "playing" && e.target !== ti && e.key.length === 1 && /[a-zA-Z]/.test(e.key)) {
       // letters typed into the hidden mobile field are handled by its input
       // event instead (avoids double-counting); this covers desktop typing
@@ -1205,6 +1220,7 @@
   el.startBtn.addEventListener("click", () => { Sound.resume(); startGame(); });
   el.againBtn.addEventListener("click", () => { Sound.resume(); startGame(); });
   el.menuBtn.addEventListener("click", quitToMenu);
+  el.endBtn.addEventListener("click", endZen);
   // keep the keyboard cursor in sync when the mouse hovers a button
   el.againBtn.addEventListener("mouseenter", () => { overSel = 0; updateOverSelection(); });
   el.menuBtn.addEventListener("mouseenter", () => { overSel = 1; updateOverSelection(); });
