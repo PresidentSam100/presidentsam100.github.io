@@ -546,6 +546,20 @@ function spawnFeathers(sx, wy, col) {
 function spawnDust(sx, wy) {
   for (let i = 0; i < 5; i++) dusts.push({ x: sx + rand(-12, 12), wy: wy + rand(-2, 2), vx: rand(-26, 26), t: 0 });
 }
+// Visual FX on only: the hop's motion-blur trail (the chicken's last few
+// poses, newest last), a burst of sparkles off a collected coin, and a short
+// screen shake when the chicken is hit
+let trail = [];
+const TRAIL_SEC = 0.07;
+let sparkles = [];
+let shakeT = 0;
+const SHAKE_DUR = 0.35;
+function spawnSparkles(sx, wy) {
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + rand(-0.2, 0.2), sp = rand(100, 190);
+    sparkles.push({ x: sx, wy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, rot: rand(0, 6.3), t: 0, life: rand(0.35, 0.55), white: i % 3 === 0 });
+  }
+}
 function updateFx(dt) {
   if (feathers.length) {
     for (const f of feathers) { f.t += dt; f.x += f.vx * dt; f.wy += f.vy * dt; f.vy += 300 * dt; f.rot += f.vr * dt; }
@@ -555,6 +569,11 @@ function updateFx(dt) {
     for (const d of dusts) { d.t += dt; d.x += d.vx * dt; d.wy -= 10 * dt; }
     dusts = dusts.filter(d => d.t < 0.4);
   }
+  if (sparkles.length) {
+    for (const s of sparkles) { s.t += dt; s.x += s.vx * dt; s.wy += s.vy * dt; s.vx *= Math.pow(0.08, dt); s.vy *= Math.pow(0.08, dt); s.rot += 5 * dt; }
+    sparkles = sparkles.filter(s => s.t < s.life);
+  }
+  if (shakeT > 0) shakeT -= dt;
 }
 function drawFx() { // particles live in world space, so they stay put as the camera scrolls
   for (const d of dusts) {
@@ -575,6 +594,22 @@ function drawFx() { // particles live in world space, so they stay put as the ca
     ctx.restore();
     ctx.globalAlpha = 1;
   }
+  for (const s of sparkles) { // four-point twinkles, shrinking as they fade
+    const k = s.t / s.life, r = 9 * (1 - k * 0.6);
+    ctx.save();
+    ctx.translate(s.x, s.wy - cameraY);
+    ctx.rotate(s.rot);
+    ctx.globalAlpha = 1 - k;
+    ctx.fillStyle = s.white ? "#fffbe6" : "#ffd23d";
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const rr = i % 2 ? r * 0.28 : r, a = i * Math.PI / 4;
+      ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  ctx.globalAlpha = 1;
 }
 const SQUASH_DUR = 0.13;
 let scorePopT = 0;              // brief HUD score "pop" timer, started on each 50-point milestone
@@ -1049,6 +1084,16 @@ function updatePlaying(dt) {
   renderGx += (player.gx - renderGx) * Math.min(1, dt * 18);
   renderGy += (player.gy - renderGy) * Math.min(1, dt * 18);
 
+  // Visual FX on: remember the last few poses for the hop's motion-blur trail
+  // (world coordinates, so it stays put as the camera scrolls); on the ground
+  // it drains away, so a standing chicken has none
+  if (!fxOff() && (hopTimer > 0 || squashT > 0)) {
+    const ps = hopPose();
+    trail.push({ x: (renderGx + 0.5) * TILE, wy: -renderGy * TILE, lift: ps.lift, sclX: ps.sclX, sclY: ps.sclY, face: player.face, t: performance.now() });
+  }
+  const cut = performance.now() - TRAIL_SEC * 1000;
+  while (trail.length && trail[0].t < cut) trail.shift();
+
   // Road/rail collisions are continuous against the chicken's real position: a jump-in flattens the
   // instant it touches the vehicle (no waiting to land), while a vehicle that clears the cell is dodged.
   checkCollisions(wasAir);
@@ -1069,6 +1114,7 @@ function updatePlaying(dt) {
   const crow = getRow(player.gy);
   if (crow.coin && !crow.coin.got && Math.abs(player.gx - coinColOf(crow)) < 0.5) {
     crow.coin.got = true; coins++; coinPop();
+    if (!fxOff()) spawnSparkles(coinColOf(crow) * TILE + TILE / 2, -player.gy * TILE);
     // anchored to the coin's row (not the screen) so it stays over the chicken while the camera catches up
     coinPops.push({ x: coinColOf(crow) * TILE + TILE / 2, r: player.gy, t: 0 });
     checkMilestone(); // a coin can push the score across a 50-boundary too
@@ -1125,8 +1171,11 @@ function death(cause, carryVX, dir) {
     dur: (cause === "trainhit" || cause === "carjump" || cause === "swept") ? 1.1 : 0.9
   };
   sfx(cause === "water" || cause === "swept" ? "splash" : "crash");
-  if (cause !== "water" && cause !== "swept")
+  if (cause !== "water" && cause !== "swept") {
     spawnFeathers((renderGx + 0.5) * TILE, -renderGy * TILE, (SKINS[skinSel] || SKINS[0]).body);
+    if (!fxOff()) shakeT = SHAKE_DUR; // the hit shakes the screen (Visual FX on)
+  }
+  trail = [];
   cluck(0.6, true); // loud panicked death squawk
   saveScore();
 }
@@ -1174,6 +1223,7 @@ function resetWorld() {
   player.face = "up";
   renderGx = player.gx; renderGy = player.gy;
   hopTimer = 0; idleTime = 0; maxRow = 0; lastMilestone = 0; coins = 0; squashT = 0; scorePopT = 0; coinPops = []; eagle = null; deathAnim = null; policeTimer = rand(4, 12); bufferedMove = null; hopCarrying = false; feathers = []; dusts = [];
+  trail = []; sparkles = []; shakeT = 0;
   ensureRows(VIS_ROWS + 3);
   cameraY = autoScrollY = -player.gy * TILE - H * 0.62;
 }
@@ -1723,11 +1773,26 @@ function drawChicken(sx, sy, sclX, sclY, rot, f, skin) {
   ctx.restore();
 }
 
+// The chicken's hop pose right now: how high it is and its squash & stretch
+// (tall and narrow mid-hop, a brief squash on landing).
+function hopPose() {
+  let lift = 0, sclX = 1, sclY = 1;
+  if (hopTimer > 0) {
+    const air = Math.sin((1 - hopTimer / HOP_DUR) * Math.PI); // 0 at ends, 1 mid-air
+    lift = air * TILE * 0.32;
+    sclY = 1 + 0.22 * air; sclX = 1 - 0.14 * air;
+  } else if (squashT > 0) {
+    const k = squashT / SQUASH_DUR; // 1 at landing → 0
+    sclY = 1 - 0.24 * k; sclX = 1 + 0.18 * k;
+  }
+  return { lift, sclX, sclY };
+}
+
 function drawPlayer() {
   const sx = (renderGx + 0.5) * TILE;
   const baseY = (-renderGy * TILE - cameraY);
-  let lift = 0;
-  if (hopTimer > 0) lift = Math.sin((1 - hopTimer / HOP_DUR) * Math.PI) * TILE * 0.32;
+  const pose = hopPose();
+  const lift = pose.lift;
 
   // eagle warning: darkens as the chicken nears the bottom border (where the eagle strikes)
   if (state === "playing") {
@@ -1743,17 +1808,21 @@ function drawPlayer() {
   ctx.fillStyle = "rgba(0,0,0,.22)";
   ctx.beginPath(); ctx.ellipse(sx, baseY + 14, 16 - lift * 0.05, 7, 0, 0, 7); ctx.fill();
 
-  // squash & stretch: tall/narrow mid-hop, a brief squash on landing
-  let sclX = 1, sclY = 1;
-  if (hopTimer > 0) {
-    const air = Math.sin((1 - hopTimer / HOP_DUR) * Math.PI); // 0 at ends, 1 mid-air
-    sclY = 1 + 0.22 * air; sclX = 1 - 0.14 * air;
-  } else if (squashT > 0) {
-    const k = squashT / SQUASH_DUR; // 1 at landing → 0
-    sclY = 1 - 0.24 * k; sclX = 1 + 0.18 * k;
+  // Visual FX on: motion blur, fading copies where the chicken was a moment
+  // ago, so a hop leaves a short trail (trail, recorded in updatePlaying)
+  if (!fxOff() && !paused && trail.length > 1) {
+    ctx.save();
+    for (let i = 0; i < trail.length - 1; i++) {
+      const g = trail[i];
+      ctx.globalAlpha = 0.1 + 0.16 * (i / (trail.length - 1));
+      drawChicken(g.x, g.wy - cameraY - g.lift + (1 - g.sclY) * 13, g.sclX, g.sclY, 0, g.face);
+    }
+    ctx.restore();
   }
-  const foot = (1 - sclY) * 13; // keep the feet planted as it squashes/stretches
-  drawChicken(sx, baseY - lift + foot, sclX, sclY, 0, player.face);
+
+  // squash & stretch (hopPose); keep the feet planted as it squashes/stretches
+  const foot = (1 - pose.sclY) * 13;
+  drawChicken(sx, baseY - lift + foot, pose.sclX, pose.sclY, 0, player.face);
 }
 
 // Renders the death pose/animation for the current deathAnim (everything except the eagle, which has its own swoop).
@@ -2067,6 +2136,10 @@ function render() {
 
   ctx.save();
   ctx.translate(PAD * TILE, 0); // shift the world right so unreachable margins show on each side
+  if (shakeT > 0 && !fxOff()) { // Visual FX on: the hit shakes the scene (not the HUD), easing out
+    const a = 7 * Math.pow(shakeT / SHAKE_DUR, 2);
+    ctx.translate(rand(-a, a), rand(-a, a));
+  }
   // the row the chicken is on — drawn in-loop right after that row so nearer rows can occlude it
   const chickenRow = state === "playing" ? Math.round(renderGy)
     : ((state === "dying" || state === "dead") && deathAnim && deathCause !== "eagle") ? Math.round(deathAnim.gy)

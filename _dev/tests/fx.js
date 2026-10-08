@@ -369,4 +369,46 @@ module.exports = async ({ browser, base, check, lib }) => {
       got.off.scripted === 0 && got.off.rings === 0 && got.off.floats === 0 && got.off.after.score === "4" && got.off.after.top.split(",").length === got.on.after.top.split(",").length, got.off);
     await c6.close();
   }
+
+  // ---- FX-3: Road Bird with FX on: a hop leaves a motion-blur trail, a
+  // collected coin sparkles, and a crash shakes the screen; with FX off the
+  // same play has none of that (the coin still counts)
+  {
+    const c7 = await lib.newContext(browser);
+    const HOOK = ["window.__game = {", `window.__game = {
+  get fx() { return { trail: typeof trail === "undefined" ? 0 : trail.length, sparkles: typeof sparkles === "undefined" ? 0 : sparkles.length, shake: typeof shakeT === "undefined" ? 0 : shakeT }; },
+  get coins() { return coins; },
+  clearRow0: function () { getRow(0).trees.clear(); },
+  coinHere: function () { getRow(player.gy).coin = { col: Math.round(player.gx), got: false }; },`];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await lib.open(c7, base, "games/road-bird/", { before: async (pg) => {
+        await lib.injectScript(pg, "games/road-bird/game.js", [HOOK]);
+        await pg.addInitScript((off) => localStorage.setItem("reduceMotion:road-bird", off ? "1" : "0"), off);
+      } });
+      await p.keyboard.press("Space"); await p.waitForTimeout(300);
+      await p.evaluate(() => __game.clearRow0());
+      // a sideways hop along the start row, watched for half a second
+      const watch = p.evaluate(() => new Promise((res) => {
+        let most = 0; const t0 = performance.now();
+        (function tick() { most = Math.max(most, __game.fx.trail); if (performance.now() - t0 < 500) requestAnimationFrame(tick); else res(most); })();
+      }));
+      await p.keyboard.press("ArrowLeft");
+      const trail = await watch;
+      await p.waitForTimeout(200);
+      const coins0 = await p.evaluate(() => __game.coins);
+      await p.evaluate(() => __game.coinHere()); await p.waitForTimeout(150);
+      const coin = await p.evaluate(() => ({ coins: __game.coins, sparkles: __game.fx.sparkles }));
+      await p.evaluate(() => __game.death("runover"));
+      const shake = await p.evaluate(() => __game.fx.shake);
+      got[off ? "off" : "on"] = { state: await p.evaluate(() => __game.state), trail, gained: coin.coins - coins0, sparkles: coin.sparkles, shake };
+      check("road-bird FX " + (off ? "off" : "on") + ": no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+    check("road-bird, FX on: a hop leaves a motion-blur trail, a coin sparkles as it's collected, a crash shakes the screen",
+      got.on.trail >= 2 && got.on.gained === 1 && got.on.sparkles > 0 && got.on.shake > 0, got.on);
+    check("road-bird, FX off: the same play with no trail, sparkles or shake (the coin still counts)",
+      got.off.trail === 0 && got.off.gained === 1 && got.off.sparkles === 0 && !(got.off.shake > 0), got.off);
+    await c7.close();
+  }
 };

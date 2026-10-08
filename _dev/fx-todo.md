@@ -52,10 +52,13 @@ Done (checked in `tests/fx.js`):
 - 2048. The keys ease into place and land with a squash along their slide, a
   merge squashes the same way before it pops and flashes a lit ring, and the
   points float up off the score.
+- Road Bird. A hop leaves a short motion-blur trail, a collected coin bursts
+  into sparkles, and a crash shakes the screen. (Its hop squash, landing dust,
+  crash feathers and "+1"s were already there, in both modes; left as they were.)
 
 Thin today: Chess and its 3-player board (piece slides, captures to the tray,
-check pulse), LogicGate (signal flowing gate by gate), Road Bird (hop trail,
-coin sparkle), Tic-Tac-Toe (chalk dust), Stopwatch (perfect-stop ring),
+check pulse), LogicGate (signal flowing gate by gate), Tic-Tac-Toe (chalk
+dust), Stopwatch (perfect-stop ring),
 Steamfitter (eased quarter-turn), Yi (deal fan), Hash (deal flip), Minesweeper
 (win wave), Speedle (staggered flip), Abyss (hard-drop trail), Corner Pocket (ball trails), Crazy
 Ohio (hit bursts), Jam Jar (landing squash), Klondike (card arcs), Flappy World
