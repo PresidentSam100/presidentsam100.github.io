@@ -1,5 +1,12 @@
 "use strict";
 
+// Visual FX on (fxOn, utils.js): the bounce gets juice. Each landing squashes
+// the poodle and kicks up pencil dust, it stretches with its speed, and a
+// launch faster than a normal jump trails speed lines. With FX off it's drawn
+// exactly as always, just without that motion. Render-only: the hitbox never
+// changes.
+const SQUASH_TIME = 0.16;
+
 // The poodle character. Moves left/right, bounces automatically, shoots, and
 // can be carried by a power-up (which grants temporary invincibility).
 class Player {
@@ -33,6 +40,10 @@ class Player {
     this.flipping = false;
     this.flipT = 0;
     this.flipDir = 1;
+
+    // Visual FX on only: landing squash and dust puffs (world coordinates)
+    this.squashT = 0;
+    this.dust = [];
   }
 
   // Kick off a single 360° front flip (used by the trampoline).
@@ -65,7 +76,16 @@ class Player {
     Sfx.powerup();
   }
 
-  bounce(v) { this.vy = -v; }
+  bounce(v) {
+    this.vy = -v;
+    if (!fxOn()) return;
+    this.squashT = SQUASH_TIME;
+    const fx = this.x + this.w / 2, fy = this.y + this.h;
+    for (let i = 0; i < 6; i++) {
+      const side = i % 2 ? 1 : -1;
+      this.dust.push({ x: fx + side * rand(4, 14), y: fy - 2, vx: side * rand(50, 130), vy: -rand(15, 70), r: rand(2.5, 5), life: rand(0.3, 0.45), max: 0.45 });
+    }
+  }
 
   update(dt, input) {
     this.prevY = this.y;
@@ -101,6 +121,12 @@ class Player {
 
     if (this.shootTimer > 0) this.shootTimer -= dt;
 
+    if (this.squashT > 0) this.squashT -= dt;
+    if (this.dust.length) {
+      for (const d of this.dust) { d.x += d.vx * dt; d.y += d.vy * dt; d.vx *= Math.pow(0.02, dt); d.vy += 120 * dt; d.life -= dt; }
+      this.dust = this.dust.filter((d) => d.life > 0);
+    }
+
     // Front-flip animation (one full rotation over the flip duration)
     if (this.flipping) {
       const dur = 0.6;
@@ -126,6 +152,42 @@ class Player {
     const cx = this.x + this.w / 2;
 
     ctx.save();
+
+    // Visual FX on: pencil dust from the last landing, speed lines under a
+    // launch faster than a normal jump, and squash and stretch about the feet.
+    // (Not while dying: the death animations have their own motion.)
+    if (fxOn() && this.renderMode === "normal") {
+      this._renderDust(ctx, cameraY);
+      const rise = -this.vy;
+      if (rise > CONFIG.JUMP_V * 1.08 && !this.flipping) {
+        const k = clamp((rise - CONFIG.JUMP_V) / (CONFIG.TRAMPOLINE_V - CONFIG.JUMP_V), 0.15, 1);
+        ctx.strokeStyle = "#9aa7c0";
+        ctx.lineCap = "round";
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 0.25 + 0.35 * k;
+        ctx.beginPath();
+        for (const [dx, len] of [[-11, 1], [0, 1.35], [11, 0.9]]) {
+          ctx.moveTo(cx + dx, sy + this.h + 6);
+          ctx.lineTo(cx + dx, sy + this.h + 6 + 34 * k * len);
+        }
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+      let sxs = 1, sys = 1;
+      if (this.squashT > 0) {
+        const a = 0.24 * (this.squashT / SQUASH_TIME);   // flattened on touchdown, springing back
+        sxs = 1 + a; sys = 1 - a;
+      } else {
+        const s = clamp((Math.abs(this.vy) - 450) / 4000, 0, 0.12);   // stretched by speed, round at the apex
+        sxs = 1 - s * 0.6; sys = 1 + s;
+      }
+      if (sxs !== 1) {
+        const fy = sy + this.h;
+        ctx.translate(cx, fy);
+        ctx.scale(sxs, sys);
+        ctx.translate(-cx, -fy);
+      }
+    }
 
     // Death animations rotate/shrink the whole character about its centre
     if (this.spin !== 0 || this.scale !== 1) {
@@ -281,9 +343,23 @@ class Player {
     ctx.restore();
   }
 
+  // Soft pencil-grey puffs, fading as they drift (Visual FX on only)
+  _renderDust(ctx, cameraY) {
+    if (!this.dust.length) return;
+    ctx.fillStyle = "#9aa7c0";
+    for (const d of this.dust) {
+      const k = clamp(d.life / d.max, 0, 1);
+      ctx.globalAlpha = 0.45 * k;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y - cameraY, d.r * (1.6 - 0.6 * k), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  }
+
   _renderPowerup(ctx, sy) {
     const cx = this.x + this.w / 2;
-    const spin = performance.now() * 0.02;
+    const spin = fxOn() ? performance.now() * 0.02 : 0;   // blades held still with Visual FX off
     if (this.powerup.kind === "jetpack") {
       // Strap the jetpack to the player's back (opposite the facing side)
       const tankX = this.facing >= 0 ? this.x - 4 : this.x + this.w - 12;

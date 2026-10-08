@@ -203,7 +203,7 @@ class PowerUp {
     this.y = p.y - this.h;
   }
 
-  update(dt) { this.spin += dt * 18; }
+  update(dt) { if (fxOn()) this.spin += dt * 18; }   // blades held still with Visual FX off
 
   hits(player) {
     return aabb(player.x, player.y, player.w, player.h, this.x, this.y, this.w, this.h);

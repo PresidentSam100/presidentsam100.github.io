@@ -64,6 +64,8 @@ function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
 function chance(p) { return Math.random() < p; }
 function clamp(v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; }
 function lerp(a, b, t) { return a + (b - a) * t; }
+// The ✨ Visual FX switch (motion-toggle.js): on means the extra motion plays
+function fxOn() { return !(window.RM_ON && window.RM_ON()); }
 
 // Deterministic hash -> [0, 1) from an integer seed (for stable, infinite
 // procedural placement like the parallax clouds).

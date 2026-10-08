@@ -265,4 +265,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
     await c4.close();
   }
+
+  // ---- FX-3: Poodle Jump bounces with juice when FX is on (squash and stretch,
+  // dust, the platform giving); with FX off it still bounces, drawn as always
+  {
+    const c5 = await lib.newContext(browser);
+    const seen = {}, art = {}, prop = {};
+    for (const off of [false, true]) {
+      const p = await lib.open(c5, base, "games/poodle-jump/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:poodle-jump", off ? "1" : "0"), off) });
+      await p.evaluate(() => __game.start());
+      // two seconds of bouncing on the starter platform
+      seen[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        const g = __game, s = { bounces: 0, squash: 0, dust: 0, dip: 0 };
+        let lastVy = g.player.vy;
+        const t0 = performance.now();
+        (function tick() {
+          const pl = g.player;
+          if (pl.vy < -500 && lastVy >= 0) s.bounces++;
+          lastVy = pl.vy;
+          s.squash = Math.max(s.squash, pl.squashT || 0);
+          s.dust = Math.max(s.dust, (pl.dust || []).length);
+          s.dip = Math.max(s.dip, ...g.platforms.map((x) => x.dipT || 0));
+          if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else res(s);
+        })();
+      }));
+      // the poodle drawn on landing (squashed, with dust) and at rest: one
+      // picture with FX off, two with it on
+      art[off ? "off" : "on"] = await p.evaluate(() => {
+        const cv = document.createElement("canvas"); cv.width = 120; cv.height = 140; const c = cv.getContext("2d");
+        const draw = (land) => {
+          const pl = new Player(); pl.x = 38; pl.y = 50; pl.vy = 0;
+          if (land) { pl.bounce(0); pl.vy = 0; }
+          c.clearRect(0, 0, 120, 140); pl.render(c, 0); return cv.toDataURL();
+        };
+        return draw(true) === draw(false);
+      });
+      // a propeller pickup a moment apart: its blades turn only with FX on
+      prop[off ? "off" : "on"] = await p.evaluate(() => {
+        const cv = document.createElement("canvas"); cv.width = 80; cv.height = 80; const c = cv.getContext("2d");
+        const it = new PowerUp(new Platform(10, 60, PT.GREEN), "propeller");
+        const shot = () => { c.clearRect(0, 0, 80, 80); it.render(c, 0); return cv.toDataURL(); };
+        const a = shot(); it.update(0.1); return a === shot();
+      });
+      check("poodle-jump FX " + (off ? "off" : "on") + ": no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+    check("poodle-jump, FX on: each landing squashes the poodle, kicks up dust and dips the platform; the landing frame looks different",
+      seen.on.bounces > 0 && seen.on.squash > 0 && seen.on.dust > 0 && seen.on.dip > 0 && art.on === false, { seen: seen.on, sameArt: art.on });
+    check("poodle-jump, FX off: it still bounces, with no squash, dust or dip, and the poodle is drawn exactly as always",
+      seen.off.bounces > 0 && seen.off.squash === 0 && seen.off.dust === 0 && seen.off.dip === 0 && art.off === true, { seen: seen.off, sameArt: art.off });
+    check("poodle-jump: a propeller's blades turn with FX on and hold still with it off", prop.on === false && prop.off === true, prop);
+    await c5.close();
+  }
 };

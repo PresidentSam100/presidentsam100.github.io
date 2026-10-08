@@ -26,6 +26,7 @@ class Platform {
 
     this.booster = null;      // optional Booster (spring/trampoline) on top
     this.powerup = null;      // optional PowerUp (jetpack/propeller) on top
+    this.dipT = 0;            // Visual FX on: the platform gives under a landing (drawn only)
 
     // A stable per-platform wobble seed, so the hand-drawn outline doesn't
     // shimmer as frames redraw.
@@ -82,6 +83,7 @@ class Platform {
     if (this.booster) { this.booster.followPlatform(this); this.booster.update(dt); }
     if (this.powerup && !this.powerup.dead) { this.powerup.followPlatform(this); this.powerup.update(dt); }
 
+    if (this.dipT > 0) this.dipT -= dt;
     if (this.broken) {
       this.breakT += dt;
       if (this.breakT > 0.5) this.dead = true;
@@ -95,6 +97,7 @@ class Platform {
   // Called when the player lands. Returns the launch velocity (positive number),
   // or 0 if the platform gives no bounce (a fake breaking).
   onLand(player) {
+    if (fxOn()) this.dipT = 0.2;
     switch (this.type) {
       case PT.BROWN:
         this.broken = true;
@@ -118,7 +121,10 @@ class Platform {
   }
 
   render(ctx, cameraY) {
-    const sy = this.y - cameraY;
+    let sy = this.y - cameraY;
+    // Visual FX on: a quick dip and spring back where the poodle landed (the
+    // landing surface itself never moves; FX off it stays put)
+    if (this.dipT > 0 && fxOn()) sy += 5 * Math.sin(Math.PI * (1 - this.dipT / 0.2));
     ctx.save();
 
     if (this.broken) {
