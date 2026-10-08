@@ -8,7 +8,9 @@
      glosses from drkameleon/complete-hsk-vocabulary (github), which
      compiles the official HSK lists with CC-CEDICT readings.
    - curated.js: this game's original hand-checked entries; they win
-     over the dataset wherever both know a word.
+     over the dataset wherever both know a word. A curated row may carry
+     a 5th element (traditional form) that wins over the dataset's; a 5th
+     equal to the simplified means "no distinct traditional form".
 
    Keeps bands 1-6, pure-CJK words of 1-4 characters whose pinyin
    splits one syllable per character (so the tone-mark renderer is
@@ -25,7 +27,7 @@ const raw = JSON.parse(fs.readFileSync(srcPath, "utf8"));
 const sandbox = { window: {} };
 new Function("window", fs.readFileSync(path.join(__dirname, "curated.js"), "utf8"))(sandbox.window);
 const curated = new Map();
-for (const [hz, pin, gloss, tier] of sandbox.window.LanternWords) curated.set(hz, [hz, pin, gloss, tier]);
+for (const row of sandbox.window.LanternWords) curated.set(row[0], row);   // [hz, pin, gloss, tier, trad?]
 
 // ---- helpers ----------------------------------------------------------------
 const isCJK = (s) => [...s].every((ch) => /[\u4e00-\u9fff]/.test(ch));
@@ -49,7 +51,9 @@ function normNumeric(num) {
 function pickGloss(meanings) {
   for (let m of meanings || []) {
     m = m.trim();
-    if (/^(surname|old variant|variant of|used in)/i.test(m)) continue;
+    // skip cross-references and senses no learner wants as "the" meaning
+    if (/^(surname|old variant|variant of|used in|see |erhua variant|euphemistic|\(Tw\)|abbr\. for)/i.test(m)) continue;
+    if (/radical in Chinese characters/i.test(m)) continue;
     m = m.replace(/\s*\(CL:[^)]*\)/g, "").replace(/\s+/g, " ").trim();
     if (!m) continue;
     if (m.length > 52) m = m.slice(0, 49).replace(/[,;/ ]+\S*$/, "") + "…";
@@ -74,7 +78,8 @@ for (const e of raw) {
   const toks = normNumeric(form.transcriptions.numeric);
   if (!toks) { dropped.pinyin++; continue; }
   if (toks.length !== hz.length) { dropped.syll++; continue; }
-  const gloss = pickGloss(form.meanings);
+  // a curated word whose every sense is skipped keeps its place (its gloss wins anyway)
+  const gloss = pickGloss(form.meanings) || (curated.has(hz) ? curated.get(hz)[2] : null);
   if (!gloss) { dropped.gloss++; continue; }
   const tier = band <= 2 ? 1 : band <= 4 ? 2 : 3;
   const trad = (form.traditional && form.traditional !== hz &&
@@ -82,12 +87,14 @@ for (const e of raw) {
   const row = trad ? [hz, toks.join(" "), gloss, tier, trad] : [hz, toks.join(" "), gloss, tier];
   if (!out.has(hz)) out.set(hz, { row, freq: e.frequency || 99999 });
 }
-// curated entries win on pinyin/gloss/tier, and pick up the dataset's
-// traditional form; curated-only words fall back to their simplified.
+// curated entries win on pinyin/gloss/tier, and on the traditional form
+// when they give one; otherwise they pick up the dataset's. Curated-only
+// words fall back to their simplified.
 for (const [hz, row] of curated) {
   const prev = out.get(hz);
-  const trad = prev && prev.row[4] ? prev.row[4] : null;
-  out.set(hz, { row: trad ? row.concat([trad]) : row, freq: (prev || {}).freq || 0 });
+  const trad = row.length > 4 ? row[4] : (prev && prev.row[4] ? prev.row[4] : null);
+  const base = row.slice(0, 4);
+  out.set(hz, { row: trad && trad !== hz ? base.concat([trad]) : base, freq: (prev || {}).freq || 0 });
 }
 
 const rows = [...out.values()]
