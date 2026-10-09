@@ -411,4 +411,43 @@ module.exports = async ({ browser, base, check, lib }) => {
       got.off.trail === 0 && got.off.gained === 1 && got.off.sparkles === 0 && !(got.off.shake > 0), got.off);
     await c7.close();
   }
+
+  // ---- FX-3: LogicGate with FX on: ⚡ Check sends the signal gate by gate
+  // (the wires draw on, each gate's answer shows as the signal reaches it),
+  // and the verdict waits for it to reach the bulb; with FX off the verdict
+  // is at once. Either way the board ends up exactly the same.
+  {
+    const c8 = await lib.newContext(browser);
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await lib.open(c8, base, "games/logicgate/");
+      // Set Inputs, level 4 "Two of Three": AND(OR(A, B), C), lit by A = 1, B = 0, C = 1
+      await p.evaluate((off) => {
+        localStorage.setItem("reduceMotion:logicgate", off ? "1" : "0");
+        localStorage.setItem("logicgate_mode", "inputs");
+        localStorage.setItem("logicgate_progress", JSON.stringify({ gates: { unlocked: 0, solved: [] }, inputs: { unlocked: 3, solved: [] } }));
+      }, off);
+      await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+      for (const [lab, clicks] of [["A", 2], ["B", 1], ["C", 2]])
+        for (let k = 0; k < clicks; k++) await p.evaluate((lab) => [...document.querySelectorAll(".input.toggle")].find((n) => n.querySelector(".lbl").textContent === lab).click(), lab);
+      const look = () => p.evaluate(() => ({ status: document.getElementById("status").textContent, flowing: document.querySelectorAll("#wires .wire.flow, #nodes .gout.flow").length,
+        banner: document.getElementById("winBanner").classList.contains("show"), lit: !!document.querySelector(".node.bulb.lit") }));
+      await p.click("#checkBtn");
+      const s0 = await look();
+      await p.waitForFunction(() => !/Sending/.test(document.getElementById("status").textContent), null, { timeout: 5000 });
+      await p.waitForTimeout(100);
+      const s1 = await look();
+      s1.board = await p.evaluate(() => document.getElementById("wires").innerHTML + document.getElementById("nodes").innerHTML);
+      got[off ? "off" : "on"] = { s0, s1 };
+      check("logicgate FX " + (off ? "off" : "on") + ": no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+    const { on, off } = got;
+    check("logicgate, FX on: Check sends the signal along the wires gate by gate, and the bulb, status and banner wait for it",
+      /Sending/.test(on.s0.status) && on.s0.flowing > 0 && !on.s0.banner && !on.s0.lit && /lit/.test(on.s1.status) && on.s1.banner && on.s1.lit && on.s1.flowing === 0, { s0: on.s0, s1: { ...on.s1, board: undefined } });
+    check("logicgate, FX off: Check gives its verdict at once, with nothing travelling",
+      !/Sending/.test(off.s0.status) && /lit/.test(off.s0.status) && off.s0.banner && off.s0.lit && off.s0.flowing === 0, off.s0);
+    check("logicgate: FX on or off, the checked board ends up drawn exactly the same", on.s1.board === off.s1.board, { on: on.s1.board.length, off: off.s1.board.length });
+    await c8.close();
+  }
 };

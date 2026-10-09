@@ -36,6 +36,9 @@ Done (checked in `tests/fx.js`):
 - Road Bird. A hop leaves a short motion-blur trail, a collected coin bursts
   into sparkles, and a crash shakes the screen. (Its hop squash, landing dust,
   crash feathers and "+1"s were already there, in both modes; left as they were.)
+- LogicGate. On Check the signal travels gate by gate, each wire lighting in
+  turn, and the bulb lights only when it arrives; with FX off the verdict is
+  immediate and the board ends up the same.
 
 Done (checked in `tests/fx-more.js`):
 - Corner Pocket. The cue drives through the ball on a shot, a hard hit throws
@@ -44,8 +47,7 @@ Done (checked in `tests/fx-more.js`):
   from the square it left, a capture flies off to its tray (with four or three
   players it shrinks away where it fell), and a king in check pulses.
 
-Thin today: LogicGate (signal flowing gate by gate), Tic-Tac-Toe (chalk
-dust), Stopwatch (perfect-stop ring),
+Thin today: Tic-Tac-Toe (chalk dust), Stopwatch (perfect-stop ring),
 Steamfitter (eased quarter-turn), Yi (deal fan), Hash (deal flip), Minesweeper
 (win wave), Speedle (staggered flip), Abyss (hard-drop trail), Crazy
 Ohio (hit bursts), Jam Jar (landing squash), Klondike (card arcs), Flappy World

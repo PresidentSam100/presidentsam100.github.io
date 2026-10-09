@@ -71,9 +71,12 @@
         <span id="status"></span>
       </div>
 
-      <div id="board">
-        <svg id="wires" xmlns="http://www.w3.org/2000/svg"></svg>
-        <div id="nodes"></div>
+      <!-- the frame scrolls sideways when a big circuit is wider than a phone -->
+      <div id="boardFrame">
+        <div id="board">
+          <svg id="wires" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="nodes"></div>
+        </div>
       </div>
 
       <div id="palette"></div>
@@ -101,6 +104,7 @@
       <button class="btn primary" id="winNext" type="button">Next level →</button>
     </div>
 
+    <script src="levels-split.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

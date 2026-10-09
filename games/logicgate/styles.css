@@ -78,6 +78,10 @@ html, body {
     linear-gradient(var(--bg1), var(--bg2));
   background-attachment: fixed;
 }
+/* the page's own colour under the fixed backdrop, for anything drawn past it
+   (a full-page capture paints the fixed gradient one screen tall: below
+   that it was white) */
+html { background-color: var(--bg2); }
 body::before {
   content: "";
   position: fixed;
@@ -191,10 +195,18 @@ body::before {
 #status.fail { color: #ff7373; }
 #status.ready { color: var(--on); }
 
-/* board */
+/* board: a circuit too wide for it (a big one on a phone) is laid out wider
+   and shrunk to fit (game.js); only past the smallest size it shrinks to
+   does the frame scroll sideways, with its far edge fading as the cue */
+#boardFrame { overflow-x: auto; overflow-y: hidden; border-radius: 16px; }
+#boardFrame.scrolls {
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
 #board {
   position: relative;
   width: 100%;
+  transform-origin: 0 0;
   background:
     radial-gradient(circle at 50% 50%, var(--bg-glow), transparent 70%),
     var(--panel);
@@ -207,6 +219,18 @@ body::before {
 .wire.w-on { stroke: var(--on); filter: drop-shadow(0 0 5px var(--glow)); }
 .wire.w-off { stroke: var(--off); }
 .wire.w-none { stroke: var(--wire-none); stroke-width: 3; stroke-dasharray: 5 7; }
+/* where a wire splits: one signal feeding several gates */
+.junc.j-on { fill: var(--on); filter: drop-shadow(0 0 4px var(--glow)); }
+.junc.j-off { fill: var(--off); }
+.junc.j-none { fill: var(--wire-none); }
+/* Visual FX on: the signal's run after ⚡ Check (game.js sets each delay).
+   A wire draws on from its gate (pathLength 1), and a gate's output and a
+   junction dot appear as the signal reaches them. */
+.wire.flow { stroke-dasharray: 1 1; stroke-dashoffset: 1; animation: wireFlow 0.2s linear forwards; }
+@keyframes wireFlow { to { stroke-dashoffset: 0; } }
+.junc.flow { animation: flowIn 0.18s ease backwards; transform-box: fill-box; transform-origin: center; }
+.node.gate .gout.flow { animation: flowIn 0.18s ease backwards; }
+@keyframes flowIn { from { opacity: 0; transform: scale(0.5); } }
 
 #nodes { position: absolute; inset: 0; z-index: 2; }
 
