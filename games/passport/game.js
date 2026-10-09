@@ -38,9 +38,14 @@
   // off mid-way), so turning FX on later doesn't replay them: every stamp on
   // the page inking in again
   var ONE_SHOT = ["deal", "jolt", "bump", "fresh", "in"];
+  // Only the class whose animation ended comes off: a wrong answer while the
+  // postcard is still dealing in swaps "deal" for "jolt", and the cancelled
+  // deal clearing every class here took the new jolt with it (no denial shake)
+  var SHOT_OF = { deal: "deal", jolt: "jolt", bump: "bump", inkIn: "fresh", cardIn: "in" };
   function oneShotDone(e) {
     if (e.pseudoElement || !e.target.classList) return;
-    ONE_SHOT.forEach(function (c) { e.target.classList.remove(c); });
+    var c = SHOT_OF[e.animationName];
+    if (c) e.target.classList.remove(c);
   }
   document.addEventListener("animationend", oneShotDone);
   document.addEventListener("animationcancel", oneShotDone);
