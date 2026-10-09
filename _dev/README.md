@@ -39,8 +39,21 @@ making sturdier, but not a bug in the game.
 Some suites add test hooks by serving a game's script with a few lines
 appended (`lib.injectScript`), so the shipped files carry no test-only code.
 
+Checks have to hold up on a busy machine, where frames come late and a few
+round trips can outlast a short cue. Don't read a cue after a fixed wait.
+Instead, poll for it (`waitForFunction`), catch it as it happens (a
+MutationObserver or an `animationstart` listener set up before the action), or
+wait on the page's own clock (`setTimeout` inside `p.evaluate`, which ends after
+the game's earlier, shorter timers). Count frames rather than milliseconds. Use
+`lib.leftBy(p, n)` for a trip to the games page. Do steps that must land inside
+a short window in one `p.evaluate`. To try a suite under load, use
+`tools/run-slowed.js` (below).
+
 ## Tools
 
+- `tools/run-slowed.js` — runs suites with each page's CPU slowed (4x by
+  default; `RATE=6`, `OUT=results.json`), one at a time, to find checks that
+  only pass on an idle machine: `node tools/run-slowed.js` for all, or name some.
 - `tools/steamfitter-junction-levels.js` — generates Steamfitter's junction
   levels (31–36). Seeded, so it reprints the same six levels; see the comment
   at its top.
