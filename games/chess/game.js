@@ -158,6 +158,7 @@
     cancelCpuThink();
     closePromo();
     clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
+    stopMotion();
     G = mode===4 ? make4P(ending) : make2P();
     if(mode===2){
       const s = setup || setup2; setup2 = s;
@@ -196,6 +197,60 @@
     const r=parseInt(s.slice(0,2),16), g=parseInt(s.slice(2,4),16), b=parseInt(s.slice(4,6),16);
     return (0.2126*r + 0.7152*g + 0.0722*b) / 255; }
 
+  // ---- Visual FX on (RM_ON() is true when it's off): a move slides its
+  // piece across from the square it left, a capture flies to its tray (or,
+  // with four players, shrinks away where it fell), and a king in check pulses
+  // (styles.css). With FX off the board simply changes.
+  function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
+  const SLIDE_MS = 200;
+  let slide = null;   // the last move { from, to, t0 }, while its piece slides
+  // The board is rebuilt on every render, often twice for one move, so each
+  // render starts the slide again at the point it had reached.
+  function playSlide(){
+    if(!slide || !fxOn()) return;
+    const el = performance.now() - slide.t0;
+    if(el >= SLIDE_MS){ slide = null; return; }
+    const sqTo = boardEl.querySelector('.sq[data-i="'+slide.to+'"]'), sqFrom = boardEl.querySelector('.sq[data-i="'+slide.from+'"]');
+    const pc = sqTo && sqTo.querySelector(".pc");
+    if(!pc || !sqFrom || !pc.animate) return;
+    const a = sqFrom.getBoundingClientRect(), b = sqTo.getBoundingClientRect();
+    sqTo.style.zIndex = "5";   // above the squares it passes over
+    const an = pc.animate([{ transform:"translate("+(a.left-b.left)+"px,"+(a.top-b.top)+"px)" }, { transform:"none" }],
+      { duration:SLIDE_MS, easing:"cubic-bezier(.25,.8,.35,1)" });
+    an.currentTime = el;
+    an.onfinish = () => { sqTo.style.zIndex = ""; };
+  }
+  // a new game or an undo drops whatever is still on its way
+  function stopMotion(){ slide = null; document.querySelectorAll(".pc.fly").forEach(g=>g.remove()); }
+  // the captured piece, lifted off its square to the tray it lands in
+  function flyCapture(piece, fromSq, by){
+    const sq = boardEl.querySelector('.sq[data-i="'+fromSq+'"]');
+    if(!sq || !document.body.animate) return;
+    const r = sq.getBoundingClientRect(), col = G.players[piece.o].color;
+    const g = document.createElement("span");
+    g.className = "pc fly " + (lum(col)>0.55?"lt":"dk");
+    g.textContent = FILLED[piece.t]; g.style.color = col;
+    g.style.left = (r.left + r.width/2) + "px"; g.style.top = (r.top + r.height/2) + "px";
+    g.style.fontSize = (r.width * 0.8) + "px";
+    document.body.appendChild(g);
+    let to = null;
+    if(G.mode===2){
+      const tray = $(by==="w" ? "capW" : "capB"), tn = tray.lastChild;
+      if(tn && tn.nodeType===3 && tn.length){
+        const rg = document.createRange(); rg.setStart(tn, tn.length-1); rg.setEnd(tn, tn.length);
+        const tr = rg.getBoundingClientRect();
+        if(tr.width) to = { x: tr.left + tr.width/2 - (r.left + r.width/2), y: tr.top + tr.height/2 - (r.top + r.height/2), s: tr.height / (r.width * 0.8) };
+      }
+    }
+    const frames = to
+      ? [{ transform:"translate(-50%,-50%)", opacity:1 },
+         { transform:"translate(-50%,-50%) translate("+to.x*0.5+"px,"+(to.y*0.5-r.height*0.6)+"px) scale(.8)", opacity:1, offset:.5 },
+         { transform:"translate(-50%,-50%) translate("+to.x+"px,"+to.y+"px) scale("+to.s+")", opacity:.2 }]
+      : [{ transform:"translate(-50%,-50%) rotate(0)", opacity:1 }, { transform:"translate(-50%,-50%) rotate(-25deg) scale(.3)", opacity:0 }];
+    const an = g.animate(frames, { duration: to ? 420 : 320, easing:"ease-in-out" });
+    an.onfinish = an.oncancel = () => g.remove();
+  }
+
   function render(){
     boardEl.innerHTML="";
     const inCk = !G.over && inCheck(G,G.board,G.turn) ? kingSq(G,G.board,G.turn) : -1;
@@ -230,6 +285,7 @@
       [["capW","b"],["capB","w"]].forEach(([id])=>{});
     } else renderPlayers();
     renderClocks();
+    playSlide();
   }
 
   // ============================================================ clock
@@ -336,6 +392,7 @@
   function doMove(m, promoType){
     const b=G.board, p=b[m.from], col=p.o;
     const captured = m.ep ? b[G.ep.victim] : b[m.to];
+    const capSq = m.ep ? G.ep.victim : m.to;
     G.history.push(snapshot());
     if(G.clock && G.clock.enabled) G.clock[col] += G.clock.inc;
 
@@ -353,7 +410,9 @@
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.castle) SFX.castle(); else if(m.promo) SFX.promote(); else if(captured) SFX.capture(); else SFX.move();
 
+    slide = fxOn() ? { from:m.from, to:m.to, t0:performance.now() } : null;
     render();
+    if(captured && fxOn()) flyCapture(captured, capSq, col);
     advance(col);
   }
 
@@ -447,7 +506,7 @@
   function popOnce(){
     const h=G.history.pop();
     G.board=h.board.map(p=>p); G.turn=h.turn; G.ep=h.ep; G.last=h.last; G.castle=h.castle;
-    G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[];
+    G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[]; stopMotion();
     if(h.clock) G.clock = { enabled:h.clock.enabled, w:h.clock.w, b:h.clock.b, inc:h.clock.inc, running:h.clock.running, lastTick:Date.now() };
   }
   // Vs CPU, undo always hands control back to the human: a completed CPU

@@ -430,7 +430,9 @@
       }
     }
     if (state === "menu") {
-      menuTargets().forEach(function (o) { if (!o.cut) { o.v = o.base + Math.sin(t / 700 + o.phase) * 0.015; o.rot = Math.sin(t / 900 + o.phase) * 0.15; } });
+      // the choices bob; with Visual FX off each holds still at its resting tilt
+      var tb = fx() ? t : 0;
+      menuTargets().forEach(function (o) { if (!o.cut) { o.v = o.base + Math.sin(tb / 700 + o.phase) * 0.015; o.rot = Math.sin(tb / 900 + o.phase) * 0.15; } });
       if (menuPick && t >= menuPick.at) { var m = menuPick.mode; menuPick = null; start(m); }
     }
     for (var h = halves.length - 1; h >= 0; h--) {
@@ -486,13 +488,14 @@
       Art.half(ctx, hv.type, R, t);
       ctx.restore();
     });
-    // Whole targets, lit from the sun.
-    var list = state === "menu" ? menuTargets() : objs;
+    // Whole targets, lit from the sun. Their own clock (the koban's shine, the
+    // bomb's pulse and fuse sparks) is held with Visual FX off: a still glint.
+    var list = state === "menu" ? menuTargets() : objs, tt = f ? t : 0;
     list.forEach(function (o) {
       if (o.cut) return;
       var x = o.u * W, y = o.v * H;
       ctx.save(); ctx.translate(x, y); ctx.rotate(o.rot);
-      Art.target(ctx, o.type, R, t, Math.atan2(sun.y - y, sun.x - x) - o.rot, rim);
+      Art.target(ctx, o.type, R, tt, Math.atan2(sun.y - y, sun.x - x) - o.rot, rim);
       ctx.restore();
     });
     if (state === "menu") {

@@ -361,6 +361,7 @@
   }
 
   function flashTyped() {
+    if (reducedMotion()) return;   // (Visual FX off: the typed text doesn't jump on each key)
     el.typed.style.transform = "scale(1.08)";
     setTimeout(() => { el.typed.style.transform = "scale(1)"; }, 60);
   }
@@ -484,6 +485,7 @@
   }
 
   function spawnMuzzle() {
+    if (reducedMotion()) return;   // (Visual FX off: no sparks off the staff on every key; the bolt still flies)
     const tip = staffTip();
     for (let i = 0; i < 6; i++) {
       particles.push({

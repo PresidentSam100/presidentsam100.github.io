@@ -324,19 +324,20 @@ function drawNumber(n, cx, top) {
 
 function draw() {
   const fx = fxOn();
+  ctx.shadowBlur = 0;
   if (fx) {
     // phosphor afterglow: fade the last frame instead of wiping it, so moving
     // things leave a short trail (at 0.5 a frame, gone within a few frames)
-    ctx.shadowBlur = 0;
     ctx.fillStyle = "rgba(11,14,13,0.5)";
     ctx.fillRect(0, 0, W, H);
-    ctx.shadowColor = "rgba(170,215,255,0.85)";
-    ctx.shadowBlur = 16;
   } else {
-    ctx.shadowBlur = 0;
     ctx.fillStyle = TUBE;
     ctx.fillRect(0, 0, W, H);
   }
+  // the phosphor's glow round everything lit: part of the picture, so with
+  // Visual FX off too (only the afterglow's trail is FX)
+  ctx.shadowColor = "rgba(170,215,255,0.85)";
+  ctx.shadowBlur = 16;
 
   // center dashed line
   ctx.strokeStyle = "rgba(234,246,255,0.45)";

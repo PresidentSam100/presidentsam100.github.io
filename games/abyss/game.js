@@ -445,10 +445,10 @@
         if (!v) continue;
         if (isClr) {
           g.globalAlpha = fx() ? Math.max(0, 1 - sweep * 1.15) : 0.4;
-          A.cell(g, px(x), py(y), cell, TYPES[v - 1], { dim: false, fx: fx() });
+          A.cell(g, px(x), py(y), cell, TYPES[v - 1], { dim: false });
           g.globalAlpha = 1;
         } else {
-          A.cell(g, px(x), py(y), cell, TYPES[v - 1], { dim: true, fx: fx() });
+          A.cell(g, px(x), py(y), cell, TYPES[v - 1], { dim: true });
         }
       }
     }
@@ -510,7 +510,7 @@
         });
       }
       cellsOf(piece.t, piece.r, piece.x, piece.y).forEach(function (c) {
-        if (c[1] >= HID - 1) A.cell(g, px(c[0]), py(c[1]), cell, piece.t, { fx: fx() });
+        if (c[1] >= HID - 1) A.cell(g, px(c[0]), py(c[1]), cell, piece.t);
       });
     }
 
@@ -550,7 +550,7 @@
       var n = BASE[t].n;
       var offx = bx + (4 - n) * s * 0.5, offy = by + (n === 4 ? 0 : s * 0.4);
       ROT[t][0].forEach(function (c) {
-        A.cell(g, offx + c[0] * s, offy + c[1] * s, s, t, { fx: fx() });
+        A.cell(g, offx + c[0] * s, offy + c[1] * s, s, t);
       });
     }
     var bw = mini * 4 + 22;

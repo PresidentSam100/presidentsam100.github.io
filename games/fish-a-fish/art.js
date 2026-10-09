@@ -109,15 +109,15 @@ window.FishArt = (function () {
       var x = ((i * 0.41 + drift * (0.5 + i * 0.25) / W) % 1.5 - 0.25) * W;
       ctx.beginPath(); ctx.ellipse(x + w / 2, y, w / 2, h, 0, 0, Math.PI * 2); ctx.fill();
     });
-    // Faint shimmer lines sliding on the near water.
-    if (fx) {
-      ctx.strokeStyle = "rgba(255,244,214,0.08)";
-      ctx.lineWidth = 1.5;
-      for (var k = 0; k < 5; k++) {
-        var y = wy + (H - wy) * (0.25 + k * 0.16) + Math.sin(t * 0.0011 + k * 2.2) * 3;
-        var x0 = W * ((k * 0.23 + t * 0.00002 * (k + 1)) % 1);
-        ctx.beginPath(); ctx.moveTo(x0 - W * 0.09, y); ctx.lineTo(x0 + W * 0.09, y); ctx.stroke();
-      }
+    // Faint shimmer lines sliding on the near water (with Visual FX off they're
+    // there too, lying still)
+    var ts = fx ? t : 0;
+    ctx.strokeStyle = "rgba(255,244,214,0.08)";
+    ctx.lineWidth = 1.5;
+    for (var k = 0; k < 5; k++) {
+      var y = wy + (H - wy) * (0.25 + k * 0.16) + Math.sin(ts * 0.0011 + k * 2.2) * 3;
+      var x0 = W * ((k * 0.23 + ts * 0.00002 * (k + 1)) % 1);
+      ctx.beginPath(); ctx.moveTo(x0 - W * 0.09, y); ctx.lineTo(x0 + W * 0.09, y); ctx.stroke();
     }
     return wy;
   }

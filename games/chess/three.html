@@ -24,6 +24,10 @@
   .glyph { font-size:30px; text-anchor:middle; dominant-baseline:central; pointer-events:none;
     paint-order:stroke; stroke:rgba(0,0,0,.55); stroke-width:1.1px; font-family:"Segoe UI Symbol",system-ui,sans-serif; }
   .glyph.dead { opacity:.4; }
+  /* Visual FX on: the king in check pulses (with FX off its cell holds a still red) */
+  .ckpulse { fill:#ffb3a6; opacity:0; pointer-events:none; }
+  html.fx-on .ckpulse { animation:ckPulse .9s ease-in-out infinite alternate; }
+  @keyframes ckPulse { from { opacity:.6; } to { opacity:0; } }
   .hint { fill:var(--move); opacity:.62; pointer-events:none; }
   .side { display:flex; flex-direction:column; gap:10px; min-width:178px; max-width:230px; }
   .pchip { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line);
@@ -199,6 +203,7 @@
   let G=null, pendingPromo=null, endCardTimer=null;
   function start(ending){
     clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
+    slide=null;
     G={ board:newBoard(), turn:"r", players:{r:{alive:true},w:{alive:true},k:{alive:true}},
         ending, over:false, winner:null, sel:-1, legal:[], last:null, capList:[], history:[] };
     render(); setStatus();
@@ -217,9 +222,36 @@
   function tint(hex,a){ const n=parseInt(hex.slice(1),16); return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")"; }
 
   const svg=$("boardSvg");
+  // ---- Visual FX on (RM_ON() is true when it's off): a move slides its
+  // piece across from the cell it left and a captured piece shrinks away
+  // under it. With FX off the board simply changes.
+  function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
+  const SLIDE_MS=200, FALL_MS=320;
+  let slide=null;   // the last move { from, to, cap, t0 }, while it plays
+  // render() rebuilds the board, often twice for one move, so each render
+  // picks the motion up at the point it had reached
+  function playSlide(moved){
+    if(!slide) return;
+    const el=performance.now()-slide.t0;
+    if(!fxOn() || el>=FALL_MS || !moved || !moved.animate){ slide=null; return; }
+    const a=centroid(slide.from), b=centroid(slide.to);
+    svg.appendChild(moved);   // above the cells it passes over
+    if(slide.cap){ const p=slide.cap, g=document.createElementNS(SVG,"text");
+      g.setAttribute("x",b[0].toFixed(1)); g.setAttribute("y",b[1].toFixed(1));
+      g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
+      g.style.transformBox="fill-box"; g.style.transformOrigin="center";
+      g.textContent=FILLED[p.t]; svg.insertBefore(g,moved);
+      const an=g.animate([{ transform:"rotate(0)", opacity:1 }, { transform:"rotate(-25deg) scale(.3)", opacity:0 }],
+        { duration:FALL_MS, easing:"ease-in-out" });
+      an.currentTime=el; an.onfinish=()=>g.remove(); }
+    if(el<SLIDE_MS){ const an=moved.animate([{ transform:"translate("+(a[0]-b[0]).toFixed(1)+"px,"+(a[1]-b[1]).toFixed(1)+"px)" }, { transform:"none" }],
+      { duration:SLIDE_MS, easing:"cubic-bezier(.25,.8,.35,1)" });
+      an.currentTime=el; }
+  }
   function render(){
     while(svg.firstChild) svg.removeChild(svg.firstChild);
     const inCk = !G.over && inCheck(G.board,G.turn) ? kingCell(G.board,G.turn) : -1;
+    let moved=null;
     for(let c=0;c<96;c++){
       const s=sOf(c),r=rOf(c); const k=corners(c);
       const poly=document.createElementNS(SVG,"polygon");
@@ -238,6 +270,8 @@
       if(c===inCk) poly.setAttribute("fill","#e05d5d");
       poly.dataset.c=c; poly.addEventListener("click",()=>onCell(c));
       svg.appendChild(poly);
+      if(c===inCk){ const k2=document.createElementNS(SVG,"polygon");
+        k2.setAttribute("points", poly.getAttribute("points")); k2.setAttribute("class","ckpulse"); svg.appendChild(k2); }
       // home tint overlay
       if(r>=2 && c!==G.sel && c!==inCk){ const t=document.createElementNS(SVG,"polygon");
         t.setAttribute("points", poly.getAttribute("points")); t.setAttribute("fill", tint(PLAYERS[ownerOfSector[s]].color,.16));
@@ -254,8 +288,9 @@
       if(p){ const ct=centroid(c); const g=document.createElementNS(SVG,"text");
         g.setAttribute("x",ct[0].toFixed(1)); g.setAttribute("y",ct[1].toFixed(1));
         g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
-        g.textContent=FILLED[p.t]; svg.appendChild(g); }
+        g.textContent=FILLED[p.t]; svg.appendChild(g); if(slide&&c===slide.to) moved=g; }
     }
+    playSlide(moved);
     renderPlayers();
   }
   function renderPlayers(){ const w=$("players"); w.innerHTML="";
@@ -296,6 +331,7 @@
     G.board=applyTo(G.board,m,pt); if(captured) G.capList.push({by:col,t:captured.t});
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.promo) SFX.promote(); else if(captured) SFX.cap(); else SFX.move();
+    slide = fxOn() ? { from:m.from, to:m.to, cap:captured, t0:performance.now() } : null;
     render(); advance(col);
   }
   function nextAlive(from){ const n=ORDER.length,s=ORDER.indexOf(from); for(let k=1;k<=n;k++){ const o=ORDER[(s+k)%n]; if(G.players[o].alive) return o; } return null; }
@@ -321,7 +357,7 @@
     endCardTimer=setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350); }
   function undo(){ if(!G.history.length) return; clearTimeout(endCardTimer); const h=G.history.pop();
     G.board=h.board.map(x=>x); G.turn=h.turn; G.last=h.last; G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner;
-    G.sel=-1; G.legal=[]; $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
+    G.sel=-1; G.legal=[]; slide=null; $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
 
   // ----------------------------------------------------------------- wiring
   $("newBtn").addEventListener("click",()=>start(G.ending));

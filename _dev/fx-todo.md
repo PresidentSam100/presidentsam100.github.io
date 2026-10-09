@@ -7,38 +7,19 @@ art and static detail, with calmer motion: brief simple motion or none, no
 loops, no shake or flashing. Every game-state cue shows in both modes.
 
 Done: phase 1 (one shared switch, `html.fx-on` / `html.fx-off`), 2a (strobes
-and flashes with FX off) and 2b (cues that vanished with FX off; covered by
-`tests/cues.js`).
+and flashes with FX off), 2b (cues that vanished with FX off; covered by
+`tests/cues.js`) and 2c (art that vanished with FX off, and loops that kept
+running; covered by `tests/fx-more.js`). With FX off, Abyss keeps its block
+glow and its sea, Fish-a-Fish its shimmer, Ping and Steamfitter their glow,
+Klondike its snow, Lights Out its second hand and Hash its hover shadow, all
+held still. Klondike's sky follows the switch the moment it flips. Typetwo's
+keystroke sparks and jump, Sunset Slice's menu, Pop the Lock's bursts and
+Fish-a-Fish's spray all stop; a miss in Pop the Lock is marked by a still ring.
+The rest of the 2c list was already fixed (the bug sweep, 2b487ff, and the
+Poodle Jump round).
 
-These items come from reading the code on 2026-10-03, and many games have
-changed since. Check each in the game before fixing it, and add a check to
-`tests/fx.js` or `tests/cues.js`.
-
-## 2c — FX off still removes art, or leaves loops running
-
-The bug sweep (2b487ff) made FX off stop some of this looping motion. It covers
-at least Slither's rainbow, which now holds still with FX off, Lanterns'
-faraway lanterns, which now only drift with FX on, and some of Typetwo's
-motion. Check each item below against it.
-
-Art that disappears with FX off:
-- Abyss: the glow around cells, and the snow, jellyfish and fish (`art.js`)
-- Fish-a-Fish: the water shimmer (`art.js`)
-- Ping: the static phosphor glow
-- Steamfitter: the water glow
-- Klondike: the snow
-- Lights Out: the dials' second hand (`setHands` hides it)
-- Hash: the hover shadow
-
-Loops that keep running with FX off:
-- Corner Pocket: the ball-in-hand ring and the called pocket's wobble
-- Typetwo: star drift, rune pulses, robe sway, orb flicker, per-key sparks,
-  and the typed text's scale snap
-- Klondike: the sky ignores a change of the switch until reload
-- Fish-a-Fish: splashes and bobbing
-- Sunset Slice: the menu bob, the koban shine and the fuse sparks
-- Pop the Lock: full bursts
-- Poodle Jump: everything (it never reads the switch)
+Add a check for any new FX work to `tests/fx.js`, `tests/fx-more.js` or
+`tests/cues.js`.
 
 ## 3 — more motion with FX on (pick games; keep each change small)
 
@@ -56,11 +37,17 @@ Done (checked in `tests/fx.js`):
   into sparkles, and a crash shakes the screen. (Its hop squash, landing dust,
   crash feathers and "+1"s were already there, in both modes; left as they were.)
 
-Thin today: Chess and its 3-player board (piece slides, captures to the tray,
-check pulse), LogicGate (signal flowing gate by gate), Tic-Tac-Toe (chalk
+Done (checked in `tests/fx-more.js`):
+- Corner Pocket. The cue drives through the ball on a shot, a hard hit throws
+  sparks, and the rolling balls leave short trails.
+- Chess, with its 4-player and 3-player boards. A move slides its piece across
+  from the square it left, a capture flies off to its tray (with four or three
+  players it shrinks away where it fell), and a king in check pulses.
+
+Thin today: LogicGate (signal flowing gate by gate), Tic-Tac-Toe (chalk
 dust), Stopwatch (perfect-stop ring),
 Steamfitter (eased quarter-turn), Yi (deal fan), Hash (deal flip), Minesweeper
-(win wave), Speedle (staggered flip), Abyss (hard-drop trail), Corner Pocket (ball trails), Crazy
+(win wave), Speedle (staggered flip), Abyss (hard-drop trail), Crazy
 Ohio (hit bursts), Jam Jar (landing squash), Klondike (card arcs), Flappy World
 (medal shine), Spacer (shockwave), Typetwo (bolt trails).
 

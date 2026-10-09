@@ -627,7 +627,9 @@
         g.fillRect(st2.x, st2.y, st2.r, st2.r);
       });
       // the aurora: three slow ribbons, brighter for a while after a win
-      var boost = 1 + skyFlare * 1.6;
+      // (the flare fades, so it's Visual FX only)
+      var moving = fx();
+      var boost = 1 + (moving ? skyFlare : 0) * 1.6;
       for (var band = 0; band < 3; band++) {
         var baseY = sh * (0.16 + band * 0.09), amp = sh * 0.05, ph = t * 0.00012 * (band + 1);
         g.beginPath();
@@ -654,22 +656,27 @@
           g.beginPath(); g.moveTo(px - twd, ty); g.lineTo(px, ty - phh * 0.52); g.lineTo(px + twd, ty); g.closePath(); g.fill();
         }
       }
-      if (fx()) {
-        g.fillStyle = "rgba(235,242,250,0.8)";
-        flakes.forEach(function (fl) {
+      // falling snow (with Visual FX off it hangs in the air, still)
+      g.fillStyle = "rgba(235,242,250,0.8)";
+      flakes.forEach(function (fl) {
+        if (moving) {
           fl.y += fl.v / 60; fl.x += Math.sin(t * 0.0006 + fl.drift) * 0.3;
           if (fl.y > sh) { fl.y = -4; fl.x = Math.random() * sw; }
-          g.beginPath(); g.arc(fl.x, fl.y, fl.r, 0, 7); g.fill();
-        });
-      }
+        }
+        g.beginPath(); g.arc(fl.x, fl.y, fl.r, 0, 7); g.fill();
+      });
       skyFlare *= 0.995;
     }
-    if (fx()) {
-      (function loop2(t) { paint(t || 0); requestAnimationFrame(loop2); })(0);
-    } else {
-      paint(9000);
-      window.addEventListener("resize", function () { paint(9000); });
-    }
+    // The switch is read every frame, so flipping it mid-game takes at once.
+    // With Visual FX off the sky is one still picture (its clock held at
+    // STILL), painted again only after a resize or a flip of the switch.
+    var STILL = 9000, stillDrawn = false;
+    window.addEventListener("resize", function () { stillDrawn = false; });
+    (function loop2(t) {
+      if (fx()) { paint(t || 0); stillDrawn = false; }
+      else if (!stillDrawn) { paint(STILL); stillDrawn = true; }
+      requestAnimationFrame(loop2);
+    })(0);
   })();
 
   window.addEventListener("resize", layout);

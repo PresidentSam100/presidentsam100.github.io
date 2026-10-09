@@ -514,7 +514,24 @@
   function cue() { return G.balls[0]; }
   function nameOf(p) { return G.names[p]; }
 
+  // ---- Visual FX on: the shot's motion (RM_ON() is true when FX is off) ----
+  // The cue thrusts through the ball and fades (strike), fast balls leave a
+  // short trail (trails: each ball's last few positions while they roll), and
+  // a hard hit between balls throws sparks where they meet (sparks). With FX
+  // off none of it is drawn: the stick just goes as the ball leaves.
+  function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+  var STRIKE = 0.22, TRAIL = 5, SPARK_V = 2.2;
+  var fxs = { strike: null, trails: {}, sparks: [] };
+  function sparkAt(x, y, v) {
+    var n = Math.min(14, 5 + Math.round(v * 1.2));
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * Math.PI * 2, sp = 0.3 + Math.random() * (0.25 + v * 0.12);
+      fxs.sparks.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, t: 0, life: 0.22 + Math.random() * 0.18 });
+    }
+  }
+
   function newRack(breaker) {
+    fxs = { strike: null, trails: {}, sparks: [] };
     G.rng = P.rng((Math.random() * 4294967296) >>> 0);
     G.balls = P.rack(G.rng);
     G.st = Ru.newGame(breaker);
@@ -569,6 +586,8 @@
     G.shotCall = call;
     G.phase = "roll"; G.acc = 0; G.charging = false;
     sfxCue(power);
+    var cb = cue();
+    if (fxOn()) fxs.strike = { x: cb.x, y: cb.y, ang: angle, pull: 0.012 + power * 0.24, t: 0 };
   }
 
   var FOUL = { scratch: "scratch", nohit: "no ball hit", wrongball: "wrong ball first",
@@ -653,6 +672,20 @@
 
   function update(dt) {
     var i;
+    if (fxs.strike && (fxs.strike.t += dt) > STRIKE) fxs.strike = null;
+    for (i = fxs.sparks.length - 1; i >= 0; i--) {
+      var sk = fxs.sparks[i];
+      sk.t += dt; sk.x += sk.vx * dt; sk.y += sk.vy * dt; sk.vx *= 0.9; sk.vy *= 0.9;
+      if (sk.t > sk.life) fxs.sparks.splice(i, 1);
+    }
+    if (G.phase === "roll" && fxOn() && G.balls) {
+      G.balls.forEach(function (b) {
+        var tr = fxs.trails[b.id] || (fxs.trails[b.id] = []);
+        if (!b.on) { tr.length = 0; return; }
+        tr.push({ x: b.x, y: b.y });
+        if (tr.length > TRAIL) tr.shift();
+      });
+    } else fxs.trails = {};
     for (i = G.toasts.length - 1; i >= 0; i--) { G.toasts[i].t += dt; if (G.toasts[i].t > G.toasts[i].life) G.toasts.splice(i, 1); }
     for (i = G.sinking.length - 1; i >= 0; i--) { G.sinking[i].t += dt; if (G.sinking[i].t > 0.28) G.sinking.splice(i, 1); }
 
@@ -684,7 +717,7 @@
     var list = G.world.sfx, clicks = 0;
     for (var i = 0; i < list.length; i++) {
       var e = list[i];
-      if (e.k === "ball") { if (clicks++ < 4) sfxClick(e.v); }
+      if (e.k === "ball") { if (clicks++ < 4) sfxClick(e.v); if (e.v >= SPARK_V && fxOn()) sparkAt(e.x, e.y, e.v); }
       else if (e.k === "rail") { if (clicks++ < 5) sfxRail(e.v); }
       else if (e.k === "pocket") {
         sfxPocket();
@@ -770,6 +803,20 @@
       ctx.drawImage(shadowSprite, b.x - R * 0.95 + R * 0.28, b.y - R * 0.95 + R * 0.36, R * 2.1, R * 2.1);
     }
     for (i = 0; i < G.sinking.length; i++) drawSinking(G.sinking[i]);
+    // (Visual FX on) a fast ball's trail: fading copies where it just was
+    if (fxOn()) {
+      for (i = 0; i < G.balls.length; i++) {
+        b = G.balls[i];
+        var tr = fxs.trails[b.id];
+        if (!b.on || !tr || tr.length < 2 || Math.hypot(b.x - tr[0].x, b.y - tr[0].y) < R * 1.2) continue;
+        var spT = sprite(b), hT = SPR.S / 2 * R / SPR.size;
+        for (var k = 0; k < tr.length - 1; k++) {
+          ctx.globalAlpha = 0.07 + 0.2 * (k / (tr.length - 1));
+          ctx.drawImage(spT, tr[k].x - hT, tr[k].y - hT, hT * 2, hT * 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+    }
     for (i = 0; i < G.balls.length; i++) {
       b = G.balls[i];
       if (!b.on) continue;
@@ -784,21 +831,28 @@
       ctx.lineWidth = px * 2;
       ctx.beginPath(); ctx.arc(c.x, c.y, R * 1.55, 0, Math.PI * 2); ctx.stroke();
     }
+    // (Visual FX on) sparks off a hard hit
+    if (fxs.sparks.length && fxOn()) {
+      ctx.lineCap = "round"; ctx.lineWidth = px * 2;
+      fxs.sparks.forEach(function (sk) {
+        var a = 1 - sk.t / sk.life;
+        ctx.strokeStyle = "rgba(255,240,190," + a.toFixed(3) + ")";
+        ctx.beginPath(); ctx.moveTo(sk.x, sk.y); ctx.lineTo(sk.x - sk.vx * 0.03, sk.y - sk.vy * 0.03); ctx.stroke();
+      });
+    }
     if (aiming && cue().on) {
       drawGuide(px);
-      // the stick slides under the controls rather than across them
-      ctx.save();
-      screenXf(ctx);
-      ctx.beginPath();
-      ctx.rect(0, 0, CW, CH);
-      var s = UI.spin;
-      [UI.power, UI.wheel, UI.menu, { x: s.x - s.r - 4, y: s.y - s.r - 4, w: 2 * s.r + 8, h: 2 * s.r + 20 }].forEach(function (r) {
-        ctx.rect(r.x - 4, r.y - 4, r.w + 8, r.h + 8);
+      stick(function () { drawCue(cue().x, cue().y, G.aim, G.power); });
+    } else if (fxs.strike && fxOn()) {
+      // the strike: from its pull-back the stick drives through where the
+      // ball sat, follows through a touch, and fades
+      var so = fxs.strike, k2 = so.t / STRIKE, drive = Math.min(1, k2 / 0.3);
+      var pull = so.pull + (-0.03 - so.pull) * (1 - (1 - drive) * (1 - drive));
+      stick(function () {
+        ctx.globalAlpha = k2 < 0.4 ? 1 : Math.max(0, 1 - (k2 - 0.4) / 0.6);
+        drawCue(so.x, so.y, so.ang, 0, pull);
+        ctx.globalAlpha = 1;
       });
-      ctx.clip("evenodd");
-      worldXf(ctx);
-      drawCue(cue().x, cue().y, G.aim, G.power);
-      ctx.restore();
     }
     drawHud();
     drawControls();
@@ -868,9 +922,26 @@
     }
   }
 
-  function drawCue(x, y, ang, power) {
+  // the stick slides under the controls rather than across them
+  function stick(paint) {
+    ctx.save();
+    screenXf(ctx);
+    ctx.beginPath();
+    ctx.rect(0, 0, CW, CH);
+    var s = UI.spin;
+    [UI.power, UI.wheel, UI.menu, { x: s.x - s.r - 4, y: s.y - s.r - 4, w: 2 * s.r + 8, h: 2 * s.r + 20 }].forEach(function (r) {
+      ctx.rect(r.x - 4, r.y - 4, r.w + 8, r.h + 8);
+    });
+    ctx.clip("evenodd");
+    worldXf(ctx);
+    paint();
+    ctx.restore();
+  }
+
+  // (pullAt: how far back the tip sits, for the strike; otherwise from power)
+  function drawCue(x, y, ang, power, pullAt) {
     var dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx;
-    var pull = 0.012 + power * 0.24;
+    var pull = pullAt !== undefined ? pullAt : 0.012 + power * 0.24;
     var tip = R + 0.004 + pull, LEN = 1.45;
     function wAt(d) { return 0.0062 + (0.0145 - 0.0062) * (d / LEN); }
     function quad(d0, d1, fill) {
@@ -1392,6 +1463,7 @@
     get V() { return V; },
     get UI() { return UI; },
     shoot: function (a, p, tx, ty) { G.aim = a; G.power = p; G.tip = { x: tx || 0, y: ty || 0 }; humanShoot(); },
-    toScreen: toScreen, toWorld: toWorld, layout: layout
+    toScreen: toScreen, toWorld: toWorld, layout: layout,
+    get fx() { return { strike: !!fxs.strike, sparks: fxs.sparks.length, trails: Object.keys(fxs.trails).length }; }
   };
 })();

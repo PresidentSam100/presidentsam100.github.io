@@ -186,6 +186,7 @@
     popups.push({ x: x, y: y, text: text, t0: t, kind: kind || "" });
   }
   function splashDrops(x, y, n, big) {
+    if (!fx()) return;   // (Visual FX off: no spray; the popup and the sound still mark it)
     for (var k = 0; k < n && drops.length < 160; k++) {
       var a = -Math.PI / 2 + rand(-1, 1);
       var sp = rand(60, big ? 300 : 180) * Math.min(W, H) / 700;

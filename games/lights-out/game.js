@@ -545,22 +545,21 @@
   });
 
   // ---- the hands tell the real time --------------------------------------------------
+  // (Visual FX off: the second hand stays on the dial but rests at twelve
+  // instead of ticking round)
   function setHands() {
     var d = new Date();
     var hh = (d.getHours() % 12) * 30 + d.getMinutes() * 0.5;
     var mm = d.getMinutes() * 6 + d.getSeconds() * 0.1;
-    var ss = d.getSeconds() * 6;
+    var ss = fx() ? d.getSeconds() * 6 : 0;
     var board = $("board");
     board.querySelectorAll(".lo-hh").forEach(function (g) { g.style.transform = "rotate(" + hh + "deg)"; });
     board.querySelectorAll(".lo-mm").forEach(function (g) { g.style.transform = "rotate(" + mm + "deg)"; });
-    board.querySelectorAll(".lo-sec").forEach(function (g) {
-      g.style.transform = "rotate(" + ss + "deg)";
-      g.style.display = fx() ? "" : "none";
-    });
+    board.querySelectorAll(".lo-sec").forEach(function (g) { g.style.transform = "rotate(" + ss + "deg)"; });
   }
   setInterval(setHands, 1000);
   // follow the ✨ switch the moment it flips (this used to poll every 400ms)
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
+  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); setHands(); });
   document.body.classList.toggle("fxon", fx());
 
   // ---- leaving -----------------------------------------------------------------------

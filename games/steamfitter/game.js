@@ -807,7 +807,7 @@
     g.save();
     g.lineCap = "round";
     g.shadowColor = "rgba(87,217,207,0.7)";
-    g.shadowBlur = reduced() ? 0 : 8;
+    g.shadowBlur = 8;   // the water's glow: part of the look, with Visual FX off too
     g.lineWidth = 13; g.strokeStyle = "#2ea9a0";
     waterPath(g, type, enter, t0, t1, exit); g.stroke();
     g.shadowBlur = 0;

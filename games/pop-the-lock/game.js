@@ -120,6 +120,7 @@
   const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
   let shakeTime = 0;
   let flash = 0;           // success ring flash 0..1
+  let missAt = null;       // where a miss happened (an angle), marked still with Visual FX off
   let lastTs = 0;
 
   // ---- Difficulty curve ----
@@ -143,6 +144,7 @@
     placeTarget();
     particles = [];
     flash = 0;
+    missAt = null;
     overlay.classList.add("hidden");
     updateHud();
   }
@@ -192,7 +194,8 @@
     stage.classList.add("shake");
     setTimeout(() => stage.classList.remove("shake"), 340);
     sndFail();
-    spawnBurst(missedByPass ? target : dial, "#ff5d73", 30);
+    missAt = missedByPass ? target : dial;
+    spawnBurst(missAt, "#ff5d73", 30);
     const reason = missedByPass ? "Too slow — the dial slipped past!" : "Missed the mark!";
     overlayMsg.innerHTML = `${reason}<br>You reached <b>${score}</b> &nbsp;•&nbsp; Level <b>${level}</b>`;
     playBtn.textContent = "RETRY";
@@ -227,7 +230,9 @@
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
 
   // ---- Particles ----
+  // (Visual FX off: no burst; the success ring's flash still marks the pop)
   function spawnBurst(angle, color, n = 16) {
+    if (reducedMotion()) return;
     const ox = cx + Math.cos(angle) * R;
     const oy = cy + Math.sin(angle) * R;
     for (let i = 0; i < n; i++) {
@@ -314,6 +319,15 @@
       ctx.font = `700 ${R * 0.13}px "Segoe UI", system-ui, sans-serif`;
       const remain = popsNeeded - popsDone;
       ctx.fillText(`${remain} TO UNLOCK`, cx, cy + R * 0.34);
+    }
+
+    // Visual FX off: no red burst at a miss, so a still red ring marks the spot
+    if (missAt !== null && state === State.OVER && reducedMotion()) {
+      ctx.strokeStyle = "#ff5d73";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx + Math.cos(missAt) * R, cy + Math.sin(missAt) * R, Math.max(14, R * 0.12), 0, TAU);
+      ctx.stroke();
     }
 
     // Particles

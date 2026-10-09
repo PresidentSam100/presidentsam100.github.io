@@ -52,6 +52,13 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
 .sq.sel::before { content:""; position:absolute; inset:0; background:var(--sel); opacity:.55; }
 .sq.last::before { content:""; position:absolute; inset:0; background:var(--last); opacity:.42; }
 .sq.check::after { content:""; position:absolute; inset:0; background:radial-gradient(circle, var(--check) 30%, transparent 72%); opacity:.85; }
+/* Visual FX on: the king in check pulses (with FX off the glow holds still) */
+html.fx-on .sq.check::after { animation:checkPulse .9s ease-in-out infinite alternate; }
+@keyframes checkPulse { from { opacity:.95; transform:scale(1.04); } to { opacity:.45; transform:scale(.9); } }
+/* a captured piece on its way to the tray (game.js, Visual FX on) */
+.pc.fly { position:fixed; z-index:50; pointer-events:none; line-height:1; transform:translate(-50%,-50%); paint-order:stroke fill; }
+.pc.fly.lt { -webkit-text-stroke:.045em #191d24; }
+.pc.fly.dk { -webkit-text-stroke:.045em #f4ecdc; }
 /* Clean even outline drawn BEHIND the fill (paint-order) so detailed glyphs
    like the bishop stay crisp — and contrasting per piece so they read on both
    light and dark squares. .lt = light piece → dark outline; .dk = dark/colored

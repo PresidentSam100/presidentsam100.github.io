@@ -48,13 +48,12 @@
       return;
     }
     var dim = opts.dim ? 0.55 : 1;
-    if (opts.fx !== false) {
-      var halo = g.createRadialGradient(cx, cy, r * 0.2, cx, cy, s * 0.75);
-      halo.addColorStop(0, sp.glow + (0.5 * dim) + ")");
-      halo.addColorStop(1, sp.glow + "0)");
-      g.fillStyle = halo;
-      g.fillRect(x - s * 0.3, y - s * 0.3, s * 1.6, s * 1.6);
-    }
+    // the glow round it: part of the art, so with Visual FX off too
+    var halo = g.createRadialGradient(cx, cy, r * 0.2, cx, cy, s * 0.75);
+    halo.addColorStop(0, sp.glow + (0.5 * dim) + ")");
+    halo.addColorStop(1, sp.glow + "0)");
+    g.fillStyle = halo;
+    g.fillRect(x - s * 0.3, y - s * 0.3, s * 1.6, s * 1.6);
     // the body: a soft rounded organism
     g.fillStyle = sp.body;
     g.globalAlpha = 0.4 + 0.6 * dim;
@@ -150,21 +149,23 @@
         g.beginPath(); g.moveTo(30, 2); g.lineTo(150, 60); g.lineTo(150, -34); g.closePath(); g.fill();
         g.restore();
         g.globalAlpha = 1;
-        if (!fxOn) return;
+        // The snow, jellyfish and fish are there with Visual FX off too, held
+        // still where they are (mv: how far they move this frame).
+        var mv = fxOn ? dt : 0;
         // marine snow
         g.fillStyle = "rgba(210,230,240,0.5)";
         snow.forEach(function (p) {
-          p.y += p.v * dt; p.x += Math.sin(t * 0.0005 + p.drift) * 0.2;
+          p.y += p.v * mv; if (fxOn) p.x += Math.sin(t * 0.0005 + p.drift) * 0.2;
           if (p.y > h) { p.y = -4; p.x = Math.random() * w; }
           g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
         });
         // jellyfish
         jellies.forEach(function (jl) {
-          jl.x += jl.vx * dt; jl.ph += dt * 1.6;
-          jl.y += Math.sin(jl.ph) * -0.35 + 2 * dt;
+          jl.x += jl.vx * mv; jl.ph += mv * 1.6;
+          if (fxOn) jl.y += Math.sin(jl.ph) * -0.35 + 2 * dt;
           if (jl.x < -60) jl.x = w + 60; if (jl.x > w + 60) jl.x = -60;
           if (jl.y > h + 80) jl.y = -60;
-          var squeeze = 1 + Math.sin(jl.ph) * 0.12;
+          var squeeze = fxOn ? 1 + Math.sin(jl.ph) * 0.12 : 1;
           g.save();
           g.translate(jl.x, jl.y);
           g.globalAlpha = 0.35;
@@ -192,10 +193,10 @@
         // far fish
         g.fillStyle = "rgba(90,140,170,0.3)";
         fish.forEach(function (fs) {
-          fs.x += fs.v * fs.dir * dt;
+          fs.x += fs.v * fs.dir * mv;
           if (fs.dir > 0 && fs.x > w + 20) { fs.x = -20; fs.y = h * (0.3 + Math.random() * 0.6); }
           if (fs.dir < 0 && fs.x < -20) { fs.x = w + 20; fs.y = h * (0.3 + Math.random() * 0.6); }
-          var fy = fs.y + Math.sin(t * 0.002 + fs.ph) * 3;
+          var fy = fs.y + (fxOn ? Math.sin(t * 0.002 + fs.ph) * 3 : 0);
           g.beginPath();
           g.ellipse(fs.x, fy, fs.s, fs.s * 0.38, 0, 0, 7);
           g.fill();
