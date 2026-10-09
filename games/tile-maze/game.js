@@ -48,20 +48,47 @@
   const SAVE_KEY = "tileMaze.v1";
   // one-time migration from the pre-rename key (folder was "color-tile")
   try { const _o = localStorage.getItem("colorTileMaze.v1"); if (_o != null && localStorage.getItem(SAVE_KEY) == null) { localStorage.setItem(SAVE_KEY, _o); localStorage.removeItem("colorTileMaze.v1"); } } catch (e) {}
+  // Progress is kept by level NAME, as the best times always were, so
+  // re-sorting levels.js can't move it onto other levels:
+  //   done:      the levels solved
+  //   open:      levels a save from before had opened (see migrate)
+  //   bestTimes: name -> ms
   const save = loadSave();
   function loadSave() {
-    try {
-      return Object.assign(
-        { unlocked: 1, completed: [], muted: false, bestTimes: {} },
-        JSON.parse(localStorage.getItem(SAVE_KEY) || "{}")
-      );
-    } catch (e) {
-      return { unlocked: 1, completed: [], muted: false, bestTimes: {} };
-    }
+    let s = null;
+    try { s = JSON.parse(localStorage.getItem(SAVE_KEY) || "{}"); } catch (e) {}
+    s = Object.assign({ done: [], open: [], muted: false, bestTimes: {} }, s && typeof s === "object" ? s : {});
+    if (!Array.isArray(s.done)) s.done = [];
+    if (!Array.isArray(s.open)) s.open = [];
+    if (!s.bestTimes || typeof s.bestTimes !== "object") s.bestTimes = {};
+    if (migrate(s)) persist(s);
+    return s;
   }
-  function persist() {
-    try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {}
+  // A save from before kept progress by index (completed: [0, 1…], unlocked:
+  // n). Once, on load, it's mapped onto the levels' names in today's order (the
+  // order it was written in) and written back in place, under the same key.
+  function migrate(s) {
+    if (!("completed" in s) && !("unlocked" in s)) return false;
+    const nameAt = (i) => (LEVELS[i] ? LEVELS[i].name : null);
+    (Array.isArray(s.completed) ? s.completed : []).forEach((i) => {
+      const n = nameAt(i);
+      if (n && !s.done.includes(n)) s.done.push(n);
+    });
+    const upTo = Math.min(LEVELS.length, Math.max(1, parseInt(s.unlocked, 10) || 1));
+    for (let i = 0; i < upTo; i++) if (!s.open.includes(nameAt(i))) s.open.push(nameAt(i));
+    delete s.completed;
+    delete s.unlocked;
+    return true;
   }
+  function persist(s) {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(s || save)); } catch (e) {}
+  }
+  // Levels open in order, as they always have: solving a level opens the one
+  // after it. Worked out from names each time, a re-sort opens a level by
+  // what now comes before it, and one already solved (or opened by an old
+  // save) stays open wherever it lands.
+  const isDone = (i) => save.done.includes(LEVELS[i].name);
+  const isOpen = (i) => i === 0 || isDone(i) || isDone(i - 1) || save.open.includes(LEVELS[i].name);
 
   // ----- audio (shared cues from audio.js) -----
   const SFX = window.TileSFX;
@@ -218,8 +245,7 @@
     const prevBest = save.bestTimes[LEVELS[current].name];
     const record = prevBest === undefined || ms < prevBest;
     if (record) save.bestTimes[LEVELS[current].name] = ms;
-    if (!save.completed.includes(current)) save.completed.push(current);
-    if (current + 1 < LEVELS.length) save.unlocked = Math.max(save.unlocked, current + 2);
+    if (!isDone(current)) save.done.push(LEVELS[current].name);   // (which opens the next)
     persist();
     winInfo = { ms, prevBest, record };
   }
@@ -337,9 +363,9 @@
       b.textContent = i + 1;
       const bt = save.bestTimes && save.bestTimes[lvl.name];
       b.title = lvl.name + (bt !== undefined ? " — best " + fmtTime(bt) : "");
-      const unlocked = i < save.unlocked;
+      const unlocked = isOpen(i);
       if (!unlocked) b.classList.add("locked");
-      if (save.completed.includes(i)) b.classList.add("done");
+      if (isDone(i)) b.classList.add("done");
       if (i === current) b.classList.add("current");
       if (unlocked) b.addEventListener("click", () => loadLevel(i));
       wrap.appendChild(b);
@@ -367,10 +393,10 @@
 
   document.getElementById("resetBtn").addEventListener("click", () => loadLevel(current));
   document.getElementById("prevBtn").addEventListener("click", () => {
-    if (current > 0) loadLevel(current - 1);
+    if (current > 0 && isOpen(current - 1)) loadLevel(current - 1);
   });
   document.getElementById("nextBtn").addEventListener("click", () => {
-    if (current + 1 < save.unlocked) loadLevel(current + 1);
+    if (current + 1 < LEVELS.length && isOpen(current + 1)) loadLevel(current + 1);
   });
   document.getElementById("overlayReplay").addEventListener("click", () => loadLevel(current));
   document.getElementById("overlayNext").addEventListener("click", () => loadLevel(current + 1));
@@ -408,5 +434,8 @@
 
   // ----- boot -----
   renderLegend();
-  loadLevel(Math.min(save.unlocked - 1, LEVELS.length - 1));
+  // start on the furthest level open: the next to play, as levels open in order
+  let first = 0;
+  for (let i = 0; i < LEVELS.length; i++) if (isOpen(i)) first = i;
+  loadLevel(first);
 })();

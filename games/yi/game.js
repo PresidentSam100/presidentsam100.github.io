@@ -1288,7 +1288,8 @@ function renderControls() {
 
 // Quit to menu asks first while a game is under way (see guardLeave below),
 // with the table waiting under the box; otherwise it goes at once. A result
-// screen's Menu button goes straight to quitToMenu.
+// screen's Menu button (and Backspace) go through here too, so between hands
+// of a points game it asks, and after a finished game it doesn't.
 function askQuitToMenu() {
   if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, quitToMenu);
   else quitToMenu();
@@ -1472,8 +1473,23 @@ function showResult(winner, gained, reached500) {
     startHand((G.dealer + 1) % G.players.length);
   };
   var mb = document.getElementById("menuBtn");
-  if (mb) mb.onclick = quitToMenu;
+  // (between hands of a points game the totals are still in play: it asks)
+  if (mb) mb.onclick = askQuitToMenu;
 }
+
+// Backspace on a result screen goes to the menu, as its Menu button does,
+// asking first between hands of a points game (Esc there leaves for the
+// games page). Yi has no play keys, so there's nothing
+// for a held Backspace to spill over from; mid-hand it does nothing.
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Backspace" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  var t = e.target;
+  if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+  var mb = document.getElementById("menuBtn");
+  if (!G || !G.over || !overlay.classList.contains("show") || !mb) return;
+  e.preventDefault();
+  mb.click();
+});
 
 // ----------------------------------------------------------------
 //  Toast + log

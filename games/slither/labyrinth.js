@@ -989,7 +989,8 @@ window.SlitherLabyrinth = function (host) {
   function onChaseOver() {
     var score = st.chase.score, round = st.chase.round, prev = chaseRunBest;
     recordChase();
-    var msg = "Score " + score + (score > prev ? (prev ? " — new best! 🎉" : "") : "  ·  Best " + prev) + "  ·  maze " + round;
+    // (no best line until there's one to beat, as on a stage's card)
+    var msg = "Score " + score + (!prev ? "" : score > prev ? " — new best! 🎉" : "  ·  Best " + prev) + "  ·  maze " + round;
     endTimer = setTimeout(function () {
       if (!active) return;
       host.showResult({ title: "The guardians got you 👻", msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });
@@ -1022,7 +1023,8 @@ window.SlitherLabyrinth = function (host) {
   function stageOver(words) {
     var score = st.score, best = stageRunBest;
     recordStage();
-    var msg = "Score " + score + " 🍎" + (stageIdx < 0 ? "" : score > best ? (best ? " — new best! 🎉" : "") : "  ·  Best " + best);
+    // (no best line until there's one to beat, as with a level's first clear)
+    var msg = "Score " + score + " 🍎" + (stageIdx < 0 || !best ? "" : score > best ? " — new best! 🎉" : "  ·  Best " + best);
     endTimer = setTimeout(function () {
       if (!active) return;
       host.showResult({ title: words[0], msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });

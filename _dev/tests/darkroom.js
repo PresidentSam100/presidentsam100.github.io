@@ -75,7 +75,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         text: h.innerText.replace(/\s+/g, " ") };
     }, label === "phone");
     check("darkroom, " + label + ": the how-to's keys " + (label === "phone" ? "are hidden" : "show") + ", the rest reads on",
-      how.keys === 8 && how.odd.length === 0 && /switch with the button/.test(how.text) && /fogs the print/.test(how.text) && /Keys:/.test(how.text) === (label !== "phone"), how);
+      how.keys === 10 && how.odd.length === 0 && /switch with the button/.test(how.text) && /fogs the print/.test(how.text) && /Keys:/.test(how.text) === (label !== "phone"), how);
     await q.close();
     await c2.close();
   }
@@ -116,6 +116,44 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("darkroom: R on a blank print and ↺ on a finished one start over at once, no box",
     !blank.box && blank.s.screen === "puzzle" && !blank.s.paused && !solved.box && !solved.s.won && solved.s.filled === 0, { blank, solved });
   check("darkroom: no page errors (start over)", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- Esc in the gallery goes back to the darkroom; on the menu it leaves, as ever
+  p = await lib.open(c3, base, "games/darkroom/");
+  await p.click("#to-gallery"); await p.waitForTimeout(100);
+  const g0 = (await st()).screen;
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  const g1 = { screen: (await st()).screen, leaves: p.leaves };
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  check("darkroom: Esc in the gallery goes back to the darkroom (doesn't leave); Esc there leaves",
+    g0 === "gallery" && g1.screen === "menu" && g1.leaves === 0 && p.leaves === 1, { g0, g1, leaves: p.leaves });
+
+  // ---- the keys are written down: the how-to names Space and R too, and ↺ shows its R
+  const keys = await p.evaluate(() => {
+    const how = document.querySelector(".how"), r = document.getElementById("hud-restart"), cap = r.querySelector(".gs-keys kbd");
+    return { how: [...how.querySelectorAll(".gs-keys kbd")].map((k) => k.textContent), text: how.textContent.replace(/\s+/g, " "),
+      cap: cap && cap.textContent, title: r.title };
+  });
+  check("darkroom: the how-to names every key (Space develops, R starts over), and ↺ shows R as a keycap with a tooltip",
+    ["Z", "Space", "X", "R"].every((k) => keys.how.includes(k)) && /Space develop/.test(keys.text) && /R start over/.test(keys.text) &&
+      keys.cap === "R" && /\bR\b/.test(keys.title), keys);
+  check("darkroom: no page errors (keys)", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- the win card: Backspace goes back to the darkroom, as its menu button does; Esc still leaves
+  p = await lib.open(c3, base, "games/darkroom/");
+  const won = async () => {
+    await p.evaluate(() => { Darkroom.open("plus"); Darkroom.solveNow(); });
+    await p.waitForFunction(() => !document.getElementById("win").hidden, null, { timeout: 5000 });
+  };
+  await won();
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(250);
+  const w1 = { screen: (await st()).screen, card: await p.evaluate(() => !document.getElementById("win").hidden), leaves: p.leaves };
+  await won();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  check("darkroom: Backspace on the win card goes back to the darkroom menu; Esc there leaves for the games page",
+    w1.screen === "menu" && !w1.card && w1.leaves === 0 && p.leaves === 1, { w1, leaves: p.leaves });
+  check("darkroom: no page errors (win card)", p.errs.length === 0, p.errs);
   await p.close();
   await c3.close();
 };

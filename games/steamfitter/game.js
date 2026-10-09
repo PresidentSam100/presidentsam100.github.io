@@ -9,7 +9,8 @@
   var W = canvas.width, H = canvas.height;   // the board's logical size: everything draws in these units
   // The backing store has the screen's pixels (up to 2 per CSS pixel), so the
   // board is sharp on retina screens and phones. A browser zoom changes the
-  // ratio; setting the size resets the context, so the scale goes back on.
+  // ratio; setting the size resets the context, so the scale goes back on,
+  // and the sprites are drawn again at the new ratio.
   var boardDpr = 0;
   function sizeBoard() {
     var d = Math.min(2, window.devicePixelRatio || 1);
@@ -17,6 +18,7 @@
     boardDpr = d;
     canvas.width = W * d; canvas.height = H * d;
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    if (SPR && SPR.plate) buildSprites();
   }
   sizeBoard();
   window.addEventListener("resize", sizeBoard);
@@ -98,7 +100,15 @@
   function sfxCap() { tone(700, 0.05, "square", 0.1); tone(520, 0.06, "square", 0.1, 0.06); tone(130, 0.16, "sine", 0.14, 0.12, 80); }
 
   // ---- sprites -----------------------------------------------------------------
-  function mkCanvas(s) { var c = document.createElement("canvas"); c.width = c.height = s; return c; }
+  // Each sprite has the board's pixel ratio (sharp on a 2× screen) and is drawn
+  // in tile units, so it's stamped at TS × TS: stamp(g, sprite, x, y).
+  function mkCanvas(s) {
+    var c = document.createElement("canvas");
+    c.width = c.height = Math.round(s * boardDpr);
+    c.getContext("2d").setTransform(boardDpr, 0, 0, boardDpr, 0, 0);
+    return c;
+  }
+  function stamp(g, spr, x, y) { g.drawImage(spr, x, y, TS, TS); }
   function pipePath(g, type) {
     g.beginPath();
     if (type === "H") { g.moveTo(-TS / 2, 0); g.lineTo(TS / 2, 0); }
@@ -205,7 +215,7 @@
     SPR.plate = t;
     // blocked cell: riveted hazard plate
     var b = mkCanvas(TS), g3 = b.getContext("2d");
-    g3.drawImage(t, 0, 0);
+    stamp(g3, t, 0, 0);
     g3.fillStyle = "#31353c";
     g3.fillRect(6, 6, TS - 12, TS - 12);
     g3.save();
@@ -896,17 +906,17 @@
     if (!grid) return; // select screen: the DOM overlay covers the board
     var r, c;
     for (r = 0; r < ROWS; r++) for (c = 0; c < COLS; c++) {
-      ctx.drawImage(SPR.plate, OX + c * TS, OY + r * TS);
+      stamp(ctx, SPR.plate, OX + c * TS, OY + r * TS);
       var cell = grid[r][c];
-      if (cell.kind === "block") ctx.drawImage(SPR.block, OX + c * TS, OY + r * TS);
+      if (cell.kind === "block") stamp(ctx, SPR.block, OX + c * TS, OY + r * TS);
       if (cell.kind === "pipe") {
         var tl = turnLeft(cell);
-        if (!tl) ctx.drawImage(SPR[cell.type], OX + c * TS, OY + r * TS);
+        if (!tl) stamp(ctx, SPR[cell.type], OX + c * TS, OY + r * TS);
         else {
           ctx.save();
           ctx.translate(OX + c * TS + TS / 2, OY + r * TS + TS / 2);
           ctx.rotate(-tl * Math.PI / 2);
-          ctx.drawImage(SPR[cell.type], -TS / 2, -TS / 2);
+          stamp(ctx, SPR[cell.type], -TS / 2, -TS / 2);
           ctx.restore();
         }
       }
@@ -935,7 +945,7 @@
       var hc = grid[hoverRC.r][hoverRC.c];
       var can = hc.kind === "empty" || (hc.kind === "pipe" && !hc.fillA && !hc.fillB);
       ctx.globalAlpha = can ? 0.45 : 0.15;
-      ctx.drawImage(SPR[queue[queueSel]], OX + hoverRC.c * TS, OY + hoverRC.r * TS);
+      stamp(ctx, SPR[queue[queueSel]], OX + hoverRC.c * TS, OY + hoverRC.r * TS);
       if (!can) {
         ctx.globalAlpha = 0.6;
         ctx.strokeStyle = "#d94f3d"; ctx.lineWidth = 3;
@@ -1003,7 +1013,7 @@
       for (var i = 0; i < 5; i++) {
         var x = 8 + i * 42;
         g.save(); g.translate(x + 18, 26); g.scale(0.55, 0.55);
-        g.drawImage(SPR[queue[i]], -TS / 2, -TS / 2);
+        stamp(g, SPR[queue[i]], -TS / 2, -TS / 2);
         g.restore();
         if (i === queueSel) { g.strokeStyle = "#e8b64c"; g.lineWidth = 2; g.strokeRect(x - 2, 4, 41, 44); }
       }
@@ -1012,7 +1022,7 @@
       for (var j = 0; j < 5; j++) {
         var y = 290 - j * 64;
         g.save(); g.translate(40, y); g.scale(0.82, 0.82);
-        g.drawImage(SPR[queue[j]], -TS / 2, -TS / 2);
+        stamp(g, SPR[queue[j]], -TS / 2, -TS / 2);
         g.restore();
         if (j === queueSel) { g.strokeStyle = "#e8b64c"; g.lineWidth = 2.5; g.strokeRect(9, y - 30, 62, 61); }
       }

@@ -1,7 +1,20 @@
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-const W = canvas.width;
+const W = canvas.width;    // the tube's own size: everything draws in these units
 const H = canvas.height;
+// The backing store has the screen's pixels (up to 2 per CSS pixel), so the
+// tube is sharp on retina screens and phones. A browser zoom changes the
+// ratio; setting the size resets the context, so the scale goes back on.
+let dpr = 0;
+function sizeTube() {
+  const d = Math.min(2, window.devicePixelRatio || 1);
+  if (d === dpr) return;
+  dpr = d;
+  canvas.width = W * d; canvas.height = H * d;
+  ctx.setTransform(d, 0, 0, d, 0, 0);
+}
+sizeTube();
+window.addEventListener("resize", sizeTube);
 
 const PADDLE_W = 12;
 const PADDLE_H = 90;

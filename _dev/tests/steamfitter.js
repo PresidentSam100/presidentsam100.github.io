@@ -148,6 +148,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   const turned = await q.evaluate((pc) => ({ moves: __game.moves, type: __game.grid[pc.r][pc.c].type }), pipe);
   check("2× screen: the board has twice the pixels, and a click turns the pipe under it",
     size.w === 1280 && size.h === 980 && turned.moves === 1 && turned.type !== pipe.type, { size, pipe, turned });
+  // the pipe and plate sprites too: built at twice the pixels, stamped at a tile's size
+  const stamps = await q.evaluate(() => new Promise((done) => {
+    const g = document.getElementById("game").getContext("2d"), draw = g.drawImage, seen = [];
+    const sprites = ["plate", "H", "V", "NE", "X", "J", "TN", "CN"].map((t) => PipeMania.__spr(t));
+    g.drawImage = function (img) { if (sprites.indexOf(img) >= 0) seen.push(arguments.length === 5 ? arguments[3] + "x" + arguments[4] : "natural " + img.width); return draw.apply(this, arguments); };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      delete g.drawImage;
+      done({ built: sprites.map((s) => s.width), drawn: [...new Set(seen)] });
+    }));
+  }));
+  check("2× screen: the pipe sprites have twice the pixels and are stamped at a tile's size",
+    stamps.built.every((w) => w === 128) && stamps.drawn.length === 1 && stamps.drawn[0] === "64x64", stamps);
   check("2× screen: frames draw with no page errors", q.errs.length === 0, q.errs);
   await q.close();
   await retina.close();

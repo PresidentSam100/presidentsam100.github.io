@@ -129,14 +129,55 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { document.getElementById("startBtn").click(); document.getElementById("newHandBtn").click(); });
   await settle(p);
   const idle = { dlg: await dlg(p), setup: await onSetup() };
-  await p.click('#modeSeg button[data-m="points"]');
   await deal(p);
-  await p.evaluate(() => { G.acted = true; totals[0] = 100; G.players[1].hand = [mk("red", "number", 5)]; endHand(0); });
+  await p.evaluate(() => { G.acted = true; G.players[1].hand = [mk("red", "number", 5)]; endHand(0); });
   await p.click("#menuBtn"); await settle(p);
   const between = { dlg: await dlg(p), setup: await onSetup() };
   check("yi: Quit to menu before anyone has moved, and Menu on a finished hand, go straight to setup",
     !idle.dlg && idle.setup && !between.dlg && between.setup, { idle, between });
   await done(p, "yi quit asks");
+
+  // ---- Backspace on a result screen goes to the menu, like its Menu button; Esc there still leaves
+  p = await lib.open(ctx, base, "games/yi/");
+  const screenNow = () => p.evaluate(() => ({ setup: getComputedStyle(document.getElementById("setup")).display !== "none", result: document.getElementById("overlay").classList.contains("show") && !!document.getElementById("menuBtn"), g: !!G }));
+  const endWith = (points, total) => p.evaluate(([points, total]) => {
+    document.querySelector('#modeSeg button[data-m="' + (points ? "points" : "single") + '"]').click();
+    document.getElementById("startBtn").click();
+    G.acted = true; totals[0] = total; G.players[1].hand = [mk("red", "number", 5)];
+    endHand(0);
+  }, [points, total]);
+  const backs = {};
+  for (const [name, points, total] of [["hand", false, 0], ["game over", true, 499]]) {
+    await endWith(points, total); await settle(p);
+    const at = await screenNow();
+    await p.keyboard.press("Backspace"); await settle(p);
+    backs[name] = { at, after: await screenNow(), dlg: await dlg(p) };
+  }
+  check("yi: Backspace on a finished game's result (a hand's end, the points game's end) goes to the menu, no box",
+    Object.values(backs).every((b) => b.at.result && !b.at.setup && b.after.setup && !b.after.result && !b.after.g && !b.dlg), backs);
+
+  // between hands of a points game the totals live only in memory: Menu and Backspace ask first
+  await endWith(true, 100); await settle(p);
+  await p.click("#menuBtn"); await settle(p);
+  const viaMenu = await dlg(p);
+  await p.keyboard.press("Escape"); await settle(p);
+  const stayed = { s: await screenNow(), dlg: await dlg(p) };
+  await p.keyboard.press("Backspace"); await settle(p);
+  const viaBack = await dlg(p);
+  await p.keyboard.press("Enter"); await settle(p);
+  const quitTo = await screenNow();
+  check("yi: between hands in a points game, Menu and Backspace ask 'Quit this game?'; Keep playing stays on the result, Quit goes to setup",
+    viaMenu === "Quit this game?" && !stayed.dlg && stayed.s.result && !stayed.s.setup && viaBack === "Quit this game?" && quitTo.setup && !quitTo.g,
+    { viaMenu, stayed, viaBack, quitTo });
+
+  // mid-hand Backspace does nothing; Esc on a result screen still leaves for the games page (guards)
+  await p.evaluate(() => { hideOverlay(); document.getElementById("startBtn").click(); });
+  await p.keyboard.press("Backspace"); await settle(p);
+  const mid = await screenNow();
+  await endWith(false, 0); await settle(p);
+  await p.keyboard.press("Escape"); await settle(p);
+  check("yi: mid-hand Backspace does nothing; Esc on a hand's result still leaves", !mid.setup && mid.g && !mid.result && p.leaves === 1, { mid, leaves: p.leaves });
+  await done(p, "yi backspace");
 
   await ctx.close();
 };

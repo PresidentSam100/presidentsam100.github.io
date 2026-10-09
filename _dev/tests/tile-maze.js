@@ -2,8 +2,10 @@
 // before; a reset or a new level drops the move still animating; the level
 // clock holds while the window is away; the Tile Guide holds the board; the
 // Level Editor link asks first mid-level; the editor's test play does the
-// same on R / Stop test, one move per key press; and key hints show only
-// where there's a keyboard.
+// same on R / Stop test, one move per key press; the editor's Save updates
+// the saved level it opened; progress is kept by level name (an old save
+// carries over, and a re-sort can't move it); and key hints show only where
+// there's a keyboard.
 module.exports = async ({ browser, base, check, lib }) => {
   const seed = (save) => (pg) => pg.addInitScript((s) => { try { localStorage.setItem("tileMaze.v1", s); } catch (e) {} }, save);
   const cellPx = (p) => p.evaluate(() => parseInt(getComputedStyle(document.documentElement).getPropertyValue("--cell"), 10));
@@ -55,8 +57,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(30);
   await p.evaluate(() => document.getElementById("nextBtn").click());
   await p.waitForTimeout(900);
-  const b = await p.evaluate(() => ({ lvl: document.getElementById("lvlNum").textContent, overlay: !document.getElementById("overlay").hidden, completed: JSON.parse(localStorage.getItem("tileMaze.v1")).completed }));
-  check("tile-maze: Next during the winning slide opens level 2 with no Level Complete card over it (the win still counts)", b.lvl === "2" && !b.overlay && b.completed.includes(0), b);
+  const b = await p.evaluate(() => ({ lvl: document.getElementById("lvlNum").textContent, overlay: !document.getElementById("overlay").hidden, won1: document.querySelectorAll("#levelPick .lvlbtn")[0].classList.contains("done") }));
+  check("tile-maze: Next during the winning slide opens level 2 with no Level Complete card over it (the win still counts)", b.lvl === "2" && !b.overlay && b.won1, b);
 
   // ---- (c) R just after a win: the fresh board gets no Level Complete card
   await pick(p, 1);
@@ -120,6 +122,61 @@ module.exports = async ({ browser, base, check, lib }) => {
   const solved = await p.evaluate(() => !document.getElementById("testOverlay").hidden);
   check("tile-maze editor: Stop test during the winning move brings no Solved! card over the editor", !solved, solved);
   await done(p, "editor");
+
+  // ---- 💾 Save updates the saved level it was opened from; Save as new copies it; a new level adds one
+  p = await lib.open(ctx, base, "games/tile-maze/editor.html");
+  const list = () => p.evaluate(() => JSON.parse(localStorage.getItem("tileMaze.customLevels") || "[]").map((l) => l.name + (l.hint ? "/" + l.hint : "")));
+  const saveAsNew = async () => { if (await p.$("#saveNewBtn:not([hidden])")) await p.click("#saveNewBtn"); };
+  const edit = (i) => p.evaluate((i) => document.querySelectorAll("#saved .saved-item")[i].querySelector("button").click(), i);
+  await p.fill("#nameIn", "A"); await p.click("#saveBtn");
+  await p.fill("#nameIn", "A2"); await p.click("#saveBtn");
+  const s1 = await list();                       // saved twice: still one level
+  await edit(0); await p.fill("#nameIn", "B"); await saveAsNew();
+  const s2 = await list();                       // a copy under a new name
+  await p.click("#newBtn"); await p.fill("#nameIn", "C"); await p.click("#saveBtn");
+  const s3 = await list();                       // a brand-new level adds one
+  await edit(1);                                 // B ...
+  await p.evaluate(() => document.querySelectorAll("#saved .saved-item")[0].querySelectorAll("button")[1].click());   // ... then A2 is deleted
+  await p.fill("#hintIn", "h"); await p.click("#saveBtn");
+  const s4 = await list();                       // B (now first) is the one updated
+  check("tile-maze editor: 💾 Save updates the saved level it came from, Save as new copies it, and a new level adds one",
+    s1.join() === "A2" && s2.join() === "A2,B" && s3.join() === "A2,B,C" && s4.join() === "B/h,C", { s1, s2, s3, s4 });
+  await done(p, "editor save");
+
+  // ---- Esc closes the editor's Import / Export drawer (claiming the key); with nothing open it does nothing
+  p = await lib.open(ctx, base, "games/tile-maze/editor.html");
+  const drawer = () => p.evaluate(() => !document.getElementById("ioPanel").hidden);
+  await p.click("#importBtn"); await p.waitForTimeout(100);   // (the paste box has focus)
+  const i0 = await drawer(), iClaimed = await lib.fireKey(p, { key: "Escape", code: "Escape" }), i1 = await drawer();
+  await p.click("#exportBtn"); await p.waitForTimeout(100);
+  const e0 = await drawer();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  const e1 = await drawer();
+  const idle = await lib.fireKey(p, { key: "Escape", code: "Escape" }); await p.waitForTimeout(250);
+  check("tile-maze editor: Esc closes the Import / Export drawer and claims the key; with nothing open it does nothing",
+    i0 && iClaimed && !i1 && e0 && !e1 && !idle && p.leaves === 0, { i0, iClaimed, i1, e0, e1, idle, leaves: p.leaves });
+  await done(p, "editor drawer");
+
+  // ---- progress is kept by level name: an old index-based save carries over...
+  p = await lib.open(ctx, base, "games/tile-maze/", { before: seed('{"unlocked":3,"completed":[0,1],"bestTimes":{"First Steps":1000}}') });
+  const picker = () => p.evaluate(() => [...document.querySelectorAll("#levelPick .lvlbtn")].slice(0, 4).map((b) => (b.classList.contains("locked") ? "locked" : "open") + (b.classList.contains("done") ? "+done" : "") + (/best/.test(b.title) ? "+best" : "")));
+  const m1 = { lvl: await p.textContent("#lvlNum"), picker: await picker(), saved: await p.evaluate(() => JSON.parse(localStorage.getItem("tileMaze.v1"))) };
+  check("tile-maze: an old save (levels by number) carries over to names, the same levels done and open",
+    m1.lvl === "3" && m1.picker.join() === "open+done+best,open+done,open,locked" &&
+    (m1.saved.done || []).join() === "First Steps,Live Wires" && !("completed" in m1.saved) && !("unlocked" in m1.saved) && m1.saved.bestTimes["First Steps"] === 1000, m1);
+  await p.close();
+
+  // ---- ...and survives the levels being re-sorted
+  p = await lib.open(ctx, base, "games/tile-maze/");
+  await keys(p, "RRRDDLLL"); await p.waitForTimeout(500);
+  await lib.injectScript(p, "games/tile-maze/levels.js", [["  return [", "  return (function (L) { return [L[1], L[0]].concat(L.slice(2)); })(["], ["  ];\n});", "  ]);\n});"]]);
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
+  const names = await p.evaluate(() => LEVELS.slice(0, 3).map((l) => l.name).join());
+  const re = await picker();
+  // (First Steps, now 2nd, is the one done and timed; Slippery Slope, now after it, opens)
+  check("tile-maze: progress stays with its levels when they're re-sorted",
+    names === "Live Wires,First Steps,Slippery Slope" && re.join() === "open,open+done+best,open,locked", { names, re });
+  await done(p, "progress");
   await ctx.close();
 
   // ---- key hints: keys on a desktop; on a phone none (the game's legend), or the pad (the editor's test play)

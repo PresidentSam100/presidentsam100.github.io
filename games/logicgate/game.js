@@ -1226,6 +1226,8 @@
 
     document.getElementById("checkBtn").addEventListener("click", doCheck);
     document.addEventListener("keydown", function (e) {
+      // the open "? Gates" panel claims Esc: it closes, and doesn't also leave the game
+      if (e.key === "Escape" && helpOpen && !e.repeat && !(e.ctrlKey || e.metaKey || e.altKey)) { e.preventDefault(); toggleHelp(); return; }
       if (e.key !== "Enter") return;
       if (e.target && e.target.tagName === "BUTTON") return; // let focused buttons act
       if (document.getElementById("winBanner").classList.contains("show")) nextLevel();

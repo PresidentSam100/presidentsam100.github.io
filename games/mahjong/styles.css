@@ -65,6 +65,9 @@ body {
   font-family: inherit; font-size: 10.5px; color: #e8cf96;
   background: rgba(246, 232, 207, 0.14); border: 1px solid rgba(201, 162, 75, 0.7);
 }
+/* a dead board's ways out (New deal, Daily: give up), shown by game.js */
+.hud-stuck[hidden], .hud-stuck button[hidden] { display: none; }
+.hud-stuck button { border-color: var(--gold); }
 
 /* ---- the tiles ---------------------------------------------------------- */
 #board { position: relative; flex: 1; margin: 6px auto 14px; }

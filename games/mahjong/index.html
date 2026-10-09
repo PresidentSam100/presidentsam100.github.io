@@ -36,6 +36,11 @@
     <span id="hud-time">0:00</span>
     <span id="hud-left">144 tiles</span>
     <span id="hud-pairs"></span>
+    <!-- a dead board's ways out, after Undo (game.js shows them) -->
+    <span class="hud-btns hud-stuck" id="hud-stuck" hidden>
+      <button type="button" id="btn-newdeal" title="Deal again, from the start">New deal</button>
+      <button type="button" id="btn-giveup" title="Give today's turtle up, unrecorded">Daily: give up</button>
+    </span>
     <span class="hud-btns">
       <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <span class="gs-keys"><kbd>H</kbd></span></button>
       <button type="button" id="btn-undo" title="Take back (+15s)">Undo <span class="gs-keys"><kbd>U</kbd></span></button>

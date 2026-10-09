@@ -38,7 +38,7 @@
     <b>🖐 develop</b> or <b>✕ mark</b> where nothing goes — switch with the button<span class="gs-keys"> or the
     <kbd>1</kbd> / <kbd>2</kbd> keys</span>. On a mouse, <b>right-click</b> always marks ✕. Developing a wrong cell <b>fogs the print</b>: it turns
     into ✕ for you and costs <b>+30&#8202;s</b> on the clock — finish with no fog for a flawless print. Every negative is
-    provably solvable with <b>no guessing</b>.<span class="gs-keys"> Keys: <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move, <kbd>Z</kbd> develop, <kbd>X</kbd> mark.</span>
+    provably solvable with <b>no guessing</b>.<span class="gs-keys"> Keys: <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move, <kbd>Z</kbd> or <kbd>Space</kbd> develop, <kbd>X</kbd> mark, <kbd>R</kbd> start over.</span>
   </p>
   <button type="button" class="daily" id="daily-btn"><b>Daily negative</b><small id="daily-sub"></small></button>
   <div id="rolls"></div>
@@ -58,7 +58,7 @@
     <button type="button" id="tool-fill" aria-pressed="true">🖐 develop <span class="gs-keys"><kbd>1</kbd></span></button>
     <button type="button" id="tool-mark" aria-pressed="false">✕ mark <span class="gs-keys"><kbd>2</kbd></span></button>
   </div>
-  <button type="button" id="hud-restart" aria-label="Restart this negative">↺</button>
+  <button type="button" id="hud-restart" aria-label="Restart this negative (R)" aria-keyshortcuts="R" title="Start this negative over (R)">↺ <span class="gs-keys"><kbd>R</kbd></span></button>
 </div>
 <div class="easel" id="easel" hidden>
   <canvas id="board" aria-label="The nonogram grid"></canvas>

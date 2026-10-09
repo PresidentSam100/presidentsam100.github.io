@@ -27,7 +27,7 @@
   const status = $("status"), frame = $("frame"), edBoard = $("edBoard");
   const testPad = $("testPad"), palette = $("palette"), palDesc = $("palDesc");
   const wIn = $("wIn"), hIn = $("hIn"), nameIn = $("nameIn"), hintIn = $("hintIn");
-  const saved = $("saved");
+  const saved = $("saved"), saveNewBtn = $("saveNewBtn");
   const ioPanel = $("ioPanel"), ioTitle = $("ioTitle"), ioText = $("ioText"), ioNote = $("ioNote");
   const copyBtn = $("copyBtn"), loadBtn = $("loadBtn");
   const testOverlay = $("testOverlay"), testTitle = $("testTitle"), testSub = $("testSub");
@@ -114,6 +114,7 @@
     if (rows >= 3 && cols >= 3) { grid[1][1] = "S"; grid[rows - 2][cols - 2] = "X"; }
     renderBoard(); updateStatus();
     keep();   // an empty room is nothing to lose
+    setEditing(null);   // and it's a new level: its first 💾 Save adds it
   }
 
   // ---- unsaved work ----
@@ -273,35 +274,53 @@
     ioPanel.hidden = true;
     computeCell(); renderBoard(); updateStatus();
     keep();   // (the pasted text is still wherever it came from)
+    setEditing(null);   // a pasted level is a new one
   }
 
   // ---- saved levels (localStorage) ----
   const loadSaved = () => { try { return JSON.parse(localStorage.getItem(STORE) || "[]"); } catch (e) { return []; } };
   const persistSaved = (a) => { try { localStorage.setItem(STORE, JSON.stringify(a)); } catch (e) {} };
-  function saveCurrent() {
-    const v = validate(); if (!v.ok) { updateStatus("⚠ Fix before saving: " + v.msgs.join(" · "), "bad"); return; }
-    const a = loadSaved();
-    a.push({ name: nameIn.value || "Untitled", hint: hintIn.value || "", grid: grid.map((r) => r.join("")) });
-    persistSaved(a); renderSaved(); keep();
-    updateStatus('💾 Saved "' + (nameIn.value || "Untitled") + '" (' + a.length + " total).", "good");
+  // The saved level on the board (its place in the list), or null for one not
+  // saved yet. 💾 Save updates it instead of adding a copy each time; ＋ Save
+  // as new (shown only then) keeps it and adds the board as another.
+  let editing = null;
+  function setEditing(i) {
+    editing = i;
+    saveNewBtn.hidden = i === null;
+    renderSaved();
   }
-  function loadSavedLevel(lvl) {
+  function saveCurrent(asNew) {
+    const v = validate(); if (!v.ok) { updateStatus("⚠ Fix before saving: " + v.msgs.join(" · "), "bad"); return; }
+    const a = loadSaved(), name = nameIn.value || "Untitled";
+    const lvl = { name, hint: hintIn.value || "", grid: grid.map((r) => r.join("")) };
+    const over = !asNew && editing !== null && editing < a.length;
+    if (over) a[editing] = lvl; else a.push(lvl);
+    persistSaved(a); setEditing(over ? editing : a.length - 1); keep();
+    updateStatus(over ? '💾 Saved "' + name + '" over saved level ' + (editing + 1) + "." : '💾 Saved "' + name + '" (' + a.length + " total).", "good");
+  }
+  function loadSavedLevel(lvl, i) {
     if (mode === "test") exitTest();
     grid = lvl.grid.map((s) => s.split("")); rows = grid.length; cols = grid[0].length;
     nameIn.value = lvl.name || ""; hintIn.value = lvl.hint || "";
     wIn.value = cols; hIn.value = rows;
     computeCell(); renderBoard(); updateStatus();
     keep();
+    setEditing(i);
   }
   function renderSaved() {
     const a = loadSaved(); saved.innerHTML = "";
     if (!a.length) { saved.innerHTML = '<div class="empty">No saved levels yet.</div>'; return; }
     a.forEach((lvl, i) => {
-      const row = document.createElement("div"); row.className = "saved-item";
+      const row = document.createElement("div"); row.className = "saved-item" + (i === editing ? " editing" : "");
       const nm = document.createElement("span"); nm.className = "nm"; nm.textContent = i + 1 + ". " + lvl.name;
-      const ed = document.createElement("button"); ed.className = "btn mini"; ed.textContent = "Edit"; ed.addEventListener("click", () => loadSavedLevel(lvl));
+      const ed = document.createElement("button"); ed.className = "btn mini"; ed.textContent = "Edit"; ed.addEventListener("click", () => loadSavedLevel(lvl, i));
       const del = document.createElement("button"); del.className = "btn mini"; del.textContent = "✕"; del.title = "Delete";
-      del.addEventListener("click", () => { const arr = loadSaved(); arr.splice(i, 1); persistSaved(arr); renderSaved(); });
+      del.addEventListener("click", () => {
+        const arr = loadSaved(); arr.splice(i, 1); persistSaved(arr);
+        // the list closes up: follow the level on the board, or let it go if it was this one
+        if (editing === i) setEditing(null);
+        else setEditing(editing !== null && editing > i ? editing - 1 : editing);
+      });
       row.appendChild(nm); row.appendChild(ed); row.appendChild(del); saved.appendChild(row);
     });
   }
@@ -347,10 +366,18 @@
   $("newBtn").addEventListener("click", newRoom);
   $("testBtn").addEventListener("click", () => (mode === "test" ? exitTest() : enterTest()));
   $("checkBtn").addEventListener("click", checkSolvable);
-  $("saveBtn").addEventListener("click", saveCurrent);
+  $("saveBtn").addEventListener("click", () => saveCurrent(false));
+  saveNewBtn.addEventListener("click", () => saveCurrent(true));
   $("exportBtn").addEventListener("click", () => openIO("Export", exportText(), false, "Paste this into the array in levels.js to add it to the game permanently."));
   $("importBtn").addEventListener("click", () => openIO("Import", "", true, "Paste a grid (one row per line) or a full level object, then Load into editor."));
   $("ioClose").addEventListener("click", () => { ioPanel.hidden = true; });
+  // Esc closes the drawer, from its paste box too, and claims the key. With
+  // nothing open it does nothing here (data-esc-leaves="off": it never loses work)
+  window.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.ctrlKey || e.metaKey || e.altKey || ioPanel.hidden) return;
+    e.preventDefault();
+    ioPanel.hidden = true;
+  });
   loadBtn.addEventListener("click", loadImport);
   copyBtn.addEventListener("click", () => {
     ioText.select();

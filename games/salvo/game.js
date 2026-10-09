@@ -317,8 +317,13 @@
   }
 
   // ---- end ----
+  // Backspace is a placement key (Reset), so for a moment after the end card
+  // comes up it's ignored there: a reflex press doesn't skip past the result
+  const OVER_GRACE_MS = 1000;
+  let overAt = 0;
+  const overSettled = () => performance.now() - overAt >= OVER_GRACE_MS;
   function gameOver(winner) {
-    phase = "over"; render();
+    phase = "over"; overAt = performance.now(); render();
     if (winner === "player") { rec.w++; SFX.win(); $("overTitle").textContent = "🏆 Victory!"; $("overMsg").textContent = "You sank the entire enemy fleet."; }
     else { rec.l++; SFX.lose(); $("overTitle").textContent = "💥 Defeated"; $("overMsg").textContent = "The CPU sank your fleet."; }
     store.set("battleship_record", JSON.stringify(rec));
@@ -342,7 +347,14 @@
   // keyboard shortcuts
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    if (phase === "over") { if (e.key === "Enter") { e.preventDefault(); newGame(); } return; }
+    // the end card: Enter for a new game; Backspace back to the fleet screen,
+    // the game's menu (the same place); Esc isn't claimed, so it leaves for
+    // the games page
+    if (phase === "over") {
+      if (e.key === "Enter") { e.preventDefault(); newGame(); }
+      else if (e.key === "Backspace" && !e.repeat && overSettled()) { e.preventDefault(); newGame(); }
+      return;
+    }
     if (phase !== "place") return;
     const onBtn = document.activeElement && document.activeElement.tagName === "BUTTON";
     const k = e.key.toLowerCase();

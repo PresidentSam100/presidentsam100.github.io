@@ -204,6 +204,54 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("slither pack run: R right after the last life's crash still ends on the Run over card", ro.result && /Run over/.test(ro.title), ro);
   await p.close();
 
+  // ---- a stage's end card: no best line before there's a best to beat (as a
+  // level's first clear), and the best once there is one
+  const stageEnd = async (p) => {
+    await p.click('[data-mode="lab"]'); await p.waitForTimeout(200);
+    await openPanel(p, "Stages", "Courtyard"); await p.waitForTimeout(300);
+    await p.keyboard.press("ArrowUp");   // (straight into the top wall, no apples)
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    return p.evaluate(() => document.getElementById("result-msg").textContent);
+  };
+  p = await lab();
+  const first = await stageEnd(p);
+  await p.evaluate(() => localStorage.setItem("slither_labyrinth", JSON.stringify({ best: {}, stageBest: { courtyard: 5 } })));
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
+  const later = await stageEnd(p);
+  check("slither stage: the first end card has no best line (not \"Best 0\")", /^Score 0 🍎/.test(first) && !/Best/.test(first), first);
+  check("slither stage: with a best saved, the end card shows it (guard)", /Best 5/.test(later), later);
+  await p.close();
+
+  // ---- the same for a Maze Chase run caught without a bead (on its last
+  // life, a guardian set down on the still-coiled snake) and a scoreless Classic run
+  const chaseEnd = async (p) => {
+    await p.click('[data-mode="lab"]'); await p.waitForTimeout(200);
+    await openPanel(p, "Maze Chase", "^👻"); await p.waitForTimeout(300);
+    await p.evaluate(() => {
+      const st = __lab.st();
+      st.chase.lives = 1;
+      st.guards.forEach((g) => { g.timer = 1e9; });
+      Object.assign(st.guards[0], { cell: st.player.body[0], state: "roam", fright: false });
+      st.status = "play";
+    });
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    return p.evaluate(() => document.getElementById("result-msg").textContent);
+  };
+  p = await lab();
+  const chase1 = await chaseEnd(p);
+  await p.evaluate(() => localStorage.setItem("slither_labyrinth", JSON.stringify({ best: {}, chaseBest: 500 })));
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
+  const chase2 = await chaseEnd(p);
+  check("slither maze chase: the first end card has no best line (not \"Best 0\")", /^Score 0 /.test(chase1) && !/Best/.test(chase1), chase1);
+  check("slither maze chase: with a best saved, the end card shows it (guard)", /Best 500/.test(chase2), chase2);
+  await p.close();
+  p = await classic();
+  await p.click("#play-btn");   // (heading right, into the wall, with nothing eaten)
+  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+  const c0 = await p.evaluate(() => document.getElementById("result-msg").textContent);
+  check("slither classic: a scoreless first run's card has no best line (not \"Best: 0\")", /^Score: 0/.test(c0) && !/Best/.test(c0), c0);
+  await p.close();
+
   // ---- the Rainbow serpent holds its colours still with Visual FX off
   p = await lib.open(ctx, base, "games/slither/");
   const rb = await p.evaluate(() => {

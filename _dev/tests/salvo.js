@@ -24,6 +24,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     return { rec: JSON.parse(localStorage.getItem("battleship_record")), over: !document.getElementById("over").classList.contains("hidden") };
   });
   check("salvo: a shot after the last sinking doesn't count the win twice", res.over && res.rec.w === 1 && res.rec.l === 0, res);
+
+  // the end card: Backspace goes back to the fleet screen, the game's menu,
+  // but not in its first second (Backspace is a placement key, Reset); Esc
+  // leaves for the games page
+  const shown = () => p.evaluate(() => ({ over: !document.getElementById("over").classList.contains("hidden"), placing: document.getElementById("placeControls").style.display !== "none" && document.getElementById("enemyCol").hidden }));
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(80);
+  const early = await shown();
+  await p.waitForTimeout(1000);
+  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  const esc = Object.assign(await shown(), { leaves: p.leaves });
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(80);
+  const back = await shown();
+  check("salvo: on the end card Esc leaves, Backspace goes back to the fleet screen (not in the card's first second)",
+    early.over && esc.over && esc.leaves === 1 && !back.over && back.placing && p.leaves === 1, { early, esc, back });
   check("salvo: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 

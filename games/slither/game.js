@@ -747,7 +747,8 @@
       updateHud();
       showResult({
         title: "Game Over 🐍",
-        msg: "Score: " + s.score + (isNewBest ? " — New Best! 🎉" : "  ·  Best: " + G.best),
+        // (no best line while there's no best at all: a scoreless first run)
+        msg: "Score: " + s.score + (isNewBest ? " — New Best! 🎉" : G.best ? "  ·  Best: " + G.best : ""),
         primaryLabel: "Play Again",
         primaryFn: function () { startRound(); },
       });

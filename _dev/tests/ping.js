@@ -40,5 +40,23 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("ping: a key held as the window lost focus doesn't keep the paddle moving after resuming", held.paused && held.moved === 0, held);
   check("ping: no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // a 2× screen: the tube has twice the pixels, drawn to its far edge; a click on the menu still starts a game
+  const retina = await lib.newContext(browser, { deviceScaleFactor: 2 });
+  const r = await lib.open(retina, base, "games/ping/");
+  const size = await r.evaluate(() => ({ w: canvas.width, h: canvas.height }));
+  await r.click('#menu .btn[data-mode="1"]'); await r.waitForTimeout(500);
+  const shown = await r.evaluate(() => {
+    const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data, wd = canvas.width;
+    let lit = 0;   // the right paddle, 768-780 px across in the tube's own 800 × 500
+    for (let y = Math.round(canvas.height * 0.4); y < canvas.height * 0.6; y++) for (let x = Math.round(wd * 0.962); x < wd * 0.972; x++) if (d[(y * wd + x) * 4] > 150) lit++;
+    return { state: state, lit: lit };
+  });
+  check("ping, 2× screen: the tube has twice the pixels and is drawn to its far edge; the menu click starts a game",
+    size.w === 1600 && size.h === 1000 && shown.state !== "menu" && shown.lit > 0, { size, shown });
+  check("ping, 2× screen: frames draw with no page errors", r.errs.length === 0, r.errs);
+  await r.close();
+  await retina.close();
+
   await ctx.close();
 };

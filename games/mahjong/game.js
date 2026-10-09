@@ -423,6 +423,7 @@
     if (state !== "play" || !undoStack.length) return;
     var pr = undoStack.pop();
     penaltyMs += 15000;
+    dead = false;                      // a pair back on the board: there's a way on again
     pr.forEach(function (i) {
       live.add(i);
       var b = document.createElement("button");
@@ -485,10 +486,12 @@
     shuffle(pairs, rng);
     return dealOnto(pos, [...live], pairs, rng);
   }
-  // no reshuffle fits: taking a pair back is the way on
+  // no reshuffle fits: the board is dead. Taking a pair back is the way on;
+  // the HUD offers a new deal too (hud())
   function noRedeal() {
-    note("no reshuffle fits — undo a pair");
+    dead = true;
     pointAt("btn-undo");
+    hud();
   }
   function reshuffle() {
     if (state !== "play" || (live.size < 4 && freePairs().length)) return;
@@ -517,7 +520,7 @@
     live = new Set(pos.map(function (_, i) { return i; }));
     kinds = dealOnto(pos, [...live], pairPool(rng), rng);
     dailyRecorded = mode === "daily" ? readDaily().done : false;
-    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; hudNote = "";
+    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; dead = false;
     $("menu").hidden = true; $("over").hidden = true; $("hudline").hidden = false;
     state = "play";
     buildBoard();
@@ -527,18 +530,16 @@
     var s = Math.floor(ms / 1000);
     return Math.floor(s / 60) + ":" + ("0" + (s % 60)).slice(-2);
   }
-  // a word in the HUD for a moment, in place of the pairs count
-  var hudNote = "", noteT = 0;
-  function note(t) {
-    hudNote = t;
-    clearTimeout(noteT);
-    noteT = setTimeout(function () { hudNote = ""; hud(); }, 2400);
-    hud();
-  }
+  // a dead board (no pairs, and no reshuffle fits): until a pair is taken back
+  // or a new deal starts, the HUD says so in place of the pairs count and
+  // offers the ways out after Undo: New deal, and on the Daily, giving up
+  var dead = false;
   function hud() {
     $("hud-time").textContent = fmt(timeMs + penaltyMs);
     $("hud-left").textContent = live.size + " tiles";
-    $("hud-pairs").textContent = hudNote || freePairs().length + " pairs open";
+    $("hud-pairs").textContent = dead ? "no reshuffle fits — undo a pair, or" : freePairs().length + " pairs open";
+    $("hud-stuck").hidden = !dead;
+    $("btn-giveup").hidden = mode !== "daily";
   }
   function win() {
     state = "over";
@@ -641,6 +642,23 @@
   $("btn-hint").addEventListener("click", function () { hint(false); });
   $("btn-undo").addEventListener("click", undo);
   $("btn-shuffle").addEventListener("click", reshuffle);
+  // the ways off a dead board after Undo, asking first while the desk has
+  // been played (the leave guard below). The Daily keeps only a clear, so
+  // giving it up records nothing and today's turtle stays open.
+  function ask(opts, go) {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, go);
+    else go();
+  }
+  // (on the Daily a new deal is today's turtle again: a start over)
+  $("btn-newdeal").addEventListener("click", function () {
+    ask(mode === "daily"
+      ? { title: "Start over?", ok: "Start over", text: "Today's turtle is dealt again, from the start." }
+      : { title: "Start a new game?", ok: "New game" },
+      function () { startRun(mode); });
+  });
+  $("btn-giveup").addEventListener("click", function () {
+    ask({ title: "Quit this game?", ok: "Quit", text: "Today's turtle isn't recorded, and stays open for another try." }, toMenu);
+  });
 
   document.addEventListener("keydown", function (e) {
     if (P.isPaused()) return;          // paused: no play keys, Ctrl+Z's undo included

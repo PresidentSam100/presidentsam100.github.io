@@ -40,13 +40,36 @@ module.exports = async ({ browser, base, check, lib }) => {
       g.fillText = function (t) { seen.push(String(t)); return o.apply(this, arguments); };
       requestAnimationFrame(() => requestAnimationFrame(() => { g.fillText = o; res(seen); }));
     }), set);
-    const all = [].concat(await drawn(""), await drawn("__game.start(); __game.paused = true"), await drawn("__game.paused = false; __game.state = 'over'"));
-    notes[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: TOUCH.filter((t) => all.includes(t)) };
+    const start = await drawn(""), paused = await drawn("__game.start(); __game.paused = true"), over = await drawn("__game.paused = false; __game.state = 'over'");
+    const all = [].concat(start, paused, over);
+    notes[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: TOUCH.filter((t) => all.includes(t)), menuKey: over.includes("⌫") };
     await done(p, label + " notes");
   }
   check("poodle-jump: the start, pause and game-over notes show keys on a desktop and touch wording on a phone",
     notes.desktop.keys.length === KEYS.length && notes.desktop.touch.length === 0 && notes.phone.keys.length === 0 && notes.phone.touch.length === TOUCH.length, notes);
+  check("poodle-jump: the game-over note names [⌫] for the menu on a desktop, and not on a phone (no key to press)",
+    notes.desktop.menuKey && !notes.phone.menuKey, { desktop: notes.desktop.menuKey, phone: notes.phone.menuKey });
   await phone.close();
+
+  // ---- Game Over: Backspace goes back to the start card, but not in its first
+  // second (a key held from the run); Esc still leaves for the games page
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  await p.evaluate(() => { __game.start(); __game.score = 42; __game.finishDeath(); });
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
+  const early = await p.evaluate(() => __game.state);
+  await p.waitForTimeout(1300);
+  await p.waitForFunction(() => !(__game.menuGrace > 0), null, { timeout: 5000 });   // (game time: slower than the clock on a busy machine)
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
+  const back = await p.evaluate(() => ({ state: __game.state, score: __game.score }));
+  await p.keyboard.press("Space"); await p.waitForTimeout(150);
+  const play = await p.evaluate(() => __game.state);
+  check("poodle-jump: on Game Over, Backspace goes back to the start card (not in the first second), and Space plays from there",
+    early === "over" && back.state === "start" && back.score === 0 && play === "play" && p.leaves === 0, { early, back, play, leaves: p.leaves });
+  await p.evaluate(() => { __game.finishDeath(); });
+  await p.waitForTimeout(200);
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  check("poodle-jump: on Game Over, Esc still leaves for the games page", p.leaves === 1, p.leaves);
+  await done(p, "game over keys");
 
   await ctx.close();
 };

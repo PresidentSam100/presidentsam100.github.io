@@ -29,6 +29,7 @@ class Game {
     this.liveSavedAt = -1e9;
     this.shootCd = 0;
     this.overTimer = 0;
+    this.menuGrace = 0;       // Game Over ignores Backspace (the menu) until this runs out
     this.paused = false;
 
     this.platforms = [];
@@ -57,6 +58,12 @@ class Game {
   start() {
     this.reset();
     this.state = "play";
+  }
+
+  // Back to the start card, its menu (Backspace on Game Over)
+  toStart() {
+    this.reset();
+    this.state = "start";
   }
 
   // ----- spawning ---------------------------------------------------------
@@ -223,6 +230,7 @@ class Game {
     // while on the start/over screens and then fire on the first play frame.
     const pauseToggled = this.input.consumePauseToggle();
     if (this.state === "play" && pauseToggled) this.paused = !this.paused;
+    const menuPressed = this.input.consumeMenu();   // (drained the same way)
     if (this.paused) {
       if (this.state !== "play") this.paused = false; // safety: only pause in-play
       Sfx.setFlightLoop(null); // silence the flight drone while paused
@@ -243,6 +251,13 @@ class Game {
     if (this.state !== "play") {
       Sfx.setFlightLoop(null);
       if (this.overTimer > 0) this.overTimer -= dt;
+      if (this.menuGrace > 0) this.menuGrace -= dt;
+      if (menuPressed && this.state === "over" && this.menuGrace <= 0) {
+        this.toStart();
+        this.input.consumeAction();
+        this.input.consumeShots();
+        return;
+      }
       if (this.input.consumeAction() && this.overTimer <= 0) this.start();
       this.input.consumeShots();
       return;
@@ -629,6 +644,9 @@ class Game {
   finishDeath() {
     this.state = "over";
     this.overTimer = 0.6;
+    // Space and the arrows are play keys, so one could still be held from the
+    // run: Backspace waits a full second too before leaving the result
+    this.menuGrace = 1;
     this.player.renderMode = "normal";
     this.player.spin = 0;
     this.player.scale = 1;
@@ -820,7 +838,8 @@ class Game {
       "Best: " + this.high,
       "",
       { keys: "[Space] or click to play again", touch: "Tap to play again" },
-      { keys: "[Esc] all games", touch: "← Games for all games" },
+      // (no menu line on touch: there's no Backspace there)
+      { keys: "[⌫] menu  ·  [Esc] all games", touch: "← Games for all games" },
     ]);
   }
 

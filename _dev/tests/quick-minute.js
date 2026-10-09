@@ -14,6 +14,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("ArrowLeft");
   const l2 = await lane();
   check("quick-minute: lane changes while paused don't count; after resuming they do", paused && l0 === 2 && l1 === 2 && l2 === 1, { paused, l0, l1, l2 });
+
+  // the crash card: Esc leaves for the games page, Backspace goes back to the
+  // mode menu (Change mode)
+  await p.evaluate(() => __game.obstacles.push({ lane: __game.player.lane, y: 566, w: 44, h: 84, type: "car", color: "#bcc0c6", cx: __game.player.x, pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: 0 }));
+  await p.waitForFunction(() => !__game.running && !!document.getElementById("btn-menu"), null, { timeout: 5000 });
+  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  const escLeft = p.leaves === 1 && (await p.evaluate(() => !!document.getElementById("btn-menu")));
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
+  const toModes = await p.evaluate(() => !!document.getElementById("m-day") && document.getElementById("overlay").classList.contains("show"));
+  check("quick-minute: on the crash card Esc leaves, Backspace goes back to the mode menu", escLeft && toModes && p.leaves === 1, { escLeft, toModes, leaves: p.leaves });
   check("quick-minute: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();

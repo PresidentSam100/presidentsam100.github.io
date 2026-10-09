@@ -201,6 +201,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   const hiRun = { lives: await p.evaluate(() => game.livesMode), drawing: (await p.evaluate(() => game.lastTs)) > t2a };
   check("flappy-world on a 2x screen: the canvas has twice its CSS pixels and fills them, a click lands on 3 LIVES, and it keeps drawing",
     Math.abs(sharp.w - 2 * sharp.css) <= 2 && sharp.corner === 255 && hiRun.lives === 3 && hiRun.drawing, { sharp, hiRun });
+  // the scenery pictures and the page backdrop are painted at 2x too, and
+  // painted again when a smaller window brings the ratio down
+  const art2 = await p.evaluate(async () => {
+    const a = art(), url = /url\("?([^")]+)"?\)/.exec(document.body.style.background)[1];   // (the first: the ground)
+    const img = new Image(); img.src = url; await img.decode();
+    return { hills: a.hills.width, bushes: a.bushes.width, ground: a.ground.width, cloud: a.clouds[0].width, page: img.naturalWidth };
+  });
+  await p.setViewportSize({ width: 400, height: 400 }); await p.waitForTimeout(300);
+  const art1 = await p.evaluate(() => ({ hills: art().hills.width, k: game.canvas.width / CANVAS_W }));
+  const t3 = await p.evaluate(() => game.lastTs); await p.waitForTimeout(200);
+  const drew = (await p.evaluate(() => game.lastTs)) > t3;
+  check("flappy-world on a 2x screen: the scenery and the page backdrop are painted at 2x, painted again when the ratio drops, and frames keep drawing",
+    art2.hills === 1920 && art2.bushes === 1920 && art2.ground === 128 && art2.cloud === 340 && art2.page === 128 && art1.hills < 1920 && drew, { art2, art1, drew });
   await done(p, "2x");
   await hi.close();
   await phone.close();

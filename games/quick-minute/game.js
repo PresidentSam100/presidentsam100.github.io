@@ -201,6 +201,9 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
       if (e.key === "Enter" || e.key === " ") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
+      // the crash card: Backspace goes back to the modes (Change mode); Esc
+      // isn't claimed, so it leaves for the games page
+      else if (e.key === "Backspace" && !e.repeat) { var m = $("btn-menu"); if (m) { e.preventDefault(); m.click(); } }
       return;
     }
     if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") { e.preventDefault(); if (!e.repeat) move(-1); }

@@ -648,6 +648,16 @@
   document.querySelectorAll("#endMenu .modebtn").forEach(b=> b.addEventListener("click",()=>{
     $("endMenu").classList.remove("show"); start(4, parseInt(b.dataset.end,10));
   }));
+  // Esc on a setup menu (2-player setup, 4-player end rule) goes back one
+  // level, to the mode menu; there, and mid-game, it's left to the shared
+  // handler (it leaves for the games page)
+  document.addEventListener("keydown",(e)=>{
+    if(e.key!=="Escape" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    const sub=["setup2Menu","endMenu"].find(id=>$(id).classList.contains("show"));
+    if(!sub) return;
+    e.preventDefault();
+    $(sub).classList.remove("show"); $("menu").classList.add("show");
+  });
 
   // ---- 2P setup menu (opponent / difficulty / side / time control) ----
   $("opponentPick").addEventListener("click",(e)=>{

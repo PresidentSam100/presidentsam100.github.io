@@ -41,9 +41,16 @@ function keyHint(ctx, str, x, y, opts) {
 const INK = '#20124d';            // outline colour for text and UI
 const GROUND_Y = CANVAS_H - 80;   // top of the ground strip
 
+// An offscreen picture w x h in canvas units, painted at ART_K pixels per
+// unit (the main canvas's backing-store ratio, to 2x; see Game.resize) so
+// the scenery is as sharp as the rest. Its context draws in canvas units;
+// its size in them is kept as .w / .h.
+let ART_K = 1;
 function offscreen(w, h) {
   const c = document.createElement('canvas');
-  c.width = w; c.height = h;
+  c.width = Math.round(w * ART_K); c.height = Math.round(h * ART_K);
+  c.w = w; c.h = h;
+  c.getContext('2d').setTransform(c.width / w, 0, 0, c.height / h, 0, 0);
   return c;
 }
 // Rounded-rectangle path (falls back to a plain rectangle on old browsers)
@@ -227,7 +234,8 @@ function makeGroundTile() {
   return c;
 }
 
-// Painted once and shared: init() makes a new Background every game.
+// Painted once and shared (init() makes a new Background every game), and
+// painted again only when the canvas's pixel ratio changes (setArtRatio)
 let ART = null;
 function art() {
   if (!ART) ART = {
@@ -237,6 +245,16 @@ function art() {
     ground: makeGroundTile(),
   };
   return ART;
+}
+// Repaint the scenery and the page around the canvas at a new ratio. It's
+// rounded up to a quarter, so dragging a window's edge doesn't repaint it
+// at every step, and capped at 2x, like the canvas.
+function setArtRatio(r) {
+  const k = Math.min(2, Math.ceil(r * 4) / 4);
+  if (ART && k === ART_K) return;
+  ART_K = k;
+  ART = null;
+  dressPage();
 }
 // Dress the page around the canvas with the same scenery, sized so it
 // lines up with the canvas when the canvas fills the window's height.
@@ -492,14 +510,14 @@ class Background {
     ctx.globalAlpha = 1;
     this.clouds2.forEach(cloud);
 
-    this.strip(ctx, a.hills, this.hillScroll, GROUND_Y - a.hills.height);
-    this.strip(ctx, a.bushes, this.bushScroll, GROUND_Y - a.bushes.height);
+    this.strip(ctx, a.hills, this.hillScroll, GROUND_Y - a.hills.h);
+    this.strip(ctx, a.bushes, this.bushScroll, GROUND_Y - a.bushes.h);
   }
 
-  // Repeat a tiling picture across the canvas; whole-pixel steps so the
-  // seams between copies never show
+  // Repeat a tiling picture across the canvas; whole-unit steps so the
+  // seams between copies never show (sizes in canvas units: see offscreen)
   strip(ctx, img, off, y) {
-    for (let x = Math.round(-off); x < CANVAS_W; x += img.width) ctx.drawImage(img, x, y);
+    for (let x = Math.round(-off); x < CANVAS_W; x += img.w) ctx.drawImage(img, x, y, img.w, img.h);
   }
 
   // The brick ground, drawn in front of the pipes so they rise out of it
@@ -2028,7 +2046,7 @@ class Game {
     this.ctx = this.canvas.getContext('2d');
     // The canvas only uses the cartoon font once it's loaded, so ask for it now
     if (document.fonts && document.fonts.load) document.fonts.load('40px "Luckiest Guy"');
-    dressPage();
+    // (the page around the canvas is dressed by resize(), at the canvas's pixel ratio)
     // Per-mode high scores (legacy single-key migrated into 1-life slot)
     const legacy = store.getNum('flappyWorld_hiScore', 0);
     this.hiScores = {
@@ -2119,6 +2137,8 @@ class Game {
     this.canvas.style.width = cssW + 'px';
     this.canvas.style.height = cssH + 'px';
     this.ctx.setTransform(this.canvas.width / CANVAS_W, 0, 0, this.canvas.height / CANVAS_H, 0, 0);
+    // and the scenery pictures at the same ratio
+    setArtRatio(this.canvas.width / CANVAS_W);
   }
 
   init() {

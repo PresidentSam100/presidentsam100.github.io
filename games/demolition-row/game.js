@@ -834,9 +834,14 @@
     }
 
     // Draw a piece spec (the "Next" preview) into a small 3x3 canvas.
+    // It's PREVIEW px across on the page, with the screen's pixels behind that
+    // (up to 2 per CSS pixel, re-sized when a zoom changes the ratio).
+    const PREVIEW = 66;
     function drawPreview(canvas, spec) {
-      const ctx = canvas.getContext("2d"), cell = canvas.width / 3;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const ctx = canvas.getContext("2d"), cell = PREVIEW / 3, d = Math.min(2, window.devicePixelRatio || 1);
+      if (canvas.width !== PREVIEW * d) canvas.width = canvas.height = PREVIEW * d;
+      ctx.setTransform(d, 0, 0, d, 0, 0);
+      ctx.clearRect(0, 0, PREVIEW, PREVIEW);
       if (!spec) return;
       const rr = (x, y, w, h, r) => { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); };
       const starPath = (cx, cy, R) => { ctx.beginPath(); for (let i = 0; i < 10; i++) { const a = Math.PI / 5 * i - Math.PI / 2, rad = i % 2 ? R * 0.45 : R; ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad); } ctx.closePath(); };
@@ -944,7 +949,7 @@
           '<div class="hud-row"><span class="stat">Score <b data-score>0</b></span><span class="stat" data-extra></span></div>' +
           '<div class="meter"><span data-gauge></span></div>' +
           '<div class="hud-row" style="align-items:center;"><span class="special" data-special>&nbsp;</span>' +
-            '<span class="stat" style="display:flex;align-items:center;gap:6px;">Next <canvas class="next" width="66" height="66" style="background:#123a5c;border-radius:6px;"></canvas></span></div>' +
+            '<span class="stat" style="display:flex;align-items:center;gap:6px;">Next <canvas class="next" width="66" height="66" style="width:66px;height:66px;background:#123a5c;border-radius:6px;"></canvas></span></div>' +
           (this.mode === "endless" ? '<div class="stars" data-stars></div>' : "");
         const canvas = document.createElement("canvas"); canvas.className = "board";
         col.appendChild(hud); col.appendChild(canvas); this.boardsEl.appendChild(col);

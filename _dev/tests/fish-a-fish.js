@@ -98,9 +98,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     })();
   }), [key, code]);
   const stateNow = (p) => p.evaluate(() => FishAFish.state().state);
+  // the Again button's keycaps, and whether each is on screen
+  const againCaps = (p) => p.evaluate(() => [...document.querySelectorAll("#again kbd")].map((k) => k.textContent + (k.getClientRects().length ? "" : " (hidden)")).join(", "));
   p = await open(ctx);
   await endRun(p, "letters");
   const early = await atCard(p, "r", "KeyR");
+  const deskCaps = await againCaps(p);
+  check("fish-a-fish: the end card's Again button names its keys, Enter and R", deskCaps === "Enter, R", deskCaps);
   await p.waitForTimeout(1100);
   await p.keyboard.press("r"); await p.waitForTimeout(100);
   const late = await stateNow(p);
@@ -113,5 +117,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   const nineR = await atCard(p, "r", "KeyR");
   check("fish-a-fish condensed: R (not a pond key there) restarts at once (guard)", nineR === "play", nineR);
   await done(p, "end card keys");
+  await ctx.close();
+  // on a touch-only phone those keycaps are hidden
+  ctx = await lib.newContext(browser, require("@playwright/test").devices["Pixel 7"]);
+  p = await open(ctx);
+  await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.setTime(0.01); });
+  await p.waitForFunction(() => FishAFish.state().state === "over", null, { timeout: 5000 });
+  const phoneCaps = await againCaps(p);
+  check("fish-a-fish: on a touch-only phone the Again button's Enter and R keycaps are hidden", phoneCaps === "Enter (hidden), R (hidden)", phoneCaps);
+  await done(p, "end card keycaps on a phone");
   await ctx.close();
 };

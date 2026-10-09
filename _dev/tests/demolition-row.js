@@ -100,5 +100,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     deskKeys.keys === true && /P1/.test(deskKeys.text) && phoneKeys.keys === false && !/P1|Esc/.test(phoneKeys.text) && /on-screen pad/.test(phoneKeys.text),
     { deskKeys, phoneKeys });
 
+  // ---- a 2× screen: the board and the Next preview have twice the pixels; the pad still steers
+  const retina = await lib.newContext(browser, { deviceScaleFactor: 2 });
+  p = await lib.open(retina, base, "games/demolition-row/");
+  await p.click('#mode-pick [data-mode="endless"]'); await p.click("#play-btn"); await p.waitForTimeout(500);
+  const sizes = await p.evaluate(() => [".board", ".next"].map((s) => { const c = document.querySelector("canvas" + s), r = c.getBoundingClientRect(); return { w: c.width, css: Math.round(r.width) }; }));
+  const c0 = await p.evaluate(() => GAME.players[0].board.piece.pivot.c);
+  await p.click('#touchpad [data-act="right"]'); await p.waitForTimeout(100);
+  const c1 = await p.evaluate(() => GAME.players[0].board.piece.pivot.c);
+  const preview = await p.evaluate(() => {   // the Next piece's bottom arm, drawn in the preview's lowest third
+    const c = document.querySelector("canvas.next"), d = c.getContext("2d").getImageData(0, Math.round(c.height * 0.7), c.width, Math.round(c.height * 0.3)).data;
+    let lit = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 200) lit++;
+    return lit;
+  });
+  check("demolition-row, 2× screen: the board and the Next preview have twice the pixels, drawn full size; the pad's ▶ moves the piece",
+    sizes[0].w === 2 * sizes[0].css && sizes[1].w === 132 && sizes[1].css === 66 && preview > 0 && c1 === c0 + 1, { sizes, c0, c1, preview });
+  check("demolition-row, 2× screen: frames draw with no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+  await retina.close();
+
   await ctx.close();
 };

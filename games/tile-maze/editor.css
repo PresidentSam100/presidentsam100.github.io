@@ -81,6 +81,8 @@ input:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 
   background: var(--bg2); border: 1px solid var(--line);
   border-radius: 8px; padding: 6px 8px;
 }
+/* the saved level on the board: the one 💾 Save updates */
+.ed-saved .saved-item.editing { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .ed-saved .saved-item .nm { flex: 1; font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ed-saved .mini { padding: 4px 8px; font-size: 0.78rem; }
 .ed-saved .empty { color: var(--muted); font-size: 0.84rem; padding: 4px 2px; }

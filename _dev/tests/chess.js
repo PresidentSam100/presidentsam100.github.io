@@ -244,5 +244,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("chess vs CPU: a new game's result is recorded as usual", r4.d === 1 && r4.w === 1 && r4.l === 0, r4);
   check("chess (record): no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // ---- Esc on a setup menu goes back to the mode menu; on the mode menu it leaves
+  p = await lib.open(ctx, base, "games/chess/");
+  const shown = () => p.evaluate(() => ["menu", "setup2Menu", "endMenu"].filter((id) => document.getElementById(id).classList.contains("show")).join());
+  await p.click('#menu .modebtn[data-mode="2"]');
+  const m0 = await shown();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  const m1 = { shown: await shown(), leaves: p.leaves };
+  // (back on the mode menu, whatever that Esc did)
+  await p.evaluate(() => { document.getElementById("setup2Menu").classList.remove("show"); document.getElementById("menu").classList.add("show"); });
+  await p.click('#menu .modebtn[data-mode="4"]');
+  const m2 = await shown();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  const m3 = { shown: await shown(), leaves: p.leaves };
+  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  check("chess: Esc on the 2-player setup or the 4-player end rule goes back to the mode menu (doesn't leave); Esc there leaves",
+    m0 === "setup2Menu" && m1.shown === "menu" && m1.leaves === 0 && m2 === "endMenu" && m3.shown === "menu" && m3.leaves === 0 && p.leaves === 1, { m0, m1, m2, m3, leaves: p.leaves });
+  check("chess (menus): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
   await ctx.close();
 };

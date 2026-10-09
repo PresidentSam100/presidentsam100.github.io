@@ -318,8 +318,12 @@
     }, 950);
   }
 
+  // Space is the play key, so for a moment after the end card comes up its
+  // keys are ignored: a reflex press doesn't skip straight past the result
+  var OVER_GRACE_MS = 1000, overAt = 0;
+  function overSettled() { return performance.now() - overAt >= OVER_GRACE_MS; }
   function gameOver(info) {
-    state = "gameover"; busy = false; ready = false;
+    state = "gameover"; busy = false; ready = false; overAt = performance.now();
     var record = score > runBest;
     if (score > best) { best = score; saveBest(best); }
     setHud();
@@ -353,11 +357,22 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    // the game-over card (it has the change-mode button): Backspace goes back
+    // to the modes; Esc isn't claimed, so it leaves for the games page
+    var onEnd = ovCard.classList.contains("show") && !!$("btn-mode");
+    if (e.key === "Backspace") {
+      if (onEnd) { e.preventDefault(); if (!e.repeat && overSettled()) $("btn-mode").click(); }
+      return;
+    }
     if (e.code !== "Space" && e.code !== "Enter") return;
     e.preventDefault();
     if (e.repeat) return;
     // on the start / game-over overlays, Space/Enter activates the visible button
-    if (ovCard.classList.contains("show")) { var b = cardInner.querySelector(".btn"); if (b) b.click(); return; }
+    if (ovCard.classList.contains("show")) {
+      if (onEnd && !overSettled()) return;
+      var b = cardInner.querySelector(".btn"); if (b) b.click();
+      return;
+    }
     press();
   });
 
@@ -369,11 +384,13 @@
   });
   // The watch can't pause, so a sweep under way when the tab goes hidden or
   // the window loses focus is called off: timed with nobody watching, it
-  // would only bust the run. It isn't a miss and scores nothing; the same
-  // mark waits on START again.
+  // would only bust the run. It isn't a miss and scores nothing. A new mark
+  // waits on START (the same round), so switching away can't buy a botched
+  // sweep a second go at its mark.
   if (window.GameShell) GameShell.onAutoPause(function () {
     if (state !== "counting") return;
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    target = pickTarget();             // (never the mark just called off)
     readyRound();
     elSub.textContent = "called off · tap START to go again";
   });

@@ -3,7 +3,8 @@
 // Classic deal used to be recorded as the Daily); Ctrl+Z does nothing while
 // paused; a reshuffle drops the old selection, and one that can't re-deal
 // costs nothing and points at Undo, and so does the no-pairs nudge when no
-// reshuffle can fit; the keycaps hide on a phone.
+// reshuffle can fit, which also offers New deal (and on the Daily, giving
+// up), asking first; the keycaps hide on a phone.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
@@ -89,6 +90,58 @@ module.exports = async ({ browser, base, check, lib }) => {
   const row = await nudge("row", ["d1", "d2", "d1", "d2"]);
   check("mahjong: with no pairs but a reshuffle that fits, the nudge still points at Shuffle (guard)",
     row.n === 4 && row.pairs === 0 && /solid/.test(row.shuffle) && !row.undo, row);
+
+  // ---- a dead board (no pairs, no reshuffle fits) offers a way out after
+  // Undo: New deal (asking first), and on the Daily, giving up (asking first,
+  // recording nothing: the Daily keeps only a clear)
+  const stuck = async (mode) => {
+    const pg = await open(ctx);
+    await pg.evaluate((m) => Mahjong.start(m), mode);
+    const idx = await pg.evaluate(() => Mahjong.pos().map((q, i) => (q[0] === 12 && q[1] === 6 ? i : -1)).filter((i) => i >= 0));
+    await pg.evaluate((a) => { Mahjong.setLive(a, ["d1", "d2", "d1", "d2"]); Mahjong.nudge(); }, idx);
+    const bar = await pg.evaluate(() => {
+      const shown = (id) => { const e = document.getElementById(id); return !!e && !!e.offsetParent; };
+      return { note: document.getElementById("hud-pairs").textContent, deal: shown("btn-newdeal"), giveUp: shown("btn-giveup") };
+    });
+    return { pg, bar };
+  };
+  const ask = (pg) => pg.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+  // Classic: Undo first, then New deal; Esc on its ask keeps the board, Enter deals afresh
+  let s = await stuck("classic");
+  await s.pg.evaluate(() => document.getElementById("btn-newdeal") && document.getElementById("btn-newdeal").click());
+  const dealAsk = await ask(s.pg);
+  await s.pg.keyboard.press("Escape"); await s.pg.waitForTimeout(80);
+  const keptN = await s.pg.evaluate(() => Mahjong.tilesLeft());
+  await s.pg.evaluate(() => document.getElementById("btn-newdeal") && document.getElementById("btn-newdeal").click());
+  await s.pg.keyboard.press("Enter"); await s.pg.waitForTimeout(150);
+  const dealt = await s.pg.evaluate(() => ({ state: Mahjong.state(), left: Mahjong.tilesLeft(), bar: !!(document.getElementById("hud-stuck") || {}).offsetParent }));
+  check("mahjong: a dead Classic board says undo a pair, or New deal; New deal asks \"Start a new game?\", Esc keeps the board, Enter deals a fresh turtle",
+    /undo a pair/.test(s.bar.note) && s.bar.deal && !s.bar.giveUp && dealAsk === "Start a new game?" && keptN === 4 && dealt.state === "play" && dealt.left === 144 && !dealt.bar && s.pg.leaves === 0,
+    { bar: s.bar, dealAsk, keptN, dealt });
+  await done(s.pg, "dead classic");
+  // Undo takes the way-out bar away again
+  s = await stuck("classic");
+  await s.pg.evaluate(() => Mahjong.undoNow());
+  const afterUndo = await s.pg.evaluate(() => ({ bar: !!(document.getElementById("hud-stuck") || {}).offsetParent, note: document.getElementById("hud-pairs").textContent }));
+  check("mahjong: after Undo on a dead board, the way-out actions go and the pairs count is back",
+    s.bar.deal && !afterUndo.bar && /pairs open/.test(afterUndo.note), { before: s.bar, afterUndo });
+  await done(s.pg, "dead undo");
+  // Daily: New deal is today's turtle again, so it asks "Start over?" (Esc keeps
+  // the board); give up asks "Quit this game?", Enter goes to the menu and records nothing
+  s = await stuck("daily");
+  await s.pg.evaluate(() => document.getElementById("btn-newdeal").click());
+  const again = await s.pg.evaluate(() => ({ title: (document.querySelector(".gs-dialog h2") || {}).textContent || null, text: (document.querySelector(".gs-dialog p") || {}).textContent || "", ok: [...document.querySelectorAll(".gs-dialog button")].map((b) => b.textContent).join("|") }));
+  await s.pg.keyboard.press("Escape"); await s.pg.waitForTimeout(80);
+  check("mahjong: on a dead Daily, New deal asks \"Start over?\", saying today's turtle is dealt again from the start",
+    again.title === "Start over?" && /dealt again, from the start/.test(again.text) && /Start over/.test(again.ok) && (await s.pg.evaluate(() => Mahjong.tilesLeft())) === 4, again);
+  await s.pg.evaluate(() => document.getElementById("btn-giveup") && document.getElementById("btn-giveup").click());
+  const quitAsk = await ask(s.pg);
+  await s.pg.keyboard.press("Enter"); await s.pg.waitForTimeout(150);
+  const gaveUp = await s.pg.evaluate(() => ({ state: Mahjong.state(), done: Mahjong.daily().done, stored: localStorage.getItem("mahjong_daily") }));
+  check("mahjong: a dead Daily also offers Daily: give up, which asks \"Quit this game?\" and goes to the menu, recording nothing",
+    s.bar.deal && s.bar.giveUp && quitAsk === "Quit this game?" && gaveUp.state === "menu" && !gaveUp.done && gaveUp.stored === null && s.pg.leaves === 0,
+    { bar: s.bar, quitAsk, gaveUp });
+  await done(s.pg, "dead daily");
   await ctx.close();
 
   // ---- on a touch-only phone every keycap of the game's own is hidden (the

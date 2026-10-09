@@ -14,7 +14,8 @@
    Controls: left-click / drag uses the active tool — develop or mark ✕
    — switched with the HUD button or the 1 / 2 keys (right-click / drag
    always marks, for mice; taps use the tool too). Arrows move, Z or
-   Space develops, X marks. Esc pauses (the shared shell).
+   Space develops, X marks, R starts over. Esc pauses (the shared shell),
+   and in the gallery goes back to the darkroom.
    ===================================================================== */
 (function () {
   "use strict";
@@ -535,9 +536,17 @@
 
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // the gallery is a screen inside the game: Esc goes back to the darkroom,
+    // as its ← button does, rather than out to the games page
+    if (screen === "gallery" && e.key === "Escape" && !e.repeat) { e.preventDefault(); SFX.ui(); toMenu(); return; }
     if (screen !== "puzzle" || !cur) return;
     if (!ui.win.hidden) {
       if (e.key === "Enter") { e.preventDefault(); ui.winNext.click(); }
+      // Backspace goes back to the darkroom, as the card's menu button does
+      // (Esc leaves for the games page); not from the share box's text
+      else if (e.key === "Backspace" && !e.repeat && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || "")) {
+        e.preventDefault(); SFX.ui(); toMenu();
+      }
       return;
     }
     if (cur.won || P.isPaused()) return;
