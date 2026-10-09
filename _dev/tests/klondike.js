@@ -143,6 +143,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   const fresh2 = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), seed: Klondike.state().seed }));
   check("klondike: N on an untouched deal deals at once, without asking", !fresh2.dlg && fresh2.seed !== 7, fresh2);
   check("klondike: no page errors (asking)", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- paused (by P, or under a "Start over?" box) every card shows its back,
+  // since the pause card is see-through; resumed, the faces are back
+  p = await lib.open(ctx, base, "games/klondike/");
+  const faces = () => p.evaluate(() => [...document.querySelectorAll("#field .card")].filter((c) => getComputedStyle(c.querySelector(".idx")).display !== "none").length);
+  await p.evaluate(() => { Klondike.deal(7); Klondike.draw(); }); await p.waitForTimeout(80);
+  const up = await faces();
+  await p.keyboard.press("p"); await p.waitForTimeout(100);
+  const byP = await faces();
+  await p.keyboard.press("p"); await p.waitForTimeout(100);
+  const resumed = await faces();
+  await p.keyboard.press("r"); await p.waitForTimeout(150);
+  const asking = { faces: await faces(), dlg: await p.evaluate(() => !!document.querySelector(".gs-dialog")) };
+  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  const kept2 = await faces();
+  check("klondike: paused by P or under a \"Start over?\" box, every card shows its back; resumed, the faces come back",
+    up === 8 && byP === 0 && resumed === up && asking.dlg && asking.faces === 0 && kept2 === up, { up, byP, resumed, asking, kept2 });
+  check("klondike: no page errors (paused cards)", p.errs.length === 0, p.errs);
   await ctx.close();
 
   // ---- the How to play key legend shows with a keyboard, hides on a touch-only phone

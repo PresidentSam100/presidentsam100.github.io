@@ -5,6 +5,8 @@
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const EDITORS = ["slither/editor.html", "tile-maze/editor.html"];   // Esc never leaves (it would lose work)
+  // games that open straight onto a game with its clock running, where Esc pauses
+  const PLAYS_AT_ONCE = ["hash/"];
   const settle = (p) => p.waitForTimeout(250);   // the shared handler decides after the key's dispatch
 
   // ---- every page: Home leaves; Esc on the opening screen leaves (not in an editor)
@@ -14,7 +16,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       const p = await lib.open(ctx, base, "games/" + g, { settle: 300 });
       await p.mouse.move(5, 300);
       await p.keyboard.press(key); await settle(p);
-      const want = key === "Escape" && EDITORS.includes(g) ? 0 : 1;
+      const want = key === "Escape" && (EDITORS.includes(g) || PLAYS_AT_ONCE.includes(g)) ? 0 : 1;
       // (nothing is in progress on an opening screen, so nothing asks first)
       const asked = await p.evaluate(() => !!document.querySelector(".gs-dialog"));
       if (p.leaves !== want || asked) (key === "Home" ? homeBad : escBad).push(g + " " + p.leaves + (asked ? " (asked)" : ""));
@@ -23,7 +25,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
   }
   check("Home leaves every game for the games page", homeBad.length === 0, homeBad);
-  check("Esc on a game's opening screen leaves for the games page (editors excepted)", escBad.length === 0, escBad);
+  check("Esc on a game's opening screen leaves for the games page (editors, and Hash's running deal where it pauses, excepted)", escBad.length === 0, escBad);
 
   // ---- leaving mid-game asks first ("Leave this game?"), pausing the game
   {

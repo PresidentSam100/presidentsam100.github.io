@@ -532,8 +532,15 @@
     { passive: true }
   );
 
+  // AC and the mode buttons wipe the board: with a game in progress (as the
+  // leave guard below has it) they ask first; a fresh board or a finished
+  // game goes at once
+  function askNewGame(go) {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start a new game?", ok: "New game" }, go);
+    else go();
+  }
   document.getElementById("overlay-retry").addEventListener("click", newGame);
-  document.getElementById("new-game").addEventListener("click", newGame); // the AC key
+  document.getElementById("new-game").addEventListener("click", function () { askNewGame(newGame); }); // the AC key
   keepGoingBtn.addEventListener("click", function () {
     keepPlaying = true;
     overlay.classList.remove("show");
@@ -557,8 +564,8 @@
     refreshMeta();
     newGame();
   }
-  normalBtn.addEventListener("click", function () { selectMode("normal"); });
-  fibBtn.addEventListener("click", function () { selectMode("fib"); });
+  normalBtn.addEventListener("click", function () { askNewGame(function () { selectMode("normal"); }); });
+  fibBtn.addEventListener("click", function () { askNewGame(function () { selectMode("fib"); }); });
 
   window.addEventListener("resize", relayout);
   window.addEventListener("load", relayout);

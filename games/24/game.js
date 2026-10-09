@@ -411,7 +411,7 @@
       var skipLabel = G.mode === "daily" ? "Give up" : "Skip";
       return [["Hint (9)", function () { go(Game); hint(); }], ["Undo (*)", function () { go(Game); undo(); }],
         ["Reset (0)", function () { go(Game); reset(); }], [skipLabel + " (#)", function () { if (G.mode === "daily") confirmGiveUp(); else { go(Game); skip(); } }],
-        ["Main menu", function () { quitToMenu(); }]];
+        ["Main menu", function () { askQuitToMenu(); }]];
     },
     draw: function () {
       var it = this.items();
@@ -435,6 +435,14 @@
     G = null;
     go(Menu);
   }
+  // Options' Main menu and the Paused screen's C quit the run: with something
+  // to lose they ask first (GameShell.askQuit, by the leave guard below), a
+  // Time attack run waiting paused, cards hidden, under the box; Keep playing
+  // goes back to where it was asked from. An untouched run or a Daily goes at once.
+  function askQuitToMenu() {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, quitToMenu);
+    else quitToMenu();
+  }
 
   var Confirm = {
     ask: function (title, text, yes, fn) { this.title = title; this.text = text; this.yes = yes; this.fn = fn; this.back = screen; go(Confirm); },
@@ -443,9 +451,12 @@
     speak: function () { return this.title + " " + this.text; },
   };
 
+  // C here (Backspace, or the phone's C key) quits the run, asking first as
+  // Options' Main menu does. The run is already paused, so the box opens over
+  // this screen, cards still hidden, and Keep playing leaves it here, paused.
   var Paused = {
     draw: function () { header("Paused"); center("Cards hidden,", 12, "M"); center("clock stopped", 22, "M"); navi("Resume"); },
-    key: function (k) { if (k === "navi" || k === "esc") go(Game); else if (k === "C") quitToMenu(); },
+    key: function (k) { if (k === "navi" || k === "esc") go(Game); else if (k === "C") askQuitToMenu(); },
     speak: function () { return "Paused"; },
   };
 

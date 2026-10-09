@@ -12,6 +12,21 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ph2 = await phase();
   check("stopwatch: Ctrl / Alt + Space or Enter are left to the browser, a plain Space still starts the sweep",
     ph0 === "ready" && claimed.every((x) => !x) && ph1 === "ready" && plain && ph2 === "baking", { ph0, claimed, ph1, plain, ph2 });
+
+  // a sweep under way when the window loses focus (or the tab is hidden) is
+  // called off: not a miss, not a bust; the same mark waits on START
+  await p.waitForTimeout(300);
+  const mark = await p.evaluate(() => document.getElementById("target-big").textContent);
+  await p.evaluate(() => window.dispatchEvent(new Event("blur")));
+  await p.waitForTimeout(1500);   // past when a bust's end card would be up
+  const off = await p.evaluate(() => ({ phase: document.querySelector(".stage").dataset.phase, sub: document.getElementById("sub").textContent,
+    mark: document.getElementById("target-big").textContent, round: document.getElementById("round").textContent, score: document.getElementById("score").textContent,
+    drift: document.getElementById("used").textContent, over: document.getElementById("overlay-card").classList.contains("show"), best: localStorage.getItem("stopwatch_best") }));
+  await p.keyboard.press("Space");
+  const again = await phase();
+  check("stopwatch: a sweep under way when the window loses focus is called off (no miss, no bust, no best); the same mark goes again",
+    off.phase === "ready" && /called off/.test(off.sub) && off.mark === mark && off.round === "1" && off.score === "0" && off.drift === "0.000" && !off.over && off.best === null && again === "baking",
+    { mark, off, again });
   check("stopwatch: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();

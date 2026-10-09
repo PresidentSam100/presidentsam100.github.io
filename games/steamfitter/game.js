@@ -1137,10 +1137,27 @@
       draw();
     }
   }
+  // The mode bar throws away what's under way, so it asks first: the editor
+  // when its level isn't saved, a run while the guard above says it's one
+  // (paused under the box). Nothing at stake: it switches at once.
+  function askFirst(go) {
+    var gs = window.GameShell;
+    if (!gs) return go();
+    if (inEditor()) {
+      if (editorLevel() === editBase) return go();
+      gs.confirm({ title: "Leave the editor?", text: "Your unsaved level will be lost.", ok: "Leave", cancel: "Keep editing", safe: true },
+        function (yes) { if (yes) go(); });
+      return;
+    }
+    gs.askQuit({ title: "Quit this game?", ok: "Quit" }, go);
+  }
   document.querySelectorAll("#modeBar .mbtn").forEach(function (b) {
     b.addEventListener("click", function () {
-      if (b.dataset.mode !== mode) setMode(b.dataset.mode);
-      else if (mode === "levels") { if (testingEditor) resumeEditor("Back in the editor."); else if (state !== "select") showSelect(); }
+      if (b.dataset.mode !== mode) askFirst(function () { setMode(b.dataset.mode); });
+      else if (mode === "levels") {
+        if (testingEditor) resumeEditor("Back in the editor.");   // back to the level being built: nothing lost
+        else if (state !== "select") askFirst(showSelect);
+      }
     });
     b.classList.toggle("sel", b.dataset.mode === mode);
   });
@@ -1359,14 +1376,23 @@
     else if (act === "create") startEditor(null);
     else if (act === "playc") loadLevelData(customLevels[i], i, true);
     else if (act === "editc") { e.stopPropagation(); startEditor(i); }
-    else if (act === "delc") { e.stopPropagation(); customLevels.splice(i, 1); saveCustom(); buildSelectDOM(); }
+    else if (act === "delc") { e.stopPropagation(); deleteCustom(i); }
   });
+  // a custom level is gone for good once deleted, so ask first
+  function deleteCustom(i) {
+    var lv = customLevels[i]; if (!lv) return;
+    var drop = function () { var at = customLevels.indexOf(lv); if (at >= 0) customLevels.splice(at, 1); saveCustom(); buildSelectDOM(); };
+    if (!window.GameShell) return drop();
+    GameShell.confirm({ title: "Delete this level?", text: (lv.n || "This level") + " will be gone for good.", ok: "Delete", cancel: "Keep it", safe: true },
+      function (yes) { if (yes) drop(); });
+  }
   (function wireEditor() {
     var tools = document.getElementById("editTools");
     if (tools) tools.addEventListener("click", function (e) { var b = e.target.closest(".etool"); if (b) setEditTool(b.dataset.tool); });
     var sv = document.getElementById("editSave"); if (sv) sv.addEventListener("click", saveEditor);
     var ts = document.getElementById("editTest"); if (ts) ts.addEventListener("click", testEditor);
-    var bk = document.getElementById("editBack"); if (bk) bk.addEventListener("click", showSelect);
+    // ◂ Back drops an unsaved level too, so it asks like the mode bar
+    var bk = document.getElementById("editBack"); if (bk) bk.addEventListener("click", function () { askFirst(showSelect); });
     var cl = document.getElementById("editClear"); if (cl) cl.addEventListener("click", function () {
       for (var r = 0; r < ROWS; r++) for (var c = 1; c < COLS - 1; c++) grid[r][c] = { kind: "empty" };
       editMsg("Cleared the middle.");

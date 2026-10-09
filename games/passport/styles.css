@@ -115,6 +115,10 @@ body {
   font-family: "Kalam", cursive; font-size: 14px; color: #6b6250;
   text-align: center; padding-top: 4px;
 }
+/* a paused dash (game.js): the pause card is see-through, so the flag, its
+   caption, the tags and the stamp hide under it, the empty postcard and
+   tags' places kept. Hidden, not blurred: a flag's colours give it away */
+body.paused #flag, body.paused #post-cap, body.paused #tags, body.paused #big-stamp { visibility: hidden; }
 
 /* ---- destination tags ----------------------------------------------------- */
 .tags { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; position: relative; z-index: 4; }

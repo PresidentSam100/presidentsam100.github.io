@@ -79,4 +79,43 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c2.close();
   }
+
+  // ---- R / ↺ on a print with work on it asks "Start over?", the clock stopped under the box
+  const c3 = await lib.newContext(browser);
+  p = await lib.open(c3, base, "games/darkroom/");
+  const st = () => p.evaluate(() => Darkroom.state());
+  const box = () => p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return d && { title: d.querySelector("h2").textContent, text: (d.querySelector("p") || {}).textContent, buttons: [...d.querySelectorAll("button")].map((b) => b.textContent) }; });
+  await p.evaluate(() => { Darkroom.open("plus"); const art = Darkroom.art(); for (let y = 0; y < art.length; y++) { const x = art[y].indexOf("#"); if (x >= 0) { Darkroom.apply(x, y, "fill"); break; } } });
+  await p.waitForTimeout(300);
+  await p.keyboard.press("r"); await p.waitForTimeout(250);
+  const asked = await box(), s0 = await st();
+  await p.waitForTimeout(700);
+  const s1 = await st();
+  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  const kept = { box: await box(), s: await st() };
+  await p.waitForTimeout(400);
+  const ticking = (await st()).ms > kept.s.ms;
+  const restartBtn = () => p.evaluate(() => document.getElementById("hud-restart").click());
+  await restartBtn(); await p.waitForTimeout(250);
+  const asked2 = await box();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(250);
+  const wiped = { box: await box(), s: await st() };
+  check("darkroom: R on a print with a fill asks 'Start over?' with the clock stopped; Keep playing keeps it, ↺ then Start over wipes it",
+    !!asked && asked.title === "Start over?" && /fills/.test(asked.text) && asked.buttons.some((b) => /Start over/.test(b)) && asked.buttons.some((b) => /Keep playing/.test(b)) &&
+      s0.paused && s1.ms === s0.ms && s1.filled === 1 &&
+      !kept.box && !kept.s.paused && kept.s.filled === 1 && ticking &&
+      !!asked2 && !wiped.box && !wiped.s.paused && wiped.s.filled === 0 && !/[12]/.test(wiped.s.cells) && wiped.s.ms < 1000,
+    { asked, s0, s1, kept, ticking, asked2, wiped });
+
+  // ...a blank print, or a finished one, starts over at once (guards)
+  await p.keyboard.press("r"); await p.waitForTimeout(250);
+  const blank = { box: await box(), s: await st() };
+  await p.evaluate(() => Darkroom.solveNow());
+  await restartBtn(); await p.waitForTimeout(250);
+  const solved = { box: await box(), s: await st() };
+  check("darkroom: R on a blank print and ↺ on a finished one start over at once, no box",
+    !blank.box && blank.s.screen === "puzzle" && !blank.s.paused && !solved.box && !solved.s.won && solved.s.filled === 0, { blank, solved });
+  check("darkroom: no page errors (start over)", p.errs.length === 0, p.errs);
+  await p.close();
+  await c3.close();
 };

@@ -2,7 +2,7 @@
 // are drawn still (with FX on they bob, wag and rock); Enter on a focused menu
 // button only presses that button, and a pick clicked with the mouse doesn't
 // take over the round Enter then starts; the menu buttons' shortcut keycaps
-// hide on a touch-only phone.
+// hide on a touch-only phone; a late strike on R doesn't skip the end card.
 module.exports = async ({ browser, base, check, lib }) => {
   const open = (ctx) => lib.open(ctx, base, "games/fish-a-fish/");
   const done = async (p, what) => { check("fish-a-fish " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -79,4 +79,39 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("fish-a-fish: on a desktop the menu says each bobber has a key, and gives the Shift rule", /has a key/.test(desk) && /strike its key/.test(desk) && /Shift/.test(desk), desk);
   check("fish-a-fish: on a touch-only phone the menu says to tap the bobbers, naming no keys",
     /tap/i.test(phone) && !/\bkeys?\b/i.test(phone) && !/Shift/.test(phone), phone);
+
+  // ---- the end card: R is a fishing key on the letter layouts, so an R that
+  // lands as the card appears doesn't restart (it does a second later); Enter
+  // and an R that isn't a pond key restart at once, as before
+  ctx = await lib.newContext(browser);
+  const endRun = async (p, kb) => {
+    await p.evaluate(() => FishAFish.toMenu());
+    await p.keyboard.press(kb === "nine" ? "c" : "l");   // (the menu's layout picks)
+    await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.setTime(0.01); });
+  };
+  // the key, dispatched on the very frame the end card shows; then the state
+  const atCard = (p, key, code) => p.evaluate(([key, code]) => new Promise((res) => {
+    (function poll() {
+      if (FishAFish.state().state !== "over") { requestAnimationFrame(poll); return; }
+      document.body.dispatchEvent(new KeyboardEvent("keydown", { key, code, bubbles: true, cancelable: true }));
+      res(FishAFish.state().state);
+    })();
+  }), [key, code]);
+  const stateNow = (p) => p.evaluate(() => FishAFish.state().state);
+  p = await open(ctx);
+  await endRun(p, "letters");
+  const early = await atCard(p, "r", "KeyR");
+  await p.waitForTimeout(1100);
+  await p.keyboard.press("r"); await p.waitForTimeout(100);
+  const late = await stateNow(p);
+  check("fish-a-fish letters: an R that lands as the end card shows doesn't restart", early === "over", early);
+  check("fish-a-fish letters: R a second later restarts (guard)", late === "play", late);
+  await endRun(p, "letters");
+  const enter = await atCard(p, "Enter", "Enter");
+  check("fish-a-fish letters: Enter on the end card restarts at once (guard)", enter === "play", enter);
+  await endRun(p, "nine");
+  const nineR = await atCard(p, "r", "KeyR");
+  check("fish-a-fish condensed: R (not a pond key there) restarts at once (guard)", nineR === "play", nineR);
+  await done(p, "end card keys");
+  await ctx.close();
 };

@@ -179,10 +179,12 @@ html.fx-off .card.landed { box-shadow: 0 0 0 2px var(--gold), 0 0 12px 2px rgba(
   background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(107, 90, 58, 0.10) 4px 8px);
 }
 .card.red { color: var(--red); }
-/* the back: deep green with a gold lattice, like an oilcloth map wrap */
-.card.down { color: transparent; }
-.card.down .idx, .card.down .pip, .card.down .face { display: none; }
-.card.down::after {
+/* the back: deep green with a gold lattice, like an oilcloth map wrap; while
+   the game is paused every card shows it (game.js marks the field) */
+.card.down, .field.paused .card { color: transparent; }
+.card.down .idx, .card.down .pip, .card.down .face,
+.field.paused .card .idx, .field.paused .card .pip, .field.paused .card .face { display: none; }
+.card.down::after, .field.paused .card::after {
   content: ""; position: absolute; inset: 0;
   border-radius: calc(var(--cw) * 0.08);
   background:

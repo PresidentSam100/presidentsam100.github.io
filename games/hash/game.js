@@ -129,7 +129,7 @@
   var setsFound = 0;
   var startTime = 0;
   var timerId = null;
-  var elapsed = 0;
+  var banked = 0; // ms the clock ran before it was last held
   var penalty = 0; // ms added to the clock for hints used (30s each)
   var HINT_PENALTY = 30000;
   var locked = false; // brief lock during good/bad animation
@@ -225,17 +225,24 @@
   }
 
   // ---- timer -----------------------------------------------------------
+  // The clock starts when the deal is shown (newGame) and holds while the
+  // game is paused (a hidden tab pauses it): what it ran before the last
+  // hold is banked, and startTime is when it last started running.
+  function clockMs() {
+    return banked + (timerId ? Date.now() - startTime : 0);
+  }
+  function showTime() {
+    statTime.textContent = fmtTime(clockMs() + penalty);
+  }
   function startTimer() {
+    if (timerId) return;
     startTime = Date.now();
-    elapsed = 0;
-    if (timerId) clearInterval(timerId);
-    timerId = setInterval(function () {
-      elapsed = Date.now() - startTime;
-      statTime.textContent = fmtTime(elapsed + penalty);
-    }, 250);
+    timerId = setInterval(showTime, 250);
   }
   function stopTimer() {
-    if (timerId) clearInterval(timerId);
+    if (!timerId) return;
+    banked += Date.now() - startTime;
+    clearInterval(timerId);
     timerId = null;
   }
 
@@ -296,7 +303,7 @@
 
   // ---- selection / claim ----------------------------------------------
   function onCardActivate(idx) {
-    if (locked || over) return;
+    if (locked || over || PAUSE.isPaused()) return;
     var pos = selected.indexOf(idx);
     if (pos !== -1) {
       selected.splice(pos, 1);
@@ -440,7 +447,7 @@
   }
 
   function onAdd() {
-    if (locked || over) return;
+    if (locked || over || PAUSE.isPaused()) return;
     if (deck.length === 0) return;
     if (findSet(board)) {
       // There WAS a set — gentle nudge, no new cards.
@@ -457,7 +464,7 @@
   }
 
   function onHint() {
-    if (locked || over) return;
+    if (locked || over || PAUSE.isPaused()) return;
     var trio = findSet(board);
     if (!trio) {
       setMsg("No Hash on the table — add more cards.", "info");
@@ -480,8 +487,7 @@
     // Hints aren't free — add a 30s time penalty and show it on the clock now.
     penalty += HINT_PENALTY;
     moved = true;
-    elapsed = Date.now() - startTime;
-    statTime.textContent = fmtTime(elapsed + penalty);
+    showTime();
     setMsg(
       (reveal === 1
         ? "Hint: one card of a Hash is glowing. 💡"
@@ -496,8 +502,7 @@
   function finish() {
     over = true;
     stopTimer();
-    elapsed = Date.now() - startTime;
-    var total = elapsed + penalty; // hint penalties count toward the final time
+    var total = clockMs() + penalty; // hint penalties count toward the final time; paused time doesn't
     var best = loadBest();
     var isBest = best === null || total < best;
     if (isBest) {
@@ -554,8 +559,15 @@
     render(dealt);
     renderBest();
     updateAddBtn();
-    startTimer();
+    // The clock starts with the deal shown. A deal in a hidden tab (a page
+    // opened in the background, New game while hidden) never gets the hide
+    // that auto-pauses, so it starts paused instead, cards blank.
+    stopTimer();
+    banked = 0;
     statTime.textContent = "0:00";
+    if (document.hidden) PAUSE.pause();
+    else if (PAUSE.isPaused()) PAUSE.resume(); // (which starts the clock)
+    else startTimer();
   }
 
   // ---- events ----------------------------------------------------------
@@ -574,15 +586,41 @@
   });
   addBtn.addEventListener("click", onAdd);
   hintBtn.addEventListener("click", onHint);
-  newBtn.addEventListener("click", newGame);
+  // ↻ New game throws a game in progress away, so mid-deck it asks first
+  // (by the leave guard below), paused underneath; a fresh deal goes at once
+  newBtn.addEventListener("click", function () {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start a new game?", ok: "New game" }, newGame);
+    else newGame();
+  });
   ovBtn.addEventListener("click", newGame);
+
+  // P / Esc, the ⏸ button and a hidden tab pause the game from the deal
+  // until the deck is cleared. The pause card is see-through, so the cards
+  // go blank under it (styles.css): a pause is no time to look for Hashes.
+  var PAUSE =
+    window.GameShell && GameShell.pausable
+      ? GameShell.pausable({
+          canPause: function () {
+            return !over;
+          },
+          onChange: function (paused) {
+            boardEl.classList.toggle("paused", paused);
+            if (paused) stopTimer();
+            else if (!over) startTimer();
+          },
+        })
+      : // (no shell, no pausing: the clock just runs)
+        { isPaused: function () { return false; }, pause: startTimer, resume: function () {} };
 
   // Leaving asks first once the game has begun (a Hash claimed, cards added
   // or a hint taken) until the deck is cleared; an untouched deal loses
-  // nothing. There's no pause, so the clock runs on under the question.
+  // nothing. The game is paused under the question, clock held, cards blank.
   if (window.GameShell && GameShell.guardLeave)
-    GameShell.guardLeave(function () {
-      return moved && !over;
+    GameShell.guardLeave({
+      active: function () {
+        return moved && !over;
+      },
+      pausable: PAUSE,
     });
 
   // ---- go --------------------------------------------------------------

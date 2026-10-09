@@ -205,7 +205,13 @@
   }
 
   function nextRound() {
-    roundNum++; target = pickTarget(); ready = true; busy = false; state = "ready";
+    roundNum++; target = pickTarget();
+    readyRound();
+  }
+  // the round's mark set, the watch waiting on START (a new round, or one
+  // whose sweep was called off)
+  function readyRound() {
+    ready = true; busy = false; state = "ready";
     setHud();
     elResult.textContent = "";
     elBtn.disabled = false; elBtn.className = "btn-main"; elBtn.textContent = "START";
@@ -336,6 +342,16 @@
   // ends it. No pause: the sweep runs on under the question.
   if (window.GameShell) GameShell.guardLeave(function () {
     return !busted && (state === "counting" || state === "result" || (state === "ready" && roundNum > 1));
+  });
+  // The watch can't pause, so a sweep under way when the tab goes hidden or
+  // the window loses focus is called off: timed with nobody watching, it
+  // would only bust the run. It isn't a miss and scores nothing; the same
+  // mark waits on START again.
+  if (window.GameShell) GameShell.onAutoPause(function () {
+    if (state !== "counting") return;
+    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+    readyRound();
+    elSub.textContent = "called off · tap START to go again";
   });
 
   // ---------------------------------------------------------- boot

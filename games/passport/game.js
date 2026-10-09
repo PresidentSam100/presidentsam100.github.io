@@ -260,7 +260,7 @@
 
   // ---- flow ------------------------------------------------------------------------
   function startRun(m) {
-    clearTimeout(revealT);
+    clearTimeout(revealT); held = null;
     if (m) mode = m;
     store.set("passport_mode", mode);
     audio();
@@ -350,7 +350,7 @@
     tickSnd();
     if (style === "typed") { pose("capital"); return; }
     state = "reveal";
-    revealT = setTimeout(function () { pose("capital"); state = "ask"; }, turbo ? 60 : 450);
+    revealT = setTimeout(whenPlaying(function () { pose("capital"); state = "ask"; }), turbo ? 60 : 450);
   }
 
   function answer(i) {
@@ -381,6 +381,13 @@
   // right country); leaving the run cancels it, or it would bring the
   // question back over the menu
   var revealT = 0;
+  // A step due while a dash is paused waits (held) for the resume: dealt
+  // under the see-through pause card, the next flag would be free study,
+  // and its drop-in would play where nobody sees it
+  var held = null;
+  function whenPlaying(fn) {
+    return function run() { if (P.isPaused()) held = run; else fn(); };
+  }
   function conclude(right) {
     state = "reveal";
     var c = C[cur.ci], name = c[1].toUpperCase();
@@ -426,11 +433,11 @@
     touched = true;
     ending = overNow || lastFlag;
     // (kept, so going to the menu mid-reveal cancels it: toMenu / startRun)
-    revealT = setTimeout(function () {
+    revealT = setTimeout(whenPlaying(function () {
       $("big-stamp").hidden = true;
       if (overNow) finish();
       else nextQ();
-    }, turbo ? 60 : right ? 950 : 1500);
+    }), turbo ? 60 : right ? 950 : 1500);
   }
 
   // the first Visa Run of the day is the one recorded
@@ -520,7 +527,7 @@
   $("flag").addEventListener("error", function () {
     if (state !== "ask") return;
     state = "reveal";
-    revealT = setTimeout(function () { qNum--; nextQ(); }, 200);
+    revealT = setTimeout(whenPlaying(function () { qNum--; nextQ(); }), 200);
   });
 
   // ---- menu ----------------------------------------------------------------------
@@ -556,7 +563,7 @@
     if (state === "menu") paintMenu();
   }
   function toMenu() {
-    clearTimeout(revealT);
+    clearTimeout(revealT); held = null;
     state = "menu";
     $("answer").blur();
     $("over").hidden = true; $("menu").hidden = false;
@@ -594,12 +601,19 @@
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return mode === "dash" && (state === "ask" || state === "reveal"); },
     keys: ["Escape"],
-    // a typed dash's answer box is shut while paused, and handed back on resume
     onChange: function (paused) {
-      if (style !== "typed") return;
-      var inp = $("answer");
-      if (paused) inp.disabled = true;
-      else if (state === "ask") { inp.disabled = false; inp.focus(); }
+      // the pause card is see-through, so the flag, its caption, the tags
+      // and the stamp hide for the whole pause (styles.css), as Sudoku blurs
+      // its board: with the clock stopped they'd be free study
+      document.body.classList.toggle("paused", paused);
+      // a typed dash's answer box is shut while paused, and handed back on resume
+      if (style === "typed") {
+        var inp = $("answer");
+        if (paused) inp.disabled = true;
+        else if (state === "ask") { inp.disabled = false; inp.focus(); }
+      }
+      // then the step that came due during the pause (see whenPlaying)
+      if (!paused && held) { var go = held; held = null; go(); }
     }
   }) : { isPaused: function () { return false; } };
   // A run is in progress once a flag has been answered, until it's decided

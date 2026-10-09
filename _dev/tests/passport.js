@@ -118,6 +118,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("passport (paused dash): no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
+  // a Dash, paused: the flag, its caption, the tags and the stamp hide for the
+  // whole pause, so it's no free study. The next flag, due as a stamp's beat
+  // ends, waits for the resume, and then drops in (Visual FX on)
+  p = await lib.open(ctx, base, "games/passport/");
+  const seen = () => p.evaluate(() => {
+    const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    return { flag: vis(document.getElementById("flag")), cap: vis(document.getElementById("post-cap")), tags: [...document.querySelectorAll("#tags .tag")].some(vis),
+      stamp: vis(document.getElementById("big-stamp")), code: Passport.current().code, state: Passport.state() };
+  });
+  const esc = async () => { await p.keyboard.press("Escape"); await p.waitForTimeout(60); };
+  await p.evaluate(() => Passport.start("dash"));
+  await p.waitForFunction(() => Passport.state() === "ask");
+  const sh0 = await seen(); await esc(); const sh1 = await seen(); await esc(); const sh2 = await seen();
+  check("passport dash: paused, the flag, its caption and the tags hide; resumed, they're back",
+    sh0.flag && sh0.cap && sh0.tags && !sh1.flag && !sh1.cap && !sh1.tags && sh2.flag && sh2.cap && sh2.tags, { sh0, sh1, sh2 });
+  await p.evaluate(() => { const c = Passport.current(); Passport.answer(c.correct); });
+  await esc();
+  await p.waitForTimeout(1300);   // past the stamp's beat
+  const sh3 = await seen();
+  await p.evaluate(() => { window.__deal = null; document.getElementById("postcard").addEventListener("animationstart", (e) => { window.__deal = e.animationName; }); });
+  await esc(); await p.waitForTimeout(150);
+  const sh4 = await seen(), deal = await p.evaluate(() => window.__deal);
+  check("passport dash: a pause during a stamp hides it, and the next flag waits for the resume, then drops in",
+    !sh3.flag && !sh3.stamp && sh3.state === "reveal" && sh3.code === sh2.code && sh4.state === "ask" && sh4.code !== sh2.code && sh4.flag && deal === "deal", { sh2, sh3, sh4, deal });
+  check("passport (dash, hidden while paused): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+
   // a first-ever tour: no stamps is no record; one stamp is
   p = await lib.open(ctx, base, "games/passport/");
   const tour = async (right) => {

@@ -167,6 +167,21 @@
     openPuzzle(p, d);
     SFX.ui();
   }
+  // R and ↺: a print with work on it (a fill, a ✕ or fog: what saveProgress
+  // keeps) asks first; a blank or finished one starts over at once. Leaving
+  // never asks, as the print is saved, so this is a box of its own rather
+  // than askQuit, with the clock paused under it.
+  function askRestart() {
+    if (!cur) return;
+    var work = !cur.won && (cur.filled > 0 || cur.cells.indexOf(2) !== -1 || cur.fog > 0);
+    if (!work || !window.GameShell) return restartPuzzle();
+    var wasPaused = P.isPaused();
+    if (!wasPaused) P.pause();
+    GameShell.confirm({ title: "Start over?", text: "Your fills, marks and time on this print will be lost.", ok: "Start over", cancel: "Keep playing", safe: true }, function (yes) {
+      if (!wasPaused) P.resume();   // either way: a fresh print mustn't open paused
+      if (yes) restartPuzzle();
+    });
+  }
   function toMenu() {
     saveProgress();
     cur = null; screen = "menu";
@@ -539,7 +554,7 @@
     if (k === "1" || k === "2") { e.preventDefault(); setTool(k === "1" ? "fill" : "mark"); return; }
     if (k === "z" || k === " ") { e.preventDefault(); cursor.on = true; apply(cursor.x, cursor.y, "fill"); saveSoon(); }
     else if (k === "x") { e.preventDefault(); cursor.on = true; apply(cursor.x, cursor.y, "mark"); saveSoon(); }
-    else if (k === "r") { e.preventDefault(); restartPuzzle(); }
+    else if (k === "r") { e.preventDefault(); askRestart(); }
   });
 
   ui.toolFill.addEventListener("click", function () { setTool("fill"); });
@@ -625,7 +640,7 @@
   $("to-gallery").addEventListener("click", function () { SFX.ui(); toGallery(); });
   $("gallery-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
-  $("hud-restart").addEventListener("click", restartPuzzle);
+  $("hud-restart").addEventListener("click", askRestart);
 
   var P = window.GameShell ? GameShell.pausable({ canPause: function () { return screen === "puzzle" && cur && !cur.won; } })
     : { isPaused: function () { return false; } };

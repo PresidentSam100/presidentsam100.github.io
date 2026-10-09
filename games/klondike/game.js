@@ -584,7 +584,13 @@
     else if (e.key === "Enter" && !$("autofinish").hidden) autoFinish();
   });
 
-  var PAUSE = window.GameShell ? GameShell.pausable({ canPause: function () { return started && running && !cascadeOn; } })
+  // The pause card is see-through and the clock stops under it, so for the
+  // whole pause (a "Start over?" or "Leave this game?" box's too) every card
+  // shows its back, and a lit hint goes out: a pause is no time to plan
+  var PAUSE = window.GameShell ? GameShell.pausable({
+      canPause: function () { return started && running && !cascadeOn; },
+      onChange: function (paused) { field.classList.toggle("paused", paused); if (paused) clearHints(); }
+    })
     : { isPaused: function () { return false; } };
 
   // ---- clock -------------------------------------------------------------------------------

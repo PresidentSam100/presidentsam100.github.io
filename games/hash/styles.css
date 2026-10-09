@@ -240,6 +240,15 @@ html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
 }
 
+/* paused: the shared pause card is see-through, so the cards go blank under
+   it (game.js marks the board) and take no clicks */
+#board.paused {
+  pointer-events: none;
+}
+#board.paused .card .sym {
+  visibility: hidden;
+}
+
 /* claimed cards slide out to the right (through the imaginary right column) */
 .card.exit-right {
   animation: exitRight 0.36s cubic-bezier(0.55, 0, 0.85, 0.3) forwards;

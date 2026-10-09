@@ -336,6 +336,12 @@
     renderPicks();
   }
   var finishTimer = 0;
+  // A strike can land just as the end card shows, and on the letter layouts
+  // R (which restarts from the card) is a fishing key too. For a moment after
+  // the card shows, a restart key that's also a pond key is ignored, so a late
+  // strike doesn't skip straight past the results.
+  var OVER_GRACE_MS = 1000, overAt = 0;
+  function overSettled() { return now() - overAt >= OVER_GRACE_MS; }
   function finish(reason, delay) {
     if (state !== "play") return;
     state = "ending";
@@ -344,6 +350,7 @@
   }
   function showOver(reason) {
     state = "over";
+    overAt = now();
     var prev = runBest, isBest = score > prev;
     liveBest();   // the end-of-run save (the score is already in if it's a best)
     SFX.gong(0); SFX.gong(0.4);
@@ -383,9 +390,12 @@
       else if (mk === "w") { pref.kb = "all"; savePicks(); }
       else if (e.key === "Enter") start();
     } else if (state === "over") {
-      // Backspace back to the modes; Esc is left to leave for the games page
-      if (e.key === "Enter" || e.key === "r" || e.key === "R") { e.preventDefault(); start(mode); }
-      else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
+      // Backspace back to the modes; Esc is left to leave for the games page.
+      // (Enter is never a pond key; an R on one waits out the grace, overSettled)
+      if (e.key === "Enter" || e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        if (e.key === "Enter" || layout.codes.indexOf(e.code) === -1 || overSettled()) start(mode);
+      } else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });
   canvas.addEventListener("pointerdown", function (e) {

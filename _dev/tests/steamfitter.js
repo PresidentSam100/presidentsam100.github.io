@@ -4,7 +4,8 @@
 // water is drawn through the junction, or under the bridge); the editor's
 // Junction and Crossover tools; spaces in a level name. Puzzle boards deal at
 // once (no runaway path carve) and still deal when every carve gives up;
-// Panic's hover ghost shows the queued pipe you picked.
+// Panic's hover ghost shows the queued pipe you picked. The mode bar asks
+// before it throws away a run or an unsaved level, and "del" asks first.
 const HOOKS = [
   ["window.PipeMania = {", `window.PipeMania = {
     __n: function () { return LV.length; },
@@ -150,6 +151,86 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("2× screen: frames draw with no page errors", q.errs.length === 0, q.errs);
   await q.close();
   await retina.close();
+
+  // ---- the mode bar asks before it throws a run, or an unsaved level, away
+  const custom = JSON.stringify([{ n: "Pipe Dream", s: 3, d: 3, g: ".......................chd.ohhhhb.aO..........................." }]);
+  const a = await lib.open(ctx, base, "games/steamfitter/", { before: async (pg) => {
+    await pg.addInitScript((c) => { try { localStorage.setItem("steamfitter_custom", c); } catch (e) {} }, custom);
+    await lib.injectScript(pg, "games/steamfitter/game.js", HOOKS);
+  } });
+  const dlg = () => a.evaluate(() => { const d = document.querySelector(".gs-dialog"); return d ? { title: d.querySelector("h2").textContent, text: (d.querySelector("p") || {}).textContent || "" } : null; });
+  const mbtn = (m) => a.evaluate((m) => document.querySelector('#modeBar .mbtn[data-mode="' + m + '"]').click(), m);
+  const where = () => a.evaluate(() => ({ mode: __game.mode, state: __game.state, paused: (() => { const g = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!g && !g.hidden; })() }));
+
+  // a fresh Panic run switches at once; one with a pipe laid asks, paused under the box
+  await a.evaluate(() => { __game.setMode("panic"); }); await a.waitForTimeout(100);
+  await mbtn("puzzle"); await a.waitForTimeout(150);
+  const fresh = { box: await dlg(), at: await where() };
+  check("mode bar (guard): a fresh run switches modes at once", !fresh.box && fresh.at.mode === "puzzle", fresh);
+  await a.evaluate(() => { __game.setMode("panic"); __game.setQueue(["H", "H", "H", "H", "H"]); const g = __game.grid;
+    for (let r = 0; r < g.length; r++) for (let c = 0; c < g[r].length; c++) if (g[r][c].kind === "empty") { __game.place(r, c); return; } });
+  await mbtn("levels"); await a.waitForTimeout(150);
+  const asked = { box: await dlg(), at: await where() };
+  await a.keyboard.press("Escape"); await a.waitForTimeout(150);
+  const kept = { box: await dlg(), at: await where() };
+  await mbtn("levels"); await a.waitForTimeout(150); await a.keyboard.press("Enter"); await a.waitForTimeout(200);
+  const quit = { box: await dlg(), at: await where() };
+  check("mode bar mid-run asks \"Quit this game?\" (paused under it); Keep playing plays on, Quit switches",
+    asked.box && asked.box.title === "Quit this game?" && asked.at.mode === "panic" && asked.at.paused &&
+    !kept.box && kept.at.mode === "panic" && kept.at.state === "play" && !kept.at.paused &&
+    !quit.box && quit.at.mode === "levels" && !quit.at.paused && a.leaves === 0, { asked, kept, quit });
+
+  // the editor: untouched, the mode bar switches at once; with an unsaved level it asks
+  await a.evaluate(() => __game.startEditor()); await a.waitForTimeout(100);
+  await mbtn("panic"); await a.waitForTimeout(150);
+  const blank = { box: await dlg(), at: await where() };
+  check("mode bar (guard): an editor with nothing unsaved switches at once", !blank.box && blank.at.mode === "panic", blank);
+  await mbtn("levels"); await a.waitForTimeout(150);
+  await a.evaluate(() => { __game.startEditor(); __game.setEditTool("bend"); __game.editorClick({ r: 3, c: 3 }); }); await a.waitForTimeout(100);
+  await mbtn("panic"); await a.waitForTimeout(150);
+  const ed = { box: await dlg(), at: await where() };
+  await a.keyboard.press("Escape"); await a.waitForTimeout(150);
+  const stay = { box: await dlg(), at: await where() };
+  await mbtn("levels"); await a.waitForTimeout(150);   // the same mode: back to the level list
+  const ed2 = { box: await dlg() };
+  await a.keyboard.press("Enter"); await a.waitForTimeout(150);
+  const left = { box: await dlg(), at: await where() };
+  check("mode bar in the editor with an unsaved level asks \"Leave the editor?\"; Keep editing stays, Leave goes",
+    ed.box && ed.box.title === "Leave the editor?" && /unsaved level will be lost/.test(ed.box.text) && ed.at.state === "edit" &&
+    !stay.box && stay.at.state === "edit" && stay.at.mode === "levels" && ed2.box && ed2.box.title === "Leave the editor?" &&
+    !left.box && left.at.state === "select", { ed, stay, ed2, left });
+
+  // the editor's own ◂ Back asks the same; untouched, it goes at once
+  await a.evaluate(() => __game.startEditor()); await a.waitForTimeout(100);
+  await a.click("#editBack"); await a.waitForTimeout(150);
+  const back0 = { box: await dlg(), at: await where() };
+  check("editor ◂ Back (guard): with nothing unsaved it goes at once", !back0.box && back0.at.state === "select", back0);
+  await a.evaluate(() => { __game.startEditor(); __game.setEditTool("bend"); __game.editorClick({ r: 3, c: 3 }); }); await a.waitForTimeout(100);
+  await a.click("#editBack"); await a.waitForTimeout(150);
+  const back1 = { box: await dlg(), at: await where() };
+  await a.keyboard.press("Escape"); await a.waitForTimeout(150);
+  const back2 = { box: await dlg(), at: await where() };
+  await a.evaluate(() => document.getElementById("editBack").click()); await a.waitForTimeout(150); await a.keyboard.press("Enter"); await a.waitForTimeout(150);
+  const back3 = { box: await dlg(), at: await where() };
+  check("editor ◂ Back with an unsaved level asks \"Leave the editor?\"; Keep editing stays, Leave goes",
+    back1.box && back1.box.title === "Leave the editor?" && back1.at.state === "edit" && !back2.box && back2.at.state === "edit" &&
+    !back3.box && back3.at.state === "select", { back1, back2, back3 });
+
+  // "del" on a custom level asks first, naming it
+  const count = () => a.evaluate(() => ({ saved: __game.customLevels.length, shown: document.querySelectorAll('#levelSelect [data-act="delc"]').length }));
+  const c0 = await count();
+  const delc = () => a.evaluate(() => { const d = document.querySelector('#levelSelect [data-act="delc"]'); if (d) d.click(); });
+  await delc(); await a.waitForTimeout(150);
+  const del = { box: await dlg(), n: await count() };
+  await a.keyboard.press("Escape"); await a.waitForTimeout(150);
+  const keep = await count();
+  await delc(); await a.waitForTimeout(150); await a.keyboard.press("Enter"); await a.waitForTimeout(150);
+  const gone = await count();
+  check("del asks \"Delete this level?\" naming it; Keep it keeps it, Delete deletes it",
+    c0.saved === 1 && del.box && del.box.title === "Delete this level?" && del.box.text === "Pipe Dream will be gone for good." && del.n.saved === 1 &&
+    keep.saved === 1 && keep.shown === 1 && gone.saved === 0 && gone.shown === 0, { c0, del, keep, gone });
+  check("steamfitter: no page errors (asking first)", a.errs.length === 0, a.errs);
+  await a.close();
 
   await ctx.close();
 };

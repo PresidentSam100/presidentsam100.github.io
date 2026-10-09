@@ -379,7 +379,13 @@
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   document.getElementById("to-menu").addEventListener("click", toMenu);
   document.getElementById("resume").addEventListener("click", function () { setPaused(false); });
-  document.getElementById("quit").addEventListener("click", toMenu);
+  // Modes on the pause card throws the run away, so it asks first. The run is
+  // already paused there, and stays so under the box: Esc keeps it on the card.
+  // (With no run going, guardLeave says so and it goes at once.)
+  document.getElementById("quit").addEventListener("click", function () {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu);
+    else toMenu();
+  });
   ui.pauseBtn.addEventListener("click", function () { setPaused(true); });
   // Esc is claimed only to pause / resume; elsewhere the shared
   // motion-toggle.js takes it to the games page. On the end screen
