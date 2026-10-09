@@ -16,7 +16,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     inSync && s0.off === false && s1.off === true && s2.off === false && s3.off === true, { s0, s1, s2, s3 });
 
   // the pause menu's Visual FX item flips it too
-  await p.keyboard.press("Enter"); await p.waitForTimeout(2500); await p.keyboard.press("Escape");
+  // (into play, then paused: each waited for, as the intro runs slower on a busy machine)
+  await p.keyboard.press("Enter");
+  await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 20000 }).catch(() => {});
+  await p.keyboard.press("Escape");
+  await p.waitForFunction(() => window.game.mode === "paused", null, { timeout: 8000 }).catch(() => {});
   const items0 = await p.evaluate(() => window.game.pauseItems());
   await p.keyboard.press("ArrowDown"); await p.keyboard.press("ArrowDown"); await p.keyboard.press("Enter");
   const items1 = await p.evaluate(() => window.game.pauseItems());
@@ -30,11 +34,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.close();
 
   // a reduced-flash choice saved by the old, separate toggle carries over once
+  // (the old choice is saved from a plain file on the site, so no Spacer page is
+  // already running to race the test for it; then Spacer opens, and its game,
+  // made at the page's load, is waited for)
   p = await ctx.newPage(); p.errs = []; p.on("pageerror", (e) => p.errs.push(e.message));
-  await p.goto(base + "games/spacer/", { waitUntil: "domcontentloaded" });
+  await p.goto(base + "_dev/package.json");
   await p.evaluate(() => { localStorage.clear(); localStorage.setItem("galaga_reducedflash", "1"); });
-  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForSelector(".rm-toggle"); await p.waitForTimeout(300);
-  const legacy = await p.evaluate(() => ({ off: RM_ON(), game: window.game.reducedFlash, left: localStorage.getItem("galaga_reducedflash") }));
+  await p.goto(base + "games/spacer/", { waitUntil: "domcontentloaded" }); await p.waitForSelector(".rm-toggle");
+  await p.waitForFunction(() => window.game && localStorage.getItem("galaga_reducedflash") === null, null, { timeout: 15000 }).catch(() => {});
+  const legacy = await p.evaluate(() => ({ off: RM_ON(), game: window.game ? window.game.reducedFlash : null, left: localStorage.getItem("galaga_reducedflash") }));
   check("spacer: an old saved reduced-flash choice turns Visual FX off once, then is cleared", legacy.off === true && legacy.game === true && legacy.left === null, legacy);
   check("spacer (carry-over): no page errors", p.errs.length === 0, p.errs);
   await p.close();
@@ -150,8 +158,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     res["flappy-" + mode] = await p.evaluate(() => new Promise((done) => {
       let draws = 0, frames = 0; const orig = game.bird.draw.bind(game.bird);
       game.bird.draw = (c) => { draws++; return orig(c); };
-      const t0 = performance.now();
-      (function f() { game.invincibleTime = 5; frames++; if (performance.now() - t0 < 350) requestAnimationFrame(f); else done(draws / frames); })();
+      // 20 frames, not a time: on a busy machine 350 ms is a handful of frames,
+      // and the one frame the count can be off by then reads as a strobe
+      (function f() { game.invincibleTime = 5; frames++; if (frames < 20) requestAnimationFrame(f); else done(draws / frames); })();
     }));
     await p.close();
 
@@ -238,16 +247,32 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const c4 = await lib.newContext(browser);
     const p = await lib.open(c4, base, "games/passport/");
+    // Each CSS animation is recorded as it starts (animationstart), so a short
+    // one can't finish unseen between two looks on a busy machine. `took`
+    // waits until each selector has started something, then reads and clears.
+    // (which of these each animation is on is noted as it starts: the game
+    // re-renders its tags soon after, so looking later could miss it)
+    const SELS = ["#postcard", ".tag.bad", "#big-stamp", ".tag.hit", "#stamps .mini:last-child", "#hud-score"];
+    await p.evaluate((SELS) => { window.__an = []; document.addEventListener("animationstart", (e) => __an.push({ on: SELS.filter((s) => e.target.closest(s)), name: e.animationName }), true); }, SELS);
+    // (`least`: how many different animations each selector should start before
+    // reading: the stamp's ink starts a beat after its thunk)
+    const took = async (sels, least) => {
+      await p.waitForFunction(([sels, least]) => sels.every((s, i) => new Set(__an.filter((a) => a.on.includes(s)).map((a) => a.name)).size >= ((least || [])[i] || 1)),
+        [sels, least], { timeout: 6000 }).catch(() => {});
+      return p.evaluate((sels) => { const r = sels.map((s) => [...new Set(__an.filter((a) => a.on.includes(s)).map((a) => a.name))].sort().join()); __an.length = 0; return r; }, sels);
+    };
     const anims = (sel) => p.evaluate((sel) => [...document.querySelectorAll(sel)].flatMap((e) => e.getAnimations({ subtree: true }).map((a) => a.animationName)).sort().join(), sel);
     const ask = () => p.waitForFunction(() => Passport.state() === "ask", null, { timeout: 5000 });
-    await p.evaluate(() => Passport.start("tour")); await p.waitForTimeout(30);
-    const dealt = await anims("#postcard");
-    await p.waitForTimeout(400);
-    await p.evaluate(() => Passport.answer((Passport.current().correct + 1) % 4)); await p.waitForTimeout(30);
-    const denied = { postcard: await anims("#postcard"), tag: await anims(".tag.bad"), stamp: await anims("#big-stamp") };
+    await p.evaluate(() => Passport.start("tour"));
+    const [dealt] = await took(["#postcard"]);
     await ask();
-    await p.evaluate(() => Passport.answer(Passport.current().correct)); await p.waitForTimeout(30);
-    const entry = { tag: await anims(".tag.hit"), mini: await anims("#stamps .mini:last-child"), score: await anims("#hud-score") };
+    await p.evaluate(() => Passport.answer((Passport.current().correct + 1) % 4));
+    const [dp, dt, ds] = await took(["#postcard", ".tag.bad", "#big-stamp"], [1, 1, 3]);
+    const denied = { postcard: dp, tag: dt, stamp: ds };
+    await ask();
+    await p.evaluate(() => Passport.answer(Passport.current().correct));
+    const [et, em, es] = await took([".tag.hit", "#stamps .mini:last-child", "#hud-score"]);
+    const entry = { tag: et, mini: em, score: es };
     check("passport, FX on: the postcard drops in, a denial jolts it, the stamp spreads ink and its copy inks in",
       dealt === "deal" && denied.postcard === "jolt" && denied.tag === "wrongJolt" && denied.stamp === "inkRing,inkSpecks,thunkd" &&
       entry.tag === "tagPress" && entry.mini === "inkIn" && entry.score === "bump", { dealt, denied, entry });
@@ -338,22 +363,24 @@ module.exports = async ({ browser, base, check, lib }) => {
       } });
       // a pair of 2s to merge on the top row, a 4 to slide on the next
       await p.evaluate(() => __set2048([[2, 2, 0, 0], [0, 0, 4, 0], [0, 0, 0, 0], [0, 0, 0, 0]]));
-      const watch = p.evaluate(() => new Promise((res) => {
-        const s = { rings: 0, floats: 0, scripted: 0 };
-        const t0 = performance.now();
-        (function tick() {
-          s.rings = Math.max(s.rings, document.querySelectorAll(".merge-ring").length);
-          s.floats = Math.max(s.floats, document.querySelectorAll(".score-add").length);
-          // animations started from script (not the CSS appear / pop / slide)
-          const n = [...document.querySelectorAll(".tile-inner")].reduce((k, e) => k + e.getAnimations().filter((a) => !(a instanceof CSSAnimation) && !(a instanceof CSSTransition)).length, 0);
-          s.scripted = Math.max(s.scripted, n);
-          if (performance.now() - t0 < 600) requestAnimationFrame(tick);
-          else res(s);
-        })();
-      }));
+      // Recorded as they happen, not sampled frame by frame (a busy machine can
+      // draw too few frames to see a short ring): each ring and float as it's
+      // added, and each animation started from script on a tile (not the CSS
+      // appear / pop / slide)
+      await p.evaluate(() => {
+        window.__seen = { rings: 0, floats: 0, scripted: 0 };
+        const real = Element.prototype.animate;
+        Element.prototype.animate = function () { if (this.classList.contains("tile-inner")) __seen.scripted++; return real.apply(this, arguments); };
+        new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
+          if (n.nodeType !== 1) return;
+          if (n.matches(".merge-ring")) __seen.rings++;
+          if (n.matches(".score-add")) __seen.floats++;
+        }))).observe(document.body, { childList: true, subtree: true });
+      });
       await p.keyboard.press("ArrowLeft");
-      const s = await watch;
-      await p.waitForTimeout(1500);   // (the float takes 0.7 s; slack for a loaded machine)
+      // then all of it clears (polled: the float takes 0.7 s, longer on a busy machine)
+      await p.waitForFunction(() => document.getElementById("score").textContent === "4" && !document.querySelector(".merge-ring, .score-add"), null, { timeout: 8000 }).catch(() => {});
+      const s = await p.evaluate(() => Object.assign({}, __seen));
       s.after = await p.evaluate(() => ({
         score: document.getElementById("score").textContent,
         top: [...document.querySelectorAll(".tile-inner")].map((e) => e.textContent).sort().join(),

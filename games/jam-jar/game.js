@@ -914,7 +914,10 @@
   var last = performance.now();
   function loop(now) {
     requestAnimationFrame(loop);
-    var dt = Math.min((now - last) / 1000, 0.04);
+    // (never below 0: the first frame's timestamp can come before `last` was
+    // read, and a negative step ran the overflow timer up on an empty jar,
+    // ending a fresh game by itself on a slow load)
+    var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
       if (state === "play") {

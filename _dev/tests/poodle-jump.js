@@ -68,6 +68,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { __game.finishDeath(); });
   await p.waitForTimeout(200);
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("poodle-jump: on Game Over, Esc still leaves for the games page", p.leaves === 1, p.leaves);
   await done(p, "game over keys");
 

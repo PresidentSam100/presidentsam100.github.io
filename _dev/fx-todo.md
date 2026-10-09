@@ -82,4 +82,23 @@ Done (checked in `tests/fx-more.js`):
 Every game on the "thin" list from the 2026-10-03 read is done. A new idea for a
 game goes here, with a check in `tests/fx-more.js`.
 
+## Round 2 (ideas from 2026-10-09; Sam picks which, one at a time)
+
+Done:
+- Link Many. A dropped disc squashes at each touchdown of its bounce (about its
+  bottom edge), and a win draws a glowing line through the four, end to end,
+  each disc popping as the line reaches it. (Its drop bounce and the win's
+  white pulsing ring were already there.)
+
+Ideas, not started. Check each game first: some may already have part of it.
+- Dots and Boxes: each line draws in from dot to dot; a claimed box fills with a
+  ripple and its mark pops in.
+- Tall Order: a trimmed tier's offcut breaks into crumbs that tumble off.
+- Demolition Row: cleared blocks burst into debris; a chain pops "×2", "×3".
+- Meteor Menace: rocks crack into tumbling chunks, comic-panel impact bursts.
+- Neon Pinball: a glowing ball trail; rings off bumpers and slingshots.
+- Science Fair: a paper planet swings on its string as it plays its note.
+- 24: cards slide together as they combine; a solved 24 pops on the phone screen.
+- Click Tap: a ripple off the pad on each tap; the taps-per-second number bumps.
+
 Already good models: Reaction, Lanterns, Slither, the Sudoku stamp.

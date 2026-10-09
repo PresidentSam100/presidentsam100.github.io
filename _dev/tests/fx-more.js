@@ -6,6 +6,14 @@
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check(what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
+  // A check of motion with FX on looks at what a move starts. On a busy machine
+  // the move's own renders can take longer than a short slide, so the game
+  // (rightly) skips it, or it's over before a fixed wait ends. So: hold the
+  // page's clock still for the move itself (in the page: __still(fn)), record
+  // things as they start, and poll for the end rather than wait a set time.
+  const still = (pg) => pg.addInitScript(() => {
+    window.__still = (fn) => { const real = performance.now, t = real.call(performance); performance.now = () => t; try { return fn(); } finally { performance.now = real; } };
+  });
   // open a game with its Visual FX switch set (off = true means FX off)
   const open = (path, off, before) => lib.open(ctx, base, "games/" + path, { before: async (pg) => {
     await pg.addInitScript(([k, off]) => localStorage.setItem("reduceMotion:" + k, off ? "1" : "0"), [path.split("/")[0], off]);
@@ -115,11 +123,15 @@ module.exports = async ({ browser, base, check, lib }) => {
       for (let i = 0; i < band.length; i += 4) if (band[i] > 120 && band[i + 1] > 120 && band[i + 2] > 120) snow++;
       return { img: c.toDataURL(), snow };
     });
-    const a = await sky(); await p.waitForTimeout(700); const b = await sky();
-    await p.click(".rm-toggle"); await p.waitForTimeout(150);
-    const c = await sky(); await p.waitForTimeout(500); const d = await sky();
-    await p.click(".rm-toggle"); await p.waitForTimeout(150);
-    const e = await sky(); await p.waitForTimeout(700); const f = await sky();
+    // still: the same picture after 20 frames; moving: a different one within 8 s (polled)
+    const frames = (n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k >= n) r(); else requestAnimationFrame(f); })(); }), n);
+    const a = await sky(); await frames(20); const b = await sky();
+    await p.click(".rm-toggle"); await frames(3);
+    const c = await sky();
+    const moved = await p.waitForFunction((was) => document.getElementById("sky").toDataURL() !== was, c.img, { timeout: 8000 }).then(() => true, () => false);
+    const d = moved ? { img: "moved" } : c;
+    await p.click(".rm-toggle"); await frames(3);
+    const e = await sky(); await frames(20); const f = await sky();
     check("klondike: with FX off the sky holds still and keeps its snow; flipping FX on starts it moving, flipping it off stills it again",
       a.img === b.img && a.snow > 0 && c.img !== d.img && e.img === f.img && e.snow > 0, { offStill: a.img === b.img, snow: a.snow, onMoves: c.img !== d.img, backStill: e.img === f.img });
     await done(p, "klondike");
@@ -204,11 +216,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.waitForFunction(() => window.__pool && __pool.G.phase === "aim", null, { timeout: 8000 });
       got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
         __pool.shoot(0, 1);
-        const s = { strike: __pool.fx.strike, sparks: 0, trails: 0 }, t0 = performance.now();
-        (function tick() {
+        const s = { strike: __pool.fx.strike, sparks: 0, trails: 0 };
+        let frames = 0;
+        (function tick() {   // 40 frames of the break (frames, not a time: a busy machine draws few)
           const f = __pool.fx;
           s.sparks = Math.max(s.sparks, f.sparks); s.trails = Math.max(s.trails, f.trails);
-          if (performance.now() - t0 < 700) requestAnimationFrame(tick); else res(s);
+          if (++frames < 40) requestAnimationFrame(tick); else res(s);
         })();
       }));
       await done(p, "corner-pocket FX " + (off ? "off" : "on"));
@@ -227,11 +240,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       "start(2);  // build a board behind the menu\n  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start };"];
     const got = {};
     for (const off of [false, true]) {
-      const p = await open("chess/", off, (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]));
+      const p = await open("chess/", off, async (pg) => { await still(pg); await lib.injectScript(pg, "games/chess/game.js", [HOOK2]); });
       got[off ? "off" : "on"] = await p.evaluate(() => {
         document.getElementById("menu").classList.remove("show");
         const C = __chess; C.start(2);
-        const go = (from, to) => C.doMove(C.legalFor(C.G, from).find((m) => m.to === to));
+        const go = (from, to) => __still(() => C.doMove(C.legalFor(C.G, from).find((m) => m.to === to)));
         const slides = () => document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".sq .pc"))
           .map((a) => a.effect.getKeyframes()[0].transform);
         go(52, 36);   // e4
@@ -246,7 +259,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         const afterNew = slides().length + document.querySelectorAll(".pc.fly").length;
         return { slide, fly, check: !!ck, pulse, glow, afterNew };
       });
-      got[off ? "off" : "on"].flyLeft = await p.waitForTimeout(500).then(() => p.evaluate(() => document.querySelectorAll(".pc.fly").length));
+      got[off ? "off" : "on"].flyLeft = await p.waitForFunction(() => !document.querySelector(".pc.fly"), null, { timeout: 6000 }).then(() => 0, () => -1);
       await done(p, "chess FX " + (off ? "off" : "on"));
     }
     const on = got.on, off = got.off;
@@ -264,7 +277,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     html = html.replace(HOOK3[0], HOOK3[1]);
     const got3 = {};
     for (const off of [false, true]) {
-      const p = await open("chess/three.html", off, (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html })));
+      const p = await open("chess/three.html", off, async (pg) => { await still(pg); await pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html })); });
       got3[off ? "off" : "on"] = await p.evaluate(() => {
         const T = __three; T.start(1); document.getElementById("menu").classList.remove("show");
         const anims = () => document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches("text.glyph"))
@@ -275,7 +288,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         b[T.cid(0, 3, 4)] = pc("r", "k"); b[T.cid(1, 3, 4)] = pc("w", "k"); b[T.cid(2, 3, 4)] = pc("k", "k");
         b[T.cid(0, 3, 0)] = pc("r", "r"); b[T.cid(0, 0, 0)] = pc("w", "n");
         T.G.board = b; T.G.turn = "r";
-        T.doMove(T.legalFor(T.cid(0, 3, 0)).find((m) => m.to === T.cid(0, 0, 0)));
+        __still(() => T.doMove(T.legalFor(T.cid(0, 3, 0)).find((m) => m.to === T.cid(0, 0, 0))));
         const cap = anims();
         const b2 = new Array(96).fill(null);
         b2[T.cid(0, 3, 4)] = pc("r", "k"); b2[T.cid(1, 3, 4)] = pc("w", "k"); b2[T.cid(2, 3, 4)] = pc("k", "k"); b2[T.cid(0, 1, 4)] = pc("w", "q");
@@ -285,7 +298,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         const red = !!document.querySelector('polygon[fill="#e05d5d"]'), pulse = ck && getComputedStyle(ck).animationName;
         // a rook takes a white pawn on its home rank, then New Game at once: the fresh pawn there mustn't slide in
         T.start(1); T.G.board[T.cid(1, 1, 0)] = pc("r", "r"); T.G.turn = "r";
-        T.doMove(T.legalFor(T.cid(1, 1, 0)).find((m) => m.to === T.cid(1, 2, 0))); T.start(1);
+        __still(() => { T.doMove(T.legalFor(T.cid(1, 1, 0)).find((m) => m.to === T.cid(1, 2, 0))); T.start(1); });
         return { cap, red, pulse, afterNew: anims().length };
       });
       await done(p, "chess three FX " + (off ? "off" : "on"));
@@ -333,13 +346,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("yi/", off);
+      // each card's starting twist / offset is recorded the moment it's set (a
+      // busy machine can be past them by the next frame), timed from the click
+      await p.evaluate(() => {
+        window.__deal = { fanned: new Set(), minis: new Set(), t0: 0 };
+        document.getElementById("startBtn").addEventListener("click", () => { __deal.t0 = Date.now(); }, true);
+        new MutationObserver((ms) => ms.forEach((m) => {
+          const el = m.target;
+          if (el.matches("#hand .card") && /rotate/.test(el.style.transform)) __deal.fanned.add(el.dataset.flipkey);
+          if (el.matches("#opponents .mini-back") && /translate/.test(el.style.transform)) __deal.minis.add(el.dataset.flipkey);
+        })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["style"] });
+      });
       await p.click("#startBtn");
-      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
-        const moved = (sel, re) => [...document.querySelectorAll(sel)].filter((c) => re.test(c.style.transform)).length;
-        const r = { hand: document.querySelectorAll("#hand .card").length, fanned: moved("#hand .card", /rotate/), minis: moved("#opponents .mini-back", /translate/), waits: Math.round(drawAnimUntil - Date.now()) };
-        // just after the last card lands (the first turn is still waiting its own beat)
-        setTimeout(() => { r.settled = moved("#hand .card, #opponents .mini-back", /./) === 0; res(r); }, Math.max(0, r.waits) + 80);
-      }))));
+      // the deal is over once its wait has passed and no card is still moved (polled)
+      const settled = await p.waitForFunction(() => __deal.t0 && Date.now() > drawAnimUntil &&
+        ![...document.querySelectorAll("#hand .card, #opponents .mini-back")].some((c) => c.style.transform), null, { timeout: 10000 }).then(() => true, () => false);
+      got[off ? "off" : "on"] = await p.evaluate((settled) => ({ hand: document.querySelectorAll("#hand .card").length, fanned: __deal.fanned.size,
+        minis: __deal.minis.size, waits: Math.round(drawAnimUntil - __deal.t0), settled }), settled);
       await done(p, "yi FX " + (off ? "off" : "on"));
     }
     check("yi, FX on: the hand is dealt round the table from the deck, yours fanning in, and it all settles before the first turn",
@@ -442,13 +465,17 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const off of [false, true]) {
       const p = await open("jam-jar/", off);
       got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
-        const G = __game; G.setQueue(3, 0); G.setAim(240); G.drop();
-        const f = G.fruits[G.fruits.length - 1], t0 = performance.now();
-        let most = 0, landedAt = null;
+        const G = __game, t0 = performance.now();
+        let f = null, most = 0, landedAt = null, frames = 0;
         (function w() {
-          const k = G.squash(f); most = Math.max(most, Math.abs(k));
-          if (landedAt === null && f.contacted) landedAt = performance.now() - t0;
-          if (performance.now() - t0 < 2000) requestAnimationFrame(w); else res({ landed: landedAt !== null, most: +most.toFixed(3), after: G.squash(f) });
+          // (dropped once the jar takes it: a page that's still settling can refuse the first try)
+          if (!f) { G.setQueue(3, 0); G.setAim(240); G.drop(); f = G.fruits[G.fruits.length - 1] || null; }
+          frames++;
+          if (f) { most = Math.max(most, Math.abs(G.squash(f))); if (landedAt === null && f.contacted) landedAt = frames; }
+          // until 25 frames after it lands (the squash settles in 0.32 s of the jar's own clock, which a slow frame caps)
+          if ((landedAt === null || frames - landedAt < 25) && performance.now() - t0 < 15000) requestAnimationFrame(w);
+          else res({ landed: landedAt !== null, most: +most.toFixed(3), after: f ? G.squash(f) : null,
+            refused: f ? undefined : { state: G.state, pauseCard: !!document.querySelector(".gs-pause:not([hidden])"), focus: document.hasFocus(), hidden: document.hidden } });
         })();
       }));
       await done(p, "jam-jar FX " + (off ? "off" : "on"));
@@ -511,10 +538,10 @@ module.exports = async ({ browser, base, check, lib }) => {
         const o = CanvasRenderingContext2D.prototype.stroke;
         CanvasRenderingContext2D.prototype.stroke = function () { if (this.shadowBlur === 10 && /177, ?140, ?255/.test(this.shadowColor)) glow++; return o.apply(this, arguments); };
         window.dispatchEvent(new KeyboardEvent("keydown", { key: __game.words[0].text[0], bubbles: true }));
-        const t0 = performance.now();
-        (function f() {
+        let frames = 0;
+        (function f() {   // until the bolt has flown (frames, not a time: a busy machine draws few)
           motes = Math.max(motes, __game.motes); bolts = Math.max(bolts, __game.bolts);
-          if (performance.now() - t0 < 350) requestAnimationFrame(f); else { CanvasRenderingContext2D.prototype.stroke = o; res({ bolts, glow, motes }); }
+          if (++frames < 60 && !(bolts && !__game.bolts)) requestAnimationFrame(f); else { CanvasRenderingContext2D.prototype.stroke = o; res({ bolts, glow, motes }); }
         })();
       }));
       await done(p, "typetwo bolts FX " + (off ? "off" : "on"));
@@ -560,7 +587,12 @@ module.exports = async ({ browser, base, check, lib }) => {
         for (let r = 0; r < 12 && !at; r++) for (let c = 0; c < 12 && !at; c++) { const x = PipeMania.cellAt(r, c); if (x && x.kind === "pipe" && x.type.length === 1 && /[HV]/.test(x.type)) at = { r, c, type: x.type }; }
         PipeMania.__turn(at.r, at.c);
         const turned = PipeMania.cellAt(at.r, at.c).type, seen = [];
-        (function f() { seen.push(+PipeMania.__left(at.r, at.c).toFixed(3)); if (seen.length < 25) requestAnimationFrame(f); else res({ from: at.type, turned, first: seen[0], least: Math.min(...seen), last: seen[seen.length - 1] }); })();
+        // the turn read every 10 ms of the page's clock, stepped by hand (its
+        // overshoot lasts a few tens of ms: real frames on a busy machine can skip it)
+        const real = performance.now, t = real.call(performance);
+        try { for (let ms = 0; ms <= 220; ms += 10) { performance.now = () => t + ms; seen.push(+PipeMania.__left(at.r, at.c).toFixed(3)); } }
+        finally { performance.now = real; }
+        res({ from: at.type, turned, first: seen[0], least: Math.min(...seen), last: seen[seen.length - 1] });
       }));
       await done(p, "steamfitter turn FX " + (off ? "off" : "on"));
     }
@@ -608,6 +640,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike, FX on: a card moved to a foundation arcs there, lifted mid-flight and above the rest",
       got.on.moved && got.on.arc && got.on.above && got.on.lifted && !got.on.rim, got.on);
     check("klondike, FX off: it jumps, rimmed gold where it lands", got.off.moved && !got.off.arc && !got.off.above && got.off.rim, got.off);
+  }
+
+  // ---- Link Many, FX on: a dropped disc squashes at each touchdown, and a win
+  // draws a glowing line through the four, each popping as it's reached;
+  // FX off: the disc is simply there and the four wear their white ring
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("link-many/", off);
+      await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+      await p.click("#startGame");
+      await p.waitForFunction(() => !__game.busy, null, { timeout: 8000 });
+      const drop = await p.evaluate(() => {
+        const b = __game.board; [0, 1, 2].forEach((c) => { b[5][c] = 1; });
+        __game.humanMove(3);
+        const el = document.querySelector('.cell[data-r="5"][data-c="3"]'), a = el.getAnimations().find((x) => x.animationName === "drop");
+        return { dropping: !!a, squash: !!a && a.effect.getKeyframes().some((k) => /scale\(1\.15/.test(k.transform)), ringed: document.querySelectorAll(".cell.win").length };
+      });
+      // the line comes once the disc has landed (polled, not timed: a busy machine is slower)
+      const line = await p.waitForFunction(() => document.querySelector(".win-line"), null, { timeout: off ? 1500 : 6000 }).then(() => true, () => false);
+      const pops = await p.evaluate(() => [...document.querySelectorAll(".cell.win")].filter((c) => c.getAnimations().some((a) => a.effect.getKeyframes().some((k) => /scale\(1\.18/.test(k.transform || "")))).length);
+      got[off ? "off" : "on"] = Object.assign(drop, { line, pops });
+      await done(p, "link-many FX " + (off ? "off" : "on"));
+    }
+    check("link-many, FX on: the dropped disc squashes as it lands; the win draws a line through the four and pops each one",
+      got.on.dropping && got.on.squash && got.on.ringed === 4 && got.on.line && got.on.pops === 4, got.on);
+    check("link-many, FX off: the disc is simply there and the four wear their ring, no line", !got.off.dropping && got.off.ringed === 4 && !got.off.line && got.off.pops === 0, got.off);
   }
 
   await ctx.close();

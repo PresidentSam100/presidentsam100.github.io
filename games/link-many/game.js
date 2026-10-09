@@ -112,6 +112,7 @@ function init() {
   board = Array.from({length:ROWS}, () => Array(COLS).fill(0));
   gameOver = false; busy = false; animMove = null; hoverColIdx = -1; lastDisc = null; scorch = null;
   youMoved = false;
+  clearWinSweep();
   buildDOM();
   renderPowers();
   render();
@@ -269,11 +270,42 @@ function aiMove() {
   setStatus('Your turn (Red)');
 }
 
+// Visual FX on: a win draws a glowing line through the four, end to end,
+// each disc popping as the line reaches it (once a disc that just dropped has
+// landed). With FX off the four simply wear their white ring.
+let winFxT = 0;
+function winSweep(line) {
+  clearWinSweep();
+  if (!animOn() || !line || !line.length) return;
+  const els = line.map(([r, c]) => cells().find(x => +x.dataset.r === r && +x.dataset.c === c));
+  const landing = animMove && line.some(([r, c]) => r === animMove.r && c === animMove.c);
+  const myRound = round;
+  winFxT = setTimeout(() => {
+    if (myRound !== round || els.some(el => !el || !el.isConnected)) return;
+    const pt = el => ({ x: el.offsetLeft + el.offsetWidth / 2, y: el.offsetTop + el.offsetHeight / 2 });
+    const a = pt(els[0]), b = pt(els[els.length - 1]), len = Math.hypot(b.x - a.x, b.y - a.y);
+    const NS = 'http://www.w3.org/2000/svg', svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('class', 'win-line');
+    svg.setAttribute('width', boardEl.clientWidth); svg.setAttribute('height', boardEl.clientHeight);
+    svg.innerHTML = `<line x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}" stroke-dasharray="${len}"/>`;
+    boardEl.appendChild(svg);
+    svg.firstChild.animate([{ strokeDashoffset: len }, { strokeDashoffset: 0 }], { duration: 460, easing: 'ease-out', fill: 'forwards' });
+    els.forEach((el, i) => el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)', offset: 0.4 }, { transform: 'scale(1)' }],
+      { duration: 320, delay: i * 140, easing: 'ease-out' }));
+  }, landing ? 760 : 80);
+}
+function clearWinSweep() {
+  clearTimeout(winFxT);
+  const s = boardEl.querySelector('.win-line');
+  if (s) s.remove();
+}
+
 function checkEnd() {
   const win = findWin(board);
   if (win) {
     gameOver = true;
     render(win.cells);
+    winSweep(win.cells);
     if (win.player === HUMAN) { score.w++; setStatus('You win! 🎉'); sfxWin(); }
     else { score.l++; setStatus('AI wins!'); sfxLose(); }
     updateScore();
@@ -463,6 +495,7 @@ function checkEndAfter(mover) {
     }
     gameOver = true;
     render(w.cells);
+    winSweep(w.cells);
     if (w.player === HUMAN) { score.w++; setStatus('You win! 🎉'); sfxWin(); }
     else { score.l++; setStatus('AI wins!'); sfxLose(); }
     updateScore();
@@ -698,7 +731,7 @@ document.addEventListener('keydown', e => {
 let resizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(buildFrame, 100);
+  resizeTimer = setTimeout(() => { buildFrame(); clearWinSweep(); }, 100);   // (the win line's points would be stale)
 });
 
 setupModeModal(init);

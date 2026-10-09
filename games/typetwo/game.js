@@ -557,13 +557,17 @@
         b.tx = b.target.x + b.target.w / 2;
         b.ty = b.target.y;
       }
-      // Visual FX on: a bolt sheds violet motes as it flies (and its trail glows; draw)
-      if (!reducedMotion() && b.t < 1 && Math.random() < 0.5) {
-        particles.push({
-          x: b.x + (b.tx - b.x) * b.t, y: b.y + (b.ty - b.y) * b.t,
-          vx: rand(-25, 25), vy: rand(-25, 25),
-          life: rand(0.2, 0.35), age: 0, size: rand(0.8, 1.6), hue: 272, kind: "mote",
-        });
+      // Visual FX on: a bolt sheds a violet mote every eighth or so of its flight
+      // (by distance, so a slow frame doesn't thin them out; its trail glows: draw)
+      if (!reducedMotion()) {
+        if (b.mt === undefined) b.mt = 0;
+        for (; b.mt <= Math.min(b.t, 1); b.mt += 0.12) {
+          particles.push({
+            x: b.x + (b.tx - b.x) * b.mt, y: b.y + (b.ty - b.y) * b.mt,
+            vx: rand(-25, 25), vy: rand(-25, 25),
+            life: rand(0.2, 0.35), age: 0, size: rand(0.8, 1.6), hue: 272, kind: "mote",
+          });
+        }
       }
       if (b.t >= 1) {
         // a fatal bullet reaching its still-dying word destroys it now

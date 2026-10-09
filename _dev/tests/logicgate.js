@@ -79,6 +79,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.keyboard.press("Escape"); await q.waitForTimeout(300);
     const after = { open: await q.evaluate(() => document.getElementById("helpPanel").classList.contains("show")), leaves: q.leaves };
     await q.keyboard.press("Escape"); await q.waitForTimeout(300);
+    await lib.leftBy(q, 1);   // (counted when its request arrives: later on a busy machine)
     check("logicgate: Esc closes the '? Gates' panel without leaving; Esc again leaves", open && !after.open && after.leaves === 0 && q.leaves === 1, { open, after, leaves: q.leaves });
     check("logicgate (gates panel): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c4.close();

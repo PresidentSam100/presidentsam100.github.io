@@ -18,6 +18,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.click(".tb-close"); await settle(p);
   const closeAsk = await dlg(p), closeHeld = p.leaves;
   await p.keyboard.press("Enter"); await settle(p);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("minesweeper: mid-game the title bar's × asks 'Leave this game?'; Enter leaves",
     closeAsk === "Leave this game?" && closeHeld === 0 && p.leaves === 1, { closeAsk, closeHeld, leaves: p.leaves });
   await done(p, "minesweeper ×");

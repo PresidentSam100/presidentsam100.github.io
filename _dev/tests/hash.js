@@ -122,8 +122,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await q.keyboard.press("Escape"); await q.waitForTimeout(150);
   const n1 = await st();
   await q.click("#newBtn"); await q.waitForTimeout(150);
+  // every time the clock shows from here on is recorded (read after a fixed
+  // wait, a busy machine can already be at 0:01): Enter's deal must reset it
+  await q.evaluate(() => { const el = document.getElementById("statTime"); window.__times = []; new MutationObserver(() => __times.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true }); });
   await q.keyboard.press("Enter"); await q.waitForTimeout(150);
-  const n2 = Object.assign(await st(), { time: await time(q), paused: (await look(q)).paused });
+  const n2 = Object.assign(await st(), { time: await q.evaluate(() => __times.includes("0:00") ? "0:00" : __times.join(" ") || "unchanged"), paused: (await look(q)).paused });
   await q.click("#newBtn"); await q.waitForTimeout(150);
   const n3 = await st();
   check("hash: mid-deck, New game asks \"Start a new game?\" first (game paused); Esc keeps the game, Enter deals unpaused; a fresh deal deals at once",

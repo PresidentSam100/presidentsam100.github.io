@@ -70,7 +70,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- draw three: a press near the right edge of the top waste card picks it up
   // (the toggle on an untouched deal, so it doesn't ask first)
   await p.evaluate(() => { Klondike.deal(3); document.getElementById("m-draw3").click(); Klondike.draw(); });
-  await p.waitForTimeout(250);
+  // (measured once the drawn cards have settled: with Visual FX on they arc into
+  // the waste, which on a busy machine outlasts a fixed wait)
+  await p.waitForFunction(() => [...document.querySelectorAll(".card")].every((c) => !c.getAnimations().length), null, { timeout: 10000 }).catch(() => {});
   const top = await p.evaluate(() => {
     const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
     const w = Klondike.state().waste.split(" "), c = w[w.length - 1];

@@ -20,6 +20,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => __game.obstacles.push({ lane: __game.player.lane, y: 566, w: 44, h: 84, type: "car", color: "#bcc0c6", cx: __game.player.x, pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: 0 }));
   await p.waitForFunction(() => !__game.running && !!document.getElementById("btn-menu"), null, { timeout: 5000 });
   await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   const escLeft = p.leaves === 1 && (await p.evaluate(() => !!document.getElementById("btn-menu")));
   await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
   const toModes = await p.evaluate(() => !!document.getElementById("m-day") && document.getElementById("overlay").classList.contains("show"));

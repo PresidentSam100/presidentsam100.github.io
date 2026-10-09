@@ -176,6 +176,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const mid = await screenNow();
   await endWith(false, 0); await settle(p);
   await p.keyboard.press("Escape"); await settle(p);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("yi: mid-hand Backspace does nothing; Esc on a hand's result still leaves", !mid.setup && mid.g && !mid.result && p.leaves === 1, { mid, leaves: p.leaves });
   await done(p, "yi backspace");
 

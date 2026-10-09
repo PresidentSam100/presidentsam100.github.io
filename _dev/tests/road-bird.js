@@ -41,7 +41,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const swoop = await moved(true);
   check("road-bird, FX off: the eagle's wings hold still as it swoops", swoop === 0, swoop);
 
-  await p.waitForFunction(() => __game.state === "dead", null, { timeout: 5000 });
+  await p.waitForFunction(() => __game.state === "dead", null, { timeout: 20000 });   // (the swoop runs on game time: slower on a busy machine)
   const over = await moved();
   check("road-bird, FX off: the game-over card (with its NEW BEST) holds still", over === 0, over);
 
@@ -84,7 +84,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await m.tap(".gs-pause-btn"); await m.waitForTimeout(100);
   const phonePause = await drawn(m);
   await m.tap(".gs-pause-btn"); await m.waitForTimeout(100);
-  await m.evaluate(() => __game.eagle()); await m.waitForFunction(() => __game.state === "dead", null, { timeout: 5000 });
+  await m.evaluate(() => __game.eagle()); await m.waitForFunction(() => __game.state === "dead", null, { timeout: 20000 });   // (the swoop runs on game time: slower on a busy machine)
   const phoneOver = await drawn(m);
   check("road-bird, phone: the hints say tap / swipe, not keys (menu, skin, pause card, game over, page)",
     phoneHint.keys === false && phoneHint.touch && /tap to change/.test(phoneMenu) && !/\bC\b/.test(phoneMenu) && !/SPACE|ESC/.test(phoneMenu) &&

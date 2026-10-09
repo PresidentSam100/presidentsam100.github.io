@@ -72,6 +72,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
   const endCaps = await p.evaluate(() => ["#btn-again", "#btn-menu"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
   await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   const escLeaves = p.leaves === 1 && !(await p.evaluate(() => !!document.getElementById("m-sprint")));
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   const backToMenu = await p.evaluate(() => !!document.getElementById("m-sprint"));

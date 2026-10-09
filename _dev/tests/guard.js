@@ -112,10 +112,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const p = await lib.open(ctx, base, "games/tall-order/");
     await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
-    await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForTimeout(400);
-    await p.keyboard.press("Home"); await p.waitForTimeout(200);
+    // (wait for the tier to land, which makes it a game in progress, and for
+    // the box: on a busy machine a fixed wait came too soon for either)
+    await p.evaluate(() => TallOrder.placeAndDrop(0));
+    await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 15000 }).catch(() => {});
+    await p.keyboard.press("Home");
+    await p.waitForSelector(".gs-dialog", { timeout: 10000 }).catch(() => {});
     const focus = await p.evaluate(() => document.activeElement && document.activeElement.textContent);
-    await p.keyboard.press("Space"); await p.waitForTimeout(250);
+    await p.keyboard.press("Space");
+    await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 10000 }).catch(() => {});
     const r = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), state: TallOrder.state() }));
     check("a reflex Space in the 'Leave this game?' box keeps playing", /Keep playing/.test(focus) && !r.dlg && r.state === "play" && p.leaves === 0, { focus, r, leaves: p.leaves });
     await done(p, "tall-order space");
@@ -129,12 +134,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     const box = () => p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return { open: !!d, title: d ? d.querySelector("h2").textContent : "", went: window.__went }; });
     await ask(); const fresh = await box();
     await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
-    await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForTimeout(400);
+    await p.evaluate(() => TallOrder.placeAndDrop(0));
+    await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 15000 }).catch(() => {});
+    const gone = () => p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 10000 }).catch(() => {});
     await ask(); const mid = await box();
     const paused = await p.evaluate(() => GameShell.leaveActive() && !!document.querySelector(".gs-dialog"));
-    await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+    await p.keyboard.press("Escape"); await gone();
     const kept = await box();
-    await ask(); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    await ask(); await p.keyboard.press("Enter"); await gone();
     const quit = await box();
     check("askQuit: goes at once with no game in progress; mid-game asks first, Esc keeps playing, Enter goes",
       !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && !kept.open && kept.went === 0 && !quit.open && quit.went === 1 && p.leaves === 0,
@@ -202,7 +209,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const p = await lib.open(ctx, base, "games/tall-order/", { before: (pg) => seed(pg, { tallorder_best_bakery: "1" }) });
     await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
-    await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForTimeout(400);
+    await p.evaluate(() => TallOrder.placeAndDrop(0));
+    // (polled: the tier has to fall and land first, slower on a busy machine)
+    await p.waitForFunction(() => Number(localStorage.getItem("tallorder_best_bakery")) >= 2, null, { timeout: 10000 }).catch(() => {});
     check("tall-order: a taller tower is saved as it lands", Number(await ls(p, "tallorder_best_bakery")) >= 2 && (await p.evaluate(() => TallOrder.state())) === "play", await ls(p, "tallorder_best_bakery"));
     await done(p, "tall-order best");
   }
@@ -211,7 +220,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.keyboard.press("Enter");
     await p.waitForFunction(() => __game.words && __game.words.length > 0, null, { timeout: 8000 });
     const w = await p.evaluate(() => __game.words[0].text);
-    await p.keyboard.type(w); await p.waitForTimeout(600);
+    await p.keyboard.type(w);
+    // (polled: the last bolt has to reach the word first, slower on a busy machine)
+    await p.waitForFunction(() => Object.keys(localStorage).some((k) => /^wordfall_best_/.test(k) && Number(localStorage.getItem(k)) > 0), null, { timeout: 10000 }).catch(() => {});
     const v = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^wordfall_best_/.test(k)).map((k) => k + "=" + localStorage.getItem(k)));
     check("typetwo: a kill past the best is saved mid-run", v.some((s) => Number(s.split("=")[1]) > 0) && (await p.evaluate(() => __game.state)) === "playing", v);
     await done(p, "typetwo best");
@@ -310,17 +321,22 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   {
     const p = await lib.open(ctx, base, "games/flappy-world/", { before: (pg) => seed(pg, { flappyWorld_hiScore_1: "1", flappyWorld_hiScore_3: "1" }) });
-    await p.keyboard.press("Space"); await p.waitForTimeout(100);
-    await p.evaluate(() => { game.score = 5; }); await p.waitForTimeout(150);
+    await p.keyboard.press("Space");
+    await p.waitForFunction(() => game.gameState === "PLAYING", null, { timeout: 8000 }).catch(() => {});
+    await p.evaluate(() => { game.score = 5; });
+    // (polled: it's saved by the game's next update, slower on a busy machine)
+    await p.waitForFunction(() => [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")].includes("5"), null, { timeout: 8000 }).catch(() => {});
     const v = await p.evaluate(() => [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")]);
     check("flappy-world: a new best is saved mid-run", v.includes("5"), v);
     await done(p, "flappy-world best");
   }
   {
     const p = await lib.open(ctx, base, "games/jam-jar/", { before: (pg) => seed(pg, { jamjar_best: "1" }) });
-    await p.evaluate(() => { __game.setQueue(0, 0); __game.setAim(240); __game.drop(); }); await p.waitForTimeout(600);
     await p.evaluate(() => { __game.setQueue(0, 0); __game.setAim(240); __game.drop(); });
-    await p.waitForFunction(() => Number(localStorage.getItem("jamjar_best")) > 1, null, { timeout: 5000 }).catch(() => {});
+    // the twin goes in once the first has landed and the drop cooldown is over
+    // (polled: the jar's clock runs slow on a busy machine), then the merge is saved
+    await p.waitForFunction(() => { const f = __game.fruits; if (f.length === 1 && f[0].contacted) { __game.setQueue(0, 0); __game.setAim(240); __game.drop(); } return __game.fruits.length !== 1; }, null, { timeout: 10000 }).catch(() => {});
+    await p.waitForFunction(() => Number(localStorage.getItem("jamjar_best")) > 1, null, { timeout: 10000 }).catch(() => {});
     const v = await ls(p, "jamjar_best");
     check("jam-jar: a merge that beats the best saves it at once", Number(v) > 1 && (await p.evaluate(() => __game.state)) === "play", v);
     await done(p, "jam-jar best");

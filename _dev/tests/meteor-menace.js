@@ -14,10 +14,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- hold ↑, lose focus (auto-pause; the keyup never comes), resume: no thrust
   let p = await open();
   await p.evaluate(() => __game.start());
-  await p.keyboard.down("ArrowUp"); await p.waitForTimeout(150);
+  // (the ship reads its keys each frame: wait frames, not a time, which on a
+  // busy machine can pass without one)
+  const frames = (n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k >= n) r(); else requestAnimationFrame(f); })(); }), n);
+  await p.keyboard.down("ArrowUp"); await frames(5);
   const held = await p.evaluate(() => !!(__game.ship && __game.ship.thrusting));
   await p.evaluate(() => window.dispatchEvent(new Event("blur"))); await p.waitForTimeout(80);
-  await p.click(".gs-pause button"); await p.waitForTimeout(150);
+  await p.click(".gs-pause button"); await frames(5);
   const after = await p.evaluate(() => !!(__game.ship && __game.ship.thrusting));
   await p.keyboard.up("ArrowUp");
   check("meteor-menace: a key held when the window loses focus isn't stuck down after resuming", held && !after, { held, after });

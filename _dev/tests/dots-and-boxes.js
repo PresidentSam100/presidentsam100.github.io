@@ -11,6 +11,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await p.waitForTimeout(100);
   const before = Object.assign(await rules(), { leaves: p.leaves });
   await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("dots-and-boxes: Esc closes the Rules without leaving; with them shut, Esc leaves",
     !before.open && before.leaves === 0 && p.leaves === 1, { before, leaves: p.leaves });
 

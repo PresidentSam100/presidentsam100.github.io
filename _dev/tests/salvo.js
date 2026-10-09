@@ -33,6 +33,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const early = await shown();
   await p.waitForTimeout(1000);
   await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   const esc = Object.assign(await shown(), { leaves: p.leaves });
   await p.keyboard.press("Backspace"); await p.waitForTimeout(80);
   const back = await shown();

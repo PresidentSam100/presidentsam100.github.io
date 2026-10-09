@@ -96,7 +96,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     check("copy box: the back link's colour and font", r.cardBg === r.backBg && r.btnFont === r.backFont && r.size === "16px", r);
     // Enter presses Copy (the old copy command), which closes it
-    await p.keyboard.press("Enter"); await p.waitForTimeout(900);
+    // (the copy finishes first, slower on a busy machine: wait for the box to go)
+    await p.keyboard.press("Enter");
+    await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 8000 }).catch(() => {});
     check("copy box: Enter copies and closes", !(await dlg(p)), await dlg(p));
     await done(p, "lights-out copy box");
   }

@@ -43,6 +43,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Backspace");
   const bs = await p.evaluate(() => ({ s: Passport.state(), v: document.getElementById("answer").value }));
   await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("passport typed: Backspace deletes a letter (stays in the run), Esc leaves", bs.s === "ask" && bs.v === "mvsMV" && p.leaves === 1, { bs, leaves: p.leaves });
   await p.evaluate(() => Passport.toMenu());
   const afterEsc = await p.evaluate(() => ({ s: Passport.state(), ae: document.activeElement.id || document.activeElement.tagName }));

@@ -77,6 +77,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const leaveT = await title(p);
   await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   const leftL = await losses(p);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("link-many: leaving the page mid-game asks \"Leave this game?\" and records no loss (guard)", leaveT === "Leave this game?" && p.leaves === 1 && leftL === 0, { leaveT, leaves: p.leaves, leftL });
   await done(p, "leave");
   await ctx.close();

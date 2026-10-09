@@ -20,12 +20,15 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // the window loses focus during the countdown (as a tab switch would leave it)
   p = await lib.open(ctx, base, "games/crazy-ohio/");
-  await p.click("#startBtn");
-  await p.evaluate(() => { document.hasFocus = () => false; });
-  await p.waitForTimeout(1900);   // the 1.5 s countdown, and a little of the run
+  // Start and lose focus in one step (on a busy machine the 1.5 s countdown can
+  // be over before a separate step lands), then wait for the run to begin, paused
+  await p.evaluate(() => { document.getElementById("startBtn").click(); document.hasFocus = () => false; });
+  await p.waitForFunction(() => { const g = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!g && !g.hidden; }, null, { timeout: 15000 }).catch(() => {});
   const away = { paused: await card(p), time: await p.evaluate(() => document.getElementById("vTime").textContent) };
   await p.evaluate(() => { delete document.hasFocus; });
-  await p.keyboard.press("Escape"); await p.waitForTimeout(400);
+  await p.keyboard.press("Escape");
+  // resumed, the clock runs down from full (polled: slower on a busy machine)
+  await p.waitForFunction(() => Number(document.getElementById("vTime").textContent) < 30, null, { timeout: 10000 }).catch(() => {});
   const back = { paused: await card(p), time: await p.evaluate(() => document.getElementById("vTime").textContent) };
   check("crazy-ohio: a run that begins with the window away starts paused, its clock full; resuming runs it",
     away.paused && away.time === "30.0" && !back.paused && Number(back.time) < 30, { away, back });

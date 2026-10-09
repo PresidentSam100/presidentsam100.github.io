@@ -112,8 +112,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.waitForFunction(() => !document.getElementById("result").hidden, null, { timeout: 60000 });
   const sb = await p.evaluate(() => document.getElementById("settingsBtn").innerHTML);
   const rl0 = p.leaves;
-  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
-  const rl1 = p.leaves;
+  await p.keyboard.press("Escape");
+  const rl1 = await lib.leftBy(p, rl0 + 1);   // (counted when its request arrives: later on a busy machine)
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   check("crazy-ohio results: Settings shows a ⌫ keycap; Esc leaves, Backspace goes to setup", /title="Backspace">⌫/.test(sb) && rl1 === rl0 + 1 && (await sec()) === "setup", { sb, rl0, rl1, sec: await sec() });
   const lk = await p.evaluate(() => ({ caps: [...document.querySelectorAll("#laneKeys kbd")].map((k) => k.textContent).join(""), buttons: document.querySelectorAll("#laneKeys button, .keybtn").length }));
@@ -129,8 +129,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); const f2 = await p.evaluate(() => game.gameState);
   check("flappy-world: Esc pauses and resumes", f0 === "PLAYING" && f1 === "PAUSED" && f2 === "PLAYING", { f0, f1, f2 });
   await p.waitForFunction(() => game.gameState === "GAMEOVER", null, { timeout: 15000 }); await p.waitForTimeout(200);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
-  const fl = p.leaves;
+  await p.keyboard.press("Escape");
+  const fl = await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   await p.keyboard.press("Backspace");
   check("flappy-world game over: Esc leaves, Backspace goes to the menu", fl === 1 && (await p.evaluate(() => game.gameState)) === "MENU", { fl });
   await done(p, "flappy-world");
@@ -140,7 +140,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("spacer: ⏸ button names P / Esc", (await btn(p)) === "⏸ Pause P/Esc", await btn(p));
   await p.keyboard.press("Enter");
   // (past the READY banner, where Esc isn't the pause key: it asks to leave)
-  await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 10000 }).catch(() => {});
+  await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 30000 }).catch(() => {});
   const m = []; m.push(await p.evaluate(() => window.game.mode));
   for (const k of ["Escape", "Escape", "p"]) { await p.keyboard.press(k); m.push(await p.evaluate(() => window.game.mode)); }
   await p.keyboard.press("p");

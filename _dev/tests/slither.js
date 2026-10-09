@@ -35,29 +35,49 @@ module.exports = async ({ browser, base, check, lib }) => {
   } });
   const resultShown = (p) => p.evaluate(() => !document.getElementById("result").classList.contains("hidden"));
   const pausedCard = (p) => p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
-  // an apple on the cell ahead of the Classic snake's head, then wait until it's eaten
-  const feed = async (p) => {
-    const n = await p.evaluate(() => { const s = __G.snakes[0]; __G.food = { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y }; return s.score; });
-    await p.waitForFunction((n) => __G.snakes[0].score > n, n);
-  };
+  // Start a run (a click on `sel`) and feed it n apples, each set on the cell
+  // ahead of the head the moment the last is eaten, all in the page: on a busy
+  // machine the round trips between feeds let the snake run on into the wall
+  // first. While it feeds, the snake steps once every 1.5 s (a slow frame can
+  // otherwise catch up several steps at once and run it past the apple); its
+  // speed comes back after. With `pause`, Esc pauses it as the last apple goes
+  // down, before it can run on.
+  const run = (p, sel, n, pause) => p.evaluate(([sel, n, pause]) => new Promise((done) => {
+    document.querySelector(sel).click();
+    let eaten = 0, last = null, iv0 = null;
+    const t0 = performance.now();
+    (function f() {
+      const sn = __G.snakes[0];
+      if (last === null && sn.score !== 0) return requestAnimationFrame(f);   // (the new run's first frame)
+      if (iv0 === null) iv0 = __G.interval;
+      __G.interval = 1500;
+      if (last === null || sn.score !== last) {
+        if (last !== null) eaten++;
+        last = sn.score;
+        if (eaten < n) __G.food = { x: sn.body[0].x + sn.dir.x, y: sn.body[0].y + sn.dir.y };
+      }
+      if (eaten >= n || sn.alive === false || performance.now() - t0 > 60000) {
+        __G.interval = iv0;
+        if (pause) document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
+        return done(sn.score);
+      }
+      requestAnimationFrame(f);
+    })();
+  }), [sel, n, !!pause]);
   const classicState = (p) => p.evaluate(() => ({ score: __G.snakes[0].score, stored: localStorage.getItem("snake_best"), hud: document.getElementById("best-label").textContent, msg: document.getElementById("result-msg").textContent }));
 
   // ---- Classic: a run left by Restart doesn't let the next, lower one overwrite the best
   let p = await classic();
-  await p.click("#play-btn"); await p.waitForTimeout(200);
-  for (let i = 0; i < 5; i++) await feed(p);
+  await run(p, "#play-btn", 5, true);   // (then paused, as Esc did)
   const b0 = await classicState(p);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
-  await p.click("#pause-restart"); await p.waitForTimeout(200);
-  for (let i = 0; i < 2; i++) await feed(p);
+  await run(p, "#pause-restart", 2);
   const b1 = await classicState(p);
-  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 20000 });
   const b2 = await classicState(p);
   check("slither classic: the HUD's best follows a score passing it", b0.stored === "5" && b0.hud === "Best: 5", b0);
   check("slither classic: after Restart, a lower score doesn't overwrite the saved best", b1.stored === "5" && b1.hud === "Best: 5" && /Best: 5/.test(b2.msg) && !/New Best/.test(b2.msg), { b1, b2 });
-  await p.click("#result-primary"); await p.waitForTimeout(200);
-  for (let i = 0; i < 6; i++) await feed(p);
-  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+  await run(p, "#result-primary", 6);
+  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 20000 });
   const b3 = await classicState(p);
   check("slither classic: beating the best still says New Best", b3.stored === "6" && /New Best/.test(b3.msg), b3);
 

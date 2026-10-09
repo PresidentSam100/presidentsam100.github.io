@@ -125,6 +125,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
   const g1 = { screen: (await st()).screen, leaves: p.leaves };
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("darkroom: Esc in the gallery goes back to the darkroom (doesn't leave); Esc there leaves",
     g0 === "gallery" && g1.screen === "menu" && g1.leaves === 0 && p.leaves === 1, { g0, g1, leaves: p.leaves });
 
@@ -151,6 +152,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const w1 = { screen: (await st()).screen, card: await p.evaluate(() => !document.getElementById("win").hidden), leaves: p.leaves };
   await won();
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("darkroom: Backspace on the win card goes back to the darkroom menu; Esc there leaves for the games page",
     w1.screen === "menu" && !w1.card && w1.leaves === 0 && p.leaves === 1, { w1, leaves: p.leaves });
   check("darkroom: no page errors (win card)", p.errs.length === 0, p.errs);

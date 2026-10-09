@@ -1,9 +1,12 @@
 // Jam Jar: while paused the keys neither drop a fruit nor move the aim; an
 // overflowing jar is "★ New best!" only when it beats the best (not on a tie,
 // and not on an empty first jar); on a 2× screen the jar and its fruit are
-// drawn at 2× (they were blurry), and a click still drops where it points.
+// drawn at 2× (they were blurry), and a click still drops where it points;
+// a slow load's out-of-order first frame doesn't end a fresh game.
 const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (x) { aimX = x; },
     aim: function () { return aimX; },
+    cooldown: function () { return dropCd; },
+    paused: function () { return P.isPaused(); },
     overflow: function (s) { score = s; gameOver(); },
     spriteWidth: function (i) { return SPRITES[i].c.width; },`];
 
@@ -14,7 +17,10 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- paused, Space / ↓ drop nothing and ← → leave the aim; resumed, Space drops
   let p = await open();
-  await p.keyboard.press("Space"); await p.waitForTimeout(500);
+  await p.keyboard.press("Space");
+  // the next drop waits out a 0.45 s cooldown on the jar's own clock (slow
+  // frames slow it): wait for it to run out, so the resumed Space can drop
+  await p.waitForFunction(() => __game.cooldown() <= 0, null, { timeout: 10000 }).catch(() => {});
   await p.keyboard.press("p"); await p.waitForTimeout(80);
   const before = await p.evaluate(() => ({ n: __game.fruits.length, aim: __game.aim() }));
   for (const k of ["Space", "ArrowDown", "ArrowLeft", "ArrowLeft"]) await p.keyboard.press(k);
@@ -25,6 +31,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("jam-jar: while paused Space and ↓ drop nothing and ← → leave the aim; after resuming Space drops",
     before.n === 1 && paused.up && paused.n === 1 && paused.aim === before.aim && resumed === 2, { before, paused, resumed });
   await done(p, "paused keys");
+
+  // ---- a first frame stamped before the game read its clock (a slow load) is
+  // a negative step: it used to run the overflow timer up on the empty jar and
+  // end the fresh game. Served here with the clock read 3 s late, so it always is.
+  {
+    const q = await lib.open(ctx, base, "games/jam-jar/", { before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js",
+      [HOOK, ["  var last = performance.now();\n  function loop(now) {", "  var last = performance.now() + 3000;\n  function loop(now) {"]]) });
+    const st = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(__game.state); })(); }));
+    check("jam-jar: a slow load's out-of-order first frame doesn't end a fresh game", st === "play", st);
+    await done(q, "first frame");
+  }
 
   // ---- the overflow card's "New best!" is for a jar that beats the best
   p = await open();
@@ -46,7 +63,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => __game.setQueue(0, 0));
   const box = await p.evaluate(() => { const r = document.getElementById("game").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width }; });
   await p.mouse.click(box.x + box.w * (400 / 540), box.y + 200); await p.waitForTimeout(100);
-  const fx = await p.evaluate(() => __game.fruits.length ? Math.round(__game.fruits[0].x) : null);
+  const fx = await p.evaluate(() => __game.fruits.length ? Math.round(__game.fruits[0].x) : "none (" + (__game.paused() ? "paused" : __game.cooldown() > 0 ? "cooling" : "?") + ")");
   await p.evaluate(() => { Object.defineProperty(window, "devicePixelRatio", { get: () => 1, configurable: true }); window.dispatchEvent(new Event("resize")); });
   await p.waitForTimeout(100);
   const one = await size();

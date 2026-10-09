@@ -90,6 +90,10 @@ h1 .four { color: var(--yellow); }
 .col-hover { background: rgba(228, 70, 61, 0.26) !important; }
 /* the plastic frame in FRONT of the discs, holes punched out */
 .frame-layer { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 2; }
+/* Visual FX on: a win's line, drawn end to end over the four (game.js winSweep) */
+.win-line { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 3; }
+.win-line line { stroke: #fff; stroke-width: 9; stroke-linecap: round; opacity: 0.9;
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.95)) drop-shadow(0 0 12px rgba(255, 230, 140, 0.8)); }
 
 /* ---- buttons: chunky toy pills ---- */
 .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
@@ -111,17 +115,19 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
 .score b { color: var(--blue-dark); font-weight: 900; }
 
 /* drop animation — gravity free-fall, then bouncy-ball settle.
-   Per-keyframe easing: falls accelerate (ease-in), rises decelerate (ease-out). */
-.cell.drop { animation: drop .72s linear; }
+   Per-keyframe easing: falls accelerate (ease-in), rises decelerate (ease-out).
+   It stretches a touch as it falls and squashes flat at each touchdown, about
+   its bottom edge (only drawn with Visual FX on: game.js adds .drop then). */
+.cell.drop { animation: drop .72s linear; transform-origin: 50% 100%; }
 @keyframes drop {
-  0%   { transform: translateY(var(--dy)); animation-timing-function: cubic-bezier(.45,0,.9,.55); }
-  46%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
-  63%  { transform: translateY(-26px);      animation-timing-function: cubic-bezier(.45,0,.9,.55); }
-  77%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
-  88%  { transform: translateY(-9px);       animation-timing-function: cubic-bezier(.45,0,.9,.55); }
-  95%  { transform: translateY(0);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
-  98%  { transform: translateY(-3px);       animation-timing-function: cubic-bezier(.45,0,.9,.55); }
-  100% { transform: translateY(0); }
+  0%   { transform: translateY(var(--dy)) scale(.95, 1.07); animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  46%  { transform: translateY(0) scale(1.15, .84);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  63%  { transform: translateY(-26px) scale(.98, 1.03);      animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  77%  { transform: translateY(0) scale(1.08, .92);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  88%  { transform: translateY(-9px) scale(1, 1);            animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  95%  { transform: translateY(0) scale(1.03, .97);          animation-timing-function: cubic-bezier(.1,.5,.45,1); }
+  98%  { transform: translateY(-3px) scale(1, 1);            animation-timing-function: cubic-bezier(.45,0,.9,.55); }
+  100% { transform: translateY(0) scale(1, 1); }
 }
 /* If the winning disc is also the one just dropped, run BOTH animations: the
    drop (transform) once AND the win flash (box-shadow) forever — otherwise the

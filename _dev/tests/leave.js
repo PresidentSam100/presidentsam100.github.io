@@ -7,7 +7,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   const EDITORS = ["slither/editor.html", "tile-maze/editor.html"];   // Esc never leaves (it would lose work)
   // games that open straight onto a game with its clock running, where Esc pauses
   const PLAYS_AT_ONCE = ["hash/"];
-  const settle = (p) => p.waitForTimeout(250);   // the shared handler decides after the key's dispatch
+  // After a key: the shared handler decides after the key's dispatch, and a
+  // trip to the games page is counted when its request arrives (p.leaves),
+  // which on a busy machine can be well after a fixed wait. So settle waits
+  // 250 ms on the page's own clock (the handler has run by then), and if the
+  // page started to leave (beforeunload, flagged below) waits for that trip to
+  // be counted. A key that doesn't leave settles as quickly as before.
+  await ctx.addInitScript(() => addEventListener("beforeunload", () => { window.__leaving = true; }));
+  const settle = async (p) => {
+    let leaving = false;
+    try { leaving = await p.evaluate(() => new Promise((r) => setTimeout(() => { const v = !!window.__leaving; window.__leaving = false; r(v); }, 250))); }
+    catch (e) { await p.waitForTimeout(250); }   // (a link that really went to another page)
+    if (leaving) { const n = p.__lv || 0, t0 = Date.now(); while (p.leaves <= n && Date.now() - t0 < 8000) await p.waitForTimeout(50); }
+    p.__lv = p.leaves;
+  };
 
   // ---- every page: Home leaves; Esc on the opening screen leaves (not in an editor)
   const homeBad = [], escBad = [];
@@ -116,11 +129,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       (p) => p.evaluate(() => game.gameState), "MENU"],
     ["demolition-row", async (p) => { await p.click("#play-btn"); await p.waitForTimeout(300); await p.evaluate(() => GAME.end("t", "m")); await p.waitForTimeout(100); },
       (p) => p.evaluate(() => (typeof GAME === "undefined" || !GAME) ? "menu" : GAME.state), "menu"],
-    ["road-bird", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.evaluate(() => __game.death("runover")); await p.waitForFunction(() => __game.state === "dead", null, { timeout: 5000 }); },
+    ["road-bird", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.evaluate(() => __game.death("runover")); await p.waitForFunction(() => __game.state === "dead", null, { timeout: 15000 }); },
       (p) => p.evaluate(() => __game.state), "menu"],
-    ["sunset-slice", async (p) => { await p.evaluate(() => { SunsetSlice.start("lastlight"); SunsetSlice.setTime(0.01); }); await p.waitForFunction(() => SunsetSlice.state().state === "over", null, { timeout: 5000 }); },
+    ["sunset-slice", async (p) => { await p.evaluate(() => { SunsetSlice.start("lastlight"); SunsetSlice.setTime(0.01); }); await p.waitForFunction(() => SunsetSlice.state().state === "over", null, { timeout: 15000 }); },
       (p) => p.evaluate(() => SunsetSlice.state().state), "menu"],
-    ["24", async (p) => { await p.keyboard.press("2"); await p.waitForTimeout(300); await p.evaluate(() => { TwentyFour.state().G.timeLeft = 1; }); await p.waitForFunction(() => TwentyFour.state().screen === "timeup", null, { timeout: 5000 }); },
+    ["24", async (p) => { await p.keyboard.press("2"); await p.waitForTimeout(300); await p.evaluate(() => { TwentyFour.state().G.timeLeft = 1; }); await p.waitForFunction(() => TwentyFour.state().screen === "timeup", null, { timeout: 15000 }); },
       (p) => p.evaluate(() => TwentyFour.state().screen), "menu"],
     ["lanterns", async (p) => { await p.evaluate(() => Lanterns.start("festival")); await p.waitForTimeout(300); await p.evaluate(() => Lanterns.gameOver()); await p.waitForTimeout(900); },
       (p) => p.evaluate(() => Lanterns.state()), "menu",
@@ -135,7 +148,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         await p.evaluate(() => TallOrder.placeAndDrop(1000)); await p.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 8000 }); },
       (p) => p.evaluate(() => TallOrder.state()), "menu"],
     ["typetwo", async (p) => { await p.click('.mode[data-mode="hard"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150); await p.keyboard.press("q");
-        await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 }); await p.waitForTimeout(1100); },   // (past the moment its keys wait, below)
+        await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 });
+        await p.evaluate(() => new Promise((r) => setTimeout(r, 1100))); },   // (past the moment its keys wait, below; on the page's clock)
       (p) => p.evaluate(() => __game.state), "start"],
     ["metazac", async (p) => { await p.click("#start-btn"); await p.waitForTimeout(400); await p.evaluate(() => window.__end()); await p.waitForTimeout(900); },
       (p) => p.evaluate(() => !document.getElementById("overlay-start").classList.contains("hidden") ? "menu" : !document.getElementById("overlay-over").classList.contains("hidden") ? "over" : "play"), "menu",

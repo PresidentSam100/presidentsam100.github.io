@@ -16,15 +16,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     requestAnimationFrame(() => requestAnimationFrame(() => done(new Function("arg", src)(arg))));
   }), ["return (" + fn + ")(arg)", arg]);
   const anim = "(el) => el.getAnimations().filter((a) => a.effect && a.effect.getTiming().duration > 1).length";
+  // A cue lasts a moment, and on a busy machine a couple of frames can take
+  // longer than that: so a check sets off its cue and reads it in the same
+  // step, then waits (polled, with room to spare) for it to go, instead of
+  // reading after fixed waits.
+  const goes = (p, fn, ms) => p.waitForFunction(fn, null, { timeout: ms || 8000 }).then(() => true, () => false);
+  // For a cue set off by a key (the key is part of what's checked): a watcher
+  // set up before the key records the cue the moment it appears, read by
+  // `read`; `caught` then returns that record.
+  const watchFor = (p, sel, read) => p.evaluate(([sel, src]) => {
+    window.__cue = null;
+    const f = new Function("el", "return (" + src + ")(el)");
+    new MutationObserver(() => { if (window.__cue) return; const el = document.querySelector(sel); if (el) window.__cue = f(el); })
+      .observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+  }, [sel, read.toString()]);
+  const caught = (p) => p.waitForFunction(() => window.__cue, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
   const done = async (p, g) => { check(g + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
 
   // ---- Crazy Ohio: a judgment label stays readable, then goes
   {
     const p = await open("crazy-ohio", true);
-    await p.click("#startBtn"); await p.waitForTimeout(1900);
+    await p.click("#startBtn");
+    await p.waitForFunction(() => __OSU_TEST__.getTiles().length > 0, null, { timeout: 15000 }).catch(() => {});
+    await watchFor(p, ".judge", (j) => { j.dataset.probe = "1"; const cs = getComputedStyle(j); return { text: j.textContent, op: cs.opacity, name: cs.animationName }; });
     await p.keyboard.press("f");
-    const s = await probe(p, () => { const j = document.querySelector(".judge"); if (!j) return null; j.dataset.probe = "1"; const cs = getComputedStyle(j); return { text: j.textContent, op: cs.opacity, name: cs.animationName }; });
-    await p.waitForTimeout(900);
+    const s = await caught(p);
+    await goes(p, () => !document.querySelector('.judge[data-probe="1"]'));
     // (that label, not any: tiles keep falling, and a missed one adds a new MISS)
     const gone = await p.evaluate(() => !document.querySelector('.judge[data-probe="1"]'));
     check("crazy-ohio, FX off: a judgment label shows still and fully, then goes", !!s && s.op === "1" && s.name === "none" && gone, { s, gone });
@@ -36,9 +53,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await open("speedle", off, null, (pg) => lib.injectScript(pg, "games/speedle/game.js", [["answer = WORDS[(Math.random() * WORDS.length) | 0];", "answer = WORDS[(Math.random() * WORDS.length) | 0]; window.__answer = answer;"]]));
     await p.click("#m-sprint"); await p.waitForTimeout(400);
     if (off) {
-      await p.keyboard.type("zzzzz"); await p.keyboard.press("Enter");
-      const bad = await probe(p, () => { const t = document.querySelector("#board .row .tile"); const cs = getComputedStyle(t); return cs.outlineStyle + " " + cs.outlineWidth; });
-      await p.waitForTimeout(700);
+      await p.keyboard.type("zzzzz");
+      await watchFor(p, "#board .row.bad .tile", (t) => { const cs = getComputedStyle(t); return cs.outlineStyle + " " + cs.outlineWidth; });
+      await p.keyboard.press("Enter");
+      const bad = await caught(p);
+      await goes(p, () => !document.querySelector("#board .row.bad"));
       const after = await p.evaluate(() => getComputedStyle(document.querySelector("#board .row .tile")).outlineStyle);
       check("speedle, FX off: a word it doesn't know gives the row a red edge for a moment", bad === "solid 2px" && after === "none", { bad, after });
       for (let i = 0; i < 5; i++) await p.keyboard.press("Backspace");
@@ -56,10 +75,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Sudoku: the hint's ring stays drawn for its second
   {
     const p = await open("sudoku", true);
-    await p.click("#hintBtn");
-    const s = await probe(p, () => { const c = document.querySelector(".c.hinted"); if (!c) return null; const cs = getComputedStyle(c, "::after"); return { op: cs.opacity, name: cs.animationName }; });
-    await p.waitForTimeout(1400);
-    const gone = await p.evaluate(() => !document.querySelector(".c.hinted"));
+    const s = await p.evaluate(() => { document.getElementById("hintBtn").click(); const c = document.querySelector(".c.hinted"); if (!c) return null; const cs = getComputedStyle(c, "::after"); return { op: cs.opacity, name: cs.animationName }; });
+    const gone = await goes(p, () => !document.querySelector(".c.hinted"));
     check("sudoku, FX off: the hint ring shows, still, then goes", !!s && s.op === "1" && s.name === "none" && gone, { s, gone });
     await done(p, "sudoku");
   }
@@ -68,15 +85,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const p = await open("metazac", true);
     await p.click("#start-btn"); await p.waitForTimeout(500);
-    await p.keyboard.type("987654"); await p.keyboard.press("Enter");
-    const w = await probe(p, () => { const a = document.getElementById("answer"); const cs = getComputedStyle(a); return { wrong: a.classList.contains("wrong"), border: cs.borderTopColor, name: cs.animationName }; });
-    await p.waitForTimeout(650);
-    const wGone = await p.evaluate(() => !document.getElementById("answer").classList.contains("wrong"));
+    await p.keyboard.type("987654");
+    await watchFor(p, "#answer.wrong", (a) => { const cs = getComputedStyle(a); return { wrong: true, border: cs.borderTopColor, name: cs.animationName }; });
+    await p.keyboard.press("Enter");
+    const w = (await caught(p)) || { wrong: false };
+    const wGone = await goes(p, () => !document.getElementById("answer").classList.contains("wrong"));
     check("metazac, FX off: a wrong answer holds a red box for a moment, then clears", w.wrong && w.border === "rgb(224, 54, 44)" && w.name === "none" && wGone, { w, wGone });
-    await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("Space");
-    const n = await probe(p, () => getComputedStyle(document.querySelector("#power-btn .power-face")).boxShadow);
-    await p.waitForTimeout(650);
-    const nGone = await p.evaluate(() => !document.getElementById("power-btn").classList.contains("nope"));
+    await p.keyboard.press("Space"); await p.waitForTimeout(300);
+    await watchFor(p, "#power-btn.nope .power-face", (el) => getComputedStyle(el).boxShadow);
+    await p.keyboard.press("Space");
+    const n = (await caught(p)) || "";
+    const nGone = await goes(p, () => !document.getElementById("power-btn").classList.contains("nope"));
     check("metazac, FX off: a storm that isn't ready rings red for a moment", /rgb\(224, 54, 44\) 0px 0px 0px 4px/.test(n) && nGone, { n, nGone });
     await done(p, "metazac");
   }
@@ -100,11 +119,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const off of [true, false]) {
     const p = await open("lights-out", off);
     await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(400);
+    await watchFor(p, ".watch.glint", (w) => { const cs = getComputedStyle(w); return { filter: cs.filter, name: cs.animationName, moving: w.getAnimations().filter((a) => a.effect && a.effect.getTiming().duration > 1).length }; });
     await p.keyboard.press("h");
-    const g = await probe(p, (anim) => { const w = document.querySelector(".watch.glint"); if (!w) return null; const cs = getComputedStyle(w); return { filter: cs.filter, name: cs.animationName, moving: new Function("return " + anim)()(w) }; }, anim);
+    const g = await caught(p);
     if (off) {
-      await p.waitForTimeout(3000);
-      const gone = await p.evaluate(() => !document.querySelector(".watch.glint"));
+      const gone = await goes(p, () => !document.querySelector(".watch.glint"));
       check("lights-out, FX off: the hinted watch glints, still, then stops", !!g && /drop-shadow/.test(g.filter) && g.name === "none" && gone, { g, gone });
     } else check("lights-out, FX on: the hint still glints in motion", !!g && g.moving > 0, g);
     await done(p, "lights-out FX " + (off ? "off" : "on"));
@@ -114,15 +133,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const p = await open("departures", true);
     await p.evaluate(() => Departures.start("world")); await p.waitForTimeout(400);
-    await p.evaluate(() => Departures.enter("xyzzy"));
-    const r = await probe(p, () => getComputedStyle(document.getElementById("answer")).color);
-    await p.waitForTimeout(700);
-    const rGone = await p.evaluate(() => !document.getElementById("answer").classList.contains("shake"));
+    const r = await p.evaluate(() => { Departures.enter("xyzzy"); return getComputedStyle(document.getElementById("answer")).color; });
+    const rGone = await goes(p, () => !document.getElementById("answer").classList.contains("shake"));
     check("departures, FX off: a name it doesn't know turns the box red for a moment", r === "rgb(239, 106, 90)" && rGone, { r, rGone });
-    await p.evaluate(() => Departures.enter("France"));
-    const f = await probe(p, () => { const li = document.querySelector("#log li"); return li ? getComputedStyle(li.querySelector(".dest")).color : null; });
-    await p.waitForTimeout(1000);
-    const fGone = await p.evaluate(() => !document.querySelector("#log li.fresh"));
+    const f = await p.evaluate(() => { Departures.enter("France"); const li = document.querySelector("#log li"); return li ? getComputedStyle(li.querySelector(".dest")).color : null; });
+    const fGone = await goes(p, () => !document.querySelector("#log li.fresh"));
     check("departures, FX off: the newest departure is lit amber for a moment", f === "rgb(255, 201, 77)" && fGone, { f, fGone });
     await done(p, "departures");
   }
@@ -158,11 +173,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate(() => __game.humanMove(3)); await p.waitForTimeout(150);
     const dot = await probe(p, () => { const c = document.querySelectorAll(".cell.last"); return { n: c.length, after: c[0] && getComputedStyle(c[0], "::after").content }; });
     check("link-many: the last disc carries a dot", dot.n === 1 && dot.after === '""', dot);
-    await p.waitForTimeout(500);
-    await p.evaluate(() => __game.usePower(1, "bomb", 3)); await p.waitForTimeout(350);
-    const sc = await p.evaluate(() => document.querySelectorAll(".cell.blasted").length);
-    await p.waitForTimeout(1100);
-    const scGone = await p.evaluate(() => document.querySelectorAll(".cell.blasted").length);
+    await p.waitForFunction(() => !__game.busy, null, { timeout: 8000 });   // (the computer's reply is in)
+    await p.evaluate(() => __game.usePower(1, "bomb", 3));
+    // (the bomb sits lit for a beat before it blows)
+    const sc = await p.waitForFunction(() => document.querySelectorAll(".cell.blasted").length, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => 0);
+    const scGone = (await goes(p, () => document.querySelectorAll(".cell.blasted").length === 0)) ? 0 : -1;
     check("link-many, FX off: a bomb scorches the cells it hit, then the scorch goes", sc > 0 && scGone === 0, { sc, scGone });
     await done(p, "link-many");
   }
@@ -172,13 +187,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await open("hash", true, null, (pg) => lib.injectScript(pg, "games/hash/game.js", [["  renderBest();\n  newGame();\n})();",
       "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet };\n})();"]]));
     const set = await p.evaluate(() => __h.findSet(__h.board));
+    // the claimed trio is up from about 240 ms to 600 ms after the last click,
+    // shorter than a frame or two on a busy machine: a watcher on the board
+    // records it the moment it's there (polling could miss it altogether)
+    await p.evaluate(() => {
+      window.__trio = null;
+      new MutationObserver(() => {
+        const cs = [...document.querySelectorAll(".card.exit-right")];
+        if (window.__trio || cs.length !== 3) return;
+        window.__trio = cs.map((c) => { const s = getComputedStyle(c); return s.opacity + "|" + s.animationName + "|" + /52, 201, 138/.test(s.boxShadow); });
+      }).observe(document.getElementById("board"), { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+    });
     for (const i of set) await p.click('.card[data-idx="' + i + '"]');
-    // the claimed trio is up from about 240 ms to 600 ms after the last click:
-    // read it as soon as it shows (a fixed wait missed it on a busy machine)
-    const cards = await p.waitForFunction(() => {
-      const cs = [...document.querySelectorAll(".card.exit-right")];
-      return cs.length === 3 && cs.map((c) => { const s = getComputedStyle(c); return s.opacity + "|" + s.animationName + "|" + /52, 201, 138/.test(s.boxShadow); });
-    }, null, { timeout: 3000 }).then((h) => h.jsonValue(), () => []);
+    const cards = await p.waitForFunction(() => window.__trio, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => []);
     check("hash, FX off: the claimed trio stays shown, green, until the refill", cards.length === 3 && cards.every((c) => c === "1|none|true"), cards);
     await done(p, "hash");
   }
@@ -196,14 +217,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const off of [true, false]) {
     const p = await open("jam-jar", off);
     await p.evaluate(() => { __game.reset(); __game.setQueue(0, 0); __game.setAim(270); __game.drop(); });
-    await p.waitForTimeout(700);
-    await p.evaluate(() => { __game.setQueue(0, 0); __game.setAim(270); __game.drop(); });
+    // the twin goes in once the first has landed and the drop cooldown is over
+    // (polled: on a busy machine the jar's clock runs slow)
+    await p.waitForFunction(() => { const f = __game.fruits; if (f.length === 1 && f[0].contacted) { __game.setQueue(0, 0); __game.setAim(270); __game.drop(); } return __game.fruits.length !== 1; }, null, { timeout: 10000 }).catch(() => {});
     const ring = await p.evaluate((off) => new Promise((done) => {
       const t0 = performance.now();
       (function look() {
         const ps = __game.particles;
         const hit = off ? ps.find((q) => q.still) : ps.find((q) => q.ring && isFinite(q.x) && isFinite(q.y));
-        if (hit || performance.now() - t0 > 4000) return done(hit ? { ok: true } : { ok: false, n: ps.length, fruits: __game.fruits.length });
+        if (hit || performance.now() - t0 > 10000) return done(hit ? { ok: true } : { ok: false, n: ps.length, fruits: __game.fruits.length });
         requestAnimationFrame(look);
       })();
     }), off);
@@ -215,7 +237,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const off of [true, false]) {
     const p = await open("yi", off);
     await p.click("#startBtn"); await p.waitForTimeout(400);
-    const b = await p.evaluate(() => { drawCards(1, 2); render(); const e = document.querySelector(".opp .ocount .drew"); return e ? { text: e.textContent, display: getComputedStyle(e).display } : null; });
+    const b = await p.evaluate(() => { G.drew = {}; drawCards(1, 2); render(); const e = document.querySelector(".opp .ocount .drew"); return e ? { text: e.textContent, display: getComputedStyle(e).display } : null; });
     if (off) check("yi, FX off: a CPU's draw shows +n by its count", !!b && b.text === "+2" && b.display !== "none", b);
     else check("yi, FX on: the +n badge stays hidden (the cards fly)", !!b && b.display === "none", b);
     await done(p, "yi FX " + (off ? "off" : "on"));
@@ -282,7 +304,15 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await open("salvo", true);
     await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
     await p.keyboard.press("a"); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
-    await p.click("#enemyGrid .cell"); await p.waitForTimeout(1600);
+    // A hit lets you fire again, and only a miss brings the computer's reply:
+    // fire down the grid until one does (polled, so a slow reply still counts)
+    for (let i = 0; i < 20; i++) {
+      const before = await p.evaluate(() => document.getElementById("status").textContent);
+      await p.locator("#enemyGrid .cell").nth(i).click();
+      const replied = await p.waitForFunction((before) => document.querySelector("#playerGrid .cell.last") ||
+        (/again/i.test(document.getElementById("status").textContent) && document.getElementById("status").textContent !== before), before, { timeout: 10000 }).then(() => true, () => false);
+      if (!replied || await p.evaluate(() => !!document.querySelector("#playerGrid .cell.last"))) break;
+    }
     const s = await p.evaluate(() => ["#enemyGrid", "#playerGrid"].map((g) => { const c = document.querySelector(g + " .cell.last"); return c ? getComputedStyle(c).outlineStyle : null; }));
     check("salvo: the last shot at each grid is framed", s[0] === "dashed" && s[1] === "dashed", s);
     await done(p, "salvo");
@@ -357,10 +387,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const p = await open("klondike", true);
     await p.evaluate(() => { Klondike.almostWin(); }); await p.waitForTimeout(200);
-    await p.evaluate(() => Klondike.move("t0", "f0", 1));
-    const k = await probe(p, () => { const c = document.querySelector('.card[data-key="0-13"]'); return c && { landed: c.classList.contains("landed"), gold: /233, 182, 64/.test(getComputedStyle(c).boxShadow) }; });
-    await p.waitForTimeout(800);
-    const gone = await p.evaluate(() => !document.querySelector('.card[data-key="0-13"]').classList.contains("landed"));
+    const k = await p.evaluate(() => { Klondike.move("t0", "f0", 1); const c = document.querySelector('.card[data-key="0-13"]'); return c && { landed: c.classList.contains("landed"), gold: /233, 182, 64/.test(getComputedStyle(c).boxShadow) }; });
+    const gone = await goes(p, () => !document.querySelector('.card[data-key="0-13"]').classList.contains("landed"));
     check("klondike, FX off: a card that moves is rimmed gold where it lands, briefly", !!k && k.landed && k.gold && gone, { k, gone });
     await done(p, "klondike");
   }

@@ -16,7 +16,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     return Math.abs(a.left - b.left) < 2 && Math.abs(a.top - b.top) < 2;
   }, [sel, ball || "#player"]);
   const moves = (p) => p.textContent("#moveCount");
-  const keys = async (p, seq) => { for (const k of seq) { await p.keyboard.press({ R: "ArrowRight", L: "ArrowLeft", U: "ArrowUp", D: "ArrowDown" }[k]); await p.waitForTimeout(400); } };
+  // Each move animates, and a key pressed mid-move is ignored (slower on a busy
+  // machine, so a fixed beat could drop a move): where the page exposes the
+  // game's move lock (the desktop context below), wait for it to open.
+  const keys = async (p, seq) => {
+    for (const k of seq) {
+      await p.keyboard.press({ R: "ArrowRight", L: "ArrowLeft", U: "ArrowUp", D: "ArrowDown" }[k]);
+      if (await p.evaluate(() => typeof window.__tmLocked === "function")) await p.waitForFunction(() => !window.__tmLocked(), null, { timeout: 10000 }).catch(() => {});
+      else await p.waitForTimeout(400);
+    }
+  };
   const done = async (p, what) => { check("tile-maze " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
 
   // ---- the board's size comes from its panel, not from the last board drawn
@@ -37,6 +46,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   await ctx.close();
 
   ctx = await lib.newContext(browser);
+  // (the game served with its move lock exposed, for keys() above)
+  const tmSrc = require("fs").readFileSync(require("path").join(lib.ROOT, "games/tile-maze/game.js"), "utf8");
+  if (!tmSrc.includes("  async function doMove(dir) {")) throw new Error("tile-maze: game.js anchor not found");
+  const tmHooked = tmSrc.replace("  async function doMove(dir) {", "  window.__tmLocked = function () { return locked; };\n  async function doMove(dir) {");
+  await ctx.route(/\/games\/tile-maze\/game\.js$/, (r) => r.fulfill({ contentType: "text/javascript", body: tmHooked }));
+  const edSrc = require("fs").readFileSync(require("path").join(lib.ROOT, "games/tile-maze/editor.js"), "utf8");
+  if (!edSrc.includes("  async function testMove(dir) {")) throw new Error("tile-maze: editor.js anchor not found");
+  const edHooked = edSrc.replace("  async function testMove(dir) {", "  window.__tmLocked = function () { return tlocked; };\n  async function testMove(dir) {");
+  await ctx.route(/\/games\/tile-maze\/editor\.js$/, (r) => r.fulfill({ contentType: "text/javascript", body: edHooked }));
   p = await lib.open(ctx, base, "games/tile-maze/", { before: seed('{"unlocked":3}') });
   const c3 = await cellPx(p);
   await pick(p, 1); await pick(p, 3);
@@ -77,11 +95,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the level clock holds while the window is away
   const secs = () => p.evaluate(() => parseFloat(document.getElementById("timeVal").textContent));
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(400);
-  const t0 = await secs();
-  await p.evaluate(() => window.dispatchEvent(new Event("blur"))); await p.waitForTimeout(1500);
-  await p.evaluate(() => window.dispatchEvent(new Event("focus"))); await p.waitForTimeout(300);
-  const t1 = await secs();
-  check("tile-maze: the level clock holds while the window is away", t1 - t0 < 0.9, { t0, t1 });
+  // away for 1.5 s of the page's own time, with the shown clock read either side
+  // and the time that really passed: the clock may run while the page is here
+  // (more on a busy machine) but has to hold for the 1.5 s it's away
+  const away = await p.evaluate(async () => {
+    const shown = () => parseFloat(document.getElementById("timeVal").textContent), frame2 = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await frame2(); const t0 = shown(), w0 = performance.now();
+    window.dispatchEvent(new Event("blur"));
+    await new Promise((r) => setTimeout(r, 1500));
+    window.dispatchEvent(new Event("focus"));
+    await frame2(); return { t0, t1: shown(), wall: (performance.now() - w0) / 1000 };
+  });
+  check("tile-maze: the level clock holds while the window is away", away.t1 - away.t0 < away.wall - 1.0, away);
 
   // ---- the Tile Guide holds the board
   await p.keyboard.press("r"); await p.waitForTimeout(100);
@@ -117,8 +142,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tile-maze editor: a held key's repeats don't move the test ball", await onTile(p, "#edBoard .t-start", "#frame .player"));
   await p.keyboard.press("r"); await p.waitForTimeout(100);
   await keys(p, "RRRRRDD");
-  await p.keyboard.press("ArrowDown"); await p.waitForTimeout(40);
-  await p.click("#testBtn"); await p.waitForTimeout(600);
+  // the winning move, and Stop test while it's still moving: in one step, as a
+  // click's own checks can outlast the move on a busy machine
+  await p.evaluate(() => {
+    const t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
+    t.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", code: "ArrowDown", bubbles: true, cancelable: true }));
+    document.getElementById("testBtn").click();
+  });
+  await p.evaluate(() => new Promise((r) => setTimeout(r, 600)));
   const solved = await p.evaluate(() => !document.getElementById("testOverlay").hidden);
   check("tile-maze editor: Stop test during the winning move brings no Solved! card over the editor", !solved, solved);
   await done(p, "editor");
