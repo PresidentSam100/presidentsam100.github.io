@@ -14,7 +14,16 @@ npm run setup        # once: installs Playwright and its Chromium
 npm test             # every suite
 npm test -- passport typing   # just some suites
 VERBOSE=1 npm test   # print passing checks too
+JOBS=1 npm test      # one suite at a time (the default runs 3 at once)
+RETRY=0 npm test     # don't re-run a failed suite on its own
 ```
+
+Suites run side by side, longest first, with only one of the long
+page-sweeping ones (`shortcuts`, `leave`, `guard`, `fx`, …) going at a time;
+each suite's lines print together when it finishes. A suite that fails is run
+once more on its own at the end. If it passes then, the summary lists it as
+"passed only when run on their own": a check that's sensitive to load, worth
+making sturdier, but not a bug in the game.
 
 | Suite | Covers |
 |---|---|

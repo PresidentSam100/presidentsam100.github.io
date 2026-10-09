@@ -70,12 +70,15 @@ function gamePages() {
   return out.sort();
 }
 
-function tally(suite) {
+// `log` takes each line (the runner collects a suite's lines when suites run
+// side by side); it prints straight away when left out.
+function tally(suite, log) {
+  log = log || console.log;
   let passed = 0, failed = 0;
   return {
     check(name, ok, detail) {
-      if (ok) { passed++; if (process.env.VERBOSE) console.log("  PASS " + name); }
-      else { failed++; console.log("  FAIL " + name + (detail !== undefined ? "  -> " + JSON.stringify(detail) : "")); }
+      if (ok) { passed++; if (process.env.VERBOSE) log("  PASS " + name); }
+      else { failed++; log("  FAIL " + name + (detail !== undefined ? "  -> " + JSON.stringify(detail) : "")); }
     },
     summary() { return { suite, passed, failed }; },
   };
