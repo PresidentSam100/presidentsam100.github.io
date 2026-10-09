@@ -431,7 +431,14 @@
         if (this.debris.length > 600) this.debris.splice(0, this.debris.length - 600);
         this.shake = Math.min(1, this.shake + 0.22);
       }
-      flashBanner(text, color) { this.flash = { text, color, until: this.now() + 850 }; }
+      // `sub` is a smaller second line under the banner (optional)
+      flashBanner(text, color, sub) { this.flash = { text, color, sub: sub || "", until: this.now() + 850 }; }
+      // power-ups banked: waiting in the queue, plus one already showing in Next
+      bankedCount() {
+        const s = this.nextSpec;
+        const shown = !!s && (s.type === "iron" || s.mono || ["C", "U", "D", "L", "R"].some((k) => s.cells[k].aug === "thunder" || s.cells[k].aug === "slow"));
+        return this.pq.length + (shown ? 1 : 0);
+      }
       // These deadlines run on the clock, which a pause doesn't stop: on
       // resume, each one still to come moves on by the time spent paused
       shiftClock(since, d) {
@@ -669,7 +676,11 @@
           ctx.globalAlpha = 1;
         }
         if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.04);
-        if (b.flash && now < b.flash.until) { ctx.fillStyle = b.flash.color; ctx.font = "700 26px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = Math.min(1, (b.flash.until - now) / 400); ctx.fillText(b.flash.text, W / 2, H * 0.4); ctx.globalAlpha = 1; }
+        if (b.flash && now < b.flash.until) {
+          ctx.fillStyle = b.flash.color; ctx.font = "700 26px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.globalAlpha = Math.min(1, (b.flash.until - now) / 400); ctx.fillText(b.flash.text, W / 2, H * 0.4);
+          if (b.flash.sub) { ctx.font = "700 15px Quicksand, sans-serif"; ctx.fillText(b.flash.sub, W / 2, H * 0.4 + 24); }
+          ctx.globalAlpha = 1;
+        }
         // persistent overlay for an eliminated board (e.g. while other VS players continue)
         if (!b.alive && !b.cleared) { ctx.fillStyle = "rgba(10,30,52,0.62)"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#ff8a8a"; ctx.font = "700 22px Quicksand, sans-serif"; ctx.textAlign = "center"; ctx.fillText("TOPPED OUT", W / 2, H * 0.45); }
       }
@@ -967,7 +978,9 @@
         board.grid = emptyGrid(CONFIG.cols, CONFIG.rows);
         board.fill(Math.min(s.maxHeight, Math.round(s.startHeight + (stage - 1) * s.heightPerStage)), s.fillDensity, board.stoneRateNow(), 0);
         board.fallMs = Math.max(CONFIG.minFallMs, CONFIG.baseFallMs - (stage - 1) * CONFIG.fallDecreasePerStage);
-        board.stage = stage; board.cleared = false; board.alive = true; board.pq = []; board.nextSpec = null; board.spawnPiece();
+        // power-ups banked (queued, or already showing in Next) carry over to the
+        // next stage; a new run is a new board, so it starts with none
+        board.stage = stage; board.cleared = false; board.alive = true; board.spawnPiece();
       }
       // One shared garbage layout (occupancy + stone positions) for all boards.
       genVSStructure() {
@@ -1019,7 +1032,12 @@
           if (b.highKey && b.score > b.high) { b.high = b.score; this.lsSet(b.highKey, String(b.high)); }
           return this.end("Game Over", "You reached stage " + b.stage + ".\nFinal score: " + b.score + "\nBest: " + Math.max(b.high || 0, b.score));
         }
-        if (b.cleared) { if (b.stage >= CONFIG.stage.total) { SFX.matchWin(); return this.end("You Win! 🏆", "Cleared all 50 stages!\nScore: " + b.score); } const next = b.stage + 1; SFX.win(); b.flashBanner("STAGE " + next, "#46e6a0"); this.setupStage(b, next); }
+        if (b.cleared) {
+          if (b.stage >= CONFIG.stage.total) { SFX.matchWin(); return this.end("You Win! 🏆", "Cleared all 50 stages!\nScore: " + b.score); }
+          const next = b.stage + 1, kept = b.bankedCount(); SFX.win();
+          b.flashBanner("STAGE " + next, "#46e6a0", kept > 1 ? kept + " banked power-ups kept" : kept ? "banked power-up kept" : "");
+          this.setupStage(b, next);
+        }
       }
       updateEndless(dt) {
         const b = this.players[0].board; b.elapsed += dt;

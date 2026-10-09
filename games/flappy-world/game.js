@@ -696,17 +696,24 @@ class MovingPipe extends BasePipe {
 class HorizPipe extends BasePipe {
   constructor(x, gapY, gapH) {
     super(x, gapY, gapH);
-    this.phase = Math.random() * Math.PI * 2;
+    // The slide starts on the right of its swing, so the pipe is already
+    // sliding as it comes on screen: it starts at x or further off to the
+    // right, never popping up inside the canvas on its first frame
+    this.phase = Math.random() * Math.PI / 2;
     this.baseX = x;
     this.totalScroll = 0;
     // Per-instance oscillation speed and travel
     this.freq = 0.010 + Math.random() * 0.012;    // 0.010 - 0.022 per px scrolled
     this.amplitude = 60 + Math.random() * 50;     // 60 - 110 px
+    this.x = this.baseX + Math.sin(this.phase) * this.amplitude;
   }
 
   update(dt, speed) {
     this.totalScroll += speed * dt;
-    this.x = this.baseX - this.totalScroll + Math.sin(this.phase + this.totalScroll * this.freq) * this.amplitude;
+    const x = this.baseX - this.totalScroll + Math.sin(this.phase + this.totalScroll * this.freq) * this.amplitude;
+    // Once the bird is past it (and it's scored), it can still slide on to
+    // the left but never back over the bird
+    this.x = this.scored ? Math.min(this.x, x) : x;
   }
 
   draw(ctx) {
@@ -737,6 +744,7 @@ class SeqPipe {
   constructor(x) {
     this.x = x;
     this.scored = false;
+    this.points = 2;   // its "x2": passing either gap scores 2 (checkScored)
   }
 
   draw(ctx) {
@@ -1027,7 +1035,7 @@ class PipeManager {
   checkScored(birdX) {
     let points = 0;
     for (const p of this.pipes) {
-      if (p.isPassed(birdX)) points++;
+      if (p.isPassed(birdX)) points += p.points || 1;   // (the double-gap pipe is worth 2)
     }
     return points;
   }
@@ -2274,21 +2282,36 @@ class Game {
     // Scoring
     const scored = this.pipeManager.checkScored(this.bird.x);
     if (scored > 0) {
+      const before = this.score;
       this.score += scored;
       this.playSound('score');
       this.particles.addText(this.bird.x + 30, this.bird.y - 20, '+' + scored, '#FFFF00');
-      if (this.score % 10 === 0) {
+      // a new world every 10 (the double-gap pipe's 2 can step right over a 10)
+      if (Math.floor(this.score / 10) > Math.floor(before / 10)) {
         this.scrollSpeed = Math.min(this.scrollSpeed + 25, MAX_SCROLL);
-        this.worldText = 'World ' + (this.score / 10);
+        this.worldText = 'World ' + Math.floor(this.score / 10);
         this.worldTimer = 2.5;
       }
     }
     this.keepBest();
 
-    // Boundary check — falling off-screen is always instant death
+    // Boundary check: flying off the top is instant death (and falling off
+    // the bottom, though the ground below now catches the bird first)
     if (this.bird.y < -60 || this.bird.y > CANVAS_H + 60) {
       this.die();
       return;
+    }
+
+    // The ground is solid: hitting it costs a life like a pipe does, and the
+    // bird bounces back up off it. In i-frames it only bounces.
+    const birdHB = this.bird.getHitbox();
+    if (birdHB.y + birdHB.h > GROUND_Y) {
+      this.bird.y -= birdHB.y + birdHB.h - GROUND_Y;
+      if (this.invincibleTime > 0) this.bird.vy = Math.min(this.bird.vy, -300);
+      else {
+        this.hit();
+        if (this.gameState !== 'PLAYING') return;
+      }
     }
 
     // Collision check — respects invincibility frames
@@ -2641,7 +2664,7 @@ class Game {
       ['#E91E63',     'Narrow-Exit',     'Wide on entry, pinches tight after.'],
       ['#00897B',     'Open Pipe',       'Edges spread apart — gap opens as it crosses.'],
       ['#E65100',     'Close Pipe',      'Edges close together — gap shrinks as it crosses.'],
-      ['#7B1FA2',     'Sequential',      'Two stacked gaps — pick a path.'],
+      ['#7B1FA2',     'Sequential',      'Two stacked gaps — pick a path. Worth 2.'],
       ['rgba(180,180,180,0.6)', 'Blinking', 'Fades in and out. Pass during the gaps.'],
       ['#E53935',     'Piranha Plant',  'Rises from a pipe before you arrive.'],
       ['#212121',     'Bullet Bill',    'Fast horizontal missile — no escape.'],

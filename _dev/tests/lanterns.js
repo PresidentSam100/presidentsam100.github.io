@@ -73,9 +73,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   const alone = await up();
   check("lanterns: 你 on its own still lights the moment ni is typed", alone === "", alone);
   await fresh("你", "年");
-  await p.keyboard.type("ni"); await p.waitForTimeout(100);
+  // (the wait runs on game time, which a busy machine slows: wait for it to
+  // light rather than for a fixed spell of real time)
+  const litAlone = () => p.waitForFunction(() => !Lanterns.active().some((l) => l.hanzi === "你"), null, { timeout: 10000 }).catch(() => {});
+  await p.keyboard.type("ni");
   const held = await up();
-  await p.waitForTimeout(700);
+  await litAlone();
   const after = await up();
   check("lanterns: with 年 up, ni holds 你 a moment, then lights it", held === "你年" && after === "年", { held, after });
   await fresh("你", "年");
@@ -89,10 +92,21 @@ module.exports = async ({ browser, base, check, lib }) => {
   await fresh("你", "年");
   await p.keyboard.type("ni"); await p.keyboard.press("Escape"); await p.waitForTimeout(900);
   const pausedWait = await up();
-  await p.keyboard.press("Escape"); await p.waitForTimeout(700);
+  await p.keyboard.press("Escape"); await litAlone();
   const resumedWait = await up();
   check("lanterns: a pause holds the wait; after resuming 你 lights", pausedWait === "你年" && resumedWait === "年", { pausedWait, resumedWait });
   await done(p, "waiting word");
+
+  // ---- Tone Master: the neutral tone is 5, and the menu says so; 0 works too
+  p = await open();
+  const tmHow = await p.evaluate(() => document.getElementById("menu").textContent);
+  await p.evaluate(() => { Lanterns.start("tone"); Lanterns.noSpawn(); Lanterns.setRise(0); Lanterns.spawnWord("的", 0.3, 300); Lanterns.type("de5"); });
+  const tmFive = await p.evaluate(() => Lanterns.clearedCount());
+  await p.evaluate(() => { Lanterns.spawnWord("吗", 0.6, 300); Lanterns.type("ma0"); });
+  const tmZero = await p.evaluate(() => Lanterns.clearedCount());
+  check("lanterns tone master: the menu explains 5 is the neutral tone; de5 lights 的 and ma0 lights 吗",
+    /5 for the neutral tone/.test(tmHow) && tmFive === 1 && tmZero === 2, { tmFive, tmZero, how: /neutral/.test(tmHow) });
+  await done(p, "neutral tone");
 
   // ---- narrowing the window brings a lantern near its right edge back in
   p = await open();

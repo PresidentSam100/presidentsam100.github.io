@@ -29,11 +29,15 @@
   // ============================================================ engine (pure)
   function pawnCaps(G,r,c,o){ const [dr,dc]=G.pawnDir[o]; return [[r+dr+dc,c+dc-dr],[r+dr-dc,c+dc+dr]]; }
 
+  // A live king is never captured (it's mated instead); a frozen one, left
+  // on the board by a checkmated army (the "frozen pieces" rule), is just a
+  // blocker like the rest of that army, so it can be taken.
+  const takeable=(tp,col)=> tp.o!==col && (tp.t!=="k" || tp.dead);
   function genPseudo(G,b,i){
     const p=b[i]; if(!p||p.dead) return [];
     const col=p.o,type=p.t,[r,c]=rc(G,i),out=[];
     const push=(r2,c2,extra)=>{ if(!G.valid(r2,c2)) return false; const t=idx(G,r2,c2),tp=b[t];
-      if(tp){ if(tp.o!==col && tp.t!=="k") out.push(Object.assign({from:i,to:t,cap:true},extra)); return false; } // kings are never capturable
+      if(tp){ if(takeable(tp,col)) out.push(Object.assign({from:i,to:t,cap:true},extra)); return false; }
       out.push(Object.assign({from:i,to:t},extra)); return true; };
     const slide=(dirs)=>{ for(const [dr,dc] of dirs){ let nr=r+dr,nc=c+dc; while(push(nr,nc)){ nr+=dr; nc+=dc; } } };
     const DIAG=[[-1,-1],[-1,1],[1,-1],[1,1]], ORTH=[[-1,0],[1,0],[0,-1],[0,1]];
@@ -46,7 +50,7 @@
       }
       for(const [nr,nc] of pawnCaps(G,r,c,col)){
         if(!G.valid(nr,nc)) continue; const t=idx(G,nr,nc), tp=b[t];
-        if(tp && tp.o!==col && tp.t!=="k") addPawn(out,i,t, G.pawnPromo(col,nr,nc), true);
+        if(tp && takeable(tp,col)) addPawn(out,i,t, G.pawnPromo(col,nr,nc), true);
         else if(G.ep && t===G.ep.sq && b[G.ep.victim] && b[G.ep.victim].o!==col) out.push({from:i,to:t,ep:true,cap:true});
       }
     } else if(type==="n"){ for(const [dr,dc] of [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]]) push(r+dr,c+dc); }
@@ -119,7 +123,8 @@
       order:["w","b"], turn:"w", pawnDir:{ w:[-1,0], b:[1,0] },
       pawnStart:(o,r)=> o==="w"?r===6:r===1, pawnPromo:(o,r)=> o==="w"?r===0:r===7,
       hasCastle:true, castle:{wk:true,wq:true,bk:true,bq:true}, ep:null, last:null, over:false, winner:null,
-      ending:1, sel:-1, legal:[], history:[], capList:[] };
+      ending:1, sel:-1, legal:[], history:[], capList:[],
+      halfmove:0, positions:[] };   // (the draw rules: half-moves since a capture or pawn move, and every position so far)
   }
   function make4P(ending){
     const dim=14, board=new Array(dim*dim).fill(null), back=["r","n","b","q","k","b","n","r"];
@@ -185,6 +190,7 @@
     $("modeLabel").textContent = mode===4
       ? ("4 Players · " + ({1:"first checkmate wins",2:"takeover",3:"frozen pieces"}[ending]))
       : modeLabel2P();
+    if(mode===2) G.positions=[posKey()];
     render(); setStatus();
     if(mode===2 && G.clock.enabled) setClockRunning("w");
     if(mode===2 && G.vsCPU && G.turn===G.cpuColor) requestCpuMove();
@@ -296,6 +302,15 @@
       if(p.t==="n"||p.t==="b") minors++; }
     return minors>=2;
   }
+  // A position, as the repetition rule compares it: every piece on its
+  // square, the side to move, the castling rights left, and an en-passant
+  // square only when a pawn can really take there.
+  function posKey(){
+    let s=G.board.map(p=>p?p.o+p.t:".").join("")+" "+G.turn+" ";
+    s+=G.castle ? ["wk","wq","bk","bq"].filter(k=>G.castle[k]).join("") : "";
+    const ep=G.ep && G.board.some((p,i)=>p && p.o===G.turn && p.t==="p" && legalFor(G,i).some(m=>m.ep));
+    return s+" "+(ep ? G.ep.sq : "-");
+  }
   // K v K, K+B v K, K+N v K: neither side can ever mate
   function deadPosition(b){
     let minors=0;
@@ -386,6 +401,7 @@
     return { board:G.board.map(p=>p), turn:G.turn, ep:G.ep, last:G.last,
       castle:G.castle?Object.assign({},G.castle):null,
       players:JSON.parse(JSON.stringify(G.players)), capList:G.capList.slice(), over:G.over, winner:G.winner,
+      halfmove:G.halfmove, positions:G.positions ? G.positions.slice() : null,
       clock: G.clock ? { enabled:G.clock.enabled, w:G.clock.w, b:G.clock.b, inc:G.clock.inc, running:G.clock.running } : null };
   }
 
@@ -398,6 +414,7 @@
 
     G.board = applyTo(G,b,m,promoType);
     if(captured) G.capList.push({by:col, t:captured.t});
+    G.halfmove = captured || p.t==="p" ? 0 : (G.halfmove||0)+1;
 
     if(G.hasCastle && G.castle){
       if(p.t==="k"){ G.castle[col+"k"]=false; G.castle[col+"q"]=false; }
@@ -427,7 +444,16 @@
       const nxt=nextAlive(cur);
       if(nxt===null){ return endGame("Draw","No players remain able to move."); }
       if(anyLegal(G,nxt)){
-        G.turn=nxt; setClockRunning(nxt); const ck=inCheck(G,G.board,nxt);
+        G.turn=nxt;
+        // 2-player: the same position a third time, or fifty moves each with
+        // no capture and no pawn move, is a draw, with no claim needed
+        if(G.mode===2){
+          const key=posKey();
+          G.positions.push(key);
+          if(G.positions.filter(k=>k===key).length>=3) return endGame("Draw — threefold repetition","The same position has come up three times, with the same player to move.");
+          if(G.halfmove>=100) return endGame("Draw — 50-move rule","Fifty moves each have gone by with no capture and no pawn move.");
+        }
+        setClockRunning(nxt); const ck=inCheck(G,G.board,nxt);
         if(ck) SFX.check(); render(); setStatus(ck);
         if(G.vsCPU && nxt===G.cpuColor) requestCpuMove();
         return;
@@ -507,6 +533,7 @@
     const h=G.history.pop();
     G.board=h.board.map(p=>p); G.turn=h.turn; G.ep=h.ep; G.last=h.last; G.castle=h.castle;
     G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[]; stopMotion();
+    G.halfmove=h.halfmove; G.positions=h.positions;   // (so the draw rules count from where play resumes)
     if(h.clock) G.clock = { enabled:h.clock.enabled, w:h.clock.w, b:h.clock.b, inc:h.clock.inc, running:h.clock.running, lastTick:Date.now() };
   }
   // Vs CPU, undo always hands control back to the human: a completed CPU

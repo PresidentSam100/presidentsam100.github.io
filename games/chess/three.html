@@ -42,8 +42,13 @@
   button.btn:hover, a.btn:hover { background:#322a22; } button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
   a.btn { text-decoration:none; text-align:center; display:block; }
   .overlay { position:fixed; inset:0; background:rgba(10,8,5,.8); backdrop-filter:blur(3px); display:none;
-    align-items:center; justify-content:center; padding:1rem; z-index:50; }
+    align-items:center; justify-content:center; padding:1rem; z-index:50; overflow-y:auto; overscroll-behavior:contain; }
   .overlay.show { display:flex; }
+  /* centered while it fits; a card taller than the screen starts at the top and
+     the overlay scrolls (centering alone would push its top off-screen) */
+  .overlay > .card { margin:auto; }
+  /* phones: a tall card starts below the fixed Games / sound / FX buttons */
+  @media (max-width:640px){ .overlay { padding-top:3rem; } }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:24px 26px; max-width:460px;
     width:100%; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6); }
   .card h2 { margin-bottom:6px; font-size:1.6rem; } .card p { color:var(--muted); line-height:1.55; margin-bottom:14px; font-size:.88rem; }
@@ -86,7 +91,7 @@
   <div class="modes">
     <button class="modebtn" data-end="1"><span>First checkmate wins</span><small>Game ends at the first checkmate; the mater wins.</small></button>
     <button class="modebtn" data-end="2"><span>Takeover</span><small>The mater inherits the eliminated army; last player wins.</small></button>
-    <button class="modebtn" data-end="3"><span>Frozen pieces</span><small>The dead army stays as capturable blockers; last player wins.</small></button>
+    <button class="modebtn" data-end="3"><span>Frozen pieces</span><small>The dead army, king and all, stays as capturable blockers; last player wins.</small></button>
   </div>
 </div></div>
 
@@ -140,11 +145,14 @@
   function genMoves(b,c){
     const p=b[c]; if(!p||p.dead) return [];
     const col=p.o,t=p.t,out=[];
-    const canland=(tp)=>!tp||(tp.o!==col&&tp.t!=="k");
+    // a live king is never captured (it's mated instead); a frozen one is just
+    // a blocker like the rest of its frozen army, so it can be taken
+    const takeable=(tp)=>tp.o!==col&&(tp.t!=="k"||tp.dead);
+    const canland=(tp)=>!tp||takeable(tp);
     const slide=(dirs)=>{ for(const d of dirs){ let cur={cell:c,dir:d}; const seen={};
       while(true){ const nx=step(cur.cell,cur.dir); if(!nx)break; if(nx.cell===c||seen[nx.cell])break; seen[nx.cell]=1;
         const tp=b[nx.cell];
-        if(tp){ if(tp.o!==col&&tp.t!=="k") out.push({to:nx.cell,cap:true}); break; }
+        if(tp){ if(takeable(tp)) out.push({to:nx.cell,cap:true}); break; }
         out.push({to:nx.cell}); cur=nx; } } };
     if(t==="r") slide(ORTH);
     else if(t==="b") slide(DIAG);
@@ -159,12 +167,12 @@
       if(f1 && !b[f1.cell]){ out.push({to:f1.cell,promo:isPromo(f1.cell,col)});
         if(isStart(c,col)){ const f2=step(f1.cell,f1.dir); if(f2 && !b[f2.cell]) out.push({to:f2.cell,dbl:true}); } }
       for(const pd of PCAP[fd]){ const cd=step(c,pd); if(!cd)continue; const tp=b[cd.cell];
-        if(tp && tp.o!==col && tp.t!=="k") out.push({to:cd.cell,cap:true,promo:isPromo(cd.cell,col)}); } }
+        if(tp && takeable(tp)) out.push({to:cd.cell,cap:true,promo:isPromo(cd.cell,col)}); } }
     return out;
   }
   // squares a piece threatens (pawn = diagonals only) — for check detection.
   // Walked from the piece's own steps, not genMoves(): no move ever lands on a
-  // king (kings aren't capturable), so a move list never saw a check.
+  // live king (only a frozen one can be taken), so a move list never saw a check.
   function threatens(b,c,target){
     const p=b[c]; if(!p||p.dead) return false; const t=p.t;
     if(t==="p"){ for(const pd of PCAP[forwardDir(c,p.o)]){ const cd=step(c,pd); if(cd&&cd.cell===target) return true; } return false; }

@@ -15,11 +15,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- paused deadlines stay put
   let p = await open();
   await p.click('#mode-pick [data-mode="endless"]'); await p.click("#play-btn"); await p.waitForTimeout(300);
-  await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); b.bonusUntil = t + 8000; b.slowUntil = t + 9000; b.flashBanner("TEST", "#fff"); b.flash.until = t + 5000; });
+  await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); b.bonusUntil = t + 8000; b.slowUntil = t + 9000; b.flashBanner("TEST", "#fff"); b.flash.until = t + 5000; window.__t0 = performance.now(); });
   await p.keyboard.press("Escape"); await p.waitForTimeout(2500); await p.keyboard.press("Escape"); await p.waitForTimeout(50);
-  const left = await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); return { state: GAME.state, bonus: Math.round(b.bonusUntil - t), slow: Math.round(b.slowUntil - t), flash: Math.round(b.flash.until - t) }; });
+  const left = await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); return { state: GAME.state, wall: Math.round(performance.now() - __t0), bonus: Math.round(b.bonusUntil - t), slow: Math.round(b.slowUntil - t), flash: Math.round(b.flash.until - t) }; });
+  // Each deadline may lose the unpaused time around the pause (more on a busy
+  // machine), but not the 2.5s pause itself: so it has lost at least 2s less
+  // than the time that has gone by.
+  const held = (lost) => lost < left.wall - 2000;
   check("demolition-row: the x20 bonus, Slow and a banner don't run down while paused",
-    left.state === "playing" && left.bonus > 7400 && left.slow > 8400 && left.flash > 4400, left);
+    left.state === "playing" && held(8000 - left.bonus) && held(9000 - left.slow) && held(5000 - left.flash), left);
   check("demolition-row: no page errors (paused deadlines)", p.errs.length === 0, p.errs);
   await p.close();
 
@@ -118,6 +122,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("demolition-row, 2× screen: frames draw with no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await retina.close();
+
+  // ---- 50-Stage: power-ups banked (in the queue, and showing in Next) carry over to the next stage
+  p = await open();
+  const help = await p.evaluate(() => document.querySelector("details.dict-wrap").textContent);
+  await p.click('#mode-pick [data-mode="stage"]'); await p.click("#play-btn");
+  await p.waitForFunction(() => GAME && GAME.players[0].board.piece);
+  // what's banked: nothing to pull for Next, nothing special on it, no power-up in the queue
+  const empty = () => p.evaluate(() => { const b = GAME.players[0].board, s = b.nextSpec;
+    const special = !s || s.type === "iron" || s.mono || ["C", "U", "D", "L", "R"].some((k) => s.cells[k].aug);
+    return { pq: b.pq.length, special, stage: b.stage }; });
+  const start0 = await empty();
+  check("demolition-row (guard): a new 50-Stage run starts with nothing banked", start0.pq === 0 && !start0.special && start0.stage === 1, start0);
+  await p.evaluate(() => { const b = GAME.players[0].board; b.pq.push("iron", "crystal"); b.nextSpec = b.generateSpec(); b.cleared = true; });   // Iron in Next, Crystal banked; the stage is cleared
+  await p.waitForFunction(() => GAME.players[0].board.stage === 2);
+  const carried = await p.evaluate(() => { const b = GAME.players[0].board;
+    return { piece: b.piece && b.piece.type, next: b.nextSpec && (b.nextSpec.mono ? "crystal" : b.nextSpec.type), pq: b.pq.length, banner: b.flash && b.flash.text + " / " + (b.flash.sub || "") }; });
+  check("demolition-row: in 50-Stage, the power-up in Next and the banked one carry over to the next stage, and the stage banner says so",
+    carried.piece === "iron" && carried.next === "crystal" && carried.pq === 0 && /STAGE 2/.test(carried.banner) && /kept/.test(carried.banner), carried);
+  check("demolition-row: the power-ups help says banked ones carry over between stages", /carry over/.test(help), help);
+  // Restart from the pause card: a fresh run, nothing banked
+  await p.evaluate(() => { GAME.players[0].board.pq.push("thunder"); });
+  await p.keyboard.press("Escape"); await p.click("#pause-restart");
+  await p.waitForFunction(() => GAME && GAME.players[0].board.piece && GAME.state === "playing");
+  const restarted = await empty();
+  check("demolition-row (guard): Restart starts the 50-Stage run with nothing banked", restarted.pq === 0 && !restarted.special && restarted.stage === 1, restarted);
+  check("demolition-row: no page errors (banked power-ups)", p.errs.length === 0, p.errs);
+  await p.close();
 
   await ctx.close();
 };

@@ -171,7 +171,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ph = await screens(p);
   const phCaps = Object.values(ph).flat().filter((s) => CAPS.includes(s));
   check("spacer, phone: the canvas hints say what a tap does (title, pause, end screens) and name no keys",
-    phCaps.length === 0 && has(ph.title, "TAP TO START") && has(ph.title, "VISUAL FX: OFF") && has(ph.pause, "TO RESUME") &&
+    phCaps.length === 0 && has(ph.title, "TAP TO START") && has(ph.title, "VISUAL FX: OFF") && has(ph.pause, "TAP AN ITEM") &&
       ["over", "done"].every((s) => has(ph[s], "TAP TO PLAY AGAIN") && has(ph[s], "● TITLE")),
     { phCaps, title: ph.title.filter((s) => /TAP|FX|◀ ▶/.test(s)), pause: ph.pause.filter((s) => /RESUME/.test(s)), over: ph.over.filter((s) => /TAP|TITLE/.test(s)) });
   await done(p, "phone hints");
@@ -182,6 +182,107 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("spacer, desktop: the canvas hints still name the keys",
     ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && ["P", "ESC"].every((k) => dk.pause.includes(k)) && ["ENTER", "⌫", "ESC"].every((k) => dk.over.includes(k) && dk.done.includes(k)) && !has(Object.values(dk).flat(), "TAP"),
     { title: dk.title.filter((s) => CAPS.includes(s)), pause: dk.pause.filter((s) => CAPS.includes(s)) });
-  await done(p, "desktop hints");
+
+  // ---- Infinite goes on past stage 255: patterns wrap, difficulty stays capped, the HUD counts on
+  const run = (menu) => p.evaluate((menu) => {
+    game.menuIndex = menu; game.startStage = 255; game.startGame(); game.nextStage();
+    return { mode: game.mode, stage: game.stage };
+  }, menu);
+  const inf = await run(2);
+  const hud = await frameText(p);
+  const prof = await p.evaluate(() => {
+    const j = (s) => { const o = stageProfile(s); delete o.stage; return JSON.stringify(o); };   // (all but its number)
+    return { wraps: j(256) === j(511) && j(257) === j(512), capped: stageProfile(256).diveSpeedMul === stageProfile(255).diveSpeedMul && stageProfile(999).maxDivers === stageProfile(255).maxDivers };
+  });
+  check("spacer: in Infinite, clearing stage 255 goes on to stage 256 (patterns wrap, difficulty capped), and the HUD and READY banner say so",
+    inf.mode === "ready" && inf.stage === 256 && prof.wraps && prof.capped && hud.includes("256") && has(hud, "STAGE 256") && has(hud, "PAST STAGE 255"),
+    { inf, prof, hud: hud.filter((s) => /256|255/.test(s)) });
+  const three = await run(0);
+  check("spacer (guard): with 3 lives, clearing stage 255 still ends the game", three.mode === "complete", three);
+  await done(p, "infinite");
+  await c.close();
+
+  // ---- the cabinet's marquee carries the game's own name
+  c = await lib.newContext(browser);
+  p = await lib.open(c, base, "games/spacer/");
+  const marquee = await p.textContent("#marquee");
+  check("spacer: the cabinet marquee reads S P A C E R", marquee.trim() === "S P A C E R", marquee);
+  await done(p, "marquee");
+  await c.close();
+
+  // ---- on a phone the pause menu's items are tapped
+  c = await lib.newContext(browser, devices["Pixel 7"]);
+  p = await lib.open(c, base, "games/spacer/");
+  // the client point of a pause-menu row (rows sit at 576/2 - 28 + i * 30 on the 448 x 576 screen)
+  const row = (i) => p.evaluate((i) => {
+    const cv = document.getElementById("screen"), r = cv.getBoundingClientRect();
+    return { x: r.left + cv.clientLeft + (448 / 2) * cv.clientWidth / 448, y: r.top + cv.clientTop + (576 / 2 - 28 + i * 30) * cv.clientHeight / 576 };
+  }, i);
+  const tapRow = async (i) => { const pt = await row(i); await p.touchscreen.tap(pt.x, pt.y); await p.waitForTimeout(100); };
+  const pauseNow = () => p.evaluate(() => { game.mode = "playing"; if (!game.score) game.addScore(300); game.togglePause(); });
+  const dlg = () => p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return d ? d.querySelector("h2").textContent : null; });
+  const answer = async (label) => { if (await dlg()) { await p.tap('.gs-dialog button:has-text("' + label + '")'); await p.waitForTimeout(150); } };
+  await p.evaluate(() => game.startGame()); await pauseNow();
+  const fxA = (await st(p)).fx;
+  await tapRow(2); const fxB = (await st(p)).fx;
+  await tapRow(2);
+  await tapRow(0); const resumed = (await st(p)).mode;
+  await pauseNow(); await tapRow(1); const askR = await dlg(); await answer("Start over");
+  const restarted = await p.evaluate(() => ({ mode: game.mode, score: game.score }));
+  await pauseNow(); await tapRow(3); const askQ = await dlg(); await answer("Quit");
+  const quit = (await st(p)).mode;
+  check("spacer, phone: the pause menu's items are tapped: VISUAL FX flips, RESUME plays on, RESTART and QUIT TO TITLE ask, then start over / go to the title",
+    fxB === !fxA && resumed === "playing" && askR === "Start over?" && restarted.mode === "ready" && restarted.score === 0 && askQ === "Quit this game?" && quit === "attract",
+    { fxA, fxB, resumed, askR, restarted, askQ, quit });
+  await done(p, "pause taps");
+  await c.close();
+
+  // ---- RESTART / QUIT TO TITLE ask first; Esc on the box is back on the pause menu, still paused
+  c = await lib.newContext(browser);
+  p = await lib.open(c, base, "games/spacer/");
+  const menuAt = async (i) => {
+    await p.evaluate(() => { game.startGame(); game.addScore(100); game.mode = "playing"; game.togglePause(); });
+    for (let k = 0; k < i; k++) await p.keyboard.press("ArrowDown");
+    await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  };
+  const look = () => p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return { dlg: d ? d.querySelector("h2").textContent : null, mode: game.mode, item: game.pauseIndex, score: game.score }; });
+  const asks = {};
+  for (const [i, name] of [[1, "restart"], [3, "quit"]]) {
+    await menuAt(i);
+    const a = await look();
+    await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    const b = await look();
+    await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    await p.keyboard.press("Enter"); await p.waitForTimeout(250);
+    asks[name] = { a, b, c: await look() };
+  }
+  const r = asks.restart, qq = asks.quit;
+  check("spacer: RESTART asks \"Start over?\" and QUIT TO TITLE \"Quit this game?\"; Esc keeps the pause menu up, still paused; Enter then does it",
+    r.a.dlg === "Start over?" && r.a.mode === "paused" && !r.b.dlg && r.b.mode === "paused" && r.b.item === 1 && r.c.mode === "ready" && r.c.score === 0 &&
+    qq.a.dlg === "Quit this game?" && !qq.b.dlg && qq.b.mode === "paused" && qq.b.item === 3 && qq.c.mode === "attract" && p.leaves === 0, { asks, leaves: p.leaves });
+
+  // ---- (guard) with nothing scored there's nothing to lose: RESTART goes at once
+  await p.evaluate(() => { game.startGame(); game.mode = "playing"; game.togglePause(); });
+  await p.keyboard.press("ArrowDown"); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const fresh = await look();
+  check("spacer (guard): RESTART with nothing scored starts over at once", !fresh.dlg && fresh.mode === "ready", fresh);
+
+  // ---- the stage badges never run under the power-up bars (stage 249 has eleven)
+  const rowAt = (stage) => p.evaluate((stage) => new Promise((ok) => {
+    game.startStage = stage; game.startGame(); game.mode = "playing"; game.player.powers.rapid = 12;
+    const ctx = document.getElementById("screen").getContext("2d"), flags = Object.values(Sprites.flags), seen = { flags: [], bars: [], text: [] };
+    const di = ctx.drawImage, fr = ctx.fillRect, ft = ctx.fillText;
+    ctx.drawImage = function (img, x) { if (flags.includes(img)) seen.flags.push(x); return di.apply(this, arguments); };
+    ctx.fillRect = function (x, y, w) { if (this.fillStyle === "#22304a") seen.bars.push(x + w); return fr.apply(this, arguments); };
+    ctx.fillText = function (s) { seen.text.push(String(s)); return ft.apply(this, arguments); };
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      delete ctx.drawImage; delete ctx.fillRect; delete ctx.fillText;
+      ok({ left: Math.min(...seen.flags), barsRight: Math.max(...seen.bars), number: seen.text.includes(String(stage)) });
+    }));
+  }), stage);
+  const s249 = await rowAt(249), s37 = await rowAt(37);
+  check("spacer: the stage badges stay clear of the power-up bars (stage 249 shows its number by one flag)",
+    s249.left >= s249.barsRight && s249.number && s37.left >= s37.barsRight && !s37.number, { s249, s37 });
+  await done(p, "asks / badges");
   await c.close();
 };

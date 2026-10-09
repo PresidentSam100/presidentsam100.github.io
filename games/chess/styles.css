@@ -91,8 +91,12 @@ button.btn:hover { background:#343d49; } button.btn:active { transform:translate
 button.btn.primary { background:var(--accent); color:#251603; border-color:transparent; }
 
 .overlay { position:fixed; inset:0; background:rgba(8,11,16,.8); backdrop-filter:blur(3px);
-           display:none; align-items:center; justify-content:center; padding:1rem; z-index:50; }
+           display:none; align-items:center; justify-content:center; padding:1rem; z-index:50;
+           overflow-y:auto; overscroll-behavior:contain; }
 .overlay.show { display:flex; }
+/* centered while it fits; a card taller than the screen starts at the top and
+   the overlay scrolls (centering alone would push its top off-screen) */
+.overlay > .card { margin:auto; }
 .card { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:26px 28px;
         max-width:460px; width:100%; text-align:center; box-shadow:0 24px 60px rgba(0,0,0,.6); }
 .card h2 { margin-bottom:6px; font-size:1.7rem; }
@@ -119,5 +123,5 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
   border:2px solid #55402c; border-radius:10px; width:64px; height:64px; cursor:pointer; line-height:1;
   font-family:inherit; paint-order:stroke fill; }   /* outlined like the board's pieces (.lt / .dk above) */
 .promo button:hover { border-color:var(--sel); }
-/* phones: start below the fixed Games / sound / FX buttons */
-@media (max-width:640px){ body { padding-top:3.2rem; } }
+/* phones: start below the fixed Games / sound / FX buttons (a tall menu card too) */
+@media (max-width:640px){ body { padding-top:3.2rem; } .overlay { padding-top:3rem; } }

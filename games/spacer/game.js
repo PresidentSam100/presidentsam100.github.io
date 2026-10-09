@@ -654,6 +654,7 @@ const POWER_COLORS = { spread: '#18e0ff', pierce: '#ff5cf0', rapid: '#ffd23f', s
 const POWER_NAMES = { spread: 'SPREAD', pierce: 'PIERCE', rapid: 'RAPID', shield: 'SHIELD', speed: 'SPEED', hunter: 'HUNTER', slow: 'SLOW-MO', double: 'DOUBLE' };
 const POWER_LETTER = { spread: 'S', pierce: 'P', rapid: 'R', shield: '+', speed: 'F', hunter: 'H', slow: 'T', double: '2' };
 const POWER_DURATION = 12;
+const POWER_BAR_W = 92;   // the HUD's power-up timer bars, centred at the bottom (the stage badges keep clear)
 
 class Bullet {
   constructor(x, y, vx = 0) {
@@ -1540,8 +1541,11 @@ function shuffled(arr, rng) {
 
 // Builds a distinct behaviour profile for any stage (1..255 and beyond).
 // Difficulty scalars ramp then saturate; style selection cycles for variety.
+// Past 255 (Infinite) the patterns come round again -- stage 256 flies 1's,
+// 257 flies 2's -- at the full stage-255 difficulty.
 function stageProfile(stage) {
-  const rng = mulberry32(stage * 2654435761 + 12345);
+  const ps = ((stage - 1) % 255) + 1;      // pattern stage: 1..255, wrapping
+  const rng = mulberry32(ps * 2654435761 + 12345);
   const ds = Math.min(stage, 255);          // difficulty stage (saturates at 255)
   const d = clamp((ds - 1) / 160, 0, 1);    // 0..1 ramp, spread over ~160 stages
 
@@ -1554,7 +1558,7 @@ function stageProfile(stage) {
   if (ds >= 24) pool.push('cross');
   if (ds >= 34) pool.push('direct');
   if (ds >= 44) pool.push('boomerang');
-  const k = Math.min(pool.length, 2 + ((stage % 3 === 0) ? 1 : 0));
+  const k = Math.min(pool.length, 2 + ((ps % 3 === 0) ? 1 : 0));
   const diveStyles = shuffled(pool, rng).slice(0, k);
 
   // entrance templates: a rotating set of 3-4 patterns per stage
@@ -1594,7 +1598,7 @@ function stageProfile(stage) {
     captureChance: clamp(0.3 + d * 0.3, 0, 0.6),
     captureCooldown: clamp(13 - ds * 0.06, 7, 13),
     escortMax: ds < 12 ? 0 : ds < 36 ? 1 : ds < 90 ? 2 : 3,
-    bonusPattern: stage % 3,                   // which challenging-stage layout
+    bonusPattern: ps % 3,                      // which challenging-stage layout
     convoyChargersPerWave,
     earlyChargers: Math.min(1 + Math.floor(ds / 24), 4), // side raiders, spawned 1 at a time
   };
@@ -1946,10 +1950,31 @@ class Game {
       Sound.bonusTick();
     } else if (k === 'enter') {
       if (this.pauseIndex === 0) this.togglePause();              // resume
-      else if (this.pauseIndex === 1) { this.startGame(); }       // restart run
+      else if (this.pauseIndex === 1) this.askFirst({ title: 'Start over?', ok: 'Start over' }, () => this.startGame()); // restart run
       else if (this.pauseIndex === 2) this.setReducedFlash(!this.reducedFlash);
-      else { this.resetToAttract(); this.announce('Quit to title.'); } // quit
+      else this.askFirst({ title: 'Quit this game?', ok: 'Quit' }, () => { this.resetToAttract(); this.announce('Quit to title.'); }); // quit
     }
+  }
+
+  // RESTART and QUIT TO TITLE throw the run away, so they ask first while one
+  // is going (GameShell.askQuit, by guardLeave's say). The run is already
+  // paused here and stays so under the box: Esc is back on this menu.
+  askFirst(opts, go) {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, go);
+    else go();
+  }
+
+  // where each pause-menu row sits on the screen (drawn there, tapped there)
+  pauseRowY(i) { return HEIGHT / 2 - 28 + i * 30; }
+
+  // a tap on the pause menu, in screen units: the row it lands on is picked
+  // and chosen, as ▲▼ then Enter would. True if it hit one.
+  pauseTap(x, y) {
+    if (this.mode !== 'paused' || Math.abs(x - WIDTH / 2) > 130) return false;
+    for (let i = 0; i < this.pauseItems().length; i++) {
+      if (Math.abs(y - this.pauseRowY(i)) <= 15) { this.pauseIndex = i; this.pauseMenuKey('enter'); return true; }
+    }
+    return false;
   }
 
   // flips the site's Visual FX switch (the ✨ button), so this game, the button
@@ -2006,7 +2031,10 @@ class Game {
 
   nextStage() {
     this.stage++;
-    if (this.stage > 255) { this.gameComplete(); return; } // the arcade original tops out at 255
+    // the arcade original tops out at 255; Infinite plays on, its patterns
+    // coming round again (stageProfile) and a note on the READY banner each time
+    if (this.stage > 255 && !this.infinite) { this.gameComplete(); return; }
+    this.bannerNote = this.stage > 255 && this.stage % 255 === 1 ? 'PAST STAGE ' + (this.stage - 1) + ': THE SWARM COMES ROUND AGAIN' : '';
     this.profile = stageProfile(this.stage);
     Object.assign(FORMATION, this.profile.sway); // per-stage swarm movement
     this.enemies = [];
@@ -2052,6 +2080,10 @@ class Game {
       this.modeTimer = 2.0;
       this.bannerMain = 'STAGE ' + this.stage;
       this.announce('Stage ' + this.stage + '. Lives ' + (this.infinite ? 'infinite' : this.lives) + '.');
+    }
+    if (this.bannerNote) {   // (a beat longer, to read it)
+      this.modeTimer += 1;
+      this.announce('Stage ' + this.stage + ': past stage ' + (this.stage - 1) + ', the swarm comes round again.');
     }
     Sound.stage();
   }
@@ -2940,6 +2972,8 @@ class Game {
         this.text(ctx, 'READY', WIDTH / 2, HEIGHT / 2 + 26, 16, '#ff3b5c', 'center');
       else if (this.bannerSub2)
         this.text(ctx, this.bannerSub2, WIDTH / 2, HEIGHT / 2 + 24, 14, '#ffd23f', 'center');
+      if (this.bannerNote)   // Infinite, just past 255 (or 510, …)
+        this.text(ctx, this.bannerNote, WIDTH / 2, HEIGHT / 2 + 54, 11, '#8fa0d8', 'center');
     } else if (this.mode === 'cleared') {
       this.text(ctx, this.bannerMain, WIDTH / 2, HEIGHT / 2, 20, '#ffd23f', 'center');
     } else if (this.mode === 'bonusResult') {
@@ -2953,11 +2987,10 @@ class Game {
       this.text(ctx, 'PAUSED', WIDTH / 2, HEIGHT / 2 - 70, 26, '#fff', 'center');
       this.pauseItems().forEach((item, i) => {
         const sel = i === this.pauseIndex;
-        const yy = HEIGHT / 2 - 28 + i * 30;
-        this.menuItem(ctx, item, WIDTH / 2, yy, sel ? 16 : 14, sel ? '#ffd23f' : '#8fa0d8', sel);
+        this.menuItem(ctx, item, WIDTH / 2, this.pauseRowY(i), sel ? 16 : 14, sel ? '#ffd23f' : '#8fa0d8', sel);
       });
-      // (on touch the menu has no way to pick; the corner ▶ button resumes)
-      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center', 'TAP ▶ UP TOP TO RESUME');
+      // (on touch each item is tapped: pauseTap)
+      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center', 'TAP AN ITEM TO CHOOSE IT');
     } else if (this.mode === 'complete') {
       this.text(ctx, 'CONGRATULATIONS', WIDTH / 2, HEIGHT / 2 - 40, 20, '#ffd23f', 'center');
       this.text(ctx, 'ALL 255 STAGES CLEARED!', WIDTH / 2, HEIGHT / 2 - 10, 14, '#18e0ff', 'center');
@@ -2997,21 +3030,26 @@ class Game {
         ctx.drawImage(Sprites.player, 6 + i * 24, HEIGHT - 26, 22, 22);
     }
 
-    // bottom-right: stage badges
-    const badges = stageBadges(this.stage);
-    let bx = WIDTH - 12;
-    for (const d of badges) {
-      const spr = Sprites.flags[d];
-      const w = 16, h = 12;
-      bx -= w + 1;
-      if (bx < 40) break;
-      ctx.drawImage(spr, bx, HEIGHT - 22, w, h);
+    // bottom-right: stage badges, right to left, while the row stays clear of
+    // the power-up bars in the middle. A stage whose row wouldn't (199 and up
+    // can take ten or more badges) and any past 255 (Infinite) show one flag
+    // and the number instead
+    const badges = stageBadges(this.stage), w = 16, h = 12;
+    if (this.stage > 255 || WIDTH - 12 - badges.length * (w + 1) < WIDTH / 2 + POWER_BAR_W / 2 + 4) {
+      ctx.drawImage(Sprites.flags[50], WIDTH - 28, HEIGHT - 22, w, h);
+      this.text(ctx, '' + this.stage, WIDTH - 32, HEIGHT - 15, 12, '#fff', 'right');
+    } else {
+      let bx = WIDTH - 12;
+      for (const d of badges) {
+        bx -= w + 1;
+        ctx.drawImage(Sprites.flags[d], bx, HEIGHT - 22, w, h);
+      }
     }
 
     // active power-ups (bottom centre): one labelled timer bar each, stacked
     if (this.player) {
       const active = POWER_TYPES.filter((t) => this.player.hasPower(t));
-      const bw = 92, bh = 4, rowH = 17, cx = WIDTH / 2;
+      const bw = POWER_BAR_W, bh = 4, rowH = 17, cx = WIDTH / 2;
       let y = HEIGHT - 14 - (active.length - 1) * rowH;
       for (const type of active) {
         const frac = clamp(this.player.powers[type] / POWER_DURATION, 0, 1);
@@ -3096,6 +3134,8 @@ class Game {
       const yy = 324 + i * 22;
       this.menuItem(ctx, m.name, WIDTH / 2, yy, sel ? 15 : 12, sel ? '#ffd23f' : '#6677aa', sel);
     });
+    if (LIFE_MODES[this.menuIndex].infinite)   // (the others end with stage 255)
+      this.text(ctx, 'NO LAST STAGE: PLAY ON PAST 255', WIDTH / 2, 392, 10, '#8fa0d8', 'center');
 
     // ---- start-stage selector ----
     this.text(ctx, '◀  START STAGE  ' + this.startStage + '  ▶', WIDTH / 2, 418, 14, '#18e0ff', 'center');
@@ -3218,12 +3258,19 @@ window.addEventListener('load', () => {
   // the run ended mustn't skip past it)
   bindHold('t-fire', 'fire', () => g.onMenuKey('arrowdown'), false, () => { if (g.time - g.endedAt > 0.8) g.toTitle(); });
 
-  // Tap the screen to start a game from the title / game-over / complete screens.
+  // Tap the screen to start a game from the title / game-over / complete
+  // screens; while paused, tap a menu item to choose it.
   canvas.addEventListener('touchstart', (e) => {
     Sound.init(); Sound.resume();
     if (g && (g.mode === 'attract' || g.mode === 'gameover' || g.mode === 'complete')) {
       e.preventDefault();
       g.onStartKey();
+    } else if (g && g.mode === 'paused' && e.changedTouches.length) {
+      // from the page to screen units (the canvas is scaled, inside its border)
+      const t = e.changedTouches[0], r = canvas.getBoundingClientRect();
+      const x = (t.clientX - r.left - canvas.clientLeft) * WIDTH / canvas.clientWidth;
+      const y = (t.clientY - r.top - canvas.clientTop) * HEIGHT / canvas.clientHeight;
+      if (g.pauseTap(x, y)) e.preventDefault();
     }
   }, { passive: false });
 });

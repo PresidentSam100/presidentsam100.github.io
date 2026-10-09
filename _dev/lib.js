@@ -35,6 +35,12 @@ function serve() {
 const FLAG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3 2"><rect width="3" height="2" fill="#c00"/></svg>';
 async function newContext(browser, opts) {
   const ctx = await browser.newContext(Object.assign({ viewport: { width: 1280, height: 900 } }, opts || {}));
+  // Room for a busy machine (suites run in parallel, other work alongside): a
+  // page load can take far longer than Playwright's 30 s default, and a load
+  // that times out ends the whole suite. A wait that names its own timeout
+  // keeps it.
+  ctx.setDefaultNavigationTimeout(90000);
+  ctx.setDefaultTimeout(60000);
   await ctx.route(/googletagmanager|fonts\.googleapis|fonts\.gstatic/, (r) => r.fulfill({ body: "" }));
   await ctx.route(/flagcdn\.com/, (r) => r.fulfill({ contentType: "image/svg+xml", body: FLAG }));
   // Leaving a game for the games page (Home, or an Esc no game code claimed)
@@ -122,4 +128,14 @@ function fireKey(page, init) {
   }, init);
 }
 
-module.exports = { ROOT, serve, newContext, gamePages, tally, open, injectScript, fireKey };
+// A trip to the games page is counted when its request arrives (page.leaves,
+// see newContext), which on a busy machine can come well after the key that
+// set it off. Wait (up to ms) until the page has left n times; returns the
+// count, so a check that expects a leave can't read it too early.
+async function leftBy(page, n, ms) {
+  const t0 = Date.now();
+  while ((page.leaves || 0) < n && Date.now() - t0 < (ms || 8000)) await page.waitForTimeout(50);
+  return page.leaves;
+}
+
+module.exports = { ROOT, serve, newContext, gamePages, tally, open, injectScript, fireKey, leftBy };

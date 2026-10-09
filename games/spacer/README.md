@@ -71,8 +71,8 @@ On the title screen pick a **life mode** with ↑ / ↓ and a **starting stage
 
 - **3 Lives** — the classic arcade default.
 - **1 Life** — one fighter, no reserves. Sudden death.
-- **Infinite** — unlimited fighters (HUD shows ×∞); play forever to chase score
-  and stage count.
+- **Infinite** — unlimited fighters (HUD shows ×∞) and no last stage: play on
+  past 255, forever, to chase score and stage count.
 
 The **start-stage picker** lets you jump straight into any level to practice a
 specific stage (including the challenging stages at 3, 7, 11, …).
@@ -83,10 +83,14 @@ which dive flight-paths the enemies use, attack cadence and burst size, bomb
 behaviour, capture frequency, escorts, dive speed, and how the formation
 sways/drifts — all ramping in difficulty as you climb. (All 255 profiles are
 verified to have a unique entrance + dive-style signature, so no two stages feel
-the same.) Clear all 255 for a completion screen. A challenging/bonus stage
-falls on **stage 3 and every fourth stage after** (3, 7, 11, 15, …), as in the
-arcade. In **Infinite** mode difficulty saturates near the top so you can keep
-chasing score.
+the same.) In 3 Lives and 1 Life, clear all 255 for a completion screen. A
+challenging/bonus stage falls on **stage 3 and every fourth stage after** (3, 7,
+11, 15, …), as in the arcade. In **Infinite** mode difficulty saturates near the
+top, and past stage 255 the stages carry on (256, 257, …): their patterns come
+round again (256 flies stage 1's, 257 stage 2's) at stage 255's difficulty, the
+READY banner says so as you pass 255, and the HUD shows the stage as a number
+beside one flag instead of a row of badges (as it does for any stage whose
+badges would run under the power-up bars).
 
 ## Features implemented
 

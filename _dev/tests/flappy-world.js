@@ -95,14 +95,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "climbs");
 
   // ---- the mouse flaps on press, not on release
+  // (a flight started and made safe in one go: on a busy machine a bird left
+  // to fall a while would hit the ground and end the run first)
+  const fly = (q) => q.evaluate(() => { game.setState("PLAYING"); game.invincibleTime = 1e9; });
+  const flapped = (q) => q.waitForFunction(() => window.__flaps >= 1, null, { timeout: 5000 }).catch(() => {});
   p = await open();
-  await p.keyboard.press("Space"); await p.waitForTimeout(100);
-  await p.evaluate(() => { game.invincibleTime = 1e9; });
+  await fly(p);
   await countFlaps(p);
   const c = await p.evaluate(() => { const r = game.canvas.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.8 }; });
-  await p.mouse.move(c.x, c.y); await p.mouse.down(); await p.waitForTimeout(80);
+  await p.mouse.move(c.x, c.y); await p.mouse.down(); await flapped(p);
   const onPress = await p.evaluate(() => window.__flaps);
-  await p.mouse.up(); await p.waitForTimeout(80);
+  await p.mouse.up(); await p.waitForTimeout(150);
   const onRelease = await p.evaluate(() => window.__flaps);
   check("flappy-world: a mouse press flaps at once, and its release doesn't flap again", onPress === 1 && onRelease === 1, { onPress, onRelease });
   await done(p, "mouse");
@@ -110,11 +113,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- a tap flaps once (not once for the touch and again for its click)
   const tctx = await lib.newContext(browser, { hasTouch: true });
   p = await lib.open(tctx, base, "games/flappy-world/");
-  await p.keyboard.press("Space"); await p.waitForTimeout(100);
-  await p.evaluate(() => { game.invincibleTime = 1e9; });
+  await fly(p);
   await countFlaps(p);
   const tc = await p.evaluate(() => { const r = game.canvas.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height * 0.8 }; });
-  await p.touchscreen.tap(tc.x, tc.y); await p.waitForTimeout(150);
+  await p.touchscreen.tap(tc.x, tc.y); await flapped(p); await p.waitForTimeout(200);   // (and time for a click to follow, if one did)
   const taps = await p.evaluate(() => window.__flaps);
   check("flappy-world: a tap flaps exactly once", taps === 1, taps);
   await done(p, "tap");
@@ -217,6 +219,81 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "2x");
   await hi.close();
   await phone.close();
+
+  // ---- the ground is solid: hitting it costs a life (all of it with 1 life),
+  // like a pipe, and the bird bounces off it instead of sinking through.
+  // (Game time driven by game.update, frame by frame.)
+  p = await open();
+  const ground = await p.evaluate(() => {
+    const run = (mode) => {
+      game.setLivesMode(mode); game.init(); game.gameState = "PLAYING";
+      game.pipeManager.spawnTimer = 1e9;                       // no pipes
+      game.bird.y = GROUND_Y - 30; game.bird.vy = 400;
+      for (let i = 0; i < 18 && game.gameState === "PLAYING"; i++) game.update(1 / 60);
+      const hit = { state: game.gameState, lives: game.lives, above: game.bird.y + 10 <= GROUND_Y + 1 };
+      let low = -1e9;
+      for (let i = 0; i < 36 && game.gameState === "PLAYING"; i++) { game.update(1 / 60); low = Math.max(low, game.bird.y + 10); }
+      return { hit, later: { state: game.gameState, lives: game.lives, lowest: Math.round(low) } };
+    };
+    const three = run(3), one = run(1);
+    game.setLivesMode(1);
+    return { three, one };
+  });
+  check("flappy-world: hitting the ground costs a life like a pipe (a bounce, then i-frames that the ground can't kill through), and ends a 1-life run",
+    ground.three.hit.state === "PLAYING" && ground.three.hit.lives === 2 && ground.three.hit.above && ground.three.later.state === "PLAYING" &&
+    ground.three.later.lives === 2 && ground.three.later.lowest <= 775 && ground.one.hit.state === "GAMEOVER", ground);
+
+  // ---- the double-gap pipe scores 2, as its "x2" says, and the best is saved
+  const seq = await p.evaluate(() => {
+    const pass = (from) => {
+      game.init(); game.gameState = "PLAYING"; game.pipeManager.spawnTimer = 1e9;
+      game.score = from; game.invincibleTime = 1e9;
+      game.pipeManager.pipes = [new SeqPipe(game.bird.x - PIPE_W + 4)];
+      for (let i = 0; i < 30 && !game.pipeManager.pipes[0].scored; i++) { game.bird.y = 245; game.bird.vy = 0; game.update(1 / 60); }
+      return { score: game.score, world: game.worldText };
+    };
+    localStorage.clear(); game.hiScores[game.livesMode] = 0;
+    const a = pass(0), best = localStorage.getItem("flappyWorld_hiScore_" + game.livesMode);
+    const b = pass(9);
+    return { a, best, b };
+  });
+  check("flappy-world: the double-gap pipe scores 2, the best is saved as it's passed, and stepping past a multiple of 10 still starts a new world",
+    seq.a.score === 2 && seq.best === "2" && seq.b.score === 11 && seq.b.world === "World 1", seq);
+
+  // ---- a sliding pipe comes in from off-screen, never popping up inside the
+  // canvas; and once the bird has passed it, it can't slide back over the bird
+  const slide = await p.evaluate(() => {
+    game.init(); game.gameState = "PLAYING"; game.score = 12; game.scrollSpeed = 350;
+    let minLeft = 1e9, spawned = 0, jump = 0;
+    for (let i = 0; i < 300; i++) {
+      game.pipeManager.pipes = [];
+      game.pipeManager.spawnPipe();
+      const np = game.pipeManager.pipes[0];
+      if (!(np instanceof HorizPipe)) continue;
+      spawned++;
+      const x0 = np.x;
+      np.update(1 / 60, game.scrollSpeed, game.bird.x);       // its first frame mustn't jump either
+      minLeft = Math.min(minLeft, x0 - 4, np.x - 4);          // (its caps stick out 4px)
+      jump = Math.max(jump, Math.abs(np.x - x0));
+    }
+    let back = 0;
+    for (let i = 0; i < 300; i++) {
+      const hp = new HorizPipe(game.bird.x + 60, 400, PIPE_GAP);
+      hp.amplitude = 110; hp.freq = 0.022; hp.phase = Math.random() * Math.PI * 2;   // the widest, quickest slide
+      let cleared = false;
+      for (let f = 0; f < 240; f++) {
+        hp.update(1 / 60, 350, game.bird.x); hp.isPassed(game.bird.x);
+        const right = hp.x + PIPE_W + 2;                    // its hitbox's right edge
+        if (hp.scored && right < game.bird.x - 12) cleared = true;
+        else if (cleared && right >= game.bird.x - 12) { back++; break; }
+      }
+    }
+    game.pipeManager.pipes = [];
+    return { spawned, minLeft: Math.round(minLeft), jump: Math.round(jump), back };
+  });
+  check("flappy-world: a sliding pipe slides in from off-screen (no jump on its first frame) and never slides back over a bird that has passed it",
+    slide.spawned > 20 && slide.minLeft >= 480 && slide.jump <= 20 && slide.back === 0, slide);
+  await done(p, "ground, double gap and sliding pipes");
 
   await ctx.close();
 };

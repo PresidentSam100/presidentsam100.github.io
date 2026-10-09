@@ -10,7 +10,7 @@
    u is accepted too. Three lanterns lost to the dark end the night.
 
    Modes: festival (toneless pinyin) and tone (type the tone numbers,
-   5 for neutral). Each keeps its own best score.
+   5 for neutral, 0 accepted too). Each keeps its own best score.
    ===================================================================== */
 (function () {
   "use strict";
@@ -170,6 +170,9 @@
     // and the keydown handler leaves it alone), so it's refused here
     if (state !== "play" || P.isPaused()) return;
     ch = ch.toLowerCase();
+    // the neutral tone is 5 (的 = de5); 0 means the same, as some pinyin
+    // keyboards and textbooks write it
+    if (mode === "tone" && ch === "0") ch = "5";
     var legal = mode === "tone" ? /^[a-z1-5]$/ : /^[a-z]$/;
     if (!legal.test(ch)) return;
     // every letter narrows the field: feichang and fanguan both glow on

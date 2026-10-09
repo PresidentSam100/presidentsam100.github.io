@@ -5,10 +5,12 @@
    - break from behind the head string; the table stays open after the break
    - the first ball legally potted after the break sets your group
    - fouls (scratch, no ball hit, wrong ball first, no rail after contact)
-     give the other player ball in hand anywhere
-   - once your group is gone, call a pocket and sink the 8 in it to win
-   - the 8 early, the 8 with a foul, or the 8 in the wrong pocket loses;
-     the 8 on the break just comes back to the foot spot */
+     give the other player ball in hand anywhere; until your group is gone
+     the 8 is a wrong ball to hit first
+   - once your group is gone, call a pocket (the game won't shoot without
+     one) and sink the 8 in it to win
+   - the 8 early, the 8 with a foul (a scratch included), or the 8 in the
+     wrong pocket loses; the 8 on the break just comes back to the foot spot */
 (function (root) {
   "use strict";
 
@@ -75,7 +77,7 @@
     else if (!s.isBreak) {
       if (s.open) { if (ev.firstHit === 8) out.foul = "eightfirst"; }
       else if (wasOnEight) { if (ev.firstHit !== 8) out.foul = "wrongball"; }
-      else if (groupOf(ev.firstHit) !== mine) out.foul = "wrongball";
+      else if (groupOf(ev.firstHit) !== mine) out.foul = ev.firstHit === 8 ? "eightfirst" : "wrongball";   // (named: the 8 isn't yours yet)
       if (!out.foul && !obj.length && !eight && !ev.railAfter) out.foul = "norail";
     }
 

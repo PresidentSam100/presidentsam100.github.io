@@ -506,6 +506,7 @@
     acc: 0, waitT: 0, charging: false,
     cpu: null, sinking: [], toasts: [], lastTurn: -1, tally: [0, 0], pendingOver: null,
     wheelOff: 0, placeBad: false, shotCall: -1,
+    aimHeld: 0,             // repeats of the arrow key held down (the aim speeds up)
     shots: 0                // shots taken this rack (none yet: nothing to lose)
   };
   var drag = null;
@@ -1258,14 +1259,22 @@
     G.wheelOff += e.deltaY > 0 ? 3 : -3;
   }, { passive: false });
 
+  var CALL_FIRST = "Call a pocket for the 8 first: tap one, or aim at the 8";
   function humanShoot() {
     if (G.placeBad) { G.power = 0; return; }   // not with the cue ball on top of another
-    var call = Ru.needsCall(G.st, G.balls) ? G.called : -1;
-    shoot(G.aim, G.power, G.tip.x, G.tip.y, call);
+    var needCall = Ru.needsCall(G.st, G.balls);
+    // on the 8 a pocket must be named first: no shot goes without one
+    if (needCall && G.called < 0) {
+      G.power = 0;
+      var last = G.toasts[G.toasts.length - 1];
+      if (!last || last.text !== CALL_FIRST) toast(CALL_FIRST, "bad");
+      return;
+    }
+    shoot(G.aim, G.power, G.tip.x, G.tip.y, needCall ? G.called : -1);
   }
 
   document.addEventListener("keydown", function (e) {
-    if (e.ctrlKey || e.metaKey) return;   // browser shortcuts aren't game keys (Alt stays: it's the fine-aim modifier)
+    if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts aren't game keys (Alt+← is Back)
     if (modalOpen()) {
       // Esc just closes the spin pad (claimed, so the page stays); it mustn't reach the pause key too
       if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); e.stopImmediatePropagation(); }
@@ -1279,7 +1288,10 @@
     var k = e.key;
     if (k === "ArrowLeft" || k === "ArrowRight") {
       e.preventDefault();
-      var stepA = e.shiftKey ? 0.035 : e.altKey ? 0.0009 : 0.0044;
+      // a press turns the aim a hair and Shift+arrow the finest step; held,
+      // the arrow speeds up, so a long swing doesn't take an age
+      G.aimHeld = e.repeat ? G.aimHeld + 1 : 0;
+      var stepA = e.shiftKey ? 0.0009 : 0.0044 * Math.min(6, 1 + G.aimHeld / 6);
       G.aim += k === "ArrowRight" ? stepA : -stepA;
     } else if (k === " ") {
       e.preventDefault();
