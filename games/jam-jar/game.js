@@ -353,6 +353,8 @@
     for (i = 0; i < fruits.length; i++) {
       f = fruits[i];
       f.vy += GRAV * dt;
+      f.wasC = !!f.contacted; f.vy0 = f.vy;   // for the landing squash (below)
+      if (f.sq && (f.sq.t += dt) >= SQ_T) f.sq = null;
       f.vx *= 0.9995;               // barely any air drag — momentum carries
       f.rot += f.w * dt;
       f.w *= 0.999;
@@ -544,6 +546,15 @@
 
     if (dropCd > 0) dropCd -= dt;
 
+    // Visual FX on: a fruit's first touchdown squashes it by how hard it hit,
+    // and it springs back (drawFruit). A merged fruit is born touching, so
+    // only a dropped one lands. With FX off it simply lands.
+    for (i = 0; i < fruits.length; i++) {
+      f = fruits[i];
+      if (f.wasC || !f.contacted || f.dead) continue;
+      if (!reduced() && f.vy0 > 120) f.sq = { t: 0, a: Math.min(0.2, f.vy0 / 4500) };
+    }
+
     // particles
     for (i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
@@ -704,10 +715,18 @@
   }
 
   // ---- drawing ---------------------------------------------------------------
+  // the landing squash: flat and wide at the touch, a little stretch back up,
+  // settled by SQ_T; it keeps the fruit's bottom where it sits
+  var SQ_T = 0.32;
+  function squashOf(f) {
+    if (!f.sq) return 0;
+    return f.sq.a * Math.exp(-f.sq.t * 11) * Math.cos(f.sq.t * 26);
+  }
   function drawFruit(f) {
-    var sp = SPRITES[f.tier];
+    var sp = SPRITES[f.tier], k = squashOf(f);
     ctx.save();
-    ctx.translate(f.x, f.y);
+    ctx.translate(f.x, f.y + f.r * k);
+    if (k) ctx.scale(1 + k, 1 - k);
     ctx.rotate(f.rot);
     drawSprite(sp, 0, 0);
     ctx.restore();
@@ -916,6 +935,7 @@
     get score() { return score; },
     get dangerT() { return dangerT; },
     get particles() { return particles; },
+    squash: function (f) { return squashOf(f); },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
     drop: drop,

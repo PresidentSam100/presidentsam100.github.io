@@ -34,9 +34,10 @@
   };
 
   /* One glowing cell. (x, y) top-left, s the cell size. dim: settled on
-     the reef; ghost: the sonar echo (outline only). */
+     the reef; ghost: the sonar echo (outline only). Drawn at the context's
+     alpha (a clearing row fading, a hard drop's trail). */
   function cell(g, x, y, s, type, opts) {
-    var sp = SPECIES[type];
+    var sp = SPECIES[type], a0 = g.globalAlpha;
     opts = opts || {};
     var cx = x + s / 2, cy = y + s / 2, r = s * 0.42;
     if (opts.ghost) {
@@ -56,10 +57,10 @@
     g.fillRect(x - s * 0.3, y - s * 0.3, s * 1.6, s * 1.6);
     // the body: a soft rounded organism
     g.fillStyle = sp.body;
-    g.globalAlpha = 0.4 + 0.6 * dim;
+    g.globalAlpha = a0 * (0.4 + 0.6 * dim);
     rr(g, x + s * 0.08, y + s * 0.08, s * 0.84, s * 0.84, s * 0.26);
     g.fill();
-    g.globalAlpha = 1;
+    g.globalAlpha = a0;
     // membrane edge
     g.strokeStyle = sp.glow + (0.85 * dim) + ")";
     g.lineWidth = Math.max(1, s * 0.06);
@@ -67,12 +68,12 @@
     g.stroke();
     // the nucleus and a few photophores
     g.fillStyle = sp.core;
-    g.globalAlpha = 0.9 * dim;
+    g.globalAlpha = a0 * 0.9 * dim;
     g.beginPath(); g.arc(cx - s * 0.1, cy - s * 0.1, s * 0.13, 0, 7); g.fill();
-    g.globalAlpha = 0.5 * dim;
+    g.globalAlpha = a0 * 0.5 * dim;
     g.beginPath(); g.arc(cx + s * 0.18, cy + s * 0.16, s * 0.06, 0, 7); g.fill();
     g.beginPath(); g.arc(cx - s * 0.2, cy + 0.22 * s, s * 0.05, 0, 7); g.fill();
-    g.globalAlpha = 1;
+    g.globalAlpha = a0;
   }
 
   function rr(g, x, y, w, h, r) {

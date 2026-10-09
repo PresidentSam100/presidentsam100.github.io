@@ -458,6 +458,7 @@
     var cell = grid[r] && grid[r][c];
     if (!cell || cell.kind !== "pipe") { sfxDenied(); return; }
     cell.type = ROT[cell.type];
+    if (!reduced()) cell.turnT = -1;   // eased into place on the board, from the next frame drawn (turnLeft)
     moves++;
     sfxReplace();
     refreshHud();
@@ -875,6 +876,21 @@
     g.fillText("OUT", 0, 1);
     g.restore();
   }
+  // Visual FX on: a turned pipe eases the quarter-turn into place, with a
+  // little overshoot, instead of jumping (the board's logic has already
+  // turned it). How far back it still is, in quarter-turns; 0 once settled.
+  // With FX off it simply jumps.
+  var TURN_MS = 170;
+  function turnLeft(cell) {
+    if (!cell.turnT) return 0;
+    // (its clock starts when it's first drawn, not when it was clicked: the
+    // click's own work, its first sound especially, can take longer than the turn)
+    if (cell.turnT < 0) cell.turnT = performance.now();
+    var p = (performance.now() - cell.turnT) / TURN_MS;
+    if (p >= 1 || reduced()) { cell.turnT = 0; return 0; }
+    var x = p - 1;
+    return 1 - (1 + 2.70158 * x * x * x + 1.70158 * x * x);
+  }
   function draw() {
     ctx.clearRect(0, 0, W, H);
     if (!grid) return; // select screen: the DOM overlay covers the board
@@ -883,7 +899,17 @@
       ctx.drawImage(SPR.plate, OX + c * TS, OY + r * TS);
       var cell = grid[r][c];
       if (cell.kind === "block") ctx.drawImage(SPR.block, OX + c * TS, OY + r * TS);
-      if (cell.kind === "pipe") ctx.drawImage(SPR[cell.type], OX + c * TS, OY + r * TS);
+      if (cell.kind === "pipe") {
+        var tl = turnLeft(cell);
+        if (!tl) ctx.drawImage(SPR[cell.type], OX + c * TS, OY + r * TS);
+        else {
+          ctx.save();
+          ctx.translate(OX + c * TS + TS / 2, OY + r * TS + TS / 2);
+          ctx.rotate(-tl * Math.PI / 2);
+          ctx.drawImage(SPR[cell.type], -TS / 2, -TS / 2);
+          ctx.restore();
+        }
+      }
     }
     // watered history + the advancing head
     var i, seg;

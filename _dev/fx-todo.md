@@ -46,11 +46,40 @@ Done (checked in `tests/fx-more.js`):
 - Chess, with its 4-player and 3-player boards. A move slides its piece across
   from the square it left, a capture flies off to its tray (with four or three
   players it shrinks away where it fell), and a king in check pulses.
+- Tic-Tac-Toe. Chalk dust puffs off each stroke of a mark as it's drawn and
+  drifts down (still falling while the computer replies), and off the strike
+  through a winning line.
+- Yi. A new hand is dealt round the table from the deck a card at a time:
+  yours fan in, twisting straight as they land; each CPU's shrink into its row.
+  The first turn waits for the last card.
+- Minesweeper. A win sends a wave across the board, out from the cell that
+  finished it, once that move's own reveal has rippled open.
+- Speedle. A guess's tiles flip one after another. Every colour still lands at
+  once, and the last flip ends before a solved word's next word comes up, so
+  nothing waits on it (Race times are the same either way).
+- Abyss. A hard drop leaves a trail of fading copies of the piece down the rows
+  it fell through. (Its cells now draw at the alpha they're given, so a
+  clearing row fades as a whole, not just its glow.)
+- Crazy Ohio. A hit bursts where the tile was, a ring and sparks in the lane's
+  colour; a PERFECT throws more, and further.
+- Jam Jar. A dropped fruit squashes as it lands, by how hard it hit, and springs
+  back, its bottom staying put.
+- Flappy World. The medal pops onto the game-over card, then a glint sweeps
+  across its face every couple of seconds.
+- Spacer. An explosion sends a shockwave ring racing out: a big gold one for a
+  boss or your ship, a small one for the rest.
+- Typetwo. A spell bolt flies with a long glowing trail and sheds motes.
+- Stopwatch. A perfect stop (within 0.05s) sends a gold ring out from the watch
+  and a scatter of glints; a merely good stop doesn't.
+- Steamfitter. A turned pipe eases its quarter-turn into place with a touch of
+  overshoot (the board has already turned it: the eased turn is only drawn).
+- Hash. The deal turns each card face up from edge-on, one after another, 20ms
+  apart; every face is readable within a few tenths of a second, so the clock
+  loses nothing to it.
+- Klondike. A card that travels a pile or more arcs there, lifted on a curve,
+  a little larger mid-flight and above the rest; nearer shifts still glide.
 
-Thin today: Tic-Tac-Toe (chalk dust), Stopwatch (perfect-stop ring),
-Steamfitter (eased quarter-turn), Yi (deal fan), Hash (deal flip), Minesweeper
-(win wave), Speedle (staggered flip), Abyss (hard-drop trail), Crazy
-Ohio (hit bursts), Jam Jar (landing squash), Klondike (card arcs), Flappy World
-(medal shine), Spacer (shockwave), Typetwo (bolt trails).
+Every game on the "thin" list from the 2026-10-03 read is done. A new idea for a
+game goes here, with a check in `tests/fx-more.js`.
 
 Already good models: Reaction, Lanterns, Slither, the Sudoku stamp.

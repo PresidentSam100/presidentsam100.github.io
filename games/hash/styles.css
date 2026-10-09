@@ -295,6 +295,22 @@ html.fx-off .card.exit-right {
 .card.dealt {
   animation: dealIn 0.3s ease;
 }
+/* Visual FX on: the deal turns each card face up from edge-on, one after
+   another (--dd, 20ms apart: every face is still readable within a few
+   tenths of a second, so the clock loses nothing to it) */
+html.fx-on .card.dealt {
+  animation: dealFlip 0.32s cubic-bezier(0.2, 0.75, 0.3, 1) var(--dd, 0ms) backwards;
+}
+@keyframes dealFlip {
+  from {
+    opacity: 0.4;
+    transform: perspective(700px) translateY(12px) rotateY(-90deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
 @keyframes dealIn {
   from {
     opacity: 0;

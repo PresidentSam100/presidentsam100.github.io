@@ -557,6 +557,14 @@
         b.tx = b.target.x + b.target.w / 2;
         b.ty = b.target.y;
       }
+      // Visual FX on: a bolt sheds violet motes as it flies (and its trail glows; draw)
+      if (!reducedMotion() && b.t < 1 && Math.random() < 0.5) {
+        particles.push({
+          x: b.x + (b.tx - b.x) * b.t, y: b.y + (b.ty - b.y) * b.t,
+          vx: rand(-25, 25), vy: rand(-25, 25),
+          life: rand(0.2, 0.35), age: 0, size: rand(0.8, 1.6), hue: 272, kind: "mote",
+        });
+      }
       if (b.t >= 1) {
         // a fatal bullet reaching its still-dying word destroys it now
         if (b.fatal && b.target && b.target.dying && words.indexOf(b.target) >= 0) {
@@ -769,6 +777,21 @@
       const dx = b.tx - b.x, dy = b.ty - b.y;
       const len = Math.hypot(dx, dy) || 1;
       const nx = -dy / len, ny = dx / len; // sideways unit, for the wave
+      // Visual FX on: a long glowing trail, fading out behind the bolt
+      if (!reducedMotion()) {
+        ctx.save();
+        ctx.lineCap = "round";
+        ctx.shadowColor = "rgba(177,140,255,0.9)";
+        ctx.shadowBlur = 10;
+        for (let k = 0; k < 8; k++) {
+          const t0 = Math.max(0, b.t - 0.03 * k), t1 = Math.max(0, b.t - 0.03 * (k + 1));
+          if (t0 === t1) break;
+          ctx.strokeStyle = "rgba(177,140,255," + (0.55 * (1 - k / 8)).toFixed(3) + ")";
+          ctx.lineWidth = 5 * (1 - k / 8) + 0.5;
+          ctx.beginPath(); ctx.moveTo(b.x + dx * t0, b.y + dy * t0); ctx.lineTo(b.x + dx * t1, b.y + dy * t1); ctx.stroke();
+        }
+        ctx.restore();
+      }
       ctx.strokeStyle = "rgba(177,140,255,0.85)";
       ctx.lineWidth = 2.5;
       ctx.beginPath();

@@ -2140,6 +2140,7 @@ class Game {
     this.lives = this.maxLives;
     this.invincibleTime = 0;
     this.overTimer = 0;       // the game-over card ignores restarts until this runs out
+    this.medalT = 0;          // seconds the game-over card has been up (the medal's motion)
   }
 
   setLivesMode(m) {
@@ -2158,6 +2159,7 @@ class Game {
       // Behind the card the world holds still and the bird stays where it
       // fell; the prompt still blinks, the crash's shake and burst play out
       this.blinkTimer += dt;
+      this.medalT += dt;
       this.overTimer = Math.max(0, this.overTimer - dt);
       this.particles.update(dt);
     } else this.update(dt);
@@ -2318,8 +2320,22 @@ class Game {
     this.particles.addBurst(this.bird.x, this.bird.y, '#FF5722', 12);
     this.shakeTime = 0.6;
     this.overTimer = 0.5;
+    this.medalT = 0;
     this.playSound('death');
     this.gameState = 'GAMEOVER';
+  }
+
+  // Visual FX on: the medal pops onto the card, then a glint sweeps across
+  // its face every couple of seconds. s: its scale; glint: how far across
+  // the sweep is (0..1), or -1 between sweeps. With FX off it simply sits there.
+  medalFx() {
+    if (reducedMotion()) return { s: 1, glint: -1 };
+    const t = this.medalT, POP = 0.35, GAP = 2.4, SWEEP = 0.6;
+    let s = 1;
+    if (t < 0.12) s = 0;
+    else if (t < 0.12 + POP) { const x = (t - 0.12) / POP - 1; s = 1 + 2.70158 * x * x * x + 1.70158 * x * x; }
+    const g = t - 0.7;
+    return { s, glint: g >= 0 && g % GAP < SWEEP ? (g % GAP) / SWEEP : -1 };
   }
 
   // ---- DRAW PIPELINE ----
@@ -2512,7 +2528,10 @@ class Game {
       labelColor = 'white';
     }
 
-    // a white rim, the medal face, a shine
+    // a white rim, the medal face, a shine (popped and glinting: medalFx)
+    const mfx = this.medalFx();
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(mfx.s, mfx.s); ctx.translate(-cx, -cy);
     ctx.beginPath();
     ctx.arc(cx, cy, r + 6, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
@@ -2534,6 +2553,19 @@ class Game {
     ctx.font = '34px ' + FONT;
     ctx.fillStyle = labelColor;
     ctx.fillText(medalLabel, cx, cy + 2);
+    if (mfx.glint >= 0) {
+      ctx.save();
+      ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+      ctx.translate(cx, cy); ctx.rotate(-0.6);
+      const gx = -r * 1.5 + mfx.glint * r * 3, band = ctx.createLinearGradient(gx - r * 0.3, 0, gx + r * 0.3, 0);
+      band.addColorStop(0, 'rgba(255,255,255,0)');
+      band.addColorStop(0.5, 'rgba(255,255,255,0.75)');
+      band.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = band;
+      ctx.fillRect(gx - r * 0.3, -r, r * 0.6, r * 2);
+      ctx.restore();
+    }
+    ctx.restore();
 
     // Best score
     ctx.font = '24px ' + FONT;

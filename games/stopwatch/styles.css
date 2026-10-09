@@ -277,3 +277,9 @@ header.top p { margin: 2px 0 0; font-style: italic; font-size: 0.85rem; color: v
   .chain { right: -30px; }
   .target-big { font-size: 2.1rem; }
 }
+
+/* Visual FX on: a perfect stop's gold ring and glints (game.js perfectFx) */
+.watch .pring { position: absolute; inset: 0; border-radius: 50%; border: 4px solid #f2c94c; pointer-events: none;
+  box-shadow: 0 0 18px rgba(242, 201, 76, 0.8), inset 0 0 12px rgba(242, 201, 76, 0.6); }
+.watch .pglint { position: absolute; left: 50%; top: 50%; color: #ffe08a; font-size: 18px; line-height: 1;
+  text-shadow: 0 0 8px #f2c94c; pointer-events: none; }

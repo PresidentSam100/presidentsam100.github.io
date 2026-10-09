@@ -116,18 +116,57 @@ function render() {
     const p = board[i];
     c.className = 'cell' + (p === 'X' ? ' x' : p === 'O' ? ' o' : '');
     c.disabled = p !== '' || gameOver || turn !== HUMAN;
-    c.innerHTML = p ? markSVG(p, animOn() && i === lastMove) : '';
+    setMark(c, p, animOn() && i === lastMove);
   });
+}
+
+// A cell keeps the mark it already shows (so its chalk dust can finish
+// falling while the next move is made); only a new mark is drawn, animated
+// when it's the latest move. `old` is the cell's mark before a rebuild.
+function setMark(cell, p, animate, old) {
+  const cur = old || cell.querySelector('.mark');
+  if (p && cur && cur.dataset.p === p) { if (cur.parentNode !== cell) cell.appendChild(cur); return; }
+  cell.innerHTML = p ? markSVG(p, animate) : '';
 }
 
 function markSVG(p, animate) {
   const cls = 'mark' + (animate ? ' animate' : '');
   if (p === 'X')
-    return `<svg class="${cls}" viewBox="0 0 100 100">
+    return `<svg class="${cls}" data-p="X" viewBox="0 0 100 100">
       <line class="stroke" x1="24" y1="24" x2="76" y2="76" pathLength="1"/>
-      <line class="stroke s2" x1="76" y1="24" x2="24" y2="76" pathLength="1"/></svg>`;
-  return `<svg class="${cls}" viewBox="0 0 100 100">
-      <circle class="stroke" cx="50" cy="50" r="29" pathLength="1"/></svg>`;
+      <line class="stroke s2" x1="76" y1="24" x2="24" y2="76" pathLength="1"/>${animate ? strokeDust(p) : ''}</svg>`;
+  return `<svg class="${cls}" data-p="O" viewBox="0 0 100 100">
+      <circle class="stroke" cx="50" cy="50" r="29" pathLength="1"/>${animate ? strokeDust(p) : ''}</svg>`;
+}
+
+// Visual FX on: chalk dust puffs off a mark where each stroke passes and
+// drifts down, and off the strike through a winning line (styles.css .dust).
+// With FX off the mark simply appears.
+function dustSVG(pts, cls) {
+  return pts.map(([x, y, w]) => {
+    const r = (2 + Math.random() * 2).toFixed(1), dx = ((Math.random() - 0.5) * 26).toFixed(1), dy = (14 + Math.random() * 22).toFixed(1);
+    return `<circle class="dust ${Math.random() < 0.35 ? 'dw' : cls}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}"
+      style="--dx:${dx}px;--dy:${dy}px;--w:${w.toFixed(2)}s;--t:${(0.7 + Math.random() * 0.5).toFixed(2)}s"/>`;
+  }).join('');
+}
+// specks along the strokes, each timed to when the (eased-out) stroke reaches it
+function strokeDust(p) {
+  const pts = [], at = (u) => 0.32 * (1 - Math.sqrt(1 - u));
+  for (let k = 0; k < 6; k++) {
+    const u = (k + Math.random()) / 6;
+    if (p === 'X') { pts.push([24 + 52 * u, 24 + 52 * u, at(u)], [76 - 52 * u, 24 + 52 * u, 0.16 + at(u)]); continue; }
+    for (const v of [u / 2, 0.5 + u / 2]) { const a = v * Math.PI * 2; pts.push([50 + 29 * Math.cos(a), 50 + 29 * Math.sin(a), at(v)]); }
+  }
+  return dustSVG(pts, p === 'X' ? 'dx' : 'do');
+}
+// specks along the strike as it sweeps over the line's k-th cell (in sweep order)
+function strikeDust(li, k) {
+  const d = li < 3 ? [1, 0] : li < 6 ? [0, 1] : li === 6 ? [0.71, 0.71] : [0.71, -0.71], pts = [];
+  for (const t of [-0.3, 0, 0.3]) {
+    const o = t + (Math.random() - 0.5) * 0.15;
+    pts.push([50 + d[0] * o * 100, 50 + d[1] * o * 100 + (Math.random() - 0.5) * 6, 0.35 * (k + o + 0.5) / 3]);
+  }
+  return dustSVG(pts, 'da');
 }
 
 function setStatus(t) { statusEl.textContent = t; }
@@ -242,6 +281,11 @@ function highlight(line) {
     if (myRound !== round) return; // a new game replaced this one mid-wait
     line.forEach(i => boardEl.children[i].classList.add('win'));
     boardEl.dataset.win = LINES.indexOf(line); // styles.css strikes through that line
+    const li = LINES.indexOf(line);
+    if (animOn()) line.forEach((i, k) => {   // (the / diagonal is struck from its bottom end)
+      const m = boardEl.children[i].querySelector('.mark');
+      if (m) m.insertAdjacentHTML('beforeend', strikeDust(li, li === 7 ? 2 - k : k));
+    });
   }, wait);
 }
 
@@ -405,6 +449,7 @@ function uScheduleAI(delay) {
 }
 
 function uRender() {
+  const kept = [...uboardEl.querySelectorAll('.ucell')].map(b => b.querySelector('.mark'));
   uboardEl.innerHTML = '';
   const legal = (!uGameOver && uTurn === HUMAN) ? new Set(uLegalSubs()) : new Set();
   for (let s = 0; s < 9; s++) {
@@ -419,7 +464,7 @@ function uRender() {
       const btn = document.createElement('button');
       btn.className = 'ucell' + (p === 'X' ? ' x' : p === 'O' ? ' o' : '');
       const isLast = !!(uLastMove && uLastMove.sub === s && uLastMove.cell === c);
-      btn.innerHTML = p ? markSVG(p, animOn() && isLast) : '';
+      setMark(btn, p, animOn() && isLast, kept[s * 9 + c]);
       btn.disabled = !!p || !!done || !legal.has(s) || uGameOver;
       btn.addEventListener('click', () => uHumanMove(s, c));
       sub.appendChild(btn);
@@ -692,7 +737,7 @@ function gRender() {
     const win = c.classList.contains('win');
     c.className = 'gcell' + (pm === 'X' ? ' x' : pm === 'O' ? ' o' : '') + (win ? ' win' : '');
     c.disabled = !!pm || gGameOver || gTurn !== HUMAN;
-    c.innerHTML = pm ? markSVG(pm, animOn() && i === gLastMove) : '';
+    setMark(c, pm, animOn() && i === gLastMove);
   }
 }
 

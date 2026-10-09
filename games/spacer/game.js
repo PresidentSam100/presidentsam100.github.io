@@ -828,6 +828,17 @@ class Explosion {
       ctx.arc(this.x, this.y, fr, 0, TAU);
       ctx.fill();
     }
+    // the shockwave: a ring racing out, easing as it spreads (Visual FX on;
+    // with it off the burst plays alone)
+    const sk = this.t / (this.big ? 0.55 : 0.32);
+    if (sk < 1 && !ANIM.reducedFlash) {
+      ctx.globalAlpha = (1 - sk) * 0.8;
+      ctx.strokeStyle = this.big ? '#ffd23f' : '#9ff4ff';
+      ctx.lineWidth = (this.big ? 4 : 2.5) * (1 - sk) + 0.5;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 4 + (this.big ? 74 : 30) * (1 - Math.pow(1 - sk, 3)), 0, TAU);
+      ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
 }

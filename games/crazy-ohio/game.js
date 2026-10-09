@@ -225,8 +225,36 @@
     $("vScore").textContent = score;
     $("vStreak").textContent = streak;
     flashLane(t.col, true);
+    hitBurst(t, false);
     clearTileEl(t, "hit");
     hitSound(t.col);
+  }
+
+  // Visual FX on: a hit bursts where the tile was, a ring and sparks in the
+  // lane's colour (a PERFECT throws more, and further). With FX off the tile
+  // simply goes.
+  function hitBurst(t, big) {
+    if (window.RM_ON && window.RM_ON()) return;
+    const b = document.createElement("div");
+    b.className = "burst";
+    b.style.top = ((t.lastY || 0) + (t.el.offsetHeight || 40) / 2) + "px";
+    const ring = document.createElement("i");
+    ring.className = "ring";
+    b.appendChild(ring);
+    ring.animate([{ transform: "scale(.3)", opacity: 1 }, { transform: "scale(1.1)", opacity: 0.9, offset: 0.45 },
+      { transform: "scale(" + (big ? 1.9 : 1.5) + ")", opacity: 0 }],
+      { duration: 380, easing: "ease-out", fill: "forwards" });
+    const n = big ? 10 : 6;
+    for (let k = 0; k < n; k++) {
+      const s = document.createElement("i"), a = (k / n) * 360 + Math.random() * 25, d = 26 + Math.random() * (big ? 40 : 24);
+      s.className = "spark";
+      b.appendChild(s);
+      s.animate([{ transform: "rotate(" + a + "deg) translateX(6px)", opacity: 1 },
+        { opacity: 1, offset: 0.5 }, { transform: "rotate(" + a + "deg) translateX(" + d + "px) scaleX(.4)", opacity: 0 }],
+        { duration: 300 + Math.random() * 140, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" });
+    }
+    lanes[t.col].appendChild(b);
+    setTimeout(() => b.remove(), 520);
   }
 
   // Score a precision hit by how much of the tile overlaps the key zone at
@@ -264,6 +292,7 @@
     $("vStreak").textContent = streak;
     flashLane(col, true);
     showJudgment(col, j.label, j.cls);
+    hitBurst(t, j.cls === "perfect");
     clearTileEl(t, "hit");
     hitSound(col);
   }

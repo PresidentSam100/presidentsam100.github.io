@@ -289,9 +289,33 @@
     cumError = projected; score++;
     // a sweep that takes the run past the best is saved at once
     if (score > best) { best = score; saveBest(best); }
-    if (error < 0.05) Sound.perfect(); else Sound.good();
+    if (error < 0.05) { Sound.perfect(); perfectFx(); } else Sound.good();
     setHud(); renderBudget();
     setTimeout(nextRound, 1350);
+  }
+
+  // Visual FX on: a perfect stop (within 0.05s) sends a gold ring out from
+  // the watch and a scatter of glints. With FX off the verdict says it alone.
+  function perfectFx() {
+    if (window.RM_ON && window.RM_ON()) return;
+    var watch = document.querySelector(".watch");
+    if (!watch || !watch.animate) return;
+    var ring = document.createElement("span"), R = watch.offsetWidth / 2;
+    ring.className = "pring";
+    watch.appendChild(ring);
+    ring.animate([{ transform: "scale(.92)", opacity: 1 }, { opacity: 0.85, offset: 0.4 }, { transform: "scale(1.38)", opacity: 0 }],
+      { duration: 700, easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" });
+    for (var i = 0; i < 8; i++) {
+      var g = document.createElement("span"), a = (i / 8) * 360 + 22.5;
+      var at = function (k) { return "translate(-50%,-50%) rotate(" + a + "deg) translateY(" + (-R * k) + "px) rotate(" + (-a) + "deg)"; };
+      g.className = "pglint"; g.textContent = "✦";
+      watch.appendChild(g);
+      g.animate([{ transform: at(0.9) + " scale(.3)", opacity: 0 }, { opacity: 1, offset: 0.25 }, { transform: at(1.3) + " scale(1)", opacity: 0 }],
+        { duration: 650 + (i % 3) * 80, delay: 60, easing: "ease-out", fill: "both" });
+    }
+    setTimeout(function () {
+      [].slice.call(watch.querySelectorAll(".pring, .pglint")).forEach(function (n) { n.remove(); });
+    }, 950);
   }
 
   function gameOver(info) {

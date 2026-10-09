@@ -92,6 +92,9 @@
   //   dropMark  a hard drop's faint streak, start row down to where it landed
   //   clearMark pointers on both walls at the rows that just cleared
   var dropMark = null, clearMark = null;
+  // Visual FX on: a hard drop leaves a trail of fading copies of the piece
+  // down the rows it fell through, brightest where it lands
+  var dropTrail = null, TRAIL_LIFE = 0.26;
 
   function newBag() {
     var b = (mode === "krill" ? TYPES : "IJLOSTZ").split("");
@@ -158,6 +161,7 @@
     var from = piece.y, to = ghostY();
     score += (to - from) * 2;
     if (fx()) {
+      if (to > from) dropTrail = { t: piece.t, r: piece.r, x: piece.x, from: from, to: to, life: TRAIL_LIFE };
       cellsOf(piece.t, piece.r, piece.x, to).forEach(function (c) {
         for (var b = 0; b < 3; b++) {
           particles.push({ kind: "bub", x: c[0] + 0.5 + (Math.random() - 0.5) * 0.6,
@@ -274,7 +278,7 @@
     grid = new Uint8Array(ROWS * COLS);
     queue = []; bag = []; hold = null; canHold = true;
     score = 0; lines = 0; level = 1; b2b = false; playMs = 0;
-    particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null;
+    particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null; dropTrail = null;
     das.L = null; das.R = null; softHeld = false;
     $("menu").hidden = true; $("over").hidden = true;
     $("hud").hidden = false;
@@ -415,9 +419,9 @@
     return 0;
   }
 
-  var drawn = { drop: false, clear: [] };   // the FX-off marks the last frame drew (test hook)
+  var drawn = { drop: false, clear: [], trail: 0 };   // the FX marks the last frame drew (test hook)
   function draw(t, dt) {
-    drawn.drop = false; drawn.clear = [];
+    drawn.drop = false; drawn.clear = []; drawn.trail = 0;
     var danger = state === "play" || state === "clearing" ? Math.max(0, (stackHeight() - 14) / 6) : 0;
     sea.draw(g, t, dt, fx(), danger);
     if (state === "menu") return;
@@ -462,6 +466,23 @@
         g.fillStyle = grd;
         g.fillRect(px(0), py(ry), Math.max(0, sx - px(0)), cell);
       });
+    }
+
+    // the hard drop's trail (Visual FX on; see dropTrail)
+    if (dropTrail) {
+      dropTrail.life -= dt;
+      if (dropTrail.life <= 0 || !fx()) dropTrail = null;
+      else {
+        var tr = dropTrail, fade = tr.life / TRAIL_LIFE, span = tr.to - tr.from;
+        for (var ty = tr.from; ty < tr.to; ty++) {
+          var near = (ty - tr.from + 1) / (span + 1);
+          g.globalAlpha = 0.35 * fade * near * near;
+          cellsOf(tr.t, tr.r, tr.x, ty).forEach(function (c) {
+            if (c[1] >= HID) { A.cell(g, px(c[0]), py(c[1]), cell, tr.t, { dim: true }); drawn.trail++; }
+          });
+        }
+        g.globalAlpha = 1;
+      }
     }
 
     // Visual FX off: the still sonar marks (see dropMark / clearMark)
@@ -800,7 +821,7 @@
       setPiece: function (t) { piece = { t: t, r: 0, x: t === "O" ? 4 : 3, y: 0 }; },
       // the Visual FX off marks: what the last frame drew, and time left (s)
       marks: function () {
-        return { dropDrawn: drawn.drop, clearDrawn: drawn.clear.slice(),
+        return { dropDrawn: drawn.drop, clearDrawn: drawn.clear.slice(), trailDrawn: drawn.trail,
           dropLeft: dropMark ? dropMark.life : 0, clearLeft: clearMark ? clearMark.life : 0 };
       }
     }

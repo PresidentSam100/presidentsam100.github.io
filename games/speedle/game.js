@@ -399,11 +399,17 @@
     return res;
   }
 
+  // Visual FX on: the row's tiles flip one after another, left to right. Every
+  // colour still lands at once, so nothing waits on the stagger, and the last
+  // flip ends before a solved word's next word comes up (450ms).
+  var FLIP_STAGGER = 35;
   function paintRow(r, guess, result) {
+    var fx = !(window.RM_ON && window.RM_ON());
     for (var c = 0; c < 5; c++) {
-      var t = tileEls[r][c];
+      var t = tileEls[r][c], lag = fx ? c * FLIP_STAGGER : 0;
+      t.style.animationDelay = lag ? lag + "ms" : "";
       t.classList.add(result[c], "flip");
-      (function (el) { setTimeout(function () { el.classList.remove("flip"); }, 300); })(t);
+      (function (el, ms) { setTimeout(function () { el.classList.remove("flip"); el.style.animationDelay = ""; }, ms); })(t, 300 + lag);
       // keyboard tint: green > yellow > gray, never downgrade
       var ch = guess[c], cur = letterState[ch];
       var rank = { green: 3, yellow: 2, gray: 1 };

@@ -207,6 +207,7 @@ function startHand(dealer) {
   G.currentPlayerIndex = Math.floor(Math.random() * G.players.length);
 
   log(["New hand dealt. ", { player: G.currentPlayerIndex }, " starts."]);
+  dealFx();
   beginTurn();
 }
 
@@ -1040,27 +1041,65 @@ function flyDraw(pi, n) {
     var startIdx = els.length - n; // first (leftmost) of the freshly drawn cards
     for (var j = 0; j < animCount; j++) {
       var el = els[startIdx + j];
-      if (!el) continue;
-      var r = el.getBoundingClientRect();
-      el.style.transition = "none";
-      el.style.transform =
-        "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
-        (dcy - (r.top + r.height / 2)) + "px) scale(" + startScale + ")";
-      el.style.opacity = "0.4";
-      (function (node, delay) {
-        setTimeout(function () {
-          requestAnimationFrame(function () {
-            node.style.transition =
-              "transform " + DRAW_TRANS + "s cubic-bezier(.3,.6,.3,1), opacity 0.24s ease";
-            node.style.transform = "";
-            node.style.opacity = "";
-            node.addEventListener("transitionend", function clr() {
-              node.style.transition = "";
-              node.removeEventListener("transitionend", clr);
-            });
-          });
-        }, delay);
-      })(el, j * DRAW_STAGGER);
+      if (el) glideIn(el, dcx, dcy, startScale, j * DRAW_STAGGER, 0, "0.4");
+    }
+  });
+}
+// One card's glide from the deck's centre (dcx, dcy) to where it now sits,
+// `delay` ms from now: it waits at the deck (at opacity `wait`), starting at
+// `startScale` and twisted `rot` degrees, then settles into place.
+function glideIn(node, dcx, dcy, startScale, delay, rot, wait) {
+  var r = node.getBoundingClientRect();
+  node.style.transition = "none";
+  node.style.transform =
+    "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
+    (dcy - (r.top + r.height / 2)) + "px) scale(" + startScale + ")" +
+    (rot ? " rotate(" + rot + "deg)" : "");
+  node.style.opacity = wait;
+  setTimeout(function () {
+    requestAnimationFrame(function () {
+      node.style.transition =
+        "transform " + DRAW_TRANS + "s cubic-bezier(.3,.6,.3,1), opacity 0.24s ease";
+      node.style.transform = "";
+      node.style.opacity = "";
+      node.addEventListener("transitionend", function clr() {
+        node.style.transition = "";
+        node.removeEventListener("transitionend", clr);
+      });
+    });
+  }, delay);
+}
+
+// Visual FX on: a new hand is dealt round the table from the deck, a card at
+// a time: yours fan in, twisting straight as they land in your hand; each
+// CPU's shrink into its row. The first turn waits for the last card. With FX
+// off the hands are simply there.
+function dealFx() {
+  if (reducedMotion() || !G) return;
+  var n = G.players.length, per = G.players[0].hand.length;
+  var step = Math.min(45, 1300 / (n * per)); // the whole deal stays under ~1.6s
+  var dealMs = (n * per - 1) * step + DRAW_TRANS * 1000 + 90;
+  drawAnimUntil = Math.max(drawAnimUntil, Date.now() + dealMs);
+  var keys = G.players[0].hand.map(function (c) { return "c" + c.id; });
+  keys.forEach(function (k) { glidingKeys[k] = true; });
+  setTimeout(function () {
+    keys.forEach(function (k) { delete glidingKeys[k]; });
+  }, dealMs + 120);
+  requestAnimationFrame(function () {   // (after the hand's first render)
+    var deck = document.getElementById("deckStack");
+    if (!deck) return;
+    var dr = deck.getBoundingClientRect();
+    var dcx = dr.left + dr.width / 2, dcy = dr.top + dr.height / 2;
+    var rows = [document.querySelectorAll("#hand .card")];
+    var opps = document.querySelectorAll("#opponents .opp");
+    for (var o = 0; o < opps.length; o++) rows.push(opps[o].querySelectorAll(".mini-back"));
+    for (var r = 0; r < per; r++) {
+      for (var p = 0; p < n; p++) {
+        var el = rows[p] && rows[p][r];
+        if (!el) continue;
+        var fan = p === 0 ? (r - (per - 1) / 2) * 7 - 12 : 0;
+        glideIn(el, dcx, dcy, p === 0 ? 1 : 3.2, (r * n + p) * step, fan, "0");
+      }
     }
   });
 }

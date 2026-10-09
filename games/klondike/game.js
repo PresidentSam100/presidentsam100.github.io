@@ -134,12 +134,32 @@
     clearTimeout(el._landT);
     el._landT = setTimeout(function () { el.classList.remove("landed"); }, 600);
   }
+  // Visual FX on: a card that travels a pile or more arcs there, lifted on a
+  // curve and a little larger mid-flight, above the rest; nearer shifts just
+  // glide. (Its CSS transition is off meanwhile: a running transition would
+  // win over the arc.) With FX off cards jump, rimmed gold where they land.
+  function arcTo(el, x, y) {
+    if (!el.animate || el.classList.contains("drag")) return;
+    var m = new DOMMatrixReadOnly(getComputedStyle(el).transform), x0 = m.m41, y0 = m.m42;
+    var dx = x - x0, dy = y - y0, dist = Math.hypot(dx, dy);
+    if (dist < CW * 0.8) return;
+    var h = Math.min(70, dist * 0.25), frames = [];
+    for (var k = 0; k <= 8; k++) {
+      var t = k / 8, bump = 4 * t * (1 - t);
+      frames.push({ transform: "translate(" + (x0 + dx * t) + "px," + (y0 + dy * t - h * bump) + "px) scale(" + (1 + 0.06 * bump) + ")" });
+    }
+    if (el._arc) el._arc.cancel();
+    el.classList.add("arc");
+    var an = el._arc = el.animate(frames, { duration: 200 + Math.min(160, dist * 0.25), easing: "cubic-bezier(.35,.1,.25,1)" });
+    an.onfinish = an.oncancel = function () { if (el._arc === an) { el._arc = null; el.classList.remove("arc"); } };
+  }
   // Where every card belongs right now; z-order follows pile order.
   function position(instant) {
-    var z = 1, mark = !instant && !fx();
+    var z = 1, mark = !instant && !fx(), arc = !instant && fx();
     function put(c, x, y) {
       var el = cardEl(c), at = x + "," + y;
       if (mark && el._at !== at) landed(el);
+      if (arc && el._at && el._at !== at) arcTo(el, x, y);
       el._at = at;
       el.classList.toggle("down", !c.up);
       if (instant) el.classList.add("noanim");

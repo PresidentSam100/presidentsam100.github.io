@@ -254,6 +254,7 @@
     // the cards are rebuilt on every change: keep keyboard focus on the same spot
     var focused = boardEl.contains(document.activeElement) ? +document.activeElement.dataset.idx : -1;
     boardEl.innerHTML = "";
+    var nth = 0;   // the dealt cards' order, for the deal's stagger (styles.css)
     // 3 columns; widen rows gracefully when 12/15/18 cards.
     for (var i = 0; i < board.length; i++) {
       var card = board[i];
@@ -277,8 +278,10 @@
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
       // a hinted card glows until it's picked (then it shows as picked)
       else if (hintIds.indexOf(card.id) !== -1) el.classList.add("hint");
-      if (animIds && animIds.indexOf(card.id) !== -1)
+      if (animIds && animIds.indexOf(card.id) !== -1) {
         el.classList.add(animClass);
+        el.style.setProperty("--dd", nth++ * 20 + "ms");
+      }
       boardEl.appendChild(el);
     }
     if (focused >= 0 && board.length)

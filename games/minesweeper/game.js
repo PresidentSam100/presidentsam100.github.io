@@ -438,11 +438,12 @@
   function openFrom(starts) {
     const fx = !reduced();
     const q = [];
-    let head = 0, count = 0;
+    let head = 0, count = 0, far = 0;
     const open = (j, d) => {
       cell[j] = OPEN;
       opened++;
       count++;
+      far = Math.max(far, d);
       paint(j, fx ? Math.min(d * RIPPLE_MS, RIPPLE_CAP) : -1);
       if (!adj[j]) q.push(j, d);
     };
@@ -453,7 +454,7 @@
     }
     if (count > 1) sfx.cascade(count);
     else sfx.dig();
-    if (opened === N - M) win();
+    if (opened === N - M) win(starts[0], fx ? Math.min(far * RIPPLE_MS, RIPPLE_CAP) + 200 : 0);
   }
 
   function mark(i) {
@@ -474,10 +475,26 @@
     renderCounter();
   }
 
-  function win() {
+  // Visual FX on: a win sends a wave across the board, out from the cell that
+  // finished it, once that move's own reveal has rippled open (`after` ms).
+  // With FX off the board simply stands cleared.
+  function winWave(from, after) {
+    const or = (from / W) | 0, oc = from % W;
+    for (let j = 0; j < N; j++) {
+      const dist = Math.max(Math.abs(((j / W) | 0) - or), Math.abs((j % W) - oc));
+      els[j].animate([
+        { transform: "none", filter: "none" },
+        { transform: "translateY(-4px) scale(1.08)", filter: "brightness(1.35)", offset: 0.35 },
+        { transform: "none", filter: "none" },
+      ], { duration: 520, delay: after + Math.min(dist * 35, 900), easing: "ease-out" });
+    }
+  }
+
+  function win(from, after) {
     state = "won";
     stopClock();
     const fx = !reduced();
+    if (fx) winWave(from, after);
     for (let j = 0; j < N; j++) {
       if (mine[j] && cell[j] !== FLAG) {
         cell[j] = FLAG;

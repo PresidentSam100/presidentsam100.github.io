@@ -154,6 +154,7 @@ body {
   color: var(--ink);
 }
 .card.noanim { transition: none; }
+.card.arc { z-index: 800 !important; transition: none; }   /* (game.js arcTo, Visual FX on) */
 .card.drag { z-index: 900 !important; box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.6); transition: none; }
 .card.hintsrc { outline: 2px solid var(--gold); outline-offset: -2px; }
 /* Visual FX off: cards jump instead of gliding, so one that just moved wears

@@ -209,6 +209,10 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
 .mark.animate .stroke { stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw 0.32s ease-out forwards; }
 .mark.animate .stroke.s2 { animation-delay: 0.16s; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
+/* Visual FX on: chalk dust off the strokes and the strike (game.js) */
+.dust { opacity: 0; pointer-events: none; animation: dust var(--t) ease-in var(--w) both; }
+.dust.dx { fill: var(--x); } .dust.do { fill: var(--o); } .dust.da { fill: var(--accent); } .dust.dw { fill: var(--chalk); }
+@keyframes dust { 0% { opacity: 0; transform: none; } 12% { opacity: 0.9; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
 
 /* ---- modals: a smaller slate ----------------------------------------------- */
 .modal-overlay {

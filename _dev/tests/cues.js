@@ -340,8 +340,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Darkroom: a wrong cell flashes red (still) and +0:30 shows, with FX off
+  // (served with the flash and the +0:30 lasting 5s, not 0.45s and 1.1s: on a
+  // busy machine three frames can take longer than either, and a cue already
+  // gone by then proves nothing)
   {
-    const p = await open("darkroom", true);
+    const p = await open("darkroom", true, null, (pg) => lib.injectScript(pg, "games/darkroom/game.js",
+      [["(t - F.t0) / 450", "(t - F.t0) / 5000"], ["(t - FL.t0) / 1100", "(t - FL.t0) / 5000"]]));
     const r = await p.evaluate(() => { Darkroom.open("plus"); return Darkroom.apply(0, 0, "fill"); });
     await frames(p);
     const st = await p.evaluate(() => { const s = Darkroom.state(); return { flashes: s.flashes, floats: s.floats }; });
@@ -362,8 +366,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Tile Maze: an ice slide leaves a trail (FX off); a wall shows a bump bar
+  // (served with both marks lasting 5s, not 0.5s, for the same reason as Darkroom)
   {
-    const p = await open("tile-maze", true, null, (pg) => pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} }));
+    const p = await open("tile-maze", true, null, async (pg) => {
+      await pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} });
+      await lib.injectScript(pg, "games/tile-maze/anim.js", [["const MARK = 500;", "const MARK = 5000;"]]);
+    });
     await p.keyboard.press("ArrowRight");
     const t = await probe(p, () => [1, 2, 3, 4, 5].map((c) => { const e = document.querySelector('.tile[data-r="1"][data-c="' + c + '"]'); return e ? getComputedStyle(e).outlineStyle : null; }));
     check("tile-maze, FX off: an ice slide leaves a dashed trail over the tiles it crossed", t.filter((s) => s === "dashed").length >= 4, t);

@@ -1,6 +1,8 @@
 // Visual FX, continued (fx.js has the first rounds). FX off keeps every bit
 // of a game's art and only calms its motion: nothing vanishes, nothing loops.
-// FX on adds motion on top (Corner Pocket, Chess).
+// FX on adds motion on top (Corner Pocket, Chess, Tic-Tac-Toe, Yi, Minesweeper,
+// Speedle, Abyss, Crazy Ohio, Jam Jar, Flappy World, Spacer, Typetwo,
+// Stopwatch, Steamfitter, Hash, Klondike).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check(what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -293,6 +295,319 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess three, FX on: New Game straight after a capture starts still", got3.on.afterNew === 0, got3.on);
     check("chess three, FX off: no slide or fall, and the checked king's cell is red, holding still",
       got3.off.cap.length === 0 && got3.off.red && got3.off.pulse === "none", got3.off);
+  }
+
+  // ---- Tic-Tac-Toe, FX on: chalk dust puffs off a mark as it's drawn (and
+  // keeps falling while the computer replies) and off the strike through a
+  // win; FX off: the marks simply appear
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("tic-tac-toe/", off);
+      await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+      await p.click("#startGame"); await p.waitForTimeout(150);
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        const T = __TTT_TEST__, cell = (i) => document.querySelectorAll("#board .cell")[i];
+        T.humanMove(4);
+        const r = { mark: cell(4).querySelectorAll(".dust").length, moving: cell(4).getAnimations({ subtree: true }).length };
+        const m = cell(4).querySelector(".mark"), t0 = performance.now();
+        (function wait() { if (T.turn !== "X" && performance.now() - t0 < 4000) return setTimeout(wait, 50); r.after = Math.round(performance.now() - t0);
+          r.replied = T.board.filter(Boolean).length === 2;
+          r.kept = cell(4).querySelector(".mark") === m && cell(4).querySelectorAll(".dust").length === r.mark;
+          // a win along the top row
+          for (let i = 0; i < 9; i++) T.board[i] = ""; T.board[0] = T.board[1] = "X"; T.humanMove(2);
+          setTimeout(() => res(Object.assign(r, { strike: document.querySelectorAll("#board .dust.da").length, won: document.getElementById("board").dataset.win })), 700);
+        })();
+      }));
+      await done(p, "tic-tac-toe FX " + (off ? "off" : "on"));
+    }
+    check("tic-tac-toe, FX on: chalk dust puffs off a mark as it's drawn and keeps falling through the computer's reply; the strike through a win puffs too",
+      got.on.mark >= 10 && got.on.moving > got.on.mark && got.on.replied && got.on.kept && got.on.strike > 0 && got.on.won === "0", got.on);
+    check("tic-tac-toe, FX off: the marks and the strike, with no dust", got.off.mark === 0 && got.off.replied && got.off.strike === 0 && got.off.won === "0", got.off);
+  }
+
+  // ---- Yi, FX on: a new hand is dealt round the table a card at a time from
+  // the deck (yours fan in) and the first turn waits for it; FX off: the
+  // hands are simply there
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("yi/", off);
+      await p.click("#startBtn");
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const moved = (sel, re) => [...document.querySelectorAll(sel)].filter((c) => re.test(c.style.transform)).length;
+        const r = { hand: document.querySelectorAll("#hand .card").length, fanned: moved("#hand .card", /rotate/), minis: moved("#opponents .mini-back", /translate/), waits: Math.round(drawAnimUntil - Date.now()) };
+        // just after the last card lands (the first turn is still waiting its own beat)
+        setTimeout(() => { r.settled = moved("#hand .card, #opponents .mini-back", /./) === 0; res(r); }, Math.max(0, r.waits) + 80);
+      }))));
+      await done(p, "yi FX " + (off ? "off" : "on"));
+    }
+    check("yi, FX on: the hand is dealt round the table from the deck, yours fanning in, and it all settles before the first turn",
+      got.on.hand === 7 && got.on.fanned >= 1 && got.on.minis >= 1 && got.on.waits > 300 && got.on.settled, got.on);
+    check("yi, FX off: the hands are simply there", got.off.hand === 7 && got.off.fanned === 0 && got.off.minis === 0 && got.off.waits <= 0 && got.off.settled, got.off);
+  }
+
+  // ---- Minesweeper, FX on: a win sends a wave across the board from the cell
+  // that finished it; FX off: the board simply stands cleared
+  {
+    const HOOK = ["  let minesPlaced = false;", "  window.__ms = { dig: (i) => dig(i), get mine() { return mine; }, get N() { return N; } };\n  let minesPlaced = false;"];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("minesweeper/", off, (pg) => lib.injectScript(pg, "games/minesweeper/game.js", [HOOK]));
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const M = __ms; M.dig(Math.floor(M.N / 2));
+        for (let j = 0; j < M.N; j++) if (!M.mine[j]) M.dig(j);
+        const wave = document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".field .c") && a.effect.getKeyframes().some((k) => /brightness/.test(k.filter || "")));
+        return { won: document.querySelector(".field").classList.contains("won"), cells: M.N, wave: wave.length, spread: wave.length ? Math.max(...wave.map((a) => a.effect.getTiming().delay)) - Math.min(...wave.map((a) => a.effect.getTiming().delay)) : 0 };
+      });
+      await done(p, "minesweeper FX " + (off ? "off" : "on"));
+    }
+    check("minesweeper, FX on: a win sends a wave across every cell, spreading out from where it finished", got.on.won && got.on.wave === got.on.cells && got.on.spread > 100, got.on);
+    check("minesweeper, FX off: the board stands cleared, no wave", got.off.won && got.off.wave === 0, got.off);
+  }
+
+  // ---- Speedle, FX on: a guess's tiles flip one after another (their colours
+  // all land at once, and the last flip ends inside the 450ms before a solved
+  // word's next word); FX off: no stagger
+  {
+    const HOOK = ["  // ----- boot ---", "  window.__speedle = { setAnswer: function (w) { answer = w; }, key: handleKey };\n  // ----- boot ---"];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("speedle/", off, (pg) => lib.injectScript(pg, "games/speedle/game.js", [HOOK]));
+      await p.click("#m-sprint"); await p.waitForTimeout(300);
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        __speedle.setAnswer("brave");
+        "brain".split("").concat("enter").forEach((k) => __speedle.key(k));
+        const row = [...document.querySelectorAll(".row")][0].querySelectorAll(".tile");
+        return { colours: [...row].map((t) => (t.className.match(/green|yellow|gray/) || ["-"])[0]).join(" "),
+          lags: [...row].map((t) => { const a = t.getAnimations().find((x) => x.animationName === "flip"); return a ? a.effect.getTiming().delay : null; }) };
+      });
+      await done(p, "speedle FX " + (off ? "off" : "on"));
+    }
+    const ends = got.on.lags.every((d) => d !== null) ? Math.max(...got.on.lags) + 300 : null;
+    check("speedle, FX on: the tiles flip one after another, every colour there at once, all done inside 450ms",
+      got.on.colours === "green green green gray gray" && JSON.stringify(got.on.lags) === "[0,35,70,105,140]" && ends <= 450, got.on);
+    check("speedle, FX off: the same colours, no stagger", got.off.colours === "green green green gray gray" && got.off.lags.every((d) => !d), got.off);
+  }
+
+  // ---- Abyss, FX on: a hard drop leaves a fading trail of the piece down the
+  // rows it fell through; FX off: the still streak instead
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("abyss/", off);
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        Abyss.start("descent"); Abyss.test.setGrav(100000);
+        requestAnimationFrame(() => {
+          Abyss.test.setPiece("T"); Abyss.hard();
+          let most = 0, streak = false, frames = 0;
+          (function f() {
+            const m = Abyss.test.marks(); most = Math.max(most, m.trailDrawn); streak = streak || m.dropDrawn;
+            if (++frames < 30) requestAnimationFrame(f); else res({ most, streak, after: Abyss.test.marks().trailDrawn });
+          })();
+        });
+      }));
+      await done(p, "abyss trail FX " + (off ? "off" : "on"));
+    }
+    check("abyss, FX on: a hard drop leaves a fading trail down the rows it fell, gone soon after", got.on.most >= 20 && got.on.after === 0 && !got.on.streak, got.on);
+    check("abyss, FX off: no trail, the still streak instead", got.off.most === 0 && got.off.streak, got.off);
+  }
+
+  // ---- Crazy Ohio, FX on: a hit bursts where the tile was, a ring and
+  // sparks in the lane's colour; FX off: the tile simply goes
+  {
+    const HOOK = ["  window.__OSU_TEST__ = {", "  window.__co = { hit: (t) => registerHit(t), get tiles() { return tiles; } };\n  window.__OSU_TEST__ = {"];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("crazy-ohio/", off, (pg) => lib.injectScript(pg, "games/crazy-ohio/game.js", [HOOK]));
+      await p.click("#startBtn");
+      await p.waitForFunction(() => __co.tiles.length > 0, null, { timeout: 8000 });
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const t = __co.tiles[0], lane = document.querySelector('.lane[data-col="' + t.col + '"]');
+        __co.hit(t);
+        const b = lane.querySelector(".burst");
+        return { burst: !!b, sparks: b ? b.querySelectorAll(".spark").length : 0, moving: b ? b.getAnimations({ subtree: true }).length : 0,
+          colour: b ? getComputedStyle(b).color === getComputedStyle(lane.querySelector(".key")).color : null };
+      });
+      await done(p, "crazy-ohio FX " + (off ? "off" : "on"));
+    }
+    check("crazy-ohio, FX on: a hit bursts in its lane's colour, a ring and sparks", got.on.burst && got.on.sparks === 6 && got.on.moving === 7 && got.on.colour, got.on);
+    check("crazy-ohio, FX off: the tile simply goes, no burst", !got.off.burst, got.off);
+  }
+
+  // ---- Jam Jar, FX on: a dropped fruit squashes as it lands and springs
+  // back; FX off: it simply lands
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("jam-jar/", off);
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        const G = __game; G.setQueue(3, 0); G.setAim(240); G.drop();
+        const f = G.fruits[G.fruits.length - 1], t0 = performance.now();
+        let most = 0, landedAt = null;
+        (function w() {
+          const k = G.squash(f); most = Math.max(most, Math.abs(k));
+          if (landedAt === null && f.contacted) landedAt = performance.now() - t0;
+          if (performance.now() - t0 < 2000) requestAnimationFrame(w); else res({ landed: landedAt !== null, most: +most.toFixed(3), after: G.squash(f) });
+        })();
+      }));
+      await done(p, "jam-jar FX " + (off ? "off" : "on"));
+    }
+    check("jam-jar, FX on: a dropped fruit squashes as it lands and springs back", got.on.landed && got.on.most > 0.05 && got.on.after === 0, got.on);
+    check("jam-jar, FX off: it simply lands", got.off.landed && got.off.most === 0, got.off);
+  }
+
+  // ---- Flappy World, FX on: the medal pops onto the game-over card and a
+  // glint sweeps across it now and then; FX off: it simply sits there
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("flappy-world/", off);
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        game.score = 30; game.die();
+        const cv = document.querySelector("canvas"), k = cv.width / 480, g = cv.getContext("2d");
+        const at = (t) => { game.medalT = t; game.draw(0); const f = game.medalFx(); return { s: +f.s.toFixed(2), glint: f.glint >= 0, px: Array.from(g.getImageData(Math.round(196 * k), Math.round(330 * k), Math.round(88 * k), Math.round(20 * k)).data).join() }; };
+        const a = at(0.05), b = at(0.3), c = at(0.95), d = at(2.2);
+        return { pop: [a.s, b.s, c.s], glintAt: c.glint, between: d.glint, glintShows: c.px !== d.px };
+      });
+      await done(p, "flappy-world FX " + (off ? "off" : "on"));
+    }
+    check("flappy-world, FX on: the medal pops onto the card, then a glint sweeps across its face",
+      got.on.pop[0] === 0 && got.on.pop[1] > 0 && got.on.pop[1] !== 1 && got.on.pop[2] === 1 && got.on.glintAt && !got.on.between && got.on.glintShows, got.on);
+    check("flappy-world, FX off: the medal simply sits there", got.off.pop.every((s) => s === 1) && !got.off.glintAt && !got.off.glintShows, got.off);
+  }
+
+  // ---- Spacer, FX on: an explosion sends a shockwave ring racing out (a big
+  // one for a boss or your ship); FX off: the burst plays alone
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("spacer/", off);
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const g = document.createElement("canvas").getContext("2d"), rings = [];
+        const o = g.stroke; g.stroke = function () { rings.push(+this.lineWidth.toFixed(2)); return o.apply(this, arguments); };
+        const boom = (big, t) => { const e = new Explosion(100, 100, big); e.t = t; e.draw(g); };
+        boom(true, 0.15); boom(false, 0.1); const early = rings.length;
+        boom(true, 0.7); boom(false, 0.4);
+        return { early, late: rings.length - early, widths: rings };
+      });
+      await done(p, "spacer FX " + (off ? "off" : "on"));
+    }
+    check("spacer, FX on: an explosion's shockwave ring races out (a thicker one for a big blast), and it's gone once spent",
+      got.on.early === 2 && got.on.widths[0] > got.on.widths[1] && got.on.late === 0, got.on);
+    check("spacer, FX off: the burst plays alone, no ring", got.off.early === 0 && got.off.late === 0, got.off);
+  }
+
+  // ---- Typetwo, FX on: a spell bolt flies with a long glowing trail and
+  // sheds motes; FX off: the bolt with its short tail
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("typetwo/", off, (pg) => lib.injectScript(pg, "games/typetwo/game.js", [["window.__game = {", "window.__game = {\n    get motes() { return particles.filter((q) => q.kind === \"mote\").length; }, get bolts() { return bullets.length; },"]]));
+      await p.keyboard.press("Enter");
+      await p.waitForFunction(() => __game.words && __game.words.length > 0, null, { timeout: 8000 });
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        let glow = 0, motes = 0, bolts = 0;
+        const o = CanvasRenderingContext2D.prototype.stroke;
+        CanvasRenderingContext2D.prototype.stroke = function () { if (this.shadowBlur === 10 && /177, ?140, ?255/.test(this.shadowColor)) glow++; return o.apply(this, arguments); };
+        window.dispatchEvent(new KeyboardEvent("keydown", { key: __game.words[0].text[0], bubbles: true }));
+        const t0 = performance.now();
+        (function f() {
+          motes = Math.max(motes, __game.motes); bolts = Math.max(bolts, __game.bolts);
+          if (performance.now() - t0 < 350) requestAnimationFrame(f); else { CanvasRenderingContext2D.prototype.stroke = o; res({ bolts, glow, motes }); }
+        })();
+      }));
+      await done(p, "typetwo bolts FX " + (off ? "off" : "on"));
+    }
+    check("typetwo, FX on: a spell bolt flies with a glowing trail and sheds motes", got.on.bolts > 0 && got.on.glow > 0 && got.on.motes > 0, got.on);
+    check("typetwo, FX off: the bolt flies with its short tail, no trail or motes", got.off.bolts > 0 && got.off.glow === 0 && got.off.motes === 0, got.off);
+  }
+
+  // ---- Stopwatch, FX on: a perfect stop sends a gold ring out from the watch
+  // and a scatter of glints (a merely good stop doesn't); FX off: the verdict alone
+  {
+    const HOOK = ["  function onStart() {", "  window.__sw = { stopOff: function (err) { onStart(); startStamp = performance.now() - (target + err) * 1000; onStop(); } };\n  function onStart() {"];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("stopwatch/", off, (pg) => lib.injectScript(pg, "games/stopwatch/game.js", [HOOK]));
+      await p.click("#btn-start"); await p.waitForTimeout(100);
+      const look = () => p.evaluate(() => { const r = document.querySelector(".watch .pring"); return { ring: !!r, glints: document.querySelectorAll(".watch .pglint").length, moving: r ? r.getAnimations().length : 0, verdict: document.getElementById("result").textContent }; });
+      await p.evaluate(() => __sw.stopOff(0.1));
+      const good = await look();
+      await p.waitForFunction(() => document.querySelector(".stage").dataset.phase === "ready", null, { timeout: 5000 });
+      await p.evaluate(() => __sw.stopOff(0));
+      got[off ? "off" : "on"] = { good, perfect: await look() };
+      await done(p, "stopwatch FX " + (off ? "off" : "on"));
+    }
+    check("stopwatch, FX on: a perfect stop rings gold out from the watch with glints; a good one doesn't",
+      !got.on.good.ring && got.on.perfect.ring && got.on.perfect.glints === 8 && got.on.perfect.moving === 1 && /perfection/.test(got.on.perfect.verdict), got.on);
+    check("stopwatch, FX off: the perfect stop's verdict alone", !got.off.perfect.ring && got.off.perfect.glints === 0 && /perfection/.test(got.off.perfect.verdict), got.off);
+  }
+
+  // ---- Steamfitter, FX on: a turned pipe eases its quarter-turn into place
+  // (overshooting a touch) while the board's logic has already turned it;
+  // FX off: it jumps
+  {
+    const HOOK = ["window.PipeMania = {", `window.PipeMania = {
+    __load: function (i) { loadLevelData(LV[i], i); },
+    __turn: function (r, c) { rotateAt(r, c); }, __left: function (r, c) { return turnLeft(grid[r][c]); },`];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("steamfitter/", off, (pg) => lib.injectScript(pg, "games/steamfitter/game.js", [HOOK]));
+      got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
+        PipeMania.__load(0);
+        let at = null;
+        for (let r = 0; r < 12 && !at; r++) for (let c = 0; c < 12 && !at; c++) { const x = PipeMania.cellAt(r, c); if (x && x.kind === "pipe" && x.type.length === 1 && /[HV]/.test(x.type)) at = { r, c, type: x.type }; }
+        PipeMania.__turn(at.r, at.c);
+        const turned = PipeMania.cellAt(at.r, at.c).type, seen = [];
+        (function f() { seen.push(+PipeMania.__left(at.r, at.c).toFixed(3)); if (seen.length < 25) requestAnimationFrame(f); else res({ from: at.type, turned, first: seen[0], least: Math.min(...seen), last: seen[seen.length - 1] }); })();
+      }));
+      await done(p, "steamfitter turn FX " + (off ? "off" : "on"));
+    }
+    check("steamfitter, FX on: a turned pipe eases its quarter-turn into place, overshooting a touch, while the board has turned it at once",
+      got.on.turned !== got.on.from && got.on.first > 0.5 && got.on.least < 0 && got.on.last === 0, got.on);
+    check("steamfitter, FX off: the pipe jumps", got.off.turned !== got.off.from && got.off.first === 0 && got.off.least === 0, got.off);
+  }
+
+  // ---- Hash, FX on: the deal turns each card face up, one after another,
+  // all done within about half a second; FX off: the cards are simply there
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("hash/", off);
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        document.getElementById("newBtn").click();
+        const cards = [...document.querySelectorAll(".card.dealt")];
+        const flips = cards.map((c) => c.getAnimations().find((a) => a.animationName === "dealFlip")).filter(Boolean);
+        const lags = flips.map((a) => a.effect.getTiming().delay);
+        return { dealt: cards.length, flips: flips.length, lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + flips[0].effect.getTiming().duration : 0 };
+      });
+      await done(p, "hash deal FX " + (off ? "off" : "on"));
+    }
+    check("hash, FX on: the deal turns each card face up one after another, all inside ~0.6s",
+      got.on.dealt >= 12 && got.on.flips === got.on.dealt && JSON.stringify(got.on.lags) === "[0,20,40,60]" && got.on.ends <= 650, got.on);
+    check("hash, FX off: the cards are simply there", got.off.dealt >= 12 && got.off.flips === 0, got.off);
+  }
+
+  // ---- Klondike, FX on: a card that travels arcs there, lifted mid-flight
+  // and above the rest; FX off: it jumps (rimmed gold where it lands)
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("klondike/", off);
+      await p.evaluate(() => Klondike.almostWin()); await p.waitForTimeout(250);
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const moved = Klondike.move("t0", "f0", 1), el = document.querySelector('.card[data-key="0-13"]');
+        const a = el.getAnimations().find((x) => x.effect.getKeyframes().length === 9);
+        const ys = a ? a.effect.getKeyframes().map((k) => +/,\s*([-\d.]+)px\)/.exec(k.transform)[1]) : [];
+        return { moved, arc: !!a, above: el.classList.contains("arc") && getComputedStyle(el).zIndex === "800",
+          lifted: ys.length ? Math.min(...ys) < Math.min(ys[0], ys[8]) - 5 : false, rim: el.classList.contains("landed") };
+      });
+      await done(p, "klondike arc FX " + (off ? "off" : "on"));
+    }
+    check("klondike, FX on: a card moved to a foundation arcs there, lifted mid-flight and above the rest",
+      got.on.moved && got.on.arc && got.on.above && got.on.lifted && !got.on.rim, got.on);
+    check("klondike, FX off: it jumps, rimmed gold where it lands", got.off.moved && !got.off.arc && !got.off.above && got.off.rim, got.off);
   }
 
   await ctx.close();
