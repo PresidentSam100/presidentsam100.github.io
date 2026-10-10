@@ -213,7 +213,7 @@
     streak = 0;
     hud();
     var e = $("echo");
-    e.style.borderColor = "rgba(239,106,90,0.8)";
+    e.style.borderColor = "rgba(198,48,28,0.95)";
     setTimeout(function () { e.style.borderColor = ""; }, 220);
   }
   function light(l) {
@@ -339,15 +339,202 @@
   }
 
   // ---- painting -----------------------------------------------------------------------
+  // An ink-wash scroll. The painting itself (rice paper, an evening wash with
+  // the moon left bare, ranges of peaks standing out of mist, pines, a pagoda
+  // and the town's roofs) is brushed once per window size into `scroll` and
+  // copied each frame; only the mist, the birds, the seal, the falling dusk
+  // and the lanterns are drawn afresh.
   var cv = $("stage"), g = cv.getContext("2d");
-  var W = 0, H = 0, stars = [];
+  var W = 0, H = 0;
+  var scroll = document.createElement("canvas");
+  var mistT = 0;                       // how far the mist has drifted, in seconds of Visual FX
+  var dusk = 0;                        // how far the evening has closed in (draw)
+  var PAPER = "241,232,212", INK = "29,24,20", SEAL = "198,48,28";
+
+  // a seeded generator, so a resize brushes the same painting again
+  function seeded(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // One range of peaks: steep-sided and close-set, no two the same height,
+  // dark at the summits and washed out to bare paper at the foot, where the
+  // mist lies. Sizes go by the window's height, so a phone held upright gets
+  // fewer peaks, not thinner ones. `pines` stands a few trees on the shoulders.
+  function range(s, seed, foot, tall, alpha, tint, pines) {
+    var r = seeded(seed), peaks = [], x = -0.1 * H, k;
+    while (x < W + 0.12 * H) {
+      peaks.push({ x: x, w: (0.07 + r() * 0.09) * H, h: (0.35 + r() * 0.65) * tall, p: 1.5 + r() * 1.3 });
+      x += (0.1 + r() * 0.16) * H;
+    }
+    function top(px) {
+      var best = 0;
+      for (var i = 0; i < peaks.length; i++) {
+        var d = Math.abs(px - peaks[i].x) / peaks[i].w;
+        if (d < 1) best = Math.max(best, peaks[i].h * Math.pow(1 - Math.pow(d, peaks[i].p), 0.9));
+      }
+      // a little unevenness in the rock, the same at any window width
+      return foot - best - (best > 2 ? Math.sin(px * 0.31 + seed) * Math.sin(px * 0.073 + 1.7) * tall * 0.014 : 0);
+    }
+    var wash = s.createLinearGradient(0, foot - tall, 0, foot);
+    wash.addColorStop(0, "rgba(" + tint + "," + alpha + ")");
+    wash.addColorStop(0.55, "rgba(" + tint + "," + (alpha * 0.6).toFixed(3) + ")");
+    wash.addColorStop(1, "rgba(" + tint + ",0)");
+    s.fillStyle = wash;
+    s.beginPath(); s.moveTo(-10, foot);
+    for (var px = -10; px <= W + 10; px += 3) s.lineTo(px, top(px));
+    s.lineTo(W + 10, foot); s.closePath(); s.fill();
+    // a darker line along each summit, and a few dry strokes down its face
+    s.strokeStyle = "rgba(" + tint + "," + (alpha * 0.7).toFixed(3) + ")";
+    s.lineWidth = 1.2; s.lineCap = "round"; s.lineJoin = "round";
+    s.beginPath();
+    var pen = false;
+    for (px = -10; px <= W + 10; px += 3) {
+      var ty = top(px);
+      if (ty < foot - tall * 0.3) { if (pen) s.lineTo(px, ty); else s.moveTo(px, ty); pen = true; } else pen = false;
+    }
+    s.stroke();
+    s.strokeStyle = "rgba(" + tint + "," + (alpha * 0.45).toFixed(3) + ")";
+    for (k = 0; k < peaks.length; k++) {
+      var pk = peaks[k], rs = seeded(seed * 1000 + k);
+      if (pk.h < tall * 0.5) continue;
+      for (var j = 0; j < 4; j++) {
+        var sx = pk.x + (rs() - 0.5) * pk.w * 0.9, sy = top(sx) + 4 + rs() * pk.h * 0.12, len = pk.h * (0.14 + rs() * 0.24);
+        s.lineWidth = 0.9 + rs() * 0.9;
+        s.beginPath(); s.moveTo(sx, sy);
+        s.quadraticCurveTo(sx + (rs() - 0.5) * 8, sy + len * 0.5, sx + (rs() - 0.5) * 10, sy + len);
+        s.stroke();
+      }
+    }
+    if (pines) {
+      for (k = 0; k < peaks.length; k++) {
+        if (k % 3 !== 1) continue;
+        var side = k % 2 ? 1 : -1, tx = peaks[k].x + side * peaks[k].w * 0.42;
+        pine(s, tx, top(tx) + 3, H * 0.062, side);
+        pine(s, tx + side * H * 0.03, top(tx + side * H * 0.03) + 3, H * 0.044, side);
+      }
+    }
+  }
+  // a pine: a leaning trunk and three flat pads of needles
+  function pine(s, x, y, size, lean) {
+    s.strokeStyle = "rgba(" + INK + ",0.85)"; s.lineCap = "round";
+    s.lineWidth = Math.max(1.2, size * 0.075);
+    s.beginPath(); s.moveTo(x, y);
+    s.quadraticCurveTo(x + lean * size * 0.26, y - size * 0.5, x + lean * size * 0.16, y - size);
+    s.stroke();
+    s.fillStyle = "rgba(" + INK + ",0.74)";
+    for (var i = 0; i < 3; i++) {
+      var py = y - size * (0.5 + i * 0.22), pw = size * (0.46 - i * 0.1);
+      s.beginPath();
+      s.ellipse(x + lean * size * (0.22 - i * 0.03) + (i % 2 ? -1 : 1) * size * 0.1, py, pw, size * 0.075, lean * -0.14, 0, 6.3);
+      s.fill();
+    }
+  }
+  // a band of mist: bare paper laid back over the foot of a range
+  function mistBand(s, y, depth, a) {
+    var m = s.createLinearGradient(0, y - depth, 0, y + depth);
+    m.addColorStop(0, "rgba(" + PAPER + ",0)");
+    m.addColorStop(0.5, "rgba(" + PAPER + "," + a + ")");
+    m.addColorStop(1, "rgba(" + PAPER + ",0)");
+    s.fillStyle = m; s.fillRect(0, y - depth, W, depth * 2);
+  }
+  // a roof in silhouette over a building x0..x1: the slope sags from the ridge
+  // (at r) down to the eaves (at e), which flick up at the corners
+  function roof(s, x0, x1, e, r, over) {
+    var in0 = x0 + (x1 - x0) * 0.24, in1 = x1 - (x1 - x0) * 0.24;
+    s.beginPath();
+    s.moveTo(x0 - over, e - over * 0.7);
+    s.quadraticCurveTo(x0 + over * 0.6, e - 1, in0, r);
+    s.lineTo(in1, r);
+    s.quadraticCurveTo(x1 - over * 0.6, e - 1, x1 + over, e - over * 0.7);
+    s.quadraticCurveTo((x0 + x1) / 2, e + over * 0.55, x0 - over, e - over * 0.7);
+    s.closePath(); s.fill();
+  }
+  // where the moon is left bare (the wash round it is what shows it)
+  function moonAt() { return { x: W * 0.2, y: H * 0.17, r: Math.max(20, Math.min(44, Math.min(W, H) * 0.055)) }; }
+
+  function paintScroll() {
+    scroll.width = cv.width; scroll.height = cv.height;
+    if (!W || !H) return;
+    var s = scroll.getContext("2d");
+    s.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+    // rice paper
+    var paper = s.createLinearGradient(0, 0, 0, H);
+    paper.addColorStop(0, "#ebe1cb"); paper.addColorStop(0.5, "#f2e9d6"); paper.addColorStop(1, "#ebe0c8");
+    s.fillStyle = paper; s.fillRect(0, 0, W, H);
+    // the evening: a pale ink wash from the top, deeper round the moon
+    var sky = s.createLinearGradient(0, 0, 0, H * 0.56);
+    sky.addColorStop(0, "rgba(88,102,112,0.36)"); sky.addColorStop(1, "rgba(88,102,112,0)");
+    s.fillStyle = sky; s.fillRect(0, 0, W, H * 0.56);
+    var m = moonAt();
+    var halo = s.createRadialGradient(m.x, m.y, m.r, m.x, m.y, m.r * 2.8);
+    halo.addColorStop(0, "rgba(80,94,104,0.26)"); halo.addColorStop(1, "rgba(80,94,104,0)");
+    s.fillStyle = halo; s.fillRect(m.x - m.r * 3, m.y - m.r * 3, m.r * 6, m.r * 6);
+    s.fillStyle = "#f8f2e3";
+    s.beginPath(); s.arc(m.x, m.y, m.r, 0, 7); s.fill();
+    s.strokeStyle = "rgba(" + INK + ",0.14)"; s.lineWidth = 1;
+    s.beginPath(); s.arc(m.x, m.y, m.r, 0, 7); s.stroke();
+    // three ranges, each nearer one darker, with mist lying between them
+    range(s, 11, H * 0.67, H * 0.36, 0.3, "84,98,108");
+    mistBand(s, H * 0.65, H * 0.075, 0.8);
+    range(s, 23, H * 0.81, H * 0.37, 0.5, "56,64,70");
+    mistBand(s, H * 0.8, H * 0.065, 0.75);
+    range(s, 37, H * 0.97, H * 0.25, 0.8, "34,34,34", true);
+    // lamplight from the streets, low over the roofs
+    var base = H - 46;
+    var lamp = s.createLinearGradient(0, base - 90, 0, H);
+    lamp.addColorStop(0, "rgba(220,96,40,0)"); lamp.addColorStop(1, "rgba(220,96,40,0.26)");
+    s.fillStyle = lamp; s.fillRect(0, base - 90, W, 136);
+    // the town along the foot of the painting, a lantern hung at every eave
+    var ink = "rgba(" + INK + ",0.93)";
+    s.fillStyle = ink;
+    s.fillRect(0, base, W, 46);
+    var rt = seeded(53), hung = [], tx = -30;
+    while (tx < W + 30) {
+      var tw = 62 + rt() * 56, te = base - 6 - rt() * 16;
+      roof(s, tx, tx + tw, te, te - 13 - rt() * 7, 11);
+      s.fillRect(tx + 5, te - 1, tw - 10, base - te + 2);
+      hung.push(tx - 9, te - 1, tx + tw + 9, te - 1);
+      tx += tw + 20 + rt() * 26;
+    }
+    // the pagoda at the side: three storeys, each under its own roof
+    var px = W * 0.08;
+    for (var lv = 0; lv < 3; lv++) {
+      var half = 32 - lv * 8, yb = base - lv * 30;
+      s.fillRect(px - half, yb - 21, half * 2, 22);
+      roof(s, px - half, px + half, yb - 20, yb - 30, 12 - lv * 2);
+    }
+    s.fillRect(px - 1.5, base - 106, 3, 18);                    // its finial
+    s.beginPath(); s.arc(px, base - 107, 3, 0, 7); s.fill();
+    s.fillStyle = "rgba(" + SEAL + ",0.95)";
+    for (var hi = 0; hi < hung.length; hi += 2) { s.beginPath(); s.arc(hung[hi], hung[hi + 1], 2.6, 0, 7); s.fill(); }
+    // the paper's grain: flecks and fibres, then the edges gone a little brown
+    var rg = seeded(5);
+    for (var i = Math.round(W * H / 620); i > 0; i--) {
+      s.fillStyle = "rgba(112,92,60," + (0.03 + rg() * 0.05).toFixed(3) + ")";
+      s.fillRect(rg() * W, rg() * H, 1, 1);
+    }
+    s.strokeStyle = "rgba(140,118,84,0.07)"; s.lineWidth = 0.8;
+    for (i = Math.round(W * H / 8000); i > 0; i--) {
+      var fx0 = rg() * W, fy0 = rg() * H, fa = rg() * 6.28, fl = 6 + rg() * 14;
+      s.beginPath(); s.moveTo(fx0, fy0); s.lineTo(fx0 + Math.cos(fa) * fl, fy0 + Math.sin(fa) * fl); s.stroke();
+    }
+    var edge = s.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
+    edge.addColorStop(0, "rgba(128,100,60,0)"); edge.addColorStop(1, "rgba(128,100,60,0.22)");
+    s.fillStyle = edge; s.fillRect(0, 0, W, H);
+  }
+
   function resize() {
     var dpr = Math.min(2, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    stars = [];
-    for (var i = 0; i < 90; i++) stars.push([Math.random() * W, Math.random() * H * 0.7, 0.5 + Math.random() * 1.2, Math.random() * 6.28]);
+    paintScroll();
     bgDrifters = [];
     for (var d = 0; d < 7; d++) bgDrifters.push({ x: Math.random() * W, y: Math.random() * H, v: 6 + Math.random() * 8, s: 5 + Math.random() * 7 });
     // a narrower window (a phone turned upright) brings the lanterns in with
@@ -368,20 +555,27 @@
     var bw = s * (0.92 + (chn - 1) * 0.5), bh = s * 1.12;
     var isCand = buffer && l.state === "up" &&
       l.keys.some(function (k) { return k.indexOf(buffer) === 0; });
-    var lit = l.state === "lit" || isCand;
-    var warm = l.state === "lit" ? 1 : isCand ? 0.78 : 0.55;
-    // glow
+    var lit = l.state === "lit";
+    // its light on the paper: a warm bloom, wider once it's lit
     var R = Math.max(bw, bh) * 0.6;
     var glow = g.createRadialGradient(x, y, R * 0.15, x, y, R * (lit ? 2.3 : 1.6));
-    glow.addColorStop(0, "rgba(255,170,70," + 0.5 * warm + ")");
-    glow.addColorStop(1, "rgba(255,170,70,0)");
+    glow.addColorStop(0, "rgba(238,124,44," + (lit ? 0.5 : isCand ? 0.34 : 0.2) + ")");
+    glow.addColorStop(1, "rgba(238,124,44,0)");
     g.fillStyle = glow;
     g.fillRect(x - R * 2.5, y - R * 2.5, R * 5, R * 5);
-    // paper body
+    // the tassel under it
+    var tl = Math.min(18, s * 0.3);
+    g.strokeStyle = "rgba(" + SEAL + ",0.95)"; g.lineWidth = 1.2; g.lineCap = "round";
+    g.beginPath();
+    for (var k = -2; k <= 2; k++) { g.moveTo(x, y + bh / 2 + 7); g.lineTo(x + k * 2.2, y + bh / 2 + 7 + tl); }
+    g.stroke();
+    g.fillStyle = "#a3271a";
+    g.beginPath(); g.arc(x, y + bh / 2 + 7, 2.6, 0, 7); g.fill();
+    // paper body: vermilion at the sides, brightest at the heart, and brighter
+    // still for a word the typing fits, or one that's lit
     var body = g.createLinearGradient(x - bw / 2, 0, x + bw / 2, 0);
-    body.addColorStop(0, "rgba(230,110,40," + (0.75 + 0.25 * warm) + ")");
-    body.addColorStop(0.5, "rgba(255,190,90," + (0.8 + 0.2 * warm) + ")");
-    body.addColorStop(1, "rgba(230,110,40," + (0.75 + 0.25 * warm) + ")");
+    var side = lit ? "#ea6a2e" : "#d24a2a", heart = lit ? "#fff0b4" : isCand ? "#ffd27e" : "#f7ae5e";
+    body.addColorStop(0, side); body.addColorStop(0.5, heart); body.addColorStop(1, side);
     g.fillStyle = body;
     g.beginPath();
     g.moveTo(x - bw * 0.34, y - bh / 2);
@@ -391,7 +585,7 @@
     g.closePath();
     g.fill();
     // ribs
-    g.strokeStyle = "rgba(160,60,20,0.35)";
+    g.strokeStyle = "rgba(150,48,22,0.4)";
     g.lineWidth = 1;
     for (var r = -1; r <= 1; r++) {
       g.beginPath();
@@ -399,44 +593,59 @@
       g.quadraticCurveTo(x, y + r * bh * 0.22 + 4, x + bw * (0.44 + r * 0.05), y + r * bh * 0.22);
       g.stroke();
     }
-    // caps
-    g.fillStyle = "#8a2f1d";
+    // caps: dark wood with a gilt line
+    g.fillStyle = "#33190f";
     g.fillRect(x - bw * 0.3, y - bh / 2 - 5, bw * 0.6, 6);
     g.fillRect(x - bw * 0.26, y + bh / 2 - 1, bw * 0.52, 6);
-    // flame dot
-    g.fillStyle = "rgba(255,240,180," + (0.5 + 0.5 * warm) + ")";
-    g.beginPath(); g.arc(x, y + bh / 2 + 9, 3, 0, 7); g.fill();
-    // hanzi
-    g.fillStyle = lit ? "#5a1408" : "rgba(90,20,8,0.9)";
+    g.fillStyle = "#c9a45a";
+    g.fillRect(x - bw * 0.3, y - bh / 2 - 0.5, bw * 0.6, 1.2);
+    g.fillRect(x - bw * 0.26, y + bh / 2 - 1, bw * 0.52, 1.2);
+    // hanzi, in ink
+    g.fillStyle = "#1f130c";
     g.font = "600 " + Math.round(s * (chn >= 4 ? 0.4 : chn === 3 ? 0.44 : 0.5)) + "px 'Ma Shan Zheng', 'KaiTi', 'SimSun', serif";
     g.textAlign = "center"; g.textBaseline = "middle";
     g.fillText(l.hanzi, x, y + 1);
-    // only what has been typed so far - never the rest of the answer
+    // A word the typing still fits is ringed with one turn of the red brush,
+    // and under it only what has been typed so far - never the rest of the answer
     if (isCand) {
-      g.font = "800 15px Nunito, monospace";
-      g.textAlign = "center";
-      g.fillStyle = "#ffd23f";
-      g.fillText(buffer, x, y + bh / 2 + 24);
+      g.strokeStyle = "rgba(" + SEAL + ",0.92)"; g.lineCap = "round";
+      g.lineWidth = 3.2;
+      g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, -1.25, 4.5); g.stroke();
+      g.lineWidth = 1.4;
+      g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, 4.5, 4.82); g.stroke();
+      g.font = "700 16px 'Gentium Book Plus', Georgia, serif";
+      g.textAlign = "center"; g.lineJoin = "round";
+      g.strokeStyle = "rgba(" + PAPER + ",0.95)"; g.lineWidth = 4;
+      g.strokeText(buffer, x, y + bh / 2 + tl + 24);
+      g.fillStyle = "rgb(" + INK + ")";
+      g.fillText(buffer, x, y + bh / 2 + tl + 24);
     }
   }
 
   function draw(t, dt) {
-    var sky = g.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, "#090a24");
-    sky.addColorStop(0.6, "#151038");
-    sky.addColorStop(1, "#33184a");
-    g.fillStyle = sky;
-    g.fillRect(0, 0, W, H);
-    // stars + moon
-    stars.forEach(function (st) {
-      var a = 0.35 + (fx() ? 0.45 * Math.abs(Math.sin(t * 0.0005 + st[3])) : 0.3);
-      g.fillStyle = "rgba(235,240,255," + a + ")";
-      g.fillRect(st[0], st[1], st[2], st[2]);
+    if (scroll.width && scroll.height) g.drawImage(scroll, 0, 0, W, H);
+    // mist over the valleys: it drifts with Visual FX on, and lies still with it off
+    if (fx()) mistT += dt || 0;
+    [[0.16, 0.6, 0.34, 5], [0.66, 0.72, 0.42, 8], [0.38, 0.84, 0.3, 6]].forEach(function (b) {
+      var half = b[2] * W, ry = H * 0.045;
+      var mx = ((b[0] * W + mistT * b[3] + half) % (W + half * 2)) - half;
+      g.save();
+      g.translate(mx, b[1] * H); g.scale(half / ry, 1);
+      var mg = g.createRadialGradient(0, 0, 0, 0, 0, ry);
+      mg.addColorStop(0, "rgba(" + PAPER + ",0.8)"); mg.addColorStop(1, "rgba(" + PAPER + ",0)");
+      g.fillStyle = mg; g.fillRect(-ry, -ry, ry * 2, ry * 2);
+      g.restore();
     });
-    g.fillStyle = "rgba(255,244,214,0.9)";
-    g.beginPath(); g.arc(W * 0.84, H * 0.14, 26, 0, 7); g.fill();
-    g.fillStyle = "rgba(9,10,36,1)";
-    g.beginPath(); g.arc(W * 0.84 - 11, H * 0.14 - 5, 22, 0, 7); g.fill();
+    // three birds going home, on the same slow wind
+    g.strokeStyle = "rgba(" + INK + ",0.62)"; g.lineWidth = 1.3; g.lineCap = "round";
+    var bx = ((W * 0.56 + mistT * 7 + 40) % (W + 80)) - 40, by = H * 0.19;
+    [[0, 0, 9], [20, -9, 7], [34, 5, 6]].forEach(function (b) {
+      g.beginPath();
+      g.moveTo(bx + b[0] - b[2], by + b[1] - b[2] * 0.3);
+      g.quadraticCurveTo(bx + b[0] - b[2] * 0.4, by + b[1] - b[2] * 0.5, bx + b[0], by + b[1]);
+      g.quadraticCurveTo(bx + b[0] + b[2] * 0.4, by + b[1] - b[2] * 0.5, bx + b[0] + b[2], by + b[1] - b[2] * 0.3);
+      g.stroke();
+    });
     // faraway lanterns already released: they drift up with Visual FX on,
     // and hang still with it off
     bgDrifters.forEach(function (d) {
@@ -444,57 +653,54 @@
         d.y -= d.v * (dt || 0);
         if (d.y < -20) { d.y = H + 20; d.x = Math.random() * W; }
       }
-      g.fillStyle = "rgba(255,160,70,0.35)";
-      g.beginPath(); g.arc(d.x, d.y, d.s * 0.5, 0, 7); g.fill();
+      // each a small lantern: an upright oval under a dark cap
+      var rw = d.s * 0.4, rh = d.s * 0.55;
+      g.fillStyle = "rgba(212,78,38,0.62)";
+      g.beginPath(); g.ellipse(d.x, d.y, rw, rh, 0, 0, 7); g.fill();
+      g.fillStyle = "rgba(" + INK + ",0.5)";
+      g.fillRect(d.x - rw * 0.6, d.y - rh - 1.2, rw * 1.2, 1.6);
     });
-    // rooftop silhouettes with a pagoda
-    g.fillStyle = "#07061a";
-    var base = H - 46;
-    g.fillRect(0, base, W, 46);
-    for (var rx = 0; rx < W; rx += 130) {
-      g.beginPath();
-      g.moveTo(rx, base);
-      g.quadraticCurveTo(rx + 28, base - 26, rx + 65, base - 22);
-      g.quadraticCurveTo(rx + 102, base - 26, rx + 130, base);
-      g.closePath(); g.fill();
+    // the painter's seal, cut with the game's own character in the script picked
+    var sz = W < 520 ? 30 : 38, sx = W - sz - (W < 520 ? 14 : 28), sy = Math.max(78, H * 0.17);
+    g.fillStyle = "rgba(" + SEAL + ",0.92)";
+    g.fillRect(sx, sy, sz, sz);
+    g.strokeStyle = "rgba(" + PAPER + ",0.85)"; g.lineWidth = 1;
+    g.strokeRect(sx + 3.5, sy + 3.5, sz - 7, sz - 7);
+    g.fillStyle = "rgb(" + PAPER + ")";
+    g.font = Math.round(sz * 0.64) + "px 'Ma Shan Zheng', 'KaiTi', 'SimSun', serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText(script === "trad" ? "燈" : "灯", sx + sz / 2, sy + sz / 2 + 1);
+    // Dusk closes in with each lantern lost to it, and falls when the third
+    // goes (unless the night lit forty: then the sky stays full of light). It
+    // deepens over a moment with Visual FX on, and at once with it off.
+    var want = state === "play" ? escaped * 0.07 : state === "over" && cleared < 40 ? 0.36 : 0;
+    dusk = fx() ? dusk + (want - dusk) * Math.min(1, (dt || 0) * 2.5) : want;
+    if (dusk > 0.004) {
+      g.fillStyle = "rgba(38,42,52," + dusk.toFixed(3) + ")";
+      g.fillRect(0, 0, W, H);
     }
-    // pagoda at the side
-    var px = W * 0.08;
-    for (var lv = 0; lv < 3; lv++) {
-      var pw = 84 - lv * 20, py = base - 18 - lv * 30;
-      g.beginPath();
-      g.moveTo(px - pw / 2 - 12, py);
-      g.quadraticCurveTo(px, py - 20, px + pw / 2 + 12, py);
-      g.lineTo(px + pw / 2 - 8, py - 14);
-      g.lineTo(px - pw / 2 + 8, py - 14);
-      g.closePath(); g.fill();
-      g.fillRect(px - pw / 2 + 8, py - 30, pw - 16, 18);
-    }
-    // crowd glow
-    var cg = g.createLinearGradient(0, base - 10, 0, H);
-    cg.addColorStop(0, "rgba(255,140,60,0.14)");
-    cg.addColorStop(1, "rgba(255,140,60,0)");
-    g.fillStyle = cg;
-    g.fillRect(0, base - 10, W, 56);
 
     lanterns.forEach(function (l) { drawLantern(l, t); });
 
     // sparks + floating glosses
-    sparks.forEach(function (s) {
-      g.fillStyle = "rgba(255,214,120," + Math.max(0, s.t) + ")";
+    sparks.forEach(function (s, i) {
+      g.fillStyle = "rgba(" + (i % 2 ? "206,146,44" : SEAL) + "," + Math.max(0, s.t) + ")";
       g.beginPath(); g.arc(s.x, s.y, 2, 0, 7); g.fill();
     });
-    g.textAlign = "center";
+    g.textAlign = "center"; g.lineJoin = "round";
     floats.forEach(function (f) {
       g.globalAlpha = Math.max(0, 1 - f.t / 1.6);
       // the pinyin and meaning are the point of lighting it, so they stay on
-      // screen: smaller if they're wider than it, and kept off its edges
-      var px = 19;
-      g.font = "800 " + px + "px Nunito, sans-serif";
+      // screen: smaller if they're wider than it, and kept off its edges.
+      // Ink, on a rim of bare paper so it reads over a peak or another lantern
+      var px = 20;
+      g.font = "700 " + px + "px 'Gentium Book Plus', Georgia, serif";
       var tw = g.measureText(f.text).width;
-      if (tw > W - 16) { px = Math.max(11, Math.floor(px * (W - 16) / tw)); g.font = "800 " + px + "px Nunito, sans-serif"; tw = g.measureText(f.text).width; }
+      if (tw > W - 16) { px = Math.max(11, Math.floor(px * (W - 16) / tw)); g.font = "700 " + px + "px 'Gentium Book Plus', Georgia, serif"; tw = g.measureText(f.text).width; }
       var fx0 = Math.max(tw / 2 + 8, Math.min(W - tw / 2 - 8, f.x));
-      g.fillStyle = "#ffe9cf";
+      g.strokeStyle = "rgba(" + PAPER + ",0.92)"; g.lineWidth = 5;
+      g.strokeText(f.text, fx0, f.y - f.t * 34);
+      g.fillStyle = "rgb(" + INK + ")";
       g.fillText(f.text, fx0, f.y - f.t * 34);
       g.globalAlpha = 1;
     });

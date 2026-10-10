@@ -2,7 +2,7 @@
 // of a game's art and only calms its motion: nothing vanishes, nothing loops.
 // FX on adds motion on top (Corner Pocket, Chess, Tic-Tac-Toe, Yi, Minesweeper,
 // Speedle, Abyss, Crazy Ohio, Jam Jar, Flappy World, Spacer, Typetwo,
-// Stopwatch, Steamfitter, Hash, Klondike, Lights Out).
+// Stopwatch, Steamfitter, Hash, Klondike, Lights Out, Lanterns).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check(what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -170,6 +170,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("lights-out, FX on: a gap runs round the chaser, and a bulb takes a moment to warm",
       got.on.groups === 3 && got.on.running === 3 && got.on.warm > 0.1, got.on);
     check("lights-out: the last bulb out darkens the name and the chaser, FX on or off", got.on.dark && got.off.dark, { on: got.on.dark, off: got.off.dark });
+  }
+
+  // ---- Lanterns: the mist over the valleys (the birds ride it) drifts with FX
+  // on and lies still with it off; dusk closes in with each lantern lost,
+  // either way
+  {
+    const hook = (pg) => lib.injectScript(pg, "games/lanterns/game.js", [["start: startRun,", "start: startRun, scene: function () { return { mist: mistT, dusk: dusk }; },"]]);
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("lanterns/", off, hook);
+      await p.evaluate(() => { Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0); });
+      // (frames, not milliseconds: a busy machine draws them late)
+      const frames = (n) => p.evaluate((n) => new Promise((res) => { const f = () => (--n > 0 ? requestAnimationFrame(f) : res()); requestAnimationFrame(f); }), n);
+      await frames(2);
+      const a = await p.evaluate(() => Lanterns.scene());
+      await frames(12);
+      const b = await p.evaluate(() => Lanterns.scene());
+      // two lanterns slip away off the top
+      await p.evaluate(() => { Lanterns.spawnWord("我", 0.4, -400); Lanterns.spawnWord("你", 0.6, -400); });
+      const dusk = await p.waitForFunction(() => Lanterns.escapedCount() === 2 && Lanterns.scene().dusk > 0.13, null, { timeout: 8000 }).then(() => true, () => false);
+      got[off ? "off" : "on"] = { drift: b.mist - a.mist, dusk0: a.dusk, dusk };
+      await done(p, "lanterns FX " + (off ? "off" : "on"));
+    }
+    check("lanterns, FX on: the mist drifts", got.on.drift > 0, got.on);
+    check("lanterns, FX off: the mist lies still", got.off.drift === 0, got.off);
+    check("lanterns: dusk closes in as lanterns are lost, FX on or off", got.on.dusk0 === 0 && got.off.dusk0 === 0 && got.on.dusk && got.off.dusk, got);
   }
 
   // ---- Hash: with FX off a hovered card doesn't lift, but keeps its deeper shadow

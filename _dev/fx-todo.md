@@ -78,6 +78,10 @@ Done (checked in `tests/fx-more.js`):
   loses nothing to it.
 - Klondike. A card that travels a pile or more arcs there, lifted on a curve,
   a little larger mid-flight and above the rest; nearer shifts still glide.
+- Lanterns (its ink-wash look). Mist drifts over the valleys and three birds
+  ride it; with FX off both lie still. Dusk closes in a shade with each
+  lantern lost and falls with the third, over a moment or at once. (Its sway,
+  sparks and faraway lanterns were already there.)
 - Lights Out (its marquee look). A gap runs round the chaser lights, a bulb
   takes a moment to warm up and longer to cool, and the name, the letterboard
   and the chaser fade out when the last bulb goes. FX off: the same sign, the

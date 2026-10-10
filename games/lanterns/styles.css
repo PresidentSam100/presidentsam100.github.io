@@ -1,25 +1,29 @@
 /* =====================================================================
-   Lanterns — a festival night. The game is all canvas; these styles
-   dress the HUD, the typing echo and the panels in lantern warmth.
+   Lanterns — an ink-wash scroll of the lantern festival. The game is all
+   canvas (game.js brushes the painting); these styles keep everything
+   else on the same paper: the HUD and the typing echo are slips of it,
+   and the panels are small scrolls in a silk mount, written in ink. Red
+   is kept for the seal, as on a painting, and for a slip of the brush.
    ===================================================================== */
 
 :root {
-  --night: #0d1030;
-  --paper: #ffd9a0;
-  --flame: #ff9c3f;
-  --ink: #ffe9cf;
-  --dim: #8f88b8;
-  --card: #1a1440;
+  --paper: #f1e8d4;
+  --paper-hi: #f8f2e3;
+  --ink: #1d1814;
+  --ink-soft: #5d5246;
+  --silk: #5a6b73;        /* the mount's brocade */
+  --seal: #c6301c;
+  --brush: "Ma Shan Zheng", "KaiTi", "STKaiti", serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 
 body {
-  font-family: "Nunito", "Segoe UI", sans-serif;
+  font-family: "Gentium Book Plus", Georgia, "Songti SC", serif;
   color: var(--ink);
   overflow: hidden;
-  background: var(--night);
+  background: var(--paper);
 }
 
 #stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
@@ -33,110 +37,143 @@ body {
 
 .nav-back-games {
   position: fixed; top: 14px; left: 16px; z-index: 50;
-  font: 800 14px/1 "Nunito", sans-serif;
-  color: var(--paper); text-decoration: none;
-  background: rgba(13, 16, 48, 0.85);
-  border: 1.5px solid rgba(255, 156, 63, 0.5); border-radius: 999px;
-  padding: 7px 14px;
+  font: 700 15px/1 "Gentium Book Plus", Georgia, serif;
+  color: var(--ink); text-decoration: none;
+  background: rgba(241, 232, 212, 0.94);
+  border: 1.5px solid rgba(29, 24, 20, 0.6); border-radius: 4px;
+  padding: 7px 13px;
 }
-.nav-back-games:hover { border-color: var(--flame); color: #fff; }
+.nav-back-games:hover { border-color: var(--ink); background: var(--paper-hi); }
 
 .hud {
   position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
   display: flex; gap: 18px; align-items: baseline;
-  background: rgba(13, 16, 48, 0.75);
-  border: 1.5px solid rgba(255, 156, 63, 0.4); border-radius: 999px;
-  padding: 6px 20px;
+  background: rgba(241, 232, 212, 0.9);
+  border: 1.5px solid rgba(29, 24, 20, 0.5); border-radius: 4px;
+  padding: 5px 20px;
   pointer-events: none;
 }
-.hud #hud-score { font-size: 22px; font-weight: 800; color: var(--paper); }
-.hud #hud-combo { font-size: 14px; font-weight: 800; color: var(--flame); min-width: 40px; }
+.hud #hud-score { font-size: 23px; font-weight: 700; color: var(--ink); }
+.hud #hud-combo { font-size: 15px; font-weight: 700; color: var(--seal); min-width: 40px; }
 .hud #hud-wishes { font-size: 15px; letter-spacing: 2px; }
 
 /* what you've typed so far */
 #echo {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 20;
-  font: 800 26px/1 "Nunito", monospace; letter-spacing: 4px;
-  color: var(--paper); text-shadow: 0 0 14px rgba(255, 156, 63, 0.6);
-  background: rgba(13, 16, 48, 0.7);
-  border: 1.5px solid rgba(255, 156, 63, 0.35); border-radius: 12px;
+  font: 700 27px/1 "Gentium Book Plus", Georgia, serif; letter-spacing: 4px;
+  color: var(--ink);
+  background: rgba(248, 242, 227, 0.94);
+  border: 1.5px solid rgba(29, 24, 20, 0.55); border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 44, 20, 0.22);
   padding: 10px 22px; min-width: 130px; min-height: 46px; text-align: center;
   pointer-events: none;
 }
-#echo:empty::before { content: "type the pinyin…"; font-size: 14px; font-weight: 600; color: var(--dim); letter-spacing: 1px; }
+#echo:empty::before { content: "type the pinyin…"; font-size: 15px; font-weight: 400; color: var(--ink-soft); letter-spacing: 1px; }
 
 /* ---- panels ------------------------------------------------------------ */
 .panel {
   position: fixed; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
-  padding: 26px 16px; overflow-y: auto;
-  background: rgba(6, 7, 22, 0.6);
+  display: flex; justify-content: center;
+  padding: 44px 26px 34px; overflow-y: auto;
+  background: rgba(236, 228, 208, 0.64);          /* the painting, gone into mist */
 }
 .panel[hidden] { display: none; }
+
+/* a card is a small scroll: paper (::after) mounted on silk (::before), the
+   silk deeper above and below than at the sides */
 .card {
+  position: relative; isolation: isolate;
   width: min(440px, 100%);
-  background: linear-gradient(180deg, #221a52, var(--card));
-  border: 1.5px solid rgba(255, 156, 63, 0.4); border-radius: 18px;
-  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(255, 156, 63, 0.08);
-  padding: 24px 24px 20px;
+  margin: auto 0;                     /* centred while it fits; from the top, scrolling, when it doesn't */
+  padding: 22px 24px 20px;
 }
-.card h1, .card h2 { font-weight: 800; color: var(--paper); }
-.card h1 { font-size: 30px; }
-.card h1::first-letter { font-family: "Ma Shan Zheng", cursive; }
-.card h2 { font-size: 23px; }
-.card .tag { color: var(--dim); margin: 3px 0 12px; font-weight: 600; }
-.card .how { font-size: 15px; line-height: 1.6; margin-bottom: 14px; }
-.card .how b { color: var(--flame); }
+.card::before, .card::after { content: ""; position: absolute; z-index: -1; }
+.card::before {
+  z-index: -2; inset: -26px -11px -18px;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 10px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.07) 0 2px, transparent 2px 10px),
+    var(--silk);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(29, 24, 20, 0.5), 0 16px 40px rgba(50, 38, 18, 0.4);
+}
+.card::after {
+  inset: 0;
+  background: linear-gradient(180deg, var(--paper-hi), var(--paper));
+  box-shadow: 0 0 0 1px rgba(29, 24, 20, 0.45), 0 0 0 4px rgba(241, 232, 212, 0.55);
+}
+.card h1, .card h2 { font-family: var(--brush); font-weight: 400; color: var(--ink); }
+.card h1 { font-size: 36px; line-height: 1.15; }
+/* the title's hanzi is the seal */
+.card h1::first-letter {
+  font-size: 30px; color: var(--paper-hi); background: var(--seal);
+  padding: 1px 6px 3px; margin-right: 9px; border-radius: 3px;
+}
+.card h2 { font-size: 30px; line-height: 1.2; }
+.card .tag { color: var(--ink-soft); margin: 2px 0 12px; }
+.card .how { font-size: 15.5px; line-height: 1.55; margin-bottom: 13px; }
+.card .how b { font-weight: 700; }
 
 kbd {
-  font-family: "Nunito", monospace; font-size: 11.5px; font-weight: 800;
-  background: rgba(255, 217, 160, 0.15); color: var(--paper);
-  border: 1px solid rgba(255, 156, 63, 0.4); border-radius: 4px; padding: 1px 6px;
+  font-family: "Gentium Book Plus", Georgia, serif; font-size: 12px; font-weight: 700;
+  background: rgba(29, 24, 20, 0.07); color: var(--ink);
+  border: 1px solid rgba(29, 24, 20, 0.4); border-radius: 3px; padding: 0 6px;
 }
 
 .pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
 .pick .seg.scripts { flex-direction: row; margin-top: -4px; }
 .pick .seg.scripts button { flex: 1; justify-content: center; gap: 8px; }
 .seg button {
-  font-family: inherit; font-size: 16px; font-weight: 600; text-align: left; cursor: pointer;
-  color: var(--ink); background: rgba(255, 255, 255, 0.04);
-  border: 1.5px solid #3a3168; border-radius: 10px; padding: 9px 13px;
+  font-family: inherit; font-size: 16.5px; text-align: left; cursor: pointer;
+  color: var(--ink); background: rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(29, 24, 20, 0.4); border-radius: 3px; padding: 8px 13px;
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
-.seg button small { font-size: 13px; color: var(--dim); }
-.seg button.on { border-color: var(--flame); background: rgba(255, 156, 63, 0.09); }
-.seg button.on b { color: var(--paper); }
+.seg button b { font-weight: 700; white-space: nowrap; }
+.seg button small { font-size: 13.5px; color: var(--ink-soft); }
+/* the pick is the one written in full ink */
+.seg button.on { border-color: var(--ink); background: var(--ink); color: var(--paper-hi); }
+.seg button.on small { color: rgba(248, 242, 227, 0.72); }
+.seg button.on kbd { background: rgba(248, 242, 227, 0.14); color: var(--paper-hi); border-color: rgba(248, 242, 227, 0.4); }
 
-.playbtn {
-  font-family: inherit; font-size: 19px; font-weight: 800;
-  width: 100%; cursor: pointer;
-  color: #3a1c05; background: linear-gradient(170deg, #ffd9a0, var(--flame) 65%, #e07a1f);
-  border: 0; border-radius: 12px; padding: 12px;
-  box-shadow: 0 0 26px rgba(255, 156, 63, 0.35);
+.playbtn, .card .row button:first-child {
+  font-family: inherit; font-weight: 700; cursor: pointer;
+  color: var(--paper-hi); background: var(--ink);
+  border: 1.5px solid var(--ink); border-radius: 3px;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 3px rgba(248, 242, 227, 0.4);
 }
-.playbtn:hover { filter: brightness(1.06); }
+.playbtn { font-size: 19px; letter-spacing: 0.5px; width: 100%; padding: 12px; }
+.playbtn:hover, .card .row button:first-child:hover { background: #33291f; }
 .playbtn:active { transform: translateY(2px); }
-.playbtn kbd { background: rgba(58, 28, 5, 0.2); color: #3a1c05; border-color: transparent; }
-.bests { margin-top: 12px; font-size: 13px; color: var(--dim); min-height: 17px; text-align: center; }
+.playbtn kbd, .card .row button:first-child kbd { background: rgba(248, 242, 227, 0.14); color: var(--paper-hi); border-color: rgba(248, 242, 227, 0.4); }
+.bests { margin-top: 12px; font-size: 14px; color: var(--ink-soft); min-height: 17px; text-align: center; }
 
-.card .big { font-size: 40px; font-weight: 800; color: var(--paper); margin: 8px 0 2px; }
-.card .big small { font-size: 15px; color: var(--dim); }
-.card .stats { font-size: 14.5px; color: var(--dim); margin: 4px 0 16px; white-space: pre-line; line-height: 1.6; }
+.card .big { font-size: 42px; font-weight: 700; color: var(--ink); margin: 6px 0 2px; }
+.card .big small { font-size: 16px; font-weight: 400; color: var(--ink-soft); }
+.card .stats { font-size: 15px; color: var(--ink-soft); margin: 4px 0 16px; white-space: pre-line; line-height: 1.6; }
 .card .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .card .row button {
-  font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;
-  color: var(--ink); background: rgba(255, 255, 255, 0.05);
-  border: 1.5px solid #3a3168; border-radius: 10px; padding: 9px 18px;
+  font-family: inherit; font-size: 16.5px; font-weight: 700; cursor: pointer;
+  color: var(--ink); background: rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(29, 24, 20, 0.4); border-radius: 3px; padding: 9px 18px;
 }
-.card .row button:first-child {
-  color: #3a1c05; background: linear-gradient(170deg, #ffd9a0, var(--flame));
-  border-color: transparent;
-}
+.card .row button:first-child { color: var(--paper-hi); background: var(--ink); border-color: var(--ink); }
 .card .row button:active { transform: translateY(1px); }
 
+/* the shared pause card and dialogs (../game-shell.js) borrow the back link's
+   paper; the painting goes into mist behind them, as it does behind a panel */
+.gs-pause { background: rgba(236, 228, 208, 0.7); }
+.gs-pause-card { box-shadow: 0 0 0 1px rgba(29, 24, 20, 0.4), 0 12px 34px rgba(50, 38, 18, 0.35); }
+.gs-pause-card h2 { font-family: var(--brush); font-weight: 400; font-size: 2rem; }
+
 @media (max-width: 640px) {
-  .hud { top: 58px; gap: 12px; padding: 5px 14px; }
-  .hud #hud-score { font-size: 18px; }
-  #echo { bottom: 14px; font-size: 20px; }
-  .card h1 { font-size: 26px; }
+  .panel { padding: 78px 22px 30px; }                    /* the mount clears the corner buttons */
+  .card { padding: 18px 18px 16px; }
+  .card .how { font-size: 14.5px; line-height: 1.5; margin-bottom: 11px; }
+  .hud { top: 58px; gap: 12px; padding: 4px 14px; }
+  .hud #hud-score { font-size: 19px; }
+  #echo { bottom: 14px; font-size: 21px; }
+  .card h1 { font-size: 31px; }
+  .card h1::first-letter { font-size: 26px; }
+  .card h2 { font-size: 26px; }
 }
