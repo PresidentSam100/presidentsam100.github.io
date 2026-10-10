@@ -11,7 +11,7 @@ and flashes with FX off), 2b (cues that vanished with FX off; covered by
 `tests/cues.js`) and 2c (art that vanished with FX off, and loops that kept
 running; covered by `tests/fx-more.js`). With FX off, Abyss keeps its block
 glow and its sea, Fish-a-Fish its shimmer, Ping and Steamfitter their glow,
-Klondike its snow, Lights Out its second hand and Hash its hover shadow, all
+Klondike its snow, Lights Out its chaser lights and Hash its hover shadow, all
 held still. Klondike's sky follows the switch the moment it flips. Typetwo's
 keystroke sparks and jump, Sunset Slice's menu, Pop the Lock's bursts and
 Fish-a-Fish's spray all stop; a miss in Pop the Lock is marked by a still ring.
@@ -78,6 +78,10 @@ Done (checked in `tests/fx-more.js`):
   loses nothing to it.
 - Klondike. A card that travels a pile or more arcs there, lifted on a curve,
   a little larger mid-flight and above the rest; nearer shifts still glide.
+- Lights Out (its marquee look). A gap runs round the chaser lights, a bulb
+  takes a moment to warm up and longer to cool, and the name, the letterboard
+  and the chaser fade out when the last bulb goes. FX off: the same sign, the
+  chaser all lit and still, everything switching at once.
 
 Every game on the "thin" list from the 2026-10-03 read is done. A new idea for a
 game goes here, with a check in `tests/fx-more.js`.

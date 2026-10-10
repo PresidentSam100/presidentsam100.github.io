@@ -1,168 +1,239 @@
 /* =====================================================================
-   Lights Out — hunter pocket watches on navy velvet.
-   Deep blue velvet with a soft nap sheen, a leather tray edge with brass
-   corners, an engraved plaque, and the watches themselves: enamel dials
-   under hinged lids that swing in 3D.
+   Lights Out — an old picture house's marquee, after the last show.
+   The page is the front of the house: peacock-glazed tiles with chrome
+   trim, the name in lights over a milk-glass letterboard, and the sign
+   itself, black lacquer studded with big bulbs inside a ring of chaser
+   lights. The only warm light is the bulbs'; the rest is glaze, chrome,
+   black and white glass. game.js lights the bulbs (.bulb.on) and puts
+   the whole front out when the last one goes (#front.dark).
    ===================================================================== */
 
 :root {
-  --velvet: #101c38;
-  --velvet-hi: #1c2c54;
-  --brass: #c2a15c;
-  --brass-hi: #e8cf96;
-  --brass-dk: #7a5e2c;
-  --enamel: #f6f1e2;
-  --ink: #dfe6f5;
-  --dim: #8fa0c4;
+  --tile: #0e4a50;
+  --tile-hi: #176a70;
+  --tile-dk: #06282c;
+  --lacquer: #0a0d0e;
+  --chrome: #cfd8db;
+  --chrome-dk: #6c797d;
+  --aqua: #86e6da;
+  --glass: #f4f7f3;       /* the letterboard's milk glass, lit from behind */
+  --lamp-hi: #fff3cf;     /* bulb light */
+  --ink: #e6f3f0;
+  --dim: #9cc5c0;
+  --display: "Limelight", "Broadway", Georgia, serif;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 
 body {
-  font-family: "Playfair Display", Georgia, serif;
+  font-family: "Jost", "Century Gothic", "Futura", system-ui, sans-serif;
   color: var(--ink);
   overflow: hidden;
   background:
-    radial-gradient(ellipse at 50% 18%, rgba(90, 120, 190, 0.18), transparent 60%),
-    radial-gradient(ellipse at 50% 115%, rgba(0, 0, 0, 0.5), transparent 55%),
-    repeating-linear-gradient(115deg, transparent 0 7px, rgba(255, 255, 255, 0.016) 7px 14px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.22 0 0 0 0 0.4 0 0 0 0.35 0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23v)'/%3E%3C/svg%3E"),
-    var(--velvet);
+    /* night closing in at the edges */
+    radial-gradient(ellipse 85% 80% at 50% 48%, transparent 40%, rgba(1, 12, 14, 0.78) 100%),
+    /* tile seams, then the line of light along each */
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 88px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 176px),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, 0.05) 2px 3px, transparent 3px 88px),
+    repeating-linear-gradient(90deg, transparent 0 2px, rgba(255, 255, 255, 0.04) 2px 3px, transparent 3px 176px),
+    linear-gradient(180deg, var(--tile-hi), var(--tile) 45%, var(--tile-dk));
 }
-
-/* the tray edge: stitched leather with brass corner braces */
-body::after {
-  content: "";
-  position: fixed; inset: 0; pointer-events: none; z-index: 40;
-  border: 10px solid #241a12;
-  box-shadow:
-    inset 0 0 0 1.5px #4a3826,
-    inset 0 0 0 3px rgba(194, 161, 92, 0.35),
-    inset 0 0 34px rgba(0, 0, 0, 0.6);
-}
-.corner {
-  position: fixed; width: 30px; height: 30px; z-index: 41; pointer-events: none;
-  border: 3.5px solid var(--brass);
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.6));
-}
-.corner.tl { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
-.corner.tr { top: 6px; right: 6px; border-left: 0; border-bottom: 0; }
-.corner.bl { bottom: 6px; left: 6px; border-right: 0; border-top: 0; }
-.corner.br { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
-@media (max-width: 640px) { body::after { border-width: 6px; } .corner { width: 20px; height: 20px; } }
 
 .nav-back-games {
   position: fixed; top: 16px; left: 18px; z-index: 50;
   font-family: inherit; font-size: 15px;
-  color: var(--brass-hi); text-decoration: none;
-  background: rgba(16, 28, 56, 0.85);
-  border: 1px solid var(--brass-dk); border-radius: 4px;
+  color: var(--ink); text-decoration: none;
+  background: rgba(8, 22, 24, 0.9);
+  border: 1px solid #2f8a8c; border-radius: 4px;
   padding: 5px 12px;
 }
-.nav-back-games:hover { border-color: var(--brass); color: #fff; }
+.nav-back-games:hover { border-color: var(--aqua); color: #fff; }
 
-/* ---- plaque + HUD ----------------------------------------------------- */
+/* ---- the front: name, letterboard, HUD ------------------------------- */
 
-#tray {
+#front {
   height: 100%;
   display: flex; flex-direction: column; align-items: center;
-  padding: 14px 16px 20px;
+  padding: 12px 14px 16px;
+  overflow: hidden;                   /* an edge bulb's pool of light stops at the page */
 }
+/* the sign's light on the tiles, and a fan of rays pressed into them */
+#front::before, #front::after {
+  content: ""; position: fixed; z-index: -1; pointer-events: none;
+}
+#front::before {
+  inset: 0;
+  background: radial-gradient(ellipse 58% 46% at 50% 60%, rgba(255, 190, 100, 0.15), transparent 72%);
+}
+#front::after {
+  left: 0; right: 0; top: -30px; height: 540px;
+  background: repeating-conic-gradient(from 178.5deg at 50% 0, rgba(190, 255, 245, 0.075) 0 3deg, transparent 3deg 12deg);
+  -webkit-mask-image: radial-gradient(ellipse min(550px, 80vw) 100% at 50% 0, #000 18%, transparent 76%);
+  mask-image: radial-gradient(ellipse min(550px, 80vw) 100% at 50% 0, #000 18%, transparent 76%);
+}
+#front.dark::before { opacity: 0; }
 
-.plaque {
-  margin-top: 4px; text-align: center;
-  padding: 5px 26px 7px;
-  background: linear-gradient(170deg, #d9bd7d, #a5824a 55%, #8a6a30);
-  border: 1px solid #5d4620; border-radius: 5px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 244, 214, 0.6);
+#head { display: flex; flex-direction: column; align-items: center; }
+
+.sign {
+  margin-top: 2px; text-align: center;
+  padding: 5px 28px 10px;
+  background: linear-gradient(180deg, #151b1c, var(--lacquer));
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px var(--chrome-dk),
+    0 0 0 4px #0c1011,
+    0 0 0 5px var(--chrome),
+    0 8px 22px rgba(0, 0, 0, 0.55);
 }
-.plaque h1 {
-  font-size: 21px; letter-spacing: 5px; font-weight: 700; color: #3d2f14;
-  text-shadow: 0 1px 0 rgba(255, 244, 214, 0.5);
+.sign h1 {
+  font-family: var(--display); font-weight: 400;
+  font-size: 34px; letter-spacing: 4px; line-height: 1.2;
+  color: var(--lamp-hi);
+  text-shadow: 0 0 5px rgba(255, 226, 160, 0.95), 0 0 16px rgba(255, 180, 80, 0.7), 0 0 34px rgba(255, 150, 50, 0.4);
 }
-.plaque p { font-size: 11.5px; letter-spacing: 2.5px; color: #55431f; font-style: italic; }
+/* changeable black letters on rails, over glass lit from behind */
+.letterboard {
+  position: relative; overflow: hidden;
+  min-width: min(290px, 70vw); margin-top: 3px;
+  padding: 5px 16px 4px;
+  font-size: 13px; font-weight: 700; letter-spacing: 3px; line-height: 1.25;
+  text-transform: uppercase; white-space: nowrap; color: #111617;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.1) 0 1px, transparent 1px 8px),
+    linear-gradient(180deg, #fbfdfa, #dce5e1);
+  border: 2px solid #050707; border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--chrome-dk), 0 0 16px rgba(230, 255, 248, 0.3);
+}
+.letterboard::after {
+  content: ""; position: absolute; inset: 0;
+  background: rgba(10, 18, 19, 0.52); opacity: 0;
+}
+/* the last bulb out takes the name and the letterboard's lamps with it */
+#front.dark .sign h1 { color: #56625f; text-shadow: none; }
+#front.dark .letterboard { box-shadow: 0 0 0 1px var(--chrome-dk); }
+#front.dark .letterboard::after { opacity: 1; }
 
 .hudline {
   display: flex; gap: 18px; align-items: baseline;
-  margin-top: 10px; font-size: 15px; color: var(--dim);
+  margin-top: 13px; font-size: 15px; color: var(--dim);
 }
-.hudline #hud-moves { color: var(--ink); font-size: 17px; }
-.hudline #hud-mode { letter-spacing: 1px; font-variant: small-caps; }
+.hudline[hidden] { visibility: hidden; }
+.hudline #hud-moves { color: var(--ink); font-size: 17px; font-weight: 600; }
+.hudline #hud-mode { letter-spacing: 2px; text-transform: uppercase; font-size: 12.5px; }
 .hudline button {
-  font-family: inherit; font-size: 13px; cursor: pointer;
-  color: var(--brass-hi); background: none;
-  border: 1px solid var(--brass-dk); border-radius: 4px; padding: 2px 10px;
+  font-family: inherit; font-size: 13px; letter-spacing: 1px; cursor: pointer;
+  color: var(--aqua); background: rgba(6, 30, 33, 0.6);
+  border: 1px solid #2f8a8c; border-radius: 4px; padding: 2px 11px;
 }
-.hudline button:hover { border-color: var(--brass); }
+.hudline button:hover { border-color: var(--aqua); }
 
-/* the mainspring: the wind-up move budget draining */
-.spring { position: relative; width: min(360px, 82vw); height: 10px; margin-top: 8px;
-  border: 1px solid var(--brass-dk); border-radius: 6px; background: rgba(0, 0, 0, 0.4); }
-.spring-bar { height: 100%; border-radius: 5px;
-  background: linear-gradient(90deg, #8a6a30, var(--brass) 60%, var(--brass-hi));
-  transition: width 0.25s ease; }
-.spring-label { position: absolute; right: 0; top: 13px; font-size: 12px; color: var(--dim); letter-spacing: 1px; }
+/* the reel: the last reel's move budget, a strip of film running out */
+.reel {
+  position: relative; width: min(360px, 82vw); height: 16px; margin: 8px 0 17px;
+  background: #050707; border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(207, 216, 219, 0.3);
+}
+.reel-film {
+  height: 100%;
+  background:
+    /* sprocket holes along both edges, then the frames */
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(232, 243, 240, 0.85) 3px 6px, transparent 6px 9px) 0 1.5px / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 3px, rgba(232, 243, 240, 0.85) 3px 6px, transparent 6px 9px) 0 calc(100% - 1.5px) / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, #0d1112 0 2px, #a3b9b8 2px 16px, #0d1112 16px 18px) 0 50% / 100% 7px no-repeat,
+    #1a2021;
+  transition: width 0.25s ease;
+}
+.reel-label { position: absolute; right: 0; top: 19px; font-size: 12px; color: var(--dim); letter-spacing: 1px; }
 
-/* ---- the board of watches --------------------------------------------- */
+/* ---- the sign: a board of bulbs ---------------------------------------- */
 
 #board {
-  position: relative;
+  --frame: 18px;                      /* the chaser's border (game.js sets it) */
+  position: relative; isolation: isolate;
   display: grid; gap: var(--gap, 10px);
   margin: auto 0;
-  padding: 8px;
+  padding: var(--frame);
+  border-radius: 12px;
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.07), transparent 28%), var(--lacquer);
+  box-shadow:
+    0 0 0 1px #1d2526,
+    0 0 0 3px var(--chrome),
+    0 0 0 4px #39474a,
+    0 0 0 8px #0b0f10,
+    0 0 0 9px var(--chrome-dk),
+    0 18px 44px rgba(0, 0, 0, 0.6);
 }
-
-button.watch {
-  position: relative; z-index: 1;
-  width: var(--cw, 96px); height: calc(var(--cw, 96px) * 1.16);
-  border: 0; padding: 0; background: none; cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  perspective: 500px;
-  filter: drop-shadow(2px 5px 6px rgba(0, 0, 0, 0.55));
-  touch-action: manipulation;
-}
-button.watch > svg, button.watch > .lid {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-}
-button.watch svg { display: block; }
-button.watch:focus { outline: none; }
-button.watch:focus-visible::after {
-  content: ""; position: absolute; inset: -4px; border-radius: 14px;
-  border: 2px dashed var(--brass); pointer-events: none;
-}
-button.watch:active { transform: scale(0.96); }
-
-/* the lid swings on its left hinge; front face out when shut */
-.lid {
-  transform-style: preserve-3d;
-  transform-origin: 7% 50%;
-  transition: transform 0.34s cubic-bezier(0.5, 1.4, 0.6, 1);
+/* the field the bulbs stand on, set in from the chaser's channel */
+#board::before {
+  content: ""; position: absolute; inset: calc(var(--frame) - 3px); z-index: -1;
+  border: 1px solid rgba(207, 216, 219, 0.2); border-radius: 6px;
+  background: radial-gradient(ellipse at 50% 45%, #121718, #060808);
   pointer-events: none;
 }
-.lid .face, .lid .back {
-  position: absolute; inset: 0;
-  backface-visibility: hidden; -webkit-backface-visibility: hidden;
-}
-.lid .back { transform: rotateY(180deg); }
-.watch.open { z-index: 2; }        /* its standing lid drapes over neighbours */
-.watch.open .lid { transform: rotateY(-118deg); }
 
-/* a hint: the watch to press glints */
-.watch.glint { animation: glint 0.9s ease 3; }
+button.bulb {
+  position: relative;
+  width: var(--cw, 96px); height: var(--cw, 96px);
+  border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button.bulb > svg, .bulb .lit, .bulb .lit svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+}
+button.bulb:focus { outline: none; }
+button.bulb:focus-visible::after {
+  content: ""; position: absolute; inset: -3px; border-radius: 50%;
+  border: 2px dashed var(--aqua); pointer-events: none;
+}
+button.bulb:active { transform: scale(0.96); }
+
+/* A lit bulb is the same bulb with its burning self faded in over it, and
+   a pool of light under every bulb on the sign (z-index -1 inside #board's
+   own stacking context: over the field, under the sockets). */
+.bulb .lit, .bulb .glow { opacity: 0; pointer-events: none; }
+.bulb .glow {
+  position: absolute; inset: -44%; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 200, 112, 0.6), rgba(255, 164, 64, 0.24) 46%, rgba(255, 140, 40, 0) 100%);
+}
+.bulb.on .lit, .bulb.on .glow { opacity: 1; }
+/* Visual FX on: a filament takes a moment to warm, and longer to cool */
+body.fxon .bulb .lit, body.fxon .bulb .glow { transition: opacity 0.36s ease-in; }
+body.fxon .bulb.on .lit, body.fxon .bulb.on .glow { transition: opacity 0.15s ease-out; }
+
+/* a hint: the bulb to press glints, cool against the lamplight */
+.bulb.glint { animation: glint 0.9s ease 3; }
 @keyframes glint {
-  0%, 100% { filter: drop-shadow(2px 5px 6px rgba(0, 0, 0, 0.55)); }
-  50% { filter: drop-shadow(0 0 14px rgba(232, 207, 150, 0.95)) drop-shadow(0 0 26px rgba(232, 207, 150, 0.5)); }
+  0%, 100% { filter: drop-shadow(0 0 0 rgba(134, 230, 218, 0)); }
+  50% { filter: drop-shadow(0 0 7px rgba(190, 255, 247, 1)) drop-shadow(0 0 18px rgba(134, 230, 218, 0.95)); }
 }
 /* Visual FX off: the glint holds at its brightest, still, until game.js
    clears it (2.75s, when the three glints would have finished) */
-body:not(.fxon) .watch.glint {
+body:not(.fxon) .bulb.glint {
   animation: none;
-  filter: drop-shadow(0 0 14px rgba(232, 207, 150, 0.95)) drop-shadow(0 0 26px rgba(232, 207, 150, 0.5));
+  filter: drop-shadow(0 0 7px rgba(190, 255, 247, 1)) drop-shadow(0 0 18px rgba(134, 230, 218, 0.95));
 }
 
-/* reduce motion: lids snap instantly */
-body:not(.fxon) .lid { transition: none; }
+/* The chaser (art.js): every third bulb dims in turn, so a gap runs round
+   the sign. Visual FX off: all of them lit, still. */
+.chase { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#front.dark .chase .lights { opacity: 0; }
+body.fxon .chase .ph { animation: chase 1.8s linear infinite; }
+body.fxon .chase .ph1 { animation-delay: -1.2s; }
+body.fxon .chase .ph2 { animation-delay: -0.6s; }
+@keyframes chase {
+  0%, 52%, 100% { opacity: 1; }
+  64%, 86% { opacity: 0.1; }
+}
+
+/* Visual FX on: the front goes dark, and comes back, over half a second */
+body.fxon .sign h1 { transition: color 0.5s ease, text-shadow 0.5s ease; }
+body.fxon .letterboard, body.fxon .letterboard::after, body.fxon #front::before, body.fxon .chase .lights {
+  transition: opacity 0.5s ease, box-shadow 0.5s ease;
+}
 
 /* ---- panels ------------------------------------------------------------ */
 
@@ -170,75 +241,84 @@ body:not(.fxon) .lid { transition: none; }
   position: fixed; inset: 0; z-index: 30;
   display: flex; align-items: center; justify-content: center;
   padding: 26px 16px; overflow-y: auto;
-  background: rgba(4, 8, 20, 0.55);
+  background: rgba(2, 14, 16, 0.62);
 }
 .panel[hidden] { display: none; }
 
 .card {
   width: min(430px, 100%);
-  background: linear-gradient(180deg, #16244a, #0e1930);
-  border: 1px solid var(--brass-dk); border-radius: 10px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(232, 207, 150, 0.12);
-  padding: 24px 24px 20px;
+  background: linear-gradient(180deg, #141b1c, var(--lacquer));
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px var(--chrome-dk),
+    0 0 0 4px #0c1011,
+    0 0 0 5px rgba(207, 216, 219, 0.8),
+    0 14px 44px rgba(0, 0, 0, 0.65);
+  padding: 22px 24px 20px;
 }
 .card h2 {
-  font-size: 24px; font-weight: 700; color: var(--brass-hi);
-  letter-spacing: 1px; margin-bottom: 10px;
+  font-family: var(--display); font-weight: 400;
+  font-size: 27px; letter-spacing: 1.5px; line-height: 1.2;
+  color: var(--lamp-hi); text-shadow: 0 0 14px rgba(255, 190, 100, 0.45);
+  margin-bottom: 10px;
 }
 .card .how { font-size: 15.5px; line-height: 1.5; color: var(--ink); margin-bottom: 16px; }
-.card .how b { color: var(--brass-hi); font-weight: 700; }
+.card .how b { color: var(--aqua); font-weight: 600; }
 
 .pick .seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 10px; }
 .pick .seg.sizes { flex-direction: row; }
+.pick .seg[hidden] { display: none; }
 .seg button {
   font-family: inherit; font-size: 16px; text-align: left; cursor: pointer;
-  color: var(--ink); background: rgba(255, 255, 255, 0.04);
-  border: 1px solid #33487e; border-radius: 7px; padding: 8px 12px;
+  color: var(--ink); background: rgba(134, 230, 218, 0.05);
+  border: 1px solid #235e62; border-radius: 7px; padding: 8px 12px;
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
+.seg button b { font-weight: 600; letter-spacing: 0.5px; }
 .seg.sizes button { flex: 1; justify-content: center; }
 .seg button small { font-size: 12.5px; color: var(--dim); }
-.seg button.on { border-color: var(--brass); background: rgba(194, 161, 92, 0.12); }
-.seg button.on b { color: var(--brass-hi); }
+.seg button.on { border-color: var(--aqua); background: rgba(134, 230, 218, 0.15); }
+.seg button.on b { color: var(--aqua); }
 
 kbd {
-  font-family: Georgia, serif; font-size: 11.5px;
-  background: #33487e; color: var(--ink);
+  font-family: inherit; font-size: 11.5px; letter-spacing: 0; text-transform: none;
+  background: #1d5a5e; color: var(--ink);
   border-radius: 4px; padding: 1px 6px;
 }
 
-.playbtn {
-  font-family: inherit; font-size: 19px; width: 100%; cursor: pointer;
-  color: #2c2110; font-weight: 700; letter-spacing: 0.5px;
-  background: linear-gradient(170deg, var(--brass-hi), var(--brass) 60%, #a5824a);
-  border: 1px solid #5d4620; border-radius: 8px; padding: 10px;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
-  margin-top: 6px;
+/* the way in is a strip of the letterboard */
+.playbtn, .card .row button:first-child {
+  font-family: inherit; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+  cursor: pointer; color: #111617;
+  background:
+    repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.09) 0 1px, transparent 1px 11px),
+    linear-gradient(180deg, #fbfdfa, #dce5e1);
+  border: 2px solid #050707; border-radius: 5px;
+  box-shadow: 0 0 0 1px var(--chrome-dk), 0 0 16px rgba(230, 255, 248, 0.26);
 }
-.playbtn:hover { filter: brightness(1.07); }
+.playbtn { font-size: 17px; width: 100%; padding: 11px 10px 10px; margin-top: 6px; }
+.playbtn:hover { filter: brightness(1.06); }
 .playbtn:active { transform: translateY(1px); }
-.playbtn kbd { background: rgba(44, 33, 16, 0.25); color: #2c2110; }
+.playbtn kbd, .card .row button:first-child kbd { background: rgba(17, 22, 23, 0.16); color: #111617; }
 
 .bests { margin-top: 12px; font-size: 13.5px; color: var(--dim); min-height: 18px; text-align: center; }
 
-.card .big { font-size: 34px; color: var(--brass-hi); margin: 4px 0 6px; }
+.card .big { font-family: var(--display); font-size: 31px; color: var(--ink); margin: 4px 0 6px; }
 .card .stats { font-size: 14.5px; color: var(--dim); margin-bottom: 16px; white-space: pre-line; line-height: 1.5; }
 .card .row { display: flex; gap: 10px; flex-wrap: wrap; }
 .card .row button {
   font-family: inherit; font-size: 16px; cursor: pointer;
-  color: var(--ink); background: rgba(255, 255, 255, 0.05);
-  border: 1px solid #33487e; border-radius: 7px; padding: 8px 18px;
+  color: var(--ink); background: rgba(134, 230, 218, 0.05);
+  border: 1px solid #235e62; border-radius: 5px; padding: 8px 18px;
 }
-.card .row button:first-child {
-  color: #2c2110; font-weight: 700;
-  background: linear-gradient(170deg, var(--brass-hi), var(--brass));
-  border-color: #5d4620;
-}
+.card .row button:first-child { font-size: 14px; letter-spacing: 2px; padding: 8px 16px; }
 .card .row button:hover { filter: brightness(1.1); }
 
 @media (max-width: 640px) {
-  .plaque h1 { font-size: 16px; letter-spacing: 3.5px; }
-  .plaque { padding: 4px 16px 6px; margin-top: 26px; }
-  .hudline { gap: 12px; font-size: 13.5px; }
-  .card h2 { font-size: 20px; }
+  .sign { margin-top: 46px; padding: 3px 16px 8px; }   /* clear of the corner buttons */
+  .sign h1 { font-size: 24px; letter-spacing: 3px; }
+  .letterboard { font-size: 11.5px; letter-spacing: 2.5px; min-width: min(230px, 66vw); }
+  .hudline { gap: 12px; font-size: 13.5px; margin-top: 11px; }
+  .card h2 { font-size: 22px; }
+  .card .big { font-size: 25px; }
 }

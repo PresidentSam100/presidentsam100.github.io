@@ -115,16 +115,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "mahjong");
   }
 
-  // ---- Lights Out: the hinted watch glints (it costs a move); FX on still animates
+  // ---- Lights Out: the hinted bulb glints (it costs a move); FX on still animates
   for (const off of [true, false]) {
     const p = await open("lights-out", off);
     await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(400);
-    await watchFor(p, ".watch.glint", (w) => { const cs = getComputedStyle(w); return { filter: cs.filter, name: cs.animationName, moving: w.getAnimations().filter((a) => a.effect && a.effect.getTiming().duration > 1).length }; });
+    await watchFor(p, ".bulb.glint", (w) => { const cs = getComputedStyle(w); return { filter: cs.filter, name: cs.animationName, moving: w.getAnimations().filter((a) => a.effect && a.effect.getTiming().duration > 1).length }; });
     await p.keyboard.press("h");
     const g = await caught(p);
     if (off) {
-      const gone = await goes(p, () => !document.querySelector(".watch.glint"));
-      check("lights-out, FX off: the hinted watch glints, still, then stops", !!g && /drop-shadow/.test(g.filter) && g.name === "none" && gone, { g, gone });
+      const gone = await goes(p, () => !document.querySelector(".bulb.glint"));
+      check("lights-out, FX off: the hinted bulb glints, still, then stops", !!g && /drop-shadow/.test(g.filter) && g.name === "none" && gone, { g, gone });
     } else check("lights-out, FX on: the hint still glints in motion", !!g && g.moving > 0, g);
     await done(p, "lights-out FX " + (off ? "off" : "on"));
   }

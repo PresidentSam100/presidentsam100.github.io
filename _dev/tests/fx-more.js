@@ -2,7 +2,7 @@
 // of a game's art and only calms its motion: nothing vanishes, nothing loops.
 // FX on adds motion on top (Corner Pocket, Chess, Tic-Tac-Toe, Yi, Minesweeper,
 // Speedle, Abyss, Crazy Ohio, Jam Jar, Flappy World, Spacer, Typetwo,
-// Stopwatch, Steamfitter, Hash, Klondike).
+// Stopwatch, Steamfitter, Hash, Klondike, Lights Out).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check(what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -137,17 +137,39 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "klondike");
   }
 
-  // ---- Lights Out: the dials keep their second hand with FX off, resting at twelve
+  // ---- Lights Out: the chaser round the sign keeps every bulb lit with FX
+  // off, held still (FX on: a gap runs round it); a bulb warms and cools with
+  // FX on and switches at once with it off; and the last bulb out darkens the
+  // name and the chaser either way
   {
-    const hands = {};
+    const got = {};
     for (const off of [false, true]) {
       const p = await open("lights-out/", off);
-      await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(1300);
-      hands[off ? "off" : "on"] = await p.evaluate(() => [...document.querySelectorAll(".lo-sec")].map((g) => ({ shown: getComputedStyle(g).display !== "none", rot: g.style.transform }))[0]);
+      await p.evaluate(() => LightsOut.start("zen"));
+      await p.waitForFunction(() => document.querySelectorAll("#board .chase .ph circle").length > 0, null, { timeout: 8000 }).catch(() => {});
+      const r = await p.evaluate(() => {
+        const ph = [...document.querySelectorAll("#board .chase .ph")];
+        return {
+          groups: ph.length, bulbs: document.querySelectorAll("#board .chase .ph circle").length,
+          lit: ph.every((g) => getComputedStyle(g).display !== "none" && getComputedStyle(g).opacity === "1"),
+          running: ph.filter((g) => g.getAnimations().length > 0).length,
+          warm: parseFloat(getComputedStyle(document.querySelector("#board .bulb .lit")).transitionDuration),
+        };
+      });
+      // put the sign out: the front goes dark with it (polled: FX on fades it)
+      await p.evaluate(() => LightsOut.solution().forEach((i) => LightsOut.press(i)));
+      r.dark = await p.waitForFunction(() => {
+        const h = getComputedStyle(document.querySelector(".sign h1")), l = document.querySelector("#board .chase .lights");
+        return h.textShadow === "none" && !!l && getComputedStyle(l).opacity === "0" && !document.querySelector("#board .bulb.on");
+      }, null, { timeout: 8000 }).then(() => true, () => false);
+      got[off ? "off" : "on"] = r;
       await done(p, "lights-out FX " + (off ? "off" : "on"));
     }
-    check("lights-out: the second hand stays on the dial with FX off, resting at twelve (with FX on it shows the time)",
-      hands.off && hands.off.shown && hands.off.rot === "rotate(0deg)" && hands.on && hands.on.shown, hands);
+    check("lights-out, FX off: the chaser keeps every bulb lit, still, and a bulb switches at once",
+      got.off.groups === 3 && got.off.bulbs > 0 && got.off.lit && got.off.running === 0 && got.off.warm < 0.01, got.off);
+    check("lights-out, FX on: a gap runs round the chaser, and a bulb takes a moment to warm",
+      got.on.groups === 3 && got.on.running === 3 && got.on.warm > 0.1, got.on);
+    check("lights-out: the last bulb out darkens the name and the chaser, FX on or off", got.on.dark && got.off.dark, { on: got.on.dark, off: got.off.dark });
   }
 
   // ---- Hash: with FX off a hovered card doesn't lift, but keeps its deeper shadow
