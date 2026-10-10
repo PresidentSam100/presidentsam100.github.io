@@ -116,5 +116,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("lanterns: after the window narrows, every lantern is inside it", fit.w === 412 && fit.xs.length === 1 && fit.xs.every((x) => x > 0 && x < fit.w), fit);
   await done(p, "resize");
 
+  // ---- what's been typed is drawn over every lantern: one spawned later (so
+  // drawn later) and hanging across the typed one's letters used to cover them
+  p = await open();
+  await p.evaluate(() => {
+    const real = CanvasRenderingContext2D.prototype.fillText;
+    window.__texts = [];
+    CanvasRenderingContext2D.prototype.fillText = function (s) { window.__texts.push(String(s)); return real.apply(this, arguments); };
+    Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0);
+    Lanterns.spawnWord("我", 0.5, 300); Lanterns.spawnWord("你", 0.5, 380);
+    Lanterns.type("w");
+  });
+  // (a few frames on, the last whole frame's text: it starts at the seal's 灯)
+  const order = await p.evaluate(() => new Promise((res) => {
+    let n = 4;
+    const f = () => { if (--n > 0) return requestAnimationFrame(f); const t = window.__texts; res(t.slice(t.lastIndexOf("灯") + 1)); };
+    requestAnimationFrame(f);
+  }));
+  check("lanterns: the letters typed so far are drawn after every lantern, so none covers them",
+    order.indexOf("你") !== -1 && order.indexOf("w") > order.indexOf("我") && order.indexOf("w") > order.indexOf("你"), order);
+  await done(p, "typed letters on top");
+
   await ctx.close();
 };

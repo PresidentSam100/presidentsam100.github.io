@@ -605,21 +605,24 @@
     g.font = "600 " + Math.round(s * (chn >= 4 ? 0.4 : chn === 3 ? 0.44 : 0.5)) + "px 'Ma Shan Zheng', 'KaiTi', 'SimSun', serif";
     g.textAlign = "center"; g.textBaseline = "middle";
     g.fillText(l.hanzi, x, y + 1);
-    // A word the typing still fits is ringed with one turn of the red brush,
-    // and under it only what has been typed so far - never the rest of the answer
-    if (isCand) {
-      g.strokeStyle = "rgba(" + SEAL + ",0.92)"; g.lineCap = "round";
-      g.lineWidth = 3.2;
-      g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, -1.25, 4.5); g.stroke();
-      g.lineWidth = 1.4;
-      g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, 4.5, 4.82); g.stroke();
-      g.font = "700 16px 'Gentium Book Plus', Georgia, serif";
-      g.textAlign = "center"; g.lineJoin = "round";
-      g.strokeStyle = "rgba(" + PAPER + ",0.95)"; g.lineWidth = 4;
-      g.strokeText(buffer, x, y + bh / 2 + tl + 24);
-      g.fillStyle = "rgb(" + INK + ")";
-      g.fillText(buffer, x, y + bh / 2 + tl + 24);
-    }
+  }
+  // A word the typing still fits is ringed with one turn of the red brush,
+  // and under it only what has been typed so far - never the rest of the
+  // answer. Drawn after every lantern (draw), so none hangs across it.
+  function drawTyped(l) {
+    var s = l.size, x = l.x, y = l.y;
+    var bw = s * (0.92 + (l.hanzi.length - 1) * 0.5), bh = s * 1.12, tl = Math.min(18, s * 0.3);
+    g.strokeStyle = "rgba(" + SEAL + ",0.92)"; g.lineCap = "round";
+    g.lineWidth = 3.2;
+    g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, -1.25, 4.5); g.stroke();
+    g.lineWidth = 1.4;
+    g.beginPath(); g.ellipse(x, y + 1, bw * 0.5 + 11, bh * 0.5 + 13, 0, 4.5, 4.82); g.stroke();
+    g.font = "700 16px 'Gentium Book Plus', Georgia, serif";
+    g.textAlign = "center"; g.textBaseline = "middle"; g.lineJoin = "round";
+    g.strokeStyle = "rgba(" + PAPER + ",0.95)"; g.lineWidth = 4;
+    g.strokeText(buffer, x, y + bh / 2 + tl + 24);
+    g.fillStyle = "rgb(" + INK + ")";
+    g.fillText(buffer, x, y + bh / 2 + tl + 24);
   }
 
   function draw(t, dt) {
@@ -680,7 +683,13 @@
       g.fillRect(0, 0, W, H);
     }
 
-    lanterns.forEach(function (l) { drawLantern(l, t); });
+    // The lanterns the typing still fits go on top of the rest, and their
+    // rings and typed letters over all of them: a lantern hanging across
+    // another used to hide what had been typed under it
+    var fits = candidates();
+    lanterns.forEach(function (l) { if (fits.indexOf(l) === -1) drawLantern(l, t); });
+    fits.forEach(function (l) { drawLantern(l, t); });
+    fits.forEach(drawTyped);
 
     // sparks + floating glosses
     sparks.forEach(function (s, i) {
