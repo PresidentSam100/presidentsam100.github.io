@@ -647,6 +647,12 @@
   // ---- menu buttons ---------------------------------------------------------------------------
   ui.dailyBtn.addEventListener("click", function () { SFX.ui(); openPuzzle(dailyPuzzle(), true); });
   $("to-gallery").addEventListener("click", function () { SFX.ui(); toGallery(); });
+  // D on the menu opens the Daily negative (its keycap is on the button);
+  // the prints themselves are a Tab and Enter away
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return screen === "menu"; },
+    groups: [{ sel: "#daily-btn", keys: ["d"], into: "b" }]
+  });
   $("gallery-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-restart").addEventListener("click", askRestart);

@@ -566,6 +566,10 @@
   }
   normalBtn.addEventListener("click", function () { askNewGame(function () { selectMode("normal"); }); });
   fibBtn.addEventListener("click", function () { askNewGame(function () { selectMode("fib"); }); });
+  // Keys, shown on the buttons: 1 Normal, 2 Fibonacci (asking first mid-game,
+  // as a click does). The keycap goes on the label's span: the button's own
+  // ::after is the lit mode's lamp.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ groups: [{ sel: "#mode-normal, #mode-fib", into: "span" }] });
 
   window.addEventListener("resize", relayout);
   window.addEventListener("load", relayout);

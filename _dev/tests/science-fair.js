@@ -33,4 +33,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("science-fair (" + label + "): no page errors", p.errs.length === 0, p.errs);
     await ctx.close();
   }
+
+  // Enter on a focused mode button picks that mode and stays on the menu (it
+  // used to start a run in the old mode as well); a mode picked with the
+  // mouse doesn't keep the focus, so the next Enter is Blast off
+  {
+    const ctx = await lib.newContext(browser);
+    const p = await lib.open(ctx, base, "games/science-fair/");
+    const look = () => p.evaluate(() => ({ state: ScienceFair.state(), on: (document.querySelector("#pick-mode button.on") || {}).dataset.v, focus: document.activeElement.tagName }));
+    await p.focus('#pick-mode button[data-v="grand"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    const a = await look();
+    await p.evaluate(() => document.activeElement.blur());
+    await p.click('#pick-mode button[data-v="classic"]'); const b = await look();
+    await p.evaluate(() => ScienceFair.fast()); await p.keyboard.press("Enter"); await p.waitForTimeout(200);
+    const c = await look();
+    check("science-fair: Enter on a focused mode button only picks it; after a mouse pick (which keeps no focus) Enter blasts off",
+      a.state === "menu" && a.on === "grand" && b.on === "classic" && b.focus !== "BUTTON" && c.state !== "menu", { a, b, c });
+    check("science-fair (menu keys): no page errors", p.errs.length === 0, p.errs);
+    await ctx.close();
+  }
 };

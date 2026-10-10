@@ -506,6 +506,12 @@
     b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
   $("play").addEventListener("click", function () { startRun(mode); });
+  // 4 5 6 pick Zen's board size on the menu (the keycaps are on the buttons,
+  // beside the menu's other keys)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return state === "menu"; },
+    groups: [{ sel: "#pick-size button", keys: ["4", "5", "6"], caps: false }]
+  });
   $("hint").addEventListener("click", hint);
   $("share").addEventListener("click", shareDaily);
   // back to the modes, asking first while a run would be lost (a pressed

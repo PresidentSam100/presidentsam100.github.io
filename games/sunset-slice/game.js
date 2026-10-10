@@ -376,6 +376,11 @@
   document.querySelectorAll("[data-mode]").forEach(function (b) {
     b.addEventListener("click", function () { start(b.getAttribute("data-mode")); });
   });
+  // Menu keys, shown on the buttons: 1 2 3 pick a mode (and start it)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return state === "menu"; },
+    groups: [{ sel: ".modes button[data-mode]", into: "b" }]
+  });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   document.getElementById("to-menu").addEventListener("click", toMenu);
   document.getElementById("resume").addEventListener("click", function () { setPaused(false); });

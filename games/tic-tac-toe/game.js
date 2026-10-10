@@ -1008,6 +1008,17 @@ document.addEventListener('keydown', e => {
 });
 
 setupModeModal(startSelectedMode);
+// Keys for the picker, shown on its buttons: 1-6 the board, 7 8 9 the
+// difficulty, O / C the side (a row only Order & Chaos has), Enter starts
+if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+  active: () => modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+  groups: [
+    '#modeModal .opts[data-target="boardModeSel"] .opt',
+    '#modeModal .opts[data-target="difficulty"] .opt',
+    { sel: '#modeModal .opts[data-target="chaosSide"] .opt', keys: ['o', 'c'] },
+  ],
+  start: '#startGame',
+});
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 

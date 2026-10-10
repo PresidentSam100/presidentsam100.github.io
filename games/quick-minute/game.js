@@ -803,6 +803,13 @@
     $("m-day").addEventListener("click", function () { start("day"); });
     $("m-night").addEventListener("click", function () { start("night"); });
   }
+  // Menu keys, shown on the buttons: 1 day, 2 night (each starts the run).
+  // The card is rebuilt each time, so the keycaps are put back as it is.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !running && !!$("m-day"); },
+    groups: [{ sel: "#m-day, #m-night", into: ".t" }],
+    root: "#card"
+  });
 
   // ----- boot ---------------------------------------------------------
   window.addEventListener("resize", resize);

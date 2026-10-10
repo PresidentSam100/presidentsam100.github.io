@@ -413,4 +413,14 @@ if (window.GameShell) GameShell.guardLeave(() => !!lastLine && gameOver === fals
 
 updateRecord();    // paint the restored record before the first game starts
 setupModeModal(newGame);
+// Keys for the picker, shown on its buttons: 2 3 4 5 the board size (its own
+// number), E / H the difficulty, Enter starts
+if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+  active: () => modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+  groups: [
+    { sel: '#modeModal .opts[data-target="size"] .opt', keys: ['2', '3', '4', '5'] },
+    { sel: '#modeModal .opts[data-target="difficulty"] .opt', keys: ['e', 'h'] },
+  ],
+  start: '#startGame',
+});
 showModeModal();   // pick a mode first, then the coin flip decides who goes first

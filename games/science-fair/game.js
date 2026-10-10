@@ -514,6 +514,9 @@
       store.set("scifair_mode", mode);
       applyDim(); applyRoids(); paintMenu();
     });
+    // a mouse click doesn't take focus (Tab still reaches it): left focused,
+    // the Enter that should start the run would press the mode again
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -541,6 +544,9 @@
     var digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
     if (state === "input" && digit) { e.preventDefault(); if (!e.repeat) press(+digit[1] - 1); return; }
     if (e.repeat) return;
+    // Enter on a focused button is that button's click (a mode, Blast off,
+    // Again…); starting a run here as well would run both
+    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["classic", "grand", "daily"][+e.key - 1];

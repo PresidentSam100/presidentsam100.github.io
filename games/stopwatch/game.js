@@ -173,8 +173,9 @@
       '<h2>Stopwatch</h2>' +
       '<p>A hunter pocket watch, fresh off the bench. Tap <b>START</b> to set the sweep hand going, then <b>STOP</b> it dead on the gold mark.</p>' +
       '<div class="modepick">' +
-        '<button class="modebtn" data-mode="hidden">🙈 Lid shut<small>the lid snaps over the dial — count it blind</small></button>' +
-        '<button class="modebtn" data-mode="visible">👁 Lid open<small>watch the sweep hand — react</small></button>' +
+        // (the name in a span of its own: it wears the mode's keycap, see menuKeys below)
+        '<button class="modebtn" data-mode="hidden"><span>🙈 Lid shut</span><small>the lid snaps over the dial — count it blind</small></button>' +
+        '<button class="modebtn" data-mode="visible"><span>👁 Lid open</span><small>watch the sweep hand — react</small></button>' +
       '</div>' +
       '<ul class="rules">' +
         '<li>Each round marks a second from <b>1&ndash;10</b> on the dial.</li>' +
@@ -194,6 +195,13 @@
     syncSel();
     $("btn-start").addEventListener("click", beginGame);
   }
+  // Start-card keys, shown on the buttons: 1 lid shut, 2 lid open (Space or
+  // Enter opens the case, as before). The card is rebuilt each time it shows.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return ovCard.classList.contains("show") && !!cardInner.querySelector(".modepick"); },
+    groups: [{ sel: ".modepick .modebtn", into: "span" }],
+    root: "#card-inner"
+  });
 
   function beginGame() {
     Sound.init();

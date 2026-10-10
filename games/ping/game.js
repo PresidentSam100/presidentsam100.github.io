@@ -396,6 +396,12 @@ document.getElementById("again").addEventListener("click", () => {
   menu.classList.remove("hidden");
   document.body.classList.remove("playing");
 });
+// Menu keys, shown on the buttons: 1 or 2 players (each starts the match);
+// on the result card Enter is Play Again
+if (window.GameShell && GameShell.menuKeys) {
+  GameShell.menuKeys({ active: () => state === "menu", groups: ["#menu .btn"] });
+  GameShell.menuKeys({ active: () => state === "gameover", start: "#again" });
+}
 
 controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " wins.";
 

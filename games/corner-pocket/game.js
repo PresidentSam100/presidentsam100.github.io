@@ -1406,6 +1406,13 @@
     menuEl.classList.remove("hidden");
     setTimeout(function () { document.getElementById("startBtn").focus(); }, 30);
   }
+  // Menu keys, shown on the buttons: 1 2 the opponent, 3 4 5 the CPU's level
+  // (Enter is the Rack 'em button's own, as it has the focus)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return G.phase === "menu" && !menuEl.classList.contains("hidden"); },
+    groups: ["#modeSeg button", "#levelSeg button"],
+    start: "#startBtn"
+  });
   // "Leave this rack?" holds the table while it asks: the CPU and a rolling
   // shot wait (see frame), and a drag or a charging shot is let go
   function quitOpen() { return !document.getElementById("confirmQuit").classList.contains("hidden"); }

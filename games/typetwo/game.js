@@ -1274,6 +1274,9 @@
     if (!btn) return;
     selectMode(btn.dataset.mode);
   });
+  // Start-screen keys, shown on the buttons: 1 2 3 pick the mode (no word is
+  // being typed there; ◂ ▸ still step through them, and Enter starts)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active: () => state === "start", groups: ["#modes .mode"] });
 
   selectMode(mode, true);
 

@@ -643,6 +643,18 @@ html.fx-off .c.hinted::after {
   font-size: 0.74rem;
   color: var(--muted);
 }
+/* the level's key (E D H X) sits in the button's corner: beside the name it
+   would wrap on the longer ones */
+.lvl {
+  position: relative;
+}
+.lvl .lvl-name[data-gs-key]::after {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  margin: 0;
+  font-size: 0.62rem;
+}
 .lvl:hover {
   background: rgba(27, 26, 23, 0.05);
 }

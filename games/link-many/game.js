@@ -735,6 +735,16 @@ window.addEventListener('resize', () => {
 });
 
 setupModeModal(init);
+// Keys for the picker, shown on its buttons: 1 2 the mode, 3 4 5 the
+// difficulty, Enter starts
+if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+  active: () => modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+  groups: [
+    '#modeModal .opts[data-target="gameModeSel"] .opt',
+    '#modeModal .opts[data-target="difficulty"] .opt',
+  ],
+  start: '#startGame',
+});
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 

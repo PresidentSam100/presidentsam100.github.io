@@ -806,6 +806,18 @@
       if (prefs.level === "custom") cwEl.focus();
     });
   });
+  // Keys, shown on the buttons: 1-4 the difficulty (asking first mid-game: a
+  // click starts the new field at once), and C / D / E the Classic, Daily and
+  // Endless tabs (not the one that's open)
+  GameShell.menuKeys({
+    active: () => !PAUSE.isPaused(),
+    groups: [
+      { sel: ".levels .lvl", into: ".lvl-name", ask: { title: "Start a new game?", ok: "New game" } },
+      { sel: 'nav.modes a[href="./"]:not([aria-current])', keys: ["c"] },
+      { sel: 'nav.modes a[href="./?daily"]:not([aria-current])', keys: ["d"] },
+      { sel: 'nav.modes a[href="endless.html"]:not([aria-current])', keys: ["e"] },
+    ],
+  });
 
   customForm.addEventListener("submit", (e) => {
     e.preventDefault();

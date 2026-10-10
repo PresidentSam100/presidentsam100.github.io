@@ -1181,6 +1181,13 @@
       el.addEventListener("click", function () { setMode(el.dataset.mode); });
     });
   }
+  // Keys, shown on the buttons: 1 Place Gates, 2 Set Inputs. A key asks first
+  // when there's work on the board (a click switches at once, as it always
+  // has). The bar is rebuilt on every switch, so the keycaps are put back.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    groups: [{ sel: "#modeBar .mode-btn", ask: { title: "Switch mode?", ok: "Switch" } }],
+    root: "#modeBar"
+  });
 
   // ---- theme picker --------------------------------------------------
   var THEMES = [

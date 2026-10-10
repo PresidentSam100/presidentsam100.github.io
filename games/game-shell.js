@@ -28,6 +28,8 @@
                                                as keycaps
      GameShell.touchOnly()                  -> true on a touch-only device
                                                (no keys to name in a hint)
+     GameShell.menuKeys(opts)               -> keys for a mode / setup screen's
+                                               buttons, shown as keycaps on them
      GameShell.confirm(opts, cb)            -> themed stand-ins for the
      GameShell.alert(opts, cb)                 browser's confirm / alert /
      GameShell.copyBox(opts)                   "copy this" prompt boxes
@@ -487,6 +489,124 @@
     } catch (e) { return false; }
   }
 
+  // ---- menu keys --------------------------------------------------------
+  // Keyboard shortcuts for a game's mode / setup screen, so each game doesn't
+  // hand-roll them: every option button gets a key, wears it as a keycap (as
+  // Science Fair's menu does), and the key presses the button with a real
+  // click(). So whatever the button does (remember the pick, ask before
+  // throwing a game away, start), the key does too.
+  //
+  //   GameShell.menuKeys({
+  //     active: function () { return state === "menu"; },    // the screen is up
+  //     groups: [
+  //       "#pick-mode button",                                // 1 2 3 ..., in order
+  //       { sel: "#pick-size button", keys: ["3", "5", "7"] } // or keys of its own
+  //     ],
+  //     start: "#play",    // Enter presses it (unless a button has the focus)
+  //     root: "#menu"      // optional: where a script (re)builds the buttons,
+  //   });                  //   so new ones get their keycaps as they appear
+  //
+  // Digits run on across the groups that leave `keys` out (1 2, then 3 4 5),
+  // hidden options counted too, so a row that comes and goes never renumbers
+  // the others. A group can also say:
+  //   into: "b"         the child of each button that wears the keycap (for a
+  //                     button laid out in rows, where it would land oddly),
+  //                     or a function (button) -> the element that wears it
+  //   hidden: true      its buttons work while out of sight (a closed menu)
+  //   ask: { title, ok }  ask first (askQuit) when a game is in progress, for
+  //                     a button that throws it away without asking
+  //   caps: false       no keycaps (the game shows the keys its own way)
+  // A hidden or disabled button's key does nothing. Keys are left alone in
+  // text fields, with Ctrl / Alt / Cmd, on repeats, and while a dialog is up.
+  // The keycap is drawn from a data-gs-key attribute (motion-toggle.js), so a
+  // button's text stays what the game wrote, and it hides on touch screens.
+  function menuKeys(opts) {
+    opts = opts || {};
+    var active = opts.active || function () { return true; };
+    var groups = (opts.groups || []).map(function (g) { return typeof g === "string" ? { sel: g } : g; });
+
+    // every option in the page now, with its key: [{ btn, key, g }]
+    function options() {
+      var out = [], n = 0;
+      groups.forEach(function (g) {
+        var list = document.querySelectorAll(g.sel);
+        for (var i = 0; i < list.length; i++) {
+          var key = g.keys ? g.keys[i] : (++n < 10 ? String(n) : n === 10 ? "0" : null);
+          if (key != null) out.push({ btn: list[i], key: String(key).toLowerCase(), g: g });
+        }
+      });
+      return out;
+    }
+    function cap(el, label) {
+      if (el && el.getAttribute("data-gs-key") !== label) el.setAttribute("data-gs-key", label);
+    }
+    function decorate() {
+      options().forEach(function (o) {
+        var label = o.key.length === 1 ? o.key.toUpperCase() : o.key === "backspace" ? "⌫" : o.key;
+        var host = typeof o.g.into === "function" ? o.g.into(o.btn) : o.g.into && o.btn.querySelector(o.g.into);
+        if (o.g.caps !== false) cap(host || o.btn, label);
+        if (o.btn.getAttribute("aria-keyshortcuts") !== label) o.btn.setAttribute("aria-keyshortcuts", label);
+      });
+      var s = opts.start && document.querySelector(opts.start);
+      // (a Play button that already shows its key keeps its own keycap)
+      if (s && !s.querySelector("kbd")) cap((opts.startInto && s.querySelector(opts.startInto)) || s, "Enter");
+    }
+    function usable(b) {
+      return !!b && !b.disabled && b.getAttribute("aria-disabled") !== "true" && b.getClientRects().length > 0;
+    }
+    function typing(t) {
+      var tag = t && t.tagName;
+      return tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
+        (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+    }
+
+    document.addEventListener("keydown", function (e) {
+      if (!e.key || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      if (typing(e.target) || document.querySelector(".gs-dialog")) return;
+      var on = false;
+      try { on = !!active(); } catch (err) {}
+      if (!on) return;
+      if (e.key === "Enter") {
+        // Enter on a focused button, link or field is that control's own
+        var t = e.target;
+        if (!opts.start || (t && t.closest && t.closest("button, a, summary, input, select"))) return;
+        var s = document.querySelector(opts.start);
+        if (usable(s)) { e.preventDefault(); s.click(); }
+        return;
+      }
+      var pad = /^Numpad(\d)$/.exec(e.code || "");
+      var key = pad ? pad[1] : e.key.toLowerCase();
+      var list = options(), hit = null;
+      for (var i = 0; i < list.length && !hit; i++) {
+        if (list[i].key === key && (list[i].g.hidden || usable(list[i].btn))) hit = list[i];
+      }
+      if (!hit) return;
+      e.preventDefault();
+      if (hit.g.ask && leaveActive()) askQuit(hit.g.ask, function () { hit.btn.click(); });
+      else hit.btn.click();
+    });
+
+    // keycaps: now, once the page is in, and whenever the buttons are rebuilt
+    var queued = false;
+    function later() {
+      if (queued) return;
+      queued = true;
+      setTimeout(function () { queued = false; decorate(); }, 0);
+    }
+    function watch() {
+      decorate();
+      var root = opts.root && document.querySelector(opts.root);
+      if (root && window.MutationObserver) new MutationObserver(later).observe(root, { childList: true, subtree: true });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
+    else watch();
+    window.addEventListener("load", decorate);
+    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, usable: usable };
+    menuKeys.all.push(api);   // (every menu on the page, for the tests)
+    return api;
+  }
+  menuKeys.all = [];
+
   // ---- canvas keycaps -------------------------------------------------
   // The canvas version of <kbd class="gs-kbd">, for games that draw their key
   // hints on a canvas: every [KEY] in `str` becomes a keycap, the rest is
@@ -805,6 +925,7 @@
     pauseButton: pauseButton,
     drawKeys: drawKeys,
     touchOnly: touchOnly,
+    menuKeys: menuKeys,
     confirm: confirmBox,
     alert: alertBox,
     copyBox: copyBox,

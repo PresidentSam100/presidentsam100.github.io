@@ -106,7 +106,15 @@
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
       ".rm-toggle .gs-kbd,.mute-toggle .gs-kbd,.gs-pause-btn .gs-kbd,.nav-back-games .gs-kbd{margin-top:-.6em;margin-bottom:-.6em}" +
-      "@media (hover:none){.gs-keys{display:none}}" +
+      // the same keycap on a menu option that GameShell.menuKeys gave a key:
+      // drawn from the attribute, so the button's own text and children stay
+      // as the game wrote them
+      "[data-gs-key]::after{content:attr(data-gs-key);display:inline-block;box-sizing:border-box;min-width:1.6em;margin:-.6em 0 -.6em .5em;" +
+      "padding:.12em .4em .1em;font:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:1.15;text-align:center;" +
+      "vertical-align:.06em;white-space:nowrap;text-transform:none;letter-spacing:normal;text-shadow:none;" +
+      "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
+      "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
+      "@media (hover:none){.gs-keys{display:none}[data-gs-key]::after{display:none}}" +
       "@media not all and (hover:none){.gs-touch{display:none}}";
     (document.head || document.documentElement).appendChild(st);
   })();

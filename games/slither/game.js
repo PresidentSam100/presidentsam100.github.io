@@ -632,6 +632,14 @@
     if (G.mode === "lab") { if (lab) lab.start(lab.continueIndex()); return; }
     startMatch();
   });
+  // Menu keys, shown on the buttons: 1 2 3 the mode, 4 portals, 5 6 7 the
+  // obstacles, Enter plays (the match length and the Labyrinth's own pickers
+  // are left to Tab and the mouse)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !menuOverlay.classList.contains("hidden"); },
+    groups: ["#mode-pick .btn", "#portals-toggle", "#obstacles-pick .btn"],
+    start: "#play-btn"
+  });
 
   updateKeysHelp();
 

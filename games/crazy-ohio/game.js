@@ -599,6 +599,16 @@
   $("quitBtn").addEventListener("click", quit);
   $("againBtn").addEventListener("click", beginCountdown);
   $("settingsBtn").addEventListener("click", quit);
+  // Setup keys, shown on the buttons: 1 2 the mode, 3-6 the density, 7 8 9
+  // the duration, Enter starts; on the results Enter is Again
+  if (window.GameShell && GameShell.menuKeys) {
+    GameShell.menuKeys({
+      active: () => state === "setup",
+      groups: ["#modeChoices .choice", "#densityChoices .choice", "#durChoices .choice"],
+      start: "#startBtn",
+    });
+    GameShell.menuKeys({ active: () => state === "done", start: "#againBtn" });
+  }
 
   showSetupBest();
 

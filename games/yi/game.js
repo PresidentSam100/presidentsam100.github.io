@@ -152,6 +152,16 @@ document.getElementById("startBtn").addEventListener("click", function () {
   document.getElementById("game").style.display = "block";
   startHand(0);
 });
+// Setup keys, shown on the buttons: 2-9 (and 0 for ten) the players, F / T
+// the win condition, Enter deals. The three rule boxes keep their typing.
+if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+  active: function () { return !G; },
+  groups: [
+    { sel: "#playerSeg button", keys: ["2", "3", "4", "5", "6", "7", "8", "9", "0"] },
+    { sel: "#modeSeg button", keys: ["f", "t"] }
+  ],
+  start: "#startBtn"
+});
 
 // ----------------------------------------------------------------
 //  Start / deal a hand

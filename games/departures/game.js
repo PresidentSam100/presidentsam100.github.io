@@ -487,6 +487,12 @@
     active: function () { return state === "play" && foundCount > 0; },
     pausable: P
   });
+  // 3-7 pick the continent on the menu (One Continent only; the keycaps are
+  // on the buttons, beside the menu's other keys)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return state === "menu"; },
+    groups: [{ sel: "#pick-region button", keys: ["3", "4", "5", "6", "7"], caps: false }]
+  });
 
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;

@@ -1187,6 +1187,13 @@
     }
     gs.askQuit({ title: "Quit this game?", ok: "Quit" }, go);
   }
+  // Keys, shown on the buttons: 1 2 3 switch mode (asking first, as a click
+  // does), Q flips Panic's queue between free and forced. Not in the level
+  // editor, where a stray digit mustn't offer to throw the level away.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !inEditor(); },
+    groups: ["#modeBar .mbtn", { sel: "#pickToggle", keys: ["q"] }]
+  });
   document.querySelectorAll("#modeBar .mbtn").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.dataset.mode !== mode) askFirst(function () { setMode(b.dataset.mode); });

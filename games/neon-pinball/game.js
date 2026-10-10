@@ -957,6 +957,12 @@
   $("modesBtn").addEventListener("click", () => { $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); showStartBest(); });
   showStartBest();
   updateHUD();
+  // Keys, shown on the buttons: 1 2 3 pick a table (and start on it); on the
+  // game-over card Enter plays again and Backspace goes back to the tables
+  if (window.GameShell && GameShell.menuKeys) {
+    GameShell.menuKeys({ active: () => !$("startScreen").classList.contains("hidden"), groups: [{ sel: ".mode-card", into: ".mc-name" }] });
+    GameShell.menuKeys({ active: () => !$("overScreen").classList.contains("hidden"), groups: [{ sel: "#modesBtn", keys: ["Backspace"] }], start: "#againBtn" });
+  }
 
   // deep-link: #classic / #speedway / #tactical auto-starts that table
   const hashMode = location.hash.replace("#", "");

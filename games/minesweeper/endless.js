@@ -687,6 +687,11 @@
     canPause: () => state === "playing",
     onChange: (paused) => fieldEl.classList.toggle("paused", paused),
   });
+  // C / D are the Classic and Daily tabs (their keycaps are on them)
+  GameShell.menuKeys({
+    active: () => !PAUSE.isPaused(),
+    groups: [{ sel: 'nav.modes a[href="./"]', keys: ["c"] }, { sel: 'nav.modes a[href="./?daily"]', keys: ["d"] }],
+  });
 
   // ---- controls ----------------------------------------------------------
   faceEl.addEventListener("click", () => {

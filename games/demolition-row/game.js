@@ -1300,6 +1300,13 @@
       if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
+    // Menu keys, shown on the buttons: 1 2 3 the mode, Enter plays (a VS
+    // match's seats, levels and length are left to Tab and the mouse)
+    if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+      active: () => !GAME && !menu.classList.contains("hidden"),
+      groups: ["#mode-pick .btn"],
+      start: "#play-btn"
+    });
     // ☰ Menu mid-run would throw the run away: ask first (paused under the box)
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();

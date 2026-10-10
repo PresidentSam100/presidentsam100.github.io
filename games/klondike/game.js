@@ -611,6 +611,12 @@
       onChange: function (paused) { field.classList.toggle("paused", paused); if (paused) clearHints(); }
     })
     : { isPaused: function () { return false; } };
+  // T and D are the Game menu's Draw three and Daily claim, open or shut (the
+  // menu shows their keycaps beside the others'); both ask first, as a click does
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !PAUSE.isPaused() && $("shade").hidden; },
+    groups: [{ sel: "#m-draw3", keys: ["t"], hidden: true, caps: false }, { sel: "#m-daily", keys: ["d"], hidden: true, caps: false }]
+  });
 
   // ---- clock -------------------------------------------------------------------------------
   var lastT = 0;

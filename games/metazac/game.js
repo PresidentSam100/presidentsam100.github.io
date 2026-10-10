@@ -998,6 +998,12 @@
     if (e.key === "Enter") return tag === "BUTTON" || tag === "A";
     return tag === "BUTTON" || tag === "LABEL" || (tag === "INPUT" && /^(checkbox|radio)$/i.test(t.type));
   }
+  // Start-card keys, shown beside the ticks: 1 2 3 4 switch + − × ÷ on or off
+  // (Enter or Space starts, as before; a number box keeps its digits)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return state === "start"; },
+    groups: [{ sel: "#add-on, #sub-on, #mul-on, #div-on", into: function (box) { return box.parentNode; } }]
+  });
   document.addEventListener("keydown", function (e) {
     if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ")) {
       if (controlKey(e)) return;

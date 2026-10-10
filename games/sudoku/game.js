@@ -835,6 +835,10 @@
       openLevel(lvl, state === "won" && lvl === prefs.level);
     });
   });
+  // Keys for the levels, shown on the buttons: E easy, D medium, H hard, X
+  // expert (the digits are the puzzle's own). Each level keeps its own save,
+  // so switching loses nothing.
+  GameShell.menuKeys({ active: () => !PAUSE.isPaused(), groups: [{ sel: ".levels .lvl", keys: ["e", "d", "h", "x"], into: ".lvl-name" }] });
 
   // No confirm() dialog: its window blur would auto-pause the game.
   // A second tap within a few seconds confirms instead.

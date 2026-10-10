@@ -191,6 +191,8 @@
   $("startBtn").addEventListener("click", startBattle);
 
   function renderDiff() { document.querySelectorAll(".dbtn").forEach((b) => b.classList.toggle("sel", b.dataset.diff === difficulty)); }
+  // Fleet-screen keys, shown on the buttons: 1 2 3 the CPU's level
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active: () => phase === "place", groups: [".dbtn"] });
   document.querySelectorAll(".dbtn").forEach((b) => b.addEventListener("click", () => { difficulty = b.dataset.diff; store.set("battleship_diff", difficulty); renderDiff(); }));
   renderDiff();
 
