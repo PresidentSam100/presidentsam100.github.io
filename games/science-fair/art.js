@@ -231,24 +231,47 @@
     return s + "</svg>";
   }
 
-  /* The smiling paper sun that peeks in from the corner. */
+  /* The paper sun that peeks in from the corner, in two layers: its rays
+     (styles.css turns them slowly) and, over them, the disc with its crayon
+     face, which stays upright (and sits a little toward the side of the disc
+     that shows). The face is drawn four times and styles.css
+     shows the one #sun[data-face] names: at rest, a small smile for a planet
+     got right, a grin for a whole tune, a gasp for a wrong one. */
   function sunSVG() {
-    var s = '<svg viewBox="0 0 200 200" aria-hidden="true"><defs>' + roughFilter("rough-sun") + "</defs>" +
+    var rays = '<svg viewBox="0 0 200 200" aria-hidden="true"><defs>' + roughFilter("rough-sun") + "</defs>" +
       '<g filter="url(#rough-sun)">';
     for (var i = 0; i < 12; i++) {
       var a = (i / 12) * Math.PI * 2;
       var x1 = 100 + Math.cos(a - 0.13) * 62, y1 = 100 + Math.sin(a - 0.13) * 62;
       var x2 = 100 + Math.cos(a + 0.13) * 62, y2 = 100 + Math.sin(a + 0.13) * 62;
       var xt = 100 + Math.cos(a) * 96, yt = 100 + Math.sin(a) * 96;
-      s += '<path d="M' + x1.toFixed(1) + " " + y1.toFixed(1) + " L" + xt.toFixed(1) + " " + yt.toFixed(1) +
+      rays += '<path d="M' + x1.toFixed(1) + " " + y1.toFixed(1) + " L" + xt.toFixed(1) + " " + yt.toFixed(1) +
         " L" + x2.toFixed(1) + " " + y2.toFixed(1) + 'Z" fill="#e9a23b"/>';
     }
-    s += '<path d="' + blob(100, 100, 64, 55, 0.04) + '" fill="#f2c245"/>';
-    // crayon face
-    s += '<circle cx="80" cy="90" r="5" fill="#a8741f"/><circle cx="120" cy="90" r="5" fill="#a8741f"/>' +
-      '<path d="M76 112 Q100 130 124 112" fill="none" stroke="#a8741f" stroke-width="5" stroke-linecap="round"/>' +
-      dot(74, 74, 8, "#ffffff", 0.35);
-    return s + "</g></svg>";
+    rays += "</g></svg>";
+    var C = "#a8741f";                           // the crayon
+    var eyes = '<circle cx="80" cy="90" r="5" fill="' + C + '"/><circle cx="120" cy="90" r="5" fill="' + C + '"/>';
+    function line(d, w) { return '<path d="' + d + '" fill="none" stroke="' + C + '" stroke-width="' + (w || 5) + '" stroke-linecap="round"/>'; }
+    var disc = '<svg viewBox="0 0 200 200" aria-hidden="true"><defs>' + roughFilter("rough-sun-face") + "</defs>" +
+      '<g filter="url(#rough-sun-face)">' +
+      '<path d="' + blob(100, 100, 64, 55, 0.04) + '" fill="#f2c245"/>' +
+      '<g transform="translate(12 0)">' +
+      '<g class="face f-rest">' + eyes + line("M87 114 Q100 119 113 114") + "</g>" +
+      '<g class="face f-smile">' + eyes + line("M76 110 Q100 131 124 110") + "</g>" +
+      // eyes squeezed shut with glee, rosy cheeks, mouth wide open
+      '<g class="face f-grin">' + line("M71 93 Q80 81 89 93") + line("M111 93 Q120 81 129 93") +
+        dot(66, 108, 8, "#e8703a", 0.45) + dot(134, 108, 8, "#e8703a", 0.45) +
+        '<path d="M70 106 Q100 114 130 106 Q100 152 70 106Z" fill="' + C + '"/>' +
+        '<path d="M86 127 Q100 119 114 127 Q100 142 86 127Z" fill="#e8703a"/></g>' +
+      // eyes wide, brows up, mouth a round O
+      '<g class="face f-gasp">' + line("M69 73 Q80 65 91 73", 4) + line("M109 73 Q120 65 131 73", 4) +
+        '<circle cx="80" cy="91" r="8.5" fill="#fffaf0" stroke="' + C + '" stroke-width="3"/><circle cx="80" cy="92" r="3.6" fill="' + C + '"/>' +
+        '<circle cx="120" cy="91" r="8.5" fill="#fffaf0" stroke="' + C + '" stroke-width="3"/><circle cx="120" cy="92" r="3.6" fill="' + C + '"/>' +
+        '<ellipse cx="100" cy="123" rx="10" ry="13" fill="' + C + '"/></g>' +
+      "</g>" +
+      dot(74, 74, 8, "#ffffff", 0.35) +
+      "</g></svg>";
+    return '<div class="rays">' + rays + '</div><div class="disc">' + disc + "</div>";
   }
 
   window.SciArt = {

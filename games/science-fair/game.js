@@ -134,17 +134,18 @@
     });
     $("ship").innerHTML = A.rocketSVG();
 
-    // the rest of the diorama: paper sun, glitter stars, the title banner
+    // the rest of the diorama: glitter stars, the paper sun (over them, so
+    // none lies across its face), the title banner
     var board = $("board");
-    var sun = document.createElement("div");
-    sun.id = "sun"; sun.innerHTML = A.sunSVG();
-    board.appendChild(sun);
     for (var st = 0; st < 9; st++) {
       var star = document.createElement("div");
       star.className = "star"; star.innerHTML = A.starSVG(60 + st * 13);
       board.appendChild(star);
       stars.push(star);
     }
+    var sun = document.createElement("div");
+    sun.id = "sun"; sun.innerHTML = A.sunSVG(); sun.setAttribute("data-face", "rest");
+    board.appendChild(sun);
     var banner = document.createElement("div");
     banner.id = "banner"; banner.className = "paper-card";
     banner.innerHTML = "★ OUR SOLAR SYSTEM ★ &nbsp;·&nbsp; <b>Sam, grade 4</b>";
@@ -227,9 +228,13 @@
     // the paper sun peeks in from an edge; stars fill the lower cork
     var sun = $("sun");
     var sz = twoRows ? Math.min(150, boardW * 0.4) : Math.max(170, Math.min(290, boardH * 0.33));
-    sun.style.width = sz + "px";
-    sun.style.left = (-sz * 0.44) + "px";
-    sun.style.top = (twoRows ? boardH - sz * 0.72 : boardH * 0.56) + "px";
+    sun.style.width = sz + "px"; sun.style.height = sz + "px";
+    sun.style.left = (-sz * 0.3) + "px";           // far enough in that its whole face shows
+    // (on a phone it stands just clear of the banner, and the pin that would
+    // sit on its face goes above it)
+    sun.style.top = (twoRows ? boardH - sz - 30 : boardH * 0.56) + "px";
+    var pin = $("board").querySelector(".pin");
+    if (pin) pin.style.top = (twoRows ? 68 : 90) + "%";
     var srng = A.mulberry(12);
     stars.forEach(function (star, si) {
       var sw2 = 20 + srng() * 22;
@@ -240,28 +245,49 @@
       star.style.setProperty("--tilt", ((srng() * 40) - 20).toFixed(0) + "deg");
     });
 
-    ship.dock.x = boardW - Math.max(70, boardW * 0.08);
-    ship.dock.y = boardH - 170;
-    if (ship.at === "dock" && !ship.flying) shipPlace(ship.dock.x, ship.dock.y, 0);
+    shipHome();
   }
 
   // ---- the paper rocket ---------------------------------------------------
-  var ship = { x: 0, y: 0, at: "dock", flying: false, dock: { x: 90, y: 500 },
-               from: null, to: null, t0: 0, t1: 0, ang: 0 };
-  function shipPlace(x, y, ang) {
-    ship.x = x; ship.y = y; ship.ang = ang;
+  // Its dock is Earth: it stands on the planet's shoulder, leaning out and a
+  // size smaller, and grows to full size on its way to the planet picked
+  // (where it hovers just under the cutout, as before).
+  var EARTH = 2, LEAN = 32;
+  var ship = { x: 0, y: 0, ang: 0, k: 1, at: "dock", flying: false,
+               from: null, to: null, t0: 0, t1: 0 };
+  function shipPlace(x, y, ang, k) {
+    ship.x = x; ship.y = y; ship.ang = ang; ship.k = k == null ? 1 : k;
     var el = $("ship");
-    el.style.transform = "translate(" + (x - 22) + "px," + (y - 48) + "px) rotate(" + ang + "deg)";
+    el.style.transform = "translate(" + (x - 22) + "px," + (y - 48) + "px) rotate(" + ang + "deg) scale(" + ship.k + ")";
+  }
+  // Where the docked rocket stands, read from Earth as it hangs this moment
+  // (it sways on its string, and the rocket rides it): its foot just inside
+  // the cutout's edge, up and to the right of the string.
+  function dockSpot() {
+    var p = pads[EARTH], b = p.btn.getBoundingClientRect();
+    var op = $("ship").offsetParent || document.body, o = op.getBoundingClientRect();
+    var cx = b.left + b.width / 2 - o.left - op.clientLeft, cy = b.top + b.height / 2 - o.top - op.clientTop;
+    var k = Math.max(0.45, Math.min(0.8, p.r / 44)), a = LEAN * Math.PI / 180;
+    // (drawn 44px wide, the rocket's foot is 17.6px under its middle, and
+    // shipPlace's y is 12.8px under that middle)
+    var d = p.r - 3 + 17.6 * k;
+    return { x: cx + Math.sin(a) * d, y: cy - Math.cos(a) * d + 12.8, ang: LEAN, k: k };
+  }
+  // docked and at rest, keep it on Earth (after a resize, and as Earth sways)
+  function shipHome() {
+    if (ship.at !== "dock" || ship.flying) return;
+    var h = dockSpot();
+    if (Math.abs(h.x - ship.x) > 0.2 || Math.abs(h.y - ship.y) > 0.2 || h.k !== ship.k) shipPlace(h.x, h.y, h.ang, h.k);
   }
   function shipTo(i) {
-    var tx, ty;
-    if (i === "dock") { tx = ship.dock.x; ty = ship.dock.y; }
-    else { tx = pads[i].x; ty = pads[i].y + pads[i].r + 30; }
-    if (!fx()) { ship.at = i; ship.flying = false; $("ship").classList.remove("flying"); shipPlace(tx, ty, 0); return; }
-    var dist = Math.hypot(tx - ship.x, ty - ship.y);
-    if (dist < 4) return;
-    ship.from = { x: ship.x, y: ship.y };
-    ship.to = { x: tx, y: ty };
+    var to = i === "dock" ? dockSpot() : { x: pads[i].x, y: pads[i].y + pads[i].r + 30, ang: 0, k: 1 };
+    if (!fx()) { ship.at = i; ship.flying = false; $("ship").classList.remove("flying"); shipPlace(to.x, to.y, to.ang, to.k); return; }
+    var dist = Math.hypot(to.x - ship.x, to.y - ship.y);
+    // already there (but one that has only just set off for somewhere else is
+    // still on the spot, and has to be turned round)
+    if (dist < 4 && !ship.flying) return;
+    ship.from = { x: ship.x, y: ship.y, k: ship.k };
+    ship.to = to;
     ship.t0 = clock;
     var dur = Math.max(200, Math.min(650, dist * 0.7)) / (turbo ? 10 : 1);
     ship.t1 = clock + dur;
@@ -270,18 +296,19 @@
   }
   function shipStep() {
     if (!ship.flying) return;
+    if (ship.at === "dock") ship.to = dockSpot();     // homing on Earth where it hangs now
     var k = (clock - ship.t0) / (ship.t1 - ship.t0);
     if (k >= 1) {
       ship.flying = false; $("ship").classList.remove("flying");
-      shipPlace(ship.to.x, ship.to.y, 0);
+      shipPlace(ship.to.x, ship.to.y, ship.to.ang, ship.to.k);
       return;
     }
     var e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;   // easeInOutQuad
     var x = ship.from.x + (ship.to.x - ship.from.x) * e;
     var y = ship.from.y + (ship.to.y - ship.from.y) * e;
     var ang = Math.atan2(ship.to.y - ship.from.y, ship.to.x - ship.from.x) * 180 / Math.PI + 90;
-    // tilt into the flight, settle upright near the end
-    shipPlace(x, y, ang * (1 - e) * 0.85);
+    // tilt into the flight, settle near the end (upright, or leaning on Earth)
+    shipPlace(x, y, ang * (1 - e) * 0.85 + ship.to.ang * e, ship.from.k + (ship.to.k - ship.from.k) * e);
   }
 
   // ---- game state ----------------------------------------------------------
@@ -306,8 +333,27 @@
     later(ms, function () { el.classList.remove("lit"); });
   }
   // clearEvts() drops any pending glow-off, so wipe the classes directly
+  // (and the sun's face, whose way back to rest is one of those events)
   function clearFx() {
     pads.forEach(function (p) { p.el.classList.remove("lit", "wrong", "answer"); });
+    face("rest");
+  }
+
+  // The sun's face: "rest", a "smile" for a planet got right, a "grin" for the
+  // whole tune, a "gasp" for a wrong planet or a stall. Given ms, it goes back
+  // to rest after that long on the game's clock, unless another face has come
+  // since (later() can't be called off, so the faces are counted). The class
+  // is for styles.css, which bobs or starts the sun with Visual FX on.
+  var faceN = 0;
+  function face(name, ms) {
+    var sun = $("sun"), n = ++faceN;
+    sun.setAttribute("data-face", name);
+    sun.classList.remove("glad", "joy", "shock");
+    if (name !== "rest") {
+      void sun.offsetWidth;                            // the same face twice bobs twice
+      sun.classList.add(name === "gasp" ? "shock" : name === "grin" ? "joy" : "glad");
+    }
+    if (ms) later(ms, function () { if (n === faceN) face("rest"); });
   }
 
   function applyDim() {
@@ -362,6 +408,7 @@
     else seq.push(Math.floor(Math.random() * active()));
     at = 0;
     hudRound();
+    face("rest");
     state = "watch"; say("watch…");
     // the rocket sits on its pad while the planets sing — it only flies
     // when the player is picking planets from memory
@@ -389,8 +436,10 @@
       shipTo(i);
       at++;
       deadline = clock + (turbo ? 1500 : IN_TIMEOUT);
+      if (at < seq.length) face("smile", 600);
       if (at === seq.length) {
         state = "between";
+        face("grin");                                  // (until the next tune starts)
         if (bestFor()) bestFor().submit(seq.length);   // the round just cleared
         say(NICE[Math.floor(Math.random() * NICE.length)]);
         later(340, ding);
@@ -411,6 +460,7 @@
       writeDaily(d);
     } else if (bestFor()) bestFor().submit(score);
     clearEvts(); clearFx();
+    face("gasp");                                      // (until the report card comes up)
     buzz();
     say("uh oh…");
     if (wrongIdx != null) {
@@ -467,6 +517,7 @@
     $("menu").hidden = true;
     $("over").hidden = false;
     state = "over";
+    face("rest");
     shipTo("dock");
   }
 
@@ -569,6 +620,7 @@
     requestAnimationFrame(loop);
     var dt = Math.min(50, now - last); last = now;
     document.body.classList.toggle("fxon", fx());
+    shipHome();                         // (Earth sways on, paused or not)
     if (P.isPaused()) return;
     clock += dt;
     // run everything that has come due (a handler may schedule more)
@@ -588,7 +640,6 @@
   layout();
   window.addEventListener("resize", layout);
   applyDim(); applyRoids(); paintMenu();
-  shipPlace(ship.dock.x, ship.dock.y, 0);
   requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
 
   // test hooks — the Playwright harness drives runs through these

@@ -129,6 +129,66 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "lights-out FX " + (off ? "off" : "on"));
   }
 
+  // ---- Science Fair: the sun's face follows the game (a smile for a planet
+  // got right, a grin for the whole tune, a gasp for a wrong one or a stall),
+  // each going back to rest, with FX on or off; FX on bobs the sun as well.
+  // And the rocket's dock is Earth, not the corner of the board.
+  for (const off of [true, false]) {
+    const p = await open("science-fair", off), tag = "science-fair, FX " + (off ? "off" : "on") + ": ";
+    // every face it makes, in order (watched as they happen: fast() keeps them brief)
+    const watchSun = () => p.evaluate(() => {
+      const sun = document.getElementById("sun");
+      window.__faces = [sun.getAttribute("data-face")]; window.__bobs = 0;
+      if (window.__sunObs) return;
+      window.__sunObs = new MutationObserver(() => {
+        const f = sun.getAttribute("data-face");
+        if (f !== window.__faces[window.__faces.length - 1]) window.__faces.push(f);
+        if (sun.querySelector(".disc").getAnimations().length) window.__bobs++;
+      });
+      window.__sunObs.observe(sun, { attributes: true, attributeFilter: ["data-face", "class"] });
+    });
+    const seen = () => p.evaluate(() => ({ faces: window.__faces.join(" "), bobs: window.__bobs }));
+    const input = () => p.waitForFunction(() => ScienceFair.state() === "input", null, { timeout: 8000 });
+    const rest = () => p.waitForFunction(() => document.getElementById("sun").getAttribute("data-face") === "rest", null, { timeout: 8000 });
+    // on Earth's shoulder: within a planet's width of its middle, and above it
+    // (pressed, a planet has the rocket under it instead)
+    const docked = () => p.waitForFunction(() => {
+      const s = document.getElementById("ship").getBoundingClientRect(), e = ScienceFair.padRect(2);
+      const dx = s.left + s.width / 2 - (e.left + e.width / 2), dy = s.top + s.height / 2 - (e.top + e.height / 2);
+      return Math.hypot(dx, dy) < e.width && dy < 0;
+    }, null, { timeout: 8000 }).then(() => true, () => false);
+
+    const onMenu = await docked();
+    await watchSun();
+    await p.evaluate(() => { ScienceFair.fast(); ScienceFair.start("grand"); });
+    // round 1: one planet, so getting it right is the whole tune
+    await input();
+    const atInput = await docked();
+    await p.evaluate(() => ScienceFair.press(ScienceFair.seq()[0]));
+    // round 2: a smile for the first planet, a grin for the second
+    await input();
+    const afterRound = await docked();
+    await p.evaluate(() => ScienceFair.press(ScienceFair.seq()[0]));
+    await rest();
+    await p.evaluate(() => ScienceFair.press(ScienceFair.seq()[1]));
+    // round 3: a wrong planet
+    await input();
+    await p.evaluate(() => ScienceFair.press((ScienceFair.seq()[0] + 1) % 9));
+    await p.waitForFunction(() => ScienceFair.state() === "over", null, { timeout: 8000 });
+    const run = await seen();
+    check(tag + "the sun smiles at a planet got right, grins at the whole tune and gasps at a wrong one, back to rest each time",
+      run.faces === "rest grin rest smile rest grin rest gasp rest", run);
+    check(off ? tag + "the sun changes face without moving" : tag + "the sun bobs as its face changes", off ? run.bobs === 0 : run.bobs > 0, run);
+    // a stall (no planet picked in time) is a gasp too
+    await watchSun();
+    await p.evaluate(() => ScienceFair.start("classic"));
+    await p.waitForFunction(() => ScienceFair.state() === "over", null, { timeout: 15000 });
+    const stall = await seen();
+    check(tag + "a stall gets a gasp", stall.faces === "rest gasp rest", stall);
+    check(tag + "the rocket's dock is Earth: on the menu, while it's your turn, and back there after a round", onMenu && atInput && afterRound, { onMenu, atInput, afterRound });
+    await done(p, "science-fair FX " + (off ? "off" : "on"));
+  }
+
   // ---- Departures: a name it doesn't know turns the box red; a new departure is lit
   {
     const p = await open("departures", true);

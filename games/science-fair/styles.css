@@ -155,9 +155,22 @@ body::after {
 .star { position: absolute; z-index: 1; pointer-events: none; transform: rotate(var(--tilt, 8deg)); }
 .star svg { display: block; width: 100%; height: auto; filter: drop-shadow(1px 2px 2px rgba(0, 0, 0, 0.3)); }
 #sun { position: absolute; z-index: 1; pointer-events: none; }
+#sun .rays, #sun .disc { position: absolute; inset: 0; }
 #sun svg { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.3)); }
-.fxon #sun { animation: sunspin 240s linear infinite; }
+/* the rays turn; the face over them stays upright */
+.fxon #sun .rays { animation: sunspin 240s linear infinite; }
 @keyframes sunspin { to { transform: rotate(360deg); } }
+/* its face (game.js sets data-face): at rest, a small smile for a planet got
+   right, a grin for the whole tune, a gasp for a wrong one */
+#sun .face { display: none; }
+#sun[data-face="rest"] .f-rest, #sun[data-face="smile"] .f-smile,
+#sun[data-face="grin"] .f-grin, #sun[data-face="gasp"] .f-gasp { display: inline; }
+/* Visual FX on: it bobs when it's pleased, bounces at a whole tune, starts at a gasp */
+.fxon #sun.glad .disc { animation: sunglad 0.36s ease; }
+.fxon #sun.joy .disc { animation: sunglad 0.34s ease 2; }
+.fxon #sun.shock .disc { animation: sunshock 0.38s ease; }
+@keyframes sunglad { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.08) rotate(-4deg); } }
+@keyframes sunshock { 0%, 100% { transform: translate(0, 0); } 18% { transform: translate(6px, -4px) scale(1.06); } 50% { transform: translate(-3px, 0); } 78% { transform: translate(2px, 0); } }
 #banner {
   position: absolute; z-index: 2; left: 50%; bottom: 24px; transform: translateX(-50%) rotate(-1.2deg);
   padding: 3px 22px 5px; font-size: 19px; color: var(--ink);
