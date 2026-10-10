@@ -40,7 +40,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // machine the round trips between feeds let the snake run on into the wall
   // first. While it feeds, the snake steps once every 1.5 s (a slow frame can
   // otherwise catch up several steps at once and run it past the apple); its
-  // speed comes back after. With `pause`, Esc pauses it as the last apple goes
+  // speed comes back after. With `pause`, P pauses it as the last apple goes
   // down, before it can run on.
   const run = (p, sel, n, pause) => p.evaluate(([sel, n, pause]) => new Promise((done) => {
     document.querySelector(sel).click();
@@ -58,7 +58,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       }
       if (eaten >= n || sn.alive === false || performance.now() - t0 > 60000) {
         __G.interval = iv0;
-        if (pause) document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true, cancelable: true }));
+        if (pause) document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true, cancelable: true }));
         return done(sn.score);
       }
       requestAnimationFrame(f);
@@ -68,7 +68,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Classic: a run left by Restart doesn't let the next, lower one overwrite the best
   let p = await classic();
-  await run(p, "#play-btn", 5, true);   // (then paused, as Esc did)
+  await run(p, "#play-btn", 5, true);   // (then paused, as P does)
   const b0 = await classicState(p);
   await run(p, "#pause-restart", 2);
   const b1 = await classicState(p);
@@ -83,10 +83,10 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Classic: steering pressed while paused is ignored; a held P doesn't flicker the pause
   await p.click("#result-primary"); await p.waitForTimeout(200);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  await p.keyboard.press("p"); await p.waitForTimeout(100);
   await p.keyboard.press("ArrowUp"); await p.waitForTimeout(50);
   const q = await p.evaluate(() => __G.snakes[0].queuedDir);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  await p.keyboard.press("p"); await p.waitForTimeout(300);
   const d = await p.evaluate(() => __G.snakes[0].dir);
   check("slither classic: an arrow pressed while paused doesn't turn the snake on resume", q === null && d.x === 1 && d.y === 0, { q, d });
   const held = [];

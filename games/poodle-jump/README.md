@@ -26,7 +26,7 @@ S3, …).
 |--------|----------|-------|-------|
 | Move   | ← → or A / D | — | ◀ ▶ on-screen buttons |
 | Shoot  | Space / ↑ / W (straight up) | click to aim | tap the play area |
-| Pause / resume | P / Esc | — | — |
+| Pause / resume | P | — | — |
 | Start / restart | Space / Enter | click | tap |
 
 The game also auto-pauses when the window or tab loses focus.

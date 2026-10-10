@@ -592,10 +592,9 @@
     if (PAUSE.isPaused()) return;   // the pause card's own keys still resume
     if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); doUndo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    // Esc closes the box and stops there: the pause listener (added below)
-    // would otherwise pause the game on the same press, and preventDefault
-    // keeps ../motion-toggle.js from taking it to the games page
-    if (!$("shade").hidden) { if (e.key === "Escape") { closeBox(); e.preventDefault(); e.stopImmediatePropagation(); } return; }
+    // Esc closes the box and stops there: preventDefault keeps
+    // ../motion-toggle.js from taking it to the games page
+    if (!$("shade").hidden) { if (e.key === "Escape") { closeBox(); e.preventDefault(); } return; }
     var k = e.key.toLowerCase();
     if (e.key === "F2" || k === "n") { e.preventDefault(); freshDeal(); }
     else if (k === "u") doUndo();

@@ -39,14 +39,14 @@
   var resultPrimary = document.getElementById("result-primary");
   var keysHelp = document.getElementById("keys-help");
   var pauseBtn = document.getElementById("pause-btn");
-  // P or Esc pauses in every mode, as in the site's other games. Classic and
+  // P pauses in every mode, as in the site's other games. Classic and
   // 2-Player also keep Space; the Labyrinth's blast arenas use Space for
-  // Fire Eggs, so the label names the keys that always work.
+  // Fire Eggs, so the label names the key that always works.
   function k(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
   function pauseLabel(paused, inLab) {
-    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + '<span class="gs-keys">' + k("P") + "/" + k("Esc") + "</span>";
-    pauseBtn.title = (paused ? "Resume" : "Pause") + " (P / Esc" + (inLab ? "" : " / Space") + ")";
-    pauseBtn.setAttribute("aria-keyshortcuts", inLab ? "P Escape" : "P Escape Space");
+    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + '<span class="gs-keys">' + k("P") + "</span>";
+    pauseBtn.title = (paused ? "Resume" : "Pause") + " (P" + (inLab ? "" : " / Space") + ")";
+    pauseBtn.setAttribute("aria-keyshortcuts", inLab ? "P" : "P Space");
   }
   var playBtn = document.getElementById("play-btn");
   var twistsGroup = document.getElementById("twists-group");
@@ -399,10 +399,10 @@
     if (e.key === "Backspace" && !resultOverlay.classList.contains("hidden")) { resetToMenu(); e.preventDefault(); return; }
     if (G.mode === "lab") { if (lab) lab.keydown(e); return; }
     var k = e.key;
-    // Esc is claimed only when it pauses or resumes (not on the result card,
-    // or while a crash plays out), so otherwise it leaves for the games page
-    // (a held key pauses once: its repeats don't toggle it back)
-    if (k === " " || k === "Spacebar" || k === "Escape" || k === "p" || k === "P") { if ((!e.repeat && togglePause()) || k !== "Escape") e.preventDefault(); return; }
+    // P or Space pauses and resumes (a held key pauses once: its repeats
+    // don't toggle it back). Esc isn't claimed, so it leaves for the games
+    // page, asking first while a game is in progress
+    if (k === " " || k === "Spacebar" || k === "p" || k === "P") { if (!e.repeat) togglePause(); e.preventDefault(); return; }
     var arrowMap = { ArrowUp: UP, ArrowDown: DOWN, ArrowLeft: LEFT, ArrowRight: RIGHT };
     var wasdMap = { w: UP, a: LEFT, s: DOWN, d: RIGHT, W: UP, A: LEFT, S: DOWN, D: RIGHT };
     if (arrowMap[k]) { setQueuedDir(G.mode === "two" ? 1 : 0, arrowMap[k]); e.preventDefault(); }
@@ -517,7 +517,7 @@
   })();
 
   // ---- pause / menu buttons ---------------------------------------------
-  // (true when it paused or resumed: the keys claim Esc only then)
+  // (true when it paused or resumed)
   function togglePause() {
     if (G.mode === "lab") return lab ? lab.togglePause() : false;
     if (!G.running || G.pendingEnd) return false;
@@ -596,12 +596,12 @@
     var wasd = k("W") + k("A") + k("S") + k("D");
     var arrows = k("↑") + k("←") + k("↓") + k("→");   // same order as W A S D
     keysHelp.innerHTML = G.mode === "two"
-      ? keysOr("P1: " + wasd + " (green) · P2: " + arrows + " (blue) · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: use the d-pads",
+      ? keysOr("P1: " + wasd + " (green) · P2: " + arrows + " (blue) · " + k("P") + "/" + k("Space") + ": Pause · touch: use the d-pads",
         "P1 (green) and P2 (blue) steer with their d-pads · ⏸ Pause to pause")
       : G.mode === "lab"
-        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + "/" + k("Esc") + ": pause · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
+        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + ": pause · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
           "Swipe or use the d-pad (keep holding to sprint) · hold 👻 to ghost, ⚡ to dash · tap a cell to teleport, or a 🖱 switch to flip it · ⏸ Pause to pause · Arena for two: a d-pad each · gamepad: stick or d-pad, A dash, B ghost, Start pause")
-        : keysOr("Move: " + arrows + " or " + wasd + " · " + k("P") + "/" + k("Esc") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad",
+        : keysOr("Move: " + arrows + " or " + wasd + " · " + k("P") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad",
           "Swipe the board or use the d-pad to steer · ⏸ Pause to pause");
   }
 

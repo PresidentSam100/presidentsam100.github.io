@@ -1,6 +1,6 @@
 // Spacer: the game-over screen ignores the title's hidden pickers and goes
 // back to the title on Backspace; held keys let go when the window does;
-// the stage banners pause when the window is away; a held P / Esc / F acts
+// the stage banners pause when the window is away; a held P / F acts
 // once; the game starts with storage blocked; capsules and explosions move
 // the same at 60 and 144 Hz; the screen keeps its shape on narrow screens;
 // on a phone the touch buttons work the title's pickers; and the canvas
@@ -62,7 +62,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const r1 = await st(p);
   check("spacer: the window going away on the READY banner pauses it; P goes back to the banner", r0.mode === "paused" && r0.prev === "ready" && r1.mode === "ready", { r0: r0.mode, prev: r0.prev, r1: r1.mode });
 
-  // ---- a held P / Esc / F acts once
+  // ---- a held P / F acts once (and a held Esc, the way out, doesn't touch the pause)
   await p.evaluate(() => { game.mode = "playing"; });
   const modes = [];
   for (const [key, repeat] of [["p", false], ["p", true], ["p", true], ["Escape", true], ["Escape", true]]) {
@@ -73,7 +73,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const repeat of [false, true, true, true]) await lib.fireKey(p, { key: "f", repeat });
   const fx1 = (await st(p)).fx;
   await lib.fireKey(p, { key: "f" });
-  check("spacer: holding P or Esc pauses once, holding F flips Visual FX once", modes.every((m) => m === "paused") && fx1 === !fx0, { modes, fx0, fx1 });
+  check("spacer: holding P pauses once (a held Esc leaves it paused), holding F flips Visual FX once", modes.every((m) => m === "paused") && fx1 === !fx0, { modes, fx0, fx1 });
 
   // ---- capsules sway and explosions spread the same at any frame rate
   const rates = await p.evaluate(() => {
@@ -180,7 +180,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await lib.open(c, base, "games/spacer/", { before: fxOff });
   const dk = await screens(p);
   check("spacer, desktop: the canvas hints still name the keys",
-    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && ["P", "ESC"].every((k) => dk.pause.includes(k)) && ["ENTER", "⌫", "ESC"].every((k) => dk.over.includes(k) && dk.done.includes(k)) && !has(Object.values(dk).flat(), "TAP"),
+    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && dk.pause.includes("P") && !dk.pause.includes("ESC") && ["ENTER", "⌫", "ESC"].every((k) => dk.over.includes(k) && dk.done.includes(k)) && !has(Object.values(dk).flat(), "TAP"),
     { title: dk.title.filter((s) => CAPS.includes(s)), pause: dk.pause.filter((s) => CAPS.includes(s)) });
 
   // ---- Infinite goes on past stage 255: patterns wrap, difficulty stays capped, the HUD counts on

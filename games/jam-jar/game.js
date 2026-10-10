@@ -307,7 +307,7 @@
   var best = window.GameShell ? GameShell.best("jamjar_best", { higher: true }) : { get: function () { return 0; }, submit: function () {} };
   var fruits = [], particles = [];
   var state = "play"; // play | over
-  var dropped = false; // a fruit has gone into this jar (until then Esc leaves, see the pause)
+  var dropped = false; // a fruit has gone into this jar (until then leaving doesn't ask, see the pause)
   var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0;
   var runBest = 0; // the best as this jar began (the stored one climbs mid-run, see applyMerge)
   var current = 0, next = 0;
@@ -900,15 +900,9 @@
     ? GameShell.pausable({ canPause: function () { return state === "play"; } })
     : { isPaused: function () { return false; } };
   // The game opens on an empty jar, already in play. Until the first fruit
-  // drops there's nothing to lose, so Esc is the way out: this capture-phase
-  // listener keeps that Esc from the pause (which listens on document, in the
-  // bubble phase), nothing claims it, and the shared handler leaves for the
-  // games page. P and the ⏸ button still pause.
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && state === "play" && !dropped && !P.isPaused()) e.stopPropagation();
-  }, true);
-  // For the same reason leaving asks first only once a fruit is in the jar
-  // (paused included), pausing through P; an empty jar and the overflow card don't
+  // drops there's nothing to lose, so leaving asks first only once a fruit is
+  // in the jar (paused included), pausing through P; an empty jar and the
+  // overflow card don't
   if (window.GameShell) GameShell.guardLeave({ active: function () { return state === "play" && dropped; }, pausable: P });
 
   var last = performance.now();

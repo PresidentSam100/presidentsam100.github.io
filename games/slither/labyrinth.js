@@ -591,7 +591,7 @@ window.SlitherLabyrinth = function (host) {
     clearHeld();
   }
 
-  // (true when it paused or resumed: the keys claim Esc only then)
+  // (true when it paused or resumed)
   function togglePause() {
     if (!active || !st || (st.status !== "play" && st.status !== "ready")) return false;
     paused = !paused;
@@ -620,15 +620,15 @@ window.SlitherLabyrinth = function (host) {
       if ((k === " " || k === "spacebar") && !st.blast) { host.clickResult(); e.preventDefault(); }
       return;
     }
-    // Fire eggs: Space or E lays P1's egg, Enter P2's (or P1's alone); P / Esc
-    // pause. Paused, the egg keys do nothing (Space mustn't resume what it can't pause).
+    // Fire eggs: Space or E lays P1's egg, Enter P2's (or P1's alone); P
+    // pauses. Paused, the egg keys do nothing (Space mustn't resume what it can't pause).
     if (st.blast && (k === " " || k === "spacebar" || k === "e" || k === "enter")) {
       if (!e.repeat && !paused) E.blastLay(st, k === "enter" && twoPlayer() ? "p2" : "p1");
       e.preventDefault(); return;
     }
-    // Esc is claimed only when it pauses or resumes (not while a Maze Chase
-    // catch plays out), so otherwise ../motion-toggle.js takes it to the games page
-    if (k === " " || k === "spacebar" || k === "p" || k === "escape") { if ((!e.repeat && togglePause()) || k !== "escape") e.preventDefault(); return; }
+    // P or Space pauses and resumes. Esc isn't claimed, so ../motion-toggle.js
+    // takes it to the games page (asking first while a run is in progress)
+    if (k === " " || k === "spacebar" || k === "p") { if (!e.repeat) togglePause(); e.preventDefault(); return; }
     if (paused) return;
     if (KEY_DIRS.hasOwnProperty(k)) {
       if (!e.repeat) pressDir(keyCtrl(k), KEY_DIRS[k]);

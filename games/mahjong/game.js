@@ -586,8 +586,7 @@
 
   // the clock
   var P = window.GameShell ? GameShell.pausable({
-    canPause: function () { return state === "play"; },
-    keys: ["Escape", "p"]
+    canPause: function () { return state === "play"; }
   }) : { isPaused: function () { return false; } };
   // Leaving asks first once the desk has been played (a pair taken, or a hint,
   // undo or shuffle's penalty), paused included, pausing through P; a fresh

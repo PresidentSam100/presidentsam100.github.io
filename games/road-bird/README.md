@@ -15,7 +15,7 @@ Pick a mode from the main menu (each keeps its **own high score**):
 - **Trains** — railways only.
 - **River** — water only.
 
-On the menu use `↑ ↓` to choose a mode, `C` to change your **skin**, and `Space` / tap to play. On the game-over screen, **Play Again** (`Space`) restarts the same mode, **Main Menu** (`Esc`) returns to mode select.
+On the menu use `↑ ↓` to choose a mode, `C` to change your **skin**, and `Space` / tap to play. On the game-over screen, **Play Again** (`Space`) restarts the same mode, **Main Menu** (`Backspace`) returns to mode select.
 
 ## Controls
 
@@ -24,7 +24,7 @@ On the menu use `↑ ↓` to choose a mode, `C` to change your **skin**, and `Sp
 | Hop forward | `↑` / `W` | swipe up / tap |
 | Hop back | `↓` / `S` | swipe down |
 | Hop left/right | `← →` / `A` `D` | swipe left/right |
-| Pause / resume | `P` / `Esc` | tap (while paused) |
+| Pause / resume | `P` | tap (while paused) |
 | Mute / unmute | `M` | — |
 | Menu: select / change skin / play | `↑ ↓` / `C` / `Space` | tap a button |
 

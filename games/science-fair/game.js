@@ -522,8 +522,7 @@
 
   // ---- pause -------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
-    canPause: function () { return state === "watch" || state === "input" || state === "between"; },
-    keys: ["Escape", "p"]
+    canPause: function () { return state === "watch" || state === "input" || state === "between"; }
   }) : { isPaused: function () { return false; } };
   // A run is in progress (paused or not) once a round is cleared, until the
   // miss that ends it: leaving then asks first. A Field Trip launch left

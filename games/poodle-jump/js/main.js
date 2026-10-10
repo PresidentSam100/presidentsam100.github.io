@@ -21,9 +21,6 @@
   const input = new Input(canvas);
   const game = new Game(canvas, input);
   window.__game = game; // debug/automation hook
-  // Esc pauses / resumes only in play, so it's claimed only then; on the
-  // start and game-over notes (and while falling) it leaves for the games page
-  input.claimEsc = () => game.state === "play";
 
   // Re-apply when the device pixel ratio changes (e.g. dragging the window to a
   // different-density monitor or browser zoom). setTransform is reset by sizing.
@@ -37,9 +34,9 @@
   // Auto-pause when the tab/window loses focus so the run isn't lost to a
   // background switch (the loop keeps drawing the paused overlay).
   if (window.GameShell) GameShell.onAutoPause(() => game.requestPause());
-  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
   if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
-    keys: ["p", "Escape"],
+    keys: ["p"],
     canPause: () => game.state === "play",
     isPaused: () => game.paused,
     toggle: () => { if (game.state === "play") game.paused = !game.paused; },

@@ -666,7 +666,6 @@
   // ---- loop ---------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play" || state === "clearing"; },
-    keys: ["Escape", "p"],
     onChange: function (paused) { if (paused) letGo(); }
   }) : { isPaused: function () { return false; } };
   // Leaving asks first while a run is on (paused too), as the pause default

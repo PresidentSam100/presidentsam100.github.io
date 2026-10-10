@@ -399,8 +399,9 @@ document.getElementById("again").addEventListener("click", () => {
 
 controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " wins.";
 
-// Pause: Esc or P, or the ⏸ corner button. Rallies only; the countdown is
-// three seconds on its own timer, so it just runs out.
+// Pause: P, or the ⏸ corner button (Esc is the way out to the games page).
+// Rallies only; the countdown is three seconds on its own timer, so it just
+// runs out.
 const PAUSE = window.GameShell ? GameShell.pausable({
   canPause: () => state === "playing",
   onChange: (paused) => { if (paused) releaseKeys(); }

@@ -173,13 +173,15 @@
   //   var P = GameShell.pausable({
   //     canPause: function () { return state === "play"; },
   //     onChange: function (paused) { ... },   // optional
-  //     keys: ["Escape", "p"],                 // optional; default shown
+  //     keys: ["p"],                           // optional; default shown
   //     button: false                          // optional: the game shows its own
   //   });                                      //   pause control, so no ⏸ button
   //   ...inside the loop:  if (!P.isPaused()) { update(dt); }
   //
-  // `keys` matters: games where the player types (ztype) must not swallow
-  // "p", so they pass ["Escape"] only.
+  // P is the pause key and Esc is not: Esc is the way out to the games page
+  // (motion-toggle.js), which mid-game asks "Leave this game?" first with the
+  // game paused under the box. Only a game with no letter to spare (the
+  // typing games, Fish-a-Fish) passes ["Escape"], as nothing else is free there.
   //
   // It also adds a ⏸ button to the top-right row (see pauseButton below), so
   // a player can see that the game pauses and how.
@@ -283,7 +285,7 @@
     opts = opts || {};
     var canPause = opts.canPause || function () { return true; };
     var onChange = opts.onChange || function () {};
-    var keys = opts.keys || ["Escape", "p"];
+    var keys = opts.keys || ["p"];
     var title = opts.title || "Paused";
     var paused = false;
     var el = null;
@@ -356,7 +358,7 @@
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       }
       // Claim the key only when it pauses or resumes something: on a menu or
-      // end screen, Esc and P (and Ctrl+P, Print) keep their usual behaviour
+      // end screen, P (and Ctrl+P, Print) and Esc keep their usual behaviour
       if (!paused && !canPause()) return;
       e.preventDefault();
       setPaused(!paused);
@@ -393,7 +395,7 @@
   // A click never takes focus (so the game's Space / Enter / typing keeps
   // going where it was) and never reaches the game's own tap handlers.
   function pauseButton(api) {
-    var keys = api.keys || ["Escape", "p"];
+    var keys = api.keys || ["p"];
     var label = keyLabel(keys), caps = keys.length ? " " + keyCaps(keys) : "", shown = "";
     var keyNote = label ? " (" + label + ")" : "";
     var isPaused = api.isPaused || function () { return false; };
@@ -495,7 +497,7 @@
   //                 fill in that colour so they stay readable too
   //   opts.touch:   what to draw instead on a touch-only device, where
   //                 there are no keys to press ("" draws nothing)
-  //   GameShell.drawKeys(ctx, "[P] or [Esc] to resume", W / 2, y, { touch: "tap to resume" });
+  //   GameShell.drawKeys(ctx, "[P] to resume", W / 2, y, { touch: "tap to resume" });
   function drawKeys(ctx, str, x, y, opts) {
     opts = opts || {};
     if (opts.touch != null && touchOnly()) str = opts.touch;
@@ -537,11 +539,11 @@
   }
 
   // ---- leaving mid-game -------------------------------------------------
-  // Home, an Esc the game didn't use, and the "← Games" button all leave for
-  // the games page (motion-toggle.js). While a game is in progress that
-  // leaving would throw away, they ask first: "Leave this game?", with the
-  // game paused underneath (Enter leaves, Esc keeps playing). Each game says
-  // what "in progress" means:
+  // Home, Esc (unless a panel or sub-screen used it to close) and the
+  // "← Games" button all leave for the games page (motion-toggle.js). While a
+  // game is in progress that leaving would throw away, they ask first: "Leave
+  // this game?", with the game paused underneath (Enter leaves, Esc keeps
+  // playing). Each game says what "in progress" means:
   //
   //   GameShell.guardLeave(function () { return state === "play"; });
   //   GameShell.guardLeave({ active, pause, resume, isPaused, text });

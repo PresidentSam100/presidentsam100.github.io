@@ -863,7 +863,7 @@
 
   // ---------- loop ----------
   let last = 0;
-  // Pause (P / Esc / tab-switch). Physics is skipped while paused; draw()
+  // Pause (P / tab-switch). Physics is skipped while paused; draw()
   // still runs so the table stays visible behind the overlay.
   const PAUSE = window.GameShell
     ? GameShell.pausable({ canPause: () => state === "play" || state === "ready", onChange: (paused) => { if (paused) letGo(); } })

@@ -1346,16 +1346,16 @@ window.addEventListener("keydown", (e) => {
     else if (k === " " || k === "enter") startSelectedMode();
     return;
   }
-  // Esc is claimed only to pause / resume; on the menu, the game-over screen
-  // and the death animations the shared motion-toggle.js takes it to the
-  // games page, and Backspace is the way back to this game's menu
+  // Esc is never claimed: the shared motion-toggle.js takes it to the games
+  // page (asking first during a run that has scored), and Backspace is the
+  // way back to this game's menu
   if (state === "dead") {
     if (k === " " || k === "enter") startCurrentMode();          // play again, same mode
     else if (k === "backspace") { e.preventDefault(); goToMenu(); }
     return;
   }
   if (state !== "playing") return; // ignore movement during death/eagle animations
-  if (k === "p" || k === "escape") { e.preventDefault(); paused = !paused; applyMaster(); return; } // pause toggle
+  if (k === "p") { e.preventDefault(); paused = !paused; applyMaster(); return; } // pause toggle
   if (paused) return;
   if (k === "arrowup" || k === "w") move(0, 1);
   else if (k === "arrowdown" || k === "s") move(0, -1);
@@ -2125,7 +2125,7 @@ function drawPauseOverlay() {
   textCenter("PAUSED", W / 2, H * 0.42, 56, "#fff");
   const pulse = fxOff() ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);   // (steady with Visual FX off)
   ctx.globalAlpha = pulse;
-  keysCenter("[P] / [Esc] to resume", W / 2, H * 0.54, 20, "#dfe6f0", "tap to resume");
+  keysCenter("[P] to resume", W / 2, H * 0.54, 20, "#dfe6f0", "tap to resume");
   ctx.globalAlpha = 1;
 }
 
@@ -2229,9 +2229,9 @@ requestAnimationFrame(frame);
 // auto-pause when the tab/window loses focus (resume manually so you're not caught out)
 function autoPause() { if (state === "playing" && !paused) { paused = true; applyMaster(); } }
 if (window.GameShell) GameShell.onAutoPause(autoPause);
-// the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+// the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
 if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
-  keys: ["p", "Escape"],
+  keys: ["p"],
   canPause: () => state === "playing",
   isPaused: () => paused,
   toggle: () => { if (state === "playing") { paused = !paused; applyMaster(); } },

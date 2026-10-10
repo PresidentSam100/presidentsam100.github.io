@@ -2103,11 +2103,11 @@ class Game {
         this.handleInput();
       }
       if (e.repeat) return;
-      // P or Esc pauses, as in the site's other games. Esc is claimed only when
-      // it pauses or resumes, or closes the guide; on the menu and the game-over
-      // card it's left unclaimed, so it leaves for the games page
-      if (e.code === 'Escape' && (this.gameState === 'PLAYING' || this.gameState === 'PAUSED' || this.gameState === 'INFO')) e.preventDefault();
-      if (e.code === 'KeyP' || e.code === 'Escape') this.togglePause();
+      // P pauses, as in the site's other games. Esc is claimed only when it
+      // closes the guide; everywhere else it's left unclaimed, so it leaves
+      // for the games page (asking first while a flight is under way)
+      if (e.code === 'Escape' && this.gameState === 'INFO') e.preventDefault();
+      if (e.code === 'KeyP') this.togglePause();
       if (this.gameState === 'MENU') {
         if (e.code === 'Digit1' || e.code === 'Numpad1') this.setLivesMode(1);
         if (e.code === 'Digit3' || e.code === 'Numpad3') this.setLivesMode(3);
@@ -2522,7 +2522,7 @@ class Game {
     const hintOutline = { outline: { width: 4, color: 'rgba(255,255,255,0.9)' } };
     // touch-only: a tap flaps and the ⏸ button pauses; the mode and guide
     // buttons above say the rest, so that line goes
-    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] / [Esc] pause', CANVAS_W / 2, 634,
+    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] pause', CANVAS_W / 2, 634,
       Object.assign({ touch: 'TAP to flap   ·   ⏸ to pause' }, hintOutline));
     keyHint(ctx, '[1] / [3] switch mode   ·   [I] guide', CANVAS_W / 2, 658, Object.assign({ touch: '' }, hintOutline));
   }
@@ -2643,7 +2643,7 @@ class Game {
     outlined(ctx, 'PAUSED', CANVAS_W / 2, CANVAS_H / 2 - 30, 54, '#4fb3ff', { line: 9, drop: 5 });
     ctx.font = '20px ' + FONT;
     ctx.fillStyle = '#6a6f86';
-    keyHint(ctx, '[P] OR [ESC] TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34, { touch: 'TAP ▶ TO RESUME' });   // (the ⏸ button turns ▶)
+    keyHint(ctx, '[P] TO RESUME', CANVAS_W / 2, CANVAS_H / 2 + 34, { touch: 'TAP ▶ TO RESUME' });   // (the ⏸ button turns ▶)
   }
 
   drawInfo(ctx) {
@@ -2819,9 +2819,9 @@ if (window.GameShell) {
   GameShell.onAutoPause(() => {
     if (game.gameState === 'PLAYING') game.togglePause();
   });
-  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+  // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
   if (GameShell.pauseButton) GameShell.pauseButton({
-    keys: ['p', 'Escape'],
+    keys: ['p'],
     canPause: () => game.gameState === 'PLAYING',
     isPaused: () => game.gameState === 'PAUSED',
     toggle: () => game.togglePause(),

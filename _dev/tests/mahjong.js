@@ -46,10 +46,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await open(ctx);
   await p.evaluate(() => { Mahjong.start("classic"); Mahjong.removeOnePair(); });
   const t0 = await p.evaluate(() => Mahjong.tilesLeft());
-  await p.keyboard.press("Escape"); await p.waitForTimeout(80);
+  await p.keyboard.press("p"); await p.waitForTimeout(80);
   await p.keyboard.press("Control+z"); await p.waitForTimeout(80);
   const paused = await p.evaluate(() => Mahjong.tilesLeft());
-  await p.keyboard.press("Escape"); await p.waitForTimeout(80);
+  await p.keyboard.press("p"); await p.waitForTimeout(80);
   await p.keyboard.press("Control+z"); await p.waitForTimeout(80);
   const resumed = await p.evaluate(() => Mahjong.tilesLeft());
   check("mahjong: Ctrl+Z while paused takes nothing back; after resuming it undoes", t0 === 142 && paused === 142 && resumed === 144, { t0, paused, resumed });

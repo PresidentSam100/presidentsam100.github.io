@@ -27,13 +27,13 @@ The inline script is organised in sections you can search for:
 | Enter | Start / restart |
 | Backspace | Back to the title (game over / complete screens; ● on a touch screen) |
 | E | Open the **enemy guide** (title screen) |
-| P / Esc | **Pause menu** (Resume / Restart / Visual FX / Quit) |
+| P | **Pause menu** (Resume / Restart / Visual FX / Quit) |
 | V (or F) | Toggle **Visual FX** (the site-wide switch, also the ✨ button) |
 | M | Mute |
 
 ## Accessibility
 
-- **Pause menu** (P / Esc): a real menu — **Resume**, **Restart** the run, toggle
+- **Pause menu** (P): a real menu — **Resume**, **Restart** the run, toggle
   **Visual FX**, or **Quit to Title** (↑↓ to select, Enter to confirm).
 - **Visual FX** (V or F, the ✨ button, or the pause menu; **remembered** across
   sessions, and the same switch every game on the site has). With it **on**

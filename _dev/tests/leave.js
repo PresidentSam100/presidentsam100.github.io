@@ -1,12 +1,12 @@
-// The way out: Home leaves any game for the games page; Esc does too unless
-// the game used it (pause, resume, closing a panel). End screens send Esc to
+// The way out: Home and Esc leave any game for the games page, asking first
+// mid-game. Esc is the way out and not a pause key (P pauses), so the only
+// Esc that stays is one the game used to close a panel, or to pause in one
+// of the few games that still pause on it (the typing games). End screens send Esc to
 // the games page and Backspace to the game's own menu. Trips to the games
 // page are counted, not followed (page.leaves, see lib.newContext).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const EDITORS = ["slither/editor.html", "tile-maze/editor.html"];   // Esc never leaves (it would lose work)
-  // games that open straight onto a game with its clock running, where Esc pauses
-  const PLAYS_AT_ONCE = ["hash/"];
   // After a key: the shared handler decides after the key's dispatch, and a
   // trip to the games page is counted when its request arrives (p.leaves),
   // which on a busy machine can be well after a fixed wait. So settle waits
@@ -29,7 +29,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       const p = await lib.open(ctx, base, "games/" + g, { settle: 300 });
       await p.mouse.move(5, 300);
       await p.keyboard.press(key); await settle(p);
-      const want = key === "Escape" && (EDITORS.includes(g) || PLAYS_AT_ONCE.includes(g)) ? 0 : 1;
+      const want = key === "Escape" && EDITORS.includes(g) ? 0 : 1;
       // (nothing is in progress on an opening screen, so nothing asks first)
       const asked = await p.evaluate(() => !!document.querySelector(".gs-dialog"));
       if (p.leaves !== want || asked) (key === "Home" ? homeBad : escBad).push(g + " " + p.leaves + (asked ? " (asked)" : ""));
@@ -38,7 +38,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
   }
   check("Home leaves every game for the games page", homeBad.length === 0, homeBad);
-  check("Esc on a game's opening screen leaves for the games page (editors, and Hash's running deal where it pauses, excepted)", escBad.length === 0, escBad);
+  check("Esc on a game's opening screen leaves for the games page (editors excepted)", escBad.length === 0, escBad);
 
   // ---- leaving mid-game asks first ("Leave this game?"), pausing the game
   {
@@ -49,12 +49,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     const asked = await st();
     await p.keyboard.press("Escape"); await settle(p);
     const kept = await st();
+    // Esc asks the same way (it's the way out, not the pause key), and Esc again keeps playing
+    await p.keyboard.press("Escape"); await settle(p);
+    const askedEsc = await st();
+    await p.keyboard.press("Escape"); await settle(p);
+    const keptEsc = await st();
     await p.click(".nav-back-games"); await settle(p);
     const askedLink = await st();
     await p.keyboard.press("Enter"); await settle(p);
-    check("mid-game, Home and ← Games ask 'Leave this game?' (game paused); Esc keeps playing, Enter leaves",
-      asked.dlg === "Leave this game?" && asked.paused && !kept.dlg && !kept.paused && askedLink.dlg === "Leave this game?" && p.leaves === 1,
-      { asked, kept, askedLink, leaves: p.leaves });
+    check("mid-game, Home, Esc and ← Games ask 'Leave this game?' (game paused); Esc keeps playing, Enter leaves",
+      asked.dlg === "Leave this game?" && asked.paused && !kept.dlg && !kept.paused && askedEsc.dlg === "Leave this game?" && askedEsc.paused && !keptEsc.dlg && !keptEsc.paused &&
+      askedLink.dlg === "Leave this game?" && p.leaves === 1,
+      { asked, kept, askedEsc, keptEsc, askedLink, leaves: p.leaves });
     await p.close();
   }
 
@@ -96,22 +102,49 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // ---- during play Esc pauses (and resumes) and never leaves
+  // ---- during play Esc is the way out, never a bare pause: with a game to
+  // lose it asks first (the game paused under the box, and Esc again plays
+  // on); with nothing to lose yet (a fresh Mahjong deal, Ping at 0-0) it just
+  // goes. [start, what Esc does]
+  const cardUp = (p) => p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!c && !c.hidden; });
+  const boxUp = (p) => p.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
   const starts = {
-    "abyss/": async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(400); },
-    "mahjong/": async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(500); },
-    "ping/": async (p) => { await p.click('#menu .btn[data-mode="1"]'); await p.waitForTimeout(3500); },
-    "departures/": async (p) => { await p.evaluate(() => Departures.start("world")); await p.waitForTimeout(300); },
+    "abyss/": [async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(400); }, "asks"],
+    "mahjong/": [async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(500); }, "leaves"],
+    "ping/": [async (p) => { await p.click('#menu .btn[data-mode="1"]'); await p.waitForFunction(() => state === "playing", null, { timeout: 15000 }); }, "leaves"],
+    "tall-order/": [async (p) => { await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
+      await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 15000 }); }, "asks"],
+    "sunset-slice/": [async (p) => { await p.evaluate(() => SunsetSlice.start("calm")); await p.waitForTimeout(300); }, "asks"],
+    "road-bird/": [async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
+    "poodle-jump/": [async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(150); await p.evaluate(() => { __game.bestY -= 1000; }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
   };
   for (const g of Object.keys(starts)) {
     const p = await lib.open(ctx, base, "games/" + g);
-    await starts[g](p);
+    await starts[g][0](p);
     await p.keyboard.press("Escape"); await settle(p);
-    const paused = await p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!c && !c.hidden; });
-    await p.keyboard.press("Escape"); await settle(p);
-    const resumed = await p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return !c || c.hidden; });
-    check(g + " play: Esc pauses and resumes, never leaving", paused && resumed && p.leaves === 0, { paused, resumed, leaves: p.leaves });
+    const first = { box: await boxUp(p), card: await cardUp(p), leaves: p.leaves };
+    if (starts[g][1] === "asks") {
+      await p.keyboard.press("Escape"); await settle(p);
+      const kept = { box: await boxUp(p), card: await cardUp(p), leaves: p.leaves };
+      check(g + " play: Esc asks 'Leave this game?' (not a bare pause); Esc again plays on, never leaving",
+        first.box === "Leave this game?" && first.leaves === 0 && !kept.box && !kept.card && kept.leaves === 0, { first, kept });
+    } else {
+      check(g + " play, nothing to lose yet: Esc leaves at once (no pause card, no question)", !first.box && !first.card && first.leaves === 1, first);
+    }
     check(g + ": no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- a typing game has no letter to spare, so there Esc is the pause key (and resumes)
+  {
+    const p = await lib.open(ctx, base, "games/departures/");
+    await p.evaluate(() => Departures.start("world")); await p.waitForTimeout(300);
+    await p.keyboard.press("Escape"); await settle(p);
+    const paused = await cardUp(p);
+    await p.keyboard.press("Escape"); await settle(p);
+    const resumed = !(await cardUp(p));
+    check("departures play: Esc pauses and resumes, never leaving", paused && resumed && p.leaves === 0, { paused, resumed, leaves: p.leaves });
+    check("departures: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
 
@@ -229,7 +262,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // ---- Spacer: Esc closes the guide (stays); during play it pauses (stays)
+  // ---- Spacer: Esc closes the guide (stays); in a run that has scored it asks to leave (paused under the box)
   {
     const p = await lib.open(ctx, base, "games/spacer/");
     await p.keyboard.press("e"); await p.waitForTimeout(200);
@@ -238,19 +271,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     const m1 = await p.evaluate(() => game.mode);
     await p.keyboard.press("Enter");
     await p.waitForFunction(() => game.mode === "playing", null, { timeout: 10000 }).catch(() => {});   // (past the READY banner)
+    await p.evaluate(() => game.addScore(100));
     await p.keyboard.press("Escape"); await settle(p);
-    const m2 = await p.evaluate(() => game.mode);
-    check("spacer: Esc closes the guide, and pauses a game, never leaving", m0 === "gallery" && m1 !== "gallery" && m2 === "paused" && p.leaves === 0, { m0, m1, m2, leaves: p.leaves });
+    const m2 = await p.evaluate(() => ({ mode: game.mode, box: (document.querySelector(".gs-dialog h2") || {}).textContent || null }));
+    await p.keyboard.press("Escape"); await settle(p);
+    const m3 = await p.evaluate(() => game.mode);
+    check("spacer: Esc closes the guide (staying); in play it asks 'Leave this game?', and Esc again plays on",
+      m0 === "gallery" && m1 !== "gallery" && m2.mode === "paused" && m2.box === "Leave this game?" && m3 === "playing" && p.leaves === 0, { m0, m1, m2, m3, leaves: p.leaves });
     await p.close();
   }
 
-  // ---- Poodle Jump: Esc pauses a run (its loop reads the key; the keydown claims it)
+  // ---- Poodle Jump: P pauses a run (its loop reads the key); a first-second Esc, with no score yet, leaves
   {
     const p = await lib.open(ctx, base, "games/poodle-jump/");
     await p.keyboard.press("Space"); await p.waitForTimeout(400);
-    await p.keyboard.press("Escape"); await settle(p);
-    const r = await p.evaluate(() => ({ state: __game.state, paused: __game.paused }));
-    check("poodle-jump: Esc pauses a run without leaving", r.paused && p.leaves === 0, { r, leaves: p.leaves });
+    await p.keyboard.press("p"); await settle(p);
+    const r = await p.evaluate(() => ({ state: __game.state, paused: __game.paused, score: __game.score }));
+    check("poodle-jump: P pauses a run without leaving", r.paused && p.leaves === 0, { r, leaves: p.leaves });
     await p.close();
   }
 

@@ -384,12 +384,11 @@
     if (window.GameShell && (document.hidden || !document.hasFocus())) PAUSE.pause();
   }
 
-  // Esc or P pauses a running game, as in the site's other timed games. Esc
-  // never quits a run any more (it used to, on the same press as the pause,
-  // so the overlay appeared while the game quit underneath). In the
-  // countdown and on the results it's left to the shared motion-toggle.js,
-  // which goes to the games page; Backspace backs out of those to setup
-  // (see the keydown handler). Auto-pause stays state-based so a
+  // P pauses a running game, as in the site's other timed games. Esc is
+  // never claimed here: it's left to the shared motion-toggle.js, which goes
+  // to the games page (asking first while a run is on); Backspace backs out
+  // of the countdown and the results to setup (see the keydown handler).
+  // Auto-pause stays state-based so a
   // tab-switch always works. Every clock here is anchored to
   // performance.now(), so resuming shifts startT, the next spawn and every
   // in-flight tile by the paused duration; otherwise the whole column would
@@ -400,7 +399,6 @@
   const PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: () => state === "running",
-        keys: ["Escape", "p"],
         onChange: (paused) => {
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;
@@ -586,8 +584,8 @@
     if (e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // Backspace backs out of the countdown and the results to setup. Esc isn't
-    // claimed there, so it leaves for the games page; while running, Esc is
-    // the pause key (GameShell handles it).
+    // claimed, so it leaves for the games page; while running, P is the
+    // pause key (GameShell handles it).
     if (e.key === "Backspace" && (state === "countdown" || state === "done")) { e.preventDefault(); quit(); return; }
     const col = LANE_KEYS.indexOf(e.code);
     if (col === -1) return;

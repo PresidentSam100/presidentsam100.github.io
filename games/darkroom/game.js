@@ -14,7 +14,7 @@
    Controls: left-click / drag uses the active tool — develop or mark ✕
    — switched with the HUD button or the 1 / 2 keys (right-click / drag
    always marks, for mice; taps use the tool too). Arrows move, Z or
-   Space develops, X marks, R starts over. Esc pauses (the shared shell),
+   Space develops, X marks, R starts over. P pauses (the shared shell),
    and in the gallery goes back to the darkroom.
    ===================================================================== */
 (function () {

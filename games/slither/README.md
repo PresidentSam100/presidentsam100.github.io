@@ -70,7 +70,7 @@ Controls:
 - **Blink**: click or tap a cell.
 - **Click switches**: 1, 2 and 3.
 - **Fire eggs**: Space or E lays one (P2: Enter), as do the 🥚 buttons and a
-  gamepad's A; in Fire Eggs, P or Esc pauses.
+  gamepad's A; in Fire Eggs, P pauses.
 - **Other keys**: R retries, M toggles the music, and Space pauses.
 
 ## Runtime files (loaded by the browser)

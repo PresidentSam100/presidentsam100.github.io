@@ -26,7 +26,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.waitForFunction(() => { const g = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!g && !g.hidden; }, null, { timeout: 15000 }).catch(() => {});
   const away = { paused: await card(p), time: await p.evaluate(() => document.getElementById("vTime").textContent) };
   await p.evaluate(() => { delete document.hasFocus; });
-  await p.keyboard.press("Escape");
+  await p.keyboard.press("p");
   // resumed, the clock runs down from full (polled: slower on a busy machine)
   await p.waitForFunction(() => Number(document.getElementById("vTime").textContent) < 30, null, { timeout: 10000 }).catch(() => {});
   const back = { paused: await card(p), time: await p.evaluate(() => document.getElementById("vTime").textContent) };

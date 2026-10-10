@@ -748,7 +748,7 @@
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
       pauseBtn.textContent = paused ? "\u25B6\uFE0E" : "\u23F8\uFE0E";
-      pauseBtn.setAttribute("aria-label", paused ? "Resume (P or Esc)" : "Pause (P or Esc)");
+      pauseBtn.setAttribute("aria-label", paused ? "Resume (P)" : "Pause (P)");
       if (paused) {
         stopClock();
         save();
@@ -760,15 +760,6 @@
   // Leaving never asks: every move, a pause and the way out (pagehide) save
   // the puzzle and its clock, and the level picks up where it was left
   GameShell.guardLeave(false);
-  // The page opens on a board, already playing. Until something is filled in
-  // there's nothing to lose (the puzzle and its clock are saved on the way
-  // out), so Esc is the way out: this capture-phase listener keeps that Esc
-  // from the pause (which listens on document, in the bubble phase), nothing
-  // claims it, and the shared handler leaves for the games page. P and the
-  // clock's ⏸ still pause a fresh board.
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && state === "playing" && !PAUSE.isPaused() && !hasProgress()) e.stopPropagation();
-  }, true);
 
   // ---- input wiring ------------------------------------------------------
   boardEl.addEventListener("pointerdown", (e) => {

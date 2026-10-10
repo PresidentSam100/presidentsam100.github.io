@@ -1276,10 +1276,10 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts aren't game keys (Alt+← is Back)
     if (modalOpen()) {
-      // Esc just closes the spin pad (claimed, so the page stays); it mustn't reach the pause key too
-      if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); e.stopImmediatePropagation(); }
-      // and on "Leave this rack?" it's Keep playing (not a pause on top of the question)
-      else if (e.key === "Escape" && quitOpen()) { e.preventDefault(); closeQuit(); e.stopImmediatePropagation(); }
+      // Esc just closes the spin pad (claimed, so the page stays)
+      if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); }
+      // and on "Leave this rack?" it's Keep playing
+      else if (e.key === "Escape" && quitOpen()) { e.preventDefault(); closeQuit(); }
       // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }
       return;

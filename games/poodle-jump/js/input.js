@@ -13,12 +13,8 @@ class Input {
     this.btnRight = false;
     this.shots = [];
     this.action = false;    // start / restart pressed
-    this.pause = false;     // pause/resume toggle pressed (P / Esc)
+    this.pause = false;     // pause/resume toggle pressed (P)
     this.menu = false;      // Backspace pressed: back to the start card from Game Over
-    // Whether the loop will act on Esc (main.js: only in play). Only then is
-    // it claimed (preventDefault); otherwise the shared motion-toggle.js
-    // takes it to the games page.
-    this.claimEsc = () => false;
 
     this._bindKeyboard();
     this._bindPointer();
@@ -68,8 +64,8 @@ class Input {
         this.action = true;      // also doubles as start/restart
       }
       if (e.code === "Enter") this.action = true;
-      if (e.code === "KeyP" || e.code === "Escape") this.pause = true;
-      if (e.code === "Escape" && this.claimEsc()) e.preventDefault();
+      // (Esc isn't claimed: the shared motion-toggle.js takes it to the games page)
+      if (e.code === "KeyP") this.pause = true;
       if (e.code === "Backspace") { this.menu = true; e.preventDefault(); }
     });
 

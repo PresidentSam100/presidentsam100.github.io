@@ -1816,12 +1816,13 @@ class Game {
       const k = e.key.toLowerCase();
       if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k))
         e.preventDefault();
-      // Esc is claimed where it acts (closing the guide, pausing, resuming).
-      // Elsewhere the shared motion-toggle.js takes it to the games page: on
-      // a stage banner that asks "Leave this game?" first, as Home does, with
-      // the banner paused underneath (guardLeave, below); on the title and
-      // the game-over and complete screens it just goes.
-      if (k === 'escape' && ['gallery', 'playing', 'paused'].includes(this.mode))
+      // Esc is claimed only where it closes the guide. Elsewhere the shared
+      // motion-toggle.js takes it to the games page: with a run going (in
+      // play, paused, or on a stage banner) that asks "Leave this game?"
+      // first, as Home does, with the run paused underneath (guardLeave,
+      // below); on the title and the game-over and complete screens it just
+      // goes.
+      if (k === 'escape' && this.mode === 'gallery')
         e.preventDefault();
       Sound.init();
       Sound.resume();
@@ -1841,9 +1842,9 @@ class Game {
         this.mode = 'gallery'; this.galleryIndex = 0; this.galleryTab = 0; Sound.coin(); return;
       }
       // pause menu captures input while paused
-      // P or Esc pauses and resumes, as in the site's other games
+      // P pauses and resumes, as in the site's other games
       if (this.mode === 'paused') {
-        if (k === 'p' || k === 'escape') this.togglePause();
+        if (k === 'p') this.togglePause();
         else this.pauseMenuKey(k);
         return;
       }
@@ -1857,7 +1858,7 @@ class Game {
       if (k === ' ') this.input.fire = true;
       if (k === 'arrowup' || k === 'arrowdown') this.onMenuKey(k);
       if (k === 'enter') this.onStartKey();
-      if (k === 'p' || k === 'escape') this.togglePause();
+      if (k === 'p') this.togglePause();
     };
     const up = (e) => {
       const k = e.key.toLowerCase();
@@ -2990,7 +2991,7 @@ class Game {
         this.menuItem(ctx, item, WIDTH / 2, this.pauseRowY(i), sel ? 16 : 14, sel ? '#ffd23f' : '#8fa0d8', sel);
       });
       // (on touch each item is tapped: pauseTap)
-      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P]/[ESC] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center', 'TAP AN ITEM TO CHOOSE IT');
+      this.keys(ctx, '[▲][▼] SELECT  [ENTER] OK  [P] RESUME', WIDTH / 2, HEIGHT / 2 + 100, 11, '#6677aa', 'center', 'TAP AN ITEM TO CHOOSE IT');
     } else if (this.mode === 'complete') {
       this.text(ctx, 'CONGRATULATIONS', WIDTH / 2, HEIGHT / 2 - 40, 20, '#ffd23f', 'center');
       this.text(ctx, 'ALL 255 STAGES CLEARED!', WIDTH / 2, HEIGHT / 2 - 10, 14, '#18e0ff', 'center');
@@ -3206,9 +3207,9 @@ window.addEventListener('load', () => {
     GameShell.onAutoPause(() => {
       if (window.game) window.game.pauseRun();
     });
-    // the shared ⏸ button beside the sound button, so it's plain the game pauses (P / Esc)
+    // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
     if (GameShell.pauseButton) GameShell.pauseButton({
-      keys: ['p', 'Escape'],
+      keys: ['p'],
       canPause: () => window.game.mode === 'playing',
       isPaused: () => window.game.mode === 'paused',
       toggle: () => window.game.togglePause(),

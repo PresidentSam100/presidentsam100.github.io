@@ -348,7 +348,7 @@
   }
 
   // ---- Main loop ----
-  // Pause (P / Esc / tab-switch). The dial freezes; draw() keeps running so
+  // Pause (P / tab-switch). The dial freezes; draw() keeps running so
   // the lock stays on screen behind the overlay.
   const PAUSE = window.GameShell
     ? GameShell.pausable({ canPause: () => state === State.PLAY })

@@ -18,8 +18,8 @@
      picks; games shouldn't add their own @media (prefers-reduced-motion)
      copy, which would beat the player's explicit "FX on".
    - Keys: V or "]" (just "]" on a page with <html data-letter-keys="off">).
-   - Also the way out for every game: Home, or an Esc the game didn't use,
-     goes to the games page (see "Home or Esc" below).
+   - Also the way out for every game: Home or Esc goes to the games page
+     (see "Home or Esc" below).
    Include with:  <script src="../motion-toggle.js"></script>  (in <head>)
    ===================================================================== */
 (function () {
@@ -133,10 +133,12 @@
   }
 
   // ---- keyboard: Home or Esc -> the games page ----------------------------
-  // Home leaves for the games list from anywhere in a game. Esc does too,
-  // unless the game acted on it: pausing or resuming, closing a panel,
-  // stepping back out of a sub-screen. Every game marks such an Esc by
-  // calling preventDefault(), so this needs no idea which screen is up; it
+  // Home leaves for the games list from anywhere in a game, and so does Esc:
+  // it is the way out, not a pause key (P pauses). The one Esc that stays is
+  // one the game acted on: closing a panel, stepping back out of a
+  // sub-screen, or pausing in one of the few games that still pause on Esc
+  // (the typing games, where no letter is free). Every game marks such an Esc
+  // by calling preventDefault(), so this needs no idea which screen is up; it
   // listens first (capture) and decides once the key has been through the
   // game's own handlers. Neither key works from a text field (except the
   // game's own answer box, marked data-game-input) or while a GameShell
@@ -178,7 +180,7 @@
     var back = document.querySelector(".nav-back-games");
     if (!back || back.href !== GAMES_URL) return;
     back.setAttribute("aria-keyshortcuts", "Home Escape");
-    back.title = "Back to the games — Home, or Esc when nothing's in play";
+    back.title = "Back to the games — Home or Esc";
     var cap = back.querySelector(".gs-back-key"), wide = window.innerWidth >= 1200;
     if (wide && !cap) {
       cap = document.createElement("span");

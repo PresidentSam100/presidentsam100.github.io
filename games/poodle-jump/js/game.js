@@ -226,7 +226,7 @@ class Game {
 
   // ----- main loop --------------------------------------------------------
   update(dt) {
-    // Pause toggle (P / Esc). Drain the flag every frame so it can't queue up
+    // Pause toggle (P). Drain the flag every frame so it can't queue up
     // while on the start/over screens and then fire on the first play frame.
     const pauseToggled = this.input.consumePauseToggle();
     if (this.state === "play" && pauseToggled) this.paused = !this.paused;
@@ -826,7 +826,7 @@ class Game {
       "Reach as high as you can!",
       { keys: "[←][→] / [A][D] to move", touch: "◀ ▶ to move" },
       { keys: "[Space] / [↑] / click to shoot", touch: "Tap or 🎯 to shoot" },
-      { keys: "[P] / [Esc] to pause", touch: "⏸ to pause" },
+      { keys: "[P] to pause", touch: "⏸ to pause" },
       "",
       { keys: "Press [Space] or click to start", touch: "Tap to start" },
     ]);
@@ -847,7 +847,7 @@ class Game {
     this._panel(ctx, "Paused", [
       "Score: " + this.score,
       "",
-      { keys: "Press [P] or [Esc] to resume", touch: "Tap ▶ to resume" },
+      { keys: "Press [P] to resume", touch: "Tap ▶ to resume" },
     ]);
   }
 }

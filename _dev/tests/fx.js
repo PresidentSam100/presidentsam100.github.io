@@ -19,7 +19,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // (into play, then paused: each waited for, as the intro runs slower on a busy machine)
   await p.keyboard.press("Enter");
   await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 20000 }).catch(() => {});
-  await p.keyboard.press("Escape");
+  await p.keyboard.press("p");
   await p.waitForFunction(() => window.game.mode === "paused", null, { timeout: 8000 }).catch(() => {});
   const items0 = await p.evaluate(() => window.game.pauseItems());
   await p.keyboard.press("ArrowDown"); await p.keyboard.press("ArrowDown"); await p.keyboard.press("Enter");

@@ -597,7 +597,7 @@
   });
   ovBtn.addEventListener("click", newGame);
 
-  // P / Esc, the ⏸ button and a hidden tab pause the game from the deal
+  // P, the ⏸ button and a hidden tab pause the game from the deal
   // until the deck is cleared. The pause card is see-through, so the cards
   // go blank under it (styles.css): a pause is no time to look for Hashes.
   var PAUSE =

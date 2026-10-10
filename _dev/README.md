@@ -29,7 +29,7 @@ making sturdier, but not a bug in the game.
 |---|---|
 | `shortcuts` | Every game page: sound / Visual FX keys (M / V, and `[` / `]` everywhere), keycap labels, corner buttons not overlapping on desktop or phone, no page errors |
 | `typing` | Typing games keep their letters; `[` / `]` still work, also from the game's own typing box |
-| `pause` | Esc / P pause consistently; Esc backs out on end screens; paused games ignore play input; the shared pause only claims keys when it pauses something; Demolition Row's menu after quitting |
+| `pause` | P pauses consistently and Esc never does (it's the way out, asking first mid-game), except in the few games that still pause on Esc (the typing games, Fish-a-Fish, Demolition Row, 24); paused games ignore play input; the shared pause only claims its key when it pauses something; Demolition Row's menu after quitting |
 | `passport` | Passport's keys: S to share, M / V, Esc back, typed mode |
 | `modifiers` | Ctrl / Cmd / Alt shortcuts reach the browser instead of the game |
 | `touch` | Keycaps on games' own buttons hide on touch-only devices; hint text and canvas hints (`.gs-keys` / `.gs-touch`, `GameShell.touchOnly()`, drawKeys' `touch`) swap keys for touch wording |
