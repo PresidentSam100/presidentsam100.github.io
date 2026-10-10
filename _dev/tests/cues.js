@@ -75,6 +75,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Sudoku: the hint's ring stays drawn for its second
   {
     const p = await open("sudoku", true);
+    // (the puzzle comes from a worker: until it's in, Hint has nothing to point at)
+    await p.waitForFunction(() => document.querySelector(".c.given"), null, { timeout: 15000 }).catch(() => {});
     const s = await p.evaluate(() => { document.getElementById("hintBtn").click(); const c = document.querySelector(".c.hinted"); if (!c) return null; const cs = getComputedStyle(c, "::after"); return { op: cs.opacity, name: cs.animationName }; });
     const gone = await goes(p, () => !document.querySelector(".c.hinted"));
     check("sudoku, FX off: the hint ring shows, still, then goes", !!s && s.op === "1" && s.name === "none" && gone, { s, gone });
@@ -109,8 +111,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.waitForTimeout(1900);
     const hGone = await p.evaluate(() => document.querySelectorAll("#board button.tile.hintg").length);
     check("mahjong, FX off: the hinted pair glows, still, then stops", h.length === 2 && h.every((f) => /drop-shadow/.test(f)) && hGone === 0, { h, hGone });
-    await p.evaluate(() => { const free = Mahjong.freeIdx(); const all = [...document.querySelectorAll("#board button.tile")].map((t, i) => i); const i = all.find((k) => free.indexOf(k) === -1); Mahjong.click(i); });
-    const b = await probe(p, () => { const t = document.querySelector("#board button.tile.shake"); return t ? getComputedStyle(t).outlineStyle + " " + getComputedStyle(t).outlineWidth : null; });
+    // (the click and the read in one step: the edge is gone again in under half a second)
+    const b = await p.evaluate(() => new Promise((res) => {
+      const free = Mahjong.freeIdx(); const all = [...document.querySelectorAll("#board button.tile")].map((t, i) => i); const i = all.find((k) => free.indexOf(k) === -1); Mahjong.click(i);
+      requestAnimationFrame(() => requestAnimationFrame(() => { const t = document.querySelector("#board button.tile.shake"); res(t ? getComputedStyle(t).outlineStyle + " " + getComputedStyle(t).outlineWidth : null); }));
+    }));
     check("mahjong, FX off: clicking a blocked tile gives it a red edge", b === "solid 3px", b);
     await done(p, "mahjong");
   }

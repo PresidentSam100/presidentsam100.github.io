@@ -121,16 +121,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   await lib.injectScript(p, "games/crazy-ohio/game.js", [
     ["function registerMiss(t, col, pressed) {", "function registerMiss(t, col, pressed) { if (pressed) window.__press = (window.__press || 0) + 1;"],
     ["function registerHit(t) {", "function registerHit(t) { window.__press = (window.__press || 0) + 1;"],
+    // (a countdown the test can stretch from 1.5 s to 30: on a busy machine two keys don't always land inside 1.5 s)
+    ["let n = 3;", "let n = window.__longCountdown ? 60 : 3;"],
   ]);
   await p.goto(base + "games/crazy-ohio/", { waitUntil: "domcontentloaded" });
   await p.evaluate(() => localStorage.clear()); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForSelector(".mute-toggle"); await p.waitForTimeout(400);
   const sec = () => p.evaluate(() => ["setup", "play", "result"].find((id) => !document.getElementById(id).hidden));
   check("crazy-ohio: ⏸ button names P", (await btn(p)) === "⏸ Pause P", await btn(p));
   await p.click('#durChoices [data-dur="15"]').catch(() => {});
+  await p.evaluate(() => { window.__longCountdown = true; });
   await p.click("#startBtn"); await p.waitForTimeout(400);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
-  const cdLeaves = p.leaves;
+  await p.keyboard.press("Escape");
+  const cdLeaves = await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
+  await p.evaluate(() => { window.__longCountdown = false; });
   check("crazy-ohio countdown: Esc leaves for the games page, Backspace backs out to setup", cdLeaves === 1 && (await sec()) === "setup" && !(await card(p)), { cdLeaves, sec: await sec() });
   await p.click("#startBtn"); await p.waitForTimeout(3800);
   await p.keyboard.press("p"); await p.waitForTimeout(150); const a1 = { sec: await sec(), paused: await card(p) };
@@ -167,7 +171,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   // (paused, so the bird can't fall while the box is read) Esc doesn't resume: it asks, and Keep playing stays paused
   await p.keyboard.press("Escape"); const f2 = { ask: await asked(p), state: await p.evaluate(() => game.gameState) };
   await p.keyboard.press("Escape"); await boxGone(p); const f3 = await p.evaluate(() => game.gameState);
-  await p.keyboard.press("p"); const f4 = await p.evaluate(() => game.gameState);
+  // (the state it resumes to is caught as it changes: read a moment later, the bird may have fallen and ended the run)
+  await p.evaluate(() => { window.__resumed = null; (function poll() { if (game.gameState !== "PAUSED") window.__resumed = game.gameState; else requestAnimationFrame(poll); })(); });
+  await p.keyboard.press("p");
+  const f4 = await p.waitForFunction(() => window.__resumed, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => null);
   check("flappy-world: P pauses and resumes; Esc doesn't: it asks 'Leave this game?', and Keep playing stays paused",
     f0 === "PLAYING" && f1 === "PAUSED" && f2.ask === "Leave this game?" && f2.state === "PAUSED" && f3 === "PAUSED" && f4 === "PLAYING" && p.leaves === 0, { f0, f1, f2, f3, f4, leaves: p.leaves });
   await p.waitForFunction(() => game.gameState === "GAMEOVER", null, { timeout: 15000 }); await p.waitForTimeout(200);
