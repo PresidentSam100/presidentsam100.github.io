@@ -694,7 +694,11 @@
     try { wasPaused = !!(g.isPaused && g.isPaused()); } catch (e) {}
     if (!wasPaused && g.pause) { try { g.pause(); } catch (e) {} }
     var text = typeof g.text === "function" ? g.text() : g.text;
-    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true },
+    // (hold: on Leave the box stays up until the page has gone. Closing it
+    // first showed the game again, sitting paused under its card, for as long
+    // as the games page took to load.)
+    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true,
+      hold: function (yes) { return yes; } },
       function (yes) {
         if (yes) go();
         else if (!wasPaused && g.resume) { try { g.resume(); } catch (e) {} }
@@ -748,8 +752,11 @@
     return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
 
-  // o: { title, text, copy, role, buttons: [{ label, key, value, main, click }] }
+  // o: { title, text, copy, role, hold, buttons: [{ label, key, value, main, click }] }
   // A button's `key` ("Enter" / "Esc") is the key that presses it.
+  // hold(value) says the answer takes the page away: the box then stays up,
+  // answered, until the page goes (or comes back, or 4 seconds pass with it
+  // still here), so nothing under it shows in between.
   function showDialog(o, done) {
     injectPauseCss();
     if (openDialog) openDialog.dismiss();            // one at a time
@@ -837,14 +844,27 @@
       if (e.target === el && byKey.Esc) byKey.Esc.click();
     });
 
-    function close(v) {
+    var held = false;
+    function remove() {
       if (!el.parentNode) return;
       el.parentNode.removeChild(el);
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("keyup", onKey, true);
       window.removeEventListener("keypress", onKey, true);
+      window.removeEventListener("pageshow", onShow);
       if (openDialog && openDialog.el === el) openDialog = null;
       try { if (prevFocus && prevFocus.focus && document.contains(prevFocus)) prevFocus.focus({ preventScroll: true }); } catch (e) {}
+    }
+    // back from the next page, which the browser kept this one alive behind
+    function onShow(e) { if (e.persisted) remove(); }
+    function close(v) {
+      if (!el.parentNode || held) return;
+      if (o.hold && o.hold(v)) {
+        held = true;
+        el.setAttribute("aria-busy", "true");
+        window.addEventListener("pageshow", onShow);
+        setTimeout(remove, 4000);
+      } else remove();
       try { if (done) done(v); } catch (e) { setTimeout(function () { throw e; }); }
       if (resolve) resolve(v);
     }
@@ -853,7 +873,7 @@
     window.addEventListener("keyup", onKey, true);
     window.addEventListener("keypress", onKey, true);
     (document.body || document.documentElement).appendChild(el);
-    openDialog = { el: el, dismiss: function () { close(cancelValue); } };
+    openDialog = { el: el, dismiss: function () { if (held) remove(); else close(cancelValue); } };
     // focus the main button, or (o.safe) the one Esc presses: a reflex Space
     // right after Home mustn't answer "Leave this game?" with Leave
     if (ta) ta.focus(); else ((o.safe && byKey.Esc) || byKey.Enter || btns[0]).focus();
@@ -867,6 +887,7 @@
       text: opts.text,
       role: "alertdialog",
       safe: !!opts.safe,
+      hold: opts.hold,
       buttons: [
         { label: opts.cancel || "Cancel", key: "Esc", value: false },
         { label: opts.ok || "OK", key: "Enter", value: true, main: true }

@@ -61,6 +61,27 @@ module.exports = async ({ browser, base, check, lib }) => {
       asked.dlg === "Leave this game?" && asked.paused && !kept.dlg && !kept.paused && askedEsc.dlg === "Leave this game?" && askedEsc.paused && !keptEsc.dlg && !keptEsc.paused &&
       askedLink.dlg === "Leave this game?" && p.leaves === 1,
       { asked, kept, askedEsc, keptEsc, askedLink, leaves: p.leaves });
+    // Leave keeps its box up until the page has gone, so the game (sitting
+    // paused under its card) never shows in between. Here the page stays (the
+    // trip is only counted), so the box is still up; coming back to a page the
+    // browser kept (pageshow) clears it, with the game still waiting paused.
+    const leaving = await st();
+    await p.evaluate(() => window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true })));
+    const cameBack = await st();
+    check("after Leave the box stays up until the page goes (no paused game in between); back on the page it's gone and the game waits paused",
+      leaving.dlg === "Leave this game?" && cameBack.dlg === null && cameBack.paused, { leaving, cameBack });
+    await p.close();
+  }
+  // ...and if the page never does go (the trip stalls), the box clears itself after a few seconds
+  {
+    const p = await lib.open(ctx, base, "games/abyss/");
+    await p.keyboard.press("Enter"); await p.waitForTimeout(400);
+    await p.keyboard.press("Home"); await settle(p);
+    await p.keyboard.press("Enter"); await settle(p);
+    const up = await p.evaluate(() => !!document.querySelector(".gs-dialog"));
+    await p.evaluate(() => new Promise((r) => setTimeout(r, 4200)));
+    const after = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), paused: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    check("a Leave that never leaves: its box clears after a few seconds, the game still paused", up && !after.dlg && after.paused && p.leaves === 1, { up, after, leaves: p.leaves });
     await p.close();
   }
 

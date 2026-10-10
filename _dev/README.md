@@ -29,6 +29,7 @@ making sturdier, but not a bug in the game.
 |---|---|
 | `shortcuts` | Every game page: sound / Visual FX keys (M / V, and `[` / `]` everywhere), keycap labels, corner buttons not overlapping on desktop or phone, no page errors |
 | `modes` | Mode and setup screens (`GameShell.menuKeys`): each option's key presses its button and shows on it as a keycap, Enter starts, rows that come and go, sub-menus, keys that ask before throwing a game away, text fields keeping their typing, keycaps hidden on touch |
+| `leave` | Home / Esc / ← Games leave for the games page, asking first mid-game; after Leave the box stays up until the page has gone; end screens send Esc out and Backspace to the game's menu |
 | `typing` | Typing games keep their letters; `[` / `]` still work, also from the game's own typing box |
 | `pause` | P pauses consistently and Esc never does (it's the way out, asking first mid-game), except in the few games that still pause on Esc (the typing games, Fish-a-Fish, Demolition Row, 24); paused games ignore play input; the shared pause only claims its key when it pauses something; Demolition Row's menu after quitting |
 | `passport` | Passport's keys: S to share, M / V, Esc back, typed mode |
