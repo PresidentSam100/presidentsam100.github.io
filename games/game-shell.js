@@ -377,7 +377,9 @@
     };
   }
 
-  // The ⏸ button in the top-right row, just left of the sound button. Every
+  // The ⏸ button in the top-right row (motion-toggle.js lays the row out),
+  // just left of the sound button. It keeps the width of "Resume", its longer
+  // label, so pausing doesn't make it jump. Every
   // game that can pause shows one, so it's plain which games pause and with
   // which key; it's dimmed (with a tooltip) while there's nothing to pause.
   // pausable() adds it; a game with its own pause screen calls this directly:
@@ -402,6 +404,7 @@
     var keyNote = label ? " (" + label + ")" : "";
     var isPaused = api.isPaused || function () { return false; };
     var canPause = api.canPause || function () { return true; };
+    var corner = window.GSCorner || null;
     var btn = null;
 
     // below ~1200px the full label would crowd the top of many games, so it's
@@ -410,8 +413,9 @@
     function render() {
       if (!btn) return;
       var p = isPaused(), ok = p || canPause();
-      var html = p ? "▶" : "⏸";
-      if (!narrow()) html += (p ? " Resume" : " Pause") + caps;
+      var words = narrow() ? ["⏸", "▶"] : ["⏸ Pause", "▶ Resume"];
+      var html = corner ? corner.swap(words[p ? 1 : 0], words[p ? 0 : 1]) : words[p ? 1 : 0];
+      if (!narrow()) html += caps;
       if (html !== shown) { btn.innerHTML = html; shown = html; }
       btn.setAttribute("aria-disabled", ok ? "false" : "true");
       var off = !ok && (typeof api.offTitle === "function" ? api.offTitle() : api.offTitle);
@@ -420,21 +424,15 @@
       btn.style.opacity = ok ? "1" : "0.45";
       btn.style.cursor = ok ? "pointer" : "default";
     }
-    function place() {
-      if (!btn) return;
-      var ref = document.querySelector(".mute-toggle") || document.querySelector(".rm-toggle");
-      var r = ref && ref.getBoundingClientRect();
-      btn.style.right = (r && r.width ? Math.max(12, window.innerWidth - r.left + 8) : 12) + "px";
-    }
     function build() {
       if (btn) return;
       injectPauseCss();
       btn = document.createElement("button");
       btn.className = "gs-pause-btn";
       btn.type = "button";
-      btn.style.cssText =
-        "position:fixed;top:12px;z-index:99999;font-weight:700;font-size:13px;line-height:1;white-space:nowrap;" +
-        "border-radius:8px;padding:8px 11px;-webkit-tap-highlight-color:transparent;";
+      btn.style.cssText = "font-weight:700;border-radius:8px;padding:0 11px;";
+      // (without the row: alone in the corner)
+      if (!corner) btn.style.cssText += "position:fixed;top:12px;right:12px;z-index:99999;font-size:13px;line-height:1;white-space:nowrap;padding:8px 11px;";
       var back = document.querySelector(".nav-back-games");
       if (back) {
         // like the sound button: take the back link's look even when it's a gradient
@@ -459,15 +457,9 @@
         if (isPaused() || canPause()) api.toggle();
         render();
       });
-      document.body.appendChild(btn);
+      (corner ? corner.row() : document.body).appendChild(btn);
       render();
-      // after the sound and FX buttons have placed themselves
-      place();
-      requestAnimationFrame(place);
-      setTimeout(place, 120);
-      setTimeout(place, 400);
-      window.addEventListener("resize", function () { render(); place(); });
-      window.addEventListener("reducemotionchange", function () { setTimeout(place, 20); });
+      window.addEventListener("resize", render);
       setInterval(render, 250);
     }
 

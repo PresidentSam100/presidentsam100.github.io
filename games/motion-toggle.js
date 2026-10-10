@@ -3,8 +3,9 @@
    - Storage key is derived from the game's folder, so each game remembers
      its OWN setting (e.g. /games/spacer/ -> "reduceMotion:spacer").
    - Injects a motion-neutralizing <style> before first paint (no flash).
-   - Builds a fixed top-right toggle button that auto-themes to match the
-     game's "← Games" back button.
+   - Builds a top-right toggle button that auto-themes to match the game's
+     "← Games" back button, and the row it shares with the sound and ⏸
+     buttons (see "the corner row" below).
    - Exposes window.RM_ON() (true = FX off) and window.FX_ON() (true = FX on)
      so canvas games can gate effects live, and fires a "reducemotionchange"
      event (detail.on = FX off) on toggle.
@@ -119,6 +120,78 @@
     (document.head || document.documentElement).appendChild(st);
   })();
 
+  // ---- the corner row ----------------------------------------------------
+  // The ⏸, 🔊 and ✨ buttons share one row at the top right, lined up with
+  // the game's "← Games" link: its top, its height, and its distance from
+  // the edge of the page (mirrored). The link keeps the look each game gave
+  // it; the buttons take their measure from it (syncRow). The row is a flex
+  // box, so the buttons space themselves whichever script adds them, in the
+  // order ⏸ 🔊 ✨, and stay packed when a web font arrives late.
+  // A button whose label changes (on / off, 🔊 / 🔇, Pause / Resume) stays as
+  // wide as its longer label, so pressing it never moves anything: the label
+  // not showing rides along unseen in the same grid cell (.gs-swap; it's a
+  // pseudo-element, so the button's text is just the label that shows).
+  (function injectRow() {
+    if (document.getElementById("gs-row-style")) return;
+    var st = document.createElement("style");
+    st.id = "gs-row-style";
+    st.textContent =
+      ".gs-corner{position:fixed;top:var(--gs-row-top,12px);right:var(--gs-row-edge,12px);height:var(--gs-row-h,32px);z-index:99999;" +
+      "display:flex;align-items:stretch;gap:8px;margin:0;padding:0;pointer-events:none}" +
+      ".gs-corner>button{position:static!important;order:3;flex:none;pointer-events:auto;box-sizing:border-box!important;" +
+      "height:auto!important;min-height:0!important;min-width:0!important;margin:0!important;padding-top:0!important;padding-bottom:0!important;" +
+      "display:inline-flex!important;align-items:center;justify-content:center;gap:.45em;" +
+      "font-size:13px!important;line-height:1!important;letter-spacing:normal;text-transform:none;white-space:nowrap;" +
+      "-webkit-tap-highlight-color:transparent}" +
+      ".gs-corner>.gs-pause-btn{order:1}.gs-corner>.mute-toggle{order:2}" +
+      ".gs-swap{display:inline-grid;text-align:left}.gs-swap>span,.gs-swap::after{grid-area:1/1}" +
+      ".gs-swap::after{content:attr(data-alt);visibility:hidden}";
+    (document.head || document.documentElement).appendChild(st);
+  })();
+  function row() {
+    var el = document.querySelector(".gs-corner");
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "gs-corner";
+      document.body.appendChild(el);
+    }
+    return el;
+  }
+  // `now` is the label showing, `alt` the one it turns into when pressed
+  function swap(now, alt) {
+    return '<span class="gs-swap" data-alt="' + alt + '"><span>' + now + "</span></span>";
+  }
+  // the row's top, height and edge distance, read from the "← Games" link
+  // (offsetHeight, so a tilted link still gives its own height)
+  function syncRow() {
+    var back = document.querySelector(".nav-back-games");
+    if (!back) return;
+    var cs = getComputedStyle(back), root = document.documentElement.style;
+    if (cs.position !== "fixed" || !back.offsetHeight) return;
+    if (parseFloat(cs.top) >= 0) root.setProperty("--gs-row-top", cs.top);
+    if (parseFloat(cs.left) >= 0) root.setProperty("--gs-row-edge", cs.left);
+    root.setProperty("--gs-row-h", back.offsetHeight + "px");
+  }
+  // On a narrow screen the row can run into the "← Games" link (a wide link
+  // on a small phone). The ✨ button then says "FX" for "Visual FX", and if
+  // that's still too wide just "✨" (dimmed when off, as ever): `tight` is 0,
+  // 1 or 2. It's worked out afresh, longest label first, whenever the window,
+  // the link or the row changes size, so the long label comes back when it fits.
+  var tight = 0, fitting = false;
+  function fit() {
+    var back = document.querySelector(".nav-back-games"), r = document.querySelector(".gs-corner");
+    if (!btn || !back || !r || fitting) return;
+    fitting = true;
+    for (tight = 0; tight < 3; tight++) {
+      render();
+      if (r.getBoundingClientRect().left >= back.getBoundingClientRect().right + 6) break;
+    }
+    if (tight > 2) tight = 2;
+    fitting = false;
+  }
+  // for the sound button (mute-toggle.js) and the ⏸ button (game-shell.js)
+  window.GSCorner = { row: row, swap: swap };
+
   // ---- keyboard: V, or "]" ---------------------------------------------
   // Same rules as the sound button's M / "[" (see mute-toggle.js): "]"
   // works in every game; V too unless <html data-letter-keys="off">; text
@@ -215,7 +288,8 @@
     btn.setAttribute("aria-label", "Toggle visual effects for this game (" + key + ")");
     btn.setAttribute("aria-keyshortcuts", lettersOn() ? "V ]" : "]");
     btn.title = "Toggle visual effects for this game (shake, flash, glow, animations) — " + (lettersOn() ? "V or ]" : "]");
-    var html = (r ? "✨ Visual FX: off" : "✨ Visual FX: on") +
+    var words = tight === 2 ? ["✨", "✨"] : tight === 1 ? ["✨ FX: on", "✨ FX: off"] : ["✨ Visual FX: on", "✨ Visual FX: off"];
+    var html = swap(words[r ? 1 : 0], words[r ? 0 : 1]) +
       (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");
     if (html !== shown) { btn.innerHTML = html; shown = html; }
     btn.style.opacity = r ? "0.72" : "1";
@@ -232,10 +306,8 @@
     btn = document.createElement("button");
     btn.className = "rm-toggle";
     btn.type = "button";
-    btn.style.cssText =
-      "position:fixed;top:12px;right:12px;z-index:99999;cursor:pointer;" +
-      "font-weight:700;font-size:13px;line-height:1;border-radius:8px;" +
-      "padding:8px 12px;-webkit-tap-highlight-color:transparent;";
+    // (where it sits and how tall it is come from the corner row's styles)
+    btn.style.cssText = "cursor:pointer;font-weight:700;border-radius:8px;padding:0 12px;";
 
     // Match the game's back button so the toggle feels native to each theme.
     var back = document.querySelector(".nav-back-games");
@@ -266,10 +338,19 @@
     // button would be clicked again by the Enter / Space a player presses next
     btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
 
-    document.body.appendChild(btn);
+    var corner = row();
+    corner.appendChild(btn);
     markBack();
-    // the sound and ⏸ buttons re-place themselves on resize after this runs
-    window.addEventListener("resize", function () { render(); markBack(); });
+    syncRow();
+    fit();
+    window.addEventListener("resize", function () { render(); markBack(); syncRow(); fit(); });
+    // the link's size can change after this runs (its web font arriving), and
+    // so can the row's (the sound and ⏸ buttons joining it)
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () { syncRow(); fit(); });
+      if (back) ro.observe(back);
+      ro.observe(corner);
+    }
   }
 
   if (document.body) build();

@@ -1,5 +1,5 @@
 /* =====================================================================
-   Per-game mute toggle — a speaker button pinned to the top-right, just
+   Per-game mute toggle — a speaker button in the top-right row, just
    to the LEFT of the "Visual FX" toggle from motion-toggle.js.
 
    - Mutes ALL of a game's Web Audio at once by routing every AudioContext
@@ -80,15 +80,6 @@
     (document.head || document.documentElement).appendChild(st);
   })();
 
-  // Sit just left of the "Visual FX" toggle (.rm-toggle); fall back to the
-  // corner if it isn't present. Re-run on resize / when the FX label changes.
-  function place(btn) {
-    var fx = document.querySelector(".rm-toggle");
-    var r = fx && fx.getBoundingClientRect();
-    if (r && r.width) btn.style.right = Math.max(12, window.innerWidth - r.left + 8) + "px";
-    else btn.style.right = "12px";
-  }
-
   // ---- keyboard: M, or "[" ---------------------------------------------
   // "[" works in every game. M works too, unless the page opts letters out
   // with <html data-letter-keys="off"> — typing games, and games that
@@ -107,6 +98,9 @@
     return !typing && lettersOn() && e.key.toLowerCase() === letter;
   }
 
+  // the row it shares with the ⏸ and Visual FX buttons (motion-toggle.js),
+  // which places it and gives it its height
+  var corner = window.GSCorner || null;
   var btn = null, shown = "";
   function toggle() {
     muted = !muted;
@@ -125,7 +119,9 @@
     btn.setAttribute("aria-label", "Mute or unmute this game (" + key + ")");
     btn.setAttribute("aria-keyshortcuts", lettersOn() ? "M [" : "[");
     btn.title = "Mute / unmute sound for this game — " + (lettersOn() ? "M or [" : "[");
-    var html = (muted ? "🔇" : "🔊") + (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");
+    // (both speakers take up room, so the button is the same width muted or not: .gs-swap)
+    var icon = corner ? corner.swap(muted ? "🔇" : "🔊", muted ? "🔊" : "🔇") : muted ? "🔇" : "🔊";
+    var html = icon + (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");
     if (html !== shown) { btn.innerHTML = html; shown = html; }
     btn.style.opacity = muted ? "0.72" : "1";
   }
@@ -141,9 +137,9 @@
     btn = document.createElement("button");
     btn.className = "mute-toggle";
     btn.type = "button";
-    btn.style.cssText =
-      "position:fixed;top:12px;z-index:99999;cursor:pointer;font-weight:700;font-size:15px;line-height:1;" +
-      "border-radius:8px;padding:8px 11px;-webkit-tap-highlight-color:transparent;";
+    btn.style.cssText = "cursor:pointer;font-weight:700;border-radius:8px;padding:0 11px;";
+    // (without the row: alone in the corner)
+    if (!corner) btn.style.cssText += "position:fixed;top:12px;right:12px;z-index:99999;font-size:15px;line-height:1;padding:8px 11px;";
 
     // Match the game's back button so the toggle feels native to each theme.
     var back = document.querySelector(".nav-back-games");
@@ -167,12 +163,8 @@
     // button would be clicked again by the Enter / Space a player presses next
     btn.addEventListener("mousedown", function (e) { e.preventDefault(); });
 
-    document.body.appendChild(btn);
-    place(btn);
-    requestAnimationFrame(function () { place(btn); });   // after the FX button settles
-    setTimeout(function () { place(btn); }, 80);
-    window.addEventListener("resize", function () { render(); place(btn); });
-    window.addEventListener("reducemotionchange", function () { setTimeout(function () { place(btn); }, 0); });
+    (corner ? corner.row() : document.body).appendChild(btn);
+    window.addEventListener("resize", render);
   }
 
   if (document.body) build();
