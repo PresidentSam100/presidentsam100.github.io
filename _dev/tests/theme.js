@@ -1,8 +1,9 @@
 // Themed text and pop-ups: no browser confirm / alert / prompt boxes anywhere
 // (the shared GameShell dialogs, or the hub's own), the dialogs take keys
 // away from the game while they're up, the pause card's Resume button gets
-// the game's font, Klondike's corner buttons are filled, and the shared coin
-// flip can be restyled per game.
+// the game's font, Klondike's corner buttons are filled, the shared coin
+// flip can be restyled per game, and the corner icons are drawn in each
+// game's own colour.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // record any native dialog instead of showing it
@@ -257,6 +258,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("coin flip: Tic-Tac-Toe's is a slate in an oak frame, chalked in Cabin Sketch", /176, 122, 69/.test(ttt.shadow) && /Cabin Sketch/.test(ttt.winFont), ttt);
     const salvo = await look("salvo")();
     check("coin flip: Salvo's is a steel plate in Black Ops One", /gradient/.test(salvo.bgImg) && /Black Ops One/.test(salvo.winFont), salvo);
+  }
+
+  // ---- the corner icons: the ✨, the speaker and the ⏸ are drawn flat in the
+  // button's own text colour, on every game page (as emoji they ignored each
+  // game's palette, and a phone draws them unlike a computer). Each is the
+  // page's own shape, masked over the emoji at one size, so it doesn't depend
+  // on the device's emoji font; the emoji stays in the label, unseen.
+  // <html data-corner-icons="color"> keeps the emoji
+  {
+    const bad = [];
+    let pages = 0, pauses = 0;
+    for (const g of lib.gamePages()) {
+      const p = await lib.open(ctx, base, "games/" + g, { settle: 250 });
+      const r = await p.evaluate(() => [".rm-toggle", ".mute-toggle", ".gs-pause-btn"].map((sel) => {
+        const b = document.querySelector(sel), i = b && b.querySelector(".gs-ico");
+        if (!b && sel === ".gs-pause-btn") return "";            // (not every game can pause)
+        if (!i) return sel + ": no icon";
+        const ink = getComputedStyle(b).color, glyph = i.firstElementChild, shape = getComputedStyle(i, "::before");
+        const mask = shape.webkitMaskImage || shape.maskImage || "";
+        const flat = !!glyph && getComputedStyle(glyph).visibility === "hidden" && shape.backgroundColor === ink && mask.indexOf('url("data:image/svg') === 0 &&
+          shape.width === shape.height && parseFloat(shape.width) >= 14 && glyph.textContent.length > 0;
+        return flat ? (sel === ".gs-pause-btn" ? "paused-ok" : "") : sel + ": glyph " + (glyph && getComputedStyle(glyph).visibility) + ", shape " + shape.backgroundColor + " " + shape.width + "x" + shape.height + " / " + mask.slice(0, 24) + " (ink " + ink + ")";
+      }).filter(Boolean));
+      pages++;
+      if (r.includes("paused-ok")) pauses++;
+      const wrong = r.filter((x) => x !== "paused-ok");
+      if (wrong.length) bad.push({ g, r: wrong });
+      await p.close();
+    }
+    check("corner icons: the ✨, the speaker and the ⏸ are drawn flat in the button's own colour, at one size, on all " + pages + " game pages", pages > 40 && pauses > 15 && bad.length === 0, { pauses, bad });
+    const p = await lib.open(ctx, base, "games/tic-tac-toe/");
+    const kept = await p.evaluate(() => {
+      document.documentElement.setAttribute("data-corner-icons", "color");
+      const ico = document.querySelector(".rm-toggle .gs-ico");
+      if (!ico || !ico.firstElementChild) return { glyph: "no icon" };
+      return { glyph: getComputedStyle(ico.firstElementChild).visibility, shape: getComputedStyle(ico, "::before").content };
+    });
+    check("corner icons: <html data-corner-icons=\"color\"> keeps the colour emoji", kept.glyph === "visible" && kept.shape === "none", kept);
+    await done(p, "corner icons");
   }
 
   await ctx.close();

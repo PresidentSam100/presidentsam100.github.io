@@ -120,6 +120,23 @@
     (document.head || document.documentElement).appendChild(st);
   })();
 
+  // The corner icons' shapes, by the emoji each stands for: [class, mask].
+  // Plain paths on a 24-unit square; only their outline matters (the fill is
+  // the button's text colour).
+  function icon(paths) {
+    return "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E" + paths + '%3C/svg%3E")';
+  }
+  var SPEAKER = "%3Cpath d='M3 9h4l5-4.2v14.4L7 15H3z'/%3E";
+  var LINE = " fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E";
+  var ICONS = {
+    "✨": ["fx", icon("%3Cpath d='M9.5 4l1.9 5.6L17 11.5l-5.6 1.9L9.5 19l-1.9-5.6L2 11.5l5.6-1.9zM18.5 2l.95 2.55L22 5.5l-2.55.95L18.5 9l-.95-2.55L15 5.5l2.55-.95zM18 15l.8 2.2 2.2.8-2.2.8L18 21l-.8-2.2-2.2-.8 2.2-.8z'/%3E")],
+    "🔊": ["on", icon(SPEAKER + "%3Cpath d='M15.5 8.6a4.6 4.6 0 0 1 0 6.8M18.3 5.8a8.6 8.6 0 0 1 0 12.4'" + LINE)],
+    "🔇": ["off", icon(SPEAKER + "%3Cpath d='M16 9l6 6M22 9l-6 6'" + LINE)],
+    // (the ⏸ button's two: a phone draws them as blue emoji, a computer as plain marks)
+    "⏸": ["pause", icon("%3Cpath d='M6.5 5h4v14h-4zM13.5 5h4v14h-4z'/%3E")],
+    "▶": ["play", icon("%3Cpath d='M7.5 4.5l11.5 7.5-11.5 7.5z'/%3E")]
+  };
+
   // ---- the corner row ----------------------------------------------------
   // The ⏸, 🔊 and ✨ buttons share one row at the top right, lined up with
   // the game's "← Games" link: its top, its height, and its distance from
@@ -145,7 +162,23 @@
       "-webkit-tap-highlight-color:transparent}" +
       ".gs-corner>.gs-pause-btn{order:1}.gs-corner>.mute-toggle{order:2}" +
       ".gs-swap{display:inline-grid;text-align:left}.gs-swap>span,.gs-swap::after{grid-area:1/1}" +
-      ".gs-swap::after{content:attr(data-alt);visibility:hidden}";
+      ".gs-swap::after{content:attr(data-alt);visibility:hidden}" +
+      // The buttons' icons (✨, the speaker, ⏸ and ▶) are drawn flat, in the
+      // colour of the button's own text (the game's ink): as emoji they
+      // ignored every game's palette, and each phone and computer draws them
+      // its own way. Each is a shape of its own (ICONS above) laid over the
+      // emoji as a mask and filled with the text colour, at one size, so it
+      // is the same in every browser. The emoji stays in the label, unseen:
+      // it holds the icon's room (so nothing moves when a label changes) and
+      // keeps the button's text as it was. <html data-corner-icons="color">
+      // keeps the emoji as they are, and so does a browser with no CSS masks.
+      "@supports ((-webkit-mask-image:none) or (mask-image:none)){" +
+      'html:not([data-corner-icons="color"]) .gs-corner .gs-ico{position:relative;display:inline-block}' +
+      'html:not([data-corner-icons="color"]) .gs-corner .gs-ico>span{visibility:hidden}' +
+      'html:not([data-corner-icons="color"]) .gs-corner .gs-ico::before{content:"";position:absolute;left:50%;top:50%;width:1.25em;height:1.25em;margin:-.625em 0 0 -.625em;' +
+      "background:currentColor;-webkit-mask:var(--gs-ico) center/contain no-repeat;mask:var(--gs-ico) center/contain no-repeat}" +
+      Object.keys(ICONS).map(function (k) { return ".gs-ico-" + ICONS[k][0] + "{--gs-ico:" + ICONS[k][1] + "}"; }).join("") +
+      "}";
     (document.head || document.documentElement).appendChild(st);
   })();
   function row() {
@@ -157,9 +190,12 @@
     }
     return el;
   }
-  // `now` is the label showing, `alt` the one it turns into when pressed
+  // `now` is the label showing, `alt` the one it turns into when pressed.
+  // A label's icon is wrapped (.gs-ico) so its shape can be drawn over it;
+  // the unseen `alt` stays plain text, which is as wide.
   function swap(now, alt) {
-    return '<span class="gs-swap" data-alt="' + alt + '"><span>' + now + "</span></span>";
+    var label = now.replace(/^(✨|🔊|🔇|⏸|▶)/, function (e) { return '<span class="gs-ico gs-ico-' + ICONS[e][0] + '"><span>' + e + "</span></span>"; });
+    return '<span class="gs-swap" data-alt="' + alt + '"><span>' + label + "</span></span>";
   }
   // the row's top, height and edge distance, read from the "← Games" link
   // (offsetHeight, so a tilted link still gives its own height)
