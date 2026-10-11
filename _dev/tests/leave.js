@@ -187,7 +187,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       (p) => p.evaluate(() => __game.state), "menu"],
     ["sunset-slice", async (p) => { await p.evaluate(() => { SunsetSlice.start("lastlight"); SunsetSlice.setTime(0.01); }); await p.waitForFunction(() => SunsetSlice.state().state === "over", null, { timeout: 15000 }); },
       (p) => p.evaluate(() => SunsetSlice.state().state), "menu"],
-    ["24", async (p) => { await p.keyboard.press("2"); await p.waitForTimeout(300); await p.evaluate(() => { TwentyFour.state().G.timeLeft = 1; }); await p.waitForFunction(() => TwentyFour.state().screen === "timeup", null, { timeout: 15000 }); },
+    ["24", async (p) => { await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); await p.evaluate(() => { TwentyFour.state().G.timeLeft = 1; }); await p.waitForFunction(() => TwentyFour.state().screen === "timeup", null, { timeout: 15000 }); },
       (p) => p.evaluate(() => TwentyFour.state().screen), "menu"],
     ["lanterns", async (p) => { await p.evaluate(() => Lanterns.start("festival")); await p.waitForTimeout(300); await p.evaluate(() => Lanterns.gameOver()); await p.waitForTimeout(900); },
       (p) => p.evaluate(() => Lanterns.state()), "menu",
@@ -243,7 +243,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     // 24, Time attack: Esc in the "24!" flash; the next hand is dealt and the clock stops while it asks
     let p = await lib.open(ctx, base, "games/24/");
-    await p.keyboard.press("2"); await p.waitForTimeout(300);
+    await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
     const hand0 = await p.evaluate(() => {
       const G = TwentyFour.state().G;
       G.cards = TwentyFourSolver.fromInts([12, 12]);

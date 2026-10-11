@@ -90,7 +90,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- 24: the ⏸ button is dimmed on the menu, live in Time attack
   p = await lib.open(ctx, base, "games/24/");
   const dim = await p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"));
-  await p.keyboard.press("2"); await p.waitForTimeout(300);
+  await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
   const live = await p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"));
   await p.click(".gs-pause-btn"); const s1 = await p.evaluate(() => TwentyFour.state().screen);
   await p.keyboard.press("Escape"); const s2 = await p.evaluate(() => TwentyFour.state().screen);
@@ -103,10 +103,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await lib.open(ctx, base, "games/24/");
   const tip = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return { off: b.getAttribute("aria-disabled"), title: b.title, aria: b.getAttribute("aria-label") }; });
   const onMenu = await tip();
-  await p.keyboard.press("1"); await p.waitForTimeout(400);
+  await p.keyboard.press("1"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const classic = await tip();
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
-  await p.keyboard.press("4"); await p.waitForTimeout(400);
+  await p.keyboard.press("4"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const hard = await tip();
   check("24: in Classic / Hard the dimmed ⏸ explains there's no clock; on the menu it says it works during a game",
     /during a game/.test(onMenu.title) && classic.off === "true" && /No clock in Classic/.test(classic.title) && classic.aria === classic.title &&

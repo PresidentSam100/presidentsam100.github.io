@@ -1006,7 +1006,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         L.px = function (x, y, on) { if (on === undefined && !(x <= 4 && y <= 1)) sparks++; return oPx.apply(this, arguments); };
         const frame = () => { boxes = []; sparks = 0; __frames(1); return boxes.map((b) => b.join(":")).join(" "); };
         try {
-          TwentyFour.press("1"); __frames(2);                    // Classic
+          TwentyFour.press("1"); TwentyFour.press("navi"); __frames(2);   // Classic
           const G = () => TwentyFour.state().G;
           r.dealt = frame();
           TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2");   // card 1 + card 2

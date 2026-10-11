@@ -566,14 +566,20 @@
         '<li>' + MAX_GUESSES + ' guesses each: miss all ' + MAX_GUESSES + ' and it skips, no credit.</li>' +
       '</ul>' +
       '<div class="modes">' +
-        '<button class="mode-btn" id="m-sprint"><div class="t">⏱️ Sprint' + keycap("1") + '</div><div class="d">' + SPRINT_SECONDS + 's start, +' + SPRINT_BONUS + 's per word</div><div class="b">' + (bestS ? 'best ' + bestS : '') + '</div></button>' +
-        '<button class="mode-btn" id="m-race"><div class="t">🏁 Race to ' + RACE_TARGET + keycap("2") + '</div><div class="d">' + RACE_TARGET + ' words, fastest time</div><div class="b">' + (bestR ? 'best ' + fmt(bestR) + 's' : '') + '</div></button>' +
+        '<button class="mode-btn" id="m-sprint"><div class="t">⏱️ Sprint</div><div class="d">' + SPRINT_SECONDS + 's start, +' + SPRINT_BONUS + 's per word</div><div class="b">' + (bestS ? 'best ' + bestS : '') + '</div></button>' +
+        '<button class="mode-btn" id="m-race"><div class="t">🏁 Race to ' + RACE_TARGET + '</div><div class="d">' + RACE_TARGET + ' words, fastest time</div><div class="b">' + (bestR ? 'best ' + fmt(bestR) + 's' : '') + '</div></button>' +
       '</div>' +
       '<button class="hard-btn' + (hard ? ' on' : '') + '" id="m-hard" type="button" aria-pressed="' + hard + '">' +
         '<span class="t">' + (hard ? '🔒 Hard mode: on' : '🔓 Hard mode: off') + keycap("H") + '</span>' +
         '<span class="d">revealed clues must be used in later guesses · its own bests</span></button>';
     ov.classList.add("show");
-    $("m-hard").addEventListener("click", function () { hard = !hard; save(HARD_PREF, hard ? "1" : "0"); showMenu(); $("m-hard").focus(); });
+    // (the card is rebuilt: the button keeps the focus only if it had it, so
+    // after the H key Enter still starts the picked mode)
+    $("m-hard").addEventListener("click", function () {
+      var had = document.activeElement === this;
+      hard = !hard; save(HARD_PREF, hard ? "1" : "0"); showMenu();
+      if (had) $("m-hard").focus();
+    });
     $("m-sprint").addEventListener("click", function () { startGame("sprint"); });
     $("m-race").addEventListener("click", function () { startGame("race"); });
   }
@@ -583,10 +589,8 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
       if (e.repeat) return;
-      if ($("m-sprint")) {   // the menu: 1 / 2 pick a mode, H toggles Hard mode
-        if (e.key === "1") { e.preventDefault(); startGame("sprint"); }
-        else if (e.key === "2") { e.preventDefault(); startGame("race"); }
-        else if (e.key === "h" || e.key === "H") { e.preventDefault(); $("m-hard").click(); }
+      if ($("m-sprint")) {   // the menu: H toggles Hard mode (1 / 2 and Enter: menuKeys, below)
+        if (e.key === "h" || e.key === "H") { e.preventDefault(); $("m-hard").click(); }
         return;
       }
       // the end card: Enter plays again, Backspace goes back to the modes (no
@@ -599,6 +603,16 @@
     if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) handleKey("enter"); }
     else if (e.key === "Backspace") { e.preventDefault(); handleKey("back"); } // repeat allowed: hold to erase
     else if (/^[a-zA-Z]$/.test(e.key)) { if (!e.repeat) handleKey(e.key.toLowerCase()); }
+  });
+
+  // Menu keys, shown on the buttons: 1 / 2 pick a mode and Enter starts it (a
+  // number alone doesn't start, so the two can be gone between first); a
+  // click still starts at once. The card is rebuilt each time, so the keycaps
+  // are put back as it is; the mode last played is the one picked.
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return ov.classList.contains("show") && !!$("m-sprint"); },
+    groups: [{ sel: "#m-sprint, #m-race", into: ".t", pick: true, first: function () { return mode === "race" ? 1 : 0; } }],
+    root: "#card"
   });
 
   // the ⏸ button is shown, so it's plain the game has none, but it stays off:

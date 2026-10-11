@@ -61,13 +61,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   const label = await p.evaluate(() => document.getElementById("label-best").textContent);
   check("speedle normal: any word-list guess goes, the scoreboard doesn't say hard", off.pressed === "false" && n1.accepted && n2.accepted && !/hard/.test(label), { off, n1, n2, label });
 
-  // keyboard: on the menu 1 / 2 pick a mode and H toggles Hard; on the end card
+  // keyboard: on the menu 1 / 2 pick a mode (the picked one wears Enter, which
+  // starts it: a number alone doesn't) and H toggles Hard; on the end card
   // Enter plays again and Backspace returns to the modes (Esc leaves for the
   // games page): each shown as a keycap
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
-  const caps = await p.evaluate(() => ["#m-sprint", "#m-race", "#m-hard"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
+  const caps = await p.evaluate(() => ["#m-sprint", "#m-race"].map((s) => document.querySelector(s + " .t").getAttribute("data-gs-key")).concat((document.querySelector("#m-hard kbd.gs-kbd") || {}).textContent));
   const k0 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k1 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k2 = (await hardBtn()).pressed;
   await p.keyboard.press("2"); await p.waitForTimeout(200);
+  const picked = await p.evaluate(() => ({ menu: document.getElementById("overlay").classList.contains("show") && !!document.getElementById("m-race"), race: document.getElementById("m-race").hasAttribute("data-gs-pick") }));
+  await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const race = await p.evaluate(() => ({ overlay: document.getElementById("overlay").classList.contains("show"), label: document.getElementById("label-a").textContent }));
   await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
   const endCaps = await p.evaluate(() => ["#btn-again", "#btn-menu"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
@@ -76,13 +79,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   const escLeaves = p.leaves === 1 && !(await p.evaluate(() => !!document.getElementById("m-sprint")));
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   const backToMenu = await p.evaluate(() => !!document.getElementById("m-sprint"));
-  await p.keyboard.press("1"); await p.waitForTimeout(200);
+  const last = await p.evaluate(() => document.getElementById("m-race").hasAttribute("data-gs-pick"));     // (the mode just played is the one picked)
+  await p.keyboard.press("1"); await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const sprint = await p.evaluate(() => document.getElementById("label-a").textContent);
   await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
   await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const again = await p.evaluate(() => !document.getElementById("overlay").classList.contains("show") && document.getElementById("label-a").textContent);
-  check("speedle keys: menu shows 1 / 2 / H keycaps, H toggles Hard, 2 starts Race, 1 starts Sprint",
-    caps.join() === "1,2,H" && k1 !== k0 && k2 === k0 && !race.overlay && race.label === "Time" && /Time left/.test(sprint), { caps, k0, k1, k2, race, sprint });
+  check("speedle keys: the menu shows Enter (on Sprint, picked) / 2 / H keycaps, H toggles Hard; 2 picks Race without starting and Enter starts it; back on the menu Race is picked, and 1 then Enter starts Sprint",
+    caps.join() === "Enter,2,H" && k1 !== k0 && k2 === k0 && picked.menu && picked.race && !race.overlay && race.label === "Time" && last && /Time left/.test(sprint), { caps, k0, k1, k2, picked, race, last, sprint });
   check("speedle keys: the end card shows Enter / ⌫ keycaps; Esc leaves, Backspace goes back to the modes, Enter plays again",
     endCaps.join() === "Enter,⌫" && escLeaves && backToMenu && /Time left/.test(again), { endCaps, escLeaves, backToMenu, again });
 

@@ -508,6 +508,16 @@
   //   ask: { title, ok }  ask first (askQuit) when a game is in progress, for
   //                     a button that throws it away without asking
   //   caps: false       no keycaps (the game shows the keys its own way)
+  //   pick: true        for a row where every button starts the game: the key
+  //                     picks its button without pressing it, and Enter presses
+  //                     the picked one. So a number alone never starts a game,
+  //                     and the modes can be gone through first. The picked
+  //                     button is ringed (data-gs-pick) and wears Enter in
+  //                     place of its own key; a click or a tap still starts at
+  //                     once. (Not with `start`: Enter is the picked button's.)
+  //   first: fn         with pick: () -> the button picked to begin with, or
+  //                     its place in the row (the mode last played); else the
+  //                     row's first
   // A hidden or disabled button's key does nothing. Keys are left alone in
   // text fields, with Ctrl / Alt / Cmd, on repeats, and while a dialog is up.
   // The keycap is drawn from a data-gs-key attribute (motion-toggle.js), so a
@@ -532,11 +542,31 @@
     function cap(el, label) {
       if (el && el.getAttribute("data-gs-key") !== label) el.setAttribute("data-gs-key", label);
     }
+    // a `pick` row's picked button: the one a key or a click last chose, else
+    // the game's `first`, else the row's first
+    function pickedOf(g) {
+      var list = document.querySelectorAll(g.sel), at = g.at;
+      if (at == null && g.first) {
+        try { at = g.first(); } catch (e) {}
+        if (at && at.nodeType) at = Array.prototype.indexOf.call(list, at);
+      }
+      return list[at > 0 && at < list.length ? at : 0] || null;
+    }
+    function picked() {
+      for (var i = 0; i < groups.length; i++) if (groups[i].pick) return pickedOf(groups[i]);
+      return null;
+    }
     function decorate() {
+      var on = groups.map(function (g) { return g.pick ? pickedOf(g) : null; });
       options().forEach(function (o) {
         var label = o.key.length === 1 ? o.key.toUpperCase() : o.key === "backspace" ? "⌫" : o.key;
         var host = typeof o.g.into === "function" ? o.g.into(o.btn) : o.g.into && o.btn.querySelector(o.g.into);
-        if (o.g.caps !== false) cap(host || o.btn, label);
+        var mine = o.g.pick && on[groups.indexOf(o.g)] === o.btn;
+        if (o.g.caps !== false) cap(host || o.btn, mine ? "Enter" : label);
+        if (o.g.pick && o.btn.hasAttribute("data-gs-pick") !== mine) {
+          if (mine) o.btn.setAttribute("data-gs-pick", ""); else o.btn.removeAttribute("data-gs-pick");
+        }
+        if (mine) label += " Enter";
         if (o.btn.getAttribute("aria-keyshortcuts") !== label) o.btn.setAttribute("aria-keyshortcuts", label);
       });
       var s = opts.start && document.querySelector(opts.start);
@@ -557,12 +587,12 @@
       if (typing(e.target) || document.querySelector(".gs-dialog")) return;
       var on = false;
       try { on = !!active(); } catch (err) {}
-      if (!on) return;
+      if (!on) { forget(); return; }
       if (e.key === "Enter") {
         // Enter on a focused button, link or field is that control's own
         var t = e.target;
-        if (!opts.start || (t && t.closest && t.closest("button, a, summary, input, select"))) return;
-        var s = document.querySelector(opts.start);
+        if (t && t.closest && t.closest("button, a, summary, input, select")) return;
+        var s = opts.start ? document.querySelector(opts.start) : picked();
         if (usable(s)) { e.preventDefault(); s.click(); }
         return;
       }
@@ -574,9 +604,28 @@
       }
       if (!hit) return;
       e.preventDefault();
-      if (hit.g.ask && leaveActive()) askQuit(hit.g.ask, function () { hit.btn.click(); });
+      if (hit.g.pick) { pickAt(hit.g, hit.btn); decorate(); }
+      else if (hit.g.ask && leaveActive()) askQuit(hit.g.ask, function () { hit.btn.click(); });
       else hit.btn.click();
     });
+    // a `pick` row remembers the button a key or a click last chose (by its
+    // place in the row, as a script may rebuild the buttons). A game with a
+    // `first` knows better what was played last, however it was started: its
+    // row forgets the key's pick once a button is pressed or the menu is gone.
+    function pickAt(g, btn) { g.at = Array.prototype.indexOf.call(document.querySelectorAll(g.sel), btn); }
+    function forget() {
+      var had = false;
+      groups.forEach(function (g) { if (g.pick && g.first && g.at != null) { g.at = null; had = true; } });
+      if (had) decorate();
+    }
+    if (groups.some(function (g) { return g.pick; })) document.addEventListener("click", function (e) {
+      groups.forEach(function (g) {
+        var b = g.pick && e.target && e.target.closest && e.target.closest(g.sel);
+        if (!b) return;
+        if (g.first) g.at = null; else pickAt(g, b);
+        later();
+      });
+    }, true);
 
     // keycaps: now, once the page is in, and whenever the buttons are rebuilt
     var queued = false;
@@ -593,7 +642,7 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
     else watch();
     window.addEventListener("load", decorate);
-    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, usable: usable };
+    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, usable: usable, picked: picked };
     menuKeys.all.push(api);   // (every menu on the page, for the tests)
     return api;
   }

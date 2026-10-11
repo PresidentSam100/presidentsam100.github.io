@@ -727,12 +727,13 @@
   // Menu keys, shown on the buttons. Mode menu: 2 / 4 / 3, the player counts.
   // 2-player setup: 1 2 the opponent, 3-6 the CPU's level, W / B / R the side,
   // Enter starts (the clock chips are left to Tab and the mouse). 4-player
-  // menu: 1 2 3 the end rule.
+  // menu: 1 2 3 pick the end rule and Enter starts (a number alone doesn't,
+  // so the rules can be gone through first; a click still starts at once).
   if(window.GameShell && GameShell.menuKeys){
     GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", keys:["2","4","3"], into:".tag" }] });
     GameShell.menuKeys({ active:()=>$("setup2Menu").classList.contains("show"),
       groups:[{ sel:"#opponentPick .modebtn", into:".tag" }, "#diffPick .chip", { sel:"#sidePick .chip", keys:["w","b","r"] }], start:"#setup2Start" });
-    GameShell.menuKeys({ active:()=>$("endMenu").classList.contains("show"), groups:[{ sel:"#endMenu .modebtn", into:".tag" }] });
+    GameShell.menuKeys({ active:()=>$("endMenu").classList.contains("show"), groups:[{ sel:"#endMenu .modebtn", into:".tag", pick:true }] });
   }
 
   start(2);  // build a board behind the menu

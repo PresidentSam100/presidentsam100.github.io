@@ -115,6 +115,11 @@
       "vertical-align:.06em;white-space:nowrap;text-transform:none;letter-spacing:normal;text-shadow:none;" +
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
+      // a menu row where a key picks and Enter starts (menuKeys' `pick`): the
+      // picked button's ring. Only where there's a keyboard: on a touch screen
+      // every button starts at a tap, so none is "the picked one". (A game
+      // sets --gs-pick where the text colour wouldn't show against the page.)
+      "@media not all and (hover:none){:where([data-gs-pick]){outline:2px solid var(--gs-pick,currentColor);outline-offset:3px}}" +
       "@media (hover:none){.gs-keys{display:none}[data-gs-key]::after{display:none}}" +
       "@media not all and (hover:none){.gs-touch{display:none}}";
     (document.head || document.documentElement).appendChild(st);

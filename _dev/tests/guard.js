@@ -27,7 +27,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["meteor-menace", "meteor-menace/", async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(200); }],
     ["logicgate", "logicgate/", async (p) => { await p.click('.mode-btn[data-mode="inputs"]'); await p.waitForTimeout(150); await p.click(".input.toggle"); }],
     ["2048", "2048/", async (p) => { for (const k of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) { await p.keyboard.press(k); await p.waitForTimeout(80); } }],
-    ["24", "24/", async (p) => { await p.evaluate(() => TwentyFour.press("1")); await p.waitForTimeout(200); await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); }); }],
+    ["24", "24/", async (p) => { await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("navi"); }); await p.waitForTimeout(200); await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); }); }],
     ["abyss", "abyss/", (p) => p.evaluate(() => Abyss.start("descent"))],
     ["chess", "chess/", async (p) => { await p.click('#menu .modebtn[data-mode="2"]'); await p.click("#setup2Start"); await p.waitForTimeout(200); await p.click('.sq[data-i="52"]'); await p.click('.sq[data-i="36"]'); }],
     ["click-tap", "click-tap/", async (p) => { await p.click("#startBtn"); await p.waitForTimeout(150); await p.evaluate(() => { const pad = document.getElementById("pad"), r = pad.getBoundingClientRect(); pad.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true })); }); }],

@@ -21,7 +21,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   // a Time attack run with a step made (something to lose), paused with Esc
   const pausedRun = async (menuKey, work) => {
-    await p.evaluate((k) => { if (TwentyFour.state().screen !== "menu") { TwentyFour.press("C"); } TwentyFour.press(k); }, menuKey);
+    await p.evaluate((k) => { if (TwentyFour.state().screen !== "menu") { TwentyFour.press("C"); } TwentyFour.press(k); TwentyFour.press("navi"); }, menuKey);
     await p.waitForTimeout(150);
     if (work) await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); });
     await p.keyboard.press("Escape"); await p.waitForTimeout(100);
@@ -57,7 +57,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // Options' "Main menu" asks the same; Esc returns to Options with the run
   // still there (a Time attack run waits paused, cards hidden, under the box)
   const mainMenuItem = async (menuKey, work) => {
-    await p.evaluate((k) => TwentyFour.press(k), menuKey); await p.waitForTimeout(150);
+    await p.evaluate((k) => { TwentyFour.press(k); TwentyFour.press("navi"); }, menuKey); await p.waitForTimeout(150);
     await p.evaluate((work) => {
       if (work) { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); }
       TwentyFour.press("navi"); for (let i = 0; i < 4; i++) TwentyFour.press("down");   // Options, down to "Main menu"

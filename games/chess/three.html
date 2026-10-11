@@ -380,8 +380,10 @@
   // Leaving asks first once a move is on the board of a game still in play,
   // but not from the end-rule menu (picking a rule starts a new game)
   if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !$("menu").classList.contains("show"));
-  // Menu keys, shown on the buttons: 1 2 3 pick the end rule (and start)
-  if(window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", into:"span" }] });
+  // Menu keys, shown on the buttons: 1 2 3 pick the end rule and Enter starts
+  // (a number alone doesn't, so the rules can be gone through first; a click
+  // still starts at once)
+  if(window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", into:"span", pick:true }] });
   start(3); // build board behind menu (default frozen-pieces rule)
 })();
 </script>

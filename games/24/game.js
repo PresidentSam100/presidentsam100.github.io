@@ -371,11 +371,15 @@
       list(MENU.map(function (m) { return m.label; }), this.cur, this.top);
       navi("Select");
     },
-    key: function (k) {
+    key: function (k, t, tapped) {
       if (k === "up") scrollList(this, -1, MENU.length);
       else if (k === "down") scrollList(this, 1, MENU.length);
       else if (k === "navi") MENU[this.cur].run();
-      else if (/^[1-6]$/.test(k)) { this.cur = Number(k) - 1; this.top = Math.min(this.cur, MENU.length - 3); MENU[this.cur].run(); }
+      // a number typed on the keyboard moves the bar to its line without
+      // opening it, so the modes can be gone through first (Enter, the Navi
+      // key, opens the line); the same number tapped on the phone's own
+      // keypad opens the line at once, as a tap on any menu does
+      else if (/^[1-6]$/.test(k)) { this.cur = Number(k) - 1; this.top = Math.min(this.cur, MENU.length - 3); if (tapped) MENU[this.cur].run(); }
     },
     speak: function () { return "Menu: " + MENU[this.cur].label; },
   };
@@ -634,12 +638,14 @@
   };
 
   // ---- input -----------------------------------------------------------------------------------
-  function press(k) {
+  // `tapped`: the press came from the phone's own keypad (a tap, a click, or
+  // Enter / Space on a focused key), not from the keyboard
+  function press(k, tapped) {
     audio();
     if (!screen) return;
     SFX.key();
     var before = screen;
-    screen.key(k, now());
+    screen.key(k, now(), tapped);
     if (screen === before) announce();
   }
   // Keyboard: digits as on the phone; + - * / (and x) are the operators.
@@ -679,7 +685,7 @@
       e.preventDefault();
       btn.classList.add("down");
       if (k === "navi") return;               // fires on release, below
-      if (k !== "C") { press(k); return; }
+      if (k !== "C") { press(k, true); return; }
       held = false;
       clearTimeout(holdTimer);
       holdTimer = setTimeout(function () { held = true; press("C-hold"); }, 600);
@@ -696,7 +702,7 @@
     btn.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     btn.addEventListener("click", function (e) { e.preventDefault(); });
     // Keyboard users tabbing onto the phone's keys: Enter / Space on a focused key.
-    btn.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); press(k === "C" ? "C" : k); } });
+    btn.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); e.preventDefault(); press(k === "C" ? "C" : k, true); } });
   });
   window.addEventListener("blur", function () {
     Array.prototype.forEach.call(document.querySelectorAll("[data-key].down"), function (b) { b.classList.remove("down"); });

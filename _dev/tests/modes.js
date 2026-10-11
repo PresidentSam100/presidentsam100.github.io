@@ -1,12 +1,16 @@
 // Mode and setup screens take keys (GameShell.menuKeys): every option that's
 // on screen wears its key as a keycap and the key presses that button, Enter
 // presses Play, and none of it fires in a text field, with Ctrl held, or on a
-// phone (where the keycaps hide). Then the pickers with more to them: rows
-// that come and go, sub-menus, and keys that ask before throwing a game away.
+// phone (where the keycaps hide). Where every button on the menu starts the
+// game there's no Play button, so there a key only picks its button (ringed,
+// wearing Enter) and Enter starts it: a number alone never starts a game.
+// Then the pickers with more to them: rows that come and go, sub-menus, and
+// keys that ask before throwing a game away.
 
 // page -> the keys that work on its opening screen (in an order that keeps
-// every row on screen until it's been tried), whether Enter starts, and
-// `fresh` where each key has to be tried on a newly opened page
+// every row on screen until it's been tried), whether Enter starts, `pick`
+// where the keys pick and Enter starts the picked one, and `fresh` where each
+// key has to be tried on a newly opened page
 const MENUS = {
   "tic-tac-toe/": { keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], enter: true },
   "dots-and-boxes/": { keys: ["2", "3", "4", "5", "e", "h"], enter: true },
@@ -14,14 +18,15 @@ const MENUS = {
   "click-tap/": { keys: ["1", "2", "3"], enter: true },
   "crazy-ohio/": { keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], enter: true },
   "corner-pocket/": { keys: ["3", "4", "5", "2", "1"], enter: true },
-  "ping/": { keys: ["1", "2"] },
-  "quick-minute/": { keys: ["1", "2"] },
-  "neon-pinball/": { keys: ["1", "2", "3"] },
-  "sunset-slice/": { keys: ["1", "2", "3"] },
+  "ping/": { keys: ["1", "2"], pick: true },
+  "quick-minute/": { keys: ["1", "2"], pick: true },
+  "neon-pinball/": { keys: ["1", "2", "3"], pick: true },
+  "sunset-slice/": { keys: ["1", "2", "3"], pick: true },
+  "speedle/": { keys: ["1", "2"], pick: true },
   "stopwatch/": { keys: ["1", "2"] },
   "salvo/": { keys: ["1", "2", "3"] },
   "chess/": { keys: ["2", "4"], fresh: true },          // (each opens a sub-menu; 3 goes to the 3-player page: below)
-  "chess/three.html": { keys: ["1", "2", "3"] },
+  "chess/three.html": { keys: ["1", "2", "3"], pick: true },
   "demolition-row/": { keys: ["1", "2", "3"], enter: true },
   "slither/": { keys: ["4", "5", "6", "7", "1", "2", "3"], enter: true },
   "yi/": { keys: ["2", "3", "4", "5", "6", "7", "8", "9", "0", "f", "t"], enter: true },
@@ -49,9 +54,9 @@ module.exports = async ({ browser, base, check, lib }) => {
         if (o.key !== key || !(o.g.hidden || m.usable(o.btn))) continue;
         const host = (typeof o.g.into === "function" ? o.g.into(o.btn) : o.g.into && o.btn.querySelector(o.g.into)) || o.btn;
         const own = o.btn.querySelector("kbd");
-        window.__opt = o.btn; window.__hits = 0;
+        window.__opt = o.btn; window.__host = host; window.__menu = m; window.__hits = 0;
         o.btn.addEventListener("click", () => { window.__hits++; }, { once: true, capture: true });
-        return { cap: o.g.caps === false ? own && own.textContent : host.getAttribute("data-gs-key"),
+        return { picked: o.btn.hasAttribute("data-gs-pick"), cap: o.g.caps === false ? own && own.textContent : host.getAttribute("data-gs-key"),
           shown: o.g.hidden ? true : o.g.caps === false ? !!own && getComputedStyle(own.closest(".gs-keys") || own).display !== "none" : getComputedStyle(host, "::after").display !== "none" };
       }
     }
@@ -65,6 +70,27 @@ module.exports = async ({ browser, base, check, lib }) => {
     const want = MENUS[g];
     let p = await lib.open(ctx, base, "games/" + g, { before: noFlip });
     const bad = [];
+    if (want.pick) {
+      // every button here starts the game: a key picks its button without
+      // pressing it (one ring, on it, and Enter in place of its own key),
+      // the menu stays up, and Enter then starts the picked one, once
+      for (const k of want.keys) {
+        const o = await optionFor(p, k);
+        if (!o) { bad.push(k + ": no button"); continue; }
+        if (!o.shown || !(o.picked ? o.cap === "Enter" : o.cap === label(k))) bad.push(k + ": keycap " + JSON.stringify(o));
+        await p.keyboard.press(k);
+        const s = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ hits: window.__hits, picked: window.__opt.hasAttribute("data-gs-pick"),
+          cap: window.__host.getAttribute("data-gs-key"), rings: document.querySelectorAll("[data-gs-pick]").length, ring: getComputedStyle(window.__opt).outlineStyle, up: window.__menu.active() }), 60))).catch(() => "page left");
+        if (!(s.hits === 0 && s.picked && s.cap === "Enter" && s.rings === 1 && s.ring === "solid" && s.up)) bad.push(k + ": " + JSON.stringify(s));
+      }
+      check(g + ": each menu key picks its button (ringed, wearing Enter) without starting the game", bad.length === 0, bad);
+      await p.keyboard.press("Enter");     // (the last key's button still counts its clicks: none so far)
+      const went = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ hits: window.__hits, up: window.__menu.active() }), 80))).catch(() => "page left");
+      check(g + ": Enter starts the picked one, once, and the menu goes", went.hits === 1 && went.up === false, went);
+      check(g + ": no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+      continue;
+    }
     for (const k of want.keys) {
       if (!(await menuUp(p)) || (want.fresh && k !== want.keys[0])) { await p.close(); p = await lib.open(ctx, base, "games/" + g, { before: noFlip }); }   // (the last key started a game)
       const o = await optionFor(p, k);
@@ -129,10 +155,14 @@ module.exports = async ({ browser, base, check, lib }) => {
       u1 === "setup2Menu" && a.opp === "local" && a.diff === "medium" && b.opp === "cpu" && b.diff === "master" && b.side === "b" && u2 === "", { u1, a, b, u2 });
     await p.close();
     const q = await lib.open(ctx, base, "games/chess/");
+    const anyMenu = () => q.evaluate(() => ["menu", "setup2Menu", "endMenu"].some((id) => document.getElementById(id).classList.contains("show")));
     await q.keyboard.press("4"); const e1 = await q.evaluate(() => document.getElementById("endMenu").classList.contains("show"));
     await q.keyboard.press("2"); await q.waitForTimeout(200);
-    const e2 = await q.evaluate(() => ["menu", "setup2Menu", "endMenu"].some((id) => document.getElementById(id).classList.contains("show")));
-    check("chess: 4 opens the 4-player end rules, and a number there starts the game", e1 && !e2, { e1, e2 });
+    const e2 = { up: await anyMenu(), picked: await q.evaluate(() => (document.querySelector("#endMenu [data-gs-pick]") || { dataset: {} }).dataset.end) };
+    await q.keyboard.press("Enter"); await q.waitForTimeout(200);
+    const e3 = { up: await anyMenu(), sub: await q.evaluate(() => document.getElementById("modeLabel").textContent) };
+    check("chess: 4 opens the 4-player end rules; a number there picks a rule (2 is Takeover) and Enter starts the game with it",
+      e1 && e2.up && e2.picked === "2" && !e3.up && /takeover/i.test(e3.sub), { e1, e2, e3 });
     await q.keyboard.press("Home"); await q.waitForTimeout(200);
     await q.close();
     const r = await lib.open(ctx, base, "games/chess/");
@@ -234,10 +264,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       const p = await lib.open(phone, base, "games/" + g, { before: noFlip });
       const any = await p.evaluate(() => [...document.querySelectorAll("[data-gs-key]")].filter((e) => e.getClientRects().length && getComputedStyle(e, "::after").display !== "none").length);
       const have = await p.evaluate(() => document.querySelectorAll("[data-gs-key]").length);
-      if (any || !have) shown.push(g + " " + any + "/" + have);
+      // (nor is a picked button ringed there: a tap on any of them starts)
+      const rings = await p.evaluate(() => [...document.querySelectorAll("[data-gs-pick]")].filter((e) => getComputedStyle(e).outlineStyle !== "none").length);
+      if (any || !have || rings) shown.push(g + " " + any + "/" + have + " rings " + rings);
       await p.close();
     }
-    check("on a touch-only device the menu keycaps are hidden", shown.length === 0, shown);
+    check("on a touch-only device the menu keycaps are hidden, and no button is ringed as picked", shown.length === 0, shown);
     await phone.close();
   }
 

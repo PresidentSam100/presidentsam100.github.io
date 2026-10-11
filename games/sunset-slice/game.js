@@ -103,7 +103,7 @@
   };
 
   // ---- state -------------------------------------------------------------------------------
-  var state = "menu", paused = false, mode = null, M = null;
+  var state = "menu", paused = false, mode = null, M = null, lastMode = null;
   var objs = [], halves = [], parts = [], gleams = [], inks = [], popups = [], trail = [], queue = [];
   var score = 0, lives = 0, timeLeft = 0, elapsed = 0, maxCombo = 0, nextWave = 0, flash = 0, shake = 0, overReason = "", nextId = 0;
   var menuPick = null, minVSeen = 9, badSeen = 0;   // (for tests: the highest peak, and broken objects dropped)
@@ -300,7 +300,7 @@
     return "Best · Duel " + store.getNum(KEYS.duel, 0) + " · Last Light " + store.getNum(KEYS.lastlight, 0) + " · Calm " + store.getNum(KEYS.calm, 0);
   }
   function start(m) {
-    mode = m; M = MODES[m];
+    mode = lastMode = m; M = MODES[m];
     objs = []; halves = []; parts = []; gleams = []; inks = []; popups = []; queue = []; trail = [];
     score = 0; lives = M.lives; timeLeft = M.time; elapsed = 0; maxCombo = 0; nextWave = 0.6; flash = 0; shake = 0; overReason = "";
     menuObjs = []; menuPick = null; minVSeen = 9; badSeen = 0;
@@ -376,10 +376,13 @@
   document.querySelectorAll("[data-mode]").forEach(function (b) {
     b.addEventListener("click", function () { start(b.getAttribute("data-mode")); });
   });
-  // Menu keys, shown on the buttons: 1 2 3 pick a mode (and start it)
+  // Menu keys, shown on the buttons: 1 2 3 pick a mode and Enter starts it (a
+  // number alone doesn't, so the modes can be gone through first; a click, or
+  // a slice through a target, still starts at once). The mode last played is
+  // the one picked.
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return state === "menu"; },
-    groups: [{ sel: ".modes button[data-mode]", into: "b" }]
+    groups: [{ sel: ".modes button[data-mode]", into: "b", pick: true, first: function () { return lastMode && document.querySelector('.modes button[data-mode="' + lastMode + '"]'); } }]
   });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   document.getElementById("to-menu").addEventListener("click", toMenu);

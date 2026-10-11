@@ -803,11 +803,13 @@
     $("m-day").addEventListener("click", function () { start("day"); });
     $("m-night").addEventListener("click", function () { start("night"); });
   }
-  // Menu keys, shown on the buttons: 1 day, 2 night (each starts the run).
-  // The card is rebuilt each time, so the keycaps are put back as it is.
+  // Menu keys, shown on the buttons: 1 day, 2 night picks, Enter starts the
+  // run (a number alone doesn't, so the two can be gone between first; a
+  // click still starts at once). The card is rebuilt each time, so the
+  // keycaps are put back as it is; the mode last driven is the one picked.
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !running && !!$("m-day"); },
-    groups: [{ sel: "#m-day, #m-night", into: ".t" }],
+    groups: [{ sel: "#m-day, #m-night", into: ".t", pick: true }],
     root: "#card"
   });
 

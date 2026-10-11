@@ -396,10 +396,12 @@ document.getElementById("again").addEventListener("click", () => {
   menu.classList.remove("hidden");
   document.body.classList.remove("playing");
 });
-// Menu keys, shown on the buttons: 1 or 2 players (each starts the match);
-// on the result card Enter is Play Again
+// Menu keys, shown on the buttons: 1 or 2 players picks, Enter starts the
+// match (a number alone doesn't, so the two can be gone between first; a
+// click still starts at once). The count last played is the one picked. On
+// the result card Enter is Play Again.
 if (window.GameShell && GameShell.menuKeys) {
-  GameShell.menuKeys({ active: () => state === "menu", groups: ["#menu .btn"] });
+  GameShell.menuKeys({ active: () => state === "menu", groups: [{ sel: "#menu .btn", pick: true, first: () => players - 1 }] });
   GameShell.menuKeys({ active: () => state === "gameover", start: "#again" });
 }
 

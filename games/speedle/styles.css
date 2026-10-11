@@ -199,6 +199,11 @@ html.fx-off .row.bad .tile { outline: 2px solid var(--bad); outline-offset: -2px
 .mode-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--walnut-edge), 0 10px 14px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 220, 170, 0.2); }
 .mode-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--walnut-edge), 0 2px 4px rgba(0, 0, 0, 0.35); }
 .mode-btn .t { font-size: 1.1rem; font-weight: 700; }
+/* the mode's key (1 / 2, or Enter on the picked one) sits on a line of its
+   own, so the row keeps its height as the pick moves; the picked mode's ring
+   is the walnut's edge, which shows on the light card */
+.mode-btn .t[data-gs-key]::after { display: block; width: max-content; margin: 0.3em auto 0.1em; }
+.mode-btn { --gs-pick: var(--walnut-edge); }
 .mode-btn .d { font-size: 0.8rem; color: #d9bf95; margin-top: 0.2rem; }
 /* Hard mode toggle, on the light-wood menu card: a dashed outline when
    off, the mode buttons' walnut when on */
