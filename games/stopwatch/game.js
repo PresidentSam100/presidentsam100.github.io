@@ -183,7 +183,7 @@
         '<li>Misses <b>add up</b> on the service card. Past <b>1.000&nbsp;s</b> of drift, the watch goes back in the drawer.</li>' +
         '<li>+1 point for every sweep you stop in tolerance.</li>' +
       '</ul>' +
-      '<button class="btn" id="btn-start">Open the case</button>';
+      '<button class="btn" id="btn-start" aria-keyshortcuts="Space" data-gs-key="Space">Open the case</button>';
     ovCard.classList.add("show");
     var btns = cardInner.querySelectorAll(".modebtn");
     function syncSel() { for (var i = 0; i < btns.length; i++) { var m = btns[i].getAttribute("data-mode") === "visible"; btns[i].classList.toggle("sel", m === visibleMode); } }
@@ -349,8 +349,8 @@
         'you stopped the hand at <b>' + fmt(info.elapsed) + 's</b>: off by <b>' + fmt(info.error) + 's</b><br>' +
         'drift would be ' + fmt(info.projected) + 's (past the 1.000s tolerance)' +
       '</div>' +
-      '<button class="btn" id="btn-again">Wind it again</button>' +
-      '<div style="margin-top:0.7rem;"><button class="btn ghost" id="btn-mode">change mode</button></div>';
+      '<button class="btn" id="btn-again" aria-keyshortcuts="Space" data-gs-key="Space">Wind it again</button>' +
+      '<div style="margin-top:0.7rem;"><button class="btn ghost" id="btn-mode" title="change mode (Backspace)" aria-keyshortcuts="Backspace" data-gs-key="⌫">change mode</button></div>';
     ovCard.classList.add("show");
     $("btn-again").addEventListener("click", beginGame);
     $("btn-mode").addEventListener("click", showStartCard);

@@ -200,7 +200,8 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (ov.classList.contains("show")) {
-      if (e.key === "Enter" || e.key === " ") { var b = card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
+      // (Enter or Space on a focused button is that button's own press)
+      if (e.key === "Enter" || e.key === " ") { var b = !(e.target && e.target.closest && e.target.closest("button, a")) && card.querySelector(".btn"); if (b) { e.preventDefault(); b.click(); } }
       // the crash card: Backspace goes back to the modes (Change mode); Esc
       // isn't claimed, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat) { var m = $("btn-menu"); if (m) { e.preventDefault(); m.click(); } }
@@ -772,8 +773,8 @@
       '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' +
         (record ? '★ NEW BEST!' : 'best ' + best + ' m') + '</p>' +
       '<p style="font-size:0.8rem;">' + (mode === "night" ? '🌙 night' : '☀️ day') + ' run</p>' +
-      '<button class="btn" id="btn-again">Drive again</button>' +
-      '<br><button class="btn ghost" id="btn-menu">Change mode</button>';
+      '<button class="btn" id="btn-again" data-gs-key="Enter">Drive again</button>' +
+      '<br><button class="btn ghost" id="btn-menu" data-gs-key="⌫" title="Backspace">Change mode</button>';
     ov.classList.add("show");
     $("btn-again").addEventListener("click", function () { start(mode); });
     $("btn-menu").addEventListener("click", showMenu);

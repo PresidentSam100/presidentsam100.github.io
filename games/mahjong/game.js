@@ -689,7 +689,14 @@
     if (state === "over") {
       if (e.key === "Enter") startRun(mode);
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
+      else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result
     }
+  });
+  // a dead board's two ways out take keys too, shown on them: N a new deal,
+  // G gives the Daily up (each asks first, as its click does)
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return state === "play" && !P.isPaused(); },
+    groups: [{ sel: "#btn-newdeal", keys: ["n"] }, { sel: "#btn-giveup", keys: ["g"] }]
   });
 
   toMenu();

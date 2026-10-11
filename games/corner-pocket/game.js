@@ -1413,6 +1413,16 @@
     groups: ["#modeSeg button", "#levelSeg button"],
     start: "#startBtn"
   });
+  // The cards' keys, shown on their buttons: Enter is Rematch on the result
+  // (Backspace its Menu, in the key handler), Done on the spin pad (where C
+  // centres the tip, as it does at the table) and Back to menu on "Leave
+  // this rack?" (Esc keeps playing)
+  if (window.GameShell && GameShell.menuKeys) {
+    var cardUp = function (id) { return !document.getElementById(id).classList.contains("hidden"); };
+    GameShell.menuKeys({ active: function () { return cardUp("over") && !cardUp("confirmQuit"); }, start: "#againBtn" });
+    GameShell.menuKeys({ active: function () { return cardUp("spinPad"); }, groups: [{ sel: "#spinReset", keys: ["c"] }], start: "#spinDone" });
+    GameShell.menuKeys({ active: function () { return cardUp("confirmQuit"); }, start: "#quitYes" });
+  }
   // "Leave this rack?" holds the table while it asks: the CPU and a rolling
   // shot wait (see frame), and a drag or a charging shot is let go
   function quitOpen() { return !document.getElementById("confirmQuit").classList.contains("hidden"); }

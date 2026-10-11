@@ -43,14 +43,14 @@
   <button type="button" class="daily" id="daily-btn"><b>Daily negative</b><small id="daily-sub"></small></button>
   <div id="rolls"></div>
   <div class="menu-foot">
-    <button type="button" id="to-gallery">🖼 The gallery</button>
+    <button type="button" id="to-gallery" aria-keyshortcuts="G">🖼 The gallery</button>
     <span id="tally"></span>
   </div>
 </main>
 
 <!-- One puzzle: the sheet of photo paper on the easel. -->
 <div class="hudbar" id="hud" hidden>
-  <button type="button" id="hud-back" aria-label="Back to the darkroom">←</button>
+  <button type="button" id="hud-back" aria-label="Back to the darkroom (Backspace)" aria-keyshortcuts="Backspace" title="Back to the darkroom (Backspace)" data-gs-key="⌫">←</button>
   <span id="hud-label"></span>
   <span id="hud-time">0:00</span>
   <span id="hud-fog"></span>
@@ -70,9 +70,9 @@
   <canvas id="win-print" aria-hidden="true"></canvas>
   <p id="win-stats"></p>
   <div class="row">
-    <button type="button" id="win-next">Next negative</button>
-    <button type="button" id="win-share" hidden>Share</button>
-    <button type="button" id="win-menu">Darkroom</button>
+    <button type="button" id="win-next" data-gs-key="Enter">Next negative</button>
+    <button type="button" id="win-share" aria-keyshortcuts="S" data-gs-key="S" hidden>Share</button>
+    <button type="button" id="win-menu" title="Darkroom (Backspace)" aria-keyshortcuts="Backspace" data-gs-key="⌫">Darkroom</button>
   </div>
 </section>
 <div class="share-out" id="share-out" hidden><textarea readonly rows="3"></textarea></div>
@@ -83,7 +83,7 @@
   <p class="tag">Every print you've developed, hung up to dry.</p>
   <p id="gallery-empty">Nothing yet: the trays are clean and the paper is fresh.</p>
   <div id="wires"></div>
-  <div class="menu-foot"><button type="button" id="gallery-back">← The darkroom</button></div>
+  <div class="menu-foot"><button type="button" id="gallery-back" aria-keyshortcuts="Escape" data-gs-key="Esc">← The darkroom</button></div>
 </main>
 
 <script src="nono.js"></script>

@@ -1362,6 +1362,19 @@
       groups: ["#mode-pick .btn"],
       start: "#play-btn"
     });
+    // Keys for the bar and the cards, shown on their buttons. In play
+    // Backspace is ☰ Menu (which asks first). Paused: R restarts and
+    // Backspace is Main Menu, each asking first as they throw the run away
+    // (Esc resumes). On the result Enter plays again (Backspace is its Main
+    // Menu, in handleKey).
+    if (window.GameShell && GameShell.menuKeys) {
+      const st = (s) => () => !!GAME && GAME.state === s;
+      GameShell.menuKeys({ active: st("playing"), groups: [{ sel: "#menu-btn", keys: ["Backspace"] }] });
+      GameShell.menuKeys({ active: st("paused"), groups: [
+        { sel: "#pause-restart", keys: ["r"], ask: { title: "Restart this game?", ok: "Restart" } },
+        { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
+      GameShell.menuKeys({ active: st("result"), start: "#result-again" });
+    }
     // ☰ Menu mid-run would throw the run away: ask first (paused under the box)
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();

@@ -894,6 +894,12 @@
     aimX = Math.max(JL, Math.min(JR, aimX));
   });
   document.getElementById("againBtn").addEventListener("click", reset);
+  // on the result card Enter is New jar (its keycap is on the button); Space
+  // stays the drop key, so one pressed as the jar overflows starts nothing
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
+    start: "#againBtn"
+  });
 
   // ---- pause + loop ------------------------------------------------------------
   var P = window.GameShell

@@ -816,6 +816,9 @@
       { sel: 'nav.modes a[href="./"]:not([aria-current])', keys: ["c"] },
       { sel: 'nav.modes a[href="./?daily"]:not([aria-current])', keys: ["d"] },
       { sel: 'nav.modes a[href="endless.html"]:not([aria-current])', keys: ["e"] },
+      // T flips what a tap does (dig or flag), S shares a finished Daily
+      { sel: "#modeBtn", keys: ["t"] },
+      { sel: "#share", keys: ["s"] },
     ],
   });
 

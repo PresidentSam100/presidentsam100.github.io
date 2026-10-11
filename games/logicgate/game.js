@@ -1246,6 +1246,23 @@
     document.getElementById("prevBtn").addEventListener("click", prevLevel);
     document.getElementById("nextBtn").addEventListener("click", nextLevel);
     document.getElementById("winNext").addEventListener("click", nextLevel);
+    // The bar's keys, shown on its buttons: ← → the level before and after,
+    // R reset, H the hint, ? the gates (Enter is Check, above). The three
+    // that clear the board ask first once there's work on it, as leaving does.
+    if (window.GameShell && GameShell.menuKeys) {
+      var LEAVE = { title: "Leave this level?", ok: "Leave" };
+      GameShell.menuKeys({
+        active: function () { return !helpOpen; },
+        groups: [
+          { sel: "#prevBtn", keys: ["ArrowLeft"], ask: LEAVE },
+          { sel: "#nextBtn", keys: ["ArrowRight"], ask: LEAVE },
+          { sel: "#resetBtn", keys: ["r"], ask: { title: "Reset this level?", ok: "Reset" } },
+          { sel: "#hintBtn", keys: ["h"] },
+          { sel: "#helpBtn", keys: ["/"], caps: false },     // (the same key without Shift)
+          { sel: "#helpBtn", keys: ["?"] }
+        ]
+      });
+    }
 
     document.body.dataset.lgMode = mode;
     renderModeBar();

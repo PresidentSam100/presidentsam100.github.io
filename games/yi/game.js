@@ -1454,13 +1454,13 @@ function showResult(winner, gained, reached500) {
   if (cfg.mode === "points" && reached500) {
     title = (w.isHuman ? "🏆 You reached 500: game over!" : w.name + " reached 500!");
     btns = '<button class="btn" id="rematchBtn">New game</button>' +
-      '<button class="btn secondary" id="menuBtn">Menu</button>';
+      '<button class="btn secondary" id="menuBtn" title="Menu (Backspace)" data-gs-key="⌫">Menu</button>';
   } else if (cfg.mode === "points") {
     btns = '<button class="btn" id="nextHandBtn">Next hand</button>' +
-      '<button class="btn secondary" id="menuBtn">Menu</button>';
+      '<button class="btn secondary" id="menuBtn" title="Menu (Backspace)" data-gs-key="⌫">Menu</button>';
   } else {
     btns = '<button class="btn" id="rematchBtn">Play again</button>' +
-      '<button class="btn secondary" id="menuBtn">Menu</button>';
+      '<button class="btn secondary" id="menuBtn" title="Menu (Backspace)" data-gs-key="⌫">Menu</button>';
   }
 
   var recLine = UNO_REC
@@ -1487,10 +1487,37 @@ function showResult(winner, gained, reached500) {
   if (mb) mb.onclick = askQuitToMenu;
 }
 
+// Keys for the buttons the game puts up, shown on them (the cards themselves
+// are played with the mouse). At the table: D draws, P passes, Backspace is
+// Quit to menu (which asks first). In a box: Space calls YI!, or catches a
+// player who didn't; R / Y / G / B pick the colour; D draws the four and C
+// challenges; Enter is Continue and, on a result, the first button (Backspace
+// is its Menu, below). The boxes and the bar are rebuilt as play goes, so the
+// keycaps are put back as they are.
+if (window.GameShell && GameShell.menuKeys) {
+  var boxUp = function () { return overlay.classList.contains("show"); };
+  GameShell.menuKeys({
+    active: function () { return !!G && !boxUp(); },
+    groups: [{ sel: "#drawBtn", keys: ["d"] }, { sel: "#passBtn", keys: ["p"] }, { sel: "#newHandBtn", keys: ["Backspace"] }],
+    root: "#controls"
+  });
+  GameShell.menuKeys({
+    active: function () { return !!G && boxUp(); },
+    groups: [
+      { sel: "#unoBtn, #catchBtn", keys: [" "] },
+      { sel: "#modal .color-choices button", keys: COLORS.map(function (c) { return c.charAt(0); }) },
+      { sel: "#drawFourBtn", keys: ["d"] },
+      { sel: "#challengeBtn", keys: ["c"] }
+    ],
+    start: "#okReveal, #rematchBtn, #nextHandBtn",
+    root: "#modal"
+  });
+}
+
 // Backspace on a result screen goes to the menu, as its Menu button does,
 // asking first between hands of a points game (Esc there leaves for the
-// games page). Yi has no play keys, so there's nothing
-// for a held Backspace to spill over from; mid-hand it does nothing.
+// games page). Yi has no play keys of its own, so there's nothing for a held
+// Backspace to spill over from. (Mid-hand it's Quit to menu: above.)
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Backspace" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   var t = e.target;

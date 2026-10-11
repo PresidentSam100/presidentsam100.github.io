@@ -542,6 +542,8 @@
     function cap(el, label) {
       if (el && el.getAttribute("data-gs-key") !== label) el.setAttribute("data-gs-key", label);
     }
+    // what a key with a long name wears (keys are matched in lower case)
+    var CAPS = { " ": "Space", backspace: "⌫", escape: "Esc", arrowleft: "←", arrowright: "→", arrowup: "↑", arrowdown: "↓", f1: "F1", f2: "F2" };
     // a `pick` row's picked button: the one a key or a click last chose, else
     // the game's `first`, else the row's first
     function pickedOf(g) {
@@ -559,7 +561,7 @@
     function decorate() {
       var on = groups.map(function (g) { return g.pick ? pickedOf(g) : null; });
       options().forEach(function (o) {
-        var label = o.key.length === 1 ? o.key.toUpperCase() : o.key === "backspace" ? "⌫" : o.key;
+        var label = CAPS[o.key] || (o.key.length === 1 ? o.key.toUpperCase() : o.key);
         var host = typeof o.g.into === "function" ? o.g.into(o.btn) : o.g.into && o.btn.querySelector(o.g.into);
         var mine = o.g.pick && on[groups.indexOf(o.g)] === o.btn;
         if (o.g.caps !== false) cap(host || o.btn, mine ? "Enter" : label);

@@ -170,14 +170,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     viaMenu === "Quit this game?" && !stayed.dlg && stayed.s.result && !stayed.s.setup && viaBack === "Quit this game?" && quitTo.setup && !quitTo.g,
     { viaMenu, stayed, viaBack, quitTo });
 
-  // mid-hand Backspace does nothing; Esc on a result screen still leaves for the games page (guards)
+  // mid-hand Backspace is the Quit to menu button, which shows it (at a fresh
+  // deal there's nothing to lose, so it goes at once); Esc on a result screen
+  // still leaves for the games page (guards)
   await p.evaluate(() => { hideOverlay(); document.getElementById("startBtn").click(); });
+  await settle(p);
+  const quitCap = await p.evaluate(() => (document.getElementById("newHandBtn") || { getAttribute: () => null }).getAttribute("data-gs-key"));
   await p.keyboard.press("Backspace"); await settle(p);
   const mid = await screenNow();
+  await p.evaluate(() => document.getElementById("startBtn").click());
   await endWith(false, 0); await settle(p);
   await p.keyboard.press("Escape"); await settle(p);
   await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
-  check("yi: mid-hand Backspace does nothing; Esc on a hand's result still leaves", !mid.setup && mid.g && !mid.result && p.leaves === 1, { mid, leaves: p.leaves });
+  check("yi: mid-hand Backspace is Quit to menu, shown on the button (a fresh deal goes at once); Esc on a hand's result still leaves",
+    quitCap === "⌫" && mid.setup && !mid.g && !mid.result && p.leaves === 1, { quitCap, mid, leaves: p.leaves });
   await done(p, "yi backspace");
 
   await ctx.close();

@@ -596,6 +596,16 @@
     else newGame();
   });
   ovBtn.addEventListener("click", newGame);
+  // Keys, shown on the buttons: A adds three cards, H is the hint, N a new
+  // game (which asks first mid-deck, as its click does); on the cleared-board
+  // card Enter plays again. None of them under the pause card.
+  if (window.GameShell && GameShell.menuKeys) {
+    GameShell.menuKeys({
+      active: function () { return overlay.hidden && !PAUSE.isPaused(); },
+      groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] }]
+    });
+    GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn" });
+  }
 
   // P, the ⏸ button and a hidden tab pause the game from the deal
   // until the deck is cleared. The pause card is see-through, so the cards

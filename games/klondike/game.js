@@ -546,6 +546,8 @@
       btn.type = "button"; btn.textContent = b[0];
       btn.addEventListener("click", b[1]);
       row.appendChild(btn);
+      // the first button has the focus, so Enter is its press: it says so
+      if (i === 0) btn.setAttribute("data-gs-key", "Enter");
       if (i === 0) setTimeout(function () { btn.focus({ preventScroll: true }); }, 0);
     });
     $("shade").hidden = false;
@@ -583,7 +585,7 @@
       "<li>Only a King may move to an empty column.</li>" +
       "<li>Click the stock to draw; double-click or right-click a card to send it home.</li>" +
       // (the key legend hides on a touch-only device: no keys to press)
-      '<li class="gs-keys"><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal.</li></ul>',
+      '<li class="gs-keys"><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal · <kbd>F1</kbd> this box.</li></ul>',
       [["OK", closeBox]]);
   });
   $("autofinish").addEventListener("click", autoFinish);
@@ -597,6 +599,7 @@
     if (!$("shade").hidden) { if (e.key === "Escape") { closeBox(); e.preventDefault(); } return; }
     var k = e.key.toLowerCase();
     if (e.key === "F2" || k === "n") { e.preventDefault(); freshDeal(); }
+    else if (e.key === "F1") { e.preventDefault(); if (!e.repeat) $("m-rules").click(); }   // Help's How to play, as in the old game
     else if (k === "u") doUndo();
     else if (k === "h") showHint();
     else if (k === "r") restartDeal();

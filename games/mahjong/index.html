@@ -38,8 +38,8 @@
     <span id="hud-pairs"></span>
     <!-- a dead board's ways out, after Undo (game.js shows them) -->
     <span class="hud-btns hud-stuck" id="hud-stuck" hidden>
-      <button type="button" id="btn-newdeal" title="Deal again, from the start">New deal</button>
-      <button type="button" id="btn-giveup" title="Give today's turtle up, unrecorded">Daily: give up</button>
+      <button type="button" id="btn-newdeal" title="Deal again, from the start (N)">New deal</button>
+      <button type="button" id="btn-giveup" title="Give today's turtle up, unrecorded (G)">Daily: give up</button>
     </span>
     <span class="hud-btns">
       <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <span class="gs-keys"><kbd>H</kbd></span></button>
@@ -79,7 +79,7 @@
     <p class="stats" id="over-stats"></p>
     <div class="row">
       <button type="button" id="again">Deal again <span class="gs-keys"><kbd>Enter</kbd></span></button>
-      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" id="share" aria-keyshortcuts="S" data-gs-key="S" hidden>Share result</button>
       <button type="button" id="to-menu">Modes <span class="gs-keys"><kbd title="Backspace">⌫</kbd></span></button>
     </div>
   </div>

@@ -1133,6 +1133,12 @@
   });
   document.addEventListener("keyup", function (e) { if (e.key === " ") ffOff(); });
   document.getElementById("againBtn").addEventListener("click", reset);
+  // on the result card Enter is its button (the keycap is on it); Space
+  // stays the valve, so one held as the shift ends starts nothing
+  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+    active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
+    start: "#againBtn"
+  });
 
   // ---- pause + loop ---------------------------------------------------------------
   var P = window.GameShell

@@ -547,9 +547,16 @@
       else if (e.key === "Backspace" && !e.repeat && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || "")) {
         e.preventDefault(); SFX.ui(); toMenu();
       }
+      // S is the card's Share button, when it has one (the Daily)
+      else if ((e.key === "s" || e.key === "S") && !e.repeat && !$("win-share").hidden && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || "")) {
+        e.preventDefault(); $("win-share").click();
+      }
       return;
     }
     if (cur.won || P.isPaused()) return;
+    // Backspace is the ← button: back to the darkroom (the negative keeps
+    // what's been developed, so there's nothing to ask)
+    if (e.key === "Backspace" && !e.repeat) { e.preventDefault(); $("hud-back").click(); return; }
     var moves = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
     if (moves[e.key]) {
       e.preventDefault();
@@ -647,11 +654,11 @@
   // ---- menu buttons ---------------------------------------------------------------------------
   ui.dailyBtn.addEventListener("click", function () { SFX.ui(); openPuzzle(dailyPuzzle(), true); });
   $("to-gallery").addEventListener("click", function () { SFX.ui(); toGallery(); });
-  // D on the menu opens the Daily negative (its keycap is on the button);
-  // the prints themselves are a Tab and Enter away
+  // D on the menu opens the Daily negative and G the gallery (the keycaps
+  // are on the buttons); the prints themselves are a Tab and Enter away
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return screen === "menu"; },
-    groups: [{ sel: "#daily-btn", keys: ["d"], into: "b" }]
+    groups: [{ sel: "#daily-btn", keys: ["d"], into: "b" }, { sel: "#to-gallery", keys: ["g"] }]
   });
   $("gallery-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-back").addEventListener("click", function () { SFX.ui(); toMenu(); });

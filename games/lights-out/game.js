@@ -547,6 +547,7 @@
     if (state === "over" && !$("over").hidden) {
       if (e.key === "Enter") $("again").click();
       else if (e.key === "Backspace") { e.preventDefault(); askToMenu(); }
+      else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result
       return;
     }
     if (state === "play") {

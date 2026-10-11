@@ -388,9 +388,33 @@
     if (!guideOverlay.hidden) return;   // the Tile Guide holds the board (and its arrows scroll the guide)
     if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press: holding does nothing
     if (e.key === "r" || e.key === "R") { loadLevel(current); return; }
+    // the other buttons' keys, shown on them: Q / E the level before and
+    // after, ? the Tile Guide (or the same key without Shift), L the level
+    // editor; on the "solved" card Enter is Next Level (unless a button has
+    // the focus: then it's that button's own press)
+    const k = e.key.toLowerCase();
+    if (k === "q" || k === "e") { stepLevel(k === "q" ? -1 : 1); return; }
+    if (k === "?" || k === "/") { e.preventDefault(); openGuide(); return; }
+    if (k === "l") { document.querySelector(".editor-link").click(); return; }
+    if (e.key === "Enter" && !overlayEl.hidden && !(e.target && e.target.closest && e.target.closest("button, a"))) {
+      const nx = document.getElementById("overlayNext");
+      if (nx.style.display !== "none") { e.preventDefault(); nx.click(); }
+      return;
+    }
     const dir = KEYMAP[e.key];
     if (dir) { e.preventDefault(); doMove(dir); }
   });
+
+  // ◀ Prev / Next ▶ by key. Changing level throws away one with moves on it,
+  // so the keys ask first, as leaving does (the buttons go at once); a level
+  // that isn't open yet does nothing.
+  function stepLevel(d) {
+    const to = current + d;
+    if (to < 0 || to >= LEVELS.length || !isOpen(to)) return;
+    const go = () => loadLevel(to);
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Leave this level?", ok: "Leave" }, go);
+    else go();
+  }
 
   document.querySelectorAll(".dbtn").forEach((btn) => {
     btn.addEventListener("click", () => doMove(btn.dataset.dir));

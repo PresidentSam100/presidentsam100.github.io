@@ -745,6 +745,21 @@ if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
   ],
   start: '#startGame',
 });
+// Keys for the bar under the board, shown on its buttons: ? the rules, R
+// restart, N a new game (R and N ask first mid-game, as the buttons do). With the rules open, Enter is Got it (Esc closes
+// them too).
+if (window.GameShell && GameShell.menuKeys) {
+  GameShell.menuKeys({
+    active: () => !modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+    groups: [
+      { sel: '#rules', keys: ['/'], caps: false },     // (the same key without Shift)
+      { sel: '#rules', keys: ['?'] },
+      { sel: '#restart', keys: ['r'] },
+      { sel: '#reset', keys: ['n'] },
+    ],
+  });
+  GameShell.menuKeys({ active: () => rulesModal.classList.contains('open'), start: '#closeRules' });
+}
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 

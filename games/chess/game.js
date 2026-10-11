@@ -729,11 +729,17 @@
   // Enter starts (the clock chips are left to Tab and the mouse). 4-player
   // menu: 1 2 3 pick the end rule and Enter starts (a number alone doesn't,
   // so the rules can be gone through first; a click still starts at once).
+  // By the board: N new game (asking first once a move's been made, as
+  // leaving does), U undo, F flip, C change mode; on the result card Enter
+  // is its New Game.
   if(window.GameShell && GameShell.menuKeys){
     GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", keys:["2","4","3"], into:".tag" }] });
     GameShell.menuKeys({ active:()=>$("setup2Menu").classList.contains("show"),
       groups:[{ sel:"#opponentPick .modebtn", into:".tag" }, "#diffPick .chip", { sel:"#sidePick .chip", keys:["w","b","r"] }], start:"#setup2Start" });
     GameShell.menuKeys({ active:()=>$("endMenu").classList.contains("show"), groups:[{ sel:"#endMenu .modebtn", into:".tag", pick:true }] });
+    GameShell.menuKeys({ active:()=>!menuUp() && !$("overOverlay").classList.contains("show"),
+      groups:[{ sel:"#newBtn", keys:["n"], ask:{ title:"Start a new game?", ok:"New game" } }, { sel:"#undoBtn", keys:["u"] }, { sel:"#flipBtn", keys:["f"] }, { sel:"#modeBtn", keys:["c"] }] });
+    GameShell.menuKeys({ active:()=>$("overOverlay").classList.contains("show"), start:"#overAgain" });
   }
 
   start(2);  // build a board behind the menu

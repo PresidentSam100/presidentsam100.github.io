@@ -690,7 +690,8 @@
   // C / D are the Classic and Daily tabs (their keycaps are on them)
   GameShell.menuKeys({
     active: () => !PAUSE.isPaused(),
-    groups: [{ sel: 'nav.modes a[href="./"]', keys: ["c"] }, { sel: 'nav.modes a[href="./?daily"]', keys: ["d"] }],
+    groups: [{ sel: 'nav.modes a[href="./"]', keys: ["c"] }, { sel: 'nav.modes a[href="./?daily"]', keys: ["d"] },
+      { sel: "#modeBtn", keys: ["t"] }],     // T flips what a tap does (dig or flag)
   });
 
   // ---- controls ----------------------------------------------------------

@@ -633,6 +633,7 @@
     if (state === "over") {
       if (e.key === "Enter" && !$("again").hidden) startRun(mode);
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
+      else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Field Trip's Share result
     }
   });
 

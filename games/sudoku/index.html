@@ -65,10 +65,10 @@
       <div class="pad" id="pad" role="group" aria-label="Digits"></div>
 
       <div class="tools" role="group" aria-label="Tools">
-        <button class="tool" id="undoBtn" type="button" title="Undo (Ctrl+Z)"><span class="ti">&#x21B6;</span>Undo</button>
-        <button class="tool" id="eraseBtn" type="button" title="Erase (Backspace)"><span class="ti">&#x232B;</span>Erase</button>
-        <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Pencil marks (N)"><span class="ti">&#x270E;&#xFE0E;</span>Pencil<b class="badge" id="notesBadge">off</b></button>
-        <button class="tool" id="hintBtn" type="button" title="Hint"><span class="ti">&#x261E;&#xFE0E;</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
+        <button class="tool" id="undoBtn" type="button" title="Undo (U, or Ctrl+Z)" aria-keyshortcuts="U" data-gs-key="U"><span class="ti">&#x21B6;</span>Undo</button>
+        <button class="tool" id="eraseBtn" type="button" title="Erase (Backspace)" aria-keyshortcuts="Backspace" data-gs-key="⌫"><span class="ti">&#x232B;</span>Erase</button>
+        <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Pencil marks (N)" aria-keyshortcuts="N" data-gs-key="N"><span class="ti">&#x270E;&#xFE0E;</span>Pencil<b class="badge" id="notesBadge">off</b></button>
+        <button class="tool" id="hintBtn" type="button" title="Hint (?)" aria-keyshortcuts="?" data-gs-key="?"><span class="ti">&#x261E;&#xFE0E;</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
       </div>
 
       <div class="levels" role="group" aria-label="Difficulty">
@@ -79,7 +79,7 @@
       </div>
 
       <div class="opts">
-        <button class="btn" id="newBtn" type="button">New puzzle</button>
+        <button class="btn" id="newBtn" type="button" title="New puzzle (F2)" aria-keyshortcuts="F2" data-gs-key="F2">New puzzle</button>
       </div>
 
       <p id="stats"></p>
@@ -102,8 +102,8 @@
         <p class="gs-keys">
           <b>Keyboard:</b> <kbd class="gs-kbd">←</kbd><kbd class="gs-kbd">↑</kbd><kbd class="gs-kbd">↓</kbd><kbd class="gs-kbd">→</kbd> move, <kbd class="gs-kbd">1</kbd>–<kbd class="gs-kbd">9</kbd> fill,
           <kbd class="gs-kbd">Shift</kbd>+digit adds a note, <kbd class="gs-kbd">Backspace</kbd>/<kbd class="gs-kbd">0</kbd> clears,
-          <kbd class="gs-kbd">N</kbd> toggles notes, <kbd class="gs-kbd">Ctrl</kbd>+<kbd class="gs-kbd">Z</kbd> undoes,
-          <kbd class="gs-kbd">P</kbd> pauses.
+          <kbd class="gs-kbd">N</kbd> toggles notes, <kbd class="gs-kbd">U</kbd> (or <kbd class="gs-kbd">Ctrl</kbd>+<kbd class="gs-kbd">Z</kbd>) undoes,
+          <kbd class="gs-kbd">?</kbd> gives a hint, <kbd class="gs-kbd">F2</kbd> is New puzzle, <kbd class="gs-kbd">P</kbd> pauses.
         </p>
         <p>
           <b>☞&#xFE0E; Hint</b> first points out any wrong digit or notes that are

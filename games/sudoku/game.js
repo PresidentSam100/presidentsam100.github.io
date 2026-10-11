@@ -824,6 +824,18 @@
     } else if ((k === "n" || k === "N") && !e.repeat) {
       e.preventDefault();
       toggleNotesMode();
+    // the other tools' keys, shown on their buttons: U undo, ? the hint (or
+    // the same key without Shift), F2 New puzzle (which asks for a second
+    // press, as a click does). H and N are taken: Hard, and the pencil.
+    } else if ((k === "u" || k === "U") && !e.repeat) {
+      e.preventDefault();
+      undo();
+    } else if ((k === "?" || k === "/") && !e.repeat) {
+      e.preventDefault();
+      hintBtn.click();
+    } else if (k === "F2" && !e.repeat) {
+      e.preventDefault();
+      newBtn.click();
     }
   });
 

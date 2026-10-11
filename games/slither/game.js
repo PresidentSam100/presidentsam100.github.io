@@ -566,6 +566,21 @@
   });
 
   document.getElementById("menu-btn").addEventListener("click", resetToMenu);
+  // Keys for the bar and the pause card, shown on their buttons. In play
+  // Backspace is ☰ Menu; paused, R restarts and Backspace is Main Menu. Each
+  // asks first while there's a game to lose (the buttons themselves don't:
+  // a key is easier to hit by mistake). In the Labyrinth R is the game's own
+  // restart, at once, as it always was. (The result card's Enter and
+  // Backspace are in the key handler above.)
+  if (window.GameShell && GameShell.menuKeys) {
+    var cardUp = function (id) { return !document.getElementById(id).classList.contains("hidden"); };
+    var inGame = function () { return gameArea.style.display !== "none"; };
+    GameShell.menuKeys({ active: function () { return inGame() && !cardUp("pause") && !cardUp("result"); },
+      groups: [{ sel: "#menu-btn", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
+    GameShell.menuKeys({ active: function () { return inGame() && cardUp("pause"); }, groups: [
+      { sel: "#pause-restart", keys: ["r"], ask: { title: "Restart this game?", ok: "Restart" } },
+      { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
+  }
   document.getElementById("pause-btn").addEventListener("click", togglePause);
   document.getElementById("pause-resume").addEventListener("click", function () {
     if (G.mode === "lab") { if (lab && lab.isPaused()) lab.togglePause(); return; }

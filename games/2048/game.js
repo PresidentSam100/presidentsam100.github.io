@@ -432,6 +432,7 @@
         overlayMsg.textContent =
           "You reached " + winValue() + "! Keep going for a higher score?";
         keepGoingBtn.style.display = "";
+        cardKeys(true);
         overlay.classList.add("show");
         playWin();
       }, OVERLAY_DELAY);
@@ -444,6 +445,7 @@
         overlayTitle.textContent = "Game Over";
         overlayMsg.textContent = "No more moves. Final score: " + score;
         keepGoingBtn.style.display = "none";
+        cardKeys(false);
         overlay.classList.add("show");
         playGameOver();
       }, OVERLAY_DELAY);
@@ -496,8 +498,25 @@
       e.preventDefault();
       if (e.repeat) return; // one slide per physical press: holding must not auto-slide
       move(KEYMAP[e.key]);
+      return;
+    }
+    // N is the AC key (a new game, asking first mid-game as a click does). On
+    // a card Enter is its first button: Try Again when the board is stuck,
+    // Keep Going on a win. Not while a question is up, and Enter on a focused
+    // button is that button's own press.
+    if (e.repeat || document.querySelector(".gs-dialog")) return;
+    if (e.key === "n" || e.key === "N") { e.preventDefault(); document.getElementById("new-game").click(); }
+    else if (e.key === "Enter" && overlay.classList.contains("show") && !(e.target && e.target.closest && e.target.closest("button, a"))) {
+      e.preventDefault();
+      (keepGoingBtn.style.display === "none" ? document.getElementById("overlay-retry") : keepGoingBtn).click();
     }
   });
+  // the card's keycaps, set as it comes up: on a win Keep Going is Enter and
+  // Try Again is N (it's a new game, as AC is); on Game Over Try Again is Enter
+  function cardKeys(win) {
+    document.getElementById("overlay-retry").setAttribute("data-gs-key", win ? "N" : "Enter");
+    keepGoingBtn.setAttribute("data-gs-key", "Enter");
+  }
 
   var tsx = 0, tsy = 0, tracking = false;
   var board = document.getElementById("board");

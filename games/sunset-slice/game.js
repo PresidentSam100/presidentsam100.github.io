@@ -385,6 +385,13 @@
     groups: [{ sel: ".modes button[data-mode]", into: "b", pick: true, first: function () { return lastMode && document.querySelector('.modes button[data-mode="' + lastMode + '"]'); } }]
   });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
+  // On the end card Enter is Again (Backspace is its Modes, in the key
+  // handler); on the pause card Backspace is Modes, which asks first. Their
+  // keycaps are on the buttons.
+  if (window.GameShell && GameShell.menuKeys) {
+    GameShell.menuKeys({ active: function () { return state === "over"; }, start: "#again" });
+    GameShell.menuKeys({ active: function () { return state === "play" && paused; }, groups: [{ sel: "#quit", keys: ["Backspace"] }] });
+  }
   document.getElementById("to-menu").addEventListener("click", toMenu);
   document.getElementById("resume").addEventListener("click", function () { setPaused(false); });
   // Modes on the pause card throws the run away, so it asks first. The run is

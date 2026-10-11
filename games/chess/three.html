@@ -80,7 +80,7 @@
       <button class="btn primary" id="newBtn">New Game</button>
       <button class="btn" id="undoBtn">↶ Undo</button>
       <button class="btn" id="ruleBtn">End Rule…</button>
-      <a class="btn" href="./index.html" data-leave>⇆ 2 / 4 Player</a>
+      <a class="btn" id="modeLink" href="./index.html" data-leave>⇆ 2 / 4 Player</a>
     </div>
   </div>
 </div>
@@ -382,8 +382,16 @@
   if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !$("menu").classList.contains("show"));
   // Menu keys, shown on the buttons: 1 2 3 pick the end rule and Enter starts
   // (a number alone doesn't, so the rules can be gone through first; a click
-  // still starts at once)
-  if(window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", into:"span", pick:true }] });
+  // still starts at once). By the board: N new game (asking first once a
+  // move's been made, as leaving does), U undo, E the end rules, C the 2 / 4
+  // player board; on the result card Enter is its New Game.
+  if(window.GameShell && GameShell.menuKeys){
+    const over=()=>$("overOverlay").classList.contains("show"), menu=()=>$("menu").classList.contains("show");
+    GameShell.menuKeys({ active:menu, groups:[{ sel:"#menu .modebtn", into:"span", pick:true }] });
+    GameShell.menuKeys({ active:()=>!menu() && !over(),
+      groups:[{ sel:"#newBtn", keys:["n"], ask:{ title:"Start a new game?", ok:"New game" } }, { sel:"#undoBtn", keys:["u"] }, { sel:"#ruleBtn", keys:["e"] }, { sel:"#modeLink", keys:["c"] }] });
+    GameShell.menuKeys({ active:over, start:"#overAgain" });
+  }
   start(3); // build board behind menu (default frozen-pieces rule)
 })();
 </script>
