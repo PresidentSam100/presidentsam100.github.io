@@ -87,9 +87,20 @@ svg#board {
 .block.human .pad { stroke: var(--human); } .block.ai .pad { stroke: var(--ai); }
 .pad-letter { font-family: var(--sign); font-size: 15px; text-anchor: middle; dominant-baseline: central; }
 .block.human .pad-letter { fill: var(--human); } .block.ai .pad-letter { fill: var(--ai); }
-/* a newly claimed block switches its lights on */
-.block.lit-anim { animation: lightUp 0.55s ease-out both; transform-box: fill-box; transform-origin: center; }
+/* a newly claimed block switches its lights on (Visual FX on; --age is how far
+   into it the block already was when the board was last redrawn) */
+.block.lit-anim { animation: lightUp 0.55s ease-out var(--age, 0ms) both; transform-box: fill-box; transform-origin: center; }
 @keyframes lightUp { 0% { opacity: 0; transform: scale(0.86); } 60% { opacity: 1; } 100% { opacity: 1; transform: scale(1); } }
+/* ... a ripple runs out across the lot from its middle (--mid), in the owner's colour ... */
+.ripple { fill: none; stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: none;
+          transform-origin: var(--mid); animation: ripple 0.5s ease-out calc(var(--age, 0ms) + 0.06s) both; }
+.ripple.second { animation-delay: calc(var(--age, 0ms) + 0.2s); }
+.ripples.human .ripple { stroke: var(--human); } .ripples.ai .ripple { stroke: var(--ai); }
+.ripples.human .wash { fill: rgba(255, 90, 110, 0.22); } .ripples.ai .wash { fill: rgba(63, 182, 255, 0.22); }
+@keyframes ripple { 0% { transform: scale(0.1); opacity: 0; } 15% { opacity: 1; } 100% { transform: scale(1.18); opacity: 0; } }
+/* ... and the owner's letter pops onto the roof */
+.block.lit-anim .mark { transform-origin: var(--mid); animation: markPop 0.36s cubic-bezier(0.3, 1.5, 0.5, 1) calc(var(--age, 0ms) + 0.24s) both; }
+@keyframes markPop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 
 /* ---- buttons ---- */
 .controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }

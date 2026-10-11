@@ -206,7 +206,8 @@
         var rng = A.mulberry(900 + i);
         p.el.style.setProperty("--swaydur", (4.6 + rng() * 2.6).toFixed(2) + "s");
         p.el.style.setProperty("--swaydelay", (-rng() * 5).toFixed(2) + "s");
-        p.el.style.setProperty("--swaydeg", (2.4 - Math.min(1.4, sl / 160)).toFixed(2) + "deg");
+        p.sway = 2.4 - Math.min(1.4, sl / 160);         // degrees: the shorter the string, the wider
+        p.el.style.setProperty("--swaydeg", p.sway.toFixed(2) + "deg");
         p.el.style.setProperty("--tagtilt", ((rng() * 6) - 3).toFixed(1) + "deg");
         x += hw * 2 + gap;
       });
@@ -331,7 +332,28 @@
     var el = pads[i].el;
     el.classList.add("lit");
     later(ms, function () { el.classList.remove("lit"); });
+    swing(i);
   }
+  // With Visual FX on, the planet that sings swings on its string: pushed to
+  // one side (the other side each time), back through and settling, on top of
+  // its gentle sway (the two add up). Like the sway, it's wider on a short
+  // string. With FX off the planet lights where it hangs.
+  var swings = [];
+  function swing(i) {
+    var p = pads[i];
+    if (!fx() || !p.el.animate) return;
+    p.push = -(p.push || 1);
+    var a = p.push * (p.sway || 1.6) * 3.5;
+    function at(offset, k) { return { offset: offset, transform: "rotate(" + (a * k).toFixed(2) + "deg)", easing: "ease-in-out" }; }
+    var an = p.el.animate([at(0, 0), at(0.14, 1), at(0.4, -0.6), at(0.62, 0.32), at(0.82, -0.14), at(1, 0)],
+      { duration: 1100, composite: "add" });
+    swings.push(an);
+    an.onfinish = an.oncancel = function () { var k = swings.indexOf(an); if (k >= 0) swings.splice(k, 1); };
+  }
+  // (switched off mid-swing, the planet hangs still at once)
+  window.addEventListener("reducemotionchange", function () {
+    if (!fx()) swings.slice().forEach(function (an) { an.cancel(); });
+  });
   // clearEvts() drops any pending glow-off, so wipe the classes directly
   // (and the sun's face, whose way back to rest is one of those events)
   function clearFx() {

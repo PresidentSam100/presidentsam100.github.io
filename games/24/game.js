@@ -209,7 +209,7 @@
     G.pool = pool;
     G.hand = ints;
     G.cards = Solver.fromInts(ints);
-    G.sel = -1; G.op = null; G.hist = []; G.last = null; G.hinted = false; G.msg = null; G.skipArmed = 0; G.celebrate = 0;
+    G.sel = -1; G.op = null; G.hist = []; G.last = null; G.hinted = false; G.msg = null; G.skipArmed = 0; G.celebrate = 0; G.slide = null;
   }
   function level() { return G.pool === "easy" ? 2 : G.pool === "medium" ? 3 : 4; }
   function say(text, ms) { G.msg = { text: text, until: now() + (ms || 1800) }; }
@@ -225,11 +225,60 @@
     var step = { a: a, op: G.op, b: b, r: r }, keep = [];
     G.cards.forEach(function (c, k) { if (k !== G.sel) keep.push(k === i ? r : c); });
     var newIdx = i - (G.sel < i ? 1 : 0);
+    slideFrom(G.cards, G.sel, i, keep.length, newIdx);
     G.cards = keep; G.last = step; G.op = null; G.sel = newIdx; G.msg = null;
     if (G.cards.length === 1) {
       if (Solver.is24(r)) return solved();
       say("Not 24: undo", 2600); SFX.wrong();
     }
+  }
+  // Visual FX on: the cards slide together as they combine. The step itself
+  // is done at once (the cards are already the new ones, and keys act on
+  // them); for SLIDE_MS the screen shows the old cards on their way: the card
+  // picked first sliding onto the other, where their result will stand, and
+  // the rest moving to their new places. With FX off the new cards are
+  // simply there. `sel` and `hit` are the two combined, `newIdx` where the
+  // result stands among the `n` cards left.
+  var SLIDE_MS = 170, POP_MS = 240, SPARK_MS = 420;
+  function slideFrom(cards, sel, hit, n, newIdx) {
+    if (!fx()) { G.slide = null; return; }
+    var from = cardRects(cards.length), to = cardRects(n);
+    G.slide = { t0: now(), sel: sel, hit: hit, cards: cards.map(function (c, k) {
+      return { v: c, from: from[k], to: to[k === sel ? newIdx : k - (sel < k ? 1 : 0)] };
+    }) };
+  }
+  function sliding(t) { return !!G.slide && fx() && t - G.slide.t0 < SLIDE_MS; }
+  function drawSlide(t) {
+    var s = G.slide, k = Math.max(0, (t - s.t0) / SLIDE_MS), e = k * k * (3 - 2 * k);
+    function card(c, picked) {
+      var r = { x: Math.round(c.from.x + (c.to.x - c.from.x) * e), y: c.from.y, w: Math.round(c.from.w + (c.to.w - c.from.w) * e), h: c.from.h };
+      L.fill(r.x, r.y, r.w, r.h, picked ? 1 : 0);        // (a card covers what it slides over)
+      if (picked) { L.px(r.x, r.y, 0); L.px(r.x + r.w - 1, r.y, 0); L.px(r.x, r.y + r.h - 1, 0); L.px(r.x + r.w - 1, r.y + r.h - 1, 0); }
+      else L.frame(r.x, r.y, r.w, r.h);
+      drawValue(c.v, r, !picked);
+    }
+    s.cards.forEach(function (c, k2) { if (k2 !== s.sel && k2 !== s.hit) card(c, false); });
+    card(s.cards[s.hit], false);
+    card(s.cards[s.sel], true);
+  }
+  // "24!" on a dark panel. With Visual FX on it pops (once the last two cards
+  // have slid together): the panel springs open from the middle, a touch past
+  // its size and back, and throws sparks out past its sides and corners. With
+  // FX off the panel is simply there.
+  var SPARKS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  function drawWin(t) {
+    var since = t - G.popAt, k = fx() ? Math.max(0, Math.min(1, since / POP_MS)) : 1;
+    var sc = k >= 1 ? 1 : k < 0.6 ? 0.35 + 0.68 * (k / 0.6) : 1.03 - 0.03 * ((k - 0.6) / 0.4);   // (1.03: a pixel a side, clear of the meters)
+    var w = Math.round(36 * sc) * 2, h = Math.round(9 * sc) * 2, x = 42 - w / 2, y = 18 - h / 2;
+    L.fill(x, y, w, h);
+    center("24!", 13, "B", 0, x, w);
+    if (!fx() || since <= 0 || since >= SPARK_MS) return;
+    var d = 2 + since / SPARK_MS * 13;                     // how far out they've flown (sideways there's little room: slower)
+    SPARKS.forEach(function (v) {
+      var sx = 42 + v[0] * (37 + Math.round(d * 0.38)) - (v[0] > 0 ? 1 : 0);
+      var sy = 18 + v[1] * (9 + Math.round(d * (v[0] ? 0.8 : 1))) - (v[1] > 0 ? 1 : 0);
+      L.px(sx, sy); L.px(sx - v[0], sy - v[1]);            // two pixels long, pointing out
+    });
   }
   function pickOp(op) {
     if (G.sel === -1) { say("Pick a card"); SFX.deny(); return; }
@@ -239,11 +288,11 @@
     if (G.op) { G.op = null; return; }
     var h = G.hist.pop();
     if (!h) { if (G.sel !== -1) G.sel = -1; else SFX.deny(); return; }
-    G.cards = h.cards; G.sel = -1; G.last = h.last; G.msg = null;
+    G.cards = h.cards; G.sel = -1; G.last = h.last; G.msg = null; G.slide = null;
   }
   function reset() {
     if (!G.hist.length && G.sel === -1) return;
-    G.cards = Solver.fromInts(G.hand); G.sel = -1; G.op = null; G.hist = []; G.last = null; G.msg = null;
+    G.cards = Solver.fromInts(G.hand); G.sel = -1; G.op = null; G.hist = []; G.last = null; G.msg = null; G.slide = null;
   }
   function hint() {
     var sol = Solver.solve(G.cards);
@@ -258,6 +307,8 @@
   function solved() {
     SFX.win();
     G.celebrate = now();
+    if (G.mode === "timed") G.slide = null;             // (Time attack's flash is brief: the pop gets all of it)
+    G.popAt = G.celebrate + (G.slide ? SLIDE_MS : 0);   // (otherwise the pop waits for the cards to meet)
     G.sel = -1;
     if (G.mode === "daily") {
       dailySave({ t: Math.round(G.elapsed / 1000), h: G.hints });
@@ -340,11 +391,9 @@
       battery(G.mode === "timed" ? G.timeLeft / TIMED_MS : 1, G.mode === "timed" && G.timeLeft < 15000 && fx() && Math.floor(t / 400) % 2 === 0);
       // The cards (or the win flash).
       var rects = cardRects(G.cards.length);
-      if (G.celebrate) {
-        var r0 = { x: 6, y: 9, w: 72, h: 18 };
-        L.fill(r0.x, r0.y, r0.w, r0.h);
-        center("24!", r0.y + 4, "B", 0, r0.x, r0.w);
-      } else {
+      if (sliding(t)) drawSlide(t);
+      else if (G.celebrate) drawWin(t);
+      else {
         G.cards.forEach(function (c, i) {
           var r = rects[i], sel = i === G.sel;
           if (sel) L.fill(r.x, r.y, r.w, r.h); else L.frame(r.x, r.y, r.w, r.h);

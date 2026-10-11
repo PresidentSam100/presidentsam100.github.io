@@ -224,6 +224,7 @@
   var savedBest = 0;       // the stored best this run has caught up to (see update)
   var ship = null, respawnT = 0;
   var rocks = [], bullets = [], ebullets = [], booms = [], words = [];
+  var chunks = [];         // rubble off a cracked rock (Visual FX on; see crack)
   var saucer = null, saucerT = 14, saucerBlipT = 0;
   var nextWaveT = 0, waveMsgT = 0, shake = 0, time = 0;
 
@@ -279,7 +280,7 @@
   function start() {
     score = 0; lives = 3; wave = 1; extraAt = 10000;
     savedBest = best.get();
-    rocks = []; bullets = []; ebullets = []; booms = []; words = [];
+    rocks = []; bullets = []; ebullets = []; booms = []; words = []; chunks = [];
     saucer = null; saucerT = rand(14, 22);
     ship = newShip(); respawnT = 0; shake = 0;
     state = "play";
@@ -304,6 +305,27 @@
       text: text, t: 0, rot: rand(-0.16, 0.16)
     });
   }
+  // A blasted rock cracks (Visual FX on): jagged chunks of it are thrown out
+  // all round, tumbling, and shrink away. They're only for show: nothing
+  // hits them, and the rocks it splits into are the same either way.
+  function crack(rk) {
+    if (!fx()) return;
+    var n = rk.size === 3 ? 8 : rk.size === 2 ? 6 : 5;
+    var a0 = rand(0, Math.PI * 2);
+    for (var i = 0; i < n; i++) {
+      var a = a0 + (i + rand(-0.3, 0.3)) / n * Math.PI * 2;
+      var sp = rand(80, 200) * (0.8 + rk.size * 0.12);
+      var pts = [], corners = 4 + ((Math.random() * 2) | 0);
+      for (var k = 0; k < corners; k++) pts.push(rand(0.55, 1.1));
+      chunks.push({
+        x: rk.x + Math.cos(a) * rk.r * 0.35, y: rk.y + Math.sin(a) * rk.r * 0.35,
+        vx: rk.vx * 0.4 + Math.cos(a) * sp, vy: rk.vy * 0.4 + Math.sin(a) * sp,
+        r: rk.r * rand(0.16, 0.3) + 2, pts: pts,
+        rot: rand(0, Math.PI * 2), spin: rand(4, 10) * (Math.random() < 0.5 ? -1 : 1),
+        col: rk.col[i % 2], t: 0, life: rand(0.5, 0.85)
+      });
+    }
+  }
 
   // ---- update -----------------------------------------------------------------
   function wrap(o, r) {
@@ -321,6 +343,7 @@
       rocks.push(makeRock(rk.x, rk.y, rk.size - 1));
     }
     addBoom(rk.x, rk.y, rk.size === 3);
+    crack(rk);
     if (rk.size === 3) addWord(rk.x, rk.y, pick(WORDS));
   }
 
@@ -349,6 +372,13 @@
     // effect timers run everywhere
     for (i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > booms[i].dur) booms.splice(i, 1); }
     for (i = words.length - 1; i >= 0; i--) { words[i].t += dt; if (words[i].t > 0.9) words.splice(i, 1); }
+    for (i = chunks.length - 1; i >= 0; i--) {
+      var ch = chunks[i];
+      ch.t += dt;
+      if (ch.t > ch.life) { chunks.splice(i, 1); continue; }
+      ch.x += ch.vx * dt; ch.y += ch.vy * dt;
+      ch.rot += ch.spin * dt;
+    }
 
     if (state !== "play") return;
     if (waveMsgT > 0) waveMsgT -= dt;
@@ -690,8 +720,47 @@
       ctx.lineWidth = layer ? 2 : 3;
       ctx.stroke();
     }
+    // Visual FX on: action lines fly out past the burst, shortening as they go
+    if (fx()) {
+      var from = bm.rmax * (0.95 + 0.85 * k), len = bm.rmax * 0.4 * (1 - k);
+      ctx.lineCap = "round";
+      for (var pass = 0; pass < 2; pass++) {      // inked first, then the paper-white line over it
+        ctx.strokeStyle = pass ? PAPER : INK;
+        ctx.lineWidth = pass ? 2.5 : 5.5;
+        ctx.beginPath();
+        for (var s = 0; s < 12; s++) {
+          var sa = (s + 0.5) / 12 * Math.PI * 2, sl = s % 2 ? len : len * 0.6;
+          ctx.moveTo(Math.cos(sa) * from, Math.sin(sa) * from);
+          ctx.lineTo(Math.cos(sa) * (from + sl), Math.sin(sa) * (from + sl));
+        }
+        ctx.stroke();
+      }
+    }
     ctx.restore();
     ctx.globalAlpha = 1;
+  }
+
+  // a chunk of cracked rock: an inked shard in the rock's colour, shrinking
+  // away over the last part of its flight
+  function drawChunk(ch) {
+    var k = ch.t / ch.life, sc = k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
+    var n = ch.pts.length;
+    ctx.save();
+    ctx.translate(ch.x, ch.y);
+    ctx.rotate(ch.rot);
+    ctx.lineJoin = "round";
+    ctx.fillStyle = ch.col;
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var i = 0; i < n; i++) {
+      var a = i / n * Math.PI * 2, rr = ch.r * ch.pts[i] * sc;
+      if (i === 0) ctx.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
+      else ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
   }
 
   function drawWord(wd) {
@@ -760,6 +829,7 @@
       }
     }
 
+    for (i = 0; i < chunks.length; i++) drawChunk(chunks[i]);
     for (i = 0; i < booms.length; i++) drawBoom(booms[i]);
     for (i = 0; i < words.length; i++) drawWord(words[i]);
 

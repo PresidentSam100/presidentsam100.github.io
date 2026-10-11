@@ -298,6 +298,11 @@
   let saveUntil = 0, saveUsed = false, tiltMeter = 0, tilted = false;
   let shake = 0, flash = 0, flashColor = "255,61,240";
   let kickbackLit = true, kickbackFlash = 0;
+  // Rings of light thrown off a pop bumper or slingshot the ball has hit
+  // (Visual FX on): each grows from its part's edge and fades over RING_S
+  let rings = [];
+  const RING_S = 0.42;
+  const addRing = (x, y, r, color) => { if (!reduced()) rings.push({ x, y, r, color, t: 0 }); };
   let skillLane = -1, skillUntil = 0;
   let skillDrawn = "";   // how the last frame drew the skill lane (test hook)
   let comboAt = 0, comboN = 0;
@@ -421,10 +426,14 @@
   // ---------- features ----------
   function bumperHit(bm) {
     bm.lit = 1; addScore(750); addBonus(250); SFX.bump(); flashPulse(0.18, "255,61,240");
+    addRing(bm.x, bm.y, bm.r, T.theme.ring);
     // The pop bumpers relight the jackpot once it's been collected.
     if (multiball && jackpotValue === 0 && ++mbPops >= 6) relightJackpot();
   }
-  function slingHit(s) { s.lit = 1; addScore(250); addBonus(80); SFX.sling(); }
+  function slingHit(s) {
+    s.lit = 1; addScore(250); addBonus(80); SFX.sling();
+    addRing((s.ax + s.bx) / 2, (s.ay + s.by) / 2, 8, T.theme.wall);   // off the middle of its kicking face
+  }
   function targetHit(t) {
     if (t.down) return;
     t.down = true; t.lit = 1; addScore(1500); addBonus(400); SFX.target();
@@ -809,6 +818,15 @@
       ctx.shadowBlur = 0; ctx.strokeStyle = th.ring; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(bm.x, bm.y, Math.max(2, bm.r - 5), 0, 7); ctx.stroke();
     });
+    // rings off a bumper or slingshot just hit: out fast, then slowing, thinning as they fade
+    rings.forEach((rg) => {
+      const k = rg.t / RING_S, out = 1 - (1 - k) * (1 - k);
+      ctx.globalAlpha = 1 - k;
+      ctx.shadowColor = rg.color; ctx.shadowBlur = 12;
+      ctx.strokeStyle = rg.color; ctx.lineWidth = 1 + 3 * (1 - k);
+      ctx.beginPath(); ctx.arc(rg.x, rg.y, rg.r + 4 + out * 30, 0, 7); ctx.stroke();
+    });
+    ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
     // flippers — tapered bats, not uniform sticks
     flippers.forEach((f) => {
@@ -831,16 +849,25 @@
       ctx.strokeStyle = "#534a73"; ctx.strokeRect(396, 692, 10, 60);
     }
 
-    // balls (with motion trail)
+    // balls (with Visual FX on, a comet tail: a ribbon of the table's neon,
+    // glowing, with a white core, both tapering away behind the ball)
     balls.forEach((b) => {
-      if (!b.captured && !b.inLane) { b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 7) b.trail.shift(); }
+      if (!b.captured && !b.inLane) { b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 12) b.trail.shift(); }
       else b.trail.length = 0;
-      if (!reduced()) {
-        for (let i = 0; i < b.trail.length; i++) {
-          const p = b.trail[i];
-          ctx.fillStyle = "rgba(255,255,255," + (i / b.trail.length) * 0.35 + ")";
-          ctx.beginPath(); ctx.arc(p.x, p.y, b.r * (0.4 + 0.5 * i / b.trail.length), 0, 7); ctx.fill();
+      if (!reduced() && b.trail.length > 1) {
+        const n = b.trail.length;
+        ctx.lineCap = "round";
+        for (let pass = 0; pass < 2; pass++) {
+          ctx.shadowColor = th.glow; ctx.shadowBlur = pass ? 0 : 14;
+          for (let i = 1; i < n; i++) {
+            const p = b.trail[i - 1], q = b.trail[i], k = i / n;
+            if (Math.abs(q.x - p.x) + Math.abs(q.y - p.y) > 80) continue;   // the ball was moved (a kickback, an eject): no streak across the table
+            ctx.strokeStyle = pass ? "rgba(255,255,255," + (k * 0.5).toFixed(2) + ")" : th.glow.replace("0.6", (k * 0.6).toFixed(2));
+            ctx.lineWidth = b.r * (pass ? 0.7 : 1.8) * k;
+            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+          }
         }
+        ctx.shadowBlur = 0; ctx.lineCap = "butt";
       }
       ctx.shadowColor = "rgba(255,255,255,0.6)"; ctx.shadowBlur = 10;
       const g = ctx.createRadialGradient(b.x - 3, b.y - 3, 1, b.x, b.y, b.r);
@@ -881,6 +908,8 @@
       if (state === "ready" && plunger.pulling) plunger.charge = Math.min(1, plunger.charge + dt * 1.1);
       physics(dt);
     }
+    // (a ring plays out whatever happens next: the ball draining, the game ending)
+    for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t >= RING_S) rings.splice(i, 1); }
     draw(); requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -945,7 +974,7 @@
     AC(); currentMode = mode || currentMode;
     T = TABLES[currentMode]();
     flippers = T.flipperSpecs.map(instFlip);
-    score = 0; ballNum = 1; locks = 0; hudCache = ""; extraBalls = 0; extraAwarded = 0;
+    score = 0; ballNum = 1; locks = 0; hudCache = ""; extraBalls = 0; extraAwarded = 0; rings = [];
     $("startScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
     startBall();
   }

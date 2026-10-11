@@ -208,9 +208,10 @@
       }
     } else {
       streak = 0;
-      // shear the overhang off as falling cake
-      if (x < oL) debris.push({ x: x, y: slider.y, w: oL - x, fl: slider.fl, seed: slider.seed, vx: -70, vy: -40, rot: 0, vr: -2.2 });
-      if (x + w > oR) debris.push({ x: oR, y: slider.y, w: x + w - oR, fl: slider.fl, seed: slider.seed + 5, vx: 70, vy: -40, rot: 0, vr: 2.2 });
+      // shear the overhang off as falling cake (an offcut: with Visual FX on it
+      // crumbles a tier's height down, see update)
+      if (x < oL) debris.push({ x: x, y: slider.y, y0: slider.y, offcut: true, w: oL - x, fl: slider.fl, seed: slider.seed, vx: -70, vy: -40, rot: 0, vr: -2.2 });
+      if (x + w > oR) debris.push({ x: oR, y: slider.y, y0: slider.y, offcut: true, w: x + w - oR, fl: slider.fl, seed: slider.seed + 5, vx: 70, vy: -40, rot: 0, vr: 2.2 });
       crumbs((x < oL ? oL : oR), slider.y, slider.fl);
       x = oL; w = ow;
       sndSlice(); sndPlop();
@@ -277,6 +278,28 @@
       });
     }
   }
+  // An offcut breaks up (Visual FX on): bits of its frosting, sponge and
+  // filling, each thrown out from where it sat in the chunk, tumbling as they
+  // fall. With FX off the offcut drops in one piece.
+  function crumble(d) {
+    var cx = d.x + d.w / 2, cy = d.y - SH / 2;
+    var cos = Math.cos(d.rot), sin = Math.sin(d.rot);
+    var cols = clamp(Math.round(d.w / 9), 2, 7), rows = 3;
+    var size = Math.min(9, 3.5 + d.w * 0.12);
+    for (var r = 0; r < rows; r++) {
+      for (var c = 0; c < cols; c++) {
+        var lx = ((c + 0.5) / cols - 0.5) * d.w, ly = ((r + 0.5) / rows - 0.5) * SH;
+        sprinkles.push({
+          x: cx + lx * cos - ly * sin, y: cy + lx * sin + ly * cos,
+          vx: d.vx + lx * 5 + (Math.random() - 0.5) * 130, vy: d.vy * 0.5 + ly * 5 - Math.random() * 150,
+          rot: Math.random() * 6.3, vr: (Math.random() - 0.5) * 16,
+          bit: size * (0.6 + Math.random() * 0.6),
+          col: r === 0 ? d.fl.frost[1] : (r + c) % 3 === 0 ? d.fl.fill : d.fl.sponge[(r + c) % 2],
+          edge: r === 0 ? d.fl.frostEdge : d.fl.crust, age: 0
+        });
+      }
+    }
+  }
 
   // ---- update -----------------------------------------------------------------------
   function update(dt) {
@@ -312,7 +335,10 @@
 
     tiers.forEach(function (t) { if (t.squash > 0) t.squash = Math.max(0, t.squash - dt * 6); });
     debris.forEach(function (d) { d.vy += 2200 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; });
-    debris = debris.filter(function (d) { return d.y - cam < Hh + 240; });
+    debris = debris.filter(function (d) {
+      if (d.offcut && d.y - d.y0 > H && fx()) { crumble(d); return false; }
+      return d.y - cam < Hh + 240;
+    });
     sprinkles.forEach(function (s) { s.vy += 1400 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.vr * dt; s.age += dt; });
     sprinkles = sprinkles.filter(function (s) { return s.age < 2.4 && s.y - cam < Hh + 60; });
     pops.forEach(function (p) { p.age += dt; });
@@ -385,7 +411,14 @@
   function drawGarnish() {
     sprinkles.forEach(function (s) {
       g.globalAlpha = clamp(2.4 - s.age, 0, 1);
-      if (s.r) { g.fillStyle = s.col; g.beginPath(); g.arc(s.x, sy(s.y), s.r, 0, 7); g.fill(); }
+      if (s.bit) {                                     // a bit of crumbled offcut
+        g.save(); g.translate(s.x, sy(s.y)); g.rotate(s.rot);
+        g.fillStyle = s.col; g.strokeStyle = s.edge; g.lineJoin = "round"; g.lineWidth = 1.2;
+        g.fillRect(-s.bit / 2, -s.bit * 0.4, s.bit, s.bit * 0.8);
+        g.strokeRect(-s.bit / 2, -s.bit * 0.4, s.bit, s.bit * 0.8);
+        g.restore();
+      }
+      else if (s.r) { g.fillStyle = s.col; g.beginPath(); g.arc(s.x, sy(s.y), s.r, 0, 7); g.fill(); }
       else A.sprinkle(g, s.x, sy(s.y), s.rot, 5, s.col);
     });
     g.globalAlpha = 1;

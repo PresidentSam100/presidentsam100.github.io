@@ -90,23 +90,44 @@ Done (checked in `tests/fx-more.js`):
 Every game on the "thin" list from the 2026-10-03 read is done. A new idea for a
 game goes here, with a check in `tests/fx-more.js`.
 
-## Round 2 (ideas from 2026-10-09; Sam picks which, one at a time)
+## Round 2 (ideas from 2026-10-09)
 
-Done:
+Done (checked in `tests/fx-more.js`):
 - Link Many. A dropped disc squashes at each touchdown of its bounce (about its
   bottom edge), and a win draws a glowing line through the four, end to end,
   each disc popping as the line reaches it. (Its drop bounce and the win's
   white pulsing ring were already there.)
-
-Ideas, not started. Check each game first: some may already have part of it.
-- Dots and Boxes: each line draws in from dot to dot; a claimed box fills with a
-  ripple and its mark pops in.
-- Tall Order: a trimmed tier's offcut breaks into crumbs that tumble off.
-- Demolition Row: cleared blocks burst into debris; a chain pops "×2", "×3".
-- Meteor Menace: rocks crack into tumbling chunks, comic-panel impact bursts.
-- Neon Pinball: a glowing ball trail; rings off bumpers and slingshots.
-- Science Fair: a paper planet swings on its string as it plays its note.
-- 24: cards slide together as they combine; a solved 24 pops on the phone screen.
-- Click Tap: a ripple off the pad on each tap; the taps-per-second number bumps.
+- Dots and Boxes. A claimed block throws two ripple rings out across its lot,
+  the first carrying a wash of the owner's colour, and the owner's letter pops
+  onto the roof. A move made while a block is still lighting up no longer cuts
+  it short: the redrawn board carries it on from where it was. (Each road
+  drawing in from lamp to lamp, and the block's lights coming on, were already
+  there.)
+- Tall Order. A trimmed tier's offcut drops a tier's height in one piece, then
+  breaks into bits of frosting, sponge and filling that tumble away. FX off: it
+  falls whole, as before. (The crumbs at the cut were already there.)
+- Demolition Row. A cleared ice block bursts into chunks of its own colour that
+  arc out and fall (fewer apiece when dozens clear at once), on top of the white
+  shards it had. Each step of a chain past the first shows its "×2", "×3" where
+  it cleared: with FX on it pops in and drifts up as it fades, with FX off it
+  holds still, then goes. The "CHAIN x3" banner at the end is unchanged.
+- Meteor Menace. A blasted rock throws out inked chunks of itself that tumble
+  and shrink away, and action lines fly out past the starburst. (The starburst
+  and its BLAM! were already there, in both modes. The chunks hit nothing.)
+- Neon Pinball. The ball's tail is a glowing ribbon of the table's neon with a
+  white core, twelve frames long (it was seven faint white dots), and a pop
+  bumper or slingshot the ball hits throws off a ring that grows and fades.
+- Science Fair. The planet that sings swings on its string: pushed to one side
+  (the other side next time), back through and settling, on top of its sway,
+  wider on a short string. It swings in the tune and when picked.
+- 24. Combining two cards slides the old cards across the screen for a sixth of
+  a second: the picked one and the other close on the spot where their result
+  will stand, the rest move to their new places (the keys already act on the new
+  cards). A solved hand's "24!" panel springs open from the middle, a pixel past
+  its size and back, and throws sparks. In Time attack the last slide is
+  skipped, so the pop fits its shorter flash.
+- Click Tap. Each click sends a ripple out from the bed's rim across the lawn
+  (six rings at most, so an autoclicker can't pile them up) and bumps the
+  clicks-per-second number.
 
 Already good models: Reaction, Lanterns, Slither, the Sudoku stamp.

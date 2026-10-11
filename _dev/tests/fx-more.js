@@ -2,7 +2,9 @@
 // of a game's art and only calms its motion: nothing vanishes, nothing loops.
 // FX on adds motion on top (Corner Pocket, Chess, Tic-Tac-Toe, Yi, Minesweeper,
 // Speedle, Abyss, Crazy Ohio, Jam Jar, Flappy World, Spacer, Typetwo,
-// Stopwatch, Steamfitter, Hash, Klondike, Lights Out, Lanterns).
+// Stopwatch, Steamfitter, Hash, Klondike, Lights Out, Lanterns, Link Many,
+// Dots and Boxes, Tall Order, Demolition Row, Meteor Menace, Neon Pinball,
+// Science Fair, 24, Click Tap).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check(what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -14,6 +16,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   const still = (pg) => pg.addInitScript(() => {
     window.__still = (fn) => { const real = performance.now, t = real.call(performance); performance.now = () => t; try { return fn(); } finally { performance.now = real; } };
   });
+  // ... or step the page's frames, and its clock, by hand: an init script that
+  // leaves __frames(n) in the page, each frame a 60th of a second on
+  const STEPPED = () => {
+    let t = 1000, q = [];
+    performance.now = () => t;
+    window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+    window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+  };
   // open a game with its Visual FX switch set (off = true means FX off)
   const open = (path, off, before) => lib.open(ctx, base, "games/" + path, { before: async (pg) => {
     await pg.addInitScript(([k, off]) => localStorage.setItem("reduceMotion:" + k, off ? "1" : "0"), [path.split("/")[0], off]);
@@ -715,6 +725,360 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("link-many, FX on: the dropped disc squashes as it lands; the win draws a line through the four and pops each one",
       got.on.dropping && got.on.squash && got.on.ringed === 4 && got.on.line && got.on.pops === 4, got.on);
     check("link-many, FX off: the disc is simply there and the four wear their ring, no line", !got.off.dropping && got.off.ringed === 4 && !got.off.line && got.off.pops === 0, got.off);
+  }
+
+  // ---- Dots and Boxes, FX on: a claimed block's lights come on, a ripple runs
+  // out across the lot and the owner's letter pops onto the roof, and a redraw
+  // (the next move) carries all of it on from where it was; FX off: the block
+  // is simply there
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("dots-and-boxes/", off);
+      await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+      await p.click("#startGame");
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const names = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getAnimations().map((a) => a.animationName).join("+"));
+        const look = () => ({ blocks: document.querySelectorAll(".block").length, lit: document.querySelectorAll(".block.lit-anim").length,
+          rings: names(".ripple"), mark: names(".block .mark"), letter: (document.querySelector(".block .pad-letter") || {}).textContent,
+          at: [...document.querySelectorAll(".ripple")].map((e) => { const a = e.getAnimations()[0]; return a ? a.effect.getTiming().delay : null; }) });
+        // the page's clock, set by hand: the claim, a move 300 ms later, one long after
+        const real = performance.now, t = real.call(performance);
+        try {
+          performance.now = () => t;
+          hLines[0][0] = "ai"; vLines[0][0] = "ai"; vLines[0][1] = "ai";
+          play("h", 1, 0);
+          const claim = look();
+          performance.now = () => t + 300; draw();
+          const mid = look();
+          performance.now = () => t + 5000; draw();
+          return { score: scores.human, claim, mid, after: look() };
+        } finally { performance.now = real; }
+      });
+      await done(p, "dots-and-boxes FX " + (off ? "off" : "on"));
+    }
+    const on = got.on;
+    check("dots-and-boxes, FX on: a claimed block lights up, two ripple rings run out across it and its letter pops on",
+      on.score === 1 && on.claim.lit === 1 && on.claim.rings.join() === "ripple,ripple" && on.claim.mark.join() === "markPop" && on.claim.letter === "Y", on.claim);
+    check("dots-and-boxes, FX on: a redraw 300 ms in carries the light-up on from there, and one long after shows the block lit and still",
+      on.mid.lit === 1 && on.mid.rings.length === 2 && on.mid.at.every((d) => d < -90 && d > -310) && on.after.blocks === 1 && on.after.lit === 0 && on.after.rings.length === 0 && on.after.letter === "Y", { mid: on.mid, after: on.after });
+    check("dots-and-boxes, FX off: the block is simply there with its letter, no ripple",
+      got.off.score === 1 && got.off.claim.blocks === 1 && got.off.claim.lit === 0 && got.off.claim.rings.length === 0 && got.off.claim.mark.join() === "" && got.off.claim.letter === "Y", got.off.claim);
+  }
+
+  // ---- Tall Order, FX on: a trimmed tier's offcut drops a tier's height in one
+  // piece, then breaks into tumbling bits of frosting, sponge and filling;
+  // FX off: it falls whole
+  {
+    const HOOK = ["  // test hooks — the Playwright harness drives runs through these\n", `  window.__tf = {
+    step: update, pitch: function () { return H; },
+    debris: function () { return debris.map(function (d) { return d.y; }); },
+    bits: function () { return sprinkles.filter(function (s) { return s.bit; }); }
+  };
+`];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("tall-order/", off, (pg) => lib.injectScript(pg, "games/tall-order/game.js", [HOOK]));
+      // the game's own steps, taken by hand (60 a second): frames, not time
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        TallOrder.start("bakery");
+        TallOrder.placeAndDrop(40);                    // 40 px over the edge: one offcut that wide
+        const r = { whole: 0, fell: 0, bits: 0, spins: 0, cols: 0, left: null };
+        let from = null;
+        for (let i = 0; i < 400; i++) {
+          __tf.step(1 / 60);
+          const d = __tf.debris(), b = __tf.bits();
+          if (d.length && !r.bits) { if (from === null) from = d[0]; r.whole++; r.fell = Math.max(r.fell, (d[0] - from) / __tf.pitch()); }
+          if (b.length > r.bits) { r.bits = b.length; r.spins = new Set(b.map((s) => s.vr.toFixed(2))).size; r.cols = new Set(b.map((s) => s.col)).size; }
+          if (i === 399) r.left = d.length + b.length;
+        }
+        r.tiers = TallOrder.tiers();
+        return r;
+      });
+      await done(p, "tall-order offcut FX " + (off ? "off" : "on"));
+    }
+    check("tall-order, FX on: an offcut drops a tier's height in one piece, then breaks into tumbling bits",
+      got.on.tiers === 2 && got.on.whole >= 3 && got.on.fell >= 0.5 && got.on.fell < 2 && got.on.bits >= 9 && got.on.spins >= 6 && got.on.cols >= 2 && got.on.left === 0, got.on);
+    check("tall-order, FX off: the offcut falls whole", got.off.tiers === 2 && got.off.whole >= 20 && got.off.fell > 3 && got.off.bits === 0 && got.off.left === 0, got.off);
+  }
+
+  // ---- Demolition Row, FX on: cleared ice blocks burst into chunks of their
+  // own colour, and a chain's second step pops a "×2" where it cleared, which
+  // swells in and drifts up; FX off: no chunks, and the "×2" holds still
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("demolition-row/", off);
+      await p.click('#mode-pick [data-mode="endless"]'); await p.click("#play-btn");
+      await p.waitForFunction(() => GAME && GAME.players.length, null, { timeout: 8000 });
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const pl = GAME.players[0], b = pl.board, R = pl.renderer, g = b.grid;
+        // a board set by hand: four orange stacked in column 3 with a green on
+        // top, and three greens on the floor beside it. The stack clears (step
+        // 1), the green drops beside the three (step 2: the chain)
+        for (let r = 0; r < b.cfg.rows; r++) for (let c = 0; c < b.cfg.cols; c++) g[r][c] = null;
+        const put = (r, c, col) => { g[r][c] = { t: "n", c: col, aug: null }; };
+        [13, 12, 11, 10].forEach((r) => put(r, 3, 0)); put(9, 3, 1); [0, 1, 2].forEach((c) => put(13, c, 1));
+        b.piece = null; b.muted = true;
+        // the game's clock and its steps, by hand (16 ms each); every "×2" the
+        // renderer writes is noted with its size, height and alpha
+        const real = performance.now; let T = real.call(performance);
+        performance.now = () => T;
+        const texts = [], oFill = R.ctx.fillText;
+        R.ctx.fillText = function (s, x, y) { texts.push({ s: String(s), y: Math.round(y), font: +/(\d+)px/.exec(this.font)[1], a: +this.globalAlpha.toFixed(2) }); return oFill.apply(this, arguments); };
+        const r = { chunks1: 0, cols1: [], chunks2: 0, pop: null, popSeen: [] };
+        try {
+          b.startFalling();
+          let popAt = -1;
+          for (let i = 0; i < 400 && (popAt < 0 || T - popAt < 1100); i++) {
+            T += 16; b.update(16, T);
+            const coloured = b.debris.filter((d) => d.col), pops = b.pops || [];
+            if (b.chain === 1 && coloured.length && !r.chunks1) { r.chunks1 = coloured.length; r.cols1 = [...new Set(coloured.map((d) => d.col))]; }
+            if (pops.length && popAt < 0) { popAt = T; r.pop = { n: pops[0].n }; r.chunks2 = coloured.length; }
+            if (popAt >= 0) {
+              texts.length = 0; R.draw();
+              const tx = texts.find((q) => q.s === "×2");
+              r.popSeen.push(tx ? [T - popAt, tx.font, tx.y, tx.a] : [T - popAt, null]);
+            }
+          }
+          r.banner = b.flash && b.flash.text; r.left = b.debris.length + (b.pops || []).length;
+        } finally { performance.now = real; R.ctx.fillText = oFill; }
+        return r;
+      });
+      await done(p, "demolition-row burst FX " + (off ? "off" : "on"));
+    }
+    const seen = (r) => r.popSeen.filter((q) => q[1] !== null), gone = (r) => r.popSeen.length > 0 && r.popSeen[r.popSeen.length - 1][1] === null && r.left === 0;
+    const on = got.on, sOn = seen(on), sOff = seen(got.off), end = sOn[sOn.length - 1];
+    check("demolition-row, FX on: four cleared ice blocks burst into chunks of their own colour",
+      on.chunks1 === 20 && on.cols1.join() === "#ff8c2b" && on.chunks2 >= 20, { chunks1: on.chunks1, cols1: on.cols1, chunks2: on.chunks2 });
+    check("demolition-row, FX on: the chain's second step pops ×2 where it cleared; it swells past its size, settles, drifts up and fades, then goes",
+      !!on.pop && on.pop.n === 2 && on.banner === "CHAIN x2" && sOn.length >= 30 && Math.max(...sOn.map((q) => q[1])) > end[1] && sOn[0][1] < end[1] && end[2] < sOn[0][2] - 10 && end[3] < 0.5 && gone(on),
+      { pop: on.pop, banner: on.banner, first: sOn[0], peak: Math.max(...sOn.map((q) => q[1])), last: end, left: on.left });
+    check("demolition-row, FX off: no chunks; the ×2 shows at one size in one place, solid, then goes",
+      got.off.chunks1 === 0 && got.off.chunks2 === 0 && !!got.off.pop && got.off.pop.n === 2 && sOff.length >= 30 && new Set(sOff.map((q) => q.slice(1).join())).size === 1 && sOff[0][3] === 1 && gone(got.off),
+      { pop: got.off.pop, first: sOff[0], kinds: new Set(sOff.map((q) => q.slice(1).join())).size, left: got.off.left });
+  }
+
+  // ---- Meteor Menace, FX on: a blasted rock cracks into inked chunks that
+  // fly out tumbling and shrink away, and action lines fly out past the
+  // starburst; FX off: the starburst and its word alone
+  {
+    const HOOK = ["    start: start\n  };", `    start: start,
+    step: update, render: render,
+    blast: function (i) { splitRock(rocks[i], i); },
+    fxState: function () { return { chunks: typeof chunks === "undefined" ? [] : chunks, booms: booms.length, words: words.length }; }
+  };`];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("meteor-menace/", off, (pg) => lib.injectScript(pg, "games/meteor-menace/game.js", [HOOK]));
+      // the game's own steps, taken by hand (60 a second): frames, not time
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        __game.start();
+        const before = __game.rocks.length, rk = __game.rocks[0], at = { x: rk.x, y: rk.y, r: rk.r };
+        __game.blast(0);
+        const s0 = __game.fxState(), dist = (c) => Math.hypot(c.x - at.x, c.y - at.y);
+        const r = { rocks: [before, __game.rocks.length], chunks: s0.chunks.length, booms: s0.booms, words: s0.words, near: s0.chunks.every((c) => dist(c) < at.r) };
+        // action lines: round-capped paper-white strokes, counted over one render
+        let lines = 0;
+        const o = CanvasRenderingContext2D.prototype.stroke;
+        CanvasRenderingContext2D.prototype.stroke = function () { if (this.lineCap === "round" && this.strokeStyle === "#fff8e7") lines++; return o.apply(this, arguments); };
+        try { __game.step(1 / 60); __game.render(); } finally { CanvasRenderingContext2D.prototype.stroke = o; }
+        r.lines = lines;
+        const turned0 = s0.chunks.map((c) => c.rot), from0 = s0.chunks.map(dist);
+        for (let i = 0; i < 14; i++) __game.step(1 / 60);
+        const s1 = __game.fxState();
+        r.flung = s1.chunks.length ? Math.round(Math.min(...s1.chunks.map((c, i) => dist(c) - from0[i]))) : 0;   // px further out, the slowest of them
+        r.tumbled = s1.chunks.filter((c, i) => Math.abs(c.rot - turned0[i]) > 0.5).length;
+        for (let i = 0; i < 90; i++) __game.step(1 / 60);
+        r.left = __game.fxState().chunks.length;
+        return r;
+      });
+      await done(p, "meteor-menace crack FX " + (off ? "off" : "on"));
+    }
+    check("meteor-menace, FX on: a blasted big rock throws out eight chunks from inside it, which fly outward tumbling and are gone in a second",
+      got.on.rocks[1] === got.on.rocks[0] + 1 && got.on.chunks === 8 && got.on.near && got.on.flung > 8 && got.on.tumbled === 8 && got.on.left === 0, got.on);
+    check("meteor-menace, FX on: action lines fly out past the starburst", got.on.booms === 1 && got.on.words === 1 && got.on.lines === 1, got.on);
+    check("meteor-menace, FX off: the rock splits the same, with its starburst and word, no chunks or action lines",
+      got.off.rocks[1] === got.off.rocks[0] + 1 && got.off.chunks === 0 && got.off.booms === 1 && got.off.words === 1 && got.off.lines === 0, got.off);
+  }
+
+  // ---- Neon Pinball, FX on: the ball trails a glowing ribbon of the table's
+  // neon, and a pop bumper or slingshot it hits throws off a ring that grows
+  // and fades; FX off: no tail, no rings (the bumper and slingshot still light)
+  {
+    const HOOK = ["start: startGame,", "start: startGame, fxState: () => ({ rings: (typeof rings === \"undefined\" ? [] : rings).map((r) => ({ x: r.x, y: r.y, t: r.t })), bumpers: T.bumpers.map((b) => b.lit), slings: T.slings.map((s) => s.lit) }),"];
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("neon-pinball/", off, async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/neon-pinball/game.js", [HOOK]); });
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const r = {};
+        // the tail: round-capped strokes under its own glow (a 14 px shadow), counted over one frame, with how wide each is
+        let tail = [];
+        const o = CanvasRenderingContext2D.prototype.stroke;
+        CanvasRenderingContext2D.prototype.stroke = function () { if (this.lineCap === "round" && this.shadowBlur === 14) tail.push(+this.lineWidth.toFixed(1)); return o.apply(this, arguments); };
+        try {
+          NeonPinball.start("classic"); __frames(2);
+          // the ball sent up the table at the left pop bumper (165, 235)
+          NeonPinball.place(165, 330, 0, -520);
+          __frames(6); tail = []; __frames(1);
+          r.tail = tail.slice();
+          let hit = -1;
+          for (let i = 0; i < 40 && hit < 0; i++) { __frames(1); if (NeonPinball.fxState().bumpers[0] > 0.5) hit = i; }
+          const a = NeonPinball.fxState();
+          r.bumper = { hit: hit >= 0, lit: +a.bumpers[0].toFixed(2), rings: a.rings.length, at: a.rings[0] ? [a.rings[0].x, a.rings[0].y] : null };
+          __frames(45);
+          r.bumper.after = NeonPinball.fxState().rings.length;
+          // ... and dropped onto the left slingshot's face
+          NeonPinball.place(140, 600, -60, 260);
+          let sl = -1;
+          for (let i = 0; i < 40 && sl < 0; i++) { __frames(1); if (NeonPinball.fxState().slings[0] > 0.5) sl = i; }
+          const b = NeonPinball.fxState();
+          r.sling = { hit: sl >= 0, rings: b.rings.length, at: b.rings[0] ? [b.rings[0].x, b.rings[0].y] : null };
+          __frames(45);
+          r.sling.after = NeonPinball.fxState().rings.length;
+        } finally { CanvasRenderingContext2D.prototype.stroke = o; }
+        return r;
+      });
+      await done(p, "neon-pinball FX " + (off ? "off" : "on"));
+    }
+    check("neon-pinball, FX on: the ball trails a glowing ribbon, widening toward the ball", got.on.tail.length >= 5 && got.on.tail.every((w, i, a) => !i || w > a[i - 1]) && got.on.tail[got.on.tail.length - 1] > 10, got.on.tail);
+    check("neon-pinball, FX on: a pop bumper the ball hits throws a ring off itself, gone within a second; so does a slingshot, off its face",
+      got.on.bumper.hit && got.on.bumper.rings === 1 && String(got.on.bumper.at) === "165,235" && got.on.bumper.after === 0 &&
+      got.on.sling.hit && got.on.sling.rings === 1 && String(got.on.sling.at) === "128,625" && got.on.sling.after === 0, got.on);
+    check("neon-pinball, FX off: the bumper and slingshot light when hit, with no rings and no tail",
+      got.off.bumper.hit && got.off.bumper.lit > 0.5 && got.off.bumper.rings === 0 && got.off.sling.hit && got.off.sling.rings === 0 && got.off.tail.length === 0, got.off);
+  }
+
+  // ---- Science Fair, FX on: the planet that sings swings on its string, to
+  // one side, back through and settling, on top of its gentle sway (in the
+  // tune and when picked); FX off: it lights where it hangs
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("science-fair/", off);
+      // every planet as it lights, with what's moving it at that moment (noted as it happens)
+      await p.evaluate(() => {
+        window.__lit = [];
+        const read = (el) => {
+          const an = el.getAnimations(), sw = an.filter((a) => !a.animationName && a.effect.composite === "add").pop();   // (the latest swing: an earlier one may still be going)
+          const degs = sw ? sw.effect.getKeyframes().map((k) => +/rotate\(([-\d.]+)deg\)/.exec(k.transform)[1]) : [];
+          return { sway: an.some((a) => a.animationName === "sway"), swing: !!sw, degs, ms: sw ? sw.effect.getTiming().duration : 0 };
+        };
+        document.querySelectorAll(".hang").forEach((el, i) => new MutationObserver(() => {
+          if (el.classList.contains("lit") && !el.__was) window.__lit.push(Object.assign({ i }, read(el)));
+          el.__was = el.classList.contains("lit");
+        }).observe(el, { attributes: true, attributeFilter: ["class"] }));
+        ScienceFair.fast(); ScienceFair.start("classic");
+      });
+      // (picked once its light from the tune has gone out, so the pick lights it afresh)
+      await p.waitForFunction(() => ScienceFair.state() === "input" && !document.querySelector(".hang.lit"), null, { timeout: 8000 });
+      await p.evaluate(() => ScienceFair.press(ScienceFair.seq()[0]));
+      await p.waitForFunction(() => window.__lit.length >= 2, null, { timeout: 8000 });
+      got[off ? "off" : "on"] = await p.evaluate(() => ({ lit: window.__lit.slice(0, 2), seq: ScienceFair.seq()[0] }));
+      await done(p, "science-fair swing FX " + (off ? "off" : "on"));
+    }
+    const swung = (l) => l.swing && l.sway && l.degs.length === 6 && l.degs[0] === 0 && l.degs[5] === 0 && Math.abs(l.degs[1]) >= 3 && Math.abs(l.degs[1]) <= 9 &&
+      l.degs[1] * l.degs[2] < 0 && Math.abs(l.degs[2]) < Math.abs(l.degs[1]) && Math.abs(l.degs[4]) < Math.abs(l.degs[2]) && l.ms >= 800;
+    const on = got.on.lit, offL = got.off.lit;
+    check("science-fair, FX on: the planet that sings swings on its string (out, back through, settling) on top of its sway, in the tune and when picked",
+      on.length === 2 && on.every((l) => l.i === got.on.seq) && on.every(swung), got.on);
+    check("science-fair, FX on: picked again, it's pushed the other way", on.length === 2 && on[0].degs[1] * on[1].degs[1] < 0, on.map((l) => l.degs[1]));
+    check("science-fair, FX off: the planet lights where it hangs, no swing", offL.length === 2 && offL.every((l) => l.i === got.off.seq && !l.swing && !l.sway), got.off);
+  }
+
+  // ---- 24, FX on: the cards slide together as they combine (the picked one
+  // onto the other, the rest to their new places), and a solved 24 pops: its
+  // panel springs open past its size and settles, throwing sparks; FX off:
+  // the new cards, and the "24!" panel, are simply there
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("24/", off, (pg) => pg.addInitScript(STEPPED));
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const L = TwentyFour.lcd, Solver = window.TwentyFourSolver, r = {};
+        // every card and panel the game draws in a frame, as x:width (a card
+        // picked, or the panel, is a filled box: x:width:height), and every
+        // single pixel it sets away from the antenna (the sparks)
+        let boxes = [], sparks = 0;
+        const oFrame = L.frame, oFill = L.fill, oPx = L.px;
+        L.frame = function (x, y, w, h, on) { if (h === 16 && on !== 0) boxes.push([x, w]); return oFrame.apply(this, arguments); };
+        L.fill = function (x, y, w, h, on) { if (h >= 6 && w >= 10 && on !== 0 && on !== false) boxes.push([x, w, h]); return oFill.apply(this, arguments); };
+        L.px = function (x, y, on) { if (on === undefined && !(x <= 4 && y <= 1)) sparks++; return oPx.apply(this, arguments); };
+        const frame = () => { boxes = []; sparks = 0; __frames(1); return boxes.map((b) => b.join(":")).join(" "); };
+        try {
+          TwentyFour.press("1"); __frames(2);                    // Classic
+          const G = () => TwentyFour.state().G;
+          r.dealt = frame();
+          TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2");   // card 1 + card 2
+          r.left = G().cards.length;
+          r.slide = [frame(), frame(), frame()];
+          __frames(12);
+          r.after = frame();
+          // ... then the hand solved, step by step as the solver has it
+          TwentyFour.press("0"); __frames(2);
+          const steps = Solver.solve(G().cards);
+          const same = (a, b) => a.n === b.n && a.d === b.d, KEY = { "+": "5", "-": "6", "*": "7", "/": "8" };
+          steps.forEach((s, k) => {
+            const cards = G().cards, ia = cards.findIndex((c) => same(c, s.a)), ib = cards.findIndex((c, j) => j !== ia && same(c, s.b));
+            if (G().sel !== -1 && G().sel !== ia) TwentyFour.press(String(G().sel + 1));    // (drop the card left picked)
+            if (G().sel !== ia) TwentyFour.press(String(ia + 1));
+            TwentyFour.press(KEY[s.op]); TwentyFour.press(String(ib + 1));
+            if (k < steps.length - 1) __frames(14);
+          });
+          r.won = !!G().celebrate;
+          r.win = [];
+          for (let i = 0; i < 44; i++) { const f = frame(); r.win.push([f, sparks]); }
+        } finally { L.frame = oFrame; L.fill = oFill; L.px = oPx; }
+        return r;
+      });
+      await done(p, "24 FX " + (off ? "off" : "on"));
+    }
+    const FINAL = "7:22:16 31:22 55:22", PANEL = "6:72:18";
+    const on = got.on, offR = got.off;
+    // the card slid onto: the last but one drawn (the picked card goes over it)
+    const hitX = on.slide.map((f) => { const b = f.split(" "); return b.length === 4 ? +b[2].split(":")[0] : NaN; });
+    check("24, FX on: combining two cards, all four stay on screen as the one slid onto closes in, then the three new cards stand in their places",
+      on.left === 3 && hitX.every((x) => x <= 24 && x > 7) && hitX[2] < hitX[0] && on.after === FINAL, { slide: on.slide, after: on.after });
+    const two = on.win.filter((f) => f[0].split(" ").length === 2).length;                       // the last two cards sliding together
+    const panel = on.win.filter((f) => /^\d+:\d+:\d+$/.test(f[0])).map((f) => +f[0].split(":")[1]);   // then the panel alone: its width
+    check("24, FX on: a solved hand's last two cards slide together, then the 24! panel springs open past its width and settles, throwing sparks that are gone by the end",
+      on.won && two >= 3 && panel.length >= 20 && panel[0] < 40 && Math.max(...panel) === 74 && panel[panel.length - 1] === 72 &&
+      on.win.filter((f) => f[1] > 0).length >= 8 && on.win[on.win.length - 1][1] === 0 && on.win[on.win.length - 1][0] === PANEL,
+      { two, panel, sparks: on.win.map((f) => f[1]).join("") });
+    check("24, FX off: the new cards are simply there, and so is the 24! panel, with no sparks",
+      offR.left === 3 && offR.slide.every((f) => f === FINAL) && offR.won && offR.win.every((f) => f[0] === PANEL && f[1] === 0), { slide: offR.slide, win: offR.win.slice(0, 3) });
+  }
+
+  // ---- Click Tap, FX on: each click sends a ripple out from the bed's rim and
+  // bumps the clicks-per-second number; a burst of clicks keeps to a few rings,
+  // and they clear themselves; FX off: the press and the count alone
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("click-tap/", off);
+      await p.click("#startBtn");
+      await p.waitForFunction(() => !document.getElementById("play").hidden, null, { timeout: 8000 });
+      got[off ? "off" : "on"] = await p.evaluate(() => {
+        const pad = document.getElementById("pad"), r = pad.getBoundingClientRect(), cps = document.getElementById("vCps");
+        const tap = () => pad.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.x + r.width / 2, clientY: r.y + r.height / 2, bubbles: true }));
+        const rings = () => [...document.querySelectorAll(".pad-wrap .ripple")];
+        const names = (el) => el.getAnimations().map((a) => a.animationName).join("+");
+        tap();
+        const one = { rings: rings().length, ring: rings()[0] ? names(rings()[0]) : "", under: rings()[0] ? rings()[0].nextElementSibling === pad : null,
+          bump: names(cps), pressed: pad.classList.contains("pressed"), clicks: document.getElementById("vClicks").textContent };
+        for (let i = 0; i < 11; i++) tap();
+        return { one, burst: rings().length, clicks: document.getElementById("vClicks").textContent };
+      });
+      // the rings take themselves away once they've played (polled: a busy machine is slower)
+      got[off ? "off" : "on"].cleared = await p.waitForFunction(() => document.querySelectorAll(".pad-wrap .ripple").length === 0, null, { timeout: 8000 }).then(() => true, () => false);
+      await done(p, "click-tap ripple FX " + (off ? "off" : "on"));
+    }
+    const on = got.on, offR = got.off;
+    check("click-tap, FX on: a click sends one ripple out from under the bed's rim and bumps the clicks-per-second number",
+      on.one.rings === 1 && on.one.ring === "ripple" && on.one.under === true && /bump/.test(on.one.bump) && on.one.pressed && on.one.clicks === "1", on.one);
+    check("click-tap, FX on: twelve clicks at once keep to six rings, every click counted, and the rings clear themselves", on.burst === 6 && on.clicks === "12" && on.cleared, { burst: on.burst, clicks: on.clicks, cleared: on.cleared });
+    check("click-tap, FX off: the press and the count alone, no ripple or bump",
+      offR.one.rings === 0 && offR.one.bump === "" && offR.one.pressed && offR.one.clicks === "1" && offR.burst === 0 && offR.clicks === "12", offR);
   }
 
   await ctx.close();

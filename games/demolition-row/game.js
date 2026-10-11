@@ -46,6 +46,7 @@
     const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
     const FALL_ACCEL = 0.00020; // rows per ms^2 — gravity for the settle animation
     const FLASH_MS = 150;       // matched group flash duration before it clears
+    const POP_MS = 750;         // how long a chain step's "×2", "×3" shows where it cleared
     const ROT_SPEED = 0.013;    // radians/ms for the rotation animation (~120ms per 90°)
     const SPAWN_MS = 360;       // grow-in animation before a piece is fully active (a "prep" beat)
 
@@ -199,7 +200,7 @@
         this.settleTotals = { normals: 0, stones: 0, stars: 0 }; this.settleGained = 0; this.settleGaugeGain = 0;
         this.pendingClear = []; this.flashUntil = 0; this.thunderQueue = []; this.ironCrush = false;
         this.allowStars = false; this.allowSlow = true;
-        this.fx = []; this.debris = []; this.shake = 0; this.flash = null;
+        this.fx = []; this.debris = []; this.pops = []; this.shake = 0; this.flash = null;
       }
       now() { return performance.now(); }
       bonusActive() { return this.now() < this.bonusUntil; }
@@ -363,8 +364,10 @@
         const ironStep = this.ironCrush; this.ironCrush = false;
         // iron crush: no neighbor cracking AND powerups don't activate (just destroyed)
         const broken = [];
-        const r = applyClear(this.grid, this.pendingClear, !ironStep, ironStep, broken); this.addFx(this.pendingClear);
+        const was = this.pendingClear.map(([rr, cc]) => this.grid[rr][cc]); // what's about to go, for its burst
+        const r = applyClear(this.grid, this.pendingClear, !ironStep, ironStep, broken); this.addFx(this.pendingClear, was);
         if (broken.length) this.addBreakFx(broken);
+        if (this.chain >= 2) this.addChainPop(this.pendingClear, this.chain);
         if (!this.muted) {
           if (thunderStep) SFX.thunder(); else if (!ironStep) SFX.match(this.chain); // iron already played its own sound
           if (r.stoneCracks > 0) SFX.stoneHit();
@@ -411,7 +414,37 @@
       }
       rollSpecial() { const w = { ...this.cfg.specialWeights }; if (!this.allowSlow) delete w.slow; const e = Object.entries(w); let sum = e.reduce((a, [, v]) => a + v, 0), x = this.rng() * sum; for (const [k, v] of e) { if (x < v) return k; x -= v; } return e[0][0]; }
 
-      addFx(coords) { const now = this.now(); coords.forEach(([r, c]) => this.fx.push({ r, c, t: now })); if (this.fx.length > 400) this.fx.splice(0, this.fx.length - 400); }
+      // `cells` (optional) is what stood at each of `coords` before the clear
+      addFx(coords, cells) {
+        const now = this.now(), s = this.cfg.cell;
+        coords.forEach(([r, c]) => this.fx.push({ r, c, t: now })); if (this.fx.length > 400) this.fx.splice(0, this.fx.length - 400);
+        // Visual FX on: each ice block also bursts into chunks of its own colour,
+        // which arc out under gravity, tumbling (fewer apiece when Thunder or a
+        // big chain clears dozens at once)
+        if (reducedMotion() || !cells) return;
+        const per = coords.length > 24 ? 3 : 5;
+        coords.forEach(([r, c], i) => {
+          const cell = cells[i]; if (!cell || cell.t !== "n") return;
+          const cx = (c + 0.5) * s, cy = (r + 0.5) * s;
+          for (let k = 0; k < per; k++) {
+            const a = Math.random() * Math.PI * 2, sp = 0.06 + Math.random() * 0.15; // px/ms
+            this.debris.push({
+              x: cx + (Math.random() * 2 - 1) * s * 0.22, y: cy + (Math.random() * 2 - 1) * s * 0.22,
+              vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 0.11,
+              t: now, life: 380 + Math.random() * 260, size: s * (0.13 + Math.random() * 0.13),
+              rot: Math.random() * Math.PI * 2, vr: (Math.random() * 2 - 1) * 0.02, col: COLOR_HEX[cell.c],
+            });
+          }
+        });
+        if (this.debris.length > 600) this.debris.splice(0, this.debris.length - 600);
+      }
+      // A chain step's multiplier, "×2", "×3"…, where that step cleared: shown
+      // in both FX modes (how it moves is the renderer's: see draw)
+      addChainPop(coords, n) {
+        const s = this.cfg.cell; let x = 0, y = 0;
+        for (const [r, c] of coords) { x += (c + 0.5) * s; y += (r + 0.5) * s; }
+        this.pops.push({ x: x / coords.length, y: y / coords.length, n, t: this.now() });
+      }
       // A burst of stone shards where a stone block was destroyed.
       addBreakFx(coords) {
         const now = this.now(), s = this.cfg.cell;
@@ -669,11 +702,33 @@
             const e = now - d.t, k = 1 - e / d.life;
             const x = d.x + d.vx * e, y = d.y + d.vy * e + 0.5 * 0.0009 * e * e;
             ctx.save(); ctx.globalAlpha = Math.max(0, k); ctx.translate(x, y); ctx.rotate(d.rot + d.vr * e);
-            ctx.fillStyle = "rgb(" + (d.shade + 20) + "," + (d.shade + 42) + "," + Math.min(255, d.shade + 70) + ")";
-            ctx.fillRect(-d.size / 2, -d.size / 2, d.size, d.size);
+            if (d.col) { // a chunk of a cleared ice block: a shard in its colour, lit along one edge
+              ctx.fillStyle = d.col; ctx.beginPath(); ctx.moveTo(0, -d.size * 0.7); ctx.lineTo(d.size * 0.62, d.size * 0.5); ctx.lineTo(-d.size * 0.62, d.size * 0.5); ctx.closePath(); ctx.fill();
+              ctx.strokeStyle = "rgba(255,255,255,0.75)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(0, -d.size * 0.7); ctx.lineTo(-d.size * 0.62, d.size * 0.5); ctx.stroke();
+            } else {
+              ctx.fillStyle = "rgb(" + (d.shade + 20) + "," + (d.shade + 42) + "," + Math.min(255, d.shade + 70) + ")";
+              ctx.fillRect(-d.size / 2, -d.size / 2, d.size, d.size);
+            }
             ctx.restore();
           }
           ctx.globalAlpha = 1;
+        }
+        // a chain step's "×2", "×3" where it cleared. Visual FX on: it pops in,
+        // overshooting, and drifts up as it fades; off: it holds still, then goes
+        if (b.pops.length) {
+          b.pops = b.pops.filter((q) => now - q.t < POP_MS);
+          const still = reducedMotion();
+          ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+          for (const q of b.pops) {
+            const e = now - q.t, size = Math.min(44, 22 + q.n * 4), u = Math.min(1, e / 200);
+            const sc = still || u >= 1 ? 1 : 0.4 + 0.6 * u + 0.45 * Math.sin(u * Math.PI);
+            const x = Math.min(W - size, Math.max(size, q.x)), y = Math.max(topY + size, q.y) - (still ? 0 : e * 0.035);
+            ctx.globalAlpha = still ? 1 : Math.min(1, (POP_MS - e) / 250);
+            ctx.font = "700 " + Math.round(size * sc) + "px Quicksand, sans-serif";
+            ctx.lineWidth = 5; ctx.strokeStyle = "rgba(6,22,40,0.9)"; ctx.strokeText("×" + q.n, x, y);
+            ctx.fillStyle = "#46e6a0"; ctx.fillText("×" + q.n, x, y);
+          }
+          ctx.restore();
         }
         if (b.shake > 0) b.shake = Math.max(0, b.shake - 0.04);
         if (b.flash && now < b.flash.until) {

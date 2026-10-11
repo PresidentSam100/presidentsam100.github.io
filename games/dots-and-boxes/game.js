@@ -82,7 +82,7 @@ function newGame() {
   vLines = Array.from({length:N}, () => Array(N+1).fill(''));
   boxes  = Array.from({length:N}, () => Array(N).fill(''));
   scores = { human:0, ai:0 };
-  turn = HUMAN; gameOver = false; busy = false; lastLine = null; lastClaimed = [];
+  turn = HUMAN; gameOver = false; busy = false; lastLine = null; claimedAt = {};
   draw();
   updateScores();
   if (window.coinFlip) {
@@ -122,7 +122,12 @@ const LAYOUTS = [
   [[0, 0, 1, .44], [0, .56, .46, .44], [.56, .56, .44, .44]],
   [[0, 0, .46, .46], [.56, 0, .44, .46], [0, .56, .46, .44], [.56, .56, .44, .44]],
 ];
-let lastClaimed = [];    // boxes the latest line completed; they light up as they're drawn
+// When each box was claimed ("r,c" -> ms). With Visual FX on a block lights up
+// over LIT_MS: its lights come on, a ripple runs out across the lot and the
+// owner's letter pops onto the roof. Every move redraws the whole board, so a
+// block still lighting up is drawn that far into it (--age) and carries on.
+let claimedAt = {};
+const LIT_MS = 700;
 
 function el(tag, attrs, cls) {
   const e = document.createElementNS(SVGNS, tag);
@@ -132,7 +137,9 @@ function el(tag, attrs, cls) {
 }
 
 function drawBlock(r, c, owner) {
-  const lit = animOn() && lastClaimed.some(([br, bc]) => br === r && bc === c);
+  const at = claimedAt[r + ',' + c];
+  const age = animOn() && at !== undefined ? Math.max(0, performance.now() - at) : Infinity;
+  const lit = age < LIT_MS;
   const g = el('g', { filter: 'url(#glow)' }, 'block ' + owner + (lit ? ' lit-anim' : ''));
   const x0 = px(c) + LOT, y0 = px(r) + LOT, L = GAP - 2 * LOT;
   for (const [fx, fy, fw, fh] of LAYOUTS[(r * 7 + c * 13 + N * 3) % LAYOUTS.length]) {
@@ -142,11 +149,23 @@ function drawBlock(r, c, owner) {
   }
   // a rooftop pad with the owner's letter
   const cx = px(c) + GAP / 2, cy = px(r) + GAP / 2;
-  g.appendChild(el('circle', { cx, cy, r: 10 }, 'pad'));
+  const mark = el('g', {}, 'mark');
+  mark.appendChild(el('circle', { cx, cy, r: 10 }, 'pad'));
   const t = el('text', { x: cx, y: cy }, 'pad-letter');
   t.textContent = owner === HUMAN ? 'Y' : 'A';
-  g.appendChild(t);
+  mark.appendChild(t);
+  g.appendChild(mark);
   boardEl.appendChild(g);
+  if (!lit) return;
+  // the ripple: two rings out from the middle of the lot, the first carrying a wash of light
+  const rings = el('g', {}, 'ripples ' + owner);
+  rings.appendChild(el('circle', { cx, cy, r: L / 2 }, 'ripple wash'));
+  rings.appendChild(el('circle', { cx, cy, r: L / 2 }, 'ripple second'));
+  boardEl.appendChild(rings);
+  for (const node of [g, rings]) {
+    node.style.setProperty('--age', -Math.round(age) + 'ms');
+    node.style.setProperty('--mid', cx + 'px ' + cy + 'px');
+  }
 }
 
 function draw() {
@@ -214,9 +233,8 @@ function updateScores() {
 function placeLine(type, r, c, owner) {
   if (type === 'h') hLines[r][c] = owner; else vLines[r][c] = owner;
   let completed = 0;
-  lastClaimed = [];
   for (const [br,bc] of boxesTouching(type, r, c)) {
-    if (boxComplete(br,bc) && !boxes[br][bc]) { boxes[br][bc] = owner; completed++; lastClaimed.push([br, bc]); }
+    if (boxComplete(br,bc) && !boxes[br][bc]) { boxes[br][bc] = owner; completed++; claimedAt[br + ',' + bc] = performance.now(); }
   }
   return completed;
 }

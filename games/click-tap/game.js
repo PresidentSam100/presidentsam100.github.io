@@ -123,6 +123,7 @@
     $("hint").textContent = VERB + " the soil as fast as you can!";
     bedEl.replaceChildren();
     clearTimeout(pressT); $("pad").classList.remove("pressed");
+    wrapEl.querySelectorAll(".ripple").forEach((r) => r.remove()); $("vCps").classList.remove("bump");
     show(playEl);
   }
 
@@ -140,12 +141,26 @@
   // Each click presses the soil in for a moment (both modes, on a timer), and
   // with Visual FX on the pad also springs back. Kept short so a fast run
   // still reads as separate presses, not one long hold.
+  // With Visual FX on, each click also sends a ripple out from the bed's rim
+  // (a ring that grows across the lawn and fades; it takes itself away when
+  // done) and bumps the clicks-per-second number. A few rings at most, so an
+  // autoclicker can't pile them up.
   let pressT = 0;
+  const wrapEl = $("pad").parentNode, MAX_RIPPLES = 6;
+  const fx = () => !(window.RM_ON && window.RM_ON());
   function pop() {
-    const p = $("pad"); p.classList.remove("pop"); void p.offsetWidth; p.classList.add("pop");
+    const p = $("pad"), v = $("vCps");
+    p.classList.remove("pop"); v.classList.remove("bump"); void p.offsetWidth; p.classList.add("pop");
     p.classList.add("pressed");
     clearTimeout(pressT);
     pressT = setTimeout(() => p.classList.remove("pressed"), 150);
+    if (!fx()) return;
+    v.classList.add("bump");
+    if (wrapEl.querySelectorAll(".ripple").length >= MAX_RIPPLES) return;
+    const r = document.createElement("span");
+    r.className = "ripple";
+    r.addEventListener("animationend", () => r.remove());
+    wrapEl.insertBefore(r, p);
   }
 
   function tickFrame() {
