@@ -11,10 +11,13 @@ const rectsOf = (p) => p.evaluate(() => {
   return { back: r(".nav-back-games"), pause: r(".gs-pause-btn"), mute: r(".mute-toggle"), fx: r(".rm-toggle") };
 });
 // The row against the "← Games" link: its top and height as the game's CSS sets
-// them (offsetHeight, so Science Fair's tilted link gives its own height).
+// them (offsetHeight: the link's own height, whatever a transform does to its
+// box), and how far the link is turned (0 when it's square with the buttons).
 // Returns the buttons that are off by more than half a pixel.
 const rowOf = (p) => p.evaluate(() => {
   const back = document.querySelector(".nav-back-games"), out = { top: parseFloat(getComputedStyle(back).top), h: back.offsetHeight, btns: {} };
+  const m = /^matrix\(([^)]+)\)/.exec(getComputedStyle(back).transform);
+  out.tilt = m ? Math.abs(Math.round(Math.atan2(+m[1].split(",")[1], +m[1].split(",")[0]) * 1800 / Math.PI) / 10) : 0;
   for (const [k, s] of [["pause", ".gs-pause-btn"], ["mute", ".mute-toggle"], ["fx", ".rm-toggle"]]) {
     const e = document.querySelector(s); if (!e) continue;
     const b = e.getBoundingClientRect(); out.btns[k] = { t: b.top, h: b.height, l: b.left, w: b.width };
@@ -54,6 +57,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     // (rows[1]: sound off; rows[2]: sound and FX off)
     const askew = offLine(rows[0]), mv = moved(rows[0], rows[1]).concat(moved(rows[0], rows[2]));
     check(pg + ": the corner buttons share the ← Games link's top and height", askew.length === 0, { askew, row: rows[0] });
+    check(pg + ": the ← Games link sits square with the buttons beside it (no tilt)", rows[0].tilt === 0, rows[0].tilt);
     check(pg + ": turning sound or Visual FX off changes no button's width or place", mv.length === 0, { mv, before: rows[0].btns, after: rows[2].btns });
 
     await p.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());

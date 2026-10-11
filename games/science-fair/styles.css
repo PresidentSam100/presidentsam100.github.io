@@ -46,9 +46,8 @@ body::after {
   border: 1.5px solid #cbbf9d; border-radius: 4px;
   padding: 5px 12px; text-decoration: none; font-size: 17px;
   box-shadow: 1px 2px 4px rgba(0, 0, 0, 0.25);
-  transform: rotate(-1.5deg);
 }
-.nav-back-games:hover { transform: rotate(0deg) scale(1.04); }
+.nav-back-games:hover { transform: scale(1.04); }
 
 /* ---- the diorama ---------------------------------------------------- */
 
