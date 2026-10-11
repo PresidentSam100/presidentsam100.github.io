@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%90%99%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>JackBlack | Sam Lu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Federo&family=Marcellus&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="JackBlack: blackjack in a sunken liner's card room, dealt by an octopus. Hit, stand, double and split your way past the house. A browser game by Sam Lu." />
+    <meta property="og:title" content="JackBlack | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="JackBlack: blackjack in a sunken liner's card room, dealt by an octopus. Get to 21 before the house does. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The card room of a liner that went down with its lamps lit: a riveted
+     bulkhead, two portholes with the sea-green dark behind them, and one
+     baize table still in business. The dealer has eight arms. -->
+<div class="porthole left" aria-hidden="true"><i class="weed w1"></i><i class="weed w2"></i><i class="fish f1"></i><i class="lure"></i></div>
+<div class="porthole right" aria-hidden="true"><i class="weed w3"></i><i class="fish f2"></i><i class="fish f3"></i></div>
+
+<main id="room">
+  <header id="head">
+    <h1>JackBlack</h1>
+    <p class="plaque" id="sub">the last table still dealing, forty fathoms down</p>
+    <div class="hud" id="hud" hidden>
+      <span id="hud-mode"></span>
+      <span class="stake">stake <b id="hud-stake">1,000</b></span>
+      <span id="hud-hand"></span>
+      <span id="hud-best"></span>
+    </div>
+  </header>
+
+  <section id="felt" aria-label="The card table">
+    <!-- the dealer: an octopus in a croupier's visor (drawn, not a picture) -->
+    <svg id="dealer" viewBox="0 0 200 110" aria-hidden="true">
+      <g class="arms">
+        <path d="M58 70 C30 74 16 92 6 104" /><path d="M70 80 C52 92 44 100 40 108" />
+        <path d="M142 70 C170 74 184 92 194 104" /><path d="M130 80 C148 92 156 100 160 108" />
+        <path d="M84 86 C80 96 76 102 74 108" /><path d="M116 86 C120 96 124 102 126 108" />
+      </g>
+      <ellipse class="head" cx="100" cy="50" rx="44" ry="40" />
+      <ellipse class="shine" cx="84" cy="30" rx="13" ry="7" />
+      <path class="visor" d="M52 44 Q100 12 148 44 Q100 34 52 44 Z" />
+      <path class="brim" d="M46 46 Q100 30 154 46 Q100 44 46 46 Z" />
+      <g class="eyes"><ellipse cx="82" cy="58" rx="8" ry="9" /><ellipse cx="118" cy="58" rx="8" ry="9" /></g>
+      <g class="pupils"><ellipse cx="83" cy="60" rx="3.4" ry="5" /><ellipse cx="119" cy="60" rx="3.4" ry="5" /></g>
+      <path class="smile" d="M90 76 Q100 83 110 76" />
+      <path class="bow" d="M88 90 L100 96 L112 90 L112 102 L100 96 L88 102 Z" />
+    </svg>
+
+    <div class="seat dealer-seat">
+      <div class="who">Dealer <b id="d-total"></b></div>
+      <div class="cards" id="d-cards"></div>
+    </div>
+
+    <p class="print" aria-hidden="true">JackBlack pays 3 to 2 &middot; dealer stands on 17 &middot; insurance pays 2 to 1</p>
+    <div class="banner" id="banner" role="status" aria-live="polite"></div>
+
+    <div class="seat player-seat">
+      <div class="hands n1" id="hands"></div>
+    </div>
+    <i class="bubbles" aria-hidden="true"></i>
+  </section>
+
+  <section id="controls">
+    <div class="row" id="acts" hidden>
+      <button type="button" id="act-hit">Hit</button>
+      <button type="button" id="act-stand">Stand</button>
+      <button type="button" id="act-double">Double</button>
+      <button type="button" id="act-split">Split</button>
+    </div>
+    <div class="row" id="insure" hidden>
+      <span class="ask">Insurance against a JackBlack? It costs <b id="ins-cost">0</b>.</span>
+      <button type="button" id="ins-yes">Take it</button>
+      <button type="button" id="ins-no">No thanks</button>
+    </div>
+    <div class="row" id="bets" hidden>
+      <span class="betbox">bet <b id="bet-amt">0</b></span>
+      <span class="chips" id="chips">
+        <button type="button" class="chip c10" data-v="10" aria-label="add 10"><span class="disc">10</span><span class="cap"></span></button>
+        <button type="button" class="chip c50" data-v="50" aria-label="add 50"><span class="disc">50</span><span class="cap"></span></button>
+        <button type="button" class="chip c100" data-v="100" aria-label="add 100"><span class="disc">100</span><span class="cap"></span></button>
+        <button type="button" class="chip c500" data-v="500" aria-label="add 500"><span class="disc">500</span><span class="cap"></span></button>
+      </span>
+      <button type="button" class="ghost" id="clear">Clear</button>
+      <button type="button" class="main" id="deal">Deal</button>
+    </div>
+    <div class="row foot" id="foot" hidden>
+      <button type="button" class="ghost" id="leave">Modes</button>
+    </div>
+  </section>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h2>Pull up a chair</h2>
+    <p class="how">
+      Get closer to <b>21</b> than the dealer without going over. Faces count
+      10, an ace 1 or 11. An ace with a ten-card on the deal is a
+      <b>JackBlack</b>, and pays 3 to 2. The dealer draws to 17, then stands.
+    </p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="table"><b>Open table</b><small id="table-small">a stake of 1,000, yours until it's gone</small></button>
+        <button type="button" data-v="daily"><b>Daily shoe</b><small id="daily-small">ten hands, the same cards for everyone</small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play">Sit down</button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">Cleaned out</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" class="main" id="again">A fresh 1,000</button>
+      <button type="button" id="share" hidden>Share result</button>
+      <button type="button" class="ghost" id="to-menu">Modes</button>
+    </div>
+  </div>
+</section>
+
+<script src="rules.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
