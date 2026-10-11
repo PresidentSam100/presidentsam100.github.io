@@ -3,9 +3,9 @@
 // clock holds while the window is away; the Tile Guide holds the board; the
 // Level Editor link asks first mid-level; the editor's test play does the
 // same on R / Stop test, one move per key press; the editor's Save updates
-// the saved level it opened; progress is kept by level name (an old save
-// carries over, and a re-sort can't move it); and key hints show only where
-// there's a keyboard.
+// the saved level it opened; progress is kept by level, under its id (an old
+// save carries over, a re-sort can't move it, a rename can't lose it); and key
+// hints show only where there's a keyboard.
 module.exports = async ({ browser, base, check, lib }) => {
   const seed = (save) => (pg) => pg.addInitScript((s) => { try { localStorage.setItem("tileMaze.v1", s); } catch (e) {} }, save);
   const cellPx = (p) => p.evaluate(() => parseInt(getComputedStyle(document.documentElement).getPropertyValue("--cell"), 10));
@@ -208,6 +208,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tile-maze: progress stays with its levels when they're re-sorted",
     names === "Live Wires,First Steps,Slippery Slope" && re.join() === "open,open+done+best,open,locked", { names, re });
   await done(p, "progress");
+
+  // ---- ...and a level that's renamed keeps what was saved for it: progress is
+  // under the level's id, which stays (it used to be under the name, so a
+  // rename lost the level's tick and best time and locked the level after it)
+  p = await lib.open(ctx, base, "games/tile-maze/", { before: async (pg) => {
+    await seed('{"done":["First Steps"],"open":[],"bestTimes":{"First Steps":1000}}')(pg);
+    await lib.injectScript(pg, "games/tile-maze/levels.js", [['name: "First Steps"', 'name: "Baby Steps"']]);
+  } });
+  const renamed = { first: await p.evaluate(() => LEVELS[0].name), tip: await p.evaluate(() => document.querySelector("#levelPick .lvlbtn").title), picker: await picker(), lvl: await p.textContent("#lvlNum") };
+  check("tile-maze: a renamed level keeps its tick and best time, and the level after it stays open",
+    renamed.first === "Baby Steps" && /^Baby Steps, best /.test(renamed.tip) && renamed.picker.slice(0, 3).join() === "open+done+best,open,locked" && renamed.lvl === "2", renamed);
+  await done(p, "renamed level");
   await ctx.close();
 
   // ---- key hints: keys on a desktop; on a phone none (the game's legend), or the pad (the editor's test play)

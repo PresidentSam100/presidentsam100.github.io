@@ -37,5 +37,11 @@ node sortlevels.js  # reorder levels.js by ascending difficulty (first 8 keep th
 
 `sortlevels.js` **rewrites `levels.js` in place**: commit or stash first.
 
+Each level has an `id` and a `name`. A player's progress (levels solved, best
+times) is saved under the `id`, so a level can be renamed, or the list
+re-sorted, without anyone losing theirs. Never change an `id`; a new level
+needs one of its own (its first name will do), and `verify.js` says so if one
+is missing or used twice.
+
 All three import `engine.js`, so the difficulty scores reflect the same move
 rules the game actually plays by.

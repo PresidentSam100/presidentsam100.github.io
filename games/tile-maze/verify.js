@@ -31,6 +31,13 @@ function checkRectangular(grid) {
 }
 
 let allOk = true;
+// every level needs an id of its own: progress is saved under it (see levels.js)
+const ids = new Map();
+LEVELS.forEach((lvl, i) => {
+  if (!lvl.id) { allOk = false; console.log(`Level ${i + 1} "${lvl.name}": NO ID! Give it one (its name will do) so a later rename keeps players' progress.`); }
+  else if (ids.has(lvl.id)) { allOk = false; console.log(`Level ${i + 1} "${lvl.name}": its id "${lvl.id}" is level ${ids.get(lvl.id) + 1}'s too.`); }
+  else ids.set(lvl.id, i);
+});
 LEVELS.forEach((lvl, i) => {
   const rect = checkRectangular(lvl.grid);
   const sol = solve(lvl.grid);

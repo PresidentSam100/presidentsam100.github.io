@@ -48,11 +48,15 @@
   const SAVE_KEY = "tileMaze.v1";
   // one-time migration from the pre-rename key (folder was "color-tile")
   try { const _o = localStorage.getItem("colorTileMaze.v1"); if (_o != null && localStorage.getItem(SAVE_KEY) == null) { localStorage.setItem(SAVE_KEY, _o); localStorage.removeItem("colorTileMaze.v1"); } } catch (e) {}
-  // Progress is kept by level NAME, as the best times always were, so
-  // re-sorting levels.js can't move it onto other levels:
+  // Progress is kept by level, not by its place in the list, so re-sorting
+  // levels.js can't move it onto other levels. A level is known by its id
+  // (keyOf), which never changes, so renaming it keeps its progress too. The
+  // ids are the names the levels had when ids came in, which is what saves
+  // were kept under until then: those carry on as they are.
   //   done:      the levels solved
   //   open:      levels a save from before had opened (see migrate)
-  //   bestTimes: name -> ms
+  //   bestTimes: id -> ms
+  const keyOf = (lvl) => lvl.id || lvl.name;
   const save = loadSave();
   function loadSave() {
     let s = null;
@@ -65,11 +69,11 @@
     return s;
   }
   // A save from before kept progress by index (completed: [0, 1…], unlocked:
-  // n). Once, on load, it's mapped onto the levels' names in today's order (the
+  // n). Once, on load, it's mapped onto the levels' ids in today's order (the
   // order it was written in) and written back in place, under the same key.
   function migrate(s) {
     if (!("completed" in s) && !("unlocked" in s)) return false;
-    const nameAt = (i) => (LEVELS[i] ? LEVELS[i].name : null);
+    const nameAt = (i) => (LEVELS[i] ? keyOf(LEVELS[i]) : null);
     (Array.isArray(s.completed) ? s.completed : []).forEach((i) => {
       const n = nameAt(i);
       if (n && !s.done.includes(n)) s.done.push(n);
@@ -84,11 +88,11 @@
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(s || save)); } catch (e) {}
   }
   // Levels open in order, as they always have: solving a level opens the one
-  // after it. Worked out from names each time, a re-sort opens a level by
+  // after it. Worked out from ids each time, a re-sort opens a level by
   // what now comes before it, and one already solved (or opened by an old
   // save) stays open wherever it lands.
-  const isDone = (i) => save.done.includes(LEVELS[i].name);
-  const isOpen = (i) => i === 0 || isDone(i) || isDone(i - 1) || save.open.includes(LEVELS[i].name);
+  const isDone = (i) => save.done.includes(keyOf(LEVELS[i]));
+  const isOpen = (i) => i === 0 || isDone(i) || isDone(i - 1) || save.open.includes(keyOf(LEVELS[i]));
 
   // ----- audio (shared cues from audio.js) -----
   const SFX = window.TileSFX;
@@ -105,8 +109,8 @@
 
   // ----- level timer -----
   // Starts on the first real move (reading the board is free), stops on the
-  // win; the per-level best is stored by level NAME, so re-sorting the level
-  // order never mixes up records.
+  // win; the per-level best is stored by the level's id, so re-sorting the
+  // levels or renaming one never mixes up or loses records.
   let runStartTs = null;
   // While "Leave this game?" is up, or the tab or window is away, the clock
   // holds (from heldAt); each reason lets go on its own, and the last one
@@ -242,10 +246,11 @@
     const ms = runStartTs === null ? 0 : Date.now() - runStartTs;
     timeEl.textContent = fmtTime(ms);
     if (!save.bestTimes) save.bestTimes = {};
-    const prevBest = save.bestTimes[LEVELS[current].name];
+    const key = keyOf(LEVELS[current]);
+    const prevBest = save.bestTimes[key];
     const record = prevBest === undefined || ms < prevBest;
-    if (record) save.bestTimes[LEVELS[current].name] = ms;
-    if (!isDone(current)) save.done.push(LEVELS[current].name);   // (which opens the next)
+    if (record) save.bestTimes[key] = ms;
+    if (!isDone(current)) save.done.push(key);   // (which opens the next)
     persist();
     winInfo = { ms, prevBest, record };
   }
@@ -361,7 +366,7 @@
       const b = document.createElement("button");
       b.className = "lvlbtn";
       b.textContent = i + 1;
-      const bt = save.bestTimes && save.bestTimes[lvl.name];
+      const bt = save.bestTimes && save.bestTimes[keyOf(lvl)];
       b.title = lvl.name + (bt !== undefined ? ", best " + fmtTime(bt) : "");
       const unlocked = isOpen(i);
       if (!unlocked) b.classList.add("locked");

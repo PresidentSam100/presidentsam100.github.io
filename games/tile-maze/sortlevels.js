@@ -18,6 +18,7 @@ function renderLevel(l) {
   const grid = l.grid.map((row) => `        "${row}",`).join("\n");
   return (
     `    {\n` +
+    (l.id ? `      id: ${JSON.stringify(l.id)},\n` : "") +
     `      name: ${JSON.stringify(l.name)},\n` +
     `      hint: ${JSON.stringify(l.hint)},\n` +
     `      grid: [\n${grid}\n      ],\n` +
@@ -28,6 +29,9 @@ function renderLevel(l) {
 const header = `/*
  * Tile Maze - level definitions.
  * Each grid row must be the same length. See engine.js for the tile legend.
+ * A level's id is what a player's progress (solved, best time) is saved
+ * under: never change it, and give every new level one of its own. Its name
+ * is only what's shown, and can change freely.
  * Levels 1-8 are a deliberate tutorial onramp (one mechanic at a time);
  * levels 9+ are ordered by DIFFICULTY (see analyze.js, not just move count).
  */

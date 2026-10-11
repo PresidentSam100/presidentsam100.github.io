@@ -1,6 +1,9 @@
 /*
  * Tile Maze - level definitions.
  * Each grid row must be the same length. See engine.js for the tile legend.
+ * A level's id is what a player's progress (solved, best time) is saved
+ * under: never change it, and give every new level one of its own. Its name
+ * is only what's shown, and can change freely.
  * Levels 1-8 are a deliberate tutorial onramp (one mechanic at a time);
  * levels 9+ are ordered by DIFFICULTY (see analyze.js, not just move count).
  */
@@ -14,6 +17,7 @@
   return [
     // ---------------- Tutorial (1-8) ----------------
     {
+      id: "First Steps",
       name: "First Steps",
       hint: "Reach the goal. Red tiles are walls. Green tiles make a sound.",
       grid: [
@@ -25,6 +29,7 @@
       ],
     },
     {
+      id: "Live Wires",
       name: "Live Wires",
       hint: "Yellow tiles throw you back where you came from. Go around them.",
       grid: [
@@ -36,6 +41,7 @@
       ],
     },
     {
+      id: "Slippery Slope",
       name: "Slippery Slope",
       hint: "Purple tiles are ice: you slide until you hit a wall. Plan your stops.",
       grid: [
@@ -49,6 +55,7 @@
       ],
     },
     {
+      id: "Calm Waters",
       name: "Calm Waters",
       hint: "Blue water is harmless while you are Plain. Wade across.",
       grid: [
@@ -60,6 +67,7 @@
       ],
     },
     {
+      id: "Electric Eel",
       name: "Electric Eel",
       hint: "Blue next to yellow is electrified and bounces you. Find the dry path.",
       grid: [
@@ -72,6 +80,7 @@
       ],
     },
     {
+      id: "Citrus Trap",
       name: "Citrus Trap",
       hint: "Orange tiles flavor you 'Orange', which electrifies ALL blue. Stay Plain.",
       grid: [
@@ -82,6 +91,7 @@
       ],
     },
     {
+      id: "Flavor Swap",
       name: "Flavor Swap",
       hint: "Stuck as Orange? Purple ice re-flavors you 'Lemon', calming the water.",
       grid: [
@@ -91,6 +101,7 @@
       ],
     },
     {
+      id: "Cooling Off",
       name: "Cooling Off",
       hint: "Orange flavor electrifies the water to the goal. Find ice to cool off first.",
       grid: [
@@ -104,6 +115,7 @@
 
     // ---------------- Main game (9+), by difficulty ----------------
     {
+      id: "The High Dive",
       name: "The High Dive",
       hint: "Sliding up ends at a live tile, and its kick drops you exactly one rung back. Use it.",
       grid: [
@@ -117,6 +129,7 @@
       ],
     },
     {
+      id: "Marco Polo",
       name: "Marco Polo",
       hint: "Four arms off the middle of the pool. The speakers call from the only calm one.",
       grid: [
@@ -132,6 +145,7 @@
       ],
     },
     {
+      id: "The Flume",
       name: "The Flume",
       hint: "One long ride. Push off and let the flume carry you: seven shoves, start to splash.",
       grid: [
@@ -147,6 +161,7 @@
       ],
     },
     {
+      id: "Corkscrew",
       name: "Corkscrew",
       hint: "A spiral of ice. Every push slides you to the next bend, until the bends run out.",
       grid: [
@@ -162,6 +177,7 @@
       ],
     },
     {
+      id: "Frozen Lake",
       name: "Frozen Lake",
       hint: "A longer ice run. Each slide ends at a wall: chain them to the goal.",
       grid: [
@@ -176,6 +192,7 @@
       ],
     },
     {
+      id: "Static Shock",
       name: "Static Shock",
       hint: "A wide pool. Stay clear of water touching yellow: it's live.",
       grid: [
@@ -189,6 +206,7 @@
       ],
     },
     {
+      id: "Belly Flop",
       name: "Belly Flop",
       hint: "Every run ends in a smack. Each smack bounces you back to the tile with a way onward.",
       grid: [
@@ -204,6 +222,7 @@
       ],
     },
     {
+      id: "Bitter Crossing",
       name: "Bitter Crossing",
       hint: "Orange flavor turns ALL water live. Reach the goal without tasting orange.",
       grid: [
@@ -216,6 +235,7 @@
       ],
     },
     {
+      id: "Mirror Pools",
       name: "Mirror Pools",
       hint: "Twin pools, twin routes. Only one is truly calm: read the water, then commit.",
       grid: [
@@ -232,6 +252,7 @@
       ],
     },
     {
+      id: "Splashdown",
       name: "Splashdown",
       hint: "Calm water stops a slide with a splash. Live water refuses, and kicks you back onto the ice.",
       grid: [
@@ -244,6 +265,7 @@
       ],
     },
     {
+      id: "The Grotto",
       name: "The Grotto",
       hint: "A quiet cave pool. Two eels patrol it: the water they touch is always live.",
       grid: [
@@ -259,6 +281,7 @@
       ],
     },
     {
+      id: "Glacier",
       name: "Glacier",
       hint: "A bigger frozen field. Plan the whole route before you push off.",
       grid: [
@@ -274,6 +297,7 @@
       ],
     },
     {
+      id: "Crossed Wires",
       name: "Crossed Wires",
       hint: "More eels in the water. Trace a path that never touches a live tile.",
       grid: [
@@ -288,6 +312,7 @@
       ],
     },
     {
+      id: "Lazy River",
       name: "Lazy River",
       hint: "The river carries you corner to corner. One sticky stop lets you reach the shore seat.",
       grid: [
@@ -301,6 +326,7 @@
       ],
     },
     {
+      id: "Sampler",
       name: "Sampler",
       hint: "A little of every tile. Read the board before you commit to a step.",
       grid: [
@@ -314,6 +340,7 @@
       ],
     },
     {
+      id: "Follow the Music",
       name: "Follow the Music",
       hint: "The speakers mark the calm water. Stray from the melody and the pool bites.",
       grid: [
@@ -328,6 +355,7 @@
       ],
     },
     {
+      id: "Wave Pool",
       name: "Wave Pool",
       hint: "Crests are live, troughs are calm, and the floats only line up if you ride the rhythm.",
       grid: [
@@ -343,6 +371,7 @@
       ],
     },
     {
+      id: "Flypaper",
       name: "Flypaper",
       hint: "Walls stop you one tile short. An orange tile is sticky: slide onto it to stop exactly there.",
       grid: [
@@ -354,6 +383,7 @@
       ],
     },
     {
+      id: "Crosscurrents",
       name: "Crosscurrents",
       hint: "A vast electrified lake. Only one dry channel reaches the far shore.",
       grid: [
@@ -369,6 +399,7 @@
       ],
     },
     {
+      id: "Deep Freeze",
       name: "Deep Freeze",
       hint: "The hardest ice yet. Dead-end slides will strand you: think ahead.",
       grid: [
@@ -384,6 +415,7 @@
       ],
     },
     {
+      id: "Brackish",
       name: "Brackish",
       hint: "Everything mixes here: live water, poison, and ice all at once.",
       grid: [
@@ -397,6 +429,7 @@
       ],
     },
     {
+      id: "Riptide",
       name: "Riptide",
       hint: "A long, tall current. Live tiles lurk on every row: pick your line carefully.",
       grid: [
@@ -413,6 +446,7 @@
       ],
     },
     {
+      id: "Infinity Edge",
       name: "Infinity Edge",
       hint: "Ride the rim of the pool. Only one sticky spot on the whole edge lets you step off it.",
       grid: [
@@ -428,6 +462,7 @@
       ],
     },
     {
+      id: "Crossroads",
       name: "Crossroads",
       hint: "You'll arrive Orange, so every water arm is live. Only the arm with ice lets you cool off and pass.",
       grid: [
@@ -444,6 +479,7 @@
       ],
     },
     {
+      id: "Poison Pools",
       name: "Poison Pools",
       hint: "Orange everywhere. Thread the safe water, using ice to wash off a bad taste.",
       grid: [
@@ -458,6 +494,7 @@
       ],
     },
     {
+      id: "Poolside Pinball",
       name: "Poolside Pinball",
       hint: "Orange pegs are the only brakes on this rink, but every stop sours the water below.",
       grid: [
@@ -473,6 +510,7 @@
       ],
     },
     {
+      id: "Patchwork",
       name: "Patchwork",
       hint: "A patchwork of every tile. Watch your flavor as you weave through.",
       grid: [
@@ -486,6 +524,7 @@
       ],
     },
     {
+      id: "Swim-Up Bar",
       name: "Swim-Up Bar",
       hint: "The straight line to the bar goes past the juice. Don't: orange flavor turns the pool on you.",
       grid: [
@@ -499,6 +538,7 @@
       ],
     },
     {
+      id: "Tide Pools",
       name: "Tide Pools",
       hint: "Orange poison and patches of ice. If you get flavored, find ice to reset.",
       grid: [
@@ -512,6 +552,7 @@
       ],
     },
     {
+      id: "Twin Flumes",
       name: "Twin Flumes",
       hint: "Two flumes, one swimmer. Sticky stops and live kicks are the only rungs between them.",
       grid: [
@@ -529,6 +570,7 @@
       ],
     },
     {
+      id: "Checkout Time",
       name: "Checkout Time",
       hint: "The exit is right there, behind water that is live no matter what. Go the long way round.",
       grid: [
@@ -543,6 +585,7 @@
       ],
     },
     {
+      id: "Kiddie Pool",
       name: "Kiddie Pool",
       hint: "Barely six tiles across. It will still take you longer than the big pools.",
       grid: [
@@ -556,6 +599,7 @@
       ],
     },
     {
+      id: "Reset Button",
       name: "Reset Button",
       hint: "Forced orange? Dip into purple ice to cool back to Lemon, twice.",
       grid: [
@@ -567,6 +611,7 @@
       ],
     },
     {
+      id: "Medley",
       name: "Medley",
       hint: "A medley of mechanics: one wrong flavor and the water turns on you.",
       grid: [
@@ -582,6 +627,7 @@
       ],
     },
     {
+      id: "Cabana Row",
       name: "Cabana Row",
       hint: "Juice, gate, juice, gate. Duck into an icy cabana after each sip, or the gates bite.",
       grid: [
@@ -592,6 +638,7 @@
       ],
     },
     {
+      id: "Night Swim",
       name: "Night Swim",
       hint: "The pool after dark. Every step looks the same, and almost none of them are safe.",
       grid: [
@@ -604,6 +651,7 @@
       ],
     },
     {
+      id: "Kaleidoscope",
       name: "Kaleidoscope",
       hint: "Every color is in play. Find a clean route through the chaos.",
       grid: [
@@ -618,6 +666,7 @@
       ],
     },
     {
+      id: "Spectrum",
       name: "Spectrum",
       hint: "The full spectrum of tiles. Stay alert on every single step.",
       grid: [
@@ -633,6 +682,7 @@
       ],
     },
     {
+      id: "Pandemonium",
       name: "Pandemonium",
       hint: "All seven tile types, densely packed. Pure, unfiltered puzzle.",
       grid: [
@@ -648,6 +698,7 @@
       ],
     },
     {
+      id: "Mosaic",
       name: "Mosaic",
       hint: "Water, ice, poison and walls all woven together. Pick your tiles.",
       grid: [
@@ -662,6 +713,7 @@
       ],
     },
     {
+      id: "Grand Finale",
       name: "Grand Finale",
       hint: "The whole resort: walls, live water, poison, and ice. Good luck.",
       grid: [
@@ -677,6 +729,7 @@
       ],
     },
     {
+      id: "Kitchen Sink",
       name: "Kitchen Sink",
       hint: "Everything but the kitchen sink. Actually, that's in here too.",
       grid: [
@@ -692,6 +745,7 @@
       ],
     },
     {
+      id: "Magnum Opus",
       name: "Magnum Opus",
       hint: "The ultimate gauntlet. Master every tile to escape the resort for good.",
       grid: [
@@ -707,6 +761,7 @@
       ],
     },
     {
+      id: "The Deep End",
       name: "The Deep End",
       hint: "Every brake in the book: sticky stops, live kicks, soft landings. The last length is earned.",
       grid: [
@@ -724,6 +779,7 @@
       ],
     },
     {
+      id: "Tangle",
       name: "Tangle",
       hint: "Walls everywhere and every tile in play. Survival demands precision.",
       grid: [
@@ -739,6 +795,7 @@
       ],
     },
     {
+      id: "Labyrinth",
       name: "Labyrinth",
       hint: "A true labyrinth. Map your flavor changes before you commit to a move.",
       grid: [
@@ -754,6 +811,7 @@
       ],
     },
     {
+      id: "Quagmire",
       name: "Quagmire",
       hint: "Sticky going. Poison and live water press in from all sides.",
       grid: [
@@ -770,6 +828,7 @@
       ],
     },
     {
+      id: "Maelstrom",
       name: "Maelstrom",
       hint: "Chaos in every direction. One safe thread runs through it.",
       grid: [
@@ -786,6 +845,7 @@
       ],
     },
     {
+      id: "Tempest",
       name: "Tempest",
       hint: "A storm of tiles. Read three moves ahead or get swept back.",
       grid: [
@@ -802,6 +862,7 @@
       ],
     },
     {
+      id: "Cataclysm",
       name: "Cataclysm",
       hint: "Brutal. Nearly every step risks a bounce or the wrong flavor.",
       grid: [
@@ -819,6 +880,7 @@
       ],
     },
     {
+      id: "Abyss",
       name: "Abyss",
       hint: "The abyss of the resort. Few find the line through it.",
       grid: [
@@ -837,6 +899,7 @@
       ],
     },
     {
+      id: "The Reckoning",
       name: "The Reckoning",
       hint: "The final reckoning: fifty moves of total mastery. Escape if you can.",
       grid: [
