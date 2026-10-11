@@ -28,7 +28,7 @@ html,
 body {
   margin: 0;
   color: var(--ivory);
-  font-family: "Inter", sans-serif;
+  font-family: "Fredoka", "Inter", sans-serif;
   background-color: var(--felt-2);
   /* layered felt: a soft spotlight, a deep vignette, and a faint diamond
      lattice that nods to the game's shapes */

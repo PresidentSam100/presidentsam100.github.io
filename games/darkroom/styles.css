@@ -19,7 +19,9 @@ body {
     radial-gradient(ellipse 90% 55% at 50% -10%, rgba(255, 90, 50, 0.28), transparent 60%),
     radial-gradient(ellipse at 50% 120%, #200c0e 0%, var(--room) 60%);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* typed, like the headings: the line under the title, the rolls' notes, the
+     clock, a print's result. Only the how-to (.how) is in a plain face. */
+  font-family: "Special Elite", ui-monospace, monospace;
   display: flex; flex-direction: column; align-items: center;
   padding: 58px 12px 24px;
   -webkit-tap-highlight-color: transparent;
@@ -60,7 +62,7 @@ h1 {
 .tag { margin: 0 0 12px; color: var(--dim); font-size: 0.92rem; }
 .how {
   margin: 0 auto 14px; max-width: 560px; text-align: left;
-  font-size: 0.82rem; line-height: 1.5; color: var(--dim);
+  font: 0.82rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--dim);
   background: rgba(42, 17, 20, 0.55); border: 1px solid rgba(196, 62, 44, 0.3); border-radius: 10px;
   padding: 10px 13px;
 }
@@ -77,7 +79,7 @@ h1 {
 /* Rolls of film: each a dark strip with sprocket holes and numbered frames. */
 .roll { margin: 0 0 14px; text-align: left; }
 .roll h2 { margin: 0 0 6px; font: 400 1.05rem "Special Elite", ui-monospace, monospace; color: #ffb49a; }
-.roll h2 small { color: var(--dim); font-size: 0.75rem; font-family: system-ui, sans-serif; }
+.roll h2 small { color: var(--dim); font-size: 0.75rem; }
 .strip {
   display: flex; gap: 8px; overflow-x: auto; padding: 12px 10px;
   background:

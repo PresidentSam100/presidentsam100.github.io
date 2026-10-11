@@ -13,7 +13,7 @@ body {
     radial-gradient(760px 520px at 12% -8%, rgba(255,79,168,.22), transparent 62%),
     radial-gradient(760px 520px at 90% 108%, rgba(176,107,255,.18), transparent 62%),
     var(--bg);
-  color: var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
+  color: var(--text); font-family: "Chakra Petch", "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
   min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
   overflow-x: hidden; user-select: none; touch-action: manipulation;
 }

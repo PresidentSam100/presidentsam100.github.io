@@ -2,7 +2,9 @@
 
 /* A classroom chalkboard: a framed slate on the wall, the grid drawn as a
    shaky #, marks in coloured chalk (the #chalk filter in index.html), and a
-   chalk strike through the winning line. */
+   chalk strike through the winning line. Everything written on the slate is
+   chalk too: the status line, the buttons, the tally and the rules are set in
+   the title's sketched face and wear the chalk's grain (#chalk-ui). */
 :root {
   --wall: #cdbfa4;
   --slate: #2a3b33;
@@ -29,8 +31,11 @@ body {
   background:
     radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%),
     var(--wall);
-  color: var(--chalk); font-family: "Patrick Hand", "Comic Sans MS", cursive;
+  color: var(--chalk); font-family: "Cabin Sketch", "Patrick Hand", "Comic Sans MS", cursive;
 }
+/* the chalk's grain on the writing (not on the corner buttons: theirs is a
+   solid plate, and the grain would pit it) */
+h1, #status, #symPick, button.btn, .opt, .score, .modal h2, .modal p, .mode-label { filter: url(#chalk-ui); }
 .defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 
 /* ---- the slate ------------------------------------------------------------ */
@@ -70,6 +75,9 @@ h1 {
   transform: rotate(-1.5deg);
 }
 #status { font-size: 1.45rem; min-height: 1.5em; color: var(--accent); text-align: center; }
+/* (an emoji in the line, the win's 🎉, is chalked as well: the glyphs are left
+   unfilled and their shadow, with no blur or offset, is the line's own colour) */
+#status { -webkit-text-fill-color: transparent; text-shadow: 0 0 0 currentColor; }
 
 /* ---- classic board: a hand-drawn # ---------------------------------------- */
 /* initial display only: game.js sets display inline when a mode starts */

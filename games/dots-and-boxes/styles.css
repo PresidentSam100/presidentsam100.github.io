@@ -168,3 +168,19 @@ html.fx-off .last-mark { animation: none; }
   body { padding: 56px 12px 40px; gap: 12px; }
   h1 { font-size: 2.5rem; }
 }
+
+/* ---- signage ----
+   The short writing on the page is signage, like the title: whose turn it is
+   and how it ended, the tallies, the buttons and the picker's choices are in
+   the sign's face (one weight, spaced out). The rules, and the corner
+   buttons (too small for a condensed face), stay in the plain one. */
+#status, .scoreboard, .record, button.btn, .opt, .mode-label { font-family: var(--sign); font-weight: 400; letter-spacing: 0.08em; }
+/* (an emoji in the status, the win's 🎉, is lit like the letters: the glyphs
+   are left unfilled, and their first shadow, with no blur, is the sign's colour) */
+#status { font-size: 1.3rem; line-height: 1.2; -webkit-text-fill-color: transparent; text-shadow: 0 0 0 currentColor, 0 0 12px rgba(150, 190, 255, 0.55); }
+.scoreboard { font-size: 1.2rem; }
+.record { font-size: 1.1rem; }
+.record b { font-weight: 400; }
+button.btn { font-size: 1.2rem; padding: 7px 18px 6px; }
+.opt { font-size: 1.15rem; }
+.mode-label { font-size: 1rem; }

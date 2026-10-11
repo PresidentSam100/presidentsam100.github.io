@@ -27,7 +27,7 @@
     </script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:400 16px/1 'Patrick Hand','Comic Sans MS',cursive;color:#eef0e6;background:#2a3b33;border:2px solid #b07a45;border-radius:6px;padding:6px 12px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 16px/1 'Cabin Sketch','Patrick Hand','Comic Sans MS',cursive;color:#eef0e6;background:#2a3b33;border:2px solid #b07a45;border-radius:6px;padding:6px 12px">&larr; Games</a>
 
   <!-- chalk texture for the drawn marks: a slightly shaky edge, then grain -->
   <svg class="defs" width="0" height="0" aria-hidden="true" focusable="false">
@@ -43,6 +43,15 @@
       <feTurbulence type="fractalNoise" baseFrequency="0.35" numOctaves="1" seed="5" result="g"/>
       <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -1.8 1.6" result="h"/>
       <feComposite in="SourceGraphic" in2="h" operator="in"/>
+    </filter>
+    <!-- the writing (the status line, the buttons, the tally, the rules): a
+         faintly rough edge and the same grain, sized to whatever wears it -->
+    <filter id="chalk-ui" x="-5%" y="-20%" width="110%" height="140%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.1" xChannelSelector="R" yChannelSelector="G" result="d"/>
+      <feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="1" seed="9" result="g"/>
+      <feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -2.2 1.9" result="h"/>
+      <feComposite in="d" in2="h" operator="in"/>
     </filter>
   </svg>
 

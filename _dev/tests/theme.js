@@ -2,8 +2,8 @@
 // (the shared GameShell dialogs, or the hub's own), the dialogs take keys
 // away from the game while they're up, the pause card's Resume button gets
 // the game's font, Klondike's corner buttons are filled, the shared coin
-// flip can be restyled per game, and the corner icons are drawn in each
-// game's own colour.
+// flip can be restyled per game, the corner icons are drawn in each game's
+// own colour, and a game's short writing is in its theme's face.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // record any native dialog instead of showing it
@@ -297,6 +297,37 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     check("corner icons: <html data-corner-icons=\"color\"> keeps the colour emoji", kept.glyph === "visible" && kept.shape === "none", kept);
     await done(p, "corner icons");
+  }
+
+  // ---- a game's short writing is in its theme's face: the status line, the
+  // buttons, the tallies, the line under the title (each of these was in a
+  // plain face that the rest of the game didn't use). The first family named
+  // is what's checked: web fonts aren't loaded in these tests.
+  {
+    const FACES = [
+      ["tic-tac-toe/", "Cabin Sketch", ["#status", "#restart", ".score", ".modal p", ".nav-back-games", ".rm-toggle"]],
+      ["dots-and-boxes/", "Bebas Neue", ["#status", "#restart", ".record", ".scoreboard", ".opt"]],
+      ["crazy-ohio/", "Chakra Petch", ["#subtitle", ".stat .k", ".nav-back-games", ".rm-toggle"]],
+      ["logicgate/", "JetBrains Mono", ["#status", ".subtitle"]],
+      ["hash/", "Fredoka", [".subtitle"]],
+      ["yi/", "Fredoka", [".subtitle"]],
+      ["corner-pocket/", "Oswald", [".card p.sub", "kbd"]],
+      ["darkroom/", "Special Elite", [".tag", ".roll h2 small"]],
+    ];
+    for (const [g, face, sels] of FACES) {
+      const p = await lib.open(ctx, base, "games/" + g, { settle: 250 });
+      const got = await p.evaluate((sels) => sels.map((sel) => { const e = document.querySelector(sel); return e ? getComputedStyle(e).fontFamily.split(",")[0].replace(/["']/g, "").trim() : sel + " missing"; }), sels);
+      check(g.slice(0, -1) + ": its short writing is in " + face, got.every((f) => f === face), got);
+      if (g === "tic-tac-toe/") {
+        const chalk = await p.evaluate(() => ["#status", "#restart", ".score"].map((sel) => getComputedStyle(document.querySelector(sel)).filter));
+        check("tic-tac-toe: the status line, the buttons and the tally wear the chalk's grain", chalk.every((f) => /chalk-ui/.test(f)), chalk);
+      }
+      if (g === "darkroom/") {
+        const how = await p.evaluate(() => getComputedStyle(document.querySelector(".how")).fontFamily);
+        check("darkroom: the how-to stays in a plain face", !/Special Elite/.test(how), how);
+      }
+      await done(p, g.slice(0, -1) + " faces");
+    }
   }
 
   await ctx.close();
