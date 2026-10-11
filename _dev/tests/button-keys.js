@@ -20,7 +20,8 @@ const ALLOW = {
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
   "pop-the-lock/": [".swatch"],             // the look
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
-  "slither/editor.html": ["*"],             // the level editors are mouse tools
+  "dead-end/editor.html": ["*"],            // the level editors are mouse tools
+  "slither/editor.html": ["*"],
   "tile-maze/editor.html": ["*"],
   "speedle/": [".key"],                     // the on-screen keyboard
   "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid

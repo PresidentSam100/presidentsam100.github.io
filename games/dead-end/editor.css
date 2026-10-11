@@ -1,0 +1,52 @@
+/* Dead End, the maze editor: the game's street and signs (styles.css), plus
+   a tool bar, the list of saved mazes and a smaller sign. */
+.sign.small { width: 62px; height: 62px; margin: 4px 0 18px; border-width: 3px; border-radius: 9px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
+.sign.small b { font-size: 21px; }
+.sign.small::after { height: 26px; width: 7px; }
+.ed-title { margin: 0 0 8px; font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: 26px; letter-spacing: 2px; color: var(--sign); }
+
+.ed-bar { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 14px; margin-bottom: 10px; font-size: 17px; color: var(--dim); }
+.ed-bar input {
+  font-family: "Patrick Hand", "Segoe Print", cursive; font-size: 17px; color: var(--chalk);
+  background: rgba(10, 11, 15, 0.8); border: 2px dashed rgba(246, 198, 26, 0.55); border-radius: 5px; padding: 3px 7px;
+}
+.ed-bar input[type="number"] { width: 64px; }
+.ed-bar input[type="text"] { width: 150px; }
+.ed-palette { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; }
+.ed-palette button {
+  cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 3px 5px 1px;
+  font-family: "Patrick Hand", "Segoe Print", cursive; font-size: 13.5px; color: var(--chalk);
+  background: rgba(10, 11, 15, 0.7); border: 2px solid #2a1c10; border-radius: 6px;
+}
+.ed-palette button canvas { display: block; border-radius: 3px; }
+.ed-palette button[aria-pressed="true"] { border-color: var(--sign); background: rgba(246, 198, 26, 0.16); }
+.ed-palette button:focus-visible { outline: 3px solid var(--chalk); outline-offset: 2px; }
+
+body.editing #ed-board { display: block; touch-action: none; cursor: crosshair; border-radius: 2px; }
+.ed-result { margin: 10px 0 4px; min-height: 26px; font-size: 18px; text-align: center; color: var(--fire); }
+.ed-result.ok { color: var(--rot); }
+
+.panelish { margin-top: 6px; }
+.panelish button, .panelish a.btn {
+  cursor: pointer; display: inline-block; text-decoration: none; font-size: 19px; letter-spacing: 1.4px; line-height: 1.1;
+  color: var(--ink); background: var(--sign); border: 3px solid var(--ink); border-radius: 6px; padding: 7px 14px 4px;
+  box-shadow: 0 0 0 2px var(--sign), 0 4px 0 2px var(--sign-dk), 0 8px 12px rgba(0, 0, 0, 0.5);
+}
+.panelish button:hover:not(:disabled), .panelish a.btn:hover { background: #ffd83d; }
+.panelish button:disabled { opacity: 0.4; cursor: default; }
+.panelish button.ghost, .panelish a.btn { color: var(--chalk); background: rgba(10, 11, 15, 0.8); border: 2px dashed rgba(246, 198, 26, 0.7); box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4); }
+.panelish button:focus-visible, .panelish a.btn:focus-visible { outline: 3px solid var(--chalk); outline-offset: 4px; }
+
+.ed-open { margin: 12px 0 0; }
+.ed-open input[type="text"] { width: 210px; }
+.ed-open button {
+  cursor: pointer; font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: 17px; letter-spacing: 1.2px; color: var(--chalk);
+  background: rgba(10, 11, 15, 0.8); border: 2px dashed rgba(246, 198, 26, 0.7); border-radius: 5px; padding: 3px 12px 1px;
+}
+.ed-mine { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: center; font-size: 17px; }
+.ed-mine .mine-row { display: flex; align-items: center; gap: 8px; }
+.ed-mine button {
+  cursor: pointer; font-family: "Patrick Hand", "Segoe Print", cursive; font-size: 15.5px; color: var(--chalk);
+  background: rgba(10, 11, 15, 0.8); border: 2px dashed rgba(246, 198, 26, 0.55); border-radius: 5px; padding: 1px 9px;
+}
+.ed-mine button:hover { border-color: var(--sign); }

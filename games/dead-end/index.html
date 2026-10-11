@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A7%9F%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dead End | Sam Lu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Patrick+Hand&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Dead End: a maze chase on foot. Grab every tin while the dead shamble after you, light a torch to turn them, and nail a plank across the alley behind you. A browser game by Sam Lu." />
+    <meta property="og:title" content="Dead End | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Dead End: a torchlit maze chase. Grab the tins, dodge the dead, and barricade the alley behind you. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- A dead-end street after dark: the yellow sign at the top of the road,
+     its centre line running down the page, and the block itself (a canvas)
+     fenced in boards and lit by whatever you're carrying. -->
+<main id="street">
+  <header id="head">
+    <h1 class="sign"><b>DEAD<br>END</b></h1>
+    <div class="hud" id="hud" hidden>
+      <span class="stat">score <b id="hud-score">0</b></span>
+      <span class="stat best">best <b id="hud-best">0</b></span>
+      <span class="stat" id="hud-lives" aria-label="lives"></span>
+      <span class="stat" id="hud-planks" aria-label="planks"></span>
+      <span class="stat where" id="hud-where"></span>
+    </div>
+  </header>
+
+  <div id="stage">
+    <canvas id="board" width="570" height="630" aria-label="The maze: tins to pick up, the dead on your heels"></canvas>
+    <div id="note" role="status" aria-live="polite"></div>
+  </div>
+
+  <div id="pad">
+    <button type="button" id="plank-btn" aria-label="Nail a plank across the alley behind you">Plank</button>
+  </div>
+  <p class="hint" id="hint">
+    <span class="gs-keys"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to run &middot; <kbd class="gs-kbd">Space</kbd> nails a plank across the alley behind you &middot; <kbd class="gs-kbd">P</kbd> pauses</span>
+    <span class="gs-touch">swipe to run &middot; the Plank button nails one across the alley behind you</span>
+  </p>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h2>No way out but through</h2>
+    <p class="how">
+      Grab every <b>tin</b> on the block. The dead are slow, but they always
+      know the way. A <b>torch</b> turns them for a few seconds: run them
+      down. A <b>plank</b> nailed across the alley behind you holds them
+      off, until they break it.
+    </p>
+    <p class="shared" id="shared" hidden></p>
+    <div class="pick">
+      <div class="seg" id="pick-mode">
+        <button type="button" data-v="shamblers"><b>Shamblers</b><small>the dead at a shuffle</small></button>
+        <button type="button" data-v="sprinters"><b>Sprinters</b><small>a fifth quicker, and so is your pulse</small></button>
+      </div>
+    </div>
+    <button type="button" class="playbtn" id="play">Run for it</button>
+    <div class="row links">
+      <a class="btn" id="to-editor" href="./editor.html" data-leave>Draw a maze</a>
+      <button type="button" class="ghost" id="to-streets" hidden>Back to the streets</button>
+    </div>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">Dead end</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" class="playbtn" id="again">Run again</button>
+      <button type="button" class="ghost" id="to-menu">Modes</button>
+    </div>
+  </div>
+</section>
+
+<script src="engine.js"></script>
+<script src="levels.js"></script>
+<script src="levelcode.js"></script>
+<script src="art.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A7%9F%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dead End: draw a maze | Sam Lu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Patrick+Hand&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Draw your own Dead End maze: fences, tins, torches, planks and the pit. Play it, save it, or share it as a link." />
+    <meta name="author" content="Sam Lu" />
+</head>
+<body class="editing">
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<main id="street">
+  <header id="head">
+    <h1 class="sign small"><b>DEAD<br>END</b></h1>
+    <p class="ed-title">Draw a maze</p>
+  </header>
+
+  <div class="ed-bar">
+    <div class="ed-palette" id="ed-palette" role="toolbar" aria-label="What to draw"></div>
+    <label>name <input id="ed-name" type="text" maxlength="40" value="My maze" /></label>
+    <label>wide <input id="ed-cols" type="number" min="7" max="40" value="19" /></label>
+    <label>tall <input id="ed-rows" type="number" min="7" max="40" value="21" /></label>
+  </div>
+
+  <div id="stage"><canvas id="ed-board" width="570" height="630" aria-label="The maze you're drawing: click or drag to draw"></canvas></div>
+  <p class="ed-result" id="ed-result" role="status" aria-live="polite"></p>
+
+  <div class="panelish row">
+    <a class="btn" id="ed-back" href="./" data-leave>Back to the game</a>
+    <button type="button" id="ed-play">Play it</button>
+    <button type="button" id="ed-share">Copy share link</button>
+    <button type="button" id="ed-save">Save</button>
+    <button type="button" class="ghost" id="ed-new">New</button>
+  </div>
+  <div class="ed-bar ed-open">
+    <label>open a code or link <input id="ed-code" type="text" placeholder="paste it here" autocomplete="off" spellcheck="false" /></label>
+    <button type="button" id="ed-import">Open</button>
+  </div>
+  <div class="ed-mine" id="ed-mine"></div>
+  <p class="hint">Click or drag on the block to draw. A maze needs a start, tins that can all be reached, and at least one of the dead. Put the rest of them in a pit behind a gate and they come out one at a time.</p>
+</main>
+
+<script src="engine.js"></script>
+<script src="levels.js"></script>
+<script src="levelcode.js"></script>
+<script src="art.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

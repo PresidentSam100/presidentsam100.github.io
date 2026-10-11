@@ -1,0 +1,185 @@
+/* =====================================================================
+   Dead End: a dead-end street after dark.
+
+   Asphalt, the road's yellow centre line running down the page, and the
+   yellow diamond sign at the top of it. Two fires burn somewhere off to
+   the sides. The lettering is the road's own (Bebas Neue, for signs and
+   buttons) and a survivor's scrawl (Patrick Hand, for everything said to
+   you). Road-sign yellow on black is this game's alone: no other page on
+   the site is a street.
+
+   Visual FX on (body.fxon): the sign swings a little on its post and the
+   firelight wavers; the block itself (the canvas) sways, flickers and
+   shakes from game.js. Off: all of it held still.
+   ===================================================================== */
+
+:root {
+  --asphalt: #15171d;
+  --asphalt-hi: #1f222b;
+  --sign: #f6c61a;
+  --sign-dk: #b98f0a;
+  --ink: #111318;
+  --chalk: #ece7d6;
+  --dim: #9a9788;
+  --fire: #ff9a3c;
+  --rot: #8cc463;
+  --blood: #c8402f;
+  --board: #6f4d2f;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; }
+[hidden] { display: none !important; }
+
+body {
+  min-height: 100vh;
+  color: var(--chalk);
+  font-family: "Patrick Hand", "Segoe Print", "Comic Sans MS", cursive;
+  background:
+    radial-gradient(460px 340px at 6% 24%, rgba(255, 154, 60, 0.2), rgba(255, 154, 60, 0) 70%),
+    radial-gradient(460px 340px at 94% 34%, rgba(255, 154, 60, 0.16), rgba(255, 154, 60, 0) 70%),
+    repeating-linear-gradient(180deg, rgba(246, 198, 26, 0.6) 0 54px, transparent 54px 104px) 50% 0 / 9px 100% no-repeat,
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.014) 0 2px, transparent 2px 7px),
+    linear-gradient(180deg, var(--asphalt-hi), var(--asphalt) 60%, #0e1014);
+  background-color: var(--asphalt);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 58px 10px 24px;
+  user-select: none;
+}
+
+.nav-back-games {
+  position: fixed; top: 14px; left: 16px; z-index: 50;
+  font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: 18px; letter-spacing: 1.2px;
+  color: var(--ink); text-decoration: none;
+  background: var(--sign);
+  border: 2px solid var(--ink); border-radius: 5px;
+  padding: 3px 12px 1px;
+  box-shadow: 0 0 0 2px var(--sign), 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+.nav-back-games:hover { background: #ffd83d; }
+
+/* ---- the sign at the top of the road ---------------------------------------- */
+#street { position: relative; width: 100%; max-width: 640px; display: flex; flex-direction: column; align-items: center; }
+#head { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.sign {
+  position: relative; margin: 12px 0 30px; width: 96px; height: 96px; transform: rotate(45deg);
+  background: var(--sign); border: 4px solid var(--ink); border-radius: 12px;
+  box-shadow: 0 0 0 4px var(--sign), 6px 6px 14px rgba(0, 0, 0, 0.55);
+  display: flex; align-items: center; justify-content: center; transform-origin: 50% 50%;
+}
+.sign b {
+  transform: rotate(-45deg); font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-weight: 400;
+  font-size: 33px; line-height: 0.92; letter-spacing: 1.5px; text-align: center; color: var(--ink);
+}
+/* the post it stands on, behind the block */
+.sign::after {
+  content: ""; position: absolute; left: 100%; top: 100%; width: 9px; height: 46px; margin: -8px 0 0 -8px;
+  background: linear-gradient(90deg, #6b7079, #a5abb5 50%, #5a5f68); transform: rotate(-45deg); transform-origin: 0 0; z-index: -1;
+}
+body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
+@keyframes de-swing { 0%, 100% { transform: rotate(43.6deg); } 50% { transform: rotate(46.4deg); } }
+
+.hud {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 16px;
+  margin: 0 0 8px; padding: 4px 14px 3px; font-size: 17px; letter-spacing: 0.4px;
+  background: rgba(10, 11, 15, 0.72); border: 2px dashed rgba(246, 198, 26, 0.55); border-radius: 6px;
+}
+.hud .stat { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
+.hud b { font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-weight: 400; font-size: 23px; letter-spacing: 1px; color: var(--sign); line-height: 1; }
+.hud .where { color: var(--chalk); }
+.heart { width: 16px; height: 15px; background: var(--blood); clip-path: path("M8 14 C2 9 0 6 0 3.6 C0 1.4 1.7 0 3.8 0 C5.6 0 7.2 1.1 8 2.6 C8.8 1.1 10.4 0 12.2 0 C14.3 0 16 1.4 16 3.6 C16 6 14 9 8 14 Z"); }
+.plk { width: 22px; height: 9px; border-radius: 2px; background: linear-gradient(180deg, #b58a57, #8a653c); box-shadow: inset 0 0 0 1px #4a3320; }
+.heart.gone, .plk.gone { opacity: 0.22; filter: grayscale(1); }
+
+/* ---- the block ---------------------------------------------------------------- */
+#stage {
+  position: relative; line-height: 0; padding: 8px; border-radius: 6px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.3) 0 2px, transparent 2px 46px),
+    linear-gradient(180deg, #7d5836, var(--board) 50%, #553a22);
+  box-shadow: 0 0 0 2px #2a1c10, 0 0 60px rgba(255, 154, 60, 0.14), 0 16px 34px rgba(0, 0, 0, 0.6);
+}
+#board { display: block; touch-action: none; border-radius: 2px; background: #22252e; }
+#note {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); line-height: 1.1; white-space: nowrap;
+  font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: clamp(22px, 6vw, 34px); letter-spacing: 2px;
+  color: var(--ink); background: var(--sign); border: 3px solid var(--ink); border-radius: 6px; padding: 5px 16px 2px;
+  box-shadow: 0 0 0 3px var(--sign), 0 8px 18px rgba(0, 0, 0, 0.6);
+  visibility: hidden; pointer-events: none;
+}
+#note.show { visibility: visible; }
+
+#pad { display: none; margin-top: 12px; }
+@media (hover: none) { #pad { display: block; } }
+.hint { margin: 10px 0 0; font-size: 16px; line-height: 1.5; text-align: center; color: var(--dim); max-width: 600px; }
+
+/* ---- buttons: signs ------------------------------------------------------------ */
+button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
+#pad button, .panel button, .panel a.btn {
+  cursor: pointer; display: inline-block; text-decoration: none; font-size: 21px; letter-spacing: 1.6px; line-height: 1.1;
+  color: var(--ink); background: var(--sign); border: 3px solid var(--ink); border-radius: 6px; padding: 8px 18px 5px;
+  box-shadow: 0 0 0 2px var(--sign), 0 4px 0 2px var(--sign-dk), 0 9px 14px rgba(0, 0, 0, 0.5);
+}
+#pad button:hover:not(:disabled), .panel button:hover:not(:disabled), .panel a.btn:hover { background: #ffd83d; }
+#pad button:active:not(:disabled), .panel button:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 0 0 2px var(--sign), 0 1px 0 2px var(--sign-dk), 0 4px 8px rgba(0, 0, 0, 0.5); }
+#pad button:disabled, .panel button:disabled { opacity: 0.4; cursor: default; }
+#pad button:focus-visible, .panel button:focus-visible, .panel a.btn:focus-visible, .nav-back-games:focus-visible { outline: 3px solid var(--chalk); outline-offset: 4px; }
+.panel button.ghost, .panel a.btn {
+  color: var(--chalk); background: rgba(10, 11, 15, 0.8); border: 2px dashed rgba(246, 198, 26, 0.7); font-size: 18px; padding: 7px 14px 4px;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+.panel button.ghost:hover:not(:disabled), .panel a.btn:hover { background: rgba(40, 36, 20, 0.9); }
+#pad button { font-size: 24px; padding: 12px 34px 8px; }
+
+/* ---- the panels: a notice nailed to the fence ------------------------------------- */
+.panel {
+  position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(6, 7, 10, 0.74);
+}
+.panel .card {
+  width: min(440px, 100%); padding: 20px 20px 16px; text-align: center; color: var(--chalk);
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.22) 0 2px, transparent 2px 62px),
+    linear-gradient(180deg, #4a3421, #33230f);
+  border: 3px solid #1c1208; border-radius: 6px;
+  box-shadow: 0 0 0 2px #7d5836, 0 0 50px rgba(255, 154, 60, 0.16), 0 22px 50px rgba(0, 0, 0, 0.7);
+}
+.panel h2 { margin: 0 0 8px; font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-weight: 400; font-size: 34px; letter-spacing: 2px; line-height: 1; color: var(--sign); }
+.how { margin: 0 0 14px; font-size: 18px; line-height: 1.4; }
+.how b { color: var(--sign); font-weight: 400; }
+.shared { margin: -4px 0 12px; font-size: 16.5px; color: var(--fire); }
+.seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.panel .seg button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 0; text-align: left; padding: 7px 14px 5px;
+  color: var(--chalk); background: rgba(10, 11, 15, 0.6); border: 2px solid #1c1208; box-shadow: none;
+}
+.seg button b { font-weight: 400; font-size: 22px; letter-spacing: 1.6px; }
+.seg button small { font-family: "Patrick Hand", "Segoe Print", cursive; font-size: 15.5px; letter-spacing: 0.2px; color: var(--dim); }
+.panel .seg button.on { border-color: var(--sign); background: rgba(246, 198, 26, 0.14); }
+.seg button.on b { color: var(--sign); }
+.panel button.playbtn { width: 100%; font-size: 25px; padding: 10px 10px 6px; }
+.row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 12px; }
+.row.links { margin-top: 14px; }
+#over .row .playbtn { width: auto; flex: 1 1 auto; }
+.bests { margin: 12px 0 0; font-size: 16px; color: var(--dim); min-height: 20px; }
+.big { margin: 0 0 4px; font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: 58px; line-height: 1; letter-spacing: 2px; color: var(--chalk); }
+.stats { margin: 0 0 14px; font-size: 17px; line-height: 1.4; color: var(--dim); }
+
+/* ---- small screens ------------------------------------------------------------------ */
+@media (max-width: 560px) {
+  body { padding: 52px 6px 18px; }
+  .sign { width: 54px; height: 54px; margin: 14px 0 16px; border-width: 3px; border-radius: 8px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
+  .sign b { font-size: 18px; letter-spacing: 1px; }
+  .sign::after { height: 24px; width: 6px; }
+  /* one line: the best makes way (it's on the menu and the end card), and so
+     does the street's name (the sign over the block says it as each begins) */
+  .hud { font-size: 15px; gap: 2px 11px; padding: 3px 9px 2px; flex-wrap: nowrap; white-space: nowrap; max-width: 100%; }
+  .hud b { font-size: 20px; }
+  .hud .best, .hud .where { display: none; }
+  #stage { padding: 5px; }
+  .hint { font-size: 14.5px; }
+  /* a tall notice starts under the corner buttons, and scrolls if it must */
+  .panel { align-items: flex-start; padding-top: 58px; overflow-y: auto; }
+  .panel h2 { font-size: 29px; }
+  .how { font-size: 16.5px; }
+}
