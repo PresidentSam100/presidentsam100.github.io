@@ -1,7 +1,8 @@
 // Passport's keyboard: S shares, M / V and [ / ] reach the corner buttons (but
 // not while typing an answer), Backspace goes back to Passport's menu and Esc
 // leaves for the games page (both on the end screen and mid-run), and a typed
-// run that ends leaves the keys working.
+// run that ends leaves the keys working. Enter on a focused button is that
+// button's own press: a mode is picked, Modes goes to the modes.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser, { permissions: ["clipboard-read", "clipboard-write"] });
   const st = (p) => p.evaluate(() => ({ m: MUTE_ON(), f: RM_ON() }));
@@ -186,5 +187,38 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("passport, " + label + ": the keycaps on its buttons and its key line " + (label === "desktop" ? "show" : "are hidden"), onMenu.length === 0 && onEnd.length === 0, { onMenu, onEnd });
     await q.close();
     await c2.close();
+  }
+
+  // ---- Enter on a focused mode button picks that mode and stays on the menu
+  // (it used to start a run as well, in the mode as it was); a mode picked
+  // with the mouse keeps no focus, so the next Enter starts the run. On the
+  // end screen, Enter on the focused Modes button goes to the modes.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/passport/");
+    const look = () => q.evaluate(() => ({ state: Passport.state(), mode: Passport.mode(), focus: document.activeElement.tagName }));
+    await q.focus('#pick-mode button[data-v="dash"]'); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const a = await look();
+    await q.evaluate(() => document.activeElement.blur());
+    await q.click('#pick-mode button[data-v="tour"]', { timeout: 3000 }).catch(() => {}); await q.waitForTimeout(80);
+    const b = await look();
+    await q.keyboard.press("Enter"); await q.waitForTimeout(200);
+    const d = await look();
+    check("passport: Enter on a focused mode button only picks it; after a mouse pick (which keeps no focus) Enter starts the run",
+      a.state === "menu" && a.mode === "dash" && b.state === "menu" && b.mode === "tour" && b.focus !== "BUTTON" && d.state !== "menu" && d.mode === "tour", { a, b, d });
+    // three denials end the tour
+    await q.evaluate(() => Passport.fast());
+    for (let i = 0; i < 3; i++) {
+      await q.waitForFunction(() => Passport.state() === "ask", null, { timeout: 8000 });
+      await q.evaluate(() => { const cur = Passport.current(); Passport.answer((cur.correct + 1) % 4); });
+      await q.waitForFunction(() => Passport.state() !== "reveal", null, { timeout: 8000 });
+    }
+    await q.waitForFunction(() => Passport.state() === "over", null, { timeout: 8000 });
+    await q.focus("#to-menu"); await q.keyboard.press("Enter"); await q.waitForTimeout(200);
+    const end = await look();
+    check("passport: on the end screen, Enter on the focused Modes button goes to the modes, not into another run", end.state === "menu", end);
+    check("passport: no page errors (focused buttons)", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
   }
 };

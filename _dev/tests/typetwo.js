@@ -1,7 +1,8 @@
 // Typetwo with Visual FX off: the night scene (stars, ward, runes, the
 // wizard's robe and orb) is drawn but holds still; with FX on it moves.
 // A Zen run ends from its End session button or the End key, onto the
-// results; the menus' key legends hide on a touch-only phone.
+// results; the menus' key legends hide on a touch-only phone. On the start
+// screen, Enter on a focused mode button only picks that mode.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const frames = async (fxOff) => {
@@ -71,5 +72,26 @@ module.exports = async ({ browser, base, check, lib }) => {
       label === "phone" ? /⏸ to pause/.test(hint) && !/Esc/.test(hint) : /Esc to pause/.test(hint) && !/⏸/.test(hint), hint);
     await q.close();
     await c2.close();
+  }
+
+  // ---- Enter on a focused mode button picks that mode and stays on the start
+  // screen (it used to begin as well, in the mode as it was); a mode picked
+  // with the mouse keeps no focus, so the next Enter begins
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/typetwo/");
+    const look = () => q.evaluate(() => ({ state: __game.state, mode: document.querySelector("#modes .mode.active").dataset.mode, focus: document.activeElement.tagName }));
+    await q.focus('#modes .mode[data-mode="zen"]'); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const a = await look();
+    await q.evaluate(() => document.activeElement.blur());
+    await q.click('#modes .mode[data-mode="hard"]', { timeout: 3000 }).catch(() => {}); await q.waitForTimeout(80);
+    const b = await look();
+    await q.keyboard.press("Enter"); await q.waitForTimeout(200);
+    const d = await look();
+    check("typetwo: Enter on a focused mode button only picks it; after a mouse pick (which keeps no focus) Enter begins",
+      a.state === "start" && a.mode === "zen" && b.state === "start" && b.mode === "hard" && b.focus !== "BUTTON" && d.state === "playing" && d.mode === "hard", { a, b, d });
+    check("typetwo: no page errors (start screen keys)", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
   }
 };

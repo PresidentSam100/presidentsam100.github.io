@@ -2,6 +2,7 @@
 // Space still sets the sweep going. A sweep under way when the window loses
 // focus is called off, and a new mark is dealt. The end card: Backspace goes
 // to the modes, Esc leaves, and neither it nor Space acts in its first second.
+// On the start card, Enter on a focused lid button only picks that lid.
 // (Math.random takes queued values first, so the marks dealt are known.)
 const RANDOM = (pg) => pg.addInitScript(() => {
   const real = Math.random;
@@ -67,6 +68,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     const hint = await q.evaluate(() => document.querySelector(".hint").innerText);
     const ok = label === "desktop" ? /^tap the watch or press Space — once/.test(hint) : /^tap the watch — once/.test(hint) && !/Space/.test(hint);
     check("stopwatch " + label + ": the hint " + (label === "desktop" ? "names Space" : "says tap the watch, no Space"), ok, hint);
+    await q.close();
+    await c.close();
+  }
+
+  // ---- the start card: Enter on a focused lid button picks that lid and
+  // stays on the card (it used to open the case as well, with the old lid); a
+  // lid picked with the mouse keeps no focus, so the next Enter opens the case
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/stopwatch/");
+    const look = () => q.evaluate(() => ({ card: document.getElementById("overlay-card").classList.contains("show"), sel: document.querySelector(".modebtn.sel").getAttribute("data-mode"),
+      pill: document.getElementById("mode-pill").textContent, focus: document.activeElement.tagName }));
+    await q.focus('.modebtn[data-mode="visible"]'); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const a = await look();
+    await q.evaluate(() => document.activeElement.blur());
+    await q.click('.modebtn[data-mode="hidden"]', { timeout: 3000 }).catch(() => {}); await q.waitForTimeout(80);
+    const b = await look();
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const d = await look();
+    check("stopwatch: Enter on a focused lid button only picks that lid; after a mouse pick (which keeps no focus) Enter opens the case",
+      a.card && a.sel === "visible" && /Lid open/.test(a.pill) && b.card && b.sel === "hidden" && b.focus !== "BUTTON" && !d.card && /Lid shut/.test(d.pill), { a, b, d });
+    check("stopwatch: no page errors (start card keys)", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
   }

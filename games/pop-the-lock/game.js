@@ -59,6 +59,9 @@
     const sw = e.target.closest(".swatch");
     if (sw) applyTheme(sw.dataset.theme);
   });
+  // a mouse click on a colour doesn't take focus (Tab still reaches it): left
+  // focused, the Space or Enter that should start would pick the colour again
+  themesEl.addEventListener("mousedown", (e) => { if (e.target.closest(".swatch")) e.preventDefault(); });
   applyTheme(themeName);
 
   // ---- Audio (WebAudio, no assets) ----
@@ -225,7 +228,16 @@
   canvas.addEventListener("pointerdown", (e) => { e.preventDefault(); onTap(); });
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    if (e.code === "Space" || e.code === "Enter") { e.preventDefault(); if (!e.repeat) onTap(); }
+    if (e.code !== "Space" && e.code !== "Enter") return;
+    // On the start and game-over panel, Space or Enter on a focused button is
+    // that button's own press (Tab to a colour, Enter: it picks the colour).
+    // Starting here as well would do both. Mid-run the two keys always tap,
+    // and on PLAY itself they go through onTap like any tap, so a key mashed
+    // just after a miss still can't skip the game-over panel.
+    const own = e.target && e.target.closest && e.target.closest("button");
+    if (state !== State.PLAY && own && own !== playBtn && !own.disabled) return;
+    e.preventDefault();
+    if (!e.repeat) onTap();
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
 

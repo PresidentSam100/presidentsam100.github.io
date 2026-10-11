@@ -1,5 +1,6 @@
 // Pop the Lock: a tap while paused isn't scored; Ctrl / Alt + Space or Enter
-// are left to the browser; with storage blocked the game still runs.
+// are left to the browser; with storage blocked the game still runs. On the
+// panel, Enter on a focused colour only picks that colour.
 const HOOK = ["  // ---- Boot ----", "  window.__lock = { state: () => state, score: () => score };\n  // ---- Boot ----"];
 const BLOCK_STORAGE = (pg) => pg.addInitScript(() => {
   Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The operation is insecure.", "SecurityError"); } });
@@ -46,6 +47,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     const ok = label === "desktop" ? /^Click \/ Tap \/ Space • Don't miss/.test(hint) : /^Tap • Don't miss/.test(hint);
     check("pop-the-lock " + label + ": the hint " + (label === "desktop" ? "names Space" : "says Tap, no Space"), ok, hint);
     await q.close();
+    await c.close();
+  }
+
+  // ---- Enter on a focused colour picks that colour and stays on the panel (it
+  // used to start the game instead, leaving the colour as it was); a colour
+  // picked with the mouse keeps no focus, so the next Space starts. Enter on
+  // the focused PLAY button still starts.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/pop-the-lock/", { before: hook });
+    const look = () => q.evaluate(() => ({ state: __lock.state(), theme: document.querySelector(".swatch.active").dataset.theme, focus: document.activeElement.tagName }));
+    await q.focus('.swatch[data-theme="plum"]'); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const a = await look();
+    await q.evaluate(() => document.activeElement.blur());
+    await q.click('.swatch[data-theme="indigo"]', { timeout: 3000 }).catch(() => {}); await q.waitForTimeout(80);
+    const b = await look();
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    const d = await look();
+    check("pop-the-lock: Enter on a focused colour only picks it; after a mouse pick (which keeps no focus) Space starts",
+      a.state === "menu" && a.theme === "plum" && b.state === "menu" && b.theme === "indigo" && b.focus !== "BUTTON" && d.state === "play", { a, b, d });
+    const r = await lib.open(c, base, "games/pop-the-lock/", { before: hook });
+    await r.focus("#play"); await r.keyboard.press("Enter"); await r.waitForTimeout(150);
+    const play = await st(r);
+    check("pop-the-lock: (guard) Enter on the focused PLAY button starts the game", play.state === "play" && play.score === 0, play);
+    check("pop-the-lock: no page errors (panel keys)", q.errs.length === 0 && r.errs.length === 0, [q.errs, r.errs]);
+    await q.close(); await r.close();
     await c.close();
   }
 };

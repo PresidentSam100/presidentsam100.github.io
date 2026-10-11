@@ -596,6 +596,12 @@
   document.querySelectorAll("#pick-ask button").forEach(function (b) {
     b.addEventListener("click", function () { setAsk(b.getAttribute("data-a")); });
   });
+  // A mouse click on a choice, or on Share, doesn't take focus (Tab still
+  // reaches them): left focused, the Enter that should start the run would
+  // press that button again
+  document.querySelectorAll("#pick-mode button, #pick-style button, #pick-ask button, #share").forEach(function (b) {
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  });
   $("typed").addEventListener("submit", function (e) { e.preventDefault(); typedSubmit(); });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -646,8 +652,10 @@
     var k = (e.key || "").toLowerCase();
     if (P.isPaused()) return;
     if (state === "ask" && style !== "typed" && e.key >= "1" && e.key <= "4") { e.preventDefault(); answer(+e.key - 1); return; }
-    // Enter is preventDefault-ed so a mouse-focused button (say the sound
-    // toggle) doesn't also fire on the same press
+    // Enter on a focused button is that button's own press (a mode, a style,
+    // Share, Modes…): starting a run here as well would do both, in the mode
+    // as it was
+    if (e.key === "Enter" && (state === "menu" || state === "over") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["tour", "dash", "daily"][+e.key - 1];

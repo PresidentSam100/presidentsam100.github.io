@@ -1195,6 +1195,10 @@
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    // On the start and game-over screens, Enter or Space on a focused button
+    // is that button's own press (Tab to Zen, Enter: it picks Zen). Starting
+    // here as well would do both, and begin in the mode as it was.
+    if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     // paused: letters and Enter (the bomb) wait until Esc resumes the run
     if (state === "playing" && PAUSE.isPaused()) return;
     if (state === "playing" && e.key === "Enter") {
@@ -1274,6 +1278,9 @@
     if (!btn) return;
     selectMode(btn.dataset.mode);
   });
+  // a mouse click on a mode doesn't take focus (Tab still reaches it): left
+  // focused, the Enter that should begin would pick the mode again
+  el.modes.addEventListener("mousedown", (e) => { if (e.target.closest(".mode")) e.preventDefault(); });
   // Start-screen keys, shown on the buttons: 1 2 3 pick the mode (no word is
   // being typed there; ◂ ▸ still step through them, and Enter starts)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({ active: () => state === "start", groups: ["#modes .mode"] });

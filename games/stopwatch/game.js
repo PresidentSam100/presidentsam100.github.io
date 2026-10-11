@@ -187,11 +187,16 @@
     ovCard.classList.add("show");
     var btns = cardInner.querySelectorAll(".modebtn");
     function syncSel() { for (var i = 0; i < btns.length; i++) { var m = btns[i].getAttribute("data-mode") === "visible"; btns[i].classList.toggle("sel", m === visibleMode); } }
-    for (var i = 0; i < btns.length; i++) btns[i].addEventListener("click", function () {
-      visibleMode = this.getAttribute("data-mode") === "visible";
-      try { localStorage.setItem("stopwatch_mode", visibleMode ? "visible" : "hidden"); } catch (e) {}
-      syncSel(); updateModePill();
-    });
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener("click", function () {
+        visibleMode = this.getAttribute("data-mode") === "visible";
+        try { localStorage.setItem("stopwatch_mode", visibleMode ? "visible" : "hidden"); } catch (e) {}
+        syncSel(); updateModePill();
+      });
+      // a mouse click doesn't take focus (Tab still reaches it): left focused,
+      // the Space or Enter that should open the case would pick the lid again
+      btns[i].addEventListener("mousedown", function (e) { e.preventDefault(); });
+    }
     syncSel();
     $("btn-start").addEventListener("click", beginGame);
   }
@@ -373,9 +378,15 @@
       return;
     }
     if (e.code !== "Space" && e.code !== "Enter") return;
+    // On the start and game-over cards, Space or Enter on a focused button is
+    // that button's own press (Tab to "Lid open", Enter: it picks the lid).
+    // Pressing the card's main button here as well would do both, and open
+    // the case with the old lid. Mid-run the two keys always work the watch.
+    var own = e.target && e.target.closest && e.target.closest("button");
+    if (ovCard.classList.contains("show") && own && !own.disabled) return;
     e.preventDefault();
     if (e.repeat) return;
-    // on the start / game-over overlays, Space/Enter activates the visible button
+    // otherwise, on those cards, Space/Enter presses the card's main button
     if (ovCard.classList.contains("show")) {
       if (onEnd && !overSettled()) return;
       var b = cardInner.querySelector(".btn"); if (b) b.click();
