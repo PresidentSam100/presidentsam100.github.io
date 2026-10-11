@@ -223,6 +223,10 @@
   var score = 0, lives = 3, wave = 0, extraAt = 10000;
   var savedBest = 0;       // the stored best this run has caught up to (see update)
   var ship = null, respawnT = 0;
+  // From the bang to the next rocket: this long at least, and this long at most
+  // with a rock sitting on the launch spot (the new rocket has its grace, so it
+  // needn't wait for a clear sky)
+  var RESPAWN = 0.6, RESPAWN_MAX = 1.5;
   var rocks = [], bullets = [], ebullets = [], booms = [], words = [];
   var chunks = [];         // rubble off a cracked rock (Visual FX on; see crack)
   var saucer = null, saucerT = 14, saucerBlipT = 0;
@@ -353,9 +357,11 @@
     if (fx()) shake = 0.4;
     thrustSnd(false);
     ship = null;
+    // the rockets under the score are every rocket you have, the one flying
+    // included: three drawn is three lives, and the last one lost ends it
     lives--;
-    if (lives < 0) { gameOver(); return; }
-    respawnT = 1.6;
+    if (lives <= 0) { gameOver(); return; }
+    respawnT = RESPAWN;
   }
 
   function update(dt) {
@@ -412,14 +418,16 @@
         ship.cool = 0.19;
         pew();
       }
-    } else if (lives >= 0) {
+    } else if (lives > 0) {
       thrustSnd(false);
       respawnT -= dt;
       if (respawnT <= 0) {
-        // wait for the centre of the panel to clear
+        // wait for the centre of the panel to clear, but not for long
         var clear = true;
-        for (i = 0; i < rocks.length; i++) {
-          if (Math.hypot(rocks[i].x - W / 2, rocks[i].y - H / 2) < 130 + rocks[i].r) { clear = false; break; }
+        if (respawnT > RESPAWN - RESPAWN_MAX) {
+          for (i = 0; i < rocks.length; i++) {
+            if (Math.hypot(rocks[i].x - W / 2, rocks[i].y - H / 2) < 90 + rocks[i].r) { clear = false; break; }
+          }
         }
         if (clear) ship = newShip();
       }
@@ -838,7 +846,7 @@
       capBox(12, 10, "SCORE " + score, {});
       capBox(12, 46, "BEST " + Math.max(best.get(), score), { size: 14, fill: PAPER });
       var wc = capBox(W - 132, 10, "CHAP. " + wave, { fill: PAPER });
-      // lives as mini rockets under the score
+      // lives as mini rockets under the score (the one flying is one of them)
       for (i = 0; i < lives; i++) drawShipAt(30 + i * 30, 92, -Math.PI / 2, { scale: 0.62 });
       if (waveMsgT > 0) {
         capBox(W / 2, 120, "CHAPTER " + wave + ": METEOR STORM!", { center: true, size: 27, rot: -0.02 });
@@ -907,6 +915,7 @@
     get state() { return state; },
     get score() { return score; },
     get lives() { return lives; },
+    get time() { return time; },
     get wave() { return wave; },
     get rocks() { return rocks; },
     get ship() { return ship; },

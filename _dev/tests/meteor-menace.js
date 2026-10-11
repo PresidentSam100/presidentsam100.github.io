@@ -2,9 +2,10 @@
 // another window) isn't stuck down once the game resumes; with Visual FX off
 // the menu's rocket stands still (it's still drawn), with FX on it drifts; on a
 // 2× screen the panel is drawn at 2×; on a touch-only phone the key captions
-// hide and the panel says TAP where it said PRESS [ENTER].
+// hide and the panel says TAP where it said PRESS [ENTER]. Three rockets under
+// the score are three lives, and the next one launches soon after a crash.
 const HOOK = ["  function drawShipAt(x, y, a, opts) {\n", "  function drawShipAt(x, y, a, opts) {\n    if (opts && opts.scale === 1.6) window.__menuShip = [x, y, a];\n"];
-const OVER = ["    start: start\n  };", "    start: start,\n    over: function () { lives = -1; gameOver(); }\n  };"];
+const OVER = ["    start: start\n  };", "    start: start,\n    over: function () { lives = 0; gameOver(); }\n  };"];
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -25,6 +26,37 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.up("ArrowUp");
   check("meteor-menace: a key held when the window loses focus isn't stuck down after resuming", held && !after, { held, after });
   await done(p, "held keys");
+
+  // ---- lives: the three rockets drawn are the three you get (the third crash
+  // ends the issue: it used to take a fourth), and the next rocket is on the
+  // pad 0.6 s after a crash (it was 1.6 s), or by 1.5 s with a rock parked on
+  // the pad (it used to wait for the rock to move off, however long that took)
+  p = await open();
+  await p.evaluate(() => __game.start());
+  const lives0 = await p.evaluate(() => __game.lives);
+  // crash the rocket into a rock, then time the wait in the game's own clock
+  const crash = (park) => p.evaluate((park) => new Promise((res) => {
+    const out = { before: __game.lives };
+    if (!__game.ship) { out.noRocket = true; return res(out); }                                 // (the last crash never gave one back)
+    __game.rocks.forEach((r, i) => { if (i) { r.x = 40; r.y = 40; r.vx = r.vy = 0; } });       // (the others kept in a corner)
+    const rock = __game.rocks[0], cx = __game.ship.x, cy = __game.ship.y;
+    rock.x = cx; rock.y = cy; rock.vx = rock.vy = 0; __game.ship.grace = 0;
+    let t0 = null, n = 0;
+    (function f() {
+      if (++n > 900) { out.gave = "up"; return res(out); }
+      if (__game.state !== "play") { out.state = __game.state; out.after = __game.lives; return res(out); }
+      if (t0 === null && !__game.ship) { t0 = __game.time; out.after = __game.lives; if (!park) { rock.x = 40; rock.y = 40; } }
+      else if (t0 !== null && __game.ship) { out.wait = +(__game.time - t0).toFixed(2); out.state = __game.state; return res(out); }
+      if (t0 !== null && park) { rock.x = cx; rock.y = cy; }                                    // (held on the pad)
+      requestAnimationFrame(f);
+    })();
+  }), park);
+  const c1 = await crash(false), c2 = await crash(true), c3 = await crash(false);
+  check("meteor-menace: three rockets under the score are three lives: the third crash ends the issue",
+    lives0 === 3 && c1.after === 2 && c1.state === "play" && c2.after === 1 && c2.state === "play" && c3.after === 0 && c3.state === "over", { lives0, c1, c2, c3 });
+  check("meteor-menace: the next rocket is on the pad 0.6 s after a crash, and within 1.5 s even with a rock parked there",
+    c1.wait >= 0.55 && c1.wait <= 0.75 && c2.wait >= 1.4 && c2.wait <= 1.65, { clear: c1.wait, parked: c2.wait });
+  await done(p, "lives");
 
   // ---- the menu rocket: still with FX off, drifting with it on
   const menuShip = async (off) => {
