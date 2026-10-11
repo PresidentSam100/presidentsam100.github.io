@@ -1,7 +1,7 @@
 /* =====================================================================
-   Fish-A-Fish — whack-a-mole at a pond: nine fishing spots, nine keys.
+   Fish-A-Fish, whack-a-mole at a pond: nine fishing spots, nine keys.
 
-   Each spot maps to a key (Q W E / A S D / Z X C — by physical position,
+   Each spot maps to a key (Q W E / A S D / Z X C: by physical position,
    so other keyboard layouts work; tapping a spot does the same). A spot
    ripples first (a warning), then the bobber plunges while a fish is on:
    strike its key in that window to catch it. Striking during the ripples
@@ -13,7 +13,7 @@
    - Round: Daybreak (60 seconds) or Endless (three fish get away and the
      pond goes quiet; it keeps speeding up).
    - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
-     Whole keyboard (the number row too — a number-row fish sometimes asks
+     Whole keyboard (the number row too, a number-row fish sometimes asks
      for its SYMBOL (!, %, &, ...), and then only Shift + that key hooks it).
    Each of the six combinations keeps its own best score.
    ===================================================================== */
@@ -362,7 +362,7 @@
     document.getElementById("again").focus({ preventScroll: true });
   }
 
-  // Pause: the shared shell's overlay, key and ⏸ button. Escape only —
+  // Pause: the shared shell's overlay, key and ⏸ button. Escape only:
   // P is a fishing key on the letter layouts, so it must never pause.
   // Leaving uses the pause's default guard (game-shell.js): it asks first
   // while a run is on or paused, not in the "ending" beat (the best is in).
@@ -454,7 +454,7 @@
         s.t += dt;
         if (s.phase === "hint" && s.t >= s.dur) {
           s.phase = "bite"; s.t = 0;
-          // Finding one key among 36 takes longer than one among 9 — and a
+          // Finding one key among 36 takes longer than one among 9, and a
           // symbol fish needs a hand on Shift too.
           // Finding one key among 26 or 36 takes longer than one among 9.
           var slow = spots.length > 9 ? (s.sym ? 1.55 : 1.28) : 1;

@@ -1,4 +1,4 @@
-/* Jam Jar — a Suika-style merge-drop. Drop fruit into a preserving jar; two of
+/* Jam Jar: a Suika-style merge-drop. Drop fruit into a preserving jar; two of
    a kind squish into the next fruit up the chain. Overflow the jar and the
    preserves are ruined. Plain circle physics, no libraries. */
 (function () {
@@ -28,7 +28,7 @@
   // jar interior
   var JL = 58, JR = W - 58, FLOOR = H - 34, RIM = 96;
   var GLASS = 9;         // glass thickness, drawn just OUTSIDE the walls above
-  var LOSE_Y = 116;      // the fill line — settled fruit above this ends the run
+  var LOSE_Y = 116;      // the fill line: settled fruit above this ends the run
   var DROP_Y = 64;
 
   // ---- the fruit chain -------------------------------------------------------
@@ -77,8 +77,8 @@
   function sfxMelon() { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.18, "triangle", 0.16, i * 0.08); }); }
   function sfxOver() { [392, 311, 262, 196].forEach(function (f, i) { tone(f, 0.26, "sawtooth", 0.12, i * 0.12); }); }
 
-  // ---- fruit sprites (drawn once per tier — fruits don't rotate) --------------
-  // Every tier wears its own face — same family, different personalities.
+  // ---- fruit sprites (drawn once per tier: fruits don't rotate) --------------
+  // Every tier wears its own face: same family, different personalities.
   function faceFor(g, r, tier) {
     var INK = "#3a2417";
     var ex = r * 0.28, ey = -r * 0.12, er = Math.max(1.6, r * 0.07);
@@ -132,13 +132,13 @@
         arcStroke(er * 0.5, r * 0.09, r * 0.1, 0.2 * Math.PI, 0.8 * Math.PI);
         blush("rgba(230,90,90,0.45)");
         break;
-      case 7: // grapefruit: deadpan — the same flat brows, now over a plain smile
+      case 7: // grapefruit: deadpan, the same flat brows, now over a plain smile
         dot(-ex, ey, er); dot(ex, ey, er);
         g.beginPath(); g.moveTo(-ex - er, ey - er * 1.6); g.lineTo(-ex + er, ey - er * 1.6); g.stroke();
         g.beginPath(); g.moveTo(ex - er, ey - er * 1.6); g.lineTo(ex + er, ey - er * 1.6); g.stroke();
         arcStroke(0, r * 0.02, r * 0.2, 0.2 * Math.PI, 0.8 * Math.PI);
         break;
-      case 8: // pineapple: too cool — a shades bar and a smirk
+      case 8: // pineapple: too cool, a shades bar and a smirk
         g.fillRect(-ex - er * 1.6, ey - er * 0.9, (ex + er * 1.6) * 2, er * 1.8);
         g.beginPath(); g.moveTo(-ex - er * 1.6, ey - er * 0.4); g.lineTo(-r * 0.55, ey - er * 0.8); g.stroke();
         g.beginPath(); g.moveTo(ex + er * 1.6, ey - er * 0.4); g.lineTo(r * 0.55, ey - er * 0.8); g.stroke();
@@ -154,7 +154,7 @@
         g.lineWidth = lw;
         arcStroke(0, r * 0.06, r * 0.14, 0.2 * Math.PI, 0.8 * Math.PI);
         break;
-      default: // watermelon: the beaming king — starry eyes, huge open grin
+      default: // watermelon: the beaming king, starry eyes, huge open grin
         g.save();
         g.translate(-ex, ey); star(g, er * 1.5); g.restore();
         g.save();
@@ -176,8 +176,8 @@
     g.closePath(); g.fill();
   }
   var SPRITES = [];
-  // the grapefruit's pores are scattered once, so every drawing of it — in
-  // the jar, in Next, on the ladder — is the same fruit
+  // the grapefruit's pores are scattered once, so every drawing of it: in
+  // the jar, in Next, on the ladder: is the same fruit
   var PORES = [];
   for (var pI0 = 0; pI0 < 14; pI0++) PORES.push([Math.random() * Math.PI * 2, Math.sqrt(Math.random()) * 0.75]);
   // Paints tier ti as vectors at its true radius, centred on the origin. Any
@@ -286,8 +286,8 @@
     });
   }
   function drawSprite(sp, x, y) { ctx.drawImage(sp.c, x - sp.off, y - sp.off, sp.size, sp.size); }
-  // how far a sprite's ink reaches above and below its centre — stems,
-  // leaves and crowns included — read off the finished pixels (k of them
+  // how far a sprite's ink reaches above and below its centre: stems,
+  // leaves and crowns included: read off the finished pixels (k of them
   // to a logical px)
   function inkRows(s, off, k) {
     var n = s.width, px = s.getContext("2d").getImageData(0, 0, n, n).data;
@@ -347,7 +347,7 @@
 
   // ---- physics ---------------------------------------------------------------
   var GRAV = 1500, REST = 0.22, WALL_REST = 0.38, MU = 0.15;
-  var MERGE_SLOP = 2; // px — twins this close count as touching
+  var MERGE_SLOP = 2; // px: twins this close count as touching
   function physics(dt) {
     var i, j, f;
     for (i = 0; i < fruits.length; i++) {
@@ -355,7 +355,7 @@
       f.vy += GRAV * dt;
       f.wasC = !!f.contacted; f.vy0 = f.vy;   // for the landing squash (below)
       if (f.sq && (f.sq.t += dt) >= SQ_T) f.sq = null;
-      f.vx *= 0.9995;               // barely any air drag — momentum carries
+      f.vx *= 0.9995;               // barely any air drag: momentum carries
       f.rot += f.w * dt;
       f.w *= 0.999;
       f.touch = false;
@@ -391,7 +391,7 @@
               d2 < (rr + MERGE_SLOP) * (rr + MERGE_SLOP)) {
             a.dead = b.dead = true;
             merges.push([a, b]);
-            break; // a is spent — it mustn't merge with (or shove) anyone else
+            break; // a is spent: it mustn't merge with (or shove) anyone else
           }
           if (d2 >= rr * rr) continue;
           var d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
@@ -468,7 +468,7 @@
         f.pinR = f.x + f.r > JR - 0.5;
         f.onFloor = f.y + f.r > FLOOR - 0.5;
         // the glass props a fruit up from the side just like a neighbour
-        // would — so one resting on a single fruit and leaning on the wall
+        // would, so one resting on a single fruit and leaning on the wall
         // is wedged, not balancing (it was being tipped into the glass)
         if (f.pinL && f.supMax < f.r) f.supMax = f.r;
         if (f.pinR && f.supMin > -f.r) f.supMin = -f.r;
@@ -479,7 +479,7 @@
     stack();
     unjam();
     // rolling: anything in contact turns with its travel ACROSS the surface it
-    // rolls on — the floor, the curve of another fruit, the glass — so
+    // rolls on (the floor, the curve of another fruit, the glass) so
     // ω = (speed along that surface, relative to it) / r. Travel means how far
     // it really moved this step, not vx: in a packed pile vx is mostly push
     // the position passes cancel out, and following it set settled fruit
@@ -501,7 +501,7 @@
         // Cradled = the floor, or held up from below with something propping
         // BOTH sides (another fruit underneath, a neighbour beside it, or the
         // glass). Perched = balanced on one off-centre contact with nothing on
-        // the side it leans to — that fruit must tip and roll off, so it never
+        // the side it leans to: that fruit must tip and roll off, so it never
         // gets the sleep treatment.
         var lip = f.r * 0.08;
         var cradled = f.supFlat || (f.supNy > 0 && f.supMin < -lip && f.supMax > lip);
@@ -516,7 +516,7 @@
         } else if (f.supNy > 0) {
           // Gravity wins the balancing act: slide down whichever side it
           // leans toward. On a perfect balance (a berry dead-centre on a
-          // melon's wide crown) the coin flip is STICKY — re-rolling it every
+          // melon's wide crown) the coin flip is STICKY: re-rolling it every
           // substep would just dither in place forever.
           f.perched = true;
           if (Math.abs(f.supSide) > 0.5) f.tipDir = f.supSide > 0 ? 1 : -1;
@@ -602,7 +602,7 @@
     }
   }
 
-  // Whatever overlap is STILL left is a jam — a berry wedged in a gap between
+  // Whatever overlap is STILL left is a jam: a berry wedged in a gap between
   // heavy fruit that's too narrow for it. Splitting by weight can't clear it
   // (the berry takes every push and gets pushed straight back), so split the
   // leftover evenly: the berry is solid too, and the big fruit have to make

@@ -1,4 +1,4 @@
-/* 24 — a 2000s candybar phone: dark blue shell, green backlit LCD,
+/* 24, a 2000s candybar phone: dark blue shell, green backlit LCD,
    rubber keys. Everything scales off --pw, the phone's width. */
 :root {
   --pw: min(92vw, 420px, calc((100svh - 120px) * 0.56));

@@ -1,5 +1,5 @@
 /* =====================================================================
-   Minesweeper — the classic Windows rules.
+   Minesweeper: the classic Windows rules.
 
    - Mines are placed on the first dig, never in the 3×3 around it, so the
      opening move always cracks a patch of the board open.
@@ -41,7 +41,7 @@
 
   // ---- daily -------------------------------------------------------------
   // One shared board a day. Mines come from the date seed instead of the
-  // first dig, so every player sweeps the same field — first-click safety
+  // first dig, so every player sweeps the same field: first-click safety
   // is replaced by an auto-opened starting patch.
   const DAILY = new URLSearchParams(location.search).has("daily");
   const DAILY_L = { w: 16, h: 16, m: 40, label: "Daily" };
@@ -186,7 +186,7 @@
   const fitW = (cols) => Math.floor((availW() - (cols - 1) * GAP) / cols);
 
   // Expert is 30 wide; on a phone that's ~11px cells. Stand it on its end
-  // instead — the game is the same, just rotated.
+  // instead: the game is the same, just rotated.
   function shouldTranspose(w, h) {
     return w > h && fitW(w) < COMFY_CELL && fitW(h) > fitW(w);
   }
@@ -360,7 +360,7 @@
     if (DAILY) {
       const d = readDaily();
       statsEl.innerHTML =
-        "<b>Daily No. " + d.n + "</b> · " + W + "×" + H + " · " + M + " mines — " +
+        "<b>Daily No. " + d.n + "</b> · " + W + "×" + H + " · " + M + " mines: " +
         (d.done
           ? "cleared in <b>" + d.secs.toFixed(2) + " s</b> on try " + d.tries + " ✓"
           : d.tries
@@ -370,14 +370,14 @@
       return;
     }
     if (prefs.level === "custom") {
-      statsEl.innerHTML = "<b>Custom</b> " + W + "×" + H + " · " + M + " mines — custom boards aren't ranked";
+      statsEl.innerHTML = "<b>Custom</b> " + W + "×" + H + " · " + M + " mines: custom boards aren't ranked";
       return;
     }
     const best = bestFor(prefs.level).get();   // 0 means "no time yet"
     const s = readStats(prefs.level);
     statsEl.innerHTML =
       "<b>" + LEVELS[prefs.level].label + "</b> · best <b>" +
-      (best > 0 ? best.toFixed(2) + " s" : "—") + "</b> · won " + s.w + " of " + s.p +
+      (best > 0 ? best.toFixed(2) + " s" : "–") + "</b> · won " + s.w + " of " + s.p +
       (s.p ? " (" + Math.round((100 * s.w) / s.p) + "%)" : "");
   }
 
@@ -521,12 +521,12 @@
         d.tries++;
         d.secs = secs;
         writeDaily(d);
-        msg += " — daily No. " + d.n + " on try " + d.tries + "!";
+        msg += ", daily No. " + d.n + " on try " + d.tries + "!";
       } else {
-        msg += " — recorded earlier: " + d.secs.toFixed(2) + " s";
+        msg += ", recorded earlier: " + d.secs.toFixed(2) + " s";
       }
     } else if (prefs.level !== "custom") {
-      if (bestFor(prefs.level).submit(secs)) msg += " — new best!";
+      if (bestFor(prefs.level).submit(secs)) msg += ", new best!";
     }
     addStat("w");   // (counted as played on its first dig)
     setStatus(msg, "good");
@@ -619,7 +619,7 @@
     else if (e.button === 2) btnR = true;
     else if (e.button === 1) chording = true;
     if (btnL && btnR) chording = true;
-    // Right press flags straight away, like the original — unless the left
+    // Right press flags straight away, like the original, unless the left
     // button is already down, in which case this is the start of a chord.
     if (e.button === 2 && !btnL) mark(i);
     preview();
@@ -684,7 +684,7 @@
   boardEl.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") return;
     lastTouch = performance.now();
-    if (touch) return; // a second finger — ignore it
+    if (touch) return; // a second finger: ignore it
     const i = cellAt(e.target);
     if (i < 0) return;
     ensureAudio();
@@ -775,7 +775,7 @@
 
   // ---- pause -------------------------------------------------------------
   // Only while the clock runs. The shared overlay is see-through, so the
-  // board is blurred too — otherwise pausing is free thinking time.
+  // board is blurred too: otherwise pausing is free thinking time.
   const PAUSE = GameShell.pausable({
     canPause: () => state === "playing",
     onChange: (paused) => {
@@ -868,7 +868,7 @@
     navC.removeAttribute("aria-current");
     navD.classList.add("sel");
     navD.setAttribute("aria-current", "page");
-    document.title = "Minesweeper — Daily";
+    document.title = "Minesweeper: Daily";
   }
 
   qmarksEl.checked = prefs.qmarks;

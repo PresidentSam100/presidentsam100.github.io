@@ -1,5 +1,5 @@
 /* =====================================================================
-   24 — the 84×48 monochrome LCD.
+   24: the 84×48 monochrome LCD.
 
    A 1-bit framebuffer at the real resolution of a 2000s candybar phone,
    three hand-drawn bitmap fonts, and a renderer that paints each LCD

@@ -1,4 +1,4 @@
-/* Slither — classic grid snake with twists (teleport portals, scattered
+/* Slither: classic grid snake with twists (teleport portals, scattered
    obstacles, local 2-player), plus the Labyrinth campaign, which lives in
    labyrinth.js / labyrinth-engine.js / levels.js and runs on this page's
    shell: menu, overlays, input routing and sound. No assets; canvas +
@@ -12,7 +12,7 @@
   var BASE_INTERVAL = 150, MIN_INTERVAL = 72, SPEED_STEP = 3;
   var OBSTACLE_COUNTS = { none: 0, light: 10, heavy: 22 };
   var BEST_KEY = "snake_best";
-  var PORTAL_COLORS = ["#ff8c2b", "#a25cff"]; // orange, purple — each pair shares one color in/out
+  var PORTAL_COLORS = ["#ff8c2b", "#a25cff"]; // orange, purple: each pair shares one color in/out
   var PORTAL_PAIR_COUNT = 2;
 
   var UP = { x: 0, y: -1 }, DOWN = { x: 0, y: 1 }, LEFT = { x: -1, y: 0 }, RIGHT = { x: 1, y: 0 };
@@ -80,7 +80,7 @@
     return actx;
   }
   // Browsers only let audio start from a user gesture, and tick() runs from
-  // requestAnimationFrame — so create/resume the context on any gesture, or
+  // requestAnimationFrame, so create/resume the context on any gesture, or
   // Safari/iOS leaves it suspended for good.
   ["pointerdown", "pointerup", "touchend", "keydown", "click"].forEach(function (type) {
     document.addEventListener(type, function () { audio(); }, true);
@@ -128,7 +128,7 @@
   // punch on them.
   var SFX = {
     eat: function () { tone(660, 0.09, "triangle", 0.14); },
-    // Fires on every turn, up to ~14/s at top speed — short, and a notch quieter than eat.
+    // Fires on every turn, up to ~14/s at top speed: short, and a notch quieter than eat.
     turn: function (player) { var f = player ? 440 : 560; tone(f, 0.05, "square", 0.05, f * 0.75); },
     // Enter and exit land on the same tick: swoop down into one end, back up out of the other.
     portal: function () {
@@ -434,7 +434,7 @@
   window.addEventListener("pointerup", clearHeldBtns);
   window.addEventListener("pointercancel", clearHeldBtns);
 
-  // Swipe anywhere on the board to turn — the natural touch idiom, and it beats
+  // Swipe anywhere on the board to turn: the natural touch idiom, and it beats
   // reaching for the d-pad. Solo only: with two snakes on one board there is no
   // way to tell whose swipe it is, so 2-player stays on the d-pads.
   (function wireSwipe() {
@@ -528,7 +528,7 @@
   }
 
   // Switching tabs used to leave the snake crawling into a wall off-screen.
-  // Pause only — coming back must not un-pause a deliberate pause.
+  // Pause only: coming back must not un-pause a deliberate pause.
   if (window.GameShell) {
     GameShell.onAutoPause(function () {
       if (G.mode === "lab") { if (lab) lab.autoPause(); return; }
@@ -708,7 +708,7 @@
       if (dead[k]) {
         sn.alive = false; anyCrash = true;
         if (hitWall[k]) wallCrash = true; else bodyCrash = true;
-        continue; // no turn click on the tick you die — let the crash play clean
+        continue; // no turn click on the tick you die: let the crash play clean
       }
       if (turned[k]) SFX.turn(k);
       sn.body.unshift(moves[k]);
@@ -756,7 +756,7 @@
       showResult({
         title: "Game Over 🐍",
         // (no best line while there's no best at all: a scoreless first run)
-        msg: "Score: " + s.score + (isNewBest ? " — New Best! 🎉" : G.best ? "  ·  Best: " + G.best : ""),
+        msg: "Score: " + s.score + (isNewBest ? ", New Best! 🎉" : G.best ? "  ·  Best: " + G.best : ""),
         primaryLabel: "Play Again",
         primaryFn: function () { startRound(); },
       });
@@ -783,7 +783,7 @@
         primaryFn: function () { startMatch(); },
       });
     } else {
-      var roundMsg = winnerIdx >= 0 ? G.snakes[winnerIdx].name + " wins the round!" : "Draw — both crashed!";
+      var roundMsg = winnerIdx >= 0 ? G.snakes[winnerIdx].name + " wins the round!" : "Draw: both crashed!";
       showResult({
         title: roundMsg,
         msg: "Match: " + G.matchWins[0] + " – " + G.matchWins[1] + (G.matchFormat === "inf" ? " (∞)" : " (first to " + G.matchFormat + ")"),

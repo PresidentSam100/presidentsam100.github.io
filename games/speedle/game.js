@@ -11,7 +11,7 @@
   var BEST_SPRINT_HARD = "speedle_best_sprint_hard", BEST_RACE_HARD = "speedle_best_race_hard"; // the same, in Hard mode
   var HARD_PREF = "speedle_hard";          // "1" when Hard mode is on (a setting, not a score)
 
-  // 5-letter word pool — used both as answers and as the accepted-guess
+  // 5-letter word pool: used both as answers and as the accepted-guess
   // dictionary (a guess must be in this list to count).
   var WORDS = ("about above abuse actor acute admit adopt adult after again agent agree ahead alarm album " +
     "alert alike alive allow alone along alter among anger angle angry apart apple apply arena argue arise " +
@@ -117,7 +117,7 @@
   // If words.js somehow fails to load, fall back to accepting the answer pool.
   //
   // Fun fact: the five words CHUNK FJORD GYMPS VIBEX WALTZ together use 25 of
-  // the 26 letters (only Q is missing) — a perfect near-pangram opener set.
+  // the 26 letters (only Q is missing): a perfect near-pangram opener set.
   var WORDSET = {};
   (function () {
     var src = (typeof window.SPEEDLE_VALID === "string" && window.SPEEDLE_VALID)
@@ -128,7 +128,7 @@
     for (var j = 0; j < WORDS.length; j++) WORDSET[WORDS[j]] = 1;
   })();
 
-  // Face values printed in the corner of each wooden tile. Decoration only —
+  // Face values printed in the corner of each wooden tile. Decoration only:
   // Speedle scores words, not letters.
   var PTS = { a: 1, b: 3, c: 3, d: 2, e: 1, f: 4, g: 2, h: 4, i: 1, j: 8, k: 5, l: 1, m: 3,
     n: 1, o: 1, p: 3, q: 10, r: 1, s: 1, t: 1, u: 1, v: 4, w: 4, x: 8, y: 4, z: 10 };
@@ -169,7 +169,7 @@
     solve: function () { [523, 659, 880].forEach(function (f, i) { setTimeout(function () { beep(f, 0.12, 0.16, "triangle"); }, i * 70); }); },
     fail: function () { beep(300, 0.18, 0.16, "sine"); setTimeout(function () { beep(220, 0.22, 0.16, "sine"); }, 120); },
     over: function () { [660, 520, 392].forEach(function (f, i) { setTimeout(function () { beep(f, 0.18, 0.18, "triangle"); }, i * 130); }); },
-    // one tick per remaining second during the final 5s — pitch rises as it counts down
+    // one tick per remaining second during the final 5s: pitch rises as it counts down
     count: function (sec) { beep(440 + (5 - sec) * 90, 0.1, 0.2, "square"); }
   };
 
@@ -291,10 +291,10 @@
   function renderBest() {
     if (mode === "sprint") {
       var b = parseInt(load(bestKey("sprint")), 10) || 0;
-      valueBest.textContent = b ? String(b) : "—";
+      valueBest.textContent = b ? String(b) : "–";
     } else {
       var r = parseInt(load(bestKey("race")), 10) || 0;
-      valueBest.textContent = r ? fmt(r) + "s" : "—";
+      valueBest.textContent = r ? fmt(r) + "s" : "–";
     }
   }
   function tick() {
@@ -434,8 +434,8 @@
   // ----- word resolution ---------------------------------------------
   function wordSolved() {
     locked = true;
-    // Sprint: bank the +10s the instant the word is correct — before the
-    // score/sound/animation work — so a solve landing right as the clock
+    // Sprint: bank the +10s the instant the word is correct, before the
+    // score/sound/animation work, so a solve landing right as the clock
     // nears 0 always counts and can never trip the time-up (✗ / game-over)
     // path. This runs synchronously inside submit(), so the extended deadline
     // is in place before the next timer tick can check it.
@@ -558,12 +558,12 @@
     var bestR = parseInt(load(bestKey("race")), 10) || 0;
     card.innerHTML =
       '<h2 class="card-title" aria-label="Speedle">' + tilesHTML("speedle") + '</h2>' +
-      '<p>Wordle, against the clock. Solve 5-letter words back-to-back — each solve loads the next instantly.</p>' +
+      '<p>Wordle, against the clock. Solve 5-letter words back-to-back: each solve loads the next instantly.</p>' +
       '<ul class="rules">' +
         '<li><span class="legend">' + tilesHTML("g", "green") + '</span>right letter, right spot</li>' +
         '<li><span class="legend">' + tilesHTML("y", "yellow") + '</span>right letter, wrong spot</li>' +
         '<li><span class="legend">' + tilesHTML("x", "gray") + '</span>letter not in the word</li>' +
-        '<li>' + MAX_GUESSES + ' guesses each — miss all ' + MAX_GUESSES + ' and it skips, no credit.</li>' +
+        '<li>' + MAX_GUESSES + ' guesses each: miss all ' + MAX_GUESSES + ' and it skips, no credit.</li>' +
       '</ul>' +
       '<div class="modes">' +
         '<button class="mode-btn" id="m-sprint"><div class="t">⏱️ Sprint' + keycap("1") + '</div><div class="d">' + SPRINT_SECONDS + 's start, +' + SPRINT_BONUS + 's per word</div><div class="b">' + (bestS ? 'best ' + bestS : '') + '</div></button>' +

@@ -1,6 +1,6 @@
 const ROWS = 6, COLS = 7;
 const HUMAN = 1, AI = 2; // 1=Red, 2=Yellow
-const WALL = 3;          // a neutral blocker disc — counts for nobody
+const WALL = 3;          // a neutral blocker disc: counts for nobody
 // Power Checkers: each side gets each of these once per game.
 let mode = 'classic';    // 'classic' | 'power'
 let powers, armedPower = null, aiExtra = false;
@@ -20,7 +20,7 @@ let lastDisc = null, scorch = null;
 // (or OS reduced-motion) means no drop animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
 
-// --- sound effects (Web Audio, synthesized — no assets) ---
+// --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
 function actx(){
   if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -76,8 +76,8 @@ function sfxCrush(){
   o.connect(g); g.connect(ctx.destination); o.start(t); o.stop(t + 0.36);
 }
 function sfxWall(){ dropSound(120); }
-function sfxHuman(){ dropSound(180); } // Red disc — lower, heavier
-function sfxAI(){ dropSound(260); }    // Yellow disc — higher, brighter
+function sfxHuman(){ dropSound(180); } // Red disc: lower, heavier
+function sfxAI(){ dropSound(260); }    // Yellow disc: higher, brighter
 
 // Play a short melody: each note is [frequency, duration, gap-to-next].
 function melody(seq, type){
@@ -127,7 +127,7 @@ function init() {
   } else setStatus('Your turn (Red)');
 }
 
-// Queue the AI's move but only let it run if we're still in the same game —
+// Queue the AI's move but only let it run if we're still in the same game:
 // pressing "New Game" while the AI is "thinking" bumps the round and cancels it.
 function scheduleAI(delay) {
   const myRound = round;
@@ -420,15 +420,15 @@ function windowScore(ai, hu, empty) {
 }
 
 // ============================================================
-//  POWER CHECKERS — one Anvil, Bomb and Wall per side per game.
+//  POWER CHECKERS: one Anvil, Bomb and Wall per side per game.
 //  Anvil: crushes every disc in a column. Bomb: lands, then blasts the
 //  OPPONENT's discs around it and gravity resettles. Wall: a neutral
-//  blocker disc that counts for nobody — and grants an extra turn.
+//  blocker disc that counts for nobody, and grants an extra turn.
 // ============================================================
 const POWER_INFO = {
   anvil: { icon: '🔨', name: 'Anvil', tip: 'Crushes every disc in a column' },
   bomb:  { icon: '💣', name: 'Bomb',  tip: "Blasts the opponent's discs around where it lands" },
-  wall:  { icon: '🧱', name: 'Wall',  tip: 'A neutral blocker — and you move again' },
+  wall:  { icon: '🧱', name: 'Wall',  tip: 'A neutral blocker, and you move again' },
 };
 
 function renderPowers() {
@@ -455,14 +455,14 @@ document.querySelectorAll('#powerTray .pbtn').forEach(btn => {
     const kind = btn.dataset.power;
     if (!powers[HUMAN][kind]) return;
     armedPower = armedPower === kind ? null : kind;
-    setStatus(armedPower ? POWER_INFO[kind].icon + ' ' + POWER_INFO[kind].name + ' armed — click a column' : 'Your turn (Red)');
+    setStatus(armedPower ? POWER_INFO[kind].icon + ' ' + POWER_INFO[kind].name + ' armed: click a column' : 'Your turn (Red)');
     renderPowers();
   });
 });
 
 function colCells(c) { return cells().filter(cell => +cell.dataset.c === c); }
 
-// settle floating discs after a blast — each column compacts downward
+// settle floating discs after a blast: each column compacts downward
 function applyGravity(b) {
   for (let c = 0; c < COLS; c++) {
     const stack = [];
@@ -471,7 +471,7 @@ function applyGravity(b) {
   }
 }
 
-// After discs are removed, either side might suddenly have four — the player
+// After discs are removed, either side might suddenly have four: the player
 // who acted gets the point if both line up at once.
 function checkEndAfter(mover) {
   const win = findWin(board);
@@ -550,7 +550,7 @@ function usePower(player, kind, c) {
     if (extraTurn) {
       if (isHuman) {
         busy = false;
-        setStatus('🧱 Wall placed — take another turn!');
+        setStatus('🧱 Wall placed: take another turn!');
       } else {
         setStatus('CPU walls up and moves again…');
         setTimeout(() => { if (myRound === round) { aiExtra = false; aiMoveWrapped(); } }, animOn() ? 900 : 200);
@@ -635,7 +635,7 @@ function aiPowerPlay() {
     if (w) return null;
   }
   const threats = humanWinningCols();
-  // Wall the human's winning square — the blocker also buys an extra turn.
+  // Wall the human's winning square: the blocker also buys an extra turn.
   if (threats.length && powers[AI].wall) return { kind: 'wall', c: threats[0].c };
   // Bomb a juicy cluster (3+ red discs around a landing spot), or any cluster
   // when the human threatens in two places at once.

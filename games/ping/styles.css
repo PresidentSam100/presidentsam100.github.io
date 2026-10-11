@@ -174,7 +174,7 @@ body {
   0%, 40%, 80% { filter: drop-shadow(0 0 7px #ffd166) brightness(1.9); }
   20%, 60%, 100% { filter: none; }
 }
-/* Visual FX off: no blink — the scorer's rod just stays lit for the same
+/* Visual FX off: no blink, the scorer's rod just stays lit for the same
    0.95s (game.js removes the class on a timer) */
 html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
   animation: none;
@@ -274,7 +274,7 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
 
 /* Instructions: one sentence per line; show only the relevant control set.
    Desktop (fine pointer) sees keyboard controls; touch devices see the on-screen
-   buttons line — never both. */
+   buttons line: never both. */
 #controls span { display: block; line-height: 1.25; }
 #controls .ctrl-mobile { display: none; }
 /* keycaps (shared style, motion-toggle.js): VT323 has one weight, and a

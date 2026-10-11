@@ -1,12 +1,12 @@
 /* =====================================================================
-   Darkroom — nonogram logic, shared by the page and by check-puzzles.js
+   Darkroom: nonogram logic, shared by the page and by check-puzzles.js
    (Node). No DOM.
 
    A picture is rows of "." and "#". Cells during solving are 0 unknown,
    1 filled, 2 empty. The solver plays like a careful human: it looks at
    one line at a time, tries every placement of that line's clue runs
    that fits what's known, and keeps only what every placement agrees
-   on. If that alone finishes the grid, the puzzle needs no guessing —
+   on. If that alone finishes the grid, the puzzle needs no guessing,
    and the solution is unique. Every shipped puzzle must pass it.
 
    Nono.cluesOf(rows) -> { rows: [[..]], cols: [[..]] }   ([] is a "0" line)
@@ -120,7 +120,7 @@
   }
 
   // The daily negative: a random abstract pattern, retried deterministically
-  // until the line solver can finish it — so every player gets the same
+  // until the line solver can finish it, so every player gets the same
   // guess-free puzzle for a given day number.
   function daily(dayNumber, w, h) {
     w = w || 10; h = h || 10;

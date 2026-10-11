@@ -105,7 +105,7 @@
     // ---------------- Main game (9+), by difficulty ----------------
     {
       name: "The High Dive",
-      hint: "Sliding up ends at a live tile — and its kick drops you exactly one rung back. Use it.",
+      hint: "Sliding up ends at a live tile, and its kick drops you exactly one rung back. Use it.",
       grid: [
         "rrrrrrrr",
         "rrryrrrr",
@@ -133,7 +133,7 @@
     },
     {
       name: "The Flume",
-      hint: "One long ride. Push off and let the flume carry you — seven shoves, start to splash.",
+      hint: "One long ride. Push off and let the flume carry you: seven shoves, start to splash.",
       grid: [
         "rrrrrrrrrrrrrrr",
         "rSuuuuuuuuuuuur",
@@ -148,7 +148,7 @@
     },
     {
       name: "Corkscrew",
-      hint: "A spiral of ice. Every push slides you to the next bend — until the bends run out.",
+      hint: "A spiral of ice. Every push slides you to the next bend, until the bends run out.",
       grid: [
         "rrrrrrrrrrrrr",
         "rSuuuuuuuuuur",
@@ -163,7 +163,7 @@
     },
     {
       name: "Frozen Lake",
-      hint: "A longer ice run. Each slide ends at a wall — chain them to the goal.",
+      hint: "A longer ice run. Each slide ends at a wall: chain them to the goal.",
       grid: [
         "rrrrrrrr",
         "rSuuruur",
@@ -177,7 +177,7 @@
     },
     {
       name: "Static Shock",
-      hint: "A wide pool. Stay clear of water touching yellow — it's live.",
+      hint: "A wide pool. Stay clear of water touching yellow: it's live.",
       grid: [
         "rrrrrrrrr",
         "rSbbybbyr",
@@ -217,7 +217,7 @@
     },
     {
       name: "Mirror Pools",
-      hint: "Twin pools, twin routes. Only one is truly calm — read the water, then commit.",
+      hint: "Twin pools, twin routes. Only one is truly calm: read the water, then commit.",
       grid: [
         "rrrrrrrrrrrrr",
         "rrrrrrXrrrrrr",
@@ -233,7 +233,7 @@
     },
     {
       name: "Splashdown",
-      hint: "Calm water stops a slide with a splash. Live water refuses — and kicks you back onto the ice.",
+      hint: "Calm water stops a slide with a splash. Live water refuses, and kicks you back onto the ice.",
       grid: [
         "rrrrrrrrrrrr",
         "rSuuuuuuuubr",
@@ -245,7 +245,7 @@
     },
     {
       name: "The Grotto",
-      hint: "A quiet cave pool. Two eels patrol it — the water they touch is always live.",
+      hint: "A quiet cave pool. Two eels patrol it: the water they touch is always live.",
       grid: [
         "....rrrrr....",
         "..rrrpbprrr..",
@@ -329,7 +329,7 @@
     },
     {
       name: "Wave Pool",
-      hint: "Crests are live, troughs are calm — and the floats only line up if you ride the rhythm.",
+      hint: "Crests are live, troughs are calm, and the floats only line up if you ride the rhythm.",
       grid: [
         "rrrrrrrrrrrrr",
         "rSpbbbbbbbbbr",
@@ -344,7 +344,7 @@
     },
     {
       name: "Flypaper",
-      hint: "Walls stop you one tile short. An orange tile is sticky — slide onto it to stop exactly there.",
+      hint: "Walls stop you one tile short. An orange tile is sticky: slide onto it to stop exactly there.",
       grid: [
         "rrrrrrrrr",
         "rSuuuouur",
@@ -370,7 +370,7 @@
     },
     {
       name: "Deep Freeze",
-      hint: "The hardest ice yet. Dead-end slides will strand you — think ahead.",
+      hint: "The hardest ice yet. Dead-end slides will strand you: think ahead.",
       grid: [
         "rrrrrrrrrr",
         "rSuuruuuur",
@@ -398,7 +398,7 @@
     },
     {
       name: "Riptide",
-      hint: "A long, tall current. Live tiles lurk on every row — pick your line carefully.",
+      hint: "A long, tall current. Live tiles lurk on every row: pick your line carefully.",
       grid: [
         "rrrrrrrrr",
         "rSbybbbbr",
@@ -459,7 +459,7 @@
     },
     {
       name: "Poolside Pinball",
-      hint: "Orange pegs are the only brakes on this rink — but every stop sours the water below.",
+      hint: "Orange pegs are the only brakes on this rink, but every stop sours the water below.",
       grid: [
         "rrrrrrrrrrrrr",
         "rSuuuuuouuuur",
@@ -487,7 +487,7 @@
     },
     {
       name: "Swim-Up Bar",
-      hint: "The straight line to the bar goes past the juice. Don't — orange flavor turns the pool on you.",
+      hint: "The straight line to the bar goes past the juice. Don't: orange flavor turns the pool on you.",
       grid: [
         "rrrrrrrrrrr",
         "rrrrrrXrrrr",
@@ -530,7 +530,7 @@
     },
     {
       name: "Checkout Time",
-      hint: "The exit is right there — behind water that is live no matter what. Go the long way round.",
+      hint: "The exit is right there, behind water that is live no matter what. Go the long way round.",
       grid: [
         "rrrrrrrrrrrrr",
         "rSbyXpppppppr",
@@ -557,7 +557,7 @@
     },
     {
       name: "Reset Button",
-      hint: "Forced orange? Dip into purple ice to cool back to Lemon — twice.",
+      hint: "Forced orange? Dip into purple ice to cool back to Lemon, twice.",
       grid: [
         "rrrrrrrrrrr",
         "rSpobbobbXr",
@@ -568,7 +568,7 @@
     },
     {
       name: "Medley",
-      hint: "A medley of mechanics — one wrong flavor and the water turns on you.",
+      hint: "A medley of mechanics: one wrong flavor and the water turns on you.",
       grid: [
         "rrrrrrrrr",
         "rSpurppur",
@@ -593,7 +593,7 @@
     },
     {
       name: "Night Swim",
-      hint: "The pool after dark. Every step looks the same — almost none of them are safe.",
+      hint: "The pool after dark. Every step looks the same, and almost none of them are safe.",
       grid: [
         "rrrrrrrr",
         "rSubyubr",
@@ -678,7 +678,7 @@
     },
     {
       name: "Kitchen Sink",
-      hint: "Everything but the kitchen sink — actually, that's in here too.",
+      hint: "Everything but the kitchen sink. Actually, that's in here too.",
       grid: [
         "rrrrrrrrrrr",
         "rSubboyrgrr",
@@ -838,7 +838,7 @@
     },
     {
       name: "The Reckoning",
-      hint: "The final reckoning — fifty moves of total mastery. Escape if you can.",
+      hint: "The final reckoning: fifty moves of total mastery. Escape if you can.",
       grid: [
         "rrrrrrrrrrrrrrr",
         "rSobgpopppoopbr",

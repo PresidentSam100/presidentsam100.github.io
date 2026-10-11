@@ -23,7 +23,7 @@
 
   // ------------------------------------------------ particle field (Visual FX)
   // A gentle drift of glowing motes inside the panel during the "wait" and "go"
-  // states — purely decorative. Honors the global "✨ Visual FX" toggle: while
+  // states: purely decorative. Honors the global "✨ Visual FX" toggle: while
   // FX is off (RM_ON), nothing is drawn, so the panel stays clean.
   var FX = (function () {
     var cv = document.createElement("canvas");
@@ -64,7 +64,7 @@
       for (var i = ps.length - 1; i >= 0; i--) {
         var p = ps[i];
         p.sway += p.ss; p.x += Math.sin(p.sway) * p.amp; p.y += p.vy;
-        p.a = Math.min(p.a + 0.02, 0.42); // fade in once, then hold — no fade-out
+        p.a = Math.min(p.a + 0.02, 0.42); // fade in once, then hold: no fade-out
         if (p.y < -p.r) { ps.splice(i, 1); continue; } // only gone once it clears the top edge
         ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
         ctx.fillStyle = "rgba(" + color + "," + p.a.toFixed(3) + ")";
@@ -151,10 +151,10 @@
   }
 
   function renderHud() {
-    elAttempt.textContent = state === "menu" ? "—" : Math.min(trial, TRIALS) + "/" + TRIALS;
-    elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "—";
-    elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "—";
-    elBest.textContent = best ? f1(best) + " ms" : "—";
+    elAttempt.textContent = state === "menu" ? "–" : Math.min(trial, TRIALS) + "/" + TRIALS;
+    elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "–";
+    elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "–";
+    elBest.textContent = best ? f1(best) + " ms" : "–";
   }
   function chipHtml(i) {
     if (penal[i]) return '<span class="chip pen">✗</span>';
@@ -177,12 +177,12 @@
     renderHud(); renderTimes();
     card.innerHTML =
       '<h2>Reaction</h2>' +
-      '<p>A high-noon standoff. Wait for the call &mdash; the moment the street flashes <b>DRAW!</b>, tap as fast as you can.</p>' +
+      '<p>A high-noon standoff. Wait for the call: the moment the street flashes <b>DRAW!</b>, tap as fast as you can.</p>' +
       '<ul class="rules">' +
         '<li><b>' + TRIALS + ' attempts.</b> The wait before each flash is random so you can&rsquo;t time it.</li>' +
-        '<li>Your score is the <b>average</b> reaction across all ' + TRIALS + ' — lower is better.</li>' +
-        '<li>Take longer than <b>' + (WINDOW_MS / 1000) + ' second</b> after the call and he draws first — that duel counts as <b>' + WINDOW_MS + ' ms</b>.</li>' +
-        '<li>Draw <b>early</b> and the other gunslinger shoots first: you get an <b>✗</b> — that attempt is scored as a <b>' + (PENALTY / 1000).toFixed(1) + 's</b> penalty, so don&rsquo;t guess!</li>' +
+        '<li>Your score is the <b>average</b> reaction across all ' + TRIALS + ', lower is better.</li>' +
+        '<li>Take longer than <b>' + (WINDOW_MS / 1000) + ' second</b> after the call and he draws first: that duel counts as <b>' + WINDOW_MS + ' ms</b>.</li>' +
+        '<li>Draw <b>early</b> and the other gunslinger shoots first: you get an <b>✗</b>, and that attempt is scored as a <b>' + (PENALTY / 1000).toFixed(1) + 's</b> penalty, so don&rsquo;t guess!</li>' +
       '</ul>' +
       '<button class="btn" id="btn-start">Step into the street</button>';
     ov.classList.add("show");
@@ -234,7 +234,7 @@
     renderHud(); renderTimes();
     state = results.length >= TRIALS ? "ending" : "late"; lateAt = performance.now();
     panel.className = "panel toosoon"; pBig.className = "big"; pBig.textContent = "Too slow!";
-    pSub.textContent = "he drew first — scored " + WINDOW_MS + " ms · tap to continue";
+    pSub.textContent = "he drew first: scored " + WINDOW_MS + " ms · tap to continue";
     pRating.style.color = "var(--bad)"; pRating.textContent = "outdrawn";
     panel.dataset.shot = "lose"; // he fires, you go down
     if (state === "ending") { keepBest(); pSub.textContent = "he drew first"; setTimeout(finish, LAST_SHOT_MS); }
@@ -247,7 +247,7 @@
     renderHud(); renderTimes();
     state = results.length >= TRIALS ? "ending" : "toosoon";
     panel.className = "panel toosoon"; pBig.className = "big"; pBig.textContent = "✗ Drew too soon!";
-    pSub.textContent = "you drew before the call — scored " + (PENALTY / 1000).toFixed(1) + "s · tap to continue";
+    pSub.textContent = "you drew before the call: scored " + (PENALTY / 1000).toFixed(1) + "s · tap to continue";
     pRating.style.color = "var(--bad)"; pRating.textContent = "penalty";
     panel.dataset.shot = "lose"; // the other gunslinger fires, you go down
     if (state === "ending") { keepBest(); pSub.textContent = "you drew before the call"; setTimeout(finish, LAST_SHOT_MS); }
@@ -283,7 +283,7 @@
       '<h2>Showdown Over</h2>' +
       '<div class="big" style="color:' + r.c + '">' + f1(a) + '<small> ms avg</small></div>' +
       '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + (slow ? ' · ' + slow + ' outdrawn' : '') + '</p>' +
-      '<p>' + (record ? "★ new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "—" : f1(bestSingle) + " ms") + '</p>' +
+      '<p>' + (record ? "★ new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "–" : f1(bestSingle) + " ms") + '</p>' +
       '<div class="summary">' + chips + '</div>' +
       '<button class="btn" id="btn-again" style="margin-top:0.6rem;">Duel again</button>';
     ov.classList.add("show");
@@ -297,7 +297,7 @@
     if (state === "wait") tooSoon();
     else if (state === "go") record();
     else if (state === "result") nextAttempt();
-    else if (state === "toosoon") nextAttempt(); // penalty already recorded — move on
+    else if (state === "toosoon") nextAttempt(); // penalty already recorded: move on
     else if (state === "late" && performance.now() - lateAt > LATE_GRACE_MS) nextAttempt();
   }
   panel.addEventListener("pointerdown", function (e) { e.preventDefault(); press(); });

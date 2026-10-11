@@ -1,4 +1,4 @@
-/* Tile Maze — shared sound effects (synthesized, no assets).
+/* Tile Maze: shared sound effects (synthesized, no assets).
    Used by BOTH game.js and editor.js so the cues are defined once.
    Muting is handled globally by the shared top-right toggle (mute-toggle.js),
    which routes every AudioContext through a master gain. */

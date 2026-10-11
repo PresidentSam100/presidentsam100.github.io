@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Labyrinth levels.
+   Slither: Labyrinth levels.
 
    Each level: { id, zone, name, hint (a [Key] in it shows as a keycap), time (seconds; 0 = untimed), grid }
    plus optional speed (ms per cell), spikeMs, enemyMs ({ hunt: 230 }). A
@@ -24,7 +24,7 @@
     // ------------------------------------------------------------ Garden
     {
       id: "first-bite", zone: "Garden", name: "First Bite", time: 30,
-      hint: "Eat every 🍎, then slither into the arch. It stays locked — and solid — until the last apple is gone.",
+      hint: "Eat every 🍎, then slither into the arch. It stays locked (and solid) until the last apple is gone.",
       grid: [
         "####################",
         "#..................#",
@@ -42,8 +42,8 @@
     },
     {
       id: "zig-zag", zone: "Garden", name: "Zig Zag", time: 26,
-      hint: "Hold [Shift] (or ⚡) to dash. The clock is tight — the straightaways are where you win time back.",
-      touchHint: "Hold ⚡ to dash. The clock is tight — the straightaways are where you win time back.",
+      hint: "Hold [Shift] (or ⚡) to dash. The clock is tight: the straightaways are where you win time back.",
+      touchHint: "Hold ⚡ to dash. The clock is tight: the straightaways are where you win time back.",
       grid: [
         "########################",
         "#S.........a...........#",
@@ -80,7 +80,7 @@
     },
     {
       id: "thin-ice", zone: "Garden", name: "Thin Ice", time: 40,
-      hint: "You can't turn on ice — line up before you step on. Apples are solid ground, and queued turns fire once you slide off.",
+      hint: "You can't turn on ice: line up before you step on. Apples are solid ground, and queued turns fire once you slide off.",
       grid: [
         "########################",
         "#S.....................#",
@@ -99,8 +99,8 @@
     },
     {
       id: "phantom", zone: "Garden", name: "Phantom", time: 30,
-      hint: "Eat a 👻 apple, then hold [G] or right-click (or 👻 on touch) to phase through walls. Let go before the arch — ghosts can't leave.",
-      touchHint: "Eat a 👻 apple, then hold 👻 to phase through walls. Let go before the arch — ghosts can't leave.",
+      hint: "Eat a 👻 apple, then hold [G] or right-click (or 👻 on touch) to phase through walls. Let go before the arch: ghosts can't leave.",
+      touchHint: "Eat a 👻 apple, then hold 👻 to phase through walls. Let go before the arch: ghosts can't leave.",
       grid: [
         "####################",
         "#..................#",
@@ -156,7 +156,7 @@
     },
     {
       id: "patrol", zone: "Garden", name: "Patrol", time: 50,
-      hint: "Red loopers keep a wall on their right and circle forever. Every apple sits on a loop — time your dash between them.",
+      hint: "Red loopers keep a wall on their right and circle forever. Every apple sits on a loop: time your dash between them.",
       grid: [
         "########################",
         "#......................#",
@@ -175,7 +175,7 @@
     },
     {
       id: "the-hunt", zone: "Garden", name: "The Hunt", time: 50, enemyMs: { hunt: 230 },
-      hint: "Purple hunters try to cut you off. If your head hits them you crash — if theirs hits you, they pop.",
+      hint: "Purple hunters try to cut you off. If your head hits them you crash; if theirs hits you, they pop.",
       grid: [
         "########################",
         "#..........+...........#",
@@ -256,7 +256,7 @@
     },
     {
       id: "wanderers", zone: "Ruins", name: "Wanderers", time: 50,
-      hint: "Blue wanderers roam at random. They eat apples too — and every apple they eat still counts toward the exit.",
+      hint: "Blue wanderers roam at random. They eat apples too, and every apple they eat still counts toward the exit.",
       grid: [
         "########################",
         "#S..........$..........#",
@@ -275,7 +275,7 @@
     },
     {
       id: "lights-out", zone: "Ruins", name: "Lights Out", time: 50,
-      hint: "In the dark you can't see yourself — only the walls and the apples. Count your turns.",
+      hint: "In the dark you can't see yourself: only the walls and the apples. Count your turns.",
       grid: [
         "########################",
         "#S........a............#",
@@ -352,7 +352,7 @@
     },
     {
       id: "red-line", zone: "Ruins", name: "Red Line", time: 60, teleReverse: "8",
-      hint: "Red pads only work one way. Four sealed rooms, one route — and the pad to the exit room has no way back.",
+      hint: "Red pads only work one way. Four sealed rooms, one route, and the pad to the exit room has no way back.",
       grid: [
         "########################",
         "#..8.......##..........#",
@@ -373,7 +373,7 @@
     // ------------------------------------------------------------ Citadel
     {
       id: "floodgates", zone: "Citadel", name: "Floodgates", time: 60,
-      hint: "Every switch flips every door. Press each one once — and only once.",
+      hint: "Every switch flips every door. Press each one once, and only once.",
       grid: [
         "########################",
         "########################",
@@ -413,7 +413,7 @@
     },
     {
       id: "ghost-lanes", zone: "Citadel", name: "Ghost Lanes", time: 60,
-      hint: "Green ghosts glide straight through walls and wrap around the edges. They can't be hurt — and you can't pass through them. Watch the lanes, then cross.",
+      hint: "Green ghosts glide straight through walls and wrap around the edges. They can't be hurt, and you can't pass through them. Watch the lanes, then cross.",
       grid: [
         "########################",
         "#......L.a.##........E.#",
@@ -432,7 +432,7 @@
     },
     {
       id: "cheese", zone: "Citadel", name: "Cheese", time: 40,
-      hint: "Pink Mouse Eaters chase your pointer — if one catches it, your teleport, ghost and click-switches stall for 6 s. Park the pointer where they can't reach, like inside a sealed vault.",
+      hint: "Pink Mouse Eaters chase your pointer. If one catches it, your teleport, ghost and click-switches stall for 6 s. Park the pointer where they can't reach, like inside a sealed vault.",
       grid: [
         "########################",
         "#S..........V..........#",
@@ -451,7 +451,7 @@
     },
     {
       id: "blink-chain", zone: "Citadel", name: "Blink Chain", time: 50,
-      hint: "Each vault hides the key to the next — and the last one has no way out. One blink per ✦, so clean up outside first.",
+      hint: "Each vault hides the key to the next, and the last one has no way out. One blink per ✦, so clean up outside first.",
       grid: [
         "########################",
         "#......................#",
@@ -470,7 +470,7 @@
     },
     {
       id: "munch-race", zone: "Citadel", name: "Munch Race", time: 45,
-      hint: "Orange munchers race you for apples — every apple they eat still counts. Their growing bodies are the real problem. 👻 passes through bodies.",
+      hint: "Orange munchers race you for apples: every apple they eat still counts. Their growing bodies are the real problem. 👻 passes through bodies.",
       grid: [
         "########################",
         "#S.....a.......a.....M.#",
@@ -489,7 +489,7 @@
     },
     {
       id: "mirror-mirror", zone: "Citadel", name: "Mirror, Mirror", time: 60,
-      hint: "Pale copycats turn whenever you turn. Lead them into the walls — or they'll box you in.",
+      hint: "Pale copycats turn whenever you turn. Lead them into the walls, or they'll box you in.",
       grid: [
         "########################",
         "#...........a..........#",
@@ -508,7 +508,7 @@
     },
     {
       id: "spike-gauntlet", zone: "Citadel", name: "Spike Gauntlet", time: 70, spikeMs: 1080,
-      hint: "Circle until a gate drops, then go. Your whole length has to clear the spikes inside one beat — ✂ helps.",
+      hint: "Circle until a gate drops, then go. Your whole length has to clear the spikes inside one beat: ✂ helps.",
       grid: [
         "########################",
         "#S.....a........a......#",
@@ -530,7 +530,7 @@
     },
     {
       id: "dark-hunt", zone: "Citadel", name: "Dark Hunt", time: 60,
-      hint: "Snakes vanish in the dark — yours and theirs. Watch where they went in.",
+      hint: "Snakes vanish in the dark: yours and theirs. Watch where they went in.",
       grid: [
         "########################",
         "#S....::::.....::::....#",
@@ -610,7 +610,7 @@
       id: "double-take", zone: "Foundry", name: "Double Take", time: 70,
       unproven: "your twin has to eat the apples in the sealed room",
       proof: "0 1 0 0 0 0 0 0 0 0 3 2 2 1 2 2 1 1 1 2 2 2 1 0 0 0 1 1 1 1 0 0 0 0 3 0 1 1",
-      hint: "Roll over the Cloner and a twin appears in the sealed room next door — it obeys your every turn. Its apples count too, so steer for both of you.",
+      hint: "Roll over the Cloner and a twin appears in the sealed room next door: it obeys your every turn. Its apples count too, so steer for both of you.",
       grid: [
         "########################",
         "#..#.......E#..#.......#",
@@ -747,7 +747,7 @@
     },
     {
       id: "prism", zone: "Astral", name: "Prism", time: 50,
-      hint: "The Rainbow is the smartest hunter: fast, and it takes the portals too. It never crashes — but box it in and it crumbles.",
+      hint: "The Rainbow is the smartest hunter: fast, and it takes the portals too. It never crashes, but box it in and it crumbles.",
       grid: [
         "########################",
         "#........a..E..........#",
@@ -766,7 +766,7 @@
     },
     {
       id: "dreamwalk", zone: "Astral", name: "Dreamwalk", time: 45,
-      hint: "Dream blocks fling you straight through as a skeleton: no steering, and you pass through yourself. Hit a wall inside one and you bounce back — a U-turn where there's no room for one.",
+      hint: "Dream blocks fling you straight through as a skeleton: no steering, and you pass through yourself. Hit a wall inside one and you bounce back: a U-turn where there's no room for one.",
       grid: [
         "########################",
         "############%###########",
@@ -786,8 +786,8 @@
     },
     {
       id: "thunderhead", zone: "Astral", name: "Thunderhead", time: 30,
-      hint: "In the storm you fly toward your pointer (your finger on a phone; [↑][←][↓][→] without one). It's fast — and the pillars are still walls.",
-      touchHint: "In the storm you fly toward your finger. It's fast — and the pillars are still walls.",
+      hint: "In the storm you fly toward your pointer (your finger on a phone; [↑][←][↓][→] without one). It's fast, and the pillars are still walls.",
+      touchHint: "In the storm you fly toward your finger. It's fast, and the pillars are still walls.",
       grid: [
         "########################",
         "#......................#",

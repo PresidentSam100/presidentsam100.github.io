@@ -1,5 +1,5 @@
 /* =====================================================================
-   POP THE LOCK — a vanilla-JS arcade remake
+   POP THE LOCK: a vanilla-JS arcade remake
    Tap / click / Space when the sweeping dial is over the glowing notch.
    Reverse, relocate, repeat. One miss ends the run.
    ===================================================================== */
@@ -119,7 +119,7 @@
 
   let particles = [];
   let canRestart = false;  // gates tap-to-restart until the game-over panel is up
-  // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+  // Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
   const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
   let shakeTime = 0;
   let flash = 0;           // success ring flash 0..1
@@ -128,7 +128,7 @@
 
   // ---- Difficulty curve ----
   function baseSpeed(lvl) {
-    // rad per ms — starts gentle, ramps up, soft cap
+    // rad per ms: starts gentle, ramps up, soft cap
     return 0.0024 + Math.min(lvl, 30) * 0.00018;
   }
   function tolerance(lvl) {
@@ -167,7 +167,7 @@
     flash = 1;
     sndPop();
     spawnBurst(target, "#ffd23f");
-    dir *= -1;                       // reverse sweep — the signature feel
+    dir *= -1;                       // reverse sweep: the signature feel
     speed = baseSpeed(level) * (1 + popsDone * 0.015);
     if (popsDone >= popsNeeded) {
       levelUp();
@@ -199,15 +199,15 @@
     sndFail();
     missAt = missedByPass ? target : dial;
     spawnBurst(missAt, "#ff5d73", 30);
-    const reason = missedByPass ? "Too slow — the dial slipped past!" : "Missed the mark!";
+    const reason = missedByPass ? "Too slow: the dial slipped past!" : "Missed the mark!";
     overlayMsg.innerHTML = `${reason}<br>You reached <b>${score}</b> &nbsp;•&nbsp; Level <b>${level}</b>`;
     playBtn.textContent = "RETRY";
-    // Only reveal the panel if we're still game-over — a quick restart tap
+    // Only reveal the panel if we're still game-over: a quick restart tap
     // during this delay must not pop the overlay back over a live game.
     setTimeout(() => {
       if (state !== State.OVER) return;
       overlay.classList.remove("hidden");
-      canRestart = true;     // now the panel is up — let the player retry
+      canRestart = true;     // now the panel is up: let the player retry
     }, 600);
   }
 

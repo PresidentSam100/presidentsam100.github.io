@@ -2,7 +2,7 @@
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&display=swap");
 
 /* =====================================================================
-   Theming — every color routes through a variable so the four themes
+   Theming: every color routes through a variable so the four themes
    (circuit / blueprint / terminal / breadboard) just swap the palette.
    Gate accent colors stay constant across themes so a gate is always
    recognizable (AND is always blue, etc.).
@@ -103,7 +103,7 @@ body::before {
   padding: 4.25rem 1rem 3rem;
 }
 
-/* back button — true top-left, matches other games */
+/* back button: true top-left, matches other games */
 .back-link {
   position: fixed;
   top: 12px;

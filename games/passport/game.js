@@ -1,5 +1,5 @@
 /* =====================================================================
-   Passport — the flag quiz.
+   Passport: the flag quiz.
 
    One flag, four destination tags. The right pick thunks a green ENTRY
    stamp into the booklet; the wrong one gets a red DENIED (and shows
@@ -328,7 +328,7 @@
     $("post-cap").innerHTML =
       !cap ? q + (ask === "both" ? " (then its capital)" : "") :
       ask === "capital" ? "capital of " + name + "?" :
-      ask === "both" ? name + " ✓ — and its capital?" :
+      ask === "both" ? name + " ✓, and its capital?" :
       "name its capital";                 // flag only: the country stays a secret
     if (style === "typed") {
       var inp = $("answer"), t = TYPED_COPY[step];
@@ -462,7 +462,7 @@
       $("over-title").textContent = "Visa run complete";
       $("over-msg").innerHTML = score + "<small> / " + dailySet.length + " stamps</small>";
       lines.push("Visa Run #" + rec.n + (ASK_LABEL[ask] ? " · " + ASK_LABEL[ask] : "") +
-        (was ? " — recorded earlier: " + rec.score + "/10" : score === 10 ? " — a spotless passport!" : ""));
+        (was ? ", recorded earlier: " + rec.score + "/10" : score === 10 ? ", a spotless passport!" : ""));
       $("again").innerHTML = 'Once more (just for fun) <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = false;
     } else {
@@ -472,7 +472,7 @@
       $("over-title").textContent = mode === "tour" ? "The border is closed" : "Final boarding call";
       $("over-msg").innerHTML = score + "<small> stamp" + (score === 1 ? "" : "s") + "</small>";
       lines.push(mode === "tour" ? "three denials on your record" : "the sixty seconds are up");
-      lines.push(isBest ? "a new record — frequent flyer! ✈" :
+      lines.push(isBest ? "a new record: frequent flyer! ✈" :
         "best" + (ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "") + ": " + (b ? b.get() : score));
       $("again").innerHTML = 'Travel again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = true;
@@ -558,7 +558,7 @@
     });
     var which = ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "";
     $("bests").textContent = parts.length ? "most stamps" + which + ": " + parts.join(" · ")
-      : which ? "no stamps yet" + which : "a brand-new passport — no stamps yet";
+      : which ? "no stamps yet" + which : "a brand-new passport: no stamps yet";
   }
   // (only between runs: a question on screen was built for its type)
   function setAsk(a) {
@@ -682,7 +682,7 @@
   $("flag").src = url("jp");
   toMenu();
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.Passport = {
     state: function () { return state; },
     mode: function () { return mode; },

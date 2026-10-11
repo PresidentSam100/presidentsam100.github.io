@@ -142,8 +142,8 @@
   // result colours; short when early, long when late.
   var BAKE = {
     perfect: "regulated to perfection!", golden: "chronometer grade",
-    pale: "running a touch short", raw: "wildly short — full service",
-    dark: "running a touch long", burnt: "wildly long — full service",
+    pale: "running a touch short", raw: "wildly short: full service",
+    dark: "running a touch long", burnt: "wildly long: full service",
   };
   function doneness(error, late) {
     if (error < 0.05) return "perfect";
@@ -158,7 +158,7 @@
     elUsed.textContent = fmt(cumError);
     elMargin.textContent = fmt(Math.max(0, LIMIT - cumError)) + " s";
   }
-  function setHud() { elScore.textContent = score; elBest.textContent = best; elRound.textContent = roundNum || "—"; }
+  function setHud() { elScore.textContent = score; elBest.textContent = best; elRound.textContent = roundNum || "–"; }
   function updateModePill() { modePill.textContent = visibleMode ? "👁 Lid open" : "🙈 Lid shut"; }
 
   // ---------------------------------------------------------- flow
@@ -167,15 +167,15 @@
     elStage.dataset.phase = "idle"; delete elStage.dataset.bake;
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     elBtn.disabled = true; elBtn.className = "btn-main"; elBtn.textContent = "START";
-    elResult.textContent = ""; elTargetBig.textContent = "—"; elTargetLine.textContent = "get ready…"; elSub.textContent = "press start to begin";
+    elResult.textContent = ""; elTargetBig.textContent = "–"; elTargetLine.textContent = "get ready…"; elSub.textContent = "press start to begin";
     updateModePill();
     cardInner.innerHTML =
       '<h2>Stopwatch</h2>' +
       '<p>A hunter pocket watch, fresh off the bench. Tap <b>START</b> to set the sweep hand going, then <b>STOP</b> it dead on the gold mark.</p>' +
       '<div class="modepick">' +
         // (the name in a span of its own: it wears the mode's keycap, see menuKeys below)
-        '<button class="modebtn" data-mode="hidden"><span>🙈 Lid shut</span><small>the lid snaps over the dial — count it blind</small></button>' +
-        '<button class="modebtn" data-mode="visible"><span>👁 Lid open</span><small>watch the sweep hand — react</small></button>' +
+        '<button class="modebtn" data-mode="hidden"><span>🙈 Lid shut</span><small>the lid snaps over the dial: count it blind</small></button>' +
+        '<button class="modebtn" data-mode="visible"><span>👁 Lid open</span><small>watch the sweep hand: react</small></button>' +
       '</div>' +
       '<ul class="rules">' +
         '<li>Each round marks a second from <b>1&ndash;10</b> on the dial.</li>' +
@@ -214,7 +214,7 @@
     runBest = best; busted = false;
     setHud(); renderBudget(); updateModePill(); elResult.textContent = "";
     ovCard.classList.remove("show");
-    nextRound(); // no countdown — the player starts each round themselves
+    nextRound(); // no countdown: the player starts each round themselves
   }
 
   function nextRound() {
@@ -253,7 +253,7 @@
     } else {
       elTargetLine.textContent = "counting… stop at";
       elTargetBig.innerHTML = target + '<small>s</small>';
-      elSub.textContent = "the lid is shut — trust your timing";
+      elSub.textContent = "the lid is shut: trust your timing";
     }
     Sound.start();
   }
@@ -275,7 +275,7 @@
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     state = "result"; busy = true;
     setHand(elapsed);
-    elBtn.className = "btn-main"; elBtn.disabled = true; elBtn.textContent = "—";
+    elBtn.className = "btn-main"; elBtn.disabled = true; elBtn.textContent = "–";
     elTargetLine.textContent = "target was"; elTargetBig.innerHTML = target + '<small>s</small>';
     Sound.stop();
 
@@ -346,7 +346,7 @@
       '<p>' + (record ? "🏆 new best!" : "best " + best) + '</p>' +
       '<div class="bust">' +
         'Round ' + info.round + ' · mark at <b>' + info.target + 's</b><br>' +
-        'you stopped the hand at <b>' + fmt(info.elapsed) + 's</b> — off by <b>' + fmt(info.error) + 's</b><br>' +
+        'you stopped the hand at <b>' + fmt(info.elapsed) + 's</b>: off by <b>' + fmt(info.error) + 's</b><br>' +
         'drift would be ' + fmt(info.projected) + 's (past the 1.000s tolerance)' +
       '</div>' +
       '<button class="btn" id="btn-again">Wind it again</button>' +

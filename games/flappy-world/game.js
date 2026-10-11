@@ -1,7 +1,7 @@
 // ============================================================
 // CONSTANTS
 // ============================================================
-// Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+// Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
 const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
 // Bests and the lives mode go through the shell's guarded storage: a browser
 // that blocks storage, or has no room left, must not stop the game
@@ -26,7 +26,7 @@ function clamp(v, lo, hi) { return Math.min(Math.max(v, lo), hi); }
 function lerp(a, b, t) { return a + (b - a) * t; }
 
 // ============================================================
-// ART — a cartoon Mario-world look. Scenery is painted once onto
+// ART: a cartoon Mario-world look. Scenery is painted once onto
 // offscreen canvases and stamped each frame; the same pictures also
 // dress the page around the canvas, so wide screens show more world
 // instead of black bars.
@@ -326,7 +326,7 @@ class Bird {
     this.flapTime = 0;
   }
 
-  // Used on the start / game-over screen — bird hovers in place with a gentle bob
+  // Used on the start / game-over screen: bird hovers in place with a gentle bob
   // pos: {x, y} optional override of hover position
   idle(dt, t, pos) {
     this.vy = 0;
@@ -654,7 +654,7 @@ class MovingPipe extends BasePipe {
     this.baseGapY = gapY;
     this.time = 0;
     this.freq = 0.9 + Math.random() * 1.2;        // 0.9 - 2.1 rad/s
-    // Cap the swing so it never hits a world boundary — the raw sine then
+    // Cap the swing so it never hits a world boundary: the raw sine then
     // gives perfect ease-in / ease-out at the top and bottom of each cycle.
     const minGapY = gapH / 2 + 40;
     const maxGapY = CANVAS_H - gapH / 2 - 80;
@@ -666,7 +666,7 @@ class MovingPipe extends BasePipe {
   update(dt, speed) {
     super.update(dt, speed);
     this.time += dt;
-    // No clamp — amplitude is already bounded, so sin() eases naturally at extremes
+    // No clamp: amplitude is already bounded, so sin() eases naturally at extremes
     this.gapY = this.baseGapY + Math.sin(this.time * this.freq + this.phase) * this.amplitude;
   }
 
@@ -860,7 +860,7 @@ function shiftPipeT(pipeX, birdX) {
 }
 
 // ============================================================
-// NARROW-ENTRY PIPE — gap is narrower when the bird approaches and wider
+// NARROW-ENTRY PIPE: gap is narrower when the bird approaches and wider
 // after the bird has passed (transition tied to bird position).
 // ============================================================
 class NarrowEntryPipe extends BasePipe {
@@ -893,7 +893,7 @@ class NarrowEntryPipe extends BasePipe {
 }
 
 // ============================================================
-// NARROW-EXIT PIPE — gap is wider when the bird approaches and narrower
+// NARROW-EXIT PIPE: gap is wider when the bird approaches and narrower
 // after the bird has passed (mirror of NarrowEntryPipe).
 // ============================================================
 class NarrowExitPipe extends BasePipe {
@@ -926,7 +926,7 @@ class NarrowExitPipe extends BasePipe {
 }
 
 // ============================================================
-// OPEN PIPE — the pipe physically opens for the bird: top edge moves UP
+// OPEN PIPE, the pipe physically opens for the bird: top edge moves UP
 // and bottom edge moves DOWN over time as the pipe crosses the screen.
 // Gap grows from narrow to wide. Bird arrives mid-transition (gap ~170 px).
 // ============================================================
@@ -950,7 +950,7 @@ class OpenPipe extends BasePipe {
     super.draw(ctx);
     const topH = this.gapY - this.gapH / 2;
     const botY = this.gapY + this.gapH / 2;
-    // Teal accent — actively opening
+    // Teal accent: actively opening
     ctx.fillStyle = '#00897B';
     ctx.fillRect(this.x - 8, topH - 22, PIPE_W + 16, 4);
     ctx.fillRect(this.x - 8, botY + 18, PIPE_W + 16, 4);
@@ -965,7 +965,7 @@ class OpenPipe extends BasePipe {
 }
 
 // ============================================================
-// CLOSE PIPE — the pipe physically closes on the bird: top edge moves DOWN
+// CLOSE PIPE, the pipe physically closes on the bird: top edge moves DOWN
 // and bottom edge moves UP over time. Gap shrinks from wide to narrow.
 // Bird arrives mid-transition (gap ~135 px).
 // ============================================================
@@ -989,7 +989,7 @@ class ClosePipe extends BasePipe {
     super.draw(ctx);
     const topH = this.gapY - this.gapH / 2;
     const botY = this.gapY + this.gapH / 2;
-    // Deep orange accent — actively closing
+    // Deep orange accent: actively closing
     ctx.fillStyle = '#E65100';
     ctx.fillRect(this.x - 8, topH - 22, PIPE_W + 16, 4);
     ctx.fillRect(this.x - 8, botY + 18, PIPE_W + 16, 4);
@@ -1119,14 +1119,14 @@ class PipeManager {
       else               pipe = new BlinkPipe(pipeX, gapY, gapH);
     }
 
-    // No back-to-back horizontal pipes — they oscillate left/right and would collide
+    // No back-to-back horizontal pipes: they oscillate left/right and would collide
     const prev = this.pipes[this.pipes.length - 1];
     if (pipe instanceof HorizPipe && prev instanceof HorizPipe) {
       pipe = new BasePipe(pipeX, gapY, gapH);
     }
 
     // Attach a piranha plant to ~half of pipes once unlocked.
-    // Skip on pipe types whose gap size morphs — the plant would slide weirdly.
+    // Skip on pipe types whose gap size morphs: the plant would slide weirdly.
     const piranhaIneligible = pipe instanceof SeqPipe
       || pipe instanceof NarrowEntryPipe
       || pipe instanceof NarrowExitPipe
@@ -1328,7 +1328,7 @@ class HammerBro {
   }
 
   getHitboxes() {
-    // Hammers are tracked by EnemyManager — only the Bro's body hitbox here
+    // Hammers are tracked by EnemyManager: only the Bro's body hitbox here
     return [{ x: this.x - 18, y: this.y - 42, w: 36, h: 62 }];
   }
 
@@ -1527,14 +1527,14 @@ class PiranhaPlant {
     const dist = this.x - birdX;
 
     if (this.state === 'waiting') {
-      // Bird is approaching — start emerging once within warning range
+      // Bird is approaching: start emerging once within warning range
       if (dist < 360 && dist > -20) {
         this.state = 'emerging';
         this.timer = 0;
       }
     } else if (this.state === 'emerging') {
       this.timer += dt;
-      // ~0.9s slow telegraph emergence — bird sees it rise before reaching the pipe
+      // ~0.9s slow telegraph emergence: bird sees it rise before reaching the pipe
       this.extension = Math.min(1, this.timer / 0.9);
       if (this.extension >= 1) {
         this.state = 'extended';
@@ -1938,7 +1938,7 @@ class EnemyManager {
       }
     }
 
-    // HammerBro (score >= 15) — stands on the ground, throws hammers upward
+    // HammerBro (score >= 15): stands on the ground, throws hammers upward
     if (s >= 15) {
       this.brosTimer -= dt;
       if (this.brosTimer <= 0) {
@@ -2099,7 +2099,7 @@ class Game {
       if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       if (e.code === 'Space' || e.code === 'ArrowUp') {
         e.preventDefault();
-        if (e.repeat) return; // one flap per physical press — no hold-to-hover
+        if (e.repeat) return; // one flap per physical press: no hold-to-hover
         this.handleInput();
       }
       if (e.repeat) return;
@@ -2314,7 +2314,7 @@ class Game {
       }
     }
 
-    // Collision check — respects invincibility frames
+    // Collision check: respects invincibility frames
     if (this.invincibleTime <= 0 && this.checkCollisions()) {
       this.hit();
     }
@@ -2326,7 +2326,7 @@ class Game {
       this.die();
       return;
     }
-    // i-frames roughly equal to one pipe spacing — long enough not to chain-hit,
+    // i-frames roughly equal to one pipe spacing: long enough not to chain-hit,
     // short enough that the player can't phase through everything.
     this.invincibleTime = Math.max(0.9, (1800 - this.score * 18) / 1000);
     this.particles.addBurst(this.bird.x, this.bird.y, '#FFB300', 10);
@@ -2477,7 +2477,7 @@ class Game {
 
     card(ctx, 50, 288, 380, 250);
 
-    // High score badge — shows the active mode's best
+    // High score badge: shows the active mode's best
     rrect(ctx, 95, 303, 290, 40, 20);
     ctx.fillStyle = '#fff3c4';
     ctx.fill();
@@ -2658,16 +2658,16 @@ class Game {
     // Entries: [color swatch, name, description]
     const entries = [
       ['#4CAF50',     'Pipe',            'Standard green pipe. Fly through the gap.'],
-      ['#FFD600',     'Moving Pipe',     'Gap drifts up and down — time your dive.'],
+      ['#FFD600',     'Moving Pipe',     'Gap drifts up and down: time your dive.'],
       ['#FF6D00',     'Sliding Pipe',    'Whole pipe slides left and right.'],
       ['#00BCD4',     'Narrow-Entry',    'Tight gap on entry, opens wider after.'],
       ['#E91E63',     'Narrow-Exit',     'Wide on entry, pinches tight after.'],
-      ['#00897B',     'Open Pipe',       'Edges spread apart — gap opens as it crosses.'],
-      ['#E65100',     'Close Pipe',      'Edges close together — gap shrinks as it crosses.'],
-      ['#7B1FA2',     'Sequential',      'Two stacked gaps — pick a path. Worth 2.'],
+      ['#00897B',     'Open Pipe',       'Edges spread apart: gap opens as it crosses.'],
+      ['#E65100',     'Close Pipe',      'Edges close together: gap shrinks as it crosses.'],
+      ['#7B1FA2',     'Sequential',      'Two stacked gaps: pick a path. Worth 2.'],
       ['rgba(180,180,180,0.6)', 'Blinking', 'Fades in and out. Pass during the gaps.'],
       ['#E53935',     'Piranha Plant',  'Rises from a pipe before you arrive.'],
-      ['#212121',     'Bullet Bill',    'Fast horizontal missile — no escape.'],
+      ['#212121',     'Bullet Bill',    'Fast horizontal missile: no escape.'],
       ['#66BB6A',     'Flying Koopa',   'Zig-zags through the air on a sine path.'],
       ['#f5d24a',     'Hammer Bro',     'Bobs in place, throws arcing hammers.'],
       ['#FAFAFA',     'Lakitu',         'Rides a cloud and drops Spinies.'],
@@ -2775,7 +2775,7 @@ class Game {
         osc.start();
         osc.stop(ctx.currentTime + 0.25);
       } else if (type === 'bill') {
-        // Low menacing whoosh — Bullet Bill entering the screen
+        // Low menacing whoosh: Bullet Bill entering the screen
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(220, ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.5);
@@ -2784,7 +2784,7 @@ class Game {
         osc.start();
         osc.stop(ctx.currentTime + 0.55);
       } else if (type === 'throw') {
-        // Quick high swoosh — Hammer Bro throwing
+        // Quick high swoosh: Hammer Bro throwing
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(900, ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(380, ctx.currentTime + 0.12);
@@ -2793,7 +2793,7 @@ class Game {
         osc.start();
         osc.stop(ctx.currentTime + 0.14);
       } else if (type === 'drop') {
-        // Descending tone — Lakitu dropping a Spiny
+        // Descending tone: Lakitu dropping a Spiny
         osc.type = 'square';
         osc.frequency.setValueAtTime(360, ctx.currentTime);
         osc.frequency.exponentialRampToValueAtTime(110, ctx.currentTime + 0.28);
@@ -2813,7 +2813,7 @@ class Game {
 // ============================================================
 const game = new Game();
 
-// Tabbing away mid-flight used to end the run. Pause only — returning focus
+// Tabbing away mid-flight used to end the run. Pause only: returning focus
 // must not un-pause a run the player paused on purpose.
 if (window.GameShell) {
   GameShell.onAutoPause(() => {

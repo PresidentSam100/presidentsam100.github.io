@@ -1,5 +1,5 @@
 /* =====================================================================
-   Lights Out — the picture house's marquee. Each cell of the board is a
+   Lights Out: the picture house's marquee. Each cell of the board is a
    big sign bulb built here as inline SVG: a chromed socket with a
    reflector dish, and its glass globe drawn twice, dark (smoked glass, a
    cold filament) and lit (white-hot centre, amber rim). game.js fades the

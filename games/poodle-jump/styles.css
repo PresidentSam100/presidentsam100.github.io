@@ -33,7 +33,7 @@ html, body {
     -3px 4px 0 #d9d2bd, 3px 6px 0 #d9d2bd,
     6px 18px 30px rgba(40, 20, 5, 0.5);
   /* Width is derived from height by aspect-ratio, so height has to be capped
-     by the viewport WIDTH too — otherwise a 390px phone got a 400px board and
+     by the viewport WIDTH too: otherwise a 390px phone got a 400px board and
      the page scrolled sideways. The 1.5rem allows for body padding. */
   height: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400));
   aspect-ratio: 400 / 600;

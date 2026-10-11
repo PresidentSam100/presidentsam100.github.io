@@ -1,6 +1,6 @@
 /* ======================= js/utils.js ======================= */
 /* ===========================================================================
- * utils.js — global constants, math helpers, and the spline Path system.
+ * utils.js: global constants, math helpers, and the spline Path system.
  * Plain script (no modules) so everything here is global by design.
  * =========================================================================*/
 
@@ -169,7 +169,7 @@ function slotPosition(col, row, time) {
 
 /* ======================= js/audio.js ======================= */
 /* ===========================================================================
- * audio.js — tiny procedural sound effects via the Web Audio API.
+ * audio.js: tiny procedural sound effects via the Web Audio API.
  * No asset files needed; everything is synthesised on the fly.
  * =========================================================================*/
 
@@ -196,7 +196,7 @@ const Sound = {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
   },
 
-  // (No toggleMute here — muting is global, via the shared mute-toggle.js
+  // (No toggleMute here: muting is global, via the shared mute-toggle.js
   //  speaker button, which routes every AudioContext through a master gain.)
 
   // Core voice: a tone that sweeps from f0 to f1 over `dur` seconds.
@@ -250,7 +250,7 @@ const Sound = {
 
 /* ======================= js/sprites.js ======================= */
 /* ===========================================================================
- * sprites.js — pixel-art sprites rendered once to offscreen canvases.
+ * sprites.js: pixel-art sprites rendered once to offscreen canvases.
  * Each sprite is a grid of single-char cells mapped to colours by a palette.
  * Drawing later with imageSmoothingEnabled=false gives crisp upscaling.
  * =========================================================================*/
@@ -606,7 +606,7 @@ function spriteFrame(set) {
 
 /* ======================= js/entities.js ======================= */
 /* ===========================================================================
- * entities.js — Player, Enemy, projectiles, explosions, starfield.
+ * entities.js: Player, Enemy, projectiles, explosions, starfield.
  * The Enemy class contains the main behaviour state machine:
  *   enter -> toSlot -> formation -> (dive | beam) -> return -> formation
  * =========================================================================*/
@@ -1362,7 +1362,7 @@ class Enemy {
 
 /* ======================= js/game.js ======================= */
 /* ===========================================================================
- * game.js — the Game controller: state machine, spawning, AI scheduling,
+ * game.js, the Game controller: state machine, spawning, AI scheduling,
  * capture/rescue, bonus stages, scoring, collisions, HUD and the main loop.
  * =========================================================================*/
 

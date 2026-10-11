@@ -1,7 +1,7 @@
 "use strict";
 (function () {
   // =================================================================
-  //  LogicGate — two modes:
+  //  LogicGate, two modes:
   //   • "gates"  : drag logic gates into empty slots to light the bulb.
   //   • "inputs" : the gates are fixed; toggle the 0/1 input switches.
   // =================================================================
@@ -12,8 +12,8 @@
     AND: "1 only if BOTH inputs are 1",
     OR: "1 if EITHER input is 1",
     XOR: "1 if inputs DIFFER",
-    NAND: "NOT AND — 0 only if both are 1",
-    NOR: "NOT OR — 1 only if both are 0",
+    NAND: "NOT AND: 0 only if both are 1",
+    NOR: "NOT OR: 1 only if both are 0",
     XNOR: "1 if inputs are the SAME",
   };
   function applyGate(t, a, b) {
@@ -67,10 +67,10 @@
       hint: "Make both lower gates output 1, then AND them at the top.",
       palette: { XOR: 2, AND: 1 }, tree: S(S(I(1), I(0)), S(I(1), I(0))) },
     { name: "Flip & Combine",
-      hint: "NAND(1,1)=0, NOR(0,0)=1 — then XOR those two.",
+      hint: "NAND(1,1)=0, NOR(0,0)=1, then XOR those two.",
       palette: { NAND: 1, NOR: 1, XOR: 1 }, tree: S(S(I(1), I(1)), S(I(0), I(0))) },
     { name: "Spare Part",
-      hint: "You have one gate too many — leave the decoy out. OR, NOR, then AND.",
+      hint: "You have one gate too many: leave the decoy out. OR, NOR, then AND.",
       palette: { OR: 1, NOR: 1, AND: 1, XNOR: 1 }, tree: S(S(I(1), I(0)), S(I(0), I(0))) },
     { name: "Branching Out",
       hint: "Six inputs, five gates. Solve each pair first, then work toward the root.",
@@ -85,15 +85,15 @@
       palette: { XNOR: 1, XOR: 2, NAND: 1, OR: 1, AND: 2 },
       tree: S(S(S(I(0), I(1)), S(I(1), I(0))), S(S(I(1), I(0)), S(I(0), I(1)))) },
     { name: "Loose End",
-      hint: "Eight inputs, seven slots — but the tray holds eight gates. Solve the circuit, then see which one you didn't need.",
+      hint: "Eight inputs, seven slots, but the tray holds eight gates. Solve the circuit, then see which one you didn't need.",
       palette: { OR: 4, AND: 1, NAND: 1, XNOR: 1, XOR: 1 },
       tree: S(S(S(I(0), I(1)), S(I(1), I(1))), S(S(I(0), I(1)), S(I(1), I(1)))) },
     { name: "Nine Lives",
-      hint: "Nine inputs on a lopsided tree — the left branch is short, the right one runs deep. Solve each side, then combine.",
+      hint: "Nine inputs on a lopsided tree: the left branch is short, the right one runs deep. Solve each side, then combine.",
       palette: { OR: 2, NAND: 1, XOR: 2, XNOR: 1, AND: 2 },
       tree: S(S(S(I(0), I(1)), I(0)), S(S(S(I(0), I(0)), I(0)), S(S(I(0), I(0)), I(0)))) },
     { name: "Tight Fit",
-      hint: "Nine inputs, eight slots, one spare gate. Four levels deep — work from the leaves inward.",
+      hint: "Nine inputs, eight slots, one spare gate. Four levels deep: work from the leaves inward.",
       palette: { OR: 1, XOR: 2, XNOR: 2, NAND: 2, NOR: 1, AND: 1 },
       tree: S(S(S(S(I(1), I(1)), I(0)), S(I(1), I(0))), S(S(I(1), I(0)), S(I(0), I(0)))) },
     { name: "Ten Strong",
@@ -105,7 +105,7 @@
       palette: { OR: 2, XOR: 2, XNOR: 2, NAND: 1, AND: 2, NOR: 1 },
       tree: S(S(S(I(0), I(1)), S(I(1), I(0))), S(S(S(I(1), I(0)), I(1)), S(S(I(0), I(0)), I(1)))) },
     { name: "Eleven Up",
-      hint: "Eleven inputs, no spares, lopsided again. The short branch settles fast — spend your effort on the long one.",
+      hint: "Eleven inputs, no spares, lopsided again. The short branch settles fast: spend your effort on the long one.",
       palette: { XNOR: 2, OR: 3, NOR: 1, NAND: 1, AND: 2, XOR: 1 },
       tree: S(S(S(I(1), I(1)), S(I(1), I(0))), S(S(S(I(0), I(0)), S(I(0), I(1))), S(S(I(0), I(1)), I(0)))) },
     { name: "Crowded Tray",
@@ -113,7 +113,7 @@
       palette: { OR: 3, XNOR: 2, NAND: 3, AND: 2, XOR: 1, NOR: 1 },
       tree: S(S(S(S(I(0), I(1)), I(1)), S(S(I(0), I(0)), I(0))), S(S(S(I(1), I(0)), I(1)), S(I(0), I(1)))) },
     { name: "Twelve Points",
-      hint: "Twelve inputs, no spares — the biggest balanced tree yet. Bottom-up, one pair at a time.",
+      hint: "Twelve inputs, no spares: the biggest balanced tree yet. Bottom-up, one pair at a time.",
       palette: { XNOR: 3, OR: 2, XOR: 3, NAND: 1, AND: 2 },
       tree: S(S(S(S(I(1), I(1)), I(1)), S(S(I(0), I(0)), I(0))), S(S(S(I(0), I(0)), I(0)), S(S(I(1), I(0)), I(1)))) },
     { name: "Dozen Plus One",
@@ -121,30 +121,30 @@
       palette: { AND: 4, XOR: 1, OR: 3, NAND: 2, NOR: 1, XNOR: 1 },
       tree: S(S(S(I(1), I(1)), S(I(0), I(1))), S(S(S(I(1), I(1)), S(I(0), I(1))), S(S(I(1), I(0)), S(I(0), I(0))))) },
     { name: "Master Circuit",
-      hint: "Fourteen inputs, thirteen slots, no spares — the biggest circuit yet. Every gate type is in play; work in from the leaves.",
+      hint: "Fourteen inputs, thirteen slots, no spares: the biggest circuit yet. Every gate type is in play; work in from the leaves.",
       palette: { XOR: 2, NAND: 1, AND: 3, NOR: 2, OR: 3, XNOR: 2 },
       tree: S(S(S(S(I(0), I(1)), S(I(1), I(0))), S(S(I(0), I(0)), I(0))), S(S(S(I(1), I(1)), S(I(1), I(0))), S(S(I(0), I(0)), I(1)))) },
     { name: "NAND Land",
-      hint: "Three NANDs do all the work — the AND is bait. NAND is 0 only when both inputs are 1.",
+      hint: "Three NANDs do all the work: the AND is bait. NAND is 0 only when both inputs are 1.",
       palette: { NAND: 3, AND: 1 }, tree: S(S(I(1), I(1)), S(I(0), I(1))) },
     { name: "Parity Check",
-      hint: "Only XOR and XNOR — pure parity, with one spare. Track whether each branch keeps or flips the signal.",
+      hint: "Only XOR and XNOR: pure parity, with one spare. Track whether each branch keeps or flips the signal.",
       palette: { XOR: 3, XNOR: 2 }, tree: S(S(I(1), I(0)), S(S(I(0), I(0)), I(1))) },
     { name: "Decoy Parade",
-      hint: "Three slots, seven gates — most of the tray is bait. Solve the circuit on paper first.",
+      hint: "Three slots, seven gates: most of the tray is bait. Solve the circuit on paper first.",
       palette: { AND: 2, NOR: 2, XOR: 1, OR: 1, XNOR: 1 }, tree: S(S(I(0), I(1)), S(I(1), I(1))) },
     { name: "Long Ladder",
-      hint: "One skinny chain, four rungs deep. Each gate feeds the next — start at the bottom.",
+      hint: "One skinny chain, four rungs deep. Each gate feeds the next: start at the bottom.",
       palette: { OR: 1, NOR: 1, AND: 1, XNOR: 1 }, tree: S(S(S(S(I(1), I(0)), I(0)), I(1)), I(1)) },
     { name: "Twin Ladders",
       hint: "Two chains meet at the root, with two spare gates in the tray. Climb each chain from its deepest gate.",
       palette: { NOR: 2, OR: 2, AND: 2, XOR: 1 }, tree: S(S(S(I(0), I(0)), I(1)), S(S(I(1), I(1)), I(0))) },
     { name: "Mirror Trap",
-      hint: "The two halves look identical — but their inputs differ. Don't mirror your gates blindly.",
+      hint: "The two halves look identical, but their inputs differ. Don't mirror your gates blindly.",
       palette: { AND: 2, NOR: 2, XOR: 2, OR: 1 },
       tree: S(S(S(I(1), I(1)), S(I(0), I(0))), S(S(I(1), I(0)), S(I(0), I(0)))) },
     { name: "All Sixes",
-      hint: "Every gate type appears exactly once — six slots, six gates, no repeats and no spares.",
+      hint: "Every gate type appears exactly once: six slots, six gates, no repeats and no spares.",
       palette: { AND: 1, OR: 1, XOR: 1, NAND: 1, NOR: 1, XNOR: 1 },
       tree: S(S(S(I(1), I(0)), I(1)), S(S(I(0), I(0)), S(I(1), I(1)))) },
     { name: "Heavy Right",
@@ -163,7 +163,7 @@
       palette: { NAND: 3, AND: 2, NOR: 1, OR: 1 },
       tree: S(S(S(I(1), I(1)), S(I(1), I(1))), S(S(I(1), I(1)), S(I(1), I(1)))) },
     { name: "Checkerboard",
-      hint: "Inputs alternate 1,0,1,0… — a parade of differing pairs. This is XOR country.",
+      hint: "Inputs alternate 1,0,1,0… a parade of differing pairs. This is XOR country.",
       palette: { XOR: 4, AND: 2, OR: 1 },
       tree: S(S(S(I(1), I(0)), S(I(1), I(0))), S(S(I(1), I(0)), S(I(1), I(0)))) },
     { name: "Crowd Control",
@@ -175,11 +175,11 @@
       palette: { OR: 3, XOR: 2, XNOR: 2, AND: 2, NAND: 2, NOR: 1 },
       tree: S(S(S(S(I(1), I(0)), S(I(0), I(0))), S(S(I(1), I(1)), I(0))), S(S(S(I(0), I(1)), I(1)), S(S(I(0), I(0)), I(1)))) },
     { name: "Spare Pair",
-      hint: "Thirteen inputs and two spare gates. The decoys are convincing — trust your trace, not the tray.",
+      hint: "Thirteen inputs and two spare gates. The decoys are convincing: trust your trace, not the tray.",
       palette: { AND: 3, OR: 3, NAND: 2, XNOR: 2, XOR: 3, NOR: 1 },
       tree: S(S(S(I(1), I(1)), S(I(0), I(1))), S(S(S(I(0), I(0)), S(I(1), I(0))), S(S(I(1), I(0)), S(S(I(0), I(1)), I(0))))) },
     { name: "Pyramid Scheme",
-      hint: "A perfect three-level pyramid — eight inputs, seven slots. Symmetric shape, asymmetric answer.",
+      hint: "A perfect three-level pyramid: eight inputs, seven slots. Symmetric shape, asymmetric answer.",
       palette: { NOR: 2, XOR: 2, AND: 1, OR: 1, NAND: 1 },
       tree: S(S(S(I(0), I(0)), S(I(1), I(1))), S(S(I(0), I(1)), S(I(0), I(0)))) },
     { name: "The Long Way",
@@ -187,15 +187,15 @@
       palette: { OR: 2, NAND: 2, AND: 2, NOR: 1, XNOR: 1 },
       tree: S(S(S(S(S(I(0), I(1)), I(0)), I(1)), S(I(0), I(0))), S(I(1), I(1))) },
     { name: "Fourteen Forks",
-      hint: "Fourteen inputs across every kind of junction. No spares — inventory is destiny.",
+      hint: "Fourteen inputs across every kind of junction. No spares: inventory is destiny.",
       palette: { OR: 4, AND: 3, XOR: 2, NAND: 2, XNOR: 1, NOR: 1 },
       tree: S(S(S(S(I(0), I(1)), S(I(1), I(1))), S(S(I(0), I(0)), I(1))), S(S(S(I(1), I(0)), I(0)), S(S(I(0), I(1)), S(I(1), I(0))))) },
     { name: "Almost There",
-      hint: "Fifteen inputs on a crooked tree, one decoy. The biggest tree is next door — earn it.",
+      hint: "Fifteen inputs on a crooked tree, one decoy. The biggest tree is next door: earn it.",
       palette: { OR: 3, AND: 3, NAND: 3, XOR: 2, XNOR: 2, NOR: 2 },
       tree: S(S(S(S(I(1), I(0)), I(1)), S(S(I(0), I(0)), S(I(1), I(1)))), S(S(S(I(0), I(1)), S(I(0), I(0))), S(S(S(I(1), I(0)), I(0)), I(1)))) },
     { name: "The Gauntlet",
-      hint: "Sixteen inputs, fifteen slots, two decoys — the last and biggest tree before the splits. Take your time; the bulb can wait.",
+      hint: "Sixteen inputs, fifteen slots, two decoys: the last and biggest tree before the splits. Take your time; the bulb can wait.",
       palette: { OR: 4, AND: 3, NAND: 3, XOR: 3, XNOR: 2, NOR: 2 },
       tree: S(S(S(S(I(1), I(0)), S(I(0), I(0))), S(S(I(1), I(1)), S(I(0), I(1)))), S(S(S(I(0), I(0)), S(I(1), I(0))), S(S(I(0), I(1)), S(I(1), I(1))))) },
   ];
@@ -224,7 +224,7 @@
       hint: "Trace backwards from the bulb: what does each gate need from its pair?",
       tree: G("AND", G("NAND", I(0), I(0)), G("XOR", I(0), I(0))) },
     { name: "Balance Test",
-      hint: "XNOR lights when its two inputs match — make the NAND and the OR agree.",
+      hint: "XNOR lights when its two inputs match: make the NAND and the OR agree.",
       tree: G("XNOR", G("NAND", I(0), I(0)), G("OR", I(0), I(0))) },
     { name: "Crossroads",
       hint: "Root AND needs both halves: light the OR branch and match the XNOR pair.",
@@ -242,7 +242,7 @@
         G("AND", G("XNOR", I(0), I(0)), G("XNOR", I(0), I(0))),
         G("NOR", G("XOR", I(0), I(0)), G("OR", I(0), I(0)))) },
     { name: "Off Balance",
-      hint: "Nine switches on a lopsided tree — one branch is short, the other runs deep. Solve the short one first.",
+      hint: "Nine switches on a lopsided tree: one branch is short, the other runs deep. Solve the short one first.",
       tree: G("XNOR",
         G("NAND", G("XOR", I(0), I(0)), I(0)),
         G("NOR",
@@ -261,7 +261,7 @@
           G("NOR", G("OR", I(0), I(0)), I(0)),
           G("XNOR", G("OR", I(0), I(0)), I(0)))) },
     { name: "Eleven Deep",
-      hint: "Eleven switches, four levels deep on both sides. Patience — work from the deepest gates outward.",
+      hint: "Eleven switches, four levels deep on both sides. Patience: work from the deepest gates outward.",
       tree: G("AND",
         G("XNOR", G("XNOR", G("XOR", I(0), I(0)), I(0)), G("NOR", G("XOR", I(0), I(0)), I(0))),
         G("AND", G("XNOR", G("XOR", I(0), I(0)), I(0)), G("OR", I(0), I(0)))) },
@@ -285,7 +285,7 @@
           G("XOR", G("XOR", I(0), I(0)), G("AND", I(0), I(0))),
           G("NAND", G("XNOR", I(0), I(0)), G("NOR", I(0), I(0))))) },
     { name: "Fourteen Threads",
-      hint: "Fourteen switches, deep on both sides. Take it one small gate at a time — there's no shortcut.",
+      hint: "Fourteen switches, deep on both sides. Take it one small gate at a time: there's no shortcut.",
       tree: G("NOR",
         G("XOR",
           G("XNOR", G("NAND", I(0), I(0)), G("NOR", I(0), I(0))),
@@ -294,29 +294,29 @@
           G("NAND", G("XOR", I(0), I(0)), G("NAND", I(0), I(0))),
           G("AND", G("XNOR", I(0), I(0)), I(0)))) },
     { name: "Grand Grid",
-      hint: "Fourteen switches, five levels deep — the toughest board yet. Work outward from the deepest gate.",
+      hint: "Fourteen switches, five levels deep: the toughest board yet. Work outward from the deepest gate.",
       tree: G("NOR",
         G("OR", G("NAND", G("OR", I(0), I(0)), I(0)), G("NAND", I(0), I(0))),
         G("XOR",
           G("NAND", G("NOR", G("NOR", I(0), I(0)), I(0)), G("AND", I(0), I(0))),
           G("XNOR", G("XOR", I(0), I(0)), G("NAND", I(0), I(0))))) },
     { name: "Fresh Start",
-      hint: "Five switches, three gates — a breather after that grid. Work back from the bulb.",
+      hint: "Five switches, three gates: a breather after that grid. Work back from the bulb.",
       tree: G("AND", G("XOR", I(0), I(0)), G("NOR", I(0), G("OR", I(0), I(0)))) },
     { name: "Down the Well",
       hint: "A single chain, five gates deep. Decide the bottom pair, then ride the signal up.",
       tree: G("NOR", G("NAND", G("OR", G("AND", G("XOR", I(0), I(0)), I(0)), I(0)), I(0)), I(0)) },
     { name: "Odd Ones In",
-      hint: "All XORs — pure parity. The bulb lights only if an ODD number of switches are 1.",
+      hint: "All XORs: pure parity. The bulb lights only if an ODD number of switches are 1.",
       tree: G("XOR", G("XOR", G("XOR", I(0), I(0)), G("XOR", I(0), I(0))), G("XOR", I(0), I(0))) },
     { name: "NAND Cascade",
       hint: "All NANDs. Remember: a NAND is 0 only when both of its feeders are 1.",
       tree: G("NAND", G("NAND", G("NAND", I(0), I(0)), I(0)), G("NAND", I(0), G("NAND", I(0), I(0)))) },
     { name: "Silent Circuit",
-      hint: "All NORs. Zeros are loud here — a single 1 silences any gate it touches.",
+      hint: "All NORs. Zeros are loud here: a single 1 silences any gate it touches.",
       tree: G("NOR", G("NOR", G("NOR", I(0), I(0)), G("NOR", I(0), I(0))), G("NOR", G("NOR", I(0), I(0)), I(0))) },
     { name: "Split Decision",
-      hint: "Nine switches. The root XOR wants exactly one live branch — pick which, and commit.",
+      hint: "Nine switches. The root XOR wants exactly one live branch: pick which, and commit.",
       tree: G("XOR",
         G("AND", G("OR", I(0), I(0)), G("NAND", I(0), I(0))),
         G("NOR", G("XNOR", I(0), I(0)), G("OR", I(0), G("AND", I(0), I(0))))) },
@@ -331,7 +331,7 @@
         G("OR", G("NAND", G("AND", I(0), I(0)), I(0)), G("NOR", I(0), I(0))),
         G("NAND", G("XNOR", I(0), G("XOR", I(0), I(0))), G("OR", I(0), I(0)))) },
     { name: "Duelling Chains",
-      hint: "Two deep chains under one root NOR — both chains must end dark.",
+      hint: "Two deep chains under one root NOR: both chains must end dark.",
       tree: G("NOR",
         G("NAND", G("OR", G("XOR", I(0), I(0)), I(0)), I(0)),
         G("AND", G("NOR", G("XNOR", I(0), I(0)), I(0)), I(0))) },
@@ -341,17 +341,17 @@
         G("AND", G("XOR", I(0), I(0)), G("OR", I(0), G("NOR", I(0), I(0)))),
         G("XNOR", G("NOR", I(0), G("AND", I(0), I(0))), G("OR", I(0), G("NAND", I(0), I(0))))) },
     { name: "Even Steven",
-      hint: "An XNOR tower — parity again, but this time it must come out EVEN all the way up.",
+      hint: "An XNOR tower: parity again, but this time it must come out EVEN all the way up.",
       tree: G("XNOR",
         G("XNOR", G("XNOR", I(0), I(0)), I(0)),
         G("XNOR", G("XNOR", I(0), I(0)), G("XNOR", I(0), I(0)))) },
     { name: "Gatekeeper's Dozen",
-      hint: "Twelve switches. Both halves of the root AND must light — no shortcuts here.",
+      hint: "Twelve switches. Both halves of the root AND must light: no shortcuts here.",
       tree: G("AND",
         G("NOR", G("OR", G("XOR", I(0), I(0)), I(0)), G("AND", I(0), G("XNOR", I(0), I(0)))),
         G("NAND", G("NAND", I(0), G("OR", I(0), I(0))), G("NOR", I(0), G("AND", I(0), I(0))))) },
     { name: "Flip Factory",
-      hint: "NANDs and NORs everywhere — every level inverts. Count your flips carefully.",
+      hint: "NANDs and NORs everywhere: every level inverts. Count your flips carefully.",
       tree: G("NOR",
         G("NAND", G("NOR", I(0), G("NAND", I(0), I(0))), G("NAND", I(0), I(0))),
         G("NOR", G("NAND", I(0), I(0)), G("NOR", I(0), I(0)))) },
@@ -361,7 +361,7 @@
         G("AND", G("OR", G("NAND", G("AND", I(0), I(0)), I(0)), I(0)), G("NOR", I(0), G("OR", I(0), I(0)))),
         G("OR", G("XNOR", G("XOR", I(0), I(0)), I(0)), G("AND", I(0), G("OR", I(0), I(0))))) },
     { name: "Corner Cases",
-      hint: "Fourteen switches. Some gates are already forced by the root — find them first.",
+      hint: "Fourteen switches. Some gates are already forced by the root: find them first.",
       tree: G("NOR",
         G("XOR", G("XNOR", G("NAND", I(0), I(0)), G("NOR", I(0), I(0))), G("NAND", G("OR", I(0), I(0)), I(0))),
         G("NAND", G("NAND", G("XOR", I(0), I(0)), G("NAND", I(0), I(0))), G("AND", G("XNOR", I(0), I(0)), I(0)))) },
@@ -381,12 +381,12 @@
         G("NAND", G("XOR", G("OR", I(0), I(0)), G("AND", I(0), I(0))), G("NOR", I(0), G("XNOR", I(0), I(0)))),
         G("OR", G("AND", G("NOR", I(0), I(0)), G("OR", I(0), I(0))), G("XOR", G("NAND", I(0), I(0)), G("OR", I(0), I(0))))) },
     { name: "Night Shift",
-      hint: "Sixteen switches. Half this board can stay dark — figure out which half, then finish it.",
+      hint: "Sixteen switches. Half this board can stay dark: figure out which half, then finish it.",
       tree: G("OR",
         G("AND", G("NOR", G("XOR", I(0), I(0)), G("AND", I(0), I(0))), G("XNOR", G("OR", I(0), I(0)), G("NAND", I(0), I(0)))),
         G("NOR", G("OR", G("AND", I(0), I(0)), G("NOR", I(0), I(0))), G("NAND", G("XNOR", I(0), I(0)), G("XOR", I(0), I(0))))) },
     { name: "Circuit Overlord",
-      hint: "Sixteen switches, five levels deep — the last and biggest tree before the splits. The bulb believes in you.",
+      hint: "Sixteen switches, five levels deep: the last and biggest tree before the splits. The bulb believes in you.",
       tree: G("AND",
         G("AND", G("OR", G("NAND", G("XOR", I(0), I(0)), I(0)), G("NOR", I(0), I(0))), G("XNOR", G("AND", I(0), I(0)), I(0))),
         G("NOR", G("XOR", G("OR", I(0), I(0)), G("NAND", I(0), G("AND", I(0), I(0)))), G("NOR", G("XNOR", I(0), I(0)), I(0)))) },
@@ -492,7 +492,7 @@
     renderPalette();
     renderDots();
     document.getElementById("levelName").textContent =
-      "Level " + (levelIndex + 1) + " — " + lv.name;
+      "Level " + (levelIndex + 1) + ": " + lv.name;
     hideWin();
     freshSig = boardSig();
   }
@@ -935,15 +935,15 @@
       return;
     }
     if ((checked || solved) && out === 1) {
-      status.textContent = "✓ Circuit complete — the bulb is lit!";
+      status.textContent = "✓ Circuit complete: the bulb is lit!";
       status.className = "win";
       if (!solved) onSolved();
     } else if (checked && complete) {
-      status.textContent = "✗ The bulb stayed dark — change something and check again";
+      status.textContent = "✗ The bulb stayed dark: change something and check again";
       status.className = "fail";
     } else if (complete) {
       // (no keyboard on a touch-only device: there it's just the button)
-      status.innerHTML = 'Ready — press ⚡ Check<span class="gs-keys"> (or <kbd class="gs-kbd">Enter</kbd>)</span> to test it';
+      status.innerHTML = 'Ready: press ⚡ Check<span class="gs-keys"> (or <kbd class="gs-kbd">Enter</kbd>)</span> to test it';
       status.className = "ready";
     } else {
       if (mode === "gates") {
@@ -951,7 +951,7 @@
         status.textContent = left + " gate" + (left === 1 ? "" : "s") + " left to place";
       } else {
         var unset = unsetSwitches();
-        status.textContent = unset + " switch" + (unset === 1 ? "" : "es") + " still unset — click to set 0/1";
+        status.textContent = unset + " switch" + (unset === 1 ? "" : "es") + " still unset: click to set 0/1";
       }
       status.className = "";
     }
@@ -1225,7 +1225,7 @@
     }).join("");
     document.getElementById("helpPanel").innerHTML =
       "<h3>How logic gates work</h3>" + legend +
-      '<p class="leg-foot">Build your answer — place every gate, or set every switch ' +
+      '<p class="leg-foot">Build your answer: place every gate, or set every switch ' +
       '(each click cycles blank → 0 → 1 → 0…). Then press <b>⚡ Check</b><span class="gs-keys"> (or <kbd class="gs-kbd">Enter</kbd>)</span> ' +
       "to send the signal through the wires and see if the bulb lights.</p>" +
       '<p class="leg-foot">Where a wire splits at a dot, one signal feeds every gate it reaches: ' +

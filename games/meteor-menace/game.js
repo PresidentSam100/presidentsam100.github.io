@@ -1,4 +1,4 @@
-/* Meteor Menace! — classic rock-blasting, drawn as a pulp sci-fi comic.
+/* Meteor Menace!: classic rock-blasting, drawn as a pulp sci-fi comic.
    Chrome rocket with ink outlines, craggy inked boulders, halftone-dot space,
    and every big kill goes off as a KRAK!/BLAM! starburst panel. */
 (function () {

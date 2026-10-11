@@ -14,7 +14,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const pt = await p.evaluate(() => { const c = document.querySelectorAll(".field .c"); const e = c[Math.floor(c.length / 2)]; e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
     await p.mouse.click(pt.x, pt.y, button ? { button } : undefined); await p.waitForTimeout(200);
   };
-  // [game, path, makeActive(p), before(pg)?] — fresh screen inactive, then active
+  // [game, path, makeActive(p), before(pg)?]: fresh screen inactive, then active
   const guards = [
     ["jam-jar", "jam-jar/", (p) => p.evaluate(() => __game.drop())],
     ["mahjong", "mahjong/", async (p) => { await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(300); await p.evaluate(() => Mahjong.removeOnePair()); }],

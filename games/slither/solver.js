@@ -1,10 +1,10 @@
 /* =====================================================================
-   Slither — Labyrinth level solver. Used by verify.js (Node) and the
+   Slither: Labyrinth level solver. Used by verify.js (Node) and the
    level editor (browser) to prove a level can be finished.
 
    It searches for a route that eats every red apple and reaches an exit.
    Each leg of the search (from one item to the next) is a BFS that models
-   what the rules allow — no reversing, ice, portals and teleporters, doors
+   what the rules allow: no reversing, ice, portals and teleporters, doors
    of each colour and their switches, blink charges, the ghost meter, the
    cutter, spike timing, and the snake's own body clearing out behind it.
    Every partial route is replayed through labyrinth-engine.js itself
@@ -198,7 +198,7 @@
         arrive(cur, n, d, false, false);
         if (cur.gh > 0) arrive(cur, n, d, true, false);
       }
-      // Blink: expand once per resource group — every open cell, same heading.
+      // Blink: expand once per resource group, every open cell, same heading.
       if (cur.tp > 0 && cur.dir >= 0) {
         var g = cur.dir + "," + cur.fl + "," + cur.tp + "," + cur.gh + "," + (cur.step % period) + "," + (cur.cut ? 1 : 0);
         if (!blinkDone.has(g)) {
@@ -269,7 +269,7 @@
 
   // Depth-first over which item to go for next, nearest first. Iterative
   // widening: first only ever the nearest item, then the 2, 3 and finally
-  // all nearest — so the common case is found fast and odd orders still get
+  // all nearest, so the common case is found fast and odd orders still get
   // tried before giving up.
   function solve(level, budget) {
     var ctx = makeCtx(level);
@@ -297,7 +297,7 @@
   }
 
   // How many open cells a head at `from` could still reach (walls, shut doors,
-  // melons, spikes and blocked cells excluded) — the bot's room to breathe.
+  // melons, spikes and blocked cells excluded): the bot's room to breathe.
   function room(st, from, blk, cap) {
     var seen = new Set([from]), q = [from];
     for (var k = 0; k < q.length && seen.size < cap; k++) {
@@ -383,7 +383,7 @@
     }
     var res = solve(level, opts.budget);
     var notes = [];
-    if (!res.ctx.aligned) notes.push("spikeMs is not a multiple of the step time — timing unchecked");
+    if (!res.ctx.aligned) notes.push("spikeMs is not a multiple of the step time: timing unchecked");
     if (!res.best) {
       return { status: "fail", legs: res.legs, reason: "no route" + (res.lastFail ? " (last replay died: " + res.lastFail.why + " at step " + res.lastFail.at + ")" : "") };
     }

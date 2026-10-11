@@ -75,7 +75,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         text: h.innerText.replace(/\s+/g, " ") };
     }, label === "phone");
     check("darkroom, " + label + ": the how-to's keys " + (label === "phone" ? "are hidden" : "show") + ", the rest reads on",
-      how.keys === 10 && how.odd.length === 0 && /switch with the button/.test(how.text) && /fogs the print/.test(how.text) && /Keys:/.test(how.text) === (label !== "phone"), how);
+      how.keys === 10 && how.odd.length === 0 && /switch with the button/i.test(how.text) && /fogs the print/.test(how.text) && /Keys:/.test(how.text) === (label !== "phone"), how);
     await q.close();
     await c2.close();
   }

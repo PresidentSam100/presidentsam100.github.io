@@ -151,7 +151,7 @@ function genVariety(opts) {
   return null;
 }
 
-// Mixed: everything at once — water, electrified yellow, orange poison, ice.
+// Mixed: everything at once, water, electrified yellow, orange poison, ice.
 function genMixed(opts) {
   return genFlavor(Object.assign({ weights: { b: 0.62, o: 0.12, y: 0.1, p: 0.1, u: 0.06 } }, opts));
 }

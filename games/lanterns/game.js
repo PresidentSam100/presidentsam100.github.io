@@ -1,12 +1,12 @@
 /* =====================================================================
-   Lanterns — pinyin typing at the festival.
+   Lanterns: pinyin typing at the festival.
 
    Paper lanterns rise with hanzi on them. Every letter narrows the field
    to the lanterns whose pinyin starts that way; a full match lights the
    most urgent one and it soars, and a wrong letter thuds and breaks your
    streak without being consumed. A full match that's also the start of a
    longer word up there (ni, with nian rising) waits a moment for the next
-   letter; Space lights it at once. Backspace steps back. Type v for ü —
+   letter; Space lights it at once. Backspace steps back. Type v for ü:
    u is accepted too. Three lanterns lost to the dark end the night.
 
    Modes: festival (toneless pinyin) and tone (type the tone numbers,
@@ -828,7 +828,7 @@
   toMenu();
   requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.Lanterns = {
     state: function () { return state; },
     score: function () { return score; },

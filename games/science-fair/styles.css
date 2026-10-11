@@ -1,5 +1,5 @@
 /* =====================================================================
-   Science Fair — a school-project solar system on a corkboard.
+   Science Fair: a school-project solar system on a corkboard.
    Construction-paper planets on visible threads, foil asteroids, a
    notebook-paper menu taped to the board.
    ===================================================================== */
@@ -125,7 +125,7 @@ body::after {
 }
 .hang .tag small { display: block; font-size: 11px; color: var(--pen); margin-top: -3px; }
 
-/* gentle sway on the string — off when reduce-motion is on */
+/* gentle sway on the string: off when reduce-motion is on */
 .fxon .hang.sway { animation: sway var(--swaydur, 5s) ease-in-out infinite alternate; animation-delay: var(--swaydelay, 0s); }
 @keyframes sway { from { transform: rotate(var(--swaydeg, 1.6deg)); } to { transform: rotate(calc(var(--swaydeg, 1.6deg) * -1)); } }
 
@@ -315,7 +315,7 @@ kbd {
 
 /* ---- small screens ---------------------------------------------------- */
 @media (max-width: 640px) {
-  /* the corner buttons own the top edge on a phone — pin the score card
+  /* the corner buttons own the top edge on a phone: pin the score card
      near the bottom of the board instead */
   .hud { top: auto; bottom: 62px; min-width: 120px; padding: 4px 14px 6px; }
   #hud-round { font-size: 20px; }

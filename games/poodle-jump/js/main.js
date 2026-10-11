@@ -41,7 +41,7 @@
     isPaused: () => game.paused,
     toggle: () => { if (game.state === "play") game.paused = !game.paused; },
   });
-  else { // shell missing — keep the original listeners so the behaviour survives
+  else { // shell missing: keep the original listeners so the behaviour survives
     window.addEventListener("blur", () => game.requestPause());
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) game.requestPause();

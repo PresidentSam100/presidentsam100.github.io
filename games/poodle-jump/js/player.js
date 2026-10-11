@@ -57,7 +57,7 @@ class Player {
 
   // Protected from enemies: either flying with a power-up, or in the short
   // grace window right after one ends (so an enemy overhead can't kill you the
-  // instant the gear drops — you get a beat to steer or shoot clear).
+  // instant the gear drops: you get a beat to steer or shoot clear).
   get shielded() { return this.powerup !== null || this.grace > 0; }
 
   startPowerUp(kind, speed, duration) {
@@ -68,7 +68,7 @@ class Player {
   // Put on (or refresh) spring shoes: the next CONFIG.SPRINGY_BOUNCES plain
   // platform bounces each launch as high as a spring. This is independent of
   // `powerup` (jetpack/propeller), so the two can be worn at once and the shoe
-  // count is preserved — and not spent — during a flight (handleLanding, which
+  // count is preserved (and not spent) during a flight (handleLanding, which
   // is where charges are spent, is skipped while flying).
   giveSpringyShoes() {
     this.springy = CONFIG.SPRINGY_BOUNCES;
@@ -201,7 +201,7 @@ class Player {
     // Power-up gear drawn behind the body
     if (this.powerup) this._renderPowerup(ctx, sy);
 
-    // Body: a doodled poodle — cream curls, same ink outline as before
+    // Body: a doodled poodle, cream curls, same ink outline as before
     const coat = this.invincible ? "#fff8ea" : "#f2e7d2";
     const coatDk = "#dcc9a6";
     ctx.lineJoin = "round";
@@ -247,7 +247,7 @@ class Player {
     ctx.beginPath();
     ctx.arc(this.x + this.w - 15.5, sy + this.h - 8, 4.5, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
-    // Spring shoes strapped to the feet while charges remain — and through the
+    // Spring shoes strapped to the feet while charges remain, and through the
     // final rise until they drop near its apex (springyDropPending).
     if (this.springy > 0 || this.springyDropPending) {
       GearArt.springShoe(ctx, this.x + 15, sy + this.h - 1);

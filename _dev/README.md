@@ -1,4 +1,4 @@
-# _dev — tests and tools for the games
+# _dev: tests and tools for the games
 
 Not part of the site: Jekyll skips folders that start with `_`, so nothing here
 is published.
@@ -6,7 +6,7 @@ is published.
 ## Browser tests
 
 Headless Chromium (Playwright) against the games, served from this repo by a
-small built-in server — nothing else needs to be running.
+small built-in server: nothing else needs to be running.
 
 ```sh
 cd _dev
@@ -53,9 +53,9 @@ a short window in one `p.evaluate`. To try a suite under load, use
 
 ## Tools
 
-- `tools/run-slowed.js` — runs suites with each page's CPU slowed (4x by
+- `tools/run-slowed.js`: runs suites with each page's CPU slowed (4x by
   default; `RATE=6`, `OUT=results.json`), one at a time, to find checks that
   only pass on an idle machine: `node tools/run-slowed.js` for all, or name some.
-- `tools/steamfitter-junction-levels.js` — generates Steamfitter's junction
+- `tools/steamfitter-junction-levels.js`: generates Steamfitter's junction
   levels (31–36). Seeded, so it reprints the same six levels; see the comment
   at its top.

@@ -1,5 +1,5 @@
 /* =====================================================================
-   NEON PINBALL — physics pinball with three selectable tables.
+   NEON PINBALL: physics pinball with three selectable tables.
 
    Shared cabinet "shell" (plunger lane, a real lower third with slings,
    inlanes and outlanes, kickback, main flippers) guarantees launch and
@@ -103,7 +103,7 @@
     if (vn < 0) {
       const j = -(1 + rest) * vn; b.vx += j * nx; b.vy += j * ny;
       // A touch of contact friction along the surface, so rails feel like
-      // rails and the ball rolls instead of skating — except in the shooter
+      // rails and the ball rolls instead of skating: except in the shooter
       // lane, which the ball touches wall-to-wall and must fly up cleanly.
       if (b.x < 386) {
         const tx = -ny, ty = nx, vt = (b.vx - sx) * tx + (b.vy - sy) * ty;
@@ -239,7 +239,7 @@
     const theme = { bg1:"#2a0a40", bg2:"#0a0418", wall:"#b06bff", glow:"rgba(176,107,255,0.6)",
       bumper1:"#ff3df0", bumper2:"#80127a", ring:"#ffd23f", target:"#c060ff", scoop:"#b06bff", lane:"#ff3df0", flip:"#c060ff" };
     const interior = [
-      // long left orbit lane (inner wall) — a fast outer channel
+      // long left orbit lane (inner wall): a fast outer channel
       [56,160,56,470],[56,470,82,520],
       // a short guide rail on the right
       [360,150,360,300],
@@ -307,8 +307,8 @@
   let skillDrawn = "";   // how the last frame drew the skill lane (test hook)
   let comboAt = 0, comboN = 0;
   let extraBalls = 0, extraAwarded = 0;
-  // The table's own clock (ms) for every timed window — ball save, skill
-  // shot, combos, multiball — so a pause or a tab-away holds them all
+  // The table's own clock (ms) for every timed window: ball save, skill
+  // shot, combos, multiball, so a pause or a tab-away holds them all
   let playT = 0;
   const EXTRA_AT = [200000, 600000];
   const MAX_BALLS = 3;
@@ -459,7 +459,7 @@
       if (mult < 6) { mult++; ticker("MULTIPLIER x" + mult, "#ffd23f"); } addScore(5000); SFX.extra(); updateHUD();
     }
   }
-  // The flipper buttons also rotate the lit top lanes — lane change.
+  // The flipper buttons also rotate the lit top lanes: lane change.
   function laneChange(dir) {
     if (!T || !T.lanes.length || state !== "play") return;
     const lit = T.lanes.map((l) => l.lit);
@@ -681,7 +681,7 @@
     // with Visual FX off the skill lane is outlined, not flashing; on a
     // touch-only device the LAUNCH button stands in for Space
     if (state === "ready") {
-      $("flipHint").innerHTML = '<span class="gs-keys">Hold <kbd class="gs-kbd">Space</kbd>, release to launch</span><span class="gs-touch">Tap ⟰ LAUNCH</span> — hit the ' + (reduced() ? "outlined" : "flashing") + " lane";
+      $("flipHint").innerHTML = '<span class="gs-keys">Hold <kbd class="gs-kbd">Space</kbd>, release to launch</span><span class="gs-touch">Tap ⟰ LAUNCH</span>: hit the ' + (reduced() ? "outlined" : "flashing") + " lane";
       if (coarse) $("launchBtn").classList.add("show");
     }
   }
@@ -766,7 +766,7 @@
       ctx.restore();
     }
 
-    // walls — neon tube (wide glow + bright core)
+    // walls: neon tube (wide glow + bright core)
     ctx.lineCap = "round"; ctx.lineJoin = "round";
     ctx.shadowColor = th.glow; ctx.shadowBlur = 16; ctx.strokeStyle = th.wall; ctx.lineWidth = 6;
     T.walls.forEach((w) => { ctx.beginPath(); ctx.moveTo(w[0], w[1]); ctx.lineTo(w[2], w[3]); ctx.stroke(); });
@@ -828,7 +828,7 @@
     });
     ctx.globalAlpha = 1; ctx.shadowBlur = 0;
 
-    // flippers — tapered bats, not uniform sticks
+    // flippers: tapered bats, not uniform sticks
     flippers.forEach((f) => {
       const tip = flipTip(f), a = Math.atan2(tip.y - f.py, tip.x - f.px);
       const rb = f.r + 2.5, rt = Math.max(4, f.r - 3.5);

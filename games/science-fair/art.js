@@ -1,5 +1,5 @@
 /* =====================================================================
-   Science Fair — the diorama. Everything on the corkboard is built here
+   Science Fair: the diorama. Everything on the corkboard is built here
    as inline SVG: nine construction-paper planets cut out with slightly
    wobbly scissors, a paper rocket, crinkled-foil asteroids, pushpins.
    game.js hangs these on strings and runs the memory game.
@@ -140,7 +140,7 @@
 
   /* One hanging cutout as a complete <svg>. Box is (2r+pad)^2; Saturn's
      box is wider so the paper ring fits. Returns { html, w, h, cx, cy }
-     in unscaled units — game.js sets the final on-screen width. */
+     in unscaled units: game.js sets the final on-screen width. */
   function planetSVG(i) {
     var p = PLANETS[i], r = p.r, pad = 8;
     var w = 2 * r + pad * 2, h = w, cx = w / 2, cy = h / 2;

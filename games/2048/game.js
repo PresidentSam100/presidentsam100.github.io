@@ -322,7 +322,7 @@
           tile.r = tr; tile.c = tc; placeEl(tile);
           toRemove.push(tile, ahead);
           // Create the doubled tile but keep it hidden until both source
-          // tiles have slid into the target cell — then it pops in.
+          // tiles have slid into the target cell, then it pops in.
           var m = makeTile(tr, tc, nv, null);
           m.merged = true;
           m.inner.style.opacity = "0";
@@ -381,7 +381,7 @@
     popUpdate(bestEl, best);
   }
 
-  // Set a score field and give it a little pop — but only when the value
+  // Set a score field and give it a little pop, but only when the value
   // actually changes. With Visual FX off there's no pop: the field is marked
   // .chg (a steady darker backing, styles.css) for CHG_MS instead; each new
   // change re-arms the timer, so quick moves hold it rather than blink it.
@@ -494,7 +494,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (e.key in KEYMAP) {
       e.preventDefault();
-      if (e.repeat) return; // one slide per physical press — holding must not auto-slide
+      if (e.repeat) return; // one slide per physical press: holding must not auto-slide
       move(KEYMAP[e.key]);
     }
   });

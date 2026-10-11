@@ -1,4 +1,4 @@
-/* Corner Pocket — the CPU player. It lines up every pot the geometry allows
+/* Corner Pocket: the CPU player. It lines up every pot the geometry allows
    (ghost ball, cut angle, clear paths), then plays the promising ones out on
    a copy of the table with the real physics and judges each result with the
    real rules: keep the turn, get position for the next ball, never scratch,

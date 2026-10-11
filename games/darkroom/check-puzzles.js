@@ -1,5 +1,5 @@
 /* =====================================================================
-   Darkroom — puzzle checker. Node only, NOT loaded by any page.
+   Darkroom: puzzle checker. Node only, NOT loaded by any page.
 
      node check-puzzles.js          check every shipped picture
      node check-puzzles.js cat      check one, by id
@@ -7,8 +7,8 @@
 
    A puzzle ships only if the line solver (nono.js) finishes it: then a
    player never has to guess, and the solution is unique. For a stuck
-   puzzle it prints the partial grid — '#' and '.' are forced, '?' is
-   where placements disagree — so the picture can be nudged until it
+   puzzle it prints the partial grid ('#' and '.' are forced, '?' is
+   where placements disagree) so the picture can be nudged until it
    locks. It also checks ids are unique and every row is the right width.
    ===================================================================== */
 "use strict";

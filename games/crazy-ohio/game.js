@@ -26,7 +26,7 @@
   let score = 0, misses = 0, streak = 0, bestStreak = 0, hitTimes = [];
   let hitsCount = 0, judgeCounts = { perfect: 0, great: 0, good: 0, ok: 0 };
   let startT = 0, raf = 0;
-  // Multiple tiles can be live at once, one per lane at most — each lane fills
+  // Multiple tiles can be live at once, one per lane at most: each lane fills
   // and empties independently, so a late/stray press in one lane never
   // touches a tile that's genuinely still falling in another.
   let tiles = [];             // { col, spawnT, duration, el, resolved, lastY, laneH }
@@ -35,7 +35,7 @@
 
   // ---- audio ----
   let actx = null;
-  const NOTE = [523.25, 659.25, 783.99, 987.77]; // C5 E5 G5 B5 — one per column
+  const NOTE = [523.25, 659.25, 783.99, 987.77]; // C5 E5 G5 B5: one per column
   function tone(freq, dur2, type) {
     try {
       if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -93,8 +93,8 @@
 
   function defaultHint() {
     return mode === "precision"
-      ? "press right when the tile sits fully inside the highlighted key zone — the fuller the overlap, the more points. Bad timing breaks your streak, and pressing an empty lane costs 50 points!"
-      : "hit tiles as they reach the keys — pressing too early or on an empty lane costs you a note!";
+      ? "press right when the tile sits fully inside the highlighted key zone: the fuller the overlap, the more points. Bad timing breaks your streak, and pressing an empty lane costs 50 points!"
+      : "hit tiles as they reach the keys: pressing too early or on an empty lane costs you a note!";
   }
 
   $("modeChoices").addEventListener("click", (e) => {
@@ -129,7 +129,7 @@
     if (mode === "precision") return PRECISION_FALL_MS;
     return Math.max(360, 950 - score * 14);
   }
-  // How often a new tile can spawn — scaled off the current fall speed so
+  // How often a new tile can spawn: scaled off the current fall speed so
   // roughly the same number of tiles are in flight at once regardless of
   // difficulty, keeping a contiguous stream rather than one-at-a-time.
   // Density scales that rate independently of Mode/score: Sparse spaces
@@ -142,7 +142,7 @@
   }
 
   // Picks which lane the next tile spawns in. Lanes can stack (more than
-  // one live tile at once) — capping it at one-per-lane was what made the
+  // one live tile at once): capping it at one-per-lane was what made the
   // sequence feel repetitive: whenever only one lane happened to be free,
   // the "random" pick was actually forced, and that kept resolving into
   // the same handful of cycles. Excluding the immediately-previous lane
@@ -188,14 +188,14 @@
   }
 
   // Pressing a lane hits the LOWEST (furthest-fallen, most urgent) tile
-  // currently live there — lanes can stack more than one tile at a time
+  // currently live there: lanes can stack more than one tile at a time
   // now, but a press only ever resolves the one closest to the hit zone;
   // any others still falling in that same lane are untouched.
   function pressCol(col) {
     // paused: the tiles are frozen, so a press mustn't hit, miss or cost points
     if (state !== "running" || PAUSE.isPaused()) return;
     const inLane = tiles.filter((x) => x.col === col && !x.resolved);
-    if (!inLane.length) { registerMiss(null, col, true); return; } // nothing here — a stray press, penalised
+    if (!inLane.length) { registerMiss(null, col, true); return; } // nothing here: a stray press, penalised
     const t = inLane.reduce((lowest, x) => (x.lastY > lowest.lastY ? x : lowest));
     if (mode === "precision") { registerPrecisionHit(t); return; }
     // Attack mode used to accept a press no matter how far up the lane the
@@ -310,7 +310,7 @@
   }
 
   // t is the tile that expired/was pressed-too-early, or null for a press
-  // into an empty lane — either way it counts as a miss (col is passed
+  // into an empty lane: either way it counts as a miss (col is passed
   // explicitly when t is null).
   const ATTACK_PENALTY = 1, PRECISION_PENALTY = 50;
   function registerMiss(t, col, pressed) {

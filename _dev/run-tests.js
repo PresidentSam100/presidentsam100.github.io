@@ -121,7 +121,7 @@ async function runSuite(name, ctx, label) {
   const list = Object.values(results);
   const failed = list.reduce((n, s) => n + s.failed, 0), passed = list.reduce((n, s) => n + s.passed, 0);
   if (flaky.length) console.log("\npassed only when run on their own (load-sensitive, worth making sturdier): " + flaky.join(", "));
-  console.log("\n" + (failed ? "FAILED: " + failed + " check(s)" : "ALL PASS") + " — " + passed + " passed across " + list.length +
+  console.log("\n" + (failed ? "FAILED: " + failed + " check(s)" : "ALL PASS") + ", " + passed + " passed across " + list.length +
     " suite(s), " + jobs + " at a time, in " + Math.round((Date.now() - t0) / 1000) + "s");
   process.exit(failed ? 1 : 0);
 })();

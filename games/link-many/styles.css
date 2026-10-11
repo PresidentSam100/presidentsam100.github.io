@@ -114,7 +114,7 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
 .score span { background: rgba(255, 255, 255, 0.85); border: 2px solid #c9d0f5; border-radius: 999px; padding: 0.2rem 0.8rem; }
 .score b { color: var(--blue-dark); font-weight: 900; }
 
-/* drop animation — gravity free-fall, then bouncy-ball settle.
+/* drop animation: gravity free-fall, then bouncy-ball settle.
    Per-keyframe easing: falls accelerate (ease-in), rises decelerate (ease-out).
    It stretches a touch as it falls and squashes flat at each touchdown, about
    its bottom edge (only drawn with Visual FX on: game.js adds .drop then). */
@@ -130,7 +130,7 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
   100% { transform: translateY(0) scale(1, 1); }
 }
 /* If the winning disc is also the one just dropped, run BOTH animations: the
-   drop (transform) once AND the win flash (box-shadow) forever — otherwise the
+   drop (transform) once AND the win flash (box-shadow) forever, otherwise the
    drop's `animation` shorthand overrides the flash and that tile doesn't pulse. */
 .cell.win.drop { animation: drop .72s linear, cfWin 1.1s ease-in-out infinite; }
 

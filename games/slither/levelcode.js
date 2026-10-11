@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — level share codes. A level travels as "v1." followed by its
+   Slither: level share codes. A level travels as "v1." followed by its
    JSON in URL-safe base64 (UTF-8), e.g. in a link ending "#play=v1.eyJ...".
    The version prefix lets the format change without breaking old links.
    Only known fields survive, and sizes are capped, so a pasted code can't

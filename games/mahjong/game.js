@@ -1,5 +1,5 @@
 /* =====================================================================
-   Mahjong — the tile-matching solitaire, dealt winnable.
+   Mahjong: the tile-matching solitaire, dealt winnable.
 
    The classic 144-tile Turtle. A tile is free when nothing rests on it
    and its left OR right flank is open; remove matching free pairs
@@ -417,7 +417,7 @@
     refreshFreedom();
     hud();
     if (!live.size) { win(); return; }
-    if (!freePairs().length) hint(true);   // nudge: no moves — suggests shuffle
+    if (!freePairs().length) hint(true);   // nudge: no moves, suggests shuffle
   }
   function undo() {
     if (state !== "play" || !undoStack.length) return;
@@ -537,7 +537,7 @@
   function hud() {
     $("hud-time").textContent = fmt(timeMs + penaltyMs);
     $("hud-left").textContent = live.size + " tiles";
-    $("hud-pairs").textContent = dead ? "no reshuffle fits — undo a pair, or" : freePairs().length + " pairs open";
+    $("hud-pairs").textContent = dead ? "no reshuffle fits: undo a pair, or" : freePairs().length + " pairs open";
     $("hud-stuck").hidden = !dead;
     $("btn-giveup").hidden = mode !== "daily";
   }
@@ -553,7 +553,7 @@
       $("over-title").textContent = "The desk is clear";
       $("over-msg").textContent = fmt(total);
       lines.push("Daily turtle No. " + rec.n +
-        (dailyRecorded ? " — recorded earlier: " + fmt(rec.ms) : ""));
+        (dailyRecorded ? ", recorded earlier: " + fmt(rec.ms) : ""));
       $("share").hidden = false;
       $("again").innerHTML = "Once more (just for fun) " + keyCap("Enter");
     } else {
@@ -694,7 +694,7 @@
 
   toMenu();
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.Mahjong = {
     state: function () { return state; },
     tilesLeft: function () { return live.size; },

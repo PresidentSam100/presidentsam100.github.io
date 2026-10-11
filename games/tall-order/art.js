@@ -1,5 +1,5 @@
 /* =====================================================================
-   Tall Order — everything delicious is painted here.
+   Tall Order: everything delicious is painted here.
 
    A tier is drawn as a real slice-through of cake: sponge with a baked
    crust line, filling stripes, a glossy frosting cap that overhangs and
@@ -250,7 +250,7 @@
     }
   }
 
-  // the counter, cake stand and the big oven — world coords near y=0
+  // the counter, cake stand and the big oven: world coords near y=0
   function drawCounter(g, w, h, worldToY, baseX, baseW) {
     var cy = worldToY(0);
     if (cy > h + 300) return;

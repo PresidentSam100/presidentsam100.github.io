@@ -1,5 +1,5 @@
 /* =====================================================================
-   Per-game mute toggle — a speaker button in the top-right row, just
+   Per-game mute toggle: a speaker button in the top-right row, just
    to the LEFT of the "Visual FX" toggle from motion-toggle.js.
 
    - Mutes ALL of a game's Web Audio at once by routing every AudioContext
@@ -82,7 +82,7 @@
 
   // ---- keyboard: M, or "[" ---------------------------------------------
   // "[" works in every game. M works too, unless the page opts letters out
-  // with <html data-letter-keys="off"> — typing games, and games that
+  // with <html data-letter-keys="off">: typing games, and games that
   // already use M for something. Text fields are left alone, except one
   // marked data-game-input (the box a typing game plays in): "[" still
   // works there, and the letters stay the player's.
@@ -118,7 +118,7 @@
     btn.setAttribute("aria-pressed", muted ? "true" : "false");
     btn.setAttribute("aria-label", "Mute or unmute this game (" + key + ")");
     btn.setAttribute("aria-keyshortcuts", lettersOn() ? "M [" : "[");
-    btn.title = "Mute / unmute sound for this game — " + (lettersOn() ? "M or [" : "[");
+    btn.title = "Mute / unmute sound for this game: " + (lettersOn() ? "M or [" : "[");
     // (both speakers take up room, so the button is the same width muted or not: .gs-swap)
     var icon = corner ? corner.swap(muted ? "🔇" : "🔊", muted ? "🔊" : "🔇") : muted ? "🔇" : "🔊";
     var html = icon + (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");

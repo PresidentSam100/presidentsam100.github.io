@@ -1,4 +1,4 @@
-# Visual FX — what's still open
+# Visual FX: what's still open
 
 The ✨ Visual FX switch (`games/motion-toggle.js`; `RM_ON()` is true when it's
 off) is about **motion, not detail**. FX on is the best version: extra motion
@@ -21,7 +21,7 @@ Poodle Jump round).
 Add a check for any new FX work to `tests/fx.js`, `tests/fx-more.js` or
 `tests/cues.js`.
 
-## 3 — more motion with FX on (pick games; keep each change small)
+## 3: more motion with FX on (pick games; keep each change small)
 
 Done (checked in `tests/fx.js`):
 - Passport. The postcard drops in, a denial jolts it and the wrong answer,

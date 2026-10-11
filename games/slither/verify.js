@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Labyrinth level checker. Node only, NOT loaded by any page.
+   Slither: Labyrinth level checker. Node only, NOT loaded by any page.
 
      node verify.js            check every level
      node verify.js 7          check level 7 only (1-based)
@@ -15,7 +15,7 @@
 
    With --bot, levels with enemies are played by a bot that re-plans every
    step around them. Enemies move randomly, so its win rate is a difficulty
-   hint, not a verdict — a person reacts better than the bot.
+   hint, not a verdict: a person reacts better than the bot.
    ===================================================================== */
 "use strict";
 var E = require("./labyrinth-engine.js");

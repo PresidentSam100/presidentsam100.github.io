@@ -313,7 +313,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const off of [true, false]) {
     const mode = off ? "off" : "on";
 
-    // Fish-a-Fish: a bite about to get away is ringed — steady and dashed with FX off
+    // Fish-a-Fish: a bite about to get away is ringed, steady and dashed with FX off
     let p = await open("fish-a-fish", off);
     await p.evaluate(() => { FishAFish.start(); FishAFish.hold(); FishAFish.force(0, "perch", "bite", 0.3); });
     await frames(p);

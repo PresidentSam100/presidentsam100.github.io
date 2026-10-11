@@ -54,7 +54,7 @@
   var MERGE_PROB = 0.2;  // chance a car will signal and change lanes on the way down
 
   var rgbCache = {};
-  function rgbOf(col) { // "#rrggbb" or "rgb(r,g,b)" — shade/mix results chain
+  function rgbOf(col) { // "#rrggbb" or "rgb(r,g,b)": shade/mix results chain
     var c = rgbCache[col];
     if (!c) {
       if (col.charAt(0) === "#") {
@@ -140,7 +140,7 @@
   }
 
   // ----- traffic generation (unchanged rules, virtual space) ------------
-  // Cars are generated in WAVES descending from the top, all at the SAME speed —
+  // Cars are generated in WAVES descending from the top, all at the SAME speed:
   // so same-lane cars keep their spacing and never rear-end. Each wave keeps one
   // "corridor" lane open and the corridor only steps by ≤1 lane between waves,
   // so the open lanes form a continuous drivable diagonal: NO dead ends.
@@ -267,7 +267,7 @@
     ctx.closePath();
     ctx.fill();
   }
-  // Distance haze toward the horizon colour — it also hides traffic spawning in.
+  // Distance haze toward the horizon colour: it also hides traffic spawning in.
   function fogAt(z) { return clamp01((z - 15) / 13); }
   function fogged(hex, z) { var f = fogAt(z); return f <= 0 ? hex : mix(hex, HAZE, f); }
 
@@ -366,7 +366,7 @@
   // ----- scenery ----------------------------------------------------------
   var NIGHT = false, HAZE = "#c7d2c3";
   // Night lighting: the scene below the horizon is buried under a heavy
-  // darkness layer, and light sources punch soft holes through it — your
+  // darkness layer, and light sources punch soft holes through it: your
   // headlight corridor, the street-lamp pools, the glow around your own car.
   // Lamp glows and taillights are queued during drawing and rendered ON TOP
   // of the darkness, so lights are the only things that read at distance.
@@ -685,7 +685,7 @@
     waveAcc += speed * F * dt;
     if (waveAcc >= waveGap()) { waveAcc -= waveGap(); newWave(); }
 
-    var mStart = VH * 0.42, mSpan = VH * 0.2; // merge starts ~42% down, completes ~62% — time to react
+    var mStart = VH * 0.42, mSpan = VH * 0.2; // merge starts ~42% down, completes ~62%: time to react
     for (var i = obstacles.length - 1; i >= 0; i--) {
       var o = obstacles[i];
       o.y += speed * F * dt;
@@ -791,7 +791,7 @@
         // (the keys with a keyboard, the tap on a touch-only device)
         '<li><span class="gs-keys"><kbd class="gs-kbd">←</kbd><kbd class="gs-kbd">→</kbd> or <kbd class="gs-kbd">A</kbd> / <kbd class="gs-kbd">D</kbd> to change lanes (tap left/right on mobile)</span>' +
           '<span class="gs-touch">Tap left or right to change lanes</span>.</li>' +
-        '<li>Traffic moves at highway speed — you overtake it. The further you go, the faster it gets.</li>' +
+        '<li>Traffic moves at highway speed: you overtake it. The further you go, the faster it gets.</li>' +
         '<li>One crash ends the run. Distance is your score.</li>' +
       '</ul>' +
       '<div class="modes">' +

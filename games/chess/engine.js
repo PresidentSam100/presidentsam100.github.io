@@ -1,5 +1,5 @@
 /* ============================================================================
-   engine.js — pure 8x8 chess move-generation logic, used ONLY by
+   engine.js: pure 8x8 chess move-generation logic, used ONLY by
    cpu-worker.js via importScripts(). NOT loaded by index.html.
 
    This intentionally duplicates the pure move-generation functions from
@@ -134,7 +134,7 @@
   }
 
   // Advances a full node context (board + ep + castle) by one move, mirroring
-  // the non-DOM parts of index.html's doMove(). Always promotes to queen —
+  // the non-DOM parts of index.html's doMove(). Always promotes to queen:
   // the search never considers under-promotion (not worth the branching).
   function makeMove(baseCtx, b, ep, castle, m) {
     const G = Object.assign({}, baseCtx, { ep, castle });

@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Maze Chase: the guardians' mazes.
+   Slither, Maze Chase: the guardians' mazes.
 
    Eat every bead while the temple guardians hunt you. `mode: "chase"` is
    what makes these rules (labyrinth-engine.js, "maze chase"); the mazes are

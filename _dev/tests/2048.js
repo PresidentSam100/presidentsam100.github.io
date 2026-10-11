@@ -1,4 +1,4 @@
-// 2048: a winning move that also leaves no moves still ends the game — after
+// 2048: a winning move that also leaves no moves still ends the game, after
 // "Keep Going" the Game Over card comes up and leaving no longer asks; the AC
 // key and the mode buttons ask before wiping a game in progress, and don't
 // on a fresh board or a finished game.

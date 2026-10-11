@@ -241,11 +241,11 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
 .mode-group { margin: 0 0 16px; }
 .mode-label { font-size: 1rem; color: var(--chalk-dim); margin-bottom: 8px; letter-spacing: 0.04em; }
 .opts { display: flex; flex-direction: column; gap: 8px; }  /* difficulty stacks vertically */
-/* Selected state is colour only — border width and font weight stay
+/* Selected state is colour only: border width and font weight stay
    constant so picking a longer label never reflows the modal's width. */
 .opt.sel { background: rgba(243, 221, 122, 0.14); border-color: var(--accent); color: var(--accent); }
 #startGame { width: 100%; margin-top: 6px; border-color: var(--chalk); }
-#modeModal { background: radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%), var(--wall); }   /* opaque start screen — hide game chrome behind it */
+#modeModal { background: radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%), var(--wall); }   /* opaque start screen: hide game chrome behind it */
 
 /* short screens: pull everything in so the whole slate fits without
    scrolling, as the plain version did */

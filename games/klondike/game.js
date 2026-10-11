@@ -1,7 +1,7 @@
 /* =====================================================================
-   Klondike — the table: 52 card divs over the felt, dragged with the
+   Klondike, the table: 52 card divs over the felt, dragged with the
    pointer. cards.js owns the rules; this file owns layout, animation,
-   input, the menus, sounds, saved bests and the win cascade — the
+   input, the menus, sounds, saved bests and the win cascade, the
    bouncing-card salute the old desktop game was famous for.
 
    Interactions: drag a face-up run; click the stock to draw (and to turn
@@ -313,7 +313,7 @@
   }
 
   // The cascade: cards launch from the foundations and bounce off the floor,
-  // stamping trails — the canvas is never cleared. Click skips it.
+  // stamping trails: the canvas is never cleared. Click skips it.
   var casRun = 0;
   // A click skips the cascade to the box. Its listener goes with the cascade
   // however that ends, or a click in the next deal would bring this box back.

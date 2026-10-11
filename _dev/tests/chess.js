@@ -281,7 +281,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (let k = 0; k < 8; k++) plies.push(await step(shuffle[k % 4]));
   const rep = await card();
   check("chess: the same position a third time (same side to move) is drawn by threefold repetition, said on the end card",
-    plies.slice(0, 7).every((x) => x.ok && !x.over) && plies[7].over && /^Draw — threefold repetition \|/.test(rep || ""), { plies, rep });
+    plies.slice(0, 7).every((x) => x.ok && !x.over) && plies[7].over && /^Draw: threefold repetition \|/.test(rep || ""), { plies, rep });
   // Undo takes the third time back; playing it again draws again
   await p.evaluate(() => document.getElementById("undoBtn").click());
   const undone2 = await p.evaluate(() => ({ over: __chess.G.over, turn: __chess.G.turn }));
@@ -306,7 +306,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const fu = await p.evaluate(() => ({ over: __chess.G.over, halfmove: __chess.G.halfmove }));
   const pawn = await fifty([[4, "b", "k"], [60, "w", "k"], [63, "w", "r"], [52, "w", "p"]], [52, 44]);
   check("chess: the 100th half-move with no capture or pawn move is drawn by the 50-move rule; Undo takes it back; a pawn move resets the count",
-    quiet.over && /^Draw — 50-move rule \|/.test(fq || "") && !fu.over && fu.halfmove === 99 && !pawn.over && pawn.halfmove === 0, { quiet, fq, fu, pawn });
+    quiet.over && /^Draw: 50-move rule \|/.test(fq || "") && !fu.over && fu.halfmove === 99 && !pawn.over && pawn.halfmove === 0, { quiet, fq, fu, pawn });
   check("chess (draw rules): no page errors", p.errs.length === 0, p.errs);
   await p.close();
 

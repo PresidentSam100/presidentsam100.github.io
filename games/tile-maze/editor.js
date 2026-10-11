@@ -1,4 +1,4 @@
-/* Tile Maze — level editor.
+/* Tile Maze: level editor.
    Reuses the shared rules engine (engine.js) for test-play + solvability,
    so a level that passes here behaves identically in the real game. */
 (function () {
@@ -9,16 +9,16 @@
 
   // [char, label, swatch-class, icon, description]
   const PAL = [
-    ["p", "Pink", "sw-pink", "", "Pink — harmless floor. Walk freely."],
-    ["g", "Green", "sw-green", "♪", "Green — harmless, plays a tone when stepped on."],
-    ["r", "Red", "sw-red", "", "Red — solid wall. Cannot be entered."],
-    ["y", "Yellow", "sw-yellow", "↩", "Yellow — throws you back to your previous tile."],
-    ["o", "Orange", "sw-orange", "🍊", "Orange — flavors you 'Orange' (makes blue live)."],
-    ["u", "Purple", "sw-purple", "❄", "Purple ice — slides you forward; flavors you 'Lemon'."],
-    ["b", "Blue", "sw-blue", "", "Blue water — live (bounces) if you're Orange or it touches yellow."],
-    ["S", "Start", "sw-start", "▶", "Start — where the player spawns. Exactly one per level."],
-    ["X", "Goal", "sw-goal", "🏁", "Goal — reach it to win. Exactly one per level."],
-    [".", "Empty", "sw-void", "·", "Empty / void — treated as a wall."],
+    ["p", "Pink", "sw-pink", "", "Pink: harmless floor. Walk freely."],
+    ["g", "Green", "sw-green", "♪", "Green: harmless, plays a tone when stepped on."],
+    ["r", "Red", "sw-red", "", "Red: solid wall. Cannot be entered."],
+    ["y", "Yellow", "sw-yellow", "↩", "Yellow: throws you back to your previous tile."],
+    ["o", "Orange", "sw-orange", "🍊", "Orange: flavors you 'Orange' (makes blue live)."],
+    ["u", "Purple", "sw-purple", "❄", "Purple ice: slides you forward; flavors you 'Lemon'."],
+    ["b", "Blue", "sw-blue", "", "Blue water: live (bounces) if you're Orange or it touches yellow."],
+    ["S", "Start", "sw-start", "▶", "Start, where the player spawns. Exactly one per level."],
+    ["X", "Goal", "sw-goal", "🏁", "Goal: reach it to win. Exactly one per level."],
+    [".", "Empty", "sw-void", "·", "Empty / void: treated as a wall."],
   ];
   const CLS = { p: "t-pink", g: "t-green", r: "t-red", y: "t-yellow", o: "t-orange", u: "t-purple", b: "t-blue", S: "t-start", X: "t-goal", ".": "t-void", " ": "t-void" };
   const VALID = /^[rpgyoubSX. ]+$/;
@@ -132,7 +132,7 @@
   function updateStatus(msg, kind, html) {
     if (msg) { if (html) status.innerHTML = msg; else status.textContent = msg; status.className = "ed-status" + (kind ? " " + kind : ""); return; }
     const v = validate();
-    if (v.ok) { status.textContent = "Ready — " + cols + "×" + rows + ". Test or Check when you like."; status.className = "ed-status"; }
+    if (v.ok) { status.textContent = "Ready: " + cols + "×" + rows + ". Test or Check when you like."; status.className = "ed-status"; }
     else { status.textContent = "⚠ " + v.msgs.join(" · "); status.className = "ed-status bad"; }
   }
   function solve(g) {
@@ -159,7 +159,7 @@
     const v = validate(); if (!v.ok) { updateStatus("⚠ Fix first: " + v.msgs.join(" · "), "bad"); return; }
     const sol = solve(grid);
     if (sol) updateStatus("✓ Solvable in " + sol.length + " moves:  " + sol.join(" "), "good");
-    else updateStatus("✗ Unsolvable — no path from Start to Goal.", "bad");
+    else updateStatus("✗ Unsolvable: no path from Start to Goal.", "bad");
   }
 
   // ---- test play (reuses the engine) ----
@@ -180,7 +180,7 @@
     testOverlay.hidden = true;
     renderBoard(); setFlavor("Plain"); placePlayer(tstate.r, tstate.c, false); refreshLive();
     // the keys show only where there's a keyboard; touch gets the pad
-    updateStatus("Test — " +
+    updateStatus("Test: " +
       '<span class="gs-keys">' + ["↑", "←", "↓", "→"].map(kbd).join("") + " / " + ["W", "A", "S", "D"].map(kbd).join("") + " / pad to move, " + kbd("R") + " to restart.</span>" +
       '<span class="gs-touch">tap the pad to move.</span> Reach the 🏁.', "", true);
   }
@@ -198,7 +198,7 @@
     testOverlay.hidden = true; tstate = null;
     renderBoard(); updateStatus();
   }
-  // Shared animation context — same shape the real game passes to TileAnim
+  // Shared animation context: same shape the real game passes to TileAnim
   // (continuous slides, electric zap, slower water, wall bump), but silent.
   function tCtx(gen) {
     return {

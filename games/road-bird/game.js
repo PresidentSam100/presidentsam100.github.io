@@ -4,7 +4,7 @@
 // ---------- constants ----------
 const TILE = 64;
 const COLS = 9;                 // reachable columns the chicken can hop within (0..COLS-1)
-const PAD = 1;                  // shaded, unreachable margin column on each side — see traffic/logs coming, and ride logs off-screen
+const PAD = 1;                  // shaded, unreachable margin column on each side: see traffic/logs coming, and ride logs off-screen
 const VIS_ROWS = 12;
 const W = (COLS + 2 * PAD) * TILE;   // full canvas width including the margins
 const H = VIS_ROWS * TILE;      // 768
@@ -146,7 +146,7 @@ function sfx(type) {
     if (type === "pad")    return void padPlop();
   } catch (e) {}
 }
-// a chicken "bock!" cluck — pitch is randomized each call so no two hops sound identical.
+// a chicken "bock!" cluck: pitch is randomized each call so no two hops sound identical.
 // big=true → louder, lower panicked squawk used for deaths.
 function cluck(vol, big) {
   try {
@@ -405,7 +405,7 @@ function stopRumble(row) {
   }
 }
 // continuous ambient traffic/road hum, volume set from how close the chicken is to a road lane.
-// deliberately quiet — much softer than the train rumble.
+// deliberately quiet: much softer than the train rumble.
 let roadHum = null, roadHumTarget = 0;
 function applyRoadHum() {
   if (!roadHum && roadHumTarget <= 0) return; // don't spin up audio until there's traffic nearby
@@ -413,7 +413,7 @@ function applyRoadHum() {
     try {
       const a = AC();
       const g = a.createGain(); g.gain.value = 0.0001; g.connect(master());
-      // deep tyre/road rumble (low-passed noise — low cutoff so it rumbles instead of hissing)
+      // deep tyre/road rumble (low-passed noise: low cutoff so it rumbles instead of hissing)
       const src = a.createBufferSource(); src.buffer = noiseBuffer(); src.loop = true;
       const lp = a.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 240;
       const ng = a.createGain(); ng.gain.value = 0.7;
@@ -698,7 +698,7 @@ function updateRoad(row, dt, r) {
   row.items = row.items.filter(it => row.dir > 0 ? it.x < COLS + 2 : it.x + it.len > -2);
   updatePolice(row, dt, r);
   // resume normal traffic when there's no chase, OR as soon as the speeding emergency vehicle has pulled
-  // a safe gap onto the screen — a fresh car enters at the edge BEHIND it (the police is faster, so the
+  // a safe gap onto the screen: a fresh car enters at the edge BEHIND it (the police is faster, so the
   // gap only widens), no rear-ending. We no longer wait for it to reach the midpoint / fully leave.
   const p = row.police;
   const SAFE_BEHIND = 3.0; // cells of clear road kept behind the police before the next car spawns
@@ -722,7 +722,7 @@ function spawnTraffic(row) {
   }
 }
 
-// A river lane is EITHER all moving logs OR all stationary lily pads — never mixed.
+// A river lane is EITHER all moving logs OR all stationary lily pads: never mixed.
 // forceLogs prevents two stationary pad rows from stacking (which can be uncrossable).
 function makeRiverRow(diff, forceLogs) {
   const cycle = COLS + 2 * LEFTBUF;
@@ -811,7 +811,7 @@ function generateRow(r) {
 
 // Occasionally drop a coin on a risky-but-reachable cell (collect it for bonus score).
 // Spawn chance varies by terrain (all kept fairly low): safe grass is stingy, the riskier
-// road/river lanes pay out a bit more, and the rails — grab-it-before-the-train gamble — are rarest.
+// road/river lanes pay out a bit more, and the rails (a grab-it-before-the-train gamble) are rarest.
 const COIN_CHANCE = { grass: 0.08, road: 0.14, river: 0.13, rail: 0.06 };
 function maybeAddCoin(row, r) {
   if (Math.random() > (COIN_CHANCE[row.type] || 0.10)) return;
@@ -890,10 +890,10 @@ function schedulePolice(dt) {
     const row = rows[r];
     if (row && row.type === "road" && row.police.state === "none") cands.push(row);
   }
-  // exponential (memoryless) gap: consecutive chases are sometimes close together, sometimes far apart —
+  // exponential (memoryless) gap: consecutive chases are sometimes close together, sometimes far apart,
   // no fixed cadence. The 5s floor stops them getting spammy; the cap avoids a freak multi-minute drought.
   if (cands.length) { triggerPolice(cands[randInt(0, cands.length - 1)]); policeTimer = 5 + Math.min(45, -Math.log(1 - Math.random()) * 14); }
-  else policeTimer = 1.5; // no eligible road lane on screen — check again shortly
+  else policeTimer = 1.5; // no eligible road lane on screen: check again shortly
 }
 
 function nearlyClear(row) { // last car(s) are right at the exit edge, lane about to be empty
@@ -929,7 +929,7 @@ function updatePolice(row, dt, r) {
     // horizontal: the car's centre column. During the warning ("clearing") phase the
     // car hasn't entered yet, so treat it as sitting at the entry edge it's about to
     // drive in from. That keeps the loudness/pan continuous from the warning straight
-    // into the on-screen sweep — no jump when the car actually spawns.
+    // into the on-screen sweep: no jump when the car actually spawns.
     const carCenter = (p.state === "active" ? p.x : (p.dir > 0 ? -p.len - 1 : COLS + 1)) + p.len / 2;
     const dx = carCenter - (renderGx + 0.5);
     const hHoriz = clamp(1 - Math.abs(dx) / 9, 0, 1);
@@ -1267,7 +1267,7 @@ function snapToPlatform(row, ngx) {
 }
 
 // Called the instant the chicken finishes a hop. River alignment & landing sounds happen here (on
-// landing, using the log's position at that moment) rather than at key-press — so they feel real.
+// landing, using the log's position at that moment) rather than at key-press, so they feel real.
 function onLanded() {
   const row = getRow(player.gy);
   if (row.type === "river") {
@@ -1325,7 +1325,7 @@ function doMove(dx, dy) {
   }
 }
 
-// (No toggleMute here — muting is global, via the shared mute-toggle.js speaker
+// (No toggleMute here: muting is global, via the shared mute-toggle.js speaker
 //  button. `muted` below stays false and only `paused` drives applyMaster().)
 function cycleSkin() {
   for (let i = 1; i <= SKINS.length; i++) {
@@ -1338,7 +1338,7 @@ window.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
   const k = e.key.toLowerCase();
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
-  if (e.repeat) return; // one hop per physical press — holding a key must not auto-hop
+  if (e.repeat) return; // one hop per physical press: holding a key must not auto-hop
   if (state === "menu") {
     if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") { menuSel = (menuSel + MODES.length - 1) % MODES.length; menuTick(-1); }
     else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") { menuSel = (menuSel + 1) % MODES.length; menuTick(1); }
@@ -1502,7 +1502,7 @@ function drawRow(r, row) {
   }
 }
 
-// current column of a coin — fixed for grass/road/pads, but rides its log on a moving river lane
+// current column of a coin: fixed for grass/road/pads, but rides its log on a moving river lane
 function coinColOf(row) { const c = row.coin; return c.log ? itemCol(row, c.log) + c.k : c.col; }
 
 // spinning gold coin (Visual FX off: face on, still)
@@ -1765,7 +1765,7 @@ function drawChicken(sx, sy, sclX, sclY, rot, f, skin) {
     ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#222";
     ctx.fillRect(-5, -15, 3, 3); ctx.fillRect(2, -15, 3, 3);
-  } else { // "up" — seen from behind: wing hints, no face
+  } else { // "up", seen from behind: wing hints, no face
     ctx.fillStyle = shadeC(sk.body, -0.16);
     roundRect(-12, -4, 5, 12, 2); ctx.fill();
     roundRect(7, -4, 5, 12, 2); ctx.fill();
@@ -1861,7 +1861,7 @@ function drawDeathState() {
     const p = clamp(t / 0.14, 0, 1); // squished thin against the vehicle, carried along
     const sclX = 1 - 0.7 * p;
     // anchor the horizontal squish to whichever side hit the vehicle (the way the chicken was facing) so the
-    // pancake stays pressed flat against the car — squishing toward its own centre would open a gap
+    // pancake stays pressed flat against the car: squishing toward its own centre would open a gap
     const side = da.face === "left" ? -1 : da.face === "right" ? 1 : 0;
     drawChicken(sx + side * 13 * (1 - sclX), sy, sclX, 1 + 0.2 * p, 0, da.face);
   } else { // runover → flattened pancake, smeared slightly in the direction the vehicle was moving
@@ -1872,7 +1872,7 @@ function drawDeathState() {
 }
 
 function drawSplash(sx, sy, t, face) {
-  // chicken sinking — still facing the way it last hopped
+  // chicken sinking: still facing the way it last hopped
   if (t < 0.28) {
     ctx.save(); ctx.globalAlpha = 1 - t / 0.28;
     drawChicken(sx, sy + t * 45, 1 - t * 1.6, 1, 0, face || "down");
@@ -2075,7 +2075,7 @@ function drawMenu() {
     const sel = i === menuSel;
     drawButton(rects[i], sel ? "#ffd23d" : "#f6f2e4", m.label, m.desc, loadHigh(m.id), sel);
   });
-  // skin selector: the current chicken turns on a real 3D turntable — the
+  // skin selector: the current chicken turns on a real 3D turntable, the
   // bird is modelled as boxes, rotated around the vertical axis and projected,
   // so its corners orbit and its shading shifts as it spins.
   const sk = SKINS[skinSel], be = bestEver();
@@ -2111,7 +2111,7 @@ function drawDead() {
     textCenter("★ NEW BEST! ★", 0, 0, 26, "#ffe14d");
     ctx.restore();
   }
-  textCenter((mode ? mode.label : "") + "  —  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
+  textCenter((mode ? mode.label : "") + "  ·  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
   textCenter("Best  " + highScore + (bestCoins ? "    (🪙 " + bestCoins + ")" : ""), W / 2, H * 0.39 + 30, 18, "#dfe6f0");
   const r = deadButtonRects();
   drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
@@ -2140,13 +2140,13 @@ function render() {
     const a = 7 * Math.pow(shakeT / SHAKE_DUR, 2);
     ctx.translate(rand(-a, a), rand(-a, a));
   }
-  // the row the chicken is on — drawn in-loop right after that row so nearer rows can occlude it
+  // the row the chicken is on: drawn in-loop right after that row so nearer rows can occlude it
   const chickenRow = state === "playing" ? Math.round(renderGy)
     : ((state === "dying" || state === "dead") && deathAnim && deathCause !== "eagle") ? Math.round(deathAnim.gy)
     : null;
   // a chicken hit mid-hop (jumped into a car/train) lands between two rows; drawing it in-loop lets the
   // nearer row paint over its overhanging half. So those airborne deaths are drawn on top after the loop
-  // instead — runover/water/swept stay in-loop where their layering matters (wheels over the pancake, etc.)
+  // instead: runover/water/swept stay in-loop where their layering matters (wheels over the pancake, etc.)
   const deathOnTop = deathCause === "carjump" || deathCause === "trainhit";
   for (let r = player.gy + VIS_ROWS; r >= player.gy - VIS_ROWS; r--) {
     const row = rows[r]; if (row) drawRow(r, row);
@@ -2166,7 +2166,7 @@ function render() {
   if ((state === "dying" || state === "dead") && deathOnTop) {
     drawDeathState(); // on top of every row's surface, so the overhang into the row below isn't cut off...
     // ...but the tall sprites in the lane in front of the impact row (nearer the camera) must still pass
-    // OVER that overhang, so re-draw them on top of the pancake — the ground/road surface stays behind it.
+    // OVER that overhang, so re-draw them on top of the pancake: the ground/road surface stays behind it.
     const below = rows[chickenRow - 1], top = rowTopY(chickenRow - 1);
     if (below && below.type === "road") {
       for (const it of below.items) drawVehicle(below, it, top);
@@ -2211,7 +2211,7 @@ function frame(now) {
   let dt = (now - last) / 1000; last = now;
   dt = Math.min(dt, 0.05);
   if (!paused) {
-    if (scorePopT > 0) scorePopT -= dt; // HUD score-pop easing — ticks in every state so it settles even after death
+    if (scorePopT > 0) scorePopT -= dt; // HUD score-pop easing: ticks in every state so it settles even after death
     if (coinPops.length) { for (const p of coinPops) p.t += dt; coinPops = coinPops.filter(p => p.t < COIN_POP_DUR); }
     updateFx(dt);
     if (state === "playing") updatePlaying(dt);
@@ -2245,7 +2245,7 @@ if (window.GameShell) GameShell.guardLeave({
   pause: () => { if (state === "playing") { paused = true; applyMaster(); } },
   resume: () => { paused = false; applyMaster(); },
 });
-if (!window.GameShell) { // shell missing — keep the original listeners so the behaviour survives
+if (!window.GameShell) { // shell missing: keep the original listeners so the behaviour survives
   window.addEventListener("blur", autoPause);
   document.addEventListener("visibilitychange", () => { if (document.hidden) autoPause(); });
 }

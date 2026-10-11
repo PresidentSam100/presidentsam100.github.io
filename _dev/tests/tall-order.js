@@ -3,12 +3,12 @@
 // mode button only picks the mode, and a mode clicked with the mouse is the
 // one Enter then starts; on a touch-only phone the keycaps hide and the menu
 // says tap where it names Space.
-const HOOK = ["  // test hooks — the Playwright harness drives runs through these\n", `  window.__to = {
+const HOOK = ["  // test hooks: the Playwright harness drives runs through these\n", `  window.__to = {
     slider: function () { return slider && { lo: slider.lo, hi: slider.hi, w: slider.w, x: slider.x }; },
     top: function () { var t = tiers[tiers.length - 1]; return { x: t.x, w: t.w }; },
     width: function () { return W; }
   };
-  // test hooks — the Playwright harness drives runs through these\n`];
+  // test hooks: the Playwright harness drives runs through these\n`];
 
 module.exports = async ({ browser, base, check, lib }) => {
   const open = (ctx) => lib.open(ctx, base, "games/tall-order/", { before: (pg) => lib.injectScript(pg, "games/tall-order/game.js", [HOOK]) });

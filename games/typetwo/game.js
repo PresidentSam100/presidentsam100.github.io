@@ -16,7 +16,7 @@
       const n = w.length;
       if (n <= 4) tiers.easy.push(w);
       else if (n <= 7) tiers.medium.push(w);
-      else if (n <= 12) tiers.hard.push(w); // skip very long (>12) — unfun to type
+      else if (n <= 12) tiers.hard.push(w); // skip very long (>12): unfun to type
     }
     // guard against an empty tier (e.g. tiny fallback)
     for (const t of ["easy", "medium", "hard"]) if (!tiers[t].length) tiers[t] = bank.slice();
@@ -45,7 +45,7 @@
   const MONO = '"SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace';
 
   // Bottom layout: the death line and ship sit above the bottom HUD bar.
-  const FLOOR_Y = () => H - 122; // death line — words landing here cost a life
+  const FLOOR_Y = () => H - 122; // death line: words landing here cost a life
   const SHIP_Y  = () => H - 86;  // ship center (sits clear below the line band)
 
   // ---------- DOM ----------
@@ -82,9 +82,9 @@
   // ---------- Game state ----------
   const MODES = {
     normal: { lives: 3, bombs: 3, baseSpeed: 22, spawnEvery: 0.85, speedRamp: 1.0, label: "Normal", noTypos: false,
-      desc: "3 lives, 3 novas. Typos are free — only a spirit crossing the ward costs you." },
+      desc: "3 lives, 3 novas. Typos are free: only a spirit crossing the ward costs you." },
     zen:    { lives: 99, bombs: Infinity, baseSpeed: 16, spawnEvery: 1.2, speedRamp: 0.55, label: "Zen", noTypos: false,
-      desc: "Endless. No lives lost, unlimited novas — relax and build speed." },
+      desc: "Endless. No lives lost, unlimited novas. Relax and build speed." },
     hard:   { lives: 1, bombs: 0, baseSpeed: 34, spawnEvery: 0.55, speedRamp: 1.5, label: "Hardcore", noTypos: true,
       desc: "1 life, no novas. One typo or one spirit through the ward ends the run." },
   };
@@ -97,7 +97,7 @@
   let ship = { x: 0, y: 0, angle: 0 }; // angle: 0 = pointing straight up
   let target = null;    // currently locked word
   let typedLen = 0;
-  let lingerWord = null; // word fully typed but not yet destroyed — keep showing its letters
+  let lingerWord = null; // word fully typed but not yet destroyed: keep showing its letters
   let bombs = 0;        // remaining smart-bombs
   let bomb = null;      // active bomb sweep effect
 
@@ -122,7 +122,7 @@
   let maxCombo = 0;
 
   let lastTime = 0;
-  // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+  // Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
   const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
   let shake = 0;
 
@@ -130,7 +130,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[(Math.random() * arr.length) | 0];
 
-  // ---------- Sound (Web Audio, synthesized — no asset files) ----------
+  // ---------- Sound (Web Audio, synthesized: no asset files) ----------
   const Sound = (() => {
     let ctx = null, master = null;
 
@@ -204,7 +204,7 @@
 
   function showBest(node) {
     if (mode === "zen") {
-      node.textContent = "Zen — endless practice, no score to beat";
+      node.textContent = "Zen: endless practice, no score to beat";
       return;
     }
     const b = getBest();
@@ -367,14 +367,14 @@
   }
 
   function updateTypedDisplay() {
-    // Only update the prefix TEXT — never recreate the cursor element, or its
+    // Only update the prefix TEXT: never recreate the cursor element, or its
     // blink animation restarts on every keystroke.
     if (state !== "playing") { el.typed.style.visibility = "hidden"; el.typedPrefix.textContent = ""; return; }
     el.typed.style.visibility = "visible";
     if (target && target.done < target.text.length) {
       el.typedPrefix.textContent = target.text.slice(0, target.done);
     } else if (lingerWord) {
-      // word fully typed, awaiting its bullet — show every letter, including the last
+      // word fully typed, awaiting its bullet: show every letter, including the last
       el.typedPrefix.textContent = lingerWord.text;
     } else {
       el.typedPrefix.textContent = "";
@@ -383,7 +383,7 @@
 
   // Last letter typed: mark the word "dying" and release the lock so the next
   // word can be started. The word keeps falling until its final bullet lands
-  // (or it crosses the line — see the words update loop), then destroyWord runs.
+  // (or it crosses the line: see the words update loop), then destroyWord runs.
   function completeWord(w) {
     w.dying = true;
     lingerWord = w; // keep the full word (incl. last letter) on screen until its box is destroyed
@@ -396,7 +396,7 @@
     if (idx < 0) return; // already gone (e.g. caught by a bomb)
     words.splice(idx, 1);
     if (target === w) { target = null; typedLen = 0; }
-    if (lingerWord === w) lingerWord = null; // its box is gone — stop showing the typed letters
+    if (lingerWord === w) lingerWord = null; // its box is gone: stop showing the typed letters
     updateTypedDisplay();
 
     // streak: each clean word raises the combo and its score multiplier
@@ -441,7 +441,7 @@
 
   // ---------- Smart bomb ----------
   // A wall of fire rises from the death line, vaporizing every word in the
-  // bottom band — the panic button for words about to land.
+  // bottom band: the panic button for words about to land.
   const BOMB_SPEED = 1100;       // px/sec the front rises
   const BOMB_RISE = () => H * 0.45; // how far up it clears
 
@@ -534,7 +534,7 @@
       w.y += w.speed * dt;
       if (w.y >= FLOOR_Y()) {
         // A fully-typed word that slips past the line still counts as a kill
-        // (you typed it in time) — no life lost. Otherwise it's a landing.
+        // (you typed it in time): no life lost. Otherwise it's a landing.
         if (w.dying) destroyWord(w); else wordLanded(w);
       }
     }
@@ -681,7 +681,7 @@
     const still = reducedMotion();
     const T = still ? 0 : performance.now() / 1000;
 
-    // stars — slow drift, warm arcane white
+    // stars: slow drift, warm arcane white
     for (const s of starfield) {
       if (!still) s.y += s.z * 14 * (1 / 60);
       if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
@@ -735,7 +735,7 @@
       ctx.fill();
     }
 
-    // the WARD — a shimmering rune barrier; spirits crossing it cost a life
+    // the WARD: a shimmering rune barrier; spirits crossing it cost a life
     const wgrad = ctx.createLinearGradient(0, lineY - 16, 0, lineY + 16);
     wgrad.addColorStop(0, "rgba(177,140,255,0)");
     wgrad.addColorStop(1, "rgba(177,140,255,0.2)");
@@ -774,7 +774,7 @@
     ship.x = W / 2; ship.y = SHIP_Y();
     drawWizard(ship.x, ship.y, ship.angle);
 
-    // spell bolts — a bright head with a wavering violet tail
+    // spell bolts: a bright head with a wavering violet tail
     for (const b of bullets) {
       const x = b.x + (b.tx - b.x) * b.t;
       const y = b.y + (b.ty - b.y) * b.t;
@@ -811,7 +811,7 @@
       ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
     }
 
-    // words — draw order controls overlap layering. Priority (drawn on top):
+    // words: draw order controls overlap layering. Priority (drawn on top):
     // locked word > dying words (typed, awaiting their bullet) > normal words.
     // Within the same priority, words closer to the bottom (larger y) sit on top.
     // Two passes: every spirit first, then every name-scroll, so a wisp hovering
@@ -1051,7 +1051,7 @@
   }
 
   // ---------- Main loop ----------
-  // Pause on Esc or a tab-switch. NOT "P" — this is a typing game, so the
+  // Pause on Esc or a tab-switch. NOT "P": this is a typing game, so the
   // letter keys all belong to the player.
   // Its default leave guard is the right one: a run in play (paused or not)
   // asks before leaving, paused underneath; menus and game over don't.
@@ -1075,11 +1075,11 @@
     el.score.textContent = score;
     el.wave.textContent = wave;
     el.streak.textContent = combo + (combo >= 5 ? "🔥" : "");
-    el.bombs.textContent = bombs === Infinity ? "∞" : ("✦".repeat(Math.max(0, bombs)) || "—");
+    el.bombs.textContent = bombs === Infinity ? "∞" : ("✦".repeat(Math.max(0, bombs)) || "–");
     if (mode === "zen") {
       el.lives.textContent = "∞";
     } else {
-      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "—";
+      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "–";
     }
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.acc.textContent = accuracy + "%";
@@ -1106,7 +1106,7 @@
     // a phone's keyboard has Enter but no Esc: there, the ⏸ button pauses
     const pauseKey = '<span class="gs-keys">' + kbd("Esc") + '</span><span class="gs-touch">⏸</span>';
     el.hint.innerHTML = MODES[mode].noTypos
-      ? "HARDCORE — one typo ends the run. " + pauseKey + " to pause."
+      ? "HARDCORE: one typo ends the run. " + pauseKey + " to pause."
       : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + pauseKey + " to pause."
                    : "Type to cast · " + pauseKey + " to pause.");
     el.startScreen.classList.add("hidden");
@@ -1142,7 +1142,7 @@
     el.hint.textContent = "";
 
     if (mode === "zen") {
-      el.overBest.textContent = "Zen session ended — nice flow.";
+      el.overBest.textContent = "Zen session ended. Nice flow.";
     } else if (score > runBest) {
       setBest(score);   // (already saved as the run passed the old best)
       el.overBest.textContent = "★ New best for " + MODES[mode].label + "!";
@@ -1186,7 +1186,7 @@
   window.addEventListener("keydown", (e) => {
     Sound.resume(); // unlock audio on first key
     if (e.key === "Escape") {
-      // Escape now PAUSES a live run (handled by GameShell.pausable above) —
+      // Escape now PAUSES a live run (handled by GameShell.pausable above):
       // it used to end the run outright, which fought the pause overlay: the
       // game was already over behind it. Every letter key is typing input, so
       // Escape is the only key free to be the pause key here. Anywhere else

@@ -115,7 +115,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await settle(p);
   const wonOne = await stats();
   const face = await p.evaluate(() => document.getElementById("face").textContent);
-  check("minesweeper: a game counts as played from its first dig — dropping it (N) still counts, a loss isn't counted twice, a win adds a win",
+  check("minesweeper: a game counts as played from its first dig, dropping it (N) still counts, a loss isn't counted twice, a win adds a win",
     dug.s === '{"p":1,"w":0}' && /won 0 of 1/.test(dug.shown) && dropped.s === '{"p":1,"w":0}' && lostOne.s === '{"p":2,"w":0}' &&
       face === "😎" && wonOne.s === '{"p":3,"w":1}' && /won 1 of 3/.test(wonOne.shown), { dug, dropped, lostOne, face, wonOne });
 

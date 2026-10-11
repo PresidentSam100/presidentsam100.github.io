@@ -43,7 +43,7 @@ class Platform {
   }
 
   // Is this platform currently a valid landing surface? A disappearing yellow
-  // platform stays landable while it reddens — only once it has fully exploded
+  // platform stays landable while it reddens: only once it has fully exploded
   // (dead) is it gone.
   get solid() {
     return !this.broken && !this.dead;
@@ -108,7 +108,7 @@ class Platform {
         Sfx.jump();
         return CONFIG.JUMP_V;
       case PT.YELLOW:
-        // A normal bounce — NOT a white-style instant vanish. It only begins
+        // A normal bounce, NOT a white-style instant vanish. It only begins
         // reddening/exploding once the player has risen above it (handled by
         // the Game). `used` ensures it can never give a second jump.
         this.used = true;

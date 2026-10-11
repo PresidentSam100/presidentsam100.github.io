@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Labyrinth mode: level select, HUD, input and drawing.
+   Slither, Labyrinth mode: level select, HUD, input and drawing.
 
    The rules live in labyrinth-engine.js and the levels in levels.js.
    game.js owns the page shell (menu, overlays, audio) and hands this
@@ -46,7 +46,7 @@ window.SlitherLabyrinth = function (host) {
   var PACK_OF = { Garden: "Easy", Ruins: "Advanced", Citadel: "Expert", Foundry: "Expert", Astral: "Master" };
 
   // ---- progress --------------------------------------------------------------
-  // { best: { <level id>: <best clear time in ms> } } — keyed by id, not index,
+  // { best: { <level id>: <best clear time in ms> } }, keyed by id, not index,
   // so reordering levels.js never scrambles anyone's record.
   function loadProgress() {
     try {
@@ -60,7 +60,7 @@ window.SlitherLabyrinth = function (host) {
 
   function isDone(i) { return progress.best[LEVELS[i].id] != null; }
   function furthestDone() { var m = -1; for (var i = 0; i < LEVELS.length; i++) if (isDone(i)) m = i; return m; }
-  // You may leave one level unbeaten and move on — being hard-stuck on a
+  // You may leave one level unbeaten and move on: being hard-stuck on a
   // single level was the loudest complaint about Ziggy's Labyrinth.
   function isUnlocked(i) { return i <= furthestDone() + 2 || !!(progress.warped && progress.warped[LEVELS[i].id]); }
   function continueIndex() {
@@ -610,7 +610,7 @@ window.SlitherLabyrinth = function (host) {
   var KEY_DIRS = { arrowup: 0, w: 0, arrowright: 1, d: 1, arrowdown: 2, s: 2, arrowleft: 3, a: 3 };
   function keydown(e) {
     if (!active || !st) return;
-    // Shift turns "g" into "G" and "w" into "W" — compare in lower case.
+    // Shift turns "g" into "G" and "w" into "W": compare in lower case.
     var k = (e.key || "").toLowerCase();
     // (R and the toggles act once per press, not on a held key's repeats)
     if (k === "r") { if (!e.repeat) restart(); e.preventDefault(); return; }
@@ -711,7 +711,7 @@ window.SlitherLabyrinth = function (host) {
       hover = cellAt(e);
       E.setCursor(st, hover);
       // A second mouse button pressed while another is down fires no new
-      // pointerdown — only `buttons` changes.
+      // pointerdown: only `buttons` changes.
       var g = (e.buttons & 2) !== 0;
       if (g !== held.ghostMouse) { held.ghostMouse = g; syncHeld(); }
     } else {
@@ -831,7 +831,7 @@ window.SlitherLabyrinth = function (host) {
     locked: ["Locked out! 🔒", "The exit only opens once every 🍎 is gone."],
     self: ["Tied in a knot! 🪢", "You bit your own tail."],
     enemy: ["Caught! 🐍", "Your head hit another snake. Theirs hitting you is their problem."],
-    spike: ["Spiked! 🔺", "Raised spikes cut any part of you — mind your tail."],
+    spike: ["Spiked! 🔺", "Raised spikes cut any part of you: mind your tail."],
     time: ["Out of time! ⏰", "The clock ran out."],
   };
   function onDead(e) {
@@ -900,7 +900,7 @@ window.SlitherLabyrinth = function (host) {
       return;
     }
     var last = levelIdx === LEVELS.length - 1;
-    var msg = "Time " + secs(t) + "s" + (isBest ? (prev != null ? " — new best! 🎉" : "") : "  ·  Best " + secs(prev) + "s");
+    var msg = "Time " + secs(t) + "s" + (isBest ? (prev != null ? ", new best! 🎉" : "") : "  ·  Best " + secs(prev) + "s");
     if (inRun && progress.run) { runWin(msg, warpIdx); return; }
     endTimer = setTimeout(function () {
       if (!active) return;
@@ -990,7 +990,7 @@ window.SlitherLabyrinth = function (host) {
     var score = st.chase.score, round = st.chase.round, prev = chaseRunBest;
     recordChase();
     // (no best line until there's one to beat, as on a stage's card)
-    var msg = "Score " + score + (!prev ? "" : score > prev ? " — new best! 🎉" : "  ·  Best " + prev) + "  ·  maze " + round;
+    var msg = "Score " + score + (!prev ? "" : score > prev ? ", new best! 🎉" : "  ·  Best " + prev) + "  ·  maze " + round;
     endTimer = setTimeout(function () {
       if (!active) return;
       host.showResult({ title: "The guardians got you 👻", msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });
@@ -1024,7 +1024,7 @@ window.SlitherLabyrinth = function (host) {
     var score = st.score, best = stageRunBest;
     recordStage();
     // (no best line until there's one to beat, as with a level's first clear)
-    var msg = "Score " + score + " 🍎" + (stageIdx < 0 || !best ? "" : score > best ? " — new best! 🎉" : "  ·  Best " + best);
+    var msg = "Score " + score + " 🍎" + (stageIdx < 0 || !best ? "" : score > best ? ", new best! 🎉" : "  ·  Best " + best);
     endTimer = setTimeout(function () {
       if (!active) return;
       host.showResult({ title: words[0], msg: escapeHtml(msg) + "  ·  " + retryLine("play again", "Play Again"), html: true, primaryLabel: "Play Again", primaryFn: restart });
@@ -1315,7 +1315,7 @@ window.SlitherLabyrinth = function (host) {
       ctx.beginPath(); ctx.moveTo(cx(sp.body[0]), cy(sp.body[0])); ctx.lineTo(cx(st.cursor), cy(st.cursor)); ctx.stroke();
       ctx.setLineDash([]);
     }
-    // Where the engine thinks the cursor is — Mouse Eaters hunt it, so show it.
+    // Where the engine thinks the cursor is: Mouse Eaters hunt it, so show it.
     if (st.cursor >= 0 && st.snakes.some(function (s) { return s.alive && s.kind === "mouse"; })) {
       var mx = cx(st.cursor), my = cy(st.cursor), locked = st.res.p1.mouseLock > 0;
       ctx.globalAlpha = 0.9;

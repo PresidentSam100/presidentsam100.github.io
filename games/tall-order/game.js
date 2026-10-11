@@ -1,5 +1,5 @@
 /* =====================================================================
-   Tall Order — the bakery stacker.
+   Tall Order: the bakery stacker.
 
    Classic Stack rules in 2D: a tier slides over the tower, you drop it,
    the overhang shears off as a falling chunk, and the next tier is only
@@ -560,7 +560,7 @@
   cam = -Hh * 0.82; camTarget = cam;
   toMenu();
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.TallOrder = {
     state: function () { return state; },
     tiers: function () { return tiers.length; },

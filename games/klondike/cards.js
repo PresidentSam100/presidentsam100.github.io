@@ -1,5 +1,5 @@
 /* =====================================================================
-   Klondike — the rules, with no DOM. game.js renders and animates this;
+   Klondike: the rules, with no DOM. game.js renders and animates this;
    tests drive it in Node.
 
    A card is { s: 0..3 (♠ ♥ ♦ ♣), r: 1..13, up: bool }; red is s 1 or 2.

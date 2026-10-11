@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Labyrinth music: one generated loop per zone.
+   Slither, Labyrinth music: one generated loop per zone.
 
    A tiny step sequencer on the Web Audio clock. Each zone has its own
    mode, root, tempo, chord loop and instruments; the melody is drawn from

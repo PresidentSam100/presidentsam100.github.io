@@ -1,5 +1,5 @@
 /* =====================================================================
-   24 — make 24 from four cards, on an 84×48 phone LCD.
+   24: make 24 from four cards, on an 84×48 phone LCD.
 
    Screens are drawn in immediate mode every frame into the LCD
    framebuffer (lcd.js); keys come from the on-screen phone, the

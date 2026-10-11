@@ -1,18 +1,18 @@
 /* =====================================================================
-   Darkroom — nonograms under a red safelight.
+   Darkroom: nonograms under a red safelight.
 
    Every puzzle is a "negative": fill the right cells and the photo
    develops. Clues are the run lengths of each row and column; the line
-   solver (nono.js) has proven every shipped picture — and the daily —
+   solver (nono.js) has proven every shipped picture (and the daily)
    solvable with no guessing. Trying to develop a wrong cell fogs the
    print: +1 fog, +30 seconds on the clock, and the cell is marked ✕ for
-   you. The penalty is what makes fog matter — without it a wrong click
+   you. The penalty is what makes fog matter, without it a wrong click
    would be a free "is this ink?" probe, and clicking around would beat
    deducing. Finish with no fog and the print is flawless. Solved prints
    hang in the gallery.
 
-   Controls: left-click / drag uses the active tool — develop or mark ✕
-   — switched with the HUD button or the 1 / 2 keys (right-click / drag
+   Controls: left-click / drag uses the active tool (develop or mark ✕),
+   switched with the HUD button or the 1 / 2 keys (right-click / drag
    always marks, for mice; taps use the tool too). Arrows move, Z or
    Space develops, X marks, R starts over. P pauses (the shared shell),
    and in the gallery goes back to the darkroom.
@@ -487,7 +487,7 @@
     return "mark";
   }
 
-  // The board's cursor mirrors whichever action the pointer would take —
+  // The board's cursor mirrors whichever action the pointer would take:
   // including a right-button drag, which marks whatever the toolbar says.
   function boardCursor(action) {
     board.classList.toggle("tool-fill", action === "fill");
@@ -603,7 +603,7 @@
     setTimeout(function () {
       if (screen !== "puzzle" || !cur || !cur.won) return;
       ui.winName.textContent = "It's " + (/^[AEIOU]/i.test(cur.p.name) ? "an " : "a ") + cur.p.name + "!";
-      if (cur.isDaily) ui.winName.textContent = cur.p.name + " — developed!";
+      if (cur.isDaily) ui.winName.textContent = cur.p.name + ", developed!";
       ui.winStats.textContent = mmss(cur.ms) + (cur.fog ? " · fog ×" + cur.fog : " · a flawless print");
       renderPrint(ui.winPrint, cur.p.rows, Math.max(6, Math.floor(150 / cur.h)), true);
       var nxt = nextUndeveloped();

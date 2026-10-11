@@ -284,7 +284,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     bestEl.textContent = best;
-    livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "—";
+    livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "–";
   }
 
   function popBloon(b) {
@@ -644,7 +644,7 @@
   // Sits on its platform, turns to follow the bloon furthest along (like
   // "first" targeting), and throws a dart at each one you pop.
   var monkey = { angle: -Math.PI / 2, throwT: 0 };
-  var darts = [];     // { x0, y0, x1, y1, t } — t runs 0..1 over DART_TIME
+  var darts = [];     // { x0, y0, x1, y1, t }: t runs 0..1 over DART_TIME
   var DART_TIME = 0.09;
 
   function drawMonkey() {
@@ -909,7 +909,7 @@
     if (powerNum.textContent !== txt) powerNum.textContent = txt;
   }
 
-  // Pause on Esc or a tab-switch. NOT "P" — answers are typed, and the
+  // Pause on Esc or a tab-switch. NOT "P": answers are typed, and the
   // timer running down behind a switched tab was the whole complaint.
   // The answer box is off while paused, so stray typing can't sneak in.
   var PAUSE = window.GameShell
@@ -939,7 +939,7 @@
 
   // --- state transitions ---
   function startGame() {
-    ensureAudio(); // first user gesture — unlock/resume audio
+    ensureAudio(); // first user gesture: unlock/resume audio
     readConfig();
     reset();
     state = "playing";

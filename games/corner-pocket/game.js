@@ -1,4 +1,4 @@
-/* Corner Pocket — 8-ball pool against the CPU or a friend on the same screen.
+/* Corner Pocket: 8-ball pool against the CPU or a friend on the same screen.
    Game flow, drawing and input live here; the table physics, the rules and
    the CPU are in physics.js, rules.js and ai.js. */
 (function () {
@@ -597,14 +597,14 @@
   function endShot() {
     var res = Ru.resolve(G.st, G.before, G.world.ev, G.shotCall);
     var o = res.out, me = o.shooter, st = res.st;
-    if (o.respot8) { P.spotBall(G.balls, 8); toast("The 8 went down on the break — respotted", "info"); }
+    if (o.respot8) { P.spotBall(G.balls, 8); toast("The 8 went down on the break: respotted", "info"); }
     if (o.cueIn) { cue().on = false; }
     G.st = st;
     if (o.winner >= 0) { gameOver(o); return; }
     var yours = G.mode === "cpu" && st.turn === 0;
     if (o.foul) {
       sfxFoul();
-      toast("Foul: " + FOUL[o.foul] + " — " + (yours ? "your ball in hand" : "ball in hand, " + nameOf(st.turn)), "bad");
+      toast("Foul: " + FOUL[o.foul] + ", " + (yours ? "your ball in hand" : "ball in hand, " + nameOf(st.turn)), "bad");
     } else if (o.assigned) {
       var g = o.assigned === "solid" ? "solids" : "stripes";
       toast(G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g + "!" : "CPU takes " + g, "good");
@@ -1366,7 +1366,7 @@
     document.getElementById("levelField").style.display = settings.mode === "cpu" ? "" : "none";
     document.getElementById("recLine").textContent = settings.mode === "cpu"
       ? "Your record vs " + AI.LEVELS[settings.level].name + ": " + record(settings.level).text()
-      : "Two players, one screen — pass it back and forth.";
+      : "Two players, one screen: pass it back and forth.";
   }
   document.querySelectorAll("#modeSeg button").forEach(function (b) {
     b.addEventListener("click", function () { settings.mode = b.dataset.mode; saveSettings(); renderMenu(); });

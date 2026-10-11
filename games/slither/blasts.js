@@ -1,12 +1,12 @@
 /* =====================================================================
-   Slither — Fire Eggs: blast arenas.
+   Slither, Fire Eggs: blast arenas.
 
    Snakes lay fire eggs; after a moment each bursts into a cross of flame
    that cracks clay urns, sets off other eggs and burns any snake it
    touches. `mode: "blast"` is what makes these rules (labyrinth-engine.js,
    "fire eggs"). You (P1, at S) and, in a two-player game, a friend (P2, at
    s) face rival snakes (r); with one player a rival takes the s spot.
-   Every "." is a place a clay urn may stand — they're scattered fresh each
+   Every "." is a place a clay urn may stand: they're scattered fresh each
    round (`urns` is the share filled); a space stays bare. The corners
    around each start are always clear.
    ===================================================================== */

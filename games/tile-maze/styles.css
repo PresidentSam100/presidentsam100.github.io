@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Righteous&family=Nunito:wght@600;700;800&display=swap");
-/* A poolside resort seen from above. The page is the sun-lit deck — cream
-   stone with grout lines, a palm over one corner, a lifebuoy by the other —
+/* A poolside resort seen from above. The page is the sun-lit deck (cream
+   stone with grout lines, a palm over one corner, a lifebuoy by the other)
    and the maze itself is a run of glossy ceramic tiles floating in the pool:
    the board's background is water with light caustics, and the void tiles
    just let it show through. The player is a beach ball, tinted by flavor.
@@ -34,7 +34,7 @@
 * { box-sizing: border-box; }
 
 /* Reserve the scrollbar gutter so the page width (and the fixed top-right
-   Mute / Visual FX buttons) stays put whether or not a page scrolls — keeps
+   Mute / Visual FX buttons) stays put whether or not a page scrolls: keeps
    the game and the level editor visually consistent. */
 html { scrollbar-gutter: stable; background: var(--bg); }
 

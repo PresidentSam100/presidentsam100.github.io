@@ -1,5 +1,5 @@
 /* =====================================================================
-   Sudoku — fresh puzzles, graded by the techniques they need.
+   Sudoku: fresh puzzles, graded by the techniques they need.
 
    - Puzzles come from engine.js, carved in worker.js so an unlucky Expert
      roll never freezes the page; the next one is pre-carved while you play.
@@ -341,7 +341,7 @@
     const clues = ready ? given.reduce((a, b) => a + b, 0) : 0;
     levelTag.innerHTML = LABEL[prefs.level] + (clues ? "<small>" + clues + " clues</small>" : "");
     forecastEl.textContent = FORECAST[prefs.level];
-    puzzleNoEl.textContent = "No. " + (ready ? puzzleNo(game.puzzle) : "—");
+    puzzleNoEl.textContent = "No. " + (ready ? puzzleNo(game.puzzle) : "–");
   }
 
   function hideStamp() {
@@ -364,7 +364,7 @@
   function renderStats() {
     const best = bestFor(prefs.level).get();   // 0 means "no time yet"
     statsEl.innerHTML =
-      "<b>" + LABEL[prefs.level] + "</b> · best <b>" + (best > 0 ? fmt(best * 1000) : "—") +
+      "<b>" + LABEL[prefs.level] + "</b> · best <b>" + (best > 0 ? fmt(best * 1000) : "–") +
       "</b> · solved " + readStats(prefs.level).w;
   }
 
@@ -550,7 +550,7 @@
     }
     // A full grid with no clashes is the (unique) answer.
     if (full && clean) return win(i);
-    if (full) return setStatus("Every square is filled, but some digits clash — look for the red ones.", "bad");
+    if (full) return setStatus("Every square is filled, but some digits clash: look for the red ones.", "bad");
 
     const fxOn = !reduced();
     let done = 0;
@@ -670,7 +670,7 @@
       if (vals[i] && vals[i] !== sol[i]) wrong.push(i);
       else if (!vals[i] && notes[i] && !(notes[i] & (1 << (sol[i] - 1)))) lost.push(i);
     }
-    if (wrong.length) return flagCells(wrong, HINT + "That " + vals[wrong.indexOf(sel) >= 0 ? sel : wrong[0]] + " doesn't belong here — clear it and look again.");
+    if (wrong.length) return flagCells(wrong, HINT + "That " + vals[wrong.indexOf(sel) >= 0 ? sel : wrong[0]] + " doesn't belong here: clear it and look again.");
     if (lost.length) return flagCells(lost, HINT + "Your notes here have ruled out the answer.");
 
     const step = E.nextStep(Array.from(vals));
@@ -683,7 +683,7 @@
       if (step.via.length) msg = "Using " + step.via.map((n) => TECH[n] || n).join(" and ") + ", " + msg;
       else msg = msg.charAt(0).toUpperCase() + msg.slice(1);
     } else {
-      // past what the grader can explain — just give the square
+      // past what the grader can explain: just give the square
       i = sel >= 0 && !vals[sel] ? sel : vals.indexOf(0);
       msg = "Here's a " + sol[i] + ".";
     }
@@ -713,7 +713,7 @@
       msg += " with " + hintNote + " (unranked)";
       note += " · " + hintNote;
     } else if (bestFor(game.level).submit(secs)) {
-      msg += " — new best!";
+      msg += ", new best!";
       note += " · new best";
     }
     addSolved(game.level);

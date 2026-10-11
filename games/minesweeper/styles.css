@@ -607,7 +607,7 @@ body > .gs-pause {
   color: #202020;
 }
 
-/* The viewport. Rows are absolutely placed and moved by JS every frame —
+/* The viewport. Rows are absolutely placed and moved by JS every frame:
    never by a CSS transition, which Visual FX off would flatten to nothing.
    endless.js sets its size, bevel included (border-box). */
 .runner {

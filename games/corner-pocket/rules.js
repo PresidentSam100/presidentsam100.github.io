@@ -1,4 +1,4 @@
-/* Corner Pocket — 8-ball rules. Pure: given the table before a shot and what
+/* Corner Pocket: 8-ball rules. Pure: given the table before a shot and what
    happened during it, work out fouls, groups, whose turn it is and whether
    the game is over. The shape is the one mobile 8-ball players know:
 

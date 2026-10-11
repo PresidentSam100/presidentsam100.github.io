@@ -147,7 +147,7 @@
     if (phase === "place") {
       $("placing").innerHTML = placeIdx < SHIPS.length
         ? "Place your <b>" + SHIPS[placeIdx].name + "</b> (" + SHIPS[placeIdx].size + ") · " + (orient === "h" ? "horizontal ▸" : "vertical ▾")
-        : "All ships placed — ready!";
+        : "All ships placed: ready!";
       $("startBtn").disabled = placeIdx < SHIPS.length;
     }
   }
@@ -221,7 +221,7 @@
     } else status('<span class="ok">Battle!</span> Fire at enemy waters.');
   }
 
-  // Queue the CPU's turn but only let it run if we're still in the same game —
+  // Queue the CPU's turn but only let it run if we're still in the same game:
   // starting a new game bumps the round and cancels any pending CPU turn.
   function scheduleCpu(delay) {
     const myRound = round;
@@ -247,7 +247,7 @@
     // "ending" at once, so a shot fired before the end card can't win twice
     if (allSunk(enemyShips)) { phase = "ending"; setTimeout(() => gameOver("player"), res.sunk ? 650 : 150); return; }
     if (res.hit) status('<span class="hit">HIT at ' + coordLabel(r, c) + "!</span>" + (res.sunk ? " Sank their " + res.ship.name + "." : " Fire again."));
-    else { status("Miss at " + coordLabel(r, c) + " — <span class=\"warn\">CPU's turn…</span>"); turn = "cpu"; render(); scheduleCpu(800); }
+    else { status("Miss at " + coordLabel(r, c) + ", <span class=\"warn\">CPU's turn…</span>"); turn = "cpu"; render(); scheduleCpu(800); }
   });
   enemyGrid.addEventListener("mouseover", (e) => { const cell = e.target.closest(".cell"); if (cell && phase === "battle" && turn === "player") $("coord").textContent = "🎯 " + coordLabel(+cell.dataset.r, +cell.dataset.c); });
   enemyGrid.addEventListener("mouseleave", () => { $("coord").textContent = ""; });
@@ -272,7 +272,7 @@
     if (!cand.length) for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!playerBoard[r][c].attacked) cand.push([r, c]);
     return cand[(Math.random() * cand.length) | 0];
   }
-  // Hard: probability density — score every cell by how many ways the remaining
+  // Hard: probability density, score every cell by how many ways the remaining
   // ships could still sit there; in target mode, weight placements that cover known hits.
   function cpuPickHard() {
     const remaining = playerShips.filter((s) => !s.sunk).map((s) => s.size);
@@ -314,8 +314,8 @@
     if (res.hit) { cpuOnHit(r, c, res.ship, res.sunk); res.sunk ? SFX.sunk() : SFX.hit(); } else SFX.miss();
     render(); flashHit(playerGrid, res, r, c);
     if (allSunk(playerShips)) { phase = "ending"; setTimeout(() => gameOver("cpu"), res.sunk ? 650 : 150); return; }
-    if (res.hit) { status('CPU <span class="hit">HIT</span> at ' + coordLabel(r, c) + (res.sunk ? " — sank your " + res.ship.name + "!" : "…")); scheduleCpu(800); }
-    else { status("CPU missed at " + coordLabel(r, c) + ' — <span class="ok">your turn.</span>'); turn = "player"; render(); }
+    if (res.hit) { status('CPU <span class="hit">HIT</span> at ' + coordLabel(r, c) + (res.sunk ? ", sank your " + res.ship.name + "!" : "…")); scheduleCpu(800); }
+    else { status("CPU missed at " + coordLabel(r, c) + ', <span class="ok">your turn.</span>'); turn = "player"; render(); }
   }
 
   // ---- end ----
@@ -343,7 +343,7 @@
     $("enemyCol").hidden = true; $("placeControls").style.display = "flex";
     $("playerTitle").textContent = "Your Fleet";
     $("coord").textContent = "";
-    status("Place your fleet — click to drop ships, <b>Rotate</b> to turn, or go <b>Random</b>.");
+    status("Place your fleet: click to drop ships, <b>Rotate</b> to turn, or go <b>Random</b>.");
     render();
   }
   // keyboard shortcuts

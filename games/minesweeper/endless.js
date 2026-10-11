@@ -1,5 +1,5 @@
 /* =====================================================================
-   Minesweeper Endless — the field scrolls down into a black
+   Minesweeper Endless: the field scrolls down into a black
    out-of-bounds strip, one row tall, under a red line.
 
    Once a row has slid all the way into the strip it's judged: an
@@ -26,7 +26,7 @@
   const SPEED_MAX = 0.45;       // eased toward, never reached
   const SPEED_TAU = 120;        // rows survived to close ~63% of the gap
   // Mines per 10-tile row (2.5 = 25%, above classic Expert's 20.6%). At a
-  // random 12% a simulated field opened 85% of its safe tiles by itself —
+  // random 12% a simulated field opened 85% of its safe tiles by itself:
   // a zero patch keeps flooding each new row. So each row gets a fixed
   // count, drawn at random but weighted toward columns where the two rows
   // below have no mine nearby (the spots that would otherwise become
@@ -178,7 +178,7 @@
     if (rows.has(r - 1)) computeAdj(r - 1);
   }
 
-  // `avg` 2.5 means half the rows get 2 and half get 3 — never an empty row.
+  // `avg` 2.5 means half the rows get 2 and half get 3: never an empty row.
   // need[c]: the tile at column c of the row below is still on course to be
   // a zero (no mine within reach in the two rows below). A mine at x
   // settles need for x-1..x+1, so those spots weigh more.
@@ -303,7 +303,7 @@
     el.textContent = txt;
   }
 
-  const led = (n) => String(n).padStart(3, "0"); // no 999 cap — this is endless
+  const led = (n) => String(n).padStart(3, "0"); // no 999 cap: this is endless
   function renderHud() {
     defusedEl.textContent = led(defused);
     scoreEl.textContent = led(score);
@@ -320,7 +320,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
   function renderStats() {
     const b = BEST.get();
-    statsEl.innerHTML = "<b>Endless</b> · best <b>" + (b > 0 ? b + " rows" : "—") + "</b>";
+    statsEl.innerHTML = "<b>Endless</b> · best <b>" + (b > 0 ? b + " rows" : "–") + "</b>";
   }
 
   // ---- game --------------------------------------------------------------
@@ -343,7 +343,7 @@
     renderHud();
     renderFace();
     renderStats();
-    setStatus("Dig or flag to start — flag every mine before it slides out of bounds.");
+    setStatus("Dig or flag to start: flag every mine before it slides out of bounds.");
   }
 
   function begin() {
@@ -400,7 +400,7 @@
   }
 
   // Breadth-first so the FX ripple spreads outward. Never opens rows that
-  // are off-screen or already judged — spread() picks those up later.
+  // are off-screen or already judged: spread() picks those up later.
   function openFrom(starts) {
     const fx = !reduced();
     const q = [];
@@ -484,7 +484,7 @@
     const isBest = score > 0 && (!isFinite(runBest) || score > runBest);
     setStatus(
       esc("💥 " + why + " " + score + " row" + (score === 1 ? "" : "s") + ", " + defused + " defused" +
-        (isBest ? " — new best!" : ".")) +
+        (isBest ? ", new best!" : ".")) +
         // (the key part hides on a touch-only device, where 🙂 is the way)
         ' Tap 🙂<span class="gs-keys"> or press <kbd class="gs-kbd">N</kbd></span> to go again.',
       "bad",
@@ -585,7 +585,7 @@
   runnerEl.addEventListener("pointerdown", (e) => {
     if (e.pointerType === "mouse") return;
     lastTouch = performance.now();
-    if (touch) return; // a second finger — ignore it
+    if (touch) return; // a second finger: ignore it
     const h = cellOf(e.target);
     if (!h) return;
     ensureAudio();

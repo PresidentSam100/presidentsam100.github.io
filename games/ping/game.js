@@ -136,7 +136,7 @@ function startGame(mode) {
   right.score = 0;
   antennaReset();
   left.y = right.y = H / 2 - PADDLE_H / 2;
-  // park the ball at center, frozen — it launches when the countdown ends
+  // park the ball at center, frozen: it launches when the countdown ends
   ball.x = (W - BALL_SIZE) / 2; ball.y = (H - BALL_SIZE) / 2; ball.vx = 0; ball.vy = 0;
   pendingDir = Math.random() < 0.5 ? -1 : 1; // random first serve: left or right player
 
@@ -151,7 +151,7 @@ function startGame(mode) {
 function startCountdown() {
   state = "countdown";
   // On touch devices the on-screen ▲▼ buttons are the controls, so don't show the
-  // keyboard hints (W/S, ↑/↓) or "Auto" — those only apply on desktop.
+  // keyboard hints (W/S, ↑/↓) or "Auto": those only apply on desktop.
   const touch = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
   // keyboard controls show as keycaps (shared style, ../motion-toggle.js); the
   // touch arrows and "Auto" aren't keys, so they keep the plain boxed label
@@ -287,7 +287,7 @@ function afterPoint(dir) {
     if (players === 1) who = left.score > right.score ? "You Win!" : "CPU Wins!";
     else who = left.score > right.score ? "Left Wins!" : "Right Wins!";
     winnerEl.textContent = who;
-    // Only the 1P ladder is a "record" — in 2P both paddles are humans, so
+    // Only the 1P ladder is a "record": in 2P both paddles are humans, so
     // there's no consistent "you" to credit a win to.
     if (REC && players === 1) {
       REC.add(left.score > right.score ? "w" : "l");

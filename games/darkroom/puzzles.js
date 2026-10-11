@@ -1,9 +1,9 @@
 /* =====================================================================
-   Darkroom — the negatives. Hand-drawn pixel art; "#" is ink.
+   Darkroom: the negatives. Hand-drawn pixel art; "#" is ink.
 
    Every picture must pass `node check-puzzles.js`, which proves the line
    solver finishes it with no guessing (and so the solution is unique).
-   Ids key saved progress — never reuse or rename one. Names are only
+   Ids key saved progress: never reuse or rename one. Names are only
    shown once a print is developed, so don't spoil them in the UI.
    ===================================================================== */
 (function (root, factory) {
@@ -13,7 +13,7 @@
 })(this, function () {
   return [
     {
-      id: "roll1", name: "First Exposures", blurb: "5×5 — learn the tongs",
+      id: "roll1", name: "First Exposures", blurb: "5×5: learn the tongs",
       puzzles: [
         { id: "plus", name: "Crosshair", rows: [
           "..#..",
@@ -60,7 +60,7 @@
       ],
     },
     {
-      id: "roll2", name: "Contact Sheet", blurb: "10×10 — a full roll",
+      id: "roll2", name: "Contact Sheet", blurb: "10×10: a full roll",
       puzzles: [
         { id: "camera", name: "Camera", rows: [
           "...##.....",
@@ -185,7 +185,7 @@
       ],
     },
     {
-      id: "roll3", name: "Studio Session", blurb: "15×15 — the big enlarger",
+      id: "roll3", name: "Studio Session", blurb: "15×15: the big enlarger",
       puzzles: [
         { id: "lighthouse", name: "Lighthouse", rows: [
           "......###......",

@@ -68,7 +68,7 @@
 
   apply(reduced()); // runs at <head> parse time -> no flash of animation
 
-  // Hover / active / focus feedback for the back + Visual FX buttons — mirrors the
+  // Hover / active / focus feedback for the back + Visual FX buttons: mirrors the
   // game-card lift on the main page. Injected once; theme-agnostic (works on every game).
   (function injectHover() {
     if (document.getElementById("rm-hover-style")) return;
@@ -78,7 +78,7 @@
       ".nav-back-games,.rm-toggle{transition:filter .15s ease,outline-color .15s ease,opacity .15s ease;outline:2px solid transparent;outline-offset:2px}" +
       // Flat buttons: a subtle ring + brightness on hover.
       ".nav-back-games:hover,.rm-toggle:hover{filter:brightness(1.14);outline-color:currentColor}" +
-      // 3D / glow buttons (have their own shadow): no ring (it clashes) — just energize.
+      // 3D / glow buttons (have their own shadow): no ring (it clashes), just energize.
       ".nav-back-games.rm-3d:hover,.rm-toggle.rm-3d:hover{outline-color:transparent;filter:brightness(1.12) saturate(1.25)}" +
       ".nav-back-games:active,.rm-toggle:active{filter:brightness(.92)}" +
       ".nav-back-games:focus-visible,.rm-toggle:focus-visible{outline-color:currentColor;outline-offset:3px}";
@@ -297,7 +297,7 @@
     var back = document.querySelector(".nav-back-games");
     if (!back || back.href !== GAMES_URL) return;
     back.setAttribute("aria-keyshortcuts", "Home Escape");
-    back.title = "Back to the games — Home or Esc";
+    back.title = "Back to the games: Home or Esc";
     var cap = back.querySelector(".gs-back-key"), wide = window.innerWidth >= 1200;
     if (wide && !cap) {
       cap = document.createElement("span");
@@ -323,7 +323,7 @@
     btn.setAttribute("aria-pressed", r ? "true" : "false");
     btn.setAttribute("aria-label", "Toggle visual effects for this game (" + key + ")");
     btn.setAttribute("aria-keyshortcuts", lettersOn() ? "V ]" : "]");
-    btn.title = "Toggle visual effects for this game (shake, flash, glow, animations) — " + (lettersOn() ? "V or ]" : "]");
+    btn.title = "Toggle visual effects for this game (shake, flash, glow, animations): " + (lettersOn() ? "V or ]" : "]");
     var words = tight === 2 ? ["✨", "✨"] : tight === 1 ? ["✨ FX: on", "✨ FX: off"] : ["✨ Visual FX: on", "✨ Visual FX: off"];
     var html = swap(words[r ? 1 : 0], words[r ? 0 : 1]) +
       (window.innerWidth >= 1200 ? ' <kbd class="gs-kbd">' + key + "</kbd>" : "");

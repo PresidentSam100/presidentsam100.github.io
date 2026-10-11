@@ -1,5 +1,5 @@
 /* =====================================================================
-   Science Fair — Simon, hung on a corkboard.
+   Science Fair: Simon, hung on a corkboard.
 
    Standard rules: the planets play a tune that grows one note per round;
    repeat it by clicking the cutouts or pressing their number keys. One
@@ -105,7 +105,7 @@
       var el = document.createElement("div");
       el.className = "hang sway";
       el.innerHTML = '<span class="knot"></span><span class="string"></span>' +
-        '<button type="button" class="pad" aria-label="' + p.name + ' — key ' + (i + 1) + '">' + box.html + "</button>" +
+        '<button type="button" class="pad" aria-label="' + p.name + ', key ' + (i + 1) + '">' + box.html + "</button>" +
         // (the tag's key hides on a touch-only device, where the cutout is tapped)
         '<span class="tag"><span class="gs-keys"><kbd>' + (i + 1) + "</kbd></span>" + p.name +
         (i === 8 ? "<small>still a planet!!</small>" : "") + "</span>";
@@ -432,7 +432,7 @@
     hudRound();
     face("rest");
     state = "watch"; say("watch…");
-    // the rocket sits on its pad while the planets sing — it only flies
+    // the rocket sits on its pad while the planets sing: it only flies
     // when the player is picking planets from memory
     shipTo("dock");
     var step = iv(seq.length);
@@ -523,7 +523,7 @@
       d = readDaily();
       var left = 3 - d.used;
       statLines.push("Field Trip #" + d.n + " · best today: round " + d.best);
-      statLines.push(left > 0 ? (left + (left === 1 ? " launch" : " launches") + " left") : "all launches used — back tomorrow!");
+      statLines.push(left > 0 ? (left + (left === 1 ? " launch" : " launches") + " left") : "all launches used: back tomorrow!");
       $("again").hidden = left <= 0;
       $("again").innerHTML = 'Launch again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = false;
@@ -664,7 +664,7 @@
   applyDim(); applyRoids(); paintMenu();
   requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.ScienceFair = {
     state: function () { return state; },
     seq: function () { return seq.slice(); },

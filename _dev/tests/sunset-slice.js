@@ -1,5 +1,5 @@
 // Sunset Slice: once a Duel's bomb has gone off, the rest of that swipe cuts
-// nothing — no points, no best — during the end beat. Modes on the pause card
+// nothing (no points, no best) during the end beat. Modes on the pause card
 // asks before throwing the run away.
 // (The beat is stretched from 1.1s to 5s here: on a busy machine the swipe's
 // mouse moves alone can outlast 1.1s, and a swipe after the beat proves nothing.)

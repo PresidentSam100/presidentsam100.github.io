@@ -1,9 +1,9 @@
 /* =====================================================================
-   Set — styled as a warm card-table "salon": emerald felt background,
+   Set, styled as a warm card-table "salon": emerald felt background,
    ivory cards, brass/gold accents and a rounded display face. Deliberately
    distinct from the dark arcade theme the other games share.
 
-   NOTE: the class/id hooks here are a contract with game.js —
+   NOTE: the class/id hooks here are a contract with game.js,
    .card / .selected / .good / .bad / .hint / .dealt, #msg(.good/.bad/.info),
    and the .stat / .btn / overlay structure. Restyle freely, but keep them.
    ===================================================================== */
@@ -69,7 +69,7 @@ body {
   flex: 0 0 auto;
 }
 
-/* back button — brass plate, top-left */
+/* back button: brass plate, top-left */
 .back-link {
   position: fixed;
   top: 12px;
@@ -78,7 +78,7 @@ body {
   font: 700 13px/1 "Fredoka", "Inter", sans-serif;
   letter-spacing: 0.02em;
   color: var(--felt-3);
-  /* longhand so getComputedStyle().backgroundColor resolves to a solid color —
+  /* longhand so getComputedStyle().backgroundColor resolves to a solid color:
      the shared mute / Visual-FX toggles copy that to theme themselves. */
   background-color: var(--gold);
   background-image: linear-gradient(180deg, #f1d98f, var(--gold));
@@ -128,7 +128,7 @@ body {
   font-weight: 600;
 }
 
-/* hud — brass-rimmed felt chips */
+/* hud: brass-rimmed felt chips */
 .hud {
   display: flex;
   justify-content: center;
@@ -162,7 +162,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* board — flexes to fill the leftover viewport height; it's a size container
+/* board: flexes to fill the leftover viewport height; it's a size container
    so the cards inside can be sized from its width AND height (no page scroll) */
 #board {
   flex: 1 1 0;
@@ -177,7 +177,7 @@ body {
   --rows: 4; /* updated live by game.js as cards are dealt/cleared */
 }
 
-/* a card — ivory stock with a soft brass edge and bottom bevel */
+/* a card: ivory stock with a soft brass edge and bottom bevel */
 .card {
   position: relative;
   background: linear-gradient(180deg, #fffaf0, var(--ivory));
@@ -375,7 +375,7 @@ html.fx-on .card.dealt {
   color: var(--gold);
 }
 
-/* controls — brass primary, ivory secondary */
+/* controls: brass primary, ivory secondary */
 .controls {
   display: flex;
   justify-content: center;

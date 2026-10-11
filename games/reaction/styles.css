@@ -45,7 +45,7 @@
   /* Arvo is wide: keep "10000.0 ms" (a false start) on one line */
   .stat .value { font-size: min(1.2rem, 3.9vw); font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px; color: var(--ink); white-space: nowrap; letter-spacing: -0.02em; }
 
-  /* The street — the whole panel is the tap target */
+  /* The street: the whole panel is the tap target */
   .panel {
     --sky: linear-gradient(180deg, #7cc4ec 0%, #c5e6f5 46%, #f6e2b8 70%, #e6bd80 70%, #d4a060 100%);
     --sun: radial-gradient(circle at 80% 18%, #fffbe6 0 22px, rgba(255, 244, 200, 0.55) 23px 38px, transparent 60px);

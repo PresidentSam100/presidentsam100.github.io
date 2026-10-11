@@ -1,4 +1,4 @@
-/* Steamfitter — lay copper pipe ahead of the rising water. Classic
+/* Steamfitter: lay copper pipe ahead of the rising water. Classic
    place-from-the-queue plumbing: the water starts after a countdown and must
    travel at least the level's quota of pipe segments before it spills. */
 (function () {
@@ -280,7 +280,7 @@
       if (dirs.length || tries++ > 60) { srcDir = dirs[(Math.random() * dirs.length) | 0] || "E"; break; }
     }
     grid[srcR][srcC] = { kind: "src" };
-    // blocked plates from level 2 on — never right in front of the tap
+    // blocked plates from level 2 on: never right in front of the tap
     var frontR = srcR + DXY[srcDir][1], frontC = srcC + DXY[srcDir][0];
     var nBlocks = Math.min(6, Math.max(0, level - 1));
     var placed = 0, guard = 0;
@@ -419,7 +419,7 @@
   }
   function hasPort(type, port) { return PORTS[type] && PORTS[type].indexOf(port) >= 0; }
   // BFS over (cell, entered-port) from the tank to the drain. Returns the flow
-  // path — [{r,c,enter,exit,vtype}] — or null when not connected. Handles T and
+  // path ([{r,c,enter,exit,vtype}]) or null when not connected. Handles T and
   // X (two channels) uniformly via GROUPS.
   function findFlowPath() {
     var sc = grid[srcR] && grid[srcR][1];
@@ -503,7 +503,7 @@
     var how = document.getElementById("howLine");
     if (how) how.textContent = m === "panic"
       ? panicHint()
-      : "Click a pipe to turn it a quarter clockwise — connect the tank to the drain.";
+      : "Click a pipe to turn it a quarter clockwise: connect the tank to the drain.";
     try { localStorage.setItem("steamfitter_mode", m); } catch (e) {}
     document.body.dataset.mode = m;
     document.querySelectorAll("#modeBar .mbtn").forEach(function (b) {
@@ -624,7 +624,7 @@
       keepBest();
       scorePop(r, c, "SEALED +250");
       sfxLevel();
-      banner("LINE CAPPED — LEVEL " + (level + 1));
+      banner("LINE CAPPED: LEVEL " + (level + 1));
       bannerTimer = 1.8;
     } else {
       state = "over";
@@ -653,10 +653,10 @@
     water = null;
     if (mode === "levels") {
       state = "levelend";
-      if (testingEditor) { sfxLevel(); banner("TEST PASSED \u2014 it connects!"); bannerTimer = 1.4; refreshHud(); return; }
+      if (testingEditor) { sfxLevel(); banner("TEST PASSED: it connects!"); bannerTimer = 1.4; refreshHud(); return; }
       recordSolve();   // (rotateAt recorded it as the line connected; this covers any other way here)
       sfxLevel();
-      banner((isCustom ? "CUSTOM" : "LEVEL " + (curLevel + 1)) + " SOLVED — " + moves + " moves");
+      banner((isCustom ? "CUSTOM" : "LEVEL " + (curLevel + 1)) + " SOLVED: " + moves + " moves");
       bannerTimer = 1.8;
       refreshHud();
       return;
@@ -665,7 +665,7 @@
     score += 150;
     puzzleBest.submit(level + 1);
     sfxLevel();
-    banner("PIPELINE SEALED — LEVEL " + (level + 1));
+    banner("PIPELINE SEALED: LEVEL " + (level + 1));
     bannerTimer = 1.8;
     refreshHud();
   }
@@ -682,7 +682,7 @@
       score += 200;
       keepBest();
       sfxLevel();
-      banner("SECTION SEALED — LEVEL " + (level + 1));
+      banner("SECTION SEALED: LEVEL " + (level + 1));
       bannerTimer = 1.8;
     } else {
       gameOver();
@@ -742,7 +742,7 @@
       bannerTimer -= dt;
       if (bannerTimer <= 0) {
         hideBanner();
-        if (mode === "levels") { if (testingEditor) resumeEditor("Test passed \u2014 Save it, or keep editing."); else showSelect(); }
+        if (mode === "levels") { if (testingEditor) resumeEditor("Test passed: Save it, or keep editing."); else showSelect(); }
         else { level++; state = "play"; if (mode === "puzzle") newPuzzle(); else newBoard(); }
       }
     }
@@ -1063,9 +1063,9 @@
     g.fillText(distance + " / " + goal, cx, cy + 26);
     var note = document.getElementById("flowNote");
     if (mode === "puzzle" || mode === "levels") {
-      note.textContent = flowing ? "connected — water running!" : (state === "play" ? "rotate the pipes to the drain" : "");
+      note.textContent = flowing ? "connected: water running!" : (state === "play" ? "rotate the pipes to the drain" : "");
     } else if (state === "play" && !water && countdown > 0) note.textContent = "water in " + Math.ceil(countdown) + "s…";
-    else if (water) note.textContent = ffHeld ? "valve open — double points!" : "water rising!";
+    else if (water) note.textContent = ffHeld ? "valve open: double points!" : "water rising!";
     else note.textContent = "";
   }
 
@@ -1091,8 +1091,8 @@
   var panicPick = (function () { try { return localStorage.getItem("steamfitter_panicpick") !== "forced"; } catch (e) { return true; } })();
   function panicHint() {
     return panicPick
-      ? "Pick a pipe from the queue, then click a plate to lay it — beat the water."
-      : "Forced queue — lay the NEXT pipe onto a plate. No choosing. Beat the water!";
+      ? "Pick a pipe from the queue, then click a plate to lay it: beat the water."
+      : "Forced queue: lay the NEXT pipe onto a plate. No choosing. Beat the water!";
   }
   var pickToggle = document.getElementById("pickToggle");
   function updatePickToggle() {
@@ -1209,7 +1209,7 @@
     var how = document.getElementById("howLine");
     if (how) how.textContent = mode === "panic"
       ? panicHint()
-      : "Click a pipe to turn it a quarter clockwise — connect the tank to the drain.";
+      : "Click a pipe to turn it a quarter clockwise: connect the tank to the drain.";
   })();
   LV = window.STEAMFITTER_LEVELS || [];
   progress = loadProgress();
@@ -1329,7 +1329,7 @@
     h += '</div>';
     h += '<div class="ls-head"><h2>Your levels</h2><button class="ls-create" data-act="create">＋ Create a level</button></div>';
     h += '<div class="ls-grid custom">';
-    if (!customLevels.length) h += '<div class="ls-empty">No custom levels yet — build one with the editor.</div>';
+    if (!customLevels.length) h += '<div class="ls-empty">No custom levels yet: build one with the editor.</div>';
     for (var j = 0; j < customLevels.length; j++) {
       h += '<button class="ls-cell custom" data-act="playc" data-i="' + j + '"><span class="ls-n">★</span>' +
         '<span class="ls-name">' + (customLevels[j].n || "Level") + '</span>' +
@@ -1523,7 +1523,7 @@
     get progress() { return progress; },
   };
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.PipeMania = {
     setQueue: function (a) { queue = a.slice(); refreshHud(); },
     queueNow: function () { return queue.slice(); },

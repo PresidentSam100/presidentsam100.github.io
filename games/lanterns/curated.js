@@ -1,8 +1,8 @@
 /* =====================================================================
-   Lanterns — the vocabulary. [hanzi, pinyin (tone numbers, 5 = neutral),
+   Lanterns: the vocabulary. [hanzi, pinyin (tone numbers, 5 = neutral),
    gloss, tier, traditional?]. Tier 1 = single characters, 2 = everyday words, 3 =
    longer phrases; the festival ramps 1 → 3. Typing uses the toneless
-   form (spaces and numbers stripped, ü typed as v — u also accepted);
+   form (spaces and numbers stripped, ü typed as v: u also accepted);
    Tone Master keeps the numbers.
    ===================================================================== */
 window.LanternWords = [

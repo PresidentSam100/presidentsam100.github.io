@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — level editor.
+   Slither: level editor.
 
    Paint a level with any tile the engine supports (the palette comes from
    the engine's glyph table, so new mechanics show up here on their own),
@@ -167,7 +167,7 @@
       glyphs.forEach(function (ch) {
         var L = E.LEGEND[ch], b = document.createElement("button");
         b.type = "button"; b.className = "ed-tile" + (ch === glyph ? " sel" : "");
-        b.title = L.name + " — " + L.desc;
+        b.title = L.name + ": " + L.desc;
         b.setAttribute("aria-label", L.name);
         b.dataset.glyph = ch;
         var cv = document.createElement("canvas"), dpr = window.devicePixelRatio || 1;
@@ -186,7 +186,7 @@
     glyph = ch;
     Array.prototype.forEach.call(document.querySelectorAll(".ed-tile"), function (b) { b.classList.toggle("sel", b.dataset.glyph === ch); });
     var L = E.LEGEND[ch];
-    $("ed-tip").innerHTML = "<b>" + escapeHtml(L.name) + "</b> — " + escapeHtml(L.desc);
+    $("ed-tip").innerHTML = "<b>" + escapeHtml(L.name) + "</b>: " + escapeHtml(L.desc);
   }
   function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
 
@@ -381,7 +381,7 @@
     out.textContent = "Checking…"; out.className = "ed-result";
     try { worker = new Worker("solver-worker.js"); } catch (e) { out.textContent = "The checker needs the page served over http(s)."; out.className = "ed-result bad"; return; }
     clearTimeout(workerTimer);
-    workerTimer = setTimeout(function () { if (worker) { worker.terminate(); worker = null; out.textContent = "Gave up after 30 s — the level may be too open to search. Try playing it."; out.className = "ed-result bad"; } }, 30000);
+    workerTimer = setTimeout(function () { if (worker) { worker.terminate(); worker = null; out.textContent = "Gave up after 30 s: the level may be too open to search. Try playing it."; out.className = "ed-result bad"; } }, 30000);
     worker.onmessage = function (e) {
       clearTimeout(workerTimer);
       worker.terminate(); worker = null;
@@ -417,7 +417,7 @@
     if (i >= 0) list[i] = lv; else list.push(lv);
     store(MINE_KEY, list);
     showMine();
-    $("ed-result").textContent = "Saved to My levels — it also appears in the game's level select."; $("ed-result").className = "ed-result ok";
+    $("ed-result").textContent = "Saved to My levels: it also appears in the game's level select."; $("ed-result").className = "ed-result ok";
   });
   $("ed-share").addEventListener("click", function () {
     var url = playUrl(current());
@@ -477,7 +477,7 @@
   $("ed-export").addEventListener("click", function () {
     var lv = current();
     lv.id = (lv.name || "my-level").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "my-level";
-    dialog("Export", "Paste this into levels.js (or keep it — Import reads it back).", exportText(lv), null);
+    dialog("Export", "Paste this into levels.js (or keep it: Import reads it back).", exportText(lv), null);
   });
   // Reads a share code or link, JSON, or a levels.js-style object literal.
   function parseAny(text) {

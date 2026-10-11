@@ -770,7 +770,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // piece, then breaks into tumbling bits of frosting, sponge and filling;
   // FX off: it falls whole
   {
-    const HOOK = ["  // test hooks — the Playwright harness drives runs through these\n", `  window.__tf = {
+    const HOOK = ["  // test hooks: the Playwright harness drives runs through these\n", `  window.__tf = {
     step: update, pitch: function () { return H; },
     debris: function () { return debris.map(function (d) { return d.y; }); },
     bits: function () { return sprinkles.filter(function (s) { return s.bit; }); }

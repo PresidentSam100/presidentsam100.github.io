@@ -1,5 +1,5 @@
 /* =====================================================================
-   Fish-A-Fish — the drawing: a summer pond at first light, and everything
+   Fish-A-Fish, the drawing: a summer pond at first light, and everything
    on it. The sky, far shore and water are painted once into a cached
    layer; mist, shimmer, bobbers, ripples, fish and reeds are live.
    No images: everything is canvas paths.
@@ -202,7 +202,7 @@ window.FishArt = (function () {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(ang || 0);
-    // Tail, body, belly, an eye — a plump cartoon fish.
+    // Tail, body, belly, an eye: a plump cartoon fish.
     ctx.fillStyle = S.fin;
     ctx.beginPath();
     ctx.moveTo(-s * 0.75, 0);

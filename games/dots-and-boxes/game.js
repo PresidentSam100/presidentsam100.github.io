@@ -15,7 +15,7 @@ const record = REC ? REC.get() : { w:0, l:0, d:0 };
 // (or OS reduced-motion) means no line-draw animation and a shorter AI delay.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
 
-// --- sound effects (Web Audio, synthesized — no assets) ---
+// --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
 function actx(){
   if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -193,7 +193,7 @@ function draw() {
   syncPlayable();
 }
 
-// Board accepts hover/clicks only on the human's turn — not during AI
+// Board accepts hover/clicks only on the human's turn, not during AI
 // processing (incl. the line-draw animation) or after the game ends.
 function syncPlayable(){ boardEl.classList.toggle('playable', !gameOver && !busy && turn === HUMAN); }
 
@@ -261,11 +261,11 @@ function play(type, r, c) {
   draw(); updateScores();
   if (checkOver()) return;
   if (made === 0) { turn = AI; setStatus('AI thinking…'); busy = true; scheduleAI(350); }
-  else setStatus('You completed a box — go again!');
+  else setStatus('You completed a box: go again!');
   syncPlayable();
 }
 
-// Queue the AI's turn but only let it run if we're still in the same game —
+// Queue the AI's turn but only let it run if we're still in the same game:
 // pressing "New Game" while the AI is "thinking" bumps the round and cancels it.
 function scheduleAI(delay) {
   const myRound = round;
@@ -283,7 +283,7 @@ function aiTurn() {
   lastLine = { type: mv.type, r: mv.r, c: mv.c };
   draw(); updateScores();
   if (checkOver()) { busy = false; syncPlayable(); return; }
-  if (made > 0) { setStatus('AI completed a box — goes again…'); scheduleAI(350); }
+  if (made > 0) { setStatus('AI completed a box: goes again…'); scheduleAI(350); }
   else {
     // Hand the turn back only AFTER the AI's line finishes drawing, so the
     // human can't move (or hover-highlight) while the move is still animating.
@@ -342,7 +342,7 @@ function chooseAIMove() {
   if (document.getElementById('difficulty').value === 'easy')
     return moves[Math.random()*moves.length|0];
 
-  // 1. Take any box you can complete (chain them — repeated via aiTurn loop).
+  // 1. Take any box you can complete (chain them: repeated via aiTurn loop).
   const completing = moves.filter(moveCompletes);
   if (completing.length) return completing[Math.random()*completing.length|0];
 
@@ -350,7 +350,7 @@ function chooseAIMove() {
   const safe = moves.filter(mv => !moveGives(mv));
   if (safe.length) return safe[Math.random()*safe.length|0];
 
-  // 3. All moves are sacrifices — give away the smallest chain.
+  // 3. All moves are sacrifices: give away the smallest chain.
   return smallestSacrifice(moves);
 }
 
@@ -374,7 +374,7 @@ function chainSizeAfter(mv) {
     const m = allMoves().find(moveCompletes);
     if (!m) break;
     if (m.type==='h') hLines[m.r][m.c]='x'; else vLines[m.r][m.c]='x';
-    // recompute boxes as filled by marking — count newly 4-sided boxes
+    // recompute boxes as filled by marking: count newly 4-sided boxes
     let made = 0;
     for (const [br,bc] of boxesTouching(m.type,m.r,m.c)) if (boxSides(br,bc)===4) made++;
     grabbed += made || 1;

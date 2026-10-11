@@ -203,9 +203,9 @@
       details.dict-wrap[open] summary::after { content: " ▴"; }
       .dict-item { font-size: 0.85rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid var(--line); font-weight: 500; }
       .dict-item b { color: var(--text); }
-      /* On-screen control pad — the only input path on touch devices. */
+      /* On-screen control pad: the only input path on touch devices. */
       .touchpad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; width: min(100%, 360px); margin: 0.8rem auto 0; touch-action: none; }
-      /* min-height 44px is the accessible tap-target floor on iOS/Android —
+      /* min-height 44px is the accessible tap-target floor on iOS/Android,
          without it the shorter ⤓ Drop button lands at 37px. */
       .tbtn {
         cursor: pointer; background: rgba(255, 255, 255, 0.8); color: var(--text); border: 1px solid var(--line); border-radius: 12px;

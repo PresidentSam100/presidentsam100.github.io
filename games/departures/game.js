@@ -1,5 +1,5 @@
 /* =====================================================================
-   Departures — name every country before final boarding.
+   Departures: name every country before final boarding.
 
    Countries and the typed-answer judge are shared with Passport
    (../passport/data.js and judge.js). Typing an exact name (or alias)
@@ -46,8 +46,8 @@
   var DEFER_N = deferOf(J.names), DEFER_C = deferOf(K.names);
 
   // The tail: when a name boards as soon as it's typed but the country (or
-  // city) also has a longer name starting with it — Antigua / Antigua and
-  // Barbuda, Russia / Russian Federation, Mexico / Mexico City — the rest of
+  // city) also has a longer name starting with it: Antigua / Antigua and
+  // Barbuda, Russia / Russian Federation, Mexico / Mexico City: the rest of
   // the longer name may still be on its way. While what's typed next is the
   // start of that rest it's left alone, and once it's complete the box
   // clears; anything else is a new answer as usual. Matched loosely (case,
@@ -289,7 +289,7 @@
       if (ci === -1 && caps()) {
         var asCountry = exactIndex(v, J.names);
         if (asCountry !== -1) {
-          toast(C[asCountry][1].toUpperCase() + " — NAME ITS CAPITAL");
+          toast(C[asCountry][1].toUpperCase() + ", NAME ITS CAPITAL");
           dupThock();
           return;
         }
@@ -305,13 +305,13 @@
       }
     }
     if (!inPool[ci]) {
-      toast(label(ci).toUpperCase() + " — WRONG TERMINAL (" + C[ci][2] + ")");
+      toast(label(ci).toUpperCase() + ", WRONG TERMINAL (" + C[ci][2] + ")");
       dupThock();
       $("answer").value = "";
       return;
     }
     if (found[ci]) {
-      toast(label(ci).toUpperCase() + " — ALREADY DEPARTED");
+      toast(label(ci).toUpperCase() + ", ALREADY DEPARTED");
       dupThock();
       $("answer").value = "";
       $("hint").hidden = true;
@@ -339,7 +339,7 @@
     timeTotal = TIMERS[mode === "world" ? "world" : region];   // (the same clock for countries or capitals)
     timeLeft = timeTotal;
     buildGates();
-    $("log").innerHTML = '<li class="idle">— the board is waiting for its first departure —</li>';
+    $("log").innerHTML = '<li class="idle">· the board is waiting for its first departure ·</li>';
     $("menu").hidden = true; $("over").hidden = true;
     $("answer").value = ""; $("answer").disabled = false; $("hint").hidden = true;
     tail = null;
@@ -368,7 +368,7 @@
     var lines = [
       (mode === "world" ? "the world" : ({ EU: "Europe", AS: "Asia", AF: "Africa", AM: "the Americas", OC: "Oceania" })[region]) +
         (caps() ? " · capitals" : "") + " · " + (foundCount ? "last departure " : "") + mm + ":" + ("0" + ss).slice(-2) + (foundCount ? "" : " on the clock"),
-      isBest ? "a new record — see the world! 🛫" : bestLine()
+      isBest ? "a new record: see the world! 🛫" : bestLine()
     ];
     $("over-stats").textContent = lines.join("\n");
 
@@ -385,7 +385,7 @@
         names.push(found[ci] ? "<span>" + nm + "</span>" : "<b>" + nm + "</b>");
       });
       var h = document.createElement("div");
-      h.innerHTML = "<h3>" + rg[1] + " — " + perRegionFound[rg[0]] + "/" + perRegion[rg[0]] + "</h3>" + names.join(" · ");
+      h.innerHTML = "<h3>" + rg[1] + ": " + perRegionFound[rg[0]] + "/" + perRegion[rg[0]] + "</h3>" + names.join(" · ");
       wrap.appendChild(h);
     });
     // and the board clatters out the ones that got away (a taste of them)
@@ -523,7 +523,7 @@
 
   toMenu();
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.Departures = {
     state: function () { return state; },
     found: function () { return foundCount; },

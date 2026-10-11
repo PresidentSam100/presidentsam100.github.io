@@ -1,6 +1,6 @@
 /* A marble tournament set in a quiet slate room. The board is one veined
-   marble slab — the light squares show it bare, the dark squares tint it
-   graphite so the veins run on through — in a walnut frame with a brass
+   marble slab (the light squares show it bare, the dark squares tint it
+   graphite so the veins run on through) in a walnut frame with a brass
    inlay, with coordinates on the frame side of the edge squares. */
 :root {
   --bg:#232830; --panel:#2b323c; --line:#3e4754; --text:#e8ecf2; --muted:#9aa6b6;
@@ -60,7 +60,7 @@ html.fx-on .sq.check::after { animation:checkPulse .9s ease-in-out infinite alte
 .pc.fly.lt { -webkit-text-stroke:.045em #191d24; }
 .pc.fly.dk { -webkit-text-stroke:.045em #f4ecdc; }
 /* Clean even outline drawn BEHIND the fill (paint-order) so detailed glyphs
-   like the bishop stay crisp — and contrasting per piece so they read on both
+   like the bishop stay crisp, and contrasting per piece so they read on both
    light and dark squares. .lt = light piece → dark outline; .dk = dark/colored
    piece → light outline. */
 .sq .pc { position:relative; z-index:2; font-weight:400; paint-order:stroke fill; }

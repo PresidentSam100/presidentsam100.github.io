@@ -5,13 +5,13 @@ const uboardEl = document.getElementById('uboard');
 const statusEl = document.getElementById('status');
 const diffEl = document.getElementById('difficulty');
 const boardModeSelEl = document.getElementById('boardModeSel');
-// The W/L/D counters and their UI already existed — they just never survived a
+// The W/L/D counters and their UI already existed: they just never survived a
 // reload. Seed from the persisted record and write back on every update.
 const REC = window.GameShell ? GameShell.record("tictactoe_record") : null;
 let board, gameOver, lastMove, turn, round = 0, score = REC ? REC.get() : { w:0, l:0, d:0 };
 let boardMode = 'classic'; // classic | ultimate | wild | misere | chaos | gomoku
 let placeSym = 'X';   // the symbol the human will place next (wild / order & chaos)
-let lastMover = null; // 'human' | 'ai' — who made the latest mark (wild: the finisher wins)
+let lastMover = null; // 'human' | 'ai', who made the latest mark (wild: the finisher wins)
 const symPickEl = document.getElementById('symPick');
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
 // (or OS reduced-motion) means no mark-draw animation and a shorter AI delay.
@@ -23,7 +23,7 @@ const LINES = [
   [0,4,8],[2,4,6]          // diagonals
 ];
 
-// --- sound effects (Web Audio, synthesized — no assets) ---
+// --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
 function actx(){
   if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -185,8 +185,8 @@ if (symPickEl) symPickEl.querySelectorAll('button').forEach(b => {
 
 // The human's-turn prompt, per mode.
 function humanPrompt() {
-  if (boardMode === 'wild') return 'Your turn — place an X or an O';
-  if (boardMode === 'misere') return 'Your turn (X) — do NOT make three in a row';
+  if (boardMode === 'wild') return 'Your turn: place an X or an O';
+  if (boardMode === 'misere') return 'Your turn (X): do NOT make three in a row';
   return 'Your turn (X)';
 }
 
@@ -200,7 +200,7 @@ function winner(b) {
 }
 
 function humanMove(i) {
-  // Only accept a click when it's actually the human's turn and the cell is free —
+  // Only accept a click when it's actually the human's turn and the cell is free:
   // this blocks rapid clicks from sneaking in extra moves during the AI's think delay.
   if (gameOver || board[i] || turn !== HUMAN) return;
   turn = AI;
@@ -214,7 +214,7 @@ function humanMove(i) {
   scheduleAI(animOn() ? 450 : 250);
 }
 
-// Queue the AI's move but only let it run if we're still in the same game —
+// Queue the AI's move but only let it run if we're still in the same game:
 // pressing "New Game" while the AI is "thinking" bumps the round and cancels it.
 function scheduleAI(delay) {
   const myRound = round;
@@ -241,7 +241,7 @@ function aiMove() {
     if (myRound !== round) return;
     lastMove = -1;               // don't replay the draw animation on the enabling render
     turn = HUMAN;
-    render();                    // only NOW hand control back — cells become hoverable/clickable
+    render();                    // only NOW hand control back: cells become hoverable/clickable
     setStatus(humanPrompt());
   }, wait);
 }
@@ -260,11 +260,11 @@ function checkEnd() {
     score.d++; setStatus("It's a draw!"); sfxDraw();
   } else if (outcome === 'w') {
     score.w++;
-    setStatus(boardMode === 'misere' ? 'The AI made three in a row — you win! 🎉' : 'You win! 🎉');
+    setStatus(boardMode === 'misere' ? 'The AI made three in a row: you win! 🎉' : 'You win! 🎉');
     highlight(res.line); sfxWin();
   } else {
     score.l++;
-    setStatus(boardMode === 'misere' ? 'Three in a row — you lose!' : 'AI wins!');
+    setStatus(boardMode === 'misere' ? 'Three in a row: you lose!' : 'AI wins!');
     highlight(res.line); sfxLose();
   }
   updateScore();
@@ -274,7 +274,7 @@ function checkEnd() {
 function highlight(line) {
   if (!line) return;
   // Wait for the final mark's draw animation (two strokes, ~0.5s) before
-  // striking through — the chalk line lands after the mark, not on top of it.
+  // striking through: the chalk line lands after the mark, not on top of it.
   const myRound = round;
   const wait = animOn() ? 520 : 0;
   setTimeout(() => {
@@ -370,7 +370,7 @@ function minimax(b, depth, isMax, alpha, beta) {
   const res = winner(b);
   if (res) {
     // Misère: whoever MADE the line loses, so a finished line is bad news for
-    // its own symbol — the classic scores flip.
+    // its own symbol: the classic scores flip.
     const mis = boardMode === 'misere';
     if (res.player === AI) return mis ? depth - 10 : 10 - depth;
     if (res.player === HUMAN) return mis ? 10 - depth : depth - 10;
@@ -400,9 +400,9 @@ function minimax(b, depth, isMax, alpha, beta) {
 }
 
 // ============================================================
-//  ULTIMATE MODE — 9 nested 3x3 boards. Winning a sub-board claims it for
+//  ULTIMATE MODE: 9 nested 3x3 boards. Winning a sub-board claims it for
 //  that player on the macro board; a full sub-board with no 3-in-a-row is
-//  voided — blocked for both players, not won by either.
+//  voided: blocked for both players, not won by either.
 // ============================================================
 let uBoards, uMacro, activeSub, uGameOver, uLastMove, uTurn;
 
@@ -417,7 +417,7 @@ function macroResult(macro) {
 
 // The sub-board(s) currently legal to play in: just the forced target
 // (whatever board matches the cell your opponent last played), unless that
-// board is already decided — then it's any open board, a free choice.
+// board is already decided, then it's any open board, a free choice.
 function uLegalSubs() {
   if (activeSub !== -1 && !uMacro[activeSub]) return [activeSub];
   return [...Array(9).keys()].filter(i => !uMacro[i]);
@@ -438,9 +438,9 @@ function uInit() {
     coinFlip({ you: 'You (X)', cpu: 'CPU (O)', accent: '#f3dd7a', youColor: '#f7a6b8', cpuColor: '#9fd4f7' }, function (who) {
       if (myRound !== round) return;
       if (who === 'cpu') { uTurn = AI; setStatus('AI thinking…'); uScheduleAI(450); }
-      else { uTurn = HUMAN; uRender(); setStatus('Your turn (X) — play in the highlighted board'); }
+      else { uTurn = HUMAN; uRender(); setStatus('Your turn (X): play in the highlighted board'); }
     });
-  } else { uTurn = HUMAN; uRender(); setStatus('Your turn (X) — play in the highlighted board'); }
+  } else { uTurn = HUMAN; uRender(); setStatus('Your turn (X): play in the highlighted board'); }
 }
 
 function uScheduleAI(delay) {
@@ -471,7 +471,7 @@ function uRender() {
     }
     const markWrap = document.createElement('div');
     markWrap.className = 'subboard-mark';
-    if (done === 'draw') markWrap.textContent = '—';
+    if (done === 'draw') markWrap.textContent = '–';
     else if (done) markWrap.innerHTML = markSVG(done, false);
     sub.appendChild(markWrap);
     uboardEl.appendChild(sub);
@@ -503,7 +503,7 @@ function uAiMove() {
     uLastMove = null;
     uTurn = HUMAN;
     uRender();
-    setStatus('Your turn (X) — play in the highlighted board');
+    setStatus('Your turn (X): play in the highlighted board');
   }, wait);
 }
 
@@ -568,7 +568,7 @@ function uUndoMove(undo) {
   activeSub = undo.prevActive;
 }
 // How much in-a-row potential a mark has across a 9-cell board (either a
-// sub-board's own cells, or the macro board of sub-board outcomes) — a line
+// sub-board's own cells, or the macro board of sub-board outcomes): a line
 // only counts if the opponent (or a voided/drawn board) hasn't blocked it.
 function uLineScore(cells, mark, opp) {
   let score = 0;
@@ -644,9 +644,9 @@ function uChooseAIMove() {
 }
 
 // ============================================================
-//  GRID MODES — Order & Chaos (6×6: both sides place X or O; Order wants
+//  GRID MODES, Order & Chaos (6×6: both sides place X or O; Order wants
 //  five-in-a-row of EITHER symbol, Chaos wants the board full without one)
-//  and Gomoku (15×15: X vs O, EXACTLY five in a row wins — six is no win).
+//  and Gomoku (15×15: X vs O, EXACTLY five in a row wins, six is no win).
 // ============================================================
 const gboardEl = document.getElementById('gboard');
 let gN = 6, gBoard = [], gTurn = null, gGameOver = false, gLastMove = -1;
@@ -689,10 +689,10 @@ function gWinRun(b) {
 }
 
 function gPrompt() {
-  if (boardMode === 'gomoku') return 'Your turn (X) — make exactly five in a row';
+  if (boardMode === 'gomoku') return 'Your turn (X): make exactly five in a row';
   return chaosHumanRole === 'order'
-    ? 'Your turn (Order) — build five in a row of one symbol, all X or all O'
-    : 'Your turn (Chaos) — break up every five-in-a-row threat';
+    ? 'Your turn (Order): build five in a row of one symbol, all X or all O'
+    : 'Your turn (Chaos): break up every five-in-a-row threat';
 }
 
 function gInit() {
@@ -789,12 +789,12 @@ function gCheckEnd() {
   else if (outcome === 'w') {
     score.w++;
     setStatus(boardMode === 'chaos' && chaosHumanRole === 'chaos'
-      ? 'The board filled with no five — Chaos wins! 🎉' : 'You win! 🎉');
+      ? 'The board filled with no five: Chaos wins! 🎉' : 'You win! 🎉');
     sfxWin();
   } else {
     score.l++;
     setStatus(boardMode === 'chaos' && chaosHumanRole === 'order'
-      ? 'The board filled with no five — Chaos wins.' : 'AI wins!');
+      ? 'The board filled with no five: Chaos wins.' : 'AI wins!');
     sfxLose();
   }
   updateScore();
@@ -968,24 +968,24 @@ document.getElementById('reset').addEventListener('click', showModeModal);
 document.getElementById('restart').addEventListener('click', restartCurrent);
 
 const CLASSIC_RULES = `Take turns marking squares on the 3×3 grid. You are <b>X</b>, the computer is <b>O</b>.
-  Get three of your marks in a row — horizontally, vertically, or diagonally — to win.
+  Get three of your marks in a row (horizontally, vertically, or diagonally) to win.
   If the board fills up with no three-in-a-row, it's a draw.`;
 const ULTIMATE_RULES = `Nine small 3×3 boards make one big 3×3 board. Win a small board with three in a row
-  to claim it (<b>X</b> or <b>O</b>) on the big board — three claimed boards in a row wins the whole game.
-  If a small board fills up with no winner, it's <b>voided</b>: blocked for both sides. The twist —
+  to claim it (<b>X</b> or <b>O</b>) on the big board: three claimed boards in a row wins the whole game.
+  If a small board fills up with no winner, it's <b>voided</b>: blocked for both sides. The twist:
   whichever square you play in a small board sends your opponent to that same-numbered small board next.
   If that board is already decided, they get a free choice of any open board instead.`;
-const WILD_RULES = `Both players may place an <b>X or an O</b> on any turn — pick your symbol
+const WILD_RULES = `Both players may place an <b>X or an O</b> on any turn: pick your symbol
   with the toggle above the board. Whoever completes any line of three matching symbols wins,
   no matter whose symbols they are. Watch out: a careless mark can hand the AI the finish.`;
 const MISERE_RULES = `Reverse tic-tac-toe: making <b>three in a row loses</b>. You are <b>X</b>,
   the computer is <b>O</b>. Dodge every line and force the AI into completing one.
   A full board with no line is a draw.`;
 const CHAOS_RULES = `A 6×6 duel of roles. Both players place <b>X or O</b> (pick with the toggle).
-  <b>Order</b> wins by making five in a row of either symbol — <b>Chaos</b> wins if the board
+  <b>Order</b> wins by making five in a row of either symbol: <b>Chaos</b> wins if the board
   fills with no five anywhere. Choose your side when starting the game.`;
 const GOMOKU_RULES = `A 15×15 board. You are <b>X</b>, the computer is <b>O</b>. Make a row of
-  <b>exactly five</b> of your marks — horizontally, vertically, or diagonally. Six or more in
+  <b>exactly five</b> of your marks: horizontally, vertically, or diagonally. Six or more in
   a row does not count, so mind your overlines.`;
 const rulesModal = document.getElementById('rulesModal');
 const rulesTextEl = document.getElementById('rulesText');

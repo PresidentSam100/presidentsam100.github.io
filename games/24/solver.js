@@ -1,5 +1,5 @@
 /* =====================================================================
-   24 — exact arithmetic and the solver.
+   24: exact arithmetic and the solver.
 
    Numbers are fractions { n, d } with d > 0 and gcd(n, d) = 1, so 8/3 is
    8/3 and never 2.6666. The page uses solve() to show the answer after a

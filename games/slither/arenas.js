@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Arenas: last snake standing, on this device.
+   Slither, Arenas: last snake standing, on this device.
 
    Ziggy's Labyrinth has an online Arena; this one is local: you (P1, at S)
    and, in a two-player game, a friend (P2, at s) against rival snakes (r)

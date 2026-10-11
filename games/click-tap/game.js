@@ -194,7 +194,7 @@
     show(resultEl);
   }
   function renderGraph() {
-    const N = 100, sigma = 0.5;            // Gaussian kernel — a smooth click-rate curve
+    const N = 100, sigma = 0.5;            // Gaussian kernel: a smooth click-rate curve
     const finalCps = clicks / dur;
     const inv = 1 / (sigma * Math.sqrt(2 * Math.PI)), s2 = 2 * sigma * sigma, cut = sigma * 4;
     // Mirror clicks across both ends so the curve stays level at the edges

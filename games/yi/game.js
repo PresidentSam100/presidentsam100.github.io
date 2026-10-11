@@ -203,7 +203,7 @@ function startHand(dealer) {
     for (var p = 0; p < n; p++) G.players[p].hand.push(G.deck.pop());
   }
 
-  // flip starter — skip action cards until a non-action card shows
+  // flip starter: skip action cards until a non-action card shows
   var starter;
   do {
     starter = G.deck.pop();
@@ -293,7 +293,7 @@ function beginTurn() {
     return;
   }
   // Uniform pacing: after the previous action (and its animation) finishes,
-  // EVERY next player — CPU or human — gets the same pause before they can move.
+  // EVERY next player (CPU or human) gets the same pause before they can move.
   // So a play, a forced draw, or drawing an unplayable card all lead to the same
   // gap before the next player acts.
   var who = G.currentPlayerIndex;
@@ -352,7 +352,7 @@ function reshuffle() {
   var keep = G.discard.pop();
   G.deck = shuffle(G.discard);
   G.discard = [keep];
-  log("Draw pile empty — discard reshuffled.");
+  log("Draw pile empty: discard reshuffled.");
 }
 
 // ----------------------------------------------------------------
@@ -400,7 +400,7 @@ function playCard(pi, idx, chosenColor, done) {
     var landed = document.querySelector("#discardPile .card");
     if (landed) landed.style.animation = "landpop 0.18s ease";
 
-    // The moment your final card touches the discard you're out and win —
+    // The moment your final card touches the discard you're out and win:
     // this applies to EVERY card type, including Wild Shuffle Hands (the
     // round ends before any re-deal would happen).
     if (player.hand.length === 0) {
@@ -485,7 +485,7 @@ function applyEffect(pi, card, prevColor, done) {
   }
 }
 
-// Wild Shuffle Hands — pool every hand, redeal from player to the left.
+// Wild Shuffle Hands: pool every hand, redeal from player to the left.
 function shuffleHands(pi) {
   var pool = [];
   G.players.forEach(function (p) {
@@ -533,13 +533,13 @@ function resolveWild4(pi, challengeColor, finish) {
       // bluff caught → player draws 4, challenger plays next
       drawCards(pi, 4);
       log(["Challenge upheld! ", { player: pi }, " was bluffing and draws 4."]);
-      toast("✅ Challenge won — they were bluffing!");
+      toast("✅ Challenge won: they were bluffing!");
       G.currentPlayerIndex = target; // challenger's turn
     } else {
       // legal +4 → challenger draws 6 and loses turn
       drawCards(target, 6);
       log(["Challenge failed! ", { player: target }, " draws 6 and is skipped."]);
-      toast("❌ Challenge failed — draw 6!");
+      toast("❌ Challenge failed: draw 6!");
       G.currentPlayerIndex = neighbor(pi, 2);
     }
     render();
@@ -600,7 +600,7 @@ function unoWindow(pi, cont) {
       // a random CPU catches you
       var catcher = pickCatcher(pi);
       drawCards(pi, 2);
-      log([{ player: catcher }, " caught you — you didn't call YI! Draw 2."]);
+      log([{ player: catcher }, " caught you: you didn't call YI! Draw 2."]);
       toast("😱 " + G.players[catcher].name + " caught you! +2 cards");
       finishUno();
     }, 3200);
@@ -613,7 +613,7 @@ function unoWindow(pi, cont) {
       sfxUno();
       cont();
     } else {
-      // forgot — give human a catch window
+      // forgot: give human a catch window
       offerCatch(pi, cont);
     }
   }
@@ -746,7 +746,7 @@ function onHumanDraw() {
     // card and clobber its deck-to-hand glide animation.
     G.drawnIndex = G.players[0].hand.length - 1;
     G.busy = false;
-    log([{ player: 0 }, " drew " + describe(got[0]) + " — play it or pass."]);
+    log([{ player: 0 }, " drew " + describe(got[0]) + ", play it or pass."]);
     render();
   } else {
     log([{ player: 0 }, " drew " + (got.length ? describe(got[0]) : "nothing") + " and pass."]);
@@ -811,7 +811,7 @@ function fxOn() {
 // Cards whose draw-from-deck glide (flyDraw) is in progress. The hand FLIP must
 // leave these alone, or a re-render mid-glide clobbers the animation.
 var glidingKeys = {};
-// Timestamp (ms) the current draw animation finishes — the next player's turn
+// Timestamp (ms) the current draw animation finishes: the next player's turn
 // waits for this so its re-render doesn't cut the glide off.
 var drawAnimUntil = 0;
 
@@ -826,7 +826,7 @@ function captureRects(els) {
 function playFlip(els, oldRects) {
   if (!oldRects) return;
   // Compute every element's offset first. If ANY moved, animate them ALL together
-  // (don't skip the ones already near target) — otherwise a re-render landing
+  // (don't skip the ones already near target): otherwise a re-render landing
   // mid-slide desyncs the group and the spacing looks uneven.
   var moved = [];
   var any = false;
@@ -859,7 +859,7 @@ function playFlip(els, oldRects) {
 }
 
 // ----------------------------------------------------------------
-//  Sound effects (synthesized Web Audio — no assets). The shared
+//  Sound effects (synthesized Web Audio: no assets). The shared
 //  mute-toggle.js routes all audio through a master gain, so the 🔊
 //  button silences everything; we just make the sounds.
 // ----------------------------------------------------------------
@@ -925,7 +925,7 @@ function sfxEnd(win) {
 
 // Animate `card` flying from a source rect to the discard pile, then call
 // onDone(). opts.flip = start face-down & small (from a CPU mini-card) and
-// flip face-up while growing to full size — so you can see what was played.
+// flip face-up while growing to full size, so you can see what was played.
 function flyCard(card, srcRect, opts, onDone) {
   opts = opts || {};
   var fired = false;
@@ -1006,7 +1006,7 @@ function flyCard(card, srcRect, opts, onDone) {
 
 // Animate a draw from the pile. Deferred one frame so the caller's re-render
 // has already placed the drawn card(s). The ACTUAL newly-drawn cards glide in
-// from the draw pile and settle into place (left-to-right) — no separate
+// from the draw pile and settle into place (left-to-right): no separate
 // phantom card ever spawns.
 //   • Human: the real hand card(s) glide from the deck to the right of the hand.
 //   • CPU: the real mini-card(s) shrink in from the deck into the panel.
@@ -1020,7 +1020,7 @@ function flyDraw(pi, n) {
   // turn's re-render doesn't cut it off). beginTurn reads this.
   drawAnimUntil = Math.max(drawAnimUntil, Date.now() + glideMs);
   // For the human, flag the freshly drawn cards (by key) so the hand FLIP skips
-  // them while they glide — even across the re-renders a penalty draw triggers.
+  // them while they glide, even across the re-renders a penalty draw triggers.
   if (pi === 0 && G && G.players[0]) {
     var hand = G.players[0].hand;
     var keys = [];
@@ -1138,7 +1138,7 @@ function render() {
   if (!G) return;
   // Before re-rendering, snapshot the human hand's card positions so they can
   // slide to their new spots after a play or draw (FX-on only). The CPU
-  // mini-cards are NOT slid — they're tiny and overlapping, so a per-card slide
+  // mini-cards are NOT slid: they're tiny and overlapping, so a per-card slide
   // desyncs and makes their spacing look uneven; they snap to perfectly even
   // positions every render instead.
   var fx = fxOn();
@@ -1165,7 +1165,7 @@ function render() {
     var p = G.players[i];
     var active = i === G.currentPlayerIndex && !G.over;
     // One mini-card per card in hand. They sit at a 2px gap up to 7 cards,
-    // then overlap (fan) so the row stays the same width — the count is
+    // then overlap (fan) so the row stays the same width: the count is
     // always shown accurately no matter how many cards a player holds.
     var backs = "";
     var n = p.hand.length;
@@ -1260,7 +1260,7 @@ function render() {
 
   document.getElementById("handLabel").textContent =
     "Your hand (" + human.hand.length + ")" +
-    (human.hand.length === 1 && human.calledUno ? " — YI!" : "");
+    (human.hand.length === 1 && human.calledUno ? ", YI!" : "");
 
   // Slide the human's surviving hand cards from their old positions to the new.
   if (fx) {
@@ -1387,7 +1387,7 @@ function offerCatch(pi, cont) {
     hideOverlay();
     if (caught) {
       drawCards(pi, 2);
-      log([{ player: 0 }, " caught ", { player: pi }, " — they forgot YI! +2 cards."]);
+      log([{ player: 0 }, " caught ", { player: pi }, ", they forgot YI! +2 cards."]);
       toast("🎯 Caught " + G.players[pi].name + "! +2 cards");
     }
     render();
@@ -1406,7 +1406,7 @@ function showWild4Choice(layer, cb) {
   modal.innerHTML =
     "<h3>Wild Draw Four!</h3>" +
     "<p>" + G.players[layer].name +
-    " played a +4. Draw 4, or challenge — if they had a playable color, " +
+    " played a +4. Draw 4, or challenge: if they had a playable color, " +
     "they draw 4 instead; if not, you draw 6.</p>" +
     '<div class="modal-btns">' +
     '<button class="btn" id="drawFourBtn">Draw 4</button>' +
@@ -1446,13 +1446,13 @@ function showResult(winner, gained, reached500) {
   if (UNO_REC && (cfg.mode !== "points" || reached500)) UNO_REC.add(w.isHuman ? "w" : "l");
   if (cfg.mode === "points") {
     body += "<p>" + w.name + " scored <b>" + gained + "</b> points." +
-      " Totals — " +
+      " Totals: " +
       G.players.map(function (p, i) { return p.name + ": " + totals[i]; }).join(", ") +
       ".</p>";
   }
   var btns;
   if (cfg.mode === "points" && reached500) {
-    title = (w.isHuman ? "🏆 You reached 500 — game over!" : w.name + " reached 500!");
+    title = (w.isHuman ? "🏆 You reached 500: game over!" : w.name + " reached 500!");
     btns = '<button class="btn" id="rematchBtn">New game</button>' +
       '<button class="btn secondary" id="menuBtn">Menu</button>';
   } else if (cfg.mode === "points") {
@@ -1464,7 +1464,7 @@ function showResult(winner, gained, reached500) {
   }
 
   var recLine = UNO_REC
-    ? '<p style="opacity:.7;font-size:.9rem;margin:.4rem 0 0">Record vs CPU — ' + UNO_REC.text() + "</p>"
+    ? '<p style="opacity:.7;font-size:.9rem;margin:.4rem 0 0">Record vs CPU: ' + UNO_REC.text() + "</p>"
     : "";
 
   modal.innerHTML = "<h3>" + title + "</h3>" + body + recLine +
@@ -1516,7 +1516,7 @@ function toast(msg) {
 }
 
 // msg is either a plain string, or an array of segments where each segment
-// is a string or { player: playerIndex } — the latter renders that player's
+// is a string or { player: playerIndex }, the latter renders that player's
 // name in their own color so the log is easy to follow at a glance.
 function log(msg) {
   var l = document.getElementById("log");
@@ -1539,7 +1539,7 @@ function log(msg) {
 }
 
 // ----------------------------------------------------------------
-//  Init — one delegated tap handler on the hand container. It survives
+//  Init: one delegated tap handler on the hand container. It survives
 //  the innerHTML re-renders, and a single listener avoids the mobile
 //  "first tap only hovers" problem that per-card listeners can hit.
 // ----------------------------------------------------------------

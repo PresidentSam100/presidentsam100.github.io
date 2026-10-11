@@ -1,5 +1,5 @@
 /* =====================================================================
-   Sunset Slice — the drawing: sky, sun, mountains, grass, and the things
+   Sunset Slice, the drawing: sky, sun, mountains, grass, and the things
    you cut. Targets are black silhouettes against the sun with a rim of
    sunlight on the side facing it; cut one and each half shows its inside
    in colour. No images: everything is drawn with canvas paths.

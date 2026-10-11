@@ -134,14 +134,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     }, 25);
   }));
   const shown = seen.filter(Boolean);
-  check("coin flip, FX off: a neutral ? then the winner — no flashing between names", shown.length <= 2 && /^\?/.test(shown[0]) && /You|CPU/.test(shown[shown.length - 1]), seen);
+  check("coin flip, FX off: a neutral ? then the winner, no flashing between names", shown.length <= 2 && /^\?/.test(shown[0]) && /You|CPU/.test(shown[shown.length - 1]), seen);
   await p.close();
   await c2.close();
 
   // ---- FX-2a: flashing that still ran with FX off is steady now; FX on is
   // unchanged. Each check runs both modes. (Code-reviewed but not automated:
   // Flappy's warning pipe + prompts, the police light bar, Meteor Menace and
-  // Demolition Row — the same one-line gates.)
+  // Demolition Row: the same one-line gates.)
   const c3 = await lib.newContext(browser);
   const setFx = async (pg, id, off) => {
     await pg.evaluate(([id, off]) => localStorage.setItem("reduceMotion:" + id, off ? "1" : "0"), [id, off]);

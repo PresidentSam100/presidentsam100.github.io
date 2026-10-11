@@ -1,5 +1,5 @@
 /* =====================================================================
-   Capitals — shared by Passport and Departures (load after data.js and
+   Capitals: shared by Passport and Departures (load after data.js and
    judge.js). Each country's capital first (the name shown), then other
    names a player may fairly type: older or local spellings, and a second
    seat where a country has two (Bolivia, South Africa, Côte d'Ivoire…).

@@ -1,5 +1,5 @@
 /* ============================================================================
-   cpu-worker.js — chess CPU opponent. Runs entirely off the main thread so a
+   cpu-worker.js: chess CPU opponent. Runs entirely off the main thread so a
    deep search never freezes the board/clock UI. Only ever *decides* on one
    root move and posts it back; index.html's own doMove() is what actually
    executes it, so all sound/render/history/clock logic stays centralized
@@ -133,10 +133,10 @@ importScripts("engine.js");
         b[48 + c] = { o: "w", t: "p", dead: false }; b[56 + c] = { o: "w", t: back[c], dead: false };
       }
       const e0 = evaluate(b);
-      if (e0 !== 0) console.warn("chess cpu-worker: eval self-test FAILED — starting position should be 0, got", e0);
+      if (e0 !== 0) console.warn("chess cpu-worker: eval self-test FAILED, starting position should be 0, got", e0);
       const b2 = b.slice(); b2[52] = null; b2[36] = { o: "w", t: "p", dead: false }; // 1.e4
       const e1 = evaluate(b2);
-      if (!(e1 > 0)) console.warn("chess cpu-worker: eval self-test FAILED — eval after 1.e4 should be positive for White, got", e1);
+      if (!(e1 > 0)) console.warn("chess cpu-worker: eval self-test FAILED, eval after 1.e4 should be positive for White, got", e1);
     } catch (e) { /* never block worker startup on the self-test */ }
   })();
 

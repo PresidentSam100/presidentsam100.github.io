@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — temple-ruins drawing kit, shared by Classic (game.js) and the
+   Slither: temple-ruins drawing kit, shared by Classic (game.js) and the
    Labyrinth (labyrinth.js): carved-stone serpents, flagstone floors,
    ashlar walls, rune portals, bronze traps and the temple doorway.
 
@@ -219,7 +219,7 @@ window.SlitherArt = (function () {
     g.fillRect(px, py, c, c);
   }
 
-  // A bronze plate with crossed shears on it — the ✂ the hints talk about.
+  // A bronze plate with crossed shears on it: the ✂ the hints talk about.
   function cutter(g, px, py, c) {
     g.fillStyle = "#3a2f22";
     g.fillRect(px + 1, py + 1, c - 2, c - 2);
@@ -333,7 +333,7 @@ window.SlitherArt = (function () {
     }
   }
 
-  // Door and switch colours (amber / cyan / magenta — see engine COLORS).
+  // Door and switch colours (amber / cyan / magenta: see engine COLORS).
   var DOOR = [
     { bar: "#c48a3a", hi: "#f0c27a", cross: "#9a6a28", bg: "#24190c", dash: "rgba(214,160,80,0.5)", glow: "255,211,106" },
     { bar: "#3aa6b8", hi: "#a6eef6", cross: "#22727f", bg: "#0b1d22", dash: "rgba(90,200,220,0.55)", glow: "120,230,245" },
@@ -651,7 +651,7 @@ window.SlitherArt = (function () {
 
   // ---- maze chase ----------------------------------------------------------------
   // Beads: little gold offerings. Hundreds sit on a board at once, so they are
-  // two flat circles — no gradients, no shadows.
+  // two flat circles: no gradients, no shadows.
   function bead(ctx, cx, cy, c) {
     var r = Math.max(1.6, c * 0.1);
     ctx.fillStyle = "#b8862e";

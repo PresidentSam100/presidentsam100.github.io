@@ -1,5 +1,5 @@
 /* =====================================================================
-   Set — the classic card game.
+   Set: the classic card game.
 
    A card is four features, each with three possible values:
      number  : 1 | 2 | 3
@@ -175,7 +175,7 @@
 
   function renderBest() {
     var b = loadBest();
-    statBest.textContent = b ? fmtTime(b) : "—";
+    statBest.textContent = b ? fmtTime(b) : "–";
   }
 
   function setMsg(text, kind) {
@@ -356,7 +356,7 @@
       if (cardEls[i]) cardEls[i].classList.add("good");
     });
 
-    // Phase 1 — hold the green highlight, then slide the trio out to the right
+    // Phase 1: hold the green highlight, then slide the trio out to the right
     // (through an imaginary column past the rightmost cards).
     setTimeout(function () {
       sel.forEach(function (i) {
@@ -367,7 +367,7 @@
       });
     }, 240);
 
-    // Phase 2 — once they've left, show the replacements (dealt above) IN THE
+    // Phase 2: once they've left, show the replacements (dealt above) IN THE
     // SAME CELLS so the other nine cards never move, and bring the new cards
     // in from the left.
     setTimeout(function () {
@@ -392,7 +392,7 @@
           board[i] = c;
           newIds.push(c.id);
         } else {
-          holes.push(i); // deck ran dry — this slot can't be refilled
+          holes.push(i); // deck ran dry: this slot can't be refilled
         }
       });
       // Remove any unfilled slots, high → low so indices stay valid.
@@ -404,7 +404,7 @@
           board.splice(i, 1);
         });
     } else {
-      // Extra rows were dealt (15/18 cards): claimed cards aren't replaced —
+      // Extra rows were dealt (15/18 cards): claimed cards aren't replaced,
       // the board shrinks back toward 12 (standard Set rule).
       sel
         .slice()
@@ -432,7 +432,7 @@
 
   function claimBad() {
     badSound();
-    setMsg("Not a Hash — two-and-one somewhere.", "bad");
+    setMsg("Not a Hash: two-and-one somewhere.", "bad");
     var cards = boardEl.querySelectorAll(".card");
     selected.forEach(function (i) {
       if (cards[i]) cards[i].classList.add("bad");
@@ -453,8 +453,8 @@
     if (locked || over || PAUSE.isPaused()) return;
     if (deck.length === 0) return;
     if (findSet(board)) {
-      // There WAS a set — gentle nudge, no new cards.
-      setMsg("There's already a Hash on the table — keep looking! 👀", "info");
+      // There WAS a set: gentle nudge, no new cards.
+      setMsg("There's already a Hash on the table: keep looking! 👀", "info");
       badSound();
       return;
     }
@@ -470,7 +470,7 @@
     if (locked || over || PAUSE.isPaused()) return;
     var trio = findSet(board);
     if (!trio) {
-      setMsg("No Hash on the table — add more cards.", "info");
+      setMsg("No Hash on the table: add more cards.", "info");
       return;
     }
     // Highlight one card of a valid set; reveal a second on a repeat press.
@@ -478,7 +478,7 @@
     var already = hintIds.length;
     var reveal = Math.min(already + 1, 2); // never give away all three
     if (reveal <= already) {
-      // Both cards are already showing — no new info, so no extra charge.
+      // Both cards are already showing: no new info, so no extra charge.
       setMsg("Two cards of a Hash are already glowing. 💡", "info");
       return;
     }
@@ -487,7 +487,7 @@
     });
     render();
     hintSound();
-    // Hints aren't free — add a 30s time penalty and show it on the clock now.
+    // Hints aren't free: add a 30s time penalty and show it on the clock now.
     penalty += HINT_PENALTY;
     moved = true;
     showTime();

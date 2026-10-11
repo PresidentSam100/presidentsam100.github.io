@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Labyrinth rules engine.
+   Slither: Labyrinth rules engine.
 
    Pure rules: no DOM, no audio, no clock of its own. The page
    (labyrinth.js) feeds it input and elapsed milliseconds, then turns the
@@ -9,7 +9,7 @@
 
    Every snake moves on its own timer, so advance() walks time forward
    event by event and resolves all snakes that move at the same instant
-   together — head-ons and tail-chasing work like classic Snake.
+   together: head-ons and tail-chasing work like classic Snake.
 
    Snakes carry a controller: "p1" / "p2" for players (a Cloner can give a
    player several snakes; they all obey that player's input) or null for
@@ -39,7 +39,7 @@
   var COLORS = ["amber", "cyan", "magenta"];
 
   // Enemy kinds: speed (ms per cell), brain, and traits.
-  //   phase: passes through walls, bodies and spikes, and never crashes —
+  //   phase: passes through walls, bodies and spikes, and never crashes,
   //          but its own body is solid to everyone else.
   //   careful: never moves into danger; waits instead.
   var KINDS = {
@@ -96,14 +96,14 @@
     "t": { item: "blink", group: "items", name: "Blink apple", desc: "One teleport: click any open cell.", ready: true },
     "g": { item: "ghost", group: "items", name: "Ghost apple", desc: "Fills the ghost meter: hold to phase through walls.", ready: true },
     "f": { item: "fast", group: "items", name: "Fast apple", desc: "A permanent speed-up.", ready: true },
-    "m": { item: "melon", group: "items", name: "Watermelon", desc: "Only enemies can eat it — to you it's a wall.", ready: true },
+    "m": { item: "melon", group: "items", name: "Watermelon", desc: "Only enemies can eat it: to you it's a wall.", ready: true },
     "h": { item: "heart", group: "items", name: "Damage fruit", desc: "Boss levels: eat it to wound the boss. Every h also marks a spot where a new one can grow.", ready: true },
     "+": { item: "oneup", group: "items", name: "1-up", desc: "Pack runs (Ziggy rules) only: an extra life. In ordinary play it isn't there.", ready: true },
     "$": { item: "gold", group: "items", name: "Golden apple", desc: "Pack runs only: +5 on the apple counter (every 50 apples is an extra life). The exit doesn't need it.", ready: true },
     "W": { enemy: "wander", group: "enemies", name: "Wanderer", desc: "Roams at random.", ready: true },
     "H": { enemy: "hunt", group: "enemies", name: "Hunter", desc: "Tries to cut you off.", ready: true },
     "M": { enemy: "munch", group: "enemies", name: "Muncher", desc: "Races you for apples (and melons).", ready: true },
-    "B": { enemy: "drift", group: "enemies", name: "Drifter", desc: "Goes straight until blocked — steer it with your body.", ready: true },
+    "B": { enemy: "drift", group: "enemies", name: "Drifter", desc: "Goes straight until blocked: steer it with your body.", ready: true },
     "Y": { enemy: "zip", group: "enemies", name: "Zipper", desc: "Fast and erratic.", ready: true },
     "R": { enemy: "loop", group: "enemies", name: "Looper", desc: "Follows walls in endless loops.", ready: true },
     "A": { enemy: "metal", group: "enemies", name: "Metal snake", desc: "Drifts like brown snakes, immune to spikes.", ready: true },
@@ -112,7 +112,7 @@
     "L": { enemy: "gghost", dir: 2, group: "enemies", name: "Green ghost (vertical)", desc: "A green ghost that starts heading down instead of right.", ready: true },
     "X": { enemy: "bghost", group: "enemies", name: "Black ghost", desc: "Hunts you straight through walls.", ready: true },
     "V": { enemy: "mouse", group: "enemies", name: "Mouse Eater", desc: "Chases your cursor (your last touch on phones). Catch it and your teleport, ghost and click-switches stall for 6 s.", ready: true },
-    "U": { enemy: "rainbow", group: "enemies", name: "Rainbow", desc: "The smartest hunter. Never crashes — trap it and it crumbles.", ready: true },
+    "U": { enemy: "rainbow", group: "enemies", name: "Rainbow", desc: "The smartest hunter. Never crashes: trap it and it crumbles.", ready: true },
     "r": { enemy: "rival", group: "enemies", name: "Arena rival", desc: "Arena: a rival snake that hunts apples, grows, and tries to outlast you.", ready: true },
     "@": { enemy: "boss", group: "enemies", name: "Serpent King", desc: "Boss: a giant one-eyed serpent that hunts through walls, summons worms and grows spike flowers. Only damage fruit hurts it; the exit opens when it falls.", ready: true },
   };
@@ -218,7 +218,7 @@
       }
     }
     // An item in a dark area sits in the dark too: items are always on floor,
-    // so without this every apple would punch a lit hole in the darkness —
+    // so without this every apple would punch a lit hole in the darkness:
     // and show your snake as it passes. Dark behaves exactly like floor.
     // The same goes for storms: an apple in a storm field is storm too, so
     // eating it doesn't drop you out of the storm for a step.
@@ -241,7 +241,7 @@
       portalId[p[0]] = portalId[p[1]] = Number(k) - 1;
     });
     // One-way teleporters: the first of each digit (reading order) sends you
-    // to the second, which is just a landing pad — unless the level lists
+    // to the second, which is just a landing pad, unless the level lists
     // that digit in teleReverse, which swaps them (so pads can send you up).
     var teleTo = {}, teleId = {};
     Object.keys(teles).forEach(function (k) {
@@ -468,7 +468,7 @@
     });
   }
 
-  // A blink lands on any open, empty cell — never on a wall, a shut door, an
+  // A blink lands on any open, empty cell: never on a wall, a shut door, an
   // exit, a portal or teleporter, a raised spike, a melon, or a snake.
   function canBlinkTo(st, i) {
     if (i < 0 || i >= st.tiles.length) return false;
@@ -534,7 +534,7 @@
     if (!kindOf(s).spikeProof && (spikeUp(st, n) || flowerAt(st, n, false))) return false;
     return !occupied(st, n, true);
   }
-  // Enemies start facing right if they can, then down, left, up — so level
+  // Enemies start facing right if they can, then down, left, up, so level
   // designers can predict where drifters, loopers and ghosts head first.
   function firstOpenDir(st, s) {
     var order = [1, 2, 3, 0];
@@ -582,7 +582,7 @@
     }
     return any ? goals : null;
   }
-  // Mouse Eaters go for the cursor — unless it's already been eaten.
+  // Mouse Eaters go for the cursor, unless it's already been eaten.
   function cursorGoal(st) {
     if (st.cursor < 0 || st.res.p1.mouseLock > 0) return null;
     var g = {}; g[st.cursor] = true; return g;
@@ -618,7 +618,7 @@
       var n = moveTarget(st, head, d);
       if (safeFor(st, s, n)) options.push({ d: d, n: n });
     }
-    // Copycats copy the player's heading every move, danger or not — which is
+    // Copycats copy the player's heading every move, danger or not, which is
     // how you kill them: lead them into a wall.
     if (K.ai === "copy") {
       var p = primary(st, "p1");
@@ -683,7 +683,7 @@
     var plans = movers.map(function (s) {
       var plan = { s: s, from: s.body[0], to: -1, blink: false, portal: false, dead: "", ghost: false };
       var here = st.tiles[s.body[0]];
-      // Dream blocks: no steering (like ice) — you shoot straight through.
+      // Dream blocks: no steering (like ice), you shoot straight through.
       var onIce = here === T.ICE || (here === T.DREAM && !kindOf(s).phase);
       if (isPlayer(s)) {
         var r = st.res[s.ctrl];
@@ -828,7 +828,7 @@
         // A twin appears at the matching outlet, heading the same way. Your
         // twins obey your controls too; enemy twins just multiply.
         var outlet = st.lv.outletOf[pl.to];
-        // Only onto a clear outlet — not one a snake is landing on this very move.
+        // Only onto a clear outlet, not one a snake is landing on this very move.
         var landing = plans.some(function (o) { return o !== pl && !o.dead && o.to === outlet; });
         if (outlet != null && st.snakes.length < CFG.maxSnakes && !landing && !occupied(st, outlet, false)) {
           var twin = makeSnake(st, s.kind, outlet, CFG.startLen, s.baseMs, s.ctrl);
@@ -1036,7 +1036,7 @@
   // the maze while temple guardians ("u") hunt you. The snake keeps its
   // length, flips end for end when you press backwards, and walls stop it
   // rather than kill it; a turn you press early waits for the next opening.
-  // Only a guardian touching the snake kills — unless a sunstone has
+  // Only a guardian touching the snake kills, unless a sunstone has
   // frightened them, when your head can bite them instead.
   //
   // Guardians aren't snakes. They live in st.guards, move on their own
@@ -1371,8 +1371,8 @@
   // a fuse the egg bursts into a cross of flame that shatters clay urns, sets
   // off any egg it reaches and burns every snake it touches. Some urns hide a
   // power-up. Last snake standing takes the round; after two minutes the
-  // arena closes in from the edges. Snakes move as in the maze chase — fixed
-  // length, walls stop rather than kill, pressing backwards flips — so only
+  // arena closes in from the edges. Snakes move as in the maze chase: fixed
+  // length, walls stop rather than kill, pressing backwards flips, so only
   // fire (or the closing walls) kills. Eggs block heads; a body slides over.
   // Players and rival snakes all live in st.snakes, but only this section
   // moves them.
@@ -1433,7 +1433,7 @@
     for (var k = 0; k < eggs.length; k++) if (eggs[k].cell === c) return eggs[k];
     return null;
   }
-  // Is c blocked for snake s's head? Walls, urns, eggs and every body — its
+  // Is c blocked for snake s's head? Walls, urns, eggs and every body: its
   // own tail excepted, since that moves on.
   function blastSolid(st, s, c) {
     var t = st.tiles[c];
@@ -1696,7 +1696,7 @@
     };
     var threatened = s.body.some(function (c) { return doomed(D, c); });
     if (threatened) { steer(blastRoute(st, s, D, escape)); return; }
-    // Lay an egg when it would crack an urn or catch a rival — and only with
+    // Lay an egg when it would crack an urn or catch a rival, and only with
     // a way out before it bursts.
     var head = s.body[0];
     if (s.out < s.cap && !eggAt(st, head)) {
@@ -1715,7 +1715,7 @@
         if (out && out.haven && out.steps * ms < BLAST.fuse - 400) { layEgg(st, s); steer(out); return; }
       }
     }
-    // Otherwise go for power-ups, urns to crack and rivals to catch — by safe
+    // Otherwise go for power-ups, urns to crack and rivals to catch: by safe
     // paths only, never through a blast zone.
     var roam = blastRoute(st, s, D, function (node) {
       if (!node.haven) return -5000 + Math.min(node.soon, 8000) / 10 - node.steps;

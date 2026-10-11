@@ -27,7 +27,7 @@
     ["--yellow", "Yellow", "Throws you back to your last tile."],
     ["--orange", "Orange", "Flavors you 'Orange'."],
     ["--purple", "Purple", "Ice: slides you forward. Flavors you 'Lemon'."],
-    ["--blue", "Blue", "Harmless water — UNLESS you are 'Orange', or it touches yellow (then it's live and bounces you)."],
+    ["--blue", "Blue", "Harmless water, UNLESS you are 'Orange', or it touches yellow (then it's live and bounces you)."],
   ];
 
   // ----- DOM -----
@@ -255,13 +255,13 @@
     SFX.win();
     const last = current + 1 >= LEVELS.length;
     const timeBit = record && prevBest !== undefined
-      ? `${fmtTime(ms)} — new best!`
+      ? `${fmtTime(ms)}, new best!`
       : prevBest !== undefined
         ? `${fmtTime(ms)} (best ${fmtTime(Math.min(prevBest, ms))})`
         : fmtTime(ms);
     overlayTitle.textContent = last ? "Resort Cleared! 🎉" : "Level Complete!";
     overlaySub.textContent = last
-      ? `You finished all ${LEVELS.length} levels — this one in ${moves} moves and ${timeBit}.`
+      ? `You finished all ${LEVELS.length} levels, this one in ${moves} moves and ${timeBit}.`
       : `Solved in ${moves} moves · ${timeBit}.`;
     document.getElementById("overlayNext").style.display = last ? "none" : "";
     overlayT = setTimeout(() => { overlayEl.hidden = false; }, 350);
@@ -299,7 +299,7 @@
     const gen = moveGen;                // after each wait: if the board was reset meanwhile, this move is over
 
     if (res.blocked) {
-      // pushed straight into a wall — thud + a little bump back
+      // pushed straight into a wall: thud + a little bump back
       locked = true;
       SFX.thud();
       if (A) await A.bump(animCtx(gen), dir, state);
@@ -322,7 +322,7 @@
     refreshLive();
 
     // A slide that traveled and then stopped against a wall (e.g. ice into a red
-    // block) should bump into it and settle back. Only with motion enabled —
+    // block) should bump into it and settle back. Only with motion enabled:
     // when reduced, skip the nudge (and its brief input lock), but still mark
     // the wall side of the ball, as a blocked move does.
     if (A && res.hitWall && !res.win) {
@@ -362,7 +362,7 @@
       b.className = "lvlbtn";
       b.textContent = i + 1;
       const bt = save.bestTimes && save.bestTimes[lvl.name];
-      b.title = lvl.name + (bt !== undefined ? " — best " + fmtTime(bt) : "");
+      b.title = lvl.name + (bt !== undefined ? ", best " + fmtTime(bt) : "");
       const unlocked = isOpen(i);
       if (!unlocked) b.classList.add("locked");
       if (isDone(i)) b.classList.add("done");
@@ -381,7 +381,7 @@
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     if (!guideOverlay.hidden) return;   // the Tile Guide holds the board (and its arrows scroll the guide)
-    if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press — holding does nothing
+    if (e.repeat) { if (KEYMAP[e.key]) e.preventDefault(); return; } // one move per press: holding does nothing
     if (e.key === "r" || e.key === "R") { loadLevel(current); return; }
     const dir = KEYMAP[e.key];
     if (dir) { e.preventDefault(); doMove(dir); }

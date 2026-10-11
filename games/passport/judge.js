@@ -1,9 +1,9 @@
 /* =====================================================================
-   The country judge — shared by Passport and Departures.
+   The country judge: shared by Passport and Departures.
    Reads window.FlagData (load data.js first) and decides which country
    a typed answer means: exact names and common aliases win outright,
    accents/punctuation/"St."/"the" never matter, and one typo is
-   forgiven on names of six-plus letters — but never when it could mean
+   forgiven on names of six-plus letters, but never when it could mean
    a second country (Gambia is not Zambia).
 
      CountryJudge.resolve(raw)   -> index into FlagData, or -1

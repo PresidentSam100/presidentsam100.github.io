@@ -228,7 +228,7 @@ async function splitLevels({ browser, base, check, lib }) {
   await save("gates", 40); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
   const opened = await p.evaluate(() => ({ name: document.getElementById("levelName").textContent, juncs: document.querySelectorAll("#wires .junc").length }));
   check("logicgate: a save with the 40 tree levels solved opens level 41, the first split, with its junction dot",
-    opened.name === "Level 41 — " + S.gates[0].name && opened.juncs >= 1, opened);
+    opened.name === "Level 41: " + S.gates[0].name && opened.juncs >= 1, opened);
 
   // the game's switch labels are the tool's (the hints use the tool's)
   const labelBad = [];

@@ -169,7 +169,7 @@
       const s = setup || setup2; setup2 = s;
       G.vsCPU = s.opponent==="cpu";
       G.difficulty = s.difficulty;
-      // s.side is the HUMAN's chosen color — the CPU plays the opposite side.
+      // s.side is the HUMAN's chosen color: the CPU plays the opposite side.
       const humanSide = s.side==="random" ? (Math.random()<0.5?"w":"b") : s.side;
       G.cpuColor = G.vsCPU ? (humanSide==="w"?"b":"w") : null;
       const baseMs = (s.base|0)*60000;
@@ -371,8 +371,8 @@
   function setStatus(check){
     if(G.over) return;
     const pl=G.players[G.turn];
-    let extra = check?' — <b style="color:var(--check)">Check!</b>':'';
-    if(G.vsCPU && G.turn===G.cpuColor) extra += ' <span style="color:var(--muted)">— thinking…</span>';
+    let extra = check?'. <b style="color:var(--check)">Check!</b>':'';
+    if(G.vsCPU && G.turn===G.cpuColor) extra += ' <span style="color:var(--muted)">(thinking…)</span>';
     statusEl.innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move' + extra;
   }
 
@@ -438,7 +438,7 @@
     let guard=0;
     let cur=mover;
     // 2-player: a position no sequence of moves can mate in is drawn at once
-    if(G.mode===2 && deadPosition(G.board)) return endGame("Draw","Insufficient material — neither side can checkmate.");
+    if(G.mode===2 && deadPosition(G.board)) return endGame("Draw","Insufficient material: neither side can checkmate.");
     while(true){
       if(aliveOwners(G).length<=1){ return finishLastStanding(); }
       const nxt=nextAlive(cur);
@@ -450,8 +450,8 @@
         if(G.mode===2){
           const key=posKey();
           G.positions.push(key);
-          if(G.positions.filter(k=>k===key).length>=3) return endGame("Draw — threefold repetition","The same position has come up three times, with the same player to move.");
-          if(G.halfmove>=100) return endGame("Draw — 50-move rule","Fifty moves each have gone by with no capture and no pawn move.");
+          if(G.positions.filter(k=>k===key).length>=3) return endGame("Draw: threefold repetition","The same position has come up three times, with the same player to move.");
+          if(G.halfmove>=100) return endGame("Draw: 50-move rule","Fifty moves each have gone by with no capture and no pawn move.");
         }
         setClockRunning(nxt); const ck=inCheck(G,G.board,nxt);
         if(ck) SFX.check(); render(); setStatus(ck);
@@ -468,7 +468,7 @@
       } else {
         // stalemate: a draw between two players; with four, that player
         // just sits this rotation out
-        if(G.mode===2) return endGame("Draw","Stalemate — "+G.players[nxt].name+" has no legal move.");
+        if(G.mode===2) return endGame("Draw","Stalemate: "+G.players[nxt].name+" has no legal move.");
         cur=nxt; if(++guard>G.order.length) return endGame("Draw","Everyone is stalemated.");
         continue;
       }
@@ -487,7 +487,7 @@
   function eliminate(col, by){
     G.players[col].alive=false; SFX.out();
     if(G.ending===1){ G.over=true; G.winner=by; render();
-      gameOver(G.players[by].name+" wins!", "Checkmate — "+G.players[by].name+" checkmated "+G.players[col].name+"."); return; }
+      gameOver(G.players[by].name+" wins!", "Checkmate: "+G.players[by].name+" checkmated "+G.players[col].name+"."); return; }
     if(G.ending===2){ // takeover: remove dead king, hand the rest to `by`
       G.board=G.board.map(p=> p&&p.o===col ? (p.t==="k"?null:{o:by,t:p.t,dead:false}) : p);
     } else { // ending 3: freeze the dead army as obstacles
@@ -504,7 +504,7 @@
   }
   const CHESS_REC = window.GameShell ? GameShell.record("chess_record") : null;
   function gameOver(title,msg){ setClockRunning(null); G.over=true; closePromo();
-    // Record only 2-player games against the CPU — local games and the 3/4-player
+    // Record only 2-player games against the CPU: local games and the 3/4-player
     // variants have no single "you" to credit. Every end path funnels through
     // here, and a win is always announced as "<player name> wins!".
     // A game counts once, the first time it ends: Undo can reopen it for
@@ -519,7 +519,7 @@
         else if(G.players[human] && title.indexOf(G.players[human].name+" wins")===0) CHESS_REC.add("w");
         else CHESS_REC.add("l");
       }
-      msg += "\n\nRecord vs CPU — " + CHESS_REC.text() + (again ? "\n(this game's first result already counted)" : "");
+      msg += "\n\nRecord vs CPU: " + CHESS_REC.text() + (again ? "\n(this game's first result already counted)" : "");
     }
     statusEl.innerHTML='<b>'+title+'</b>';
     if(G.mode===4) renderPlayers();
@@ -551,7 +551,7 @@
 
   // ============================================================ CPU (worker)
   // Small material-only 1-ply fallback used only if the Worker can't run at
-  // all (construction throws, or a runtime error) — keeps the game playable,
+  // all (construction throws, or a runtime error): keeps the game playable,
   // just noticeably weaker than the real search, until the page is reloaded.
   function legalMovesOnBoard(b,col){
     const out=[];
@@ -573,8 +573,8 @@
   }
   // Humans don't reply instantly, so the CPU's move is held until it has
   // visibly "thought" for a while; the search itself (budgetMs) is unchanged,
-  // this only paces when the move lands. The pace scales with the clock —
-  // roughly remaining/30 plus most of the increment — with quick replies in
+  // this only paces when the move lands. The pace scales with the clock:
+  // roughly remaining/30 plus most of the increment, with quick replies in
   // the opening and now and then (a "book move", an obvious recapture), an
   // occasional long think when time allows, a hurry in time trouble, and
   // never a hold long enough to flag itself.
@@ -616,8 +616,8 @@
   }
   function onCpuMessage(ev){
     const msg=ev.data;
-    if(!msg||msg.requestId!==cpuRequestId) return;      // stale response — discard
-    if(G.over||!G.vsCPU||G.turn!==G.cpuColor){ cpuThinking=false; return; } // state moved on — discard
+    if(!msg||msg.requestId!==cpuRequestId) return;      // stale response: discard
+    if(G.over||!G.vsCPU||G.turn!==G.cpuColor){ cpuThinking=false; return; } // state moved on: discard
     const mv = (msg.type==="move" && msg.move) ? msg.move : fallbackCpuMove();
     playCpuMovePaced(mv, msg.requestId);                 // held until it has "thought" long enough
   }

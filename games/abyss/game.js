@@ -1,12 +1,12 @@
 /* =====================================================================
-   Abyss — falling blocks in the bioluminous deep.
+   Abyss: falling blocks in the bioluminous deep.
 
    A faithful modern engine under the water: 7-bag randomizer, SRS
    rotation with the full wall-kick tables, hold + five-piece preview,
    sonar ghost, DAS/ARR key repeat, 500ms lock delay with capped
    resets, the classic gravity curve, and two modes:
 
-     descent  marathon — the score climbs, the depth gauge sinks
+     descent  marathon: the score climbs, the depth gauge sinks
      sprint   clear 40 lines against the clock (best time wins)
 
    The board is 10x20 with two hidden rows above. Screen y grows
@@ -323,7 +323,7 @@
       lines + " rows cleared · " + (level * 100) + "m down\n" +
       (mode !== "sprint"
         ? (isBest ? "a new record dive! 🦑" : "best: " + (b ? b.get().toLocaleString() : score))
-        : lines + "/" + goal + " — the forty lines got away");
+        : lines + "/" + goal + ", the forty lines got away");
     $("hud").hidden = true;
     $("over").hidden = false;
   }
@@ -790,7 +790,7 @@
   toMenu();
   requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
 
-  // test hooks — the Playwright harness drives runs through these
+  // test hooks: the Playwright harness drives runs through these
   window.Abyss = {
     state: function () { return state; },
     mode: function () { return mode; },

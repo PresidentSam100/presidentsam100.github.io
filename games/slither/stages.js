@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither — Stages: Classic rules on hand-built boards.
+   Slither, Stages: Classic rules on hand-built boards.
 
    Like Ziggy's Labyrinth's staged Classic mode: no exit and no clock.
    Every apple you eat grows another on a random free cell, you speed up a

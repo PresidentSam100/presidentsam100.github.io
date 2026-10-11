@@ -1,5 +1,5 @@
 /* =====================================================================
-   Abyss — the water. Everything moody is painted here: the column of
+   Abyss: the water. Everything moody is painted here: the column of
    sea fading to black, marine snow, jellyfish on their slow patrols,
    the little submarine with its searchlight, and the glowing cells the
    tetrominoes are made of. game.js runs the game and calls in.
@@ -17,7 +17,7 @@
     };
   }
 
-  /* Seven species of light — [outer glow, body, core] per tetromino. */
+  /* Seven species of light: [outer glow, body, core] per tetromino. */
   var SPECIES = {
     I: { glow: "rgba(80,200,255,",  body: "#39c0f0", core: "#d8f6ff", name: "siphonophore" },
     O: { glow: "rgba(160,235,235,", body: "#7fd8d4", core: "#eafffd", name: "moon jelly" },

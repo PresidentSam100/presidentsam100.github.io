@@ -66,7 +66,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const c = await lib.newContext(browser, opts);
     const q = await lib.open(c, base, "games/stopwatch/");
     const hint = await q.evaluate(() => document.querySelector(".hint").innerText);
-    const ok = label === "desktop" ? /^tap the watch or press Space — once/.test(hint) : /^tap the watch — once/.test(hint) && !/Space/.test(hint);
+    const ok = label === "desktop" ? /^tap the watch or press Space: once/.test(hint) : /^tap the watch: once/.test(hint) && !/Space/.test(hint);
     check("stopwatch " + label + ": the hint " + (label === "desktop" ? "names Space" : "says tap the watch, no Space"), ok, hint);
     await q.close();
     await c.close();

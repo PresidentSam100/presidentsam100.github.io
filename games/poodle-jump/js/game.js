@@ -76,7 +76,7 @@ class Game {
     }
     // Drop content that has scrolled below the view. For vertically-moving
     // (gray) platforms, keep them as long as the TOP of their travel range
-    // could still scroll back into view — only cull once their whole cycle is
+    // could still scroll back into view: only cull once their whole cycle is
     // permanently below the screen and thus unreachable.
     const cut = this.cameraY + CONFIG.H + 80;
     this.platforms = this.platforms.filter((p) => {
@@ -117,7 +117,7 @@ class Game {
   }
 
   // Pick an x for an enemy of width `ew` that doesn't sit horizontally above a
-  // landable platform on this row — otherwise bouncing off that platform would
+  // landable platform on this row: otherwise bouncing off that platform would
   // launch the player straight into the enemy's side with no escape.
   enemyX(ew, y) {
     const rowPlats = this.platforms.filter(
@@ -146,8 +146,8 @@ class Game {
   //     than a normal jump (spring/trampoline launch or stomp boost) the player
   //     would blow past the reveal point before reacting, so the enemy is
   //     deferred to a later row once the climb settles.
-  // Either way the enemy isn't deleted — lastEnemyY is left open so it spawns
-  // higher up — and existing enemies and ordinary-platform play are unaffected.
+  // Either way the enemy isn't deleted: lastEnemyY is left open so it spawns
+  // higher up, and existing enemies and ordinary-platform play are unaffected.
   enemySpawnIsFair() {
     const p = this.player;
     if (p.powerup) return true;
@@ -201,7 +201,7 @@ class Game {
 
     // Enemies, spaced out, only once the climb gets going. Skipped while the
     // player is rocketing upward (booster/stomp launch) so a fresh enemy never
-    // pops into their blind spot with no time to react — it'll spawn on a later
+    // pops into their blind spot with no time to react: it'll spawn on a later
     // row once the climb slows. lastEnemyY stays put so that retry can happen.
     const depth = this.startY - y;
     if (depth > 1400 && Math.abs(y - this.lastEnemyY) > 360 && this.enemySpawnIsFair()) {
@@ -365,7 +365,7 @@ class Game {
       // from above the top last frame (relPrev <= 0) to at/below it this frame
       // (relCur >= 0). This means "descending relative to the platform", so it
       // works no matter how fast the platform moves and even bounces a player
-      // whose absolute vy is ~0 at the apex when a rising platform meets them —
+      // whose absolute vy is ~0 at the apex when a rising platform meets them:
       // while still never grabbing a player jumping up through it from below.
       const relPrev = prevBottom - plat.prevY;
       const relCur = bottom - plat.y;
@@ -522,7 +522,7 @@ class Game {
     // where the feet are above the top right before the landing snap.
     //
     // Every OTHER way of getting above it counts as passing it by and triggers
-    // the fade — crucially including rising up THROUGH it while still aligned
+    // the fade: crucially including rising up THROUGH it while still aligned
     // (vy < 0), which is exactly what a jetpack / propeller / spring /
     // trampoline / springy-shoes launch does. The old check keyed off
     // horizontal overlap alone, so an aligned upward fly-through left `horiz`
@@ -568,7 +568,7 @@ class Game {
 
     // The camera pans downward during fall/bump deaths. Remove everything that
     // has already dropped below the visible screen so it can't scroll back into
-    // view (platforms only ever leave via the bottom — they shouldn't return).
+    // view (platforms only ever leave via the bottom: they shouldn't return).
     if (type === "fall" || type === "bump") {
       const bottom = this.cameraY + CONFIG.H;
       // Keep a platform while it OR its booster/power-up is still on screen, so
@@ -678,7 +678,7 @@ class Game {
     this.renderBackground(ctx);
 
     // The world is always drawn (also during death) so the camera pan reads
-    // naturally — platforms scroll up and off as the camera chases the falling
+    // naturally: platforms scroll up and off as the camera chases the falling
     // poodle, leaving empty sky rather than cutting abruptly.
     for (const plat of this.platforms) plat.render(ctx, this.cameraY);
     for (const e of this.enemies) e.render(ctx, this.cameraY);
@@ -720,7 +720,7 @@ class Game {
   }
 
   // One margin scribble, centred at (x, y): a star, a spiral, a cloud
-  // outline, or a ringed planet — all plain pencil strokes.
+  // outline, or a ringed planet: all plain pencil strokes.
   _doodle(ctx, x, y, s, kind) {
     ctx.save();
     ctx.translate(x, y);

@@ -12,10 +12,10 @@
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
-    <meta name="description" content="Steamfitter — lay copper pipe ahead of the rising water in the boiler room. A browser game by Sam Lu." />
-    <meta property="og:title" content="Steamfitter — Sam Lu" />
+    <meta name="description" content="Steamfitter: lay copper pipe ahead of the rising water in the boiler room. A browser game by Sam Lu." />
+    <meta property="og:title" content="Steamfitter | Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Steamfitter — build the pipeline before the water catches you. A browser game by Sam Lu." />
+    <meta property="og:description" content="Steamfitter: build the pipeline before the water catches you. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
     <!-- Google tag (gtag.js) -->
@@ -45,19 +45,19 @@
         <button class="mbtn" data-mode="puzzle" type="button">♾️ Endless</button>
         <button class="mbtn sel" data-mode="levels" type="button">🧩 Levels</button>
       </div>
-      <div id="howLine">Click a pipe to turn it a quarter clockwise — connect the tank to the drain.</div>
+      <div id="howLine">Click a pipe to turn it a quarter clockwise: connect the tank to the drain.</div>
       <div id="board">
         <canvas id="game" width="640" height="490"></canvas>
         <div id="levelSelect" class="hidden"></div>
       </div>
       <div id="editor" class="hidden">
         <div id="editTools">
-          <button class="etool epipe" data-tool="straight" data-shape="straight" type="button" title="Straight — drag to place, click to rotate"><span class="eico">┃</span> Straight</button>
-          <button class="etool epipe sel" data-tool="bend" data-shape="bend" type="button" title="Bend — drag to place, click to rotate"><span class="eico">┗</span> Bend</button>
-          <button class="etool epipe" data-tool="tee" data-shape="tee" type="button" title="T-junction — drag to place, click to rotate"><span class="eico">┳</span> Tee</button>
-          <button class="etool epipe" data-tool="cross" data-shape="cross" type="button" title="Crossover — two separate channels, water only goes straight across; drag to place"><span class="eico">╂</span> Crossover</button>
-          <button class="etool epipe" data-tool="junction" data-shape="junction" type="button" title="4-way junction — water can turn any way; drag to place"><span class="eico">╋</span> Junction</button>
-          <button class="etool epipe" data-tool="cap" data-shape="cap" type="button" title="Cap — drag to place, click to rotate"><span class="eico">╹</span> Cap</button>
+          <button class="etool epipe" data-tool="straight" data-shape="straight" type="button" title="Straight: drag to place, click to rotate"><span class="eico">┃</span> Straight</button>
+          <button class="etool epipe sel" data-tool="bend" data-shape="bend" type="button" title="Bend: drag to place, click to rotate"><span class="eico">┗</span> Bend</button>
+          <button class="etool epipe" data-tool="tee" data-shape="tee" type="button" title="T-junction: drag to place, click to rotate"><span class="eico">┳</span> Tee</button>
+          <button class="etool epipe" data-tool="cross" data-shape="cross" type="button" title="Crossover: two separate channels, water only goes straight across; drag to place"><span class="eico">╂</span> Crossover</button>
+          <button class="etool epipe" data-tool="junction" data-shape="junction" type="button" title="4-way junction: water can turn any way; drag to place"><span class="eico">╋</span> Junction</button>
+          <button class="etool epipe" data-tool="cap" data-shape="cap" type="button" title="Cap: drag to place, click to rotate"><span class="eico">╹</span> Cap</button>
           <button class="etool" data-tool="src" type="button" title="Source (left edge)">🚰 Source</button>
           <button class="etool" data-tool="drain" type="button" title="Drain (right edge)">🕳 Drain</button>
           <button class="etool" data-tool="block" type="button" title="Blocked plate">⬛ Block</button>

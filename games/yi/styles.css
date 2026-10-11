@@ -1,5 +1,5 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap");
-/* Fredoka — a chunky, rounded display face for Uno's playful identity. */
+/* Fredoka: a chunky, rounded display face for Uno's playful identity. */
 @import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap");
 
 :root {
@@ -107,7 +107,7 @@ h1.title {
 }
 
 /* ---------- generic buttons ---------- */
-/* Chunky, pill-ish, with a hard drop-shadow that "presses" on click — like
+/* Chunky, pill-ish, with a hard drop-shadow that "presses" on click: like
    a physical game piece. The primary action is Uno red. */
 .btn {
   cursor: pointer;
@@ -286,7 +286,7 @@ h1.title {
 }
 .opp {
   box-sizing: border-box;
-  width: 164px; /* fixed — never resizes with card count, so all CPUs match */
+  width: 164px; /* fixed: never resizes with card count, so all CPUs match */
   background: linear-gradient(180deg, #1a1a22, #131319);
   border: 2px solid #2a2a36;
   border-radius: 14px;
@@ -322,7 +322,7 @@ h1.title {
   background: linear-gradient(135deg, #2a2a33, #3a3a46);
   border: 1px solid #4a4a58;
 }
-/* Visual FX off: cards don't fly, so the table says what happened instead —
+/* Visual FX off: cards don't fly, so the table says what happened instead,
    "+n" by a CPU's count when it draws (until another player acts), and who
    played the top discard (under the pile). game.js renders both in either
    mode; they show only with FX off, where the flights are missing. */

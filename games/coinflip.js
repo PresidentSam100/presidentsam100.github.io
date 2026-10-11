@@ -88,7 +88,7 @@
     }
 
     // A strictly-alternating run of ~base frames that STARTS on a random side and
-    // ENDS on the winner — so the opening frame never reveals who was picked.
+    // ENDS on the winner, so the opening frame never reveals who was picked.
     function buildSeq(base) {
       var start = Math.random() < 0.5 ? 0 : 1, L = base;
       if ((start + L - 1) % 2 !== resIdx) L += 1;   // nudge length so the alternation lands on resIdx

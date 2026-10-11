@@ -105,7 +105,7 @@ header.top::after {
   animation: sweep 4.5s linear infinite; will-change: transform;
 }
 @keyframes sweep { to { transform: rotate(360deg); } }
-/* Visual FX off: the wedge holds still, so it goes under the cells — the
+/* Visual FX off: the wedge holds still, so it goes under the cells, the
    same beam on the screen, but never sitting over a return or the
    last-shot mark (the hit burst it would otherwise stack under is cut
    with FX off anyway) */

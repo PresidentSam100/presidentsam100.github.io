@@ -1,5 +1,5 @@
 /* =====================================================================
-   Sunset Slice — swipe to cut what the wind throws up against the sun.
+   Sunset Slice: swipe to cut what the wind throws up against the sun.
 
    Objects fly on parabolas in screen-relative units (u = x / width,
    v = y / height), so a resize never teleports anything. A swipe is a

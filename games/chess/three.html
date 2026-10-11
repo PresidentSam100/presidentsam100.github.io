@@ -124,7 +124,7 @@
     let nr=r+dr, nf=f+df, ns=s;
     if(nr<0){                                 // crossing the center (inner edge)
       // emerge at the file-mirror of the entered cell (its "opposite corner"),
-      // heading reflected — keeps every crossing reciprocal for orth & diagonal alike
+      // heading reflected: keeps every crossing reciprocal for orth & diagonal alike
       ns = f<4 ? (s+2)%3 : (s+1)%3;
       return { cell:cid(ns,0,7-f), dir:REFLECT[dir] };
     }
@@ -170,7 +170,7 @@
         if(tp && takeable(tp)) out.push({to:cd.cell,cap:true,promo:isPromo(cd.cell,col)}); } }
     return out;
   }
-  // squares a piece threatens (pawn = diagonals only) — for check detection.
+  // squares a piece threatens (pawn = diagonals only): for check detection.
   // Walked from the piece's own steps, not genMoves(): no move ever lands on a
   // live king (only a frozen one can be taken), so a move list never saw a check.
   function threatens(b,c,target){
@@ -308,7 +308,7 @@
         +'<span class="meta">'+(st.alive?(o===G.turn&&!G.over?"to move":(score?"+"+score:"")):"out")+'</span>';
       w.appendChild(chip); } }
   function setStatus(check){ if(G.over) return; const pl=PLAYERS[G.turn];
-    $("status").innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move'+(check?' — <b style="color:var(--check)">Check!</b>':''); }
+    $("status").innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move'+(check?'. <b style="color:var(--check)">Check!</b>':''); }
 
   // ----------------------------------------------------------------- sound
   let actx=null; function ac(){ if(!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(actx&&actx.state==="suspended")actx.resume(); return actx; }
@@ -346,7 +346,7 @@
   function creditFor(col,mover){ const k=kingCell(G.board,col); if(k<0) return mover; if(attacked(G.board,k,col,mover)) return mover;
     for(const o of aliveOwners()) if(o!==col && attacked(G.board,k,col,o)) return o; return mover; }
   function eliminate(col,by){ G.players[col].alive=false; SFX.out();
-    if(G.ending===1){ G.over=true; G.winner=by; render(); over(PLAYERS[by].name+" wins!", "Checkmate — "+PLAYERS[by].name+" checkmated "+PLAYERS[col].name+"."); return; }
+    if(G.ending===1){ G.over=true; G.winner=by; render(); over(PLAYERS[by].name+" wins!", "Checkmate: "+PLAYERS[by].name+" checkmated "+PLAYERS[col].name+"."); return; }
     if(G.ending===2){ G.board=G.board.map(x=> x&&x.o===col ? (x.t==="k"?null:{o:by,t:x.t,dead:false}) : x); }
     else { G.board=G.board.map(x=> x&&x.o===col ? {o:col,t:x.t,dead:true} : x); }
     render();

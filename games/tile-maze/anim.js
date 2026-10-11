@@ -1,9 +1,9 @@
-/* Tile Maze — shared move animation (DOM).
+/* Tile Maze: shared move animation (DOM).
    Used by BOTH game.js and editor.js so the real game and the editor's
    test-play animate identically:
      • per-tile movement speed (water = slow, ice = fast, everything else
        normal), and crucially the speed switches at the MIDPOINT between two
-       tiles — the first half of a step runs at the tile you're leaving, the
+       tiles, the first half of a step runs at the tile you're leaving, the
        second half at the tile you're entering;
      • an electric "zap" hold on yellow / live-water before the rebound;
      • a wall "bump" (slower when you're standing in water).
@@ -23,8 +23,8 @@
 
   // Per-tile traversal time (ms for a full tile). Speed = inverse of this.
   const STEP = 115;   // ordinary tile
-  const WATER = 300;  // blue water — slow (wading)
-  const ICE = 75;     // purple ice — fast (sliding)
+  const WATER = 300;  // blue water: slow (wading)
+  const ICE = 75;     // purple ice: fast (sliding)
   const ZAP = 300;    // electric zap hold before the rebound
   const REBOUND = 150;
   const MARK = 500;   // how long the still wall-bump bar and slide trail stay
@@ -69,7 +69,7 @@
 
   // Drive the player along a poly-line of waypoints, each segment with its own
   // duration, at constant velocity within the segment (rAF, so speed can vary
-  // across the path — which a single CSS transition can't do).
+  // across the path, which a single CSS transition can't do).
   function animatePath(el, pts, durs, stale) {
     const cum = [0];
     for (let k = 0; k < durs.length; k++) cum.push(cum[k] + durs[k]);
@@ -118,8 +118,8 @@
     for (let i = forward.length - 1; i >= 0; i--) if (forward[i].flavor) { fwdFlavor = forward[i].flavor; break; }
 
     // Reduced motion: jump to the final tile, keep the cues. A jump of more
-    // than one tile (an ice slide) leaves a trail on the tiles it crossed —
-    // where it started and what it slid over — so you can see where you went.
+    // than one tile (an ice slide) leaves a trail on the tiles it crossed:
+    // where it started and what it slid over, so you can see where you went.
     if (reduced) {
       const fin = res.final;
       const crossed = [ctx.from || forward[0]].concat(bounced ? forward.slice(0, -1) : forward)

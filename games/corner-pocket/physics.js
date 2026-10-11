@@ -1,4 +1,4 @@
-/* Corner Pocket — the table and its ball physics.
+/* Corner Pocket: the table and its ball physics.
    Pure and deterministic (no DOM, no Math.random): the CPU looks ahead by
    running this exact code on a copy of the table, so what it sees is what the
    live table will do. Loads in the page and in node.
@@ -328,7 +328,7 @@
         if (dx * dx + dy * dy < p.r * p.r) { hit = k; break; }
       }
       // safety net: off the cloth but not in a pocket's throat means it got
-      // out some other way — it drops into the nearest pocket
+      // out some other way: it drops into the nearest pocket
       if (hit < 0 && (b.x < -R || b.x > L + R || b.y < -R || b.y > W + R)) {
         var bd = Infinity, near = 0;
         for (k = 0; k < 6; k++) {
@@ -545,7 +545,7 @@
     b.vx = b.vy = b.wx = b.wy = b.sz = 0;
   }
 
-  // mulberry32 — the seeded generator the rack and the CPU use
+  // mulberry32: the seeded generator the rack and the CPU use
   function rng(seed) {
     var a = seed >>> 0;
     return function () {

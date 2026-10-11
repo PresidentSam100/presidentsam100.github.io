@@ -63,7 +63,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // keyboard: on the menu 1 / 2 pick a mode and H toggles Hard; on the end card
   // Enter plays again and Backspace returns to the modes (Esc leaves for the
-  // games page) — each shown as a keycap
+  // games page): each shown as a keycap
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
   const caps = await p.evaluate(() => ["#m-sprint", "#m-race", "#m-hard"].map((s) => (document.querySelector(s + " kbd.gs-kbd") || {}).textContent));
   const k0 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k1 = (await hardBtn()).pressed; await p.keyboard.press("h"); const k2 = (await hardBtn()).pressed;

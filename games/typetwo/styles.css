@@ -1,6 +1,6 @@
 @import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap");
 :root {
-  --bg: #120c24;       /* midnight violet — the wizard's night */
+  --bg: #120c24;       /* midnight violet: the wizard's night */
   --bg2: #1d1440;
   --accent: #c9a2ff;   /* arcane violet */
   --accent2: #e7c86f;  /* spell gold */
@@ -35,7 +35,7 @@ canvas {
   image-rendering: optimizeQuality;
 }
 
-/* HUD — pinned to the bottom so it never covers falling words */
+/* HUD: pinned to the bottom so it never covers falling words */
 #hud {
   position: absolute;
   bottom: 0; left: 0; right: 0;
@@ -148,7 +148,7 @@ canvas {
 /* The typed prefix + caret are centered as a single group, so the whole thing
    stays balanced under the ship as you type. The text→caret gap lives on the
    prefix (margin-right), so when no word is locked the lone caret centers dead
-   on W/2 — directly under the ship — with nothing nudging it sideways. */
+   on W/2 (directly under the ship) with nothing nudging it sideways. */
 #typed {
   position: absolute;
   bottom: 14px; left: 0; right: 0; text-align: center;

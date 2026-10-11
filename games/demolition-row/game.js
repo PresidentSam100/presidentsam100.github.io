@@ -1,8 +1,8 @@
     "use strict";
-    // Reduce-motion state for this game (live) — set by the top-right toggle / OS setting.
+    // Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
     var reducedMotion = function () { return !!(window.RM_ON && window.RM_ON()); };
     /* =====================================================================
-     * Demolition Row — Wii Party U "Demolition Row" inspired clone.
+     * Demolition Row: Wii Party U "Demolition Row" inspired clone.
      *
      * Falling-piece puzzle: PLUS-SHAPED pieces (5 cells: center + 4 arms,
      * each arm independently colored) fall from the top. Move/rotate/drop
@@ -20,7 +20,7 @@
       cols: 9, rows: 14,  // top 3 rows are an off-grid spawn buffer above the line
       topLineRow: 3,    // red line at the top of the visible field; loss = a block overflows ABOVE it
       goalLineRow: 9,   // pale ice-blue line (50-Stage): clear/win when topmost block row > this
-      vsGoalLineRow: 10, // VS goal sits lower — win = stack within the bottom 3 rows
+      vsGoalLineRow: 10, // VS goal sits lower: win = stack within the bottom 3 rows
       cell: 38, colors: 5, minGroup: 4,
       stoneDurability: 3,
       gaugeMax: 800,           // score (pre-bonus) needed per powerup; higher = rarer/more-earned. combos fill it faster via the chain multiplier
@@ -44,7 +44,7 @@
     };
     const COLOR_HEX = ["#ff8c2b", "#34c759", "#3f8cff", "#a25cff", "#ff4db8"]; // orange green blue purple magenta
     const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
-    const FALL_ACCEL = 0.00020; // rows per ms^2 — gravity for the settle animation
+    const FALL_ACCEL = 0.00020; // rows per ms^2: gravity for the settle animation
     const FLASH_MS = 150;       // matched group flash duration before it clears
     const POP_MS = 750;         // how long a chain step's "×2", "×3" shows where it cleared
     const ROT_SPEED = 0.013;    // radians/ms for the rotation animation (~120ms per 90°)
@@ -148,7 +148,7 @@
         else if (cell.t === "s") { stones++; if (broken) broken.push([r, c]); }
         g[r][c] = null;
       }
-      // adjacent stones crack from a demolition — but NOT from the iron crush
+      // adjacent stones crack from a demolition, but NOT from the iron crush
       let stoneCracks = 0;
       if (crackStones) {
         const stoneHit = new Set();
@@ -376,7 +376,7 @@
         }
         this.tallyClear(r); this.pendingClear = [];
         // Thunder combo: after the matched group clears, fire each thunder color
-        // as its own flash beat — all BEFORE gravity. Only once nothing is left
+        // as its own flash beat: all BEFORE gravity. Only once nothing is left
         // to clear do the blocks fall.
         while (this.thunderQueue.length) {
           const color = this.thunderQueue.shift();
@@ -388,7 +388,7 @@
       tallyClear(r) {
         this.settleTotals.normals += r.normals; this.settleTotals.stones += r.stones; this.settleTotals.stars += r.stars;
         this.settleGained += this.scoreFor(r, this.chain);
-        this.settleGaugeGain += (r.normals * this.cfg.pts.normal + r.stones * this.cfg.pts.stone + r.stars * this.cfg.pts.star) * this.chain; // gauge fills by the (pre-bonus) score gained — combos pump it via the chain multiplier
+        this.settleGaugeGain += (r.normals * this.cfg.pts.normal + r.stones * this.cfg.pts.stone + r.stars * this.cfg.pts.star) * this.chain; // gauge fills by the (pre-bonus) score gained: combos pump it via the chain multiplier
         if (r.augSlow > 0) { this.slowUntil = this.now() + this.cfg.slowDurationMs; this.flashBanner("SLOW", "#43e8ff"); }
         for (const color of r.augThunder) if (this.thunderQueue.indexOf(color) < 0) this.thunderQueue.push(color);
       }
@@ -405,7 +405,7 @@
         let awarded = 0;
         while (this.gauge >= this.cfg.gaugeMax) {        // each full bar banks one powerup; the remainder carries over (no waste, no overfill)
           this.gauge -= this.cfg.gaugeMax;
-          this.pq.push(this.rollSpecial());             // queued — dispensed one per piece, not all at once
+          this.pq.push(this.rollSpecial());             // queued: dispensed one per piece, not all at once
           awarded++;
         }
         if (awarded > 0) this.flashBanner(awarded > 1 ? "BONUS x" + awarded + "!" : "BONUS READY", "#ffd23f");
@@ -574,7 +574,7 @@
       }
       // ---- shared simulation / lookahead helpers ----
       // Score a resulting board: winning dominates, then cells cleared, chains, low
-      // stack — with a steep survival penalty so the CPU never stacks itself out.
+      // stack, with a steep survival penalty so the CPU never stacks itself out.
       boardScore(o) {
         const b = this.b, topLine = b.cfg.topLineRow, tr = topRow(o.sim);
         if (b.opts.useGoal && belowGoal(o.sim, b.opts.goalRow)) return 1e6 + tr; // winning dominates
@@ -586,7 +586,7 @@
         return s;
       }
       // Static board-quality heuristic (kaizo only): rewards positions that stay
-      // workable no matter what falls next — flat surface + "primed" near-matches,
+      // workable no matter what falls next: flat surface + "primed" near-matches,
       // minus stranded lone blocks that can never be matched away.
       qualityBonus(grid) {
         const cols = grid[0].length, rows = grid.length;
@@ -773,7 +773,7 @@
         ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2; this.rr(X, Y, W, H, 5); ctx.stroke();
         ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓", x + s / 2, y + s / 2 + 1); ctx.textBaseline = "alphabetic";
       }
-      // powerup icon overlaid on a colored block — sits on a dark badge with a light
+      // powerup icon overlaid on a colored block: sits on a dark badge with a light
       // ring so it stays legible on every block color (orange/green included).
       drawAug(aug, cx, cy) {
         const ctx = this.ctx, R = this.cell * 0.3;
@@ -786,7 +786,7 @@
           this.star(cx, cy, R * 0.72, "#ffd23f");
         } else if (aug === "thunder") {
           this.drawBolt(cx, cy, R * 0.9);
-        } else { // slow (snail) — solo modes only
+        } else { // slow (snail): solo modes only
           ctx.font = "15px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
           ctx.fillStyle = "#fff"; ctx.fillText("🐌", cx, cy + 1);
         }
@@ -1000,7 +1000,7 @@
         const cfg = CONFIG, rng = makeRNG(seed), isVS = this.mode === "vs";
         const board = new Board(cfg, rng, { useGoal: isVS || this.mode === "stage", stage: 0, goalRow: isVS ? cfg.vsGoalLineRow : cfg.goalLineRow });
         board.allowSlow = !isVS; board.allowStars = this.mode === "endless";
-        // Stage mode kept no best at all — it showed a final score and threw it
+        // Stage mode kept no best at all: it showed a final score and threw it
         // away. Endless already had one; this gives the other solo mode parity.
         if (this.mode === "stage") { board.highKey = "demolitionRow_stageBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; this.setupStage(board, 1); }
         else if (this.mode === "endless") { board.level = 1; board.elapsed = 0; board.fill(cfg.endless.startHeight, cfg.endless.fillDensity, board.stoneRateNow(), cfg.starRate); board.fallMs = cfg.baseFallMs; board.highKey = "demolitionRow_endlessBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; board.spawnPiece(); }
@@ -1102,7 +1102,7 @@
         if (!b.alive) { if (b.score > b.high) { b.high = b.score; this.lsSet(b.highKey, String(b.high)); } return this.end("Game Over", "Level " + b.level + " · Score " + b.score + "\nBest: " + Math.max(b.high, b.score)); }
       }
       updateVS() {
-        // every player who reached the goal this frame wins the round — if two or
+        // every player who reached the goal this frame wins the round, if two or
         // more clear on the same frame it's a genuine shared win (both count).
         const cleared = this.players.filter((p) => p.board.cleared);
         if (cleared.length) return this.vsRoundEnd(cleared);
@@ -1304,7 +1304,7 @@
       const goingHuman = sel.ptypes[slot] !== "human";
       if (goingHuman) {
         const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
-        if (humanCount >= MAX_HUMANS) return; // already at the human cap — ignore
+        if (humanCount >= MAX_HUMANS) return; // already at the human cap: ignore
       }
       sel.ptypes[slot] = goingHuman ? "human" : "cpu";
       updateVsOpts();

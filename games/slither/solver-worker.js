@@ -1,4 +1,4 @@
-/* Slither — runs the level checker (solver.js) off the main thread for the
+/* Slither: runs the level checker (solver.js) off the main thread for the
    level editor, so checking a big level never freezes the page. */
 importScripts("labyrinth-engine.js", "solver.js");
 self.onmessage = function (e) {

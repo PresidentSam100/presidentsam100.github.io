@@ -1,5 +1,5 @@
 /* =====================================================================
-   Shared game shell — small, dependency-free helpers that every game can
+   Shared game shell: small, dependency-free helpers that every game can
    use, so the same three problems stop being re-solved 27 times.
 
    Include in <head> alongside the other shared scripts:
@@ -7,7 +7,7 @@
      <script src="../mute-toggle.js"></script>
      <script src="../game-shell.js"></script>
 
-   Injects no DOM and touches no styles — it only defines window.GameShell,
+   Injects no DOM and touches no styles: it only defines window.GameShell,
    so adding the tag to a page cannot change how that page looks.
 
    Deliberately NOT in here: audio. Each game has its own hand-tuned sound
@@ -68,7 +68,7 @@
   // Wraps the read/compare/write dance ~20 games each hand-roll.
   // `higher: false` for scores where lower wins (reaction time, race time).
   //
-  // NOTE: keys are passed through verbatim, never namespaced — the hub's
+  // NOTE: keys are passed through verbatim, never namespaced, the hub's
   // "reset all high scores" button in games/index.html matches on exact key
   // names and prefixes, so silently rewriting them would break it.
   function best(key, opts) {
@@ -91,7 +91,7 @@
 
   // ---- auto-pause ------------------------------------------------------
   // Switching tabs used to leave timers and spawners running, so players
-  // came back to a dead run. Games register a PAUSE-ONLY callback here —
+  // came back to a dead run. Games register a PAUSE-ONLY callback here:
   // never a toggle, because returning focus must not silently un-pause a
   // game the player paused on purpose.
   var pauseHandlers = [];
@@ -150,14 +150,14 @@
         return r;
       },
       /* For games that already keep their own {w,l,d} in memory (tic-tac-toe
-         has had the counters and the UI all along — they just never survived
+         has had the counters and the UI all along: they just never survived
          a reload). Persist whatever the game is already tracking. */
       set: function (r) {
         if (!r) return;
         store.set(key, JSON.stringify({ w: r.w | 0, l: r.l | 0, d: r.d | 0 }));
       },
       reset: function () { store.remove(key); return { w: 0, l: 0, d: 0 }; },
-      /* "2 W · 1 L · 3 D" — draws omitted when there are none. */
+      /* "2 W · 1 L · 3 D": draws omitted when there are none. */
       text: function () {
         var r = read();
         var s = r.w + " W · " + r.l + " L";
@@ -170,7 +170,7 @@
   // ---- pause -----------------------------------------------------------
   // Opt-in helper so a game gets pause without hand-rolling the overlay, the
   // keybinding and the auto-pause hook. Only games that CALL this get any
-  // DOM — the module itself still injects nothing on load.
+  // DOM: the module itself still injects nothing on load.
   //
   //   var P = GameShell.pausable({
   //     canPause: function () { return state === "play"; },
@@ -268,7 +268,7 @@
     if (look.shadow) el.style.setProperty("--gs-shadow", look.shadow);
   }
 
-  // "Esc", "P", "P / Esc" — the keys as a player would read them
+  // "Esc", "P", "P / Esc": the keys as a player would read them
   function keyLabel(keys) {
     var out = [];
     for (var i = 0; i < keys.length; i++) {
@@ -351,7 +351,7 @@
         if (e.key === keys[i] || e.key.toLowerCase() === String(keys[i]).toLowerCase()) { hit = true; break; }
       }
       if (!hit || e.repeat) return;
-      // Don't swallow a printable key the player is typing into a field — but
+      // Don't swallow a printable key the player is typing into a field, but
       // Escape is never text, and in metazac/ztype the input IS the game
       // surface, so a blanket "ignore while focused in an input" would make
       // pause unreachable exactly where it's needed most.
@@ -420,7 +420,7 @@
       btn.setAttribute("aria-disabled", ok ? "false" : "true");
       var off = !ok && (typeof api.offTitle === "function" ? api.offTitle() : api.offTitle);
       btn.setAttribute("aria-label", off ? off : (p ? "Resume" : "Pause") + keyNote);
-      btn.title = ok ? (p ? "Resume" : "Pause") + (label ? " — " + label : "") : off || "Pausing works during a game" + keyNote;
+      btn.title = ok ? (p ? "Resume" : "Pause") + (label ? " (" + label + ")" : "") : off || "Pausing works during a game" + keyNote;
       btn.style.opacity = ok ? "1" : "0.45";
       btn.style.cursor = ok ? "pointer" : "default";
     }

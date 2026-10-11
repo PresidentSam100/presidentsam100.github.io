@@ -1,8 +1,8 @@
 /* =====================================================================
-   Passport — the atlas. [iso2, name, region, family, tier]
+   Passport: the atlas. [iso2, name, region, family, tier]
    region: EU AS AF AM OC
-   family: which lookalike drawer the flag lives in — distractors are
-           pulled from the same family first, then the same region.
+   family: which lookalike drawer the flag lives in (distractors are
+           pulled from the same family first, then the same region).
    tier:   1 famous · 2 known · 3 deep cuts (tours ramp through them)
    Flag art: https://flagcdn.com/{iso2}.svg
    ===================================================================== */
