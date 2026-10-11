@@ -51,6 +51,43 @@ module.exports = async ({ browser, base, check, lib }) => {
     notes.desktop.menuKey && !notes.phone.menuKey, { desktop: notes.desktop.menuKey, phone: notes.phone.menuKey });
   await phone.close();
 
+  // ---- Game Over on a touch-only phone: there's no Backspace, so the note has
+  // a Menu button; a tap on it goes back to the start card, a tap anywhere
+  // else plays again. With a keyboard there's no button, and a click there
+  // plays again as it always did.
+  {
+    const got = {};
+    for (const [label, opts] of [["phone", devices["Pixel 7"]], ["desktop", {}]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/poodle-jump/");
+      const frames = "requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(";
+      // a finished run with its result showing (past the beat in which a tap is ignored)
+      const over = () => q.evaluate(() => new Promise((res) => {
+        __game.start(); __game.score = 7; __game.finishDeath(); __game.overTimer = 0;
+        requestAnimationFrame(() => requestAnimationFrame(() => { __game.overTimer = 0; res({ state: __game.state, btn: __game.menuBtn || null, w: CONFIG.W, h: CONFIG.H }); }));
+      }));
+      // a tap at a point given in the canvas's own units
+      const tap = (x, y) => q.evaluate(([x, y]) => new Promise((res) => {
+        const cv = __game.ctx.canvas, r = cv.getBoundingClientRect();
+        cv.dispatchEvent(new PointerEvent("pointerdown", { clientX: r.left + x * r.width / CONFIG.W, clientY: r.top + y * r.height / CONFIG.H, bubbles: true }));
+        requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => res({ state: __game.state, score: __game.score }))));
+      }), [x, y]);
+      const a = await over();
+      const spot = a.btn ? [a.btn.x + a.btn.w / 2, a.btn.y + a.btn.h / 2] : [a.w / 2, a.h / 2 + 90];
+      const onButton = await tap(spot[0], spot[1]);
+      const b = await over();
+      const elsewhere = await tap(a.w / 2, 40);
+      got[label] = { over: a.state, btn: a.btn, inside: !!a.btn && a.btn.x >= 0 && a.btn.y >= 0 && a.btn.x + a.btn.w <= a.w && a.btn.y + a.btn.h <= a.h, onButton, again: b.state, elsewhere };
+      check("poodle-jump " + label + " (Game Over taps): no page errors", q.errs.length === 0, q.errs);
+      await q.close();
+      await c.close();
+    }
+    check("poodle-jump, phone: Game Over's note has a Menu button; a tap on it goes back to the start card, a tap elsewhere plays again",
+      got.phone.over === "over" && got.phone.inside && got.phone.onButton.state === "start" && got.phone.onButton.score === 0 && got.phone.again === "over" && got.phone.elsewhere.state === "play", got.phone);
+    check("poodle-jump, desktop: no Menu button on Game Over (Backspace is the menu); a click anywhere plays again",
+      got.desktop.over === "over" && got.desktop.btn === null && got.desktop.onButton.state === "play" && got.desktop.elsewhere.state === "play", got.desktop);
+  }
+
   // ---- Game Over: Backspace goes back to the start card, but not in its first
   // second (a key held from the run); Esc still leaves for the games page
   p = await lib.open(ctx, base, "games/poodle-jump/");

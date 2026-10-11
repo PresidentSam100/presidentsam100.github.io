@@ -30,6 +30,7 @@ class Game {
     this.shootCd = 0;
     this.overTimer = 0;
     this.menuGrace = 0;       // Game Over ignores Backspace (the menu) until this runs out
+    this.menuBtn = null;      // Game Over's Menu button on a touch-only device (see renderOver)
     this.paused = false;
 
     this.platforms = [];
@@ -258,8 +259,15 @@ class Game {
         this.input.consumeShots();
         return;
       }
+      // a tap on Game Over's Menu button (drawn on a touch-only device, where
+      // there's no Backspace) goes back to the start card; any other plays again
+      const taps = this.input.consumeShots(), mb = this.state === "over" ? this.menuBtn : null;
+      if (mb && this.overTimer <= 0 && taps.some((t) => t && t.x >= mb.x && t.x <= mb.x + mb.w && t.y >= mb.y && t.y <= mb.y + mb.h)) {
+        this.toStart();
+        this.input.consumeAction();
+        return;
+      }
       if (this.input.consumeAction() && this.overTimer <= 0) this.start();
-      this.input.consumeShots();
       return;
     }
 
@@ -833,14 +841,40 @@ class Game {
   }
 
   renderOver(ctx) {
-    this._panel(ctx, "Game Over", [
+    // On a touch-only device there's no Backspace for the menu, so the note
+    // carries a Menu button to tap (its place is kept in menuBtn, in the
+    // canvas's own units, for update to test taps against)
+    const touch = !!(window.GameShell && GameShell.touchOnly());
+    const lines = [
       "Score: " + this.score,
       "Best: " + this.high,
       "",
       { keys: "[Space] or click to play again", touch: "Tap to play again" },
-      // (no menu line on touch: there's no Backspace there)
       { keys: "[⌫] menu  ·  [Esc] all games", touch: "← Games for all games" },
-    ]);
+    ];
+    if (touch) lines.push("");                         // (room for the button)
+    this._panel(ctx, "Game Over", lines);
+    this.menuBtn = null;
+    if (!touch) return;
+    // (drawn on the note, with its slight tilt: the same origin and turn as _panel)
+    const h = 118 + lines.length * 27, w = 132, bh = 34;
+    const ox = CONFIG.W / 2, oy = CONFIG.H / 2 - 24, by = -h / 2 + 79 + 27 * (lines.length - 1) + 6;
+    ctx.save();
+    ctx.translate(ox, oy);
+    ctx.rotate(-0.02);
+    ctx.fillStyle = "#fffdf4";
+    ctx.strokeStyle = "#2f3550";
+    ctx.lineWidth = 2;
+    roundRect(ctx, -w / 2, by - bh / 2, w, bh, 8);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#2f3550";
+    ctx.font = '18px "Permanent Marker", "Segoe UI", Arial';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Menu", 0, by + 1);
+    ctx.restore();
+    this.menuBtn = { x: ox - w / 2 - 8, y: oy + by - bh / 2 - 8, w: w + 16, h: bh + 16 };   // (a little generous)
   }
 
   renderPause(ctx) {
