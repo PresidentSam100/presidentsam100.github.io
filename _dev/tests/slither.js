@@ -79,7 +79,21 @@ module.exports = async ({ browser, base, check, lib }) => {
   await run(p, "#result-primary", 6);
   await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 20000 });
   const b3 = await classicState(p);
-  check("slither classic: beating the best still says New Best", b3.stored === "6" && /New Best/.test(b3.msg), b3);
+  // (the run stops steering at 6, but an apple in the snake's path can make it 7)
+  check("slither classic: beating the best still says New Best", b3.score >= 6 && b3.stored === String(b3.score) && /New Best/.test(b3.msg), b3);
+
+  // ---- Classic: a first scoring run is the first best, not a "new" one: the
+  // card shows the score alone (it used to say New Best!)
+  {
+    const f = await classic();
+    await run(f, "#play-btn", 3);
+    await f.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 20000 });
+    const first = await classicState(f);
+    check("slither classic: a first scoring run shows its score alone, no New Best (it's saved as the best)",
+      first.score >= 3 && first.stored === String(first.score) && first.msg === "Score: " + first.score, first);
+    check("slither classic: no page errors (first run)", f.errs.length === 0, f.errs);
+    await f.close();
+  }
 
   // ---- Classic: steering pressed while paused is ignored; a held P doesn't flicker the pause
   await p.click("#result-primary"); await p.waitForTimeout(200);
@@ -266,10 +280,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("slither maze chase: with a best saved, the end card shows it (guard)", /Best 500/.test(chase2), chase2);
   await p.close();
   p = await classic();
-  await p.click("#play-btn");   // (heading right, into the wall, with nothing eaten)
+  await p.click("#play-btn");   // (heading right, into the wall; an apple may lie in the way)
   await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
   const c0 = await p.evaluate(() => document.getElementById("result-msg").textContent);
-  check("slither classic: a scoreless first run's card has no best line (not \"Best: 0\")", /^Score: 0/.test(c0) && !/Best/.test(c0), c0);
+  check("slither classic: a first run's card has no best line (not \"Best: 0\")", /^Score: \d+$/.test(c0), c0);
   await p.close();
 
   // ---- the Rainbow serpent holds its colours still with Visual FX off

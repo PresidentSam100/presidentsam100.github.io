@@ -751,12 +751,13 @@
     G.running = false;
     if (G.mode === "solo") {
       var s = G.snakes[0];
-      var isNewBest = s.score > G.runBest;
+      var prev = G.runBest;
       updateHud();
       showResult({
         title: "Game Over 🐍",
-        // (no best line while there's no best at all: a scoreless first run)
-        msg: "Score: " + s.score + (isNewBest ? ", New Best! 🎉" : G.best ? "  ·  Best: " + G.best : ""),
+        // (no best line until there's one to beat, as on the Labyrinth's cards:
+        // a first scoring run is the first best, not a "new" one)
+        msg: "Score: " + s.score + (!prev ? "" : s.score > prev ? ", New Best! 🎉" : "  ·  Best: " + G.best),
         primaryLabel: "Play Again",
         primaryFn: function () { startRound(); },
       });
