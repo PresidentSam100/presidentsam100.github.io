@@ -1857,6 +1857,7 @@ class Game {
       if (k === 'arrowright' || k === 'd') { this.input.right = true; this.onStageKey(1); }
       if (k === ' ') this.input.fire = true;
       if (k === 'arrowup' || k === 'arrowdown') this.onMenuKey(k);
+      if (/^[1-9]$/.test(k) && +k <= LIFE_MODES.length) this.onModeKey(+k - 1);
       if (k === 'enter') this.onStartKey();
       if (k === 'p') this.togglePause();
     };
@@ -1883,6 +1884,15 @@ class Game {
     if (this.mode !== 'attract') return;
     const dir = k === 'arrowup' ? -1 : 1;
     this.menuIndex = (this.menuIndex + dir + LIFE_MODES.length) % LIFE_MODES.length;
+    Sound.bonusTick();
+  }
+
+  // 1 2 3 go straight to a life mode (its keycap is beside it); Enter starts,
+  // as with the arrows, so the modes can be gone through first. The stage
+  // has no numbers: it runs to 255.
+  onModeKey(i) {
+    if (this.mode !== 'attract' || i === this.menuIndex) return;
+    this.menuIndex = i;
     Sound.bonusTick();
   }
 
@@ -3134,6 +3144,8 @@ class Game {
       const sel = i === this.menuIndex;
       const yy = 324 + i * 22;
       this.menuItem(ctx, m.name, WIDTH / 2, yy, sel ? 15 : 12, sel ? '#ffd23f' : '#6677aa', sel);
+      // the mode's number key, in a column to its left (nothing on a phone)
+      this.keys(ctx, '[' + (i + 1) + ']', WIDTH / 2 - 96, yy, 10, sel ? '#ffd23f' : '#6677aa', 'center', '');
     });
     if (LIFE_MODES[this.menuIndex].infinite)   // (the others end with stage 255)
       this.text(ctx, 'NO LAST STAGE: PLAY ON PAST 255', WIDTH / 2, 392, 10, '#8fa0d8', 'center');

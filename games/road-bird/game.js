@@ -1342,6 +1342,9 @@ window.addEventListener("keydown", (e) => {
   if (state === "menu") {
     if (k === "arrowup" || k === "w" || k === "arrowleft" || k === "a") { menuSel = (menuSel + MODES.length - 1) % MODES.length; menuTick(-1); }
     else if (k === "arrowdown" || k === "s" || k === "arrowright" || k === "d") { menuSel = (menuSel + 1) % MODES.length; menuTick(1); }
+    // a number goes to its mode without starting it (Space or Enter starts),
+    // so the modes can be gone through first; its keycap is beside the button
+    else if (/^[1-9]$/.test(k) && +k <= MODES.length) { if (menuSel !== +k - 1) { menuTick(+k - 1 < menuSel ? -1 : 1); menuSel = +k - 1; } }
     else if (k === "c") cycleSkin();
     else if (k === " " || k === "enter") startSelectedMode();
     return;
@@ -2074,6 +2077,8 @@ function drawMenu() {
   MODES.forEach((m, i) => {
     const sel = i === menuSel;
     drawButton(rects[i], sel ? "#ffd23d" : "#f6f2e4", m.label, m.desc, loadHigh(m.id), sel);
+    // the mode's number key, beside its button (nothing on a phone: a tap plays)
+    keysCenter("[" + (i + 1) + "]", rects[i].x - 26, rects[i].y + rects[i].h / 2 + 1, 17, sel ? "#ffd23d" : "#fff", "");
   });
   // skin selector: the current chicken turns on a real 3D turntable, the
   // bird is modelled as boxes, rotated around the vertical axis and projected,
@@ -2089,7 +2094,7 @@ function drawMenu() {
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  keysCenter("[↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
+  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
   ctx.globalAlpha = 1;
 }
 
@@ -2255,6 +2260,8 @@ window.__game = {
   get state() { return state; },
   get score() { return score(); },
   get player() { return player; },
+  get menuSel() { return menuSel; },
+  get mode() { return gameMode; },
   spawnFeathers, spawnDust, death, snapToPlatform
 };
 
