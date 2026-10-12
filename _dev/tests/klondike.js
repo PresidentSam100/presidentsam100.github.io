@@ -91,11 +91,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await lib.open(ctx, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
   await p.evaluate(() => { Klondike.almostWin(); for (let i = 0; i < 4; i++) Klondike.move("t" + i, "f" + i, 1); });
   const w1 = await p.evaluate(() => JSON.parse(localStorage.getItem("klondike_stats") || "{}").w || 0);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);   // closes the box
+  // the win box is the end of the game: Backspace puts it away (back to the
+  // table) and Esc leaves for the games page, as on every other end screen
+  // (Esc used to close the box and stay)
+  const winUp = await box(p);
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(100);   // closes the box
+  const winShut = { box: await box(p), leaves: p.leaves };
   await p.keyboard.press("u"); await p.waitForTimeout(100);
   await p.evaluate(() => { for (let i = 0; i < 4; i++) Klondike.move("t" + i, "f" + i, 1); });
   const w2 = await p.evaluate(() => ({ w: JSON.parse(localStorage.getItem("klondike_stats") || "{}").w || 0, won: Klondike.state().won }));
   check("klondike: a won deal can't be undone and won (and counted) again", w1 === 1 && w2.w === 1 && w2.won, { w1, w2 });
+  {
+    // (a page of its own for Esc: it goes to the games page)
+    const q = await lib.open(ctx, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
+    await q.evaluate(() => { Klondike.almostWin(); for (let i = 0; i < 4; i++) Klondike.move("t" + i, "f" + i, 1); });
+    const up = await box(q);
+    await q.keyboard.press("Escape"); await lib.leftBy(q, 1);
+    check("klondike: on the win box Backspace puts the box away without leaving, and Esc leaves for the games page",
+      winUp && !winShut.box && winShut.leaves === 0 && up && q.leaves === 1, { winUp, winShut, up, leaves: q.leaves });
+    await q.close();
+  }
   // (a guard: nothing asked before either) a won deal restarts at once
   await p.keyboard.press("r"); await p.waitForTimeout(150);
   const wonR = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), st: Klondike.state() }));

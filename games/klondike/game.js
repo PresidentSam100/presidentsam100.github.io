@@ -298,7 +298,7 @@
         isDaily ? ["Share", shareDaily] : null,
         ["Deal new", function () { closeBox(); newDeal(); }],
         ["Same deal", function () { closeBox(); newDeal(dealSeed, isDaily); }],
-      ]);
+      ], true);
   }
   function shareDaily(e) {
     var btn = e && e.currentTarget;   // the Share button (read now: it's gone once the click is over)
@@ -536,7 +536,10 @@
   document.addEventListener("click", closeMenus);
   menuWire("menu-game"); menuWire("menu-help");
 
-  function msgbox(title, html, buttons) {
+  // `end`: the box is the end of a game (the win), not a note over one in play
+  var boxEnd = false;
+  function msgbox(title, html, buttons, end) {
+    boxEnd = !!end;
     $("mb-title").textContent = title;
     $("mb-body").innerHTML = html;
     var row = $("mb-row");
@@ -594,9 +597,16 @@
     if (PAUSE.isPaused()) return;   // the pause card's own keys still resume
     if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); doUndo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    // Esc closes the box and stops there: preventDefault keeps
-    // ../motion-toggle.js from taking it to the games page
-    if (!$("shade").hidden) { if (e.key === "Escape") { closeBox(); e.preventDefault(); } return; }
+    // Esc closes How to play and stops there: preventDefault keeps
+    // ../motion-toggle.js from taking it to the games page. The win box is
+    // the end of the game, so there Esc is left alone and leaves for the
+    // games page, as on every other game's end screen; Backspace puts the
+    // box away, back to the table.
+    if (!$("shade").hidden) {
+      if (e.key === "Escape" && !boxEnd) { closeBox(); e.preventDefault(); }
+      else if (e.key === "Backspace" && boxEnd && !e.repeat) { closeBox(); e.preventDefault(); }
+      return;
+    }
     var k = e.key.toLowerCase();
     if (e.key === "F2" || k === "n") { e.preventDefault(); freshDeal(); }
     else if (e.key === "F1") { e.preventDefault(); if (!e.repeat) $("m-rules").click(); }   // Help's How to play, as in the old game
