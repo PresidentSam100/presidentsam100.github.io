@@ -373,7 +373,7 @@
     const pl=G.players[G.turn];
     let extra = check?'. <b style="color:var(--check)">Check!</b>':'';
     if(G.vsCPU && G.turn===G.cpuColor) extra += ' <span style="color:var(--muted)">(thinking…)</span>';
-    statusEl.innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move' + extra;
+    statusEl.innerHTML='<span class="who"><i style="background:'+pl.color+'"></i>'+pl.name+'</span> to move' + extra;
   }
 
   function onSquare(i){

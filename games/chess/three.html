@@ -61,12 +61,16 @@
     background:#cdbb96; cursor:pointer; font-family:"Segoe UI Symbol",system-ui,sans-serif;
     paint-order:stroke fill; -webkit-text-stroke:.037em rgba(0,0,0,.55); } .promo button:hover { border-color:var(--sel); }
 </style>
+<link rel="stylesheet" href="cafe.css" />
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
 </head>
 <body>
-<a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Segoe UI',system-ui,sans-serif;color:#f0e8dc;background:#26211c;border:1px solid #3a322a;border-radius:8px;padding:8px 13px">&larr; Games</a>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- an espresso on the table (decoration: wide screens only, never in the way) -->
+<div class="cup" aria-hidden="true"><i></i><i></i></div>
 
 <h1>♟ 3-Player Chess</h1>
 <div class="sub">Hexagonal board · Red → White → Black. Pieces move toward and through the center to reach opponents.</div>
@@ -308,7 +312,7 @@
         +'<span class="meta">'+(st.alive?(o===G.turn&&!G.over?"to move":(score?"+"+score:"")):"out")+'</span>';
       w.appendChild(chip); } }
   function setStatus(check){ if(G.over) return; const pl=PLAYERS[G.turn];
-    $("status").innerHTML='<span style="color:'+pl.color+'">'+pl.name+'</span> to move'+(check?'. <b style="color:var(--check)">Check!</b>':''); }
+    $("status").innerHTML='<span class="who"><i style="background:'+pl.color+'"></i>'+pl.name+'</span> to move'+(check?'. <b style="color:var(--check)">Check!</b>':''); }
 
   // ----------------------------------------------------------------- sound
   let actx=null; function ac(){ if(!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} } if(actx&&actx.state==="suspended")actx.resume(); return actx; }

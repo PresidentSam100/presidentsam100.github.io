@@ -359,6 +359,55 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
   }
 
+  // ---- the room (cafe.css), the same for both boards: a light marble table
+  // with dark lettering in the cafe's type; whoever is to move is named in
+  // that ink with a dot of their own colour beside it (so White's name and
+  // Black's both read); and on a phone the title is clear of the corner buttons
+  {
+    const { devices } = require("@playwright/test");
+    const look = (pg) => pg.evaluate(() => {
+      const lum = (s) => {
+        const [r, g, b] = (s.match(/[\d.]+/g) || []).slice(0, 3).map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const cs = (e) => getComputedStyle(e), st = document.getElementById("status"), who = st.querySelector(".who"), dot = who && who.querySelector("i");
+      const page = lum(cs(document.body).backgroundColor), ink = lum(cs(st).color);
+      const h1 = document.querySelector("h1"), nav = document.querySelector(".nav-back-games").getBoundingClientRect();
+      return {
+        page: +page.toFixed(2), contrast: +((Math.max(page, ink) + 0.05) / (Math.min(page, ink) + 0.05)).toFixed(1),
+        name: who ? who.textContent : null, inInk: !!who && cs(who).color === cs(st).color,
+        dot: dot ? cs(dot).backgroundColor.replace(/\s/g, "") : null, dotW: dot ? Math.round(dot.getBoundingClientRect().width) : 0,
+        type: /Bodoni/.test(cs(h1).fontFamily) && /Garamond/.test(cs(st).fontFamily), nav: lum(cs(document.querySelector(".nav-back-games")).backgroundColor) > 0.6,
+        clear: h1.getBoundingClientRect().top >= nav.bottom, over: document.documentElement.scrollWidth - innerWidth,
+      };
+    });
+    const room = (l) => l.page > 0.7 && l.contrast >= 7 && l.type && l.nav;
+    const named = (l, name, dot) => l.name === name && l.inInk && l.dot === dot && l.dotW >= 8;
+    const got = {};
+    for (const [label, opts] of [["desktop", {}], ["phone", devices["iPhone 13"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const two = await lib.open(c, base, "games/chess/");
+      await two.evaluate(() => { document.querySelector('#menu [data-mode="2"]').click(); document.getElementById("setup2Start").click(); });
+      const white = await look(two);
+      await two.evaluate(() => { const q = document.querySelectorAll("#board .sq"); q[52].click(); q[36].click(); });   // e4
+      await two.waitForFunction(() => /Black/.test(document.getElementById("status").textContent), null, { timeout: 5000 }).catch(() => {});
+      const black = await look(two);
+      const three = await lib.open(c, base, "games/chess/three.html");
+      await three.evaluate(() => document.querySelector(".overlay.show .modebtn").click());
+      const red = await look(three);
+      got[label] = { white, black, red, errs: two.errs.concat(three.errs) };
+      await two.close(); await three.close();
+      await c.close();
+    }
+    const d = got.desktop, ph = got.phone;
+    check("chess: both boards sit on a light marble table, lettered dark in the cafe's type (corner link too)", room(d.white) && room(d.red) && room(ph.white) && room(ph.red), { two: d.white, three: d.red });
+    check("chess: whoever is to move is named in ink with a dot of their colour, so White and Black both read (and Red on the 3-player board)",
+      named(d.white, "White", "rgb(251,242,226)") && named(d.black, "Black", "rgb(42,33,26)") && named(d.red, "Red", "rgb(226,87,78)"), { white: d.white, black: d.black, red: d.red });
+    check("chess on a phone: both titles are clear of the corner buttons, and nothing is wider than the screen",
+      ph.white.clear && ph.red.clear && ph.white.over <= 0 && ph.black.over <= 0 && ph.red.over <= 0, { two: ph.white, three: ph.red });
+    check("chess (the room): no page errors", d.errs.length === 0 && ph.errs.length === 0, { desktop: d.errs, phone: ph.errs });
+  }
+
   // ---- a small phone: the 2-player setup card at its tallest (vs CPU, with a
   // time control) is taller than the screen, so it starts at the top and
   // scrolls: its heading isn't cut off and Start can be reached and pressed
@@ -378,7 +427,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const at = await s.evaluate(() => {
       const b = document.getElementById("setup2Start"); b.scrollIntoView({ block: "nearest" });
       const r = b.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
-      return { x, y, inView: r.top >= 0 && r.bottom <= innerHeight, hit: document.elementFromPoint(x, y) === b };
+      // (within a pixel: the card's height isn't a whole number of pixels, the scroll position is)
+      return { x, y, inView: r.top >= -1 && r.bottom <= innerHeight + 1, hit: document.elementFromPoint(x, y) === b };
     });
     if (at.inView && at.hit) await s.mouse.click(at.x, at.y);
     const started = await s.evaluate(() => !document.getElementById("setup2Menu").classList.contains("show") && document.getElementById("modeLabel").textContent);

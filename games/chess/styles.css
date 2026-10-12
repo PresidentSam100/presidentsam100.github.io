@@ -1,7 +1,9 @@
-/* A marble tournament set in a quiet slate room. The board is one veined
-   marble slab (the light squares show it bare, the dark squares tint it
-   graphite so the veins run on through) in a walnut frame with a brass
-   inlay, with coordinates on the frame side of the edge squares. */
+/* A marble tournament set. The board is one veined marble slab (the light
+   squares show it bare, the dark squares tint it graphite so the veins run
+   on through) in a walnut frame with a brass inlay, with coordinates on the
+   frame side of the edge squares. The room it sits in (a cafe table: the
+   page, the lettering, the panels and buttons) is cafe.css, which comes
+   after this file and is shared with the 3-player board. */
 :root {
   --bg:#232830; --panel:#2b323c; --line:#3e4754; --text:#e8ecf2; --muted:#9aa6b6;
   --light:#e7e1d1; --dark:#3c4552; --sel:#f4d35e; --move:#7fb069; --check:#e05d5d; --last:#cdb46a;
