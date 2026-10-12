@@ -192,6 +192,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
   }
 
+  // ---- the look: the table is wine-red baize in a green room (it was green, and read too much like Hash's felt)
+  {
+    const q = await lib.open(ctx, base, "games/jackblack/");
+    const look = await q.evaluate(() => {
+      const rgb = (s) => { const d = document.createElement("i"); d.style.color = s; document.body.appendChild(d); const m = getComputedStyle(d).color.match(/[\d.]+/g).map(Number); d.remove(); return m; };
+      const css = getComputedStyle(document.documentElement);
+      return { baize: rgb(css.getPropertyValue("--baize").trim()), wall: rgb(css.getPropertyValue("--hull").trim()), felt: getComputedStyle(document.getElementById("felt")).backgroundImage.length > 20 };
+    });
+    check("jackblack: the table's baize is wine-red (red well ahead of green and blue), in a room that stays green",
+      look.felt && look.baize[0] > look.baize[1] + 60 && look.baize[0] > look.baize[2] + 40 && look.wall[1] > look.wall[0] + 20, look);
+    await q.close();
+  }
+
   // ---- a phone: no keycaps, nothing wider than the screen, four split hands still fit
   {
     const phone = await lib.newContext(browser, Object.assign({}, devices["Pixel 7"], { viewport: { width: 320, height: 640 } }));

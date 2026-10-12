@@ -2,11 +2,12 @@
    JackBlack: the card room of a sunken liner.
 
    A riveted bulkhead gone bottle-green, a lamp still burning over one
-   baize table, brass gone to verdigris at the edges, and the sea outside
-   two portholes. Warm lamplight on green: kept well away from Abyss, the
-   site's other deep-sea game, which is a navy sonar screen with a cyan
-   glow. Nothing here is a picture: the octopus is an inline SVG and the
-   rest is gradients.
+   table of wine-red baize, brass gone to verdigris at the edges, and the
+   sea outside two portholes. Warm lamplight, green walls and a red table:
+   kept well away from Abyss, the site's other deep-sea game (a navy sonar
+   screen with a cyan glow), and from Hash, whose cards lie on green felt.
+   Nothing here is a picture: the octopus is an inline SVG and the rest is
+   gradients.
 
    Visual FX on (body.fxon): cards slide in from the shoe and the hole
    card turns over, the dealer bobs, weed sways and fish cross the
@@ -17,8 +18,10 @@
 :root {
   --hull: #123a33;
   --hull-dk: #081a17;
-  --baize: #1f6f55;
-  --baize-dk: #134a38;
+  --baize: #7c2030;
+  --baize-hi: #9c3144;
+  --baize-dk: #4b1320;
+  --shade: 26, 6, 10;            /* what darkens the baize under a label: the wine at its deepest */
   --brass: #c8a04a;
   --brass-hi: #efd791;
   --brass-dk: #7a5c1f;
@@ -119,7 +122,7 @@ h1 {
   border-radius: 26px 26px 120px 120px / 26px 26px 70px 70px;
   background:
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.022) 0 2px, transparent 2px 4px),
-    radial-gradient(120% 90% at 50% 0%, #2a8468, var(--baize) 45%, var(--baize-dk));
+    radial-gradient(120% 90% at 50% 0%, var(--baize-hi), var(--baize) 45%, var(--baize-dk));
   border: 9px solid var(--brass);
   border-top-color: var(--brass-hi); border-bottom-color: #9b7730;
   box-shadow:
@@ -165,7 +168,7 @@ h1 {
   text-align: center; font-family: "Federo", "Marcellus", serif; font-size: clamp(17px, 4.6vw, 22px); letter-spacing: 1px;
   color: var(--pearl); border-radius: 6px; visibility: hidden;
 }
-.banner.show { visibility: visible; background: rgba(8, 26, 22, 0.55); }
+.banner.show { visibility: visible; background: rgba(var(--shade), 0.55); }
 .banner.good { color: var(--brass-hi); text-shadow: 0 0 14px rgba(255, 178, 74, 0.6); }
 .banner.bad { color: #ffb3a2; }
 .banner.note { color: var(--pearl); }
@@ -211,13 +214,13 @@ body.fxon .pc.turned.in { animation: jb-turn 0.38s ease-out both; }
 /* ---- the player's hands ------------------------------------------------------ */
 .hands { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; min-height: calc(var(--card-w) * 1.42 + 34px); }
 .hand { display: flex; flex-direction: column; align-items: center; padding: 4px 6px 5px; border-radius: 10px; border: 1px solid transparent; }
-.hands:not(.n1) .hand.active { border-color: rgba(239, 215, 145, 0.75); background: rgba(8, 26, 22, 0.28); box-shadow: 0 0 16px rgba(255, 178, 74, 0.3); }
+.hands:not(.n1) .hand.active { border-color: rgba(239, 215, 145, 0.75); background: rgba(var(--shade), 0.3); box-shadow: 0 0 16px rgba(255, 178, 74, 0.3); }
 .hand .foot { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px 8px; margin-top: 6px; min-height: 24px; font-size: 14px; }
 .hand .total { font-family: "Federo", "Marcellus", serif; font-size: 17px; color: var(--pearl); min-width: 1.4em; text-align: center; }
 .hand .total:empty { display: none; }
 .hand .stack { display: inline-flex; align-items: center; gap: 5px; color: var(--brass-hi); }
 .chipdot { width: 13px; height: 13px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff3c4, var(--brass) 55%, var(--brass-dk)); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
-.hand .tag { padding: 1px 8px; border-radius: 4px; font-size: 13.5px; letter-spacing: 0.4px; background: rgba(8, 26, 22, 0.7); color: var(--pearl); }
+.hand .tag { padding: 1px 8px; border-radius: 4px; font-size: 13.5px; letter-spacing: 0.4px; background: rgba(var(--shade), 0.72); color: var(--pearl); }
 .hand.r-win .tag, .hand.r-natural .tag { background: var(--brass); color: #2a1c06; }
 .hand.r-lose .tag, .hand.r-bust .tag { background: #8d2f20; color: #ffe9e2; }
 .hand.r-lose .pc, .hand.r-bust .pc { filter: brightness(0.72) saturate(0.7); }
