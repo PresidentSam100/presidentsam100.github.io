@@ -105,7 +105,9 @@
   var W = 0, H = 0, DPR = 1, CX = 0, CY = 0, FOCAL = 0;
   function resize() {
     var maxW = stage.clientWidth || 400;
-    var availH = Math.max(360, window.innerHeight - stage.getBoundingClientRect().top - 70);
+    // (the dashboard and the hint sit under the windscreen: leave them their room)
+    var dash = $("dash"), below = (dash ? dash.offsetHeight : 90) + 58;
+    var availH = Math.max(300, window.innerHeight - stage.getBoundingClientRect().top - below);
     var h = Math.min(availH, maxW * 1.55);
     stage.style.height = h + "px";
     DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -712,7 +714,12 @@
     }
 
     elDist.textContent = Math.floor(score);
-    elSpeed.textContent = Math.round(speed / 3.4);
+    setSpeed(Math.round(speed / 3.4));
+  }
+  // the speedometer: the figure, and the needle (styles.css turns --mph into an angle)
+  function setSpeed(mph) {
+    elSpeed.textContent = mph;
+    elSpeed.parentNode.style.setProperty("--mph", mph);
   }
 
   function frame(now) {
@@ -749,7 +756,8 @@
     clearCues();
     running = true;
     ov.classList.remove("show");
-    elDist.textContent = "0"; elSpeed.textContent = "0";
+    elDist.textContent = "0"; setSpeed(0);
+    document.body.classList.toggle("night", mode === "night");      // (headlights on: the dials light up)
     renderBest();
     runBest = liveBest = parseInt(load(bestKey()), 10) || 0; liveSavedAt = -1e9;
     lastT = 0;
@@ -785,8 +793,9 @@
     var bd = parseInt(load(BEST_DAY), 10) || 0;
     var bn = parseInt(load(BEST_NIGHT), 10) || 0;
     mode = "day"; // a lit orbiting preview behind the card
+    document.body.classList.remove("night");
     card.innerHTML =
-      '<h2>QUICK MINUTE</h2>' +
+      '<h2 class="nm">QUICK MINUTE</h2>' +
       '<p>You\'re the fast one. Slice through ' + LANES + ' lanes of slower traffic and rack up distance.</p>' +
       '<ul class="rules">' +
         // (the keys with a keyboard, the tap on a touch-only device)
@@ -799,7 +808,7 @@
         '<button class="mode-btn" id="m-day"><span class="ic">☀️</span><span class="t">DAY</span><div class="b">' + (bd ? 'best ' + bd : '') + '</div></button>' +
         '<button class="mode-btn" id="m-night"><span class="ic">🌙</span><span class="t">NIGHT</span><div class="b">' + (bn ? 'best ' + bn : '') + '</div></button>' +
       '</div>' +
-      '<p style="font-size:0.78rem;margin-top:0.7rem;">night = only your headlights light the road 🔦</p>';
+      '<p class="note">night = only your headlights light the road 🔦</p>';
     ov.classList.add("show");
     $("m-day").addEventListener("click", function () { start("day"); });
     $("m-night").addEventListener("click", function () { start("night"); });
@@ -834,6 +843,7 @@
     get preset() { return camPresetIdx; },
     setPreset: setPreset,
     addScore: function (n) { score += n; },
-    start: start
+    start: start,
+    showMenu: showMenu
   };
 })();

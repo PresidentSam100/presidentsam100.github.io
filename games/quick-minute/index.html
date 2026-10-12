@@ -27,24 +27,27 @@
     <meta name="author" content="Sam Lu" />
 </head>
 <body>
-  <a href="../" class="nav-back-games" aria-label="Back to games" style="position:fixed;top:12px;left:12px;z-index:99999;text-decoration:none;font:700 13px/1 'Inter',system-ui,sans-serif;color:#f4f1e8;background:#17141f;border:2px solid #2a2536;border-radius:6px;padding:8px 13px">&larr; Games</a>
+  <a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
 
   <div class="wrap">
+    <!-- The driver's seat: the rear-view mirror carries the name, the canvas
+         is the windscreen, and the dashboard under it has the odometer
+         (distance), the speedometer and the trip meter (the best). -->
     <header class="top">
       <h1>QUICK MINUTE</h1>
       <p>weave through traffic: don't crash</p>
     </header>
 
-    <div class="hud">
-      <div class="stat"><div class="label">DIST</div><div class="value" id="value-dist">0</div></div>
-      <div class="stat"><div class="label">MPH</div><div class="value" id="value-speed">0</div></div>
-      <div class="stat"><div class="label">BEST</div><div class="value" id="value-best">0</div></div>
-    </div>
-
     <div class="stage" id="stage">
       <canvas id="cv"></canvas>
       <div class="milestone" id="milestone" aria-hidden="true"></div>
       <div class="overlay show" id="overlay"><div class="card" id="card"></div></div>
+    </div>
+
+    <div class="hud" id="dash">
+      <div class="stat odo"><div class="label">DIST</div><div class="value" id="value-dist">0</div></div>
+      <div class="stat speedo" id="speedo"><i class="dial"></i><i class="needle"></i><div class="value" id="value-speed">0</div><div class="label">MPH</div></div>
+      <div class="stat odo"><div class="label">BEST</div><div class="value" id="value-best">0</div></div>
     </div>
 
     <p class="hint"><span class="gs-keys"><kbd class="gs-kbd">←</kbd><kbd class="gs-kbd">→</kbd> or <kbd class="gs-kbd">A</kbd> / <kbd class="gs-kbd">D</kbd> to switch lanes &nbsp;·&nbsp; on mobile, tap the left or right side</span><span class="gs-touch">tap the left or right side to switch lanes</span></p>

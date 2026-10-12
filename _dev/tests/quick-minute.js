@@ -29,9 +29,49 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.close();
   await ctx.close();
 
+  const { devices } = require("@playwright/test");
+
+  // the driver's seat: the dashboard sits under the windscreen and both fit
+  // on the screen (a phone's too, nothing wider than it); the speedometer's
+  // needle rests at 0 and swings round with the MPH; night mode lights the
+  // dials, and going back to the menu puts them out
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["iPhone 13"]], ["small phone", Object.assign({}, devices["iPhone 13"], { viewport: { width: 320, height: 568 } })]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/quick-minute/");
+    const read = () => q.evaluate(() => {
+      const r = (e) => e.getBoundingClientRect(), dash = document.getElementById("dash"), stage = document.getElementById("stage");
+      const needle = dash && dash.querySelector(".needle"), sp = document.getElementById("value-speed");
+      const m = needle ? new DOMMatrix(getComputedStyle(needle).transform) : null;
+      const card = document.getElementById("card"), ov = document.getElementById("overlay");
+      return {
+        // the card over the windscreen: all of it inside (its top isn't cut off), nothing to scroll
+        card: ov.classList.contains("show") ? { top: Math.round(r(card).top - r(stage).top), gap: Math.round(r(stage).bottom - r(card).bottom), scrolls: ov.scrollHeight - ov.clientHeight } : null,
+        under: !!dash && r(dash).top >= r(stage).bottom - 1, fits: !!dash && r(dash).bottom <= innerHeight + 1, over: document.documentElement.scrollWidth - innerWidth,
+        mph: +sp.textContent, set: +sp.parentNode.style.getPropertyValue("--mph"), angle: m ? Math.round(Math.atan2(m.b, m.a) * 180 / Math.PI) : null,
+        night: document.body.classList.contains("night"),
+      };
+    });
+    const menu = await read();
+    await q.evaluate(() => __game.start("night"));
+    await q.waitForFunction(() => +document.getElementById("value-speed").textContent >= 60, null, { timeout: 8000 });
+    await q.evaluate(() => new Promise((r) => setTimeout(r, 500)));   // (the needle eases to its place)
+    const drive = await read();
+    await q.evaluate(() => __game.showMenu && __game.showMenu());
+    const back = await read();
+    check("quick-minute " + label + ": the dashboard is under the windscreen and on the screen, nothing wider than it",
+      menu.under && menu.fits && menu.over <= 0 && drive.under && drive.fits && drive.over <= 0, { menu, drive });
+    check("quick-minute " + label + ": the needle rests at 0 and swings round with the MPH",
+      menu.angle === -135 && drive.mph >= 60 && drive.set === drive.mph && drive.angle > -70 && drive.angle < 100, { menu, drive });
+    check("quick-minute " + label + ": night mode lights the dials, the menu puts them out", !menu.night && drive.night && !back.night, { menu: menu.night, drive: drive.night, back: back.night });
+    check("quick-minute " + label + ": the whole menu card is inside the windscreen (heading and both switches showing, nothing to scroll)",
+      !!menu.card && menu.card.top >= 0 && menu.card.gap >= 0 && menu.card.scrolls <= 0, menu.card);
+    check("quick-minute " + label + " (dashboard): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
   // the hint and the menu's rule name the keys with a keyboard; on a
   // touch-only device they say to tap the left or right side instead
-  const { devices } = require("@playwright/test");
   for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
     const c = await lib.newContext(browser, opts);
     const q = await lib.open(c, base, "games/quick-minute/");

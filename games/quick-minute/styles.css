@@ -1,75 +1,235 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Michroma&family=Rajdhani:wght@500;600;700&display=swap");
+
+/* =====================================================================
+   Quick Minute: the driver's seat.
+
+   You look out through the windscreen (the canvas), with the rear-view
+   mirror hung above it carrying the name, and the dashboard below: an
+   odometer for the distance, a speedometer whose needle follows the MPH,
+   and a trip meter for the best. Charcoal vinyl with a stitched seam,
+   chrome trim, cool white dial lighting and a red needle: no other page
+   on the site is the inside of a car.
+
+   Night mode (body.night) turns the dial lighting up, as dashboards do
+   when the headlights go on. Visual FX off (html.fx-off): the needle
+   steps to its mark and the milestone banner doesn't pop; nothing is
+   missing.
+   ===================================================================== */
 
 :root {
-  --bg: #0b0a10; --panel: #17141f; --text: #f4f1e8; --muted: #9a93a8;
-  --accent: #ffcf4d; --good: #5be37a; --bad: #ff5277; --line: #2a2536;
-  --pix: "Press Start 2P", system-ui, monospace;
+  --cabin: #14161b; --vinyl: #22252c; --vinyl-hi: #2e323b; --seam: #8e959f;
+  --chrome: #c9d0da; --chrome-dk: #6f7680;
+  --dial: #0b0c0f; --lit: #e6f4ff; --needle: #ff3b30;
+  --text: #e9eef4; --muted: #98a1ad;
+  --good: #63e08a; --bad: #ff4d5e;
+  --badge: "Michroma", "Eurostile", "Arial Black", sans-serif;
+  --read: "Rajdhani", "Segoe UI", system-ui, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; height: 100%; }
 body {
-  background: radial-gradient(1100px 700px at 50% -8%, #1a1530 0%, var(--bg) 62%);
-  color: var(--text); font-family: "Inter", system-ui, sans-serif;
+  /* the cabin: a pale headliner above, perforated vinyl below */
+  background:
+    radial-gradient(circle at 3px 3px, rgba(0, 0, 0, 0.35) 0 1.1px, transparent 1.6px) 0 0 / 9px 9px,
+    linear-gradient(180deg, #3a3e47 0, #24272e 120px, var(--cabin) 46%, #0d0e12);
+  background-color: var(--cabin);
+  color: var(--text); font-family: var(--read); font-weight: 500; font-size: 17px;
   min-height: 100%; display: flex; flex-direction: column; align-items: center;
   padding: 1rem; overflow-x: hidden;
 }
-a { color: var(--accent); text-decoration: none; font-weight: 700; }
+a { color: var(--lit); text-decoration: none; font-weight: 700; }
 .wrap { width: 100%; max-width: 440px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
 
-header.top { text-align: center; margin: 0.7rem 0 0.3rem; }
-header.top h1 { font-family: var(--pix); font-size: 1.05rem; margin: 0; letter-spacing: 0; line-height: 1.4; color: var(--accent); text-shadow: 2px 2px 0 #00000055; }
-header.top p { margin: 0.55rem 0 0; color: var(--muted); font-size: 0.82rem; }
+.nav-back-games {
+  position: fixed; top: 12px; left: 12px; z-index: 99999; text-decoration: none;
+  font: 400 11.5px/1 var(--badge); letter-spacing: 0.5px; color: var(--lit);
+  background: linear-gradient(180deg, #30343d, #1b1d23); border: 1px solid var(--chrome-dk); border-radius: 7px; padding: 9px 13px 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 2px 5px rgba(0, 0, 0, 0.5);
+}
+.nav-back-games:hover { border-color: var(--chrome); color: #fff; }
 
-.hud { display: flex; gap: 0.5rem; margin: 0.9rem 0 0.2rem; }
-.stat { flex: 1; background: var(--panel); border: 2px solid var(--line); border-radius: 4px; padding: 0.55rem 0.4rem; text-align: center; }
-.stat .label { font-family: var(--pix); font-size: 0.48rem; letter-spacing: 0.04em; color: var(--muted); }
-.stat .value { font-family: var(--pix); font-size: 0.95rem; margin-top: 0.45rem; }
+/* ---- the rear-view mirror: the name, on a stalk from the roof ----------------- */
+header.top {
+  position: relative; align-self: center; text-align: center; margin: 1.5rem 0 0.7rem; padding: 0.6rem 1.5rem 0.55rem;
+  border-radius: 14px / 50%;
+  background: linear-gradient(180deg, #bcd3e6 0, #8fb0cb 46%, #4e6a84 54%, #2b3a4b 100%);
+  border: 3px solid #101115;
+  box-shadow: 0 0 0 1.5px var(--chrome-dk), inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 8px 16px rgba(0, 0, 0, 0.55);
+}
+header.top::before {       /* the stalk */
+  content: ""; position: absolute; left: 50%; bottom: 100%; width: 12px; height: 1.6rem; margin-left: -6px;
+  background: linear-gradient(90deg, #0d0e11, #3a3e47 50%, #0d0e11); border-radius: 3px 3px 0 0;
+}
+header.top h1 {
+  font-family: var(--badge); font-weight: 400; font-size: 1.05rem; margin: 0; letter-spacing: 2px; line-height: 1.3;
+  color: #0e1218; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+header.top p { margin: 0.15rem 0 0; color: #eaf3fb; font-size: 0.86rem; font-weight: 600; letter-spacing: 0.4px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
 
-.stage { position: relative; margin: 0.7rem auto 0; width: 100%; border-radius: 6px; overflow: hidden; border: 2px solid var(--line); background: #07070c; touch-action: none; }
+/* ---- the windscreen ----------------------------------------------------------- */
+.stage {
+  position: relative; margin: 0 auto; width: 100%; overflow: hidden; touch-action: none; background: #07080b;
+  border: 9px solid #0f1014; border-bottom-width: 6px; border-radius: 26px 26px 6px 6px;
+  box-shadow: 0 0 0 1.5px var(--chrome-dk), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 10px 22px rgba(0, 0, 0, 0.5);
+}
 canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
 
-.hint { color: var(--muted); font-size: 0.76rem; text-align: center; margin: 0.6rem 0 0.1rem; }
+/* ---- the dashboard: odometer, speedometer, trip meter ---------------------------- */
+.hud {
+  position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem;
+  margin: 0; padding: 0.75rem 0.7rem 0.6rem;
+  /* the dash top runs the width of the cabin, with a stitched seam along it */
+  background: linear-gradient(180deg, var(--vinyl-hi), var(--vinyl) 40%, #191b20);
+  box-shadow: 0 0 0 100vmax #191b20;
+  clip-path: inset(0 -100vmax -100vmax -100vmax);
+}
+.hud::before {       /* the dash's edge, and the seam under it, wall to wall */
+  content: ""; position: absolute; left: 50%; top: 0; width: 100vw; margin-left: -50vw; height: 9px; pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, var(--seam) 0 7px, transparent 7px 13px) 0 100% / 100% 1.5px no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 3px);
+}
+.stat { flex: 1; min-width: 0; text-align: center; }
+.stat .label { font-family: var(--badge); font-size: 0.5rem; letter-spacing: 2px; color: var(--muted); }
+/* an odometer: lit figures in a black window */
+.stat.odo .value {
+  margin: 0.3rem auto 0; padding: 0.2rem 0.5rem 0.12rem; width: max-content; min-width: 4.2em; max-width: 100%;
+  font-family: var(--read); font-weight: 700; font-size: 1.45rem; line-height: 1.1; letter-spacing: 3px; font-variant-numeric: tabular-nums;
+  color: var(--lit); background: var(--dial);
+  background-image: repeating-linear-gradient(90deg, transparent 0 calc(1ch + 2.4px), rgba(255, 255, 255, 0.09) calc(1ch + 2.4px) calc(1ch + 3px));
+  border: 1px solid #000; border-radius: 4px;
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 0 0 1.5px var(--chrome-dk), 0 0 12px rgba(190, 225, 255, 0.07);
+  text-shadow: 0 0 7px rgba(190, 225, 255, 0.45);
+}
+/* the speedometer: a lit dial, a red needle (game.js sets --mph), the figure under the hub */
+.stat.speedo { flex: 0 0 auto; position: relative; width: 118px; height: 118px; margin-top: -30px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 13px;
+  border-radius: 50%; background: radial-gradient(circle at 50% 38%, #1b1e25, var(--dial) 62%);
+  box-shadow: 0 0 0 3px #0f1014, 0 0 0 4.5px var(--chrome), 0 0 0 6px var(--chrome-dk), 0 6px 14px rgba(0, 0, 0, 0.6), inset 0 0 18px rgba(190, 225, 255, 0.06);
+}
+.dial { position: absolute; inset: 7px; border-radius: 50%; pointer-events: none;
+  background:
+    conic-gradient(from 81deg, var(--needle) 0 54deg, transparent 54deg),
+    repeating-conic-gradient(from -135.6deg, var(--lit) 0 1.2deg, transparent 1.2deg 27deg);
+  -webkit-mask: radial-gradient(circle closest-side, transparent 0 77%, #000 78% 97%, transparent 98%), conic-gradient(from -137deg, #000 0 274deg, transparent 274deg);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(circle closest-side, transparent 0 77%, #000 78% 97%, transparent 98%), conic-gradient(from -137deg, #000 0 274deg, transparent 274deg);
+  mask-composite: intersect;
+  opacity: 0.9;
+}
+.needle {
+  position: absolute; left: 50%; top: 50%; width: 3px; height: 44px; margin: -44px 0 0 -1.5px; border-radius: 2px; pointer-events: none;
+  background: linear-gradient(180deg, var(--needle), #b3231b); transform-origin: 50% 100%;
+  transform: rotate(calc(-135deg + min(200, var(--mph, 0)) * 1.35deg));
+  transition: transform 0.18s linear; box-shadow: 0 0 6px rgba(255, 59, 48, 0.6);
+}
+html.fx-off .needle { transition: none; }
+.stat.speedo::after {      /* the hub */
+  content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f1f4f8, var(--chrome-dk) 70%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+}
+.stat.speedo .value { position: relative; font-family: var(--read); font-weight: 700; font-size: 1.35rem; line-height: 1; color: var(--lit); font-variant-numeric: tabular-nums; text-shadow: 0 0 7px rgba(190, 225, 255, 0.45); }
+.stat.speedo .label { position: relative; margin-top: 1px; }
+/* headlights on: the dials are lit up */
+body.night .stat.odo .value, body.night .stat.speedo .value { color: #fff; text-shadow: 0 0 10px rgba(190, 225, 255, 0.9); }
+body.night .stat.odo .value { box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 0 0 1.5px var(--chrome-dk), 0 0 18px rgba(190, 225, 255, 0.28); }
+body.night .dial { opacity: 1; filter: drop-shadow(0 0 3px rgba(190, 225, 255, 0.8)); }
 
-/* a crash rims the road red for a moment, in both modes (Visual FX on also shakes the camera) */
-.stage.crash { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad), 0 0 22px rgba(255, 82, 119, 0.5); }
+.hint { position: relative; z-index: 1; color: var(--muted); font-size: 0.95rem; font-weight: 500; text-align: center; margin: 0.55rem 0 0.1rem; }
 
-/* the 500 m milestone banner: shown for 1.2 s in both modes; with Visual FX on it pops in */
+/* a crash rims the windscreen red for a moment, in both modes (Visual FX on also shakes the camera) */
+.stage.crash { border-color: var(--bad); box-shadow: 0 0 0 2px var(--bad), 0 0 22px rgba(255, 77, 94, 0.5); }
+
+/* the 500 m milestone: a line on the head-up display, shown for 1.2 s in both modes; with Visual FX on it pops in */
 .milestone {
   position: absolute; top: 9%; left: 50%; transform: translateX(-50%); z-index: 4;
   display: none; pointer-events: none; white-space: nowrap;
-  font-family: var(--pix); font-size: 0.85rem; line-height: 1.4; color: var(--accent); text-shadow: 2px 2px 0 #00000055;
-  background: rgba(7, 7, 12, 0.78); border: 2px solid var(--accent); border-radius: 4px; padding: 0.55rem 0.8rem;
+  font-family: var(--badge); font-size: 0.8rem; line-height: 1.4; letter-spacing: 2px; color: var(--lit); text-shadow: 0 0 8px rgba(190, 225, 255, 0.7);
+  background: rgba(9, 10, 13, 0.72); border: 1px solid var(--chrome); border-radius: 6px; padding: 0.5rem 0.9rem 0.42rem;
 }
 .milestone.show { display: block; animation: qm-mile 0.28s ease-out; }
 @keyframes qm-mile { from { transform: translateX(-50%) scale(0.6); opacity: 0; } }
 html.fx-off .milestone.show { animation: none; opacity: 1; }
 
-/* overlay card */
-.overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(7,7,12,0.86); z-index: 5; padding: 1rem; }
+/* ---- the card over the windscreen: a panel of the dash ----------------------------- */
+.overlay { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8, 9, 12, 0.84); z-index: 5; padding: 0.8rem;
+  overflow-y: auto; touch-action: pan-y; }
 .overlay.show { display: flex; }
-.card { background: var(--panel); border: 2px solid var(--line); border-radius: 6px; padding: 1.4rem 1.2rem; max-width: 360px; width: 100%; text-align: center; box-shadow: 0 0 0 4px #00000040, 0 18px 50px -18px rgba(0,0,0,0.8); }
-.card h2 { font-family: var(--pix); margin: 0 0 0.6rem; font-size: 1.05rem; line-height: 1.4; }
-.card p { color: var(--muted); margin: 0.4rem 0; line-height: 1.55; font-size: 0.88rem; }
-.card .big { font-family: var(--pix); font-size: 1.9rem; margin: 0.6rem 0 0.2rem; color: var(--accent); }
-.card .big small { font-size: 0.8rem; color: var(--muted); }
-.rules { text-align: left; font-size: 0.84rem; color: var(--muted); line-height: 1.55; margin: 0.7rem 0 1rem; padding-left: 1.1rem; }
-.rules li { margin: 0.3rem 0; }
-.modes { display: flex; gap: 0.6rem; margin: 0.9rem 0 0.2rem; }
-.mode-btn { flex: 1; cursor: pointer; background: #110f18; color: var(--text); border: 2px solid var(--line); border-radius: 4px; padding: 0.9rem 0.5rem; font-family: inherit; text-align: center; transition: border-color 0.15s ease, transform 0.08s ease, background 0.15s ease; }
-.mode-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
-.mode-btn .t { font-family: var(--pix); font-size: 0.7rem; line-height: 1.4; }
-.mode-btn .ic { font-size: 1.5rem; display: block; margin-bottom: 0.5rem; }
-.mode-btn .b { font-size: 0.72rem; color: var(--good); margin-top: 0.5rem; font-weight: 700; min-height: 0.9rem; }
-.btn { cursor: pointer; background: var(--accent); color: #1a1206; border: none; border-radius: 4px; padding: 0.85rem 1.4rem; font-family: var(--pix); font-size: 0.72rem; line-height: 1.3; transition: filter 0.15s ease, transform 0.08s ease; }
-.btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
-.btn:active { transform: scale(0.97); }
-.btn.ghost { background: transparent; color: var(--muted); border: 2px solid var(--line); margin-top: 0.6rem; }
+/* centred while it fits; a card taller than the windscreen starts at its top
+   and the overlay scrolls (centring alone would cut its heading off) */
+.overlay > .card { margin: auto; }
+.card {
+  background: linear-gradient(180deg, var(--vinyl-hi), var(--vinyl) 30%, #1a1c21);
+  border: 1px solid var(--chrome-dk); border-radius: 12px; padding: 1.2rem 1.1rem 1.1rem; max-width: 360px; width: 100%; text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 0 3px #0f1014, 0 18px 50px -18px rgba(0, 0, 0, 0.9);
+}
+.card h2 { font-family: var(--badge); font-weight: 400; margin: 0 0 0.5rem; font-size: 1.02rem; letter-spacing: 2px; line-height: 1.4; color: var(--chrome); }
+.card p { color: var(--muted); margin: 0.35rem 0; line-height: 1.35; font-size: 1.02rem; }
+.card p.note { font-size: 0.78rem; margin-top: 0.7rem; }
+.card .big { font-family: var(--read); font-weight: 700; font-size: 2.7rem; line-height: 1; margin: 0.5rem 0 0.2rem; color: var(--lit); text-shadow: 0 0 12px rgba(190, 225, 255, 0.5); font-variant-numeric: tabular-nums; }
+.card .big small { font-family: var(--badge); font-weight: 400; font-size: 0.7rem; letter-spacing: 2px; color: var(--muted); text-shadow: none; }
+.rules { text-align: left; font-size: 1rem; color: var(--muted); line-height: 1.32; margin: 0.6rem 0 0.9rem; padding-left: 1.1rem; }
+.rules li { margin: 0.28rem 0; }
+.modes { display: flex; gap: 0.6rem; margin: 0.8rem 0 0.2rem; }
+/* day and night: two rocker switches */
+.mode-btn {
+  flex: 1; cursor: pointer; color: var(--text); font-family: inherit; text-align: center; padding: 0.75rem 0.5rem 0.65rem;
+  background: linear-gradient(180deg, #2b2f37, #15171c); border: 1px solid #000; border-radius: 9px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 0 1.5px var(--chrome-dk), 0 4px 0 #0b0c0f;
+  transition: transform 0.08s ease, filter 0.15s ease; --gs-pick: var(--lit);
+}
+.mode-btn:hover { filter: brightness(1.18); transform: translateY(-1px); }
+.mode-btn:active { transform: translateY(3px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 0 1.5px var(--chrome-dk), 0 1px 0 #0b0c0f; }
+.mode-btn .t { font-family: var(--badge); font-size: 0.72rem; letter-spacing: 2px; line-height: 1.4; }
+.mode-btn .ic { font-size: 1.5rem; display: block; margin-bottom: 0.35rem; }
+.mode-btn .b { font-size: 0.95rem; color: var(--good); margin-top: 0.3rem; font-weight: 700; min-height: 1.1rem; }
+/* the main button: the starter, red-ringed */
+.btn {
+  cursor: pointer; color: #0e1218; font-family: var(--badge); font-size: 0.74rem; letter-spacing: 1.5px; line-height: 1.3; padding: 0.8rem 1.3rem 0.72rem;
+  background: linear-gradient(180deg, #ffffff, #cfd8e2); border: 1px solid #000; border-radius: 9px;
+  box-shadow: 0 0 0 2px var(--needle), 0 4px 0 2px #8f1d17, 0 9px 14px rgba(0, 0, 0, 0.5);
+  transition: filter 0.15s ease, transform 0.08s ease;
+}
+.btn:hover { filter: brightness(1.06); }
+.btn:active { transform: translateY(3px); box-shadow: 0 0 0 2px var(--needle), 0 1px 0 2px #8f1d17, 0 3px 6px rgba(0, 0, 0, 0.5); }
+.btn.ghost { color: var(--text); background: linear-gradient(180deg, #2b2f37, #15171c); margin-top: 0.75rem; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 0 1.5px var(--chrome-dk), 0 4px 0 #0b0c0f; }
+.btn.ghost:active { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 0 0 1.5px var(--chrome-dk), 0 1px 0 #0b0c0f; }
+.btn:focus-visible, .mode-btn:focus-visible, .nav-back-games:focus-visible { outline: 2px solid var(--lit); outline-offset: 3px; }
 
 /* phones: start below the fixed row of Games / pause / sound / FX buttons */
-@media (max-width: 700px) { body { padding-top: 3.3rem; } }
+@media (max-width: 700px) {
+  body { padding-top: 3.3rem; }
+  header.top { margin-top: 1.1rem; padding: 0.45rem 1.1rem 0.4rem; }
+  header.top::before { height: 1.2rem; }
+  header.top h1 { font-size: 0.86rem; }
+  header.top p { font-size: 0.8rem; }
+  .stat.speedo { width: 102px; height: 102px; margin-top: -26px; padding-bottom: 11px; }
+  .needle { height: 38px; margin-top: -38px; }
+  .stat.odo .value { font-size: 1.25rem; letter-spacing: 2px; min-width: 3.6em; }
+  .hint { font-size: 0.88rem; }
+  /* the menu has to fit a phone's short windscreen: its name is on the mirror
+     already, and the two switches lie flat */
+  .card { padding: 0.8rem 0.9rem 0.75rem; }
+  .card h2.nm { display: none; }
+  .card p { font-size: 0.94rem; line-height: 1.26; margin: 0.2rem 0; }
+  .rules { font-size: 0.9rem; line-height: 1.24; margin: 0.35rem 0 0.5rem; }
+  .rules li { margin: 0.14rem 0; }
+  .modes { margin: 0.45rem 0 0.1rem; }
+  .mode-btn { padding: 0.5rem 0.4rem 0.45rem; }
+  .mode-btn .ic { display: inline-block; font-size: 1.1rem; margin: 0 0.4rem 0 0; vertical-align: middle; }
+  .mode-btn .b { margin-top: 0.1rem; min-height: 0; }
+  .card p.note { margin-top: 0.4rem; }
+}
+/* the smallest phones: the three rules give way (the line under the dashboard says how to steer) */
+@media (max-width: 700px) and (max-height: 600px) {
+  .rules { display: none; }
+}
+@media (max-width: 340px) {
+  .mode-btn { white-space: nowrap; }
+  .mode-btn .ic { margin-right: 0.25rem; }
+  .mode-btn .t { letter-spacing: 1px; }
+}
 
-
-/* the shared pause card (game-shell.js) in the pixel face, like the menus */
-.gs-pause-card h2, .gs-pause-card button { font-family: var(--pix); font-weight: 400; }
-.gs-pause-card h2 { font-size: 1.05rem; line-height: 1.4; margin-bottom: 0.6rem; }
-.gs-pause-card button { font-size: 0.72rem; line-height: 1.3; }
+/* the shared pause card (game-shell.js) in the dash's lettering, like the menus */
+.gs-pause-card h2, .gs-pause-card button { font-family: var(--badge); font-weight: 400; }
+.gs-pause-card h2 { font-size: 1.02rem; letter-spacing: 2px; line-height: 1.4; margin-bottom: 0.6rem; }
+.gs-pause-card button { font-size: 0.74rem; letter-spacing: 1.5px; line-height: 1.3; }
