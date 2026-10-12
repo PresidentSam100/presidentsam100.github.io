@@ -166,15 +166,15 @@
   }
 
   // ---- playing the events out -----------------------------------------------------
-  // how long each thing holds the table (shorter, and with no slide, when Visual FX is off)
+  // how long each thing holds the table: the same with Visual FX on or off
+  // (FX off drops the slide, never the pace, so the dealer's hand can be followed)
   function wait(e) {
-    var f = fx();
-    if (e.t === "card") return f ? 300 : 130;
-    if (e.t === "reveal") return f ? 420 : 160;
-    if (e.t === "shuffle") return f ? 700 : 300;
-    if (e.t === "settle") return f ? 260 : 100;
-    if (e.t === "bust" || e.t === "insured") return f ? 380 : 160;
-    if (e.t === "split" || e.t === "double") return f ? 240 : 100;
+    if (e.t === "card") return 300;
+    if (e.t === "reveal") return 420;
+    if (e.t === "shuffle") return 700;
+    if (e.t === "settle") return 260;
+    if (e.t === "bust" || e.t === "insured") return 380;
+    if (e.t === "split" || e.t === "double") return 240;
     return 0;
   }
   function apply(e) {

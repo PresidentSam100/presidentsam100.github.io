@@ -14,8 +14,12 @@ let placeSym = 'X';   // the symbol the human will place next (wild / order & ch
 let lastMover = null; // 'human' | 'ai', who made the latest mark (wild: the finisher wins)
 const symPickEl = document.getElementById('symPick');
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
-// (or OS reduced-motion) means no mark-draw animation and a shorter AI delay.
+// (or OS reduced-motion) means no mark-draw animation. A wait that only covers
+// an animation shrinks with it; the CPU's own pause before it moves never does.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
+// How long the CPU takes to answer, on every board: the same with Visual FX on
+// or off, so its mark never lands the instant yours does.
+const THINK_MS = 450;
 
 const LINES = [
   [0,1,2],[3,4,5],[6,7,8], // rows
@@ -211,7 +215,7 @@ function humanMove(i) {
   if (checkEnd()) return;
   render();
   setStatus('AI thinking…');
-  scheduleAI(animOn() ? 450 : 250);
+  scheduleAI(THINK_MS);
 }
 
 // Queue the AI's move but only let it run if we're still in the same game:
@@ -487,7 +491,7 @@ function uHumanMove(sub, cell) {
   if (uCheckEnd()) return;
   uRender();
   setStatus('AI thinking…');
-  uScheduleAI(animOn() ? 450 : 250);
+  uScheduleAI(THINK_MS);
 }
 
 function uAiMove() {
@@ -750,7 +754,7 @@ function gHumanMove(i) {
   if (gCheckEnd()) return;
   gRender();
   setStatus('AI thinking…');
-  gScheduleAI(animOn() ? 450 : 250);
+  gScheduleAI(THINK_MS);
 }
 
 function gScheduleAI(delay) {

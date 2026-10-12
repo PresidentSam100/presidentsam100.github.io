@@ -12,7 +12,9 @@ let scores, turn, gameOver, busy, lastLine, round = 0;
 const REC = window.GameShell ? GameShell.record("dotsandboxes_record") : null;
 const record = REC ? REC.get() : { w:0, l:0, d:0 };
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
-// (or OS reduced-motion) means no line-draw animation and a shorter AI delay.
+// (or OS reduced-motion) means no line-draw animation. The wait that covers
+// that animation goes with it; the CPU's own pause before a move is the same
+// either way.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
 
 // --- sound effects (Web Audio, synthesized: no assets) ---

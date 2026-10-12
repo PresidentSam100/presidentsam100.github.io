@@ -17,8 +17,12 @@ let youMoved = false; // the player has dropped a disc or played a power this ga
 // hit (see scorchCells). render() draws both, as it rewrites every className.
 let lastDisc = null, scorch = null;
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
-// (or OS reduced-motion) means no drop animation and a shorter AI delay.
+// (or OS reduced-motion) means no drop animation. A wait that only covers an
+// animation shrinks with it; the CPU's own pause before it moves never does.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
+// How long the CPU takes to answer, and to move again after its wall: the same
+// with Visual FX on or off, so its disc never lands the instant yours does.
+const THINK_MS = 820, THINK_AGAIN_MS = 900;
 
 // --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
@@ -256,7 +260,7 @@ function humanMove(c) {
   render();
   busy = true;
   setStatus('AI thinking…');
-  scheduleAI(animOn() ? 820 : 200);
+  scheduleAI(THINK_MS);
 }
 
 function aiMove() {
@@ -553,11 +557,11 @@ function usePower(player, kind, c) {
         setStatus('🧱 Wall placed: take another turn!');
       } else {
         setStatus('CPU walls up and moves again…');
-        setTimeout(() => { if (myRound === round) { aiExtra = false; aiMoveWrapped(); } }, animOn() ? 900 : 200);
+        setTimeout(() => { if (myRound === round) { aiExtra = false; aiMoveWrapped(); } }, THINK_AGAIN_MS);
       }
       return;
     }
-    if (isHuman) { setStatus('AI thinking…'); scheduleAI(animOn() ? 820 : 200); }
+    if (isHuman) { setStatus('AI thinking…'); scheduleAI(THINK_MS); }
     else { setStatus('Your turn (Red)'); busy = false; }
   };
 

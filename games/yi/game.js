@@ -645,8 +645,10 @@ function cpuTurn() {
     var got = drawCards(pi, 1);
     render();
     // Let the drawn card finish gliding in, then play it / pass. The constant
-    // inter-turn pause is applied uniformly in beginTurn after this.
-    var wait = Math.max(0, drawAnimUntil - Date.now());
+    // inter-turn pause is applied uniformly in beginTurn after this. With Visual
+    // FX off nothing glides, but the beat is kept (one card's glide), so the
+    // draw shows before the card is played.
+    var wait = Math.max(reducedMotion() ? DRAW_TRANS * 1000 + 90 : 0, drawAnimUntil - Date.now());
     if (got.length && canPlay(got[0])) {
       var di = hand.length - 1;
       log([{ player: pi }, " draws and plays it."]);

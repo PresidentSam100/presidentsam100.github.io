@@ -223,5 +223,31 @@ module.exports = async ({ browser, base, check, lib }) => {
     await phone.close();
   }
 
+  // ---- the dealer plays its hand out at the same pace with Visual FX off as
+  // with it on (FX off used to rush it: a card every eighth of a second).
+  // 19 against a dealer's 5, who turns the hole card and draws three: timed
+  // in the page, from Stand to the hand being settled.
+  {
+    const took = {}, errs = [];
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/jackblack/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:jackblack", off ? "1" : "0"); } catch (e) {} }, off) });
+      await dealt(q, "T 2 9 3 4 5 6");
+      took[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
+        const t0 = performance.now();
+        document.getElementById("act-stand").click();
+        (function poll() {
+          if (!JackBlack.busy()) res({ ms: Math.round(performance.now() - t0), dealer: JackBlack.table().dealer.length });
+          else if (performance.now() - t0 > 12000) res({ ms: -1 });
+          else setTimeout(poll, 5);
+        })();
+      }));
+      errs.push(...q.errs);
+      await q.close();
+    }
+    check("jackblack: the dealer's hand (the turn of the hole card and three draws) takes as long with Visual FX off as with it on (at least 1.4 s)",
+      took.on.dealer === 5 && took.off.dealer === 5 && took.on.ms >= 1400 && took.off.ms >= 1400, took);
+    check("jackblack (the dealer's pace): no page errors", errs.length === 0, errs);
+  }
+
   await ctx.close();
 };

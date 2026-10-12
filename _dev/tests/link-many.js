@@ -80,5 +80,27 @@ module.exports = async ({ browser, base, check, lib }) => {
   await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("link-many: leaving the page mid-game asks \"Leave this game?\" and records no loss (guard)", leaveT === "Leave this game?" && p.leaves === 1 && leftL === 0, { leaveT, leaves: p.leaves, leftL });
   await done(p, "leave");
+
+  // ---- the CPU takes its time to answer, with Visual FX off as with it on
+  // (FX off used to cut its pause to a fifth of a second: the two discs
+  // landed together). Timed in the page, from your move to its disc.
+  const gaps = {};
+  for (const off of [false, true]) {
+    const q = await lib.open(ctx, base, "games/link-many/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:link-many", off ? "1" : "0"); } catch (e) {} }, off) });
+    await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+    await q.click("#startGame");
+    await q.waitForFunction(() => !__game.busy);
+    gaps[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
+      const theirs = () => __game.board.some((row) => row.indexOf(2) >= 0), t0 = performance.now();
+      __game.humanMove(3);
+      (function poll() {
+        if (theirs()) res(Math.round(performance.now() - t0));
+        else if (performance.now() - t0 > 8000) res(-1);
+        else setTimeout(poll, 5);
+      })();
+    }));
+    await done(q, "the CPU's pause, FX " + (off ? "off" : "on"));
+  }
+  check("link-many: the CPU takes the same pause to answer with Visual FX off as with it on (at least 0.75 s)", gaps.on >= 750 && gaps.off >= 750, gaps);
   await ctx.close();
 };

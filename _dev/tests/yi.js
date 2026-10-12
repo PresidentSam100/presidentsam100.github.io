@@ -186,5 +186,36 @@ module.exports = async ({ browser, base, check, lib }) => {
     quitCap === "⌫" && mid.setup && !mid.g && !mid.result && p.leaves === 1, { quitCap, mid, leaves: p.leaves });
   await done(p, "yi backspace");
 
+  // ---- a CPU that has to draw, and can play what it drew: the draw shows for
+  // a beat before the card goes down, with Visual FX off as with it on (with
+  // FX off it used to draw and play in the same instant). Timed in the page.
+  {
+    const beats = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
+      await deal(q);
+      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 20000 });
+      beats[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
+        const who = neighbor(0, 1), top = topCard(), col = G.currentColor, all = G.deck.concat(G.players[who].hand);
+        const cant = all.filter((c) => c.type === "number" && c.color !== col && !(top.type === "number" && c.value === top.value)).slice(0, 3);
+        const can = all.find((c) => c.type === "number" && c.color === col);
+        if (cant.length < 3 || !can) return res({ ms: -2 });
+        G.players[who].hand = cant;
+        G.deck = all.filter((c) => cant.indexOf(c) < 0 && c !== can).concat([can]);      // (the next card off the pile)
+        const t = {}, draw0 = drawCards, play0 = playCard;
+        window.drawCards = function (pi) { if (pi === who && !t.draw) t.draw = performance.now(); return draw0.apply(this, arguments); };
+        window.playCard = function (pi) {
+          if (pi === who && t.draw && !t.play) { t.play = performance.now(); res({ ms: Math.round(t.play - t.draw), hand: G.players[who].hand.length }); }
+          return play0.apply(this, arguments);
+        };
+        setTimeout(() => res({ ms: -1 }), 12000);
+        passTurn(0);
+      }));
+      await done(q, "yi a CPU's draw, FX " + (off ? "off" : "on"));
+    }
+    check("yi: a CPU that draws a card it can play shows the draw for a beat before playing it, with Visual FX off as with it on (at least 0.35 s)",
+      beats.on.ms >= 350 && beats.off.ms >= 350 && beats.off.hand === 4, beats);
+  }
+
   await ctx.close();
 };
