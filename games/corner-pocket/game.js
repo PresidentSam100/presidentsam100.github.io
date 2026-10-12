@@ -633,7 +633,7 @@
       recText = "vs " + AI.LEVELS[G.level].name + " CPU: " + rec.text();
     } else {
       G.tally[winner]++;
-      recText = G.names[0] + " " + G.tally[0] + " – " + G.tally[1] + " " + G.names[1];
+      recText = G.names[0] + " " + G.tally[0] + " \u00b7 " + G.names[1] + " " + G.tally[1];
     }
     G.pendingOver = { title: title, why: W8[o.reason] || "", rec: recText, good: G.mode === "2p" || winner === 0 };
   }

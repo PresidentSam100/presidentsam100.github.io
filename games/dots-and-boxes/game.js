@@ -297,9 +297,9 @@ function checkOver() {
   const total = N*N;
   if (scores.human + scores.ai >= total) {
     gameOver = true;
-    if (scores.human > scores.ai) { record.w++; setStatus(`You win ${scores.human}–${scores.ai}! 🎉`); sfxWin(); }
-    else if (scores.ai > scores.human) { record.l++; setStatus(`AI wins ${scores.ai}–${scores.human}.`); sfxLose(); }
-    else { record.d++; setStatus(`Draw ${scores.human}–${scores.ai}.`); sfxDraw(); }
+    if (scores.human > scores.ai) { record.w++; setStatus(`You win ${scores.human} to ${scores.ai}! 🎉`); sfxWin(); }
+    else if (scores.ai > scores.human) { record.l++; setStatus(`AI wins ${scores.ai} to ${scores.human}.`); sfxLose(); }
+    else { record.d++; setStatus(`A draw: ${scores.human} each.`); sfxDraw(); }
     updateRecord();
     syncPlayable();
     return true;

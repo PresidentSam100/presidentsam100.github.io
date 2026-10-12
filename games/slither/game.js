@@ -794,7 +794,7 @@
       SFX.win();
       showResult({
         title: G.snakes[champ].name + " wins the match! 🏆",
-        msg: "Final score: " + G.matchWins[0] + " – " + G.matchWins[1],
+        msg: "Final score: " + G.matchWins[0] + " to " + G.matchWins[1],
         primaryLabel: "New Match",
         primaryFn: function () { startMatch(); },
       });
@@ -802,7 +802,7 @@
       var roundMsg = winnerIdx >= 0 ? G.snakes[winnerIdx].name + " wins the round!" : "Draw: both crashed!";
       showResult({
         title: roundMsg,
-        msg: "Match: " + G.matchWins[0] + " – " + G.matchWins[1] + (G.matchFormat === "inf" ? " (∞)" : " (first to " + G.matchFormat + ")"),
+        msg: "Match: " + G.matchWins[0] + " to " + G.matchWins[1] + (G.matchFormat === "inf" ? " (∞)" : " (first to " + G.matchFormat + ")"),
         primaryLabel: "Next Round",
         primaryFn: function () { startRound(); },
       });
@@ -817,7 +817,7 @@
     } else {
       scoreLabel.innerHTML = "<span class=\"p1-color\">P1 " + G.snakes[0].score + "</span> · <span class=\"p2-color\">P2 " + G.snakes[1].score + "</span>";
       bestLabel.textContent = "";
-      matchLabel.textContent = "Match " + G.matchWins[0] + "–" + G.matchWins[1] + (G.matchFormat === "inf" ? " (∞)" : " (first to " + G.matchFormat + ")");
+      matchLabel.textContent = "Match " + G.matchWins[0] + " to " + G.matchWins[1] + (G.matchFormat === "inf" ? " (∞)" : " (first to " + G.matchFormat + ")");
     }
   }
 

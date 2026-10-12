@@ -341,7 +341,7 @@
     const clues = ready ? given.reduce((a, b) => a + b, 0) : 0;
     levelTag.innerHTML = LABEL[prefs.level] + (clues ? "<small>" + clues + " clues</small>" : "");
     forecastEl.textContent = FORECAST[prefs.level];
-    puzzleNoEl.textContent = "No. " + (ready ? puzzleNo(game.puzzle) : "–");
+    puzzleNoEl.textContent = "No. " + (ready ? puzzleNo(game.puzzle) : "…");
   }
 
   function hideStamp() {
@@ -364,7 +364,7 @@
   function renderStats() {
     const best = bestFor(prefs.level).get();   // 0 means "no time yet"
     statsEl.innerHTML =
-      "<b>" + LABEL[prefs.level] + "</b> · best <b>" + (best > 0 ? fmt(best * 1000) : "–") +
+      "<b>" + LABEL[prefs.level] + "</b> · best <b>" + (best > 0 ? fmt(best * 1000) : "none yet") +
       "</b> · solved " + readStats(prefs.level).w;
   }
 

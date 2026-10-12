@@ -415,8 +415,8 @@ const PAUSE = window.GameShell ? GameShell.pausable({
   onChange: (paused) => { if (paused) releaseKeys(); }
 }) : null;
 // A match is in progress (paused or not) once a point has been scored, until
-// someone wins it: leaving then asks first. The countdown and a 0–0 rally
-// have nothing to lose yet.
+// someone wins it: leaving then asks first. The countdown and a rally with no
+// point scored have nothing to lose yet.
 if (PAUSE) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === "playing") && left.score + right.score > 0, pausable: PAUSE });
 
 requestAnimationFrame(loop);

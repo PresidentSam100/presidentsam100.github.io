@@ -151,10 +151,10 @@
   }
 
   function renderHud() {
-    elAttempt.textContent = state === "menu" ? "–" : Math.min(trial, TRIALS) + "/" + TRIALS;
-    elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "–";
-    elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "–";
-    elBest.textContent = best ? f1(best) + " ms" : "–";
+    elAttempt.textContent = state === "menu" ? "0/" + TRIALS : Math.min(trial, TRIALS) + "/" + TRIALS;
+    elLast.textContent = results.length ? f1(results[results.length - 1]) + " ms" : "none yet";
+    elAvg.textContent = results.length ? f1(avg(results)) + " ms" : "none yet";
+    elBest.textContent = best ? f1(best) + " ms" : "none yet";
   }
   function chipHtml(i) {
     if (penal[i]) return '<span class="chip pen">✗</span>';
@@ -283,7 +283,7 @@
       '<h2>Showdown Over</h2>' +
       '<div class="big" style="color:' + r.c + '">' + f1(a) + '<small> ms avg</small></div>' +
       '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + (slow ? ' · ' + slow + ' outdrawn' : '') + '</p>' +
-      '<p>' + (record ? "★ new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "–" : f1(bestSingle) + " ms") + '</p>' +
+      '<p>' + (record ? "★ new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "none" : f1(bestSingle) + " ms") + '</p>' +
       '<div class="summary">' + chips + '</div>' +
       '<button class="btn" id="btn-again" style="margin-top:0.6rem;" aria-keyshortcuts="Space" data-gs-key="Space">Duel again</button>';
     ov.classList.add("show");

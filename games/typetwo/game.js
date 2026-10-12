@@ -1075,11 +1075,11 @@
     el.score.textContent = score;
     el.wave.textContent = wave;
     el.streak.textContent = combo + (combo >= 5 ? "🔥" : "");
-    el.bombs.textContent = bombs === Infinity ? "∞" : ("✦".repeat(Math.max(0, bombs)) || "–");
+    el.bombs.textContent = bombs === Infinity ? "∞" : ("✦".repeat(Math.max(0, bombs)) || "0");
     if (mode === "zen") {
       el.lives.textContent = "∞";
     } else {
-      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "–";
+      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "0";
     }
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.acc.textContent = accuracy + "%";

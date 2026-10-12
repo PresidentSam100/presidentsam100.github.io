@@ -320,7 +320,7 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[ch]);
   function renderStats() {
     const b = BEST.get();
-    statsEl.innerHTML = "<b>Endless</b> · best <b>" + (b > 0 ? b + " rows" : "–") + "</b>";
+    statsEl.innerHTML = "<b>Endless</b> · best <b>" + (b > 0 ? b + " rows" : "none yet") + "</b>";
   }
 
   // ---- game --------------------------------------------------------------

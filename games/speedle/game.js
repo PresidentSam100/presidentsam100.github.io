@@ -291,10 +291,10 @@
   function renderBest() {
     if (mode === "sprint") {
       var b = parseInt(load(bestKey("sprint")), 10) || 0;
-      valueBest.textContent = b ? String(b) : "–";
+      valueBest.textContent = b ? String(b) : "none";
     } else {
       var r = parseInt(load(bestKey("race")), 10) || 0;
-      valueBest.textContent = r ? fmt(r) + "s" : "–";
+      valueBest.textContent = r ? fmt(r) + "s" : "none";
     }
   }
   function tick() {

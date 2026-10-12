@@ -159,7 +159,8 @@
   function hud() {
     $("hud-score").textContent = fmt(st.score);
     var b = shared ? null : bests[mode];
-    $("hud-best").textContent = b ? fmt(Math.max(b.get(), st.score)) : "–";
+    $("hud-best").textContent = b ? fmt(Math.max(b.get(), st.score)) : "";
+    $("hud-best").parentNode.hidden = !b;          // (a shared maze keeps no best: the stat makes way)
     var hearts = "", planks = "", i;
     for (i = 0; i < E.TUNE.lives; i++) hearts += '<i class="heart' + (i < st.lives ? "" : " gone") + '"></i>';
     for (i = 0; i < E.TUNE.maxPlanks; i++) planks += '<i class="plk' + (i < st.planks ? "" : " gone") + '"></i>';

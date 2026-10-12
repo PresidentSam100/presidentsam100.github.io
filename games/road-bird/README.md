@@ -25,7 +25,7 @@ On the menu use `↑ ↓` to choose a mode, `C` to change your **skin**, and `Sp
 | Hop back | `↓` / `S` | swipe down |
 | Hop left/right | `← →` / `A` `D` | swipe left/right |
 | Pause / resume | `P` | tap (while paused) |
-| Mute / unmute | `M` | – |
+| Mute / unmute | `M` | none |
 | Menu: select / change skin / play | `↑ ↓` / `C` / `Space` | tap a button |
 
 The game **auto-pauses** when the tab or window loses focus.

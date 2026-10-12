@@ -471,7 +471,7 @@ function uRender() {
     }
     const markWrap = document.createElement('div');
     markWrap.className = 'subboard-mark';
-    if (done === 'draw') markWrap.textContent = '–';
+    if (done === 'draw') markWrap.textContent = '=';       // (a drawn board: level, nobody's)
     else if (done) markWrap.innerHTML = markSVG(done, false);
     sub.appendChild(markWrap);
     uboardEl.appendChild(sub);

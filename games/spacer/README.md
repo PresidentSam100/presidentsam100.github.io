@@ -67,7 +67,7 @@ Press **E** on the title screen for an in-game **encyclopedia** with two tabs:
 ## Game modes
 
 On the title screen pick a **life mode** with ↑ / ↓ and a **starting stage
-(1–255)** with ← / → (hold to scroll fast), then Enter:
+(1 to 255)** with ← / → (hold to scroll fast), then Enter:
 
 - **3 Lives**: the classic arcade default.
 - **1 Life**: one fighter, no reserves. Sudden death.
@@ -98,7 +98,7 @@ badges would run under the power-up bars).
 - Movement, twin-limited firing, 3 fighters, spawn invulnerability flash.
 - **Dual fighter**: rescue a captured ship to fly two fighters at once
   (wider hitbox, double shots).
-- **Power-ups**: each combat stage seeds 1–2 **flashing carrier enemies** that
+- **Power-ups**: each combat stage seeds 1 or 2 **flashing carrier enemies** that
   drop a falling capsule when destroyed. Catch one for a 12-second buff:
   - **Spread (S)**: 3-way shot
   - **Pierce (P)**: shots punch through enemies
@@ -117,7 +117,7 @@ badges would run under the power-up bars).
     bottom and comes **back up to ambush you from behind** before exiting the top.
   - **Goei (Butterfly)**: dives in a **zig-zag** toward you; when escorting a
     Boss it flies like the Boss instead.
-  - **Flagships**: alternates **(1) loop-then-dive** (sometimes leading 1–2
+  - **Flagships**: alternates **(1) loop-then-dive** (sometimes leading 1 or 2
     Goei escorts) and **(2)** flying to a random spot to deploy its **tractor
     beam**. Uses only the dive while a fighter is captured / you're dual / the
     formation is broken. Downing a Boss mid-dive makes every enemy **hold fire
@@ -141,7 +141,7 @@ badges would run under the power-up bars).
 - Each is **one rotating enemy line-up** (Zako, Goei, Tonbo, Ogawamushi, Momiji,
   Ei, Galboss, Enterprise) **plus four Flagships**, in 5 waves of 8: flying
   through in patterns, never attacking.
-- **Clear a whole wave** for a bonus (1000–3000). Per-hit scoring, and a
+- **Clear a whole wave** for a bonus (1000 to 3000). Per-hit scoring, and a
   **PERFECT 10,000** for shooting all 40.
 
 **Scoring** (matches the arcade table)

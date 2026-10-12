@@ -158,7 +158,7 @@
     elUsed.textContent = fmt(cumError);
     elMargin.textContent = fmt(Math.max(0, LIMIT - cumError)) + " s";
   }
-  function setHud() { elScore.textContent = score; elBest.textContent = best; elRound.textContent = roundNum || "–"; }
+  function setHud() { elScore.textContent = score; elBest.textContent = best; elRound.textContent = roundNum || 0; }
   function updateModePill() { modePill.textContent = visibleMode ? "👁 Lid open" : "🙈 Lid shut"; }
 
   // ---------------------------------------------------------- flow
@@ -167,7 +167,7 @@
     elStage.dataset.phase = "idle"; delete elStage.dataset.bake;
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     elBtn.disabled = true; elBtn.className = "btn-main"; elBtn.textContent = "START";
-    elResult.textContent = ""; elTargetBig.textContent = "–"; elTargetLine.textContent = "get ready…"; elSub.textContent = "press start to begin";
+    elResult.textContent = ""; elTargetBig.textContent = "?"; elTargetLine.textContent = "get ready…"; elSub.textContent = "press start to begin";
     updateModePill();
     cardInner.innerHTML =
       '<h2>Stopwatch</h2>' +
@@ -178,7 +178,7 @@
         '<button class="modebtn" data-mode="visible"><span>👁 Lid open</span><small>watch the sweep hand: react</small></button>' +
       '</div>' +
       '<ul class="rules">' +
-        '<li>Each round marks a second from <b>1&ndash;10</b> on the dial.</li>' +
+        '<li>Each round marks a second from <b>1 to 10</b> on the dial.</li>' +
         '<li>Your miss = |your time &minus; target|, to the millisecond. Early runs short, late runs long.</li>' +
         '<li>Misses <b>add up</b> on the service card. Past <b>1.000&nbsp;s</b> of drift, the watch goes back in the drawer.</li>' +
         '<li>+1 point for every sweep you stop in tolerance.</li>' +
@@ -275,7 +275,7 @@
     if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
     state = "result"; busy = true;
     setHand(elapsed);
-    elBtn.className = "btn-main"; elBtn.disabled = true; elBtn.textContent = "–";
+    elBtn.className = "btn-main"; elBtn.disabled = true; elBtn.textContent = "…";
     elTargetLine.textContent = "target was"; elTargetBig.innerHTML = target + '<small>s</small>';
     Sound.stop();
 

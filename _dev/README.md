@@ -57,5 +57,5 @@ a short window in one `p.evaluate`. To try a suite under load, use
   default; `RATE=6`, `OUT=results.json`), one at a time, to find checks that
   only pass on an idle machine: `node tools/run-slowed.js` for all, or name some.
 - `tools/steamfitter-junction-levels.js`: generates Steamfitter's junction
-  levels (31–36). Seeded, so it reprints the same six levels; see the comment
+  levels (31 to 36). Seeded, so it reprints the same six levels; see the comment
   at its top.

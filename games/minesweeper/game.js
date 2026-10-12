@@ -377,7 +377,7 @@
     const s = readStats(prefs.level);
     statsEl.innerHTML =
       "<b>" + LEVELS[prefs.level].label + "</b> · best <b>" +
-      (best > 0 ? best.toFixed(2) + " s" : "–") + "</b> · won " + s.w + " of " + s.p +
+      (best > 0 ? best.toFixed(2) + " s" : "none yet") + "</b> · won " + s.w + " of " + s.p +
       (s.p ? " (" + Math.round((100 * s.w) / s.p) + "%)" : "");
   }
 

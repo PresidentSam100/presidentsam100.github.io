@@ -240,7 +240,7 @@
     return { x: x1 * crl - y2 * srl, y: x1 * srl + y2 * crl, z: z2 };
   }
   function toScreen(p) { return { x: CX + FOCAL * p.x / p.z, y: CY - FOCAL * p.y / p.z }; }
-  // Sutherland–Hodgman against the z=NEAR plane, in camera space.
+  // Sutherland-Hodgman against the z=NEAR plane, in camera space.
   function clipNear(pts) {
     var out = [];
     for (var i = 0; i < pts.length; i++) {

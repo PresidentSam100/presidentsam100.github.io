@@ -137,7 +137,7 @@
     tone(1320, 1320, 0.16, "sine", 0.16, 0.09);
   }
   function playGameOver() {
-    // descending G–E–C–G jingle, last note held = distinct "game over"
+    // descending G, E, C, G jingle, last note held = distinct "game over"
     tone(392, 392, 0.18, "triangle", 0.26, 0.0);
     tone(330, 330, 0.18, "triangle", 0.26, 0.15);
     tone(262, 262, 0.18, "triangle", 0.26, 0.3);
@@ -284,7 +284,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     bestEl.textContent = best;
-    livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "–";
+    livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "0";
   }
 
   function popBloon(b) {

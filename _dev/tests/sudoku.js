@@ -29,7 +29,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const shown = await look(p);
   await p.evaluate(() => { window.__hidden = true; });
   await p.click('.lvl[data-level="medium"]');
-  await p.waitForFunction(() => document.getElementById("puzzleNo").textContent !== "No. –", null, { timeout: 15000 }).catch(() => {});
+  await p.waitForFunction(() => document.getElementById("puzzleNo").textContent !== "No. …", null, { timeout: 15000 }).catch(() => {});
   await p.waitForTimeout(1300);
   const printed = await look(p);
   check("sudoku: the clock runs on a board you can see; a puzzle printed while the tab is hidden starts paused",

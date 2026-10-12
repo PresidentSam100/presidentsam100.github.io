@@ -175,7 +175,7 @@
 
   function renderBest() {
     var b = loadBest();
-    statBest.textContent = b ? fmtTime(b) : "–";
+    statBest.textContent = b ? fmtTime(b) : "none";
   }
 
   function setMsg(text, kind) {

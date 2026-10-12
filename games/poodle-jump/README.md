@@ -24,9 +24,9 @@ S3, …).
 
 | Action | Keyboard | Mouse | Touch |
 |--------|----------|-------|-------|
-| Move   | ← → or A / D | – | ◀ ▶ on-screen buttons |
+| Move   | ← → or A / D | none | ◀ ▶ on-screen buttons |
 | Shoot  | Space / ↑ / W (straight up) | click to aim | tap the play area |
-| Pause / resume | P | – | – |
+| Pause / resume | P | none | none |
 | Start / restart | Space / Enter | click | tap |
 
 The game also auto-pauses when the window or tab loses focus.

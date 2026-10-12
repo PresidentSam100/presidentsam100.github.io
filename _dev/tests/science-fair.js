@@ -20,9 +20,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     // do the keycaps on the planets' tags
     const how = await p.evaluate(() => ({ text: document.querySelector("#menu .how").innerText, tags: [...document.querySelectorAll(".hang .tag kbd")].filter((k) => k.getClientRects().length).length }));
     if (label === "phone") check("science-fair: on a touch-only phone the how-to says tap, and the planets' tags show no keycaps",
-      /by tapping them\./.test(how.text) && !/number keys|1–9/.test(how.text) && how.tags === 0, how);
+      /by tapping them\./.test(how.text) && !/number keys|1 to 9/.test(how.text) && how.tags === 0, how);
     else check("science-fair: with a keyboard the how-to names the number keys, and the planets' tags show them",
-      /pressing their number keys \(1–9\)/.test(how.text) && how.tags === 9, how);
+      /pressing their number keys \(1 to 9\)/.test(how.text) && how.tags === 9, how);
     await missFirst(p);
     const over = await shown();
     if (label === "desktop") {

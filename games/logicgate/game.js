@@ -824,7 +824,7 @@
       var style = "left:" + n.x + "px;top:" + n.y + "px";
       if (n.kind === "input") {
         var st = v === 1 ? "on" : v === 0 ? "off" : "inactive";
-        var bit = v === undefined ? "–" : v;
+        var bit = v === undefined ? "?" : v;
         html += '<div class="node input ' + st +
           (mode === "inputs" ? " toggle" : "") + '" data-id="' + n.id +
           '" style="' + style + '"><span class="lbl">' + n.label +

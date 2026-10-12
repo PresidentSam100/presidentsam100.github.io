@@ -168,7 +168,7 @@ if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
 // ----------------------------------------------------------------
 function playerNames(n) {
   var names = ["You"];
-  // up to 9 CPUs (2–10 players total), named alphabetically A→I
+  // up to 9 CPUs (2 to 10 players in all), named alphabetically A→I
   var bots = ["CPU Ada", "CPU Bolt", "CPU Cyra", "CPU Dex", "CPU Echo",
     "CPU Flux", "CPU Gizmo", "CPU Halo", "CPU Ion"];
   for (var i = 0; i < n - 1; i++) names.push(bots[i] || "CPU " + (i + 1));

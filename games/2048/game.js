@@ -79,14 +79,14 @@
   function playMove() { tone(200, 150, 0.07, "sine", 0.12); } // soft slide
   function playMerge() { tone(430, 660, 0.14, "triangle", 0.22); } // bright pop
   function playWin() {
-    // celebratory rising C–E–G–C
+    // celebratory rising C, E, G, C
     tone(523, 523, 0.16, "triangle", 0.24, 0.0);
     tone(659, 659, 0.16, "triangle", 0.24, 0.13);
     tone(784, 784, 0.16, "triangle", 0.24, 0.26);
     tone(1047, 1047, 0.5, "triangle", 0.26, 0.39);
   }
   function playGameOver() {
-    // descending G–E–C–G, last note held
+    // descending G, E, C, G, last note held
     tone(392, 392, 0.18, "triangle", 0.24, 0.0);
     tone(330, 330, 0.18, "triangle", 0.24, 0.15);
     tone(262, 262, 0.18, "triangle", 0.24, 0.3);
