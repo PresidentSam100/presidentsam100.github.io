@@ -131,6 +131,11 @@
       return { step: function () { return true; }, get result() { return result; } };
     }
 
+    // in hand behind the head string (a scratch on the break): the cue ball
+    // stays there, and a ball lying there too can't be played at directly
+    var kitchen = st.inHand === "kitchen";
+    function behind(ob) { return kitchen && ob.x < P.HEAD_X; }
+
     function evalTask(base, place, cand, power, spin) {
       return function () {
         var shot = { angle: cand.angle, power: power, tipX: spin[0], tipY: spin[1], place: place,
@@ -157,11 +162,12 @@
     // `home` is the table the safety search and the last-resort shot use:
     // the live table, or with ball in hand, the cue ball at its best spot.
     var home = balls, homePlace = null;
-    if (st.inHand === "any") {
+    if (st.inHand) {
       // Ball in hand: set the cue ball up behind a pot, then search from there.
       var spots = [], ts = Ru.targets(st, balls);
       for (var i = 0; i < ts.length; i++) {
         var ob = P.byId(balls, ts[i]);
+        if (behind(ob)) continue;
         for (var k = 0; k < 6; k++) {
           var pl = potLine(balls, ob, k);
           if (!pl) continue;
@@ -170,9 +176,22 @@
             var ca = Math.cos(angs[a]), sa = Math.sin(angs[a]);
             var dx = pl.ux * ca - pl.uy * sa, dy = pl.ux * sa + pl.uy * ca;
             var cx = pl.gx - dx * dists[d], cy = pl.gy - dy * dists[d];
-            if (!P.placeOk(balls, cx, cy, false)) continue;
+            if (!P.placeOk(balls, cx, cy, kitchen)) continue;
             var g = shotGeom(balls, cx, cy, ob, k);
             if (g) spots.push({ x: cx, y: cy, g: g });
+          }
+        }
+      }
+      if (kitchen) {
+        // few pots line up from that far back: look from a spread of spots too
+        var xs = [P.HEAD_X - 0.01, P.HEAD_X * 0.62, P.HEAD_X * 0.3];
+        for (var xi = 0; xi < xs.length; xi++) for (var yi = 1; yi <= 5; yi++) {
+          var kx = xs[xi], ky = W * yi / 6;
+          if (!P.placeOk(balls, kx, ky, true)) continue;
+          var cs = candidates(balls, st, kx, ky), took = 0;
+          for (var q = 0; q < cs.length && took < 2; q++) {
+            if (behind(P.byId(balls, cs[q].id))) continue;
+            spots.push({ x: kx, y: ky, g: cs[q] }); took++;
           }
         }
       }
@@ -186,7 +205,7 @@
         queueCand(withCueAt(spots[s].x, spots[s].y), { x: spots[s].x, y: spots[s].y }, spots[s].g);
       }
       // nothing lines up: put it somewhere sensible and look for a safety from there
-      var hs = spots.length ? spots[0] : P.nearestFree(balls, P.HEAD_X, W / 2, false);
+      var hs = spots.length ? spots[0] : P.nearestFree(balls, P.HEAD_X - (kitchen ? 0.05 : 0), W / 2, kitchen);
       homePlace = { x: hs.x, y: hs.y };
       home = withCueAt(hs.x, hs.y);
     } else {
@@ -255,6 +274,7 @@
         var ts3 = Ru.targets(st, home), nb = null, nd = Infinity;
         for (var i = 0; i < ts3.length; i++) {
           var ob = P.byId(home, ts3[i]), d = Math.hypot(ob.x - cue.x, ob.y - cue.y);
+          if (behind(ob)) continue;
           if (d < nd) { nd = d; nb = ob; }
         }
         pick = { angle: nb ? Math.atan2(nb.y - cue.y, nb.x - cue.x) : 0, power: 0.3, tipX: 0, tipY: 0,

@@ -6,11 +6,18 @@
    - the first ball legally potted after the break sets your group
    - fouls (scratch, no ball hit, wrong ball first, no rail after contact)
      give the other player ball in hand anywhere; until your group is gone
-     the 8 is a wrong ball to hit first
+     the 8 is a wrong ball to hit first. A scratch on the break is the one
+     exception: the ball in hand is behind the head string, and from there
+     the cue ball may not be played straight at a ball that lies behind the
+     line too (it has to cross the line first, or hit a ball beyond it)
    - once your group is gone, call a pocket (the game won't shoot without
      one) and sink the 8 in it to win
    - the 8 early, the 8 with a foul (a scratch included), or the 8 in the
-     wrong pocket loses; the 8 on the break just comes back to the foot spot */
+     wrong pocket loses; the 8 on the break is neither a win nor a loss: it
+     comes back to the foot spot and the breaker plays on (or, with a scratch,
+     the other player comes to the table)
+   The break follows the world-standardised rules (WPA), less the option of
+   racking again. */
 (function (root) {
   "use strict";
 
@@ -53,8 +60,8 @@
   }
 
   // balls0: the table as it stood before the shot. ev: the shot's events from
-  // physics (firstHit, railAfter, pocketed[{id, pocket}]). called: the pocket
-  // named for the 8 (or -1).
+  // physics (firstHit, firstBehind, railAfter, pocketed[{id, pocket}]).
+  // called: the pocket named for the 8 (or -1).
   function resolve(st, balls0, ev, called) {
     var s = copy(st), me = s.turn, opp = 1 - me;
     var out = { shooter: me, foul: null, winner: -1, reason: "", cont: false, assigned: null,
@@ -74,6 +81,7 @@
     // fouls, the one worth naming first
     if (out.cueIn) out.foul = "scratch";
     else if (ev.firstHit < 0) out.foul = "nohit";
+    else if (s.inHand === "kitchen" && ev.firstBehind) out.foul = "behindline";   // (in hand behind the line, played at a ball behind it)
     else if (!s.isBreak) {
       if (s.open) { if (ev.firstHit === 8) out.foul = "eightfirst"; }
       else if (wasOnEight) { if (ev.firstHit !== 8) out.foul = "wrongball"; }
@@ -108,8 +116,11 @@
       }
     }
 
+    // a scratch on the break: ball in hand behind the head string (the
+    // standard rule); any other foul, anywhere on the table
+    var onBreak = s.isBreak;
     s.isBreak = false;
-    if (out.foul) { s.turn = opp; s.inHand = "any"; }
+    if (out.foul) { s.turn = opp; s.inHand = onBreak && out.cueIn ? "kitchen" : "any"; }
     else { if (!out.cont) s.turn = opp; s.inHand = null; }
     return { st: s, out: out };
   }

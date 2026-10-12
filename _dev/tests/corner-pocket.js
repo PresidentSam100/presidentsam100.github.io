@@ -2,7 +2,9 @@
 // Keep playing, Back to menu leaves no result card behind); a cue ball let go
 // by a pause or a cancelled touch lands on a free spot, and no shot goes while
 // it sits on another ball; losing on the 8 names the foul; with Visual FX off
-// the ball-in-hand ring and the called pocket hold still.
+// the ball-in-hand ring and the called pocket hold still. The break follows
+// the standard rules: the 8 on the break is respotted and the breaker plays
+// on, and a scratch on the break is ball in hand behind the head string.
 const HOOK = ["    shoot: function (a, p, tx, ty) {", `    endShot: function () { endShot(); },
     shoot: function (a, p, tx, ty) {`];
 
@@ -17,8 +19,76 @@ module.exports = async ({ browser, base, check, lib }) => {
   };
   const quitShown = (p) => p.evaluate(() => !document.getElementById("confirmQuit").classList.contains("hidden"));
 
-  // ---- the CPU waits while "Leave this rack?" is up; Esc keeps playing
+  // ---- the break, by the standard (WPA) rules
   let p = await open();
+  const brk = await p.evaluate(() => {
+    const Ru = PoolRules, balls = []; for (let i = 0; i <= 15; i++) balls.push({ id: i, on: true });
+    const r = (ev, later) => { const st = Ru.newGame(0); if (later) { st.isBreak = false; st.inHand = null; } const x = Ru.resolve(st, balls, ev, -1); return { respot: x.out.respot8, foul: x.out.foul, turn: x.st.turn, inHand: x.st.inHand, winner: x.st.winner }; };
+    return {
+      eight: r({ firstHit: 1, railAfter: true, pocketed: [{ id: 8, pocket: 2 }] }),
+      eightScratch: r({ firstHit: 1, railAfter: true, pocketed: [{ id: 8, pocket: 2 }, { id: 0, pocket: 1 }] }),
+      scratch: r({ firstHit: 1, railAfter: true, pocketed: [{ id: 0, pocket: 1 }] }),
+      later: r({ firstHit: 1, railAfter: true, pocketed: [{ id: 0, pocket: 1 }] }, true),
+    };
+  });
+  check("corner-pocket: the 8 on the break is neither a win nor a loss: it is respotted and the breaker plays on",
+    brk.eight.respot && !brk.eight.foul && brk.eight.turn === 0 && brk.eight.winner === -1, brk.eight);
+  check("corner-pocket: a scratch on the break (with the 8 or without) is ball in hand behind the head string; a scratch later in the rack, anywhere",
+    brk.eightScratch.respot && brk.eightScratch.turn === 1 && brk.eightScratch.inHand === "kitchen" && brk.eightScratch.winner === -1 &&
+    brk.scratch.inHand === "kitchen" && brk.scratch.turn === 1 && brk.later.inHand === "any", brk);
+  await done(p, "break rules");
+
+  // ---- in hand behind the line (after a scratch on the break): the cue ball
+  // may not be played straight at a ball that lies behind the line too, but
+  // may hit one beyond it, or come back to one after crossing the line; the
+  // game names the foul; and the CPU keeps to both halves at every level
+  p = await open();
+  const line = await p.evaluate(() => {
+    const P = PoolPhysics, Ru = PoolRules, AI = PoolAI, W = P.W, H = P.HEAD_X, G = __pool.G;
+    const state = (inHand) => { const s = Ru.newGame(0); s.isBreak = false; s.turn = 1; s.inHand = inHand; return s; };
+    const play = (balls, angle, power, inHand) => {
+      const w = P.simulate(balls, { angle, power, tipX: 0, tipY: 0 }), r = Ru.resolve(state(inHand), balls, w.ev, -1);
+      return { first: w.ev.firstHit, behind: w.ev.firstBehind, crossed: w.ev.crossed, foul: r.out.foul, inHand: r.st.inHand, turn: r.st.turn };
+    };
+    // the cue ball in the kitchen, the 1 behind the line beside it, the 9 beyond the line, the 8 out of the way
+    const side = () => [P.makeBall(0, H - 0.2, W / 2), P.makeBall(1, H - 0.2, W / 2 - 0.25), P.makeBall(9, H + 0.5, W / 2), P.makeBall(8, P.FOOT_X + 0.3, W / 4)];
+    // the 1 behind the cue ball, on the line it comes back along off the foot rail
+    const back = () => [P.makeBall(0, H - 0.2, W / 2), P.makeBall(1, H - 0.4, W / 2), P.makeBall(8, P.FOOT_X + 0.3, W / 4)];
+    const out = {
+      direct: play(side(), -Math.PI / 2, 0.3, "kitchen"), beyond: play(side(), 0, 0.3, "kitchen"),
+      round: play(back(), 0, 0.85, "kitchen"), anywhere: play(side(), -Math.PI / 2, 0.3, "any"),
+    };
+    // the game's own words for it
+    G.balls = side(); G.st = state("kitchen"); G.before = P.cloneBalls(G.balls); G.toasts = [];
+    G.world = { ev: { firstHit: 1, firstBehind: true, railAfter: true, pocketed: [] } }; G.shotCall = -1;
+    __pool.endShot();
+    out.toast = G.toasts.map((t) => t.text).join(" | ");
+    // the CPU, in hand behind the line with an easy ball lying there (the 1, by the head corner pocket)
+    out.cpu = [0, 1, 2].map((level) => {
+      const balls = [P.makeBall(0, H - 0.1, W / 2), P.makeBall(1, 0.16, 0.14), P.makeBall(2, H + 0.6, 0.3), P.makeBall(9, H + 0.9, 0.7),
+        P.makeBall(10, P.L - 0.25, 0.5), P.makeBall(8, P.FOOT_X + 0.3, W / 4)];
+      const plan = AI.plan(balls, state("kitchen"), level, P.rng(11 + level));
+      for (let i = 0; i < 4000 && !plan.step(50); i++);
+      const s = plan.result, b = P.cloneBalls(balls);
+      if (s && s.place) { b[0].x = s.place.x; b[0].y = s.place.y; }
+      const w = s ? P.simulate(b, s) : null;
+      return { placed: !!(s && s.place), x: s && s.place ? +(s.place.x / H).toFixed(3) : null, first: w ? w.ev.firstHit : null, behind: w ? w.ev.firstBehind : null };
+    });
+    return out;
+  });
+  check("corner-pocket: in hand behind the line, a shot straight at a ball behind the line is a foul (ball in hand anywhere for the other player), and the game says so",
+    line.direct.first === 1 && line.direct.behind === true && line.direct.foul === "behindline" && line.direct.inHand === "any" && line.direct.turn === 0 &&
+    /Foul: hit a ball behind the line/.test(line.toast), { direct: line.direct, toast: line.toast });
+  check("corner-pocket: in hand behind the line, a ball beyond the line may be hit, and so may one behind it once the cue ball has crossed the line and come back; with ball in hand anywhere there is no such foul",
+    line.beyond.first === 9 && line.beyond.behind === false && line.beyond.foul !== "behindline" &&
+    line.round.first === 1 && line.round.crossed === true && line.round.behind === false && line.round.foul !== "behindline" &&
+    line.anywhere.first === 1 && line.anywhere.foul !== "behindline", { beyond: line.beyond, round: line.round, anywhere: line.anywhere });
+  check("corner-pocket: the CPU, in hand behind the line, sets the cue ball down behind it and doesn't play at the ball lying there (all three levels)",
+    line.cpu.every((c) => c.placed && c.x <= 1.0001 && c.first !== 1 && c.behind === false), line.cpu);
+  await done(p, "behind the line");
+
+  // ---- the CPU waits while "Leave this rack?" is up; Esc keeps playing
+  p = await open();
   await start(p, "cpu");
   const m = await p.evaluate(() => { const r = __pool.UI.menu; return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });
   await p.mouse.click(m.x, m.y);

@@ -592,7 +592,8 @@
   }
 
   var FOUL = { scratch: "scratch", nohit: "no ball hit", wrongball: "wrong ball first",
-               eightfirst: "hit the 8 first", norail: "no rail after contact" };
+               eightfirst: "hit the 8 first", norail: "no rail after contact",
+               behindline: "hit a ball behind the line" };
 
   function endShot() {
     var res = Ru.resolve(G.st, G.before, G.world.ev, G.shotCall);
@@ -604,7 +605,8 @@
     var yours = G.mode === "cpu" && st.turn === 0;
     if (o.foul) {
       sfxFoul();
-      toast("Foul: " + FOUL[o.foul] + ", " + (yours ? "your ball in hand" : "ball in hand, " + nameOf(st.turn)), "bad");
+      var where = st.inHand === "kitchen" ? " behind the line" : "";      // (a scratch on the break)
+      toast("Foul: " + FOUL[o.foul] + ", " + (yours ? "your ball in hand" + where : "ball in hand" + where + ", " + nameOf(st.turn)), "bad");
     } else if (o.assigned) {
       var g = o.assigned === "solid" ? "solids" : "stripes";
       toast(G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g + "!" : "CPU takes " + g, "good");
@@ -1043,6 +1045,8 @@
       var status = statusText();
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       ctx.fillStyle = "#cdb27a"; ctx.font = "500 12px Oswald, system-ui, sans-serif";
+      // (a narrow middle has room for the half that matters)
+      if (/, BEHIND THE LINE$/.test(status) && ctx.measureText(status).width > UI.hud.w - 2 * plateW - 16) status = "BEHIND THE LINE";
       ctx.fillText(status, h.x + h.w / 2, h.y + h.h / 2);
     }
   }
@@ -1051,7 +1055,7 @@
     if (G.phase === "cpu" && G.cpu && G.cpu.stage === "think") return "CPU is lining up…";
     if (G.phase === "roll" || G.phase === "over" || G.phase === "flip" || st.winner >= 0) return "";
     if (st.isBreak) return "BREAK";
-    if (st.inHand) return "BALL IN HAND";
+    if (st.inHand) return st.inHand === "kitchen" ? "BALL IN HAND, BEHIND THE LINE" : "BALL IN HAND";
     if (Ru.needsCall(st, G.balls)) return "CALL THE 8";
     if (st.open) return "OPEN TABLE";
     return "";
@@ -1158,6 +1162,10 @@
     ctx.globalAlpha = Math.max(0, a);
     ctx.font = "600 14px Oswald, system-ui, sans-serif";
     var w = ctx.measureText(t.text).width + 28;
+    if (w > CW - 8) {      // a long line on a narrow phone: set smaller, so it all shows
+      ctx.font = "600 " + Math.max(10, 14 * (CW - 36) / (w - 28)).toFixed(1) + "px Oswald, system-ui, sans-serif";
+      w = ctx.measureText(t.text).width + 28;
+    }
     roundRect(ctx, x - w / 2, y - 14, w, 28, 14);
     ctx.fillStyle = t.tone === "bad" ? "rgba(120,24,20,0.95)" : t.tone === "good" ? "rgba(26,86,44,0.95)" : "rgba(30,18,9,0.94)";
     ctx.fill();

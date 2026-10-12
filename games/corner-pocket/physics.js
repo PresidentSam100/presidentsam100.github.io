@@ -127,7 +127,11 @@
   }
 
   // ---- a world: balls plus what happened during the current shot --------------
-  function freshEvents() { return { firstHit: -1, railAfter: false, pocketed: [], rails: 0 }; }
+  // crossed: the cue ball's centre has been past the head string in this shot.
+  // firstBehind: the first ball it hit lay behind the head string, and it got
+  // there without crossing the line (a foul when the cue ball was in hand
+  // behind the line: see rules.js).
+  function freshEvents() { return { firstHit: -1, railAfter: false, pocketed: [], rails: 0, crossed: false, firstBehind: false }; }
   function makeWorld(balls, live) {
     return { balls: balls, t: 0, live: !!live, ev: freshEvents(), sfx: [] };
   }
@@ -254,6 +258,7 @@
       if (b.vx !== 0 || b.vy !== 0) { b.x += b.vx * t; b.y += b.vy * t; }
       if (w.live && (b.wx !== 0 || b.wy !== 0 || b.sz !== 0)) turn(b, t);
     }
+    if (!w.ev.crossed && balls[0].on && balls[0].x > HEAD_X) w.ev.crossed = true;
   }
 
   // rotate a ball's orientation by its spin over t seconds (for drawing only)
@@ -284,9 +289,10 @@
       var j = (1 + E_BALL) / 2 * rel;
       a.vx -= j * nx; a.vy -= j * ny;
       b.vx += j * nx; b.vy += j * ny;
-      if (w.ev.firstHit < 0) {
-        if (a.id === 0) w.ev.firstHit = b.id;
-        else if (b.id === 0) w.ev.firstHit = a.id;
+      if (w.ev.firstHit < 0 && (a.id === 0 || b.id === 0)) {
+        var ob = a.id === 0 ? b : a;
+        w.ev.firstHit = ob.id;
+        w.ev.firstBehind = ob.x < HEAD_X && !w.ev.crossed;
       }
       if (w.live) w.sfx.push({ k: "ball", v: rel, x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
       return;
