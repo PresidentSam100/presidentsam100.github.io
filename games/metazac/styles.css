@@ -189,7 +189,9 @@
       outline: none;
       transition: background 0.12s ease, box-shadow 0.12s ease;
     }
-    #answer::placeholder { color: #b9a898; }
+    /* (the hint in the empty box shrinks with the screen, so a phone's
+       narrow box still shows all of it) */
+    #answer::placeholder { color: #b9a898; font-size: min(1em, 3.5vw); }
     #answer:focus {
       box-shadow: 0 4px 0 var(--ink), 0 0 0 5px rgba(255, 210, 63, 0.8);
     }
@@ -598,4 +600,7 @@
       .overlay { bottom: auto; min-height: 100%; overflow: visible; align-items: flex-start; }
       .board { padding: 1.1rem 0.9rem 1rem; gap: 0.6rem; }
       .overlay h2 { font-size: 1.8rem; }
+      /* the answer box keeps what room there is beside the two buttons */
+      .answer-line { gap: 0.4rem; }
+      #answer { padding: 0.5rem 0.35rem; }
     }

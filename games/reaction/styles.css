@@ -229,9 +229,11 @@
 
   /* the menu and results: a poster nailed up in town. The drop shadow is on
      the wrapper because clip-path would cut it off the poster itself. */
-  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(70, 35, 10, 0.5); z-index: 20; padding: 1rem; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(70, 35, 10, 0.5); z-index: 20; padding: 1rem; overflow-y: auto; }
   .overlay.show { display: flex; }
-  .poster { width: 100%; max-width: 440px; filter: drop-shadow(0 16px 18px rgba(60, 25, 5, 0.45)); }
+  /* centred while it fits; a poster taller than the screen starts at the top
+     and the overlay scrolls (centring alone would put its heading off-screen) */
+  .poster { width: 100%; max-width: 440px; margin: auto; filter: drop-shadow(0 16px 18px rgba(60, 25, 5, 0.45)); }
   .card {
     padding: 2rem 1.5rem 1.7rem; text-align: center; color: var(--ink);
     background:
@@ -276,4 +278,12 @@
     header.top { margin-top: 2.6rem; }
     .panel { --fw: 44px; --fh: 74px; }
     header.top h1 { font-size: 2.1rem; }
+    .overlay { padding-top: 3.6rem; }      /* (the poster starts below those buttons too) */
+  }
+  /* a phone: the four tickets share the width, however long a figure is */
+  @media (max-width: 480px) {
+    .hud { gap: 0.3rem; }
+    .stat { flex: 1 1 0; min-width: 0; padding: 0.4rem 0.1rem 0.45rem; }
+    .stat .label { font-size: 0.56rem; letter-spacing: 0.06em; }
+    .stat .value { font-size: min(1.1rem, 3.25vw); letter-spacing: -0.03em; }
   }

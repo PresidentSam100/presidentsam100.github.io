@@ -164,8 +164,11 @@ html.fx-off .row.bad .tile { outline: 2px solid var(--bad); outline-offset: -2px
 .key:focus-visible, .btn:focus-visible, .mode-btn:focus-visible { outline: 2px solid var(--warn); outline-offset: 2px; }
 
 /* ---- overlay card: a maple plank ------------------------------------------ */
-.overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(12, 7, 3, 0.8); backdrop-filter: blur(3px); z-index: 20; padding: 1rem; }
+.overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(12, 7, 3, 0.8); backdrop-filter: blur(3px); z-index: 20; padding: 1rem; overflow-y: auto; }
 .overlay.show { display: flex; }
+/* centred while it fits; a card taller than the screen starts at the top and
+   the overlay scrolls (centring alone would put its heading out of reach) */
+.overlay > .card { margin: auto; }
 .card {
   /* endGame() colours lines with var(--good) / var(--muted); on light wood
      those need darker values than on the table */
@@ -240,6 +243,7 @@ html.fx-off .row.bad .tile { outline: 2px solid var(--bad); outline-offset: -2px
 /* below ~700px the fixed back / sound / FX buttons reach the centred title */
 @media (max-width: 700px) {
   header.top { margin-top: 2.9rem; }
+  .overlay { padding-top: 3.8rem; }      /* (a card starts below those buttons too) */
 }
 /* phones: ten keys a row leaves ~25px per tile, too small for a face value */
 @media (max-width: 420px) {

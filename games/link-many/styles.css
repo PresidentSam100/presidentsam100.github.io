@@ -197,10 +197,17 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
   body { padding: 56px 12px 20px; gap: 12px; }
   h1 { font-size: 2.3rem; }
   #board { padding: 10px; gap: 7px; }
-  .cell { width: 40px; height: 40px; }
+  /* (seven holes across, less the page's and the board's padding and the six
+     gaps: under about 366 px they shrink, where the board used to run off the side) */
+  .cell { --c: min(40px, calc((100vw - 86px) / 7)); width: var(--c); height: var(--c); }
   .stand::before, .stand::after { width: 44px; }
   .stand::before { left: -20px; }
   .stand::after { right: -20px; }
+}
+/* a small phone: the board fills the width, so the feet stay inside the page's edge */
+@media (max-width: 380px) {
+  .stand::before { left: -11px; }
+  .stand::after { right: -11px; }
 }
 
 /* ---- Power Checkers ---------------------------------------------------- */

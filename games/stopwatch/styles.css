@@ -220,6 +220,9 @@ header.top p { margin: 2px 0 0; font-style: italic; font-size: 0.85rem; color: v
   background: rgba(3, 6, 16, 0.6);
 }
 .overlay.show { display: flex; }
+/* centred while it fits; a card taller than the screen starts at the top and
+   the overlay scrolls (centring alone would put its heading out of reach) */
+.overlay > .card { margin: auto; }
 .card {
   width: min(420px, 100%);
   background: linear-gradient(180deg, #16224a, #0d1730);
@@ -271,6 +274,7 @@ header.top p { margin: 2px 0 0; font-style: italic; font-size: 0.85rem; color: v
 @media (max-width: 640px) {
   /* clear the corner buttons */
   header.top { margin-top: 46px; }
+  .overlay { padding-top: 62px; }
 }
 @media (max-width: 420px) {
   header.top h1 { font-size: 1.55rem; letter-spacing: 3px; }

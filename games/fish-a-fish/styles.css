@@ -87,9 +87,24 @@ kbd {
   flex: 0 0 44px; display: flex; align-items: center; justify-content: flex-end;
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #9fc0c9;
 }
-.menu .seg { flex: 1; display: flex; gap: 6px; }
+/* (min-width: 0: on a small phone the three choices share the row and wrap
+   their words, where the last one used to run off the screen) */
+.menu .seg { flex: 1; min-width: 0; display: flex; gap: 6px; }
 .menu .seg button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; }
 .menu .seg small { font-size: 0.68rem; font-weight: 400; color: #cfdfe4; }
+/* a phone: three choices in a narrow row, so each name is set a little smaller
+   and gets nearly all of its button's width ("Condensed" ran over the edge) */
+@media (max-width: 430px) {
+  .menu .seg button { padding: 7px 3px; font-size: 0.88rem; }
+}
+/* a small phone: smaller again, and the row gives its label less room */
+@media (max-width: 370px) {
+  .menu .pick { gap: 5px; }
+  .menu .picklab { flex-basis: 34px; font-size: 0.6rem; letter-spacing: 0.04em; }
+  .menu .seg { gap: 4px; }
+  .menu .seg button { padding: 7px 3px; font-size: 0.8rem; overflow-wrap: anywhere; }
+  .menu .seg small { font-size: 0.62rem; }
+}
 .menu .seg button.sel { background: rgba(232, 120, 74, 0.55); border-color: #ffd9a8; box-shadow: inset 0 0 0 1px rgba(255, 233, 196, 0.7); }
 .menu .playbtn { display: block; width: 100%; margin-top: 12px; padding: 11px 16px; font-size: 1.08rem; background: rgba(232, 120, 74, 0.4); }
 .menu .bests { margin: 10px 0 0; font-size: 0.82rem; color: #cfdfe4; }

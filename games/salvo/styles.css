@@ -54,7 +54,9 @@ header.top::after {
 #status b { color: var(--hazard-hi); }
 
 .boards { display: flex; gap: 1.2rem; justify-content: center; flex-wrap: wrap; margin-top: 0.6rem; }
-.bcol { flex: 1 1 360px; max-width: 440px; }
+/* (min-width: 0 lets a board be narrower than its row of fleet tags: on a
+   phone the board takes the screen's width and the tags wrap under it) */
+.bcol { flex: 1 1 360px; max-width: 440px; min-width: 0; }
 .bcol[hidden] { display: none; }
 .bcol h2 {
   font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 0.92rem; letter-spacing: 0.1em;
@@ -105,6 +107,11 @@ header.top::after {
   animation: sweep 4.5s linear infinite; will-change: transform;
 }
 @keyframes sweep { to { transform: rotate(360deg); } }
+/* (the turning wedge is a square box: its corners swing out past the frame,
+   which made a phone's page wider than its screen, so there the frame clips
+   them. Only on phones: on a wide screen there is room, and a hit's glow at
+   the board's edge keeps its spill over the frame.) */
+@media (max-width: 640px) { .grid.enemy { overflow: hidden; } }
 /* Visual FX off: the wedge holds still, so it goes under the cells, the
    same beam on the screen, but never sitting over a return or the
    last-shot mark (the hit burst it would otherwise stack under is cut
@@ -290,6 +297,7 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
 @media (max-width: 640px) {
   body { padding-top: 3.4rem; }
   header.top h1 { font-size: 2rem; }
+  .fleet { flex-wrap: wrap; row-gap: 3px; }
 }
 
 

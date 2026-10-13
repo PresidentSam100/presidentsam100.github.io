@@ -79,6 +79,9 @@ body {
   background: rgba(1, 5, 12, 0.55);
 }
 .panel[hidden] { display: none; }
+/* centred while it fits; a card taller than the screen starts at the top and
+   the panel scrolls (centring alone would put its heading out of reach) */
+.panel > .card { margin: auto; }
 
 .card {
   width: min(430px, 100%);
@@ -151,6 +154,7 @@ kbd {
 .card .row button:active { transform: translateY(1px); }
 
 @media (max-width: 640px) {
+  .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */
   .card h1 { font-size: 26px; letter-spacing: 5px; }
   .hud { top: 58px; gap: 12px; padding: 5px 12px; }
   .hud #hud-score { font-size: 18px; }

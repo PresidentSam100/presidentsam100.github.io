@@ -301,8 +301,12 @@
   function layout() {
     var vw = window.innerWidth, vh = window.innerHeight;
     var chromeTop = vw < 640 ? 96 : 56;
-    TW = Math.floor(Math.min((vw - 30) / 15.6, (vh - chromeTop - 30) / 10.9));
-    TW = Math.max(24, Math.min(56, TW));
+    var fitW = Math.floor((vw - 30) / 15.6), fitH = Math.floor((vh - chromeTop - 30) / 10.9);
+    // a narrow phone: the tiles go under 24 px wide (down to 16) so that the
+    // whole turtle stays on the screen; held at 24, it ran off the side below
+    // about 375 px
+    if (fitW < 24) fitW = Math.max(16, Math.floor((vw - 20) / 15));
+    TW = Math.min(56, fitW, Math.max(24, fitH));
     TH = Math.round(TW * 1.32);
     var zOff = Math.max(3, Math.round(TW * 0.12));
     buildFaces(TW - 4, TH - 4);

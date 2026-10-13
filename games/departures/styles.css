@@ -56,6 +56,8 @@ body {
   color: var(--amber);
   text-shadow: 0 0 18px rgba(255, 201, 77, 0.35);
 }
+/* (a small phone: the sign's wide lettering closes up to stay on the screen) */
+@media (max-width: 380px) { .sign { font-size: 17px; letter-spacing: 3.5px; } }
 .clockwrap { display: flex; gap: 10px; }
 .flap-cells {
   font-family: "B612 Mono", "Courier New", monospace;
@@ -159,7 +161,9 @@ body:not(.fxon) #log li.fresh .dest { color: var(--amber); }
   padding: 8px 12px;
 }
 #answer:focus { outline: none; border-color: var(--amber-dim); }
-#answer::placeholder { color: #5a5f66; text-transform: none; }
+/* (the hint in the empty box shrinks with the screen, so a small phone's
+   box still shows all of it) */
+#answer::placeholder { color: #5a5f66; text-transform: none; letter-spacing: 0; font-size: min(1em, 4.2vw); }
 #answer.shake { animation: shake 0.3s ease; }
 @keyframes shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(4px); } }
 /* Visual FX off: no shake, so a name the board doesn't know turns the box red
@@ -191,6 +195,9 @@ body:not(.fxon) #answer.shake { animation: none; color: var(--red); border-color
   background: rgba(5, 6, 8, 0.7);
 }
 .panel[hidden] { display: none; }
+/* centred while it fits; a card taller than the screen starts at the top and
+   the panel scrolls (centring alone would put its heading out of reach) */
+.panel > .card { margin: auto; }
 .card {
   width: min(440px, 100%);
   background: linear-gradient(180deg, #1b2026, #12151a);
@@ -267,6 +274,7 @@ kbd {
 .card .row button:active { transform: translateY(1px); }
 
 @media (max-width: 640px) {
+  .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */
   #board-top { flex-direction: column; align-items: stretch; gap: 6px; margin-top: 40px; }
   .clockwrap { justify-content: space-between; }
   #regions { grid-template-columns: repeat(5, 1fr); gap: 5px; }

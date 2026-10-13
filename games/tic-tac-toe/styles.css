@@ -225,9 +225,14 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
 /* ---- modals: a smaller slate ----------------------------------------------- */
 .modal-overlay {
   position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
-  padding: 28px; z-index: 10; background: rgba(40, 30, 18, 0.55);
+  padding: 28px; z-index: 10; background: rgba(40, 30, 18, 0.55); overflow-y: auto;
 }
 .modal-overlay.open { display: flex; }
+/* centred while it fits; a slate taller than the screen starts at the top and
+   the overlay scrolls (centring alone would put its heading out of reach) */
+.modal-overlay > .modal { margin: auto; }
+/* phones: a slate starts below the fixed back / sound / FX buttons */
+@media (max-width: 640px) { .modal-overlay { padding-top: 64px; } }
 .modal {
   max-width: 420px; padding: 24px 26px; border-radius: 4px; color: var(--chalk);
   background: var(--dust), linear-gradient(170deg, var(--slate), var(--slate-2));

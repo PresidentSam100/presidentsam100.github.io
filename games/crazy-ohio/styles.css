@@ -24,6 +24,8 @@ header.top { text-align: center; margin: 0.8rem 0 0.4rem; }
 header.top h1 { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
 header.top h1 b { color: var(--pink); text-shadow: 0 0 18px rgba(255,79,168,.45); }
 header.top p { color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem; }
+/* phones: the title starts below the fixed back / pause / sound / FX buttons */
+@media (max-width: 640px) { header.top { margin-top: 3rem; } }
 
 section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; }
 section[hidden] { display: none; }
