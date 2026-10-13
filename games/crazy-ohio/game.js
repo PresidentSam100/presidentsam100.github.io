@@ -606,9 +606,9 @@
     GameShell.menuKeys({
       active: () => state === "setup",
       groups: ["#modeChoices .choice", "#densityChoices .choice", "#durChoices .choice"],
-      start: "#startBtn",
+      start: "#startBtn", space: true,
     });
-    GameShell.menuKeys({ active: () => state === "done", start: "#againBtn" });
+    GameShell.menuKeys({ active: () => state === "done", start: "#againBtn", space: true });
   }
 
   showSetupBest();

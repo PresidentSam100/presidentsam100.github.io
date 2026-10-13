@@ -293,8 +293,8 @@
   // Setup keys, shown on the buttons: 1 2 3 the duration, Enter starts; on
   // the results Enter is Again
   if (window.GameShell && GameShell.menuKeys) {
-    GameShell.menuKeys({ active: () => state === "setup", groups: ["#durChoices .choice"], start: "#startBtn" });
-    GameShell.menuKeys({ active: () => state === "done", start: "#againBtn" });
+    GameShell.menuKeys({ active: () => state === "setup", groups: ["#durChoices .choice"], start: "#startBtn", space: true });
+    GameShell.menuKeys({ active: () => state === "done", start: "#againBtn", space: true });
   }
 
   showSetupBest();

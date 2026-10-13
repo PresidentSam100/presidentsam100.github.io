@@ -747,7 +747,7 @@ if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     '#modeModal .opts[data-target="gameModeSel"] .opt',
     '#modeModal .opts[data-target="difficulty"] .opt',
   ],
-  start: '#startGame',
+  start: '#startGame', space: true,
 });
 // Keys for the bar under the board, shown on its buttons: ? the rules, R
 // restart, N a new game (R and N ask first mid-game, as the buttons do). With the rules open, Enter is Got it (Esc closes

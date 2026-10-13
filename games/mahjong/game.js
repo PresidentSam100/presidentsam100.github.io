@@ -559,7 +559,7 @@
       lines.push("Daily turtle No. " + rec.n +
         (dailyRecorded ? ", recorded earlier: " + fmt(rec.ms) : ""));
       $("share").hidden = false;
-      $("again").innerHTML = "Once more (just for fun) " + keyCap("Enter");
+      $("again").innerHTML = "Once more (just for fun) " + keyCap("Space or Enter");
     } else {
       isBest = bestTime ? bestTime.submit(Math.round(total)) : false;
       $("over-title").textContent = "The desk is clear";
@@ -567,7 +567,7 @@
       lines.push(isBest ? "a new fastest clear! 🀄" :
         "best: " + (bestTime && bestTime.get() ? fmt(bestTime.get()) : fmt(total)));
       $("share").hidden = true;
-      $("again").innerHTML = "Deal again " + keyCap("Enter");
+      $("again").innerHTML = "Deal again " + keyCap("Space or Enter");
     }
     $("over-stats").textContent = lines.join("\n");
     $("hudline").hidden = true;
@@ -677,21 +677,21 @@
       else if (k === "s") reshuffle();
       return;
     }
-    // Enter on a focused button is that button's click (a mode, Share, Modes…);
+    // Enter or Space on a focused button is that button's click (a mode, Share, Modes…);
     // dealing here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "classic" : "daily";
         store.set("mahjong_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
     // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
     // which takes it to the games page)
     if (state === "over") {
-      if (e.key === "Enter") startRun(mode);
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
       else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result
     }

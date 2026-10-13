@@ -781,7 +781,7 @@
       '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' +
         (record ? '★ NEW BEST!' : 'best ' + best + ' m') + '</p>' +
       '<p style="font-size:0.8rem;">' + (mode === "night" ? '🌙 night' : '☀️ day') + ' run</p>' +
-      '<button class="btn" id="btn-again" data-gs-key="Enter">Drive again</button>' +
+      '<button class="btn" id="btn-again" aria-keyshortcuts="Space Enter" data-gs-key="Space or Enter">Drive again</button>' +
       '<br><button class="btn ghost" id="btn-menu" data-gs-key="⌫" title="Backspace">Change mode</button>';
     ov.classList.add("show");
     $("btn-again").addEventListener("click", function () { start(mode); });
@@ -820,6 +820,7 @@
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !running && !!$("m-day"); },
     groups: [{ sel: "#m-day, #m-night", into: ".t", pick: true }],
+    space: true,
     root: "#card"
   });
 

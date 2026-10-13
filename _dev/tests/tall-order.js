@@ -93,7 +93,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     return r;
   };
   const desk = await how({}), phone = await how(require("@playwright/test").devices["Pixel 7"]);
-  check("tall-order: on a desktop the menu says to tap or press Space to drop a tier", /press Space to drop/.test(desk.how), desk.how);
+  check("tall-order: on a desktop the menu says to tap or press Space or Enter to drop a tier", /press Space or Enter to drop/.test(desk.how), desk.how);
   check("tall-order: on a touch-only phone the menu says to tap to drop a tier, and every keycap is hidden",
     /tap to drop/.test(phone.how) && !/Space/.test(phone.how) && phone.caps.length > 0 && phone.caps.every((c) => /:none$/.test(c)), phone);
 };

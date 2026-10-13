@@ -33,31 +33,31 @@ const ALLOW = {
 // shown or not (cards that come up later)
 const CARDS = {
   "2048/": [["#new-game", "N"]],
-  "click-tap/": [["#quitBtn", "⌫"], ["#againBtn", "Enter"], ["#settingsBtn", "⌫"]],
-  "crazy-ohio/": [["#quitBtn", "⌫"], ["#againBtn", "Enter"], ["#settingsBtn", "⌫"]],
+  "click-tap/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
+  "crazy-ohio/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
   "corner-pocket/": [["#againBtn", "Enter"], ["#toMenuBtn", "⌫"], ["#spinReset", "C"], ["#spinDone", "Enter"], ["#quitYes", "Enter"], ["#quitNo", "Esc"]],
   "darkroom/": [["#to-gallery", "G"], ["#hud-back", "⌫"], ["#win-next", "Enter"], ["#win-share", "S"], ["#win-menu", "⌫"], ["#gallery-back", "Esc"]],
-  "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Esc"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Enter"], ["#result-menu", "⌫"]],
+  "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Esc"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
-  "hash/": [["#ovBtn", "Enter"]],
+  "hash/": [["#ovBtn", "Space or Enter"]],
   "jam-jar/": [["#againBtn", "Enter"]],
   "steamfitter/": [["#againBtn", "Enter"]],
   "salvo/": [["#againBtn", "Enter"]],
-  "sunset-slice/": [["#again", "Enter"], ["#quit", "⌫"]],
+  "sunset-slice/": [["#again", "Space or Enter"], ["#quit", "⌫"]],
   "lights-out/": [["#hint", "H"], ["#share", "S"]],
   "mahjong/": [["#btn-newdeal", "N"], ["#btn-giveup", "G"], ["#share", "S"]],
   "science-fair/": [["#share", "S"]],
   "minesweeper/": [["#modeBtn", "T"], ["#share", "S"]],
   "minesweeper/endless.html": [["#modeBtn", "T"]],
   "logicgate/": [["#checkBtn", "Enter"], ["#winNext", "Enter"]],
-  "tile-maze/": [["#overlayReplay", "R"], ["#overlayNext", "Enter"]],
-  "chess/": [["#overAgain", "Enter"]],
-  "chess/three.html": [["#overAgain", "Enter"]],
+  "tile-maze/": [["#overlayReplay", "R"], ["#overlayNext", "Space or Enter"]],
+  "chess/": [["#overAgain", "Space or Enter"]],
+  "chess/three.html": [["#overAgain", "Space or Enter"]],
   "dots-and-boxes/": [["#closeRules", "Enter"]],
   "link-many/": [["#closeRules", "Enter"]],
   "tic-tac-toe/": [["#closeRules", "Enter"], ["#symPick button", "X"]],
   "klondike/": [["#m-rules", "F1"]],
-  "pop-the-lock/": [["#play", "Space"]],
+  "pop-the-lock/": [["#play", "Space or Enter"]],
 };
 
 // the keycap an element wears: its own data-gs-key, one inside it, or a <kbd> inside it
@@ -127,7 +127,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.keyboard.press("Enter"); await settle(p);
     const again = await p.evaluate(() => ({ shown: document.getElementById("overlay").classList.contains("show"), score: document.getElementById("score").textContent }));
     check("2048: N is the AC key (asking 'Start a new game?' mid-game); on Game Over Try Again shows Enter, and Enter starts a new game",
-      asked === "Start a new game?" && over.title === "Game Over" && over.cap === "Enter" && !again.shown && again.score === "0", { asked, over, again });
+      asked === "Start a new game?" && over.title === "Game Over" && over.cap === "Space or Enter" && !again.shown && again.score === "0", { asked, over, again });
     check("2048 (keys): no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
@@ -141,7 +141,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const caps = await p.evaluate(() => [document.getElementById("btn-again").getAttribute("data-gs-key"), document.getElementById("btn-menu").getAttribute("data-gs-key")].join(" "));
     await p.keyboard.press("Enter"); await settle(p, 300);
     const running = await p.evaluate(() => __game.running);
-    check("quick-minute: the crash card's Drive again shows Enter and Change mode ⌫; Enter drives again", caps === "Enter ⌫" && running, { caps, running });
+    check("quick-minute: the crash card's Drive again shows Space or Enter and Change mode ⌫; Enter drives again", caps === "Space or Enter ⌫" && running, { caps, running });
     await p.close();
   }
 

@@ -12,7 +12,7 @@ Clear enough notches to open the lock and climb levels. One miss ends the run.
 | Action | Input |
 | ------ | ----- |
 | Pop the lock | Click • Tap • `Space` / `Enter` |
-| Start / Retry | The **PLAY** button or any tap |
+| Start / Retry | The **PLAY** button, any tap, `Space` or `Enter` |
 | Pick a colour | Its swatch, or `1` to `4` |
 | Mute / unmute | 🔊 button (bottom-right) |
 

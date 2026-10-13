@@ -1360,7 +1360,7 @@
     if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
       active: () => !GAME && !menu.classList.contains("hidden"),
       groups: ["#mode-pick .btn"],
-      start: "#play-btn"
+      start: "#play-btn", space: true
     });
     // Keys for the bar and the cards, shown on their buttons. In play
     // Backspace is ☰ Menu (which asks first). Paused: R restarts and
@@ -1373,7 +1373,7 @@
       GameShell.menuKeys({ active: st("paused"), groups: [
         { sel: "#pause-restart", keys: ["r"], ask: { title: "Restart this game?", ok: "Restart" } },
         { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
-      GameShell.menuKeys({ active: st("result"), start: "#result-again" });
+      GameShell.menuKeys({ active: st("result"), start: "#result-again", space: true });
     }
     // ☰ Menu mid-run would throw the run away: ask first (paused under the box)
     document.getElementById("menu-btn").addEventListener("click", () => {

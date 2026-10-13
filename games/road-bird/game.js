@@ -1984,8 +1984,9 @@ function drawButton(b, fill, label, sub, hi, selected, key) {
       // the key that presses it rides on the button, as a keycap after its
       // name (nothing on a touch-only device: a tap presses it)
       const lw = ctx.measureText(label).width;
-      ctx.font = "bold 14px 'Trebuchet MS', sans-serif";
-      const kw = ctx.measureText(key).width + 14 * 0.92;   // (the keycap's padding, as drawKeys measures it)
+      const ks = key.length > 6 ? 12 : 14;                  // (a long one, "SPACE or ENTER", is set a size down)
+      ctx.font = "bold " + ks + "px 'Trebuchet MS', sans-serif";
+      const kw = ctx.measureText(key).width + ks * 0.92;   // (the keycap's padding, as drawKeys measures it)
       const x0 = b.x + (b.w - lw - 9 - kw) / 2;
       ctx.textAlign = "left";
       window.GameShell.drawKeys(ctx, "[" + key + "]", x0 + lw + 9, cy + 1);
@@ -2109,7 +2110,7 @@ function drawMenu() {
   const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
   // (the way out to the games page and the sound are on the corner buttons, with their keys)
-  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] / tap to play", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
+  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] or [ENTER] / tap to play", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
   ctx.globalAlpha = 1;
 }
 
@@ -2134,9 +2135,9 @@ function drawDead() {
   textCenter((mode ? mode.label : "") + "  ·  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
   textCenter("Best  " + highScore + (bestCoins ? "    (🪙 " + bestCoins + ")" : ""), W / 2, H * 0.39 + 30, 18, "#dfe6f0");
   const r = deadButtonRects();
-  // each button wears its own key (Space, Backspace); the way out to the
+  // each button wears its own key (Space or Enter, Backspace); the way out to the
   // games page and the sound are on the corner buttons, with theirs
-  drawButton(r[0], "#ffd23d", "Play Again", null, null, true, "SPACE");
+  drawButton(r[0], "#ffd23d", "Play Again", null, null, true, "SPACE or ENTER");
   drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false, "⌫");
 }
 

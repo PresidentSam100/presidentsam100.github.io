@@ -506,16 +506,17 @@
     // button is that button's own press.
     if (e.repeat || document.querySelector(".gs-dialog")) return;
     if (e.key === "n" || e.key === "N") { e.preventDefault(); document.getElementById("new-game").click(); }
-    else if (e.key === "Enter" && overlay.classList.contains("show") && !(e.target && e.target.closest && e.target.closest("button, a"))) {
+    else if ((e.key === "Enter" || e.key === " ") && overlay.classList.contains("show") && !(e.target && e.target.closest && e.target.closest("button, a"))) {
       e.preventDefault();
       (keepGoingBtn.style.display === "none" ? document.getElementById("overlay-retry") : keepGoingBtn).click();
     }
   });
-  // the card's keycaps, set as it comes up: on a win Keep Going is Enter and
-  // Try Again is N (it's a new game, as AC is); on Game Over Try Again is Enter
+  // the card's keycaps, set as it comes up: on a win Keep Going is Space or
+  // Enter and Try Again is N (it's a new game, as AC is); on Game Over Try
+  // Again is Space or Enter
   function cardKeys(win) {
-    document.getElementById("overlay-retry").setAttribute("data-gs-key", win ? "N" : "Enter");
-    keepGoingBtn.setAttribute("data-gs-key", "Enter");
+    document.getElementById("overlay-retry").setAttribute("data-gs-key", win ? "N" : "Space or Enter");
+    keepGoingBtn.setAttribute("data-gs-key", "Space or Enter");
   }
 
   var tsx = 0, tsy = 0, tracking = false;

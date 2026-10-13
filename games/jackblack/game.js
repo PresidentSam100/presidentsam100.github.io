@@ -399,11 +399,11 @@
 
   // ---- keys (GameShell.menuKeys: each presses its button, and the button wears it) ---------
   if (window.GameShell && GameShell.menuKeys) {
-    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }], start: "#play" });
+    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }], start: "#play", space: true });
     GameShell.menuKeys({
       active: function () { return state === "table" && !busy && !inHand(); },
       groups: [{ sel: "#chips button", into: ".cap" }, { sel: "#clear", keys: ["c"] }],
-      start: "#deal"
+      start: "#deal", space: true
     });
     GameShell.menuKeys({
       active: function () { return state === "table" && !busy && inHand(); },
@@ -415,7 +415,7 @@
     GameShell.menuKeys({
       active: function () { return state === "over"; },
       groups: [{ sel: "#share", keys: ["s"] }, { sel: "#to-menu", keys: ["Backspace"] }],
-      start: "#again"
+      start: "#again", space: true
     });
   }
 

@@ -184,7 +184,7 @@
         '<li>Take longer than <b>' + (WINDOW_MS / 1000) + ' second</b> after the call and he draws first: that duel counts as <b>' + WINDOW_MS + ' ms</b>.</li>' +
         '<li>Draw <b>early</b> and the other gunslinger shoots first: you get an <b>✗</b>, and that attempt is scored as a <b>' + (PENALTY / 1000).toFixed(1) + 's</b> penalty, so don&rsquo;t guess!</li>' +
       '</ul>' +
-      '<button class="btn" id="btn-start" aria-keyshortcuts="Space" data-gs-key="Space">Step into the street</button>';
+      '<button class="btn" id="btn-start" aria-keyshortcuts="Space Enter" data-gs-key="Space or Enter">Step into the street</button>';
     ov.classList.add("show");
     $("btn-start").addEventListener("click", begin);
   }
@@ -285,7 +285,7 @@
       '<p style="color:' + r.c + ';font-weight:800;margin-top:0;">' + r.t + (fouls ? ' · ' + fouls + ' false start' + (fouls === 1 ? '' : 's') : '') + (slow ? ' · ' + slow + ' outdrawn' : '') + '</p>' +
       '<p>' + (record ? "★ new best average!" : "best avg " + f1(best) + " ms") + ' &nbsp;·&nbsp; fastest tap ' + (bestSingle === null ? "none" : f1(bestSingle) + " ms") + '</p>' +
       '<div class="summary">' + chips + '</div>' +
-      '<button class="btn" id="btn-again" style="margin-top:0.6rem;" aria-keyshortcuts="Space" data-gs-key="Space">Duel again</button>';
+      '<button class="btn" id="btn-again" style="margin-top:0.6rem;" aria-keyshortcuts="Space Enter" data-gs-key="Space or Enter">Duel again</button>';
     ov.classList.add("show");
     Sound.done();
     $("btn-again").addEventListener("click", begin);

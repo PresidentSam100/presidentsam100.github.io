@@ -497,6 +497,8 @@
   //       { sel: "#pick-size button", keys: ["3", "5", "7"] } // or keys of its own
   //     ],
   //     start: "#play",    // Enter presses it (unless a button has the focus)
+  //     space: true,       // ...and so does Space, in a game with no other job
+  //                        //   for it: the keycap then reads "Space or Enter"
   //     root: "#menu"      // optional: where a script (re)builds the buttons,
   //   });                  //   so new ones get their keycaps as they appear
   //
@@ -516,7 +518,8 @@
   //                     and the modes can be gone through first. The picked
   //                     button is ringed (data-gs-pick) and wears Enter in
   //                     place of its own key; a click or a tap still starts at
-  //                     once. (Not with `start`: Enter is the picked button's.)
+  //                     once. (Not with `start`: Enter is the picked button's.
+  //                     With `space: true` Space presses the picked one too.)
   //   first: fn         with pick: () -> the button picked to begin with, or
   //                     its place in the row (the mode last played); else the
   //                     row's first
@@ -528,6 +531,9 @@
     opts = opts || {};
     var active = opts.active || function () { return true; };
     var groups = (opts.groups || []).map(function (g) { return typeof g === "string" ? { sel: g } : g; });
+    // what the start button (or a `pick` row's picked one) wears: Enter, and
+    // Space with it where the game lets Space start too
+    var GO = opts.space ? "Space or Enter" : "Enter";
 
     // every option in the page now, with its key: [{ btn, key, g }]
     function options() {
@@ -566,16 +572,16 @@
         var label = CAPS[o.key] || (o.key.length === 1 ? o.key.toUpperCase() : o.key);
         var host = typeof o.g.into === "function" ? o.g.into(o.btn) : o.g.into && o.btn.querySelector(o.g.into);
         var mine = o.g.pick && on[groups.indexOf(o.g)] === o.btn;
-        if (o.g.caps !== false) cap(host || o.btn, mine ? "Enter" : label);
+        if (o.g.caps !== false) cap(host || o.btn, mine ? GO : label);
         if (o.g.pick && o.btn.hasAttribute("data-gs-pick") !== mine) {
           if (mine) o.btn.setAttribute("data-gs-pick", ""); else o.btn.removeAttribute("data-gs-pick");
         }
-        if (mine) label += " Enter";
+        if (mine) label += opts.space ? " Space Enter" : " Enter";
         if (o.btn.getAttribute("aria-keyshortcuts") !== label) o.btn.setAttribute("aria-keyshortcuts", label);
       });
       var s = opts.start && document.querySelector(opts.start);
       // (a Play button that already shows its key keeps its own keycap)
-      if (s && !s.querySelector("kbd")) cap((opts.startInto && s.querySelector(opts.startInto)) || s, "Enter");
+      if (s && !s.querySelector("kbd")) cap((opts.startInto && s.querySelector(opts.startInto)) || s, GO);
     }
     function usable(b) {
       return !!b && !b.disabled && b.getAttribute("aria-disabled") !== "true" && b.getClientRects().length > 0;
@@ -592,8 +598,8 @@
       var on = false;
       try { on = !!active(); } catch (err) {}
       if (!on) { forget(); return; }
-      if (e.key === "Enter") {
-        // Enter on a focused button, link or field is that control's own
+      if (e.key === "Enter" || (opts.space && e.key === " ")) {
+        // Enter (or Space) on a focused button, link or field is that control's own
         var t = e.target;
         if (t && t.closest && t.closest("button, a, summary, input, select")) return;
         var s = opts.start ? document.querySelector(opts.start) : picked();
@@ -646,7 +652,7 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
     else watch();
     window.addEventListener("load", decorate);
-    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, usable: usable, picked: picked };
+    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, space: !!opts.space, usable: usable, picked: picked };
     menuKeys.all.push(api);   // (every menu on the page, for the tests)
     return api;
   }

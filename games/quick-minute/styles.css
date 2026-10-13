@@ -248,6 +248,14 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   .mode-btn .ic { margin-right: 0.25rem; }
   .mode-btn .t { letter-spacing: 1px; }
 }
+/* (and there, with a keyboard, the picked switch's keycap reads "Space or
+   Enter": too wide to sit beside the name, so the keycaps go under it. A touch
+   screen shows no keycaps at all.) */
+@media not all and (hover: none) {
+  @media (max-width: 340px) {
+    .mode-btn .t[data-gs-key]::after { display: block; width: max-content; margin: 0.25rem auto 0; }
+  }
+}
 
 /* the shared pause card (game-shell.js) in the dash's lettering, like the menus */
 .gs-pause-card h2, .gs-pause-card button { font-family: var(--badge); font-weight: 400; }

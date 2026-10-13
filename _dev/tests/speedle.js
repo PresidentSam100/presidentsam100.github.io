@@ -85,8 +85,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
   await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const again = await p.evaluate(() => !document.getElementById("overlay").classList.contains("show") && document.getElementById("label-a").textContent);
-  check("speedle keys: the menu shows Enter (on Sprint, picked) / 2 / H keycaps, H toggles Hard; 2 picks Race without starting and Enter starts it; back on the menu Race is picked, and 1 then Enter starts Sprint",
-    caps.join() === "Enter,2,H" && k1 !== k0 && k2 === k0 && picked.menu && picked.race && !race.overlay && race.label === "Time" && last && /Time left/.test(sprint), { caps, k0, k1, k2, picked, race, last, sprint });
+  check("speedle keys: the menu shows Space or Enter (on Sprint, picked) / 2 / H keycaps, H toggles Hard; 2 picks Race without starting and Enter starts it; back on the menu Race is picked, and 1 then Enter starts Sprint",
+    caps.join() === "Space or Enter,2,H" && k1 !== k0 && k2 === k0 && picked.menu && picked.race && !race.overlay && race.label === "Time" && last && /Time left/.test(sprint), { caps, k0, k1, k2, picked, race, last, sprint });
   check("speedle keys: the end card shows Enter / ⌫ keycaps; Esc leaves, Backspace goes back to the modes, Enter plays again",
     endCaps.join() === "Enter,⌫" && escLeaves && backToMenu && /Time left/.test(again), { endCaps, escLeaves, backToMenu, again });
 

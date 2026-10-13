@@ -63,7 +63,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("2"); await p.keyboard.press("2"); const b4 = await now(p);
   const caps = await p.evaluate(() => [...document.querySelectorAll("#chips .cap")].map((e) => e.getAttribute("data-gs-key")).concat(["clear", "deal", "leave"].map((id) => document.getElementById(id).getAttribute("data-gs-key"))).join(" "));
   check("jackblack: at the table 1 2 3 4 add a chip and C clears; a number never deals, and Enter won't with no bet down; each button shows its key",
-    b0.state === "table" && b0.bet === 50 && b1.bet === 160 && b1.phase === "bet" && b2.bet === 0 && b3.phase === "bet" && b4.bet === 100 && caps === "1 2 3 4 C Enter ⌫", { b0, b1, b2, b3, b4, caps });
+    b0.state === "table" && b0.bet === 50 && b1.bet === 160 && b1.phase === "bet" && b2.bet === 0 && b3.phase === "bet" && b4.bet === 100 && caps === "1 2 3 4 C Space or Enter ⌫", { b0, b1, b2, b3, b4, caps });
 
   // ---- a hand: H hits, S stands; the win is paid and the stake saved
   await p.evaluate(() => JackBlack.stack("T 6 5 T 4 9"));        // you 15, dealer 16; hit a 4 = 19; dealer draws a 9 and busts
@@ -133,8 +133,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     menu: document.getElementById("to-menu").getAttribute("data-gs-key"), saved: localStorage.getItem("jackblack_stake") }));
   await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const o2 = await now(p);
-  check("jackblack: a saved stake of 50 is what you sit down with; losing it all brings up 'Cleaned out' (Enter and ⌫ on its buttons), and Enter is a fresh 1,000",
-    o0.stake === 50 && o0.bet === 50 && o1.state === "over" && o1.title === "Cleaned out" && o1.again === "Enter" && o1.menu === "⌫" && o1.saved === null && o2.state === "table" && o2.stake === 1000, { o0, o1, o2 });
+  check("jackblack: a saved stake of 50 is what you sit down with; losing it all brings up 'Cleaned out' (Space or Enter and ⌫ on its buttons), and Enter is a fresh 1,000",
+    o0.stake === 50 && o0.bet === 50 && o1.state === "over" && o1.title === "Cleaned out" && o1.again === "Space or Enter" && o1.menu === "⌫" && o1.saved === null && o2.state === "table" && o2.stake === 1000, { o0, o1, o2 });
   await p.close();
 
   // ---- the Daily shoe: the same cards for everyone, ten hands, one recorded result

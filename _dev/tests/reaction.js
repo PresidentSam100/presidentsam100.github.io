@@ -50,8 +50,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const c = await lib.newContext(browser, opts);
     const q = await lib.open(c, base, "games/reaction/");
     const hint = await q.evaluate(() => document.querySelector(".hint").innerText);
-    const ok = label === "desktop" ? /^tap the street or press Space the moment/.test(hint) : /^tap the street the moment/.test(hint) && !/Space/.test(hint);
-    check("reaction " + label + ": the hint " + (label === "desktop" ? "names Space" : "says tap the street, no Space"), ok, hint);
+    const ok = label === "desktop" ? /^tap the street or press Space or Enter the moment/.test(hint) : /^tap the street the moment/.test(hint) && !/Space/.test(hint);
+    check("reaction " + label + ": the hint " + (label === "desktop" ? "names Space and Enter" : "says tap the street, no keys"), ok, hint);
     await q.close();
     await c.close();
   }

@@ -426,7 +426,7 @@
     if (k === "q" || k === "e") { stepLevel(k === "q" ? -1 : 1); return; }
     if (k === "?" || k === "/") { e.preventDefault(); openGuide(); return; }
     if (k === "l") { document.querySelector(".editor-link").click(); return; }
-    if (e.key === "Enter" && !overlayEl.hidden && !(e.target && e.target.closest && e.target.closest("button, a"))) {
+    if ((e.key === "Enter" || e.key === " ") && !overlayEl.hidden && !(e.target && e.target.closest && e.target.closest("button, a"))) {
       const nx = document.getElementById("overlayNext");
       if (nx.style.display !== "none") { e.preventDefault(); nx.click(); }
       return;

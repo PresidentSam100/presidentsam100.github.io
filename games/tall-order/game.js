@@ -80,6 +80,7 @@
 
   // ---- game state -----------------------------------------------------------------
   var state = "menu";                  // menu | play | tumble | zoom | over
+  var overAt = 0;                      // when the end card came up (Space waits a moment before it bakes another)
   var mode = store.get("tallorder_mode", "bakery");
   if (mode !== "bakery" && mode !== "rush") mode = "bakery";
 
@@ -250,6 +251,7 @@
     $("hud").hidden = true;
     $("over").hidden = false;
     state = "over";
+    overAt = performance.now();
   }
 
   // ---- garnish ---------------------------------------------------------------------
@@ -502,21 +504,24 @@
       return;
     }
     if (e.repeat) return;
-    // Enter on a focused button is that button's click (a mode, Modes…);
+    // Enter or Space on a focused button is that button's click (a mode, Modes…);
     // starting a run here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "bakery" : "rush";
         store.set("tallorder_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
-    // the end card: Enter bakes another, Backspace goes back to the modes;
+    // the end card: Enter or Space bakes another, Backspace goes back to the modes;
     // Esc isn't claimed, so it leaves for the games page
     if (state === "over") {
-      if (e.key === "Enter") startRun(mode);
+      // (Space not in the card's first moments: in play it drops a tier, so
+      // one pressed as the card comes up mustn't skip it)
+      if (e.key === " " && performance.now() - overAt < 700) { e.preventDefault(); return; }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });

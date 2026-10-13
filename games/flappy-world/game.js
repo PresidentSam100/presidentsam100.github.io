@@ -2097,7 +2097,12 @@ class Game {
     });
     document.addEventListener('keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-      if (e.code === 'Space' || e.code === 'ArrowUp') {
+      // (Enter starts, plays again and comes back from the guide, as Space
+      // does; in flight it is left alone, and on a focused button it is that
+      // button's own press)
+      const enter = e.code === 'Enter' && this.gameState !== 'PLAYING' && this.gameState !== 'PAUSED' &&
+        !(e.target && e.target.closest && e.target.closest('button, a'));
+      if (e.code === 'Space' || e.code === 'ArrowUp' || enter) {
         e.preventDefault();
         if (e.repeat) return; // one flap per physical press: no hold-to-hover
         this.handleInput();
@@ -2505,7 +2510,7 @@ class Game {
     if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       // outlined() with a keycap: the same drop shadow, then the INK-outlined text
       // (on a touch-only device, without the key: there's none to press)
-      const cta = 'TAP / [SPACE] TO START', touch = 'TAP TO START';
+      const cta = 'TAP / [SPACE] / [ENTER] TO START', touch = 'TAP TO START';
       ctx.font = '30px ' + FONT;
       ctx.fillStyle = 'rgba(20,10,60,0.35)';
       keyHint(ctx, cta, CANVAS_W / 2, 592, { outline: { width: 7, color: 'rgba(20,10,60,0.35)' }, touch: touch });
@@ -2624,7 +2629,7 @@ class Game {
     if (reducedMotion() || Math.floor(this.blinkTimer * 2) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '22px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      keyHint(ctx, 'TAP / [SPACE] TO PLAY AGAIN', CANVAS_W / 2, 512, { touch: 'TAP TO PLAY AGAIN' });
+      keyHint(ctx, 'TAP / [SPACE] / [ENTER] TO PLAY AGAIN', CANVAS_W / 2, 512, { touch: 'TAP TO PLAY AGAIN' });
     }
     ctx.font = '16px ' + FONT;
     ctx.fillStyle = '#6a6f86';
@@ -2723,7 +2728,7 @@ class Game {
     if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
       ctx.font = '18px ' + FONT;
       ctx.fillStyle = '#1c5fb8';
-      keyHint(ctx, 'TAP / [SPACE] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46, { touch: 'TAP TO RETURN' });
+      keyHint(ctx, 'TAP / [SPACE] / [ENTER] / [I] TO RETURN', CANVAS_W / 2, CANVAS_H - 46, { touch: 'TAP TO RETURN' });
     }
   }
 

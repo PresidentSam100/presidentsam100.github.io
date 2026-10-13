@@ -401,8 +401,8 @@ document.getElementById("again").addEventListener("click", () => {
 // click still starts at once). The count last played is the one picked. On
 // the result card Enter is Play Again.
 if (window.GameShell && GameShell.menuKeys) {
-  GameShell.menuKeys({ active: () => state === "menu", groups: [{ sel: "#menu .btn", pick: true, first: () => players - 1 }] });
-  GameShell.menuKeys({ active: () => state === "gameover", start: "#again" });
+  GameShell.menuKeys({ active: () => state === "menu", groups: [{ sel: "#menu .btn", pick: true, first: () => players - 1 }], space: true });
+  GameShell.menuKeys({ active: () => state === "gameover", start: "#again", space: true });
 }
 
 controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " wins.";

@@ -525,13 +525,13 @@
       statLines.push("Field Trip #" + d.n + " · best today: round " + d.best);
       statLines.push(left > 0 ? (left + (left === 1 ? " launch" : " launches") + " left") : "all launches used: back tomorrow!");
       $("again").hidden = left <= 0;
-      $("again").innerHTML = 'Launch again <span class="gs-keys"><kbd>Enter</kbd></span>';
+      $("again").innerHTML = 'Launch again <span class="gs-keys"><kbd>Space or Enter</kbd></span>';
       $("share").hidden = false;
     } else {
       var b = mode === "classic" ? bestClassic : bestGrand;
       statLines.push(isBest ? "a new best! ⭐" : "best: round " + (b ? b.get() : 0));
       $("again").hidden = false;
-      $("again").innerHTML = 'Again <span class="gs-keys"><kbd>Enter</kbd></span>';
+      $("again").innerHTML = 'Again <span class="gs-keys"><kbd>Space or Enter</kbd></span>';
       $("share").hidden = true;
     }
     $("over-stats").textContent = statLines.join("\n");
@@ -617,21 +617,21 @@
     var digit = /^(?:Digit|Numpad)([1-9])$/.exec(e.code);
     if (state === "input" && digit) { e.preventDefault(); if (!e.repeat) press(+digit[1] - 1); return; }
     if (e.repeat) return;
-    // Enter on a focused button is that button's click (a mode, Blast off,
+    // Enter or Space on a focused button is that button's click (a mode, Blast off,
     // Again…); starting a run here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["classic", "grand", "daily"][+e.key - 1];
         store.set("scifair_mode", mode);
         applyDim(); applyRoids(); paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
     // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
     // which takes it to the games page)
     if (state === "over") {
-      if (e.key === "Enter" && !$("again").hidden) startRun(mode);
+      if ((e.key === "Enter" || e.key === " ") && !$("again").hidden) { e.preventDefault(); startRun(mode); }
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
       else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Field Trip's Share result
     }

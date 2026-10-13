@@ -1021,7 +1021,7 @@ if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     '#modeModal .opts[data-target="difficulty"] .opt',
     { sel: '#modeModal .opts[data-target="chaosSide"] .opt', keys: ['o', 'c'] },
   ],
-  start: '#startGame',
+  start: '#startGame', space: true,
 });
 // Keys for the bar under the board, shown on its buttons: ? the rules, R
 // restart, N a new game (R and N ask first mid-game, as leaving does), and X / O the

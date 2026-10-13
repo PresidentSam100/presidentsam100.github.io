@@ -604,7 +604,7 @@
       active: function () { return overlay.hidden && !PAUSE.isPaused(); },
       groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] }]
     });
-    GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn" });
+    GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn", space: true });
   }
 
   // P, the ⏸ button and a hidden tab pause the game from the deal

@@ -75,17 +75,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     if (want.pick) {
       // every button here starts the game: a key picks its button without
       // pressing it (one ring, on it, and Enter in place of its own key),
-      // the menu stays up, and Enter then starts the picked one, once
+      // the menu stays up, and Enter then starts the picked one, once.
+      // (Where Space starts too, the picked button wears "Space or Enter".)
+      const go = await p.evaluate(() => GameShell.menuKeys.all.some((x) => x.active() && x.space) ? "Space or Enter" : "Enter");
       for (const k of want.keys) {
         const o = await optionFor(p, k);
         if (!o) { bad.push(k + ": no button"); continue; }
-        if (!o.shown || !(o.picked ? o.cap === "Enter" : o.cap === label(k))) bad.push(k + ": keycap " + JSON.stringify(o));
+        if (!o.shown || !(o.picked ? o.cap === go : o.cap === label(k))) bad.push(k + ": keycap " + JSON.stringify(o));
         await p.keyboard.press(k);
         const s = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ hits: window.__hits, picked: window.__opt.hasAttribute("data-gs-pick"),
           cap: window.__host.getAttribute("data-gs-key"), rings: document.querySelectorAll("[data-gs-pick]").length, ring: getComputedStyle(window.__opt).outlineStyle, up: window.__menu.active() }), 60))).catch(() => "page left");
-        if (!(s.hits === 0 && s.picked && s.cap === "Enter" && s.rings === 1 && s.ring === "solid" && s.up)) bad.push(k + ": " + JSON.stringify(s));
+        if (!(s.hits === 0 && s.picked && s.cap === go && s.rings === 1 && s.ring === "solid" && s.up)) bad.push(k + ": " + JSON.stringify(s));
       }
-      check(g + ": each menu key picks its button (ringed, wearing Enter) without starting the game", bad.length === 0, bad);
+      check(g + ": each menu key picks its button (ringed, wearing Enter, or Space or Enter where Space starts too) without starting the game", bad.length === 0, bad);
       await p.keyboard.press("Enter");     // (the last key's button still counts its clicks: none so far)
       const went = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ hits: window.__hits, up: window.__menu.active() }), 80))).catch(() => "page left");
       check(g + ": Enter starts the picked one, once, and the menu goes", went.hits === 1 && went.up === false, went);
@@ -110,9 +112,10 @@ module.exports = async ({ browser, base, check, lib }) => {
         window.__hits = 0; s.addEventListener("click", () => { window.__hits++; }, { once: true, capture: true });
         return s.getAttribute("data-gs-key") || (s.querySelector("kbd") || {}).textContent || null;
       }).catch((e) => String(e));
+      const go = await p.evaluate(() => (GameShell.menuKeys.all.find((x) => x.active() && x.start) || {}).space ? "Space or Enter" : "Enter").catch(() => "Enter");
       await p.keyboard.press("Enter");
       const hits = await p.evaluate(() => new Promise((r) => setTimeout(() => r(window.__hits), 60))).catch(() => "page left");
-      check(g + ": Enter presses the start button, which shows an Enter keycap", hits === 1 && cap === "Enter", { hits, cap });
+      check(g + ": Enter presses the start button, which shows its keycap (Enter, or Space or Enter where Space starts too)", hits === 1 && cap === go, { hits, cap, go });
     }
     check(g + ": no page errors", p.errs.length === 0, p.errs);
     await p.close();

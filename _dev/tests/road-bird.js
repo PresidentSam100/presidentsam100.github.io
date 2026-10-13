@@ -87,8 +87,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const overAt = await drawnAt(d), overAll = overAt.map((t) => t.s).join(" | ");
   const on = (s, y0) => overAt.some((t) => t.s === s && t.y > y0 && t.y < y0 + 50 && t.x > (W - 300) / 2 && t.x < (W + 300) / 2);
   const hintLook = await d.evaluate(() => { const c = getComputedStyle(document.getElementById("hint")); return { color: c.color, outlined: c.textShadow !== "none" && /rgba?\(0, 0, 0/.test(c.textShadow) }; });
-  check("road-bird, desktop: Esc and M aren't listed again on the menu or the game-over card; Space rides on Play Again and ⌫ on Main Menu, with no line of keys under them",
-    !/ESC/i.test(deskMenu) && !/ESC|mute|play again|menu  /i.test(overAll.replace(/Play Again|Main Menu/g, "")) && on("SPACE", H * 0.60) && on("⌫", H * 0.60 + 64), { deskMenu, overAll });
+  check("road-bird, desktop: Esc and M aren't listed again on the menu or the game-over card; Space or Enter rides on Play Again and ⌫ on Main Menu, with no line of keys under them",
+    !/ESC/i.test(deskMenu) && !/ESC|mute|play again|menu  /i.test(overAll.replace(/Play Again|Main Menu/g, "")) && on("SPACE or ENTER", H * 0.60) && on("⌫", H * 0.60 + 64), { deskMenu, overAll });
   check("road-bird, desktop: the how-to-play line is lettered like the board's captions (white, dark outline)", hintLook.color === "rgb(255, 255, 255)" && hintLook.outlined, hintLook);
   await d.close();
 

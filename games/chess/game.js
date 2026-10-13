@@ -735,11 +735,11 @@
   if(window.GameShell && GameShell.menuKeys){
     GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", keys:["2","4","3"], into:".tag" }] });
     GameShell.menuKeys({ active:()=>$("setup2Menu").classList.contains("show"),
-      groups:[{ sel:"#opponentPick .modebtn", into:".tag" }, "#diffPick .chip", { sel:"#sidePick .chip", keys:["w","b","r"] }], start:"#setup2Start" });
+      groups:[{ sel:"#opponentPick .modebtn", into:".tag" }, "#diffPick .chip", { sel:"#sidePick .chip", keys:["w","b","r"] }], start:"#setup2Start", space:true });
     GameShell.menuKeys({ active:()=>$("endMenu").classList.contains("show"), groups:[{ sel:"#endMenu .modebtn", into:".tag", pick:true }] });
     GameShell.menuKeys({ active:()=>!menuUp() && !$("overOverlay").classList.contains("show"),
       groups:[{ sel:"#newBtn", keys:["n"], ask:{ title:"Start a new game?", ok:"New game" } }, { sel:"#undoBtn", keys:["u"] }, { sel:"#flipBtn", keys:["f"] }, { sel:"#modeBtn", keys:["c"] }] });
-    GameShell.menuKeys({ active:()=>$("overOverlay").classList.contains("show"), start:"#overAgain" });
+    GameShell.menuKeys({ active:()=>$("overOverlay").classList.contains("show"), start:"#overAgain", space:true });
   }
 
   start(2);  // build a board behind the menu

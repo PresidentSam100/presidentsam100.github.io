@@ -612,6 +612,7 @@
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return ov.classList.contains("show") && !!$("m-sprint"); },
     groups: [{ sel: "#m-sprint, #m-race", into: ".t", pick: true, first: function () { return mode === "race" ? 1 : 0; } }],
+    space: true,
     root: "#card"
   });
 

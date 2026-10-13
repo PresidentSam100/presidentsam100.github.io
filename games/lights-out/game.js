@@ -25,7 +25,7 @@
   function fx() { return !(window.RM_ON && window.RM_ON()); }
   // a button's keycap, hidden on touch-only devices (.gs-keys, motion-toggle.js)
   function keyCap(k) { return '<span class="gs-keys"><kbd>' + k + "</kbd></span>"; }
-  var ENTER_CAP = " " + keyCap("Enter");
+  var ENTER_CAP = " " + keyCap("Space or Enter");
 
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
@@ -530,22 +530,22 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.repeat) return;
-    // Enter on a focused button is that button's click (a mode, Next, Modes…);
+    // Enter or Space on a focused button is that button's click (a mode, Next, Modes…);
     // starting a run here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2" || e.key === "3") {
         mode = ["windup", "daily", "zen"][+e.key - 1];
         store.set("lightsout_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
     // Backspace goes back to the modes, from the results or mid-sign (there's
     // no pause here), asking first mid-sign once there's something to lose;
     // Esc is left to ../motion-toggle.js, which takes it to the games page
     if (state === "over" && !$("over").hidden) {
-      if (e.key === "Enter") $("again").click();
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("again").click(); }
       else if (e.key === "Backspace") { e.preventDefault(); askToMenu(); }
       else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result
       return;

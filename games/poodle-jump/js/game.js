@@ -836,7 +836,7 @@ class Game {
       { keys: "[Space] / [↑] / click to shoot", touch: "Tap or 🎯 to shoot" },
       { keys: "[P] to pause", touch: "⏸ to pause" },
       "",
-      { keys: "Press [Space] or click to start", touch: "Tap to start" },
+      { keys: "[Space] / [Enter] / click to start", touch: "Tap to start" },
     ]);
   }
 
@@ -849,7 +849,7 @@ class Game {
       "Score: " + this.score,
       "Best: " + this.high,
       "",
-      { keys: "[Space] or click to play again", touch: "Tap to play again" },
+      { keys: "[Space] / [Enter] / click to retry", touch: "Tap to play again" },
       { keys: "[⌫] menu  ·  [Esc] all games", touch: "← Games for all games" },
     ];
     if (touch) lines.push("");                         // (room for the button)

@@ -1415,11 +1415,12 @@
     setTimeout(function () { document.getElementById("startBtn").focus(); }, 30);
   }
   // Menu keys, shown on the buttons: 1 2 the opponent, 3 4 5 the CPU's level
-  // (Enter is the Rack 'em button's own, as it has the focus)
+  // (Enter and Space are the Rack 'em button's own, as it has the focus;
+  // with the focus elsewhere they press it all the same)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return G.phase === "menu" && !menuEl.classList.contains("hidden"); },
     groups: ["#modeSeg button", "#levelSeg button"],
-    start: "#startBtn"
+    start: "#startBtn", space: true
   });
   // The cards' keys, shown on their buttons: Enter is Rematch on the result
   // (Backspace its Menu, in the key handler), Done on the spin pad (where C

@@ -741,9 +741,9 @@
       return;
     }
     if (e.repeat) return;
-    // Enter on a focused button is that button's click (Tone Master, Modes…);
+    // Enter or Space on a focused button is that button's click (Tone Master, Modes…);
     // starting a run here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       if (e.key === "1" || e.key === "2") {
         mode = e.key === "1" ? "festival" : "tone";
@@ -753,11 +753,14 @@
         script = e.key === "3" ? "simp" : "trad";
         store.set("lanterns_script", script);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
     if (state === "over") {
-      if (e.key === "Enter") startRun(mode);
+      // (Space, like Backspace below, not in the first moments: in play it
+      // lights a lantern, so one pressed as the night ends mustn't skip the results)
+      if (e.key === " " && performance.now() - endedAt < 700) { e.preventDefault(); return; }
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
       // which takes it to the games page). Never from a text field, and not
       // in the first moments: in play Backspace lets go of a lantern, so one

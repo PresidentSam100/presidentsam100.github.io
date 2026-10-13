@@ -104,7 +104,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await endRun(p, "letters");
   const early = await atCard(p, "r", "KeyR");
   const deskCaps = await againCaps(p);
-  check("fish-a-fish: the end card's Again button names its keys, Enter and R", deskCaps === "Enter, R", deskCaps);
+  check("fish-a-fish: the end card's Again button names its keys, Space or Enter and R", deskCaps === "Space or Enter, R", deskCaps);
   await p.waitForTimeout(1100);
   await p.keyboard.press("r"); await p.waitForTimeout(100);
   const late = await stateNow(p);
@@ -124,7 +124,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.setTime(0.01); });
   await p.waitForFunction(() => FishAFish.state().state === "over", null, { timeout: 5000 });
   const phoneCaps = await againCaps(p);
-  check("fish-a-fish: on a touch-only phone the Again button's Enter and R keycaps are hidden", phoneCaps === "Enter (hidden), R (hidden)", phoneCaps);
+  check("fish-a-fish: on a touch-only phone the Again button's keycaps (Space or Enter, R) are hidden", phoneCaps === "Space or Enter (hidden), R (hidden)", phoneCaps);
   await done(p, "end card keycaps on a phone");
   await ctx.close();
 

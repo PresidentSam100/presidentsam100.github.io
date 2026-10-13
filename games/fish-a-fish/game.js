@@ -378,9 +378,9 @@
       return;
     }
     if (e.repeat) return;
-    // Enter on a focused button is that button's click (a pick, Again, Modes…);
+    // Enter or Space on a focused button is that button's click (a pick, Again, Modes…);
     // casting off here as well would run both
-    if (e.key === "Enter" && e.target && e.target.closest && e.target.closest("button")) return;
+    if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
       var mk = e.key.toLowerCase();
       if (e.key === "1") { pref.clock = "daybreak"; savePicks(); }
@@ -388,13 +388,13 @@
       else if (mk === "c") { pref.kb = "nine"; savePicks(); }
       else if (mk === "l") { pref.kb = "letters"; savePicks(); }
       else if (mk === "w") { pref.kb = "all"; savePicks(); }
-      else if (e.key === "Enter") start();
+      else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); start(); }
     } else if (state === "over") {
       // Backspace back to the modes; Esc is left to leave for the games page.
-      // (Enter is never a pond key; an R on one waits out the grace, overSettled)
-      if (e.key === "Enter" || e.key === "r" || e.key === "R") {
+      // (Enter and Space are never pond keys; an R on one waits out the grace, overSettled)
+      if (e.key === "Enter" || e.key === " " || e.key === "r" || e.key === "R") {
         e.preventDefault();
-        if (e.key === "Enter" || layout.codes.indexOf(e.code) === -1 || overSettled()) start(mode);
+        if (e.key === "Enter" || e.key === " " || layout.codes.indexOf(e.code) === -1 || overSettled()) start(mode);
       } else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
     }
   });

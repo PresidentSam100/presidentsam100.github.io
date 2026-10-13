@@ -391,10 +391,10 @@
   // player board; on the result card Enter is its New Game.
   if(window.GameShell && GameShell.menuKeys){
     const over=()=>$("overOverlay").classList.contains("show"), menu=()=>$("menu").classList.contains("show");
-    GameShell.menuKeys({ active:menu, groups:[{ sel:"#menu .modebtn", into:"span", pick:true }] });
+    GameShell.menuKeys({ active:menu, groups:[{ sel:"#menu .modebtn", into:"span", pick:true }], space:true });
     GameShell.menuKeys({ active:()=>!menu() && !over(),
       groups:[{ sel:"#newBtn", keys:["n"], ask:{ title:"Start a new game?", ok:"New game" } }, { sel:"#undoBtn", keys:["u"] }, { sel:"#ruleBtn", keys:["e"] }, { sel:"#modeLink", keys:["c"] }] });
-    GameShell.menuKeys({ active:over, start:"#overAgain" });
+    GameShell.menuKeys({ active:over, start:"#overAgain", space:true });
   }
   start(3); // build board behind menu (default frozen-pieces rule)
 })();

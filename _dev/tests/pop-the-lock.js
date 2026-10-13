@@ -44,8 +44,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const c = await lib.newContext(browser, opts);
     const q = await lib.open(c, base, "games/pop-the-lock/");
     const hint = await q.evaluate(() => document.querySelector(".hint").innerText.replace(/\s+/g, " "));
-    const ok = label === "desktop" ? /^Click \/ Tap \/ Space • Don't miss/.test(hint) : /^Tap • Don't miss/.test(hint);
-    check("pop-the-lock " + label + ": the hint " + (label === "desktop" ? "names Space" : "says Tap, no Space"), ok, hint);
+    const ok = label === "desktop" ? /^Click \/ Tap \/ Space \/ Enter • Don't miss/.test(hint) : /^Tap • Don't miss/.test(hint);
+    check("pop-the-lock " + label + ": the hint " + (label === "desktop" ? "names Space and Enter" : "says Tap, no keys"), ok, hint);
     await q.close();
     await c.close();
   }
