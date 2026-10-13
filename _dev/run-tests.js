@@ -5,7 +5,7 @@
 //   npm test                    every suite
 //   npm test -- sweep passport  just those suites
 //   VERBOSE=1 npm test          print passing checks too
-//   JOBS=1 npm test             one suite at a time (default: 3 at once)
+//   JOBS=1 npm test             one suite at a time (default: 4 at once)
 //   RETRY=0 npm test            don't re-run a failed suite on its own
 //
 // Suites run side by side (JOBS of them, sharing one browser and server),
@@ -69,7 +69,9 @@ async function runSuite(name, ctx, label) {
   const unknown = want.filter((w) => !all.includes(w));
   if (unknown.length) { console.error("unknown suite(s): " + unknown.join(", ") + "\navailable: " + all.join(", ")); process.exit(2); }
   const suites = want.length ? want : all;
-  const jobs = Math.max(1, Math.min(suites.length, parseInt(process.env.JOBS, 10) || Math.min(3, os.cpus().length)));
+  // (4 at once by default: two of the long ones side by side, where 3 ran
+  // them one after another, and a full run is as long as their queue)
+  const jobs = Math.max(1, Math.min(suites.length, parseInt(process.env.JOBS, 10) || Math.min(4, os.cpus().length)));
   const heavyCap = Math.max(1, Math.floor(jobs / 2));
   const retry = process.env.RETRY !== "0";
   // longest first: the heavy ones in the order listed, then the rest

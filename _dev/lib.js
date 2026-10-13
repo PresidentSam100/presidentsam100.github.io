@@ -91,15 +91,27 @@ function tally(suite, log) {
 }
 
 // Open a game page with clean storage. `page.errs` collects uncaught errors.
+//
+// A context's pages share one origin's storage, so without this a page would
+// read what the last one saved. It is cleared as the page first loads, before
+// any of its scripts run and before the test's own init scripts (opts.before),
+// which may then seed what they need. Only the first load: the marker is in
+// sessionStorage, the tab's own, so a reload the test makes later keeps what
+// the page has stored since. (This used to be load, clear, load again: twice
+// the loading for every page opened, and a page that saves as it unloads
+// wrote its old state straight back after the clear.)
 async function open(ctx, base, url, opts) {
   const p = await ctx.newPage();
   p.errs = [];
   p.leaves = 0;   // trips to the games page (see newContext)
   p.on("pageerror", (e) => p.errs.push(e.message));
+  await p.addInitScript(() => {
+    try {
+      if (!sessionStorage.getItem("__tests_cleared")) { sessionStorage.setItem("__tests_cleared", "1"); localStorage.clear(); }
+    } catch (e) {}
+  });
   if (opts && opts.before) await opts.before(p);
   await p.goto(base + url, { waitUntil: "domcontentloaded" });
-  await p.evaluate(() => { try { localStorage.clear(); } catch (e) {} });
-  await p.reload({ waitUntil: "domcontentloaded" });
   if (!opts || opts.waitCorner !== false) await p.waitForSelector(".mute-toggle");
   await p.waitForTimeout((opts && opts.settle) || 400);
   return p;
