@@ -236,6 +236,9 @@
     placePlayer(state.r, state.c, false);
     refreshLive();
     renderLevelPicker();
+    refreshSteps();
+    clearTimeout(noteT);
+    stepNote.textContent = "";
   }
 
   // The win is recorded the moment the winning move is made, before its slide
@@ -252,6 +255,7 @@
     if (record) save.bestTimes[key] = ms;
     if (!isDone(current)) save.done.push(key);   // (which opens the next)
     persist();
+    refreshSteps();
     winInfo = { ms, prevBest, record };
   }
 
@@ -377,6 +381,32 @@
     });
   }
 
+  // ◀ Prev / Next ▶ are dimmed while there is nowhere to go: no level before
+  // the first, none after the last, a next level that isn't open yet. They
+  // stay pressable (aria-disabled, not disabled), so a press, or Q / E, says
+  // why on the line under them.
+  const prevBtn = document.getElementById("prevBtn"), nextBtn = document.getElementById("nextBtn");
+  const stepNote = document.getElementById("stepNote");
+  const canStep = (to) => to >= 0 && to < LEVELS.length && isOpen(to);
+  function refreshSteps() {
+    [[prevBtn, current - 1], [nextBtn, current + 1]].forEach(([b, to]) => {
+      const shut = !canStep(to);
+      b.classList.toggle("locked", shut);
+      if (shut) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled");
+    });
+  }
+  let noteT = 0;
+  function sayWhyNot(btn, to) {
+    stepNote.textContent = to < 0 ? "This is the first level."
+      : to >= LEVELS.length ? "This is the last level."
+      : to > current ? "🔒 Level " + (to + 1) + " is locked. Solve this level to open it."
+      : "🔒 Level " + (to + 1) + " is locked.";
+    // (the button shakes its head; with Visual FX off the line alone says it)
+    btn.classList.remove("nope"); void btn.offsetWidth; btn.classList.add("nope");
+    clearTimeout(noteT);
+    noteT = setTimeout(() => { stepNote.textContent = ""; btn.classList.remove("nope"); }, 2600);
+  }
+
   // ----- input -----
   const KEYMAP = {
     ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
@@ -406,11 +436,11 @@
   });
 
   // ◀ Prev / Next ▶ by key. Changing level throws away one with moves on it,
-  // so the keys ask first, as leaving does (the buttons go at once); a level
-  // that isn't open yet does nothing.
+  // so the keys ask first, as leaving does (the buttons go at once); for a
+  // level that isn't open yet, the key says so, as its button does.
   function stepLevel(d) {
     const to = current + d;
-    if (to < 0 || to >= LEVELS.length || !isOpen(to)) return;
+    if (!canStep(to)) { sayWhyNot(d < 0 ? prevBtn : nextBtn, to); return; }
     const go = () => loadLevel(to);
     if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Leave this level?", ok: "Leave" }, go);
     else go();
@@ -421,11 +451,11 @@
   });
 
   document.getElementById("resetBtn").addEventListener("click", () => loadLevel(current));
-  document.getElementById("prevBtn").addEventListener("click", () => {
-    if (current > 0 && isOpen(current - 1)) loadLevel(current - 1);
+  prevBtn.addEventListener("click", () => {
+    if (canStep(current - 1)) loadLevel(current - 1); else sayWhyNot(prevBtn, current - 1);
   });
-  document.getElementById("nextBtn").addEventListener("click", () => {
-    if (current + 1 < LEVELS.length && isOpen(current + 1)) loadLevel(current + 1);
+  nextBtn.addEventListener("click", () => {
+    if (canStep(current + 1)) loadLevel(current + 1); else sayWhyNot(nextBtn, current + 1);
   });
   document.getElementById("overlayReplay").addEventListener("click", () => loadLevel(current));
   document.getElementById("overlayNext").addEventListener("click", () => loadLevel(current + 1));

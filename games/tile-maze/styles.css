@@ -386,6 +386,17 @@ html.fx-off .tile.zapping { animation: none; filter: brightness(1.7); box-shadow
 .btn:hover { background: #eef8fa; }
 .btn:active { transform: translateY(1px); }
 .btn.primary { background: var(--accent); color: #fff; font-weight: 800; border-color: transparent; box-shadow: 0 2px 0 #c94b3e; }
+/* ◀ Prev / Next ▶ with nowhere to go (no level before the first, a next one
+   not open yet): dimmed like a locked level number. Still pressable: a press
+   shakes its head and the line under the toolbar says why (with Visual FX
+   off the line alone says it). */
+.btn.locked { opacity: 0.45; cursor: not-allowed; }
+.btn.locked:hover { background: var(--panel); }
+.btn.locked:active { transform: none; }
+.btn.nope { animation: tm-nope 0.3s ease; }
+@keyframes tm-nope { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+html.fx-off .btn.nope { animation: none; }
+.stepnote { min-height: 1.4em; margin: 8px 0 0; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--muted); }
 
 /* Side panel: a folded towel, coral and teal stripes along the top */
 .side {

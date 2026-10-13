@@ -123,6 +123,37 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tile-maze: the Level Editor link asks before leaving a level in progress", e.dlg && /\/tile-maze\/$/.test(e.path), e);
   await done(p, "game");
 
+  // ---- ◀ Prev / Next ▶ are dimmed with nowhere to go, and a press says why:
+  // on a fresh save level 2 is locked, so Next (and E) say so and stay put;
+  // solving level 1 lifts the dim at once, and on level 2 it is Next again
+  p = await lib.open(ctx, base, "games/tile-maze/", { before: seed("{}") });   // (a fresh save: nothing solved)
+  const steps = () => p.evaluate(() => {
+    const b = (id) => { const e = document.getElementById(id); return { dim: e.classList.contains("locked") && e.getAttribute("aria-disabled") === "true" && +getComputedStyle(e).opacity < 0.7, off: e.disabled }; };
+    return { lvl: document.getElementById("lvlNum").textContent, prev: b("prevBtn"), next: b("nextBtn"), note: document.getElementById("stepNote").textContent };
+  });
+  const lk0 = await steps();
+  await p.keyboard.press("e"); await p.waitForTimeout(80);
+  const lkE = await steps();
+  await p.keyboard.press("r"); await p.waitForTimeout(80);          // (a new board clears the line)
+  const lkR = await steps();
+  await p.click("#nextBtn", { force: true }); await p.waitForTimeout(80);   // (force: Playwright won't click an aria-disabled button; a mouse does)
+  const lkC = await steps();
+  await p.keyboard.press("q"); await p.waitForTimeout(80);
+  const lkQ = await steps();
+  check("tile-maze: with level 2 locked, Next ▶ is dimmed (and ◀ Prev on level 1), still pressable; E or a click stays on level 1 and says level 2 is locked",
+    lk0.lvl === "1" && lk0.next.dim && !lk0.next.off && lk0.prev.dim && lk0.note === "" &&
+    lkE.lvl === "1" && /Level 2 is locked/.test(lkE.note) && lkR.note === "" && lkC.lvl === "1" && /Level 2 is locked/.test(lkC.note) && /first level/.test(lkQ.note) && !(await p.evaluate(() => !!document.querySelector(".gs-dialog"))),
+    { lk0, lkE, lkR, lkC, lkQ });
+  await keys(p, "RRRDDLL");
+  await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(60);
+  const lkW = await steps();                                          // (solved: the dim lifts before the slide ends)
+  await p.waitForTimeout(700);
+  await p.keyboard.press("e"); await p.waitForTimeout(250);
+  const lk2 = await steps();
+  check("tile-maze: solving level 1 lifts the dim on Next ▶ at once; E then opens level 2, where ◀ Prev is lit and Next ▶ dimmed again",
+    !lkW.next.dim && lkW.prev.dim && lk2.lvl === "2" && !lk2.prev.dim && lk2.next.dim && lk2.note === "", { lkW, lk2 });
+  await done(p, "locked Next");
+
   // ---- the editor's Copy where the clipboard refuses (no permission): no error
   p = await lib.open(ctx, base, "games/tile-maze/editor.html");
   await p.evaluate(() => { if (navigator.clipboard) navigator.clipboard.writeText = () => Promise.reject(new Error("Write permission denied.")); });
