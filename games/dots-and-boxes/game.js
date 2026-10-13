@@ -16,6 +16,10 @@ const record = REC ? REC.get() : { w:0, l:0, d:0 };
 // that animation goes with it; the CPU's own pause before a move is the same
 // either way.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
+// How long the CPU takes to answer, and between the lines of a run of boxes
+// (quicker, so a long sweep at the end doesn't drag): the same with Visual FX
+// on or off.
+const THINK_MS = 750, THINK_AGAIN_MS = 450;
 
 // --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
@@ -92,7 +96,7 @@ function newGame() {
     setStatus('Flipping for first move…');
     coinFlip({ you: 'You (Y)', cpu: 'CPU (A)', accent: '#3fb6ff', youColor: '#ff5a6e', cpuColor: '#3fb6ff' }, function (who) {
       if (myRound !== round) return; // a new game was started before this flip resolved
-      if (who === 'cpu') { turn = AI; busy = true; setStatus('AI thinking…'); scheduleAI(400); }
+      if (who === 'cpu') { turn = AI; busy = true; setStatus('AI thinking…'); scheduleAI(THINK_MS); }
       else setStatus('Your turn');
       syncPlayable();
     });
@@ -262,7 +266,7 @@ function play(type, r, c) {
   lastLine = { type, r, c };
   draw(); updateScores();
   if (checkOver()) return;
-  if (made === 0) { turn = AI; setStatus('AI thinking…'); busy = true; scheduleAI(350); }
+  if (made === 0) { turn = AI; setStatus('AI thinking…'); busy = true; scheduleAI(THINK_MS); }
   else setStatus('You completed a box: go again!');
   syncPlayable();
 }
@@ -285,7 +289,7 @@ function aiTurn() {
   lastLine = { type: mv.type, r: mv.r, c: mv.c };
   draw(); updateScores();
   if (checkOver()) { busy = false; syncPlayable(); return; }
-  if (made > 0) { setStatus('AI completed a box: goes again…'); scheduleAI(350); }
+  if (made > 0) { setStatus('AI completed a box: goes again…'); scheduleAI(THINK_AGAIN_MS); }
   else {
     // Hand the turn back only AFTER the AI's line finishes drawing, so the
     // human can't move (or hover-highlight) while the move is still animating.

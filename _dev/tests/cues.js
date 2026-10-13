@@ -224,7 +224,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await open("dots-and-boxes", off);
     await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
     await p.click("#startGame"); await p.waitForTimeout(300);
-    await p.evaluate(() => play("h", 0, 0)); await p.waitForTimeout(off ? 50 : 1100);   // (FX on: past the CPU's reply at 350ms and its pin's fade-in)
+    await p.evaluate(() => play("h", 0, 0));
+    if (off) await p.waitForTimeout(50);
+    else {
+      // (FX on: past the CPU's reply and its pin's fade-in, however long the CPU takes to answer)
+      await p.waitForFunction(() => hLines.concat(vLines).some((row) => row.indexOf("ai") >= 0), null, { timeout: 8000 }).catch(() => {});
+      await p.waitForFunction(() => { const c = document.querySelectorAll("circle.last-mark"); return c.length === 1 && getComputedStyle(c[0]).opacity === "1"; }, null, { timeout: 5000 }).catch(() => {});
+    }
     const pin = await p.evaluate(() => { const c = document.querySelectorAll("circle.last-mark"); return { n: c.length, op: c[0] && getComputedStyle(c[0]).opacity }; });
     check("dots-and-boxes, FX " + (off ? "off" : "on") + ": one pin marks the last road", pin.n === 1 && pin.op === "1", pin);
     await done(p, "dots-and-boxes FX " + (off ? "off" : "on"));
