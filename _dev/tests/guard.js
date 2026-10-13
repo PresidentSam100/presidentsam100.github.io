@@ -139,13 +139,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     const gone = () => p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 10000 }).catch(() => {});
     await ask(); const mid = await box();
     const paused = await p.evaluate(() => GameShell.leaveActive() && !!document.querySelector(".gs-dialog"));
+    // (this box keeps its Esc: "any other key" belongs to "Leave this game?" alone)
+    await p.keyboard.press("a"); await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(150);
+    const letter = await box();
+    const escCap = await p.evaluate(() => [...document.querySelectorAll(".gs-dialog button")].map((b) => [...b.querySelectorAll("kbd")].map((k) => k.textContent).join()).join("|") + (document.querySelector(".gs-dialog .gs-anykey") ? " any" : ""));
     await p.keyboard.press("Escape"); await gone();
     const kept = await box();
     await ask(); await p.keyboard.press("Enter"); await gone();
     const quit = await box();
-    check("askQuit: goes at once with no game in progress; mid-game asks first, Esc keeps playing, Enter goes",
-      !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && !kept.open && kept.went === 0 && !quit.open && quit.went === 1 && p.leaves === 0,
-      { fresh, mid, kept, quit, leaves: p.leaves });
+    check("askQuit: goes at once with no game in progress; mid-game asks first, Esc keeps playing (a letter or an arrow answers nothing), Enter goes",
+      !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && letter.open && letter.went === 0 && escCap === "Esc|Enter" &&
+      !kept.open && kept.went === 0 && !quit.open && quit.went === 1 && p.leaves === 0,
+      { fresh, mid, letter, escCap, kept, quit, leaves: p.leaves });
     await done(p, "askQuit");
   }
 

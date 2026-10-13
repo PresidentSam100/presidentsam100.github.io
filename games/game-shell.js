@@ -218,6 +218,8 @@
     ":where(.gs-dialog-card p){font-size:.95rem;opacity:.85;white-space:pre-line}" +
     ":where(.gs-dialog-row){display:flex;flex-wrap:wrap;gap:.6rem;justify-content:center}" +
     ":where(.gs-dialog-card .gs-dialog-alt){background:transparent;box-shadow:none}" +
+    // "any other key", in words under the button's name where a keycap would be
+    ":where(.gs-dialog-card .gs-anykey){display:block;margin-top:.3rem;font-size:max(.7rem,11px);font-weight:600;letter-spacing:.02em;opacity:.75}" +
     ":where(.gs-dialog-card textarea){display:block;box-sizing:border-box;width:100%;margin:0 0 .9rem;padding:.55rem .65rem;" +
     "resize:none;font-family:inherit;font-size:.9rem;line-height:1.35;text-align:left;color:inherit;background:rgba(0,0,0,0.22);" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));border-radius:8px;white-space:pre-wrap}";
@@ -705,8 +707,9 @@
   // Home, Esc (unless a panel or sub-screen used it to close) and the
   // "← Games" button all leave for the games page (motion-toggle.js). While a
   // game is in progress that leaving would throw away, they ask first: "Leave
-  // this game?", with the game paused underneath (Enter leaves, Esc keeps
-  // playing). Each game says what "in progress" means:
+  // this game?", with the game paused underneath (Enter leaves; any other
+  // key, Esc among them, keeps playing). Each game says what "in progress"
+  // means:
   //
   //   GameShell.guardLeave(function () { return state === "play"; });
   //   GameShell.guardLeave({ active, pause, resume, isPaused, text });
@@ -740,7 +743,10 @@
     // (hold: on Leave the box stays up until the page has gone. Closing it
     // first showed the game again, sitting paused under its card, for as long
     // as the games page took to load.)
-    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true,
+    // (anyKey: only Enter leaves. Having asked for the way out by mistake, a
+    // player shouldn't need to find Esc again to get back: whatever key they
+    // press next keeps playing.)
+    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true, anyKey: true,
       hold: function (yes) { return yes; } },
       function (yes) {
         if (yes) go();
@@ -789,14 +795,21 @@
   // for the answer goes in the callback. While one is open the game under it
   // gets no keys or clicks: Enter picks the main button, Esc the other one,
   // Tab moves between them, and a click outside the card counts as Esc.
+  // (anyKey: true, as "Leave this game?" has it, makes every other ordinary
+  // key count as Esc too, and the button says "any other key".)
   var openDialog = null;
+  // the "any other key" of an anyKey box: one that types a character (but
+  // Space), or one of these
+  var ANY_KEY = /^([^ ]|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right))$/;
 
   function escHtml(s) {
     return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
   }
 
-  // o: { title, text, copy, role, hold, buttons: [{ label, key, value, main, click }] }
-  // A button's `key` ("Enter" / "Esc") is the key that presses it.
+  // o: { title, text, copy, role, hold, anyKey, buttons: [{ label, key, value, main, click }] }
+  // A button's `key` ("Enter" / "Esc") is the key that presses it. With
+  // anyKey the Esc button is pressed by any other ordinary key as well, and
+  // says so in words ("any other key") where its keycap would be.
   // hold(value) says the answer takes the page away: the box then stays up,
   // answered, until the page goes (or comes back, or 4 seconds pass with it
   // still here), so nothing under it shows in between.
@@ -840,7 +853,9 @@
       var bt = document.createElement("button");
       bt.type = "button";
       if (!b.main) bt.className = "gs-dialog-alt";
-      bt.innerHTML = escHtml(b.label) + (b.key ? ' <span class="gs-keys"><kbd class="gs-kbd">' + b.key + "</kbd></span>" : "");
+      bt.innerHTML = escHtml(b.label) + (!b.key ? ""
+        : o.anyKey && b.key === "Esc" ? ' <span class="gs-keys gs-anykey">any other key</span>'
+        : ' <span class="gs-keys"><kbd class="gs-kbd">' + b.key + "</kbd></span>");
       bt.addEventListener("click", function () { if (b.click) b.click(bt, close); else close(b.value); });
       if (b.key) byKey[b.key] = bt;
       if (b.key === "Esc") cancelValue = b.value;
@@ -873,6 +888,13 @@
         e.preventDefault();
         var bt = byKey[e.key === "Enter" ? "Enter" : "Esc"];
         if (bt && !e.repeat) bt.click();
+      } else if (o.anyKey && byKey.Esc && ANY_KEY.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        // any other key is Esc: a letter, a digit, an arrow, Backspace... (not
+        // a key still held from the game, nor Shift and its kind on their
+        // own, nor a browser shortcut; Space is left to press the focused
+        // button, which is this same one unless Tab has moved on)
+        e.preventDefault();
+        if (!e.repeat) byKey.Esc.click();
       }
       // anything else keeps its default action (Space presses the focused
       // button; Ctrl+C / Ctrl+A / the arrows work in the copy box)
@@ -930,6 +952,7 @@
       text: opts.text,
       role: "alertdialog",
       safe: !!opts.safe,
+      anyKey: !!opts.anyKey,
       hold: opts.hold,
       buttons: [
         { label: opts.cancel || "Cancel", key: "Esc", value: false },

@@ -54,6 +54,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     const askedEsc = await st();
     await p.keyboard.press("Escape"); await settle(p);
     const keptEsc = await st();
+    // only Enter leaves: any other ordinary key keeps playing, as Esc does (a
+    // letter, a digit, an arrow, Backspace; P too, without leaving a pause
+    // card behind), and the Keep playing button says so in words where its
+    // keycap would be. Keys that aren't an answer leave the box up: Tab (it
+    // moves between the buttons), Shift alone, a browser shortcut, F2
+    const anyKey = {};
+    for (const k of ["a", "7", "ArrowLeft", "Backspace", "p"]) {
+      await p.keyboard.press("Escape"); await settle(p);
+      const up = (await st()).dlg;
+      await p.keyboard.press(k); await settle(p);
+      const s = await st();
+      anyKey[k] = up === "Leave this game?" && !s.dlg && !s.paused;
+    }
+    await p.keyboard.press("Escape"); await settle(p);
+    const says = await p.evaluate(() => {
+      const bs = [...document.querySelectorAll(".gs-dialog button")].map((b) => ({ text: b.textContent.replace(/\s+/g, " ").trim(), caps: [...b.querySelectorAll("kbd")].map((k) => k.textContent) }));
+      return { keep: bs.find((b) => /^Keep playing/.test(b.text)), leave: bs.find((b) => /^Leave/.test(b.text)) };
+    });
+    for (const k of ["Shift", "Control+a", "F2", "Tab"]) { await p.keyboard.press(k); await p.waitForTimeout(60); }
+    const notAnswers = { box: (await st()).dlg, focus: await p.evaluate(() => document.activeElement.textContent.replace(/\s+/g, " ").trim()) };
+    await p.keyboard.press("Shift+Tab"); await p.waitForTimeout(60);
+    await p.keyboard.press("x"); await settle(p);
+    const keptAny = await st();
+    check("in 'Leave this game?' only Enter leaves: any other key keeps playing (a letter, a digit, an arrow, Backspace, P), and the button says \"any other key\"; Tab, Shift alone, Ctrl+A and F2 answer nothing",
+      Object.values(anyKey).every(Boolean) && says.keep && /any other key$/.test(says.keep.text) && says.keep.caps.length === 0 && says.leave && says.leave.caps.join() === "Enter" &&
+      notAnswers.box === "Leave this game?" && /^Leave/.test(notAnswers.focus) && !keptAny.dlg && !keptAny.paused && p.leaves === 0,
+      { anyKey, says, notAnswers, keptAny, leaves: p.leaves });
     await p.click(".nav-back-games"); await settle(p);
     const askedLink = await st();
     await p.keyboard.press("Enter"); await settle(p);
@@ -145,10 +172,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.keyboard.press("Escape"); await settle(p);
     const first = { box: await boxUp(p), card: await cardUp(p), leaves: p.leaves };
     if (starts[g][1] === "asks") {
+      // (in each game's own look of the box, "any other key" sits whole inside
+      // its button, and the two buttons inside the card)
+      const any = await p.evaluate(() => {
+        const r = (e) => e.getBoundingClientRect(), inside = (a, b) => a.left >= b.left - 0.5 && a.right <= b.right + 0.5 && a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5;
+        const s = document.querySelector(".gs-dialog .gs-anykey"), card = document.querySelector(".gs-dialog .gs-dialog-card");
+        if (!s) return null;
+        return { text: s.textContent, shown: r(s).height > 6, inButton: inside(r(s), r(s.closest("button"))), inCard: [...card.querySelectorAll("button")].every((b) => inside(r(b), r(card))) };
+      });
       await p.keyboard.press("Escape"); await settle(p);
       const kept = { box: await boxUp(p), card: await cardUp(p), leaves: p.leaves };
       check(g + " play: Esc asks 'Leave this game?' (not a bare pause); Esc again plays on, never leaving",
         first.box === "Leave this game?" && first.leaves === 0 && !kept.box && !kept.card && kept.leaves === 0, { first, kept });
+      check(g + " play: the box's Keep playing button says \"any other key\", whole inside the button", !!any && any.text === "any other key" && any.shown && any.inButton && any.inCard, any);
     } else {
       check(g + " play, nothing to lose yet: Esc leaves at once (no pause card, no question)", !first.box && !first.card && first.leaves === 1, first);
     }
