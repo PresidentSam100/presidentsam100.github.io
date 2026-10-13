@@ -206,10 +206,16 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   .needle { height: 38px; margin-top: -38px; }
   .stat.odo .value { font-size: 1.25rem; letter-spacing: 2px; min-width: 3.6em; }
   .hint { font-size: 0.88rem; }
-  /* the menu has to fit a phone's short windscreen: its name is on the mirror
-     already, and the two switches lie flat */
-  .card { padding: 0.8rem 0.9rem 0.75rem; }
+  /* the menu's name is on the mirror already */
   .card h2.nm { display: none; }
+}
+/* The card lies on the windscreen, and the windscreen is only as tall as the
+   window leaves it (never under 300 px). So the card closes up as the window
+   gets shorter, on a phone or in a short laptop window alike, and keeps
+   everything on it: the three rules, both switches and their bests, the note.
+   First the switches lie flat and the padding comes in ... */
+@media (max-width: 700px), (max-height: 770px) {
+  .card { padding: 0.8rem 0.9rem 0.75rem; }
   .card p { font-size: 0.94rem; line-height: 1.26; margin: 0.2rem 0; }
   .rules { font-size: 0.9rem; line-height: 1.24; margin: 0.35rem 0 0.5rem; }
   .rules li { margin: 0.14rem 0; }
@@ -219,9 +225,23 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   .mode-btn .b { margin-top: 0.1rem; min-height: 0; }
   .card p.note { margin-top: 0.4rem; }
 }
-/* the smallest phones: the three rules give way (the line under the dashboard says how to steer) */
-@media (max-width: 700px) and (max-height: 600px) {
-  .rules { display: none; }
+/* ... then, where the windscreen is at or near its least, the lines close up
+   too (a narrow screen wraps the most lines, so it starts sooner) */
+@media (max-height: 660px), (max-width: 365px) and (max-height: 700px) {
+  .overlay { padding: 0.25rem; }
+  .card { padding: 0.5rem 0.75rem 0.45rem; }
+  .card h2 { margin-bottom: 0.25rem; }
+  .card p { line-height: 1.2; }
+  .rules { line-height: 1.15; margin: 0.2rem 0 0.3rem; }
+  .rules li { margin: 0.05rem 0; }
+  .modes { margin: 0.3rem 0 0.05rem; }
+  .mode-btn .b { margin-top: 0; font-size: 0.88rem; line-height: 1.15; }
+  .card p.note { margin-top: 0.3rem; }
+}
+/* ... and those narrow screens, with the most lines of all, set them a size smaller */
+@media (max-width: 365px) and (max-height: 700px) {
+  .card p { font-size: 0.88rem; }
+  .rules { font-size: 0.84rem; }
 }
 @media (max-width: 340px) {
   .mode-btn { white-space: nowrap; }
