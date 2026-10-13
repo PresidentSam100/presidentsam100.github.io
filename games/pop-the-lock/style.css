@@ -38,6 +38,18 @@ body {
   align-items: center;
 }
 
+/* ---------- Backdrop ---------- */
+/* a scene to each colour, drawn behind everything in white on the colour
+   itself: rings on the teal, stars on the indigo, clockwork on the plum, a
+   sunburst on the coral (game.js) */
+#bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 /* ---------- HUD ---------- */
 .hud {
   width: 100%;
@@ -83,9 +95,15 @@ body {
   justify-content: center;
 }
 
+/* (never taller than the stage: on a short window, a phone on its side, the
+   lock used to run off the foot of the page under Score / Level / Best) */
 #game {
-  width: min(92vw, 78vh, 560px);
-  height: min(92vw, 78vh, 560px);
+  width: min(92vw, 78vh, 100vh - 116px, 560px);
+  height: min(92vw, 78vh, 100vh - 116px, 560px);
+  /* (on a phone 100vh is the page with the browser's bars away: where the
+     browser knows the height that is showing, go by that) */
+  width: min(92vw, 78dvh, 100dvh - 116px, 560px);
+  height: min(92vw, 78dvh, 100dvh - 116px, 560px);
   touch-action: manipulation;
   cursor: pointer;
 }
@@ -94,6 +112,10 @@ body {
 .overlay {
   position: fixed;   /* cover the WHOLE screen (incl. the HUD strip) so the dim + fade are uniform */
   inset: 0;
+  /* ...while its panel is centred on the lock: the lock sits in the stage,
+     which starts below Score / Level / Best, and game.js says how far down
+     that is (--stage-top) */
+  padding-top: var(--stage-top, 0px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -141,7 +163,7 @@ body {
 }
 
 .subtitle {
-  margin: 16px 0 24px;
+  margin: 16px auto 24px;
   color: var(--text);
   font-size: 16px;
   font-weight: 500;
@@ -213,28 +235,58 @@ body {
   margin-top: 22px;
 }
 
+/* a swatch is its dot of colour with, under it, the key that picks it (1 to
+   4; the keycap is drawn from data-gs-key and isn't there on a touch screen) */
 .swatch {
+  appearance: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.swatch::before {
+  content: "";
+  box-sizing: border-box;
   width: 30px;
   height: 30px;
-  padding: 0;
   border-radius: 50%;
-  cursor: pointer;
   background: var(--sw);
   border: 2px solid rgba(255, 255, 255, 0.5);
   transition: transform 0.08s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
-.swatch:hover { transform: scale(1.1); }
-.swatch.active {
+.swatch:hover::before { transform: scale(1.1); }
+.swatch.active::before {
   border-color: #fff;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.35);
   transform: scale(1.12);
 }
+.swatch[data-gs-key]::after { margin: 8px 0 0; font-size: 11px; }
 
 .hint {
   margin-top: 18px;
   font-size: 12px;
   color: var(--muted);
   letter-spacing: 0.5px;
+}
+
+/* a short window (a phone on its side, a small laptop window): the panel
+   closes up, its name on one line, so that all of it stays between Score /
+   Level / Best and the foot of the window. Nothing is left out. */
+@media (max-height: 560px) {
+  .panel { padding: 4px 24px; }
+  .title { font-size: 28px; line-height: 1; }
+  .title span { display: inline; margin: 0 0.4em; letter-spacing: 5px; vertical-align: 0.22em; }
+  .subtitle { margin: 5px auto 8px; font-size: 14px; max-width: none; }
+  .btn { padding: 8px 40px; font-size: 16px; }
+  .themes { margin-top: 9px; }
+  .swatch::before { width: 26px; height: 26px; }
+  .swatch[data-gs-key]::after { margin-top: 4px; }
+  .hint { margin-top: 6px; }
 }
 
 /* ---------- Mute ---------- */

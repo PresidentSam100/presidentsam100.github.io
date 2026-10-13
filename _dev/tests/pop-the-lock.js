@@ -75,4 +75,90 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close(); await r.close();
     await c.close();
   }
+
+  // ---- the start panel is centred on the lock (it used to be centred on the
+  // window, some 40 px above the ring, which sits below Score / Level / Best),
+  // and all of it stays between that row and the foot of the window: on a
+  // desktop, a phone, and a phone on its side ([wide, high, touch])
+  {
+    const { devices } = require("@playwright/test");
+    const off = [];
+    for (const [w, h, touch] of [[1280, 800, false], [1366, 657, false], [390, 664, true], [320, 568, true], [667, 331, true], [844, 390, true]]) {
+      const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/pop-the-lock/");
+      await q.waitForTimeout(450);                                   // (the panel rises into place)
+      const m = await q.evaluate(() => {
+        const r = (s) => document.querySelector(s).getBoundingClientRect(), ring = r("#game"), pn = r(".panel"), hud = r(".hud");
+        return { dx: +((pn.left + pn.right) / 2 - (ring.left + ring.right) / 2).toFixed(1), dy: +((pn.top + pn.bottom) / 2 - (ring.top + ring.bottom) / 2).toFixed(1),
+          inside: pn.top >= hud.bottom - 0.5 && pn.bottom <= innerHeight + 0.5, ringIn: ring.top >= hud.bottom - 0.5 && ring.bottom <= innerHeight + 0.5 };
+      });
+      if (Math.abs(m.dx) > 1 || Math.abs(m.dy) > 1 || !m.inside || !m.ringIn || q.errs.length) off.push(w + "x" + h + " " + JSON.stringify(m) + q.errs.join("; "));
+      await q.close(); await c.close();
+    }
+    check("pop-the-lock: the start panel is centred on the lock's ring, and panel and ring both sit whole under Score / Level / Best", off.length === 0, off);
+
+    // ---- 1 to 4 pick the colour while the panel is up, each key shown under
+    // its swatch (not on a touch-only phone); in play the digits do nothing
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/pop-the-lock/", { before: hook });
+    const theme = () => q.evaluate(() => document.querySelector(".swatch.active").dataset.theme);
+    const caps = (pg) => pg.evaluate(() => [...document.querySelectorAll(".swatch")].map((s) => getComputedStyle(s, "::after").display === "none" ? "-" : s.getAttribute("data-gs-key")).join(""));
+    const picked = [];
+    for (const k of ["3", "2", "4", "1", "3"]) { await q.keyboard.press(k); await q.waitForTimeout(60); picked.push(await theme()); }
+    const menuStill = (await st(q)).state, deskCaps = await caps(q);
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    await q.keyboard.press("1"); await q.waitForTimeout(60);
+    const inPlay = { state: (await st(q)).state, theme: await theme() };
+    const pc = await lib.newContext(browser, devices["Pixel 7"]);
+    const ph = await lib.open(pc, base, "games/pop-the-lock/");
+    const phoneCaps = await caps(ph);
+    check("pop-the-lock: 1 to 4 pick the colour on the panel (not starting the game), each key shown under its swatch; in play they do nothing; a touch-only phone shows no keys",
+      picked.join() === "plum,indigo,coral,teal,plum" && menuStill === "menu" && deskCaps === "1234" && inPlay.state === "play" && inPlay.theme === "plum" && phoneCaps === "----",
+      { picked, menuStill, deskCaps, inPlay, phoneCaps });
+    check("pop-the-lock: no page errors (colour keys)", q.errs.length === 0 && ph.errs.length === 0, [q.errs, ph.errs]);
+    await q.close(); await c.close(); await ph.close(); await pc.close();
+  }
+
+  // ---- the backdrop: a scene to each colour behind the lock. With Visual FX
+  // on it moves; with it off the same scene is there, held still (never a
+  // bare colour). Read as the backdrop canvas shrunk small: how much is drawn
+  // on it, and a number that changes when the picture does.
+  {
+    const sig = (pg) => pg.evaluate(() => {
+      const bg = document.getElementById("bg"), c = document.createElement("canvas");
+      c.width = 320; c.height = 200;
+      const g = c.getContext("2d");
+      g.drawImage(bg, 0, 0, 320, 200);
+      const d = g.getImageData(0, 0, 320, 200).data;
+      let ink = 0, sum = 0;
+      for (let i = 3; i < d.length; i += 4) { if (d[i] > 2) ink++; sum = (sum + d[i] * (1 + (i % 251))) % 1000000007; }
+      return { ink, sum };
+    });
+    // (waits are counted in frames drawn, not in time: on a busy machine a
+    // fixed wait can end before the new colour's scene has been drawn at all)
+    const frames = (pg, n) => pg.evaluate((n) => new Promise((done) => { (function f() { if (n-- > 0) requestAnimationFrame(f); else done(); })(); }), n);
+    const scenes = {};
+    for (const fxOff of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/pop-the-lock/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:pop-the-lock", off ? "1" : "0"), fxOff) });
+      const out = {};
+      for (const [k, name] of [["1", "teal"], ["2", "indigo"], ["3", "plum"], ["4", "coral"]]) {
+        await q.keyboard.press(k);
+        await q.waitForFunction((name) => document.querySelector(".swatch.active").dataset.theme === name, name, { timeout: 15000 });
+        await frames(q, 4);
+        const a = await sig(q);
+        await q.waitForTimeout(400); await frames(q, 12);
+        const b = await sig(q);
+        out[name] = { ink: a.ink, sum: a.sum, moved: a.sum !== b.sum };
+      }
+      scenes[fxOff ? "off" : "on"] = out;
+      check("pop-the-lock (backdrop, FX " + (fxOff ? "off" : "on") + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    const names = ["teal", "indigo", "plum", "coral"];
+    check("pop-the-lock: with Visual FX on, each colour has a scene of its own behind the lock, and it moves",
+      names.every((n) => scenes.on[n].ink > 40 && scenes.on[n].moved) && new Set(names.map((n) => scenes.on[n].sum)).size === 4, scenes.on);
+    check("pop-the-lock: with Visual FX off the same scenes are there, held still (as much drawn as with it on, one to each colour)",
+      names.every((n) => !scenes.off[n].moved && scenes.off[n].ink > 40 && scenes.off[n].ink > scenes.on[n].ink * 0.5) && new Set(names.map((n) => scenes.off[n].sum)).size === 4, scenes);
+  }
 };

@@ -86,6 +86,155 @@
   const sndLevel = () => { [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => beep(f, 0.12, "triangle", 0.2), i * 70)); };
   const sndFail = () => { beep(180, 0.3, "sawtooth", 0.25); beep(90, 0.4, "sine", 0.2); };
 
+  // ---- Backdrop ----
+  // Something going on behind the lock, a scene to each colour: rings
+  // spreading over the teal's water, a night sky wheeling over the indigo,
+  // clockwork turning in the plum, a sunburst sweeping round the coral. Each
+  // keeps clear of the lock's own face, and a pop sends a ring out across it.
+  // With Visual FX off the same scene is there, held still (and a pop sends
+  // no ring: the lock's own flash still marks it).
+  const bg = document.getElementById("bg");
+  const bctx = bg.getContext("2d");
+  let BW = 0, BH = 0, lx = 0, ly = 0;   // the window, and the lock's centre in it
+  let bgT = 0;                          // the backdrop's clock (ms): it stands still with Visual FX off, or paused
+  let bgSeen = "";                      // what the still backdrop was last drawn for
+  let rings = [];                       // the rings pops have sent out: { r, life, color }
+  // a fixed scatter of points (the same on every visit, so the still sky is always the same sky)
+  const SCATTER = (() => {
+    let s = 20240229;
+    const next = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    return Array.from({ length: 150 }, () => ({ u: next(), v: next(), a: next(), b: next() }));
+  })();
+  // the plum's wheels: where in the window (as fractions of it), how big
+  // (against its shorter side), how many teeth, and the turn each starts at
+  const GEARS = [
+    { u: 0.09, v: 0.17, r: 0.17, n: 12, a: 0.0 },
+    { u: 0.94, v: 0.25, r: 0.13, n: 10, a: 0.3 },
+    { u: 0.87, v: 0.91, r: 0.2, n: 14, a: 0.1 },
+    { u: 0.07, v: 0.83, r: 0.14, n: 10, a: 0.5 },
+    { u: 0.48, v: 1.05, r: 0.11, n: 9, a: 0.2 },
+    { u: 0.55, v: -0.04, r: 0.1, n: 8, a: 0.7 },
+  ];
+  const farCorner = () => Math.hypot(Math.max(lx, BW - lx), Math.max(ly, BH - ly));
+
+  function gearWheel(x, y, r, n, a) {
+    const tooth = r * 0.2, w = TAU / n, inner = r - tooth;
+    bctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const b = a + i * w;
+      bctx.arc(x, y, inner, b, b + w * 0.3);            // the gap before the tooth
+      bctx.arc(x, y, r, b + w * 0.42, b + w * 0.88);    // the tooth's top
+    }
+    bctx.closePath();
+    bctx.fillStyle = "rgba(255,255,255,0.05)";
+    bctx.fill();
+    bctx.strokeStyle = "rgba(255,255,255,0.17)";
+    bctx.lineWidth = 2.5;
+    bctx.stroke();
+    // the hub, and four spokes out to the rim
+    bctx.beginPath();
+    bctx.arc(x, y, r * 0.2, 0, TAU);
+    for (let i = 0; i < 4; i++) {
+      const b = a + i * (TAU / 4);
+      bctx.moveTo(x + Math.cos(b) * r * 0.2, y + Math.sin(b) * r * 0.2);
+      bctx.lineTo(x + Math.cos(b) * inner * 0.94, y + Math.sin(b) * inner * 0.94);
+    }
+    bctx.stroke();
+  }
+
+  const SCENES = {
+    // teal: rings spreading over still water, out from the lock
+    teal(t) {
+      const from = R * 1.3, gap = Math.max(44, R * 0.46), end = farCorner();
+      for (let r = from + (t * 0.011) % gap; r < end; r += gap) {
+        const k = (r - from) / (end - from);              // 0 at the lock, 1 at the farthest corner
+        const born = Math.min(1, (r - from) / (gap * 0.6)); // a new ring comes up out of nothing
+        bctx.strokeStyle = `rgba(255,255,255,${(0.2 * (1 - k) + 0.03) * born})`;
+        bctx.lineWidth = 1.5 + 3 * (1 - k);
+        bctx.beginPath();
+        bctx.arc(lx, ly, r, 0, TAU);
+        bctx.stroke();
+      }
+    },
+    // indigo: a night sky wheeling slowly about the lock, its stars twinkling
+    indigo(t) {
+      const from = R * 1.25, end = farCorner(), turn = t * 0.000012;
+      bctx.fillStyle = "#fff";
+      SCATTER.forEach((p, i) => {
+        const d = from + Math.sqrt(p.u) * (end - from), a = p.v * TAU + turn;
+        const x = lx + Math.cos(a) * d, y = ly + Math.sin(a) * d;
+        if (x < -6 || x > BW + 6 || y < -6 || y > BH + 6) return;
+        const twinkle = 0.5 + 0.5 * Math.sin(t * 0.0011 * (0.6 + p.a) + p.b * TAU);
+        bctx.globalAlpha = 0.3 + 0.6 * twinkle * (0.45 + 0.55 * p.b);
+        const size = 1.1 + p.a * 2;
+        bctx.beginPath();
+        if (i % 6 === 0) {
+          // one in six is a four-pointed sparkle
+          const s = size * 3.2, n = size * 0.7;
+          bctx.moveTo(x, y - s); bctx.lineTo(x + n, y - n); bctx.lineTo(x + s, y); bctx.lineTo(x + n, y + n);
+          bctx.lineTo(x, y + s); bctx.lineTo(x - n, y + n); bctx.lineTo(x - s, y); bctx.lineTo(x - n, y - n);
+          bctx.closePath();
+        } else {
+          bctx.arc(x, y, size, 0, TAU);
+        }
+        bctx.fill();
+      });
+      bctx.globalAlpha = 1;
+    },
+    // plum: clockwork, each wheel turning against the next, the small ones faster
+    plum(t) {
+      const m = Math.min(BW, BH);
+      GEARS.forEach((g, i) => gearWheel(g.u * BW, g.v * BH, g.r * m, g.n, g.a + (i % 2 ? -1 : 1) * t * 0.000026 / g.r));
+    },
+    // coral: a sunburst sweeping slowly round the lock
+    coral(t) {
+      const n = 14, w = TAU / n, turn = t * 0.00005, from = R * 1.3, end = farCorner();
+      bctx.fillStyle = "rgba(255,255,255,0.09)";
+      for (let i = 0; i < n; i++) {
+        const a = turn + i * w;
+        bctx.beginPath();
+        bctx.arc(lx, ly, from, a, a + w * 0.5);
+        bctx.arc(lx, ly, end, a + w * 0.5, a, true);
+        bctx.closePath();
+        bctx.fill();
+      }
+    },
+  };
+
+  // a pop (or a miss) sends a ring out from the lock across the backdrop
+  function sendRing(color) {
+    if (!reducedMotion()) rings.push({ r: R * 1.08, life: 1, color });
+  }
+
+  function drawBg(dt) {
+    const fxOff = reducedMotion();
+    if (fxOff && rings.length) { rings = []; bgSeen = ""; }
+    if (!fxOff && !PAUSE.isPaused()) {
+      bgT += dt;
+      bgSeen = "";
+    } else {
+      // held still: nothing to draw again until the colour, the window or the lock's place changes
+      const seen = [themeName, BW, BH, lx, ly, R, bgT].join();
+      if (seen === bgSeen) return;
+      bgSeen = seen;
+    }
+    bctx.clearRect(0, 0, BW, BH);
+    SCENES[themeName](bgT);
+    for (let i = rings.length - 1; i >= 0; i--) {
+      const g = rings[i];
+      g.r += dt * 0.45;
+      g.life -= dt / 1100;
+      if (g.life <= 0) { rings.splice(i, 1); continue; }
+      bctx.globalAlpha = g.life * 0.4;
+      bctx.strokeStyle = g.color;
+      bctx.lineWidth = 2 + 6 * g.life;
+      bctx.beginPath();
+      bctx.arc(lx, ly, g.r, 0, TAU);
+      bctx.stroke();
+    }
+    bctx.globalAlpha = 1;
+  }
+
   // ---- Responsive / HiDPI canvas ----
   let W = 0, H = 0, cx = 0, cy = 0, R = 0;
   function resize() {
@@ -97,6 +246,18 @@
     W = size; H = size;
     cx = W / 2; cy = H / 2;
     R = Math.min(W, H) * 0.36;
+    // the backdrop fills the window (a little softer than the lock: it is big, and behind)
+    const bdpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    BW = window.innerWidth; BH = window.innerHeight;
+    bg.width = Math.round(BW * bdpr);
+    bg.height = Math.round(BH * bdpr);
+    bctx.setTransform(bdpr, 0, 0, bdpr, 0, 0);
+    const box = canvas.getBoundingClientRect();
+    lx = box.left + box.width / 2; ly = box.top + box.height / 2;
+    bgSeen = "";
+    // the start / game-over panel is centred on the lock as well: its overlay
+    // covers the whole window, so it is told how far down the stage starts
+    overlay.style.setProperty("--stage-top", Math.round(stage.getBoundingClientRect().top) + "px");
   }
   window.addEventListener("resize", resize);
 
@@ -167,6 +328,7 @@
     flash = 1;
     sndPop();
     spawnBurst(target, "#ffd23f");
+    sendRing("#ffffff");
     dir *= -1;                       // reverse sweep: the signature feel
     speed = baseSpeed(level) * (1 + popsDone * 0.015);
     if (popsDone >= popsNeeded) {
@@ -187,6 +349,7 @@
     flash = 1;
     sndLevel();
     spawnBurst(target, "#ffffff", 26);
+    sendRing("#ffd23f");
     placeTarget();
   }
 
@@ -199,6 +362,7 @@
     sndFail();
     missAt = missedByPass ? target : dial;
     spawnBurst(missAt, "#ff5d73", 30);
+    sendRing("#ff5d73");
     const reason = missedByPass ? "Too slow: the dial slipped past!" : "Missed the mark!";
     overlayMsg.innerHTML = `${reason}<br>You reached <b>${score}</b> &nbsp;•&nbsp; Level <b>${level}</b>`;
     playBtn.textContent = "RETRY";
@@ -240,6 +404,9 @@
     if (!e.repeat) onTap();
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
+  // 1 to 4 pick the colour while the start / game-over panel is up (each key
+  // is shown under its swatch)
+  if (window.GameShell) GameShell.menuKeys({ active: () => !overlay.classList.contains("hidden"), groups: [".swatch"] });
 
   // ---- Particles ----
   // (Visual FX off: no burst; the success ring's flash still marks the pop)
@@ -373,13 +540,14 @@
     const dt = Math.min(48, ts - lastTs || 16);
     lastTs = ts;
 
-    if (PAUSE.isPaused()) { draw(0); requestAnimationFrame(loop); return; }
+    if (PAUSE.isPaused()) { drawBg(0); draw(0); requestAnimationFrame(loop); return; }
     if (state === State.PLAY) {
       dial += dir * speed * dt;
       dial = ((dial % TAU) + TAU) % TAU;
       traveled += speed * dt;
       if (traveled > exitTravel) fail(true); // swept past without a tap
     }
+    drawBg(dt);
     draw(dt);
     requestAnimationFrame(loop);
   }

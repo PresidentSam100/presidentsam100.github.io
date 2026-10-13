@@ -18,7 +18,6 @@ const ALLOW = {
   "metazac/": ["#power-btn"],               // (it says SPACE on its face)
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
-  "pop-the-lock/": [".swatch"],             // the look
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
   "dead-end/editor.html": ["*"],            // the level editors are mouse tools
   "slither/editor.html": ["*"],

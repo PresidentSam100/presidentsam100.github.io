@@ -13,6 +13,7 @@ Clear enough notches to open the lock and climb levels. One miss ends the run.
 | ------ | ----- |
 | Pop the lock | Click • Tap • `Space` / `Enter` |
 | Start / Retry | The **PLAY** button or any tap |
+| Pick a colour | Its swatch, or `1` to `4` |
 | Mute / unmute | 🔊 button (bottom-right) |
 
 ## Run it
@@ -43,5 +44,7 @@ Cloudflare Pages, S3, itch.io. No configuration required.
 - Pointer, touch, and keyboard input
 - Procedural sound effects via WebAudio (no audio files)
 - Particle bursts, screen shake, success-ring flash
+- A moving backdrop to each colour (rings on water, a night sky, clockwork,
+  a sunburst), held still when Visual FX is off
 - Local high-score persistence (`localStorage`)
 - Rising difficulty: faster sweeps, tighter notches, more pops per level
