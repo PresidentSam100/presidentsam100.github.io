@@ -127,4 +127,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("fish-a-fish: on a touch-only phone the Again button's Enter and R keycaps are hidden", phoneCaps === "Enter (hidden), R (hidden)", phoneCaps);
   await done(p, "end card keycaps on a phone");
   await ctx.close();
+
+  // ---- short screens: nothing is left out to make the menu fit. With saved
+  // bests on it, the how-to is shown and the whole card (Cast off and the
+  // bests with it) is inside the window, under the tagline: on a small phone,
+  // a phone on its side, and a short laptop window ([wide, high, touch])
+  const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
+    [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false]];
+  const shortBad = [];
+  for (const [w, h, touch] of SHORT) {
+    const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/fish-a-fish/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("fishafish_best_daybreak_nine", "1234"); localStorage.setItem("fishafish_best_endless_nine", "1234"); } catch (e) {} }) });
+    await q.waitForTimeout(200);
+    const m = await q.evaluate(() => {
+      const r = (s) => document.querySelector(s).getBoundingClientRect(), how = r("#menu .how"), card = r("#menu .card"), W = innerWidth, H = innerHeight;
+      const inWin = (b) => b.left >= -0.5 && b.right <= W + 0.5 && b.top >= -0.5 && b.bottom <= H + 0.5;
+      return { how: how.height > 20, bests: /1234/.test(document.getElementById("bests").textContent), card: inWin(card), play: inWin(r("#play")), under: card.top >= r("#menu .tag").bottom - 0.5, off: Math.round(Math.max(0, card.bottom - H)) };
+    });
+    if (!(m.how && m.bests && m.card && m.play && m.under)) shortBad.push(w + "x" + h + (touch ? " touch " : " mouse ") + JSON.stringify(m));
+    if (q.errs.length) shortBad.push(w + "x" + h + " errors " + q.errs.join("; "));
+    await q.close(); await c.close();
+  }
+  check("fish-a-fish: on short screens the menu leaves nothing out to fit: the how-to is shown and the whole card (Cast off, the bests) is inside the window", shortBad.length === 0, shortBad);
 };

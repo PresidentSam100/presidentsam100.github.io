@@ -95,12 +95,37 @@ html, body {
   .menu .modes button { width: 100%; max-width: 330px; flex-direction: row; align-items: baseline; gap: 10px; text-align: left; }
   .menu .modes { flex-direction: column; align-items: center; gap: 7px; }
 }
-/* Short screens (a phone on its side, a small laptop window): keep the middle
-   free for the menu targets. */
-@media (max-height: 520px) {
-  .menu { padding-top: 48px; }
-  .menu .how, .menu .modes small { display: none; }
-  .menu .modes { flex-direction: row; margin-top: auto; }
-  .menu .modes button { width: auto; min-width: 110px; padding: 7px 14px; }
+/* Short screens (a small phone, a phone on its side, a small laptop window):
+   the middle stays free for the menu targets, and nothing is left out to
+   keep it so. The room to spare is at the top, so the how-to line moves up
+   under the tagline (it reads on into the targets it speaks of), and the
+   modes keep their descriptions, closed up. */
+@media (max-height: 620px) {
+  .menu { padding-bottom: 8px; }
+  .menu .how { margin: 5px 0 0; font-size: 0.85rem; line-height: 1.3; }
+  .menu .modes { margin-top: auto; }
+  .menu .modes button { padding-top: 6px; padding-bottom: 6px; }
+  .menu .modes small { line-height: 1.25; }
   .menu .bests { margin-top: 6px; font-size: 0.78rem; }
+}
+/* ...and shorter still, with the width for it (a phone on its side): the three
+   modes share one row, as wide as the window lets them, so each description
+   takes two lines or three */
+@media (max-height: 520px) {
+  .menu { padding-top: 48px; padding-bottom: 5px; }
+  .menu h1 { font-size: clamp(26px, 9vh, 44px); }
+  .menu .tag { margin-top: 3px; font-size: 14px; }
+  .menu .how { margin-top: 3px; font-size: 0.8rem; }
+  .menu .bests { margin-top: 4px; font-size: 0.74rem; }
+}
+/* (a small phone held upright: the three stay one under another, closer) */
+@media (max-height: 520px) and (max-width: 560px) {
+  .menu .modes { gap: 5px; }
+  .menu .modes button { padding-top: 4px; padding-bottom: 4px; }
+}
+@media (max-height: 520px) and (min-width: 561px) {
+  .menu { width: min(96vw, 880px); }
+  .menu .modes { flex-direction: row; flex-wrap: nowrap; align-items: stretch; gap: 8px; width: 100%; }
+  .menu .modes button { flex: 1 1 0; width: auto; min-width: 0; max-width: 290px; gap: 1px; padding: 5px 9px; }
+  .menu .modes small { font-size: 0.7rem; }
 }

@@ -115,9 +115,48 @@ kbd {
 .over .stats { margin: 3px 0 14px; font-size: 0.9rem; color: #cfdfe4; }
 .over .row { display: flex; gap: 10px; justify-content: center; }
 
-/* Short landscape screens: let the menu card share the bottom with the reeds. */
-@media (max-height: 500px) {
+/* Short screens (a small phone, a phone on its side, a short laptop window).
+   Nothing is left out to make the card fit, the how-to least of all: the
+   spacing closes up and the type goes a size down... */
+@media (max-height: 620px) {
+  .menu { padding-bottom: 6px; }
+  .menu h1 { font-size: clamp(28px, 7vh, 44px); }
+  .menu .tag { margin-top: 0; font-size: 15px; }
+  .menu .card { margin-bottom: 0; padding: 10px 14px; }
+  .menu .how { margin-bottom: 8px; font-size: 0.8rem; line-height: 1.36; }
+  .menu .pick { margin-top: 6px; }
+  .menu .seg button { padding-top: 5px; padding-bottom: 5px; }
+  .menu .playbtn { margin-top: 8px; padding: 8px 16px; }
+  .menu .bests { margin-top: 6px; }
+}
+/* ...and where the window is short but wide, the card goes wide too and sets
+   the how-to beside the choices, sharing the bottom with the reeds */
+@media (max-height: 620px) and (min-width: 540px) {
   .menu { padding-top: 46px; }
-  .menu .how { display: none; }
-  .menu h1 { font-size: clamp(30px, 7vh, 44px); }
+  .menu .card {
+    width: min(96vw, 880px);
+    display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); column-gap: 18px; align-items: center;
+  }
+  .menu .how { grid-column: 1; grid-row: 1 / span 4; margin: 0; text-align: left; }
+  .menu .pick, .menu .playbtn, .menu .bests { grid-column: 2; }
+  .menu .how + .pick { margin-top: 0; }
+}
+/* (a narrow one of those: each half of the card is no wider than a small
+   phone, so the choices are set as they are there) */
+@media (max-height: 620px) and (min-width: 540px) and (max-width: 760px) {
+  .menu .card { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); column-gap: 12px; padding: 8px 12px; }
+  .menu .pick { gap: 5px; }
+  .menu .picklab { flex-basis: 34px; font-size: 0.6rem; letter-spacing: 0.04em; }
+  .menu .seg { gap: 4px; }
+  .menu .seg button { padding: 4px 2px; font-size: 0.76rem; overflow-wrap: anywhere; }
+  .menu .seg small { font-size: 0.62rem; }
+  .menu .bests { font-size: 0.74rem; }
+}
+/* (the shortest: a phone on its side with the browser's bars showing) */
+@media (max-height: 400px) {
+  .menu h1 { font-size: 26px; }
+  .menu .tag { font-size: 14px; }
+  .menu .how { font-size: 0.76rem; line-height: 1.32; }
+  .menu .playbtn { margin-top: 6px; padding: 6px 16px; font-size: 1rem; }
+  .menu .bests { margin-top: 4px; font-size: 0.78rem; }
 }

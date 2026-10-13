@@ -52,4 +52,30 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("sunset-slice: Modes on the end screen goes at once, no question", d.state === "menu" && !d.dlg, d);
   check("sunset-slice (modes): no page errors", q.errs.length === 0, q.errs);
   await ctx.close();
+
+  // ---- short screens: nothing is left out to make the menu fit. With saved
+  // bests on it, the how-to line and each mode's description are shown, all of
+  // it is inside the window, and none of it lies over the three targets in the
+  // middle (or the names under them): on a small phone, a phone on its side,
+  // and a short laptop window ([wide, high, touch])
+  const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [320, 568, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
+    [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false]];
+  const shortBad = [];
+  for (const [w, h, touch] of SHORT) {
+    const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: h } });
+    const s = await lib.open(c, base, "games/sunset-slice/", { before: (pg) => pg.addInitScript(() => { try { ["duel", "lastlight", "calm"].forEach((k) => localStorage.setItem("sunsetslice_best_" + k, "1234")); } catch (e) {} }) });
+    await s.waitForTimeout(200);
+    const m = await s.evaluate(() => {
+      const menu = document.getElementById("menu"), r = (e) => e.getBoundingClientRect(), W = innerWidth, H = innerHeight, R = SunsetSlice.state().R;
+      // the targets hang at mid-height, bobbing a little, their names under them
+      const top = H * 0.5 - R * 1.2, bot = H * 0.5 + R * 1.75 + Math.max(15, R * 0.42) * 0.45 + H * 0.015;
+      const parts = [...menu.querySelectorAll("h1, .tag, .how, .modes button, .bests")], out = [], over = [];
+      parts.forEach((e) => { const b = r(e), name = e.className || e.tagName; if (b.left < -0.5 || b.right > W + 0.5 || b.top < -0.5 || b.bottom > H + 0.5) out.push(name); if (Math.min(b.bottom, bot) - Math.max(b.top, top) > 0.5) over.push(name); });
+      return { how: r(menu.querySelector(".how")).height > 8, small: [...menu.querySelectorAll(".modes small")].every((e) => r(e).height > 8), bests: /1234/.test(document.getElementById("bests").textContent), out, over };
+    });
+    if (!(m.how && m.small && m.bests && m.out.length === 0 && m.over.length === 0)) shortBad.push(w + "x" + h + (touch ? " touch " : " mouse ") + JSON.stringify(m));
+    if (s.errs.length) shortBad.push(w + "x" + h + " errors " + s.errs.join("; "));
+    await s.close(); await c.close();
+  }
+  check("sunset-slice: on short screens the menu leaves nothing out to fit: the how-to line and the modes' descriptions are shown, inside the window and clear of the targets", shortBad.length === 0, shortBad);
 };
