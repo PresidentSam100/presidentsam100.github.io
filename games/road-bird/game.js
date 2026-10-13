@@ -1965,7 +1965,7 @@ function veil(alpha) {
   ctx.fillRect(0, 0, W, H);
 }
 
-function drawButton(b, fill, label, sub, hi, selected) {
+function drawButton(b, fill, label, sub, hi, selected, key) {
   // a chunky toy button: solid face sitting on a darker lip, like the back pill
   ctx.fillStyle = shadeC(fill, -0.4);
   roundRect(b.x, b.y + 4, b.w, b.h, 14); ctx.fill();
@@ -1979,8 +1979,22 @@ function drawButton(b, fill, label, sub, hi, selected) {
   ctx.fillStyle = "#2c3a18";
   ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
   if (sub == null && hi == null) { // simple centred button (game-over screen)
-    ctx.textAlign = "center";
-    ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2);
+    const cy = b.y + b.h / 2;
+    if (key && !window.GameShell.touchOnly()) {
+      // the key that presses it rides on the button, as a keycap after its
+      // name (nothing on a touch-only device: a tap presses it)
+      const lw = ctx.measureText(label).width;
+      ctx.font = "bold 14px 'Trebuchet MS', sans-serif";
+      const kw = ctx.measureText(key).width + 14 * 0.92;   // (the keycap's padding, as drawKeys measures it)
+      const x0 = b.x + (b.w - lw - 9 - kw) / 2;
+      ctx.textAlign = "left";
+      window.GameShell.drawKeys(ctx, "[" + key + "]", x0 + lw + 9, cy + 1);
+      ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
+      ctx.fillText(label, x0, cy);
+    } else {
+      ctx.textAlign = "center";
+      ctx.fillText(label, b.x + b.w / 2, cy);
+    }
     return;
   }
   ctx.textAlign = "left";
@@ -2094,7 +2108,8 @@ function drawMenu() {
   if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
   const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
   ctx.globalAlpha = pulse;
-  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] / tap to play  •  [ESC] games", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
+  // (the way out to the games page and the sound are on the corner buttons, with their keys)
+  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] / tap to play", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
   ctx.globalAlpha = 1;
 }
 
@@ -2119,10 +2134,10 @@ function drawDead() {
   textCenter((mode ? mode.label : "") + "  ·  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
   textCenter("Best  " + highScore + (bestCoins ? "    (🪙 " + bestCoins + ")" : ""), W / 2, H * 0.39 + 30, 18, "#dfe6f0");
   const r = deadButtonRects();
-  drawButton(r[0], "#ffd23d", "Play Again", null, null, true);
-  drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false);
-  // (only keys, so nothing on a phone: the buttons above say it)
-  keysCenter("[SPACE] play again  •  [⌫] menu  •  [ESC] games  •  [M] mute", W / 2, H * 0.86, 15, "rgba(255,255,255,.7)", "");
+  // each button wears its own key (Space, Backspace); the way out to the
+  // games page and the sound are on the corner buttons, with theirs
+  drawButton(r[0], "#ffd23d", "Play Again", null, null, true, "SPACE");
+  drawButton(r[1], "#f6f2e4", "Main Menu", null, null, false, "⌫");
 }
 
 function drawPauseOverlay() {

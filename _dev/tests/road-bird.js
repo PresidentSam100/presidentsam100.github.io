@@ -59,6 +59,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const b = await pg.locator("#game").boundingBox(), px = b.x + x * b.width / W, py = b.y + y * b.height / H;
     if (tap) await pg.touchscreen.tap(px, py); else await pg.mouse.click(px, py);
   };
+  // ...the same, with where each string is drawn (the canvas's logical points)
+  const drawnAt = (pg) => pg.evaluate(() => {
+    const g = document.getElementById("game").getContext("2d"), out = [];
+    g.fillText = function (s, x, y) { out.push({ s: String(s), x: Math.round(x), y: Math.round(y) }); return CanvasRenderingContext2D.prototype.fillText.apply(this, arguments); };
+    try { __game.render(); } finally { delete g.fillText; }
+    return out;
+  });
   const shows = (pg, sel) => pg.evaluate((s) => { const e = document.querySelector(s); return e ? getComputedStyle(e).display !== "none" : null; }, sel);
   const unlocked = (pg) => pg.addInitScript(() => { try { localStorage.setItem("crossy_high_classic", "300"); } catch (e) {} });   // every skin
 
@@ -69,6 +76,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   const deskHint = { keys: await shows(d, "#hint .gs-keys"), touch: await shows(d, "#hint .gs-touch") };
   check("road-bird, desktop (guard): C changes the skin", s1 !== s0, { s0, s1 });
   check("road-bird, desktop: the hints name the keys", deskHint.keys && deskHint.touch === false && deskMenu.split(" | ").includes("C") && /SPACE/.test(deskMenu), { deskHint, deskMenu });
+  // the keys that are on the corner buttons already (Esc for the games page,
+  // M for the sound) aren't listed again on the board; on the game-over card
+  // Space and Backspace ride on their own buttons, with no line of keys under
+  // them; and the how-to-play line along the foot of the page is lettered
+  // like the board's captions (white, with a dark outline)
+  await d.keyboard.press("Space"); await d.waitForTimeout(300);
+  await d.evaluate(() => __game.death("runover"));
+  await d.waitForFunction(() => __game.state === "dead", null, { timeout: 15000 });
+  const overAt = await drawnAt(d), overAll = overAt.map((t) => t.s).join(" | ");
+  const on = (s, y0) => overAt.some((t) => t.s === s && t.y > y0 && t.y < y0 + 50 && t.x > (W - 300) / 2 && t.x < (W + 300) / 2);
+  const hintLook = await d.evaluate(() => { const c = getComputedStyle(document.getElementById("hint")); return { color: c.color, outlined: c.textShadow !== "none" && /rgba?\(0, 0, 0/.test(c.textShadow) }; });
+  check("road-bird, desktop: Esc and M aren't listed again on the menu or the game-over card; Space rides on Play Again and ⌫ on Main Menu, with no line of keys under them",
+    !/ESC/i.test(deskMenu) && !/ESC|mute|play again|menu  /i.test(overAll.replace(/Play Again|Main Menu/g, "")) && on("SPACE", H * 0.60) && on("⌫", H * 0.60 + 64), { deskMenu, overAll });
+  check("road-bird, desktop: the how-to-play line is lettered like the board's captions (white, dark outline)", hintLook.color === "rgb(255, 255, 255)" && hintLook.outlined, hintLook);
   await d.close();
 
   // phone: a tap on the turntable changes the skin; the hints say tap / swipe
