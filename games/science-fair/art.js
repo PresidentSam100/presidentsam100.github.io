@@ -69,15 +69,22 @@
   /* The nine cutouts, in order from the sun. r is the base radius in
      SVG units; game.js scales the whole cutout to fit the board. */
   var PLANETS = [
-    { name: "Mercury", r: 24, paper: "#b9aca0", deep: "#8f8478" },
-    { name: "Venus",   r: 33, paper: "#e3bd57", deep: "#b8933a" },
-    { name: "Earth",   r: 35, paper: "#4f8fd0", deep: "#33639c" },
-    { name: "Mars",    r: 29, paper: "#d96b45", deep: "#a84a2e" },
-    { name: "Jupiter", r: 56, paper: "#ddb187", deep: "#b08055" },
-    { name: "Saturn",  r: 44, paper: "#e8d094", deep: "#bfa25e" },
-    { name: "Uranus",  r: 39, paper: "#9fd8d4", deep: "#6fa8a4" },
-    { name: "Neptune", r: 38, paper: "#5a6fd0", deep: "#3d4d9e" },
-    { name: "Pluto",   r: 17, paper: "#c9b8a8", deep: "#9c8b7b" }
+    // r: the cutout's size. Nearer the real thing than a row of equals, the
+    // way a science fair's model is: the true sizes run from Pluto's fifth of
+    // an Earth to Jupiter's eleven, and no board could show that, so they are
+    // squeezed (about the cube root), which keeps their order and makes the
+    // giants plainly giants. small: the sizes they keep on a board too narrow
+    // for one row (a phone), where a giant that size would leave the rocky
+    // planets too small to tap.
+    { name: "Mercury", r: 22, small: 24, paper: "#b9aca0", deep: "#8f8478" },
+    { name: "Venus",   r: 33, small: 33, paper: "#e3bd57", deep: "#b8933a" },
+    { name: "Earth",   r: 35, small: 35, paper: "#4f8fd0", deep: "#33639c" },
+    { name: "Mars",    r: 27, small: 29, paper: "#d96b45", deep: "#a84a2e" },
+    { name: "Jupiter", r: 76, small: 56, paper: "#ddb187", deep: "#b08055" },
+    { name: "Saturn",  r: 66, small: 44, paper: "#e8d094", deep: "#bfa25e" },
+    { name: "Uranus",  r: 50, small: 39, paper: "#9fd8d4", deep: "#6fa8a4" },
+    { name: "Neptune", r: 48, small: 38, paper: "#5a6fd0", deep: "#3d4d9e" },
+    { name: "Pluto",   r: 15, small: 17, paper: "#c9b8a8", deep: "#9c8b7b" }
   ];
 
   // Per-planet decoration, drawn inside the cutout.

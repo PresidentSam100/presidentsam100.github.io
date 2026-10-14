@@ -51,7 +51,8 @@ body::after {
 
 /* ---- the diorama ---------------------------------------------------- */
 
-#board { position: fixed; inset: 0; }
+/* (clipped: in Classic the five planets it doesn't use hang past the right edge) */
+#board { position: fixed; inset: 0; overflow: hidden; }
 
 /* the wooden ruler the solar system hangs from */
 #ruler, #wire { position: absolute; z-index: 2; }
@@ -79,6 +80,26 @@ body::after {
 }
 .hang .string { width: 2px; background: var(--thread); box-shadow: 1px 0 1px rgba(0,0,0,0.2); }
 .hang .knot { width: 7px; height: 7px; border-radius: 50%; background: var(--thread); margin-top: -4px; }
+/* a gas giant hangs by two threads, a radius apart (--span, set as it is hung):
+   the one box is both threads, and its knot both knots */
+.hang.two .string {
+  box-sizing: border-box; width: var(--span, 60px); background: none; box-shadow: none;
+  border-left: 2px solid var(--thread); border-right: 2px solid var(--thread);
+}
+.hang.two .knot { position: relative; width: var(--span, 60px); border-radius: 0; background: none; }
+.hang.two .knot::before, .hang.two .knot::after {
+  content: ""; position: absolute; top: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--thread);
+}
+.hang.two .knot::before { left: -2.5px; }
+.hang.two .knot::after { right: -2.5px; }
+/* A change of view (a mode picked, a window resized) glides: the planets to
+   their new places and sizes, their threads with them, and the sun. Only with
+   Visual FX on, and not the first hanging as the page opens (.hung). */
+.fxon.hung .hang { transition: left 0.9s cubic-bezier(0.4, 0, 0.2, 1), top 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease; }
+.fxon.hung .hang .string { transition: height 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), margin-bottom 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+.fxon.hung .hang .knot { transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+.fxon.hung .hang button.pad { transition: transform 0.12s ease, filter 0.12s ease, width 0.9s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+.fxon.hung #sun { transition: left 0.9s cubic-bezier(0.4, 0, 0.2, 1), top 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), height 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
 
 .hang button.pad {
   display: block; border: 0; padding: 0; background: none; cursor: pointer;

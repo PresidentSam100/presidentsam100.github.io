@@ -103,7 +103,7 @@
     A.PLANETS.forEach(function (p, i) {
       var box = A.planetSVG(i);
       var el = document.createElement("div");
-      el.className = "hang sway";
+      el.className = "hang sway" + (TWO_STRINGS[i] ? " two" : "");
       el.innerHTML = '<span class="knot"></span><span class="string"></span>' +
         '<button type="button" class="pad" aria-label="' + p.name + ', key ' + (i + 1) + '">' + box.html + "</button>" +
         // (the tag's key hides on a touch-only device, where the cutout is tapped)
@@ -153,47 +153,65 @@
   }
   var stars = [];
 
-  // Hang everything to fit the current window.
+  // Hang everything to fit the current window, and the mode: the board shows
+  // the planets the mode plays with. All nine, or in Classic the four rocky
+  // ones, drawn larger and spread across it, with the other five slid away
+  // past the right edge (styles.css glides everything there with Visual FX
+  // on, so picking a mode pulls the view in or out).
   var STRINGS = [70, 145, 42, 118, 165, 58, 138, 95, 34];   // varied, like real yarn
+  var TWO_STRINGS = { 4: true, 5: true };                   // the gas giants are too big for one
   function layout() {
     boardW = window.innerWidth; boardH = window.innerHeight;
-    var twoRows = boardW < 820;
-    $("wire").hidden = !twoRows;
+    var twoRows = boardW < 820, close = active() === 4;
+    $("wire").hidden = !twoRows || close;
     var rulerR = $("ruler").getBoundingClientRect();
     var anchor1 = rulerR.bottom;
     var anchor2 = boardH * 0.44;
     if (twoRows) $("wire").style.top = anchor2 + "px";
 
-    var rows = twoRows ? [[0, 1, 2, 3, 4], [5, 6, 7, 8]] : [[0, 1, 2, 3, 4, 5, 6, 7, 8]];
+    var rows = close ? [[0, 1, 2, 3]] : twoRows ? [[0, 1, 2, 3, 4], [5, 6, 7, 8]] : [[0, 1, 2, 3, 4, 5, 6, 7, 8]];
+    var away = close ? [4, 5, 6, 7, 8] : [];
     // side margins leave room for the masking-tape tags, which are wider
     // than the smallest cutouts
     var avail = boardW - (twoRows ? 64 : Math.max(76, boardW * 0.06));
     var gap = twoRows ? 6 : 10;
+    // each cutout's own size beside the others': as drawn, or (two short rows,
+    // on a phone) the smaller set, where the giants are not so far ahead
+    function own(i) { return twoRows ? A.PLANETS[i].small / A.PLANETS[i].r : 1; }
     // one scale for every cutout: the tightest row decides. A cutout's
     // footprint is its whole svg box (Saturn's ring is wider than its disc),
     // so no button ever overlaps its neighbour's.
-    function halfW(i) { return Math.max(A.PLANETS[i].r, pads[i].box.w / 2); }
+    function halfW(i) { return Math.max(A.PLANETS[i].r, pads[i].box.w / 2) * own(i); }
     var scale = 10;
     rows.forEach(function (row) {
       var sum = 0;
       row.forEach(function (i) { sum += 2 * halfW(i); });
       scale = Math.min(scale, (avail - gap * (row.length - 1)) / sum);
     });
-    scale = Math.max(0.42, Math.min(scale, 1.2));
-    var vroom = (twoRows ? anchor2 - anchor1 : boardH - anchor1) - 150 * scale - 120;
+    // (closed in, a cutout may be about twice the size, as far as the board's height allows)
+    scale = Math.max(0.42, Math.min(scale, close ? Math.min(2.3, (boardH - anchor1) * 0.3 / 70) : 1.2));
+    if (close) {
+      // the four are spread over most of the board, not huddled in its middle
+      var sum4 = 0;
+      rows[0].forEach(function (i) { sum4 += 2 * halfW(i) * scale; });
+      gap = Math.max(gap, Math.min(190, (avail * 0.82 - sum4) / 3));
+    }
+    var vroom = (twoRows && !close ? anchor2 - anchor1 : boardH - anchor1) - 150 * scale - 120;
     var sk = Math.max(0.35, Math.min(2.2, vroom / 220));
 
-    rows.forEach(function (row, ri) {
-      var anchor = ri === 0 ? anchor1 : anchor2;
+    var past = boardW + 50;                            // where the ones slid away begin
+    rows.concat([away]).forEach(function (row, ri) {
+      var gone = row === away;
+      var anchor = ri === 0 || gone ? anchor1 : anchor2;
       var total = gap * (row.length - 1);
       row.forEach(function (i) { total += 2 * halfW(i) * scale; });
-      var x = (boardW - total) / 2;
+      var x = gone ? past : (boardW - total) / 2;
       row.forEach(function (i) {
-        var p = pads[i], base = A.PLANETS[i];
-        var dr = base.r * scale;                       // on-screen radius
+        var p = pads[i], base = A.PLANETS[i], k = scale * own(i);
+        var dr = base.r * k;                           // on-screen radius
         var hw = halfW(i) * scale;                     // half the footprint
-        var sw = p.box.w * scale;                      // svg box width on screen
-        var sl = Math.max(26, STRINGS[i] * sk * (ri === 1 ? 0.9 : 1));
+        var sw = p.box.w * k;                          // svg box width on screen
+        var sl = Math.max(26, STRINGS[i] * sk * (ri === 1 && !gone ? 0.9 : 1));
         p.x = x + hw; p.y = anchor + sl + dr; p.r = dr;
         p.el.style.left = (p.x - sw / 2) + "px";
         p.el.style.top = anchor + "px";
@@ -201,8 +219,17 @@
         p.btn.style.width = sw + "px";
         // the svg box pads the paper by 8 units; tuck the button up so the
         // thread visually touches the cutout's edge
-        p.btn.style.marginTop = (-(p.box.h / 2 - base.r) * scale) + "px";
-        p.el.querySelector(".string").style.height = sl + "px";
+        p.btn.style.marginTop = (-(p.box.h / 2 - base.r) * k) + "px";
+        var str = p.el.querySelector(".string");
+        if (TWO_STRINGS[i]) {
+          // two threads, half a radius either side of the middle: they meet
+          // the cutout's curve a little under its top, so they run on that
+          // much further (behind the paper) and the planet hangs where it did
+          var dip = dr * 0.14;
+          p.el.style.setProperty("--span", dr.toFixed(1) + "px");
+          str.style.height = (sl + dip) + "px";
+          str.style.marginBottom = (-dip) + "px";
+        } else str.style.height = sl + "px";
         var rng = A.mulberry(900 + i);
         p.el.style.setProperty("--swaydur", (4.6 + rng() * 2.6).toFixed(2) + "s");
         p.el.style.setProperty("--swaydelay", (-rng() * 5).toFixed(2) + "s");
@@ -226,16 +253,25 @@
       r.style.setProperty("--swaydeg", "2.2deg");
     });
 
-    // the paper sun peeks in from an edge; stars fill the lower cork
+    // the paper sun peeks in from an edge, the biggest thing on the board
+    // (bigger again when the view closes in); stars fill the lower cork
     var sun = $("sun");
-    var sz = twoRows ? Math.min(150, boardW * 0.4) : Math.max(170, Math.min(290, boardH * 0.33));
+    var sz = twoRows ? Math.min(190, boardW * 0.5) : Math.max(230, Math.min(430, boardH * 0.5));
+    if (close) sz *= twoRows ? 1.12 : 1.2;
     sun.style.width = sz + "px"; sun.style.height = sz + "px";
     sun.style.left = (-sz * 0.3) + "px";           // far enough in that its whole face shows
     // (on a phone it stands just clear of the banner, and the pin that would
-    // sit on its face goes above it)
-    sun.style.top = (twoRows ? boardH - sz - 30 : boardH * 0.56) + "px";
-    var pin = $("board").querySelector(".pin");
-    if (pin) pin.style.top = (twoRows ? 68 : 90) + "%";
+    // sit on its face goes above it; on a wide board its lowest rays may run
+    // off the foot, its face never)
+    sun.style.top = (twoRows ? boardH - sz - 62 : Math.min(boardH * 0.56, boardH - sz * 0.9)) + "px";
+    // (the two pins on that side keep off it: one goes over its top, the
+    // other to the foot of the cork beside it)
+    var sunTop = parseFloat(sun.style.top), pins = $("board").querySelectorAll(".pin");
+    if (pins[0]) {
+      pins[0].style.top = twoRows ? Math.min(68, (sunTop - 34) / boardH * 100) + "%" : "93%";
+      pins[0].style.left = twoRows ? "6%" : Math.round(sz * 0.72 + 26) + "px";
+    }
+    if (pins[2]) pins[2].style.top = Math.min(50, (sunTop - 44) / boardH * 100) + "%";
     var srng = A.mulberry(12);
     stars.forEach(function (star, si) {
       var sw2 = 20 + srng() * 22;
@@ -385,6 +421,8 @@
       p.btn.disabled = i >= n;
       p.btn.tabIndex = i >= n ? -1 : 0;
     });
+    // ...and the board closes in on them, or draws back to all nine
+    if (boardW) layout();
   }
   function applyRoids() {
     var d = mode === "daily" ? readDaily() : null;
@@ -666,6 +704,9 @@
   layout();
   window.addEventListener("resize", layout);
   applyDim(); applyRoids(); paintMenu();
+  // (hung: from here on a change of view glides, with Visual FX on. Not the
+  // first hanging, which would fly everything in from the corner.)
+  requestAnimationFrame(function () { requestAnimationFrame(function () { document.body.classList.add("hung"); }); });
   requestAnimationFrame(function (t) { last = t; requestAnimationFrame(loop); });
 
   // test hooks: the Playwright harness drives runs through these

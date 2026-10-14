@@ -1,7 +1,10 @@
 // Science Fair: a first run that ends at round 0 isn't "a new best"; the
 // buttons' keycaps (the mode keys, Blast off, Again) show with a keyboard
 // and hide on a touch-only phone; each sits in the middle of its button and
-// shows against it.
+// shows against it. The sun is the biggest thing on the board; the gas giants
+// are far bigger than the rocky planets and hang by two strings; and the board
+// shows the mode's own planets: all nine, or in Classic the four rocky ones,
+// closed in on and spread across it, the others slid away, the sun still in.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   // a Classic run that misses the very first note: round 0
@@ -64,6 +67,57 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("science-fair: Enter on a focused mode button only picks it; after a mouse pick (which keeps no focus) Enter blasts off",
       a.state === "menu" && a.on === "grand" && b.on === "classic" && b.focus !== "BUTTON" && c.state !== "menu", { a, b, c });
     check("science-fair (menu keys): no page errors", p.errs.length === 0, p.errs);
+    await ctx.close();
+  }
+
+  // ---- the diorama: the sun, the planets' sizes and strings, and the view each mode gives
+  {
+    const ctx = await lib.newContext(browser);
+    const p = await lib.open(ctx, base, "games/science-fair/");
+    // where everything hangs once it has stopped gliding (two looks alike, a few frames apart)
+    const board = () => p.evaluate(() => new Promise((res) => {
+      const read = () => {
+        const W = innerWidth, H = innerHeight, r = (e) => e.getBoundingClientRect();
+        const sun = r(document.getElementById("sun"));
+        return { W, H, sun: { w: Math.round(sun.width), cx: Math.round(sun.left + sun.width / 2), cy: Math.round(sun.top + sun.height / 2) },
+          planets: [...document.querySelectorAll("#planets .hang")].map((h) => {
+            const b = r(h.querySelector("button.pad")), s = r(h.querySelector(".string")), k = h.querySelector(".knot");
+            return { w: Math.round(b.width), left: Math.round(b.left), right: Math.round(b.right), bottom: Math.round(b.bottom), two: h.classList.contains("two"),
+              span: Math.round(s.width), knots: getComputedStyle(k, "::before").content !== "none" && getComputedStyle(k, "::after").content !== "none" ? 2 : 1,
+              dim: h.classList.contains("dim") };
+          }) };
+      };
+      let last = "", same = 0, n = 0;
+      (function tick() {
+        const now = JSON.stringify(read());
+        same = now === last ? same + 1 : 0; last = now;
+        if (same >= 6 || ++n > 400) res(JSON.parse(now)); else requestAnimationFrame(tick);
+      })();
+    }));
+    // (Visual FX off for the measuring: nothing sways, and a change of view is there at once)
+    await p.evaluate(() => { if (!window.RM_ON()) document.querySelector(".rm-toggle").click(); });
+    await p.keyboard.press("2");                                  // Grand Tour: all nine
+    const grand = await board();
+    await p.keyboard.press("1");                                  // Classic: the four rocky planets
+    const classic = await board();
+    const inside = (q, b) => q.left >= 0 && q.right <= b.W && q.bottom <= b.H;
+    const [me, ve, ea, ma, ju, sa, ur, ne, pl] = grand.planets;
+    check("science-fair: the sun is the biggest thing on the board (nearly half its height across), its face inside the frame",
+      grand.sun.w >= grand.H * 0.45 && grand.sun.w > ju.w * 1.8 && grand.sun.cx > 0 && grand.sun.cy < grand.H, { sun: grand.sun, H: grand.H, jupiter: ju.w });
+    check("science-fair: the planets keep their real order of size: Jupiter about twice Earth across, then Uranus, Neptune, Earth, Venus, Mars, Mercury, Pluto",
+      ju.w > ea.w * 1.9 && ju.w > ur.w && ur.w >= ne.w && ne.w > ea.w && ea.w >= ve.w && ve.w > ma.w && ma.w > me.w && me.w > pl.w, grand.planets.map((q) => q.w));
+    check("science-fair: the two gas giants hang by two strings, about a radius apart; the rest by one",
+      grand.planets.every((q, i) => (i === 4 || i === 5) === q.two && q.knots === (q.two ? 2 : 1)) && Math.abs(ju.span - ju.w * 76 / 168) < ju.w * 0.12 && me.span <= 3,
+      grand.planets.map((q) => [q.two, q.knots, q.span]));
+    check("science-fair, Grand Tour: all nine planets hang inside the frame", grand.planets.every((q) => inside(q, grand) && !q.dim), grand.planets.map((q) => [q.left, q.right]));
+    check("science-fair, Classic: the board closes in on the four rocky planets (each over half as big again, spread over more than half the board), the other five slid away past its edge, the sun still in the frame and bigger",
+      classic.planets.slice(0, 4).every((q, i) => inside(q, classic) && q.w > grand.planets[i].w * 1.5) &&
+      classic.planets[3].right - classic.planets[0].left > classic.W * 0.55 &&
+      classic.planets.slice(4).every((q) => q.left >= classic.W && q.dim) &&
+      classic.sun.w > grand.sun.w && classic.sun.cx > 0 && classic.sun.cy < classic.H,
+      { classic: classic.planets.map((q) => [q.left, q.right, q.w]), sun: classic.sun });
+    check("science-fair (diorama): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
     await ctx.close();
   }
 };
