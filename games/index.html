@@ -233,6 +233,8 @@
         background: #1a1111;
       }
 
+      /* the keys that press the two buttons and answer the box, on them */
+      .reset-row kbd,
       #reset-dialog kbd {
         display: inline-block;
         box-sizing: border-box;
@@ -252,9 +254,21 @@
         opacity: 0.8;
       }
 
+      /* "any other key", in words under Cancel where a keycap would be */
+      #reset-dialog .anykey {
+        display: block;
+        margin-top: 0.25rem;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        opacity: 0.7;
+      }
+
       /* touch-only devices have no keyboard to press them on */
       @media (hover: none) {
-        #reset-dialog kbd {
+        .reset-row kbd,
+        #reset-dialog kbd,
+        #reset-dialog .anykey {
           display: none;
         }
       }
@@ -285,8 +299,8 @@
           a little arcade of browser games i coded. pick one and play!
         </p>
         <div class="reset-row">
-          <button id="random-game" type="button">🎲 random game</button>
-          <button id="reset-scores" type="button">🗑️ reset all high scores</button>
+          <button id="random-game" type="button" aria-keyshortcuts="Enter">🎲 random game <kbd>Enter</kbd></button>
+          <button id="reset-scores" type="button" aria-keyshortcuts="Escape">🗑️ reset all high scores <kbd>Esc</kbd></button>
           <span id="reset-msg" role="status" aria-live="polite"></span>
         </div>
         <dialog id="reset-dialog" aria-labelledby="reset-dialog-title">
@@ -297,7 +311,7 @@
               browser / device. Nobody else is affected.
             </p>
             <div class="dialog-row">
-              <button type="button" class="dialog-cancel" data-v="no">Cancel <kbd>Esc</kbd></button>
+              <button type="button" class="dialog-cancel" data-v="no">Cancel <span class="anykey">any other key</span></button>
               <button type="button" class="dialog-ok" data-v="yes">Reset scores <kbd>Enter</kbd></button>
             </div>
           </div>
@@ -655,6 +669,19 @@
           var href = pick.getAttribute("href");
           if (href) window.location.href = href;
         });
+        // Enter is its key (shown on it), from anywhere on the page but a
+        // link, a button or a field: there Enter is that thing's own press, so
+        // a game's card reached by Tab still opens that game. Not with the
+        // reset box up, where Enter answers it.
+        document.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+          var dlg = document.getElementById("reset-dialog");
+          if (dlg && dlg.open) return;
+          var t = e.target;
+          if (t && t.closest && t.closest("a, button, input, select, textarea, summary, [contenteditable]")) return;
+          e.preventDefault();
+          btn.click();
+        });
       })();
     </script>
 
@@ -758,8 +785,9 @@
 
         var dlg = document.getElementById("reset-dialog");
 
-        // Ask first, in the page's own dialog (Enter resets, Esc or a click
-        // outside cancels); the browser's confirm() only where <dialog> isn't
+        // Ask first, in the page's own dialog (only Enter resets: any other key,
+        // or a click outside, cancels); the browser's confirm() only where
+        // <dialog> isn't. Esc is the button's key, shown on it.
         btn.addEventListener("click", function () {
           if (typeof dlg.showModal !== "function") {
             if (
@@ -775,7 +803,14 @@
           }
           dlg.returnValue = "";
           dlg.showModal();
-          dlg.querySelector(".dialog-ok").focus();
+          // (Cancel has the focus, so a stray Space cancels too)
+          dlg.querySelector(".dialog-cancel").focus();
+        });
+        document.addEventListener("keydown", function (e) {
+          if (e.key !== "Escape" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+          if (dlg.open) return;          // (the box's own Esc: it cancels)
+          e.preventDefault();
+          btn.click();
         });
 
         if (typeof dlg.showModal === "function") {
@@ -784,10 +819,19 @@
             if (b) dlg.close(b.getAttribute("data-v"));
             else if (e.target === dlg) dlg.close("no"); // the backdrop
           });
+          // only Enter resets; any other ordinary key cancels, so having asked
+          // for the box by mistake there is no key to hunt for (not Shift and
+          // its kind alone, a browser shortcut, Tab, or Space, which presses
+          // the button that has the focus: Cancel)
+          var ANY = /^([^ ]|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right))$/;
           dlg.addEventListener("keydown", function (e) {
-            if (e.key === "Enter" && !e.repeat) {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (e.key === "Enter") {
               e.preventDefault();
-              dlg.close("yes");
+              if (!e.repeat) dlg.close("yes");
+            } else if (ANY.test(e.key || "")) {
+              e.preventDefault();
+              if (!e.repeat) dlg.close("no");
             }
           });
           dlg.addEventListener("close", function () {
