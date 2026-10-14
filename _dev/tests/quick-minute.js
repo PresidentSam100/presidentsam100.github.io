@@ -37,7 +37,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const capsBack = await p.evaluate(async () => {
     document.getElementById("btn-menu").click();
     await Promise.resolve();
-    return ["#m-day .t", "#m-night .t"].map((s) => { const e = document.querySelector(s); return e && e.getAttribute("data-gs-key"); });
+    return ["#m-day .t", "#m-night .t", "#m-cycle .t"].map((s) => { const e = document.querySelector(s); return e && e.getAttribute("data-gs-key"); });
   });
   check("quick-minute: Change mode brings the menu back with its keycaps on, with no frame in between",
     capsBack.every(Boolean) && capsBack.indexOf("Space or Enter") >= 0, capsBack);
@@ -49,7 +49,8 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // the card over the windscreen: all of it inside (its top isn't cut off),
   // nothing to scroll, and what shows on it: how many of the three how-to-play
-  // rules, the two switches and their bests, its name, its buttons
+  // rules, the three switches (day, night, cycle) and their bests, its name,
+  // its buttons, and the two lines that say what night and cycle are
   const cardOf = (pg) => pg.evaluate(() => {
     const r = (e) => e.getBoundingClientRect(), stage = document.getElementById("stage"), card = document.getElementById("card"), ov = document.getElementById("overlay");
     if (!ov.classList.contains("show")) return null;
@@ -59,10 +60,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       rules: shown(".rules li").length, switches: shown(".mode-btn").length,
       bests: shown(".mode-btn .b").filter((b) => /best \d/.test(b.textContent)).length,
       name: shown("h2.nm").length === 1, buttons: shown(".btn").length,
+      note: shown("p.note").map((e) => e.textContent).join(" "),
     };
   });
   const inside = (c) => !!c && c.top >= 0 && c.gap >= 0 && c.scrolls <= 0;
-  const whole = (c) => inside(c) && c.rules === 3 && c.switches === 2;
+  const whole = (c) => inside(c) && c.rules === 3 && c.switches === 3 && /headlights alone.*day and night/.test(c.note);
 
   // the driver's seat: the dashboard sits under the windscreen and both fit
   // on the screen (a phone's too, nothing wider than it); the speedometer's
@@ -93,7 +95,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("quick-minute " + label + ": the needle rests at 0 and swings round with the MPH",
       menu.angle === -135 && drive.mph >= 60 && drive.set === drive.mph && drive.angle > -70 && drive.angle < 100, { menu, drive });
     check("quick-minute " + label + ": night mode lights the dials, the menu puts them out", !menu.night && drive.night && !back.night, { menu: menu.night, drive: drive.night, back: back.night });
-    check("quick-minute " + label + ": the whole menu card is inside the windscreen (all three rules and both switches showing, nothing to scroll)",
+    check("quick-minute " + label + ": the whole menu card is inside the windscreen (all three rules, the three switches and what night and cycle mean showing, nothing to scroll)",
       whole(menuCard), menuCard);
     check("quick-minute " + label + " (dashboard): no page errors", q.errs.length === 0, q.errs);
     await q.close();
@@ -103,18 +105,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   // short screens: a phone's browser bars leave about 550 px, and a laptop's
   // window is often 600 to 700 px tall (the desktop above is 900). The
   // windscreen is at or near its smallest there, and the menu still shows
-  // everything on it, for a player with a best saved in both modes (the
-  // tallest card): its name, the three rules, both switches and their bests
+  // everything on it, for a player with a best saved in every mode (the
+  // tallest card): its name, the three rules, the three switches and their bests
   // (a phone's menu went without its name once, to fit). Nothing is left out
   // or cut off to make it fit. The crash card is whole too.
-  const bests = (pg) => pg.addInitScript(() => { try { localStorage.setItem("rushhour_best_day", "12345"); localStorage.setItem("rushhour_best_night", "23456"); } catch (e) {} });
+  const bests = (pg) => pg.addInitScript(() => { try { localStorage.setItem("rushhour_best_day", "12345"); localStorage.setItem("rushhour_best_night", "23456"); localStorage.setItem("rushhour_best_cycle", "34567"); } catch (e) {} });
   for (const [w, h, phone] of [[375, 553, true], [360, 560, true], [320, 568, true], [320, 480, true], [320, 664, true], [1366, 657, false], [1280, 600, false], [1280, 500, false]]) {
     const c = await lib.newContext(browser, Object.assign({}, phone ? devices["iPhone 13"] : {}, { viewport: { width: w, height: h } }));
     const q = await lib.open(c, base, "games/quick-minute/", { before: bests });
     const label = "quick-minute, a " + w + " x " + h + (phone ? " phone" : " window");
     const card = await cardOf(q);
-    check(label + ": the menu keeps its name, all three rules, both switches and their bests, whole inside the windscreen",
-      whole(card) && card.bests === 2 && card.name, card);
+    check(label + ": the menu keeps its name, all three rules, the three switches and their bests, and what night and cycle mean, whole inside the windscreen",
+      whole(card) && card.bests === 3 && card.name, card);
     await q.evaluate(() => __game.start("day")); await q.waitForTimeout(120);
     await crash(q);
     const over = await cardOf(q);
@@ -171,6 +173,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("quick-minute: at night the other cars drive with their headlamps on, a beam on the road ahead of each; by day there are none",
       day.beams === 0 && night.beams >= 6, { day, night });
     check("quick-minute (lamps): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
+  // ---- CYCLE: the run starts at any hour, a whole day passes each minute of
+  // driving, and the look goes from day to night and back through a dusk and a
+  // dawn that are both scenes at once. Its best is its own.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/quick-minute/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("rushhour_best_cycle", "5"); } catch (e) {} }) });
+    const hours = [];
+    for (let i = 0; i < 4; i++) hours.push(await q.evaluate(() => { __game.start("cycle"); return __game.hour; }));
+    // the sky's top pixel and whether the dials are lit, at an hour (the road kept clear)
+    const at = (h) => q.evaluate((h) => new Promise((res) => {
+      __game.setHour(h); __game.obstacles.length = 0;
+      let n = 0;
+      (function tick() {
+        __game.obstacles.length = 0;
+        if (++n < 3) return requestAnimationFrame(tick);
+        const cv = document.getElementById("cv"), px = cv.getContext("2d").getImageData(Math.floor(cv.width / 2), 3, 1, 1).data;
+        res({ dark: Math.round(__game.dark * 100) / 100, sky: [px[0], px[1], px[2]], dials: document.body.classList.contains("night"), running: __game.running });
+      })();
+    }), h);
+    const noon = await at(0.5), midnight = await at(0.0), dusk = await at(0.75), dawn = await at(0.25);
+    // the hour moves on as you drive: a sixtieth of a day each second (counted in frames, as the game's clock is)
+    const moved = await q.evaluate(() => new Promise((res) => {
+      __game.setHour(0.4); const t0 = performance.now(); let n = 0;
+      (function tick() { __game.obstacles.length = 0; if (++n < 60) return requestAnimationFrame(tick); res({ hour: __game.hour, secs: (performance.now() - t0) / 1000 }); })();
+    }));
+    await q.evaluate(() => __game.addScore(600)); await q.waitForTimeout(450);
+    const saved = await q.evaluate(() => ({ cycle: localStorage.getItem("rushhour_best_cycle"), day: localStorage.getItem("rushhour_best_day"), night: localStorage.getItem("rushhour_best_night") }));
+    const between = (v, a, b) => v > Math.min(a, b) + 8 && v < Math.max(a, b) - 8;
+    check("quick-minute, CYCLE: a run starts at any hour (four starts, four hours)", hours.every((h) => h >= 0 && h < 1) && new Set(hours.map((h) => h.toFixed(4))).size === 4, hours);
+    check("quick-minute, CYCLE: noon is the day's look and midnight the night's (the dials lit), and dusk and dawn are between the two",
+      noon.dark === 0 && !noon.dials && midnight.dark === 1 && midnight.dials && noon.sky[2] > midnight.sky[2] + 100 &&
+      [dusk, dawn].every((t) => t.dark > 0.3 && t.dark < 0.7 && between(t.sky[2], noon.sky[2], midnight.sky[2])) && dawn.running, { noon, midnight, dusk, dawn });
+    check("quick-minute, CYCLE: the hour moves on as you drive, a whole day to the minute at most", moved.hour > 0.4 && moved.hour <= 0.4 + moved.secs / 60 + 0.002, moved);
+    check("quick-minute, CYCLE: its best is saved under its own name, the other two left alone", Number(saved.cycle) >= 600 && saved.day === null && saved.night === null, saved);
+    check("quick-minute (cycle): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
   }

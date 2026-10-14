@@ -4,6 +4,7 @@
   var LANES = 5;
   var BEST_DAY = "rushhour_best_day";
   var BEST_NIGHT = "rushhour_best_night";
+  var BEST_CYCLE = "rushhour_best_cycle";
 
   var $ = function (id) { return document.getElementById(id); };
   var stage = $("stage"), cv = $("cv"), ctx = cv.getContext("2d");
@@ -13,7 +14,7 @@
 
   function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
   function save(k, v) { try { localStorage.setItem(k, String(v)); } catch (e) {} }
-  function bestKey() { return mode === "night" ? BEST_NIGHT : BEST_DAY; }
+  function bestKey() { return mode === "night" ? BEST_NIGHT : mode === "cycle" ? BEST_CYCLE : BEST_DAY; }
 
   // ----- sound --------------------------------------------------------
   var AC = window.AudioContext || window.webkitAudioContext;
@@ -121,6 +122,17 @@
 
   // ----- game state ---------------------------------------------------
   var mode = "day";
+  // The hour, for the CYCLE mode: a whole day passes every DAY_S seconds of
+  // driving, from whatever hour the run starts at. 0 is midnight and 0.5 noon;
+  // dawn is about 0.25 and dusk about 0.75, each taking DUSK of the day, and
+  // darkAt() is how far into the night an hour is (0 day, 1 night). DAY and
+  // NIGHT are the two ends of it, held.
+  var DAY_S = 60, DUSK = 0.1, hour = 0.5;
+  function darkAt(h) {
+    var up = clamp01((h - (0.25 - DUSK / 2)) / DUSK), down = clamp01((h - (0.75 - DUSK / 2)) / DUSK);
+    return 1 - smooth(up) + smooth(down);
+  }
+  function dark() { return mode === "night" ? 1 : mode === "cycle" ? darkAt(hour) : 0; }
   var blinkOn = false; // shared turn-signal blink phase
   var player = { lane: 2, x: 0 };
   var obstacles = [];               // {lane, y, w, h, type, color}
@@ -666,8 +678,25 @@
   }
 
   // ----- render -------------------------------------------------------
+  // A frame is the day's scene or the night's. At dusk and dawn (CYCLE) it is
+  // both: the night's is drawn and kept, the day's drawn over it, and the
+  // night's laid back on top as far as the hour has gone into the dark.
+  var fadeCv = null, fadeCtx = null;
   function render(now) {
-    NIGHT = mode === "night";
+    var d = dark();
+    if (d <= 0.004 || d >= 0.996) { scene(now, d > 0.5); return; }
+    scene(now, true);
+    if (!fadeCv) { fadeCv = document.createElement("canvas"); fadeCtx = fadeCv.getContext("2d"); }
+    if (fadeCv.width !== cv.width || fadeCv.height !== cv.height) { fadeCv.width = cv.width; fadeCv.height = cv.height; }
+    fadeCtx.clearRect(0, 0, fadeCv.width, fadeCv.height);
+    fadeCtx.drawImage(cv, 0, 0);
+    scene(now, false);
+    ctx.globalAlpha = d;
+    ctx.drawImage(fadeCv, 0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+  function scene(now, night) {
+    NIGHT = night;
     HAZE = NIGHT ? "#0b101c" : "#c7d2c3";
     // turn signals blink with Visual FX on; with it off they stay lit, steady
     blinkOn = !fxOn() || (Math.floor(now / 270) % 2) === 0;
@@ -739,6 +768,8 @@
   function update(dt) {
     speed = curSpeed();
     score += speed * dt * 0.05;
+    // CYCLE: the hour moves on, and the dials light up as it gets dark
+    if (mode === "cycle") { hour = (hour + dt / DAY_S) % 1; document.body.classList.toggle("night", darkAt(hour) > 0.5); }
     var whole = Math.floor(score), nowMs = performance.now();
     if (whole > liveBest && nowMs - liveSavedAt >= 250) { liveBest = whole; liveSavedAt = nowMs; save(bestKey(), whole); }
     scroll = (scroll + speed * dt) % 116000; // 116000·K = 5800 m → seamless for every scenery period
@@ -812,13 +843,14 @@
 
   function start(m) {
     mode = m;
+    if (m === "cycle") hour = Math.random();   // any hour of the day or night
     ac();
     reset();
     clearCues();
     running = true;
     ov.classList.remove("show");
     elDist.textContent = "0"; setSpeed(0);
-    document.body.classList.toggle("night", mode === "night");      // (headlights on: the dials light up)
+    document.body.classList.toggle("night", dark() > 0.5);          // (headlights on: the dials light up)
     renderBest();
     runBest = liveBest = parseInt(load(bestKey()), 10) || 0; liveSavedAt = -1e9;
     lastT = 0;
@@ -842,7 +874,7 @@
       '<div class="big">' + d + '<small> M</small></div>' +
       '<p style="font-weight:800;color:' + (record ? 'var(--good)' : 'var(--muted)') + ';margin-top:0;">' +
         (record ? '★ NEW BEST!' : 'best ' + best + ' m') + '</p>' +
-      '<p style="font-size:0.8rem;">' + (mode === "night" ? '🌙 night' : '☀️ day') + ' run</p>' +
+      '<p style="font-size:0.8rem;">' + (mode === "night" ? '🌙 night' : mode === "cycle" ? '🌗 day and night' : '☀️ day') + ' run</p>' +
       '<button class="btn" id="btn-again" aria-keyshortcuts="Space Enter" data-gs-key="Space or Enter">Drive again</button>' +
       '<br><button class="btn ghost" id="btn-menu" data-gs-key="⌫" title="Backspace">Change mode</button>';
     ov.classList.add("show");
@@ -854,6 +886,7 @@
     running = false;
     var bd = parseInt(load(BEST_DAY), 10) || 0;
     var bn = parseInt(load(BEST_NIGHT), 10) || 0;
+    var bc = parseInt(load(BEST_CYCLE), 10) || 0;
     mode = "day"; // a lit orbiting preview behind the card
     document.body.classList.remove("night");
     card.innerHTML =
@@ -869,19 +902,22 @@
       '<div class="modes">' +
         '<button class="mode-btn" id="m-day"><span class="ic">☀️</span><span class="t">DAY</span><div class="b">' + (bd ? 'best ' + bd : '') + '</div></button>' +
         '<button class="mode-btn" id="m-night"><span class="ic">🌙</span><span class="t">NIGHT</span><div class="b">' + (bn ? 'best ' + bn : '') + '</div></button>' +
+        '<button class="mode-btn" id="m-cycle"><span class="ic">🌗</span><span class="t">CYCLE</span><div class="b">' + (bc ? 'best ' + bc : '') + '</div></button>' +
       '</div>' +
-      '<p class="note">night = you see by headlights alone 🔦</p>';
+      // (one line, for the smallest windscreen: each switch's own sign, and what it means)
+      '<p class="note">🌙 headlights alone · 🌗 day and night</p>';
     ov.classList.add("show");
     $("m-day").addEventListener("click", function () { start("day"); });
     $("m-night").addEventListener("click", function () { start("night"); });
+    $("m-cycle").addEventListener("click", function () { start("cycle"); });
   }
-  // Menu keys, shown on the buttons: 1 day, 2 night picks, Enter starts the
+  // Menu keys, shown on the buttons: 1 day, 2 night, 3 cycle picks, Enter starts the
   // run (a number alone doesn't, so the two can be gone between first; a
   // click still starts at once). The card is rebuilt each time, so the
   // keycaps are put back as it is; the mode last driven is the one picked.
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !running && !!$("m-day"); },
-    groups: [{ sel: "#m-day, #m-night", into: ".t", pick: true }],
+    groups: [{ sel: "#m-day, #m-night, #m-cycle", into: ".t", pick: true }],
     space: true,
     root: "#card"
   });
@@ -900,6 +936,9 @@
     get running() { return running; },
     get score() { return score; },
     get mode() { return mode; },
+    get hour() { return hour; },
+    get dark() { return dark(); },
+    setHour: function (h) { hour = h; },
     get obstacles() { return obstacles; },
     get player() { return player; },
     get cam() { return cam; },

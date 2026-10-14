@@ -19,7 +19,7 @@ const MENUS = {
   "crazy-ohio/": { keys: ["1", "2", "3", "4", "5", "6", "7", "8", "9"], enter: true },
   "corner-pocket/": { keys: ["3", "4", "5", "2", "1"], enter: true },
   "ping/": { keys: ["1", "2"], pick: true },
-  "quick-minute/": { keys: ["1", "2"], pick: true },
+  "quick-minute/": { keys: ["1", "2", "3"], pick: true },
   "neon-pinball/": { keys: ["1", "2", "3"], pick: true },
   "sunset-slice/": { keys: ["1", "2", "3"], pick: true },
   "speedle/": { keys: ["1", "2"], pick: true },
