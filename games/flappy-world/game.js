@@ -91,7 +91,9 @@ function card(ctx, x, y, w, h, fill = '#fffdf6') {
   ctx.stroke();
 }
 // A chunky 3D button: a darker slab under the face
-function button(ctx, b, face, under, text, textColor, size = 22) {
+// key: the key that presses the button, worn on it as a keycap after its
+// name (not on a touch-only device, where a tap presses it)
+function button(ctx, b, face, under, text, textColor, size = 22, key) {
   rrect(ctx, b.x, b.y + 5, b.w, b.h, 14);
   ctx.fillStyle = under;
   ctx.fill();
@@ -104,9 +106,23 @@ function button(ctx, b, face, under, text, textColor, size = 22) {
   ctx.stroke();
   ctx.font = size + 'px ' + FONT;
   ctx.fillStyle = textColor;
-  ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, b.x + b.w / 2, b.y + b.h / 2 + 2);
+  const cy = b.y + b.h / 2 + 2;
+  if (key && !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly())) {
+    const lw = ctx.measureText(text).width;
+    const ks = Math.max(11, Math.round(size * (key.length > 6 ? 0.5 : 0.62)));   // (a long one, "SPACE or ENTER", is set smaller)
+    ctx.font = ks + 'px ' + FONT;
+    const kw = ctx.measureText(key).width + ks * 0.92;                            // (the keycap's padding, as drawKeys measures it)
+    const x0 = b.x + (b.w - lw - 8 - kw) / 2;
+    ctx.textAlign = 'left';
+    keyHint(ctx, '[' + key + ']', x0 + lw + 8, cy);
+    ctx.font = size + 'px ' + FONT;
+    ctx.fillText(text, x0, cy);
+  } else {
+    ctx.textAlign = 'center';
+    ctx.fillText(text, b.x + b.w / 2, cy);
+  }
+  ctx.textAlign = 'center';
 }
 function heart(ctx, cx, cy, s, fill) {
   ctx.beginPath();
@@ -2072,9 +2088,14 @@ class Game {
     ];
     // Guide button on the menu
     this.guideButton = { x: 140, y: 470, w: 200, h: 48, label: 'OBSTACLE GUIDE' };
-    // Menu button on the game-over card: a touch screen's only way back to the
-    // lives switch and the guide (there's no M or Backspace to press)
-    this.menuButton = { x: 160, y: 572, w: 160, h: 46, label: 'MENU' };
+    // PLAY, under the menu's card: Space or Enter, or a tap (a tap anywhere
+    // off the other buttons starts too, as it always has)
+    this.playButton = { x: 90, y: 566, w: 300, h: 62, label: 'PLAY' };
+    // On the game-over card: PLAY AGAIN (Space or Enter; so does a tap
+    // anywhere off MENU), and MENU (Backspace), a touch screen's only way back
+    // to the lives switch and the guide
+    this.againButton = { x: 95, y: 488, w: 290, h: 56, label: 'PLAY AGAIN' };
+    this.menuButton = { x: 160, y: 566, w: 160, h: 46, label: 'MENU' };
 
     // Bind event listeners
     window.addEventListener('resize', () => this.resize());
@@ -2120,9 +2141,10 @@ class Game {
       } else if ((e.code === 'KeyI' || e.code === 'Escape') && this.gameState === 'INFO') {
         this.gameState = 'MENU';
       }
-      // M or Backspace: from the game-over card back to the menu
-      if ((e.code === 'KeyM' || e.code === 'Backspace') && this.gameState === 'GAMEOVER') {
-        if (e.code === 'Backspace') e.preventDefault();
+      // Backspace: from the game-over card back to the menu. (M did this too:
+      // it is the sound's key again, as in the other games, and V Visual FX's.)
+      if (e.code === 'Backspace' && this.gameState === 'GAMEOVER') {
+        e.preventDefault();
         this.init();
       }
     });
@@ -2237,7 +2259,7 @@ class Game {
       case 'GAMEOVER': {
         // a flap mashed as you crash mustn't skip the card
         if (this.overTimer > 0) break;
-        // MENU goes back to the menu, as M does; a tap anywhere else plays again
+        // MENU goes back to the menu, as Backspace does; a tap anywhere else plays again
         const m = this.menuButton;
         if (x !== undefined && x >= m.x && x <= m.x + m.w && y >= m.y && y <= m.y + m.h) {
           this.init();
@@ -2497,39 +2519,19 @@ class Game {
     ctx.fillStyle = '#6a6f86';
     ctx.fillText('CHOOSE MODE', CANVAS_W / 2, 368);
 
-    // Mode buttons
+    // Mode buttons: each wears its key (1, 3)
     for (const b of this.modeButtons) {
       const selected = (this.livesMode === b.mode);
-      button(ctx, b, selected ? '#ffd23f' : '#ffffff', selected ? '#d99a00' : '#b9c3d8', b.label, INK, 24);
+      button(ctx, b, selected ? '#ffd23f' : '#ffffff', selected ? '#d99a00' : '#b9c3d8', b.label, INK, 22, String(b.mode));
     }
 
-    // Guide button
-    button(ctx, this.guideButton, '#dff0ff', '#8fb8e8', this.guideButton.label, '#1c5fb8', 18);
+    // Guide button, with its key
+    button(ctx, this.guideButton, '#dff0ff', '#8fb8e8', this.guideButton.label, '#1c5fb8', 17, 'I');
 
-    // Blinking call-to-action
-    if (reducedMotion() || Math.floor(this.blinkTimer * 1.6) % 2 === 0) {   // steady with Visual FX off
-      // outlined() with a keycap: the same drop shadow, then the INK-outlined text
-      // (on a touch-only device, without the key: there's none to press)
-      const cta = 'TAP / [SPACE] / [ENTER] TO START', touch = 'TAP TO START';
-      ctx.font = '30px ' + FONT;
-      ctx.fillStyle = 'rgba(20,10,60,0.35)';
-      keyHint(ctx, cta, CANVAS_W / 2, 592, { outline: { width: 7, color: 'rgba(20,10,60,0.35)' }, touch: touch });
-      ctx.fillStyle = '#ffffff';
-      keyHint(ctx, cta, CANVAS_W / 2, 590, { outline: { width: 7, color: INK }, touch: touch });
-    }
-
-    // Controls hint
-    ctx.font = '13px ' + FONT;   // (Luckiest Guy has one weight: no faux bold)
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 4;
-    ctx.fillStyle = INK;
-    // two lines: with keycaps the controls no longer fit across the canvas
-    const hintOutline = { outline: { width: 4, color: 'rgba(255,255,255,0.9)' } };
-    // touch-only: a tap flaps and the ⏸ button pauses; the mode and guide
-    // buttons above say the rest, so that line goes
-    keyHint(ctx, '[SPACE] / CLICK / TAP to flap   ·   [P] pause', CANVAS_W / 2, 634,
-      Object.assign({ touch: 'TAP to flap   ·   ⏸ to pause' }, hintOutline));
-    keyHint(ctx, '[1] / [3] switch mode   ·   [I] guide', CANVAS_W / 2, 658, Object.assign({ touch: '' }, hintOutline));
+    // PLAY, with its keys. (It was a line of text that flashed, over two more
+    // lines of small print for the keys the buttons now wear; pause's key is
+    // on the corner button.)
+    button(ctx, this.playButton, '#7ed957', '#3f9d2f', this.playButton.label, INK, 32, 'SPACE or ENTER');
   }
 
   drawGameOver(ctx) {
@@ -2625,17 +2627,10 @@ class Game {
       outlined(ctx, '★ NEW BEST! ★', CANVAS_W / 2, 455, 30, '#ffd23f', { line: 7 });
     }
 
-    // Blinking restart prompt
-    if (reducedMotion() || Math.floor(this.blinkTimer * 2) % 2 === 0) {   // steady with Visual FX off
-      ctx.font = '22px ' + FONT;
-      ctx.fillStyle = '#1c5fb8';
-      keyHint(ctx, 'TAP / [SPACE] / [ENTER] TO PLAY AGAIN', CANVAS_W / 2, 512, { touch: 'TAP TO PLAY AGAIN' });
-    }
-    ctx.font = '16px ' + FONT;
-    ctx.fillStyle = '#6a6f86';
-    keyHint(ctx, '[M] or [⌫] for menu (change mode)', CANVAS_W / 2, 550, { touch: 'TAP MENU TO CHANGE MODE' });
-    // the menu, for a tap or a click (handleInput)
-    button(ctx, this.menuButton, '#dff0ff', '#8fb8e8', this.menuButton.label, '#1c5fb8', 22);
+    // PLAY AGAIN and MENU, each wearing its key (they were a flashing line and
+    // a line of small print over a bare MENU button)
+    button(ctx, this.againButton, '#ffd23f', '#d99a00', this.againButton.label, INK, 26, 'SPACE or ENTER');
+    button(ctx, this.menuButton, '#dff0ff', '#8fb8e8', this.menuButton.label, '#1c5fb8', 22, '⌫');
   }
 
   drawPause(ctx) {

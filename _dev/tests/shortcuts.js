@@ -5,7 +5,7 @@
 // middle of its button, and no page errors.
 
 // Games where letters are gameplay (or M is already taken): only [ and ] work.
-const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/", "flappy-world/"]);
+const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/"]);
 
 const rectsOf = (p) => p.evaluate(() => {
   const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };

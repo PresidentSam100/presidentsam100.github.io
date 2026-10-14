@@ -45,8 +45,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const early = await p.evaluate(() => game.gameState);
   await p.waitForFunction(() => game.overTimer === 0, null, { timeout: 5000 }); await p.waitForTimeout(50);   // (game time: slower than the clock on a busy machine)
   const o1 = await p.evaluate(() => ({ bt: game.blinkTimer, px: game.particles.particles.length ? game.particles.particles[0].y : null, y: game.bird.y }));
-  check("flappy-world: on the game-over card the prompt keeps blinking and the crash burst plays out; the bird stays where it fell",
-    o1.bt > o0.bt + 0.3 && o1.px !== o0.px && o1.y === o0.y, { o0, o1 });
+  check("flappy-world: on the game-over card the crash burst plays out; the bird stays where it fell",
+    o1.px !== o0.px && o1.y === o0.y, { o0, o1 });
   await p.keyboard.press("Space");
   const later = await p.evaluate(() => game.gameState);
   check("flappy-world: a press right as you crash doesn't restart; one a moment later does", early === "GAMEOVER" && later === "PLAYING", { early, later });
@@ -168,7 +168,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the canvas hints: keys on a desktop, touch wording on a phone
   // (Visual FX off, so the blinking prompts are drawn every frame)
-  const KEYS = ["SPACE", "Esc", "ESC", "1", "3", "I", "M", "⌫"];   // (not P: the FLAPPY title draws it, letter by letter)
+  const KEYS = ["SPACE", "SPACE or ENTER", "Esc", "ESC", "1", "3", "I", "M", "⌫"];   // (not P: the FLAPPY title draws it, letter by letter)
   const hints = {};
   for (const [label, c] of [["desktop", ctx], ["phone", phone]]) {
     p = await lib.open(c, base, "games/flappy-world/", fxOff(true));
@@ -183,11 +183,35 @@ module.exports = async ({ browser, base, check, lib }) => {
       await drawn("game.gameState = 'INFO'"),
       await drawn("game.setState('PLAYING'); game.invincibleTime = 1e9; game.togglePause()"),
       await drawn("game.togglePause(); game.die(); game.overTimer = 0"));
-    hints[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: ["TAP TO START", "TAP ▶ TO RESUME", "TAP TO RETURN", "TAP TO PLAY AGAIN"].filter((t) => all.includes(t)) };
+    hints[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: ["TAP ▶ TO RESUME", "TAP TO RETURN"].filter((t) => all.includes(t)),
+      // the buttons, and the lines of keys that used to stand under them
+      buttons: ["PLAY", "1 LIFE", "3 LIVES", "OBSTACLE GUIDE", "PLAY AGAIN", "MENU"].filter((t) => all.includes(t)),
+      lines: all.filter((t) => /to flap|switch mode|for menu|TO START|TO PLAY AGAIN/i.test(t)) };
     await done(p, label + " hints");
   }
   check("flappy-world: the canvas hints show keys on a desktop and touch wording on a phone",
-    hints.desktop.keys.length >= 5 && hints.desktop.touch.length === 0 && hints.phone.keys.length === 0 && hints.phone.touch.length === 4, hints);
+    hints.desktop.keys.length >= 5 && hints.desktop.touch.length === 0 && hints.phone.keys.length === 0 && hints.phone.touch.length === 2, hints);
+  check("flappy-world: the menu and the game-over card are buttons wearing their keys (1, 3, I, Space or Enter, Backspace), with no flashing prompt or line of key hints, and M is no menu key",
+    hints.desktop.buttons.length === 6 && hints.phone.buttons.length === 6 && hints.desktop.lines.length === 0 && hints.phone.lines.length === 0 &&
+    ["1", "3", "I", "SPACE or ENTER", "⌫"].every((k) => hints.desktop.keys.includes(k)) && !hints.desktop.keys.includes("M"), hints);
+
+  // ---- M and V are the sound and Visual FX here too (M was the menu's key); Backspace alone goes back from the card
+  {
+    p = await open();
+    const sw = () => p.evaluate(() => ({ muted: /🔇|off/i.test(document.querySelector(".mute-toggle").getAttribute("aria-label") || "") || document.querySelector(".mute-toggle").getAttribute("aria-pressed") === "true", fxOff: window.RM_ON(), state: game.gameState, cap: document.querySelector(".mute-toggle").getAttribute("aria-keyshortcuts") }));
+    const a = await sw();
+    await p.keyboard.press("m"); const b = await sw();
+    await p.keyboard.press("v"); const c = await sw();
+    await p.keyboard.press("m"); await p.keyboard.press("v");
+    await p.keyboard.press("Space"); await p.waitForTimeout(150);
+    await p.evaluate(() => { game.die(); game.overTimer = 0; });
+    await p.keyboard.press("m"); const over = await sw();
+    await p.keyboard.press("m");
+    await p.keyboard.press("Backspace"); const back = await sw();
+    check("flappy-world: M is the sound and V Visual FX (the corner buttons say so); on the game-over card M leaves the card be and Backspace goes to the menu",
+      /M/.test(a.cap || "") && b.muted !== a.muted && c.fxOff !== a.fxOff && over.state === "GAMEOVER" && over.muted !== a.muted && back.state === "MENU", { a, b, c, over, back });
+    await done(p, "M and V");
+  }
 
   // ---- a 2x screen: the canvas is drawn at device pixels, taps land in place
   const hi = await lib.newContext(browser, { deviceScaleFactor: 2 });
