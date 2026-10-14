@@ -217,5 +217,38 @@ module.exports = async ({ browser, base, check, lib }) => {
       beats.on.ms >= 350 && beats.off.ms >= 350 && beats.off.hand === 4, beats);
   }
 
+  // ---- the logo: its letters are slanted by the browser, which leaned their
+  // ink some 4px right of the oval's middle. Measured here as the game does,
+  // from the ink the font draws (so it holds in any font), with what the game
+  // moved the letters by: the ink sits on the oval's middle both ways.
+  // And the log: a card is named on its own colour, and so is the colour a
+  // wild was played for.
+  {
+    const q = await lib.open(ctx, base, "games/yi/");
+    const ink = await q.evaluate(() => {
+      const el = document.querySelector(".uno-logo"), ink = document.getElementById("logoInk"), cs = getComputedStyle(el), c = document.createElement("canvas").getContext("2d");
+      c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+      try { c.letterSpacing = cs.letterSpacing; } catch (e) {}
+      const m = c.measureText(ink.textContent), f = c.measureText("Hg"), pl = parseFloat(cs.paddingLeft), pt = parseFloat(cs.paddingTop), pb = parseFloat(cs.paddingBottom);
+      const base = pt + (el.clientHeight - pt - pb - (f.fontBoundingBoxAscent + f.fontBoundingBoxDescent)) / 2 + f.fontBoundingBoxAscent;
+      const raw = { x: pl + (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - el.clientWidth / 2, y: base + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2 - el.clientHeight / 2 };
+      const moved = { x: parseFloat(ink.style.left) || 0, y: parseFloat(ink.style.top) || 0 };
+      return { lean: +raw.x.toFixed(2), dx: +(raw.x + moved.x).toFixed(2), dy: +(raw.y + moved.y).toFixed(2) };
+    });
+    check("yi: the logo's letters sit on the middle of its oval, by their ink (the slant leans them right)", Math.abs(ink.lean) > 1 && Math.abs(ink.dx) <= 0.5 && Math.abs(ink.dy) <= 0.5, ink);
+    const chips = await q.evaluate(() => {
+      log([" played ", { card: { type: "draw2", color: "blue" } }]);
+      log([" played ", { card: { type: "number", color: "green", value: 7 } }]);
+      log([" played ", { card: { type: "wild4", color: "wild" } }, " → ", { color: "red" }]);
+      const bg = (v) => { const d = document.createElement("div"); d.style.background = "var(--" + v + ")"; document.body.appendChild(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c; };
+      return [...document.querySelectorAll("#log .log-card")].slice(-4).map((c) => ({ text: c.textContent, shown: getComputedStyle(c).textTransform === "capitalize" ? c.textContent.replace(/^./, (x) => x.toUpperCase()) : c.textContent,
+        own: ["red", "yellow", "green", "blue"].filter((v) => getComputedStyle(c).backgroundColor === bg(v)).join(), wild: c.classList.contains("wild") }));
+    });
+    check("yi: the log names a card on its own colour (Blue Draw 2 on blue, Green 7 on green), a wild on its own chip, and the colour it was played for on that colour",
+      chips.length === 4 && chips[0].shown === "Blue Draw 2" && chips[0].own === "blue" && chips[1].shown === "Green 7" && chips[1].own === "green" &&
+      chips[2].text === "Wild Draw Four" && chips[2].wild && chips[2].own === "" && chips[3].shown === "Red" && chips[3].own === "red", chips);
+    await done(q, "yi logo and log");
+  }
+
   await ctx.close();
 };

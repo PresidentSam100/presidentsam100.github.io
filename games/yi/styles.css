@@ -85,6 +85,9 @@ h2,
   -webkit-text-stroke: 1px rgba(0, 0, 0, 0.18);
   text-shadow: 2px 2px 0 var(--yellow);
 }
+/* (the letters are moved to the oval's middle by what their ink measures:
+   centreLogo in game.js) */
+.uno-logo span { position: relative; }
 h1.title {
   font-size: 2rem;
   margin: 0 0 0.25rem;
@@ -580,6 +583,28 @@ html.fx-off .played-by {
 }
 .log-player {
   font-weight: 800;
+}
+/* a card named in the log wears its colour, as a player's name wears theirs:
+   the card's own red, yellow, green or blue behind its name, and a wild on a
+   dark chip with the four colours under it */
+.log-card {
+  display: inline-block;
+  padding: 0 0.4em;
+  border-radius: 5px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #fff;
+}
+.log-card.red, .log-card.yellow, .log-card.green, .log-card.blue { text-transform: capitalize; }
+.log-card.red { background: var(--red); }
+.log-card.yellow { background: var(--yellow); color: #1a1a1a; }
+.log-card.green { background: var(--green); }
+.log-card.blue { background: var(--blue); }
+.log-card.wild {
+  background: linear-gradient(#2a2a34, #2a2a34) padding-box,
+    linear-gradient(90deg, var(--red) 0 25%, var(--yellow) 0 50%, var(--green) 0 75%, var(--blue) 0) border-box;
+  border-bottom: 3px solid transparent;
+  line-height: 1.15;
 }
 
 /* On wide screens, pin the log as a sidebar on the right so it's always in view.

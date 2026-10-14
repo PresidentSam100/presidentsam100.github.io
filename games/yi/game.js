@@ -392,8 +392,7 @@ function playCard(pi, idx, chosenColor, done) {
     G.discardBy = pi;
     G.currentColor = isWildType(card) ? chosenColor : card.color;
 
-    log([{ player: pi }, " played " + describe(card) +
-      (isWildType(card) ? " → " + G.currentColor : "")]);
+    log([{ player: pi }, " played ", { card: card }].concat(isWildType(card) ? [" → ", { color: G.currentColor }] : []));
 
     render();
     sfxPlay(card);
@@ -748,10 +747,10 @@ function onHumanDraw() {
     // card and clobber its deck-to-hand glide animation.
     G.drawnIndex = G.players[0].hand.length - 1;
     G.busy = false;
-    log([{ player: 0 }, " drew " + describe(got[0]) + ", play it or pass."]);
+    log([{ player: 0 }, " drew ", { card: got[0] }, ", play it or pass."]);
     render();
   } else {
-    log([{ player: 0 }, " drew " + (got.length ? describe(got[0]) : "nothing") + " and pass."]);
+    log([{ player: 0 }, " drew ", got.length ? { card: got[0] } : "nothing", " and pass."]);
     render();
     // let the drawn card finish gliding in; the constant inter-turn pause is
     // then applied uniformly in beginTurn.
@@ -1546,7 +1545,9 @@ function toast(msg) {
 
 // msg is either a plain string, or an array of segments where each segment
 // is a string or { player: playerIndex }, the latter renders that player's
-// name in their own color so the log is easy to follow at a glance.
+// name in their own color so the log is easy to follow at a glance. A card
+// ({ card: card }) is named on its own colour, and so is a colour a wild was
+// played for ({ color: "blue" }).
 function log(msg) {
   var l = document.getElementById("log");
   var d = document.createElement("div");
@@ -1558,6 +1559,11 @@ function log(msg) {
       span.style.color = playerColor(seg.player);
       span.textContent = G.players[seg.player].name;
       d.appendChild(span);
+    } else if (seg && typeof seg === "object" && (seg.card || seg.color)) {
+      var chip = document.createElement("span"), col = seg.card ? seg.card.color : seg.color;
+      chip.className = "log-card " + (COLORS.indexOf(col) >= 0 ? col : "wild");
+      chip.textContent = seg.card ? describe(seg.card) : col;
+      d.appendChild(chip);
     } else {
       d.appendChild(document.createTextNode(String(seg)));
     }
@@ -1566,6 +1572,31 @@ function log(msg) {
   l.scrollTop = l.scrollHeight;
   while (l.children.length > 40) l.removeChild(l.firstChild);
 }
+
+// The logo's letters are slanted by the browser (the font has no italic of
+// its own), which leans their ink some 4px to the right of the oval's middle.
+// So the ink is measured, in whichever font is showing, and the letters are
+// moved back by that much. Layout numbers only: the oval is tilted.
+function centreLogo() {
+  var el = document.querySelector(".uno-logo"), ink = document.getElementById("logoInk");
+  if (!el || !ink) return;
+  try {
+    var cs = getComputedStyle(el), c = document.createElement("canvas").getContext("2d");
+    c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+    try { c.letterSpacing = cs.letterSpacing; } catch (e) {}
+    var m = c.measureText(ink.textContent), f = c.measureText("Hg");
+    if (m.actualBoundingBoxRight == null || f.fontBoundingBoxAscent == null) return;
+    var pl = parseFloat(cs.paddingLeft), pt = parseFloat(cs.paddingTop), pb = parseFloat(cs.paddingBottom);
+    var line = el.clientHeight - pt - pb;
+    var base = pt + (line - (f.fontBoundingBoxAscent + f.fontBoundingBoxDescent)) / 2 + f.fontBoundingBoxAscent;
+    var dx = pl + (m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - el.clientWidth / 2;
+    var dy = base + (m.actualBoundingBoxDescent - m.actualBoundingBoxAscent) / 2 - el.clientHeight / 2;
+    ink.style.left = (-dx).toFixed(2) + "px";
+    ink.style.top = (-dy).toFixed(2) + "px";
+  } catch (e) {}
+}
+centreLogo();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(centreLogo);
 
 // ----------------------------------------------------------------
 //  Init: one delegated tap handler on the hand container. It survives
