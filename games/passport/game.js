@@ -299,7 +299,7 @@
     $("tags").hidden = typed;
     $("typed").hidden = !typed;
     if (typed) {
-      // (a flag dealt while a dash is paused waits, shut, for the resume)
+      // (a flag dealt while a run is paused waits, shut, for the resume)
       var inp = $("answer"), shut = P.isPaused();
       inp.disabled = shut;
       $("stamp-btn").disabled = false;
@@ -386,7 +386,7 @@
   // right country); leaving the run cancels it, or it would bring the
   // question back over the menu
   var revealT = 0;
-  // A step due while a dash is paused waits (held) for the resume: dealt
+  // A step due while a run is paused waits (held) for the resume: dealt
   // under the see-through pause card, the next flag would be free study,
   // and its drop-in would play where nobody sees it
   var held = null;
@@ -608,19 +608,24 @@
   $("to-menu").addEventListener("click", toMenu);
   $("share").addEventListener("click", shareDaily);
 
-  // Escape only: in typed mode the letters belong to the answer field
+  // Every run pauses, a tour and a Visa Run as well as a dash. Escape only:
+  // in typed mode the letters belong to the answer field
   var P = window.GameShell ? GameShell.pausable({
-    canPause: function () { return mode === "dash" && (state === "ask" || state === "reveal"); },
+    canPause: function () { return state === "ask" || state === "reveal"; },
     keys: ["Escape"],
-    // on the card: this dash again with a full clock, or back to the modes
+    // (a hidden tab pauses a dash, whose clock runs; a tour or a Visa Run
+    // has no clock and just waits)
+    auto: function () { return mode === "dash"; },
+    // on the card: this run again from its first flag (a dash with a full
+    // clock, a Visa Run its same ten), or back to the modes
     restart: function () { startRun(mode); },
     menu: toMenu,
     onChange: function (paused) {
-      // the pause card is see-through, so the flag, its caption, the tags
-      // and the stamp hide for the whole pause (styles.css), as Sudoku blurs
-      // its board: with the clock stopped they'd be free study
+      // the pause card is see-through, so the flag, its caption (the
+      // question), the tags and the stamp hide for the whole pause
+      // (styles.css), as Sudoku blurs its board: a pause is no free study
       document.body.classList.toggle("paused", paused);
-      // a typed dash's answer box is shut while paused, and handed back on resume
+      // a typed run's answer box is shut while paused, and handed back on resume
       if (style === "typed") {
         var inp = $("answer");
         if (paused) inp.disabled = true;
@@ -633,8 +638,7 @@
   // A run is in progress once a flag has been answered, until it's decided
   // (the third denial, the clock running out, a Visa Run's tenth flag):
   // leaving then asks first. A Visa Run left mid-way isn't recorded and can
-  // be run again, but the run itself is lost. A dash pauses underneath;
-  // a tour or visa run has no clock (P only pauses a dash).
+  // be run again, but the run itself is lost. The run pauses underneath.
   if (window.GameShell) GameShell.guardLeave({
     active: function () { return (state === "ask" || state === "reveal") && touched && !ending; },
     pausable: P
@@ -643,9 +647,9 @@
   // sound (M / "[") and Visual FX (V / "]") are handled by the shared
   // mute-toggle.js and motion-toggle.js; #answer is marked data-game-input
   // so the bracket keys still work while typing a country.
-  // Esc is left alone outside a dash (where it pauses), so the shared
-  // motion-toggle.js takes it to the games page from the menu, the end
-  // screen and a tour or visa run. Backspace goes to this game's menu
+  // Esc is left alone outside a run (where it pauses), so the shared
+  // motion-toggle.js takes it to the games page from the menu and the end
+  // screen. Backspace goes to this game's menu
   // instead, from the end screen and mid-run, but never from a text field:
   // in typed style the answer box needs it, so there it has no key.
   function backKey(e) { return e.key === "Backspace" && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || ""); }

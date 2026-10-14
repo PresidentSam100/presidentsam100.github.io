@@ -1,8 +1,9 @@
 // Passport's keyboard: S shares, M / V and [ / ] reach the corner buttons (but
-// not while typing an answer), Backspace goes back to Passport's menu and Esc
-// leaves for the games page (both on the end screen and mid-run), and a typed
-// run that ends leaves the keys working. Enter on a focused button is that
-// button's own press: a mode is picked, Modes goes to the modes.
+// not while typing an answer), Backspace goes back to Passport's menu, Esc
+// pauses a run (any run: a tour and a Visa Run as well as a dash, the flag and
+// its question hidden) and leaves for the games page from the menu and the end
+// screen, and a typed run that ends leaves the keys working. Enter on a focused
+// button is that button's own press: a mode is picked, Modes goes to the modes.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser, { permissions: ["clipboard-read", "clipboard-write"] });
   const st = (p) => p.evaluate(() => ({ m: MUTE_ON(), f: RM_ON() }));
@@ -40,12 +41,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   const t2 = await p.evaluate(() => ({ m: MUTE_ON(), v: document.getElementById("answer").value }));
   await p.keyboard.press("BracketLeft");
   check("passport typed: letters go in the answer, [ mutes without typing", t1.m === t0.m && t1.f === t0.f && t1.v === "mvsMVS" && t2.m === !t1.m && t2.v === "mvsMVS", { t0, t1, t2 });
-  // in the answer box Backspace deletes; Esc leaves for the games page
+  // in the answer box Backspace deletes; Esc pauses the tour, as it does every
+  // run (the flag hidden, the box shut), and Esc again resumes with the box
+  // back in hand; the Games link leaves (nothing answered yet: at once)
   await p.keyboard.press("Backspace");
   const bs = await p.evaluate(() => ({ s: Passport.state(), v: document.getElementById("answer").value }));
-  await p.keyboard.press("Escape"); await p.waitForTimeout(200);
+  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  const tp = await p.evaluate(() => ({ card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, flag: getComputedStyle(document.getElementById("flag")).visibility, shut: document.getElementById("answer").disabled }));
+  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  const tr = await p.evaluate(() => ({ card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, ae: document.activeElement.id, s: Passport.state(), v: document.getElementById("answer").value }));
+  await p.click(".nav-back-games"); await p.waitForTimeout(200);
   await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
-  check("passport typed: Backspace deletes a letter (stays in the run), Esc leaves", bs.s === "ask" && bs.v === "mvsMV" && p.leaves === 1, { bs, leaves: p.leaves });
+  check("passport typed tour: Backspace deletes a letter (stays in the run); Esc pauses (the flag hidden, the box shut) and Esc resumes with the box in hand; the Games link leaves",
+    bs.s === "ask" && bs.v === "mvsMV" && tp.card && tp.flag === "hidden" && tp.shut && !tr.card && tr.ae === "answer" && tr.s === "ask" && tr.v === "mvsMV" && p.leaves === 1, { bs, tp, tr, leaves: p.leaves });
   await p.evaluate(() => Passport.toMenu());
   const afterEsc = await p.evaluate(() => ({ s: Passport.state(), ae: document.activeElement.id || document.activeElement.tagName }));
   const e0 = await st(p); await p.keyboard.press("m"); await p.keyboard.press("v"); const e1 = await st(p); await p.keyboard.press("m"); await p.keyboard.press("v");
@@ -146,6 +154,64 @@ module.exports = async ({ browser, base, check, lib }) => {
     !sh3.flag && !sh3.stamp && sh3.state === "reveal" && sh3.code === sh2.code && sh4.state === "ask" && sh4.code !== sh2.code && sh4.flag && deal === "deal", { sh2, sh3, sh4, deal });
   check("passport (dash, hidden while paused): no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // every run pauses, not a dash alone: a World Tour and a Visa Run pause on
+  // Esc with the flag, its question and the tags hidden, and Esc again brings
+  // them back; away from the tab a dash pauses (its clock runs) and a tour
+  // doesn't (it has no clock, and just waits)
+  {
+    const q = await lib.open(ctx, base, "games/passport/");
+    const look = () => q.evaluate(() => {
+      const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+      return { card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, flag: vis(document.getElementById("flag")), cap: vis(document.getElementById("post-cap")),
+        tags: [...document.querySelectorAll("#tags .tag")].some(vis), state: Passport.state() };
+    });
+    const runs = {};
+    for (const mode of ["tour", "daily"]) {
+      await q.evaluate((m) => { Passport.toMenu(); Passport.start(m); }, mode);
+      await q.waitForFunction(() => Passport.state() === "ask");
+      const a = await look(); await q.keyboard.press("Escape"); await q.waitForTimeout(80);
+      const b = await look(); await q.keyboard.press("Escape"); await q.waitForTimeout(80);
+      runs[mode] = { a, b, c: await look() };
+    }
+    check("passport: a World Tour and a Visa Run pause on Esc as a dash does, the flag, its question and the tags hidden; Esc again brings them back",
+      ["tour", "daily"].every((m) => { const { a, b, c } = runs[m]; return !a.card && a.flag && a.cap && a.tags && b.card && !b.flag && !b.cap && !b.tags && b.state === "ask" && !c.card && c.flag && c.cap && c.tags; }) && q.leaves === 0,
+      { runs, leaves: q.leaves });
+    const away = {};
+    for (const mode of ["tour", "dash"]) {
+      await q.evaluate((m) => { Passport.toMenu(); Passport.start(m); }, mode);
+      await q.waitForFunction(() => Passport.state() === "ask");
+      await q.evaluate(() => window.dispatchEvent(new Event("blur"))); await q.waitForTimeout(80);
+      away[mode] = (await look()).card;
+      if (away[mode]) { await q.keyboard.press("Escape"); await q.waitForTimeout(80); }
+    }
+    check("passport: away from the tab a dash pauses (its clock runs) and a tour doesn't (no clock: it waits)", away.dash === true && away.tour === false, away);
+    check("passport (every run pauses): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // a typed tour paused during a stamp: the next flag waits for the resume,
+  // the answer box shut all the while; resumed, the flag comes and the box is
+  // back in hand
+  {
+    const q = await lib.open(ctx, base, "games/passport/");
+    await q.keyboard.press("y");
+    await q.evaluate(() => Passport.start("tour"));
+    await q.waitForFunction(() => Passport.state() === "ask" && document.activeElement && document.activeElement.id === "answer");
+    const c0 = await q.evaluate(() => Passport.current());
+    await q.keyboard.type(c0.answer); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => Passport.state() === "reveal");
+    await q.keyboard.press("Escape");
+    await q.waitForTimeout(1300);   // past the stamp's beat
+    const held = await q.evaluate(() => ({ state: Passport.state(), code: Passport.current().code, shut: document.getElementById("answer").disabled,
+      card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, flag: getComputedStyle(document.getElementById("flag")).visibility }));
+    await q.keyboard.press("Escape");
+    const next = await q.waitForFunction((code) => Passport.state() === "ask" && Passport.current().code !== code && document.activeElement && document.activeElement.id === "answer" && !document.getElementById("answer").disabled, c0.code, { timeout: 5000 }).then(() => true, () => false);
+    check("passport typed tour: paused during a stamp, the next flag waits for the resume with the answer box shut; resumed, it comes with the box in hand",
+      held.card && held.state === "reveal" && held.code === c0.code && held.shut && held.flag === "hidden" && next && q.leaves === 0, { held, next, leaves: q.leaves });
+    check("passport (typed tour paused mid-stamp): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   // a first-ever tour: no stamps is no record; one stamp is
   p = await lib.open(ctx, base, "games/passport/");
