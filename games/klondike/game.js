@@ -62,6 +62,7 @@
     flip: function () { snapNoise(0.1); tone(700, 0.04, 0.03, "sine", 1000); },
     draw: function () { snapNoise(0.12); },
     deal: function () { for (var i = 0; i < 7; i++) snapNoise(0.08, i * 0.045); },
+    card: function () { snapNoise(0.07); },      // one card dealt (Visual FX on: the deal is dealt out)
     deny: function () { tone(180, 0.08, 0.05, "square"); },
     undo: function () { tone(500, 0.05, 0.04, "sine", 350); },
     found: function () { tone(880, 0.07, 0.05); tone(1320, 0.08, 0.04, "triangle", null, 0.05); },
@@ -95,7 +96,7 @@
       if (i >= 3) place($("slot-f" + (i - 3)), sx, TOPY);
       place($("slot-t" + i), sx, TABY);
     }
-    if (G) position(true);
+    if (G) { finishDeal(); position(true); }      // (a deal still going out lands where the new sizes put it)
   }
   function place(el, x, y) { el.style.transform = "translate(" + x + "px," + y + "px)"; }
   function pileX(i) { return GAP + i * (CW + GAP); }
@@ -192,7 +193,55 @@
   }
   function bestKey() { return "klondike_best_" + (draw3 ? "draw3" : "draw1"); }
 
+  // ---- the deal, dealt out --------------------------------------------------------
+  // With Visual FX on a new deal is dealt: the tableau's cards start on the
+  // stock, face down, and go out from it the way they do by hand (a card to
+  // each pile in turn, left to right, a row at a time), the last onto each pile
+  // turning up as it lands. A press, a key, or anything the game is asked to
+  // do meanwhile finishes it at once, the cards where they belong. With FX off
+  // they are simply there. Nothing is in play until it is done: no clock runs.
+  var dealing = false, dealRun = 0, dealTimers = [];
+  var DEAL_STEP = 36, DEAL_FLY = 260;      // ms between cards, and for each one's flight (styles.css, .card.dealt)
+  function dealOut() {
+    var run = ++dealRun, order = [];
+    dealing = true;
+    for (var row = 0; row < 7; row++) {
+      for (var ti = row; ti < 7; ti++) order.push({ c: G.tab[ti][row], x: pileX(ti), y: TABY + row * downStep });
+    }
+    order.forEach(function (o) {
+      o.el = cardEl(o.c);
+      o.el.classList.add("noanim", "down");
+      place(o.el, pileX(0), TOPY);
+    });
+    void field.offsetWidth;                // (drawn on the stock before any of them moves)
+    order.forEach(function (o, k) {
+      dealTimers.push(setTimeout(function () {
+        if (run !== dealRun) return;
+        o.el.classList.remove("noanim");
+        o.el.classList.add("dealt");
+        o.el.style.zIndex = 200 + k;       // over the ones dealt before it, in flight and at rest
+        place(o.el, o.x, o.y);
+        SFX.card();
+        if (o.c.up) dealTimers.push(setTimeout(function () { if (run === dealRun) o.el.classList.remove("down"); }, DEAL_FLY * 0.7));
+      }, k * DEAL_STEP));
+    });
+    dealTimers.push(setTimeout(function () { if (run === dealRun) finishDeal(); }, order.length * DEAL_STEP + DEAL_FLY + 60));
+  }
+  function finishDeal() {
+    if (!dealing) return;
+    dealing = false;
+    dealRun++;
+    dealTimers.forEach(clearTimeout);
+    dealTimers = [];
+    els.forEach(function (el) { el.classList.remove("dealt"); });
+    position(true);
+  }
+  // (the switch flipped off mid-deal, or the tab put away: timers crawl there)
+  window.addEventListener("reducemotionchange", function () { if (!fx()) finishDeal(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) finishDeal(); });
+
   function newDeal(seed, daily) {
+    finishDeal();
     isDaily = !!daily;
     dealSeed = seed != null ? seed : ((Math.random() * 0x7fffffff) | 0);
     G = K.deal(dealSeed, draw3);
@@ -204,8 +253,8 @@
     buildCards();
     position(true);
     clearHints();
-    SFX.deal();
     status(); tickTime();
+    if (fx()) dealOut(); else SFX.deal();
   }
   function begin() {
     if (started) return;
@@ -217,6 +266,7 @@
 
   // ---- moves through the UI ------------------------------------------------------
   function tryMove(from, to, count) {
+    finishDeal();
     if (!K.legal(G, from, to, count)) return false;
     begin();
     var wasFound = to[0] === "f";
@@ -227,6 +277,7 @@
     return true;
   }
   function drawClick() {
+    finishDeal();
     if (finishing || cascadeOn) return;
     begin();
     var n = K.draw(G);
@@ -434,6 +485,8 @@
 
   var drag = null, lastTap = { at: 0, key: "" };
   field.addEventListener("pointerdown", function (e) {
+    // (a press while the deal is going out finishes it, and does no more)
+    if (dealing) { finishDeal(); e.preventDefault(); return; }
     if (cascadeOn || finishing || PAUSE.isPaused()) return;
     if (e.button === 2) return;
     var p = fieldPos(e), hit = pick(p);
@@ -484,6 +537,7 @@
   field.addEventListener("pointercancel", endDrag);
   field.addEventListener("contextmenu", function (e) {
     e.preventDefault();
+    if (dealing) { finishDeal(); return; }
     if (cascadeOn || finishing) return;
     var hit = pick(fieldPos(e));
     if (hit && hit.pile !== "stock") {
@@ -500,6 +554,7 @@
     field.querySelectorAll(".hintdst").forEach(function (el) { el.classList.remove("hintdst"); });
   }
   function showHint() {
+    finishDeal();
     clearHints();
     var h = K.hint(G);
     if (!h) return;
@@ -597,6 +652,8 @@
     if (PAUSE.isPaused()) return;   // the pause card's own keys still resume
     if (e.ctrlKey && (e.key === "z" || e.key === "Z")) { e.preventDefault(); doUndo(); return; }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    // (a key while the deal is going out finishes it; then the key does what it does)
+    if (dealing && !e.repeat && e.key !== "Shift") finishDeal();
     // Esc closes How to play and stops there: preventDefault keeps
     // ../motion-toggle.js from taking it to the games page. The win box is
     // the end of the game, so there Esc is left alone and leaves for the
@@ -737,7 +794,9 @@
         stock: G.stock.length, waste: s(G.waste), found: G.found.map(s), tab: G.tab.map(s),
         autofinish: !$("autofinish").hidden, cascade: cascadeOn, paused: PAUSE.isPaused() };
     },
-    deal: function (seed, daily) { newDeal(seed, daily); },
+    // (dealt and done: a test's deal is in place at once. dealing says whether one is still going out.)
+    deal: function (seed, daily) { newDeal(seed, daily); finishDeal(); },
+    dealing: function () { return dealing; },
     move: function (from, to, count) { return tryMove(from, to, count || 1); },
     draw: drawClick, undo: doUndo, hint: showHint, autoFinish: autoFinish,
     cardPos: function (rank, suit) {
@@ -747,6 +806,7 @@
     slotPos: function (id) { var r = $("slot-" + id).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
     // A nearly-won position for testing auto-finish and the cascade.
     almostWin: function () {
+      finishDeal();
       G = K.deal(dealSeed, draw3);
       G.stock = []; G.waste = [];
       for (var s = 0; s < 4; s++) {

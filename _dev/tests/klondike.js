@@ -3,6 +3,10 @@
 // or a new deal cut it short); a new deal stops an auto-finish still flying
 // cards home; keys do nothing under the pause card; in draw three the whole
 // top waste card answers a click; a won deal can't be undone and won again.
+// With Visual FX on a new deal is dealt out: every card starts on the stock,
+// face down, and the tableau goes out a card at a time, a card to each pile in
+// turn, ending where a deal simply laid out puts them; a press, a key, the
+// switch flipped off or a resize finishes it at once; with FX off it is there.
 // requestAnimationFrame (and performance.now) on a clock the test advances
 const STEPPED = () => {
   let t = 1000, q = [];
@@ -17,6 +21,30 @@ const STEPPED = () => {
   };
 };
 const FX_OFF = () => { try { localStorage.setItem("reduceMotion:klondike", "1"); } catch (e) {} };
+// (in the page) __snap: where every card is and whether its back shows; how
+// many sit on the stock; how many of the tableau's have gone out, and whether
+// those are the first of the deal's order (a card to each pile in turn from
+// the left, a row at a time). __going: whether a deal is still going out.
+const SNAPS = () => {
+  window.__going = () => !!(window.Klondike && Klondike.dealing && Klondike.dealing());
+  window.__snap = () => {
+    const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
+    const rect = (el) => el.getBoundingClientRect(), st = Klondike.state();
+    const key = (s) => { s = s.replace("*", ""); return SUITS.indexOf(s.slice(-1)) + "-" + RANKS.indexOf(s.slice(0, -1)); };
+    const tab = st.tab.map((t) => (t ? t.split(" ") : []).map(key)), order = [];
+    for (let row = 0; row < 7; row++) for (let ti = row; ti < 7; ti++) if (tab[ti][row]) order.push(tab[ti][row]);
+    const cards = [...document.querySelectorAll("#field .card")];
+    const home = rect(cards.find((el) => !order.includes(el.dataset.key)));   // (a card of the stock's own: where the stock is)
+    const at = {};
+    cards.forEach((el) => { const b = rect(el); at[el.dataset.key] = Math.round(b.left) + "," + Math.round(b.top) + (el.classList.contains("down") ? " back" : ""); });
+    const out = order.filter((k) => document.querySelector('.card[data-key="' + k + '"]').classList.contains("dealt"));
+    return { dealing: __going(), at,
+      onStock: cards.filter((el) => Math.abs(rect(el).left - home.left) < 2 && Math.abs(rect(el).top - home.top) < 2).length,
+      up: cards.filter((el) => !el.classList.contains("down")).length,
+      out: out.length, inOrder: out.join() === order.slice(0, out.length).join(),
+      stock: st.stock, waste: st.waste, moves: st.moves, timerMs: st.timerMs, seed: st.seed };
+  };
+};
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -33,6 +61,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ran = await p.evaluate(() => { let n = 0; while (Klondike.state().cascade && n < 4000) { __frames(10); n += 10; } return n; });
   const won = await box(p);
   await p.evaluate(() => { [...document.querySelectorAll("#mb-row button")].find((b) => /Deal new/.test(b.textContent)).click(); __frames(2); });
+  // (the new deal dealt out first: a press while it is going out only finishes it)
+  await p.waitForFunction(() => !(Klondike.dealing && Klondike.dealing()), null, { timeout: 10000, polling: 50 });
   await clickStock(p);
   const again = await box(p);
   check("klondike: after a win cascade runs to its end, a click in the next deal doesn't bring the win box back", won && !again, { ran, won, again });
@@ -44,6 +74,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { Klondike.almostWin(); Klondike.autoFinish(); });
   await p.waitForFunction(() => Klondike.state().cascade, null, { timeout: 5000 });
   await p.keyboard.press("n"); await p.waitForTimeout(100);
+  // (the new deal dealt out first: a press while it is going out only finishes it)
+  await p.waitForFunction(() => !(Klondike.dealing && Klondike.dealing()), null, { timeout: 10000, polling: 50 });
   await clickStock(p);
   const cut = await box(p);
   check("klondike: a new deal dealt during the cascade doesn't bring the old win box back on its first click", !cut, { cut });
@@ -180,6 +212,84 @@ module.exports = async ({ browser, base, check, lib }) => {
     up === 8 && byP === 0 && resumed === up && asking.dlg && asking.faces === 0 && kept2 === up, { up, byP, resumed, asking, kept2 });
   check("klondike: no page errors (paused cards)", p.errs.length === 0, p.errs);
   await ctx.close();
+
+  // ---- a new deal is dealt out (Visual FX on): it starts with every card on
+  // the stock, face down, and ends where a deal simply laid out puts them
+  {
+    const c = await lib.newContext(browser);
+    const slim = (s) => s && Object.assign({}, s, { at: undefined });
+    const laid = (q) => q.evaluate(() => { Klondike.deal(Klondike.state().seed); return __snap(); });   // the same deal, laid out at once
+    const same = (a, b) => JSON.stringify(a.at) === JSON.stringify(b.at);
+    let q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(SNAPS) });
+    await q.waitForFunction(() => !__going(), null, { timeout: 15000 });      // (the deal the page opened with)
+    // (asked for and looked at in one go, before a card has moved; then again when it is done)
+    const run = await q.evaluate(() => new Promise((res) => {
+      const t0 = performance.now();
+      document.getElementById("m-new").click();
+      const first = __snap();
+      (function tick() { if (!__going()) res({ first, took: Math.round(performance.now() - t0), last: __snap() }); else setTimeout(tick, 10); })();
+    }));
+    const flat = await laid(q);
+    check("klondike, FX on: a new deal starts with all 52 cards on the stock, face down, and nothing in play",
+      run.first.dealing && run.first.onStock === 52 && run.first.up === 0 && run.first.out === 0 && run.first.moves === 0, slim(run.first));
+    check("klondike, FX on: the deal goes out over about a second and ends where a deal simply laid out puts every card (24 on the stock, seven face up), no move made and no clock run",
+      run.took >= 700 && !run.last.dealing && run.last.onStock === 24 && run.last.up === 7 && run.last.out === 0 && same(run.last, flat) &&
+      run.last.moves === 0 && run.last.timerMs === 0, { took: run.took, last: slim(run.last) });
+    check("klondike (the deal): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+
+    // ---- the same on a slowed deal (a card every 0.6 s), so a press or a key
+    // is sure to land while it is still going out
+    q = await lib.open(c, base, "games/klondike/", { before: async (pg) => {
+      await pg.addInitScript(SNAPS);
+      await lib.injectScript(pg, "games/klondike/game.js", [["var DEAL_STEP = 36", "var DEAL_STEP = 600"]]);
+    } });
+    const mid = await q.evaluate(() => new Promise((res) => {
+      let n = 0;
+      (function tick() { const s = __snap(); if (s.out >= 2 || !s.dealing || ++n > 800) res(s); else setTimeout(tick, 10); })();
+    }));
+    check("klondike, FX on: the page opens on a deal going out a card at a time, a card to each pile in turn from the left, the rest waiting on the stock with their backs up",
+      mid.dealing && mid.out >= 2 && mid.out < 28 && mid.inOrder && mid.onStock >= 52 - mid.out && mid.onStock <= 53 - mid.out && mid.up <= mid.out, slim(mid));
+    // a press finishes it and does no more; the next one draws
+    const s0 = await q.evaluate(() => Klondike.slotPos("stock"));
+    const was = await q.evaluate(() => __going());
+    await q.mouse.click(s0.x, s0.y); await q.waitForTimeout(80);
+    const pressed = await q.evaluate(() => __snap());
+    await q.mouse.click(s0.x, s0.y); await q.waitForTimeout(80);
+    const drew = await q.evaluate(() => Klondike.state().stock);
+    check("klondike: a press while the deal is going out finishes it at once (every card in place) and does no more; the next press on the stock draws",
+      was && !pressed.dealing && pressed.onStock === 24 && pressed.up === 7 && pressed.out === 0 && pressed.stock === 24 && pressed.waste === "" && pressed.moves === 0 && drew === 23,
+      { was, pressed: slim(pressed), drew });
+    // N (asked first: a card is drawn), Enter: the new deal is dealt out too; F1 finishes it and opens How to play
+    await q.keyboard.press("n"); await q.waitForTimeout(120);
+    await q.keyboard.press("Enter"); await q.waitForTimeout(120);
+    const byKey = await q.evaluate(() => __snap());
+    await q.keyboard.press("F1"); await q.waitForTimeout(120);
+    const keyed = await q.evaluate(() => Object.assign(__snap(), { box: !document.getElementById("shade").hidden }));
+    await q.keyboard.press("Escape"); await q.waitForTimeout(80);
+    check("klondike: a new deal confirmed with Enter is dealt out too; a key while it is going out finishes it and then does what it does (F1: How to play)",
+      byKey.dealing && byKey.moves === 0 && !keyed.dealing && keyed.onStock === 24 && keyed.up === 7 && keyed.box, { byKey: slim(byKey), keyed: slim(keyed) });
+    // Visual FX switched off mid-deal lands the cards; with it off a new deal is simply there
+    await q.keyboard.press("n"); await q.waitForTimeout(80);
+    const going = await q.evaluate(() => __going());
+    await q.evaluate(() => document.querySelector(".rm-toggle").click()); await q.waitForTimeout(80);
+    const flipped = await q.evaluate(() => __snap());
+    const off = await q.evaluate(() => { document.getElementById("m-new").click(); return Object.assign(__snap(), { fxOff: window.RM_ON() }); });
+    check("klondike: Visual FX switched off mid-deal lands every card at once; with it off a new deal is simply there",
+      going && !flipped.dealing && flipped.onStock === 24 && flipped.up === 7 && off.fxOff && !off.dealing && off.onStock === 24 && off.up === 7 && off.seed !== flipped.seed,
+      { going, flipped: slim(flipped), off: slim(off) });
+    // a window resized mid-deal: the cards land where the new size puts them
+    await q.evaluate(() => { document.querySelector(".rm-toggle").click(); document.getElementById("m-new").click(); });
+    const going2 = await q.evaluate(() => __going());
+    await q.setViewportSize({ width: 500, height: 800 });
+    await q.waitForFunction(() => !__going(), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(80);
+    const sized = await q.evaluate(() => __snap()), flat2 = await laid(q);
+    check("klondike: a window resized mid-deal lands the cards where the new size puts them",
+      going2 && !sized.dealing && sized.onStock === 24 && sized.up === 7 && same(sized, flat2) && !same(sized, flat), { going2, sized: slim(sized) });
+    check("klondike (the deal, slowed): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 
   // ---- the How to play key legend shows with a keyboard, hides on a touch-only phone
   const { devices } = require("@playwright/test");
