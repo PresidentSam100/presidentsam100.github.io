@@ -1280,6 +1280,13 @@
     // clock, so nothing to pause.
     if (window.GameShell && GameShell.guardLeave)
       GameShell.guardLeave(function () { return !solved && boardSig() !== freshSig; });
+    // The ⏸ button and P bring up the card, for its Restart: this level again
+    // as it was dealt, as Reset does (the modes and levels are on the page).
+    // No clock, so a hidden tab doesn't pause.
+    if (window.GameShell && GameShell.pausable) GameShell.pausable({
+      canPause: function () { return !solved; }, auto: false, hold: true,
+      restart: resetLevel
+    });
 
     loadLevel(Math.min(prog().unlocked, curLevels().length - 1));
   }

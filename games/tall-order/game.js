@@ -472,7 +472,10 @@
 
   // ---- loop ----------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
-    canPause: function () { return state === "play"; }
+    canPause: function () { return state === "play"; },
+    // on the card: this cake again from its first tier, or back to the modes
+    restart: function () { startRun(mode); },
+    menu: toMenu
   }) : { isPaused: function () { return false; } };
   // Leaving asks first once a tier has been dropped onto the tower (paused or
   // not; nothing's lost before then). Not in the tumble and pull-back after a

@@ -1056,7 +1056,8 @@
   // Its default leave guard is the right one: a run in play (paused or not)
   // asks before leaving, paused underneath; menus and game over don't.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "playing", keys: ["Escape"] })
+    ? GameShell.pausable({ canPause: () => state === "playing", keys: ["Escape"],
+        restart: startGame, menu: quitToMenu })   // on the card: this mode again from wave 1, or back to the modes
     : { isPaused: () => false };
 
   function loop(now) {

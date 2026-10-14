@@ -43,7 +43,7 @@ const CARDS = {
   "jam-jar/": [["#againBtn", "Enter"]],
   "steamfitter/": [["#againBtn", "Enter"]],
   "salvo/": [["#againBtn", "Enter"]],
-  "sunset-slice/": [["#again", "Space or Enter"], ["#quit", "⌫"]],
+  "sunset-slice/": [["#again", "Space or Enter"], ["#restart", "R"], ["#quit", "⌫"]],
   "lights-out/": [["#hint", "H"], ["#share", "S"]],
   "mahjong/": [["#btn-newdeal", "N"], ["#btn-giveup", "G"], ["#share", "S"]],
   "science-fair/": [["#share", "S"]],
@@ -294,8 +294,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const uno = await p.evaluate(() => document.getElementById("unoBtn").getAttribute("data-gs-key"));
     await p.keyboard.press("Space"); await settle(p, 200);
     const got = await p.evaluate(() => ({ picked: window.__picked, uno: window.__uno }));
-    check("yi: Draw shows D and Quit to menu ⌫; the colour box takes R Y G B (G is green); YI! shows Space and Space calls it, once",
-      /^D( P)? ⌫$/.test(caps) && colour === "RYGB" && got.picked === "green" && uno === "Space" && got.uno === 1, { caps, colour, uno, got });
+    check("yi: Draw shows D (and Pass P when it is there; Quit to menu has gone to the pause card); the colour box takes R Y G B (G is green); YI! shows Space and Space calls it, once",
+      /^D( P)?$/.test(caps) && colour === "RYGB" && got.picked === "green" && uno === "Space" && got.uno === 1, { caps, colour, uno, got });
     check("yi (keys): no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }

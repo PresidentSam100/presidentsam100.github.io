@@ -479,7 +479,11 @@
       var a = $("answer");
       a.disabled = paused;
       if (!paused) a.focus();
-    }
+    },
+    // on the card: this board again with a full clock, or back to the modes
+    // (the desk shut first, as at the bell: left open, the menu's keys would be typing in it)
+    restart: function () { startRun(mode, region); },
+    menu: function () { $("answer").disabled = true; toMenu(); }
   }) : { isPaused: function () { return false; } };
   // Leaving asks first (and stops the clock) once a run has boarded a name;
   // an empty board has nothing to lose yet

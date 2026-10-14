@@ -1142,7 +1142,18 @@
 
   // ---- pause + loop ---------------------------------------------------------------
   var P = window.GameShell
-    ? GameShell.pausable({ canPause: function () { return state === "play"; } })
+    ? GameShell.pausable({
+        canPause: function () { return state === "play"; },
+        // On the card: Restart is this level again as it was dealt (Levels, and
+        // a test run from the editor), or the run again from level 1 (Puzzle,
+        // Panic). Menu is the level list, or the editor for a test run; the
+        // other modes have none (the mode bar is on the page).
+        restart: function () { if (mode === "levels" && curLv) loadLevelData(curLv, curLevel, isCustom); else reset(); },
+        menu: {
+          when: function () { return mode === "levels"; },
+          go: function () { if (testingEditor) resumeEditor(""); else showSelect(); }
+        }
+      })
     : { isPaused: function () { return false; } };
 
   // Leaving asks first while something unsaved is under way, paused or not:
@@ -1293,7 +1304,9 @@
     if (traceConnected() && grid[srcR] && grid[srcR][1] && grid[srcR][1].kind === "pipe") grid[srcR][1].type = ROT[grid[srcR][1].type];
   }
 
+  var curLv = null;   // the level on the board, to deal it again (Restart on the pause card)
   function loadLevelData(lv, idx, custom) {
+    curLv = lv;
     grid = gridFromString(lv.g);
     srcR = lv.s; drainR = lv.d; srcC = 0; srcDir = "E";
     var _fp = findFlowPath(); goal = _fp ? _fp.length : 0;

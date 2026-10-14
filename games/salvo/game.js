@@ -372,6 +372,13 @@
   // loss is recorded only then): leaving asks first. Placing the fleet
   // isn't a game yet. Turn-based, so there's nothing to pause.
   if (window.GameShell) GameShell.guardLeave(() => (phase === "battle" || phase === "ending") && !!(lastShot.enemy || lastShot.player));
+  // The ⏸ button and P bring up the card, for its Restart: a new game, from
+  // placing the fleet (there is no menu). On your turn only, so the enemy
+  // doesn't fire under it; turn-based, so a hidden tab doesn't pause.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: () => phase === "battle" && turn === "player", auto: false, hold: true,
+    restart: newGame
+  });
 
   newGame();
 })();

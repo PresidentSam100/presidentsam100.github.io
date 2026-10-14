@@ -621,7 +621,9 @@
   // shows its back, and a lit hint goes out: a pause is no time to plan
   var PAUSE = window.GameShell ? GameShell.pausable({
       canPause: function () { return started && running && !cascadeOn; },
-      onChange: function (paused) { field.classList.toggle("paused", paused); if (paused) clearHints(); }
+      onChange: function (paused) { field.classList.toggle("paused", paused); if (paused) clearHints(); },
+      // on the card: this same deal again, as Game > Restart (New and the rest are in that menu)
+      restart: function () { newDeal(dealSeed, isDaily); }
     })
     : { isPaused: function () { return false; } };
   // T and D are the Game menu's Draw three and Daily claim, open or shut (the

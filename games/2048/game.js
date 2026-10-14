@@ -598,6 +598,13 @@
   // The board isn't saved, but the best is (updateScore, as it climbs). The
   // "You win!" card counts as in progress: the arrows still play under it.
   if (window.GameShell) GameShell.guardLeave(function () { return moves > 0 && !over; });
+  // The ⏸ button and P bring up the card, for its Restart (AC's new game; the
+  // two modes are on the page). There is no clock, so a hidden tab doesn't
+  // pause, and the arrows do nothing under the card.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: function () { return !over; }, auto: false, hold: true,
+    restart: newGame
+  });
 
   mode = lsGet(MODE_KEY, "normal") === "fib" ? "fib" : "normal";
   refreshMeta();

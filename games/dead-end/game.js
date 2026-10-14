@@ -319,7 +319,8 @@
   }
 
   // ---- pause, leaving, and the menus' keys -------------------------------------------------------
-  var P = window.GameShell && GameShell.pausable ? GameShell.pausable({ canPause: function () { return ui === "run" && !!st && (st.status === "play" || st.status === "ready") && started; } }) : null;
+  var P = window.GameShell && GameShell.pausable ? GameShell.pausable({ canPause: function () { return ui === "run" && !!st && (st.status === "play" || st.status === "ready") && started; },
+    restart: function () { startRun(mode); }, menu: toMenu }) : null;   // on the card: this mode again from the first street, or back to the modes
   // Leaving asks first once a run is under way (the first step taken), until it's over
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(P ? { active: inRun, pausable: P } : inRun);
   if (window.GameShell && GameShell.menuKeys) {

@@ -174,8 +174,7 @@
   // than askQuit, with the clock paused under it.
   function askRestart() {
     if (!cur) return;
-    var work = !cur.won && (cur.filled > 0 || cur.cells.indexOf(2) !== -1 || cur.fog > 0);
-    if (!work || !window.GameShell) return restartPuzzle();
+    if (!hasWork() || !window.GameShell) return restartPuzzle();
     var wasPaused = P.isPaused();
     if (!wasPaused) P.pause();
     GameShell.confirm({ title: "Start over?", text: "Your fills, marks and time on this print will be lost.", ok: "Start over", cancel: "Keep playing", safe: true, anyKey: true }, function (yes) {
@@ -183,6 +182,7 @@
       if (yes) restartPuzzle();
     });
   }
+  function hasWork() { return !!cur && !cur.won && (cur.filled > 0 || cur.cells.indexOf(2) !== -1 || cur.fog > 0); }
   function toMenu() {
     saveProgress();
     cur = null; screen = "menu";
@@ -664,7 +664,13 @@
   $("hud-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-restart").addEventListener("click", askRestart);
 
-  var P = window.GameShell ? GameShell.pausable({ canPause: function () { return screen === "puzzle" && cur && !cur.won; } })
+  var P = window.GameShell ? GameShell.pausable({
+      canPause: function () { return screen === "puzzle" && cur && !cur.won; },
+      // on the card: this print again from blank (asking when there is work on
+      // it, as R does), or back to the darkroom (the print is saved as it is)
+      restart: { ask: hasWork, text: "Your fills, marks and time on this print will be lost.", go: restartPuzzle },
+      menu: { ask: false, go: toMenu }
+    })
     : { isPaused: function () { return false; } };
   // Leaving never asks: an unfinished print is saved (on every stroke, and
   // on pagehide) and picks up where it was. Bests are saved the instant a

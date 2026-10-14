@@ -23,7 +23,7 @@ const lib = require("./lib");
 
 // The long ones: they open every game page, or most of them. They start
 // first, and no more than half the jobs run them at once.
-const HEAVY = ["shortcuts", "leave", "guard", "fx", "theme", "cues", "fx-more", "logicgate", "pause"];
+const HEAVY = ["shortcuts", "leave", "guard", "fx", "theme", "cues", "fx-more", "pause-card", "logicgate", "pause"];
 
 // A full run outlasts a short sleep timer, and a PC that sleeps partway kills
 // the run (pages time out, then ERR_NETWORK_IO_SUSPENDED). On Windows a hidden

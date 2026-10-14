@@ -2831,6 +2831,15 @@ if (window.GameShell) {
     isPaused: () => game.gameState === 'PAUSED',
     toggle: () => game.togglePause(),
   });
+  // ...and, while paused, Restart (this flight again, same lives) and Menu,
+  // under the board's own PAUSED card
+  if (GameShell.pauseMore) GameShell.pauseMore({
+    isPaused: () => game.gameState === 'PAUSED',
+    resume: () => { if (game.gameState === 'PAUSED') game.togglePause(); },
+    restart: () => { game.init(); game.gameState = 'PLAYING'; },
+    menu: () => game.init(),
+    anchor: game.canvas, at: 0.61,
+  });
   // A flight under way (paused included) asks before leaving, paused through
   // the game's own pause; the menu, the guide and the game-over card don't
   if (GameShell.guardLeave) GameShell.guardLeave({

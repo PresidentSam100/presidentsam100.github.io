@@ -1287,20 +1287,19 @@ function renderControls() {
   if (myTurn && G.drawnIndex >= 0) {
     html += '<button class="btn secondary" id="passBtn">Pass</button>';
   }
-  html += '<button class="btn warn" id="newHandBtn" style="margin-left:auto">Quit to menu</button>';
+  // (Quit to menu used to end the bar: the way to the menu is now the pause card's)
   c.innerHTML = html;
 
   var db = document.getElementById("drawBtn");
   if (db) db.onclick = onHumanDraw;
   var pb = document.getElementById("passBtn");
   if (pb) pb.onclick = onHumanPass;
-  document.getElementById("newHandBtn").onclick = askQuitToMenu;
 }
 
-// Quit to menu asks first while a game is under way (see guardLeave below),
-// with the table waiting under the box; otherwise it goes at once. A result
-// screen's Menu button (and Backspace) go through here too, so between hands
-// of a points game it asks, and after a finished game it doesn't.
+// A result screen's Menu button (and Backspace) quit to the menu, asking first
+// while a game is under way (see guardLeave below): between hands of a points
+// game it asks, and after a finished game it doesn't. Mid-hand the way there
+// is the pause card's Menu, which asks the same.
 function askQuitToMenu() {
   if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, quitToMenu);
   else quitToMenu();
@@ -1331,9 +1330,30 @@ if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({
   isPaused: function () { return !!holds.leave; },
 });
 
+// The same game again from the first hand, with the players and the scoring
+// as they were set (the pause card's Restart)
+function restartGame() {
+  clearTimers();
+  hideOverlay();
+  totals = [];
+  for (var i = 0; i < cfg.players; i++) totals.push(0);
+  startHand(0);
+}
+// The ⏸ button brings up the card, mid-hand: Resume, Restart and Menu, the
+// table waiting under it and taking no keys. Its key is H (the table holds):
+// P is Pass here, and Esc is the way out.
+var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
+  keys: ["h"],
+  canPause: function () { return !!G && !G.over; },
+  onChange: function (paused) { if (paused) hold("pause"); else release("pause"); },
+  auto: false, hold: true,
+  restart: restartGame,
+  menu: quitToMenu
+}) : null;
+
 // Away from the tab (hidden, or the window loses focus) the table waits too,
-// and carries on once the player is back: Yi has no pause screen to resume
-// from, and each wait still has the time it had left.
+// and carries on once the player is back by itself: nothing to resume from,
+// and each wait still has the time it had left.
 if (window.GameShell && GameShell.onAutoPause) GameShell.onAutoPause(function () { hold("away"); });
 function backAtTable() {
   if (!document.hidden) release("away");
@@ -1489,8 +1509,8 @@ function showResult(winner, gained, reached500) {
 }
 
 // Keys for the buttons the game puts up, shown on them (the cards themselves
-// are played with the mouse). At the table: D draws, P passes, Backspace is
-// Quit to menu (which asks first). In a box: Space calls YI!, or catches a
+// are played with the mouse). At the table: D draws, P passes. In a box:
+// Space calls YI!, or catches a
 // player who didn't; R / Y / G / B pick the colour; D draws the four and C
 // challenges; Enter is Continue and, on a result, the first button (Backspace
 // is its Menu, below). The boxes and the bar are rebuilt as play goes, so the
@@ -1499,7 +1519,7 @@ if (window.GameShell && GameShell.menuKeys) {
   var boxUp = function () { return overlay.classList.contains("show"); };
   GameShell.menuKeys({
     active: function () { return !!G && !boxUp(); },
-    groups: [{ sel: "#drawBtn", keys: ["d"] }, { sel: "#passBtn", keys: ["p"] }, { sel: "#newHandBtn", keys: ["Backspace"] }],
+    groups: [{ sel: "#drawBtn", keys: ["d"] }, { sel: "#passBtn", keys: ["p"] }],
     root: "#controls"
   });
   GameShell.menuKeys({
@@ -1518,7 +1538,7 @@ if (window.GameShell && GameShell.menuKeys) {
 // Backspace on a result screen goes to the menu, as its Menu button does,
 // asking first between hands of a points game (Esc there leaves for the
 // games page). Yi has no play keys of its own, so there's nothing for a held
-// Backspace to spill over from. (Mid-hand it's Quit to menu: above.)
+// Backspace to spill over from. (Mid-hand it's the pause card's Menu.)
 document.addEventListener("keydown", function (e) {
   if (e.key !== "Backspace" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   var t = e.target;

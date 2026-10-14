@@ -893,7 +893,9 @@
   // Pause (P / tab-switch). Physics is skipped while paused; draw()
   // still runs so the table stays visible behind the overlay.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready", onChange: (paused) => { if (paused) letGo(); } })
+    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready", onChange: (paused) => { if (paused) letGo(); },
+        // on the card: this table again from ball 1, or back to the tables
+        restart: () => startGame(currentMode), menu: () => toTables(true) })
     : { isPaused: () => false };
   // A game is in progress from the first launch to the last drain, the bonus
   // count between balls included: leaving then asks first (on the plunger
@@ -983,7 +985,13 @@
   // the start card's best, written each time the card comes up (a game just
   // played may have raised it)
   const showStartBest = () => { $("startBest").textContent = best > 0 ? "BEST  " + best.toLocaleString() : ""; };
-  $("modesBtn").addEventListener("click", () => { $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); showStartBest(); });
+  // Back to the tables: from the game-over card, or (quit) from the pause
+  // card mid-game, where the table is cleared and stops under the start card
+  const toTables = (quit) => {
+    if (quit === true) { state = "start"; balls = []; letGo(); }
+    $("overScreen").classList.add("hidden"); $("startScreen").classList.remove("hidden"); showStartBest();
+  };
+  $("modesBtn").addEventListener("click", toTables);
   showStartBest();
   updateHUD();
   // Keys, shown on the buttons: 1 2 3 pick a table and Enter starts on it (a

@@ -387,11 +387,11 @@
   });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   // On the end card Enter is Again (Backspace is its Modes, in the key
-  // handler); on the pause card Backspace is Modes, which asks first. Their
-  // keycaps are on the buttons.
+  // handler); on the pause card R is Restart and Backspace is Modes, which
+  // both ask first. Their keycaps are on the buttons.
   if (window.GameShell && GameShell.menuKeys) {
     GameShell.menuKeys({ active: function () { return state === "over"; }, start: "#again", space: true });
-    GameShell.menuKeys({ active: function () { return state === "play" && paused; }, groups: [{ sel: "#quit", keys: ["Backspace"] }] });
+    GameShell.menuKeys({ active: function () { return state === "play" && paused; }, groups: [{ sel: "#restart", keys: ["r"] }, { sel: "#quit", keys: ["Backspace"] }] });
   }
   document.getElementById("to-menu").addEventListener("click", toMenu);
   document.getElementById("resume").addEventListener("click", function () { setPaused(false); });
@@ -401,6 +401,12 @@
   document.getElementById("quit").addEventListener("click", function () {
     if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu);
     else toMenu();
+  });
+  // Restart, beside it: this mode again from the first wave, asking the same way
+  document.getElementById("restart").addEventListener("click", function () {
+    var m = mode, go = function () { start(m); };
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start over?", ok: "Start over" }, go);
+    else go();
   });
   ui.pauseBtn.addEventListener("click", function () { setPaused(true); });
   // P pauses / resumes. Esc is never claimed: the shared motion-toggle.js

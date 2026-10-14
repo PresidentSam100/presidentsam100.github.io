@@ -462,9 +462,12 @@
     cur: 0, top: 0,
     items: function () {
       var skipLabel = G.mode === "daily" ? "Give up" : "Skip";
-      return [["Hint (9)", function () { go(Game); hint(); }], ["Undo (*)", function () { go(Game); undo(); }],
-        ["Reset (0)", function () { go(Game); reset(); }], [skipLabel + " (#)", function () { if (G.mode === "daily") confirmGiveUp(); else { go(Game); skip(); } }],
-        ["Main menu", function () { askQuitToMenu(); }]];
+      var it = [["Hint (9)", function () { go(Game); hint(); }], ["Undo (*)", function () { go(Game); undo(); }],
+        ["Reset (0)", function () { go(Game); reset(); }], [skipLabel + " (#)", function () { if (G.mode === "daily") confirmGiveUp(); else { go(Game); skip(); } }]];
+      // (Restart: not a Daily, which is today's one hand with its clock saved)
+      if (G.mode !== "daily") it.push(["Restart", function () { askRestart(); }]);
+      it.push(["Main menu", function () { askQuitToMenu(); }]);
+      return it;
     },
     draw: function () {
       var it = this.items();
@@ -496,6 +499,18 @@
     if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, quitToMenu);
     else quitToMenu();
   }
+  // Restart (Options, and the Paused screen): the same mode again with nothing
+  // solved, asking first in the same way. A Time attack run counts towards
+  // its best as it stands, as it does on quitting.
+  function restartRun() {
+    var m = G.mode;
+    if (m === "timed" && !G.over) bestSubmit(KEYS.timed, G.solved);
+    newGame(m);
+  }
+  function askRestart() {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start over?", ok: "Start over" }, restartRun);
+    else restartRun();
+  }
 
   var Confirm = {
     ask: function (title, text, yes, fn) { this.title = title; this.text = text; this.yes = yes; this.fn = fn; this.back = screen; go(Confirm); },
@@ -504,13 +519,30 @@
     speak: function () { return this.title + " " + this.text; },
   };
 
-  // C here (Backspace, or the phone's C key) quits the run, asking first as
-  // Options' Main menu does. The run is already paused, so the box opens over
-  // this screen, cards still hidden, and Keep playing leaves it here, paused.
+  // The Paused screen (cards hidden, clock stopped) is a list, as Options is:
+  // Resume, Restart and Main menu. Esc resumes whichever is picked, and C
+  // (Backspace, or the phone's C key) quits the run as Main menu does. Both
+  // ask first with something to lose: the run is already paused, so the box
+  // opens over this screen and Keep playing leaves it here, paused.
   var Paused = {
-    draw: function () { header("Paused"); center("Cards hidden,", 12, "M"); center("clock stopped", 22, "M"); navi("Resume"); },
-    key: function (k) { if (k === "navi" || k === "esc") go(Game); else if (k === "C") askQuitToMenu(); },
-    speak: function () { return "Paused"; },
+    cur: 0, top: 0,
+    enter: function () { this.cur = 0; this.top = 0; },
+    items: function () {
+      var it = [["Resume", function () { go(Game); }]];
+      if (G.mode !== "daily") it.push(["Restart", askRestart]);
+      it.push(["Main menu", askQuitToMenu]);
+      return it;
+    },
+    draw: function () { header("Paused"); list(this.items().map(function (x) { return x[0]; }), this.cur, this.top); navi("Select"); },
+    key: function (k) {
+      var it = this.items();
+      if (k === "up") scrollList(this, -1, it.length);
+      else if (k === "down") scrollList(this, 1, it.length);
+      else if (k === "navi") it[this.cur][1]();
+      else if (k === "esc") go(Game);
+      else if (k === "C") askQuitToMenu();
+    },
+    speak: function () { return "Paused, cards hidden, clock stopped: " + this.items()[this.cur][0]; },
   };
 
   var Answer = {

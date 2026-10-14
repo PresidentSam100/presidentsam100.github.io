@@ -521,6 +521,18 @@
     prefetch(g.level);
   }
 
+  // The puzzle on the board, from its clues again: digits, notes, undo and
+  // the clock all go. Hints used stay counted, so a best time still means a
+  // puzzle solved without them.
+  function restartPuzzle() {
+    if (!game || state !== "playing") return;
+    const hints = game.hints;
+    startGame(game, null);
+    game.hints = hints;
+    renderAll();
+    save();
+  }
+
   // Switch to `lvl`: resume its saved game, or carve a new one.
   function openLevel(lvl, fresh) {
     PAUSE.resume();   // before stopClock: resuming restarts the clock
@@ -792,6 +804,10 @@
   const PAUSE = GameShell.pausable({
     button: false,                       // the clock has its own pause button
     canPause: () => state === "playing",
+    // On the card: this same puzzle again from its clues (the levels and New
+    // puzzle are on the page). It asks once there is work on it: leaving never
+    // does, as the puzzle is saved, but this throws the work away.
+    restart: { ask: () => hasProgress(), text: "Your digits, notes and time on this puzzle will be lost.", go: () => restartPuzzle() },
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
       pauseBtn.textContent = paused ? "\u25B6\uFE0E" : "\u23F8\uFE0E";

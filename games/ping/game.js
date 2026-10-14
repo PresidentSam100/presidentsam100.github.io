@@ -390,12 +390,13 @@ function loop(now) {
 document.querySelectorAll("#menu .btn").forEach(b => {
   b.addEventListener("click", () => startGame(Number(b.dataset.mode)));
 });
-document.getElementById("again").addEventListener("click", () => {
+function toMenu() {
   state = "menu";
   gameover.classList.add("hidden");
   menu.classList.remove("hidden");
   document.body.classList.remove("playing");
-});
+}
+document.getElementById("again").addEventListener("click", toMenu);
 // Menu keys, shown on the buttons: 1 or 2 players picks, Enter starts the
 // match (a number alone doesn't, so the two can be gone between first; a
 // click still starts at once). The count last played is the one picked. On
@@ -412,7 +413,10 @@ controlsEl.querySelector(".ctrl-win").textContent = "First to " + WIN_SCORE + " 
 // runs out.
 const PAUSE = window.GameShell ? GameShell.pausable({
   canPause: () => state === "playing",
-  onChange: (paused) => { if (paused) releaseKeys(); }
+  onChange: (paused) => { if (paused) releaseKeys(); },
+  // on the card: the same match again from 0 to 0, or back to pick 1 or 2 players
+  restart: () => startGame(players),
+  menu: toMenu
 }) : null;
 // A match is in progress (paused or not) once a point has been scored, until
 // someone wins it: leaving then asks first. The countdown and a rally with no

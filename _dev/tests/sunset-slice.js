@@ -57,6 +57,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   // bests on it, the how-to line and each mode's description are shown, all of
   // it is inside the window, and none of it lies over the three targets in the
   // middle (or the names under them): on a small phone, a phone on its side,
+  // ---- the pause card has Restart between Resume and Modes: R presses it, it
+  // asks first (any other key keeps the run, still paused), and Enter starts
+  // the same mode again from 0
+  {
+    const c = await lib.newContext(browser);
+    const s = await lib.open(c, base, "games/sunset-slice/");
+    await s.evaluate(() => { SunsetSlice.start("calm"); SunsetSlice.hold(); SunsetSlice.spawn("peach", 0.5, 0.5); });
+    const W = await s.evaluate(() => innerWidth), H = await s.evaluate(() => innerHeight);
+    await s.mouse.move(W * 0.3, H * 0.5); await s.mouse.down(); await s.mouse.move(W * 0.7, H * 0.5, { steps: 4 }); await s.mouse.up();
+    await s.waitForFunction(() => SunsetSlice.state().score > 0, null, { timeout: 5000 }).catch(() => {});
+    await s.keyboard.press("p"); await s.waitForTimeout(150);
+    const card = await s.evaluate(() => ({ up: !document.getElementById("pause").hidden, btns: [...document.querySelectorAll("#pause button")].map((b) => b.textContent.replace(/\s+/g, " ").trim() + (b.getAttribute("data-gs-key") ? " " + b.getAttribute("data-gs-key") : "")).join(" | ") }));
+    await s.keyboard.press("r"); await s.waitForSelector(".gs-dialog", { timeout: 3000 }).catch(() => {});
+    const ask = await s.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+    await s.keyboard.press("x"); await s.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 3000 }).catch(() => {});
+    const kept = await s.evaluate(() => { const t = SunsetSlice.state(); return { paused: t.paused, score: t.score, up: !document.getElementById("pause").hidden }; });
+    await s.keyboard.press("r"); await s.waitForSelector(".gs-dialog", { timeout: 3000 }).catch(() => {});
+    await s.keyboard.press("Enter"); await s.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 3000 }).catch(() => {});
+    const again = await s.evaluate(() => { const t = SunsetSlice.state(); return { state: t.state, mode: t.mode, score: t.score, paused: t.paused, up: !document.getElementById("pause").hidden }; });
+    check("sunset-slice: the pause card has Restart (R) between Resume and Modes; it asks 'Start over?', any other key keeps the run paused, and Enter starts the same mode again from 0",
+      card.up && /^Resume P \| Restart R \| Modes ⌫$/.test(card.btns) && ask === "Start over?" && kept.paused && kept.up && kept.score > 0 &&
+      again.state === "play" && again.mode === "calm" && again.score === 0 && !again.paused && !again.up, { card, ask, kept, again });
+    check("sunset-slice (restart): no page errors", s.errs.length === 0, s.errs);
+    await s.close();
+    await c.close();
+  }
+
   // and a short laptop window ([wide, high, touch])
   const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [320, 568, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
     [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false]];

@@ -621,6 +621,7 @@
             if (paused) stopTimer();
             else if (!over) startTimer();
           },
+          restart: newGame,     // on the card: a new deal (there is no menu)
         })
       : // (no shell, no pausing: the clock just runs)
         { isPaused: function () { return false; }, pause: startTimer, resume: function () {} };

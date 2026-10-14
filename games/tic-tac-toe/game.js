@@ -1051,6 +1051,16 @@ if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () {
   if (isGridMode()) return !gGameOver && marked(gBoard);
   return !gameOver && marked(board);
 });
+// The ⏸ button and P bring up the card: Restart and Menu are the bar's Restart
+// and New Game. On your turn only (the AI would play on under the card);
+// turn-based, so a hidden tab doesn't pause.
+if (window.GameShell && GameShell.pausable) GameShell.pausable({
+  canPause: () => !modeModal.classList.contains('open') && !rulesModal.classList.contains('open') &&
+    (boardMode === 'ultimate' ? !uGameOver && uTurn === HUMAN : isGridMode() ? !gGameOver && gTurn === HUMAN : !gameOver && turn === HUMAN),
+  auto: false, hold: true,
+  restart: restartCurrent,
+  menu: showModeModal,
+});
 
 window.__TTT_TEST__ = {
   get board() { return board; },

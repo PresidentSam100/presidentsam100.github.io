@@ -919,7 +919,10 @@
         onChange: function (paused) {
           input.disabled = paused || state !== "playing";
           if (!paused && state === "playing") input.focus();
-        }
+        },
+        // on the card: the same sums again from 0, or back to the settings
+        restart: startGame,
+        menu: goToMenu
       })
     : { isPaused: function () { return false; } };
 

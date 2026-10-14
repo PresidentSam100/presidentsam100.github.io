@@ -725,7 +725,10 @@
   var PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: function () { return !!running; },
-        onChange: function (paused) { if (!paused) lastT = 0; }
+        onChange: function (paused) { if (!paused) lastT = 0; },
+        // on the card: this run again from 0 m, or back to the modes
+        restart: function () { start(mode); },
+        menu: showMenu
       })
     : { isPaused: function () { return false; } };
 

@@ -897,7 +897,8 @@
   // ---- pause + loop -----------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    onChange: function (p) { if (p) { thrustSnd(false); releaseAll(); } }
+    onChange: function (p) { if (p) { thrustSnd(false); releaseAll(); } },
+    restart: start          // on the card: a new game from wave 1 (there is no menu to go back to)
   }) : { isPaused: function () { return false; } };
 
   var last = performance.now();

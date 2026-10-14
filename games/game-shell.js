@@ -24,6 +24,8 @@
      GameShell.pausable(opts)               -> pause overlay + key + ⏸ button
      GameShell.pauseButton(api)             -> just the ⏸ button, for a game
                                                with its own pause screen
+     GameShell.pauseMore(api)               -> Restart and Menu for that game,
+                                               laid over its pause screen
      GameShell.drawKeys(ctx, str, x, y)     -> canvas text with [KEY] drawn
                                                as keycaps
      GameShell.touchOnly()                  -> true on a touch-only device
@@ -178,9 +180,31 @@
   //     canPause: function () { return state === "play"; },
   //     onChange: function (paused) { ... },   // optional
   //     keys: ["p"],                           // optional; default shown
-  //     button: false                          // optional: the game shows its own
-  //   });                                      //   pause control, so no ⏸ button
+  //     button: false,                         // optional: the game shows its own
+  //                                            //   pause control, so no ⏸ button
+  //     restart: function () { ... },          // optional: this game again, from the start
+  //     menu: function () { ... },             // optional: back to the game's own menu
+  //     auto: false,                           // optional: a hidden tab doesn't pause
+  //                                            //   (a game with no clock to stop; or a
+  //                                            //   function, asked each time)
+  //     hold: true                             // optional: the game gets no keys while
+  //   });                                      //   the card is up (for a game that
+  //                                            //   never looks at isPaused() itself)
   //   ...inside the loop:  if (!P.isPaused()) { update(dt); }
+  //
+  // restart and menu put Restart and Menu on the card under Resume, so a
+  // paused player can start the same game over or go back and pick another
+  // mode; R and Backspace press them while the card is up. (Not R in a game
+  // that pauses on Esc because every letter is the game's own: a name typed
+  // at a paused game mustn't press it. There Restart is the button alone.)
+  // Each is a function,
+  // or { go, label, title, text, ok, ask, when } (text may be a function, read
+  // as the box opens; when() false leaves the button off the card this time,
+  // for a game where only some modes have a menu). It asks first ("Start over?" /
+  // "Quit this game?", built like askQuit's box) while guardLeave says a game
+  // is in progress; `ask: true` always asks (a game that saves itself never
+  // asks to leave, but starting over still throws the work away) and a
+  // function decides for itself. On yes the game is un-paused, then go() runs.
   //
   // P is the pause key and Esc is not: Esc is the way out to the games page
   // (motion-toggle.js), which mid-game asks "Leave this game?" first with the
@@ -210,6 +234,18 @@
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(255,255,255,0.09));color:inherit;" +
     "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:1rem;font-weight:700;line-height:1;-webkit-tap-highlight-color:transparent}" +
     ":where(.gs-pause-card button:hover){filter:brightness(1.1)}" +
+    // Restart and Menu, stacked under Resume and quieter than it; the three
+    // share the width of the widest, whatever the game's lettering
+    ":where(.gs-pause-btns){display:inline-flex;flex-direction:column;align-items:stretch;gap:.5rem;max-width:100%}" +
+    ":where(.gs-pause-card .gs-pause-alt){background:transparent;box-shadow:none}" +
+    // the same two as a row laid over a game that draws its own pause screen (pauseMore)
+    ":where(.gs-pause-more){position:fixed;z-index:9998;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;width:max-content;" +
+    "transform:translateX(-50%);font-family:var(--gs-font,system-ui,-apple-system,'Segoe UI',sans-serif)}" +
+    ".gs-pause-more[hidden]{display:none!important}" +
+    ":where(.gs-pause-more button){cursor:pointer;min-height:40px;padding:.5rem .9rem;border-radius:var(--gs-btn-radius,9px);" +
+    "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(22,25,33,0.94));color:var(--gs-fg,#eef0f4);" +
+    "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:.95rem;font-weight:700;line-height:1;white-space:nowrap;-webkit-tap-highlight-color:transparent}" +
+    ":where(.gs-pause-more button:hover){filter:brightness(1.1)}" +
     ".gs-pause-btn{transition:filter .15s ease,opacity .15s ease,outline-color .15s ease;outline:2px solid transparent;outline-offset:2px}" +
     ".gs-pause-btn[aria-disabled=false]:hover{filter:brightness(1.12)}" +
     ".gs-pause-btn:focus-visible{outline-color:currentColor;outline-offset:3px}" +
@@ -297,6 +333,10 @@
     var el = null;
     var corner = null;
 
+    // the card's other buttons, Restart and Menu, for a game that passes them
+    var letterFree = keys.some(function (k) { return /^[a-z]$/i.test(String(k)); });
+    var acts = pauseActs(opts, function () { setPaused(false); }, !letterFree);
+
     function build() {
       if (el) return el;
       injectPauseCss();
@@ -305,11 +345,15 @@
       el.hidden = true;
       el.setAttribute("role", "dialog");
       el.setAttribute("aria-label", title);
+      var html = '<button type="button">▶ Resume</button>' + acts.map(actHtml).join("");
       el.innerHTML =
         '<div class="gs-pause-card"><h2>' + title + "</h2>" +
         "<p>tap resume or press " + keyCaps(keys) + " to continue</p>" +
-        '<button type="button">▶ Resume</button></div>';
+        (acts.length ? '<div class="gs-pause-btns">' + html + "</div>" : html) + "</div>";
       el.querySelector("button").addEventListener("click", function () { setPaused(false); });
+      Array.prototype.forEach.call(el.querySelectorAll(".gs-pause-alt"), function (b, i) {
+        b.addEventListener("click", function () { acts[i].run(); });
+      });
       applyLook(el);
       document.body.appendChild(el);
       return el;
@@ -320,7 +364,10 @@
       if (v === paused) return;
       if (v && !canPause()) return;      // nothing to pause (menu, game over)
       paused = v;
-      build().hidden = !paused;
+      build();
+      // (a button the game has no use for just now stays off the card)
+      if (paused) Array.prototype.forEach.call(el.querySelectorAll(".gs-pause-alt"), function (b, i) { b.hidden = !acts[i].on(); });
+      el.hidden = !paused;
       if (corner) corner.render();
       try { onChange(paused); } catch (e) {}
     }
@@ -370,8 +417,25 @@
       setPaused(!paused);
     });
 
-    // Backgrounding the tab pauses; regaining focus never un-pauses.
-    onAutoPause(function () { setPaused(true); });
+    actKeys(acts, function () { return paused; });
+
+    // hold: a board game given the card for its Restart and Menu has no pause
+    // of its own to check, so its keys are kept from it here while the card is
+    // up. What the page itself answers still passes: this pause key, Esc and
+    // Home (the way out), M V [ ] (sound, Visual FX), Tab and the F keys. And
+    // Enter or Space mustn't press a button of the game's that has the focus
+    // under the card.
+    if (opts.hold) window.addEventListener("keydown", function (e) {
+      if (!paused || openDialog || !e.key || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^(Escape|Home|Tab|F\d+|[mMvV\[\]])$/.test(e.key)) return;
+      for (var i = 0; i < keys.length; i++) if (e.key.toLowerCase() === String(keys[i]).toLowerCase()) return;
+      if ((e.key === "Enter" || e.key === " ") && !(el && el.contains(document.activeElement))) e.preventDefault();
+      e.stopImmediatePropagation();
+    }, true);
+
+    // Backgrounding the tab pauses; regaining focus never un-pauses. (auto:
+    // false for a game with no clock: coming back to a card there is only in the way.)
+    if (opts.auto !== false) onAutoPause(function () { if (typeof opts.auto !== "function" || opts.auto()) setPaused(true); });
 
     return {
       isPaused: function () { return paused; },
@@ -379,6 +443,114 @@
       resume: function () { setPaused(false); },
       toggle: function () { setPaused(!paused); }
     };
+  }
+
+  // Restart and Menu, for pausable's card and pauseMore's row. o is what the
+  // game passed for each (see pausable); unpause() runs first on a yes: go()
+  // lands on a fresh game or a menu, which mustn't open paused, and the game
+  // leaves its pause the way it always does.
+  function pauseActs(opts, unpause, noLetter) {
+    var acts = [];
+    function action(o, d) {
+      if (!o) return;
+      if (typeof o === "function") o = { go: o };
+      function go() { unpause(); o.go(); }
+      d.label = o.label || d.label;
+      d.on = function () { return !o.when || !!o.when(); };
+      d.run = function () {
+        var ask = o.ask === true || (typeof o.ask === "function" ? !!o.ask() : o.ask !== false && leaveActive());
+        if (!ask) { go(); return; }
+        var g = leaveGuard, text = (typeof o.text === "function" ? o.text() : o.text) || (g && (typeof g.text === "function" ? g.text() : g.text));
+        // (as askQuit's box: only Enter goes. Any other key keeps the game, still paused)
+        confirmBox({ title: o.title || d.title, text: text || "The game in progress will be lost.", ok: o.ok || d.ok, cancel: "Keep playing", safe: true, anyKey: true },
+          function (yes) { if (yes) go(); });
+      };
+      acts.push(d);
+    }
+    action(opts.restart, { name: "restart", label: "↻ Restart", cap: noLetter ? "" : "R", title: "Start over?", ok: "Start over",
+      hit: function (e) { return !noLetter && (e.key === "r" || e.key === "R"); } });
+    action(opts.menu, { name: "menu", label: "☰ Menu", cap: "⌫", capTitle: "Backspace", title: "Quit this game?", ok: "Quit",
+      hit: function (e) { return e.key === "Backspace"; } });
+    return acts;
+  }
+  function actHtml(a) {
+    return '<button type="button" class="gs-pause-alt" data-gs-act="' + a.name + '">' + escHtml(a.label) + (!a.cap ? ""
+      : ' <span class="gs-keys"><kbd class="gs-kbd"' + (a.capTitle ? ' title="' + a.capTitle + '"' : "") + ">" + a.cap + "</kbd></span>") + "</button>";
+  }
+  // R and Backspace press Restart and Menu while the game is paused (up()).
+  // Heard on the way down, before the game's own keys: Backspace is many
+  // games' way back to their menu already, and mustn't act twice. Not under a
+  // dialog (it takes every key itself), and not with Ctrl: Ctrl+R reloads.
+  function actKeys(acts, up) {
+    if (acts.length) window.addEventListener("keydown", function (e) {
+      if (!up() || openDialog || !e.key || e.ctrlKey || e.metaKey || e.altKey) return;
+      for (var i = 0; i < acts.length; i++) {
+        if (!acts[i].hit(e) || !acts[i].on()) continue;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if (!e.repeat) acts[i].run();
+        return;
+      }
+    }, true);
+  }
+
+  // For a game that draws its own pause screen (and so has no card): Restart
+  // and Menu as a row of two buttons laid over the game while it is paused,
+  // under its own "Paused" and "P to resume", with the same keys (R,
+  // Backspace) and the same questions as the card's.
+  //
+  //   GameShell.pauseMore({ isPaused, resume, restart, menu, anchor: canvas, at: 0.62 });
+  //
+  // The row is centred on `anchor` (the page if left out), its top `at` of
+  // the way down it. restart and menu are as pausable's.
+  function pauseMore(api) {
+    var acts = pauseActs(api, function () { try { api.resume(); } catch (e) {} });
+    if (!acts.length) return;
+    var row = null, shown = false;
+    function up() { try { return !!api.isPaused(); } catch (e) { return false; } }
+    function place() {
+      var a = api.anchor, r = a && a.getBoundingClientRect ? a.getBoundingClientRect() : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+      row.style.left = Math.round(r.left + r.width / 2) + "px";
+      row.style.top = Math.round(r.top + r.height * (api.at || 0.62)) + "px";
+      row.style.maxWidth = Math.max(160, Math.round(r.width - 16)) + "px";
+    }
+    function render() {
+      var on = up();
+      if (on === shown) return;
+      shown = on;
+      if (on) {
+        Array.prototype.forEach.call(row.querySelectorAll(".gs-pause-alt"), function (b, i) { b.hidden = !acts[i].on(); });
+        place();
+      }
+      row.hidden = !on;
+    }
+    function build() {
+      if (row) return;
+      injectPauseCss();
+      row = document.createElement("div");
+      row.className = "gs-pause-more";
+      row.hidden = true;
+      row.setAttribute("role", "group");
+      row.setAttribute("aria-label", "Paused");
+      row.innerHTML = acts.map(actHtml).join("");
+      Array.prototype.forEach.call(row.querySelectorAll(".gs-pause-alt"), function (b, i) {
+        // (a click never takes the focus from the game, nor reaches its own tap handlers)
+        var stop = function (e) { e.stopPropagation(); };
+        b.addEventListener("mousedown", function (e) { e.preventDefault(); e.stopPropagation(); });
+        b.addEventListener("pointerdown", stop);
+        b.addEventListener("touchstart", stop, { passive: true });
+        b.addEventListener("touchend", stop);
+        b.addEventListener("click", function (e) { e.stopPropagation(); acts[i].run(); });
+      });
+      applyLook(row);
+      document.body.appendChild(row);
+      window.addEventListener("resize", function () { if (shown) place(); });
+      setInterval(render, 100);
+      render();
+    }
+    actKeys(acts, up);
+    if (document.body) build();
+    else document.addEventListener("DOMContentLoaded", build);
   }
 
   // The ⏸ button in the top-right row (motion-toggle.js lays the row out),
@@ -1030,6 +1202,7 @@
     record: record,
     pausable: pausable,
     pauseButton: pauseButton,
+    pauseMore: pauseMore,
     drawKeys: drawKeys,
     touchOnly: touchOnly,
     menuKeys: menuKeys,

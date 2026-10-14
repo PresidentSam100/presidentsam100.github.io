@@ -590,7 +590,10 @@
 
   // the clock
   var P = window.GameShell ? GameShell.pausable({
-    canPause: function () { return state === "play"; }
+    canPause: function () { return state === "play"; },
+    // on the card: a new deal in this mode (the Daily's own again), or back to the modes
+    restart: function () { startRun(mode); },
+    menu: toMenu
   }) : { isPaused: function () { return false; } };
   // Leaving asks first once the desk has been played (a pair taken, or a hint,
   // undo or shuffle's penalty), paused included, pausing through P; a fresh

@@ -400,7 +400,12 @@
   // P is a fishing key on the letter layouts, so it must never pause.
   // Leaving uses the pause's default guard (game-shell.js): it asks first
   // while a run is on or paused, not in the "ending" beat (the best is in).
-  var P = window.GameShell ? GameShell.pausable({ canPause: function () { return state === "play"; }, keys: ["Escape"] })
+  var P = window.GameShell ? GameShell.pausable({
+      canPause: function () { return state === "play"; }, keys: ["Escape"],
+      // on the card: this pond and clock again, or back to pick others
+      restart: function () { start(mode); },
+      menu: toMenu
+    })
     : { isPaused: function () { return false; } };
 
   // ---- input ------------------------------------------------------------------------------

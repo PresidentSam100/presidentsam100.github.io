@@ -404,6 +404,15 @@
     if (!e.repeat) onTap();
   });
   playBtn.addEventListener("click", (e) => { e.stopPropagation(); start(); });
+  // Back to the start panel as it first read (from the pause card), where the
+  // colour can be picked again
+  const START_MSG = overlayMsg.innerHTML;
+  function toMenu() {
+    state = State.MENU;
+    overlayMsg.innerHTML = START_MSG;
+    playBtn.textContent = "PLAY";
+    overlay.classList.remove("hidden");
+  }
   // 1 to 4 pick the colour while the start / game-over panel is up (each key
   // is shown under its swatch)
   if (window.GameShell) GameShell.menuKeys({ active: () => !overlay.classList.contains("hidden"), groups: [".swatch"] });
@@ -530,7 +539,7 @@
   // Pause (P / tab-switch). The dial freezes; draw() keeps running so
   // the lock stays on screen behind the overlay.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === State.PLAY })
+    ? GameShell.pausable({ canPause: () => state === State.PLAY, restart: start, menu: toMenu })   // on the card: from 0 again, or back to the start panel and its colours
     : { isPaused: () => false };
   // Leaving asks first once a run has a pop to lose (paused or not); the best
   // is already saved on every pop

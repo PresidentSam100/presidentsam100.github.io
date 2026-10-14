@@ -462,4 +462,13 @@ if (window.GameShell && GameShell.menuKeys) {
   });
   GameShell.menuKeys({ active: () => rulesModal.classList.contains('open'), start: '#closeRules' });
 }
+// The ⏸ button and P bring up the card: Restart and Menu are the bar's
+// Restart and New Game. Not while the AI is thinking (it would move under the
+// card); turn-based, so a hidden tab doesn't pause.
+if (window.GameShell && GameShell.pausable) GameShell.pausable({
+  canPause: () => !gameOver && !busy && !modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+  auto: false, hold: true,
+  restart: newGame,
+  menu: showModeModal,
+});
 showModeModal();   // pick a mode first, then the coin flip decides who goes first

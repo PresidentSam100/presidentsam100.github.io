@@ -612,6 +612,9 @@
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return mode === "dash" && (state === "ask" || state === "reveal"); },
     keys: ["Escape"],
+    // on the card: this dash again with a full clock, or back to the modes
+    restart: function () { startRun(mode); },
+    menu: toMenu,
     onChange: function (paused) {
       // the pause card is see-through, so the flag, its caption, the tags
       // and the stamp hide for the whole pause (styles.css), as Sudoku blurs

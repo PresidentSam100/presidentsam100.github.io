@@ -407,7 +407,11 @@
           startT += delta;
           nextSpawnAt += delta;
           for (const t of tiles) t.spawnT += delta;
-        }
+        },
+        // on the card: this run again from its countdown (the run under way
+        // cleared off first), or back to the settings
+        restart: () => { quit(); beginCountdown(); },
+        menu: () => quit()
       })
     : { isPaused: () => false };
 

@@ -583,6 +583,14 @@
     if (state === "play") return moves > 0 || (mode === "windup" && level > 1);
     return state === "over" && mode === "windup" && closed;
   });
+  // The ⏸ button and P bring up the card: Restart is this mode again (the
+  // Last Reel from level 1, a new zen sign, the Daily's own), Menu the modes.
+  // Moves are counted, not seconds, so a hidden tab doesn't pause.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: function () { return state === "play"; }, auto: false, hold: true,
+    restart: function () { startRun(mode); },
+    menu: toMenu
+  });
 
   // ---- go ---------------------------------------------------------------------------
   document.body.insertAdjacentHTML("beforeend", A.defsSVG());

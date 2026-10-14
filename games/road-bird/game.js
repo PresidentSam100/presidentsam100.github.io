@@ -2284,6 +2284,15 @@ if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
   isPaused: () => paused,
   toggle: () => { if (state === "playing") { paused = !paused; applyMaster(); } },
 });
+// ...and, while paused, Restart (this mode again) and Menu (back to the modes),
+// under the board's own PAUSED
+if (window.GameShell && GameShell.pauseMore) GameShell.pauseMore({
+  isPaused: () => paused && state === "playing",
+  resume: () => { paused = false; applyMaster(); },
+  restart: startCurrentMode,
+  menu: goToMenu,
+  anchor: canvas, at: 0.6,
+});
 // A run is in progress (paused or not) from the first point until the
 // chicken dies: leaving then asks first, pausing underneath. The death and
 // eagle animations come after the best is saved, so they don't ask.

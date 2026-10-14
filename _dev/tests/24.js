@@ -60,7 +60,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate((k) => { TwentyFour.press(k); TwentyFour.press("navi"); }, menuKey); await p.waitForTimeout(150);
     await p.evaluate((work) => {
       if (work) { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); }
-      TwentyFour.press("navi"); for (let i = 0; i < 4; i++) TwentyFour.press("down");   // Options, down to "Main menu"
+      TwentyFour.press("navi"); TwentyFour.press("up");   // Options, and up from the top: round to the last, "Main menu"
     }, work);
     await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   };
@@ -82,6 +82,45 @@ module.exports = async ({ browser, base, check, lib }) => {
   await mainMenuItem("3", true);
   const dMenu = await now();
   check("24: (guard) Options' Main menu in a Daily quits at once", dMenu.screen === "menu" && !dMenu.dlg, dMenu);
+
+  // Restart, on the Paused screen's list and in Options: the same mode again
+  // with nothing solved, asking first with something to lose; a Daily has none
+  const said = () => p.evaluate(() => document.getElementById("lcd-live").textContent);
+  const run = () => p.evaluate(() => { const s = TwentyFour.state(); return { screen: s.screen, mode: s.G && s.G.mode, solved: s.G && s.G.solved, hist: s.G && s.G.hist.length, dlg: !!document.querySelector(".gs-dialog") && document.querySelector(".gs-dialog h2").textContent }; });
+  await pausedRun("2", true);
+  const list0 = await said();
+  await p.evaluate(() => TwentyFour.press("down")); await p.waitForTimeout(50);
+  const list1 = await said();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const rAsk = await run();
+  await p.keyboard.press("x"); await p.waitForTimeout(150);          // any other key: keep playing, still paused
+  const rKept = await run();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);      // Restart again
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);      // Start over
+  const rDone = await run();
+  check("24: the Paused screen is a list (Resume, Restart, Main menu); Restart asks \"Start over?\" with a step made, any other key keeps the run paused, Enter starts Time attack again with nothing done",
+    /Resume$/.test(list0) && /Restart$/.test(list1) && rAsk.dlg === "Start over?" && rAsk.screen === "paused" && !rKept.dlg && rKept.screen === "paused" && rKept.hist === 1 &&
+    !rDone.dlg && rDone.screen === "game" && rDone.mode === "timed" && rDone.hist === 0 && rDone.solved === 0, { list0, list1, rAsk, rKept, rDone });
+  // Options' Restart in Classic: one up from "Main menu"
+  await p.evaluate(() => { TwentyFour.press("navi"); TwentyFour.press("up"); TwentyFour.press("navi"); }); await p.waitForTimeout(150);   // (the fresh run has nothing to lose: Main menu goes at once)
+  await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("navi"); }); await p.waitForTimeout(150);
+  await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); TwentyFour.press("navi"); TwentyFour.press("up"); TwentyFour.press("up"); });
+  const oList = await said();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const oAsk = await run();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const oDone = await run();
+  check("24: Options has Restart above Main menu; in Classic it asks first, then deals a fresh Classic game",
+    /Restart$/.test(oList) && oAsk.dlg === "Start over?" && !oDone.dlg && oDone.screen === "game" && oDone.mode === "classic" && oDone.hist === 0, { oList, oAsk, oDone });
+  // a Daily's Paused screen: Resume and Main menu only
+  await p.evaluate(() => { TwentyFour.press("navi"); TwentyFour.press("up"); TwentyFour.press("navi"); }); await p.waitForTimeout(150);
+  await pausedRun("3", false);
+  const d0 = await said();
+  await p.evaluate(() => TwentyFour.press("down")); await p.waitForTimeout(50);
+  const d1 = await said();
+  await p.evaluate(() => TwentyFour.press("down")); await p.waitForTimeout(50);
+  const d2 = await said();
+  check("24: a paused Daily lists Resume and Main menu, no Restart (it is today's one hand)", /Resume$/.test(d0) && /Main menu$/.test(d1) && /Resume$/.test(d2), { d0, d1, d2 });
   check("24: no page errors (Paused)", p.errs.length === 0, p.errs);
   await ctx.close();
 };

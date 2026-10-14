@@ -783,6 +783,7 @@
       if (paused) stopClock();
       else if (state === "playing") startClock();
     },
+    restart: () => newGame(),   // on the card: a new board at this level, as the face does (the levels are on the page)
   });
   // Leaving asks while a game is on (as pausable's default would), and on a
   // ranked board says the game stays counted (see addStat)

@@ -1463,7 +1463,16 @@
     ? GameShell.pausable({
         // (not under "Leave this rack?": that already holds the table, and the card would cover it)
         canPause: function () { return ["aim", "cpu", "roll", "wait"].indexOf(G.phase) >= 0 && !quitOpen(); },
-        onChange: function (p) { if (p) { G.charging = false; cancelDrag(); } }
+        onChange: function (p) { if (p) { G.charging = false; cancelDrag(); } },
+        // On the card: this rack again, or the menu. A rack under way against
+        // the CPU that is walked away from is a loss either way, as it is by
+        // the result's Menu: Restart's box says so, and Menu opens the game's
+        // own "Leave this rack?", which does.
+        restart: {
+          text: function () { return "The game in progress will be abandoned." + (quitIsLoss() ? " It counts as a loss." : ""); },
+          go: function () { if (quitIsLoss()) record(G.level).add("l"); drag = null; G.charging = false; startGame(false); }
+        },
+        menu: { ask: false, go: function () { if (rackUnderway()) openQuit(); else showMenu(); } }
       })
     : null;
   // Leaving asks first (pausing the table) once a rack is under way

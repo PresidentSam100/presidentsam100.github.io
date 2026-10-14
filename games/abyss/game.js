@@ -666,7 +666,10 @@
   // ---- loop ---------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play" || state === "clearing"; },
-    onChange: function (paused) { if (paused) letGo(); }
+    onChange: function (paused) { if (paused) letGo(); },
+    // on the card: this mode again from an empty well, or back to the modes
+    restart: function () { startRun(mode); },
+    menu: toMenu
   }) : { isPaused: function () { return false; } };
   // Leaving asks first while a run is on (paused too), as the pause default
   // would, except once a sprint's last row is in: its time is saved by then

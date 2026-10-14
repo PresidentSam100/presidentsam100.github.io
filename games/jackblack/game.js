@@ -423,6 +423,19 @@
   // Daily run is under way; between hands at the open table the stake is
   // saved, so there's nothing to lose
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () { return state === "table" && (inHand() || dailyLive()); });
+  // The ⏸ button and P bring up the card. Menu is the table's own Modes, which
+  // asks first with a bet on the table or a Daily under way. Restart gets up
+  // and sits straight back down at the same table (a bet in play is lost, as
+  // it is by leaving); a Daily is one run, so it has none.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: function () { return state === "table" && !busy; }, auto: false, hold: true,
+    restart: {
+      when: function () { return mode !== "daily"; },
+      ask: inHand, title: "Start over?", text: "The bet on the table is lost.",
+      go: function () { var m = mode; toMenu(); startRun(m); }
+    },
+    menu: { ask: false, go: askToMenu }
+  });
 
   window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
   document.body.classList.toggle("fxon", fx());

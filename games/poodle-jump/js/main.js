@@ -47,6 +47,15 @@
       if (document.hidden) game.requestPause();
     });
   }
+  // While paused: Restart (a new climb) and Menu (the start card), under the
+  // board's own Paused note
+  if (window.GameShell && GameShell.pauseMore) GameShell.pauseMore({
+    isPaused: () => game.paused && game.state === "play",
+    resume: () => { game.paused = false; },
+    restart: () => game.start(),
+    menu: () => game.toStart(),
+    anchor: canvas, at: 0.675,
+  });
   // A run is in progress (paused or not) from the first point until the
   // poodle goes down: leaving then asks first, pausing underneath. The fall
   // comes after the best is saved, so it doesn't ask.

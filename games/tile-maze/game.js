@@ -485,6 +485,16 @@
   });
   window.addEventListener("blur", () => holdClock("away"));
   window.addEventListener("focus", () => releaseClock("away"));
+  // The ⏸ button and P bring up the card, the level's clock held under it,
+  // for its Restart: this level again from its first step, as R does (the
+  // levels are on the page). Away from the tab the clock holds and comes back
+  // by itself, as it always has, so that isn't a pause.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: () => !won && overlayEl.hidden && guideOverlay.hidden,
+    onChange: (paused) => { if (paused) holdClock("pause"); else releaseClock("pause"); },
+    auto: false, hold: true,
+    restart: () => loadLevel(current),
+  });
 
   window.addEventListener("resize", () => {
     computeCell();

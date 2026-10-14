@@ -767,6 +767,16 @@ if (window.GameShell && GameShell.menuKeys) {
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 
+// The ⏸ button and P bring up the card: Restart and Menu are the bar's Restart
+// and New Game. Not while a disc is falling or the CPU is thinking (it would
+// play on under the card); turn-based, so a hidden tab doesn't pause.
+if (window.GameShell && GameShell.pausable) GameShell.pausable({
+  canPause: () => !gameOver && !busy && !modeModal.classList.contains('open') && !rulesModal.classList.contains('open'),
+  auto: false, hold: true,
+  restart: init,
+  menu: showModeModal,
+});
+
 // test hook
 window.__game = {
   get board() { return board; },

@@ -757,3 +757,21 @@ html.fx-off .played-by {
 .scoreboard span b {
   color: var(--yellow);
 }
+
+/* The shared pause card and its boxes ("Leave this game?"). This page also
+   loads the site stylesheet, whose plain button rule (white, a black line)
+   reached their buttons and left the light lettering on them unreadable.
+   They get their own look back here, from the "← Games" link as on every
+   other game. */
+.gs-pause-card button {
+  background: var(--gs-btn-bg, #17171f);
+  border: var(--gs-border, 1px solid #33333f);
+  border-radius: var(--gs-btn-radius, 10px);
+  padding: 0.6rem 1.4rem;
+  font-size: 1rem;
+  transition: none;
+}
+.gs-pause-card .gs-pause-alt,
+.gs-pause-card .gs-dialog-alt {
+  background: transparent;
+}

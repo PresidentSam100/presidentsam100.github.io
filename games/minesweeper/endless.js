@@ -686,6 +686,7 @@
   const PAUSE = GameShell.pausable({
     canPause: () => state === "playing",
     onChange: (paused) => fieldEl.classList.toggle("paused", paused),
+    restart: () => newGame(),   // on the card: a new run from the first row
   });
   // C / D are the Classic and Daily tabs (their keycaps are on them)
   GameShell.menuKeys({

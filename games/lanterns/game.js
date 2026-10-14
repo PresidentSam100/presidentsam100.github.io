@@ -718,7 +718,10 @@
   // ---- loop ------------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    keys: ["Escape"]                    // every letter belongs to the pinyin
+    keys: ["Escape"],                   // every letter belongs to the pinyin
+    // on the card: this night again from the first lantern, or back to the modes
+    restart: function () { startRun(mode); },
+    menu: toMenu
   }) : { isPaused: function () { return false; } };
 
   var last = 0;

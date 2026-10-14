@@ -903,7 +903,7 @@
 
   // ---- pause + loop ------------------------------------------------------------
   var P = window.GameShell
-    ? GameShell.pausable({ canPause: function () { return state === "play"; } })
+    ? GameShell.pausable({ canPause: function () { return state === "play"; }, restart: reset })   // (on the card: an empty jar again; there is no menu)
     : { isPaused: function () { return false; } };
   // The game opens on an empty jar, already in play. Until the first fruit
   // drops there's nothing to lose, so leaving asks first only once a fruit is
