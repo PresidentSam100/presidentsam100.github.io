@@ -174,4 +174,44 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- switching Visual FX mid-run: the camera glides to the view the switch
+  // gives (off: the chase view; on: the run's own angle), where it used to
+  // cut. From each of the side and high angles the eye's largest step in any
+  // one frame stays small, and it ends where it should. (Counted in frames:
+  // the game caps the time a frame may cover, so a late frame is no bigger.)
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/quick-minute/");
+    await q.evaluate(() => __game.start("day"));
+    // the eye followed for `frames` frames, the switch pressed first if asked
+    // (the road kept clear and the score at 0 meanwhile: no crash, no milestone)
+    const follow = (frames, press) => q.evaluate(([frames, press]) => new Promise((res) => {
+      const cam = __game.cam, out = { step: 0 }; let prev = null, n = 0;
+      if (press) document.querySelector(".rm-toggle").click();
+      (function tick() {
+        __game.obstacles.length = 0; __game.addScore(-__game.score);
+        const cur = [cam.ex, cam.ey, cam.ez];
+        if (prev) out.step = Math.max(out.step, Math.hypot(cur[0] - prev[0], cur[1] - prev[1], cur[2] - prev[2]));
+        prev = cur;
+        if (++n > frames) { out.step = Math.round(out.step * 100) / 100; out.eye = cur.map((v) => Math.round(v * 10) / 10); out.running = __game.running; res(out); }
+        else requestAnimationFrame(tick);
+      })();
+    }), [frames, press]);
+    const EYES = { 1: [4.6, 5.2, -6.8], 2: [0, 9.5, -10.5], 3: [-4.6, 5.2, -6.8] }, CHASE = [0, 4.6, -7.5];
+    const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 0.25);
+    const seen = {};
+    let glides = true;
+    for (const i of [1, 2, 3]) {
+      await q.evaluate((i) => __game.setPreset(i), i);
+      const there = await follow(130, false);          // (the swing to the new angle, 1.6 s)
+      const off = await follow(90, true), on = await follow(90, true);
+      seen[i] = { there: there.eye, off, on };
+      if (!(near(there.eye, EYES[i]) && off.step < 1.2 && near(off.eye, CHASE) && on.step < 1.2 && near(on.eye, EYES[i]) && on.running)) glides = false;
+    }
+    check("quick-minute: switching Visual FX mid-run glides the camera (to the chase view when off, back to the run's angle when on) from the right, high and left angles, never a cut", glides, seen);
+    check("quick-minute (camera): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
 };

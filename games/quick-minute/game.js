@@ -310,7 +310,10 @@
     { eye: [0, 9.5, -10.5], tgt: [0, 0, 8] },       // high crane
     { eye: [-4.6, 5.2, -6.8], tgt: [0.6, 0.8, 7] }  // quarter left
   ];
-  var camPresetIdx = 0, camFrom = null, camT = 1;
+  var camPresetIdx = 0, camFrom = null, camT = 1, camDur = 1.6;
+  // where the camera is this frame (eye and target, measured from the anchor
+  // as a preset is), and whether Visual FX was on in the frame before
+  var camNow = null, fxWas = null;
   var bank = 0, shakeT = 0, prevPX = 0;
   function smooth(t) { return t * t * (3 - 2 * t); }
   function lookAt(ex, ey, ez, tx, ty, tz) {
@@ -321,29 +324,41 @@
   }
   function setPreset(i) {
     if (i === camPresetIdx) return;
-    camFrom = PRESETS[camPresetIdx];
+    camFrom = camNow || PRESETS[camPresetIdx];   // (from where it is, should it still be on its way to the last angle)
     camPresetIdx = i;
-    camT = 0;
+    camT = 0; camDur = 1.6;
   }
   function updateCamera(now, dt) {
     var px = wx(player.x);
     var anchor = px * 0.8;
-    if (!running && fxOn()) {
+    var fx = fxOn(), orbit = !running && fx, e, t;
+    // Switching Visual FX changes the view: off is the plain chase view, on is
+    // the run's own angle (or the orbit, on a menu). The camera goes there in
+    // one short glide from wherever it is, then holds. (It used to cut, which
+    // from the side and high angles was a sharp jump mid-run.)
+    if (fxWas !== null && fx !== fxWas && camNow) { camFrom = camNow; camT = 0; camDur = 0.7; }
+    fxWas = fx;
+    if (orbit) {
       // cinematic orbit around the (possibly crashed) car on menu screens
       var th = now * 0.00021;
-      lookAt(px + Math.sin(th) * 10.5, 4.4 + Math.sin(th * 0.6) * 1.4, -Math.cos(th) * 10.5,
-             px, 0.9, 2.5);
-      cam.roll = 0;
-      camReady();
-      return;
+      e = [px - anchor + Math.sin(th) * 10.5, 4.4 + Math.sin(th * 0.6) * 1.4, -Math.cos(th) * 10.5];
+      t = [px - anchor, 0.9, 2.5];
+    } else {
+      var p = fx ? PRESETS[camPresetIdx] : PRESETS[0];
+      e = p.eye; t = p.tgt;
     }
-    var p = fxOn() ? PRESETS[camPresetIdx] : PRESETS[0];
-    var e = p.eye, t = p.tgt;
-    if (fxOn() && camFrom && camT < 1) {
-      camT = Math.min(1, camT + dt / 1.6);
+    if (camFrom && camT < 1) {
+      camT = Math.min(1, camT + dt / camDur);
       var s = smooth(camT), f0 = camFrom;
       e = [f0.eye[0] + (e[0] - f0.eye[0]) * s, f0.eye[1] + (e[1] - f0.eye[1]) * s, f0.eye[2] + (e[2] - f0.eye[2]) * s];
       t = [f0.tgt[0] + (t[0] - f0.tgt[0]) * s, f0.tgt[1] + (t[1] - f0.tgt[1]) * s, f0.tgt[2] + (t[2] - f0.tgt[2]) * s];
+    }
+    camNow = { eye: e, tgt: t };
+    if (orbit) {
+      lookAt(anchor + e[0], e[1], e[2], anchor + t[0], t[1], t[2]);
+      cam.roll = 0;
+      camReady();
+      return;
     }
     // speed sway + crash shake (Visual FX only)
     var swx = 0, swy = 0;
@@ -808,6 +823,7 @@
 
   function gameOver() {
     running = false;
+    camT = 1;   // (a glide still on its way ends here: the crash cuts to its own view, as it always has)
     shakeT = 0.55;
     stage.classList.add("crash");
     clearTimeout(crashTimer);
