@@ -3008,13 +3008,14 @@ class Game {
       this.text(ctx, 'FINAL SCORE  ' + this.score, WIDTH / 2, HEIGHT / 2 + 18, 13, '#fff', 'center');
       if (this.blinkOn())
         this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
-      // (on touch ● is the way back to the title; ← Games says itself)
-      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center', '● TITLE');
+      // (on touch ● is the way back to the title; the way out to the games
+      // is the ← Games button's, which names its key)
+      this.keys(ctx, '[⌫] TITLE', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center', '● TITLE');
     } else if (this.mode === 'gameover') {
       this.text(ctx, 'GAME OVER', WIDTH / 2, HEIGHT / 2 - 10, 24, '#ff3b5c', 'center');
       if (this.blinkOn())
         this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
-      this.keys(ctx, '[⌫] TITLE   [ESC] GAMES', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center', '● TITLE');
+      this.keys(ctx, '[⌫] TITLE', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center', '● TITLE');
     }
 
     if (this.flashMuteT > 0)
@@ -3155,11 +3156,11 @@ class Game {
     this.text(ctx, 'CAPTURE & RESCUE FOR DUAL FIGHTER!', WIDTH / 2, 452, 10, '#8fa0d8', 'center');
 
     // on touch the ◀ ● ▶ buttons are the pickers, a tap starts; the guide has
-    // no touch way in (and the ← Games button says itself); ✨ is the FX switch
+    // no touch way in; ✨ is the FX switch
     const fx = 'VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON');
     if (this.blinkOn())
       this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
-    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE   [ESC] GAMES', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center', '');
+    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center', '');
     this.keys(ctx, '[V] ' + fx, WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center', '✨ ' + fx);
   }
 

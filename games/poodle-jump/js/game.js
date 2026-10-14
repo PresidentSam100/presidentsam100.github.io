@@ -850,9 +850,9 @@ class Game {
       "Best: " + this.high,
       "",
       { keys: "[Space] / [Enter] / click to retry", touch: "Tap to play again" },
-      { keys: "[⌫] menu  ·  [Esc] all games", touch: "← Games for all games" },
     ];
-    if (touch) lines.push("");                         // (room for the button)
+    // (the way out to the games is the ← Games button's, which names its key)
+    lines.push(touch ? "" : "[⌫] menu");               // ("": room for the button)
     this._panel(ctx, "Game Over", lines);
     this.menuBtn = null;
     if (!touch) return;

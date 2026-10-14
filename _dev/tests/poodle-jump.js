@@ -30,7 +30,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the start, pause and game-over notes: keys on a desktop, touch wording on a phone
   const { devices } = require("@playwright/test");
   const phone = await lib.newContext(browser, devices["Pixel 7"]);
-  const KEYS = ["←", "→", "A", "D", "Space", "↑", "P", "Esc"], TOUCH = ["Tap to start", "Tap ▶ to resume", "Tap to play again"];
+  const KEYS = ["←", "→", "A", "D", "Space", "↑", "P"], TOUCH = ["Tap to start", "Tap ▶ to resume", "Tap to play again"];
   const notes = {};
   for (const [label, c] of [["desktop", ctx], ["phone", phone]]) {
     p = await lib.open(c, base, "games/poodle-jump/");
@@ -42,13 +42,15 @@ module.exports = async ({ browser, base, check, lib }) => {
     }), set);
     const start = await drawn(""), paused = await drawn("__game.start(); __game.paused = true"), over = await drawn("__game.paused = false; __game.state = 'over'");
     const all = [].concat(start, paused, over);
-    notes[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: TOUCH.filter((t) => all.includes(t)), menuKey: over.includes("⌫") };
+    notes[label] = { keys: KEYS.filter((k) => all.includes(k)), touch: TOUCH.filter((t) => all.includes(t)), menuKey: over.includes("⌫"), games: all.filter((t) => /Esc|all games/.test(t)) };
     await done(p, label + " notes");
   }
   check("poodle-jump: the start, pause and game-over notes show keys on a desktop and touch wording on a phone",
     notes.desktop.keys.length === KEYS.length && notes.desktop.touch.length === 0 && notes.phone.keys.length === 0 && notes.phone.touch.length === TOUCH.length, notes);
   check("poodle-jump: the game-over note names [⌫] for the menu on a desktop, and not on a phone (no key to press)",
     notes.desktop.menuKey && !notes.phone.menuKey, { desktop: notes.desktop.menuKey, phone: notes.phone.menuKey });
+  // (the ← Games button names its own key: the notes used to say it again)
+  check("poodle-jump: no note repeats the way out to the games", notes.desktop.games.length === 0 && notes.phone.games.length === 0, { desktop: notes.desktop.games, phone: notes.phone.games });
   await phone.close();
 
   // ---- Game Over on a touch-only phone: there's no Backspace, so the note has

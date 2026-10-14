@@ -14,8 +14,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     ft: document.querySelector(".rm-toggle").title, fk: document.querySelector(".rm-toggle").getAttribute("aria-keyshortcuts"),
     bt: document.querySelector(".nav-back-games").title,
   }));
-  check("passport: the menu's key line and the button tooltips name the keys",
-    /M\/\[ sound · V\/\] visual FX · Esc back to games/.test(lab.keys) && /M or \[$/.test(lab.mt) && lab.mk === "M [" && /V or \]$/.test(lab.ft) && lab.fk === "V ]" && /Esc/.test(lab.bt), lab);
+  check("passport: the menu's key line and the button tooltips name the keys (Esc on the ← Games button alone)",
+    /M\/\[ sound · V\/\] visual FX$/.test(lab.keys) && !/Esc/.test(lab.keys) && /M or \[$/.test(lab.mt) && lab.mk === "M [" && /V or \]$/.test(lab.ft) && lab.fk === "V ]" && /Esc/.test(lab.bt), lab);
 
   const m0 = await st(p); await p.keyboard.press("m"); const m1 = await st(p); await p.keyboard.press("M"); const m2 = await st(p);
   await p.keyboard.press("v"); const m3 = await st(p); await p.keyboard.press("v");

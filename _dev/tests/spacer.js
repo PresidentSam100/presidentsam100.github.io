@@ -179,8 +179,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   c = await lib.newContext(browser);
   p = await lib.open(c, base, "games/spacer/", { before: fxOff });
   const dk = await screens(p);
-  check("spacer, desktop: the canvas hints still name the keys",
-    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && dk.pause.includes("P") && !dk.pause.includes("ESC") && ["ENTER", "⌫", "ESC"].every((k) => dk.over.includes(k) && dk.done.includes(k)) && !has(Object.values(dk).flat(), "TAP"),
+  // (no screen names Esc for the way out to the games: the ← Games button names its own key)
+  check("spacer, desktop: the canvas hints still name the keys, and none repeats the way out to the games",
+    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && dk.pause.includes("P") && ["ENTER", "⌫"].every((k) => dk.over.includes(k) && dk.done.includes(k)) &&
+      !["title", "pause", "over", "done"].some((s) => dk[s].includes("ESC") || has(dk[s], "GAMES")) && !has(Object.values(dk).flat(), "TAP"),
     { title: dk.title.filter((s) => CAPS.includes(s)), pause: dk.pause.filter((s) => CAPS.includes(s)) });
 
   // ---- Infinite goes on past stage 255: patterns wrap, difficulty stays capped, the HUD counts on
