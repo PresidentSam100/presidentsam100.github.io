@@ -10,6 +10,9 @@ const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (
     overflow: function (s) { score = s; gameOver(); },
     spriteWidth: function (i) { return SPRITES[i].c.width; },`];
 
+// (the physics step itself, for the rolling check: run by hand, so the
+// numbers don't depend on the frame rate)
+const PHYS_HOOK = ["  window.__game = {", "  window.__game = {\n    physics: physics,"];
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (opts) => lib.open(ctx, base, "games/jam-jar/", Object.assign({ before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]) }, opts));
@@ -71,4 +74,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     two.w === 1080 && two.h === 1440 && two.berry === 124 && Math.abs(fx - 400) <= 2 && one.w === 540 && one.berry === 62, { two, dropX: fx, one });
   await done(p, "hi-DPI");
   await hi.close();
+
+  // ---- a fruit rolling along the jar's floor keeps its way: a quarter of a
+  // second on it has lost about a twentieth of its speed (it used to lose a
+  // seventh, and more on a faster screen), while a creep still comes to rest.
+  // The physics is stepped by hand, all in one go, so no frame comes between.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, PHYS_HOOK]) });
+    const roll = await q.evaluate(() => {
+      __game.setQueue(0, 0); __game.setAim(270); __game.drop();
+      const f = __game.fruits[0], step = 1 / 120;
+      for (let i = 0; i < 480; i++) __game.physics(step);          // down onto the floor, and still
+      const rest = Math.abs(f.vx) + Math.abs(f.vy);
+      const run = (v, steps) => { f.vx = v; for (let i = 0; i < steps; i++) __game.physics(step); return Math.round(f.vx * 10) / 10; };
+      const fast = run(300, 30);
+      f.x = 270;
+      const slow = run(8, 60);
+      return { rest: Math.round(rest * 10) / 10, fast, slow, fruits: __game.fruits.length };
+    });
+    check("jam-jar: a fruit rolling along the jar's floor keeps its way (from 300, a quarter of a second leaves it over 272, where it used to be down to 254), and a creep still comes to rest",
+      roll.fruits === 1 && roll.rest < 1 && roll.fast > 272 && roll.fast < 296 && Math.abs(roll.slow) < 1, roll);
+    check("jam-jar (rolling): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
 };

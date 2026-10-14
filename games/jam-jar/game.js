@@ -346,7 +346,11 @@
   }
 
   // ---- physics ---------------------------------------------------------------
-  var GRAV = 1500, REST = 0.22, WALL_REST = 0.38, MU = 0.15;
+  var GRAV = 1500, REST = 0.22, WALL_REST = 0.38, MU = 0.1;
+  // What a fruit rolling along the jar's floor loses of its speed, per second
+  // (0.24: about a fifth). It was 0.6 on a 60 Hz screen, nearly half, so a
+  // roll died sooner than a rolling thing should, and sooner still at 120 Hz.
+  var ROLL_LOSS = 0.24;
   var MERGE_SLOP = 2; // px: twins this close count as touching
   function physics(dt) {
     var i, j, f;
@@ -509,10 +513,11 @@
         if (cradled) {
           f.tipDir = 0;
           if (f.mvx * f.mvx + f.mvy * f.mvy < 144) f.w *= 0.82; // resting fruit stops turning
-          // free-rolling stays free; slow creep meets static-style friction,
-          // and near-rest contact all but freezes (kills wedge-creep for good)
-          if (f.onFloor) f.vx *= Math.abs(f.vx) < 25 ? 0.9 : 0.995;
-          if (Math.abs(f.vx) < 10 && Math.abs(f.vy) < 10) f.vx *= 0.5;
+          // free-rolling stays free (ROLL_LOSS, by the clock and not by the
+          // step); a slow creep meets static-style friction, and near-rest
+          // contact all but freezes (kills wedge-creep for good)
+          if (f.onFloor) f.vx *= Math.exp(-(Math.abs(f.vx) < 14 ? 12.6 : ROLL_LOSS) * dt);
+          if (Math.abs(f.vx) < 8 && Math.abs(f.vy) < 8) f.vx *= 0.5;
         } else if (f.supNy > 0) {
           // Gravity wins the balancing act: slide down whichever side it
           // leans toward. On a perfect balance (a berry dead-centre on a
