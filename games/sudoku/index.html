@@ -60,6 +60,9 @@
         </div>
       </div>
 
+      <!-- the two sides of the board on a wide window (styles.css); in the
+           single column they are no boxes at all, just what is in them -->
+      <div class="side side-r">
       <p id="status" role="status" aria-live="polite"></p>
 
       <div class="pad" id="pad" role="group" aria-label="Digits"></div>
@@ -70,7 +73,9 @@
         <button class="tool" id="notesBtn" type="button" aria-pressed="false" title="Pencil marks (N)" aria-keyshortcuts="N" data-gs-key="N"><span class="ti">&#x270E;&#xFE0E;</span>Pencil<b class="badge" id="notesBadge">off</b></button>
         <button class="tool" id="hintBtn" type="button" title="Hint (?)" aria-keyshortcuts="?" data-gs-key="?"><span class="ti">&#x261E;&#xFE0E;</span>Hint<b class="badge" id="hintBadge" hidden>0</b></button>
       </div>
+      </div>
 
+      <div class="side side-l">
       <div class="levels" role="group" aria-label="Difficulty">
         <button class="lvl" type="button" data-level="easy"><span class="stars" aria-hidden="true">&#x2605;<i>&#x2605;&#x2605;&#x2605;</i></span><span class="lvl-name">Easy</span><small>warm-up</small></button>
         <button class="lvl" type="button" data-level="medium"><span class="stars" aria-hidden="true">&#x2605;&#x2605;<i>&#x2605;&#x2605;</i></span><span class="lvl-name">Medium</span><small>fewer clues</small></button>
@@ -118,6 +123,7 @@
           loses one. Best times count only for puzzles solved without hints.
         </p>
       </details>
+      </div>
 
       <p id="byline">made by sam lu (not you)</p>
     </main>

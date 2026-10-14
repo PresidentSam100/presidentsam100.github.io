@@ -828,6 +828,115 @@ body > .gs-pause {
   background: #3a3731;
 }
 
+/* ---- the two sides of the board ------------------------------------------ */
+/* In the single column they are not boxes: their contents are the sheet's own
+   items, in the order they always were. */
+.side {
+  display: contents;
+}
+
+/* ---- wide windows: three columns, nothing to scroll to -------------------- */
+/* The masthead runs across the top; under it the levels, New puzzle, the
+   record and How to play stand to the left of the board, and the status line,
+   the digit pad (three by three) and the tools to its right. game.js sizes the
+   board from the window's height, so the whole sheet is on the screen. */
+@media (min-width: 1100px) {
+  .wrap {
+    padding: 52px 16px 12px;
+  }
+  .sheet {
+    display: grid;
+    grid-template-columns: 260px auto 260px;
+    grid-template-areas:
+      "mast mast mast"
+      "left field right"
+      "byline byline byline";
+    column-gap: 28px;
+    row-gap: 0.7rem;
+    align-items: start;
+    justify-items: center;
+    width: auto;
+    max-width: none;
+    padding: 12px 26px 12px;
+  }
+  .mast { grid-area: mast; }
+  .field { grid-area: field; }
+  #byline { grid-area: byline; }
+  .side {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+    width: 100%;
+    min-height: 0;
+    /* as tall as the board with its heading, and no taller: How to play
+       opens inside its column and scrolls there */
+    max-height: calc(var(--size) + 2.5rem);
+  }
+  .side-l { grid-area: left; }
+  .side-r { grid-area: right; }
+  .side > * {
+    width: 100%;
+    max-width: none;
+    flex-shrink: 0;       /* (only How to play gives way: see .rules below) */
+  }
+
+  /* the right side: what the game says, the pad, the tools */
+  #status {
+    /* room for three lines, so a long hint doesn't push the pad down */
+    min-height: 4.2em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pad {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+  .key {
+    height: clamp(2.5rem, calc((var(--size) - 200px) / 3), 4rem);
+  }
+  .tools {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .tool:nth-child(odd) {
+    border-left: none;
+  }
+  .tool:nth-child(n + 3) {
+    border-top: 1px solid var(--rule);
+  }
+
+  /* the left side: the levels two by two, New puzzle, the record, the rules */
+  .levels {
+    grid-template-columns: repeat(2, 1fr);
+    margin-top: 0;
+  }
+  .opts .btn {
+    width: 100%;
+  }
+  .side .rules {
+    flex: 0 1 auto;
+    min-height: 2.2rem;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .rules[open] {
+    column-count: 1;
+  }
+}
+/* (a short window: the masthead closes up, the board keeps the height) */
+@media (min-width: 1100px) and (max-height: 720px) {
+  .nameplate {
+    font-size: 2rem;
+  }
+  .dateline {
+    margin-top: 0.2rem;
+  }
+  .sheet {
+    row-gap: 0.5rem;
+  }
+}
+
 /* ---- narrow screens ------------------------------------------------------- */
 @media (max-width: 600px) {
   .wrap {

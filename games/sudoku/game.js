@@ -25,7 +25,10 @@
   };
 
   const MIN_SIZE = 300, MAX_SIZE = 500;
+  const MAX_WIDE = 640;       // ...and on a wide window, where the board has the height to itself
   const CHROME_H = 380;       // masthead + HUD + status + pad + tools, kept on screen with the board
+  // three columns (styles.css): the sides beside the board, nothing under it
+  const WIDE = window.matchMedia ? window.matchMedia("(min-width: 1100px)") : null;
   const LOADING_DELAY = 150;  // don't flash "generating…" for a fast puzzle
   const UNDO_CAP = 500;
 
@@ -224,10 +227,26 @@
   // its content box rather than assume a gutter.
   function layout() {
     const cs = getComputedStyle(sheetEl);
-    const inner = sheetEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-    const w = Math.min(inner, MAX_SIZE);
-    const h = window.innerHeight - CHROME_H;
-    const size = Math.floor(Math.min(w, Math.max(h, MIN_SIZE)));
+    let size;
+    if (WIDE && WIDE.matches) {
+      // Beside the board, not under it: the board takes what the window has
+      // left under the masthead and the board's own heading (measured, as the
+      // nameplate's face sets the masthead's height) and over the byline, and
+      // what the two sides leave it across.
+      const px = (v) => parseFloat(v) || 0;
+      const wrapCs = getComputedStyle(sheetEl.parentNode), byline = $("byline"), side = document.querySelector(".side");
+      const top = boardEl.getBoundingClientRect().top + window.scrollY;
+      const foot = px(cs.rowGap) + (byline ? byline.offsetHeight : 0) + px(cs.paddingBottom) + px(wrapCs.paddingBottom);
+      const h = window.innerHeight - top - foot - 4;   // (a few pixels in hand: the gaps are in rem, and round)
+      const w = document.documentElement.clientWidth - px(wrapCs.paddingLeft) - px(wrapCs.paddingRight) - px(cs.paddingLeft) - px(cs.paddingRight) -
+        2 * ((side ? side.offsetWidth : 260) + px(cs.columnGap));
+      size = Math.floor(Math.max(MIN_SIZE, Math.min(MAX_WIDE, h, w)));
+    } else {
+      const inner = sheetEl.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const w = Math.min(inner, MAX_SIZE);
+      const h = window.innerHeight - CHROME_H;
+      size = Math.floor(Math.min(w, Math.max(h, MIN_SIZE)));
+    }
     document.documentElement.style.setProperty("--size", size + "px");
   }
 
@@ -274,6 +293,8 @@
     if (measureInk()) for (let i = 0; i < 81; i++) paint(i);
   }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(centreInk);
+  // (the masthead is as tall as its lettering: once the nameplate's face is in, size the board again)
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => layout());
   if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", centreInk);
 
   // ---- painting ----------------------------------------------------------

@@ -86,4 +86,44 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "sudoku digit ink");
     await c3.close();
   }
+
+  // ---- a wide window: nothing to scroll to. The levels, New puzzle, the
+  // record and How to play stand beside the board, with the pad and the tools
+  // on its other side, all inside the window at once, How to play shut or open
+  // (it scrolls inside its own column). On a big window and on short laptops.
+  {
+    const sizes = [[1700, 920], [1280, 900], [1366, 657], [1280, 600]], seen = {};
+    let ok = true;
+    for (const [w, h] of sizes) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/sudoku/");
+      await q.waitForSelector("#board .c.given", { timeout: 20000 });
+      await q.waitForTimeout(250);
+      const look = () => q.evaluate(() => {
+        const H = innerHeight, W = innerWidth, r = (e) => e.getBoundingClientRect();
+        const inView = (e) => { const b = r(e); return b.width > 0 && b.height > 0 && b.top >= -0.5 && b.bottom <= H + 0.5 && b.left >= -0.5 && b.right <= W + 0.5; };
+        const all = (sel) => [...document.querySelectorAll(sel)];
+        const board = r(document.getElementById("board"));
+        return {
+          scroll: Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) - H,
+          board: Math.round(board.width),
+          levels: all(".levels .lvl").filter(inView).length, keys: all("#pad .key").filter(inView).length, tools: all(".tools .tool").filter(inView).length,
+          newBtn: inView(document.getElementById("newBtn")), stats: inView(document.getElementById("stats")), rules: inView(document.querySelector(".rules summary")),
+          status: inView(document.getElementById("status")), boardIn: inView(document.getElementById("board")), mast: inView(document.querySelector(".nameplate")),
+          // (nothing lies over the board, and the two sides don't run into each other)
+          clear: all(".side > *").every((e) => { const b = r(e); return b.right <= board.left + 0.5 || b.left >= board.right - 0.5; }),
+        };
+      });
+      const shut = await look();
+      await q.click(".rules summary"); await q.waitForTimeout(150);
+      const open = await look();
+      const rulesBox = await q.evaluate(() => { const e = document.querySelector(".rules"); return { scrolls: e.scrollHeight > e.clientHeight + 1, lastShown: (() => { e.scrollTop = e.scrollHeight; const p = [...e.querySelectorAll("p")].filter((x) => getComputedStyle(x).display !== "none").pop().getBoundingClientRect(); return p.bottom <= innerHeight + 0.5 && p.height > 8; })() }; });
+      const good = (s) => s.scroll <= 0 && s.levels === 4 && s.keys === 9 && s.tools === 4 && s.newBtn && s.stats && s.rules && s.status && s.boardIn && s.mast && s.clear && s.board >= 300;
+      seen[w + "x" + h] = { shut, open, rulesBox };
+      if (!(good(shut) && good(open) && rulesBox.lastShown)) ok = false;
+      if (q.errs.length) { ok = false; seen[w + "x" + h].errs = q.errs; }
+      await q.close(); await c.close();
+    }
+    check("sudoku, a wide window (1700 x 920, 1280 x 900, 1366 x 657, 1280 x 600): the four levels, New puzzle, the record, How to play, the nine digits and the four tools are all on the screen beside the board with nothing to scroll to, How to play shut or open (it scrolls in its own column, to its last line)", ok, seen);
+  }
 };
