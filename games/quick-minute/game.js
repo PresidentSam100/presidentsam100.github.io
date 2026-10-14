@@ -589,19 +589,51 @@
       box(x0 + 0.2, x1 - 0.2, 0.92, 1.42, z0 + halfL * 0.55, z1 - halfL * 0.62,  // cabin
           body, { front: GLASS, back: GLASS, left: shade(GLASS, 0.12), right: shade(GLASS, 0.12), top: foggedRoof(body, z) });
     }
-    // taillights face the camera (everyone drives away from you)
-    var ty = isTruck ? 0.8 : 0.6, tz = z0 - 0.02;
-    var tc = fogged(NIGHT ? "#ff5a4a" : "#c22a22", z);
-    poly([x0 + 0.16, ty - 0.1, tz, x0 + 0.55, ty - 0.1, tz, x0 + 0.55, ty + 0.1, tz, x0 + 0.16, ty + 0.1, tz], tc);
-    poly([x1 - 0.55, ty - 0.1, tz, x1 - 0.16, ty - 0.1, tz, x1 - 0.16, ty + 0.1, tz, x1 - 0.55, ty + 0.1, tz], tc);
-    // amber turn signal on the merging side, front + rear
+    // Lamps are painted on a face of the box, so each shows only when its face
+    // does (the test box() makes). In a run everyone drives away from you and
+    // it is the tail you see; on the menu and the crash card the camera swings
+    // round the front. (They used to be drawn whichever way the car faced, so
+    // the lamp on a hidden nose showed through the car.)
+    var rear = cam.ez < z0, nose = cam.ez > z1;
+    var ty = isTruck ? 0.8 : 0.6, tz = z0 - 0.02, nz = z1 + 0.02;
+    if (rear) {
+      var tc = fogged(NIGHT ? "#ff5a4a" : "#c22a22", z);
+      poly([x0 + 0.16, ty - 0.1, tz, x0 + 0.55, ty - 0.1, tz, x0 + 0.55, ty + 0.1, tz, x0 + 0.16, ty + 0.1, tz], tc);
+      poly([x1 - 0.55, ty - 0.1, tz, x1 - 0.16, ty - 0.1, tz, x1 - 0.16, ty + 0.1, tz, x1 - 0.55, ty + 0.1, tz], tc);
+    }
+    if (nose) {   // headlamps: pale glass by day, lit at night
+      var hc = fogged(NIGHT ? "#fff6cd" : "#e9ecef", z);
+      poly([x0 + 0.14, ty - 0.11, nz, x0 + 0.56, ty - 0.11, nz, x0 + 0.56, ty + 0.11, nz, x0 + 0.14, ty + 0.11, nz], hc);
+      poly([x1 - 0.56, ty - 0.11, nz, x1 - 0.14, ty - 0.11, nz, x1 - 0.14, ty + 0.11, nz, x1 - 0.56, ty + 0.11, nz], hc);
+    }
+    // amber turn signal on the merging side: at the tail and at the nose, and
+    // round each corner onto the side, wherever those faces show
     if (signalDir && blinkOn) {
       var sx0 = signalDir < 0 ? x0 - 0.02 : x1 - 0.24, sx1 = signalDir < 0 ? x0 + 0.24 : x1 + 0.02;
       var amber = "#ffb12e";
-      poly([sx0, ty - 0.08, tz, sx1, ty - 0.08, tz, sx1, ty + 0.14, tz, sx0, ty + 0.14, tz], amber);
-      poly([sx0, ty - 0.08, z1 + 0.02, sx1, ty - 0.08, z1 + 0.02, sx1, ty + 0.14, z1 + 0.02, sx0, ty + 0.14, z1 + 0.02], amber);
-      if (NIGHT) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, z0); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)"); }
+      if (rear) poly([sx0, ty - 0.08, tz, sx1, ty - 0.08, tz, sx1, ty + 0.14, tz, sx0, ty + 0.14, tz], amber);
+      if (nose) poly([sx0, ty - 0.08, nz, sx1, ty - 0.08, nz, sx1, ty + 0.14, nz, sx0, ty + 0.14, nz], amber);
+      if (signalDir < 0 ? cam.ex < x0 : cam.ex > x1) {
+        var sx = signalDir < 0 ? x0 - 0.02 : x1 + 0.02;
+        poly([sx, ty - 0.08, z0, sx, ty - 0.08, z0 + 0.3, sx, ty + 0.14, z0 + 0.3, sx, ty + 0.14, z0], amber);
+        poly([sx, ty - 0.08, z1 - 0.3, sx, ty - 0.08, z1, sx, ty + 0.14, z1, sx, ty + 0.14, z1 - 0.3], amber);
+      }
+      if (NIGHT && (rear || nose)) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, rear ? z0 : z1); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)"); }
     }
+  }
+  // At night every car drives with its lamps on. From behind, what shows of a
+  // car's headlamps is the road ahead of it: a short pool of light, dimmer and
+  // shorter than your own beam (which is still what you see by), and a soft
+  // hole in the darkness over it. xc, zf: the middle of the car's nose.
+  function drawBeam(xc, zf, halfW) {
+    var f = 1 - fogAt(zf + 3);
+    if (f <= 0) return;
+    var a = halfW * 0.8;
+    poly([xc - a, 0.03, zf, xc + a, 0.03, zf, xc + a + 0.9, 0.03, zf + 7, xc - a - 0.9, 0.03, zf + 7], "rgba(255,243,196," + (0.14 * f).toFixed(3) + ")");
+    poly([xc - a * 0.8, 0.04, zf, xc + a * 0.8, 0.04, zf, xc + a * 0.8 + 0.45, 0.04, zf + 4, xc - a * 0.8 - 0.45, 0.04, zf + 4], "rgba(255,243,196," + (0.16 * f).toFixed(3) + ")");
+    var p1 = pt(xc, 0.04, zf + 1.8), p2 = pt(xc, 0.04, zf + 4.6);
+    if (p1) HOLES.push({ x: p1.x, y: p1.y, r: Math.max(5, FOCAL / p1.z * 1.7), a: 0.72 * f });
+    if (p2) HOLES.push({ x: p2.x, y: p2.y, r: Math.max(5, FOCAL / p2.z * 2.1), a: 0.46 * f });
   }
   function foggedRoof(body, z) { return fogged(shade(body, NIGHT ? 0.02 : 0.14), z); }
 
@@ -638,8 +670,13 @@
     }
     list.push({ z: 0, player: true });
     list.sort(function (a, b) { return b.z - a.z; });
-    var pxw = wx(player.x);
-    for (var j = 0; j < list.length; j++) {
+    var pxw = wx(player.x), j;
+    // the other cars' beams, all laid on the road before any car is drawn: a
+    // beam drawn with its car would paint over the car in front of it
+    if (NIGHT) for (j = 0; j < list.length; j++) {
+      if (!list[j].player) drawBeam(wx(list[j].o.cx), list[j].z + list[j].o.h * K / 2, list[j].o.w * K / 2);
+    }
+    for (j = 0; j < list.length; j++) {
       var it = list[j];
       if (it.player) { drawPlayer3D(); continue; }
       var v = it.o, vwx = wx(v.cx);
@@ -648,11 +685,17 @@
       drawCar3D(vwx, it.z, v.color, (v.w * K) / 2, (v.h * K) / 2, v.type === "truck",
                 (v.pending && v.y >= VH * 0.12) ? v.mergeDir : 0, lit);
       if (NIGHT) {
-        var tl = pt(vwx - v.w * K * 0.3, 0.6, it.z - v.h * K / 2);
-        var tr = pt(vwx + v.w * K * 0.3, 0.6, it.z - v.h * K / 2);
+        // the glow of the lamps on the end of the car that faces the camera:
+        // red at the tail, warm white at the nose
+        var gz = cam.ez < it.z - v.h * K / 2 ? it.z - v.h * K / 2 : cam.ez > it.z + v.h * K / 2 ? it.z + v.h * K / 2 : null;
         var gr = 1 - fogAt(it.z);
-        if (tl && gr > 0) addGlow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * 0.42), "rgba(255,74,64," + (0.8 * gr).toFixed(2) + ")");
-        if (tr && gr > 0) addGlow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * 0.42), "rgba(255,74,64," + (0.8 * gr).toFixed(2) + ")");
+        if (gz != null && gr > 0) {
+          var tail = gz < it.z, gy = v.type === "truck" ? 0.8 : 0.6;
+          var gc = (tail ? "rgba(255,74,64," : "rgba(255,246,205,") + (0.8 * gr).toFixed(2) + ")";
+          var tl = pt(vwx - v.w * K * 0.3, gy, gz), tr = pt(vwx + v.w * K * 0.3, gy, gz);
+          if (tl) addGlow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * (tail ? 0.42 : 0.5)), gc);
+          if (tr) addGlow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * (tail ? 0.42 : 0.5)), gc);
+        }
       }
     }
 
@@ -808,7 +851,7 @@
         '<button class="mode-btn" id="m-day"><span class="ic">☀️</span><span class="t">DAY</span><div class="b">' + (bd ? 'best ' + bd : '') + '</div></button>' +
         '<button class="mode-btn" id="m-night"><span class="ic">🌙</span><span class="t">NIGHT</span><div class="b">' + (bn ? 'best ' + bn : '') + '</div></button>' +
       '</div>' +
-      '<p class="note">night = only your headlights light the road 🔦</p>';
+      '<p class="note">night = you see by headlights alone 🔦</p>';
     ov.classList.add("show");
     $("m-day").addEventListener("click", function () { start("day"); });
     $("m-night").addEventListener("click", function () { start("night"); });

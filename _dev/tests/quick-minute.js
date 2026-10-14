@@ -136,4 +136,42 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // The cars' lamps. A lamp is painted on a face of the car and shows only
+  // when that face does: from behind (a run's camera) a signalling car shows
+  // its tail lamp, and the mark round the corner where its side faces the
+  // camera, never the lamp on its hidden nose (that one used to be drawn
+  // through the car). And at night every car drives with its headlamps on: a
+  // beam on the road ahead of each. Read from what one frame fills: the
+  // signal's amber, the beams' pale yellow. (Visual FX off: the signals stay
+  // lit and the camera stays behind.)
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/quick-minute/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:quick-minute", "1"); } catch (e) {} }) });
+    // cars: [how many lanes to the side of you, how far up the road, which way it signals]
+    const frame = (mode, cars) => q.evaluate(([mode, cars]) => new Promise((res) => {
+      const g = __game;
+      g.start(mode);
+      g.obstacles.length = 0;
+      for (const [by, y, dir] of cars) g.obstacles.push({ lane: g.player.lane + by, y: y, w: 44, h: 84, type: "car", color: "#bcc0c6", cx: g.player.x + by * 72, pending: !!dir, merging: false, mergeDir: dir, mergeTo: -1, mergeStartY: 0, wc: 0 });
+      const P = CanvasRenderingContext2D.prototype, fill = P.fill, seen = [];
+      requestAnimationFrame(() => {
+        P.fill = function () { seen.push(String(this.fillStyle)); return fill.apply(this, arguments); };
+        requestAnimationFrame(() => { P.fill = fill; res({ amber: seen.filter((s) => s === "#ffb12e").length, beams: seen.filter((s) => /^rgba\(255, 243, 196/.test(s)).length }); });
+      });
+    }), [mode, cars]);
+    const ahead = await frame("day", [[0, 300, 1]]);        // dead ahead: only its tail faces the camera
+    const sideOn = await frame("day", [[-1, 300, 1]]);      // a lane to the left, signalling right: that side faces the camera too
+    const sideOff = await frame("day", [[-1, 300, -1]]);    // ... signalling left: that side is hidden
+    const quiet = await frame("day", [[0, 300, 0]]);
+    check("quick-minute: a signalling car shows its lamp only where it can be seen (the tail from behind, round the corner where its side shows), never on its hidden nose",
+      ahead.amber === 1 && sideOn.amber === 3 && sideOff.amber === 1 && quiet.amber === 0, { ahead, sideOn, sideOff, quiet });
+    const day = await frame("day", [[-2, 250, 0], [2, 250, 0]]), night = await frame("night", [[-2, 250, 0], [2, 250, 0]]);
+    // (your own beam is two fills; each of the two cars adds two more)
+    check("quick-minute: at night the other cars drive with their headlamps on, a beam on the road ahead of each; by day there are none",
+      day.beams === 0 && night.beams >= 6, { day, night });
+    check("quick-minute (lamps): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
 };
