@@ -51,6 +51,14 @@ body {
   flex-wrap: wrap;
 }
 .hudline[hidden] { display: none; }
+/* Clear of the corner buttons (← Games on the left; pause, sound and Visual FX
+   on the right, wider from 1200 px, where they wear their keys). A window too
+   narrow for the HUD to sit between them has it under their row (game.js
+   layout() leaves the board that much less height, as on a phone); from 1200
+   px it sits in the middle of the room between the two corners, until the
+   middle of the window is clear of them. */
+@media (min-width: 641px) and (max-width: 1099px) { .hudline { padding: 52px 12px 4px; } }
+@media (min-width: 1200px) and (max-width: 1329px) { .hudline { padding-left: 170px; padding-right: 392px; } }
 #hud-time { font-size: 20px; font-weight: 700; min-width: 64px; display: inline-block; }
 /* the second a pair took off, over the clock for a moment (game.js showOff) */
 .clock { position: relative; }

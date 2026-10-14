@@ -12,7 +12,8 @@
 // matched pair comes together and is gone, a shuffle's tiles travel from where
 // their faces lay; with Visual FX off the three are told by fading; a press, a
 // pause or the switch lands whatever is on its way; each pair takes a second
-// off the clock, never below zero. With Animations off, none of it.
+// off the clock, never below zero. With Animations off, none of it. The HUD
+// keeps clear of the corner buttons at every window width.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
@@ -458,6 +459,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "still");
   }
   await ctx.close();
+
+  // ---- the HUD keeps clear of the corner buttons at every window width (it
+  // goes under their row where the window is too narrow for it to sit between
+  // them), on one line, and the whole board is on the screen under it
+  {
+    const at = {};
+    for (const w of [700, 820, 1024, 1099, 1100, 1199, 1200, 1280, 1329, 1330, 1440]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: 800 } });
+      const q = await open(c);
+      await q.evaluate(() => Mahjong.start("classic")); await q.waitForTimeout(150);
+      at[w] = await q.evaluate(() => {
+        const r = (e) => e.getBoundingClientRect();
+        const hud = [...document.querySelectorAll("#hudline > *")].filter((e) => e.getClientRects().length).map(r);
+        const corners = [...document.querySelectorAll(".nav-back-games, .gs-pause-btn, .mute-toggle, .rm-toggle")].map(r);
+        const hit = (a, b) => a.left < b.right + 4 && b.left < a.right + 4 && a.top < b.bottom + 2 && b.top < a.bottom + 2;
+        const tiles = [...document.querySelectorAll("#board .tile")].map(r), mids = hud.map((h) => (h.top + h.bottom) / 2);
+        return { clear: hud.length >= 4 && corners.length === 4 && hud.every((h) => corners.every((k) => !hit(h, k))), oneLine: Math.max(...mids) - Math.min(...mids) < 10,
+          under: Math.min(...tiles.map((t) => t.top)) >= Math.max(...hud.map((h) => h.bottom)) - 2,
+          inside: tiles.length === 144 && tiles.every((t) => t.left >= 0 && t.right <= innerWidth && t.top >= 0 && t.bottom <= innerHeight) };
+      });
+      at[w].errs = q.errs.length;
+      await c.close();
+    }
+    const bad = Object.keys(at).filter((w) => !(at[w].clear && at[w].oneLine && at[w].under && at[w].inside && at[w].errs === 0));
+    check("mahjong: at window widths from 700 to 1440 px the HUD is on one line clear of the corner buttons, with the whole board on the screen under it", bad.length === 0, bad.map((w) => [w, at[w]]));
+  }
 
   // ---- on a small phone every layout is on the screen whole, and the menu
   // card with its layout row is too (nothing cut off above or below)
