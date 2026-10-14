@@ -63,11 +63,21 @@
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
-        <button type="button" data-v="classic"><b>Classic</b><small>a fresh turtle, fastest clear <span class="gs-keys"><kbd>1</kbd></span></small></button>
+        <button type="button" data-v="classic"><b>Classic</b><small>a fresh deal, fastest clear <span class="gs-keys"><kbd>1</kbd></span></small></button>
         <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's turtle, shareable <span class="gs-keys"><kbd>2</kbd></span></small></button>
       </div>
+      <!-- the layout a Classic deal is laid in: the one before, its picture and
+           name (game.js), the next. The Daily is always the turtle. -->
+      <div class="layrow" id="pick-layout">
+        <button type="button" id="lay-prev" aria-label="The layout before">◀</button>
+        <span class="lay">
+          <canvas id="lay-pic" aria-hidden="true"></canvas>
+          <span class="lay-text"><b id="lay-name">Turtle</b><small id="lay-note"></small></span>
+        </span>
+        <button type="button" id="lay-next" aria-label="The next layout">▶</button>
+      </div>
     </div>
-    <button type="button" class="playbtn" id="play"><b>Deal the turtle</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>
+    <button type="button" class="playbtn" id="play"><b id="play-what">Deal the turtle</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>
     <p class="bests" id="bests"></p>
   </div>
 </section>

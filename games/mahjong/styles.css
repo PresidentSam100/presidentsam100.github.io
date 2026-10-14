@@ -129,12 +129,15 @@ body:not(.fxon) button.tile.shake { outline: 3px solid var(--lacquer); outline-o
 /* ---- panels --------------------------------------------------------------- */
 .panel {
   position: fixed; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; align-items: flex-start; justify-content: center;
   padding: 26px 16px; overflow-y: auto;
   background: rgba(40, 22, 10, 0.55);
 }
 .panel[hidden] { display: none; }
+/* (centred by its margins, not by the panel: a card taller than the screen
+   then starts at the top, where a scroll can reach its heading) */
 .card {
+  margin: auto;
   width: min(440px, 100%);
   background: linear-gradient(180deg, #fbf3e0, var(--paperlight));
   border: 1px solid #c9b58a; border-radius: 12px;
@@ -165,6 +168,22 @@ kbd {
 .seg button.on { border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); background: #fff; }
 .seg button.on b { color: var(--lacquer); }
 
+/* the layout picker: the one before, a little picture of the layout with its
+   name, the next (the arrows wear the arrow keys: game.js, GameShell.menuKeys) */
+.layrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.layrow > button {
+  font: 700 14px/1 "Lora", serif; cursor: pointer; flex: none;
+  color: var(--ink); background: rgba(255, 255, 255, 0.55);
+  border: 1.5px solid #c9b58a; border-radius: 9px; padding: 10px 10px;
+  --gs-key-bg: var(--ink); --gs-key-fg: var(--paperlight);
+}
+.layrow > button:hover { background: #fff; }
+.layrow > button:disabled { opacity: 0.45; cursor: default; background: rgba(255, 255, 255, 0.55); }
+.layrow .lay { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.layrow canvas { width: 96px; height: 68px; flex: none; }
+.lay-text b { display: block; font-size: 17px; color: var(--lacquer); }
+.lay-text small { display: block; font-size: 12.5px; color: #7a6648; }
+
 .playbtn {
   font-family: inherit; font-size: 19px; font-weight: 700;
   width: 100%; cursor: pointer;
@@ -174,7 +193,7 @@ kbd {
 }
 .playbtn:hover { filter: brightness(1.07); }
 .playbtn:active { transform: translateY(2px); box-shadow: 0 2px 0 #6e2018; }
-.playbtn kbd { background: rgba(246, 232, 207, 0.25); }
+.playbtn kbd { background: rgba(246, 232, 207, 0.25); white-space: nowrap; }
 .bests { margin-top: 12px; font-size: 13.5px; color: #7a6648; min-height: 17px; text-align: center; }
 
 .card .big { font-size: 38px; font-weight: 700; color: var(--lacquer); margin: 6px 0 2px; }
@@ -191,6 +210,32 @@ kbd {
   border-color: #8a2a20;
 }
 .card .row button:active { transform: translateY(1px); }
+
+/* A short or narrow screen: the card closes up, with everything still on it
+   (the rules, both modes, the layout, the deal button, the fastest clear), so
+   that a small phone shows it whole. Its heading starts under the corner
+   buttons' row. */
+@media (max-width: 480px), (max-height: 640px) {
+  .panel { padding: 30px 12px 8px; }
+  .card { padding: 14px 16px 12px; }
+  .card h1 { font-size: 25px; line-height: 1.15; }
+  .card .tag { margin: 1px 0 7px; font-size: 14.5px; }
+  .card .how { font-size: 14px; line-height: 1.45; margin-bottom: 9px; }
+  .pick .seg { gap: 6px; margin-bottom: 8px; }
+  .seg button { padding: 6px 11px; font-size: 15px; }
+  .layrow { margin-bottom: 8px; gap: 8px; }
+  .layrow canvas { width: 72px; height: 51px; }
+  .layrow > button { padding: 8px 9px; }
+  .lay-text b { font-size: 15.5px; }
+  .playbtn { font-size: 17px; padding: 9px; }
+  .bests { margin-top: 7px; }
+}
+
+/* a narrow screen: the layout's name goes under its picture */
+@media (max-width: 400px) {
+  .layrow .lay { flex-direction: column; gap: 2px; }
+  .lay-text { text-align: center; line-height: 1.2; }
+}
 
 @media (max-width: 640px) {
   .hudline { padding: 52px 8px 2px; gap: 10px; font-size: 13px; }
