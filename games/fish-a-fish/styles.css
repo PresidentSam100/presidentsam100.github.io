@@ -104,12 +104,6 @@ kbd {
   font-size: 0.66rem; line-height: 1.4; text-align: center; color: #17262c; background: #ffe9c4;
   border: 0; border-radius: 6px; box-shadow: 0 1px 0 rgba(23, 38, 44, 0.7);
 }
-/* the Shift switch where there is no number row to ask for symbols: dimmed,
-   and a press says why (its line lights up) */
-.menu .seg button[aria-disabled="true"] { opacity: 0.6; cursor: default; }
-.menu .seg button[aria-disabled="true"]:hover, .menu .seg button[aria-disabled="true"]:focus-visible { background: rgba(244, 249, 251, 0.1); }
-.menu .seg button.why { opacity: 1; }
-.menu .seg button.why small { color: #ffe9c4; font-weight: 600; }
 /* a phone: three choices in a narrow row, so each name is set a little smaller
    and gets nearly all of its button's width ("Condensed" ran over the edge) */
 @media (max-width: 430px) {

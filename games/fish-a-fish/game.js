@@ -14,11 +14,11 @@
      pond goes quiet; it keeps speeding up).
    - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
      Whole keyboard (the number row too).
-   - Shift symbols, on the whole keyboard: on, a number-row fish sometimes
-     asks for its SYMBOL (!, %, &, ...), and then only Shift + that key hooks
-     it; off, the number row is plain keys.
-   Each combination keeps its own best score (the whole keyboard two for each
-   round: with the symbols and without).
+   - Shift, on every pond: on, a fish sometimes asks for what Shift types
+     on its key, a capital on a letter (the plain letters go small then) or
+     the SYMBOL over a number (!, %, &, ...), and then only Shift + that key
+     hooks it; off, every key is plain.
+   Each combination keeps its own best score.
    ===================================================================== */
 (function () {
   "use strict";
@@ -26,9 +26,11 @@
   var canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
   var store = window.GameShell ? GameShell.store
     : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {}, remove: function () {} };
-  // (the whole keyboard's bests were all earned with the Shift symbols, before
-  // they could be switched off: those keep their names, and "_plain" is without)
-  function bestKey(clock, kb, shift) { return "fishafish_best_" + clock + "_" + kb + (kb === "all" && !shift ? "_plain" : ""); }
+  // (the whole keyboard's first bests were earned with Shift on, when it asked
+  // on the number row alone: those keep their names, and "_plain" is without.
+  // The letter ponds' were earned without it: theirs keep their names, and
+  // "_shift" is with.)
+  function bestKey(clock, kb, shift) { return "fishafish_best_" + clock + "_" + kb + (kb === "all" ? (shift ? "" : "_plain") : (shift ? "_shift" : "")); }
   // One-time move of the original three bests into the combo keys they were:
   // Daybreak/Endless were the nine-key pond, Full Pond was 60s on the board.
   [["fishafish_best_daybreak", bestKey("daybreak", "nine")],
@@ -215,7 +217,7 @@
     if (!idle.length) return;
     var s = idle[Math.floor(Math.random() * idle.length)];
     s.phase = "hint"; s.t = 0; s.dur = rand(0.4, 0.6); s.what = pickWhat();
-    s.sym = shiftNow && !!s.digitRow && s.what !== "junk" && Math.random() < 0.45;
+    s.sym = shiftNow && s.what !== "junk" && Math.random() < 0.45;
     SFX.plip();
   }
 
@@ -226,9 +228,9 @@
     var s = spots[i];
     s.pressed = now();
     if (s.phase === "bite") {
-      // With the Shift symbols on, a symbol fish only takes Shift + its key and
-      // a plain digit fish only the bare key. The fish stays for another try.
-      if (shiftNow && s.what !== "junk" && s.digitRow && shifted !== null && shifted !== undefined && shifted !== s.sym) {
+      // With Shift on, a Shift fish only takes Shift + its key and a plain
+      // fish only the bare key. The fish stays for another try.
+      if (shiftNow && s.what !== "junk" && shifted !== null && shifted !== undefined && shifted !== s.sym) {
         score = Math.max(0, score - 2); liveBest();
         streak = 0;
         popup(s.x, s.y - s.r * 2, s.sym ? "hold [Shift]!  -2" : "no [Shift]!  -2", "bad");
@@ -289,10 +291,14 @@
   };
   var KB_NAME = { nine: "Condensed", letters: "All letters", all: "Whole keyboard" };
   // (a pond in words, for the bests line and the end card)
-  function pondName(kb, shift) { return KB_NAME[kb].toLowerCase() + (kb === "all" && !shift ? ", no Shift symbols" : ""); }
+  function pondName(kb, shift) { return KB_NAME[kb].toLowerCase() + (shift ? ", with Shift" : ""); }
+  // Shift as a round will play it: a tap has no Shift, so a touch-only screen
+  // has no switch and plays plain
+  function shiftFor() { return pref.shift && !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly()); }
   function bestsText() {
-    return "Best on " + pondName(pref.kb, pref.shift) + " · Daybreak " +
-      store.getNum(bestKey("daybreak", pref.kb, pref.shift), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb, pref.shift), 0);
+    var sh = shiftFor();
+    return "Best on " + pondName(pref.kb, sh) + " · Daybreak " +
+      store.getNum(bestKey("daybreak", pref.kb, sh), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb, sh), 0);
   }
   // Reflect the toggles in the menu, and remember them.
   var shiftBtn = document.getElementById("pick-shift");
@@ -302,29 +308,15 @@
       var btns = document.getElementById(id).querySelectorAll("button");
       for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("sel", btns[i].dataset.v === which);
     });
-    // The Shift switch only means something where there is a number row. On
-    // the letter ponds it stays in its place (the card keeps its height),
-    // dimmed, and says where it works.
-    var numbers = pref.kb === "all", on = numbers && pref.shift;
-    shiftBtn.classList.toggle("sel", on);
-    shiftBtn.classList.remove("why");
-    shiftBtn.setAttribute("aria-pressed", on ? "true" : "false");
-    shiftBtn.setAttribute("aria-disabled", numbers ? "false" : "true");
-    document.getElementById("shift-name").textContent = "Shift symbols" + (numbers ? pref.shift ? ": on" : ": off" : "");
-    document.getElementById("shift-says").textContent = !numbers ? "for the number row: pick Whole keyboard"
-      : pref.shift ? "a gold number tag wants Shift + its key" : "the number row is plain keys";
+    // The Shift switch, on every pond
+    shiftBtn.classList.toggle("sel", pref.shift);
+    shiftBtn.setAttribute("aria-pressed", pref.shift ? "true" : "false");
+    document.getElementById("shift-name").textContent = "Shift: " + (pref.shift ? "on" : "off");
+    document.getElementById("shift-says").textContent = pref.shift ? "a gold tag wants Shift + its key" : "every key is plain";
     ui.bests.textContent = bestsText();
   }
-  // The Shift switch, by its button or the S key. Where it has nothing to
-  // switch, a press says why: its line lights up for a moment.
-  var whyTimer = 0;
+  // The Shift switch, by its button or the S key
   function toggleShift() {
-    if (pref.kb !== "all") {
-      shiftBtn.classList.add("why");
-      clearTimeout(whyTimer);
-      whyTimer = setTimeout(function () { shiftBtn.classList.remove("why"); }, 1600);
-      return;
-    }
     pref.shift = !pref.shift;
     savePicks();
   }
@@ -349,7 +341,7 @@
     else if (m === "daybreak" || m === "endless") pref.clock = m;
     mode = pref.clock;
     kbNow = pref.kb;
-    shiftNow = kbNow === "all" && pref.shift;
+    shiftNow = shiftFor();
     var want = LAYOUTS[kbNow];
     if (layout !== want) { layout = want; resize(); }
     score = 0; streak = 0; bestStreak = 0; caught = 0; strikes = 0; elapsed = 0;
@@ -497,10 +489,9 @@
         s.t += dt;
         if (s.phase === "hint" && s.t >= s.dur) {
           s.phase = "bite"; s.t = 0;
-          // Finding one key among 36 takes longer than one among 9, and a
-          // symbol fish needs a hand on Shift too.
-          // Finding one key among 26 or 36 takes longer than one among 9.
-          var slow = spots.length > 9 ? (s.sym ? 1.55 : 1.28) : 1;
+          // Finding one key among 26 or 36 takes longer than one among 9, and
+          // a Shift fish needs a hand on Shift too.
+          var slow = spots.length > 9 ? (s.sym ? 1.55 : 1.28) : (s.sym ? 1.2 : 1);
           s.dur = (s.what === "junk" ? lerp(1.5, 0.95, d) : lerp(1.7, 0.8, d) * slow * (s.what === "golden" ? 0.65 : 1));
           if (s.what !== "junk") SFX.bite();
         } else if (s.phase === "bite" && s.t >= s.dur) {
@@ -519,6 +510,13 @@
   }
 
   // ---- draw ---------------------------------------------------------------------------------
+  // A spot's tag says what its key types: with Shift on a letter is small, and
+  // a Shift fish shows what Shift types there (a capital, or a number's symbol).
+  function tagLabel(s, i) {
+    var label = layout.labels[i];
+    if (s.sym && s.phase !== "idle") return SHIFT_SYM[label] || label;
+    return shiftNow && !s.digitRow ? label.toLowerCase() : label;
+  }
   // What the last frame drew for cues that differ with Visual FX off (test hook).
   var cues = { escapeWarn: [] };
   function draw(t) {
@@ -552,9 +550,7 @@
         }
       }
       if (s.what !== "junk" || s.phase !== "bite") Art.bobber(ctx, s.x, s.y, s.r * 0.55, dip, 0, tm);
-      var label = layout.labels[i];
-      if (s.sym && s.phase !== "idle") label = SHIFT_SYM[label] || label;
-      Art.tag(ctx, s.x, s.y + s.r * 1.55, s.r * 0.62, label, s.phase === "bite", s.sym && s.phase === "bite");
+      Art.tag(ctx, s.x, s.y + s.r * 1.55, s.r * 0.62, tagLabel(s, i), s.phase === "bite", s.sym && s.phase === "bite");
     });
     // Catches leaping out of the water.
     for (var L = leaps.length - 1; L >= 0; L--) {
@@ -634,6 +630,7 @@
     tickSpot: function (i, dt) { var s = spots[i]; s.t += dt; },
     setTime: function (v) { timeLeft = v; },
     geometry: function () { return spots.map(function (s) { return { x: s.x, y: s.y, r: s.r }; }); },
+    tags: function () { return spots.map(tagLabel); },
     // spots whose steady (Visual FX off) escape warning was drawn last frame
     cues: function () { return { escapeWarn: cues.escapeWarn.slice() }; },
   };
