@@ -212,8 +212,9 @@
       for(let f=0;f<8;f++){ b[cid(s,3,f)]={o,t:back[f],dead:false}; b[cid(s,2,f)]={o,t:"p",dead:false}; } }
     return b;
   }
-  let G=null, pendingPromo=null, endCardTimer=null;
+  let G=null, pendingPromo=null, endCardTimer=null, paused=false;
   function start(ending){
+    paused=false;
     clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
     slide=null;
     G={ board:newBoard(), turn:"r", players:{r:{alive:true},w:{alive:true},k:{alive:true}},
@@ -262,7 +263,10 @@
   }
   function render(){
     while(svg.firstChild) svg.removeChild(svg.firstChild);
-    const inCk = !G.over && inCheck(G.board,G.turn) ? kingCell(G.board,G.turn) : -1;
+    // (paused: the cells alone, with no piece, last move, check or move dot
+    // on them, so a pause is no free look at the position)
+    const hide = paused;
+    const inCk = !hide && !G.over && inCheck(G.board,G.turn) ? kingCell(G.board,G.turn) : -1;
     let moved=null;
     for(let c=0;c<96;c++){
       const s=sOf(c),r=rOf(c); const k=corners(c);
@@ -277,26 +281,26 @@
         t.setAttribute("points", poly.getAttribute("points")); t.setAttribute("fill", tint(PLAYERS[ownerOfSector[s]].color,.18));
         t.setAttribute("pointer-events","none"); poly.dataset.c=c;
       }
-      if(c===G.sel) poly.setAttribute("fill","#f4d35e");
-      if(G.last&&(c===G.last.from||c===G.last.to)) poly.setAttribute("fill", c===G.sel?"#f4d35e":"#cdb46a");
+      if(!hide && c===G.sel) poly.setAttribute("fill","#f4d35e");
+      if(!hide && G.last&&(c===G.last.from||c===G.last.to)) poly.setAttribute("fill", c===G.sel?"#f4d35e":"#cdb46a");
       if(c===inCk) poly.setAttribute("fill","#e05d5d");
       poly.dataset.c=c; poly.addEventListener("click",()=>onCell(c));
       svg.appendChild(poly);
       if(c===inCk){ const k2=document.createElementNS(SVG,"polygon");
         k2.setAttribute("points", poly.getAttribute("points")); k2.setAttribute("class","ckpulse"); svg.appendChild(k2); }
       // home tint overlay
-      if(r>=2 && c!==G.sel && c!==inCk){ const t=document.createElementNS(SVG,"polygon");
+      if(r>=2 && (hide || c!==G.sel) && c!==inCk){ const t=document.createElementNS(SVG,"polygon");
         t.setAttribute("points", poly.getAttribute("points")); t.setAttribute("fill", tint(PLAYERS[ownerOfSector[s]].color,.16));
         t.setAttribute("pointer-events","none"); svg.appendChild(t); }
       // move hint
-      const mv=G.legal.find(m=>m.to===c);
+      const mv=hide ? null : G.legal.find(m=>m.to===c);
       if(mv){ const ct=centroid(c); const h=document.createElementNS(SVG,"circle");
         h.setAttribute("cx",ct[0].toFixed(1)); h.setAttribute("cy",ct[1].toFixed(1));
         h.setAttribute("r", mv.cap? "15":"7"); h.setAttribute("class","hint");
         if(mv.cap){ h.setAttribute("fill","none"); h.setAttribute("stroke","#7fb069"); h.setAttribute("stroke-width","4"); }
         h.addEventListener("click",()=>onCell(c)); svg.appendChild(h); }
       // piece glyph
-      const p=G.board[c];
+      const p=hide ? null : G.board[c];
       if(p){ const ct=centroid(c); const g=document.createElementNS(SVG,"text");
         g.setAttribute("x",ct[0].toFixed(1)); g.setAttribute("y",ct[1].toFixed(1));
         g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
@@ -381,9 +385,21 @@
     if(window.GameShell && GameShell.askQuit) GameShell.askQuit({ title:"Quit this game?", ok:"Quit" }, go); else go();
   });
   document.querySelectorAll("#menu .modebtn").forEach(b=>b.addEventListener("click",()=>{ $("menu").classList.remove("show"); start(parseInt(b.dataset.end,10)); }));
+  // P or the pause button pauses a game in play, the board drawn bare under
+  // the card (render). Restart is the same end rule again, Menu the end-rule
+  // menu. No clock, so a hidden tab doesn't pause it; the game takes no key
+  // under the card.
+  const P = window.GameShell && GameShell.pausable ? GameShell.pausable({
+    canPause:()=> !!G && !G.over && !$("menu").classList.contains("show") && !$("overOverlay").classList.contains("show"),
+    auto:false, hold:true,
+    onChange:(on)=>{ paused=on; render(); },
+    restart:()=> start(G.ending),
+    menu:()=> $("menu").classList.add("show")
+  }) : null;
   // Leaving asks first once a move is on the board of a game still in play,
-  // but not from the end-rule menu (picking a rule starts a new game)
-  if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !$("menu").classList.contains("show"));
+  // but not from the end-rule menu (picking a rule starts a new game). The
+  // game pauses under the box.
+  if(window.GameShell) GameShell.guardLeave({ active:()=> !!G && !G.over && G.history.length>0 && !$("menu").classList.contains("show"), pausable:P });
   // Menu keys, shown on the buttons: 1 2 3 pick the end rule and Enter starts
   // (a number alone doesn't, so the rules can be gone through first; a click
   // still starts at once). By the board: N new game (asking first once a

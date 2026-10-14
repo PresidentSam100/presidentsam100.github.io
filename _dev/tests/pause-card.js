@@ -161,6 +161,17 @@ const table = (lib) => [
   { name: "tile-maze", path: "tile-maze/", acts: ["restart"],
     start: async (p) => { for (const k of ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"]) { if (await p.evaluate(() => GameShell.leaveActive())) break; await p.keyboard.press(k); await p.waitForTimeout(250); } },
     fresh: (p) => p.evaluate(() => !GameShell.leaveActive()) },
+  // (Chess: a local game with a move made; the 3-player board likewise)
+  { name: "chess", path: "chess/",
+    start: async (p) => { await p.click('#menu .modebtn[data-mode="2"]'); await p.click("#setup2Start"); await p.waitForTimeout(200); await p.click('.sq[data-i="52"]'); await p.click('.sq[data-i="36"]'); },
+    fresh: (p) => p.evaluate(() => !GameShell.leaveActive() && !document.getElementById("menu").classList.contains("show") && document.querySelectorAll("#board .pc").length === 32),
+    menu: (p) => p.evaluate(() => document.getElementById("menu").classList.contains("show")) },
+  { name: "chess three", path: "chess/three.html",
+    start: async (p) => { await p.click("#menu .modebtn"); await p.waitForTimeout(200);
+      await p.evaluate(() => { for (const c of document.querySelectorAll("polygon[data-c]")) { c.dispatchEvent(new MouseEvent("click", { bubbles: true })); if (document.querySelector("circle.hint")) break; } });
+      await p.evaluate(() => document.querySelector("circle.hint").dispatchEvent(new MouseEvent("click", { bubbles: true }))); await p.waitForTimeout(200); },
+    fresh: (p) => p.evaluate(() => !GameShell.leaveActive() && !document.getElementById("menu").classList.contains("show") && document.querySelectorAll("text.glyph").length === 48),
+    menu: (p) => p.evaluate(() => document.getElementById("menu").classList.contains("show")) },
   // ---- the games that draw their own pause screen: the two as a row over it
   { name: "road-bird", path: "road-bird/", row: true,
     start: async (p) => { await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },

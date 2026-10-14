@@ -1,6 +1,8 @@
 // Chess: in 3-player chess every piece gives check (not just pawns), so a
 // piece can mate; in 2-player chess stalemate and a bare-king ending are
-// draws; a new game or a game that ends closes the promotion picker.
+// draws; a new game or a game that ends closes the promotion picker. P
+// pauses a game on every board, the pieces hidden while it is paused, the
+// clocks stopped and a CPU's thinking held.
 const fs = require("fs");
 const path = require("path");
 
@@ -436,6 +438,92 @@ module.exports = async ({ browser, base, check, lib }) => {
       fit.top >= 0 && fit.heading && at.inView && at.hit && !!started && /CPU/i.test(started), { fit, at, started });
     check("chess (small phone): no page errors", s.errs.length === 0, s.errs);
     await small.close();
+  }
+
+  // ---- the pause (P, or the corner button), with a clock: the board is bare
+  // under the card (no piece, no last move), the clocks stop and the game takes
+  // no key; resumed, all is back and the clock that ran runs on. Away from the
+  // tab a game with a clock pauses; with no clock it doesn't (nothing to stop).
+  // "Leave this game?" holds the clock too.
+  {
+    const q = await lib.open(ctx, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+    const board = () => q.evaluate(() => ({ pieces: document.querySelectorAll("#board .pc").length, last: document.querySelectorAll("#board .sq.last").length,
+      card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, running: __chess.G.clock && __chess.G.clock.running, b: __chess.G.clock && __chess.G.clock.b, flipped: document.querySelector("#board .sq").dataset.i }));
+    await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 3, inc: 0 }); });
+    await q.click('.sq[data-i="52"]'); await q.click('.sq[data-i="36"]');      // e2-e4: Black's clock runs
+    const a = await board();
+    await q.keyboard.press("p"); await q.waitForTimeout(100);
+    const b = await board();
+    await q.keyboard.press("f"); await q.waitForTimeout(1200);                  // (F would flip the board: not under the card)
+    const c = await board();
+    await q.keyboard.press("p"); await q.waitForTimeout(1200);
+    const d = await board();
+    check("chess: P pauses: the pieces and the last move are hidden, the clocks stop and F flips nothing; P again brings them back and Black's clock runs on",
+      a.pieces === 32 && a.last === 2 && a.running === "b" && b.card && b.pieces === 0 && b.last === 0 && b.running === null && c.card && c.b === b.b && c.flipped === a.flipped &&
+      !d.card && d.pieces === 32 && d.last === 2 && d.running === "b" && d.b < c.b && d.b > c.b - 2500, { a, b, c, d });
+    // away from the tab: with a clock it pauses, with none it doesn't
+    await q.evaluate(() => window.dispatchEvent(new Event("blur"))); await q.waitForTimeout(100);
+    const awayClock = (await board()).card;
+    if (awayClock) { await q.keyboard.press("p"); await q.waitForTimeout(100); }
+    await q.evaluate(() => __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 0, inc: 0 }));
+    await q.click('.sq[data-i="52"]'); await q.click('.sq[data-i="36"]');
+    await q.evaluate(() => window.dispatchEvent(new Event("blur"))); await q.waitForTimeout(100);
+    const awayNone = (await board()).card;
+    check("chess: away from the tab a game with a clock pauses; one with no clock doesn't", awayClock === true && awayNone === false, { awayClock, awayNone });
+    // Leave this game? holds the clock as well
+    await q.evaluate(() => __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 3, inc: 0 }));
+    await q.click('.sq[data-i="52"]'); await q.click('.sq[data-i="36"]');
+    await q.click(".nav-back-games"); await q.waitForTimeout(100);
+    const l0 = await q.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, b: __chess.G.clock.b, running: __chess.G.clock.running }));
+    await q.waitForTimeout(1000);
+    const l1 = await q.evaluate(() => __chess.G.clock.b);
+    await q.keyboard.press("x"); await q.waitForTimeout(600);
+    const l2 = await q.evaluate(() => ({ running: __chess.G.clock.running, b: __chess.G.clock.b, card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    check("chess: 'Leave this game?' holds the clock under it, and Keep playing runs it on",
+      l0.dlg === "Leave this game?" && l0.running === null && l1 === l0.b && l2.running === "b" && !l2.card && l2.b < l1 && q.leaves === 0, { l0, l1, l2, leaves: q.leaves });
+    check("chess (pause): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- paused while the CPU thinks: no move lands under the card; resumed,
+  // the CPU thinks again and plays
+  {
+    const q = await lib.open(ctx, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+    await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "cpu", difficulty: "easy", side: "w", base: 0, inc: 0 }); });
+    const m0 = await q.evaluate(() => {
+      const G = __chess.G, m = __chess.legalFor(G, 52).find((x) => x.to === 36);
+      __chess.doMove(m);                                   // e2-e4, and the CPU starts thinking...
+      document.querySelector(".gs-pause-btn").click();     // ...paused at once
+      return { turn: G.turn, moves: G.history.length };
+    });
+    await q.waitForTimeout(3000);
+    const m1 = await q.evaluate(() => ({ turn: __chess.G.turn, moves: __chess.G.history.length, card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    await q.keyboard.press("p");
+    const played = await q.waitForFunction(() => __chess.G.turn === "w" && __chess.G.history.length === 2, null, { timeout: 20000 }).then(() => true, () => false);
+    check("chess vs CPU: paused while the CPU thinks, no move lands under the card; resumed, the CPU plays",
+      m0.turn === "b" && m1.card && m1.turn === "b" && m1.moves === 1 && played, { m0, m1, played });
+    check("chess (pause vs CPU): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- the 3-player board pauses too, its pieces hidden while it is paused
+  {
+    let html = fs.readFileSync(path.join(lib.ROOT, "games/chess/three.html"), "utf8");
+    html = html.replace(HOOK3[0], HOOK3[1]);
+    const q = await lib.open(ctx, base, "games/chess/three.html", { before: (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html })) });
+    await q.click("#menu .modebtn"); await q.waitForTimeout(200);
+    const glyphs = () => q.evaluate(() => ({ glyphs: document.querySelectorAll("#board text.glyph, svg text.glyph").length, card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    const t0 = await glyphs();
+    await q.keyboard.press("p"); await q.waitForTimeout(100);
+    const t1 = await glyphs();
+    await q.keyboard.press("u"); await q.keyboard.press("n"); await q.waitForTimeout(150);
+    const t2 = await q.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), card: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    await q.keyboard.press("p"); await q.waitForTimeout(100);
+    const t3 = await glyphs();
+    check("chess three: P pauses, the pieces hidden (and U and N do nothing under the card); P again brings them back",
+      t0.glyphs === 48 && !t0.card && t1.card && t1.glyphs === 0 && t2.card && !t2.dlg && !t3.card && t3.glyphs === 48, { t0, t1, t2, t3 });
+    check("chess three (pause): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
   }
   await ctx.close();
 };

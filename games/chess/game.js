@@ -149,6 +149,7 @@
   let G=null, flipped=false, pendingPromo=null, endCardTimer=null;
   let setup2 = { opponent:"local", difficulty:"medium", side:"w", base:0, inc:0 }; // last-used 2P setup
   let cpuThinking=false, cpuRequestId=0, worker=null, workerFailed=false;
+  let paused=false, pausedClock=null;   // (see the pause, by the wiring)
   const boardEl=$("board"), statusEl=$("status");
 
   function cap(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
@@ -160,6 +161,7 @@
   }
 
   function start(mode, ending, setup){
+    paused=false; pausedClock=null;
     cancelCpuThink();
     closePromo();
     clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
@@ -259,18 +261,21 @@
 
   function render(){
     boardEl.innerHTML="";
-    const inCk = !G.over && inCheck(G,G.board,G.turn) ? kingSq(G,G.board,G.turn) : -1;
+    // (paused: the squares alone, with no piece, last move, check or move dot
+    // on them, so a pause is no free look at the position)
+    const hide = paused;
+    const inCk = !hide && !G.over && inCheck(G,G.board,G.turn) ? kingSq(G,G.board,G.turn) : -1;
     const cells=[]; for(let i=0;i<G.board.length;i++) cells.push(i);
     const seq = flipped ? cells.slice().reverse() : cells;
     for(const i of seq){
       const [r,c]=rc(G,i); const sq=document.createElement("div");
       if(!G.valid(r,c)){ sq.className="sq off"; boardEl.appendChild(sq); continue; }
       sq.className="sq "+((r+c)%2===0?"l":"d"); sq.dataset.i=i;
-      const p=G.board[i]; if(!p) sq.classList.add("empty");
-      if(i===G.sel) sq.classList.add("sel");
-      if(G.last&&(i===G.last.from||i===G.last.to)) sq.classList.add("last");
+      const p=hide ? null : G.board[i]; if(!p) sq.classList.add("empty");
+      if(!hide && i===G.sel) sq.classList.add("sel");
+      if(!hide && G.last&&(i===G.last.from||i===G.last.to)) sq.classList.add("last");
       if(i===inCk) sq.classList.add("check");
-      const mv=G.legal.find(m=>m.to===i);
+      const mv=hide ? null : G.legal.find(m=>m.to===i);
       if(mv){ const d=document.createElement("div"); d.className="dot"; sq.appendChild(d); if(mv.cap) sq.classList.add("cap"); }
       if(p){ const g=document.createElement("span"); const col=G.players[p.o].color;
         g.className="pc "+(lum(col)>0.55?"lt":"dk")+(p.dead?" dead":"");
@@ -291,7 +296,7 @@
       [["capW","b"],["capB","w"]].forEach(([id])=>{});
     } else renderPlayers();
     renderClocks();
-    playSlide();
+    if(hide) stopMotion(); else playSlide();
   }
 
   // ============================================================ clock
@@ -661,9 +666,9 @@
   // Change Mode throws the game away (the menu has no way back), so mid-game
   // it asks first; the old game's CPU and clock stop with it, or a flag
   // behind the menu would still count as a loss
+  function toModes(){ cancelCpuThink(); setClockRunning(null); renderClocks(); $("menu").classList.add("show"); }
   $("modeBtn").addEventListener("click",()=>{
-    const go=()=>{ cancelCpuThink(); setClockRunning(null); renderClocks(); $("menu").classList.add("show"); };
-    if(window.GameShell && GameShell.askQuit) GameShell.askQuit({ title:"Quit this game?", ok:"Quit" }, go); else go();
+    if(window.GameShell && GameShell.askQuit) GameShell.askQuit({ title:"Quit this game?", ok:"Quit" }, toModes); else toModes();
   });
   document.querySelectorAll("#menu .modebtn").forEach(b=> b.addEventListener("click",()=>{
     const mode=b.dataset.mode; if(b.disabled) return;
@@ -719,11 +724,35 @@
     start(2, null, Object.assign({}, setup2));
   });
 
+  const menuUp=()=> ["menu","setup2Menu","endMenu"].some(id=>$(id).classList.contains("show"));
+  // P or the pause button pauses a game in play. The clocks stop, a CPU
+  // that was thinking stops and thinks again on the resume, and the board
+  // is drawn bare (render). On the card, Restart is the same setup again and
+  // Menu the modes; a hidden tab pauses a game whose clock runs (with no
+  // clock there is nothing to stop). The game takes no key under the card.
+  const P = window.GameShell && GameShell.pausable ? GameShell.pausable({
+    canPause:()=> !!G && !G.over && !menuUp() && !$("overOverlay").classList.contains("show"),
+    auto:()=> !!(G && G.clock && G.clock.enabled),
+    hold:true,
+    onChange:(on)=>{
+      paused=on;
+      if(on){
+        if(G.clock){ pausedClock=G.clock.running; setClockRunning(null); }
+        cancelCpuThink();
+      } else {
+        if(G.clock && pausedClock) setClockRunning(pausedClock);
+        pausedClock=null;
+        requestCpuMove();            // (only when it's the CPU's turn)
+      }
+      render();
+    },
+    restart:()=> start(G.mode, G.ending),
+    menu:toModes
+  }) : null;
   // Leaving asks first once a move is on the board of a game still in play
   // (the CPU's turn too), but not from the mode menus: the board behind them
-  // is never resumed. Chess has no pause, so a clock keeps running meanwhile.
-  const menuUp=()=> ["menu","setup2Menu","endMenu"].some(id=>$(id).classList.contains("show"));
-  if(window.GameShell) GameShell.guardLeave(()=> !!G && !G.over && G.history.length>0 && !menuUp());
+  // is never resumed. The game pauses under the box.
+  if(window.GameShell) GameShell.guardLeave({ active:()=> !!G && !G.over && G.history.length>0 && !menuUp(), pausable:P });
   // Menu keys, shown on the buttons. Mode menu: 2 / 4 / 3, the player counts.
   // 2-player setup: 1 2 the opponent, 3-6 the CPU's level, W / B / R the side,
   // Enter starts (the clock chips are left to Tab and the mouse). 4-player
