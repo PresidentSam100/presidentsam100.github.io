@@ -88,6 +88,10 @@
   var tiers = [], perfects = 0, streak = 0;
   var slider = null;                    // { x, w, dir, y (world bottom), mode: slide|fall, vy, fl, seed, decos }
   var debris = [], sprinkles = [], pops = [];
+  // Every piece that has fallen this run (an offcut, the tier that missed), as
+  // it left the tower: { x, w, fl, seed, y0, vx }. And where each has come to
+  // rest on the floor, laid out for the pull-back (layPile).
+  var fallen = [], pile = [];
   var cam = 0, camTarget = 0;           // world y at screen top
   var baseX = 0, spawnTimer = 0, phaseTimer = 0, zoomP = 0, wallTint = 338;
   var shake = 0, ovenGlow = 0, bob = 0;
@@ -131,6 +135,7 @@
     sizes();
     tiers = []; perfects = 0; streak = 0;
     debris = []; sprinkles = []; pops = [];
+    fallen = []; pile = [];
     runBest = bests[mode] ? bests[mode].get() : 0;
     // the base tier, resting on the stand
     tiers.push({ x: baseX, w: W0, fl: flavourFor(0), seed: 991, decos: withWx(A.decosFor(W0, 991), baseX, W0) });
@@ -152,6 +157,8 @@
     var dx = Math.round(W / 2 - (tiers[0].x + tiers[0].w / 2));
     tiers.forEach(function (t) { t.x += dx; t.decos.forEach(function (d) { d.wx += dx; }); });
     debris.forEach(function (d) { d.x += dx; });
+    fallen.forEach(function (f) { f.x += dx; });
+    if (pile.length) pile = layPile();
     sprinkles.forEach(function (s) { s.x += dx; });
     pops.forEach(function (p) { p.x += dx; });
     if (slider) {
@@ -185,6 +192,7 @@
 
     if (ow <= 4) {                                   // clean miss: served
       debris.push({ x: x, y: slider.y, w: w, fl: slider.fl, seed: slider.seed, vx: slider.dir * 60, vy: 60, rot: 0, vr: slider.dir * 2.4 });
+      fell(x, w, slider.dir * 60, slider.seed);
       sndMiss();
       // the run is over: its result is in before the tumble (a run that placed
       // nothing on the base it was given has no tower to record)
@@ -213,6 +221,8 @@
       // crumbles a tier's height down, see update)
       if (x < oL) debris.push({ x: x, y: slider.y, y0: slider.y, offcut: true, w: oL - x, fl: slider.fl, seed: slider.seed, vx: -70, vy: -40, rot: 0, vr: -2.2 });
       if (x + w > oR) debris.push({ x: oR, y: slider.y, y0: slider.y, offcut: true, w: x + w - oR, fl: slider.fl, seed: slider.seed + 5, vx: 70, vy: -40, rot: 0, vr: 2.2 });
+      if (x < oL) fell(x, oL - x, -70, slider.seed);
+      if (x + w > oR) fell(oR, x + w - oR, 70, slider.seed + 5);
       crumbs((x < oL ? oL : oR), slider.y, slider.fl);
       x = oL; w = ow;
       sndSlice(); sndPlop();
@@ -235,6 +245,37 @@
       ovenGlow = 1;
     }
     spawnTimer = 0.16;
+  }
+
+  // ---- what fell -----------------------------------------------------------------
+  // A piece that leaves the tower is kept, as it left: it drops out of the
+  // picture during play, and the pull-back shows it lying on the floor.
+  function fell(x, w, vx, seed) {
+    fallen.push({ x: x, w: w, fl: slider.fl, seed: seed, y0: slider.y, vx: vx });
+  }
+  // Where each has come to rest, in the order they fell: under where it left
+  // the tower, carried out by its own sideways throw for as long as its fall
+  // lasted (so a piece from high up lies further out), on top of whatever had
+  // landed there before it, and tipped by the heap under it.
+  function layPile() {
+    var BIN = 6, lo = -W * 2, n = Math.ceil(W * 5 / BIN), hgt = new Float32Array(n);
+    var floorY = A.FLOOR + 34, thick = SH * 0.84;
+    return fallen.map(function (f) {
+      var t = Math.sqrt(2 * Math.max(0, floorY - f.y0) / 2200);
+      var cx = f.x + f.w / 2 + f.vx * t * 0.55;
+      // a sliver thinner than it is tall doesn't stand: it lies on its side,
+      // fallen over the way it was thrown
+      var flat = f.w >= SH, foot = flat ? f.w : SH * 1.3, high = flat ? thick : Math.max(7, f.w);
+      var a = clamp(Math.floor((cx - foot / 2 - lo) / BIN), 0, n - 1), b = clamp(Math.floor((cx + foot / 2 - lo) / BIN), a, n - 1);
+      var top = 0, i;
+      for (i = a; i <= b; i++) top = Math.max(top, hgt[i]);
+      var lean = b > a ? Math.atan2(hgt[a] - hgt[b], foot) * 0.6 : 0;       // (down toward the lower side of what's under it)
+      var wob = ((f.seed * 9301 + 49297) % 233280) / 233280 - 0.5;           // (and a little of its own, the same each time)
+      for (i = a; i <= b; i++) hgt[i] = top + high;
+      var rot = clamp(lean + wob * 0.34, -0.6, 0.6) + (flat ? 0 : (f.vx < 0 ? -1 : 1) * Math.PI / 2);
+      // (y is where the middle of its sponge sits: half its height up, or half its width when it lies on its side)
+      return { x: cx - f.w / 2, y: floorY - top - (flat ? SH / 2 : Math.max(3.5, f.w / 2)), w: f.w, rot: rot, fl: f.fl, seed: f.seed };
+    });
   }
 
   function serveOver() {
@@ -329,10 +370,11 @@
       }
     } else if (state === "tumble") {
       phaseTimer -= dt;
-      if (phaseTimer <= 0) { state = "zoom"; zoomP = 0; sndServe(); }
+      if (phaseTimer <= 0) { state = "zoom"; zoomP = 0; pile = layPile(); sndServe(); }
     } else if (state === "zoom") {
       zoomP = Math.min(1, zoomP + dt * (fx() ? 1.1 : 4));
-      if (zoomP >= 1) { phaseTimer -= dt; if (phaseTimer < -0.5) serveOver(); }
+      // (a moment longer on the whole picture when there is a heap on the floor to take in)
+      if (zoomP >= 1) { phaseTimer -= dt; if (phaseTimer < (pile.length ? -1.2 : -0.5)) serveOver(); }
     }
 
     tiers.forEach(function (t) { if (t.squash > 0) t.squash = Math.max(0, t.squash - dt * 6); });
@@ -383,20 +425,22 @@
     }
     // the sliding / falling tier
     if (slider) {
-      var hov = slider.mode === "slide" && fx() ? Math.sin(bob) * 2.5 : 0;
-      var st = { x: slider.x, w: slider.w, fl: slider.fl, seed: slider.seed, decos: slider.decos, squash: 0 };
-      drawTierAt(st, slider.y + hov, null, true);
-      // its soft shadow on the tower below
+      // Its soft shadow first, so it lies under it: on the top of the tower,
+      // where the tier hangs over it. (It was painted after the tier and a
+      // tier's height too high, so it lay across the tier itself.)
       if (slider.mode === "slide") {
         var top = tiers[tiers.length - 1];
         var shL = Math.max(slider.x, top.x), shR = Math.min(slider.x + slider.w, top.x + top.w);
         if (shR > shL) {
           g.fillStyle = "rgba(90,40,56,0.14)";
           g.beginPath();
-          g.ellipse((shL + shR) / 2, sy(towerTopY()) - SH - H * 0.32, (shR - shL) / 2, 4, 0, 0, 7);
+          g.ellipse((shL + shR) / 2, sy(towerTopY()) + (H - SH) * 0.3, (shR - shL) / 2, 4, 0, 0, 7);
           g.fill();
         }
       }
+      var hov = slider.mode === "slide" && fx() ? Math.sin(bob) * 2.5 : 0;
+      var st = { x: slider.x, w: slider.w, fl: slider.fl, seed: slider.seed, decos: slider.decos, squash: 0 };
+      drawTierAt(st, slider.y + hov, null, true);
     }
     // debris chunks
     debris.forEach(function (d) {
@@ -435,20 +479,33 @@
     g.globalAlpha = 1;
   }
 
-  // the pull-back: the whole cake on its stand, topper going on
+  // the pull-back: the whole cake on its stand, topper going on, and the
+  // kitchen under it down to the floor, with everything that fell lying there
   function drawServed() {
     var e = zoomP < 0.5 ? 2 * zoomP * zoomP : 1 - Math.pow(-2 * zoomP + 2, 2) / 2;
-    var towerH = tiers.length * H + 70;
-    var fit = Math.min(1, (Hh * 0.74) / towerH);
+    var towerH = tiers.length * H + 70, below = A.FLOOR + 62;
+    var fit = Math.min(1, (Hh * 0.9) / (towerH + below));
     var s = 1 + (fit - 1) * e;
     var cx = tiers[0].x + tiers[0].w / 2;
+    // (the stand starts near the foot of the screen, as play left it, and
+    // rises as the view pulls back to bring the floor in under it)
+    var y0 = Hh * 0.88 + (Hh * 0.96 - below * fit - Hh * 0.88) * e;
 
     g.save();
-    g.translate(W / 2, Hh * 0.88);
+    g.translate(W / 2, y0);
     g.scale(s, s);
     g.translate(-cx, 0);
 
-    A.drawCounter(g, W * 3, Hh / s + 300, function (wy) { return wy; }, tiers[0].x, tiers[0].w);
+    A.drawCounter(g, W * 3, (Hh - y0) / s + 40, function (wy) { return wy; }, tiers[0].x, tiers[0].w);
+    // what fell, in the order it fell (so the later pieces lie on the earlier)
+    for (var k = 0; k < pile.length; k++) {
+      var q = pile[k];
+      g.save();
+      g.translate(q.x + q.w / 2, q.y);
+      g.rotate(q.rot);
+      A.drawTier(g, -q.w / 2, -SH / 2, q.w, SH, q.fl, null, { seed: q.seed });
+      g.restore();
+    }
     for (var i = 0; i < tiers.length; i++) {
       var y = -i * H - SH;
       A.drawTier(g, tiers[i].x, y, tiers[i].w, SH, tiers[i].fl,
@@ -576,6 +633,7 @@
     sliderX: function () { return slider ? slider.x : null; },
     sliderReady: function () { return !!slider && slider.mode === "slide"; },
     topX: function () { return tiers[tiers.length - 1].x; },
+    fallen: function () { return fallen.length; },
     perfects: function () { return perfects; },
     pops: function () { return pops.map(function (p) { return { text: p.text, age: p.age }; }); },
     drop: drop,

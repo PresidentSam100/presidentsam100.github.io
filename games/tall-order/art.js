@@ -250,19 +250,36 @@
     }
   }
 
-  // the counter, cake stand and the big oven: world coords near y=0
+  // the counter, cake stand and the big oven: world coords near y=0. Under
+  // the counter's cabinets is the kitchen floor, FLOOR below the stand's
+  // plate: play never looks that far down, but the pull-back that ends a run
+  // does, and what fell off the cake lies there.
+  var FLOOR = 250;
   function drawCounter(g, w, h, worldToY, baseX, baseW) {
     var cy = worldToY(0);
     if (cy > h + 300) return;
+    var fy = cy + FLOOR;
     // counter top (extends past both edges so the zoomed-out view is covered)
     g.fillStyle = "#e8d7c3";
     g.fillRect(-w, cy + 62, w * 3, 16);
     g.fillStyle = "#d9c4ab";
-    g.fillRect(-w, cy + 78, w * 3, Math.max(0, h - (cy + 78)));
-    // cabinet lines
+    g.fillRect(-w, cy + 78, w * 3, Math.max(0, Math.min(h, fy) - (cy + 78)));
+    // cabinet lines (the doors stop over a kick board, short of the floor)
     g.strokeStyle = "rgba(122,94,60,0.25)"; g.lineWidth = 2;
+    var doorH = Math.max(0, Math.min(h - 20, fy - 22) - (cy + 96));
     for (var x = -w + 40; x < w * 2; x += 170) {
-      g.strokeRect(x, cy + 96, 130, Math.max(0, h - cy - 116));
+      g.strokeRect(x, cy + 96, 130, doorH);
+    }
+    // the kick board and the floor's boards
+    if (fy < h) {
+      g.fillStyle = "#b9a288";
+      g.fillRect(-w, fy - 12, w * 3, 12);
+      g.fillStyle = "#f1e6d6";
+      g.fillRect(-w, fy, w * 3, h - fy);
+      g.strokeStyle = "rgba(122,94,60,0.14)"; g.lineWidth = 2;
+      for (var ly = fy + 30; ly < h; ly += 30) { g.beginPath(); g.moveTo(-w, ly); g.lineTo(w * 2, ly); g.stroke(); }
+      g.strokeStyle = "rgba(122,94,60,0.4)";
+      g.beginPath(); g.moveTo(-w, fy); g.lineTo(w * 2, fy); g.stroke();
     }
     // the cake stand
     var sx = baseX + baseW / 2;
@@ -322,6 +339,7 @@
     decosFor: decosFor,
     drawKitchen: drawKitchen,
     drawCounter: drawCounter,
+    FLOOR: FLOOR,
     drawOven: drawOven,
     drawMark: drawMark,
     cherry: cherry,

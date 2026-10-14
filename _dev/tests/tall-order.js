@@ -2,11 +2,20 @@
 // keeps the tower on screen and in the slider's reach; Enter on a focused
 // mode button only picks the mode, and a mode clicked with the mouse is the
 // one Enter then starts; on a touch-only phone the keycaps hide and the menu
-// says tap where it names Space.
+// says tap where it names Space. The sliding tier's shadow lies on the cake
+// under it, not across the tier; and everything that falls off is kept, and
+// lies heaped on the kitchen floor in the pull-back that ends the run.
 const HOOK = ["  // test hooks: the Playwright harness drives runs through these\n", `  window.__to = {
     slider: function () { return slider && { lo: slider.lo, hi: slider.hi, w: slider.w, x: slider.x }; },
     top: function () { var t = tiers[tiers.length - 1]; return { x: t.x, w: t.w }; },
-    width: function () { return W; }
+    width: function () { return W; },
+    geo: function () {
+      return { H: H, SH: SH, W: W, Hh: Hh, floor: A.FLOOR, cam: cam, top: towerTopY(), zoomP: zoomP, n: tiers.length,
+        slider: slider && { x: slider.x, y: slider.y, w: slider.w, mode: slider.mode },
+        base: tiers.length ? { x: tiers[0].x, w: tiers[0].w } : null,
+        fallen: fallen.map(function (f) { return { x: f.x, w: f.w, vx: f.vx }; }),
+        pile: pile.map(function (q) { return { x: q.x, y: q.y, w: q.w, rot: q.rot }; }) };
+    }
   };
   // test hooks: the Playwright harness drives runs through these\n`];
 
@@ -77,6 +86,58 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tall-order: missing the first drop isn't a record: nothing is saved and the card doesn't call it one", !/new bakery record/.test(none.stats) && none.best === null, none);
   check("tall-order: a run that places a tier is a first record, saved (guard)", /new bakery record/.test(one.stats) && one.best === "2", one);
   check("tall-order: after missing the first drop, the card shows the best already held (guard)", /best: 5 tiers/.test(old.stats) && old.best === "5", old);
+  await ctx.close();
+
+  // ---- the sliding tier's shadow: on the top of the tower under it (a tier's
+  // height lower than it was painted, which was across the sliding tier itself)
+  ctx = await lib.newContext(browser);
+  p = await open(ctx);
+  await p.evaluate(() => {
+    // every shadow drawn, with where things were as it was drawn
+    const el = CanvasRenderingContext2D.prototype.ellipse;
+    CanvasRenderingContext2D.prototype.ellipse = function (x, y) {
+      if (/^rgba\(90, ?40, ?56, ?0\.14\)$/.test(String(this.fillStyle))) window.__shadow = { y: y, geo: __to.geo() };
+      return el.apply(this, arguments);
+    };
+    TallOrder.start("bakery");
+  });
+  await p.waitForFunction(() => window.__shadow && window.__shadow.geo.slider && window.__shadow.geo.slider.mode === "slide", null, { timeout: 10000, polling: "raf" });
+  const sh = await p.evaluate(() => { const s = window.__shadow, g = s.geo; return { y: Math.round(s.y), rest: Math.round(g.top - g.cam), sliderBottom: Math.round(g.slider.y - g.cam), H: g.H, SH: g.SH }; });
+  check("tall-order: the sliding tier's shadow lies on the top of the tower, under the tier (not across it)",
+    sh.y >= sh.rest - 1 && sh.y <= sh.rest + (sh.H - sh.SH) + 1 && sh.y > sh.sliderBottom + 12, sh);
+
+  // ---- what falls off is kept: three offcuts (two to the right, one to the
+  // left) and the tier that missed. In the pull-back they lie on the floor
+  // under the counter, each on the side it fell to, the later ones on the
+  // earlier, all of it inside the picture.
+  const drops = [26, 22, -24];
+  for (const off of drops) {
+    await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
+    await p.evaluate((o) => TallOrder.placeAndDrop(o), off);
+  }
+  await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
+  const kept = await p.evaluate(() => TallOrder.fallen && TallOrder.fallen());
+  await p.evaluate(() => TallOrder.placeAndDrop(TallOrder.topWidth() + 14));     // a clean miss, just past the right edge
+  await p.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 15000 });
+  const heap = await p.evaluate(() => {
+    const g = __to.geo(), cx = g.base.x + g.base.w / 2;
+    // the pull-back's own arithmetic: how far out it pulls, and where the stand's plate ends up
+    const towerH = g.n * g.H + 70, below = g.floor + 62, fit = Math.min(1, (g.Hh * 0.9) / (towerH + below)), y0 = g.Hh * 0.96 - below * fit;
+    const at = (q) => ({ x: g.W / 2 + (q.x + q.w / 2 - cx) * fit, y: y0 + q.y * fit });
+    const scr = g.pile.map(at);
+    return { fallen: g.fallen.length, pile: g.pile.length, zoomP: g.zoomP,
+      // (the three offcuts: each lies on the side it was thrown to)
+      sides: g.pile.slice(0, 3).map((q, i) => Math.sign(q.x + q.w / 2 - cx) === Math.sign(g.fallen[i].vx)),
+      // (the first to fall lies on the floor itself; nothing lies under the floor)
+      onFloor: g.pile[0].y > g.floor && g.pile.every((q) => q.y <= g.floor + 34 && q.y > g.floor - 200),
+      // the two right-hand offcuts landed over each other: the second lies higher
+      stacked: g.pile[1].y < g.pile[0].y - 3,
+      inView: scr.every((s) => s.x > 0 && s.x < g.W && s.y > 0 && s.y < g.Hh), floorIn: y0 + g.floor * fit < g.Hh - 4, scr: scr.map((s) => [Math.round(s.x), Math.round(s.y)]) };
+  });
+  check("tall-order: everything that falls off is kept (three offcuts, then the tier that missed)", kept === 3 && heap.fallen === 4 && heap.pile === 4, { kept, heap });
+  check("tall-order: in the pull-back it lies on the kitchen floor, each piece on the side it fell to, the later on the earlier, all inside the picture",
+    heap.zoomP === 1 && heap.sides.every(Boolean) && heap.onFloor && heap.stacked && heap.inView && heap.floorIn, heap);
+  await done(p, "shadow and heap");
   await ctx.close();
 
   // ---- the menu's "how" names the key on a desktop, and says tap on a phone,
