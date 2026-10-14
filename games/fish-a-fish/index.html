@@ -47,22 +47,29 @@
       when the bobber <b>plunges</b>, <span class="gs-keys">strike its key</span><span class="gs-touch">tap it</span>. Striking during the ripples
       scares it off, an empty spot splashes <b>−2</b>, and the old boot isn't worth
       hooking (<b>−5</b>). Five catches in a row double your points; ten triple them.
-      <span class="gs-keys">On the <b>whole keyboard</b>, when a number's tag turns gold and shows its
-      symbol (<kbd>!</kbd> <kbd>%</kbd> <kbd>&amp;</kbd>…), only <kbd>Shift</kbd>&#8202;+&#8202;that key hooks it.</span>
+      <span class="gs-keys">With <b>Shift symbols</b> on, a number's tag sometimes turns gold and shows its
+      symbol (<kbd>!</kbd> <kbd>%</kbd> <kbd>&amp;</kbd>…): only <kbd>Shift</kbd>&#8202;+&#8202;that key hooks it.</span>
     </p>
     <div class="pick">
       <span class="picklab">Round</span>
       <div class="seg" id="pick-clock">
-        <button type="button" data-v="daybreak"><b>Daybreak</b><small>60 seconds <span class="gs-keys"><kbd>1</kbd></span></small></button>
-        <button type="button" data-v="endless"><b>Endless</b><small>3 get away, done <span class="gs-keys"><kbd>2</kbd></span></small></button>
+        <button type="button" data-v="daybreak"><b>Daybreak</b><small>60 seconds</small><span class="gs-keys pk"><kbd>1</kbd></span></button>
+        <button type="button" data-v="endless"><b>Endless</b><small>3 get away, done</small><span class="gs-keys pk"><kbd>2</kbd></span></button>
       </div>
     </div>
     <div class="pick">
       <span class="picklab">Keys</span>
       <div class="seg" id="pick-kb">
-        <button type="button" data-v="nine"><b>Condensed</b><small><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> · <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd><span class="gs-keys"><br><kbd>C</kbd></span></small></button>
-        <button type="button" data-v="letters"><b>All letters</b><small>the 26 letter keys <span class="gs-keys"><kbd>L</kbd></span></small></button>
-        <button type="button" data-v="all"><b>Whole keyboard</b><small>numbers &amp; <kbd>Shift</kbd> symbols <span class="gs-keys"><kbd>W</kbd></span></small></button>
+        <button type="button" data-v="nine"><b>Condensed</b><small><kbd>Q</kbd><kbd>W</kbd><kbd>E</kbd> · <kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> · <kbd>Z</kbd><kbd>X</kbd><kbd>C</kbd></small><span class="gs-keys pk"><kbd>C</kbd></span></button>
+        <button type="button" data-v="letters"><b>All letters</b><small>the 26 letter keys</small><span class="gs-keys pk"><kbd>L</kbd></span></button>
+        <button type="button" data-v="all"><b>Whole keyboard</b><small>the number row too</small><span class="gs-keys pk"><kbd>W</kbd></span></button>
+      </div>
+    </div>
+    <!-- (a tap has no Shift, so a touch-only screen has no use for this row) -->
+    <div class="pick gs-keys" id="shift-row">
+      <span class="picklab">Shift</span>
+      <div class="seg">
+        <button type="button" id="pick-shift" aria-pressed="true"><b id="shift-name">Shift symbols: on</b><small id="shift-says"></small><span class="gs-keys pk"><kbd>S</kbd></span></button>
       </div>
     </div>
     <button type="button" class="playbtn" id="play"><b>Cast off</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>

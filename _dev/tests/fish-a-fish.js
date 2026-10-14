@@ -3,6 +3,8 @@
 // button only presses that button, and a pick clicked with the mouse doesn't
 // take over the round Enter then starts; the menu buttons' shortcut keycaps
 // hide on a touch-only phone; a late strike on R doesn't skip the end card.
+// The key that picks an option is a tab on its corner, not one more keycap
+// among the keys the option describes; Shift symbols is a switch of its own.
 module.exports = async ({ browser, base, check, lib }) => {
   const open = (ctx) => lib.open(ctx, base, "games/fish-a-fish/");
   const done = async (p, what) => { check("fish-a-fish " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -52,16 +54,68 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("fish-a-fish: after clicking All letters then pressing C, Enter casts off on the Condensed pond and the pick stays Condensed",
     run.state === "play" && run.kb === "nine" && run.saved === "nine", run);
   await done(p, "mouse then Enter");
+
+  // ---- the pick keys (1 2 C L W S) against the pond's keys (Q W E ...): C
+  // and W are both, and they used to be drawn alike, side by side. Each pick
+  // key is a tab on its button's top right corner, all six the same; the
+  // pond's keys are flat tiles in the button's small print.
+  p = await open(ctx);
+  const tabs = await p.evaluate(() => {
+    const look = (k) => { const cs = getComputedStyle(k); return cs.position + " " + cs.backgroundColor + " " + cs.color + " " + cs.borderTopWidth; };
+    const picks = [...document.querySelectorAll("#menu .seg .pk kbd")], pond = [...document.querySelectorAll("#menu .seg small kbd")];
+    return {
+      keys: picks.map((k) => k.textContent).join(""), looks: [...new Set(picks.map(look))], pond: pond.map((k) => k.textContent).join(""), pondLooks: [...new Set(pond.map(look))],
+      corner: picks.every((k) => { const b = k.closest("button").getBoundingClientRect(), r = k.getBoundingClientRect(); return Math.abs(r.right - b.right) <= 6 && Math.abs(r.top - b.top) <= 8; }),
+    };
+  });
+  check("fish-a-fish: each option's pick key is a tab on its corner, all alike, and not drawn like the pond keys the options describe",
+    tabs.keys === "12CLWS" && tabs.looks.length === 1 && /^absolute/.test(tabs.looks[0]) && tabs.corner && tabs.pond === "QWEASDZXC" && tabs.pondLooks.length === 1 && tabs.pondLooks[0] !== tabs.looks[0], tabs);
+
+  // ---- Shift symbols, a switch of its own (S). It has something to switch
+  // only where there is a number row: on the letter ponds it stays in place,
+  // dimmed, and a press says why. The card is the same height whatever is picked.
+  const sw = () => p.evaluate(() => { const b = document.getElementById("pick-shift"); return { name: document.getElementById("shift-name").textContent, off: b.getAttribute("aria-disabled"), on: b.getAttribute("aria-pressed"), why: b.classList.contains("why"), says: document.getElementById("shift-says").textContent, saved: localStorage.getItem("fishafish_shift"), card: Math.round(document.querySelector("#menu .card").getBoundingClientRect().height) }; });
+  await p.keyboard.press("c"); const s0 = await sw();
+  await p.keyboard.press("s"); const s1 = await sw();
+  await p.keyboard.press("w"); const s2 = await sw();
+  await p.keyboard.press("s"); const s3 = await sw();
+  await p.click("#pick-shift"); const s4 = await sw();
+  await p.keyboard.press("l"); const s5 = await sw();
+  check("fish-a-fish: Shift symbols is dimmed on the letter ponds and a press there says why; on the whole keyboard S or a click switches it, and it is remembered",
+    s0.off === "true" && s0.on === "false" && s1.off === "true" && s1.why && /Whole keyboard/.test(s1.says) && s1.saved !== "0" &&
+    s2.off === "false" && s2.on === "true" && /: on$/.test(s2.name) && s3.on === "false" && /: off$/.test(s3.name) && s3.saved === "0" && s4.on === "true" && s4.saved === "1" && s5.off === "true",
+    { s0, s1, s2, s3, s4, s5 });
+  check("fish-a-fish: the menu card keeps its height whichever pond and whichever way Shift symbols is set", [s1, s2, s3, s4, s5].every((s) => s.card === s0.card), [s0, s1, s2, s3, s4, s5].map((s) => s.card));
+  // in play: with the symbols on, a plain number fish refuses Shift + its key;
+  // with them off the number row is plain keys, Shift held or not, and the
+  // best is kept apart from the bests earned with the symbols
+  const strike = (shiftOn) => p.evaluate((shiftOn) => {
+    FishAFish.toMenu();
+    for (const k of ["fishafish_best_daybreak_all", "fishafish_best_daybreak_all_plain"]) localStorage.removeItem(k);
+    const key = (k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
+    key("w");
+    if ((document.getElementById("pick-shift").getAttribute("aria-pressed") === "true") !== shiftOn) key("s");
+    FishAFish.start("daybreak"); FishAFish.hold();
+    FishAFish.force(0, "perch", "bite", 9, false); FishAFish.press(0, true);
+    const st = FishAFish.state();
+    return { shift: st.shift, caught: st.caught, score: st.score, withSym: localStorage.getItem("fishafish_best_daybreak_all"), plain: localStorage.getItem("fishafish_best_daybreak_all_plain") };
+  }, shiftOn);
+  const playOn = await strike(true), playOff = await strike(false);
+  check("fish-a-fish: with Shift symbols on a plain number fish refuses Shift + its key; off, the number row is plain keys and keeps a best of its own",
+    playOn.shift === true && playOn.caught === 0 && playOff.shift === false && playOff.caught === 1 && +playOff.plain > 0 && playOff.withSym === null, { playOn, playOff });
+  await done(p, "pick keys and Shift symbols");
   await ctx.close();
 
   // ---- touch-only phone: the shortcut keycaps on the menu buttons are hidden
-  // (the Condensed pond's QWE / ASD / ZXC and Shift describe the pond, and stay)
+  // (the Condensed pond's QWE / ASD / ZXC describe the pond, and stay), and so
+  // is the Shift symbols switch: a tap has no Shift
   ctx = await lib.newContext(browser, { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
   p = await open(ctx);
   const caps = await p.evaluate(() => [...document.querySelectorAll("button kbd")].map((k) => { const s = k.closest(".gs-keys"); return { k: k.textContent, wrap: s ? getComputedStyle(s).display : "unwrapped" }; }));
   const keys = caps.filter((c) => c.wrap !== "unwrapped"), plain = caps.filter((c) => c.wrap === "unwrapped").map((c) => c.k).join("");
-  check("fish-a-fish: on a touch-only phone the menu buttons' shortcut keycaps are hidden",
-    keys.length >= 6 && keys.every((c) => c.wrap === "none") && plain === "QWEASDZXCShift", { keys, plain });
+  const shiftRow = await p.evaluate(() => getComputedStyle(document.getElementById("shift-row")).display);
+  check("fish-a-fish: on a touch-only phone the menu buttons' shortcut keycaps are hidden, and the Shift symbols switch with them",
+    keys.length >= 6 && keys.every((c) => c.wrap === "none") && plain === "QWEASDZXC" && shiftRow === "none", { keys, plain, shiftRow });
   await done(p, "touch keycaps");
   await ctx.close();
 
@@ -133,7 +187,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // bests with it) is inside the window, under the tagline: on a small phone,
   // a phone on its side, and a short laptop window ([wide, high, touch])
   const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
-    [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false]];
+    [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false],
+    [1280, 640, false], [1366, 657, false], [1280, 661, false], [1024, 700, false]];   // (with a mouse the card has the Shift row too)
   const shortBad = [];
   for (const [w, h, touch] of SHORT) {
     const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: h } });

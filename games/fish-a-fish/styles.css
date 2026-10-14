@@ -81,8 +81,10 @@ kbd {
 .menu .card { margin-top: auto; margin-bottom: max(3vh, 12px); }
 .menu .how { margin: 0 0 12px; font-size: 0.86rem; font-weight: 400; line-height: 1.45; color: #dcebef; }
 .menu .how b { color: #ffe9c4; font-weight: 600; }
-/* the two toggles: Round (daybreak / endless) and Keys (which keyboard) */
+/* the toggles: Round (daybreak / endless), Keys (which keyboard) and Shift
+   (whether the number row's fish may ask for a symbol) */
 .menu .pick { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; text-align: left; }
+@media (hover: none) { .menu .pick.gs-keys { display: none; } }
 .menu .picklab {
   flex: 0 0 44px; display: flex; align-items: center; justify-content: flex-end;
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #9fc0c9;
@@ -90,8 +92,24 @@ kbd {
 /* (min-width: 0: on a small phone the three choices share the row and wrap
    their words, where the last one used to run off the screen) */
 .menu .seg { flex: 1; min-width: 0; display: flex; gap: 6px; }
-.menu .seg button { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; }
+.menu .seg button { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px; padding: 7px 8px; }
 .menu .seg small { font-size: 0.68rem; font-weight: 400; color: #cfdfe4; }
+/* Two kinds of key are on these buttons, and they used to look the same: the
+   key that picks the option (C, L, W, which are pond keys too) and the keys an
+   option describes (Q W E ...). The pick key is a solid tab on the button's
+   corner, the same place on every option; the pond's keys are flat tiles. */
+.menu .seg small kbd { color: inherit; font-weight: 500; border: 0; border-radius: 4px; padding: 0 4px; background: rgba(244, 249, 251, 0.14); }
+.menu .seg .pk kbd {
+  position: absolute; top: -6px; right: -4px; margin: 0; min-width: 1.5em; padding: 0 4px 1px;
+  font-size: 0.66rem; line-height: 1.4; text-align: center; color: #17262c; background: #ffe9c4;
+  border: 0; border-radius: 6px; box-shadow: 0 1px 0 rgba(23, 38, 44, 0.7);
+}
+/* the Shift switch where there is no number row to ask for symbols: dimmed,
+   and a press says why (its line lights up) */
+.menu .seg button[aria-disabled="true"] { opacity: 0.6; cursor: default; }
+.menu .seg button[aria-disabled="true"]:hover, .menu .seg button[aria-disabled="true"]:focus-visible { background: rgba(244, 249, 251, 0.1); }
+.menu .seg button.why { opacity: 1; }
+.menu .seg button.why small { color: #ffe9c4; font-weight: 600; }
 /* a phone: three choices in a narrow row, so each name is set a little smaller
    and gets nearly all of its button's width ("Condensed" ran over the edge) */
 @media (max-width: 430px) {
@@ -118,7 +136,7 @@ kbd {
 /* Short screens (a small phone, a phone on its side, a short laptop window).
    Nothing is left out to make the card fit, the how-to least of all: the
    spacing closes up and the type goes a size down... */
-@media (max-height: 620px) {
+@media (max-height: 660px) {
   .menu { padding-bottom: 6px; }
   .menu h1 { font-size: clamp(28px, 7vh, 44px); }
   .menu .tag { margin-top: 0; font-size: 15px; }
@@ -131,7 +149,7 @@ kbd {
 }
 /* ...and where the window is short but wide, the card goes wide too and sets
    the how-to beside the choices, sharing the bottom with the reeds */
-@media (max-height: 620px) and (min-width: 540px) {
+@media (max-height: 660px) and (min-width: 540px) {
   .menu { padding-top: 46px; }
   .menu .card {
     width: min(96vw, 880px);
@@ -140,10 +158,12 @@ kbd {
   .menu .how { grid-column: 1; grid-row: 1 / span 4; margin: 0; text-align: left; }
   .menu .pick, .menu .playbtn, .menu .bests { grid-column: 2; }
   .menu .how + .pick { margin-top: 0; }
+  .menu .how { grid-row: 1 / span 5; }
+  .menu .seg .pk kbd { top: -5px; right: -3px; }
 }
 /* (a narrow one of those: each half of the card is no wider than a small
    phone, so the choices are set as they are there) */
-@media (max-height: 620px) and (min-width: 540px) and (max-width: 760px) {
+@media (max-height: 660px) and (min-width: 540px) and (max-width: 760px) {
   .menu .card { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1fr); column-gap: 12px; padding: 8px 12px; }
   .menu .pick { gap: 5px; }
   .menu .picklab { flex-basis: 34px; font-size: 0.6rem; letter-spacing: 0.04em; }

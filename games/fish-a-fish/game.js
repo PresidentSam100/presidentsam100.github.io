@@ -9,13 +9,16 @@
    the old boot costs 5. Catches build a streak: from 5 in a row points
    double, from 10 they triple.
 
-   Two toggles, remembered between visits:
+   Three toggles, remembered between visits:
    - Round: Daybreak (60 seconds) or Endless (three fish get away and the
      pond goes quiet; it keeps speeding up).
    - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
-     Whole keyboard (the number row too, a number-row fish sometimes asks
-     for its SYMBOL (!, %, &, ...), and then only Shift + that key hooks it).
-   Each of the six combinations keeps its own best score.
+     Whole keyboard (the number row too).
+   - Shift symbols, on the whole keyboard: on, a number-row fish sometimes
+     asks for its SYMBOL (!, %, &, ...), and then only Shift + that key hooks
+     it; off, the number row is plain keys.
+   Each combination keeps its own best score (the whole keyboard two for each
+   round: with the symbols and without).
    ===================================================================== */
 (function () {
   "use strict";
@@ -23,7 +26,9 @@
   var canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
   var store = window.GameShell ? GameShell.store
     : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {}, remove: function () {} };
-  function bestKey(clock, kb) { return "fishafish_best_" + clock + "_" + kb; }
+  // (the whole keyboard's bests were all earned with the Shift symbols, before
+  // they could be switched off: those keep their names, and "_plain" is without)
+  function bestKey(clock, kb, shift) { return "fishafish_best_" + clock + "_" + kb + (kb === "all" && !shift ? "_plain" : ""); }
   // One-time move of the original three bests into the combo keys they were:
   // Daybreak/Endless were the nine-key pond, Full Pond was 60s on the board.
   [["fishafish_best_daybreak", bestKey("daybreak", "nine")],
@@ -50,10 +55,11 @@
     letters: { rows: ROWSLET, codes: codesOf(ROWSLET), labels: ROWSLET.join("").split("") },
     all: { rows: ROWS26, codes: codesOf(ROWS26), labels: ROWS26.join("").split("") },
   };
-  // The two menu toggles, remembered between visits.
+  // The menu's toggles, remembered between visits.
   var pref = {
     clock: store.get("fishafish_clock", "daybreak"),
     kb: store.get("fishafish_kb", "nine"),
+    shift: store.get("fishafish_shift", "1") !== "0",   // (on, as it always was, until switched off)
   };
   if (pref.clock !== "endless") pref.clock = "daybreak";
   if (!LAYOUTS[pref.kb]) pref.kb = "nine";
@@ -209,7 +215,7 @@
     if (!idle.length) return;
     var s = idle[Math.floor(Math.random() * idle.length)];
     s.phase = "hint"; s.t = 0; s.dur = rand(0.4, 0.6); s.what = pickWhat();
-    s.sym = !!s.digitRow && s.what !== "junk" && Math.random() < 0.45;
+    s.sym = shiftNow && !!s.digitRow && s.what !== "junk" && Math.random() < 0.45;
     SFX.plip();
   }
 
@@ -220,9 +226,9 @@
     var s = spots[i];
     s.pressed = now();
     if (s.phase === "bite") {
-      // A symbol fish only takes Shift + its key; a plain digit fish only the
-      // bare key. The fish stays for another try.
-      if (s.what !== "junk" && s.digitRow && shifted !== null && shifted !== undefined && shifted !== s.sym) {
+      // With the Shift symbols on, a symbol fish only takes Shift + its key and
+      // a plain digit fish only the bare key. The fish stays for another try.
+      if (shiftNow && s.what !== "junk" && s.digitRow && shifted !== null && shifted !== undefined && shifted !== s.sym) {
         score = Math.max(0, score - 2); liveBest();
         streak = 0;
         popup(s.x, s.y - s.r * 2, s.sym ? "hold [Shift]!  -2" : "no [Shift]!  -2", "bad");
@@ -282,20 +288,47 @@
     bests: document.getElementById("bests"),
   };
   var KB_NAME = { nine: "Condensed", letters: "All letters", all: "Whole keyboard" };
+  // (a pond in words, for the bests line and the end card)
+  function pondName(kb, shift) { return KB_NAME[kb].toLowerCase() + (kb === "all" && !shift ? ", no Shift symbols" : ""); }
   function bestsText() {
-    return "Best on " + KB_NAME[pref.kb].toLowerCase() + " · Daybreak " +
-      store.getNum(bestKey("daybreak", pref.kb), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb), 0);
+    return "Best on " + pondName(pref.kb, pref.shift) + " · Daybreak " +
+      store.getNum(bestKey("daybreak", pref.kb, pref.shift), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb, pref.shift), 0);
   }
   // Reflect the toggles in the menu, and remember them.
+  var shiftBtn = document.getElementById("pick-shift");
   function renderPicks() {
     ["pick-clock", "pick-kb"].forEach(function (id) {
       var which = id === "pick-clock" ? pref.clock : pref.kb;
       var btns = document.getElementById(id).querySelectorAll("button");
       for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("sel", btns[i].dataset.v === which);
     });
+    // The Shift switch only means something where there is a number row. On
+    // the letter ponds it stays in its place (the card keeps its height),
+    // dimmed, and says where it works.
+    var numbers = pref.kb === "all", on = numbers && pref.shift;
+    shiftBtn.classList.toggle("sel", on);
+    shiftBtn.classList.remove("why");
+    shiftBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    shiftBtn.setAttribute("aria-disabled", numbers ? "false" : "true");
+    document.getElementById("shift-name").textContent = "Shift symbols" + (numbers ? pref.shift ? ": on" : ": off" : "");
+    document.getElementById("shift-says").textContent = !numbers ? "for the number row: pick Whole keyboard"
+      : pref.shift ? "a gold number tag wants Shift + its key" : "the number row is plain keys";
     ui.bests.textContent = bestsText();
   }
-  var kbNow = "nine";
+  // The Shift switch, by its button or the S key. Where it has nothing to
+  // switch, a press says why: its line lights up for a moment.
+  var whyTimer = 0;
+  function toggleShift() {
+    if (pref.kb !== "all") {
+      shiftBtn.classList.add("why");
+      clearTimeout(whyTimer);
+      whyTimer = setTimeout(function () { shiftBtn.classList.remove("why"); }, 1600);
+      return;
+    }
+    pref.shift = !pref.shift;
+    savePicks();
+  }
+  var kbNow = "nine", shiftNow = false;
   // The best is saved the moment a run earns it: once the score passes the
   // best the run started with (runBest, what "new best!" compares against),
   // the stored best follows it live, so a tab closed mid-run keeps it. A
@@ -303,7 +336,7 @@
   // its peak; under runBest the stored value goes back to exactly what it was.
   var runBest = 0, runBestRaw = null, liveSaved = false;
   function liveBest() {
-    var key = bestKey(mode, kbNow);
+    var key = bestKey(mode, kbNow, shiftNow);
     if (score > runBest) { store.set(key, score); liveSaved = true; }
     else if (liveSaved) {
       if (runBestRaw == null) store.remove(key); else store.set(key, runBestRaw);
@@ -312,14 +345,15 @@
   }
   function start(m) {
     // Legacy names (test hooks / old shortcuts) still work as presets.
-    if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; }
+    if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; pref.shift = true; }
     else if (m === "daybreak" || m === "endless") pref.clock = m;
     mode = pref.clock;
     kbNow = pref.kb;
+    shiftNow = kbNow === "all" && pref.shift;
     var want = LAYOUTS[kbNow];
     if (layout !== want) { layout = want; resize(); }
     score = 0; streak = 0; bestStreak = 0; caught = 0; strikes = 0; elapsed = 0;
-    runBest = store.getNum(bestKey(mode, kbNow), 0); runBestRaw = store.get(bestKey(mode, kbNow), null); liveSaved = false;
+    runBest = store.getNum(bestKey(mode, kbNow, shiftNow), 0); runBestRaw = store.get(bestKey(mode, kbNow, shiftNow), null); liveSaved = false;
     timeLeft = mode === "endless" ? 0 : 60;
     spawnIn = 0.7; popups = []; leaps = []; drops = []; rings = []; lastTick = -1;
     resetSpots();
@@ -357,7 +391,7 @@
     ui.overTitle.textContent = reason === "quiet" ? "The pond went quiet" : "The sun is up";
     ui.overMsg.textContent = score + (score === 1 ? " point" : " points") + (isBest ? " · new best!" : " · best " + prev);
     ui.overStats.textContent = caught + (caught === 1 ? " fish" : " fish") + " · best streak " + bestStreak +
-      " · " + (mode === "endless" ? "Endless" : "Daybreak") + ", " + KB_NAME[kbNow].toLowerCase();
+      " · " + (mode === "endless" ? "Endless" : "Daybreak") + ", " + pondName(kbNow, shiftNow);
     ui.over.hidden = false; ui.hud.hidden = true;
     document.getElementById("again").focus({ preventScroll: true });
   }
@@ -388,6 +422,7 @@
       else if (mk === "c") { pref.kb = "nine"; savePicks(); }
       else if (mk === "l") { pref.kb = "letters"; savePicks(); }
       else if (mk === "w") { pref.kb = "all"; savePicks(); }
+      else if (mk === "s") toggleShift();
       else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); start(); }
     } else if (state === "over") {
       // Backspace back to the modes; Esc is left to leave for the games page.
@@ -412,8 +447,11 @@
   function savePicks() {
     store.set("fishafish_clock", pref.clock);
     store.set("fishafish_kb", pref.kb);
+    store.set("fishafish_shift", pref.shift ? "1" : "0");
     renderPicks();
   }
+  shiftBtn.addEventListener("click", toggleShift);
+  shiftBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus from a click, as the picks)
   ["pick-clock", "pick-kb"].forEach(function (id) {
     document.getElementById(id).addEventListener("click", function (e) {
       var b = e.target.closest("button");
@@ -583,7 +621,7 @@
     start: start, toMenu: toMenu, press: press,
     state: function () {
       return { state: state, mode: mode, score: score, streak: streak, caught: caught, strikes: strikes,
-        kb: kbNow, timeLeft: timeLeft, paused: P.isPaused(), spots: spots.map(function (s) { return s.phase + (s.what ? ":" + s.what : "") + (s.sym ? "!" : ""); }), labels: layout.labels.join("") };
+        kb: kbNow, shift: shiftNow, timeLeft: timeLeft, paused: P.isPaused(), spots: spots.map(function (s) { return s.phase + (s.what ? ":" + s.what : "") + (s.sym ? "!" : ""); }), labels: layout.labels.join("") };
     },
     // Deterministic control: stop the spawner and place things by hand.
     hold: function () { spawnIn = 1e9; resetSpots(); },
