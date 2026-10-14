@@ -1,6 +1,7 @@
 // Science Fair: a first run that ends at round 0 isn't "a new best"; the
 // buttons' keycaps (the mode keys, Blast off, Again) show with a keyboard
-// and hide on a touch-only phone.
+// and hide on a touch-only phone; each sits in the middle of its button and
+// shows against it.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   // a Classic run that misses the very first note: round 0
@@ -16,6 +17,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await lib.open(ctx, base, "games/science-fair/");
     const shown = () => p.evaluate(() => [...document.querySelectorAll(".panel button kbd")].filter((k) => k.getClientRects().length).map((k) => k.closest("button").id || k.closest("button").dataset.v));
     const menu = await shown();
+    // a button's keycap: how far its middle is from the button's (in the
+    // sheet's own layout numbers: the sheet is tilted), and whether it is a
+    // patch of another colour than the button
+    const capOf = (id) => p.evaluate((id) => {
+      const b = document.getElementById(id), k = b.querySelector("kbd");
+      return { off: (k.offsetTop + k.offsetHeight / 2) - (b.offsetTop + b.offsetHeight / 2), seen: getComputedStyle(k).backgroundColor !== getComputedStyle(b).backgroundColor };
+    }, id);
+    const playCap = label === "desktop" ? await capOf("play") : null;
     // the how-to line names the number keys only where there are keys, and so
     // do the keycaps on the planets' tags
     const how = await p.evaluate(() => ({ text: document.querySelector("#menu .how").innerText, tags: [...document.querySelectorAll(".hang .tag kbd")].filter((k) => k.getClientRects().length).length }));
@@ -29,6 +38,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       const r = await p.evaluate(() => ({ msg: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent }));
       check("science-fair: a first run that ends at round 0 isn't a new best", r.msg === "Round 0" && !/new best/.test(r.stats), r);
       check("science-fair: with a keyboard the buttons' keycaps show", menu.length === 4 && over.length === 2, { menu, over });
+      // (on one line of text with its label a keycap rode 2 to 3px low; and
+      // Again's, ink on an ink button, could not be seen)
+      const caps = { play: playCap, again: await capOf("again"), modes: await capOf("to-menu") };
+      check("science-fair: the keycaps on Blast off, Again and Modes sit in the middle of their buttons, and each shows against its button",
+        Object.keys(caps).every((k) => Math.abs(caps[k].off) <= 1 && caps[k].seen), caps);
     } else check("science-fair: on a touch-only phone the buttons' keycaps are hidden", menu.length === 0 && over.length === 0, { menu, over });
     check("science-fair (" + label + "): no page errors", p.errs.length === 0, p.errs);
     await ctx.close();

@@ -281,10 +281,19 @@ kbd {
   color: var(--paper); background: var(--ink);
   border: 0; border-radius: 8px; padding: 10px;
   box-shadow: 3px 3px 0 rgba(43, 58, 103, 0.35);
+  /* the label and its keycap each sit in the middle of the button's height
+     (side by side on one line of text, the keycap rode 3px low) */
+  display: flex; align-items: center; justify-content: center; gap: 0.3em;
 }
 .playbtn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 rgba(43, 58, 103, 0.35); }
 .playbtn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 rgba(43, 58, 103, 0.35); }
-.playbtn kbd { background: rgba(253, 251, 242, 0.25); }
+/* a keycap on an ink button: a paler patch (ink on ink, it could not be seen) */
+.playbtn kbd, .rubric .row button:first-child kbd { background: rgba(253, 251, 242, 0.25); }
+/* (the keycap's wrapper is a box of its own, so the cap is centred and not
+   sat on the label's baseline; only where keycaps show at all) */
+@media not all and (hover: none) {
+  .playbtn .gs-keys, .rubric .row button .gs-keys { display: inline-flex; }
+}
 
 .bests { margin-top: 12px; font-size: 15px; color: #6b6a5d; min-height: 19px; }
 
@@ -308,7 +317,9 @@ kbd {
   color: var(--ink); background: #fff;
   border: 1.6px solid var(--ink); border-radius: 7px; padding: 8px 16px;
   box-shadow: 2px 2px 0 rgba(43, 58, 103, 0.3);
+  display: inline-flex; align-items: center; justify-content: center; gap: 0.3em;
 }
+.rubric .row button[hidden] { display: none; }
 .rubric .row button:first-child { background: var(--ink); color: var(--paper); }
 .rubric .row button:active { transform: translate(1px, 1px); box-shadow: none; }
 
