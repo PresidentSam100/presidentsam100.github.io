@@ -644,10 +644,17 @@
       queued = true;
       setTimeout(function () { queued = false; decorate(); }, 0);
     }
+    // Rebuilt buttons get their keycaps back before the next frame is drawn:
+    // the observer is told as the script that rebuilt them ends, ahead of the
+    // paint. (A timer alone let a frame through without them, and a keycap on
+    // a line of its own made the card a line shorter for that frame: Speedle's
+    // menu jumped each time Hard mode was switched.) Once more on a timer, for
+    // a pick the game only settles after the rebuild.
+    function rebuilt() { decorate(); later(); }
     function watch() {
       decorate();
       var root = opts.root && document.querySelector(opts.root);
-      if (root && window.MutationObserver) new MutationObserver(later).observe(root, { childList: true, subtree: true });
+      if (root && window.MutationObserver) new MutationObserver(rebuilt).observe(root, { childList: true, subtree: true });
     }
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
     else watch();

@@ -29,6 +29,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
   const toModes = await p.evaluate(() => !!document.getElementById("m-day") && document.getElementById("overlay").classList.contains("show"));
   check("quick-minute: on the crash card Esc leaves, Backspace goes back to the mode menu", escLeft && toModes && p.leaves === 1, { escLeft, toModes, leaves: p.leaves });
+
+  // Change mode rebuilds the card: the switches wear their keys as the script
+  // ends, before a frame can be drawn (they used to come a frame or two late)
+  await p.evaluate(() => __game.start("day")); await p.waitForTimeout(100);
+  await crash(p);
+  const capsBack = await p.evaluate(async () => {
+    document.getElementById("btn-menu").click();
+    await Promise.resolve();
+    return ["#m-day .t", "#m-night .t"].map((s) => { const e = document.querySelector(s); return e && e.getAttribute("data-gs-key"); });
+  });
+  check("quick-minute: Change mode brings the menu back with its keycaps on, with no frame in between",
+    capsBack.every(Boolean) && capsBack.indexOf("Space or Enter") >= 0, capsBack);
   check("quick-minute: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();

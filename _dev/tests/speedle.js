@@ -90,6 +90,37 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("speedle keys: the end card shows Enter / ⌫ keycaps; Esc leaves, Backspace goes back to the modes, Enter plays again",
     endCaps.join() === "Enter,⌫" && escLeaves && backToMenu && /Time left/.test(again), { endCaps, escLeaves, backToMenu, again });
 
+  // Hard mode rebuilds the menu card. The keycap under Sprint and Race is a
+  // line of its own, and it used to come back a frame or two after the rest,
+  // so the card went a line shorter and back at every switch. Read as the
+  // switching script ends, before any frame can be drawn: the keycaps are
+  // there and the card is the size it was, by the button and by the H key,
+  // on and off. The same for the menu coming back from the end card.
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  const jump = await p.evaluate(async () => {
+    const card = document.getElementById("card"), out = [];
+    const look = () => ({ h: Math.round(card.getBoundingClientRect().height), caps: [...card.querySelectorAll(".mode-btn .t")].map((t) => t.getAttribute("data-gs-key")).join() });
+    const was = look();
+    for (const how of ["click", "click", "key", "key"]) {
+      if (how === "click") document.getElementById("m-hard").click();
+      else document.dispatchEvent(new KeyboardEvent("keydown", { key: "h", bubbles: true }));
+      await Promise.resolve();   // the script has ended; nothing has been drawn since
+      out.push(Object.assign({ how, hard: document.getElementById("m-hard").getAttribute("aria-pressed") }, look()));
+    }
+    return { was, out };
+  });
+  check("speedle: switching Hard mode leaves the menu card its size, keycaps and all, with no frame in between",
+    jump.was.caps === "Space or Enter,2" && jump.out.map((o) => o.hard).join() === "true,false,true,false" &&
+    jump.out.every((o) => o.h === jump.was.h && o.caps === jump.was.caps), jump);
+  await p.click("#m-sprint"); await p.waitForTimeout(200);
+  await p.evaluate(() => __speedle.end()); await p.waitForTimeout(150);
+  const back = await p.evaluate(async () => {
+    document.getElementById("btn-menu").click();
+    await Promise.resolve();
+    return [...document.querySelectorAll("#card .mode-btn .t")].map((t) => t.getAttribute("data-gs-key")).join();
+  });
+  check("speedle: Change mode brings the menu back with its keycaps on, with no frame in between", back === "Space or Enter,2", back);
+
   // a click on an on-screen key doesn't leave it focused, so a later Space
   // (not a game key) can't press it again
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
