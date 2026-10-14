@@ -1286,8 +1286,9 @@
     if (modalOpen()) {
       // Esc just closes the spin pad (claimed, so the page stays)
       if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); }
-      // and on "Leave this rack?" it's Keep playing
-      else if (e.key === "Escape" && quitOpen()) { e.preventDefault(); closeQuit(); }
+      // and on "Leave this rack?" it's Keep playing, as is any other key but
+      // Enter (Back to menu): the same as in the shared "Leave this game?"
+      else if (quitOpen() && (e.key === "Escape" || (window.GameShell && GameShell.anyOtherKey && GameShell.anyOtherKey(e)))) { e.preventDefault(); if (!e.repeat) closeQuit(); }
       // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }
       return;
@@ -1425,7 +1426,7 @@
   // The cards' keys, shown on their buttons: Enter is Rematch on the result
   // (Backspace its Menu, in the key handler), Done on the spin pad (where C
   // centres the tip, as it does at the table) and Back to menu on "Leave
-  // this rack?" (Esc keeps playing)
+  // this rack?" (any other key keeps playing)
   if (window.GameShell && GameShell.menuKeys) {
     var cardUp = function (id) { return !document.getElementById(id).classList.contains("hidden"); };
     GameShell.menuKeys({ active: function () { return cardUp("over") && !cardUp("confirmQuit"); }, start: "#againBtn" });

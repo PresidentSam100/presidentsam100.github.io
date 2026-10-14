@@ -178,7 +178,7 @@
     if (!work || !window.GameShell) return restartPuzzle();
     var wasPaused = P.isPaused();
     if (!wasPaused) P.pause();
-    GameShell.confirm({ title: "Start over?", text: "Your fills, marks and time on this print will be lost.", ok: "Start over", cancel: "Keep playing", safe: true }, function (yes) {
+    GameShell.confirm({ title: "Start over?", text: "Your fills, marks and time on this print will be lost.", ok: "Start over", cancel: "Keep playing", safe: true, anyKey: true }, function (yes) {
       if (!wasPaused) P.resume();   // either way: a fresh print mustn't open paused
       if (yes) restartPuzzle();
     });

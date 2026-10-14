@@ -139,18 +139,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     const gone = () => p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 10000 }).catch(() => {});
     await ask(); const mid = await box();
     const paused = await p.evaluate(() => GameShell.leaveActive() && !!document.querySelector(".gs-dialog"));
-    // (this box keeps its Esc: "any other key" belongs to "Leave this game?" alone)
-    await p.keyboard.press("a"); await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(150);
-    const letter = await box();
+    // (as in "Leave this game?": only Enter goes; any other key keeps playing,
+    // and the button says so where its Esc keycap was. It kept its Esc alone
+    // until a player switching 2048's board by a number key had to find it.)
     const escCap = await p.evaluate(() => [...document.querySelectorAll(".gs-dialog button")].map((b) => [...b.querySelectorAll("kbd")].map((k) => k.textContent).join()).join("|") + (document.querySelector(".gs-dialog .gs-anykey") ? " any" : ""));
-    await p.keyboard.press("Escape"); await gone();
+    await p.keyboard.press("Shift"); await p.keyboard.press("Tab"); await p.keyboard.press("F2"); await p.waitForTimeout(150);
+    const still = await box();
+    await p.keyboard.press("a"); await gone();
+    const letter = await box();
+    await ask(); await p.keyboard.press("ArrowLeft"); await gone();
+    const arrow = await box();
+    await ask(); await p.keyboard.press("Escape"); await gone();
     const kept = await box();
     await ask(); await p.keyboard.press("Enter"); await gone();
     const quit = await box();
-    check("askQuit: goes at once with no game in progress; mid-game asks first, Esc keeps playing (a letter or an arrow answers nothing), Enter goes",
-      !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && letter.open && letter.went === 0 && escCap === "Esc|Enter" &&
+    check("askQuit: goes at once with no game in progress; mid-game asks first, and only Enter goes: Esc or any other key keeps playing (a letter, an arrow) and the button says so; Shift, Tab and F2 answer nothing",
+      !fresh.open && fresh.went === 1 && mid.open && mid.title === "Start over?" && mid.went === 0 && paused && escCap === "|Enter any" &&
+      still.open && still.went === 0 && !letter.open && letter.went === 0 && !arrow.open && arrow.went === 0 &&
       !kept.open && kept.went === 0 && !quit.open && quit.went === 1 && p.leaves === 0,
-      { fresh, mid, letter, escCap, kept, quit, leaves: p.leaves });
+      { fresh, mid, escCap, still, letter, arrow, kept, quit, leaves: p.leaves });
     await done(p, "askQuit");
   }
 

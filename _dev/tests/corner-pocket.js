@@ -95,6 +95,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   const up = await quitShown(p);
   await p.waitForTimeout(3500);
   const held = await p.evaluate(() => ({ phase: __pool.G.phase, shots: __pool.G.shots }));
+  // (as in the shared "Leave this game?": only Enter leaves the rack. Any other
+  // key keeps playing and the button says so; Shift on its own answers nothing)
+  const says = await p.evaluate(() => { const b = document.getElementById("quitNo"); return { text: b.textContent.replace(/\s+/g, " ").trim(), cap: b.getAttribute("data-gs-key") }; });
+  await p.keyboard.press("Shift"); await p.waitForTimeout(100);
+  const shift = await quitShown(p);
+  await p.keyboard.press("a");
+  await p.waitForFunction(() => document.getElementById("confirmQuit").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
+  const letter = await quitShown(p);
+  await p.mouse.click(m.x, m.y);
+  const again = await quitShown(p);
+  check("corner-pocket: in 'Leave this rack?' any other key keeps playing (the button says so), Shift alone answers nothing",
+    says.text === "Keep playing any other key" && !says.cap && shift && !letter && again, { says, shift, letter, again });
   await p.keyboard.press("Escape");
   await p.waitForFunction(() => document.getElementById("confirmQuit").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
   const esc = { box: await quitShown(p), paused: await p.evaluate(() => !document.querySelector(".gs-pause:not(.gs-dialog)").hidden), leaves: p.leaves };

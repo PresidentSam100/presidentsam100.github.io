@@ -37,6 +37,8 @@
                                                progress, so leaving asks first
      GameShell.askQuit(opts, go)            -> the same question before a
                                                game's own New game / Restart
+     GameShell.anyOtherKey(e)               -> is this key one of the "any
+                                               other key" that keeps playing
    ===================================================================== */
 (function () {
   "use strict";
@@ -780,7 +782,9 @@
     try { wasPaused = !!(g.isPaused && g.isPaused()); } catch (e) {}
     if (!wasPaused && g.pause) { try { g.pause(); } catch (e) {} }
     var text = opts.text || (typeof g.text === "function" ? g.text() : g.text);
-    confirmBox({ title: opts.title || "Quit this game?", text: text || "The game in progress will be lost.", ok: opts.ok || "Quit", cancel: "Keep playing", safe: true },
+    // (anyKey, as in "Leave this game?": only Enter throws the game away, and
+    // whatever other key comes next keeps playing)
+    confirmBox({ title: opts.title || "Quit this game?", text: text || "The game in progress will be lost.", ok: opts.ok || "Quit", cancel: "Keep playing", safe: true, anyKey: true },
       function (yes) {
         // the pause taken for the question goes either way: go() lands on a
         // menu or a fresh game, which mustn't open under a pause card
@@ -808,12 +812,16 @@
   // for the answer goes in the callback. While one is open the game under it
   // gets no keys or clicks: Enter picks the main button, Esc the other one,
   // Tab moves between them, and a click outside the card counts as Esc.
-  // (anyKey: true, as "Leave this game?" has it, makes every other ordinary
-  // key count as Esc too, and the button says "any other key".)
+  // (anyKey: true, as "Leave this game?" and askQuit's boxes have it, makes
+  // every other ordinary key count as Esc too, and the button says "any other
+  // key".)
   var openDialog = null;
   // the "any other key" of an anyKey box: one that types a character (but
   // Space), or one of these
   var ANY_KEY = /^([^ ]|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right))$/;
+  // (not Shift and its kind on their own, nor a browser shortcut. Also for a
+  // game whose box asking the same is its own: Corner Pocket's.)
+  function anyOtherKey(e) { return !!e && ANY_KEY.test(e.key || "") && !e.ctrlKey && !e.altKey && !e.metaKey; }
 
   function escHtml(s) {
     return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; });
@@ -901,10 +909,9 @@
         e.preventDefault();
         var bt = byKey[e.key === "Enter" ? "Enter" : "Esc"];
         if (bt && !e.repeat) bt.click();
-      } else if (o.anyKey && byKey.Esc && ANY_KEY.test(e.key) && !e.ctrlKey && !e.altKey && !e.metaKey) {
+      } else if (o.anyKey && byKey.Esc && anyOtherKey(e)) {
         // any other key is Esc: a letter, a digit, an arrow, Backspace... (not
-        // a key still held from the game, nor Shift and its kind on their
-        // own, nor a browser shortcut; Space is left to press the focused
+        // a key still held from the game; Space is left to press the focused
         // button, which is this same one unless Tab has moved on)
         e.preventDefault();
         if (!e.repeat) byKey.Esc.click();
@@ -1033,6 +1040,7 @@
     leaveActive: leaveActive,
     askLeave: askLeave,
     askQuit: askQuit,
+    anyOtherKey: anyOtherKey,
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

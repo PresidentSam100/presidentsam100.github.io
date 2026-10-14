@@ -91,7 +91,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const asked = await box(), s0 = await st();
   await p.waitForTimeout(700);
   const s1 = await st();
-  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  await p.keyboard.press("x"); await p.waitForTimeout(250);   // (any key but Enter keeps playing)
   const kept = { box: await box(), s: await st() };
   await p.waitForTimeout(400);
   const ticking = (await st()).ms > kept.s.ms;
@@ -100,7 +100,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const asked2 = await box();
   await p.keyboard.press("Enter"); await p.waitForTimeout(250);
   const wiped = { box: await box(), s: await st() };
-  check("darkroom: R on a print with a fill asks 'Start over?' with the clock stopped; Keep playing keeps it, ↺ then Start over wipes it",
+  check("darkroom: R on a print with a fill asks 'Start over?' with the clock stopped; Keep playing (any key but Enter) keeps it, ↺ then Start over wipes it",
     !!asked && asked.title === "Start over?" && /fills/.test(asked.text) && asked.buttons.some((b) => /Start over/.test(b)) && asked.buttons.some((b) => /Keep playing/.test(b)) &&
       s0.paused && s1.ms === s0.ms && s1.filled === 1 &&
       !kept.box && !kept.s.paused && kept.s.filled === 1 && ticking &&
