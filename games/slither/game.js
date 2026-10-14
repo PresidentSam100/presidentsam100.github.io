@@ -146,6 +146,9 @@
       tone(330, 0.28, "sawtooth", 0.1, 90);
     },
     win: function () { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { tone(f, 0.2, "triangle", 0.12); }, i * 100); }); },
+    // The count before a round: a tick for 3, 2 and 1, a higher one for GO.
+    count: function () { tone(440, 0.1, "triangle", 0.11); },
+    go: function () { tone(880, 0.22, "triangle", 0.13); },
   };
 
   // ---- persisted best -----------------------------------------------------
@@ -263,6 +266,7 @@
   }
 
   // ---- round lifecycle ------------------------------------------------------
+  var COUNT_MS = 3000, GO_MS = 650;
   function startRound() {
     menuOverlay.classList.add("hidden");
     pauseOverlay.classList.add("hidden");
@@ -288,6 +292,11 @@
     G.interval = BASE_INTERVAL;
     G.acc = 0;
     G.lastTime = 0;
+    // 3, 2, 1, GO: the board is up and nothing moves for three seconds (a turn
+    // pressed meanwhile is kept for the first step), then GO shows as it starts
+    G.count = COUNT_MS;
+    G.counted = 0;
+    G.goT = 0;
     G.runBest = G.best;
     G.pendingEnd = false;
     G.running = true;
@@ -871,6 +880,32 @@
     }
 
     G.snakes.forEach(function (s, i) { drawSnake(s, i, now, fx); });
+    if (G.running && (G.count > 0 || G.goT > 0)) drawCount(fx);
+  }
+
+  // The count, over the middle of the board: the number of seconds left, then
+  // GO for a moment as the round begins. With Visual FX on each swells in and
+  // GO fades; with it off they stand still, for the same length of time.
+  var countFont = null;
+  function drawCount(fx) {
+    var counting = G.count > 0, text = counting ? String(Math.ceil(G.count / 1000)) : "GO";
+    var part = counting ? 1 - (G.count % 1000) / 1000 : 1 - G.goT / GO_MS;      // how far through this one's moment
+    if (countFont === null) countFont = (getComputedStyle(document.documentElement).getPropertyValue("--display") || "").trim() || "Georgia, serif";
+    var size = Math.round(Math.min(W, H) * (counting ? 0.34 : 0.26)), scale = fx ? 1 + 0.28 * Math.pow(1 - Math.min(1, part * 3), 2) : 1;
+    ctx.save();
+    ctx.translate(W / 2, H / 2);
+    ctx.scale(scale, scale);
+    ctx.globalAlpha = fx && !counting ? Math.max(0, 1 - part * part) : 1;
+    ctx.font = "800 " + size + "px " + countFont;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = Math.max(4, size * 0.09);
+    ctx.strokeStyle = "rgba(20, 14, 8, 0.82)";
+    ctx.strokeText(text, 0, 0);
+    ctx.fillStyle = counting ? "#f4d27a" : "#9be28a";
+    ctx.fillText(text, 0, 0);
+    ctx.restore();
   }
 
   function beginLoop() {
@@ -886,13 +921,25 @@
       if (ts >= G.pendingEndAt) { G.pendingEnd = false; endRound(); }
     } else if (G.running && !G.paused) {
       if (!G.lastTime) G.lastTime = ts;
-      G.acc += ts - G.lastTime;
+      var dt = ts - G.lastTime;
       G.lastTime = ts;
-      var guard = 0;
-      while (G.running && !G.pendingEnd && G.acc >= G.interval && guard < 5) {
-        G.acc -= G.interval;
-        guard++;
-        tick();
+      if (G.count > 0) {
+        // the count before the round (it holds under a pause, as the game does)
+        G.count -= Math.min(dt, 100);
+        var n = Math.max(0, Math.ceil(G.count / 1000));
+        if (n !== G.counted) {
+          G.counted = n;
+          if (n > 0) SFX.count(); else { SFX.go(); G.goT = GO_MS; }
+        }
+      } else {
+        if (G.goT > 0) G.goT -= dt;
+        G.acc += dt;
+        var guard = 0;
+        while (G.running && !G.pendingEnd && G.acc >= G.interval && guard < 5) {
+          G.acc -= G.interval;
+          guard++;
+          tick();
+        }
       }
     } else if (G.running && G.paused) {
       G.lastTime = ts;

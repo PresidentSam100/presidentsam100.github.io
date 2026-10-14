@@ -62,7 +62,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["minesweeper endless", "minesweeper/endless.html", (p) => clickMidCell(p, "right")],
     ["pop-the-lock", "pop-the-lock/", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("Space"); await p.waitForTimeout(150); },
       (pg) => lib.injectScript(pg, "games/pop-the-lock/game.js", [["if (d <= tol) pop();", "if (true) pop();"]])],
-    ["slither", "slither/", async (p) => { await p.click("#play-btn"); await p.waitForTimeout(300); await p.evaluate(() => { const s = __G.snakes[0]; __G.food = { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y }; }); await p.waitForTimeout(500); },
+    ["slither", "slither/", async (p) => { await p.click("#play-btn"); await p.waitForTimeout(300); await p.evaluate(() => { __G.count = 0; const s = __G.snakes[0]; __G.food = { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y }; }); await p.waitForTimeout(500); },   // (count: the 3, 2, 1 before the round, skipped)
       (pg) => lib.injectScript(pg, "games/slither/game.js", [["  var G = {", "  var G = window.__G = {"]])],
     ["steamfitter panic", "steamfitter/", async (p) => { await p.evaluate(() => { __game.setMode("panic"); __game.setQueue(["H", "H", "H", "H", "H"]); }); await p.waitForTimeout(150);
       await p.evaluate(() => { const s = __game.src, d = { E: [0, 1], W: [0, -1], N: [-1, 0], S: [1, 0] }[s.dir] || [0, 1]; __game.place(s.r + d[0], s.c + d[1]); }); await p.waitForTimeout(150); }],

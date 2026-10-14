@@ -49,6 +49,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     (function f() {
       const sn = __G.snakes[0];
       if (last === null && sn.score !== 0) return requestAnimationFrame(f);   // (the new run's first frame)
+      if (__G.count > 0) __G.count = 0;                                       // (the 3, 2, 1 before a round isn't what's being fed)
       if (iv0 === null) iv0 = __G.interval;
       __G.interval = 1500;
       if (last === null || sn.score !== last) {
@@ -93,6 +94,33 @@ module.exports = async ({ browser, base, check, lib }) => {
       first.score >= 3 && first.stored === String(first.score) && first.msg === "Score: " + first.score, first);
     check("slither classic: no page errors (first run)", f.errs.length === 0, f.errs);
     await f.close();
+  }
+
+  // ---- Classic counts 3, 2, 1, GO before anything moves: the snake holds
+  // still while it counts (a turn pressed then is kept for the first step), a
+  // pause holds the count too, and when it runs out the snake goes, that way
+  {
+    const c = await classic();
+    await c.click("#play-btn");
+    await c.waitForFunction(() => __G.running && __G.count > 0 && __G.count < 2900, null, { timeout: 8000 });
+    const head = () => c.evaluate(() => ({ x: __G.snakes[0].body[0].x, y: __G.snakes[0].body[0].y, count: Math.round(__G.count), go: __G.goT > 0 }));
+    const h0 = await head();
+    await c.waitForFunction(() => __G.count < 2000, null, { timeout: 8000 });    // a second of it, by the game's own clock (read rounded below: 2000 at most)
+    const h1 = await head();
+    await c.keyboard.press("ArrowUp");
+    const queued = await c.evaluate(() => __G.snakes[0].queuedDir);
+    await c.keyboard.press("p"); await c.waitForTimeout(100);
+    const p0 = await head(); await c.waitForTimeout(400); const p1 = await head();
+    await c.keyboard.press("p");
+    await c.evaluate(() => { __G.count = Math.min(__G.count, 60); });               // (the rest of the count, skipped)
+    await c.waitForFunction((y) => __G.snakes[0].body[0].y < y, h0.y, { timeout: 8000 }).catch(() => {});
+    const h2 = await head();
+    check("slither classic: a round counts down before it starts: the snake holds still while it counts",
+      h0.count > 2000 && h1.count <= 2000 && h1.count > 0 && h1.x === h0.x && h1.y === h0.y, { h0, h1 });
+    check("slither classic: a pause holds the count; a turn pressed during it is kept, and at GO the snake sets off that way",
+      !!queued && queued.y === -1 && p0.count === p1.count && p1.count > 0 && h2.y < h0.y && h2.x === h0.x && h2.count <= 0, { queued, p0, p1, h2 });
+    check("slither classic (countdown): no page errors", c.errs.length === 0, c.errs);
+    await c.close();
   }
 
   // ---- Classic: steering pressed while paused is ignored; a held P doesn't flicker the pause
