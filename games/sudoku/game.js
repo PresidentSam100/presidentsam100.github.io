@@ -231,6 +231,51 @@
     document.documentElement.style.setProperty("--size", size + "px");
   }
 
+  // ---- digits on the middle of their squares --------------------------------
+  // A font's digits don't sit on the middle of its line of text. The paper's
+  // printed figures rode 3px high in a square, and the pen's (a script face)
+  // 2px low and 5px to the right. So what each font really draws is measured,
+  // on a canvas, and each digit is moved by that much: up or down by its
+  // font's figures as a set (so a row of them still lines up), sideways by
+  // its own shape. Kept in em, so it holds at any board size, and measured
+  // again when a web font arrives, so it holds in the fallback faces too.
+  // INK[0] is the pen (your digits), INK[1] the print (the clues).
+  const INK = [{ y: 0, x: new Float64Array(10) }, { y: 0, x: new Float64Array(10) }];
+  function measureInk() {
+    let changed = false;
+    try {
+      const ctx2 = document.createElement("canvas").getContext("2d");
+      [0, 1].forEach((g) => {
+        let el = null;
+        for (let i = 0; i < 81 && !el; i++) if (!!given[i] === !!g && els[i]) el = els[i];
+        if (!el) return;
+        const cs = getComputedStyle(el), px = parseFloat(cs.fontSize);
+        if (!(px > 0)) return;
+        ctx2.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+        const f = ctx2.measureText("Hg");
+        if (f.fontBoundingBoxAscent == null || f.actualBoundingBoxAscent == null) return;
+        let up = 0, down = -1e9;
+        const x = new Float64Array(10);
+        for (let d = 1; d <= 9; d++) {
+          const m = ctx2.measureText(String(d));
+          up = Math.max(up, m.actualBoundingBoxAscent);
+          down = Math.max(down, m.actualBoundingBoxDescent);
+          x[d] = -(((m.actualBoundingBoxRight - m.actualBoundingBoxLeft) / 2 - m.width / 2) / px);
+        }
+        // (where the middle of the figures falls, from the middle of the line)
+        const y = -(((f.fontBoundingBoxAscent - f.fontBoundingBoxDescent) / 2 + (down - up) / 2) / px);
+        if (Math.abs(y - INK[g].y) > 0.002 || x.some((v, d) => Math.abs(v - INK[g].x[d]) > 0.002)) changed = true;
+        INK[g].y = y; INK[g].x = x;
+      });
+    } catch (e) {}
+    return changed;
+  }
+  function centreInk() {
+    if (measureInk()) for (let i = 0; i < 81; i++) paint(i);
+  }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(centreInk);
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", centreInk);
+
   // ---- painting ----------------------------------------------------------
   // Short-lived effect classes (fill pop, unit flash, hint ring, win wave)
   // live here so a repaint mid-animation doesn't strip them.
@@ -280,7 +325,8 @@
 
     let html = "";
     if (v) {
-      html = '<span class="v">' + v + "</span>";
+      const ink = INK[given[i] ? 1 : 0];
+      html = '<span class="v" style="left:' + ink.x[v].toFixed(3) + "em;top:" + ink.y.toFixed(3) + 'em">' + v + "</span>";
     } else if (notes[i]) {
       html = '<div class="notes">';
       for (let d = 1; d <= 9; d++) {
@@ -319,6 +365,7 @@
 
   function renderAll() {
     for (let i = 0; i < 81; i++) paint(i);
+    centreInk();   // (measured from the squares as painted: a clue's font, and your pen's)
     renderPad();
     renderTools();
   }

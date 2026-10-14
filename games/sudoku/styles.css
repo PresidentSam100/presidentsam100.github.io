@@ -331,6 +331,8 @@ body {
    carry a game event hold a still look instead (html.fx-off rules below) */
 .c .v {
   display: inline-block;
+  /* (moved to the square's middle by what its ink measures: game.js, measureInk) */
+  position: relative;
 }
 .c.fill .v {
   animation: fill 0.18s ease-out;
