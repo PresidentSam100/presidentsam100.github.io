@@ -25,20 +25,22 @@ once more on its own at the end. If it passes then, the summary lists it as
 "passed only when run on their own": a check that's sensitive to load, worth
 making sturdier, but not a bug in the game.
 
-A full run takes about twenty minutes that way (2,340 checks in 19 minutes
+A full run takes about fifteen minutes that way (2,733 checks in 12 minutes
 when this was written). One suite at a time (`JOBS=1`) takes about twice as
 long, more on a busy machine, and proves nothing more: the second run on its
 own is what tells load from a bug.
 
 | Suite | Covers |
 |---|---|
-| `shortcuts` | Every game page: sound / Visual FX keys (M / V, and `[` / `]` everywhere), keycap labels, corner buttons not overlapping on desktop or phone, the row sharing the ← Games link's top and height and holding still when a button is pressed (on / off, Pause / Resume), no page errors |
+| `shortcuts` | Every game page: sound / Visual FX keys (M / V, and `[` / `]` everywhere), keycap labels, corner buttons not overlapping on desktop or phone, the row sharing the ← Games link's top and height and holding still when a button is pressed (on / off, Pause / Resume), the Home keycap on the middle of the ← Games link, no page errors |
 | `modes` | Mode and setup screens (`GameShell.menuKeys`): each option's key presses its button and shows on it as a keycap, Enter starts, rows that come and go, sub-menus, keys that ask before throwing a game away, text fields keeping their typing, keycaps hidden on touch |
-| `leave` | Home / Esc / ← Games leave for the games page, asking first mid-game: in "Leave this game?" only Enter leaves, and any other key keeps playing (the button says so); after Leave the box stays up until the page has gone; end screens send Esc out and Backspace to the game's menu |
+| `leave` | Home / Esc / ← Games leave for the games page, asking first mid-game: in "Leave this game?" only Enter leaves, and any other key keeps playing (the button says so), as in a game's own "Quit this game?" and "Start over?" boxes; after Leave the box stays up until the page has gone; end screens send Esc out and Backspace to the game's menu |
 | `start-keys` | Space or Enter: on a start screen, and on the cards that say play again, either key goes on and both are shown, in every game where Space has no other job (`GameShell.menuKeys`' `space`); the games where it has one keep Enter alone, listed there with the job |
 | `fit` | Phones (320 / 360 / 390 px wide): no page is wider than the screen, a menu's heading starts below the corner buttons, a stat row or a board shares the width there is, and the hint in an empty answer box shows whole |
 | `typing` | Typing games keep their letters; `[` / `]` still work, also from the game's own typing box |
 | `pause` | P pauses consistently and Esc never does (it's the way out, asking first mid-game), except in the few games that still pause on Esc (the typing games, Fish-a-Fish, Demolition Row, 24); paused games ignore play input; the shared pause only claims its key when it pauses something; Demolition Row's menu after quitting |
+| `pause-card` | Restart and Menu on the pause card, in every game that pauses: the card's buttons and their keys (R, Backspace; no letter for Restart where the letters are the game's own), lettering that can be read, Restart asking first with a game to lose and starting the same game over, Menu going back to the game's own menu, and a game started from there pausing again. Its table of games (how to start each, how to tell a fresh one) is exported for tools |
+| `hub` | The games page: Enter is the random game and Esc is reset all high scores, each key shown on its button (not on a touch-only device); Enter on a game's card still opens that game; in the reset box only Enter resets and any other key cancels, clearing nothing |
 | `passport` | Passport's keys: S to share, M / V, Esc back, typed mode |
 | `modifiers` | Ctrl / Cmd / Alt shortcuts reach the browser instead of the game |
 | `touch` | Keycaps on games' own buttons hide on touch-only devices; hint text and canvas hints (`.gs-keys` / `.gs-touch`, `GameShell.touchOnly()`, drawKeys' `touch`) swap keys for touch wording |
