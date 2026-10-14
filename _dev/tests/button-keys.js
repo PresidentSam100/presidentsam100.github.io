@@ -294,8 +294,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const uno = await p.evaluate(() => document.getElementById("unoBtn").getAttribute("data-gs-key"));
     await p.keyboard.press("Space"); await settle(p, 200);
     const got = await p.evaluate(() => ({ picked: window.__picked, uno: window.__uno }));
-    check("yi: Draw shows D (and Pass P when it is there; Quit to menu has gone to the pause card); the colour box takes R Y G B (G is green); YI! shows Space and Space calls it, once",
-      /^D( P)?$/.test(caps) && colour === "RYGB" && got.picked === "green" && uno === "Space" && got.uno === 1, { caps, colour, uno, got });
+    check("yi: Draw shows D (and Pass S when it is there; Quit to menu has gone to the pause card); the colour box takes R Y G B (G is green); YI! shows Space and Space calls it, once",
+      /^D( S)?$/.test(caps) && colour === "RYGB" && got.picked === "green" && uno === "Space" && got.uno === 1, { caps, colour, uno, got });
     check("yi (keys): no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }

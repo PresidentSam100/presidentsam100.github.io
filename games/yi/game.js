@@ -1340,10 +1340,9 @@ function restartGame() {
   startHand(0);
 }
 // The ⏸ button brings up the card, mid-hand: Resume, Restart and Menu, the
-// table waiting under it and taking no keys. Its key is H (the table holds):
-// P is Pass here, and Esc is the way out.
+// table waiting under it and taking no keys. Its key is P, as in every game
+// (Pass is S), and Esc is the way out.
 var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
-  keys: ["h"],
   canPause: function () { return !!G && !G.over; },
   onChange: function (paused) { if (paused) hold("pause"); else release("pause"); },
   auto: false, hold: true,
@@ -1509,7 +1508,8 @@ function showResult(winner, gained, reached500) {
 }
 
 // Keys for the buttons the game puts up, shown on them (the cards themselves
-// are played with the mouse). At the table: D draws, P passes. In a box:
+// are played with the mouse). At the table: D draws, S passes (skips the
+// rest of the turn; P is the pause). In a box:
 // Space calls YI!, or catches a
 // player who didn't; R / Y / G / B pick the colour; D draws the four and C
 // challenges; Enter is Continue and, on a result, the first button (Backspace
@@ -1519,7 +1519,7 @@ if (window.GameShell && GameShell.menuKeys) {
   var boxUp = function () { return overlay.classList.contains("show"); };
   GameShell.menuKeys({
     active: function () { return !!G && !boxUp(); },
-    groups: [{ sel: "#drawBtn", keys: ["d"] }, { sel: "#passBtn", keys: ["p"] }],
+    groups: [{ sel: "#drawBtn", keys: ["d"] }, { sel: "#passBtn", keys: ["s"] }],
     root: "#controls"
   });
   GameShell.menuKeys({

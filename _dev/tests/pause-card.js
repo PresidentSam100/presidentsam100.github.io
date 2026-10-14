@@ -149,7 +149,7 @@ const table = (lib) => [
   { name: "salvo", path: "salvo/", acts: ["restart"],
     start: async (p) => { await p.keyboard.press("a"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); await p.click("#enemyGrid .cell"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => !GameShell.leaveActive() && document.getElementById("enemyCol").hidden && document.getElementById("placeControls").style.display === "flex") },
-  // (the cards are the mouse's; H is the pause key there, P being Pass)
+  // (the cards are the mouse's; P is the pause key there, Pass being S)
   { name: "yi", path: "yi/",
     start: async (p) => { await p.click("#startBtn"); await p.waitForTimeout(300); await p.evaluate(() => { drawCards(1, 1); G.acted = true; }); },
     fresh: (p) => p.evaluate(() => !!G && !G.over && !G.acted && getComputedStyle(document.getElementById("setup")).display === "none"),

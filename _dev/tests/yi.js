@@ -180,15 +180,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     { viaMenu, stayed, viaBack, quitTo });
 
   // mid-hand the way to the menu is the pause card's: the bar has no Quit to
-  // menu any more. H brings the card up (P is Pass here), with Resume, Restart
-  // and Menu, and Backspace there is Menu (at a fresh deal there's nothing to
-  // lose, so it goes at once). Esc on a result screen still leaves (guards)
+  // menu any more. P brings the card up, as in every game (Pass is S), with
+  // Resume, Restart and Menu, and Backspace there is Menu (at a fresh deal
+  // there's nothing to lose, so it goes at once). Esc on a result screen still
+  // leaves (guards)
   await p.evaluate(() => { hideOverlay(); document.getElementById("startBtn").click(); });
   await settle(p);
   const bar = await p.evaluate(() => ({ quit: !!document.getElementById("newHandBtn") || /quit/i.test(document.getElementById("controls").textContent), cap: document.querySelector(".gs-pause-btn").textContent }));
   await p.keyboard.press("Backspace"); await settle(p);
   const bare = await screenNow();            // (not paused: Backspace is nobody's key)
-  await p.keyboard.press("h"); await settle(p);
+  await p.keyboard.press("p"); await settle(p);
   const cardBtns = await p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!c && !c.hidden && [...c.querySelectorAll("button")].map((b) => b.textContent.replace(/\s+/g, " ").trim()).join(" | "); });
   const hand0 = await p.evaluate(() => G.players[0].hand.length);
   await p.keyboard.press("d"); await settle(p);
@@ -199,8 +200,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await endWith(false, 0); await settle(p);
   await p.keyboard.press("Escape"); await settle(p);
   await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
-  check("yi: the bar has no Quit to menu; H brings up the pause card (Resume, Restart R, Menu ⌫), the table's keys held under it, and Backspace there goes to setup (a fresh deal: at once); Esc on a hand's result still leaves",
-    !bar.quit && /Pause H$/.test(bar.cap) && !bare.setup && bare.g && /Resume \| .*Restart R \| .*Menu ⌫$/.test(cardBtns || "") && hand1 === hand0 && mid.setup && !mid.g && !mid.result && p.leaves === 1,
+  check("yi: the bar has no Quit to menu; P brings up the pause card (Resume, Restart R, Menu ⌫), the table's keys held under it, and Backspace there goes to setup (a fresh deal: at once); Esc on a hand's result still leaves",
+    !bar.quit && /Pause P$/.test(bar.cap) && !bare.setup && bare.g && /Resume \| .*Restart R \| .*Menu ⌫$/.test(cardBtns || "") && hand1 === hand0 && mid.setup && !mid.g && !mid.result && p.leaves === 1,
     { bar, bare, cardBtns, hand0, hand1, mid, leaves: p.leaves });
   await done(p, "yi backspace");
 
@@ -266,6 +267,27 @@ module.exports = async ({ browser, base, check, lib }) => {
       chips.length === 4 && chips[0].shown === "Blue Draw 2" && chips[0].own === "blue" && chips[1].shown === "Green 7" && chips[1].own === "green" &&
       chips[2].text === "Wild Draw Four" && chips[2].wild && chips[2].own === "" && chips[3].shown === "Red" && chips[3].own === "red", chips);
     await done(q, "yi logo and log");
+  }
+
+  // ---- Pass is S (skip the rest of the turn), and P is the pause, as in
+  // every game: with Pass on the bar, P brings up the card and passes nothing,
+  // and S passes, its keycap on the button
+  {
+    const q = await lib.open(ctx, base, "games/yi/");
+    await deal(q);
+    await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 20000 });
+    await q.evaluate(() => { G.drawnIndex = 0; renderControls(); });
+    await settle(q);
+    const shown = await q.evaluate(() => { const b = document.getElementById("passBtn"); return b && b.getAttribute("data-gs-key"); });
+    await q.keyboard.press("p"); await settle(q);
+    const paused = await q.evaluate(() => ({ card: !!document.querySelector(".gs-pause:not(.gs-dialog):not([hidden])"), turn: G.currentPlayerIndex, pass: !!document.getElementById("passBtn") }));
+    await q.keyboard.press("p"); await settle(q);
+    const back = await q.evaluate(() => ({ card: !!document.querySelector(".gs-pause:not(.gs-dialog):not([hidden])"), pass: !!document.getElementById("passBtn") }));
+    await q.keyboard.press("s");
+    const passed = await q.waitForFunction(() => G.currentPlayerIndex !== 0 || G.drawnIndex < 0, null, { timeout: 5000 }).then(() => true, () => false);
+    check("yi: Pass wears S and S passes; P on the table pauses (the card up, nothing passed) and P again resumes",
+      shown === "S" && paused.card && paused.turn === 0 && paused.pass && !back.card && back.pass && passed, { shown, paused, back, passed });
+    await done(q, "yi pass and pause keys");
   }
 
   await ctx.close();
