@@ -29,11 +29,14 @@
     background: #8fce46;
     image-rendering: optimizeQuality;
   }
-  /* how to play, along the foot of the page. It lies over the bottom of the
-     board, so it is lettered like the captions drawn on the board itself:
-     white and bold with a dark outline, its keycaps dark-backed as theirs are */
+  /* how to play, along the foot of the board (game.js places it: inside the
+     board's rim, or under the board where a phone leaves room). It lies over
+     the bottom of the board, so it is lettered like the captions drawn on the
+     board itself: white and bold with a dark outline, its keycaps dark-backed
+     as theirs are */
   #hint {
     position: fixed;
+    left: 0;
     bottom: 10px;
     width: 100%;
     text-align: center;

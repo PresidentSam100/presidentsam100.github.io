@@ -35,8 +35,27 @@ function fit() {
     canvas.height = H * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+  placeHint();
+}
+// The how-to line goes with the board: under it where the page has the room
+// (a phone held upright), otherwise along its foot, clear of the rim. (It sat
+// a fixed 10px from the foot of the window, which on a desktop is across the
+// board's rim.) On the board its lettering goes down with a small board's, as
+// the captions drawn there do, so it stays one line and off the menu's last.
+function placeHint() {
+  const hint = document.getElementById("hint");
+  if (!hint) return;
+  const r = canvas.getBoundingClientRect();
+  hint.style.left = Math.ceil(r.left) + "px";
+  hint.style.width = Math.floor(r.right) - Math.ceil(r.left) + "px";
+  hint.style.fontSize = "";
+  const under = window.innerHeight - r.bottom >= hint.offsetHeight + 18;
+  if (!under) hint.style.fontSize = Math.max(10.5, Math.min(14, 14 * r.width / 640)).toFixed(1) + "px";
+  hint.style.bottom = "auto";
+  hint.style.top = Math.round(under ? r.bottom + 10 : r.bottom - hint.offsetHeight - Math.max(12, r.height * 0.026)) + "px";
 }
 window.addEventListener("resize", fit);
+window.addEventListener("load", fit);   // (the line's own height is settled by then)
 fit();
 
 // ---------- helpers ----------
@@ -1396,9 +1415,16 @@ function canvasPos(clientX, clientY) {
   return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
 }
 const inRect = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+// The menu, top to bottom: the modes, Play under them, then the skin
+// turntable with its label (the how-to line lies along the board's foot).
+const MENU_Y = 268, SKIN_Y = 640;   // the first mode's top; the turntable's floor
 function menuButtonRects() {
-  const bw = 380, bh = 50, gap = 12, x = (W - bw) / 2, y0 = H * 0.40;
-  return MODES.map((m, i) => ({ x, y: y0 + i * (bh + gap), w: bw, h: bh }));
+  const bw = 380, bh = 50, gap = 12, x = (W - bw) / 2;
+  return MODES.map((m, i) => ({ x, y: MENU_Y + i * (bh + gap), w: bw, h: bh }));
+}
+function playRect() {
+  const last = menuButtonRects()[MODES.length - 1], bw = 300;
+  return { x: (W - bw) / 2, y: last.y + last.h + 22, w: bw, h: 50 };
 }
 function deadButtonRects() {
   const bw = 300, bh = 50, gap = 14, x = (W - bw) / 2, y0 = H * 0.60;
@@ -1407,15 +1433,17 @@ function deadButtonRects() {
 // the skin turntable and its label, under the mode buttons: a tap changes the
 // skin, as C does (a phone has no C)
 function skinRect() {
-  const top = H * 0.775 - 46;
-  return { x: W / 2 - 110, y: top, w: 220, h: H * 0.815 + 12 - top };
+  const top = SKIN_Y - 46;
+  return { x: W / 2 - 110, y: top, w: 220, h: SKIN_Y + 43 - top };
 }
 function handlePointer(clientX, clientY) {
   const p = canvasPos(clientX, clientY);
   if (state === "menu") {
+    // a click or a tap picks a mode, as its number does, and Play starts it
     const rects = menuButtonRects();
-    for (let i = 0; i < rects.length; i++) if (inRect(p, rects[i])) { menuSel = i; startSelectedMode(); return; }
-    if (inRect(p, skinRect())) cycleSkin();
+    for (let i = 0; i < rects.length; i++) if (inRect(p, rects[i])) { if (menuSel !== i) { menuTick(i < menuSel ? -1 : 1); menuSel = i; } return; }
+    if (inRect(p, playRect())) startSelectedMode();
+    else if (inRect(p, skinRect())) cycleSkin();
   } else if (state === "dead") {
     const r = deadButtonRects();
     if (inRect(p, r[0])) startCurrentMode();
@@ -1431,9 +1459,12 @@ function drawRow(r, row) {
   if (row.type === "grass") {
     ctx.fillStyle = (mod(r, 2) === 0) ? "#9bd64f" : "#90cf47";
     ctx.fillRect(SCENE_L, top, W, TILE);
-    // terraced edge: a soft shade at the far edge of every grass step
-    ctx.fillStyle = "rgba(0,0,0,.06)";
-    ctx.fillRect(SCENE_L, top, W, 6);
+    // Rows meet on a hairline, each in its own ground's colour: a shade two
+    // pixels deep here, a seam on the tarmac, a line of shadow at a river's
+    // banks. (They were bands 4 to 15 pixels deep, and a river's near bank a
+    // brown one 7 deep, painted after the row in front and so over its cars.)
+    ctx.fillStyle = "rgba(0,0,0,.08)";
+    ctx.fillRect(SCENE_L, top, W, 2);
     // decorations
     for (const d of row.decos) {
       const x = (d.col + d.dx) * TILE, y = top + d.dy * TILE;
@@ -1453,8 +1484,8 @@ function drawRow(r, row) {
     ctx.lineWidth = 3; ctx.setLineDash([14, 14]);
     ctx.beginPath(); ctx.moveTo(SCENE_L, top + TILE / 2); ctx.lineTo(SCENE_R, top + TILE / 2); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = "rgba(0,0,0,.18)";
-    ctx.fillRect(SCENE_L, top, W, 4); ctx.fillRect(SCENE_L, top + TILE - 4, W, 4);
+    ctx.fillStyle = "rgba(0,0,0,.22)";
+    ctx.fillRect(SCENE_L, top, W, 1); ctx.fillRect(SCENE_L, top + TILE - 1, W, 1);
     if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top); // lies on the road, under the cars
     for (const it of row.items) drawVehicle(row, it, top);
     if (row.police.state === "active") drawPoliceCar(row, top);
@@ -1475,15 +1506,16 @@ function drawRow(r, row) {
     drawSignal(row, top); // signal sits in front of the train (it's on the near edge)
 
   } else if (row.type === "river") {
-    // sunken water: darker base, a shore shadow cast by the far bank, and two
-    // ripple bands drifting in opposite directions
+    // water: a line of shadow where it meets land on either side (fainter
+    // between two lanes of it), and two ripple bands drifting in opposite
+    // directions. The banks are drawn here, with the water, so whatever stands
+    // on the row in front is in front of them.
     ctx.fillStyle = "#2b6fc2";
     ctx.fillRect(SCENE_L, top, W, TILE);
-    const shoreG = ctx.createLinearGradient(0, top, 0, top + 15);
-    shoreG.addColorStop(0, "rgba(6,24,54,.45)");
-    shoreG.addColorStop(1, "rgba(6,24,54,0)");
-    ctx.fillStyle = shoreG;
-    ctx.fillRect(SCENE_L, top, W, 15);
+    const far = rows[r + 1], near = rows[r - 1];
+    ctx.fillStyle = far && far.type === "river" ? "rgba(6,24,54,.2)" : "rgba(6,24,54,.45)";
+    ctx.fillRect(SCENE_L, top, W, far && far.type === "river" ? 1 : 2);
+    if (near && near.type !== "river") { ctx.fillStyle = "rgba(6,24,54,.45)"; ctx.fillRect(SCENE_L, top + TILE - 2, W, 2); }
     const rt = fxOff() ? 0 : performance.now();   // (Visual FX off: the ripples stay where they are)
     const t1 = (rt / 130) % 40, t2 = 40 - (rt / 210) % 40;
     ctx.fillStyle = "rgba(255,255,255,.10)";
@@ -1493,15 +1525,6 @@ function drawRow(r, row) {
     }
     for (const it of row.items) drawPlatform(row, it, top);
     if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top, -10); // riding the log, raised onto its top face
-  }
-
-  // the near shore's cliff face: land rises out of the water just beyond it
-  const beyond = rows[r + 1];
-  if (row.type !== "river" && beyond && beyond.type === "river") {
-    ctx.fillStyle = "#6f5a33";
-    ctx.fillRect(SCENE_L, top - 7, W, 7);
-    ctx.fillStyle = "rgba(255,255,255,.22)";
-    ctx.fillRect(SCENE_L, top - 7, W, 2);
   }
 }
 
@@ -2075,7 +2098,7 @@ function drawChick3D(cx, cy, s, th, sk) {
 
 function drawMenu() {
   veil(0.52);
-  // (Visual FX off: the chickens stand still and the hint stays lit)
+  // (Visual FX off: the chickens stand still)
   const still = fxOff();
   const bob = still ? 0 : Math.sin(performance.now() / 300) * 4;
   ctx.save();
@@ -2090,28 +2113,32 @@ function drawMenu() {
   textCenter("Select a mode", W / 2, H * 0.30, 20, "#eaf2dc");
   const rects = menuButtonRects();
   MODES.forEach((m, i) => {
-    const sel = i === menuSel;
+    const sel = i === menuSel, cy = rects[i].y + rects[i].h / 2 + 1;
     drawButton(rects[i], sel ? "#ffd23d" : "#f6f2e4", m.label, m.desc, loadHigh(m.id), sel);
-    // the mode's number key, beside its button (nothing on a phone: a tap plays)
-    keysCenter("[" + (i + 1) + "]", rects[i].x - 26, rects[i].y + rects[i].h / 2 + 1, 17, sel ? "#ffd23d" : "#fff", "");
+    // the mode's number key, beside its button (nothing on a phone: a tap picks it)
+    keysCenter("[" + (i + 1) + "]", rects[i].x - 26, cy, 17, sel ? "#ffd23d" : "#fff", "");
+    // ...and on the picked one, the arrows that go to the mode above and below
+    if (sel) {
+      keysCenter("[↑]", rects[i].x + rects[i].w + 26, cy - 12, 15, "#ffd23d", "");
+      keysCenter("[↓]", rects[i].x + rects[i].w + 26, cy + 12, 15, "#ffd23d", "");
+    }
   });
+  // Play, under the modes: Space or Enter, or a tap, starts the picked one
+  // (the keys used to be a line of small print at the foot of the menu)
+  drawButton(playRect(), "#8fce46", "Play", null, null, false, "SPACE or ENTER");
   // skin selector: the current chicken turns on a real 3D turntable, the
   // bird is modelled as boxes, rotated around the vertical axis and projected,
   // so its corners orbit and its shading shifts as it spins.
   const sk = SKINS[skinSel], be = bestEver();
-  const px2 = W / 2, py2 = H * 0.775;
+  const px2 = W / 2, py2 = SKIN_Y;
   ctx.fillStyle = "rgba(0,0,0,.25)"; // turntable shadow
   ctx.beginPath(); ctx.ellipse(px2, py2 + 3, 27, 8, 0, 0, 7); ctx.fill();
   const th = still ? 0 : (performance.now() / 2400) * Math.PI * 2;
   drawChick3D(px2, py2, 1.15, th, sk);
-  keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, H * 0.815, 17, "#fff", "Skin: " + sk.name + "   (tap to change)");
+  keysCenter("Skin: " + sk.name + "   ([C] to change)", W / 2, SKIN_Y + 31, 17, "#fff", "Skin: " + sk.name + "   (tap to change)");
   const nextLocked = SKINS.find(s => be < s.unlock);
-  if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, H * 0.815 + 22, 13, "rgba(255,255,255,.6)");
-  const pulse = still ? 1 : 0.6 + 0.4 * Math.sin(performance.now() / 350);
-  ctx.globalAlpha = pulse;
+  if (nextLocked) textCenter("Next skin unlocks at " + nextLocked.unlock, W / 2, SKIN_Y + 53, 13, "rgba(255,255,255,.6)");
   // (the way out to the games page and the sound are on the corner buttons, with their keys)
-  keysCenter("[1]-[" + MODES.length + "] or [↑][↓] select  •  [SPACE] or [ENTER] / tap to play", W / 2, H * 0.90, 18, "#fff", "tap a mode to play");
-  ctx.globalAlpha = 1;
 }
 
 function drawDead() {
