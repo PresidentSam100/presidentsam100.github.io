@@ -1,7 +1,8 @@
 // Every game page: the corner buttons' keys (M / V for sound and Visual FX, and
 // [ / ] everywhere), their keycap labels, the buttons not overlapping on a
 // desktop or a phone, the row lined up with the "← Games" link (same top, same
-// height) and holding still when a button is pressed, and no page errors.
+// height) and holding still when a button is pressed, each keycap in the
+// middle of its button, and no page errors.
 
 // Games where letters are gameplay (or M is already taken): only [ and ] work.
 const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/", "flappy-world/"]);
@@ -21,6 +22,14 @@ const rowOf = (p) => p.evaluate(() => {
   for (const [k, s] of [["pause", ".gs-pause-btn"], ["mute", ".mute-toggle"], ["fx", ".rm-toggle"]]) {
     const e = document.querySelector(s); if (!e) continue;
     const b = e.getBoundingClientRect(); out.btns[k] = { t: b.top, h: b.height, l: b.left, w: b.width };
+  }
+  // each keycap's middle against its button's (0: dead centre), the link's Home too
+  out.caps = {};
+  for (const [k, s] of [["back", ".nav-back-games"], ["pause", ".gs-pause-btn"], ["mute", ".mute-toggle"], ["fx", ".rm-toggle"]]) {
+    const e = document.querySelector(s), c = e && e.querySelector("kbd.gs-kbd");
+    if (!c || !c.getBoundingClientRect().height) continue;
+    const b = e.getBoundingClientRect(), r = c.getBoundingClientRect();
+    out.caps[k] = Math.round(((r.top + r.height / 2) - (b.top + b.height / 2)) * 10) / 10;
   }
   return out;
 });
@@ -58,6 +67,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     const askew = offLine(rows[0]), mv = moved(rows[0], rows[1]).concat(moved(rows[0], rows[2]));
     check(pg + ": the corner buttons share the ← Games link's top and height", askew.length === 0, { askew, row: rows[0] });
     check(pg + ": the ← Games link sits square with the buttons beside it (no tilt)", rows[0].tilt === 0, rows[0].tilt);
+    // (the Home key rides on the link's line of text, where the others are in
+    // flex boxes: it sat up to 3px low, by the game's font, until it was measured)
+    const low = Object.keys(rows[0].caps).filter((k) => Math.abs(rows[0].caps[k]) > 0.6);
+    check(pg + ": each keycap in the top row sits in the middle of its button, the ← Games link's Home too", low.length === 0, rows[0].caps);
     check(pg + ": turning sound or Visual FX off changes no button's width or place", mv.length === 0, { mv, before: rows[0].btns, after: rows[2].btns });
 
     await p.evaluate(() => document.activeElement && document.activeElement.blur && document.activeElement.blur());

@@ -310,6 +310,26 @@
       cap.innerHTML = ' <kbd class="gs-kbd">Home</kbd>';
       back.appendChild(cap);
     } else if (!wide && cap) back.removeChild(cap);
+    centreKey();
+  }
+  // That keycap sits on the link's line of text, so how high it rode depended
+  // on the game's font: up to 3px low (Science Fair, Dead End), where the caps
+  // in the ⏸ 🔊 ✨ buttons, flex boxes all, are dead centre. So it is measured
+  // and moved to the middle of the link, as theirs are. Moved, not laid out
+  // again: the link keeps its size, and the row that copies it its place.
+  function centreKey() {
+    var back = document.querySelector(".nav-back-games");
+    var k = back && back.querySelector(".gs-back-key .gs-kbd");
+    if (!k) return;
+    k.style.position = "relative";
+    k.style.top = "0px";
+    if (!k.offsetHeight) return;   // (not shown: a touch screen has no keys)
+    var tf = getComputedStyle(back).transform, d;
+    if (!tf || tf === "none") {
+      var b = back.getBoundingClientRect(), r = k.getBoundingClientRect();
+      d = (r.top + r.height / 2) - (b.top + b.height / 2);
+    } else d = (k.offsetTop + k.offsetHeight / 2) - back.clientHeight / 2;   // (a tilted link: its own layout numbers)
+    k.style.top = (-d).toFixed(2) + "px";
   }
 
   var btn = null, shown = "";
@@ -388,10 +408,12 @@
     // the link's size can change after this runs (its web font arriving), and
     // so can the row's (the sound and ⏸ buttons joining it)
     if (window.ResizeObserver) {
-      var ro = new ResizeObserver(function () { syncRow(); fit(); });
+      var ro = new ResizeObserver(function () { syncRow(); fit(); centreKey(); });
       if (back) ro.observe(back);
       ro.observe(corner);
     }
+    // (a font that arrives without changing the link's size still moves its line)
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(centreKey);
   }
 
   if (document.body) build();
