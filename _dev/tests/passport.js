@@ -9,13 +9,13 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   let p = await lib.open(ctx, base, "games/passport/");
   const lab = await p.evaluate(() => ({
-    keys: document.querySelector(".keys").textContent,
+    keys: [...document.querySelectorAll("#menu p, #menu .keys")].map((e) => e.textContent).filter((t) => /sound|visual FX|Esc\b/i.test(t)).join(" | "),
     mt: document.querySelector(".mute-toggle").title, mk: document.querySelector(".mute-toggle").getAttribute("aria-keyshortcuts"),
     ft: document.querySelector(".rm-toggle").title, fk: document.querySelector(".rm-toggle").getAttribute("aria-keyshortcuts"),
     bt: document.querySelector(".nav-back-games").title,
   }));
-  check("passport: the menu's key line and the button tooltips name the keys (Esc on the ← Games button alone)",
-    /M\/\[ sound · V\/\] visual FX$/.test(lab.keys) && !/Esc/.test(lab.keys) && /M or \[$/.test(lab.mt) && lab.mk === "M [" && /V or \]$/.test(lab.ft) && lab.fk === "V ]" && /Esc/.test(lab.bt), lab);
+  check("passport: the menu has no line of keys for sound, Visual FX or Esc; the corner buttons name them, as in the other games",
+    lab.keys === "" && /M or \[$/.test(lab.mt) && lab.mk === "M [" && /V or \]$/.test(lab.ft) && lab.fk === "V ]" && /Esc/.test(lab.bt), lab);
 
   const m0 = await st(p); await p.keyboard.press("m"); const m1 = await st(p); await p.keyboard.press("M"); const m2 = await st(p);
   await p.keyboard.press("v"); const m3 = await st(p); await p.keyboard.press("v");
