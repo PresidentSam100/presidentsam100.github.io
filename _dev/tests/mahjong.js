@@ -8,6 +8,11 @@
 // board of 144 tiles, picked on the menu with the arrows; each deals the full
 // set, can be cleared, fits the screen and keeps its own fastest clear; the
 // Daily is always the turtle; the games page's reset clears every layout's.
+// Animations (an option on the menu, A): a deal's tiles drop in from above, a
+// matched pair comes together and is gone, a shuffle's tiles travel from where
+// their faces lay; with Visual FX off the three are told by fading; a press, a
+// pause or the switch lands whatever is on its way; each pair takes a second
+// off the clock, never below zero. With Animations off, none of it.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
@@ -16,7 +21,17 @@ const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
 })();`];
 
 module.exports = async ({ browser, base, check, lib }) => {
-  const open = (ctx) => lib.open(ctx, base, "games/mahjong/", { before: (pg) => lib.injectScript(pg, "games/mahjong/game.js", [HOOK]) });
+  // (the checks of the rules run with Animations off, the game as it was:
+  // nothing is on its way, and a desk cleared in no time keeps a time. `moving`
+  // leaves it on; `more` are further edits to the served script; `off` opens
+  // with Visual FX off.)
+  const STILL = () => { try { localStorage.setItem("mahjong_anim", "0"); } catch (e) {} };
+  const FX_OFF = () => { try { localStorage.setItem("reduceMotion:mahjong", "1"); } catch (e) {} };
+  const open = (ctx, moving, more, off) => lib.open(ctx, base, "games/mahjong/", { before: async (pg) => {
+    if (!moving) await pg.addInitScript(STILL);
+    if (off) await pg.addInitScript(FX_OFF);
+    await lib.injectScript(pg, "games/mahjong/game.js", [HOOK].concat(more || []));
+  } });
   const done = async (p, what) => { check("mahjong " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
   // clear the desk by free pairs (reshuffling when stuck)
   const clearDesk = (p) => p.evaluate(() => { for (let n = 0; n < 500 && Mahjong.tilesLeft(); n++) if (!Mahjong.removeOnePair()) Mahjong.shuffleNow(); return Mahjong.tilesLeft(); });
@@ -261,12 +276,195 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   await ctx.close();
 
+  // ---- Animations: an option on the menu (A, shown on it), on to begin with, remembered
+  ctx = await lib.newContext(browser);
+  p = await open(ctx, true);
+  const opt = () => p.evaluate(() => {
+    const b = document.getElementById("opt-anim");
+    return b && { text: b.textContent.replace(/\s+/g, " ").trim(), cap: b.getAttribute("data-gs-key"), pressed: b.getAttribute("aria-pressed"), stored: localStorage.getItem("mahjong_anim"), on: Mahjong.anim ? Mahjong.anim() : null };
+  });
+  const o0 = await opt();
+  await p.keyboard.press("a"); await p.waitForTimeout(60);
+  const o1 = await opt();
+  if (o0) await p.click("#opt-anim");
+  await p.waitForTimeout(60);
+  const o2 = await opt();
+  check("mahjong: Animations is an option on the menu, on to begin with (1s off each pair); A, shown on it, or a click turns it off and on, and the choice is kept",
+    !!o0 && o0.on && o0.pressed === "true" && o0.cap === "A" && /Animations: on/.test(o0.text) && /1s off each pair/.test(o0.text) &&
+    !o1.on && o1.stored === "0" && o1.pressed === "false" && /Animations: off/.test(o1.text) && /no time off/.test(o1.text) && o2.on && o2.stored === "1", { o0, o1, o2 });
+
+  // ---- a deal drops in (Visual FX on): every tile starts above the screen and
+  // falls to its place, the bottom layer first; no clock runs meanwhile
+  const drop = await p.evaluate(() => new Promise((res) => {
+    const t0 = performance.now(), going = () => !!(Mahjong.dealing && Mahjong.dealing());
+    const tiles = () => [...document.querySelectorAll("#board .tile")], z = (e) => Math.floor(+e.style.zIndex / 1000);
+    document.getElementById("play").click();
+    const first = { dealing: going(), n: tiles().length, above: tiles().filter((e) => e.getBoundingClientRect().bottom <= 0).length, flying: tiles().filter((e) => e.getAnimations().length === 1).length };
+    let mid = null;
+    (function tick() {
+      const ts = tiles();
+      if (!mid && going() && performance.now() - t0 > 250) {
+        const seen = ts.filter((e) => e.getBoundingClientRect().bottom > 0), above = ts.filter((e) => e.getBoundingClientRect().bottom <= 0);
+        if (seen.length && above.length) mid = { seen: seen.length, above: above.length, order: Math.max(...seen.map(z)) <= Math.min(...above.map(z)), time: Mahjong.timeNow() };
+      }
+      if (going()) return setTimeout(tick, 10);
+      res({ first, mid, took: Math.round(performance.now() - t0), last: { n: ts.length, moving: ts.filter((e) => e.getAnimations().length).length, shifted: ts.filter((e) => getComputedStyle(e).transform !== "none").length,
+        time: Mahjong.timeNow(), inside: ts.every((e) => { const r = e.getBoundingClientRect(); return r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight; }) } });
+    })();
+  }));
+  check("mahjong, Animations on: a deal starts with all 144 tiles above the screen, each on its way down",
+    drop.first.dealing && drop.first.n === 144 && drop.first.above === 144 && drop.first.flying === 144, drop.first);
+  check("mahjong, Animations on: the tiles drop in a layer at a time from the bottom one up, over most of a second, and land in their places; no clock runs until they have",
+    !!drop.mid && drop.mid.order && drop.mid.time === 0 && drop.took >= 600 && drop.last.n === 144 && drop.last.moving === 0 && drop.last.shifted === 0 && drop.last.inside && drop.last.time <= 250, drop);
+
+  // ---- a matched pair comes together and is gone (out of the game at once,
+  // deaf to the pointer, only still drawn), and takes a second off the clock
+  const match = await p.evaluate(() => new Promise((res) => {
+    const leaving = () => (Mahjong.leaving ? Mahjong.leaving() : -1);
+    Mahjong.hintNow();                                  // (+30 s on the clock, so there is a second to take)
+    const free = Mahjong.freeIdx(), fam = (k) => (k[0] === "f" || k[0] === "s" ? k[0] : k);
+    let a = -1, b = -1;
+    for (let i = 0; i < free.length && a < 0; i++) for (let j = i + 1; j < free.length; j++) if (fam(Mahjong.kindOf(free[i])) === fam(Mahjong.kindOf(free[j]))) { a = free[i]; b = free[j]; break; }
+    const ra = Mahjong.tileRect(a), rb = Mahjong.tileRect(b), t0 = Mahjong.timeNow();
+    Mahjong.click(a); Mahjong.click(b);
+    const gone = [...document.querySelectorAll("#board .tile.gone")];
+    // where each of the two ends up: its place, moved by its last keyframe
+    const meet = gone.map((e) => {
+      const an = e.getAnimations()[0], k = an ? an.effect.getKeyframes().pop() : {}, m = /translate\(([-\d.e]+)px,\s*([-\d.e]+)px\)/.exec(k.transform || "") || [0, 0, 0], r = e.getBoundingClientRect();
+      return { x: r.left + +m[1], y: r.top + +m[2], opacity: +k.opacity, deaf: getComputedStyle(e).pointerEvents === "none" };
+    });
+    const now = { left: Mahjong.tilesLeft(), gone: gone.length, leaving: leaving(), still: [Mahjong.tileRect(a), Mahjong.tileRect(b)].filter(Boolean).length,
+      took: t0 - Mahjong.timeNow(), chip: (document.getElementById("hud-off") || {}).textContent || "", sel: document.querySelectorAll(".tile.sel").length };
+    setTimeout(() => res({ far: Math.round(Math.hypot(ra.left - rb.left, ra.top - rb.top)), meet, now,
+      after: { tiles: document.querySelectorAll("#board .tile").length, gone: document.querySelectorAll(".tile.gone").length, leaving: leaving() } }), 750);
+  }));
+  check("mahjong, Animations on: a matched pair is out of the game at once (142 left, neither one selectable or pressable) and still drawn, on its way out",
+    match.now.left === 142 && match.now.gone === 2 && match.now.leaving === 2 && match.now.still === 0 && match.now.sel === 0 && match.meet.every((m) => m.deaf), match.now);
+  check("mahjong, Animations on: the two tiles of a pair come together, fade there, and are gone from the desk within a second",
+    match.meet.length === 2 && Math.abs(match.meet[0].x - match.meet[1].x) < 1.5 && Math.abs(match.meet[0].y - match.meet[1].y) < 1.5 && match.meet.every((m) => m.opacity === 0) && match.far > 10 &&
+    match.after.tiles === 142 && match.after.gone === 0 && match.after.leaving === 0, { far: match.far, meet: match.meet, after: match.after });
+  check("mahjong, Animations on: a pair takes a second off the clock, shown over it", match.now.took === 1000 && match.now.chip === "-1s", match.now);
+  // ...down to zero and no further: a fresh deal's first pairs take only what the clock has
+  await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(450);
+  const zero = await p.evaluate(() => { const t0 = Mahjong.timeNow(); Mahjong.removeOnePair(); const t1 = Mahjong.timeNow(); Mahjong.removeOnePair(); return { t0, t1, t2: Mahjong.timeNow(), chip: (document.getElementById("hud-off") || {}).textContent || "" }; });
+  check("mahjong, Animations on: the second comes off down to zero and no further", zero.t0 > 0 && zero.t0 < 1000 && zero.t1 === 0 && zero.t2 === 0 && zero.chip === "-" + zero.t0 / 1000 + "s", zero);
+
+  // ---- a shuffle's tiles travel: each starts where a tile of its face lay
+  // before, one for one, and ends in its place; a press meanwhile lands them
+  // and is the press it was
+  const shuf = await p.evaluate(() => new Promise((res) => {
+    const moving = () => (Mahjong.moving ? Mahjong.moving() : 0);
+    Mahjong.start("classic");
+    const ids = [...Array(144).keys()], before = {};
+    ids.forEach((i) => { const r = Mahjong.tileRect(i); before[i] = { x: r.left, y: r.top, kind: Mahjong.kindOf(i) }; });
+    const t0 = Mahjong.timeNow();
+    Mahjong.shuffleNow();
+    const src = ids.map((j) => { const r = Mahjong.tileRect(j); return ids.find((i) => Math.abs(before[i].x - r.left) < 1 && Math.abs(before[i].y - r.top) < 1); });
+    const now = { sameFace: src.every((i, n) => i != null && before[i].kind === Mahjong.kindOf(ids[n])), oneForOne: new Set(src).size === 144, moved: src.filter((i, n) => i !== ids[n]).length,
+      moving: moving(), raised: document.querySelectorAll(".tile.moving").length, cost: Mahjong.timeNow() - t0 };
+    (function tick() {
+      if (moving()) return setTimeout(tick, 20);
+      res({ now, after: { raised: document.querySelectorAll(".tile.moving").length, shifted: [...document.querySelectorAll("#board .tile")].filter((e) => getComputedStyle(e).transform !== "none").length,
+        home: ids.every((i) => { const r = Mahjong.tileRect(i); return Math.abs(r.left - before[i].x) < 1 && Math.abs(r.top - before[i].y) < 1; }) } });
+    })();
+  }));
+  check("mahjong, Animations on: on a shuffle each tile starts where a tile of its face lay before, one for one, nearly all of them moving, and each ends in its own place; the shuffle still costs its minute",
+    shuf.now.sameFace && shuf.now.oneForOne && shuf.now.moved >= 100 && shuf.now.moving === shuf.now.moved && shuf.now.raised === shuf.now.moved && shuf.now.cost === 60000 &&
+    shuf.after.raised === 0 && shuf.after.shifted === 0 && shuf.after.home, shuf);
+  const pressed = await p.evaluate(() => { const moving = () => (Mahjong.moving ? Mahjong.moving() : 0); Mahjong.shuffleNow(); const was = moving(); Mahjong.click(Mahjong.freeIdx()[0]); return { was, moving: moving(), sel: document.querySelectorAll(".tile.sel").length }; });
+  check("mahjong, Animations on: a press while a shuffle is travelling lands it and picks the tile pressed", pressed.was > 0 && pressed.moving === 0 && pressed.sel === 1, pressed);
+  // ---- a desk cleared at 0:00 (the seconds off can bring a clear there) is a record like any other
+  const nil = await p.evaluate(() => {
+    Mahjong.start("classic");
+    Mahjong.setLive(Mahjong.freeIdx().slice(0, 2), ["d1", "d1"]);
+    Mahjong.removeOnePair();
+    const card = { state: Mahjong.state(), time: document.getElementById("over-msg").textContent, note: document.getElementById("over-stats").textContent };
+    Mahjong.toMenu();
+    return { card, stored: localStorage.getItem("mahjong_best_classic"), menu: document.getElementById("bests").textContent };
+  });
+  check("mahjong, Animations on: a desk cleared at 0:00 is kept as the fastest clear, and the menu shows it as one",
+    nil.card.state === "over" && nil.card.time === "0:00" && /new fastest clear/.test(nil.card.note) && nil.stored === "0" && nil.menu === "fastest turtle clear: 0:00", nil);
+  await done(p, "motion");
+
+  // ---- a slowed deal (a tile every 0.12 s), so a press, a pause and the FX
+  // switch are sure to come while it is dropping in
+  {
+    const q = await open(ctx, true, [["var DROP_MS = 330, DROP_STEP = 6;", "var DROP_MS = 330, DROP_STEP = 120;"]]);
+    const state = () => q.evaluate(() => ({ going: Mahjong.dealing(), moving: Mahjong.moving(), sel: document.querySelectorAll(".tile.sel").length, left: Mahjong.tilesLeft(),
+      shifted: [...document.querySelectorAll("#board .tile")].filter((e) => getComputedStyle(e).transform !== "none").length }));
+    await q.keyboard.press("Enter"); await q.waitForTimeout(600);
+    // (a free tile's own place, pressed with the mouse)
+    const spot = await q.evaluate(() => { const b = document.getElementById("board").getBoundingClientRect(), e = [...document.querySelectorAll("#board .tile.free")].pop(); return { x: b.left + e.offsetLeft + e.offsetWidth / 2, y: b.top + e.offsetTop + e.offsetHeight / 2, going: Mahjong.dealing() }; });
+    await q.mouse.click(spot.x, spot.y); await q.waitForTimeout(80);
+    const landed = await state();
+    await q.mouse.click(spot.x, spot.y); await q.waitForTimeout(80);
+    const picked = await state();
+    check("mahjong: a press while the deal is dropping in lands every tile at once and does no more; the next press picks the tile",
+      spot.going && !landed.going && landed.moving === 0 && landed.sel === 0 && landed.shifted === 0 && landed.left === 144 && picked.sel === 1, { spot, landed, picked });
+    await q.evaluate(() => Mahjong.toMenu()); await q.keyboard.press("Enter"); await q.waitForTimeout(400);
+    const g1 = await state();
+    await q.keyboard.press("p"); await q.waitForTimeout(120);
+    const paused = await state();
+    await q.keyboard.press("p"); await q.waitForTimeout(120);
+    await q.evaluate(() => Mahjong.toMenu()); await q.keyboard.press("Enter"); await q.waitForTimeout(400);
+    const g2 = await state();
+    await q.evaluate(() => document.querySelector(".rm-toggle").click()); await q.waitForTimeout(120);
+    const flipped = await state();
+    check("mahjong: a pause, or Visual FX switched off, while the deal is dropping in lands every tile",
+      g1.going && !paused.going && paused.moving === 0 && paused.shifted === 0 && g2.going && !flipped.going && flipped.moving === 0 && flipped.shifted === 0, { g1, paused, g2, flipped });
+    await done(q, "slowed deal");
+  }
+
+  // ---- Visual FX off, Animations on: the same three told by fading, nothing
+  // flying, and the pair's second still comes off
+  {
+    const q = await open(ctx, true, null, true);
+    const calm = await q.evaluate(() => {
+      const tiles = () => [...document.querySelectorAll("#board .tile")];
+      const flat = (es) => es.every((e) => e.getAnimations().every((a) => a.effect.getKeyframes().every((k) => !k.transform || k.transform === "none")));
+      document.getElementById("play").click();
+      const deal = { fxOff: window.RM_ON(), dealing: Mahjong.dealing(), fading: tiles().filter((e) => e.getAnimations().length === 1).length, flat: flat(tiles()), inPlace: tiles().every((e) => e.getBoundingClientRect().top >= 0) };
+      Mahjong.settle();
+      Mahjong.shuffleNow();
+      const shuffle = { moving: Mahjong.moving(), flat: flat(tiles()), raised: document.querySelectorAll(".tile.moving").length };
+      Mahjong.settle();
+      const t0 = Mahjong.timeNow();
+      Mahjong.removeOnePair();
+      const gone = [...document.querySelectorAll(".tile.gone")];
+      return { deal, shuffle, pair: { gone: gone.length, fading: gone.filter((e) => e.getAnimations().length === 1).length, flat: flat(gone), took: t0 - Mahjong.timeNow() } };
+    });
+    check("mahjong, Visual FX off, Animations on: the deal, a shuffle and a matched pair are told by fading, nothing flies, and the pair still takes its second off",
+      calm.deal.fxOff && calm.deal.dealing && calm.deal.fading === 144 && calm.deal.flat && calm.deal.inPlace && calm.shuffle.moving === 144 && calm.shuffle.flat && calm.shuffle.raised === 0 &&
+      calm.pair.gone === 2 && calm.pair.fading === 2 && calm.pair.flat && calm.pair.took === 1000, calm);
+    await done(q, "calm");
+  }
+
+  // ---- Animations off: the game as it was
+  {
+    const q = await open(ctx);
+    const still = await q.evaluate(() => {
+      const tiles = () => [...document.querySelectorAll("#board .tile")], anims = () => tiles().reduce((n, e) => n + e.getAnimations().length, 0);
+      document.getElementById("play").click();
+      const deal = { on: Mahjong.anim ? Mahjong.anim() : null, dealing: Mahjong.dealing ? Mahjong.dealing() : null, anims: anims(), n: tiles().length };
+      Mahjong.shuffleNow();
+      const shuffle = { anims: anims(), moving: Mahjong.moving ? Mahjong.moving() : null };
+      const t0 = Mahjong.timeNow();
+      Mahjong.removeOnePair();
+      return { deal, shuffle, pair: { n: tiles().length, gone: document.querySelectorAll(".tile.gone").length, took: t0 - Mahjong.timeNow() } };
+    });
+    check("mahjong, Animations off: a deal is simply there, a shuffle simply done and a matched pair simply gone, and no time comes off",
+      still.deal.on === false && still.deal.dealing === false && still.deal.anims === 0 && still.deal.n === 144 && still.shuffle.anims === 0 && still.shuffle.moving === 0 &&
+      still.pair.n === 142 && still.pair.gone === 0 && still.pair.took === 0, still);
+    await done(q, "still");
+  }
+  await ctx.close();
+
   // ---- on a small phone every layout is on the screen whole, and the menu
   // card with its layout row is too (nothing cut off above or below)
   ctx = await lib.newContext(browser, { viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true });
-  p = await open(ctx);
+  p = await open(ctx, true);
   const card = await p.evaluate(() => { const r = document.querySelector("#menu .card").getBoundingClientRect(), h = document.querySelector("#menu h1").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), h1: Math.round(h.top), H: innerHeight, W: innerWidth, right: Math.round(r.right) }; });
-  check("mahjong: on a 320 x 568 phone the menu card, layout row and all, is on the screen whole, its heading below the corner buttons' row", card.top >= 0 && card.bottom <= card.H && card.right <= 320 && card.h1 >= 44, card);
+  check("mahjong: on a 320 x 568 phone the menu card, layout row, Animations and all, is on the screen whole, its heading below the corner buttons' row", card.top >= 0 && card.bottom <= card.H && card.right <= 320 && card.h1 >= 44, card);
   const small = {};
   for (let i = 0; i < 5; i++) {
     small[await p.evaluate(() => (document.getElementById("lay-name") || {}).textContent || "none")] = await p.evaluate(() => {

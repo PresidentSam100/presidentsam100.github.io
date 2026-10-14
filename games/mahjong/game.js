@@ -133,8 +133,11 @@
     for (var i = 0; i < LAYOUTS.length; i++) if (LAYOUTS[i].id === id) return LAYOUTS[i];
     return null;
   }
-  // the fastest clear, kept for each layout
+  // the fastest clear, kept for each layout. cleared(): whether a layout has
+  // one on record, asked of the store and not of the time (with Animations on
+  // a desk can be cleared at 0:00, which is a record too)
   var bests = {};
+  function cleared(l) { return store.get(l.best, null) != null; }
   function bestOf(l) {
     if (!window.GameShell) return null;
     return bests[l.id] || (bests[l.id] = GameShell.best(l.best, { higher: false }));
@@ -354,6 +357,133 @@
   var selected = -1, undoStack = [], timeMs = 0, penaltyMs = 0;
   var TW = 44, TH = 58, dailyRecorded = false;
 
+  // ---- motion --------------------------------------------------------------------
+  // "Animations" on the menu (on to begin with, remembered): a deal's tiles
+  // drop in from above the desk, a matched pair comes together and is gone,
+  // and a shuffle's tiles travel to their new places. With Visual FX off the
+  // same three are told calmly, by fading, and nothing flies. Each pair taken
+  // with Animations on takes a second off the clock (PAIR_OFF), down to zero.
+  // The game never waits for any of it: every tile is where it belongs from
+  // the first moment and is only drawn on its way, so a press or a key lands
+  // whatever is still moving (settle), and no clock runs while a deal drops.
+  var anim = store.get("mahjong_anim", "1") !== "0";
+  var PAIR_OFF = 1000, offMs = 0;
+  var DROP_MS = 330, DROP_STEP = 6;   // a tile's fall, and the gap between one tile and the next
+  var dealing = false;                // a deal still coming in
+  var moves = [], ghosts = [], moveTimers = [];   // a deal's or a shuffle's tiles on their way; matched pairs on their way out
+  function clock() { return Math.max(0, timeMs + penaltyMs - offMs); }
+  // one drawn movement of a tile: `done` runs when it ends, is landed early or is thrown away
+  function play(list, el, frames, opts, done) {
+    var rec = { a: el.animate(frames, opts), done: done };
+    list.push(rec);
+    rec.a.onfinish = rec.a.oncancel = function () {
+      var i = list.indexOf(rec);
+      if (i >= 0) list.splice(i, 1);
+      if (rec.done) { var d = rec.done; rec.done = null; d(); }
+    };
+  }
+  function land(list) {
+    list.splice(0).forEach(function (rec) {
+      rec.a.onfinish = rec.a.oncancel = null;
+      try { rec.a.cancel(); } catch (e) {}
+      if (rec.done) { var d = rec.done; rec.done = null; d(); }
+    });
+  }
+  // a deal or a shuffle still on its way lands (settle); the pairs on their way out go too (settleAll)
+  function settle() {
+    moveTimers.forEach(clearTimeout);
+    moveTimers = [];
+    land(moves);
+    dealing = false;
+  }
+  function settleAll() { settle(); land(ghosts); }
+  // The deal: with Visual FX on the tiles drop in from above the desk, the
+  // bottom layer first, sweeping across it; with it off each layer fades in.
+  function dealIn() {
+    var ids = Object.keys(els).map(Number), n = ids.length, board = $("board");
+    if (!anim || !n || !board.animate) return;
+    var left = n, landed = function () { if (--left === 0) dealing = false; };
+    dealing = true;
+    if (!fx()) {
+      ids.forEach(function (i) {
+        play(moves, els[i], [{ opacity: 0 }, { opacity: 1 }], { duration: 180, delay: pos[i][2] * 190, fill: "backwards", easing: "ease-out" }, landed);
+      });
+      return;
+    }
+    var top = board.getBoundingClientRect().top;
+    var at = function (i) { return pos[i][0] + (i * 7919 % 11) / 2; };     // (across the desk, a little ragged)
+    ids.sort(function (a, b) { return pos[a][2] - pos[b][2] || at(a) - at(b); });
+    ids.forEach(function (i, k) {
+      var el = els[i], up = -(top + el.offsetTop + TH + 24);
+      play(moves, el, [
+        { transform: "translateY(" + up + "px)", easing: "cubic-bezier(0.45, 0, 0.9, 0.55)" },
+        { transform: "translateY(0)", offset: 0.82, easing: "ease-out" },
+        { transform: "translateY(-4px)", offset: 0.91, easing: "ease-in" },
+        { transform: "translateY(0)" }
+      ], { duration: DROP_MS, delay: k * DROP_STEP, fill: "backwards" }, landed);
+    });
+    // (the clatter of them landing)
+    for (var c = 0; c < 9; c++) moveTimers.push(setTimeout(clack, DROP_MS * 0.8 + c * n * DROP_STEP / 9, c % 2 === 0));
+  }
+  // A matched pair on its way out: with Visual FX on the two lift, come
+  // together and are gone; with it off they fade where they lie. They are out
+  // of the game already (not in els, deaf to the pointer), only still drawn.
+  function sendOff(ea, eb) {
+    var pair = [ea, eb];
+    if (!anim || !ea.animate) { pair.forEach(function (el) { el.remove(); }); return; }
+    var ra = ea.getBoundingClientRect(), rb = eb.getBoundingClientRect();
+    var dx = (rb.left - ra.left) / 2, dy = (rb.top - ra.top) / 2, flying = fx();
+    pair.forEach(function (el, k) {
+      var x = k ? -dx : dx, y = k ? -dy : dy;
+      el.classList.remove("sel", "free", "hintg", "shake");
+      el.classList.add("gone");
+      el.tabIndex = -1;
+      play(ghosts, el, flying ? [
+        { transform: "translate(0px, 0px) scale(1)", opacity: 1 },
+        { transform: "translate(" + x * 0.12 + "px, " + (y * 0.12 - 9) + "px) scale(1.1)", opacity: 1, offset: 0.2 },
+        { transform: "translate(" + x + "px, " + (y - 5) + "px) scale(1.1)", opacity: 1, offset: 0.72 },
+        { transform: "translate(" + x + "px, " + y + "px) scale(0.55)", opacity: 0 }
+      ] : [{ opacity: 1 }, { opacity: 0 }],
+      { duration: flying ? 430 : 260, easing: flying ? "ease-in-out" : "ease-out", fill: "forwards" }, function () { el.remove(); });
+    });
+  }
+  // A shuffle: the faces have changed places, so with Visual FX on each tile
+  // is drawn travelling from where its face was (`was`: the kinds before) to
+  // where it is now; with it off the desk dims and comes back.
+  function shuffleIn(was) {
+    var ids = Object.keys(els).map(Number);
+    if (!anim || !ids.length || !$("board").animate) return;
+    if (!fx()) {
+      ids.forEach(function (i) { play(moves, els[i], [{ opacity: 0.25 }, { opacity: 1 }], { duration: 320, easing: "ease-out" }); });
+      return;
+    }
+    var from = {}, rects = {};
+    ids.forEach(function (i) { (from[was[i]] = from[was[i]] || []).push(i); rects[i] = els[i].getBoundingClientRect(); });
+    ids.forEach(function (j, n) {
+      var list = from[kinds[j]] || [], k = list.length - 1;
+      if (k > 0 && list[k] === j) k--;                 // (not from where it lies, while there's another of its kind)
+      var src = list.splice(k, 1)[0];
+      if (src == null || src === j) return;
+      var el = els[j], dx = rects[src].left - rects[j].left, dy = rects[src].top - rects[j].top;
+      el.classList.add("moving");
+      play(moves, el, [
+        { transform: "translate(" + dx + "px, " + dy + "px) scale(1)" },
+        { transform: "translate(" + dx / 2 + "px, " + (dy / 2 - 14) + "px) scale(1.08)", offset: 0.5 },
+        { transform: "translate(0px, 0px) scale(1)" }
+      ], { duration: 520 + (n % 7) * 22, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "backwards" }, function () { el.classList.remove("moving"); });
+    });
+  }
+  // the second a pair took off the clock, shown over it for a moment
+  function showOff(ms) {
+    var el = $("hud-off");
+    el.textContent = "-" + Math.round(ms / 100) / 10 + "s";
+    if (!el.animate) return;
+    if (el.offA) el.offA.cancel();
+    el.offA = el.animate(fx()
+      ? [{ opacity: 0, transform: "translate(-50%, 7px)" }, { opacity: 1, transform: "translate(-50%, 0)", offset: 0.25 }, { opacity: 1, transform: "translate(-50%, -2px)", offset: 0.7 }, { opacity: 0, transform: "translate(-50%, -8px)" }]
+      : [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 750 });
+  }
+
   function freeList() {
     var out = [];
     live.forEach(function (i) { if (isFree(pos, i, live)) out.push(i); });
@@ -397,10 +527,11 @@
     });
     refreshFreedom();
   }
-  window.addEventListener("resize", function () { if (state !== "menu") layout(); });
+  window.addEventListener("resize", function () { if (state !== "menu") { settleAll(); layout(); } });
 
   function buildBoard() {
     var board = $("board");
+    settleAll();
     board.innerHTML = "";
     els = {};
     live.forEach(function (i) {
@@ -462,6 +593,11 @@
 
   // ---- play -----------------------------------------------------------------------------
   function clickTile(i) {
+    // a press while the deal is coming in only lands it; a shuffle still
+    // travelling lands, and the press is the press it was
+    var coming = dealing;
+    settle();
+    if (coming) return;
     if (state !== "play" || !live.has(i)) return;
     if (!isFree(pos, i, live)) {
       var el = els[i];
@@ -485,10 +621,13 @@
   function removePair(a, b) {
     els[a].classList.remove("sel");
     live.delete(a); live.delete(b);
-    els[a].remove(); els[b].remove();
+    sendOff(els[a], els[b]);
     delete els[a]; delete els[b];
     undoStack.push([a, b]);
     selected = -1;
+    // (with Animations on, the pair's second off the clock: never below zero)
+    var off = anim ? Math.min(PAIR_OFF, clock()) : 0;
+    if (off > 0) { offMs += off; showOff(off); }
     clack(false);
     refreshFreedom();
     hud();
@@ -497,6 +636,7 @@
   }
   function undo() {
     if (state !== "play" || !undoStack.length) return;
+    settle();
     var pr = undoStack.pop();
     penaltyMs += 15000;
     dead = false;                      // a pair back on the board: there's a way on again
@@ -515,6 +655,7 @@
   }
   function hint(isNudge) {
     if (state !== "play") return;
+    settle();
     var prs = freePairs();
     if (!prs.length) {
       // nothing matches: point at the shuffle, or at Undo when no reshuffle
@@ -571,7 +712,8 @@
   }
   function reshuffle() {
     if (state !== "play" || (live.size < 4 && freePairs().length)) return;
-    var dealt = redeal();
+    settle();
+    var dealt = redeal(), was = kinds;
     if (!dealt) {
       // the board stays, and it costs nothing
       thunk();
@@ -583,6 +725,7 @@
     if (selected >= 0 && els[selected]) els[selected].classList.remove("sel");   // its face just changed
     selected = -1;
     layout();
+    shuffleIn(was);
     hud();
     clack(false);
   }
@@ -598,11 +741,12 @@
     live = new Set(pos.map(function (_, i) { return i; }));
     kinds = dealOnto(pos, [...live], pairPool(rng), rng);
     dailyRecorded = mode === "daily" ? readDaily().done : false;
-    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; dead = false;
+    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; offMs = 0; dead = false;
     $("menu").hidden = true; $("over").hidden = true; $("hudline").hidden = false;
     state = "play";
     buildBoard();
     hud();
+    dealIn();
   }
   function fmt(ms) {
     var s = Math.floor(ms / 1000);
@@ -613,7 +757,7 @@
   // offers the ways out after Undo: New deal, and on the Daily, giving up
   var dead = false;
   function hud() {
-    $("hud-time").textContent = fmt(timeMs + penaltyMs);
+    $("hud-time").textContent = fmt(clock());
     $("hud-left").textContent = live.size + " tiles";
     $("hud-pairs").textContent = dead ? "no reshuffle fits: undo a pair, or" : freePairs().length + " pairs open";
     $("hud-stuck").hidden = !dead;
@@ -622,7 +766,7 @@
   function win() {
     state = "over";
     chime();
-    var total = timeMs + penaltyMs;
+    var total = clock();
     var lines = [], isBest = false;
     if (mode === "daily") {
       var d = readDaily();
@@ -640,7 +784,7 @@
       $("over-title").textContent = "The desk is clear";
       $("over-msg").textContent = fmt(total);
       lines.push(isBest ? "a new fastest clear! 🀄" :
-        "best: " + (bt && bt.get() ? fmt(bt.get()) : fmt(total)));
+        "best: " + fmt(bt ? bt.get() : total));
       $("share").hidden = true;
       $("again").innerHTML = "Deal again " + keyCap("Space or Enter");
     }
@@ -666,6 +810,7 @@
   // the clock
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
+    onChange: function (paused) { if (paused) settleAll(); },
     // on the card: a new deal in this mode (the Daily's own again), or back to the modes
     restart: function () { startRun(mode); },
     menu: toMenu
@@ -678,12 +823,14 @@
     pausable: P
   });
   setInterval(function () {
-    if (state !== "play" || P.isPaused()) return;
+    if (state !== "play" || P.isPaused() || dealing) return;
     timeMs += 200;
     hud();
   }, 200);
   // follow the ✨ switch the moment it flips (this used to poll every 400ms)
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
+  // (and whatever is on its way lands: its drawing belongs to the setting it began under)
+  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); settleAll(); });
+  document.addEventListener("visibilitychange", function () { if (document.hidden) settleAll(); });
   document.body.classList.toggle("fxon", fx());
 
   // ---- menu -------------------------------------------------------------------------------
@@ -697,13 +844,17 @@
       : "today's turtle, shareable " + keyCap("2");
     // the layout: its name and picture, and its own fastest clear. On the
     // Daily it is the turtle and the arrows are off.
+    $("anim-state").textContent = anim ? "on" : "off";
+    $("anim-note").textContent = anim ? "1s off each pair" : "no time off";
+    $("opt-anim").setAttribute("aria-pressed", anim ? "true" : "false");
+    $("opt-anim").classList.toggle("on", anim);
     var l = layoutNow(), what = l.name.toLowerCase(), bt = bestOf(l);
     $("lay-name").textContent = l.name;
     $("lay-note").textContent = mode === "daily" ? "the Daily's layout" : "layout " + (LAYOUTS.indexOf(l) + 1) + " of " + LAYOUTS.length;
     $("lay-prev").disabled = $("lay-next").disabled = mode === "daily";
     $("play-what").textContent = "Deal the " + what;
     drawLayout($("lay-pic"), l);
-    $("bests").textContent = bt && bt.get()
+    $("bests").textContent = bt && cleared(l)
       ? "fastest " + what + " clear: " + fmt(bt.get())
       : "no " + what + " cleared yet";
   }
@@ -735,6 +886,7 @@
     paintMenu();
   }
   function toMenu() {
+    settleAll();
     state = "menu";
     $("over").hidden = true; $("hudline").hidden = true;
     $("board").innerHTML = "";
@@ -753,7 +905,14 @@
   });
   $("lay-prev").addEventListener("click", function () { stepLayout(-1); });
   $("lay-next").addEventListener("click", function () { stepLayout(1); });
-  ["lay-prev", "lay-next"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
+  $("opt-anim").addEventListener("click", function () {
+    anim = !anim;
+    store.set("mahjong_anim", anim ? "1" : "0");
+    paintMenu();
+  });
+  ["lay-prev", "lay-next", "opt-anim"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
+  // (a press on the desk, off the tiles, lands a deal still coming in too)
+  $("desk").addEventListener("click", function () { if (dealing) settle(); });
   window.addEventListener("resize", function () { if (state === "menu") paintMenu(); });   // (the picture is drawn at its size on screen)
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -820,10 +979,10 @@
     groups: [{ sel: "#btn-newdeal", keys: ["n"] }, { sel: "#btn-giveup", keys: ["g"] }]
   });
 
-  // the menu's layout arrows take the arrow keys, shown on them
+  // the menu's layout arrows take the arrow keys and Animations takes A, shown on them
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return state === "menu"; },
-    groups: [{ sel: "#lay-prev", keys: ["arrowleft"] }, { sel: "#lay-next", keys: ["arrowright"] }]
+    groups: [{ sel: "#lay-prev", keys: ["arrowleft"] }, { sel: "#lay-next", keys: ["arrowright"] }, { sel: "#opt-anim", keys: ["a"] }]
   });
 
   toMenu();
@@ -834,6 +993,11 @@
     layout: function () { return dealt.id; },
     layouts: function () { return LAYOUTS.map(function (l) { return { id: l.id, name: l.name, best: l.best, pos: l.make() }; }); },
     isFree: function (i) { return isFree(pos, i, live); },
+    anim: function () { return anim; },
+    dealing: function () { return dealing; },
+    moving: function () { return moves.length; },
+    leaving: function () { return ghosts.length; },
+    settle: settleAll,
     tilesLeft: function () { return live.size; },
     freePairsCount: function () { return freePairs().length; },
     removeOnePair: function () {
@@ -859,9 +1023,9 @@
     undoNow: undo,
     shuffleNow: reshuffle,
     hintNow: function () { hint(false); },
-    timeNow: function () { return timeMs + penaltyMs; },
+    timeNow: function () { return clock(); },
     daily: readDaily,
-    start: startRun,
+    start: function (m) { startRun(m); settle(); },     // (dealt and landed: a test's desk is in place at once)
     toMenu: toMenu
   };
 })();

@@ -51,7 +51,14 @@ body {
   flex-wrap: wrap;
 }
 .hudline[hidden] { display: none; }
-#hud-time { font-size: 20px; font-weight: 700; min-width: 64px; }
+#hud-time { font-size: 20px; font-weight: 700; min-width: 64px; display: inline-block; }
+/* the second a pair took off, over the clock for a moment (game.js showOff) */
+.clock { position: relative; }
+#hud-off {
+  position: absolute; left: 50%; top: -12px; transform: translateX(-50%);
+  font-size: 11.5px; font-weight: 700; color: #d6efb4; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+}
 #hud-pairs { color: #e8cf96; }
 .hud-btns { display: flex; gap: 8px; }
 .hud-btns button {
@@ -104,6 +111,10 @@ button.tile.hintg { animation: hintg 0.8s ease 2; }
 }
 button.tile.shake { animation: shake 0.28s ease; }
 @keyframes shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+/* a matched pair on its way out, and a shuffle's tiles on their way (game.js):
+   over the rest, and the pair deaf to the pointer */
+button.tile.gone { pointer-events: none; z-index: 9000 !important; }
+button.tile.moving { z-index: 8000 !important; }
 button.tile:focus { outline: none; }
 button.tile.free:focus-visible { outline: 3px dashed var(--inkblue); outline-offset: 2px; }
 
@@ -158,13 +169,17 @@ kbd {
 }
 
 .pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.seg button {
+.seg button, .opt {
   font-family: inherit; font-size: 16px; text-align: left; cursor: pointer;
   color: var(--ink); background: rgba(255, 255, 255, 0.55);
   border: 1.5px solid #c9b58a; border-radius: 9px; padding: 9px 13px;
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
-.seg button small { font-size: 13px; color: #7a6648; }
+.seg button small, .opt small { font-size: 13px; color: #7a6648; }
+/* Animations, on or off: a row like the modes', its key (A) at the end */
+.opt { width: 100%; margin-bottom: 12px; --gs-key-bg: var(--ink); }
+.opt small { margin-left: auto; }
+.opt.on #anim-state { color: var(--lacquer); }
 .seg button.on { border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); background: #fff; }
 .seg button.on b { color: var(--lacquer); }
 
@@ -222,7 +237,8 @@ kbd {
   .card .tag { margin: 1px 0 7px; font-size: 14.5px; }
   .card .how { font-size: 14px; line-height: 1.45; margin-bottom: 9px; }
   .pick .seg { gap: 6px; margin-bottom: 8px; }
-  .seg button { padding: 6px 11px; font-size: 15px; }
+  .seg button, .opt { padding: 6px 11px; font-size: 15px; }
+  .opt { margin-bottom: 8px; }
   .layrow { margin-bottom: 8px; gap: 8px; }
   .layrow canvas { width: 72px; height: 51px; }
   .layrow > button { padding: 8px 9px; }
@@ -235,6 +251,15 @@ kbd {
 @media (max-width: 400px) {
   .layrow .lay { flex-direction: column; gap: 2px; }
   .lay-text { text-align: center; line-height: 1.2; }
+  .opt { font-size: 14.5px; gap: 6px; padding: 6px 9px; }
+  .opt small { font-size: 12px; }
+}
+/* the narrowest phones (320 px): the rules a size smaller and the picture a
+   little, so the card, Animations row and all, still shows whole */
+@media (max-width: 340px) {
+  .card .how { font-size: 13px; line-height: 1.4; }
+  .layrow canvas { width: 64px; height: 45px; }
+  .bests { margin-top: 5px; }
 }
 
 @media (max-width: 640px) {
