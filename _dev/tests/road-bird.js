@@ -7,9 +7,13 @@
 // The menu: a click or a number picks a mode, the arrows that move the pick
 // ride on it, and Play (Space or Enter) sits under the modes, above the skin.
 // The how-to line lies inside the board's rim, and rows meet on hairlines.
+// Normal or Insane (N / I) under the modes: Insane has no grass to rest on,
+// and keeps bests of its own.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
-const MENU_Y = 268, PLAY_Y = MENU_Y + 3 * 62 + 50 + 22, SKIN_Y = 640;   // the first mode's top, Play's, the turntable's floor
+// the first mode's top, one mode to the next, a mode's height, Normal and
+// Insane's top, Play's, the turntable's floor
+const MENU_Y = 250, STEP = 58, BH = 48, LEVEL_Y = MENU_Y + 3 * STEP + BH + 12, PLAY_Y = LEVEL_Y + 42 + 12, SKIN_Y = 640;
 
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
@@ -83,7 +87,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // the menu: ↑ and ↓ ride on the picked mode and go with it, Play wears Space
   // or Enter between the modes and the skin, and no line of keys is left
   const named = (list, s) => list.filter((t) => t.s === s);
-  const onMode = (t, i) => !!t && t.y > MENU_Y + i * 62 && t.y < MENU_Y + i * 62 + 50 && t.x > (W + 380) / 2;
+  const onMode = (t, i) => !!t && t.y > MENU_Y + i * STEP && t.y < MENU_Y + i * STEP + BH && t.x > (W + 380) / 2;
   const menuAt = await drawnAt(d);
   await d.keyboard.press("3"); await d.waitForTimeout(100);
   const menu3 = await drawnAt(d);
@@ -93,9 +97,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     !/ select {2}•|tap to play/.test(deskMenu), { arrows, deskMenu });
   const playKey = named(menuAt, "SPACE or ENTER"), skinAt = menuAt.find((t) => /^Skin: /.test(t.s));
   check("road-bird, desktop: Play wears Space or Enter, under the four modes and above the skin",
-    playKey.length === 1 && playKey[0].y > PLAY_Y && playKey[0].y < PLAY_Y + 50 && menuAt.some((t) => t.s === "Play") && !!skinAt && skinAt.y > PLAY_Y + 50 + 60, { playKey, skinAt });
+    playKey.length === 1 && playKey[0].y > PLAY_Y && playKey[0].y < PLAY_Y + 48 && menuAt.some((t) => t.s === "Play") && !!skinAt && skinAt.y > PLAY_Y + 48 + 60, { playKey, skinAt });
   // a click picks a mode, as its number does; Play starts the picked one
-  await at(d, W / 2, MENU_Y + 62 + 25); await d.waitForTimeout(150);          // Cars & Trucks
+  await at(d, W / 2, MENU_Y + STEP + 24); await d.waitForTimeout(150);        // Cars & Trucks
   const clicked = await d.evaluate(() => ({ state: __game.state, sel: __game.menuSel }));
   // the how-to line lies inside the board, clear of its rim, whatever the window
   const hintBox = (pg) => pg.evaluate(() => {
@@ -161,7 +165,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // (the how-to line is under the board there: the page has the room)
   const phoneLine = await m.evaluate(() => { const h = document.getElementById("hint").getBoundingClientRect(), c = document.getElementById("game").getBoundingClientRect(); return { top: Math.round(h.top), bottom: Math.round(h.bottom), board: Math.round(c.bottom), win: innerHeight }; });
   check("road-bird, phone: the how-to line sits just under the board, on the page", phoneLine.top >= phoneLine.board + 4 && phoneLine.top <= phoneLine.board + 24 && phoneLine.bottom <= phoneLine.win, phoneLine);
-  await at(m, W / 2, MENU_Y + 3 * 62 + 25, true); await m.waitForTimeout(150);   // River: a tap picks it
+  await at(m, W / 2, MENU_Y + 3 * STEP + 24, true); await m.waitForTimeout(150); // River: a tap picks it
   const tapped = await m.evaluate(() => ({ state: __game.state, sel: __game.menuSel }));
   await at(m, W / 2, PLAY_Y + 25, true); await m.waitForTimeout(200);            // Play
   const tapPlay = await m.evaluate(() => ({ state: __game.state, mode: __game.mode }));
@@ -183,7 +187,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const retina = await lib.newContext(browser, { deviceScaleFactor: 2 });
   const r = await lib.open(retina, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
   const size = await r.evaluate(() => ({ w: document.getElementById("game").width, h: document.getElementById("game").height }));
-  await at(r, W / 2, MENU_Y + 2 * 62 + 25); await r.waitForTimeout(150);     // the Trains button
+  await at(r, W / 2, MENU_Y + 2 * STEP + 24); await r.waitForTimeout(150);   // the Trains button
   await at(r, W / 2, PLAY_Y + 25); await r.waitForTimeout(300);              // Play
   const picked = await r.evaluate(() => ({ mode: __game.mode, state: __game.state }));
   check("road-bird, 2× screen: the canvas has twice the pixels and a click picks the mode under it (Play then starts it)",
@@ -191,6 +195,55 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("road-bird, 2× screen: frames draw with no page errors", r.errs.length === 0, r.errs);
   await r.close();
   await retina.close();
+
+  // ---- Normal or Insane, side by side under the modes: N and I (or a click)
+  // pick one, and it is remembered, each keycap on its button's outer side.
+  // Insane has no grass after the row you start on, in every mode (Normal
+  // keeps its rests); each keeps its own bests, shown on the modes and in
+  // play, and the game-over card says which it was.
+  {
+    const seed = (pg) => pg.addInitScript(() => { try { localStorage.setItem("crossy_high_classic", "42"); localStorage.setItem("crossy_high_classic_insane", "7"); } catch (e) {} });
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: async (pg) => { await seed(pg); await lib.injectScript(pg, "games/road-bird/game.js", [HOOK]); } });
+    const ins = () => q.evaluate(() => ({ ins: __game.insane, saved: localStorage.getItem("crossy_insane"), state: __game.state }));
+    const at0 = await drawnAt(q), normalMenu = at0.map((t) => t.s).join(" | ");
+    const capN = named(at0, "N"), capI = named(at0, "I"), mid = (t) => !!t && t.y > LEVEL_Y && t.y < LEVEL_Y + 42;
+    const picks = { start: await ins() };
+    await q.keyboard.press("i"); picks.i = await ins();
+    const insaneMenu = await drawn(q);
+    await q.keyboard.press("n"); picks.n = await ins();
+    await at(q, (W + 380) / 2 - 60, LEVEL_Y + 21); await q.waitForTimeout(150); picks.click = await ins();
+    await q.reload({ waitUntil: "domcontentloaded" }); await q.waitForSelector(".mute-toggle"); await q.waitForTimeout(300);
+    picks.reloaded = await ins();
+    check("road-bird: Normal and Insane sit under the modes, N and I on their outer sides; I, N and a click pick (nothing starts), and the pick is remembered",
+      capN.length === 1 && capI.length === 1 && mid(capN[0]) && mid(capI[0]) && capN[0].x < (W - 380) / 2 && capI[0].x > (W + 380) / 2 &&
+      /Normal/.test(normalMenu) && /Insane/.test(normalMenu) && /no grass/.test(normalMenu) &&
+      picks.start.ins === false && picks.i.ins === true && picks.i.saved === "1" && picks.i.state === "menu" && picks.n.ins === false && picks.n.saved === "0" &&
+      picks.click.ins === true && picks.click.state === "menu" && picks.reloaded.ins === true, { capN, capI, picks });
+    check("road-bird: each keeps its own bests (Classic shows 42 on Normal, 7 on Insane)", /BEST 42/.test(normalMenu) && !/BEST 7\b/.test(normalMenu) && /BEST 7\b/.test(insaneMenu) && !/BEST 42/.test(insaneMenu), { normalMenu, insaneMenu });
+    // the rows ahead in each mode, both ways
+    const grass = {};
+    for (const [n, mode] of [["1", "classic"], ["2", "cars"], ["3", "trains"], ["4", "river"]]) {
+      for (const level of ["n", "i"]) {
+        await q.keyboard.press(n); await q.keyboard.press(level); await q.keyboard.press("Enter");
+        await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
+        const got = await q.evaluate(() => { const t = __game.rowTypes(0, 400); return { start: t[0], ahead: t.slice(1).filter((x) => x === "grass").length, mode: __game.mode }; });
+        if (mode === "classic" && level === "i") got.hud = await drawn(q);
+        await q.evaluate(() => __game.death("runover"));
+        await q.waitForFunction(() => __game.state === "dead", null, { timeout: 15000 });
+        if (mode === "classic" && level === "i") got.over = await drawn(q);
+        await q.keyboard.press("Backspace"); await q.waitForFunction(() => __game.state === "menu", null, { timeout: 8000 });
+        grass[mode + (level === "i" ? " insane" : "")] = got;
+      }
+    }
+    check("road-bird: in Insane not one grass row comes after the one you start on, in every mode; Normal still has its rests",
+      ["classic", "cars", "trains", "river"].every((m) => grass[m].mode === m && grass[m + " insane"].mode === m && grass[m].ahead > 3 && grass[m + " insane"].ahead === 0 && grass[m + " insane"].start === "grass"),
+      Object.fromEntries(Object.entries(grass).map(([k, v]) => [k, { start: v.start, ahead: v.ahead, mode: v.mode }])));
+    const ci = grass["classic insane"];
+    check("road-bird: an Insane run says so beside its best (7), and its game-over card names it",
+      /INSANE {2}· {2}BEST 7\b/.test(ci.hud) && /Classic, Insane {2}· {2}Score/.test(ci.over), { hud: ci.hud, over: ci.over });
+    check("road-bird (Normal and Insane): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   await ctx.close();
 };

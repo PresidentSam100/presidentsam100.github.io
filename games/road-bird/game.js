@@ -518,12 +518,16 @@ const MODES = [
 ];
 let gameMode = "classic";
 let menuSel = 0;
-const highKey = (mode) => "crossy_high_" + mode;
-const bestCoinsKey = (mode) => "crossy_bestcoins_" + mode; // coins collected during the run that set the high score
+// Normal or Insane, picked under the modes (N / I) and remembered. Insane is
+// hazards only: after the grass you start on, not one grass row to rest on.
+let insane = lsGet("crossy_insane", "0") === "1";
+// (each mode keeps a best for each: Normal's under the names they always had)
+const highKey = (mode, ins = insane) => "crossy_high_" + mode + (ins ? "_insane" : "");
+const bestCoinsKey = (mode, ins = insane) => "crossy_bestcoins_" + mode + (ins ? "_insane" : ""); // coins collected during the run that set the high score
 // storage is wrapped so private-browsing / disabled storage can't crash the game
 function lsGet(k, dflt) { try { const v = localStorage.getItem(k); return v == null ? dflt : v; } catch (e) { return dflt; } }
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
-function loadHigh(mode) { return +lsGet(highKey(mode), 0); }
+function loadHigh(mode, ins) { return +lsGet(highKey(mode, ins), 0); }
 function loadBestCoins(mode) { return +lsGet(bestCoinsKey(mode), 0); }
 let highScore = loadHigh(gameMode);
 let bestCoins = loadBestCoins(gameMode); // coins from the best run, shown next to "Best"
@@ -539,7 +543,7 @@ const SKINS = [
   { name: "Phoenix",  body: "#ff6a2b", comb: "#ffd23d", beak: "#ffe08a", tail: "#e8431f", unlock: 250 }
 ];
 let skinSel = clamp((+lsGet("crossy_skin", 0)) | 0, 0, SKINS.length - 1);
-function bestEver() { return Math.max(0, ...MODES.map(m => loadHigh(m.id))); }
+function bestEver() { return Math.max(0, ...MODES.map(m => Math.max(loadHigh(m.id, false), loadHigh(m.id, true)))); }
 function skinUnlocked(i) { return bestEver() >= SKINS[i].unlock; }
 
 const player = { gx: Math.floor(COLS / 2), gy: 0, face: "up" };
@@ -777,16 +781,17 @@ function makeRiverRow(diff, forceLogs) {
 }
 
 function pickSection() {
-  // Themed modes are overwhelmingly their obstacle, with only an occasional single grass row to breathe.
+  // Themed modes are overwhelmingly their obstacle, with only an occasional single grass row to breathe
+  // (in Insane, none).
   if (gameMode !== "classic") {
     const obstacle = gameMode === "cars" ? "road" : gameMode === "trains" ? "rail" : "river";
-    const grassChance = gameMode === "river" ? 0.20 : gameMode === "trains" ? 0.16 : 0.14;
+    const grassChance = insane ? 0 : gameMode === "river" ? 0.20 : gameMode === "trains" ? 0.16 : 0.14;
     if (Math.random() < grassChance) { sectionType = "grass"; sectionRemaining = 1; return; }
     sectionType = obstacle;
     sectionRemaining = obstacle === "road" ? randInt(2, 5) : obstacle === "river" ? randInt(1, 3) : randInt(1, 2);
     return;
   }
-  sectionType = weighted(["grass", "road", "river", "rail"], [0.27, 0.33, 0.18, 0.22]);
+  sectionType = weighted(["grass", "road", "river", "rail"], [insane ? 0 : 0.27, 0.33, 0.18, 0.22]);
   if (sectionType === "grass") sectionRemaining = randInt(1, 2);
   else if (sectionType === "road") sectionRemaining = randInt(1, 4);
   else if (sectionType === "river") sectionRemaining = randInt(1, 3);
@@ -795,7 +800,7 @@ function pickSection() {
 
 function generateRow(r) {
   let row;
-  if (r <= 3) {
+  if (r <= (insane ? 0 : 3)) {   // the grass you start on (Insane: just your own row)
     const trees = new Set();
     row = { type: "grass", trees, decos: makeDecos(trees) };
   } else {
@@ -1258,6 +1263,12 @@ function startCurrentMode() { // (re)start the currently selected mode
 }
 function startSelectedMode() { gameMode = MODES[menuSel].id; startCurrentMode(); }
 function goToMenu() { deathAnim = null; state = "menu"; }
+function setInsane(on) {
+  if (insane === on) return;
+  menuTick(on ? 1 : -1);
+  insane = on; lsSet("crossy_insane", on ? "1" : "0");
+  highScore = loadHigh(gameMode); bestCoins = loadBestCoins(gameMode);
+}
 
 // ---------- input ----------
 // Align the chicken onto the nearest grid-cell of whatever log/pad its target cell lands on,
@@ -1364,6 +1375,8 @@ window.addEventListener("keydown", (e) => {
     // a number goes to its mode without starting it (Space or Enter starts),
     // so the modes can be gone through first; its keycap is beside the button
     else if (/^[1-9]$/.test(k) && +k <= MODES.length) { if (menuSel !== +k - 1) { menuTick(+k - 1 < menuSel ? -1 : 1); menuSel = +k - 1; } }
+    else if (k === "n") setInsane(false);
+    else if (k === "i") setInsane(true);
     else if (k === "c") cycleSkin();
     else if (k === " " || k === "enter") startSelectedMode();
     return;
@@ -1415,16 +1428,21 @@ function canvasPos(clientX, clientY) {
   return { x: (clientX - r.left) / r.width * W, y: (clientY - r.top) / r.height * H };
 }
 const inRect = (p, b) => p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
-// The menu, top to bottom: the modes, Play under them, then the skin
-// turntable with its label (the how-to line lies along the board's foot).
-const MENU_Y = 268, SKIN_Y = 640;   // the first mode's top; the turntable's floor
+// The menu, top to bottom: the modes, Normal and Insane side by side, Play,
+// then the skin turntable with its label (the how-to line lies along the
+// board's foot).
+const MENU_Y = 250, SKIN_Y = 640;   // the first mode's top; the turntable's floor
 function menuButtonRects() {
-  const bw = 380, bh = 50, gap = 12, x = (W - bw) / 2;
+  const bw = 380, bh = 48, gap = 10, x = (W - bw) / 2;
   return MODES.map((m, i) => ({ x, y: MENU_Y + i * (bh + gap), w: bw, h: bh }));
 }
+function levelRects() {   // [Normal, Insane]
+  const last = menuButtonRects()[MODES.length - 1], gap = 12, bw = (last.w - gap) / 2, y = last.y + last.h + 12;
+  return [{ x: last.x, y, w: bw, h: 42 }, { x: last.x + bw + gap, y, w: bw, h: 42 }];
+}
 function playRect() {
-  const last = menuButtonRects()[MODES.length - 1], bw = 300;
-  return { x: (W - bw) / 2, y: last.y + last.h + 22, w: bw, h: 50 };
+  const lv = levelRects()[0], bw = 300;
+  return { x: (W - bw) / 2, y: lv.y + lv.h + 12, w: bw, h: 48 };
 }
 function deadButtonRects() {
   const bw = 300, bh = 50, gap = 14, x = (W - bw) / 2, y0 = H * 0.60;
@@ -1442,7 +1460,10 @@ function handlePointer(clientX, clientY) {
     // a click or a tap picks a mode, as its number does, and Play starts it
     const rects = menuButtonRects();
     for (let i = 0; i < rects.length; i++) if (inRect(p, rects[i])) { if (menuSel !== i) { menuTick(i < menuSel ? -1 : 1); menuSel = i; } return; }
-    if (inRect(p, playRect())) startSelectedMode();
+    const lv = levelRects();
+    if (inRect(p, lv[0])) setInsane(false);
+    else if (inRect(p, lv[1])) setInsane(true);
+    else if (inRect(p, playRect())) startSelectedMode();
     else if (inRect(p, skinRect())) cycleSkin();
   } else if (state === "dead") {
     const r = deadButtonRects();
@@ -1975,7 +1996,7 @@ function drawHUD() {
   textCenter(String(score()), 46, 40, 40 * (1 + 0.55 * ease), "#fff");
   ctx.font = "bold 13px 'Trebuchet MS', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,.8)";
-  ctx.fillText("BEST " + highScore, 18, 70);
+  ctx.fillText((insane ? "INSANE  ·  " : "") + "BEST " + highScore, 18, 70);
   if (coins > 0) { ctx.fillStyle = "#ffd23d"; ctx.fillText("🪙 " + coins, 18, 88); }
 }
 
@@ -2034,6 +2055,25 @@ function drawButton(b, fill, label, sub, hi, selected, key) {
     ctx.fillStyle = "rgba(44,58,24,.78)";
     ctx.fillText("BEST " + hi, b.x + b.w - 16, b.y + b.h / 2);
   }
+}
+
+// Normal / Insane: a smaller button, its name over a line saying what it is
+function drawLevel(b, fill, label, sub, selected) {
+  ctx.fillStyle = shadeC(fill, -0.4);
+  roundRect(b.x, b.y + 4, b.w, b.h, 12); ctx.fill();
+  ctx.fillStyle = fill;
+  roundRect(b.x, b.y, b.w, b.h, 12); ctx.fill();
+  if (selected) {
+    ctx.strokeStyle = "rgba(255,255,255,.85)"; ctx.lineWidth = 2.5;
+    roundRect(b.x + 2.5, b.y + 2.5, b.w - 5, b.h - 5, 9.5); ctx.stroke();
+  }
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#2c3a18";
+  ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+  ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2 - 7);
+  ctx.font = "12px 'Trebuchet MS', sans-serif";
+  ctx.fillStyle = "rgba(44,58,24,.72)";
+  ctx.fillText(sub, b.x + b.w / 2, b.y + b.h / 2 + 11);
 }
 
 // ---------- true-3D chick for the skin turntable ----------
@@ -2110,7 +2150,7 @@ function drawMenu() {
   // a pair of voxel chickens flanking the title, bobbing in time
   drawChicken(W / 2 - 168, H * 0.15 + 30 + bob, 1.25, 1.25, -0.06, "right", SKINS[skinSel]);
   drawChicken(W / 2 + 168, H * 0.15 + 30 - bob, 1.25, 1.25, 0.06, "left", SKINS[skinSel]);
-  textCenter("Select a mode", W / 2, H * 0.30, 20, "#eaf2dc");
+  textCenter("Select a mode", W / 2, 222, 20, "#eaf2dc");
   const rects = menuButtonRects();
   MODES.forEach((m, i) => {
     const sel = i === menuSel, cy = rects[i].y + rects[i].h / 2 + 1;
@@ -2123,7 +2163,15 @@ function drawMenu() {
       keysCenter("[↓]", rects[i].x + rects[i].w + 26, cy + 12, 15, "#ffd23d", "");
     }
   });
-  // Play, under the modes: Space or Enter, or a tap, starts the picked one
+  // Normal or Insane, side by side under the modes, each with its key on its
+  // outer side (a tap picks one)
+  const lv = levelRects();
+  [["Normal", "grass to rest on", "#ffd23d"], ["Insane", "no grass: all hazards", "#ff7a6b"]].forEach(([name, says, on], i) => {
+    const sel = insane === (i === 1), b = lv[i];
+    drawLevel(b, sel ? on : "#f6f2e4", name, says, sel);
+    keysCenter(i ? "[I]" : "[N]", i ? b.x + b.w + 26 : b.x - 26, b.y + b.h / 2 + 1, 17, sel ? on : "#fff", "");
+  });
+  // Play, under them: Space or Enter, or a tap, starts the picked one
   // (the keys used to be a line of small print at the foot of the menu)
   drawButton(playRect(), "#8fce46", "Play", null, null, false, "SPACE or ENTER");
   // skin selector: the current chicken turns on a real 3D turntable, the
@@ -2159,7 +2207,7 @@ function drawDead() {
     textCenter("★ NEW BEST! ★", 0, 0, 26, "#ffe14d");
     ctx.restore();
   }
-  textCenter((mode ? mode.label : "") + "  ·  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
+  textCenter((mode ? mode.label : "") + (insane ? ", Insane" : "") + "  ·  Score " + score(), W / 2, H * 0.39, 26, "#ffd23d");
   textCenter("Best  " + highScore + (bestCoins ? "    (🪙 " + bestCoins + ")" : ""), W / 2, H * 0.39 + 30, 18, "#dfe6f0");
   const r = deadButtonRects();
   // each button wears its own key (Space or Enter, Backspace); the way out to the
@@ -2314,6 +2362,8 @@ window.__game = {
   get player() { return player; },
   get menuSel() { return menuSel; },
   get mode() { return gameMode; },
+  get insane() { return insane; },
+  rowTypes: (from, to) => { ensureRows(to + 1); const out = []; for (let r = from; r <= to; r++) out.push(rows[r] ? rows[r].type : null); return out; },
   spawnFeathers, spawnDust, death, snapToPlatform
 };
 
