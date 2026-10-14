@@ -104,17 +104,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   // window is often 600 to 700 px tall (the desktop above is 900). The
   // windscreen is at or near its smallest there, and the menu still shows
   // everything on it, for a player with a best saved in both modes (the
-  // tallest card): the three rules, both switches and their bests, and on a
-  // desktop its name. Nothing is left out or cut off to make it fit. The
-  // crash card is whole too.
+  // tallest card): its name, the three rules, both switches and their bests
+  // (a phone's menu went without its name once, to fit). Nothing is left out
+  // or cut off to make it fit. The crash card is whole too.
   const bests = (pg) => pg.addInitScript(() => { try { localStorage.setItem("rushhour_best_day", "12345"); localStorage.setItem("rushhour_best_night", "23456"); } catch (e) {} });
   for (const [w, h, phone] of [[375, 553, true], [360, 560, true], [320, 568, true], [320, 480, true], [320, 664, true], [1366, 657, false], [1280, 600, false], [1280, 500, false]]) {
     const c = await lib.newContext(browser, Object.assign({}, phone ? devices["iPhone 13"] : {}, { viewport: { width: w, height: h } }));
     const q = await lib.open(c, base, "games/quick-minute/", { before: bests });
     const label = "quick-minute, a " + w + " x " + h + (phone ? " phone" : " window");
     const card = await cardOf(q);
-    check(label + ": the menu keeps all three rules, both switches and their bests" + (phone ? "" : ", and its name") + ", whole inside the windscreen",
-      whole(card) && card.bests === 2 && (phone || card.name), card);
+    check(label + ": the menu keeps its name, all three rules, both switches and their bests, whole inside the windscreen",
+      whole(card) && card.bests === 2 && card.name, card);
     await q.evaluate(() => __game.start("day")); await q.waitForTimeout(120);
     await crash(q);
     const over = await cardOf(q);

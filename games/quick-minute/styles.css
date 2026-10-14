@@ -206,8 +206,6 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   .needle { height: 38px; margin-top: -38px; }
   .stat.odo .value { font-size: 1.25rem; letter-spacing: 2px; min-width: 3.6em; }
   .hint { font-size: 0.88rem; }
-  /* the menu's name is on the mirror already */
-  .card h2.nm { display: none; }
 }
 /* The card lies on the windscreen, and the windscreen is only as tall as the
    window leaves it (never under 300 px). So the card closes up as the window
@@ -227,7 +225,7 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
 }
 /* ... then, where the windscreen is at or near its least, the lines close up
    too (a narrow screen wraps the most lines, so it starts sooner) */
-@media (max-height: 660px), (max-width: 365px) and (max-height: 700px) {
+@media (max-height: 660px), (max-width: 365px) and (max-height: 720px) {
   .overlay { padding: 0.25rem; }
   .card { padding: 0.5rem 0.75rem 0.45rem; }
   .card h2 { margin-bottom: 0.25rem; }
@@ -239,9 +237,16 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   .card p.note { margin-top: 0.3rem; }
 }
 /* ... and those narrow screens, with the most lines of all, set them a size smaller */
-@media (max-width: 365px) and (max-height: 700px) {
+@media (max-width: 365px) and (max-height: 720px) {
   .card p { font-size: 0.88rem; }
   .rules { font-size: 0.84rem; }
+  /* (the card's name stays on it here too: its line, the card's edge and the
+     switches close up to make its room) */
+  .card { padding: 0.4rem 0.75rem 0.35rem; }
+  .card h2.nm { font-size: 0.9rem; line-height: 1.25; margin-bottom: 0.15rem; }
+  .rules { margin: 0.15rem 0 0.2rem; }
+  .mode-btn { padding: 0.35rem 0.4rem 0.3rem; }
+  .card p.note { margin-top: 0.2rem; }
 }
 @media (max-width: 340px) {
   .mode-btn { white-space: nowrap; }
