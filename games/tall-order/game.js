@@ -218,7 +218,7 @@
     } else {
       streak = 0;
       // shear the overhang off as falling cake (an offcut: with Visual FX on it
-      // crumbles a tier's height down, see update)
+      // sheds crumbs a tier's height down, see update)
       if (x < oL) debris.push({ x: x, y: slider.y, y0: slider.y, offcut: true, w: oL - x, fl: slider.fl, seed: slider.seed, vx: -70, vy: -40, rot: 0, vr: -2.2 });
       if (x + w > oR) debris.push({ x: oR, y: slider.y, y0: slider.y, offcut: true, w: x + w - oR, fl: slider.fl, seed: slider.seed + 5, vx: 70, vy: -40, rot: 0, vr: 2.2 });
       if (x < oL) fell(x, oL - x, -70, slider.seed);
@@ -321,14 +321,17 @@
       });
     }
   }
-  // An offcut breaks up (Visual FX on): bits of its frosting, sponge and
-  // filling, each thrown out from where it sat in the chunk, tumbling as they
-  // fall. With FX off the offcut drops in one piece.
+  // An offcut a tier's height down sheds crumbs (Visual FX on): bits of its
+  // frosting and sponge, each thrown off from where it sat in the chunk,
+  // tumbling as they fall, while the offcut itself falls on whole and out of
+  // the picture. (It used to break up into its bits there and so vanish in
+  // mid air, though the pull-back then showed it whole on the floor.) With
+  // FX off the offcut falls with no crumbs.
   function crumble(d) {
     var cx = d.x + d.w / 2, cy = d.y - SH / 2;
     var cos = Math.cos(d.rot), sin = Math.sin(d.rot);
-    var cols = clamp(Math.round(d.w / 9), 2, 7), rows = 3;
-    var size = Math.min(9, 3.5 + d.w * 0.12);
+    var cols = clamp(Math.round(d.w / 12), 2, 6), rows = 2;
+    var size = Math.min(6, 2.5 + d.w * 0.08);
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {
         var lx = ((c + 0.5) / cols - 0.5) * d.w, ly = ((r + 0.5) / rows - 0.5) * SH;
@@ -380,8 +383,8 @@
     tiers.forEach(function (t) { if (t.squash > 0) t.squash = Math.max(0, t.squash - dt * 6); });
     debris.forEach(function (d) { d.vy += 2200 * dt; d.x += d.vx * dt; d.y += d.vy * dt; d.rot += d.vr * dt; });
     debris = debris.filter(function (d) {
-      if (d.offcut && d.y - d.y0 > H && fx()) { crumble(d); return false; }
-      return d.y - cam < Hh + 240;
+      if (d.offcut && !d.shed && d.y - d.y0 > H && fx()) { d.shed = true; crumble(d); }
+      return d.y - cam < Hh + 240;                 // (gone once it is well below the screen)
     });
     sprinkles.forEach(function (s) { s.vy += 1400 * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.rot += s.vr * dt; s.age += dt; });
     sprinkles = sprinkles.filter(function (s) { return s.age < 2.4 && s.y - cam < Hh + 60; });
@@ -457,7 +460,7 @@
   function drawGarnish() {
     sprinkles.forEach(function (s) {
       g.globalAlpha = clamp(2.4 - s.age, 0, 1);
-      if (s.bit) {                                     // a bit of crumbled offcut
+      if (s.bit) {                                     // a crumb shed by an offcut
         g.save(); g.translate(s.x, sy(s.y)); g.rotate(s.rot);
         g.fillStyle = s.col; g.strokeStyle = s.edge; g.lineJoin = "round"; g.lineWidth = 1.2;
         g.fillRect(-s.bit / 2, -s.bit * 0.4, s.bit, s.bit * 0.8);

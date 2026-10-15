@@ -766,12 +766,14 @@ module.exports = async ({ browser, base, check, lib }) => {
       got.off.score === 1 && got.off.claim.blocks === 1 && got.off.claim.lit === 0 && got.off.claim.rings.length === 0 && got.off.claim.mark.join() === "" && got.off.claim.letter === "Y", got.off.claim);
   }
 
-  // ---- Tall Order, FX on: a trimmed tier's offcut drops a tier's height in one
-  // piece, then breaks into tumbling bits of frosting, sponge and filling;
-  // FX off: it falls whole
+  // ---- Tall Order, FX on: a trimmed tier's offcut drops a tier's height,
+  // then sheds tumbling crumbs of frosting and sponge as it falls on whole,
+  // out of the picture (it used to break up into them and vanish in mid air,
+  // though the pull-back shows it whole on the floor); FX off: it falls whole
+  // with no crumbs
   {
     const HOOK = ["  // test hooks: the Playwright harness drives runs through these\n", `  window.__tf = {
-    step: update, pitch: function () { return H; },
+    step: update, pitch: function () { return H; }, cam: function () { return cam; },
     debris: function () { return debris.map(function (d) { return d.y; }); },
     bits: function () { return sprinkles.filter(function (s) { return s.bit; }); }
   };
@@ -783,13 +785,15 @@ module.exports = async ({ browser, base, check, lib }) => {
       got[off ? "off" : "on"] = await p.evaluate(() => {
         TallOrder.start("bakery");
         TallOrder.placeAndDrop(40);                    // 40 px over the edge: one offcut that wide
-        const r = { whole: 0, fell: 0, bits: 0, spins: 0, cols: 0, left: null };
+        // (shedAt: how far it had fallen, in tiers, when the crumbs came; below:
+        // how far below the screen's foot it was last seen, in px)
+        const r = { whole: 0, fell: 0, shedAt: null, bits: 0, spins: 0, cols: 0, below: null, left: null };
         let from = null;
         for (let i = 0; i < 400; i++) {
           __tf.step(1 / 60);
           const d = __tf.debris(), b = __tf.bits();
-          if (d.length && !r.bits) { if (from === null) from = d[0]; r.whole++; r.fell = Math.max(r.fell, (d[0] - from) / __tf.pitch()); }
-          if (b.length > r.bits) { r.bits = b.length; r.spins = new Set(b.map((s) => s.vr.toFixed(2))).size; r.cols = new Set(b.map((s) => s.col)).size; }
+          if (d.length) { if (from === null) from = d[0]; r.whole++; r.fell = Math.max(r.fell, (d[0] - from) / __tf.pitch()); r.below = Math.round(d[0] - __tf.cam() - innerHeight); }
+          if (b.length > r.bits) { if (r.shedAt === null) r.shedAt = r.fell; r.bits = b.length; r.spins = new Set(b.map((s) => s.vr.toFixed(2))).size; r.cols = new Set(b.map((s) => s.col)).size; }
           if (i === 399) r.left = d.length + b.length;
         }
         r.tiers = TallOrder.tiers();
@@ -797,9 +801,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       });
       await done(p, "tall-order offcut FX " + (off ? "off" : "on"));
     }
-    check("tall-order, FX on: an offcut drops a tier's height in one piece, then breaks into tumbling bits",
-      got.on.tiers === 2 && got.on.whole >= 3 && got.on.fell >= 0.5 && got.on.fell < 2 && got.on.bits >= 9 && got.on.spins >= 6 && got.on.cols >= 2 && got.on.left === 0, got.on);
-    check("tall-order, FX off: the offcut falls whole", got.off.tiers === 2 && got.off.whole >= 20 && got.off.fell > 3 && got.off.bits === 0 && got.off.left === 0, got.off);
+    check("tall-order, FX on: an offcut drops a tier's height, then sheds tumbling crumbs as it falls on whole, out of the bottom of the picture",
+      got.on.tiers === 2 && got.on.whole >= 20 && got.on.fell > 3 && got.on.shedAt >= 0.5 && got.on.shedAt < 2 && got.on.bits >= 4 && got.on.spins >= 4 && got.on.cols >= 2 && got.on.below > 0 && got.on.left === 0, got.on);
+    check("tall-order, FX off: the offcut falls whole, out of the bottom of the picture, with no crumbs",
+      got.off.tiers === 2 && got.off.whole >= 20 && got.off.fell > 3 && got.off.bits === 0 && got.off.below > 0 && got.off.left === 0, got.off);
   }
 
   // ---- Demolition Row, FX on: cleared ice blocks burst into chunks of their
