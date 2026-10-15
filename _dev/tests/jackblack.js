@@ -176,8 +176,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     const anim = async () => {
       await q.evaluate(() => JackBlack.stack("T 6 5 T 4 9"));
       await q.keyboard.press("Enter");
-      await q.waitForSelector("#hands .pc.in", { timeout: 5000 });
-      const a = await q.evaluate(() => getComputedStyle(document.querySelector("#hands .pc.in")).animationName);
+      // (read as the card comes in, in one look: on a busy machine its .in can
+      // be gone again by the time a second look is taken)
+      const a = await q.waitForFunction(() => { const c = document.querySelector("#hands .pc.in"); return c ? getComputedStyle(c).animationName : false; },
+        null, { timeout: 5000, polling: "raf" }).then((h) => h.jsonValue(), () => null);
       const t0 = Date.now(); await idle(q);
       return { a, ms: Date.now() - t0 };
     };
