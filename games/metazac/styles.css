@@ -590,6 +590,58 @@
       border-radius: 999px;
       padding: 0.1rem 0.6rem;
     }
+    /* a laptop's short window: the page stacked is 953 px tall, so starting a
+       game (the answer box takes the focus) scrolled it, at 1366 x 768 the
+       whole top row with the stats out of sight. Here the map goes on the
+       left, as tall as the window lets it (never over 900 x 600), and the
+       sign, stats, answer box and hint stand in a column on its right, so the
+       whole page fits and nothing scrolls. Below the corner buttons' row: the
+       top padding keeps ← Games off the map and the pause button off the sign.
+       (Touch screens and narrow windows keep the stacked page.) */
+    @media (min-width: 1000px) and (max-height: 960px) and (hover: hover) {
+      .wrap {
+        --pad-top: 3.6rem;
+        --side: clamp(270px, calc(100vw - 2rem - 1.4rem - 900px), 400px);
+        /* the map's width: its height (border and all) fills the window */
+        --map: min(900px, calc((100vh - var(--pad-top) - 1rem - 8px) * 1.5 + 8px), calc(100vw - 2rem - 1.4rem - var(--side)));
+        display: grid;
+        grid-template-columns: var(--map) var(--side);
+        grid-template-rows: auto auto 1fr auto;
+        grid-template-areas: "stage top" "stage answer" "stage ." "stage byline";
+        justify-content: center;
+        align-content: start;
+        column-gap: 1.4rem;
+        row-gap: 0.9rem;
+        min-height: 0;
+        height: 100vh;
+        padding: var(--pad-top) 1rem 1rem;
+      }
+      /* (a container, so the start card can tell the map's size below) */
+      .stage { grid-area: stage; align-self: start; container-type: inline-size; }
+      .topbar { grid-area: top; flex-direction: column; align-items: flex-start; gap: 0.8rem; }
+      .stats { flex-wrap: wrap; }
+      .answer-row { grid-area: answer; }
+      .answer-line { gap: 0.7rem; }
+      #answer { padding: 0.5rem 0.6rem; }
+      /* the hint in the empty box shrinks to the column, so all of it shows */
+      #answer::placeholder { font-size: min(1em, calc((var(--side) - 100px) / 9.6)); }
+      #byline { grid-area: byline; justify-self: center; margin: 0; }
+      /* the pills wrap to two lines in the column: rounded boxes then */
+      .subtitle, .hint { border-radius: 14px; }
+      .hint { padding: 0.3rem 0.7rem; line-height: 1.45; }
+      /* a map under full size: the start card goes wider, so each sum's
+         ranges sit on its own line, and closes up its spacing, so it still
+         fits over the map whole */
+      @container (max-width: 899px) {
+        .overlay { padding: 0.5rem; }
+        .board { max-width: 640px; gap: 0.45rem; padding: 1rem 1.1rem 0.85rem; }
+        .overlay h2 { font-size: 1.95rem; margin-top: 0.1rem; }
+        .overlay p { line-height: 1.35; max-width: 560px; }
+        .power-note { padding: 0.3rem 0.7rem; }
+        .settings { max-width: 600px; gap: 0.35rem; padding: 0.5rem 0.85rem; }
+      }
+    }
+
     /* phones: a smaller sign and card */
     @media (max-width: 560px) {
       .wrap { padding-top: 3.6rem; }

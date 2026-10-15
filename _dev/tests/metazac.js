@@ -5,7 +5,8 @@
 // phone (no Return key on a number pad) a Pop ✓ button answers, keeping the
 // answer box focused, and the key hints name the buttons instead. P pauses,
 // typed in the answer box too (it takes digits), and the card wears its
-// keys (Resume P, Restart R, Menu ⌫); Esc is the way out, asking mid-run.
+// keys (Resume P, Restart R, Menu ⌫); Esc is the way out, asking mid-run. On
+// a laptop's short window the page fits whole, so play never scrolls it.
 const HOOK = ["  function endGame() {", "  window.__mz = { end: function () { endGame(); }, make: function () { return makeProblem(); },\n" +
   "    spawn: function () { spawnBloon(); return bloons[bloons.length - 1].ans; }, score: function () { return score; } };\n  function endGame() {"];
 
@@ -120,6 +121,41 @@ module.exports = async ({ browser, base, check, lib }) => {
       asked.dlg === "Leave this game?" && asked.under && q.leaves === 0, { paused, back, asked, leaves: q.leaves });
     check("metazac (P pauses): no page errors", q.errs.length === 0, q.errs);
     await q.close();
+  }
+
+  // ---- a laptop's short window (the stacked page is 953 px tall): the map
+  // stands beside a column with the sign, stats and answer box, so the whole
+  // page fits the window. Starting a game (the answer box takes the focus), a
+  // wrong answer, a pause and a dart storm never scroll it; the start card
+  // fits over the map whole; nothing is under the corner buttons.
+  for (const [w, h] of [[1366, 657], [1280, 600], [1024, 600]]) {
+    const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/metazac/", { before: (pg) => lib.injectScript(pg, "games/metazac/game.js", [HOOK]) });
+    const at = () => q.evaluate(() => ({ y: Math.round(scrollY), tall: document.documentElement.scrollHeight - innerHeight, wide: document.documentElement.scrollWidth - innerWidth }));
+    const menu = await q.evaluate(() => {
+      const box = (e) => e.getBoundingClientRect(), o = document.getElementById("overlay-start");
+      const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map(box);
+      const parts = ["#game", ".title", ".stats", "#answer", "#power-btn"].map((s) => document.querySelector(s)).map(box);
+      const meet = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      return { cardScroll: o.scrollHeight - o.clientHeight, under: parts.filter((p) => corner.some((k) => meet(p, k))).length, map: Math.round(box(document.getElementById("game")).width) };
+    });
+    const steps = { menu: await at() };
+    await q.keyboard.press("Enter"); await q.waitForTimeout(400);
+    steps.start = await at();
+    await q.evaluate(() => __mz.spawn());
+    await q.keyboard.type("99999"); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    steps.wrong = await at();
+    await q.keyboard.press("p"); await q.waitForTimeout(150); await q.keyboard.press("p"); await q.waitForTimeout(150);
+    steps.resumed = await at();
+    await q.keyboard.press(" "); await q.waitForTimeout(300);
+    steps.storm = await at();
+    const focused = await q.evaluate(() => document.activeElement.id);
+    check("metazac, a " + w + " x " + h + " window: the whole page fits, and starting a game, a wrong answer, a pause and a dart storm never scroll it",
+      Object.values(steps).every((s) => s.y === 0 && s.tall <= 0 && s.wide <= 0) && focused === "answer", { steps, focused });
+    check("metazac, a " + w + " x " + h + " window: the start card fits over the map whole, and nothing is under the corner buttons",
+      menu.cardScroll <= 0 && menu.under === 0 && menu.map >= 650, menu);
+    check("metazac (" + w + " x " + h + "): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
   }
 
   await ctx.close();
