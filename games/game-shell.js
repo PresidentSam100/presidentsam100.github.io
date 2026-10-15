@@ -850,7 +850,13 @@
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", watch);
     else watch();
     window.addEventListener("load", decorate);
-    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, space: !!opts.space, usable: usable, picked: picked };
+    // (pick(btn): what a key does to a `pick` row's button, for a game that
+    // lets something else pick too: Sunset Slice's mouse over a target)
+    function pickBtn(btn) {
+      groups.forEach(function (g) { if (g.pick && Array.prototype.indexOf.call(document.querySelectorAll(g.sel), btn) >= 0) pickAt(g, btn); });
+      decorate();
+    }
+    var api = { refresh: decorate, options: options, active: active, start: opts.start || null, space: !!opts.space, usable: usable, picked: picked, pick: pickBtn };
     menuKeys.all.push(api);   // (every menu on the page, for the tests)
     return api;
   }

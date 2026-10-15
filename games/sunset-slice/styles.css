@@ -85,6 +85,14 @@ html, body {
 /* On narrow screens the corner buttons fill the top bar: drop the HUD below it. */
 @media (max-width: 640px) { .hud { top: 58px; } }
 .menu .modes b { white-space: nowrap; }
+/* With keys to press (not a touch screen), one box: the mode picked (by 1 2
+   3, their keys drawn on the targets above, or by the mouse over a target),
+   wide enough for Space or Enter on its name. A touch screen, with no keys to
+   pick by, shows all three, each started by a tap. */
+@media not all and (hover: none) {
+  .menu .modes button[data-mode]:not([data-gs-pick]) { display: none; }
+  .menu .modes button[data-mode] { flex: none; width: min(92vw, 400px); max-width: none; }
+}
 @media (max-width: 560px) {
   .menu .modes button { width: 100%; max-width: 330px; flex-direction: row; align-items: baseline; gap: 10px; text-align: left; }
   .menu .modes { flex-direction: column; align-items: center; gap: 7px; }

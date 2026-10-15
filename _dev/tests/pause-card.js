@@ -341,7 +341,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         start: async (p) => { await p.click('[data-mode="lab"]'); await p.waitForTimeout(400);
           await p.evaluate(() => { const d = [...document.querySelectorAll("details.lab-runs")].find((x) => /Fire Eggs/.test(x.textContent)); d.open = true; [...d.querySelectorAll("button")].find((x) => /^🥚/.test(x.textContent)).click(); });
           await p.waitForTimeout(900); } },
-      { name: "sunset-slice", path: "sunset-slice/", start: (p) => p.click('.modes button[data-mode="calm"]'), up: (p) => p.evaluate(() => !document.getElementById("pause").hidden), btns: ["#resume", "#restart", "#quit"] },
+      // (Sunset Slice: with keys only the picked mode's box shows, so its Calm is clicked by script)
+      { name: "sunset-slice", path: "sunset-slice/", start: (p) => p.evaluate(() => document.querySelector('.modes button[data-mode="calm"]').click()), up: (p) => p.evaluate(() => !document.getElementById("pause").hidden), btns: ["#resume", "#restart", "#quit"] },
       { name: "spacer", path: "spacer/", start: async (p) => { await p.keyboard.press("Enter"); await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 30000 }).catch(() => {}); },
         up: (p) => p.evaluate(() => window.game.mode === "paused"), btns: [] },
       { name: "24", path: "24/", start: async (p) => { await p.keyboard.press("1"); await p.keyboard.press("Enter"); },

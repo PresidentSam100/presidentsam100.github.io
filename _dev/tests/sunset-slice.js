@@ -84,6 +84,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
+  // ---- with keys, the menu's keys are on its targets (drawn by their names)
+  // and one box shows below them: the picked mode's, Space or Enter on it.
+  // 1 2 3 pick, and so does the mouse over a target
+  {
+    const c = await lib.newContext(browser);
+    const s = await lib.open(c, base, "games/sunset-slice/", { before: (pg) => pg.addInitScript(() => { try { localStorage.removeItem("sunsetslice_last"); } catch (e) {} }) });
+    await s.waitForTimeout(300);
+    const box = () => s.evaluate(() => { const v = [...document.querySelectorAll(".modes button[data-mode]")].filter((b) => b.getClientRects().length);
+      return { shown: v.map((b) => b.dataset.mode).join(), cap: v[0] && v[0].querySelector("b").getAttribute("data-gs-key"), inside: v[0] && (() => { const b = v[0].getBoundingClientRect(), n = v[0].querySelector("b").getBoundingClientRect(); return n.right <= b.right && n.left >= b.left; })() }; });
+    const b0 = await box();
+    await s.keyboard.press("3"); const b3 = await box();
+    const t = await s.evaluate(() => { const R = SunsetSlice.state().R; return { x: innerWidth * 0.28, y: innerHeight * 0.5, R }; });
+    await s.mouse.move(t.x, t.y); await s.waitForTimeout(150); const bm = await box();
+    const keys = await s.evaluate(() => { const said = []; const real = GameShell.drawKeys; GameShell.drawKeys = function (ctx, str) { said.push(str); return real.apply(this, arguments); };
+      return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { GameShell.drawKeys = real; r([...new Set(said)].join(" | ")); }))); });
+    check("sunset-slice: with keys one box shows, the picked mode's (Space or Enter inside it); 3 picks Calm, the mouse over the Duel target picks Duel; the targets' names carry 1 2 3",
+      b0.shown.split(",").length === 1 && b0.cap === "Space or Enter" && b0.inside && b3.shown === "calm" && bm.shown === "duel" && /Duel \[1\]/.test(keys) && /Last Light \[2\]/.test(keys) && /Calm \[3\]/.test(keys),
+      { b0, b3, bm, keys });
+    check("sunset-slice (menu keys): no page errors", s.errs.length === 0, s.errs);
+    await s.close();
+    await c.close();
+  }
+
   // ---- paused right after a cut, the halves (and the ink, the gleam, the
   // score text) hold where they were instead of fading out under the pause
   // card, or under "Leave this game?"; resumed, they carry on
@@ -125,13 +148,14 @@ module.exports = async ({ browser, base, check, lib }) => {
       const menu = document.getElementById("menu"), r = (e) => e.getBoundingClientRect(), W = innerWidth, H = innerHeight, R = SunsetSlice.state().R;
       // the targets hang at mid-height, bobbing a little, their names under them
       const top = H * 0.5 - R * 1.2, bot = H * 0.5 + R * 1.75 + Math.max(15, R * 0.42) * 0.45 + H * 0.015;
-      const parts = [...menu.querySelectorAll("h1, .tag, .how, .modes button, .bests")], out = [], over = [];
+      const parts = [...menu.querySelectorAll("h1, .tag, .how, .modes button, .bests")].filter((e) => e.getClientRects().length), out = [], over = [];
       parts.forEach((e) => { const b = r(e), name = e.className || e.tagName; if (b.left < -0.5 || b.right > W + 0.5 || b.top < -0.5 || b.bottom > H + 0.5) out.push(name); if (Math.min(b.bottom, bot) - Math.max(b.top, top) > 0.5) over.push(name); });
-      return { how: r(menu.querySelector(".how")).height > 8, small: [...menu.querySelectorAll(".modes small")].every((e) => r(e).height > 8), bests: /1234/.test(document.getElementById("bests").textContent), out, over };
+      return { how: r(menu.querySelector(".how")).height > 8, small: (() => { const sm = [...menu.querySelectorAll(".modes small")], shown = sm.filter((e) => r(e).height > 8);
+        return matchMedia("(hover: none)").matches ? shown.length === 3 : shown.length === 1 && !!shown[0].closest("[data-gs-pick]"); })(), bests: /1234/.test(document.getElementById("bests").textContent), out, over };
     });
     if (!(m.how && m.small && m.bests && m.out.length === 0 && m.over.length === 0)) shortBad.push(w + "x" + h + (touch ? " touch " : " mouse ") + JSON.stringify(m));
     if (s.errs.length) shortBad.push(w + "x" + h + " errors " + s.errs.join("; "));
     await s.close(); await c.close();
   }
-  check("sunset-slice: on short screens the menu leaves nothing out to fit: the how-to line and the modes' descriptions are shown, inside the window and clear of the targets", shortBad.length === 0, shortBad);
+  check("sunset-slice: on short screens the menu leaves nothing out to fit: the how-to line and the modes' descriptions are shown (all three on a touch screen; with keys the picked one, the others a key away), inside the window and clear of the targets", shortBad.length === 0, shortBad);
 };

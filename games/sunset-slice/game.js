@@ -380,14 +380,26 @@
   document.querySelectorAll("[data-mode]").forEach(function (b) {
     b.addEventListener("click", function () { start(b.getAttribute("data-mode")); });
   });
-  // Menu keys, shown on the buttons: 1 2 3 pick a mode and Enter starts it (a
-  // number alone doesn't, so the modes can be gone through first; a click, or
-  // a slice through a target, still starts at once). The mode last played is
-  // the one picked.
-  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
+  // Menu keys: 1 2 3 pick a mode and Enter starts it (a number alone doesn't,
+  // so the modes can be gone through first; a click, or a slice through a
+  // target, still starts at once). The mode last played is the one picked.
+  // The keys are drawn on the targets, by their names; with keys to press
+  // (not on a touch screen) the one box under them is the picked mode's,
+  // Space or Enter on it, the others hidden till picked (styles.css), as the
+  // mouse over a target picks it too.
+  var modeKeys = window.GameShell && GameShell.menuKeys ? GameShell.menuKeys({
     active: function () { return state === "menu"; },
-    groups: [{ sel: ".modes button[data-mode]", into: "b", pick: true, first: function () { return lastMode && document.querySelector('.modes button[data-mode="' + lastMode + '"]'); } }],
+    groups: [{ sel: ".modes button[data-mode]", into: "b", pick: true, hidden: true, first: function () { return lastMode && document.querySelector('.modes button[data-mode="' + lastMode + '"]'); } }],
     space: true
+  }) : null;
+  function pickedMode() { var b = modeKeys && modeKeys.picked(); return b ? b.getAttribute("data-mode") : null; }
+  canvas.addEventListener("pointermove", function (e) {
+    if (state !== "menu" || stroke || e.pointerType !== "mouse" || !modeKeys) return;
+    var R0 = R;
+    menuTargets().forEach(function (o) {
+      if (o.cut || Math.hypot(o.u * W - e.clientX, o.v * H - e.clientY) > R0 * 1.1 || pickedMode() === o.mode) return;
+      modeKeys.pick(document.querySelector('.modes button[data-mode="' + o.mode + '"]'));
+    });
   });
   document.getElementById("again").addEventListener("click", function () { start(mode); });
   // On the end card Enter is Again (Backspace is its Modes, in the key
@@ -541,10 +553,15 @@
       ctx.font = "700 " + Math.round(Math.max(15, R * 0.42)) + "px 'Zen Old Mincho', Georgia, serif";
       ctx.textAlign = "center"; ctx.fillStyle = "#fff3dc"; ctx.lineJoin = "round";
       ctx.strokeStyle = "rgba(20,10,14,0.85)"; ctx.lineWidth = Math.max(3, R * 0.1);
-      menuTargets().forEach(function (o) {
+      // each name with its key (1 2 3, none on a touch screen), the picked
+      // one in the sun's gold: its box is the one showing below
+      var pm = pickedMode(), lw = ctx.lineWidth;
+      menuTargets().forEach(function (o, i) {
         if (o.cut) return;
-        ctx.strokeText(MODES[o.mode].name, o.u * W, o.v * H + R * 1.75);
-        ctx.fillText(MODES[o.mode].name, o.u * W, o.v * H + R * 1.75);
+        var name = MODES[o.mode].name, x = o.u * W, y = o.v * H + R * 1.75;
+        ctx.fillStyle = o.mode === pm ? "#ffd27a" : "#fff3dc";
+        if (window.GameShell && GameShell.drawKeys) GameShell.drawKeys(ctx, name + " [" + (i + 1) + "]", x, y, { outline: { width: lw, color: "rgba(20,10,14,0.85)" }, touch: name });
+        else { ctx.strokeText(name, x, y); ctx.fillText(name, x, y); }
       });
     }
     // Juice and sparks.
