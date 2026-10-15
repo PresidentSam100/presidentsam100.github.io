@@ -94,7 +94,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate(() => { game.startGame(); game.addScore(100); }); await p.waitForTimeout(150);
     await p.keyboard.press("Home"); await p.waitForTimeout(250);
     const m1 = await p.evaluate(() => ({ mode: game.mode, prev: game.prevMode, dlg: !!document.querySelector(".gs-dialog") }));
-    await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    await p.keyboard.press("Enter"); await p.waitForTimeout(250);   // (Keep playing)
     const m2 = await p.evaluate(() => game.mode);
     check("spacer: Home on the READY banner asks with the game paused; Keep playing returns to it", m1.dlg && m1.mode === "paused" && m1.prev === "ready" && m2 === "ready" && p.leaves === 0, { m1, m2, leaves: p.leaves });
     await done(p, "spacer ask");
@@ -139,7 +139,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const gone = () => p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 10000 }).catch(() => {});
     await ask(); const mid = await box();
     const paused = await p.evaluate(() => GameShell.leaveActive() && !!document.querySelector(".gs-dialog"));
-    // (as in "Leave this game?": only Enter goes; any other key keeps playing,
+    // (only Enter goes; any other key, Esc among them, keeps playing,
     // and the button says so where its Esc keycap was. It kept its Esc alone
     // until a player switching 2048's board by a number key had to find it.)
     const escCap = await p.evaluate(() => [...document.querySelectorAll(".gs-dialog button")].map((b) => [...b.querySelectorAll("kbd")].map((k) => k.textContent).join()).join("|") + (document.querySelector(".gs-dialog .gs-anykey") ? " any" : ""));

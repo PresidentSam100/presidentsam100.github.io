@@ -62,7 +62,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p"); await p.waitForTimeout(250);
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
   const asked = await box(p);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(300);
+  await p.keyboard.press("Enter"); await p.waitForTimeout(300);   // (Keep playing)
   const hudText = await p.evaluate(() => ({ score: document.getElementById("hud-score").textContent, hearts: document.querySelectorAll("#hud-lives .heart:not(.gone)").length, planks: document.querySelectorAll("#hud-planks .plk:not(.gone)").length, where: document.getElementById("hud-where").textContent }));
   check("dead-end: Enter starts on Elm Street and nothing moves until an arrow; then tins score, Space nails a plank behind you (one fewer in hand), P pauses the chase, and Esc asks before leaving",
     s0.ui === "run" && s0.status === "ready" && s1.cell === s0.cell && s2.status === "play" && s2.score >= 30 && s3.boards === 1 && s3.planks === s2.planks - 1 && paused && s5.cell === s4.cell && s5.score === s4.score &&
@@ -137,7 +137,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => DeadEndEditor.paint(4, 4, "#"));
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
   const edAsk = await box(p);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+  await p.keyboard.press("Enter"); await p.waitForTimeout(250);   // (Keep playing)
   check("dead-end editor: with unsaved drawing on the block, Esc asks before leaving", edAsk === "Leave this game?" && p.leaves === 0, { edAsk, leaves: p.leaves });
   check("dead-end editor: no page errors", p.errs.length === 0, p.errs);
   const link = ed.url.replace(/^.*\/games\//, "games/");

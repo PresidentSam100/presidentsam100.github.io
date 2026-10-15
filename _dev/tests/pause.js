@@ -61,11 +61,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const spBack = await sp(), spGone = !(await card(p));
   await p.keyboard.press("Escape"); const spAsk = await asked(p);
-  await p.keyboard.press("Escape"); await boxGone(p);
+  await p.keyboard.press("Enter"); await boxGone(p);
   check("speedle: ⏸ dimmed on the menu, live in a run; paused, the board and keys hide, the clock stops and letters type nothing; Enter resumes with the clock where it was",
     spMenu.off === "true" && spCard && spPaused.board === "hidden" && spPaused.kb === "hidden" && spHeld.clock === spPaused.clock && spHeld.typed === "ab" &&
     spGone && spBack.board === "visible" && Number(spBack.clock) <= Number(spPaused.clock) && Number(spBack.clock) > Number(spPaused.clock) - 1.2, { spMenu, spPaused, spHeld, spBack, spGone });
-  check("speedle: Esc mid-run (letters typed) asks 'Leave this game?', and Esc again plays on", spAsk === "Leave this game?" && p.leaves === 0, { spAsk, leaves: p.leaves });
+  check("speedle: Esc mid-run (letters typed) asks 'Leave this game?', and Enter plays on", spAsk === "Leave this game?" && p.leaves === 0, { spAsk, leaves: p.leaves });
   await done(p, "speedle");
 
   // ---- Ping: a rally pauses on P, the ball freezes; Esc is the way out and
@@ -85,15 +85,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("ping: P pauses (ball frozen) and P resumes; the card names only P", pausedPing && x0 === x1 && !(await card(p)) && x2 !== x1 && pbtn === "▶ Resume P" && /press P to continue/.test(cardText) && !/Esc/.test(cardText),
     { pausedPing, x0, x1, x2, pbtn, cardText });
   check("ping, paused at 0-0: Esc doesn't resume, it leaves for the games page", pingLeft === 1 && stillPaused, { pingLeft, stillPaused });
-  // with a point on the board Esc asks first, the rally held under the box; Esc again keeps playing
+  // with a point on the board Esc asks first, the rally held under the box; Enter keeps playing
   await p.evaluate(() => { left.score = 1; ball.x = W / 2; ball.y = H / 2; });   // (mid-court, so no point ends the rally meanwhile)
   await p.keyboard.press("Escape");
   const pingAsk = await asked(p), y0 = await p.evaluate(() => ball.x);
   await p.waitForTimeout(250);
   const y1 = await p.evaluate(() => ball.x), heldUnder = await card(p);
-  await p.keyboard.press("Escape"); await boxGone(p);
+  await p.keyboard.press("Enter"); await boxGone(p);
   const pingKept = { box: await p.evaluate(() => !!document.querySelector(".gs-dialog")), card: await card(p), state: await p.evaluate(() => state) };
-  check("ping, mid-match: Esc asks 'Leave this game?' with the rally held (not a bare pause); Esc again plays on",
+  check("ping, mid-match: Esc asks 'Leave this game?' with the rally held (not a bare pause); Enter plays on",
     pingAsk === "Leave this game?" && y0 === y1 && heldUnder && !pingKept.box && !pingKept.card && pingKept.state === "playing" && p.leaves === 1, { pingAsk, y0, y1, heldUnder, pingKept, leaves: p.leaves });
   await done(p, "ping");
 
@@ -111,8 +111,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p");
   await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); });
   await p.keyboard.press("Escape"); const ask24 = { dlg: await asked(p), screen: await p.evaluate(() => TwentyFour.state().screen) };
-  await p.keyboard.press("Escape"); await boxGone(p); const s4 = await p.evaluate(() => TwentyFour.state().screen);
-  check("24: ⏸ (P) dimmed on the menu, live in Time attack; the button and P pause / resume; Esc mid-run asks 'Leave this game?' with the run paused, Esc again plays on",
+  await p.keyboard.press("Enter"); await boxGone(p); const s4 = await p.evaluate(() => TwentyFour.state().screen);
+  check("24: ⏸ (P) dimmed on the menu, live in Time attack; the button and P pause / resume; Esc mid-run asks 'Leave this game?' with the run paused, Enter plays on",
     dim === "true" && live === "false" && /P$/.test(cap || "") && s1 === "paused" && s2 === "game" && s3 === "paused" && ask24.dlg === "Leave this game?" && ask24.screen === "paused" && s4 === "game" && p.leaves === 0,
     { dim, live, cap, s1, s2, s3, ask24, s4, leaves: p.leaves });
   await done(p, "24");
@@ -166,11 +166,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p"); await p.waitForTimeout(150); const a2 = { sec: await sec(), paused: await card(p) };
   for (const k of ["f", "g", "h", "j"]) await p.keyboard.press(k);
   const after = await p.evaluate(() => window.__press || 0);
-  // Esc mid-run is the way out, so it asks (the run held under the box); Esc again keeps playing
+  // Esc mid-run is the way out, so it asks (the run held under the box); Enter keeps playing
   const runLeaves = p.leaves;
   await p.keyboard.press("Escape"); const a3 = { ask: await asked(p), sec: await sec(), held: await card(p) };
-  await p.keyboard.press("Escape"); await boxGone(p); const a4 = { sec: await sec(), paused: await card(p), leaves: p.leaves - runLeaves };
-  check("crazy-ohio running: P pauses (doesn't quit) and resumes; Esc asks 'Leave this game?' with the run held, Esc again plays on",
+  await p.keyboard.press("Enter"); await boxGone(p); const a4 = { sec: await sec(), paused: await card(p), leaves: p.leaves - runLeaves };
+  check("crazy-ohio running: P pauses (doesn't quit) and resumes; Esc asks 'Leave this game?' with the run held, Enter plays on",
     a1.sec === "play" && a1.paused && a2.sec === "play" && !a2.paused && a3.ask === "Leave this game?" && a3.sec === "play" && a3.held && a4.sec === "play" && !a4.paused && a4.leaves === 0, { a1, a2, a3, a4 });
   check("crazy-ohio: lane presses while paused don't count; after resuming they do", during === before && after > during, { before, during, after });
   await p.waitForFunction(() => !document.getElementById("result").hidden, null, { timeout: 60000 });
@@ -192,7 +192,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p"); const f1 = await p.evaluate(() => game.gameState);
   // (paused, so the bird can't fall while the box is read) Esc doesn't resume: it asks, and Keep playing stays paused
   await p.keyboard.press("Escape"); const f2 = { ask: await asked(p), state: await p.evaluate(() => game.gameState) };
-  await p.keyboard.press("Escape"); await boxGone(p); const f3 = await p.evaluate(() => game.gameState);
+  await p.keyboard.press("Enter"); await boxGone(p); const f3 = await p.evaluate(() => game.gameState);
   // (the state it resumes to is caught as it changes: read a moment later, the bird may have fallen and ended the run)
   await p.evaluate(() => { window.__resumed = null; (function poll() { if (game.gameState !== "PAUSED") window.__resumed = game.gameState; else requestAnimationFrame(poll); })(); });
   await p.keyboard.press("p");
@@ -216,7 +216,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const k of ["p", "p", "p"]) { await p.keyboard.press(k); m.push(await p.evaluate(() => window.game.mode)); }
   // on the pause menu Esc doesn't resume: it asks, and Keep playing is back on the menu
   await p.keyboard.press("Escape"); m.push((await asked(p)) + ":" + (await p.evaluate(() => window.game.mode)));
-  await p.keyboard.press("Escape"); await boxGone(p); m.push(await p.evaluate(() => window.game.mode));
+  await p.keyboard.press("Enter"); await boxGone(p); m.push(await p.evaluate(() => window.game.mode));
   await p.keyboard.press("p"); m.push(await p.evaluate(() => window.game.mode));
   check("spacer: P pauses / resumes; Esc on the pause menu asks 'Leave this game?' and Keep playing stays paused",
     m.join() === "playing,paused,playing,paused,Leave this game?:paused,paused,playing" && p.leaves === 0, { m, leaves: p.leaves });
@@ -234,7 +234,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Space"); const c3 = await ov();
   // paused, Esc doesn't resume: it's the way out (it leaves, or asks first if the snake has eaten by now)
   await p.keyboard.press("Escape"); const sOut = await wayOut(p, 1), c4 = await ov();
-  if (sOut === "asked") { await p.keyboard.press("Escape"); await boxGone(p); }   // (Keep playing)
+  if (sOut === "asked") { await p.keyboard.press("Enter"); await boxGone(p); }   // (Keep playing)
   await p.keyboard.press("Space");
   check("slither classic: label P; P and Space toggle pause; Esc doesn't (it's the way out)", l0 === "⏸ Pause P" && c1 && l1 === "▶ Resume P" && !c2 && c3 && c4 && sOut !== "nothing", { l0, c1, l1, c2, c3, c4, sOut });
   await p.click("#menu-btn"); await p.waitForTimeout(400);
@@ -245,7 +245,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Space"); await p.waitForTimeout(150); const eggPaused = await ov();
   await p.keyboard.press("p"); await p.waitForTimeout(150); const e1 = await lbl();
   await p.keyboard.press("Escape"); await p.evaluate(() => new Promise((r) => setTimeout(r, 250))); const e2 = await lbl();
-  if (await p.evaluate(() => !!document.querySelector(".gs-dialog"))) { await p.keyboard.press("Escape"); await boxGone(p); }   // (Keep playing, if it asked)
+  if (await p.evaluate(() => !!document.querySelector(".gs-dialog"))) { await p.keyboard.press("Enter"); await boxGone(p); }   // (Keep playing, if it asked)
   await p.keyboard.press("p"); await p.waitForTimeout(150); const e3 = await lbl();
   check("slither fire eggs: Space lays an egg (no pause), P pauses, Esc doesn't resume, P does", e0 === "⏸ Pause P" && !eggPaused && e1 === "▶ Resume P" && e2 === "▶ Resume P" && e3 === "⏸ Pause P", { e0, eggPaused, e1, e2, e3 });
   await done(p, "slither");
@@ -275,7 +275,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await p.evaluate(() => new Promise((r) => setTimeout(r, 250)));
   const k1 = await p.evaluate(() => ({ box: !document.getElementById("shade").hidden, paused: Klondike.state().paused, ask: !!document.querySelector(".gs-dialog") }));
   await p.keyboard.press("Escape"); const k2 = await asked(p);
-  await p.keyboard.press("Escape"); await boxGone(p);
+  await p.keyboard.press("Enter"); await boxGone(p);
   const k3 = await p.evaluate(() => Klondike.state().paused);
   await p.keyboard.press("p"); const k4 = await p.evaluate(() => Klondike.state().paused);
   await p.keyboard.press("p"); const k5 = await p.evaluate(() => Klondike.state().paused);
@@ -299,9 +299,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   const overMenu = await p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
   const menuLeft = await lib.leftBy(p, 1);
   await p.click("#play-btn"); await p.waitForTimeout(400);
-  // Esc in a game is the way out: it asks, the game paused under the box; Esc again plays on
+  // Esc in a game is the way out: it asks, the game paused under the box; Enter plays on
   await p.keyboard.press("Escape"); const drAsk = { dlg: await asked(p), state: await p.evaluate(() => GAME.state) };
-  await p.keyboard.press("Escape"); await boxGone(p); const drKept = await p.evaluate(() => GAME.state);
+  await p.keyboard.press("Enter"); await boxGone(p); const drKept = await p.evaluate(() => GAME.state);
   await p.click(".gs-pause-btn, #pause-btn"); await p.waitForTimeout(100);
   const pausesInGame = await p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
   await p.keyboard.press("Enter"); await p.waitForTimeout(100);

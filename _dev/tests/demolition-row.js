@@ -48,7 +48,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const row0 = await p.evaluate(() => ({ state: GAME.state, r: GAME.players[0].board.piece && GAME.players[0].board.piece.pivot.r, box: !!document.querySelector(".gs-dialog") }));
   await p.waitForTimeout(900);
   const row1 = await p.evaluate(() => GAME.players[0].board.piece && GAME.players[0].board.piece.pivot.r);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);   // the box's "Keep playing"
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);   // the box's "Keep playing"
   const kept = { state: await p.evaluate(() => GAME.state), card: await shown(p, "pause"), box: await p.evaluate(() => !!document.querySelector(".gs-dialog")) };
   check("demolition-row: Home between VS rounds holds the next round paused under the box; Keep playing plays on",
     beat === "roundpause" && row0.box && row0.state === "paused" && row1 === row0.r && kept.state === "playing" && !kept.card && !kept.box && p.leaves === 0,

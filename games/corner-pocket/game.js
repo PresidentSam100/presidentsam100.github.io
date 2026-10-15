@@ -1287,7 +1287,7 @@
       // Esc just closes the spin pad (claimed, so the page stays)
       if (e.key === "Escape" && !document.getElementById("spinPad").classList.contains("hidden")) { e.preventDefault(); closeSpin(); }
       // and on "Leave this rack?" it's Keep playing, as is any other key but
-      // Enter (Back to menu): the same as in the shared "Leave this game?"
+      // Enter (Back to menu): the same as in the shared "Quit this game?" (askQuit)
       else if (quitOpen() && (e.key === "Escape" || (window.GameShell && GameShell.anyOtherKey && GameShell.anyOtherKey(e)))) { e.preventDefault(); if (!e.repeat) closeQuit(); }
       // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }

@@ -106,8 +106,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     await p.click('a[href="./index.html"]'); await p.waitForTimeout(150);
     const linkAsk = await p.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, here: /three\.html/.test(location.pathname) }));
-    await p.keyboard.press("Escape"); await p.waitForTimeout(100);
-    check("chess three: mid-game the 2 / 4 Player link asks 'Leave this game?' and stays put on Esc", linkAsk.dlg === "Leave this game?" && linkAsk.here, linkAsk);
+    await p.keyboard.press("Enter"); await p.waitForTimeout(100);
+    const stayed = await p.evaluate(() => ({ dlg: !!document.querySelector(".gs-dialog"), here: /three\.html/.test(location.pathname) }));
+    check("chess three: mid-game the 2 / 4 Player link asks 'Leave this game?' and stays put on Enter", linkAsk.dlg === "Leave this game?" && linkAsk.here && !stayed.dlg && stayed.here, { linkAsk, stayed });
     check("chess three: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }

@@ -191,16 +191,16 @@ module.exports = async ({ browser, base, check, lib }) => {
       if (away[mode]) { await q.click(".gs-pause-btn", { force: true }); await q.waitForTimeout(80); }
     }
     check("passport: away from the tab a dash pauses (its clock runs) and a tour doesn't (no clock: it waits)", away.dash === true && away.tour === false, away);
-    // Esc in a tour with a stamp in it: "Leave this game?", the run paused (flag hidden) under the box; Esc again plays on
+    // Esc in a tour with a stamp in it: "Leave this game?", the run paused (flag hidden) under the box; Enter plays on
     await q.evaluate(() => { Passport.toMenu(); Passport.fast(); Passport.start("tour"); });
     await q.waitForFunction(() => Passport.state() === "ask");
     await q.evaluate(() => Passport.answer(Passport.current().correct));
     await q.waitForFunction(() => Passport.state() === "ask" && Passport.score() === 1, null, { timeout: 8000 });
     await q.keyboard.press("Escape"); await q.waitForSelector(".gs-dialog", { timeout: 5000 }).catch(() => {});
     const asked = await q.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, flag: getComputedStyle(document.getElementById("flag")).visibility }));
-    await q.keyboard.press("Escape"); await q.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});
+    await q.keyboard.press("Enter"); await q.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});
     const kept = await look();
-    check("passport: Esc mid-run asks 'Leave this game?' with the run paused under the box (the flag hidden); Esc again plays on",
+    check("passport: Esc mid-run asks 'Leave this game?' with the run paused under the box (the flag hidden); Enter plays on",
       asked.dlg === "Leave this game?" && asked.flag === "hidden" && !kept.card && kept.flag && kept.state === "ask" && q.leaves === 0, { asked, kept, leaves: q.leaves });
     check("passport (every run pauses): no page errors", q.errs.length === 0, q.errs);
     await q.close();

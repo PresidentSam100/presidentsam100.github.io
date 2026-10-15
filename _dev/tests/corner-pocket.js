@@ -95,7 +95,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const up = await quitShown(p);
   await p.waitForTimeout(3500);
   const held = await p.evaluate(() => ({ phase: __pool.G.phase, shots: __pool.G.shots }));
-  // (as in the shared "Leave this game?": only Enter leaves the rack. Any other
+  // (as in the shared "Quit this game?": only Enter leaves the rack. Any other
   // key keeps playing and the button says so; Shift on its own answers nothing)
   const says = await p.evaluate(() => { const b = document.getElementById("quitNo"); return { text: b.textContent.replace(/\s+/g, " ").trim(), cap: b.getAttribute("data-gs-key") }; });
   await p.keyboard.press("Shift"); await p.waitForTimeout(100);

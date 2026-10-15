@@ -105,7 +105,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await q.keyboard.press("Home"); await q.waitForTimeout(300);
   const asked = await q.evaluate(() => !!document.querySelector(".gs-dialog")), under = await look(q);
   const ta = await time(q); await q.waitForTimeout(1200); const tb = await time(q);
-  await q.keyboard.press("Escape"); await q.waitForTimeout(250);
+  await q.keyboard.press("Enter"); await q.waitForTimeout(250);   // (Keep playing)
   const kept = await look(q);
   check("hash: leaving mid-deck asks first, with the clock held and the cards blank underneath; Keep playing brings them back",
     asked && under.faces === 0 && ta === tb && q.leaves === 0 && !kept.paused && kept.faces >= 12, { asked, under, ta, tb, kept, leaves: q.leaves });

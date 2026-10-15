@@ -903,8 +903,8 @@
   // Home, Esc (unless a panel or sub-screen used it to close) and the
   // "← Games" button all leave for the games page (motion-toggle.js). While a
   // game is in progress that leaving would throw away, they ask first: "Leave
-  // this game?", with the game paused underneath (Enter leaves; any other
-  // key, Esc among them, keeps playing). Each game says what "in progress"
+  // this game?", with the game paused underneath (Esc again leaves; any other
+  // key, Enter among them, keeps playing). Each game says what "in progress"
   // means:
   //
   //   GameShell.guardLeave(function () { return state === "play"; });
@@ -939,10 +939,13 @@
     // (hold: on Leave the box stays up until the page has gone. Closing it
     // first showed the game again, sitting paused under its card, for as long
     // as the games page took to load.)
-    // (anyKey: only Enter leaves. Having asked for the way out by mistake, a
-    // player shouldn't need to find Esc again to get back: whatever key they
-    // press next keeps playing.)
-    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true, anyKey: true,
+    // (okKey "Esc": only Esc leaves, the way out pressed a second time. Not
+    // Enter: in many games Enter is a play key (an answer sent, a guess, a
+    // drop), and one pressed by reflex after a stray Esc mustn't throw the
+    // game away. Having asked for the way out by mistake, a player shouldn't
+    // need to find a key to get back either: whatever key they press next,
+    // Enter among them, keeps playing.)
+    confirmBox({ title: "Leave this game?", text: text || "The game in progress will be lost.", ok: "Leave", cancel: "Keep playing", safe: true, anyKey: true, okKey: "Esc",
       hold: function (yes) { return yes; } },
       function (yes) {
         if (yes) go();
@@ -963,8 +966,10 @@
     try { wasPaused = !!(g.isPaused && g.isPaused()); } catch (e) {}
     if (!wasPaused && g.pause) { try { g.pause(); } catch (e) {} }
     var text = opts.text || (typeof g.text === "function" ? g.text() : g.text);
-    // (anyKey, as in "Leave this game?": only Enter throws the game away, and
-    // whatever other key comes next keeps playing)
+    // (anyKey: only Enter throws the game away, and whatever other key comes
+    // next, Esc among them, keeps playing. "Leave this game?" leaves on Esc
+    // instead, as the way out; a game's own New game or Restart is no way
+    // out, so Esc here backs out of the question.)
     confirmBox({ title: opts.title || "Quit this game?", text: text || "The game in progress will be lost.", ok: opts.ok || "Quit", cancel: "Keep playing", safe: true, anyKey: true },
       function (yes) {
         // the pause taken for the question goes either way: go() lands on a
@@ -995,7 +1000,9 @@
   // Tab moves between them, and a click outside the card counts as Esc.
   // (anyKey: true, as "Leave this game?" and askQuit's boxes have it, makes
   // every other ordinary key count as Esc too, and the button says "any other
-  // key".)
+  // key". With okKey: "Esc" as well, as "Leave this game?" has it, Esc picks
+  // the main button and every other key, Enter among them, the other one,
+  // which a click outside the card picks too.)
   var openDialog = null;
   // the "any other key" of an anyKey box: one that types a character (but
   // Space), or one of these
@@ -1011,7 +1018,9 @@
   // o: { title, text, copy, role, hold, anyKey, buttons: [{ label, key, value, main, click }] }
   // A button's `key` ("Enter" / "Esc") is the key that presses it. With
   // anyKey the Esc button is pressed by any other ordinary key as well, and
-  // says so in words ("any other key") where its keycap would be.
+  // says so in words ("any other key") where its keycap would be. A button
+  // whose key is "any" is that one instead (Enter among its keys, when no
+  // button has Enter), the Esc button then keeping its keycap.
   // hold(value) says the answer takes the page away: the box then stays up,
   // answered, until the page goes (or comes back, or 4 seconds pass with it
   // still here), so nothing under it shows in between.
@@ -1051,16 +1060,20 @@
     var row = document.createElement("div");
     row.className = "gs-dialog-row";
     var byKey = {}, cancelValue;
+    // the button any other key presses ("any", or with anyKey the Esc one),
+    // and the one that backs out (a click outside the card, another box)
+    var other = o.buttons.some(function (b) { return b.key === "any"; }) ? "any" : o.anyKey ? "Esc" : null;
+    var back = other === "any" ? "any" : "Esc";
     var btns = o.buttons.map(function (b) {
       var bt = document.createElement("button");
       bt.type = "button";
       if (!b.main) bt.className = "gs-dialog-alt";
       bt.innerHTML = escHtml(b.label) + (!b.key ? ""
-        : o.anyKey && b.key === "Esc" ? ' <span class="gs-keys gs-anykey">any other key</span>'
+        : b.key === other ? ' <span class="gs-keys gs-anykey">any other key</span>'
         : ' <span class="gs-keys"><kbd class="gs-kbd">' + b.key + "</kbd></span>");
       bt.addEventListener("click", function () { if (b.click) b.click(bt, close); else close(b.value); });
       if (b.key) byKey[b.key] = bt;
-      if (b.key === "Esc") cancelValue = b.value;
+      if (b.key === back) cancelValue = b.value;
       row.appendChild(bt);
       return bt;
     });
@@ -1087,15 +1100,17 @@
         all[i].focus();
         e.preventDefault();
       } else if (e.key === "Enter" || e.key === "Escape") {
+        // (and not a key held down: an Esc held as the box opened doesn't
+        // answer "Leave this game?" with Leave)
         e.preventDefault();
-        var bt = byKey[e.key === "Enter" ? "Enter" : "Esc"];
+        var bt = e.key === "Escape" ? byKey.Esc : byKey.Enter || byKey.any;
         if (bt && !e.repeat) bt.click();
-      } else if (o.anyKey && byKey.Esc && anyOtherKey(e)) {
-        // any other key is Esc: a letter, a digit, an arrow, Backspace... (not
-        // a key still held from the game; Space is left to press the focused
+      } else if (other && byKey[other] && anyOtherKey(e)) {
+        // any other key: a letter, a digit, an arrow, Backspace... (not a key
+        // still held from the game; Space is left to press the focused
         // button, which is this same one unless Tab has moved on)
         e.preventDefault();
-        if (!e.repeat) byKey.Esc.click();
+        if (!e.repeat) byKey[other].click();
       }
       // anything else keeps its default action (Space presses the focused
       // button; Ctrl+C / Ctrl+A / the arrows work in the copy box)
@@ -1107,7 +1122,7 @@
     });
     el.addEventListener("click", function (e) {
       e.stopPropagation();
-      if (e.target === el && byKey.Esc) byKey.Esc.click();
+      if (e.target === el && byKey[back]) byKey[back].click();
     });
 
     var held = false;
@@ -1140,14 +1155,17 @@
     window.addEventListener("keypress", onKey, true);
     (document.body || document.documentElement).appendChild(el);
     openDialog = { el: el, dismiss: function () { if (held) remove(); else close(cancelValue); } };
-    // focus the main button, or (o.safe) the one Esc presses: a reflex Space
-    // right after Home mustn't answer "Leave this game?" with Leave
-    if (ta) ta.focus(); else ((o.safe && byKey.Esc) || byKey.Enter || btns[0]).focus();
+    // focus the main button, or (o.safe) the one that backs out: a reflex
+    // Space right after Home mustn't answer "Leave this game?" with Leave
+    if (ta) ta.focus(); else ((o.safe && byKey[back]) || byKey.Enter || btns[0]).focus();
     return promise;
   }
 
+  // (opts.okKey "Esc", with anyKey: OK on Esc, and Cancel on any other key,
+  // Enter among them; "Leave this game?")
   function confirmBox(opts, cb) {
     opts = typeof opts === "string" ? { title: opts } : opts || {};
+    var escOk = opts.okKey === "Esc" && !!opts.anyKey;
     return showDialog({
       title: opts.title || "Are you sure?",
       text: opts.text,
@@ -1156,8 +1174,8 @@
       anyKey: !!opts.anyKey,
       hold: opts.hold,
       buttons: [
-        { label: opts.cancel || "Cancel", key: "Esc", value: false },
-        { label: opts.ok || "OK", key: "Enter", value: true, main: true }
+        { label: opts.cancel || "Cancel", key: escOk ? "any" : "Esc", value: false },
+        { label: opts.ok || "OK", key: escOk ? "Esc" : "Enter", value: true, main: true }
       ]
     }, cb);
   }

@@ -114,7 +114,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.evaluate(() => { __mz.spawn(); });
     await q.keyboard.press("Escape"); await q.waitForSelector(".gs-dialog", { timeout: 5000 }).catch(() => {});
     const asked = await q.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, under: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
-    await q.keyboard.press("Escape"); await q.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});
+    await q.keyboard.press("Enter"); await q.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});   // (Keep playing: Enter sends answers here, so it mustn't leave)
     check("metazac: P pauses from the answer box (no p typed), the card wearing Resume P, Restart R, Menu ⌫; P resumes with the box in hand; Esc mid-run asks 'Leave this game?' with the run paused under it",
       paused.up && /Resume P \| .*Restart R \| .*Menu ⌫$/.test(paused.btns) && paused.box === "1" && paused.shut && !back.up && back.box === "1" && back.focused === "answer" &&
       asked.dlg === "Leave this game?" && asked.under && q.leaves === 0, { paused, back, asked, leaves: q.leaves });

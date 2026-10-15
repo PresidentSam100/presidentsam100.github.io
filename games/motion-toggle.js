@@ -256,11 +256,12 @@
 
   // ---- keyboard: Home or Esc -> the games page ----------------------------
   // Home leaves for the games list from anywhere in a game, and so does Esc:
-  // it is the way out, not a pause key (P pauses). The one Esc that stays is
-  // one the game acted on: closing a panel, stepping back out of a
-  // sub-screen, or pausing in one of the few games that still pause on Esc
-  // (the typing games, where no letter is free). Every game marks such an Esc
-  // by calling preventDefault(), so this needs no idea which screen is up; it
+  // it is the way out, not a pause key (P pauses, or the ⏸ button where no
+  // letter is free). Mid-game it asks "Leave this game?" first, and Esc
+  // again leaves (game-shell.js). The one Esc that stays is one the game
+  // acted on: closing a panel or stepping back out of a sub-screen. Every
+  // game marks such an Esc by calling preventDefault(), so this needs no idea
+  // which screen is up; it
   // listens first (capture) and decides once the key has been through the
   // game's own handlers. Neither key works from a text field (except the
   // game's own answer box, marked data-game-input) or while a GameShell

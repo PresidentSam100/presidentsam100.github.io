@@ -111,11 +111,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Backspace"); await p.waitForTimeout(300); const q1 = await box(p);
   await p.keyboard.press("Escape"); await p.waitForTimeout(300);
   await p.keyboard.press("Escape"); await p.waitForTimeout(300); const q2 = await box(p);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(300); const q3 = { box: await box(p), leaves: p.leaves, phase: (await now(p)).phase };
+  await p.keyboard.press("Enter"); await p.waitForTimeout(300); const q3 = { box: await box(p), leaves: p.leaves, phase: (await now(p)).phase };
   await p.keyboard.press("s"); await idle(p);
   await p.keyboard.press("Backspace"); await p.waitForTimeout(300);
   const q4 = await p.evaluate(() => ({ state: JackBlack.state(), small: document.getElementById("table-small").textContent, box: !!document.querySelector(".gs-dialog") }));
-  check("jackblack: mid-hand Backspace asks 'Leave the table?' and Esc 'Leave this game?' (Esc again plays on); between hands Backspace goes to the modes, which show the stake kept",
+  check("jackblack: mid-hand Backspace asks 'Leave the table?' and Esc 'Leave this game?' (Enter plays on); between hands Backspace goes to the modes, which show the stake kept",
     q1 === "Leave the table?" && q2 === "Leave this game?" && !q3.box && q3.leaves === 0 && q3.phase === "play" && q4.state === "menu" && !q4.box && /1,[0-9]{3}/.test(q4.small), { q1, q2, q3, q4 });
   check("jackblack: no page errors", p.errs.length === 0, p.errs);
   await p.close();

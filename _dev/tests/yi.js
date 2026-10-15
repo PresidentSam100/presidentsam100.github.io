@@ -25,7 +25,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const asked = await dlg(p);
   await p.waitForTimeout(3000);
   const under = await mine(p);
-  await p.keyboard.press("Escape"); await settle(p);   // Keep playing
+  await p.keyboard.press("Enter"); await settle(p);   // Keep playing
   await p.waitForTimeout(700);
   const soon = await mine(p);
   await p.waitForTimeout(2600);
@@ -55,7 +55,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await settle(p);
   await p.waitForTimeout(2500);
   const cpuHeld = await p.evaluate(() => ({ turn: G.currentPlayerIndex, ada: G.players[1].hand.length, discard: G.discard.length }));
-  await p.keyboard.press("Escape");
+  await p.keyboard.press("Enter");   // (Keep playing)
   const moved = await p.waitForFunction(() => G.discard.length > 1 || G.players[1].hand.length !== 7, null, { timeout: 6000 }).then(() => true, () => false);
   check("yi: a CPU waits while 'Leave this game?' is up; after Keep playing it moves",
     cpuHeld.turn === 1 && cpuHeld.ada === 7 && cpuHeld.discard === 1 && moved, { cpuHeld, moved });
