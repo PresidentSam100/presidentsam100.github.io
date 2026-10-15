@@ -62,9 +62,10 @@
   var pref = {
     clock: store.get("fishafish_clock", "daybreak"),
     kb: store.get("fishafish_kb", "nine"),
-    // (off until switched on. A name of its own: "fishafish_shift" was the
-    // switch for the number row's symbols alone, on unless switched off)
-    shift: store.get("fishafish_shift_keys", "0") === "1",
+    // (off until switched on. Saved under a name of its own since it began
+    // off; a player who has none yet keeps what the old switch,
+    // "fishafish_shift", was saved at)
+    shift: store.get("fishafish_shift_keys", store.get("fishafish_shift", "0")) === "1",
   };
   if (pref.clock !== "endless") pref.clock = "daybreak";
   if (!LAYOUTS[pref.kb]) pref.kb = "nine";

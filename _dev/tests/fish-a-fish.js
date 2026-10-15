@@ -75,8 +75,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Shift, a switch of its own (S), on every pond and off to begin with
   // (as typing is: a key bare, unless Shift is held). S or a click switches it
   // on the letter ponds as on the whole keyboard, and it is remembered (under
-  // a name of its own: the old switch's "on" doesn't carry over). The card is
-  // the same height whatever is picked.
+  // a name of its own; with none saved yet, the old switch's setting carries
+  // over). The card is the same height whatever is picked.
   const sw = () => p.evaluate(() => { const b = document.getElementById("pick-shift"); return { name: document.getElementById("shift-name").textContent, off: b.getAttribute("aria-disabled"), on: b.getAttribute("aria-pressed"), says: document.getElementById("shift-says").textContent, saved: localStorage.getItem("fishafish_shift_keys"), card: Math.round(document.querySelector("#menu .card").getBoundingClientRect().height) }; });
   await p.keyboard.press("c"); const s0 = await sw();
   await p.keyboard.press("s"); const s1 = await sw();
@@ -90,11 +90,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     s0.on === "false" && /plain/.test(s0.says) && s1.on === "true" && s1.saved === "1" && /gold/.test(s1.says) && s2.on === "true" &&
     s3.on === "false" && s3.saved === "0" && s4.on === "true" && s4.saved === "1" && s5.on === "true" && s6.on === "false" && s6.saved === "0",
     { s0, s1, s2, s3, s4, s5, s6 });
-  // (a player whose old switch was saved on starts with Shift off all the same)
-  const fresh = await p.evaluate(() => { localStorage.removeItem("fishafish_shift_keys"); localStorage.setItem("fishafish_shift", "1"); return true; });
-  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
-  const s7 = await sw();
-  check("fish-a-fish: the old Shift symbols switch saved on doesn't turn the new Shift on", fresh && s7.on === "false" && s7.saved !== "1", s7);
+  // (the old switch's setting carries over to a player with nothing saved
+  // under the new name: on stays on, off stays off; with neither saved it
+  // begins off, and one saved under the new name wins)
+  const carried = {};
+  for (const [name, olds, news] of [["oldOn", "1", null], ["oldOff", "0", null], ["newOff", "1", "0"], ["newOn", "0", "1"], ["neither", null, null]]) {
+    await p.evaluate(([olds, news]) => {
+      for (const [k, v] of [["fishafish_shift", olds], ["fishafish_shift_keys", news]]) { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); }
+    }, [olds, news]);
+    await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+    carried[name] = await sw();
+  }
+  check("fish-a-fish: the old Shift switch's setting carries over (on stays on, off stays off), nothing saved begins off, and the new switch's own setting wins",
+    carried.oldOn.on === "true" && /^Shift: on$/.test(carried.oldOn.name) && carried.oldOff.on === "false" && carried.neither.on === "false" &&
+    carried.newOff.on === "false" && carried.newOn.on === "true", carried);
   check("fish-a-fish: the menu card keeps its height whichever pond and whichever way Shift is set", [s1, s2, s3, s4, s5, s6].every((s) => s.card === s0.card), [s0, s1, s2, s3, s4, s5, s6].map((s) => s.card));
   // in play: with the symbols on, a plain number fish refuses Shift + its key;
   // with them off the number row is plain keys, Shift held or not, and the
