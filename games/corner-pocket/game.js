@@ -436,7 +436,33 @@
     g.restore();
     worldXf(g);
 
-    // pockets: leather liner on the wood, then the hole
+    // cushions, the two points at each pocket's mouth rounded off as a rubber
+    // cushion's are (only drawn so: the physics keeps its jaws)
+    var PT = 0.006;
+    cushionPolys().forEach(function (c) {
+      var a = c[0], b = c[1], ux = b[0] - a[0], uy = b[1] - a[1], ul = Math.hypot(ux, uy);
+      ux /= ul; uy /= ul;
+      g.beginPath();
+      g.moveTo((c[3][0] + a[0]) / 2, (c[3][1] + a[1]) / 2);
+      g.arcTo(a[0], a[1], b[0], b[1], PT);
+      g.arcTo(b[0], b[1], c[2][0], c[2][1], PT);
+      g.lineTo(c[2][0], c[2][1]); g.lineTo(c[3][0], c[3][1]);
+      g.closePath();
+      g.fillStyle = "#17693a"; g.fill();
+      g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = px; g.stroke();
+      // lit nose, up to where the points turn away
+      g.beginPath(); g.moveTo(a[0] + ux * PT, a[1] + uy * PT); g.lineTo(b[0] - ux * PT, b[1] - uy * PT);
+      g.strokeStyle = "rgba(160,235,180,0.35)"; g.lineWidth = px * 1.6; g.stroke();
+    });
+    // cushion shadow on the cloth
+    g.save();
+    g.beginPath(); g.rect(0, 0, L, W); g.clip();
+    g.strokeStyle = "rgba(0,0,0,0.22)"; g.lineWidth = 0.012;
+    g.strokeRect(0, 0, L, W);
+    g.restore();
+    // pockets: leather liner on the wood, then the hole. Over the cushions, so
+    // each jaw runs into the liner's round rim instead of poking past it in a
+    // sharp point (the jaw's far end lies under the rim)
     for (var k = 0; k < 6; k++) {
       var h = holeOf(k);
       g.beginPath(); g.arc(h.x, h.y, h.r + 0.014, 0, Math.PI * 2);
@@ -447,21 +473,6 @@
       g.beginPath(); g.arc(h.x, h.y, h.r, 0, Math.PI * 2);
       g.fillStyle = hg; g.fill();
     }
-    // cushions
-    cushionPolys().forEach(function (c) {
-      poly(g, c);
-      g.fillStyle = "#17693a"; g.fill();
-      g.strokeStyle = "rgba(0,0,0,0.35)"; g.lineWidth = px; g.stroke();
-      // lit nose
-      g.beginPath(); g.moveTo(c[0][0], c[0][1]); g.lineTo(c[1][0], c[1][1]);
-      g.strokeStyle = "rgba(160,235,180,0.35)"; g.lineWidth = px * 1.6; g.stroke();
-    });
-    // cushion shadow on the cloth
-    g.save();
-    g.beginPath(); g.rect(0, 0, L, W); g.clip();
-    g.strokeStyle = "rgba(0,0,0,0.22)"; g.lineWidth = 0.012;
-    g.strokeRect(0, 0, L, W);
-    g.restore();
 
     // mother-of-pearl sights
     var dRail = -(RAIL + CUSH) / 2;
@@ -789,8 +800,14 @@
 
     // the kitchen, lit up while placing for the break
     if (st.inHand === "kitchen" && (G.phase === "aim" || G.phase === "cpu")) {
+      // (on the cloth only: the corner pockets cut into it, round)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(0, 0, P.HEAD_X, W);
+      for (var hk = 0; hk < 6; hk++) { var ho = holeOf(hk); ctx.moveTo(ho.x + ho.r + 0.014, ho.y); ctx.arc(ho.x, ho.y, ho.r + 0.014, 0, Math.PI * 2); }
+      ctx.clip("evenodd");
       ctx.fillStyle = "rgba(255,255,255,0.05)";
       ctx.fillRect(0, 0, P.HEAD_X, W);
+      ctx.restore();
       ctx.setLineDash([0.02, 0.014]);
       ctx.strokeStyle = "rgba(255,255,255,0.35)"; ctx.lineWidth = px * 1.5;
       ctx.beginPath(); ctx.moveTo(P.HEAD_X, 0); ctx.lineTo(P.HEAD_X, W); ctx.stroke();
