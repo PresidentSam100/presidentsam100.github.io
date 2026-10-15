@@ -7,7 +7,8 @@
 // up), asking first; the keycaps hide on a phone. Five layouts, each a valid
 // board of 144 tiles, picked on the menu with the arrows; each deals the full
 // set, can be cleared, fits the screen and keeps its own fastest clear; the
-// Daily is always the turtle; the games page's reset clears every layout's.
+// Daily's is the day's own, at random, all five in every five days and never
+// the same two days running; the games page's reset clears every layout's.
 // Animations (an option on the menu, A): a deal's tiles drop in from above, a
 // matched pair comes together and is gone, a shuffle's tiles travel from where
 // their faces lay; with Visual FX off the three are told by fading; a press, a
@@ -18,9 +19,13 @@
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
-    nudge: function () { hint(true); }
+    nudge: function () { hint(true); },
+    dailyOf: function (n) { return dailyLayout(n == null ? today().n : n).id; }
   };
 })();`];
+// (the dead-board checks build their desk on the turtle's middle stack, so
+// they hold the Daily to the turtle)
+const DAILY_TURTLE = ["function layoutNow() { return mode === \"daily\" ? dailyLayout(today().n)", "function layoutNow() { return mode === \"daily\" ? LAYOUTS[0]"];
 
 module.exports = async ({ browser, base, check, lib }) => {
   // (the checks of the rules run with Animations off, the game as it was:
@@ -115,7 +120,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // Undo: New deal (asking first), and on the Daily, giving up (asking first,
   // recording nothing: the Daily keeps only a clear)
   const stuck = async (mode) => {
-    const pg = await open(ctx);
+    const pg = await open(ctx, false, [DAILY_TURTLE]);
     await pg.evaluate((m) => Mahjong.start(m), mode);
     const idx = await pg.evaluate(() => Mahjong.pos().map((q, i) => (q[0] === 12 && q[1] === 6 ? i : -1)).filter((i) => i >= 0));
     await pg.evaluate((a) => { Mahjong.setLive(a, ["d1", "d2", "d1", "d2"]); Mahjong.nudge(); }, idx);
@@ -146,14 +151,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("mahjong: after Undo on a dead board, the way-out actions go and the pairs count is back",
     s.bar.deal && !afterUndo.bar && /pairs open/.test(afterUndo.note), { before: s.bar, afterUndo });
   await done(s.pg, "dead undo");
-  // Daily: New deal is today's turtle again, so it asks "Start over?" (Esc keeps
+  // Daily: New deal is today's deal again, so it asks "Start over?" (Esc keeps
   // the board); give up asks "Quit this game?", Enter goes to the menu and records nothing
   s = await stuck("daily");
   await s.pg.evaluate(() => document.getElementById("btn-newdeal").click());
   const again = await s.pg.evaluate(() => ({ title: (document.querySelector(".gs-dialog h2") || {}).textContent || null, text: (document.querySelector(".gs-dialog p") || {}).textContent || "", ok: [...document.querySelectorAll(".gs-dialog button")].map((b) => b.textContent).join("|") }));
   await s.pg.keyboard.press("Escape"); await s.pg.waitForTimeout(80);
-  check("mahjong: on a dead Daily, New deal asks \"Start over?\", saying today's turtle is dealt again from the start",
-    again.title === "Start over?" && /dealt again, from the start/.test(again.text) && /Start over/.test(again.ok) && (await s.pg.evaluate(() => Mahjong.tilesLeft())) === 4, again);
+  check("mahjong: on a dead Daily, New deal asks \"Start over?\", saying today's layout is dealt again from the start",
+    again.title === "Start over?" && /^Today's turtle is dealt again, from the start/.test(again.text) && /Start over/.test(again.ok) && (await s.pg.evaluate(() => Mahjong.tilesLeft())) === 4, again);
   await s.pg.evaluate(() => document.getElementById("btn-giveup") && document.getElementById("btn-giveup").click());
   const quitAsk = await ask(s.pg);
   await s.pg.keyboard.press("Enter"); await s.pg.waitForTimeout(150);
@@ -245,11 +250,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   afterAll.push(await menuNow());
   check("mahjong: the menu shows the picked layout's own fastest clear", /^fastest twin peaks clear: \d+:\d\d$/.test(afterAll[0].bests) && /^fastest turtle clear: \d+:\d\d$/.test(afterAll[1].bests), afterAll.map((s) => s.bests));
 
-  // ---- the Daily is always the turtle: the arrows are off there, and the
-  // layout picked for Classic is still picked afterwards
+  // ---- the Daily's layout is the day's own: one of the five at random, the
+  // same for everyone, every one of them in each round of five days, never the
+  // same two days running
+  const days = await p.evaluate(() => { const a = [], b = []; for (let n = -9; n <= 400; n++) { a.push(Mahjong.dailyOf(n)); b.push(Mahjong.dailyOf(n)); } return { a, same: a.join() === b.join() }; });
+  const rounds = [], runs = [];
+  for (let i = 10; i + 5 <= days.a.length; i += 5) rounds.push(new Set(days.a.slice(i, i + 5)).size);   // (index 10 is day 1)
+  for (let i = 1; i < days.a.length; i++) if (days.a[i] === days.a[i - 1]) runs.push(i - 9);
+  const firsts = new Set(rounds.map((r, k) => days.a[10 + k * 5]));
+  check("mahjong: the Daily's layout is the day's own: the same each time it is asked, all five in every round of five days, never the same two days running, and the rounds in orders of their own",
+    days.same && rounds.length >= 70 && rounds.every((r) => r === 5) && runs.length === 0 && firsts.size === 5 && new Set(days.a).size === 5,
+    { same: days.same, notFive: rounds.filter((r) => r !== 5).length, runs: runs.slice(0, 5), firsts: [...firsts], first10: days.a.slice(10, 20) });
+  // ...on the menu: today's is shown with the arrows off, whatever is picked
+  // for Classic, which is still picked afterwards; Enter deals it
   await pick("Fortress");
   await p.keyboard.press("2"); await p.waitForTimeout(60);
+  const todays = await p.evaluate(() => Mahjong.dailyOf());
+  const todaysName = lays.find((l) => l.id === todays).name;
   const onDaily = await menuNow();
+  const dailySmall = await p.evaluate(() => document.getElementById("daily-small").textContent);
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
   const onDaily2 = await menuNow();
   await p.keyboard.press("Enter"); await p.waitForTimeout(200);
@@ -257,10 +276,30 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => Mahjong.toMenu());
   await p.keyboard.press("1"); await p.waitForTimeout(60);
   const onClassic = await menuNow();
-  check("mahjong: the Daily is always the turtle: with the Fortress picked it shows the turtle with the arrows off (the arrow key changes nothing) and deals the turtle; back on Classic the Fortress is still picked",
-    onDaily.name === "Turtle" && /Daily/.test(onDaily.note) && onDaily.off.length === 2 && onDaily.off.every(Boolean) && onDaily.play === "Deal the turtle" && onDaily2.name === "Turtle" && onDaily2.stored === "fortress" &&
-    dailyDeal.layout === "turtle" && dailyDeal.left === 144 && onClassic.name === "Fortress" && !onClassic.off.some(Boolean),
-    { onDaily: [onDaily.name, onDaily.note, onDaily.off, onDaily.play], onDaily2: [onDaily2.name, onDaily2.stored], dailyDeal, onClassic: [onClassic.name, onClassic.off] });
+  check("mahjong: the Daily shows today's layout by name on the menu, with the arrows off (the arrow key changes nothing), and deals it; back on Classic the Fortress is still picked",
+    onDaily.name === todaysName && onDaily.note === "today's Daily layout" && onDaily.off.length === 2 && onDaily.off.every(Boolean) && onDaily.play === "Deal the " + todaysName.toLowerCase() &&
+    dailySmall.startsWith("today's " + todaysName.toLowerCase() + ", shareable") && onDaily2.name === todaysName && onDaily2.stored === "fortress" &&
+    dailyDeal.layout === todays && dailyDeal.left === 144 && onClassic.name === "Fortress" && !onClassic.off.some(Boolean),
+    { todays, dailySmall, onDaily: [onDaily.name, onDaily.note, onDaily.off, onDaily.play], onDaily2: [onDaily2.name, onDaily2.stored], dailyDeal, onClassic: [onClassic.name, onClassic.off] });
+  // ...and the cleared Daily's card and shared result name it
+  // (cleared by taking any free pair, shuffling when stuck, a few tries as above)
+  let shared = null;
+  for (let n = 0; n < 4 && !(shared && shared.left === 0); n++) {
+    await p.evaluate(() => Mahjong.start("daily"));
+    shared = { left: await clearDesk(p) };
+  }
+  await p.waitForTimeout(80);
+  Object.assign(shared, await p.evaluate(async () => {
+    let text = null;
+    try { Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: (t) => { text = t; return Promise.resolve(); } } }); } catch (e) {}
+    const card = document.getElementById("over-stats").textContent;
+    document.getElementById("share").click();
+    await new Promise((r) => setTimeout(r, 50));
+    return { card, text };
+  }));
+  check("mahjong: a cleared Daily's card and its shared result name the day's layout",
+    shared.left === 0 && new RegExp("^Daily No\\. \\d+, the " + todaysName.toLowerCase()).test(shared.card) && new RegExp("^Mahjong · Daily No\\. \\d+, the " + todaysName.toLowerCase() + " \\(").test(shared.text || ""),
+    Object.assign({ todays }, shared));
   await done(p, "layouts");
 
   // ---- the games page's reset clears every layout's fastest clear, and leaves the picked layout alone

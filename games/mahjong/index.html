@@ -39,7 +39,7 @@
     <!-- a dead board's ways out, after Undo (game.js shows them) -->
     <span class="hud-btns hud-stuck" id="hud-stuck" hidden>
       <button type="button" id="btn-newdeal" title="Deal again, from the start (N)">New deal</button>
-      <button type="button" id="btn-giveup" title="Give today's turtle up, unrecorded (G)">Daily: give up</button>
+      <button type="button" id="btn-giveup" title="Give today's Daily up, unrecorded (G)">Daily: give up</button>
     </span>
     <span class="hud-btns">
       <button type="button" id="btn-hint" title="Show a pair (+30s)">Hint <span class="gs-keys"><kbd>H</kbd></span></button>
@@ -64,10 +64,10 @@
     <div class="pick">
       <div class="seg" id="pick-mode">
         <button type="button" data-v="classic"><b>Classic</b><small>a fresh deal, fastest clear <span class="gs-keys"><kbd>1</kbd></span></small></button>
-        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's turtle, shareable <span class="gs-keys"><kbd>2</kbd></span></small></button>
+        <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's layout, shareable <span class="gs-keys"><kbd>2</kbd></span></small></button>
       </div>
       <!-- the layout a Classic deal is laid in: the one before, its picture and
-           name (game.js), the next. The Daily is always the turtle. -->
+           name (game.js), the next. The Daily's is the day's own (game.js dailyLayout). -->
       <div class="layrow" id="pick-layout">
         <button type="button" id="lay-prev" aria-label="The layout before">◀</button>
         <span class="lay">
