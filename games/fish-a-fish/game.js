@@ -9,17 +9,18 @@
    the old boot costs 5. Catches build a streak: from 5 in a row points
    double, from 10 they triple.
 
-   Three toggles, remembered between visits:
+   Two toggles, remembered between visits:
    - Round: Daybreak (60 seconds) or Endless (three fish get away and the
      pond goes quiet; it keeps speeding up).
    - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
      Whole keyboard (the number row too).
-   - Shift, on every pond, off to begin with: on, a fish sometimes asks for
-     what Shift types on its key, a capital on a letter or the SYMBOL over a
-     number (!, %, &, ...), and then only Shift + that key hooks it; off,
-     every key is plain. A tag shows what its key types, as typing does: a
-     small letter bare, a capital with Shift.
    Each combination keeps its own best score.
+
+   Shift works as it does in typing, on every pond, with no switch: a tag
+   shows what to type. A small letter or a number is its key alone; a gold
+   tag shows a capital or the SYMBOL over a number (!, %, &, ...), and only
+   Shift + that key hooks it. (A tap has no Shift, so a touch-only screen
+   plays every tag plain.)
    ===================================================================== */
 (function () {
   "use strict";
@@ -27,10 +28,10 @@
   var canvas = document.getElementById("stage"), ctx = canvas.getContext("2d");
   var store = window.GameShell ? GameShell.store
     : { get: function (k, f) { return f; }, getNum: function (k, f) { return f; }, set: function () {}, remove: function () {} };
-  // (the whole keyboard's first bests were earned with Shift on, when it asked
-  // on the number row alone: those keep their names, and "_plain" is without.
-  // The letter ponds' were earned without it: theirs keep their names, and
-  // "_shift" is with.)
+  // (the whole keyboard's first bests were earned with Shift, when it asked
+  // on the number row alone: those keep their names, and "_plain" is without,
+  // as a touch-only screen plays. The letter ponds' were earned without it:
+  // theirs keep their names, and "_shift" is with.)
   function bestKey(clock, kb, shift) { return "fishafish_best_" + clock + "_" + kb + (kb === "all" ? (shift ? "" : "_plain") : (shift ? "_shift" : "")); }
   // One-time move of the original three bests into the combo keys they were:
   // Daybreak/Endless were the nine-key pond, Full Pond was 60s on the board.
@@ -62,10 +63,6 @@
   var pref = {
     clock: store.get("fishafish_clock", "daybreak"),
     kb: store.get("fishafish_kb", "nine"),
-    // (off until switched on. Saved under a name of its own since it began
-    // off; a player who has none yet keeps what the old switch,
-    // "fishafish_shift", was saved at)
-    shift: store.get("fishafish_shift_keys", store.get("fishafish_shift", "0")) === "1",
   };
   if (pref.clock !== "endless") pref.clock = "daybreak";
   if (!LAYOUTS[pref.kb]) pref.kb = "nine";
@@ -232,7 +229,7 @@
     var s = spots[i];
     s.pressed = now();
     if (s.phase === "bite") {
-      // With Shift on, a Shift fish only takes Shift + its key and a plain
+      // As in typing, a Shift fish only takes Shift + its key and a plain
       // fish only the bare key. The fish stays for another try.
       if (shiftNow && s.what !== "junk" && shifted !== null && shifted !== undefined && shifted !== s.sym) {
         score = Math.max(0, score - 2); liveBest();
@@ -295,34 +292,24 @@
   };
   var KB_NAME = { nine: "Condensed", letters: "All letters", all: "Whole keyboard" };
   // (a pond in words, for the bests line and the end card)
-  function pondName(kb, shift) { return KB_NAME[kb].toLowerCase() + (shift ? ", with Shift" : ""); }
-  // Shift as a round will play it: a tap has no Shift, so a touch-only screen
-  // has no switch and plays plain
-  function shiftFor() { return pref.shift && !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly()); }
+  function pondName(kb) { return KB_NAME[kb].toLowerCase(); }
+  // Whether a round has Shift fish: always, but where a tap is all there is
+  // (a tap has no Shift, so a touch-only screen plays plain, with bests of
+  // its own)
+  function shiftFor() { return !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly()); }
   function bestsText() {
     var sh = shiftFor();
-    return "Best on " + pondName(pref.kb, sh) + " · Daybreak " +
+    return "Best on " + pondName(pref.kb) + " · Daybreak " +
       store.getNum(bestKey("daybreak", pref.kb, sh), 0) + " · Endless " + store.getNum(bestKey("endless", pref.kb, sh), 0);
   }
   // Reflect the toggles in the menu, and remember them.
-  var shiftBtn = document.getElementById("pick-shift");
   function renderPicks() {
     ["pick-clock", "pick-kb"].forEach(function (id) {
       var which = id === "pick-clock" ? pref.clock : pref.kb;
       var btns = document.getElementById(id).querySelectorAll("button");
       for (var i = 0; i < btns.length; i++) btns[i].classList.toggle("sel", btns[i].dataset.v === which);
     });
-    // The Shift switch, on every pond
-    shiftBtn.classList.toggle("sel", pref.shift);
-    shiftBtn.setAttribute("aria-pressed", pref.shift ? "true" : "false");
-    document.getElementById("shift-name").textContent = "Shift: " + (pref.shift ? "on" : "off");
-    document.getElementById("shift-says").textContent = pref.shift ? "a gold tag wants Shift + its key" : "every key is plain";
     ui.bests.textContent = bestsText();
-  }
-  // The Shift switch, by its button or the S key
-  function toggleShift() {
-    pref.shift = !pref.shift;
-    savePicks();
   }
   var kbNow = "nine", shiftNow = false;
   // The best is saved the moment a run earns it: once the score passes the
@@ -341,7 +328,7 @@
   }
   function start(m) {
     // Legacy names (test hooks / old shortcuts) still work as presets.
-    if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; pref.shift = true; }
+    if (m === "fullpond") { pref.clock = "daybreak"; pref.kb = "all"; }
     else if (m === "daybreak" || m === "endless") pref.clock = m;
     mode = pref.clock;
     kbNow = pref.kb;
@@ -387,7 +374,7 @@
     ui.overTitle.textContent = reason === "quiet" ? "The pond went quiet" : "The sun is up";
     ui.overMsg.textContent = score + (score === 1 ? " point" : " points") + (isBest ? " · new best!" : " · best " + prev);
     ui.overStats.textContent = caught + (caught === 1 ? " fish" : " fish") + " · best streak " + bestStreak +
-      " · " + (mode === "endless" ? "Endless" : "Daybreak") + ", " + pondName(kbNow, shiftNow);
+      " · " + (mode === "endless" ? "Endless" : "Daybreak") + ", " + pondName(kbNow);
     ui.over.hidden = false; ui.hud.hidden = true;
     document.getElementById("again").focus({ preventScroll: true });
   }
@@ -423,7 +410,6 @@
       else if (mk === "c") { pref.kb = "nine"; savePicks(); }
       else if (mk === "l") { pref.kb = "letters"; savePicks(); }
       else if (mk === "w") { pref.kb = "all"; savePicks(); }
-      else if (mk === "s") toggleShift();
       else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); start(); }
     } else if (state === "over") {
       // Backspace back to the modes; Esc is left to leave for the games page.
@@ -448,11 +434,8 @@
   function savePicks() {
     store.set("fishafish_clock", pref.clock);
     store.set("fishafish_kb", pref.kb);
-    store.set("fishafish_shift_keys", pref.shift ? "1" : "0");
     renderPicks();
   }
-  shiftBtn.addEventListener("click", toggleShift);
-  shiftBtn.addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus from a click, as the picks)
   ["pick-clock", "pick-kb"].forEach(function (id) {
     document.getElementById(id).addEventListener("click", function (e) {
       var b = e.target.closest("button");

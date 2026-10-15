@@ -81,10 +81,8 @@ kbd {
 .menu .card { margin-top: auto; margin-bottom: max(3vh, 12px); }
 .menu .how { margin: 0 0 12px; font-size: 0.86rem; font-weight: 400; line-height: 1.45; color: #dcebef; }
 .menu .how b { color: #ffe9c4; font-weight: 600; }
-/* the toggles: Round (daybreak / endless), Keys (which keyboard) and Shift
-   (whether the number row's fish may ask for a symbol) */
+/* the toggles: Round (daybreak / endless) and Keys (which keyboard) */
 .menu .pick { display: flex; align-items: stretch; gap: 8px; margin-top: 8px; text-align: left; }
-@media (hover: none) { .menu .pick.gs-keys { display: none; } }
 .menu .picklab {
   flex: 0 0 44px; display: flex; align-items: center; justify-content: flex-end;
   font-size: 0.68rem; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: #9fc0c9;

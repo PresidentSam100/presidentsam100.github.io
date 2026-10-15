@@ -4,8 +4,8 @@
 // take over the round Enter then starts; the menu buttons' shortcut keycaps
 // hide on a touch-only phone; a late strike on R doesn't skip the end card.
 // The key that picks an option is a tab on its corner, not one more keycap
-// among the keys the option describes; Shift is a switch of its own, on
-// every pond.
+// among the keys the option describes; Shift works as in typing, on every
+// pond, with no switch.
 module.exports = async ({ browser, base, check, lib }) => {
   const open = (ctx) => lib.open(ctx, base, "games/fish-a-fish/");
   const done = async (p, what) => { check("fish-a-fish " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -56,9 +56,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     run.state === "play" && run.kb === "nine" && run.saved === "nine", run);
   await done(p, "mouse then Enter");
 
-  // ---- the pick keys (1 2 C L W S) against the pond's keys (Q W E ...): C
+  // ---- the pick keys (1 2 C L W) against the pond's keys (Q W E ...): C
   // and W are both, and they used to be drawn alike, side by side. Each pick
-  // key is a tab on its button's top right corner, all six the same; the
+  // key is a tab on its button's top right corner, all five the same; the
   // pond's keys are flat tiles in the button's small print.
   p = await open(ctx);
   const tabs = await p.evaluate(() => {
@@ -70,113 +70,95 @@ module.exports = async ({ browser, base, check, lib }) => {
     };
   });
   check("fish-a-fish: each option's pick key is a tab on its corner, all alike, and not drawn like the pond keys the options describe",
-    tabs.keys === "12CLWS" && tabs.looks.length === 1 && /^absolute/.test(tabs.looks[0]) && tabs.corner && tabs.pond === "QWEASDZXC" && tabs.pondLooks.length === 1 && tabs.pondLooks[0] !== tabs.looks[0], tabs);
+    tabs.keys === "12CLW" && tabs.looks.length === 1 && /^absolute/.test(tabs.looks[0]) && tabs.corner && tabs.pond === "QWEASDZXC" && tabs.pondLooks.length === 1 && tabs.pondLooks[0] !== tabs.looks[0], tabs);
 
-  // ---- Shift, a switch of its own (S), on every pond and off to begin with
-  // (as typing is: a key bare, unless Shift is held). S or a click switches it
-  // on the letter ponds as on the whole keyboard, and it is remembered (under
-  // a name of its own; with none saved yet, the old switch's setting carries
-  // over). The card is the same height whatever is picked.
-  const sw = () => p.evaluate(() => { const b = document.getElementById("pick-shift"); return { name: document.getElementById("shift-name").textContent, off: b.getAttribute("aria-disabled"), on: b.getAttribute("aria-pressed"), says: document.getElementById("shift-says").textContent, saved: localStorage.getItem("fishafish_shift_keys"), card: Math.round(document.querySelector("#menu .card").getBoundingClientRect().height) }; });
-  await p.keyboard.press("c"); const s0 = await sw();
-  await p.keyboard.press("s"); const s1 = await sw();
-  await p.keyboard.press("w"); const s2 = await sw();
-  await p.keyboard.press("s"); const s3 = await sw();
-  await p.click("#pick-shift"); const s4 = await sw();
-  await p.keyboard.press("l"); const s5 = await sw();
-  await p.keyboard.press("s"); const s6 = await sw();
-  check("fish-a-fish: Shift is off to begin with, and switches on every pond, by S or a click, and is remembered (on the Condensed and All letters ponds as on the whole keyboard)",
-    [s0, s1, s2, s3, s4, s5, s6].every((s) => s.off !== "true" && /^Shift: (on|off)$/.test(s.name) && (s.on === "true") === /on$/.test(s.name)) &&
-    s0.on === "false" && /plain/.test(s0.says) && s1.on === "true" && s1.saved === "1" && /gold/.test(s1.says) && s2.on === "true" &&
-    s3.on === "false" && s3.saved === "0" && s4.on === "true" && s4.saved === "1" && s5.on === "true" && s6.on === "false" && s6.saved === "0",
-    { s0, s1, s2, s3, s4, s5, s6 });
-  // (the old switch's setting carries over to a player with nothing saved
-  // under the new name: on stays on, off stays off; with neither saved it
-  // begins off, and one saved under the new name wins)
-  const carried = {};
-  for (const [name, olds, news] of [["oldOn", "1", null], ["oldOff", "0", null], ["newOff", "1", "0"], ["newOn", "0", "1"], ["neither", null, null]]) {
-    await p.evaluate(([olds, news]) => {
-      for (const [k, v] of [["fishafish_shift", olds], ["fishafish_shift_keys", news]]) { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); }
-    }, [olds, news]);
-    await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
-    carried[name] = await sw();
-  }
-  check("fish-a-fish: the old Shift switch's setting carries over (on stays on, off stays off), nothing saved begins off, and the new switch's own setting wins",
-    carried.oldOn.on === "true" && /^Shift: on$/.test(carried.oldOn.name) && carried.oldOff.on === "false" && carried.neither.on === "false" &&
-    carried.newOff.on === "false" && carried.newOn.on === "true", carried);
-  check("fish-a-fish: the menu card keeps its height whichever pond and whichever way Shift is set", [s1, s2, s3, s4, s5, s6].every((s) => s.card === s0.card), [s0, s1, s2, s3, s4, s5, s6].map((s) => s.card));
-  // in play: with the symbols on, a plain number fish refuses Shift + its key;
-  // with them off the number row is plain keys, Shift held or not, and the
-  // best is kept apart from the bests earned with the symbols
-  const strike = (shiftOn) => p.evaluate((shiftOn) => {
+  // ---- Shift works as in typing, on every pond, with no switch: the menu has
+  // none, S there picks nothing and casts nothing off, and an old switch
+  // saved off (under either name it had) changes nothing. The card is the
+  // same height whichever pond is picked.
+  const menuNow = () => p.evaluate(() => ({ sw: !!document.querySelector("#pick-shift, #shift-row"), state: FishAFish.state().state, kb: localStorage.getItem("fishafish_kb"), card: Math.round(document.querySelector("#menu .card").getBoundingClientRect().height) }));
+  await p.keyboard.press("c"); const m0 = await menuNow();
+  await p.keyboard.press("s"); const m1 = await menuNow();
+  await p.keyboard.press("w"); const m2 = await menuNow();
+  await p.keyboard.press("l"); const m3 = await menuNow();
+  check("fish-a-fish: the menu has no Shift switch, and S there picks nothing and casts nothing off",
+    !m0.sw && m0.kb === "nine" && m1.state === "menu" && m1.kb === "nine", { m0, m1 });
+  check("fish-a-fish: the menu card keeps its height whichever pond is picked", [m1, m2, m3].every((m) => m.card === m0.card), [m0, m1, m2, m3].map((m) => m.card));
+  await p.evaluate(() => { localStorage.setItem("fishafish_shift", "0"); localStorage.setItem("fishafish_shift_keys", "0"); });
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  const oldOff = await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); const sh = FishAFish.state().shift; FishAFish.toMenu(); return sh; });
+  check("fish-a-fish: an old Shift switch saved off changes nothing: a round on a keyboard has Shift fish", oldOff === true, oldOff);
+  // in play on the whole keyboard: a number is plain on its tag and a Shift
+  // fish shows the symbol over it; a plain number fish refuses Shift + its
+  // key and takes the key alone, and the best goes in with the bests earned
+  // with the symbols
+  const strike = await p.evaluate(() => {
     FishAFish.toMenu();
     for (const k of ["fishafish_best_daybreak_all", "fishafish_best_daybreak_all_plain"]) localStorage.removeItem(k);
-    const key = (k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
-    key("w");
-    if ((document.getElementById("pick-shift").getAttribute("aria-pressed") === "true") !== shiftOn) key("s");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "w", bubbles: true }));
     FishAFish.start("daybreak"); FishAFish.hold();
-    FishAFish.force(0, "perch", "bite", 9, false); FishAFish.press(0, true);
+    FishAFish.force(0, "perch", "bite", 9, false); FishAFish.force(1, "perch", "bite", 9, true);
+    const tags = FishAFish.tags().slice(0, 2).join("");
+    FishAFish.press(0, true); const refused = FishAFish.state().caught;
+    FishAFish.press(0, false);
     const st = FishAFish.state();
-    return { shift: st.shift, caught: st.caught, score: st.score, withSym: localStorage.getItem("fishafish_best_daybreak_all"), plain: localStorage.getItem("fishafish_best_daybreak_all_plain") };
-  }, shiftOn);
-  const playOn = await strike(true), playOff = await strike(false);
-  check("fish-a-fish: with Shift on a plain number fish refuses Shift + its key; off, the number row is plain keys and keeps a best of its own",
-    playOn.shift === true && playOn.caught === 0 && playOff.shift === false && playOff.caught === 1 && +playOff.plain > 0 && playOff.withSym === null, { playOn, playOff });
+    return { tags, refused, shift: st.shift, caught: st.caught, withSym: localStorage.getItem("fishafish_best_daybreak_all"), plain: localStorage.getItem("fishafish_best_daybreak_all_plain") };
+  });
+  check("fish-a-fish: on the whole keyboard a number tag is plain and a Shift fish's shows its symbol; a plain number fish refuses Shift + its key and takes the key alone, its best with the symbols' bests",
+    strike.shift === true && strike.tags === "1@" && strike.refused === 0 && strike.caught === 1 && +strike.withSym > 0 && strike.plain === null, strike);
 
   // the letter ponds too: a letter is small on its tag (what the key types
   // bare), a Shift fish shows the capital (on gold, as it bites) and takes
-  // only Shift + its key, a plain one only the bare key; its best is kept apart
-  // from the plain pond's. Off, every tag is small and Shift held or not hooks.
-  const letters = (kb, shiftOn) => p.evaluate(([kb, shiftOn]) => {
+  // only Shift + its key, a plain one only the bare key; the best goes in
+  // with the bests earned with Shift
+  const letters = (kb) => p.evaluate((kb) => {
     FishAFish.toMenu();
     const best = "fishafish_best_daybreak_" + kb;
     for (const k of [best, best + "_shift"]) localStorage.removeItem(k);
-    const key = (k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
-    key(kb === "nine" ? "c" : "l");
-    if ((document.getElementById("pick-shift").getAttribute("aria-pressed") === "true") !== shiftOn) key("s");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: kb === "nine" ? "c" : "l", bubbles: true }));
     FishAFish.start("daybreak"); FishAFish.hold();
     FishAFish.force(0, "perch", "bite", 9, true); FishAFish.force(1, "perch", "bite", 9, false);
     const tags = FishAFish.tags().slice(0, 3).join("");
     FishAFish.press(0, false); const shiftBare = FishAFish.state().caught;
     FishAFish.press(1, true); const plainShift = FishAFish.state().caught;
-    if (shiftOn) { FishAFish.press(0, true); FishAFish.press(1, false); }
+    FishAFish.press(0, true); FishAFish.press(1, false);
     const st = FishAFish.state();
     return { tags, shiftBare, plainShift, caught: st.caught, shift: st.shift, score: st.score, plain: localStorage.getItem(best), withShift: localStorage.getItem(best + "_shift") };
-  }, [kb, shiftOn]);
-  const nineOn = await letters("nine", true), lettersOn = await letters("letters", true), nineOff = await letters("nine", false);
-  check("fish-a-fish: on the letter ponds with Shift on, a Shift fish shows its capital and only Shift + its key hooks it, a plain one (small letter) only the bare key, with a best of its own; off, small letters and every press hooks",
-    nineOn.shift === true && nineOn.tags === "Qwe" && nineOn.shiftBare === 0 && nineOn.plainShift === 0 && nineOn.caught === 2 && +nineOn.withShift > 0 && nineOn.plain === null &&
-    lettersOn.shift === true && lettersOn.tags === "Qwe" && lettersOn.caught === 2 && +lettersOn.withShift > 0 &&
-    nineOff.shift === false && nineOff.tags === "qwe" && nineOff.shiftBare === 1 && nineOff.caught === 2 && +nineOff.plain > 0 && nineOff.withShift === null,
-    { nineOn, lettersOn, nineOff });
+  }, kb);
+  const nine = await letters("nine"), lettersPond = await letters("letters");
+  check("fish-a-fish: on the letter ponds a Shift fish shows its capital and only Shift + its key hooks it, a plain one (small letter) only the bare key, the best with the Shift bests",
+    [nine, lettersPond].every((r) => r.shift === true && r.tags === "Qwe" && r.shiftBare === 0 && r.plainShift === 0 && r.caught === 2 && +r.withShift > 0 && r.plain === null),
+    { nine, lettersPond });
   // and with the fish coming by themselves, Shift fish turn up on a letter pond
   await p.evaluate(() => {
     FishAFish.toMenu();
-    const key = (k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, bubbles: true }));
-    key("c");
-    if (document.getElementById("pick-shift").getAttribute("aria-pressed") !== "true") key("s");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
     window.__seen = 0;
     FishAFish.start("daybreak");
     const look = () => { if (FishAFish.state().spots.some((x) => /!$/.test(x))) window.__seen++; else requestAnimationFrame(look); };
     look();
   });
   const seen = await p.waitForFunction(() => window.__seen > 0, null, { timeout: 30000 }).then(() => true, () => false);
-  check("fish-a-fish: on the Condensed pond with Shift on, Shift fish come by themselves", seen, seen);
+  check("fish-a-fish: on the Condensed pond Shift fish come by themselves", seen, seen);
   await done(p, "pick keys and Shift");
   await ctx.close();
 
   // ---- touch-only phone: the shortcut keycaps on the menu buttons are hidden
-  // (the Condensed pond's QWE / ASD / ZXC describe the pond, and stay), and so
-  // is the Shift symbols switch: a tap has no Shift
+  // (the Condensed pond's QWE / ASD / ZXC describe the pond, and stay), and a
+  // round plays plain: a tap has no Shift, so no tag asks for it
   ctx = await lib.newContext(browser, { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
   p = await open(ctx);
   const caps = await p.evaluate(() => [...document.querySelectorAll("button kbd")].map((k) => { const s = k.closest(".gs-keys"); return { k: k.textContent, wrap: s ? getComputedStyle(s).display : "unwrapped" }; }));
   const keys = caps.filter((c) => c.wrap !== "unwrapped"), plain = caps.filter((c) => c.wrap === "unwrapped").map((c) => c.k).join("");
-  const shiftRow = await p.evaluate(() => getComputedStyle(document.getElementById("shift-row")).display);
-  // (and with no switch to see, it plays plain: a tap has no Shift)
-  const touchRun = await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); const st = FishAFish.state(); return { shift: st.shift, tags: FishAFish.tags().join("") }; });
-  check("fish-a-fish: on a touch-only phone the menu buttons' shortcut keycaps are hidden, and the Shift switch with them; a round there plays plain",
-    keys.length >= 6 && keys.every((c) => c.wrap === "none") && plain === "QWEASDZXC" && shiftRow === "none" && touchRun.shift === false && touchRun.tags === "qweasdzxc", { keys, plain, shiftRow, touchRun });
+  const touchRun = await p.evaluate(() => {
+    FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.force(0, "perch", "bite", 9, true);
+    const tags = FishAFish.tags().join("");
+    FishAFish.press(0, null);
+    const st = FishAFish.state();
+    return { shift: st.shift, tags, caught: st.caught };
+  });
+  check("fish-a-fish: on a touch-only phone the menu buttons' shortcut keycaps are hidden, and a round plays plain (small letters, and a tap hooks every fish)",
+    keys.length >= 6 && keys.every((c) => c.wrap === "none") && plain === "QWEASDZXC" && touchRun.shift === false && touchRun.tags === "qweasdzxc" && touchRun.caught === 1, { keys, plain, touchRun });
   await done(p, "touch keycaps");
   await ctx.close();
 
@@ -249,7 +231,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // a phone on its side, and a short laptop window ([wide, high, touch])
   const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
     [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false],
-    [1280, 640, false], [1366, 657, false], [1280, 661, false], [1024, 700, false]];   // (with a mouse the card has the Shift row too)
+    [1280, 640, false], [1366, 657, false], [1280, 661, false], [1024, 700, false]];   // (with a mouse the how-to has the Shift rule too)
   const shortBad = [];
   for (const [w, h, touch] of SHORT) {
     const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: h } });
