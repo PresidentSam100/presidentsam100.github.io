@@ -109,4 +109,75 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("fit: metazac's \"type an answer\" hint shows whole in the box on a phone", fits(extra.metazac), extra.metazac);
   check("fit: departures' \"type a country\" hint shows whole in the box on a phone", fits(extra.departures), extra.departures);
   check("fit: fish-a-fish's Round and Keys choices each keep their name inside their button on a phone", SIZES.every(([w]) => extra.fish[w].length === 0), extra.fish);
+
+  // ---- nothing that tells the player something is hidden to make a phone
+  // fit: the HUD's best and street, a tagline, the desk's label and its
+  // "press Enter", the how-to and the fruit chain, the letters' values, the
+  // set's lettering. Each shows, inside the screen's width and clear of the
+  // corner buttons, on a small phone and a short one (and Ping's on a phone
+  // on its side). These all used to be display: none at these sizes.
+  const SHOWN = [
+    ["dead-end", [".hud .best", ".hud .where"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
+    ["jackblack", [".plaque", ".print"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
+    ["departures", ["#desk label", "#hint"], async (p) => { await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(200); await p.evaluate(() => Departures.type("niger")); await p.waitForTimeout(100); }],
+    ["jam-jar", [".hint-panel", ".hint-panel .hint", "#chain"], null],
+    ["speedle", ["header.top p", ".key[data-pts]::after"], async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(300); }],
+    ["click-tap", ["header.top p"], null],
+    ["slither", [".subtitle"], null],
+    ["ping", [".model", ".knob small", ".power small"], null],
+  ];
+  const shown = (p, sels, w) => p.evaluate(({ sels, w }) => {
+    const row = Array.from(document.querySelectorAll(".nav-back-games, .gs-corner > *")).filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect());
+    const bad = [];
+    for (const sel of sels) {
+      const pseudo = sel.endsWith("::after"), els = Array.from(document.querySelectorAll(pseudo ? sel.slice(0, -7) : sel));
+      if (!els.length) { bad.push(sel + ": not on the page"); continue; }
+      els.forEach((e, i) => {
+        const at = sel + (els.length > 1 ? " #" + (i + 1) : "");
+        if (pseudo) { const cs = getComputedStyle(e, "::after"); if (cs.display === "none" || cs.content === "none") bad.push(at + ": hidden"); return; }
+        const r = e.getBoundingClientRect();
+        if (!e.getClientRects().length || !r.width || !r.height || getComputedStyle(e).visibility === "hidden") bad.push(at + ": hidden");
+        else if (r.left < -0.5 || r.right > w + 0.5) bad.push(at + ": off the side");
+        else if (row.some((c) => r.left < c.right && r.right > c.left && r.top < c.bottom && r.bottom > c.top)) bad.push(at + ": under the corner buttons");
+      });
+    }
+    return bad;
+  }, { sels, w });
+  {
+    const missing = {}, errs = {};
+    for (const [g, sels, start] of SHOWN) {
+      for (const [w, h] of (g === "ping" ? [[320, 568], [375, 553], [667, 375]] : [[320, 568], [375, 553]])) {
+        const ctx = await lib.newContext(browser, phone(w, h));
+        const p = await lib.open(ctx, base, "games/" + g + "/");
+        if (start) await start(p);
+        const bad = await shown(p, sels, w);
+        if (bad.length) missing[g + " " + w + "x" + h] = bad;
+        if (p.errs.length) errs[g] = p.errs;
+        await ctx.close();
+      }
+    }
+    check("fit: on a small and a short phone nothing that informs is hidden (" + SHOWN.map((s) => s[0]).join(", ") + "): each shows, on the screen and clear of the corner buttons", Object.keys(missing).length === 0, missing);
+    check("fit (shown on phones): no page errors", Object.keys(errs).length === 0, errs);
+  }
+  // Dead End's HUD on two lines (a big score, a long street's name): the
+  // block gives up the height, so the Plank button stays on the screen; and
+  // Jam Jar's chain lies across its panel under the jar
+  {
+    const got = {};
+    for (const [w, h] of [[320, 568], [360, 560]]) {
+      const ctx = await lib.newContext(browser, phone(w, h));
+      const p = await lib.open(ctx, base, "games/dead-end/");
+      await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+      await p.evaluate(() => { const s = DeadEnd.st(); s.score = 98765; s.lv.name = "Canal Street · round 12"; });
+      await p.waitForTimeout(300);
+      const de = await p.evaluate(() => { const hud = document.getElementById("hud").getBoundingClientRect(), b = document.getElementById("plank-btn").getBoundingClientRect(); return { hud: Math.round(hud.height), plank: Math.round(b.bottom), screen: innerHeight }; });
+      const j = await lib.open(ctx, base, "games/jam-jar/");
+      const jj = await j.evaluate(() => { const c = document.getElementById("chain").getBoundingClientRect(), box = c.width && document.querySelector(".chain-panel"); const pr = box ? box.getBoundingClientRect() : c; return { w: Math.round(c.width), h: Math.round(c.height), inside: c.left >= pr.left && c.right <= pr.right }; });
+      got[w + "x" + h] = { deadEnd: de, jamJar: jj };
+      await ctx.close();
+    }
+    check("fit: dead end's HUD on two lines on a phone (a big score, a long street) still leaves the Plank button on the screen",
+      Object.values(got).every((o) => o.deadEnd.hud > 45 && o.deadEnd.plank <= o.deadEnd.screen), got);
+    check("fit: jam jar's fruit chain lies across its panel under the jar on a phone", Object.values(got).every((o) => o.jamJar.w > o.jamJar.h * 3 && o.jamJar.inside), got);
+  }
 };

@@ -286,16 +286,19 @@
     });
   }
   function drawSprite(sp, x, y) { ctx.drawImage(sp.c, x - sp.off, y - sp.off, sp.size, sp.size); }
-  // how far a sprite's ink reaches above and below its centre: stems,
-  // leaves and crowns included: read off the finished pixels (k of them
-  // to a logical px)
+  // how far a sprite's ink reaches above and below its centre, and to
+  // either side: stems, leaves and crowns included: read off the finished
+  // pixels (k of them to a logical px)
   function inkRows(s, off, k) {
     var n = s.width, px = s.getContext("2d").getImageData(0, 0, n, n).data;
     function inked(y) { for (var x = 0; x < n; x++) if (px[(y * n + x) * 4 + 3] > 24) return true; return false; }
-    var top = 0, bot = n - 1;
+    function inkedCol(x) { for (var y = 0; y < n; y++) if (px[(y * n + x) * 4 + 3] > 24) return true; return false; }
+    var top = 0, bot = n - 1, lft = 0, rgt = n - 1;
     while (top < bot && !inked(top)) top++;
     while (bot > top && !inked(bot)) bot--;
-    return { up: off - top / k, down: (bot + 1) / k - off };
+    while (lft < rgt && !inkedCol(lft)) lft++;
+    while (rgt > lft && !inkedCol(rgt)) rgt--;
+    return { up: off - top / k, down: (bot + 1) / k - off, left: off - lft / k, right: (rgt + 1) / k - off };
   }
   function lighten(hex, amt) {
     var n = parseInt(hex.slice(1), 16), r = n >> 16 & 255, g2 = n >> 8 & 255, b = n & 255;
@@ -837,9 +840,20 @@
     g.setTransform(DPR2, 0, 0, DPR2, 0, 0);
     return g;
   }
-  var CHAIN_W = 100, ICON_R = 15, CHAIN = chainLayout();
+  var CHAIN_W = 100, ICON_R = 15, CHAIN, chainCtx;
   var nextCtx = hiDpi("next", 86, 86);
-  var chainCtx = hiDpi("chain", CHAIN_W, CHAIN.h);
+  // The ladder stands up beside the jar; on a phone, where the panels go
+  // under the jar (styles.css), it lies across its panel, smallest fruit on
+  // the left, as wide as the panel lets it.
+  var across = window.matchMedia ? window.matchMedia("(max-width: 760px)") : null;
+  function layChain() {
+    var el = document.getElementById("chain"), box = el.parentNode, cs = getComputedStyle(box);
+    CHAIN = across && across.matches
+      ? chainAcross(Math.floor(box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)))
+      : chainLayout();
+    chainCtx = hiDpi("chain", CHAIN.w, CHAIN.h);
+    drawChain();
+  }
   function refreshHud() {
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = Math.max(best.get(), score);
@@ -863,18 +877,34 @@
       slots.push({ k: k, up: ext.up * k, down: ext.down * k });
       if (i) step = Math.max(step, slots[i - 1].down + slots[i].up + 3);
     }
-    for (i = 0; i < slots.length; i++) slots[i].y = edge + slots[0].up + i * step;
+    for (i = 0; i < slots.length; i++) { slots[i].x = CHAIN_W / 2; slots[i].y = edge + slots[0].up + i * step; }
     var last = slots[slots.length - 1];
-    return { slots: slots, h: Math.ceil(last.y + last.down + edge) };
+    return { slots: slots, w: CHAIN_W, h: Math.ceil(last.y + last.down + edge) };
+  }
+  // The same ladder laid across `w` px: every fruit at one body size (up to
+  // the upright one's), on an even step just wide enough that no leaf or
+  // crown touches the next fruit, the row centred.
+  function chainAcross(w) {
+    var i, n = TIERS.length, gap = 3, edge = 3, unit = [], step = 0, up = 0, down = 0;
+    for (i = 0; i < n; i++) {
+      var u = 1 / TIERS[i].r, ext = SPRITES[i].ext;
+      unit.push({ u: u, l: ext.left * u, r: ext.right * u, up: ext.up * u, down: ext.down * u });
+      if (i) step = Math.max(step, unit[i - 1].r + unit[i].l);
+    }
+    var R = Math.min(ICON_R, (w - 2 * edge - (n - 1) * gap) / (unit[0].l + (n - 1) * step + unit[n - 1].r));
+    for (i = 0; i < n; i++) { up = Math.max(up, unit[i].up * R); down = Math.max(down, unit[i].down * R); }
+    var span = unit[0].l * R + (n - 1) * (step * R + gap) + unit[n - 1].r * R, x0 = (w - span) / 2 + unit[0].l * R;
+    var slots = unit.map(function (s, k) { return { k: R * s.u, x: x0 + k * (step * R + gap), y: edge + up }; });
+    return { slots: slots, w: w, h: Math.ceil(2 * edge + up + down) };
   }
   function drawChain() {
-    var g = chainCtx, slots = CHAIN.slots;
-    g.clearRect(0, 0, CHAIN_W, CHAIN.h);
+    var g = chainCtx, slots = CHAIN.slots, last = slots[slots.length - 1];
+    g.clearRect(0, 0, CHAIN.w, CHAIN.h);
     g.strokeStyle = "rgba(160,106,51,0.5)";
     g.lineWidth = 2;
-    g.beginPath(); g.moveTo(CHAIN_W / 2, slots[0].y); g.lineTo(CHAIN_W / 2, slots[slots.length - 1].y); g.stroke();
+    g.beginPath(); g.moveTo(slots[0].x, slots[0].y); g.lineTo(last.x, last.y); g.stroke();
     for (var i = 0; i < slots.length; i++) {
-      g.save(); g.translate(CHAIN_W / 2, slots[i].y); g.scale(slots[i].k, slots[i].k);
+      g.save(); g.translate(slots[i].x, slots[i].y); g.scale(slots[i].k, slots[i].k);
       paintFruit(g, i);
       g.restore();
     }
@@ -933,6 +963,8 @@
       draw();
     }
   }
+  layChain();
+  window.addEventListener("resize", layChain);   // (a phone turned, a window narrowed: the ladder stands or lies, and fills its panel)
   reset();
   requestAnimationFrame(loop);
 

@@ -85,10 +85,22 @@
   function inRun() { return ui === "run" && !!st && started && st.status !== "over"; }
 
   // ---- the canvas: sized to the maze and the window --------------------------------
+  // The HUD's lines past its first: on a phone it can take two (the street's
+  // name, a big score), and the block gives up that much height, so the
+  // Plank button under it stays on the screen.
+  var fitExtra = 0;
+  function hudExtra() {
+    var h = $("hud");
+    if (h.hidden) return 0;
+    var cs = getComputedStyle(h), tall = 0;
+    Array.prototype.forEach.call(h.children, function (s) { tall = Math.max(tall, s.offsetHeight); });
+    return Math.max(0, Math.round(h.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - tall));
+  }
   function fit() {
     var lv = st ? st.lv : E.parse(streets()[0]);
     var roomW = Math.min(620, document.documentElement.clientWidth - 20);
-    var roomH = Math.max(260, window.innerHeight - (window.innerWidth < 600 ? 266 : 270));       // (a phone keeps room for the Plank button)
+    fitExtra = hudExtra();
+    var roomH = Math.max(260, window.innerHeight - (window.innerWidth < 600 ? 266 : 270) - fitExtra);       // (a phone keeps room for the Plank button)
     cell = Math.max(10, Math.floor(Math.min(roomW / lv.cols, roomH / lv.rows)));
     var dpr = Math.min(2, window.devicePixelRatio || 1), W = lv.cols * cell, H = lv.rows * cell;
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
@@ -168,7 +180,11 @@
     if ($("hud-planks").dataset.v !== String(st.planks)) { $("hud-planks").innerHTML = planks; $("hud-planks").dataset.v = st.planks; }
     $("hud-where").textContent = st.lv.name + (round > 1 ? " · round " + round : "");
     $("plank-btn").disabled = !(ui === "run" && st.status === "play" && st.planks > 0);
+    // (the HUD gone onto a second line, or back to one, as its words change: the block refits)
+    var key = $("hud").hidden + "|" + $("hud-score").textContent + "|" + $("hud-best").textContent + "|" + $("hud-where").textContent;
+    if (key !== hudKey) { hudKey = key; if (hudExtra() !== fitExtra) fit(); }
   }
+  var hudKey = "";
   var noteText = "";
   function note(text) {
     if (text === noteText) return;
@@ -183,16 +199,17 @@
     if (!st.lv.name) st.lv.name = "A shared maze";
     popups = []; shake = 0; flash = 0; want = null; nail = false;
     $("hud-lives").dataset.v = ""; $("hud-planks").dataset.v = "";
-    fit(); hud();
+    hud(); fit();      // (the HUD's words first: how many lines it takes is room the block can't have)
     render();          // (sizing the canvas wipes it: draw at once, not a frame later)
   }
   function startRun(m) {
     mode = m; store.set("deadend_mode", m);
     audio();
     li = 0; round = 1; started = false;
+    $("hud").hidden = false;                 // (up before the block is sized: see fit)
     load({ hard: mode === "sprinters" });
     ui = "run";
-    $("menu").hidden = true; $("over").hidden = true; $("hud").hidden = false;
+    $("menu").hidden = true; $("over").hidden = true;
     note(keysOrTouch("Pick a way to run", "Swipe to run"));
   }
   function nextStreet() {

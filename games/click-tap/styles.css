@@ -203,11 +203,16 @@ section[hidden] { display: none; }
   .graph { max-width: 290px; }
   .btn { font-size: 1.15rem; padding: 0.65rem 2.2rem; }
 }
-/* the smallest phones (568px tall) */
+/* the smallest phones (568px tall): the tagline stays, smaller and closer
+   under the name, and the pad and the result give a little of their size
+   to make up for it */
 @media (max-height: 620px) {
-  header.top p { display: none; }
-  .harvest { width: 64px; height: 64px; }
-  .final { font-size: 2.8rem; }
+  header.top h1 { font-size: 1.75rem; line-height: 1.05; }
+  header.top p { font-size: 0.85rem; line-height: 1.15; }
+  section { gap: 0.6rem; }
+  .pad-wrap { width: min(78vw, 300px, calc(100dvh - 300px)); }
+  .harvest { width: 52px; height: 52px; }
+  .final { font-size: 2.6rem; }
   .graph { max-width: 250px; }
 }
 

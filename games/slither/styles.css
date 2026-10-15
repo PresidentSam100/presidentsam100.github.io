@@ -299,11 +299,12 @@ details.dict-wrap summary .gs-kbd { margin-left: 6px; }
 .lab-lv:disabled { cursor: not-allowed; opacity: 0.5; background: linear-gradient(180deg, #d9c8a0, #c4ab7a); }
 
 /* Phones: the fixed back / sound / Visual FX buttons cover the top ~50px,
-   so the title and the tablets start below them; the subtitle and tighter
-   gaps win that height back (no screen is taller than before the restyle). */
+   so the title and the tablets start below them; a smaller name and
+   subtitle and tighter gaps win that height back (the subtitle stays). */
 @media (max-width: 560px) {
-  .wrap { padding: 3.3rem 1rem 1rem; gap: 0.55rem; }
-  .subtitle { display: none; }
+  .wrap { padding: 3.15rem 1rem 1rem; gap: 0.45rem; }
+  h1.title { font-size: 1.75rem; line-height: 1; }
+  .subtitle { margin-top: 0; font-size: 0.72rem; letter-spacing: 0.1em; line-height: 1.2; }
   .overlay { padding-top: 3.6rem; }
   .card { padding: 1.15rem 1rem 1.05rem; }
   .card h2 { font-size: 1.55rem; margin-top: 0.1rem; }

@@ -171,11 +171,12 @@ button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
   .sign { width: 54px; height: 54px; margin: 14px 0 16px; border-width: 3px; border-radius: 8px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
   .sign b { font-size: 18px; letter-spacing: 1px; }
   .sign::after { height: 24px; width: 6px; }
-  /* one line: the best makes way (it's on the menu and the end card), and so
-     does the street's name (the sign over the block says it as each begins) */
-  .hud { font-size: 15px; gap: 2px 11px; padding: 3px 9px 2px; flex-wrap: nowrap; white-space: nowrap; max-width: 100%; }
+  /* all five, on two lines where one won't hold them (the best is the score
+     to beat, and the street's name says which block this is); each stays
+     whole on its line */
+  .hud { font-size: 15px; gap: 2px 11px; padding: 3px 9px 2px; max-width: 100%; }
+  .hud .stat { white-space: nowrap; }
   .hud b { font-size: 20px; }
-  .hud .best, .hud .where { display: none; }
   #stage { padding: 5px; }
   .hint { font-size: 14.5px; }
   /* a tall notice starts under the corner buttons, and scrolls if it must */

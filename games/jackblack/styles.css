@@ -354,11 +354,22 @@ button { font-family: inherit; }
 }
 /* three or four hands on a narrow screen: smaller cards, so the buttons stay in reach */
 @media (max-width: 560px) { .hands.n3, .hands.n4 { --card-w: clamp(38px, 10.5vw, 54px); } }
-/* a short screen: the two lines of small print make way for the table */
+/* a short screen: everything closes up so the table and its buttons keep
+   their room; the tagline and the table's printed rules stay */
 @media (max-height: 700px) and (max-width: 560px) {
-  .plaque, .print { display: none; }
-  h1 { font-size: 30px; }
-  #felt { margin-top: 34px; }
+  :root { --card-w: clamp(42px, 11.5vw, 60px); }
+  h1 { font-size: 28px; }
+  .plaque { margin: 0 0 3px; }
+  .hud { margin-bottom: 5px; }
+  #felt { margin-top: 30px; padding-top: 28px; }
+  #dealer { width: 96px; margin-left: -48px; top: -48px; }
+  .who { min-height: 18px; }
+  .print { margin: 4px 0 0; letter-spacing: 1.4px; line-height: 1.25; }
+  .banner { min-height: 30px; margin: 2px auto 3px; padding: 2px 12px; }
+  .hands { min-height: calc(var(--card-w) * 1.42 + 30px); }
+  .hand { padding: 2px 6px 3px; }
+  .hand .foot { min-height: 22px; margin-top: 5px; }
+  #controls { margin-top: 9px; gap: 7px; }
 }
 @media (max-width: 350px) {
   .chip .disc { width: 42px; height: 42px; font-size: 13.5px; }

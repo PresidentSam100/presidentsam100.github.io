@@ -27,9 +27,10 @@ body {
   gap: 16px;
 }
 
+:root { --jar-w: min(540px, 94vw, calc((100dvh - 100px) * 0.75)); }
 #game {
   display: block;
-  width: min(540px, 94vw, calc((100dvh - 100px) * 0.75));
+  width: var(--jar-w);
   height: auto;
   border-radius: 16px;
   /* a uniformly light niche behind the jar */
@@ -101,12 +102,20 @@ body {
 .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #8c2f1e; }
 
 /* ---- phones -------------------------------------------------------------- */
+/* the jar on top, and under it every panel, the jar's width: Score beside
+   Next, then How, then the chain lying across (game.js) */
 @media (max-width: 760px) {
-  #wrap { flex-direction: column; align-items: center; gap: 10px; }
-  #left, #right { flex-direction: row; width: auto; }
-  #left { order: 2; } #right { order: 3; }
-  .hint-panel { display: none; }
-  #chain { display: none; }
+  #wrap {
+    display: grid; width: var(--jar-w); grid-template-columns: 1fr 1fr; gap: 10px;
+    grid-template-areas: "jar jar" "score next" "how how" "chain chain";
+  }
+  #left, #right { display: contents; }
+  #game { grid-area: jar; }
+  .score-panel { grid-area: score; }
+  .next-panel { grid-area: next; }
+  .hint-panel { grid-area: how; }
+  .chain-panel { grid-area: chain; }
+  .hint { text-align: center; }
   .panel { padding: 8px 12px; }
   .val { font-size: 24px; }
   body { padding-top: 56px; } /* clear the fixed back link */

@@ -248,28 +248,30 @@ body.paused #board, body.paused #kb { visibility: hidden; }
   header.top { margin-top: 2.9rem; }
   .overlay { padding-top: 3.8rem; }      /* (a card starts below those buttons too) */
 }
-/* phones: ten keys a row leaves ~25px per tile, too small for a face value */
+/* phones: ten keys a row leaves ~25px per tile: the face value goes small,
+   tucked into the corner clear of the letter */
 @media (max-width: 420px) {
   body { padding: 0.6rem; }
   .kb { padding: 8px 5px 10px; }
   .kb-row { gap: 4px; }
   .key { font-size: 1rem; }
   .key.wide { font-size: 0.66rem; letter-spacing: 0; }
-  .key[data-pts]::after { display: none; }
+  .key[data-pts]::after { font-size: 0.5em; right: 2px; bottom: 2px; }
   .title span { width: 2.1rem; height: 2.1rem; font-size: 1.3rem; }
   .card-title .mini { width: 1.9rem; height: 1.9rem; font-size: 1.15rem; }
 }
-/* short screens: tighten everything so the rack stays in reach */
+/* short screens: tighten everything so the rack stays in reach (the
+   tagline stays, smaller and closer under the name) */
 @media (max-height: 720px) {
-  header.top p { display: none; }
+  header.top p { margin-top: 0.25rem; font-size: 0.85rem; line-height: 1.2; }
   .title span { width: 1.8rem; height: 1.8rem; font-size: 1.1rem; }
-  .hud { margin-top: 0.6rem; }
+  .hud { margin-top: 0.45rem; }
   .stat { padding: 0.3rem 0.5rem 0.3rem; }
   .stat .value { font-size: 1.2rem; }
-  .board { max-width: 280px; gap: 6px; padding: 8px; margin-top: 0.7rem; }
+  .board { max-width: 270px; gap: 6px; padding: 8px; margin-top: 0.5rem; }
   .row { gap: 6px; }
   .tile { font-size: 1.45rem; }
-  .msg { margin: 0.4rem 0 0.5rem; }
+  .msg { margin: 0.3rem 0 0.4rem; }
   .kb { padding: 7px 6px 8px; gap: 6px; }
   .key { height: 42px; }
 }

@@ -296,16 +296,20 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
   .panel.left { grid-area: left; }
   .panel.right { grid-area: right; }
   .panel { flex-direction: row; padding: 8px 10px; gap: 10px; }
-  .model { display: none; }
+  /* the set's lettering stays, a size smaller: the model under the grille,
+     each dial's name under it, ON over the light */
+  .panel small { font-size: 7.5px; letter-spacing: 0.12em; line-height: 1; white-space: nowrap; }
+  .panel.left { flex-wrap: wrap; justify-content: center; row-gap: 5px; }
+  .model { flex-basis: 100%; text-align: center; }
   .badge { width: auto; flex: none; padding: 4px 8px; }
   .badge b { font-size: 16px; }
   .knobs { flex-direction: row; gap: 14px; }
-  .knob small { display: none; }
+  .knob { gap: 7px; }
   .dial { width: 34px; }
   .dial.volume { width: 28px; }
   .dial::before { inset: -6px; }
   .grille { min-height: 30px; height: 30px; flex: 1; }
-  .power small { display: none; }
+  .power { flex-direction: column; gap: 5px; }
 }
 /* short (a phone on its side): no antenna, a slimmer cabinet, and the set
    starts below the fixed back / sound / FX buttons */
@@ -317,7 +321,7 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
   .cabinet { padding: 12px; gap: 12px; }
   .mask { padding: 8px; }
   .panel { padding: 10px 8px; gap: 8px; }
-  .knob small { display: none; }
+  .knob { gap: 7px; }
   .dial { width: 40px; }
   .dial.volume { width: 32px; }
   .badge b { font-size: 17px; }

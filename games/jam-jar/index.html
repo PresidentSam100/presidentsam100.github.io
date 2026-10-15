@@ -32,7 +32,7 @@
 
   <div id="wrap">
     <aside id="left">
-      <div class="panel">
+      <div class="panel score-panel">
         <div class="lbl">Score</div>
         <div class="val" id="score">0</div>
         <div class="lbl">Best</div>
@@ -40,18 +40,18 @@
       </div>
       <div class="panel hint-panel">
         <div class="lbl">How</div>
-        <p class="hint">Aim with the mouse, click to drop. Two of a kind squish into the next fruit. Don't overflow the jar!</p>
+        <p class="hint"><span class="gs-keys">Aim with the mouse, click to drop.</span><span class="gs-touch">Tap where the fruit should drop.</span> Two of a kind squish into the next fruit. Don't overflow the jar!</p>
       </div>
     </aside>
 
     <canvas id="game" width="540" height="720"></canvas>
 
     <aside id="right">
-      <div class="panel">
+      <div class="panel next-panel">
         <div class="lbl">Next</div>
         <canvas id="next" width="86" height="86"></canvas>
       </div>
-      <div class="panel">
+      <div class="panel chain-panel">
         <div class="lbl">The Preserves</div>
         <canvas id="chain" width="86" height="356"></canvas>
       </div>
