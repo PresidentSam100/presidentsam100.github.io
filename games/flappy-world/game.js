@@ -2440,7 +2440,8 @@ class Game {
     if (this.gameState === 'PLAYING' || this.gameState === 'PAUSED') this.drawHUD(ctx);
     if (this.gameState === 'MENU') this.drawMenu(ctx);
     if (this.gameState === 'GAMEOVER') this.drawGameOver(ctx);
-    if (this.gameState === 'PAUSED') this.drawPause(ctx);
+    // (not while a box asks something: "Leave this game?" is the only card up)
+    if (this.gameState === 'PAUSED' && !(window.GameShell && GameShell.asking && GameShell.asking())) this.drawPause(ctx);
     if (this.gameState === 'INFO') this.drawInfo(ctx);
 
     ctx.restore();

@@ -123,3 +123,7 @@ html, body {
   .menu .modes button { flex: 1 1 0; width: auto; min-width: 0; max-width: 290px; gap: 1px; padding: 5px 9px; }
   .menu .modes small { font-size: 0.7rem; }
 }
+
+/* While a box asks something ("Leave this game?", "Start over?") it is the
+   only card up: the pause card, still paused, waits out of sight under it. */
+html.gs-asking #pause { visibility: hidden; }

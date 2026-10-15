@@ -2991,8 +2991,9 @@ class Game {
       this.text(ctx, this.bannerMain, WIDTH / 2, HEIGHT / 2 - 10, 16, '#fff', 'center');
       this.text(ctx, this.bannerSub, WIDTH / 2, HEIGHT / 2 + 18, 16,
         this.bonusHits >= 40 ? '#ffd23f' : '#18e0ff', 'center');
-    } else if (this.mode === 'paused') {
-      // dim the frozen game behind the menu
+    } else if (this.mode === 'paused' && !(window.GameShell && GameShell.asking && GameShell.asking())) {
+      // dim the frozen game behind the menu (not while a box asks something:
+      // "Leave this game?" is the only card up)
       ctx.fillStyle = 'rgba(2, 4, 14, 0.72)';
       ctx.fillRect(0, 0, WIDTH, HEIGHT);
       this.text(ctx, 'PAUSED', WIDTH / 2, HEIGHT / 2 - 70, 26, '#fff', 'center');

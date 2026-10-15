@@ -44,7 +44,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- leaving mid-game asks first ("Leave this game?"), pausing the game
   {
     const p = await lib.open(ctx, base, "games/abyss/");
-    const st = () => p.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, paused: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    const st = () => p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)");
+      return { dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, paused: !c.hidden, cardSeen: !c.hidden && getComputedStyle(c).visibility === "visible" }; });
     await p.keyboard.press("Enter"); await p.waitForTimeout(400);
     await p.keyboard.press("Home"); await settle(p);
     const asked = await st();
@@ -90,6 +91,18 @@ module.exports = async ({ browser, base, check, lib }) => {
       notAnswers.box === "Leave this game?" && /^Leave/.test(notAnswers.focus) && !keptAny.dlg && !keptAny.paused && p.leaves === 0,
       { anyKey, says, notAnswers, keptAny, leaves: p.leaves });
     check("an Esc held down asks 'Leave this game?' once, and its repeats don't leave", held.dlg === "Leave this game?" && held.paused && p.leaves === 0, { held, leaves: p.leaves });
+    // the box is the only card up: the game is paused under it, its pause card
+    // out of sight; paused by P first, the card is back once the box goes
+    await p.keyboard.press("p"); await settle(p);
+    const byP = await st();
+    await p.keyboard.press("Escape"); await settle(p);
+    const overP = await st();
+    await p.keyboard.press("Enter"); await settle(p);
+    const backP = await st();
+    await p.keyboard.press("p"); await settle(p);
+    check("under 'Leave this game?' only the box shows (the game paused, its pause card out of sight); paused by P first, the card is back after Keep playing",
+      !asked.cardSeen && !askedEsc.cardSeen && byP.cardSeen && overP.dlg === "Leave this game?" && overP.paused && !overP.cardSeen && !backP.dlg && backP.paused && backP.cardSeen && p.leaves === 0,
+      { asked, askedEsc, byP, overP, backP, leaves: p.leaves });
     await p.click(".nav-back-games"); await settle(p);
     const askedLink = await st();
     await p.keyboard.press("Escape"); await settle(p);
@@ -224,6 +237,26 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("departures play: Esc asks 'Leave this game?' with the run paused under it; a reflex Enter plays on, never leaving, and boards nothing",
       ask === "Leave this game?" && under && !back.box && !back.card && back.found === 1 && back.typed === "Nige" && p.leaves === 0, { ask, under, back, leaves: p.leaves });
     check("departures: no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- a game's own pause card is out of sight under the box too (Sunset
+  // Slice by P, Demolition Row by its ⏸ button), and back after Keep playing
+  for (const [g, start, pause] of [
+    ["sunset-slice", (p) => p.evaluate(() => { SunsetSlice.start("calm"); SunsetSlice.hold(); }), (p) => p.keyboard.press("p")],
+    ["demolition-row", async (p) => { await p.click("#play-btn"); await p.waitForTimeout(400); }, (p) => p.click(".gs-pause-btn")],
+  ]) {
+    const p = await lib.open(ctx, base, "games/" + g + "/");
+    await start(p); await pause(p); await settle(p);
+    const seen = () => p.evaluate(() => { const c = document.getElementById("pause"); return { dlg: !!document.querySelector(".gs-dialog"), card: !c.hidden && !c.classList.contains("hidden") && getComputedStyle(c).visibility === "visible" }; });
+    const a = await seen();
+    await p.keyboard.press("Escape"); await settle(p);
+    const b = await seen();
+    await p.keyboard.press("Enter"); await settle(p);
+    const c = await seen();
+    check(g + ": paused, Esc's 'Leave this game?' is the only card up (its own pause card out of sight); after Keep playing the card is back",
+      a.card && !a.dlg && b.dlg && !b.card && !c.dlg && c.card && p.leaves === 0, { a, b, c, leaves: p.leaves });
+    check(g + " (own card under the box): no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
 

@@ -699,7 +699,8 @@ class Game {
     this.renderHUD(ctx);
     if (this.state === "start") this.renderStart(ctx);
     if (this.state === "over") this.renderOver(ctx);
-    if (this.paused && this.state === "play") this.renderPause(ctx);
+    // (not while a box asks something: "Leave this game?" is the only card up)
+    if (this.paused && this.state === "play" && !(window.GameShell && GameShell.asking && GameShell.asking())) this.renderPause(ctx);
   }
 
   // Pencil scribbles in the margins that scroll slower than the world, giving

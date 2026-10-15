@@ -41,6 +41,8 @@
                                                game's own New game / Restart
      GameShell.anyOtherKey(e)               -> is this key one of the "any
                                                other key" that keeps playing
+     GameShell.asking()                     -> is a box up (so a game's own
+                                               pause screen stays out of sight)
    ===================================================================== */
 (function () {
   "use strict";
@@ -224,6 +226,9 @@
     ":where(.gs-pause){position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;" +
     "background:rgba(6,8,12,0.62);font-family:var(--gs-font,system-ui,-apple-system,'Segoe UI',sans-serif)}" +
     ".gs-pause[hidden]{display:none!important}" +
+    // while a box asks something ("Leave this game?", "Start over?") it is the
+    // only card up: a pause card under it, still paused, waits out of sight
+    "html.gs-asking .gs-pause:not(.gs-dialog),html.gs-asking .gs-pause-more{visibility:hidden}" +
     ":where(.gs-pause-card){background:var(--gs-bg,rgba(22,25,33,0.97));color:var(--gs-fg,#eef0f4);" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.16));border-radius:var(--gs-radius,14px);box-shadow:var(--gs-shadow,none);" +
     "padding:1.3rem 1.6rem;text-align:center;max-width:min(90vw,330px);" +
@@ -1129,6 +1134,7 @@
     function remove() {
       if (!el.parentNode) return;
       el.parentNode.removeChild(el);
+      document.documentElement.classList.remove("gs-asking");   // (before the focus goes back to a card's button)
       window.removeEventListener("keydown", onKey, true);
       window.removeEventListener("keyup", onKey, true);
       window.removeEventListener("keypress", onKey, true);
@@ -1154,6 +1160,9 @@
     window.addEventListener("keyup", onKey, true);
     window.addEventListener("keypress", onKey, true);
     (document.body || document.documentElement).appendChild(el);
+    // only the box shows: a pause card under it is hidden (PAUSE_CSS), and a
+    // game that draws its own pause screen leaves it out (GameShell.asking)
+    document.documentElement.classList.add("gs-asking");
     openDialog = { el: el, dismiss: function () { if (held) remove(); else close(cancelValue); } };
     // focus the main button, or (o.safe) the one that backs out: a reflex
     // Space right after Home mustn't answer "Leave this game?" with Leave
@@ -1241,6 +1250,9 @@
     askLeave: askLeave,
     askQuit: askQuit,
     anyOtherKey: anyOtherKey,
+    // is a box asking something? (a game that draws its own pause screen
+    // leaves it out then: the box is the only card up)
+    asking: function () { return document.documentElement.classList.contains("gs-asking"); },
     /* fn is called when the tab is hidden or the window loses focus.
        It must pause only if the game is actually running. */
     onAutoPause: onAutoPause

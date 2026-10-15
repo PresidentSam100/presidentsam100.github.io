@@ -533,7 +533,13 @@
       it.push(["Main menu", askQuitToMenu]);
       return it;
     },
-    draw: function () { header("Paused"); list(this.items().map(function (x) { return x[0]; }), this.cur, this.top); navi("Select"); },
+    // (only the header while a box asks something: "Leave this game?" is the
+    // only card up, so the list waits, the cards still hidden)
+    draw: function () {
+      header("Paused");
+      if (window.GameShell && GameShell.asking && GameShell.asking()) return;
+      list(this.items().map(function (x) { return x[0]; }), this.cur, this.top); navi("Select");
+    },
     key: function (k) {
       var it = this.items();
       if (k === "up") scrollList(this, -1, it.length);

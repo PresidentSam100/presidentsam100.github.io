@@ -241,3 +241,7 @@
         .keys { font-size: 0.76rem; line-height: 1.6; }
         .group { margin: 0.5rem 0; }
       }
+
+/* While a box asks something ("Leave this game?", "Start over?") it is the
+   only card up: the pause card, still paused, waits out of sight under it. */
+html.gs-asking #pause { visibility: hidden; }

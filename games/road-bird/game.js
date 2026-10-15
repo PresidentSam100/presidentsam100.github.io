@@ -2296,7 +2296,8 @@ function render() {
   if (state !== "menu") drawHUD();
   if (state === "menu") drawMenu();
   if (state === "dead") drawDead();
-  if (paused && state === "playing") drawPauseOverlay();
+  // (not while a box asks something: "Leave this game?" is the only card up)
+  if (paused && state === "playing" && !(window.GameShell && GameShell.asking && GameShell.asking())) drawPauseOverlay();
 }
 
 // ---------- loop ----------

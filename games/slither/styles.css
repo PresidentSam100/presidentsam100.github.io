@@ -314,3 +314,7 @@ details.dict-wrap[open] summary::after { content: " ▴"; }
 .overlay:not(.hidden) .card { animation: slRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
 @keyframes slRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
 
+
+/* While a box asks something ("Leave this game?", "Start over?") it is the
+   only card up: the pause card, still paused, waits out of sight under it. */
+html.gs-asking #pause { visibility: hidden; }
