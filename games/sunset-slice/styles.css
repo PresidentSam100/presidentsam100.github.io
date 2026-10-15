@@ -37,9 +37,17 @@ html, body {
 }
 .hud[hidden] { display: none; }
 .hud .score { font-weight: 900; font-size: clamp(28px, 5vw, 44px); min-width: 2ch; text-align: right; font-variant-numeric: tabular-nums; }
-.hud #hud-sub { font-size: clamp(18px, 3vw, 24px); font-weight: 700; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
+/* The clock (or the Duel's seals) is not the score: a small dark tag of its
+   own, lettered in the sun's gold, beside the big white number. Running low
+   it turns red. */
+.hud #hud-sub {
+  font-size: clamp(16px, 2.6vw, 21px); font-weight: 700; letter-spacing: 0.08em; font-variant-numeric: tabular-nums;
+  color: #ffc76a; background: rgba(20, 10, 14, 0.72); border: 1px solid rgba(255, 190, 120, 0.55); border-radius: 4px;
+  padding: 3px 10px 4px; line-height: 1.1; text-shadow: none;
+}
+.hud #hud-sub:empty { display: none; }
 .hud .seals { color: #ff6b5a; letter-spacing: 0.25em; }
-.hud .time.low { color: #ffd06a; }
+.hud .time.low { color: #ff7a5c; border-color: rgba(255, 122, 92, 0.75); }
 
 /* ---- panels ------------------------------------------------------------------ */
 .panel {

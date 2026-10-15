@@ -86,7 +86,8 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- with keys, the menu's keys are on its targets (drawn by their names)
   // and one box shows below them: the picked mode's, Space or Enter on it.
-  // 1 2 3 pick, and so does the mouse over a target
+  // 1 2 3 pick, and so does the mouse over a target. In a run the clock is a
+  // tag of its own, not lettered like the score
   {
     const c = await lib.newContext(browser);
     const s = await lib.open(c, base, "games/sunset-slice/", { before: (pg) => pg.addInitScript(() => { try { localStorage.removeItem("sunsetslice_last"); } catch (e) {} }) });
@@ -102,6 +103,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("sunset-slice: with keys one box shows, the picked mode's (Space or Enter inside it); 3 picks Calm, the mouse over the Duel target picks Duel; the targets' names carry 1 2 3",
       b0.shown.split(",").length === 1 && b0.cap === "Space or Enter" && b0.inside && b3.shown === "calm" && bm.shown === "duel" && /Duel \[1\]/.test(keys) && /Last Light \[2\]/.test(keys) && /Calm \[3\]/.test(keys),
       { b0, b3, bm, keys });
+    await s.evaluate(() => { SunsetSlice.start("lastlight"); SunsetSlice.hold(); });
+    await s.waitForTimeout(200);
+    const hud = await s.evaluate(() => { const a = getComputedStyle(document.getElementById("hud-score")), b = getComputedStyle(document.getElementById("hud-sub"));
+      return { score: a.color, clock: b.color, bg: b.backgroundColor, text: document.getElementById("hud-sub").textContent }; });
+    check("sunset-slice: in a run the clock is a tag of its own (a dark ground, gold letters), told apart from the white score at a glance",
+      /s$/.test(hud.text) && hud.clock !== hud.score && !/rgba\(0, 0, 0, 0\)|transparent/.test(hud.bg), hud);
     check("sunset-slice (menu keys): no page errors", s.errs.length === 0, s.errs);
     await s.close();
     await c.close();
