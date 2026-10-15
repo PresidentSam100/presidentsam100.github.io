@@ -33,7 +33,7 @@
 <!-- The scholar's desk. Tiles are real buttons laid out by game.js. -->
 <main id="desk">
   <div class="hudline" id="hudline" hidden>
-    <span class="clock"><span id="hud-time">0:00</span><span id="hud-off" aria-hidden="true"></span></span>
+    <span id="hud-time">0:00</span>
     <span id="hud-left">144 tiles</span>
     <span id="hud-pairs"></span>
     <!-- a dead board's ways out, after Undo (game.js shows them) -->
@@ -77,10 +77,10 @@
         <button type="button" id="lay-next" aria-label="The next layout">▶</button>
       </div>
       <!-- Animations: the tiles drop in, a pair flies together, a shuffle
-           travels (game.js); on, each pair takes a second off the clock -->
+           travels (game.js); the clock is the same either way -->
       <button type="button" class="opt" id="opt-anim" aria-pressed="true"
-        title="Tiles drop in, a matched pair comes together, a shuffle travels. On, each pair takes a second off your time (never below 0:00).">
-        <b>Animations: <span id="anim-state">on</span></b><small id="anim-note">1s off each pair</small>
+        title="Tiles drop in, a matched pair comes together, a shuffle travels. You can play on while they move.">
+        <b>Animations: <span id="anim-state">on</span></b>
       </button>
     </div>
     <button type="button" class="playbtn" id="play"><b id="play-what">Deal the turtle</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>

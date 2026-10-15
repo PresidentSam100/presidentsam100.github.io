@@ -134,8 +134,8 @@
     return null;
   }
   // the fastest clear, kept for each layout. cleared(): whether a layout has
-  // one on record, asked of the store and not of the time (with Animations on
-  // a desk can be cleared at 0:00, which is a record too)
+  // one on record, asked of the store and not of the time (a desk cleared at
+  // 0:00, which only a test can do, is a record too)
   var bests = {};
   function cleared(l) { return store.get(l.best, null) != null; }
   function bestOf(l) {
@@ -361,17 +361,17 @@
   // "Animations" on the menu (on to begin with, remembered): a deal's tiles
   // drop in from above the desk, a matched pair comes together and is gone,
   // and a shuffle's tiles travel to their new places. With Visual FX off the
-  // same three are told calmly, by fading, and nothing flies. Each pair taken
-  // with Animations on takes a second off the clock (PAIR_OFF), down to zero.
-  // The game never waits for any of it: every tile is where it belongs from
-  // the first moment and is only drawn on its way, so a press or a key lands
-  // whatever is still moving (settle), and no clock runs while a deal drops.
+  // same three are told calmly, by fading, and nothing flies. The clock is
+  // the same either way, as the game never waits for any of it: every tile is
+  // where it belongs from the first moment and is only drawn on its way, so a
+  // press or a key lands whatever is still moving (settle), a matched pair is
+  // out of play while it is still drawn leaving (the next pair can be taken at
+  // once), and no clock runs while a deal drops.
   var anim = store.get("mahjong_anim", "1") !== "0";
-  var PAIR_OFF = 1000, offMs = 0;
   var DROP_MS = 330, DROP_STEP = 6;   // a tile's fall, and the gap between one tile and the next
   var dealing = false;                // a deal still coming in
   var moves = [], ghosts = [], moveTimers = [];   // a deal's or a shuffle's tiles on their way; matched pairs on their way out
-  function clock() { return Math.max(0, timeMs + penaltyMs - offMs); }
+  function clock() { return timeMs + penaltyMs; }
   // one drawn movement of a tile: `done` runs when it ends, is landed early or is thrown away
   function play(list, el, frames, opts, done) {
     var rec = { a: el.animate(frames, opts), done: done };
@@ -473,17 +473,6 @@
       ], { duration: 520 + (n % 7) * 22, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "backwards" }, function () { el.classList.remove("moving"); });
     });
   }
-  // the second a pair took off the clock, shown over it for a moment
-  function showOff(ms) {
-    var el = $("hud-off");
-    el.textContent = "-" + Math.round(ms / 100) / 10 + "s";
-    if (!el.animate) return;
-    if (el.offA) el.offA.cancel();
-    el.offA = el.animate(fx()
-      ? [{ opacity: 0, transform: "translate(-50%, 7px)" }, { opacity: 1, transform: "translate(-50%, 0)", offset: 0.25 }, { opacity: 1, transform: "translate(-50%, -2px)", offset: 0.7 }, { opacity: 0, transform: "translate(-50%, -8px)" }]
-      : [{ opacity: 1 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 750 });
-  }
-
   function freeList() {
     var out = [];
     live.forEach(function (i) { if (isFree(pos, i, live)) out.push(i); });
@@ -625,9 +614,6 @@
     delete els[a]; delete els[b];
     undoStack.push([a, b]);
     selected = -1;
-    // (with Animations on, the pair's second off the clock: never below zero)
-    var off = anim ? Math.min(PAIR_OFF, clock()) : 0;
-    if (off > 0) { offMs += off; showOff(off); }
     clack(false);
     refreshFreedom();
     hud();
@@ -741,7 +727,7 @@
     live = new Set(pos.map(function (_, i) { return i; }));
     kinds = dealOnto(pos, [...live], pairPool(rng), rng);
     dailyRecorded = mode === "daily" ? readDaily().done : false;
-    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; offMs = 0; dead = false;
+    selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; dead = false;
     $("menu").hidden = true; $("over").hidden = true; $("hudline").hidden = false;
     state = "play";
     buildBoard();
@@ -845,7 +831,6 @@
     // the layout: its name and picture, and its own fastest clear. On the
     // Daily it is the turtle and the arrows are off.
     $("anim-state").textContent = anim ? "on" : "off";
-    $("anim-note").textContent = anim ? "1s off each pair" : "no time off";
     $("opt-anim").setAttribute("aria-pressed", anim ? "true" : "false");
     $("opt-anim").classList.toggle("on", anim);
     var l = layoutNow(), what = l.name.toLowerCase(), bt = bestOf(l);

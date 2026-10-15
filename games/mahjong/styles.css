@@ -60,13 +60,6 @@ body {
 @media (min-width: 641px) and (max-width: 1099px) { .hudline { padding: 52px 12px 4px; } }
 @media (min-width: 1200px) and (max-width: 1329px) { .hudline { padding-left: 170px; padding-right: 392px; } }
 #hud-time { font-size: 20px; font-weight: 700; min-width: 64px; display: inline-block; }
-/* the second a pair took off, over the clock for a moment (game.js showOff) */
-.clock { position: relative; }
-#hud-off {
-  position: absolute; left: 50%; top: -12px; transform: translateX(-50%);
-  font-size: 11.5px; font-weight: 700; color: #d6efb4; white-space: nowrap;
-  opacity: 0; pointer-events: none;
-}
 #hud-pairs { color: #e8cf96; }
 .hud-btns { display: flex; gap: 8px; }
 .hud-btns button {
@@ -183,10 +176,9 @@ kbd {
   border: 1.5px solid #c9b58a; border-radius: 9px; padding: 9px 13px;
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
-.seg button small, .opt small { font-size: 13px; color: #7a6648; }
+.seg button small { font-size: 13px; color: #7a6648; }
 /* Animations, on or off: a row like the modes', its key (A) at the end */
 .opt { width: 100%; margin-bottom: 12px; --gs-key-bg: var(--ink); }
-.opt small { margin-left: auto; }
 .opt.on #anim-state { color: var(--lacquer); }
 .seg button.on { border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); background: #fff; }
 .seg button.on b { color: var(--lacquer); }
@@ -260,7 +252,6 @@ kbd {
   .layrow .lay { flex-direction: column; gap: 2px; }
   .lay-text { text-align: center; line-height: 1.2; }
   .opt { font-size: 14.5px; gap: 6px; padding: 6px 9px; }
-  .opt small { font-size: 12px; }
 }
 /* the narrowest phones (320 px): the rules a size smaller and the picture a
    little, so the card, Animations row and all, still shows whole */

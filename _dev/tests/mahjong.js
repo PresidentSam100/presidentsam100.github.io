@@ -11,8 +11,9 @@
 // Animations (an option on the menu, A): a deal's tiles drop in from above, a
 // matched pair comes together and is gone, a shuffle's tiles travel from where
 // their faces lay; with Visual FX off the three are told by fading; a press, a
-// pause or the switch lands whatever is on its way; each pair takes a second
-// off the clock, never below zero. With Animations off, none of it. The HUD
+// pause or the switch lands whatever is on its way, and a pair still drawn on
+// its way out is deaf to the mouse, which plays straight on; no time comes off
+// the clock for any of it. With Animations off, none of it. The HUD
 // keeps clear of the corner buttons at every window width.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
@@ -290,9 +291,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   if (o0) await p.click("#opt-anim");
   await p.waitForTimeout(60);
   const o2 = await opt();
-  check("mahjong: Animations is an option on the menu, on to begin with (1s off each pair); A, shown on it, or a click turns it off and on, and the choice is kept",
-    !!o0 && o0.on && o0.pressed === "true" && o0.cap === "A" && /Animations: on/.test(o0.text) && /1s off each pair/.test(o0.text) &&
-    !o1.on && o1.stored === "0" && o1.pressed === "false" && /Animations: off/.test(o1.text) && /no time off/.test(o1.text) && o2.on && o2.stored === "1", { o0, o1, o2 });
+  check("mahjong: Animations is an option on the menu, on to begin with, promising no time off either way; A, shown on it, or a click turns it off and on, and the choice is kept",
+    !!o0 && o0.on && o0.pressed === "true" && o0.cap === "A" && /Animations: on/.test(o0.text) && !/time off|off each/.test(o0.text) &&
+    !o1.on && o1.stored === "0" && o1.pressed === "false" && /Animations: off/.test(o1.text) && !/time off|off each/.test(o1.text) && o2.on && o2.stored === "1", { o0, o1, o2 });
 
   // ---- a deal drops in (Visual FX on): every tile starts above the screen and
   // falls to its place, the bottom layer first; no clock runs meanwhile
@@ -319,10 +320,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     !!drop.mid && drop.mid.order && drop.mid.time === 0 && drop.took >= 600 && drop.last.n === 144 && drop.last.moving === 0 && drop.last.shifted === 0 && drop.last.inside && drop.last.time <= 250, drop);
 
   // ---- a matched pair comes together and is gone (out of the game at once,
-  // deaf to the pointer, only still drawn), and takes a second off the clock
+  // deaf to the pointer, only still drawn), and takes nothing off the clock
   const match = await p.evaluate(() => new Promise((res) => {
     const leaving = () => (Mahjong.leaving ? Mahjong.leaving() : -1);
-    Mahjong.hintNow();                                  // (+30 s on the clock, so there is a second to take)
+    Mahjong.hintNow();                                  // (+30 s on the clock, so a second taken off would show)
     const free = Mahjong.freeIdx(), fam = (k) => (k[0] === "f" || k[0] === "s" ? k[0] : k);
     let a = -1, b = -1;
     for (let i = 0; i < free.length && a < 0; i++) for (let j = i + 1; j < free.length; j++) if (fam(Mahjong.kindOf(free[i])) === fam(Mahjong.kindOf(free[j]))) { a = free[i]; b = free[j]; break; }
@@ -335,7 +336,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       return { x: r.left + +m[1], y: r.top + +m[2], opacity: +k.opacity, deaf: getComputedStyle(e).pointerEvents === "none" };
     });
     const now = { left: Mahjong.tilesLeft(), gone: gone.length, leaving: leaving(), still: [Mahjong.tileRect(a), Mahjong.tileRect(b)].filter(Boolean).length,
-      took: t0 - Mahjong.timeNow(), chip: (document.getElementById("hud-off") || {}).textContent || "", sel: document.querySelectorAll(".tile.sel").length };
+      took: t0 - Mahjong.timeNow(), chip: !!document.getElementById("hud-off"), sel: document.querySelectorAll(".tile.sel").length };
     setTimeout(() => res({ far: Math.round(Math.hypot(ra.left - rb.left, ra.top - rb.top)), meet, now,
       after: { tiles: document.querySelectorAll("#board .tile").length, gone: document.querySelectorAll(".tile.gone").length, leaving: leaving() } }), 750);
   }));
@@ -344,11 +345,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("mahjong, Animations on: the two tiles of a pair come together, fade there, and are gone from the desk within a second",
     match.meet.length === 2 && Math.abs(match.meet[0].x - match.meet[1].x) < 1.5 && Math.abs(match.meet[0].y - match.meet[1].y) < 1.5 && match.meet.every((m) => m.opacity === 0) && match.far > 10 &&
     match.after.tiles === 142 && match.after.gone === 0 && match.after.leaving === 0, { far: match.far, meet: match.meet, after: match.after });
-  check("mahjong, Animations on: a pair takes a second off the clock, shown over it", match.now.took === 1000 && match.now.chip === "-1s", match.now);
-  // ...down to zero and no further: a fresh deal's first pairs take only what the clock has
-  await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(450);
-  const zero = await p.evaluate(() => { const t0 = Mahjong.timeNow(); Mahjong.removeOnePair(); const t1 = Mahjong.timeNow(); Mahjong.removeOnePair(); return { t0, t1, t2: Mahjong.timeNow(), chip: (document.getElementById("hud-off") || {}).textContent || "" }; });
-  check("mahjong, Animations on: the second comes off down to zero and no further", zero.t0 > 0 && zero.t0 < 1000 && zero.t1 === 0 && zero.t2 === 0 && zero.chip === "-" + zero.t0 / 1000 + "s", zero);
+  check("mahjong, Animations on: a pair takes no time off the clock, and there is no time-off chip over it", match.now.took === 0 && !match.now.chip, match.now);
 
   // ---- a shuffle's tiles travel: each starts where a tile of its face lay
   // before, one for one, and ends in its place; a press meanwhile lands them
@@ -374,7 +371,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     shuf.after.raised === 0 && shuf.after.shifted === 0 && shuf.after.home, shuf);
   const pressed = await p.evaluate(() => { const moving = () => (Mahjong.moving ? Mahjong.moving() : 0); Mahjong.shuffleNow(); const was = moving(); Mahjong.click(Mahjong.freeIdx()[0]); return { was, moving: moving(), sel: document.querySelectorAll(".tile.sel").length }; });
   check("mahjong, Animations on: a press while a shuffle is travelling lands it and picks the tile pressed", pressed.was > 0 && pressed.moving === 0 && pressed.sel === 1, pressed);
-  // ---- a desk cleared at 0:00 (the seconds off can bring a clear there) is a record like any other
+  // ---- a desk cleared at 0:00 is a record like any other (a zero is not taken for no best)
   const nil = await p.evaluate(() => {
     Mahjong.start("classic");
     Mahjong.setLive(Mahjong.freeIdx().slice(0, 2), ["d1", "d1"]);
@@ -386,6 +383,69 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("mahjong, Animations on: a desk cleared at 0:00 is kept as the fastest clear, and the menu shows it as one",
     nil.card.state === "over" && nil.card.time === "0:00" && /new fastest clear/.test(nil.card.note) && nil.stored === "0" && nil.menu === "fastest turtle clear: 0:00", nil);
   await done(p, "motion");
+
+  // ---- a matched pair still drawn on its way out is deaf to the mouse, which
+  // plays straight on: a press on the pair where nothing lies under it picks
+  // nothing, a press on a tile under it picks that tile, and that tile's match
+  // takes a second pair while the first is still leaving. The desk is set: the
+  // turtle's top tile and a tile on the floor make the pair, and the four the
+  // top tile lay on (two pairs) are free once it goes. (The send-off is slowed
+  // to 8 s, so every press comes while it is on its way.)
+  for (const fxOff of [false, true]) {
+    const what = "mahjong, Animations on, Visual FX " + (fxOff ? "off" : "on");
+    const q = await open(ctx, true, [["{ duration: flying ? 430 : 260,", "{ duration: 8000,"]], fxOff);
+    const set = await q.evaluate(() => {
+      Mahjong.start("classic");
+      const pos = Mahjong.pos(), top = Math.max(...pos.map((t) => t[2])), ids = pos.map((t, i) => i);
+      const cap = ids.find((i) => pos[i][2] === top);
+      const under = ids.filter((i) => pos[i][2] === top - 1 && Math.abs(pos[i][0] - pos[cap][0]) < 2 && Math.abs(pos[i][1] - pos[cap][1]) < 2);
+      const floor = ids.filter((i) => pos[i][2] === 0).sort((i, j) => Math.abs(pos[j][0] - pos[cap][0]) - Math.abs(pos[i][0] - pos[cap][0]))[0];
+      Mahjong.setLive([cap, floor].concat(under), ["d1", "d1", "b1", "b1", "c1", "c1"]);
+      // a point in rect r, the middle first, where ok(the element the mouse would hit there) holds
+      window.__at = (r, ok) => {
+        const pts = [], mx = r.left + r.width / 2, my = r.top + r.height / 2;
+        for (let i = 1; i < 12; i++) for (let j = 1; j < 12; j++) pts.push([r.left + r.width * i / 12, r.top + r.height * j / 12]);
+        pts.sort((a, b) => Math.hypot(a[0] - mx, a[1] - my) - Math.hypot(b[0] - mx, b[1] - my));
+        for (const [x, y] of pts) if (ok(document.elementFromPoint(x, y))) return { x, y };
+        return null;
+      };
+      window.__tile = (i) => { const r = Mahjong.tileRect(i); return (e) => !!e && e.classList.contains("tile") && Math.abs(e.getBoundingClientRect().left - r.left) < 0.5 && Math.abs(e.getBoundingClientRect().top - r.top) < 0.5; };
+      const a = __at(Mahjong.tileRect(cap), __tile(cap)), b = __at(Mahjong.tileRect(floor), __tile(floor));
+      return { cap, floor, under, a, b, free: Mahjong.freeIdx().sort((i, j) => i - j), top };
+    });
+    const now = () => q.evaluate(() => ({ left: Mahjong.tilesLeft(), leaving: Mahjong.leaving(), sel: document.querySelectorAll("#board .tile.sel").length }));
+    let s1 = null, s2 = null, s3 = null, s4 = null, empty = null, pick = null, other = null;
+    if (set.a && set.b && set.under.length === 4) {
+      await q.mouse.click(set.a.x, set.a.y); await q.mouse.click(set.b.x, set.b.y);
+      s1 = await q.evaluate((u) => ({ left: Mahjong.tilesLeft(), leaving: Mahjong.leaving(), freeUnder: u.every((i) => Mahjong.isFree(i)) }), set.under);
+      // the two leaving, as drawn: the top tile is the one from the highest
+      // layer (its own z-index, under the leaving tiles' shared one)
+      await q.evaluate(() => { window.__gone = () => [...document.querySelectorAll("#board .tile.gone")].sort((e, f) => +f.style.zIndex - +e.style.zIndex).map((e) => e.getBoundingClientRect()); });
+      // the middle of the floor tile as it is drawn leaving, with nothing under it
+      empty = await q.evaluate(() => { const g = __gone()[1]; return g && { x: Math.round(g.left + g.width / 2), y: Math.round(g.top + g.height / 2) }; });
+      if (empty) { await q.mouse.click(empty.x, empty.y); s2 = await now(); }
+      // a tile the top tile lay on, pressed well inside where the top tile is
+      // drawn over it (not in its rounded corners, which the mouse misses anyway)
+      pick = await q.evaluate((u) => {
+        const g = __gone()[0];
+        if (!g) return null;
+        const inner = { left: g.left + g.width * 0.2, top: g.top + g.height * 0.2, width: g.width * 0.6, height: g.height * 0.6 };
+        for (const i of u) { const s = __at(inner, __tile(i)); if (s) return Object.assign(s, { i, kind: Mahjong.kindOf(i) }); }
+        return null;
+      }, set.under);
+      if (pick) {
+        await q.mouse.click(pick.x, pick.y);
+        s3 = await q.evaluate((s) => ({ left: Mahjong.tilesLeft(), leaving: Mahjong.leaving(), sel: document.querySelectorAll("#board .tile.sel").length, picked: document.elementFromPoint(s.x, s.y).classList.contains("sel") }), pick);
+        other = await q.evaluate((s) => { const i = s.u.find((j) => j !== s.i && Mahjong.kindOf(j) === s.kind); const at = __at(Mahjong.tileRect(i), __tile(i)); return at && Object.assign(at, { i }); }, { u: set.under, i: pick.i, kind: pick.kind });
+        if (other) { await q.mouse.click(other.x, other.y); s4 = await now(); }
+      }
+    }
+    check(what + ": with a pair just matched by the mouse and still drawn on its way out, a press on it where nothing lies under it picks nothing",
+      !!s1 && s1.left === 4 && s1.leaving === 2 && s1.freeUnder && !!s2 && s2.sel === 0 && s2.left === 4 && s2.leaving === 2, { set, s1, empty, s2 });
+    check(what + ": a press on a tile the leaving pair is drawn over picks that tile at once, and its match takes a second pair while the first is still leaving",
+      !!s3 && s3.sel === 1 && s3.picked && s3.leaving === 2 && !!s4 && s4.left === 2 && s4.sel === 0 && s4.leaving === 4, { pick, s3, other, s4 });
+    await done(q, "play on " + (fxOff ? "calm" : "moving"));
+  }
 
   // ---- a slowed deal (a tile every 0.12 s), so a press, a pause and the FX
   // switch are sure to come while it is dropping in
@@ -417,7 +477,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Visual FX off, Animations on: the same three told by fading, nothing
-  // flying, and the pair's second still comes off
+  // flying, and no time comes off for the pair
   {
     const q = await open(ctx, true, null, true);
     const calm = await q.evaluate(() => {
@@ -434,9 +494,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       const gone = [...document.querySelectorAll(".tile.gone")];
       return { deal, shuffle, pair: { gone: gone.length, fading: gone.filter((e) => e.getAnimations().length === 1).length, flat: flat(gone), took: t0 - Mahjong.timeNow() } };
     });
-    check("mahjong, Visual FX off, Animations on: the deal, a shuffle and a matched pair are told by fading, nothing flies, and the pair still takes its second off",
+    check("mahjong, Visual FX off, Animations on: the deal, a shuffle and a matched pair are told by fading, nothing flies, and the pair takes no time off",
       calm.deal.fxOff && calm.deal.dealing && calm.deal.fading === 144 && calm.deal.flat && calm.deal.inPlace && calm.shuffle.moving === 144 && calm.shuffle.flat && calm.shuffle.raised === 0 &&
-      calm.pair.gone === 2 && calm.pair.fading === 2 && calm.pair.flat && calm.pair.took === 1000, calm);
+      calm.pair.gone === 2 && calm.pair.fading === 2 && calm.pair.flat && calm.pair.took === 0, calm);
     await done(q, "calm");
   }
 
