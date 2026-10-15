@@ -472,7 +472,9 @@
 
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    keys: [],                              // (the ⏸ button: the letters belong to the answer box, Esc is the way out)
+    // \ pauses, the key beside the [ and ] of sound and Visual FX, working from
+    // the answer box as they do (the letters belong to it, Esc is the way out)
+    keys: ["\\"],
     // the desk shuts while paused: with the clock stopped, a name typed then
     // would board for free (and letters typed into it would board on resume)
     onChange: function (paused) {
@@ -518,6 +520,11 @@
       else if (e.key === "Backspace" && !(e.target === $("answer") && !$("answer").disabled)) { e.preventDefault(); toMenu(); }
       return;
     }
+    // = is Final call, from the answer box too: no name has an = in it (the
+    // letters are all the box's, so it takes a symbol, as \ for the pause),
+    // and it sits up on the top row, well away from Enter and the letters,
+    // where a slip of the hand won't end a run
+    if (state === "play" && e.key === "=") { e.preventDefault(); $("giveup").click(); return; }
     // during play, keep the desk focused so every letter lands on the board
     if (state === "play" && document.activeElement !== $("answer") &&
         e.key.length === 1 && /[a-z]/i.test(e.key)) {

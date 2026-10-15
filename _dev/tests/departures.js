@@ -1,6 +1,8 @@
 // Departures: while paused (the ⏸ button) the desk is shut, so a name typed
 // then doesn't board, during the pause or after it; on resume the box is open
-// and focused.
+// and focused. \ pauses and resumes from the answer box (a symbol, beside the
+// [ and ] of sound and Visual FX: the letters are the box's), and = is Final
+// call; neither is typed into the box, and both wear their keycaps.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const p = await lib.open(ctx, base, "games/departures/");
@@ -21,6 +23,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("departures: names typed while paused don't board, then or after resuming; the box is focused again",
     paused && stillPaused && noBox && during.found === 0 && during.box === "" && after.found === 0 && after.box === "" && after.focused && !(await card()) && typed.found === 1,
     { paused, stillPaused, noBox, during, after, typed });
+
+  // ---- \ pauses from the answer box, and again resumes; = is Final call
+  await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(150);
+  await p.focus("#answer");
+  await p.keyboard.type("Fi"); await p.keyboard.press("\\"); await p.waitForTimeout(100);
+  const slash = { card: await card(), box: await p.evaluate(() => document.getElementById("answer").value) };
+  await p.keyboard.press("\\"); await p.waitForTimeout(100);
+  const back = { card: await card(), ...(await desk()) };
+  await p.keyboard.type("ji"); await p.waitForTimeout(80);
+  const boarded = await desk();
+  const caps = await p.evaluate(() => ({
+    pause: (document.querySelector(".gs-pause-btn").getAttribute("aria-label") || "") + " | " + (document.querySelector(".gs-pause-btn").innerHTML.match(/<kbd[^>]*>([^<]*)<\/kbd>/) || [])[1],
+    final: (document.querySelector("#giveup kbd") || {}).textContent || null
+  }));
+  await p.keyboard.press("="); await p.waitForTimeout(150);
+  const called = await p.evaluate(() => ({ state: Departures.state(), box: document.getElementById("answer").value }));
+  check("departures: \\ in the answer box pauses (and isn't typed); \\ again resumes, the box focused, the name typed on boarding",
+    slash.card && slash.box === "Fi" && !back.card && back.focused && boarded.found === 1, { slash, back, boarded });
+  check("departures: = is Final call, ending the run (and isn't typed); the ⏸ button and Final call wear \\ and =",
+    called.state === "over" && !called.box.includes("=") && /\(\\\)/.test(caps.pause) && caps.final === "=", { called, caps });
   check("departures: no page errors", p.errs.length === 0, p.errs);
 
   // A run's time is when its last name boarded: the save made then stands,

@@ -211,8 +211,11 @@
   // P is the pause key and Esc is not: Esc is the way out to the games page
   // (motion-toggle.js), which mid-game asks "Leave this game?" first with the
   // game paused under the box, in every game. A game with no letter to spare
-  // (the typing games, Fish-a-Fish) passes keys: [], and pauses by the ⏸
-  // button alone; its card then holds the focus on Resume, so Enter resumes.
+  // (the typing games, Fish-a-Fish) passes a symbol instead, keys: ["\\"] (the
+  // key beside the [ and ] of sound and Visual FX), which works from its
+  // answer box (data-game-input) as those two do; or keys: [] to pause by the
+  // ⏸ button alone. Without a letter key its card holds the focus on Resume,
+  // so Enter resumes too.
   //
   // It also adds a ⏸ button to the top-right row (see pauseButton below), so
   // a player can see that the game pauses and how.
@@ -341,11 +344,13 @@
     var paused = false;
     var el = null;
     var corner = null;
+    // (a letter or a digit among the keys: or the letters are the game's own)
+    var lettered = keys.some(function (k) { return /^[a-z0-9]$/i.test(String(k)); });
 
     // the card's other buttons, Restart and Menu, for a game that passes them
-    // (no pause key: the letters are the game's own, so an R or a Backspace
-    // typed at the card always asks first, and the next key keeps the game)
-    var acts = pauseActs(opts, function () { setPaused(false); }, false, !keys.length);
+    // (no letter to pause with: the letters are the game's own, so an R or a
+    // Backspace typed at the card always asks first, and the next key keeps the game)
+    var acts = pauseActs(opts, function () { setPaused(false); }, false, !lettered);
 
     function build() {
       if (el) return el;
@@ -380,10 +385,10 @@
       // (a button the game has no use for just now stays off the card)
       if (paused) Array.prototype.forEach.call(el.querySelectorAll(".gs-pause-alt"), function (b, i) { b.hidden = !acts[i].on(); });
       el.hidden = !paused;
-      // (no pause key: Resume holds the focus, so Enter or Space resumes; and
-      // the card lets it go as it shuts, or the next Enter would press its
-      // hidden button and not the game's)
-      if (paused && !keys.length) try { el.querySelector("button").focus({ preventScroll: true }); } catch (e) {}
+      // (no letter to pause with: Resume holds the focus, so Enter or Space
+      // resumes; and the card lets it go as it shuts, or the next Enter would
+      // press its hidden button and not the game's)
+      if (paused && !lettered) try { el.querySelector("button").focus({ preventScroll: true }); } catch (e) {}
       if (!paused && el.contains(document.activeElement)) try { document.activeElement.blur(); } catch (e) {}
       if (corner) corner.render();
       try { onChange(paused); } catch (e) {}
@@ -413,7 +418,10 @@
 
     document.addEventListener("keydown", function (e) {
       if (!e.key) return;                // autofill sends keydowns with no key
-      if (e.ctrlKey || e.metaKey || e.altKey) return;   // Ctrl+P is Print, not pause
+      // (Ctrl+P is Print, not pause; but AltGr, which is Ctrl+Alt, is how some
+      // layouts type a \, as the brackets: mute-toggle.js)
+      var sym = /^[^a-z0-9]$/i.test(e.key);
+      if (e.metaKey || ((e.ctrlKey || e.altKey) && !(sym && e.ctrlKey && e.altKey))) return;
       var hit = false;
       for (var i = 0; i < keys.length; i++) {
         if (e.key === keys[i] || e.key.toLowerCase() === String(keys[i]).toLowerCase()) { hit = true; break; }
@@ -422,10 +430,11 @@
       // Don't swallow a printable key the player is typing into a field, but
       // Escape is never text, and in metazac/ztype the input IS the game
       // surface, so a blanket "ignore while focused in an input" would make
-      // pause unreachable exactly where it's needed most.
+      // pause unreachable exactly where it's needed most. A symbol key works
+      // in a typing game's own answer box (data-game-input), as [ and ] do.
       if (e.key.length === 1) {
         var t = e.target;
-        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable) && !(sym && t.hasAttribute("data-game-input"))) return;
       }
       // Claim the key only when it pauses or resumes something: on a menu or
       // end screen, P (and Ctrl+P, Print) and Esc keep their usual behaviour
