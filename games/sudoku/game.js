@@ -52,7 +52,6 @@
   const stampEl = $("stamp");
   const stampNote = $("stampNote");
   const sheetEl = document.querySelector(".sheet");
-  const pauseBtn = $("pauseBtn");
   const padEl = $("pad");
   const undoBtn = $("undoBtn");
   const eraseBtn = $("eraseBtn");
@@ -822,8 +821,8 @@
   // ---- pause -------------------------------------------------------------
   // Only while the clock runs. The shared overlay is see-through, so the
   // board is blurred too; otherwise pausing is free thinking time.
+  // P or the ⏸ corner button, as in every game.
   const PAUSE = GameShell.pausable({
-    button: false,                       // the clock has its own pause button
     canPause: () => state === "playing",
     // On the card: this same puzzle again from its clues (the levels and New
     // puzzle are on the page). It asks once there is work on it: leaving never
@@ -831,8 +830,6 @@
     restart: { ask: () => hasProgress(), text: "Your digits, notes and time on this puzzle will be lost.", go: () => restartPuzzle() },
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
-      pauseBtn.textContent = paused ? "\u25B6\uFE0E" : "\u23F8\uFE0E";
-      pauseBtn.setAttribute("aria-label", paused ? "Resume (P)" : "Pause (P)");
       if (paused) {
         stopClock();
         save();
@@ -873,7 +870,6 @@
   });
   notesBtn.addEventListener("click", toggleNotesMode);
   hintBtn.addEventListener("click", hint);
-  pauseBtn.addEventListener("click", () => PAUSE.toggle());
 
   const ARROWS = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
   document.addEventListener("keydown", (e) => {

@@ -119,7 +119,6 @@ const table = (lib) => [
       await p.evaluate(() => { const s = __game.src, d = { E: [0, 1], W: [0, -1], N: [-1, 0], S: [1, 0] }[s.dir] || [0, 1]; __game.place(s.r + d[0], s.c + d[1]); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => __game.state === "play" && __game.mode === "panic" && __game.level === 1 && !__game.grid.some((row) => row.some((c) => c.kind === "pipe"))) },
   { name: "sudoku", path: "sudoku/", acts: ["restart"], asks: true,
-    pause: (p) => p.click("#pauseBtn"),
     start: async (p) => { await p.waitForSelector("#board .c.given", { timeout: 20000 }); await p.click("#board .c:not(.given)"); await p.keyboard.press("5"); await p.waitForFunction(() => [...document.querySelectorAll("#board .c:not(.given)")].some((c) => c.textContent.trim()), null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => document.querySelectorAll("#board .c.given").length > 16 && [...document.querySelectorAll("#board .c:not(.given)")].every((c) => !c.textContent.trim()) && !document.querySelector("#field.paused")) },
   // ---- the board games that had no pause: the card is there for Restart and Menu
@@ -172,6 +171,26 @@ const table = (lib) => [
       await p.evaluate(() => document.querySelector("circle.hint").dispatchEvent(new MouseEvent("click", { bubbles: true }))); await p.waitForTimeout(200); },
     fresh: (p) => p.evaluate(() => !GameShell.leaveActive() && !document.getElementById("menu").classList.contains("show") && document.querySelectorAll("text.glyph").length === 48),
     menu: (p) => p.evaluate(() => document.getElementById("menu").classList.contains("show")) },
+  // (the timing tests and Speedle: Click Tap pauses before a run's first
+  // click, Reaction in a standoff or between duels, Stopwatch waiting on
+  // START, never mid-attempt: see below. Speedle's letters are its guesses, so
+  // its pause has no key)
+  { name: "click-tap", path: "click-tap/",
+    start: async (p) => { await p.click("#startBtn"); await p.waitForTimeout(200); },
+    fresh: (p) => p.evaluate(() => !document.getElementById("play").hidden && document.getElementById("vClicks").textContent === "0"),
+    menu: (p) => p.evaluate(() => !document.getElementById("setup").hidden) },
+  { name: "reaction", path: "reaction/",
+    start: async (p) => { await p.click("#btn-start"); await p.waitForTimeout(200); },
+    fresh: (p) => p.evaluate(() => document.getElementById("attempt").textContent === "1/10" && !document.getElementById("overlay").classList.contains("show")),
+    menu: (p) => p.evaluate(() => document.getElementById("overlay").classList.contains("show") && !!document.getElementById("btn-start")) },
+  { name: "stopwatch", path: "stopwatch/",
+    start: async (p) => { await p.click("#card-inner .btn"); await p.waitForTimeout(200); },
+    fresh: (p) => p.evaluate(() => document.getElementById("round").textContent === "1" && document.getElementById("btn").textContent === "START" && !document.getElementById("overlay-card").classList.contains("show")),
+    menu: (p) => p.evaluate(() => document.getElementById("overlay-card").classList.contains("show") && !!document.querySelector("#card-inner .modepick")) },
+  { name: "speedle", path: "speedle/", asks: true,
+    start: async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(200); await p.keyboard.type("ab"); },
+    fresh: (p) => p.evaluate(() => !document.getElementById("overlay").classList.contains("show") && !document.querySelector(".tile.filled")),
+    menu: (p) => p.evaluate(() => !!document.getElementById("m-sprint")) },
   // ---- the games that draw their own pause screen: the two as a row over it
   { name: "road-bird", path: "road-bird/", row: true,
     start: async (p) => { await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
@@ -293,6 +312,103 @@ module.exports = async ({ browser, base, check, lib }) => {
       check(g.name + ": the card's steps ran to the end", false, step + ": " + String(e && e.message || e).split("\n")[0]);
     }
     check(g.name + ": no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- every game page has the ⏸ button in its corner row, as it has the
+  // Games link, sound and Visual FX (the level editors aside: nothing in them
+  // to pause)
+  {
+    const EDITORS = ["dead-end/editor.html", "slither/editor.html", "tile-maze/editor.html"];
+    const missing = [];
+    for (const g of lib.gamePages()) {
+      if (EDITORS.includes(g)) continue;
+      const p = await lib.open(ctx, base, "games/" + g, { settle: 150 });
+      if (!(await p.evaluate(() => !!document.querySelector(".gs-pause-btn")))) missing.push(g);
+      await p.close();
+    }
+    check("every game page has the ⏸ button in its corner row (the level editors aside)", missing.length === 0, missing);
+  }
+
+  // ---- the games with a pause screen of their own: the ⏸ corner button
+  // opens it, with Resume, Restart and Menu on it, and shuts it again
+  {
+    const hiddenCls = (id) => (p) => p.evaluate((id) => !document.getElementById(id).classList.contains("hidden"), id);
+    const OWN = [
+      { name: "demolition-row", path: "demolition-row/", start: (p) => p.click("#play-btn"), up: hiddenCls("pause"), btns: ["#pause-resume", "#pause-restart", "#pause-menu"] },
+      { name: "slither", path: "slither/", start: (p) => p.click("#play-btn"), up: hiddenCls("pause"), btns: ["#pause-resume", "#pause-restart", "#pause-menu"] },
+      { name: "slither, the Labyrinth", path: "slither/", up: hiddenCls("pause"), btns: ["#pause-resume", "#pause-restart", "#pause-menu"],
+        start: async (p) => { await p.click('[data-mode="lab"]'); await p.waitForTimeout(400);
+          await p.evaluate(() => { const d = [...document.querySelectorAll("details.lab-runs")].find((x) => /Fire Eggs/.test(x.textContent)); d.open = true; [...d.querySelectorAll("button")].find((x) => /^🥚/.test(x.textContent)).click(); });
+          await p.waitForTimeout(900); } },
+      { name: "sunset-slice", path: "sunset-slice/", start: (p) => p.click('.modes button[data-mode="calm"]'), up: (p) => p.evaluate(() => !document.getElementById("pause").hidden), btns: ["#resume", "#restart", "#quit"] },
+      { name: "spacer", path: "spacer/", start: async (p) => { await p.keyboard.press("Enter"); await p.waitForFunction(() => window.game.mode === "playing", null, { timeout: 30000 }).catch(() => {}); },
+        up: (p) => p.evaluate(() => window.game.mode === "paused"), btns: [] },
+      { name: "24", path: "24/", start: async (p) => { await p.keyboard.press("1"); await p.keyboard.press("Enter"); },
+        up: (p) => p.evaluate(() => TwentyFour.state().screen === "paused"), btns: [] },
+    ];
+    for (const g of OWN) {
+      const p = await lib.open(ctx, base, "games/" + g.path);
+      let r = null;
+      try {
+        await g.start(p); await p.waitForTimeout(400);
+        await p.waitForSelector('.gs-pause-btn[aria-disabled="false"]', { timeout: 15000 }).catch(() => {});
+        await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(200);
+        const up = await g.up(p), label = await p.evaluate(() => document.querySelector(".gs-pause-btn").textContent);
+        const btns = await p.evaluate((sels) => sels.map((s) => { const b = document.querySelector(s); return !!b && b.getClientRects().length > 0; }), g.btns);
+        await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(200);
+        r = { up, label, btns, after: await g.up(p) };
+      } catch (e) { r = { err: String(e && e.message || e).split("\n")[0] }; }
+      check(g.name + ": the ⏸ corner button opens its own pause screen" + (g.btns.length ? " (Resume, Restart and Menu on it)" : "") + " and shuts it again",
+        !!r && r.up && /Resume/.test(r.label) && r.btns.every(Boolean) && !r.after, r);
+      check(g.name + " (corner pause): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+  }
+
+  // ---- the timing tests pause between attempts and never during one: a
+  // pause mid-attempt would be a free do-over, or a rest
+  {
+    const dim = (p) => p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"));
+    // Stopwatch: live waiting on START; through a sweep dimmed, and P does nothing
+    let p = await lib.open(ctx, base, "games/stopwatch/");
+    await p.click("#card-inner .btn"); await p.waitForTimeout(200);
+    const swReady = await dim(p);
+    await p.keyboard.press("Space");
+    // (the button redraws its dimming four times a second)
+    await p.waitForFunction(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled") === "true", null, { timeout: 2000 }).catch(() => {});
+    const swSweep = await dim(p), swKey = await lib.fireKey(p, { key: "p" }), swCard = await cardUp(p);
+    check("stopwatch: ⏸ live waiting on START; through a sweep it's dimmed and P does nothing",
+      swReady === "false" && swSweep === "true" && !swKey && !swCard, { swReady, swSweep, swKey, swCard });
+    await p.close();
+    // Reaction: a pause in the standoff calls the duel off (nothing scored, no
+    // DRAW under the card) and the resume starts it over; once DRAW! is called
+    // the button is dimmed
+    p = await lib.open(ctx, base, "games/reaction/");
+    await p.click("#btn-start");
+    await p.waitForFunction(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled") === "false", null, { timeout: 2000 }).catch(() => {});
+    const rStand = await dim(p), rT0 = await p.evaluate(() => document.getElementById("times").textContent);
+    await p.click(".gs-pause-btn"); await p.waitForTimeout(150);
+    const rCard = await cardUp(p);
+    await p.waitForTimeout(2500);
+    const rHeld = await p.evaluate(() => ({ cls: document.getElementById("panel").className, attempt: document.getElementById("attempt").textContent, times: document.getElementById("times").textContent }));
+    await p.keyboard.press("p"); await p.waitForTimeout(150);
+    const rBack = await p.evaluate(() => ({ cls: document.getElementById("panel").className, attempt: document.getElementById("attempt").textContent }));
+    await p.waitForFunction(() => /\bgo\b/.test(document.getElementById("panel").className), null, { timeout: 15000 });
+    await p.waitForFunction(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled") === "true", null, { timeout: 900 }).catch(() => {});
+    const rDraw = await dim(p), rKey = await lib.fireKey(p, { key: "p" }), rDrawCard = await cardUp(p);
+    check("reaction: ⏸ live in the standoff: paused, the duel is called off (no DRAW!, nothing scored) and the resume starts it over; once DRAW! is called it's dimmed and P does nothing",
+      rStand === "false" && rCard && /wait/.test(rHeld.cls) && rHeld.attempt === "1/10" && rHeld.times === rT0 && /wait/.test(rBack.cls) && rBack.attempt === "1/10" && rDraw === "true" && !rKey && !rDrawCard,
+      { rStand, rCard, rHeld, rBack, rDraw, rKey, rDrawCard });
+    await p.close();
+    // Click Tap: live before the first click; once clicking starts, dimmed
+    p = await lib.open(ctx, base, "games/click-tap/");
+    await p.click("#startBtn"); await p.waitForTimeout(150);
+    const cReady = await dim(p);
+    await p.click("#pad");
+    await p.waitForFunction(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled") === "true", null, { timeout: 2000 }).catch(() => {});
+    const cRun = await dim(p), cKey = await lib.fireKey(p, { key: "p" }), cCard = await cardUp(p);
+    check("click-tap: ⏸ live before the first click; once a run is going it's dimmed and P does nothing", cReady === "false" && cRun === "true" && !cKey && !cCard, { cReady, cRun, cKey, cCard });
     await p.close();
   }
 

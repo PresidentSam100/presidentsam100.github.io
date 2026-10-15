@@ -259,9 +259,16 @@
   function quit() { cancelAnimationFrame(raf); state = "setup"; show(setupEl); showSetupBest(); }
 
   // Leaving asks first only mid-run, from the first click to the end (before
-  // that click nothing's been done). There's no pause, so the clock keeps
-  // running under the question.
+  // that click nothing's been done). The clock keeps running under the
+  // question: a run can't be paused.
   if (window.GameShell) GameShell.guardLeave(() => state === "running");
+  // The ⏸ button (P) pauses before a run's first click, never during one (a
+  // rest mid-run would be a free edge): on the card Restart is this length
+  // again and Menu the setup.
+  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+    canPause: () => state === "ready", auto: false, hold: true,
+    restart: beginTest, menu: quit
+  });
 
   // ---- input wiring ----
   // Count clicks only within the visible circle pad (not the square corners).
@@ -275,8 +282,8 @@
     registerInput();
   });
   // Backspace bails out of a run, or leaves the results, for the setup screen;
-  // there's no keyboard play mode anymore. There's no pause either, so Esc is
-  // left unclaimed everywhere and leaves for the games page (motion-toggle.js).
+  // there's no keyboard play mode anymore. Esc is left unclaimed everywhere
+  // and leaves for the games page (motion-toggle.js).
   window.addEventListener("keydown", (e) => {
     if (e.key !== "Backspace" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
     const t = e.target;

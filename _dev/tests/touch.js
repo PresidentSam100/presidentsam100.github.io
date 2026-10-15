@@ -17,12 +17,15 @@ module.exports = async ({ browser, base, check, lib }) => {
     check(label + ": demolition-row's Resume keycap (Space or Enter) " + (want ? "shows" : "is hidden"), cap === want, cap);
     await p.close();
 
+    // (Slither's pause is the ⏸ corner button: its P shows beside it on a
+    // wide desktop window, and a phone, too narrow for it, has the icon alone)
     p = await lib.open(ctx, base, "games/slither/");
     await p.click("#play-btn"); await p.waitForTimeout(400);
-    const s0 = await shown(p, "#pause-btn");
-    await p.click("#pause-btn"); await p.waitForTimeout(150);
-    const s1 = await shown(p, "#pause-btn");
-    check(label + ": slither's pause / resume keycaps " + (want ? "show" : "are hidden"), s0 === want && s1 === want, { s0, s1 });
+    const slCap = () => p.evaluate(() => !!document.querySelector(".gs-pause-btn kbd"));
+    const s0 = await slCap();
+    await p.click(".gs-pause-btn"); await p.waitForTimeout(150);
+    const s1 = await slCap(), up = await p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
+    check(label + ": slither's ⏸ corner button pauses it" + (want ? ", its P keycap showing" : ", the icon alone"), s0 === want && s1 === want && up, { s0, s1, up });
     await p.close();
 
     p = await lib.open(ctx, base, "games/crazy-ohio/");

@@ -748,23 +748,20 @@
     announce();
   });
   window.addEventListener("pagehide", dailyPending);
+  // Every mode pauses: the Paused screen hides the cards and offers Restart
+  // and Main menu. A hidden tab pauses a game with a clock (Time attack, a
+  // Daily); Classic and Hard have none to stop, so they just wait.
   function canPause() {
-    return (screen === Game || screen === Options || screen === Confirm) && G && (G.mode === "timed" || G.mode === "daily") && !G.over && !G.celebrate;
+    return (screen === Game || screen === Options || screen === Confirm) && G && !G.over && !G.celebrate;
   }
   if (window.GameShell) GameShell.onAutoPause(function () {
     dailyPending();
-    if (canPause()) go(Paused);
+    if (canPause() && (G.mode === "timed" || G.mode === "daily")) go(Paused);
   });
-  // the ⏸ corner button (P). Only timed and daily games have a clock to stop;
-  // in classic and hard the button stays dimmed, and says why (on the menus
-  // it keeps the usual "works during a game")
+  // the ⏸ corner button (P)
   if (window.GameShell) GameShell.pauseButton({
     keys: ["p"],
     canPause: canPause,
-    offTitle: function () {
-      var untimed = (screen === Game || screen === Options || screen === Confirm) && G && !G.over && (G.mode === "classic" || G.mode === "hard");
-      return untimed ? "No clock in " + (G.mode === "hard" ? "Hard" : "Classic") + " to pause (Enter opens Options)" : "";
-    },
     isPaused: function () { return screen === Paused; },
     toggle: function () { audio(); go(screen === Paused ? Game : Paused); }
   });

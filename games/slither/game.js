@@ -38,16 +38,11 @@
   var resultMsg = document.getElementById("result-msg");
   var resultPrimary = document.getElementById("result-primary");
   var keysHelp = document.getElementById("keys-help");
-  var pauseBtn = document.getElementById("pause-btn");
-  // P pauses in every mode, as in the site's other games. Classic and
-  // 2-Player also keep Space; the Labyrinth's blast arenas use Space for
-  // Fire Eggs, so the label names the key that always works.
+  // P pauses in every mode, as in the site's other games, by the ⏸ corner
+  // button too (below). Classic and 2-Player also keep Space; the
+  // Labyrinth's blast arenas use Space for Fire Eggs, so the button names the
+  // key that always works.
   function k(t) { return '<kbd class="gs-kbd">' + t + "</kbd>"; }   // keycap (style: ../motion-toggle.js)
-  function pauseLabel(paused, inLab) {
-    pauseBtn.innerHTML = (paused ? "▶ Resume " : "⏸ Pause ") + '<span class="gs-keys">' + k("P") + "</span>";
-    pauseBtn.title = (paused ? "Resume" : "Pause") + " (P" + (inLab ? "" : " / Space") + ")";
-    pauseBtn.setAttribute("aria-keyshortcuts", inLab ? "P" : "P Space");
-  }
   var playBtn = document.getElementById("play-btn");
   var twistsGroup = document.getElementById("twists-group");
   var labOpts = document.getElementById("lab-opts");
@@ -301,7 +296,6 @@
     G.pendingEnd = false;
     G.running = true;
     G.paused = false;
-    pauseLabel(false, false);
 
     updateHud();
     beginLoop();
@@ -350,11 +344,9 @@
       var cssWidth = "min(94vw, " + maxCssW + "px, calc(66vh * " + (pxW / pxH).toFixed(4) + "))";
       resizeBoard(pxW, pxH, cssWidth);
       labHud.style.width = cssWidth;
-      pauseLabel(false, true);
     },
     setPaused: function (paused) {
       pauseOverlay.classList.toggle("hidden", !paused);
-      pauseLabel(paused, true);
     },
     showResult: function (opts) { showResult(opts); },
     clickResult: function () { if (!resultOverlay.classList.contains("hidden")) resultPrimary.click(); },
@@ -532,9 +524,15 @@
     if (!G.running || G.pendingEnd) return false;
     G.paused = !G.paused;
     pauseOverlay.classList.toggle("hidden", !G.paused);
-    pauseLabel(G.paused, false);
     return true;
   }
+  // the ⏸ corner button, as in every game: its card is the game's own
+  if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+    keys: ["p"],
+    canPause: function () { return G.mode === "lab" ? !!lab && lab.canPause() : G.running && !G.pendingEnd; },
+    isPaused: function () { return G.mode === "lab" ? !!lab && lab.isPaused() : G.paused; },
+    toggle: togglePause
+  });
 
   // Switching tabs used to leave the snake crawling into a wall off-screen.
   // Pause only: coming back must not un-pause a deliberate pause.
@@ -590,7 +588,6 @@
       { sel: "#pause-restart", keys: ["r"], ask: { title: "Restart this game?", ok: "Restart" } },
       { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
   }
-  document.getElementById("pause-btn").addEventListener("click", togglePause);
   document.getElementById("pause-resume").addEventListener("click", function () {
     if (G.mode === "lab") { if (lab && lab.isPaused()) lab.togglePause(); return; }
     if (G.paused) togglePause();

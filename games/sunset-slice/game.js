@@ -289,7 +289,7 @@
     menu: document.getElementById("menu"), over: document.getElementById("over"), hud: document.getElementById("hud"),
     score: document.getElementById("hud-score"), sub: document.getElementById("hud-sub"), pause: document.getElementById("pause"),
     overTitle: document.getElementById("over-title"), overMsg: document.getElementById("over-msg"), overStats: document.getElementById("over-stats"),
-    bests: document.getElementById("bests"), pauseBtn: document.getElementById("pause-btn"),
+    bests: document.getElementById("bests"),
   };
   // A run that passes the mode's best saves it the moment it does, so closing
   // the tab (or leaving during the end beat) can't lose a new best
@@ -408,7 +408,13 @@
     if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start over?", ok: "Start over" }, go);
     else go();
   });
-  ui.pauseBtn.addEventListener("click", function () { setPaused(true); });
+  // the ⏸ corner button (P), as in every game: its card is the game's own
+  if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+    keys: ["p"],
+    canPause: function () { return state === "play"; },
+    isPaused: function () { return paused; },
+    toggle: function () { setPaused(!paused); }
+  });
   // P pauses / resumes. Esc is never claimed: the shared motion-toggle.js
   // takes it to the games page (asking first during a run). On the end
   // screen Backspace goes back to the modes.

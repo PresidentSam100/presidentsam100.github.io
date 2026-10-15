@@ -1379,9 +1379,14 @@
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();
     });
-    document.getElementById("pause-btn").addEventListener("click", () => GAME && GAME.pauseToggle());
-    // (a click takes no focus: left on it, the result card's Enter would press it, not Play Again)
-    document.getElementById("pause-btn").addEventListener("mousedown", (e) => e.preventDefault());
+    // the ⏸ corner button, as in every game, with no key (every letter is
+    // someone's, and Esc is the way out): its card is the game's own
+    if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+      keys: [],
+      canPause: () => !!GAME && GAME.state === "playing",
+      isPaused: () => !!GAME && GAME.state === "paused",
+      toggle: () => GAME && GAME.pauseToggle()
+    });
     // "Play Again" keeps the running head-to-head wins (a continuing series)
     document.getElementById("result-again").addEventListener("click", () => startGame(GAME ? GAME.players.map((p) => p.board.wins || 0) : null));
     document.getElementById("result-menu").addEventListener("click", toMenu);

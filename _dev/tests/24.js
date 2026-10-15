@@ -55,7 +55,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("24: (guard) C on a paused Daily quits at once (the Daily resumes where it was left)", dPaused.screen === "paused" && daily.screen === "menu" && !daily.dlg, { dPaused, daily });
 
   // Options' "Main menu" asks the same; Esc returns to Options with the run
-  // still there (a Time attack run waits paused, cards hidden, under the box)
+  // still there (the run waits paused, cards hidden, under the box: Classic
+  // pauses too)
   const mainMenuItem = async (menuKey, work) => {
     await p.evaluate((k) => { TwentyFour.press(k); TwentyFour.press("navi"); }, menuKey); await p.waitForTimeout(150);
     await p.evaluate((work) => {
@@ -64,7 +65,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     }, work);
     await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   };
-  for (const [name, key, under] of [["Classic", "1", "options"], ["Time attack", "2", "paused"]]) {
+  for (const [name, key, under] of [["Classic", "1", "paused"], ["Time attack", "2", "paused"]]) {
     await mainMenuItem(key, true);
     const ask = await now();
     await p.keyboard.press("Escape"); await p.waitForTimeout(150);

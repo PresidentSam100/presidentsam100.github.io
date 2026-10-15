@@ -40,12 +40,6 @@ html, body {
 .hud #hud-sub { font-size: clamp(18px, 3vw, 24px); font-weight: 700; letter-spacing: 0.1em; font-variant-numeric: tabular-nums; }
 .hud .seals { color: #ff6b5a; letter-spacing: 0.25em; }
 .hud .time.low { color: #ffd06a; }
-.pause-btn {
-  pointer-events: auto; cursor: pointer;
-  font: 700 13px/1 system-ui, sans-serif; color: var(--paper);
-  background: rgba(20, 10, 14, 0.6); border: 1px solid rgba(255, 190, 120, 0.45); border-radius: 50%;
-  width: 34px; height: 34px;
-}
 
 /* ---- panels ------------------------------------------------------------------ */
 .panel {

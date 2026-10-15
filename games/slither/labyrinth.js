@@ -1407,6 +1407,7 @@ window.SlitherLabyrinth = function (host) {
   return {
     start: start, restart: restart, stop: stop, inProgress: inProgress,
     togglePause: togglePause, autoPause: autoPause, isPaused: function () { return paused; },
+    canPause: function () { return active && !!st && (st.status === "play" || st.status === "ready"); },
     keydown: keydown, keyup: keyup, steer: steer, padSteer: padSteer, unsteer: unsteer, padHold: padHold,
     isOver: function () { return !!st && (st.status === "dead" || st.status === "won" || st.status === "over"); },
     buildLevelGrid: buildLevelGrid, continueIndex: continueIndex, startCustom: startCustom,

@@ -395,6 +395,17 @@
     press();
   });
 
+  // The ⏸ button (P) pauses between sweeps, the watch waiting on START: on
+  // the card Restart is a new run and Menu the lids. Never during a sweep: the
+  // hand can't be stopped fairly, and calling a sweep off would be a free
+  // second go at a bad one.
+  var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
+    canPause: function () { return state === "ready" && !busted; },
+    auto: false, hold: true,
+    restart: beginGame,
+    menu: showStartCard
+  }) : null;
+
   // Leaving asks first while a run is under way: from the first sweep set
   // going (round 1 still waiting on START has nothing to lose) until a bust
   // ends it. No pause: the sweep runs on under the question.

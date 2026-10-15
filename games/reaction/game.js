@@ -172,7 +172,7 @@
 
   // ------------------------------------------------ flow
   function showStart() {
-    state = "menu"; trial = 0; results = []; penal = []; late = []; FX.stop(); delete panel.dataset.shot; clearTimeout(windowId);
+    state = "menu"; trial = 0; results = []; penal = []; late = []; FX.stop(); delete panel.dataset.shot; clearTimeout(timerId); clearTimeout(windowId); held = false;
     panel.className = "panel idle"; pBig.className = "big"; pBig.textContent = "Reaction"; pSub.textContent = "step into the street to begin"; pRating.textContent = "";
     renderHud(); renderTimes();
     card.innerHTML =
@@ -189,7 +189,7 @@
     $("btn-start").addEventListener("click", begin);
   }
 
-  function begin() { Sound.init(); clearTimeout(windowId); trial = 0; results = []; penal = []; late = []; runBest = best; ov.classList.remove("show"); nextAttempt(); }
+  function begin() { Sound.init(); clearTimeout(timerId); clearTimeout(windowId); held = false; trial = 0; results = []; penal = []; late = []; runBest = best; ov.classList.remove("show"); nextAttempt(); }
 
   // The best average is saved the instant the last duel is decided, before
   // its shot plays out and the poster comes up, so leaving then keeps it.
@@ -322,9 +322,21 @@
   function rearm() { if (held) { held = false; arm(); renderHud(); renderTimes(); } }
   if (window.GameShell) GameShell.guardLeave({
     active: function () { return results.length > 0 && ["wait", "go", "result", "toosoon", "late"].indexOf(state) >= 0; },
+    isPaused: function () { return !!PAUSE && PAUSE.isPaused(); },
     pause: hold,
     resume: rearm
   });
+  // The ⏸ button (P) pauses a showdown, but never once DRAW! is called (a slow
+  // draw thrown away would be a free second go). In the standoff a pause calls
+  // the duel off and the resume starts it over, as a tab switch does; between
+  // duels it simply waits. On the card Restart is a new showdown, Menu the start.
+  var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
+    canPause: function () { return ["wait", "result", "toosoon", "late"].indexOf(state) >= 0; },
+    auto: false, hold: true,
+    onChange: function (on) { if (on) hold(); else rearm(); },
+    restart: begin,
+    menu: showStart
+  }) : null;
   // Switching tabs or windows mid-standoff calls it off the same way: its
   // timers would call DRAW! and score the duel lost while nobody's looking.
   // It waits, called off, for the next tap.

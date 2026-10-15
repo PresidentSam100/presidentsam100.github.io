@@ -616,18 +616,28 @@
     root: "#card"
   });
 
-  // the ⏸ button is shown, so it's plain the game has none, but it stays off:
-  // with the clock stopped you could study the board for free
-  if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
+  // The ⏸ button pauses a run (no key: every letter is a guess, and Esc is
+  // the way out). The clock stops, and the board and the keyboard's colours
+  // hide for the whole pause (styles.css), so it's no free look; on the card
+  // Restart is this mode again and Menu the modes. A hidden tab pauses too.
+  var pausedAt = 0;
+  var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
     keys: [],
-    canPause: function () { return false; },
-    isPaused: function () { return false; },
-    toggle: function () {},
-    offTitle: "Speedle can't be paused: the clock always runs"
-  });
+    canPause: function () { return playing; },
+    hold: true,
+    onChange: function (on) {
+      document.body.classList.toggle("paused", on);
+      if (on) { pausedAt = performance.now(); cancelAnimationFrame(timerRAF); return; }
+      var away = performance.now() - pausedAt;   // (the clock picks up where it stopped)
+      sprintDeadline += away; startTime += away;
+      if (playing) { cancelAnimationFrame(timerRAF); timerRAF = requestAnimationFrame(tick); }
+    },
+    restart: function () { startGame(mode); },
+    menu: showMenu
+  }) : null;
   // Leaving mid-run asks first, once a letter's been typed (before that
-  // there's nothing to lose); the clock keeps running under the question
-  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(function () { return playing && typedAny; });
+  // there's nothing to lose); the run pauses under the question
+  if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave({ active: function () { return playing && typedAny; }, pausable: PAUSE });
 
   // ----- boot ---------------------------------------------------------
   hard = load(HARD_PREF) === "1";

@@ -24,7 +24,7 @@ const ALLOW = {
   "tile-maze/editor.html": ["*"],
   "speedle/": [".key"],                     // the on-screen keyboard
   "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid
-  "sudoku/": ["#pauseBtn", ".key"],         // (P is on the Keyboard line); the digit pad
+  "sudoku/": [".key"],                      // the digit pad
   "tile-maze/": [".dbtn", ".lvlbtn"],       // the arrows pad, and the level grid
   "typetwo/": ["#startBtn"],                // ("Enter to start" is on the line above it)
 };

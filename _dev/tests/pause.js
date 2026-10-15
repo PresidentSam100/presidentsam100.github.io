@@ -3,7 +3,8 @@
 // this game?" first mid-game. (Where no letter is free, in the typing games,
 // Fish-a-Fish and Demolition Row, the ⏸ button is the pause, and Enter on its
 // card resumes. Metazac's answers are digits and Passport's tags are 1 to 4,
-// so P pauses there.) Backspace backs out of end screens, the shared pause only
+// so P pauses there.) Every game has the ⏸ button, Speedle too: a stopped clock
+// there hides the board. Backspace backs out of end screens, the shared pause only
 // claims its key when something pauses, and paused games ignore play input.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -42,20 +43,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, g);
   }
 
-  // ---- Speedle: the ⏸ button shows but never pauses (a stopped clock would be a free look)
+  // ---- Speedle: the ⏸ button pauses (no key: every letter is a guess). The
+  // board and the keyboard's colours hide, the clock stops and letters type
+  // nothing; Enter (Resume holds the focus) resumes, the clock where it was;
+  // Esc mid-run asks to leave, the run paused under the box
   let p = await lib.open(ctx, base, "games/speedle/");
-  const sp = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return b && { off: b.getAttribute("aria-disabled"), title: b.title, text: b.textContent }; });
+  const sp = () => p.evaluate(() => ({ off: document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"), board: getComputedStyle(document.getElementById("board")).visibility,
+    kb: getComputedStyle(document.getElementById("kb")).visibility, clock: document.getElementById("value-a").textContent, typed: [...document.querySelectorAll(".tile")].map((t) => t.textContent).join("") }));
   const spMenu = await sp();
   await p.click("#m-sprint"); await p.waitForTimeout(300);
-  const spPlay = await sp();
-  // (force: Playwright won't click an aria-disabled button, but a player's click still lands on it)
-  // (Esc leaves at once here: nothing typed yet. The 300ms lets it decide before P types a letter)
-  await p.click(".gs-pause-btn", { force: true }); await p.keyboard.press("Escape"); await p.waitForTimeout(300); await p.keyboard.press("p");
-  const spAfter = await sp(), spCard = await card(p);
-  const typedP = await p.evaluate(() => [...document.querySelectorAll(".tile")].map((t) => t.textContent).join("").includes("p"));   // P still types a letter
-  check("speedle: ⏸ is shown, always off, says why; clicking it or Esc doesn't pause",
-    spMenu && spMenu.off === "true" && spPlay.off === "true" && /can't be paused/.test(spPlay.title) && spAfter.off === "true" && !spCard && typedP,
-    { spMenu, spPlay, spAfter, spCard, typedP });
+  await p.keyboard.type("ab"); await p.waitForTimeout(100);
+  await p.click(".gs-pause-btn");
+  const spPaused = await sp(), spCard = await card(p);
+  await p.waitForTimeout(1500);
+  await p.keyboard.type("cd");
+  const spHeld = await sp();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(400);
+  const spBack = await sp(), spGone = !(await card(p));
+  await p.keyboard.press("Escape"); const spAsk = await asked(p);
+  await p.keyboard.press("Escape"); await boxGone(p);
+  check("speedle: ⏸ dimmed on the menu, live in a run; paused, the board and keys hide, the clock stops and letters type nothing; Enter resumes with the clock where it was",
+    spMenu.off === "true" && spCard && spPaused.board === "hidden" && spPaused.kb === "hidden" && spHeld.clock === spPaused.clock && spHeld.typed === "ab" &&
+    spGone && spBack.board === "visible" && Number(spBack.clock) <= Number(spPaused.clock) && Number(spBack.clock) > Number(spPaused.clock) - 1.2, { spMenu, spPaused, spHeld, spBack, spGone });
+  check("speedle: Esc mid-run (letters typed) asks 'Leave this game?', and Esc again plays on", spAsk === "Leave this game?" && p.leaves === 0, { spAsk, leaves: p.leaves });
   await done(p, "speedle");
 
   // ---- Ping: a rally pauses on P, the ball freezes; Esc is the way out and
@@ -107,18 +117,22 @@ module.exports = async ({ browser, base, check, lib }) => {
     { dim, live, cap, s1, s2, s3, ask24, s4, leaves: p.leaves });
   await done(p, "24");
 
-  // ---- 24: in Classic and Hard the dimmed ⏸ says there's no clock, not "works during a game"
+  // ---- 24: Classic and Hard pause too (the Paused screen, cards hidden,
+  // with Restart and Main menu), by the button or P; on the menu it's dimmed
   p = await lib.open(ctx, base, "games/24/");
-  const tip = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return { off: b.getAttribute("aria-disabled"), title: b.title, aria: b.getAttribute("aria-label") }; });
+  const tip = () => p.evaluate(() => { const b = document.querySelector(".gs-pause-btn"); return { off: b.getAttribute("aria-disabled"), title: b.title, screen: TwentyFour.state().screen }; });
   const onMenu = await tip();
   await p.keyboard.press("1"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const classic = await tip();
+  await p.keyboard.press("p"); const cP = await tip();
+  await p.keyboard.press("p"); const cR = await tip();
   await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(400);
   await p.keyboard.press("4"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const hard = await tip();
-  check("24: in Classic / Hard the dimmed ⏸ explains there's no clock; on the menu it says it works during a game",
-    /during a game/.test(onMenu.title) && classic.off === "true" && /No clock in Classic/.test(classic.title) && /Enter opens Options/.test(classic.title) && classic.aria === classic.title &&
-    hard.off === "true" && /No clock in Hard/.test(hard.title), { onMenu, classic, hard });
+  await p.click(".gs-pause-btn"); const hP = await tip();
+  check("24: Classic and Hard pause too: ⏸ live, P (or the button) opens the Paused screen and P resumes; dimmed on the menu",
+    /during a game/.test(onMenu.title) && onMenu.off === "true" && classic.off === "false" && cP.screen === "paused" && cR.screen === "game" && hard.off === "false" && hP.screen === "paused",
+    { onMenu, classic, cP, cR, hard, hP });
   await done(p, "24 untimed");
 
   // ---- Crazy Ohio: P pauses a run and Esc asks to leave it; in the countdown
@@ -212,7 +226,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await lib.open(ctx, base, "games/slither/");
   await p.click("#play-btn"); await p.waitForTimeout(600);
   const ov = () => p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
-  const lbl = () => p.evaluate(() => document.getElementById("pause-btn").textContent);
+  // (the ⏸ corner button, its label and key: it redraws four times a second)
+  const lbl = async () => { await p.waitForTimeout(300); return btn(p); };
   const l0 = await lbl();
   await p.keyboard.press("p"); const c1 = await ov(); const l1 = await lbl();
   await p.keyboard.press("p"); const c2 = await ov();

@@ -135,6 +135,9 @@ html.fx-off .row.bad .tile { outline: 2px solid var(--bad); outline-offset: -2px
 .msg { text-align: center; min-height: 1.3rem; margin: 0.6rem 0 0.7rem; font-size: 1rem; font-weight: 700; letter-spacing: 0.02em; color: var(--warn); }
 
 /* ---- keyboard: a tile rack ------------------------------------------------- */
+/* paused (game.js): the guesses and the keyboard's colours hide under the
+   card, so a stopped clock is no free look at the board */
+body.paused #board, body.paused #kb { visibility: hidden; }
 .kb {
   margin-top: auto; padding: 10px 8px 12px; display: flex; flex-direction: column; gap: 7px;
   border-radius: 12px;
