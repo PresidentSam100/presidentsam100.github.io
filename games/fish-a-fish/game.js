@@ -14,10 +14,11 @@
      pond goes quiet; it keeps speeding up).
    - Keys: Condensed (the 3x3 above), All letters (the 26 letter keys), or
      Whole keyboard (the number row too).
-   - Shift, on every pond: on, a fish sometimes asks for what Shift types
-     on its key, a capital on a letter (the plain letters go small then) or
-     the SYMBOL over a number (!, %, &, ...), and then only Shift + that key
-     hooks it; off, every key is plain.
+   - Shift, on every pond, off to begin with: on, a fish sometimes asks for
+     what Shift types on its key, a capital on a letter or the SYMBOL over a
+     number (!, %, &, ...), and then only Shift + that key hooks it; off,
+     every key is plain. A tag shows what its key types, as typing does: a
+     small letter bare, a capital with Shift.
    Each combination keeps its own best score.
    ===================================================================== */
 (function () {
@@ -61,7 +62,9 @@
   var pref = {
     clock: store.get("fishafish_clock", "daybreak"),
     kb: store.get("fishafish_kb", "nine"),
-    shift: store.get("fishafish_shift", "1") !== "0",   // (on, as it always was, until switched off)
+    // (off until switched on. A name of its own: "fishafish_shift" was the
+    // switch for the number row's symbols alone, on unless switched off)
+    shift: store.get("fishafish_shift_keys", "0") === "1",
   };
   if (pref.clock !== "endless") pref.clock = "daybreak";
   if (!LAYOUTS[pref.kb]) pref.kb = "nine";
@@ -444,7 +447,7 @@
   function savePicks() {
     store.set("fishafish_clock", pref.clock);
     store.set("fishafish_kb", pref.kb);
-    store.set("fishafish_shift", pref.shift ? "1" : "0");
+    store.set("fishafish_shift_keys", pref.shift ? "1" : "0");
     renderPicks();
   }
   shiftBtn.addEventListener("click", toggleShift);
@@ -510,12 +513,12 @@
   }
 
   // ---- draw ---------------------------------------------------------------------------------
-  // A spot's tag says what its key types: with Shift on a letter is small, and
-  // a Shift fish shows what Shift types there (a capital, or a number's symbol).
+  // A spot's tag says what its key types, as typing does: a letter small, and
+  // a Shift fish what Shift types there (a capital, or a number's symbol).
   function tagLabel(s, i) {
     var label = layout.labels[i];
-    if (s.sym && s.phase !== "idle") return SHIFT_SYM[label] || label;
-    return shiftNow && !s.digitRow ? label.toLowerCase() : label;
+    if (s.sym && shiftNow && s.phase !== "idle") return SHIFT_SYM[label] || label;
+    return s.digitRow ? label : label.toLowerCase();
   }
   // What the last frame drew for cues that differ with Visual FX off (test hook).
   var cues = { escapeWarn: [] };
