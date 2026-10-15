@@ -46,5 +46,7 @@ Cloudflare Pages, S3, itch.io. No configuration required.
 - Particle bursts, screen shake, success-ring flash
 - A moving backdrop to each colour (rings on water, a night sky, clockwork,
   a sunburst, old keys drifting up), held still when Visual FX is off
+- The notch is the window: a tap pops while the ball's centre is on the
+  yellow, and "too slow" comes once the ball has wholly left it
 - Local high-score persistence (`localStorage`)
 - Rising difficulty: faster sweeps, tighter notches, more pops per level

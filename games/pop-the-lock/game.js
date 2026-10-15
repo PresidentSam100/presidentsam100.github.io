@@ -319,7 +319,18 @@
   let target = 0;          // notch center angle (rad)
   let tol = 0;             // notch half-width (rad)
   let traveled = 0;        // angle swept since the notch was placed (rad)
-  let exitTravel = 0;      // travel at which the dial clears the far edge (rad)
+  let exitTravel = 0;      // travel at which the dial's centre reaches the notch's far end (rad)
+
+  // The notch is the window: a tap pops while the ball's centre is on it.
+  // Its yellow is drawn to end just there, round ends and all (they used to
+  // reach half the notch's thickness further, past the window). And the
+  // ball is only too late once it has wholly left the yellow, a few pixels
+  // clear: it used to be called the moment the centre left, with the ball
+  // still lying half over the yellow's end.
+  const ballR = () => Math.max(9, R * 0.075);                   // the ball's radius (px)
+  const notchW = () => Math.max(12, R * 0.12);                  // the notch's thickness (px)
+  const CLEAR = 4;                                              // px between the ball and the yellow as it's called late
+  const pastArc = () => Math.asin(Math.min(1, ballR() / R)) + CLEAR / R;   // past the window's end, round the ring (rad)
 
   let score = 0;
   let level = 1;
@@ -367,7 +378,7 @@
     target = (dial + dir * lead) % TAU;
     if (target < 0) target += TAU;
     traveled = 0;
-    exitTravel = lead + tol; // dial slips past the notch once it sweeps this far
+    exitTravel = lead + tol; // the centre is past the window once it sweeps this far (and the ball wholly past the yellow pastArc() later)
   }
 
   function pop() {
@@ -516,15 +527,17 @@
       ctx.stroke();
     }
 
-    // Target notch (active play only)
+    // Target notch (active play only): its round ends' tips at the window's
+    // ends, target - tol and target + tol
     if (state === State.PLAY) {
+      const capArc = Math.min(tol, notchW() / 2 / R);
       ctx.strokeStyle = "#ffd23f";
       ctx.lineCap = "round";
-      ctx.lineWidth = Math.max(12, R * 0.12);
+      ctx.lineWidth = notchW();
       ctx.shadowColor = "#ffd23f";
       ctx.shadowBlur = 22;
       ctx.beginPath();
-      ctx.arc(cx, cy, R, target - tol, target + tol);
+      ctx.arc(cx, cy, R, target - tol + capArc, target + tol - capArc);
       ctx.stroke();
       ctx.shadowBlur = 0;
       ctx.lineCap = "butt";
@@ -534,7 +547,7 @@
     if (state !== State.MENU) {
       const dx = cx + Math.cos(dial) * R;
       const dy = cy + Math.sin(dial) * R;
-      const rr = Math.max(9, R * 0.075);
+      const rr = ballR();
       ctx.fillStyle = "#e8ecf5";
       ctx.shadowColor = "#ffffff";
       ctx.shadowBlur = 18;
@@ -602,7 +615,7 @@
       dial += dir * speed * dt;
       dial = ((dial % TAU) + TAU) % TAU;
       traveled += speed * dt;
-      if (traveled > exitTravel) fail(true); // swept past without a tap
+      if (traveled > exitTravel + pastArc()) fail(true); // swept wholly past without a tap
     }
     drawBg(dt);
     draw(dt);

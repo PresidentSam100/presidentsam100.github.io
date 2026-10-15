@@ -1,8 +1,15 @@
 // Pop the Lock: a tap while paused isn't scored; Ctrl / Alt + Space or Enter
 // are left to the browser; with storage blocked the game still runs. On the
 // panel, Enter on a focused colour only picks that colour. Five colours, each
-// with its scene.
-const HOOK = ["  // ---- Boot ----", "  window.__lock = { state: () => state, score: () => score };\n  // ---- Boot ----"];
+// with its scene. The yellow notch ends where the window ends, and the dial
+// is only too late once its ball has wholly left the yellow.
+const HOOK = ["  // ---- Boot ----", `  window.__lock = { state: () => state, score: () => score,
+    // the ball held still with its centre \`px\` pixels past the notch's far end (round the ring)
+    place: (px) => { speed = 0; traveled = exitTravel + px / R; dial = ((target + dir * (tol + px / R)) % TAU + TAU) % TAU; },
+    geom: () => ({ cx: cx, cy: cy, R: R, target: target, tol: tol, dir: dir, ballR: typeof ballR === "function" ? ballR() : Math.max(9, R * 0.075), dpr: canvas.width / W }),
+    tap: () => onTap(),
+  };
+  // ---- Boot ----`];
 const BLOCK_STORAGE = (pg) => pg.addInitScript(() => {
   Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The operation is insecure.", "SecurityError"); } });
 });
@@ -175,5 +182,77 @@ module.exports = async ({ browser, base, check, lib }) => {
       names.every((n) => scenes.on[n] && scenes.on[n].ink > 40 && scenes.on[n].moved) && new Set(names.map((n) => scenes.on[n] && scenes.on[n].sum)).size === 5, scenes.on);
     check("pop-the-lock: with Visual FX off the same scenes are there, held still (as much drawn as with it on, one to each colour)",
       names.every((n) => scenes.off[n] && !scenes.off[n].moved && scenes.off[n].ink > 40 && scenes.off[n].ink > scenes.on[n].ink * 0.5) && new Set(names.map((n) => scenes.off[n] && scenes.off[n].sum)).size === 5, scenes);
+  }
+
+  // ---- the window and what's drawn: the notch's yellow ends where the
+  // window ends (its round ends used to reach several pixels past it), a tap
+  // pops while the ball's centre is on the yellow and misses once it is past,
+  // and the dial is only too late once the ball has wholly left the yellow
+  // (it used to be called with the ball still lying over the yellow's end).
+  // Where the yellow ends is read from the lock as drawn (the furthest solid
+  // yellow along the ring's middle line, with the ball far off); the ball's
+  // edge from where it is drawn and its size. Distances are pixels along the
+  // ring from the window's end, + past it.
+  {
+    const c = await lib.newContext(browser);
+    const open = () => lib.open(c, base, "games/pop-the-lock/", { before: hook });
+    const frames = (pg, n) => pg.evaluate((n) => new Promise((done) => { (function f() { if (n-- > 0) requestAnimationFrame(f); else done(); })(); }), n);
+    const look = (pg) => pg.evaluate(() => {
+      const g = __lock.geom(), cv = document.getElementById("game"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      const at = (a) => { const x = Math.round((g.cx + Math.cos(a) * g.R) * g.dpr), y = Math.round((g.cy + Math.sin(a) * g.R) * g.dpr), k = (y * cv.width + x) * 4; return [d[k], d[k + 1], d[k + 2], d[k + 3]]; };
+      const yellow = (p) => p[0] > 235 && p[1] > 185 && p[1] < 230 && p[2] < 110 && p[3] > 240;
+      const end = g.target + g.dir * g.tol;
+      let yel = null;
+      for (let s = -40; s <= 80; s += 0.5) if (yellow(at(end + g.dir * s / g.R))) yel = s;
+      return { yel, ballArc: Math.asin(Math.min(1, g.ballR / g.R)) * g.R, state: __lock.state(), msg: document.getElementById("overlay-msg").textContent };
+    });
+    // the yellow's end, with the ball far off round the ring
+    let q = await open();
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    await q.evaluate(() => __lock.place(-Math.PI * 0.8 * __lock.geom().R));   // (half the ring away, still to come)
+    await frames(q, 3);
+    const tip = await look(q);
+    check("pop-the-lock: the notch's yellow ends where the window ends (round ends and all), not past it",
+      tip.yel !== null && tip.yel <= 1 && tip.yel >= -3, tip);
+    // the ball's back edge, `px` past the window's end, against the yellow's end: + clear of it
+    const clear = (px) => +(px - tip.ballArc - tip.yel).toFixed(1);
+    // the ball's centre just past the window's end: it still lies over the
+    // yellow, so no "too late"; a tap there misses (its centre is off the yellow)
+    await q.evaluate(() => __lock.place(2));
+    await frames(q, 6);
+    const over = Object.assign(await look(q), { clear: clear(2) });
+    check("pop-the-lock: with the ball's centre just past the notch, the ball still lies over the yellow and isn't called too late",
+      over.state === "play" && over.clear < 0, over);
+    await q.evaluate(() => __lock.tap()); await q.waitForTimeout(700);
+    const tapPast = await look(q);
+    check("pop-the-lock: (guard) a tap with the ball's centre past the yellow's end is a miss, not a pop", tapPast.state === "over" && /Missed the mark/.test(tapPast.msg), tapPast);
+    await q.close();
+    // the centre just inside the end: a tap pops
+    q = await open();
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    await q.evaluate(() => __lock.place(-2));
+    await frames(q, 3);
+    await q.evaluate(() => __lock.tap()); await frames(q, 2);
+    const inside = await q.evaluate(() => ({ state: __lock.state(), score: __lock.score() }));
+    check("pop-the-lock: (guard) a tap with the ball's centre just inside the notch's end pops", inside.state === "play" && inside.score === 1, inside);
+    await q.close();
+    // the ball moved on a pixel at a time: the late call comes once the ball
+    // is wholly clear of the yellow, by a few pixels and no more, and says
+    // "too slow"
+    q = await open();
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    let last = null, called = null;
+    for (let px = 0; px <= 60; px++) {
+      await q.evaluate((px) => __lock.place(px), px);
+      await frames(q, 2);
+      const s = await look(q);
+      if (s.state !== "play") { called = { px, clear: clear(px), msg: s.msg }; break; }
+      last = { px, clear: clear(px) };
+    }
+    check("pop-the-lock: the dial is called too late only once its ball has wholly left the yellow, a few pixels clear, and not long after",
+      !!called && called.clear >= 2 && called.clear <= 8 && /Too slow/.test(called.msg) && (!last || last.clear < called.clear), { tip, last, called });
+    check("pop-the-lock: no page errors (the window)", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
   }
 };
