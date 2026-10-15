@@ -658,7 +658,8 @@
   // are left to Tab and the mouse)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !menuOverlay.classList.contains("hidden"); },
-    groups: ["#mode-pick .btn", "#portals-toggle", "#obstacles-pick .btn"],
+    // (and I opens or shuts the legend showing, its key on its line)
+    groups: ["#mode-pick .btn", "#portals-toggle", "#obstacles-pick .btn", { sel: "#legend-classic > summary, #legend-lab > summary", keys: ["i", "i"], caps: false }],
     start: "#play-btn"
   });
 

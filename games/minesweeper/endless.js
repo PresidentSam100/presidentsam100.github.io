@@ -692,7 +692,8 @@
   GameShell.menuKeys({
     active: () => !PAUSE.isPaused(),
     groups: [{ sel: 'nav.modes a[href="./"]', keys: ["c"] }, { sel: 'nav.modes a[href="./?daily"]', keys: ["d"] },
-      { sel: "#modeBtn", keys: ["t"] }],     // T flips what a tap does (dig or flag)
+      { sel: "#modeBtn", keys: ["t"] },      // T flips what a tap does (dig or flag)
+      { sel: "details.rules > summary", keys: ["i"], caps: false }],   // I opens or shuts How to play
   });
 
   // ---- controls ----------------------------------------------------------

@@ -199,8 +199,9 @@
       details.dict-wrap { text-align: left; margin-top: 0.9rem; background: rgba(255, 255, 255, 0.6); border: 1px solid var(--line); border-radius: 12px; padding: 0.4rem 0.85rem; }
       details.dict-wrap summary { cursor: pointer; font-weight: 700; font-size: 0.9rem; padding: 0.35rem 0; list-style: none; }
       details.dict-wrap summary::-webkit-details-marker { display: none; }
-      details.dict-wrap summary::after { content: " ▾"; color: var(--muted); }
-      details.dict-wrap[open] summary::after { content: " ▴"; }
+      details.dict-wrap summary .dict-arrow::after { content: " ▾"; color: var(--muted); }
+      details.dict-wrap[open] summary .dict-arrow::after { content: " ▴"; }
+      details.dict-wrap summary .gs-kbd { margin-left: 6px; }
       .dict-item { font-size: 0.85rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid var(--line); font-weight: 500; }
       .dict-item b { color: var(--text); }
       /* On-screen control pad: the only input path on touch devices. */

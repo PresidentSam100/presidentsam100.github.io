@@ -269,8 +269,9 @@ canvas.board {
 details.dict-wrap { text-align: left; margin-top: 0.85rem; background: rgba(110,80,40,0.1); border: 1px solid rgba(125,97,57,0.5); border-radius: 8px; padding: 0.35rem 0.8rem; }
 details.dict-wrap summary { cursor: pointer; font-family: var(--display); font-weight: 700; font-size: 0.86rem; color: #4a3216; padding: 0.35rem 0; list-style: none; }
 details.dict-wrap summary::-webkit-details-marker { display: none; }
-details.dict-wrap summary::after { content: " ▾"; color: var(--ink-muted); }
-details.dict-wrap[open] summary::after { content: " ▴"; }
+details.dict-wrap summary .dict-arrow::after { content: " ▾"; color: var(--ink-muted); }
+details.dict-wrap[open] summary .dict-arrow::after { content: " ▴"; }
+details.dict-wrap summary .gs-kbd { margin-left: 6px; }
 .dict-item { font-size: 0.86rem; color: #54401f; padding: 0.3rem 0; line-height: 1.45; border-top: 1px solid rgba(125,97,57,0.3); }
 .dict-item b { color: #2e1f0c; }
 #byline { color: #7d6e55; font-size: 75%; margin-top: 0.4rem; }

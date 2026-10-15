@@ -820,6 +820,8 @@
       // T flips what a tap does (dig or flag), S shares a finished Daily
       { sel: "#modeBtn", keys: ["t"] },
       { sel: "#share", keys: ["s"] },
+      // I opens or shuts How to play (its key on its title bar)
+      { sel: "details.rules > summary", keys: ["i"], caps: false },
     ],
   });
 

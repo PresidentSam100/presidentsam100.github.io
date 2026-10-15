@@ -130,8 +130,10 @@ html, body {
   color: #cdb27a; text-align: center; list-style: none;
 }
 .how summary::-webkit-details-marker { display: none; }
-.how summary::after { content: " \25BE"; }
-.how[open] summary::after { content: " \25B4"; }
+/* the arrow, then the key that opens it (I) */
+.how summary .how-arrow::after { content: " \25BE"; }
+.how[open] summary .how-arrow::after { content: " \25B4"; }
+.how summary .gs-kbd { letter-spacing: normal; margin-left: 6px; }
 .how ul { margin: 10px 0 0 18px; font-size: 13px; line-height: 1.5; color: #e9d6a6; }
 .how li { margin: 4px 0; }
 kbd {

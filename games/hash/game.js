@@ -602,7 +602,8 @@
   if (window.GameShell && GameShell.menuKeys) {
     GameShell.menuKeys({
       active: function () { return overlay.hidden && !PAUSE.isPaused(); },
-      groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] }]
+      groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] },
+        { sel: ".rules > summary", keys: ["i"], caps: false }]   // (I opens or shuts How to play, its key on its line)
     });
     GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn", space: true });
   }

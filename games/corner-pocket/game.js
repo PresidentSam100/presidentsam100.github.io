@@ -1439,7 +1439,8 @@
   // with the focus elsewhere they press it all the same)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return G.phase === "menu" && !menuEl.classList.contains("hidden"); },
-    groups: ["#modeSeg button", "#levelSeg button"],
+    // (and I opens or shuts How to play, its key on its line)
+    groups: ["#modeSeg button", "#levelSeg button", { sel: ".how > summary", keys: ["i"], caps: false }],
     start: "#startBtn", space: true
   });
   // The cards' keys, shown on their buttons: Enter is Rematch on the result

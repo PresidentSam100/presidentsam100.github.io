@@ -1359,7 +1359,8 @@
     // match's seats, levels and length are left to Tab and the mouse)
     if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
       active: () => !GAME && !menu.classList.contains("hidden"),
-      groups: ["#mode-pick .btn"],
+      // (and I opens or shuts Power-ups & blocks, its key on its line)
+      groups: ["#mode-pick .btn", { sel: "details.dict-wrap > summary", keys: ["i"], caps: false }],
       start: "#play-btn", space: true
     });
     // Keys for the bar and the cards, shown on their buttons. In play
