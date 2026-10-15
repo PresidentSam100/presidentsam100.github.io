@@ -193,6 +193,37 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("dead-end on a 320 x 568 phone: nothing is wider than the screen, the heads-up line fits, and the Plank button is on screen", sm.wide <= 0 && sm.w === 320 && sm.hudIn && sm.plankIn, sm);
     await t.close();
     await small.close();
+    // a slow connection: the page is drawn before game.js has run (held back
+    // here), the canvas not yet sized. It is never wider than the phone, at any
+    // frame of the load (its 570 px of pixels used to widen the whole page for
+    // a moment), and so the block behind the menu is the size the phone gives
+    // it, the same as a fresh fit (it used to be fitted to the widened page)
+    for (const [name, dev] of [["an iPhone 13", devices["iPhone 13"]], ["a 320 x 568 phone", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]]) {
+      const slow = await lib.newContext(browser, dev);
+      await slow.route(/\/games\/dead-end\/game\.js$/, async (r) => { await new Promise((ok) => setTimeout(ok, 400)); r.fallback(); });
+      const s = await lib.open(slow, base, "games/dead-end/", { before: (pg) => pg.addInitScript(() => {
+        // (each frame from the first that has the block in it: before that the
+        // page hasn't read its viewport line, and every phone page is 980 px)
+        window.__w = [];
+        let n = 0;
+        (function tick() {
+          if (document.getElementById("board")) window.__w.push(Math.max(document.documentElement.scrollWidth, innerWidth));
+          if (++n < 120) requestAnimationFrame(tick);
+        })();
+      }) });
+      await s.waitForFunction(() => window.DeadEnd && window.__w.length > 20, null, { timeout: 15000 });
+      const ld = await s.evaluate(() => {
+        const cv = () => Math.round(document.getElementById("board").getBoundingClientRect().width);
+        const menu = cv();
+        dispatchEvent(new Event("resize"));
+        return { widest: Math.max(...window.__w), frames: window.__w.length, menu, refit: cv() };
+      });
+      const W = dev.viewport.width;
+      check("dead-end on " + name + ", loading slowly: the page is never wider than the screen, and the block behind the menu is sized for the phone",
+        ld.frames > 0 && ld.widest <= W && ld.menu === ld.refit, Object.assign({ device: W }, ld));
+      await s.close();
+      await slow.close();
+    }
   }
 
   await ctx.close();

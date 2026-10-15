@@ -100,6 +100,12 @@ body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
   box-shadow: 0 0 0 2px #2a1c10, 0 0 60px rgba(255, 154, 60, 0.14), 0 16px 34px rgba(0, 0, 0, 0.6);
 }
 #board { display: block; touch-action: none; border-radius: 2px; background: #22252e; }
+/* Until game.js sizes it (fit, which gives it a style of its own) the block
+   is only as wide as the street has room for, not its 570 px of pixels. A
+   phone that drew a frame before the script ran (a slow connection) found
+   the page wider than the screen and widened itself to fit, and the block
+   was then sized for that wider, taller page. */
+#board:not([style]) { max-width: 100%; height: auto; }
 #note {
   position: absolute; left: 50%; top: 46%; transform: translate(-50%, -50%); line-height: 1.1; white-space: nowrap;
   font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-size: clamp(22px, 6vw, 34px); letter-spacing: 2px;
