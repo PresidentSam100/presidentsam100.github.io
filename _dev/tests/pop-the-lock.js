@@ -1,6 +1,7 @@
 // Pop the Lock: a tap while paused isn't scored; Ctrl / Alt + Space or Enter
 // are left to the browser; with storage blocked the game still runs. On the
-// panel, Enter on a focused colour only picks that colour.
+// panel, Enter on a focused colour only picks that colour. Five colours, each
+// with its scene.
 const HOOK = ["  // ---- Boot ----", "  window.__lock = { state: () => state, score: () => score };\n  // ---- Boot ----"];
 const BLOCK_STORAGE = (pg) => pg.addInitScript(() => {
   Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The operation is insecure.", "SecurityError"); } });
@@ -97,14 +98,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("pop-the-lock: the start panel is centred on the lock's ring, and panel and ring both sit whole under Score / Level / Best", off.length === 0, off);
 
-    // ---- 1 to 4 pick the colour while the panel is up, each key shown under
+    // ---- 1 to 5 pick the colour while the panel is up, each key shown under
     // its swatch (not on a touch-only phone); in play the digits do nothing
     const c = await lib.newContext(browser);
     const q = await lib.open(c, base, "games/pop-the-lock/", { before: hook });
     const theme = () => q.evaluate(() => document.querySelector(".swatch.active").dataset.theme);
     const caps = (pg) => pg.evaluate(() => [...document.querySelectorAll(".swatch")].map((s) => getComputedStyle(s, "::after").display === "none" ? "-" : s.getAttribute("data-gs-key")).join(""));
     const picked = [];
-    for (const k of ["3", "2", "4", "1", "3"]) { await q.keyboard.press(k); await q.waitForTimeout(60); picked.push(await theme()); }
+    for (const k of ["3", "2", "5", "4", "1", "3"]) { await q.keyboard.press(k); await q.waitForTimeout(60); picked.push(await theme()); }
     const menuStill = (await st(q)).state, deskCaps = await caps(q);
     await q.keyboard.press("Space"); await q.waitForTimeout(150);
     await q.keyboard.press("1"); await q.waitForTimeout(60);
@@ -112,11 +113,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     const pc = await lib.newContext(browser, devices["Pixel 7"]);
     const ph = await lib.open(pc, base, "games/pop-the-lock/");
     const phoneCaps = await caps(ph);
-    check("pop-the-lock: 1 to 4 pick the colour on the panel (not starting the game), each key shown under its swatch; in play they do nothing; a touch-only phone shows no keys",
-      picked.join() === "plum,indigo,coral,teal,plum" && menuStill === "menu" && deskCaps === "1234" && inPlay.state === "play" && inPlay.theme === "plum" && phoneCaps === "----",
+    check("pop-the-lock: 1 to 5 pick the colour on the panel (not starting the game), each key shown under its swatch; in play they do nothing; a touch-only phone shows no keys",
+      picked.join() === "plum,indigo,moss,coral,teal,plum" && menuStill === "menu" && deskCaps === "12345" && inPlay.state === "play" && inPlay.theme === "plum" && phoneCaps === "-----",
       { picked, menuStill, deskCaps, inPlay, phoneCaps });
     check("pop-the-lock: no page errors (colour keys)", q.errs.length === 0 && ph.errs.length === 0, [q.errs, ph.errs]);
     await q.close(); await c.close(); await ph.close(); await pc.close();
+
+    // ---- the fifth colour, moss: a click picks it as the key does, the page
+    // takes its green, and it is remembered for the next visit
+    const mc = await lib.newContext(browser);
+    const mq = await lib.open(mc, base, "games/pop-the-lock/", { before: hook });
+    await mq.click('.swatch[data-theme="moss"]', { timeout: 3000 }).catch(() => {}); await mq.waitForTimeout(80);
+    const clicked = await mq.evaluate(() => ({ theme: document.querySelector(".swatch.active").dataset.theme, bg: getComputedStyle(document.body).backgroundColor, state: __lock.state() }));
+    await mq.reload({ waitUntil: "domcontentloaded" }); await mq.waitForTimeout(300);
+    const kept = await mq.evaluate(() => document.querySelector(".swatch.active").dataset.theme);
+    check("pop-the-lock: a click on the fifth colour, moss, picks it (the page goes moss green, the panel stays), and it is remembered",
+      clicked.theme === "moss" && clicked.bg === "rgb(74, 122, 60)" && clicked.state === "menu" && kept === "moss", { clicked, kept });
+    check("pop-the-lock: no page errors (moss)", mq.errs.length === 0, mq.errs);
+    await mq.close(); await mc.close();
   }
 
   // ---- the backdrop: a scene to each colour behind the lock. With Visual FX
@@ -142,9 +156,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       const c = await lib.newContext(browser);
       const q = await lib.open(c, base, "games/pop-the-lock/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:pop-the-lock", off ? "1" : "0"), fxOff) });
       const out = {};
-      for (const [k, name] of [["1", "teal"], ["2", "indigo"], ["3", "plum"], ["4", "coral"]]) {
+      for (const [k, name] of [["1", "teal"], ["2", "indigo"], ["3", "plum"], ["4", "coral"], ["5", "moss"]]) {
         await q.keyboard.press(k);
-        await q.waitForFunction((name) => document.querySelector(".swatch.active").dataset.theme === name, name, { timeout: 15000 });
+        const there = await q.waitForFunction((name) => document.querySelector(".swatch.active").dataset.theme === name, name, { timeout: 15000 }).then(() => true, () => false);
+        if (!there) continue;                                         // (no such colour: its scene counts as missing)
         await frames(q, 4);
         const a = await sig(q);
         await q.waitForTimeout(400); await frames(q, 12);
@@ -155,10 +170,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       check("pop-the-lock (backdrop, FX " + (fxOff ? "off" : "on") + "): no page errors", q.errs.length === 0, q.errs);
       await q.close(); await c.close();
     }
-    const names = ["teal", "indigo", "plum", "coral"];
-    check("pop-the-lock: with Visual FX on, each colour has a scene of its own behind the lock, and it moves",
-      names.every((n) => scenes.on[n].ink > 40 && scenes.on[n].moved) && new Set(names.map((n) => scenes.on[n].sum)).size === 4, scenes.on);
+    const names = ["teal", "indigo", "plum", "coral", "moss"];
+    check("pop-the-lock: with Visual FX on, each of the five colours has a scene of its own behind the lock, and it moves",
+      names.every((n) => scenes.on[n] && scenes.on[n].ink > 40 && scenes.on[n].moved) && new Set(names.map((n) => scenes.on[n] && scenes.on[n].sum)).size === 5, scenes.on);
     check("pop-the-lock: with Visual FX off the same scenes are there, held still (as much drawn as with it on, one to each colour)",
-      names.every((n) => !scenes.off[n].moved && scenes.off[n].ink > 40 && scenes.off[n].ink > scenes.on[n].ink * 0.5) && new Set(names.map((n) => scenes.off[n].sum)).size === 4, scenes);
+      names.every((n) => scenes.off[n] && !scenes.off[n].moved && scenes.off[n].ink > 40 && scenes.off[n].ink > scenes.on[n].ink * 0.5) && new Set(names.map((n) => scenes.off[n] && scenes.off[n].sum)).size === 5, scenes);
   }
 };

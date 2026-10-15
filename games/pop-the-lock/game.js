@@ -35,6 +35,7 @@
     indigo: { bg: "#3b4a7a", ring: "#2c3a63" },
     plum:   { bg: "#5a4a82", ring: "#44386b" },
     coral:  { bg: "#d96a5e", ring: "#b84f45" },
+    moss:   { bg: "#4a7a3c", ring: "#3a6230" },
   };
   const THEME_KEY = "popthelock.theme";
   const themesEl = document.getElementById("themes");
@@ -89,8 +90,9 @@
   // ---- Backdrop ----
   // Something going on behind the lock, a scene to each colour: rings
   // spreading over the teal's water, a night sky wheeling over the indigo,
-  // clockwork turning in the plum, a sunburst sweeping round the coral. Each
-  // keeps clear of the lock's own face, and a pop sends a ring out across it.
+  // clockwork turning in the plum, a sunburst sweeping round the coral, old
+  // keys drifting up through the moss. Each keeps clear of the lock's own
+  // face, and a pop sends a ring out across it.
   // With Visual FX off the same scene is there, held still (and a pop sends
   // no ring: the lock's own flash still marks it).
   const bg = document.getElementById("bg");
@@ -115,7 +117,34 @@
     { u: 0.48, v: 1.05, r: 0.11, n: 9, a: 0.2 },
     { u: 0.55, v: -0.04, r: 0.1, n: 8, a: 0.7 },
   ];
+  // the moss's keys: across the window (u), how far up their climb (v), how
+  // big (s), the angle each lies at (a) and its sway's phase (p); seeded, so
+  // the still scene is always the same
+  const KEYS = (() => {
+    let s = 71993;
+    const next = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    return Array.from({ length: 16 }, (_, i) => ({ u: (i + 0.15 + next() * 0.7) / 16, v: next(), s: next(), a: (next() - 0.5) * 1.6, p: next() }));
+  })();
   const farCorner = () => Math.hypot(Math.max(lx, BW - lx), Math.max(ly, BH - ly));
+
+  // an old key, `s` long, lying at angle `a`: a ring for its bow, a shaft,
+  // and two teeth on its bit
+  function oldKey(x, y, s, a) {
+    bctx.save();
+    bctx.translate(x, y);
+    bctx.rotate(a);
+    bctx.lineWidth = Math.max(1.5, s * 0.08);
+    bctx.beginPath();
+    bctx.arc(-s * 0.32, 0, s * 0.18, 0, TAU);              // the bow
+    bctx.moveTo(-s * 0.14, 0); bctx.lineTo(s * 0.5, 0);     // the shaft
+    bctx.moveTo(s * 0.5, 0); bctx.lineTo(s * 0.5, s * 0.17); bctx.lineTo(s * 0.41, s * 0.17);   // the end tooth
+    bctx.moveTo(s * 0.32, 0); bctx.lineTo(s * 0.32, s * 0.12);                                   // and the one before it
+    bctx.stroke();
+    bctx.beginPath();
+    bctx.arc(-s * 0.32, 0, s * 0.07, 0, TAU);              // the bow's hole
+    bctx.stroke();
+    bctx.restore();
+  }
 
   function gearWheel(x, y, r, n, a) {
     const tooth = r * 0.2, w = TAU / n, inner = r - tooth;
@@ -198,6 +227,25 @@
         bctx.closePath();
         bctx.fill();
       }
+    },
+    // moss: old keys drifting up past the lock, each swaying a little as it
+    // climbs, fading out where it would cross the lock's face
+    moss(t) {
+      const m = Math.min(BW, BH), keep = R * 1.25;
+      bctx.strokeStyle = "#fff";
+      bctx.lineCap = "round";
+      bctx.lineJoin = "round";
+      KEYS.forEach((k) => {
+        const size = m * (0.08 + k.s * 0.07), climb = BH + size * 2;
+        const y = BH + size - ((k.v * climb + t * 0.018 * (0.7 + k.s * 0.6)) % climb);
+        const x = k.u * BW + Math.sin(t * 0.0006 + k.p * TAU) * size * 0.3;
+        const near = Math.hypot(x - lx, y - ly) - keep;
+        if (near <= 0) return;
+        bctx.globalAlpha = 0.22 * Math.min(1, near / (size * 0.8));
+        oldKey(x, y, size, k.a + Math.sin(t * 0.0008 + k.p * 6) * 0.25);
+      });
+      bctx.globalAlpha = 1;
+      bctx.lineCap = "butt";
     },
   };
 
@@ -413,7 +461,7 @@
     playBtn.textContent = "PLAY";
     overlay.classList.remove("hidden");
   }
-  // 1 to 4 pick the colour while the start / game-over panel is up (each key
+  // 1 to 5 pick the colour while the start / game-over panel is up (each key
   // is shown under its swatch)
   if (window.GameShell) GameShell.menuKeys({ active: () => !overlay.classList.contains("hidden"), groups: [".swatch"] });
 

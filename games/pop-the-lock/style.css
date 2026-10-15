@@ -41,7 +41,7 @@ body {
 /* ---------- Backdrop ---------- */
 /* a scene to each colour, drawn behind everything in white on the colour
    itself: rings on the teal, stars on the indigo, clockwork on the plum, a
-   sunburst on the coral (game.js) */
+   sunburst on the coral, old keys on the moss (game.js) */
 #bg {
   position: fixed;
   inset: 0;
@@ -236,7 +236,7 @@ body {
 }
 
 /* a swatch is its dot of colour with, under it, the key that picks it (1 to
-   4; the keycap is drawn from data-gs-key and isn't there on a touch screen) */
+   5; the keycap is drawn from data-gs-key and isn't there on a touch screen) */
 .swatch {
   appearance: none;
   display: inline-flex;
