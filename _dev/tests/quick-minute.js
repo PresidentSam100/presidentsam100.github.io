@@ -83,17 +83,40 @@ module.exports = async ({ browser, base, check, lib }) => {
         night: document.body.classList.contains("night"),
       };
     });
-    const menu = await read(), menuCard = await cardOf(q);
-    await q.evaluate(() => __game.start("night"));
-    await q.waitForFunction(() => +document.getElementById("value-speed").textContent >= 60, null, { timeout: 8000 });
+    // the speedometer stands up over the dash's top edge, and that part of
+    // it is there to see (not trimmed off with the dash's spread of vinyl):
+    // just inside its rim at the top, the dial is what's there
+    const dial = () => q.evaluate(() => {
+      const s = document.getElementById("speedo"), r = s.getBoundingClientRect(), d = document.getElementById("dash").getBoundingClientRect();
+      const e = document.elementFromPoint(r.left + r.width / 2, r.top + 4);
+      return { above: Math.round(d.top - r.top), shown: !!e && s.contains(e), at: e ? e.id || e.className || e.tagName : null };
+    });
+    const menu = await read(), menuCard = await cardOf(q), menuDial = await dial();
+    // (the first reading a run shows, caught as it is written: a busy machine's
+    // late look could find the needle already further on)
+    await q.evaluate(() => {
+      const sp = document.getElementById("value-speed");
+      window.__firstMph = null;
+      new MutationObserver((list, ob) => { if (+sp.textContent > 0) { window.__firstMph = +sp.textContent; ob.disconnect(); } }).observe(sp, { childList: true, characterData: true, subtree: true });
+      __game.start("night");
+    });
+    await q.waitForFunction(() => window.__firstMph !== null, null, { timeout: 8000 });
+    const first = { mph: await q.evaluate(() => window.__firstMph) };
+    await q.waitForFunction((f) => +document.getElementById("value-speed").textContent >= f + 2, first.mph, { timeout: 30000 });   // (it climbs: two mph on)
     await q.evaluate(() => new Promise((r) => setTimeout(r, 500)));   // (the needle eases to its place)
-    const drive = await read();
+    const drive = await read(), driveDial = await dial();
     await q.evaluate(() => __game.showMenu && __game.showMenu());
     const back = await read();
     check("quick-minute " + label + ": the dashboard is under the windscreen and on the screen, nothing wider than it",
       menu.under && menu.fits && menu.over <= 0 && drive.under && drive.fits && drive.over <= 0, { menu, drive });
     check("quick-minute " + label + ": the needle rests at 0 and swings round with the MPH",
-      menu.angle === -135 && drive.mph >= 60 && drive.set === drive.mph && drive.angle > -70 && drive.angle < 100, { menu, drive });
+      menu.angle === -135 && drive.mph >= 52 && drive.set === drive.mph && drive.angle > -70 && drive.angle < 100, { menu, drive });
+    check("quick-minute " + label + ": a run's speedometer starts at about 50 mph (it read 94), and climbs from there",
+      first.mph >= 50 && first.mph <= 53 && drive.mph > first.mph, { first: first.mph, drive: drive.mph });
+    // (on the menu the card's dark overlay lies over the bit of it that rises
+    // into the windscreen, on purpose: the card's foot is never under the dial)
+    check("quick-minute " + label + ": the speedometer stands up over the dash's top edge whole in play, not cut off by the windscreen",
+      menuDial.above >= 10 && driveDial.shown, { menuDial, driveDial });
     check("quick-minute " + label + ": night mode lights the dials, the menu puts them out", !menu.night && drive.night && !back.night, { menu: menu.night, drive: drive.night, back: back.night });
     check("quick-minute " + label + ": the whole menu card is inside the windscreen (all three rules, the three switches and what night and cycle mean showing, nothing to scroll)",
       whole(menuCard), menuCard);

@@ -78,8 +78,14 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 .hud {
   position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: space-between; gap: 0.5rem;
   margin: 0; padding: 0.75rem 0.7rem 0.6rem;
-  /* the dash top runs the width of the cabin, with a stitched seam along it */
   background: linear-gradient(180deg, var(--vinyl-hi), var(--vinyl) 40%, #191b20);
+}
+/* the dash runs the width of the cabin and on down: a spread of vinyl,
+   trimmed at the dash's top edge. It is trimmed on this layer of its own
+   (behind the dials), not on the dash, so the speedometer can stand up over
+   the edge whole. */
+.hud::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   box-shadow: 0 0 0 100vmax #191b20;
   clip-path: inset(0 -100vmax -100vmax -100vmax);
 }

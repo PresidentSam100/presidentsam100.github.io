@@ -806,8 +806,14 @@
     }
 
     elDist.textContent = Math.floor(score);
-    setSpeed(Math.round(speed / 3.4));
+    setSpeed(mphOf(speed));
   }
+  // what the speedometer reads at a speed: 50 mph as a run starts, climbing
+  // a mile an hour for every 3.4 the game speeds up (to about 174 at the
+  // top). Only the reading: the car's pace is the game speed's. (It read
+  // speed / 3.4, 94 mph at the start, which felt too fast for the pace.)
+  var MPH_START = 50;
+  function mphOf(s) { return Math.max(0, Math.round(MPH_START + (s - BASE_SPEED) / 3.4)); }
   // the speedometer: the figure, and the needle (styles.css turns --mph into an angle)
   function setSpeed(mph) {
     elSpeed.textContent = mph;
