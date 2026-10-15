@@ -200,6 +200,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "tall cake");
   await ctx.close();
 
+  // ---- Fredoka sets its letters low in the line: the buttons and keycaps
+  // take their padding from the top and give it to the bottom (by --lift), so
+  // the words sit in the middle and the boxes keep their size
+  ctx = await lib.newContext(browser);
+  p = await open(ctx);
+  const lean = await p.evaluate(() => ["#pick-mode button", "#play", "#play kbd", "#pick-mode kbd"].map((s) => {
+    const cs = getComputedStyle(document.querySelector(s));
+    return s + ":" + (parseFloat(cs.paddingBottom) - parseFloat(cs.paddingTop)).toFixed(2);
+  }));
+  check("tall-order: the menu's buttons and keycaps lean their padding so their words sit in the middle", lean.every((l) => +l.split(":")[1] > 0.5), lean);
+  await done(p, "lift");
+  await ctx.close();
+
   // ---- the menu's "how" names the key on a desktop, and says tap on a phone,
   // where every keycap of the game's own (the pause card's aside) is hidden
   const how = async (dev) => {

@@ -4,6 +4,12 @@
    ===================================================================== */
 
 :root {
+  /* Fredoka sets its letters about a twentieth of an em low in the line, so
+     text in a button or keycap rode a pixel under the middle. They take that
+     much off the top of their padding and add it at the bottom: the words sit
+     in the middle and the boxes keep their size. (Measured by the ink, at 4x:
+     the face's own figures say the opposite way, so they can't be used.) */
+  --lift: 0.055em;
   --cream: #fdf6ea;
   --pink: #f26d8d;
   --berry: #b03a48;
@@ -84,7 +90,7 @@ body {
 .seg button {
   font-family: inherit; font-size: 17px; text-align: left; cursor: pointer;
   color: var(--ink); background: #fff;
-  border: 2px solid #eecfd8; border-radius: 12px; padding: 9px 14px;
+  border: 2px solid #eecfd8; border-radius: 12px; padding: calc(9px - var(--lift)) 14px calc(9px + var(--lift));
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
 .seg button small { font-size: 13px; color: var(--dim); }
@@ -94,13 +100,13 @@ body {
 kbd {
   font-family: inherit; font-size: 12px; font-weight: 600;
   background: var(--berry); color: var(--cream);
-  border-radius: 6px; padding: 1px 7px;
+  border-radius: 6px; padding: calc(1px - var(--lift)) 7px calc(1px + var(--lift));
 }
 
 .playbtn {
   font-family: inherit; font-size: 21px; font-weight: 700; width: 100%; cursor: pointer;
   color: #fff; background: linear-gradient(170deg, #f78da8, var(--pink) 60%, #e05577);
-  border: 0; border-radius: 14px; padding: 12px;
+  border: 0; border-radius: 14px; padding: calc(12px - var(--lift)) 12px calc(12px + var(--lift));
   box-shadow: 0 5px 0 #c04061, 0 8px 18px rgba(176, 58, 72, 0.3);
 }
 .playbtn:hover { filter: brightness(1.05); }
@@ -115,7 +121,7 @@ kbd {
 .card .row button {
   font-family: inherit; font-size: 17px; font-weight: 600; cursor: pointer;
   color: var(--ink); background: #fff;
-  border: 2px solid #eecfd8; border-radius: 12px; padding: 9px 18px;
+  border: 2px solid #eecfd8; border-radius: 12px; padding: calc(9px - var(--lift)) 18px calc(9px + var(--lift));
 }
 .card .row button:first-child {
   color: #fff; background: linear-gradient(170deg, #f78da8, var(--pink));
