@@ -98,12 +98,18 @@ h1 {
 /* ---- symbol picker (Wild / Order & Chaos) --------------------------------- */
 #symPick { display: flex; align-items: center; gap: 8px; }
 #symPick .sp-label { font-size: 1.1rem; color: var(--chalk); opacity: 0.8; }
+/* Each a wide button: the symbol on its left half, its key (X / O) on the
+   right, side by side and each centred top to bottom (a touch screen, with no
+   keys, keeps just the symbol, centred) */
 #symPick button {
   font: 700 1.3rem/1 "Cabin Sketch", "Patrick Hand", cursive;
-  width: 44px; height: 40px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: space-evenly;
+  width: 84px; height: 40px; padding: 0 6px; cursor: pointer;
   color: var(--chalk); background: transparent;
   border: 2px dashed rgba(238, 240, 230, 0.35); border-radius: 10px;
 }
+#symPick button[data-gs-key]::after { margin: 0; font-size: 0.62em; }
+@media (hover: none) { #symPick button { width: 52px; } }
 #symPick button.sel { border-style: solid; border-color: var(--accent); color: var(--accent); }
 #symPick button:hover { background: rgba(238, 240, 230, 0.08); }
 
