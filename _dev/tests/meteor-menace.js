@@ -103,13 +103,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     await pg.evaluate(() => { __game.start(); __game.over(); });
     const over = await texts();
     const caps = await pg.evaluate(() => [...document.querySelectorAll("#captions .cap")].map((e) => getComputedStyle(e).display));
+    // (the row names the ship's keys only: pausing is the ⏸ corner button's, P)
+    const names = await pg.evaluate(() => document.getElementById("captions").textContent.replace(/\s+/g, " ").trim());
     await done(pg, "touch hints");
     await c.close();
-    return { menu, over, caps };
+    return { menu, over, caps, names };
   };
   const desk = await said({}), phone = await said(require("@playwright/test").devices["Pixel 7"]);
-  check("meteor-menace: on a desktop the panel says PRESS [ENTER] and the key captions show",
-    /ENTER/.test(desk.menu) && /ENTER/.test(desk.over) && !/TAP/.test(desk.menu + desk.over) && desk.caps.length === 4 && desk.caps.every((d) => d !== "none"), desk);
+  check("meteor-menace: on a desktop the panel says PRESS [ENTER] and the key captions show: rotate, thrust and fire, no pause among them",
+    /ENTER/.test(desk.menu) && /ENTER/.test(desk.over) && !/TAP/.test(desk.menu + desk.over) && desk.caps.length === 3 && desk.caps.every((d) => d !== "none") &&
+    /ROTATE/.test(desk.names) && /THRUST/.test(desk.names) && /FIRE/.test(desk.names) && !/PAUSE|ESC/.test(desk.names), desk);
   check("meteor-menace: on a touch-only phone the panel says TAP instead, and the key captions are hidden",
-    /TAP TO BLAST OFF/.test(phone.menu) && /TAP FOR THE NEXT ISSUE/.test(phone.over) && !/ENTER/.test(phone.menu + phone.over) && phone.caps.length === 4 && phone.caps.every((d) => d === "none"), phone);
+    /TAP TO BLAST OFF/.test(phone.menu) && /TAP FOR THE NEXT ISSUE/.test(phone.over) && !/ENTER/.test(phone.menu + phone.over) && phone.caps.length === 3 && phone.caps.every((d) => d === "none"), phone);
 };
