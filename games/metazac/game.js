@@ -909,13 +909,16 @@
     if (powerNum.textContent !== txt) powerNum.textContent = txt;
   }
 
-  // Pause on Esc or a tab-switch. NOT "P": answers are typed, and the
-  // timer running down behind a switched tab was the whole complaint.
-  // The answer box is off while paused, so stray typing can't sneak in.
+  // Pause by P (as in every game: the answers are digits, so a letter is
+  // nobody's), the ⏸ button or a tab-switch; Esc is the way out (asking
+  // first mid-run). The timer running down behind a switched tab was the
+  // whole complaint. The answer box is off while paused, so stray typing
+  // can't sneak in. (P typed in the answer box is claimed below: the shared
+  // pause leaves a letter typed into a field alone.)
   var PAUSE = window.GameShell
     ? GameShell.pausable({
         canPause: function () { return state === "playing"; },
-        keys: ["Escape"],
+        keys: ["p"],
         onChange: function (paused) {
           input.disabled = paused || state !== "playing";
           if (!paused && state === "playing") input.focus();
@@ -1031,6 +1034,13 @@
     }
     if (state === "playing") {
       if (PAUSE.isPaused()) return;           // no answering (or storms) while paused
+      // P typed in the answer box pauses (the box only takes digits; P
+      // anywhere else is the shared pause's own)
+      if ((e.key === "p" || e.key === "P") && e.target === input && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        if (!e.repeat && PAUSE.pause) PAUSE.pause();
+        return;
+      }
       // keep focus on the answer box no matter what
       if (document.activeElement !== input) input.focus();
       if (e.key === " ") {

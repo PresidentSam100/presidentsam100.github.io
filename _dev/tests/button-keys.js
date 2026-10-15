@@ -37,7 +37,7 @@ const CARDS = {
   "crazy-ohio/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
   "corner-pocket/": [["#againBtn", "Enter"], ["#toMenuBtn", "⌫"], ["#spinReset", "C"], ["#spinDone", "Enter"], ["#quitYes", "Enter"], ["#quitNo", null]],   // (Keep playing says "any other key" in words: no keycap)
   "darkroom/": [["#to-gallery", "G"], ["#hud-back", "⌫"], ["#win-next", "Enter"], ["#win-share", "S"], ["#win-menu", "⌫"], ["#gallery-back", "Esc"]],
-  "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Esc"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
+  "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Space or Enter"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
   "hash/": [["#ovBtn", "Space or Enter"]],
   "jam-jar/": [["#againBtn", "Enter"]],
@@ -248,10 +248,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.click("#play-btn"); await p.waitForTimeout(400);
     await p.keyboard.press("Backspace"); await settle(p, 300); const b0 = await box(p);
     await p.keyboard.press("Escape"); await settle(p);
-    await p.keyboard.press("Escape"); await settle(p); const st1 = await p.evaluate(() => GAME.state);
+    await p.click(".gs-pause-btn, #pause-btn"); await settle(p); const st1 = await p.evaluate(() => GAME.state);
     await p.keyboard.press("r"); await settle(p, 300); const b1 = await box(p);
     await p.keyboard.press("Escape"); await settle(p); const st2 = await p.evaluate(() => GAME.state);
-    await p.keyboard.press("Escape"); await settle(p);
+    await p.keyboard.press("Enter"); await settle(p);
     await p.evaluate(() => GAME.end("t", "m")); await settle(p, 200);
     await p.keyboard.press("Enter"); await settle(p, 400);
     const st3 = await p.evaluate(() => GAME.state);

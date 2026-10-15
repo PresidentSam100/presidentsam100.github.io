@@ -194,9 +194,9 @@
   //
   // restart and menu put Restart and Menu on the card under Resume, so a
   // paused player can start the same game over or go back and pick another
-  // mode; R and Backspace press them while the card is up. (Not R in a game
-  // that pauses on Esc because every letter is the game's own: a name typed
-  // at a paused game mustn't press it. There Restart is the button alone.)
+  // mode; R and Backspace press them while the card is up, in every game (none
+  // pauses on a key typed mid-word any more: a game with no letter to spare
+  // pauses by the ⏸ button). Resume wears the pause key, or Enter.
   // Each is a function,
   // or { go, label, title, text, ok, ask, when } (text may be a function, read
   // as the box opens; when() false leaves the button off the card this time,
@@ -208,8 +208,9 @@
   //
   // P is the pause key and Esc is not: Esc is the way out to the games page
   // (motion-toggle.js), which mid-game asks "Leave this game?" first with the
-  // game paused under the box. Only a game with no letter to spare (the
-  // typing games, Fish-a-Fish) passes ["Escape"], as nothing else is free there.
+  // game paused under the box, in every game. A game with no letter to spare
+  // (the typing games, Fish-a-Fish) passes keys: [], and pauses by the ⏸
+  // button alone; its card then holds the focus on Resume, so Enter resumes.
   //
   // It also adds a ⏸ button to the top-right row (see pauseButton below), so
   // a player can see that the game pauses and how.
@@ -334,8 +335,9 @@
     var corner = null;
 
     // the card's other buttons, Restart and Menu, for a game that passes them
-    var letterFree = keys.some(function (k) { return /^[a-z]$/i.test(String(k)); });
-    var acts = pauseActs(opts, function () { setPaused(false); }, !letterFree);
+    // (no pause key: the letters are the game's own, so an R or a Backspace
+    // typed at the card always asks first, and the next key keeps the game)
+    var acts = pauseActs(opts, function () { setPaused(false); }, false, !keys.length);
 
     function build() {
       if (el) return el;
@@ -345,10 +347,12 @@
       el.hidden = true;
       el.setAttribute("role", "dialog");
       el.setAttribute("aria-label", title);
-      var html = '<button type="button">▶ Resume</button>' + acts.map(actHtml).join("");
+      // (each button wears its key: Resume the pause key, or Enter, which
+      // presses it where there's none, Resume holding the focus)
+      var html = '<button type="button">▶ Resume <span class="gs-keys">' + keyCaps(keys.length ? keys : ["Enter"]) + "</span></button>" + acts.map(actHtml).join("");
       el.innerHTML =
         '<div class="gs-pause-card"><h2>' + title + "</h2>" +
-        "<p>tap resume or press " + keyCaps(keys) + " to continue</p>" +
+        "<p>tap resume or press " + keyCaps(keys.length ? keys : ["Enter"]) + " to continue</p>" +
         (acts.length ? '<div class="gs-pause-btns">' + html + "</div>" : html) + "</div>";
       el.querySelector("button").addEventListener("click", function () { setPaused(false); });
       Array.prototype.forEach.call(el.querySelectorAll(".gs-pause-alt"), function (b, i) {
@@ -368,6 +372,11 @@
       // (a button the game has no use for just now stays off the card)
       if (paused) Array.prototype.forEach.call(el.querySelectorAll(".gs-pause-alt"), function (b, i) { b.hidden = !acts[i].on(); });
       el.hidden = !paused;
+      // (no pause key: Resume holds the focus, so Enter or Space resumes; and
+      // the card lets it go as it shuts, or the next Enter would press its
+      // hidden button and not the game's)
+      if (paused && !keys.length) try { el.querySelector("button").focus({ preventScroll: true }); } catch (e) {}
+      if (!paused && el.contains(document.activeElement)) try { document.activeElement.blur(); } catch (e) {}
       if (corner) corner.render();
       try { onChange(paused); } catch (e) {}
     }
@@ -449,7 +458,7 @@
   // game passed for each (see pausable); unpause() runs first on a yes: go()
   // lands on a fresh game or a menu, which mustn't open paused, and the game
   // leaves its pause the way it always does.
-  function pauseActs(opts, unpause, noLetter) {
+  function pauseActs(opts, unpause, noLetter, askAlways) {
     var acts = [];
     function action(o, d) {
       if (!o) return;
@@ -458,7 +467,7 @@
       d.label = o.label || d.label;
       d.on = function () { return !o.when || !!o.when(); };
       d.run = function () {
-        var ask = o.ask === true || (typeof o.ask === "function" ? !!o.ask() : o.ask !== false && leaveActive());
+        var ask = askAlways || o.ask === true || (typeof o.ask === "function" ? !!o.ask() : o.ask !== false && leaveActive());
         if (!ask) { go(); return; }
         var g = leaveGuard, text = (typeof o.text === "function" ? o.text() : o.text) || (g && (typeof g.text === "function" ? g.text() : g.text));
         // (as askQuit's box: only Enter goes. Any other key keeps the game, still paused)
@@ -725,7 +734,7 @@
       if (el && el.getAttribute("data-gs-key") !== label) el.setAttribute("data-gs-key", label);
     }
     // what a key with a long name wears (keys are matched in lower case)
-    var CAPS = { " ": "Space", backspace: "⌫", escape: "Esc", arrowleft: "←", arrowright: "→", arrowup: "↑", arrowdown: "↓", f1: "F1", f2: "F2" };
+    var CAPS = { " ": "Space", backspace: "⌫", escape: "Esc", enter: "Enter", arrowleft: "←", arrowright: "→", arrowup: "↑", arrowdown: "↓", f1: "F1", f2: "F2" };
     // a `pick` row's picked button: the one a key or a click last chose, else
     // the game's `first`, else the row's first
     function pickedOf(g) {

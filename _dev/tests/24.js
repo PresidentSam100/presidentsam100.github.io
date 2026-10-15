@@ -1,7 +1,7 @@
 // 24: the keyboard legend under the phone shows with a keyboard and hides on
 // a touch-only phone, where the phone's own labelled keys are the controls.
-// On the Paused screen, C (Backspace, or the phone's C key) asks before it
-// quits a run in progress, with the run still paused and its cards hidden.
+// On the Paused screen (P), C (Backspace, or the phone's C key) asks before
+// it quits a run in progress, with the run still paused and its cards hidden.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
@@ -19,12 +19,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     const d = document.querySelector(".gs-dialog");
     return { screen: TwentyFour.state().screen, dlg: d && { title: d.querySelector("h2").textContent, ok: [...d.querySelectorAll("button")].pop().textContent } };
   });
-  // a Time attack run with a step made (something to lose), paused with Esc
+  // a Time attack run with a step made (something to lose), paused with P
   const pausedRun = async (menuKey, work) => {
     await p.evaluate((k) => { if (TwentyFour.state().screen !== "menu") { TwentyFour.press("C"); } TwentyFour.press(k); TwentyFour.press("navi"); }, menuKey);
     await p.waitForTimeout(150);
     if (work) await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); });
-    await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+    await p.keyboard.press("p"); await p.waitForTimeout(100);
   };
   await pausedRun("2", true);
   const before = await now();

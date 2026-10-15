@@ -1051,12 +1051,12 @@
   }
 
   // ---------- Main loop ----------
-  // Pause on Esc or a tab-switch. NOT "P": this is a typing game, so the
-  // letter keys all belong to the player.
+  // Pause by the ⏸ button or a tab-switch. NOT "P": this is a typing game,
+  // so the letter keys all belong to the player, and Esc is the way out.
   // Its default leave guard is the right one: a run in play (paused or not)
   // asks before leaving, paused underneath; menus and game over don't.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "playing", keys: ["Escape"],
+    ? GameShell.pausable({ canPause: () => state === "playing", keys: [],
         restart: startGame, menu: quitToMenu })   // on the card: this mode again from wave 1, or back to the modes
     : { isPaused: () => false };
 
@@ -1104,8 +1104,8 @@
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
-    // a phone's keyboard has Enter but no Esc: there, the ⏸ button pauses
-    const pauseKey = '<span class="gs-keys">' + kbd("Esc") + '</span><span class="gs-touch">⏸</span>';
+    // (the ⏸ button pauses: every letter is a spell, and Esc is the way out)
+    const pauseKey = "⏸";
     el.hint.innerHTML = MODES[mode].noTypos
       ? "HARDCORE: one typo ends the run. " + pauseKey + " to pause."
       : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + pauseKey + " to pause."
@@ -1187,12 +1187,10 @@
   window.addEventListener("keydown", (e) => {
     Sound.resume(); // unlock audio on first key
     if (e.key === "Escape") {
-      // Escape now PAUSES a live run (handled by GameShell.pausable above):
-      // it used to end the run outright, which fought the pause overlay: the
-      // game was already over behind it. Every letter key is typing input, so
-      // Escape is the only key free to be the pause key here. Anywhere else
-      // it isn't claimed, so it leaves for the games page (Backspace is the
-      // game-over screen's way back to the menu, below).
+      // Escape is never claimed: it leaves for the games page, asking first
+      // during a run (the run paused under the box). It used to end the run
+      // outright, and later to pause it. Backspace is the game-over screen's
+      // way back to the menu, below.
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
@@ -1200,7 +1198,7 @@
     // is that button's own press (Tab to Zen, Enter: it picks Zen). Starting
     // here as well would do both, and begin in the mode as it was.
     if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
-    // paused: letters and Enter (the bomb) wait until Esc resumes the run
+    // paused: letters and Enter (the bomb) wait until the run is resumed
     if (state === "playing" && PAUSE.isPaused()) return;
     if (state === "playing" && e.key === "Enter") {
       e.preventDefault();

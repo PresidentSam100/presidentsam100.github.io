@@ -6,6 +6,9 @@
 
 // Games where letters are gameplay (or M is already taken): only [ and ] work.
 const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/"]);
+// Games whose pause has no key (every letter is the game's own, and Esc is
+// the way out): their ⏸ button names none.
+const KEYLESS = new Set(["departures/", "fish-a-fish/", "lanterns/", "typetwo/", "speedle/", "demolition-row/"]);
 
 const rectsOf = (p) => p.evaluate(() => {
   const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };
@@ -54,8 +57,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       mt: document.querySelector(".mute-toggle").title,
     }));
     check(pg + ": corner labels show " + (off ? "[ ]" : "M V") + " keycaps",
-      // (Speedle's ⏸ is always off, so it names no key)
-      lab.m.endsWith(cap(off ? "[" : "M")) && lab.f.endsWith(cap(off ? "]" : "V")) && (!lab.p || lab.p.includes('<kbd class="gs-kbd">') || pg === "speedle/") &&
+      // (a pause with no key names none)
+      lab.m.endsWith(cap(off ? "[" : "M")) && lab.f.endsWith(cap(off ? "]" : "V")) && (!lab.p || (KEYLESS.has(pg) ? !lab.p.includes("<kbd") : lab.p.includes('<kbd class="gs-kbd">'))) &&
       (off ? !/M or/.test(lab.mt) : /M or \[/.test(lab.mt)), lab);
 
     const st = () => p.evaluate(() => ({ m: MUTE_ON(), f: RM_ON() }));

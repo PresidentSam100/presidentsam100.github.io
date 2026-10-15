@@ -608,11 +608,13 @@
   $("to-menu").addEventListener("click", toMenu);
   $("share").addEventListener("click", shareDaily);
 
-  // Every run pauses, a tour and a Visa Run as well as a dash. Escape only:
-  // in typed mode the letters belong to the answer field
+  // Every run pauses, a tour and a Visa Run as well as a dash, by P or the ⏸
+  // button (in typed mode a P typed in the answer box is a letter: there the
+  // button pauses), and Esc is the way out (mid-run it asks first, the run
+  // paused under the box)
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "ask" || state === "reveal"; },
-    keys: ["Escape"],
+    keys: ["p"],
     // (a hidden tab pauses a dash, whose clock runs; a tour or a Visa Run
     // has no clock and just waits)
     auto: function () { return mode === "dash"; },
@@ -647,9 +649,8 @@
   // sound (M / "[") and Visual FX (V / "]") are handled by the shared
   // mute-toggle.js and motion-toggle.js; #answer is marked data-game-input
   // so the bracket keys still work while typing a country.
-  // Esc is left alone outside a run (where it pauses), so the shared
-  // motion-toggle.js takes it to the games page from the menu and the end
-  // screen. Backspace goes to this game's menu
+  // Esc is never claimed, so the shared motion-toggle.js takes it to the
+  // games page, asking first mid-run. Backspace goes to this game's menu
   // instead, from the end screen and mid-run, but never from a text field:
   // in typed style the answer box needs it, so there it has no key.
   function backKey(e) { return e.key === "Backspace" && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || ""); }

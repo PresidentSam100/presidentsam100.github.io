@@ -16,7 +16,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   let p = await open();
   await p.click('#mode-pick [data-mode="endless"]'); await p.click("#play-btn"); await p.waitForTimeout(300);
   await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); b.bonusUntil = t + 8000; b.slowUntil = t + 9000; b.flashBanner("TEST", "#fff"); b.flash.until = t + 5000; window.__t0 = performance.now(); });
-  await p.keyboard.press("Escape"); await p.waitForTimeout(2500); await p.keyboard.press("Escape"); await p.waitForTimeout(50);
+  await p.click(".gs-pause-btn, #pause-btn"); await p.waitForTimeout(2500); await p.click("#pause-resume"); await p.waitForTimeout(50);
   const left = await p.evaluate(() => { const b = GAME.players[0].board, t = b.now(); return { state: GAME.state, wall: Math.round(performance.now() - __t0), bonus: Math.round(b.bonusUntil - t), slow: Math.round(b.slowUntil - t), flash: Math.round(b.flash.until - t) }; });
   // Each deadline may lose the unpaused time around the pause (more on a busy
   // machine), but not the 2.5s pause itself: so it has lost at least 2s less
@@ -143,7 +143,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("demolition-row: the power-ups help says banked ones carry over between stages", /carry over/.test(help), help);
   // Restart from the pause card: a fresh run, nothing banked
   await p.evaluate(() => { GAME.players[0].board.pq.push("thunder"); });
-  await p.keyboard.press("Escape"); await p.click("#pause-restart");
+  await p.click(".gs-pause-btn, #pause-btn"); await p.click("#pause-restart");
   await p.waitForFunction(() => GAME && GAME.players[0].board.piece && GAME.state === "playing");
   const restarted = await empty();
   check("demolition-row (guard): Restart starts the 50-Stage run with nothing banked", restarted.pq === 0 && !restarted.special && restarted.stage === 1, restarted);

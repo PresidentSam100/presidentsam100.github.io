@@ -11,7 +11,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     let p = await lib.open(ctx, base, "games/demolition-row/");
     await p.evaluate(() => { const b = [...document.querySelectorAll("button")].find((x) => /solo|play|start/i.test(x.textContent)); b && b.click(); });
     await p.waitForTimeout(500);
-    check(label + ": demolition-row's pause keycap " + (want ? "shows" : "is hidden"), (await shown(p, "#pause-btn")) === want);
+    // (its pause has no key of its own, every letter being someone's: paused, Resume wears Enter)
+    await p.click(".gs-pause-btn, #pause-btn"); await p.waitForTimeout(150);
+    const cap = await p.evaluate(() => { const e = document.getElementById("pause-resume"), a = getComputedStyle(e, "::after"); return e.getAttribute("data-gs-key") === "Space or Enter" && a.display !== "none" && a.content !== "none"; });
+    check(label + ": demolition-row's Resume keycap (Space or Enter) " + (want ? "shows" : "is hidden"), cap === want, cap);
     await p.close();
 
     p = await lib.open(ctx, base, "games/slither/");

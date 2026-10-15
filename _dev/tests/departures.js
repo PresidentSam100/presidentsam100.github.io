@@ -1,5 +1,6 @@
-// Departures: while paused the desk is shut, so a name typed then doesn't
-// board, during the pause or after it; on resume the box is open and focused.
+// Departures: while paused (the ⏸ button) the desk is shut, so a name typed
+// then doesn't board, during the pause or after it; on resume the box is open
+// and focused.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const p = await lib.open(ctx, base, "games/departures/");
@@ -7,17 +8,19 @@ module.exports = async ({ browser, base, check, lib }) => {
   const desk = () => p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value, focused: document.activeElement === document.getElementById("answer") }));
 
   await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(150);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(80);
+  await p.click(".gs-pause-btn"); await p.waitForTimeout(80);
   const paused = await card();
-  await p.keyboard.type("Australia"); await p.keyboard.press("Enter"); await p.waitForTimeout(80);
-  const during = await desk();
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  // (its R would press the card's Restart: that asks first, as the board has
+  // no pause key, and the next letter keeps the game, still paused)
+  await p.keyboard.type("Australia"); await p.waitForTimeout(80);
+  const during = await desk(), stillPaused = await card(), noBox = await p.evaluate(() => !document.querySelector(".gs-dialog"));
+  await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(100);
   const after = await desk();
   await p.keyboard.type("Fiji"); await p.waitForTimeout(80);
   const typed = await desk();
   check("departures: names typed while paused don't board, then or after resuming; the box is focused again",
-    paused && during.found === 0 && after.found === 0 && after.box === "" && after.focused && !(await card()) && typed.found === 1,
-    { paused, during, after, typed });
+    paused && stillPaused && noBox && during.found === 0 && during.box === "" && after.found === 0 && after.box === "" && after.focused && !(await card()) && typed.found === 1,
+    { paused, stillPaused, noBox, during, after, typed });
   check("departures: no page errors", p.errs.length === 0, p.errs);
 
   // A run's time is when its last name boarded: the save made then stands,

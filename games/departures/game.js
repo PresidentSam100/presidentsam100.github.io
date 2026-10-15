@@ -472,7 +472,7 @@
 
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    keys: ["Escape"],                      // the letters belong to the answer box
+    keys: [],                              // (the ⏸ button: the letters belong to the answer box, Esc is the way out)
     // the desk shuts while paused: with the clock stopped, a name typed then
     // would board for free (and letters typed into it would board on resume)
     onChange: function (paused) {

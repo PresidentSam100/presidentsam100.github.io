@@ -14,10 +14,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0); });
   await p.waitForTimeout(100);
   await p.evaluate(() => Lanterns.spawnWord("我", 0.5, 300));
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  await p.click(".gs-pause-btn"); await p.waitForTimeout(100);
   await p.keyboard.type("wo"); await p.waitForTimeout(100);
   const paused = await p.evaluate(() => ({ score: Lanterns.score(), lit: Lanterns.clearedCount(), up: Lanterns.active().length }));
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(100);
   await p.keyboard.type("wo"); await p.waitForTimeout(100);
   const resumed = await p.evaluate(() => ({ score: Lanterns.score(), lit: Lanterns.clearedCount() }));
   check("lanterns: typing a word while paused lights nothing; after resuming it lights",
@@ -90,9 +90,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   const next = { up: await up(), lit: await p.evaluate(() => Lanterns.clearedCount()) };
   check("lanterns: a letter that doesn't go on to 年 lights the waiting 你 and starts the next word", next.up === "年" && next.lit === 2, next);
   await fresh("你", "年");
-  await p.keyboard.type("ni"); await p.keyboard.press("Escape"); await p.waitForTimeout(900);
+  await p.keyboard.type("ni"); await p.click(".gs-pause-btn"); await p.waitForTimeout(900);
   const pausedWait = await up();
-  await p.keyboard.press("Escape"); await litAlone();
+  await p.click(".gs-pause-btn", { force: true }); await litAlone();
   const resumedWait = await up();
   check("lanterns: a pause holds the wait; after resuming 你 lights", pausedWait === "你年" && resumedWait === "年", { pausedWait, resumedWait });
   await done(p, "waiting word");

@@ -1,10 +1,10 @@
 // Pausing, consistently: P pauses during play everywhere a game pauses, and Esc
-// never does: it's the way out to the games page, asking "Leave this game?"
-// first mid-game. (A few games still pause on Esc: the typing games and
-// Fish-a-Fish, where no letter is free; Demolition Row, where P turns a piece;
-// and 24, where Esc is the phone's own key.) Backspace backs out of end
-// screens, the shared pause only claims its key when something pauses, and
-// paused games ignore play input.
+// never does, in any game: it's the way out to the games page, asking "Leave
+// this game?" first mid-game. (Where no letter is free, in the typing games,
+// Fish-a-Fish and Demolition Row, the ⏸ button is the pause, and Enter on its
+// card resumes. Metazac's answers are digits and Passport's tags are 1 to 4,
+// so P pauses there.) Backspace backs out of end screens, the shared pause only
+// claims its key when something pauses, and paused games ignore play input.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // the "Leave this game?" box: its title once it's up (null if it never comes), and waiting it gone
@@ -87,16 +87,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     pingAsk === "Leave this game?" && y0 === y1 && heldUnder && !pingKept.box && !pingKept.card && pingKept.state === "playing" && p.leaves === 1, { pingAsk, y0, y1, heldUnder, pingKept, leaves: p.leaves });
   await done(p, "ping");
 
-  // ---- 24: the ⏸ button is dimmed on the menu, live in Time attack
+  // ---- 24: the ⏸ button is dimmed on the menu, live in Time attack; it and
+  // P pause and resume; Esc is the way out (with a step made, it asks, the run
+  // paused under the box, and Keep playing goes back to the cards)
   p = await lib.open(ctx, base, "games/24/");
   const dim = await p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"));
   await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300);
   const live = await p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"));
+  const cap = await btn(p);
   await p.click(".gs-pause-btn"); const s1 = await p.evaluate(() => TwentyFour.state().screen);
-  await p.keyboard.press("Escape"); const s2 = await p.evaluate(() => TwentyFour.state().screen);
-  await p.keyboard.press("Escape"); const s3 = await p.evaluate(() => TwentyFour.state().screen);
-  check("24: ⏸ dimmed on the menu, live in Time attack; the button and Esc pause / resume",
-    dim === "true" && live === "false" && s1 === "paused" && s2 === "game" && s3 === "paused", { dim, live, s1, s2, s3 });
+  await p.keyboard.press("p"); const s2 = await p.evaluate(() => TwentyFour.state().screen);
+  await p.keyboard.press("p"); const s3 = await p.evaluate(() => TwentyFour.state().screen);
+  await p.keyboard.press("p");
+  await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); });
+  await p.keyboard.press("Escape"); const ask24 = { dlg: await asked(p), screen: await p.evaluate(() => TwentyFour.state().screen) };
+  await p.keyboard.press("Escape"); await boxGone(p); const s4 = await p.evaluate(() => TwentyFour.state().screen);
+  check("24: ⏸ (P) dimmed on the menu, live in Time attack; the button and P pause / resume; Esc mid-run asks 'Leave this game?' with the run paused, Esc again plays on",
+    dim === "true" && live === "false" && /P$/.test(cap || "") && s1 === "paused" && s2 === "game" && s3 === "paused" && ask24.dlg === "Leave this game?" && ask24.screen === "paused" && s4 === "game" && p.leaves === 0,
+    { dim, live, cap, s1, s2, s3, ask24, s4, leaves: p.leaves });
   await done(p, "24");
 
   // ---- 24: in Classic and Hard the dimmed ⏸ says there's no clock, not "works during a game"
@@ -109,7 +117,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("4"); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   const hard = await tip();
   check("24: in Classic / Hard the dimmed ⏸ explains there's no clock; on the menu it says it works during a game",
-    /during a game/.test(onMenu.title) && classic.off === "true" && /No clock in Classic/.test(classic.title) && classic.aria === classic.title &&
+    /during a game/.test(onMenu.title) && classic.off === "true" && /No clock in Classic/.test(classic.title) && /Enter opens Options/.test(classic.title) && classic.aria === classic.title &&
     hard.off === "true" && /No clock in Hard/.test(hard.title), { onMenu, classic, hard });
   await done(p, "24 untimed");
 
@@ -227,19 +235,21 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("slither fire eggs: Space lays an egg (no pause), P pauses, Esc doesn't resume, P does", e0 === "⏸ Pause P" && !eggPaused && e1 === "▶ Resume P" && e2 === "▶ Resume P" && e3 === "⏸ Pause P", { e0, eggPaused, e1, e2, e3 });
   await done(p, "slither");
 
-  // ---- Typetwo: typing while paused doesn't count, and Enter doesn't fire the bomb
+  // ---- Typetwo: typing while paused (the ⏸ button) doesn't count, and Enter
+  // in the typing box doesn't fire the bomb; Esc is the way out
   p = await lib.open(ctx, base, "games/typetwo/");
   await p.keyboard.press("Enter"); await p.waitForTimeout(1500);
   const hud = () => p.evaluate(() => [...document.querySelectorAll("#hud *, .hud *")].map((e) => (e.children.length ? "" : e.textContent.trim())).filter(Boolean).join("|"));
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  await p.click(".gs-pause-btn"); await p.waitForTimeout(150);
   const h0 = await hud();
-  await p.keyboard.type("qxzqxzqxz"); await p.keyboard.press("Enter");
-  await p.evaluate(() => document.getElementById("ti").focus()); await p.keyboard.type("qxzqxz"); await p.waitForTimeout(150);
+  await p.keyboard.type("qxzqxzqxz");
+  await p.evaluate(() => document.getElementById("ti").focus()); await p.keyboard.type("qxzqxz"); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   const h1 = await hud();
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(150);
   await p.evaluate(() => document.getElementById("ti").focus()); await p.keyboard.type("qqqxxxzzz"); await p.keyboard.press("Enter"); await p.waitForTimeout(200);
   const h2 = await hud();
-  check("typetwo: keys while paused leave the scoreboard alone; after resuming they count", h0 === h1 && h2 !== h1, { h0, h1, h2 });
+  await p.keyboard.press("Escape"); const ttOut = await wayOut(p, 1);
+  check("typetwo: keys while paused leave the scoreboard alone; after resuming they count; Esc in play is the way out (it asks)", h0 === h1 && h2 !== h1 && ttOut === "asked", { h0, h1, h2, ttOut });
   await done(p, "typetwo");
 
   // ---- Klondike: Esc closes How to play and stops there; the next Esc asks to leave; P pauses
@@ -272,11 +282,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => document.activeElement.blur());
   await p.keyboard.press("Escape"); await p.waitForTimeout(100);
   const overMenu = await p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
+  const menuLeft = await lib.leftBy(p, 1);
   await p.click("#play-btn"); await p.waitForTimeout(400);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+  // Esc in a game is the way out: it asks, the game paused under the box; Esc again plays on
+  await p.keyboard.press("Escape"); const drAsk = { dlg: await asked(p), state: await p.evaluate(() => GAME.state) };
+  await p.keyboard.press("Escape"); await boxGone(p); const drKept = await p.evaluate(() => GAME.state);
+  await p.click(".gs-pause-btn, #pause-btn"); await p.waitForTimeout(100);
   const pausesInGame = await p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
-  check("demolition-row: after Menu, letters aren't claimed, K picks Kaizo, Esc doesn't pop the pause card; a new game still pauses",
-    !claimed && pick === "kaizo" && !overMenu && pausesInGame, { claimed, pick, overMenu, pausesInGame });
+  await p.keyboard.press("Enter"); await p.waitForTimeout(100);
+  const drResumed = await p.evaluate(() => ({ state: GAME.state, card: !document.getElementById("pause").classList.contains("hidden") }));
+  check("demolition-row: after Menu, letters aren't claimed, K picks Kaizo, Esc leaves (no pause card over the menu); in a game Esc asks 'Leave this game?' (paused under it), the ⏸ button pauses and Enter resumes",
+    !claimed && pick === "kaizo" && !overMenu && menuLeft === 1 && drAsk.dlg === "Leave this game?" && drAsk.state === "paused" && drKept === "playing" && pausesInGame && drResumed.state === "playing" && !drResumed.card,
+    { claimed, pick, overMenu, menuLeft, drAsk, drKept, pausesInGame, drResumed });
   await done(p, "demolition-row");
 
   await ctx.close();

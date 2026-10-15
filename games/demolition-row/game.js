@@ -1169,7 +1169,7 @@
     //  P2: K/; · O/P rotate · I soft · L hard          (matched by e.key)
     //  P3: numpad 1/3 · 4/6 rotate · 5 soft · 2 hard   (matched by e.code)
     //  P4: ←/→ · ,/. rotate · ↓ soft · ↑ hard          (matched by e.key)
-    // Pause: Esc.
+    // Pause: the ⏸ button (every letter is someone's key; Esc is the way out).
     let GAME = null;
     const SCHEMES = [
       { board: 0, by: "key", left: ["a", "A"], right: ["d", "D"], ccw: ["q", "Q"], cw: ["e", "E"], soft: ["w", "W"], hard: ["s", "S"] },
@@ -1196,9 +1196,9 @@
       if (!GAME) return;
       if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
       SFX.resume();
-      // Esc is claimed only when it pauses or resumes; anywhere else (the result
-      // card, the beat between VS rounds) it's left to leave for the games page
-      if (e.key === "Escape") { if (GAME.state === "playing" || GAME.state === "paused") { if (!e.repeat) GAME.pauseToggle(); e.preventDefault(); } return; }
+      // Esc is never claimed: it leaves for the games page, asking first
+      // mid-game (the game paused under the box)
+      if (e.key === "Escape") return;
       // on the result card Backspace is its Main Menu button
       if (e.key === "Backspace" && GAME.state === "result") { if (!e.repeat) toMenu(); e.preventDefault(); return; }
       if (GAME.state !== "playing") return;
@@ -1340,14 +1340,14 @@
         "<br><b>P2</b> <kbd>K</kbd><kbd>;</kbd> move · <kbd>I</kbd>/<kbd>P</kbd> rotate · <kbd>O</kbd> soft · <kbd>L</kbd> hard" +
         "<br><b>P3</b> numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard" +
         "<br><b>P4</b> <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
-        "<br>solo: any scheme works · <kbd>Esc</kbd> pause<br></span>" +
+        "<br>solo: any scheme works · ⏸ pauses<br></span>" +
         "on touch: use the on-screen pad below the board";
     }
     updateKeysHelp();
 
     // dropping GAME (not just stopping its loop) switches the board keys off:
     // handleKey bails without a game, so letters type into the menu's
-    // dropdowns again and Esc can't pop the pause card over the menu
+    // dropdowns again
     function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); }
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
@@ -1364,15 +1364,15 @@
     });
     // Keys for the bar and the cards, shown on their buttons. In play
     // Backspace is ☰ Menu (which asks first). Paused: R restarts and
-    // Backspace is Main Menu, each asking first as they throw the run away
-    // (Esc resumes). On the result Enter plays again (Backspace is its Main
-    // Menu, in handleKey).
+    // Backspace is Main Menu, each asking first as they throw the run away,
+    // and Space or Enter resumes. On the result Enter plays again (Backspace is its
+    // Main Menu, in handleKey).
     if (window.GameShell && GameShell.menuKeys) {
       const st = (s) => () => !!GAME && GAME.state === s;
       GameShell.menuKeys({ active: st("playing"), groups: [{ sel: "#menu-btn", keys: ["Backspace"] }] });
       GameShell.menuKeys({ active: st("paused"), groups: [
         { sel: "#pause-restart", keys: ["r"], ask: { title: "Restart this game?", ok: "Restart" } },
-        { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }] });
+        { sel: "#pause-menu", keys: ["Backspace"], ask: { title: "Quit this game?", ok: "Quit" } }], start: "#pause-resume", space: true });
       GameShell.menuKeys({ active: st("result"), start: "#result-again", space: true });
     }
     // ☰ Menu mid-run would throw the run away: ask first (paused under the box)
@@ -1380,6 +1380,8 @@
       if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();
     });
     document.getElementById("pause-btn").addEventListener("click", () => GAME && GAME.pauseToggle());
+    // (a click takes no focus: left on it, the result card's Enter would press it, not Play Again)
+    document.getElementById("pause-btn").addEventListener("mousedown", (e) => e.preventDefault());
     // "Play Again" keeps the running head-to-head wins (a continuing series)
     document.getElementById("result-again").addEventListener("click", () => startGame(GAME ? GAME.players.map((p) => p.board.wins || 0) : null));
     document.getElementById("result-menu").addEventListener("click", toMenu);

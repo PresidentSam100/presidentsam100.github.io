@@ -445,7 +445,7 @@
         if (G.streak > 0 && now() - G.skipArmed > 2500) { G.skipArmed = now(); say("# again: skip", 2500); return; }
         skip();
       } else if (k === "navi") { Options.cur = 0; Options.top = 0; go(Options); }
-      else if (k === "esc") { if (G.mode === "timed" || G.mode === "daily") go(Paused); else { Options.cur = 0; Options.top = 0; go(Options); } }
+      else if (k === "pause") { if (canPause()) go(Paused); }
     },
     speak: function () {
       return (G.celebrate ? "24! " : "") + "Cards: " + G.cards.map(fmt).join(", ") + (G.sel !== -1 ? ". Picked " + fmt(G.cards[G.sel]) : "") + (G.op ? " " + { "+": "plus", "-": "minus", "*": "times", "/": "divided by" }[G.op] : "");
@@ -520,7 +520,7 @@
   };
 
   // The Paused screen (cards hidden, clock stopped) is a list, as Options is:
-  // Resume, Restart and Main menu. Esc resumes whichever is picked, and C
+  // Resume, Restart and Main menu. P resumes whichever is picked, and C
   // (Backspace, or the phone's C key) quits the run as Main menu does. Both
   // ask first with something to lose: the run is already paused, so the box
   // opens over this screen and Keep playing leaves it here, paused.
@@ -539,7 +539,7 @@
       if (k === "up") scrollList(this, -1, it.length);
       else if (k === "down") scrollList(this, 1, it.length);
       else if (k === "navi") it[this.cur][1]();
-      else if (k === "esc") go(Game);
+      else if (k === "pause") go(Game);
       else if (k === "C") askQuitToMenu();
     },
     speak: function () { return "Paused, cards hidden, clock stopped: " + this.items()[this.cur][0]; },
@@ -685,20 +685,19 @@
     "+": "5", "-": "6", "*": "7", "x": "7", "X": "7", "/": "8",
     "Backspace": "C", "Delete": "C", "c": "C", "C": "C", "Enter": "navi", " ": "navi",
     "ArrowUp": "up", "ArrowDown": "down", "Escape": "esc", "#": "#", "h": "9", "H": "9", "r": "0", "R": "0", "s": "#", "S": "#",
+    "p": "pause", "P": "pause",
   };
-  // Esc is claimed only where it does something: pausing (Options in Classic
-  // and Hard), resuming, closing Options or a Confirm, or stepping back out
-  // of Scores, How to play, or a Daily result opened from the menu. On the
-  // main menu and the end screens (Time's up, a finished Daily, an Answer)
-  // it's left alone, so the shared motion-toggle.js takes it to the games
-  // page; C / Backspace leads from those to this game's menu (a Daily's
-  // Answer by way of its result). During the "24!" flash it's left alone
-  // too, so it asks "Leave this game?" as Home does, with a Time attack run
-  // paused underneath (see guardLeave below), instead of doing nothing.
+  // Esc is claimed only to step back out of something: closing Options or a
+  // Confirm, or leaving Scores, How to play, or a Daily result opened from
+  // the menu. Everywhere else (the game, the Paused screen, the main menu,
+  // the end screens) it's left alone, so the shared motion-toggle.js takes it
+  // to the games page, asking first mid-run with a Time attack run paused
+  // underneath (see guardLeave below); C / Backspace leads from the end
+  // screens to this game's menu (a Daily's Answer by way of its result).
+  // P pauses and resumes.
   function escActs() {
     if (screen === DailyDone) return !G;
-    if (screen === Game && G && G.celebrate) return false;
-    return screen === Game || screen === Options || screen === Confirm || screen === Paused || screen === Scores || screen === Help;
+    return screen === Options || screen === Confirm || screen === Scores || screen === Help;
   }
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -756,15 +755,15 @@
     dailyPending();
     if (canPause()) go(Paused);
   });
-  // the ⏸ corner button. Only timed and daily games have a clock to stop;
-  // in classic and hard, Esc opens Options and the button stays dimmed, and
-  // says why (on the menus it keeps the usual "works during a game")
+  // the ⏸ corner button (P). Only timed and daily games have a clock to stop;
+  // in classic and hard the button stays dimmed, and says why (on the menus
+  // it keeps the usual "works during a game")
   if (window.GameShell) GameShell.pauseButton({
-    keys: ["Escape"],
+    keys: ["p"],
     canPause: canPause,
     offTitle: function () {
       var untimed = (screen === Game || screen === Options || screen === Confirm) && G && !G.over && (G.mode === "classic" || G.mode === "hard");
-      return untimed ? "No clock in " + (G.mode === "hard" ? "Hard" : "Classic") + " to pause (Esc opens Options)" : "";
+      return untimed ? "No clock in " + (G.mode === "hard" ? "Hard" : "Classic") + " to pause (Enter opens Options)" : "";
     },
     isPaused: function () { return screen === Paused; },
     toggle: function () { audio(); go(screen === Paused ? Game : Paused); }

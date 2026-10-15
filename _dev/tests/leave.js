@@ -1,7 +1,7 @@
 // The way out: Home and Esc leave any game for the games page, asking first
-// mid-game. Esc is the way out and not a pause key (P pauses), so the only
-// Esc that stays is one the game used to close a panel, or to pause in one
-// of the few games that still pause on it (the typing games). End screens send Esc to
+// mid-game. Esc is the way out and never a pause key, in any game (P pauses,
+// or the ⏸ button where no letter is free), so the only Esc that stays is one
+// the game used to close a panel. End screens send Esc to
 // the games page and Backspace to the game's own menu. Trips to the games
 // page are counted, not followed (page.leaves, see lib.newContext).
 module.exports = async ({ browser, base, check, lib }) => {
@@ -192,15 +192,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // ---- a typing game has no letter to spare, so there Esc is the pause key (and resumes)
+  // ---- a typing game too, with no letter to spare for a pause (its pause is
+  // the ⏸ button): Esc in play, with a name boarded, asks "Leave this game?",
+  // the run paused under the box, and Esc again plays on
   {
     const p = await lib.open(ctx, base, "games/departures/");
     await p.evaluate(() => Departures.start("world")); await p.waitForTimeout(300);
+    await p.keyboard.type("France"); await p.keyboard.press("Enter"); await p.waitForFunction(() => Departures.found() > 0, null, { timeout: 5000 }).catch(() => {});
     await p.keyboard.press("Escape"); await settle(p);
-    const paused = await cardUp(p);
+    const ask = await p.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null), under = await cardUp(p);
     await p.keyboard.press("Escape"); await settle(p);
-    const resumed = !(await cardUp(p));
-    check("departures play: Esc pauses and resumes, never leaving", paused && resumed && p.leaves === 0, { paused, resumed, leaves: p.leaves });
+    const back = { box: await p.evaluate(() => !!document.querySelector(".gs-dialog")), card: await cardUp(p) };
+    check("departures play: Esc asks 'Leave this game?' with the run paused under it; Esc again plays on, never leaving",
+      ask === "Leave this game?" && under && !back.box && !back.card && p.leaves === 0, { ask, under, back, leaves: p.leaves });
     check("departures: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }

@@ -5,9 +5,8 @@
 // menu with nothing left paused, and a game started from there plays and
 // pauses again. Each game is driven into a game in progress the way guard.js
 // does it. A game that draws its own pause screen has the two as a row laid
-// over it (GameShell.pauseMore) in place of the card: the same checks. In a
-// game that pauses on Esc because its letters are the game's own (esc: true),
-// Restart has no letter key: R typed at the paused game does nothing.
+// over it (GameShell.pauseMore) in place of the card: the same checks. Every
+// button on the card wears its key, Resume too.
 // name, path, start(p): a game in progress. fresh(p): the same game, started
 // over. menu(p): the game's own menu is up. Optional: acts (the card's
 // buttons, when not both), asks (Restart always asks: a game that saves
@@ -23,7 +22,8 @@ const table = (lib) => [
     start: (p) => p.evaluate(() => { Abyss.start("descent"); Abyss.hard(); }),
     fresh: (p) => p.evaluate(() => Abyss.state() === "play" && Abyss.score() === 0 && Abyss.mode() === "descent"),
     menu: (p) => p.evaluate(() => Abyss.state() === "menu" && !document.getElementById("menu").hidden) },
-  { name: "lanterns", path: "lanterns/", esc: true,
+  // (the games whose pause has no key ask before Restart and Menu, always: asks)
+  { name: "lanterns", path: "lanterns/", asks: true,
     start: async (p) => { await p.evaluate(() => Lanterns.start("festival")); await p.waitForFunction(() => Lanterns.active().length > 0, null, { timeout: 8000 }); await p.evaluate(() => Lanterns.type(Lanterns.active()[0].key)); await p.waitForFunction(() => Lanterns.score() > 0, null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => Lanterns.state() === "play" && Lanterns.score() === 0),
     menu: (p) => p.evaluate(() => Lanterns.state() === "menu" && !document.getElementById("menu").hidden) },
@@ -40,15 +40,15 @@ const table = (lib) => [
     fresh: (p) => p.evaluate(() => Mahjong.state() === "play" && Mahjong.tilesLeft() === 144 && !GameShell.leaveActive()),
     menu: (p) => p.evaluate(() => Mahjong.state() === "menu" && !document.getElementById("menu").hidden) },
   // (every Passport run pauses: a dash, a tour and a Visa Run)
-  ...["dash", "tour", "daily"].map((m) => ({ name: "passport (" + { dash: "a dash", tour: "a tour", daily: "a Visa Run" }[m] + ")", path: "passport/", esc: true,
+  ...["dash", "tour", "daily"].map((m) => ({ name: "passport (" + { dash: "a dash", tour: "a tour", daily: "a Visa Run" }[m] + ")", path: "passport/",
     start: async (p) => { await p.evaluate((m) => { Passport.fast(); Passport.start(m); }, m); await p.waitForTimeout(150); await p.evaluate(() => Passport.answer(Passport.current().correct)); await p.waitForFunction(() => Passport.state() === "ask" && Passport.score() > 0, null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate((m) => Passport.state() === "ask" && Passport.score() === 0 && Passport.mode() === m, m),
     menu: (p) => p.evaluate(() => Passport.state() === "menu" && !document.getElementById("menu").hidden) })),
-  { name: "departures", path: "departures/", esc: true,
+  { name: "departures", path: "departures/", asks: true,
     start: (p) => p.evaluate(() => { Departures.start("continent", "OC"); Departures.enter("Australia"); }),
     fresh: (p) => p.evaluate(() => Departures.state() === "play" && Departures.found() === 0 && !document.getElementById("answer").disabled),
     menu: (p) => p.evaluate(() => Departures.state() === "menu" && !document.getElementById("menu").hidden && document.activeElement.id !== "answer") },
-  { name: "fish-a-fish", path: "fish-a-fish/", esc: true,
+  { name: "fish-a-fish", path: "fish-a-fish/", asks: true,
     start: async (p) => { await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.force(0, "golden", "bite"); FishAFish.press(0, null); }); await p.waitForFunction(() => FishAFish.state().score > 0, null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => { const s = FishAFish.state(); return s.state === "play" && s.score === 0 && s.mode === "daybreak"; }),
     menu: (p) => p.evaluate(() => FishAFish.state().state === "menu") },
@@ -74,11 +74,11 @@ const table = (lib) => [
   { name: "minesweeper endless", path: "minesweeper/endless.html", acts: ["restart"],
     start: async (p) => { const pt = await p.evaluate(() => { const c = document.querySelectorAll(".field .c"); const e = c[Math.floor(c.length / 2)]; e.scrollIntoView({ block: "center" }); const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; }); await p.mouse.click(pt.x, pt.y, { button: "right" }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => !GameShell.leaveActive() && !document.querySelector(".field.paused")) },
-  { name: "metazac", path: "metazac/", esc: true,
+  { name: "metazac", path: "metazac/",
     start: async (p) => { await p.click("#start-btn"); await p.waitForTimeout(400); },
     fresh: (p) => p.evaluate(() => document.getElementById("overlay-start").classList.contains("hidden") && document.getElementById("overlay-over").classList.contains("hidden") && !document.getElementById("answer").disabled),
     menu: (p) => p.evaluate(() => !document.getElementById("overlay-start").classList.contains("hidden") && document.getElementById("answer").disabled) },
-  { name: "typetwo", path: "typetwo/", esc: true,
+  { name: "typetwo", path: "typetwo/", asks: true,
     start: async (p) => { await p.keyboard.press("Enter"); await p.waitForFunction(() => __game.state === "playing" && __game.words && __game.words.length > 0, null, { timeout: 8000 }); await p.keyboard.type(await p.evaluate(() => __game.words[0].text)); await p.waitForFunction(() => __game.score > 0, null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => __game.state === "playing" && __game.score === 0),
     menu: (p) => p.evaluate(() => __game.state === "start") },
@@ -215,9 +215,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const g of GAMES) {
     if (only.length && !only.some((o) => g.name.startsWith(o))) continue;
     const p = await lib.open(ctx, base, "games/" + g.path, { before: async (pg) => { await noFlip(pg); if (g.before) await g.before(pg); } });
-    const want = (g.acts || ["restart", "menu"]).map((a) => a + ":" + (a === "restart" ? (g.esc ? "" : "R") : "⌫"));
+    const want = (g.acts || ["restart", "menu"]).map((a) => a + ":" + (a === "restart" ? "R" : "⌫"));
     // Restart: by R, or by its button where R is the game's own letter
-    const restart = () => (g.esc ? p.click('.gs-pause:not(.gs-dialog) [data-gs-act="restart"]') : p.keyboard.press("r"));
+    const restart = () => p.keyboard.press("r");
     let step = "start";
     try {
       await g.start(p);
@@ -247,18 +247,12 @@ module.exports = async ({ browser, base, check, lib }) => {
         return { up: !!c && !c.hidden, faint, resume: row ? "Resume (the game's own)" : c ? (c.querySelector("button") || {}).textContent : null,
           acts: c ? [...c.querySelectorAll("[data-gs-act]")].filter((b) => !b.hidden).map((b) => b.getAttribute("data-gs-act") + ":" + ((b.querySelector("kbd") || {}).textContent || "")) : [] };
       }, !!g.row);
-      check(g.name + ": paused, " + (g.row ? "its own pause screen has under it" : "the card offers Resume") + want.map((w) => (/^restart/.test(w) ? (g.esc ? ", Restart (no letter key)" : ", Restart (R)") : ", Menu (⌫)")).join(""),
-        card.up && /Resume/.test(card.resume || "") && card.acts.join() === want.join(), card);
+      check(g.name + ": paused, " + (g.row ? "its own pause screen has under it" : "the card offers Resume, wearing its key") + want.map((w) => (/^restart/.test(w) ? ", Restart (R)" : ", Menu (⌫)")).join(""),
+        card.up && /Resume/.test(card.resume || "") && (g.row || /Resume \S/.test(card.resume || "")) && card.acts.join() === want.join(), card);
       check(g.name + ": the lettering on its buttons can be read (3 to 1 against what is behind it)", card.faint.length === 0, card.faint);
 
       if (want.some((w) => /^restart/.test(w))) {
         step = "restart";
-        if (g.esc) {
-          // a letter typed at the paused game is nobody's key: no box, the card still up, the game as it was
-          await p.keyboard.press("r"); await p.waitForTimeout(200);
-          const typed = { dialog: await dialog(p), card: await cardUp(p), fresh: await g.fresh(p) };
-          check(g.name + ": R typed while paused does nothing (the letters are the game's own; Restart is its button)", typed.dialog === null && typed.card && !typed.fresh, typed);
-        }
         await restart(); await p.waitForTimeout(150);
         const asked = await dialog(p);
         let kept = null;

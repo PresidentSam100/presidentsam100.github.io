@@ -3,7 +3,9 @@
 // Enter presses a button); a mouse click leaves no button focused; division
 // never shows a 0 divisor; the storm button's SPACE tag hides on touch. On a
 // phone (no Return key on a number pad) a Pop ✓ button answers, keeping the
-// answer box focused, and the key hints name the buttons instead.
+// answer box focused, and the key hints name the buttons instead. P pauses,
+// typed in the answer box too (it takes digits), and the card wears its
+// keys (Resume P, Restart R, Menu ⌫); Esc is the way out, asking mid-run.
 const HOOK = ["  function endGame() {", "  window.__mz = { end: function () { endGame(); }, make: function () { return makeProblem(); },\n" +
   "    spawn: function () { spawnBloon(); return bloons[bloons.length - 1].ans; }, score: function () { return score; } };\n  function endGame() {"];
 
@@ -97,6 +99,28 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("metazac, phone: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await phone.close();
+
+  // ---- P pauses (from the answer box: it takes digits, so P is nobody's
+  // letter), the card wearing each button's key; P resumes, the box back in
+  // hand; Esc mid-run asks "Leave this game?", the run paused under the box
+  {
+    const q = await open();
+    await q.click("#start-btn"); await q.waitForTimeout(400);
+    await q.evaluate(() => __mz.spawn());
+    await q.keyboard.type("1"); await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const paused = await q.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return { up: !!c && !c.hidden, btns: c ? [...c.querySelectorAll("button")].filter((b) => !b.hidden).map((b) => b.textContent.replace(/\s+/g, " ").trim()).join(" | ") : "", box: document.getElementById("answer").value, shut: document.getElementById("answer").disabled }; });
+    await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const back = await q.evaluate(() => ({ up: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, box: document.getElementById("answer").value, focused: document.activeElement.id }));
+    await q.evaluate(() => { __mz.spawn(); });
+    await q.keyboard.press("Escape"); await q.waitForSelector(".gs-dialog", { timeout: 5000 }).catch(() => {});
+    const asked = await q.evaluate(() => ({ dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null, under: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden }));
+    await q.keyboard.press("Escape"); await q.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});
+    check("metazac: P pauses from the answer box (no p typed), the card wearing Resume P, Restart R, Menu ⌫; P resumes with the box in hand; Esc mid-run asks 'Leave this game?' with the run paused under it",
+      paused.up && /Resume P \| .*Restart R \| .*Menu ⌫$/.test(paused.btns) && paused.box === "1" && paused.shut && !back.up && back.box === "1" && back.focused === "answer" &&
+      asked.dlg === "Leave this game?" && asked.under && q.leaves === 0, { paused, back, asked, leaves: q.leaves });
+    check("metazac (P pauses): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   await ctx.close();
 };

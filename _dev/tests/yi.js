@@ -201,7 +201,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await settle(p);
   await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   check("yi: the bar has no Quit to menu; P brings up the pause card (Resume, Restart R, Menu ⌫), the table's keys held under it, and Backspace there goes to setup (a fresh deal: at once); Esc on a hand's result still leaves",
-    !bar.quit && /Pause P$/.test(bar.cap) && !bare.setup && bare.g && /Resume \| .*Restart R \| .*Menu ⌫$/.test(cardBtns || "") && hand1 === hand0 && mid.setup && !mid.g && !mid.result && p.leaves === 1,
+    !bar.quit && /Pause P$/.test(bar.cap) && !bare.setup && bare.g && /Resume P \| .*Restart R \| .*Menu ⌫$/.test(cardBtns || "") && hand1 === hand0 && mid.setup && !mid.g && !mid.result && p.leaves === 1,
     { bar, bare, cardBtns, hand0, hand1, mid, leaves: p.leaves });
   await done(p, "yi backspace");
 
