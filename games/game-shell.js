@@ -236,7 +236,9 @@
     "-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}" +
     ":where(.gs-pause-card h2){margin:0 0 .2rem;font-size:1.5rem;font-weight:800}" +
     ":where(.gs-pause-card p){margin:0 0 .9rem;font-size:.85rem;opacity:.75}" +
-    ":where(.gs-pause-card button){cursor:pointer;min-height:44px;padding:.6rem 1.4rem;border-radius:var(--gs-btn-radius,9px);" +
+    // (the padding leans by --gs-cap, so the letters sit in the middle: motion-toggle.js)
+    ":where(.gs-pause-card button){cursor:pointer;min-height:44px;border-radius:var(--gs-btn-radius,9px);" +
+    "padding:max(0rem,calc(.6rem + var(--gs-cap,0) * 1em)) 1.4rem max(0rem,calc(.6rem - var(--gs-cap,0) * 1em));" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(255,255,255,0.09));color:inherit;" +
     "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:1rem;font-weight:700;line-height:1;-webkit-tap-highlight-color:transparent}" +
     ":where(.gs-pause-card button:hover){filter:brightness(1.1)}" +
@@ -248,7 +250,8 @@
     ":where(.gs-pause-more){position:fixed;z-index:9998;display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;width:max-content;" +
     "transform:translateX(-50%);font-family:var(--gs-font,system-ui,-apple-system,'Segoe UI',sans-serif)}" +
     ".gs-pause-more[hidden]{display:none!important}" +
-    ":where(.gs-pause-more button){cursor:pointer;min-height:40px;padding:.5rem .9rem;border-radius:var(--gs-btn-radius,9px);" +
+    ":where(.gs-pause-more button){cursor:pointer;min-height:40px;border-radius:var(--gs-btn-radius,9px);" +
+    "padding:max(0rem,calc(.5rem + var(--gs-cap,0) * 1em)) .9rem max(0rem,calc(.5rem - var(--gs-cap,0) * 1em));" +
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(22,25,33,0.94));color:var(--gs-fg,#eef0f4);" +
     "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:.95rem;font-weight:700;line-height:1;white-space:nowrap;-webkit-tap-highlight-color:transparent}" +
     ":where(.gs-pause-more button:hover){filter:brightness(1.1)}" +

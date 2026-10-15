@@ -101,8 +101,12 @@
     var st = document.createElement("style");
     st.id = "gs-kbd-style";
     st.textContent =
-      ":where(.gs-kbd){display:inline-block;box-sizing:border-box;min-width:1.6em;padding:.12em .4em .1em;margin:0 .06em;" +
-      "font-family:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:1.15;text-align:center;" +
+      // (the padding leans by --gs-cap, so the letters sit in the middle of
+      // the cap, see capsCentred; a lean past the padding is taken from the
+      // line instead, so the cap is as tall whatever the face)
+      ":where(.gs-kbd){display:inline-block;box-sizing:border-box;min-width:1.6em;margin:0 .06em;" +
+      "padding:calc(max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) + var(--gs-cap,0) * 1em) .4em calc(max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) - var(--gs-cap,0) * 1em);" +
+      "font-family:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:calc(1.15em - 2 * (max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) - .11em));text-align:center;" +
       "vertical-align:.06em;white-space:nowrap;color:inherit;" +
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
@@ -111,7 +115,8 @@
       // drawn from the attribute, so the button's own text and children stay
       // as the game wrote them
       "[data-gs-key]::after{content:attr(data-gs-key);display:inline-block;box-sizing:border-box;min-width:1.6em;margin:-.6em 0 -.6em .5em;" +
-      "padding:.12em .4em .1em;font:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:1.15;text-align:center;" +
+      "padding:calc(max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) + var(--gs-cap,0) * 1em) .4em calc(max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) - var(--gs-cap,0) * 1em);" +
+      "font:inherit;font-size:.8em;font-weight:700;font-style:normal;line-height:calc(1.15em - 2 * (max(.11em,calc(var(--gs-cap,0) * 1em),calc(var(--gs-cap,0) * -1em)) - .11em));text-align:center;" +
       "vertical-align:.06em;white-space:nowrap;text-transform:none;letter-spacing:normal;text-shadow:none;" +
       "background:rgba(128,128,128,.16);background:color-mix(in srgb,currentColor 13%,transparent);" +
       "border:1px solid;border-color:color-mix(in srgb,currentColor 50%,transparent);border-bottom-width:2px;border-radius:.3em}" +
@@ -167,6 +172,10 @@
       "-webkit-tap-highlight-color:transparent}" +
       ".gs-corner>.gs-pause-btn{order:1}.gs-corner>.mute-toggle{order:2}" +
       ".gs-swap{display:inline-grid;text-align:left}.gs-swap>span,.gs-swap::after{grid-area:1/1}" +
+      // the label's letters moved to the middle of the button (by --gs-cap,
+      // see capsCentred), its icon left where it was
+      ".gs-corner>button>.gs-swap,.nav-back-games>.gs-back-text{position:relative;top:calc(var(--gs-cap,0) * 1em)}" +
+      ".gs-corner>button>.gs-swap .gs-ico{top:calc(var(--gs-cap,0) * -1em)}" +
       ".gs-swap::after{content:attr(data-alt);visibility:hidden}" +
       // The buttons' icons (✨, the speaker, ⏸ and ▶) are drawn flat, in the
       // colour of the button's own text (the game's ink): as emoji they
@@ -333,6 +342,79 @@
     k.style.top = (-d).toFixed(2) + "px";
   }
 
+  // ---- letters in the middle, top to bottom --------------------------------
+  // A typeface puts its letters where its designer chose in the line, and
+  // some ride well above the middle (Darkroom's typewriter, 3 to 4px in a
+  // keycap) or below it. In a keycap, or the label of a button that centres
+  // its line, that shows. --gs-cap is how far (in em, + = down) a face's
+  // capitals sit from the middle of their line, measured from the face
+  // itself; the keycaps lean their padding by it and the corner buttons'
+  // labels (and the "← Games" link's) move by it, the boxes keeping their
+  // size. Worked out for each face in use, again once a web font arrives.
+  var CAP_SEL = ".gs-kbd,[data-gs-key],.gs-corner>button,.nav-back-games,.gs-pause-card button,.gs-pause-more button";
+  var capOf = {}, capCtx = null, rootCap = null;
+  function capShift(el) {
+    var cs = getComputedStyle(el), key = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontFamily;
+    if (key in capOf) return capOf[key];
+    var s = 0;
+    try {
+      capCtx = capCtx || document.createElement("canvas").getContext("2d");
+      capCtx.font = cs.fontStyle + " " + cs.fontWeight + " 100px " + cs.fontFamily;
+      var m = capCtx.measureText("H");
+      // (the line's middle is halfway through ascent + descent; the capitals'
+      // middle is half their height above the baseline)
+      if (m.fontBoundingBoxAscent > 0 && m.actualBoundingBoxAscent > 0)
+        s = (m.actualBoundingBoxAscent + m.fontBoundingBoxDescent - m.fontBoundingBoxAscent) / 200;
+    } catch (e) {}
+    s = Math.max(-0.25, Math.min(0.4, Math.round(s * 1000) / 1000));
+    return (capOf[key] = s);
+  }
+  function capsCentred(els) {
+    var root = document.documentElement;
+    if (rootCap === null && document.body) { rootCap = capShift(document.body); root.style.setProperty("--gs-cap", String(rootCap)); }
+    for (var i = 0; i < els.length; i++) {
+      var s = capShift(els[i]);
+      // (a keycap's lean is kept on its button or link, which it inherits
+      // from: the markup inside the button stays as the game wrote it)
+      var host = els[i].matches(".gs-kbd") ? els[i].closest("button, a, summary") || els[i] : els[i];
+      if (s === rootCap) host.style.removeProperty("--gs-cap");
+      else host.style.setProperty("--gs-cap", String(s));
+    }
+  }
+  function capsAll() { capsCentred(document.querySelectorAll(CAP_SEL)); }
+  function capsWatch() {
+    // the "← Games" link's words, in a box of their own so they can move
+    var back = document.querySelector(".nav-back-games");
+    if (back && !back.querySelector(".gs-back-text")) {
+      for (var n = back.firstChild; n; n = n.nextSibling) if (n.nodeType === 3 && n.textContent.trim()) {
+        var sp = document.createElement("span");
+        sp.className = "gs-back-text";
+        back.insertBefore(sp, n); sp.appendChild(n);
+        break;
+      }
+    }
+    capsAll();
+    // keycaps come and go (menus re-drawn, the pause card, a dialog): each
+    // batch of new ones is measured as it lands
+    if (window.MutationObserver) new MutationObserver(function (list) {
+      var found = [];
+      list.forEach(function (m) {
+        if (m.type === "attributes") { found.push(m.target); return; }
+        m.addedNodes.forEach(function (nd) {
+          if (nd.nodeType !== 1) return;
+          if (nd.matches(CAP_SEL)) found.push(nd);
+          var inner = nd.querySelectorAll(CAP_SEL);
+          for (var j = 0; j < inner.length; j++) found.push(inner[j]);
+        });
+      });
+      if (found.length) capsCentred(found);
+    }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-gs-key"] });
+    // a web font in: the faces are measured afresh
+    if (document.fonts && document.fonts.addEventListener)
+      document.fonts.addEventListener("loadingdone", function () { capOf = {}; rootCap = null; capsAll(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { capOf = {}; rootCap = null; capsAll(); });
+  }
+
   var btn = null, shown = "";
   function toggle() {
     var on = !reduced();
@@ -405,6 +487,7 @@
     markBack();
     syncRow();
     fit();
+    capsWatch();
     window.addEventListener("resize", function () { render(); markBack(); syncRow(); fit(); });
     // the link's size can change after this runs (its web font arriving), and
     // so can the row's (the sound and ⏸ buttons joining it)
