@@ -30,6 +30,10 @@
   function rand(a, b) { return a + Math.random() * (b - a); }
   function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
   function now() { return performance.now(); }
+  // The scene's own clock, in ms: it runs only while the game does, so a
+  // cut's halves, ink, gleam and score text hold still, half-faded, under
+  // the pause card (or "Leave this game?") instead of fading away there.
+  var sceneT = 0;
 
   // ---- size --------------------------------------------------------------------------
   var W = 0, H = 0, R = 40, mountainLayer = null;
@@ -204,7 +208,7 @@
       score += n;
       keepBest();
       maxCombo = Math.max(maxCombo, n);
-      popups.push({ x: stroke.lastX, y: stroke.lastY - R, text: n + " cuts  +" + n, t0: now(), big: true });
+      popups.push({ x: stroke.lastX, y: stroke.lastY - R, text: n + " cuts  +" + n, t0: sceneT, big: true });
       SFX.combo(n);
     }
     stroke.cuts = 0;
@@ -222,7 +226,7 @@
     score += pts;
     keepBest();
     stroke.cuts++; stroke.lastX = x; stroke.lastY = y;
-    if (pts > 1) popups.push({ x: x, y: y - R, text: "+" + pts, t0: now() });
+    if (pts > 1) popups.push({ x: x, y: y - R, text: "+" + pts, t0: sceneT });
     splitInto(o, ang);
     SFX.slice(o.type);
     objs.splice(objs.indexOf(o), 1);
@@ -231,15 +235,15 @@
     var x = o.u * W, y = o.v * H, nx = -Math.sin(ang), ny = Math.cos(ang), sep = 0.35 * Math.min(W, H);   // px/s apart
     [-1, 1].forEach(function (side) {
       halves.push({ type: o.type, u: o.u, v: o.v, vu: o.vu + nx * side * sep / W, vv: o.vv * 0.4 + ny * side * sep / H,
-        rot: o.rot, vr: o.vr + side * rand(1.5, 3.5), cutAng: ang - o.rot, side: side, born: now() });
+        rot: o.rot, vr: o.vr + side * rand(1.5, 3.5), cutAng: ang - o.rot, side: side, born: sceneT });
     });
     var juice = TYPES[o.type].juice, n = o.type === "lantern" ? 18 : 12;
     for (var k = 0; k < n && parts.length < MAX_PARTS; k++) {
       var a = ang + (Math.random() < 0.5 ? 1 : -1) * Math.PI / 2 + rand(-0.9, 0.9), sp = rand(120, 420) * Math.min(W, H) / 700;
       parts.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, life: 0, max: rand(0.35, 0.8), color: o.type === "lantern" ? "#ffe08a" : juice, size: rand(2, 5) * R / 45, spark: o.type === "lantern" || o.type === "koban" });
     }
-    gleams.push({ x: x, y: y, ang: ang, t0: now() });
-    inks.push({ x: x, y: y, ang: ang, t0: now() });
+    gleams.push({ x: x, y: y, ang: ang, t0: sceneT });
+    inks.push({ x: x, y: y, ang: ang, t0: sceneT });
   }
   function bombHit(o) {
     var x = o.u * W, y = o.v * H;
@@ -255,7 +259,7 @@
       finish("bomb", 1100);
     } else {
       score = Math.max(0, score - 10);
-      popups.push({ x: x, y: y - R, text: "-10", t0: now(), bad: true });
+      popups.push({ x: x, y: y - R, text: "-10", t0: sceneT, bad: true });
       flash = fx() ? 0.45 : 0.18;
       shake = fx() ? 0.5 : 0;
     }
@@ -263,7 +267,7 @@
   function loseLife(o) {
     lives--;
     SFX.thud();
-    popups.push({ x: Math.max(R, Math.min(W - R, o.u * W)), y: H - H * 0.12, text: "✕", t0: now(), bad: true });
+    popups.push({ x: Math.max(R, Math.min(W - R, o.u * W)), y: H - H * 0.12, text: "✕", t0: sceneT, bad: true });
     if (lives <= 0) finish("seals", 700);
   }
 
@@ -437,6 +441,7 @@
   // ---- the loop ----------------------------------------------------------------------------------------
   var lastT = 0, lastTick = -1;
   function update(dt, t) {
+    sceneT += dt * 1000;
     if (state === "play") {
       elapsed += dt;
       if (M.time) {
@@ -503,7 +508,7 @@
     }
     // Ink brush strokes left by each cut, fading.
     for (var i = inks.length - 1; i >= 0; i--) {
-      var ink = inks[i], age = (t - ink.t0) / 900;
+      var ink = inks[i], age = (sceneT - ink.t0) / 900;
       if (age > 1) { inks.splice(i, 1); continue; }
       ctx.save(); ctx.translate(ink.x, ink.y); ctx.rotate(ink.ang);
       ctx.fillStyle = "rgba(20,10,14," + (0.35 * (1 - age)).toFixed(3) + ")";
@@ -512,7 +517,7 @@
     }
     // Halves: the cut face, clipped to its side of the cut.
     halves.forEach(function (hv) {
-      var age = (t - hv.born) / 1400;
+      var age = (sceneT - hv.born) / 1400;
       ctx.save();
       ctx.globalAlpha = Math.max(0, 1 - Math.max(0, age - 0.5) * 2);
       ctx.translate(hv.u * W, hv.v * H); ctx.rotate(hv.rot);
@@ -553,7 +558,7 @@
     ctx.globalAlpha = 1;
     // The gleam of each cut: a bright line along the blade's path (never full-screen).
     for (var g = gleams.length - 1; g >= 0; g--) {
-      var gl = gleams[g], ga = (t - gl.t0) / 220;
+      var gl = gleams[g], ga = (sceneT - gl.t0) / 220;
       if (ga > 1) { gleams.splice(g, 1); continue; }
       ctx.save(); ctx.translate(gl.x, gl.y); ctx.rotate(gl.ang);
       ctx.strokeStyle = "rgba(255,255,255," + (1 - ga).toFixed(3) + ")";
@@ -565,7 +570,7 @@
     Art.grass(ctx, W, H, t, f);
     // Floating score text.
     for (var k = popups.length - 1; k >= 0; k--) {
-      var pp = popups[k], pa = (t - pp.t0) / 900;
+      var pp = popups[k], pa = (sceneT - pp.t0) / 900;
       if (pa > 1) { popups.splice(k, 1); continue; }
       ctx.font = "900 " + Math.round(R * (pp.big ? 0.62 : 0.5)) + "px 'Zen Old Mincho', Georgia, serif";
       ctx.textAlign = "center";
@@ -629,7 +634,7 @@
   // ---- test hooks -------------------------------------------------------------------------------------------
   window.SunsetSlice = {
     start: start, toMenu: toMenu,
-    state: function () { return { state: state, mode: mode, score: score, lives: lives, timeLeft: timeLeft, objs: objs.length, halves: halves.length, paused: paused, maxCombo: maxCombo, R: R, minV: minVSeen, bad: badSeen }; },
+    state: function () { return { state: state, mode: mode, score: score, lives: lives, timeLeft: timeLeft, objs: objs.length, halves: halves.length, paused: paused, maxCombo: maxCombo, R: R, minV: minVSeen, bad: badSeen, clock: sceneT }; },
     // Place a target at (u, v) that stays put until cut; waves stop so tests are deterministic.
     spawn: function (type, u, v) { queue = []; nextWave = 1e9; var o = launch(type, u, 0.2); o.u = u; o.v = v; o.vv = 0; o.vu = 0; o.frozen = true; o.seen = true; return o.id; },
     drop: function (type, u) { queue = []; nextWave = 1e9; var o = launch(type, u, 0.5, 0); o.seen = true; o.v = 0.95; o.vv = 1; return o.id; },

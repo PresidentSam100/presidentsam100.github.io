@@ -84,6 +84,35 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
+  // ---- paused right after a cut, the halves (and the ink, the gleam, the
+  // score text) hold where they were instead of fading out under the pause
+  // card, or under "Leave this game?"; resumed, they carry on
+  {
+    const c = await lib.newContext(browser);
+    const s = await lib.open(c, base, "games/sunset-slice/");
+    await s.evaluate(() => { SunsetSlice.start("calm"); SunsetSlice.hold(); SunsetSlice.spawn("peach", 0.5, 0.5); });
+    const W = await s.evaluate(() => innerWidth), H = await s.evaluate(() => innerHeight);
+    await s.mouse.move(W * 0.3, H * 0.5); await s.mouse.down(); await s.mouse.move(W * 0.7, H * 0.5, { steps: 4 }); await s.mouse.up();
+    await s.keyboard.press("p");
+    const look = () => s.evaluate(() => { const t = SunsetSlice.state(); return { halves: t.halves, clock: Math.round(t.clock), paused: t.paused }; });
+    const p0 = await look();
+    await s.evaluate(() => new Promise((r) => setTimeout(r, 1800)));   // (longer than a half takes to fade)
+    const p1 = await look();
+    await s.keyboard.press("p"); await s.keyboard.press("Escape"); await s.waitForSelector(".gs-dialog", { timeout: 3000 }).catch(() => {});
+    const l0 = await look();
+    await s.evaluate(() => new Promise((r) => setTimeout(r, 1800)));
+    const l1 = await look();
+    await s.keyboard.press("Enter"); await s.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 3000 }).catch(() => {});
+    await s.evaluate(() => new Promise((r) => setTimeout(r, 300)));
+    const back = await look();
+    check("sunset-slice: paused right after a cut (by P, or under 'Leave this game?'), the halves hold still, half-faded, on a clock that stops; resumed, it runs on",
+      p0.paused && p0.halves === 2 && p1.halves === 2 && p1.clock === p0.clock && l0.paused && l1.halves === 2 && l1.clock === l0.clock && !back.paused && back.clock > l1.clock,
+      { p0, p1, l0, l1, back });
+    check("sunset-slice (paused cut): no page errors", s.errs.length === 0, s.errs);
+    await s.close();
+    await c.close();
+  }
+
   // and a short laptop window ([wide, high, touch])
   const SHORT = [[320, 480, true], [375, 553, true], [360, 560, true], [320, 568, true], [568, 320, true], [667, 331, true], [844, 390, true], [915, 412, true],
     [1024, 480, false], [1280, 500, false], [1366, 520, false], [1366, 580, false], [1280, 600, false]];
