@@ -267,7 +267,9 @@
     // cabinet lines (the doors stop over a kick board, short of the floor)
     g.strokeStyle = "rgba(122,94,60,0.25)"; g.lineWidth = 2;
     var doorH = Math.max(0, Math.min(h - 20, fy - 22) - (cy + 96));
-    for (var x = -w + 40; x < w * 2; x += 170) {
+    // (the doors on one grid however wide the counter is drawn, so they stay
+    // put as play's view becomes the pull-back's wider one)
+    for (var x = 40 - Math.ceil(w / 170) * 170; x < w * 2; x += 170) {
       g.strokeRect(x, cy + 96, 130, doorH);
     }
     // the kick board and the floor's boards

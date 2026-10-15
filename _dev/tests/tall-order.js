@@ -13,9 +13,13 @@ const HOOK = ["  // test hooks: the Playwright harness drives runs through these
       return { H: H, SH: SH, W: W, Hh: Hh, floor: A.FLOOR, cam: cam, top: towerTopY(), zoomP: zoomP, n: tiers.length,
         slider: slider && { x: slider.x, y: slider.y, w: slider.w, mode: slider.mode },
         base: tiers.length ? { x: tiers[0].x, w: tiers[0].w } : null,
-        fallen: fallen.map(function (f) { return { x: f.x, w: f.w, vx: f.vx }; }),
-        pile: pile.map(function (q) { return { x: q.x, y: q.y, w: q.w, rot: q.rot }; }) };
-    }
+        fallen: fallen.map(function (f) { return { x: f.x, w: f.w, vx: f.vx, vy: f.vy, y0: f.y0 }; }),
+        pile: pile.map(function (q) { return { x: q.x, y: q.y, w: q.w, rot: q.rot, down: q.down }; }),
+        debris: debris.length };
+    },
+    // one frame of the game's own, taken by hand, and the picture it draws
+    frame: function (dt) { update(dt); draw(); },
+    pixels: function () { return g.getImageData(0, 0, cv.width, cv.height).data; }
   };
   // test hooks: the Playwright harness drives runs through these\n`];
 
@@ -108,8 +112,9 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- what falls off is kept: three offcuts (two to the right, one to the
   // left) and the tier that missed. In the pull-back they lie on the floor
-  // under the counter, each on the side it fell to, the later ones on the
-  // earlier, all of it inside the picture.
+  // under the counter, each on the side it fell to, all of it inside the
+  // picture; the second right-hand one, coming down on the first, slides off
+  // it outward and lies beside it (it used to stay perched on top).
   const drops = [26, 22, -24];
   for (const off of drops) {
     await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
@@ -130,14 +135,69 @@ module.exports = async ({ browser, base, check, lib }) => {
       sides: g.pile.slice(0, 3).map((q, i) => Math.sign(q.x + q.w / 2 - cx) === Math.sign(g.fallen[i].vx)),
       // (the first to fall lies on the floor itself; nothing lies under the floor)
       onFloor: g.pile[0].y > g.floor && g.pile.every((q) => q.y <= g.floor + 34 && q.y > g.floor - 200),
-      // the two right-hand offcuts landed over each other: the second lies higher
-      stacked: g.pile[1].y < g.pile[0].y - 3,
+      // the two right-hand offcuts came down together: the second lies further out, beside the first, not up on it
+      beside: g.pile[1].x + g.pile[1].w / 2 > g.pile[0].x + g.pile[0].w / 2 + 4 && g.pile[1].y >= g.pile[0].y - 3,
       inView: scr.every((s) => s.x > 0 && s.x < g.W && s.y > 0 && s.y < g.Hh), floorIn: y0 + g.floor * fit < g.Hh - 4, scr: scr.map((s) => [Math.round(s.x), Math.round(s.y)]) };
   });
   check("tall-order: everything that falls off is kept (three offcuts, then the tier that missed)", kept === 3 && heap.fallen === 4 && heap.pile === 4, { kept, heap });
-  check("tall-order: in the pull-back it lies on the kitchen floor, each piece on the side it fell to, the later on the earlier, all inside the picture",
-    heap.zoomP === 1 && heap.sides.every(Boolean) && heap.onFloor && heap.stacked && heap.inView && heap.floorIn, heap);
+  check("tall-order: in the pull-back it lies on the kitchen floor, each piece on the side it fell to, a later one slid off an earlier to lie beside it, all inside the picture",
+    heap.zoomP === 1 && heap.sides.every(Boolean) && heap.onFloor && heap.beside && heap.inView && heap.floorIn, heap);
   await done(p, "shadow and heap");
+  await ctx.close();
+
+  // ---- a tall cake: twenty tiers, each with a right-hand offcut, then a miss.
+  // Taken a frame at a time, by hand (60 a second), so nothing else moves:
+  // the pull-back's first picture is the one play left off on (it used to
+  // jump from the top of the tower down to its stand); the tier that missed,
+  // still in the air as it begins, comes down onto the floor during it; each
+  // piece comes down where its own fall takes it (its throw and the drawn
+  // gravity), or slides off a heap outward from there; and twenty pieces
+  // from one edge spread along the floor, not stacked into a tall heap.
+  ctx = await lib.newContext(browser, { viewport: { width: 1280, height: 720 } });
+  p = await open(ctx);
+  await p.evaluate(() => TallOrder.start("bakery"));
+  for (let i = 0; i < 20; i++) {
+    await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
+    await p.evaluate(() => TallOrder.placeAndDrop(Math.min(9, TallOrder.topWidth() - 60)));
+  }
+  await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
+  const tall = await p.evaluate(() => {
+    // how much of the picture changed from one frame to the next (share of pixels)
+    const changed = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n / (a.length / 4); };
+    TallOrder.placeAndDrop(TallOrder.topWidth() + 14);          // a clean miss, just past the right edge
+    const r = { steps: [], jump: null, atStart: null, end: null };
+    let prev = null;
+    for (let i = 0; i < 600; i++) {
+      const was = TallOrder.state();
+      __to.frame(1 / 60);
+      const img = __to.pixels(), now = TallOrder.state();
+      if (prev && was === now && (now === "tumble" || now === "zoom") && r.steps.length < 400) r.steps.push(changed(prev, img));
+      if (was === "tumble" && now === "zoom") { r.jump = changed(prev, img); const g = __to.geo(); r.atStart = { inAir: g.pile.filter((q) => q.down === false).length, debris: g.debris }; }
+      prev = img;
+      if (now === "over") break;
+    }
+    const g = __to.geo();
+    r.steadiest = r.steps.length ? Math.max(...r.steps) : null;
+    r.end = { state: TallOrder.state(), inAir: g.pile.filter((q) => q.down !== true).length, debris: g.debris, n: g.n, floor: g.floor, SH: g.SH,
+      // each piece against where its own fall brings it down
+      lands: g.fallen.map((f, i) => {
+        const floorY = g.floor + 34, t = (-f.vy + Math.sqrt(f.vy * f.vy + 2 * 2200 * Math.max(0, floorY - f.y0))) / 2200;
+        const land = f.x + f.w / 2 + f.vx * t, at = g.pile[i].x + g.pile[i].w / 2;
+        return Math.round((at - land) * Math.sign(f.vx));
+      }),
+      high: Math.round(g.floor + 34 - Math.min(...g.pile.map((q) => q.y))),
+      spread: Math.round(Math.max(...g.pile.slice(0, -1).map((q) => q.x + q.w)) - Math.min(...g.pile.slice(0, -1).map((q) => q.x))) };
+    return r;
+  });
+  check("tall-order: a tall cake's pull-back starts from the picture play left off on, with no jump, and pulls back smoothly",
+    tall.jump !== null && tall.jump < 0.06 && tall.steadiest !== null && tall.steadiest < 0.25, { jump: tall.jump, steadiest: tall.steadiest });
+  check("tall-order: the tier that missed, still in the air as the pull-back begins, comes down onto the floor during it",
+    !!tall.atStart && tall.atStart.inAir >= 1 && tall.atStart.debris >= 1 && tall.end.state === "over" && tall.end.inAir === 0 && tall.end.debris === 0, { atStart: tall.atStart, end: tall.end });
+  check("tall-order: every piece comes down where its own fall takes it, or slides outward off a heap from there",
+    tall.end.lands.length === 21 && tall.end.lands.every((d) => d >= -2 && d <= 160), tall.end.lands);
+  check("tall-order: twenty pieces from one edge spread along the floor instead of standing in a tall heap",
+    tall.end.high <= tall.end.SH * 2.6 && tall.end.spread >= 90, { high: tall.end.high, spread: tall.end.spread, SH: tall.end.SH });
+  await done(p, "tall cake");
   await ctx.close();
 
   // ---- the menu's "how" names the key on a desktop, and says tap on a phone,
