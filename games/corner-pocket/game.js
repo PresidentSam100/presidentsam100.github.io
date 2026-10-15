@@ -260,7 +260,9 @@
           var ws = ax >= SPOT_COS ? 1 : (ax - (SPOT_COS - 0.012)) / 0.012;
           var ink = 0;
           if (ax >= SPOT_COS - 0.004) {
-            var u = (lx > 0 ? ly : -ly) / SPOT_SIN, v = lz / SPOT_SIN;
+            // (u runs to the reader's right across the spot and v down it, as
+            // seen from outside the ball: v is -lz, or the number reads mirrored)
+            var u = (lx > 0 ? ly : -ly) / SPOT_SIN, v = -lz / SPOT_SIN;
             var tx = ((u * 0.5 + 0.5) * GS) | 0, ty = ((v * 0.5 + 0.5) * GS) | 0;
             if (tx >= 0 && tx < GS && ty >= 0 && ty < GS) ink = glyph[ty * GS + tx] / 255;
           }
