@@ -278,4 +278,70 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- one scene at every hour: the street lamps and the trees stand by day
+  // and by night (CYCLE used to lay the night's scene over the day's, so the
+  // lamps faded in and out, and the trees under the night's darkness); the
+  // lights go on at once as it turns dark, and not before
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 900, height: 800 } });
+    const q = await lib.open(c, base, "games/quick-minute/");
+    // (the lamp posts and the tree trunks as drawn: a post is the scene's
+    // only stroked line, a trunk a filled rectangle; each counted)
+    const look = (m, h) => q.evaluate(([m, h]) => new Promise((ok) => {
+      __game.start(m);
+      const cx = document.getElementById("cv").getContext("2d"), stroke = cx.stroke, fillRect = cx.fillRect;
+      let posts = 0, trunks = 0;
+      cx.stroke = function () { posts++; return stroke.apply(this, arguments); };
+      cx.fillRect = function () { trunks++; return fillRect.apply(this, arguments); };
+      const hold = () => { if (h !== null) __game.setHour(h); };
+      hold();
+      requestAnimationFrame(() => { hold(); posts = 0; trunks = 0; requestAnimationFrame(() => {
+        cx.stroke = stroke; cx.fillRect = fillRect;
+        ok({ dark: +__game.dark.toFixed(2), night: document.body.classList.contains("night"), posts, trunks });
+      }); });
+    }), [m, h]);
+    const day = await look("day", null), dusk = await look("cycle", 0.735), after = await look("cycle", 0.76), night = await look("night", null);
+    check("quick-minute: the street lamps and the trees stand in the day, at dusk and at night alike (they used to come and go with the dark)",
+      [day, dusk, after, night].every((s) => s.posts >= 2 && s.trunks >= 2), { day, dusk, after, night });
+    check("quick-minute: the lights go on at once as it turns dark, with the dashboard's, and not before",
+      !day.night && dusk.dark > 0 && dusk.dark < 0.5 && !dusk.night && after.dark >= 0.5 && after.night && night.night, { day, dusk, after, night });
+    check("quick-minute (one scene): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
+  // ---- a light is hidden by a car nearer to the eye: a truck right behind a
+  // signalling car, at night, covers its amber light (the lights were laid
+  // over everything, so it shone through the truck)
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 900, height: 800 }, deviceScaleFactor: 2 });
+    const q = await lib.open(c, base, "games/quick-minute/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:quick-minute", "1"); } catch (e) {} }) });
+    const amber = (withTruck) => q.evaluate((withTruck) => new Promise((ok) => {
+      __game.start("night");
+      const obs = __game.obstacles, p = __game.player, carH = 60;
+      const lane = 3;
+      const lay = () => {
+        const a = obs[0] && obs[0].__mine ? obs[0] : null;
+        const A = { __mine: true, lane: lane, y: 300, w: 34, h: carH, type: "car", color: "#9aa3ad", cx: 0, pending: true, merging: false, mergeDir: 1, mergeTo: lane + 1, mergeStartY: 0, wc: 0 };
+        const B = { __mine: true, lane: lane, y: 300 + carH / 2 + 60 + 6, w: 34, h: 120, type: "truck", color: "#5a6b7c", cx: 0, pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: 0 };
+        A.cx = B.cx = p.x + 2 * 84;                       // (two lanes over from you)
+        obs.length = 0; obs.push(A); if (withTruck) obs.push(B);
+      };
+      lay();
+      requestAnimationFrame(() => { lay(); requestAnimationFrame(() => {
+        const cv = document.getElementById("cv"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+        let n = 0;
+        // (amber: red-orange, bright enough to read as a lamp; not the red taillights, nor the street lamps' pale gold)
+        for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], bl = d[i + 2]; if (r > 120 && bl < 70 && g > r * 0.5 && g < r * 0.8) n++; }
+        ok(n);
+      }); });
+    }), withTruck);
+    const alone = await amber(false), behind = await amber(true);
+    check("quick-minute: at night a truck right behind a signalling car hides its amber light (the light no longer shines through it)",
+      alone >= 20 && behind <= alone * 0.25, { alone, behind });
+    check("quick-minute (lights behind cars): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
 };

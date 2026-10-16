@@ -291,11 +291,11 @@
   function box(x0, x1, y0, y1, z0, z1, base, faceCols) {
     var zc = (z0 + z1) / 2, fc = faceCols || {};
     function col(name, amt) { return fogged(fc[name] || shade(base, amt), zc); }
-    if (cam.ey > y1) poly([x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1], col("top", NIGHT ? 0.06 : 0.2));
-    if (cam.ez < z0) poly([x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0], col("front", NIGHT ? -0.5 : -0.26));
-    if (cam.ez > z1) poly([x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1], col("back", NIGHT ? -0.4 : -0.06));
-    if (cam.ex < x0) poly([x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0], col("left", NIGHT ? -0.46 : -0.16));
-    if (cam.ex > x1) poly([x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0], col("right", NIGHT ? -0.52 : -0.4));
+    if (cam.ey > y1) poly([x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1], col("top", dn(0.2, 0.06)));
+    if (cam.ez < z0) poly([x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0], col("front", dn(-0.26, -0.5)));
+    if (cam.ez > z1) poly([x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1], col("back", dn(-0.06, -0.4)));
+    if (cam.ex < x0) poly([x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0], col("left", dn(-0.16, -0.46)));
+    if (cam.ex > x1) poly([x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0], col("right", dn(-0.4, -0.52)));
   }
 
   function glow(sx, sy, r, color) {
@@ -394,15 +394,29 @@
   }
 
   // ----- scenery ----------------------------------------------------------
-  var NIGHT = false, HAZE = "#c7d2c3";
-  // Night lighting: the scene below the horizon is buried under a heavy
-  // darkness layer, and light sources punch soft holes through it: your
-  // headlight corridor, the street-lamp pools, the glow around your own car.
-  // Lamp glows and taillights are queued during drawing and rendered ON TOP
-  // of the darkness, so lights are the only things that read at distance.
-  var horizonY = 0, GLOWS = [], HOLES = [];
+  // One scene at every hour. DK is how far into the dark it is (0 day, 1
+  // night, between at dusk and dawn in CYCLE): every colour is that far from
+  // its day self to its night self (dn), so the same things are there all
+  // the time and only grow dark. The lights are on or off, not between: they
+  // go on at once at half way (NIGHT), every car's, the street lamps' and
+  // your own, as the dashboard's do. (Dusk and dawn used to lay the whole
+  // night scene over the day one, so the lamps, which only the night had,
+  // faded in and out, and so did the trees under the night's darkness.)
+  var DK = 0, NIGHT = false, HAZE = "#c7d2c3";
+  function dn(day, night) {
+    if (typeof day === "number") return day + (night - day) * DK;
+    return DK <= 0 ? day : DK >= 1 ? night : mix(day, night, DK);
+  }
+  // Night lighting: the scene below the horizon is buried under a darkness
+  // layer (as heavy as it is dark), and, with the lights on, light sources
+  // punch soft holes through it: your headlight corridor, the street-lamp
+  // pools, the glow around your own car. Lamp glows and taillights are
+  // queued during drawing and rendered ON TOP of the darkness, so lights are
+  // the only things that read at distance; each with how far it is from the
+  // eye (d), so a car nearer than a light hides it (OCC: the cars' outlines).
+  var horizonY = 0, GLOWS = [], HOLES = [], OCC = [];
   var darkCv = null, darkCtx = null;
-  function addGlow(x, y, r, c) { GLOWS.push({ x: x, y: y, r: r, c: c }); }
+  function addGlow(x, y, r, c, d) { GLOWS.push({ x: x, y: y, r: r, c: c, d: d || 0 }); }
   function nightDarkness(pxw) {
     if (!darkCv) { darkCv = document.createElement("canvas"); darkCtx = darkCv.getContext("2d"); }
     if (darkCv.width !== cv.width || darkCv.height !== cv.height) { darkCv.width = cv.width; darkCv.height = cv.height; }
@@ -411,8 +425,9 @@
     d.globalCompositeOperation = "source-over";
     d.clearRect(0, 0, W, H);
     var top = Math.max(0, horizonY - 1);
-    d.fillStyle = "rgba(3,4,11,0.86)";
+    d.fillStyle = "rgba(3,4,11," + (0.86 * DK).toFixed(3) + ")";
     d.fillRect(0, top, W, H - top);
+    if (!NIGHT) { ctx.drawImage(darkCv, 0, 0, W, H); return; }   // (lights off: no light to punch through)
     d.globalCompositeOperation = "destination-out";
     function hole(x, y, r, a) {
       if (!(r > 1)) return;
@@ -460,13 +475,15 @@
     var hy = hz ? Math.max(0, Math.min(H, hz.y)) : H * 0.4;
     horizonY = hy;
     var g = ctx.createLinearGradient(0, 0, 0, Math.max(hy, 1));
-    if (NIGHT) { g.addColorStop(0, "#04050d"); g.addColorStop(1, "#111a31"); }
-    else { g.addColorStop(0, "#7fbde4"); g.addColorStop(1, "#e6f0d2"); }
+    g.addColorStop(0, dn("#7fbde4", "#04050d")); g.addColorStop(1, dn("#e6f0d2", "#111a31"));
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, hy + 1);
     ctx.fillStyle = HAZE;
     ctx.fillRect(0, hy, W, H - hy);
-    if (NIGHT) {
+    // the stars and the moon come out as it gets dark, the sun and the
+    // clouds go as it does (both at dusk and dawn)
+    if (DK > 0) {
+      ctx.globalAlpha = DK;
       for (var i = 0; i < stars.length; i++) {
         var st = stars[i], s = skyPt(st.x, st.y, st.z);
         if (!s || s.y > hy) continue;
@@ -480,7 +497,10 @@
         ctx.fillStyle = "#c9d2e6"; ctx.beginPath(); ctx.arc(m.x - 4, m.y + 3, 3, 0, 6.2832);
         ctx.arc(m.x + 5, m.y - 4, 2.2, 0, 6.2832); ctx.fill();
       }
-    } else {
+      ctx.globalAlpha = 1;
+    }
+    if (DK < 1) {
+      ctx.globalAlpha = 1 - DK;
       var s2 = skyPt(0.5, 0.42, 0.75);
       if (s2) {
         glow(s2.x, s2.y, 70, "rgba(255,244,190,0.55)");
@@ -497,10 +517,11 @@
         ctx.ellipse(cp.x + cd[3] * 0.5, cp.y + cd[3] * 0.08, cd[3] * 0.55, cd[3] * 0.22, 0, 0, 6.2832);
         ctx.fill();
       }
+      ctx.globalAlpha = 1;
     }
     // hills, mostly hazed
     for (var l = 0; l < hills.length; l++) {
-      var hl = hills[l], base = NIGHT ? (l ? "#0d1424" : "#0a101d") : (l ? "#9dba8c" : "#b4c9a4");
+      var hl = hills[l], base = l ? dn("#9dba8c", "#0d1424") : dn("#b4c9a4", "#0a101d");
       var fill = mix(base, HAZE, l ? 0.45 : 0.68);
       var pts = [];
       for (var k = 0; k < hl.seg.length; k++) pts.push(hl.seg[k].x, hl.seg[k].h, hl.z);
@@ -512,8 +533,8 @@
 
   function drawGround() {
     var ws = scroll * K;   // total metres scrolled
-    var gA = NIGHT ? "#141f10" : "#5f8f3e", gB = NIGHT ? "#121c0e" : "#5a883a";
-    var rA = NIGHT ? "#15161d" : "#8d8f96", rB = NIGHT ? "#16171f" : "#91939a";
+    var gA = dn("#5f8f3e", "#141f10"), gB = dn("#5a883a", "#121c0e");
+    var rA = dn("#8d8f96", "#15161d"), rB = dn("#91939a", "#16171f");
     // ground + road in scroll-locked 2 m strips (banding = visible speed)
     var s0 = -16 - (ws % 2), z, idx, zf;
     // all grass first, then all road, so the strip overlaps never cross layers
@@ -528,14 +549,14 @@
       poly([-ROAD_HALF, 0.01, z, ROAD_HALF, 0.01, z, ROAD_HALF, 0.01, zf, -ROAD_HALF, 0.01, zf], fogged(idx ? rA : rB, z + 1));
     }
     // solid edge lines
-    var edge = NIGHT ? "#4a4a3e" : "#eceadc";
+    var edge = dn("#eceadc", "#4a4a3e");
     for (z = s0; z < 34; z += 2) {
       var zf2 = z + 2.07, fe = fogged(edge, z + 1);
       poly([-ROAD_HALF, 0.02, z, -ROAD_HALF + 0.22, 0.02, z, -ROAD_HALF + 0.22, 0.02, zf2, -ROAD_HALF, 0.02, zf2], fe);
       poly([ROAD_HALF - 0.22, 0.02, z, ROAD_HALF, 0.02, z, ROAD_HALF, 0.02, zf2, ROAD_HALF - 0.22, 0.02, zf2], fe);
     }
     // dashed lane dividers
-    var dash = NIGHT ? "#3f4034" : "#e8e6d8";
+    var dash = dn("#e8e6d8", "#3f4034");
     var period = 58 * K, dlen = 30 * K;             // same rhythm as the old top-down road
     var d0 = -14 - (ws % period);
     for (var l = 1; l < LANES; l++) {
@@ -546,70 +567,95 @@
     }
   }
 
-  function drawRoadside() {
+  // The roadside: trees on both shoulders (billboards on a real trunk
+  // position) and street lamps along the road edge, there by day and by
+  // night alike; the lamps are lit when the lights are on. roadside() hands
+  // each one, with its depth, to the scene's painter's list, so they are
+  // drawn far to near among the cars (they used to be drawn near to far, and
+  // all before the cars, so a far tree lay over a near one). lampPools()
+  // lays the lamps' pools of light on the road, under everything.
+  var LGAP = 13;
+  function lampAt(lz, ws) {
+    var lidx = Math.round((lz + ws) / LGAP), side = (lidx & 1) ? -1 : 1;
+    return { side: side, x: side * (ROAD_HALF + 0.7) };
+  }
+  function lampPools() {
+    if (!NIGHT) return;
     var ws = scroll * K;
-    // trees on both shoulders (billboards on a real trunk position)
+    for (var lz = -13 - (ws % LGAP); lz < 30; lz += LGAP) {
+      var L = lampAt(lz, ws), lx = L.x, side2 = L.side;
+      poly([lx + side2 * 1.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz + 2.6, lx + side2 * 1.2, 0.03, lz + 2.6],
+           "rgba(255,214,140," + (0.22 * (1 - fogAt(lz))).toFixed(3) + ")");
+      // the lamp's pool of light punches through the darkness
+      var pool = pt(lx - side2 * 1.1, 0.03, lz);
+      if (pool) HOLES.push({ x: pool.x, y: pool.y, r: Math.max(8, FOCAL / pool.z * 3.4), a: 0.85 * (1 - fogAt(lz)) });
+    }
+  }
+  function roadside() {
+    var ws = scroll * K, out = [];
     var GAP = 8.5;
-    var t0 = -12 - (ws % GAP);
-    for (var z = t0; z < 32; z += GAP) {
+    for (var z = -12 - (ws % GAP); z < 32; z += GAP) {
       var idx = Math.round((z + ws) / GAP);
       for (var side = -1; side <= 1; side += 2) {
         if (((idx + (side > 0 ? 1 : 0)) & 1) === 0) continue;   // stagger the two sides
-        var tx = side * (11.5 + ((idx * 7919) % 5));
-        var s = pt(tx, 0, z);
-        if (!s) continue;
-        var sc = FOCAL / s.z, f = fogAt(z);
-        var trunkH = 0.9 * sc, canopyR = (1.3 + ((idx * 31) % 3) * 0.25) * sc;
-        ctx.fillStyle = mix(NIGHT ? "#191410" : "#6d4b2a", HAZE, f);
-        ctx.fillRect(s.x - 0.09 * sc, s.y - trunkH, 0.18 * sc, trunkH);
-        ctx.fillStyle = mix(NIGHT ? "#0d1a10" : "#3f7a33", HAZE, f);
-        ctx.beginPath();
-        ctx.moveTo(s.x, s.y - trunkH - canopyR * 1.9);
-        ctx.lineTo(s.x + canopyR, s.y - trunkH * 0.6);
-        ctx.lineTo(s.x - canopyR, s.y - trunkH * 0.6);
-        ctx.closePath();
-        ctx.fill();
+        out.push({ z: z, draw: tree.bind(null, side * (11.5 + ((idx * 7919) % 5)), z, idx) });
       }
     }
-    if (NIGHT) {
-      // street lamps along the road edge, with pools of light
-      var LGAP = 13, l0 = -13 - (ws % LGAP);
-      for (var lz = l0; lz < 30; lz += LGAP) {
-        var lidx = Math.round((lz + ws) / LGAP);
-        var side2 = (lidx & 1) ? -1 : 1;
-        var lx = side2 * (ROAD_HALF + 0.7);
-        poly([lx + side2 * 1.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz + 2.6, lx + side2 * 1.2, 0.03, lz + 2.6],
-             "rgba(255,214,140," + (0.22 * (1 - fogAt(lz))).toFixed(3) + ")");
-        var base2 = pt(lx, 0, lz), head = pt(lx - side2 * 0.9, 4.4, lz);
-        if (!base2 || !head) continue;
-        ctx.strokeStyle = mix("#2a2d36", HAZE, fogAt(lz));
-        ctx.lineWidth = Math.max(1, FOCAL / base2.z * 0.1);
-        ctx.beginPath();
-        ctx.moveTo(base2.x, base2.y);
-        ctx.lineTo(base2.x, head.y - 6);
-        ctx.lineTo(head.x, head.y);
-        ctx.stroke();
-        addGlow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140,0.8)");
-        // the lamp's pool of light punches through the darkness
-        var pool = pt(lx - side2 * 1.1, 0.03, lz);
-        if (pool) HOLES.push({ x: pool.x, y: pool.y, r: Math.max(8, FOCAL / pool.z * 3.4), a: 0.85 * (1 - fogAt(lz)) });
-      }
-    }
+    for (var lz = -13 - (ws % LGAP); lz < 30; lz += LGAP) out.push({ z: lz, draw: lamp.bind(null, lampAt(lz, ws), lz) });
+    return out;
+  }
+  function tree(tx, z, idx) {
+    var s = pt(tx, 0, z);
+    if (!s) return;
+    var sc = FOCAL / s.z, f = fogAt(z);
+    var trunkH = 0.9 * sc, canopyR = (1.3 + ((idx * 31) % 3) * 0.25) * sc;
+    ctx.fillStyle = mix(dn("#6d4b2a", "#191410"), HAZE, f);
+    ctx.fillRect(s.x - 0.09 * sc, s.y - trunkH, 0.18 * sc, trunkH);
+    ctx.fillStyle = mix(dn("#3f7a33", "#0d1a10"), HAZE, f);
+    ctx.beginPath();
+    ctx.moveTo(s.x, s.y - trunkH - canopyR * 1.9);
+    ctx.lineTo(s.x + canopyR, s.y - trunkH * 0.6);
+    ctx.lineTo(s.x - canopyR, s.y - trunkH * 0.6);
+    ctx.closePath();
+    ctx.fill();
+  }
+  function lamp(L, lz) {
+    var lx = L.x, side2 = L.side;
+    var base2 = pt(lx, 0, lz), head = pt(lx - side2 * 0.9, 4.4, lz);
+    if (!base2 || !head) return;
+    ctx.strokeStyle = mix(dn("#5c6170", "#2a2d36"), HAZE, fogAt(lz));
+    ctx.lineWidth = Math.max(1, FOCAL / base2.z * 0.1);
+    ctx.beginPath();
+    ctx.moveTo(base2.x, base2.y);
+    ctx.lineTo(base2.x, head.y - 6);
+    ctx.lineTo(head.x, head.y);
+    ctx.stroke();
+    // the lamp itself, under the head: pale glass by day, lit with the lights
+    ctx.fillStyle = NIGHT ? "#ffe2a8" : mix("#d9dde4", HAZE, fogAt(lz));
+    var lr = Math.max(1.5, FOCAL / head.z * 0.16);
+    ctx.beginPath(); ctx.ellipse(head.x, head.y + lr * 0.4, lr * 1.6, lr * 0.7, 0, 0, 6.2832); ctx.fill();
+    if (NIGHT) addGlow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140,0.8)", head.z);
   }
 
   // ----- vehicles as 3D boxes ---------------------------------------------
   var GLASS = "#10141f";
   function drawCar3D(wxc, z, base, halfW, halfL, isTruck, signalDir, litT) {
-    var body = base;
     // litT 1 = fully lit (your own car, or right inside your beam); 0 = darkness
-    if (NIGHT) body = litT >= 1 ? mix(base, "#0a0f1c", 0.12) : mix(mix(base, "#070910", 0.72), base, clamp01(litT) * 0.75);
+    var body = dn(base, litT >= 1 ? mix(base, "#0a0f1c", 0.12) : mix(mix(base, "#070910", 0.72), base, clamp01(litT) * 0.75));
     var x0 = wxc - halfW, x1 = wxc + halfW, z0 = z - halfL, z1 = z + halfL;
+    // the car's outline on the screen and its depth: a light further off
+    // than it is hidden where it covers it (drawGlows)
+    var cs = [], top = isTruck ? 2.45 : 1.42;
+    for (var ci = 0; ci < 8; ci++) { var cp = pt(ci & 1 ? x1 : x0, ci & 2 ? top : 0, ci & 4 ? z1 : z0); if (cp) cs.push(cp); }
+    var mid = pt(wxc, top / 2, z);
+    if (cs.length === 8 && mid) OCC.push({ d: mid.z, x0: Math.min.apply(null, cs.map(function (q) { return q.x; })), x1: Math.max.apply(null, cs.map(function (q) { return q.x; })),
+      y0: Math.min.apply(null, cs.map(function (q) { return q.y; })), y1: Math.max.apply(null, cs.map(function (q) { return q.y; })) });
     // dark under-skirt / wheels
-    box(x0 + 0.06, x1 - 0.06, 0, 0.22, z0 + 0.12, z1 - 0.12, NIGHT ? "#05060a" : "#181a20");
+    box(x0 + 0.06, x1 - 0.06, 0, 0.22, z0 + 0.12, z1 - 0.12, dn("#181a20", "#05060a"));
     if (isTruck) {
       var cabZ0 = z1 - 1.7;
       box(x0, x1, 0.22, 1.55, cabZ0, z1, body);                                  // cab
-      var trl = NIGHT ? mix("#d7d8d2", "#0a0c13", 0.6 - clamp01(litT) * 0.4) : "#d7d8d2";
+      var trl = dn("#d7d8d2", mix("#d7d8d2", "#0a0c13", 0.6 - clamp01(litT) * 0.4));
       box(x0 + 0.04, x1 - 0.04, 0.22, 2.45, z0, cabZ0 - 0.25, trl);              // trailer
     } else {
       box(x0, x1, 0.22, 0.92, z0, z1, body);                                     // body
@@ -645,7 +691,7 @@
         poly([sx, ty - 0.08, z0, sx, ty - 0.08, z0 + 0.3, sx, ty + 0.14, z0 + 0.3, sx, ty + 0.14, z0], amber);
         poly([sx, ty - 0.08, z1 - 0.3, sx, ty - 0.08, z1, sx, ty + 0.14, z1, sx, ty + 0.14, z1 - 0.3], amber);
       }
-      if (NIGHT && (rear || nose)) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, rear ? z0 : z1); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)"); }
+      if (NIGHT && (rear || nose)) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, rear ? z0 : z1); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)", sp2.z); }
     }
   }
   // At night every car drives with its lamps on. From behind, what shows of a
@@ -662,7 +708,7 @@
     if (p1) HOLES.push({ x: p1.x, y: p1.y, r: Math.max(5, FOCAL / p1.z * 1.7), a: 0.72 * f });
     if (p2) HOLES.push({ x: p2.x, y: p2.y, r: Math.max(5, FOCAL / p2.z * 2.1), a: 0.46 * f });
   }
-  function foggedRoof(body, z) { return fogged(shade(body, NIGHT ? 0.02 : 0.14), z); }
+  function foggedRoof(body, z) { return fogged(shade(body, dn(0.14, 0.02)), z); }
 
   function drawPlayer3D() {
     var pxw = wx(player.x);
@@ -672,60 +718,49 @@
       poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196,0.16)");
       poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196,0.20)");
       var h1 = pt(pxw - 0.6, 0.55, CAR_LM / 2), h2 = pt(pxw + 0.6, 0.55, CAR_LM / 2);
-      if (h1) addGlow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), "rgba(255,246,205,0.9)");
-      if (h2) addGlow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), "rgba(255,246,205,0.9)");
+      if (h1) addGlow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), "rgba(255,246,205,0.9)", h1.z);
+      if (h2) addGlow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), "rgba(255,246,205,0.9)", h2.z);
     }
   }
 
   // ----- render -------------------------------------------------------
-  // A frame is the day's scene or the night's. At dusk and dawn (CYCLE) it is
-  // both: the night's is drawn and kept, the day's drawn over it, and the
-  // night's laid back on top as far as the hour has gone into the dark.
-  var fadeCv = null, fadeCtx = null;
-  function render(now) {
-    var d = dark();
-    if (d <= 0.004 || d >= 0.996) { scene(now, d > 0.5); return; }
-    scene(now, true);
-    if (!fadeCv) { fadeCv = document.createElement("canvas"); fadeCtx = fadeCv.getContext("2d"); }
-    if (fadeCv.width !== cv.width || fadeCv.height !== cv.height) { fadeCv.width = cv.width; fadeCv.height = cv.height; }
-    fadeCtx.clearRect(0, 0, fadeCv.width, fadeCv.height);
-    fadeCtx.drawImage(cv, 0, 0);
-    scene(now, false);
-    ctx.globalAlpha = d;
-    ctx.drawImage(fadeCv, 0, 0, W, H);
-    ctx.globalAlpha = 1;
-  }
-  function scene(now, night) {
-    NIGHT = night;
-    HAZE = NIGHT ? "#0b101c" : "#c7d2c3";
+  // A frame is one scene, as dark as the hour (see dn).
+  function render(now) { scene(now, dark()); }
+  function scene(now, d) {
+    DK = d;
+    NIGHT = d >= 0.5;                       // (the lights: on at half way, as the dashboard's)
+    HAZE = dn("#c7d2c3", "#0b101c");
     // turn signals blink with Visual FX on; with it off they stay lit, steady
     blinkOn = !fxOn() || (Math.floor(now / 270) % 2) === 0;
-    GLOWS = []; HOLES = [];
+    GLOWS = []; HOLES = []; OCC = [];
     ctx.clearRect(0, 0, W, H);
     drawSky();
     drawGround();
-    drawRoadside();
+    lampPools();
 
-    // painter's order: everything far → near, the player among them
+    // painter's order: everything far → near, the player and the roadside among them
     var list = [];
     for (var i = 0; i < obstacles.length; i++) {
       var o = obstacles[i];
       list.push({ z: wz(o.y), o: o });
     }
     list.push({ z: 0, player: true });
+    list = list.concat(roadside());
     list.sort(function (a, b) { return b.z - a.z; });
     var pxw = wx(player.x), j;
     // the other cars' beams, all laid on the road before any car is drawn: a
     // beam drawn with its car would paint over the car in front of it
     if (NIGHT) for (j = 0; j < list.length; j++) {
-      if (!list[j].player) drawBeam(wx(list[j].o.cx), list[j].z + list[j].o.h * K / 2, list[j].o.w * K / 2);
+      if (list[j].o) drawBeam(wx(list[j].o.cx), list[j].z + list[j].o.h * K / 2, list[j].o.w * K / 2);
     }
     for (j = 0; j < list.length; j++) {
       var it = list[j];
+      if (it.draw) { it.draw(); continue; }
       if (it.player) { drawPlayer3D(); continue; }
       var v = it.o, vwx = wx(v.cx);
-      // at night your beam lights the cars just ahead of you
-      var lit = NIGHT ? clamp01(1 - it.z / 19) * (Math.abs(vwx - pxw) < 3.4 ? 1 : 0.15) : 1;
+      // with the lights on your beam lights the cars just ahead of you (the
+      // rest go as dark as the hour)
+      var lit = NIGHT ? clamp01(1 - it.z / 19) * (Math.abs(vwx - pxw) < 3.4 ? 1 : 0.15) : 0;
       drawCar3D(vwx, it.z, v.color, (v.w * K) / 2, (v.h * K) / 2, v.type === "truck",
                 (v.pending && v.y >= VH * 0.12) ? v.mergeDir : 0, lit);
       if (NIGHT) {
@@ -737,16 +772,43 @@
           var tail = gz < it.z, gy = v.type === "truck" ? 0.8 : 0.6;
           var gc = (tail ? "rgba(255,74,64," : "rgba(255,246,205,") + (0.8 * gr).toFixed(2) + ")";
           var tl = pt(vwx - v.w * K * 0.3, gy, gz), tr = pt(vwx + v.w * K * 0.3, gy, gz);
-          if (tl) addGlow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * (tail ? 0.42 : 0.5)), gc);
-          if (tr) addGlow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * (tail ? 0.42 : 0.5)), gc);
+          if (tl) addGlow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * (tail ? 0.42 : 0.5)), gc, tl.z);
+          if (tr) addGlow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * (tail ? 0.42 : 0.5)), gc, tr.z);
         }
       }
     }
 
-    if (NIGHT) {
-      nightDarkness(pxw);
-      for (var g = 0; g < GLOWS.length; g++) glow(GLOWS[g].x, GLOWS[g].y, GLOWS[g].r, GLOWS[g].c);
+    if (DK > 0) nightDarkness(pxw);
+    if (NIGHT) drawGlows();
+  }
+  // The lights over the darkness, far to near, each hidden where a car
+  // nearer to the eye covers it: they are laid on a layer of their own with
+  // the cars' outlines taken out of it as they come (a turn signal, a lamp
+  // or a taillight used to shine through the car in front of it).
+  var glowCv = null, glowCtx = null;
+  function drawGlows() {
+    if (!glowCv) { glowCv = document.createElement("canvas"); glowCtx = glowCv.getContext("2d"); }
+    if (glowCv.width !== cv.width || glowCv.height !== cv.height) { glowCv.width = cv.width; glowCv.height = cv.height; }
+    var c = glowCtx;
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    c.globalCompositeOperation = "source-over";
+    c.clearRect(0, 0, W, H);
+    var ev = GLOWS.map(function (g) { return { d: g.d, g: g }; }).concat(OCC.map(function (o) { return { d: o.d, o: o }; }));
+    ev.sort(function (a, b) { return b.d - a.d; });
+    for (var i = 0; i < ev.length; i++) {
+      var e = ev[i];
+      if (e.o) {
+        c.globalCompositeOperation = "destination-out";
+        c.fillStyle = "#000";
+        c.fillRect(e.o.x0, e.o.y0, e.o.x1 - e.o.x0, e.o.y1 - e.o.y0);
+        c.globalCompositeOperation = "source-over";
+      } else {
+        var g = e.g, rg = c.createRadialGradient(g.x, g.y, 0, g.x, g.y, g.r);
+        rg.addColorStop(0, g.c); rg.addColorStop(1, "rgba(0,0,0,0)");
+        c.fillStyle = rg; c.beginPath(); c.arc(g.x, g.y, g.r, 0, 6.2832); c.fill();
+      }
     }
+    ctx.drawImage(glowCv, 0, 0, W, H);
   }
 
   // ----- loop ---------------------------------------------------------
