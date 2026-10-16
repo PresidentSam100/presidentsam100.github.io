@@ -283,8 +283,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "minesweeper");
   }
 
-  // ---- Jam Jar: a merge shows a ring, still with FX off; with FX on the
-  // expanding ring now draws (it used to go NaN and never appear)
+  // ---- Jam Jar: with FX on a merge's expanding ring draws (it used to go
+  // NaN and never appear); with FX off there's no ring, and no still outline
+  // round the newborn either
   for (const off of [true, false]) {
     const p = await open("jam-jar", off);
     await p.evaluate(() => { __game.reset(); __game.setQueue(0, 0); __game.setAim(270); __game.drop(); });
@@ -294,13 +295,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     const ring = await p.evaluate((off) => new Promise((done) => {
       const t0 = performance.now();
       (function look() {
-        const ps = __game.particles;
-        const hit = off ? ps.find((q) => q.still) : ps.find((q) => q.ring && isFinite(q.x) && isFinite(q.y));
-        if (hit || performance.now() - t0 > 10000) return done(hit ? { ok: true } : { ok: false, n: ps.length, fruits: __game.fruits.length });
+        const ps = __game.particles, merged = __game.fruits.some((f) => f.tier === 1);
+        if (off) { if (merged || performance.now() - t0 > 10000) return done({ ok: merged && ps.length === 0, merged, n: ps.length }); }
+        else {
+          const hit = ps.find((q) => q.ring && isFinite(q.x) && isFinite(q.y));
+          if (hit || performance.now() - t0 > 10000) return done(hit ? { ok: true } : { ok: false, n: ps.length, fruits: __game.fruits.length });
+        }
         requestAnimationFrame(look);
       })();
     }), off);
-    check("jam-jar, FX " + (off ? "off: a merge gets a still ring" : "on: the merge ring draws (finite position)"), ring.ok, ring);
+    check("jam-jar, FX " + (off ? "off: a merge draws no ring or outline" : "on: the merge ring draws (finite position)"), ring.ok, ring);
     await done(p, "jam-jar FX " + (off ? "off" : "on"));
   }
 
