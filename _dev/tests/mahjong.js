@@ -585,6 +585,35 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("mahjong: at window widths from 700 to 1440 px the HUD is on one line clear of the corner buttons, with the whole board on the screen under it", bad.length === 0, bad.map((w) => [w, at[w]]));
   }
 
+  // ---- ...and so is a dead board's, far wider with its message, New deal
+  // and (on the Daily) give up: where it would reach a corner button it goes
+  // under their row (it ran under them from 1100 to 1199 px and from 1330 to
+  // 1600), and the board, the whole deal still on it, takes the height left
+  {
+    const DEAD = ["    nudge: function () { hint(true); },", "    nudge: function () { hint(true); },\n    forceDead: function () { dead = true; hud(); },"];
+    const at = {};
+    for (const w of [390, 820, 1100, 1150, 1199, 1280, 1330, 1366, 1440, 1536, 1600]) {
+      const c = await lib.newContext(browser, w < 641 ? { viewport: { width: w, height: 664 }, hasTouch: true, isMobile: true } : { viewport: { width: w, height: 800 } });
+      const q = await open(c, false, [DEAD]);
+      await q.evaluate(() => { Mahjong.start("daily"); Mahjong.forceDead(); }); await q.waitForTimeout(150);
+      at[w] = await q.evaluate(() => {
+        const r = (e) => e.getBoundingClientRect();
+        const hud = [...document.querySelectorAll("#hudline > span, #hudline button")].filter((e) => e.getClientRects().length && r(e).width > 0).map(r);
+        const corners = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map(r);
+        const hit = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+        const tiles = [...document.querySelectorAll("#board .tile")].map(r);
+        return { bar: !!document.getElementById("hud-stuck").offsetParent && !!document.getElementById("btn-giveup").offsetParent,
+          clear: hud.every((h) => corners.every((k) => !hit(h, k))), onScreen: hud.every((h) => h.left >= 0 && h.right <= innerWidth),
+          under: Math.min(...tiles.map((t) => t.top)) >= Math.max(...hud.map((h) => h.bottom)) - 2,
+          inside: tiles.length === 144 && tiles.every((t) => t.left >= 0 && t.right <= innerWidth && t.top >= 0 && t.bottom <= innerHeight) };
+      });
+      at[w].errs = q.errs.length;
+      await c.close();
+    }
+    const bad = Object.keys(at).filter((w) => !(at[w].bar && at[w].clear && at[w].onScreen && at[w].under && at[w].inside && at[w].errs === 0));
+    check("mahjong: a dead board's HUD, New deal and give up and all, keeps clear of the corner buttons at every width, with the whole board on the screen under it", bad.length === 0, bad.map((w) => [w, at[w]]));
+  }
+
   // ---- on a small phone every layout is on the screen whole, and the menu
   // card with its layout row is too (nothing cut off above or below)
   ctx = await lib.newContext(browser, { viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true });

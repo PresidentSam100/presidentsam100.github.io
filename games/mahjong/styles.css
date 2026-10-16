@@ -59,6 +59,10 @@ body {
    middle of the window is clear of them. */
 @media (min-width: 641px) and (max-width: 1099px) { .hudline { padding: 52px 12px 4px; } }
 @media (min-width: 1200px) and (max-width: 1329px) { .hudline { padding-left: 170px; padding-right: 392px; } }
+/* ...and wherever the HUD as it stands would still reach a corner button (a
+   dead board's message and its New deal, Daily: give up make it far wider),
+   game.js (placeHud) has it under the row too, the board giving up the room */
+.hudline.low { padding: 52px 12px 4px; }
 #hud-time { font-size: 20px; font-weight: 700; min-width: 64px; display: inline-block; }
 #hud-pairs { color: #e8cf96; }
 .hud-btns { display: flex; gap: 8px; }
@@ -262,7 +266,7 @@ kbd {
 }
 
 @media (max-width: 640px) {
-  .hudline { padding: 52px 8px 2px; gap: 10px; font-size: 13px; }
+  .hudline, .hudline.low { padding: 52px 8px 2px; gap: 10px; font-size: 13px; }
   #hud-time { font-size: 17px; }
   .hud-btns button { padding: 5px 8px; font-size: 12px; }
   .hud-btns kbd { display: none; }

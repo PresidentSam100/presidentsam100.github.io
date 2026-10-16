@@ -501,9 +501,31 @@
   }
 
   // ---- board DOM -------------------------------------------------------------------
+  // The HUD stays clear of the corner buttons: styles.css places it for its
+  // usual width, and where it would still reach one (a dead board's message
+  // and buttons make it far wider) it goes under their row (.low). Then the
+  // board takes the height the HUD leaves, read from the HUD as it stands
+  // (it may wrap to two lines or three on a phone), and is laid out again
+  // whenever that changes.
+  var hudH = 0;
+  function placeHud() {
+    var hl = $("hudline");
+    if (hl.hidden) return;
+    hl.classList.remove("low");
+    var corner = [].slice.call(document.querySelectorAll(".nav-back-games, .gs-corner > *")).filter(function (e) { return e.getClientRects().length; })
+      .map(function (e) { return e.getBoundingClientRect(); });
+    var meets = [].some.call(hl.querySelectorAll("#hudline > span, #hudline button"), function (e) {
+      if (!e.getClientRects().length) return false;
+      var b = e.getBoundingClientRect();
+      return corner.some(function (k) { return b.left < k.right && k.left < b.right && b.top < k.bottom && k.top < b.bottom; });
+    });
+    if (meets) hl.classList.add("low");
+  }
   function layout() {
     var vw = window.innerWidth, vh = window.innerHeight;
-    var chromeTop = vw < 1100 ? 96 : 56;      // (the HUD is under the corner buttons' row there: styles.css)
+    placeHud();
+    var chromeTop = $("hudline").hidden ? (vw < 1100 ? 96 : 56) : $("hudline").offsetHeight;
+    hudH = chromeTop;
     var fitW = Math.floor((vw - 30) / 15.6), fitH = Math.floor((vh - chromeTop - 30) / 10.9);
     // a narrow phone: the tiles go under 24 px wide (down to 16) so that the
     // whole turtle stays on the screen; held at 24, it ran off the side below
@@ -760,7 +782,11 @@
     $("hud-pairs").textContent = dead ? "no reshuffle fits: undo a pair, or" : freePairs().length + " pairs open";
     $("hud-stuck").hidden = !dead;
     $("btn-giveup").hidden = mode !== "daily";
+    // (the dead board's bar come or gone: the HUD may move or change height)
+    if (dead !== hudDead) { hudDead = dead; placeHud(); }
+    if (state === "play" && $("hudline").offsetHeight !== hudH) layout();
   }
+  var hudDead = false;
   function win() {
     state = "over";
     chime();
