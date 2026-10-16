@@ -111,5 +111,35 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("poodle-jump: on Game Over, Esc still leaves for the games page", p.leaves === 1, p.leaves);
   await done(p, "game over keys");
 
+  // ---- the propeller turns steadily: grabbed, its blades carry on from
+  // where they stood on the platform; worn, they turn the same small step
+  // each frame of game time (by the wall clock, a fifth of a turn a frame and
+  // more on a late one, they juddered); dropped, they carry on again. The
+  // game's own frames, taken by hand (60 a second).
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  const prop = await p.evaluate(() => {
+    const g = __game, pl = g.player;
+    g.start();
+    const plat = g.platforms.reduce((a, b) => (Math.abs(b.y - pl.y) < Math.abs(a.y - pl.y) ? b : a));
+    const it = new PowerUp(plat, "propeller");
+    plat.powerup = it;
+    it.spin = 1.234;
+    pl.x = it.x; pl.y = it.y; pl.vy = 0;                         // (on it)
+    g.update(1 / 60);
+    const spinOf = () => (typeof pl.propSpin === "number" ? pl.propSpin : NaN);   // (none to read: NaN, and the check fails)
+    const grabbed = { kind: pl.powerup && pl.powerup.kind, at: spinOf(), was: 1.234 };
+    const steps = [];
+    for (let i = 0; i < 90; i++) { const a = spinOf(); g.update(1 / 60); g.render(); steps.push(+(spinOf() - a).toFixed(4)); }
+    const before = spinOf();
+    pl.powerup.timer = 0.00001;
+    g.update(1 / 60); g.update(1 / 60);
+    const gear = g.gears.find((x) => x.kind === "propeller");
+    return { grabbed, steps: [Math.min(...steps), Math.max(...steps)], dropped: gear ? { spin: +gear.spin.toFixed(3), before: +before.toFixed(3) } : null };
+  });
+  check("poodle-jump: a grabbed propeller's blades carry on from where they stood, turn the same small step each frame while worn, and carry on as it falls off",
+    prop.grabbed.kind === "propeller" && Math.abs(prop.grabbed.at - prop.grabbed.was) < 0.2 && prop.steps[0] > 0.1 && prop.steps[1] < 0.2 && prop.steps[1] - prop.steps[0] < 0.01 &&
+      !!prop.dropped && Math.abs(prop.dropped.spin - prop.dropped.before) < 0.5, prop);
+  await done(p, "propeller");
+
   await ctx.close();
 };

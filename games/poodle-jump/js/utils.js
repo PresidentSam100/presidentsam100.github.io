@@ -25,6 +25,11 @@ const CONFIG = {
 
   // Power-ups (constant upward speed for a duration, with invincibility)
   PROPELLER_V: 560, PROPELLER_T: 3.2,
+  PROP_SPIN: 9,         // a propeller's blades, radians a second of game time
+                        // (9 deg a frame at 60 fps: they read as one steady
+                        // turn; at 20 a second, by the wall clock, a two-bladed
+                        // rotor jumped a fifth of a turn a frame, more on a
+                        // late one, and juddered)
   JETPACK_V: 860, JETPACK_T: 4.0,
   SPRINGY_BOUNCES: 5,   // spring-shoes: this many plain-platform bounces, each
                         // launching as high as a spring (CONFIG.SPRING_V)

@@ -428,7 +428,7 @@ class Game {
       gx = p.x + p.w / 2;
       gy = p.y + 4;
     }
-    this.gears.push(new DiscardedGear(kind, gx, gy, p.vx, p.vy));
+    this.gears.push(new DiscardedGear(kind, gx, gy, p.vx, p.vy, kind === "propeller" ? p.propSpin : 0));
   }
 
   // Once the final spring-shoe bounce slows to near its apex, the worn-out shoes
@@ -458,7 +458,7 @@ class Game {
           p.giveSpringyShoes();
           this.particles.burst(it.x + it.w / 2, it.y, "#e0457b", 12, 200);
         } else {
-          p.startPowerUp(it.kind, it.speed, it.duration);
+          p.startPowerUp(it.kind, it.speed, it.duration, it.spin);
           this.particles.burst(it.x + it.w / 2, it.y, it.kind === "jetpack" ? "#ff8c1a" : "#8a5cff", 12, 200);
         }
         it.dead = true;

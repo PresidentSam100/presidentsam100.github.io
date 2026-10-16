@@ -203,7 +203,7 @@ class PowerUp {
     this.y = p.y - this.h;
   }
 
-  update(dt) { if (fxOn()) this.spin += dt * 18; }   // blades held still with Visual FX off
+  update(dt) { if (fxOn()) this.spin += dt * CONFIG.PROP_SPIN; }   // blades held still with Visual FX off
 
   hits(player) {
     return aabb(player.x, player.y, player.w, player.h, this.x, this.y, this.w, this.h);
@@ -226,7 +226,7 @@ class PowerUp {
 // A jetpack/propeller that has fallen off the player: it keeps the player's
 // momentum, then drops under gravity while tumbling. Cosmetic only.
 class DiscardedGear {
-  constructor(kind, x, y, vx, vy) {
+  constructor(kind, x, y, vx, vy, spin) {
     this.kind = kind;
     this.x = x;
     this.y = y;
@@ -234,7 +234,7 @@ class DiscardedGear {
     this.vy = vy;
     this.angle = 0;
     this.angVel = rand(-7, 7); // small tumble
-    this.spin = 0;             // residual blade spin
+    this.spin = spin || 0;     // residual blade spin, from where the blades stood as it came off
     this.dead = false;
   }
 

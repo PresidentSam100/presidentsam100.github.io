@@ -24,6 +24,7 @@ class Player {
     this.vy = 1;            // tiny downward nudge so the first landing triggers
     this.facing = 1;        // -1 left, 1 right (for the eyes)
     this.powerup = null;    // { kind, timer, speed } (jetpack/propeller flight)
+    this.propSpin = 0;      // the worn propeller's blades (radians), turned with game time
     this.springy = 0;       // remaining spring-shoe bounces (0 = not wearing)
     this.springyDropPending = false; // last bounce spent; shoes drop near its apex
     this.grace = 0;         // seconds of immunity remaining after a power-up ends
@@ -60,8 +61,11 @@ class Player {
   // instant the gear drops: you get a beat to steer or shoot clear).
   get shielded() { return this.powerup !== null || this.grace > 0; }
 
-  startPowerUp(kind, speed, duration) {
+  // (spin: where the item's blades stood as it was grabbed, so they turn on
+  // from there instead of jumping)
+  startPowerUp(kind, speed, duration, spin) {
     this.powerup = { kind, timer: duration, speed };
+    this.propSpin = spin || 0;
     Sfx.powerup();
   }
 
@@ -103,6 +107,7 @@ class Player {
     // Vertical: power-up overrides gravity with a steady climb
     if (this.powerup) {
       this.vy = -this.powerup.speed;
+      if (this.powerup.kind === "propeller" && fxOn()) this.propSpin += dt * CONFIG.PROP_SPIN;   // (held still with Visual FX off)
       this.powerup.timer -= dt;
       if (this.powerup.timer <= 0) {
         this.droppedGear = this.powerup.kind; // tell the Game to drop the gear
@@ -359,7 +364,7 @@ class Player {
 
   _renderPowerup(ctx, sy) {
     const cx = this.x + this.w / 2;
-    const spin = fxOn() ? performance.now() * 0.02 : 0;   // blades held still with Visual FX off
+    const spin = this.propSpin;   // (turned in update, with game time; held still with Visual FX off)
     if (this.powerup.kind === "jetpack") {
       // Strap the jetpack to the player's back (opposite the facing side)
       const tankX = this.facing >= 0 ? this.x - 4 : this.x + this.w - 12;
