@@ -14,7 +14,8 @@
 // characters go in and out only the games whose name or description holds
 // every word typed stay, best match first. Enter opens the top one, Esc
 // clears the box (and doesn't ask to reset the scores), and 🎲 picks from
-// what is showing.
+// what is showing: with the box empty, every game in the games folder, each
+// as likely as any other.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   const ctx = await lib.newContext(browser);
@@ -234,4 +235,31 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("games page (search): no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await s.close();
+
+  // ---- 🎲 random game: every game in the games folder has one card, and with
+  // the search box empty each card takes an equal share of the dice (the
+  // random number is set to the middle of each share in turn, and where each
+  // throw would go is caught before the page leaves)
+  {
+    const fs = require("fs"), path = require("path"), root = path.join(lib.ROOT, "games");
+    const folders = fs.readdirSync(root, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && fs.existsSync(path.join(root, d.name, "index.html"))).map((d) => d.name + "/").sort();
+    const c = await lib.newContext(browser);
+    const q = await open(c);
+    const dice = await q.evaluate((n) => {
+      const went = [];
+      navigation.addEventListener("navigate", (e) => { if (e.cancelable) { e.preventDefault(); went.push(new URL(e.destination.url).pathname.replace(/^.*\/games\//, "")); } });
+      const real = Math.random;
+      for (let k = 0; k < n; k++) { Math.random = () => (k + 0.5) / n; document.getElementById("random-game").click(); }
+      Math.random = real;
+      return { went, cards: [...document.querySelectorAll(".games-grid .game-card")].map((a) => a.getAttribute("href").replace(/^\.\//, "")) };
+    }, folders.length);
+    const cards = dice.cards.slice().sort(), went = dice.went.slice().sort();
+    check("games page: 🎲 random game draws from every game, one card each, each as likely as the next",
+      folders.length >= 40 && cards.join() === folders.join() && went.join() === folders.join(),
+      { folders: folders.length, cards: cards.length, missing: folders.filter((f) => !cards.includes(f)), extra: cards.filter((f) => !folders.includes(f)), went: went.length, twice: went.filter((f, i) => went[i - 1] === f), never: folders.filter((f) => !went.includes(f)) });
+    check("games page (dice): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
 };
