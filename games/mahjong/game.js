@@ -120,6 +120,42 @@
     P.push([6, 7, 3], [22, 7, 3]);                                        // the two tops
     return P;
   }
+  // four wings out from a long body, a spot on each wing and the body
+  // rising to a ridge
+  function butterflyPositions() {
+    var P = [];
+    rect(P, 0, 5, 0, 2, 0); rect(P, 0, 5, 5, 7, 0); rect(P, 9, 14, 0, 2, 0); rect(P, 9, 14, 5, 7, 0);   // the wings
+    rect(P, 6, 8, 0, 7, 0);                                                                            // the body
+    rect(P, 1, 4, 0, 1, 1); rect(P, 1, 4, 6, 7, 1); rect(P, 10, 13, 0, 1, 1); rect(P, 10, 13, 6, 7, 1);
+    rect(P, 7, 7, 1, 6, 1); rect(P, 7, 7, 2, 5, 2); rect(P, 7, 7, 3, 4, 3);
+    P.push([5, 1, 2], [5, 13, 2], [23, 1, 2], [23, 13, 2]);                                           // the spots
+    return P;
+  }
+  // a broad band with three points along its top, jewels set along it
+  function crownPositions() {
+    var P = [];
+    rect(P, 0, 14, 3, 7, 0);                                                    // the band
+    rect(P, 0, 1, 0, 2, 0); rect(P, 6, 8, 0, 2, 0); rect(P, 13, 14, 0, 2, 0);   // the points
+    rect(P, 1, 13, 4, 6, 1); rect(P, 3, 11, 5, 5, 2);                           // the jewels
+    return P;
+  }
+  // a round body rising to a point, and four legs a side out to the edges,
+  // each a stagger of tiles (a half tile up or down at each step), the three
+  // nearest the body raised a layer
+  function spiderPositions() {
+    var P = [];
+    rect(P, 5, 9, 1, 6, 0);                                               // the body
+    var legs = [[3, 2, 1, 0, 0], [5, 5, 4, 3, 3], [9, 9, 10, 11, 11], [11, 12, 13, 14, 14]];
+    legs.forEach(function (ys) {
+      for (var i = 0; i < 5; i++) {
+        var x = 8 - i * 2;
+        P.push([x, ys[i], 0], [28 - x, ys[i], 0]);
+        if (i < 3) P.push([x, ys[i], 1], [28 - x, ys[i], 1]);
+      }
+    });
+    rect(P, 5, 9, 1, 6, 1); rect(P, 6, 8, 2, 5, 2); rect(P, 6, 8, 3, 4, 3); rect(P, 7, 7, 3, 4, 4);
+    return P;
+  }
   // (the turtle first: the default. Its fastest clear keeps the name it had
   // when it was the only layout.)
   var LAYOUTS = [
@@ -127,23 +163,32 @@
     { id: "fortress", name: "Fortress", make: fortressPositions, best: "mahjong_best_fortress" },
     { id: "pyramid", name: "Pyramid", make: pyramidPositions, best: "mahjong_best_pyramid" },
     { id: "cross", name: "Cross", make: crossPositions, best: "mahjong_best_cross" },
-    { id: "peaks", name: "Twin Peaks", make: peaksPositions, best: "mahjong_best_peaks" }
+    { id: "peaks", name: "Twin Peaks", make: peaksPositions, best: "mahjong_best_peaks" },
+    { id: "butterfly", name: "Butterfly", make: butterflyPositions, best: "mahjong_best_butterfly" },
+    { id: "crown", name: "Crown", make: crownPositions, best: "mahjong_best_crown" },
+    { id: "spider", name: "Spider", make: spiderPositions, best: "mahjong_best_spider" }
   ];
   function layoutBy(id) {
     for (var i = 0; i < LAYOUTS.length; i++) if (LAYOUTS[i].id === id) return LAYOUTS[i];
     return null;
   }
-  // The Daily's layout on day n: one of the five at random, the same for
-  // everyone, and never the same two days running. The days go in rounds of
-  // five, each round all five in an order of its own (seeded by the round);
-  // a round that would open with the layout the last one ended on swaps its
-  // first two. (The swap never moves a round's last, so this needs no more
-  // than the round before.)
+  // The Daily's layout on day n: any of the layouts at random, the same for
+  // everyone, each as often as any other, and never the same two days
+  // running. The days go in rounds, each round every layout once in an order
+  // of its own (seeded by the round); a round that would open with the layout
+  // the day before had swaps its first two. (The swap never moves a round's
+  // last, so this needs no more than the round before.) A layout added to
+  // LAYOUTS joins the rounds by itself. (Until day DAILY_ALL the rounds were
+  // of the first five, all there were then, and those days stay as they were.)
+  var DAILY_ALL = 21;
   function dailyLayout(n) {
-    function round(k) { return shuffle(LAYOUTS.slice(), mulberry(((k * 2246822519) >>> 0) ^ 0x51D7)); }
-    var k = Math.floor((n - 1) / 5), r = round(k);
-    if (r[0] === round(k - 1)[4]) { var t = r[0]; r[0] = r[1]; r[1] = t; }
-    return r[(n - 1) - k * 5];
+    var early = n < DAILY_ALL, pool = early ? LAYOUTS.slice(0, 5) : LAYOUTS, L = pool.length;
+    var d = early ? n - 1 : n - DAILY_ALL;
+    function round(k) { return shuffle(pool.slice(), mulberry(((k * 2246822519) >>> 0) ^ 0x51D7)); }
+    var k = Math.floor(d / L), r = round(k);
+    var before = !early && k === 0 ? dailyLayout(DAILY_ALL - 1) : round(k - 1)[L - 1];
+    if (r[0] === before) { var t = r[0]; r[0] = r[1]; r[1] = t; }
+    return r[d - k * L];
   }
   // the fastest clear, kept for each layout. cleared(): whether a layout has
   // one on record, asked of the store and not of the time (a desk cleared at

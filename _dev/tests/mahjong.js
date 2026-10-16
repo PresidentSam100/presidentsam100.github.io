@@ -4,11 +4,12 @@
 // paused; a reshuffle drops the old selection, and one that can't re-deal
 // costs nothing and points at Undo, and so does the no-pairs nudge when no
 // reshuffle can fit, which also offers New deal (and on the Daily, giving
-// up), asking first; the keycaps hide on a phone. Five layouts, each a valid
+// up), asking first; the keycaps hide on a phone. Eight layouts, each a valid
 // board of 144 tiles, picked on the menu with the arrows; each deals the full
 // set, can be cleared, fits the screen and keeps its own fastest clear; the
-// Daily's is the day's own, at random, all five in every five days and never
-// the same two days running; the games page's reset clears every layout's.
+// Daily's is the day's own, at random, every layout once in each round of
+// days and never the same two days running; the games page's reset clears
+// every layout's.
 // Animations (an option on the menu, A): a deal's tiles drop in from above, a
 // matched pair comes together and is gone, a shuffle's tiles travel from where
 // their faces lay; with Visual FX off the three are told by fading; a press, a
@@ -61,7 +62,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("1");
   await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   const started = await p.evaluate(() => Mahjong.state());
-  const left = started === "play" ? await clearDesk(p) : -1;
+  // (cleared by taking any free pair, shuffling when stuck, which can end on a
+  // board no shuffle fits: then a fresh Classic deal is tried)
+  let left = started === "play" ? await clearDesk(p) : -1;
+  for (let n = 0; n < 3 && left > 0; n++) { await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(150); left = await clearDesk(p); }
   await p.waitForTimeout(100);
   const rec = await p.evaluate(() => ({ state: Mahjong.state(), daily: Mahjong.daily().done, classic: localStorage.getItem("mahjong_best_classic") }));
   check("mahjong: after clicking Daily then pressing 1, Enter deals a Classic turtle, recorded as Classic and not as today's Daily",
@@ -188,8 +192,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     return { id: l.id, name: l.name, best: l.best, n: P.length, bad: bad.slice(0, 4) };
   }));
-  check("mahjong: five layouts (the turtle first, its fastest clear under the old name), each 144 tiles inside the turtle's footprint, none overlapping, every raised tile resting wholly on the layer under it",
-    lays.length === 5 && lays[0].id === "turtle" && lays[0].best === "mahjong_best_classic" && new Set(lays.map((l) => l.id)).size === 5 && new Set(lays.map((l) => l.best)).size === 5 &&
+  const NAMES = ["Turtle", "Fortress", "Pyramid", "Cross", "Twin Peaks", "Butterfly", "Crown", "Spider"], N = NAMES.length;
+  check("mahjong: eight layouts (the turtle first, its fastest clear under the old name), each 144 tiles inside the turtle's footprint, none overlapping, every raised tile resting wholly on the layer under it",
+    lays.map((l) => l.name).join() === NAMES.join() && lays[0].id === "turtle" && lays[0].best === "mahjong_best_classic" && new Set(lays.map((l) => l.id)).size === N && new Set(lays.map((l) => l.best)).size === N &&
     lays.every((l) => l.n === 144 && l.bad.length === 0), lays);
 
   // ---- the menu's arrows pick the layout (the arrow keys, shown on them, round
@@ -202,19 +207,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     return { name: t("lay-name"), note: t("lay-note"), play: t("play-what"), bests: t("bests"), stored: localStorage.getItem("mahjong_layout"), ink, sum,
       caps: [cap("lay-prev"), cap("lay-next")], off: [...document.querySelectorAll("#pick-layout button")].map((b) => b.disabled) };
   });
-  const pick = async (name) => { for (let i = 0; i < 6 && (await menuNow()).name !== name; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(40); } };
+  const pick = async (name) => { for (let i = 0; i <= N && (await menuNow()).name !== name; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(40); } };
   const seen = [await menuNow()];
-  for (let i = 0; i < 5; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60); seen.push(await menuNow()); }
+  for (let i = 0; i < N; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60); seen.push(await menuNow()); }
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(60);
   const back = await menuNow();
   if (await p.$("#lay-next")) await p.click("#lay-next");
   await p.waitForTimeout(60);
   const clicked = await menuNow();
   check("mahjong: on the menu the right and left arrow keys (shown on the two arrows) go through the layouts, round and round, and a click on an arrow does too; the pick is remembered",
-    seen.map((s) => s.name).join() === "Turtle,Fortress,Pyramid,Cross,Twin Peaks,Turtle" && seen[0].caps.join() === "←,→" && seen[1].stored === "fortress" &&
-    back.name === "Twin Peaks" && clicked.name === "Turtle" && clicked.stored === "turtle", { names: seen.map((s) => s.name), caps: seen[0].caps, back: back.name, clicked: [clicked.name, clicked.stored] });
-  check("mahjong: each layout shows its own picture, its name on the deal button, and its place among the five",
-    new Set(seen.slice(0, 5).map((s) => s.sum)).size === 5 && seen.slice(0, 5).every((s, i) => s.ink > 300 && s.play === "Deal the " + s.name.toLowerCase() && s.note === "layout " + (i + 1) + " of 5"),
+    seen.map((s) => s.name).join() === NAMES.concat("Turtle").join() && seen[0].caps.join() === "←,→" && seen[1].stored === "fortress" &&
+    back.name === NAMES[N - 1] && clicked.name === "Turtle" && clicked.stored === "turtle", { names: seen.map((s) => s.name), caps: seen[0].caps, back: back.name, clicked: [clicked.name, clicked.stored] });
+  check("mahjong: each layout shows its own picture, its name on the deal button, and its place among the eight",
+    new Set(seen.slice(0, N).map((s) => s.sum)).size === N && seen.slice(0, N).every((s, i) => s.ink > 300 && s.play === "Deal the " + s.name.toLowerCase() && s.note === "layout " + (i + 1) + " of " + N),
     seen.map((s) => [s.name, s.ink, s.sum, s.play, s.note]));
 
   // ---- each layout deals its own 144 tiles (the full set, all on the screen),
@@ -249,19 +254,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   const afterAll = [await menuNow()];
   await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
   afterAll.push(await menuNow());
-  check("mahjong: the menu shows the picked layout's own fastest clear", /^fastest twin peaks clear: \d+:\d\d$/.test(afterAll[0].bests) && /^fastest turtle clear: \d+:\d\d$/.test(afterAll[1].bests), afterAll.map((s) => s.bests));
+  check("mahjong: the menu shows the picked layout's own fastest clear", new RegExp("^fastest " + NAMES[N - 1].toLowerCase() + " clear: \\d+:\\d\\d$").test(afterAll[0].bests) && /^fastest turtle clear: \d+:\d\d$/.test(afterAll[1].bests), afterAll.map((s) => s.bests));
 
-  // ---- the Daily's layout is the day's own: one of the five at random, the
-  // same for everyone, every one of them in each round of five days, never the
-  // same two days running
-  const days = await p.evaluate(() => { const a = [], b = []; for (let n = -9; n <= 400; n++) { a.push(Mahjong.dailyOf(n)); b.push(Mahjong.dailyOf(n)); } return { a, same: a.join() === b.join() }; });
-  const rounds = [], runs = [];
-  for (let i = 10; i + 5 <= days.a.length; i += 5) rounds.push(new Set(days.a.slice(i, i + 5)).size);   // (index 10 is day 1)
+  // ---- the Daily's layout is the day's own: any layout at random, the same
+  // for everyone, every one of them once in each round of days (so each as
+  // often as any other: a layout added joins the rounds), never the same two
+  // days running. Days 1 to 20 had the first five, all there were then, and
+  // keep them; from day 21 the rounds are of all eight.
+  const days = await p.evaluate(() => { const a = [], b = []; for (let n = -9; n <= 600; n++) { a.push(Mahjong.dailyOf(n)); b.push(Mahjong.dailyOf(n)); } return { a, same: a.join() === b.join() }; });
+  const day = (n) => days.a[n + 9];
+  const early = [], rounds = [], runs = [];
+  for (let n = 1; n + 5 <= 21; n += 5) early.push(new Set(days.a.slice(n + 9, n + 14)).size);
+  for (let n = 21; n + N <= 601; n += N) rounds.push(new Set(days.a.slice(n + 9, n + 9 + N)).size);
   for (let i = 1; i < days.a.length; i++) if (days.a[i] === days.a[i - 1]) runs.push(i - 9);
-  const firsts = new Set(rounds.map((r, k) => days.a[10 + k * 5]));
-  check("mahjong: the Daily's layout is the day's own: the same each time it is asked, all five in every round of five days, never the same two days running, and the rounds in orders of their own",
-    days.same && rounds.length >= 70 && rounds.every((r) => r === 5) && runs.length === 0 && firsts.size === 5 && new Set(days.a).size === 5,
-    { same: days.same, notFive: rounds.filter((r) => r !== 5).length, runs: runs.slice(0, 5), firsts: [...firsts], first10: days.a.slice(10, 20) });
+  const firsts = new Set(rounds.map((r, k) => day(21 + k * N)));
+  const count = {};
+  days.a.slice(21 + 9).forEach((id) => { count[id] = (count[id] || 0) + 1; });
+  check("mahjong: the Daily's layout is the day's own: the same each time it is asked, from day 21 every layout once in each round of eight days (days 1 to 20 kept their rounds of the first five), never the same two days running, and the rounds in orders of their own",
+    days.same && early.every((r) => r === 5) && rounds.length >= 70 && rounds.every((r) => r === N) && runs.length === 0 && firsts.size >= 6 && Object.keys(count).length === N &&
+      Math.max(...Object.values(count)) - Math.min(...Object.values(count)) <= 1 && day(20) === "turtle",
+    { same: days.same, early, notAll: rounds.filter((r) => r !== N).length, runs: runs.slice(0, 5), firsts: [...firsts], count, from21: days.a.slice(30, 30 + N) });
   // ...on the menu: today's is shown with the arrows off, whatever is picked
   // for Classic, which is still picked afterwards; Enter deals it
   await pick("Fortress");
