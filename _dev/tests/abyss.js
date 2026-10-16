@@ -113,4 +113,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await ctx.close();
   }
+
+  // ---- in the middle, top to bottom: each mode's keycap in its row and
+  // Dive's beside the word (they sat on the text's foot, three and five
+  // pixels low), each button's keycap on the pause card (the keycap set the
+  // line, a pixel and a half low), and the score box's figures (on one
+  // baseline the small ones hung low)
+  {
+    const ctx = await lib.newContext(browser);
+    const q = await lib.open(ctx, base, "games/abyss/", { before: (pg) => lib.injectScript(pg, "games/abyss/game.js", [HOOK]) });
+    const off = (pairs) => q.evaluate((pairs) => pairs.map(([inner, outer]) => {
+      return [...document.querySelectorAll(inner)].filter((e) => e.getClientRects().length).map((e) => {
+        const r = e.getBoundingClientRect(), b = e.closest(outer).getBoundingClientRect();
+        return +(((r.top + r.bottom) - (b.top + b.bottom)) / 2).toFixed(2);
+      });
+    }).flat(), pairs);
+    const menu = await off([["#menu .seg button kbd", "button"], ["#menu .playbtn kbd", "button"]]);
+    await q.evaluate(() => Abyss.start("descent")); await q.waitForTimeout(300);
+    const hud = await off([["#hud > span", "#hud"]]);
+    await q.keyboard.press("p"); await q.waitForTimeout(300);
+    const pause = await off([[".gs-pause:not(.gs-dialog) .gs-pause-card button kbd", "button"]]);
+    const mid = (a, n, tol) => a.length === n && a.every((d) => Math.abs(d) <= tol);
+    check("abyss: each mode's keycap sits in the middle of its row and Dive's beside the word, top to bottom", mid(menu, 4, 1), menu);
+    check("abyss: on the pause card each button's keycap sits in the middle of it, top to bottom", mid(pause, 3, 1), pause);
+    check("abyss: the score and its two figures sit in the middle of their box, top to bottom", mid(hud, 3, 1.5), hud);
+    check("abyss (centring): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await ctx.close();
+  }
 };

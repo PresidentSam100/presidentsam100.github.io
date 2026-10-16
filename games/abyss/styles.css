@@ -38,7 +38,11 @@ body {
 /* ---- HUD: a sonar readout strip -------------------------------------- */
 .hud {
   position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
-  display: flex; gap: 22px; align-items: baseline;
+  /* the score and the two small figures each in the middle of the box, top
+     to bottom (on one baseline the small ones hung low and the score rode
+     high); Courier New sets its figures high in their line, so each is
+     lowered that much */
+  display: flex; gap: 22px; align-items: center;
   font-family: "Courier New", monospace;
   background: rgba(4, 16, 28, 0.75);
   border: 1px solid var(--glow-dim); border-radius: 8px;
@@ -46,6 +50,7 @@ body {
   pointer-events: none;
   text-shadow: 0 0 8px rgba(89, 210, 245, 0.5);
 }
+.hud > span { position: relative; top: 0.05em; }
 .hud #hud-score { font-size: 22px; font-weight: 700; color: var(--glow); }
 .hud #hud-lines { font-size: 14px; color: var(--ink); }
 .hud #hud-depth { font-size: 14px; color: var(--muted); }
@@ -103,6 +108,9 @@ body {
 /* the sweep is Visual FX on only; with it off the help names the wall marks */
 html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
 .card .keys { font-size: 12.5px; line-height: 2; color: var(--muted); margin-bottom: 12px; }
+/* (in a line of text Courier New's letters ride half a pixel high in their
+   caps: the padding gives that much more at the top, the cap the same size) */
+.card .keys kbd { padding: 1.5px 6px 0.5px; }
 
 kbd {
   font-family: "Courier New", monospace; font-size: 11px;
@@ -115,9 +123,14 @@ kbd {
   font-family: inherit; font-size: 16px; text-align: left; cursor: pointer;
   color: var(--ink); background: rgba(255, 255, 255, 0.03);
   border: 1px solid #1e3d54; border-radius: 9px; padding: 9px 13px;
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  /* the name, the note and its keycap each in the middle, top to bottom (on
+     the text's baseline, the keycap hung three pixels low) */
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
-.seg button small { font-size: 12.5px; color: var(--muted); text-align: right; }
+.seg button small { font-size: 12.5px; color: var(--muted); text-align: right; display: inline-flex; align-items: center; gap: 6px; }
+/* (a keycap on a button stands alone in its wrapper, which is then only as
+   tall as the keycap: as a line of text it was taller, the cap on its foot) */
+.seg button .gs-keys kbd, .playbtn .gs-keys kbd { display: block; }
 .seg button.on { border-color: var(--glow); background: rgba(89, 210, 245, 0.08); }
 .seg button.on b { color: var(--glow); }
 
@@ -127,10 +140,14 @@ kbd {
   color: #04101c; background: linear-gradient(170deg, #a5e8fa, var(--glow) 60%, #2fa3c9);
   border: 0; border-radius: 10px; padding: 12px;
   box-shadow: 0 0 22px rgba(89, 210, 245, 0.4);
+  /* Dive and its keycap side by side, each in the middle (on one line of
+     text the small keycap sat on the big word's baseline, five pixels low) */
+  display: flex; align-items: center; justify-content: center; gap: 10px;
 }
 .playbtn:hover { filter: brightness(1.08); }
 .playbtn:active { transform: translateY(2px); }
 .playbtn kbd { background: rgba(4, 16, 28, 0.25); color: #04101c; border-color: transparent; }
+.playbtn b { position: relative; top: -1px; }   /* (the word's bold letters sit a pixel low in their line: lifted, the keycap left be) */
 
 .bests { margin-top: 12px; font-size: 13px; color: var(--muted); min-height: 17px; text-align: center; font-family: "Courier New", monospace; }
 
