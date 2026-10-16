@@ -51,10 +51,16 @@
         font-size: 0.95rem;
       }
 
+      /* every row as tall as the tallest card, so all the cards are one size */
       .games-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        grid-auto-rows: 1fr;
         gap: 1rem;
+      }
+
+      .game-card[hidden] {
+        display: none;
       }
 
       .game-card {
@@ -88,12 +94,11 @@
         font-size: 1.05rem;
       }
 
-      /* Descriptions are capped at two lines: write them short (~70 chars). */
+      /* Each description fills exactly two lines on a laptop's card (196 px of
+         text, four to a row), in Inter and in the fallback face alike, and up
+         to four on a phone's: the same words everywhere, never cut off.
+         Write a new game's to fit (hub.js measures them all). */
       .game-card .desc {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
         font-size: 0.85rem;
         color: #999;
         font-weight: 400;
@@ -233,8 +238,95 @@
         background: #1a1111;
       }
 
+      /* the search box: a game by its name or its description, as you type */
+      .search-row {
+        position: relative;
+        max-width: 420px;
+        margin-top: 1rem;
+        color: #999;
+      }
+
+      #game-search {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 0.6rem 2.6rem 0.6rem 0.9rem;
+        background: #111;
+        color: #fff;
+        border: 1px solid #222;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 1rem;   /* (16 px: a phone doesn't zoom in on it) */
+        transition: border-color 0.18s ease;
+      }
+
+      #game-search::placeholder {
+        color: #777;
+      }
+
+      #game-search:focus {
+        outline: none;
+        border-color: #3c6dec;
+      }
+
+      .search-row kbd {
+        position: absolute;
+        top: 50%;
+        right: 0.75rem;
+        transform: translateY(-50%);
+        pointer-events: none;
+      }
+
+      /* (the key is for getting into the box: not once there, or typed in) */
+      #game-search:focus + kbd,
+      #game-search:not(:placeholder-shown) + kbd {
+        display: none;
+      }
+
+      #no-match {
+        margin: 0 0 1rem;
+        color: #999;
+        font-size: 0.95rem;
+      }
+
+      /* Phones: two cards to a row, a little less padding round them */
+      @media (max-width: 520px) {
+        .games-wrapper {
+          padding-left: 1rem;
+          padding-right: 1rem;
+        }
+
+        .games-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.75rem;
+        }
+
+        .game-card {
+          padding: 0.85rem;
+        }
+
+        .game-card .icon {
+          font-size: 1.9rem;
+        }
+
+        /* (so the longest word, Minesweeper, fits the narrowest card) */
+        .game-card .name {
+          font-size: 1rem;
+        }
+
+        .search-row {
+          max-width: none;
+        }
+      }
+
+      @media (max-width: 360px) {
+        .game-card {
+          padding: 0.75rem;
+        }
+      }
+
       /* the keys that press the two buttons and answer the box, on them */
       .reset-row kbd,
+      .search-row kbd,
       #reset-dialog kbd {
         display: inline-block;
         box-sizing: border-box;
@@ -267,6 +359,7 @@
       /* touch-only devices have no keyboard to press them on */
       @media (hover: none) {
         .reset-row kbd,
+        .search-row kbd,
         #reset-dialog kbd,
         #reset-dialog .anykey {
           display: none;
@@ -303,6 +396,11 @@
           <button id="reset-scores" type="button" aria-keyshortcuts="Escape">🗑️ reset all high scores <kbd>Esc</kbd></button>
           <span id="reset-msg" role="status" aria-live="polite"></span>
         </div>
+        <div class="search-row">
+          <input id="game-search" type="search" placeholder="search games" autocomplete="off" spellcheck="false" enterkeyhint="go"
+            aria-label="Search the games by name or description" aria-keyshortcuts="/" aria-controls="games-grid" />
+          <kbd>/</kbd>
+        </div>
         <dialog id="reset-dialog" aria-labelledby="reset-dialog-title">
           <div class="dialog-card">
             <h2 id="reset-dialog-title">Reset all saved high scores?</h2>
@@ -318,338 +416,340 @@
         </dialog>
       </div>
 
-      <div class="games-grid">
+      <p id="no-match" role="status" aria-live="polite" hidden></p>
+
+      <div class="games-grid" id="games-grid">
         <a class="game-card" href="./neon-pinball/">
           <span class="icon">🪩</span>
           <span class="name">Neon Pinball <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">BETA</sup></span>
-          <span class="desc">skill shots, loops &amp; multiball jackpots</span>
+          <span class="desc">three neon tables: skill shots, combos &amp; multiball</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./chess/">
           <span class="icon">♟️</span>
           <span class="name">Chess <sup style="font-size:.5em;font-weight:800;letter-spacing:1px;color:#ffd23f;vertical-align:super;">BETA</sup></span>
-          <span class="desc">2-player classic, hex &amp; 4-player modes</span>
+          <span class="desc">vs a friend or the CPU, plus 3 &amp; 4-player boards</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./minesweeper/">
           <span class="icon">💣</span>
           <span class="name">Minesweeper</span>
-          <span class="desc">classic, daily &amp; endless minefields</span>
+          <span class="desc">classic, daily or endless minefields on a 90s PC</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./slither/">
           <span class="icon">🐍</span>
           <span class="name">Slither</span>
-          <span class="desc">classic, 2-player, labyrinth &amp; maze chase</span>
+          <span class="desc">classic &amp; 2-player snake, plus a labyrinth campaign</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./crazy-ohio/">
           <span class="icon">🎵</span>
           <span class="name">Crazy Ohio</span>
-          <span class="desc">4-key rhythm game on F G H J</span>
+          <span class="desc">4-key rhythm on F G H J: score attack or precision</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./yi/">
           <span class="icon">🃏</span>
           <span class="name">Yi</span>
-          <span class="desc">match color &amp; number to outplay the CPU</span>
+          <span class="desc">match color or number, call YI! vs up to 9 CPUs</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./logicgate/">
           <span class="icon">💡</span>
           <span class="name">LogicGate</span>
-          <span class="desc">wire up logic gates to light the bulb</span>
+          <span class="desc">drop logic gates in the slots to light the bulb</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./hash/">
           <span class="icon">🔷</span>
           <span class="name">Hash</span>
-          <span class="desc">spot trios: all same or all different</span>
+          <span class="desc">trios all same or all different, plus Set-Chain &amp; UltraSet</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./sudoku/">
           <span class="icon">🧩</span>
           <span class="name">Sudoku</span>
-          <span class="desc">easy to expert, with notes, hints &amp; undo</span>
+          <span class="desc">easy to expert, with pencil notes, hints &amp; undo</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./darkroom/">
           <span class="icon">📷</span>
           <span class="name">Darkroom</span>
-          <span class="desc">nonograms: develop the photo from clues</span>
+          <span class="desc">nonograms: solve the clues to develop the photo</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./24/">
           <span class="icon">📱</span>
           <span class="name">24</span>
-          <span class="desc">make 24 from four cards, with a daily puzzle</span>
+          <span class="desc">make 24 from four cards: time attack, hard &amp; daily</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./lights-out/">
           <span class="icon">🎬</span>
           <span class="name">Lights Out</span>
-          <span class="desc">every click flips five bulbs: put them all out</span>
+          <span class="desc">each press flips five bulbs: put every one out</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./steamfitter/">
           <span class="icon">🚰</span>
           <span class="name">Steamfitter</span>
-          <span class="desc">rotate the pipes, or race the water</span>
+          <span class="desc">turn the pipes, or lay them fast ahead of the water</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./corner-pocket/">
           <span class="icon">🎱</span>
           <span class="name">Corner Pocket</span>
-          <span class="desc">8-ball pool vs the CPU or a friend</span>
+          <span class="desc">8-ball pool with spin, vs the CPU or a friend</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./passport/">
           <span class="icon">🛂</span>
           <span class="name">Passport</span>
-          <span class="desc">the flag quiz: name it, collect the stamp</span>
+          <span class="desc">name the flag or its capital to earn the stamp</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./departures/">
           <span class="icon">🛫</span>
           <span class="name">Departures</span>
-          <span class="desc">type every country before final boarding</span>
+          <span class="desc">type every country or capital before final call</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./lanterns/">
           <span class="icon">🏮</span>
           <span class="name">Lanterns</span>
-          <span class="desc">type the pinyin, light the lantern</span>
+          <span class="desc">type the pinyin to light each lantern, tones too</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./klondike/">
           <span class="icon">⛏️</span>
           <span class="name">Klondike</span>
-          <span class="desc">solitaire at a Yukon camp, with a daily claim</span>
+          <span class="desc">solitaire at a Yukon camp, draw 1 or 3, daily claim</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./dead-end/">
           <span class="icon">🧟</span>
           <span class="name">Dead End</span>
-          <span class="desc">a maze chase with torches, planks and the dead</span>
+          <span class="desc">grab every tin in the maze while the dead give chase</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./jackblack/">
           <span class="icon">🐙</span>
           <span class="name">JackBlack</span>
-          <span class="desc">blackjack on the sea floor, dealt by an octopus</span>
+          <span class="desc">blackjack in a sunken card room, dealt by an octopus</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./mahjong/">
           <span class="icon">🀄</span>
           <span class="name">Mahjong</span>
-          <span class="desc">clear the turtle, free pair by pair</span>
+          <span class="desc">clear 144 tiles pair by pair: five layouts &amp; a daily</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./sunset-slice/">
           <span class="icon">🌅</span>
           <span class="name">Sunset Slice</span>
-          <span class="desc">slice what the wind throws, never the bombs</span>
+          <span class="desc">slice what the sunset wind throws, never the bombs</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./fish-a-fish/">
           <span class="icon">🎣</span>
           <span class="name">Fish-A-Fish</span>
-          <span class="desc">strike a key when its bobber plunges</span>
+          <span class="desc">strike a bobber's key the moment it plunges</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./science-fair/">
           <span class="icon">🪐</span>
           <span class="name">Science Fair</span>
-          <span class="desc">repeat the planets’ growing tune</span>
+          <span class="desc">repeat the planets’ tune as it grows note by note</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./tall-order/">
           <span class="icon">🍰</span>
           <span class="name">Tall Order</span>
-          <span class="desc">stack cake tiers: the overhang gets trimmed</span>
+          <span class="desc">stack sliding cake tiers: overhangs get trimmed</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./abyss/">
           <span class="icon">🦑</span>
           <span class="name">Abyss</span>
-          <span class="desc">tetrominoes sink into the glowing deep</span>
+          <span class="desc">falling blocks in the deep: descent, sprint &amp; krill</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./meteor-menace/">
           <span class="icon">🚀</span>
           <span class="name">Meteor Menace!</span>
-          <span class="desc">blast the rocks in a pulp sci-fi comic</span>
+          <span class="desc">blast rocks &amp; saucers in a pulp sci-fi comic</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./jam-jar/">
           <span class="icon">🍉</span>
           <span class="name">Jam Jar</span>
-          <span class="desc">drop fruit, merge pairs, fill the jar</span>
+          <span class="desc">drop fruit, merge pairs, don't let the jar overflow</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./spacer/">
           <span class="icon">👾</span>
           <span class="name">Spacer</span>
-          <span class="desc">classic space shooter: blast the swarm</span>
+          <span class="desc">blast the alien swarm across 255 arcade stages</span>
           <span class="play">play →</span>
         </a>
         <a class="game-card" href="./demolition-row/">
           <span class="icon">🧱</span>
           <span class="name">Demolition Row</span>
-          <span class="desc">connect 4+ blocks and chain cascades</span>
+          <span class="desc">connect 4+ blocks &amp; chain cascades, solo or in VS</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./salvo/">
           <span class="icon">🚢</span>
           <span class="name">Salvo</span>
-          <span class="desc">place your fleet, sink the CPU's fleet, 3 AI levels</span>
+          <span class="desc">place your fleet &amp; sink the CPU's, at 3 levels</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./flappy-world/">
           <span class="icon">🐤</span>
           <span class="name">Flappy World</span>
-          <span class="desc">tap to flap through the pipes</span>
+          <span class="desc">tap to flap through the pipes of a Mario world</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./poodle-jump/">
           <span class="icon">🐩</span>
           <span class="name">Poodle Jump</span>
-          <span class="desc">bounce ever higher up the platforms</span>
+          <span class="desc">bounce ever higher, past monsters &amp; black holes</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./road-bird/">
           <span class="icon">🐔</span>
           <span class="name">Road Bird</span>
-          <span class="desc">cross the road, dodge the traffic</span>
+          <span class="desc">hop across roads, rails &amp; rivers, dodging traffic</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./quick-minute/">
           <span class="icon">🏎️</span>
           <span class="name">Quick Minute</span>
-          <span class="desc">3D highway dodger, day &amp; night modes</span>
+          <span class="desc">dodge 3D highway traffic by day, night or both</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./tile-maze/">
           <span class="icon">🎨</span>
           <span class="name">Tile Maze</span>
-          <span class="desc">steer a beach ball over the pool's tiles</span>
+          <span class="desc">roll a beach ball over the pool's colored tiles</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./typetwo/">
           <span class="icon">🔮</span>
           <span class="name">TypeTwo</span>
-          <span class="desc">type spirits' true names to banish them</span>
+          <span class="desc">type each spirit's true name to banish it</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./metazac/">
           <span class="icon">🎈</span>
           <span class="name">Metazac</span>
-          <span class="desc">zetamac × bloons: pop balloons with math</span>
+          <span class="desc">pop balloons by typing the answers to their sums</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./speedle/">
           <span class="icon">🔤</span>
           <span class="name">Speedle</span>
-          <span class="desc">speed wordle: survive the clock, or race to 10</span>
+          <span class="desc">wordle vs the clock: sprint, or race to 10 words</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./2048/">
           <span class="icon">🔢</span>
           <span class="name">2048</span>
-          <span class="desc">slide and merge tiles to reach 2048</span>
+          <span class="desc">slide &amp; merge tiles to 2048, or by Fibonacci</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./pop-the-lock/">
           <span class="icon">🔒</span>
           <span class="name">Pop the Lock</span>
-          <span class="desc">time your taps to crack the lock</span>
+          <span class="desc">tap as the dial hits the notch: one miss ends it</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./link-many/">
           <span class="icon">🔴</span>
           <span class="name">Link Many</span>
-          <span class="desc">drop discs, line up four to win</span>
+          <span class="desc">drop discs to line up four, or play power checkers</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./dots-and-boxes/">
           <span class="icon">▦</span>
           <span class="name">Dots and Boxes</span>
-          <span class="desc">claim the most boxes on the grid</span>
+          <span class="desc">draw lines between dots &amp; claim the most boxes</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./stopwatch/">
           <span class="icon">⏱️</span>
           <span class="name">Stopwatch</span>
-          <span class="desc">stop the sweep hand on the gold mark</span>
+          <span class="desc">stop the hand on the gold mark, lid open or shut</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./reaction/">
           <span class="icon">⚡</span>
           <span class="name">Reaction</span>
-          <span class="desc">tap the instant it flashes: fastest average wins</span>
+          <span class="desc">draw the moment it says DRAW!, best average wins</span>
           <span class="play">play →</span>
         </a>
         <a class="game-card" href="./click-tap/">
           <span class="icon">🖱️</span>
           <span class="name">ClickTap</span>
-          <span class="desc">clicks/taps-per-second speed test</span>
+          <span class="desc">click or tap as fast as you can: 3, 5 or 10 seconds</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./ping/">
           <span class="icon">🏓</span>
           <span class="name">Ping</span>
-          <span class="desc">the paddle classic, on a 1970s TV</span>
+          <span class="desc">pong on a 1970s TV, vs the CPU or a friend</span>
           <span class="play">play →</span>
         </a>
 
         <a class="game-card" href="./tic-tac-toe/">
           <span class="icon">⭕</span>
           <span class="name">Tic-Tac-Toe</span>
-          <span class="desc">three in a row, the timeless duel</span>
+          <span class="desc">classic three in a row, plus 5 twists like gomoku</span>
           <span class="play">play →</span>
         </a>
       </div>
@@ -658,12 +758,14 @@
     </div>
 
     <script>
-      // Random game picker: jumps to a random game from the grid.
+      // Random game picker: jumps to a random game from the grid (one of the
+      // games a search has left showing, if it has left any).
       (function () {
         var btn = document.getElementById("random-game");
         if (!btn) return;
         btn.addEventListener("click", function () {
-          var cards = document.querySelectorAll(".games-grid .game-card");
+          var cards = document.querySelectorAll(".games-grid .game-card:not([hidden])");
+          if (!cards.length) cards = document.querySelectorAll(".games-grid .game-card");
           if (!cards.length) return;
           var pick = cards[Math.floor(Math.random() * cards.length)];
           var href = pick.getAttribute("href");
@@ -694,7 +796,7 @@
         // Exact keys to remove.
         var EXACT = [
           "logicgate_progress", // LogicGate (solved levels / unlocked)
-          "set_best_time", // Hash (fastest deck-clear time)
+          "hash_daily", // Hash (today's Daily result in each mode; hash_prefs, the mode picked, is kept)
           "pinball_best", // Neon Pinball
           "galaga_high", // Spacer
           "dj_high", // Poodle Jump
@@ -750,6 +852,7 @@
           "crossy_high_", // Road Bird (all modes)
           "crossy_bestcoins_", // Road Bird best-run coins
           "mahjong_best_", // Mahjong (fastest clear of each layout)
+          "set_best_time", // Hash (fastest deck clear: set_best_time for Normal, _chain, _ultra, _junior and the rest)
           "minesweeper_best_", // Minesweeper (best time per difficulty + endless best rows)
           "minesweeper_stats_", // Minesweeper (games won / played)
           "minesweeper_daily", // Minesweeper (today's daily-board result)
@@ -809,6 +912,7 @@
         document.addEventListener("keydown", function (e) {
           if (e.key !== "Escape" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
           if (dlg.open) return;          // (the box's own Esc: it cancels)
+          if (e.target && e.target.id === "game-search") return;   // (there Esc clears the search)
           e.preventDefault();
           btn.click();
         });
@@ -866,6 +970,112 @@
             msg.classList.remove("show");
           }, 4000);
         }
+      })();
+    </script>
+
+    <script>
+      // Search: with each character typed or deleted the grid keeps only the
+      // games that match, best first: a name that starts with what's typed,
+      // then a name with a word that does, a name holding it anywhere, then a
+      // description. Every word typed has to be found somewhere. The names and
+      // descriptions are folded (lower case, no accents) once, at load, so a
+      // keystroke only compares 48 short strings and moves the cards that
+      // change place: it keeps up however fast the typing.
+      //
+      // Keys: / (shown in the box) or any letter or digit typed on the page
+      // goes to the box; in it, Enter opens the top game, ↓ moves to it and
+      // Esc clears the box (then leaves it).
+      (function () {
+        var input = document.getElementById("game-search");
+        var grid = document.getElementById("games-grid");
+        var none = document.getElementById("no-match");
+        if (!input || !grid) return;
+
+        function fold(s) {
+          return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()
+            .replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ").trim();
+        }
+        var cards = Array.prototype.map.call(grid.querySelectorAll(".game-card"), function (a, i) {
+          var name = fold(a.querySelector(".name").textContent);
+          return { el: a, i: i, name: name, nameWords: " " + name, desc: " " + fold(a.querySelector(".desc").textContent) };
+        });
+
+        function score(c, words, whole) {
+          var s = c.name.indexOf(whole) === 0 ? 1000 : 0;
+          for (var i = 0; i < words.length; i++) {
+            var w = words[i];
+            if (c.name.indexOf(w) === 0) s += 100;
+            else if (c.nameWords.indexOf(" " + w) !== -1) s += 80;
+            else if (c.name.indexOf(w) !== -1) s += 60;
+            else if (c.desc.indexOf(" " + w) !== -1) s += 20;
+            else if (c.desc.indexOf(w) !== -1) s += 10;
+            else return 0;
+          }
+          return s;
+        }
+
+        var shown = cards.slice(), last = "";
+        function apply() {
+          var q = fold(input.value);
+          if (q === last) return;
+          last = q;
+          var next;
+          if (!q) next = cards.slice();
+          else {
+            var words = q.split(" ");
+            next = [];
+            cards.forEach(function (c) { c.s = score(c, words, q); if (c.s) next.push(c); });
+            next.sort(function (a, b) { return b.s - a.s || a.i - b.i; });
+          }
+          // the cards that match, in their new order, then the rest, hidden
+          var keep = {};
+          next.forEach(function (c) { keep[c.i] = true; });
+          var order = next.concat(cards.filter(function (c) { return !keep[c.i]; }));
+          var moved = false;
+          for (var i = 0; i < order.length; i++) {
+            var c = order[i];
+            if (!moved && grid.children[i] !== c.el) moved = true;
+            if (moved) grid.appendChild(c.el);
+            if (c.el.hidden === !!keep[c.i]) c.el.hidden = !keep[c.i];
+          }
+          shown = next;
+          none.hidden = next.length > 0;
+          none.textContent = next.length ? "" : "no game matches “" + input.value.trim() + "”";
+        }
+        input.addEventListener("input", apply);
+        // (a page come back to keeps what was in the box: show its matches)
+        window.addEventListener("pageshow", apply);
+        apply();
+
+        document.addEventListener("keydown", function (e) {
+          // (a key the reset box has answered, the letter that cancels it, is its own)
+          if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+          var dlg = document.getElementById("reset-dialog");
+          if (dlg && dlg.open) return;
+          if (e.target === input) {
+            if (e.key === "Escape") {
+              e.preventDefault();
+              if (input.value) { input.value = ""; apply(); }
+              else input.blur();
+            } else if (e.key === "Enter" || e.key === "ArrowDown") {
+              e.preventDefault();
+              var top = shown[0];
+              if (!top || e.repeat) return;
+              if (e.key === "Enter") window.location.href = top.el.getAttribute("href");
+              else top.el.focus();
+            }
+            return;
+          }
+          var t = e.target;
+          if (t && t.closest && t.closest("input, select, textarea, [contenteditable]")) return;
+          if (e.key === "/") {
+            e.preventDefault();
+            input.focus();
+            input.select();
+          } else if (/^[a-z0-9]$/i.test(e.key)) {
+            input.focus();   // (and the key's own character goes into the box)
+          }
+        });
       })();
     </script>
   </body>
