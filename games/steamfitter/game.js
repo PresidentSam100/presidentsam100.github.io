@@ -635,7 +635,7 @@
         "The cap sealed the line at " + distance + " of the " + goal + " pipes it needed.";
       document.getElementById("finalScore").textContent = score;
       document.getElementById("overBest").textContent = score > runBest ? "★ New best!" : "Best: " + best.get();
-      document.getElementById("overScreen").classList.remove("hidden");
+      showOver();
     }
     refreshHud();
   }
@@ -688,6 +688,11 @@
       gameOver();
     }
   }
+  // the result card, and when it came up (for Space's moment's wait on it:
+  // see the keys)
+  var OVER_WAIT = 700, overAt = 0;
+  function overUp() { return !document.getElementById("overScreen").classList.contains("hidden"); }
+  function showOver() { overAt = performance.now(); document.getElementById("overScreen").classList.remove("hidden"); }
   function gameOver() {
     state = "over";
     best.submit(score);
@@ -698,7 +703,7 @@
     document.getElementById("finalScore").textContent = score;
     // (the best climbed with the run; "new best" is against where it stood at the start)
     document.getElementById("overBest").textContent = score > runBest ? "★ New best!" : "Best: " + best.get();
-    document.getElementById("overScreen").classList.remove("hidden");
+    showOver();
   }
   function banner(txt) {
     var el = document.getElementById("levelBanner");
@@ -1129,15 +1134,22 @@
     // that would throw the unsaved level away, so claim it and do nothing:
     // the editor's own Back / Save are the ways out.
     if (e.key === "Escape" && (state === "edit" || (testingEditor && mode === "levels" && state === "levelend"))) { e.preventDefault(); return; }
+    // the result card: Space is New shift's (below), but it is the valve in
+    // play, so for a moment after the card comes up it does nothing (one
+    // pressed as the shift ended mustn't skip the result), and one held
+    // down never counts
+    if (e.key === " " && overUp()) {
+      if (e.repeat || performance.now() - overAt < OVER_WAIT) e.preventDefault();
+      return;
+    }
     if (e.key === " ") { e.preventDefault(); ffOn(); }
   });
   document.addEventListener("keyup", function (e) { if (e.key === " ") ffOff(); });
   document.getElementById("againBtn").addEventListener("click", reset);
-  // on the result card Enter is its button (the keycap is on it); Space
-  // stays the valve, so one held as the shift ends starts nothing
+  // on the result card Space or Enter is its button (the keycap is on it)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
-    active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
-    start: "#againBtn"
+    active: overUp,
+    start: "#againBtn", space: true
   });
 
   // ---- pause + loop ---------------------------------------------------------------

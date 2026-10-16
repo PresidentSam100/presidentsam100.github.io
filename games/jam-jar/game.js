@@ -710,8 +710,11 @@
     particles.push({ x: x, y: y, t: 0, life: MARK_LIFE, still: true, col: col, s: r + 5, f: fruit });
   }
 
+  // when the result card came up, for Space's moment's wait on it (see the keys)
+  var OVER_WAIT = 700, overAt = 0;
   function gameOver() {
     state = "over";
+    overAt = performance.now();
     best.submit(score);
     sfxOver();
     document.getElementById("finalScore").textContent = score;
@@ -922,6 +925,14 @@
   });
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    // the result card: Space is New jar's (below), but it is the drop key in
+    // play, so for a moment after the jar overflows it does nothing (one
+    // pressed as the last fruit fell mustn't skip the result), and one held
+    // down never counts
+    if (state !== "play") {
+      if (e.key === " " && (e.repeat || performance.now() - overAt < OVER_WAIT)) e.preventDefault();
+      return;
+    }
     if (P.isPaused()) return;                          // paused: no aiming, no dropping
     if (e.key === "ArrowLeft") { e.preventDefault(); aimX -= e.repeat ? 14 : 22; }
     else if (e.key === "ArrowRight") { e.preventDefault(); aimX += e.repeat ? 14 : 22; }
@@ -929,11 +940,10 @@
     aimX = Math.max(JL, Math.min(JR, aimX));
   });
   document.getElementById("againBtn").addEventListener("click", reset);
-  // on the result card Enter is New jar (its keycap is on the button); Space
-  // stays the drop key, so one pressed as the jar overflows starts nothing
+  // on the result card Space or Enter is New jar (its keycap is on the button)
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
-    start: "#againBtn"
+    start: "#againBtn", space: true
   });
 
   // ---- pause + loop ------------------------------------------------------------

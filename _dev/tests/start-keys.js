@@ -20,8 +20,13 @@ const ENTER_ONLY = {
   "yi/": "Space calls YI!",
 };
 // GameShell.menuKeys calls that keep Enter alone in a game of BOTH: [page, start button]
-const KEEP_ENTER = [["corner-pocket/", "#againBtn"], ["corner-pocket/", "#spinDone"], ["corner-pocket/", "#quitYes"],   // (Space is the cue there)
+const KEEP_ENTER = [["corner-pocket/", "#spinDone"], ["corner-pocket/", "#quitYes"],                           // (not a start or a play again)
   ["dots-and-boxes/", "#closeRules"], ["link-many/", "#closeRules"], ["tic-tac-toe/", "#closeRules"]];              // (Got it, on the rules: not a start)
+// And the games where Space has a job in play (fire, drop, turn, develop, the
+// valve, the cue) take it on their start and play-again screens all the same
+// (checked one by one, at the end): on a card that comes up as play ends it
+// waits a moment, so one pressed as the run ended can't skip the result, and
+// one held down never counts.
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -200,6 +205,143 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("flappy-world: Enter starts the flight as Space does; in flight Enter doesn't flap", f0 === "MENU" && f1 === "PLAYING" && f2 === 0, { f0, f1, f2 });
     check("flappy-world (start keys): no page errors", p.errs.length === 0, p.errs);
     await p.close();
+  }
+
+  // ---- where Space has a job in play, it starts and plays again all the
+  // same, as Enter does, and both are shown; but a card that comes up as play
+  // ends takes it only after a moment (one pressed as the run ended mustn't
+  // skip the result), and a Space held down never counts. For each card, by
+  // cardKeys(): a Space at once (the card stays); past the moment, a held
+  // Space's repeat (sent by hand, so the timing is the page's: the card
+  // stays); then a fresh Space (it goes on). `ms` is how long after the card
+  // came up the first press landed: past 600 (a stalled machine) that press
+  // proves nothing either way, and the card is brought up again.
+  {
+    const frames = (p, n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k >= n) r(); else requestAnimationFrame(f); })(); }), n);
+    // show(): brings the card up, returns the page's time then; up(): is it still up
+    const cardKeys = async (p, show, up, wait) => {
+      let at = await show();
+      await p.keyboard.press("Space");
+      const first = { ms: await p.evaluate((t) => Math.round(performance.now() - t), at), stayed: await up() };
+      if (!first.stayed) at = await show();
+      await p.evaluate((w) => new Promise((r) => setTimeout(r, w)), wait + 150);       // (past the moment, on the page's clock)
+      await p.evaluate(() => {
+        const t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
+        t.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", repeat: true, bubbles: true, cancelable: true }));
+      });
+      await p.waitForTimeout(120);
+      const held = await up();
+      await p.keyboard.press("Space"); await p.waitForTimeout(250);
+      const again = await up();
+      return { first, held, again, ok: (first.stayed || first.ms > wait - 100) && held && !again };
+    };
+
+    // Meteor Menace: Space fires in play
+    {
+      const HOOK = ["    start: start\n  };", "    start: start,\n    over: function () { lives = 0; gameOver(); },\n    shots: function () { return bullets.length; }\n  };"];
+      const p = await lib.open(ctx, base, "games/meteor-menace/", { before: async (pg) => { await before(pg); await lib.injectScript(pg, "games/meteor-menace/game.js", [HOOK]); } });
+      await p.waitForTimeout(300);
+      const said = await p.evaluate(() => Object.keys(window.__drawn).join(" "));
+      // the title: a Space held down starts, and doesn't fire until it's let go and pressed again
+      await p.keyboard.down("Space"); await frames(p, 20);
+      const go = await p.evaluate(() => ({ state: __game.state, shots: __game.shots() }));
+      await p.keyboard.up("Space"); await p.keyboard.down("Space"); await frames(p, 10); await p.keyboard.up("Space");
+      const fired = await p.evaluate(() => __game.shots());
+      const end = await cardKeys(p, () => p.evaluate(() => { __game.over(); return performance.now(); }), () => p.evaluate(() => __game.state === "over"), 700);
+      check("meteor-menace: the title and THE END say PRESS [SPACE] OR [ENTER]; Space blasts off from the title, and the press that starts doesn't fire (until let go and pressed again)",
+        /SPACE/.test(said) && /ENTER/.test(said) && go.state === "play" && go.shots === 0 && fired > 0, { said: said.slice(0, 200), go, fired });
+      check("meteor-menace: on THE END Space plays again, but not in its first moment, and not held down", end.ok, end);
+      check("meteor-menace (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
+    // Spacer: Space fires in play
+    {
+      const p = await lib.open(ctx, base, "games/spacer/", { before });
+      await p.waitForTimeout(300);
+      const said = await p.evaluate(() => Object.keys(window.__drawn).join(" "));
+      await p.keyboard.down("Space"); await frames(p, 5);
+      const go = await p.evaluate(() => ({ mode: game.mode, fire: game.input.fire }));
+      await p.keyboard.up("Space");
+      const ends = [];
+      for (const finish of ["gameOver", "gameComplete"]) {
+        const end = await cardKeys(p, () => p.evaluate((f) => { game.startGame(); game[f](); return performance.now(); }, finish),
+          () => p.evaluate(() => game.mode === "gameover" || game.mode === "complete"), 700);
+        ends.push(Object.assign({ finish }, end));
+      }
+      check("spacer: the title says [SPACE]/[ENTER] START and the end screens PRESS [SPACE] OR [ENTER]; Space starts from the title, not firing as it does",
+        /SPACE/.test(said) && /ENTER/.test(said) && go.mode !== "attract" && go.fire === false, { said: said.slice(0, 200), go });
+      check("spacer: on GAME OVER and CONGRATULATIONS Space plays again, but not in their first moment, and not held down", ends.every((e) => e.ok), ends);
+      check("spacer (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
+    // Salvo: Space turns a ship while the fleet is being placed
+    {
+      const HOOK = ['  $("againBtn").addEventListener("click", newGame);', '  window.__salvoOver = function () { gameOver("player"); };\n  window.__salvoOrient = function () { return orient; };\n  $("againBtn").addEventListener("click", newGame);'];
+      const p = await lib.open(ctx, base, "games/salvo/", { before: async (pg) => { await before(pg); await lib.injectScript(pg, "games/salvo/game.js", [HOOK]); } });
+      await p.waitForTimeout(300);
+      const placing = () => p.evaluate(() => document.getElementById("placeControls").style.display !== "none");
+      const caps = await p.evaluate(() => ({ start: document.querySelector("#startBtn kbd").textContent, again: document.getElementById("againBtn").getAttribute("data-gs-key") }));
+      const o0 = await p.evaluate(() => __salvoOrient());
+      await p.keyboard.press("Space"); await p.waitForTimeout(100);
+      const turned = (await placing()) && (await p.evaluate(() => __salvoOrient())) !== o0;
+      await p.keyboard.press("a"); await p.waitForTimeout(100);
+      await p.keyboard.press("Space"); await p.waitForTimeout(250);
+      const battle = !(await placing());
+      const end = await cardKeys(p, () => p.evaluate(() => { __salvoOver(); return performance.now(); }), () => p.evaluate(() => !document.getElementById("over").classList.contains("hidden")), 1000);
+      const placingAgain = await placing();
+      check("salvo: Start Battle and New Game read \"Space or Enter\"; Space turns a ship while the fleet is going down (as R does), and once it's all down starts the battle",
+        caps.start === "Space or Enter" && caps.again === "Space or Enter" && turned && battle, { caps, turned, battle });
+      check("salvo: on the end card Space starts a new game, but not in its first second, and not held down", end.ok && placingAgain, Object.assign({ placingAgain }, end));
+      check("salvo (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
+    // Jam Jar and Steamfitter: Space drops a fruit / holds the valve open
+    for (const [g, hook] of [
+      ["jam-jar/", ["    setAim: function (x) { aimX = x; },", "    setAim: function (x) { aimX = x; },\n    over: function () { gameOver(); },"]],
+      ["steamfitter/", ["    place: place,", "    place: place,\n    over: function () { gameOver(); },"]]]) {
+      const p = await lib.open(ctx, base, "games/" + g, { before: async (pg) => { await before(pg); await lib.injectScript(pg, "games/" + g + "game.js", [hook]); } });
+      await p.waitForTimeout(300);
+      const cap = await p.evaluate(() => document.getElementById("againBtn").getAttribute("data-gs-key"));
+      const end = await cardKeys(p, () => p.evaluate(() => { __game.over(); return performance.now(); }), () => p.evaluate(() => !document.getElementById("overScreen").classList.contains("hidden")), 700);
+      check(g.slice(0, -1) + ": on the result card the button reads \"Space or Enter\", and Space plays again, but not in the card's first moment, and not held down",
+        cap === "Space or Enter" && end.ok, Object.assign({ cap }, end));
+      check(g.slice(0, -1) + " (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
+    // Darkroom: Space develops a square
+    {
+      const p = await lib.open(ctx, base, "games/darkroom/", { before });
+      await p.waitForTimeout(300);
+      const show = () => p.evaluate(() => new Promise((res) => { Darkroom.open("plus"); Darkroom.solveNow(); (function w() { if (!document.getElementById("win").hidden) res(performance.now()); else requestAnimationFrame(w); })(); }));
+      const end = await cardKeys(p, show, () => p.evaluate(() => !document.getElementById("win").hidden), 700);
+      const after = await p.evaluate(() => Darkroom.state());
+      const cap = await p.evaluate(() => document.getElementById("win-next").getAttribute("data-gs-key"));
+      check("darkroom: on the win card Next negative reads \"Space or Enter\", and Space goes on, but not in the card's first moment, and not held down",
+        cap === "Space or Enter" && end.ok && after.id !== "plus", Object.assign({ cap, after: [after.screen, after.id] }, end));
+      check("darkroom (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
+    // Corner Pocket: Space is the cue (the result card gives Rematch the focus)
+    {
+      const HOOK = ["    shoot: function (a, p, tx, ty) {", "    showOver: function () { G.pendingOver = { title: \"You win!\", why: \"\", rec: \"\", good: true }; showOver(); G.pendingOver = null; },\n    shoot: function (a, p, tx, ty) {"];
+      const p = await lib.open(ctx, base, "games/corner-pocket/", { before: async (pg) => { await before(pg); await lib.injectScript(pg, "games/corner-pocket/game.js", [HOOK]); } });
+      await p.waitForTimeout(300);
+      await p.evaluate(() => { document.getElementById("menu").classList.add("hidden"); });
+      const cap = await p.evaluate(() => document.getElementById("againBtn").getAttribute("data-gs-key"));
+      // (Rematch takes the focus 30 ms on: the first press lands on it)
+      const show = async () => { const t = await p.evaluate(() => { __pool.showOver(); return performance.now(); }); await p.waitForTimeout(60); return t; };
+      const end = await cardKeys(p, show, () => p.evaluate(() => !document.getElementById("over").classList.contains("hidden")), 700);
+      const phase = await p.evaluate(() => __pool.G.phase);
+      check("corner-pocket: on the result card Rematch reads \"Space or Enter\", and Space racks again, but not in the card's first moment, and not held down",
+        cap === "Space or Enter" && end.ok && phase !== "over", Object.assign({ cap, phase }, end));
+      check("corner-pocket (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
   }
   await ctx.close();
 };

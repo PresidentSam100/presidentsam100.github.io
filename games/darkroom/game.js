@@ -542,6 +542,16 @@
     if (screen !== "puzzle" || !cur) return;
     if (!ui.win.hidden) {
       if (e.key === "Enter") { e.preventDefault(); ui.winNext.click(); }
+      // Space too, as Enter (it develops a square in play, so for a moment
+      // after the card comes up it does nothing: one pressed on the last
+      // square mustn't skip the print; and one held down never counts). On
+      // the card's other buttons it is theirs.
+      else if (e.key === " ") {
+        var on = e.target && e.target.closest && e.target.closest("button");
+        if (on && on !== ui.winNext) return;
+        e.preventDefault();
+        if (!e.repeat && performance.now() - winAt >= WIN_WAIT) ui.winNext.click();
+      }
       // Backspace goes back to the darkroom, as the card's menu button does
       // (Esc leaves for the games page); not from the share box's text
       else if (e.key === "Backspace" && !e.repeat && !/^(INPUT|TEXTAREA)$/.test((e.target && e.target.tagName) || "")) {
@@ -592,6 +602,8 @@
   toolLabel();
 
   // ---- winning ------------------------------------------------------------------------------
+  // when the card came up, for Space's moment's wait on it (see the keys)
+  var WIN_WAIT = 700, winAt = 0;
   function win() {
     cur.won = true;
     winPhase = now();
@@ -617,6 +629,7 @@
       ui.winNext.textContent = cur.isDaily ? "To the darkroom" : nxt ? "Next negative" : "To the gallery";
       $("win-share").hidden = !cur.isDaily;
       ui.win.hidden = false;
+      winAt = performance.now();
       ui.winNext.focus({ preventScroll: true });
     }, fx() ? 1750 : 250);
   }

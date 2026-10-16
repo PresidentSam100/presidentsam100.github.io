@@ -1753,6 +1753,7 @@ class Game {
     this.high = parseInt(Store.get('galaga_high', '0'), 10) || 0;
 
     this.input = { left: false, right: false, fire: false };
+    this.holdFire = false;   // a Space that started a run, still held: it doesn't fire
     this.time = 0;
     this.menuIndex = 0;        // selected life mode on the title screen
     this.startStage = 1;       // chosen starting stage (1-255)
@@ -1853,9 +1854,18 @@ class Game {
         e.preventDefault(); this.toTitle(); return;
       }
       if (k === 'f') { this.setReducedFlash(!this.reducedFlash); return; } // the old quick toggle (V does the same, site-wide)
+      // Space starts as Enter does, on the title and the end screens. It is
+      // the fire key, so on an end screen it waits a moment (one pressed as
+      // the last ship went mustn't skip the result) and one held down never
+      // counts; and the press that starts a run doesn't fire as well (the
+      // gun waits for it to be let go: holdFire)
+      if (k === ' ' && (this.mode === 'attract' || this.mode === 'gameover' || this.mode === 'complete')) {
+        if (!e.repeat && (this.mode === 'attract' || this.time - this.endedAt >= 0.7)) { this.holdFire = true; this.onStartKey(); }
+        return;
+      }
       if (k === 'arrowleft' || k === 'a') { this.input.left = true; this.onStageKey(-1); }
       if (k === 'arrowright' || k === 'd') { this.input.right = true; this.onStageKey(1); }
-      if (k === ' ') this.input.fire = true;
+      if (k === ' ' && !this.holdFire) this.input.fire = true;
       if (k === 'arrowup' || k === 'arrowdown') this.onMenuKey(k);
       if (/^[1-9]$/.test(k) && +k <= LIFE_MODES.length) this.onModeKey(+k - 1);
       if (k === 'enter') this.onStartKey();
@@ -1865,7 +1875,7 @@ class Game {
       const k = e.key.toLowerCase();
       if (k === 'arrowleft' || k === 'a') this.input.left = false;
       if (k === 'arrowright' || k === 'd') this.input.right = false;
-      if (k === ' ') this.input.fire = false;
+      if (k === ' ') { this.input.fire = false; this.holdFire = false; }
     };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
@@ -1875,7 +1885,7 @@ class Game {
     document.addEventListener('visibilitychange', () => { if (document.hidden) this.releaseKeys(); });
   }
 
-  releaseKeys() { this.input.left = this.input.right = this.input.fire = false; }
+  releaseKeys() { this.input.left = this.input.right = this.input.fire = false; this.holdFire = false; }
 
   // the life mode and start stage are picked on the title screen only: the
   // game-over screen doesn't show them, so an arrow there (or one held as the
@@ -2631,7 +2641,7 @@ class Game {
     this.endedAt = this.time;
     if (this.score > this.high) this.high = this.score;
     Store.set('galaga_high', this.high);
-    this.announce('Game over. Score ' + this.score + ', stage ' + this.stage + '. Press enter to restart.');
+    this.announce('Game over. Score ' + this.score + ', stage ' + this.stage + '. Press space or enter to restart.');
   }
 
   // cleared all 255 stages
@@ -3008,14 +3018,14 @@ class Game {
       this.text(ctx, 'ALL 255 STAGES CLEARED!', WIDTH / 2, HEIGHT / 2 - 10, 14, '#18e0ff', 'center');
       this.text(ctx, 'FINAL SCORE  ' + this.score, WIDTH / 2, HEIGHT / 2 + 18, 13, '#fff', 'center');
       if (this.blinkOn())
-        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
+        this.keys(ctx, 'PRESS [SPACE] OR [ENTER]', WIDTH / 2, HEIGHT / 2 + 48, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
       // (on touch ● is the way back to the title; the way out to the games
       // is the ← Games button's, which names its key)
       this.keys(ctx, '[⌫] TITLE', WIDTH / 2, HEIGHT / 2 + 74, 10, '#8fa0d8', 'center', '● TITLE');
     } else if (this.mode === 'gameover') {
       this.text(ctx, 'GAME OVER', WIDTH / 2, HEIGHT / 2 - 10, 24, '#ff3b5c', 'center');
       if (this.blinkOn())
-        this.keys(ctx, 'PRESS [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
+        this.keys(ctx, 'PRESS [SPACE] OR [ENTER]', WIDTH / 2, HEIGHT / 2 + 28, 14, '#fff', 'center', 'TAP TO PLAY AGAIN');
       this.keys(ctx, '[⌫] TITLE', WIDTH / 2, HEIGHT / 2 + 54, 10, '#8fa0d8', 'center', '● TITLE');
     }
 
@@ -3160,7 +3170,7 @@ class Game {
     // no touch way in; ✨ is the FX switch
     const fx = 'VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON');
     if (this.blinkOn())
-      this.keys(ctx, '[▲][▼] MODE   [◀][▶] STAGE   [ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
+      this.keys(ctx, '[▲][▼] MODE  [◀][▶] STAGE  [SPACE]/[ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
     this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center', '');
     this.keys(ctx, '[V] ' + fx, WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center', '✨ ' + fx);
   }

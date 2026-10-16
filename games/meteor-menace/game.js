@@ -185,20 +185,34 @@
     ArrowUp: "thrust", w: "thrust", W: "thrust",
     " ": "fire"
   };
+  // Space or Enter blasts off, from the title and from THE END. Space is the
+  // fire key, so on THE END it waits a moment (one pressed as the last rocket
+  // went up mustn't skip the result) and one held down never counts; and the
+  // press that starts a game doesn't fire as well (the gun waits for it to
+  // be let go: holdFire)
+  var OVER_WAIT = 700, overAt = 0, holdFire = false;
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+    if (state !== "play" && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      if (e.repeat || (e.key === " " && state === "over" && performance.now() - overAt < OVER_WAIT)) return;
+      if (e.key === " ") holdFire = true;
+      start();
+      return;
+    }
     var k = KEYMAP[e.key];
+    if (k === "fire" && holdFire) { e.preventDefault(); return; }
     if (k) { input[k] = true; e.preventDefault(); }
-    if (e.key === "Enter" && state !== "play") { start(); e.preventDefault(); }
   });
   document.addEventListener("keyup", function (e) {
     var k = KEYMAP[e.key];
     if (k) input[k] = false;
+    if (e.key === " ") holdFire = false;
   });
   // A key let go in another window sends this page no keyup, so losing focus
   // (or pausing) lets go of everything: the ship mustn't come back still
   // thrusting. A key really still held repeats, which presses it again.
-  function releaseAll() { input.left = input.right = input.thrust = input.fire = false; }
+  function releaseAll() { input.left = input.right = input.thrust = input.fire = false; holdFire = false; }
   window.addEventListener("blur", releaseAll);
   // touch buttons hold their flag while pressed
   [["t-left", "left"], ["t-right", "right"], ["t-thrust", "thrust"], ["t-fire", "fire"]].forEach(function (pair) {
@@ -294,6 +308,7 @@
   function gameOver() {
     best.submit(score);
     state = "over";
+    overAt = performance.now();
     thrustSnd(false);
   }
 
@@ -852,12 +867,12 @@
         capBox(W / 2, 120, "CHAPTER " + wave + ": METEOR STORM!", { center: true, size: 27, rot: -0.02 });
       }
     } else if (state === "menu") {
-      title("METEOR MENACE!", "PRESS [ENTER] TO BLAST OFF!", "TAP TO BLAST OFF!");
+      title("METEOR MENACE!", "PRESS [SPACE] OR [ENTER] TO BLAST OFF!", "TAP TO BLAST OFF!");
       // the rocket drifts with Visual FX on; off, it holds one pose, flame lit
       var mt = fx() ? time : 0;
       drawShipAt(W / 2 + Math.cos(mt * 0.7) * 30, H * 0.68 + Math.sin(mt * 1.1) * 10, -0.5 + Math.sin(mt * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
-      title("THE END...?", "PRESS [ENTER] FOR THE NEXT ISSUE", "TAP FOR THE NEXT ISSUE");
+      title("THE END...?", "PRESS [SPACE] OR [ENTER] FOR THE NEXT ISSUE", "TAP FOR THE NEXT ISSUE");
       capBox(W / 2, H * 0.62, "SCORE " + score + "  ·  BEST " + best.get(), { center: true, size: 24 });
     }
   }

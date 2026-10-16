@@ -652,9 +652,12 @@
     }
     G.pendingOver = { title: title, why: W8[o.reason] || "", rec: recText, good: G.mode === "2p" || winner === 0 };
   }
+  // when the result card came up, for Space's moment's wait on it (see the keys)
+  var OVER_WAIT = 700, overAt = 0;
   function showOver() {
     var po = G.pendingOver;
     G.phase = "over";
+    overAt = performance.now();
     document.getElementById("overTitle").textContent = po.title;
     document.getElementById("overWhy").textContent = po.why;
     document.getElementById("overRec").textContent = po.rec;
@@ -1310,6 +1313,13 @@
       else if (quitOpen() && (e.key === "Escape" || (window.GameShell && GameShell.anyOtherKey && GameShell.anyOtherKey(e)))) { e.preventDefault(); if (!e.repeat) closeQuit(); }
       // on the result card Backspace is its Menu button; Esc is left unclaimed there, so it leaves for the games page
       else if (e.key === "Backspace" && !e.repeat && !e.altKey && !document.getElementById("over").classList.contains("hidden")) { e.preventDefault(); document.getElementById("toMenuBtn").click(); }
+      // and Space is Rematch's, as Enter is (the cards' keys, below); but it
+      // is the cue in play, so for a moment after the card comes up it does
+      // nothing (one pressed as the last ball dropped mustn't skip the
+      // result, nor press the button it gives the focus), and one held
+      // down never counts
+      else if (e.key === " " && !document.getElementById("over").classList.contains("hidden") && !quitOpen() &&
+        (e.repeat || performance.now() - overAt < OVER_WAIT)) e.preventDefault();
       return;
     }
     if (G.phase !== "aim" || (Pz && Pz.isPaused())) return;
@@ -1443,13 +1453,14 @@
     groups: ["#modeSeg button", "#levelSeg button", { sel: ".how > summary", keys: ["i"], caps: false }],
     start: "#startBtn", space: true
   });
-  // The cards' keys, shown on their buttons: Enter is Rematch on the result
-  // (Backspace its Menu, in the key handler), Done on the spin pad (where C
-  // centres the tip, as it does at the table) and Back to menu on "Leave
-  // this rack?" (any other key keeps playing)
+  // The cards' keys, shown on their buttons: Space or Enter is Rematch on the
+  // result (Backspace its Menu, in the key handler, which also holds Space
+  // back for the card's first moment), Done on the spin pad (where C centres
+  // the tip, as it does at the table) and Back to menu on "Leave this rack?"
+  // (any other key keeps playing)
   if (window.GameShell && GameShell.menuKeys) {
     var cardUp = function (id) { return !document.getElementById(id).classList.contains("hidden"); };
-    GameShell.menuKeys({ active: function () { return cardUp("over") && !cardUp("confirmQuit"); }, start: "#againBtn" });
+    GameShell.menuKeys({ active: function () { return cardUp("over") && !cardUp("confirmQuit"); }, start: "#againBtn", space: true });
     GameShell.menuKeys({ active: function () { return cardUp("spinPad"); }, groups: [{ sel: "#spinReset", keys: ["c"] }], start: "#spinDone" });
     GameShell.menuKeys({ active: function () { return cardUp("confirmQuit"); }, start: "#quitYes" });
   }

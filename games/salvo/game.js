@@ -319,8 +319,9 @@
   }
 
   // ---- end ----
-  // Backspace is a placement key (Reset), so for a moment after the end card
-  // comes up it's ignored there: a reflex press doesn't skip past the result
+  // Backspace and Space are placement keys (Reset, Rotate), so for a moment
+  // after the end card comes up they're ignored there: a reflex press doesn't
+  // skip past the result
   const OVER_GRACE_MS = 1000;
   let overAt = 0;
   const overSettled = () => performance.now() - overAt >= OVER_GRACE_MS;
@@ -349,17 +350,22 @@
   // keyboard shortcuts
   window.addEventListener("keydown", (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    // the end card: Enter for a new game; Backspace back to the fleet screen,
-    // the game's menu (the same place); Esc isn't claimed, so it leaves for
-    // the games page
+    // the end card: Space or Enter for a new game; Backspace back to the fleet
+    // screen, the game's menu (the same place); Esc isn't claimed, so it
+    // leaves for the games page. Space turns a ship on the fleet screen, so,
+    // as Backspace, it waits a moment (and one held down never counts)
     if (phase === "over") {
-      if (e.key === "Enter") { e.preventDefault(); newGame(); }
+      if (e.key === "Enter" || (e.key === " " && !e.repeat && overSettled())) { e.preventDefault(); newGame(); }
+      else if (e.key === " ") e.preventDefault();   // (too soon, or held: nothing, nor a focused button's press)
       else if (e.key === "Backspace" && !e.repeat && overSettled()) { e.preventDefault(); newGame(); }
       return;
     }
     if (phase !== "place") return;
     const onBtn = document.activeElement && document.activeElement.tagName === "BUTTON";
     const k = e.key.toLowerCase();
+    // Space turns the ship being placed, as R does; once the whole fleet is
+    // down there is no ship left to turn, and Space starts the battle, as Enter does
+    if (k === " " && !onBtn && !$("startBtn").disabled) { e.preventDefault(); if (!e.repeat) $("startBtn").click(); return; }
     if (k === "r" || k === " ") { if (k === " " && onBtn) return; e.preventDefault(); $("rotateBtn").click(); }
     else if (k === "a") { e.preventDefault(); $("randomBtn").click(); }
     else if (k === "backspace" || k === "delete") { e.preventDefault(); $("resetBtn").click(); }

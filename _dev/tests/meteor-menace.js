@@ -2,7 +2,7 @@
 // another window) isn't stuck down once the game resumes; with Visual FX off
 // the menu's rocket stands still (it's still drawn), with FX on it drifts; on a
 // 2× screen the panel is drawn at 2×; on a touch-only phone the key captions
-// hide and the panel says TAP where it said PRESS [ENTER]. Three rockets under
+// hide and the panel says TAP where it says PRESS [SPACE] OR [ENTER]. Three rockets under
 // the score are three lives, and the next one launches soon after a crash.
 const HOOK = ["  function drawShipAt(x, y, a, opts) {\n", "  function drawShipAt(x, y, a, opts) {\n    if (opts && opts.scale === 1.6) window.__menuShip = [x, y, a];\n"];
 const OVER = ["    start: start\n  };", "    start: start,\n    over: function () { lives = 0; gameOver(); }\n  };"];
@@ -110,8 +110,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     return { menu, over, caps, names };
   };
   const desk = await said({}), phone = await said(require("@playwright/test").devices["Pixel 7"]);
-  check("meteor-menace: on a desktop the panel says PRESS [ENTER] and the key captions show: rotate, thrust and fire, no pause among them",
-    /ENTER/.test(desk.menu) && /ENTER/.test(desk.over) && !/TAP/.test(desk.menu + desk.over) && desk.caps.length === 3 && desk.caps.every((d) => d !== "none") &&
+  check("meteor-menace: on a desktop the panel says PRESS [SPACE] OR [ENTER] and the key captions show: rotate, thrust and fire, no pause among them",
+    /SPACE/.test(desk.menu) && /SPACE/.test(desk.over) && /ENTER/.test(desk.menu) && /ENTER/.test(desk.over) && !/TAP/.test(desk.menu + desk.over) && desk.caps.length === 3 && desk.caps.every((d) => d !== "none") &&
     /ROTATE/.test(desk.names) && /THRUST/.test(desk.names) && /FIRE/.test(desk.names) && !/PAUSE|ESC/.test(desk.names), desk);
   check("meteor-menace: on a touch-only phone the panel says TAP instead, and the key captions are hidden",
     /TAP TO BLAST OFF/.test(phone.menu) && /TAP FOR THE NEXT ISSUE/.test(phone.over) && !/ENTER/.test(phone.menu + phone.over) && phone.caps.length === 3 && phone.caps.every((d) => d === "none"), phone);

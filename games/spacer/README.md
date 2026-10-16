@@ -24,7 +24,7 @@ The inline script is organised in sections you can search for:
 | ← → or A / D | Move (in game) · pick start stage (title screen) |
 | Space | Fire (max 2 shots on screen, 4 when dual) |
 | ↑ ↓ | Select life mode (title screen) |
-| Enter | Start / restart |
+| Space / Enter | Start / restart (on the end screens Space waits a moment, as it fires in play) |
 | Backspace | Back to the title (game over / complete screens; ● on a touch screen) |
 | E | Open the **enemy guide** (title screen) |
 | P | **Pause menu** (Resume / Restart / Visual FX / Quit) |
