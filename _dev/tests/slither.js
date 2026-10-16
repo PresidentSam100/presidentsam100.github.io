@@ -348,6 +348,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const m of ["solo", "two", "lab"]) { await p.click('[data-mode="' + m + '"]'); help[m] = await seen(p, "#keys-help"); }
     check("slither " + label + ": the menu's controls line names " + (phone ? "the touch controls" : "the keys"),
       hint(help.solo, /Swipe the board/) && hint(help.two, /d-pads/) && hint(help.lab, /tap a cell to teleport/), help);
+    // (and not the pause: the ⏸ button at the top shows it, and its key; a
+    // gamepad's Start, which it can't show, stays on the Labyrinth's line)
+    check("slither " + label + ": the menu's controls line leaves the pause to the ⏸ button",
+      ["solo", "two", "lab"].every((m) => !/pause/i.test(help[m].text.replace(/Start pause/g, ""))), help);
     await p.evaluate(() => { document.getElementById("legend-lab").open = true; [...document.querySelectorAll("details.lab-runs")].forEach((d) => { d.open = true; }); });
     const legend = await seen(p, "#legend-lab"), panels = await seen(p, "#lab-levels");
     check("slither " + label + ": the Labyrinth legend and the Fire Eggs panel name " + (phone ? "the touch controls" : "the keys"),

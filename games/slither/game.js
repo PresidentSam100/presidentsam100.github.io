@@ -611,19 +611,20 @@
   }
 
   // The keys, or on a touch-only device (no keyboard) the touch controls
-  // that do the same (.gs-keys / .gs-touch: ../motion-toggle.js)
+  // that do the same (.gs-keys / .gs-touch: ../motion-toggle.js). Not the
+  // pause: the ⏸ button at the top shows it, and its key.
   function keysOr(keys, touch) { return '<span class="gs-keys">' + keys + '</span><span class="gs-touch">' + touch + "</span>"; }
   function updateKeysHelp() {
     var wasd = k("W") + k("A") + k("S") + k("D");
     var arrows = k("↑") + k("←") + k("↓") + k("→");   // same order as W A S D
     keysHelp.innerHTML = G.mode === "two"
-      ? keysOr("P1: " + wasd + " (green) · P2: " + arrows + " (blue) · " + k("P") + "/" + k("Space") + ": Pause · touch: use the d-pads",
-        "P1 (green) and P2 (blue) steer with their d-pads · ⏸ Pause to pause")
+      ? keysOr("P1: " + wasd + " (green) · P2: " + arrows + " (blue) · touch: use the d-pads",
+        "P1 (green) and P2 (blue) steer with their d-pads")
       : G.mode === "lab"
-        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · " + k("P") + ": pause · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
-          "Swipe or use the d-pad (keep holding to sprint) · hold 👻 to ghost, ⚡ to dash · tap a cell to teleport, or a 🖱 switch to flip it · ⏸ Pause to pause · Arena for two: a d-pad each · gamepad: stick or d-pad, A dash, B ghost, Start pause")
-        : keysOr("Move: " + arrows + " or " + wasd + " · " + k("P") + "/" + k("Space") + ": Pause · touch: swipe the board or use the d-pad",
-          "Swipe the board or use the d-pad to steer · ⏸ Pause to pause");
+        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
+          "Swipe or use the d-pad (keep holding to sprint) · hold 👻 to ghost, ⚡ to dash · tap a cell to teleport, or a 🖱 switch to flip it · Arena for two: a d-pad each · gamepad: stick or d-pad, A dash, B ghost, Start pause")
+        : keysOr("Move: " + arrows + " or " + wasd + " · touch: swipe the board or use the d-pad",
+          "Swipe the board or use the d-pad to steer");
   }
 
   var vsOpts = document.getElementById("vs-opts");
