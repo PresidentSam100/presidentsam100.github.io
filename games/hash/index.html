@@ -66,27 +66,59 @@
     <div class="wrap">
       <header class="set-header">
         <h1 class="set-title">HASH</h1>
-        <p class="subtitle">
+        <p class="subtitle" id="subtitle">
           Find a trio where <b>number</b>, <b>shape</b>, <b>shading</b> &amp;
           <b>color</b> are each <em>all&nbsp;same</em> or <em>all&nbsp;different</em>.
         </p>
       </header>
 
-      <div class="hud">
-        <div class="stat"><span class="k">Hashes</span><span class="v" id="statSets">0</span></div>
-        <div class="stat"><span class="k">Deck</span><span class="v" id="statDeck">81</span></div>
-        <div class="stat"><span class="k">Time</span><span class="v" id="statTime">0:00</span></div>
-        <div class="stat"><span class="k">Best</span><span class="v" id="statBest">none</span></div>
-      </div>
+      <!-- on a phone one column (styles.css puts these in order); on a wider
+           window the modes, the tray and the log stand beside the table -->
+      <div class="play">
+        <div class="main">
+          <div class="hud">
+            <div class="stat"><span class="k" id="statSetsK">Hashes</span><span class="v" id="statSets">0</span></div>
+            <div class="stat"><span class="k">Deck</span><span class="v" id="statDeck">81</span></div>
+            <div class="stat"><span class="k">Time</span><span class="v" id="statTime">0:00</span></div>
+            <div class="stat"><span class="k" id="statBestK">Best</span><span class="v" id="statBest">none</span></div>
+          </div>
 
-      <div id="board" aria-label="Hash board"></div>
+          <div id="board" aria-label="Hash board"></div>
 
-      <p id="msg" role="status" aria-live="polite"></p>
+          <p id="msg" role="status" aria-live="polite"></p>
 
-      <div class="controls">
-        <button class="btn" id="addBtn" type="button">＋ Add 3 cards</button>
-        <button class="btn" id="hintBtn" type="button">💡 Hint</button>
-        <button class="btn primary" id="newBtn" type="button">↻ New game</button>
+          <div class="controls">
+            <button class="btn" id="addBtn" type="button">＋ Add 3 cards</button>
+            <button class="btn" id="hintBtn" type="button">💡 Hint</button>
+            <button class="btn primary" id="newBtn" type="button">↻ New game</button>
+          </div>
+        </div>
+
+        <div class="side">
+          <div class="modes">
+            <div class="seg" id="modeRow" role="group" aria-label="Mode">
+              <button class="chip" type="button" data-mode="normal" aria-pressed="true">Normal</button>
+              <button class="chip" type="button" data-mode="chain" aria-pressed="false">Set-Chain</button>
+              <button class="chip" type="button" data-mode="ultra" aria-pressed="false">UltraSet</button>
+            </div>
+            <div class="switches">
+              <button class="chip sw" id="juniorBtn" type="button" aria-pressed="false" title="Only the 27 solid cards">Junior</button>
+              <button class="chip sw" id="dailyBtn" type="button" aria-pressed="false" title="Today's deal, the same for everyone">Daily</button>
+            </div>
+          </div>
+
+          <div class="tray" id="tray" hidden>
+            <span class="tray-k" id="trayK">Last Hash</span>
+            <div class="tray-cards" id="trayCards"></div>
+          </div>
+
+          <section class="log" id="log" aria-labelledby="logH">
+            <h2 class="log-h" id="logH">Found <span id="logN">0</span></h2>
+            <p class="log-key" id="logKey" hidden></p>
+            <ol class="log-list" id="logList"></ol>
+            <p class="log-empty" id="logEmpty">No Hashes yet</p>
+          </section>
+        </div>
       </div>
 
       <details class="rules">
@@ -110,10 +142,30 @@
           was actually hiding). Clear the whole deck to win. Your fastest time
           (penalties included) is saved as your best.
         </p>
+        <p>
+          <b>Normal</b> is the game above. In <b>Set-Chain</b> the cards of your
+          last Hash move aside, and every Hash after the first uses exactly
+          <em>one</em> of them with two from the table; when none can, more
+          cards come in. In <b>UltraSet</b> pick <em>four</em> cards that split
+          into two pairs, where both pairs need the same third card to make a
+          Hash (that card can be anywhere, even still in the deck); it shows
+          beside the table.
+        </p>
+        <p>
+          <b>Junior</b> plays any of the three with only the 27 solid cards, so
+          shading never counts. <b>Daily</b> deals today's cards, the same for
+          everyone, in each of the six, and records your first clear of the
+          day. Each of the six keeps its own best time, and the log lists
+          everything you've found this game.
+        </p>
       </details>
 
       <p id="byline" style="margin-top: 0.7rem">made by sam lu (not you)</p>
     </div>
+
+    <!-- on a phone: the log, How to play and the byline, below the screen the
+         table fills (game.js moves them here) -->
+    <div class="below" id="below"></div>
 
     <div id="overlay" class="overlay" hidden>
       <div class="overlay-card">

@@ -12,6 +12,14 @@
    either all the same or all different (never two-and-one). Equivalent
    (and what we use): for each feature, value_a + value_b + value_c is a
    multiple of 3 when values are encoded 0/1/2.
+
+   Three ways to play, each with or without Junior (the 27 solid cards,
+   so shading never matters), and each of the six with a Daily deal:
+     Normal     any Hash on the table
+     Set-Chain  the last Hash's three cards move aside, and every Hash
+                after the first uses exactly one of them
+     UltraSet   four cards: two pairs that each make a Hash with the same
+                third card (on the table or not)
    ===================================================================== */
 (function () {
   "use strict";
@@ -33,32 +41,46 @@
 
   // ---- deck ------------------------------------------------------------
   // Each card: { n:1-3, shape, shading, color, id, code:[0..2]x4 }
-  function buildDeck() {
+  function cardOf(code) {
+    return {
+      n: code[0] + 1,
+      shape: SHAPES[code[1]],
+      shading: SHADINGS[code[2]],
+      color: COLOR_KEYS[code[3]],
+      code: code,
+      id: code.join(""),
+    };
+  }
+  // (Junior: the solid ones only)
+  function buildDeck(solidOnly) {
     var deck = [];
     for (var n = 0; n < 3; n++)
       for (var sh = 0; sh < 3; sh++)
-        for (var sd = 0; sd < 3; sd++)
-          for (var c = 0; c < 3; c++) {
-            deck.push({
-              n: n + 1,
-              shape: SHAPES[sh],
-              shading: SHADINGS[sd],
-              color: COLOR_KEYS[c],
-              code: [n, sh, sd, c],
-              id: "" + n + sh + sd + c,
-            });
-          }
+        for (var sd = 0; sd < (solidOnly ? 1 : 3); sd++)
+          for (var c = 0; c < 3; c++) deck.push(cardOf([n, sh, sd, c]));
     return deck;
   }
 
-  function shuffle(a) {
+  function shuffle(a, rng) {
+    rng = rng || Math.random;
     for (var i = a.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
+      var j = Math.floor(rng() * (i + 1));
       var t = a[i];
       a[i] = a[j];
       a[j] = t;
     }
     return a;
+  }
+
+  // a seeded generator, so a Daily is the same deal for everyone
+  function mulberry(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
   // ---- set logic -------------------------------------------------------
@@ -76,6 +98,40 @@
       for (var j = i + 1; j < n - 1; j++)
         for (var k = j + 1; k < n; k++)
           if (isSet(cards[i], cards[j], cards[k])) return [i, j, k];
+    return null;
+  }
+
+  // the one card that makes a Hash with a and b
+  function third(a, b) {
+    return a.code.map(function (v, f) { return (6 - v - b.code[f]) % 3; });
+  }
+
+  // UltraSet: four cards, split any of the three ways into two pairs, where
+  // both pairs need the same third card. Returns the cards in pair order
+  // and that card, or null.
+  var PAIRINGS = [[0, 1, 2, 3], [0, 2, 1, 3], [0, 3, 1, 2]];
+  function ultraOf(cs) {
+    for (var p = 0; p < PAIRINGS.length; p++) {
+      var o = PAIRINGS[p], e = third(cs[o[0]], cs[o[1]]);
+      if (e.join("") === third(cs[o[2]], cs[o[3]]).join(""))
+        return { cards: o.map(function (i) { return cs[i]; }), extra: cardOf(e) };
+    }
+    return null;
+  }
+  // four indices into cards forming an UltraSet (in pair order), or null.
+  // (Any ten cards hold one, so a table of twelve always does: only the
+  // last few cards of a deck can run out of them.)
+  function findUltra(cards) {
+    var seen = {};
+    for (var i = 0; i < cards.length - 1; i++)
+      for (var j = i + 1; j < cards.length; j++) {
+        var key = third(cards[i], cards[j]).join(""), prev = seen[key] || (seen[key] = []);
+        for (var k = 0; k < prev.length; k++) {
+          var x = prev[k][0], y = prev[k][1];
+          if (x !== i && x !== j && y !== i && y !== j) return [x, y, i, j];
+        }
+        prev.push([i, j]);
+      }
     return null;
   }
 
@@ -119,13 +175,71 @@
     return body;
   }
 
-  // ---- game state ------------------------------------------------------
-  var BEST_KEY = "set_best_time";
-  var TOTAL = 81;
+  function cardName(card) {
+    return card.n + " " + card.color + " " + card.shading + " " + card.shape + (card.n > 1 ? "s" : "");
+  }
 
+  // ---- modes, Junior and the Daily -------------------------------------
+  var MODES = {
+    normal: { name: "Normal", need: 3, found: "Hashes", one: "Hash" },
+    chain: { name: "Set-Chain", need: 3, found: "Hashes", one: "Hash" },
+    ultra: { name: "UltraSet", need: 4, found: "UltraSets", one: "UltraSet" },
+  };
+  var PREFS_KEY = "hash_prefs";
+  var DAILY_KEY = "hash_daily";
+  function load(key, fallback) {
+    try {
+      var v = JSON.parse(localStorage.getItem(key));
+      return v && typeof v === "object" ? v : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  }
+  function save(key, v) {
+    try {
+      localStorage.setItem(key, JSON.stringify(v));
+    } catch (e) {}
+  }
+  var prefs = load(PREFS_KEY, {});
+  var mode = MODES[prefs.mode] ? prefs.mode : "normal";
+  var junior = !!prefs.junior;
+  var daily = !!prefs.daily;
+
+  // the six ways to play, each with its own best and its own Daily:
+  // "normal", "normal_junior", "chain", ... "ultra_junior"
+  function combo() { return mode + (junior ? "_junior" : ""); }
+  // (Normal keeps the key it always had, so a saved best time stays)
+  function bestKey() { return "set_best_time" + (mode === "normal" ? "" : "_" + mode) + (junior ? "_junior" : ""); }
+
+  // the Daily: day 1 is 2026-10-15; the same deal for everyone that day, a
+  // different one in each of the six ways to play
+  var DAY0 = Date.UTC(2026, 9, 15);
+  function today() {
+    var d = new Date();
+    var utc = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    var mm = ("0" + (d.getMonth() + 1)).slice(-2), dd = ("0" + d.getDate()).slice(-2);
+    return { n: Math.round((utc - DAY0) / 86400000) + 1, ymd: d.getFullYear() + "-" + mm + "-" + dd };
+  }
+  // today's first clear in each way to play: { ymd, n, done: { combo: ms } }
+  function readDaily() {
+    var t = today(), d = load(DAILY_KEY, null);
+    if (d && d.ymd === t.ymd && d.done && typeof d.done === "object") return d;
+    return { ymd: t.ymd, n: t.n, done: {} };
+  }
+  function dailySeed() {
+    var s = 0, c = combo();
+    for (var i = 0; i < c.length; i++) s = (Math.imul(s, 31) + c.charCodeAt(i)) | 0;
+    return ((today().n * 2654435761) >>> 0) ^ s ^ 0x5e7;
+  }
+
+  // ---- game state ------------------------------------------------------
   var deck = [];
   var board = []; // array of card objects (or null placeholder removed)
   var selected = []; // indices into board
+  var tray = []; // Set-Chain: the last Hash's three cards, set aside
+  var traySel = -1; // Set-Chain: the one of them picked, or -1
+  var extra = null; // UltraSet: the third card the last UltraSet's pairs need
+  var log = []; // what's been found this game: { cards, carried, extra }
   var setsFound = 0;
   var startTime = 0;
   var timerId = null;
@@ -137,20 +251,57 @@
   var moved = false; // a Hash claimed, cards added or a hint taken this game
   var hintIds = []; // ids of the cards a hint has lit, until the table changes
   var gameNo = 0; // bumped by newGame, so a claim's slide-out from the last game stops
+  var trayNew = false; // the tray's cards have just come in (they're dealt in)
 
-  var boardEl = document.getElementById("board");
-  var msgEl = document.getElementById("msg");
-  var statSets = document.getElementById("statSets");
-  var statDeck = document.getElementById("statDeck");
-  var statTime = document.getElementById("statTime");
-  var statBest = document.getElementById("statBest");
-  var addBtn = document.getElementById("addBtn");
-  var hintBtn = document.getElementById("hintBtn");
-  var newBtn = document.getElementById("newBtn");
-  var overlay = document.getElementById("overlay");
-  var ovTitle = document.getElementById("ovTitle");
-  var ovBody = document.getElementById("ovBody");
-  var ovBtn = document.getElementById("ovBtn");
+  function $(id) { return document.getElementById(id); }
+  var boardEl = $("board");
+  var msgEl = $("msg");
+  var subEl = $("subtitle");
+  var statSets = $("statSets");
+  var statSetsK = $("statSetsK");
+  var statDeck = $("statDeck");
+  var statTime = $("statTime");
+  var statBest = $("statBest");
+  var statBestK = $("statBestK");
+  var trayEl = $("tray");
+  var trayK = $("trayK");
+  var trayCards = $("trayCards");
+  var logN = $("logN");
+  var logKey = $("logKey");
+  var logList = $("logList");
+  var logEmpty = $("logEmpty");
+  var addBtn = $("addBtn");
+  var hintBtn = $("hintBtn");
+  var newBtn = $("newBtn");
+  var juniorBtn = $("juniorBtn");
+  var dailyBtn = $("dailyBtn");
+  var overlay = $("overlay");
+  var ovTitle = $("ovTitle");
+  var ovBody = $("ovBody");
+  var ovBtn = $("ovBtn");
+
+  // The log stands beside the table on a wider window, How to play and the
+  // byline under it. On a phone the table fills the screen, so all three go
+  // below it (#below), where they take no height from the cards.
+  var logEl = $("log");
+  var sideEl = logEl.parentNode;
+  var wrapEl = document.querySelector(".wrap");
+  var belowEl = $("below");
+  var rulesEl = document.querySelector(".rules");
+  var bylineEl = $("byline");
+  var WIDE = window.matchMedia ? window.matchMedia("(min-width: 860px)") : null;
+  function placeLog() {
+    var wide = !WIDE || WIDE.matches, to = wide ? null : belowEl;
+    if (logEl.parentNode === (to || sideEl)) return;
+    (to || sideEl).appendChild(logEl);
+    (to || wrapEl).appendChild(rulesEl);
+    (to || wrapEl).appendChild(bylineEl);
+  }
+  placeLog();
+  if (WIDE) {
+    if (WIDE.addEventListener) WIDE.addEventListener("change", placeLog);
+    else if (WIDE.addListener) WIDE.addListener(placeLog);
+  }
 
   function fmtTime(ms) {
     var s = Math.floor(ms / 1000);
@@ -161,7 +312,7 @@
 
   function loadBest() {
     try {
-      var v = localStorage.getItem(BEST_KEY);
+      var v = localStorage.getItem(bestKey());
       return v ? parseInt(v, 10) : null;
     } catch (e) {
       return null;
@@ -169,12 +320,20 @@
   }
   function saveBest(ms) {
     try {
-      localStorage.setItem(BEST_KEY, "" + ms);
+      localStorage.setItem(bestKey(), "" + ms);
     } catch (e) {}
   }
 
+  // Best: this way to play's fastest clear; on the Daily, today's first one
   function renderBest() {
+    if (daily) {
+      var d = readDaily().done[combo()];
+      statBestK.textContent = "Today";
+      statBest.textContent = d != null ? fmtTime(d) : "none";
+      return;
+    }
     var b = loadBest();
+    statBestK.textContent = "Best";
     statBest.textContent = b ? fmtTime(b) : "none";
   }
 
@@ -263,17 +422,7 @@
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
       el.dataset.idx = i;
-      el.setAttribute(
-        "aria-label",
-        card.n +
-          " " +
-          card.color +
-          " " +
-          card.shading +
-          " " +
-          card.shape +
-          (card.n > 1 ? "s" : "")
-      );
+      el.setAttribute("aria-label", cardName(card));
       el.innerHTML = cardHTML(card);
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
       // a hinted card glows until it's picked (then it shows as picked)
@@ -291,6 +440,84 @@
     // Tell the CSS how many rows are on the table so cards can be sized to
     // fit the viewport height (no scrolling) whether it's 12, 15 or 18 cards.
     boardEl.style.setProperty("--rows", Math.max(1, Math.ceil(board.length / 3)));
+    renderTray();
+  }
+
+  // The tray, beside the table: in Set-Chain the last Hash's three cards
+  // (one of them goes into the next Hash; before the first, three empty
+  // places), in UltraSet the third card the last UltraSet's pairs needed.
+  function renderTray() {
+    trayEl.hidden = mode === "normal";
+    if (mode === "normal") return;
+    var focused = trayCards.contains(document.activeElement) ? +document.activeElement.dataset.tray : -1;
+    var html = "";
+    if (mode === "chain") {
+      trayK.innerHTML = "<span>Last Hash</span>" + (tray.length ? '<span class="tk-use">use one</span>' : "");
+      for (var i = 0; i < 3; i++) {
+        var c = tray[i];
+        if (!c) { html += '<div class="card slot" aria-hidden="true"></div>'; continue; }
+        var cls = "card" + (traySel === i ? " selected" : hintIds.indexOf(c.id) !== -1 ? " hint" : "") + (trayNew ? " dealt" : "");
+        html += '<div class="' + cls + '" role="button" tabindex="0" data-tray="' + i + '" aria-label="' + cardName(c) + ', from the last Hash">' + cardHTML(c) + "</div>";
+      }
+    } else {
+      trayK.textContent = "Extra card";
+      html = extra
+        ? '<div class="card extra' + (trayNew ? " dealt" : "") + '" role="img" aria-label="' + cardName(extra) + ', the card both pairs need">' + cardHTML(extra) + "</div>"
+        : '<div class="card slot" aria-hidden="true"></div>';
+    }
+    trayNew = false;
+    trayCards.innerHTML = html;
+    if (focused >= 0 && trayCards.querySelector('[data-tray="' + focused + '"]'))
+      trayCards.querySelector('[data-tray="' + focused + '"]').focus({ preventScroll: true });
+  }
+
+  // The log of what's been found this game, newest first: each Hash's three
+  // cards (in Set-Chain the one carried from the last Hash ringed), or each
+  // UltraSet's two pairs and the extra card they need.
+  function miniHTML(card, cls, label) {
+    return '<span class="mini' + (cls ? " " + cls : "") + '" role="img" aria-label="' + (label || cardName(card)) + '">' + cardHTML(card) + "</span>";
+  }
+  function renderLog() {
+    logN.textContent = log.length;
+    logEmpty.hidden = log.length > 0;
+    logEmpty.textContent = "No " + MODES[mode].found + " yet";
+    logKey.hidden = mode === "normal";
+    logKey.textContent = mode === "chain" ? "Ringed: the card from the last Hash" : "Two pairs, then the card both need";
+    var html = "";
+    for (var k = log.length - 1; k >= 0; k--) {
+      var f = log[k], body = "";
+      if (f.extra) {
+        body =
+          '<span class="pair">' + miniHTML(f.cards[0]) + miniHTML(f.cards[1]) + "</span>" +
+          '<span class="pair">' + miniHTML(f.cards[2]) + miniHTML(f.cards[3]) + "</span>" +
+          '<span class="need" aria-hidden="true">→</span>' + miniHTML(f.extra, "extra", cardName(f.extra) + ", the card both pairs need");
+      } else {
+        body = f.cards.map(function (c, i) {
+          return i === f.carried ? miniHTML(c, "carried", cardName(c) + ", from the last Hash") : miniHTML(c);
+        }).join("");
+      }
+      html += "<li" + (f.extra ? ' class="ultra"' : "") + '><span class="log-no">' + (k + 1) + "</span>" + body + "</li>";
+    }
+    logList.innerHTML = html;
+  }
+
+  // The rule line under the title, for the way being played
+  function renderRules() {
+    var each = "<em>all&nbsp;same</em> or <em>all&nbsp;different</em>";
+    subEl.innerHTML =
+      mode === "chain"
+        ? "Find a trio, each feature " + each + ", using <b>one card</b> of the last."
+        : mode === "ultra"
+        ? "<b>Two pairs</b> that need <b>one same card</b> to make a trio: each feature " + each + "."
+        : junior
+        ? "Find a trio where <b>number</b>, <b>shape</b> &amp; <b>color</b> are each " + each + "."
+        : "Find a trio where <b>number</b>, <b>shape</b>, <b>shading</b> &amp; <b>color</b> are each " + each + ".";
+    statSetsK.textContent = MODES[mode].found;
+    document.querySelectorAll("#modeRow .chip").forEach(function (b) {
+      b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false");
+    });
+    juniorBtn.setAttribute("aria-pressed", junior ? "true" : "false");
+    dailyBtn.setAttribute("aria-pressed", daily ? "true" : "false");
   }
 
   // Deal from deck until board has at least `target` cards (or deck empty).
@@ -304,7 +531,30 @@
     return added;
   }
 
+  // What can be claimed on the table now, its cards in the order a hint
+  // shows them (null if nothing): any Hash; in Set-Chain after the first, a
+  // Hash with one of the tray's cards (that card first); an UltraSet, by
+  // its pairs.
+  function findAny() {
+    var at;
+    if (mode === "ultra") {
+      at = findUltra(board);
+      return at && at.map(function (i) { return board[i]; });
+    }
+    if (mode === "chain" && tray.length) {
+      for (var t = 0; t < tray.length; t++)
+        for (var i = 0; i < board.length - 1; i++)
+          for (var j = i + 1; j < board.length; j++)
+            if (isSet(tray[t], board[i], board[j])) return [tray[t], board[i], board[j]];
+      return null;
+    }
+    at = findSet(board);
+    return at && at.map(function (i) { return board[i]; });
+  }
+
   // ---- selection / claim ----------------------------------------------
+  function picks() { return selected.length + (traySel >= 0 ? 1 : 0); }
+
   function onCardActivate(idx) {
     if (locked || over || PAUSE.isPaused()) return;
     var pos = selected.indexOf(idx);
@@ -314,47 +564,83 @@
       render();
       return;
     }
-    if (selected.length >= 3) return;
+    if (picks() >= MODES[mode].need) return;
     selected.push(idx);
     selectSound();
     setMsg("");
     render();
-    if (selected.length === 3) evaluate();
+    if (picks() === MODES[mode].need) evaluate();
+  }
+
+  // Set-Chain: one of the last Hash's cards (picking another swaps it: only
+  // one of them goes into a Hash)
+  function onTrayActivate(i) {
+    if (locked || over || PAUSE.isPaused() || mode !== "chain" || !tray[i]) return;
+    if (traySel === i) {
+      traySel = -1;
+      deselectSound();
+      render();
+      return;
+    }
+    if (traySel < 0 && picks() >= 3) return;
+    traySel = i;
+    selectSound();
+    setMsg("");
+    render();
+    if (picks() === 3) evaluate();
   }
 
   function evaluate() {
-    var a = board[selected[0]],
-      b = board[selected[1]],
-      c = board[selected[2]];
+    var cs = selected.map(function (i) { return board[i]; });
     locked = true;
-    if (isSet(a, b, c)) {
-      claimGood();
-    } else {
-      claimBad();
+    if (mode === "ultra") {
+      var u = ultraOf(cs);
+      if (u) claimGood(u);
+      else claimBad("Not an UltraSet: no two pairs need the same third card.");
+      return;
     }
+    if (mode === "chain" && tray.length) {
+      if (traySel < 0)
+        claimBad(isSet(cs[0], cs[1], cs[2])
+          ? "That's a Hash, but in Set-Chain it needs one card from the last Hash."
+          : "Not a Hash, and it needs one card from the last Hash.");
+      else if (isSet(tray[traySel], cs[0], cs[1])) claimGood({ cards: [tray[traySel], cs[0], cs[1]], carried: 0 });
+      else claimBad();
+      return;
+    }
+    if (isSet(cs[0], cs[1], cs[2])) claimGood({ cards: cs, carried: -1 });
+    else claimBad();
   }
 
-  function claimGood() {
+  function claimGood(found) {
     setsFound++;
     moved = true;
     hintIds = []; // the table changes: a new hint is a new Hash
     goodSound();
-    setMsg("Hash! ✓", "good");
+    setMsg(MODES[mode].one + "! ✓", "good");
     locked = true;
     var cardEls = boardEl.querySelectorAll(".card");
-    var sel = selected.slice(); // the three claimed grid positions
+    var sel = selected.slice(); // the claimed grid positions
+    var trayHit = traySel >= 0 && trayCards.querySelector('[data-tray="' + traySel + '"]');
     var game = gameNo;
+
+    // into the log now; the tray shows its new card(s) with the refill
+    log.push({ cards: found.cards, carried: found.carried == null ? -1 : found.carried, extra: found.extra || null });
+    renderLog();
+    if (mode === "chain") tray = found.cards.slice();
+    if (mode === "ultra") extra = found.extra;
 
     // The table's next state is settled now and only shown once the trio has
     // slid out (phase 2), so the deck's last Hash stops the clock and saves a
     // best time the moment it's claimed, not after the animation.
     var newIds = replaceInPlace(sel);
     newIds = newIds.concat(ensureSetAvailable());
-    var result = !findSet(board) && deck.length === 0 ? finish() : null;
+    var result = !findAny() && deck.length === 0 ? finish() : null;
 
     sel.forEach(function (i) {
       if (cardEls[i]) cardEls[i].classList.add("good");
     });
+    if (trayHit) trayHit.classList.add("good");
 
     // Phase 1: hold the green highlight, then slide the trio out to the right
     // (through an imaginary column past the rightmost cards).
@@ -368,11 +654,13 @@
     }, 240);
 
     // Phase 2: once they've left, show the replacements (dealt above) IN THE
-    // SAME CELLS so the other nine cards never move, and bring the new cards
-    // in from the left.
+    // SAME CELLS so the other cards never move, and bring the new cards in
+    // from the left.
     setTimeout(function () {
       if (game !== gameNo) return; // a new game was dealt meanwhile
       selected = [];
+      traySel = -1;
+      trayNew = true;
       render(newIds, "enter-left");
       locked = false;
       updateAddBtn();
@@ -381,13 +669,23 @@
   }
 
   // Swap each claimed card for a fresh one in the SAME slot (so positions are
-  // stable). Returns the ids of the new cards for the entrance animation.
+  // stable), while the table is at 12 or under; a table dealt past 12 (no
+  // Hash there) shrinks back toward 12 instead, its highest slots going
+  // first. Returns the ids of the new cards for the entrance animation.
   function replaceInPlace(sel) {
     var newIds = [];
-    if (board.length <= 12) {
-      var holes = [];
-      sel.forEach(function (i) {
-        if (deck.length > 0) {
+    var holes = [];
+    var excess = Math.max(0, board.length - 12);
+    sel
+      .slice()
+      .sort(function (a, b) {
+        return b - a;
+      })
+      .forEach(function (i) {
+        if (excess > 0) {
+          holes.push(i);
+          excess--;
+        } else if (deck.length > 0) {
           var c = deck.pop();
           board[i] = c;
           newIds.push(c.id);
@@ -395,50 +693,42 @@
           holes.push(i); // deck ran dry: this slot can't be refilled
         }
       });
-      // Remove any unfilled slots, high → low so indices stay valid.
-      holes
-        .sort(function (a, b) {
-          return b - a;
-        })
-        .forEach(function (i) {
-          board.splice(i, 1);
-        });
-    } else {
-      // Extra rows were dealt (15/18 cards): claimed cards aren't replaced,
-      // the board shrinks back toward 12 (standard Set rule).
-      sel
-        .slice()
-        .sort(function (a, b) {
-          return b - a;
-        })
-        .forEach(function (i) {
-          board.splice(i, 1);
-        });
-    }
+    // Remove the unfilled slots, high → low so indices stay valid.
+    holes
+      .sort(function (a, b) {
+        return b - a;
+      })
+      .forEach(function (i) {
+        board.splice(i, 1);
+      });
     return newIds;
   }
 
-  // If no set is on the table, deal three more until one is (or the deck is
-  // empty). Returns ids of any cards added so they animate in too.
+  // If nothing can be claimed on the table, deal three more until something
+  // can (or the deck is empty). Returns ids of any cards added so they
+  // animate in too.
   function ensureSetAvailable() {
     var ids = [];
     var guard = 0;
-    while (!findSet(board) && deck.length > 0 && guard < 30) {
+    while (!findAny() && deck.length > 0 && guard < 30) {
       ids = ids.concat(dealUpTo(board.length + 3));
       guard++;
     }
     return ids;
   }
 
-  function claimBad() {
+  function claimBad(text) {
     badSound();
-    setMsg("Not a Hash: two-and-one somewhere.", "bad");
+    setMsg(text || "Not a Hash: two-and-one somewhere.", "bad");
     var cards = boardEl.querySelectorAll(".card");
     selected.forEach(function (i) {
       if (cards[i]) cards[i].classList.add("bad");
     });
+    var t = traySel >= 0 && trayCards.querySelector('[data-tray="' + traySel + '"]');
+    if (t) t.classList.add("bad");
     setTimeout(function () {
       selected = [];
+      traySel = -1;
       locked = false;
       render();
     }, 360);
@@ -452,9 +742,14 @@
   function onAdd() {
     if (locked || over || PAUSE.isPaused()) return;
     if (deck.length === 0) return;
-    if (findSet(board)) {
-      // There WAS a set: gentle nudge, no new cards.
-      setMsg("There's already a Hash on the table: keep looking! 👀", "info");
+    if (findAny()) {
+      // There WAS one: gentle nudge, no new cards.
+      setMsg(
+        mode === "chain" && tray.length
+          ? "There's a Hash with a card from the last one: keep looking! 👀"
+          : "There's already " + (mode === "ultra" ? "an UltraSet" : "a Hash") + " on the table: keep looking! 👀",
+        "info"
+      );
       badSound();
       return;
     }
@@ -468,22 +763,25 @@
 
   function onHint() {
     if (locked || over || PAUSE.isPaused()) return;
-    var trio = findSet(board);
+    var one = MODES[mode].one, an = mode === "ultra" ? "an " : "a ";
+    var trio = findAny();
     if (!trio) {
-      setMsg("No Hash on the table: add more cards.", "info");
+      setMsg("No " + one + " on the table: add more cards.", "info");
       return;
     }
-    // Highlight one card of a valid set; reveal a second on a repeat press.
-    // (The table is the same until hintIds is cleared, so findSet's trio is too.)
+    // Highlight one card of it; reveal a second on a repeat press. (The
+    // table is the same until hintIds is cleared, so findAny's cards are
+    // too.) In Set-Chain the first is the card from the last Hash; in
+    // UltraSet the two are a pair.
     var already = hintIds.length;
-    var reveal = Math.min(already + 1, 2); // never give away all three
+    var reveal = Math.min(already + 1, 2); // never give away all of it
     if (reveal <= already) {
       // Both cards are already showing: no new info, so no extra charge.
-      setMsg("Two cards of a Hash are already glowing. 💡", "info");
+      setMsg("Two cards of " + an + one + " are already glowing. 💡", "info");
       return;
     }
-    hintIds = trio.slice(0, reveal).map(function (i) {
-      return board[i].id;
+    hintIds = trio.slice(0, reveal).map(function (c) {
+      return c.id;
     });
     render();
     hintSound();
@@ -493,19 +791,29 @@
     showTime();
     setMsg(
       (reveal === 1
-        ? "Hint: one card of a Hash is glowing. 💡"
-        : "Hint: two cards of a Hash are glowing. 💡") + " (+30s)",
+        ? "Hint: one card of " + an + one + " is glowing. 💡"
+        : "Hint: two cards of " + an + one + " are glowing. 💡") + " (+30s)",
       "info"
     );
   }
 
   // ---- end / start -----------------------------------------------------
-  // The deck's last Hash is claimed: the clock stops and a best time is saved
-  // right then (claimGood), before the trio slides out...
+  // The deck's last Hash is claimed: the clock stops and a best time (on
+  // the Daily, today's first clear) is saved right then (claimGood),
+  // before the trio slides out...
   function finish() {
     over = true;
     stopTimer();
     var total = clockMs() + penalty; // hint penalties count toward the final time; paused time doesn't
+    if (daily) {
+      var d = readDaily(), before = d.done[combo()];
+      if (before == null) {
+        d.done[combo()] = total;
+        save(DAILY_KEY, d);
+      }
+      renderBest();
+      return { total: total, daily: d.n, before: before };
+    }
     var best = loadBest();
     var isBest = best === null || total < best;
     if (isBest) {
@@ -515,15 +823,21 @@
     return { total: total, isBest: isBest };
   }
 
+  // the way being played, as the end card names it
+  function comboName() {
+    return MODES[mode].name + (junior ? ", Junior" : "") + (daily ? ", Daily No. " + today().n : "");
+  }
+
   // ...and the board-cleared card follows once it has
   function endGame(result) {
-    var total = result.total, isBest = result.isBest;
+    var total = result.total;
     var hints = Math.round(penalty / HINT_PENALTY);
-    ovTitle.textContent = "Board cleared! 🎉";
+    ovTitle.textContent = mode === "normal" ? "Board cleared! 🎉" : "Deck cleared! 🎉";
     ovBody.innerHTML =
+      "<span class='ov-mode'>" + comboName() + "</span><br>" +
       "You found <b>" +
       setsFound +
-      "</b> sets and emptied the deck in <b>" +
+      "</b> " + (setsFound === 1 ? MODES[mode].one : MODES[mode].found) + " and emptied the deck in <b>" +
       fmtTime(total) +
       "</b>." +
       (hints > 0
@@ -535,7 +849,13 @@
           (hints === 1 ? "" : "s") +
           ")</span>"
         : "") +
-      (isBest ? "<br><span style='color:var(--emerald);font-weight:600'>New best time!</span>" : "");
+      (result.daily
+        ? result.before != null
+          ? "<br><span style='color:var(--gold)'>Today's Daily was recorded earlier: " + fmtTime(result.before) + "</span>"
+          : "<br><span style='color:var(--emerald);font-weight:600'>Today's Daily, recorded!</span>"
+        : result.isBest
+        ? "<br><span style='color:var(--emerald);font-weight:600'>New best time!</span>"
+        : "");
     overlay.hidden = false;
   }
 
@@ -545,21 +865,24 @@
     moved = false;
     locked = false;
     selected = [];
+    traySel = -1;
+    tray = [];
+    extra = null;
+    log = [];
     hintIds = [];
     setsFound = 0;
     penalty = 0;
-    deck = shuffle(buildDeck());
+    deck = shuffle(buildDeck(junior), daily ? mulberry(dailySeed()) : null);
     board = [];
     overlay.hidden = true;
-    setMsg("");
+    // (the rule line above says how this mode plays; a Daily says which)
+    setMsg(daily ? "Daily No. " + today().n + ", the same for everyone" : "", daily ? "info" : "");
     var dealt = dealUpTo(12);
-    // Guarantee an opening set exists (deal more if the first 12 have none).
-    var guard = 0;
-    while (!findSet(board) && deck.length > 0 && guard < 30) {
-      dealt = dealt.concat(dealUpTo(board.length + 3));
-      guard++;
-    }
+    // Guarantee an opening one exists (deal more if the first 12 have none).
+    dealt = dealt.concat(ensureSetAvailable());
+    renderRules();
     render(dealt);
+    renderLog();
     renderBest();
     updateAddBtn();
     // The clock starts with the deal shown. A deal in a hidden tab (a page
@@ -573,16 +896,37 @@
     else startTimer();
   }
 
+  // Normal / Set-Chain / UltraSet, Junior and Daily: each change deals a new
+  // game in the new way (asking first mid-deck, as New game does) and is
+  // remembered for next time
+  function choose(next) {
+    if (next.mode === mode && next.junior === junior && next.daily === daily) return;
+    function go() {
+      mode = next.mode;
+      junior = next.junior;
+      daily = next.daily;
+      save(PREFS_KEY, { mode: mode, junior: junior, daily: daily });
+      newGame();
+    }
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start a new game?", ok: "New game" }, go);
+    else go();
+  }
+
   // ---- events ----------------------------------------------------------
   boardEl.addEventListener("click", function (e) {
     var el = e.target.closest(".card");
     if (!el) return;
     onCardActivate(parseInt(el.dataset.idx, 10));
   });
+  trayCards.addEventListener("click", function (e) {
+    var el = e.target.closest("[data-tray]");
+    if (el) onTrayActivate(parseInt(el.dataset.tray, 10));
+  });
   // A click or a tap doesn't leave the card focused: the focus ring is the
   // keyboard's (Tab walks the cards), and a key pressed after a click (H for
   // a hint, A for more cards) used to outline the card last clicked
   boardEl.addEventListener("mousedown", function (e) { if (e.target.closest(".card")) e.preventDefault(); });
+  trayCards.addEventListener("mousedown", function (e) { if (e.target.closest(".card")) e.preventDefault(); });
   boardEl.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
     if (e.repeat) return; // one toggle per physical press
@@ -590,6 +934,14 @@
     if (!el) return;
     e.preventDefault();
     onCardActivate(parseInt(el.dataset.idx, 10));
+  });
+  trayCards.addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    if (e.repeat) return;
+    var el = e.target.closest("[data-tray]");
+    if (!el) return;
+    e.preventDefault();
+    onTrayActivate(parseInt(el.dataset.tray, 10));
   });
   addBtn.addEventListener("click", onAdd);
   hintBtn.addEventListener("click", onHint);
@@ -600,13 +952,20 @@
     else newGame();
   });
   ovBtn.addEventListener("click", newGame);
+  document.querySelectorAll("#modeRow .chip").forEach(function (b) {
+    b.addEventListener("click", function () { choose({ mode: b.dataset.mode, junior: junior, daily: daily }); });
+  });
+  juniorBtn.addEventListener("click", function () { choose({ mode: mode, junior: !junior, daily: daily }); });
+  dailyBtn.addEventListener("click", function () { choose({ mode: mode, junior: junior, daily: !daily }); });
   // Keys, shown on the buttons: A adds three cards, H is the hint, N a new
-  // game (which asks first mid-deck, as its click does); on the cleared-board
-  // card Enter plays again. None of them under the pause card.
+  // game (which asks first mid-deck, as its click does); 1 2 3 the modes, J
+  // Junior and D the Daily (asking first too); on the cleared-board card
+  // Enter plays again. None of them under the pause card.
   if (window.GameShell && GameShell.menuKeys) {
     GameShell.menuKeys({
       active: function () { return overlay.hidden && !PAUSE.isPaused(); },
       groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] },
+        { sel: "#modeRow .chip", keys: ["1", "2", "3"] }, { sel: "#juniorBtn", keys: ["j"] }, { sel: "#dailyBtn", keys: ["d"] },
         { sel: ".rules > summary", keys: ["i"], caps: false }]   // (I opens or shuts How to play, its key on its line)
     });
     GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn", space: true });
@@ -623,6 +982,7 @@
           },
           onChange: function (paused) {
             boardEl.classList.toggle("paused", paused);
+            trayEl.classList.toggle("paused", paused);
             if (paused) stopTimer();
             else if (!over) startTimer();
           },

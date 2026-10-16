@@ -184,5 +184,220 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("hash (hint after a click): no page errors", r.errs.length === 0, r.errs);
     await r.close();
   }
+  // ======================================================================
+  // The modes: Normal, Set-Chain and UltraSet (1 2 3), the Junior switch (J)
+  // and the Daily (D), their keys on their buttons; each of the six ways to
+  // play has its own best and its own Daily; a log of what's been found.
+  const HOOK2 = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n" +
+    "  window.__h = { get board() { return board; }, get deck() { return deck; }, get tray() { return tray; }, get log() { return log; }, get mode() { return mode; },\n" +
+    "    findSet: findSet, findAny: findAny, emptyDeck: function () { deck = []; }, table: function (codes) { board = codes.map(function (s) { return cardOf(s.split('').map(Number)); }); selected = []; hintIds = []; render(); } };\n})();"];
+  const openM = (c, seed) => lib.open(c || ctx, base, "games/hash/", { before: async (pg) => {
+    await lib.injectScript(pg, "games/hash/game.js", [HOOK2]);
+    if (seed) await pg.addInitScript((s) => { try { localStorage.setItem("hash_prefs", s); } catch (e) {} }, JSON.stringify(seed));
+  } });
+  const code = (s) => s.split("").map(Number);
+  const third = (a, b) => a.map((v, f) => (6 - v - b[f]) % 3);
+  const isUltra = (cs) => [[0, 1, 2, 3], [0, 2, 1, 3], [0, 3, 1, 2]].some((o) => third(cs[o[0]], cs[o[1]]).join() === third(cs[o[2]], cs[o[3]]).join());
+  const state = (q) => q.evaluate(() => ({
+    mode: __h.mode, found: +document.getElementById("statSets").textContent, msg: document.getElementById("msg").textContent,
+    tray: __h.tray.map((c) => c.id), log: __h.log.length, board: __h.board.length,
+    pressed: [...document.querySelectorAll("#modeRow .chip[aria-pressed=true], .chip.sw[aria-pressed=true]")].map((b) => b.dataset.mode || b.id),
+    dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null,
+  }));
+  const click = (q, sel) => q.evaluate((s) => document.querySelector(s).click(), sel);
+  const idx = (i) => '#board .card[data-idx="' + i + '"]';
+  // every claim open on the table, claimed by clicks, until the end card is up (the deck emptied first)
+  const playOut = (q) => q.evaluate(async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    __h.emptyDeck();
+    for (let n = 0; n < 40 && document.getElementById("overlay").hidden; n++) {
+      const f = __h.findAny();
+      if (!f) break;
+      for (const c of f) {
+        const t = __h.tray.indexOf(c);
+        document.querySelector(t >= 0 ? '#trayCards [data-tray="' + t + '"]' : '#board .card[data-idx="' + __h.board.indexOf(c) + '"]').click();
+      }
+      await wait(700);
+    }
+    return { over: !document.getElementById("overlay").hidden, title: document.getElementById("ovTitle").textContent, body: document.getElementById("ovBody").textContent };
+  });
+
+  {
+    const r = await openM();
+    const caps = await r.evaluate(() => [...document.querySelectorAll("#modeRow .chip, #juniorBtn, #dailyBtn")].map((b) => b.textContent.trim() + " " + b.getAttribute("data-gs-key")).join(", "));
+    check("hash: the mode row is Normal 1, Set-Chain 2, UltraSet 3, then Junior J and Daily D, each key on its button",
+      caps === "Normal 1, Set-Chain 2, UltraSet 3, Junior J, Daily D", caps);
+
+    // on an untouched deal 2 goes straight to Set-Chain; once the game's begun, 3 asks first (Esc keeps it, Enter deals)
+    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    const s2 = await state(r);
+    const slots = await r.evaluate(() => ({ shown: !document.getElementById("tray").hidden, slots: document.querySelectorAll("#trayCards .slot").length, label: document.getElementById("trayK").textContent }));
+    await r.keyboard.press("h"); await r.waitForTimeout(100);
+    await r.keyboard.press("3"); await r.waitForTimeout(200);
+    const s3a = await state(r);
+    await r.keyboard.press("Escape"); await r.waitForTimeout(150);
+    const s3b = await state(r);
+    await r.keyboard.press("3"); await r.waitForTimeout(200);
+    await r.keyboard.press("Enter"); await r.waitForTimeout(200);
+    const s3c = await state(r);
+    check("hash: 2 on an untouched deal deals Set-Chain at once, the tray showing the last Hash's three empty places; mid-deck 3 asks first, Esc keeps the game and Enter deals UltraSet",
+      s2.mode === "chain" && !s2.dlg && s2.pressed.join() === "chain" && slots.shown && slots.slots === 3 &&
+      s3a.dlg === "Start a new game?" && s3b.mode === "chain" && !s3b.dlg && s3c.mode === "ultra" && s3c.pressed.join() === "ultra", { s2, slots, s3a, s3b, s3c });
+    await r.reload({ waitUntil: "domcontentloaded" }); await r.waitForSelector(".mute-toggle"); await r.waitForTimeout(300);
+    check("hash: the mode played last comes back on the next visit", (await state(r)).mode === "ultra", await state(r));
+    check("hash (modes): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- Set-Chain: the first Hash is free and moves aside; after it, a Hash
+  // of table cards alone is turned away, and one with a card from the last
+  // Hash counts, its three cards the new last Hash; the log rings the carried card
+  {
+    const r = await openM(null, { mode: "chain" });
+    // A B C a Hash; T1 T2 T3 a Hash of table cards; A D E a Hash with A
+    await r.evaluate((codes) => __h.table(codes), ["0000", "1111", "2222", "0120", "1201", "2012", "0011", "0022", "2100", "1020", "2210", "0201"]);
+    for (const i of [0, 1, 2]) await click(r, idx(i));
+    await r.waitForTimeout(750);
+    const c1 = await state(r);
+    for (const i of [3, 4, 5]) await click(r, idx(i));
+    await r.waitForTimeout(100);
+    const c2 = await state(r);
+    await r.waitForTimeout(500);
+    await click(r, '#trayCards [data-tray="0"]'); await click(r, idx(6)); await click(r, idx(7));
+    await r.waitForTimeout(750);
+    const c3 = await state(r);
+    const logged = await r.evaluate(() => [...document.querySelectorAll("#logList li")].map((li) => li.querySelectorAll(".mini").length + "/" + li.querySelectorAll(".mini.carried").length).join(" "));
+    check("hash, Set-Chain: the first Hash is free and moves aside; three table cards alone are turned away, even as a Hash; a Hash with a card from the last one counts and becomes the last Hash",
+      c1.found === 1 && c1.tray.join() === "0000,1111,2222" && c1.board === 12 &&
+      c2.found === 1 && /needs one card from the last Hash/.test(c2.msg) &&
+      c3.found === 2 && c3.tray.join() === "0000,0011,0022" && c3.board >= 12, { c1, c2, c3 });   // (more than 12 when no Hash goes with the new last one: more cards came in)
+    check("hash, Set-Chain: the log lists both Hashes, newest first, the carried card ringed", logged === "3/1 3/0", logged);
+    check("hash (Set-Chain): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- UltraSet: four cards count when two pairs need the same third card,
+  // whichever order they're picked in; the extra card shows in the tray and
+  // the log; the table stays at 12; four that don't are turned away
+  {
+    const r = await openM(null, { mode: "ultra" });
+    const fill = ["2101", "0211", "1201", "2012", "0102", "1122", "2200", "0021"];
+    // a + b and c + d both need 2220; picked a, c, b, d
+    await r.evaluate((codes) => __h.table(codes), ["0000", "0120", "1110", "1020"].concat(fill));
+    for (const i of [0, 1, 2, 3]) await click(r, idx(i));
+    await r.waitForTimeout(100);
+    const u0 = await state(r);
+    await r.waitForTimeout(650);
+    const u1 = await state(r);
+    const shown = await r.evaluate(() => ({
+      tray: (document.querySelector("#trayCards .card.extra") || { getAttribute: () => null }).getAttribute("aria-label"),
+      log: [...document.querySelectorAll("#logList li")].map((li) => li.querySelectorAll(".pair .mini").length + "+" + li.querySelectorAll(".mini.extra").length).join(" "),
+    }));
+    // four of the rest that make no UltraSet
+    let four = null;
+    for (let a = 4; a < 12 && !four; a++) for (let b = a + 1; b < 12 && !four; b++) for (let c = b + 1; c < 12 && !four; c++) for (let d = c + 1; d < 12 && !four; d++)
+      if (!isUltra([a, b, c, d].map((i) => code(fill[i - 4])))) four = [a, b, c, d];
+    for (const i of four) await click(r, idx(i));
+    await r.waitForTimeout(100);
+    const u2 = await state(r);
+    check("hash, UltraSet: four cards picked in any order count when two pairs need the same third card; the table stays at 12",
+      /UltraSet/.test(u0.msg) && u1.found === 1 && u1.board === 12 && u1.log === 1, { u0, u1 });
+    check("hash, UltraSet: the extra card (here 3 red open ovals) shows in the tray, and the log has the two pairs and it",
+      /^3 red open ovals/.test(shown.tray || "") && shown.log === "4+1", shown);
+    check("hash, UltraSet: four cards with no two pairs needing the same card are turned away", !!four && u2.found === 1 && /Not an UltraSet/.test(u2.msg), { four, u2 });
+    check("hash (UltraSet): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- Junior: the 27 solid cards (in any mode), shading gone from the rule line
+  {
+    const r = await openM();
+    await r.keyboard.press("j"); await r.waitForTimeout(150);
+    const j = await r.evaluate(() => ({
+      pressed: document.getElementById("juniorBtn").getAttribute("aria-pressed"),
+      total: __h.board.length + __h.deck.length, deckShown: +document.getElementById("statDeck").textContent, deck: __h.deck.length,
+      solid: [...__h.board, ...__h.deck].every((c) => c.shading === "solid"), rule: document.getElementById("subtitle").textContent.replace(/\s+/g, " ").trim(),
+    }));
+    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    const j2 = await r.evaluate(() => ({ mode: __h.mode, total: __h.board.length + __h.deck.length, solid: __h.board.every((c) => c.shading === "solid") }));
+    check("hash, Junior: J plays with the 27 solid cards (the Deck count follows), and the rule line leaves shading out; Set-Chain can be Junior too",
+      j.pressed === "true" && j.total === 27 && j.deckShown === j.deck && j.solid && !/shading/.test(j.rule) && j2.mode === "chain" && j2.total === 27 && j2.solid, { j, j2 });
+    await r.close();
+  }
+
+  // ---- the Daily: the same deal on every load that day, a different one in
+  // each way to play; its clear is recorded as today's (not as the best)
+  {
+    const r = await openM(null, { mode: "normal", daily: true });
+    const ids = () => r.evaluate(() => __h.board.map((c) => c.id).join(" ") + " | " + __h.deck.map((c) => c.id).join(" "));
+    const d1 = await ids();
+    const hud = await r.evaluate(() => document.getElementById("statBestK").textContent + " " + document.getElementById("statBest").textContent);
+    await r.reload({ waitUntil: "domcontentloaded" }); await r.waitForSelector(".mute-toggle"); await r.waitForTimeout(300);
+    const d2 = await ids();
+    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    const d3 = await ids();
+    check("hash, Daily: the deal is the same on a second load, and Set-Chain's Daily is another deal", d1 === d2 && d3 !== d1, { d1: d1.slice(0, 60), d2: d2.slice(0, 60), d3: d3.slice(0, 60) });
+    await r.keyboard.press("1"); await r.waitForTimeout(150);
+    const out = await playOut(r);
+    const rec = await r.evaluate(() => ({ daily: JSON.parse(localStorage.getItem("hash_daily") || "null"), best: localStorage.getItem("set_best_time"), hud: document.getElementById("statBestK").textContent + " " + document.getElementById("statBest").textContent }));
+    check("hash, Daily: the HUD shows Today's time in place of Best; a clear is recorded as today's Normal Daily and named on the end card, and leaves the best alone",
+      hud === "Today none" && out.over && /Normal, Daily No\. \d+/.test(out.body) && rec.daily && typeof rec.daily.done.normal === "number" && rec.best === null && /^Today \d+:\d\d$/.test(rec.hud), { hud, out, rec });
+    check("hash (Daily): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- each way to play keeps its own best: a Set-Chain clear and a Junior
+  // UltraSet clear each save their own, not Normal's
+  {
+    const r = await openM(null, { mode: "chain" });
+    const o1 = await playOut(r);
+    await r.click("#ovBtn"); await r.waitForTimeout(150);
+    await r.keyboard.press("3"); await r.waitForTimeout(150);
+    await r.keyboard.press("j"); await r.waitForTimeout(150);
+    const o2 = await playOut(r);
+    const keys = await r.evaluate(() => Object.keys(localStorage).filter((k) => /^set_best_time/.test(k)).sort().join(" "));
+    const logs = await r.evaluate(() => document.querySelectorAll("#logList li").length);
+    check("hash: a Set-Chain clear and a Junior UltraSet clear each save a best of their own, Normal's untouched; the end card names the mode",
+      o1.over && /^Set-Chain/.test(o1.body) && o2.over && /^UltraSet, Junior/.test(o2.body) && keys === "set_best_time_chain set_best_time_ultra_junior", { o1, o2, keys });
+    check("hash: the log has every one found", logs >= 1, logs);
+    check("hash (bests): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- fit: on phones and laptops the mode row, the HUD, the tray, the
+  // table and the buttons are all on the first screen, nothing wider than it;
+  // on a laptop the log stands beside the table, on a phone below the page
+  {
+    // (a phone on its side is too short for the whole table: there the cards
+    // keep a playable size and the page scrolls to the buttons)
+    const sizes = [[320, 568, true], [360, 640, true], [390, 664, true], [375, 553, true], [1280, 800, false], [1366, 657, false], [1280, 600, false], [844, 390, true, true], [667, 375, true, true]];
+    const bad = [], seen = {};
+    for (const [w, h, phone, side] of sizes) {
+      const c = await lib.newContext(browser, phone ? Object.assign({}, require("@playwright/test").devices["Pixel 7"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      for (const mode of ["normal", "chain", "ultra"]) {
+        const q = await openM(c, { mode });
+        // (a deal with no Hash in its first twelve has fifteen: measured on twelve)
+        for (let k = 0; k < 6 && await q.evaluate(() => __h.board.length > 12); k++) { await q.evaluate(() => document.getElementById("newBtn").click()); await q.waitForTimeout(100); }
+        const m = await q.evaluate((w) => {
+          const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { t: Math.round(b.top), b: Math.round(b.bottom), l: Math.round(b.left), r: Math.round(b.right), h: Math.round(b.height) }; };
+          const card = r("#board .card");
+          return { over: Math.max(document.documentElement.scrollWidth, innerWidth) - w, vh: innerHeight, modes: r(".modes"), hud: r(".hud"), tray: document.getElementById("tray").hidden ? null : r("#tray"),
+            board: r("#board"), controls: r(".controls"), log: r("#log"), card: card && card.h, logAfter: !document.querySelector(".wrap").contains(document.getElementById("log")) };
+        }, w);
+        const key = w + "x" + h + " " + mode;
+        seen[key] = "card " + m.card + "px";
+        const low = [m.modes, m.hud, m.tray, m.board, m.controls].filter(Boolean).filter((b) => b.t < 0 || b.b > m.vh + 1).length;
+        if (side) { if (m.over > 0 || m.card < 40) bad.push(key + ": " + JSON.stringify(m)); }
+        else if (m.over > 0 || low || m.card < 34) bad.push(key + ": " + JSON.stringify(m));
+        else if (phone && !m.logAfter) bad.push(key + ": the log isn't below the page");
+        else if (!phone && (m.logAfter || m.log.l < m.board.r || m.log.b > m.vh || m.log.h < 120)) bad.push(key + ": the log isn't beside the table " + JSON.stringify(m.log));
+        await q.close();
+      }
+      await c.close();
+    }
+    check("hash: at 320 x 568, 360 x 640, 390 x 664, 375 x 553 and on 1280 x 800, 1366 x 657 and 1280 x 600 laptops, every mode's row, HUD, tray, table and buttons fit the first screen (cards at least 34 px tall), the log beside the table on a laptop and below the page on a phone; on a phone on its side (844 x 390, 667 x 375) the cards stay at least 40 px tall",
+      bad.length === 0, bad.length ? bad : seen);
+  }
+
   await ctx.close();
 };
