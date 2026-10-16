@@ -379,12 +379,12 @@
     document.getElementById("again").focus({ preventScroll: true });
   }
 
-  // Pause: the shared shell's overlay and ⏸ button, with no key: P is a
-  // fishing key on the letter layouts, and Esc is the way out.
+  // Pause: the shared shell's overlay and ⏸ button, and \ (P is a fishing
+  // key on the letter layouts, and Esc is the way out; no pond has a \).
   // Leaving uses the pause's default guard (game-shell.js): it asks first
   // while a run is on or paused, not in the "ending" beat (the best is in).
   var P = window.GameShell ? GameShell.pausable({
-      canPause: function () { return state === "play"; }, keys: [],
+      canPause: function () { return state === "play"; }, keys: ["\\"],   // the backslash key pauses: no pond asks for it (letters, digits, their Shift symbols)
       // on the card: this pond and clock again, or back to pick others
       restart: function () { start(mode); },
       menu: toMenu

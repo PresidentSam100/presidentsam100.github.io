@@ -6,9 +6,9 @@
 
 // Games where letters are gameplay (or M is already taken): only [ and ] work.
 const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/"]);
-// Games whose pause has no key (every letter is the game's own, and Esc is
-// the way out): their ⏸ button names none. (Departures pauses on \, a symbol.)
-const KEYLESS = new Set(["fish-a-fish/", "lanterns/", "typetwo/", "speedle/", "demolition-row/"]);
+// Games whose pause has no key: their ⏸ button names none. (None now: the
+// games with no letter to spare pause on \, a symbol, and their ⏸ wears it.)
+const KEYLESS = new Set([]);
 
 const rectsOf = (p) => p.evaluate(() => {
   const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return { x: b.x, y: b.y, w: b.width, h: b.height }; };

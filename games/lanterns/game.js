@@ -718,7 +718,7 @@
   // ---- loop ------------------------------------------------------------------------------
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
-    keys: [],                           // (the ⏸ button: every letter belongs to the pinyin, Esc is the way out)
+    keys: ["\\"],                       // the backslash key pauses (beside the [ and ] of sound and Visual FX, and works in the pinyin box as they do: every letter belongs to the pinyin, Esc is the way out)
     // on the card: this night again from the first lantern, or back to the modes
     restart: function () { startRun(mode); },
     menu: toMenu

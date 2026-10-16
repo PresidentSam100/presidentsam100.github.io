@@ -1056,7 +1056,7 @@
   // Its default leave guard is the right one: a run in play (paused or not)
   // asks before leaving, paused underneath; menus and game over don't.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "playing", keys: [],
+    ? GameShell.pausable({ canPause: () => state === "playing", keys: ["\\"],   // the backslash key pauses, from the typing box too (beside [ and ]: the letters are the words')
         restart: startGame, menu: quitToMenu })   // on the card: this mode again from wave 1, or back to the modes
     : { isPaused: () => false };
 
@@ -1104,8 +1104,8 @@
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
-    // (the ⏸ button pauses: every letter is a spell, and Esc is the way out)
-    const pauseKey = "⏸";
+    // (\ or the ⏸ button pauses: every letter is a spell, and Esc is the way out)
+    const pauseKey = kbd("\\") + " or ⏸";
     el.hint.innerHTML = MODES[mode].noTypos
       ? "HARDCORE: one typo ends the run. " + pauseKey + " to pause."
       : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + pauseKey + " to pause."

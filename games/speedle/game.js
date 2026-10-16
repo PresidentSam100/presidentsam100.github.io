@@ -616,13 +616,14 @@
     root: "#card"
   });
 
-  // The ⏸ button pauses a run (no key: every letter is a guess, and Esc is
-  // the way out). The clock stops, and the board and the keyboard's colours
+  // The ⏸ button pauses a run, and so does \ (every letter is a guess, and
+  // Esc is the way out: \ sits beside the [ and ] of sound and Visual FX).
+  // The clock stops, and the board and the keyboard's colours
   // hide for the whole pause (styles.css), so it's no free look; on the card
   // Restart is this mode again and Menu the modes. A hidden tab pauses too.
   var pausedAt = 0;
   var PAUSE = window.GameShell && GameShell.pausable ? GameShell.pausable({
-    keys: [],
+    keys: ["\\"],                       // the backslash key pauses (beside the [ and ] of sound and Visual FX: the letters are the game's)
     canPause: function () { return playing; },
     hold: true,
     onChange: function (on) {

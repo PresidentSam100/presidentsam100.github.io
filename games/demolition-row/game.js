@@ -1194,11 +1194,16 @@
     }
     function handleKey(e) {
       if (!GAME) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
+      // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys; but
+      // AltGr, which is Ctrl+Alt, is how some layouts type a \
+      if ((e.ctrlKey || e.metaKey || e.altKey) && !(e.key === "\\" && e.ctrlKey && e.altKey && !e.metaKey)) return;
       SFX.resume();
       // Esc is never claimed: it leaves for the games page, asking first
       // mid-game (the game paused under the box)
       if (e.key === "Escape") return;
+      // \ pauses and resumes: the key beside the [ and ] of sound and Visual
+      // FX, and no player's (every letter near P is player 2's)
+      if (e.key === "\\" && (GAME.state === "playing" || GAME.state === "paused")) { e.preventDefault(); if (!e.repeat) GAME.pauseToggle(); return; }
       // on the result card Backspace is its Main Menu button
       if (e.key === "Backspace" && GAME.state === "result") { if (!e.repeat) toMenu(); e.preventDefault(); return; }
       if (GAME.state !== "playing") return;
@@ -1380,10 +1385,10 @@
     document.getElementById("menu-btn").addEventListener("click", () => {
       if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu); else toMenu();
     });
-    // the ⏸ corner button, as in every game, with no key (every letter is
-    // someone's, and Esc is the way out): its card is the game's own
+    // the ⏸ corner button, as in every game, on \ (every letter is someone's,
+    // and Esc is the way out: handleKey takes the \): its card is the game's own
     if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({
-      keys: [],
+      keys: ["\\"],
       canPause: () => !!GAME && GAME.state === "playing",
       isPaused: () => !!GAME && GAME.state === "paused",
       toggle: () => GAME && GAME.pauseToggle()

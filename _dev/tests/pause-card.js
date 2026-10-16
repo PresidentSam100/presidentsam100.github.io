@@ -367,6 +367,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
   }
 
+  // ---- the games with no letter to spare pause on \ (beside the [ and ] of
+  // sound and Visual FX), from their typing box too: \ pauses and isn't
+  // typed, \ again resumes, and the ⏸ button names it (Departures has its
+  // own check)
+  {
+    const SLASH = ["lanterns", "typetwo", "speedle", "fish-a-fish"];
+    for (const g of GAMES.filter((x) => SLASH.includes(x.name))) {
+      const p = await lib.open(ctx, base, "games/" + g.path, { before: async (pg) => { await noFlip(pg); if (g.before) await g.before(pg); } });
+      let r = null;
+      try {
+        await g.start(p); await p.waitForTimeout(300);
+        await p.waitForSelector('.gs-pause-btn[aria-disabled="false"]', { timeout: 15000 }).catch(() => {});
+        await p.evaluate(() => { const b = document.querySelector("[data-game-input]"); if (b && !b.disabled) b.focus(); });
+        await p.keyboard.press("\\"); await p.waitForTimeout(150);
+        const paused = await cardUp(p);
+        const typed = await p.evaluate(() => { const b = document.querySelector("[data-game-input]"); return b ? b.value : ""; });
+        const label = await p.evaluate(() => document.querySelector(".gs-pause-btn").getAttribute("aria-label") || "");
+        await p.keyboard.press("\\"); await p.waitForTimeout(150);
+        r = { paused, typed, label, resumed: !(await cardUp(p)) };
+      } catch (e) { r = { err: String(e && e.message || e).split("\n")[0] }; }
+      check(g.name + ": \\ pauses (from its typing box too, and isn't typed), \\ again resumes, and the ⏸ button names it",
+        !!r && r.paused && !(r.typed || "").includes("\\") && r.label.includes("(\\)") && r.resumed, r);
+      check(g.name + " (\\ pause): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+    // Demolition Row's own pause screen
+    const p = await lib.open(ctx, base, "games/demolition-row/");
+    const up = () => p.evaluate(() => !document.getElementById("pause").classList.contains("hidden"));
+    await p.click("#play-btn"); await p.waitForTimeout(400);
+    await p.keyboard.press("\\"); await p.waitForTimeout(150);
+    const paused = await up();
+    const caps = await p.evaluate(() => ({ btn: document.querySelector(".gs-pause-btn").getAttribute("aria-label") || "" }));
+    await p.keyboard.press("\\"); await p.waitForTimeout(150);
+    const resumed = !(await up());
+    check("demolition-row: \\ opens its own pause screen and \\ again resumes (as its Resume's Space or Enter does); the ⏸ button names it",
+      paused && resumed && caps.btn.includes("(\\)"), { paused, resumed, caps });
+    check("demolition-row (\\ pause): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
   // ---- the timing tests pause between attempts and never during one: a
   // pause mid-attempt would be a free do-over, or a rest
   {
