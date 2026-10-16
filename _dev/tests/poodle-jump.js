@@ -141,5 +141,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       !!prop.dropped && Math.abs(prop.dropped.spin - prop.dropped.before) < 0.5, prop);
   await done(p, "propeller");
 
+  // ---- the hint line under the game names moving and shooting, and not the
+  // pause (the ⏸ button in the corner row wears its key)
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  const hintLine = await p.evaluate(() => document.getElementById("hint").textContent.replace(/\s+/g, " ").trim());
+  check("poodle-jump: the hint line names Move and Shoot, and leaves the pause to the corner's ⏸ button", /Move/.test(hintLine) && /Shoot/.test(hintLine) && !/Pause/i.test(hintLine), hintLine);
+  await done(p, "hint line");
+
   await ctx.close();
 };
