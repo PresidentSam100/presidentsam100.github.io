@@ -161,5 +161,28 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("hash: a cleared deck's best time is the play time without the pause, plus 30s for the hint",
     Math.abs(run.best - (run.play + 30000)) < 900 && /30s for 1 hint/.test(run.body), run);
   check("hash (best): no page errors", q.errs.length === 0, q.errs);
+
+  // ---- a card clicked with the mouse isn't left focused: H for a hint then
+  // lights only the hint (the card last clicked used to get a black focus
+  // outline from the key press); Tab still reaches the cards
+  {
+    const r = await open();
+    const ids = await r.evaluate(() => { const t = __h.findSet(__h.board); return t; });
+    const pickIdx = await r.evaluate(() => { const t = __h.findSet(__h.board), all = __h.board.map((_, i) => i); return all.find((i) => t.indexOf(i) === -1); });
+    await r.click('.card[data-idx="' + pickIdx + '"]');
+    await r.click('.card[data-idx="' + pickIdx + '"]');            // (and put it back)
+    await r.keyboard.press("h"); await r.waitForTimeout(150);
+    const after = await r.evaluate(() => ({
+      focusedCard: !!(document.activeElement && document.activeElement.classList.contains("card")),
+      ringed: [...document.querySelectorAll("#board .card")].filter((c) => c.matches(":focus-visible")).length,
+      hinted: document.querySelectorAll("#board .card.hint").length
+    }));
+    await r.keyboard.press("Tab");
+    const tabbed = await r.evaluate(() => !!(document.activeElement && (document.activeElement.classList.contains("card") || document.activeElement.tagName === "BUTTON")));
+    check("hash: after a card is clicked, H lights only the hint, with no focus outline on the card clicked; Tab still reaches the cards",
+      !!ids && !after.focusedCard && after.ringed === 0 && after.hinted >= 1 && tabbed, Object.assign({ tabbed }, after));
+    check("hash (hint after a click): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
   await ctx.close();
 };

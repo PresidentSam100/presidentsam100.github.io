@@ -98,4 +98,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("lights-out: on a touch-only phone every keycap is hidden, on the menu and the end card", hidden(onMenu) && hidden(onCard), { onMenu, onCard });
   await done(p, "touch keycaps");
   await ctx.close();
+
+  // ---- a bulb clicked with the mouse isn't left focused: H for a hint then
+  // glints only the hint (the bulb last clicked used to get the keyboard's
+  // dashed ring too); the arrows still walk the sign with their ring
+  ctx = await lib.newContext(browser);
+  p = await open(ctx);
+  await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(300);
+  await p.click("#board .bulb:nth-child(1)"); await p.waitForTimeout(100);
+  await p.keyboard.press("h"); await p.waitForTimeout(150);
+  const hintNow = await p.evaluate(() => ({
+    ringed: [...document.querySelectorAll("#board .bulb")].filter((b) => b.matches(":focus-visible")).length,
+    focused: !!(document.activeElement && document.activeElement.classList.contains("bulb")),
+    glints: document.querySelectorAll("#board .bulb.glint").length
+  }));
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(80);
+  const walked = await p.evaluate(() => [...document.querySelectorAll("#board .bulb")].filter((b) => b.matches(":focus-visible")).length);
+  check("lights-out: after a bulb is clicked, H glints only the hint, with no dashed ring on the bulb clicked; the arrows still bring the ring",
+    hintNow.ringed === 0 && !hintNow.focused && hintNow.glints === 1 && walked === 1, Object.assign({ walked }, hintNow));
+  await done(p, "hint after a click");
+  await ctx.close();
 };

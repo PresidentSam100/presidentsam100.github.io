@@ -579,6 +579,10 @@
     if (!el) return;
     onCardActivate(parseInt(el.dataset.idx, 10));
   });
+  // A click or a tap doesn't leave the card focused: the focus ring is the
+  // keyboard's (Tab walks the cards), and a key pressed after a click (H for
+  // a hint, A for more cards) used to outline the card last clicked
+  boardEl.addEventListener("mousedown", function (e) { if (e.target.closest(".card")) e.preventDefault(); });
   boardEl.addEventListener("keydown", function (e) {
     if (e.key !== "Enter" && e.key !== " ") return;
     if (e.repeat) return; // one toggle per physical press

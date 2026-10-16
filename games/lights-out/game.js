@@ -224,6 +224,10 @@
       b.setAttribute("aria-label", "bulb, row " + (((i / n) | 0) + 1) + " column " + ((i % n) + 1));
       b.innerHTML = A.socketSVG() + '<span class="glow"></span><span class="lit">' + A.litSVG() + "</span>";
       (function (idx) { b.addEventListener("click", function () { press(idx); }); })(i);
+      // A click or a tap doesn't leave the bulb focused: the dashed ring is
+      // the keyboard's cursor (arrows walk it), and a key pressed after a
+      // click (H for a hint) used to ring the bulb last clicked beside the hint
+      b.addEventListener("mousedown", function (e) { e.preventDefault(); });
       board.appendChild(b);
       cells.push(b);
     }
