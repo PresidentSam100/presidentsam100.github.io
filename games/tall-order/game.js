@@ -24,10 +24,14 @@
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
   };
-  var bests = {
-    bakery: window.GameShell ? GameShell.best("tallorder_best_bakery", { higher: true }) : null,
-    rush: window.GameShell ? GameShell.best("tallorder_best_rush", { higher: true }) : null
-  };
+  // the tallest tower in each mode, and in each with the lights off (Dark,
+  // a switch on the menu: harder, so a best of its own)
+  var bests = {};
+  ["bakery", "rush", "bakery_dark", "rush_dark"].forEach(function (k) {
+    bests[k] = window.GameShell ? GameShell.best("tallorder_best_" + k, { higher: true }) : null;
+  });
+  var dark = store.get("tallorder_dark", "0") === "1";
+  function bestNow() { return bests[mode + (dark ? "_dark" : "")]; }
 
   // ---- canvas ---------------------------------------------------------------
   var cv = $("stage"), g = cv.getContext("2d");
@@ -137,7 +141,7 @@
     tiers = []; perfects = 0; streak = 0;
     debris = []; sprinkles = []; pops = [];
     fallen = []; pile = [];
-    runBest = bests[mode] ? bests[mode].get() : 0;
+    runBest = bestNow() ? bestNow().get() : 0;
     // the base tier, resting on the stand
     tiers.push({ x: baseX, w: W0, fl: flavourFor(0), seed: 991, decos: withWx(A.decosFor(W0, 991), baseX, W0) });
     cam = -Hh * 0.82; camTarget = towerTopY() - Hh * 0.62;
@@ -196,7 +200,7 @@
       sndMiss();
       // the run is over: its result is in before the tumble (a run that placed
       // nothing on the base it was given has no tower to record)
-      if (bests[mode] && tiers.length > 1) bests[mode].submit(tiers.length);
+      if (bestNow() && tiers.length > 1) bestNow().submit(tiers.length);
       state = "tumble"; phaseTimer = 0.8;
       slider = null;
       return;
@@ -235,7 +239,7 @@
     $("hud-tiers").textContent = "" + tiers.length;
     // a tier that takes the tower past the best saves it now, not after the
     // tumble and pull-back that end the run
-    if (tiers.length > runBest && bests[mode]) bests[mode].submit(tiers.length);
+    if (tiers.length > runBest && bestNow()) bestNow().submit(tiers.length);
     camTarget = towerTopY() - Hh * 0.62;
 
     if (tiers.length % 10 === 0) {                    // growth-chart milestone
@@ -307,7 +311,7 @@
     // (saved as each tier beat it; "record" is against the best as the run
     // began). The count includes the base the run starts on, so a run that
     // placed no tier (n is 1) is never a record.
-    var b = bests[mode], isBest = b && n > 1 ? b.submit(n) || n > runBest : false;
+    var b = bestNow(), isBest = b && n > 1 ? b.submit(n) || n > runBest : false;
     $("over-title").textContent = n >= 25 ? "A showstopper!" : n >= 12 ? "Order served!" : "Back to the oven";
     $("over-msg").textContent = n + (n === 1 ? " tier" : " tiers");
     // The perfect drops on a line of their own, bigger and bolder the more
@@ -320,7 +324,7 @@
     perf.textContent = perfects === 0 ? "no perfect drops" :
       (lvl >= 2 ? "★ " : "") + perfects + " perfect drop" + (perfects === 1 ? "" : "s") + (lvl === 3 ? "!" : "");
     best.className = "best" + (isBest ? " record" : "");
-    best.textContent = isBest ? "a new bakery record! 🍒" : b && b.get() ? "best: " + b.get() + " tiers" : "no tower on the record board yet";
+    best.textContent = isBest ? "a new bakery record! 🍒" : b && b.get() ? (dark ? "best in the dark: " : "best: ") + b.get() + " tiers" : "no tower on the record board yet";
     $("over-stats").replaceChildren(perf, best);
     $("hud").hidden = true;
     $("over").hidden = false;
@@ -487,6 +491,28 @@
     drawDebris(sy);
     drawGarnish(sy);
     g.restore();
+    if (dark && (state === "play" || state === "tumble")) drawDark(1, function (x, y) { return [x, sy(y)]; }, 1);
+  }
+
+  // Dark (the switch on the menu): the kitchen with the lights off but for a
+  // pool of light on the top of the tower, where the tier drops, so a tier
+  // gliding in shows only as it comes over the cake. With Visual FX on the
+  // light breathes a little, as a lamp's does. a: how dark (the pull-back
+  // brings the lights up); at(x, y): a world point on the screen; k: scale.
+  function drawDark(a, at, k) {
+    if (a <= 0 || !tiers.length) return;
+    var top = tiers[tiers.length - 1];
+    var c = at(top.x + top.w / 2, towerTopY() - SH * 0.6);
+    var r0 = Math.max(H * 2.4, top.w * 0.62) * k * (fx() ? 1 + 0.025 * Math.sin(bob * 1.7) : 1);
+    var gr = g.createRadialGradient(c[0], c[1], r0 * 0.55, c[0], c[1], r0 * 1.7);
+    gr.addColorStop(0, "rgba(22,10,18,0)");
+    gr.addColorStop(0.45, "rgba(22,10,18,0.4)");
+    gr.addColorStop(1, "rgba(22,10,18,0.95)");
+    g.save();
+    g.globalAlpha = a;
+    g.fillStyle = gr;
+    g.fillRect(0, 0, W, Hh);
+    g.restore();
   }
 
   // the pieces in the air (toY: a world y on the canvas, as drawn)
@@ -595,6 +621,9 @@
     drawDebris(flat);
     drawGarnish(flat);
     g.restore();
+    // (with the lights off, they come up as the view pulls back, from the
+    // pool on the tower's top where play left it)
+    if (dark && e < 1) drawDark(1 - e, function (x, y) { return [tx + s * x, ty + s * y]; }, s);
   }
 
   // ---- loop ----------------------------------------------------------------------------
@@ -642,7 +671,8 @@
         mode = e.key === "1" ? "bakery" : "rush";
         store.set("tallorder_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
+      } else if (e.key === "d" || e.key === "D") toggleDark();
+      else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       return;
     }
     // the end card: Enter or Space bakes another, Backspace goes back to the modes;
@@ -661,11 +691,23 @@
     document.querySelectorAll("#pick-mode button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-v") === mode);
     });
-    var parts = [];
-    if (bests.bakery && bests.bakery.get()) parts.push("Bakery " + bests.bakery.get());
-    if (bests.rush && bests.rush.get()) parts.push("Rush order " + bests.rush.get());
-    $("bests").textContent = parts.length ? "tallest towers: " + parts.join(" · ") : "no towers on the record board yet";
+    $("dark-state").textContent = dark ? "on" : "off";
+    $("opt-dark").setAttribute("aria-pressed", dark ? "true" : "false");
+    $("opt-dark").classList.toggle("on", dark);
+    // the bests with the lights as they are now set
+    var parts = [], sfx = dark ? "_dark" : "";
+    if (bests["bakery" + sfx] && bests["bakery" + sfx].get()) parts.push("Bakery " + bests["bakery" + sfx].get());
+    if (bests["rush" + sfx] && bests["rush" + sfx].get()) parts.push("Rush order " + bests["rush" + sfx].get());
+    $("bests").textContent = parts.length ? "tallest towers" + (dark ? " in the dark" : "") + ": " + parts.join(" · ") :
+      dark ? "no towers built in the dark yet" : "no towers on the record board yet";
   }
+  function toggleDark() {
+    dark = !dark;
+    store.set("tallorder_dark", dark ? "1" : "0");
+    paintMenu();
+  }
+  $("opt-dark").addEventListener("click", toggleDark);
+  $("opt-dark").addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus, as the modes)
   function toMenu() {
     state = "menu";
     $("over").hidden = true; $("hud").hidden = true; $("menu").hidden = false;

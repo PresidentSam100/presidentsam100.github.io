@@ -55,6 +55,11 @@
         <button type="button" data-v="bakery"><b>Bakery</b><small>a gentle morning <span class="gs-keys"><kbd>1</kbd></span></small></button>
         <button type="button" data-v="rush"><b>Rush order</b><small>fast from the first tier <span class="gs-keys"><kbd>2</kbd></span></small></button>
       </div>
+      <!-- Dark: the lights off but for the top of the tower (game.js drawDark);
+           with either mode, and a best of its own -->
+      <button type="button" class="opt" id="opt-dark" aria-pressed="false">
+        <b>Dark: <span id="dark-state">off</span></b><small>only the drop is lit <span class="gs-keys"><kbd>D</kbd></span></small>
+      </button>
     </div>
     <button type="button" class="playbtn" id="play"><b>Preheat</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>
     <p class="bests" id="bests"></p>

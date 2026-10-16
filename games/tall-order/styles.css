@@ -87,15 +87,20 @@ body {
 .card .how b { color: var(--berry); }
 
 .pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.seg button {
+.seg button, .pick .opt {
   font-family: inherit; font-size: 17px; text-align: left; cursor: pointer;
   color: var(--ink); background: #fff;
   border: 2px solid #eecfd8; border-radius: 12px; padding: calc(9px - var(--lift)) 14px calc(9px + var(--lift));
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
-.seg button small { font-size: 13px; color: var(--dim); }
+.seg button small, .pick .opt small { font-size: 13px; color: var(--dim); }
 .seg button.on { border-color: var(--pink); box-shadow: 0 0 0 2px rgba(242, 109, 141, 0.25); }
 .seg button.on b { color: var(--berry); }
+/* Dark, on or off: a row like the modes', under them; on, it reads as the night it is */
+.pick .opt { width: 100%; margin-bottom: 12px; }
+.pick .opt.on { color: #fdf6ea; background: #4a2f3d; border-color: #2c1a24; }
+.pick .opt.on small { color: #e7c9d3; }
+.pick .opt.on #dark-state { color: #ffd9a0; }
 
 kbd {
   font-family: inherit; font-size: 12px; font-weight: 600;

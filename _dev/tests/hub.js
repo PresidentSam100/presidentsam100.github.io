@@ -21,12 +21,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   const seed = (pg) => pg.addInitScript(() => { try { localStorage.setItem("rushhour_best_day", "777"); localStorage.setItem("sudoku_prefs", "{\"level\":\"hard\"}");
     // Hash: a best in two of its other ways to play, today's Daily, and its picked mode (a setting)
     localStorage.setItem("set_best_time_chain", "90000"); localStorage.setItem("set_best_time_junior", "60000");
-    localStorage.setItem("hash_daily", "{}"); localStorage.setItem("hash_prefs", "{\"mode\":\"chain\"}"); } catch (e) {} });
+    localStorage.setItem("hash_daily", "{}"); localStorage.setItem("hash_prefs", "{\"mode\":\"chain\"}");
+    // Tall Order: a best in the dark in each mode, and Dark left on (a setting)
+    localStorage.setItem("tallorder_best_bakery_dark", "9"); localStorage.setItem("tallorder_best_rush_dark", "4"); localStorage.setItem("tallorder_dark", "1"); } catch (e) {} });
   const open = (c) => lib.open(c, base, "games/", { waitCorner: false, before: seed });
   const gamePath = (p) => p.evaluate(() => (/\/games\/([^/]+)\//.exec(location.pathname) || [])[1] || null);
   const box = (p) => p.evaluate(() => { const d = document.getElementById("reset-dialog"); return { open: d.open, focus: document.activeElement && document.activeElement.className }; });
   const best = (p) => p.evaluate(() => ({ best: localStorage.getItem("rushhour_best_day"), prefs: localStorage.getItem("sudoku_prefs"),
-    hash: ["set_best_time_chain", "set_best_time_junior", "hash_daily"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, hashPrefs: localStorage.getItem("hash_prefs") }));
+    hash: ["set_best_time_chain", "set_best_time_junior", "hash_daily"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, hashPrefs: localStorage.getItem("hash_prefs"),
+    dark: ["tallorder_best_bakery_dark", "tallorder_best_rush_dark"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, darkOn: localStorage.getItem("tallorder_dark") }));
 
   // ---- the keys are on the buttons
   let p = await open(ctx);
@@ -76,6 +79,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     !closed.open && cleared.best === null && /hard/.test(cleared.prefs || ""), { closed, cleared });
   check("games page: the reset clears Hash's bests in every way to play and its Daily, and keeps the mode it was left on",
     cleared.hash === 0 && /chain/.test(cleared.hashPrefs || ""), cleared);
+  check("games page: the reset clears Tall Order's bests in the dark, and leaves Dark on as it was",
+    cleared.dark === 0 && cleared.darkOn === "1", cleared);
   check("games page: Enter in the box hasn't also set off the random game", (await gamePath(p)) === null, await gamePath(p));
 
   // ---- Enter is the random game, from anywhere but a link or a button

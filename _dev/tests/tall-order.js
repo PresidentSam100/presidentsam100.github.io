@@ -91,6 +91,44 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tall-order: a run that places a tier is a first record, saved (guard)", /new bakery record/.test(one.stats) && one.best === "2", one);
   check("tall-order: after missing the first drop, the card shows the best already held (guard)", /best: 5 tiers/.test(old.stats) && old.best === "5", old);
 
+  // ---- Dark, a switch on the menu (D, shown on it, or a click; kept): the
+  // kitchen dark in play but for a pool of light on the tower's top, and a
+  // best of its own in each mode
+  {
+    const pg = await open(ctx);
+    const opt = () => pg.evaluate(() => { const e = document.getElementById("opt-dark"); return e && { on: e.getAttribute("aria-pressed"), cap: (e.querySelector("kbd") || {}).textContent, stored: localStorage.getItem("tallorder_dark") }; });
+    const o0 = await opt();
+    if (!o0) { check("tall-order: Dark is a switch on the menu", false, "no #opt-dark"); await done(pg, "dark"); }
+    else {
+      await pg.keyboard.press("d"); await pg.waitForTimeout(80);
+      const o1 = await opt();
+      await pg.click("#opt-dark"); await pg.waitForTimeout(80);
+      const o2 = await opt();
+      await pg.keyboard.press("d"); await pg.waitForTimeout(80);
+      await pg.reload({ waitUntil: "domcontentloaded" }); await pg.waitForTimeout(400);
+      const o3 = await opt();
+      check("tall-order: Dark is a switch on the menu, off to begin with; D (shown on it) or a click turns it on and off, and it is kept",
+        o0.on === "false" && o0.cap === "D" && o1.on === "true" && o1.stored === "1" && o2.on === "false" && o3.on === "true", { o0, o1, o2, o3 });
+      // in play: the lit pool over the tower's top, the rest dark
+      await pg.evaluate(() => TallOrder.start("bakery"));
+      for (let i = 0; i < 2; i++) { await pg.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 }); await pg.evaluate(() => TallOrder.placeAndDrop(0)); }
+      await pg.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 }); await pg.waitForTimeout(150);
+      const lum = await pg.evaluate(() => {
+        const g = __to.geo(), cv = document.getElementById("stage"), d = cv.getContext("2d"), k = cv.width / g.W;
+        const at = (x, y) => { const p = d.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data; return Math.round((p[0] * 0.3 + p[1] * 0.59 + p[2] * 0.11)); };
+        const top = __to.top();
+        return { pool: at(top.x + top.w / 2, g.top - g.cam - g.SH * 0.6), corner: at(20, g.Hh - 20), edge: at(g.W - 20, 120) };
+      });
+      // a run's best in the dark is its own (the plain one stays as it was)
+      await pg.evaluate(() => TallOrder.placeAndDrop(5000));
+      await pg.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 15000 });
+      const saved = await pg.evaluate(() => ({ dark: localStorage.getItem("tallorder_best_bakery_dark"), plain: localStorage.getItem("tallorder_best_bakery"), card: document.querySelector("#over-stats").textContent }));
+      check("tall-order: with Dark on, play is dark but for the pool of light over the tower's top", lum.pool > 150 && lum.corner < 50 && lum.edge < 50, lum);
+      check("tall-order: a tower built in the dark keeps a best of its own, and the plain best stays as it was", saved.dark === "3" && saved.plain === null && /new bakery record/.test(saved.card), saved);
+      await done(pg, "dark");
+    }
+  }
+
   // ---- the end card, centred: the perfect drops on a line of their own,
   // bigger the more there were, and the best as a badge (they shared one
   // small grey line, left-aligned)
