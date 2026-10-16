@@ -127,9 +127,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   // stands beside a column with the sign, stats and answer box, so the whole
   // page fits the window. Starting a game (the answer box takes the focus), a
   // wrong answer, a pause and a dart storm never scroll it; the start card
-  // fits over the map whole; nothing is under the corner buttons.
-  for (const [w, h] of [[1366, 657], [1280, 600], [1024, 600]]) {
-    const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+  // fits whole (over the map, or on a small map over the whole window);
+  // nothing is under the corner buttons. So too a narrow short window and a
+  // touch screen on its side, down to an iPhone SE's (t: touch).
+  for (const [w, h, t] of [[1366, 657], [1280, 600], [1024, 600], [800, 600], [1024, 768, 1], [844, 390, 1], [667, 375, 1]]) {
+    const c = await lib.newContext(browser, Object.assign({ viewport: { width: w, height: h } }, t ? { hasTouch: true, isMobile: true } : {}));
     const q = await lib.open(c, base, "games/metazac/", { before: (pg) => lib.injectScript(pg, "games/metazac/game.js", [HOOK]) });
     const at = () => q.evaluate(() => ({ y: Math.round(scrollY), tall: document.documentElement.scrollHeight - innerHeight, wide: document.documentElement.scrollWidth - innerWidth }));
     const menu = await q.evaluate(() => {
@@ -140,7 +142,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       return { cardScroll: o.scrollHeight - o.clientHeight, under: parts.filter((p) => corner.some((k) => meet(p, k))).length, map: Math.round(box(document.getElementById("game")).width) };
     });
     const steps = { menu: await at() };
-    await q.keyboard.press("Enter"); await q.waitForTimeout(400);
+    if (t) await q.evaluate(() => document.getElementById("start-btn").click()); else await q.keyboard.press("Enter");
+    await q.waitForTimeout(400);
     steps.start = await at();
     await q.evaluate(() => __mz.spawn());
     await q.keyboard.type("99999"); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
@@ -150,11 +153,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.keyboard.press(" "); await q.waitForTimeout(300);
     steps.storm = await at();
     const focused = await q.evaluate(() => document.activeElement.id);
-    check("metazac, a " + w + " x " + h + " window: the whole page fits, and starting a game, a wrong answer, a pause and a dart storm never scroll it",
+    const what = "metazac, a " + w + " x " + h + (t ? " touch screen" : " window");
+    check(what + ": the whole page fits, and starting a game, a wrong answer, a pause and a dart storm never scroll it",
       Object.values(steps).every((s) => s.y === 0 && s.tall <= 0 && s.wide <= 0) && focused === "answer", { steps, focused });
-    check("metazac, a " + w + " x " + h + " window: the start card fits over the map whole, and nothing is under the corner buttons",
-      menu.cardScroll <= 0 && menu.under === 0 && menu.map >= 650, menu);
-    check("metazac (" + w + " x " + h + "): no page errors", q.errs.length === 0, q.errs);
+    check(what + ": the start card fits whole, and nothing is under the corner buttons",
+      menu.cardScroll <= 0 && menu.under === 0 && menu.map >= 400, menu);
+    check(what + ": no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
 
