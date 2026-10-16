@@ -3167,12 +3167,11 @@ class Game {
     this.text(ctx, 'CAPTURE & RESCUE FOR DUAL FIGHTER!', WIDTH / 2, 452, 10, '#8fa0d8', 'center');
 
     // on touch the ◀ ● ▶ buttons are the pickers, a tap starts; the guide has
-    // no touch way in; ✨ is the FX switch
-    const fx = 'VISUAL FX: ' + (this.reducedFlash ? 'OFF' : 'ON');
+    // no touch way in. (Visual FX isn't named here: its ✨ button sits in the
+    // corner, by the pause button, and V still flips it.)
     if (this.blinkOn())
-      this.keys(ctx, '[▲][▼] MODE  [◀][▶] STAGE  [SPACE]/[ENTER] START', WIDTH / 2, HEIGHT - 52, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
-    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 32, 10, '#8fa0d8', 'center', '');
-    this.keys(ctx, '[V] ' + fx, WIDTH / 2, HEIGHT - 15, 10, '#8fa0d8', 'center', '✨ ' + fx);
+      this.keys(ctx, '[▲][▼] MODE  [◀][▶] STAGE  [SPACE]/[ENTER] START', WIDTH / 2, HEIGHT - 44, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
+    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 22, 10, '#8fa0d8', 'center', '');
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {

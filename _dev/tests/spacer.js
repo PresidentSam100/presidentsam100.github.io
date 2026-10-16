@@ -4,7 +4,9 @@
 // once; the game starts with storage blocked; capsules and explosions move
 // the same at 60 and 144 Hz; the screen keeps its shape on narrow screens;
 // on a phone the touch buttons work the title's pickers; and the canvas
-// hints say what a tap does on a phone, the keys on a desktop.
+// hints say what a tap does on a phone, the keys on a desktop; and the title
+// names no Visual FX switch nor the bar under the screen a pause (the corner
+// buttons are both).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const st = (p) => p.evaluate(() => ({ mode: game.mode, stage: game.stage, startStage: game.startStage, menu: game.menuIndex, prev: game.prevMode, x: game.player && Math.round(game.player.x), input: Object.assign({}, game.input), fx: game.reducedFlash }));
@@ -171,7 +173,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ph = await screens(p);
   const phCaps = Object.values(ph).flat().filter((s) => CAPS.includes(s));
   check("spacer, phone: the canvas hints say what a tap does (title, pause, end screens) and name no keys",
-    phCaps.length === 0 && has(ph.title, "TAP TO START") && has(ph.title, "VISUAL FX: OFF") && has(ph.pause, "TAP AN ITEM") &&
+    phCaps.length === 0 && has(ph.title, "TAP TO START") && has(ph.pause, "TAP AN ITEM") &&
       ["over", "done"].every((s) => has(ph[s], "TAP TO PLAY AGAIN") && has(ph[s], "● TITLE")),
     { phCaps, title: ph.title.filter((s) => /TAP|FX|◀ ▶/.test(s)), pause: ph.pause.filter((s) => /RESUME/.test(s)), over: ph.over.filter((s) => /TAP|TITLE/.test(s)) });
   await done(p, "phone hints");
@@ -181,9 +183,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   const dk = await screens(p);
   // (no screen names Esc for the way out to the games: the ← Games button names its own key)
   check("spacer, desktop: the canvas hints still name the keys, and none repeats the way out to the games",
-    ["ENTER", "E", "V"].every((k) => dk.title.includes(k)) && dk.pause.includes("P") && ["ENTER", "⌫"].every((k) => dk.over.includes(k) && dk.done.includes(k)) &&
+    ["ENTER", "E"].every((k) => dk.title.includes(k)) && dk.pause.includes("P") && ["ENTER", "⌫"].every((k) => dk.over.includes(k) && dk.done.includes(k)) &&
       !["title", "pause", "over", "done"].some((s) => dk[s].includes("ESC") || has(dk[s], "GAMES")) && !has(Object.values(dk).flat(), "TAP"),
     { title: dk.title.filter((s) => CAPS.includes(s)), pause: dk.pause.filter((s) => CAPS.includes(s)) });
+  // the corner's ✨ and pause buttons are the Visual FX switch and the pause:
+  // the title screen doesn't name Visual FX again, nor the bar under the
+  // screen the pause (on a phone or a desktop)
+  const bar = await p.evaluate(() => document.getElementById("controls").textContent.replace(/\s+/g, " ").trim());
+  check("spacer: the title screen names no Visual FX switch and the controls under the screen no pause (the corner buttons are both)",
+    !has(dk.title, "VISUAL FX") && !dk.title.includes("V") && !has(ph.title, "VISUAL FX") && !/pause/i.test(bar), { bar, title: dk.title.filter((s) => /FX|^V$/.test(s)), phone: ph.title.filter((s) => /FX/.test(s)) });
 
   // ---- Infinite goes on past stage 255: patterns wrap, difficulty stays capped, the HUD counts on
   const run = (menu) => p.evaluate((menu) => {
