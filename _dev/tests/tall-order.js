@@ -164,11 +164,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   const tall = await p.evaluate(() => {
     // how much of the picture changed from one frame to the next (share of pixels)
     const changed = (a, b) => { let n = 0; for (let i = 0; i < a.length; i += 4) if (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) > 40) n++; return n / (a.length / 4); };
+    // (the topper as last drawn: where the cherry and each candle stood)
+    let drawn = null;
+    const A = window.CakeArt, cherry = A.cherry, candle = A.candle;
+    A.cherry = function (g, x, y, s) { drawn = { cherry: [x, y, s], candles: [] }; return cherry.apply(this, arguments); };
+    A.candle = function (g, x, y) { if (drawn) drawn.candles.push([x, y]); return candle.apply(this, arguments); };
+    const topTier = __to.top();
     TallOrder.placeAndDrop(TallOrder.topWidth() + 14);          // a clean miss, just past the right edge
     const r = { steps: [], jump: null, atStart: null, end: null };
     let prev = null;
     for (let i = 0; i < 600; i++) {
       const was = TallOrder.state();
+      if (drawn) drawn = null;                                   // (this frame's own topper only)
       __to.frame(1 / 60);
       const img = __to.pixels(), now = TallOrder.state();
       if (prev && was === now && (now === "tumble" || now === "zoom") && r.steps.length < 400) r.steps.push(changed(prev, img));
@@ -187,8 +194,18 @@ module.exports = async ({ browser, base, check, lib }) => {
       }),
       high: Math.round(g.floor + 34 - Math.min(...g.pile.map((q) => q.y))),
       spread: Math.round(Math.max(...g.pile.slice(0, -1).map((q) => q.x + q.w)) - Math.min(...g.pile.slice(0, -1).map((q) => q.x))) };
+    // the topper against the top tier: its frosted top, and its two ends
+    const top = -(g.n - 1) * g.H - g.SH;
+    r.topper = drawn && { tier: { x: Math.round(topTier.x), w: Math.round(topTier.w), top },
+      cherry: { x: Math.round(drawn.cherry[0]), foot: Math.round(drawn.cherry[1] + drawn.cherry[2]) },
+      candles: drawn.candles.map(([x, y]) => [Math.round(x), Math.round(y)]) };
+    A.cherry = cherry; A.candle = candle;
     return r;
   });
+  check("tall-order: the topper stands on the cake: the cherry on the top tier's frosting, its middle, and a candle a side for every ten tiers on the frosting, inside the tier's ends (they used to hang in the air above it)",
+    !!tall.topper && Math.abs(tall.topper.cherry.x - (tall.topper.tier.x + tall.topper.tier.w / 2)) <= 1 && tall.topper.cherry.foot >= tall.topper.tier.top - 1 && tall.topper.cherry.foot <= tall.topper.tier.top + 6 &&
+      tall.topper.candles.length === 4 && tall.topper.candles.every(([x, y]) => y >= tall.topper.tier.top && y <= tall.topper.tier.top + 6 && x > tall.topper.tier.x + 2 && x < tall.topper.tier.x + tall.topper.tier.w - 2),
+    tall.topper);
   check("tall-order: a tall cake's pull-back starts from the picture play left off on, with no jump, and pulls back smoothly",
     tall.jump !== null && tall.jump < 0.06 && tall.steadiest !== null && tall.steadiest < 0.25, { jump: tall.jump, steadiest: tall.steadiest });
   check("tall-order: the tier that missed, still in the air as the pull-back begins, comes down onto the floor during it",

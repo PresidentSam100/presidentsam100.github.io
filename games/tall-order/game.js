@@ -564,16 +564,22 @@
       A.drawTier(g, tiers[i].x, y, tiers[i].w, SH, tiers[i].fl,
         i === tiers.length - 1 ? tiers[i].decos : null, { seed: tiers[i].seed });
     }
-    // the topper, once we've pulled back
+    // The topper, once we've pulled back: a cherry in the middle of the top
+    // tier's frosting, and a candle each side of it for every ten tiers (up
+    // to five a side), standing on the frosting and spread across the tier,
+    // as many as its width has room for. (They used to hang in the air: set
+    // a tier's height above the cake, and out past a narrow top tier's ends.)
     if (zoomP > 0.6) {
       var topT = tiers[tiers.length - 1];
-      var px = topT.x + topT.w / 2, py = -tiers.length * H - SH * 0.42;
-      A.cherry(g, px, py - 6, 9);
-      var nC = Math.min(5, Math.floor(tiers.length / 10));
+      var px = topT.x + topT.w / 2, top = -(tiers.length - 1) * H - SH;     // (the top tier's frosted top)
+      A.cherry(g, px, top - 7, 9);
+      var room = topT.w / 2 - 8, near = 16;                                 // (each side: from just clear of the cherry to just inside the end)
+      var nC = Math.min(5, Math.floor(tiers.length / 10), room >= near ? Math.floor((room - near) / 8) + 1 : 0);
+      var gap = nC > 1 ? Math.min(22, (room - near) / (nC - 1)) : 0;
       for (var c = 0; c < nC; c++) {
         // the flames are still art, so they're lit in both modes
-        A.candle(g, px - 40 - c * 22, py + 4, 11, true);
-        A.candle(g, px + 40 + c * 22, py + 4, 11, true);
+        A.candle(g, px - near - c * gap, top + 3, 11, true);
+        A.candle(g, px + near + c * gap, top + 3, 11, true);
       }
     }
     // the pieces still coming down, and the crumbs, in the same picture
