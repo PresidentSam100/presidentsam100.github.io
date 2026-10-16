@@ -331,7 +331,8 @@
     var r = TIERS[tier].r;
     // weight goes with volume (r³), like real fruit: a peach outweighs a
     // berry ~47×, so it barrels through berries while a berry barely nudges it
-    return { x: x, y: y, px: x, py: y, vx: 0, vy: 0, r: r, tier: tier, im: 1 / (r * r * r), mergeCd: 0.1,
+    // (r is its size now, R its own: a newborn grows into it, see GROW_T)
+    return { x: x, y: y, px: x, py: y, vx: 0, vy: 0, r: r, R: r, grow: 0, tier: tier, im: 1 / (r * r * r), mergeCd: 0.1,
              rot: 0, w: 0, // upright, just as it hung before the drop touch: false, contacted: false, dead: false,
              rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
@@ -350,10 +351,18 @@
 
   // ---- physics ---------------------------------------------------------------
   var GRAV = 1500, REST = 0.22, WALL_REST = 0.38, MU = 0.1;
-  // What a fruit rolling along the jar's floor loses of its speed, per second
-  // (0.24: about a fifth). It was 0.6 on a 60 Hz screen, nearly half, so a
-  // roll died sooner than a rolling thing should, and sooner still at 120 Hz.
-  var ROLL_LOSS = 0.24;
+  // Rolling resistance on the jar's floor: a steady slowing, the same at any
+  // speed (px/s, each second), as a real rolling thing has. The speed falls in
+  // a straight line and meets zero, so a roll fades out to a stop. (It was a
+  // share of the speed each second, which never reaches zero: a roll crawled
+  // on, and a cut-off at 14 px/s then stopped it dead.)
+  var ROLL_DECEL = 12;
+  // A newborn grows into its size over GROW_T s (its skin moving out at most
+  // GROW_V px/s), so it shoulders its neighbours aside; born full size it
+  // threw them clear in a single frame. It starts at GROW_FROM of a parent's
+  // size, or less if a neighbour is nearer: it's born into the room the pair
+  // leaves, a fruit nestled in the dip between them included.
+  var GROW_T = 0.18, GROW_V = 150, GROW_FROM = 0.6;
   var MERGE_SLOP = 2; // px: twins this close count as touching
   function physics(dt) {
     var i, j, f;
@@ -362,9 +371,10 @@
       f.vy += GRAV * dt;
       f.wasC = !!f.contacted; f.vy0 = f.vy;   // for the landing squash (below)
       if (f.sq && (f.sq.t += dt) >= SQ_T) f.sq = null;
-      f.vx *= 0.9995;               // barely any air drag: momentum carries
+      f.vx *= Math.exp(-0.06 * dt);  // barely any air drag: momentum carries
       f.rot += f.w * dt;
-      f.w *= 0.999;
+      f.w *= Math.exp(-0.12 * dt);
+      if (f.r < f.R) f.r = Math.min(f.R, f.r + f.grow * dt);
       f.touch = false;
       f.supMin = Infinity; f.supMax = -Infinity; f.supSide = 0; f.supNy = 0; f.supFlat = false;
       f.rollNx = 0; f.rollNy = -Infinity; f.rollOn = null;
@@ -428,21 +438,32 @@
           // squarely underneath it (normals point from the fruit to it)
           if (ny > a.rollNy) { a.rollNx = nx; a.rollNy = ny; a.rollOn = b; }
           if (-ny > b.rollNy) { b.rollNx = -nx; b.rollNy = -ny; b.rollOn = a; }
-          var tm = a.im + b.im;
+          // A fruit pressed against the glass, or on the floor, can't be
+          // pushed further into it: on that axis it is as solid as the jar,
+          // and the other fruit takes the whole push and the knock. (Split by
+          // weight alone, a berry against the glass took every shove from the
+          // heavy fruit beside it and the glass shoved it straight back, each
+          // step: the two shook.)
+          var ax = (a.pinL && nx > 0) || (a.pinR && nx < 0) ? 0 : a.im, ay = a.onFloor && ny < 0 ? 0 : a.im;
+          var bx = (b.pinR && nx > 0) || (b.pinL && nx < 0) ? 0 : b.im, by = b.onFloor && ny > 0 ? 0 : b.im;
+          var tm = (ax + bx) * nx * nx + (ay + by) * ny * ny;
+          if (!(tm > 0)) { ax = ay = a.im; bx = by = b.im; tm = a.im + b.im; }
           var push = overlap / tm * 0.85;
-          a.x -= nx * push * a.im; a.y -= ny * push * a.im;
-          b.x += nx * push * b.im; b.y += ny * push * b.im;
-          var rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          a.x -= nx * push * ax; a.y -= ny * push * ay;
+          b.x += nx * push * bx; b.y += ny * push * by;
+          // (a newborn's skin moves out as it grows, GROW_V: what it pushes
+          // gets that speed, and carries on as anything pushed would)
+          var rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny - (a.r < a.R ? a.grow : 0) - (b.r < b.R ? b.grow : 0);
           if (rel < 0) {
             var imp = -(1 + REST) * rel / tm;
-            a.vx -= nx * imp * a.im; a.vy -= ny * imp * a.im;
-            b.vx += nx * imp * b.im; b.vy += ny * imp * b.im;
+            a.vx -= nx * imp * ax; a.vy -= ny * imp * ay;
+            b.vx += nx * imp * bx; b.vy += ny * imp * by;
             // tangential friction: a fraction of the sliding motion becomes
             // shared momentum + spin, so piles jostle and fruit rolls off fruit
             var tx2 = -ny, ty2 = nx;
             var relT = (b.vx - a.vx) * tx2 + (b.vy - a.vy) * ty2;
             var mu = (a.perched || b.perched) ? 0 : MU; // no grip while balancing
-            var jt = Math.max(-imp * mu, Math.min(imp * mu, relT / tm * 0.6));
+            var jt = Math.max(-imp * mu, Math.min(imp * mu, relT / (a.im + b.im) * 0.6));
             a.vx += tx2 * jt * a.im; a.vy += ty2 * jt * a.im;
             b.vx -= tx2 * jt * b.im; b.vy -= ty2 * jt * b.im;
           }
@@ -515,12 +536,18 @@
         f.perched = false;
         if (cradled) {
           f.tipDir = 0;
-          if (f.mvx * f.mvx + f.mvy * f.mvy < 144) f.w *= 0.82; // resting fruit stops turning
-          // free-rolling stays free (ROLL_LOSS, by the clock and not by the
-          // step); a slow creep meets static-style friction, and near-rest
-          // contact all but freezes (kills wedge-creep for good)
-          if (f.onFloor) f.vx *= Math.exp(-(Math.abs(f.vx) < 14 ? 12.6 : ROLL_LOSS) * dt);
-          if (Math.abs(f.vx) < 8 && Math.abs(f.vy) < 8) f.vx *= 0.5;
+          if (f.onFloor) {
+            // rolling resistance (ROLL_DECEL); its spin goes on following its
+            // roll, so it turns until the moment it stops
+            var dv = ROLL_DECEL * dt;
+            f.vx = f.vx > dv ? f.vx - dv : f.vx < -dv ? f.vx + dv : 0;
+          } else {
+            // held in the pile: a resting fruit stops turning, and near-rest
+            // contact all but freezes (kills wedge-creep for good); both by
+            // the clock, not by the step
+            if (f.mvx * f.mvx + f.mvy * f.mvy < 144) f.w *= Math.exp(-24 * dt);
+            if (Math.abs(f.vx) < 8 && Math.abs(f.vy) < 8) f.vx *= Math.exp(-83 * dt);
+          }
         } else if (f.supNy > 0) {
           // Gravity wins the balancing act: slide down whichever side it
           // leans toward. On a perfect balance (a berry dead-centre on a
@@ -618,9 +645,14 @@
         var b = fruits[j];
         var dx = b.x - a.x, dy = b.y - a.y, rr = a.r + b.r, d2 = dx * dx + dy * dy;
         if (d2 >= (rr - 1) * (rr - 1) || d2 === 0) continue; // a pixel of give is fine
-        var d = Math.sqrt(d2), h = (rr - d) / 2;
-        a.x -= dx / d * h; a.y -= dy / d * h;
-        b.x += dx / d * h; b.y += dy / d * h;
+        // back to that pixel, not to none (clearing it all let the next step
+        // press it in again, and the pair flicked to and fro every frame), and
+        // the two stop closing on each other, an even share each
+        var d = Math.sqrt(d2), nx = dx / d, ny = dy / d, h = (rr - 1 - d) / 2;
+        a.x -= nx * h; a.y -= ny * h;
+        b.x += nx * h; b.y += ny * h;
+        var rel = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (rel < 0) { a.vx += nx * rel / 2; a.vy += ny * rel / 2; b.vx -= nx * rel / 2; b.vy -= ny * rel / 2; }
       }
     }
     for (i = 0; i < fruits.length; i++) {
@@ -640,6 +672,15 @@
       sfxMelon();
     } else {
       var nf = makeFruit(mx, my, t + 1);
+      // (it grows, GROW_T: from as big as the room it's born in allows)
+      var r0 = pa.r * GROW_FROM;
+      for (var q = 0; q < fruits.length; q++) {
+        if (fruits[q].dead) continue;
+        var room = Math.hypot(fruits[q].x - mx, fruits[q].y - my) - fruits[q].r;
+        if (room < r0) r0 = room;
+      }
+      nf.r = Math.max(pa.r * 0.25, r0);
+      nf.grow = Math.min((nf.R - nf.r) / GROW_T, GROW_V);
       nf.vx = (pa.vx + pb.vx) / 2;
       nf.vy = Math.min((pa.vy + pb.vy) / 2, 0) - 40; // a happy little hop
       nf.contacted = true;
@@ -725,6 +766,7 @@
     ctx.save();
     ctx.translate(f.x, f.y + f.r * k);
     if (k) ctx.scale(1 + k, 1 - k);
+    if (f.r < f.R) ctx.scale(f.r / f.R, f.r / f.R);   // a newborn, growing
     ctx.rotate(f.rot);
     drawSprite(sp, 0, 0);
     ctx.restore();
@@ -944,9 +986,10 @@
     last = now;
     if (!P.isPaused()) {
       if (state === "play") {
-        // two substeps keep tall stacks calm
-        physics(dt / 2);
-        physics(dt / 2);
+        // steps of 1/120 s or less, two at the least: tall stacks stay calm,
+        // and a slower screen's longer frames don't set the pile shivering
+        var n = Math.max(2, Math.ceil(dt * 120 - 1e-6));
+        for (var s = 0; s < n; s++) physics(dt / n);
       }
       draw();
     }

@@ -2,7 +2,9 @@
 // overflowing jar is "★ New best!" only when it beats the best (not on a tie,
 // and not on an empty first jar); on a 2× screen the jar and its fruit are
 // drawn at 2× (they were blurry), and a click still drops where it points;
-// a slow load's out-of-order first frame doesn't end a fresh game.
+// a slow load's out-of-order first frame doesn't end a fresh game; a roll
+// slows steadily to a stop, turning till it stops; and in a played jar no
+// fruit jumps further in a frame than its speed takes it.
 const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (x) { aimX = x; },
     aim: function () { return aimX; },
     cooldown: function () { return dropCd; },
@@ -76,8 +78,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await hi.close();
 
   // ---- a fruit rolling along the jar's floor keeps its way: a quarter of a
-  // second on it has lost about a twentieth of its speed (it used to lose a
-  // seventh, and more on a faster screen), while a creep still comes to rest.
+  // second on it has lost a few px/s of its speed (it used to lose a seventh,
+  // and more on a faster screen), while a creep still comes to rest.
   // The physics is stepped by hand, all in one go, so no frame comes between.
   {
     const c = await lib.newContext(browser);
@@ -90,12 +92,76 @@ module.exports = async ({ browser, base, check, lib }) => {
       const run = (v, steps) => { f.vx = v; for (let i = 0; i < steps; i++) __game.physics(step); return Math.round(f.vx * 10) / 10; };
       const fast = run(300, 30);
       f.x = 270;
-      const slow = run(8, 60);
+      const slow = run(8, 90);
       return { rest: Math.round(rest * 10) / 10, fast, slow, fruits: __game.fruits.length };
     });
     check("jam-jar: a fruit rolling along the jar's floor keeps its way (from 300, a quarter of a second leaves it over 272, where it used to be down to 254), and a creep still comes to rest",
       roll.fruits === 1 && roll.rest < 1 && roll.fast > 272 && roll.fast < 296 && Math.abs(roll.slow) < 1, roll);
+    // ...and it slows the same each moment to the end, turning as it rolls
+    // till the moment it stops (it used to crawl on, a share of its speed lost
+    // each second, then stop dead under 14 px/s, and stop turning under 12)
+    const glide = await q.evaluate(() => {
+      __game.reset(); __game.setQueue(0, 0); __game.setAim(100); __game.drop();
+      const f = __game.fruits[0], step = 1 / 120;
+      for (let i = 0; i < 480; i++) __game.physics(step);
+      f.vx = 60;
+      const sp = [Math.abs(f.vx)];
+      let turn = Infinity, stopAt = null;
+      for (let i = 1; i <= 6 * 120; i++) {
+        __game.physics(step);
+        if (Math.abs(f.vx) > 3 && Math.abs(f.vx) < 12) turn = Math.min(turn, f.w * f.r / f.vx);
+        if (stopAt === null && f.vx === 0) stopAt = i / 120;
+        if (i % 12 === 0) sp.push(Math.abs(f.vx));
+      }
+      const x = f.x;
+      for (let i = 0; i < 120; i++) __game.physics(step);
+      // the slowing in each tenth of a second the fruit was still rolling at its end
+      const slow = sp.slice(1).map((v, i) => [sp[i] - v, v]).filter(([, v]) => v > 0).map(([d]) => Math.round(d * 100) / 100);
+      return { slow, stopAt, turn: Math.round(turn * 100) / 100, still: f.vx === 0 && Math.abs(f.x - x) < 0.01 };
+    });
+    check("jam-jar: a roll along the floor slows the same each moment, no harder at the end, and stops; it turns as it rolls till it stops, then stays put",
+      glide.slow.length > 20 && Math.max(...glide.slow) <= glide.slow[0] * 1.2 && glide.stopAt !== null && glide.stopAt < 7 && glide.turn > 0.85 && glide.still,
+      { stopAt: glide.stopAt, turn: glide.turn, still: glide.still, first: glide.slow.slice(0, 3), most: Math.max(...glide.slow), last: glide.slow.slice(-3) });
     check("jam-jar (rolling): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
+  // ---- no fruit jumps further in a frame than its speed takes it: a jar
+  // played for 40 s (the same fruit and drops each time: a seeded random),
+  // stepped as a 60 Hz screen does. A merge's newborn grows into its room,
+  // pushing its neighbours aside; it used to arrive full size and throw them
+  // up to 30 px in one frame, and the passes that part fruit fought over them.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, PHYS_HOOK]);
+      await pg.addInitScript(() => { let s = 2 * 2654435761 >>> 0; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); });
+    } });
+    const jumps = await q.evaluate(() => {
+      const G = __game, step = 1 / 120;
+      G.reset();
+      let t = 0, nextDrop = 0, worst = 0, at = null, merges = 0;
+      const last = new Map();
+      while (t < 40 && G.state === "play") {
+        if (t >= nextDrop) { G.setAim(78 + Math.random() * 384); G.drop(); nextDrop = t + 0.9; }
+        const v0 = new Map(G.fruits.map((f) => [f, Math.hypot(f.vx, f.vy)])), n0 = G.fruits.length;
+        G.physics(step); G.physics(step); t += 2 * step;
+        if (G.fruits.length < n0) merges++;
+        for (const f of G.fruits) {
+          const l = last.get(f);
+          if (l && v0.has(f)) {
+            const over = Math.hypot(f.x - l.x, f.y - l.y) - Math.max(v0.get(f), Math.hypot(f.vx, f.vy)) * 2 * step;
+            if (over > worst) { worst = over; at = Math.round(t * 10) / 10; }
+          }
+          last.set(f, { x: f.x, y: f.y });
+        }
+      }
+      return { worst: Math.round(worst * 10) / 10, at, merges, state: G.state, fruits: G.fruits.length };
+    });
+    check("jam-jar: in a played jar no fruit jumps further in a frame than its speed takes it (8 px at most beyond), merges included",
+      jumps.state === "play" && jumps.merges >= 5 && jumps.worst <= 8, jumps);
+    check("jam-jar (jumps): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
   }
