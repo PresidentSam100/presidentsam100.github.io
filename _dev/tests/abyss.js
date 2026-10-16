@@ -97,4 +97,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss: the menu's key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
     await ctx.close();
   }
+
+  // ---- X and Z spin, the up arrow doesn't; the menu's key legend names
+  // neither the up arrow nor a pause (the ⏸ button at the top shows that)
+  {
+    const ctx = await lib.newContext(browser);
+    const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]); } });
+    const legend = await q.evaluate(() => document.querySelector("#menu .keys").textContent.replace(/\s+/g, " ").trim());
+    await q.evaluate(() => { Abyss.start("descent"); Abyss.test.setPiece("T"); __frames(1); });
+    const turn = async (key) => { const a = await q.evaluate(() => Abyss.piece().r); await q.keyboard.press(key); return (await q.evaluate(() => Abyss.piece().r)) !== a; };
+    const up = await turn("ArrowUp"), x = await turn("x"), z = await turn("z");
+    check("abyss: X and Z spin the piece and the up arrow doesn't; the key legend names no up arrow and no pause",
+      !up && x && z && !/↑|pause/i.test(legend) && /X/.test(legend) && /Z/.test(legend), { up, x, z, legend });
+    check("abyss (spin keys): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await ctx.close();
+  }
 };

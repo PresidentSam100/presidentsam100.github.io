@@ -707,7 +707,8 @@
           e.preventDefault();
           if (!e.repeat) { softStep(); softHeld = true; softT = -120; }
           return;
-        case "ArrowUp": case "KeyX":
+        // (X and Z spin; the up arrow is no spin key)
+        case "KeyX":
           e.preventDefault(); if (!e.repeat) tryRotate(1); return;
         case "KeyZ":
           e.preventDefault(); if (!e.repeat) tryRotate(-1); return;
