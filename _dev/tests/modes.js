@@ -122,7 +122,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // ---- a key does what the click does: Tic-Tac-Toe, the game the picker's keys were asked for
+  // ---- a key does what the click does: Tic-Tac-Toe, whose pickers all take keys
   {
     const p = await lib.open(ctx, base, "games/tic-tac-toe/", { before: noFlip });
     const sel = () => p.evaluate(() => ({
