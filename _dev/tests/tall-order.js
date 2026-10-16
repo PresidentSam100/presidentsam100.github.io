@@ -90,6 +90,35 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tall-order: missing the first drop isn't a record: nothing is saved and the card doesn't call it one", !/new bakery record/.test(none.stats) && none.best === null, none);
   check("tall-order: a run that places a tier is a first record, saved (guard)", /new bakery record/.test(one.stats) && one.best === "2", one);
   check("tall-order: after missing the first drop, the card shows the best already held (guard)", /best: 5 tiers/.test(old.stats) && old.best === "5", old);
+
+  // ---- the end card, centred: the perfect drops on a line of their own,
+  // bigger the more there were, and the best as a badge (they shared one
+  // small grey line, left-aligned)
+  {
+    const card = async (perfect) => {
+      const pg = await open(ctx);
+      await pg.evaluate(() => localStorage.setItem("tallorder_best_bakery", "9"));
+      await pg.evaluate(() => TallOrder.start("bakery"));
+      for (let i = 0; i < perfect + 1; i++) {
+        await pg.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 5000 });
+        await pg.evaluate((miss) => TallOrder.placeAndDrop(miss ? 5000 : 0), i === perfect);
+      }
+      await pg.waitForFunction(() => TallOrder.state() === "over", null, { timeout: 10000 });
+      const r = await pg.evaluate(() => {
+        const c = document.querySelector("#over .card").getBoundingClientRect(), mid = (e) => { if (!e) return 99; const r = e.getBoundingClientRect(); return Math.round((r.left + r.right) / 2 - (c.left + c.right) / 2); };
+        const perf = document.querySelector("#over-stats .perf"), best = document.querySelector("#over-stats .best");
+        return { off: ["#over-title", "#over-msg", "#over-stats .perf", "#over-stats .best", "#over .row"].map((s) => mid(document.querySelector(s))),
+          perf: perf && perf.textContent, size: perf && parseFloat(getComputedStyle(perf).fontSize), best: best && best.textContent,
+          badge: best && getComputedStyle(best).borderTopStyle !== "none" && getComputedStyle(best).backgroundColor !== "rgba(0, 0, 0, 0)" };
+      });
+      await done(pg, "end card " + perfect);
+      return r;
+    };
+    const none = await card(0), many = await card(4);
+    check("tall-order: the end card is centred, the perfect drops on a line of their own and louder the more there were, the best as a badge",
+      [none, many].every((r) => r.off.every((d) => Math.abs(d) <= 2) && r.badge && r.best === "best: 9 tiers") &&
+        none.perf === "no perfect drops" && /4 perfect drops/.test(many.perf) && many.size > none.size + 2, { none, many });
+  }
   await ctx.close();
 
   // ---- the sliding tier's shadow: on the top of the tower under it (a tier's

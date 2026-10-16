@@ -310,9 +310,18 @@
     var b = bests[mode], isBest = b && n > 1 ? b.submit(n) || n > runBest : false;
     $("over-title").textContent = n >= 25 ? "A showstopper!" : n >= 12 ? "Order served!" : "Back to the oven";
     $("over-msg").textContent = n + (n === 1 ? " tier" : " tiers");
-    $("over-stats").textContent =
-      perfects + " perfect drop" + (perfects === 1 ? "" : "s") + "\n" +
-      (isBest ? "a new bakery record! 🍒" : b && b.get() ? "best: " + b.get() + " tiers" : "no tower on the record board yet");
+    // The perfect drops on a line of their own, bigger and bolder the more
+    // there were (perf-0 to perf-3), and the best as a badge under them, the
+    // record's badge when this run set one. (They shared one small grey line,
+    // so a run of perfect drops read no different from none.)
+    var lvl = perfects === 0 ? 0 : perfects < 3 ? 1 : perfects < 10 ? 2 : 3;
+    var perf = document.createElement("span"), best = document.createElement("span");
+    perf.className = "perf perf-" + lvl;
+    perf.textContent = perfects === 0 ? "no perfect drops" :
+      (lvl >= 2 ? "★ " : "") + perfects + " perfect drop" + (perfects === 1 ? "" : "s") + (lvl === 3 ? "!" : "");
+    best.className = "best" + (isBest ? " record" : "");
+    best.textContent = isBest ? "a new bakery record! 🍒" : b && b.get() ? "best: " + b.get() + " tiers" : "no tower on the record board yet";
+    $("over-stats").replaceChildren(perf, best);
     $("hud").hidden = true;
     $("over").hidden = false;
     state = "over";
