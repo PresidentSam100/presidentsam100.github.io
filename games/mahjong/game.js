@@ -438,8 +438,10 @@
     for (var c = 0; c < 9; c++) moveTimers.push(setTimeout(clack, DROP_MS * 0.8 + c * n * DROP_STEP / 9, c % 2 === 0));
   }
   // A matched pair on its way out: with Visual FX on the two lift, come
-  // together and are gone; with it off they fade where they lie. They are out
-  // of the game already (not in els, deaf to the pointer), only still drawn.
+  // together and are gone (OFF_MS); with it off they fade where they lie
+  // (FADE_MS). They are out of the game already (not in els, deaf to the
+  // pointer), only still drawn.
+  var OFF_MS = 430, FADE_MS = 260;
   function sendOff(ea, eb) {
     var pair = [ea, eb];
     if (!anim || !ea.animate) { pair.forEach(function (el) { el.remove(); }); return; }
@@ -456,7 +458,7 @@
         { transform: "translate(" + x + "px, " + (y - 5) + "px) scale(1.1)", opacity: 1, offset: 0.72 },
         { transform: "translate(" + x + "px, " + y + "px) scale(0.55)", opacity: 0 }
       ] : [{ opacity: 1 }, { opacity: 0 }],
-      { duration: flying ? 430 : 260, easing: flying ? "ease-in-out" : "ease-out", fill: "forwards" }, function () { el.remove(); });
+      { duration: flying ? OFF_MS : FADE_MS, easing: flying ? "ease-in-out" : "ease-out", fill: "forwards" }, function () { el.remove(); });
     });
   }
   // A shuffle: the faces have changed places, so with Visual FX on each tile
@@ -762,6 +764,7 @@
     kinds = dealOnto(pos, [...live], pairPool(rng), rng);
     dailyRecorded = mode === "daily" ? readDaily().done : false;
     selected = -1; undoStack = []; timeMs = 0; penaltyMs = 0; dead = false;
+    clearTimeout(overT);
     $("menu").hidden = true; $("over").hidden = true; $("hudline").hidden = false;
     state = "play";
     buildBoard();
@@ -787,9 +790,13 @@
     if (state === "play" && $("hudline").offsetHeight !== hudH) layout();
   }
   var hudDead = false;
+  // The desk is clear: the clock stops and the result is kept that moment,
+  // and the card comes up once the last pair has gone, a beat after its
+  // leaving ends (OVER_BEAT). With Animations off the card waits just as
+  // long, so it never lands on the last two tiles either way.
+  var OVER_BEAT = 80, overT = 0;
   function win() {
     state = "over";
-    chime();
     var total = clock();
     var lines = [], isBest = false;
     if (mode === "daily") {
@@ -813,8 +820,12 @@
       $("again").innerHTML = "Deal again " + keyCap("Space or Enter");
     }
     $("over-stats").textContent = lines.join("\n");
-    $("hudline").hidden = true;
-    $("over").hidden = false;
+    clearTimeout(overT);
+    overT = setTimeout(function () {
+      chime();
+      $("hudline").hidden = true;
+      $("over").hidden = false;
+    }, (fx() ? OFF_MS : FADE_MS) + OVER_BEAT);
   }
   function shareDaily() {
     var d = readDaily();
@@ -910,6 +921,7 @@
   }
   function toMenu() {
     settleAll();
+    clearTimeout(overT);
     state = "menu";
     $("over").hidden = true; $("hudline").hidden = true;
     $("board").innerHTML = "";
@@ -989,7 +1001,8 @@
     }
     // Backspace goes back to the modes (Esc is left to ../motion-toggle.js,
     // which takes it to the games page)
-    if (state === "over") {
+    // (and not before the card is up: the last pair is still on its way out)
+    if (state === "over" && !$("over").hidden) {
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }
       else if (e.key === "Backspace") { e.preventDefault(); toMenu(); }
       else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result

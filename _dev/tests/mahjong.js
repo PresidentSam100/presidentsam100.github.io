@@ -14,8 +14,9 @@
 // their faces lay; with Visual FX off the three are told by fading; a press, a
 // pause or the switch lands whatever is on its way, and a pair still drawn on
 // its way out is deaf to the mouse, which plays straight on; no time comes off
-// the clock for any of it. With Animations off, none of it. The HUD
-// keeps clear of the corner buttons at every window width.
+// the clock for any of it. With Animations off, none of it. The end card
+// comes up once the last pair has gone (as long after, with Animations off).
+// The HUD keeps clear of the corner buttons at every window width.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
@@ -421,7 +422,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("mahjong, Animations on: a desk cleared at 0:00 is kept as the fastest clear, and the menu shows it as one",
     nil.card.state === "over" && nil.card.time === "0:00" && /new fastest clear/.test(nil.card.note) && nil.stored === "0" && nil.menu === "fastest turtle clear: 0:00", nil);
+  // ---- the end card waits for the last pair to be gone: with Animations on it
+  // comes up once their leaving is over, with them off after just as long (it
+  // used to come up with the last pair still on its way out), and Space in
+  // the meantime doesn't deal again
+  const lastPair = (pg) => pg.evaluate(() => new Promise((res) => {
+    Mahjong.start("classic");
+    Mahjong.setLive(Mahjong.freeIdx().slice(0, 2), ["d1", "d1"]);
+    Mahjong.removeOnePair();
+    const t0 = performance.now(), card = document.getElementById("over");
+    const at0 = { state: Mahjong.state(), up: !card.hidden, leaving: Mahjong.leaving() };
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    (function look() {
+      if (card.hidden && performance.now() - t0 < 3000) return requestAnimationFrame(look);
+      res({ at0, wait: Math.round(performance.now() - t0), leavingThen: Mahjong.leaving(), state: Mahjong.state(), up: !card.hidden });
+    })();
+  }));
+  const endOn = await lastPair(p);
+  check("mahjong, Animations on: the end card comes up once the last pair has gone, not while it is still leaving (and Space before it deals nothing)",
+    endOn.at0.state === "over" && !endOn.at0.up && endOn.at0.leaving === 2 && endOn.up && endOn.leavingThen === 0 && endOn.wait >= 430 && endOn.wait < 1500 && endOn.state === "over", endOn);
   await done(p, "motion");
+  {
+    const q = await open(ctx);
+    const endOff = await lastPair(q);
+    check("mahjong, Animations off: the end card still waits as long as the last pair's leaving would take",
+      endOff.at0.state === "over" && !endOff.at0.up && endOff.at0.leaving === 0 && endOff.up && endOff.wait >= 430 && endOff.wait < 1500 && endOff.state === "over", endOff);
+    await done(q, "end card wait");
+  }
 
   // ---- a matched pair still drawn on its way out is deaf to the mouse, which
   // plays straight on: a press on the pair where nothing lies under it picks
@@ -432,7 +459,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // to 8 s, so every press comes while it is on its way.)
   for (const fxOff of [false, true]) {
     const what = "mahjong, Animations on, Visual FX " + (fxOff ? "off" : "on");
-    const q = await open(ctx, true, [["{ duration: flying ? 430 : 260,", "{ duration: 8000,"]], fxOff);
+    const q = await open(ctx, true, [["{ duration: flying ? OFF_MS : FADE_MS,", "{ duration: 8000,"]], fxOff);
     const set = await q.evaluate(() => {
       Mahjong.start("classic");
       const pos = Mahjong.pos(), top = Math.max(...pos.map((t) => t[2])), ids = pos.map((t, i) => i);
