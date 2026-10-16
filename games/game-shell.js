@@ -245,6 +245,10 @@
     "border:var(--gs-border,1px solid rgba(255,255,255,0.22));background:var(--gs-btn-bg,rgba(255,255,255,0.09));color:inherit;" +
     "box-shadow:var(--gs-shadow,none);font-family:inherit;font-size:1rem;font-weight:700;line-height:1;-webkit-tap-highlight-color:transparent}" +
     ":where(.gs-pause-card button:hover){filter:brightness(1.1)}" +
+    // a pause card's button and its keycap each in the middle of the button,
+    // top to bottom: laid side by side, not on one line of text, where the
+    // keycap (taller than the words) set the line and pushed the words up
+    ":where(.gs-pause:not(.gs-dialog) .gs-pause-card button,.gs-pause-more button){display:inline-flex;align-items:center;justify-content:center;gap:.35em}" +
     // Restart and Menu, stacked under Resume and quieter than it; the three
     // share the width of the widest, whatever the game's lettering
     ":where(.gs-pause-btns){display:inline-flex;flex-direction:column;align-items:stretch;gap:.5rem;max-width:100%}" +
