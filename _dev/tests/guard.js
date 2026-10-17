@@ -78,14 +78,40 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.evaluate(() => { for (const c of document.querySelectorAll("polygon[data-c]")) { c.dispatchEvent(new MouseEvent("click", { bubbles: true })); if (document.querySelector("circle.hint")) break; } });
       await p.evaluate(() => document.querySelector("circle.hint").dispatchEvent(new MouseEvent("click", { bubbles: true }))); await p.waitForTimeout(200); }],
   ];
+  // (then, mid-game: Esc asks "Leave this game?"; Enter, a play key in many of
+  // them pressed by reflex, keeps playing, never leaving or quitting the game;
+  // only Esc again leaves. Not in an editor, where Esc never leaves.)
+  const boxUp = (p) => p.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+  const leaveBad = [];
   for (const [g, path, act, before] of guards) {
     const p = await lib.open(ctx, base, "games/" + path, before ? { before } : undefined);
     const a0 = await active(p);
     await act(p); await p.waitForTimeout(150);
     const a1 = await active(p);
     check(g + ": nothing to lose on a fresh screen; in progress once played", a0 === false && a1 === true, { a0, a1 });
+    if (a1 && !/editor/.test(path)) {
+      await p.keyboard.press("Escape");
+      await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
+      const asked = await boxUp(p);
+      await p.keyboard.press("Enter");
+      await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 15000 }).catch(() => {});
+      // (still in progress as the box goes: read at once, before an untended
+      // game can end by itself, as a Flappy World bird falls)
+      const still = await active(p);
+      await p.evaluate(() => new Promise((r) => setTimeout(r, 300)));   // (on the page's clock: a leave would have started)
+      const kept = { box: await boxUp(p), active: still, leaves: p.leaves };
+      await p.keyboard.press("Escape");
+      await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
+      await p.keyboard.press("Escape");
+      const t0 = Date.now();
+      while (p.leaves < 1 && Date.now() - t0 < 15000) await p.waitForTimeout(50);
+      const r = { asked, kept, left: p.leaves };
+      if (asked !== "Leave this game?" || kept.box || !kept.active || kept.leaves !== 0 || p.leaves !== 1) leaveBad.push([g, r]);
+    }
     await done(p, g);
   }
+  check("every game, mid-game: Esc asks \"Leave this game?\", Enter then keeps playing (no leave, the game still in progress), and Esc, Esc leaves",
+    leaveBad.length === 0, leaveBad);
 
   // ---- Darkroom saves every stroke, so it never asks
   {
