@@ -320,13 +320,34 @@ module.exports = async ({ browser, base, check, lib }) => {
     const hub = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => {
       try { ["mahjong_best_classic", "mahjong_best_fortress", "mahjong_best_peaks"].forEach((k) => localStorage.setItem(k, "90000")); localStorage.setItem("mahjong_layout", "fortress"); } catch (e) {}
     }) });
-    const keys = () => hub.evaluate(() => Object.keys(localStorage).filter((k) => /^mahjong_/.test(k)).sort().join());
+    // (the mark that old bests were dropped is no best: left out)
+    const keys = () => hub.evaluate(() => Object.keys(localStorage).filter((k) => /^mahjong_/.test(k) && k !== "mahjong_clock_v2").sort().join());
     const had = await keys();
     await hub.click("#reset-scores"); await hub.waitForTimeout(150);
     await hub.keyboard.press("Enter"); await hub.waitForTimeout(250);
     const kept = await keys();
     check("mahjong: the games page's reset clears every layout's fastest clear and keeps the picked layout", had === "mahjong_best_classic,mahjong_best_fortress,mahjong_best_peaks,mahjong_layout" && kept === "mahjong_layout", { had, kept });
     await hub.close();
+  }
+  await ctx.close();
+
+  // ---- bests set while a pair took a second off the clock go, once: the first
+  // five layouts' (a save doesn't say when it was set); the last three's stay
+  ctx = await lib.newContext(browser);
+  {
+    const OLD = ["classic", "fortress", "pyramid", "cross", "peaks"], NEW = ["butterfly", "crown", "spider"];
+    const q = await open(ctx, false, [], false);
+    // (as a browser that kept bests from that time: set before the game's code runs, no mark yet)
+    const seeded = await q.evaluate(({ OLD, NEW }) => { localStorage.removeItem("mahjong_clock_v2"); OLD.concat(NEW).forEach((k) => localStorage.setItem("mahjong_best_" + k, "90000")); return true; }, { OLD, NEW });
+    await q.reload(); await q.waitForFunction(() => window.Mahjong, null, { timeout: 15000 });
+    const after = await q.evaluate(() => Object.keys(localStorage).filter((k) => /^mahjong_best_/.test(k)).sort().join() + " " + localStorage.getItem("mahjong_clock_v2"));
+    // ...and once only: a best set now stays through the next visit
+    await q.evaluate(() => localStorage.setItem("mahjong_best_classic", "80000"));
+    await q.reload(); await q.waitForFunction(() => window.Mahjong, null, { timeout: 15000 });
+    const again = await q.evaluate(() => localStorage.getItem("mahjong_best_classic"));
+    check("mahjong: the bests of the first five layouts, set while a pair took a second off, are dropped once (the last three's stay); a best set after that stays",
+      seeded && after === "mahjong_best_butterfly,mahjong_best_crown,mahjong_best_spider 1" && again === "80000", { after, again });
+    await done(q, "old bests");
   }
   await ctx.close();
 

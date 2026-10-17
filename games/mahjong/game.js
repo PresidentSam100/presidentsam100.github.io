@@ -194,6 +194,14 @@
   // one on record, asked of the store and not of the time (a desk cleared at
   // 0:00, which only a test can do, is a record too)
   var bests = {};
+  // For a while a matched pair took a second off the clock, so a best set then
+  // is faster than the plain clock allows. The save doesn't say when a best was
+  // set, so the layouts of that time (all but the last three) lose theirs once,
+  // and every best on record is then a time on the plain clock.
+  if (store.get("mahjong_clock_v2", null) == null) {
+    LAYOUTS.slice(0, 5).forEach(function (l) { try { localStorage.removeItem(l.best); } catch (e) {} });
+    store.set("mahjong_clock_v2", "1");
+  }
   function cleared(l) { return store.get(l.best, null) != null; }
   function bestOf(l) {
     if (!window.GameShell) return null;
