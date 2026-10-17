@@ -198,6 +198,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "rose-window/": [async (p) => { await p.evaluate(() => { RoseWindow.start("pilgrimage"); RoseWindow.launch(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "potting-shed/": [async (p) => { await p.evaluate(() => { PottingShed.start(0); PottingShed.step(-1, 0); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "spice-blend/": [async (p) => { await p.evaluate(() => { SpiceBlend.start("stall"); SpiceBlend.setBlend([1, 2, 3, 4]); [0, 0, 0, 0].forEach((s) => SpiceBlend.add(s)); SpiceBlend.taste(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
+    "tide-pool/": [async (p) => { await p.evaluate(() => { TidePool.start("pool"); const m = TidePool.rules.anyMove(TidePool.board()); TidePool.swap(m[0], m[1]); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "road-bird/": [async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "poodle-jump/": [async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(150); await p.evaluate(() => { __game.bestY -= 1000; }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
   };

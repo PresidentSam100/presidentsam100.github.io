@@ -201,7 +201,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("games page: Esc in the box clears it, every game back, without asking to reset the scores; a second Esc leaves the box",
     esc1.value === "" && esc1.inBox && esc1.shown.length === esc1.all && !esc1.dialog && !esc2.inBox && !esc2.dialog && esc2.value === "", { esc1, esc2 });
   check("games page: with no pause between keys every word must match: \"tic tac\" is Tic-Tac-Toe alone, a word matching nothing says so, and deleting it brings Tic-Tac-Toe back",
-    ti.shown.slice(0, 2).sort().join() === "Tic-Tac-Toe,Tile Maze" && zzq.shown.length === 0 && /no game matches/.test(zzq.none || "") &&
+    ti.shown.slice(0, 3).sort().join() === "Tic-Tac-Toe,Tide Pool,Tile Maze" && zzq.shown.length === 0 && /no game matches/.test(zzq.none || "") &&
     tac.value === "Tic tac" && tac.shown.length === 1 && tac.shown[0] === "Tic-Tac-Toe" && tac.none === null,
     { ti: ti.shown.slice(0, 3), zzq, tac });
   // a letter typed on the page goes into the box; Enter there opens the top game

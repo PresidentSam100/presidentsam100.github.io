@@ -1,0 +1,121 @@
+/* =====================================================================
+   Tide Pool: a rock pool at low tide in the morning. Bright shallow water
+   over sand, a basin of dark wet rock with barnacles round its rim. The
+   cards are bleached driftwood boards; the buttons coral and sea-foam.
+   ===================================================================== */
+
+:root {
+  --sea: #4cc2c4;
+  --sea-deep: #1f8d98;
+  --sea-dark: #0f5d6b;
+  --sand: #efe2c0;
+  --rock: #4a5458;
+  --rock-deep: #2f383c;
+  --coral: #f07a5a;
+  --coral-deep: #c4573a;
+  --foam: #f6fbf6;
+  --drift: #e6ded0;
+  --drift-line: #c9bfae;
+  --ink: #183c44;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Mulish", system-ui, sans-serif; color: var(--ink);
+  background:
+    radial-gradient(ellipse at 20% 10%, rgba(255, 255, 255, 0.35), transparent 50%),
+    radial-gradient(ellipse at 85% 90%, rgba(239, 226, 192, 0.55), transparent 55%),
+    linear-gradient(170deg, #8fdedb, var(--sea) 45%, var(--sea-deep));
+  overflow: hidden;
+}
+/* light rippling on the water (Visual FX on): the same ripples sit still with it off */
+body::before {
+  content: ""; position: fixed; inset: -20%; pointer-events: none; opacity: 0.35;
+  background: repeating-radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px 26px);
+}
+html.fx-on body::before { animation: tp-ripple 9s ease-in-out infinite alternate; }
+@keyframes tp-ripple { to { transform: translate(3%, 2%) scale(1.04); } }
+
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: "Sniglet", sans-serif; font-size: 16px; font-weight: 800;
+  color: var(--foam); text-decoration: none;
+  background: var(--sea-dark); border: 2px solid #0a434d; border-radius: 999px;
+  box-shadow: 0 2px 0 #0a434d;
+  padding: 5px 14px;
+}
+.nav-back-games:hover { filter: brightness(1.12); }
+
+.shore { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 60px 14px 12px; gap: 10px; }
+.hud { display: flex; gap: 18px; align-items: center; font-weight: 800; color: var(--foam); text-shadow: 0 1px 0 var(--sea-dark);
+  background: rgba(15, 93, 107, 0.6); border-radius: 999px; padding: 4px 16px; }
+.hud[hidden] { display: none; }
+.hud b, .hud .left { font-family: "Sniglet", sans-serif; font-size: 22px; font-weight: 800; }
+.hud .left.low { color: #ffd0c2; }
+.basin {
+  flex: 1; width: 100%; max-width: 560px; min-height: 200px; display: flex; align-items: center; justify-content: center;
+}
+.basin canvas {
+  display: block; touch-action: none; border-radius: 22px;
+  border: 12px solid var(--rock);
+  box-shadow: inset 0 0 0 2px var(--rock-deep), 0 0 0 3px var(--rock-deep), 0 10px 0 rgba(15, 60, 70, 0.35);
+  background: var(--sand);
+  box-sizing: content-box;
+}
+.tools { display: flex; gap: 8px; }
+.tools button, .card .row button {
+  font-family: "Sniglet", sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; color: var(--foam);
+  background: var(--sea-dark); border: 2px solid #0a434d; border-radius: 999px; padding: 5px 14px; box-shadow: 0 2px 0 #0a434d;
+}
+.keys { font-size: 13px; color: var(--foam); text-shadow: 0 1px 0 var(--sea-dark); text-align: center; font-weight: 600; }
+kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--sea-dark); background: var(--foam); border-radius: 4px; padding: 0 5px; margin: 0 1px; text-shadow: none; }
+
+/* ---- the cards: bleached driftwood ---------------------------------------------- */
+.panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 26px 16px; overflow-y: auto; background: rgba(15, 93, 107, 0.35); }
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(450px, 100%); color: var(--ink);
+  background: repeating-linear-gradient(0deg, transparent 0 22px, rgba(140, 125, 100, 0.12) 22px 24px), repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.02) 0 1px, transparent 1px 11px), var(--drift);
+  border: 3px solid var(--drift-line); border-radius: 18px 26px 20px 24px;
+  box-shadow: 0 14px 34px rgba(10, 60, 70, 0.45);
+  padding: 22px 22px 18px;
+}
+.card h1, .card h2 { font-family: "Sniglet", sans-serif; font-weight: 800; color: var(--sea-dark); }
+.card h1 { font-size: 40px; line-height: 1; }
+.card h2 { font-size: 30px; }
+.card .tag { font-weight: 800; color: var(--coral-deep); margin: 6px 0 10px; }
+.card .how { font-size: 15px; line-height: 1.5; margin-bottom: 12px; }
+.seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; color: var(--ink);
+  background: rgba(255, 255, 255, 0.5); border: 2px solid var(--drift-line); border-radius: 14px; padding: 7px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.seg button b { font-family: "Sniglet", sans-serif; font-weight: 800; }
+.seg button small { font-size: 13px; color: #4b6a70; }
+.seg button.on { background: var(--sea); border-color: var(--sea-deep); color: var(--foam); }
+.seg button.on small { color: #e6fbf9; }
+.playbtn, .card .row button:first-child {
+  font-family: "Sniglet", sans-serif; font-weight: 800; cursor: pointer; color: var(--foam);
+  background: var(--coral); border: 2px solid var(--coral-deep); border-radius: 999px; box-shadow: 0 3px 0 var(--coral-deep);
+}
+.playbtn { width: 100%; font-size: 22px; padding: 8px 12px; }
+.playbtn:active, .card .row button:active, .tools button:active { transform: translateY(2px); box-shadow: none; }
+.bests { margin-top: 10px; text-align: center; font-size: 14px; color: #4b6a70; min-height: 18px; }
+.card.end { text-align: center; }
+.card .big { font-family: "Sniglet", sans-serif; font-weight: 800; font-size: 50px; line-height: 1.1; margin: 4px 0; color: var(--sea-dark); }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 2px 0 16px; color: #4b6a70; }
+.stats .best { font-weight: 800; border: 2px solid var(--drift-line); border-radius: 999px; padding: 2px 14px; background: rgba(255, 255, 255, 0.6); color: var(--ink); }
+.stats .best.record { background: var(--coral); border-color: var(--coral-deep); color: var(--foam); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+@media (max-width: 520px) {
+  .shore { padding-top: 58px; gap: 8px; }
+  .basin canvas { border-width: 8px; border-radius: 16px; }
+  .panel { padding-top: 62px; }
+  .card h1 { font-size: 32px; }
+}
+
+.gs-pause { background: rgba(15, 93, 107, 0.4); }
