@@ -85,21 +85,11 @@
   function inRun() { return ui === "run" && !!st && started && st.status !== "over"; }
 
   // ---- the canvas: sized to the maze and the window --------------------------------
-  // The HUD's lines past its first: a wider window keeps a fixed allowance
-  // for the rest of the page, and the block gives up that much more height
-  // when the HUD wraps (the street's name, a big score).
-  var fitExtra = 0, fitChrome = 0;
-  function hudExtra() {
-    var h = $("hud");
-    if (h.hidden) return 0;
-    var cs = getComputedStyle(h), tall = 0;
-    Array.prototype.forEach.call(h.children, function (s) { tall = Math.max(tall, s.offsetHeight); });
-    return Math.max(0, Math.round(h.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - tall));
-  }
-  // On a phone the block has the window's height less everything else on
-  // the page, measured: the sign with the HUD beside it (one, two or three
-  // lines), the Plank button with how to play beside it. So all of it stays
-  // on the screen, with the block as big as what's left allows.
+  // The block has the window's height less everything else on the page,
+  // measured: the sign with the HUD beside it (one, two or three lines), and
+  // under the block how to play (beside the Plank button on a phone). So all
+  // of it stays on the screen, with the block as big as what's left allows.
+  var fitChrome = 0;
   function chrome() {
     var cs = getComputedStyle(document.body);
     return Math.ceil($("street").offsetHeight - canvas.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom));
@@ -107,10 +97,8 @@
   function fit() {
     var lv = st ? st.lv : E.parse(streets()[0]);
     var roomW = Math.min(620, document.documentElement.clientWidth - 20);
-    var phone = window.innerWidth < 600;
-    fitExtra = hudExtra();
-    fitChrome = phone ? chrome() : 0;
-    var roomH = Math.max(260, window.innerHeight - (phone ? fitChrome : 270 + fitExtra));
+    fitChrome = chrome();
+    var roomH = Math.max(260, window.innerHeight - fitChrome);
     cell = Math.max(10, Math.floor(Math.min(roomW / lv.cols, roomH / lv.rows)));
     var dpr = Math.min(2, window.devicePixelRatio || 1), W = lv.cols * cell, H = lv.rows * cell;
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
@@ -190,9 +178,10 @@
     if ($("hud-planks").dataset.v !== String(st.planks)) { $("hud-planks").innerHTML = planks; $("hud-planks").dataset.v = st.planks; }
     $("hud-where").textContent = st.lv.name + (round > 1 ? " · round " + round : "");
     $("plank-btn").disabled = !(ui === "run" && st.status === "play" && st.planks > 0);
-    // (the HUD gone onto a second line, or back to one, as its words change: the block refits)
+    // (the HUD gone onto another line, or back, as its words change: if that
+    // changes the room the rest of the page takes, the block refits)
     var key = $("hud").hidden + "|" + $("hud-score").textContent + "|" + $("hud-best").textContent + "|" + $("hud-where").textContent;
-    if (key !== hudKey) { hudKey = key; if (hudExtra() !== fitExtra || (fitChrome && chrome() !== fitChrome)) fit(); }
+    if (key !== hudKey) { hudKey = key; if (chrome() !== fitChrome) fit(); }
   }
   var hudKey = "";
   var noteText = "";

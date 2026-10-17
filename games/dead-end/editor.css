@@ -1,5 +1,7 @@
 /* Dead End, the maze editor: the game's street and signs (styles.css), plus
    a tool bar, the list of saved mazes and a smaller sign. */
+/* (the room the game's page pares back for its block, the editor keeps) */
+@media (min-width: 561px) { body.editing { padding: 58px 10px 24px; } }
 .sign.small { width: 62px; height: 62px; margin: 4px 0 18px; border-width: 3px; border-radius: 9px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
 .sign.small b { font-size: 21px; }
 .sign.small::after { height: 26px; width: 7px; }

@@ -119,6 +119,46 @@ function bindPongBtn(el) {
 }
 document.querySelectorAll(".pbtn").forEach(bindPongBtn);
 
+// Where each pair of buttons goes. A phone held upright has them side by
+// side under the set (styles.css keeps the room), and a window with room
+// below or beside the set keeps them in its bottom corners. Otherwise a pair
+// goes beside the cabinet where the window leaves the room, or else over its
+// own panel's speaker grille: never over the set's lettering, dials or
+// light, nor over the screen. Both pairs are the same size.
+const UPRIGHT = window.matchMedia("(max-width: 700px) and (min-height: 521px)");
+function placePads() {
+  const pads = [["ctrl-left", ".panel.left"], ["ctrl-right", ".panel.right"]].map(([id, sel], i) => {
+    const pad = document.getElementById(id);
+    pad.removeAttribute("style");
+    return { pad, i, panel: document.querySelector(sel).getBoundingClientRect(), grille: document.querySelector(sel + " .grille").getBoundingClientRect() };
+  });
+  if (UPRIGHT.matches) return;
+  const cab = document.querySelector(".cabinet").getBoundingClientRect(), GAP = 10;
+  const onSet = (r) => r.width > 0 && r.left < cab.right && r.right > cab.left && r.top < cab.bottom + 16 && r.bottom > cab.top;   // (16: the feet)
+  if (!pads.some((p) => onSet(p.pad.getBoundingClientRect()))) return;
+  const room = Math.min(cab.left, innerWidth - cab.right);
+  const beside = room >= 52;
+  // the size: a column in the margin; on a grille, a row if that fits, else a column
+  const fit = (g) => {
+    const row = Math.min(g.height, (g.width - GAP) / 2), col = Math.min(g.width, (g.height - GAP) / 2);
+    return row >= 44 || row >= col ? { size: row, column: false } : { size: col, column: true };
+  };
+  const plans = pads.map((p) => beside ? { size: room - 8, column: true } : fit(p.grille));
+  const size = Math.floor(Math.min(64, ...plans.map((p) => p.size)));
+  pads.forEach((p, k) => {
+    const column = plans[k].column, w = column ? size : size * 2 + GAP, h = column ? size * 2 + GAP : size;
+    const box = beside ? p.panel : p.grille;
+    const x = beside ? (p.i ? cab.right + (innerWidth - cab.right - w) / 2 : (cab.left - w) / 2) : box.left + (box.width - w) / 2;
+    const s = p.pad.style;
+    s.setProperty("--pb", size + "px");
+    s.flexDirection = column ? "column" : "row";
+    s.gap = GAP + "px";
+    s.left = Math.round(x) + "px"; s.right = "auto";
+    s.top = Math.round(box.top + (box.height - h) / 2) + "px"; s.bottom = "auto";
+  });
+}
+window.addEventListener("resize", placePads);
+
 function resetBall(dir) {
   // center the SQUARE (top-left origin) so it sits dead-center, not offset by its size
   ball.x = (W - BALL_SIZE) / 2;
@@ -144,6 +184,7 @@ function startGame(mode) {
   gameover.classList.add("hidden");
   document.body.classList.add("playing");
   document.body.classList.toggle("p2", players === 2); // show right arrows in 2P
+  placePads();
   startCountdown();
 }
 

@@ -313,6 +313,8 @@ button { font-family: inherit; }
 .chip.c500 .disc { background: radial-gradient(circle at 36% 30%, #fff3c4, #e0b040 50%, #9b7218); box-shadow: 0 0 0 2px #6b4d0d, 0 3px 0 #4a360e, 0 6px 9px rgba(0, 0, 0, 0.45); color: #2a1c06; border-style: dotted; }
 .chip .cap { min-height: 18px; font-size: 13px; }
 .chip .cap[data-gs-key]::after { margin-left: 0; }
+/* (a touch screen shows no keycaps, so the chips keep no room for them) */
+@media (hover: none) { .chip .cap { display: none; } }
 #controls .foot { margin-top: 2px; }
 #controls .foot button { font-size: 14.5px; padding: 6px 12px 5px; }
 
@@ -367,22 +369,92 @@ button { font-family: inherit; }
 }
 /* three or four hands on a narrow screen: smaller cards, so the buttons stay in reach */
 @media (max-width: 560px) { .hands.n3, .hands.n4 { --card-w: clamp(40px, 11vw, 54px); } }
-/* a short screen: everything closes up so the cards, the table and its
-   buttons keep their room; the tagline and the table's printed rules stay */
-@media (max-height: 700px) and (max-width: 560px) {
-  :root { --card-w: clamp(46px, 13vw, 60px); }
+/* a short screen (a phone held upright, or on its side): the whole table
+   and every button on the screen at once; the tagline and the table's
+   printed rules stay. The room comes from laying things side by side: the
+   dealer's name beside the dealer's cards, one hand's total and bet beside
+   its cards, two to four hands in one row, and the buttons in as few rows
+   as they fill (Modes joins the last) */
+@media (max-height: 700px) and (max-width: 560px), (max-height: 520px) {
+  body { padding-bottom: 6px; }
   h1 { font-size: 28px; }
   .plaque { margin: 0 0 3px; }
-  .hud { margin-bottom: 5px; }
-  #felt { margin-top: 30px; padding-top: 20px; }
-  #dealer { width: 96px; margin-left: -48px; top: -48px; }
-  .who { min-height: 18px; }
-  .print { margin: 4px 0 0; letter-spacing: 1.4px; line-height: 1.25; }
-  .banner { min-height: 30px; margin: 2px auto 3px; padding: 2px 12px; }
-  .hands { min-height: calc(var(--card-w) * 1.42 + 30px); }
-  .hand { padding: 2px 6px 3px; }
-  .hand .foot { min-height: 22px; margin-top: 5px; }
-  #controls { margin-top: 9px; gap: 7px; }
+  .hud { margin-bottom: 4px; padding: 2px 10px; }
+  #dealer { width: 80px; margin-left: -40px; top: -40px; }
+  .dealer-seat { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 2px 10px; }
+  .dealer-seat .who { display: flex; flex-direction: column; align-items: center; min-height: 0; line-height: 1.15; }
+  .dealer-seat .who b { margin-left: 0; }
+  .print { margin: 3px 0 0; letter-spacing: 1.4px; line-height: 1.15; }
+  .banner { min-height: 27px; margin: 2px auto; padding: 1px 12px; }
+  .hands { min-height: calc(var(--card-w) * 1.42 + 6px); }
+  .hand { padding: 2px 3px 3px; }
+  .hand .foot { min-height: 22px; margin-top: 4px; }
+  .hands.n1 .hand { flex-direction: row; flex-wrap: wrap; justify-content: center; gap: 4px 8px; }
+  .hands.n1 .hand .foot { flex-direction: column; margin-top: 0; }
+  /* (six cards or more, the dealer's or one hand's, lie closer, and eight
+     closer still, so the name or the total still fits beside them; each
+     card's corner still shows) */
+  #d-cards:has(> .pc:nth-child(6)), .hands.n1 .cards:has(> .pc:nth-child(6)) { padding-left: calc(var(--card-w) * 0.55); }
+  #d-cards:has(> .pc:nth-child(6)) .pc, .hands.n1 .cards:has(> .pc:nth-child(6)) .pc { margin-left: calc(var(--card-w) * -0.55); }
+  #d-cards:has(> .pc:nth-child(8)), .hands.n1 .cards:has(> .pc:nth-child(8)) { padding-left: calc(var(--card-w) * 0.6); }
+  #d-cards:has(> .pc:nth-child(8)) .pc, .hands.n1 .cards:has(> .pc:nth-child(8)) .pc { margin-left: calc(var(--card-w) * -0.6); }
+  /* (two, three or four hands: each hand's total, bet and result wrap under
+     its own cards, and two hands of four cards or more lie closer, so the
+     hands keep to one row) */
+  .hands.n2 .cards:has(> .pc:nth-child(4)) { padding-left: calc(var(--card-w) * 0.55); }
+  .hands.n2 .cards:has(> .pc:nth-child(4)) .pc { margin-left: calc(var(--card-w) * -0.55); }
+  .hands.n3, .hands.n4 { gap: 6px 4px; }
+  .hands.n2 .foot, .hands.n3 .foot, .hands.n4 .foot { width: 0; min-width: 100%; gap: 2px 5px; }
+  .hands.n3 .total, .hands.n4 .total { font-size: 15px; min-width: 0; }
+  .hands.n3 .stack, .hands.n4 .stack { gap: 3px; }
+  .hands.n3 .tag, .hands.n4 .tag { font-size: 12px; padding: 1px 5px; }
+  #controls { margin-top: 8px; flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 7px 8px; min-height: 0; }
+  #controls > .row { display: contents; }
+  #controls .foot { margin-top: 0; }
+  #acts button { flex: 1 1 28%; }
+  .ask { flex-basis: 100%; }
+}
+/* held upright: the cards as big as above, the table just under the HUD */
+@media (max-height: 700px) and (max-width: 560px) {
+  :root { --card-w: clamp(46px, 13vw, 60px); }
+  #felt { margin-top: 24px; padding: 14px 6px 10px; }
+}
+/* on its side: the table on the left, at the window's whole height (the
+   dealer leaning up between the corner buttons), and the name, the HUD and
+   the buttons in a column on its right. The cards are as big as the height
+   allows, up to the 60 px of a tall phone (two hands, settled, with the bet
+   back up, is the tallest the table gets) */
+@media (max-height: 520px) and (min-width: 561px) {
+  :root { --card-w: clamp(40px, calc((100vh - 205px) / 2.84), 60px); }
+  body { padding: 50px 8px 6px; }
+  #room { max-width: 860px; display: grid; grid-template-columns: minmax(0, 1fr) 264px; grid-template-rows: auto 1fr; column-gap: 12px; align-items: start; }
+  #head { grid-column: 2; grid-row: 1; }
+  #felt { grid-column: 1; grid-row: 1 / span 2; margin-top: 0; padding: 12px 6px 8px; border-width: 7px; border-radius: 20px 20px 70px 70px / 20px 20px 44px 44px; }
+  #felt::before { inset: -7px; padding: 7px; }
+  #controls { grid-column: 2; grid-row: 2; }
+  .title { gap: 12px; }
+  .porthole.left, .porthole.right { zoom: 0.22; margin-top: -36px; }
+  .plaque { font-size: 12.5px; letter-spacing: 0.8px; }
+  .hud { font-size: 13.5px; gap: 2px 12px; }
+  .print { font-size: 10px; }
+  .banner { font-size: 19px; }
+  .hands.n3, .hands.n4 { --card-w: clamp(40px, calc((100vh - 205px) / 2.84), 50px); }
+  #controls button { font-size: 15.5px; padding: 9px 12px 8px; }
+  #acts button { min-width: 0; }
+  .chip .disc { width: 42px; height: 42px; font-size: 13.5px; }
+  .chips { gap: 6px; }
+  .betbox { min-width: 70px; }
+  .plaque { font-size: 12px; letter-spacing: 0.3px; }
+  /* the cards over the table start under the corner buttons, and the way
+     in lies in two columns: what the game is beside the modes and Sit down */
+  .panel { padding: 50px 16px 4px; overflow-y: auto; }
+  #menu .card { width: min(640px, 100%); display: grid; grid-template-columns: 1fr 1fr; column-gap: 20px; align-items: center; padding: 14px 18px 12px; }
+  #menu .card h2 { grid-area: 1 / 1; margin: 0; }
+  #menu .how { grid-area: 2 / 1 / 4 / 2; align-self: start; margin: 6px 0 0; font-size: 14.5px; line-height: 1.45; }
+  #menu .pick { grid-area: 1 / 2 / 3 / 3; }
+  #menu .seg { margin-bottom: 10px; }
+  #menu #play { grid-area: 3 / 2; }
+  #menu .bests { grid-area: 4 / 1 / 5 / 3; margin-top: 8px; }
 }
 @media (max-width: 350px) {
   .chip .disc { width: 42px; height: 42px; font-size: 13.5px; }

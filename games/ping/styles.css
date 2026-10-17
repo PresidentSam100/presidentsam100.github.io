@@ -241,7 +241,11 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
 .count-num { animation: countPop 0.9s ease both; }
 @keyframes countPop { 0% { opacity: 0; transform: scale(1.45); } 22% { opacity: 1; transform: scale(1); } 100% { opacity: 0.92; transform: scale(1); } }
 
-/* On-screen paddle arrows (touch devices only): chunky remote-control buttons */
+/* On-screen paddle arrows (touch devices only): chunky remote-control
+   buttons, never over the set's lettering, dials or light. A phone held
+   upright has each pair side by side under the set (below); anywhere else
+   game.js puts each pair beside the cabinet where the window has the room,
+   or over its own panel's speaker grille */
 .pong-ctrl {
   position: fixed;
   bottom: 18px;
@@ -249,18 +253,19 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
   flex-direction: column;
   gap: 16px;
   z-index: 20;
+  --pb: 76px;
 }
 #ctrl-left { left: 16px; }
 #ctrl-right { right: 16px; }
 .pbtn {
-  width: 76px;
-  height: 76px;
+  width: var(--pb);
+  height: var(--pb);
   border-radius: 16px;
   border: 1px solid #3a414a;
   background: linear-gradient(180deg, #2a2f36, #1a1d22);
   box-shadow: 0 4px 0 #0b0d10, inset 0 1px 0 rgba(255, 255, 255, 0.12);
   color: var(--phosphor);
-  font-size: 30px;
+  font-size: calc(var(--pb) * 0.4);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   touch-action: none;
@@ -286,6 +291,11 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
 }
 
 /* ---- smaller windows ---- */
+/* a short window on a computer: the set fills the height, so the rods are
+   shorter, to end inside the window (the screen keeps its size) */
+@media (min-width: 701px) and (max-height: 680px) and (min-height: 521px) {
+  .antenna::before, .antenna::after { height: 70px; }
+}
 /* narrow (a phone held upright): the screen on top, the two panels side by
    side under it, and the set a little down the page, so the antenna's rods
    end below the fixed back / sound / FX buttons */
@@ -335,6 +345,24 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
   .badge b { font-size: 17px; }
   .grille { min-height: 24px; }
   .feet { height: 8px; }
+}
+/* the paddle buttons' room on a touch screen. Upright: kept under the set
+   from the start (the set doesn't move when a game begins); a short phone
+   starts the set just under the corner buttons, with shorter rods, so the
+   buttons fit under it. On its side: the dials side by side, so the right
+   panel's grille is as tall as the left's for its pair to sit on */
+@media (pointer: coarse) and (max-width: 700px) and (min-height: 521px) {
+  body { padding-bottom: 74px; }
+  .pong-ctrl { bottom: 10px; flex-direction: row; gap: 10px; --pb: 56px; }
+}
+@media (pointer: coarse) and (max-width: 700px) and (min-height: 521px) and (max-height: 600px) {
+  body { align-items: flex-start; padding-top: 44px; padding-bottom: 66px; }
+  .antenna::before, .antenna::after { height: 50px; }
+  .pong-ctrl { --pb: 50px; }
+}
+@media (pointer: coarse) and (max-height: 520px) {
+  .knobs { flex-direction: row; align-items: flex-end; gap: 6px; }
+  .knob small { letter-spacing: 0.02em; }
 }
 
 /* tasteful entrance + interaction motion (auto-disabled by reduce-motion) */

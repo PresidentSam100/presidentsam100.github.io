@@ -43,7 +43,7 @@ body {
     linear-gradient(180deg, var(--asphalt-hi), var(--asphalt) 60%, #0e1014);
   background-color: var(--asphalt);
   display: flex; flex-direction: column; align-items: center;
-  padding: 58px 10px 24px;
+  padding: 52px 10px 12px;
   user-select: none;
 }
 
@@ -84,6 +84,11 @@ body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
   margin: 0 0 8px; padding: 4px 14px 3px; font-size: 17px; letter-spacing: 0.4px;
   background: rgba(10, 11, 15, 0.72); border: 2px dashed rgba(246, 198, 26, 0.55); border-radius: 6px;
 }
+/* the sign, and in a run the HUD beside it: in a row, the block gets the
+   height a column of the two would take */
+#head.with-hud { flex-direction: row; justify-content: center; gap: 4px; }
+.with-hud .sign { flex: none; margin: 22px; }
+.with-hud .hud { margin: 0; min-width: 0; }
 .hud .stat { display: inline-flex; align-items: center; gap: 5px; color: var(--dim); }
 .hud b { font-family: "Bebas Neue", "Arial Narrow", sans-serif; font-weight: 400; font-size: 23px; letter-spacing: 1px; color: var(--sign); line-height: 1; }
 .hud .where { color: var(--chalk); }
@@ -118,6 +123,7 @@ body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
 #pad { display: none; margin-top: 12px; }
 @media (hover: none) { #pad { display: block; } }
 .hint { margin: 10px 0 0; font-size: 16px; line-height: 1.5; text-align: center; color: var(--dim); max-width: 600px; }
+.foot .hint { max-width: 640px; }   /* (the street's whole width: one line where the face allows) */
 
 /* ---- buttons: signs ------------------------------------------------------------ */
 button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
@@ -177,8 +183,8 @@ button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
   .sign { width: 54px; height: 54px; margin: 14px 0 16px; border-width: 3px; border-radius: 8px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
   /* the sign, and in a run the HUD beside it: the block gets the height a
      column of the two took */
-  #head.with-hud { flex-direction: row; justify-content: center; gap: 2px; }
-  .with-hud .sign { flex: none; margin: 12px; }
+  #head.with-hud { gap: 2px; }
+  .with-hud .sign { margin: 12px; }
   .sign b { font-size: 18px; letter-spacing: 1px; }
   .sign::after { height: 24px; width: 6px; }
   /* all five, on two lines (or three) where one won't hold them (the best is

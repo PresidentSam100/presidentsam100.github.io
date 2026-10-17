@@ -286,4 +286,112 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("fit: ping's lettering on a phone is 10 px or more (it was 7.5), inside its panels; the antenna shows upright and on its side, on the screen and clear of the corner buttons, and the whole set fits",
       Object.values(got).every((o) => o.least >= 10 && o.outside.length === 0 && o.antenna && o.tipsOnScreen && !o.underCorner && o.setFits), got);
   }
+
+  // ---- what was still over: JackBlack leaves nothing to scroll on a short
+  // phone, held upright or on its side, whatever is on the table (four split
+  // hands settled with the bets back up is the tallest it gets), with every
+  // button on the screen and the cards no smaller; Dead End keeps how to play
+  // on a laptop's screen in a run, the maze as big as the rest of the page
+  // leaves room for; Ping's paddle buttons lie over none of the set's
+  // lettering, dials or light, nor its screen, nor each other; and on a short
+  // laptop window Ping's rods end inside it, with the screen no smaller.
+  {
+    const got = {};
+    const idle = (p) => p.waitForFunction(() => !JackBlack.busy(), null, { timeout: 10000 });
+    const click = async (p, id) => { await p.evaluate((id) => document.getElementById(id).click(), id); await idle(p); };
+    const settle = async (p) => { for (let k = 0; k < 4 && await p.evaluate(() => JackBlack.table().phase === "play"); k++) await click(p, "act-stand"); };
+    const look = (p) => p.evaluate(() => {
+      const R = (e) => e.getBoundingClientRect(), pc = document.querySelector("#d-cards .pc");
+      const off = Array.from(document.querySelectorAll("#controls button, .panel:not([hidden]) button")).filter((b) => b.getClientRects().length)
+        .filter((b) => { const r = R(b); return r.top < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5; }).map((b) => b.id || b.textContent.trim());
+      return { scroll: document.documentElement.scrollHeight - innerHeight, off, card: pc ? Math.round(R(pc).width) : null };
+    });
+    for (const [w, h, least] of [[320, 568, 46], [360, 560, 46], [375, 553, 46], [360, 640, 46], [390, 664, 50], [667, 375, 60]]) {
+      const ctx = await lib.newContext(browser, phone(w, h));
+      const p = await lib.open(ctx, base, "games/jackblack/");
+      const st = { menu: await look(p) };
+      await p.evaluate(() => JackBlack.start("open")); await p.waitForTimeout(150);
+      st.betting = await look(p);
+      await p.evaluate(() => JackBlack.stack("8 6 8 T 8 8 8 8 2 3 4 5 9"));
+      await click(p, "deal");
+      for (let i = 0; i < 3; i++) await click(p, "act-split");
+      st.fourHands = await look(p);
+      await settle(p);
+      st.fourSettled = await look(p);
+      await p.evaluate(() => JackBlack.stack("8 T 8 7 3 4 9"));
+      await click(p, "deal"); await click(p, "act-split");
+      st.twoHands = await look(p);
+      await settle(p);
+      st.twoSettled = await look(p);
+      got[w + "x" + h] = { least, st, errs: p.errs };
+      await ctx.close();
+    }
+    check("fit: jackblack on a short phone (upright, and on its side at 667 x 375) has no page to scroll and every button on the screen, at the menu, betting, and with two or four split hands in play and settled; its cards are no smaller (46 px and up, 60 on its side)",
+      Object.values(got).every((o) => o.errs.length === 0 && Object.values(o.st).every((s) => s.scroll <= 0 && s.off.length === 0) && o.st.twoHands.card >= o.least), got);
+  }
+  {
+    const got = {};
+    for (const [w, h] of [[1280, 900], [1366, 657], [1024, 768], [1280, 600]]) {
+      const ctx = await lib.newContext(browser, { viewport: { width: w, height: h } });
+      const p = await lib.open(ctx, base, "games/dead-end/");
+      await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+      for (const big of [false, true]) {
+        if (big) { await p.evaluate(() => { const s = DeadEnd.st(); s.score = 98765; s.lv.name = "Canal Street · round 12"; }); await p.waitForTimeout(300); }
+        got[w + "x" + h + (big ? " big HUD" : "")] = await p.evaluate(() => {
+          const R = (e) => e.getBoundingClientRect(), board = R(document.getElementById("board")), lv = DeadEnd.st().lv, cell = Math.round(board.width / lv.cols);
+          const cs = getComputedStyle(document.body), rest = document.getElementById("street").offsetHeight - board.height + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+          // one more pixel to a cell and the maze would no longer fit
+          const roomier = (cell + 1) * lv.rows + rest <= innerHeight && (cell + 1) * lv.cols <= Math.min(620, document.documentElement.clientWidth - 20);
+          return { cell, hint: Math.round(R(document.getElementById("hint")).bottom), screen: innerHeight, scroll: document.documentElement.scrollHeight - innerHeight, roomier };
+        });
+      }
+      if (p.errs.length) got[w + "x" + h].errs = p.errs;
+      await ctx.close();
+    }
+    check("fit: dead end on a laptop keeps how to play on the screen in a run (1280 x 900, 1366 x 657, 1024 x 768, 1280 x 600, with a two-line HUD too), with no page to scroll and the maze as big as the rest of the page leaves room for",
+      Object.values(got).every((o) => !o.errs && o.hint <= o.screen && o.scroll <= 0 && !o.roomier), got);
+  }
+  {
+    const pads = {};
+    for (const [w, h] of [[320, 568], [375, 553], [390, 664], [667, 375], [844, 390]]) {
+      const ctx = await lib.newContext(browser, phone(w, h));
+      for (const n of [1, 2]) {
+        const p = await lib.open(ctx, base, "games/ping/");
+        await p.evaluate((n) => Array.from(document.querySelectorAll("#menu .btn")).find((b) => b.textContent.trim().startsWith(String(n))).click(), n);
+        await p.waitForTimeout(300);
+        pads[w + "x" + h + " " + n + "P"] = await p.evaluate(() => {
+          const R = (e) => e.getBoundingClientRect(), hit = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+          const btns = Array.from(document.querySelectorAll(".pbtn")).filter((b) => b.getClientRects().length).map(R);
+          const keep = Array.from(document.querySelectorAll(".panel small, .badge, .dial, .led")).concat(document.getElementById("game"));
+          return {
+            n: btns.length, least: Math.round(Math.min(...btns.map((b) => Math.min(b.width, b.height)))),
+            covers: keep.filter((e) => btns.some((b) => hit(R(e), b))).map((e) => e.textContent.trim().split(/\s+/)[0] || e.className || e.id),
+            clash: btns.some((a, i) => btns.some((b, j) => i < j && hit(a, b))),
+            onScreen: btns.every((b) => b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight),
+          };
+        });
+        await p.close();
+      }
+      await ctx.close();
+    }
+    check("fit: ping's paddle buttons on a phone in play (one and two players, upright and on its side) cover none of the set's lettering, badge, dials or light, nor the screen, nor each other; on the screen and 44 px or more",
+      Object.entries(pads).every(([k, o]) => o.n === (k.endsWith("2P") ? 4 : 2) && o.least >= 44 && o.covers.length === 0 && !o.clash && o.onScreen), pads);
+  }
+  {
+    const rods = {};
+    for (const [w, h, sw] of [[1366, 657, 720], [1280, 600, 656], [1100, 620, 640]]) {
+      const ctx = await lib.newContext(browser, { viewport: { width: w, height: h } });
+      const p = await lib.open(ctx, base, "games/ping/");
+      rods[w + "x" + h] = await p.evaluate((sw) => {
+        const R = (e) => e.getBoundingClientRect(), corner = Array.from(document.querySelectorAll(".nav-back-games, .gs-corner > *")).filter((x) => x.getClientRects().length).map(R);
+        const ant = document.querySelector(".antenna"), a = R(ant);
+        const tip = (pseudo) => { const cs = getComputedStyle(ant, pseudo), m = new DOMMatrix(cs.transform), ang = Math.atan2(m.b, m.a), len = parseFloat(cs.height); return { x: a.left + a.width / 2 + len * Math.sin(ang), y: a.bottom - parseFloat(cs.bottom) - len * Math.cos(ang) }; };
+        const L = tip("::before"), Rt = tip("::after"), box = { left: L.x - 6, right: Rt.x + 6, top: Math.min(L.y, Rt.y) - 6, bottom: a.bottom };
+        return { top: Math.round(box.top), underCorner: corner.some((b) => box.left < b.right && box.right > b.left && box.top < b.bottom && box.bottom > b.top), screen: Math.round(R(document.getElementById("game")).width), was: sw };
+      }, sw);
+      await ctx.close();
+    }
+    check("fit: ping's antenna on a short laptop window ends inside the window, clear of the corner buttons, and the screen is as wide as before",
+      Object.values(rods).every((o) => o.top >= 0 && !o.underCorner && o.screen === o.was), rods);
+  }
 };
