@@ -25,6 +25,12 @@ once more on its own at the end. If it passes then, the summary lists it as
 "passed only when run on their own": a check that's sensitive to load, worth
 making sturdier, but not a bug in the game.
 
+If the browser itself goes down partway (a crashed page can take the whole of
+Chromium with it), the runner starts a new one, up to three times, and the
+suites that were on the old one when it went down run again at the end on
+their own, even with `JOBS=1` or `RETRY=0`. The summary says how many times
+it happened and which suites it cut off.
+
 A full run takes about fifteen minutes that way (2,733 checks in 12 minutes
 when this was written). One suite at a time (`JOBS=1`) takes about twice as
 long, more on a busy machine, and proves nothing more: the second run on its

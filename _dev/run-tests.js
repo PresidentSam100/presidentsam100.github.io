@@ -13,7 +13,8 @@
 // full run takes a fraction of the time. Each suite's lines print together
 // when it finishes. A suite that fails is run again on its own at the end:
 // a check that only fails beside others is load, not a bug, and the summary
-// names it so it can be made sturdier.
+// names it so it can be made sturdier. If the browser itself goes down, a new
+// one is started and the suites it cut off run again at the end.
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
@@ -47,14 +48,20 @@ function stayAwake() {
 }
 
 // Run one suite; its lines are collected and printed together when it ends.
+// (on the browser of the moment: a new one if the last went down)
 async function runSuite(name, ctx, label) {
   const t0 = Date.now();
   const lines = [];
   const t = lib.tally(name, (s) => lines.push(s));
+  const use = { browser: null, end: null };
+  ctx.used.set(name, use);
   try {
-    await require("./tests/" + name)({ browser: ctx.browser, base: ctx.base, check: t.check, lib });
+    use.browser = await ctx.ready;
+    await require("./tests/" + name)({ browser: use.browser, base: ctx.base, check: t.check, lib });
   } catch (e) {
     t.check("suite ran to the end", false, String(e && e.stack || e).split("\n").slice(0, 3).join(" | "));
+  } finally {
+    use.end = Date.now();
   }
   const s = t.summary();
   console.log(name + (label ? " " + label : "") + (lines.length ? "\n" + lines.join("\n") : "") +
@@ -81,10 +88,33 @@ async function runSuite(name, ctx, label) {
   });
 
   const { server, base } = await lib.serve();
-  const browser = await chromium.launch();
-  const ctx = { browser, base };
+  // The browser can go down mid-run (a page crash has taken the whole of
+  // Chromium with it), and every suite still to come used to fail at once on
+  // the dead one. A new browser is started instead (up to MAX_RELAUNCH
+  // times), and the suites that were running when it went down run again at
+  // the end, on their own, whatever JOBS and RETRY say.
+  // (cut off: a suite on that browser still running when it went down, or
+  // ended just before: its pages fail the moment the browser closes, a
+  // little ahead of the word that it has)
+  const MAX_RELAUNCH = 3;
+  const ctx = { base, used: new Map(), ready: null };
+  const cutOff = new Set();
+  let closing = false, relaunches = 0;
+  const launch = () => chromium.launch().then((b) => {
+    b.on("disconnected", () => {
+      if (closing || relaunches >= MAX_RELAUNCH) return;
+      relaunches++;
+      const now = Date.now(), hit = [];
+      ctx.used.forEach((u, n) => { if (u.browser === b && (u.end == null || now - u.end < 5000)) { cutOff.add(n); hit.push(n); } });
+      console.log("\nthe browser went down" + (hit.length ? " (under " + hit.join(", ") + ")" : "") + "; starting a new one");
+      ctx.ready = launch();
+    });
+    return b;
+  });
+  ctx.ready = launch();
+  await ctx.ready;
   const results = {};
-  const flaky = [];
+  const flaky = [], rerun = [];
   const t0 = Date.now();
   try {
     let heavyRunning = 0;
@@ -106,20 +136,23 @@ async function runSuite(name, ctx, label) {
       }
     };
     await Promise.all(Array.from({ length: jobs }, worker));
-    // a suite that failed beside others gets one more run, on its own
-    if (retry && jobs > 1) {
-      const failedNames = Object.keys(results).filter((n) => results[n].failed);
-      if (failedNames.length) console.log("\nrunning again on their own: " + failedNames.join(", "));
-      for (const name of failedNames) {
-        const again = await runSuite(name, ctx, "(on its own)");
-        if (!again.failed) flaky.push(name);
-        results[name] = again;
-      }
+    // a suite that failed beside others gets one more run, on its own, and so
+    // does one the browser went down under
+    const failedNames = Object.keys(results).filter((n) => results[n].failed && (cutOff.has(n) || (retry && jobs > 1)));
+    rerun.push(...failedNames);
+    if (failedNames.length) console.log("\nrunning again on their own: " + failedNames.join(", "));
+    for (const name of failedNames) {
+      const again = await runSuite(name, ctx, "(on its own)");
+      if (!again.failed && !cutOff.has(name)) flaky.push(name);
+      results[name] = again;
     }
   } finally {
-    await browser.close();
+    closing = true;
+    const b = await ctx.ready.catch(() => null);
+    if (b) await b.close().catch(() => {});
     server.close();
   }
+  if (relaunches) console.log("\nthe browser went down " + relaunches + " time(s) and was started again; the suites it cut off ran again on their own: " + (rerun.filter((n) => cutOff.has(n)).join(", ") || "none"));
   const list = Object.values(results);
   const failed = list.reduce((n, s) => n + s.failed, 0), passed = list.reduce((n, s) => n + s.passed, 0);
   if (flaky.length) console.log("\npassed only when run on their own (load-sensitive, worth making sturdier): " + flaky.join(", "));
