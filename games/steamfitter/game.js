@@ -1195,7 +1195,9 @@
   var last = performance.now();
   function loop(now) {
     requestAnimationFrame(loop);
-    var dt = Math.min((now - last) / 1000, 0.05);
+    // (never below 0: the first frame's timestamp can come before `last` was
+    // read on a slow load, and a step back would run every timer backwards)
+    var dt = Math.max(0, Math.min((now - last) / 1000, 0.05));
     last = now;
     if (!P.isPaused() && !held) {
       update(dt);

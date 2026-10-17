@@ -5,6 +5,7 @@
 // the ball-in-hand ring and the called pocket hold still. The break follows
 // the standard rules: the 8 on the break is respotted and the breaker plays
 // on, and a scratch on the break is ball in hand behind the head string.
+// A slow load's out-of-order first frame doesn't step the clock back.
 const HOOK = ["    shoot: function (a, p, tx, ty) {", `    endShot: function () { endShot(); },
     shoot: function (a, p, tx, ty) {`];
 
@@ -350,6 +351,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("corner-pocket: Shift+→ makes the finest aim step, a held → speeds up, and Alt+→ is left to the browser",
     keys.shift.d > 0 && keys.shift.d < keys.plain.d && keys.alt.d === 0 && !keys.alt.claimed && keys.held.d > keys.plain.d * 3, keys);
   await done(p, "aim keys");
+
+  // ---- a first frame stamped before the game read its clock (a slow load) is
+  // a step back: served here with the clock read 3 s late, so it always is.
+  // The step the table is handed is never below 0.
+  {
+    const q = await lib.open(ctx, base, "games/corner-pocket/", { before: (pg) => lib.injectScript(pg, "games/corner-pocket/game.js", [HOOK,
+      ["  var last = performance.now(), frames = 0;", "  var last = performance.now() + 3000, frames = 0;"],
+      ["!quitOpen()) update(dt);", "!quitOpen()) { (window.__dts = window.__dts || []).push(dt); update(dt); }"]]) });
+    const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
+    check("corner-pocket: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
+    await done(q, "first frame");
+  }
 
   // ---- How to play states the 8-ball rules and the aiming keys
   p = await open();

@@ -4,6 +4,7 @@
 // 2× screen the panel is drawn at 2×; on a touch-only phone the key captions
 // hide and the panel says TAP where it says PRESS [SPACE] OR [ENTER]. Three rockets under
 // the score are three lives, and the next one launches soon after a crash.
+// A slow load's out-of-order first frame doesn't step the clock back.
 const HOOK = ["  function drawShipAt(x, y, a, opts) {\n", "  function drawShipAt(x, y, a, opts) {\n    if (opts && opts.scale === 1.6) window.__menuShip = [x, y, a];\n"];
 const OVER = ["    start: start\n  };", "    start: start,\n    over: function () { lives = 0; gameOver(); }\n  };"];
 
@@ -11,6 +12,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = () => lib.open(ctx, base, "games/meteor-menace/", { before: (pg) => lib.injectScript(pg, "games/meteor-menace/game.js", [HOOK]) });
   const done = async (p, what) => { check("meteor-menace " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
+
+  // ---- a first frame stamped before the game read its clock (a slow load) is
+  // a step back: served here with the clock read 3 s late, so it always is.
+  // The step the game is handed is never below 0.
+  {
+    const q = await lib.open(ctx, base, "games/meteor-menace/", { before: (pg) => lib.injectScript(pg, "games/meteor-menace/game.js", [HOOK,
+      ["  var last = performance.now();", "  var last = performance.now() + 3000;"],
+      ["if (!P.isPaused()) update(dt);", "if (!P.isPaused()) { (window.__dts = window.__dts || []).push(dt); update(dt); }"]]) });
+    const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
+    check("meteor-menace: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
+    await done(q, "first frame");
+  }
 
   // ---- hold ↑, lose focus (auto-pause; the keyup never comes), resume: no thrust
   let p = await open();

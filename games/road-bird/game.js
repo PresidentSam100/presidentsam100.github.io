@@ -2313,7 +2313,9 @@ state = "menu";
 let last = performance.now();
 function frame(now) {
   let dt = (now - last) / 1000; last = now;
-  dt = Math.min(dt, 0.05);
+  // (never below 0: the first frame's timestamp can come before `last` was
+  // read on a slow load, and a step back would run every timer backwards)
+  dt = Math.max(0, Math.min(dt, 0.05));
   if (!paused) {
     if (scorePopT > 0) scorePopT -= dt; // HUD score-pop easing: ticks in every state so it settles even after death
     if (coinPops.length) { for (const p of coinPops) p.t += dt; coinPops = coinPops.filter(p => p.t < COIN_POP_DUR); }

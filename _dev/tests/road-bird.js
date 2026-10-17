@@ -9,7 +9,8 @@
 // The how-to line lies inside the board's rim, and rows meet on hairlines;
 // a road's dashed line runs between two lanes, not down the middle of one.
 // Normal or Insane (N / I) under the modes: Insane has no grass to rest on,
-// and keeps bests of its own.
+// and keeps bests of its own. A slow load's out-of-order first frame doesn't
+// step the clock back.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
 // the first mode's top, one mode to the next, a mode's height, Normal and
@@ -171,6 +172,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     Object.keys(bandsMenu).length === 0 && Object.keys(bandsRiver).length === 0 && (await d.evaluate(() => __game.mode)) === "river", { bandsMenu, bandsRiver });
   check("road-bird (seams): no page errors", d.errs.length === 0, d.errs);
   await d.close();
+
+  // ---- a first frame stamped before the game read its clock (a slow load) is
+  // a step back: served here with the clock read 3 s late, so it always is.
+  // The step the game is handed is never below 0.
+  {
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK,
+      ["let last = performance.now();", "let last = performance.now() + 3000;"],
+      ["    updateFx(dt);", "    (window.__dts = window.__dts || []).push(dt); updateFx(dt);"]]) });
+    const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
+    check("road-bird: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
+    check("road-bird (first frame): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   // phone: a tap on the turntable changes the skin; the hints say tap / swipe
   const phone = await lib.newContext(browser, devices["Pixel 7"]);

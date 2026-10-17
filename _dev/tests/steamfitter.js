@@ -6,6 +6,7 @@
 // once (no runaway path carve) and still deal when every carve gives up;
 // Panic's hover ghost shows the queued pipe you picked. The mode bar asks
 // before it throws away a run or an unsaved level, and "del" asks first.
+// A slow load's out-of-order first frame doesn't step the clock back.
 const HOOKS = [
   ["window.PipeMania = {", `window.PipeMania = {
     __n: function () { return LV.length; },
@@ -243,6 +244,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     keep.saved === 1 && keep.shown === 1 && gone.saved === 0 && gone.shown === 0, { c0, del, keep, gone });
   check("steamfitter: no page errors (asking first)", a.errs.length === 0, a.errs);
   await a.close();
+
+  // ---- a first frame stamped before the game read its clock (a slow load) is
+  // a step back: served here with the clock read 3 s late, so it always is.
+  // The step the board is handed is never below 0.
+  {
+    const q = await lib.open(ctx, base, "games/steamfitter/", { before: (pg) => lib.injectScript(pg, "games/steamfitter/game.js", HOOKS.concat([
+      ["  var last = performance.now();", "  var last = performance.now() + 3000;"],
+      ["      update(dt);", "      (window.__dts = window.__dts || []).push(dt); update(dt);"]])) });
+    const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
+    check("steamfitter: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
+    check("steamfitter: no page errors (first frame)", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   await ctx.close();
 };

@@ -1512,7 +1512,9 @@
   var last = performance.now(), frames = 0;
   function frame(now) {
     requestAnimationFrame(frame);
-    var dt = Math.min(0.05, (now - last) / 1000);
+    // (never below 0: the first frame's timestamp can come before `last` was
+    // read on a slow load, and a step back would run every timer backwards)
+    var dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     // the shared corner buttons re-place themselves as fonts load and labels
     // change; keep the scoreboard clear of them
