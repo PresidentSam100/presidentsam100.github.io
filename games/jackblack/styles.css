@@ -66,7 +66,9 @@ body {
 }
 .nav-back-games:hover { border-color: var(--brass-hi); color: #fff; }
 
-/* ---- the portholes (wide screens only) --------------------------------- */
+/* ---- the portholes: on the walls either side of the room, or (a window
+   too narrow for that) either side of the name, smaller ----------------- */
+.title { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .porthole {
   position: fixed; top: 21vh; width: 168px; height: 168px; border-radius: 50%; z-index: 0; overflow: hidden;
   background:
@@ -80,7 +82,16 @@ body {
 }
 .porthole.left { left: max(18px, calc(50% - 600px)); }
 .porthole.right { right: max(18px, calc(50% - 600px)); top: 34vh; }
-@media (max-width: 1180px) { .porthole { display: none; } }
+/* (zoom scales the glass, its rim and what swims behind it alike; the
+   negative margin lets a porthole stand a little above the name's line
+   instead of making the line taller) */
+@media (max-width: 1180px) {
+  .porthole.left, .porthole.right { position: relative; top: auto; left: auto; right: auto; flex: none; zoom: 0.4; margin-top: -30px; }
+}
+@media (max-width: 560px) {
+  .title { gap: 12px; }
+  .porthole.left, .porthole.right { zoom: 0.22; margin-top: -36px; }
+}
 /* weed, rooted below the glass */
 .weed {
   position: absolute; bottom: -8px; width: 13px; height: 92px; border-radius: 60% 60% 0 0 / 100% 100% 0 0;
@@ -339,7 +350,9 @@ button { font-family: inherit; }
 
 /* ---- small screens ----------------------------------------------------------------------- */
 @media (max-width: 560px) {
-  body { padding: 54px 8px 22px; }
+  /* cards as big as a hand of seven still fits across the table */
+  :root { --card-w: clamp(46px, 14.5vw, 66px); }
+  body { padding: 54px 8px 12px; }
   .panel { overflow-y: auto; }
   #felt { padding: 34px 6px 14px; margin-top: 36px; border-width: 7px; border-radius: 20px 20px 70px 70px / 20px 20px 44px 44px; }
   #felt::before { inset: -7px; padding: 7px; }
@@ -353,15 +366,15 @@ button { font-family: inherit; }
   .betbox { min-width: 70px; }
 }
 /* three or four hands on a narrow screen: smaller cards, so the buttons stay in reach */
-@media (max-width: 560px) { .hands.n3, .hands.n4 { --card-w: clamp(38px, 10.5vw, 54px); } }
-/* a short screen: everything closes up so the table and its buttons keep
-   their room; the tagline and the table's printed rules stay */
+@media (max-width: 560px) { .hands.n3, .hands.n4 { --card-w: clamp(40px, 11vw, 54px); } }
+/* a short screen: everything closes up so the cards, the table and its
+   buttons keep their room; the tagline and the table's printed rules stay */
 @media (max-height: 700px) and (max-width: 560px) {
-  :root { --card-w: clamp(42px, 11.5vw, 60px); }
+  :root { --card-w: clamp(46px, 13vw, 60px); }
   h1 { font-size: 28px; }
   .plaque { margin: 0 0 3px; }
   .hud { margin-bottom: 5px; }
-  #felt { margin-top: 30px; padding-top: 28px; }
+  #felt { margin-top: 30px; padding-top: 20px; }
   #dealer { width: 96px; margin-left: -48px; top: -48px; }
   .who { min-height: 18px; }
   .print { margin: 4px 0 0; letter-spacing: 1.4px; line-height: 1.25; }

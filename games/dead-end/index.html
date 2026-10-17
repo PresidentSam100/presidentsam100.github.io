@@ -34,7 +34,7 @@
      its centre line running down the page, and the block itself (a canvas)
      fenced in boards and lit by whatever you're carrying. -->
 <main id="street">
-  <header id="head">
+  <header id="head" class="with-hud">
     <h1 class="sign"><b>DEAD<br>END</b></h1>
     <div class="hud" id="hud" hidden>
       <span class="stat">score <b id="hud-score">0</b></span>
@@ -50,13 +50,17 @@
     <div id="note" role="status" aria-live="polite"></div>
   </div>
 
-  <div id="pad">
-    <button type="button" id="plank-btn" aria-label="Nail a plank across the alley behind you">Plank</button>
+  <!-- under the block: the Plank button (touch screens) and how to play;
+       side by side on a phone -->
+  <div class="foot">
+    <div id="pad">
+      <button type="button" id="plank-btn" aria-label="Nail a plank across the alley behind you">Plank</button>
+    </div>
+    <p class="hint" id="hint">
+      <span class="gs-keys"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to run &middot; <kbd class="gs-kbd">Space</kbd> nails a plank across the alley behind you &middot; <kbd class="gs-kbd">P</kbd> pauses</span>
+      <span class="gs-touch">swipe to run &middot; the Plank button nails one across the alley behind you</span>
+    </p>
   </div>
-  <p class="hint" id="hint">
-    <span class="gs-keys"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to run &middot; <kbd class="gs-kbd">Space</kbd> nails a plank across the alley behind you &middot; <kbd class="gs-kbd">P</kbd> pauses</span>
-    <span class="gs-touch">swipe to run &middot; the Plank button nails one across the alley behind you</span>
-  </p>
 </main>
 
 <section class="panel" id="menu">

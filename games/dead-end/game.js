@@ -85,10 +85,10 @@
   function inRun() { return ui === "run" && !!st && started && st.status !== "over"; }
 
   // ---- the canvas: sized to the maze and the window --------------------------------
-  // The HUD's lines past its first: on a phone it can take two (the street's
-  // name, a big score), and the block gives up that much height, so the
-  // Plank button under it stays on the screen.
-  var fitExtra = 0;
+  // The HUD's lines past its first: a wider window keeps a fixed allowance
+  // for the rest of the page, and the block gives up that much more height
+  // when the HUD wraps (the street's name, a big score).
+  var fitExtra = 0, fitChrome = 0;
   function hudExtra() {
     var h = $("hud");
     if (h.hidden) return 0;
@@ -96,11 +96,21 @@
     Array.prototype.forEach.call(h.children, function (s) { tall = Math.max(tall, s.offsetHeight); });
     return Math.max(0, Math.round(h.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - tall));
   }
+  // On a phone the block has the window's height less everything else on
+  // the page, measured: the sign with the HUD beside it (one, two or three
+  // lines), the Plank button with how to play beside it. So all of it stays
+  // on the screen, with the block as big as what's left allows.
+  function chrome() {
+    var cs = getComputedStyle(document.body);
+    return Math.ceil($("street").offsetHeight - canvas.offsetHeight + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom));
+  }
   function fit() {
     var lv = st ? st.lv : E.parse(streets()[0]);
     var roomW = Math.min(620, document.documentElement.clientWidth - 20);
+    var phone = window.innerWidth < 600;
     fitExtra = hudExtra();
-    var roomH = Math.max(260, window.innerHeight - (window.innerWidth < 600 ? 266 : 270) - fitExtra);       // (a phone keeps room for the Plank button)
+    fitChrome = phone ? chrome() : 0;
+    var roomH = Math.max(260, window.innerHeight - (phone ? fitChrome : 270 + fitExtra));
     cell = Math.max(10, Math.floor(Math.min(roomW / lv.cols, roomH / lv.rows)));
     var dpr = Math.min(2, window.devicePixelRatio || 1), W = lv.cols * cell, H = lv.rows * cell;
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
@@ -182,7 +192,7 @@
     $("plank-btn").disabled = !(ui === "run" && st.status === "play" && st.planks > 0);
     // (the HUD gone onto a second line, or back to one, as its words change: the block refits)
     var key = $("hud").hidden + "|" + $("hud-score").textContent + "|" + $("hud-best").textContent + "|" + $("hud-where").textContent;
-    if (key !== hudKey) { hudKey = key; if (hudExtra() !== fitExtra) fit(); }
+    if (key !== hudKey) { hudKey = key; if (hudExtra() !== fitExtra || (fitChrome && chrome() !== fitChrome)) fit(); }
   }
   var hudKey = "";
   var noteText = "";

@@ -173,14 +173,18 @@ button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
 
 /* ---- small screens ------------------------------------------------------------------ */
 @media (max-width: 560px) {
-  body { padding: 52px 6px 18px; }
+  body { padding: 52px 6px 10px; }
   .sign { width: 54px; height: 54px; margin: 14px 0 16px; border-width: 3px; border-radius: 8px; box-shadow: 0 0 0 3px var(--sign), 4px 4px 10px rgba(0, 0, 0, 0.55); }
+  /* the sign, and in a run the HUD beside it: the block gets the height a
+     column of the two took */
+  #head.with-hud { flex-direction: row; justify-content: center; gap: 2px; }
+  .with-hud .sign { flex: none; margin: 12px; }
   .sign b { font-size: 18px; letter-spacing: 1px; }
   .sign::after { height: 24px; width: 6px; }
-  /* all five, on two lines where one won't hold them (the best is the score
-     to beat, and the street's name says which block this is); each stays
-     whole on its line */
-  .hud { font-size: 15px; gap: 2px 11px; padding: 3px 9px 2px; max-width: 100%; }
+  /* all five, on two lines (or three) where one won't hold them (the best is
+     the score to beat, and the street's name says which block this is);
+     each stays whole on its line */
+  .hud { font-size: 15px; gap: 2px 11px; padding: 3px 9px 2px; margin: 0; min-width: 0; max-width: 100%; }
   .hud .stat { white-space: nowrap; }
   .hud b { font-size: 20px; }
   #stage { padding: 5px; }
@@ -189,4 +193,10 @@ button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
   .panel { align-items: flex-start; padding-top: 58px; overflow-y: auto; }
   .panel h2 { font-size: 29px; }
   .how { font-size: 16.5px; }
+}
+/* a phone: how to play beside the Plank button, not under it */
+@media (max-width: 560px) and (hover: none) {
+  .foot { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+  #pad { flex: none; margin: 0; }
+  .foot .hint { margin: 0; text-align: left; }
 }

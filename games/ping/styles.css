@@ -286,45 +286,54 @@ html.fx-off .antenna.flash-l::before, html.fx-off .antenna.flash-r::after {
 }
 
 /* ---- smaller windows ---- */
-/* narrow: the screen on top, the two panels side by side under it */
-@media (max-width: 700px) {
+/* narrow (a phone held upright): the screen on top, the two panels side by
+   side under it, and the set a little down the page, so the antenna's rods
+   end below the fixed back / sound / FX buttons */
+@media (max-width: 700px) and (min-height: 521px) {
   :root { --sw: min(720px, calc(100vw - 76px), calc((100vh - 290px) * 1.6)); }
+  body { padding-top: 20px; }
   .tv { padding-top: 72px; }
   .antenna { top: 46px; }
+  .antenna::before, .antenna::after { height: 70px; }
   .cabinet { grid-template-columns: 1fr 1fr; grid-template-areas: "screen screen" "left right"; gap: 12px; padding: 16px; border-radius: 22px; }
   .bezel { grid-area: screen; justify-self: center; }
   .panel.left { grid-area: left; }
   .panel.right { grid-area: right; }
-  .panel { flex-direction: row; padding: 8px 10px; gap: 10px; }
-  /* the set's lettering stays, a size smaller: the model under the grille,
-     each dial's name under it, ON over the light */
-  .panel small { font-size: 7.5px; letter-spacing: 0.12em; line-height: 1; white-space: nowrap; }
-  .panel.left { flex-wrap: wrap; justify-content: center; row-gap: 5px; }
-  .model { flex-basis: 100%; text-align: center; }
+  /* the set's lettering at a size that reads, each panel in rows: the badge,
+     then the grille, then the model; the dials over their names, then the
+     grille beside the light */
+  .panel { flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: center; padding: 8px 10px; gap: 6px 8px; }
+  .panel small { font-size: 10.5px; letter-spacing: 0.06em; line-height: 1; white-space: nowrap; }
   .badge { width: auto; flex: none; padding: 4px 8px; }
   .badge b { font-size: 16px; }
-  .knobs { flex-direction: row; gap: 14px; }
+  .panel.left .grille { flex: 1 1 100%; order: 1; }
+  .model { order: 2; }
+  .knobs { flex-direction: row; gap: 10px; }
   .knob { gap: 7px; }
   .dial { width: 34px; }
   .dial.volume { width: 28px; }
   .dial::before { inset: -6px; }
-  .grille { min-height: 30px; height: 30px; flex: 1; }
-  .power { flex-direction: column; gap: 5px; }
+  .grille { min-height: 18px; height: 18px; flex: 1 1 40px; }
+  .power { gap: 5px; }
 }
-/* short (a phone on its side): no antenna, a slimmer cabinet, and the set
-   starts below the fixed back / sound / FX buttons */
+/* short (a phone on its side): the panels either side of the screen, a
+   slimmer cabinet, and the set starts below the fixed back / sound / FX
+   buttons, with a smaller antenna rising between them */
 @media (max-height: 520px) {
   :root { --panel-w: 120px; --sw: min(720px, calc(100vw - 2 * var(--panel-w) - 110px), calc((100vh - 124px) * 1.6)); }
   body { padding-top: 46px; }
   .tv { padding-top: 0; }
-  .antenna { display: none; }
+  .antenna { top: -18px; width: 36px; height: 18px; margin-left: -18px; border-radius: 18px 18px 3px 3px; }
+  .antenna::before, .antenna::after { bottom: 12px; left: calc(50% - 1.5px); width: 3px; height: 34px; }
   .cabinet { padding: 12px; gap: 12px; }
   .mask { padding: 8px; }
   .panel { padding: 10px 8px; gap: 8px; }
+  .panel small { font-size: 10.5px; letter-spacing: 0.06em; line-height: 1; white-space: nowrap; }
   .knob { gap: 7px; }
   .dial { width: 40px; }
   .dial.volume { width: 32px; }
   .badge b { font-size: 17px; }
+  .grille { min-height: 24px; }
   .feet { height: 8px; }
 }
 
