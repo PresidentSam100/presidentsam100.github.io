@@ -6,10 +6,11 @@
 // is drawn at the screen's pixel density, and clicks still land on target.
 // The menu: a click or a number picks a mode, the arrows that move the pick
 // ride on it, and Play (Space or Enter) sits under the modes, above the skin.
-// The how-to line lies inside the board's rim, and rows meet on hairlines.
+// The how-to line lies inside the board's rim, and rows meet on hairlines;
+// a road's dashed line runs between two lanes, not down the middle of one.
 // Normal or Insane (N / I) under the modes: Insane has no grass to rest on,
 // and keeps bests of its own.
-const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
+const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
 // the first mode's top, one mode to the next, a mode's height, Normal and
 // Insane's top, Play's, the turntable's floor
@@ -146,6 +147,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     return out;
   }, W);
   const bandsMenu = await bands(d);
+  // a road two lanes deep, grass on either side, just ahead of the chicken: one dashed
+  // line, on the seam between the two lanes, none down the middle of either or at its edges
+  const lanes = await d.evaluate(() => {
+    const R = __game.rows, gy = __game.player.gy;
+    let road = null;
+    for (let r = gy + 1; r < gy + 400 && !road; r++) { __game.rowTypes(r, r); if (R[r] && R[r].type === "road") road = R[r]; }
+    const grass = R[gy], a = gy + 2;
+    R[a - 1] = grass; R[a] = road; R[a + 1] = road; R[a + 2] = grass;
+    const g = document.getElementById("game").getContext("2d"), sld = g.setLineDash, mt = g.moveTo, ys = [];
+    let dashed = false;
+    g.setLineDash = function (d) { dashed = d.length > 0; return sld.apply(this, arguments); };
+    g.moveTo = function (x, y) { if (dashed) ys.push(y); return mt.apply(this, arguments); };
+    try { __game.render(); } finally { delete g.setLineDash; delete g.moveTo; }
+    const at = (y) => ys.some((v) => Math.abs(v - y) < 1), t0 = __game.rowTop(a), t1 = __game.rowTop(a + 1);
+    return { seam: at(t0 + 1.5), middles: at(t0 + 32) || at(t1 + 32), edges: at(t1 + 1.5) || at(t0 + 64 - 1.5), road: !!road };
+  });
+  check("road-bird: a road's dashed line runs on the seam between two lanes, not down the middle of either, and not along the road's edges",
+    lanes.road && lanes.seam && !lanes.middles && !lanes.edges, lanes);
   await d.keyboard.press("4"); await d.keyboard.press("Enter"); await d.waitForTimeout(300);
   const bandsRiver = await bands(d);
   check("road-bird: rows meet on hairlines, on the menu and in River (no band across the board deeper than 2 px)",

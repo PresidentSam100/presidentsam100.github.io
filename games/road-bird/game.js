@@ -1501,12 +1501,19 @@ function drawRow(r, row) {
   } else if (row.type === "road") {
     ctx.fillStyle = "#41414c";
     ctx.fillRect(SCENE_L, top, W, TILE);
-    ctx.strokeStyle = "rgba(255,255,255,.55)";
-    ctx.lineWidth = 3; ctx.setLineDash([14, 14]);
-    ctx.beginPath(); ctx.moveTo(SCENE_L, top + TILE / 2); ctx.lineTo(SCENE_R, top + TILE / 2); ctx.stroke();
-    ctx.setLineDash([]);
+    // each road row is one lane: the dashed line runs on the seam between two
+    // lanes side by side (along this row's far edge, under its cars), and the
+    // dark edge only where the road meets something else
+    const farRoad = rows[r + 1] && rows[r + 1].type === "road", nearRoad = rows[r - 1] && rows[r - 1].type === "road";
+    if (farRoad) {
+      ctx.strokeStyle = "rgba(255,255,255,.55)";
+      ctx.lineWidth = 3; ctx.setLineDash([14, 14]);
+      ctx.beginPath(); ctx.moveTo(SCENE_L, top + 1.5); ctx.lineTo(SCENE_R, top + 1.5); ctx.stroke();
+      ctx.setLineDash([]);
+    }
     ctx.fillStyle = "rgba(0,0,0,.22)";
-    ctx.fillRect(SCENE_L, top, W, 1); ctx.fillRect(SCENE_L, top + TILE - 1, W, 1);
+    if (!farRoad) ctx.fillRect(SCENE_L, top, W, 1);
+    if (!nearRoad) ctx.fillRect(SCENE_L, top + TILE - 1, W, 1);
     if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top); // lies on the road, under the cars
     for (const it of row.items) drawVehicle(row, it, top);
     if (row.police.state === "active") drawPoliceCar(row, top);
