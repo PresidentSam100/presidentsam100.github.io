@@ -5,7 +5,8 @@
 // focus drops; the ball save starts at the launch and, like the skill shot,
 // waits out a pause; the start card's best is current after a game. Frames
 // (and performance.now) are stepped by the test, so physics runs at exactly
-// the refresh rate asked for, however busy the machine is.
+// the refresh rate asked for, however busy the machine is. On a 2× screen the
+// table is drawn at the screen's own resolution.
 const HOOK = ["start: startGame,", "start: startGame, over: gameOver,"];
 // set up an end of ball: the bonus waiting to count, the multiplier, which ball, no ball save left
 const RIG = ["setScore: (n) => { addScore(n); },", "setScore: (n) => { addScore(n); }, rig: (o) => { if (o.bonus != null) bonus = o.bonus; if (o.mult != null) mult = o.mult; if (o.ball != null) ballNum = o.ball; saveUsed = true; },"];
@@ -178,4 +179,22 @@ module.exports = async ({ browser, base, check, lib }) => {
       /Space/.test(card) && /nudge/.test(card) && !/tap the left/.test(card) && /Space/.test(hint) && !/LAUNCH/.test(hint), { card, hint });
     await ctx.close();
   }
+
+  // ---- a 2× screen: the table has at least two backing pixels for every
+  // page pixel it covers, either way (it had 440 × 760 times 2, under that
+  // where the table is shown larger), drawn in the game's units, before and
+  // after a resize
+  ctx = await lib.newContext(browser, { viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 2 });
+  p = await lib.open(ctx, base, "games/neon-pinball/");
+  const fitted = () => p.evaluate(() => {
+    const c = document.getElementById("pf"), t = c.getContext("2d").getTransform();
+    return { k: +(c.width / c.clientWidth).toFixed(2), kh: +(c.height / c.clientHeight).toFixed(2), sx: +(t.a / (c.width / 440)).toFixed(3), sy: +(t.d / (c.height / 760)).toFixed(3) };
+  });
+  const big = await fitted();
+  await p.setViewportSize({ width: 1280, height: 700 }); await p.waitForTimeout(300);
+  const small = await fitted();
+  check("neon-pinball: on a 2× screen the table is drawn at the screen's own resolution in the game's units, before and after a resize",
+    [big, small].every((r) => r.k >= 1.95 && r.kh >= 1.95 && r.sx === 1 && r.sy === 1), { big, small });
+  check("neon-pinball (2×): no page errors", p.errs.length === 0, p.errs);
+  await ctx.close();
 };

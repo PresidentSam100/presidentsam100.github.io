@@ -7,13 +7,23 @@
   var canvas = document.getElementById("screen");
   var ctx = canvas.getContext("2d");
   var W = canvas.width, H = canvas.height;   // the logical size everything is drawn in
-  // Hi-DPI: the backing store (and the backdrop's) is W×H times the device
-  // pixel ratio, up to 2; render() draws through the matching transform.
-  // A ratio change (browser zoom, another screen) refits it.
-  var dpr = 1;
+  // Sharp on any screen: the backing store (and the backdrop's) has as many
+  // pixels as the screen shows the panel at (its size on the page times the
+  // device pixel ratio, never under W×H, at most 3 per unit), and render()
+  // draws in W×H units through the matching scale. (W×H times the ratio was
+  // soft on a 2× screen, where the panel is shown larger than W×H.) A resize,
+  // a zoom or another screen refits it. kx, ky: backing pixels per unit.
+  var kx = 1, ky = 1;
   function fitCanvas() {
-    dpr = Math.min(2, window.devicePixelRatio || 1);
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+    var r = window.devicePixelRatio || 1, cw = canvas.clientWidth, ch = canvas.clientHeight;
+    var k = cw && ch ? Math.min(3, Math.max(1, Math.max(cw / W, ch / H) * r)) : Math.min(2, r);
+    var w = Math.round(W * k), h = Math.round(H * k);
+    // (within a pixel is the same size: the page lays the panel out from the
+    // backing store's shape, and a rounding pixel mustn't refit it again)
+    if (Math.abs(canvas.width - w) <= 1 && Math.abs(canvas.height - h) <= 1) return false;
+    canvas.width = w; canvas.height = h;
+    kx = w / W; ky = h / H;
+    return true;
   }
   fitCanvas();
 
@@ -110,7 +120,7 @@
     });
   }
 
-  // ---- the comic backdrop (drawn once, and again if the pixel ratio changes)
+  // ---- the comic backdrop (drawn once, and again when the panel is refitted)
   // Deep-space panel: flat indigo, a halftone dot screen, ink-sparkle stars,
   // a ringed planet in one corner and a comet in the other.
   var bg = document.createElement("canvas");
@@ -118,9 +128,9 @@
   var STARS = [];
   for (var si = 0; si < 46; si++) STARS.push({ x: Math.random() * W, y: Math.random() * H, s: rand(1.4, 4.2), a: rand(0.35, 0.9).toFixed(2) });
   function paintBg() {
-    bg.width = Math.round(W * dpr); bg.height = Math.round(H * dpr);
+    bg.width = canvas.width; bg.height = canvas.height;
     var b = bg.getContext("2d");
-    b.setTransform(dpr, 0, 0, dpr, 0, 0);
+    b.setTransform(kx, 0, 0, ky, 0, 0);
     b.fillStyle = "#232a55";
     b.fillRect(0, 0, W, H);
     // halftone dots, larger toward the lower-left like a printed gradient
@@ -171,11 +181,9 @@
     b.beginPath(); b.arc(90, 156, 5, 0, Math.PI * 2); b.stroke();
   }
   paintBg();
-  window.addEventListener("resize", function () {
-    if (Math.min(2, window.devicePixelRatio || 1) === dpr) return;
-    fitCanvas();
-    paintBg();
-  });
+  function refit() { if (fitCanvas()) paintBg(); }
+  window.addEventListener("resize", refit);
+  if (window.ResizeObserver) new ResizeObserver(refit).observe(canvas);
 
   // ---- input -----------------------------------------------------------------
   var input = { left: false, right: false, thrust: false, fire: false };
@@ -808,7 +816,7 @@
 
   // ---- render --------------------------------------------------------------
   function render() {
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // logical units, at the screen's pixel ratio
+    ctx.setTransform(kx, 0, 0, ky, 0, 0);   // logical units, at the screen's own resolution
     ctx.clearRect(0, 0, W, H);
     if (shake > 0 && fx()) {
       ctx.translate(rand(-1, 1) * shake * 14, rand(-1, 1) * shake * 14);

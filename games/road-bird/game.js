@@ -21,19 +21,21 @@ const TRUCK_CHANCE = 0.32;      // chance a vehicle is a truck vs a car (shared 
 // ---------- canvas ----------
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-// The backing store has the screen's pixels (up to 2 per CSS pixel), so the
-// scene is sharp on retina screens and phones; everything still draws in W × H.
-let dpr = 0;
+// The backing store has as many pixels as the screen shows the board at (its
+// size on the page times the device pixel ratio, never under W × H, at most
+// 3 per unit), so the scene is sharp on retina screens, big windows and
+// phones; everything still draws in W × H. (W × H times the ratio was soft on
+// a 2× screen, where the board is shown larger than W × H.)
 function fit() {
   const s = Math.min(window.innerWidth / W, (window.innerHeight - 24) / H);
   canvas.style.width = Math.floor(W * s) + "px";
   canvas.style.height = Math.floor(H * s) + "px";
-  const d = Math.min(2, window.devicePixelRatio || 1);
-  if (d !== dpr) {   // (a browser zoom changes it too; setting the size resets the context)
-    dpr = d;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const k = Math.min(3, Math.max(1, Math.floor(W * s) / W * (window.devicePixelRatio || 1)));
+  const w = Math.round(W * k), h = Math.round(H * k);
+  if (w !== canvas.width || h !== canvas.height) {   // (a resize or a browser zoom; setting the size resets the context)
+    canvas.width = w;
+    canvas.height = h;
+    ctx.setTransform(w / W, 0, 0, h / H, 0, 0);
   }
   placeHint();
 }

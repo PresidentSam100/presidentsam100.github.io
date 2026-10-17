@@ -1,7 +1,7 @@
 // Meteor Menace!: a key held as the window loses focus (its keyup goes to
 // another window) isn't stuck down once the game resumes; with Visual FX off
 // the menu's rocket stands still (it's still drawn), with FX on it drifts; on a
-// 2× screen the panel is drawn at 2×; on a touch-only phone the key captions
+// 2× screen the panel is drawn at the screen's own resolution; on a touch-only phone the key captions
 // hide and the panel says TAP where it says PRESS [SPACE] OR [ENTER]. Three rockets under
 // the score are three lives, and the next one launches soon after a crash.
 // A slow load's out-of-order first frame doesn't step the clock back.
@@ -86,18 +86,27 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("meteor-menace: with Visual FX off the menu rocket is drawn standing still; with FX on it drifts", off.still && !!on.a && !on.still, { off, on });
   await ctx.close();
 
-  // ---- a 2× screen: the backing store is 2×, a tap on the panel still starts,
-  // frames draw, and a ratio change (zoom) refits
+  // ---- a 2× screen: the panel has two backing pixels for every page pixel it
+  // covers (it had 720 × 560 times 2, under that where the panel is shown
+  // larger), drawn in the game's units; a tap on it still starts, frames
+  // draw, and a smaller window or a zoom to 1× refits it
   const hi = await lib.newContext(browser, { deviceScaleFactor: 2 });
   p = await lib.open(hi, base, "games/meteor-menace/");
-  const two = await p.evaluate(() => { const c = document.getElementById("screen"); return { w: c.width, h: c.height }; });
+  const fitted = () => p.evaluate(() => {
+    const c = document.getElementById("screen"), t = c.getContext("2d").getTransform();
+    return { k: +(c.width / c.clientWidth).toFixed(2), kh: +(c.height / c.clientHeight).toFixed(2), sx: +(t.a / (c.width / 720)).toFixed(3), sy: +(t.d / (c.height / 560)).toFixed(3) };
+  });
+  const two = await fitted();
   await p.click("#screen"); await p.waitForTimeout(200);
   const st = await p.evaluate(() => __game.state);
+  await p.setViewportSize({ width: 1000, height: 600 }); await p.waitForTimeout(300);
+  const small = await fitted();
   await p.evaluate(() => { Object.defineProperty(window, "devicePixelRatio", { get: () => 1, configurable: true }); window.dispatchEvent(new Event("resize")); });
   await p.waitForTimeout(100);
-  const one = await p.evaluate(() => document.getElementById("screen").width);
-  check("meteor-menace: on a 2× screen the panel is drawn at 2×, a click starts the issue, and a zoom to 1× refits",
-    two.w === 1440 && two.h === 1120 && st === "play" && one === 720, { two, st, one });
+  const one = await p.evaluate(() => { const c = document.getElementById("screen"); return { w: c.width, shown: c.clientWidth }; });
+  const sharp = (r) => r.k >= 1.95 && r.kh >= 1.95 && r.sx === 1 && r.sy === 1;
+  check("meteor-menace: on a 2× screen the panel is drawn at the screen's own resolution in the game's units (also in a smaller window), a click starts the issue, and a zoom to 1× refits",
+    sharp(two) && sharp(small) && st === "play" && one.w >= 720 && one.w <= Math.max(720, one.shown) + 1, { two, small, st, one });
   await done(p, "hi-DPI");
   await hi.close();
 

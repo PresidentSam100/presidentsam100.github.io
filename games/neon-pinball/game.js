@@ -20,12 +20,23 @@
   const canvas = document.getElementById("pf");
   const ctx = canvas.getContext("2d");
   const W = 440, H = 760;
+  // Sharp on any screen: the backing store has as many pixels as the screen
+  // shows the table at (its size on the page times the device pixel ratio,
+  // never under W×H, at most 3 per unit), and everything is drawn in W×H
+  // units through the matching scale. (W×H times the ratio was soft on a 2×
+  // screen, where the table is shown larger than W×H.) Its shape stays W:H,
+  // which the page lays the table out from. A resize or a zoom refits it.
   function fit() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const r = window.devicePixelRatio || 1, cw = canvas.clientWidth, ch = canvas.clientHeight;
+    const k = cw && ch ? Math.min(3, Math.max(1, Math.max(cw / W, ch / H) * r)) : Math.min(2, r);
+    const w = Math.round(W * k), h = Math.round(H * k);
+    // (within a pixel is the same size, so a rounding pixel doesn't refit it again)
+    if (Math.abs(canvas.width - w) <= 1 && Math.abs(canvas.height - h) <= 1) return;
+    canvas.width = w; canvas.height = h;
+    ctx.setTransform(w / W, 0, 0, h / H, 0, 0);
   }
   fit(); window.addEventListener("resize", fit);
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(canvas);
   const reduced = () => !!(window.RM_ON && window.RM_ON());
 
   // ---------- audio ----------

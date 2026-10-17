@@ -3,7 +3,7 @@
 // coin spin or wing flap, the art still all there); with FX on the menu moves.
 // On a phone a tap on the skin turntable changes the skin (C still does on a
 // desktop), and the hints say tap / swipe instead of naming keys. The canvas
-// is drawn at the screen's pixel density, and clicks still land on target.
+// is drawn at the screen's own resolution, and clicks still land on target.
 // The menu: a click or a number picks a mode, the arrows that move the pick
 // ride on it, and Play (Space or Enter) sits under the modes, above the skin.
 // The how-to line lies inside the board's rim, and rows meet on hairlines;
@@ -216,15 +216,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   await m.close();
   await phone.close();
 
-  // ---- a 2× screen: the canvas is drawn at twice the pixels, clicks land on target
+  // ---- a 2× screen: the canvas has two pixels for every page pixel of the
+  // board (it had W × H times 2, under that where the board is shown larger),
+  // drawn in the game's units, before and after a resize; clicks land on target
   const retina = await lib.newContext(browser, { deviceScaleFactor: 2 });
   const r = await lib.open(retina, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
-  const size = await r.evaluate(() => ({ w: document.getElementById("game").width, h: document.getElementById("game").height }));
+  const fitted = () => r.evaluate(([W, H]) => {
+    const c = document.getElementById("game"), t = c.getContext("2d").getTransform();
+    return { k: +(c.width / c.clientWidth).toFixed(2), kh: +(c.height / c.clientHeight).toFixed(2), sx: +(t.a / (c.width / W)).toFixed(3), sy: +(t.d / (c.height / H)).toFixed(3) };
+  }, [W, H]);
+  const size = await fitted();
   await at(r, W / 2, MENU_Y + 2 * STEP + 24); await r.waitForTimeout(150);   // the Trains button
   await at(r, W / 2, PLAY_Y + 25); await r.waitForTimeout(300);              // Play
   const picked = await r.evaluate(() => ({ mode: __game.mode, state: __game.state }));
-  check("road-bird, 2× screen: the canvas has twice the pixels and a click picks the mode under it (Play then starts it)",
-    size.w === 2 * W && size.h === 2 * H && picked.mode === "trains" && picked.state === "playing", { size, picked });
+  await r.setViewportSize({ width: 900, height: 600 }); await r.waitForTimeout(300);
+  const small = await fitted();
+  const sharp = (s) => s.k >= 1.95 && s.kh >= 1.95 && s.sx === 1 && s.sy === 1;
+  check("road-bird, 2× screen: the canvas is drawn at the screen's own resolution in the game's units (also after a resize), and a click picks the mode under it (Play then starts it)",
+    sharp(size) && sharp(small) && picked.mode === "trains" && picked.state === "playing", { size, small, picked });
   check("road-bird, 2× screen: frames draw with no page errors", r.errs.length === 0, r.errs);
   await r.close();
   await retina.close();
