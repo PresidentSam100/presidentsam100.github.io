@@ -105,9 +105,11 @@
       var el = document.createElement("div");
       el.className = "hang sway" + (TWO_STRINGS[i] ? " two" : "");
       el.innerHTML = '<span class="knot"></span><span class="string"></span>' +
+        // the tag hangs from the cutout by two threads of its own (tie(), behind the paper)
+        '<span class="tie" aria-hidden="true"></span><span class="tie" aria-hidden="true"></span>' +
         '<button type="button" class="pad" aria-label="' + p.name + ', key ' + (i + 1) + '">' + box.html + "</button>" +
         // (the tag's key hides on a touch-only device, where the cutout is tapped)
-        '<span class="tag"><span class="gs-keys"><kbd>' + (i + 1) + "</kbd></span>" + p.name +
+        '<span class="tag"><span class="tag-line"><span class="gs-keys"><kbd>' + (i + 1) + "</kbd></span>" + p.name + "</span>" +
         (i === 8 ? "<small>still a planet!!</small>" : "") + "</span>";
       wrap.appendChild(el);
       var btn = el.querySelector("button");
@@ -160,6 +162,24 @@
   // on, so picking a mode pulls the view in or out).
   var STRINGS = [70, 145, 42, 118, 165, 58, 138, 95, 34];   // varied, like real yarn
   var TWO_STRINGS = { 4: true, 5: true };                   // the gas giants are too big for one
+  // Each tag hangs from its cutout by two threads, a little in from the tag's
+  // ends, up to where they meet the paper's round edge (and on behind it).
+  // Measured in the cutout's own frame (offsets: the sway's turn leaves them
+  // be), so the threads turn with it.
+  var tieT = 0;
+  function tie() {
+    pads.forEach(function (p) {
+      var tag = p.el.querySelector(".tag"), ties = p.el.querySelectorAll(".tie"), r = p.r;
+      if (!tag || ties.length < 2 || !r) return;
+      var cx = p.el.offsetWidth / 2, cy = p.btn.offsetTop + p.btn.offsetHeight / 2;
+      var d = Math.max(4, Math.min(tag.offsetWidth / 2 - 8, r * 0.7));
+      var top = cy + Math.sqrt(Math.max(0, r * r - d * d)) - 3, bottom = tag.offsetTop + 3;
+      [-d, d].forEach(function (dx, k) {
+        var t = ties[k].style;
+        t.left = (cx + dx - 0.75) + "px"; t.top = top + "px"; t.height = Math.max(0, bottom - top) + "px";
+      });
+    });
+  }
   function layout() {
     boardW = window.innerWidth; boardH = window.innerHeight;
     var twoRows = boardW < 820, close = active() === 4;
@@ -239,6 +259,9 @@
         x += hw * 2 + gap;
       });
     });
+    tie();
+    // (and again once a gliding change of view has settled)
+    clearTimeout(tieT); tieT = setTimeout(tie, 950);
 
     // foil asteroids high up between the planets
     [[0.13, 20, 40], [0.36, 34, 30], [0.63, 26, 44], [0.88, 40, 34]].forEach(function (cfg, k) {
@@ -703,6 +726,8 @@
   build();
   layout();
   window.addEventListener("resize", layout);
+  // (the tags take their size from the hand-lettered font: tied again once it's in)
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(tie);
   applyDim(); applyRoids(); paintMenu();
   // (hung: from here on a change of view glides, with Visual FX on. Not the
   // first hanging, which would fly everything in from the corner.)
