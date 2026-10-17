@@ -1,7 +1,9 @@
 // Poodle Jump: the start card carries the game's own name; with Visual FX off
 // a black hole is drawn still (FX on, its spiral and ring turn); a jetpack or
-// propeller carries the poodle unstretched (a jump's speed still stretches it);
-// spent spring shoes come off at once when a jetpack or propeller takes over.
+// propeller carries the poodle unstretched (a jump's speed still stretches it),
+// and a spring's, a trampoline's or a long fall's stretch lasts about as long
+// as a jump's; spent spring shoes come off at once when a jetpack or propeller
+// takes over.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check("poodle-jump " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -117,6 +119,37 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("poodle-jump: a jetpack or propeller carries the poodle unstretched (a jump as fast still stretches it); spent spring shoes come off at once when a jetpack takes over",
     gear.jump > 1 && gear.jet === 1 && gear.prop === 1 && !gear.pending && gear.shoes === "shoes", gear);
   await done(p, "gear");
+
+  // ---- the speed stretch lasts about as long as a jump shows it: a spring or
+  // a trampoline is stretched on its way up, then eases back to round (it held
+  // the stretch 0.42 s and 0.6 s), and so does a long fall; a jump's fall is
+  // stretched as before
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  const flight = await p.evaluate(() => {
+    __game.start(); __game.paused = true;
+    const pl = __game.player, c = __game.ctx, sc = c.scale, input = { left: false, right: false };
+    const tall = () => {
+      let most = 1;
+      c.scale = function (x, y) { most = Math.max(most, y); return sc.apply(this, arguments); };
+      try { pl.render(c, __game.cameraY || 0); } finally { c.scale = sc; }
+      return Math.round(most * 1000) / 1000;
+    };
+    // (the poodle's own update, a 60th of a second at a time, read at each time)
+    const fly = (start, times) => {
+      pl.powerup = null; pl.flipping = false; pl.spin = 0; start();
+      const out = {}; let t = 0;
+      for (const at of times) { while (t < at - 1e-9) { pl.update(1 / 60, input); t += 1 / 60; } out[at] = tall(); }
+      return out;
+    };
+    return {
+      spring: fly(() => pl.bounce(CONFIG.SPRING_V), [0.2, 0.4]),
+      trampoline: fly(() => pl.bounce(CONFIG.TRAMPOLINE_V), [0.2, 0.4]),
+      fall: fly(() => { pl.squashT = 0; pl.vy = 0; pl.downT = 0; }, [0.3, 0.6]),
+    };
+  });
+  check("poodle-jump: a spring's or trampoline's stretch on the way up eases back to round by 0.4 s, and a long fall's after a jump's worth (a jump's fall still stretches)",
+    flight.spring[0.2] > 1 && flight.spring[0.4] === 1 && flight.trampoline[0.2] > 1 && flight.trampoline[0.4] === 1 && flight.fall[0.3] > 1 && flight.fall[0.6] === 1, flight);
+  await done(p, "stretch");
 
   // ---- Game Over: Backspace goes back to the start card, but not in its first
   // second (a key held from the run); Esc still leaves for the games page

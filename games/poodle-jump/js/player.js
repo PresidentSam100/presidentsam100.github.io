@@ -6,6 +6,12 @@
 // exactly as always, just without that motion. Render-only: the hitbox never
 // changes.
 const SQUASH_TIME = 0.16;
+// The speed stretch lasts about as long as a jump shows it, however fast the
+// flight: on the way up until STRETCH_UP after the launch (the landing squash
+// has the first 0.16 s), on the way down for the 0.37 s a jump takes to come
+// back down. Past that (a spring, a trampoline, a long fall) it eases back to
+// round over STRETCH_EASE instead of holding the stretch the whole way.
+const STRETCH_UP = 0.25, STRETCH_DOWN = 0.37, STRETCH_EASE = 0.1;
 
 // The poodle character. Moves left/right, bounces automatically, shoots, and
 // can be carried by a power-up (which grants temporary invincibility).
@@ -45,6 +51,8 @@ class Player {
     // Visual FX on only: landing squash and dust puffs (world coordinates)
     this.squashT = 0;
     this.dust = [];
+    this.upT = 0;     // seconds since the last launch (for how long the rise is stretched)
+    this.downT = 0;   // seconds since the top of the arc (likewise the fall)
   }
 
   // Kick off a single 360° front flip (used by the trampoline).
@@ -82,6 +90,7 @@ class Player {
 
   bounce(v) {
     this.vy = -v;
+    this.upT = 0;
     if (!fxOn()) return;
     this.squashT = SQUASH_TIME;
     const fx = this.x + this.w / 2, fy = this.y + this.h;
@@ -113,12 +122,14 @@ class Player {
         this.droppedGear = this.powerup.kind; // tell the Game to drop the gear
         this.powerup = null;
         this.grace = CONFIG.POWERUP_GRACE;    // brief immunity to react on landing
+        this.upT = 0;                         // (the climb it leaves is a launch of its own)
       }
     } else {
       this.vy += CONFIG.GRAVITY * dt;
       if (this.grace > 0) this.grace -= dt;
     }
     this.y += this.vy * dt;
+    if (this.vy < 0) { this.upT += dt; this.downT = 0; } else this.downT += dt;
 
     // Horizontal screen wrap
     if (this.x + this.w < 0) this.x = CONFIG.W;
@@ -184,8 +195,10 @@ class Player {
         sxs = 1 + a; sys = 1 - a;
       } else if (!this.powerup) {
         // stretched by speed, round at the apex (not while a jetpack or a
-        // propeller carries it: that speed is the gear's, not a jump's)
-        const s = clamp((Math.abs(this.vy) - 450) / 4000, 0, 0.12);
+        // propeller carries it: that speed is the gear's, not a jump's), and
+        // for about a jump's worth of time (STRETCH_UP / STRETCH_DOWN)
+        const t = this.vy < 0 ? this.upT - STRETCH_UP : this.downT - STRETCH_DOWN;
+        const s = clamp((Math.abs(this.vy) - 450) / 4000, 0, 0.12) * clamp(1 - t / STRETCH_EASE, 0, 1);
         sxs = 1 - s * 0.6; sys = 1 + s;
       }
       if (sxs !== 1) {
