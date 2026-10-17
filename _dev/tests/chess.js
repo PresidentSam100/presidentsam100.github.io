@@ -310,7 +310,213 @@ module.exports = async ({ browser, base, check, lib }) => {
   const pawn = await fifty([[4, "b", "k"], [60, "w", "k"], [63, "w", "r"], [52, "w", "p"]], [52, 44]);
   check("chess: the 100th half-move with no capture or pawn move is drawn by the 50-move rule; Undo takes it back; a pawn move resets the count",
     quiet.over && /^Draw: 50-move rule \|/.test(fq || "") && !fu.over && fu.halfmove === 99 && !pawn.over && pawn.halfmove === 0, { quiet, fq, fu, pawn });
+  // a repetition draw ends the log with ½-½; Undo takes the result away again
+  await p.evaluate(() => { __chess.start(2); document.getElementById("overOverlay").classList.remove("show"); });
+  for (let k = 0; k < 8; k++) await step(shuffle[k % 4]);
+  await card();
+  const drawLog = await p.evaluate(() => ({ sans: (__chess.G.sans || []).map((e) => e.san).join(" "), res: (document.querySelector("#moveLog li.res") || {}).textContent || null }));
+  await p.evaluate(() => document.getElementById("undoBtn").click());
+  const drawUndone = await p.evaluate(() => ({ n: (__chess.G.sans || []).length, res: !!document.querySelector("#moveLog li.res") }));
+  check("chess: a game drawn by repetition ends its move log with ½-½, and Undo takes the result away with the move",
+    drawLog.sans === "Nf3 Nf6 Ng1 Ng8 Nf3 Nf6 Ng1 Ng8" && drawLog.res === "½-½" && drawUndone.n === 7 && !drawUndone.res, { drawLog, drawUndone });
   check("chess (draw rules): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- the move log: every 2-player move in standard algebraic notation, a
+  // numbered row a move, White's and Black's side by side, the result at the foot
+  p = await open2();
+  // set a position up (castle: the rights left; turn: who moves first) and play
+  // moves [from, to, promotion piece?] through the game; the log as written
+  const san = (pieces, moves, opts) => p.evaluate(([pieces, moves, opts]) => {
+    const C = __chess; C.start(2); document.getElementById("overOverlay").classList.remove("show");
+    const G = C.G;
+    if (pieces) {
+      const b = new Array(64).fill(null);
+      for (const [i, o, t] of pieces) b[i] = { o, t, dead: false };
+      G.board = b; G.turn = (opts && opts.turn) || "w"; G.ep = null;
+      G.castle = Object.assign({ wk: false, wq: false, bk: false, bq: false }, (opts && opts.castle) || {});
+    }
+    for (const [from, to, promo] of moves) {
+      const m = C.legalFor(C.G, from).find((x) => x.to === to);
+      if (!m) return { error: "no move " + from + "-" + to, sans: (C.G.sans || []).map((e) => e.san) };
+      C.doMove(m, promo);
+    }
+    C.render();
+    return { sans: (C.G.sans || []).map((e) => e.san), rows: window.__rows() };
+  }, [pieces, moves, opts || null]);
+  // (each row of the log as read: "1. e4 e5", the result row alone)
+  await p.evaluate(() => { window.__rows = () => [...document.querySelectorAll("#moveLog li")].map((li) => li.children.length ? [...li.children].map((c) => c.textContent).filter(Boolean).join(" ") : li.textContent); });
+  const opening = await san(null, [[52, 36], [12, 28], [62, 45], [1, 18], [61, 25]]);
+  const fools = await san(null, [[53, 45], [12, 28], [54, 38], [3, 39]]);
+  await endBeat(p);
+  const foolsRes = await p.evaluate(() => (document.querySelector("#moveLog li.res") || {}).textContent || null);
+  check("chess log: an opening is written e4 e5 Nf3 Nc6 Bb5, numbered rows of White's and Black's moves",
+    opening.sans.join(" ") === "e4 e5 Nf3 Nc6 Bb5" && opening.rows.join(" | ") === "1. e4 e5 | 2. Nf3 Nc6 | 3. Bb5", opening);
+  check("chess log: a mate is marked # and the result follows it (the fool's mate: f3 e5 g4 Qh4#, 0-1)",
+    fools.sans.join(" ") === "f3 e5 g4 Qh4#" && foolsRes === "0-1", { fools, foolsRes });
+  const kings = [[60, "w", "k"], [4, "b", "k"]];
+  const oo = await san(kings.concat([[63, "w", "r"], [56, "w", "r"]]), [[60, 62]], { castle: { wk: true, wq: true } });
+  const ooo = await san(kings.concat([[63, "w", "r"], [56, "w", "r"]]), [[60, 58]], { castle: { wk: true, wq: true } });
+  check("chess log: castling is O-O on the king's side, O-O-O on the queen's", oo.sans[0] === "O-O" && ooo.sans[0] === "O-O-O", { oo, ooo });
+  const promoQ = await san([[60, "w", "k"], [23, "b", "k"], [8, "w", "p"]], [[8, 0, "q"]]);
+  const promoN = await san([[60, "w", "k"], [23, "b", "k"], [8, "w", "p"]], [[8, 0, "n"]]);
+  const promoX = await san([[60, "w", "k"], [23, "b", "k"], [8, "w", "p"], [1, "b", "r"]], [[8, 1, "q"]]);
+  const promoCk = await san([[60, "w", "k"], [7, "b", "k"], [14, "b", "p"], [15, "b", "p"], [8, "w", "p"], [12, "b", "n"]], [[8, 0, "r"]]);
+  check("chess log: a promotion is a8=Q (a8=N for a knight), a capturing one axb8=Q, one giving check a8=R+",
+    promoQ.sans[0] === "a8=Q" && promoN.sans[0] === "a8=N" && promoX.sans[0] === "axb8=Q" && promoCk.sans[0] === "a8=R+", { promoQ, promoN, promoX, promoCk });
+  const ep = await san([[60, "w", "k"], [4, "b", "k"], [28, "w", "p"], [11, "b", "p"]], [[11, 27], [28, 19]], { turn: "b" });
+  check("chess log: en passant is written as the pawn's capture (d5 exd6), and a log that starts on Black's move reads 1. … d5",
+    ep.sans.join(" ") === "d5 exd6" && ep.rows.join(" | ") === "1. … d5 | 2. exd6", ep);
+  const byFile = await san([[63, "w", "k"], [7, "b", "k"], [57, "w", "n"], [45, "w", "n"]], [[57, 51]]);
+  const byRank = await san([[63, "w", "k"], [7, "b", "k"], [56, "w", "r"], [24, "w", "r"]], [[56, 40]]);
+  const byBoth = await san([[63, "w", "k"], [15, "b", "k"], [56, "w", "q"], [40, "w", "q"], [58, "w", "q"]], [[56, 49]]);
+  const alone = await san([[63, "w", "k"], [7, "b", "k"], [57, "w", "n"]], [[57, 51]]);
+  check("chess log: a second piece that could go there too is told apart by file (Nbd2), rank (R1a3) or both (Qa1b2); a lone one isn't (Nd2)",
+    byFile.sans[0] === "Nbd2" && byRank.sans[0] === "R1a3" && byBoth.sans[0] === "Qa1b2" && alone.sans[0] === "Nd2", { byFile, byRank, byBoth, alone });
+  const capMate = await san([[62, "w", "k"], [6, "b", "k"], [13, "b", "p"], [14, "b", "p"], [15, "b", "p"], [56, "w", "r"], [0, "b", "n"]], [[56, 0]]);
+  const capCheck = await san([[62, "w", "k"], [6, "b", "k"], [13, "b", "p"], [15, "b", "p"], [56, "w", "r"], [0, "b", "n"]], [[56, 0]]);
+  await endBeat(p);
+  const mateRes = await p.evaluate(() => (document.querySelector("#moveLog li.res") || {}).textContent || null);
+  check("chess log: a capture is x (Rxa8+ with the king able to step out, Rxa8# when it can't; then 1-0)",
+    capMate.sans[0] === "Rxa8#" && capCheck.sans[0] === "Rxa8+" && mateRes === null, { capMate, capCheck, mateRes });
+  // (capCheck isn't over: no result; the mate before it was, then a new game cleared it)
+  const mateAgain = await san([[62, "w", "k"], [6, "b", "k"], [13, "b", "p"], [14, "b", "p"], [15, "b", "p"], [56, "w", "r"], [0, "b", "n"]], [[56, 0]]);
+  await endBeat(p);
+  const mateRes2 = await p.evaluate(() => (document.querySelector("#moveLog li.res") || {}).textContent || null);
+  check("chess log: a game White mates ends with 1-0", mateAgain.sans[0] === "Rxa8#" && mateRes2 === "1-0", { mateAgain, mateRes2 });
+
+  // Undo takes the last move off the log; New Game starts it empty; a pause hides it
+  await san(null, [[52, 36], [12, 28], [62, 45]]);
+  await p.evaluate(() => document.getElementById("undoBtn").click());
+  const undoLog = await p.evaluate(() => ({ sans: (__chess.G.sans || []).map((e) => e.san).join(" "), rows: window.__rows() }));
+  await p.evaluate(() => document.getElementById("newBtn").click());
+  await p.waitForTimeout(150);
+  if (await p.evaluate(() => !!document.querySelector(".gs-dialog"))) { await p.keyboard.press("Enter"); await p.waitForTimeout(150); }
+  const newLog = await p.evaluate(() => ({ n: (__chess.G.sans || []).length, rows: document.querySelectorAll("#moveLog li").length, none: !(document.getElementById("logNone") || { hidden: true }).hidden }));
+  await p.evaluate(() => { const C = __chess; C.doMove(C.legalFor(C.G, 52).find((x) => x.to === 36)); });
+  await p.keyboard.press("p"); await p.waitForTimeout(100);
+  const pausedLog = await p.evaluate(() => (document.getElementById("moveLog") ? getComputedStyle(document.getElementById("moveLog")).visibility : null));
+  await p.keyboard.press("p"); await p.waitForTimeout(100);
+  const backLog = await p.evaluate(() => (document.getElementById("moveLog") ? getComputedStyle(document.getElementById("moveLog")).visibility : null));
+  check("chess log: Undo takes the last move off it (1. e4 e5), New Game starts it empty (No moves yet), and a pause hides it like the board",
+    undoLog.sans === "e4 e5" && undoLog.rows.join(" | ") === "1. e4 e5" && newLog.n === 0 && newLog.rows === 0 && newLog.none && pausedLog === "hidden" && backLog === "visible", { undoLog, newLog, pausedLog, backLog });
+  // 4 players: long algebraic in the cross's own square names (files a to n
+  // along its edge, ranks 1 to 14 up it), a numbered row a round, each move
+  // after a dot of its player's colour; Undo takes the last one off
+  const fourLog = await p.evaluate(() => {
+    const C = __chess; C.start(4, 2); document.getElementById("menu").classList.remove("show");
+    const at = (r, c) => r * 14 + c, play = (a, b) => { const m = C.legalFor(C.G, a).find((x) => x.to === b); if (m) C.doMove(m); return !!m; };
+    const ok = [play(at(12, 7), at(10, 7)), play(at(7, 1), at(7, 3)), play(at(1, 6), at(3, 6)), play(at(6, 12), at(6, 10)), play(at(13, 4), at(11, 5))];
+    const rows = window.__rows(), dots = [...document.querySelectorAll("#moveLog .mv i")].map((i) => i.style.background.replace(/\s/g, ""));
+    const shown = document.getElementById("logBox") && getComputedStyle(document.getElementById("logBox")).display;
+    const labels = [...document.querySelectorAll("#board .coord")].map((e) => e.textContent);
+    document.getElementById("undoBtn").click();
+    const undone = window.__rows();
+    C.start(2);
+    return { ok, rows, dots, shown, labels: labels.length, edge: labels.includes("n") && labels.includes("14"), undone };
+  });
+  check("chess 4 players: a move log in the cross's own square names, a numbered row a round (1. h2-h4 b7-d7 g13-g11 m8-k8 | 2. Ne1-f3), each move after its player's colour",
+    fourLog.ok.every(Boolean) && fourLog.shown !== "none" && fourLog.rows.join(" | ") === "1. h2-h4 b7-d7 g13-g11 m8-k8 | 2. Ne1-f3" &&
+    fourLog.dots.length === 5 && fourLog.dots[0] === fourLog.dots[4] && new Set(fourLog.dots).size === 4, fourLog);
+  check("chess 4 players: Undo takes the last move off the log, and the board's edge shows the names (files a to n, ranks 1 to 14)",
+    fourLog.undone.join(" | ") === "1. h2-h4 b7-d7 g13-g11 m8-k8" && fourLog.labels === 28 && fourLog.edge, fourLog);
+  // + and # as in chess, on the board right after the move: Red's rook checks
+  // Yellow's king in its corner; walled in by its own pawns it's mate (#) even
+  // though Blue moves before Yellow's turn comes, and with a way out it's +
+  const fourMarks = await p.evaluate(() => {
+    const C = __chess, at = (r, c) => r * 14 + c, out = {};
+    for (const walled of [true, false]) {
+      C.start(4, 2); document.getElementById("menu").classList.remove("show");
+      const b = C.G.board.map(() => null), pc = (o, t) => ({ o, t, dead: false });
+      b[at(13, 7)] = pc("r", "k"); b[at(7, 0)] = pc("b", "k"); b[at(7, 13)] = pc("g", "k"); b[at(0, 3)] = pc("y", "k");
+      b[at(1, 3)] = pc("y", "p"); if (walled) b[at(1, 4)] = pc("y", "p");
+      b[at(5, 10)] = pc("r", "r");
+      C.G.board = b; C.G.turn = "r";
+      const m = C.legalFor(C.G, at(5, 10)).find((x) => x.to === at(0, 10));
+      if (m) C.doMove(m);
+      out[walled ? "mate" : "check"] = { log: (C.G.sans || []).map((e) => e.san).join(" "), turn: C.G.turn, yellowIn: C.G.players.y.alive };
+    }
+    C.start(2);
+    return out;
+  });
+  check("chess 4 players: a move that leaves a player checkmated is # (Rk9-k14#) though another player moves first; a check with a way out is + (Rk9-k14+)",
+    fourMarks.mate.log === "Rk9-k14#" && fourMarks.mate.turn === "b" && fourMarks.mate.yellowIn && fourMarks.check.log === "Rk9-k14+", fourMarks);
+  check("chess (log): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- vs CPU: the CPU's moves are logged too, and Undo takes back its reply and your move
+  p = await open2();
+  await p.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "cpu", difficulty: "easy", side: "w", base: 0, inc: 0 }); });
+  // (what the page asks the worker: kept, to see it carries the draw rules' count)
+  await p.evaluate(() => { const post = Worker.prototype.postMessage; Worker.prototype.postMessage = function (m) { window.__asked = m; return post.apply(this, arguments); }; });
+  await p.evaluate(() => { const C = __chess; C.doMove(C.legalFor(C.G, 52).find((x) => x.to === 36)); });
+  const replied = await p.waitForFunction(() => (__chess.G.sans || []).length === 2, null, { timeout: 20000 }).then(() => true, () => false);
+  const cpuLog = await p.evaluate(() => ({ sans: (__chess.G.sans || []).map((e) => e.col + ":" + e.san), asked: window.__asked && { positions: window.__asked.positions, halfmove: window.__asked.halfmove }, now: __chess.G.positions.slice(-1)[0] }));
+  await p.evaluate(() => document.getElementById("undoBtn").click());
+  const cpuUndo = await p.evaluate(() => (__chess.G.sans || []).length);
+  check("chess vs CPU: the CPU's reply is logged after your move, and Undo takes both off the log",
+    replied && cpuLog.sans.length === 2 && cpuLog.sans[0] === "w:e4" && /^b:/.test(cpuLog.sans[1]) && cpuUndo === 0, { replied, cpuLog, cpuUndo });
+  check("chess vs CPU: the CPU is told the game's positions since the last capture or pawn move, and its half-move count",
+    !!cpuLog.asked && Array.isArray(cpuLog.asked.positions) && cpuLog.asked.positions.length === 1 && cpuLog.asked.halfmove === 0 && / b /.test(cpuLog.asked.positions[0] || ""), cpuLog.asked);
+  check("chess (log vs CPU): no page errors", p.errs.length === 0, p.errs);
+  await p.close();
+
+  // ---- the CPU and the draw rules (its worker asked directly, to a fixed depth,
+  // so its pick doesn't hang on the time it gets). Only a third time is a draw,
+  // as in the game, and a draw is worth 0: ahead, it won't make a position come
+  // round a third time nor play the quiet move that ends fifty moves; a second
+  // time is just a position, which it plays if that's its best move; behind,
+  // it takes a threefold that's on offer and not a mere second time
+  p = await open2();
+  const cpu = await p.evaluate(async () => {
+    const C = __chess;
+    const think = (pieces, extra) => new Promise((res) => {
+      const b = new Array(64).fill(null);
+      for (const [i, o, t] of pieces) b[i] = { o, t, dead: false };
+      const w = new Worker("cpu-worker.js");
+      w.onmessage = (e) => { w.terminate(); res(e.data.move ? e.data.move.from + "-" + e.data.move.to : null); };
+      w.postMessage(Object.assign({ type: "think", requestId: 1, board: b, turn: "b", castle: { wk: false, wq: false, bk: false, bq: false }, ep: null,
+        difficulty: "medium", budgetMs: 60000, maxDepth: 3 }, extra));
+    });
+    // the position after Black's move from-to, as the game writes it (and the one before)
+    const keys = (pieces, from, to) => {
+      C.start(2); document.getElementById("overOverlay").classList.remove("show");
+      const G = C.G, b = new Array(64).fill(null);
+      for (const [i, o, t] of pieces) b[i] = { o, t, dead: false };
+      G.board = b; G.turn = "b"; G.castle = { wk: false, wq: false, bk: false, bq: false }; G.ep = null;
+      const m = C.legalFor(G, from).find((x) => x.to === to);
+      C.doMove(m);
+      const after = C.G.positions.slice(-1)[0];
+      C.start(2);
+      return after;
+    };
+    const out = {};
+    // ahead: Black has a rook and the king, White the king alone
+    const ahead = [[0, "b", "k"], [7, "b", "r"], [36, "w", "k"]];
+    out.aheadFree = await think(ahead, { positions: [], halfmove: 10 });
+    const [f1, t1] = out.aheadFree.split("-").map(Number), k1 = keys(ahead, f1, t1);
+    out.aheadOnce = await think(ahead, { positions: [k1], halfmove: 10 });        // its move would make the second time
+    out.aheadTwice = await think(ahead, { positions: [k1, k1], halfmove: 10 });   // ...or the third
+    // behind: a bare king against a queen and a rook; one of its king moves repeats
+    const behind = [[0, "b", "k"], [60, "w", "k"], [52, "w", "q"], [44, "w", "r"]];
+    out.behindFree = await think(behind, { positions: [], halfmove: 10 });
+    out.repeatable = out.behindFree === "0-1" ? "0-8" : "0-1";
+    const [f2, t2] = out.repeatable.split("-").map(Number), k2 = keys(behind, f2, t2);
+    out.behindOnce = await think(behind, { positions: [k2], halfmove: 10 });
+    out.behindTwice = await think(behind, { positions: [k2, k2], halfmove: 10 });
+    // ahead with the fifty moves all but run: a pawn move (which starts the count again), not a quiet one
+    const fifty = [[0, "b", "k"], [7, "b", "r"], [9, "b", "p"], [36, "w", "k"]];
+    out.fiftyFree = await think(fifty, { positions: [], halfmove: 0 });
+    out.fiftyLast = await think(fifty, { positions: [], halfmove: 99 });
+    return out;
+  });
+  check("chess CPU: ahead, it doesn't make a position come round a third time (threefold repetition)", !!cpu.aheadFree && !!cpu.aheadTwice && cpu.aheadTwice !== cpu.aheadFree, cpu);
+  check("chess CPU: a second time is just a position: ahead, it still plays its best move when that repeats a position once; behind, a mere second time isn't the draw it wants",
+    cpu.aheadOnce === cpu.aheadFree && cpu.behindOnce === cpu.behindFree, cpu);
+  check("chess CPU: behind, it takes a threefold that's on offer (the draw)", cpu.behindFree !== cpu.repeatable && cpu.behindTwice === cpu.repeatable, cpu);
+  check("chess CPU: ahead with the fifty moves all but run, it moves its pawn (the count starts again) instead of a quiet move that draws",
+    !/^9-/.test(cpu.fiftyFree || "") && /^9-/.test(cpu.fiftyLast || ""), cpu);
+  check("chess (CPU draw rules): no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
   // ---- 4 players, frozen pieces: a checkmated army's frozen king is captured like the rest of it
@@ -340,6 +546,96 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("chess 4 players: a live king is still never capturable (guard)", live === false, live);
   check("chess 4 players (frozen king): no page errors", p.errs.length === 0, p.errs);
   await p.close();
+
+  // ---- 3 players: a move log, long algebraic in the board's own cell names
+  // (files a to x round the table, Red's a to h, White's i to p, Black's q to
+  // x; ranks 1 to 4 from each home row in, shown on the board's edge), a
+  // numbered row a round, each move after its player's colour; Undo takes the
+  // last one off; a mate is # and the result is in words. On a phone the log
+  // sits right under the board.
+  {
+    let html = fs.readFileSync(path.join(lib.ROOT, "games/chess/three.html"), "utf8");
+    html = html.replace(HOOK3[0], HOOK3[1]);
+    const route = (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html }));
+    const q = await lib.open(ctx, base, "games/chess/three.html", { before: route });
+    const rowsOf = () => [...document.querySelectorAll("#moveLog li")].map((li) => li.children.length ? [...li.children].map((c) => c.textContent).filter(Boolean).join(" ") : li.textContent);
+    const log3 = await q.evaluate((rowsSrc) => {
+      const rows = eval(rowsSrc), T = __three; T.start(3); document.getElementById("menu").classList.remove("show");
+      const play = (a, b) => { const m = T.legalFor(a).find((x) => x.to === b); if (m) T.doMove(m); return !!m; };
+      const ok = [play(T.cid(0, 2, 4), T.cid(0, 0, 4)), play(T.cid(1, 2, 4), T.cid(1, 0, 4)), play(T.cid(2, 2, 4), T.cid(2, 0, 4))];
+      const knight = T.legalFor(T.cid(0, 3, 1))[0];
+      ok.push(!!knight); if (knight) T.doMove(knight);
+      const out = { ok, rows: rows(), dots: [...document.querySelectorAll("#moveLog .mv i")].map((i) => i.style.background.replace(/\s/g, "")),
+        labels: [...document.querySelectorAll("#boardSvg .lbl")].map((e) => e.textContent) };
+      document.getElementById("undoBtn").click();
+      out.undone = rows();
+      return out;
+    }, "(" + rowsOf.toString() + ")");
+    check("chess three: a move log in the board's own cell names, a numbered row a round (1. e2-e4 m2-m4 u2-u4 | 2. Nb1-…), each move after its player's colour",
+      (log3.ok || []).every(Boolean) && (log3.rows || [])[0] === "1. e2-e4 m2-m4 u2-u4" && /^2\. Nb1-[a-h][1-4]$/.test((log3.rows || [])[1] || "") &&
+      (log3.dots || []).length === 4 && new Set(log3.dots).size === 3, log3);
+    check("chess three: Undo takes the last move off the log, and the board's edge names the cells (files a to x by the rim, ranks 1 to 4)",
+      (log3.undone || []).join(" | ") === "1. e2-e4 m2-m4 u2-u4" && (log3.labels || []).length === 36 && log3.labels.includes("x") && log3.labels.includes("4"), log3);
+    // a smothered mate (first checkmate wins): the move is marked # and the result follows in words
+    const mated = await q.evaluate((rowsSrc) => {
+      const rows = eval(rowsSrc), T = __three; T.start(1);
+      const pc = (o, t) => ({ o, t, dead: false }), b = new Array(96).fill(null);
+      b[T.cid(0, 3, 4)] = pc("r", "k"); b[T.cid(1, 3, 4)] = pc("w", "k"); b[T.cid(2, 3, 4)] = pc("k", "k");
+      [[2, 3], [2, 4], [2, 5]].forEach(([r, f]) => { b[T.cid(0, r, f)] = pc("r", "p"); });
+      b[T.cid(0, 3, 3)] = pc("r", "n"); b[T.cid(0, 3, 5)] = pc("r", "n");
+      const target = T.cid(0, 2, 6);
+      for (let c = 0; c < 96; c++) {
+        if (b[c]) continue;
+        const t = b.slice(); t[c] = pc("k", "n");
+        if (T.genMoves(t, c).some((m) => m.to === target)) {
+          T.G.board = t; T.G.turn = "k";
+          const m = T.legalFor(c).find((mm) => mm.to === target);
+          if (m) { T.doMove(m); return rows(); }
+        }
+      }
+      return null;
+    }, "(" + rowsOf.toString() + ")");
+    check("chess three: a mate is marked # and the result follows in words (Black wins)",
+      !!mated && /^1\. N[a-x][1-4]-g2#$/.test(mated[0] || "") && mated[mated.length - 1] === "Black wins", mated);
+    // the same smothered mate on Black, by Red's knight: # on the board as it
+    // stands, though White moves before Black's turn comes (the takeover rule)
+    const early = await q.evaluate((rowsSrc) => {
+      const rows = eval(rowsSrc), T = __three; T.start(2);
+      const pc = (o, t) => ({ o, t, dead: false }), b = new Array(96).fill(null);
+      b[T.cid(0, 3, 4)] = pc("r", "k"); b[T.cid(1, 3, 4)] = pc("w", "k"); b[T.cid(2, 3, 4)] = pc("k", "k");
+      [[2, 3], [2, 4], [2, 5]].forEach(([r, f]) => { b[T.cid(2, r, f)] = pc("k", "p"); });
+      b[T.cid(2, 3, 3)] = pc("k", "n"); b[T.cid(2, 3, 5)] = pc("k", "n");
+      const target = T.cid(2, 2, 6);
+      for (let c = 0; c < 96; c++) {
+        if (b[c]) continue;
+        const t = b.slice(); t[c] = pc("r", "n");
+        if (T.genMoves(t, c).some((m) => m.to === target)) {
+          T.G.board = t; T.G.turn = "r";
+          const m = T.legalFor(c).find((mm) => mm.to === target);
+          if (m) { T.doMove(m); return { rows: rows(), turn: T.G.turn, blackIn: T.G.players.k.alive }; }
+        }
+      }
+      return null;
+    }, "(" + rowsOf.toString() + ")");
+    check("chess three: a move that leaves a player checkmated is # though another player moves first (Red mates Black, White to move)",
+      !!early && /^1\. N[a-x][1-4]-w2#$/.test(early.rows[0] || "") && early.turn === "w" && early.blackIn, early);
+    check("chess three (log): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    // on a phone: right under the board, above the players and the buttons
+    const { devices } = require("@playwright/test");
+    for (const [label, opts] of [["390", devices["iPhone 13"]], ["320", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]]) {
+      const c = await lib.newContext(browser, opts);
+      const r = await lib.open(c, base, "games/chess/three.html", { before: route });
+      const where = await r.evaluate(() => {
+        document.getElementById("menu").classList.remove("show");
+        const box = (e) => e && e.getBoundingClientRect(), lb = box(document.getElementById("logBox")), bd = box(document.getElementById("boardSvg")), sd = box(document.querySelector(".side"));
+        return lb ? { log: [lb.left, lb.top, lb.right, lb.bottom].map(Math.round), boardBottom: Math.round(bd.bottom), sideTop: Math.round(sd.top), vw: innerWidth, over: document.documentElement.scrollWidth - innerWidth } : null;
+      });
+      check("chess three on a " + label + " px phone: the log sits right under the board, above the players and buttons, inside the screen",
+        !!where && where.log[1] >= where.boardBottom && where.log[3] <= where.sideTop + 1 && where.log[0] >= 0 && where.log[2] <= where.vw && where.over <= 0, where);
+      await c.close();
+    }
+  }
 
   // ---- 3 players, frozen pieces: the same
   {
@@ -409,6 +705,121 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess on a phone: both titles are clear of the corner buttons, and nothing is wider than the screen",
       ph.white.clear && ph.red.clear && ph.white.over <= 0 && ph.black.over <= 0 && ph.red.over <= 0, { two: ph.white, three: ph.red });
     check("chess (the room): no page errors", d.errs.length === 0 && ph.errs.length === 0, { desktop: d.errs, phone: ph.errs });
+  }
+
+  // ---- the log on the page. On a wide window, a scoresheet left of the board,
+  // level with it and no taller: a long game scrolls inside it with the latest
+  // move in view, and the page is no longer for it. On a phone, under the
+  // buttons, inside the screen, scrolling the same way. And Morphy's Opera
+  // Game, played through, reads as it is published.
+  {
+    const { devices } = require("@playwright/test");
+    const OPERA = "e4 e5 Nf3 d6 d4 Bg4 dxe5 Bxf3 Qxf3 dxe5 Bc4 Nf6 Qb3 Qe7 Nc3 c6 Bg5 b5 Nxb5 cxb5 Bxb5+ Nbd7 O-O-O Rd8 Rxd7 Rxd7 Rd1 Qe6 Bxd7+ Nxd7 Qb8+ Nxb8 Rd8#";
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["1440x900", { viewport: { width: 1440, height: 900 } }], ["1920x1080", { viewport: { width: 1920, height: 1080 } }],
+      ["390", devices["iPhone 13"]], ["320", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["360", { viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true }], ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }]];
+    const got = {};
+    for (const [label, opts] of sizes) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+      got[label] = await q.evaluate(([OPERA, playIt]) => {
+        document.getElementById("menu").classList.remove("show");
+        const C = __chess, box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); };
+        const page = () => [document.documentElement.scrollHeight, document.documentElement.scrollWidth];
+        let opera = null;
+        if (playIt) {
+          // each move found by trying the legal ones until the log writes it as published
+          C.start(2);
+          for (const want of OPERA.split(" ")) {
+            let found = false;
+            for (let i = 0; i < 64 && !found; i++) for (const m of C.legalFor(C.G, i)) {
+              C.doMove(m, "q");
+              if ((C.G.sans || []).map((e) => e.san).slice(-1)[0] === want) { found = true; break; }
+              document.getElementById("undoBtn").click();
+            }
+            if (!found) break;
+          }
+          opera = { sans: (C.G.sans || []).map((e) => e.san).join(" "), res: C.G.result || null };
+        }
+        // (with the clocks on: the side column at its tallest)
+        C.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 5, inc: 0 });
+        const empty = page();
+        // a long game: sixty moves a side on the log
+        C.G.sans = Array.from({ length: 120 }, (_, k) => ({ col: k % 2 ? "b" : "w", san: k % 2 ? "Nf6" : "Nf3" }));
+        C.render();
+        const log = document.getElementById("moveLog"), lb = document.getElementById("logBox");
+        if (!log || !lb) return { opera, missing: true };
+        const last = log.lastElementChild && log.lastElementChild.getBoundingClientRect(), lv = log.getBoundingClientRect();
+        const parts = [box(lb), box(document.querySelector(".boardwrap")), box(document.querySelector(".side"))];
+        return { opera, empty, full: page(), vw: innerWidth, log: parts[0], board: parts[1], side: parts[2],
+          scrolls: log.scrollHeight > log.clientHeight + 10, lastIn: !!last && last.bottom <= lv.bottom + 1 && last.top >= lv.top - 1 };
+      }, [OPERA, label === "1280x900"]);
+      got[label].errs = q.errs;
+      await c.close();
+    }
+    const wide = (g) => !g.missing && g.log[2] <= g.board[0] && Math.abs(g.log[1] - g.board[1]) <= 1 && g.log[3] <= Math.max(g.board[3], g.side[3]) + 1 &&
+      g.full[0] === g.empty[0] && g.full[1] <= g.vw && g.scrolls && g.lastIn;
+    const narrow = (g) => !g.missing && g.log[1] >= g.board[3] && g.log[3] <= g.side[1] + 1 && g.log[0] >= 0 && g.log[2] <= g.vw && g.log[3] - g.log[1] <= 320 && g.full[1] <= g.vw && g.scrolls && g.lastIn;
+    check("chess log: Morphy's Opera Game, played through, is written as published (Nbd7, O-O-O, Bxd7+, Rd8#) and ends 1-0",
+      !!got["1280x900"].opera && got["1280x900"].opera.sans === OPERA && got["1280x900"].opera.res === "1-0", got["1280x900"].opera);
+    const wideOnes = ["1280x900", "1366x657", "1280x600", "1440x900", "1920x1080"];
+    check("chess log: on a wide window it sits left of the board, level with it and no taller; a long game scrolls inside it to the latest move, the page no longer for it (1280 x 900 to 1920 x 1080, 1366 x 657, 1280 x 600)",
+      wideOnes.every((k) => wide(got[k])), Object.fromEntries(wideOnes.map((k) => [k, got[k]])));
+    check("chess log: on a phone it sits right under the board, above the trays and buttons, inside the screen, and a long game scrolls inside it to the latest move (390, 360, 320 px, and 375 x 553)",
+      ["390", "360", "320", "375x553"].every((k) => narrow(got[k])), { p390: got["390"], p360: got["360"], p320: got["320"], short: got["375x553"] });
+    check("chess log (sizes): no page errors", Object.values(got).every((g) => g.errs.length === 0), Object.fromEntries(Object.entries(got).map(([k, g]) => [k, g.errs])));
+  }
+
+  // ---- a cup on the table for every player (two on the 2-player board, four
+  // on the 4-player cross, three on the 3-player page), at every size from a
+  // big desktop to a small phone, each a different drink, none over the board,
+  // the move log, the side column, the title lines, the corner buttons or
+  // another cup; the steam rises with Visual FX on and stands still with it off
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [["1920x1080", { viewport: { width: 1920, height: 1080 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["960x800", { viewport: { width: 960, height: 800 } }], ["390", devices["iPhone 13"]], ["360", { viewport: { width: 360, height: 640 }, isMobile: true, hasTouch: true }],
+      ["320", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]];
+    const seen = {};
+    for (const [label, opts] of sizes) {
+      const c = await lib.newContext(browser, opts);
+      for (const board of ["2", "4", "3"]) {
+        const q = await lib.open(c, base, board === "3" ? "games/chess/three.html" : "games/chess/");
+        await q.evaluate((board) => {
+          if (board === "3") { document.querySelector("#menu .modebtn").click(); return; }
+          document.querySelector('#menu [data-mode="' + board + '"]').click();
+          if (board === "2") { document.querySelector('#basePick [data-base="5"]').click(); document.getElementById("setup2Start").click(); }   // (clocks on: the side column at its tallest)
+          else document.querySelector("#endMenu .modebtn").click();
+        }, board);
+        await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+        seen[board + "p " + label] = await q.evaluate(() => {
+          const box = (r) => [r.left + scrollX, r.top + scrollY, r.right + scrollX, r.bottom + scrollY];
+          const keep = [...document.querySelectorAll("h1, .sub, #status, .layout > *")].filter((e) => e.getClientRects().length).map((e) => box(e.getBoundingClientRect()));
+          for (const e of document.querySelectorAll(".gs-corner, .nav-back-games")) { const r = e.getBoundingClientRect(); keep.push([r.left, r.top, r.right, r.bottom]); }
+          const cups = [...document.querySelectorAll(".cupslot")].filter((e) => e.getClientRects().length).map((e) => ({ who: e.dataset.player, drink: e.firstChild && e.firstChild.className, at: box(e.getBoundingClientRect()) }));
+          const hit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+          return { n: cups.length, who: cups.map((x) => x.who).join(""), drinks: new Set(cups.map((x) => x.drink)).size, sizes: cups.map((x) => Math.round(x.at[2] - x.at[0])),
+            clear: cups.every((x, i) => !keep.some((k) => hit(x.at, k)) && !cups.some((y, j) => j !== i && hit(x.at, y.at))),
+            inside: cups.every((x) => x.at[0] >= 0 && x.at[2] <= document.documentElement.clientWidth), over: document.documentElement.scrollWidth - document.documentElement.clientWidth };
+        });
+        if (label === "1920x1080" && board === "2") {
+          const steam = (on) => q.evaluate((on) => { if (window.RM_ON() === on) document.querySelector(".rm-toggle").click(); const i = document.querySelector(".cup i"); return i ? getComputedStyle(i).animationName : null; }, on);
+          seen.steamOn = await steam(true); seen.steamOff = await steam(false);
+        }
+        seen[board + "p " + label].errs = q.errs;
+        await q.close();
+      }
+      await c.close();
+    }
+    const want = { "2": ["wb", 2], "4": ["rbyg", 4], "3": ["rwk", 3] };
+    const rows = Object.entries(seen).filter(([k]) => / /.test(k));
+    check("chess: a cup for every player at every size (two, four on the 4-player cross, three on the 3-player page), each a different drink, 1920 x 1080 down to a 320 px phone",
+      rows.every(([k, g]) => g.n === want[k[0]][1] && g.who === want[k[0]][0] && g.drinks === g.n && g.sizes.every((s) => s >= 36 && s <= 128)), Object.fromEntries(rows.map(([k, g]) => [k, { n: g.n, who: g.who, drinks: g.drinks, sizes: g.sizes }])));
+    check("chess: no cup covers the board, the move log, the side column, the title lines, the corner buttons or another cup, nor runs off the page, at any of those sizes",
+      rows.every(([, g]) => g.clear && g.inside && g.over <= 0), Object.fromEntries(rows.map(([k, g]) => [k, { clear: g.clear, inside: g.inside, over: g.over }])));
+    check("chess: the cups' steam rises with Visual FX on and stands still with it off", seen.steamOn === "cafe-steam" && seen.steamOff === "none", { on: seen.steamOn, off: seen.steamOff });
+    check("chess (cups): no page errors", rows.every(([, g]) => g.errs.length === 0), Object.fromEntries(rows.map(([k, g]) => [k, g.errs])));
   }
 
   // ---- a small phone: the 2-player setup card at its tallest (vs CPU, with a

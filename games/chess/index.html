@@ -29,14 +29,14 @@
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
 
-<!-- an espresso on the table (decoration: wide screens only, never in the way) -->
-<div class="cup" aria-hidden="true"><i></i><i></i></div>
 
 <h1>♟ Chess</h1>
 <div class="sub" id="modeLabel">2 Players · local</div>
 <div id="status">White to move</div>
 
 <div class="layout">
+  <!-- the move log: the game in algebraic notation, a scoresheet beside the board -->
+  <div class="tray logbox" id="logBox"><h3>Moves</h3><p class="none" id="logNone">No moves yet</p><ol class="log" id="moveLog" aria-label="Moves"></ol></div>
   <div class="boardwrap"><div id="board"></div></div>
   <div class="side">
     <div id="side2">
@@ -137,6 +137,8 @@
 </div></div>
 
 <script src="game.js"></script>
+<!-- a cup on the table by each player (decoration, never in the way) -->
+<script src="cups.js"></script>
 
 </body>
 </html>

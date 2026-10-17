@@ -29,6 +29,12 @@
   html.fx-on .ckpulse { animation:ckPulse .9s ease-in-out infinite alternate; }
   @keyframes ckPulse { from { opacity:.6; } to { opacity:0; } }
   .hint { fill:var(--move); opacity:.62; pointer-events:none; }
+  /* the cells' names on the board's edge: the file on each home-row cell by
+     the rim, the rank on each sector's first file (too small to read on a
+     phone, so not shown there) */
+  .lbl { font-size:11px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none; font-family:Georgia,"Times New Roman",serif; }
+  .lbl.on-l { fill:rgba(80,62,40,.8); } .lbl.on-d { fill:rgba(240,228,204,.75); }
+  @media (max-width:600px){ .lbl { display:none; } }
   .side { display:flex; flex-direction:column; gap:10px; min-width:178px; max-width:230px; }
   .pchip { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; padding:8px 11px; font-weight:700; font-size:.92rem; }
@@ -69,14 +75,14 @@
 <body>
 <a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
 
-<!-- an espresso on the table (decoration: wide screens only, never in the way) -->
-<div class="cup" aria-hidden="true"><i></i><i></i></div>
 
 <h1>♟ 3-Player Chess</h1>
 <div class="sub">Hexagonal board · Red → White → Black. Pieces move toward and through the center to reach opponents.</div>
 <div id="status">Red to move</div>
 
 <div class="layout">
+  <!-- the move log: a numbered row a round, in the board's own square names -->
+  <div class="tray logbox" id="logBox"><h3>Moves</h3><p class="none" id="logNone">No moves yet</p><ol class="log" id="moveLog" aria-label="Moves"></ol></div>
   <svg id="boardSvg" viewBox="-340 -340 680 680" aria-label="board"></svg>
   <div class="side">
     <div id="players"></div>
@@ -218,7 +224,8 @@
     clearTimeout(endCardTimer);   // the last game's end card, if it hadn't shown yet
     slide=null;
     G={ board:newBoard(), turn:"r", players:{r:{alive:true},w:{alive:true},k:{alive:true}},
-        ending, over:false, winner:null, sel:-1, legal:[], last:null, capList:[], history:[] };
+        ending, over:false, winner:null, sel:-1, legal:[], last:null, capList:[], history:[],
+        log:[], result:null };   // (the move log: { col, text } a move, and the result in words once it's over)
     render(); setStatus();
   }
 
@@ -305,9 +312,45 @@
         g.setAttribute("x",ct[0].toFixed(1)); g.setAttribute("y",ct[1].toFixed(1));
         g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
         g.textContent=FILLED[p.t]; svg.appendChild(g); if(slide&&c===slide.to) moved=g; }
+      // the cell's name on the board's edge: its file by the rim on the home
+      // row, its rank on the sector's first file (beside the seam)
+      const k4=corners(c), ct=centroid(c), light=((fOf(c)+r)%2===0);
+      const label=(txt,ex,ey)=>{ const t=document.createElementNS(SVG,"text");
+        t.setAttribute("x",(ct[0]+(ex-ct[0])*.72).toFixed(1)); t.setAttribute("y",(ct[1]+(ey-ct[1])*.72).toFixed(1));
+        t.setAttribute("class","lbl "+(light?"on-l":"on-d")); t.textContent=txt; svg.appendChild(t); };
+      if(r===3) label(FILE3[sOf(c)*8+fOf(c)], (k4[2][0]+k4[3][0])/2, (k4[2][1]+k4[3][1])/2);
+      if(fOf(c)===0) label(String(4-r), (k4[0][0]+k4[3][0])/2, (k4[0][1]+k4[3][1])/2);
     }
     playSlide(moved);
     renderPlayers();
+    renderLog();
+  }
+
+  // ----------------------------------------------------------------- move log
+  // The board has no standard notation, so its cells are named like a chess
+  // board's: files a to x round the table (Red's sector a to h, White's i to
+  // p, Black's q to x, each in its owner's file order) and ranks 1 to 4 from
+  // each home row in (shown on the board's edge). A move is long algebraic:
+  // the piece's letter (none for a pawn), the cell it left, - or x, the cell
+  // it went to, =Q for a promotion, + for check, # for mate (as in chess: the
+  // board right after the move, whoever's turn is next).
+  const FILE3="abcdefghijklmnopqrstuvwx";
+  const cellName=(c)=>FILE3[sOf(c)*8+fOf(c)]+(4-rOf(c));
+  function moveText(m,pt){ const p=G.board[m.from];
+    return (p.t==="p"?"":p.t.toUpperCase())+cellName(m.from)+(G.board[m.to]?"x":"-")+cellName(m.to)+(m.promo?"="+(pt||"q").toUpperCase():""); }
+  // a numbered row a round, each move after a dot of its player's colour
+  // (a round starts again whenever play comes back round the table)
+  function renderLog(){
+    const el=$("moveLog"); if(!el) return;
+    const rows=[];
+    for(const e of G.log){ const last=rows[rows.length-1];
+      if(!last || ORDER.indexOf(e.col) <= ORDER.indexOf(last[last.length-1].col)) rows.push([e]); else last.push(e); }
+    el.innerHTML = rows.map((r,k)=>'<li class="round"><span class="n">'+(k+1)+'.</span>'
+      + r.map(e=>'<span class="mv" title="'+PLAYERS[e.col].name+'"><i style="background:'+PLAYERS[e.col].color+'"></i>'+e.text+'</span>').join("")+'</li>').join("")
+      + (G.result ? '<li class="res">'+G.result+'</li>' : "");
+    el.classList.toggle("hid", paused);   // (paused: no free look at the game, as on the board)
+    $("logNone").hidden = rows.length>0 || !!G.result;
+    el.scrollTop = el.scrollHeight;       // the latest move in view
   }
   function renderPlayers(){ const w=$("players"); w.innerHTML="";
     for(const o of ORDER){ const pl=PLAYERS[o], st=G.players[o]; const score=G.capList.filter(x=>x.by===o).reduce((s,x)=>s+VAL[x.t],0);
@@ -341,10 +384,15 @@
     $("promoOverlay").classList.add("show"); }
 
   function doMove(m,pt){
-    const p=G.board[m.from], col=p.o, captured=G.board[m.to];
+    const p=G.board[m.from], col=p.o, captured=G.board[m.to], text=moveText(m,pt);
     G.history.push({ board:G.board.map(x=>x), turn:G.turn, last:G.last, players:JSON.parse(JSON.stringify(G.players)),
-                     capList:G.capList.slice(), over:G.over, winner:G.winner });
+                     capList:G.capList.slice(), over:G.over, winner:G.winner, log:G.log.slice(), result:G.result });
     G.board=applyTo(G.board,m,pt); if(captured) G.capList.push({by:col,t:captured.t});
+    // + when it checks another player's king; # when one it checks has no move
+    // out of it on the board as it now stands (even if another player's move
+    // could still break the mate before their turn)
+    const checked=aliveOwners().filter(o=>{ const k=kingCell(G.board,o); return o!==col && k>=0 && attacked(G.board,k,o,col); });
+    G.log.push({ col, text: text+(checked.some(o=>!anyLegal(o)) ? "#" : checked.length ? "+" : "") });
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.promo) SFX.promote(); else if(captured) SFX.cap(); else SFX.move();
     slide = fxOn() ? { from:m.from, to:m.to, cap:captured, t0:performance.now() } : null;
@@ -369,10 +417,17 @@
     }
   }
   function over(title,msg){ G.over=true; $("status").innerHTML='<b>'+title+'</b>'; renderPlayers();
+    // the result at the foot of the log, in words: "Red wins", or the players
+    // still in a drawn game sharing it, "White and Black share it"
+    if(title.indexOf("Draw")===0){ const n=aliveOwners().map(o=>PLAYERS[o].name);
+      G.result = n.length>1 ? n.slice(0,-1).join(", ")+" and "+n[n.length-1]+" share it" : n.length ? n[0]+" wins" : "Drawn"; }
+    else G.result = title.replace(/!$/,"");
+    renderLog();
     clearTimeout(endCardTimer);
     endCardTimer=setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350); }
   function undo(){ if(!G.history.length) return; clearTimeout(endCardTimer); const h=G.history.pop();
     G.board=h.board.map(x=>x); G.turn=h.turn; G.last=h.last; G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner;
+    G.log=h.log; G.result=h.result;   // (the log ends where play resumes)
     G.sel=-1; G.legal=[]; slide=null; $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
 
   // ----------------------------------------------------------------- wiring
@@ -415,5 +470,7 @@
   start(3); // build board behind menu (default frozen-pieces rule)
 })();
 </script>
+<!-- a cup on the table by each player (decoration, never in the way) -->
+<script src="cups.js"></script>
 </body>
 </html>

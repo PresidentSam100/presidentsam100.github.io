@@ -124,7 +124,8 @@
       pawnStart:(o,r)=> o==="w"?r===6:r===1, pawnPromo:(o,r)=> o==="w"?r===0:r===7,
       hasCastle:true, castle:{wk:true,wq:true,bk:true,bq:true}, ep:null, last:null, over:false, winner:null,
       ending:1, sel:-1, legal:[], history:[], capList:[],
-      halfmove:0, positions:[] };   // (the draw rules: half-moves since a capture or pawn move, and every position so far)
+      halfmove:0, positions:[],   // (the draw rules: half-moves since a capture or pawn move, and every position so far)
+      sans:[], result:null };     // (the move log: each move as { col, san }, and "1-0" / "0-1" / "½-½" once it's over)
   }
   function make4P(ending){
     const dim=14, board=new Array(dim*dim).fill(null), back=["r","n","b","q","k","b","n","r"];
@@ -142,7 +143,8 @@
       pawnStart:(o,r,c)=> o==="r"?r===12 : o==="y"?r===1 : o==="b"?c===1 : c===12,
       pawnPromo:(o,r,c)=> o==="r"?r===0 : o==="y"?r===13 : o==="b"?c===13 : c===0,
       hasCastle:false, castle:null, ep:null, last:null, over:false, winner:null,
-      ending:ending, sel:-1, legal:[], history:[], capList:[] };
+      ending:ending, sel:-1, legal:[], history:[], capList:[],
+      sans:[], result:null };     // (the move log, as on the 2-player board: { col, san }, and the result in words)
   }
 
   // ============================================================ controller
@@ -184,6 +186,7 @@
       flipped=false;
     }
     boardEl.style.setProperty("--sq", mode===4 ? "min(6.2vw,40px)" : "min(11vw,62px)");
+    boardEl.classList.toggle("four", mode===4);   // (its edge labels: styles.css)
     boardEl.style.gridTemplateColumns = "repeat("+G.dim+", var(--sq))";
     boardEl.style.gridTemplateRows = "repeat("+G.dim+", var(--sq))";
     $("side2").style.display = mode===4 ? "none" : "block";
@@ -280,11 +283,16 @@
       if(p){ const g=document.createElement("span"); const col=G.players[p.o].color;
         g.className="pc "+(lum(col)>0.55?"lt":"dk")+(p.dead?" dead":"");
         g.textContent=glyphOf(p); g.style.color=col; sq.appendChild(g); }
-      // board coordinates on the frame-side edge squares (2-player board only)
+      // board coordinates on the frame-side edge squares; on the 4-player
+      // cross, files a to n along each column's lowest square and ranks 1 to
+      // 14 up each row's leftmost one (the names its move log uses)
       if(G.mode===2){
         const fileRow = flipped ? 0 : G.dim-1, rankCol = flipped ? G.dim-1 : 0;
         if(r===fileRow){ const f=document.createElement("i"); f.className="coord f"; f.textContent="abcdefgh"[c]||""; sq.appendChild(f); }
         if(c===rankCol){ const k=document.createElement("i"); k.className="coord rk"; k.textContent=G.dim-r; sq.appendChild(k); }
+      } else {
+        if(!G.valid(r+1,c)){ const f=document.createElement("i"); f.className="coord f"; f.textContent=FILES[c]; sq.appendChild(f); }
+        if(!G.valid(r,c-1)){ const k=document.createElement("i"); k.className="coord rk"; k.textContent=G.dim-r; sq.appendChild(k); }
       }
       sq.addEventListener("click",()=>onSquare(i));
       boardEl.appendChild(sq);
@@ -296,6 +304,7 @@
       [["capW","b"],["capB","w"]].forEach(([id])=>{});
     } else renderPlayers();
     renderClocks();
+    renderLog();
     if(hide) stopMotion(); else playSlide();
   }
 
@@ -407,13 +416,79 @@
       castle:G.castle?Object.assign({},G.castle):null,
       players:JSON.parse(JSON.stringify(G.players)), capList:G.capList.slice(), over:G.over, winner:G.winner,
       halfmove:G.halfmove, positions:G.positions ? G.positions.slice() : null,
+      sans:G.sans ? G.sans.slice() : null, result:G.result||null,
       clock: G.clock ? { enabled:G.clock.enabled, w:G.clock.w, b:G.clock.b, inc:G.clock.inc, running:G.clock.running } : null };
+  }
+
+  // ---- the move log. With 2 players, each move in standard algebraic
+  // notation, as a scoresheet has it: the piece's letter (none for a pawn),
+  // then the file, the rank or both of the square it left when another piece
+  // of the same kind could have gone there too, x for a capture (a pawn's with
+  // the file it left; en passant too), the square, =Q for a promotion, O-O and
+  // O-O-O for castling, and + for check, # for mate. The 4-player cross has no
+  // standard notation, so its moves are long algebraic in the board's own
+  // square names (files a to n, ranks 1 to 14): the piece's letter, the square
+  // it left, - or x, the square it went to, =Q, and + for check, # for mate
+  // (as in chess: the board right after the move, whoever's turn is next).
+  const FILES="abcdefghijklmn";
+  const sqName=(i)=> FILES[i%G.dim]+(G.dim-((i/G.dim)|0));
+  function longOf(m, promoType){
+    const p=G.board[m.from];
+    return (p.t==="p" ? "" : p.t.toUpperCase()) + sqName(m.from) + (G.board[m.to] ? "x" : "-") + sqName(m.to) + (m.promo ? "="+(promoType||"q").toUpperCase() : "");
+  }
+  function sanOf(m, promoType){   // (made before the move: from the board as it stands)
+    const b=G.board, p=b[m.from], col=p.o;
+    if(G.mode!==2) return longOf(m, promoType);
+    if(m.castle) return m.castle==="k" ? "O-O" : "O-O-O";
+    const takes = !!(m.ep || b[m.to]);
+    if(p.t==="p") return (takes ? FILES[m.from%8]+"x" : "") + sqName(m.to) + (m.promo ? "="+(promoType||"q").toUpperCase() : "");
+    let s=p.t.toUpperCase();
+    const rivals=[];
+    for(let j=0;j<b.length;j++){ const q=b[j];
+      if(j!==m.from && q && !q.dead && q.o===col && q.t===p.t && legalFor(G,j).some(x=>x.to===m.to)) rivals.push(j); }
+    if(rivals.length){
+      const file=(i)=>i%8, rank=(i)=>(i/8)|0;
+      if(!rivals.some(j=>file(j)===file(m.from))) s+=FILES[file(m.from)];
+      else if(!rivals.some(j=>rank(j)===rank(m.from))) s+=8-rank(m.from);
+      else s+=sqName(m.from);
+    }
+    return s + (takes ? "x" : "") + sqName(m.to);
+  }
+  function renderLog(){
+    const box=$("logBox"), el=$("moveLog");
+    if(!box || !el) return;
+    const rows=[];
+    if(G.mode===2){
+      for(const e of G.sans){
+        const last=rows[rows.length-1];
+        if(e.col==="w") rows.push({ w:e.san, b:"" });
+        else if(last && last.w && !last.b) last.b=e.san;
+        else rows.push({ w:"…", b:e.san });      // (a log that starts on Black's move: "1. … e5")
+      }
+      el.innerHTML = rows.map((r,k)=>'<li><span class="n">'+(k+1)+'.</span><span class="ply">'+r.w+'</span><span class="ply">'+r.b+'</span></li>').join("");
+    } else {
+      // a numbered row a round, each move after a dot of its player's colour
+      // (a round starts again whenever play comes back round the table)
+      for(const e of G.sans){
+        const last=rows[rows.length-1];
+        if(!last || G.order.indexOf(e.col) <= G.order.indexOf(last[last.length-1].col)) rows.push([e]);
+        else last.push(e);
+      }
+      el.innerHTML = rows.map((r,k)=>'<li class="round"><span class="n">'+(k+1)+'.</span>'
+        + r.map(e=>'<span class="mv" title="'+G.players[e.col].name+'"><i style="background:'+G.players[e.col].color+'"></i>'+e.san+'</span>').join("")+'</li>').join("");
+    }
+    el.innerHTML += G.result ? '<li class="res">'+G.result+'</li>' : "";
+    // (paused: no free look at the game, as on the board)
+    el.classList.toggle("hid", paused);
+    $("logNone").hidden = rows.length>0 || !!G.result;
+    el.scrollTop = el.scrollHeight;   // the latest move in view
   }
 
   function doMove(m, promoType){
     const b=G.board, p=b[m.from], col=p.o;
     const captured = m.ep ? b[G.ep.victim] : b[m.to];
     const capSq = m.ep ? G.ep.victim : m.to;
+    const san = sanOf(m, promoType);
     G.history.push(snapshot());
     if(G.clock && G.clock.enabled) G.clock[col] += G.clock.inc;
 
@@ -428,6 +503,18 @@
     }
     if(m.dbl){ const [fr,fc]=rc(G,m.from), [dr,dc]=G.pawnDir[col]; G.ep={ sq:idx(G,fr+dr,fc+dc), victim:m.to }; }
     else G.ep=null;
+    let entry=null;
+    if(G.mode===2){
+      const opp = col==="w" ? "b" : "w";
+      entry={ col, san: san + (inCheck(G,G.board,opp) ? (anyLegal(G,opp) ? "+" : "#") : "") };
+    } else {
+      // + when it checks another player's king; # when one it checks has no
+      // move out of it on the board as it now stands (even if another
+      // player's move could still break the mate before their turn)
+      const checked = aliveOwners(G).filter(o=>{ const k=kingSq(G,G.board,o); return o!==col && k>=0 && attacked(G,G.board,k,o,col); });
+      entry={ col, san: san + (checked.some(o=>!anyLegal(G,o)) ? "#" : checked.length ? "+" : "") };
+    }
+    G.sans.push(entry);
 
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.castle) SFX.castle(); else if(m.promo) SFX.promote(); else if(captured) SFX.capture(); else SFX.move();
@@ -509,6 +596,14 @@
   }
   const CHESS_REC = window.GameShell ? GameShell.record("chess_record") : null;
   function gameOver(title,msg){ setClockRunning(null); G.over=true; closePromo();
+    // the score at the foot of the move log: 1-0, 0-1 or ½-½
+    if(G.mode===2) G.result = title.indexOf("Draw")===0 ? "½-½" : title.indexOf("White wins")===0 ? "1-0" : title.indexOf("Black wins")===0 ? "0-1" : null;
+    // (4 players: in words, 1-0 means nothing there: "Red wins", or the
+    // players still in a drawn game sharing it, "Red and Blue share it")
+    else if(title.indexOf("Draw")===0){ const n=aliveOwners(G).map(o=>G.players[o].name);
+      G.result = n.length>1 ? n.slice(0,-1).join(", ")+" and "+n[n.length-1]+" share it" : n.length ? n[0]+" wins" : "Drawn"; }
+    else G.result = title.replace(/!$/,"");
+    renderLog();
     // Record only 2-player games against the CPU: local games and the 3/4-player
     // variants have no single "you" to credit. Every end path funnels through
     // here, and a win is always announced as "<player name> wins!".
@@ -539,6 +634,7 @@
     G.board=h.board.map(p=>p); G.turn=h.turn; G.ep=h.ep; G.last=h.last; G.castle=h.castle;
     G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[]; stopMotion();
     G.halfmove=h.halfmove; G.positions=h.positions;   // (so the draw rules count from where play resumes)
+    G.sans=h.sans; G.result=h.result;                 // (and the move log ends where play resumes)
     if(h.clock) G.clock = { enabled:h.clock.enabled, w:h.clock.w, b:h.clock.b, inc:h.clock.inc, running:h.clock.running, lastTick:Date.now() };
   }
   // Vs CPU, undo always hands control back to the human: a completed CPU
@@ -654,7 +750,10 @@
         board:G.board.map(p=>p?{o:p.o,t:p.t,dead:!!p.dead}:null),
         turn:G.turn, castle:G.castle?Object.assign({},G.castle):null,
         ep:G.ep?{sq:G.ep.sq,victim:G.ep.victim}:null,
-        difficulty:tier, budgetMs, maxDepth:DEPTH[tier]||4 });
+        difficulty:tier, budgetMs, maxDepth:DEPTH[tier]||4,
+        // the draw rules' count: the positions since the last capture or pawn
+        // move (only those can come round again) and the quiet half-moves
+        positions:(G.positions||[]).slice(-((G.halfmove|0)+1)), halfmove:G.halfmove|0 });
     }catch(e){ playCpuMovePaced(fallbackCpuMove(), myId); }
   }
 

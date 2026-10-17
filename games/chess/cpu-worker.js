@@ -140,6 +140,25 @@ importScripts("engine.js");
     } catch (e) { /* never block worker startup on the self-test */ }
   })();
 
+  // ---- the draw rules, as the game plays them (game.js advance): the same
+  // position a third time, or a hundred half-moves with no capture and no pawn
+  // move. The search sees the game's positions so far (since its last capture
+  // or pawn move) and its half-move count. A position that would be there for
+  // the third time, counting the game and the line it is reading together,
+  // is a draw, as is the hundredth quiet half-move; a second time is just a
+  // position. A draw is worth 0, even: ahead by its own count the CPU plays
+  // on, behind it takes the draw.
+  const DRAW = 0;
+  // A position written as game.js's posKey writes it: every piece on its
+  // square, the side to move, the castling rights left, and an en-passant
+  // square only when a pawn can really take there (moves: the legal ones).
+  function keyOf(b, color, castle, ep, moves) {
+    let s = "";
+    for (let i = 0; i < 64; i++) { const p = b[i]; s += p ? p.o + p.t : "."; }
+    s += " " + color + " " + (castle ? ["wk", "wq", "bk", "bq"].filter((k) => castle[k]).join("") : "");
+    return s + " " + (ep && moves.some((m) => m.ep) ? ep.sq : "-");
+  }
+
   const TIMEOUT = { timeout: true };
   function checkBudget(state) {
     if ((state.nodes & 2047) === 0 && performance.now() - state.start > state.budget) throw TIMEOUT;
@@ -185,7 +204,8 @@ importScripts("engine.js");
     return alpha;
   }
 
-  function negamax(baseCtx, b, ep, castle, color, depth, alpha, beta, ply, useQ, state) {
+  // (hm: half-moves since a capture or pawn move, at this node)
+  function negamax(baseCtx, b, ep, castle, color, depth, alpha, beta, ply, useQ, state, hm) {
     state.nodes++;
     checkBudget(state);
     const moves = E.allLegalMoves(baseCtx, b, ep, castle, color);
@@ -193,17 +213,31 @@ importScripts("engine.js");
       const G = Object.assign({}, baseCtx, { ep, castle });
       return E.inCheck(G, b, color) ? -(MATE - ply) : 0;
     }
+    // a threefold repetition or the fifty moves, after mate and stalemate (as
+    // in the game): this position twice before, in the game (hist) or in this
+    // line (path), makes it the third time. A position can come round again
+    // only four or more quiet half-moves on, so earlier ones are only noted
+    // for the line below
+    let key = null;
+    if (ply > 0) {
+      key = keyOf(b, color, castle, ep, moves);
+      if (hm >= 4 && (state.hist.get(key) || 0) + (state.path.get(key) || 0) >= 2) return DRAW;
+      if (hm >= 100) return DRAW;
+    }
     if (depth <= 0) return useQ ? quiesce(baseCtx, b, ep, castle, color, alpha, beta, QDEPTH_MAX, state) : coloredEval(b, color);
 
+    if (key) state.path.set(key, (state.path.get(key) || 0) + 1);
     orderMoves(moves, b, ep, ply === 0 ? state.pvMove : null);
     let best = -Infinity, bestMove = null;
     for (const m of moves) {
       const nxt = E.makeMove(baseCtx, b, ep, castle, m);
-      const score = -negamax(baseCtx, nxt.board, nxt.ep, nxt.castle, color === "w" ? "b" : "w", depth - 1, -beta, -alpha, ply + 1, useQ, state);
+      const nhm = m.cap || b[m.from].t === "p" ? 0 : hm + 1;
+      const score = -negamax(baseCtx, nxt.board, nxt.ep, nxt.castle, color === "w" ? "b" : "w", depth - 1, -beta, -alpha, ply + 1, useQ, state, nhm);
       if (score > best) { best = score; bestMove = m; }
       if (best > alpha) alpha = best;
       if (alpha >= beta) break;
     }
+    if (key) { const n = state.path.get(key) - 1; if (n) state.path.set(key, n); else state.path.delete(key); }
     if (ply === 0 && bestMove) state.rootBestMove = bestMove;
     return best;
   }
@@ -215,7 +249,9 @@ importScripts("engine.js");
     master: { maxDepth: 8, quiescence: true, randomChance: 0 },
   };
 
-  function search(board, turn, castle, ep, difficulty, budgetMs, maxDepthOverride) {
+  // (positions: the game's positions since its last capture or pawn move, the
+  // one on the board included; halfmove: the game's count of quiet half-moves)
+  function search(board, turn, castle, ep, difficulty, budgetMs, maxDepthOverride, positions, halfmove) {
     const baseCtx = RULES;
     const tier = TIER[difficulty] || TIER.medium;
     const start = performance.now();
@@ -227,12 +263,19 @@ importScripts("engine.js");
     }
 
     const maxDepth = maxDepthOverride || tier.maxDepth;
-    const state = { start, budget: budgetMs, nodes: 0, pvMove: null, rootBestMove: null };
+    // (hist: how often the game has had each position, the one on the board
+    // counted once at least; path: the positions of the line being read)
+    const hist = new Map();
+    for (const k of positions || []) hist.set(k, (hist.get(k) || 0) + 1);
+    const rootKey = keyOf(board, turn, castle, ep, legalRoot);
+    if (!hist.has(rootKey)) hist.set(rootKey, 1);
+    const state = { start, budget: budgetMs, nodes: 0, pvMove: null, rootBestMove: null, hist, path: new Map() };
+    const hm = halfmove | 0;
     let bestMove = legalRoot[0], depthReached = 0;
     try {
       for (let d = 1; d <= maxDepth; d++) {
         state.rootBestMove = null;
-        negamax(baseCtx, board, ep, castle, turn, d, -Infinity, Infinity, 0, tier.quiescence, state);
+        negamax(baseCtx, board, ep, castle, turn, d, -Infinity, Infinity, 0, tier.quiescence, state, hm);
         if (state.rootBestMove) { bestMove = state.rootBestMove; state.pvMove = bestMove; depthReached = d; }
         if (performance.now() - start > budgetMs) break;
       }
@@ -246,7 +289,7 @@ importScripts("engine.js");
     const msg = ev.data;
     if (!msg || msg.type !== "think") return;
     try {
-      const result = search(msg.board, msg.turn, msg.castle, msg.ep, msg.difficulty, msg.budgetMs, msg.maxDepth);
+      const result = search(msg.board, msg.turn, msg.castle, msg.ep, msg.difficulty, msg.budgetMs, msg.maxDepth, msg.positions, msg.halfmove);
       self.postMessage({ type: "move", requestId: msg.requestId, move: result.move, depthReached: result.depthReached, nodes: result.nodes, ms: result.ms });
     } catch (e) {
       self.postMessage({ type: "error", requestId: msg.requestId, message: String((e && e.message) || e) });

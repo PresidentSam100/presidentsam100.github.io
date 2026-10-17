@@ -5,18 +5,19 @@
 
    A cafe table: a slab of cool white marble with grey veins and a brass
    edge, the board set down on it, a wooden chess clock beside it for
-   whoever is on the move, and an espresso going cold in the corner. The
+   whoever is on the move, and a cup going cold by each player. The
    lettering is a cafe menu's: Bodoni for the names, Garamond for the
    rest. No other page on the site is marble; the cream pages (Sudoku,
    Passport, Tile Maze) are paper, and warmer.
 
-   This file comes after each page's own styles and changes only the room:
-   the colours they share by name (--bg, --panel, --line, --text, --muted,
+   This file comes after each page's own styles and changes the room: the
+   colours they share by name (--bg, --panel, --line, --text, --muted,
    --accent), the lettering, and the few places a dark colour was written
-   out. The boards and their pieces are as they were.
+   out; and, for both boards alike, where the move log and the side column
+   sit, and the log itself. The boards and their pieces are as they were.
 
-   Visual FX on (html.fx-on): steam drifts up off the cup. Off: the cup
-   and its steam are there, still.
+   Visual FX on (html.fx-on): steam drifts up off the cups. Off: the cups
+   and their steam are there, still.
    ===================================================================== */
 :root {
   --bg: #eceae6; --panel: #fcfbf9; --line: #d2c6a4; --text: #27221c; --muted: #6c655b; --accent: #b8963f;
@@ -65,6 +66,49 @@ h1 { font-family: var(--name); font-weight: 800; font-size: 2.1rem; letter-spaci
 .tray { background: var(--panel); border: 1px solid var(--line); box-shadow: inset 0 1px 0 #fff, 0 6px 14px rgba(70, 58, 30, 0.12); }
 .tray h3, .setup-section h3 { font-family: var(--menu); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.14em; color: var(--brass-dk); }
 
+/* ---- the board, its move log and its side column (both boards) --------------
+   Wide: the log left of the board and the side column right of it, the log
+   as tall as the row (contain:size: its own rows never make the row taller)
+   and scrolling inside it. Narrower: the side column still beside the board,
+   the log under the board. Narrow (phones): one column, the board, then the
+   log, then the side column. Under the board the log scrolls past ten rows
+   or so, so a long game never makes the page longer. */
+.layout { display: grid; justify-content: center; align-items: start; gap: 12px 18px;
+  grid-template-columns: auto auto; grid-template-areas: "board side" "log side"; }
+.layout > .boardwrap, .layout > #boardSvg { grid-area: board; align-self: start; }
+.layout > .side { grid-area: side; align-self: start; }
+.logbox { grid-area: log; min-width: 0; display: flex; flex-direction: column; border-radius: 12px; padding: 10px 12px; }
+.logbox h3 { margin-bottom: 6px; text-transform: uppercase; }
+@media (min-width: 1100px) {   /* (side by side, the widest board, the 4-player cross, needs 1078px) */
+  .layout { grid-template-columns: 200px auto auto; grid-template-areas: "log board side"; }
+  .logbox { align-self: stretch; contain: size; }
+  .log { max-height: none; flex: 1 1 0; min-height: 0; }
+}
+@media (max-width: 879px) {
+  .layout { grid-template-columns: auto; grid-template-areas: "board" "log" "side"; justify-items: center; }
+  .logbox { justify-self: stretch; }
+}
+
+/* the move log: a scoresheet on the same porcelain, the move numbers in brass,
+   faint ruled lines between the rows, the result under a brass rule (in the
+   menu's face: Bodoni's hyphen is too fine to read in 1-0). With 2 players a
+   row is a move, White's and Black's side by side; with 3 or 4 a row is a
+   round, each move after a dot of its player's colour. */
+.logbox .none { color: var(--muted); font-style: italic; font-size: 0.9rem; }
+.log { list-style: none; overflow-y: auto; max-height: 12.6em; font-variant-numeric: tabular-nums; overscroll-behavior: contain; }
+.log li { display: grid; grid-template-columns: 2.3em 1fr 1fr; column-gap: 0.45em; align-items: baseline; padding: 1px 2px; line-height: 1.3; }
+.log li.round { display: flex; flex-wrap: wrap; column-gap: 0.7em; }
+.log li.round .n { width: 2.3em; }
+.log .mv { white-space: nowrap; color: var(--text); font-weight: 600; }
+.log .mv i { display: inline-block; width: 0.6em; height: 0.6em; margin-right: 0.3em; border-radius: 50%; vertical-align: 0.05em;
+  box-shadow: 0 0 0 1px var(--brass-hi), 0 0 0 1.8px rgba(0, 0, 0, 0.45); }
+.log .ply { white-space: nowrap; }
+.log.hid { visibility: hidden; }   /* paused: no free look at the game */
+.log li + li { border-top: 1px solid rgba(184, 150, 63, 0.22); }
+.log .n { color: var(--brass-dk); font-weight: 600; text-align: right; }
+.log .ply { color: var(--text); font-weight: 600; }
+.log li.res { display: block; text-align: center; margin-top: 3px; font-size: 1.1rem; font-weight: 700; letter-spacing: 0.06em; color: var(--espresso); border-top: 1px solid var(--brass); padding-top: 3px; }
+
 /* the players: each a wooden chess clock, its dial lit for whoever is on the move */
 .pchip {
   color: var(--cream); font-weight: 600; font-size: 1.02rem; border: 1px solid #2c1d12;
@@ -110,24 +154,37 @@ button.btn:focus-visible, a.btn:focus-visible, .modebtn:focus-visible, .chip:foc
 .chip:hover { background: #f6f1e4; }
 .chip.sel { background: var(--espresso); color: var(--cream); border-color: #1e140d; }
 
-/* ---- the espresso (wide screens: it never sits over the board) ------------------- */
-.cup { position: fixed; right: max(26px, calc(50% - 590px)); bottom: 7vh; width: 150px; height: 150px; z-index: 1; pointer-events: none; }
-@media (max-width: 1180px), (max-height: 620px) { .cup { display: none; } }
-/* the saucer, the cup's rim, and the coffee with its crema */
+/* ---- the coffee: a cup for every player (set down by cups.js) ---------------
+   Each in the table's free space by its player's side of the board, never
+   over anything on the page, scaled to the room there is (drawn at 150px). A
+   different drink for each player, the saucer banded in the player's colour:
+   an espresso, a cappuccino in a dark glazed cup, a tea, a matcha, a latte. */
+.cupset { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 1; pointer-events: none; }
+.cupslot { position: absolute; }
+.cup {
+  position: absolute; left: 0; top: 0; width: 150px; height: 150px; transform-origin: 0 0;
+  --crema: #6b4326; --brew: #4a2c17; --brew-dk: #2e1a0c; --china: #fbfaf7; --china-dk: #e9e6df; --handle: #f4f2ec; --band: rgba(0, 0, 0, 0.05);
+}
+.cup.cappuccino { --crema: #f6ecda; --brew: #d9b993; --brew-dk: #8a5a36; --china: #4a3428; --china-dk: #2f2119; --handle: #4a3428; }
+.cup.tea { --crema: #e2b15c; --brew: #c27f2a; --brew-dk: #7d4a14; }
+.cup.matcha { --crema: #cfe09d; --brew: #8fae58; --brew-dk: #55702e; }
+.cup.latte { --crema: #f1e1c6; --brew: #c9a173; --brew-dk: #7b5536; }
+/* the saucer (its band in the player's colour), the cup's rim, and the drink */
 .cup::before {
   content: ""; position: absolute; inset: 0; border-radius: 50%;
   background:
-    radial-gradient(circle at 46% 44%, #6b4326 0 8%, #4a2c17 9% 27%, #2e1a0c 28% 31%, #fbfaf7 32% 37%, #e9e6df 38% 40%, transparent 41%),
-    radial-gradient(circle at 50% 50%, transparent 0 62%, rgba(0, 0, 0, 0.05) 63% 66%, transparent 67%),
+    radial-gradient(circle at 46% 44%, var(--crema) 0 8%, var(--brew) 9% 27%, var(--brew-dk) 28% 31%, var(--china) 32% 37%, var(--china-dk) 38% 40%, transparent 41%),
+    radial-gradient(circle at 50% 50%, transparent 0 60%, rgba(60, 48, 30, 0.35) 60.5% 61%, var(--band) 61.5% 66%, rgba(60, 48, 30, 0.35) 66.5% 67%, transparent 67.5%),
     radial-gradient(circle at 38% 32%, #ffffff, #f1efe9 55%, #dcd9d1);
   box-shadow: 0 10px 18px rgba(70, 58, 30, 0.3), inset 0 -3px 6px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(120, 110, 90, 0.25);
 }
 /* the handle */
 .cup::after {
   content: ""; position: absolute; right: 14px; top: 50%; width: 34px; height: 22px; margin-top: -11px; border-radius: 0 12px 12px 0;
-  border: 6px solid #f4f2ec; border-left: 0; box-shadow: 2px 3px 4px rgba(70, 58, 30, 0.22);
+  border: 6px solid var(--handle); border-left: 0; box-shadow: 2px 3px 4px rgba(70, 58, 30, 0.22);
 }
-/* steam: two wisps (drifting with Visual FX on) */
+/* steam: two wisps (drifting with Visual FX on), kept inside the cup's own
+   square, so it never drifts over anything either */
 .cup i { position: absolute; left: 44%; top: 30%; width: 16px; height: 46px; border-radius: 50%; opacity: 0.5;
   background: radial-gradient(closest-side, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0)); filter: blur(3px); transform: translate(-50%, -60%); }
 .cup i + i { left: 52%; top: 26%; height: 38px; opacity: 0.38; }
@@ -136,7 +193,7 @@ html.fx-on .cup i + i { animation-duration: 5.8s; animation-delay: -2s; }
 @keyframes cafe-steam {
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
   35% { opacity: 0.55; }
-  100% { opacity: 0; transform: translate(-30%, -150%) scale(1.25); }
+  100% { opacity: 0; transform: translate(-30%, -82%) scale(1.25); }
 }
 
 /* phones: both boards start below the fixed Games / sound / FX buttons */
