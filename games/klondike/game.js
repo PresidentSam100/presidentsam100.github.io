@@ -182,6 +182,10 @@
       var y = TABY;
       t.forEach(function (c) { put(c, pileX(ti), y); y += c.up ? upStep : downStep; });
     });
+    // (an instant placing is taken in now, with the transitions still off: the
+    // next frame turns them back on before it would otherwise look, and the
+    // cards would glide there instead)
+    if (instant) void field.offsetWidth;
     status();
   }
   function status() {

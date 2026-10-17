@@ -249,7 +249,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       (function tick() { const s = __snap(); if (s.out >= 2 || !s.dealing || ++n > 800) res(s); else setTimeout(tick, 10); })();
     }));
     check("klondike, FX on: the page opens on a deal going out a card at a time, a card to each pile in turn from the left, the rest waiting on the stock with their backs up",
-      mid.dealing && mid.out >= 2 && mid.out < 28 && mid.inOrder && mid.onStock >= 52 - mid.out && mid.onStock <= 53 - mid.out && mid.up <= mid.out, slim(mid));
+      // (every card not yet out still on the stock, and the first out gone from it: a card
+      // only just sent can still be there, and on a busy machine a few sent at once)
+      mid.dealing && mid.out >= 2 && mid.out < 28 && mid.inOrder && mid.onStock >= 52 - mid.out && mid.onStock < 52 && mid.up <= mid.out, slim(mid));
     // a press finishes it and does no more; the next one draws
     const s0 = await q.evaluate(() => Klondike.slotPos("stock"));
     const was = await q.evaluate(() => __going());
