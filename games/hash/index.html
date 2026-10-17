@@ -84,6 +84,9 @@
           </div>
 
           <div id="board" aria-label="Hash board"></div>
+          <!-- the deck, face down to the left of the table: new cards come from
+               it (game.js places it, and hides it where there's no room) -->
+          <div class="pile" id="pile" aria-hidden="true" hidden><span class="back"></span><span class="back"></span><span class="back"></span></div>
 
           <p id="msg" role="status" aria-live="polite"></p>
 

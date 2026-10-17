@@ -4,7 +4,10 @@
 // clock runs from the deal, and a deal in a hidden tab starts paused; P / Esc
 // / a hidden tab pause it, with the cards blank under the pause card; leaving
 // or ↻ New game mid-deck asks first with the game paused; a best time leaves
-// the paused time out and keeps the hint penalty in.
+// the paused time out and keeps the hint penalty in. A hint glows blue, not
+// the gold of a picked card, and isn't a pick; with Visual FX on a claimed
+// Hash flies to its row in Found (in Set-Chain to the Last Hash beside the
+// table) and new cards come face down from the pile, turning up as they land.
 const HOOK = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; } };\n})();"];
 
 module.exports = async ({ browser, base, check, lib }) => {
@@ -42,8 +45,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   // and through a claim: focus on the last card of a found Hash stays in its slot
   await deal();
   const set = await p.evaluate(() => __h.findSet(__h.board));
+  const before = await p.evaluate((i) => document.querySelector('#board .card[data-idx="' + i + '"]').dataset.id, set[2]);
   for (const i of set) { await p.focus('.card[data-idx="' + i + '"]'); await p.keyboard.press("Enter"); }
-  await p.waitForFunction(() => document.querySelector("#board .card.enter-left"), null, { timeout: 5000 });   // the refill is in
+  // (the refill is in: a new card in that slot, landed)
+  await p.waitForFunction(({ i, was }) => { const c = document.querySelector('#board .card[data-idx="' + i + '"]'); return c && c.dataset.id !== was && !document.querySelector("#board .card.arriving"); }, { i: set[2], was: before }, { timeout: 8000 });
   const k3 = await p.evaluate(() => { const a = document.activeElement; return a.closest("#board") ? a.dataset.idx : a.tagName; });
   check("hash: after a Hash claimed by keyboard, focus stays in that card's slot", k3 === String(set[2]), { k3, set });
   check("hash: no page errors", p.errs.length === 0, p.errs);
@@ -189,7 +194,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // and the Daily (D), their keys on their buttons; each of the six ways to
   // play has its own best and its own Daily; a log of what's been found.
   const HOOK2 = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n" +
-    "  window.__h = { get board() { return board; }, get deck() { return deck; }, get tray() { return tray; }, get log() { return log; }, get mode() { return mode; },\n" +
+    "  window.__h = { get board() { return board; }, get deck() { return deck; }, get tray() { return tray; }, get log() { return log; }, get mode() { return mode; }, get locked() { return locked; },\n" +
     "    findSet: findSet, findAny: findAny, emptyDeck: function () { deck = []; }, table: function (codes) { board = codes.map(function (s) { return cardOf(s.split('').map(Number)); }); selected = []; hintIds = []; render(); } };\n})();"];
   const openM = (c, seed) => lib.open(c || ctx, base, "games/hash/", { before: async (pg) => {
     await lib.injectScript(pg, "games/hash/game.js", [HOOK2]);
@@ -256,15 +261,17 @@ module.exports = async ({ browser, base, check, lib }) => {
     const r = await openM(null, { mode: "chain" });
     // A B C a Hash; T1 T2 T3 a Hash of table cards; A D E a Hash with A
     await r.evaluate((codes) => __h.table(codes), ["0000", "1111", "2222", "0120", "1201", "2012", "0011", "0022", "2100", "1020", "2210", "0201"]);
+    // (each step waits for the table to take clicks again, by the game's own lock: a busy machine runs its timers late)
+    const ready = () => r.waitForFunction(() => !__h.locked && !document.querySelector(".flyer"), null, { timeout: 15000 });
     for (const i of [0, 1, 2]) await click(r, idx(i));
-    await r.waitForTimeout(750);
+    await ready();
     const c1 = await state(r);
     for (const i of [3, 4, 5]) await click(r, idx(i));
     await r.waitForTimeout(100);
     const c2 = await state(r);
-    await r.waitForTimeout(500);
+    await ready();
     await click(r, '#trayCards [data-tray="0"]'); await click(r, idx(6)); await click(r, idx(7));
-    await r.waitForTimeout(750);
+    await ready();
     const c3 = await state(r);
     const logged = await r.evaluate(() => [...document.querySelectorAll("#logList li")].map((li) => li.querySelectorAll(".mini").length + "/" + li.querySelectorAll(".mini.carried").length).join(" "));
     check("hash, Set-Chain: the first Hash is free and moves aside; three table cards alone are turned away, even as a Hash; a Hash with a card from the last one counts and becomes the last Hash",
@@ -397,6 +404,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("hash: at 320 x 568, 360 x 640, 390 x 664, 375 x 553 and on 1280 x 800, 1366 x 657 and 1280 x 600 laptops, every mode's row, HUD, tray, table and buttons fit the first screen (cards at least 34 px tall), the log beside the table on a laptop and below the page on a phone; on a phone on its side (844 x 390, 667 x 375) the cards stay at least 40 px tall",
       bad.length === 0, bad.length ? bad : seen);
+  }
+
+  // ---- a hint glows blue, not the gold of a picked card, and isn't a pick
+  {
+    const r = await openM();
+    await r.waitForFunction(() => !document.querySelector("#board .card.arriving"), null, { timeout: 8000 });
+    await r.click("#hintBtn"); await r.waitForTimeout(80);
+    const hint = await r.evaluate(() => {
+      const h = document.querySelector("#board .card.hint"), cs = h && getComputedStyle(h);
+      return { border: cs && cs.borderTopColor, picked: document.querySelectorAll("#board .card.selected").length, gold: getComputedStyle(document.documentElement).getPropertyValue("--gold").trim() };
+    });
+    check("hash: a hint glows blue (not the gold of a picked card) and picks nothing", hint.border === "rgb(74, 168, 255)" && hint.picked === 0, hint);
+    check("hash (hint colour): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- Visual FX on: a claimed Hash flies to its row in Found (Normal), or to
+  // the Last Hash beside the table (Set-Chain); the new cards come from the pile
+  for (const mode of ["normal", "chain"]) {
+    const r = await openM(null, { mode });
+    await r.waitForFunction(() => !document.querySelector("#board .card.arriving"), null, { timeout: 8000 });
+    const flown = await r.evaluate(() => new Promise((res) => {
+      const t = __h.findAny(), b = __h.board, ids = t.map((c) => c.id);
+      t.forEach((c) => { const i = b.indexOf(c); document.querySelector('#board .card[data-idx="' + i + '"]').click(); });
+      const where = __h.mode === "chain" ? "#trayCards .card" : "#logList li:first-child .mini";
+      let mid = null;
+      // (looked at once the cards are on their way, by the page's own clock)
+      (function look(n) {
+        const fl = document.querySelectorAll(".flyer:not(.back)").length;
+        if (fl && !mid) mid = { flying: fl, waiting: ids.filter((id) => { const e = document.querySelector(where + '[data-id="' + id + '"]'); return e && e.classList.contains("landing"); }).length };
+        if (n < 200 && (!mid || document.querySelector(".flyer"))) return setTimeout(() => look(n + 1), 15);
+        res({ mid, kept: ids.filter((id) => { const e = document.querySelector(where + '[data-id="' + id + '"]'); return e && !e.classList.contains("landing"); }).length,
+          left: document.querySelectorAll(".flyer, #board .card.arriving, .landing").length, pile: !document.getElementById("pile").hidden });
+      })(0);
+    }));
+    check("hash, FX on (" + mode + "): a claimed Hash's three cards fly to " + (mode === "chain" ? "the Last Hash beside the table" : "their row in Found") + ", shown there as they land; the refill comes from the pile beside the table",
+      flown.mid && flown.mid.flying === 3 && flown.mid.waiting === 3 && flown.kept === 3 && flown.left === 0 && flown.pile, flown);
+    check("hash (claim flights, " + mode + "): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
   }
 
   await ctx.close();

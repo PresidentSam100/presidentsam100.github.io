@@ -659,24 +659,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("steamfitter, FX off: the pipe jumps", got.off.turned !== got.off.from && got.off.first === 0 && got.off.least === 0, got.off);
   }
 
-  // ---- Hash, FX on: the deal turns each card face up, one after another,
-  // all done within about half a second; FX off: the cards are simply there
+  // ---- Hash, FX on: the deal comes face down from the pile, a card after
+  // another, each turning face up where it lands, all down within about a
+  // second; FX off: the cards are simply there
   {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("hash/", off);
       got[off ? "off" : "on"] = await p.evaluate(() => {
         document.getElementById("newBtn").click();
-        const cards = [...document.querySelectorAll(".card.dealt")];
-        const flips = cards.map((c) => c.getAnimations().find((a) => a.animationName === "dealFlip")).filter(Boolean);
-        const lags = flips.map((a) => a.effect.getTiming().delay);
-        return { dealt: cards.length, flips: flips.length, lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + flips[0].effect.getTiming().duration : 0 };
+        const backs = [...document.querySelectorAll(".flyer.back")], anims = backs.map((f) => f.getAnimations()[0]).filter(Boolean);
+        const lags = anims.map((a) => a.effect.getTiming().delay);
+        return { cards: document.querySelectorAll("#board .card").length, waiting: document.querySelectorAll("#board .card.arriving").length, backs: backs.length,
+          lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + anims[0].effect.getTiming().duration : 0 };
       });
+      // (and all of them landed, by the page's own clock)
+      got[off ? "off" : "on"].after = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ backs: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }), 1600)));
       await done(p, "hash deal FX " + (off ? "off" : "on"));
     }
-    check("hash, FX on: the deal turns each card face up one after another, all inside ~0.6s",
-      got.on.dealt >= 12 && got.on.flips === got.on.dealt && JSON.stringify(got.on.lags) === "[0,20,40,60]" && got.on.ends <= 650, got.on);
-    check("hash, FX off: the cards are simply there", got.off.dealt >= 12 && got.off.flips === 0, got.off);
+    check("hash, FX on: the deal comes face down from the pile, one card after another, each turned face up where it lands, all down inside ~0.8s",
+      got.on.cards >= 12 && got.on.backs === got.on.cards && got.on.waiting === got.on.cards && JSON.stringify(got.on.lags) === "[0,30,60,90]" && got.on.ends <= 800 &&
+      got.on.after.backs === 0 && got.on.after.waiting === 0, got.on);
+    check("hash, FX off: the cards are simply there", got.off.cards >= 12 && got.off.backs === 0 && got.off.waiting === 0, got.off);
   }
 
   // ---- Klondike, FX on: a card that travels arcs there, lifted mid-flight

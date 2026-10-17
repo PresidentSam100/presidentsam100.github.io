@@ -275,6 +275,93 @@
   var newBtn = $("newBtn");
   var juniorBtn = $("juniorBtn");
   var dailyBtn = $("dailyBtn");
+
+  // ---- cards on the move (Visual FX on) ----------------------------------
+  // New cards come face down from the deck's pile, left of the table, and
+  // turn face up where they land; a claimed Hash's cards fly to where it's
+  // kept: the Found list, or in Set-Chain the Last Hash beside the table.
+  // Each flies as a stand-in drawn over the page while the card itself waits
+  // unseen in its place (`arriving` on the table, `landing` in the list or
+  // the tray), so a re-render meanwhile doesn't show it early.
+  var pileEl = $("pile");
+  var arriving = {}, landing = {}, flights = 0;   // (flights: which set of them, as a new game cancels the last)
+  function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+  // where the pile is (and so where new cards start): beside the table's
+  // first column where there's room, else just off the left of the screen
+  function placePile() {
+    var first = boardEl.querySelector(".card"), r = first ? first.getBoundingClientRect() : null;
+    if (!r || !r.width) { pileEl.hidden = true; return null; }
+    var left = Infinity, cards = boardEl.querySelectorAll(".card");
+    for (var i = 0; i < cards.length; i++) left = Math.min(left, cards[i].getBoundingClientRect().left);
+    // (a card's size, or smaller where the margin is narrower, down to half one)
+    var b = boardEl.getBoundingClientRect(), w = Math.min(r.width, left - 32), h = w * r.height / r.width;
+    var room = w >= r.width * 0.5;
+    if (!room) { w = r.width; h = r.height; }
+    var at = { x: room ? left - w - 22 : -w - 12, y: b.top + b.height / 2 - h / 2, w: w, h: h };
+    pileEl.hidden = !room || deck.length === 0;
+    pileEl.style.left = at.x + "px"; pileEl.style.top = at.y + "px";
+    pileEl.style.width = w + "px"; pileEl.style.height = h + "px";
+    return at;
+  }
+  // a stand-in flown from one box to another (scaled to fit), then gone
+  function fly(el, from, to, opts, done) {
+    el.classList.add("flyer");
+    el.style.left = from.x + "px"; el.style.top = from.y + "px";
+    el.style.width = from.w + "px"; el.style.height = from.h + "px";
+    document.body.appendChild(el);
+    var move = "translate(" + (to.x - from.x) + "px, " + (to.y - from.y) + "px) scale(" + (to.w / from.w) + ", " + (to.h / from.h) + ")";
+    var frames = opts.turn
+      ? [{ transform: "none" }, { transform: move, offset: 0.78 }, { transform: move + " perspective(600px) rotateY(90deg)" }]
+      : [{ transform: "none" }, { transform: move }];
+    var a = el.animate(frames, { duration: opts.duration, delay: opts.delay || 0, easing: opts.easing || "cubic-bezier(0.3, 0.7, 0.3, 1)", fill: "both" });
+    var set = flights;
+    a.onfinish = a.oncancel = function () { el.remove(); if (set === flights) done(); };
+  }
+  function boxOf(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }
+  // new cards: from the pile, face down, turning face up where they land
+  function dealFromPile(ids) {
+    var from = placePile();
+    if (!from) { ids.forEach(function (id) { delete arriving[id]; }); return; }
+    var step = ids.length > 6 ? 30 : 70;
+    ids.forEach(function (id, k) {
+      var el = boardEl.querySelector('.card[data-id="' + id + '"]');
+      if (!el) { delete arriving[id]; return; }
+      var back = document.createElement("div");
+      back.className = "card back";
+      back.innerHTML = "";
+      fly(back, from, boxOf(el), { duration: 360, delay: k * step, turn: true }, function () {
+        delete arriving[id];
+        var now = boardEl.querySelector('.card[data-id="' + id + '"]');
+        if (!now) return;
+        now.classList.remove("arriving");
+        now.animate([{ transform: "perspective(600px) rotateY(-90deg)" }, { transform: "none" }], { duration: 160, easing: "ease-out" });
+      });
+    });
+  }
+  // a claimed Hash: each card to its place in the Found list (or the tray)
+  function flyToKept(sources, targetOf) {
+    sources.forEach(function (s, k) {
+      var to = targetOf(s.id);
+      if (!to) return;
+      landing[s.id] = true;
+      to.classList.add("landing");
+      var ghost = s.el.cloneNode(true);
+      ghost.classList.remove("good", "selected", "hint", "dealt", "landing");
+      ghost.removeAttribute("tabindex");
+      var from = s.from || boxOf(s.el);
+      s.el.classList.add("gone");
+      fly(ghost, from, boxOf(to), { duration: 420, delay: k * 50, easing: "cubic-bezier(0.45, 0, 0.25, 1)" }, function () {
+        delete landing[s.id];
+        var now = targetOf(s.id);
+        if (now) now.classList.remove("landing");
+      });
+    });
+  }
+  window.addEventListener("resize", function () { if (boardEl.children.length) placePile(); });
+  function clearFlights() {
+    arriving = {}; landing = {}; flights++;
+    document.querySelectorAll(".flyer").forEach(function (f) { f.getAnimations().forEach(function (a) { a.cancel(); }); f.remove(); });
+  }
   var overlay = $("overlay");
   var ovTitle = $("ovTitle");
   var ovBody = $("ovBody");
@@ -410,6 +497,7 @@
   // animClass: which one ("dealt" by default, "enter-left" for set refills).
   function render(animIds, animClass) {
     animClass = animClass || "dealt";
+    var fromPile = fxOn() && animIds && animIds.length > 0;
     // the cards are rebuilt on every change: keep keyboard focus on the same spot
     var focused = boardEl.contains(document.activeElement) ? +document.activeElement.dataset.idx : -1;
     boardEl.innerHTML = "";
@@ -423,14 +511,17 @@
       el.setAttribute("tabindex", "0");
       el.dataset.idx = i;
       el.setAttribute("aria-label", cardName(card));
+      el.dataset.id = card.id;
       el.innerHTML = cardHTML(card);
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
       // a hinted card glows until it's picked (then it shows as picked)
       else if (hintIds.indexOf(card.id) !== -1) el.classList.add("hint");
       if (animIds && animIds.indexOf(card.id) !== -1) {
-        el.classList.add(animClass);
-        el.style.setProperty("--dd", nth++ * 20 + "ms");
+        // Visual FX on: it comes from the pile (below); off, as it always has
+        if (fromPile) arriving[card.id] = true;
+        else { el.classList.add(animClass); el.style.setProperty("--dd", nth++ * 20 + "ms"); }
       }
+      if (arriving[card.id]) el.classList.add("arriving");
       boardEl.appendChild(el);
     }
     if (focused >= 0 && board.length)
@@ -441,6 +532,8 @@
     // fit the viewport height (no scrolling) whether it's 12, 15 or 18 cards.
     boardEl.style.setProperty("--rows", Math.max(1, Math.ceil(board.length / 3)));
     renderTray();
+    if (fromPile) dealFromPile(animIds.filter(function (id) { return arriving[id]; }));
+    else placePile();
   }
 
   // The tray, beside the table: in Set-Chain the last Hash's three cards
@@ -456,8 +549,8 @@
       for (var i = 0; i < 3; i++) {
         var c = tray[i];
         if (!c) { html += '<div class="card slot" aria-hidden="true"></div>'; continue; }
-        var cls = "card" + (traySel === i ? " selected" : hintIds.indexOf(c.id) !== -1 ? " hint" : "") + (trayNew ? " dealt" : "");
-        html += '<div class="' + cls + '" role="button" tabindex="0" data-tray="' + i + '" aria-label="' + cardName(c) + ', from the last Hash">' + cardHTML(c) + "</div>";
+        var cls = "card" + (traySel === i ? " selected" : hintIds.indexOf(c.id) !== -1 ? " hint" : "") + (trayNew ? " dealt" : "") + (landing[c.id] ? " landing" : "");
+        html += '<div class="' + cls + '" role="button" tabindex="0" data-tray="' + i + '" data-id="' + c.id + '" aria-label="' + cardName(c) + ', from the last Hash">' + cardHTML(c) + "</div>";
       }
     } else {
       trayK.textContent = "Extra card";
@@ -475,7 +568,7 @@
   // cards (in Set-Chain the one carried from the last Hash ringed), or each
   // UltraSet's two pairs and the extra card they need.
   function miniHTML(card, cls, label) {
-    return '<span class="mini' + (cls ? " " + cls : "") + '" role="img" aria-label="' + (label || cardName(card)) + '">' + cardHTML(card) + "</span>";
+    return '<span class="mini' + (cls ? " " + cls : "") + (landing[card.id] ? " landing" : "") + '" role="img" data-id="' + card.id + '" aria-label="' + (label || cardName(card)) + '">' + cardHTML(card) + "</span>";
   }
   function renderLog() {
     logN.textContent = log.length;
@@ -621,7 +714,7 @@
     locked = true;
     var cardEls = boardEl.querySelectorAll(".card");
     var sel = selected.slice(); // the claimed grid positions
-    var trayHit = traySel >= 0 && trayCards.querySelector('[data-tray="' + traySel + '"]');
+    var trayHit = traySel >= 0 && trayCards.querySelector('[data-tray="' + traySel + '"]'), flown = false;
     var game = gameNo;
 
     // into the log now; the tray shows its new card(s) with the refill
@@ -642,9 +735,23 @@
     });
     if (trayHit) trayHit.classList.add("good");
 
-    // Phase 1: hold the green highlight, then slide the trio out to the right
-    // (through an imaginary column past the rightmost cards).
+    // Phase 1: hold the green highlight, then (Visual FX on) fly the cards to
+    // where the find is kept: in Set-Chain the Last Hash beside the table, the
+    // tray shown with its new cards now; else this find's row in the Found
+    // list. (FX off, or nowhere to go: slide the trio out to the right,
+    // through an imaginary column past the rightmost cards.)
     setTimeout(function () {
+      if (game !== gameNo) return;
+      // (where each card is now, taken before the tray is drawn anew)
+      var sources = [];
+      sel.forEach(function (i) { if (cardEls[i]) sources.push({ el: cardEls[i], id: cardEls[i].dataset.id, from: boxOf(cardEls[i]) }); });
+      if (trayHit) sources.unshift({ el: trayHit, id: trayHit.dataset.id, from: boxOf(trayHit) });
+      var targetOf = mode === "chain"
+        ? function (id) { return trayCards.querySelector('.card[data-id="' + id + '"]'); }
+        : function (id) { var r = logList.firstElementChild; return r && r.querySelector('.mini[data-id="' + id + '"]'); };
+      if (fxOn() && mode === "chain") renderTray();
+      var kept = fxOn() && sources.length > 0 && sources.every(function (s) { var t = targetOf(s.id); return t && t.getClientRects().length; });
+      if (kept) { flown = true; flyToKept(sources, targetOf); return; }
       sel.forEach(function (i) {
         if (cardEls[i]) {
           cardEls[i].classList.remove("good");
@@ -660,7 +767,7 @@
       if (game !== gameNo) return; // a new game was dealt meanwhile
       selected = [];
       traySel = -1;
-      trayNew = true;
+      trayNew = !flown;   // (cards flown into the tray are in already)
       render(newIds, "enter-left");
       locked = false;
       updateAddBtn();
@@ -861,6 +968,7 @@
 
   function newGame() {
     gameNo++;
+    clearFlights();
     over = false;
     moved = false;
     locked = false;
