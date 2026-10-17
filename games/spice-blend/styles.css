@@ -1,0 +1,202 @@
+/* =====================================================================
+   Spice Blend: a market stall under a striped canvas awning. Indigo cloth
+   on the counter, the spices in little clay bowls, brass and wooden
+   weights for the answers. The cards are kraft-paper spice labels, tied
+   on with string.
+   ===================================================================== */
+
+:root {
+  --indigo: #23305a;
+  --indigo-deep: #161f3d;
+  --indigo-hi: #33447a;
+  --kraft: #d9b98a;
+  --kraft-deep: #b8925e;
+  --clay: #b5653b;
+  --clay-deep: #7e3f1f;
+  --brass: #d6a83a;
+  --wood: #8a5a32;
+  --cream: #f7ecd6;
+  --ink: #2b2016;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { min-height: 100%; }
+body {
+  font-family: "Karla", system-ui, sans-serif; color: var(--cream);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 220, 160, 0.16), transparent 60%),
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 8px),
+    linear-gradient(180deg, var(--indigo-hi), var(--indigo) 40%, var(--indigo-deep));
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+/* the awning over the stall: canvas stripes with a scalloped edge */
+.awning {
+  position: fixed; left: 0; right: 0; top: 0; height: 26px; z-index: 5; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #e8891e 0 34px, var(--cream) 34px 68px);
+  -webkit-mask: radial-gradient(circle at 17px 26px, transparent 9px, #000 10px) 0 0 / 34px 26px repeat-x;
+          mask: radial-gradient(circle at 17px 26px, transparent 9px, #000 10px) 0 0 / 34px 26px repeat-x;
+}
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 800;
+  color: var(--ink); text-decoration: none;
+  background: var(--kraft); border: 2px solid var(--kraft-deep); border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  padding: 6px 14px;
+}
+.nav-back-games:hover { filter: brightness(1.06); }
+
+.stall { max-width: 560px; margin: 0 auto; padding: 62px 16px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.title { font-family: "Yeseva One", serif; font-weight: 400; font-size: 38px; color: var(--cream); letter-spacing: 0.5px; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.tries { font-weight: 600; color: #e9d9b4; min-height: 20px; }
+
+/* the counter: the tastes beside the spices, the buttons under the spices on a wide
+   screen and under both on a phone, so every taste and every spice is on the one
+   screen. game.js sizes the bowls (--bowl, --pad, --gap, --peg, --last) to fit it. */
+.counter { display: flex; align-items: flex-start; justify-content: center; gap: 28px; width: 100%; }
+.side { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 330px; flex: none; }
+.rows { display: flex; flex-direction: column; gap: var(--gap, 6px); width: 400px; flex: 0 1 auto; min-width: 0; }
+.rows .row { padding: var(--pad, 5px) 10px; }
+.rows .bowl { width: var(--bowl, 34px); height: var(--bowl, 34px); }
+.row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.18); }
+.row.now { background: rgba(247, 236, 214, 0.12); box-shadow: inset 0 0 0 2px rgba(247, 236, 214, 0.45); }
+.row .n { width: 1.6em; text-align: right; font-size: 13px; color: #b9b2c9; font-weight: 800; }
+.cells { display: flex; gap: 8px; flex: 1; }
+/* a clay bowl, its spice heaped in it */
+.bowl {
+  --spice: transparent;
+  position: relative; width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 50% 42%, var(--spice) 0 56%, transparent 58%), radial-gradient(circle at 50% 35%, #cf7a4c, var(--clay) 60%, var(--clay-deep));
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25), 0 2px 3px rgba(0, 0, 0, 0.35);
+}
+.bowl::after { content: ""; position: absolute; left: 30%; top: 22%; width: 24%; height: 14%; border-radius: 50%; background: rgba(255, 255, 255, 0.35); }
+/* an empty place: only a ring, so no spice (pepper the darkest) can be taken for it */
+.bowl.empty { background: none; box-shadow: none; border: 2px dashed rgba(247, 236, 214, 0.28); }
+.bowl.empty::after { display: none; }
+.row.now .bowl.empty { border-color: rgba(247, 236, 214, 0.7); }
+/* pepper's corns, so it reads as a spice and not a hole */
+.bowl[aria-label="pepper"] { background: radial-gradient(circle at 38% 36%, #6a625b 0 7%, transparent 8%), radial-gradient(circle at 62% 50%, #6a625b 0 7%, transparent 8%), radial-gradient(circle at 44% 62%, #6a625b 0 7%, transparent 8%), radial-gradient(circle at 50% 42%, var(--spice) 0 56%, transparent 58%), radial-gradient(circle at 50% 35%, #cf7a4c, var(--clay) 60%, var(--clay-deep)); }
+.row.now .bowl:not(.empty) { cursor: pointer; }
+html.fx-on .bowl.pour { animation: sb-pour 0.22s ease-out; }
+@keyframes sb-pour { from { transform: scale(0.7); } }
+/* the weights the taste earned: brass in place, wood out of place */
+.weights { display: grid; grid-template-columns: repeat(3, var(--peg, 12px)); gap: 3px; flex: none; width: var(--last, 42px); }
+.weights.blank { height: calc(var(--peg, 12px) * 2 + 3px); }
+/* the row being filled: once full, its weights' place is the button that tastes it */
+.taste-here { font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink); background: var(--brass); border: 2px solid #9a7420; border-radius: 6px; padding: 3px 5px; width: var(--last, 42px); flex: none; }
+.weights i { width: var(--peg, 12px); height: var(--peg, 12px); border-radius: 3px; }
+.weights i.brass { background: linear-gradient(160deg, #f5d77b, var(--brass) 55%, #9a7420); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+.weights i.wood { background: linear-gradient(160deg, #b98557, var(--wood) 60%, #5c3a1e); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
+.weights i.none { background: rgba(255, 255, 255, 0.08); }
+html.fx-on .weights i:not(.none) { animation: sb-weigh 0.25s ease-out both; }
+@keyframes sb-weigh { from { transform: translateY(-6px); opacity: 0; } }
+
+/* the spices in even rows (--cols, from game.js) */
+.palette { display: grid; grid-template-columns: repeat(var(--cols, 6), auto); gap: 8px; justify-content: center; }
+.spice {
+  font-family: inherit; cursor: pointer; color: var(--cream);
+  display: flex; flex-direction: column; align-items: center; gap: 3px; width: 70px; padding: 6px 2px 5px;
+  background: rgba(0, 0, 0, 0.22); border: 2px solid rgba(247, 236, 214, 0.25); border-radius: 10px;
+}
+.spice small { font-size: 12px; }
+.spice:hover { border-color: var(--kraft); }
+.spice[data-gs-key]::after { order: 3; }
+
+.tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.tools button, .card .row button {
+  font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; color: var(--ink);
+  background: var(--kraft); border: 2px solid var(--kraft-deep); border-radius: 8px; padding: 6px 12px;
+}
+.tools button:first-child { background: var(--brass); border-color: #9a7420; }
+.tools button:disabled { opacity: 0.45; cursor: default; }
+.keys, .record { font-size: 13px; color: #d9cfb9; text-align: center; }
+.record { min-height: 18px; }
+kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--ink); background: var(--kraft); border-radius: 4px; padding: 0 5px; }
+
+/* ---- the cards: kraft-paper labels, tied with string ------------------------------- */
+.panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 26px 16px; overflow-y: auto; background: rgba(13, 18, 36, 0.55); }
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  position: relative; width: min(450px, 100%); color: var(--ink);
+  background: repeating-linear-gradient(80deg, rgba(0, 0, 0, 0.025) 0 1px, transparent 1px 7px), var(--kraft);
+  border-radius: 6px 6px 6px 6px; box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+  padding: 22px 22px 18px;
+  border: 2px solid var(--kraft-deep);
+}
+/* the string through its punched corner */
+.card::before { content: ""; position: absolute; top: 12px; right: 14px; width: 14px; height: 14px; border-radius: 50%; background: var(--indigo); box-shadow: 0 0 0 3px #efe3c8; }
+.card h2 { font-family: "Yeseva One", serif; font-weight: 400; font-size: 32px; color: var(--clay-deep); }
+.card .tag { font-weight: 800; color: var(--indigo); margin: 2px 0 10px; }
+.card .how { font-size: 15px; line-height: 1.5; margin-bottom: 12px; }
+.w-brass { color: #8a6514; }
+.w-wood { color: #6b4122; }
+.seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; color: var(--ink);
+  background: #e9d1a6; border: 2px solid var(--kraft-deep); border-radius: 8px; padding: 7px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.seg button b { font-weight: 800; display: inline-flex; align-items: center; gap: 8px; }
+.seg button small { font-size: 13px; color: #6b5636; }
+.seg button.on { background: var(--indigo); color: var(--cream); border-color: var(--indigo-deep); }
+.seg button.on small { color: #cdd3ea; }
+.playbtn, .card .row button:first-child {
+  font-family: "Yeseva One", serif; font-weight: 400; cursor: pointer; color: var(--cream);
+  background: var(--clay); border: 2px solid var(--clay-deep); border-radius: 8px; box-shadow: 0 3px 0 var(--clay-deep);
+}
+.playbtn { width: 100%; font-size: 21px; padding: 9px 12px; }
+.playbtn:active, .card .row button:active { transform: translateY(2px); box-shadow: none; }
+.bests { margin-top: 10px; text-align: center; font-size: 14px; color: #5e4a2c; min-height: 18px; }
+.card.end { text-align: center; }
+.card .big { font-family: "Yeseva One", serif; font-size: 32px; min-height: 0; margin: 4px 0; }
+.card .big:empty { display: none; }
+.code { display: flex; gap: 10px; justify-content: center; margin: 10px 0; }
+.code .bowl { width: 42px; height: 42px; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 2px 0 16px; color: #5e4a2c; }
+.stats .best { font-weight: 800; border: 2px solid var(--kraft-deep); border-radius: 999px; padding: 2px 14px; background: #e9d1a6; color: var(--ink); }
+.stats .best.record { background: var(--brass); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; background: none; }
+
+@media (min-width: 760px) {
+  .stall { max-width: 860px; }
+}
+/* a phone or a narrow window: the tastes and a column of spices two wide side by side,
+   the buttons, the keys and the record under them */
+@media (max-width: 759px) {
+  .stall { padding-bottom: 12px; }
+  .counter { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "rows pal" "tools tools" "keys keys" "rec rec"; gap: 8px; max-width: 520px; }
+  .side { display: contents; }
+  .rows { grid-area: rows; width: auto; }
+  .rows .row { padding: var(--pad, 3px) 5px; gap: 4px; }
+  .rows .row .n { width: 1.2em; font-size: 11px; }
+  .rows .cells { gap: 3px; }
+  .weights { gap: 2px; }
+  .taste-here { font-size: 10.5px; padding: 2px; border-width: 1px; }
+  .palette { grid-area: pal; grid-template-columns: repeat(2, 56px); gap: 5px; }
+  .spice { width: auto; padding: 4px 1px 3px; }
+  .tools { grid-area: tools; }
+  .keys { grid-area: keys; }
+  .record { grid-area: rec; }
+}
+@media (max-height: 700px) {
+  .title { font-size: 30px; }
+}
+@media (max-width: 520px) {
+  .stall { padding-top: 58px; gap: 8px; }
+  .title { font-size: 30px; }
+  .bowl { width: 28px; height: 28px; }
+  .tools { gap: 6px; }
+  .tools button { font-size: 14px; padding: 6px 8px; }
+  .spice small { font-size: 10.5px; }
+  .panel { padding-top: 62px; }
+}
+
+/* the four tools on one line on the narrowest phones */
+@media (max-width: 360px) {
+  .tools { gap: 5px; }
+  .tools button { font-size: 13px; padding: 5px 7px; }
+}
+
+.gs-pause { background: rgba(13, 18, 36, 0.6); }
