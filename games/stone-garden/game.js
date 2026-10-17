@@ -210,6 +210,12 @@
       c.classList.toggle("cursor", state === "play" && i === cursor && keyed);
       c.setAttribute("aria-label", placeName(i) + (v === B ? ", black" : v === W ? ", white" : canAt[i] ? ", a stone can go here" : ""));
     }
+    // Enter's keycap goes with the cursor, on the place it puts a stone
+    var cap = $("enter-cap");
+    if (cap) {
+      cap.hidden = !(state === "play" && keyed);
+      cap.style.setProperty("--r", cursor >> 3); cap.style.setProperty("--c", cursor & 7);
+    }
     var n = count(board);
     $("count-b").textContent = n.b; $("count-w").textContent = n.w;
     $("name-b").textContent = nameOf(B); $("name-w").textContent = nameOf(W);

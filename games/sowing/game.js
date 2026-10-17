@@ -174,8 +174,14 @@
     $("btn-hint").disabled = state !== "play" || busy || isCpu(turn);
     var rec = records[foe];
     $("record").textContent = rec ? "against " + FOES[foe].name + ": " + rec.text() : "two at one board: the near row sows first";
-    // the near pits wear their keys, 1 to 6, where there's a keyboard
-    for (var p = 0; p < 6; p++) places[p].setAttribute("data-gs-key", String(p + 1));
+    // the pits of the row the keys sow from wear them, 1 to 6, where there's a
+    // keyboard: the near row, or the far row on a friend's turn there (its 1
+    // at the right, as the keys go along it, see the keydown handler)
+    var farKeys = foe === "friend" && turn === 1;
+    for (var p = 0; p < 6; p++) {
+      places[farKeys ? 7 + p : p].setAttribute("data-gs-key", String(p + 1));
+      places[farKeys ? p : 7 + p].removeAttribute("data-gs-key");
+    }
   }
   function undoable() { return history.length > 0 && (foe === "friend" || history.some(function (h) { return h.turn === 0; })); }
 

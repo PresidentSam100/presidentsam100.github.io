@@ -3,9 +3,10 @@
 // board, into your own store but never the other; the last seed in your
 // store sows again; the last in an empty pit of yours takes the pit across;
 // a row run dry ends the game, each row's seeds to its own store; a keeper
-// answers each sowing; the near pits take 1 to 6 (shown on them); Undo goes
-// back to before your last sowing and Hint rings a good pit; paused, keys sow
-// nothing; the end card counts the stores, keeps the record, ignores Space
+// answers each sowing; the near pits take 1 to 6 (shown on them), and in a
+// friend's game the far row takes them on its turn, its pits wearing them
+// then; Undo goes back to before your last sowing and Hint rings a good pit;
+// paused, keys sow nothing; the end card counts the stores, keeps the record, ignores Space
 // for a moment, then plays again, and Backspace goes to the menu; sowing
 // keeps its pace with Visual FX off (only the hop goes); on a phone a tap on
 // one of your pits sows from it.
@@ -68,21 +69,54 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("sowing: paused, a number key sows nothing", paused === "4,4,4,4,4,4,0,4,4,4,4,4,4,0", paused);
   await done(p, "menu and play");
 
+  // ---- a friend's game: the keycaps go to the row whose turn it is, as the
+  // keys do (the far row's 1 at the right, where its keys start), each
+  // centred on its pit and clear of the pit's count
+  p = await open();
+  await p.evaluate(() => { document.querySelector('#pick-foe button[data-v="friend"]').click(); Sowing.start(); });
+  const keysOn = () => p.evaluate(() => {
+    const pit = (i) => document.querySelector('.pit[data-i="' + i + '"]');
+    const row = (is) => is.map((i) => pit(i).getAttribute("data-gs-key") || "-").join("");
+    const one = [...document.querySelectorAll('.pit[data-gs-key="1"]')].map((e) => {
+      const r = e.getBoundingClientRect(), n = e.querySelector(".n").getBoundingClientRect(), cs = getComputedStyle(e, "::after");
+      const top = parseFloat(cs.top), h = parseFloat(cs.height);
+      return { i: +e.dataset.i, shown: cs.display !== "none", mid: +(parseFloat(cs.left) + parseFloat(cs.marginLeft) - r.width / 2).toFixed(1),
+        clear: n.bottom - r.top <= top + 0.5 || n.top - r.top >= top + h - 0.5 };
+    });
+    return { near: row([0, 1, 2, 3, 4, 5]), far: row([12, 11, 10, 9, 8, 7]), one };
+  });
+  const nearTurn = await keysOn();
+  await p.keyboard.press("1"); await idle(p);   // 4 seeds from the first pit: the far row's turn
+  const farTurn = await keysOn();
+  await p.keyboard.press("1"); await idle(p);
+  const farSowed = await p.evaluate(() => ({ turn: Sowing.turn(), seven: Sowing.board()[7] }));
+  const capOk = (s) => s.one.length === 1 && s.one[0].shown && Math.abs(s.one[0].mid) <= 1 && s.one[0].clear;
+  check("sowing: in a friend's game the row whose turn it is wears 1 to 6 (the far row's 1 at the right) and its 1 sows from there; each keycap centred on its pit, clear of the count",
+    nearTurn.near === "123456" && nearTurn.far === "------" && farTurn.near === "------" && farTurn.far === "654321" && capOk(nearTurn) && capOk(farTurn) &&
+      nearTurn.one[0].i === 0 && farTurn.one[0].i === 7 && farSowed.seven === 0, { nearTurn, farTurn, farSowed });
+  await done(p, "a friend's keys");
+
   // ---- the end card
   p = await open();
-  await p.evaluate(() => {
+  // (the early Space goes in the moment the card shows: sent after a round
+  // trip, a busy machine could have it land after the card's wait)
+  const early = await p.evaluate(() => new Promise((r) => {
     localStorage.removeItem("sowing_record_grandmother");
     document.querySelector('#pick-foe button[data-v="grandmother"]').click();
     Sowing.start();
     const b = new Array(14).fill(0);
     b[5] = 1; b[6] = 30; b[13] = 15; b[9] = 2;
     Sowing.setBoard(b, 0);
+    const over = document.getElementById("over");
+    new MutationObserver((ms, mo) => {
+      if (over.hidden) return;
+      mo.disconnect();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }));
+      r(Sowing.state());
+    }).observe(over, { attributes: true, attributeFilter: ["hidden"] });
     Sowing.play(5);
-  });
-  await p.waitForFunction(() => Sowing.state() === "over", null, { timeout: 8000 });
+  }));
   const card = await p.evaluate(() => ({ title: document.getElementById("over-title").textContent, msg: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent, rec: localStorage.getItem("sowing_record_grandmother") }));
-  await p.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true })));
-  const early = await p.evaluate(() => Sowing.state());
   await wait(p, 900);
   await p.keyboard.press("Space"); await p.waitForTimeout(200);
   const again = await p.evaluate(() => Sowing.state());

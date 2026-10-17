@@ -5,8 +5,10 @@
 // the other colour; a side with no move passes, saying so; the master takes a
 // corner it's given; Undo goes back to before your last move and Hint rings
 // a good one; the arrows and Enter play from the keyboard, but not while
-// paused; the full garden is counted on the end card and kept in the
-// record, the card ignoring Space for a moment, then playing again, and
+// paused, and their keycaps are on the board (the arrows on the frame, Enter
+// on the cursor's place; none on a phone); the full garden is counted on the
+// end card and kept in the record, the card ignoring Space for a moment, then
+// playing again, and
 // Backspace going to the menu; with Visual FX off the stones turn without
 // the turning motion; on a phone a tap on a ringed place puts a stone there.
 module.exports = async ({ browser, base, check, lib }) => {
@@ -114,7 +116,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the full garden: counted on the end card and kept in the record; the
   // card ignores Space for a moment, then plays again; Backspace goes to the menu
   p = await open();
-  const end = await p.evaluate(() => {
+  // (the early Space goes in the moment the card shows: sent after a round
+  // trip, a busy machine could have it land after the card's wait)
+  const early = await p.evaluate(() => new Promise((r) => {
     localStorage.removeItem("stonegarden_record_monk");
     StoneGarden.toMenu(); document.querySelector('#pick-foe button[data-v="monk"]').click(); document.querySelector('#pick-colour button[data-v="b"]').click();
     StoneGarden.start();
@@ -122,13 +126,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (let i = 0; i < 20; i++) b[i] = -1;
     b[63] = 0; b[62] = -1; b[55] = -1; b[54] = -1;   // one bare place, which black alone can take
     StoneGarden.setBoard(b, 1);
+    const over = document.getElementById("over");
+    new MutationObserver((ms, mo) => {
+      if (over.hidden) return;
+      mo.disconnect();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true }));
+      r(StoneGarden.state());
+    }).observe(over, { attributes: true, attributeFilter: ["hidden"] });
     StoneGarden.play(63);
-    return null;
-  });
-  await p.waitForFunction(() => StoneGarden.state() === "over", null, { timeout: 8000 });
+  }));
   const card = await p.evaluate(() => ({ title: document.getElementById("over-title").textContent, msg: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent, rec: localStorage.getItem("stonegarden_record_monk") }));
-  await p.evaluate(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", bubbles: true })));
-  const early = await p.evaluate(() => StoneGarden.state());
   await wait(p, 900);
   await p.keyboard.press("Space"); await p.waitForTimeout(200);
   const again = await p.evaluate(() => StoneGarden.state());
@@ -140,6 +147,34 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Backspace"); await p.waitForTimeout(200);
   check("stone-garden: Backspace on the end card goes back to the menu", (await p.evaluate(() => StoneGarden.state())) === "menu", await p.evaluate(() => StoneGarden.state()));
   await done(p, "end card");
+
+  // ---- the board's keys, where there's a keyboard: each arrow on the side of
+  // the frame it walks the cursor toward, on the cedar (clear of the gravel's
+  // edge row), and Enter on the cursor's place, going with it, gone once a
+  // mouse press on the board puts the cursor away
+  p = await open();
+  await p.evaluate(() => { document.querySelector('#pick-foe button[data-v="friend"]').click(); StoneGarden.start(); });
+  const boardKeys = () => p.evaluate(() => {
+    const f = document.querySelector(".frame").getBoundingClientRect(), g = document.getElementById("board").getBoundingClientRect();
+    const at = (sel) => { const e = document.querySelector(sel); const r = e && e.getBoundingClientRect(); return r && r.width ? { x: r.x + r.width / 2, y: r.y + r.height / 2, text: e.textContent } : null; };
+    const cur = document.querySelector(".cell.cursor"), c = cur && cur.getBoundingClientRect();
+    return { f: { l: f.left, r: f.right, t: f.top, b: f.bottom }, g: { l: g.left, r: g.right, t: g.top, b: g.bottom },
+      up: at(".caps .up"), down: at(".caps .down"), left: at(".caps .left"), right: at(".caps .right"), enter: at(".caps .enter"),
+      cell: c && { l: c.left, r: c.right, b: c.bottom } };
+  });
+  const k0 = await boardKeys();
+  await p.keyboard.press("ArrowRight"); const k1 = await boardKeys();
+  await p.keyboard.press("ArrowRight"); const k2 = await boardKeys();
+  await p.mouse.click(k2.g.l + 4, k2.g.t + 4); await p.waitForTimeout(80);   // a corner place, where no stone can go
+  const k3 = await boardKeys();
+  const mx = (k) => (k.f.l + k.f.r) / 2, my = (k) => (k.f.t + k.f.b) / 2;
+  const sides = (k) => !!(k.up && k.down && k.left && k.right) && k.up.text === "↑" && k.down.text === "↓" && k.left.text === "←" && k.right.text === "→" &&
+    Math.abs(k.up.x - mx(k)) < 2 && k.up.y >= k.f.t && k.up.y <= k.g.t && Math.abs(k.down.x - mx(k)) < 2 && k.down.y >= k.g.b && k.down.y <= k.f.b &&
+    Math.abs(k.left.y - my(k)) < 2 && k.left.x >= k.f.l && k.left.x <= k.g.l && Math.abs(k.right.y - my(k)) < 2 && k.right.x >= k.g.r && k.right.x <= k.f.r;
+  const onCell = (k) => !!(k.enter && k.cell) && k.enter.text === "Enter" && k.enter.x > k.cell.l && k.enter.x < k.cell.r && Math.abs(k.enter.y - k.cell.b) < 8;
+  check("stone-garden: the arrows' keycaps sit on the frame, each on the side it walks toward; Enter's shows on the cursor's place once a key brings the cursor, goes with it, and goes when a mouse press puts the cursor away",
+    sides(k0) && !k0.enter && onCell(k1) && onCell(k2) && k2.enter.x > k1.enter.x + 10 && !k3.enter && !k3.cell, { k0, k1, k2, k3 });
+  await done(p, "board keys");
 
   // ---- Visual FX: on, the turned stones turn over in sequence; off, they
   // change colour without the motion
@@ -164,7 +199,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const r = await q.evaluate(() => { const e = document.querySelector('.cell[data-i="19"]').getBoundingClientRect(); return { x: e.x + e.width / 2, y: e.y + e.height / 2 }; });
     await q.touchscreen.tap(r.x, r.y); await q.waitForTimeout(200);
     const tapped = await q.evaluate(() => StoneGarden.board()[19]);
-    check("stone-garden, phone: a tap on a ringed place puts a stone there", tapped === 1, tapped);
+    const phoneCaps = await q.evaluate(() => [...document.querySelectorAll(".caps kbd")].filter((e) => e.getBoundingClientRect().width > 0).length);
+    check("stone-garden, phone: a tap on a ringed place puts a stone there, and the board shows no keycaps", tapped === 1 && phoneCaps === 0, { tapped, phoneCaps });
     await done(q, "phone");
     await c.close();
   }

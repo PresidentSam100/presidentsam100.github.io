@@ -91,8 +91,10 @@ body {
 /* a seed dropping in: the pit's seeds give a little hop (Visual FX on) */
 html.fx-on .pit.drop .seeds, html.fx-on .store.drop .seeds { animation: sw-drop 0.16s ease-out; }
 @keyframes sw-drop { 40% { transform: translateY(-3px) scale(1.04); } }
-/* the near pits' keys, 1 to 6, sit at their top (a keyboard only) */
-.pit[data-gs-key]::after { position: absolute; top: 6%; left: 50%; transform: translateX(-50%); }
+/* a row's keys, 1 to 6, sit on its pits (a keyboard only), centred, on the
+   side away from the count: the near row's at the top, the far row's at the foot */
+.pit[data-gs-key]::after { position: absolute; top: 6%; left: 50%; transform: translateX(-50%); margin: 0; }
+.pit.far[data-gs-key]::after { top: auto; bottom: 6%; }
 
 .tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .tools button {
