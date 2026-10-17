@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AA%A8%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Stone Garden</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Stone Garden, Reversi in a raked-gravel garden: place a stone to turn every line of the other colour it closes, against the garden keeper or a friend. A browser game by Sam Lu." />
+    <meta property="og:title" content="Stone Garden | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Stone Garden, Reversi in a raked-gravel garden: place a stone to turn every line of the other colour it closes, against the garden keeper or a friend. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<main class="garden">
+  <h1 class="title">Stone Garden</h1>
+  <div class="tally" id="tally">
+    <span class="side" id="side-b"><i class="stone b" aria-hidden="true"></i><b id="count-b">2</b><small id="name-b">you</small></span>
+    <span class="turn" id="turn" aria-live="polite">your move</span>
+    <span class="side" id="side-w"><small id="name-w">the keeper</small><b id="count-w">2</b><i class="stone w" aria-hidden="true"></i></span>
+  </div>
+  <div class="frame">
+    <div class="board" id="board" role="grid" aria-label="The garden: eight rows of eight places for stones"></div>
+  </div>
+  <div class="tools" id="tools">
+    <button type="button" id="btn-hint">Hint</button>
+    <button type="button" id="btn-undo">Undo</button>
+    <button type="button" id="btn-new">New game</button>
+    <button type="button" id="btn-menu">Menu</button>
+  </div>
+  <p class="keys"><span class="gs-keys"><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> or <kbd>Space</kbd> places a stone</span><span class="gs-touch">tap a ringed place to put a stone there</span></p>
+  <p class="record" id="record"></p>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h2>Stone Garden</h2>
+    <p class="tag">Reversi, raked in gravel</p>
+    <p class="how">
+      Put a stone where it closes a line of the other colour, straight or
+      slanting, between it and one of yours: every stone in that line turns.
+      The rings show where a stone can go. When neither colour can move, the
+      garden is counted, and the most stones wins.
+    </p>
+    <p class="label">Play against</p>
+    <div class="seg" id="pick-foe">
+      <button type="button" data-v="novice"><b>The novice</b><small>takes what it can</small></button>
+      <button type="button" data-v="monk"><b>The monk</b><small>minds the corners</small></button>
+      <button type="button" data-v="master"><b>The master</b><small>reads far ahead</small></button>
+      <button type="button" data-v="friend"><b>A friend</b><small>two at one screen</small></button>
+    </div>
+    <p class="label">Your stones</p>
+    <div class="seg row2" id="pick-colour">
+      <button type="button" data-v="b"><b>Black</b><small>moves first</small></button>
+      <button type="button" data-v="w"><b>White</b><small>moves second</small></button>
+    </div>
+    <button type="button" class="playbtn" id="play">Begin</button>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">The garden is yours</h2>
+    <p class="big" id="over-msg">33 to 31</p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Play again</button>
+      <button type="button" id="to-menu">Menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>

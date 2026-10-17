@@ -41,7 +41,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // and where a menu card is taller than that screen, its heading is still
   // below the corner buttons (the card starts under them and scrolls)
   const HEAD = {
-    "abyss/": ".card h1", "tall-order/": ".card h1", "rose-window/": ".card h1", "mesa-drift/": ".card h1", "stopwatch/": ".card h2", "speedle/": ".card-title", "reaction/": ".card h2",
+    "abyss/": ".card h1", "tall-order/": ".card h1", "rose-window/": ".card h1", "mesa-drift/": ".card h1", "stone-garden/": ".card h2", "stopwatch/": ".card h2", "speedle/": ".card-title", "reaction/": ".card h2",
     "tic-tac-toe/": ".modal-overlay.open .modal h2", "departures/": ".card h1", "crazy-ohio/": "header.top h1",
   };
   {

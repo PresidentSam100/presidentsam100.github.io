@@ -18,6 +18,7 @@ const ALLOW = {
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
+  "stone-garden/": [".cell"],               // the board (arrows walk it)
   "dead-end/editor.html": ["*"],            // the level editors are mouse tools
   "slither/editor.html": ["*"],
   "tile-maze/editor.html": ["*"],
