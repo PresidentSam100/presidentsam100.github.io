@@ -1028,13 +1028,16 @@ function findPlatform(row, cx) {
   return null;
 }
 
-// only called once the chicken has landed: ride the log it's on, or drown
-function riverUpdate(dt) {
+// only called once the chicken has landed: ride the log it's on, or drown.
+// (carry false on the frame it lands: the logs have already moved this frame
+// and the landing put it on its cell where that now is, so carrying it as
+// well left it a frame's drift off the cell's centre for the whole ride)
+function riverUpdate(dt, carry = true) {
   const row = getRow(player.gy);
   if (row.type !== "river") return;
   const plat = findPlatform(row, player.gx + 0.5);
   if (plat) {
-    const delta = row.dir * row.speed * dt; // carried by the log (pads have speed 0)
+    const delta = carry ? row.dir * row.speed * dt : 0; // carried by the log (pads have speed 0)
     player.gx += delta;
     renderGx += delta; // move the render in lockstep with the log; the lerp smoothly settles the centering snap
     // carried into the shaded margin → swept away riding the log (not a
@@ -1130,7 +1133,7 @@ function updatePlaying(dt) {
   // River land/drown stays landing-based so the chicken doesn't drown mid-hop over open water.
   if (landed) {
     if (justLanded) onLanded();   // align onto the log + play the log/pad landing sound
-    riverUpdate(dt);              // ride the log, or drown
+    riverUpdate(dt, !justLanded); // ride the log, or drown
     if (state !== "playing") return;
     if (justLanded && bufferedMove) { // run one queued input now that we've safely landed
       const b = bufferedMove; bufferedMove = null;
@@ -1277,14 +1280,15 @@ function setInsane(on) {
 // ---------- input ----------
 // Align the chicken onto the nearest grid-cell of whatever log/pad its target cell lands on,
 // so it snaps to the log's spacing on entry (mirrors the snap-to-grid we already do on exit).
-function snapToPlatform(row, ngx) {
-  const cx = ngx + 0.5, TOL = 0.3;
+// `ahead` (seconds): where the logs will be by then, for a hop aiming at its landing.
+function snapToPlatform(row, ngx, ahead = 0) {
+  const cx = ngx + 0.5, TOL = 0.3, drift = row.dir * row.speed * ahead;
   // Prefer cells that keep the chicken inside the reachable area: landing near
   // the edge must never snap the chicken's position out past the swept
   // boundary when a perfectly good in-bounds cell of the same log is at hand.
   let best = null, bestDist = Infinity, bestOut = true;
   for (const it of row.items) {
-    const c = itemCol(row, it);
+    const c = itemCol(row, it) + drift;
     if (cx >= c - TOL && cx <= c + it.len + TOL) {
       for (let k = 0; k < it.len; k++) {
         const aligned = c + k; // gx so the chicken sits centered on that cell of the platform
@@ -1328,7 +1332,7 @@ function doMove(dx, dy) {
 
   const ngy = clamp(player.gy + dy, MINROW, 1e9);
   let ngx;
-  if (dy !== 0) ngx = player.gx; // pure forward/back: keep the exact horizontal position, align only on landing
+  if (dy !== 0) ngx = player.gx; // pure forward/back: from the exact horizontal position (aimed at its landing below)
   else if (onLog) {
     // slide one cell along the log, but never hop off the reachable area into the shaded margin
     if (Math.round(player.gx) + dx < 0 || Math.round(player.gx) + dx > COLS - 1) return;
@@ -1338,6 +1342,11 @@ function doMove(dx, dy) {
 
   ensureRows(player.gy + VIS_ROWS + 3);
   const tRow = getRow(ngy);
+  // A hop forward or back aims for the spot it lands on, so the chicken comes
+  // down centred there instead of sliding into place once it has touched
+  // down: on a river, the cell of the log (or pad) that will be under it,
+  // where that log will have drifted to by then; on solid ground, the column.
+  if (dy !== 0) ngx = tRow.type === "river" ? snapToPlatform(tRow, ngx, HOP_DUR) : clamp(Math.round(ngx), 0, COLS - 1);
   if (tRow.type === "grass" && tRow.trees.has(Math.round(ngx))) return; // blocked by tree (nearest column)
 
   const moved = !(Math.abs(ngx - player.gx) < 1e-6 && ngy === player.gy);

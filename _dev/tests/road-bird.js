@@ -10,8 +10,9 @@
 // a road's dashed line runs between two lanes, not down the middle of one.
 // Normal or Insane (N / I) under the modes: Insane has no grass or lily pads
 // to rest on, and keeps bests of its own. A symbol keycap's ink (the menu's
-// arrows) sits in the middle of its cap. A slow load's out-of-order first
-// frame doesn't step the clock back.
+// arrows) sits in the middle of its cap. A hop onto a moving log comes down on
+// the middle of one of its cells and rides there; a slow load's out-of-order
+// first frame doesn't step the clock back.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
 // the first mode's top, one mode to the next, a mode's height, Normal and
@@ -196,6 +197,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     Object.keys(bandsMenu).length === 0 && Object.keys(bandsRiver).length === 0 && (await d.evaluate(() => __game.mode)) === "river", { bandsMenu, bandsRiver });
   check("road-bird (seams): no page errors", d.errs.length === 0, d.errs);
   await d.close();
+
+  // ---- a hop onto a log lands on the middle of one of its cells and stays
+  // there as it rides (it sat a frame's drift off, for the whole ride), and
+  // comes down there rather than sliding into place once it has touched down
+  // (it had up to a third of a cell left to slide)
+  {
+    const LOGHOOK = ["window.__game = {", "window.__game = {\n  get renderGx() { return renderGx; }, get rows() { return rows; }, get hopTimer() { return hopTimer; }, itemCol, move, startCurrentMode, setMode: (m, ins) => { gameMode = m; insane = ins; },"];
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [LOGHOOK]) });
+    const rides = await q.evaluate(async () => {
+      const G = __game, frame = () => new Promise((r) => requestAnimationFrame(r)), out = [];
+      // (the cell of a log in this row nearest the chicken, from where it is drawn and where it is)
+      const cellOff = (row, x) => { let d = null; for (const it of row.items) { const c = G.itemCol(row, it); for (let k = 0; k < it.len; k++) if (d == null || Math.abs(x - c - k) < Math.abs(d)) d = x - c - k; } return d; };
+      for (let tries = 0; tries < 30 && out.length < 8; tries++) {
+        G.setMode("river", true); G.startCurrentMode();   // (Insane River: every row ahead is logs)
+        for (let hop = 0; hop < 4 && out.length < 8; hop++) {
+          const pl = G.player, row = G.rows[pl.gy + 1];
+          if (!row || row.type !== "river") break;
+          let ok = false;   // wait for a log to come under the chicken by the time it lands
+          for (let f = 0; f < 300 && !ok; f++) {
+            await frame();
+            const ahead = row.dir * row.speed * 0.17, cx = pl.gx + 0.5;
+            ok = row.items.some((it) => { const c = G.itemCol(row, it) + ahead; return cx > c + 0.35 && cx < c + it.len - 0.35; });
+          }
+          if (!ok || G.state !== "playing") break;
+          G.move(0, 1);
+          while (G.hopTimer > 0) await frame();
+          const slide = Math.abs(G.renderGx - pl.gx);
+          for (let f = 0; f < 20; f++) await frame();
+          if (G.state !== "playing") break;
+          out.push({ slide: +slide.toFixed(3), off: +cellOff(G.rows[pl.gy], pl.gx).toFixed(3), drawn: +cellOff(G.rows[pl.gy], G.renderGx).toFixed(3) });
+        }
+      }
+      return out;
+    });
+    check("road-bird: a hop onto a moving log lands on the middle of a cell and rides there, drawn there too, with nothing left to slide once it has landed",
+      rides.length >= 5 && rides.every((r) => Math.abs(r.off) < 0.002 && Math.abs(r.drawn) < 0.005 && r.slide < 0.06), rides);
+    check("road-bird (logs): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
 
   // ---- a first frame stamped before the game read its clock (a slow load) is
   // a step back: served here with the clock read 3 s late, so it always is.
