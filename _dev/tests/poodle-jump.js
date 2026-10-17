@@ -1,5 +1,7 @@
 // Poodle Jump: the start card carries the game's own name; with Visual FX off
-// a black hole is drawn still (FX on, its spiral and ring turn).
+// a black hole is drawn still (FX on, its spiral and ring turn); a jetpack or
+// propeller carries the poodle unstretched (a jump's speed still stretches it);
+// spent spring shoes come off at once when a jetpack or propeller takes over.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check("poodle-jump " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -89,6 +91,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("poodle-jump, desktop: no Menu button on Game Over (Backspace is the menu); a click anywhere plays again",
       got.desktop.over === "over" && got.desktop.btn === null && got.desktop.onButton.state === "play" && got.desktop.elsewhere.state === "play", got.desktop);
   }
+
+  // ---- carried by a jetpack or propeller, the poodle isn't stretched by the speed
+  // (a jump as fast still is, with Visual FX on); spent spring shoes come off at once
+  // when a jetpack takes over the last shoe bounce's climb, not when it runs out
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  const gear = await p.evaluate(() => {
+    __game.start(); __game.paused = true;
+    const pl = __game.player, c = __game.ctx, sc = c.scale, tall = (setup) => {
+      setup(); let most = 1;
+      c.scale = function (x, y) { most = Math.max(most, y); return sc.apply(this, arguments); };
+      try { pl.render(c, __game.cameraY || 0); } finally { c.scale = sc; }
+      return Math.round(most * 1000) / 1000;
+    };
+    const jump = tall(() => { pl.powerup = null; pl.squashT = 0; pl.vy = -1300; });
+    const jet = tall(() => { pl.startPowerUp("jetpack", 1300, 4, 0); pl.squashT = 0; pl.vy = -1300; });
+    const prop = tall(() => { pl.powerup = null; pl.startPowerUp("propeller", 1300, 4, 0); pl.squashT = 0; pl.vy = -1300; });
+    // the shoes' last bounce, still climbing hard, when a jetpack is caught
+    pl.powerup = null; pl.springy = 0; pl.springyDropPending = true; pl.vy = -1300;
+    const before = __game.gears.length;
+    pl.startPowerUp("jetpack", 860, 4, 0);
+    __game.handleSpringyDrop();
+    return { jump, jet, prop, pending: pl.springyDropPending, shoes: __game.gears.slice(before).map((g) => g.kind).join() };
+  });
+  check("poodle-jump: a jetpack or propeller carries the poodle unstretched (a jump as fast still stretches it); spent spring shoes come off at once when a jetpack takes over",
+    gear.jump > 1 && gear.jet === 1 && gear.prop === 1 && !gear.pending && gear.shoes === "shoes", gear);
+  await done(p, "gear");
 
   // ---- Game Over: Backspace goes back to the start card, but not in its first
   // second (a key held from the run); Esc still leaves for the games page

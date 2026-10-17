@@ -182,8 +182,10 @@ class Player {
       if (this.squashT > 0) {
         const a = 0.24 * (this.squashT / SQUASH_TIME);   // flattened on touchdown, springing back
         sxs = 1 + a; sys = 1 - a;
-      } else {
-        const s = clamp((Math.abs(this.vy) - 450) / 4000, 0, 0.12);   // stretched by speed, round at the apex
+      } else if (!this.powerup) {
+        // stretched by speed, round at the apex (not while a jetpack or a
+        // propeller carries it: that speed is the gear's, not a jump's)
+        const s = clamp((Math.abs(this.vy) - 450) / 4000, 0, 0.12);
         sxs = 1 - s * 0.6; sys = 1 + s;
       }
       if (sxs !== 1) {

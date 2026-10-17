@@ -437,8 +437,9 @@ class Game {
     const p = this.player;
     if (!p.springyDropPending) return;
     // Hold the shoes on through the climb; release them once the upward speed
-    // has decayed to near the apex (or the player is already descending).
-    if (p.vy >= CONFIG.SPRINGY_DROP_VY) {
+    // has decayed to near the apex (or the player is already descending), or
+    // at once when a jetpack or propeller takes over (its climb has no apex)
+    if (p.vy >= CONFIG.SPRINGY_DROP_VY || p.powerup) {
       this.gears.push(new DiscardedGear("shoes", p.x + p.w / 2, p.y + p.h, p.vx * 0.5, 120));
       p.springyDropPending = false;
     }
