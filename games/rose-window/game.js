@@ -22,7 +22,7 @@
   var COLS = 14, ROWS = 20, CW = 32, CH = 18, GX = 16, GY = 34;
   var BAR_Y = FH - 40, BAR_H = 12, BAR_W = 86, WIDE_W = 132, BAR_SPEED = 560;
   var BEAD = 6.5;
-  var JEWEL_ODDS = 0.11, WIDE_T = 12, SLOW_T = 10;
+  var JEWEL_ODDS = 0.11, WIDE_T = 12, SLOW_T = 10, MAX_BEADS = 81;
   var OVER_WAIT = 700;
 
   var GLASS = {
@@ -364,12 +364,17 @@
     if (j.kind === "wide") { wideT = WIDE_T; pop("a wider bar", barX, BAR_Y - 24); }
     else if (j.kind === "slow") { slowT = SLOW_T; pop("slower light", barX, BAR_Y - 24); }
     else {
-      var src = balls.length ? balls[0] : { x: barX, y: BAR_Y - 20 };
-      var sp = speed();
-      [-0.5, 0.5].forEach(function (a) {
-        balls.push({ x: src.x, y: src.y, vx: Math.sin(a) * sp, vy: -Math.cos(a) * sp, trail: [] });
-      });
+      // every bead of light becomes three: two more leave it on either side of
+      // its path, as fast (up to MAX_BEADS at once)
       if (serving) launch();
+      var sp = speed();
+      if (!balls.length) balls.push({ x: barX, y: BAR_Y - 20, vx: 0, vy: -sp, trail: [] });
+      balls.slice().forEach(function (b) {
+        var v = Math.hypot(b.vx, b.vy) || sp, at = Math.atan2(b.vx, -b.vy);
+        [-0.5, 0.5].forEach(function (d) {
+          if (balls.length < MAX_BEADS) balls.push({ x: b.x, y: b.y, vx: Math.sin(at + d) * v, vy: -Math.cos(at + d) * v, trail: [] });
+        });
+      });
       pop("three beads", barX, BAR_Y - 24);
     }
   }

@@ -143,9 +143,13 @@ module.exports = async ({ browser, base, check, lib }) => {
       take("wide"); settle(); const w1 = RoseWindow.bar().w;
       take("slow"); settle(); const s1 = sp(RoseWindow.live()[0]);
       take("three"); const n = RoseWindow.live().length;
-      return { w0: Math.round(w0), w1: Math.round(w1), s0: Math.round(s0), s1: Math.round(s1), n };
+      // with two beads in the air, the next three-bead jewel makes each of them three
+      RoseWindow.put(240, 330, 40, -300); RoseWindow.live().push({ x: 180, y: 330, vx: -60, vy: -290, trail: [] });
+      take("three"); const n2 = RoseWindow.live().length;
+      return { w0: Math.round(w0), w1: Math.round(w1), s0: Math.round(s0), s1: Math.round(s1), n, n2 };
     });
-    check("rose-window: the jewels caught give a wider bar, slower light and three beads", jewels.w1 > jewels.w0 + 30 && jewels.s1 < jewels.s0 * 0.8 && jewels.n >= 3, jewels);
+    check("rose-window: the jewels caught give a wider bar, slower light and three beads; with two beads in the air the three-bead jewel makes each of them three (six)",
+      jewels.w1 > jewels.w0 + 30 && jewels.s1 < jewels.s0 * 0.8 && jewels.n === 3 && jewels.n2 === 6, jewels);
 
     // a Pilgrimage ends after its third bead; a new best is kept as it's passed
     const run = await q.evaluate(() => {
