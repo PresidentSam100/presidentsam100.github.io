@@ -1747,7 +1747,22 @@ class Game {
   constructor(canvas) {
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
-    this.ctx.imageSmoothingEnabled = false;
+    // Sharp on any screen: the canvas has as many pixels as the screen gives
+    // it (its size on the page times the device pixel ratio), and everything
+    // is drawn in the game's 448 x 576 units through a matching scale. (Drawn
+    // at 448 x 576 and stretched to fit, it was soft and blocky on a big or a
+    // 2x screen.) Sprites stay pixel art: no smoothing when they're scaled.
+    this.fit = () => {
+      const dpr = window.devicePixelRatio || 1;
+      const w = Math.max(WIDTH, Math.round(canvas.clientWidth * dpr));
+      const h = Math.max(HEIGHT, Math.round(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
+      this.ctx.setTransform(w / WIDTH, 0, 0, h / HEIGHT, 0, 0);
+      this.ctx.imageSmoothingEnabled = false;
+    };
+    this.fit();
+    window.addEventListener('resize', this.fit);
+    if (window.ResizeObserver) new ResizeObserver(this.fit).observe(canvas);
 
     this.stars = new Starfield(90);
     this.high = parseInt(Store.get('galaga_high', '0'), 10) || 0;

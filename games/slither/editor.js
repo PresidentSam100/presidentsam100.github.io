@@ -170,10 +170,11 @@
         b.title = L.name + ": " + L.desc;
         b.setAttribute("aria-label", L.name);
         b.dataset.glyph = ch;
+        // (drawn 64 px a side: the tiles stretch with the panel, to about 50 px)
         var cv = document.createElement("canvas"), dpr = window.devicePixelRatio || 1;
-        cv.width = 40 * dpr; cv.height = 40 * dpr;
+        cv.width = 64 * dpr; cv.height = 64 * dpr;
         var g = cv.getContext("2d");
-        g.setTransform(dpr * 40 / CELL, 0, 0, dpr * 40 / CELL, 0, 0);
+        g.setTransform(dpr * 64 / CELL, 0, 0, dpr * 64 / CELL, 0, 0);
         drawGlyph(g, ch, 0, 0, CELL, Art.THEMES[level.zone] || Art.THEMES.Garden, null);
         b.appendChild(cv);
         b.addEventListener("click", function () { pick(ch); });

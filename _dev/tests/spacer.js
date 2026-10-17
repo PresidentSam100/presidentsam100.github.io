@@ -6,7 +6,7 @@
 // on a phone the touch buttons work the title's pickers; and the canvas
 // hints say what a tap does on a phone, the keys on a desktop; and the title
 // names no Visual FX switch nor the bar under the screen a pause (the corner
-// buttons are both).
+// buttons are both); on a 2x screen it is drawn at the screen's resolution.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const st = (p) => p.evaluate(() => ({ mode: game.mode, stage: game.stage, startStage: game.startStage, menu: game.menuIndex, prev: game.prevMode, x: game.player && Math.round(game.player.x), input: Object.assign({}, game.input), fx: game.reducedFlash }));
@@ -192,6 +192,24 @@ module.exports = async ({ browser, base, check, lib }) => {
   const bar = await p.evaluate(() => document.getElementById("controls").textContent.replace(/\s+/g, " ").trim());
   check("spacer: the title screen names no Visual FX switch and the controls under the screen no pause (the corner buttons are both)",
     !has(dk.title, "VISUAL FX") && !dk.title.includes("V") && !has(ph.title, "VISUAL FX") && !/pause/i.test(bar), { bar, title: dk.title.filter((s) => /FX|^V$/.test(s)), phone: ph.title.filter((s) => /FX/.test(s)) });
+
+  // ---- sharp on a 2x screen: the screen's canvas has two pixels for every
+  // pixel of the page it covers (it was drawn at 448 x 576 and stretched,
+  // under one), and still draws in the game's own units after a resize
+  {
+    const sc = await lib.newContext(browser, { viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 });
+    const q = await lib.open(sc, base, "games/spacer/");
+    await q.waitForTimeout(300);
+    const at = () => q.evaluate(() => { const c = document.getElementById("screen"), t = c.getContext("2d").getTransform(); return { k: +(c.width / c.clientWidth).toFixed(2), kh: +(c.height / c.clientHeight).toFixed(2), sx: +(t.a / (c.width / 448)).toFixed(3), sy: +(t.d / (c.height / 576)).toFixed(3) }; });
+    const big = await at();
+    await q.setViewportSize({ width: 900, height: 600 }); await q.waitForTimeout(300);
+    const small = await at();
+    check("spacer: on a 2x screen the screen is drawn at the screen's own resolution (two canvas pixels to a page pixel), in the game's units, before and after a resize",
+      [big, small].every((r) => r.k >= 1.95 && r.kh >= 1.95 && r.sx === 1 && r.sy === 1), { big, small });
+    check("spacer (2x): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await sc.close();
+  }
 
   // ---- Infinite goes on past stage 255: patterns wrap, difficulty stays capped, the HUD counts on
   const run = (menu) => p.evaluate((menu) => {
