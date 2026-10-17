@@ -192,6 +192,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "tall-order/": [async (p) => { await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
       await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 15000 }); }, "asks"],
     "sunset-slice/": [async (p) => { await p.evaluate(() => SunsetSlice.start("calm")); await p.waitForTimeout(300); }, "asks"],
+    "rose-window/": [async (p) => { await p.evaluate(() => { RoseWindow.start("pilgrimage"); RoseWindow.launch(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "road-bird/": [async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "poodle-jump/": [async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(150); await p.evaluate(() => { __game.bestY -= 1000; }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
   };

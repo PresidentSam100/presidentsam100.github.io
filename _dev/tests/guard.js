@@ -50,6 +50,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["speedle", "speedle/", async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(200); if (await active(p)) throw new Error("speedle: active before a letter"); await p.keyboard.press("q"); }],
     ["stopwatch", "stopwatch/", async (p) => { await p.click("#btn-start"); await p.waitForTimeout(200); if (await active(p)) throw new Error("stopwatch: active before the first sweep"); await p.keyboard.press("Space"); }],
     ["sunset-slice", "sunset-slice/", (p) => p.evaluate(() => SunsetSlice.start("calm"))],
+    ["rose-window", "rose-window/", async (p) => { await p.evaluate(() => RoseWindow.start("pilgrimage")); await p.waitForTimeout(200); if (await active(p)) throw new Error("rose-window: active before the light is sent"); await p.evaluate(() => RoseWindow.launch()); }],
     ["tall-order", "tall-order/", async (p) => { await p.evaluate(() => TallOrder.start("bakery")); await p.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 }); await p.evaluate(() => TallOrder.placeAndDrop(0)); await p.waitForTimeout(300); }],
     ["tic-tac-toe", "tic-tac-toe/", async (p) => { await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); }); await p.click("#startGame"); await p.waitForTimeout(200); await p.evaluate(() => __TTT_TEST__.humanMove(0)); }],
     ["typetwo", "typetwo/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(200); }],

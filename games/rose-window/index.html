@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AA%9F%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rose Window</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Uncial+Antiqua&family=Alegreya:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through eight windows. A browser game by Sam Lu." />
+    <meta property="og:title" content="Rose Window | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through eight windows. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The nave at dusk and its window. Everything is painted on this canvas by game.js. -->
+<canvas id="stage" aria-label="A cathedral window of stained glass: a bead of light bounces off a brass bar below it and breaks the panes"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <span class="hud-win" id="hud-win">I · The Lancets</span>
+  <span class="hud-score"><b id="hud-score">0</b></span>
+  <span class="hud-beads" id="hud-beads" aria-label="beads of light left"></span>
+</div>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Rose Window</h1>
+    <p class="tag">light through the stained glass</p>
+    <p class="how">
+      Send a bead of light up from the brass bar and break every pane of the
+      window. <b>Move</b> the bar with the mouse, a finger or
+      <span class="gs-keys"><kbd>←</kbd> <kbd>→</kbd></span><span class="gs-touch">a drag</span>;
+      <b>send the light</b> with <span class="gs-keys"><kbd>Space</kbd> or a click</span><span class="gs-touch">a tap</span>.
+      Thick glass takes two knocks, and stone tracery none. Catch a falling
+      jewel for a wider bar, three beads or slower light.
+    </p>
+    <div class="seg" id="pick-mode">
+      <button type="button" data-v="pilgrimage"><b>Pilgrimage</b><small>eight windows, three beads</small></button>
+      <button type="button" data-v="vigil"><b>Vigil</b><small>eight windows, one bead</small></button>
+    </div>
+    <button type="button" class="playbtn" id="play"><b>Light the windows</b></button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <h2 id="over-title">The light went out</h2>
+    <p class="big" id="over-msg">0</p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Begin again</button>
+      <button type="button" id="to-menu">Modes</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>

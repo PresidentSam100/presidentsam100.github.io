@@ -1,0 +1,156 @@
+/* =====================================================================
+   Rose Window: the nave of a cathedral at dusk. The window and its glass
+   are painted on the canvas (game.js); these styles dress the HUD and the
+   two cards as carved slate panels: gilt lettering in an uncial hand, a
+   lead-came border, and buttons of stained glass.
+   ===================================================================== */
+
+:root {
+  --nave: #221e29;
+  --slate: #2f2a37;
+  --slate-hi: #3d3747;
+  --lead: #15121a;
+  --gilt: #ecc96f;
+  --gilt-deep: #a8823a;
+  --vellum: #efe5cf;
+  --dim: #b3a78f;
+  --ruby: #c3304a;
+  --ruby-deep: #7a1427;
+  --sapphire: #3d6fd0;
+  --sapphire-deep: #1b3478;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: "Alegreya", Georgia, serif;
+  color: var(--vellum);
+  overflow: hidden;
+  background: var(--nave);
+}
+
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  color: var(--gilt); text-decoration: none;
+  background: rgba(47, 42, 55, 0.94);
+  border: 2px solid var(--lead); border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.35), 0 2px 8px rgba(0, 0, 0, 0.45);
+  padding: 6px 14px;
+}
+.nav-back-games:hover { color: #fff1c4; }
+
+/* ---- HUD: a gilt line over the window ---------------------------------- */
+.hud {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; gap: 16px; white-space: nowrap; pointer-events: none;
+  background: rgba(47, 42, 55, 0.92);
+  border: 2px solid var(--lead); border-radius: 10px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.3), 0 3px 10px rgba(0, 0, 0, 0.4);
+  padding: 5px 16px;
+}
+.hud[hidden] { display: none; }
+.hud-win { font-family: "Uncial Antiqua", serif; font-size: 15px; color: var(--gilt); }
+.hud-score b { font-size: 22px; font-weight: 700; color: var(--vellum); font-variant-numeric: tabular-nums; }
+.hud-beads { font-size: 16px; color: #fff3cf; letter-spacing: 3px; min-width: 14px; }
+
+/* ---- the cards ------------------------------------------------------------ */
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(16, 12, 22, 0.45);
+}
+.panel[hidden] { display: none; }
+/* centred while it fits; a card taller than the screen starts at the top and
+   the panel scrolls (centring alone would put its heading out of reach) */
+.panel > .card { margin: auto; }
+
+.card {
+  width: min(440px, 100%);
+  background: linear-gradient(175deg, var(--slate-hi), var(--slate) 40%, #28232f);
+  border: 3px solid var(--lead); border-radius: 18px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.4), inset 0 0 0 6px rgba(21, 18, 26, 0.5),
+    0 16px 46px rgba(0, 0, 0, 0.55);
+  padding: 24px 24px 20px;
+}
+.card h1, .card h2 { font-family: "Uncial Antiqua", serif; font-weight: 400; color: var(--gilt); letter-spacing: 0.5px;
+  text-shadow: 0 1px 0 #000, 0 0 14px rgba(236, 201, 111, 0.25); }
+.card h1 { font-size: 36px; }
+.card h2 { font-size: 26px; }
+.card .tag { color: var(--dim); font-style: italic; font-size: 17px; margin: 2px 0 10px; }
+.card .how { font-size: 16px; line-height: 1.45; margin-bottom: 14px; }
+.card .how b { color: var(--gilt); }
+
+.seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 17px; text-align: left; cursor: pointer;
+  color: var(--vellum); background: rgba(21, 18, 26, 0.45);
+  border: 2px solid var(--lead); border-radius: 10px; padding: 8px 14px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.18);
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.seg button b { font-weight: 700; }
+.seg button small { font-size: 14px; color: var(--dim); font-style: italic; }
+/* the mode picked: a pane of sapphire glass, lit from behind */
+.seg button.on {
+  background: linear-gradient(170deg, #5d8ae0, var(--sapphire) 55%, var(--sapphire-deep));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35), 0 0 14px rgba(93, 138, 224, 0.45);
+}
+.seg button.on b { color: #fff8e2; }
+.seg button.on small { color: #dfe7fb; }
+
+kbd {
+  font-family: "Alegreya", Georgia, serif; font-size: 12px; font-weight: 700;
+  color: var(--gilt); background: var(--lead);
+  border: 1px solid rgba(236, 201, 111, 0.45); border-radius: 5px; padding: 0 6px 1px;
+}
+
+/* the main buttons: panes of ruby glass in lead, gilt letters */
+.playbtn, .card .row button:first-child {
+  font-family: inherit; font-weight: 700; cursor: pointer;
+  color: #fff3d0; background: linear-gradient(170deg, #e0566c, var(--ruby) 55%, var(--ruby-deep));
+  border: 3px solid var(--lead); border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.3), 0 0 16px rgba(195, 48, 74, 0.35);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.playbtn { width: 100%; font-size: 21px; padding: 11px 12px; }
+.playbtn:hover, .card .row button:hover { filter: brightness(1.08); }
+.playbtn:active, .card .row button:active { transform: translateY(1px); }
+
+.bests { margin-top: 12px; font-size: 15px; color: var(--dim); min-height: 19px; text-align: center; font-style: italic; }
+
+/* ---- the end card --------------------------------------------------------- */
+#over .card { text-align: center; }
+.card .big { font-size: 46px; font-weight: 700; color: var(--vellum); margin: 4px 0 0; font-variant-numeric: tabular-nums; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 18px; font-size: 16px; color: var(--dim); }
+.stats .best {
+  font-weight: 700; color: var(--gilt); font-style: normal;
+  border: 2px solid var(--lead); border-radius: 999px; padding: 2px 14px;
+  background: rgba(21, 18, 26, 0.5); box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.35);
+}
+.stats .best.record { color: #2a1a05; background: linear-gradient(170deg, #f7dd8f, var(--gilt) 60%, #c79a3e); }
+.card .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.card .row button {
+  font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer;
+  color: var(--vellum); background: rgba(21, 18, 26, 0.5);
+  border: 2px solid var(--lead); border-radius: 12px; padding: 8px 18px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.25);
+}
+.card .row button:first-child { padding: 8px 18px; }
+
+@media (max-width: 640px) {
+  .hud { top: auto; bottom: 12px; gap: 12px; padding: 4px 12px; }
+  .hud-win { font-size: 13px; }
+  .hud-score b { font-size: 19px; }
+  .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */
+  .card { padding: 20px 18px 18px; }
+  .card h1 { font-size: 30px; }
+  .card .how { font-size: 15px; }
+}
+
+/* the shared pause card's backdrop (game-shell.js), the nave's dusk */
+.gs-pause { background: rgba(16, 12, 22, 0.5); }
