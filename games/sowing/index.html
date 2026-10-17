@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AB%98%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Sowing</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Work+Sans:wght@400;500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Sowing, mancala on a carved board: lift the seeds from a pit and sow them round, landing the last in your store to go again or in an empty pit to take the seeds across. A browser game by Sam Lu." />
+    <meta property="og:title" content="Sowing | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Sowing, mancala on a carved board: lift the seeds from a pit and sow them round, landing the last in your store to go again or in an empty pit to take the seeds across. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<main class="cloth">
+  <h1 class="title">Sowing</h1>
+  <div class="tally">
+    <span class="side"><small id="name-far">the grandmother</small><b id="count-far">0</b></span>
+    <span class="turn" id="turn" aria-live="polite"></span>
+    <span class="side"><b id="count-near">0</b><small id="name-near">you</small></span>
+  </div>
+  <div class="board" id="board" aria-label="The board: the far row and its store on the left, your row and your store on the right"></div>
+  <div class="tools" id="tools">
+    <button type="button" id="btn-hint">Hint</button>
+    <button type="button" id="btn-undo">Undo</button>
+    <button type="button" id="btn-new">New game</button>
+    <button type="button" id="btn-menu">Menu</button>
+  </div>
+  <p class="keys"><span class="gs-keys"><kbd>1</kbd> to <kbd>6</kbd> sow from your pits, or <kbd>←</kbd> <kbd>→</kbd> and <kbd>Enter</kbd></span><span class="gs-touch">tap one of your pits to sow from it</span></p>
+  <p class="record" id="record"></p>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h2>Sowing</h2>
+    <p class="tag">mancala on a carved board</p>
+    <p class="how">
+      Lift every seed from one of your pits (the near row) and sow them one to a pit, round to the right
+      and on along the far row, into your store on the way but never into the other one.
+      <b>The last seed in your store:</b> sow again. <b>The last in an empty pit of yours:</b> take it and
+      every seed across from it. When a row runs dry the game ends, each row's seeds going to its own store;
+      the bigger store wins.
+    </p>
+    <div class="seg" id="pick-foe">
+      <button type="button" data-v="boy"><b>The farmer's boy</b><small>sows where it looks good</small></button>
+      <button type="button" data-v="grandmother"><b>The grandmother</b><small>counts every seed ahead</small></button>
+      <button type="button" data-v="friend"><b>A friend</b><small>two at one board</small></button>
+    </div>
+    <button type="button" class="playbtn" id="play">Sow</button>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">Your harvest is bigger</h2>
+    <p class="big" id="over-msg">25 to 23</p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Sow again</button>
+      <button type="button" id="to-menu">Menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
