@@ -324,7 +324,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const keys = () => hub.evaluate(() => Object.keys(localStorage).filter((k) => /^mahjong_/.test(k) && k !== "mahjong_clock_v2").sort().join());
     const had = await keys();
     await hub.click("#reset-scores"); await hub.waitForTimeout(150);
-    await hub.keyboard.press("Enter"); await hub.waitForTimeout(250);
+    await hub.keyboard.press("Escape"); await hub.waitForTimeout(250);   // (Esc in the box resets)
     const kept = await keys();
     check("mahjong: the games page's reset clears every layout's fastest clear and keeps the picked layout", had === "mahjong_best_classic,mahjong_best_fortress,mahjong_best_peaks,mahjong_layout" && kept === "mahjong_layout", { had, kept });
     await hub.close();

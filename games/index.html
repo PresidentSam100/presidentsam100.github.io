@@ -410,7 +410,7 @@
             </p>
             <div class="dialog-row">
               <button type="button" class="dialog-cancel" data-v="no">Cancel <span class="anykey">any other key</span></button>
-              <button type="button" class="dialog-ok" data-v="yes">Reset scores <kbd>Enter</kbd></button>
+              <button type="button" class="dialog-ok" data-v="yes">Reset scores <kbd>Esc</kbd></button>
             </div>
           </div>
         </dialog>
@@ -978,7 +978,7 @@
         });
         document.addEventListener("keydown", function (e) {
           if (e.key !== "Escape" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-          if (dlg.open) return;          // (the box's own Esc: it cancels)
+          if (dlg.open || e.defaultPrevented) return;   // (the box's own Esc: it resets, and the box stays shut)
           if (e.target && e.target.id === "game-search") return;   // (there Esc clears the search)
           e.preventDefault();
           btn.click();
@@ -990,14 +990,15 @@
             if (b) dlg.close(b.getAttribute("data-v"));
             else if (e.target === dlg) dlg.close("no"); // the backdrop
           });
-          // only Enter resets; any other ordinary key cancels, so having asked
+          // only Esc resets, as Esc again leaves a game from its "Leave this
+          // game?"; any other ordinary key cancels, Enter too, so having asked
           // for the box by mistake there is no key to hunt for (not Shift and
           // its kind alone, a browser shortcut, Tab, or Space, which presses
           // the button that has the focus: Cancel)
-          var ANY = /^([^ ]|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right))$/;
+          var ANY = /^([^ ]|Enter|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Arrow(Up|Down|Left|Right))$/;
           dlg.addEventListener("keydown", function (e) {
             if (e.ctrlKey || e.metaKey || e.altKey) return;
-            if (e.key === "Enter") {
+            if (e.key === "Escape") {
               e.preventDefault();
               if (!e.repeat) dlg.close("yes");
             } else if (ANY.test(e.key || "")) {
@@ -1005,6 +1006,8 @@
               if (!e.repeat) dlg.close("no");
             }
           });
+          // (a close the browser asks for another way, a phone's back gesture, resets nothing)
+          dlg.addEventListener("cancel", function () { dlg.returnValue = "no"; });
           dlg.addEventListener("close", function () {
             if (dlg.returnValue === "yes") resetScores();
           });

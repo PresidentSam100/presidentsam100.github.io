@@ -184,13 +184,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const open = () => p.evaluate(() => document.getElementById("reset-dialog").open);
     await p.click("#reset-scores"); await p.waitForTimeout(100);
     const o1 = await open();
-    await p.keyboard.press("Escape"); await p.waitForTimeout(100);
+    await p.keyboard.press("Enter"); await p.waitForTimeout(100);
     const o2 = await open(), k1 = await kept();
     await p.click("#reset-scores"); await p.waitForTimeout(100);
-    await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    await p.keyboard.press("Escape"); await p.waitForTimeout(150);
     const o3 = await open(), k2 = await kept();
     const msg = await p.evaluate(() => document.getElementById("reset-msg").textContent);
-    check("hub: reset asks in the page's dialog; Esc keeps scores, Enter clears them", o1 && !o2 && k1 === "5" && !o3 && /cleared|no saved/.test(msg), { o1, o2, k1, o3, k2, msg });
+    check("hub: reset asks in the page's dialog; Enter (any other key) keeps scores, Esc clears them", o1 && !o2 && k1 === "5" && !o3 && /cleared|no saved/.test(msg), { o1, o2, k1, o3, k2, msg });
     const lg = await legacy();
     check("hub: reset also clears ClickTap's and Tile Maze's pre-rename keys", lg[0] === null && lg[1] === null, lg);
     check("hub: no browser confirm()", (await native(p)).length === 0, await native(p));

@@ -1,8 +1,9 @@
 // The games page: Enter is 🎲 random game and Esc is 🗑️ reset all high scores,
 // each key shown on its button (not on a touch-only device). Enter on a game's
-// card, reached by Tab, still opens that game. In the reset box only Enter
-// resets: Esc, a letter or an arrow cancels (the button says "any other key"),
-// and a cancelled box clears nothing.
+// card, reached by Tab, still opens that game. In the reset box only Esc
+// resets (as Esc again leaves a game from "Leave this game?"): Enter, a letter
+// or an arrow cancels (the button says "any other key"), and a cancelled box
+// clears nothing.
 //
 // The cards: one description each, wrapping to exactly two lines on a
 // laptop's card and to no more than four on a phone's (two cards to a row),
@@ -41,7 +42,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("games page: 🎲 random game shows Enter and 🗑️ reset all high scores shows Esc", caps.random === "Enter" && caps.reset === "Esc", caps);
 
-  // ---- Esc opens the reset box; a letter, an arrow and Esc all cancel it; nothing is cleared
+  // ---- Esc opens the reset box; a letter, an arrow, Enter and Space all cancel it; nothing is cleared
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   const opened = await box(p);
   const words = await p.evaluate(() => ({ cancel: document.querySelector("#reset-dialog .dialog-cancel").textContent.replace(/\s+/g, " ").trim(), ok: document.querySelector("#reset-dialog .dialog-ok").textContent.replace(/\s+/g, " ").trim() }));
@@ -53,37 +54,35 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(150);
   const afterArrow = await box(p);
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-  const afterEsc = await box(p);
+  await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+  const afterEnter = await box(p), enterWent = await gamePath(p);
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   await p.keyboard.press("Space"); await p.waitForTimeout(150);  // (Cancel has the focus)
   const afterSpace = await box(p);
   const keptAll = await best(p);
-  check("games page: Esc opens \"Reset all saved high scores?\" with Cancel focused; the box says any other key cancels and Enter resets",
-    opened.open && /dialog-cancel/.test(opened.focus || "") && /^Cancel any other key$/.test(words.cancel) && /^Reset scores Enter$/.test(words.ok), { opened, words });
-  check("games page: in the reset box a letter, an arrow, Esc and Space each cancel (Shift and Tab answer nothing), and nothing is cleared",
-    still.open && !afterLetter.open && !afterArrow.open && !afterEsc.open && !afterSpace.open && keptAll.best === "777", { still, afterLetter, afterArrow, afterEsc, afterSpace, keptAll });
+  check("games page: Esc opens \"Reset all saved high scores?\" with Cancel focused; the box says any other key cancels and Esc resets",
+    opened.open && /dialog-cancel/.test(opened.focus || "") && /^Cancel any other key$/.test(words.cancel) && /^Reset scores Esc$/.test(words.ok), { opened, words });
+  check("games page: in the reset box a letter, an arrow, Enter and Space each cancel (Shift and Tab answer nothing; Enter doesn't also open a game), and nothing is cleared",
+    still.open && !afterLetter.open && !afterArrow.open && !afterEnter.open && enterWent === null && !afterSpace.open && keptAll.best === "777", { still, afterLetter, afterArrow, afterEnter, enterWent, afterSpace, keptAll });
   // (the letter that cancels the box is the box's: it doesn't also go to the search box)
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   await p.keyboard.press("k"); await p.waitForTimeout(150);
   const kSearch = await p.evaluate(() => ({ inBox: document.activeElement && document.activeElement.id === "game-search", value: document.getElementById("game-search").value }));
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   const reopened = await box(p);
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   check("games page: a letter that cancels the reset box doesn't also start a search, and Esc then opens the box again",
     !kSearch.inBox && kSearch.value === "" && reopened.open, { kSearch, reopened });
 
-  // ---- ...and Enter resets: the scores go, a game's settings stay
-  await p.keyboard.press("Escape"); await p.waitForTimeout(150);
-  await p.keyboard.press("Enter"); await p.waitForTimeout(250);
+  // ---- ...and Esc again resets: the scores go, a game's settings stay, and the box stays shut
+  await p.keyboard.press("Escape"); await p.waitForTimeout(250);
   const cleared = await best(p), closed = await box(p);
-  check("games page: Enter in the reset box clears the high scores (and leaves a game's settings alone)",
+  check("games page: Esc in the reset box clears the high scores (and leaves a game's settings alone), and doesn't open the box again",
     !closed.open && cleared.best === null && /hard/.test(cleared.prefs || ""), { closed, cleared });
   check("games page: the reset clears Hash's bests in every way to play and its Daily, and keeps the mode it was left on",
     cleared.hash === 0 && /chain/.test(cleared.hashPrefs || ""), cleared);
   check("games page: the reset clears Tall Order's bests in the dark, and leaves Dark on as it was",
     cleared.dark === 0 && cleared.darkOn === "1", cleared);
-  check("games page: Enter in the box hasn't also set off the random game", (await gamePath(p)) === null, await gamePath(p));
+  check("games page: Esc in the box hasn't also set off anything else (no game opened)", (await gamePath(p)) === null, await gamePath(p));
 
   // ---- Enter is the random game, from anywhere but a link or a button
   await p.keyboard.press("Enter");
