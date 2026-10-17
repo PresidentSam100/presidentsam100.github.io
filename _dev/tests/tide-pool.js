@@ -6,8 +6,8 @@
 // counts its swaps down and ends with the last; the Tide ends with its clock;
 // the score is kept as the best; the end card waits a moment for Space,
 // then wades in again, and Backspace goes to the menu; the arrows and Space
-// swap from the keyboard, but not while paused; with Visual FX on the pieces
-// slide and fall into place, with it off they're there at once; on a phone a drag
+// swap from the keyboard, but not while paused; the pieces slide and fall
+// into place the same with Visual FX on or off (only the flourishes need it on); on a phone a drag
 // from one piece onto its neighbour swaps them.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -119,7 +119,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     paused.cursor === start && paused.left === 25 && swapped.left === 24 && swapped.score > 0, { start, paused, swapped });
   await done(p, "keys");
 
-  // ---- Visual FX: on, the pieces fall into place; off, they're there at once
+  // ---- the pieces fall into place, with Visual FX on and off alike (where a piece goes is play)
   const fall = {};
   for (const off of [false, true]) {
     const q = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tide-pool", off ? "1" : "0"); } catch (e) {} }, off) });
@@ -132,7 +132,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     }), PLAIN);
     await done(q, "FX " + (off ? "off" : "on"));
   }
-  check("tide-pool: with Visual FX on the pieces fall into the gap; with it off they're there at once", fall.on > 0 && fall.off === 0, fall);
+  check("tide-pool: the pieces fall into the gap with Visual FX on and with it off", fall.on > 0 && fall.off > 0, fall);
 
   // ---- Visual FX, the motion in detail (the clock held and stepped by the
   // test, so it's exact however busy the machine is). On: a swap's two glide
@@ -140,8 +140,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // no line slides out toward the other's place and springs back, past home a
   // little (and doesn't hold up the next swap); pieces fall gathering speed
   // and squash as they land; each kind leaves in its own way; a long line
-  // sends a ring of light across the pool. Off: none of it, the pieces where
-  // they go at once, and a swap that makes no line rings the two a moment.
+  // sends a ring of light across the pool. Off: the same moves at the same
+  // pace (where a piece goes is play), but no squash, leaving, bubbles or ring.
   // (a hook that isn't there, or a step that throws, fails its check rather than the suite)
   const safe = (pr) => pr.catch((e) => ({ error: String(e && e.message || e).split("\n")[0] }));
   const holds = (f) => { try { return !!f(); } catch (e) { return false; } };
@@ -191,9 +191,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     holds(() => on.fall.start === -1 && on.fall.early < -0.6 && on.fall.squash > 0.1 && on.fall.end === 0 && on.fall.endSy === 1), on.fall);
   check("tide-pool, FX on: the washed-away pieces leave in their own way, bubbles rising, and a line of five sends a ring across the pool",
     holds(() => on.clears === "5,5,5" && on.bubbles > 0 && on.ripple > 0), { clears: on.clears, bubbles: on.bubbles, ripple: on.ripple });
-  check("tide-pool, FX off: none of it (no slide, bounce, fall, leaving, bubbles or ring); a swap that makes no line rings the two, standing still",
-    holds(() => off.failed === false && off.ringed && off.back.most === 0 && off.back.least === 0 && off.swap.q1 === 0 && off.swap.side === 0 &&
-    off.clears === "" && off.bubbles === 0 && off.fall.start === 0 && off.fall.squash === 0 && off.ripple === 0), off);
+  check("tide-pool, FX off: the pieces travel just as with it on (a swap passing, a swap that makes no line out and back, a fall from start to end), at the same pace",
+    holds(() => off.failed === false && off.again === true && JSON.stringify(off.swap) === JSON.stringify(on.swap) && JSON.stringify(off.back) === JSON.stringify(on.back) &&
+    off.swap.half > 0.4 && off.swap.half < 0.6 && off.back.most > 0.45 && off.fall.start === -1 && off.fall.early === on.fall.early && off.fall.early > -1 && off.fall.end === 0), { off: off && { swap: off.swap, back: off.back, fall: off.fall }, on: on && { swap: on.swap, back: on.back, fall: on.fall } });
+  check("tide-pool, FX off: none of the flourishes (no squash on landing, no leaving of their own, no bubbles, no ring of light)",
+    holds(() => off.fall.squash === 0 && off.fall.endSy === 1 && off.clears === "" && off.bubbles === 0 && off.ripple === 0), off);
   // each kind's own leaving: six different motions, each moving, each gone by the end
   {
     const q = await open();

@@ -103,17 +103,20 @@
   Object.keys(MODES).forEach(function (m) { bests[m] = window.GameShell ? GameShell.best("tidepool_best_" + m, { higher: true }) : null; });
   var state = "menu", board = deal(Math.random), score = 0, runBest = 0, timeLeft = 0, swapsLeft = 0, chainMax = 0, cleared = 0;
   var sel = -1, cursor = 27, keyed = false, busy = false, hintAt = null, idle = 0, overAt = 0, OVER_WAIT = 700;
-  // What moves, with Visual FX on (with it off the pieces are where they go at
-  // once, and nothing below runs but the ring on a swap that makes no line):
+  // What moves. Where a piece goes is play, so the moves glide the same with
+  // Visual FX on or off, at the same pace (drawn frame by frame):
   //   anims: pieces moving into place, {i, fr, fc, t, d, kind, side}, from row
   //     fr, column fc. "swap": the two of a swap glide past each other, eased
   //     in and out, each a little to its own side. "fall": dropping into a
-  //     gap, or in from above the pool, gathering speed, then a squash as it lands.
+  //     gap, or in from above the pool, gathering speed (with FX on, a squash
+  //     as it lands).
   //   nope: a swap that makes no line, {a, c, t}: the two slide toward each
-  //     other's places and spring back (FX off: ringed a moment, standing still).
+  //     other's places and spring back.
+  // The rest is FX on only (with it off a washed-away piece shows faint until
+  // it goes, and the picked one keeps its plain ring):
   //   clears: a washed-away piece's own way of leaving (see pose), {i, k, r, c,
-  //     t, delay, dir}, drawn over the board; it runs on while the rest settle,
-  //     so play never waits on it.
+  //     t, delay, dir}, drawn under the board; it runs on while the rest
+  //     settle, so play never waits on it.
   //   ripples: a ring of light across the pool for a long line or a chain.
   var anims = [];
   var washing = []; // cells being washed away, shown a moment
@@ -155,7 +158,7 @@
     if (!runs(nb).length) { sfxNo(); nope = { a: a, c: c, t: 0 }; sel = -1; return false; }
     board = nb; sel = -1; nope = null;
     // (the two glide past each other, one to each side)
-    if (fx()) anims = [{ i: a, fr: Math.floor(c / N), fc: c % N, t: 0, d: SWAP_T, kind: "swap", side: 1 }, { i: c, fr: Math.floor(a / N), fc: a % N, t: 0, d: SWAP_T, kind: "swap", side: -1 }];
+    anims = [{ i: a, fr: Math.floor(c / N), fc: c % N, t: 0, d: SWAP_T, kind: "swap", side: 1 }, { i: c, fr: Math.floor(a / N), fc: a % N, t: 0, d: SWAP_T, kind: "swap", side: -1 }];
     if (mode === "pool") swapsLeft--;
     hud();
     resolve(1);
@@ -209,7 +212,6 @@
       }
       for (var n = w; n >= 0; n--) { board[n * N + c] = Math.floor(Math.random() * KINDS); anims.push({ i: n * N + c, fr: n - (w + 1), fc: c, t: 0, d: FALL_T, kind: "fall" }); }
     }
-    if (!fx()) anims = [];
   }
   var timers = [];
   function later(fn) { timers.push(setTimeout(function () { if (state === "play" || state === "over") fn(); }, STEP_MS)); }
@@ -292,8 +294,6 @@
       g.globalAlpha = 1;
     }
     if (fxOn) ripples.forEach(drawRipple);
-    // (Visual FX off, a swap that makes no line rings the two a moment, standing still)
-    if (nope && !fxOn) { ring(nope.a, "#f07a5a", 3); ring(nope.c, "#f07a5a", 3); }
     // the picked piece, the keyboard's cursor, the hint
     if (sel >= 0) ring(sel, "#ffffff", 3);
     if (keyed && state === "play") ring(cursor, "#ff7a59", 3);
@@ -306,7 +306,7 @@
       g.globalAlpha = 1;
     }
   }
-  // ---- the motion's shapes (Visual FX on) ------------------------------------------------------
+  // ---- the motion's shapes (the moves in both modes, the flourishes with Visual FX on) --------
   function inOut(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
   function outBack(u) { var s = 1.70158; return 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2); }
   var LAND = 0.72;   // a fall's share spent dropping; the rest is the squash as it lands
@@ -314,7 +314,6 @@
   // it's squashed: {dx, dy, sx, sy}
   function posOf(i) {
     var r = Math.floor(i / N), c = i % N, p = { dx: 0, dy: 0, sx: 1, sy: 1 };
-    if (!fx()) return p;
     for (var a = 0; a < anims.length; a++) {
       var an = anims[a]; if (an.i !== i) continue;
       if (an.kind === "swap") {
@@ -322,7 +321,7 @@
         p.dx = (an.fc - c) * (1 - e); p.dy = (an.fr - r) * (1 - e);
         if (an.fr === r) p.dy += side; else p.dx += side;
       } else {
-        var f = an.t < LAND ? Math.pow(an.t / LAND, 2) : 1, sq = an.t < LAND ? 0 : 0.16 * Math.sin(Math.PI * (an.t - LAND) / (1 - LAND));
+        var f = an.t < LAND ? Math.pow(an.t / LAND, 2) : 1, sq = an.t < LAND || !fx() ? 0 : 0.16 * Math.sin(Math.PI * (an.t - LAND) / (1 - LAND));
         p.dy = (an.fr - r) * (1 - f); p.sy = 1 - sq; p.sx = 1 + sq * 0.6;
       }
     }
