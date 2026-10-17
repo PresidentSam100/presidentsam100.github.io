@@ -8,10 +8,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   const frames = async (fxOff) => {
     const p = await lib.open(ctx, base, "games/typetwo/");
     await p.evaluate((off) => localStorage.setItem("reduceMotion:typetwo", off ? "1" : "0"), fxOff);
-    await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+    await p.reload({ waitUntil: "domcontentloaded" });
     const shot = () => p.evaluate(() => document.getElementById("game").toDataURL());
-    const a = await shot(); await p.waitForTimeout(400); const b = await shot();
     const blank = await p.evaluate(() => { const c = document.createElement("canvas"), g = document.getElementById("game"); c.width = g.width; c.height = g.height; return c.toDataURL(); });
+    // (by frames, not time: a busy machine can take longer than a fixed wait
+    // to draw the first frame, or draw none between two shots)
+    const frames = (n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k > n) r(); else requestAnimationFrame(f); })(); }), n);
+    await p.waitForFunction((blank) => document.getElementById("game").toDataURL() !== blank, blank, { timeout: 15000, polling: 100 }).catch(() => {});
+    await frames(3);
+    const a = await shot(); await frames(20); const b = await shot();
     const errs = p.errs;
     await p.close();
     return { still: a === b, drawn: a !== blank, errs };

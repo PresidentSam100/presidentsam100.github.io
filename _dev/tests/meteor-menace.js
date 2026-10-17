@@ -75,9 +75,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   const menuShip = async (off) => {
     const pg = await open();
     await pg.evaluate((off) => localStorage.setItem("reduceMotion:meteor-menace", off ? "1" : "0"), off);
-    await pg.reload({ waitUntil: "domcontentloaded" }); await pg.waitForTimeout(200);
+    await pg.reload({ waitUntil: "domcontentloaded" });
+    // (by frames, not time: a busy machine can take longer than a fixed wait
+    // to draw the first frame, or draw none between two reads)
+    await pg.waitForFunction(() => !!window.__menuShip, null, { timeout: 15000 }).catch(() => {});
     const a = await pg.evaluate(() => window.__menuShip);
-    await pg.waitForTimeout(300);
+    await pg.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k > 18) r(); else requestAnimationFrame(f); })(); }));
     const b = await pg.evaluate(() => window.__menuShip);
     await done(pg, "menu ship FX " + (off ? "off" : "on"));
     return { a, b, still: !!a && !!b && a.every((v, i) => v === b[i]) };
