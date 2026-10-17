@@ -749,9 +749,11 @@ function spawnTraffic(row) {
 
 // A river lane is EITHER all moving logs OR all stationary lily pads: never mixed.
 // forceLogs prevents two stationary pad rows from stacking (which can be uncrossable).
+// Insane has no lily pads: like grass they are a place to stand still, so its
+// rivers are all logs.
 function makeRiverRow(diff, forceLogs) {
   const cycle = COLS + 2 * LEFTBUF;
-  if (forceLogs || Math.random() < 0.85) {
+  if (forceLogs || insane || Math.random() < 0.85) {
     // moving logs (the dominant river lane): drifts and carries the chicken along
     const dir = Math.random() < 0.5 ? 1 : -1;
     const speed = rand(1.0, 2.3) * diff;
@@ -2175,7 +2177,7 @@ function drawMenu() {
   // Normal or Insane, side by side under the modes, each with its key on its
   // outer side (a tap picks one)
   const lv = levelRects();
-  [["Normal", "grass to rest on", "#ffd23d"], ["Insane", "no grass: all hazards", "#ff7a6b"]].forEach(([name, says, on], i) => {
+  [["Normal", "grass and lily pads to rest on", "#ffd23d"], ["Insane", "no grass or lily pads", "#ff7a6b"]].forEach(([name, says, on], i) => {
     const sel = insane === (i === 1), b = lv[i];
     drawLevel(b, sel ? on : "#f6f2e4", name, says, sel);
     keysCenter(i ? "[I]" : "[N]", i ? b.x + b.w + 26 : b.x - 26, b.y + b.h / 2 + 1, 17, sel ? on : "#fff", "");

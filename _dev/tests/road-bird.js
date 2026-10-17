@@ -8,9 +8,9 @@
 // ride on it, and Play (Space or Enter) sits under the modes, above the skin.
 // The how-to line lies inside the board's rim, and rows meet on hairlines;
 // a road's dashed line runs between two lanes, not down the middle of one.
-// Normal or Insane (N / I) under the modes: Insane has no grass to rest on,
-// and keeps bests of its own. A slow load's out-of-order first frame doesn't
-// step the clock back.
+// Normal or Insane (N / I) under the modes: Insane has no grass or lily pads
+// to rest on, and keeps bests of its own. A slow load's out-of-order first
+// frame doesn't step the clock back.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
 // the first mode's top, one mode to the next, a mode's height, Normal and
@@ -240,8 +240,8 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Normal or Insane, side by side under the modes: N and I (or a click)
   // pick one, and it is remembered, each keycap on its button's outer side.
-  // Insane has no grass after the row you start on, in every mode (Normal
-  // keeps its rests); each keeps its own bests, shown on the modes and in
+  // Insane has no grass after the row you start on, in every mode, and no
+  // lily pads (Normal keeps its rests); each keeps its own bests, shown on the modes and in
   // play, and the game-over card says which it was.
   {
     const seed = (pg) => pg.addInitScript(() => { try { localStorage.setItem("crossy_high_classic", "42"); localStorage.setItem("crossy_high_classic_insane", "7"); } catch (e) {} });
@@ -268,7 +268,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       for (const level of ["n", "i"]) {
         await q.keyboard.press(n); await q.keyboard.press(level); await q.keyboard.press("Enter");
         await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
-        const got = await q.evaluate(() => { const t = __game.rowTypes(0, 400); return { start: t[0], ahead: t.slice(1).filter((x) => x === "grass").length, mode: __game.mode }; });
+        const got = await q.evaluate(() => {
+          const t = __game.rowTypes(0, 400), R = __game.rows;
+          let pads = 0;
+          for (let r = 1; r <= 400; r++) if (R[r] && R[r].type === "river" && R[r].variant === "pads") pads++;
+          return { start: t[0], ahead: t.slice(1).filter((x) => x === "grass").length, pads, mode: __game.mode };
+        });
         if (mode === "classic" && level === "i") got.hud = await drawn(q);
         await q.evaluate(() => __game.death("runover"));
         await q.waitForFunction(() => __game.state === "dead", null, { timeout: 15000 });
@@ -280,6 +285,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("road-bird: in Insane not one grass row comes after the one you start on, in every mode; Normal still has its rests",
       ["classic", "cars", "trains", "river"].every((m) => grass[m].mode === m && grass[m + " insane"].mode === m && grass[m].ahead > 3 && grass[m + " insane"].ahead === 0 && grass[m + " insane"].start === "grass"),
       Object.fromEntries(Object.entries(grass).map(([k, v]) => [k, { start: v.start, ahead: v.ahead, mode: v.mode }])));
+    check("road-bird: in Insane no river has lily pads to stand on (its rivers are all logs); Normal's Classic and River still have them",
+      ["classic", "cars", "trains", "river"].every((m) => grass[m + " insane"].pads === 0) && grass.classic.pads > 0 && grass.river.pads > 0,
+      Object.fromEntries(Object.entries(grass).map(([k, v]) => [k, v.pads])));
     const ci = grass["classic insane"];
     check("road-bird: an Insane run says so beside its best (7), and its game-over card names it",
       /INSANE {2}· {2}BEST 7\b/.test(ci.hud) && /Classic, Insane {2}· {2}Score/.test(ci.over), { hud: ci.hud, over: ci.over });
