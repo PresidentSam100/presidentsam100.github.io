@@ -1772,7 +1772,13 @@ function drawSignal(row, top) {
   const lit = row.state === "warn" && (fxOff() || (((row.blink * 6) | 0) % 2) === 0);   // steady while warning with FX off
   ctx.fillStyle = lit ? "#ff2b2b" : "#5a1414";
   ctx.beginPath(); ctx.arc(x + 8, top + 10, 5, 0, 7); ctx.fill();
-  if (lit) { ctx.fillStyle = "rgba(255,60,60,.45)"; ctx.beginPath(); ctx.arc(x + 8, top + 10, 10, 0, 7); ctx.fill(); }
+  // lit, its glow tints the signal's black square, and stops at its edge
+  if (lit) {
+    ctx.save();
+    roundRect(x, top + 2, 16, 16, 4); ctx.clip();
+    ctx.fillStyle = "rgba(255,60,60,.45)"; ctx.beginPath(); ctx.arc(x + 8, top + 10, 10, 0, 7); ctx.fill();
+    ctx.restore();
+  }
 }
 
 function drawTrain(row, top) {

@@ -11,8 +11,9 @@
 // Normal or Insane (N / I) under the modes: Insane has no grass or lily pads
 // to rest on, and keeps bests of its own. A symbol keycap's ink (the menu's
 // arrows) sits in the middle of its cap. A hop onto a moving log comes down on
-// the middle of one of its cells and rides there; a slow load's out-of-order
-// first frame doesn't step the clock back.
+// the middle of one of its cells and rides there; a crossing's warning light
+// glows only inside its black square; a slow load's out-of-order first frame
+// doesn't step the clock back.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
 // the first mode's top, one mode to the next, a mode's height, Normal and
@@ -247,6 +248,39 @@ module.exports = async ({ browser, base, check, lib }) => {
     const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
     check("road-bird: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
     check("road-bird (first frame): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- a crossing's warning light: lit, its glow tints the black square of
+  // the signal but stops at its edge (it spilled 2 px past it all round)
+  {
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
+    await q.evaluate(() => { if (!window.RM_ON()) document.querySelector(".rm-toggle").click(); });   // (FX off: the light shows steady while it warns)
+    await q.keyboard.press("3"); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
+    const glow = await q.evaluate(() => {
+      const c = document.getElementById("game"), g = c.getContext("2d"), R = __game.rows, now = performance.now;
+      let rail = null;
+      for (let r = __game.player.gy + 1; r < __game.player.gy + 6 && !rail; r++) if (R[r] && R[r].type === "rail") rail = R[r];
+      if (!rail) return null;
+      Object.assign(rail, { state: "idle", timer: 99 });
+      // the light's middle and the transform it's drawn through (its glow is the arc of radius 10)
+      let at = null;
+      const arc = g.arc;
+      g.arc = function (x, y, r) { if (r === 10 && !at && /255, 60, 60/.test(g.fillStyle)) { const t = g.getTransform(); at = { x, y, t: [t.a, t.d, t.e, t.f] }; } return arc.apply(this, arguments); };
+      const shot = (state) => { rail.state = state; performance.now = () => 5000; try { __game.render(); } finally { performance.now = now; } return g.getImageData(0, 0, c.width, c.height); };
+      const off = shot("idle"), on = shot("warn");
+      delete g.arc;
+      if (!at) return { noGlow: true };
+      const red = (img, lx, ly) => { const px = Math.round(at.t[0] * (at.x + lx) + at.t[2]), py = Math.round(at.t[1] * (at.y + ly) + at.t[3]), i = (py * c.width + px) * 4; return img.data[i] - img.data[i + 1]; };
+      // just outside the square (it spans 8 either way of the light) and just inside a corner
+      const outside = [[-9.5, 0], [9.5, 0], [0, -9.5], [0, 9.5]].map(([x, y]) => red(on, x, y) - red(off, x, y));
+      const inside = red(on, -6, -6) - red(off, -6, -6);
+      return { outside, inside };
+    });
+    check("road-bird: a crossing's lit warning light tints its black square and no further",
+      !!glow && !glow.noGlow && glow.outside.every((d) => Math.abs(d) <= 2) && glow.inside > 20, glow);
+    check("road-bird (warning light): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
 
