@@ -272,4 +272,35 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, label + " editor status");
     await ctx.close();
   }
+
+  // ---- Visual FX off: thrown back by a yellow tile, or by live water (water
+  // beside a yellow tile), the ball still goes onto that tile, is held there
+  // lit through the zap (still: no shake), and comes back to where it came
+  // from (it was put straight back, only the tile lighting up), never drawn
+  // behind the tile it left (a first frame could be, before). The moves are
+  // the engine's own, played by the game's animation on the real page.
+  {
+    ctx = await lib.newContext(browser);
+    p = await lib.open(ctx, base, "games/tile-maze/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:tile-maze", "1"); } catch (e) {} }) });
+    const zaps = await p.evaluate(async () => {
+      const cg = 50, out = {};
+      for (const [name, grid] of [["yellow", ["Spy"]], ["live water", ["Spby"]]]) {
+        const el = document.createElement("div"); el.className = "player"; el.innerHTML = '<div class="soul"></div>'; document.getElementById("player").parentNode.appendChild(el);
+        const xs = [];
+        new MutationObserver(() => { const m = /translate\(([-\d.]+)px/.exec(el.style.transform); if (m) xs.push(+m[1]); }).observe(el, { attributes: true, attributeFilter: ["style"] });
+        const res = TileEngine.resolveMove(grid, { r: 0, c: 1, flavor: "Plain" }, "right");
+        let held = null;
+        const ctx = { playerEl: el, gap: 0, cell: () => cg, grid: () => grid, from: { r: 0, c: 1 }, setFlavor: () => {}, sfx: null, stale: () => false,
+          flashTile: () => { setTimeout(() => { const m = /translate\(([-\d.]+)px/.exec(el.style.transform); held = { x: m ? +m[1] : null, zap: el.classList.contains("zap"), anim: getComputedStyle(el.querySelector(".soul")).animationName }; }, 120); } };
+        await TileAnim.play(ctx, res);
+        out[name] = { bounced: res.bounced, least: Math.min(...xs) / cg, reached: Math.max(...xs) / cg, held, back: xs[xs.length - 1] / cg };
+        el.remove();
+      }
+      return out;
+    });
+    check("tile-maze, FX off: thrown back by a yellow tile or live water, the ball goes onto it, is held there lit and still through the zap, then comes back",
+      ["yellow", "live water"].every((k) => { const z = zaps[k]; return z.bounced && z.least >= 1 - 0.001 && Math.abs(z.reached - 2) < 0.01 && z.held && z.held.zap && z.held.anim === "none" && Math.abs(z.held.x / 50 - 2) < 0.01 && Math.abs(z.back - 1) < 0.01; }), zaps);
+    await done(p, "zap");
+    await ctx.close();
+  }
 };

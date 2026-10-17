@@ -331,15 +331,12 @@
     refreshLive();
 
     // A slide that traveled and then stopped against a wall (e.g. ice into a red
-    // block) should bump into it and settle back. Only with motion enabled:
-    // when reduced, skip the nudge (and its brief input lock), but still mark
-    // the wall side of the ball, as a blocked move does.
+    // block) bumps into it and settles back, as a blocked move does (with
+    // Visual FX off the ball is put against the wall a moment, then back)
     if (A && res.hitWall && !res.win) {
-      if (!(window.RM_ON && window.RM_ON())) {
-        SFX.thud();
-        await A.bump(animCtx(gen), dir, state);
-        if (gen !== moveGen) return;
-      } else if (A.markBump) A.markBump(playerEl, dir);
+      SFX.thud();
+      await A.bump(animCtx(gen), dir, state);
+      if (gen !== moveGen) return;
     }
 
     locked = false;

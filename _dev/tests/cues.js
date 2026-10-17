@@ -468,19 +468,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "klondike");
   }
 
-  // ---- Tile Maze: an ice slide leaves a trail (FX off); a wall shows a bump bar
-  // (served with both marks lasting 5s, not 0.5s, for the same reason as Darkroom)
+  // ---- Tile Maze, FX off: the ball still travels (it was put straight at the
+  // end of a move, with a dashed trail over what it crossed), and a wall
+  // stops it with a bump toward the wall and back (it was a red bar on the
+  // ball, now gone in both modes). Every position the ball is given is kept.
   {
-    const p = await open("tile-maze", true, null, async (pg) => {
-      await pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} });
-      await lib.injectScript(pg, "games/tile-maze/anim.js", [["const MARK = 500;", "const MARK = 5000;"]]);
+    const p = await open("tile-maze", true, null, (pg) => pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} }));
+    const at = () => p.evaluate(() => { const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(document.getElementById("player").style.transform); return m ? +m[1] : null; });
+    await p.evaluate(() => {
+      const pl = document.getElementById("player"); window.__xs = [];
+      new MutationObserver(() => { const m = /translate\(([-\d.]+)px/.exec(pl.style.transform); if (m) window.__xs.push(+m[1]); }).observe(pl, { attributes: true, attributeFilter: ["style"] });
     });
+    const x0 = await at();
     await p.keyboard.press("ArrowRight");
-    const t = await probe(p, () => [1, 2, 3, 4, 5].map((c) => { const e = document.querySelector('.tile[data-r="1"][data-c="' + c + '"]'); return e ? getComputedStyle(e).outlineStyle : null; }));
-    check("tile-maze, FX off: an ice slide leaves a dashed trail over the tiles it crossed", t.filter((s) => s === "dashed").length >= 4, t);
-    await p.waitForTimeout(150);
-    const bar = await p.evaluate(() => { const pl = document.getElementById("player"); const cs = getComputedStyle(pl, "::after"); return { bump: pl.dataset.bump, w: parseFloat(cs.width), h: parseFloat(cs.height) }; });
-    check("tile-maze: stopping at a wall shows a bump bar on that side", bar.bump === "right" && bar.w > 0 && bar.h > 0, bar);
+    await p.evaluate(() => new Promise((r) => setTimeout(r, 2500)));   // (on the page's clock: the slide and the bump are over)
+    const xs = await p.evaluate(() => window.__xs), end = await at();
+    const cell = await p.evaluate(() => { const t = document.querySelectorAll(".tile"); return t[1].getBoundingClientRect().left - t[0].getBoundingClientRect().left; });
+    const between = new Set(xs.filter((x) => x > x0 + 2 && x < end - 2).map(Math.round)).size;
+    const past = Math.max(...xs) - end;
+    const bar = await p.evaluate(() => { const pl = document.getElementById("player"); return { data: pl.dataset.bump || null, after: getComputedStyle(pl, "::after").content }; });
+    check("tile-maze, FX off: an ice slide carries the ball across the tiles it crosses (not straight to its end)",
+      end - x0 >= 3 * cell - 2 && between >= 6, { x0, end, cell, between });
+    check("tile-maze, FX off: stopping at a wall, the ball bumps toward it and settles back; no bar on the ball",
+      past > 3 && xs[xs.length - 1] === end && !bar.data && /^(none|normal)$/.test(bar.after), { past, last: xs[xs.length - 1], end, bar });
     await done(p, "tile-maze");
   }
 

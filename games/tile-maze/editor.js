@@ -231,10 +231,7 @@
     else placePlayer(res.final.r, res.final.c, false);
     if (gen !== testGen) return;
     tstate = res.final; setFlavor(tstate.flavor); refreshLive();
-    if (A && res.hitWall && !res.win) {
-      if (!(window.RM_ON && window.RM_ON())) { SFX.thud(); await A.bump(tCtx(gen), dir, tstate); if (gen !== testGen) return; }
-      else if (A.markBump) A.markBump(playerEl, dir);   // FX off: no nudge or lock, but the wall side is marked
-    }
+    if (A && res.hitWall && !res.win) { SFX.thud(); await A.bump(tCtx(gen), dir, tstate); if (gen !== testGen) return; }   // (FX off: put against the wall a moment, then back)
     tlocked = false;
     if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; overlayT = setTimeout(() => { testOverlay.hidden = false; }, 250); }
   }

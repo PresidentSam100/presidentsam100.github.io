@@ -7,11 +7,9 @@
        second half at the tile you're entering;
      • an electric "zap" hold on yellow / live-water before the rebound;
      • a wall "bump" (slower when you're standing in water).
-   Event marks that hold still in both modes, cleared by timers (with Visual
-   FX off there's no transitionend / animationend to wait for):
-     • a bar on the side of the ball that met a wall (player[data-bump]);
-     • Visual FX off only: a slide jumps straight to its last tile, so the
-       tiles it crossed get a brief dashed trail (.tile.trail). */
+   All of it is driven frame by frame (rAF), so the ball travels the same
+   with Visual FX on or off: where it goes is the game, not decoration. With
+   FX off only the zap's shake holds still (styles.css). */
 (function (root, factory) {
   const mod = factory();
   if (typeof window !== "undefined") window.TileAnim = mod;
@@ -27,28 +25,6 @@
   const ICE = 75;     // purple ice: fast (sliding)
   const ZAP = 300;    // electric zap hold before the rebound
   const REBOUND = 150;
-  const MARK = 500;   // how long the still wall-bump bar and slide trail stay
-
-  // The wall-bump bar: data-bump="up|down|left|right" on the player for MARK ms.
-  function markBump(el, dir) {
-    if (!el || !DELTA[dir]) return;
-    el.dataset.bump = dir;
-    clearTimeout(el._bumpT);
-    el._bumpT = setTimeout(() => { delete el.dataset.bump; }, MARK);
-  }
-  function clearBump(el) { clearTimeout(el._bumpT); delete el.dataset.bump; }
-
-  // The slide trail (Visual FX off): a class on each crossed tile for MARK ms.
-  function markTrail(ctx, tiles) {
-    if (!ctx.tileEl) return;
-    tiles.forEach((t) => {
-      const te = ctx.tileEl(t.r, t.c);
-      if (!te) return;
-      te.classList.add("trail");
-      clearTimeout(te._trailT);
-      te._trailT = setTimeout(() => te.classList.remove("trail"), MARK);
-    });
-  }
 
   function perTile(grid, t) {
     const ch = grid[t.r][t.c];
@@ -81,7 +57,10 @@
       const start = performance.now();
       function frame(now) {
         if (stale()) { resolve(); return; }   // the board was reset under it: the ball stays where that put it
-        const e = now - start;
+        // (never before the start: a frame's timestamp can come before the
+        // performance.now() read above, and the ball jumped back behind the
+        // tile it was leaving for a frame)
+        const e = Math.max(0, now - start);
         if (e >= total) { set(pts[pts.length - 1]); resolve(); return; }
         let seg = 0;
         while (seg < durs.length - 1 && e > cum[seg + 1]) seg++;
@@ -95,7 +74,7 @@
   }
 
   // Animate one resolved move. Returns a promise that settles when done.
-  // ctx: { playerEl, gap, cell()->px, grid()->rows, reduced()->bool,
+  // ctx: { playerEl, gap, cell()->px, grid()->rows,
   //        from:{r,c} (tile before the move), setFlavor(f), sfx|null, flashTile(r,c),
   //        stale()->bool (true once a reset or new level has replaced this move) }
   async function play(ctx, res) {
@@ -106,9 +85,6 @@
     const stale = ctx.stale || (() => false);
     const cg = ctx.cell() + ctx.gap;
     const center = (s) => ({ x: s.c * cg, y: s.r * cg });
-    const reduced = !!(ctx.reduced && ctx.reduced());
-    clearBump(el);   // a move away takes the last bump's bar with it
-
     const bounced = !!res.bounced;
     const forward = bounced ? steps.slice(0, -1) : steps;
     const rebound = bounced ? steps[steps.length - 1] : null;
@@ -116,22 +92,6 @@
     const lastCh = grid[last.r][last.c];
     let fwdFlavor = null;
     for (let i = forward.length - 1; i >= 0; i--) if (forward[i].flavor) { fwdFlavor = forward[i].flavor; break; }
-
-    // Reduced motion: jump to the final tile, keep the cues. A jump of more
-    // than one tile (an ice slide) leaves a trail on the tiles it crossed:
-    // where it started and what it slid over, so you can see where you went.
-    if (reduced) {
-      const fin = res.final;
-      const crossed = [ctx.from || forward[0]].concat(bounced ? forward.slice(0, -1) : forward)
-        .filter((t) => t.r !== fin.r || t.c !== fin.c);
-      if (crossed.length > 1) markTrail(ctx, crossed);
-      el.style.transition = "none"; el.style.transform = "translate(" + (res.final.c * cg) + "px, " + (res.final.r * cg) + "px)";
-      void el.offsetWidth; el.style.transition = "";
-      if (fwdFlavor) ctx.setFlavor(fwdFlavor);
-      if (bounced) { ctx.flashTile && ctx.flashTile(last.r, last.c); ctx.sfx && ctx.sfx.bounce && ctx.sfx.bounce(); }
-      else landSound(ctx, lastCh);
-      return;
-    }
 
     if (fwdFlavor) ctx.setFlavor(fwdFlavor);
     const isSlide = forward.some((s) => grid[s.r][s.c] === "u");
@@ -163,41 +123,29 @@
       await wait(ZAP);
       el.classList.remove("zap");
       if (stale()) return;
-      el.style.transition = "transform " + REBOUND + "ms ease-in";
-      el.style.transform = "translate(" + (rebound.c * cg) + "px, " + (rebound.r * cg) + "px)";
-      await wait(REBOUND);
+      await animatePath(el, [center(last), center(rebound)], [REBOUND], stale);
       el.style.transition = "";
     }
   }
 
   // Nudge toward a wall the player tried to enter, then settle back. Awaitable.
   // pos = the player's current resting tile {r,c}; slower when that tile is water.
-  // The bar on the wall side shows in both modes; with Visual FX off the ball
-  // doesn't nudge (the flattened transition only made it twitch), but the
-  // promise takes just as long, so the input lock is the same in both modes.
+  // (frame by frame, as a move is, so it shows with Visual FX off too: a CSS
+  // transition is flattened there and only made the ball twitch)
   function bump(ctx, dir, pos) {
     const d = DELTA[dir];
     if (!d) return Promise.resolve();
     const el = ctx.playerEl;
     const cg = ctx.cell() + ctx.gap;
-    const baseX = pos.c * cg, baseY = pos.r * cg;
+    const base = { x: pos.c * cg, y: pos.r * cg };
     const nudge = Math.min(16, ctx.cell() * 0.34);
     const slow = ctx.grid()[pos.r][pos.c] === "b";
     const out = slow ? 150 : 80, back = slow ? 235 : 130;
-    markBump(el, dir);
-    if (ctx.reduced && ctx.reduced()) return wait(out + back + 20);
     const stale = ctx.stale || (() => false);
-    return new Promise((resolve) => {
-      el.style.transition = "transform " + out + "ms ease-out";
-      el.style.transform = "translate(" + (baseX + d.c * nudge) + "px, " + (baseY + d.r * nudge) + "px)";
-      setTimeout(() => {
-        if (stale()) { resolve(); return; }   // reset mid-bump: don't settle it back where it bumped
-        el.style.transition = "transform " + back + "ms ease-in";
-        el.style.transform = "translate(" + baseX + "px, " + baseY + "px)";
-        setTimeout(() => { el.style.transition = ""; resolve(); }, back + 10);
-      }, out + 10);
-    });
+    // (a reset mid-bump leaves the ball where the reset put it: animatePath stops)
+    return animatePath(el, [base, { x: base.x + d.c * nudge, y: base.y + d.r * nudge }, base], [out, back], stale)
+      .then(() => { el.style.transition = ""; return wait(20); });
   }
 
-  return { play, bump, markBump };
+  return { play, bump };
 });
