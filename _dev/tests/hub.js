@@ -46,6 +46,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Escape"); await p.waitForTimeout(150);
   const opened = await box(p);
   const words = await p.evaluate(() => ({ cancel: document.querySelector("#reset-dialog .dialog-cancel").textContent.replace(/\s+/g, " ").trim(), ok: document.querySelector("#reset-dialog .dialog-ok").textContent.replace(/\s+/g, " ").trim() }));
+  // (the two buttons sit in the middle of the box, as a pair: they were at its right)
+  const pair = await p.evaluate(() => {
+    const d = document.getElementById("reset-dialog").getBoundingClientRect(), a = document.querySelector("#reset-dialog .dialog-cancel").getBoundingClientRect(), b = document.querySelector("#reset-dialog .dialog-ok").getBoundingClientRect();
+    return { left: Math.round(Math.min(a.left, b.left) - d.left), right: Math.round(d.right - Math.max(a.right, b.right)), oneRow: Math.abs(a.top - b.top) < 1 };
+  });
+  check("games page: the reset box's two buttons sit in the middle of it, side by side", pair.oneRow && Math.abs(pair.left - pair.right) <= 1, pair);
   await p.keyboard.press("Shift"); await p.keyboard.press("Tab"); await p.waitForTimeout(100);
   const still = await box(p);                                   // (Shift and Tab answer nothing)
   await p.keyboard.press("k"); await p.waitForTimeout(150);
