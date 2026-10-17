@@ -919,7 +919,15 @@
         ctx.globalAlpha = a0 * 0.55; ctx.strokeStyle = color; ctx.lineWidth = Math.max(1, px / 13); ctx.stroke();
         ctx.fillRect(bx + r * 0.6, by + bh - ctx.lineWidth, bw - r * 1.2, ctx.lineWidth * 1.6);   // the keycap's deeper bottom edge
         ctx.globalAlpha = a0; ctx.fillStyle = color;
-        ctx.fillText(t.slice(1, -1), bx + padX, y);
+        // (a symbol, an arrow or ⌫, is set by its own ink, centred where a
+        // capital's is: in many faces the arrows hang lower than the letters,
+        // and their tips ran into the keycap's bottom edge)
+        var label = t.slice(1, -1), ty = y;
+        if (!/[\p{L}\p{N}]/u.test(label)) {
+          var g = ctx.measureText(label);
+          if (g.actualBoundingBoxAscent != null) ty = y + ((desc - asc) - (g.actualBoundingBoxDescent - g.actualBoundingBoxAscent)) / 2;
+        }
+        ctx.fillText(label, bx + padX, ty);
       }
       cx += widths[i];
     });

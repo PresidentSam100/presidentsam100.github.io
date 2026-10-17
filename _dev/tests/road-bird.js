@@ -9,7 +9,8 @@
 // The how-to line lies inside the board's rim, and rows meet on hairlines;
 // a road's dashed line runs between two lanes, not down the middle of one.
 // Normal or Insane (N / I) under the modes: Insane has no grass or lily pads
-// to rest on, and keeps bests of its own. A slow load's out-of-order first
+// to rest on, and keeps bests of its own. A symbol keycap's ink (the menu's
+// arrows) sits in the middle of its cap. A slow load's out-of-order first
 // frame doesn't step the clock back.
 const HOOK = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  eagle: function () { triggerEagle(); },\n  get mode() { return gameMode; },\n  get skin() { return skinSel; },"];
 const W = 704, H = 768;   // the canvas's logical size (11 × 12 tiles of 64)
@@ -54,6 +55,29 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.waitForFunction(() => __game.state === "dead", null, { timeout: 20000 });   // (the swoop runs on game time: slower on a busy machine)
   const over = await moved();
   check("road-bird, FX off: the game-over card (with its NEW BEST) holds still", over === 0, over);
+
+  // ---- the menu's arrow keycaps, in its own face: each arrow's ink sits in
+  // the middle of its cap (an arrow hangs lower than a capital in this face,
+  // and its tip ran into the cap's darker bottom edge, a line under it)
+  const ink = await p.evaluate(() => {
+    const g = document.createElement("canvas").getContext("2d");
+    g.font = "bold 15px 'Trebuchet MS', sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+    const out = {};
+    for (const k of ["↑", "↓"]) {
+      let top = null, bottom = null, at = null;
+      const mt = g.moveTo, fr = g.fillRect, ft = g.fillText;
+      g.moveTo = function (x, y) { if (top == null) top = y; return mt.apply(this, arguments); };
+      g.fillRect = function (x, y, w, h) { bottom = y + h / 1.6; return fr.apply(this, arguments); };   // (the bottom edge: lw * 1.6 tall, lw up from the cap's foot)
+      g.fillText = function (s, x, y) { if (s === k) at = y; return ft.apply(this, arguments); };
+      GameShell.drawKeys(g, "[" + k + "]", 100, 50);
+      Object.assign(g, { moveTo: mt, fillRect: fr, fillText: ft });
+      const m = g.measureText(k);
+      out[k] = { above: +(at - m.actualBoundingBoxAscent - top).toFixed(1), below: +(bottom - at - m.actualBoundingBoxDescent).toFixed(1) };
+    }
+    return out;
+  });
+  check("road-bird: the menu's arrows sit in the middle of their keycaps, clear of the bottom edge",
+    Object.values(ink).every((v) => Math.abs(v.above - v.below) <= 1 && v.below >= 1.5), ink);
 
   check("road-bird: no page errors", p.errs.length === 0, p.errs);
   await p.close();
