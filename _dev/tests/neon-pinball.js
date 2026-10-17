@@ -197,4 +197,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     [big, small].every((r) => r.k >= 1.95 && r.kh >= 1.95 && r.sx === 1 && r.sy === 1), { big, small });
   check("neon-pinball (2×): no page errors", p.errs.length === 0, p.errs);
   await ctx.close();
+
+  // ---- the table keeps its 440 x 760 shape on a tall window and on phones
+  // (a full height with a max-width squeezed it to 0.88 of its width), whole
+  // on the screen
+  const shapes = {};
+  for (const [label, opts] of [["1920x1080", { viewport: { width: 1920, height: 1080 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }], ["phone", devices["Pixel 7"]], ["320x568", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]]) {
+    ctx = await lib.newContext(browser, opts);
+    p = await lib.open(ctx, base, "games/neon-pinball/");
+    await p.evaluate(() => NeonPinball.start("classic")); await p.waitForTimeout(200);
+    shapes[label] = await p.evaluate(() => { const c = document.getElementById("pf"), b = c.getBoundingClientRect(); return { shape: +((c.clientWidth / c.clientHeight) / (440 / 760)).toFixed(3), whole: b.top >= 0 && b.bottom <= innerHeight + 0.5 && b.left >= 0 && b.right <= innerWidth + 0.5 }; });
+    await ctx.close();
+  }
+  check("neon-pinball: the table keeps its own shape (440 x 760), whole on the screen, on a tall window, a short one and phones",
+    Object.values(shapes).every((s) => Math.abs(s.shape - 1) <= 0.01 && s.whole), shapes);
 };

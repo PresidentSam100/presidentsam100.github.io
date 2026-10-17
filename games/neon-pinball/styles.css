@@ -36,6 +36,11 @@ body {
 .wrap { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
 canvas#pf { display: block; width: auto; height: 100%; max-width: 100%; border-radius: 14px;
   border: 1px solid var(--line); box-shadow: 0 0 40px rgba(54,245,255,.12), inset 0 0 60px rgba(0,0,0,.6); touch-action: none; }
+/* the table keeps its 440 x 760 shape: as wide as the space allows or as
+   tall, whichever runs out first (a full height with a max-width squeezed it
+   sideways on tall windows and phones). The 2px are its border. */
+.wrap { container-type: size; }
+canvas#pf { width: min(100cqw, (100cqh - 2px) * 440 / 760 + 2px); height: auto; max-width: none; }
 
 /* event ticker */
 #ticker { position: absolute; top: 14%; left: 0; right: 0; text-align: center; pointer-events: none;
