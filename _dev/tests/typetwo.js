@@ -66,10 +66,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       const fit = await q.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth, btn: !document.getElementById("endBtn").hidden }));
       check("typetwo, phone: a Zen run's End session button fits the HUD", fit.btn && fit.sw <= fit.w, fit);
     } else { await q.click("#startBtn"); await q.waitForTimeout(200); }
-    // the in-run hint: the ⏸ button pauses (every letter is a spell, and Esc
-    // is the way out), on a desktop as on a phone
-    const hint = await q.evaluate(() => document.getElementById("hint").innerText);
-    check("typetwo, " + label + ": the in-run hint pauses with ⏸, naming no Esc", /⏸ to pause/.test(hint) && !/Esc/.test(hint), hint);
+    // the in-run hint names no pause (the ⏸ in the corner carries its key)
+    // and no Esc, on a desktop as on a phone
+    const hint = await q.evaluate(() => ({ text: document.getElementById("hint").innerText, corner: !!document.querySelector(".gs-pause-btn") }));
+    check("typetwo, " + label + ": the in-run hint names no pause key (the corner's ⏸ does) and no Esc", /Type to cast/.test(hint.text) && !/pause/i.test(hint.text) && !/Esc/.test(hint.text) && hint.corner, hint);
     await q.close();
     await c2.close();
   }

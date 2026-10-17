@@ -1104,12 +1104,11 @@
     buildBags(); // fresh shuffle each game
     el.wpm.textContent = "0";
     updateTypedDisplay(); // show the ready cursor
-    // (\ or the ⏸ button pauses: every letter is a spell, and Esc is the way out)
-    const pauseKey = kbd("\\") + " or ⏸";
+    // (no word of pausing: the ⏸ in the corner carries its own key, \)
     el.hint.innerHTML = MODES[mode].noTypos
-      ? "HARDCORE: one typo ends the run. " + pauseKey + " to pause."
-      : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova · " + pauseKey + " to pause."
-                   : "Type to cast · " + pauseKey + " to pause.");
+      ? "HARDCORE: one typo ends the run."
+      : (bombs > 0 ? "Type to cast · " + kbd("Enter") + " = banishing nova"
+                   : "Type to cast");
     el.startScreen.classList.add("hidden");
     el.overScreen.classList.add("hidden");
     el.endBtn.hidden = mode !== "zen";   // Zen loses no lives, so it ends here
