@@ -1,0 +1,118 @@
+/* =====================================================================
+   Potting Shed: a garden shed's whitewashed planks, a brick floor, wooden
+   benches, terracotta. The cards are seed packets (a printed paper
+   packet with a coloured band), the buttons painted tin labels.
+   ===================================================================== */
+
+:root {
+  --plank: #e9e2d0;
+  --plank-line: #cfc4a8;
+  --wood: #6e4a2c;
+  --wood-hi: #8a603b;
+  --terra: #c9663d;
+  --terra-deep: #8e3e1f;
+  --leaf: #4f7d34;
+  --ink: #2f2418;
+  --ink-dim: #6a5a44;
+  --packet: #f7efd9;
+  --band: #4f7d34;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Nunito Sans", system-ui, sans-serif; color: var(--ink);
+  background:
+    repeating-linear-gradient(90deg, transparent 0 63px, var(--plank-line) 63px 65px),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.025) 0 1px, transparent 1px 9px),
+    var(--plank);
+  overflow: hidden;
+}
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 800;
+  color: var(--packet); text-decoration: none;
+  background: var(--leaf); border: 2px solid #2f4f1e; border-radius: 6px;
+  box-shadow: 0 2px 0 #2f4f1e;
+  padding: 6px 14px;
+}
+.nav-back-games:hover { filter: brightness(1.1); }
+
+.shed { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; padding: 60px 14px 12px; gap: 10px; }
+.hud {
+  display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap;
+  font-weight: 600; font-size: 15px; color: var(--ink-dim);
+  background: var(--packet); border: 2px solid var(--ink); border-radius: 6px; padding: 5px 14px;
+  box-shadow: 0 2px 0 var(--ink);
+}
+.hud[hidden] { display: none; }
+.hud-shed { font-family: "Alfa Slab One", serif; color: var(--terra-deep); font-size: 16px; }
+.hud b { font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.yard { flex: 1; width: 100%; max-width: 760px; min-height: 160px; position: relative; }
+.yard canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.tools button, .card .row button {
+  font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; color: var(--packet);
+  background: var(--wood); border: 2px solid #3e2814; border-radius: 6px; padding: 6px 12px;
+  box-shadow: 0 2px 0 #3e2814;
+}
+.tools button:active, .card .row button:active { transform: translateY(2px); box-shadow: none; }
+.keys { font-size: 13px; color: var(--ink-dim); text-align: center; }
+kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--packet); background: var(--ink); border-radius: 4px; padding: 0 5px; margin: 0 1px; }
+
+/* the touch pad (a touch-only screen) */
+.pad { display: none; grid-template-columns: repeat(3, 58px); grid-template-rows: repeat(3, 50px); gap: 6px; }
+.pad button { font-size: 20px; color: var(--packet); background: var(--wood); border: 2px solid #3e2814; border-radius: 10px; touch-action: manipulation; }
+.pad .up { grid-area: 1 / 2; } .pad .left { grid-area: 2 / 1; } .pad .undo { grid-area: 2 / 2; background: var(--terra); }
+.pad .right { grid-area: 2 / 3; } .pad .down { grid-area: 3 / 2; }
+@media (hover: none) { .pad { display: grid; } }
+
+/* ---- the cards: seed packets ------------------------------------------------------- */
+.panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 26px 16px; overflow-y: auto; background: rgba(47, 36, 24, 0.35); }
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(450px, 100%); background: var(--packet); border: 2px solid var(--ink); border-radius: 4px;
+  box-shadow: 6px 8px 0 rgba(47, 36, 24, 0.35);
+  padding: 0 22px 18px; overflow: hidden;
+}
+.card::before { content: ""; display: block; height: 16px; margin: 0 -22px 16px; background: repeating-linear-gradient(90deg, var(--band) 0 14px, #6a9a46 14px 28px); border-bottom: 2px solid var(--ink); }
+.card h1, .card h2 { font-family: "Alfa Slab One", serif; font-weight: 400; color: var(--terra-deep); }
+.card h1 { font-size: 36px; }
+.card h2 { font-size: 30px; }
+.card .tag { font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 12.5px; color: var(--leaf); margin: 4px 0 10px; }
+.card .how { font-size: 15.5px; line-height: 1.5; margin-bottom: 14px; }
+.picker { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.picker > button {
+  font-size: 18px; min-width: 44px; height: 44px; padding: 0 8px; cursor: pointer; color: var(--packet);
+  background: var(--wood); border: 2px solid #3e2814; border-radius: 8px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
+}
+.pick-shed { flex: 1; display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #efe4c6; border: 2px dashed var(--ink-dim); border-radius: 4px; min-height: 96px; }
+.pick-shed canvas { flex: none; }
+.pick-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-text b { font-family: "Alfa Slab One", serif; font-weight: 400; font-size: 19px; color: var(--ink); }
+.pick-text small { font-size: 13px; color: var(--ink-dim); }
+.playbtn, .card .row button:first-child:not([hidden]) {
+  font-family: "Alfa Slab One", serif; font-weight: 400; color: var(--packet); background: var(--terra); border-color: var(--terra-deep); box-shadow: 0 3px 0 var(--terra-deep);
+}
+.playbtn { width: 100%; font-size: 21px; padding: 9px 12px; cursor: pointer; border: 2px solid var(--terra-deep); border-radius: 6px; }
+.playbtn:active { transform: translateY(2px); box-shadow: none; }
+.tally { margin-top: 10px; text-align: center; font-size: 14px; color: var(--ink-dim); min-height: 18px; }
+.card.end { text-align: center; }
+.card .big { font-family: "Alfa Slab One", serif; font-size: 36px; margin: 4px 0; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 2px 0 16px; color: var(--ink-dim); }
+.stats .best { font-weight: 800; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 14px; background: #efe4c6; color: var(--ink); }
+.stats .best.record { background: #f2c230; }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+@media (max-width: 520px) {
+  .shed { padding-top: 58px; gap: 8px; }
+  .hud { gap: 10px; font-size: 13px; padding: 4px 10px; }
+  .hud-shed { font-size: 14px; }
+  .panel { padding-top: 62px; }
+  .card h1 { font-size: 30px; }
+  .pick-shed { gap: 8px; }
+}
+
+.gs-pause { background: rgba(47, 36, 24, 0.4); }

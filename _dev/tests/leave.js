@@ -196,6 +196,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "sowing/": [async (p) => { await p.evaluate(() => { Sowing.start(); Sowing.play(2); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "mesa-drift/": [async (p) => { await p.evaluate(() => { MesaDrift.start("calm"); MesaDrift.hold("burn", true); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); await p.evaluate(() => MesaDrift.hold("burn", false)); }, "asks"],
     "rose-window/": [async (p) => { await p.evaluate(() => { RoseWindow.start("pilgrimage"); RoseWindow.launch(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
+    "potting-shed/": [async (p) => { await p.evaluate(() => { PottingShed.start(0); PottingShed.step(-1, 0); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "road-bird/": [async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
     "poodle-jump/": [async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(150); await p.evaluate(() => { __game.bestY -= 1000; }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }, "asks"],
   };

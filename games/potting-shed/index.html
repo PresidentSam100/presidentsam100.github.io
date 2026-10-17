@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AA%B4%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Potting Shed</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through twelve sheds. A browser game by Sam Lu." />
+    <meta property="og:title" content="Potting Shed | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through twelve sheds. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<main class="shed">
+  <div class="hud" id="hud" hidden>
+    <span class="hud-shed" id="hud-shed">1 · First Pot</span>
+    <span><b id="hud-moves">0</b> moves</span>
+    <span><b id="hud-pushes">0</b> pushes</span>
+  </div>
+  <!-- the shed's floor, benches, sun and pots: painted by game.js -->
+  <div class="yard" id="yard"><canvas id="stage" aria-label="The shed: a brick floor between benches; push every pot onto a patch of sun"></canvas></div>
+  <div class="tools" id="tools">
+    <button type="button" id="btn-undo">Undo</button>
+    <button type="button" id="btn-restart">Start over</button>
+    <button type="button" id="btn-sheds">Sheds</button>
+  </div>
+  <p class="keys"><span class="gs-keys"><kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk and push</span><span class="gs-touch">swipe or use the pad to walk and push</span></p>
+  <div class="pad" id="pad" aria-hidden="true">
+    <button type="button" id="t-up" class="up">▲</button>
+    <button type="button" id="t-left" class="left">◀</button>
+    <button type="button" id="t-undo" class="undo">↶</button>
+    <button type="button" id="t-right" class="right">▶</button>
+    <button type="button" id="t-down" class="down">▼</button>
+  </div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Potting Shed</h1>
+    <p class="tag">every pot in the sun</p>
+    <p class="how">
+      Walk the gardener round the shed and push the terracotta pots onto the patches of
+      sun from the window. A pot only goes the way it's pushed, one at a time: nothing
+      can pull it back out of a corner, so think before you shove. A pot in the sun blooms.
+    </p>
+    <div class="picker" id="picker">
+      <button type="button" id="pick-prev" aria-label="The shed before">◀</button>
+      <span class="pick-shed">
+        <canvas id="pick-pic" aria-hidden="true"></canvas>
+        <span class="pick-text"><b id="pick-name">First Pot</b><small id="pick-note"></small><small id="pick-best"></small></span>
+      </span>
+      <button type="button" id="pick-next" aria-label="The next shed">▶</button>
+    </div>
+    <button type="button" class="playbtn" id="play">Pot this shed</button>
+    <p class="tally" id="tally"></p>
+  </div>
+</section>
+
+<section class="panel" id="done" hidden>
+  <div class="card end">
+    <h2 id="done-title">Potted!</h2>
+    <p class="big" id="done-msg">0 moves</p>
+    <p class="stats" id="done-stats"></p>
+    <div class="row">
+      <button type="button" id="next">Next shed</button>
+      <button type="button" id="replay">Again</button>
+      <button type="button" id="to-sheds">Sheds</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
