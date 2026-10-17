@@ -1360,14 +1360,39 @@
       if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
-    // Menu keys, shown on the buttons: 1 2 3 the mode, Enter plays (a VS
-    // match's seats, levels and length are left to Tab and the mouse)
+    // Menu keys, shown on the buttons: 1 2 3 the mode, Enter plays
     if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
       active: () => !GAME && !menu.classList.contains("hidden"),
       // (and I opens or shuts Power-ups & blocks, its key on its line)
       groups: ["#mode-pick .btn", { sel: "details.dict-wrap > summary", keys: ["i"], caps: false }],
       start: "#play-btn", space: true
     });
+    // A VS match's setup on the arrows (the digits are the modes'): ↑ ↓ from
+    // the player count to each seat to the match length, ← → the row's choice.
+    // A seat goes Human, then CPU from Easy to Kaizo, as its button and its
+    // dropdown would set it (never a third human). The keys are on the
+    // choices, as on the buttons above.
+    if (window.GameShell && GameShell.rowKeys) {
+      const LEVELS = ["easy", "normal", "hard", "impossible", "kaizo"];
+      const seat = (slot) => ({
+        shown: () => sel.mode === "vs" && slot < sel.players,
+        ring: () => document.querySelector('#player-rows .ptoggle[data-slot="' + slot + '"]'),
+        step: (d) => {
+          const humans = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
+          const at = sel.ptypes[slot] === "human" ? -1 : LEVELS.indexOf(sel.diffs[slot]);
+          let to = Math.max(-1, Math.min(LEVELS.length - 1, at + d));
+          if (to === -1 && at !== -1 && humans >= MAX_HUMANS) return;   // (a third human: no)
+          if (to === at) return;
+          if (to === -1) sel.ptypes[slot] = "human";
+          else { sel.ptypes[slot] = "cpu"; sel.diffs[slot] = LEVELS[to]; }
+          updateVsOpts();
+        }
+      });
+      GameShell.rowKeys({
+        active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "vs",
+        rows: [{ sel: "#count-pick .btn" }, seat(0), seat(1), seat(2), seat(3), { sel: "#fmt-pick .btn" }]
+      });
+    }
     // Keys for the bar and the cards, shown on their buttons. In play
     // Backspace is ☰ Menu (which asks first). Paused: R restarts and
     // Backspace is Main Menu, each asking first as they throw the run away,

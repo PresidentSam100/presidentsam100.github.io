@@ -886,7 +886,8 @@
   function renderDots() {
     var dots = document.getElementById("levelDots");
     var lvls = curLevels(), p = prog();
-    var html = "";
+    // (labelled like the theme row, with G: the key that hands the arrows to the dots)
+    var html = '<span class="dlabel">LEVELS' + (window.GameShell && GameShell.gridKeys ? GameShell.gridKeys.hint("g") : "") + "</span>";
     for (var i = 0; i < lvls.length; i++) {
       var st = i === levelIndex ? "cur" :
         p.solved[i] ? "done" :
@@ -1249,6 +1250,25 @@
     // The bar's keys, shown on its buttons: ← → the level before and after,
     // R reset, H the hint, ? the gates (Enter is Check, above). The three
     // that clear the board ask first once there's work on it, as leaving does.
+    // The level dots by key: G hands the arrows to them (the ring starting on
+    // this level), Enter opens the ringed one, asking first as ← → do when
+    // there's work on the board, and hands the arrows back, as G or Esc does
+    // (a locked one stays shut, as to a click)
+    if (window.GameShell && GameShell.gridKeys) {
+      var dotGrid = GameShell.gridKeys({
+        active: function () { return !helpOpen && !document.getElementById("winBanner").classList.contains("show"); },
+        sel: "#levelDots .dot",
+        first: function () { return document.querySelector("#levelDots .dot.cur"); },
+        toggle: "g",
+        open: function (dot) {
+          if (dot.disabled) return;
+          var to = parseInt(dot.dataset.idx, 10);
+          dotGrid.off();
+          if (to === levelIndex) return;
+          GameShell.askQuit({ title: "Leave this level?", ok: "Leave" }, function () { loadLevel(to); });
+        }
+      });
+    }
     if (window.GameShell && GameShell.menuKeys) {
       var LEAVE = { title: "Leave this level?", ok: "Leave" };
       GameShell.menuKeys({

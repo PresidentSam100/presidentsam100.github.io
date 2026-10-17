@@ -655,14 +655,31 @@
     startMatch();
   });
   // Menu keys, shown on the buttons: 1 2 3 the mode, 4 portals, 5 6 7 the
-  // obstacles, Enter plays (the match length and the Labyrinth's own pickers
-  // are left to Tab and the mouse)
+  // obstacles, Enter plays
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return !menuOverlay.classList.contains("hidden"); },
     // (and I opens or shuts the legend showing, its key on its line)
     groups: ["#mode-pick .btn", "#portals-toggle", "#obstacles-pick .btn", { sel: "#legend-classic > summary, #legend-lab > summary", keys: ["i", "i"], caps: false }],
     start: "#play-btn"
   });
+  // The rest on the arrows, the digits being taken: a 2-player match's length
+  // on ← → (the keys on the chosen one), and the Labyrinth's list, where the
+  // arrows put a ring on a panel, a mode's button or a level, starting at the
+  // level Play would play, and Enter opens the ringed one (the keys on Levels;
+  // Play's own Enter keycap gives way while the ring is up, styles.css)
+  if (window.GameShell && GameShell.rowKeys) GameShell.rowKeys({
+    active: function () { return !menuOverlay.classList.contains("hidden") && G.mode === "two"; },
+    rows: [{ sel: "#fmt-pick .btn" }]
+  });
+  if (window.GameShell && GameShell.gridKeys) {
+    GameShell.gridKeys({
+      active: function () { return !menuOverlay.classList.contains("hidden") && G.mode === "lab"; },
+      sel: "#lab-levels summary, #lab-levels button",
+      first: function () { return document.querySelector("#lab-levels .lab-lv.next") || document.querySelector("#lab-levels .lab-lv"); }
+    });
+    var labHead = document.querySelector("#lab-opts .lbl");
+    if (labHead) labHead.insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
+  }
 
   updateKeysHelp();
 

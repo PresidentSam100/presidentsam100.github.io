@@ -1,19 +1,22 @@
 // Buttons take keys, and say so. On every game's opening screen each button
-// that does something shows a key (a keycap on it or in it), bar the ones left
-// to the mouse on purpose: boards, level grids, look pickers, the editors. The
-// cards that come up later (results, pause, rules) carry their keys too, and a
-// key does what its button does: it asks first where the press would throw a
-// game away, and Enter on a result plays again. The canvas menus of Road Bird
-// and Spacer, and 24's phone menu, take number keys that pick without starting.
+// that does something shows a key (a keycap on it or in it), bar boards, look
+// pickers and the editors, left to the mouse on purpose, and level grids,
+// whose arrows and Enter are shown beside them. The cards that come up later
+// (results, pause, rules) carry their keys too, and a key does what its button
+// does: it asks first where the press would throw a game away, and Enter on a
+// result plays again. The canvas menus of Road Bird and Spacer, and 24's phone
+// menu, take number keys that pick without starting. Setup rows whose digits
+// are taken go on the arrows, and so do the level grids; Metazac's ranges take
+// a key that puts the cursor in them.
 
 // page -> buttons that show no key on purpose (a selector each; "*" for all)
 const ALLOW = {
   "24/": [".key"],                          // the phone's own keys: the line under it maps the keyboard to them
-  "darkroom/": [".frame"],                  // the prints: a grid, a Tab and Enter away
+  "darkroom/": [".frame"],                  // the prints: a grid the arrows walk (the keys on the first roll)
   "hash/": [".card"],                       // the board
   "klondike/": [".mtop"],                   // the two menus: every item inside shows its key
   "lights-out/": [".bulb"],                 // the board (arrows walk it)
-  "logicgate/": [".theme-btn", ".dot"],     // the look, and the level grid
+  "logicgate/": [".theme-btn", ".dot"],     // the look, and the level grid (G hands it the arrows)
   "metazac/": ["#power-btn"],               // (it says SPACE on its face)
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
@@ -24,9 +27,9 @@ const ALLOW = {
   "slither/editor.html": ["*"],
   "tile-maze/editor.html": ["*"],
   "speedle/": [".key"],                     // the on-screen keyboard
-  "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid
+  "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid (the arrows walk it, the keys on its heading)
   "sudoku/": [".key"],                      // the digit pad
-  "tile-maze/": [".dbtn", ".lvlbtn"],       // the arrows pad, and the level grid
+  "tile-maze/": [".dbtn", ".lvlbtn"],       // the arrows pad, and the level grid (G hands it the arrows)
   "typetwo/": ["#startBtn"],                // ("Enter to start" is on the line above it)
 };
 
@@ -362,6 +365,151 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("spacer: 3 goes to Infinite and 2 to 1 Life on the title without starting; Enter starts with one life",
       a.mode === "attract" && a.at === 2 && b.mode === "attract" && b.at === 1 && c.mode !== "attract" && c.lives === 1, { a, b, c });
     check("spacer (menu keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- rows whose digits are taken, on the arrows (GameShell.rowKeys): ↑ ↓
+  // a row, ← → its choice; the choice being set wears ← → and the ring, the
+  // ones in the rows beside it ↑ and ↓
+  {
+    const KEYS = async (p, ...keys) => { for (const k of keys) { await p.keyboard.press(k); await settle(p, 70); } };
+    let p = await lib.open(ctx, base, "games/chess/", { before: noFlip });
+    await KEYS(p, "2");
+    const chip = (s) => p.evaluate((s) => { const b = document.querySelector(s + " .chip.sel"); return b && { t: b.textContent.trim(), cap: b.getAttribute("data-gs-key"), ring: b.hasAttribute("data-gs-pick") }; }, s);
+    const t0 = await chip("#basePick");
+    await KEYS(p, "ArrowRight", "ArrowRight");
+    const t1 = await chip("#basePick"), i1 = await chip("#incPick");
+    await KEYS(p, "ArrowDown", "ArrowRight");
+    const t2 = await chip("#basePick"), i2 = await chip("#incPick");
+    await KEYS(p, "Enter"); await settle(p, 200);
+    const started = await p.evaluate(() => !document.getElementById("setup2Menu").classList.contains("show"));
+    check("chess: on the 2-player setup ← → step the time and, after ↓, the increment, each choice wearing its keys (← → on the one being set, ↑ / ↓ on the row beside it); Enter still starts",
+      t0.t === "∞ None" && t0.cap === "← →" && t1.t === "3 min" && t1.cap === "← →" && t1.ring && !!i1 && i1.cap === "↓" &&
+      t2.t === "3 min" && t2.cap === "↑" && !t2.ring && i2.t === "+1s" && i2.cap === "← →" && i2.ring && started, { t0, t1, i1, t2, i2, started });
+    check("chess (setup arrows): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    p = await lib.open(ctx, base, "games/demolition-row/");
+    await KEYS(p, "3", "ArrowRight");
+    const vs = () => p.evaluate(() => ({
+      count: document.querySelector("#count-pick .sel").textContent.trim(), fmt: document.querySelector("#fmt-pick .sel").textContent.trim(),
+      seats: [...document.querySelectorAll("#player-rows .prow")].filter((r) => r.style.display !== "none").map((r) => r.querySelector(".ptoggle").textContent.replace(/^P\d: /, "") + (r.querySelector(".diffsel").style.display === "none" ? "" : " " + r.querySelector(".diffsel").value)),
+      caps: [...document.querySelectorAll("#vs-opts [data-gs-key]")].map((e) => e.textContent.trim() + "=" + e.getAttribute("data-gs-key"))
+    }));
+    const v1 = await vs();
+    await KEYS(p, "ArrowDown", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight");   // P1: Human, then Easy to Kaizo, and no further
+    const v2 = await vs();
+    await KEYS(p, "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft", "ArrowLeft");   // P1 and P2 human; P3 can't be a third
+    const v3 = await vs();
+    await KEYS(p, "ArrowDown", "ArrowLeft");
+    const v4 = await vs();
+    check("demolition-row: a VS setup on the arrows: ← → the player count, ↓ to each seat (Human, then CPU Easy to Kaizo, never a third human), ↓ to the match length; the keys on the choices",
+      v1.count === "3" && v1.caps.includes("3=← →") && v2.seats[0] === "CPU kaizo" && v2.caps.includes("P1: CPU=← →") && v2.caps.includes("3=↑") &&
+      v3.seats.join("|") === "Human|Human|CPU easy" && v4.fmt === "First to 1" && v4.caps.includes("First to 1=← →") && v4.caps.includes("P3: CPU=↑"), { v1, v2, v3, v4 });
+    check("demolition-row (setup arrows): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    p = await lib.open(ctx, base, "games/slither/");
+    await KEYS(p, "2", "ArrowLeft");
+    const fmt = await p.evaluate(() => { const b = document.querySelector("#fmt-pick .sel"); return { t: b.textContent.trim(), cap: b.getAttribute("data-gs-key") }; });
+    check("slither: a 2-player match's length on ← → (the keys on the chosen one)", fmt.t === "First to 1" && fmt.cap === "← →", fmt);
+    check("slither (format arrows): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- level grids on the arrows (GameShell.gridKeys): the first arrow
+  // rings the current or next level, the arrows walk the grid, Enter opens
+  // the ringed one (a locked one stays shut, or says why); the keys are shown
+  // beside the grid. Tile Maze and LogicGate, whose arrows have a job on the
+  // board, hand them to the grid with G (and back with G or Esc)
+  {
+    const KEYS = async (p, ...keys) => { for (const k of keys) { await p.keyboard.press(k); await settle(p, 70); } };
+    const ringed = (p) => p.evaluate(() => [...document.querySelectorAll("[data-gs-pick]")].filter((e) => e.getClientRects().length).map((e) => e.textContent.replace(/\s+/g, " ").trim()).join("|"));
+    const hint = (p, sel) => p.evaluate((sel) => { const h = document.querySelector(sel + " .gs-grid-keys"); return h ? h.textContent.replace(/\s+/g, "") : null; }, sel);
+
+    let p = await lib.open(ctx, base, "games/steamfitter/");
+    await KEYS(p, "3"); await settle(p, 200);
+    const sfHint = await hint(p, "#levelSelect .ls-head h2");
+    await KEYS(p, "ArrowRight"); const sf1 = await ringed(p);
+    await KEYS(p, "ArrowRight", "Enter"); const sf2 = { ring: await ringed(p), screen: await p.evaluate(() => document.body.dataset.screen) };
+    await KEYS(p, "ArrowLeft", "Enter"); await settle(p, 200);
+    const sf3 = await p.evaluate(() => document.body.dataset.screen);
+    check("steamfitter: on the level select the arrows ring a level (from the first unsolved), Enter plays it (a locked one stays shut), the keys on the heading",
+      sfHint === "←↑↓→Enter" && /^1First Fitting/.test(sf1) && /Short Run/.test(sf2.ring) && sf2.screen === "select" && sf3 === "", { sfHint, sf1, sf2, sf3 });
+    check("steamfitter (grid keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    p = await lib.open(ctx, base, "games/darkroom/");
+    const dkHint = await hint(p, "#rolls");
+    await KEYS(p, "ArrowRight", "ArrowRight", "Enter"); await settle(p, 200);
+    const dk = await p.evaluate(() => Darkroom.state());
+    check("darkroom: the arrows walk the negatives (from the first not developed) and Enter opens the ringed one, the keys on the first roll",
+      dkHint === "←↑↓→Enter" && dk.screen === "puzzle" && dk.id === "heart", { dkHint, dk });   // (the first roll's second negative)
+    check("darkroom (grid keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    p = await lib.open(ctx, base, "games/slither/");
+    await KEYS(p, "3");
+    const playCap = () => p.evaluate(() => getComputedStyle(document.getElementById("play-btn"), "::after").display !== "none");
+    const before = { ring: await ringed(p), play: await playCap(), hint: await hint(p, "#lab-opts") };
+    await KEYS(p, "ArrowDown"); const sl1 = { ring: await ringed(p), play: await playCap() };
+    await KEYS(p, "ArrowRight", "Enter"); await settle(p, 300);
+    const sl2 = await p.evaluate(() => ({ menu: !document.getElementById("menu").classList.contains("hidden"), level: document.getElementById("lab-level").textContent }));
+    check("slither: in the Labyrinth's list the arrows ring the level Play would play, then walk on; Enter opens the ringed one (Play gives up its Enter keycap meanwhile)",
+      before.ring === "" && before.play && before.hint === "←↑↓→Enter" && /^1First Bite/.test(sl1.ring) && !sl1.play && !sl2.menu && /2/.test(sl2.level), { before, sl1, sl2 });
+    check("slither (grid keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    // Tile Maze, level 1 solved (so it opens on level 2, and level 3 is locked)
+    p = await lib.open(ctx, base, "games/tile-maze/");
+    await p.evaluate(() => { localStorage.setItem("tileMaze.v1", JSON.stringify({ done: [window.LEVELS[0].id] })); });
+    await p.reload({ waitUntil: "domcontentloaded" }); await settle(p, 500);
+    const tmHint = await p.evaluate(() => { const h = document.getElementById("levelPick").previousElementSibling.querySelector(".gs-grid-keys"); return h && h.textContent; });
+    const moves = () => p.evaluate(() => document.getElementById("moveCount").textContent);
+    await KEYS(p, "g"); const tm1 = await ringed(p);
+    await KEYS(p, "ArrowRight", "Enter"); const tm2 = { ring: await ringed(p), note: await p.evaluate(() => document.getElementById("stepNote").textContent), moves: await moves() };
+    await KEYS(p, "ArrowLeft", "ArrowLeft", "Enter"); await settle(p, 300);
+    const tm3 = { ring: await ringed(p), current: await p.evaluate(() => document.querySelector(".lvlbtn.current").textContent) };
+    // (back on the board, the arrows move the player again: one way or another gets a move in)
+    await KEYS(p, "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"); await settle(p, 400);
+    const tm4 = await moves();
+    check("tile-maze: G hands the arrows to the level list (G on its heading), the ring on this level; Enter on a locked one says why, on an open one goes there and hands the arrows back to the board",
+      tmHint === "G" && tm1 === "2" && tm2.ring === "3" && /Level 3 is locked/.test(tm2.note) && tm2.moves === "0" && tm3.ring === "" && tm3.current === "1" && tm4 !== "0", { tmHint, tm1, tm2, tm3, tm4 });
+    check("tile-maze (grid keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+
+    // LogicGate, level 1 solved (so it opens on level 2)
+    p = await lib.open(ctx, base, "games/logicgate/");
+    await p.evaluate(() => { localStorage.setItem("logicgate_progress", JSON.stringify({ gates: { unlocked: 1, solved: [true] }, inputs: { unlocked: 0, solved: [] } })); });
+    await p.reload({ waitUntil: "domcontentloaded" }); await settle(p, 500);
+    const lgHint = await hint(p, "#levelDots");
+    await KEYS(p, "g"); const lg1 = await ringed(p);
+    await KEYS(p, "Escape"); const lg2 = { ring: await ringed(p), leaves: p.leaves };
+    await KEYS(p, "g", "ArrowLeft", "Enter"); await settle(p, 300);
+    const lg3 = { ring: await ringed(p), level: await p.evaluate(() => document.getElementById("levelName").textContent) };
+    check("logicgate: G hands the arrows to the level dots (G beside them), the ring on this level; Esc hands them back without leaving; Enter opens the ringed level",
+      lgHint === "G" && lg1 === "2" && lg2.ring === "" && lg2.leaves === 0 && lg3.ring === "" && /Level 1/.test(lg3.level), { lgHint, lg1, lg2, lg3 });
+    check("logicgate (grid keys): no page errors", p.errs.length === 0, p.errs);
+    await p.close();
+  }
+
+  // ---- Metazac's ranges, typed: A and X put the cursor in the addition's
+  // and the multiplication's first box (the keycaps after the ranges), Enter
+  // steps back out, and the next Enter starts
+  {
+    const p = await lib.open(ctx, base, "games/metazac/");
+    const caps = await p.evaluate(() => [...document.querySelectorAll(".range[data-gs-key]")].map((r) => r.getAttribute("data-gs-key")).join(""));
+    await p.keyboard.press("a"); await settle(p, 80);
+    const a = await p.evaluate(() => document.activeElement && document.activeElement.id);
+    await p.keyboard.type("9"); await p.keyboard.press("Enter"); await settle(p, 80);
+    const typed = await p.evaluate(() => ({ v: document.getElementById("add-min1").value, focus: document.activeElement && document.activeElement.id, start: !document.getElementById("overlay-start").classList.contains("hidden") }));
+    await p.keyboard.press("x"); await settle(p, 80);
+    const x = await p.evaluate(() => document.activeElement && document.activeElement.id);
+    await p.keyboard.press("Enter"); await settle(p, 80); await p.keyboard.press("Enter"); await settle(p, 300);
+    const started = await p.evaluate(() => document.getElementById("overlay-start").classList.contains("hidden"));
+    check("metazac: A and X put the cursor in the addition's and the multiplication's range (the keycaps after them); Enter steps back out of a box, and the next Enter starts",
+      caps === "AX" && a === "add-min1" && typed.v === "9" && !typed.focus && typed.start && x === "mul-min1" && started, { caps, a, typed, x, started });
+    check("metazac (range keys): no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
 

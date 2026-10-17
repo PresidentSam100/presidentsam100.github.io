@@ -1010,6 +1010,26 @@
     active: function () { return state === "start"; },
     groups: [{ sel: "#add-on, #sub-on, #mul-on, #div-on", into: function (box) { return box.parentNode; } }]
   });
+  // The ranges are typed: A puts the cursor in the addition's first box and
+  // X (for ×; M is the sound's) in the multiplication's, the keycap after
+  // each range; Tab goes on through the boxes, ↑ ↓ step the number, and Enter
+  // steps back out of the box, so the next Enter starts
+  var RANGE_KEYS = { a: "add-min1", x: "mul-min1" };
+  Object.keys(RANGE_KEYS).forEach(function (k) {
+    var box = document.getElementById(RANGE_KEYS[k]), range = box && box.closest(".range");
+    if (range) range.setAttribute("data-gs-key", k.toUpperCase());
+    if (box) box.setAttribute("aria-keyshortcuts", k.toUpperCase());
+  });
+  document.addEventListener("keydown", function (e) {
+    if (state !== "start" || e.ctrlKey || e.metaKey || e.altKey || e.repeat || document.querySelector(".gs-dialog")) return;
+    var t = e.target;
+    if (e.key === "Enter" && t && t.closest && t.closest(".range") && t.tagName === "INPUT") { e.preventDefault(); t.blur(); return; }
+    if (t && (t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && t.type !== "checkbox"))) return;
+    var id = RANGE_KEYS[e.key.toLowerCase()], box = id && document.getElementById(id);
+    if (!box || !box.offsetParent) return;
+    e.preventDefault();
+    box.focus(); box.select();
+  });
   document.addEventListener("keydown", function (e) {
     if ((state === "start" || state === "over") && (e.key === "Enter" || e.key === " ")) {
       if (controlKey(e)) return;

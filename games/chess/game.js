@@ -755,7 +755,8 @@
   if(window.GameShell) GameShell.guardLeave({ active:()=> !!G && !G.over && G.history.length>0 && !menuUp(), pausable:P });
   // Menu keys, shown on the buttons. Mode menu: 2 / 4 / 3, the player counts.
   // 2-player setup: 1 2 the opponent, 3-6 the CPU's level, W / B / R the side,
-  // Enter starts (the clock chips are left to Tab and the mouse). 4-player
+  // Enter starts; the clock, the digits being taken, on the arrows: ← → the
+  // time, ↑ ↓ over to the increment row and back (the keys on the chips). 4-player
   // menu: 1 2 3 pick the end rule and Enter starts (a number alone doesn't,
   // so the rules can be gone through first; a click still starts at once).
   // By the board: N new game (asking first once a move's been made, as
@@ -765,6 +766,8 @@
     GameShell.menuKeys({ active:()=>$("menu").classList.contains("show"), groups:[{ sel:"#menu .modebtn", keys:["2","4","3"], into:".tag" }] });
     GameShell.menuKeys({ active:()=>$("setup2Menu").classList.contains("show"),
       groups:[{ sel:"#opponentPick .modebtn", into:".tag" }, "#diffPick .chip", { sel:"#sidePick .chip", keys:["w","b","r"] }], start:"#setup2Start", space:true });
+    if(GameShell.rowKeys) GameShell.rowKeys({ active:()=>$("setup2Menu").classList.contains("show"),
+      rows:[{ sel:"#basePick .chip" }, { sel:"#incPick .chip" }] });
     GameShell.menuKeys({ active:()=>$("endMenu").classList.contains("show"), groups:[{ sel:"#endMenu .modebtn", into:".tag", pick:true }] });
     GameShell.menuKeys({ active:()=>!menuUp() && !$("overOverlay").classList.contains("show"),
       groups:[{ sel:"#newBtn", keys:["n"], ask:{ title:"Start a new game?", ok:"New game" } }, { sel:"#undoBtn", keys:["u"] }, { sel:"#flipBtn", keys:["f"] }, { sel:"#modeBtn", keys:["c"] }] });

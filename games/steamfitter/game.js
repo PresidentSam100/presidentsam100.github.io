@@ -1225,6 +1225,14 @@
     active: function () { return !inEditor(); },
     groups: ["#modeBar .mbtn", { sel: "#pickToggle", keys: ["q"] }]
   });
+  // The level select on the arrows (the keys on its heading): the ring starts
+  // on the first level not yet solved, and Enter plays the ringed one, as a
+  // click does (a locked one stays shut); Your levels and Create are in it too
+  if (window.GameShell && GameShell.gridKeys) GameShell.gridKeys({
+    active: function () { return state === "select" && !inEditor(); },
+    sel: "#levelSelect .ls-cell, #levelSelect .ls-create",
+    first: function () { return document.querySelector("#levelSelect .ls-cell:not(.done):not(.locked):not(.custom)") || document.querySelector("#levelSelect .ls-cell"); }
+  });
   document.querySelectorAll("#modeBar .mbtn").forEach(function (b) {
     b.addEventListener("click", function () {
       if (b.dataset.mode !== mode) askFirst(function () { setMode(b.dataset.mode); });
@@ -1348,7 +1356,8 @@
   function hideSelect() { document.getElementById("levelSelect").classList.add("hidden"); }
   function buildSelectDOM() {
     var wrap = document.getElementById("levelSelect");
-    var h = '<div class="ls-head"><h2>Levels</h2><span class="ls-prog">' + doneCount() + ' / ' + LV.length + ' solved</span></div>';
+    var keys = window.GameShell && GameShell.gridKeys ? GameShell.gridKeys.hint() : "";   // (the arrows and Enter: see below)
+    var h = '<div class="ls-head"><h2>Levels' + keys + '</h2><span class="ls-prog">' + doneCount() + ' / ' + LV.length + ' solved</span></div>';
     h += '<div class="ls-grid">';
     for (var i = 0; i < LV.length; i++) {
       var open = levelUnlocked(i), done = !!progress.done[i];

@@ -32,6 +32,10 @@
                                                (no keys to name in a hint)
      GameShell.menuKeys(opts)               -> keys for a mode / setup screen's
                                                buttons, shown as keycaps on them
+     GameShell.gridKeys(opts)               -> the arrows and Enter for a grid
+                                               of tiles (a level select)
+     GameShell.rowKeys(opts)                -> the arrows for setup rows whose
+                                               choices have no keys of their own
      GameShell.confirm(opts, cb)            -> themed stand-ins for the
      GameShell.alert(opts, cb)                 browser's confirm / alert /
      GameShell.copyBox(opts)                   "copy this" prompt boxes
@@ -875,6 +879,214 @@
   }
   menuKeys.all = [];
 
+  // a key the page's text fields keep for themselves
+  function typingIn(t) {
+    var tag = t && t.tagName;
+    return tag === "TEXTAREA" || tag === "SELECT" || !!(t && t.isContentEditable) ||
+      (tag === "INPUT" && !/^(checkbox|radio|button|submit|reset|range|color|file|image)$/i.test(t.type));
+  }
+  // the ring a key's choice wears (data-gs-pick, motion-toggle.js), moved
+  // from one element to another
+  function ringOn(prev, el) {
+    if (prev && prev !== el) prev.removeAttribute("data-gs-pick");
+    if (el && !el.hasAttribute("data-gs-pick")) el.setAttribute("data-gs-pick", "");
+  }
+
+  // ---- grid keys --------------------------------------------------------
+  // The arrow keys for a grid of tiles, such as a level select: the first
+  // arrow puts the ring on the tile to begin with (the current or next
+  // level), ← → then go through the tiles in order, ↑ ↓ to the nearest tile
+  // in the row above or below, and Enter opens the ringed one, as a click on
+  // it does; the grid scrolls to keep the ring in view.
+  //
+  //   GameShell.gridKeys({
+  //     active: function () { return screen === "levels"; },
+  //     sel: "#grid .tile",       its tiles in order, locked ones too
+  //     first: function () {...}  the tile to begin on (else the first open one)
+  //     open: function (tile) {}  what Enter does (else tile.click(), and
+  //                               nothing for a disabled tile)
+  //     toggle: "g",              for a grid beside a board whose arrows
+  //                               move the player: the key switches them over
+  //                               to the grid and back (Esc switches back too)
+  //     onToggle: function (on) {}
+  //   });
+  //
+  // While the ring is up, Enter is the ringed tile's (so it goes ahead of a
+  // menu's own Enter). Not in text fields, with Ctrl / Alt / Cmd, or while
+  // a dialog is up.
+  function gridKeys(opts) {
+    var at = null, atIdx = null, on = !opts.toggle;
+    function live() { try { return !!opts.active(); } catch (e) { return false; } }
+    function tiles() {
+      return Array.prototype.filter.call(document.querySelectorAll(opts.sel), function (b) { return b.getClientRects().length > 0; });
+    }
+    function startTile(list) {
+      var f = null;
+      try { f = opts.first ? opts.first() : null; } catch (e) {}
+      if (f && list.indexOf(f) >= 0) return f;
+      for (var i = 0; i < list.length; i++) if (!list[i].disabled && !list[i].classList.contains("locked")) return list[i];
+      return list[0] || null;
+    }
+    function put(el, list) {
+      ringOn(at, el);
+      at = el;
+      atIdx = el ? (list || tiles()).indexOf(el) : null;
+      if (el && el.scrollIntoView) el.scrollIntoView({ block: "nearest", inline: "nearest" });
+    }
+    function drop() { if (at) at.removeAttribute("data-gs-pick"); at = null; atIdx = null; }
+    // the ringed tile, or where it was if the game has built the grid anew
+    function ringedIn(list) {
+      if (at && list.indexOf(at) >= 0) return at;
+      if (atIdx != null && list[atIdx]) { put(list[atIdx], list); return at; }
+      return null;
+    }
+    function switchTo(v) {
+      if (on === v) return;
+      on = v;
+      if (!on) drop();
+      if (opts.onToggle) opts.onToggle(on);
+    }
+    // the tile in the row above (-1) or below (1): the nearest row that way,
+    // then the tile in it nearest across
+    function vertical(list, from, d) {
+      var r = from.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      var rows = list.map(function (b) {
+        var q = b.getBoundingClientRect();
+        return { b: b, dy: (q.top + q.height / 2 - cy) * d, dx: Math.abs(q.left + q.width / 2 - cx) };
+      }).filter(function (t) { return t.dy > r.height / 2; });
+      if (!rows.length) return null;
+      var near = Math.min.apply(null, rows.map(function (t) { return t.dy; }));
+      var best = null;
+      rows.forEach(function (t) { if (t.dy < near + r.height / 2 && (!best || t.dx < best.dx)) best = t; });
+      return best && best.b;
+    }
+    function move(key) {
+      var list = tiles();
+      if (!list.length) return;
+      var from = ringedIn(list);
+      if (!from) { put(startTile(list), list); return; }
+      var i = list.indexOf(from);
+      var next = key === "ArrowLeft" ? list[i - 1] : key === "ArrowRight" ? list[i + 1] : vertical(list, from, key === "ArrowUp" ? -1 : 1);
+      if (next) put(next, list);
+    }
+    document.addEventListener("keydown", function (e) {
+      if (!e.key || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      if (typingIn(e.target) || document.querySelector(".gs-dialog")) return;
+      if (!live()) { drop(); if (opts.toggle) switchTo(false); return; }
+      var claim = function () { e.preventDefault(); e.stopPropagation(); };
+      if (opts.toggle && e.key.toLowerCase() === opts.toggle) { claim(); if (!e.repeat) { switchTo(!on); if (on) move(); } return; }
+      if (!on) return;
+      if (opts.toggle && e.key === "Escape") { claim(); switchTo(false); return; }
+      if (/^Arrow(Left|Right|Up|Down)$/.test(e.key)) { claim(); move(e.key); return; }
+      if (e.key === "Enter" && !e.repeat && (at || atIdx != null)) {
+        var tile = ringedIn(tiles());
+        if (!tile) { drop(); return; }
+        // (a button or a link with the focus keeps its own Enter)
+        var t = e.target;
+        if (t && t.closest && t.closest("button, a, summary, input, select") && t.closest(opts.sel) !== tile) return;
+        claim();
+        if (opts.open) opts.open(tile);
+        else if (!tile.disabled) tile.click();
+      }
+    }, true);
+    var api = { active: live, on: function () { return on; }, ringed: function () { return at; }, off: function () { switchTo(!opts.toggle); } };
+    gridKeys.all.push(api);   // (every grid on the page, for the tests)
+    return api;
+  }
+  gridKeys.all = [];
+  // The keycaps that say so, for a game to set beside its grid's heading
+  // (hidden on a touch screen): the arrows and Enter, or the grid's toggle key.
+  gridKeys.hint = function (toggle) {
+    var k = function (s) { return '<kbd class="gs-kbd">' + s + "</kbd>"; };
+    return '<span class="gs-keys gs-grid-keys" style="margin-left:.45em;white-space:nowrap">' +
+      (toggle ? k(String(toggle).toUpperCase()) : k("←") + k("↑") + k("↓") + k("→") + " " + k("Enter")) + "</span>";
+  };
+
+  // ---- row keys ---------------------------------------------------------
+  // The arrow keys for a setup screen's rows of choices that have no keys of
+  // their own (its digits taken by the rows above): ↑ ↓ go from row to row,
+  // ← → move the row's choice to the one beside it, as a click on that one
+  // would. The keys are worn as menuKeys' are: the choice in the row being
+  // set has the ring and wears ← →, the choices in the rows just above and
+  // below wear ↑ and ↓.
+  //
+  //   GameShell.rowKeys({
+  //     active: function () { return setupUp(); },
+  //     rows: [
+  //       { sel: "#time .chip" },                      chips: the chosen one is
+  //                                                      .sel (or aria-pressed)
+  //       { step: function (d) {...}, ring: function () { return el; },
+  //         shown: function () { return true; } }     a row of its own
+  //     ]
+  //   });
+  function rowKeys(opts) {
+    var cur = 0, ringed = null, worn = [];
+    function live() { try { return !!opts.active(); } catch (e) { return false; } }
+    function el(x) { return typeof x === "function" ? x() : typeof x === "string" ? document.querySelector(x) : x; }
+    function btns(r) { return Array.prototype.slice.call(document.querySelectorAll(r.sel)); }
+    function shown(r) {
+      if (r.shown) { try { return !!r.shown(); } catch (e) { return false; } }
+      var b = r.sel && btns(r).filter(function (x) { return x.getClientRects().length > 0; });
+      return !!(b && b.length);
+    }
+    function chosen(r) {
+      var list = btns(r);
+      for (var i = 0; i < list.length; i++) if (list[i].classList.contains("sel") || list[i].getAttribute("aria-pressed") === "true") return list[i];
+      return null;
+    }
+    function rows() { return opts.rows.filter(shown); }
+    function choiceOf(r) { return r ? (r.ring ? el(r.ring) : chosen(r)) : null; }
+    function show() {
+      var list = rows();
+      if (!live() || !list.length) { ringOn(ringed, null); ringed = null; wear([]); return; }
+      if (cur >= list.length) cur = list.length - 1;
+      var target = choiceOf(list[cur]);
+      ringOn(ringed, target); ringed = target;
+      wear([[target, "← →", "ArrowLeft ArrowRight"], [choiceOf(list[cur - 1]), "↑", "ArrowUp"], [choiceOf(list[cur + 1]), "↓", "ArrowDown"]]);
+    }
+    // the keys on the choices: [element, keycap, aria-keyshortcuts]
+    function wear(caps) {
+      var now = caps.filter(function (c) { return c[0]; });
+      worn.forEach(function (w) {
+        if (!now.some(function (c) { return c[0] === w; })) { w.removeAttribute("data-gs-key"); w.removeAttribute("aria-keyshortcuts"); }
+      });
+      worn = now.map(function (c) {
+        if (c[0].getAttribute("data-gs-key") !== c[1]) c[0].setAttribute("data-gs-key", c[1]);
+        c[0].setAttribute("aria-keyshortcuts", c[2]);
+        return c[0];
+      });
+    }
+    function step(r, d) {
+      if (r.step) { r.step(d); return; }
+      var list = btns(r).filter(function (b) { return !b.disabled && b.getClientRects().length > 0; });
+      var i = list.indexOf(chosen(r)), next = list[i < 0 ? 0 : i + d];
+      if (next) next.click();
+    }
+    document.addEventListener("keydown", function (e) {
+      if (!e.key || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+      if (typingIn(e.target) || document.querySelector(".gs-dialog") || !live()) return;
+      var list = rows();
+      if (!list.length || !/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+      // (claimed ahead of the game's own arrows, which would steer a snake
+      // still waiting behind the menu)
+      e.preventDefault(); e.stopPropagation();
+      if (cur >= list.length) cur = list.length - 1;
+      if (e.key === "ArrowUp") cur = Math.max(0, cur - 1);
+      else if (e.key === "ArrowDown") cur = Math.min(list.length - 1, cur + 1);
+      else step(list[cur], e.key === "ArrowLeft" ? -1 : 1);
+      // (after the click's own redraw: a row can come or go with a choice)
+      setTimeout(show, 0);
+      show();
+    }, true);
+    // the ring and the keys follow a click, and come and go with the screen
+    document.addEventListener("click", function () { setTimeout(show, 0); }, true);
+    var api = { refresh: show, active: live, row: function () { return cur; }, ringed: function () { return ringed; } };
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show); else show();
+    rowKeys.all.push(api);   // (every set of rows on the page, for the tests)
+    return api;
+  }
+  rowKeys.all = [];
+
   // ---- canvas keycaps -------------------------------------------------
   // The canvas version of <kbd class="gs-kbd">, for games that draw their key
   // hints on a canvas: every [KEY] in `str` becomes a keycap, the rest is
@@ -1272,6 +1484,8 @@
     drawKeys: drawKeys,
     touchOnly: touchOnly,
     menuKeys: menuKeys,
+    gridKeys: gridKeys,
+    rowKeys: rowKeys,
     confirm: confirmBox,
     alert: alertBox,
     copyBox: copyBox,

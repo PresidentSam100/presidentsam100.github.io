@@ -228,7 +228,9 @@
       wrap.className = "roll";
       var solvedHere = roll.puzzles.filter(function (p) { return album[p.id]; }).length;
       var head = document.createElement("h2");
-      head.innerHTML = roll.name + " <small>" + roll.blurb + " · " + solvedHere + "/" + roll.puzzles.length + "</small>";
+      head.innerHTML = roll.name + " <small>" + roll.blurb + " · " + solvedHere + "/" + roll.puzzles.length + "</small>" +
+        // (the first roll's heading wears the keys that go round the negatives, see gridKeys below)
+        (!ui.rolls.children.length && window.GameShell && GameShell.gridKeys ? GameShell.gridKeys.hint() : "");
       wrap.appendChild(head);
       var strip = document.createElement("div");
       strip.className = "strip";
@@ -668,10 +670,17 @@
   ui.dailyBtn.addEventListener("click", function () { SFX.ui(); openPuzzle(dailyPuzzle(), true); });
   $("to-gallery").addEventListener("click", function () { SFX.ui(); toGallery(); });
   // D on the menu opens the Daily negative and G the gallery (the keycaps
-  // are on the buttons); the prints themselves are a Tab and Enter away
+  // are on the buttons); the negatives on the arrows (the keys on the first
+  // roll): the ring starts on the first not yet developed, and Enter opens
+  // the ringed one
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return screen === "menu"; },
     groups: [{ sel: "#daily-btn", keys: ["d"], into: "b" }, { sel: "#to-gallery", keys: ["g"] }]
+  });
+  if (window.GameShell && GameShell.gridKeys) GameShell.gridKeys({
+    active: function () { return screen === "menu"; },
+    sel: "#rolls .frame",
+    first: function () { return document.querySelector("#rolls .frame:not(.done)") || document.querySelector("#rolls .frame"); }
   });
   $("gallery-back").addEventListener("click", function () { SFX.ui(); toMenu(); });
   $("hud-back").addEventListener("click", function () { SFX.ui(); toMenu(); });

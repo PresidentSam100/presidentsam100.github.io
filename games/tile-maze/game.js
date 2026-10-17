@@ -399,7 +399,7 @@
   function sayWhyNot(btn, to) {
     stepNote.textContent = to < 0 ? "This is the first level."
       : to >= LEVELS.length ? "This is the last level."
-      : to > current ? "🔒 Level " + (to + 1) + " is locked. Solve this level to open it."
+      : to === current + 1 ? "🔒 Level " + (to + 1) + " is locked. Solve this level to open it."
       : "🔒 Level " + (to + 1) + " is locked.";
     // (the button shakes its head; with Visual FX off the line alone says it)
     btn.classList.remove("nope"); void btn.offsetWidth; btn.classList.add("nope");
@@ -444,6 +444,31 @@
     const go = () => loadLevel(to);
     if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Leave this level?", ok: "Leave" }, go);
     else go();
+  }
+
+  // The level list by key (G, shown on its heading): G hands the arrows to
+  // the list, the ring starting on this level; Enter opens the ringed level,
+  // asking first as Q and E do (a locked one says why, under the board), and
+  // hands the arrows back to the board, as G or Esc does
+  const levelGrid = window.GameShell && GameShell.gridKeys ? GameShell.gridKeys({
+    active: () => guideOverlay.hidden && overlayEl.hidden,
+    sel: "#levelPick .lvlbtn",
+    first: () => document.querySelector("#levelPick .lvlbtn.current"),
+    toggle: "g",
+    open: (tile) => {
+      const to = Array.prototype.indexOf.call(document.querySelectorAll("#levelPick .lvlbtn"), tile);
+      if (to < 0) return;
+      if (!isOpen(to)) { sayWhyNot(tile, to); return; }
+      levelGrid.off();
+      if (to === current) return;
+      const go = () => loadLevel(to);
+      if (GameShell.askQuit) GameShell.askQuit({ title: "Leave this level?", ok: "Leave" }, go);
+      else go();
+    }
+  }) : null;
+  if (levelGrid) {
+    const head = document.getElementById("levelPick").previousElementSibling;
+    if (head) head.insertAdjacentHTML("beforeend", GameShell.gridKeys.hint("g"));
   }
 
   document.querySelectorAll(".dbtn").forEach((btn) => {

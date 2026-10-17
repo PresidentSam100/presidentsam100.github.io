@@ -320,3 +320,7 @@ details.dict-wrap summary .gs-kbd { margin-left: 6px; }
 /* While a box asks something ("Leave this game?", "Start over?") it is the
    only card up: the pause card, still paused, waits out of sight under it. */
 html.gs-asking #pause { visibility: hidden; }
+
+/* With the arrows' ring on the Labyrinth's list, Enter opens the ringed
+   panel, button or level, so Play gives up its Enter keycap meanwhile */
+#menu:has(#lab-levels [data-gs-pick]) #play-btn::after { display: none; }

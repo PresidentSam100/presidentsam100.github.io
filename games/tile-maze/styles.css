@@ -393,9 +393,9 @@ html.fx-off .tile.zapping { animation: none; filter: brightness(1.7); box-shadow
 .btn.locked { opacity: 0.45; cursor: not-allowed; }
 .btn.locked:hover { background: var(--panel); }
 .btn.locked:active { transform: none; }
-.btn.nope { animation: tm-nope 0.3s ease; }
+.btn.nope, .lvlbtn.nope { animation: tm-nope 0.3s ease; }
 @keyframes tm-nope { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
-html.fx-off .btn.nope { animation: none; }
+html.fx-off .btn.nope, html.fx-off .lvlbtn.nope { animation: none; }
 .stepnote { min-height: 1.4em; margin: 8px 0 0; text-align: center; font-size: 13px; font-weight: 700; line-height: 1.4; color: var(--muted); }
 
 /* Side panel: a folded towel, coral and teal stripes along the top */
