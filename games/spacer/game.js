@@ -3229,6 +3229,10 @@ class Game {
     let dt = (now - this.last) / 1000;
     this.last = now;
     if (dt > 0.05) dt = 0.05; // clamp big frame gaps (tab switches)
+    // (a frame's timestamp can come before the performance.now() the clock
+    // started from: the clock never steps back, or the wing-flap frame works
+    // out at -1 and a sprite drawn from it is missing)
+    if (dt < 0) dt = 0;
     this.update(dt);
     this.draw();
     requestAnimationFrame((t) => this.loop(t));

@@ -6,7 +6,9 @@
 // on a phone the touch buttons work the title's pickers; and the canvas
 // hints say what a tap does on a phone, the keys on a desktop; and the title
 // names no Visual FX switch nor the bar under the screen a pause (the corner
-// buttons are both); on a 2x screen it is drawn at the screen's resolution.
+// buttons are both); on a 2x screen it is drawn at the screen's resolution;
+// the game's clock never steps back, even when a frame's timestamp comes
+// before the moment the clock started from.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const st = (p) => p.evaluate(() => ({ mode: game.mode, stage: game.stage, startStage: game.startStage, menu: game.menuIndex, prev: game.prevMode, x: game.player && Math.round(game.player.x), input: Object.assign({}, game.input), fx: game.reducedFlash }));
@@ -15,6 +17,12 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   let p = await lib.open(ctx, base, "games/spacer/");
   await p.waitForFunction(() => window.game);
+  // (as on a slow load: the clock's start a fifth of a second after the next frame's timestamp)
+  const clock = await p.evaluate(() => new Promise((r) => {
+    const t0 = game.time; game.last = performance.now() + 200;
+    requestAnimationFrame(() => requestAnimationFrame(() => r({ t0, t1: game.time })));
+  }));
+  check("spacer: a frame stamped before the clock's start doesn't run the clock backwards (a sprite's frame would be missing)", clock.t1 >= clock.t0, clock);
 
   // ---- game over: the arrows don't move the title's pickers behind it
   await p.evaluate(() => { game.startGame(); game.gameOver(); });
@@ -136,10 +144,18 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- ...and the end screens get back to them: ● goes to the title (as
   // Backspace does), once the screen has been up a moment; a tap plays again
   const end = [];
+  // (both by the game's own clock, which a busy machine can run slower or in
+  // bigger steps than the wall's: the reflex tap lands in the same moment the
+  // run ends, and the next waits until the screen has been up its 0.8 s)
   for (const finish of ["gameOver", "gameComplete"]) {
-    await p.evaluate((f) => { game.startGame(); game[f](); }, finish);
-    await p.tap("#t-fire"); const reflex = (await st(p)).mode;   // a fire tap still going as the run ends
-    await p.waitForTimeout(1000);
+    const reflex = await p.evaluate((f) => {
+      game.startGame(); game[f]();
+      const b = document.getElementById("t-fire");   // a fire tap still going as the run ends
+      b.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true }));
+      b.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true }));
+      return game.mode;
+    }, finish);
+    await p.waitForFunction(() => game.time - game.endedAt > 0.85, null, { timeout: 15000 });
     await p.tap("#t-fire"); end.push([reflex, (await st(p)).mode]);
   }
   await p.evaluate(() => { game.startGame(); game.gameOver(); });
