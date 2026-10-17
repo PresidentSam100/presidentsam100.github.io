@@ -6,7 +6,7 @@
 // both keys start it, and both are shown
 const BOTH = ["click-tap/", "corner-pocket/", "crazy-ohio/", "demolition-row/", "dots-and-boxes/", "fish-a-fish/", "flappy-world/", "jackblack/", "lanterns/",
   "lights-out/", "link-many/", "mahjong/", "metazac/", "ping/", "poodle-jump/", "pop-the-lock/", "quick-minute/", "reaction/", "road-bird/", "science-fair/",
-  "speedle/", "stopwatch/", "sunset-slice/", "tall-order/", "tic-tac-toe/", "typetwo/", "rose-window/"];
+  "speedle/", "stopwatch/", "sunset-slice/", "tall-order/", "tic-tac-toe/", "typetwo/", "rose-window/", "mesa-drift/"];
 // drawn on a canvas, so the keys shown are read from what is drawn
 const CANVAS = ["flappy-world/", "poodle-jump/", "road-bird/"];
 // Enter alone starts these: Space is busy

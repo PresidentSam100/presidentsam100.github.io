@@ -1,0 +1,131 @@
+/* =====================================================================
+   Mesa Drift: an old travel poster of the red-rock country. Flat colour,
+   cream paper, a plum-ink line, a fat display face; the cards are poster
+   panels with a printed border, the buttons mustard and terracotta.
+   ===================================================================== */
+
+:root {
+  --paper: #f6ecd6;
+  --paper-deep: #ead9b6;
+  --plum: #4b2e3a;
+  --plum-dim: #7a5a63;
+  --terracotta: #c4473a;
+  --terracotta-deep: #8f2f27;
+  --mustard: #e0a83a;
+  --teal: #2e8b8b;
+  --sage: #3d5a2a;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Josefin Sans", "Trebuchet MS", sans-serif;
+  color: var(--plum); background: #f3c9a3; overflow: hidden;
+}
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 700;
+  color: var(--paper); text-decoration: none;
+  background: var(--plum); border: 2px solid var(--plum); border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--terracotta);
+  padding: 7px 14px 5px;
+}
+.nav-back-games:hover { background: #5e3a49; }
+
+/* ---- HUD: a printed strip under the corner buttons --------------------------- */
+.hud {
+  position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; gap: 14px; white-space: nowrap; pointer-events: none;
+  background: var(--paper); border: 2px solid var(--plum); border-radius: 4px;
+  box-shadow: 3px 3px 0 var(--terracotta);
+  padding: 6px 14px 4px; font-weight: 700; font-size: 14px;
+}
+.hud[hidden] { display: none; }
+.hud b { font-family: "Abril Fatface", serif; font-weight: 400; font-size: 20px; color: var(--terracotta); min-width: 3ch; text-align: right; }
+.fuel { width: 90px; height: 10px; border: 2px solid var(--plum); border-radius: 2px; background: var(--paper-deep); overflow: hidden; }
+.fuel-bar { display: block; height: 100%; width: 100%; background: var(--teal); }
+.fuel-bar.low { background: var(--terracotta); }
+
+/* ---- the touch buttons ------------------------------------------------------------ */
+.tbtns { position: fixed; left: 0; right: 0; bottom: 16px; z-index: 15; display: none; justify-content: space-between; padding: 0 16px; pointer-events: none; }
+.tbtn {
+  pointer-events: auto; width: 96px; height: 76px; border-radius: 10px;
+  font-family: "Abril Fatface", serif; font-size: 22px; color: var(--paper);
+  background: var(--plum); border: 3px solid var(--plum); box-shadow: 4px 4px 0 rgba(75, 46, 58, 0.35);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.tbtn.burn { background: var(--terracotta); border-color: var(--terracotta-deep); }
+.tbtn.held { transform: translate(2px, 2px); box-shadow: 2px 2px 0 rgba(75, 46, 58, 0.35); filter: brightness(1.15); }
+/* (shown only on a touch-only screen, and only in flight; the HUD sits over them there) */
+@media (hover: none) { .tbtns:not([hidden]) { display: flex; } }
+
+/* ---- the cards: poster panels ---------------------------------------------------- */
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(75, 46, 58, 0.28);
+}
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(460px, 100%); background: var(--paper);
+  border: 3px solid var(--plum); border-radius: 4px;
+  box-shadow: 0 0 0 6px var(--paper), 0 0 0 8px var(--plum), 10px 12px 0 8px rgba(196, 71, 58, 0.55);
+  padding: 22px 22px 18px;
+}
+.card h1, .card h2 { font-family: "Abril Fatface", serif; font-weight: 400; color: var(--terracotta); letter-spacing: 0.5px; }
+.card h1 { font-size: 42px; line-height: 1; }
+.card h2 { font-size: 30px; }
+.card .tag { font-weight: 700; text-transform: uppercase; letter-spacing: 2px; font-size: 13px; color: var(--teal); margin: 6px 0 10px; }
+.card .how { font-size: 15.5px; line-height: 1.5; margin-bottom: 14px; }
+.card .how b { color: var(--terracotta-deep); }
+
+.seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; color: var(--plum);
+  background: var(--paper-deep); border: 2px solid var(--plum); border-radius: 4px; padding: 9px 12px 7px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.seg button b { font-weight: 700; }
+.seg button small { font-size: 13px; color: var(--plum-dim); }
+.seg button.on { background: var(--teal); color: var(--paper); box-shadow: 3px 3px 0 var(--plum); }
+.seg button.on small { color: #e3f2ee; }
+
+kbd {
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  color: var(--paper); background: var(--plum); border-radius: 3px; padding: 2px 5px 0;
+}
+
+.playbtn, .card .row button:first-child {
+  font-family: "Abril Fatface", serif; font-weight: 400; cursor: pointer;
+  color: var(--paper); background: var(--terracotta); border: 3px solid var(--plum); border-radius: 4px;
+  box-shadow: 4px 4px 0 var(--plum);
+}
+.playbtn { width: 100%; font-size: 23px; padding: 10px 12px 8px; }
+.playbtn:active, .card .row button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 var(--plum); }
+.bests { margin-top: 12px; font-size: 14px; color: var(--plum-dim); text-align: center; min-height: 18px; }
+
+.card.end { text-align: center; }
+.card .big { font-family: "Abril Fatface", serif; font-size: 52px; color: var(--plum); line-height: 1.1; margin: 6px 0 2px; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px 0 18px; font-size: 15px; color: var(--plum-dim); }
+.stats .best { font-weight: 700; color: var(--plum); border: 2px solid var(--plum); border-radius: 999px; padding: 4px 14px 2px; background: var(--paper-deep); }
+.stats .best.record { background: var(--mustard); }
+.card .row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+.card .row button { font-family: inherit; font-size: 17px; font-weight: 700; cursor: pointer; color: var(--plum);
+  background: var(--paper-deep); border: 3px solid var(--plum); border-radius: 4px; padding: 8px 16px 6px; box-shadow: 4px 4px 0 var(--plum); }
+.card .row button:first-child { font-size: 19px; }
+
+@media (max-width: 640px) {
+  .hud { top: 58px; gap: 10px; font-size: 12px; padding: 5px 10px 3px; }
+  .hud b { font-size: 17px; }
+  .fuel { width: 60px; }
+  .panel { padding-top: 62px; }
+  .card h1 { font-size: 34px; }
+  .card .how { font-size: 14.5px; }
+}
+
+/* the shared pause card's backdrop (game-shell.js) */
+.gs-pause { background: rgba(75, 46, 58, 0.32); }

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%8E%88%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Mesa Drift</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Josefin+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Mesa Drift, a hot-air balloon over red-rock country: the burner only lifts and the vent only sinks, so find the wind that blows your way and land softly on the ringed field. A browser game by Sam Lu." />
+    <meta property="og:title" content="Mesa Drift | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Mesa Drift, a hot-air balloon over red-rock country: the burner only lifts and the vent only sinks, so find the wind that blows your way and land softly on the ringed field. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The country and the balloon over it. Everything is painted on this canvas by game.js. -->
+<canvas id="stage" aria-label="A hot-air balloon over red-rock mesas, in four bands of wind; land on the ringed field"></canvas>
+
+<div class="hud" id="hud" hidden>
+  <span id="hud-flight">Flight 1 of 8 · First Light</span>
+  <span class="fuel" aria-label="propane left"><span class="fuel-bar" id="hud-fuel"></span></span>
+  <b id="hud-score">0</b>
+</div>
+
+<!-- held, they burn or vent (a phone or a tablet) -->
+<div class="tbtns" id="tbtns" hidden>
+  <button type="button" class="tbtn" id="t-vent" aria-label="Vent: sink">vent</button>
+  <button type="button" class="tbtn burn" id="t-burn" aria-label="Burn: rise">burn</button>
+</div>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Mesa Drift</h1>
+    <p class="tag">a balloon tour of the red-rock country</p>
+    <p class="how">
+      The burner only lifts and the vent only sinks: <b>hold
+      <span class="gs-keys"><kbd>Space</kbd> or <kbd>↑</kbd></span><span class="gs-touch">burn</span></b> to rise,
+      <b><span class="gs-keys"><kbd>↓</kbd></span><span class="gs-touch">vent</span></b> to come down faster.
+      Each height has its own wind (the arrows at the side show them), so climb or sink into the one that
+      blows your way. Come down softly on the ringed field: near the flag and with propane to spare scores more.
+      Too hard a landing, or the river, ends the tour.
+    </p>
+    <div class="seg" id="pick-mode">
+      <button type="button" data-v="calm"><b>Calm air</b><small>steady winds, a full tank</small></button>
+      <button type="button" data-v="gusty"><b>Gusty</b><small>stronger, shifting winds, less propane</small></button>
+    </div>
+    <button type="button" class="playbtn" id="play">Light the burner</button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">The tour is flown</h2>
+    <p class="big" id="over-msg">0</p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Fly again</button>
+      <button type="button" id="to-menu">Modes</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>
