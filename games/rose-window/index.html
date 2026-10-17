@@ -12,10 +12,10 @@
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
-    <meta name="description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through eight windows. A browser game by Sam Lu." />
+    <meta name="description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through sixteen windows. A browser game by Sam Lu." />
     <meta property="og:title" content="Rose Window | Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through eight windows. A browser game by Sam Lu." />
+    <meta property="og:description" content="Rose Window, a brick breaker in a cathedral: bounce a bead of light off a brass bar and break the stained glass, pane by pane, through sixteen windows. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
     <!-- Google tag (gtag.js) -->
@@ -52,8 +52,18 @@
       jewel for a wider bar, three beads or slower light.
     </p>
     <div class="seg" id="pick-mode">
-      <button type="button" data-v="pilgrimage"><b>Pilgrimage</b><small>eight windows, three beads</small></button>
-      <button type="button" data-v="vigil"><b>Vigil</b><small>eight windows, one bead</small></button>
+      <button type="button" data-v="pilgrimage"><b>Pilgrimage</b><small>sixteen windows, three beads</small></button>
+      <button type="button" data-v="vigil"><b>Vigil</b><small>sixteen windows, one bead</small></button>
+    </div>
+    <!-- the window to start from: the one before, its picture and name
+         (game.js), the next; only the windows a game has reached are open -->
+    <div class="winrow" id="pick-window">
+      <button type="button" id="win-prev" aria-label="The window before">◀</button>
+      <span class="winpick">
+        <canvas id="win-pic" aria-hidden="true"></canvas>
+        <span class="win-text"><b id="win-name">I · The Lancets</b><small id="win-note"></small></span>
+      </span>
+      <button type="button" id="win-next" aria-label="The next window">▶</button>
     </div>
     <button type="button" class="playbtn" id="play"><b>Light the windows</b></button>
     <p class="bests" id="bests"></p>

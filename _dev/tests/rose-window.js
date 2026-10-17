@@ -9,7 +9,9 @@
 // begins again, and Backspace goes to the modes; paused, the keys neither
 // move the bar nor send the light; with Visual FX off a broken pane throws no
 // shards and the bead leaves no trail; on a phone a drag moves the bar and a
-// tap sends the light.
+// tap sends the light. Sixteen windows: a game that reaches one opens it on
+// the menu, where ← and → (shown on ◀ ▶) pick one to start from among those
+// open, the pick kept; a game from any but I keeps no best, and says so.
 // (the physics stepped by hand, and a few more things to read, through
 // lines served into the game's script)
 const HOOK = ["    gameOver: gameOver\n  };", `    gameOver: gameOver,
@@ -49,6 +51,39 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("rose-window: a Vigil ends when its one bead falls", (await st(p)).state === "over", await st(p));
   await done(p, "menu");
 
+  // ---- the window to start from: only window I open at first (◀ ▶ off); a game
+  // that reaches window II opens it
+  p = await hooked();
+  const first = await p.evaluate(() => ({ pick: RoseWindow.pick(), reached: RoseWindow.reached(), off: document.getElementById("win-prev").disabled && document.getElementById("win-next").disabled, note: document.getElementById("win-note").textContent }));
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
+  const still = await p.evaluate(() => RoseWindow.pick());
+  const opened = await p.evaluate(() => { RoseWindow.start("pilgrimage"); RoseWindow.launch(); RoseWindow.breakAllBut(1); for (let k = 0; k < 3 && !RoseWindow.lit(); k++) RoseWindow.knock(0); for (let i = 0; i < 400 && RoseWindow.win() === 0; i++) RoseWindow.step(1 / 60); return { win: RoseWindow.win(), reached: RoseWindow.reached(), kept: localStorage.getItem("rosewindow_reached") }; });
+  check("rose-window: at first only window I is open (◀ ▶ off, → does nothing); a game that reaches window II opens it",
+    first.pick === 0 && first.reached === 0 && first.off && /one window open/.test(first.note) && still === 0 && opened.win === 1 && opened.reached === 1 && opened.kept === "1", { first, still, opened });
+  await done(p, "first window");
+  // ...with four open: → and ← go round those four (shown on ◀ ▶), the pick kept, the
+  // window behind the card the one picked; Space starts from it, and a game from
+  // it keeps no best (the end card says so), while one from I does
+  p = await open(null, { before: (pg) => pg.addInitScript(() => { try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("rosewindow_reached", "3"); } } catch (e) {} }) });
+  const arrowCaps = await p.evaluate(() => ["win-prev", "win-next"].map((id) => document.getElementById(id).getAttribute("data-gs-key")));
+  const walk = [];
+  for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await p.keyboard.press(k); await p.waitForTimeout(40); walk.push(await p.evaluate(() => RoseWindow.pick())); }
+  await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(40);
+  const atIV = await p.evaluate(() => ({ pick: RoseWindow.pick(), kept: localStorage.getItem("rosewindow_from"), name: document.getElementById("win-name").textContent, note: document.getElementById("win-note").textContent }));
+  await p.reload(); await p.waitForFunction(() => window.RoseWindow);
+  const afterReload = await p.evaluate(() => RoseWindow.pick());
+  const fromIV = await p.evaluate(() => {
+    localStorage.removeItem("rosewindow_best_pilgrimage");
+    RoseWindow.start("pilgrimage"); const s = { win: RoseWindow.win(), from: RoseWindow.from(), hud: document.getElementById("hud-win").textContent };
+    RoseWindow.launch(); RoseWindow.knock(0); RoseWindow.knock(0); RoseWindow.gameOver(false);
+    return Object.assign(s, { score: RoseWindow.score(), best: localStorage.getItem("rosewindow_best_pilgrimage"), line: document.querySelector("#over-stats .best").textContent });
+  });
+  check("rose-window: with four windows open, → and ← (on ◀ ▶) go round those four, the pick kept through a reload; Space starts from it, and a game from IV keeps no best, the end card saying so",
+    arrowCaps.join() === "←,→" && walk.join() === "1,2,3,0,3" && atIV.pick === 2 && atIV.kept === "2" && /^III · The Rose$/.test(atIV.name) && /four of sixteen open · no best kept from here/.test(atIV.note) && afterReload === 2 &&
+    fromIV.win === 2 && fromIV.from === 2 && /^III · /.test(fromIV.hud) && fromIV.score > 0 && fromIV.best === null && /no best kept/.test(fromIV.line),
+    { arrowCaps, walk, atIV, afterReload, fromIV });
+  await done(p, "start window");
+
   // ---- every window: its glass inside the arch, some to break, and none
   // walled in by stone (a path of anything but stone from the open window)
   p = await open();
@@ -80,8 +115,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     return out;
   });
-  check("rose-window: eight windows, each with glass to break, all of it inside the arch, none walled in by stone, and thick glass and stone among them",
-    wins.length === 8 && wins.every((w) => w.breakable > 40 && w.bad.length === 0 && w.walled === 0) && wins.some((w) => w.thick > 0) && wins.some((w) => w.stone > 0),
+  check("rose-window: sixteen windows, each with glass to break, all of it inside the arch, none walled in by stone, and thick glass and stone among them",
+    wins.length === 16 && wins.every((w) => w.breakable > 40 && w.bad.length === 0 && w.walled === 0) && wins.some((w) => w.thick > 0) && wins.some((w) => w.stone > 0),
     wins.map((w) => [w.name, w.breakable, w.thick, w.stone, w.walled, w.bad.join(";")]));
   await done(p, "windows");
 

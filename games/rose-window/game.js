@@ -1,8 +1,9 @@
 /* =====================================================================
    Rose Window: a brick breaker in a cathedral. A bead of light flies up
    from a brass bar and breaks the panes of a stained-glass window, and
-   each broken pane lets the evening in. Eight windows, one after another:
-   Pilgrimage with three beads, Vigil with one.
+   each broken pane lets the evening in. Sixteen windows, one after another:
+   Pilgrimage with three beads, Vigil with one. A window opens on the menu
+   once a game has reached it, to start from; a best is kept only from I.
    ===================================================================== */
 (function () {
   "use strict";
@@ -35,7 +36,7 @@
     gold: ["#fff3c4", "#f0cf6e", "#a07a28"]
   };
 
-  // ---- the eight windows ---------------------------------------------------------
+  // ---- the sixteen windows -------------------------------------------------------
   // Each says what glass fills the cell whose middle is (x, y), as
   // [colour, knocks]: 1 for a pane, 2 for thick glass, 0 for stone tracery
   // (which nothing breaks); null for an empty cell. Whatever falls outside
@@ -118,9 +119,95 @@
       var hue = (sector + ring) % 2 ? "ruby" : "sapphire";
       if (ring === 6) hue = "gold";
       return [hue, ring === 3 ? 2 : 1];
+    } },
+    { name: "The Quatrefoil", pane: function (x, y) {
+      // four lobes round a stone boss, gold where two meet, thick at their hearts
+      if (d2(x, y, 240, 210) < 26) return ["stone", 0];
+      var L = [[240, 130, "ruby"], [160, 210, "sapphire"], [320, 210, "emerald"], [240, 290, "violet"]], hit = [];
+      for (var i = 0; i < 4; i++) if (d2(x, y, L[i][0], L[i][1]) <= 70) hit.push(i);
+      if (!hit.length) return null;
+      if (hit.length > 1) return ["gold", 1];
+      return [L[hit[0]][2], d2(x, y, L[hit[0]][0], L[hit[0]][1]) < 24 ? 2 : 1];
+    } },
+    { name: "The Chevrons", pane: function (x, y) {
+      // bands that point up the window, every fourth of thick glass
+      if (Math.abs(x - 240) > 214 || y > 340) return null;
+      var band = Math.floor((y - Math.abs(x - 240) * 0.55 - 30) / 30);
+      if (band < 0) return null;
+      return [["ruby", "gold", "sapphire", "gold", "emerald"][band % 5], band % 4 === 3 ? 2 : 1];
+    } },
+    { name: "The Cross", pane: function (x, y, c, r) {
+      // a ruby cross with a thick golden heart and stone at its arms' ends, on
+      // a chequer of sapphire quarries
+      var vx = Math.abs(x - 240), hy = Math.abs(y - 196);
+      var upright = vx <= 48 && y > 64 && y < 372, beam = hy <= 36 && x > 48 && x < 432;
+      if (vx <= 48 && hy <= 36) return ["gold", 2];
+      if (upright || beam) return (upright && (y < 82 || y > 354)) || (beam && (x < 66 || x > 414)) ? ["stone", 0] : ["ruby", 1];
+      if (y > 352 || (c + r) % 2) return null;
+      return ["sapphire", 1];
+    } },
+    { name: "The Sun", pane: function (x, y) {
+      // a thick golden disc in a ring of ruby, sixteen golden rays (every
+      // other one thick) on amber and rose, and stone where the four
+      // diagonals reach the edge
+      var d = d2(x, y, 240, 200), a = ang(x, y, 240, 200);
+      if (d > 192) return null;
+      if (d > 168) return nearAngle(a - Math.PI / 4, Math.PI / 2, 0.13) ? ["stone", 0] : null;
+      if (d < 36) return ["gold", 2];
+      if (d < 64) return ["ruby", 1];
+      if (nearAngle(a, Math.PI / 8, 0.1)) return ["gold", nearAngle(a, Math.PI / 4, 0.1) ? 2 : 1];
+      return [Math.floor((a + Math.PI) / (Math.PI / 8)) % 2 ? "amber" : "rose", 1];
+    } },
+    { name: "The Moon and Stars", pane: function (x, y, c, r) {
+      // a thick golden crescent, its horns to the upper right, in a night of
+      // violet and sapphire with stars in it
+      if (d2(x, y, 240, 214) > 196) return null;
+      if (d2(x, y, 216, 212) <= 124 && d2(x, y, 268, 178) > 112) return ["gold", 2];
+      if ((c * 7 + r * 11) % 13 === 0) return ["gold", 1];
+      return [r % 3 === 0 ? "sapphire" : "violet", 1];
+    } },
+    { name: "The Vine", pane: function (x, y, c, r) {
+      // a thick amber stem winding up the window (as wide where it slants),
+      // leaves along it and bunches of grapes
+      if (y < 52 || y > 384) return null;
+      var k = (y - 40) / 52, sx = 240 + 112 * Math.sin(k), dx = Math.abs(x - sx);
+      var slope = 112 / 52 * Math.cos(k), half = 20 * Math.sqrt(1 + slope * slope);
+      if (dx < half) return ["amber", 2];
+      var G = [[356, 122], [124, 226], [340, 306]];
+      for (var i = 0; i < G.length; i++) if (d2(x, y, G[i][0], G[i][1]) < 38) return ["violet", 1];
+      if (dx < half + 76 && (r + (x > sx ? 0 : 2)) % 4 < 3) return ["emerald", 1];
+      return null;
+    } },
+    { name: "The Labyrinth", pane: function (x, y) {
+      // rings of glass round a thick golden heart, walled by stone with a way
+      // through each wall: top and bottom, then left and right, in turn
+      var d = d2(x, y, 240, 212);
+      if (d > 200) return null;
+      var k = Math.floor(d / 40);
+      if (k === 0) return ["gold", 2];
+      if (d % 40 < 13) {
+        var a = ang(x, y, 240, 212), way = k % 2 ? Math.PI / 2 : 0, tol = 26 / d;
+        var open = Math.abs(Math.sin(a - way)) < Math.sin(tol);
+        if (!open) return ["stone", 0];
+      }
+      return [["gold", "ruby", "sapphire", "emerald", "violet"][k % 5], 1];
+    } },
+    { name: "The Heavenly Rose", pane: function (x, y) {
+      // eight rings of sixteen petals, every third ring thick, stone bosses on
+      // the eight points of the compass, and a golden rim
+      var d = d2(x, y, 240, 214);
+      if (d > 212) return null;
+      var ring = Math.floor(d / 26);
+      if (ring === 0) return ["gold", 2];
+      var a = ang(x, y, 240, 214);
+      if (ring === 5 && nearAngle(a, Math.PI / 4, 0.09)) return ["stone", 0];
+      if (ring >= 7) return ["gold", 1];
+      var sector = Math.floor((a + Math.PI) / (Math.PI / 8));
+      return [["ruby", "sapphire", "violet"][(sector + ring) % 3], ring % 3 === 2 ? 2 : 1];
     } }
   ];
-  var ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII"];
+  var ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"];
+  var COUNT = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen"];
 
   // A cell is glazed only if it lies wholly inside the arch.
   function inArch(x0, y0, x1, y1) {
@@ -256,6 +343,12 @@
   if (!MODES[mode]) mode = "pilgrimage";
   var bests = {};
   Object.keys(MODES).forEach(function (m) { bests[m] = window.GameShell ? GameShell.best("rosewindow_best_" + m, { higher: true }) : null; });
+  // the windows a game has reached (either mode), and the one picked to start
+  // from: a game from any but the first is played for its own sake, no best kept
+  function num(k, f) { var v = parseInt(store.get(k, ""), 10); return isFinite(v) ? v : f; }
+  var reached = Math.max(0, Math.min(WINDOWS.length - 1, num("rosewindow_reached", 0)));
+  var pick = Math.max(0, Math.min(reached, num("rosewindow_from", 0)));
+  var from = 0;
 
   var state = "menu";            // menu | play | over
   var win = 0, panes = [], grid = [];
@@ -265,7 +358,8 @@
   var serving = true, launched = false, litT = 0, overAt = 0, quiet = 0;
   var keys = { left: false, right: false };
 
-  function bestNow() { return bests[mode]; }
+  // (a game from a later window keeps no best)
+  function bestNow() { return from === 0 ? bests[mode] : null; }
   function setScore(n) {
     score = n;
     // a new best is kept the moment it is passed, so leaving mid-run loses nothing
@@ -275,6 +369,8 @@
 
   function loadWindow(n) {
     win = n;
+    // reaching a window in a game opens it on the menu
+    if (state === "play" && n > reached) { reached = n; store.set("rosewindow_reached", String(n)); }
     panes = glaze(n);
     grid = [];
     for (var r = 0; r < ROWS; r++) grid.push(new Array(COLS).fill(null));
@@ -298,9 +394,10 @@
     state = "play";
     score = 0; broken = 0; launched = false; litT = 0;
     beads = MODES[mode].beads;
+    from = Math.min(pick, reached);
     runBest = bestNow() ? bestNow().get() : 0;
     barX = R; keys.left = keys.right = false;
-    loadWindow(0);
+    loadWindow(from);
     $("menu").hidden = true; $("over").hidden = true; $("hud").hidden = false;
   }
   function launch() {
@@ -310,7 +407,8 @@
     var b = balls[0], sp = speed();
     b.vx = Math.sin(a) * sp; b.vy = -Math.cos(a) * sp;
   }
-  function speed() { return (330 + 18 * win) * (slowT > 0 ? 0.7 : 1); }
+  // (quicker window by window: by less after the eighth)
+  function speed() { return (330 + 18 * Math.min(win, 7) + 7 * Math.max(0, win - 7)) * (slowT > 0 ? 0.7 : 1); }
 
   function hud() {
     $("hud-win").textContent = ROMAN[win] + " · " + WINDOWS[win].name;
@@ -395,10 +493,12 @@
     $("over-title").textContent = won ? "Every window is lit" : "The light went out";
     $("over-msg").textContent = score;
     var line = document.createElement("span"), best = document.createElement("span");
-    line.textContent = won ? "all eight windows, " + broken + " panes broken" :
+    var last = ROMAN[WINDOWS.length - 1];
+    line.textContent = won ? (from === 0 ? "all " + COUNT[WINDOWS.length] + " windows" : "windows " + ROMAN[from] + " to " + last) + ", " + broken + " panes broken" :
       "at window " + ROMAN[win] + ", " + WINDOWS[win].name.toLowerCase() + " · " + broken + " panes broken";
     best.className = "best" + (isBest ? " record" : "");
-    best.textContent = isBest ? "a new " + MODES[mode].name.toLowerCase() + " record ✦" : b && b.get() ? "best: " + b.get() : "no record yet";
+    best.textContent = from > 0 ? "from window " + ROMAN[from] + ": no best kept (only from I)" :
+      isBest ? "a new " + MODES[mode].name.toLowerCase() + " record ✦" : b && b.get() ? "best: " + b.get() : "no record yet";
     $("over-stats").replaceChildren(line, best);
     $("hud").hidden = true;
     $("over").hidden = false;
@@ -708,11 +808,46 @@
     var parts = [];
     Object.keys(MODES).forEach(function (m) { if (bests[m] && bests[m].get()) parts.push(MODES[m].name + " " + bests[m].get()); });
     $("bests").textContent = parts.length ? "best: " + parts.join(" · ") : "no windows lit yet";
+    paintPick();
+  }
+  // the window to start from: its name, how many are open, and whether a best is kept
+  function paintPick() {
+    $("win-name").textContent = ROMAN[pick] + " · " + WINDOWS[pick].name;
+    var open = reached + 1;
+    $("win-note").textContent = (open === 1 ? "one window open: reach more to start from them" :
+      open === WINDOWS.length ? "all " + COUNT[open] + " open" : COUNT[open] + " of " + COUNT[WINDOWS.length] + " open") +
+      (pick > 0 ? " · no best kept from here" : "");
+    $("win-prev").disabled = $("win-next").disabled = reached === 0;
+    drawPick();
+    // (the window behind the card is the one picked)
+    if (state === "menu") panes = glaze(pick);
+  }
+  // a little picture of it: the arch, its glass, its stone
+  function drawPick() {
+    var c = $("win-pic"), cs = c.getBoundingClientRect(), r = window.devicePixelRatio || 1;
+    var w = Math.max(1, Math.round((cs.width || 45) * r)), h = Math.max(1, Math.round((cs.height || 60) * r));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    var k = c.getContext("2d"), sc = Math.min(w / (FW + FRAME), h / (FH + FRAME));
+    k.setTransform(1, 0, 0, 1, 0, 0); k.clearRect(0, 0, w, h);
+    k.setTransform(sc, 0, 0, sc, (w - FW * sc) / 2, (h - FH * sc) / 2);
+    archPath(k, FRAME * 0.5); k.fillStyle = "#7a7285"; k.fill();
+    archPath(k, 0); k.fillStyle = "#26223e"; k.fill();
+    glaze(pick).forEach(function (p) {
+      k.fillStyle = p.max === 0 ? "#9a92a5" : GLASS[p.hue][p.max === 2 ? 2 : 1];
+      k.fillRect(p.x + 1, p.y + 1, CW - 2, CH - 2);
+    });
+  }
+  function stepPick(d) {
+    if (state !== "menu" || reached === 0) return;
+    pick = (pick + d + reached + 1) % (reached + 1);
+    store.set("rosewindow_from", String(pick));
+    paintPick();
   }
   function toMenu() {
     state = "menu";
     balls = []; jewels = []; shards = []; pops = [];
-    panes = glaze(0);
+    pick = Math.min(pick, reached);
+    panes = glaze(pick);
     $("over").hidden = true; $("hud").hidden = true; $("menu").hidden = false;
     paintMenu();
   }
@@ -726,12 +861,17 @@
     // the Enter that should start would press the mode again
     b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
+  $("win-prev").addEventListener("click", function () { stepPick(-1); });
+  $("win-next").addEventListener("click", function () { stepPick(1); });
+  ["win-prev", "win-next"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
   $("to-menu").addEventListener("click", toMenu);
   if (window.GameShell && GameShell.menuKeys) {
-    // the modes take 1 and 2, and Space or Enter lights the windows
-    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: ["#pick-mode button"], start: "#play", space: true });
+    // the modes take 1 and 2, ← and → the window to start from, and Space or
+    // Enter lights the windows
+    GameShell.menuKeys({ active: function () { return state === "menu"; },
+      groups: ["#pick-mode button", { sel: "#win-prev", keys: ["arrowleft"] }, { sel: "#win-next", keys: ["arrowright"] }], start: "#play", space: true });
     // the end card: Space or Enter again (not in its first moments, so a key
     // still down from play can't skip it), Backspace back to the modes;
     // Esc is left alone, and leaves for the games page
@@ -748,6 +888,9 @@
   window.RoseWindow = {
     state: function () { return state; },
     mode: function () { return mode; },
+    pick: function () { return pick; },
+    reached: function () { return reached; },
+    from: function () { return from; },
     score: function () { return score; },
     beads: function () { return beads; },
     win: function () { return win; },

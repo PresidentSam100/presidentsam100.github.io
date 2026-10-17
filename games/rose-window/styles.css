@@ -103,6 +103,22 @@ body {
 .seg button.on b { color: #fff8e2; }
 .seg button.on small { color: #dfe7fb; }
 
+/* the window to start from: ◀, its picture and name, ▶ (lead-framed panes) */
+.winrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.winrow > button {
+  font-family: inherit; font-size: 16px; cursor: pointer; color: var(--gilt);
+  background: rgba(21, 18, 26, 0.45); border: 2px solid var(--lead); border-radius: 10px; padding: 10px 11px;
+  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.18);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.winrow > button:hover { filter: brightness(1.15); }
+.winrow > button:disabled { opacity: 0.4; cursor: default; filter: none; }
+.winpick { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.winpick canvas { width: 45px; height: 60px; flex: none; }
+.win-text { min-width: 0; }
+.win-text b { display: block; font-size: 17px; color: var(--vellum); }
+.win-text small { display: block; font-size: 13.5px; color: var(--dim); font-style: italic; }
+
 kbd {
   font-family: "Alegreya", Georgia, serif; font-size: 12px; font-weight: 700;
   color: var(--gilt); background: var(--lead);
@@ -150,6 +166,11 @@ kbd {
   .card { padding: 20px 18px 18px; }
   .card h1 { font-size: 30px; }
   .card .how { font-size: 15px; }
+  .winrow { gap: 8px; }
+  .winrow > button { padding: 9px 8px; }
+  .winpick { gap: 9px; }
+  .win-text b { font-size: 15.5px; }
+  .win-text small { font-size: 12.5px; }
 }
 
 /* the shared pause card's backdrop (game-shell.js), the nave's dusk */
