@@ -103,10 +103,25 @@
   Object.keys(MODES).forEach(function (m) { bests[m] = window.GameShell ? GameShell.best("tidepool_best_" + m, { higher: true }) : null; });
   var state = "menu", board = deal(Math.random), score = 0, runBest = 0, timeLeft = 0, swapsLeft = 0, chainMax = 0, cleared = 0;
   var sel = -1, cursor = 27, keyed = false, busy = false, hintAt = null, idle = 0, overAt = 0, OVER_WAIT = 700;
-  var anims = [];   // [{i, fr, fc, t, d}] pieces sliding or settling into place from row fr, column fc (Visual FX on)
+  // What moves, with Visual FX on (with it off the pieces are where they go at
+  // once, and nothing below runs but the ring on a swap that makes no line):
+  //   anims: pieces moving into place, {i, fr, fc, t, d, kind, side}, from row
+  //     fr, column fc. "swap": the two of a swap glide past each other, eased
+  //     in and out, each a little to its own side. "fall": dropping into a
+  //     gap, or in from above the pool, gathering speed, then a squash as it lands.
+  //   nope: a swap that makes no line, {a, c, t}: the two slide toward each
+  //     other's places and spring back (FX off: ringed a moment, standing still).
+  //   clears: a washed-away piece's own way of leaving (see pose), {i, k, r, c,
+  //     t, delay, dir}, drawn over the board; it runs on while the rest settle,
+  //     so play never waits on it.
+  //   ripples: a ring of light across the pool for a long line or a chain.
+  var anims = [];
   var washing = []; // cells being washed away, shown a moment
-  var bubbles = [];
+  //   selT: how long the picked piece has been picked; it stirs while it is
+  //     (see stir), in its own way.
+  var bubbles = [], clears = [], ripples = [], nope = null, selT = 0, selWas = -1;
   var STEP_MS = 260;
+  var SWAP_T = 0.16, FALL_T = 0.24, NOPE_T = 0.34, CLEAR_T = 0.42, RIPPLE_T = 0.6;
 
   function bestNow() { return bests[mode]; }
   function startRun(m) {
@@ -114,7 +129,7 @@
     store.set("tidepool_mode", mode);
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = [];
+    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = []; clears = []; ripples = []; nope = null;
     runBest = bestNow() ? bestNow().get() : 0;
     timeLeft = MODES[mode].time || 0; swapsLeft = MODES[mode].swaps || 0;
     state = "play";
@@ -137,16 +152,15 @@
     if (state !== "play" || busy || P.isPaused() || !adjacent(a, c)) return false;
     var nb = swapped(board, a, c);
     hintAt = null; idle = 0;
-    if (!runs(nb).length) { sfxNo(); shake = { a: a, c: c, t: 0 }; sel = -1; return false; }
-    board = nb; sel = -1;
-    // (the two slide past each other)
-    if (fx()) anims = [{ i: a, fr: Math.floor(c / N), fc: c % N, t: 0, d: 0.14 }, { i: c, fr: Math.floor(a / N), fc: a % N, t: 0, d: 0.14 }];
+    if (!runs(nb).length) { sfxNo(); nope = { a: a, c: c, t: 0 }; sel = -1; return false; }
+    board = nb; sel = -1; nope = null;
+    // (the two glide past each other, one to each side)
+    if (fx()) anims = [{ i: a, fr: Math.floor(c / N), fc: c % N, t: 0, d: SWAP_T, kind: "swap", side: 1 }, { i: c, fr: Math.floor(a / N), fc: a % N, t: 0, d: SWAP_T, kind: "swap", side: -1 }];
     if (mode === "pool") swapsLeft--;
     hud();
     resolve(1);
     return true;
   }
-  var shake = null;
   // wash away the lines, settle, bring more; again while lines are left
   function resolve(chain) {
     var hit = runs(board);
@@ -164,7 +178,19 @@
     splash(chain);
     if (chain > 1) flash("tide ×" + chain);
     washing = hit.slice();
-    if (fx()) hit.forEach(function (i) { for (var k = 0; k < 3; k++) bubbles.push({ x: (i % N + 0.5) * CELL + (Math.random() - 0.5) * CELL * 0.6, y: (Math.floor(i / N) + 0.5) * CELL, r: 2 + Math.random() * 4, v: 40 + Math.random() * 60, t: 0 }); });
+    if (fx()) {
+      hit.forEach(function (i) {
+        for (var k = 0; k < 3; k++) bubbles.push({ x: (i % N + 0.5) * CELL + (Math.random() - 0.5) * CELL * 0.6, y: (Math.floor(i / N) + 0.5) * CELL, r: 2 + Math.random() * 4, v: 40 + Math.random() * 60, t: 0 });
+        // each piece leaves in its own way, once a swap has brought it in
+        var wait = 0; anims.forEach(function (an) { if (an.i === i) wait = Math.max(wait, (1 - an.t) * an.d); });
+        clears.push({ i: i, k: board[i], r: Math.floor(i / N), c: i % N, t: 0, delay: wait, dir: i % N < N / 2 ? -1 : 1 });
+      });
+      // a long line or a chain sends a ring of light across the pool
+      if (hit.length >= 5 || chain >= 3) {
+        var sx = 0, sy = 0; hit.forEach(function (i) { sx += i % N + 0.5; sy += Math.floor(i / N) + 0.5; });
+        ripples.push({ x: sx / hit.length, y: sy / hit.length, t: 0 });
+      }
+    }
     later(function () {
       hit.forEach(function (i) { board[i] = -1; });
       washing = [];
@@ -179,9 +205,9 @@
       var w = N - 1;
       for (var r = N - 1; r >= 0; r--) {
         var k = board[r * N + c];
-        if (k >= 0) { if (w !== r) { board[w * N + c] = k; board[r * N + c] = -1; anims.push({ i: w * N + c, fr: r, fc: c, t: 0 }); } w--; }
+        if (k >= 0) { if (w !== r) { board[w * N + c] = k; board[r * N + c] = -1; anims.push({ i: w * N + c, fr: r, fc: c, t: 0, d: FALL_T, kind: "fall" }); } w--; }
       }
-      for (var n = w; n >= 0; n--) { board[n * N + c] = Math.floor(Math.random() * KINDS); anims.push({ i: n * N + c, fr: n - (w + 1), fc: c, t: 0 }); }
+      for (var n = w; n >= 0; n--) { board[n * N + c] = Math.floor(Math.random() * KINDS); anims.push({ i: n * N + c, fr: n - (w + 1), fc: c, t: 0, d: FALL_T, kind: "fall" }); }
     }
     if (!fx()) anims = [];
   }
@@ -215,9 +241,13 @@
 
   // ---- the loop -------------------------------------------------------------------------------
   function update(dt) {
-    for (var i = anims.length - 1; i >= 0; i--) { anims[i].t += dt / (anims[i].d || 0.22); if (anims[i].t >= 1) anims.splice(i, 1); }
+    for (var i = anims.length - 1; i >= 0; i--) { anims[i].t += dt / anims[i].d; if (anims[i].t >= 1) anims.splice(i, 1); }
     for (var k = bubbles.length - 1; k >= 0; k--) { var bb = bubbles[k]; bb.t += dt; bb.y -= bb.v * dt; if (bb.t > 0.7) bubbles.splice(k, 1); }
-    if (shake) { shake.t += dt; if (shake.t > 0.3) shake = null; }
+    // (a leaving that's over stays, unseen, while its cell is still washing, so the piece can't show again)
+    for (k = clears.length - 1; k >= 0; k--) { clears[k].t += dt; if (clears[k].t >= clears[k].delay + CLEAR_T && washing.indexOf(clears[k].i) < 0) clears.splice(k, 1); }
+    for (k = ripples.length - 1; k >= 0; k--) { ripples[k].t += dt; if (ripples[k].t >= RIPPLE_T) ripples.splice(k, 1); }
+    if (nope) { nope.t += dt; if (nope.t >= NOPE_T) nope = null; }
+    if (sel !== selWas) { selWas = sel; selT = 0; } else if (sel >= 0) selT += dt;
     if (flashT > 0) flashT -= dt;
     if (state !== "play") return;
     if (mode === "tide" && !busy) { timeLeft -= dt; if (timeLeft <= 0) { timeLeft = 0; hud(); finish(); return; } hud(); }
@@ -235,18 +265,35 @@
       g.fillRect(x, y, CELL, CELL);
     }
     if (state === "menu") return;
+    var fxOn = fx(), leaving = {};
+    if (fxOn) clears.forEach(function (cl) { if (cl.t >= cl.delay) leaving[cl.i] = true; });
+    // the washed-away pieces' leaving, under the board: in a washing cell
+    // there's nothing over them, and a piece settling in lands on top
+    if (fxOn) clears.forEach(function (cl) { if (cl.t >= cl.delay) drawClear(cl); });
     for (i = 0; i < N * N; i++) {
       var k = board[i]; if (k < 0) continue;
-      r = Math.floor(i / N); c = i % N;
-      var px = c * CELL, py = r * CELL;
-      var an = null; for (var a = 0; a < anims.length; a++) if (anims[a].i === i) an = anims[a];
-      if (an) { var e = 1 - Math.pow(1 - an.t, 2); px = (an.fc + (c - an.fc) * e) * CELL; py = (an.fr + (r - an.fr) * e) * CELL; }
-      if (shake && (i === shake.a || i === shake.c)) px += Math.sin(shake.t * 60) * 4 * (fx() ? 1 : 0);
       var fade = washing.indexOf(i) >= 0;
-      g.globalAlpha = fade ? 0.4 : 1;
-      drawPiece(k, px, py, CELL);
+      if (fade && leaving[i]) continue;   // (its own way of leaving draws it, above)
+      r = Math.floor(i / N); c = i % N;
+      var p = posOf(i), px = (c + p.dx) * CELL, py = (r + p.dy) * CELL;
+      g.globalAlpha = fade && !fxOn ? 0.4 : 1;
+      if (fxOn && i === sel) {
+        // (picked: it stirs in its own way, about its foot or its middle)
+        var st = stir(k, selT), sx0 = px + CELL / 2, sy0 = st.foot ? py + CELL * 0.82 : py + CELL / 2;
+        g.save(); g.translate(sx0 + st.dx * CELL, sy0 + st.dy * CELL); g.rotate(st.rot); g.scale(st.sx, st.sy); g.translate(-sx0, -sy0);
+        drawPiece(k, px, py, CELL);
+        if (st.glint >= 0) glint(px + CELL / 2, py + CELL / 2, st.glint, 0.7);
+        g.restore();
+      } else if (p.sx !== 1 || p.sy !== 1) {
+        // (squashed as it lands, about its foot)
+        var fx0 = px + CELL / 2, fy0 = py + CELL * 0.82;
+        g.save(); g.translate(fx0, fy0); g.scale(p.sx, p.sy); g.translate(-fx0, -fy0); drawPiece(k, px, py, CELL); g.restore();
+      } else drawPiece(k, px, py, CELL);
       g.globalAlpha = 1;
     }
+    if (fxOn) ripples.forEach(drawRipple);
+    // (Visual FX off, a swap that makes no line rings the two a moment, standing still)
+    if (nope && !fxOn) { ring(nope.a, "#f07a5a", 3); ring(nope.c, "#f07a5a", 3); }
     // the picked piece, the keyboard's cursor, the hint
     if (sel >= 0) ring(sel, "#ffffff", 3);
     if (keyed && state === "play") ring(cursor, "#ff7a59", 3);
@@ -259,6 +306,109 @@
       g.globalAlpha = 1;
     }
   }
+  // ---- the motion's shapes (Visual FX on) ------------------------------------------------------
+  function inOut(u) { return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; }
+  function outBack(u) { var s = 1.70158; return 1 + (s + 1) * Math.pow(u - 1, 3) + s * Math.pow(u - 1, 2); }
+  var LAND = 0.72;   // a fall's share spent dropping; the rest is the squash as it lands
+  // where the piece in cell i is drawn, in cells from its own place, and how
+  // it's squashed: {dx, dy, sx, sy}
+  function posOf(i) {
+    var r = Math.floor(i / N), c = i % N, p = { dx: 0, dy: 0, sx: 1, sy: 1 };
+    if (!fx()) return p;
+    for (var a = 0; a < anims.length; a++) {
+      var an = anims[a]; if (an.i !== i) continue;
+      if (an.kind === "swap") {
+        var e = inOut(an.t), side = 0.16 * Math.sin(Math.PI * an.t) * an.side;
+        p.dx = (an.fc - c) * (1 - e); p.dy = (an.fr - r) * (1 - e);
+        if (an.fr === r) p.dy += side; else p.dx += side;
+      } else {
+        var f = an.t < LAND ? Math.pow(an.t / LAND, 2) : 1, sq = an.t < LAND ? 0 : 0.16 * Math.sin(Math.PI * (an.t - LAND) / (1 - LAND));
+        p.dy = (an.fr - r) * (1 - f); p.sy = 1 - sq; p.sx = 1 + sq * 0.6;
+      }
+    }
+    if (nope && (i === nope.a || i === nope.c)) {
+      // out toward the other's place, then back home with a little bounce past it
+      var o = i === nope.a ? nope.c : nope.a, u = Math.min(1, nope.t / NOPE_T), OUT = 0.42;
+      var reach = u < OUT ? 0.55 * inOut(u / OUT) : 0.55 * (1 - outBack((u - OUT) / (1 - OUT)));
+      var sd = 0.25 * reach * (i === nope.a ? 1 : -1);   // (each to its own side, as in a swap)
+      p.dx += (o % N - c) * reach; p.dy += (Math.floor(o / N) - r) * reach;
+      if (Math.floor(o / N) === r) p.dy += sd; else p.dx += sd;
+    }
+    return p;
+  }
+  // a washed-away piece's leaving, u from 0 to 1: its offset (cells), turn,
+  // scale and opacity, and whether it turns about its foot or its middle
+  function pose(k, u, dir) {
+    var p = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, alpha: 1, foot: false };
+    dir = dir || 1;
+    if (k === 0) {        // the scallop snaps shut on its hinge, then sinks into the sand
+      var shut = inOut(Math.min(1, u / 0.35)), sink = Math.max(0, (u - 0.35) / 0.65);
+      p.foot = true; p.sy = 1 - 0.8 * shut; p.sx = 1 + 0.1 * shut; p.dy = 0.3 * sink * sink; p.alpha = 1 - sink;
+    } else if (k === 1) { // the starfish spins away to nothing
+      p.rot = dir * Math.PI * 2.2 * (1 - Math.pow(1 - u, 2)); p.sx = p.sy = 1 - 0.6 * u; p.alpha = 1 - u * u;
+    } else if (k === 2) { // the urchin puffs up, flinging spines, and is gone
+      p.sx = p.sy = 1 + 0.45 * (1 - Math.pow(1 - u, 3)); p.alpha = 1 - Math.pow(u, 1.5);
+    } else if (k === 3) { // the sea glass catches the light and lifts away
+      p.dy = -0.45 * u * u; p.sx = p.sy = 1 + 0.08 * u; p.alpha = u < 0.5 ? 1 : 1 - (u - 0.5) * 2;
+    } else if (k === 4) { // the periwinkle rolls off sideways, its spiral turning
+      p.dx = dir * 0.75 * u * u; p.rot = dir * Math.PI * 2.4 * u; p.alpha = 1 - u * u;
+    } else {              // the pebble sinks into the sand, a ring spreading from it
+      p.foot = true; p.sx = p.sy = 1 - 0.45 * u; p.dy = 0.1 * u; p.alpha = 1 - u;
+    }
+    return p;
+  }
+  function drawClear(cl) {
+    var u = Math.min(1, (cl.t - cl.delay) / CLEAR_T), p = pose(cl.k, u, cl.dir);
+    var x = cl.c * CELL, y = cl.r * CELL, cx = x + CELL / 2, cy = y + CELL / 2, py = p.foot ? y + CELL * 0.82 : cy;
+    g.save();
+    g.globalAlpha = Math.max(0, p.alpha);
+    g.translate(cx + p.dx * CELL, py + p.dy * CELL); g.rotate(p.rot); g.scale(p.sx, p.sy); g.translate(-cx, -py);
+    drawPiece(cl.k, x, y, CELL);
+    if (cl.k === 3) glint(cx, cy, u, 0.85);
+    g.restore();
+    if (cl.k === 2) {     // the spines flung out from the puff
+      g.fillStyle = "rgba(91, 42, 122, " + (0.85 * (1 - u)).toFixed(2) + ")";
+      for (var s = 0; s < 8; s++) { var a = s * Math.PI / 4 + 0.3, d = CELL * (0.32 + 0.4 * u); g.beginPath(); g.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, CELL * 0.035, 0, 7); g.fill(); }
+    } else if (cl.k === 5) { // a ring spreading over the sand
+      g.strokeStyle = "rgba(255, 255, 255, " + (0.8 * (1 - u)).toFixed(2) + ")"; g.lineWidth = CELL * 0.04;
+      g.beginPath(); g.ellipse(cx, y + CELL * 0.7, CELL * (0.2 + 0.4 * u), CELL * (0.07 + 0.14 * u), 0, 0, 7); g.stroke();
+    }
+  }
+  // a band of light passing across a piece, u from 0 to 1 across, kept to it
+  function glint(cx, cy, u, a) {
+    g.save();
+    g.beginPath(); g.arc(cx, cy, CELL * 0.33, 0, 7); g.clip();
+    var bx = cx + (u * 2.2 - 1.1) * CELL * 0.5;
+    g.globalAlpha *= a; g.fillStyle = "#ffffff";
+    g.beginPath(); g.moveTo(bx - CELL * 0.08, cy - CELL * 0.4); g.lineTo(bx + CELL * 0.04, cy - CELL * 0.4); g.lineTo(bx - CELL * 0.14, cy + CELL * 0.4); g.lineTo(bx - CELL * 0.26, cy + CELL * 0.4); g.closePath(); g.fill();
+    g.restore();
+  }
+  // the picked piece stirring, t seconds after it was picked, a gentle loop
+  // that starts from rest: the scallop opens a crack and closes, the starfish
+  // flexes, the urchin's spines bristle, the sea glass glints, the periwinkle
+  // rocks on its whorl, the pebble bobs
+  var STILL = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, foot: false, glint: -1 };
+  function stir(k, t) {
+    var p = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, foot: false, glint: -1 };
+    var rise = function (T) { return 0.5 - 0.5 * Math.cos(t * Math.PI * 2 / T); }, sway = Math.sin(t * Math.PI * 2 / 1.1);
+    if (k === 0) { p.foot = true; p.sy = 1 + 0.08 * rise(1.2); p.sx = 1 - 0.03 * rise(1.2); }
+    else if (k === 1) { p.rot = 0.12 * sway; p.sx = p.sy = 1 + 0.05 * rise(0.55); }
+    else if (k === 2) { p.sx = p.sy = 1 + 0.07 * rise(0.7); }
+    else if (k === 3) { var u = (t % 1.4) / 1.4; p.glint = u < 0.6 ? u / 0.6 : -1; p.dy = -0.04 * rise(1.4); }
+    else if (k === 4) { p.foot = true; p.rot = 0.14 * sway; }
+    else { p.dy = -0.06 * rise(1.1); }
+    return p;
+  }
+
+  function drawRipple(rp) {
+    var u = rp.t / RIPPLE_T, x = rp.x * CELL, y = rp.y * CELL;
+    for (var w = 0; w < 2; w++) {
+      var v = u - w * 0.18; if (v <= 0) continue;
+      g.strokeStyle = "rgba(255, 255, 255, " + (0.55 * (1 - v)).toFixed(2) + ")"; g.lineWidth = Math.max(0.5, CELL * 0.07 * (1 - v));
+      g.beginPath(); g.arc(x, y, CELL * (0.5 + v * 5), 0, 7); g.stroke();
+    }
+  }
+
   function ring(i, col, w) {
     var x = (i % N) * CELL, y = Math.floor(i / N) * CELL;
     g.strokeStyle = col; g.lineWidth = w;
@@ -313,11 +463,11 @@
     active: function () { return state === "play" && score > 0; },
     pausable: P
   });
-  var last = 0;
+  var last = 0, held = false;   // (held: a test steps the clock itself)
   function loop(now) {
     requestAnimationFrame(loop);
     var dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
-    if (!P.isPaused()) update(dt);
+    if (!P.isPaused() && !held) update(dt);
     draw();
   }
 
@@ -411,6 +561,22 @@
     cursor: function () { return cursor; },
     hint: function () { return hintAt; },
     anims: function () { return anims.length; },
+    // the motion: hold(true) stops the clock and step(dt) moves it; pos(i)
+    // where the piece in cell i is drawn; pose(k, u) a cleared piece's leaving
+    motion: {
+      hold: function (on) { held = !!on; },
+      step: function (dt) { update(dt); },
+      pos: posOf,
+      pose: pose,
+      kinds: function () { return anims.map(function (a) { return a.kind; }); },
+      clears: function () { return clears.map(function (c) { return { i: c.i, k: c.k }; }); },
+      ripples: function () { return ripples.length; },
+      bubbles: function () { return bubbles.length; },
+      nope: function () { return nope ? { a: nope.a, c: nope.c } : null; },
+      // how the picked piece stirs right now (still with FX off or nothing picked)
+      picked: function () { return fx() && sel >= 0 && board[sel] >= 0 ? stir(board[sel], selT) : STILL; },
+      stir: stir
+    },
     swap: trySwap,
     start: startRun,
     toMenu: toMenu,

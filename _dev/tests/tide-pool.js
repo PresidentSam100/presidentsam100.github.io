@@ -134,6 +134,107 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("tide-pool: with Visual FX on the pieces fall into the gap; with it off they're there at once", fall.on > 0 && fall.off === 0, fall);
 
+  // ---- Visual FX, the motion in detail (the clock held and stepped by the
+  // test, so it's exact however busy the machine is). On: a swap's two glide
+  // past each other, eased in and out, each to its own side; one that makes
+  // no line slides out toward the other's place and springs back, past home a
+  // little (and doesn't hold up the next swap); pieces fall gathering speed
+  // and squash as they land; each kind leaves in its own way; a long line
+  // sends a ring of light across the pool. Off: none of it, the pieces where
+  // they go at once, and a swap that makes no line rings the two a moment.
+  // (a hook that isn't there, or a step that throws, fails its check rather than the suite)
+  const safe = (pr) => pr.catch((e) => ({ error: String(e && e.message || e).split("\n")[0] }));
+  const holds = (f) => { try { return !!f(); } catch (e) { return false; } };
+  const motion = {};
+  for (const off of [false, true]) {
+    const q = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tide-pool", off ? "1" : "0"); } catch (e) {} }, off) });
+    const r = await safe(q.evaluate((PLAIN) => {
+      const M = TidePool.motion, out = {};
+      TidePool.start("pool"); M.hold(true);
+      // a swap that makes no line, then at once one that does
+      let b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; TidePool.setBoard(b);
+      out.failed = TidePool.swap(8, 9); out.ringed = !!M.nope();
+      const back = []; for (let k = 0; k <= 17; k++) { back.push(M.pos(8).dx); M.step(0.02); }   // (0.34 s)
+      out.back = { most: Math.max(...back), least: Math.min(...back), end: back[back.length - 1] };
+      out.again = TidePool.swap(58, 59);
+      const sw = []; for (let k = 0; k <= 8; k++) { sw.push([M.pos(58), M.pos(59)]); M.step(0.02); }   // (0.16 s in eight steps)
+      out.swap = { q1: sw[2][0].dx, half: sw[4][0].dx, side: sw[4][0].dy, otherSide: sw[4][1].dy, q3: sw[6][0].dx, end: sw[8][0].dx };
+      out.clears = M.clears().map((c) => c.k).join();
+      out.bubbles = M.bubbles();
+      return out;
+    }, PLAIN));
+    // the fall, once the line has washed away (on the page's own timers; the motion's clock still held)
+    await q.waitForFunction(() => TidePool.board()[56] !== 5 || TidePool.motion.kinds().includes("fall"), null, { timeout: 5000 }).catch(() => {});
+    r.fall = await safe(q.evaluate(() => {
+      const M = TidePool.motion, dys = [], sys = [];
+      for (let k = 0; k <= 12; k++) { const p = M.pos(56); dys.push(p.dy); sys.push(p.sy); M.step(0.02); }   // (0.24 s)
+      return { start: dys[0], early: dys[4], squash: 1 - Math.min(...sys), end: dys[12], endSy: sys[12] };
+    }));
+    // a line of five: a ring of light across the pool
+    await q.waitForFunction(() => !TidePool.busy(), null, { timeout: 8000 }).catch(() => {});
+    r.ripple = await safe(q.evaluate((PLAIN) => {
+      const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[60] = 5; b[50] = 5; TidePool.setBoard(b);
+      TidePool.swap(50, 58);
+      return TidePool.motion.ripples();
+    }, PLAIN));
+    await safe(q.evaluate(() => TidePool.motion.hold(false)));
+    motion[off ? "off" : "on"] = r;
+    await done(q, "motion FX " + (off ? "off" : "on"));
+  }
+  const on = motion.on, off = motion.off;
+  check("tide-pool, FX on: a swap's two pieces glide past each other, eased in and out, each to its own side",
+    holds(() => on.again && on.swap.q1 > 0.85 && Math.abs(on.swap.half - 0.5) < 0.05 && on.swap.q3 < 0.15 && on.swap.end === 0 &&
+    Math.abs(on.swap.side) > 0.1 && Math.sign(on.swap.side) === -Math.sign(on.swap.otherSide)), on.swap || on);
+  check("tide-pool, FX on: a swap that makes no line slides out toward the other's place and springs back, a little past home, and the next swap goes at once",
+    holds(() => on.failed === false && on.back.most > 0.45 && on.back.least < -0.005 && Math.abs(on.back.end) < 0.01 && on.again === true), on.back || on);
+  check("tide-pool, FX on: a piece falls gathering speed and squashes as it lands",
+    holds(() => on.fall.start === -1 && on.fall.early < -0.6 && on.fall.squash > 0.1 && on.fall.end === 0 && on.fall.endSy === 1), on.fall);
+  check("tide-pool, FX on: the washed-away pieces leave in their own way, bubbles rising, and a line of five sends a ring across the pool",
+    holds(() => on.clears === "5,5,5" && on.bubbles > 0 && on.ripple > 0), { clears: on.clears, bubbles: on.bubbles, ripple: on.ripple });
+  check("tide-pool, FX off: none of it (no slide, bounce, fall, leaving, bubbles or ring); a swap that makes no line rings the two, standing still",
+    holds(() => off.failed === false && off.ringed && off.back.most === 0 && off.back.least === 0 && off.swap.q1 === 0 && off.swap.side === 0 &&
+    off.clears === "" && off.bubbles === 0 && off.fall.start === 0 && off.fall.squash === 0 && off.ripple === 0), off);
+  // each kind's own leaving: six different motions, each moving, each gone by the end
+  {
+    const q = await open();
+    const poses = await safe(q.evaluate(() => [0, 1, 2, 3, 4, 5].map((k) => [0.25, 0.5, 0.75, 1].map((u) => {
+      const p = TidePool.motion.pose(k, u, 1);
+      return [p.dx, p.dy, p.rot, p.sx, p.sy, p.alpha].map((v) => +v.toFixed(3));
+    }))));
+    const keys = holds(() => poses.length) ? poses.map((s) => JSON.stringify(s.slice(0, 3))) : [];
+    const moving = holds(() => poses.every((s) => JSON.stringify(s[1].slice(0, 5)) !== JSON.stringify([0, 0, 0, 1, 1])));
+    const gone = holds(() => poses.every((s) => s[3][5] <= 0.05));
+    check("tide-pool, FX on: each of the six kinds leaves in its own way (scallop snaps shut and sinks, starfish spins, urchin puffs, sea glass glints and lifts, periwinkle rolls off, pebble sinks), each moving and gone by the end",
+      new Set(keys).size === 6 && moving && gone, { poses });
+    // and a picked piece stirs in its own way: six different loops
+    const stirs = await safe(q.evaluate(() => [0, 1, 2, 3, 4, 5].map((k) => JSON.stringify([0.3, 0.6].map((t) => TidePool.motion.stir(k, t))))));
+    check("tide-pool, FX on: each of the six kinds stirs in its own way while picked", holds(() => new Set(stirs).size === 6), stirs);
+    await done(q, "poses");
+  }
+
+  // ---- a picked piece stirs while it's picked, by a key (Space) or a click,
+  // with Visual FX on; with it off it keeps today's plain picked look, still
+  const picked = {};
+  for (const [label, off, by] of [["on, by key", false, "key"], ["on, by click", false, "click"], ["off, by key", true, "key"]]) {
+    const q = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tide-pool", off ? "1" : "0"); } catch (e) {} }, off) });
+    await q.evaluate(() => TidePool.start("pool")); await safe(q.evaluate(() => TidePool.motion.hold(true)));
+    if (by === "key") { await q.keyboard.press("ArrowUp"); await q.keyboard.press("Space"); }
+    else {
+      const pt = await q.evaluate(() => { const cv = document.getElementById("stage"), e = cv.getBoundingClientRect(), s = cv.clientWidth / 8; return { x: e.x + cv.clientLeft + s * 3.5, y: e.y + cv.clientTop + s * 3.5 }; });
+      await q.mouse.click(pt.x, pt.y);
+    }
+    picked[label] = await safe(q.evaluate(() => {
+      const M = TidePool.motion, out = [];
+      for (let k = 0; k < 12; k++) { M.step(0.1); out.push(JSON.stringify(M.picked())); }
+      M.hold(false);
+      return { sel: TidePool.sel(), poses: new Set(out).size, still: out.every((s) => s === JSON.stringify({ dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, foot: false, glint: -1 })) };
+    }));
+    await done(q, "picked FX " + label);
+  }
+  check("tide-pool: a picked piece stirs while it's picked with Visual FX on (by Space or a click); with it off it stays still",
+    holds(() => picked["on, by key"].sel >= 0 && picked["on, by key"].poses > 3 && picked["on, by click"].sel >= 0 && picked["on, by click"].poses > 3 &&
+    picked["off, by key"].sel >= 0 && picked["off, by key"].still), picked);
+
   // ---- on a phone: a drag from a piece onto its neighbour swaps them
   {
     const { devices } = require("@playwright/test");
