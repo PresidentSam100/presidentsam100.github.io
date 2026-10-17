@@ -11,8 +11,9 @@
 // wrap the same way in Inter, which players get.
 //
 // The search box: / (or any letter typed on the page) goes to it, and as
-// characters go in and out only the games whose name or description holds
-// every word typed stay, best match first. Enter opens the top one, Esc
+// characters go in and out only the games whose name or description (or one
+// of the other names a game goes by, kept on its card unshown: "tetris" finds
+// Abyss) holds every word typed stay, best match first. Enter opens the top one, Esc
 // clears the box (and doesn't ask to reset the scores), and 🎲 picks from
 // what is showing: with the box empty, every game in the games folder, each
 // as likely as any other.
@@ -184,6 +185,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   const back = await state();
   await p.keyboard.type("octopus"); await p.waitForTimeout(80);
   const octo = await state();
+  // another name a game goes by finds it, though the card doesn't show it
+  const also = {};
+  for (const q of ["tetris", "pong", "sokoban", "candy crush", "connect 4", "mastermind", "breakout"]) {
+    await p.keyboard.press("Escape"); await p.keyboard.type(q); await p.waitForTimeout(80);
+    also[q] = (await state()).shown.slice(0, 2);
+  }
+  const unshown = await p.evaluate(() => [...document.querySelectorAll(".games-grid .game-card")].some((a) => /tetris|sokoban/i.test(a.innerText)));
   await p.keyboard.press("Escape"); await p.waitForTimeout(80);
   const esc1 = await state();
   await p.keyboard.type("Ti");
@@ -198,6 +206,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("games page: typing \"mah\" leaves Mahjong first and hides the games without it; deleting it brings them all back in their order",
     mah.shown[0] === "Mahjong" && mah.shown.length < 6 && back.shown.length === back.all && back.shown.join() === pageOrder.join(), { mah: mah.shown, back: back.shown.length });
   check("games page: a word from a description finds its game (\"octopus\": JackBlack)", octo.shown.length === 1 && octo.shown[0] === "JackBlack", octo.shown);
+  check("games page: another name a game goes by finds it first, unshown on its card (tetris: Abyss, pong: Ping, sokoban: Potting Shed, candy crush: Tide Pool, connect 4: Link Many, mastermind: Spice Blend, breakout: Rose Window)",
+    also.tetris.join() === "Abyss" && also.pong[0] === "Ping" && also.sokoban.join() === "Potting Shed" && also["candy crush"][0] === "Tide Pool" &&
+    also["connect 4"][0] === "Link Many" && also.mastermind.join() === "Spice Blend" && also.breakout[0] === "Rose Window" && !unshown, { also, unshown });
   check("games page: Esc in the box clears it, every game back, without asking to reset the scores; a second Esc leaves the box",
     esc1.value === "" && esc1.inBox && esc1.shown.length === esc1.all && !esc1.dialog && !esc2.inBox && !esc2.dialog && esc2.value === "", { esc1, esc2 });
   check("games page: with no pause between keys every word must match: \"tic tac\" is Tic-Tac-Toe alone, a word matching nothing says so, and deleting it brings Tic-Tac-Toe back",
