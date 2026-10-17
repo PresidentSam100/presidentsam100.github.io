@@ -1,7 +1,8 @@
 // Lights Out: Enter on a focused mode button only picks the mode, and a mode
 // clicked with the mouse doesn't take over the run Enter then starts (a Zen
 // sign used to run as Last Reel and fail on its first press); Backspace mid-sign
-// asks before quitting; the keycaps, the end card's included, hide on a phone.
+// asks before quitting; the keycaps, the end card's included, hide on a phone;
+// a press on the bulb a hint glints stops the glint at once.
 module.exports = async ({ browser, base, check, lib }) => {
   const open = (ctx) => lib.open(ctx, base, "games/lights-out/");
   const done = async (p, what) => { check("lights-out " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -116,6 +117,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   const walked = await p.evaluate(() => [...document.querySelectorAll("#board .bulb")].filter((b) => b.matches(":focus-visible")).length);
   check("lights-out: after a bulb is clicked, H glints only the hint, with no dashed ring on the bulb clicked; the arrows still bring the ring",
     hintNow.ringed === 0 && !hintNow.focused && hintNow.glints === 1 && walked === 1, Object.assign({ walked }, hintNow));
+  // a click on the glinting bulb stops its glint at once, not after its last pulse
+  const answered = await p.evaluate(() => {
+    const b = document.querySelector("#board .bulb.glint"), was = !!b;
+    if (b) b.click();
+    return { was, left: document.querySelectorAll("#board .bulb.glint").length, still: b ? getComputedStyle(b).animationName : null };
+  });
+  check("lights-out: a click on the hinted bulb stops its glint at once", answered.was && answered.left === 0 && answered.still === "none", answered);
   await done(p, "hint after a click");
   await ctx.close();
 };

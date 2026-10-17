@@ -278,6 +278,9 @@
     if (y < size - 1) affected.push(i + size);
     applyToggle(lit, i, size);
     moves++;
+    // a press answers a hint: its glint stops now, not after the rest of its
+    // pulses (the board it was for has changed)
+    cells.forEach(function (w) { if (w.classList.contains("glint")) { clearTimeout(w.glintT); w.classList.remove("glint"); } });
     // the chorus: the pressed bulb switches now, neighbours follow. With FX off
     // the bulbs all switch at once, but the clicks keep their ripple (five at
     // the same instant stacked into one loud click)
