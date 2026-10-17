@@ -167,6 +167,8 @@ kbd {
   color: #04101c; background: linear-gradient(170deg, #a5e8fa, var(--glow));
   border-color: transparent;
 }
+/* its keycap dark on the glow, as on Dive (in the glow's own colour it vanished) */
+.card .row button:first-child kbd { background: rgba(4, 16, 28, 0.25); color: #04101c; border-color: transparent; }
 .card .row button:hover { filter: brightness(1.1); }
 .card .row button:active { transform: translateY(1px); }
 

@@ -137,6 +137,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss: each mode's keycap sits in the middle of its row and Dive's beside the word, top to bottom", mid(menu, 4, 1), menu);
     check("abyss: on the pause card each button's keycap sits in the middle of it, top to bottom", mid(pause, 3, 1), pause);
     check("abyss: the score and its two figures sit in the middle of their box, top to bottom", mid(hud, 3, 1.5), hud);
+    // the end card's Dive again: its keycap reads dark on the glow, as Dive's
+    // does (it was the glow's own colour on the glow, all but invisible)
+    const cap = await q.evaluate(() => { document.getElementById("over").hidden = false; const k = document.querySelector("#again kbd"), cs = getComputedStyle(k); return { color: cs.color, shown: k.getClientRects().length > 0 }; });
+    check("abyss: on the end card the keycap on Dive again reads dark on the glow", cap.shown && cap.color === "rgb(4, 16, 28)", cap);
     check("abyss (centring): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await ctx.close();
