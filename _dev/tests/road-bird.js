@@ -223,17 +223,20 @@ module.exports = async ({ browser, base, check, lib }) => {
           }
           if (!ok || G.state !== "playing") break;
           G.move(0, 1);
-          while (G.hopTimer > 0) await frame();
-          const slide = Math.abs(G.renderGx - pl.gx);
+          // (the landing frame's length too: the log drifts on through it before
+          // the landing's snap, so a long frame on a busy machine leaves that much)
+          let tPrev = performance.now(), fdt = 0;
+          while (G.hopTimer > 0) { const t = await frame(); fdt = t - tPrev; tPrev = t; }
+          const slide = Math.abs(G.renderGx - pl.gx), allow = 0.03 + Math.abs(row.speed) * Math.min(0.05, fdt / 1000);
           for (let f = 0; f < 20; f++) await frame();
           if (G.state !== "playing") break;
-          out.push({ slide: +slide.toFixed(3), off: +cellOff(G.rows[pl.gy], pl.gx).toFixed(3), drawn: +cellOff(G.rows[pl.gy], G.renderGx).toFixed(3) });
+          out.push({ slide: +slide.toFixed(3), allow: +allow.toFixed(3), off: +cellOff(G.rows[pl.gy], pl.gx).toFixed(3), drawn: +cellOff(G.rows[pl.gy], G.renderGx).toFixed(3) });
         }
       }
       return out;
     });
     check("road-bird: a hop onto a moving log lands on the middle of a cell and rides there, drawn there too, with nothing left to slide once it has landed",
-      rides.length >= 5 && rides.every((r) => Math.abs(r.off) < 0.002 && Math.abs(r.drawn) < 0.005 && r.slide < 0.06), rides);
+      rides.length >= 5 && rides.every((r) => Math.abs(r.off) < 0.002 && Math.abs(r.drawn) < 0.005 && r.slide <= r.allow), rides);
     check("road-bird (logs): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }

@@ -82,6 +82,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   // them pressed by reflex, keeps playing, never leaving or quitting the game;
   // only Esc again leaves. Not in an editor, where Esc never leaves.)
   const boxUp = (p) => p.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+  const escEnterEsc = async (p) => {
+    await p.keyboard.press("Escape");
+    await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
+    const asked = await boxUp(p);
+    await p.keyboard.press("Enter");
+    await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 15000 }).catch(() => {});
+    // (still in progress as the box goes: read at once, before an untended
+    // game can end by itself, as a Flappy World bird falls)
+    const still = await active(p);
+    await p.evaluate(() => new Promise((r) => setTimeout(r, 300)));   // (on the page's clock: a leave would have started)
+    const kept = { box: await boxUp(p), active: still, leaves: p.leaves };
+    await p.keyboard.press("Escape");
+    await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
+    await p.keyboard.press("Escape");
+    const t0 = Date.now();
+    while (p.leaves < 1 && Date.now() - t0 < 15000) await p.waitForTimeout(50);
+    const r = { asked, kept, left: p.leaves };
+    return { r, ok: asked === "Leave this game?" && !kept.box && kept.active && kept.leaves === 0 && p.leaves === 1 };
+  };
   const leaveBad = [];
   for (const [g, path, act, before] of guards) {
     const p = await lib.open(ctx, base, "games/" + path, before ? { before } : undefined);
@@ -90,23 +109,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     const a1 = await active(p);
     check(g + ": nothing to lose on a fresh screen; in progress once played", a0 === false && a1 === true, { a0, a1 });
     if (a1 && !/editor/.test(path)) {
-      await p.keyboard.press("Escape");
-      await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
-      const asked = await boxUp(p);
-      await p.keyboard.press("Enter");
-      await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 15000 }).catch(() => {});
-      // (still in progress as the box goes: read at once, before an untended
-      // game can end by itself, as a Flappy World bird falls)
-      const still = await active(p);
-      await p.evaluate(() => new Promise((r) => setTimeout(r, 300)));   // (on the page's clock: a leave would have started)
-      const kept = { box: await boxUp(p), active: still, leaves: p.leaves };
-      await p.keyboard.press("Escape");
-      await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
-      await p.keyboard.press("Escape");
-      const t0 = Date.now();
-      while (p.leaves < 1 && Date.now() - t0 < 15000) await p.waitForTimeout(50);
-      const r = { asked, kept, left: p.leaves };
-      if (asked !== "Leave this game?" || kept.box || !kept.active || kept.leaves !== 0 || p.leaves !== 1) leaveBad.push([g, r]);
+      // (a game that misses it is tried once more on a fresh page: with
+      // several suites at once on a busy machine a step has gone astray in a
+      // different game each time, never twice; a game that gets it wrong
+      // gets it wrong both times, and both tries are reported)
+      const first = await escEnterEsc(p);
+      if (!first.ok) {
+        const q = await lib.open(ctx, base, "games/" + path, before ? { before } : undefined);
+        await act(q); await q.waitForTimeout(150);
+        const again = (await active(q)) ? await escEnterEsc(q) : { r: "not in progress", ok: false };
+        if (!again.ok) leaveBad.push([g, first.r, again.r]);
+        await q.close();
+      }
     }
     await done(p, g);
   }
