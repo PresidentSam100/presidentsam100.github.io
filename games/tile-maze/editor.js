@@ -12,9 +12,9 @@
     ["p", "Pink", "sw-pink", "", "Pink: harmless floor. Walk freely."],
     ["g", "Green", "sw-green", "♪", "Green: harmless, plays a tone when stepped on."],
     ["r", "Red", "sw-red", "", "Red: solid wall. Cannot be entered."],
-    ["y", "Yellow", "sw-yellow", "↩", "Yellow: throws you back to your previous tile."],
+    ["y", "Yellow", "sw-yellow", "↩\uFE0E", "Yellow: throws you back to your previous tile."],
     ["o", "Orange", "sw-orange", "🍊", "Orange: flavors you 'Orange' (makes blue live)."],
-    ["u", "Purple", "sw-purple", "❄", "Purple ice: slides you forward; flavors you 'Lemon'."],
+    ["u", "Purple", "sw-purple", "❄\uFE0E", "Purple ice: slides you forward; flavors you 'Lemon'."],
     ["b", "Blue", "sw-blue", "", "Blue water: live (bounces) if you're Orange or it touches yellow."],
     ["S", "Start", "sw-start", "▶", "Start, where the player spawns. Exactly one per level."],
     ["X", "Goal", "sw-goal", "🏁", "Goal: reach it to win. Exactly one per level."],
@@ -133,7 +133,7 @@
     if (msg) { if (html) status.innerHTML = msg; else status.textContent = msg; status.className = "ed-status" + (kind ? " " + kind : ""); return; }
     const v = validate();
     if (v.ok) { status.textContent = "Ready: " + cols + "×" + rows + ". Test or Check when you like."; status.className = "ed-status"; }
-    else { status.textContent = "⚠ " + v.msgs.join(" · "); status.className = "ed-status bad"; }
+    else { status.textContent = "⚠\uFE0F " + v.msgs.join(" · "); status.className = "ed-status bad"; }
   }
   function solve(g) {
     const start = E.findStart(g);
@@ -156,7 +156,7 @@
     return null;
   }
   function checkSolvable() {
-    const v = validate(); if (!v.ok) { updateStatus("⚠ Fix first: " + v.msgs.join(" · "), "bad"); return; }
+    const v = validate(); if (!v.ok) { updateStatus("⚠\uFE0F Fix first: " + v.msgs.join(" · "), "bad"); return; }
     const sol = solve(grid);
     if (sol) updateStatus("✓ Solvable in " + sol.length + " moves:  " + sol.join(" "), "good");
     else updateStatus("✗ Unsolvable: no path from Start to Goal.", "bad");
@@ -185,7 +185,7 @@
       '<span class="gs-touch">tap the pad to move.</span> Reach the 🏁.', "", true);
   }
   function enterTest() {
-    const v = validate(); if (!v.ok) { updateStatus("⚠ Fix first: " + v.msgs.join(" · "), "bad"); return; }
+    const v = validate(); if (!v.ok) { updateStatus("⚠\uFE0F Fix first: " + v.msgs.join(" · "), "bad"); return; }
     mode = "test"; edBoard.classList.add("testing"); testPad.hidden = false; $("testBtn").textContent = "■ Stop test";
     if (!playerEl) { playerEl = document.createElement("div"); playerEl.className = "player"; playerEl.innerHTML = '<span class="soul"></span>'; frame.appendChild(playerEl); }
     playerEl.hidden = false;
@@ -262,7 +262,7 @@
   }
   function loadImport() {
     const res = parseImport(ioText.value);
-    if (res.error) { ioNote.textContent = "⚠ " + res.error; return; }
+    if (res.error) { ioNote.textContent = "⚠\uFE0F " + res.error; return; }
     if (mode === "test") exitTest();
     grid = res.grid; rows = grid.length; cols = grid[0].length;
     if (res.name) nameIn.value = res.name;
@@ -287,7 +287,7 @@
     renderSaved();
   }
   function saveCurrent(asNew) {
-    const v = validate(); if (!v.ok) { updateStatus("⚠ Fix before saving: " + v.msgs.join(" · "), "bad"); return; }
+    const v = validate(); if (!v.ok) { updateStatus("⚠\uFE0F Fix before saving: " + v.msgs.join(" · "), "bad"); return; }
     const a = loadSaved(), name = nameIn.value || "Untitled";
     const lvl = { name, hint: hintIn.value || "", grid: grid.map((r) => r.join("")) };
     const over = !asNew && editing !== null && editing < a.length;

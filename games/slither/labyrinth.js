@@ -133,7 +133,7 @@ window.SlitherLabyrinth = function (host) {
   }
 
   function buildRuns(container) {
-    var box = panel("runs", "❤ Pack runs · Ziggy rules", progress.run);
+    var box = panel("runs", "❤\uFE0F Pack runs · Ziggy rules", progress.run);
     var p = document.createElement("p");
     p.textContent = "Play a whole zone on " + RUN.lives + " lives. 1-ups, every " + RUN.perLife + " apples and leftover time win lives back; crashing, restarting or quitting costs one.";
     box.appendChild(p);
@@ -142,7 +142,7 @@ window.SlitherLabyrinth = function (host) {
     if (progress.run) {
       var c = document.createElement("button");
       c.type = "button"; c.className = "btn cont";
-      c.textContent = "▶ Continue " + progress.run.zone + " · level " + (progress.run.idx + 1) + " · ❤ ×" + progress.run.lives;
+      c.textContent = "▶ Continue " + progress.run.zone + " · level " + (progress.run.idx + 1) + " · ❤\uFE0F ×" + progress.run.lives;
       c.addEventListener("click", continueRun);
       row.appendChild(c);
     }
@@ -191,7 +191,7 @@ window.SlitherLabyrinth = function (host) {
   var RIVAL_PALS = ["garnet", "topaz", "ivory", "carnelian"];
   function buildArenas(container) {
     if (!ARENAS.length) return;
-    var box = panel("arena", "🏟 Arena · last snake standing", false);
+    var box = panel("arena", "🏟\uFE0F Arena · last snake standing", false);
     var p = document.createElement("p");
     p.textContent = "You (and a friend on this device) against rival snakes. Apples keep growing; the last snake alive takes the round, first to " + ARENA_WINS + " takes the match.";
     box.appendChild(p);
@@ -215,7 +215,7 @@ window.SlitherLabyrinth = function (host) {
     ARENAS.forEach(function (a, i) {
       var b = document.createElement("button");
       b.type = "button"; b.className = "btn";
-      b.textContent = "🏟 " + a.name;
+      b.textContent = "🏟\uFE0F " + a.name;
       b.title = a.hint || a.name;
       b.addEventListener("click", function () { startArena(i, true); });
       row.appendChild(b);
@@ -844,7 +844,7 @@ window.SlitherLabyrinth = function (host) {
     if (e.cause === "locked" && st.boss && st.boss.alive) words = [words[0], "The exit stays sealed while the Serpent King lives."];
     if (st.stage) { stageOver(words); return; }
     var over = inRun && loseLife();
-    var left = inRun && progress.run ? "  ·  ❤ ×" + progress.run.lives + " left" : "";
+    var left = inRun && progress.run ? "  ·  ❤\uFE0F ×" + progress.run.lives + " left" : "";
     endTimer = setTimeout(function () {
       if (!active) return;
       if (over) { runOver(); return; }
@@ -1006,7 +1006,7 @@ window.SlitherLabyrinth = function (host) {
       if (!active) return;
       host.showResult({
         title: "Maze clear! ✨",
-        msg: "Score " + C.score + "  ·  ❤ ×" + C.lives + "  ·  next: " + CHASES[next].name + ", a little faster",
+        msg: "Score " + C.score + "  ·  ❤\uFE0F ×" + C.lives + "  ·  next: " + CHASES[next].name + ", a little faster",
         primaryLabel: "Next Maze →", primaryFn: function () { startChase(next, false); },
       });
     }, 700);
@@ -1038,7 +1038,7 @@ window.SlitherLabyrinth = function (host) {
     var bonus = st.timeLimit ? Math.floor(st.timeLeft / 1000 / RUN.bonusEvery) : 0;
     addApples(bonus);
     var next = warpIdx >= 0 ? warpIdx : levelIdx + 1;
-    var stats = (bonus ? "  ·  time bonus +" + bonus + " 🍎" : "") + "  ·  ❤ ×" + r.lives;
+    var stats = (bonus ? "  ·  time bonus +" + bonus + " 🍎" : "") + "  ·  ❤\uFE0F ×" + r.lives;
     if (next > zoneLast(zone) || LEVELS[next].zone !== zone) {
       progress.runs = progress.runs || {};
       progress.runs[zone] = Math.max(progress.runs[zone] || 0, r.lives);
@@ -1046,7 +1046,7 @@ window.SlitherLabyrinth = function (host) {
       saveProgress();
       endTimer = setTimeout(function () {
         if (!active) return;
-        host.showResult({ title: zone + " pack cleared! 🏆", msg: "Ziggy rules, with ❤ ×" + r.lives + " to spare.", primaryLabel: "Level Select", primaryFn: host.toMenu });
+        host.showResult({ title: zone + " pack cleared! 🏆", msg: "Ziggy rules, with ❤\uFE0F ×" + r.lives + " to spare.", primaryLabel: "Level Select", primaryFn: host.toMenu });
       }, 550);
       return;
     }
@@ -1083,7 +1083,7 @@ window.SlitherLabyrinth = function (host) {
       el.apples.innerHTML = "✦ <b>" + C.score + "</b>" + (best ? " · best " + best : "");
       el.time.innerHTML = "● <b>" + C.left + "</b> left";
       el.lives.style.display = "";
-      el.lives.innerHTML = "❤ <b>×" + C.lives + "</b>";
+      el.lives.innerHTML = "❤\uFE0F <b>×" + C.lives + "</b>";
       el.blink.style.display = el.ghost.style.display = el.lock.style.display = el.boss.style.display = el.twins.style.display = "none";
       return;
     }
@@ -1112,14 +1112,14 @@ window.SlitherLabyrinth = function (host) {
     if (st.boss) {
       var hearts = "";
       for (var hp = 0; hp < st.bossMax; hp++) hearts += hp < st.bossHp ? "♥" : "♡";
-      el.boss.innerHTML = st.boss.alive ? "👁 <b>" + hearts + "</b>" : "👁 <b>defeated</b>";
+      el.boss.innerHTML = st.boss.alive ? "👁\uFE0F <b>" + hearts + "</b>" : "👁\uFE0F <b>defeated</b>";
     }
     el.lives.style.display = inRun && progress.run ? "" : "none";
-    if (inRun && progress.run) el.lives.innerHTML = "❤ <b>×" + progress.run.lives + "</b> · 🍎 <b>" + progress.run.apples + "</b>/" + RUN.perLife;
+    if (inRun && progress.run) el.lives.innerHTML = "❤\uFE0F <b>×" + progress.run.lives + "</b> · 🍎 <b>" + progress.run.apples + "</b>/" + RUN.perLife;
     var mine = E.playersOf(st, "p1").length;
     el.twins.style.display = mine > 1 ? "" : "none";
     el.twins.innerHTML = "🐍 <b>×" + mine + "</b>";
-    if (r.mouseLock > 0) el.lock.innerHTML = "🖱✖ <b>" + Math.ceil(r.mouseLock / 1000) + "s</b>";
+    if (r.mouseLock > 0) el.lock.innerHTML = "🖱\uFE0F✖\uFE0F <b>" + Math.ceil(r.mouseLock / 1000) + "s</b>";
   }
 
   // ---- loop ----------------------------------------------------------------------

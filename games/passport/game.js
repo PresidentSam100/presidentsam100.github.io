@@ -472,7 +472,7 @@
       $("over-title").textContent = mode === "tour" ? "The border is closed" : "Final boarding call";
       $("over-msg").innerHTML = score + "<small> stamp" + (score === 1 ? "" : "s") + "</small>";
       lines.push(mode === "tour" ? "three denials on your record" : "the sixty seconds are up");
-      lines.push(isBest ? "a new record: frequent flyer! ✈" :
+      lines.push(isBest ? "a new record: frequent flyer! ✈\uFE0F" :
         "best" + (ASK_LABEL[ask] ? " (" + ASK_LABEL[ask] + ")" : "") + ": " + (b ? b.get() : score));
       $("again").innerHTML = 'Travel again <span class="gs-keys"><kbd>Enter</kbd></span>';
       $("share").hidden = true;

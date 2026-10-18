@@ -621,8 +621,8 @@
       ? keysOr("P1: " + wasd + " (green) · P2: " + arrows + " (blue) · touch: use the d-pads",
         "P1 (green) and P2 (blue) steer with their d-pads")
       : G.mode === "lab"
-        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱 switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
-          "Swipe or use the d-pad (keep holding to sprint) · hold 👻 to ghost, ⚡ to dash · tap a cell to teleport, or a 🖱 switch to flip it · Arena for two: a d-pad each · gamepad: stick or d-pad, A dash, B ghost, Start pause")
+        ? keysOr("Move: " + arrows + " / " + wasd + " (hold or double-tap to sprint) · " + k("Shift") + ": dash · " + k("G") + " or right-click: ghost · click a cell: teleport · click a 🖱\uFE0F switch (or " + k("1") + "/" + k("2") + "/" + k("3") + ") · " + k("R") + ": retry · " + k("M") + ": music · Arena for two: P1 " + wasd + ", P2 " + arrows + " · gamepad: stick or d-pad, A dash, B ghost, Start pause · touch: swipe (keep holding to sprint), tap to teleport or flip, hold 👻 / ⚡",
+          "Swipe or use the d-pad (keep holding to sprint) · hold 👻 to ghost, ⚡ to dash · tap a cell to teleport, or a 🖱\uFE0F switch to flip it · Arena for two: a d-pad each · gamepad: stick or d-pad, A dash, B ghost, Start pause")
         : keysOr("Move: " + arrows + " or " + wasd + " · touch: swipe the board or use the d-pad",
           "Swipe the board or use the d-pad to steer");
   }

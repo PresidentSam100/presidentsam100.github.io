@@ -229,9 +229,9 @@ body {
   font-weight: 800;
 }
 .t-green::after { content: "♪"; color: rgba(0, 60, 0, 0.5); }
-.t-yellow::after { content: "↩"; color: rgba(90, 60, 0, 0.55); }
+.t-yellow::after { content: "↩\FE0E"; color: rgba(90, 60, 0, 0.55); }
 .t-orange::after { content: "🍊"; font-size: calc(var(--cell) * 0.4); }
-.t-purple::after { content: "❄"; color: rgba(255, 255, 255, 0.75); }
+.t-purple::after { content: "❄\FE0E"; color: rgba(255, 255, 255, 0.75); }
 .t-start::after { content: "START"; font-size: calc(var(--cell) * 0.16); letter-spacing: 1px; color: rgba(70, 0, 45, 0.55); }
 .t-goal::after { content: "🏁"; }
 .t-blue.live::after { content: "⚡"; color: rgba(255, 255, 255, 0.85); font-size: calc(var(--cell) * 0.5); }

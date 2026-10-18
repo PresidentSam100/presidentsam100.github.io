@@ -237,7 +237,7 @@
     },
     {
       id: "haircut", zone: "Ruins", name: "Haircut", time: 55, spikeMs: 1080,
-      hint: "✂ trims you back to three segments. A long snake can't clear the spikes in one beat.",
+      hint: "✂\uFE0F trims you back to three segments. A long snake can't clear the spikes in one beat.",
       grid: [
         "########################",
         "#S..a....a....a....a...#",
@@ -508,7 +508,7 @@
     },
     {
       id: "spike-gauntlet", zone: "Citadel", name: "Spike Gauntlet", time: 70, spikeMs: 1080,
-      hint: "Circle until a gate drops, then go. Your whole length has to clear the spikes inside one beat: ✂ helps.",
+      hint: "Circle until a gate drops, then go. Your whole length has to clear the spikes inside one beat: ✂\uFE0F helps.",
       grid: [
         "########################",
         "#S.....a........a......#",
@@ -570,7 +570,7 @@
     },
     {
       id: "endless", zone: "Foundry", name: "Endless", time: 50, spikeMs: 1080,
-      hint: "The Infinity machine makes you grow every single move. Reach a cutter ✂ before you run out of room.",
+      hint: "The Infinity machine makes you grow every single move. Reach a cutter ✂\uFE0F before you run out of room.",
       grid: [
         "########################",
         "#S..I....a.............#",

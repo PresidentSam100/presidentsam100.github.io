@@ -3109,7 +3109,7 @@ class Game {
     this.text(ctx, power ? 'POWER-UP GUIDE' : 'ENEMY GUIDE', WIDTH / 2, 60, 24, '#ff3b5c', 'center');
     // tab switcher (↑↓)
     this.text(ctx, 'ENEMIES', WIDTH / 2 - 62, 86, 11, power ? '#556688' : '#ffd23f', 'center');
-    this.text(ctx, '↕', WIDTH / 2, 86, 11, '#8fa0d8', 'center');
+    this.text(ctx, '↕\uFE0E', WIDTH / 2, 86, 11, '#8fa0d8', 'center');
     this.text(ctx, 'POWER-UPS', WIDTH / 2 + 62, 86, 11, power ? '#ffd23f' : '#556688', 'center');
     this.text(ctx, (this.galleryIndex + 1) + ' / ' + list.length, WIDTH / 2, 108, 11, '#8fa0d8', 'center');
 

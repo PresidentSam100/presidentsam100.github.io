@@ -651,7 +651,7 @@
     }
 
     // ---------------------------- Renderer -------------------------------
-    const SPECIAL_GLYPH = { iron: "⛓", thunder: "⚡", slow: "🐌", crystal: "🌈" };
+    const SPECIAL_GLYPH = { iron: "⛓️", thunder: "⚡", slow: "🐌", crystal: "🌈" };
     // pre-drawn ice blocks, one per colour / size / pixel ratio (see iceSprite)
     const ICE_SPRITES = new Map();
     class Renderer {
@@ -771,7 +771,7 @@
         const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#d2dde9"); g.addColorStop(1, "#6a7d94");
         ctx.fillStyle = g; this.rr(X, Y, W, H, 5); ctx.fill();
         ctx.strokeStyle = "rgba(255,255,255,0.55)"; ctx.lineWidth = 2; this.rr(X, Y, W, H, 5); ctx.stroke();
-        ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓", x + s / 2, y + s / 2 + 1); ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓\uFE0E", x + s / 2, y + s / 2 + 1); ctx.textBaseline = "alphabetic";
       }
       // powerup icon overlaid on a colored block: sits on a dark badge with a light
       // ring so it stays legible on every block color (orange/green included).
@@ -929,7 +929,7 @@
           const X = gx * cell + 2, Y = gy * cell + 2, W = cell - 4, H = cell - 4;
           const g = ctx.createLinearGradient(X, Y, X + W, Y + H); g.addColorStop(0, "#d2dde9"); g.addColorStop(1, "#6a7d94"); ctx.fillStyle = g; rr(X, Y, W, H, 5); ctx.fill();
         }
-        ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓", cell * 1.5, cell * 1.5); ctx.textBaseline = "alphabetic";
+        ctx.fillStyle = "#1a1d27"; ctx.font = "16px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("⛓\uFE0E", cell * 1.5, cell * 1.5); ctx.textBaseline = "alphabetic";
         return;
       }
       const cellAt = (key) => spec.mono ? { t: "n", c: spec.crystalColor, aug: null } : spec.cells[key];
@@ -950,7 +950,7 @@
     }
 
     // ------------------------------ Game ---------------------------------
-    const SPECIAL_NAME = { iron: "⛓ Iron", crystal: "💎 Crystal", thunder: "⚡ Thunder", slow: "🐌 Slow" };
+    const SPECIAL_NAME = { iron: "⛓\uFE0F Iron", crystal: "💎 Crystal", thunder: "⚡ Thunder", slow: "🐌 Slow" };
     function ordinal(n) {
       const rem100 = n % 100;
       if (rem100 >= 11 && rem100 <= 13) return n + "th";

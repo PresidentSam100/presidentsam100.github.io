@@ -159,7 +159,7 @@
     elMargin.textContent = fmt(Math.max(0, LIMIT - cumError)) + " s";
   }
   function setHud() { elScore.textContent = score; elBest.textContent = best; elRound.textContent = roundNum || 0; }
-  function updateModePill() { modePill.textContent = visibleMode ? "👁 Lid open" : "🙈 Lid shut"; }
+  function updateModePill() { modePill.textContent = visibleMode ? "👁\uFE0F Lid open" : "🙈 Lid shut"; }
 
   // ---------------------------------------------------------- flow
   function showStartCard() {
@@ -175,7 +175,7 @@
       '<div class="modepick">' +
         // (the name in a span of its own: it wears the mode's keycap, see menuKeys below)
         '<button class="modebtn" data-mode="hidden"><span>🙈 Lid shut</span><small>the lid snaps over the dial: count it blind</small></button>' +
-        '<button class="modebtn" data-mode="visible"><span>👁 Lid open</span><small>watch the sweep hand: react</small></button>' +
+        '<button class="modebtn" data-mode="visible"><span>👁\uFE0F Lid open</span><small>watch the sweep hand: react</small></button>' +
       '</div>' +
       '<ul class="rules">' +
         '<li>Each round marks a second from <b>1 to 10</b> on the dial.</li>' +

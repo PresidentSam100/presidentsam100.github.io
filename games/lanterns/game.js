@@ -270,7 +270,7 @@
   function hud() {
     $("hud-score").textContent = score.toLocaleString();
     $("hud-combo").textContent = streak > 1 ? "×" + (1 + Math.min(10, streak - 1) * 0.1).toFixed(1) : "";
-    $("hud-wishes").textContent = "🏮".repeat(Math.max(0, 3 - escaped)) + "✖".repeat(escaped);
+    $("hud-wishes").textContent = "🏮".repeat(Math.max(0, 3 - escaped)) + "✖\uFE0F".repeat(escaped);
   }
   function gameOver() {
     state = "over";

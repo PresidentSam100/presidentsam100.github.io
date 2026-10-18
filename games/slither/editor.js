@@ -370,7 +370,7 @@
     try { errs = E.parse(current()).errors; } catch (e) { errs = [String(e.message || e)]; }
     var s = $("ed-status");
     if (hover) return errs;
-    s.textContent = errs.length ? "⚠ " + errs[0] + (errs.length > 1 ? " (+" + (errs.length - 1) + " more)" : "") : "Looks valid. “Check” proves it can be finished.";
+    s.textContent = errs.length ? "⚠\uFE0F " + errs[0] + (errs.length > 1 ? " (+" + (errs.length - 1) + " more)" : "") : "Looks valid. “Check” proves it can be finished.";
     s.className = "ed-status" + (errs.length ? " bad" : "");
     return errs;
   }
