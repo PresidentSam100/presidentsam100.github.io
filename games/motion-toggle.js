@@ -68,6 +68,17 @@
 
   apply(reduced()); // runs at <head> parse time -> no flash of animation
 
+  // A phone keeps the game's own type sizes when it turns on its side (iOS
+  // Safari otherwise enlarges text in landscape, and labels outgrow the
+  // boxes they were sized for).
+  (function injectTextSize() {
+    if (document.getElementById("gs-text-size")) return;
+    var st = document.createElement("style");
+    st.id = "gs-text-size";
+    st.textContent = "html{-webkit-text-size-adjust:100%;text-size-adjust:100%}";
+    (document.head || document.documentElement).appendChild(st);
+  })();
+
   // Hover / active / focus feedback for the back + Visual FX buttons: mirrors the
   // game-card lift on the main page. Injected once; theme-agnostic (works on every game).
   (function injectHover() {
@@ -133,9 +144,10 @@
   // The corner icons' shapes, by the emoji each stands for: [class, mask].
   // Plain paths on a 24-unit square; only their outline matters (the fill is
   // the button's text colour).
-  function icon(paths) {
-    return "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E" + paths + '%3C/svg%3E")';
+  function shape(box, paths) {
+    return "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='" + box + "'%3E" + paths + '%3C/svg%3E")';
   }
+  function icon(paths) { return shape("0 0 24 24", paths); }
   var SPEAKER = "%3Cpath d='M3 9h4l5-4.2v14.4L7 15H3z'/%3E";
   var LINE = " fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E";
   var ICONS = {
@@ -241,6 +253,151 @@
   }
   // for the sound button (mute-toggle.js) and the ⏸ button (game-shell.js)
   window.GSCorner = { row: row, swap: swap };
+
+  // ---- marks drawn the same on every device -------------------------------
+  // The arrows and marks a game's own face doesn't have (the "← Games"
+  // arrow, a touch pad's ◀ ▶ ▲ ▼, a ⟳ or ⌫ button) come from whatever
+  // symbol face the device has: Segoe UI Symbol, Cambria Math or Arial on a
+  // Windows computer, others on a phone, some of which draw them as colour
+  // emoji. Each face puts the mark at its own height and size: they sat up to
+  // 6px off the middle of their buttons on a computer and somewhere else again
+  // on a phone, and in a line of normal height the stand-in face stretched the
+  // line, moving the words beside the mark as well. So these are shapes of
+  // their own, filled with the text colour like the corner icons:
+  // - a button whose whole label is one of these marks keeps the character
+  //   (unseen, it still names the button and holds its room), and the shape
+  //   is laid over the middle of the button;
+  // - the "← Games" arrow is a shape in place of the character, as wide on
+  //   every device, centred on the capitals of the word after it.
+  // [class, width, height (em), shape]; a browser with no CSS masks keeps the
+  // characters.
+  // (a ring open at the top right, its arrowhead at the top going clockwise)
+  var TURN = "%3Cpath d='M18.13 6.86A8 8 0 1 1 11.5 4' fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3Cpath d='M16.5 4L10.8 .6V7.4z'/%3E";
+  var UNDO = "M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z";
+  var MARKS = {
+    "◀": ["left", 0.72, 0.8, shape("0 0 72 80", "%3Cpath d='M72 0V80L0 40z'/%3E")],
+    "▶": ["right", 0.72, 0.8, shape("0 0 72 80", "%3Cpath d='M0 0V80L72 40z'/%3E")],
+    "▲": ["up", 0.8, 0.72, shape("0 0 80 72", "%3Cpath d='M0 72H80L40 0z'/%3E")],
+    "▼": ["down", 0.8, 0.72, shape("0 0 80 72", "%3Cpath d='M0 0H80L40 72z'/%3E")],
+    "▽": ["down-open", 0.8, 0.72, shape("0 0 80 72", "%3Cpath d='M6 4.5H74L40 64z' fill='none' stroke='%23000' stroke-width='8' stroke-linejoin='round'/%3E")],
+    "●": ["dot", 0.5, 0.5, shape("0 0 2 2", "%3Ccircle cx='1' cy='1' r='1'/%3E")],
+    "⊞": ["hold", 0.82, 0.82, shape("0 0 20 20", "%3Cpath d='M1 1H19V19H1zM10 1V19M1 10H19' fill='none' stroke='%23000' stroke-width='2'/%3E")],
+    "↻": ["cw", 0.76, 0.9, shape("3 0 18 21.5", TURN)],
+    "↺": ["ccw", 0.76, 0.9, shape("3 0 18 21.5", "%3Cg transform='matrix(-1 0 0 1 24 0)'%3E" + TURN + "%3C/g%3E")],
+    "↶": ["undo", 0.8, 0.35, shape("2 7 20.5 9", "%3Cpath d='" + UNDO + "'/%3E")],
+    "↷": ["redo", 0.8, 0.35, shape("1.5 7 20.5 9", "%3Cpath transform='matrix(-1 0 0 1 24 0)' d='" + UNDO + "'/%3E")],
+    "⌫": ["erase", 1.13, 0.85, shape("0 3 24 18", "%3Cpath d='M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z'/%3E")]
+  };
+  MARKS["⟳"] = MARKS["↻"];
+  // (window.CSS: the CSS here is the FX-off rules above)
+  var MASKS = !!(window.CSS && window.CSS.supports && (window.CSS.supports("mask-image", "none") || window.CSS.supports("-webkit-mask-image", "none")));
+  (function injectMarks() {
+    if (!MASKS || document.getElementById("gs-mark-style")) return;
+    var st = document.createElement("style");
+    st.id = "gs-mark-style";
+    var fill = "background:currentColor;-webkit-mask:var(--gs-ico) center/contain no-repeat;mask:var(--gs-ico) center/contain no-repeat}";
+    st.textContent =
+      // (the button holds the shape; a game that places the button itself keeps its own position)
+      ":where(.gs-mark-host){position:relative}" +
+      ".gs-mark>span{color:transparent!important;-webkit-text-fill-color:transparent!important;text-shadow:none!important}" +
+      ".gs-mark::before{content:'';position:absolute;left:50%;top:50%;pointer-events:none;" + fill +
+      Object.keys(MARKS).map(function (k) {
+        var m = MARKS[k];
+        return ".gs-mark-" + m[0] + "::before{width:" + m[1] + "em;height:" + m[2] + "em;margin:" + (-m[2] / 2) + "em 0 0 " + (-m[1] / 2) + "em;--gs-ico:" + m[3] + "}";
+      }).join("") +
+      // (lifted to the capitals' middle by arrowLift; .14em until it's measured)
+      ".gs-back-arrow{display:inline-block;width:.85em;height:.425em;vertical-align:.14em;" + fill;
+    (document.head || document.documentElement).appendChild(st);
+  })();
+  function markButton(b) {
+    var n = b && b.firstChild;
+    if (!MASKS || !n || n !== b.lastChild || n.nodeType !== 3 || b.closest(".gs-corner")) return;
+    var m = MARKS[n.textContent.trim()];
+    if (!m) return;
+    var outer = document.createElement("span"), inner = document.createElement("span");
+    outer.className = "gs-mark gs-mark-" + m[0];
+    b.classList.add("gs-mark-host");
+    b.insertBefore(outer, n);
+    outer.appendChild(inner);
+    inner.appendChild(n);
+  }
+  function markAll(root) {
+    var bs = root.querySelectorAll("button");
+    for (var i = 0; i < bs.length; i++) markButton(bs[i]);
+    steadyLines(root);
+  }
+  // A line of normal height is as tall as the tallest face in it, and an
+  // emoji or a mark the game's face lacks brings in the device's own face
+  // for it, with its own height: Segoe UI Emoji's on Windows, Apple Color
+  // Emoji's on an iPhone. So "💡 Hint", "↻ Reset" and the like were taller
+  // buttons, their words pushed down, by a different amount on each device.
+  // Where such a character sits in a line of normal height, the line takes
+  // the height the element's own face gives it (measured from that face's
+  // letters), the same on every device; the character still shows as the
+  // device draws it.
+  var LENT = /[←-⏿■-➿⟰-⟿⤀-⥿⬀-⯿　-鿿️＀-￯]|[\uD83C-\uD83E][\uDC00-\uDFFF]/;
+  var lineOf = {}, steadied = [];
+  function faceLine(cs) {
+    var key = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontFamily;
+    if (key in lineOf) return lineOf[key];
+    var probe = document.createElement("span"), h = 0;
+    probe.style.cssText = "position:absolute;left:-9999px;top:0;visibility:hidden;white-space:nowrap;line-height:normal;font-size:100px;" +
+      "font-style:" + cs.fontStyle + ";font-weight:" + cs.fontWeight + ";font-family:" + cs.fontFamily;
+    probe.textContent = "Hg";
+    document.body.appendChild(probe);
+    h = probe.getBoundingClientRect().height / 100;
+    document.body.removeChild(probe);
+    return (lineOf[key] = h > 0.5 && h < 3 ? Math.round(h * 1000) / 1000 : 0);
+  }
+  // (again: measured afresh, unless the game has set a line height of its own since)
+  function steady(el, again) {
+    if (again ? el.style.lineHeight !== el.gsLine : getComputedStyle(el).lineHeight !== "normal") return;
+    var h = faceLine(getComputedStyle(el));
+    if (!again) steadied.push(el);
+    el.gsLine = h ? String(h) : "";
+    el.style.lineHeight = el.gsLine;
+  }
+  function steadyLines(root) {
+    if (!document.body || !root) return;
+    var walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT), n;
+    while ((n = walk.nextNode())) {
+      var el = n.parentElement;
+      if (el && el.gsLine === undefined && el instanceof HTMLElement && LENT.test(n.data) && !el.closest("script,style")) steady(el);
+    }
+  }
+  // (a web font in: its own line height, measured afresh)
+  function steadyAgain() {
+    lineOf = {};
+    steadied.forEach(function (el) { steady(el, true); });
+  }
+  // the "← Games" arrow, its line as heavy as the words' strokes
+  function markBackArrow(label) {
+    var n = label.firstChild;
+    if (!MASKS || !n || n.nodeType !== 3 || !/^\s*←/.test(n.textContent)) return;
+    var wt = parseInt(getComputedStyle(label).fontWeight, 10) || 400, sw = wt >= 800 ? 2.4 : wt >= 600 ? 2 : 1.6;
+    var a = document.createElement("span");
+    a.className = "gs-back-arrow";
+    a.setAttribute("aria-hidden", "true");
+    a.style.setProperty("--gs-ico", shape("0 0 20 10", "%3Cpath d='M18.6 5H1.6M6 1.4L1.6 5L6 8.6' fill='none' stroke='%23000' stroke-width='" + sw +
+      "' stroke-linecap='round' stroke-linejoin='round'/%3E"));
+    n.textContent = n.textContent.replace(/^\s*←/, "");
+    label.insertBefore(a, n);
+    arrowLift();
+  }
+  // The arrow's middle on the capitals' middle: their height measured from
+  // the face's own letters (some faces state it wrongly: Special Elite's
+  // says half what its capitals are), again once a web font arrives.
+  function arrowLift() {
+    var a = document.querySelector(".gs-back-arrow");
+    if (!a) return;
+    try {
+      var cs = getComputedStyle(a);
+      capCtx = capCtx || document.createElement("canvas").getContext("2d");
+      capCtx.font = cs.fontStyle + " " + cs.fontWeight + " 100px " + cs.fontFamily;
+      var cap = capCtx.measureText("H").actualBoundingBoxAscent / 100;
+      if (cap > 0.3 && cap < 1.2) a.style.verticalAlign = ((cap - 0.425) / 2).toFixed(3) + "em";
+    } catch (e) {}
+  }
 
   // ---- keyboard: V, or "]" ---------------------------------------------
   // Same rules as the sound button's M / "[" (see mute-toggle.js): "]"
@@ -412,29 +569,35 @@
         var sp = document.createElement("span");
         sp.className = "gs-back-text";
         back.insertBefore(sp, n); sp.appendChild(n);
+        markBackArrow(sp);
         break;
       }
     }
     capsAll();
+    markAll(document);
     // keycaps come and go (menus re-drawn, the pause card, a dialog): each
-    // batch of new ones is measured as it lands
+    // batch of new ones is measured as it lands, and so is a button that
+    // takes a mark for its label
     if (window.MutationObserver) new MutationObserver(function (list) {
       var found = [];
       list.forEach(function (m) {
         if (m.type === "attributes") { found.push(m.target); return; }
+        if (m.target.nodeType === 1 && m.target.tagName === "BUTTON") markButton(m.target);
         m.addedNodes.forEach(function (nd) {
           if (nd.nodeType !== 1) return;
           if (nd.matches(CAP_SEL)) found.push(nd);
           var inner = nd.querySelectorAll(CAP_SEL);
           for (var j = 0; j < inner.length; j++) found.push(inner[j]);
+          if (nd.tagName === "BUTTON") markButton(nd);
+          markAll(nd);
         });
       });
       if (found.length) capsCentred(found);
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-gs-key"] });
     // a web font in: the faces are measured afresh
     if (document.fonts && document.fonts.addEventListener)
-      document.fonts.addEventListener("loadingdone", function () { capOf = {}; rootCap = null; capsAll(); });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { capOf = {}; rootCap = null; capsAll(); });
+      document.fonts.addEventListener("loadingdone", function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); steadyAgain(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); steadyAgain(); });
   }
 
   var btn = null, shown = "";

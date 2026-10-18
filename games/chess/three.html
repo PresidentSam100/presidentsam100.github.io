@@ -76,7 +76,7 @@
 <a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
 
 
-<h1>♟ 3-Player Chess</h1>
+<h1>♟&#xFE0E; 3-Player Chess</h1>
 <div class="sub">Hexagonal board · Red → White → Black. Pieces move toward and through the center to reach opponents.</div>
 <div id="status">Red to move</div>
 
@@ -113,7 +113,8 @@
   "use strict";
   const $=(id)=>document.getElementById(id);
   const SVG="http://www.w3.org/2000/svg";
-  const FILLED={k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟"};
+  // (the pawn with ︎: a phone may otherwise draw it, alone of the set, as an emoji)
+  const FILLED={k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟︎"};
   const VAL={p:1,n:3,b:3,r:5,q:9,k:0};
   const PLAYERS={ r:{name:"Red",color:"#e2574e",sector:0}, w:{name:"White",color:"#efe7d4",sector:1}, k:{name:"Black",color:"#454552",sector:2} };
   const ORDER=["r","w","k"];                 // Red, White, Black

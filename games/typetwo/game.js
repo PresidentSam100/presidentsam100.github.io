@@ -1080,7 +1080,7 @@
     if (mode === "zen") {
       el.lives.textContent = "∞";
     } else {
-      el.lives.textContent = "♥".repeat(Math.max(0, lives)) || "0";
+      el.lives.textContent = "♥︎".repeat(Math.max(0, lives)) || "0";   // (︎: plain hearts, not emoji, on a phone too)
     }
     const accuracy = totalKeys > 0 ? Math.round((correctKeys / totalKeys) * 100) : 100;
     el.acc.textContent = accuracy + "%";

@@ -17,6 +17,13 @@ body {
   margin: 0;
 }
 
+/* a phone keeps these type sizes on its side (iOS Safari otherwise
+   enlarges text in landscape) */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 /* Navigation grid */
 .footer {
   display: flex;
@@ -74,6 +81,10 @@ a:hover {
   text-align: left;
   color: #fff;
   margin-bottom: 0;
+  /* Inter's own line height: an emoji in a title or on a button comes from
+     the device's emoji face, whose taller line would otherwise push the
+     words down, by a different amount on each device */
+  line-height: 1.21;
 }
 
 button,
@@ -86,6 +97,7 @@ input {
   border-radius: 4px;
   padding: 0.5rem 1rem;
   transition: 500ms;
+  line-height: 1.21;
 }
 
 .main-text {

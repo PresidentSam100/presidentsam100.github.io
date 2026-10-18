@@ -284,7 +284,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     bestEl.textContent = best;
-    livesEl.textContent = lives > 0 ? "♥".repeat(lives) : "0";
+    livesEl.textContent = lives > 0 ? "♥︎".repeat(lives) : "0";   // (︎: plain hearts, not emoji, on a phone too)
   }
 
   function popBloon(b) {

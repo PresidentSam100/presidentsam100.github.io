@@ -120,9 +120,10 @@
       var red = K.isRed(c);
       if (red) el.classList.add("red");
       el.dataset.key = c.s + "-" + c.r;
-      el.innerHTML = '<span class="idx">' + RANKS[c.r] + "<small>" + SUITS[c.s] + "</small></span>" +
+      // (︎: drawn as a plain suit, where a phone may otherwise draw an emoji)
+      el.innerHTML = '<span class="idx">' + RANKS[c.r] + "<small>" + SUITS[c.s] + "︎</small></span>" +
         (c.r > 10 ? '<span class="face">' + RANKS[c.r] + "</span>" : "") +
-        '<span class="pip">' + SUITS[c.s] + "</span>";
+        '<span class="pip">' + SUITS[c.s] + "︎</span>";
       el.setAttribute("aria-label", RANKS[c.r] + SUITS[c.s]);
       field.appendChild(el);
       els.set(el.dataset.key, el);
@@ -432,10 +433,10 @@
     g2.textAlign = "left"; g2.textBaseline = "top";
     g2.fillText(RANKS[c.r], 4, 3);
     g2.font = Math.round(CW * 0.24) + "px Bitter, Georgia, serif";
-    g2.fillText(SUITS[c.s], 4, 5 + CW * 0.24);
+    g2.fillText(SUITS[c.s] + "︎", 4, 5 + CW * 0.24);
     g2.font = Math.round(CW * 0.6) + "px Bitter, Georgia, serif";
     g2.textAlign = "right"; g2.textBaseline = "bottom";
-    g2.fillText(SUITS[c.s], CW - 4, CH - 2);
+    g2.fillText(SUITS[c.s] + "︎", CW - 4, CH - 2);
   }
   function stopCascade() {
     casRun++;

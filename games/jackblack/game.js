@@ -127,6 +127,7 @@
     if (c.hidden) { el.setAttribute("aria-label", "a card face down"); return el; }
     var r = RANKS[c.card.r], s = SUITS[c.card.s];
     el.setAttribute("aria-label", r + s);
+    s += "︎";   // (drawn as a plain suit: a phone may otherwise draw a suit as an emoji)
     el.innerHTML = '<span class="cn">' + r + '<i>' + s + '</i></span><span class="pip">' + s + '</span><span class="cn low">' + r + '<i>' + s + '</i></span>';
     return el;
   }

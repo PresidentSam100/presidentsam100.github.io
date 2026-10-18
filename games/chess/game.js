@@ -2,7 +2,8 @@
 (function () {
   "use strict";
   const $ = (id) => document.getElementById(id);
-  const FILLED = { k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟" };
+  // (the pawn with ︎: a phone may otherwise draw it, alone of the set, as an emoji)
+  const FILLED = { k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟︎" };
   const OUTLINE = { k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙" };
   const VAL = { p:1,n:3,b:3,r:5,q:9,k:0 };
   const idx = (G,r,c) => r*G.dim+c;
