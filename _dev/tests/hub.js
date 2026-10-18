@@ -139,6 +139,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         }).map((a) => a.getAttribute("href")),
         wide: Math.max(document.documentElement.scrollWidth, innerWidth),
         texts: new Set(cs.map((a) => a.querySelector(".desc").textContent.trim())).size,
+        note: (() => { const n = document.querySelector(".games-header .side-note"); if (!n) return null; const r = box(n);
+          return { text: n.textContent.replace(/\s+/g, " ").trim(), shown: r.height > 0 && getComputedStyle(n).visibility !== "hidden", right: Math.round(r.right) }; })(),
       };
     });
     await pg.close();
@@ -162,6 +164,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.n >= 48 && r.cols === cols && r.sizes.length === 1 && !off.length && !r.cut.length && !r.spill.length && r.wide <= opts.viewport.width,
       { n: r.n, cols: r.cols, sizes: r.sizes, off, cut: r.cut, spill: r.spill, wide: r.wide });
     if (label === "laptop 1280 x 800") check("games page: every game has a description of its own", r.texts === r.n, r.texts + " of " + r.n);
+    // (under the line about the arcade: the bigger games, made in Unity and Unreal, are private)
+    check("games page, " + label + ": the header says there are bigger games in Unity and Unreal that are private, all of it on the screen",
+      !!r.note && r.note.shown && /unity/i.test(r.note.text) && /unreal/i.test(r.note.text) && /private/i.test(r.note.text) && r.note.right <= opts.viewport.width, r.note);
   }
 
   // ---- the search box
