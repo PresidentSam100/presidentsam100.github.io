@@ -323,14 +323,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Typetwo: a Backspace or Enter pressed as the run ends doesn't skip the results
+  // (the reflex keys go in from the page itself the moment the run ends: sent
+  // from here, a busy machine could deliver them after the second's grace)
   {
     const p = await lib.open(ctx, base, "games/typetwo/");
-    await p.click('.mode[data-mode="hard"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150); await p.keyboard.press("q");
-    await p.waitForFunction(() => __game.state === "over", null, { timeout: 8000 });
-    await p.keyboard.press("Backspace"); await p.keyboard.press("Enter"); await p.waitForTimeout(100);
-    const s0 = await p.evaluate(() => __game.state);
-    await p.waitForTimeout(1000);
-    await p.keyboard.press("Backspace"); await p.waitForTimeout(100);
+    await p.click('.mode[data-mode="hard"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
+    const reflex = p.evaluate(() => new Promise((done) => {
+      const t = setInterval(() => {
+        if (__game.state !== "over") return;
+        clearInterval(t);
+        for (const key of ["Backspace", "Enter"]) document.body.dispatchEvent(new KeyboardEvent("keydown", { key, code: key, bubbles: true, cancelable: true }));
+        setTimeout(() => done(__game.state), 100);
+      }, 2);
+      setTimeout(() => { clearInterval(t); done("not over"); }, 30000);
+    }));
+    await p.keyboard.press("q");
+    const s0 = await reflex;
+    await p.evaluate(() => new Promise((r) => setTimeout(r, 1100)));   // (past the grace, on the page's clock)
+    await p.keyboard.press("Backspace");
+    await p.waitForFunction(() => __game.state === "start", null, { timeout: 10000 }).catch(() => {});
     const s1 = await p.evaluate(() => __game.state);
     check("typetwo: a reflex Backspace / Enter at game over keeps the results; a second later Backspace goes to the menu", s0 === "over" && s1 === "start", { s0, s1 });
     check("typetwo reflex: no page errors", p.errs.length === 0, p.errs);

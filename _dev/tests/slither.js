@@ -245,7 +245,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Space"); await p.waitForTimeout(50);
   // (the egg goes off at once, under its own snake)
   await p.evaluate(() => __lab.st().blast.eggs.forEach((e) => { if (e.owner.ctrl === "p1") e.fuse = 1; }));
-  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 30000 });
   const bt = await p.evaluate(() => document.getElementById("result-title").textContent);
   await p.keyboard.press("r"); await p.waitForTimeout(300);
   const bh = await hud(p);
@@ -272,7 +272,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.click('[data-mode="lab"]'); await p.waitForTimeout(200);
     await openPanel(p, "Stages", "Courtyard"); await p.waitForTimeout(300);
     await p.keyboard.press("ArrowUp");   // (straight into the top wall, no apples)
-    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 30000 });
     return p.evaluate(() => document.getElementById("result-msg").textContent);
   };
   p = await lab();
@@ -296,7 +296,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       Object.assign(st.guards[0], { cell: st.player.body[0], state: "roam", fright: false });
       st.status = "play";
     });
-    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 30000 });
     return p.evaluate(() => document.getElementById("result-msg").textContent);
   };
   p = await lab();
@@ -309,7 +309,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.close();
   p = await classic();
   await p.click("#play-btn");   // (heading right, into the wall; an apple may lie in the way)
-  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+  await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 30000 });
   const c0 = await p.evaluate(() => document.getElementById("result-msg").textContent);
   check("slither classic: a first run's card has no best line (not \"Best: 0\")", /^Score: \d+$/.test(c0), c0);
   await p.close();
@@ -381,7 +381,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate(() => { const d = [...document.querySelectorAll("details.lab-runs")].find((x) => /Stages/.test(x.textContent)); d.open = true; d.querySelector(".row button").click(); });
     await p.waitForTimeout(300);
     await p.keyboard.press("ArrowUp");
-    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 8000 });
+    await p.waitForFunction(() => !document.getElementById("result").classList.contains("hidden"), null, { timeout: 30000 });
     const again = await seen(p, "#result-msg");
     check("slither " + label + ": a stage's end card names " + (phone ? "the Play Again button" : "R / Enter"), hint(again, /tap Play Again/) && (phone || !/tap Play Again/.test(again.text)), again);
     check("slither " + label + ": no page errors on the hints", p.errs.length === 0, p.errs);

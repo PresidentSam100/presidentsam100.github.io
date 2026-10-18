@@ -86,11 +86,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.keyboard.press("Escape");
     await p.waitForSelector(".gs-dialog h2", { timeout: 15000 }).catch(() => {});
     const asked = await boxUp(p);
+    // (still in progress as the box goes: read by the page the moment the box
+    // is taken away, before an untended game can end by itself, as a Flappy
+    // World bird falls; read from here, a busy machine reads it too late)
+    await p.evaluate(() => {
+      window.__keptActive = null;
+      const mo = new MutationObserver(() => {
+        if (document.querySelector(".gs-dialog")) return;
+        window.__keptActive = GameShell.leaveActive(); mo.disconnect();
+      });
+      mo.observe(document.documentElement, { childList: true, subtree: true });
+    });
     await p.keyboard.press("Enter");
     await p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 15000 }).catch(() => {});
-    // (still in progress as the box goes: read at once, before an untended
-    // game can end by itself, as a Flappy World bird falls)
-    const still = await active(p);
+    const still = await p.evaluate(() => window.__keptActive === null ? GameShell.leaveActive() : window.__keptActive);
     await p.evaluate(() => new Promise((r) => setTimeout(r, 300)));   // (on the page's clock: a leave would have started)
     const kept = { box: await boxUp(p), active: still, leaves: p.leaves };
     await p.keyboard.press("Escape");
@@ -341,8 +350,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   {
     const p = await lib.open(ctx, base, "games/demolition-row/", { before: (pg) => seed(pg, { demolitionRow_endlessBest: "5" }) });
-    await p.evaluate(() => { sel.mode = "endless"; startGame(); }); await p.waitForTimeout(200);
-    await p.evaluate(() => { GAME.players[0].board.score = 50; }); await p.waitForTimeout(200);
+    await p.evaluate(() => { sel.mode = "endless"; startGame(); });
+    await p.waitForFunction(() => typeof GAME !== "undefined" && GAME && GAME.players && GAME.players[0] && GAME.players[0].board, null, { timeout: 15000 });
+    await p.evaluate(() => { GAME.players[0].board.score = 50; });
+    // (saved on the game's next frame, which a busy machine can hold back)
+    await p.waitForFunction(() => Number(localStorage.getItem("demolitionRow_endlessBest")) >= 50, null, { timeout: 15000 }).catch(() => {});
     const v = await ls(p, "demolitionRow_endlessBest");
     check("demolition-row: a new best is saved mid-run", Number(v) >= 50, v);
     await done(p, "demolition-row best");
