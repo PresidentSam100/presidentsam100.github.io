@@ -603,10 +603,14 @@
       var idx = Math.round((z + ws) / GAP);
       for (var side = -1; side <= 1; side += 2) {
         if (((idx + (side > 0 ? 1 : 0)) & 1) === 0) continue;   // stagger the two sides
-        out.push({ z: z, draw: tree.bind(null, side * (11.5 + ((idx * 7919) % 5)), z, idx) });
+        var tx = side * (11.5 + ((idx * 7919) % 5));
+        out.push({ z: z, d: eyeDist(tx, z, 0, 0), draw: tree.bind(null, tx, z, idx) });
       }
     }
-    for (var lz = -13 - (ws % LGAP); lz < 30; lz += LGAP) out.push({ z: lz, draw: lamp.bind(null, lampAt(lz, ws), lz) });
+    for (var lz = -13 - (ws % LGAP); lz < 30; lz += LGAP) {
+      var L = lampAt(lz, ws);
+      out.push({ z: lz, d: eyeDist(L.x, lz, 0, 0), draw: lamp.bind(null, L, lz) });
+    }
     return out;
   }
   function tree(tx, z, idx) {
@@ -640,6 +644,16 @@
     var lr = Math.max(1.5, FOCAL / head.z * 0.16);
     ctx.beginPath(); ctx.ellipse(head.x, head.y + lr * 0.4, lr * 1.6, lr * 0.7, 0, 0, 6.2832); ctx.fill();
     if (NIGHT) addGlow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140," + (0.8 * LT).toFixed(3) + ")", head.z);
+  }
+
+  // How far a thing stands from the eye along the ground, to the nearest
+  // point of its footprint (x, z its middle, hw and hl its half width and
+  // length): the painter's order, far to near. Not its depth alone: two cars
+  // level in the lanes beside yours are as deep as each other, and the outer
+  // one has to be painted first, or it covers the one between it and you.
+  function eyeDist(x, z, hw, hl) {
+    var dx = Math.max(x - hw - cam.ex, 0, cam.ex - (x + hw)), dz = Math.max(z - hl - cam.ez, 0, cam.ez - (z + hl));
+    return Math.sqrt(dx * dx + dz * dz);
   }
 
   // ----- vehicles as 3D boxes ---------------------------------------------
@@ -715,13 +729,17 @@
   }
   function foggedRoof(body, z) { return fogged(shade(body, dn(0.14, 0.02)), z); }
 
+  // your headlight beam on the tarmac ahead: laid on the road with the other
+  // cars' beams, before any car is drawn (drawn after your car, it lay over
+  // the car's nose)
+  function playerBeam(pxw) {
+    poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196," + (0.16 * LT).toFixed(3) + ")");
+    poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196," + (0.2 * LT).toFixed(3) + ")");
+  }
   function drawPlayer3D() {
     var pxw = wx(player.x);
     drawCar3D(pxw, 0, PLAYER_BASE, CAR_WM / 2, CAR_LM / 2, false, 0, 1);
     if (NIGHT) {
-      // headlight beam on the tarmac ahead
-      poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196," + (0.16 * LT).toFixed(3) + ")");
-      poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196," + (0.2 * LT).toFixed(3) + ")");
       var h1 = pt(pxw - 0.6, 0.55, CAR_LM / 2), h2 = pt(pxw + 0.6, 0.55, CAR_LM / 2), hg = "rgba(255,246,205," + (0.9 * LT).toFixed(3) + ")";
       if (h1) addGlow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), hg, h1.z);
       if (h2) addGlow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), hg, h2.z);
@@ -743,20 +761,23 @@
     drawGround();
     lampPools();
 
-    // painter's order: everything far → near, the player and the roadside among them
+    // painter's order: everything far → near the eye, the player and the roadside among them
     var list = [];
     for (var i = 0; i < obstacles.length; i++) {
-      var o = obstacles[i];
-      list.push({ z: wz(o.y), o: o });
+      var o = obstacles[i], oz = wz(o.y);
+      list.push({ z: oz, d: eyeDist(wx(o.cx), oz, (o.w * K) / 2, (o.h * K) / 2), o: o });
     }
-    list.push({ z: 0, player: true });
+    list.push({ z: 0, d: eyeDist(wx(player.x), 0, CAR_WM / 2, CAR_LM / 2), player: true });
     list = list.concat(roadside());
-    list.sort(function (a, b) { return b.z - a.z; });
+    list.sort(function (a, b) { return b.d - a.d; });
     var pxw = wx(player.x), j;
     // the other cars' beams, all laid on the road before any car is drawn: a
     // beam drawn with its car would paint over the car in front of it
-    if (NIGHT) for (j = 0; j < list.length; j++) {
-      if (list[j].o) drawBeam(wx(list[j].o.cx), list[j].z + list[j].o.h * K / 2, list[j].o.w * K / 2);
+    if (NIGHT) {
+      for (j = 0; j < list.length; j++) {
+        if (list[j].o) drawBeam(wx(list[j].o.cx), list[j].z + list[j].o.h * K / 2, list[j].o.w * K / 2);
+      }
+      playerBeam(pxw);
     }
     for (j = 0; j < list.length; j++) {
       var it = list[j];

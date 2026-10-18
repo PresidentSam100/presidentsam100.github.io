@@ -200,6 +200,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
+  // ---- what covers what, on a laptop and on a phone. Two cars level in the
+  // lanes beside yours: the outer one is painted first and the one between it
+  // and you over it (they were painted by depth alone, so the outer one could
+  // cover the inner one). At night your beam is laid on the road before your
+  // car is painted (it was painted after, over the car's nose). Read from the
+  // order of the frame's fills: the outer cars magenta, the inner ones orange,
+  // the beam pale yellow, the tail lamps red.
+  for (const [label, dev] of [["laptop", {}], ["phone", Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } })]]) {
+    const c = await lib.newContext(browser, dev);
+    const q = await lib.open(c, base, "games/quick-minute/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:quick-minute", "1"); } catch (e) {} }) });
+    const order = (mode, cars) => q.evaluate(([mode, cars]) => new Promise((res) => {
+      const g = __game;
+      g.start(mode);
+      g.obstacles.length = 0;
+      // (the inner car goes in first: painted by depth alone, it came out under the outer one)
+      for (const [by, y, color] of cars) g.obstacles.push({ lane: g.player.lane + by, y: y, w: 44, h: 84, type: "car", color: color, cx: g.player.x + by * 72, pending: false, merging: false, mergeDir: 0, mergeTo: -1, mergeStartY: 0, wc: 0 });
+      const P = CanvasRenderingContext2D.prototype, fill = P.fill, seen = [];
+      const hue = (css) => {
+        const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(css) || [];
+        let [r, gr, b] = [+m[1], +m[2], +m[3]];
+        if (/^#/.test(css)) { const n = parseInt(css.slice(1), 16); r = n >> 16; gr = (n >> 8) & 255; b = n & 255; }
+        const mx = Math.max(r, gr, b), mn = Math.min(r, gr, b);
+        if (!(mx - mn > 60)) return null;
+        let h = mx === r ? (gr - b) / (mx - mn) : mx === gr ? 2 + (b - r) / (mx - mn) : 4 + (r - gr) / (mx - mn);
+        return ((h * 60) + 360) % 360;
+      };
+      requestAnimationFrame(() => {
+        P.fill = function () {
+          const f = String(this.fillStyle), h = hue(f);
+          seen.push(/^rgba\(255, 243, 196/.test(f) ? "beam" : h === null ? "" : h > 280 && h < 320 ? "outer" : h > 22 && h < 45 ? "inner" : (h < 12 || h > 350) ? "tail" : "");
+          return fill.apply(this, arguments);
+        };
+        requestAnimationFrame(() => {
+          P.fill = fill;
+          const first = (k) => seen.indexOf(k), last = (k) => seen.lastIndexOf(k);
+          res({ outerLast: last("outer"), innerFirst: first("inner"), beamLast: last("beam"), tailFirst: first("tail"), beams: seen.filter((k) => k === "beam").length });
+        });
+      });
+    }), [mode, cars]);
+    for (const y of [480, 430]) {
+      const o = await order("day", [[1, y, "#ff8c00"], [2, y, "#cc33cc"], [-1, y, "#ff8c00"], [-2, y, "#cc33cc"]]);
+      check("quick-minute " + label + ": two cars level beside you (" + Math.round((566 - y) * 0.05) + " m ahead), the one nearer you is painted over the outer one, on both sides",
+        o.outerLast >= 0 && o.innerFirst >= 0 && o.outerLast < o.innerFirst, o);
+    }
+    const n = await order("night", []);
+    check("quick-minute " + label + ": at night your beam is laid on the road before your car is painted, not over it",
+      n.beams >= 2 && n.tailFirst >= 0 && n.beamLast < n.tailFirst, n);
+    check("quick-minute " + label + " (what covers what): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
   // ---- CYCLE: the run starts at any hour, a whole day passes each minute of
   // driving, and the look goes from day to night and back through a dusk and a
   // dawn that are both scenes at once. Its best is its own.
