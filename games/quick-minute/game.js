@@ -397,12 +397,16 @@
   // One scene at every hour. DK is how far into the dark it is (0 day, 1
   // night, between at dusk and dawn in CYCLE): every colour is that far from
   // its day self to its night self (dn), so the same things are there all
-  // the time and only grow dark. The lights are on or off, not between: they
-  // go on at once at half way (NIGHT), every car's, the street lamps' and
-  // your own, as the dashboard's do. (Dusk and dawn used to lay the whole
-  // night scene over the day one, so the lamps, which only the night had,
-  // faded in and out, and so did the trees under the night's darkness.)
-  var DK = 0, NIGHT = false, HAZE = "#c7d2c3";
+  // the time and only grow dark. The lights come up as it darkens and go
+  // down as it gets light, as gradually as the sky: LT is how far on they are
+  // (0 off, 1 full), as far as it is dark, every car's, the street lamps' and
+  // your own together, and the dashboard's with them.
+  // NIGHT: any light on at all. (Dusk and dawn used to lay the whole night
+  // scene over the day one, so the lamps, which only the night had, faded in
+  // and out, and so did the trees under the night's darkness; then the lights
+  // went on at once at half way, which was too sudden to miss.)
+  var DK = 0, LT = 0, NIGHT = false, HAZE = "#c7d2c3";
+  function lightsAt(d) { return clamp01(d); }
   function dn(day, night) {
     if (typeof day === "number") return day + (night - day) * DK;
     return DK <= 0 ? day : DK >= 1 ? night : mix(day, night, DK);
@@ -431,6 +435,7 @@
     d.globalCompositeOperation = "destination-out";
     function hole(x, y, r, a) {
       if (!(r > 1)) return;
+      a *= LT;
       var g = d.createRadialGradient(x, y, 0, x, y, r);
       g.addColorStop(0, "rgba(0,0,0," + a + ")");
       g.addColorStop(0.55, "rgba(0,0,0," + (a * 0.7).toFixed(2) + ")");
@@ -585,7 +590,7 @@
     for (var lz = -13 - (ws % LGAP); lz < 30; lz += LGAP) {
       var L = lampAt(lz, ws), lx = L.x, side2 = L.side;
       poly([lx + side2 * 1.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz - 2.6, lx - side2 * 3.2, 0.03, lz + 2.6, lx + side2 * 1.2, 0.03, lz + 2.6],
-           "rgba(255,214,140," + (0.22 * (1 - fogAt(lz))).toFixed(3) + ")");
+           "rgba(255,214,140," + (0.22 * (1 - fogAt(lz)) * LT).toFixed(3) + ")");
       // the lamp's pool of light punches through the darkness
       var pool = pt(lx - side2 * 1.1, 0.03, lz);
       if (pool) HOLES.push({ x: pool.x, y: pool.y, r: Math.max(8, FOCAL / pool.z * 3.4), a: 0.85 * (1 - fogAt(lz)) });
@@ -631,10 +636,10 @@
     ctx.lineTo(head.x, head.y);
     ctx.stroke();
     // the lamp itself, under the head: pale glass by day, lit with the lights
-    ctx.fillStyle = NIGHT ? "#ffe2a8" : mix("#d9dde4", HAZE, fogAt(lz));
+    ctx.fillStyle = mix(mix("#d9dde4", HAZE, fogAt(lz)), "#ffe2a8", LT);
     var lr = Math.max(1.5, FOCAL / head.z * 0.16);
     ctx.beginPath(); ctx.ellipse(head.x, head.y + lr * 0.4, lr * 1.6, lr * 0.7, 0, 0, 6.2832); ctx.fill();
-    if (NIGHT) addGlow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140,0.8)", head.z);
+    if (NIGHT) addGlow(head.x, head.y, Math.max(6, FOCAL / head.z * 0.9), "rgba(255,214,140," + (0.8 * LT).toFixed(3) + ")", head.z);
   }
 
   // ----- vehicles as 3D boxes ---------------------------------------------
@@ -670,12 +675,12 @@
     var rear = cam.ez < z0, nose = cam.ez > z1;
     var ty = isTruck ? 0.8 : 0.6, tz = z0 - 0.02, nz = z1 + 0.02;
     if (rear) {
-      var tc = fogged(NIGHT ? "#ff5a4a" : "#c22a22", z);
+      var tc = fogged(mix("#c22a22", "#ff5a4a", LT), z);
       poly([x0 + 0.16, ty - 0.1, tz, x0 + 0.55, ty - 0.1, tz, x0 + 0.55, ty + 0.1, tz, x0 + 0.16, ty + 0.1, tz], tc);
       poly([x1 - 0.55, ty - 0.1, tz, x1 - 0.16, ty - 0.1, tz, x1 - 0.16, ty + 0.1, tz, x1 - 0.55, ty + 0.1, tz], tc);
     }
     if (nose) {   // headlamps: pale glass by day, lit at night
-      var hc = fogged(NIGHT ? "#fff6cd" : "#e9ecef", z);
+      var hc = fogged(mix("#e9ecef", "#fff6cd", LT), z);
       poly([x0 + 0.14, ty - 0.11, nz, x0 + 0.56, ty - 0.11, nz, x0 + 0.56, ty + 0.11, nz, x0 + 0.14, ty + 0.11, nz], hc);
       poly([x1 - 0.56, ty - 0.11, nz, x1 - 0.14, ty - 0.11, nz, x1 - 0.14, ty + 0.11, nz, x1 - 0.56, ty + 0.11, nz], hc);
     }
@@ -691,7 +696,7 @@
         poly([sx, ty - 0.08, z0, sx, ty - 0.08, z0 + 0.3, sx, ty + 0.14, z0 + 0.3, sx, ty + 0.14, z0], amber);
         poly([sx, ty - 0.08, z1 - 0.3, sx, ty - 0.08, z1, sx, ty + 0.14, z1, sx, ty + 0.14, z1 - 0.3], amber);
       }
-      if (NIGHT && (rear || nose)) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, rear ? z0 : z1); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46,0.9)", sp2.z); }
+      if (NIGHT && (rear || nose)) { var sp2 = pt(signalDir < 0 ? x0 : x1, ty, rear ? z0 : z1); if (sp2) addGlow(sp2.x, sp2.y, Math.max(5, FOCAL / sp2.z * 0.5), "rgba(255,177,46," + (0.9 * LT).toFixed(3) + ")", sp2.z); }
     }
   }
   // At night every car drives with its lamps on. From behind, what shows of a
@@ -699,7 +704,7 @@
   // shorter than your own beam (which is still what you see by), and a soft
   // hole in the darkness over it. xc, zf: the middle of the car's nose.
   function drawBeam(xc, zf, halfW) {
-    var f = 1 - fogAt(zf + 3);
+    var f = (1 - fogAt(zf + 3)) * LT;
     if (f <= 0) return;
     var a = halfW * 0.8;
     poly([xc - a, 0.03, zf, xc + a, 0.03, zf, xc + a + 0.9, 0.03, zf + 7, xc - a - 0.9, 0.03, zf + 7], "rgba(255,243,196," + (0.14 * f).toFixed(3) + ")");
@@ -715,11 +720,11 @@
     drawCar3D(pxw, 0, PLAYER_BASE, CAR_WM / 2, CAR_LM / 2, false, 0, 1);
     if (NIGHT) {
       // headlight beam on the tarmac ahead
-      poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196,0.16)");
-      poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196,0.20)");
-      var h1 = pt(pxw - 0.6, 0.55, CAR_LM / 2), h2 = pt(pxw + 0.6, 0.55, CAR_LM / 2);
-      if (h1) addGlow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), "rgba(255,246,205,0.9)", h1.z);
-      if (h2) addGlow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), "rgba(255,246,205,0.9)", h2.z);
+      poly([pxw - 0.7, 0.03, CAR_LM / 2, pxw + 0.7, 0.03, CAR_LM / 2, pxw + 2.8, 0.03, 17, pxw - 2.8, 0.03, 17], "rgba(255,243,196," + (0.16 * LT).toFixed(3) + ")");
+      poly([pxw - 0.5, 0.04, CAR_LM / 2, pxw + 0.5, 0.04, CAR_LM / 2, pxw + 1.6, 0.04, 12, pxw - 1.6, 0.04, 12], "rgba(255,243,196," + (0.2 * LT).toFixed(3) + ")");
+      var h1 = pt(pxw - 0.6, 0.55, CAR_LM / 2), h2 = pt(pxw + 0.6, 0.55, CAR_LM / 2), hg = "rgba(255,246,205," + (0.9 * LT).toFixed(3) + ")";
+      if (h1) addGlow(h1.x, h1.y, Math.max(8, FOCAL / h1.z * 0.5), hg, h1.z);
+      if (h2) addGlow(h2.x, h2.y, Math.max(8, FOCAL / h2.z * 0.5), hg, h2.z);
     }
   }
 
@@ -728,7 +733,7 @@
   function render(now) { scene(now, dark()); }
   function scene(now, d) {
     DK = d;
-    NIGHT = d >= 0.5;                       // (the lights: on at half way, as the dashboard's)
+    LT = lightsAt(d); NIGHT = LT > 0;       // (the lights: up through dusk, as the dashboard's)
     HAZE = dn("#c7d2c3", "#0b101c");
     // turn signals blink with Visual FX on; with it off they stay lit, steady
     blinkOn = !fxOn() || (Math.floor(now / 270) % 2) === 0;
@@ -760,7 +765,7 @@
       var v = it.o, vwx = wx(v.cx);
       // with the lights on your beam lights the cars just ahead of you (the
       // rest go as dark as the hour)
-      var lit = NIGHT ? clamp01(1 - it.z / 19) * (Math.abs(vwx - pxw) < 3.4 ? 1 : 0.15) : 0;
+      var lit = NIGHT ? LT * clamp01(1 - it.z / 19) * (Math.abs(vwx - pxw) < 3.4 ? 1 : 0.15) : 0;
       drawCar3D(vwx, it.z, v.color, (v.w * K) / 2, (v.h * K) / 2, v.type === "truck",
                 (v.pending && v.y >= VH * 0.12) ? v.mergeDir : 0, lit);
       if (NIGHT) {
@@ -770,7 +775,7 @@
         var gr = 1 - fogAt(it.z);
         if (gz != null && gr > 0) {
           var tail = gz < it.z, gy = v.type === "truck" ? 0.8 : 0.6;
-          var gc = (tail ? "rgba(255,74,64," : "rgba(255,246,205,") + (0.8 * gr).toFixed(2) + ")";
+          var gc = (tail ? "rgba(255,74,64," : "rgba(255,246,205,") + (0.8 * gr * LT).toFixed(3) + ")";
           var tl = pt(vwx - v.w * K * 0.3, gy, gz), tr = pt(vwx + v.w * K * 0.3, gy, gz);
           if (tl) addGlow(tl.x, tl.y, Math.max(4, FOCAL / tl.z * (tail ? 0.42 : 0.5)), gc, tl.z);
           if (tr) addGlow(tr.x, tr.y, Math.max(4, FOCAL / tr.z * (tail ? 0.42 : 0.5)), gc, tr.z);
@@ -827,11 +832,21 @@
   // not only at the crash, so closing the tab mid-run still keeps it.
   // runBest is the best as the run started, for "NEW BEST!"
   var runBest = 0, liveBest = 0, liveSavedAt = -1e9;
+  // The dials light up with the headlights, as gradually: --dash on the body
+  // (0 to 1, styles.css), and body.night once they are more on than off
+  var dashAt = -1;
+  function dashLights(v) {
+    v = Math.round(v * 100) / 100;
+    if (v === dashAt) return;
+    dashAt = v;
+    document.body.style.setProperty("--dash", String(v));
+    document.body.classList.toggle("night", v >= 0.5);
+  }
   function update(dt) {
     speed = curSpeed();
     score += speed * dt * 0.05;
     // CYCLE: the hour moves on, and the dials light up as it gets dark
-    if (mode === "cycle") { hour = (hour + dt / DAY_S) % 1; document.body.classList.toggle("night", darkAt(hour) > 0.5); }
+    if (mode === "cycle") { hour = (hour + dt / DAY_S) % 1; dashLights(lightsAt(darkAt(hour))); }
     var whole = Math.floor(score), nowMs = performance.now();
     if (whole > liveBest && nowMs - liveSavedAt >= 250) { liveBest = whole; liveSavedAt = nowMs; save(bestKey(), whole); }
     scroll = (scroll + speed * dt) % 116000; // 116000·K = 5800 m → seamless for every scenery period
@@ -918,7 +933,7 @@
     running = true;
     ov.classList.remove("show");
     elDist.textContent = "0"; setSpeed(0);
-    document.body.classList.toggle("night", dark() > 0.5);          // (headlights on: the dials light up)
+    dashLights(lightsAt(dark()));                                   // (headlights on: the dials light up)
     renderBest();
     runBest = liveBest = parseInt(load(bestKey()), 10) || 0; liveSavedAt = -1e9;
     lastT = 0;
@@ -956,7 +971,7 @@
     var bn = parseInt(load(BEST_NIGHT), 10) || 0;
     var bc = parseInt(load(BEST_CYCLE), 10) || 0;
     mode = "day"; // a lit orbiting preview behind the card
-    document.body.classList.remove("night");
+    dashLights(0);
     card.innerHTML =
       '<h2 class="nm">QUICK MINUTE</h2>' +
       '<p>You\'re the fast one. Slice through ' + LANES + ' lanes of slower traffic and rack up distance.</p>' +
@@ -1006,6 +1021,7 @@
     get mode() { return mode; },
     get hour() { return hour; },
     get dark() { return dark(); },
+    get lights() { return lightsAt(dark()); },
     setHour: function (h) { hour = h; },
     get obstacles() { return obstacles; },
     get player() { return player; },

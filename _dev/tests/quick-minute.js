@@ -282,7 +282,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- one scene at every hour: the street lamps and the trees stand by day
   // and by night (CYCLE used to lay the night's scene over the day's, so the
   // lamps faded in and out, and the trees under the night's darkness); the
-  // lights go on at once as it turns dark, and not before
+  // lights come up as gradually as it darkens (they used to go on at once at
+  // half way, too sudden to miss), the dashboard's with them
   {
     const c = await lib.newContext(browser, { viewport: { width: 900, height: 800 } });
     const q = await lib.open(c, base, "games/quick-minute/");
@@ -304,8 +305,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     const day = await look("day", null), dusk = await look("cycle", 0.735), after = await look("cycle", 0.76), night = await look("night", null);
     check("quick-minute: the street lamps and the trees stand in the day, at dusk and at night alike (they used to come and go with the dark)",
       [day, dusk, after, night].every((s) => s.posts >= 2 && s.trunks >= 2), { day, dusk, after, night });
-    check("quick-minute: the lights go on at once as it turns dark, with the dashboard's, and not before",
-      !day.night && dusk.dark > 0 && dusk.dark < 0.5 && !dusk.night && after.dark >= 0.5 && after.night && night.night, { day, dusk, after, night });
+    // (dusk, an hour at a time, two frames each: how far on the lights are, and the dials)
+    const fade = await q.evaluate(() => new Promise((ok) => {
+      __game.start("cycle");
+      const hours = [], out = [];
+      for (let h = 0.68; h <= 0.82; h += 0.0025) hours.push(h);
+      const next = () => {
+        if (!hours.length) return ok(out);
+        const h = hours.shift();
+        __game.setHour(h);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          out.push({ h: +h.toFixed(4), dark: __game.dark, lights: __game.lights, dash: parseFloat(document.body.style.getPropertyValue("--dash")) });
+          next();
+        }));
+      };
+      next();
+    }));
+    const lt = fade.map((f) => f.lights), steps = lt.slice(1).map((v, i) => v - lt[i]);
+    const between = lt.filter((v) => v > 0.05 && v < 0.95).length, jump = Math.max(...steps);
+    check("quick-minute: the lights come up as gradually as it darkens through dusk (off by day, on at night, no jump), the dials with them",
+      lt[0] === 0 && lt[lt.length - 1] === 1 && steps.every((d) => d >= -1e-9) && jump < 0.1 && between >= 10 &&
+      fade.every((f) => typeof f.lights === "number" && Math.abs(f.dash - f.lights) <= 0.02) && !day.night && night.night,
+      { jump, between, sample: fade.filter((f, i) => i % 8 === 0) });
     check("quick-minute (one scene): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();

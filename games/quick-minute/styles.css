@@ -10,8 +10,9 @@
    chrome trim, cool white dial lighting and a red needle: no other page
    on the site is the inside of a car.
 
-   Night mode (body.night) turns the dial lighting up, as dashboards do
-   when the headlights go on. Visual FX off (html.fx-off): the needle
+   The dial lighting comes up with the headlights, as dashboards' does:
+   game.js sets --dash on the body, 0 by day to 1 at night, rising as
+   gradually as the lights through dusk. Visual FX off (html.fx-off): the needle
    steps to its mark and the milestone banner doesn't pop; nothing is
    missing.
    ===================================================================== */
@@ -104,8 +105,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   color: var(--lit); background: var(--dial);
   background-image: repeating-linear-gradient(90deg, transparent 0 calc(1ch + 2.4px), rgba(255, 255, 255, 0.09) calc(1ch + 2.4px) calc(1ch + 3px));
   border: 1px solid #000; border-radius: 4px;
-  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 0 0 1.5px var(--chrome-dk), 0 0 12px rgba(190, 225, 255, 0.07);
-  text-shadow: 0 0 7px rgba(190, 225, 255, 0.45);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 0 0 1.5px var(--chrome-dk), 0 0 calc(12px + 6px * var(--dash, 0)) rgba(190, 225, 255, calc(0.07 + 0.21 * var(--dash, 0)));
 }
 /* the speedometer: a lit dial, a red needle (game.js sets --mph), the figure under the hub */
 .stat.speedo { flex: 0 0 auto; position: relative; width: 118px; height: 118px; margin-top: -30px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 13px;
@@ -120,7 +120,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   -webkit-mask-composite: source-in;
   mask: radial-gradient(circle closest-side, transparent 0 77%, #000 78% 97%, transparent 98%), conic-gradient(from -137deg, #000 0 274deg, transparent 274deg);
   mask-composite: intersect;
-  opacity: 0.9;
+  opacity: calc(0.9 + 0.1 * var(--dash, 0));
+  filter: drop-shadow(0 0 3px rgba(190, 225, 255, calc(0.8 * var(--dash, 0))));
 }
 .needle {
   position: absolute; left: 50%; top: 50%; width: 3px; height: 44px; margin: -44px 0 0 -1.5px; border-radius: 2px; pointer-events: none;
@@ -133,12 +134,13 @@ html.fx-off .needle { transition: none; }
   content: ""; position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%;
   background: radial-gradient(circle at 35% 30%, #f1f4f8, var(--chrome-dk) 70%); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
-.stat.speedo .value { position: relative; font-family: var(--read); font-weight: 700; font-size: 1.35rem; line-height: 1; color: var(--lit); font-variant-numeric: tabular-nums; text-shadow: 0 0 7px rgba(190, 225, 255, 0.45); }
+.stat.speedo .value { position: relative; font-family: var(--read); font-weight: 700; font-size: 1.35rem; line-height: 1; font-variant-numeric: tabular-nums; }
 .stat.speedo .label { position: relative; margin-top: 1px; }
-/* headlights on: the dials are lit up */
-body.night .stat.odo .value, body.night .stat.speedo .value { color: #fff; text-shadow: 0 0 10px rgba(190, 225, 255, 0.9); }
-body.night .stat.odo .value { box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.9), 0 0 0 1.5px var(--chrome-dk), 0 0 18px rgba(190, 225, 255, 0.28); }
-body.night .dial { opacity: 1; filter: drop-shadow(0 0 3px rgba(190, 225, 255, 0.8)); }
+/* the figures: brighter, and glowing more, as the lights come up */
+.stat.odo .value, .stat.speedo .value {
+  color: var(--lit); color: color-mix(in srgb, var(--lit), #fff calc(100% * var(--dash, 0)));
+  text-shadow: 0 0 calc(7px + 3px * var(--dash, 0)) rgba(190, 225, 255, calc(0.45 + 0.45 * var(--dash, 0)));
+}
 
 .hint { position: relative; z-index: 1; color: var(--muted); font-size: 0.95rem; font-weight: 500; text-align: center; margin: 0.55rem 0 0.1rem; }
 
