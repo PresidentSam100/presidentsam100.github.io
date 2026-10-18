@@ -288,9 +288,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- what was still over: JackBlack leaves nothing to scroll on a short
-  // phone, held upright or on its side, whatever is on the table (four split
-  // hands settled with the bets back up is the tallest it gets), with every
-  // button on the screen and the cards no smaller; Dead End keeps how to play
+  // phone, held upright or on its side (down to 568 x 320, the smallest
+  // iPhone on its side), whatever is on the table: two or four split hands,
+  // four that have each drawn a card, the top bet split four ways and
+  // doubled, settled with the bets back up. Split hands keep to one row and
+  // inside the table, every button stays on the screen, the cards are no
+  // smaller with two hands, and none goes under 30 px (game.js brings them
+  // down only as far as a crowded table needs; when results have to lie
+  // across the cards, every card's rank still shows); Dead End keeps how to play
   // on a laptop's screen in a run, the maze as big as the rest of the page
   // leaves room for; Ping's paddle buttons lie over none of the set's
   // lettering, dials or light, nor its screen, nor each other; and on a short
@@ -299,22 +304,42 @@ module.exports = async ({ browser, base, check, lib }) => {
     const got = {};
     const idle = (p) => p.waitForFunction(() => !JackBlack.busy(), null, { timeout: 10000 });
     const click = async (p, id) => { await p.evaluate((id) => document.getElementById(id).click(), id); await idle(p); };
-    const settle = async (p) => { for (let k = 0; k < 4 && await p.evaluate(() => JackBlack.table().phase === "play"); k++) await click(p, "act-stand"); };
+    const phase = (p) => p.evaluate(() => JackBlack.table().phase);
+    const settle = async (p) => { for (let k = 0; k < 6 && await phase(p) === "play"; k++) await click(p, "act-stand"); };
+    // each hand in turn doubles if it can (else hits) and stands if it is still its turn
+    const each = async (p, how) => {
+      for (let k = 0; k < 6 && await phase(p) === "play"; k++) {
+        const a = await p.evaluate(() => JackBlack.table().active);
+        await click(p, (await p.evaluate((how) => JackBlack.table().can(how), how)) ? "act-" + how : "act-hit");
+        if (await p.evaluate((a) => JackBlack.table().phase === "play" && JackBlack.table().active === a, a)) await click(p, "act-stand");
+      }
+    };
+    const fourWays = async (p, stack, how) => {
+      await p.evaluate((s) => JackBlack.stack(s), stack);
+      await click(p, "deal");
+      for (let i = 0; i < 3; i++) await click(p, "act-split");
+      if (how) await each(p, how);
+    };
     const look = (p) => p.evaluate(() => {
       const R = (e) => e.getBoundingClientRect(), pc = document.querySelector("#d-cards .pc");
       const off = Array.from(document.querySelectorAll("#controls button, .panel:not([hidden]) button")).filter((b) => b.getClientRects().length)
         .filter((b) => { const r = R(b); return r.top < 0 || r.bottom > innerHeight + 0.5 || r.right > innerWidth + 0.5; }).map((b) => b.id || b.textContent.trim());
-      return { scroll: document.documentElement.scrollHeight - innerHeight, off, card: pc ? Math.round(R(pc).width) : null };
+      const felt = R(document.getElementById("felt")), hands = Array.from(document.querySelectorAll("#hands .hand")), pcs = Array.from(document.querySelectorAll("#felt .pc"));
+      return { scroll: document.documentElement.scrollHeight - innerHeight, off, card: pc ? Math.round(R(pc).width) : null,
+        least: pcs.length ? Math.round(Math.min(...pcs.map((c) => R(c).width))) : null,
+        rows: new Set(hands.map((e) => Math.round(R(e).top))).size, outside: hands.filter((e) => R(e).left < felt.left || R(e).right > felt.right).length,
+        // (results laid across the cards leave every card's corner rank showing above them)
+        stamped: document.getElementById("hands").classList.contains("stamp"),
+        covered: hands.flatMap((h) => { const t = h.querySelector(".tag"); if (!t || getComputedStyle(t).position !== "absolute") return [];
+          return Array.from(h.querySelectorAll(".pc .cn:not(.low)")).filter((c) => { const r = document.createRange(); r.selectNodeContents(c.firstChild); return r.getBoundingClientRect().bottom > R(t).top + 0.5; }).map((c) => c.firstChild.textContent); }) };
     });
-    for (const [w, h, least] of [[320, 568, 46], [360, 560, 46], [375, 553, 46], [360, 640, 46], [390, 664, 50], [667, 375, 60]]) {
+    for (const [w, h, least] of [[320, 568, 46], [360, 560, 46], [375, 553, 46], [360, 640, 46], [390, 664, 50], [667, 375, 60], [640, 360, 54], [568, 320, 40]]) {
       const ctx = await lib.newContext(browser, phone(w, h));
       const p = await lib.open(ctx, base, "games/jackblack/");
       const st = { menu: await look(p) };
       await p.evaluate(() => JackBlack.start("open")); await p.waitForTimeout(150);
       st.betting = await look(p);
-      await p.evaluate(() => JackBlack.stack("8 6 8 T 8 8 8 8 2 3 4 5 9"));
-      await click(p, "deal");
-      for (let i = 0; i < 3; i++) await click(p, "act-split");
+      await fourWays(p, "8 6 8 T 8 8 8 8 2 3 4 5 9");
       st.fourHands = await look(p);
       await settle(p);
       st.fourSettled = await look(p);
@@ -323,11 +348,21 @@ module.exports = async ({ browser, base, check, lib }) => {
       st.twoHands = await look(p);
       await settle(p);
       st.twoSettled = await look(p);
+      await fourWays(p, "8 6 8 T 8 8 8 8 2 3 2 2 2 2 2 2 2 2 2 2", "hit");
+      st.fourDrawn = await look(p);
+      await settle(p);
+      st.fourDrawnSettled = await look(p);
+      // the longest numbers: a big stake, the top bet split four ways and each doubled ("Lose −2,000")
+      await p.evaluate(() => { localStorage.setItem("jackblack_stake", "987650"); JackBlack.start("open"); }); await p.waitForTimeout(150);
+      await click(p, "clear");
+      for (let i = 0; i < 2; i++) await p.evaluate(() => document.querySelector("#chips .c500").click());
+      await fourWays(p, "8 9 8 T 8 8 8 8 2 3 2 2 2 2 2 2 2 2 2 2", "double");
+      st.fourDoubled = await look(p);
       got[w + "x" + h] = { least, st, errs: p.errs };
       await ctx.close();
     }
-    check("fit: jackblack on a short phone (upright, and on its side at 667 x 375) has no page to scroll and every button on the screen, at the menu, betting, and with two or four split hands in play and settled; its cards are no smaller (46 px and up, 60 on its side)",
-      Object.values(got).every((o) => o.errs.length === 0 && Object.values(o.st).every((s) => s.scroll <= 0 && s.off.length === 0) && o.st.twoHands.card >= o.least), got);
+    check("fit: jackblack on a short phone (upright, and on its side at 667 x 375, 640 x 360 and 568 x 320) has no page to scroll and every button on the screen, at the menu, betting, and with two or four split hands, four that have each drawn and four doubled at the top bet, in play and settled; split hands keep to one row inside the table, and results laid across the cards (568 x 320, four doubled) leave every card's rank showing; with two hands its cards are no smaller (46 px and up, 60 on its side at 667 x 375) and no card is under 30 px",
+      Object.values(got).every((o) => o.errs.length === 0 && Object.values(o.st).every((s) => s.scroll <= 0 && s.off.length === 0 && s.rows <= 1 && s.outside === 0 && s.covered.length === 0 && (s.least === null || s.least >= 30)) && o.st.twoHands.least >= o.least) && got["568x320"].st.fourDoubled.stamped, got);
   }
   {
     const got = {};

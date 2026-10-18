@@ -374,8 +374,11 @@ button { font-family: inherit; }
    printed rules stay. The room comes from laying things side by side: the
    dealer's name beside the dealer's cards, one hand's total and bet beside
    its cards, two to four hands in one row, and the buttons in as few rows
-   as they fill (Modes joins the last) */
+   as they fill (Modes joins the last). Past what these sizes allow (four
+   split hands that have each drawn, the top bets doubled), game.js brings
+   the cards down just enough: --fit tells it this is a screen to fit */
 @media (max-height: 700px) and (max-width: 560px), (max-height: 520px) {
+  #felt { --fit: 1; }
   body { padding-bottom: 6px; }
   h1 { font-size: 28px; }
   .plaque { margin: 0 0 3px; }
@@ -404,10 +407,21 @@ button { font-family: inherit; }
   .hands.n2 .cards:has(> .pc:nth-child(4)) { padding-left: calc(var(--card-w) * 0.55); }
   .hands.n2 .cards:has(> .pc:nth-child(4)) .pc { margin-left: calc(var(--card-w) * -0.55); }
   .hands.n3, .hands.n4 { gap: 6px 4px; }
+  .hands.n3 .hand, .hands.n4 .hand { padding: 2px 1px 3px; }
+  .hands.n3 .cards:has(> .pc:nth-child(3)), .hands.n4 .cards:has(> .pc:nth-child(3)) { padding-left: calc(var(--card-w) * 0.6); }
+  .hands.n3 .cards:has(> .pc:nth-child(3)) .pc, .hands.n4 .cards:has(> .pc:nth-child(3)) .pc { margin-left: calc(var(--card-w) * -0.6); }
   .hands.n2 .foot, .hands.n3 .foot, .hands.n4 .foot { width: 0; min-width: 100%; gap: 2px 5px; }
   .hands.n3 .total, .hands.n4 .total { font-size: 15px; min-width: 0; }
   .hands.n3 .stack, .hands.n4 .stack { gap: 3px; }
-  .hands.n3 .tag, .hands.n4 .tag { font-size: 12px; padding: 1px 5px; }
+  .hands.n2 .tag, .hands.n3 .tag, .hands.n4 .tag { font-size: 12px; padding: 1px 5px; }
+  /* (a table still too tall for the screen once the hands are settled: each
+     result lies across the foot of its own hand's cards instead of under
+     them, below the ranks in their corners; game.js sets .stamp only then) */
+  .hands.stamp .hand { position: relative; }
+  .hands.stamp .tag {
+    position: absolute; left: 50%; top: calc(3px + var(--card-w) * 1.42); transform: translate(-50%, -100%);
+    max-width: 100%; text-align: center; line-height: 1.05; box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
+  }
   #controls { margin-top: 8px; flex-direction: row; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 7px 8px; min-height: 0; }
   #controls > .row { display: contents; }
   #controls .foot { margin-top: 0; }

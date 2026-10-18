@@ -158,11 +158,56 @@
       wrap.appendChild(box);
     });
     $("hud-stake").textContent = fmt(view.stake);
+    fit();
   }
+  // Where the stylesheet keeps the whole table on the screen at once (a short
+  // screen, upright or on its side, sets --fit on the felt), split hands keep
+  // to one row and nothing runs off the bottom, whatever the cards and the
+  // numbers: when the stylesheet's sizes would break either, the cards come
+  // down as far as it takes and no further (FIT_MIN at the least). The
+  // hands' cards first, as they are what crowds; then, if the page is still
+  // taller than the screen, settled results lie across their hands' cards
+  // (.stamp) rather than under them; and only then do the dealer's and the
+  // hands' cards come down together. Each call starts again from the
+  // stylesheet's sizes, so a smaller hand next round gets its full size back.
+  var FIT_MIN = 30;
+  function fit() {
+    var wrap = $("hands"), d = $("d-cards");
+    wrap.style.removeProperty("--card-w"); d.style.removeProperty("--card-w"); wrap.classList.remove("stamp");
+    if (getComputedStyle($("felt")).getPropertyValue("--fit").trim() !== "1") return;
+    var W = function (e) { return e.getBoundingClientRect().width; };
+    // (a card's width, from a row of cards: its min-height is 1.42 cards, in px)
+    var unit = function (el) { var c = el.classList.contains("cards") ? el : el.querySelector(".cards"); return c ? parseFloat(getComputedStyle(c).minHeight) / 1.42 : NaN; };
+    var dw = unit(d), hw = unit(wrap);
+    if (isNaN(hw)) hw = dw;
+    var set = function (el, w) { el.style.setProperty("--card-w", (Math.floor(Math.max(FIT_MIN, w) * 10) / 10) + "px"); };
+    var hs = Array.prototype.slice.call(wrap.children);
+    if (hs.length > 1) {
+      var used = (parseFloat(getComputedStyle(wrap).columnGap) || 0) * (hs.length - 1), cardsW = 0;
+      hs.forEach(function (h) { used += W(h); cardsW += W(h.firstChild); });
+      // (a hand's width is its row of cards, which scales with the card,
+      // and its padding and border, which don't)
+      if (used > wrap.clientWidth - 0.5) { hw = hw * (wrap.clientWidth - 0.5 - (used - cardsW)) / cardsW; set(wrap, hw); hw = unit(wrap); }
+      if (document.documentElement.scrollHeight - innerHeight > 1 && wrap.querySelector(".tag")) wrap.classList.add("stamp");
+    }
+    for (var k = 0; k < 4; k++) {
+      var over = document.documentElement.scrollHeight - innerHeight;
+      if (over <= 1) return;          // (a pixel's rounding)
+      // each row of cards is 1.42 cards high: bring down the biggest
+      var top = Math.max(hw, dw), n = (hw >= top - 0.05 ? 1 : 0) + (dw >= top - 0.05 ? 1 : 0);
+      if (top <= FIT_MIN) return;
+      top -= over / (1.42 * n) + 0.2;
+      if (hw > top) { set(wrap, top); hw = unit(wrap); if (isNaN(hw)) hw = top; }
+      if (dw > top) { set(d, top); dw = unit(d); }
+    }
+  }
+  window.addEventListener("resize", fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
   function banner(text, kind) {
     var b = $("banner");
     b.textContent = text || "";
     b.className = "banner" + (kind ? " " + kind : "") + (text ? " show" : "");
+    fit();
   }
 
   // ---- playing the events out -----------------------------------------------------
@@ -358,6 +403,7 @@
       $("hud-best").textContent = mode === "table" && best && best.get() ? "best " + fmt(best.get()) : "";
       $("hud-stake").textContent = fmt(view.stake);
     }
+    fit();
   }
   function addChip(v) {
     if (state !== "table" || busy || inHand()) return;
