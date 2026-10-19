@@ -47,5 +47,37 @@ module.exports = async ({ browser, base, check, lib }) => {
   const placed = await p.evaluate(() => (document.getElementById("placing") || {}).textContent || "");
   check("salvo: with storage blocked the fleet can still be placed", p.errs.length === 0 && /All ships placed/.test(placed), { errs: p.errs, placed });
   await p.close();
+
+  // ---- the fleet screen: a key held down acts once (a held R spun the ship
+  // round and round, a held A dealt fleet after fleet); with Visual FX on a
+  // ship set down drops into place and the water rings round it, and the
+  // swell drifts over your waters; with it off the ships are simply there and
+  // the sea holds still. At a laptop's size and a phone's.
+  const { devices } = require("@playwright/test");
+  for (const [label, dev] of [["laptop", {}], ["phone", Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } })]]) {
+    for (const fxOff of [false, true]) {
+      const c = await lib.newContext(browser, dev);
+      const q = await lib.open(c, base, "games/salvo/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:salvo", off ? "1" : "0"); } catch (e) {} }, fxOff) });
+      const fleet = () => q.evaluate(() => [...document.querySelectorAll("#playerGrid .cell.ship")].map((e) => e.dataset.r + e.dataset.c).join());
+      const orient = () => q.evaluate(() => /vertical/.test(document.getElementById("placing").textContent) ? "v" : "h");
+      const key = (k, repeat) => lib.fireKey(q, { key: k, code: "Key" + k.toUpperCase(), repeat });
+      const o0 = await orient(); await key("r", false); const o1 = await orient(); await key("r", true); await key("r", true); const o2 = await orient();
+      await key("a", false); const f1 = await fleet(); await key("a", true); await key("a", true); const f2 = await fleet();
+      const drops = await q.evaluate(() => ({ drop: document.querySelectorAll("#playerGrid .cell.drop").length, ship: document.querySelectorAll("#playerGrid .cell.ship").length,
+        swell: getComputedStyle(document.getElementById("playerGrid"), "::before").animationName }));
+      // a ship set down by hand, on a fresh fleet screen
+      await q.click("#resetBtn");
+      await q.click('#playerGrid .cell[data-r="0"][data-c="0"]');
+      const one = await q.evaluate(() => document.querySelectorAll("#playerGrid .cell.drop").length);
+      if (!fxOff) check("salvo " + label + ": R and A act once per press, never again while held (the ship turns once, one fleet is dealt)",
+        o1 !== o0 && o2 === o1 && f1.length > 0 && f2 === f1, { o0, o1, o2, same: f2 === f1 });
+      check("salvo " + label + ", Visual FX " + (fxOff ? "off: ships set down are simply there and the sea holds still" : "on: a ship set down drops in with the water ringing round it (a random fleet, every ship), and the swell drifts"),
+        fxOff ? drops.drop === 0 && one === 0 && drops.swell === "none" : drops.drop === drops.ship && drops.ship === 17 && one === 5 && drops.swell === "swell",
+        { drops, one });
+      check("salvo " + label + " (fleet screen): no page errors", q.errs.length === 0, q.errs);
+      await q.close();
+      await c.close();
+    }
+  }
   await ctx.close();
 };

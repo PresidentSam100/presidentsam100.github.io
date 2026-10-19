@@ -88,6 +88,9 @@ header.top::after {
     linear-gradient(160deg, #3aa3cb, #237aa8 55%, #1a6390);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 3px 8px rgba(0, 0, 0, 0.3);
 }
+/* Visual FX on: the swell drifts slowly across your waters, at setup and in battle */
+@keyframes swell { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 72px 58px, 0 0, 0 0; } }
+html.fx-on .grid:not(.enemy)::before { animation: swell 9s linear infinite; }
 /* enemy waters: a radar screen, round in the square, with a crosshair and range rings */
 .grid.enemy::before {
   background:
@@ -219,6 +222,17 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
 .cell.hitflash { animation: hitflash 0.42s ease; z-index: 2; }
 @keyframes sink { 0% { transform: translateY(-3px) scale(1.05); } 45% { transform: translateY(2px) scale(.92) rotate(-3deg); } 100% { transform: translateY(0) scale(1) rotate(0); } }
 .cell.sinking { animation: sink 0.6s ease; }
+/* a ship set down (Visual FX on): its hull drops into place from above, and
+   the water rings out round each of its cells as it lands (--dd: when) */
+@keyframes dropin { 0% { transform: translateY(-55%) scale(1.3); opacity: 0; } 70% { transform: translateY(4%) scale(0.97); opacity: 1; } 100% { transform: none; opacity: 1; } }
+@keyframes ripple { 0% { transform: scale(0.35); opacity: 0; } 6% { opacity: 0.85; } 100% { transform: scale(1.5); opacity: 0; } }
+.grid:not(.enemy) .cell.drop { z-index: 2; }
+.grid:not(.enemy) .cell.drop::before { animation: dropin 0.34s ease-in var(--dd, 0s) both; }
+.grid:not(.enemy) .cell.drop::after {
+  content: ""; inset: -14%; border-radius: 50%;
+  border: 2px solid rgba(220, 245, 255, 0.75); box-shadow: 0 0 6px rgba(200, 240, 255, 0.45);
+  animation: ripple 0.62s ease-out calc(var(--dd, 0s) + 0.22s) both;
+}
 .cell.preview { outline-color: var(--good); }
 .cell.previewbad { outline-color: var(--bad); }
 /* the last shot at each grid (yours on the radar, the CPU's on your sea):

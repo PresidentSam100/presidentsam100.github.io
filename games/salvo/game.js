@@ -99,6 +99,16 @@
   function div(cls, txt) { const d = document.createElement("div"); d.className = cls; if (txt != null) d.textContent = txt; return d; }
   const cellEl = (grid, r, c) => grid.querySelector('.cell[data-r="' + r + '"][data-c="' + c + '"]');
 
+  // Visual FX on: a ship set down on your waters drops into place and the
+  // water rings out round it (a fleet set at random lands one ship after
+  // another: --dd, when). With FX off it's simply there.
+  function dropIn(ships) {
+    if (window.RM_ON && window.RM_ON()) return;
+    ships.forEach((ship, i) => ship.cells.forEach((p) => {
+      const e = cellEl(playerGrid, p[0], p[1]);
+      if (e) { e.style.setProperty("--dd", (i * 90) + "ms"); e.classList.add("drop"); }
+    }));
+  }
   // visual feedback after a shot: a burst on a hit, a sinking wobble when a ship goes down
   function flashHit(grid, res, r, c) {
     if (!res.hit) return;
@@ -113,7 +123,7 @@
   function renderBoard(grid, board, showShips, last) {
     grid.querySelectorAll(".cell").forEach((cell) => {
       const r = +cell.dataset.r, c = +cell.dataset.c, b = board[r][c];
-      cell.className = "cell"; cell.textContent = "";
+      cell.className = "cell"; cell.textContent = ""; cell.style.removeProperty("--dd");
       if (last && last[0] === r && last[1] === c) cell.classList.add("last");
       // A ship's hull shows on your own board (hits burn on top of it) and on
       // the enemy's once it's sunk. A hit on a live enemy ship shows no hull:
@@ -178,7 +188,7 @@
     const cell = e.target.closest(".cell"); if (!cell || phase !== "place" || placeIdx >= SHIPS.length) return;
     const r = +cell.dataset.r, c = +cell.dataset.c, ship = playerShips[placeIdx];
     if (!canPlace(playerBoard, r, c, ship.size, orient)) return;
-    placeShip(playerBoard, ship, r, c, orient); placeIdx++; SFX.place(); clearPreview(); render();
+    placeShip(playerBoard, ship, r, c, orient); placeIdx++; SFX.place(); clearPreview(); render(); dropIn([ship]);
     if (placeIdx < SHIPS.length) previewAt(r, c);
   });
 
@@ -186,7 +196,7 @@
     orient = orient === "h" ? "v" : "h"; render(); SFX.rotate();
     if (phase === "place" && placeIdx < SHIPS.length && hoverR >= 0) previewAt(hoverR, hoverC);
   });
-  $("randomBtn").addEventListener("click", () => { resetPlacement(); placeRandom(playerBoard, playerShips); placeIdx = SHIPS.length; render(); SFX.random(); });
+  $("randomBtn").addEventListener("click", () => { resetPlacement(); placeRandom(playerBoard, playerShips); placeIdx = SHIPS.length; render(); dropIn(playerShips); SFX.random(); });
   $("resetBtn").addEventListener("click", () => { resetPlacement(); render(); SFX.reset(); });
   $("startBtn").addEventListener("click", startBattle);
 
@@ -363,6 +373,10 @@
     if (phase !== "place") return;
     const onBtn = document.activeElement && document.activeElement.tagName === "BUTTON";
     const k = e.key.toLowerCase();
+    // a key held down acts once: its repeats do nothing (a held R spun the
+    // ship round and round, a held A dealt fleet after fleet), nor does a
+    // focused button's repeated Enter
+    if (e.repeat) { if (k === "r" || k === "a" || k === " " || k === "backspace" || k === "delete" || k === "enter") e.preventDefault(); return; }
     // Space turns the ship being placed, as R does; once the whole fleet is
     // down there is no ship left to turn, and Space starts the battle, as Enter does
     if (k === " " && !onBtn && !$("startBtn").disabled) { e.preventDefault(); if (!e.repeat) $("startBtn").click(); return; }
