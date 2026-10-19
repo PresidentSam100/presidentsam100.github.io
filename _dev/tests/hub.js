@@ -7,9 +7,9 @@
 //
 // The cards: one description each, wrapping to exactly two lines on a
 // laptop's card and to no more than four on a phone's (two cards to a row),
-// every card the same size and nothing cut off. The suites see the page in
-// the fallback face (lib.js blocks Google Fonts); the wording was written to
-// wrap the same way in Inter, which players get.
+// every card the same size and nothing cut off. Measured twice: in the
+// fallback face the suites see (lib.js blocks Google Fonts), and in Inter,
+// which players get, fetched for that check alone.
 //
 // The search box: / (or any letter typed on the page) goes to it, and as
 // characters go in and out only the games whose name or description (or one
@@ -123,7 +123,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the cards, on two laptops and three phones
   const cardsAt = async (c) => {
     const pg = await open(c);
-    const r = await pg.evaluate(() => {
+    const r = await pg.evaluate(async () => {
+      // (the page's stylesheets, Google's included, are in by the load event)
+      if (document.readyState !== "complete") await new Promise((ok) => addEventListener("load", ok, { once: true }));
+      await document.fonts.ready;
       const cs = [...document.querySelectorAll(".games-grid .game-card")];
       const px = (el, k) => parseFloat(getComputedStyle(el)[k]);
       const box = (a) => a.getBoundingClientRect();
@@ -139,6 +142,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         }).map((a) => a.getAttribute("href")),
         wide: Math.max(document.documentElement.scrollWidth, innerWidth),
         texts: new Set(cs.map((a) => a.querySelector(".desc").textContent.trim())).size,
+        inter: Array.from(document.fonts).some((f) => f.family.replace(/["']/g, "") === "Inter" && f.status === "loaded") &&
+          /^["']?Inter/.test(getComputedStyle(cs[0].querySelector(".desc")).fontFamily),
         note: (() => { const n = document.querySelector(".games-header .side-note"); if (!n) return null; const r = box(n);
           return { text: n.textContent.replace(/\s+/g, " ").trim(), shown: r.height > 0 && getComputedStyle(n).visibility !== "hidden", right: Math.round(r.right) }; })(),
       };
@@ -163,6 +168,16 @@ module.exports = async ({ browser, base, check, lib }) => {
       ", none cut off, and nothing past a card's edge or the screen's",
       r.n >= 48 && r.cols === cols && r.sizes.length === 1 && !off.length && !r.cut.length && !r.spill.length && r.wide <= opts.viewport.width,
       { n: r.n, cols: r.cols, sizes: r.sizes, off, cut: r.cut, spill: r.spill, wide: r.wide });
+    // the same in Inter, the face players get (Google Fonts let through, so this one needs the network)
+    const ci = await lib.newContext(browser, opts);
+    await ci.route(/fonts\.googleapis|fonts\.gstatic/, (rt) => rt.continue());
+    const ri = await cardsAt(ci);
+    await ci.close();
+    const offInter = ri.lines.filter(([, n]) => n < lo || n > hi);
+    check("games page, " + label + ", in Inter (fetched from Google Fonts): every description " + (lo === hi ? "exactly " + lo + " lines" : "at most " + hi + " lines") +
+      ", all cards one size, none cut off",
+      ri.inter && !offInter.length && ri.sizes.length === 1 && !ri.cut.length && !ri.spill.length,
+      ri.inter ? { off: offInter, sizes: ri.sizes, cut: ri.cut, spill: ri.spill } : "Inter didn't load (no network?)");
     if (label === "laptop 1280 x 800") check("games page: every game has a description of its own", r.texts === r.n, r.texts + " of " + r.n);
     // (under the line about the arcade: the bigger games, made in Unity and Unreal, are private)
     check("games page, " + label + ": the header says there are bigger games in Unity and Unreal that are private, all of it on the screen",
