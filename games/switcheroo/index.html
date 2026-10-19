@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A5%A4%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Switcheroo</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chewy&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Switcheroo, the shell game at a diner counter: a marble drops into each red tumbler, the tumblers turn over and switch places, and you say where every colour went. A browser game by Sam Lu." />
+    <meta property="og:title" content="Switcheroo | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Switcheroo, the shell game at a diner counter: a marble drops into each red tumbler, the tumblers turn over and switch places, and you say where every colour went. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- A diner after the lunch rush: the counter's cracked-ice top in a chrome
+     rim, the tumblers on it (a canvas), and the black-and-white floor. -->
+<main class="diner">
+  <div class="hud" id="hud" hidden>
+    <span class="stat">level <b id="hud-level">1</b></span>
+    <span class="stat lives" id="hud-lives" role="img" aria-label="3 lives"><i></i><i></i><i></i></span>
+    <span class="stat">best <b id="hud-best">0</b></span>
+  </div>
+  <p class="ask" id="ask" aria-live="polite"></p>
+  <div class="counter" id="counter"><canvas id="stage" aria-label="The counter: a row of upturned tumblers. Pick one by clicking or tapping it, or by its number."></canvas></div>
+  <p class="keys" id="keys"></p>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Switcheroo</h1>
+    <p class="tag">keep your eye on the marbles</p>
+    <p class="how">
+      A marble drops into each tumbler, then the tumblers turn over and switch
+      places. When they stop, find each colour the counter asks for: click or
+      tap its tumbler, or press its number. A wrong pick costs one of your
+      three lives. Every round cleared is a level up, with more tumblers and
+      quicker hands, then pairs switching at once and empty tumblers mixed in.
+    </p>
+    <button type="button" class="playbtn" id="play">Deal me in</button>
+    <p class="tally" id="tally"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">Out of lives</h2>
+    <p class="big" id="over-msg">Level 1</p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" class="playbtn" id="again">Again</button>
+      <button type="button" class="ghost" id="to-menu">Menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="game.js"></script>
+</body>
+</html>

@@ -45,6 +45,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "tic-tac-toe/": ".modal-overlay.open .modal h2", "departures/": ".card h1", "crazy-ohio/": "header.top h1",
     "demolition-row/": "#menu .card h2",
     "toy-tanks/": "#menu .card h2",
+    "switcheroo/": ".card h1",
   };
   {
     const ctx = await lib.newContext(browser, phone(320, 568));
