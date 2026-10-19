@@ -124,14 +124,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   // the shared coin flip, FX off: no flashing between the names
   p = await lib.open(c2, base, "games/tic-tac-toe/");
   await p.evaluate(() => localStorage.setItem("reduceMotion:tic-tac-toe", "1")); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  // every name the box shows, caught as it changes (a poll on a busy machine
+  // could miss the ? or a flash altogether), until the winner has stood a moment
   const seen = await p.evaluate(() => new Promise((res) => {
+    const log = []; let last = null;
+    const look = () => { const el = document.querySelector(".cf-nm"); const v = el ? el.textContent + "|" + el.style.color : null; if (v !== last) { log.push(v); last = v; } };
+    const mo = new MutationObserver(look);
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["style", "class"] });
     window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => {});
-    const log = []; let last = null; const t0 = performance.now();
-    const iv = setInterval(() => {
-      const el = document.querySelector(".cf-nm"); const v = el ? el.textContent + "|" + el.style.color : null;
-      if (v !== last) { log.push(v); last = v; }
-      if (performance.now() - t0 > 3000) { clearInterval(iv); res(log); }   // (reveal is at ~0.9s; slack for a busy machine)
-    }, 25);
+    look();
+    // (done once a name has shown, by the page's clock: the reveal is at ~0.9 s)
+    (function wait(n) { if (/You|CPU/.test(last || "") || n > 600) setTimeout(() => { mo.disconnect(); res(log); }, 400); else setTimeout(() => wait(n + 1), 20); })(0);
   }));
   const shown = seen.filter(Boolean);
   check("coin flip, FX off: a neutral ? then the winner, no flashing between names", shown.length <= 2 && /^\?/.test(shown[0]) && /You|CPU/.test(shown[shown.length - 1]), seen);
@@ -415,17 +418,20 @@ module.exports = async ({ browser, base, check, lib }) => {
       } });
       await p.keyboard.press("Space"); await p.waitForTimeout(300);
       await p.evaluate(() => __game.clearRow0());
-      // a sideways hop along the start row, watched for half a second
+      // a sideways hop along the start row, watched for 30 frames (counted, not
+      // timed: a busy machine draws fewer in half a second)
       const watch = p.evaluate(() => new Promise((res) => {
-        let most = 0; const t0 = performance.now();
-        (function tick() { most = Math.max(most, __game.fx.trail); if (performance.now() - t0 < 500) requestAnimationFrame(tick); else res(most); })();
+        let most = 0, n = 0;
+        (function tick() { most = Math.max(most, __game.fx.trail); if (++n < 30) requestAnimationFrame(tick); else res(most); })();
       }));
       await p.keyboard.press("ArrowLeft");
       const trail = await watch;
       await p.waitForTimeout(200);
       const coins0 = await p.evaluate(() => __game.coins);
-      await p.evaluate(() => __game.coinHere()); await p.waitForTimeout(150);
-      const coin = await p.evaluate(() => ({ coins: __game.coins, sparkles: __game.fx.sparkles }));
+      await p.evaluate(() => __game.coinHere());
+      // (read the moment the coin is counted, its sparkles with it)
+      const coin = await p.waitForFunction((c0) => __game.coins > c0 && { coins: __game.coins, sparkles: __game.fx.sparkles }, coins0, { timeout: 8000, polling: "raf" })
+        .then((h) => h.jsonValue(), () => p.evaluate(() => ({ coins: __game.coins, sparkles: __game.fx.sparkles })));
       await p.evaluate(() => __game.death("runover"));
       const shake = await p.evaluate(() => __game.fx.shake);
       got[off ? "off" : "on"] = { state: await p.evaluate(() => __game.state), trail, gained: coin.coins - coins0, sparkles: coin.sparkles, shake };
