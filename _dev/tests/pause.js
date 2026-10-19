@@ -72,7 +72,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // never the pause key (it used to be both)
   p = await lib.open(ctx, base, "games/ping/");
   const pingBtn = await btn(p), pingHint = await p.evaluate(() => document.querySelector("#controls .ctrl-desktop").textContent);
-  check("ping: the ⏸ button and the menu's hint name P for pause (and not Esc: the way out is on the ← Games button)", pingBtn === "⏸ Pause P" && /P pause\.$/.test(pingHint) && !/Esc/.test(pingHint), { pingBtn, pingHint });
+  check("ping: the ⏸ button names P for pause, and the menu's hint leaves pausing to it (and Esc: the way out is on the ← Games button)", pingBtn === "⏸ Pause P" && !/pause/i.test(pingHint) && !/Esc/.test(pingHint), { pingBtn, pingHint });
   await p.click('#menu .btn[data-mode="1"]'); await p.waitForFunction(() => state === "playing", null, { timeout: 15000 });
   await p.keyboard.press("p");
   const x0 = await p.evaluate(() => ball.x); await p.waitForTimeout(300); const x1 = await p.evaluate(() => ball.x);

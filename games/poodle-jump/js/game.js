@@ -836,7 +836,6 @@ class Game {
       "Reach as high as you can!",
       { keys: "[←][→] / [A][D] to move", touch: "◀ ▶ to move" },
       { keys: "[Space] / [↑] / click to shoot", touch: "Tap or 🎯 to shoot" },
-      { keys: "[P] to pause", touch: "⏸ to pause" },
       "",
       { keys: "[Space] / [Enter] / click to start", touch: "Tap to start" },
     ]);
