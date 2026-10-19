@@ -8,13 +8,12 @@
 
    Records (each saved the moment it's earned): the furthest mission
    reached, and the most tanks destroyed in one run. A run can start from
-   mission 1, or from the start of the furthest stretch of five
-   reached (1, 6, 11, ...).
+   any mission up to the furthest reached, picked on the menu.
 
    Keys: WASD or the arrows drive, the mouse aims, a click or Space fires,
-   a right-click or E lays a mine, P pauses; on the menu 1 2 pick where to
-   start and Space or Enter starts; on the end card Space or Enter plays
-   again and Backspace is the menu. Esc leaves (asking first mid-run): the
+   a right-click or E lays a mine, P pauses; on the menu ← → pick the
+   mission to start from (held, they run on) and Space or Enter starts;
+   on the end card Space or Enter plays again and Backspace is the menu. Esc leaves (asking first mid-run): the
    shared scripts.
    ===================================================================== */
 (function () {
@@ -91,7 +90,8 @@
   // ---- state --------------------------------------------------------------------
   var ui = "menu";               // menu | run | over
   var from = 1;                  // the mission this run started from
-  var startPick = store.get("toytanks_start", "first") === "check" ? "check" : "first";
+  // the mission a run starts from, kept (any up to the furthest reached)
+  var startAt = (function () { var v = store.get("toytanks_start", "1"); return Math.max(1, parseInt(v, 10) || 1); })();
   var st = null, begun = false;  // begun: a mission's under way (leaving asks from then on)
   var keys = {}, firePress = false, minePress = false;
   var aimPt = null;              // where the mouse points, in tiles (null: it hasn't)
@@ -100,7 +100,8 @@
   var canvas = $("arena"), g = canvas.getContext("2d"), back = document.createElement("canvas");
   var s = 28, fr = 14, sprites = null;
   function inRun() { return ui === "run" && !!st && begun && st.status !== "over" && st.status !== "done"; }
-  function checkpoint() { var m = Math.min(TOTAL, bestMission.get() || 1); return Math.max(1, Math.floor((m - 1) / 5) * 5 + 1); }
+  // a later mission than the furthest you've reached isn't yours to start from yet
+  function maxStart() { return Math.max(1, Math.min(TOTAL, bestMission.get() || 1)); }
 
   // ---- the canvas: sized to the window -------------------------------------------
   // The arena has the window's height less everything else on the page,
@@ -239,7 +240,7 @@
   // (at: a mission to start from, for the tests; a click passes its event)
   function startRun(at) {
     audio();
-    from = typeof at === "number" ? at : startPick === "check" ? checkpoint() : 1;
+    from = typeof at === "number" ? at : Math.min(startAt, maxStart());
     // (the run's seed draws up the missions between the hand-made ones)
     var seed = (Math.random() * 4294967296) >>> 0;
     st = E.create(L.campaign(seed, E.rng), { seed: seed, start: from - 1 });
@@ -433,19 +434,39 @@
 
   // ---- the menu -------------------------------------------------------------------------------
   function paintMenu() {
-    var cp = checkpoint();
-    $("start-check").hidden = cp <= 1;
-    if (cp <= 1 && startPick === "check") startPick = "first";
-    $("start-check").querySelector("small").textContent = "the furthest stretch of five you've reached";
-    $("start-check").querySelector("b").textContent = "From mission " + cp;
-    document.querySelectorAll("#pick-start button").forEach(function (b) { var on = b.dataset.v === startPick; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); });
+    var mx = maxStart();
+    startAt = Math.max(1, Math.min(startAt, mx));
+    $("stage-n").textContent = "From mission " + startAt;
+    $("stage-note").textContent = mx === 1 ? "the whole campaign" : "any mission up to " + mx + ", the furthest you've reached";
+    $("stage-down").disabled = startAt <= 1;
+    $("stage-up").disabled = startAt >= mx;
     var bm = bestMission.get(), bk = bestKills.get();
     $("bests").textContent = bm > 1 || bk ? "Furthest: mission " + bm + " · Most destroyed in a run: " + bk : "";
     if (window.GameShell && GameShell.menuKeys && menuApi) menuApi.refresh && menuApi.refresh();
   }
-  document.querySelectorAll("#pick-start button").forEach(function (b) {
-    b.addEventListener("click", function () { startPick = b.dataset.v; store.set("toytanks_start", startPick); paintMenu(); });
-    b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+  function stepStart(d) {
+    var n = Math.max(1, Math.min(maxStart(), startAt + d));
+    if (n === startAt) return;
+    startAt = n; store.set("toytanks_start", String(n)); paintMenu();
+  }
+  // ◀ ▶ step a mission; held down (a finger, the mouse) they run on. A press
+  // steps as it lands, so the click after it is let by; a key's click (from
+  // the menu's ← →) steps on its own.
+  ["stage-down", "stage-up"].forEach(function (id, i) {
+    var b = $(id), d = i ? 1 : -1, hold = null;
+    function stop() { clearTimeout(hold); clearInterval(hold); hold = null; }
+    b.addEventListener("pointerdown", function (e) {
+      if (b.disabled || e.button > 0) return;
+      e.preventDefault(); stepStart(d); stop();
+      hold = setTimeout(function () { hold = setInterval(function () { if (b.disabled) stop(); else stepStart(d); }, 70); }, 420);
+    });
+    ["pointerup", "pointerleave", "pointercancel"].forEach(function (t) { b.addEventListener(t, stop); });
+    b.addEventListener("click", function (e) { if (!e.detail) stepStart(d); });
+  });
+  // (and ← → held down run on too: the menu's keys take a press, not its repeats)
+  document.addEventListener("keydown", function (e) {
+    if (ui !== "menu" || !e.repeat || e.ctrlKey || e.metaKey || e.altKey || document.querySelector(".gs-dialog")) return;
+    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepStart(e.key === "ArrowLeft" ? -1 : 1); }
   });
   $("play").addEventListener("click", startRun);
   $("again").addEventListener("click", startRun);
@@ -458,7 +479,7 @@
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(P ? { active: inRun, pausable: P } : inRun);
   var menuApi = null;
   if (window.GameShell && GameShell.menuKeys) {
-    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#pick-start button", into: "b" }], start: "#play", space: true });
+    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#stage-down", keys: ["arrowleft"] }, { sel: "#stage-up", keys: ["arrowright"] }], start: "#play", space: true });
     // (the end card: Space fires in play, so for a moment after the card comes
     // up no key counts: one pressed as the last tank went can't skip it)
     GameShell.menuKeys({ active: function () { return ui === "over" && performance.now() - overAt > 700; }, groups: [{ sel: "#to-menu", keys: ["Backspace"] }], start: "#again", space: true });

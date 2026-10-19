@@ -3,6 +3,10 @@
 // up afresh, a mission tried again kept as it was), the records (saved as
 // they're earned), and the page at a laptop's size and a phone's: the mouse,
 // the keys, the touch sticks, Visual FX off, and the arena fitting the screen.
+// The tanks that lay mines drive off them and don't blow themselves up; the
+// menu picks any mission up to the furthest reached; the mission card counts
+// every kind, one too; a white tank stays out of sight when your tank is
+// lost; a shell's smoke lingers after it's gone.
 const vm = require("vm"), fs = require("fs"), path = require("path");
 
 function engine(root) {
@@ -159,11 +163,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
   let p = await lib.open(ctx, base, "games/toy-tanks/");
   {
-    const menu = await p.evaluate(() => ({ ui: ToyTanks.ui(), play: document.getElementById("play").getAttribute("data-gs-key"), pick: document.querySelector("#pick-start button b").getAttribute("data-gs-key"), later: !document.getElementById("start-check").hidden }));
+    const menu = await p.evaluate(() => ({ ui: ToyTanks.ui(), play: document.getElementById("play").getAttribute("data-gs-key"),
+      caps: ["stage-down", "stage-up"].map((id) => document.getElementById(id).getAttribute("data-gs-key")).join(" "),
+      locked: document.getElementById("stage-down").disabled && document.getElementById("stage-up").disabled, n: document.getElementById("stage-n").textContent }));
     await p.keyboard.press("Enter"); await p.waitForTimeout(150);
     const card = await p.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, banner: document.getElementById("banner").textContent, best: localStorage.getItem("toytanks_best_mission") }));
-    check("toy-tanks: the menu takes keys (1 picks, Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and the mission reached is a record at once",
-      menu.ui === "menu" && menu.play === "Space or Enter" && menu.pick === "1" && !menu.later && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best === "1", { menu, card });
+    check("toy-tanks: the menu takes keys (← → step the mission, both shut with none reached yet; Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and the mission reached is a record at once",
+      menu.ui === "menu" && menu.play === "Space or Enter" && menu.caps === "← →" && menu.locked && menu.n === "From mission 1" && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best === "1", { menu, card });
 
     // a mission tried again after a lost tank is the same one (a drawn-up mission keeps its layout)
     const before = await p.evaluate(() => { ToyTanks.advance(1700, {}); const st = ToyTanks.st(); return { grid: st.grid.join(""), foes: st.enemies.map((e) => e.kind + e.x + "," + e.y).join() }; });
@@ -232,6 +238,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const r = (() => { const c = L.campaign(5, E.rng), m = c[19], st = E.create([m], { seed: 1 }), white = st.enemies.filter((e) => e.kind === "white"); const onCard = white.every((e) => !e.hidden); run(st, 1700, {}); run(st, 100, {}); return { n: white.length, onCard, gone: white.every((e) => e.hidden || !e.alive) }; })();
     check("toy-tanks: mission 20 brings the white tanks, seen on the mission card and gone from sight once it starts", r.n === 2 && r.onCard && r.gone, r);
+  }
+
+  // ---- the menu's start: ◀ ▶ (← →, held to run on) step the mission, from 1
+  // up to the furthest reached and no further; the run starts there, and its
+  // card counts every kind of tank, one too
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("toytanks_best_mission", "12"); } catch (e) {} }) });
+    const read = () => q.evaluate(() => ({ n: document.getElementById("stage-n").textContent, down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled }));
+    const a = await read();
+    await q.keyboard.press("ArrowRight"); await q.keyboard.press("ArrowRight");
+    const b = await read();
+    // (a key held down: its repeats step on too)
+    await q.evaluate(() => { for (let i = 0; i < 30; i++) document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", repeat: true, bubbles: true })); });
+    const top = await read();
+    await q.keyboard.press("ArrowLeft");
+    const back = await read();
+    await q.click("#stage-down");
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const went = await q.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, kept: localStorage.getItem("toytanks_start"),
+      kinds: [...document.querySelectorAll("#banner .b-kind")].map((k) => k.textContent.trim()).sort().join(" ") }));
+    check("toy-tanks: on the menu ◀ ▶ (← →, held to run on) pick the mission to start from, 1 up to the furthest reached (12) and no further, kept, and the run starts there",
+      a.n === "From mission 1" && a.down && !a.up && b.n === "From mission 3" && top.n === "From mission 12" && top.up && !top.down && back.n === "From mission 11" &&
+      went.ui === "run" && went.mission === 10 && went.kept === "10", { a, b, top, back, went });
+    check("toy-tanks: the mission card counts every kind of tank, a lone one too (mission 10: ×2 pink, ×1 marine)", went.kinds === "×1 ×2", went.kinds);
+    check("toy-tanks (stage pick): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
   }
 
   // ---- a white tank stays out of sight when your tank is lost (seen only on the mission card)

@@ -142,6 +142,25 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 .seg button small { font-size: 13px; color: var(--ink-dim); }
 .seg button.on { color: var(--cream); background: var(--blue); border-color: var(--blue-deep); }
 .seg button.on small { color: rgba(255, 248, 232, 0.85); }
+/* the mission to start from: ◀ the number ▶ */
+.stage { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
+.stage-read {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  font-family: var(--face); color: var(--cream); background: var(--blue); border: 3px solid var(--blue-deep); border-radius: 10px; padding: 7px 10px;
+}
+.stage-read b { font-weight: 400; font-size: 17px; }
+.stage-read small { font-size: 13px; color: rgba(255, 248, 232, 0.85); }
+.stage .step {
+  flex: none; min-width: 52px; cursor: pointer; font-family: var(--face); font-size: 18px; color: var(--blue-deep);
+  background: #fff; border: 3px solid var(--blue); border-radius: 10px; padding: 4px 8px; box-shadow: 0 3px 0 var(--blue-deep);
+  touch-action: manipulation; user-select: none; -webkit-user-select: none;
+}
+/* (the arrows drawn, not a font's glyph; the keycap, on a keyboard, beside them) */
+.stage .tri { display: inline-block; width: 0; height: 0; border-style: solid; vertical-align: middle; }
+.stage .tri-l { border-width: 8px 12px 8px 0; border-color: transparent currentColor transparent transparent; }
+.stage .tri-r { border-width: 8px 0 8px 12px; border-color: transparent transparent transparent currentColor; }
+.stage .step:disabled { opacity: 0.4; cursor: default; box-shadow: none; transform: translateY(3px); }
+.stage .step:active:not(:disabled) { transform: translateY(3px); box-shadow: none; }
 .playbtn {
   width: 100%; cursor: pointer; font-family: var(--face); font-size: 22px; color: var(--cream);
   background: var(--red); border: 3px solid var(--red-deep); border-radius: 12px; padding: 9px 12px;
@@ -179,7 +198,7 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 }
 @media (max-height: 600px) and (max-width: 520px) {
   .card .how { font-size: 13px; line-height: 1.35; }
-  .seg button { padding: 5px 10px; }
+  .seg button, .stage-read { padding: 5px 10px; }
   .playbtn { padding: 7px 10px; font-size: 20px; }
 }
 

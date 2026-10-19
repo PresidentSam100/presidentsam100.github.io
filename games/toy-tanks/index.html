@@ -73,9 +73,10 @@
       Three lives, and one more every fifth mission.
     </p>
     <div class="pick">
-      <div class="seg" id="pick-start">
-        <button type="button" data-v="first"><b>From mission 1</b><small>the whole campaign</small></button>
-        <button type="button" data-v="check" id="start-check" hidden><b>From mission 6</b><small>the furthest stretch of five you've reached</small></button>
+      <div class="stage" id="stage">
+        <button type="button" class="step" id="stage-down" aria-label="The mission before"><span class="tri tri-l"></span></button>
+        <div class="stage-read" aria-live="polite"><b id="stage-n">From mission 1</b><small id="stage-note">the whole campaign</small></div>
+        <button type="button" class="step" id="stage-up" aria-label="The next mission"><span class="tri tri-r"></span></button>
       </div>
     </div>
     <button type="button" class="playbtn" id="play">Roll out</button>
