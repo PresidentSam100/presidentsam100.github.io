@@ -119,8 +119,6 @@ html, body {
   padding: 11px 20px;
 }
 .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
-/* "any other key", in words under Keep playing where a keycap would be */
-.btn .anykey { display: block; margin-top: 5px; font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: none; opacity: .75; }
 
 .how { margin-top: 16px; text-align: left; font-family: system-ui, "Segoe UI", sans-serif; }
 .how summary {

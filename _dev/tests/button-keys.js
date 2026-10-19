@@ -40,7 +40,7 @@ const CARDS = {
   "2048/": [["#new-game", "N"]],
   "click-tap/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
   "crazy-ohio/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
-  "corner-pocket/": [["#againBtn", "Space or Enter"], ["#toMenuBtn", "⌫"], ["#spinReset", "C"], ["#spinDone", "Enter"], ["#quitYes", "Enter"], ["#quitNo", null]],   // (Keep playing says "any other key" in words: no keycap)
+  "corner-pocket/": [["#againBtn", "Space or Enter"], ["#toMenuBtn", "⌫"], ["#spinReset", "C"], ["#spinDone", "Enter"]],
   "darkroom/": [["#to-gallery", "G"], ["#hud-back", "⌫"], ["#win-next", "Space or Enter"], ["#win-share", "S"], ["#win-menu", "⌫"], ["#gallery-back", "Esc"]],
   "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Space or Enter"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],

@@ -23,7 +23,7 @@ const ENTER_ONLY = {
   "yi/": "Space calls YI!",
 };
 // GameShell.menuKeys calls that keep Enter alone in a game of BOTH: [page, start button]
-const KEEP_ENTER = [["corner-pocket/", "#spinDone"], ["corner-pocket/", "#quitYes"],                           // (not a start or a play again)
+const KEEP_ENTER = [["corner-pocket/", "#spinDone"],                                                       // (not a start or a play again)
   ["dots-and-boxes/", "#closeRules"], ["link-many/", "#closeRules"], ["tic-tac-toe/", "#closeRules"]];              // (Got it, on the rules: not a start)
 // And the games where Space has a job in play (fire, drop, turn, develop, the
 // valve, the cue) take it on their start and play-again screens all the same

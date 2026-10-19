@@ -1,5 +1,10 @@
-// Corner Pocket: "Leave this rack?" holds the table (the CPU waits, Esc means
-// Keep playing, Back to menu leaves no result card behind); a cue ball let go
+// Corner Pocket: the ⏸ card's Restart and Menu ask first from the moment a
+// rack is on, before the break too, the table held under the box (the CPU
+// waits, any other key keeps the game), by the mouse and on a phone; there's
+// no ☰; the aim wheel is beside the table side by side and, on an upright
+// phone, takes the power bar's place by FINE AIM (POWER brings the bar back);
+// a pull started anywhere on the power bar reaches full power at its far
+// end; a cue ball let go
 // by a pause or a cancelled touch lands on a free spot, and no shot goes while
 // it sits on another ball; losing on the 8 names the foul; with Visual FX off
 // the ball-in-hand ring and the called pocket hold still. The break follows
@@ -18,7 +23,6 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.click("#startBtn");
     await p.waitForFunction((ph) => __pool.G.phase === ph, who === "you" ? "aim" : "cpu", { timeout: 8000 });
   };
-  const quitShown = (p) => p.evaluate(() => !document.getElementById("confirmQuit").classList.contains("hidden"));
 
   // ---- the break, by the standard (WPA) rules
   let p = await open();
@@ -88,43 +92,53 @@ module.exports = async ({ browser, base, check, lib }) => {
     line.cpu.every((c) => c.placed && c.x <= 1.0001 && c.first !== 1 && c.behind === false), line.cpu);
   await done(p, "behind the line");
 
-  // ---- the CPU waits while "Leave this rack?" is up; Esc keeps playing
+  // ---- the ⏸ card's Restart and Menu ask first from the moment the rack is
+  // on (here before the CPU's break), the table held under the box: the CPU
+  // waits, any other key keeps the game (still paused), Enter goes
+  const dialog = (p) => p.evaluate(() => { const d = document.querySelector(".gs-dialog h2"); return d ? d.textContent : null; });
+  const gone = (p) => p.waitForFunction(() => !document.querySelector(".gs-dialog"), null, { timeout: 5000 }).catch(() => {});
+  const cardUp = (p) => p.evaluate(() => { const c = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!c && !c.hidden; });
   p = await open();
   await start(p, "cpu");
-  const m = await p.evaluate(() => { const r = __pool.UI.menu; return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });
-  await p.mouse.click(m.x, m.y);
-  const up = await quitShown(p);
+  await p.click(".gs-pause-btn"); await p.waitForTimeout(150);
+  await p.click('[data-gs-act="restart"]'); await p.waitForTimeout(150);
+  const restartAsks = await dialog(p);
   await p.waitForTimeout(3500);
   const held = await p.evaluate(() => ({ phase: __pool.G.phase, shots: __pool.G.shots }));
-  // (as in the shared "Quit this game?": only Enter leaves the rack. Any other
-  // key keeps playing and the button says so; Shift on its own answers nothing)
-  const says = await p.evaluate(() => { const b = document.getElementById("quitNo"); return { text: b.textContent.replace(/\s+/g, " ").trim(), cap: b.getAttribute("data-gs-key") }; });
-  await p.keyboard.press("Shift"); await p.waitForTimeout(100);
-  const shift = await quitShown(p);
-  await p.keyboard.press("a");
-  await p.waitForFunction(() => document.getElementById("confirmQuit").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
-  const letter = await quitShown(p);
-  await p.mouse.click(m.x, m.y);
-  const again = await quitShown(p);
-  check("corner-pocket: in 'Leave this rack?' any other key keeps playing (the button says so), Shift alone answers nothing",
-    says.text === "Keep playing any other key" && !says.cap && shift && !letter && again, { says, shift, letter, again });
-  await p.keyboard.press("Escape");
-  await p.waitForFunction(() => document.getElementById("confirmQuit").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
-  const esc = { box: await quitShown(p), paused: await p.evaluate(() => !document.querySelector(".gs-pause:not(.gs-dialog)").hidden), leaves: p.leaves };
-  const goesOn = await p.waitForFunction(() => __pool.G.shots === 1, null, { timeout: 8000 }).then(() => true, () => false);
-  check("corner-pocket: while 'Leave this rack?' is up the CPU waits; Esc answers Keep playing and play goes on",
-    up && held.phase === "cpu" && held.shots === 0 && !esc.box && !esc.paused && esc.leaves === 0 && goesOn, { up, held, esc, goesOn });
-  await done(p, "leave this rack");
-
-  // ---- Back to menu leaves no result card on top of the menu
-  p = await open();
-  await start(p, "you");
-  await p.evaluate(() => { document.getElementById("over").classList.remove("hidden"); document.getElementById("confirmQuit").classList.remove("hidden"); });
-  await p.click("#quitYes");
+  await p.keyboard.press("x"); await gone(p);
+  const kept = { dialog: await dialog(p), card: await cardUp(p), shots: await p.evaluate(() => __pool.G.shots) };
+  await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
+  const menuAsks = await dialog(p);
+  await p.keyboard.press("Enter"); await gone(p);
   await p.waitForFunction(() => !document.getElementById("menu").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
-  const cards = await p.evaluate(() => ({ over: !document.getElementById("over").classList.contains("hidden"), menu: !document.getElementById("menu").classList.contains("hidden") }));
-  check("corner-pocket: 'Back to menu' leaves no result card over the menu", !cards.over && cards.menu, cards);
-  await done(p, "back to menu");
+  const left = await p.evaluate(() => ({ phase: __pool.G.phase, card: !!document.querySelector(".gs-pause:not(.gs-dialog):not([hidden])"),
+    over: !document.getElementById("over").classList.contains("hidden") }));
+  check("corner-pocket: before the break the ⏸ card's Restart asks \"Start over?\" with the CPU waiting under the box; any other key keeps the game, still paused; Menu asks \"Quit this game?\" and Enter goes to the menu, nothing left over it",
+    restartAsks === "Start over?" && held.phase === "cpu" && held.shots === 0 && kept.dialog === null && kept.card && kept.shots === 0 &&
+    menuAsks === "Quit this game?" && left.phase === "menu" && !left.card && !left.over && p.leaves === 0, { restartAsks, held, kept, menuAsks, left, leaves: p.leaves });
+  await done(p, "pause card asks");
+
+  // and on a phone, tapped (you to break): both ask, and Keep playing keeps the rack
+  {
+    const { devices } = require("@playwright/test");
+    const ph = await lib.newContext(browser, devices["iPhone 13"]);
+    p = await lib.open(ph, base, "games/corner-pocket/", { before: (pg) => lib.injectScript(pg, "games/corner-pocket/game.js", [HOOK]) });
+    await start(p, "you");
+    const tapAsk = async (act) => {
+      await p.tap(".gs-pause-btn"); await p.waitForTimeout(250);
+      await p.tap('[data-gs-act="' + act + '"]'); await p.waitForTimeout(450);
+      const asked = await dialog(p);
+      if (asked) { await p.tap('.gs-dialog button:has-text("Keep playing")'); await gone(p); }
+      const st = await p.evaluate(() => ({ phase: __pool.G.phase, menu: !document.getElementById("menu").classList.contains("hidden") }));
+      if (await cardUp(p)) { await p.keyboard.press("p"); await p.waitForTimeout(150); }   // (resume)
+      return { asked, ...st };
+    };
+    const taps = { restart: await tapAsk("restart"), menu: await tapAsk("menu") };
+    check("corner-pocket, on a phone: before the break the ⏸ card's Restart and Menu, tapped, ask first, and Keep playing keeps the rack",
+      taps.restart.asked === "Start over?" && taps.menu.asked === "Quit this game?" && taps.restart.phase === "aim" && taps.menu.phase === "aim" && !taps.menu.menu, taps);
+    await done(p, "pause card asks (phone)");
+    await ph.close();
+  }
 
   // ---- ball in hand: drag the cue ball onto a ball, then let a pause or a
   // cancelled touch end the drag; and no shot while it's there
@@ -210,26 +224,70 @@ module.exports = async ({ browser, base, check, lib }) => {
       document.querySelector(".how").open = true;
       const kbd = [...document.querySelectorAll(".how kbd")];
       const text = document.querySelector(".how ul").innerText;
-      return { keys: kbd.length, shown: kbd.filter((k) => k.getClientRects().length > 0).length, wheel: /ribbed wheel/.test(text), bar: /power bar/.test(text), spin: /tap the cue ball icon/.test(text) };
+      return { keys: kbd.length, shown: kbd.filter((k) => k.getClientRects().length > 0).length, wheel: /ribbed wheel/.test(text), swap: /FINE AIM/.test(text) && /POWER/.test(text), bar: /power bar/.test(text), spin: /tap the cue ball icon/.test(text) };
     });
     await done(p, label + " how to play");
   }
-  check("corner-pocket: How to play shows its keys on a desktop and hides them on a phone, keeping the touch ways",
-    how.desktop.keys > 0 && how.desktop.shown === how.desktop.keys && how.phone.shown === 0 && how.phone.wheel && how.phone.bar && how.phone.spin, how);
+  check("corner-pocket: How to play shows its keys on a desktop and hides them on a phone, keeping the touch ways (the wheel, and FINE AIM / POWER to swap it in for the bar)",
+    how.desktop.keys > 0 && how.desktop.shown === how.desktop.keys && how.phone.shown === 0 && how.phone.wheel && how.phone.swap && how.phone.bar && how.phone.spin, how);
   await phone.close();
 
-  // ---- quitting to the menu through ☰: a rack under way vs the CPU counts as
-  // a loss (and the box says so); not before the break, not a two-player rack,
-  // not one already decided
-  // open ☰, read what the box says, press Back to menu; the stored records after
+  // ---- the controls: no ☰ (the ⏸ card has Menu). Side by side the aim
+  // wheel stands right of the table and the bar left of it; on an upright
+  // phone they share the row under the table, one at a time: FINE AIM swaps
+  // the wheel in (a drag along it turns the aim, and no power comes of it),
+  // POWER the bar back. A pull started halfway along the bar reaches full
+  // power at its far end.
+  const lay = {};
+  for (const [label, opts] of [["390 x 664", { ...devices["iPhone 13"], viewport: { width: 390, height: 664 } }], ["320 x 568", { ...devices["iPhone SE"], viewport: { width: 320, height: 568 } }],
+    ["375 x 553", { ...devices["iPhone 8"], viewport: { width: 375, height: 553 } }], ["1366 x 657", { viewport: { width: 1366, height: 657 } }], ["1280 x 900", { viewport: { width: 1280, height: 900 } }]]) {
+    const c = await lib.newContext(browser, opts);
+    p = await lib.open(c, base, "games/corner-pocket/", { before: (pg) => lib.injectScript(pg, "games/corner-pocket/game.js", [HOOK]) });
+    await start(p, "you");
+    const m = await p.evaluate(() => {
+      const U = __pool.UI, o = __pool.V.outer, r = (b) => b && { x: b.x, y: b.y, w: b.w, h: b.h, v: !!b.vertical };
+      return { extra: Object.keys(U).filter((k) => /menu/.test(k) && U[k]), W: innerWidth, H: innerHeight, table: { l: o.x, r: o.x + o.w, b: o.y + o.h },
+        bar: r(U.power), wheel: r(U.wheel), swap: r(U.swap) };
+    });
+    if (m.swap) {
+      const tapSwap = () => p.tap("canvas", { position: { x: m.swap.x + m.swap.w / 2, y: m.swap.y + m.swap.h / 2 } }).then(() => p.waitForTimeout(100));
+      await tapSwap();
+      const a0 = await p.evaluate(() => __pool.G.aim), wy = m.wheel.y + m.wheel.h / 2;
+      await p.mouse.move(m.wheel.x + m.wheel.w / 2, wy); await p.mouse.down(); await p.mouse.move(m.wheel.x + m.wheel.w / 2 + 40, wy, { steps: 4 }); await p.mouse.up();
+      m.swapped = await p.evaluate((a0) => ({ wheelUp: __pool.wheelUp, turned: __pool.G.aim !== a0, power: __pool.G.power, phase: __pool.G.phase }), a0);
+      await tapSwap();
+      m.back = await p.evaluate(() => __pool.wheelUp);
+    }
+    const b = m.bar, x0 = b.x + b.w / 2, y0 = b.y + b.h / 2, x1 = b.v ? x0 : b.x + b.w - 2, y1 = b.v ? b.y + b.h - 2 : y0;
+    await p.mouse.move(x0, y0); await p.mouse.down(); await p.mouse.move(x1, y1, { steps: 6 });
+    m.power = await p.evaluate(() => __pool.G.power);
+    await p.mouse.up();
+    lay[label] = m;
+    await done(p, label + " controls");
+    await c.close();
+  }
+  const near = (a, b) => Math.abs(a - b) < 1;
+  const phoneOk = (m) => !!m.swap && !m.bar.v && near(m.wheel.x, m.bar.x) && near(m.wheel.w, m.bar.w) && near(m.bar.x + m.bar.w + 10, m.swap.x) && near(m.swap.x + m.swap.w, m.table.r) &&
+    m.swap.y + m.swap.h <= m.H && m.swapped.wheelUp && m.swapped.turned && m.swapped.power === 0 && m.swapped.phase === "aim" && m.back === false;
+  const deskOk = (m) => !m.swap && m.bar.v && m.wheel.v && m.bar.x + m.bar.w < m.table.l && m.wheel.x > m.table.r && m.wheel.x + m.wheel.w <= m.W;
+  check("corner-pocket: no ☰ at any size; a pull from halfway along the power bar to its far end is full power",
+    Object.values(lay).every((m) => m.extra.length === 0 && m.power >= 0.99), Object.fromEntries(Object.entries(lay).map(([k, m]) => [k, { extra: m.extra, power: m.power }])));
+  check("corner-pocket: on phones (390 x 664, 320 x 568, 375 x 553) FINE AIM swaps the aim wheel in for the power bar (dragged, it turns the aim and gives no power) and POWER swaps the bar back; on laptops (1366 x 657, 1280 x 900) the bar is left of the table and the wheel right of it",
+    phoneOk(lay["390 x 664"]) && phoneOk(lay["320 x 568"]) && phoneOk(lay["375 x 553"]) && deskOk(lay["1366 x 657"]) && deskOk(lay["1280 x 900"]), lay);
+
+  // ---- quitting to the menu by the ⏸ card's Menu: a rack under way vs the CPU
+  // counts as a loss (and the box says so); not before the break, not a
+  // two-player rack, not one already decided (which goes without asking)
+  // pause, press Menu, read what the box says and press Enter; the stored records after
   const quitRack = async (p) => {
-    const m = await p.evaluate(() => { const r = __pool.UI.menu; return { x: r.x + r.w / 2, y: r.y + r.h / 2 }; });
-    await p.mouse.click(m.x, m.y);
-    const said = await p.evaluate(() => /counts as a loss/.test(document.getElementById("confirmQuit").innerText));
-    await p.click("#quitYes");
+    await p.click(".gs-pause-btn"); await p.waitForTimeout(150);
+    await p.click('[data-gs-act="menu"]'); await p.waitForTimeout(150);
+    const box = await p.evaluate(() => { const d = document.querySelector(".gs-dialog"); return d ? d.innerText : null; });
+    if (box) { await p.keyboard.press("Enter"); await gone(p); }
     await p.waitForFunction(() => !document.getElementById("menu").classList.contains("hidden"), null, { timeout: 5000 }).catch(() => {});
     const recs = await p.evaluate(() => Object.keys(localStorage).filter((k) => /^cornerpocket_record/.test(k)).map((k) => k + "=" + localStorage.getItem(k)));
-    return { said, recs, menu: await p.evaluate(() => document.getElementById("recLine").textContent) };
+    return { asked: !!box, said: /counts as a loss/.test(box || ""), recs, menu: await p.evaluate(() => document.getElementById("recLine").textContent),
+      over: await p.evaluate(() => !document.getElementById("over").classList.contains("hidden")) };
   };
   const broken = (p) => p.evaluate(() => __pool.shoot(0, 0.5)).then(() => p.waitForFunction(() => __pool.G.shots === 1 && ["aim", "cpu"].includes(__pool.G.phase), null, { timeout: 15000 }));
   const quits = {};
@@ -255,16 +313,16 @@ module.exports = async ({ browser, base, check, lib }) => {
     G.before = P.cloneBalls(G.balls); P.byId(G.before, 8).on = true;
     G.world = { ev: { firstHit: 9, railAfter: true, pocketed: [{ id: 8, pocket: 2 }] } }; G.shotCall = 2;
     __pool.endShot();
-    G.waitT = 1e9;   // (hold the result card back, so ☰ is still there to press)
+    G.waitT = 1e9;   // (hold the result card back, so the table can still be paused)
   });
   quits.decided = await quitRack(p);
   await done(p, "quit a decided rack");
   const LOSS = "cornerpocket_record_medium=" + JSON.stringify({ w: 0, l: 1, d: 0 });
   check("corner-pocket: quitting a rack under way vs the CPU to the menu counts as a loss, and the box says so first",
-    quits.underway.said && quits.underway.recs.join() === LOSS && /1 L/.test(quits.underway.menu), quits.underway);
-  check("corner-pocket: quitting before the break, a two-player rack or a decided one records nothing new, and the box doesn't say it counts",
-    !quits.beforeBreak.said && quits.beforeBreak.recs.length === 0 && !quits.twoPlayer.said && quits.twoPlayer.recs.length === 0 &&
-    !quits.decided.said && quits.decided.recs.join() === LOSS, { beforeBreak: quits.beforeBreak, twoPlayer: quits.twoPlayer, decided: quits.decided });
+    quits.underway.asked && quits.underway.said && quits.underway.recs.join() === LOSS && /1 L/.test(quits.underway.menu), quits.underway);
+  check("corner-pocket: quitting before the break or a two-player rack asks but records nothing, and the box doesn't say it counts; a decided rack goes without asking, records nothing new and leaves no result card over the menu",
+    quits.beforeBreak.asked && !quits.beforeBreak.said && quits.beforeBreak.recs.length === 0 && quits.twoPlayer.asked && !quits.twoPlayer.said && quits.twoPlayer.recs.length === 0 &&
+    !quits.decided.asked && quits.decided.recs.join() === LOSS && !quits.decided.over, { beforeBreak: quits.beforeBreak, twoPlayer: quits.twoPlayer, decided: quits.decided });
 
   // ---- the 8-ball rules, worked through endShot (the table as it stood, what
   // the shot did): you have solids, and are on the 8 or not
@@ -358,7 +416,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const q = await lib.open(ctx, base, "games/corner-pocket/", { before: (pg) => lib.injectScript(pg, "games/corner-pocket/game.js", [HOOK,
       ["  var last = performance.now(), frames = 0;", "  var last = performance.now() + 3000, frames = 0;"],
-      ["!quitOpen()) update(dt);", "!quitOpen()) { (window.__dts = window.__dts || []).push(dt); update(dt); }"]]) });
+      ["if (!(Pz && Pz.isPaused())) update(dt);", "if (!(Pz && Pz.isPaused())) { (window.__dts = window.__dts || []).push(dt); update(dt); }"]]) });
     const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
     check("corner-pocket: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
     await done(q, "first frame");
