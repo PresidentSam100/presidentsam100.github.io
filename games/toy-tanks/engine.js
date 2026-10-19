@@ -125,6 +125,7 @@
       t.slot = i;
       t.cool = 1000 + st.random() * 700;      // (a moment at the start before an enemy's first shot)
       t.ai.think = st.random() * 400;           // (and each thinks in its own time, not all on one step)
+      t.ai.mineT = 1500;                        // (and drives a while before its first mine)
       st.enemies.push(t);
     });
     st.status = "start"; st.statusMs = 0; st.nextId = st.nextId || 1;
@@ -497,7 +498,10 @@
       var near = Math.hypot(p.x - e.x, p.y - e.y);
       if (ai.mineT <= 0) {
         ai.mineT = spec.ai === "incautious" ? 1500 + st.random() * 1500 : 4000 + st.random() * 4000;
-        if ((spec.ai === "incautious" || near < 6) && layMine(st, e)) { ai.flee = 1; threat = { m: st.mines[st.mines.length - 1], d: 0 }; }
+        // (only where it can get clear of the blast: never into a corner it can't drive out of)
+        if ((spec.ai === "incautious" || near < 6) && minesOf(st, e) < spec.mines && canClear(st, e) && layMine(st, e)) {
+          ai.flee = 1; threat = { m: st.mines[st.mines.length - 1], d: 0 }; ai.fleeTo = null;
+        }
       }
     }
 
@@ -507,8 +511,16 @@
     if (ai.paused > 0) { ai.paused -= dt; return; }       // (a fast tank stops a moment as it fires)
     var dir = null;
     if (dodge) dir = dodge;
-    else if (threat) { var dx = e.x - threat.m.x, dy = e.y - threat.m.y, dl = Math.hypot(dx, dy) || 1; dir = { x: dx / dl, y: dy / dl }; }
+    else if (threat) {
+      // off to the safest open spot it can drive straight to (straight away
+      // from the mine goes nowhere from one just laid underneath, or with a
+      // wall behind)
+      ai.fleeT = (ai.fleeT || 0) - dt;
+      if (!ai.fleeTo || ai.fleeT <= 0 || Math.hypot(ai.fleeTo.x - e.x, ai.fleeTo.y - e.y) < 0.3) { ai.fleeTo = fleeGoal(st, e, null); ai.fleeT = 1200; }
+      if (ai.fleeTo) { var fx = ai.fleeTo.x - e.x, fy = ai.fleeTo.y - e.y, fl = Math.hypot(fx, fy) || 1; dir = { x: fx / fl, y: fy / fl }; }
+    }
     else {
+      ai.fleeTo = null;
       ai.t -= dt;
       if (!ai.goal || ai.t <= 0 || Math.hypot(ai.goal.x - e.x, ai.goal.y - e.y) < 0.4) { ai.goal = pickGoal(st, e); ai.t = 1600 + st.random() * 1600; }
       if (ai.goal) { var gx = ai.goal.x - e.x, gy = ai.goal.y - e.y, gl = Math.hypot(gx, gy) || 1; dir = { x: gx / gl, y: gy / gl }; }
@@ -516,7 +528,7 @@
     if (dir) {
       var stepL = speed * dt / 1000, ox = e.x, oy = e.y;
       moveTank(st, e, dir.x * stepL, dir.y * stepL);
-      if (e.x === ox && e.y === oy) ai.t = 0;            // (stuck: find another way)
+      if (e.x === ox && e.y === oy) { ai.t = 0; ai.fleeTo = null; }   // (stuck: find another way)
       e.body = turnToward(e.body, Math.atan2(dir.y, dir.x), 8 * dt / 1000, true);
       e.vx = (e.x - ox) / (dt / 1000); e.vy = (e.y - oy) / (dt / 1000);
       trackMark(st, e);
@@ -531,7 +543,7 @@
       var a = st.random() * Math.PI * 2, d = 1.2 + st.random() * 3.5;
       var gx = e.x + Math.cos(a) * d, gy = e.y + Math.sin(a) * d;
       if (gx < 0.6 || gy < 0.6 || gx > COLS - 0.6 || gy > ROWS - 0.6) continue;
-      if (blockedAt(st, gx, gy, TANK_R) || !pathClear(st, e.x, e.y, gx, gy)) continue;
+      if (blockedAt(st, gx, gy, TANK_R) || !pathClear(st, e.x, e.y, gx, gy) || mineOnPath(st, e, gx, gy)) continue;
       var pd = Math.hypot(p.x - gx, p.y - gy), score = st.random() * 2;
       if (spec.ai === "offensive" || spec.ai === "dynamic") score -= pd;
       else if (spec.ai === "defensive") score -= Math.abs(pd - 7);
@@ -544,6 +556,46 @@
     var d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d / 0.25);
     for (var i = 1; i <= n; i++) if (blockedAt(st, ax + (bx - ax) * i / n, ay + (by - ay) * i / n, TANK_R * 0.95)) return false;
     return true;
+  }
+  // Would the straight drive from the tank to (bx, by) take it into a mine's
+  // reach: near enough to set it off, or into the blast's reach of one it's
+  // outside now (it could go off as the tank passes)? Only the mines it minds
+  // (mine layers every one, the others their own side's); its own, until it's
+  // armed, it can drive off.
+  function mineOnPath(st, e, bx, by) {
+    var ax = e.x, ay = e.y, vx = bx - ax, vy = by - ay, ll = vx * vx + vy * vy || 1, zone = TUNE.blast + 0.6;
+    return st.mines.some(function (m) {
+      if (m.gone || (!e.spec.mines && !m.enemy) || (m.owner === e && !m.armed)) return false;
+      var k = Math.max(0, Math.min(1, ((m.x - ax) * vx + (m.y - ay) * vy) / ll));
+      var near = Math.hypot(ax + vx * k - m.x, ay + vy * k - m.y);
+      return near < TUNE.trigger + 0.15 || (near < zone && Math.hypot(ax - m.x, ay - m.y) >= zone);
+    });
+  }
+  // The open spot nearby farthest from the mines it minds (out of the
+  // blast's reach if it can), that it can drive straight to; `extra`, a mine
+  // it means to lay where it stands. Null when there's none.
+  function fleeGoal(st, e, extra) {
+    var ms = st.mines.filter(function (m) { return !m.gone && (e.spec.mines || m.enemy); });
+    if (extra) ms = ms.concat(extra);
+    var best = null, bestScore = -1e9;
+    for (var i = 0; i < 28; i++) {
+      var a = st.random() * Math.PI * 2, d = 1.5 + st.random() * 4;
+      var gx = e.x + Math.cos(a) * d, gy = e.y + Math.sin(a) * d;
+      if (gx < 0.6 || gy < 0.6 || gx > COLS - 0.6 || gy > ROWS - 0.6) continue;
+      if (blockedAt(st, gx, gy, TANK_R) || !pathClear(st, e.x, e.y, gx, gy) || mineOnPath(st, e, gx, gy)) continue;
+      var safe = 1e9;
+      ms.forEach(function (m) { safe = Math.min(safe, Math.hypot(m.x - gx, m.y - gy)); });
+      var score = Math.min(safe, TUNE.blast + 1.2) * 3 - d * 0.3 + st.random() * 0.2;
+      if (score > bestScore) { bestScore = score; best = { x: gx, y: gy, safe: safe }; }
+    }
+    return best;
+  }
+  // somewhere out of the blast's reach to go, were it to lay a mine here
+  // (and no other tank beside it, which would set it off at once)
+  function canClear(st, e) {
+    if ([st.player].concat(st.enemies).some(function (t) { return t !== e && t.alive && Math.hypot(t.x - e.x, t.y - e.y) < TUNE.trigger + 0.5; })) return false;
+    var g = fleeGoal(st, e, { x: e.x, y: e.y });
+    return !!g && g.safe >= TUNE.blast + 0.9;
   }
 
   window.ToyTanksEngine = {

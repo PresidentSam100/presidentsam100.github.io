@@ -99,6 +99,44 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks rules: the green tank aims ahead of a tank on the move", !!shot && Math.abs(shot.turret - direct) > 0.03, { shot, direct });
   }
 
+  // ---- the tanks that lay mines (yellow, violet, white, black): once a mine
+  // is down they drive off it, out of its reach, and keep on the move; they
+  // never lay one beside another tank (it would go off at once) nor drive
+  // into a mine's reach. Twenty drawn-up runs each (the engine's seeded, so
+  // these are the same every time), your tank standing by.
+  {
+    const out = {};
+    for (const kind of ["yellow", "violet", "white", "black"]) {
+      const letter = Object.keys(E.LETTER).find((k) => E.LETTER[k] === kind);
+      const o = out[kind] = { tanks: 0, laid: 0, cleared: 0, self: 0, moving: 0 };
+      let moving = 0, alive = 0;
+      for (let r = 0; r < 20; r++) {
+        const camp = L.campaign(2000 + r, E.rng), mi = camp.findIndex((m) => m.map.join("").includes(letter));
+        const st = E.create(camp, { start: mi, seed: 5 + r }), seen = new Map(), last = new Map();
+        st.enemies.forEach((e) => { if (e.kind === kind) { o.tanks++; last.set(e, { x: e.x, y: e.y }); } });
+        for (let t = 0; t < 20000 && st.status !== "won"; t += 16) {
+          E.step(st, 16, {}).forEach((ev) => { if (ev.t === "dead" && ev.kind === kind && ev.by === "self" && ev.how === "blast") o.self++; });
+          st.mines.forEach((m) => { if (m.owner.kind === kind && !seen.has(m)) { seen.set(m, t); o.laid++; } });
+          // (out of its reach within 2 s of laying it)
+          for (const [m, t0] of seen) if (t0 != null && m.owner.alive && Math.hypot(m.owner.x - m.x, m.owner.y - m.y) > E.TUNE.blast + E.TANK_R) { if (t - t0 < 2000) o.cleared++; seen.set(m, null); }
+          for (const [e, p] of last) { if (!e.alive) continue; alive += 16; if (Math.hypot(e.x - p.x, e.y - p.y) > 1e-4) moving += 16; p.x = e.x; p.y = e.y; }
+          if (st.status === "lost") { st.player.alive = true; st.status = "play"; st.lives = 3; }   // (your tank's loss isn't the point here: play on)
+        }
+      }
+      o.moving = +(moving / alive).toFixed(2); o.cleared = +(o.cleared / Math.max(1, o.laid)).toFixed(2);
+    }
+    const all = Object.values(out);
+    check("toy-tanks rules: the tanks that lay mines (yellow, violet, white, black) drive off a mine once it's down and out of its reach within 2 s, keep on the move, and all but never blow themselves up",
+      all.every((o) => o.laid >= 5 && o.cleared >= 0.7 && o.moving >= 0.6) && all.reduce((n, o) => n + o.self, 0) <= 2, out);
+  }
+  {
+    // a yellow tank right beside yours lays no mine (it would go off at once, taking both)
+    const st = E.create([map([[10, 8, "P"], [11, 8, "y"]])], { seed: 3 }); play(st);
+    const y = st.enemies[0]; still(y); y.spec = Object.assign({}, y.spec, { move: "none" });
+    const ev = run(st, 6000, {});
+    check("toy-tanks rules: a mine layer beside another tank lays no mine there", !ev.some((e) => e.t === "mine") && st.player.alive && y.alive, ev.filter((e) => e.t !== "bounce").map((e) => e.t));
+  }
+
   // ---- the campaign -------------------------------------------------------------------
   {
     const a = L.campaign(11, E.rng), b = L.campaign(99, E.rng), a2 = L.campaign(11, E.rng);
