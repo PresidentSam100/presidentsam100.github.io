@@ -426,7 +426,8 @@
   // "Animations" on the menu (on to begin with, remembered): a deal's tiles
   // drop in from above the desk, a matched pair comes together and is gone,
   // and a shuffle's tiles travel to their new places. With Visual FX off the
-  // same three are told calmly, by fading, and nothing flies. The clock is
+  // deal and the pair are told calmly, by fading, and a shuffle's tiles still
+  // travel (where a tile goes is play), only straight. The clock is
   // the same either way, as the game never waits for any of it: every tile is
   // where it belongs from the first moment and is only drawn on its way, so a
   // press or a key lands whatever is still moving (settle), a matched pair is
@@ -514,17 +515,14 @@
       { duration: flying ? OFF_MS : FADE_MS, easing: flying ? "ease-in-out" : "ease-out", fill: "forwards" }, function () { el.remove(); });
     });
   }
-  // A shuffle: the faces have changed places, so with Visual FX on each tile
-  // is drawn travelling from where its face was (`was`: the kinds before) to
-  // where it is now; with it off the desk dims and comes back.
+  // A shuffle: the faces have changed places, so each tile is drawn
+  // travelling from where its face was (`was`: the kinds before) to where it
+  // is now: lifted and a little larger on its way with Visual FX on, straight
+  // with it off.
   function shuffleIn(was) {
     var ids = Object.keys(els).map(Number);
     if (!anim || !ids.length || !$("board").animate) return;
-    if (!fx()) {
-      ids.forEach(function (i) { play(moves, els[i], [{ opacity: 0.25 }, { opacity: 1 }], { duration: 320, easing: "ease-out" }); });
-      return;
-    }
-    var from = {}, rects = {};
+    var lift = fx() ? 1 : 0, from = {}, rects = {};
     ids.forEach(function (i) { (from[was[i]] = from[was[i]] || []).push(i); rects[i] = els[i].getBoundingClientRect(); });
     ids.forEach(function (j, n) {
       var list = from[kinds[j]] || [], k = list.length - 1;
@@ -535,7 +533,7 @@
       el.classList.add("moving");
       play(moves, el, [
         { transform: "translate(" + dx + "px, " + dy + "px) scale(1)" },
-        { transform: "translate(" + dx / 2 + "px, " + (dy / 2 - 14) + "px) scale(1.08)", offset: 0.5 },
+        { transform: "translate(" + dx / 2 + "px, " + (dy / 2 - 14 * lift) + "px) scale(" + (1 + 0.08 * lift) + ")", offset: 0.5 },
         { transform: "translate(0px, 0px) scale(1)" }
       ], { duration: 520 + (n % 7) * 22, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "backwards" }, function () { el.classList.remove("moving"); });
     });

@@ -124,6 +124,19 @@
     var el = document.createElement("div");
     var red = c.card.s === 1 || c.card.s === 2;
     el.className = "pc" + (c.hidden ? " back" : red ? " red" : "") + (c.side ? " side" : "") + (fresh ? " in" : "") + (c.turned ? " turned" : "");
+    // Visual FX off: a card still comes from the shoe (where it goes is play),
+    // only straight, with no turn of its own. motion-toggle.js flattens the
+    // CSS deal then, so this one is played by script (FX on: jb-deal), once
+    // render() has put the card on the felt (WebKit runs an animation's clock
+    // from when it's made, so one made first could be over before it's seen).
+    if (fresh && !c.turned && !fx() && el.animate) {
+      var rest = c.side ? "rotate(9deg) translateY(5px)" : "none";
+      Promise.resolve().then(function () {
+        if (!el.isConnected) return;
+        el.animate([{ transform: "translate(130px, -150px)" + (c.side ? " rotate(9deg)" : ""), opacity: 0 }, { opacity: 1, offset: 0.6 }, { transform: rest, opacity: 1 }],
+          { duration: 300, easing: "cubic-bezier(0.2, 0.75, 0.25, 1)" });
+      });
+    }
     if (c.hidden) { el.setAttribute("aria-label", "a card face down"); return el; }
     var r = RANKS[c.card.r], s = SUITS[c.card.s];
     el.setAttribute("aria-label", r + s);

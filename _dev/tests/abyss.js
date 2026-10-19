@@ -1,8 +1,9 @@
 // Abyss: a piece slid off a ledge gets a fresh lock delay where it lands; a
 // held soft drop lets go when the tab loses focus; the Sprint clock ticks
 // between locks; a 0 is never "a new record"; the buttons' keycaps hide on a
-// touch-only phone. Frames are stepped by the test (see STEPPED), so timing
-// doesn't depend on how busy the machine is.
+// touch-only phone; a full row clears at the same pace with Visual FX on and
+// off. Frames are stepped by the test (see STEPPED), so timing doesn't depend
+// on how busy the machine is.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver,"];
 
 // requestAnimationFrame and performance.now on a clock the test advances:
@@ -144,5 +145,32 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss (centring): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await ctx.close();
+  }
+
+  // ---- full rows take the same time to clear with Visual FX on and off (a
+  // quicker clear with it off made every Sprint quicker)
+  {
+    const frames = {};
+    for (const off of [false, true]) {
+      const ctx = await lib.newContext(browser);
+      const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => {
+        await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]);
+        await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:abyss", off ? "1" : "0"); } catch (e) {} }, off);
+      } });
+      frames[off ? "off" : "on"] = await q.evaluate(() => {
+        __frames(2); Abyss.start("descent"); __frames(2);
+        Abyss.test.fill(19, [0, 1, 2, 3, 4, 5]);
+        Abyss.test.setPiece("I"); Abyss.move(1); Abyss.move(1); Abyss.move(1);   // columns 6-9
+        Abyss.hard();
+        const was = Abyss.state();
+        let f = 0;
+        while (Abyss.state() === "clearing" && f < 200) { __frames(1); f++; }
+        return { was, f, lines: Abyss.lines() };
+      });
+      check("abyss (clear pace, FX " + (off ? "off" : "on") + "): no page errors", q.errs.length === 0, q.errs);
+      await ctx.close();
+    }
+    check("abyss: a full row takes the same time to clear with Visual FX off as with it on (about a third of a second)",
+      frames.on.was === "clearing" && frames.off.was === "clearing" && frames.on.lines === 1 && Math.abs(frames.on.f - frames.off.f) <= 1 && frames.on.f >= 17, frames);
   }
 };

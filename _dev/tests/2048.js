@@ -1,7 +1,8 @@
 // 2048: a winning move that also leaves no moves still ends the game, after
 // "Keep Going" the Game Over card comes up and leaving no longer asks; the AC
 // key and the mode buttons ask before wiping a game in progress, and don't
-// on a fresh board or a finished game.
+// on a fresh board or a finished game; a key slides to its cell at the same
+// pace with Visual FX on or off.
 const HOOK = ["  newGame();\n})();", `  newGame();
   window.__set2048 = function (rows) {
     newGame(); tilesEl.innerHTML = ""; tiles = {}; grid = [];
@@ -59,5 +60,35 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("2048: mid-game, Fibonacci asks \"Start a new game?\"; Esc keeps the game and mode, Enter switches to a fresh Fibonacci board",
     fib.ask === "Start a new game?" && fib.kept.mode === "normal" && fib.kept.score === "4" && fib.went.mode === "fib" && fib.went.score === "0" && fib.went.tiles === 2 && fib.leaves === 0, fib);
   check("2048: no page errors", p.errs.length === 0, p.errs);
+
+  // ---- a key slides across to its cell, the same with Visual FX on and off
+  // (where a key goes is play; FX off leaves out only the squash, ring and
+  // float). The test holds the slide halfway, so a busy machine can't hide it.
+  const slides = {};
+  for (const off of [false, true]) {
+    const q = await lib.open(ctx, base, "games/2048/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/2048/game.js", [HOOK]);
+      await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:2048", off ? "1" : "0"); } catch (e) {} }, off);
+    } });
+    await q.evaluate(() => __set2048([[0, 0, 0, 4], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]));
+    slides[off ? "off" : "on"] = await q.evaluate(() => {
+      const el = [...document.querySelectorAll("#tiles .tile")].find((t) => t.textContent === "4");
+      const x = () => Math.round(new DOMMatrix(getComputedStyle(el).transform).m41);
+      const from = x();
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
+      const an = el.getAnimations();
+      an.forEach((a) => a.pause());
+      const ms = an.length ? Math.max(...an.map((a) => a.effect.getComputedTiming().endTime)) : 0;
+      an.forEach((a) => { a.currentTime = ms / 2; });
+      const half = x();
+      an.forEach((a) => a.finish());
+      return { from, half, to: x(), ms: Math.round(ms) };
+    });
+    check("2048 FX " + (off ? "off" : "on") + " slide: no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+  const slidOk = (s) => s && s.ms >= 60 && s.ms <= 150 && s.to < s.half - 10 && s.half < s.from - 10;
+  check("2048: a key slides across to its cell (halfway through, it's between the two) in the same 90 ms, with Visual FX on and with it off",
+    slidOk(slides.on) && slidOk(slides.off) && slides.off.ms === slides.on.ms, slides);
   await ctx.close();
 };

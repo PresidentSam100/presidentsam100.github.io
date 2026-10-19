@@ -9,10 +9,11 @@
    Nothing here is a picture: the octopus is an inline SVG and the rest is
    gradients.
 
-   Visual FX on (body.fxon): cards slide in from the shoe and the hole
-   card turns over, the dealer bobs, weed sways and fish cross the
-   portholes, and a win sends bubbles up. Off: the same room, held still;
-   cards and results simply appear.
+   Visual FX on (body.fxon): cards slide in from the shoe with a turn
+   and the hole card turns over, the dealer bobs, weed sways and fish cross
+   the portholes, and a win sends bubbles up. Off: the same room, held
+   still; cards still come from the shoe (game.js), straight, and results
+   simply appear.
    ===================================================================== */
 
 :root {
@@ -212,7 +213,8 @@ h1 {
 /* a doubled hand's one card lies across the others */
 .pc.side { transform: rotate(9deg) translateY(5px); }
 
-/* cards arrive (Visual FX on: from the shoe, top right; the hole card turns over) */
+/* cards arrive (Visual FX on: from the shoe, top right, turning as they come; the hole
+   card turns over. Off, game.js brings them from the shoe, straight) */
 .pc.in { animation: jb-appear 0.14s ease-out both; }
 body.fxon .pc.in { animation: jb-deal 0.3s cubic-bezier(0.2, 0.75, 0.25, 1) both; }
 body.fxon .pc.side.in { animation-name: jb-deal-side; }

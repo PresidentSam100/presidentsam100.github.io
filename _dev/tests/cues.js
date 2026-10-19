@@ -253,25 +253,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "link-many");
   }
 
-  // ---- Hash: a claimed set stays in place, green, until the refill (no blank holes)
+  // ---- Hash, FX off: a claimed set is seen going (its three cards fly to
+  // where the find is kept, as with FX on; they used to stay put, green, until
+  // the refill)
   {
     const p = await open("hash", true, null, (pg) => lib.injectScript(pg, "games/hash/game.js", [["  renderBest();\n  newGame();\n})();",
       "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet };\n})();"]]));
     const set = await p.evaluate(() => __h.findSet(__h.board));
-    // the claimed trio is up from about 240 ms to 600 ms after the last click,
-    // shorter than a frame or two on a busy machine: a watcher on the board
-    // records it the moment it's there (polling could miss it altogether)
+    // the cards are in flight from about 240 ms after the last click, briefly on
+    // a busy machine: a watcher records each the moment it sets off
     await p.evaluate(() => {
-      window.__trio = null;
-      new MutationObserver(() => {
-        const cs = [...document.querySelectorAll(".card.exit-right")];
-        if (window.__trio || cs.length !== 3) return;
-        window.__trio = cs.map((c) => { const s = getComputedStyle(c); return s.opacity + "|" + s.animationName + "|" + /52, 201, 138/.test(s.boxShadow); });
-      }).observe(document.getElementById("board"), { subtree: true, childList: true, attributes: true, attributeFilter: ["class"] });
+      window.__trio = [];
+      new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
+        if (n.nodeType === 1 && n.classList.contains("flyer") && !n.classList.contains("back")) __trio.push(n.getAnimations().length);
+      }))).observe(document.body, { childList: true });
     });
+    const ids = await p.evaluate((set) => set.map((i) => __h.board[i].id), set);
     for (const i of set) await p.click('.card[data-idx="' + i + '"]');
-    const cards = await p.waitForFunction(() => window.__trio, null, { timeout: 8000 }).then((h) => h.jsonValue(), () => []);
-    check("hash, FX off: the claimed trio stays shown, green, until the refill", cards.length === 3 && cards.every((c) => c === "1|none|true"), cards);
+    const cards = await p.waitForFunction(() => window.__trio.length >= 3 && window.__trio.slice(0, 3), null, { timeout: 8000 }).then((h) => h.jsonValue(), () => []);
+    check("hash, FX off: the claimed trio is seen going, each card flying to where the find is kept", cards.length === 3 && cards.every((n) => n > 0), { cards, ids });
     await done(p, "hash");
   }
 
@@ -355,8 +355,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.evaluate(() => { Abyss.start("descent"); Abyss.test.setGrav(100000); Abyss.test.fill(19, [0, 1, 2, 7, 8, 9]); Abyss.test.setPiece("I"); Abyss.hard(); });
     await frames(p, 2);
     const mk = await p.evaluate(() => Abyss.test.marks());
-    // (a drop that clears ends its streak at the collapse, 80ms on: the streak is read on one that doesn't)
-    await p.waitForTimeout(250);   // past the clear's 80ms pause, which ignores a drop
+    // (a drop that clears ends its streak at the collapse: the streak is read on
+    // one that doesn't, once the clear's pause, which ignores a drop, is over)
+    await p.waitForFunction(() => Abyss.state() === "play", null, { timeout: 8000 }).catch(() => {});
     await p.evaluate(() => { Abyss.test.setPiece("T"); Abyss.hard(); });
     await frames(p, 2);
     const mk2 = await p.evaluate(() => Abyss.test.marks());
@@ -460,13 +461,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "darkroom");
   }
 
-  // ---- Klondike: with FX off a moved card wears a gold rim where it lands
+  // ---- Klondike: with FX off a moved card is seen going (it glides there, as
+  // with FX on; it used to jump, rimmed gold where it landed)
   {
     const p = await open("klondike", true);
     await p.evaluate(() => { Klondike.almostWin(); }); await p.waitForTimeout(200);
-    const k = await p.evaluate(() => { Klondike.move("t0", "f0", 1); const c = document.querySelector('.card[data-key="0-13"]'); return c && { landed: c.classList.contains("landed"), gold: /233, 182, 64/.test(getComputedStyle(c).boxShadow) }; });
-    const gone = await goes(p, () => !document.querySelector('.card[data-key="0-13"]').classList.contains("landed"));
-    check("klondike, FX off: a card that moves is rimmed gold where it lands, briefly", !!k && k.landed && k.gold && gone, { k, gone });
+    const k = await p.evaluate(() => { Klondike.move("t0", "f0", 1); const c = document.querySelector('.card[data-key="0-13"]'); return c && { going: c.getAnimations().length > 0 }; });
+    const gone = await goes(p, () => !document.querySelector('.card[data-key="0-13"]').getAnimations().length);
+    check("klondike, FX off: a card that moves is seen going there, and comes to rest", !!k && k.going && gone, { k, gone });
     await done(p, "klondike");
   }
 

@@ -129,25 +129,28 @@
       els.set(el.dataset.key, el);
     });
   }
-  // Visual FX off: cards jump instead of gliding, so a card that comes to rest
-  // somewhere new wears a gold rim there for 600 ms (each card on its own timer).
-  function landed(el) {
-    el.classList.add("landed");
-    clearTimeout(el._landT);
-    el._landT = setTimeout(function () { el.classList.remove("landed"); }, 600);
-  }
-  // Visual FX on: a card that travels a pile or more arcs there, lifted on a
-  // curve and a little larger mid-flight, above the rest; nearer shifts just
-  // glide. (Its CSS transition is off meanwhile: a running transition would
-  // win over the arc.) With FX off cards jump, rimmed gold where they land.
+  // A card that comes to rest somewhere new travels there, with Visual FX on
+  // or off (where a card goes is play). A trip of a pile or more goes above
+  // the rest: with FX on it arcs, lifted on a curve and a little larger
+  // mid-flight; with it off it goes straight. Nearer shifts glide: the CSS
+  // transition with FX on, and with it off (motion-toggle.js flattens that)
+  // the same glide by script. (The CSS transition is off during a trip: a
+  // running transition would win over it.)
   function arcTo(el, x, y) {
     if (!el.animate || el.classList.contains("drag")) return;
     var m = new DOMMatrixReadOnly(getComputedStyle(el).transform), x0 = m.m41, y0 = m.m42;
-    var dx = x - x0, dy = y - y0, dist = Math.hypot(dx, dy);
-    if (dist < CW * 0.8) return;
-    var h = Math.min(70, dist * 0.25), frames = [];
+    var dx = x - x0, dy = y - y0, dist = Math.hypot(dx, dy), lift = fx();
+    if (dist < CW * 0.8) {
+      if (lift || dist < 0.5) return;
+      if (el._arc) el._arc.cancel();
+      var gl = el._arc = el.animate([{ transform: "translate(" + x0 + "px," + y0 + "px)" }, { transform: "translate(" + x + "px," + y + "px)" }],
+        { duration: 160, easing: "ease" });
+      gl.onfinish = gl.oncancel = function () { if (el._arc === gl) el._arc = null; };
+      return;
+    }
+    var h = lift ? Math.min(70, dist * 0.25) : 0, frames = [];
     for (var k = 0; k <= 8; k++) {
-      var t = k / 8, bump = 4 * t * (1 - t);
+      var t = k / 8, bump = lift ? 4 * t * (1 - t) : 0;
       frames.push({ transform: "translate(" + (x0 + dx * t) + "px," + (y0 + dy * t - h * bump) + "px) scale(" + (1 + 0.06 * bump) + ")" });
     }
     if (el._arc) el._arc.cancel();
@@ -157,12 +160,12 @@
   }
   // Where every card belongs right now; z-order follows pile order.
   function position(instant) {
-    var z = 1, mark = !instant && !fx(), arc = !instant && fx();
+    var z = 1;
     function put(c, x, y) {
       var el = cardEl(c), at = x + "," + y;
-      if (mark && el._at !== at) landed(el);
-      if (arc && el._at && el._at !== at) arcTo(el, x, y);
-      el._at = at;
+      // (a dragged run let go goes back with FX off too: there's no CSS glide then)
+      if (!instant && el._at && (el._at !== at || (el._back && !fx()))) arcTo(el, x, y);
+      el._at = at; el._back = false;
       el.classList.toggle("down", !c.up);
       if (instant) el.classList.add("noanim");
       el.style.zIndex = z++;
@@ -323,7 +326,7 @@
       SFX.found();
       position();
       if (K.won(G)) { finishing = false; win(); return; }
-      setTimeout(step, fx() ? 90 : 20);
+      setTimeout(step, 90);
     })();
   }
 
@@ -529,7 +532,7 @@
   function endDrag(e) {
     if (!drag || (e && e.pointerId !== drag.id)) return;
     var d = drag; drag = null;
-    d.cards.forEach(function (c) { cardEl(c).classList.remove("drag"); });
+    d.cards.forEach(function (c) { var el = cardEl(c); el.classList.remove("drag"); el._back = true; });
     if (d.moved) {
       var cx = d.origins[0].x + d.dx + CW / 2, cy = d.origins[0].y + d.dy + CH / 2;
       var to = dropTarget(cx, cy);

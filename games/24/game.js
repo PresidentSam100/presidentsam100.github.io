@@ -232,22 +232,21 @@
       say("Not 24: undo", 2600); SFX.wrong();
     }
   }
-  // Visual FX on: the cards slide together as they combine. The step itself
-  // is done at once (the cards are already the new ones, and keys act on
-  // them); for SLIDE_MS the screen shows the old cards on their way: the card
-  // picked first sliding onto the other, where their result will stand, and
-  // the rest moving to their new places. With FX off the new cards are
-  // simply there. `sel` and `hit` are the two combined, `newIdx` where the
-  // result stands among the `n` cards left.
+  // The cards slide together as they combine, with Visual FX on or off
+  // (where a card goes is play). The step itself is done at once (the cards
+  // are already the new ones, and keys act on them); for SLIDE_MS the screen
+  // shows the old cards on their way: the card picked first sliding onto the
+  // other, where their result will stand, and the rest moving to their new
+  // places. `sel` and `hit` are the two combined, `newIdx` where the result
+  // stands among the `n` cards left.
   var SLIDE_MS = 170, POP_MS = 240, SPARK_MS = 420;
   function slideFrom(cards, sel, hit, n, newIdx) {
-    if (!fx()) { G.slide = null; return; }
     var from = cardRects(cards.length), to = cardRects(n);
     G.slide = { t0: now(), sel: sel, hit: hit, cards: cards.map(function (c, k) {
       return { v: c, from: from[k], to: to[k === sel ? newIdx : k - (sel < k ? 1 : 0)] };
     }) };
   }
-  function sliding(t) { return !!G.slide && fx() && t - G.slide.t0 < SLIDE_MS; }
+  function sliding(t) { return !!G.slide && t - G.slide.t0 < SLIDE_MS; }
   function drawSlide(t) {
     var s = G.slide, k = Math.max(0, (t - s.t0) / SLIDE_MS), e = k * k * (3 - 2 * k);
     function card(c, picked) {

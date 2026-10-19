@@ -292,7 +292,8 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Chess, FX on: a move slides its piece across from the square it
   // left, a capture flies off to its tray, a king in check pulses; FX off:
-  // the board simply changes (the check square still glows, holding still)
+  // the move still slides (where a piece goes is play), but nothing flies and
+  // the check square glows, holding still
   {
     const HOOK2 = ["start(2);  // build a board behind the menu",
       "start(2);  // build a board behind the menu\n  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start };"];
@@ -324,8 +325,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess, FX on: e4 slides the pawn up from e2, exd5 flies the captured pawn off (and it's gone after), Bb5+ pulses the king",
       on.slide.length === 1 && /^translate\(0px, ?\d/.test(on.slide[0]) && on.fly === 1 && on.flyLeft === 0 && on.check && on.pulse === "checkPulse", on);
     check("chess, FX on: New Game straight after a capture starts still (nothing slides in, nothing left flying)", on.afterNew === 0, on);
-    check("chess, FX off: no slide, no flying capture, and the king's check glow is there but holds still",
-      off.slide.length === 0 && off.fly === 0 && off.check && off.pulse === "none" && parseFloat(off.glow) > 0.5, off);
+    check("chess, FX off: e4 still slides the pawn up from e2; no flying capture, and the king's check glow is there but holds still",
+      off.slide.length === 1 && off.slide[0] === on.slide[0] && off.fly === 0 && off.check && off.pulse === "none" && parseFloat(off.glow) > 0.5 && off.afterNew === 0, off);
 
     // the 3-player board (its script is inline, so the page is served with the hook)
     const HOOK3 = ["start(3); // build board behind menu (default frozen-pieces rule)",
@@ -364,8 +365,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess three, FX on: the rook slides up to its capture while the knight it takes shrinks away; a checked king pulses",
       got3.on.cap.includes("slide") && got3.on.cap.includes("fall") && got3.on.red && got3.on.pulse === "ckPulse", got3.on);
     check("chess three, FX on: New Game straight after a capture starts still", got3.on.afterNew === 0, got3.on);
-    check("chess three, FX off: no slide or fall, and the checked king's cell is red, holding still",
-      got3.off.cap.length === 0 && got3.off.red && got3.off.pulse === "none", got3.off);
+    check("chess three, FX off: the rook still slides up to its capture (where a piece goes is play), but the knight doesn't shrink away; the checked king's cell is red, holding still",
+      JSON.stringify(got3.off.cap) === "[\"slide\"]" && got3.off.red && got3.off.pulse === "none" && got3.off.afterNew === 0, got3.off);
   }
 
   // ---- Tic-Tac-Toe, FX on: chalk dust puffs off a mark as it's drawn (and
@@ -399,26 +400,29 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Yi, FX on: a new hand is dealt round the table a card at a time from
   // the deck (yours fan in) and the first turn waits for it; FX off: the
-  // hands are simply there
+  // hands are simply there (a deal is a flourish; a card played or drawn in
+  // play travels with FX off too: yi.js)
   {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("yi/", off);
-      // each card's starting twist / offset is recorded the moment it's set (a
-      // busy machine can be past them by the next frame), timed from the click
+      // each card's starting twist / offset is recorded as its glide is set
+      // going (a busy machine can be past it by the next frame), timed from the click
       await p.evaluate(() => {
         window.__deal = { fanned: new Set(), minis: new Set(), t0: 0 };
         document.getElementById("startBtn").addEventListener("click", () => { __deal.t0 = Date.now(); }, true);
-        new MutationObserver((ms) => ms.forEach((m) => {
-          const el = m.target;
-          if (el.matches("#hand .card") && /rotate/.test(el.style.transform)) __deal.fanned.add(el.dataset.flipkey);
-          if (el.matches("#opponents .mini-back") && /translate/.test(el.style.transform)) __deal.minis.add(el.dataset.flipkey);
-        })).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["style"] });
+        const real = Element.prototype.animate;
+        Element.prototype.animate = function (frames) {
+          const from = (frames && frames[0] && frames[0].transform) || "";
+          if (this.matches("#hand .card") && /rotate/.test(from)) __deal.fanned.add(this.dataset.flipkey);
+          if (this.matches("#opponents .mini-back") && /translate/.test(from)) __deal.minis.add(this.dataset.flipkey);
+          return real.apply(this, arguments);
+        };
       });
       await p.click("#startBtn");
-      // the deal is over once its wait has passed and no card is still moved (polled)
+      // the deal is over once its wait has passed and no card is still moving (polled)
       const settled = await p.waitForFunction(() => __deal.t0 && Date.now() > drawAnimUntil &&
-        ![...document.querySelectorAll("#hand .card, #opponents .mini-back")].some((c) => c.style.transform), null, { timeout: 10000 }).then(() => true, () => false);
+        ![...document.querySelectorAll("#hand .card, #opponents .mini-back")].some((c) => c.getAnimations().length), null, { timeout: 10000 }).then(() => true, () => false);
       got[off ? "off" : "on"] = await p.evaluate((settled) => ({ hand: document.querySelectorAll("#hand .card").length, fanned: __deal.fanned.size,
         minis: __deal.minis.size, waits: Math.round(drawAnimUntil - __deal.t0), settled }), settled);
       await done(p, "yi FX " + (off ? "off" : "on"));
@@ -684,7 +688,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Klondike, FX on: a card that travels arcs there, lifted mid-flight
-  // and above the rest; FX off: it jumps (rimmed gold where it lands)
+  // and above the rest; FX off: it travels too (where a card goes is play),
+  // straight, unlifted, above the rest
   {
     const got = {};
     for (const off of [false, true]) {
@@ -694,19 +699,22 @@ module.exports = async ({ browser, base, check, lib }) => {
         const moved = Klondike.move("t0", "f0", 1), el = document.querySelector('.card[data-key="0-13"]');
         const a = el.getAnimations().find((x) => x.effect.getKeyframes().length === 9);
         const ys = a ? a.effect.getKeyframes().map((k) => +/,\s*([-\d.]+)px\)/.exec(k.transform)[1]) : [];
+        const grows = a ? a.effect.getKeyframes().some((k) => !/scale\(1\)$/.test(k.transform)) : false;
         return { moved, arc: !!a, above: el.classList.contains("arc") && getComputedStyle(el).zIndex === "800",
-          lifted: ys.length ? Math.min(...ys) < Math.min(ys[0], ys[8]) - 5 : false, rim: el.classList.contains("landed") };
+          lifted: ys.length ? Math.min(...ys) < Math.min(ys[0], ys[8]) - 5 : false, grows, ms: a ? Math.round(a.effect.getComputedTiming().endTime) : 0 };
       });
       await done(p, "klondike arc FX " + (off ? "off" : "on"));
     }
     check("klondike, FX on: a card moved to a foundation arcs there, lifted mid-flight and above the rest",
-      got.on.moved && got.on.arc && got.on.above && got.on.lifted && !got.on.rim, got.on);
-    check("klondike, FX off: it jumps, rimmed gold where it lands", got.off.moved && !got.off.arc && !got.off.above && got.off.rim, got.off);
+      got.on.moved && got.on.arc && got.on.above && got.on.lifted && got.on.grows, got.on);
+    check("klondike, FX off: it travels there too, above the rest and at the same pace, but straight (not lifted, no larger)",
+      got.off.moved && got.off.arc && got.off.above && !got.off.lifted && !got.off.grows && got.off.ms === got.on.ms && got.off.ms >= 200, got.off);
   }
 
   // ---- Link Many, FX on: a dropped disc squashes at each touchdown, and a win
   // draws a glowing line through the four, each popping as it's reached;
-  // FX off: the disc is simply there and the four wear their white ring
+  // FX off: the disc still falls to its row (where it goes is play), plainly,
+  // with no stretch, squash or bounce, and the four wear their white ring
   {
     const got = {};
     for (const off of [false, true]) {
@@ -718,7 +726,16 @@ module.exports = async ({ browser, base, check, lib }) => {
         const b = __game.board; [0, 1, 2].forEach((c) => { b[5][c] = 1; });
         __game.humanMove(3);
         const el = document.querySelector('.cell[data-r="5"][data-c="3"]'), a = el.getAnimations().find((x) => x.animationName === "drop");
-        return { dropping: !!a, squash: !!a && a.effect.getKeyframes().some((k) => /scale\(1\.15/.test(k.transform)), ringed: document.querySelectorAll(".cell.win").length };
+        // the plain fall (a script animation): held halfway, the disc is still above its cell
+        const f = el.getAnimations().find((x) => !x.animationName && x.effect.getKeyframes().some((k) => /translateY\(-/.test(k.transform || "")));
+        let fall = null;
+        if (f) {
+          const ms = f.effect.getComputedTiming().endTime;
+          f.pause(); f.currentTime = ms / 2;
+          fall = { ms: Math.round(ms), half: Math.round(new DOMMatrix(getComputedStyle(el).transform).m42), scaled: f.effect.getKeyframes().some((k) => /scale/.test(k.transform || "")) };
+          f.play();
+        }
+        return { dropping: !!a, squash: !!a && a.effect.getKeyframes().some((k) => /scale\(1\.15/.test(k.transform)), fall, ringed: document.querySelectorAll(".cell.win").length };
       });
       // the line comes once the disc has landed (polled, not timed: a busy machine is slower)
       const line = await p.waitForFunction(() => document.querySelector(".win-line"), null, { timeout: off ? 1500 : 6000 }).then(() => true, () => false);
@@ -728,7 +745,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("link-many, FX on: the dropped disc squashes as it lands; the win draws a line through the four and pops each one",
       got.on.dropping && got.on.squash && got.on.ringed === 4 && got.on.line && got.on.pops === 4, got.on);
-    check("link-many, FX off: the disc is simply there and the four wear their ring, no line", !got.off.dropping && got.off.ringed === 4 && !got.off.line && got.off.pops === 0, got.off);
+    check("link-many, FX off: the disc falls to its row (halfway, still above it), with no squash or bounce; the four wear their ring, no line",
+      !got.off.dropping && !!got.off.fall && got.off.fall.ms >= 250 && got.off.fall.half < -20 && !got.off.fall.scaled && got.off.ringed === 4 && !got.off.line && got.off.pops === 0, got.off);
   }
 
   // ---- Dots and Boxes, FX on: a claimed block's lights come on, a ripple runs
@@ -998,7 +1016,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- 24, FX on: the cards slide together as they combine (the picked one
   // onto the other, the rest to their new places), and a solved 24 pops: its
   // panel springs open past its size and settles, throwing sparks; FX off:
-  // the new cards, and the "24!" panel, are simply there
+  // the cards slide just the same (where a card goes is play), and the "24!"
+  // panel is simply there once they meet, with no sparks
   {
     const got = {};
     for (const off of [false, true]) {
@@ -1054,8 +1073,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       on.won && two >= 3 && panel.length >= 20 && panel[0] < 40 && Math.max(...panel) === 74 && panel[panel.length - 1] === 72 &&
       on.win.filter((f) => f[1] > 0).length >= 8 && on.win[on.win.length - 1][1] === 0 && on.win[on.win.length - 1][0] === PANEL,
       { two, panel, sparks: on.win.map((f) => f[1]).join("") });
-    check("24, FX off: the new cards are simply there, and so is the 24! panel, with no sparks",
-      offR.left === 3 && offR.slide.every((f) => f === FINAL) && offR.won && offR.win.every((f) => f[0] === PANEL && f[1] === 0), { slide: offR.slide, win: offR.win.slice(0, 3) });
+    const twoOff = offR.win.filter((f) => f[0].split(" ").length === 2).length;
+    check("24, FX off: combining two cards slides them just as with it on; a solved hand's last two slide together, then the 24! panel is simply there, with no sparks",
+      offR.left === 3 && JSON.stringify(offR.slide) === JSON.stringify(on.slide) && offR.after === FINAL && offR.won && twoOff >= 3 &&
+      offR.win.every((f) => f[1] === 0 && (f[0].split(" ").length === 2 || f[0] === PANEL)) && offR.win[offR.win.length - 1][0] === PANEL,
+      { slide: offR.slide, twoOff, win: offR.win.slice(0, 3) });
   }
 
   // ---- Click Tap, FX on: each click sends a ripple out from the bed's rim and

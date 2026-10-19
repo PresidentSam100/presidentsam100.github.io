@@ -76,6 +76,9 @@
   };
   var GRAV = [800, 717, 633, 550, 467, 383, 300, 217, 133, 100, 83, 83, 83, 67, 67, 67, 50, 50, 50, 33];
   var LINE_SCORE = [0, 100, 300, 500, 800];
+  // full lines dissolve for the same time with Visual FX on or off (a quicker
+  // clear with it off would make every Sprint quicker)
+  var CLEAR_S = 0.32;
 
   // ---- state ----------------------------------------------------------------
   var state = "menu";               // menu | play | clearing | over
@@ -207,10 +210,10 @@
     if (full.length) {
       clearingRows = full;
       state = "clearing";
-      clearT = fx() ? 0.32 : 0.08;
+      clearT = CLEAR_S;
       sweep = 0;
-      // FX off: the 80ms clear is too quick to read, so the walls keep
-      // pointing at those rows a while after they collapse
+      // FX off: no sweep, so the walls point at those rows, a while after
+      // they collapse too
       if (!fx()) clearMark = { rows: full.slice(), life: 0.5 };
       var n = full.length;
       var base = LINE_SCORE[n] * level;

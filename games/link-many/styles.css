@@ -117,7 +117,8 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
 /* drop animation: gravity free-fall, then bouncy-ball settle.
    Per-keyframe easing: falls accelerate (ease-in), rises decelerate (ease-out).
    It stretches a touch as it falls and squashes flat at each touchdown, about
-   its bottom edge (only drawn with Visual FX on: game.js adds .drop then). */
+   its bottom edge (only drawn with Visual FX on: game.js adds .drop then;
+   with it off game.js plays a plain fall). */
 .cell.drop { animation: drop .72s linear; transform-origin: 50% 100%; }
 @keyframes drop {
   0%   { transform: translateY(var(--dy)) scale(.95, 1.07); animation-timing-function: cubic-bezier(.45,0,.9,.55); }

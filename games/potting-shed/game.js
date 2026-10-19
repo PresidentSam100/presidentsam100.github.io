@@ -135,7 +135,8 @@
       scrape();
       if (L.sun[beyond]) { sfxBloom(); blooms[beyond] = fx() ? 0.01 : 1; }
     } else history.push({ me: me, pots: pots.slice(), moves: moves, pushes: pushes });
-    tween = fx() ? { from: me, pot: pushed >= 0 ? { i: pushed, from: to } : null, t: 0 } : null;
+    // (the step slides with Visual FX off too: where the gardener and a pot go is play)
+    tween = { from: me, pot: pushed >= 0 ? { i: pushed, from: to } : null, t: 0 };
     me = to; moves++;
     if (pushed < 0) sfxStep();
     hud();
@@ -188,7 +189,7 @@
         if (L.sun[k]) drawSun(x, y, s);
       }
     }
-    // the pots (sliding, with Visual FX on, as the gardener pushes)
+    // the pots (sliding as the gardener pushes)
     var tt = tween ? Math.min(1, tween.t) : 1, ease = 1 - Math.pow(1 - tt, 3);
     pots.forEach(function (pk, i) {
       var x = cx(pk), y = cy(pk);

@@ -184,6 +184,17 @@
       "translate(" + t.c * step + "px," + t.r * step + "px)";
   }
 
+  // A move's slide to the key's new cell. Where a key goes is play, so it
+  // slides with Visual FX off too: there motion-toggle.js flattens the
+  // .tile's CSS transition, and the same slide is played by script instead.
+  function slideEl(t) {
+    var from = t.el.style.transform;
+    placeEl(t);
+    var to = t.el.style.transform;
+    if (fxOn() || !t.el.animate || from === to) return;
+    t.el.animate([{ transform: from }, { transform: to }], { duration: ANIM_MS, easing: "ease-in-out" });
+  }
+
   // anim: "appear" (new tile) | "pop" (merge result) | null
   function makeTile(r, c, val, anim) {
     var el = document.createElement("div");
@@ -319,7 +330,7 @@
           // tile pops in (kept hidden until they arrive); sources removed.
           var tr = f.next.r, tc = f.next.c;
           grid[r][c] = null;
-          tile.r = tr; tile.c = tc; placeEl(tile);
+          tile.r = tr; tile.c = tc; slideEl(tile);
           toRemove.push(tile, ahead);
           // Create the doubled tile but keep it hidden until both source
           // tiles have slid into the target cell, then it pops in.
@@ -335,7 +346,7 @@
           if (fr !== r || fc !== c) {
             grid[r][c] = null;
             grid[fr][fc] = tile;
-            tile.r = fr; tile.c = fc; placeEl(tile);
+            tile.r = fr; tile.c = fc; slideEl(tile);
             slid.push(tile);
             moved = true;
           }
@@ -363,9 +374,8 @@
     if (toRemove.length) {
       pending = toRemove;
       pendingMerges = mergeNow;
-      // With reduced motion the slide is instant, so reveal the merged tile
-      // immediately instead of waiting out the (now non-existent) slide.
-      pendingTimer = setTimeout(flushPending, (window.RM_ON && window.RM_ON()) ? 0 : ANIM_MS);
+      // the merged key is revealed as the slide into its cell ends
+      pendingTimer = setTimeout(flushPending, ANIM_MS);
     }
 
     addRandom();

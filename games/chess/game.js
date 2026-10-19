@@ -209,17 +209,17 @@
     const r=parseInt(s.slice(0,2),16), g=parseInt(s.slice(2,4),16), b=parseInt(s.slice(4,6),16);
     return (0.2126*r + 0.7152*g + 0.0722*b) / 255; }
 
-  // ---- Visual FX on (RM_ON() is true when it's off): a move slides its
-  // piece across from the square it left, a capture flies to its tray (or,
-  // with four players, shrinks away where it fell), and a king in check pulses
-  // (styles.css). With FX off the board simply changes.
+  // ---- A move slides its piece across from the square it left, with Visual
+  // FX on or off (where a piece goes is play). FX on (RM_ON() is true when
+  // it's off) adds: a capture flies to its tray (or, with four players,
+  // shrinks away where it fell), and a king in check pulses (styles.css).
   function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
   const SLIDE_MS = 200;
   let slide = null;   // the last move { from, to, t0 }, while its piece slides
   // The board is rebuilt on every render, often twice for one move, so each
   // render starts the slide again at the point it had reached.
   function playSlide(){
-    if(!slide || !fxOn()) return;
+    if(!slide) return;
     const el = performance.now() - slide.t0;
     if(el >= SLIDE_MS){ slide = null; return; }
     const sqTo = boardEl.querySelector('.sq[data-i="'+slide.to+'"]'), sqFrom = boardEl.querySelector('.sq[data-i="'+slide.from+'"]');
@@ -520,7 +520,7 @@
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.castle) SFX.castle(); else if(m.promo) SFX.promote(); else if(captured) SFX.capture(); else SFX.move();
 
-    slide = fxOn() ? { from:m.from, to:m.to, t0:performance.now() } : null;
+    slide = { from:m.from, to:m.to, t0:performance.now() };
     render();
     if(captured && fxOn()) flyCapture(captured, capSq, col);
     advance(col);

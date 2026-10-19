@@ -5,9 +5,10 @@
 // / a hidden tab pause it, with the cards blank under the pause card; leaving
 // or ↻ New game mid-deck asks first with the game paused; a best time leaves
 // the paused time out and keeps the hint penalty in. A hint glows blue, not
-// the gold of a picked card, and isn't a pick; with Visual FX on a claimed
-// Hash flies to its row in Found (in Set-Chain to the Last Hash beside the
-// table) and new cards come face down from the pile, turning up as they land.
+// the gold of a picked card, and isn't a pick; a claimed Hash flies to its
+// row in Found (in Set-Chain to the Last Hash beside the table) and the new
+// cards come from the pile, with Visual FX on (face down, turning up as they
+// land) and off (face up, no turn) alike.
 const HOOK = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; } };\n})();"];
 
 module.exports = async ({ browser, base, check, lib }) => {
@@ -420,28 +421,41 @@ module.exports = async ({ browser, base, check, lib }) => {
     await r.close();
   }
 
-  // ---- Visual FX on: a claimed Hash flies to its row in Found (Normal), or to
-  // the Last Hash beside the table (Set-Chain); the new cards come from the pile
-  for (const mode of ["normal", "chain"]) {
+  // ---- a claimed Hash flies to its row in Found (Normal), or to the Last Hash
+  // beside the table (Set-Chain); the new cards come from the pile. With
+  // Visual FX on or off alike (where a card goes is play): FX on the new
+  // cards fly face down and turn up as they land, FX off they come face up.
+  for (const [mode, off] of [["normal", false], ["chain", false], ["normal", true], ["chain", true]]) {
     const r = await openM(null, { mode });
+    if (off) { await r.evaluate(() => { localStorage.setItem("reduceMotion:hash", "1"); }); await r.reload({ waitUntil: "domcontentloaded" }); }
     await r.waitForFunction(() => !document.querySelector("#board .card.arriving"), null, { timeout: 8000 });
     const flown = await r.evaluate(() => new Promise((res) => {
       const t = __h.findAny(), b = __h.board, ids = t.map((c) => c.id);
       t.forEach((c) => { const i = b.indexOf(c); document.querySelector('#board .card[data-idx="' + i + '"]').click(); });
       const where = __h.mode === "chain" ? "#trayCards .card" : "#logList li:first-child .mini";
+      // every card that flies, as it's sent: a claimed one, or a new one (face down and turning, or face up)
+      const sent = { claimed: 0, backs: 0, faces: 0, turns: 0 };
+      new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
+        if (n.nodeType !== 1 || !n.classList.contains("flyer")) return;
+        if (ids.includes(n.dataset.id)) sent.claimed++; else if (n.classList.contains("back")) sent.backs++; else sent.faces++;
+        if (n.getAnimations().some((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || "")))) sent.turns++;
+      }))).observe(document.body, { childList: true });
       let mid = null;
       // (looked at once the cards are on their way, by the page's own clock)
       (function look(n) {
         const fl = document.querySelectorAll(".flyer:not(.back)").length;
         if (fl && !mid) mid = { flying: fl, waiting: ids.filter((id) => { const e = document.querySelector(where + '[data-id="' + id + '"]'); return e && e.classList.contains("landing"); }).length };
         if (n < 200 && (!mid || document.querySelector(".flyer"))) return setTimeout(() => look(n + 1), 15);
-        res({ mid, kept: ids.filter((id) => { const e = document.querySelector(where + '[data-id="' + id + '"]'); return e && !e.classList.contains("landing"); }).length,
+        res({ mid, sent, fxOff: RM_ON(), kept: ids.filter((id) => { const e = document.querySelector(where + '[data-id="' + id + '"]'); return e && !e.classList.contains("landing"); }).length,
           left: document.querySelectorAll(".flyer, #board .card.arriving, .landing").length, pile: !document.getElementById("pile").hidden });
       })(0);
     }));
-    check("hash, FX on (" + mode + "): a claimed Hash's three cards fly to " + (mode === "chain" ? "the Last Hash beside the table" : "their row in Found") + ", shown there as they land; the refill comes from the pile beside the table",
-      flown.mid && flown.mid.flying === 3 && flown.mid.waiting === 3 && flown.kept === 3 && flown.left === 0 && flown.pile, flown);
-    check("hash (claim flights, " + mode + "): no page errors", r.errs.length === 0, r.errs);
+    const s = flown.sent;
+    check("hash, FX " + (off ? "off" : "on") + " (" + mode + "): a claimed Hash's three cards fly to " + (mode === "chain" ? "the Last Hash beside the table" : "their row in Found") + ", shown there as they land; the refill comes from the pile beside the table, " +
+      (off ? "face up, with no turn" : "face down, turning up"),
+      flown.fxOff === off && flown.mid && flown.mid.flying === 3 && flown.mid.waiting === 3 && flown.kept === 3 && flown.left === 0 && flown.pile && s.claimed === 3 &&
+      (off ? s.faces >= 3 && s.backs === 0 && s.turns === 0 : s.backs >= 3 && s.faces === 0 && s.turns === s.backs), flown);
+    check("hash (claim flights, " + mode + ", FX " + (off ? "off" : "on") + "): no page errors", r.errs.length === 0, r.errs);
     await r.close();
   }
 

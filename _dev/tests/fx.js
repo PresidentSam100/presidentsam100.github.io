@@ -383,6 +383,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.keyboard.press("ArrowLeft");
       // then all of it clears (polled: the float takes 0.7 s, longer on a busy machine)
       await p.waitForFunction(() => document.getElementById("score").textContent === "4" && !document.querySelector(".merge-ring, .score-add"), null, { timeout: 8000 }).catch(() => {});
+      // (and the slide over, by the page's own clock: the two keys that merged go as it ends)
+      await p.evaluate(() => new Promise((r) => setTimeout(r, 250)));
       const s = await p.evaluate(() => Object.assign({}, __seen));
       s.after = await p.evaluate(() => ({
         score: document.getElementById("score").textContent,

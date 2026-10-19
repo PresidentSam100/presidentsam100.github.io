@@ -17,9 +17,12 @@ let youMoved = false; // the player has dropped a disc or played a power this ga
 // hit (see scorchCells). render() draws both, as it rewrites every className.
 let lastDisc = null, scorch = null;
 // Animations follow the global "✨ Visual FX" toggle (motion-toggle.js): FX off
-// (or OS reduced-motion) means no drop animation. A wait that only covers an
-// animation shrinks with it; the CPU's own pause before it moves never does.
+// (or OS reduced-motion) means no bounce or squash, but a disc still falls to
+// its row, as where it goes is play: straight down, in the time the FX-on drop
+// takes to first touch down (FALL_MS). A wait that only covers an animation
+// shrinks with it; the CPU's own pause before it moves never does.
 function animOn(){ return !(window.RM_ON && window.RM_ON()); }
+const FALL_MS = 330;
 // How long the CPU takes to answer, and to move again after its wall: the same
 // with Visual FX on or off, so its disc never lands the instant yours does.
 const THINK_MS = 820, THINK_AGAIN_MS = 900;
@@ -150,7 +153,7 @@ function scheduleAI(delay) {
     // Keep input locked until the AI's disc finishes dropping, THEN release and
     // re-highlight whatever column the cursor is over (CSS :hover won't re-fire
     // on its own without mouse movement).
-    const settle = animOn() ? 760 : 60;
+    const settle = animOn() ? 760 : FALL_MS + 30;
     setTimeout(() => {
       if (myRound !== round) return;
       busy = false;
@@ -237,6 +240,13 @@ function render(winCells) {
       cell.style.removeProperty('--dy');
     }
     cell.className = cls;
+    // FX off: the plain fall, played by script (motion-toggle.js flattens the CSS drop), once a disc
+    if (!animOn() && v && animMove && animMove.r === r && animMove.c === c && cell._fell !== animMove && cell.animate) {
+      cell._fell = animMove;
+      const h = cell.getBoundingClientRect().height || 62;
+      cell.animate([{ transform: `translateY(-${(r+1)*(h+8)+14}px)` }, { transform: 'translateY(0)' }],
+        { duration: FALL_MS, easing: 'cubic-bezier(.45,0,.9,.55)' });
+    }
   });
 }
 
@@ -614,7 +624,7 @@ function usePower(player, kind, c) {
   animMove = lastDisc = { r, c };
   sfxWall();
   render();
-  setTimeout(() => { if (myRound === round) finish(player, true); }, animOn() ? 520 : 60);
+  setTimeout(() => { if (myRound === round) finish(player, true); }, animOn() ? 520 : FALL_MS + 30);
 }
 
 // --- the AI's power instincts (power mode only) ---
@@ -676,7 +686,7 @@ function aiMoveWrapped() { // the CPU's bonus move after its wall
     return;
   }
   aiMove();
-  setTimeout(() => { if (myRound === round) busy = false; }, animOn() ? 760 : 60);
+  setTimeout(() => { if (myRound === round) busy = false; }, animOn() ? 760 : FALL_MS + 30);
 }
 
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---

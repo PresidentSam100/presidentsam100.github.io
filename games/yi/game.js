@@ -317,10 +317,10 @@ function passTurn(pi) {
   beginTurn();
 }
 
-// With Visual FX off, plays and draws don't fly, so the table marks them
-// instead: the discard says who played it (G.discardBy), and a CPU that drew
-// shows "+n" by its count (G.drew) until another player acts. render() draws
-// both; styles.css only shows them under html.fx-off.
+// With Visual FX off, plays and draws fly plainly (no turn, no tilt), and
+// the table marks them too: the discard says who played it (G.discardBy), and
+// a CPU that drew shows "+n" by its count (G.drew) until another player acts.
+// render() draws both; styles.css only shows them under html.fx-off.
 function noteAct(pi) {
   G.acted = true; // someone has played or drawn: the hand is under way (see guardLeave)
   for (var k in G.drew) if (+k !== pi) delete G.drew[k];
@@ -643,11 +643,10 @@ function cpuTurn() {
     // draw one
     var got = drawCards(pi, 1);
     render();
-    // Let the drawn card finish gliding in, then play it / pass. The constant
-    // inter-turn pause is applied uniformly in beginTurn after this. With Visual
-    // FX off nothing glides, but the beat is kept (one card's glide), so the
-    // draw shows before the card is played.
-    var wait = Math.max(reducedMotion() ? DRAW_TRANS * 1000 + 90 : 0, drawAnimUntil - Date.now());
+    // Let the drawn card finish gliding in (with Visual FX on or off), then
+    // play it / pass. The constant inter-turn pause is applied uniformly in
+    // beginTurn after this.
+    var wait = Math.max(0, drawAnimUntil - Date.now());
     if (got.length && canPlay(got[0])) {
       var di = hand.length - 1;
       log([{ player: pi }, " draws and plays it."]);
@@ -807,8 +806,10 @@ function fxOn() {
 
 // FLIP layout slide: capture element rects (keyed by data-flipkey) before a
 // re-render, then after, animate each surviving element from its old spot to
-// its new one. Used so hand cards / CPU mini-cards slide when a card is
-// played or drawn. Only runs when Visual FX is on.
+// its new one. Used so hand cards slide when a card is played or drawn, with
+// Visual FX on or off (where a card goes is play). The moves here are played
+// by script (the Web Animations API): motion-toggle.js flattens every CSS
+// transition with FX off.
 // Cards whose draw-from-deck glide (flyDraw) is in progress. The hand FLIP must
 // leave these alone, or a re-render mid-glide clobbers the animation.
 var glidingKeys = {};
@@ -844,18 +845,8 @@ function playFlip(els, oldRects) {
   }
   if (!any) return;
   moved.forEach(function (el) {
-    el.style.transition = "none";
-    el.style.transform = "translate(" + el._fdx + "px," + el._fdy + "px)";
-  });
-  requestAnimationFrame(function () {
-    moved.forEach(function (el) {
-      el.style.transition = "transform 0.3s cubic-bezier(.2,.7,.3,1)";
-      el.style.transform = "";
-      el.addEventListener("transitionend", function clr() {
-        el.style.transition = "";
-        el.removeEventListener("transitionend", clr);
-      });
-    });
+    if (el.animate) el.animate([{ transform: "translate(" + el._fdx + "px," + el._fdy + "px)" }, { transform: "none" }],
+      { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" });
   });
 }
 
@@ -936,7 +927,10 @@ function flyCard(card, srcRect, opts, onDone) {
     onDone();
   };
   var target = document.getElementById("discardPile");
-  if (!srcRect || !target || reducedMotion()) return finish();
+  if (!srcRect || !target || !document.body.animate) return finish();
+  // (with Visual FX on a CPU's card turns face up on its way and yours tilts
+  // a little; off, the same flight, face up and straight)
+  var fx = fxOn();
 
   var tr = target.getBoundingClientRect();
   // Match the end size to the actual discard card.
@@ -945,7 +939,7 @@ function flyCard(card, srcRect, opts, onDone) {
   var CW = dcr.width, CH = dcr.height;
 
   var el;
-  if (opts.flip) {
+  if (opts.flip && fx) {
     el = document.createElement("div");
     el.className = "flying-card flip-wrap";
     el.style.width = CW + "px";
@@ -975,34 +969,28 @@ function flyCard(card, srcRect, opts, onDone) {
   var srcCy = srcRect.top + srcRect.height / 2;
   el.style.left = srcCx - CW / 2 + "px";
   el.style.top = srcCy - CH / 2 + "px";
-  el.style.transition = "transform 0.46s cubic-bezier(.2,.75,.3,1)";
   document.body.appendChild(el);
 
   var inner = el.querySelector(".flip-inner");
   var startScale = opts.flip
     ? Math.max(0.18, srcRect.height / CH)
     : 1.04;
-  var rot = opts.flip ? 0 : Math.random() * 14 - 7;
-  el.style.transform =
-    "translate(0,0) rotate(" + rot + "deg) scale(" + startScale + ")";
-  if (inner) inner.style.transform = "rotateY(0deg)";
-
+  var rot = opts.flip || !fx ? 0 : Math.random() * 14 - 7;
   var dx = tr.left + tr.width / 2 - srcCx;
   var dy = tr.top + tr.height / 2 - srcCy;
-
-  void el.offsetWidth; // force reflow so the transition runs
-  requestAnimationFrame(function () {
-    el.style.transform =
-      "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(1)";
-    if (inner) inner.style.transform = "rotateY(180deg)";
-  });
+  var ease = "cubic-bezier(.2,.75,.3,1)";
+  var a = el.animate([
+    { transform: "translate(0,0) rotate(" + rot + "deg) scale(" + startScale + ")" },
+    { transform: "translate(" + dx + "px," + dy + "px) rotate(0deg) scale(1)" }
+  ], { duration: 460, easing: ease, fill: "forwards" });
+  if (inner) inner.animate([{ transform: "rotateY(0deg)" }, { transform: "rotateY(180deg)" }], { duration: 460, easing: ease, fill: "forwards" });
 
   var cleanup = function () {
     if (el.parentNode) el.parentNode.removeChild(el);
     finish();
   };
-  el.addEventListener("transitionend", cleanup, { once: true });
-  setTimeout(cleanup, 560); // safety net if transitionend doesn't fire
+  a.onfinish = cleanup;
+  setTimeout(cleanup, 560); // safety net if the animation never finishes
 }
 
 // Animate a draw from the pile. Deferred one frame so the caller's re-render
@@ -1014,7 +1002,6 @@ function flyCard(card, srcRect, opts, onDone) {
 var DRAW_STAGGER = 55; // ms between consecutive cards
 var DRAW_TRANS = 0.3; // seconds per card glide
 function flyDraw(pi, n) {
-  if (reducedMotion()) return;
   var animCount = Math.min(n, 7);
   var glideMs = (animCount - 1) * DRAW_STAGGER + DRAW_TRANS * 1000 + 90;
   // Hold off the next player's move until the draw animation finishes (so the
@@ -1058,27 +1045,16 @@ function flyDraw(pi, n) {
 }
 // One card's glide from the deck's centre (dcx, dcy) to where it now sits,
 // `delay` ms from now: it waits at the deck (at opacity `wait`), starting at
-// `startScale` and twisted `rot` degrees, then settles into place.
+// `startScale` and twisted `rot` degrees (Visual FX on only), then settles
+// into place.
 function glideIn(node, dcx, dcy, startScale, delay, rot, wait) {
+  if (!node.animate) return;
   var r = node.getBoundingClientRect();
-  node.style.transition = "none";
-  node.style.transform =
-    "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
+  var from = "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
     (dcy - (r.top + r.height / 2)) + "px) scale(" + startScale + ")" +
-    (rot ? " rotate(" + rot + "deg)" : "");
-  node.style.opacity = wait;
-  setTimeout(function () {
-    requestAnimationFrame(function () {
-      node.style.transition =
-        "transform " + DRAW_TRANS + "s cubic-bezier(.3,.6,.3,1), opacity 0.24s ease";
-      node.style.transform = "";
-      node.style.opacity = "";
-      node.addEventListener("transitionend", function clr() {
-        node.style.transition = "";
-        node.removeEventListener("transitionend", clr);
-      });
-    });
-  }, delay);
+    (rot && fxOn() ? " rotate(" + rot + "deg)" : "");
+  node.animate([{ transform: from, opacity: +wait }, { opacity: 1, offset: 0.8 }, { transform: "none", opacity: 1 }],
+    { duration: DRAW_TRANS * 1000, delay: delay, easing: "cubic-bezier(.3,.6,.3,1)", fill: "backwards" });
 }
 
 // Visual FX on: a new hand is dealt round the table from the deck, a card at
@@ -1138,14 +1114,11 @@ function cardHTML(card, opts) {
 function render() {
   if (!G) return;
   // Before re-rendering, snapshot the human hand's card positions so they can
-  // slide to their new spots after a play or draw (FX-on only). The CPU
+  // slide to their new spots after a play or draw (Visual FX on or off). The CPU
   // mini-cards are NOT slid: they're tiny and overlapping, so a per-card slide
   // desyncs and makes their spacing look uneven; they snap to perfectly even
   // positions every render instead.
-  var fx = fxOn();
-  var handOld = fx
-    ? captureRects(document.querySelectorAll("#hand .card"))
-    : null;
+  var handOld = captureRects(document.querySelectorAll("#hand .card"));
 
   // scoreboard (points mode)
   var sb = document.getElementById("scoreboard");
@@ -1264,9 +1237,7 @@ function render() {
     (human.hand.length === 1 && human.calledUno ? ", YI!" : "");
 
   // Slide the human's surviving hand cards from their old positions to the new.
-  if (fx) {
-    playFlip(document.querySelectorAll("#hand .card"), handOld);
-  }
+  playFlip(document.querySelectorAll("#hand .card"), handOld);
 
   renderControls();
 }

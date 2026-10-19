@@ -1,7 +1,8 @@
 // Yi: the table waits while "Leave this game?" is up and while you're away
 // (the YI call, the catch window and the CPUs all pick up where they were);
 // a game's late timers never reach the next deal; what's left of the old
-// name is gone; and the points game's final result has a way to the menu.
+// name is gone; the points game's final result has a way to the menu; and
+// cards travel, at the same pace, with Visual FX off as with it on.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const settle = (p) => p.waitForTimeout(250);
@@ -213,7 +214,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const off of [false, true]) {
       const q = await lib.open(ctx, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
       await deal(q);
-      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 20000 });
+      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
       beats[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
         const who = neighbor(0, 1), top = topCard(), col = G.currentColor, all = G.deck.concat(G.players[who].hand);
         const cant = all.filter((c) => c.type === "number" && c.color !== col && !(top.type === "number" && c.value === top.value)).slice(0, 3);
@@ -234,6 +235,52 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("yi: a CPU that draws a card it can play shows the draw for a beat before playing it, with Visual FX off as with it on (at least 0.35 s)",
       beats.on.ms >= 350 && beats.off.ms >= 350 && beats.off.hand === 4, beats);
+  }
+
+  // ---- with Visual FX off as with it on (where a card goes is play): your
+  // played card flies to the pile, the cards left in your hand close up, a
+  // drawn card glides in from the deck, and the next player's go waits for
+  // the flight and then the usual pause (with FX off the card used to land at
+  // once, so the table ran about half a second ahead). Timed in the page.
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
+      await deal(q);
+      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      got[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
+        const me = G.players[0], col = G.currentColor;
+        // a number card of the colour in play, first in your hand (so the rest close up behind it):
+        // swapped in for the first card, the hand otherwise as it lies
+        let c = me.hand.find((x) => x.type === "number" && x.color === col) || G.deck.find((x) => x.type === "number" && x.color === col);
+        if (!c) return res({ err: "no card" });
+        if (G.deck.indexOf(c) >= 0) G.deck.splice(G.deck.indexOf(c), 1, me.hand[0]); else me.hand[me.hand.indexOf(c)] = me.hand[0];
+        me.hand[0] = c; render();
+        const r = { fly: 0, close: 0 }, t0 = performance.now();
+        new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1 && n.classList.contains("flying-card") && !r.fly) r.fly = n.getAnimations().length; })))
+          .observe(document.body, { childList: true });
+        const play0 = playCard, draw0 = drawCards;
+        const next = () => { if (r.next) return; r.next = Math.round(performance.now() - t0); r.gap = turnGap(); res(r); };
+        window.playCard = function (pi) { if (pi !== 0) next(); return play0.apply(this, arguments); };
+        window.drawCards = function (pi) { if (pi !== 0) next(); return draw0.apply(this, arguments); };
+        document.querySelector('#hand .card[data-idx="0"]').click();
+        r.close = [...document.querySelectorAll("#hand .card")].filter((e) => e.getAnimations().length).length;
+        setTimeout(() => res(Object.assign(r, { next: -1 })), 12000);
+      }));
+      // a card drawn into your hand glides in from the deck (after a frame: the hand is drawn first)
+      got[off ? "off" : "on"].glide = await q.evaluate(() => new Promise((res) => {
+        drawCards(0, 1);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const cs = document.querySelectorAll("#hand .card"), last = cs[cs.length - 1];
+          res(last ? last.getAnimations().length : -1);
+        }));
+      }));
+      await done(q, "yi flights, FX " + (off ? "off" : "on"));
+    }
+    // (the next player's go: the flight, 0.46 s, then the pause between turns)
+    const ok = (g) => g && g.fly > 0 && g.close > 0 && g.glide > 0 && g.next >= g.gap + 400;
+    check("yi: with Visual FX off as with it on, your card flies to the pile, the hand closes up, a drawn card glides in, and the next player's go waits for the flight and the pause after it",
+      ok(got.on) && ok(got.off), got);
   }
 
   // ---- the logo: its letters are slanted by the browser, which leaned their
@@ -275,7 +322,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const q = await lib.open(ctx, base, "games/yi/");
     await deal(q);
-    await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 20000 });
+    await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
     await q.evaluate(() => { G.drawnIndex = 0; renderControls(); });
     await settle(q);
     const shown = await q.evaluate(() => { const b = document.getElementById("passBtn"); return b && b.getAttribute("data-gs-key"); });

@@ -12,7 +12,8 @@
 // every layout's.
 // Animations (an option on the menu, A): a deal's tiles drop in from above, a
 // matched pair comes together and is gone, a shuffle's tiles travel from where
-// their faces lay; with Visual FX off the three are told by fading; a press, a
+// their faces lay; with Visual FX off the deal and the pair are told by
+// fading, and a shuffle's tiles still travel, only straight; a press, a
 // pause or the switch lands whatever is on its way, and a pair still drawn on
 // its way out is deaf to the mouse, which plays straight on; no time comes off
 // the clock for any of it. With Animations off, none of it. The end card
@@ -575,8 +576,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "slowed deal");
   }
 
-  // ---- Visual FX off, Animations on: the same three told by fading, nothing
-  // flying, and no time comes off for the pair
+  // ---- Visual FX off, Animations on: the deal and the pair told by fading,
+  // a shuffle's tiles travelling straight (where a tile goes is play), and no
+  // time comes off for the pair
   {
     const q = await open(ctx, true, null, true);
     const calm = await q.evaluate(() => {
@@ -586,15 +588,21 @@ module.exports = async ({ browser, base, check, lib }) => {
       const deal = { fxOff: window.RM_ON(), dealing: Mahjong.dealing(), fading: tiles().filter((e) => e.getAnimations().length === 1).length, flat: flat(tiles()), inPlace: tiles().every((e) => e.getBoundingClientRect().top >= 0) };
       Mahjong.settle();
       Mahjong.shuffleNow();
-      const shuffle = { moving: Mahjong.moving(), flat: flat(tiles()), raised: document.querySelectorAll(".tile.moving").length };
+      // (each travelling tile: from where its face was, through the halfway point with no lift, never larger)
+      const trips = tiles().map((e) => e.getAnimations().map((a) => a.effect.getKeyframes()).find((ks) => ks.some((k) => k.transform && k.transform !== "none"))).filter(Boolean);
+      const xy = (t) => { const m = /translate\(([-\d.]+)px, ([-\d.]+)px\) scale\(([\d.]+)\)/.exec(t); return m ? [+m[1], +m[2], +m[3]] : null; };
+      const straight = trips.every((ks) => { const a = xy(ks[0].transform), h = xy(ks[1].transform);
+        return a && h && Math.hypot(a[0], a[1]) > 1 && Math.abs(h[0] - a[0] / 2) < 0.5 && Math.abs(h[1] - a[1] / 2) < 0.5 && ks.every((k) => xy(k.transform)[2] === 1); });
+      const shuffle = { moving: Mahjong.moving(), trips: trips.length, straight, raised: document.querySelectorAll(".tile.moving").length };
       Mahjong.settle();
       const t0 = Mahjong.timeNow();
       Mahjong.removeOnePair();
       const gone = [...document.querySelectorAll(".tile.gone")];
       return { deal, shuffle, pair: { gone: gone.length, fading: gone.filter((e) => e.getAnimations().length === 1).length, flat: flat(gone), took: t0 - Mahjong.timeNow() } };
     });
-    check("mahjong, Visual FX off, Animations on: the deal, a shuffle and a matched pair are told by fading, nothing flies, and the pair takes no time off",
-      calm.deal.fxOff && calm.deal.dealing && calm.deal.fading === 144 && calm.deal.flat && calm.deal.inPlace && calm.shuffle.moving === 144 && calm.shuffle.flat && calm.shuffle.raised === 0 &&
+    check("mahjong, Visual FX off, Animations on: the deal and a matched pair are told by fading; a shuffle's tiles travel to their places, straight and no larger, over the rest; the pair takes no time off",
+      calm.deal.fxOff && calm.deal.dealing && calm.deal.fading === 144 && calm.deal.flat && calm.deal.inPlace &&
+      calm.shuffle.trips > 50 && calm.shuffle.moving === calm.shuffle.trips && calm.shuffle.straight && calm.shuffle.raised === calm.shuffle.trips &&
       calm.pair.gone === 2 && calm.pair.fading === 2 && calm.pair.flat && calm.pair.took === 0, calm);
     await done(q, "calm");
   }

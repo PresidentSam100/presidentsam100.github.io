@@ -5,9 +5,9 @@
 // pot, and moves and pushes are counted; Undo takes a step back; a pot in the
 // sun blooms; the last pot in the sun pots the shed, keeping the fewest moves,
 // and the card waits a moment for Space, which goes on to the next shed (R
-// again, Backspace the sheds); paused, the arrows do nothing; with Visual FX
-// on the gardener and the pot slide to their cells, with it off they're there
-// at once; on a phone the pad and a swipe walk him.
+// again, Backspace the sheds); paused, the arrows do nothing; the gardener
+// and the pot slide to their cells with Visual FX on and off alike; on a
+// phone the pad and a swipe walk him.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/potting-shed/", opts);
@@ -105,14 +105,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("potting-shed: paused, the arrows don't walk the gardener; resumed, they do", m1 === m0 && m2 === m0 - 1, { m0, m1, m2 });
   await done(p, "pause");
 
-  // ---- Visual FX: on, a step slides; off, it's there at once
+  // ---- a step slides, with Visual FX on and off alike (where he goes is play)
   const slide = {};
   for (const off of [false, true]) {
     const q = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:potting-shed", off ? "1" : "0"); } catch (e) {} }, off) });
     slide[off ? "off" : "on"] = await q.evaluate(() => { PottingShed.start(2); PottingShed.step(-1, 0); return PottingShed.tweening(); });
     await done(q, "FX " + (off ? "off" : "on"));
   }
-  check("potting-shed: with Visual FX on a step slides to the next cell; with it off the gardener is there at once", slide.on === true && slide.off === false, slide);
+  check("potting-shed: a step slides to the next cell with Visual FX on and with it off", slide.on === true && slide.off === true, slide);
 
   // ---- on a phone: the pad walks him, and so does a swipe
   {

@@ -243,9 +243,9 @@
   function tint(hex,a){ const n=parseInt(hex.slice(1),16); return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")"; }
 
   const svg=$("boardSvg");
-  // ---- Visual FX on (RM_ON() is true when it's off): a move slides its
-  // piece across from the cell it left and a captured piece shrinks away
-  // under it. With FX off the board simply changes.
+  // ---- A move slides its piece across from the cell it left, with Visual FX
+  // on or off (where a piece goes is play); FX on (RM_ON() is true when it's
+  // off) adds a captured piece shrinking away under it.
   function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
   const SLIDE_MS=200, FALL_MS=320;
   let slide=null;   // the last move { from, to, cap, t0 }, while it plays
@@ -254,10 +254,10 @@
   function playSlide(moved){
     if(!slide) return;
     const el=performance.now()-slide.t0;
-    if(!fxOn() || el>=FALL_MS || !moved || !moved.animate){ slide=null; return; }
+    if(el>=FALL_MS || !moved || !moved.animate){ slide=null; return; }
     const a=centroid(slide.from), b=centroid(slide.to);
     svg.appendChild(moved);   // above the cells it passes over
-    if(slide.cap){ const p=slide.cap, g=document.createElementNS(SVG,"text");
+    if(slide.cap && fxOn()){ const p=slide.cap, g=document.createElementNS(SVG,"text");
       g.setAttribute("x",b[0].toFixed(1)); g.setAttribute("y",b[1].toFixed(1));
       g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
       g.style.transformBox="fill-box"; g.style.transformOrigin="center";
@@ -396,7 +396,7 @@
     G.log.push({ col, text: text+(checked.some(o=>!anyLegal(o)) ? "#" : checked.length ? "+" : "") });
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.promo) SFX.promote(); else if(captured) SFX.cap(); else SFX.move();
-    slide = fxOn() ? { from:m.from, to:m.to, cap:captured, t0:performance.now() } : null;
+    slide = { from:m.from, to:m.to, cap:captured, t0:performance.now() };
     render(); advance(col);
   }
   function nextAlive(from){ const n=ORDER.length,s=ORDER.indexOf(from); for(let k=1;k<=n;k++){ const o=ORDER[(s+k)%n]; if(G.players[o].alive) return o; } return null; }

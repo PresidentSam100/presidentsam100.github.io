@@ -170,7 +170,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("jackblack daily: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
-  // ---- Visual FX: on, a card slides in from the shoe; off, it simply appears (the same cards, quicker)
+  // ---- Visual FX: on, a card slides in from the shoe, turning as it comes; off, it
+  // still comes from the shoe (where it goes is play), straight
   {
     const q = await lib.open(ctx, base, "games/jackblack/");
     const anim = async () => {
@@ -178,8 +179,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       await q.keyboard.press("Enter");
       // (read as the card comes in, in one look: on a busy machine its .in can
       // be gone again by the time a second look is taken)
-      const a = await q.waitForFunction(() => { const c = document.querySelector("#hands .pc.in"); return c ? getComputedStyle(c).animationName : false; },
-        null, { timeout: 5000, polling: "raf" }).then((h) => h.jsonValue(), () => null);
+      const a = await q.waitForFunction(() => {
+        const c = document.querySelector("#hands .pc.in");
+        if (!c) return false;
+        const s = c.getAnimations().find((x) => !x.animationName);
+        return { css: getComputedStyle(c).animationName, script: s ? s.effect.getKeyframes()[0].transform : null, ms: s ? s.effect.getComputedTiming().endTime : 0 };
+      }, null, { timeout: 5000, polling: "raf" }).then((h) => h.jsonValue(), () => null);
       const t0 = Date.now(); await idle(q);
       return { a, ms: Date.now() - t0 };
     };
@@ -189,8 +194,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.click(".rm-toggle"); await q.waitForTimeout(150);
     const off = await anim();
     const art = await q.evaluate(() => ({ dealer: !!document.querySelector("#dealer .head"), cards: document.querySelectorAll("#felt .pc").length, bob: getComputedStyle(document.getElementById("dealer")).animationName }));
-    check("jackblack: with Visual FX on a card slides in from the shoe; off, it just appears, the dealer holds still, and the table is all still there",
-      on.a === "jb-deal" && off.a === "jb-appear" && art.dealer && art.cards === 4 && art.bob === "none", { on, off, art });
+    check("jackblack: with Visual FX on a card slides in from the shoe, turning; off, it still comes from the shoe as long, straight, the dealer holds still, and the table is all still there",
+      !!on.a && on.a.css === "jb-deal" && !!off.a && off.a.script === "translate(130px, -150px)" && off.a.ms === 300 && art.dealer && art.cards === 4 && art.bob === "none", { on, off, art });
     await q.close();
   }
 
