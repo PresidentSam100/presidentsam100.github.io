@@ -26,13 +26,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     localStorage.setItem("set_best_time_chain", "90000"); localStorage.setItem("set_best_time_junior", "60000");
     localStorage.setItem("hash_daily", "{}"); localStorage.setItem("hash_prefs", "{\"mode\":\"chain\"}");
     // Tall Order: a best in the dark in each mode, and Dark left on (a setting)
-    localStorage.setItem("tallorder_best_bakery_dark", "9"); localStorage.setItem("tallorder_best_rush_dark", "4"); localStorage.setItem("tallorder_dark", "1"); } catch (e) {} });
+    localStorage.setItem("tallorder_best_bakery_dark", "9"); localStorage.setItem("tallorder_best_rush_dark", "4"); localStorage.setItem("tallorder_dark", "1");
+    // Abyss: a best in Descent with Intense and in each way to play Maelstrom, and both switches on (settings)
+    ["abyss_best_descent_intense", "abyss_best_maelstrom", "abyss_best_maelstrom_juggle", "abyss_best_maelstrom_intense", "abyss_best_maelstrom_juggle_intense"].forEach((k) => localStorage.setItem(k, "500"));
+    localStorage.setItem("abyss_intense", "1"); localStorage.setItem("abyss_juggle", "1"); } catch (e) {} });
   const open = (c) => lib.open(c, base, "games/", { waitCorner: false, before: seed });
   const gamePath = (p) => p.evaluate(() => (/\/games\/([^/]+)\//.exec(location.pathname) || [])[1] || null);
   const box = (p) => p.evaluate(() => { const d = document.getElementById("reset-dialog"); return { open: d.open, focus: document.activeElement && document.activeElement.className }; });
   const best = (p) => p.evaluate(() => ({ best: localStorage.getItem("rushhour_best_day"), prefs: localStorage.getItem("sudoku_prefs"),
     hash: ["set_best_time_chain", "set_best_time_junior", "hash_daily"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, hashPrefs: localStorage.getItem("hash_prefs"),
-    dark: ["tallorder_best_bakery_dark", "tallorder_best_rush_dark"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, darkOn: localStorage.getItem("tallorder_dark") }));
+    dark: ["tallorder_best_bakery_dark", "tallorder_best_rush_dark"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length, darkOn: localStorage.getItem("tallorder_dark"),
+    abyss: ["abyss_best_descent_intense", "abyss_best_maelstrom", "abyss_best_maelstrom_juggle", "abyss_best_maelstrom_intense", "abyss_best_maelstrom_juggle_intense"].map((k) => localStorage.getItem(k)).filter((v) => v !== null).length,
+    abyssSwitches: ["abyss_intense", "abyss_juggle"].map((k) => localStorage.getItem(k)).join() }));
 
   // ---- the keys are on the buttons
   let p = await open(ctx);
@@ -88,6 +93,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     cleared.hash === 0 && /chain/.test(cleared.hashPrefs || ""), cleared);
   check("games page: the reset clears Tall Order's bests in the dark, and leaves Dark on as it was",
     cleared.dark === 0 && cleared.darkOn === "1", cleared);
+  check("games page: the reset clears Abyss's bests in Descent with Intense and in every way to play Maelstrom, and leaves its two switches as they were",
+    cleared.abyss === 0 && cleared.abyssSwitches === "1,1", cleared);
   check("games page: Esc in the box hasn't also set off anything else (no game opened)", (await gamePath(p)) === null, await gamePath(p));
 
   // ---- Enter is the random game, from anywhere but a link or a button

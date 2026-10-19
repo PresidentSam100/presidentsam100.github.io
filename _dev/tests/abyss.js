@@ -2,8 +2,9 @@
 // held soft drop lets go when the tab loses focus; the Sprint clock ticks
 // between locks; a 0 is never "a new record"; the buttons' keycaps hide on a
 // touch-only phone; a full row clears at the same pace with Visual FX on and
-// off. Frames are stepped by the test (see STEPPED), so timing doesn't depend
-// on how busy the machine is.
+// off; Maelstrom, its switches, its turns and its fit (see below). Frames are
+// stepped by the test (see STEPPED), so timing doesn't depend on how busy the
+// machine is.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver,"];
 
 // requestAnimationFrame and performance.now on a clock the test advances:
@@ -94,7 +95,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.evaluate(() => { Abyss.start("descent"); Abyss.gameOver(); });
     const over = await shown();
     if (label === "phone") check("abyss: on a touch-only phone the buttons' keycaps are hidden", menu.length === 0 && over.length === 0, { menu, over });
-    else check("abyss: with a keyboard the buttons' keycaps show", menu.length === 4 && over.length === 2, { menu, over });
+    else check("abyss: with a keyboard the buttons' keycaps show (four modes, two switches, Dive)", menu.length === 7 && over.length === 2, { menu, over });
     check("abyss: the menu's key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
     await ctx.close();
   }
@@ -129,13 +130,17 @@ module.exports = async ({ browser, base, check, lib }) => {
         return +(((r.top + r.bottom) - (b.top + b.bottom)) / 2).toFixed(2);
       });
     }).flat(), pairs);
-    const menu = await off([["#menu .seg button kbd", "button"], ["#menu .playbtn kbd", "button"]]);
+    // (a mode's or a switch's keycap: on its name's line, at the right)
+    const menu = (await q.evaluate(() => [...document.querySelectorAll("#menu .seg button kbd")].filter((e) => e.getClientRects().length).map((e) => {
+      const r = e.getBoundingClientRect(), b = e.closest("button").querySelector("b").getBoundingClientRect();
+      return +(((r.top + r.bottom) - (b.top + b.bottom)) / 2).toFixed(2);
+    }))).concat(await off([["#menu .playbtn kbd", "button"]]));
     await q.evaluate(() => Abyss.start("descent")); await q.waitForTimeout(300);
     const hud = await off([["#hud > span", "#hud"]]);
     await q.keyboard.press("p"); await q.waitForTimeout(300);
     const pause = await off([[".gs-pause:not(.gs-dialog) .gs-pause-card button kbd", "button"]]);
     const mid = (a, n, tol) => a.length === n && a.every((d) => Math.abs(d) <= tol);
-    check("abyss: each mode's keycap sits in the middle of its row and Dive's beside the word, top to bottom", mid(menu, 4, 1), menu);
+    check("abyss: each mode's and switch's keycap sits in the middle of its name's line and Dive's beside the word, top to bottom", mid(menu, 7, 1), menu);
     check("abyss: on the pause card each button's keycap sits in the middle of it, top to bottom", mid(pause, 3, 1), pause);
     check("abyss: the score and its two figures sit in the middle of their box, top to bottom", mid(hud, 3, 1.5), hud);
     // the end card's Dive again: its keycap reads dark on the glow, as Dive's
@@ -172,5 +177,157 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("abyss: a full row takes the same time to clear with Visual FX off as with it on (about a third of a second)",
       frames.on.was === "clearing" && frames.off.was === "clearing" && frames.on.lines === 1 && Math.abs(frames.on.f - frames.off.f) <= 1 && frames.on.f >= 17, frames);
+  }
+
+  // ---- Maelstrom (4): a board shaped like a plus that turns. The menu's 4
+  // picks it, and I and J flip its switches (kept; each greyed where it
+  // doesn't count). A dive starts with one arm open; Q and E turn nothing
+  // until a second opens, every 10 rows; a turn keeps the piece where it is
+  // on the screen, the view turning in a fifth of a second (Visual FX on or
+  // off); with the arm across open, a piece stops at the middle line; a full
+  // column of the core clears as a row does. Juggle with Intense: every arm
+  // open from the start, a piece in each at once, the pieces the keys don't
+  // move sinking on their own; each way to play keeps its own best, saved as
+  // it's passed.
+  {
+    const ctx = await lib.newContext(browser);
+    const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]); } });
+    const sw = () => q.evaluate(() => ({ mode: Abyss.mode(), intense: document.getElementById("opt-intense").getAttribute("aria-pressed"), juggle: document.getElementById("opt-juggle").getAttribute("aria-pressed"),
+      intenseOff: document.getElementById("opt-intense").disabled, juggleOff: document.getElementById("opt-juggle").disabled,
+      kept: ["abyss_mode", "abyss_intense", "abyss_juggle"].map((k) => localStorage.getItem(k)).join() }));
+    await q.keyboard.press("2"); const sprint = await sw();
+    await q.keyboard.press("4"); const mael = await sw();
+    await q.keyboard.press("i"); await q.keyboard.press("j"); const both = await sw();
+    await q.keyboard.press("i"); await q.keyboard.press("j"); const neither = await sw();
+    check("abyss: 4 picks Maelstrom; I and J flip Intense and Juggle (kept), each greyed where it doesn't count (both in Sprint, Juggle outside Maelstrom)",
+      sprint.mode === "sprint" && sprint.intenseOff && sprint.juggleOff && mael.mode === "maelstrom" && !mael.intenseOff && !mael.juggleOff &&
+      both.intense === "true" && both.juggle === "true" && both.kept === "maelstrom,1,1" && neither.intense === "false" && neither.juggle === "false" && neither.kept === "maelstrom,0,0",
+      { sprint, mael, both, neither });
+
+    const single = await q.evaluate(() => {
+      __frames(2); Abyss.start("maelstrom"); __frames(2);
+      const B = Abyss.board(), r = {};
+      r.start = { open: B.open.join(), pieces: B.pieces().filter(Boolean).length, k: B.piece().k, q: Abyss.turn(-1), e: Abyss.turn(1) };
+      // nine rows down already; the tenth (the core's last row, its gap filled by a standing I) opens the east arm
+      Abyss.test.setLines(9);
+      for (let x = 8; x < 18; x++) if (x !== 12) B.test.set(x, 17, 1);
+      B.test.clearPiece(0); B.test.place(0, "I", 1, 2, 2);
+      Abyss.hard();
+      r.clearing = Abyss.state();
+      __frames(30);
+      r.cleared = { state: Abyss.state(), lines: Abyss.lines(), open: B.open.join(), gap: [14, 15, 16, 17].map((y) => B.test.get(12, y) ? 1 : 0).join("") };
+      // E: the east arm to the top, the piece where it was on the screen; the view a little way round, then all the way
+      const p0 = B.piece(), was = { x: p0.x, y: p0.y, r: p0.r };
+      r.turned = Abyss.turn(-1);
+      const p1 = B.piece();
+      r.kept = p1.k === 1 && p1.x === was.x && p1.y === was.y && p1.r === was.r;
+      __frames(6); r.mid = Abyss.view().angle;
+      __frames(12); r.end = Abyss.view().angle;
+      // back to the north arm, the south one open: a piece stops at the middle line
+      Abyss.turn(1); __frames(15);
+      B.openArms(3);
+      B.test.clearPiece(B.top); B.test.place(B.top, "I", 0, 3, -1);
+      Abyss.hard();
+      r.middle = { top: B.top, row12: [11, 12, 13, 14].every((x) => B.test.get(x, 12)), row13: B.test.get(11, 13) };
+      __frames(2);
+      // a full column of the core (x 15, rows 8 to 17) clears too
+      const lines0 = Abyss.lines();
+      for (let y = 9; y < 18; y++) B.test.set(15, y, 1);
+      B.test.clearPiece(B.top); B.test.place(B.top, "O", 0, 6, 7);   // (an O on rows 7-8, columns 14-15)
+      B.test.lock(B.top);
+      __frames(30);
+      r.column = { lines: Abyss.lines() - lines0, gone: [9, 12, 17].every((y) => !B.test.get(15, y)) };
+      r.best = localStorage.getItem("abyss_best_maelstrom");
+      r.score = Abyss.score();
+      return r;
+    });
+    check("abyss, Maelstrom: one arm open, one piece, in it; Q and E turn nothing yet",
+      single.start.open === "true,false,false,false" && single.start.pieces === 1 && single.start.k === 0 && !single.start.q && !single.start.e, single.start);
+    check("abyss, Maelstrom: the tenth row (the core's last, its gap filled) clears, the blocks above coming down one, and opens the east arm",
+      single.clearing === "clearing" && single.cleared.state === "play" && single.cleared.lines === 10 && single.cleared.open === "true,true,false,false" && single.cleared.gap === "0111", single);
+    check("abyss, Maelstrom: Q turns the east arm to the top, the piece kept where it was on the screen, the view turning over a fifth of a second",
+      single.turned && single.kept && single.mid < -0.2 && single.mid > -1.4 && Math.abs(single.end + Math.PI / 2) < 1e-6, single);
+    check("abyss, Maelstrom: with the arm across open, a piece stops at the middle line",
+      single.middle.top === 0 && single.middle.row12 && !single.middle.row13, single.middle);
+    check("abyss, Maelstrom: a full column of the core clears too, and the dive's best is saved as it's passed",
+      single.column.lines === 1 && single.column.gone && Number(single.best) === single.score && single.score > 0, { column: single.column, best: single.best, score: single.score });
+
+    // Juggle and Intense
+    await q.evaluate(() => Abyss.toMenu());
+    await q.keyboard.press("i"); await q.keyboard.press("j");
+    const juggle = await q.evaluate(() => {
+      __frames(2); Abyss.start("maelstrom"); __frames(2);
+      const B = Abyss.board(), r = {};
+      r.open = B.open.join(); r.depth = document.getElementById("hud-depth").textContent;
+      const ys = () => B.pieces().map((p) => p && p.y);
+      r.y0 = ys(); r.n = B.pieces().filter(Boolean).length;
+      __frames(90);
+      r.y1 = ys();
+      return r;
+    });
+    await q.keyboard.press("ArrowDown");
+    juggle.best = await q.evaluate(() => [localStorage.getItem("abyss_best_maelstrom_juggle_intense"), Abyss.score()]);
+    const sank = [1, 2, 3].every((k) => juggle.y1[k] !== null && juggle.y1[k] > juggle.y0[k]);
+    check("abyss, Maelstrom with Juggle and Intense: every arm open at the start, a piece in each, the three the keys don't move sinking on their own, three times as deep (300m)",
+      juggle.open === "true,true,true,true" && juggle.n === 4 && sank && juggle.depth === "300m", juggle);
+    check("abyss, Maelstrom with Juggle and Intense: its best is kept apart from the others",
+      Number(juggle.best[0]) === juggle.best[1] && juggle.best[1] > 0, juggle.best);
+    check("abyss (Maelstrom): no page errors", q.errs.length === 0, q.errs);
+    await ctx.close();
+  }
+
+  // ---- Maelstrom paused: Q and E turn nothing and nothing falls under the
+  // pause card (a pause is no free turn); resumed, it carries on; Esc mid-dive
+  // asks "Leave this game?"
+  {
+    const ctx = await lib.newContext(browser);
+    const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]); } });
+    const look = () => q.evaluate(() => { const B = Abyss.board(), pc = B.piece(); return { top: B.top, angle: +Abyss.view().angle.toFixed(4), y: pc ? pc.y : null, x: pc ? pc.x : null, state: Abyss.state(),
+      paused: !document.querySelector(".gs-pause:not(.gs-dialog)").hidden, dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null }; });
+    await q.evaluate(() => { __frames(2); Abyss.start("maelstrom"); Abyss.board().openArms(2); __frames(2); });
+    await q.keyboard.press("p");
+    const before = await look();
+    await q.keyboard.press("q"); await q.keyboard.press("e"); await q.keyboard.press("ArrowLeft");
+    await q.evaluate(() => __frames(60));
+    const under = await look();
+    await q.evaluate(() => document.querySelector(".gs-pause:not(.gs-dialog) button").click());
+    await q.evaluate(() => __frames(60));
+    const after = await look();
+    await q.keyboard.press("Escape"); await q.evaluate(() => __frames(2));
+    const esc = await look();
+    check("abyss, Maelstrom: under the pause card Q, E and the arrows do nothing and nothing falls; resumed, the piece sinks again; Esc mid-dive asks \"Leave this game?\"",
+      before.paused && under.paused && under.top === before.top && under.angle === before.angle && under.x === before.x && under.y === before.y &&
+      !after.paused && after.y > under.y && esc.dlg === "Leave this game?", { before, under, after, esc });
+    check("abyss (Maelstrom paused): no page errors", q.errs.length === 0, q.errs);
+    await ctx.close();
+  }
+
+  // ---- Maelstrom on a phone: the pad has the two turn buttons (only in
+  // Maelstrom), and they turn the board; the whole plus, with a row above it
+  // for the piece coming in, is on the screen between the score box and the
+  // pad, on phones and on laptops
+  {
+    const fits = [];
+    for (const [w, h, phone] of [[320, 568, 1], [375, 553, 1], [360, 640, 1], [390, 664, 1], [1366, 657, 0], [1280, 600, 0], [1280, 900, 0]]) {
+      const ctx = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const q = await lib.open(ctx, base, "games/abyss/", { before: (pg) => lib.injectScript(pg, "games/abyss/game.js", [HOOK]) });
+      const look = () => q.evaluate(() => {
+        const r = (sel) => { const e = document.querySelector(sel); return e && e.getClientRects().length ? e.getBoundingClientRect() : null; };
+        const v = Abyss.view(), hud = r("#hud"), pad = r("#pad");
+        return { turns: [r("#p-turnl"), r("#p-turnr")].filter(Boolean).length, top: v.cy - 14 * v.cell, bottom: v.cy + 13 * v.cell, left: v.cx - 13 * v.cell, right: v.cx + 13 * v.cell,
+          hud: hud ? hud.bottom : 0, pad: pad ? pad.top : innerHeight, cell: v.cell };
+      });
+      await q.evaluate(() => { Abyss.start("descent"); });
+      const descent = await look();
+      await q.evaluate(() => { Abyss.toMenu(); Abyss.start("maelstrom"); Abyss.board().openArms(2); });
+      await q.waitForTimeout(100);
+      const m = await look();
+      let turned = null;
+      if (phone) { await q.tap("#p-turnl"); turned = await q.evaluate(() => Abyss.board().top); }
+      fits.push({ size: w + "x" + h, ok: m.top >= m.hud - 1 && m.bottom <= m.pad + 1 && m.left >= 0 && m.right <= w && (!phone || (m.turns === 2 && descent.turns === 0 && turned === 1)), m, descentTurns: descent.turns, turned, errs: q.errs.length });
+      await ctx.close();
+    }
+    check("abyss, Maelstrom: on phones the pad's two turn buttons (Maelstrom only) turn the board; at 320 x 568, 375 x 553, 360 x 640, 390 x 664, 1366 x 657, 1280 x 600 and 1280 x 900 the plus fits between the score box and the pad",
+      fits.every((f) => f.ok && !f.errs), fits);
   }
 };

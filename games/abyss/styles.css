@@ -75,6 +75,14 @@ body {
   touch-action: none; user-select: none;
 }
 #pad button:active { background: rgba(42, 122, 156, 0.5); }
+/* the board's turn buttons, Maelstrom's only: there the pad is two rows of
+   four (hold, the two turns, hard drop; left, spin, right, soft drop) */
+#p-turnl, #p-turnr { display: none; }
+#pad.mael { grid-template-columns: repeat(4, 1fr); }
+#pad.mael #p-turnl, #pad.mael #p-turnr { display: block; }
+#pad.mael #p-hold { order: 1; } #pad.mael #p-turnl { order: 2; } #pad.mael #p-turnr { order: 3; } #pad.mael #p-hard { order: 4; }
+#pad.mael #p-left { order: 5; } #pad.mael #p-rot { order: 6; } #pad.mael #p-right { order: 7; } #pad.mael #p-soft { order: 8; }
+#pad.mael button { padding: 12px 0; }
 
 /* ---- panels -------------------------------------------------------------- */
 .panel {
@@ -133,6 +141,23 @@ kbd {
 .seg button .gs-keys kbd, .playbtn .gs-keys kbd { display: block; }
 .seg button.on { border-color: var(--glow); background: rgba(89, 210, 245, 0.08); }
 .seg button.on b { color: var(--glow); }
+/* the four modes two by two, and the two switches side by side under them,
+   each name over its note (four rows of name and note beside each other
+   made the card taller than a laptop's screen); a switch that doesn't count
+   in the picked mode stays in its place, greyed */
+#pick-mode { display: grid; grid-template-columns: 1fr 1fr; }
+.seg.opts { flex-direction: row; }
+.seg.opts button { flex: 1 1 0; }
+#pick-mode button, .seg.opts button { --pt: 7px; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 3px; padding: var(--pt) 11px 7px; }
+#pick-mode button small, .seg.opts button small { text-align: left; }
+/* (the keycap up on the name's line, at the right, so the note has the
+   button's whole width: the name's line 22 px, the keycap 20 px, so a pixel
+   down from the line's top) */
+#pick-mode button, .seg.opts button { position: relative; }
+#pick-mode button b, .seg.opts button b { line-height: 22px; }
+#pick-mode button kbd, .seg.opts button kbd { line-height: 16px; }
+#pick-mode button .gs-keys, .seg.opts button .gs-keys { position: absolute; top: calc(var(--pt) + 1px); right: 9px; }
+.seg.opts button:disabled { opacity: 0.4; cursor: default; }
 
 .playbtn {
   font-family: inherit; font-size: 20px; font-weight: 700; letter-spacing: 4px;
@@ -171,6 +196,29 @@ kbd {
 .card .row button:first-child kbd { background: rgba(4, 16, 28, 0.25); color: #04101c; border-color: transparent; }
 .card .row button:hover { filter: brightness(1.1); }
 .card .row button:active { transform: translateY(1px); }
+
+/* a short screen (a small laptop, a phone): the menu card set closer, so it
+   fits on the screen with nothing left out */
+@media (max-height: 700px) {
+  .panel { padding-bottom: 12px; }
+  .card { padding: 16px 20px 14px; }
+  .card .tag { margin: 2px 0 8px; }
+  .card .how { line-height: 1.45; margin-bottom: 8px; }
+  .card .keys { line-height: 1.8; margin-bottom: 8px; }
+  .pick .seg { gap: 6px; margin-bottom: 8px; }
+  .playbtn { padding: 9px; }
+  .bests { margin-top: 8px; }
+}
+/* and a small phone, closer still */
+@media (max-width: 400px) and (max-height: 700px) {
+  .panel { padding-bottom: 6px; }
+  .card { padding: 14px 14px 12px; }
+  .card .how { font-size: 14px; }
+  #pick-mode button, .seg.opts button { --pt: 6px; padding: 6px 9px; gap: 2px; }
+  #pick-mode button b, .seg.opts button b { line-height: 20px; }
+  #pick-mode button .gs-keys, .seg.opts button .gs-keys { top: var(--pt); }   /* (the keycap as tall as the line) */
+  .seg button small { font-size: 12px; }
+}
 
 @media (max-width: 640px) {
   .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */

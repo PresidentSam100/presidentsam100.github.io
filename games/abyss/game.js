@@ -4,10 +4,16 @@
    A faithful modern engine under the water: 7-bag randomizer, SRS
    rotation with the full wall-kick tables, hold + five-piece preview,
    sonar ghost, DAS/ARR key repeat, 500ms lock delay with capped
-   resets, the classic gravity curve, and two modes:
+   resets, the classic gravity curve, and four modes:
 
-     descent  marathon: the score climbs, the depth gauge sinks
-     sprint   clear 40 lines against the clock (best time wins)
+     descent    marathon: the score climbs, the depth gauge sinks
+     sprint     clear 40 lines against the clock (best time wins)
+     krill      Descent with 1-, 2- and 3-cell pieces in the bag too
+     maelstrom  a plus-shaped board that turns (maelstrom.js)
+
+   Two switches on the menu: Intense starts Descent much faster, and
+   Maelstrom with all four arms open and a little faster; Juggle gives every
+   open arm of Maelstrom a piece of its own at once.
 
    The board is 10x20 with two hidden rows above. Screen y grows
    downward, so the SRS kick tables (written y-up) are applied with
@@ -24,9 +30,21 @@
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
   };
-  var bestScore = window.GameShell ? GameShell.best("abyss_best_descent", { higher: true }) : null;
-  var bestKrill = window.GameShell ? GameShell.best("abyss_best_krill", { higher: true }) : null;
   var bestTime = window.GameShell ? GameShell.best("abyss_best_sprint", { higher: false }) : null;
+  // a best score for each way to play: Descent one per Intense setting,
+  // Maelstrom one per Intense and Juggle setting
+  var bests = {};
+  function bestFor(key) {
+    if (!window.GameShell || !key) return null;
+    return bests[key] || (bests[key] = GameShell.best(key, { higher: true }));
+  }
+  function bestKey(m) {
+    m = m || mode;
+    if (m === "descent") return intense ? "abyss_best_descent_intense" : "abyss_best_descent";
+    if (m === "krill") return "abyss_best_krill";
+    if (m === "maelstrom") return "abyss_best_maelstrom" + (juggle ? "_juggle" : "") + (intense ? "_intense" : "");
+    return null;
+  }
 
   // ---- the rules ---------------------------------------------------------
   var COLS = 10, VIS = 20, HID = 2, ROWS = VIS + HID;
@@ -76,14 +94,22 @@
   };
   var GRAV = [800, 717, 633, 550, 467, 383, 300, 217, 133, 100, 83, 83, 83, 67, 67, 67, 50, 50, 50, 33];
   var LINE_SCORE = [0, 100, 300, 500, 800];
+  // (Maelstrom can clear more than four lines at once: 400 more for each)
+  function lineScore(n) { return n <= 4 ? LINE_SCORE[n] : 800 + (n - 4) * 400; }
   // full lines dissolve for the same time with Visual FX on or off (a quicker
   // clear with it off would make every Sprint quicker)
   var CLEAR_S = 0.32;
 
   // ---- state ----------------------------------------------------------------
   var state = "menu";               // menu | play | clearing | over
+  var MODES = ["descent", "sprint", "krill", "maelstrom"];
   var mode = store.get("abyss_mode", "descent");
-  if (["descent", "sprint", "krill"].indexOf(mode) === -1) mode = "descent";
+  if (MODES.indexOf(mode) === -1) mode = "descent";
+  // the two switches (settings, kept); Intense counts in Descent and
+  // Maelstrom, Juggle in Maelstrom
+  var intense = store.get("abyss_intense", "0") === "1", juggle = store.get("abyss_juggle", "0") === "1";
+  var startLevel = 1;               // Intense starts deeper down the gravity curve
+  var mael = null;                  // Maelstrom's board (maelstrom.js), made on its first dive
   var grid, piece, hold, canHold, queue, bag;
   var score, lines, level, b2b, playMs, goal = 40;
   var gravT, lockT, lockResets, grounded, lowY = 0;   // lowY: the lowest row this piece has reached
@@ -129,6 +155,7 @@
   // ---- moves --------------------------------------------------------------------
   function tryMove(dx) {
     if (state !== "play") return false;
+    if (mode === "maelstrom") return mael.move(dx);
     if (fits(piece.t, piece.r, piece.x + dx, piece.y)) {
       piece.x += dx;
       onShift();
@@ -137,7 +164,13 @@
     return false;
   }
   function tryRotate(dir) {
-    if (state !== "play" || piece.t === "O" || piece.t === "P") return false;
+    if (state !== "play") return false;
+    if (mode === "maelstrom") {
+      var kick = mael.rotate(dir);
+      if (kick) sndPing(1400 + (kick - 1) * 60, 0.05, 0.05);
+      return !!kick;
+    }
+    if (piece.t === "O" || piece.t === "P") return false;
     var from = piece.r, to = (piece.r + (dir > 0 ? 1 : 3)) % 4;
     var table = (piece.t === "I" ? KI : KJ)[from + ">" + to];
     for (var i = 0; i < table.length; i++) {
@@ -157,10 +190,12 @@
   }
   function softStep() {
     if (state !== "play") return;
+    if (mode === "maelstrom") { if (mael.soft()) { score++; hudDom(); } return; }
     if (fits(piece.t, piece.r, piece.x, piece.y + 1)) { piece.y++; score++; gravT = 0; hudDom(); }
   }
   function hardDrop() {
     if (state !== "play") return;
+    if (mode === "maelstrom") { maelHard(); return; }
     var from = piece.y, to = ghostY();
     score += (to - from) * 2;
     if (fx()) {
@@ -180,7 +215,9 @@
     lock();
   }
   function doHold() {
-    if (state !== "play" || !canHold) return;
+    if (state !== "play") return;
+    if (mode === "maelstrom") { if (mael.hold()) sndPing(900, 0.06, 0.06); return; }
+    if (!canHold) return;
     var t = piece.t;
     if (hold) {
       var h = hold; hold = t; spawn(h);
@@ -216,7 +253,7 @@
       // they collapse too
       if (!fx()) clearMark = { rows: full.slice(), life: 0.5 };
       var n = full.length;
-      var base = LINE_SCORE[n] * level;
+      var base = lineScore(n) * level;
       if (n === 4) { if (b2b) base = Math.floor(base * 1.5); b2b = true; }
       else b2b = false;
       score += base;
@@ -232,7 +269,7 @@
           }
         });
       }
-      var newLevel = 1 + Math.floor(lines / 10);
+      var newLevel = startLevel + Math.floor(lines / 10);
       if (mode !== "sprint" && newLevel > level) { level = newLevel; sndBell(); }
       // the sprint is won here: its time is taken and saved now, and the
       // results come up after the sweep (finish)
@@ -280,18 +317,20 @@
     audio();
     grid = new Uint8Array(ROWS * COLS);
     queue = []; bag = []; hold = null; canHold = true;
-    score = 0; lines = 0; level = 1; b2b = false; playMs = 0;
+    startLevel = !intense ? 1 : mode === "descent" ? 8 : mode === "maelstrom" ? 3 : 1;
+    score = 0; lines = 0; level = startLevel; b2b = false; playMs = 0;
     particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null; dropTrail = null;
     das.L = null; das.R = null; softHeld = false;
     $("menu").hidden = true; $("over").hidden = true;
     $("hud").hidden = false;
     $("pad").hidden = !("ontouchstart" in window) && !navigator.maxTouchPoints;
+    $("pad").classList.toggle("mael", mode === "maelstrom");
     var b = scoreBest();
     startBest = b ? GameShell.store.getNum(b.key, NaN) : NaN;
     sprintDone = false; sprintBest = false; sprintMs = 0;
     state = "play";
     resize();                            // the pad may have appeared
-    spawnNext();
+    if (mode === "maelstrom") maelStart(); else spawnNext();
     hudDom();
   }
 
@@ -301,7 +340,7 @@
   // closed mid-run, or a quit during the sweep, keeps it. startBest is the
   // best as this run began (NaN: none yet), which "a new record" compares to.
   var startBest = NaN, sprintDone = false, sprintBest = false, sprintMs = 0;
-  function scoreBest() { return mode === "descent" ? bestScore : mode === "krill" ? bestKrill : null; }
+  function scoreBest() { return bestFor(bestKey()); }
   function newRecord() { return score > 0 && (isNaN(startBest) || score > startBest); }   // a 0 is no record, even the first time
   function liveBest() {
     var b = scoreBest();
@@ -320,7 +359,7 @@
     var b = scoreBest();
     var isBest = b ? newRecord() : false;
     if (b) b.submit(score);
-    $("over-title").textContent = mode === "sprint" ? "Lost with the current" : "Crush depth";
+    $("over-title").textContent = mode === "sprint" ? "Lost with the current" : mode === "maelstrom" ? "Swallowed whole" : "Crush depth";
     $("over-msg").textContent = score.toLocaleString();
     $("over-stats").textContent =
       lines + " rows cleared · " + (level * 100) + "m down\n" +
@@ -350,6 +389,7 @@
 
   // ---- update ------------------------------------------------------------------------
   function update(dt) {
+    if (mode === "maelstrom") { maelUpdate(dt); return; }
     if (state === "clearing") {
       sweep = Math.min(1, sweep + dt / 0.28);
       clearT -= dt;
@@ -403,11 +443,19 @@
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     var padEl = $("pad");
     // fixed-position elements have no offsetParent; measure instead
-    var padB = (padEl && !padEl.hidden && padEl.getClientRects().length) ? 128 : 24;
+    var padOn = padEl && !padEl.hidden && padEl.getClientRects().length;
+    var padB = padOn ? 128 : 24;
     cell = Math.floor(Math.min((H - 86 - padB) / VIS, W / (W > 700 ? 22 : 13)));
     cell = Math.max(14, Math.min(34, cell));
     wellX = Math.round(W / 2 - (COLS * cell) / 2);
     wellY = Math.round(Math.max(W > 700 ? 64 : 104, (H - padB - VIS * cell) / 2 + 30));
+    // Maelstrom's plus: 26 cells across and down, a row's room above it for
+    // the piece coming in, clear of the HUD and (two rows of it) the pad
+    var mTop = W > 700 ? 64 : 104, mPad = padOn ? padEl.getBoundingClientRect().height + 8 : 16;
+    var room = H - mTop - mPad;
+    mcell = Math.max(8, Math.min(30, Math.floor(Math.min(room / 27, (W - 8) / 26))));
+    mcx = Math.round(W / 2);
+    mcy = Math.round(mTop + mcell + Math.max(0, (room - 27 * mcell) / 2) + 13 * mcell);
     if (!sea) sea = A.makeSea(W, H); else sea.resize(W, H);
   }
   window.addEventListener("resize", resize);
@@ -416,6 +464,7 @@
   function py(gy) { return wellY + (gy - HID) * cell; }
 
   function stackHeight() {
+    if (mode === "maelstrom") return mael ? maelDanger() : 0;
     for (var y = HID; y < ROWS; y++) {
       for (var x = 0; x < COLS; x++) if (grid[y * COLS + x]) return ROWS - y;
     }
@@ -428,6 +477,7 @@
     var danger = state === "play" || state === "clearing" ? Math.max(0, (stackHeight() - 14) / 6) : 0;
     sea.draw(g, t, dt, fx(), danger);
     if (state === "menu") return;
+    if (mode === "maelstrom") { drawMael(dt); return; }
 
     // the well: a glass column with a faint sonar grid
     g.fillStyle = "rgba(2,10,20,0.62)";
@@ -555,6 +605,302 @@
     particles = particles.filter(function (p) { return p.life > 0; });
 
     drawSide();
+  }
+
+  // ---- Maelstrom ------------------------------------------------------------------------
+  // The board and its rules are maelstrom.js; here it's timed, scored and
+  // drawn. The view turns with the board (a fifth of a second, with Visual FX
+  // on or off: where the arms go is play), while the piece of a single dive
+  // stays put on the screen as the board turns under it.
+  var mcell = 14, mcx = 0, mcy = 0, TAU = Math.PI * 2;
+  var view = { from: 0, to: 0, t: 1 }, TURN_S = 0.2;
+  var mClear = null, mTrail = null, mStreak = null, mOpened = null;   // what's being drawn: dissolving cells, a hard drop's trail (FX on) or streak (FX off), a newly opened arm
+  function viewAngle() { var e = 1 - Math.pow(1 - view.t, 3); return view.from + (view.to - view.from) * e; }
+
+  function maelStart() {
+    if (!mael) mael = AbyssMaelstrom.create({ TYPES: TYPES, ROT: ROT, KI: KI, KJ: KJ, BASE: BASE }, {
+      lock: function () { sndThud(); },
+      clear: maelCleared,
+      collapsed: maelCollapsed,
+      over: function () { if (state === "play" || state === "clearing") gameOver(); }
+    });
+    view = { from: 0, to: 0, t: 1 };
+    mClear = null; mTrail = null; mStreak = null; mOpened = null;
+    mael.start({ juggle: juggle, all: intense });
+  }
+  // full lines: scored as Descent scores them, then they dissolve (the same
+  // time with Visual FX on or off) and the blocks beyond them slide in
+  function maelCleared(n, cells) {
+    var base = lineScore(n) * level;
+    if (n >= 4) { if (b2b) base = Math.floor(base * 1.5); b2b = true; } else b2b = false;
+    score += base;
+    lines += n;
+    sndClear(n);
+    state = "clearing";
+    sweep = 0;
+    mClear = {};
+    cells.forEach(function (i) { mClear[i] = true; });
+    if (fx()) {
+      cells.forEach(function (i) {
+        var x = i % 26, y = Math.floor(i / 26), t2 = TYPES[mael.grid[i] - 1] || "I";
+        particles.push({ kind: "pk", bx: x + 0.5, by: y + 0.5, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3,
+          life: 0.9 + Math.random() * 0.5, t: t2 });
+      });
+    }
+    var newLevel = startLevel + Math.floor(lines / 10);
+    if (newLevel > level) { level = newLevel; sndBell(); }
+    hudDom();
+    return CLEAR_S * 1000;
+  }
+  // the lines are gone: a new arm opens every 10 rows (all four from the
+  // start in Intense), clockwise from the first
+  function maelCollapsed() {
+    mClear = null;
+    if (state === "clearing") state = "play";
+    if (!intense) {
+      var was = mael.open.filter(Boolean).length;
+      if (mael.openArms(1 + Math.floor(lines / 10))) {
+        mOpened = { k: was, life: 1.2 };
+        sndBell();
+      }
+    }
+  }
+  function maelUpdate(dt) {
+    if (state !== "play" && state !== "clearing") return;
+    playMs += dt * 1000;
+    if (state === "clearing") sweep = Math.min(1, sweep + dt / 0.28);
+    else {
+      // held keys: DAS then ARR, and the held soft drop
+      ["L", "R"].forEach(function (k) {
+        var d = das[k];
+        if (!d) return;
+        d.t += dt * 1000;
+        while (d.t >= d.next) { tryMove(k === "L" ? -1 : 1); d.next += 40; }
+      });
+      if (softHeld) {
+        softT += dt * 1000;
+        while (softT >= 40) { softStep(); softT -= 40; }
+      }
+    }
+    if (state === "play" || state === "clearing") mael.update(dt * 1000, gravInterval());
+  }
+  function maelHard() {
+    var p = mael.piece(), to = mael.ghostY();
+    if (!p || to == null) return;
+    score += (to - p.y) * 2;
+    var cells = mael.cellsOf({ t: p.t, r: p.r, x: p.x, y: to });
+    if (fx()) {
+      if (to > p.y) mTrail = { t: p.t, r: p.r, x: p.x, k: p.k, from: p.y, to: to, life: TRAIL_LIFE };
+    } else if (to > p.y) {
+      mStreak = { t: p.t, k: p.k, cells: cells, dist: to - p.y, life: 0.35 };
+    }
+    sndWhoosh();
+    mael.hard();
+    hudDom();
+  }
+  // Q (-1) and E (+1): the board turns a quarter (or on past closed arms)
+  function turnBoard(dir) {
+    if (state !== "play" || mode !== "maelstrom" || P.isPaused()) return false;
+    if (!mael.turn(dir)) { sndPing(300, 0.08, 0.05); return false; }
+    var cur = viewAngle(), want = -mael.top * Math.PI / 2;
+    var d = ((want - cur) % TAU + TAU) % TAU;          // 0..2pi: the way round clockwise
+    if (dir < 0 && d > 0) d -= TAU;                    // the other way for a turn to the left
+    view = { from: cur, to: cur + d, t: 0 };
+    sndPing(520, 0.14, 0.07); sndPing(390, 0.16, 0.05, 0.05);
+    return true;
+  }
+  // how high the danger is (the sea's red tint): the fullest open arm, rows from its edge
+  function maelDanger() {
+    var most = 0, g0 = mael.grid;
+    for (var k = 0; k < 4; k++) {
+      if (!mael.open[k]) continue;
+      for (var ly = 0; ly < 8; ly++) {
+        var any = false;
+        for (var lx = 0; lx < 10 && !any; lx++) { var b = AbyssMaelstrom.toBoard(k, lx, ly); if (g0[b[0] + b[1] * 26]) any = true; }
+        if (any) { most = Math.max(most, 8 - ly); break; }
+      }
+    }
+    return 14 + most * 0.75;   // (an arm full to its edge reads like a well 20 deep)
+  }
+
+  // the board's cell (bx, by) on the canvas while it's turned: drawn in the
+  // turned frame, its top-left corner from the middle
+  function mx(b) { return (b - 13) * mcell; }
+  var ARMS = [[8, 0, 10, 8], [18, 8, 8, 10], [8, 18, 10, 8], [0, 8, 8, 10]];   // each arm's rectangle, in board cells
+  function drawMael(dt) {
+    var c = mcell, M = mael, grid0 = M.grid, k, x, y, i;
+    view.t = Math.min(1, view.t + dt / TURN_S);
+    g.save();
+    g.translate(mcx, mcy);
+    g.rotate(viewAngle());
+    // the arms: glass where they're open, rock while they're closed; the core
+    for (k = 0; k < 4; k++) {
+      var a = ARMS[k];
+      g.fillStyle = M.open[k] ? "rgba(2,10,20,0.62)" : "rgba(26,22,18,0.82)";
+      g.fillRect(mx(a[0]), mx(a[1]), a[2] * c, a[3] * c);
+      if (!M.open[k]) {
+        // (sealed: a hatch of rock across it)
+        g.strokeStyle = "rgba(120,100,80,0.25)"; g.lineWidth = 1;
+        g.beginPath();
+        for (var h = -a[3]; h < a[2]; h += 2) {
+          g.moveTo(mx(a[0] + Math.max(0, h)), mx(a[1] + Math.max(0, -h)));
+          g.lineTo(mx(a[0] + Math.min(a[2], h + a[3])), mx(a[1] + Math.min(a[3], a[2] - h)));
+        }
+        g.stroke();
+      }
+    }
+    g.fillStyle = "rgba(2,10,20,0.62)";
+    g.fillRect(mx(8), mx(8), 10 * c, 10 * c);
+    // the sonar grid, faint
+    g.strokeStyle = "rgba(80,160,220,0.07)"; g.lineWidth = 1;
+    g.beginPath();
+    for (i = 1; i < 26; i++) {
+      var lo = i < 8 || i > 18 ? 8 : 0, hi = i < 8 || i > 18 ? 18 : 26;
+      g.moveTo(mx(i), mx(lo)); g.lineTo(mx(i), mx(hi));
+      g.moveTo(mx(lo), mx(i)); g.lineTo(mx(hi), mx(i));
+    }
+    g.stroke();
+    // the middle lines, where a piece stops once the arm across from its own is open
+    g.strokeStyle = "rgba(120,220,255,0.28)"; g.lineWidth = 1.5;
+    g.setLineDash([c * 0.3, c * 0.3]);
+    g.beginPath();
+    if (M.open[0] && M.open[2]) { g.moveTo(mx(8), mx(13)); g.lineTo(mx(18), mx(13)); }
+    if (M.open[1] && M.open[3]) { g.moveTo(mx(13), mx(8)); g.lineTo(mx(13), mx(18)); }
+    g.stroke();
+    g.setLineDash([]);
+    // the plus's outline
+    g.strokeStyle = "rgba(80,200,255,0.35)"; g.lineWidth = 2;
+    g.beginPath();
+    [[8, 0], [18, 0], [18, 8], [26, 8], [26, 18], [18, 18], [18, 26], [8, 26], [8, 18], [0, 18], [0, 8], [8, 8]].forEach(function (pt, n) {
+      if (n) g.lineTo(mx(pt[0]), mx(pt[1])); else g.moveTo(mx(pt[0]), mx(pt[1]));
+    });
+    g.closePath(); g.stroke();
+    // a newly opened arm glows a moment
+    if (mOpened) {
+      mOpened.life -= dt;
+      if (mOpened.life <= 0) mOpened = null;
+      else {
+        var oa = ARMS[mOpened.k];
+        g.fillStyle = "rgba(120,235,255," + (0.22 * Math.min(1, mOpened.life)).toFixed(3) + ")";
+        g.fillRect(mx(oa[0]), mx(oa[1]), oa[2] * c, oa[3] * c);
+      }
+    }
+    // the settled blocks (the dissolving ones fading, with FX on; dimmed, off)
+    for (y = 0; y < 26; y++) {
+      for (x = 0; x < 26; x++) {
+        var v = grid0[x + y * 26];
+        if (!v) continue;
+        if (mClear && mClear[x + y * 26]) {
+          g.globalAlpha = fx() ? Math.max(0, 1 - sweep * 1.15) : 0.4;
+          A.cell(g, mx(x), mx(y), c, TYPES[v - 1], { dim: false });
+          g.globalAlpha = 1;
+        } else A.cell(g, mx(x), mx(y), c, TYPES[v - 1], { dim: true });
+      }
+    }
+    // a hard drop's trail (FX on) or still streak (FX off), in its arm
+    if (mTrail) {
+      mTrail.life -= dt;
+      if (mTrail.life <= 0 || !fx()) mTrail = null;
+      else {
+        var tr = mTrail, fade = tr.life / TRAIL_LIFE, span = tr.to - tr.from;
+        for (var ty = tr.from; ty < tr.to; ty++) {
+          var near = (ty - tr.from + 1) / (span + 1);
+          g.globalAlpha = 0.35 * fade * near * near;
+          mael.cellsOf({ t: tr.t, r: tr.r, x: tr.x, y: ty }).forEach(function (cc) {
+            if (cc[1] < 0) return;
+            var b = AbyssMaelstrom.toBoard(tr.k, cc[0], cc[1]);
+            A.cell(g, mx(b[0]), mx(b[1]), c, tr.t, { dim: true });
+          });
+        }
+        g.globalAlpha = 1;
+      }
+    }
+    if (mStreak) {
+      mStreak.life -= dt;
+      if (mStreak.life <= 0) mStreak = null;
+      else {
+        var sp = A.SPECIES[mStreak.t], tops = {};
+        mStreak.cells.forEach(function (cc) { if (!(cc[0] in tops) || cc[1] < tops[cc[0]]) tops[cc[0]] = cc[1]; });
+        Object.keys(tops).forEach(function (lx) {
+          var bot = tops[lx], topY = Math.max(0, bot - mStreak.dist);
+          if (bot <= topY) return;
+          var b0 = AbyssMaelstrom.toBoard(mStreak.k, +lx, topY), b1 = AbyssMaelstrom.toBoard(mStreak.k, +lx, bot);
+          var grd = g.createLinearGradient(mx(b0[0] + 0.5), mx(b0[1] + 0.5), mx(b1[0] + 0.5), mx(b1[1] + 0.5));
+          grd.addColorStop(0, sp.glow + "0)");
+          grd.addColorStop(1, sp.glow + "0.3)");
+          g.fillStyle = grd;
+          var x0 = Math.min(b0[0], b1[0]), y0 = Math.min(b0[1], b1[1]), x1 = Math.max(b0[0], b1[0]) + 1, y1 = Math.max(b0[1], b1[1]) + 1;
+          var thinX = x1 - x0 === 1, inset = c * 0.2;
+          g.fillRect(mx(x0) + (thinX ? inset : 0), mx(y0) + (thinX ? 0 : inset), (x1 - x0) * c - (thinX ? 2 * inset : 0), (y1 - y0) * c - (thinX ? 0 : 2 * inset));
+        });
+        drawn.drop = true;
+      }
+    }
+    // the pieces of a juggle, each in its own arm (with the board as it turns)
+    var pcs = M.pieces();
+    if (M.juggle) {
+      pcs.forEach(function (p) { if (p) drawMaelPiece(p, true); });
+    }
+    // the clearing's plankton (FX on)
+    particles.forEach(function (pt) {
+      pt.life -= dt;
+      pt.bx += (pt.vx || 0) * dt; pt.by += (pt.vy || 0) * dt;
+      var sp2 = A.SPECIES[pt.t];
+      g.fillStyle = sp2.glow + Math.max(0, pt.life * 0.8) + ")";
+      g.beginPath(); g.arc(mx(pt.bx), mx(pt.by), c * 0.16, 0, 7); g.fill();
+    });
+    particles = particles.filter(function (pt) { return pt.life > 0; });
+    g.restore();
+    // a single dive's piece stays put on the screen while the board turns under it
+    if (!M.juggle && pcs[M.top] && state === "play") drawMaelPiece(pcs[M.top], false);
+    drawMaelSide();
+  }
+  // a piece and (the one the keys move) its sonar echo: in the turned frame
+  // (inBoard) or on the screen as the top arm stands
+  function drawMaelPiece(p, inBoard) {
+    var c = mcell, ctl = p === mael.piece() && state === "play";
+    function at(lx, ly) {
+      if (inBoard) { var b = AbyssMaelstrom.toBoard(p.k, lx, ly); return [mx(b[0]), mx(b[1])]; }
+      return [mcx + (lx + 8 - 13) * c, mcy + (ly - 13) * c];
+    }
+    if (ctl) {
+      var gy = mael.ghostY(p);
+      if (gy !== p.y) mael.cellsOf({ t: p.t, r: p.r, x: p.x, y: gy }).forEach(function (cc) {
+        if (cc[1] < 0) return;
+        var q = at(cc[0], cc[1]); A.cell(g, q[0], q[1], c, p.t, { ghost: true });
+      });
+    }
+    mael.cellsOf(p).forEach(function (cc) {
+      if (cc[1] < -1) return;
+      var q = at(cc[0], cc[1]);
+      if (!ctl && inBoard) g.globalAlpha = 0.85;      // (the pieces the keys don't move, a touch fainter)
+      A.cell(g, q[0], q[1], c, p.t);
+      g.globalAlpha = 1;
+    });
+  }
+  // hold and next, in the plus's two top corners on the screen
+  function drawMaelSide() {
+    var c = mcell, sq = 8 * c - 10, mini = Math.max(6, Math.floor(c * 0.62));
+    var lx = mcx - 13 * c + 2, rx = mcx + 5 * c + 8, ty = mcy - 13 * c + 2;
+    function box(bx, by, bw, bh, label) {
+      g.fillStyle = "rgba(2,10,20,0.62)";
+      A.rr(g, bx, by, bw, bh, 8); g.fill();
+      g.strokeStyle = "rgba(80,200,255,0.3)"; g.lineWidth = 1.5;
+      A.rr(g, bx, by, bw, bh, 8); g.stroke();
+      g.fillStyle = "rgba(140,200,230,0.75)";
+      g.font = Math.max(8, Math.min(10, Math.round(c * 0.75))) + "px 'Share Tech Mono', 'Courier New', monospace";
+      g.textAlign = "left";
+      g.fillText(label, bx + 6, by + 12);
+    }
+    function drawMini(t, bx, by, s) {
+      var n = BASE[t].n, offx = bx + (4 - n) * s * 0.5, offy = by + (n === 4 ? 0 : s * 0.4);
+      ROT[t][0].forEach(function (cc) { A.cell(g, offx + cc[0] * s, offy + cc[1] * s, s, t); });
+    }
+    box(lx, ty, sq, Math.min(sq, mini * 2.6 + 22), "HOLD");
+    if (mael.hold) drawMini(mael.hold, lx + (sq - mini * 4) / 2, ty + 18, mini);
+    box(rx, ty, sq, sq, "NEXT");
+    var q = mael.queue, step = (sq - 22) / 3;
+    for (var i = 0; i < 3; i++) if (q[i]) drawMini(q[i], rx + (sq - mini * 4) / 2, ty + 18 + i * step, Math.min(mini, step / 2.4));
   }
 
   // hold + next drawn as little sonar screens beside the well
@@ -719,16 +1065,25 @@
           e.preventDefault(); if (!e.repeat) hardDrop(); return;
         case "KeyC": case "ShiftLeft": case "ShiftRight":
           e.preventDefault(); if (!e.repeat) doHold(); return;
+        // (Maelstrom: Q turns the board to the left, E to the right)
+        case "KeyQ":
+          if (mode === "maelstrom") { e.preventDefault(); if (!e.repeat) turnBoard(-1); }
+          return;
+        case "KeyE":
+          if (mode === "maelstrom") { e.preventDefault(); if (!e.repeat) turnBoard(1); }
+          return;
       }
       return;
     }
     if (e.repeat) return;
     if (state === "menu") {
-      if (e.key === "1" || e.key === "2" || e.key === "3") {
-        mode = ["descent", "sprint", "krill"][+e.key - 1];
+      if (e.key >= "1" && e.key <= "4" && e.key.length === 1) {
+        mode = MODES[+e.key - 1];
         store.set("abyss_mode", mode);
         paintMenu();
-      } else if (e.key === "Enter") startRun(mode);
+      } else if (e.code === "KeyI") $("opt-intense").click();
+      else if (e.code === "KeyJ") $("opt-juggle").click();
+      else if (e.key === "Enter") startRun(mode);
       return;
     }
     // the results: Backspace back to the modes; Esc (unclaimed) leaves for the games page
@@ -763,17 +1118,31 @@
   bindPad("p-soft", function () { softStep(); softHeld = true; softT = -140; }, function () { softHeld = false; });
   bindPad("p-hard", function () { hardDrop(); });
   bindPad("p-hold", function () { doHold(); });
+  bindPad("p-turnl", function () { turnBoard(-1); });
+  bindPad("p-turnr", function () { turnBoard(1); });
 
   // ---- menu ----------------------------------------------------------------------------
   function paintMenu() {
     document.querySelectorAll("#pick-mode button").forEach(function (b) {
       b.classList.toggle("on", b.getAttribute("data-v") === mode);
     });
-    var parts = [];
-    if (bestScore && bestScore.get()) parts.push("Descent " + bestScore.get().toLocaleString());
-    if (bestKrill && bestKrill.get()) parts.push("Krill " + bestKrill.get().toLocaleString());
-    if (bestTime && bestTime.get()) parts.push("Sprint " + fmtTime(bestTime.get()));
-    $("bests").textContent = parts.length ? "records: " + parts.join(" · ") : "the sonar log is empty";
+    // the switches: on or off, and out of reach where they don't count
+    [["opt-intense", intense, mode === "descent" || mode === "maelstrom"], ["opt-juggle", juggle, mode === "maelstrom"]].forEach(function (o) {
+      var b = $(o[0]);
+      b.classList.toggle("on", o[1]);
+      b.setAttribute("aria-pressed", o[1] ? "true" : "false");
+      b.disabled = !o[2];
+    });
+    // the records, each mode's for the switches as they are
+    var parts = [], sw = [];
+    MODES.forEach(function (m) {
+      if (m === "sprint") { if (bestTime && bestTime.get()) parts.push("Sprint " + fmtTime(bestTime.get())); return; }
+      var b = bestFor(bestKey(m));
+      if (b && b.get()) parts.push(m.charAt(0).toUpperCase() + m.slice(1) + " " + b.get().toLocaleString());
+    });
+    if (intense) sw.push("intense");
+    if (juggle) sw.push("juggle");
+    $("bests").textContent = parts.length ? "records" + (sw.length ? " (" + sw.join(", ") + ")" : "") + ": " + parts.join(" · ") : "the sonar log is empty";
   }
   function toMenu() {
     state = "menu";
@@ -787,6 +1156,12 @@
       store.set("abyss_mode", mode);
       paintMenu();
     });
+  });
+  $("opt-intense").addEventListener("click", function () {
+    intense = !intense; store.set("abyss_intense", intense ? "1" : "0"); paintMenu();
+  });
+  $("opt-juggle").addEventListener("click", function () {
+    juggle = !juggle; store.set("abyss_juggle", juggle ? "1" : "0"); paintMenu();
   });
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
@@ -818,11 +1193,16 @@
     rotate: tryRotate,
     hard: hardDrop,
     holdNow: doHold,
+    turn: turnBoard,
+    board: function () { return mael; },
+    view: function () { return { angle: viewAngle(), t: view.t, cell: mcell, cx: mcx, cy: mcy }; },
+    switches: function () { return { intense: intense, juggle: juggle }; },
     test: {
       fill: function (visRow, cols) {           // paint cells on a visible row
         for (var i = 0; i < cols.length; i++) grid[(visRow + HID) * COLS + cols[i]] = 1;
       },
       setGoal: function (n) { goal = n; hudDom(); },
+      setLines: function (n) { lines = n; hudDom(); },
       setGrav: function (ms) { gravOverride = ms; },
       setPiece: function (t) { piece = { t: t, r: 0, x: t === "O" ? 4 : 3, y: 0 }; },
       // the Visual FX off marks: what the last frame drew, and time left (s)
