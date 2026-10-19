@@ -16,7 +16,10 @@
 //   ask to be drawn as text (U+FE0E), where a phone may draw an emoji;
 // - the same emoji on every device: a picture a computer draws flat but a
 //   phone in colour (⚙ 🖐 🏷 👁 ❤ ...) says which it is, colour (U+FE0F)
-//   among other emoji, flat (U+FE0E) where it is a mark in a set colour.
+//   among other emoji, flat (U+FE0E) where it is a mark in a set colour;
+// - every game's page and its "← Games" button start with a web font the
+//   page loads, not the device's own face (Segoe UI here, San Francisco on
+//   an iPhone, Roboto on Android: a different look on each).
 module.exports = async ({ browser, base, check, lib }) => {
   const fs = require("fs"), path = require("path");
   const PICTURES = "⚙🖐🖼⛓⛏✖✈🏷⌨❤✂🏟👁🖱🛠⚠🕳☀↔↕↩❄";
@@ -75,7 +78,15 @@ module.exports = async ({ browser, base, check, lib }) => {
       const y = box.t + parseFloat(cs.top) + parseFloat(cs.marginTop) + parseFloat(cs.height) / 2;
       marks.push({ t, shape: cs.content !== "none" && parseFloat(cs.width) > 0, off: +Math.max(Math.abs(x - (box.l + box.r) / 2), Math.abs(y - (box.t + box.b) / 2)).toFixed(2) });
     }
-    return { tsa, arrow, marks };
+    // the web fonts the page asks for, and the first face of its text and its back link
+    const urls = Array.from(document.querySelectorAll('link[href*="fonts.googleapis"]')).map((l) => l.href);
+    for (const sh of Array.from(document.styleSheets)) { try { for (const r of Array.from(sh.cssRules)) if (r.href && /fonts\.googleapis/.test(r.href)) urls.push(r.href); } catch (e) {} }
+    const fams = new Set();
+    urls.forEach((u) => { for (const m of decodeURIComponent(u).matchAll(/family=([^:&]+)/g)) fams.add(m[1].replace(/\+/g, " ")); });
+    const first = (el) => getComputedStyle(el).fontFamily.split(",")[0].trim().replace(/^["']|["']$/g, "");
+    const web = { body: first(document.body), back: back ? first(back) : null, loads: [...fams] };
+    web.ok = fams.has(web.body) && (!back || fams.has(web.back));
+    return { tsa, arrow, marks, web };
   }, MARKS);
 
   // lend taller faces: whose letters move in their box, or whose box grows?
@@ -123,13 +134,14 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   const SHAPED = (l) => l.marks.every((m) => m.shape && m.off <= 0.5);
   const pages = lib.gamePages();
-  const bad = { tsa: [], arrow: [], marks: [], lent: [], control: [] };
+  const bad = { tsa: [], arrow: [], marks: [], lent: [], control: [], web: [] };
   for (const g of pages) {
     const p = await lib.open(ctx, base, "games/" + g);
     const l = await look(p);
     if (l.tsa !== "100%") bad.tsa.push(g + " " + l.tsa);
     if (!l.arrow || !l.arrow.shape || /←/.test(l.arrow.text) || !(Math.abs(l.arrow.off) <= 1)) bad.arrow.push(g + " " + JSON.stringify(l.arrow));
     if (!SHAPED(l)) bad.marks.push(g + " " + JSON.stringify(l.marks));
+    if (!l.web.ok) bad.web.push(g + " " + JSON.stringify(l.web));
     const s = await lent(p);
     if (s.moved.length) bad.lent.push(g + ": " + s.moved.slice(0, 4).join(", "));
     if (!(s.grew >= 3)) bad.control.push(g + " " + s.grew);
@@ -147,6 +159,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const n = pages.length + 2;
   check("every page (" + n + ") keeps its type sizes when a phone turns on its side (text-size-adjust 100%)", bad.tsa.length === 0, bad.tsa);
   check("every game's \"← Games\" arrow is a shape, not a lent character, its middle within 1px of the capitals' middle (" + pages.length + " pages)", bad.arrow.length === 0, bad.arrow);
+  check("every game's page and its \"← Games\" button start with a web font the page loads, not the device's own (" + pages.length + " pages)", bad.web.length === 0, bad.web);
   check("every button that is just ◀ ▶ ▲ ▼ ● ⌫ or the like on a first screen has its shape laid over the button's middle (within 0.5px)", bad.marks.length === 0, bad.marks);
   check("with taller faces lent for the marks and emoji, no label's letters move in their box and no box changes height (" + n + " pages)", bad.lent.length === 0, bad.lent);
   check("(the taller lent faces arrive: a control line outside the fix grows by 3px or more on every page)", bad.control.length === 0, bad.control);

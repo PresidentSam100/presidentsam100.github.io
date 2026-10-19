@@ -23,7 +23,7 @@
   --cols: 9;
   --raised: inset -1px -1px var(--dark), inset 1px 1px var(--hi), inset -2px -2px var(--shadow), inset 2px 2px var(--lite);
   --sunken: inset -1px -1px var(--hi), inset 1px 1px var(--shadow), inset -2px -2px var(--lite), inset 2px 2px var(--dark);
-  --ui: Tahoma, "MS Sans Serif", "Microsoft Sans Serif", "Segoe UI", Geneva, Verdana, sans-serif;
+  --ui: "Pixelify Sans", Tahoma, "MS Sans Serif", "Microsoft Sans Serif", "Segoe UI", Geneva, Verdana, sans-serif;
 }
 
 * {
@@ -147,7 +147,7 @@ body {
 }
 
 .led {
-  font-family: "Courier New", ui-monospace, Consolas, monospace;
+  font-family: "Pixelify Sans", "Courier New", ui-monospace, Consolas, monospace;
   font-weight: 700;
   font-size: 1.7rem;
   line-height: 1;

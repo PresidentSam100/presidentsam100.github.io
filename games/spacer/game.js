@@ -731,7 +731,7 @@ class PowerUp {
     ctx.lineWidth = 1.5;
     ctx.strokeRect(this.x - 9, this.y - 9, 18, 18);
     ctx.fillStyle = '#001018';
-    ctx.font = 'bold 13px "Courier New", monospace';
+    ctx.font = 'bold 13px Oxanium, "Courier New", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(POWER_LETTER[this.type], this.x, this.y + 1);
@@ -3125,7 +3125,7 @@ class Game {
       ctx.strokeStyle = '#fff';
       ctx.strokeRect(px - 28, py - 28, 56, 56);
       ctx.fillStyle = '#001018';
-      ctx.font = 'bold 40px "Courier New", monospace';
+      ctx.font = 'bold 40px Oxanium, "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(POWER_LETTER[e.type], px, py + 2);
@@ -3190,7 +3190,7 @@ class Game {
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {
-    ctx.font = 'bold ' + size + 'px "Courier New", monospace';
+    ctx.font = 'bold ' + size + 'px Oxanium, "Courier New", monospace';
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
@@ -3204,7 +3204,7 @@ class Game {
   // "" draws nothing where touch has no way to do it
   keys(ctx, str, x, y, size, color, align = 'left', touch) {
     if (!(window.GameShell && GameShell.drawKeys)) { this.text(ctx, str.replace(/[[\]]/g, ''), x, y, size, color, align); return; }
-    ctx.font = 'bold ' + size + 'px "Courier New", monospace';
+    ctx.font = 'bold ' + size + 'px Oxanium, "Courier New", monospace';
     ctx.textAlign = align;
     ctx.textBaseline = 'middle';
     ctx.fillStyle = color;
@@ -3215,7 +3215,7 @@ class Game {
   menuItem(ctx, str, x, y, size, color, selected) {
     this.text(ctx, str, x, y, size, color, 'center');
     if (selected) {
-      ctx.font = 'bold ' + size + 'px "Courier New", monospace';
+      ctx.font = 'bold ' + size + 'px Oxanium, "Courier New", monospace';
       ctx.textAlign = 'center';
       ctx.fillStyle = color;
       const w = ctx.measureText(str).width;

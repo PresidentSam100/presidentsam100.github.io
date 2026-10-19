@@ -42,7 +42,7 @@
   // The page's monospace stack (body, styles.css) for the canvas text. A word's
   // scroll is measured in it at spawn and the word drawn in it by drawName,
   // so every canvas font here uses this one constant.
-  const MONO = '"SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace';
+  const MONO = '"Xanh Mono", "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace';
 
   // Bottom layout: the death line and ship sit above the bottom HUD bar.
   const FLOOR_Y = () => H - 122; // death line: words landing here cost a life

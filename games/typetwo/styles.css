@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Xanh+Mono&display=swap");
 :root {
   --bg: #120c24;       /* midnight violet: the wizard's night */
   --bg2: #1d1440;
@@ -13,7 +13,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  font-family: "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace;
+  font-family: "Xanh Mono", "SFMono-Regular", "Cascadia Code", Consolas, "Courier New", monospace;
   background: radial-gradient(1200px 700px at 82% -6%, #35256b 0%, var(--bg2) 45%, var(--bg) 100%);
   color: var(--text);
   overflow: hidden;

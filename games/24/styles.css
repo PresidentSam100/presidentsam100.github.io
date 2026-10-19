@@ -17,14 +17,14 @@ body {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 14px; padding: 56px 12px 24px;
   background: radial-gradient(ellipse at 50% 30%, #3b3f4a 0%, #1f2229 55%, #121418 100%);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif;
   color: #d6dae4;
   -webkit-tap-highlight-color: transparent;
 }
 
 .nav-back-games {
   position: fixed; top: 12px; left: 12px; z-index: 99999;
-  text-decoration: none; font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.3px;
+  text-decoration: none; font: 700 15px/1 "Archivo", system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: 0.3px;
   color: #eef2fb; background: linear-gradient(180deg, var(--shell-hi), var(--shell));
   border: 1px solid #0c1428; border-radius: 12px; padding: 8px 14px 9px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.25), 0 2px 0 #0a1122;
@@ -51,7 +51,7 @@ body {
 }
 .brand {
   margin: calc(var(--pw) * 0.03) 0 calc(var(--pw) * 0.025);
-  font: 800 calc(var(--pw) * 0.045)/1 "Arial Black", "Segoe UI", system-ui, sans-serif;
+  font: 400 calc(var(--pw) * 0.045)/1 "Archivo Black", "Arial Black", "Segoe UI", system-ui, sans-serif;
   letter-spacing: 0.22em; color: #dfe5f2;
   text-shadow: 0 1px 0 rgba(0,0,0,0.5);
 }

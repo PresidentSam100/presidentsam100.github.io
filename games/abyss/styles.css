@@ -16,7 +16,7 @@
 html, body { height: 100%; }
 
 body {
-  font-family: "Segoe UI", system-ui, sans-serif;
+  font-family: "Exo 2", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
   overflow: hidden;
   background: var(--deep);
@@ -43,7 +43,7 @@ body {
      high); Courier New sets its figures high in their line, so each is
      lowered that much */
   display: flex; gap: 22px; align-items: center;
-  font-family: "Courier New", monospace;
+  font-family: "Share Tech Mono", "Courier New", monospace;
   background: rgba(4, 16, 28, 0.75);
   border: 1px solid var(--glow-dim); border-radius: 8px;
   padding: 6px 20px;
@@ -113,7 +113,7 @@ html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
 .card .keys kbd { padding: 1.5px 6px 0.5px; }
 
 kbd {
-  font-family: "Courier New", monospace; font-size: 11px;
+  font-family: "Share Tech Mono", "Courier New", monospace; font-size: 11px;
   background: rgba(89, 210, 245, 0.12); color: var(--glow);
   border: 1px solid var(--glow-dim); border-radius: 4px; padding: 1px 6px;
 }
@@ -149,11 +149,11 @@ kbd {
 .playbtn kbd { background: rgba(4, 16, 28, 0.25); color: #04101c; border-color: transparent; }
 .playbtn b { position: relative; top: -1px; }   /* (the word's bold letters sit a pixel low in their line: lifted, the keycap left be) */
 
-.bests { margin-top: 12px; font-size: 13px; color: var(--muted); min-height: 17px; text-align: center; font-family: "Courier New", monospace; }
+.bests { margin-top: 12px; font-size: 13px; color: var(--muted); min-height: 17px; text-align: center; font-family: "Share Tech Mono", "Courier New", monospace; }
 
 .card .big {
   font-size: 40px; font-weight: 700; color: var(--glow);
-  font-family: "Courier New", monospace; margin: 8px 0 2px;
+  font-family: "Share Tech Mono", "Courier New", monospace; margin: 8px 0 2px;
   text-shadow: 0 0 18px rgba(89, 210, 245, 0.5);
 }
 .card .stats { font-size: 14px; color: var(--muted); margin: 4px 0 16px; white-space: pre-line; line-height: 1.6; }

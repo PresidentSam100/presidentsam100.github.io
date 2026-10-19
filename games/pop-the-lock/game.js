@@ -562,10 +562,10 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     if (state === State.PLAY) {
-      ctx.font = `800 ${R * 0.5}px "Segoe UI", system-ui, sans-serif`;
+      ctx.font = `800 ${R * 0.5}px "Outfit", system-ui, sans-serif`;
       ctx.fillText(score, cx, cy - R * 0.04);
       ctx.fillStyle = "rgba(255,255,255,0.7)";
-      ctx.font = `700 ${R * 0.13}px "Segoe UI", system-ui, sans-serif`;
+      ctx.font = `700 ${R * 0.13}px "Outfit", system-ui, sans-serif`;
       const remain = popsNeeded - popsDone;
       ctx.fillText(`${remain} TO UNLOCK`, cx, cy + R * 0.34);
     }

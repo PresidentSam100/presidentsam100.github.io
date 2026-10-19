@@ -10,7 +10,7 @@ html, body {
   height: 100%;
   background: #05030f;
   color: #fff;
-  font-family: "Courier New", monospace;
+  font-family: "Oxanium", "Courier New", monospace;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -76,7 +76,7 @@ html, body {
 }
 
 .ctl kbd {
-  font-family: "Courier New", monospace;
+  font-family: "Oxanium", "Courier New", monospace;
   font-size: 12px;
   font-weight: bold;
   color: #dfe7ff;

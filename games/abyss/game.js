@@ -563,7 +563,7 @@
       g.strokeStyle = "rgba(80,200,255,0.3)"; g.lineWidth = 1.5;
       A.rr(g, bx, by, bw, bh, 8); g.stroke();
       g.fillStyle = "rgba(140,200,230,0.75)";
-      g.font = "600 10px 'Courier New', monospace";
+      g.font = "10px 'Share Tech Mono', 'Courier New', monospace";
       g.textAlign = "left";
       g.fillText(label, bx + 8, by + 14);
     }

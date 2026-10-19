@@ -24,7 +24,7 @@ html, body {
 }
 
 body {
-  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Outfit", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
   user-select: none;

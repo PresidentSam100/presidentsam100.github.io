@@ -1697,7 +1697,7 @@ function drawPoliceCar(row, top) {
     roundRect(cabX + 3, y0 + d - 26, cabW - 6, 8, 2); ctx.fill();
     ctx.strokeStyle = "#d9d9de"; ctx.lineWidth = 3; // ladder along the roof
     ctx.beginPath(); ctx.moveTo(x + w * 0.08, y0 - 10); ctx.lineTo(x + w * 0.66, y0 - 10); ctx.stroke();
-    ctx.fillStyle = "#fff"; ctx.font = "bold 8px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#fff"; ctx.font = "bold 8px Grandstander, 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
     ctx.fillText("FIRE", x + w * (facingRight ? 0.4 : 0.6), y0 + d - 6);
     ctx.fillStyle = flash ? "#ff2b2b" : "#7a0f0f"; // flashing beacon on the cab roof
     roundRect(cabX + cabW * 0.28, y0 - 20, cabW * 0.44, 7, 3); ctx.fill();
@@ -1719,7 +1719,7 @@ function drawPoliceCar(row, top) {
     }
     ctx.fillStyle = "rgba(255,255,255,.5)";
     roundRect(cabX + cabW * 0.44, y0 - 21, cabW * 0.12, 7, 2); ctx.fill();
-    ctx.fillStyle = "#1b1b22"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center";
+    ctx.fillStyle = "#1b1b22"; ctx.font = "bold 9px Grandstander, 'Trebuchet MS', sans-serif"; ctx.textAlign = "center";
     ctx.fillText("POLICE", x + w / 2, y0 + d - 3);
   }
   ctx.fillStyle = "#fff3b0"; // headlights on the leading edge
@@ -1999,7 +1999,7 @@ function drawEagle() {
 
 // ---------- HUD / overlays ----------
 function textCenter(s, x, y, size, color) {
-  ctx.font = "bold " + size + "px 'Trebuchet MS', sans-serif";
+  ctx.font = "bold " + size + "px Grandstander, 'Trebuchet MS', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.lineWidth = Math.max(3, size * 0.14); ctx.strokeStyle = "rgba(0,0,0,.55)";
   ctx.strokeText(s, x, y);
@@ -2009,7 +2009,7 @@ function textCenter(s, x, y, size, color) {
 // (GameShell.drawKeys), outlined like the rest of the caption; `touch` is
 // drawn instead on a touch-only device ("" for nothing)
 function keysCenter(s, x, y, size, color, touch) {
-  ctx.font = "bold " + size + "px 'Trebuchet MS', sans-serif";
+  ctx.font = "bold " + size + "px Grandstander, 'Trebuchet MS', sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = color;
   window.GameShell.drawKeys(ctx, s, x, y, { outline: { width: Math.max(3, size * 0.14), color: "rgba(0,0,0,.55)" }, touch: touch });
@@ -2020,7 +2020,7 @@ function drawHUD() {
   const k = scorePopT > 0 ? scorePopT / SCORE_POP_DUR : 0; // 1 at the ding → 0
   const ease = k * (2 - k);                                // easeOutQuad: peak synced to the ding, gentle settle
   textCenter(String(score()), 46, 40, 40 * (1 + 0.55 * ease), "#fff");
-  ctx.font = "bold 13px 'Trebuchet MS', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  ctx.font = "bold 13px Grandstander, 'Trebuchet MS', sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,255,255,.8)";
   ctx.fillText((insane ? "INSANE  ·  " : "") + "BEST " + highScore, 18, 70);
   if (coins > 0) { ctx.fillStyle = "#ffd23d"; ctx.fillText("🪙 " + coins, 18, 88); }
@@ -2047,7 +2047,7 @@ function drawButton(b, fill, label, sub, hi, selected, key) {
   }
   ctx.textBaseline = "middle";
   ctx.fillStyle = "#2c3a18";
-  ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
+  ctx.font = "bold 22px Grandstander, 'Trebuchet MS', sans-serif";
   if (sub == null && hi == null) { // simple centred button (game-over screen)
     const cy = b.y + b.h / 2;
     if (key && !window.GameShell.touchOnly()) {
@@ -2055,12 +2055,12 @@ function drawButton(b, fill, label, sub, hi, selected, key) {
       // name (nothing on a touch-only device: a tap presses it)
       const lw = ctx.measureText(label).width;
       const ks = key.length > 6 ? 12 : 14;                  // (a long one, "SPACE or ENTER", is set a size down)
-      ctx.font = "bold " + ks + "px 'Trebuchet MS', sans-serif";
+      ctx.font = "bold " + ks + "px Grandstander, 'Trebuchet MS', sans-serif";
       const kw = ctx.measureText(key).width + ks * 0.92;   // (the keycap's padding, as drawKeys measures it)
       const x0 = b.x + (b.w - lw - 9 - kw) / 2;
       ctx.textAlign = "left";
       window.GameShell.drawKeys(ctx, "[" + key + "]", x0 + lw + 9, cy + 1);
-      ctx.font = "bold 22px 'Trebuchet MS', sans-serif";
+      ctx.font = "bold 22px Grandstander, 'Trebuchet MS', sans-serif";
       ctx.fillText(label, x0, cy);
     } else {
       ctx.textAlign = "center";
@@ -2071,13 +2071,13 @@ function drawButton(b, fill, label, sub, hi, selected, key) {
   ctx.textAlign = "left";
   ctx.fillText(label, b.x + 18, b.y + b.h / 2 + (sub ? -8 : 0));
   if (sub) {
-    ctx.font = "13px 'Trebuchet MS', sans-serif";
+    ctx.font = "13px Grandstander, 'Trebuchet MS', sans-serif";
     ctx.fillStyle = "rgba(44,58,24,.72)";
     ctx.fillText(sub, b.x + 18, b.y + b.h / 2 + 12);
   }
   if (hi != null) {
     ctx.textAlign = "right";
-    ctx.font = "bold 15px 'Trebuchet MS', sans-serif";
+    ctx.font = "bold 15px Grandstander, 'Trebuchet MS', sans-serif";
     ctx.fillStyle = "rgba(44,58,24,.78)";
     ctx.fillText("BEST " + hi, b.x + b.w - 16, b.y + b.h / 2);
   }
@@ -2095,9 +2095,9 @@ function drawLevel(b, fill, label, sub, selected) {
   }
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = "#2c3a18";
-  ctx.font = "bold 18px 'Trebuchet MS', sans-serif";
+  ctx.font = "bold 18px Grandstander, 'Trebuchet MS', sans-serif";
   ctx.fillText(label, b.x + b.w / 2, b.y + b.h / 2 - 7);
-  ctx.font = "12px 'Trebuchet MS', sans-serif";
+  ctx.font = "12px Grandstander, 'Trebuchet MS', sans-serif";
   ctx.fillStyle = "rgba(44,58,24,.72)";
   ctx.fillText(sub, b.x + b.w / 2, b.y + b.h / 2 + 11);
 }
