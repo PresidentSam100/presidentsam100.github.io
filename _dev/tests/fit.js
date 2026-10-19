@@ -43,6 +43,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const HEAD = {
     "abyss/": ".card h1", "tall-order/": ".card h1", "rose-window/": ".card h1", "mesa-drift/": ".card h1", "stone-garden/": ".card h2", "sowing/": ".card h2", "potting-shed/": ".card h1", "spice-blend/": ".card h2", "tide-pool/": ".card h1", "stopwatch/": ".card h2", "speedle/": ".card-title", "reaction/": ".card h2",
     "tic-tac-toe/": ".modal-overlay.open .modal h2", "departures/": ".card h1", "crazy-ohio/": "header.top h1",
+    "demolition-row/": "#menu .card h2",
   };
   {
     const ctx = await lib.newContext(browser, phone(320, 568));

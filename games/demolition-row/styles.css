@@ -145,6 +145,17 @@
       .btn:focus-visible, .tbtn:focus-visible, .diffsel:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
       .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+      /* the stage list: one row of all 50 that scrolls sideways (a grid of
+         them made the menu too tall for a short laptop or phone), each run of
+         stages (3, 4, 5 colors) a deeper tint; a locked stage is faded, and
+         says why when picked */
+      .stage-grid { display: flex; gap: 4px; max-width: 380px; margin: 0 auto; padding: 2px 2px 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+      .card .group .stage-grid .st { flex: 0 0 34px; min-width: 0; height: 32px; padding: 0; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+      .card .group .stage-grid .st.c4 { background: rgba(214, 236, 255, 0.85); }
+      .card .group .stage-grid .st.c5 { background: rgba(190, 220, 248, 0.9); }
+      .card .group .stage-grid .st.locked { opacity: 0.4; box-shadow: none; }
+      .card .group .stage-grid .st.sel { background: linear-gradient(180deg, #6fd0ff, var(--accent)); color: #fff; }
+      .card p.stage-info { margin: 0.3rem auto 0; font-size: 0.8rem; line-height: 1.35; min-height: 1.35em; max-width: 380px; }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
       /* the CPU difficulty: the browser's arrow swapped for an ice-blue chevron */
       .diffsel { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%232f8fe0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.6rem center / 12px 8px; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 1.9rem 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
@@ -241,6 +252,21 @@
         .card p { font-size: 0.88rem; line-height: 1.4; margin-bottom: 0.6rem; }
         .keys { font-size: 0.76rem; line-height: 1.6; }
         .group { margin: 0.5rem 0; }
+        /* (a card leaves the corner buttons their room: a tall one starts
+           below them and the overlay scrolls, its heading never under them) */
+        .overlay { padding-top: 62px; }
+      }
+      /* a small phone with the browser's bars showing: the same menu, closer set */
+      @media (max-width: 380px) and (max-height: 600px) {
+        .card { padding: 0.65rem 0.85rem; }
+        .card h2 { font-size: 1.35rem; }
+        .stage-grid { padding-bottom: 3px; }
+        .card p { line-height: 1.32; margin: 0.2rem 0 0.4rem; }
+        .group { margin: 0.35rem 0; }
+        #mode-pick { gap: 0.35rem; }
+        .card .group #mode-pick .btn { padding-left: 0.8rem; padding-right: 0.8rem; }
+        .keys { line-height: 1.45; margin-top: 0.3rem; }
+        details.dict-wrap { margin-top: 0.5rem; }
       }
 
 /* While a box asks something ("Leave this game?", "Start over?") it is the

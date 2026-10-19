@@ -150,5 +150,77 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("demolition-row: no page errors (banked power-ups)", p.errs.length === 0, p.errs);
   await p.close();
 
+  // ---- 50-Stage: three runs of stages, 3 colors (1 to 16), then 4 (17 to
+  // 33), then 5 (34 to 50), each run faster stage by stage with its goal line
+  // coming down; no stage starts already clear or with a group of 4 in its
+  // pile. A stage list is open up to the furthest stage reached (saved the
+  // moment it is reached) and a run starts at the stage picked; a locked one
+  // says why. At a laptop's size and a phone's.
+  for (const [label, dev] of [["laptop", {}], ["phone", Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } })]]) {
+    const c = await lib.newContext(browser, dev);
+    const reached = (pg, n) => pg.addInitScript((n) => { try { if (!sessionStorage.getItem("__seeded")) { sessionStorage.setItem("__seeded", "1"); localStorage.setItem("demolitionRow_stageReached", n); } } catch (e) {} }, n);
+    const q = await lib.open(c, base, "games/demolition-row/", { before: (pg) => reached(pg, "18") });
+    const runs = await q.evaluate(() => {
+      const all = [];
+      for (let n = 1; n <= 50; n++) all.push(stageSpec(n));
+      const tier = (a, b) => all.slice(a - 1, b);
+      const falls = (t) => t.every((s, i) => i === 0 || s.fallMs < t[i - 1].fallMs);
+      const goals = (t) => t.every((s, i) => i === 0 || s.goalRows <= t[i - 1].goalRows) && t[0].goalRows > t[t.length - 1].goalRows;
+      return { colors: [1, 16, 17, 33, 34, 50].map((n) => all[n - 1].colors), first: all[0],
+        faster: [falls(tier(1, 16)), falls(tier(17, 33)), falls(tier(34, 50))], lower: [goals(tier(1, 16)), goals(tier(17, 33)), goals(tier(34, 50))] };
+    });
+    check("demolition-row " + label + ": stages 1 to 16 deal 3 colors, 17 to 33 four, 34 to 50 five; in each run the blocks fall faster stage by stage and the goal line comes down (stage 1: clear to 5 rows)",
+      runs.colors.join() === "3,3,4,4,5,5" && runs.faster.every(Boolean) && runs.lower.every(Boolean) && runs.first.goalRows === 5, runs);
+    // the list: 1 to 18 open, the rest locked
+    const list = await q.evaluate(() => { const b = [...document.querySelectorAll("#stage-grid .st")]; return { n: b.length, open: b.filter((x) => !x.classList.contains("locked")).length, sel: (document.querySelector("#stage-grid .st.sel") || {}).textContent }; });
+    await q.click('#stage-grid .st[data-stage="30"]');
+    const locked = await q.evaluate(() => ({ note: document.getElementById("stage-info").textContent, sel: document.querySelector("#stage-grid .st.sel").textContent }));
+    await q.click('#stage-grid .st[data-stage="17"]');
+    const keys = [];
+    if (label === "laptop") {   // (← → step through them; past the last open one, a locked note)
+      await q.keyboard.press("ArrowRight"); keys.push(await q.evaluate(() => document.querySelector("#stage-grid .st.sel").textContent));
+      await q.keyboard.press("ArrowRight"); keys.push(await q.evaluate(() => document.querySelector("#stage-grid .st.sel").textContent + " " + document.getElementById("stage-info").textContent));
+      await q.keyboard.press("ArrowLeft");
+    }
+    check("demolition-row " + label + ": the stage list has all 50, open up to the furthest reached; a locked one, picked, says so and isn't picked" + (label === "laptop" ? "; ← → step through the open ones" : ""),
+      list.n === 50 && list.open === 18 && /Stage 30 is locked/.test(locked.note) && locked.sel !== "30" &&
+      (label !== "laptop" || (keys[0] === "18" && /^18 .*Stage 19 is locked/.test(keys[1]))), { list, locked, keys });
+    await q.click("#play-btn");
+    await q.waitForFunction(() => typeof GAME !== "undefined" && GAME && GAME.players[0] && GAME.players[0].board.piece);
+    const at = await q.evaluate(() => { const b = GAME.players[0].board, used = new Set();
+      b.grid.forEach((row) => row.forEach((x) => { if (x && x.t === "n") used.add(x.c); }));
+      return { stage: b.stage, colors: b.colors, used: [...used].sort().join(), fallMs: b.fallMs, goalRows: CONFIG.rows - 1 - b.opts.goalRow }; });
+    check("demolition-row " + label + ": Play starts the run at the stage picked (17: four colors, in its pile too)",
+      at.stage === 17 && at.colors === 4 && at.used.split(",").every((x) => +x < 4) && at.fallMs === 900 && at.goalRows === 5, at);
+    // every stage, a few times over: its pile is stable and not already clear
+    const piles = await q.evaluate(() => {
+      const b = GAME.players[0].board, bad = [];
+      for (let n = 1; n <= 50; n++) for (let k = 0; k < 6; k++) {
+        GAME.setupStage(b, n);
+        const used = new Set(); b.grid.forEach((row) => row.forEach((x) => { if (x && x.t === "n") used.add(x.c); }));
+        if (belowGoal(b.grid, b.opts.goalRow) || findGroups(b.grid, CONFIG.minGroup).length || [...used].some((x) => x >= stageSpec(n).colors)) bad.push(n);
+      }
+      return bad;
+    });
+    check("demolition-row " + label + ": no stage starts already clear, with a group of 4 in its pile, or with a color it doesn't deal (each of the 50, six times)", piles.length === 0, piles);
+    await q.close();
+    // reaching a stage opens it at once; the Crystal cycles only through the stage's colors
+    const r = await lib.open(c, base, "games/demolition-row/");
+    await r.evaluate(() => { try { localStorage.removeItem("demolitionRow_stageReached"); } catch (e) {} });
+    await r.click('#mode-pick [data-mode="stage"]'); await r.click("#play-btn");
+    await r.waitForFunction(() => typeof GAME !== "undefined" && GAME && GAME.players[0] && GAME.players[0].board.controllable());
+    const cycle = await r.evaluate(() => { const b = GAME.players[0].board; b.piece.mono = true; b.piece.crystalColor = -1; const seen = [];
+      for (let i = 0; i < 7; i++) { b.rotatePiece(1); seen.push(b.piece.crystalColor); } return seen; });
+    await r.evaluate(() => { GAME.players[0].board.cleared = true; });
+    const saved = await r.waitForFunction(() => localStorage.getItem("demolitionRow_stageReached") === "2", null, { timeout: 15000 }).then(() => true, () => false);
+    check("demolition-row " + label + ": stage 1's Crystal cycles through its 3 colors only, and reaching stage 2 opens it in the list at once",
+      cycle.every((x) => x >= 0 && x < 3) && new Set(cycle).size === 3 && saved, { cycle, saved });
+    check("demolition-row " + label + " (stages): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+    await c.close();
+  }
+  const hub = require("fs").readFileSync(require("path").join(lib.ROOT, "games", "index.html"), "utf8");
+  check("demolition-row: the games page's reset clears the stage list's progress too", /"demolitionRow_stageReached"/.test(hub));
+
   await ctx.close();
 };

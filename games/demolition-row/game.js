@@ -30,8 +30,8 @@
       softDropMs: 45, slowFactor: 2.5, slowDurationMs: 9000,
       pts: { normal: 10, stone: 50, star: 100 },
       specialWeights: { iron: 3, crystal: 3, thunder: 2, slow: 2 }, // slow stripped in VS
-      stoneRate: 0.05, starRate: 0.05, stageStoneBonus: 0.004,
-      stage: { startHeight: 5, heightPerStage: 0.1, maxHeight: 7, fillDensity: 0.9, total: 50 },
+      stoneRate: 0.05, starRate: 0.05,
+      stage: { fillDensity: 0.9, total: 50 },   // each stage's colors, speed, stones and goal: stageSpec
       endless: { startHeight: 3, fillDensity: 0.88, levelEverySec: 25, maxLevel: 99 },
       vs: { startHeight: 6, fillDensity: 0.95 },
       cpu: { // reactMs = pace · mistake = chance of a random placement · look = next-piece lookahead weight · lookChance = how often lookahead is used · smart = board-quality eval
@@ -43,6 +43,34 @@
       },
     };
     const COLOR_HEX = ["#ff8c2b", "#34c759", "#3f8cff", "#a25cff", "#ff4db8"]; // orange green blue purple magenta
+    // The 50 stages, in three runs: 3 colors (stages 1 to 16), then 4 (17 to
+    // 33), then 5 (34 to 50), so the first ones are much easier (with fewer
+    // colors, groups of 4 come far more often). Through each run the blocks
+    // fall faster stage by stage, more of them are stone, and the goal line
+    // comes down: clear the pile to 5 rows or fewer in a run's first third, 4
+    // in its second, 3 in its last (never above the starting pile: the
+    // 5-color run starts lower, at 5 rows, so it goes 4, 4, 3). Tuned with the
+    // game's own CPU (normal) playing each stage a dozen times: it clears
+    // stage 1 every time and stage 50 about one time in twelve, falling off
+    // evenly in between (with 5 colors from stage 1, as before, it cleared
+    // stage 1 seven times in twelve and nothing from stage 17 on).
+    const STAGE_TIERS = [
+      { colors: 3, from: 1, to: 16, slowMs: 950, fastMs: 550, startRows: 6, stones: [0.04, 0.1] },
+      { colors: 4, from: 17, to: 33, slowMs: 900, fastMs: 500, startRows: 6, stones: [0.05, 0.11] },
+      { colors: 5, from: 34, to: 50, slowMs: 900, fastMs: 500, startRows: 5, stones: [0.05, 0.1] },
+    ];
+    function stageSpec(n) {
+      const t = STAGE_TIERS.find((x) => n >= x.from && n <= x.to) || STAGE_TIERS[STAGE_TIERS.length - 1];
+      const k = n - t.from, len = t.to - t.from + 1, f = len > 1 ? k / (len - 1) : 0;
+      return { colors: t.colors, fallMs: Math.round(t.slowMs + (t.fastMs - t.slowMs) * f), stones: t.stones[0] + (t.stones[1] - t.stones[0]) * f,
+        goalRows: Math.min(t.startRows - 1, 5 - Math.min(2, Math.floor((3 * k) / len))), startRows: t.startRows };
+    }
+    // The furthest stage a run has reached: the stage list is open up to it
+    // (saved the moment it's reached; the games page's reset clears it).
+    const STAGE_REACHED = "demolitionRow_stageReached";
+    function stageReached() {
+      try { return Math.max(1, Math.min(CONFIG.stage.total, parseInt(localStorage.getItem(STAGE_REACHED), 10) || 1)); } catch (e) { return 1; }
+    }
     const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
     const FALL_ACCEL = 0.00020; // rows per ms^2: gravity for the settle animation
     const FLASH_MS = 150;       // matched group flash duration before it clears
@@ -193,6 +221,8 @@
         this.score = 0; this.gauge = 0; this.pq = []; // pq = powerup queue (one dispensed per piece)
         this.starCount = 0; this.bonusUntil = 0; this.slowUntil = 0;
         this.piece = null; this.fallProgress = 0; this.fallMs = cfg.baseFallMs;
+        this.colors = cfg.colors;   // how many colors this board deals (fewer in early stages)
+        this.stoneRate = null;      // and how many of its blocks are stone (a stage's own; else CONFIG's)
         this.alive = true; this.cleared = false;
         // settle state machine: 'control' | 'falling' | 'flashing'
         this.phase = "control"; this.fallVel = 0; this.chain = 0; this.muted = false; this.clearingThunder = false;
@@ -206,8 +236,8 @@
       bonusActive() { return this.now() < this.bonusUntil; }
       slowActive() { return this.now() < this.slowUntil; }
       effFallMs() { return this.slowActive() ? this.fallMs * this.cfg.slowFactor : this.fallMs; }
-      randColor() { return Math.floor(this.rng() * this.cfg.colors); }
-      stoneRateNow() { return this.cfg.stoneRate + (this.opts.stage || 0) * this.cfg.stageStoneBonus; }
+      randColor() { return Math.floor(this.rng() * this.colors); }
+      stoneRateNow() { return this.stoneRate != null ? this.stoneRate : this.cfg.stoneRate; }   // (a stage sets its own)
 
       // ---- setup / garbage fill ----
       generateRow(density, stoneRate, starRate) {
@@ -219,6 +249,24 @@
         for (let i = 0; i < heightRows; i++) this.grid[this.cfg.rows - 1 - i] = this.generateRow(density, stoneRate, starRate);
         applyGravity(this.grid);
         this.settleInitial();
+      }
+      // A stage's starting pile, rows high: no group of 4 already in it (each
+      // one's cells recoloured, as VS does, not cleared as settleInitial does:
+      // with 3 colors that ate into the pile, and a stage could start below
+      // its own goal), and never one already under the goal line.
+      fillStage(rows, density) {
+        for (let tries = 0; tries < 40; tries++) {
+          this.grid = emptyGrid(this.cfg.cols, this.cfg.rows);
+          for (let i = 0; i < rows; i++) this.grid[this.cfg.rows - 1 - i] = this.generateRow(density, this.stoneRateNow(), 0);
+          applyGravity(this.grid);
+          let groups = findGroups(this.grid, this.cfg.minGroup), guard = 0;
+          while (groups.length && guard++ < 200) {
+            for (const grp of groups) { const [r, c] = grp[Math.floor(this.rng() * grp.length)], cur = this.grid[r][c].c; let nc, t = 0; do { nc = this.randColor(); } while (nc === cur && t++ < 12); this.grid[r][c] = N(nc); }
+            groups = findGroups(this.grid, this.cfg.minGroup);
+          }
+          if (!groups.length && !belowGoal(this.grid, this.opts.goalRow)) return;
+        }
+        this.settleInitial();   // (never seen: a stable pile is found long before)
       }
       // Clear any pre-existing 4+ groups so a stage starts stable (no score).
       settleInitial() { let g = findGroups(this.grid, this.cfg.minGroup); while (g.length) { const all = []; g.forEach((gr) => gr.forEach((co) => all.push(co))); applyClear(this.grid, all); applyGravity(this.grid); g = findGroups(this.grid, this.cfg.minGroup); } }
@@ -272,7 +320,7 @@
         if (!this.controllable()) return;
         dir = dir < 0 ? -1 : 1; const p = this.piece;
         if (p.type === "iron") return;
-        if (p.mono) { const n = p.crystalColor < 0 ? (dir > 0 ? 0 : this.cfg.colors - 1) : ((p.crystalColor + dir) % this.cfg.colors + this.cfg.colors) % this.cfg.colors; p.crystalColor = n; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: n, aug: null }; if (!this.muted) SFX.cycle(); return; }
+        if (p.mono) { const n = p.crystalColor < 0 ? (dir > 0 ? 0 : this.colors - 1) : ((p.crystalColor + dir) % this.colors + this.colors) % this.colors; p.crystalColor = n; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: n, aug: null }; if (!this.muted) SFX.cycle(); return; }
         p.cells = dir > 0 ? rotateCellsCW(p.cells) : rotateCellsCCW(p.cells);
         p.rotOffset = -dir * Math.PI / 2;
         if (!this.muted) SFX.rotate();
@@ -316,7 +364,7 @@
           this.startFalling(); return;
         }
         // a crystal dropped without choosing a color gets a random one
-        if (p.mono && p.crystalColor < 0) { const rc = Math.floor(this.rng() * this.cfg.colors); p.crystalColor = rc; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: rc, aug: null }; }
+        if (p.mono && p.crystalColor < 0) { const rc = Math.floor(this.rng() * this.colors); p.crystalColor = rc; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: rc, aug: null }; }
         this.stampPiece(p);
         this.piece = null;
         this.startFalling(); // animate everything settling, then resolve cascades
@@ -517,13 +565,13 @@
         } else if (p.mono) {
           // Crystal: try every color, keep the color + column that scores best.
           let best = null, color = 0;
-          for (let col = 0; col < b.cfg.colors; col++) {
+          for (let col = 0; col < b.colors; col++) {
             const cells = {}; for (const k of ["C", "U", "D", "L", "R"]) cells[k] = { t: "n", c: col, aug: null };
             const bp = this.bestPlacement(cells, 1);
             if (bp && (!best || bp.score > best.score)) { best = bp; color = col; }
           }
           let c = best ? best.c : p.pivot.c;
-          if (this.rng() < this.d.mistake) { color = Math.floor(this.rng() * b.cfg.colors); c = cMin + Math.floor(this.rng() * (cMax - cMin + 1)); }
+          if (this.rng() < this.d.mistake) { color = Math.floor(this.rng() * b.colors); c = cMin + Math.floor(this.rng() * (cMax - cMin + 1)); }
           plan = { c, rotLeft: 0, color };
         } else {
           const bp = this.bestPlacement(p.cells, 4); let c = bp ? bp.c : p.pivot.c, rot = bp ? bp.rot : 0;
@@ -634,7 +682,7 @@
         const b = this.b, spec = b.nextSpec; if (!spec) return 0;
         let best = -Infinity;
         if (spec.type === "iron") { for (let c = 0; c < b.cfg.cols - 1; c++) { const o = this.ironOutcome(grid, c); if (o) best = Math.max(best, this.boardScore(o)); } }
-        else if (spec.mono) { for (let col = 0; col < b.cfg.colors; col++) { const cells = {}; for (const k of ["C", "U", "D", "L", "R"]) cells[k] = { t: "n", c: col, aug: null }; best = Math.max(best, this.bestImmediate(grid, cells, 1)); } }
+        else if (spec.mono) { for (let col = 0; col < b.colors; col++) { const cells = {}; for (const k of ["C", "U", "D", "L", "R"]) cells[k] = { t: "n", c: col, aug: null }; best = Math.max(best, this.bestImmediate(grid, cells, 1)); } }
         else best = this.bestImmediate(grid, spec.cells, 4);
         return best === -Infinity ? 0 : best;
       }
@@ -983,6 +1031,8 @@
     class Game {
       constructor(opts) {
         this.opts = opts; this.mode = opts.mode; this.players = []; this.state = "playing"; this.last = 0; this.raf = null;
+        // a stage run starts at the stage picked (one the list has open) and goes on to 50
+        this.startStage = Math.max(1, Math.min(stageReached(), opts.startStage || 1));
         this.boardsEl = document.getElementById("boards"); this.boardsEl.innerHTML = "";
         const seed = (Math.random() * 1e9) | 0;
         this.count = this.mode === "vs" ? this.opts.players : 1;
@@ -1002,7 +1052,7 @@
         board.allowSlow = !isVS; board.allowStars = this.mode === "endless";
         // Stage mode kept no best at all: it showed a final score and threw it
         // away. Endless already had one; this gives the other solo mode parity.
-        if (this.mode === "stage") { board.highKey = "demolitionRow_stageBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; this.setupStage(board, 1); }
+        if (this.mode === "stage") { board.highKey = "demolitionRow_stageBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; this.setupStage(board, this.startStage); }
         else if (this.mode === "endless") { board.level = 1; board.elapsed = 0; board.fill(cfg.endless.startHeight, cfg.endless.fillDensity, board.stoneRateNow(), cfg.starRate); board.fallMs = cfg.baseFallMs; board.highKey = "demolitionRow_endlessBest"; board.high = parseInt(this.ls(board.highKey) || "0", 10) || 0; board.spawnPiece(); }
         else { board.wins = (this.opts.carryWins && this.opts.carryWins[i]) || 0; board.matchWins = 0; this.setupVSRound(board); }
 
@@ -1029,10 +1079,13 @@
       fitCanvas(canvas) { const n = this.count || 1; const maxW = this.mode === "vs" ? Math.min(window.innerWidth / n - 18, n >= 3 ? 240 : 300) : Math.min(window.innerWidth - 32, 360); const natural = CONFIG.cols * CONFIG.cell; if (natural > maxW) { const k = maxW / natural; canvas.style.width = natural * k + "px"; canvas.style.height = CONFIG.rows * CONFIG.cell * k + "px"; } }
 
       setupStage(board, stage) {
-        const s = CONFIG.stage; board.opts.stage = stage - 1;
-        board.grid = emptyGrid(CONFIG.cols, CONFIG.rows);
-        board.fill(Math.min(s.maxHeight, Math.round(s.startHeight + (stage - 1) * s.heightPerStage)), s.fillDensity, board.stoneRateNow(), 0);
-        board.fallMs = Math.max(CONFIG.minFallMs, CONFIG.baseFallMs - (stage - 1) * CONFIG.fallDecreasePerStage);
+        const sp = stageSpec(stage); board.opts.stage = stage - 1;
+        board.colors = sp.colors; board.stoneRate = sp.stones;
+        board.opts.goalRow = CONFIG.rows - 1 - sp.goalRows;   // (clear when the pile is goalRows high or less)
+        board.fillStage(sp.startRows, CONFIG.stage.fillDensity);
+        board.fallMs = sp.fallMs;
+        // reaching a stage opens it in the stage list, saved at once
+        if (stage > stageReached()) this.lsSet(STAGE_REACHED, String(stage));
         // power-ups banked (queued, or already showing in Next) carry over to the
         // next stage; a new run is a new board, so it starts with none
         board.stage = stage; board.cleared = false; board.alive = true; board.spawnPiece();
@@ -1088,7 +1141,7 @@
           return this.end("Game Over", "You reached stage " + b.stage + ".\nFinal score: " + b.score + "\nBest: " + Math.max(b.high || 0, b.score));
         }
         if (b.cleared) {
-          if (b.stage >= CONFIG.stage.total) { SFX.matchWin(); return this.end("You Win! 🏆", "Cleared all 50 stages!\nScore: " + b.score); }
+          if (b.stage >= CONFIG.stage.total) { SFX.matchWin(); return this.end("You Win! 🏆", (this.startStage > 1 ? "Cleared stages " + this.startStage + " to 50!" : "Cleared all 50 stages!") + "\nScore: " + b.score); }
           const next = b.stage + 1, kept = b.bankedCount(); SFX.win();
           b.flashBanner("STAGE " + next, "#46e6a0", kept > 1 ? kept + " banked power-ups kept" : kept ? "banked power-up kept" : "");
           this.setupStage(b, next);
@@ -1298,7 +1351,43 @@
     const menu = document.getElementById("menu");
     const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diffs: ["normal", "normal", "normal", "normal"], fmt: 2 };
     function pickGroup(id, attr, cb) { document.getElementById(id).addEventListener("click", (e) => { const btn = e.target.closest("button[" + attr + "]"); if (!btn) return; [...e.currentTarget.querySelectorAll("button")].forEach((b) => b.classList.remove("sel")); btn.classList.add("sel"); cb(btn.getAttribute(attr)); }); }
-    pickGroup("mode-pick", "data-mode", (v) => { sel.mode = v; document.getElementById("vs-opts").style.display = v === "vs" ? "" : "none"; });
+    pickGroup("mode-pick", "data-mode", (v) => { sel.mode = v; document.getElementById("vs-opts").style.display = v === "vs" ? "" : "none"; document.getElementById("stage-opts").style.display = v === "stage" ? "" : "none"; });
+    // The stage list (50-Stage): every stage a run has reached is open, the
+    // rest locked, and a run starts at the one picked. A locked one says why.
+    // ← → step through them (their keys on the line under them that says
+    // what the picked stage asks: its colors, goal and speed).
+    const stageGrid = document.getElementById("stage-grid"), stageInfo = document.getElementById("stage-info");
+    sel.stage = (() => { try { return Math.min(stageReached(), parseInt(localStorage.getItem("demolitionRow_stagePick"), 10) || 1); } catch (e) { return 1; } })();
+    function paintStages(note) {
+      const open = stageReached();
+      if (sel.stage > open) sel.stage = open;
+      if (!stageGrid.children.length) for (let n = 1; n <= CONFIG.stage.total; n++) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "btn st c" + stageSpec(n).colors; b.dataset.stage = String(n); b.textContent = String(n);
+        stageGrid.appendChild(b);
+      }
+      stageGrid.querySelectorAll(".st").forEach((b) => {
+        const n = +b.dataset.stage, shut = n > open;
+        b.classList.toggle("locked", shut); b.classList.toggle("sel", n === sel.stage);
+        b.setAttribute("aria-pressed", n === sel.stage ? "true" : "false");
+        b.setAttribute("aria-label", "Stage " + n + (shut ? ", locked" : ""));
+        b.title = shut ? "Stage " + n + " is locked: reach it in a run to open it" : "Stage " + n + ": " + stageSpec(n).colors + " colors";
+      });
+      // (the picked one in view in the row)
+      const on = stageGrid.querySelector(".st.sel");
+      if (on && stageGrid.clientWidth) stageGrid.scrollLeft = Math.max(0, on.offsetLeft - stageGrid.offsetLeft - (stageGrid.clientWidth - on.offsetWidth) / 2);
+      const sp = stageSpec(sel.stage);
+      stageInfo.textContent = note || (sp.colors + " colors · clear to " + sp.goalRows + " rows · speed " + (CONFIG.baseFallMs / sp.fallMs).toFixed(1) + "x");
+    }
+    function pickStage(n) {
+      if (n < 1 || n > CONFIG.stage.total) return;
+      if (n > stageReached()) { paintStages("🔒 Stage " + n + " is locked. Reach it in a run to open it."); return; }
+      sel.stage = n;
+      try { localStorage.setItem("demolitionRow_stagePick", String(n)); } catch (e) {}
+      paintStages();
+    }
+    stageGrid.addEventListener("click", (e) => { const b = e.target.closest(".st"); if (b) pickStage(+b.dataset.stage); });
+    paintStages();
     pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
     pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
     // per-slot Human/CPU toggle + per-CPU difficulty dropdown
@@ -1353,11 +1442,11 @@
     // dropping GAME (not just stopping its loop) switches the board keys off:
     // handleKey bails without a game, so letters type into the menu's
     // dropdowns again
-    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); }
+    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); }
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";
-      if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null });
+      if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null, startStage: sel.stage });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
     // Menu keys, shown on the buttons: 1 2 3 the mode, Enter plays
@@ -1387,6 +1476,11 @@
           else { sel.ptypes[slot] = "cpu"; sel.diffs[slot] = LEVELS[to]; }
           updateVsOpts();
         }
+      });
+      // (and 50-Stage's stage, its keys on the line about the stage picked)
+      GameShell.rowKeys({
+        active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "stage",
+        rows: [{ step: (d) => pickStage(sel.stage + d), ring: () => stageInfo, shown: () => sel.mode === "stage" }]
       });
       GameShell.rowKeys({
         active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "vs",
