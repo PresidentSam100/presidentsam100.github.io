@@ -587,11 +587,11 @@
   window.addEventListener("keydown", (e) => {
     if (e.repeat) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
-    // Backspace is the Cancel button (its keycap says so): it backs out of
-    // the countdown, a run and the results to setup, though not from under
-    // the pause card. Esc isn't claimed, so it leaves for the games page;
-    // while running, P is the pause key (GameShell handles it).
-    if (e.key === "Backspace" && (state === "countdown" || state === "done" || (state === "running" && !PAUSE.isPaused()))) { e.preventDefault(); quit(); return; }
+    // Backspace on the results is the Settings button (its keycap says so).
+    // Mid-run the way back to setup is the pause card's Menu (it asks first),
+    // so the key throws no run away. Esc isn't claimed, so it leaves for the
+    // games page; while running, P is the pause key (GameShell handles it).
+    if (e.key === "Backspace" && state === "done") { e.preventDefault(); quit(); return; }
     const col = LANE_KEYS.indexOf(e.code);
     if (col === -1) return;
     if (state !== "running" || PAUSE.isPaused()) return;
@@ -601,7 +601,6 @@
   });
 
   $("startBtn").addEventListener("click", () => { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} beginCountdown(); });
-  $("quitBtn").addEventListener("click", quit);
   $("againBtn").addEventListener("click", beginCountdown);
   $("settingsBtn").addEventListener("click", quit);
   // Setup keys, shown on the buttons: 1 2 the mode, 3-6 the density, 7 8 9

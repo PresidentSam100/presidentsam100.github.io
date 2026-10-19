@@ -157,7 +157,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   const cdLeaves = await lib.leftBy(p, 1);   // (counted when its request arrives: later on a busy machine)
   await p.keyboard.press("Backspace"); await p.waitForTimeout(150);
   await p.evaluate(() => { window.__longCountdown = false; });
-  check("crazy-ohio countdown: Esc leaves for the games page, Backspace backs out to setup", cdLeaves === 1 && (await sec()) === "setup" && !(await card(p)), { cdLeaves, sec: await sec() });
+  check("crazy-ohio countdown: Esc leaves for the games page; Backspace throws nothing away (the ⏸ card's Menu is the way back)", cdLeaves === 1 && (await sec()) === "play" && !(await card(p)), { cdLeaves, sec: await sec() });
+  // (that countdown was held long for the look: a fresh page for the run)
+  await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForSelector(".mute-toggle"); await p.waitForTimeout(400);
+  await p.click('#durChoices [data-dur="15"]').catch(() => {});
   await p.click("#startBtn"); await p.waitForTimeout(3800);
   await p.keyboard.press("p"); await p.waitForTimeout(150); const a1 = { sec: await sec(), paused: await card(p) };
   const before = await p.evaluate(() => window.__press || 0);

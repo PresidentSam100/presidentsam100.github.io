@@ -39,7 +39,7 @@ const ALLOW = {
 const CARDS = {
   "2048/": [["#new-game", "N"]],
   "click-tap/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
-  "crazy-ohio/": [["#quitBtn", "⌫"], ["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
+  "crazy-ohio/": [["#againBtn", "Space or Enter"], ["#settingsBtn", "⌫"]],
   "corner-pocket/": [["#againBtn", "Space or Enter"], ["#toMenuBtn", "⌫"], ["#spinReset", "C"], ["#spinDone", "Enter"]],
   "darkroom/": [["#to-gallery", "G"], ["#hud-back", "⌫"], ["#win-next", "Space or Enter"], ["#win-share", "S"], ["#win-menu", "⌫"], ["#gallery-back", "Esc"]],
   "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Space or Enter"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
@@ -305,7 +305,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // ---- Crazy Ohio: Backspace is Cancel during a run too
+  // ---- Crazy Ohio: no Cancel button in a run (the ⏸ card has Menu), and
+  // Backspace there throws nothing away
   {
     const p = await lib.open(ctx, base, "games/crazy-ohio/");
     const sec = () => p.evaluate(() => ["setup", "play", "result"].find((id) => !document.getElementById(id).hidden));
@@ -313,7 +314,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const s1 = await sec();
     await p.keyboard.press("Backspace"); await settle(p, 200);
     const s2 = await sec();
-    check("crazy-ohio: Backspace during a run is its Cancel button (back to setup)", s1 === "play" && s2 === "setup", { s1, s2 });
+    const cancel = await p.evaluate(() => !!document.getElementById("quitBtn"));
+    check("crazy-ohio: a run has no Cancel button (the ⏸ card's Menu goes back), and Backspace during it does nothing", s1 === "play" && s2 === "play" && !cancel, { s1, s2, cancel });
     await p.close();
   }
 
