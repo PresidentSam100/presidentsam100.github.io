@@ -234,6 +234,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: mission 20 brings the white tanks, seen on the mission card and gone from sight once it starts", r.n === 2 && r.onCard && r.gone, r);
   }
 
+  // ---- a white tank stays out of sight when your tank is lost (seen only on the mission card)
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const r = await q.evaluate(() => new Promise((res) => {
+      ToyTanks.start(20); ToyTanks.advance(1700, {});
+      const st = ToyTanks.st(), A = window.ToyTanksArt, orig = A.tank, seen = {};
+      A.tank = function (g, t) { (seen[st.status] = seen[st.status] || []).push(t.kind); return orig.apply(this, arguments); };
+      st.player.alive = false;     // (lost: the next step says so)
+      setTimeout(() => { A.tank = orig; res({ status: st.status, lost: (seen.lost || []).length, white: (seen.lost || []).filter((k) => k === "white").length }); }, 700);
+    }));
+    check("toy-tanks: when your tank is lost the white tanks stay out of sight (the others still drawn)", r.status === "lost" && r.lost > 0 && r.white === 0, r);
+    check("toy-tanks (white tank): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
+  // ---- two shells meet: what's left of their smoke trails lingers and fades,
+  // rather than going with them (Visual FX on)
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:toy-tanks", "0"); } catch (e) {} }) });
+    const r = await q.evaluate(() => new Promise((res) => {
+      ToyTanks.start(); ToyTanks.advance(1700, {});
+      const st = ToyTanks.st(), E = window.ToyTanksEngine;
+      st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0, move: "none" }); });
+      // a clear stretch of floor, 7 tiles of a row, no tank near the line
+      let seg = null;
+      const off = (t, x, y) => { const k = Math.max(x + 0.5, Math.min(x + 6.5, t.x)); return Math.hypot(t.x - k, t.y - (y + 0.5)); };
+      for (let y = 1; y < E.ROWS - 1 && !seg; y++) for (let x = 0; x + 6 < E.COLS && !seg; x++) {
+        let ok = true;
+        for (let dx = 0; dx <= 6 && ok; dx++) if (st.grid[y * E.COLS + x + dx] !== 0) ok = false;
+        if (ok && [st.player].concat(st.enemies).every((t) => off(t, x, y) > 1.2)) seg = { x: x, y: y };
+      }
+      if (!seg) return res({ seg: null });
+      st.shells.push({ id: 90001, x: seg.x + 0.5, y: seg.y + 0.5, vx: 5.2, vy: 0, owner: st.player, bounces: 0, fast: false, age: 1000, enemy: false },
+        { id: 90002, x: seg.x + 6.5, y: seg.y + 0.5, vx: -5.2, vy: 0, owner: st.enemies[0], bounces: 0, fast: false, age: 1000, enemy: true });
+      let t0 = null;
+      const start = st.clock;
+      (function look() {
+        if (t0 == null && !st.shells.length) t0 = st.clock;
+        if (t0 != null && st.clock >= t0 + 450) return res({ seg, met: st.clock - start, parts: ToyTanks.fx().parts });
+        if (st.clock - start > 8000) return res({ seg, met: null });
+        requestAnimationFrame(look);
+      })();
+    }));
+    check("toy-tanks: two shells meet and their smoke trails linger a moment after (0.45 s on, still there)", !!r.seg && r.met != null && r.parts > 0, r);
+    check("toy-tanks (trails): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
   // ---- Visual FX off: the same battle, calmer: shells and tanks still move; no smoke, sparks or shake --------
   for (const off of [false, true]) {
     const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });

@@ -171,7 +171,9 @@
     tanks.forEach(function (t) { list.push({ y: t.y + E.TANK_R, k: 1, t: t }); });
     st.shells.forEach(function (sh) { list.push({ y: sh.y + 0.1, k: 2, sh: sh }); });
     list.sort(function (a, b) { return a.y - b.y || a.k - b.k; });
-    var showAll = st.status === "start" || st.status === "won" || st.status === "lost";
+    // (a white tank is seen on the mission card, before it fades; never again
+    // that mission, a lost tank's end included)
+    var showAll = st.status === "start";
     list.forEach(function (o) {
       if (o.k === 0) A.block(g, o.cork ? sprites.cork : sprites.wood, o.i % COLS, Math.floor(o.i / COLS), s);
       else if (o.k === 1) {
@@ -182,7 +184,7 @@
     });
     // effects: smoke, sparks, flashes (Visual FX on), then the blasts
     parts.forEach(function (p) {
-      var a = Math.max(0, 1 - p.age / p.life);
+      var a = p.fade ? p.fade.a0 * Math.max(0, 1 - (p.age - p.fade.t0) / (p.life - p.fade.t0)) : Math.max(0, 1 - p.age / p.life);
       if (p.t === "smoke") { g.fillStyle = "rgba(235, 228, 214, " + (0.5 * a).toFixed(3) + ")"; g.beginPath(); g.arc(p.x * s, p.y * s, s * (0.08 + 0.16 * (1 - a)), 0, Math.PI * 2); g.fill(); }
       else if (p.t === "spark") { g.fillStyle = "rgba(255, 210, 90, " + a.toFixed(3) + ")"; g.fillRect(p.x * s - 1.5, p.y * s - 1.5, 3, 3); }
       else if (p.t === "chip") { g.fillStyle = p.c; g.globalAlpha = a; g.fillRect(p.x * s - s * 0.06, p.y * s - s * 0.06, s * 0.12, s * 0.12); g.globalAlpha = 1; }
@@ -230,7 +232,7 @@
     var kinds = {}, order = [];
     st.enemies.forEach(function (e) { if (!kinds[e.kind]) { kinds[e.kind] = 0; order.push(e.kind); } kinds[e.kind]++; });
     banner('<span class="b-title">Mission ' + (st.mi + 1) + '</span><span class="b-line">Enemy tanks: ' + st.enemies.length + "</span>" +
-      '<span class="b-kinds">' + order.map(function (k) { return '<span class="b-kind">' + A.badge(k, 22) + (kinds[k] > 1 ? "<b>&times;" + kinds[k] + "</b>" : "") + "</span>"; }).join("") + "</span>");
+      '<span class="b-kinds">' + order.map(function (k) { return '<span class="b-kind">' + A.badge(k, 22) + "<b>&times;" + kinds[k] + "</b></span>"; }).join("") + "</span>");
   }
 
   // ---- a run ----------------------------------------------------------------------------
@@ -354,10 +356,17 @@
     if (st) render();
   }
   function tick(dt) {
+    // a shell gone (two meeting, a wall, a tank): what's left of its trail
+    // lingers and fades out together, rather than going with it
+    if (st) {
+      var live = {};
+      st.shells.forEach(function (sh) { live[sh.id] = 1; });
+      parts.forEach(function (p) { if (p.sid != null && !live[p.sid] && !p.fade) { p.fade = { t0: p.age, a0: Math.max(0, 1 - p.age / p.life) }; p.life = p.age + 650; } });
+    }
     parts.forEach(function (p) { p.age += dt; p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000; p.vx *= 0.94; p.vy *= 0.94; });
     parts = parts.filter(function (p) { return p.age < p.life; });
     // a smoke trail behind each shell (Visual FX on)
-    if (fx() && st) st.shells.forEach(function (sh) { if (Math.random() < 0.45) parts.push({ t: "smoke", x: sh.x - sh.vx * 0.03, y: sh.y - sh.vy * 0.03, vx: 0, vy: 0, age: 0, life: sh.fast ? 520 : 360 }); });
+    if (fx() && st) st.shells.forEach(function (sh) { if (Math.random() < 0.45) parts.push({ t: "smoke", sid: sh.id, x: sh.x - sh.vx * 0.03, y: sh.y - sh.vy * 0.03, vx: 0, vy: 0, age: 0, life: sh.fast ? 520 : 360 }); });
     shake = Math.max(0, shake - dt / 380);
   }
 
