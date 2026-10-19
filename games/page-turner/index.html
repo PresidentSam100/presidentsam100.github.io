@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%90%9B%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Page Turner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Krona+One&family=Encode+Sans:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Page Turner: a bookworm under the falling pages of a picture book. Crawl into one of the holes cut in each page before it lands flat, or be squished; the last worm wriggling wins. A browser game by Sam Lu." />
+    <meta property="og:title" content="Page Turner | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Page Turner: a bookworm under the falling pages of a picture book. Crawl into one of the holes cut in each page before it lands flat, or be squished; the last worm wriggling wins. A browser game by Sam Lu." />
+    <meta name="twitter:card" content="summary" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- A picture book lying open on a nursery rug: its far half stands up and
+     each leaf falls flat onto the half the worms crawl on. The book, the
+     worms and the light through the holes are painted on the canvas by
+     game.js; the page round it is the rug. -->
+<main class="nook" id="nook">
+  <div class="hud" id="hud" hidden>
+    <span class="hud-page">page <b id="hud-page">1</b></span>
+    <span class="hud-worms" id="hud-worms"></span>
+  </div>
+  <div class="stage" id="stage"><canvas id="book" aria-label="The open book: crawl into a hole in the falling page before it lands"></canvas></div>
+  <p class="keys" id="keys"><span class="gs-keys"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to crawl &middot; <kbd class="gs-kbd">P</kbd> pauses</span><span class="gs-touch">touch anywhere and drag to crawl that way</span></p>
+</main>
+<!-- the thumb's stick: wherever a finger lands, dragging from there steers -->
+<div class="stick" id="stick" hidden><span class="knob" id="knob"></span></div>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1>Page Turner</h1>
+    <p class="tag">a bookworm's escape</p>
+    <p class="how">
+      Pages fall flat one after another, with some pictures cut right through. Each page's
+      shadow shows its holes bright where they'll land: get <b>wholly inside one</b> to go
+      through, or be squished. Worms can share a hole, and shove each other out.
+      Pages come faster, with fewer, smaller holes.
+    </p>
+    <div class="seg" id="pick-mode">
+      <button type="button" data-v="party"><b>Party</b><small>outlast three rival worms</small></button>
+      <button type="button" data-v="endless"><b>Endless</b><small>alone: how many pages can you last?</small></button>
+    </div>
+    <div class="levels" id="pick-level">
+      <span class="lbl">rivals</span>
+      <button type="button" data-v="easy">Easy</button>
+      <button type="button" data-v="normal">Normal</button>
+      <button type="button" data-v="hard">Hard</button>
+    </div>
+    <button type="button" class="playbtn" id="play">Open the book</button>
+    <p class="tally" id="tally"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">Squished!</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" class="playbtn" id="again">Again</button>
+      <button type="button" class="ghost" id="to-menu">Menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="engine.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

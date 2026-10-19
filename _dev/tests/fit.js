@@ -46,6 +46,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "demolition-row/": "#menu .card h2",
     "toy-tanks/": "#menu .card h2",
     "switcheroo/": ".card h1",
+    "page-turner/": ".card h1",
   };
   {
     const ctx = await lib.newContext(browser, phone(320, 568));
