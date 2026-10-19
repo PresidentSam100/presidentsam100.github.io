@@ -243,9 +243,11 @@ body::after {
 
 /* ---- panels: menu + report card -------------------------------------- */
 
+/* (the sheet is centred by its own auto margins: one taller than the screen
+   then starts at the top and scrolls, its heading never cut off) */
 .panel {
   position: fixed; inset: 0; z-index: 30;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
   padding: 26px 16px; overflow-y: auto;
   background: rgba(58, 36, 18, 0.35);
 }
@@ -261,6 +263,7 @@ body::after {
   border: 1px solid #d8d0b4; border-radius: 3px;
   box-shadow: 3px 5px 14px rgba(0, 0, 0, 0.4);
   padding: 26px 22px 22px 42px;
+  margin: auto;
   transform: rotate(-0.8deg);
 }
 /* tape on the top corners */
@@ -360,6 +363,30 @@ kbd {
   .hang .tag-line { gap: 4px; }
   .hang .tag kbd { font-size: 10px; padding: 0 4px; }
   .hang .tag small { font-size: 9px; }
+}
+
+/* The menu on a short screen (a laptop's browser window, a phone with its
+   bars showing): the same sheet, closed up, so all four modes, the rules and
+   the bests fit with nothing to scroll. */
+@media (max-height: 700px) {
+  #menu { padding-top: 14px; padding-bottom: 14px; }
+  #menu .sheet { padding-top: 22px; padding-bottom: 14px; }
+  .sheet .byline { margin: 4px 0 6px; line-height: 1.25; }
+  .sheet .how { line-height: 1.35; margin-bottom: 10px; }
+  .pick .seg { gap: 5px; margin-bottom: 10px; }
+  .seg button { padding-top: 5px; padding-bottom: 5px; }
+  .seg button small { line-height: 1.2; }
+  .playbtn { padding: 7px; }
+  .bests { margin-top: 7px; line-height: 1.25; }
+}
+/* On a phone the four modes sit two by two, each name over its note, and
+   the sheet takes more of the width. It starts under the corner buttons, so
+   its heading is never behind them. */
+@media (max-width: 640px) {
+  #menu { padding: 30px 10px 8px; }
+  #menu .sheet { padding: 26px 14px 12px 38px; }
+  .pick .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .seg button { flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 1px; padding: 6px 9px 7px; }
 }
 
 /* the shared pause card / dialogs (game-shell.js): Schoolbell has a single

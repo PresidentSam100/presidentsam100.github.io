@@ -10,6 +10,9 @@
      grand    all nine cutouts (pads 1-9)
      daily    Field Trip: everyone gets the same seeded tune, three
               launches per day, share your best round
+     quiz     Pop Quiz: all nine, but every round plays a brand-new tune,
+              one note longer than the last (never the last tune with a
+              note added on, which is the other modes' game)
 
    Timing runs on a pause-aware clock: rAF advances `clock` only while
    unpaused, and every scheduled beat/flight/timeout is a clock event, so
@@ -30,6 +33,7 @@
   };
   var bestClassic = window.GameShell ? GameShell.best("scifair_best_classic", { higher: true }) : null;
   var bestGrand = window.GameShell ? GameShell.best("scifair_best_grand", { higher: true }) : null;
+  var bestQuiz = window.GameShell ? GameShell.best("scifair_best_quiz", { higher: true }) : null;
 
   // ---- the daily field trip -------------------------------------------
   var DAY0 = Date.UTC(2026, 8, 27);            // Field Trip #1's date
@@ -374,7 +378,8 @@
   // ---- game state ----------------------------------------------------------
   var state = "menu";        // menu | watch | input | between | dead | over
   var mode = store.get("scifair_mode", "classic");
-  if (["classic", "grand", "daily"].indexOf(mode) === -1) mode = "classic";
+  var MODES = ["classic", "grand", "daily", "quiz"];   // (in the order of their keys, 1 to 4)
+  if (MODES.indexOf(mode) === -1) mode = "classic";
   var seq = [], at = 0, deadline = 0, dseq = null;
   var IN_TIMEOUT = 5000;
   var NICE = ["nice!", "yes!!", "wow!!", "A+ work!", "keep going!", "stellar!"];
@@ -463,7 +468,7 @@
   // leaving or closing the tab can't lose either. runBest is the best as the
   // run began (NaN: none yet), for "a new best!"
   var runBest = NaN;
-  function bestFor() { return mode === "classic" ? bestClassic : mode === "grand" ? bestGrand : null; }
+  function bestFor() { return mode === "classic" ? bestClassic : mode === "grand" ? bestGrand : mode === "quiz" ? bestQuiz : null; }
 
   function startRun(m) {
     if (m) mode = m;
@@ -486,8 +491,21 @@
     later(700, nextRound);
   }
 
+  // Pop Quiz's tune for the next round: n notes, all drawn afresh. One that
+  // happens to open with the whole of the last tune is drawn again, so a
+  // round is never the last one with a note added on.
+  function freshTune(n, last) {
+    var s;
+    do {
+      s = [];
+      for (var i = 0; i < n; i++) s.push(Math.floor(Math.random() * active()));
+    } while (last.length && last.every(function (v, k) { return s[k] === v; }));
+    return s;
+  }
+
   function nextRound() {
     if (mode === "daily") seq.push(dseq[seq.length % dseq.length]);
+    else if (mode === "quiz") seq = freshTune(seq.length + 1, seq);
     else seq.push(Math.floor(Math.random() * active()));
     at = 0;
     hudRound();
@@ -589,7 +607,7 @@
       $("again").innerHTML = 'Launch again <span class="gs-keys"><kbd>Space or Enter</kbd></span>';
       $("share").hidden = false;
     } else {
-      var b = mode === "classic" ? bestClassic : bestGrand;
+      var b = bestFor();
       statLines.push(isBest ? "a new best! ⭐" : "best: round " + (b ? b.get() : 0));
       $("again").hidden = false;
       $("again").innerHTML = 'Again <span class="gs-keys"><kbd>Space or Enter</kbd></span>';
@@ -631,7 +649,10 @@
     var parts = [];
     if (bestClassic && bestClassic.get()) parts.push("Classic " + bestClassic.get());
     if (bestGrand && bestGrand.get()) parts.push("Grand Tour " + bestGrand.get());
-    $("bests").textContent = parts.length ? "best rounds: " + parts.join(" · ") : "no grades on file yet";
+    if (bestQuiz && bestQuiz.get()) parts.push("Pop Quiz " + bestQuiz.get());
+    // (a line that wraps breaks only between the modes, never inside one's name)
+    var nb = String.fromCharCode(160);                 // a no-break space
+    $("bests").textContent = parts.length ? "best rounds: " + parts.map(function (s) { return s.split(" ").join(nb); }).join(nb + "· ") : "no grades on file yet";
   }
   function toMenu() {
     clearEvts(); clearFx();
@@ -685,8 +706,8 @@
     // Again…); starting a run here as well would run both
     if ((e.key === "Enter" || e.key === " ") && e.target && e.target.closest && e.target.closest("button")) return;
     if (state === "menu") {
-      if (e.key === "1" || e.key === "2" || e.key === "3") {
-        mode = ["classic", "grand", "daily"][+e.key - 1];
+      if (/^[1-4]$/.test(e.key)) {
+        mode = MODES[+e.key - 1];
         store.set("scifair_mode", mode);
         applyDim(); applyRoids(); paintMenu();
       } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); startRun(mode); }

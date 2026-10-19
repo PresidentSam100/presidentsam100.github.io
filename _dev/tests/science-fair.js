@@ -40,7 +40,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     if (label === "desktop") {
       const r = await p.evaluate(() => ({ msg: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent }));
       check("science-fair: a first run that ends at round 0 isn't a new best", r.msg === "Round 0" && !/new best/.test(r.stats), r);
-      check("science-fair: with a keyboard the buttons' keycaps show", menu.length === 4 && over.length === 2, { menu, over });
+      check("science-fair: with a keyboard the buttons' keycaps show", menu.length === 5 && over.length === 2, { menu, over });
       // (on one line of text with its label a keycap rode 2 to 3px low; and
       // Again's, ink on an ink button, could not be seen)
       const caps = { play: playCap, again: await capOf("again"), modes: await capOf("to-menu") };
@@ -119,5 +119,156 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("science-fair (diorama): no page errors", p.errs.length === 0, p.errs);
     await p.close();
     await ctx.close();
+  }
+
+  // ---- Pop Quiz: every round a whole new tune, one note longer than the
+  // last and never the last one with a note added on, all nine planets in
+  // play; Classic and Grand Tour still add a note to the same tune. Its best
+  // is saved as each round is cleared, and it is picked with key 4 (a tap on
+  // a touch-only phone, where the keycap hides).
+  // (clears each round as it comes: the tunes, and Pop Quiz's best as each was cleared)
+  const playRounds = async (p, n) => {
+    const tunes = [], saved = [];
+    for (let r = 1; r <= n; r++) {
+      await p.waitForFunction((r) => ScienceFair.state() === "input" && ScienceFair.seq().length === r, r, { timeout: 8000 });
+      const got = await p.evaluate(() => {
+        const s = ScienceFair.seq();
+        s.forEach((i) => ScienceFair.press(i));
+        return { s, best: localStorage.getItem("scifair_best_quiz"), state: ScienceFair.state() };
+      });
+      tunes.push(got.s); saved.push({ best: got.best, state: got.state });
+    }
+    return { tunes, saved };
+  };
+  const ROUNDS = 6;
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const ctx = await lib.newContext(browser, opts);
+    const p = await lib.open(ctx, base, "games/science-fair/");
+    const q = '#pick-mode button[data-v="quiz"]';
+    const cap = () => p.evaluate((q) => { const k = document.querySelector(q + " kbd"); return k && k.getClientRects().length ? k.textContent : null; }, q);
+    const capShown = await cap();
+    await p.evaluate(() => ScienceFair.fast());
+    if (label === "desktop") await p.keyboard.press("4"); else if (await p.$(q)) await p.tap(q);
+    await p.waitForTimeout(150);
+    const picked = await p.evaluate((q) => { const b = document.querySelector(q); return { state: ScienceFair.state(), mode: ScienceFair.mode(), on: !!b && b.classList.contains("on"),
+      saved: localStorage.getItem("scifair_mode"), name: b && b.querySelector("b").textContent }; }, q);
+    if (label === "desktop") await p.keyboard.press("Enter"); else await p.tap("#play");
+    const quiz = await playRounds(p, ROUNDS);
+    const nine = await p.evaluate(() => document.querySelectorAll("#planets .hang.dim").length === 0);
+    check("science-fair (" + label + "): " + (label === "desktop" ? "key 4, shown on its button, picks Pop Quiz and Enter starts it" : "a tap picks Pop Quiz (no keycap on a phone) and Blast off starts it"),
+      picked.state === "menu" && picked.mode === "quiz" && picked.on && picked.saved === "quiz" && picked.name === "Pop Quiz" && (label === "desktop" ? capShown === "4" : capShown === null) && quiz.tunes.length === ROUNDS,
+      { capShown, picked, rounds: quiz.tunes.length });
+    // each round one note longer, and never the last tune with a note on the end
+    const t = quiz.tunes;
+    const longer = t.every((s, k) => s.length === k + 1);
+    const fresh = t.slice(1).every((s, k) => t[k].some((v, j) => s[j] !== v));
+    // (and not just its last note changed: over the rounds, the opening note too)
+    const early = t.slice(1).some((s, k) => s[0] !== t[k][0]);
+    check("science-fair (" + label + "): in Pop Quiz each round is a whole new tune, exactly one note longer than the last, never the last one with a note added on",
+      longer && fresh && early, t.map((s) => s.join("")));
+    check("science-fair (" + label + "): Pop Quiz plays on all nine planets", nine && t.flat().every((i) => i >= 0 && i < 9), t.map((s) => s.join("")));
+    check("science-fair (" + label + "): Pop Quiz's best is saved the moment each round is cleared, mid-run",
+      quiz.saved.every((s, k) => s.best === String(k + 1) && s.state !== "over"), quiz.saved);
+    // the old modes: the same tune, one more note each round
+    for (const m of ["classic", "grand"]) {
+      await p.evaluate((m) => { ScienceFair.toMenu(); ScienceFair.start(m); }, m);
+      const old = (await playRounds(p, 5)).tunes;
+      check("science-fair (" + label + "): " + m + " still plays the last round's tune with one note added",
+        old.every((s, k) => s.length === k + 1 && (k === 0 || s.slice(0, k).join() === old[k - 1].join())), old.map((s) => s.join("")));
+    }
+    check("science-fair (" + label + ", Pop Quiz): no page errors", p.errs.length === 0, p.errs);
+    await ctx.close();
+  }
+
+  // Pop Quiz's report card and the menu give its own best (not Grand Tour's);
+  // and a pause in it, as in the other modes, is no second look: the tune
+  // freezes where it is, nothing plays again, and the run goes on with the
+  // same tune
+  {
+    const ctx = await lib.newContext(browser);
+    const p = await lib.open(ctx, base, "games/science-fair/", { before: (pg) => pg.addInitScript(() => {
+      localStorage.setItem("scifair_best_quiz", "50"); localStorage.setItem("scifair_best_grand", "40"); localStorage.setItem("scifair_best_classic", "30");
+    }) });
+    const menuBests = (await p.evaluate(() => document.getElementById("bests").textContent)).replace(/\s/g, " ");   // (its no-break spaces as plain ones)
+    await p.evaluate(() => { ScienceFair.fast(); ScienceFair.start("quiz"); });
+    await playRounds(p, 2);
+    // round 3: paused as the tune plays, then again on your turn (P pressed
+    // the moment each comes, before the game's clock moves on: the tune is brief)
+    const pauseWhen = (st) => p.waitForFunction((st) => {
+      if (ScienceFair.state() !== st || ScienceFair.seq().length !== 3) return false;
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      return true;
+    }, st, { timeout: 8000 });
+    await pauseWhen("watch");
+    const tune = await p.evaluate(() => ScienceFair.seq());
+    await p.waitForTimeout(400);
+    const during = await p.evaluate(() => ({ state: ScienceFair.state(), seq: ScienceFair.seq(), clock: ScienceFair.clockNow() }));
+    await p.waitForTimeout(400);
+    const still = await p.evaluate(() => ScienceFair.clockNow());
+    await p.keyboard.press("p");
+    await pauseWhen("input"); await p.waitForTimeout(300);
+    // (watched from here: any planet that lights while the card is up or after it)
+    await p.evaluate(() => { window.__lit = 0; new MutationObserver(() => { if (document.querySelector("#planets .hang.lit")) window.__lit++; }).observe(document.getElementById("planets"), { subtree: true, attributes: true, attributeFilter: ["class"] }); });
+    await p.waitForTimeout(300);
+    await p.keyboard.press("p"); await p.waitForTimeout(150);
+    const after = await p.evaluate(() => ({ state: ScienceFair.state(), seq: ScienceFair.seq(), lit: window.__lit }));
+    check("science-fair: a pause in Pop Quiz freezes the tune and replays nothing; after it the same tune is yours to repeat",
+      during.state === "watch" && during.seq.join() === tune.join() && still === during.clock && after.state === "input" && after.seq.join() === tune.join() && after.lit === 0,
+      { tune, during, still, after });
+    // a wrong planet: round 2 cleared, so "Round 2", and the best on file is Pop Quiz's
+    await p.evaluate(() => { const s = ScienceFair.seq(); ScienceFair.press((s[0] + 1) % 9); });
+    await p.waitForFunction(() => ScienceFair.state() === "over", null, { timeout: 8000 });
+    const card = await p.evaluate(() => ({ msg: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent }));
+    check("science-fair: Pop Quiz's report card gives its own best; the menu lists it with the others",
+      card.msg === "Round 2" && /best: round 50/.test(card.stats) && /Classic 30 · Grand Tour 40 · Pop Quiz 50/.test(menuBests), { card, menuBests });
+    check("science-fair (Pop Quiz card): no page errors", p.errs.length === 0, p.errs);
+    await ctx.close();
+  }
+
+  // ---- the games page's reset clears Pop Quiz's best and keeps the mode picked (a setting)
+  {
+    const ctx = await lib.newContext(browser);
+    const p = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => {
+      if (!sessionStorage.getItem("__sf_seeded")) { sessionStorage.setItem("__sf_seeded", "1"); localStorage.setItem("scifair_best_quiz", "7"); localStorage.setItem("scifair_mode", "quiz"); }
+    }) });
+    await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    await p.keyboard.press("Escape"); await p.waitForTimeout(250);
+    const left = await p.evaluate(() => ({ best: localStorage.getItem("scifair_best_quiz"), mode: localStorage.getItem("scifair_mode") }));
+    check("science-fair: the games page's reset clears Pop Quiz's best, and keeps the mode it was left on", left.best === null && left.mode === "quiz", left);
+    await ctx.close();
+  }
+
+  // ---- the menu fits with nothing to scroll on laptops and phones, short ones
+  // too, at its fullest (a best in every mode, the Field Trip played and not):
+  // no wider than the screen, the heading clear of the corner buttons, and
+  // the rules, all four modes, Blast off and the bests inside the screen
+  {
+    const SIZES = [["laptop", 1280, 900], ["laptop", 1366, 657], ["laptop", 1280, 600],
+      ["phone", 390, 664], ["phone", 360, 560], ["phone", 375, 553], ["phone", 320, 568]];
+    const bad = {};
+    for (const [kind, w, h] of SIZES) {
+      for (const used of [0, 2]) {
+        const ctx = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+        const p = await lib.open(ctx, base, "games/science-fair/", { before: (pg) => pg.addInitScript((used) => {
+          const d = new Date(), ymd = d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2);
+          localStorage.setItem("scifair_best_classic", "28"); localStorage.setItem("scifair_best_grand", "24"); localStorage.setItem("scifair_best_quiz", "18");
+          localStorage.setItem("scifair_daily", JSON.stringify({ ymd, n: 22, used, best: used ? 14 : 0 }));
+        }, used) });
+        const r = await p.evaluate((w) => {
+          const panel = document.getElementById("menu"), H = innerHeight, box = (e) => e.getBoundingClientRect();
+          const inside = (e) => { const b = box(e); return b.height > 0 && b.top >= 0 && b.bottom <= H && b.left >= 0 && b.right <= w; };
+          const row = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => box(x).bottom);
+          const modes = [...document.querySelectorAll("#pick-mode button")];
+          return { scroll: panel.scrollHeight - panel.clientHeight, wider: Math.round(Math.max(document.documentElement.scrollWidth, innerWidth) - w),
+            clear: Math.round(box(panel.querySelector("h1")).top - Math.max.apply(null, row)),
+            shown: [panel.querySelector(".how"), ...modes, document.getElementById("play"), document.getElementById("bests")].every(inside), modes: modes.length };
+        }, w);
+        if (r.scroll > 0 || r.wider > 0 || r.clear < 0 || !r.shown || r.modes !== 4) bad[kind + " " + w + "x" + h + (used ? " (Field Trip played)" : "")] = r;
+        if (p.errs.length) bad[w + "x" + h + " errors"] = p.errs;
+        await ctx.close();
+      }
+    }
+    check("science-fair: the menu, at its fullest, fits laptops (1280x900, 1366x657, 1280x600) and phones (390x664, 360x560, 375x553, 320x568) with nothing to scroll, its heading clear of the corner buttons",
+      Object.keys(bad).length === 0, bad);
   }
 };
