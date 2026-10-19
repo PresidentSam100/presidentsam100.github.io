@@ -277,6 +277,22 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.close();
     }
 
+    // Toy Tanks: Space fires in play
+    {
+      const p = await lib.open(ctx, base, "games/toy-tanks/", { before });
+      await p.waitForTimeout(300);
+      const cap = await p.evaluate(() => document.getElementById("play").getAttribute("data-gs-key"));
+      await p.keyboard.down("Space"); await frames(p, 5); await p.keyboard.up("Space");
+      // (on to the mission itself: the press that started it fired nothing)
+      await p.evaluate(() => ToyTanks.advance(1700, {}));
+      const go = await p.evaluate(() => ({ ui: ToyTanks.ui(), status: ToyTanks.st().status, shells: ToyTanks.st().shells.length }));
+      const end = await cardKeys(p, () => p.evaluate(() => { ToyTanks.end(); return performance.now(); }), () => p.evaluate(() => ToyTanks.ui() === "over"), 700);
+      check("toy-tanks: Roll out wears Space or Enter, and Space starts a run without firing a shell", cap === "Space or Enter" && go.ui === "run" && go.status === "play" && go.shells === 0, { cap, go });
+      check("toy-tanks: on the end card Space plays again, but not in its first moment, and not held down", end.ok, end);
+      check("toy-tanks (start keys): no page errors", p.errs.length === 0, p.errs);
+      await p.close();
+    }
+
     // Salvo: Space turns a ship while the fleet is being placed
     {
       const HOOK = ['  $("againBtn").addEventListener("click", newGame);', '  window.__salvoOver = function () { gameOver("player"); };\n  window.__salvoOrient = function () { return orient; };\n  $("againBtn").addEventListener("click", newGame);'];

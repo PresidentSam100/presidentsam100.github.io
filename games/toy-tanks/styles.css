@@ -1,0 +1,210 @@
+/* =====================================================================
+   Toy Tanks: a painted toy box. Glossy blue boards with a yellow stencil
+   name; inside, the play mat in its red rim (drawn on the canvas). The
+   cards are toy-box labels: cream with a yellow border and a red button.
+   ===================================================================== */
+
+:root {
+  --blue: #2457b0;
+  --blue-hi: #3b73d1;
+  --blue-deep: #143877;
+  --navy: #0f2a5c;
+  --yellow: #ffd23f;
+  --yellow-deep: #d9a514;
+  --red: #d63a2b;
+  --red-deep: #8e2216;
+  --cream: #fff8e8;
+  --ink: #13284f;
+  --ink-dim: #4a5a7a;
+  --face: "Paytone One", "Arial Rounded MT Bold", "Trebuchet MS", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--face); color: var(--cream);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.16), transparent 60%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0 2px, rgba(255, 255, 255, 0.05) 2px 4px, transparent 4px 92px),
+    linear-gradient(180deg, var(--blue-hi), var(--blue) 45%, var(--blue-deep));
+  background-attachment: fixed;
+  overflow: hidden;
+  padding: 54px 8px 8px;
+}
+.nav-back-games {
+  position: fixed; top: 12px; left: 12px; z-index: 50;
+  font-family: var(--face); font-size: 15px; font-weight: 400;
+  color: var(--ink); text-decoration: none;
+  background: var(--yellow); border: 2px solid var(--blue-deep); border-radius: 8px;
+  box-shadow: 0 3px 0 var(--blue-deep);
+  padding: 6px 13px;
+}
+
+#box { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.lid { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px 14px; }
+.title {
+  font-family: var(--face); font-weight: 400; font-size: 30px; line-height: 1.1; letter-spacing: 0.02em;
+  color: var(--yellow); text-transform: uppercase;
+  text-shadow: 0 3px 0 var(--red-deep), 0 5px 0 rgba(0, 0, 0, 0.25);
+}
+.hud { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; }
+.hud[hidden] { display: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; min-height: 28px;
+  font-size: 14px; color: var(--ink); background: var(--cream);
+  border: 2px solid var(--blue-deep); border-radius: 999px; padding: 2px 11px;
+  box-shadow: 0 2px 0 var(--blue-deep);
+}
+.chip b { font-weight: 400; color: var(--red); font-size: 16px; font-variant-numeric: tabular-nums; }
+.chip.lives { gap: 2px; padding: 2px 8px; }
+.chip.lives:empty { display: none; }
+.tk { display: block; }
+
+#stage { position: relative; }
+#arena { display: block; border-radius: 6px; box-shadow: 0 6px 0 var(--navy), 0 10px 22px rgba(0, 0, 0, 0.35); touch-action: none; }
+body.run #arena { cursor: none; }
+/* paused: the box's lid over the arena, so the battle can't be studied mid-shot */
+body.paused #stage::after {
+  content: ""; position: absolute; inset: 0; border-radius: 6px;
+  background:
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0.14) 0 2px, transparent 2px 46px),
+    linear-gradient(180deg, var(--blue-hi), var(--blue-deep));
+  border: 6px solid var(--red); box-shadow: inset 0 0 0 2px var(--red-deep);
+}
+#banner {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  display: none; flex-direction: column; align-items: center; gap: 4px;
+  min-width: min(300px, 80%); padding: 12px 22px 14px; text-align: center;
+  color: var(--ink); background: var(--cream); border: 4px solid var(--yellow); border-radius: 12px;
+  box-shadow: 0 5px 0 var(--yellow-deep), 0 10px 20px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
+#banner.show { display: flex; }
+html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+@keyframes drop-in { from { transform: translate(-50%, -90%) scale(0.85); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+.b-title { font-size: 30px; line-height: 1.1; color: var(--red); }
+.b-line { font-size: 17px; }
+.b-kinds { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; margin-top: 2px; }
+.b-kind { display: inline-flex; align-items: center; gap: 2px; font-size: 16px; }
+.b-kind b { font-weight: 400; }
+
+/* ---- under the arena: the touch pad, and how to play ------------------------------ */
+.foot { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
+.hint { max-width: 760px; font-size: 13px; line-height: 1.5; text-align: center; color: rgba(255, 248, 232, 0.9); }
+.hint .gs-kbd { font-family: var(--face); font-weight: 400; }
+/* (a stick's label hangs under it: the pad keeps room for it) */
+#box { --stick: clamp(88px, 29vw, 116px); }
+#pad { display: none; width: 100%; max-width: 520px; align-items: center; justify-content: space-between; gap: 8px; padding: 0 4px 20px; }
+@media (hover: none) { #pad { display: flex; } }
+.stick {
+  position: relative; flex: none; width: var(--stick); height: var(--stick); border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.2), rgba(0, 0, 0, 0.18));
+  border: 3px solid var(--blue-deep); box-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.3);
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.stick i {
+  position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+  background: var(--yellow); border: 3px solid var(--yellow-deep); box-shadow: 0 3px 0 var(--yellow-deep);
+}
+.stick.aim i { background: var(--red); border-color: var(--red-deep); box-shadow: 0 3px 0 var(--red-deep); }
+.stick span { position: absolute; left: -10px; right: -10px; bottom: -20px; font-size: 12px; line-height: 16px; text-align: center; color: rgba(255, 248, 232, 0.85); pointer-events: none; }
+.stick.held { border-color: var(--yellow); }
+#mine-btn {
+  flex: none; width: clamp(60px, 18vw, 72px); height: clamp(60px, 18vw, 72px); border-radius: 50%; font-family: var(--face); font-size: 16px;
+  color: var(--ink); background: var(--yellow); border: 3px solid var(--yellow-deep); box-shadow: 0 4px 0 var(--yellow-deep);
+  touch-action: manipulation;
+}
+#mine-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--yellow-deep); }
+#mine-btn:disabled { opacity: 0.5; }
+@media (hover: none) { .hint { font-size: 12px; } }
+
+/* ---- the cards: toy-box labels ---------------------------------------------------- */
+.panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 58px 14px 16px; overflow-y: auto; background: rgba(15, 42, 92, 0.45); }
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(460px, 100%); text-align: center; color: var(--ink);
+  background: var(--cream); border: 5px solid var(--yellow); border-radius: 16px;
+  box-shadow: 0 6px 0 var(--yellow-deep), 0 14px 30px rgba(0, 0, 0, 0.35);
+  padding: 16px 20px 18px;
+}
+.card h2 { font-weight: 400; font-size: 32px; line-height: 1.1; color: var(--red); text-shadow: 0 2px 0 rgba(142, 34, 22, 0.25); }
+.card .how { margin: 10px 0 14px; font-family: var(--face); font-size: 15px; line-height: 1.45; color: var(--ink-dim); }
+.card .how b { font-weight: 400; color: var(--ink); }
+.seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.seg button {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; cursor: pointer;
+  font-family: var(--face); color: var(--ink); background: #fff; border: 3px solid var(--blue); border-radius: 10px; padding: 7px 12px;
+  box-shadow: 0 3px 0 var(--blue-deep);
+}
+.seg button[hidden] { display: none; }
+.seg button b { font-weight: 400; font-size: 17px; }
+.seg button small { font-size: 13px; color: var(--ink-dim); }
+.seg button.on { color: var(--cream); background: var(--blue); border-color: var(--blue-deep); }
+.seg button.on small { color: rgba(255, 248, 232, 0.85); }
+.playbtn {
+  width: 100%; cursor: pointer; font-family: var(--face); font-size: 22px; color: var(--cream);
+  background: var(--red); border: 3px solid var(--red-deep); border-radius: 12px; padding: 9px 12px;
+  box-shadow: 0 4px 0 var(--red-deep);
+}
+.playbtn:active, .seg button:active, .ghost:active { transform: translateY(3px); box-shadow: none; }
+.ghost {
+  cursor: pointer; font-family: var(--face); font-size: 17px; color: var(--blue-deep);
+  background: #fff; border: 3px solid var(--blue); border-radius: 12px; padding: 8px 16px;
+  box-shadow: 0 3px 0 var(--blue-deep);
+}
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 12px; }
+.card .row .playbtn { width: auto; flex: 1 1 180px; }
+.bests { margin-top: 10px; min-height: 18px; font-size: 14px; color: var(--ink-dim); }
+.card .big { margin: 4px 0; font-size: 34px; color: var(--blue); }
+.tally { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 12px; min-height: 0; }
+.tally:empty { display: none; }
+.stats { margin-top: 8px; font-size: 15px; line-height: 1.45; color: var(--ink-dim); }
+
+@media (max-width: 520px) {
+  body { padding-top: 52px; }
+  .lid { gap: 4px 10px; }
+  .title { font-size: 22px; }
+  .hud { gap: 4px; }
+  .chip { font-size: 12px; min-height: 24px; padding: 1px 7px; gap: 4px; }
+  .chip b { font-size: 14px; }
+  .chip.lives { padding: 1px 6px; }
+  .chip.lives .tk { width: 15px; height: 15px; }
+  .card { padding: 12px 14px 14px; }
+  .card h2 { font-size: 26px; }
+  .card .how { font-size: 14px; margin: 8px 0 10px; }
+  .b-title { font-size: 22px; }
+  .b-line, .b-kind { font-size: 14px; }
+  #banner { padding: 8px 14px 10px; border-width: 3px; }
+}
+@media (max-height: 600px) and (max-width: 520px) {
+  .card .how { font-size: 13px; line-height: 1.35; }
+  .seg button { padding: 5px 10px; }
+  .playbtn { padding: 7px 10px; font-size: 20px; }
+}
+
+/* ---- a touch screen on its side: the sticks either side of the arena --------------
+   (left: the HUD over Drive; right: Mine over Aim & fire; the name up
+   between the corner buttons) */
+@media (hover: none) and (orientation: landscape) {
+  body { padding-top: 50px; }
+  #box {
+    --stick: clamp(84px, 13vw, 108px);
+    display: grid; justify-content: center; align-items: center; gap: 6px 14px;
+    grid-template-columns: auto auto auto;
+    grid-template-areas: "hud stage mine" "move stage aim" "hint hint hint";
+  }
+  .lid, .foot, #pad { display: contents; }
+  .title { position: fixed; top: 12px; left: 50%; transform: translateX(-50%); font-size: 21px; z-index: 40; }
+  .hud { grid-area: hud; flex-direction: column; align-items: stretch; align-self: end; gap: 4px; }
+  .chip { justify-content: center; white-space: nowrap; font-size: 12px; min-height: 22px; padding: 1px 8px; }
+  .chip b { font-size: 13px; }
+  .chip.lives .tk { width: 14px; height: 14px; }
+  #stage { grid-area: stage; grid-row: 1 / 3; }
+  #move-stick { grid-area: move; justify-self: center; align-self: start; margin-bottom: 18px; }
+  #mine-btn { grid-area: mine; justify-self: center; align-self: end; }
+  #aim-stick { grid-area: aim; justify-self: center; align-self: start; margin-bottom: 18px; }
+  .hint { grid-area: hint; }
+}
+
+.gs-pause { background: rgba(15, 42, 92, 0.45); }

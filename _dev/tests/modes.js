@@ -32,6 +32,7 @@ const MENUS = {
   "yi/": { keys: ["2", "3", "4", "5", "6", "7", "8", "9", "0", "f", "t"], enter: true },
   "jackblack/": { keys: ["2", "1"], enter: true },
   "dead-end/": { keys: ["2", "1"], enter: true },             // (L leaves for the maze editor)
+  "toy-tanks/": { keys: ["1"], enter: true },                  // (2, from a later mission, shows once one's been reached)
   "metazac/": { keys: ["1", "2", "3", "4"] },
   "steamfitter/": { keys: ["1", "2", "3"] },
   "2048/": { keys: ["2", "1"] },

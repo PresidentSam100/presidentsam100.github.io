@@ -44,6 +44,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "abyss/": ".card h1", "tall-order/": ".card h1", "rose-window/": ".card h1", "mesa-drift/": ".card h1", "stone-garden/": ".card h2", "sowing/": ".card h2", "potting-shed/": ".card h1", "spice-blend/": ".card h2", "tide-pool/": ".card h1", "stopwatch/": ".card h2", "speedle/": ".card-title", "reaction/": ".card h2",
     "tic-tac-toe/": ".modal-overlay.open .modal h2", "departures/": ".card h1", "crazy-ohio/": "header.top h1",
     "demolition-row/": "#menu .card h2",
+    "toy-tanks/": "#menu .card h2",
   };
   {
     const ctx = await lib.newContext(browser, phone(320, 568));
@@ -119,6 +120,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // on its side). These all used to be display: none at these sizes.
   const SHOWN = [
     ["dead-end", [".hud .best", ".hud .where"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
+    ["toy-tanks", [".hud", ".chip.lives", "#hint"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
     ["jackblack", [".plaque", ".print"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
     ["departures", ["#desk label", "#hint"], async (p) => { await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(200); await p.evaluate(() => Departures.type("niger")); await p.waitForTimeout(100); }],
     ["jam-jar", [".hint-panel", ".hint-panel .hint", "#chain"], null],

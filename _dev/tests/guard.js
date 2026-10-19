@@ -25,6 +25,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["flappy-world", "flappy-world/", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(150); }],
     ["lanterns", "lanterns/", async (p) => { await p.evaluate(() => Lanterns.start("festival")); await p.waitForTimeout(200); }],
     ["meteor-menace", "meteor-menace/", async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(200); }],
+    ["toy-tanks", "toy-tanks/", async (p) => { await p.evaluate(() => ToyTanks.start()); await p.waitForTimeout(100); if (await active(p)) throw new Error("toy-tanks: active on the mission card"); await p.evaluate(() => ToyTanks.advance(1700, {})); }],
     ["logicgate", "logicgate/", async (p) => { await p.click('.mode-btn[data-mode="inputs"]'); await p.waitForTimeout(150); await p.click(".input.toggle"); }],
     ["2048", "2048/", async (p) => { for (const k of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) { await p.keyboard.press(k); await p.waitForTimeout(80); } }],
     ["24", "24/", async (p) => { await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("navi"); }); await p.waitForTimeout(200); await p.evaluate(() => { TwentyFour.press("1"); TwentyFour.press("5"); TwentyFour.press("2"); }); }],
