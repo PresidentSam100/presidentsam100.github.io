@@ -3,8 +3,11 @@
    colour drops into its own red tumbler, the tumblers turn over and
    switch places, a pair at a time and later several pairs at once, and
    then the counter asks where each colour went. A wrong pick costs one of
-   three lives. Every round cleared is a level up: more tumblers, more
-   switches, quicker hands, and from level 5 empty tumblers mixed in.
+   three lives, and leaves that tumbler up beside the right one for the rest
+   of the round (a colour already in sight isn't asked). Every round cleared
+   is a level up: more tumblers, more switches, quicker hands, and from
+   level 5 empty tumblers mixed in. Two bests: the level reached, and the
+   most marbles found in a run.
 
    Everything that moves runs on the game's own clock (`clock`), which the
    animation frame moves on only while a run is in play and not paused, and
@@ -152,9 +155,13 @@
     get: function () { return Number(store.get("switcheroo_best", "0")) || 0; },
     submit: function (v) { if (v > this.get()) { store.set("switcheroo_best", String(v)); return true; } return false; }
   };
+  var bestFound = window.GameShell ? GameShell.best("switcheroo_best_found", { higher: true }) : {
+    get: function () { return Number(store.get("switcheroo_best_found", "0")) || 0; },
+    submit: function (v) { if (v > this.get()) { store.set("switcheroo_best_found", String(v)); return true; } return false; }
+  };
   var state = "menu";       // menu | play | over
   var phase = "";           // in play: deal | flip | hold | shuffle | settle | ask | show | clear | lost
-  var level = 1, lives = 3, picks = 0, found = 0, startBest = 0, overAt = 0, serial = 0;
+  var level = 1, lives = 3, picks = 0, found = 0, startBest = 0, startFound = 0, overAt = 0, serial = 0;
   var S = spec(1), cups = [], order = [], steps = [], dealtWith = [], asks = [], askI = 0;
   var dealtAt = 0, flipAt = -1, fadeAt = -1, shakeAt = -1, sparks = [];
 
@@ -171,7 +178,7 @@
 
   function startRun(at) {
     level = Math.max(1, Math.floor(at) || 1); lives = 3; picks = 0; found = 0;
-    startBest = best.get() || 0;
+    startBest = best.get() || 0; startFound = bestFound.get() || 0;
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     state = "play";
@@ -239,6 +246,8 @@
   // ---- the questions ----------------------------------------------------------------------------
   function askNext() {
     askI++;
+    // (a colour already in sight, under a tumbler a wrong pick left up, isn't asked)
+    while (askI < asks.length && cupWith(asks[askI]).done) askI++;
     if (askI >= asks.length) { roundClear(); return; }
     var open = cups.filter(function (c) { return !c.done; });
     // the last tumbler standing can only hold the last colour: it shows itself
@@ -269,18 +278,21 @@
     phase = "show";
     if (cup.m === want) {
       found++; cup.done = true;
+      bestFound.submit(found); hud();      // (the most found in a run: saved the moment it's passed)
       raise(cup, 1); mark(cup, "good"); sparkle(slot);
       after(LIFT * 0.6, sfxGood);
       say("Found it!", "good");
       after(LIFT + 520, askNext);
     } else {
       lives--; hud();
-      raise(cup, 1); mark(cup, "bad"); shakeAt = clock;
+      raise(cup, 1); mark(cup, "bad"); shakeAt = clock; cup.done = true;
       after(LIFT * 0.6, sfxBad);
       say(cup.m < 0 ? "Nothing under that one" : "That's " + MARBLES[cup.m].name, "bad");
+      // then the asked colour's tumbler lifts too, and both stay up for the
+      // rest of the round
       var right = cupWith(want);
       after(LIFT + 480, function () { raise(right, 1); right.done = true; say(["There's ", want, ""]); });
-      after(LIFT * 2 + 480 + 700, function () { raise(cup, 0); mark(cup, null); });
+      after(LIFT * 2 + 480 + 700, function () { mark(cup, null); });
       after(LIFT * 3 + 480 + 900, lives > 0 ? askNext : lose);
     }
     return true;
@@ -312,7 +324,8 @@
     $("over-msg").textContent = "Level " + level;
     var line = document.createElement("span"), pill = document.createElement("span");
     var cleared = level - 1;
-    line.textContent = cleared + (cleared === 1 ? " round" : " rounds") + " cleared · " + found + (found === 1 ? " marble" : " marbles") + " found";
+    line.textContent = cleared + (cleared === 1 ? " round" : " rounds") + " cleared · " + found + (found === 1 ? " marble" : " marbles") + " found" +
+      (found > startFound ? " (the most yet)" : "");
     pill.className = "best" + (isBest ? " record" : "");
     pill.textContent = isBest ? "your best level yet" : b >= 2 ? "best: level " + b : "no round cleared yet";
     $("over-stats").replaceChildren(line, pill);
@@ -328,7 +341,8 @@
   }
   function paintMenu() {
     var b = best.get() || 0;
-    $("tally").textContent = b >= 2 ? "best: reached level " + b : "no round cleared yet";
+    var f = bestFound.get() || 0;
+    $("tally").textContent = (b >= 2 ? "best: reached level " + b : "no round cleared yet") + (f ? " · most found: " + f : "");
   }
 
   // ---- the words round the counter ----------------------------------------------------------------
@@ -345,6 +359,7 @@
   function hud() {
     $("hud-level").textContent = level;
     $("hud-best").textContent = Math.max(best.get() || 0, level);
+    $("hud-found").textContent = found;
     var lv = $("hud-lives"), dots = lv.querySelectorAll("i");
     for (var i = 0; i < dots.length; i++) dots[i].classList.toggle("lost", i >= lives);
     lv.setAttribute("aria-label", lives + (lives === 1 ? " life" : " lives"));

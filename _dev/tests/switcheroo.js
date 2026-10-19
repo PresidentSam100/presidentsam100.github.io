@@ -3,8 +3,10 @@
 // watching for each switch however many happen at once, no tumbler faster
 // than 9 slots a second, and the levels only ever get harder); the switches
 // keep every marble under its own tumbler, and only the tumblers in a pair
-// move; a right pick finds the marble, a wrong one costs a life and shows
-// where the colour was; a pick or a click mid-shuffle does nothing; a round
+// move; a right pick finds the marble (counted, its best saved as it's
+// passed), a wrong one costs a life and shows where the colour was, both
+// tumblers staying up, and a colour seen under it isn't asked; a pick or a
+// click mid-shuffle does nothing; a round
 // cleared is the next level and the best level is saved that moment; three
 // misses end the run on a card that waits a moment for Space, then deals
 // again, Backspace going to the menu and Esc out to the games page; every
@@ -15,7 +17,7 @@
 // hides it too and keeps the question; with Visual FX off the tumblers
 // still travel round each other and lift; the keys; a tap picks on a
 // phone; the menu and the counter fit every screen without scrolling; and
-// the games page's reset clears the best.
+// the games page's reset clears both bests.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   const ctx = await lib.newContext(browser);
@@ -140,7 +142,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const want = Switcheroo.asking(), right = Switcheroo.where(want), n = Switcheroo.contents().length;
     const r1 = Switcheroo.pick(right);
     const busy = Switcheroo.pick((right + 1) % n);   // (while the tumbler lifts: nothing)
-    const after1 = { found: Switcheroo.found(), lives: Switcheroo.lives(), status: document.getElementById("ask").textContent };
+    const after1 = { found: Switcheroo.found(), lives: Switcheroo.lives(), status: document.getElementById("ask").textContent,
+      hudFound: document.getElementById("hud-found").textContent, savedFound: localStorage.getItem("switcheroo_best_found") };
     __until(() => Switcheroo.phase() === "ask", 600);
     const want2 = Switcheroo.asking(), right2 = Switcheroo.where(want2);
     // a wrong tumbler: one not yet lifted and not the colour's
@@ -150,14 +153,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     __until(() => Switcheroo.drawn()[right2].lift > 0.99, 300);
     const shown = { lifted: Switcheroo.drawn()[right2].lift, status: document.getElementById("ask").textContent };
     __until(() => Switcheroo.phase() === "ask" || Switcheroo.phase() === "clear", 900);
-    return { r1, busy, after1, r2, after2, shown, wrongDown: Switcheroo.drawn()[wrong].lift, next: Switcheroo.phase(), active: GameShell.leaveActive(), colour2: Switcheroo.colour(want2) };
+    return { r1, busy, after1, r2, after2, shown, wrongUp: Switcheroo.drawn()[wrong].lift, next: Switcheroo.phase(), active: GameShell.leaveActive(), colour2: Switcheroo.colour(want2) };
   });
-  check("switcheroo: a right pick finds the marble (no life lost, \"Found it!\"), and a second pick while it lifts does nothing",
-    picks.r1 === true && picks.busy === false && picks.after1.found === 1 && picks.after1.lives === 3 && /Found it/.test(picks.after1.status), picks);
-  check("switcheroo: a wrong pick costs a life (the HUD shows two), the asked colour's tumbler then lifts to show it, the wrong one goes back down, and the next question comes",
+  check("switcheroo: a right pick finds the marble (no life lost, \"Found it!\", the HUD's found count 1 and the most found saved at once), and a second pick while it lifts does nothing",
+    picks.r1 === true && picks.busy === false && picks.after1.found === 1 && picks.after1.lives === 3 && /Found it/.test(picks.after1.status) &&
+    picks.after1.hudFound === "1" && picks.after1.savedFound === "1", picks);
+  check("switcheroo: a wrong pick costs a life (the HUD shows two), the asked colour's tumbler then lifts to show it, the wrong one stays up beside it, and the next question comes",
     picks.r2 === true && picks.after2.lives === 2 && picks.after2.found === 1 && picks.after2.lost === 1 && /2 lives/.test(picks.after2.hud) &&
-    picks.shown.lifted > 0.99 && picks.shown.status.indexOf(picks.colour2) >= 0 && picks.wrongDown < 0.01 && /^(ask|clear)$/.test(picks.next) && picks.active, picks);
+    picks.shown.lifted > 0.99 && picks.shown.status.indexOf(picks.colour2) >= 0 && picks.wrongUp > 0.99 && /^(ask|clear)$/.test(picks.next) && picks.active, picks);
   await done(p, "shuffle and picks");
+
+  // ---- a colour seen under a wrong pick isn't asked: at level 1 (three
+  // tumblers, three marbles) a wrong first pick leaves one tumbler down,
+  // which then shows itself, and the round clears with no other question
+  p = await open({ stepped: true });
+  const seen = await p.evaluate(() => {
+    Switcheroo.start(1); Switcheroo.skip();
+    __until(() => Switcheroo.phase() === "ask", 600);
+    const want = Switcheroo.asking(), right = Switcheroo.where(want);
+    const wrong = Switcheroo.contents().findIndex((m, slot) => slot !== right && m >= 0), under = Switcheroo.contents()[wrong];
+    Switcheroo.pick(wrong);
+    const asked = [];
+    for (let i = 0; i < 3000 && Switcheroo.phase() !== "clear" && Switcheroo.state() === "play"; i++) { const a = Switcheroo.asking(); if (a >= 0 && asked[asked.length - 1] !== a) asked.push(a); __frames(1); }
+    return { under, asked, phase: Switcheroo.phase(), wrongUp: Switcheroo.drawn()[wrong].lift, lives: Switcheroo.lives() };
+  });
+  check("switcheroo: after a wrong pick both tumblers stay up and the colour seen under the wrong one is never asked (level 1: the last tumbler shows itself and the round clears)",
+    seen.phase === "clear" && seen.asked.length === 0 && seen.wrongUp > 0.99 && seen.lives === 2, seen);
+  await done(p, "a colour seen isn't asked");
 
   // ---- a pick, a key or a click mid-shuffle does nothing
   p = await open({ stepped: true });
@@ -272,8 +294,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   const lost = await p.evaluate(() => {
     const wrong = () => { __until(() => Switcheroo.phase() === "ask" || Switcheroo.state() !== "play", 4000); if (Switcheroo.state() !== "play") return false;
       const r = Switcheroo.where(Switcheroo.asking()), w = Switcheroo.drawn().find((c) => c.slot !== r && c.lift < 0.01); return Switcheroo.pick(w.slot); };
-    // (misses until the lives are gone: at level 2, with no empty tumbler, the
-    // third colour shows itself after two misses, and the run goes on to level 3)
+    // (misses until the lives are gone: at level 2, with no empty tumbler, a
+    // miss leaves the third colour's tumbler the only one down, which shows
+    // itself, and the run goes on to level 3)
     const out = [];
     let at = 0, lostPhase = "";
     for (let i = 0; i < 6 && Switcheroo.lives() > 0; i++) {
@@ -307,7 +330,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     __until(() => Switcheroo.state() === "over", 400); __frames(50); });
   await p.keyboard.press("Backspace");
   const toMenu = await p.evaluate(() => ({ state: Switcheroo.state(), menu: !document.getElementById("menu").hidden, tally: document.getElementById("tally").textContent }));
-  check("switcheroo: Backspace on the card goes to the menu, which shows the best level", toMenu.state === "menu" && toMenu.menu && toMenu.tally === "best: reached level " + lost.at, { toMenu, at: lost.at });
+  check("switcheroo: Backspace on the card goes to the menu, which shows the best level and the most found", toMenu.state === "menu" && toMenu.menu &&
+    new RegExp("^best: reached level " + lost.at + " · most found: \\d+$").test(toMenu.tally), { toMenu, at: lost.at });
   await done(p, "levels and the end");
 
   // ---- Visual FX off: the tumblers still travel round each other, and lift, frame by frame
@@ -400,12 +424,12 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the games page's reset clears the best
   {
-    const q = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("switcheroo_best", "7"); localStorage.setItem("reduceMotion:switcheroo", "1"); } catch (e) {} }) });
+    const q = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("switcheroo_best", "7"); localStorage.setItem("switcheroo_best_found", "12"); localStorage.setItem("reduceMotion:switcheroo", "1"); } catch (e) {} }) });
     const before = await q.evaluate(() => localStorage.getItem("switcheroo_best"));
     await q.click("#reset-scores"); await q.waitForTimeout(150);
     await q.click("#reset-dialog .dialog-ok"); await q.waitForTimeout(200);
-    const after = await q.evaluate(() => ({ best: localStorage.getItem("switcheroo_best"), fx: localStorage.getItem("reduceMotion:switcheroo") }));
-    check("switcheroo: the games page's reset all high scores clears its best level (and keeps its Visual FX setting)", before === "7" && after.best === null && after.fx === "1", { before, after });
+    const after = await q.evaluate(() => ({ best: localStorage.getItem("switcheroo_best"), found: localStorage.getItem("switcheroo_best_found"), fx: localStorage.getItem("reduceMotion:switcheroo") }));
+    check("switcheroo: the games page's reset all high scores clears its best level and most found (and keeps its Visual FX setting)", before === "7" && after.best === null && after.found === null && after.fx === "1", { before, after });
     await q.close();
   }
 
