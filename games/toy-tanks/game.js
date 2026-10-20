@@ -6,9 +6,9 @@
    the mouse and the touch sticks, keeps the records, and walks a run
    through the missions.
 
-   Records (each saved the moment it's earned): the furthest mission
-   reached, and the most tanks destroyed in one run. A run can start from
-   any mission up to the furthest reached, picked on the menu.
+   Records (each saved the moment it's earned): the most missions cleared
+   and the most tanks destroyed in one run, counted from the mission the run
+   starts on (any of them, picked on the menu) to its end.
 
    Keys: WASD or the arrows drive, the mouse aims, a click or Space fires,
    a right-click or E lays a mine, P pauses; on the menu ← → pick the
@@ -33,7 +33,7 @@
     if (window.GameShell && GameShell.best) return GameShell.best(key, { higher: true });
     return { get: function () { return store.getNum(key, 0); }, submit: function (v) { if (v > this.get()) { store.set(key, v); return true; } return false; } };
   }
-  var bestMission = record("toytanks_best_mission"), bestKills = record("toytanks_best_kills");
+  var bestCleared = record("toytanks_best_cleared"), bestKills = record("toytanks_best_kills");
 
   // ---- sound ------------------------------------------------------------------
   // (muting is the shared speaker button's: mute-toggle.js routes every context)
@@ -92,7 +92,9 @@
   // ---- state --------------------------------------------------------------------
   var ui = "menu";               // menu | run | over
   var from = 1;                  // the mission this run started from
-  // the mission a run starts from, kept (any up to the furthest reached)
+  var counts = true;             // this run sets records (a mission of your own doesn't)
+  var before = { cleared: 0, kills: 0 };
+  // the mission a run starts from, kept (any of them)
   var startAt = (function () { var v = store.get("toytanks_start", "1"); return Math.max(1, parseInt(v, 10) || 1); })();
   var st = null, begun = false;  // begun: a mission's under way (leaving asks from then on)
   var keys = {}, firePress = false, minePress = false;
@@ -102,8 +104,6 @@
   var canvas = $("arena"), g = canvas.getContext("2d"), back = document.createElement("canvas");
   var s = 28, fr = 14, sprites = null;
   function inRun() { return ui === "run" && !!st && begun && st.status !== "over" && st.status !== "done"; }
-  // a later mission than the furthest you've reached isn't yours to start from yet
-  function maxStart() { return Math.max(1, Math.min(TOTAL, bestMission.get() || 1)); }
 
   // ---- the canvas: sized to the window -------------------------------------------
   // The arena has the window's height less everything else on the page,
@@ -242,7 +242,11 @@
   // (at: a mission to start from, for the tests; a click passes its event)
   function startRun(at) {
     audio();
-    from = typeof at === "number" ? at : Math.min(startAt, maxStart());
+    from = typeof at === "number" ? at : Math.min(startAt, TOTAL);
+    counts = true;
+    // (the records as the run starts: saved as they're passed, its end card
+    // still knows which it beat)
+    before = { cleared: bestCleared.get(), kills: bestKills.get() };
     // (the run's seed draws up the missions between the hand-made ones)
     var seed = (Math.random() * 4294967296) >>> 0;
     st = E.create(L.campaign(seed, E.rng), { seed: seed, start: from - 1 });
@@ -258,11 +262,11 @@
     st.wrecks = st.wrecks.filter(function (w) { return w.mi === st.mi; });
     paintBack();
     missionCard();
-    bestMission.submit(st.mi + 1);        // (reached: a record at once)
   }
   function finish(done) {
     ui = "over"; overAt = performance.now();
-    var mission = st.mi + 1, newMis = bestMission.submit(mission), newKills = bestKills.submit(st.kills);
+    if (counts) { bestCleared.submit(st.cleared); bestKills.submit(st.kills); }
+    var mission = st.mi + 1, newCleared = counts && st.cleared > before.cleared, newKills = counts && st.kills > before.kills;
     banner("");
     $("over-title").textContent = done ? "Every mission cleared!" : "Game over";
     $("over-msg").textContent = done ? "All " + TOTAL + " missions" : "Mission " + mission;
@@ -270,8 +274,8 @@
     var tally = {}, order = [];
     (st.tally || []).forEach(function (k) { if (!tally[k]) { tally[k] = 0; order.push(k); } tally[k]++; });
     $("over-tally").innerHTML = order.length ? order.map(function (k) { return '<span class="b-kind">' + A.badge(k, 24) + "<b>&times;" + tally[k] + "</b></span>"; }).join("") : "";
-    $("over-stats").textContent = st.kills + (st.kills === 1 ? " tank" : " tanks") + " destroyed" + (from > 1 ? ", from mission " + from : "") + ". " +
-      (newKills && st.kills > 0 ? "A new best! " : "Best: " + bestKills.get() + ". ") + "Furthest: mission " + bestMission.get() + (newMis && mission > 1 ? " (new)" : "") + ".";
+    $("over-stats").textContent = st.kills + (st.kills === 1 ? " tank" : " tanks") + " destroyed, " + st.cleared + (st.cleared === 1 ? " mission" : " missions") + " cleared" + (from > 1 ? " from mission " + from : "") + ". " +
+      (newKills && st.kills > 0 ? "A new best! " : "Best: " + bestKills.get() + ". ") + "Most cleared in a run: " + bestCleared.get() + (newCleared && st.cleared > 0 ? " (new)" : "") + ".";
     $("over").hidden = false;
     paintMenu();
   }
@@ -305,7 +309,7 @@
       else if (e.t === "dead") {
         SFX.dead(e.kind === "player");
         st.wrecks.push({ x: e.x, y: e.y, kind: e.kind, mi: st.mi });
-        if (e.kind !== "player") { (st.tally = st.tally || []).push(e.kind); bestKills.submit(st.kills); }
+        if (e.kind !== "player") { (st.tally = st.tally || []).push(e.kind); if (counts) bestKills.submit(st.kills); }
         if (f) { shake = Math.min(1.4, shake + 0.7); burst(e.x, e.y, 10, "chip", 650, 2.6, A.COLORS[e.kind]); burst(e.x, e.y, 8, "smoke", 650, 0.9); }
       }
       else if (e.t === "load") {
@@ -315,7 +319,7 @@
         else { st.wrecks = st.wrecks.filter(function (w) { return w.kind !== "player"; }); missionCard(); }
       }
       else if (e.t === "go") { SFX.go(); begun = true; banner(""); }
-      else if (e.t === "won") { SFX.won(); banner('<span class="b-title">Mission cleared!</span>'); }
+      else if (e.t === "won") { SFX.won(); banner('<span class="b-title">Mission cleared!</span>'); if (counts) bestCleared.submit(st.cleared); }
       else if (e.t === "lost") { SFX.lost(); banner('<span class="b-title">Tank destroyed</span><span class="b-line">' + (e.lives > 0 ? e.lives + (e.lives === 1 ? " life" : " lives") + " left" : "No lives left") + "</span>"); }
       else if (e.t === "life") SFX.life();
       else if (e.t === "over") { SFX.over(); finish(false); }
@@ -449,18 +453,17 @@
 
   // ---- the menu -------------------------------------------------------------------------------
   function paintMenu() {
-    var mx = maxStart();
-    startAt = Math.max(1, Math.min(startAt, mx));
+    startAt = Math.max(1, Math.min(startAt, TOTAL));
     $("stage-n").textContent = "From mission " + startAt;
-    $("stage-note").textContent = mx === 1 ? "the whole campaign" : "any mission up to " + mx + ", the furthest you've reached";
+    $("stage-note").textContent = startAt === 1 ? "the whole campaign" : "missions " + startAt + " to " + TOTAL;
     $("stage-down").disabled = startAt <= 1;
-    $("stage-up").disabled = startAt >= mx;
-    var bm = bestMission.get(), bk = bestKills.get();
-    $("bests").textContent = bm > 1 || bk ? "Furthest: mission " + bm + " · Most destroyed in a run: " + bk : "";
+    $("stage-up").disabled = startAt >= TOTAL;
+    var bc = bestCleared.get(), bk = bestKills.get();
+    $("bests").textContent = bc || bk ? "Most in a run: " + bc + (bc === 1 ? " mission" : " missions") + " cleared · " + bk + " destroyed" : "";
     if (window.GameShell && GameShell.menuKeys && menuApi) menuApi.refresh && menuApi.refresh();
   }
   function stepStart(d) {
-    var n = Math.max(1, Math.min(maxStart(), startAt + d));
+    var n = Math.max(1, Math.min(TOTAL, startAt + d));
     if (n === startAt) return;
     startAt = n; store.set("toytanks_start", String(n)); paintMenu();
   }

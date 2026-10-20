@@ -4,8 +4,9 @@
 // they're earned), and the page at a laptop's size and a phone's: the mouse,
 // the keys, the touch sticks, Visual FX off, and the arena fitting the screen.
 // The tanks that lay mines drive off them and don't blow themselves up; the
-// violet tank drives at your tank's pace; the menu picks any mission up to
-// the furthest reached; the mission card counts
+// violet tank drives at your tank's pace; the menu picks any of the
+// missions, and a run's records (missions cleared, tanks destroyed) count
+// from the one it starts on; the mission card counts
 // every kind, one too; a white tank stays out of sight when your tank is
 // lost; a shell's smoke lingers after it's gone. A mine's light is dark
 // until its layer is off it, then lit; in its last 2 s it blinks and beeps;
@@ -193,11 +194,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const menu = await p.evaluate(() => ({ ui: ToyTanks.ui(), play: document.getElementById("play").getAttribute("data-gs-key"),
       caps: ["stage-down", "stage-up"].map((id) => document.getElementById(id).getAttribute("data-gs-key")).join(" "),
-      locked: document.getElementById("stage-down").disabled && document.getElementById("stage-up").disabled, n: document.getElementById("stage-n").textContent }));
+      down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled, n: document.getElementById("stage-n").textContent }));
     await p.keyboard.press("Enter"); await p.waitForTimeout(150);
-    const card = await p.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, banner: document.getElementById("banner").textContent, best: localStorage.getItem("toytanks_best_mission") }));
-    check("toy-tanks: the menu takes keys (← → step the mission, both shut with none reached yet; Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and the mission reached is a record at once",
-      menu.ui === "menu" && menu.play === "Space or Enter" && menu.caps === "← →" && menu.locked && menu.n === "From mission 1" && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best === "1", { menu, card });
+    const card = await p.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, banner: document.getElementById("banner").textContent, best: localStorage.getItem("toytanks_best_cleared") }));
+    check("toy-tanks: the menu takes keys (← → step the mission, ◀ shut at mission 1 and ▶ open; Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and no mission cleared is a record yet",
+      menu.ui === "menu" && menu.play === "Space or Enter" && menu.caps === "← →" && menu.down && !menu.up && menu.n === "From mission 1" && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best == null, { menu, card });
 
     // a mission tried again after a lost tank is the same one (a drawn-up mission keeps its layout)
     const before = await p.evaluate(() => { ToyTanks.advance(1700, {}); const st = ToyTanks.st(); return { grid: st.grid.join(""), foes: st.enemies.map((e) => e.kind + e.x + "," + e.y).join() }; });
@@ -268,30 +269,75 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: mission 20 brings the white tanks, seen on the mission card and gone from sight once it starts", r.n === 2 && r.onCard && r.gone, r);
   }
 
-  // ---- the menu's start: ◀ ▶ (← →, held to run on) step the mission, from 1
-  // up to the furthest reached and no further; the run starts there, and its
-  // card counts every kind of tank, one too
+  // ---- the menu's start: ◀ ▶ (← →, held to run on) step the mission, any of
+  // the 100; the run starts there, and its card counts every kind of tank,
+  // one too
   {
     const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
-    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("toytanks_best_mission", "12"); } catch (e) {} }) });
-    const read = () => q.evaluate(() => ({ n: document.getElementById("stage-n").textContent, down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled }));
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const read = () => q.evaluate(() => ({ n: document.getElementById("stage-n").textContent, note: document.getElementById("stage-note").textContent, down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled }));
+    // (a key held down: its repeats step on too)
+    const hold = (key, n) => q.evaluate(([key, n]) => { for (let i = 0; i < n; i++) document.dispatchEvent(new KeyboardEvent("keydown", { key, repeat: true, bubbles: true })); }, [key, n]);
     const a = await read();
     await q.keyboard.press("ArrowRight"); await q.keyboard.press("ArrowRight");
     const b = await read();
-    // (a key held down: its repeats step on too)
-    await q.evaluate(() => { for (let i = 0; i < 30; i++) document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", repeat: true, bubbles: true })); });
+    await hold("ArrowRight", 30);
+    const past = await read();
+    await hold("ArrowRight", 100);
     const top = await read();
     await q.keyboard.press("ArrowLeft");
     const back = await read();
+    await hold("ArrowLeft", 88);
     await q.click("#stage-down");
+    const ten = await read();
     await q.keyboard.press("Enter"); await q.waitForTimeout(150);
     const went = await q.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, kept: localStorage.getItem("toytanks_start"),
       kinds: [...document.querySelectorAll("#banner .b-kind")].map((k) => k.textContent.trim()).sort().join(" ") }));
-    check("toy-tanks: on the menu ◀ ▶ (← →, held to run on) pick the mission to start from, 1 up to the furthest reached (12) and no further, kept, and the run starts there",
-      a.n === "From mission 1" && a.down && !a.up && b.n === "From mission 3" && top.n === "From mission 12" && top.up && !top.down && back.n === "From mission 11" &&
-      went.ui === "run" && went.mission === 10 && went.kept === "10", { a, b, top, back, went });
+    check("toy-tanks: on the menu ◀ ▶ (← →, held to run on) pick the mission to start from, any of the 100, kept, and the run starts there",
+      a.n === "From mission 1" && a.note === "the whole campaign" && a.down && !a.up && b.n === "From mission 3" && b.note === "missions 3 to 100" &&
+      past.n === "From mission 33" &&
+      top.n === "From mission 100" && top.up && !top.down && back.n === "From mission 99" && ten.n === "From mission 10" &&
+      went.ui === "run" && went.mission === 10 && went.kept === "10", { a, b, past, top, back, ten, went });
     check("toy-tanks: the mission card counts every kind of tank, a lone one too (mission 10: ×2 pink, ×1 marine)", went.kinds === "×1 ×2", went.kinds);
     check("toy-tanks (stage pick): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
+  // ---- records: every run counts, from the mission it starts on: the most
+  // missions cleared in it (so starting late pads nothing) and the most
+  // tanks destroyed, each saved as it's passed
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const r = await q.evaluate(() => {
+      // a run from `at`: one tank shot, the rest gone, on to the next mission
+      const play = (at) => {
+        ToyTanks.start(at); ToyTanks.advance(1700, {});
+        const st = ToyTanks.st(), pl = st.player, cols = 22;
+        st.enemies.forEach((t) => { t.cool = 1e9; t.spec = Object.assign({}, t.spec, { fire: 1e9, mines: 0, move: "none" }); });
+        const e = st.enemies.filter((t) => t.alive).sort((x, y) => y.x - x.x)[0];
+        for (let x = Math.floor(e.x) - 3; x < Math.floor(e.x); x++) st.grid[Math.floor(e.y) * cols + x] = 0;
+        pl.x = Math.floor(e.x) - 2.5; pl.y = e.y; st.shells = []; st.mines = [];
+        ToyTanks.advance(16, { aim: 0, fire: true }); ToyTanks.advance(800, {});
+        const kills = st.kills;
+        st.enemies.forEach((t) => { t.alive = false; });
+        ToyTanks.advance(1900, {});
+        return { kills, on: ToyTanks.st().mi + 1, cleared: localStorage.getItem("toytanks_best_cleared"), best: localStorage.getItem("toytanks_best_kills"), furthest: localStorage.getItem("toytanks_best_mission") };
+      };
+      const late = play(100 - 1);
+      ToyTanks.end();
+      const card = document.getElementById("over-stats").textContent;
+      const menu = document.getElementById("bests").textContent;
+      // a second run, from mission 1: two missions cleared beats one
+      play(1); const two = (() => { const st = ToyTanks.st(); st.enemies.forEach((t) => { t.alive = false; }); ToyTanks.advance(1900, {}); return { on: st.mi + 1, cleared: localStorage.getItem("toytanks_best_cleared") }; })();
+      return { late, card, menu, two };
+    });
+    check("toy-tanks: a run from mission 99 counts from there: one mission cleared is a record of 1 (not 99), a tank destroyed a record, both saved at once, and the end card says so",
+      r.late.kills === 1 && r.late.on === 100 && r.late.cleared === "1" && r.late.best === "1" && r.late.furthest == null &&
+      /1 mission cleared from mission 99/.test(r.card) && /Most cleared in a run: 1 \(new\)/.test(r.card) && /A new best!/.test(r.card), r);
+    check("toy-tanks: two missions cleared in a later run from mission 1 beats it, saved as it's passed; the menu shows both records",
+      r.two.cleared === "2" && /1 mission cleared · 1 destroyed/.test(r.menu), r);
+    check("toy-tanks (records): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
 
