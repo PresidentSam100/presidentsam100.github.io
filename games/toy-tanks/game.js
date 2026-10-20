@@ -12,7 +12,9 @@
 
    Keys: WASD or the arrows drive, the mouse aims, a click or Space fires,
    a right-click or E lays a mine, P pauses; on the menu ← → pick the
-   mission to start from (held, they run on) and Space or Enter starts;
+   mission to start from (held, they run on), Space or Enter starts, and L
+   opens the mission editor (editor.html), whose missions come back here as
+   "#play=" links, played on their own (Backspace: back to the campaign);
    on the end card Space or Enter plays again and Backspace is the menu. Esc leaves (asking first mid-run): the
    shared scripts.
    ===================================================================== */
@@ -234,7 +236,7 @@
   function missionCard() {
     var kinds = {}, order = [];
     st.enemies.forEach(function (e) { if (!kinds[e.kind]) { kinds[e.kind] = 0; order.push(e.kind); } kinds[e.kind]++; });
-    banner('<span class="b-title">Mission ' + (st.mi + 1) + '</span><span class="b-line">Enemy tanks: ' + st.enemies.length + "</span>" +
+    banner('<span class="b-title">' + (shared ? esc(shared.name) : "Mission " + (st.mi + 1)) + '</span><span class="b-line">Enemy tanks: ' + st.enemies.length + "</span>" +
       '<span class="b-kinds">' + order.map(function (k) { return '<span class="b-kind">' + A.badge(k, 22) + "<b>&times;" + kinds[k] + "</b></span>"; }).join("") + "</span>");
   }
 
@@ -244,12 +246,13 @@
     audio();
     from = typeof at === "number" ? at : Math.min(startAt, TOTAL);
     counts = true;
+    if (shared) { from = 1; counts = false; }      // (a mission of your own: never a record)
     // (the records as the run starts: saved as they're passed, its end card
     // still knows which it beat)
     before = { cleared: bestCleared.get(), kills: bestKills.get() };
     // (the run's seed draws up the missions between the hand-made ones)
     var seed = (Math.random() * 4294967296) >>> 0;
-    st = E.create(L.campaign(seed, E.rng), { seed: seed, start: from - 1 });
+    st = E.create(shared ? [shared] : L.campaign(seed, E.rng), { seed: seed, start: from - 1 });
     st.wrecks = [];
     ui = "run"; begun = false; parts = []; shake = 0; overAt = 0;
     document.body.classList.add("run");
@@ -268,13 +271,14 @@
     if (counts) { bestCleared.submit(st.cleared); bestKills.submit(st.kills); }
     var mission = st.mi + 1, newCleared = counts && st.cleared > before.cleared, newKills = counts && st.kills > before.kills;
     banner("");
-    $("over-title").textContent = done ? "Every mission cleared!" : "Game over";
-    $("over-msg").textContent = done ? "All " + TOTAL + " missions" : "Mission " + mission;
+    $("over-title").textContent = done ? (shared ? "Mission cleared!" : "Every mission cleared!") : "Game over";
+    $("over-msg").textContent = shared ? shared.name : done ? "All " + TOTAL + " missions" : "Mission " + mission;
     document.body.classList.remove("run");
     var tally = {}, order = [];
     (st.tally || []).forEach(function (k) { if (!tally[k]) { tally[k] = 0; order.push(k); } tally[k]++; });
     $("over-tally").innerHTML = order.length ? order.map(function (k) { return '<span class="b-kind">' + A.badge(k, 24) + "<b>&times;" + tally[k] + "</b></span>"; }).join("") : "";
-    $("over-stats").textContent = st.kills + (st.kills === 1 ? " tank" : " tanks") + " destroyed, " + st.cleared + (st.cleared === 1 ? " mission" : " missions") + " cleared" + (from > 1 ? " from mission " + from : "") + ". " +
+    $("over-stats").textContent = shared ? st.kills + (st.kills === 1 ? " tank" : " tanks") + " destroyed. A mission of your own keeps no records." :
+      st.kills + (st.kills === 1 ? " tank" : " tanks") + " destroyed, " + st.cleared + (st.cleared === 1 ? " mission" : " missions") + " cleared" + (from > 1 ? " from mission " + from : "") + ". " +
       (newKills && st.kills > 0 ? "A new best! " : "Best: " + bestKills.get() + ". ") + "Most cleared in a run: " + bestCleared.get() + (newCleared && st.cleared > 0 ? " (new)" : "") + ".";
     $("over").hidden = false;
     paintMenu();
@@ -282,8 +286,8 @@
   function toMenu() {
     ui = "menu"; begun = false;
     document.body.classList.remove("run");
-    // (behind the menu: the first hand-made mission, standing still)
-    st = E.create([{ map: L.FIXED[5] }], { seed: 1 }); st.wrecks = [];
+    // (behind the menu: the first hand-made mission, or a mission of your own, standing still)
+    st = E.create([shared || { map: L.FIXED[5] }], { seed: 1 }); st.wrecks = [];
     $("menu").hidden = false; $("over").hidden = true; $("hud").hidden = true;
     // (the HUD, unseen, filled as a run starts it: the same size, so nothing moves when one does)
     $("h-lives").dataset.v = ""; hud();
@@ -462,6 +466,7 @@
     $("stage-up").disabled = startAt >= TOTAL;
     var bc = bestCleared.get(), bk = bestKills.get();
     $("bests").textContent = bc || bk ? "Most in a run: " + bc + (bc === 1 ? " mission" : " missions") + " cleared · " + bk + " destroyed" : "";
+    paintShared();
     if (window.GameShell && GameShell.menuKeys && menuApi) menuApi.refresh && menuApi.refresh();
   }
   function stepStart(d) {
@@ -492,6 +497,39 @@
   $("again").addEventListener("click", startRun);
   $("to-menu").addEventListener("click", toMenu);
 
+  // ---- a mission of your own -----------------------------------------------------------------
+  // The editor (editor.html) sends one here as a "#play=<code>" link
+  // (levelcode.js), checked before it's played. It's played on its own, in
+  // place of the campaign, and never sets a record; Back to the campaign
+  // (Backspace) puts it away.
+  var shared = null;
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function readLink() {
+    var m = /[#&]play=([^&]+)/.exec(location.hash || "");
+    if (!m || !window.ToyTanksCode) return;
+    try {
+      var lv = ToyTanksCode.decode(m[1]), errs = E.parse(lv).errors;
+      if (errs.length) throw new Error(errs[0]);
+      shared = lv;
+    } catch (err) {
+      shared = null;
+      if (window.GameShell && GameShell.alert) GameShell.alert({ title: "That mission won't open", text: String(err && err.message || err) });
+    }
+  }
+  function paintShared() {
+    $("start-pick").hidden = !!shared;
+    $("shared").hidden = !shared; $("to-campaign").hidden = !shared;
+    if (shared) $("shared-name").textContent = shared.name;
+  }
+  $("to-campaign").addEventListener("click", function () {
+    shared = null;
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+    toMenu();
+  });
+  readLink();
+  // (a link pasted over this page changes only its hash: taken up on the menu)
+  window.addEventListener("hashchange", function () { if (ui === "menu") { readLink(); toMenu(); } });
+
   // ---- pause, leaving, and the menus' keys -------------------------------------------------------
   var P = window.GameShell && GameShell.pausable ? GameShell.pausable({
     canPause: function () { return ui === "run" && !!st && (st.status === "play" || st.status === "start") && begun; },
@@ -499,7 +537,7 @@
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(P ? { active: inRun, pausable: P } : inRun);
   var menuApi = null;
   if (window.GameShell && GameShell.menuKeys) {
-    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#stage-down", keys: ["arrowleft"] }, { sel: "#stage-up", keys: ["arrowright"] }], start: "#play", space: true });
+    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#stage-down", keys: ["arrowleft"] }, { sel: "#stage-up", keys: ["arrowright"] }, { sel: "#to-editor", keys: ["l"] }, { sel: "#to-campaign", keys: ["Backspace"] }], start: "#play", space: true });
     // (the end card: Space fires in play, so for a moment after the card comes
     // up no key counts: one pressed as the last tank went can't skip it)
     GameShell.menuKeys({ active: function () { return ui === "over" && performance.now() - overAt > 700; }, groups: [{ sel: "#to-menu", keys: ["Backspace"] }], start: "#again", space: true });
@@ -517,6 +555,7 @@
     ui: function () { return ui; },
     st: function () { return st; },
     start: startRun,
+    shared: function () { return shared; },
     end: function () { if (ui === "run") finish(false); },
     cell: function () { return s; },
     fx: function () { return { parts: parts.length, shake: shake }; },

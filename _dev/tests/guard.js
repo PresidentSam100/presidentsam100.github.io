@@ -66,6 +66,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["yi", "yi/", async (p) => { await p.click("#startBtn"); await p.waitForTimeout(300); await p.evaluate(() => drawCards(1, 1)); }],
     ["tile-maze", "tile-maze/", async (p) => { for (const k of ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"]) { if (await active(p)) break; await p.keyboard.press(k); await p.waitForTimeout(250); } }],
     ["tile-maze editor", "tile-maze/editor.html", async (p) => { await p.fill("#nameIn", "My level " + Date.now()); }],
+    ["toy-tanks editor", "toy-tanks/editor.html", (p) => p.evaluate(() => ToyTanksEditor.paint(3, 3, "#"))],
     ["metazac", "metazac/", async (p) => { await p.click("#start-btn"); await p.waitForTimeout(400); }],
     // (a middle cell: the top-left one sits under the fixed ← Games button)
     ["minesweeper", "minesweeper/", (p) => clickMidCell(p)],

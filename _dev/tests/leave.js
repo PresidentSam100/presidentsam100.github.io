@@ -7,7 +7,7 @@
 // page are counted, not followed (page.leaves, see lib.newContext).
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
-  const EDITORS = ["slither/editor.html", "tile-maze/editor.html"];   // Esc never leaves (it would lose work)
+  const EDITORS = ["slither/editor.html", "tile-maze/editor.html", "toy-tanks/editor.html"];   // Esc never leaves (it would lose work)
   // After a key: the shared handler decides after the key's dispatch, and a
   // trip to the games page is counted when its request arrives (p.leaves),
   // which on a busy machine can be well after a fixed wait. So settle waits

@@ -235,3 +235,18 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 }
 
 .gs-pause { background: rgba(15, 42, 92, 0.45); }
+
+/* ---- on the menu: the way to the mission editor, and a mission of your own ---------- */
+.more-row { display: flex; gap: 8px; margin-top: 8px; }
+.more-row > * {
+  flex: 1 1 0; display: flex; align-items: center; justify-content: center; gap: 6px;
+  text-align: center; text-decoration: none; font-size: 15px; line-height: 1.2; padding: 5px 10px; border-radius: 10px;
+}
+.more-row > [hidden] { display: none; }
+.shared-box {
+  display: flex; flex-direction: column; align-items: center; gap: 1px; margin-bottom: 12px;
+  color: var(--cream); background: var(--blue); border: 3px solid var(--blue-deep); border-radius: 10px; padding: 7px 10px;
+}
+.shared-box[hidden] { display: none; }
+.shared-box b { font-weight: 400; font-size: 17px; overflow-wrap: anywhere; }
+.shared-box small { font-size: 13px; color: rgba(255, 248, 232, 0.85); }

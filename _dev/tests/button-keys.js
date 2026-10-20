@@ -27,6 +27,7 @@ const ALLOW = {
   "dead-end/editor.html": ["*"],            // the level editors are mouse tools
   "slither/editor.html": ["*"],
   "tile-maze/editor.html": ["*"],
+  "toy-tanks/editor.html": ["*"],
   "speedle/": [".key"],                     // the on-screen keyboard
   "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid (the arrows walk it, the keys on its heading)
   "sudoku/": [".key"],                      // the digit pad

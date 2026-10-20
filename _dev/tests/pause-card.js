@@ -359,7 +359,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // Games link, sound and Visual FX (the level editors aside: nothing in them
   // to pause)
   {
-    const EDITORS = ["dead-end/editor.html", "slither/editor.html", "tile-maze/editor.html"];
+    const EDITORS = ["dead-end/editor.html", "slither/editor.html", "tile-maze/editor.html", "toy-tanks/editor.html"];
     const missing = [];
     for (const g of lib.gamePages()) {
       if (EDITORS.includes(g)) continue;

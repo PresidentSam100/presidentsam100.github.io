@@ -72,14 +72,20 @@
       breaks <b>cork</b> blocks. Each kind of tank fights its own way.
       Three lives, and one more every fifth mission.
     </p>
-    <div class="pick">
-      <div class="stage" id="stage">
+    <div class="pick" id="start-pick">
+      <div class="stage">
         <button type="button" class="step" id="stage-down" aria-label="The mission before"><span class="tri tri-l"></span></button>
         <div class="stage-read" aria-live="polite"><b id="stage-n">From mission 1</b><small id="stage-note">the whole campaign</small></div>
         <button type="button" class="step" id="stage-up" aria-label="The next mission"><span class="tri tri-r"></span></button>
       </div>
     </div>
+    <!-- a mission of your own, from the editor's "#play=" link: played in place of the campaign -->
+    <div class="shared-box" id="shared" hidden><b id="shared-name"></b><small>a mission of your own: no records</small></div>
     <button type="button" class="playbtn" id="play">Roll out</button>
+    <div class="more-row">
+      <a class="ghost" id="to-editor" href="./editor.html" data-leave>Build a mission</a>
+      <button type="button" class="ghost" id="to-campaign" hidden>Back to the campaign</button>
+    </div>
     <p class="bests" id="bests"></p>
   </div>
 </section>
@@ -99,6 +105,7 @@
 
 <script src="engine.js"></script>
 <script src="levels.js"></script>
+<script src="levelcode.js"></script>
 <script src="art.js"></script>
 <script src="game.js"></script>
 </body>
