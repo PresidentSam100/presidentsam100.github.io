@@ -285,6 +285,8 @@
     // (behind the menu: the first hand-made mission, standing still)
     st = E.create([{ map: L.FIXED[5] }], { seed: 1 }); st.wrecks = [];
     $("menu").hidden = false; $("over").hidden = true; $("hud").hidden = true;
+    // (the HUD, unseen, filled as a run starts it: the same size, so nothing moves when one does)
+    $("h-lives").dataset.v = ""; hud();
     banner("");
     paintBack(); paintMenu();
   }

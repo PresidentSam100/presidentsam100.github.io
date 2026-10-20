@@ -372,6 +372,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close(); await c.close();
   }
 
+  // ---- the name stays where it is as a run starts, and so does the arena
+  // (the HUD beside the name where there's room, under it otherwise; its
+  // room kept on the menu), the HUD clear of the corner buttons
+  for (const [w, h, phone] of [[1366, 657, 0], [1120, 700, 0], [1000, 700, 0], [390, 664, 1], [844, 390, 1]]) {
+    const c = await lib.newContext(browser, Object.assign({ viewport: { width: w, height: h } }, phone ? { isMobile: true, hasTouch: true } : {}));
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const read = () => q.evaluate(() => {
+      const t = document.querySelector(".title").getBoundingClientRect(), a = document.getElementById("arena").getBoundingClientRect(), hb = document.getElementById("hud").getBoundingClientRect();
+      const under = Array.from(document.querySelectorAll(".nav-back-games, .gs-corner > *")).filter((x) => x.getClientRects().length).some((x) => { const r = x.getBoundingClientRect(); return r.left < hb.right && r.right > hb.left && r.top < hb.bottom && r.bottom > hb.top; });
+      return { tx: Math.round(t.left + t.width / 2), ty: Math.round(t.top), a: [a.left, a.top, a.width, a.height].map(Math.round).join(","), under };
+    });
+    const menu = await read();
+    await q.keyboard.press("Enter"); await q.waitForTimeout(200);
+    const run = await read();
+    check("toy-tanks " + w + "x" + h + ": the name and the arena stay where they are as a run starts, and the HUD is clear of the corner buttons",
+      menu.tx === run.tx && menu.ty === run.ty && menu.a === run.a && !run.under && Math.abs(run.tx - w / 2) <= 1, { menu, run });
+    await q.close(); await c.close();
+  }
+
   // ---- records: every run counts, from the mission it starts on: the most
   // missions cleared in it (so starting late pads nothing) and the most
   // tanks destroyed, each saved as it's passed
