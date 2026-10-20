@@ -258,19 +258,11 @@
     leaf.art = { words: words };
     return leaf.art;
   }
-  // the outline of a printed picture, round its middle (page widths)
-  var MOON = (function () {
-    var outer = [], inner = [], i, a;
-    for (i = 0; i < 64; i++) { a = i / 64 * Math.PI * 2; var x = Math.cos(a), y = Math.sin(a); if (Math.hypot(x - 0.45, y + 0.2) > 0.82) outer.push([x, y, a]); }
-    for (i = 0; i < 64; i++) { a = i / 64 * Math.PI * 2; var u = 0.45 + Math.cos(a) * 0.82, v = -0.2 + Math.sin(a) * 0.82; if (Math.hypot(u, v) < 1) inner.push([u, v, a]); }
-    // (both arcs ordered round the crescent's back, away from the bite, so neither wraps)
-    var back = Math.atan2(0.2, -0.45), key = function (p) { var k = p[2] - back; while (k > Math.PI) k -= Math.PI * 2; while (k <= -Math.PI) k += Math.PI * 2; return k; };
-    outer.sort(function (p, q) { return key(p) - key(q); }); inner.sort(function (p, q) { return key(q) - key(p); });
-    return outer.concat(inner).map(function (p) { return [p[0], p[1]]; });
-  })();
+  // the outline of a printed picture, round its middle (page widths): the
+  // holes' own shapes (the moon's whole circle on the panel's middle, as its hole's is)
   function motif(kind, cx, cy, s) {
     var pts;
-    if (kind === "moon") pts = MOON.map(function (p) { return [cx + p[0] * s, cy + p[1] * s]; });
+    if (kind === "moon") { var o = E.midOf("moon"); pts = E.SHAPES.moon.map(function (p) { return [cx + (p[0] - o[0]) * s * 0.5, cy + (p[1] - o[1]) * s * 0.5]; }); }
     else if (kind === "star") pts = E.SHAPES.star.map(function (p) { return [cx + p[0] * s * 0.6, cy + p[1] * s * 0.6]; });
     else if (kind === "flower") pts = E.SHAPES.flower.map(function (p) { return [cx + p[0] * s * 0.8, cy + p[1] * s * 0.8]; });
     else if (kind === "window") pts = E.SHAPES.window.map(function (p) { return [cx + p[0] * s * 0.78, cy + p[1] * s * 0.78]; });
@@ -310,8 +302,7 @@
     // round each hole, a printed rim along its cut
     leaf.holes.forEach(function (h) {
       g.globalAlpha = 0.7; g.strokeStyle = ink; g.lineWidth = lw;
-      var k = (h.rin + 0.013) / h.rin;
-      g.beginPath(); trace(h.poly.map(function (p) { return [h.cx + (p[0] - h.cx) * k, h.cy + (p[1] - h.cy) * k]; }), map); g.stroke();
+      g.beginPath(); trace(E.rim(h, 0.013), map); g.stroke();
       if (h.shape === "sun") rays(h.cx, h.cy, h.rin + 0.024, Math.min(T.panelHalf - 0.004, h.rin + 0.04), map, lw);
     });
     // the words, nonsense in tidy lines

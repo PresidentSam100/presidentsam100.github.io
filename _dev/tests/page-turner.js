@@ -47,7 +47,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     // wholly inside, through; past the edge, squished: each shape, each way round
     const bad = [];
     for (const shape of Object.keys(E.SHAPES)) {
-      const rin = E.shapesFor(0.08).includes(shape) ? 0.08 : 0.066, h = E.fitRegion(E.makeHole(4, shape, rin));
+      const rin = E.sizeFor(shape, 0.08), h = E.fitRegion(E.makeHole(4, shape, rin));
       for (let k = 0; k < 8; k++) {
         const e = h.edge[Math.floor(k / 8 * h.edge.length)], dx = e[0] - h.cx, dy = e[1] - h.cy, d = Math.hypot(dx, dy);
         for (const [f, want] of [[0, "through"], [(d - 0.003) / d, "through"], [(d + 0.004) / d, "squish"]]) {
@@ -59,6 +59,42 @@ module.exports = async ({ browser, base, check, lib }) => {
       }
     }
     check("page-turner rules: a worm wholly inside a hole goes through when the leaf lands, one just past the edge is squished (every shape, every side)", bad.length === 0, bad.slice(0, 4));
+  }
+  {
+    // the moon is a hole too: wholly inside its thick middle, through; over
+    // its edge into the bite, or off its back, squished
+    const got = [];
+    if (E.SHAPES.moon && E.sizeFor) {
+      const rin = E.sizeFor("moon", E.stage(1).rin), h = E.makeHole(4, "moon", rin), o = E.midOf("moon"), ol = Math.hypot(o[0], o[1]);
+      const ux = o[0] / ol, uy = o[1] / ol;          // (from its middle toward the bite)
+      for (const [f, want] of [[0, "through"], [h.room - 0.003, "through"], [h.room + 0.004, "squish"], [-(h.room - 0.003), "through"], [-(h.room + 0.004), "squish"]]) {
+        const st = setup("endless", [E.makeHole(4, "moon", rin)]);
+        still(st, 0, h.cx + ux * f, h.cy + uy * f);
+        got.push(toSlam(st).filter((ev) => ev.type === "through" || ev.type === "squish").map((ev) => ev.type).join() === want);
+      }
+    }
+    check("page-turner rules: a moon (crescent) hole: a worm wholly inside it goes through, one over its edge, into the bite or off its back, is squished", got.length === 5 && got.every(Boolean), got);
+  }
+  {
+    // every shape on every page, the star and the moon from page 1, sized
+    // to fit their panel; no two holes on a page alike
+    const bad = [], seen = { star: new Set(), moon: new Set() };
+    for (let seed = 1; seed <= 20; seed++) for (let p = 1; p <= 7; p++) {
+      const shapes = E.makeLeaf(p, seeded(seed * 1000 + p)).holes.map((h) => h.shape);
+      if (new Set(shapes).size !== shapes.length) bad.push({ seed, p, shapes });
+      shapes.forEach((k) => { if (seen[k]) seen[k].add(p); });
+    }
+    check("page-turner rules: the holes take every shape, stars and moons from page 1 (seen on each of pages 1 to 7 across seeds), no two alike on a page",
+      !!E.SHAPES.moon && bad.length === 0 && [1, 2, 3, 4, 5, 6, 7].every((p) => seen.star.has(p) && seen.moon.has(p)), { bad: bad.slice(0, 3), star: [...seen.star], moon: [...seen.moon] });
+    // and every hole inside its panel, never smaller than the last pages', its printed rim outside it
+    const out = [];
+    for (let seed = 1; seed <= 8; seed++) for (let p = 1; p <= 40; p++) for (const h of E.makeLeaf(p, seeded(seed * 77 + p)).holes) {
+      const m = E.panelMid(h.panel), half = E.TUNE.panelHalf;
+      if (h.poly.some((q) => Math.abs(q[0] - m[0]) > half || Math.abs(q[1] - m[1]) > half)) out.push({ seed, p, shape: h.shape, why: "past its panel" });
+      if (h.rin < E.stage(99).rin - 1e-9) out.push({ seed, p, shape: h.shape, why: "smaller than the last pages'", rin: h.rin });
+      if (E.rim && E.rim(h, 0.013).some((q) => E.edgeDepth(h, q[0], q[1]) > -0.004)) out.push({ seed, p, shape: h.shape, why: "rim on the hole" });
+    }
+    check("page-turner rules: every hole lies inside its panel and is no smaller than the last pages' holes, and its printed rim runs outside its cut (the moon's horns too)", !!E.rim && out.length === 0, out.slice(0, 4));
   }
   {
     // four worms in one big hole all go through; the game goes on to page 2
@@ -86,11 +122,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     const s = [];
     for (let p = 1; p <= 120; p++) s.push(E.stage(p));
     const never = (f) => s.every((x, i) => i === 0 || f(s[i - 1], x));
-    const leaves = [1, 5, 10, 15, 20, 30, 99].map((p) => { const l = E.makeLeaf(p, seeded(p)); return { p, holes: l.holes.length, rin: l.holes[0].rin, want: E.stage(p).holes }; });
+    const leaves = [1, 5, 10, 15, 20, 30, 99].map((p) => { const l = E.makeLeaf(p, seeded(p)); return { p, holes: l.holes.length, sized: l.holes.every((h) => Math.abs(h.rin - E.sizeFor(h.shape, E.stage(p).rin)) < 1e-9), want: E.stage(p).holes }; });
     check("page-turner rules: pages come faster as the book goes on, with fewer holes and smaller ones (5 holes on page 1, 1 from page 19; a 3 s warning down to 1.65 s), and each leaf has its page's holes",
       never((a, b) => b.warn <= a.warn + 1e-9) && never((a, b) => b.holes <= a.holes) && never((a, b) => b.rin <= a.rin + 1e-9) &&
-      s[0].holes === 5 && s[18].holes === 1 && s[0].rin > s[29].rin * 1.9 && Math.abs(s[0].warn - 3) < 0.01 && Math.abs(s[29].warn - 1.65) < 0.01 && s[119].warn === s[29].warn &&
-      leaves.every((l) => l.holes === l.want && Math.abs(l.rin - E.stage(l.p).rin) < 1e-9), { first: s[0], floor: s[29], leaves });
+      s[0].holes === 5 && s[18].holes === 1 && s[0].rin > s[29].rin * 1.75 && Math.abs(s[0].warn - 3) < 0.01 && Math.abs(s[29].warn - 1.65) < 0.01 && s[119].warn === s[29].warn &&
+      leaves.every((l) => l.holes === l.want && l.sized), { first: s[0], floor: s[29], leaves });
+  }
+  {
+    // the pace: the leaf stands a shorter while soon, just under a second by
+    // page 9 (from 1.9 s on page 1), on down to 0.8 s by page 30; the holes
+    // shrink gently all the way to page 30, never below 0.074
+    const st = (p) => E.stage(p);
+    check("page-turner rules: the leaf stands just under a second by page 9 (1.9 s on page 1, 0.8 s from page 30), and the holes shrink gently to page 30 (0.074 at the smallest; page 20's still 0.09 or more)",
+      Math.abs(st(1).stand - 1.9) < 1e-9 && st(9).stand <= 0.95 && st(9).stand >= 0.85 && st(5).stand < 1.5 && Math.abs(st(30).stand - 0.8) < 1e-9 && st(99).stand === st(30).stand &&
+      Math.abs(st(30).rin - 0.074) < 1e-9 && st(99).rin === st(30).rin && st(20).rin >= 0.09 && st(25).rin > st(30).rin,
+      [1, 5, 9, 10, 20, 25, 30].map((p) => p + ": stand " + st(p).stand.toFixed(2) + ", holes " + st(p).rin.toFixed(3)));
   }
   {
     // reach: from anywhere on the page (corners too), through some hole of
@@ -99,8 +145,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) starts.push([R + (1 - 2 * R) * i / (N - 1), R + (1 - 2 * R) * j / (N - 1)]);
     const margins = {};
     for (const p of [1, 3, 4, 7, 8, 12, 13, 18, 19, 24, 25, 29, 30, 99]) {
-      const s = E.stage(p), shapes = E.shapesFor(s.rin), holes = [];
-      for (let pn = 0; pn < 9; pn++) holes.push(shapes.map((k) => E.makeHole(pn, k, s.rin)));
+      const s = E.stage(p), shapes = Object.keys(E.SHAPES), holes = [];
+      for (let pn = 0; pn < 9; pn++) holes.push(shapes.map((k) => E.makeHole(pn, k, E.sizeFor(k, s.rin))));
       let worst = 0;
       // (the worst k holes for a start are the k farthest panels, each at its worst shape)
       for (const st of starts) { const per = holes.map((hs) => Math.max(...hs.map((h) => E.travelTime(E.nearestFit(h, st[0], st[1]))))).sort((a, b) => b - a); worst = Math.max(worst, per[s.holes - 1]); }
@@ -110,8 +156,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       Object.values(margins).every((m) => m >= 0.05), margins);
     // and played out: the quickest pages, one hole in a corner panel, the worm in the far corner
     const bad = [];
-    for (const p of [19, 25, 30, 99]) for (const shape of E.shapesFor(E.stage(p).rin)) for (const [panel, sx, sy] of [[0, 1 - R, 1 - R], [2, R, 1 - R], [6, 1 - R, R], [8, R, R]]) {
-      const h = E.makeHole(panel, shape, E.stage(p).rin), st = setup("endless", [h], p);
+    for (const p of [19, 25, 30, 99]) for (const shape of Object.keys(E.SHAPES)) for (const [panel, sx, sy] of [[0, 1 - R, 1 - R], [2, R, 1 - R], [6, 1 - R, R], [8, R, R]]) {
+      const h = E.makeHole(panel, shape, E.sizeFor(shape, E.stage(p).rin)), st = setup("endless", [h], p);
       still(st, 0, sx, sy);
       let t = 0;
       const seen = toSlam(st, (s) => { t += 1 / 60; const w = s.worms[0]; if (t < E.TUNE.react || E.fits(h, w.x, w.y)) return { x: 0, y: 0 }; const d = Math.hypot(h.cx - w.x, h.cy - w.y); return { x: (h.cx - w.x) / d, y: (h.cy - w.y) / d }; });

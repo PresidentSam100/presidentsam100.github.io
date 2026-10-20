@@ -51,16 +51,18 @@
   // fits inside, whatever the shape), how long the leaf stands before it tips,
   // how long it takes to fall, and the beat after it lands. The warning is
   // stand + fall: from the moment the shadow shows where the holes will land
-  // to the slam. Sizes bottom out at page 25 and the pace at page 30.
+  // to the slam. The holes shrink gently all the way to page 30; the leaf
+  // stands a shorter while quickly, just under a second by page 9, then
+  // eases on to its floor at page 30, as does everything else.
   function lerp(a, b, t) { return a + (b - a) * t; }
   function clamp01(t) { return t < 0 ? 0 : t > 1 ? 1 : t; }
   function stage(p) {
     p = Math.max(1, p | 0);
-    var size = clamp01((p - 1) / 24), pace = clamp01((p - 1) / 29);
+    var size = clamp01((p - 1) / 29), pace = clamp01((p - 1) / 29);
     var s = {
       holes: p <= 3 ? 5 : p <= 7 ? 4 : p <= 12 ? 3 : p <= 18 ? 2 : 1,
-      rin: lerp(0.135, 0.066, size),
-      stand: lerp(1.9, 0.8, pace),
+      rin: lerp(0.135, 0.074, size),
+      stand: p <= 9 ? lerp(1.9, 0.9, (p - 1) / 8) : lerp(0.9, 0.8, clamp01((p - 9) / 21)),
       fall: lerp(1.1, 0.85, pace),
       land: lerp(0.45, 0.35, pace)
     };
@@ -71,10 +73,30 @@
   // ---- the holes -----------------------------------------------------------------------
   // Each shape is drawn to a unit inscribed circle round its middle, so a star
   // and a sun of one size let the same worm through; `ext` is how far the
-  // shape reaches from its middle, which keeps the big ones inside a panel.
+  // shape reaches from its middle. A hole sits with the middle of the circle
+  // round the whole shape on its panel's middle (MID: that point, from the
+  // shape's own middle; only the moon's is off it), and `room` is how far it
+  // reaches from there, which keeps it inside the panel.
   function ring(n, f) { var out = []; for (var i = 0; i < n; i++) { var a = (i / n) * Math.PI * 2 - Math.PI / 2; var r = f(a, i); out.push([Math.cos(a) * r, Math.sin(a) * r]); } return out; }
   function inradius(pts) { var m = Infinity; for (var i = 0; i < pts.length; i++) { var d = segDist(0, 0, pts[i], pts[(i + 1) % pts.length]); if (d < m) m = d; } return m; }
   function scaleTo(pts) { var k = 1 / inradius(pts); return pts.map(function (p) { return [p[0] * k, p[1] * k]; }); }
+  // A moon: a crescent, the disc of radius 1 less a bite as big as its
+  // offset, the bite to the upper right. `grow` widens it all round (the disc
+  // bigger, the bite smaller: a rim along its cut keeps clear of the horns).
+  // Its own middle is the biggest circle's inside it, in the thick of it:
+  // across from the back (x = -1) to the bite's near edge (x = 0), so at
+  // MOON_C with radius MOON_R.
+  var MOON_BITE = 0.75, MOON_TURN = Math.atan2(-0.2, 0.45), MOON_C = -0.5, MOON_R = 0.5;
+  function crescent(grow) {
+    var d = MOON_BITE, ro = 1 + grow, rb = MOON_BITE - grow, n = 24, pts = [], i, a;
+    var hx = (ro * ro + d * d - rb * rb) / (2 * d), hy = Math.sqrt(Math.max(0, ro * ro - hx * hx));
+    var from = Math.atan2(hy, hx), lo = Math.atan2(-hy, hx - d) + Math.PI * 2, hi = Math.atan2(hy, hx - d);
+    for (i = 0; i <= n; i++) { a = from + (Math.PI * 2 - 2 * from) * i / n; pts.push([Math.cos(a) * ro, Math.sin(a) * ro]); }
+    for (i = 1; i < n; i++) { a = lo + (hi - lo) * i / n; pts.push([d + Math.cos(a) * rb, Math.sin(a) * rb]); }
+    // (to the unit circle round its own middle, and turned)
+    var c = Math.cos(MOON_TURN), s = Math.sin(MOON_TURN);
+    return pts.map(function (p) { var x = (p[0] - MOON_C) / MOON_R, y = p[1] / MOON_R; return [x * c - y * s, x * s + y * c]; });
+  }
   var SHAPES = {
     // a sun: a round hole (a printed ring of rays round it)
     sun: scaleTo(ring(40, function () { return 1; })),
@@ -89,12 +111,25 @@
     // a flower: six round petals
     flower: scaleTo(ring(60, function (a) { return 1 + 0.2 * Math.pow(Math.abs(Math.cos(a * 3)), 1.6); })),
     // a star: five fat points
-    star: scaleTo(ring(10, function (a, i) { return i % 2 ? 0.6 : 1; }))
+    star: scaleTo(ring(10, function (a, i) { return i % 2 ? 0.6 : 1; })),
+    // a moon: a fat crescent
+    moon: crescent(0)
   };
-  var SHAPE_EXT = {};
-  Object.keys(SHAPES).forEach(function (k) { SHAPE_EXT[k] = SHAPES[k].reduce(function (m, p) { return Math.max(m, Math.hypot(p[0], p[1])); }, 0); });
-  // the shapes a hole of this size may take (the sun always fits)
-  function shapesFor(rin) { return Object.keys(SHAPES).filter(function (k) { return SHAPE_EXT[k] * rin <= TUNE.holeRoom; }); }
+  // (the moon's horns lie on its disc, so the circle round it all is that disc)
+  var MID = { moon: [Math.cos(MOON_TURN) * -MOON_C / MOON_R, Math.sin(MOON_TURN) * -MOON_C / MOON_R] };
+  function midOf(k) { return MID[k] || [0, 0]; }
+  var SHAPE_EXT = {}, SHAPE_ROOM = {};
+  Object.keys(SHAPES).forEach(function (k) {
+    var m = midOf(k);
+    SHAPE_EXT[k] = SHAPES[k].reduce(function (r, p) { return Math.max(r, Math.hypot(p[0], p[1])); }, 0);
+    SHAPE_ROOM[k] = SHAPES[k].reduce(function (r, p) { return Math.max(r, Math.hypot(p[0] - m[0], p[1] - m[1])); }, 0);
+  });
+  // How big a hole of this shape is on a page whose holes are `rin`: that
+  // size if it fits its panel, else as big as fits. Every shape comes on
+  // every page: the star and the moon, which reach furthest, are smaller
+  // than a page's other holes until those are as small, and never smaller
+  // than the last pages' holes (the moon's biggest is just over those).
+  function sizeFor(shape, rin) { return Math.min(rin, TUNE.holeRoom / SHAPE_ROOM[shape]); }
 
   function segDist(px, py, a, b) {
     var dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -123,10 +158,17 @@
 
   function panelMid(i) { return [(i % 3) / 3 + 1 / 6, Math.floor(i / 3) / 3 + 1 / 6]; }
   function makeHole(panel, shape, rin) {
-    var m = panelMid(panel), base = SHAPES[shape];
-    var h = { panel: panel, shape: shape, rin: rin, cx: m[0], cy: m[1], poly: base.map(function (p) { return [m[0] + p[0] * rin, m[1] + p[1] * rin]; }) };
+    var m = panelMid(panel), base = SHAPES[shape], o = midOf(shape), cx = m[0] - o[0] * rin, cy = m[1] - o[1] * rin;
+    var h = { panel: panel, shape: shape, rin: rin, cx: cx, cy: cy, poly: base.map(function (p) { return [cx + p[0] * rin, cy + p[1] * rin]; }) };
     h.room = rin - (TUNE.R - TUNE.squeeze);        // the fit region's own radius, round the middle
     return h;
+  }
+  // a hole's outline widened by `grow` all round (a rim printed along its
+  // cut): the shape spread about its middle, or for the moon, a fatter moon
+  function rim(h, grow) {
+    if (h.shape === "moon") return crescent(grow / h.rin * MOON_R).map(function (p) { return [h.cx + p[0] * h.rin, h.cy + p[1] * h.rin]; });
+    var k = (h.rin + grow) / h.rin;
+    return h.poly.map(function (p) { return [h.cx + (p[0] - h.cx) * k, h.cy + (p[1] - h.cy) * k]; });
   }
   // the edge of the region where a worm's middle can stand and go through
   // (the nearest way in from outside is always across it). Every shape's
@@ -157,9 +199,11 @@
   function makeLeaf(n, rng) {
     var s = stage(n), panels = [0, 1, 2, 3, 4, 5, 6, 7, 8], i;
     for (i = panels.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)), t = panels[i]; panels[i] = panels[j]; panels[j] = t; }
-    var shapes = shapesFor(s.rin), leaf = { n: n, holes: [], prints: [], seed: Math.floor(rng() * 1e9) };
+    // (each hole's shape drawn from those not yet on the page: no two alike)
+    var left = [], leaf = { n: n, holes: [], prints: [], seed: Math.floor(rng() * 1e9) };
     for (i = 0; i < 9; i++) {
-      if (i < s.holes) leaf.holes.push(makeHole(panels[i], shapes[Math.floor(rng() * shapes.length)], s.rin));
+      if (!left.length) left = Object.keys(SHAPES);
+      if (i < s.holes) { var shape = left.splice(Math.floor(rng() * left.length), 1)[0]; leaf.holes.push(makeHole(panels[i], shape, sizeFor(shape, s.rin))); }
       else leaf.prints.push({ panel: panels[i], kind: rng() < 0.6 ? PRINTS[Math.floor(rng() * PRINTS.length)] : "words" });
     }
     leaf.holes.sort(function (a, b) { return a.panel - b.panel; });
@@ -408,8 +452,8 @@
   }
 
   return {
-    TUNE: TUNE, LEVELS: LEVELS, NAMES: NAMES, SHAPES: SHAPES, SHAPE_EXT: SHAPE_EXT, PRINTS: PRINTS,
-    stage: stage, shapesFor: shapesFor, makeHole: makeHole, fitRegion: fitRegion, makeLeaf: makeLeaf, panelMid: panelMid,
+    TUNE: TUNE, LEVELS: LEVELS, NAMES: NAMES, SHAPES: SHAPES, SHAPE_EXT: SHAPE_EXT, SHAPE_ROOM: SHAPE_ROOM, PRINTS: PRINTS,
+    stage: stage, sizeFor: sizeFor, midOf: midOf, makeHole: makeHole, rim: rim, fitRegion: fitRegion, makeLeaf: makeLeaf, panelMid: panelMid,
     fits: fits, fitHole: fitHole, edgeDepth: edgeDepth, capacity: capacity,
     create: create, step: step, tilt: tilt, alive: alive, timeLeft: timeLeft,
     travelTime: travelTime, nearestFit: nearestFit, reach: reach, moveWorm: moveWorm
