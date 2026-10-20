@@ -5,6 +5,7 @@
 // are far bigger than the rocky planets and hang by two strings; and the board
 // shows the mode's own planets: all nine, or in Classic the four rocky ones,
 // closed in on and spread across it, the others slid away, the sun still in.
+// The report card's grade stamp sits on none of its words, phones included.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   // a Classic run that misses the very first note: round 0
@@ -269,6 +270,48 @@ module.exports = async ({ browser, base, check, lib }) => {
       }
     }
     check("science-fair: the menu, at its fullest, fits laptops (1280x900, 1366x657, 1280x600) and phones (390x664, 360x560, 375x553, 320x568) with nothing to scroll, its heading clear of the corner buttons",
+      Object.keys(bad).length === 0, bad);
+  }
+
+  // ---- the report card's grade stamp (and an A+'s gold star) lands on none
+  // of the card's words, whichever title and grade it shows, on laptops and
+  // phones (on a narrow phone it used to sit on the title)
+  {
+    const SIZES = [["laptop", 1366, 657], ["laptop", 1280, 900], ["phone", 390, 664], ["phone", 375, 553], ["phone", 360, 560], ["phone", 320, 568]];
+    const bad = {};
+    for (const [kind, w, h] of SIZES) {
+      const ctx = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const p = await lib.open(ctx, base, "games/science-fair/");
+      await missFirst(p);
+      const hits = await p.evaluate(() => {
+        const g = document.getElementById("over-grade"), out = [];
+        // each line of a text, as laid out
+        const lines = (el) => { const r = document.createRange(); r.selectNodeContents(el); return [...r.getClientRects()].filter((b) => b.width > 0); };
+        for (const t of ["Project review", "Judges' notes", "Grading time", "Field notes"]) for (const gr of ["A+", "A", "B+", "B", "C+", "C", "D"]) {
+          document.getElementById("over-title").textContent = t;
+          g.textContent = gr; g.classList.toggle("gold", gr === "A+");
+          // the stamp is a circle; the star, a glyph's box off its top right, turned with it
+          const b = g.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2, R = g.offsetWidth / 2;
+          let star = null;
+          if (gr === "A+") {
+            const fs = parseFloat(getComputedStyle(g, "::after").fontSize), m = new DOMMatrix(getComputedStyle(g).transform), a = Math.atan2(m.b, m.a);
+            const pts = [[R + 10 - fs * 1.25, -R - 14], [R + 10, -R - 14], [R + 10 - fs * 1.25, -R - 14 + fs * 1.3], [R + 10, -R - 14 + fs * 1.3]]
+              .map(([x, y]) => [cx + x * Math.cos(a) - y * Math.sin(a), cy + x * Math.sin(a) + y * Math.cos(a)]);
+            star = { left: Math.min(...pts.map((q) => q[0])), right: Math.max(...pts.map((q) => q[0])), top: Math.min(...pts.map((q) => q[1])), bottom: Math.max(...pts.map((q) => q[1])) };
+          }
+          for (const id of ["over-title", "over-msg", "over-stats"]) for (const r of lines(document.getElementById(id))) {
+            const x = Math.max(r.left, Math.min(cx, r.right)), y = Math.max(r.top, Math.min(cy, r.bottom));
+            if (Math.hypot(cx - x, cy - y) < R) out.push(t + " " + gr + ": stamp on " + id);
+            if (star && star.left < r.right && r.left < star.right && star.top < r.bottom && r.top < star.bottom) out.push(t + " " + gr + ": star on " + id);
+          }
+        }
+        return out;
+      });
+      if (hits.length) bad[kind + " " + w + "x" + h] = hits.slice(0, 4).concat(hits.length > 4 ? [hits.length + " in all"] : []);
+      if (p.errs.length) bad[w + "x" + h + " errors"] = p.errs;
+      await ctx.close();
+    }
+    check("science-fair: the report card's grade stamp and an A+'s star are on none of its words (title, round, notes), every title and grade, on laptops (1366x657, 1280x900) and phones (390x664, 375x553, 360x560, 320x568)",
       Object.keys(bad).length === 0, bad);
   }
 };
