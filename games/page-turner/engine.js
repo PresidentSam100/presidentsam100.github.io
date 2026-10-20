@@ -280,17 +280,29 @@
   }
 
   // solid worms: overlapping footprints push apart, half each, so a worm
-  // crawling into another shoves it along at half speed
+  // crawling into another shoves it along at half speed. But a worm settled
+  // wholly inside a hole of the leaf standing or falling keeps its place:
+  // one that runs into it takes the whole push, so no worm is shoved out of
+  // a hole it got to first (it gives its half only where that leaves it still
+  // wholly inside, making room in a hole for two); of two settled in one hole,
+  // the one moving takes it, as much as it's the quicker (two loose ones share
+  // it half each)
+  // (a's share of a push between two settled worms: the moving one's)
+  function quicker(a, b) { var sa = Math.hypot(a.vx, a.vy), sb = Math.hypot(b.vx, b.vy); return sa + sb < 1e-6 ? 0.5 : sa / (sa + sb); }
   function separate(st) {
-    var ws = alive(st), R2 = TUNE.R * 2, hit = 0;
+    var ws = alive(st), R2 = TUNE.R * 2, hit = 0, live = st.phase === "stand" || st.phase === "fall";
+    var settled = ws.map(function (w) { return live ? fitHole(st.leaf, w.x, w.y) >= 0 : false; }), holeOf = ws.map(function (w) { return live ? fitHole(st.leaf, w.x, w.y) : -1; });
+    // (a settled worm moved by dx, dy: still wholly inside its hole?)
+    var stays = function (k, w, dx, dy) { return fits(st.leaf.holes[holeOf[k]], w.x + dx, w.y + dy); };
     for (var it = 0; it < 3; it++) {
       for (var i = 0; i < ws.length; i++) for (var j = i + 1; j < ws.length; j++) {
         var a = ws[i], b = ws[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
         if (d >= R2) continue;
         var nx, ny;
         if (d > 1e-6) { nx = dx / d; ny = dy / d; } else { var g = st.rng() * Math.PI * 2; nx = Math.cos(g); ny = Math.sin(g); }
-        var push = (R2 - d) / 2;
-        a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
+        var push = R2 - d, ka = settled[i] === settled[j] ? (settled[i] ? quicker(a, b) : 0.5) :
+          settled[i] ? (stays(i, a, -nx * push / 2, -ny * push / 2) ? 0.5 : 0) : (stays(j, b, nx * push / 2, ny * push / 2) ? 0.5 : 1);
+        a.x -= nx * push * ka; a.y -= ny * push * ka; b.x += nx * push * (1 - ka); b.y += ny * push * (1 - ka);
         if (it === 0 && R2 - d > 0.002) hit = Math.max(hit, Math.hypot(a.vx - b.vx, a.vy - b.vy));
       }
       ws.forEach(function (w) { var R = TUNE.R; w.x = Math.max(R, Math.min(1 - R, w.x)); w.y = Math.max(R, Math.min(1 - R, w.y)); });
@@ -327,8 +339,28 @@
       b.target = [m[0], m[1]]; b.decoy = true; b.hole = -1;
       return;
     }
-    var h = st.leaf.holes[best], e = exact ? L.err * 0.25 : L.err, a = st.rng() * Math.PI * 2, r = e * Math.sqrt(st.rng());
-    b.target = [h.cx + Math.cos(a) * r, h.cy + Math.sin(a) * r];
+    var h = st.leaf.holes[best], e = exact ? L.err * 0.25 : L.err, a = st.rng() * Math.PI * 2, r = e * Math.sqrt(st.rng()), at = spot(st, w, best, e);
+    b.target = [at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r];
+  }
+  // Where in a hole to make for: of its middle and six spots round it (all
+  // wholly inside), the one furthest from the worms in it or making for it,
+  // the nearer to this one of those as far: not all for the dead middle.
+  // (off: how far off it the worm's aim may be: the spots keep that far in,
+  // so a worm misses a hole no more often than when all aimed at the middle)
+  function spot(st, w, hi, off) {
+    var h = st.leaf.holes[hi], q = Math.max(0, Math.min(h.room * 0.85, h.room - (off || 0))), best = [h.cx, h.cy], bestScore = -Infinity, others = [];
+    st.worms.forEach(function (o) {
+      if (o === w || !o.alive) return;
+      if (fits(h, o.x, o.y)) others.push([o.x, o.y]);
+      if (o.cpu && o.cpu.hole === hi && o.cpu.target) others.push(o.cpu.target);
+    });
+    for (var k = -1; k < 6; k++) {
+      var x = k < 0 ? h.cx : h.cx + Math.cos(k * Math.PI / 3) * q, y = k < 0 ? h.cy : h.cy + Math.sin(k * Math.PI / 3) * q, clear = 1;
+      others.forEach(function (o) { clear = Math.min(clear, Math.hypot(o[0] - x, o[1] - y)); });
+      var score = Math.min(clear, TUNE.R * 2 + 0.01) * 10 - Math.hypot(x - w.x, y - w.y);
+      if (score > bestScore) { bestScore = score; best = [x, y]; }
+    }
+    return best;
   }
   function brain(st, w) {
     var b = w.cpu, L = LEVELS[b.level];
@@ -341,6 +373,8 @@
         b.next = since + 0.25;
         var h = st.leaf.holes[b.hole];
         if (h && crowd(st, w, b.hole) >= capacity(h) && !fits(h, w.x, w.y)) choose(st, w, b.second, false);
+        // its spot taken by a worm settled there: another spot in the same hole
+        else if (h && b.target && st.worms.some(function (o) { return o !== w && o.alive && fits(h, o.x, o.y) && Math.hypot(o.x - b.target[0], o.y - b.target[1]) < TUNE.R * 2; })) b.target = spot(st, w, b.hole);
       }
     }
     if (!b.read || !b.target) {

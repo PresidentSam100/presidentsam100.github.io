@@ -106,16 +106,68 @@ module.exports = async ({ browser, base, check, lib }) => {
       seen.filter((e) => e.type === "through").length === 4 && st.page === 2 && !st.result && E.alive(st).length === 4, { page: st.page, result: st.result, ev: seen.map((e) => e.type) });
   }
   {
-    // a worm crawling into another shoves it (they never overlap); out of a hole too
+    // worms are solid (they never overlap), but one settled wholly inside a
+    // hole keeps its place there: one crawling into it bumps it and is held
+    // off; nudged at most within the hole, never out, it goes through, and
+    // the one pressing on it is squished
     const h = E.makeHole(4, "sun", 0.07), c = E.panelMid(4);
     const st = setup("party", [h]);
     gone(st, 2); gone(st, 3);
     still(st, 0, c[0] - 0.2, c[1]);
-    const rival = st.worms[1]; rival.x = c[0]; rival.y = c[1]; rival.cpu.readAt = 1e9; rival.cpu.wander = [c[0], c[1]];
-    let closest = 1, bumps = 0;
-    const seen = toSlam(st, (s) => { closest = Math.min(closest, Math.hypot(s.worms[0].x - rival.x, s.worms[0].y - rival.y)); bumps += s.events.filter((e) => e.type === "bump").length; return { x: 1, y: 0 }; });
-    check("page-turner rules: worms are solid: one crawling into another bumps it and shoves it along, out of the hole it was standing in, and it's squished",
-      closest >= 2 * R - 0.002 && bumps > 0 && rival.x > c[0] + h.room && seen.some((e) => e.type === "squish" && e.id === 1), { closest, bumps, rivalX: rival.x, edge: c[0] + h.room, ev: seen.filter((e) => e.type !== "bump").map((e) => e.type + (e.id != null ? e.id : "")) });
+    // (the rival has read the leaf and keeps to the hole's middle)
+    const rival = st.worms[1]; rival.x = c[0]; rival.y = c[1]; rival.vx = rival.vy = 0;
+    Object.assign(rival.cpu, { read: true, second: true, readAt: 0, next: 1e9, hole: 0, target: [c[0], c[1]], decoy: false });
+    let closest = 1, bumps = 0, out = false;
+    const seen = toSlam(st, (s) => { closest = Math.min(closest, Math.hypot(s.worms[0].x - rival.x, s.worms[0].y - rival.y)); bumps += s.events.filter((e) => e.type === "bump").length; if (!E.fits(h, rival.x, rival.y)) out = true; return { x: 1, y: 0 }; });
+    check("page-turner rules: worms are solid: one crawling into a worm settled in a hole bumps it but can't shove it out; the settled one goes through, the one pressing on it is squished",
+      closest >= 2 * R - 0.002 && bumps > 0 && !out && seen.some((e) => e.type === "through" && e.id === 1) && seen.some((e) => e.type === "squish" && e.id === 0),
+      { closest, bumps, out, ev: seen.filter((e) => e.type !== "bump").map((e) => e.type + (e.id != null ? e.id : "")) });
+  }
+  {
+    // the CPU worms don't all make for a hole's dead middle: three making for
+    // one big hole aim at spots apart, room for each
+    const st = E.create({ mode: "party", level: "hard", rng: seeded(3) });
+    while (st.phase !== "stand") E.step(st, 1 / 60, null);
+    st.t = 0; st.leaf = { n: 1, holes: [E.makeHole(4, "sun", 0.135)], prints: [], seed: 1 };
+    still(st, 0, 0.06, 0.94);
+    for (let i = 0; i < 60; i++) E.step(st, 1 / 60, null);
+    const tg = st.worms.slice(1).map((w) => w.cpu.target), gaps = [];
+    for (let i = 0; i < tg.length; i++) for (let j = i + 1; j < tg.length; j++) gaps.push(tg[i] && tg[j] ? Math.hypot(tg[i][0] - tg[j][0], tg[i][1] - tg[j][1]) : 0);
+    check("page-turner rules: CPU worms making for one big hole aim at spots apart in it (a worm's width or more), not all for its middle", gaps.length === 3 && Math.min(...gaps) >= 2 * R - 0.012, gaps.map((g) => +g.toFixed(3)));
+  }
+  {
+    // played out against three CPUs: you, once wholly in a hole (and still),
+    // are never shoved out of it, and worms seldom turn about in a shoving match
+    let shoved = 0, turns = 0, pages = 0;
+    for (const level of ["easy", "normal", "hard"]) for (let seed = 1; seed <= 4; seed++) {
+      const st = E.create({ mode: "party", level, rng: seeded(seed * 31 + 7) });
+      const last = st.worms.map(() => ({ dir: null, at: -9 }));
+      let reactAt = null, inFor = 0;
+      for (let t = 0; t < 90 && st.phase !== "over"; t += 1 / 60) {
+        const w = st.worms[0], live = st.phase === "stand" || st.phase === "fall";
+        if (st.phase === "stand" && reactAt == null) reactAt = t + 0.4;
+        if (!live) reactAt = null;
+        let input = null;
+        if (live && reactAt != null && t >= reactAt && E.fitHole(st.leaf, w.x, w.y) < 0) {
+          let best = null, bd = 9; st.leaf.holes.forEach((h) => { const d = Math.hypot(h.cx - w.x, h.cy - w.y); if (d < bd) { bd = d; best = h; } });
+          input = { x: (best.cx - w.x) / bd, y: (best.cy - w.y) / bd };
+        }
+        const before = st.worms.map((o) => [o.x, o.y]);
+        E.step(st, 1 / 60, input);
+        st.events.forEach((e) => { if (e.type === "slam") pages++; });
+        const fit = st.phase === "stand" || st.phase === "fall" ? E.fitHole(st.leaf, w.x, w.y) >= 0 : false;
+        if (fit) inFor += 1 / 60; else { if (inFor > 0.2 && (st.phase === "stand" || st.phase === "fall")) shoved++; inFor = 0; }
+        st.worms.forEach((o, i) => {
+          const dx = o.x - before[i][0], dy = o.y - before[i][1], d = Math.hypot(dx, dy);
+          if (!o.alive || d < 0.002) return;
+          const dir = [dx / d, dy / d], L = last[i], touching = st.worms.some((q) => q !== o && q.alive && Math.hypot(q.x - o.x, q.y - o.y) < 2 * R + 0.004);
+          if (L.dir && dir[0] * L.dir[0] + dir[1] * L.dir[1] < -0.5) { if (t - L.at < 0.3 && touching) turns++; L.at = t; }
+          L.dir = dir;
+        });
+      }
+    }
+    check("page-turner rules: against CPU worms (every level), you are never shoved out of a hole you're settled in, and worms seldom turn about in a shoving match (back and forth within 0.3 s while touching another: under one in five pages)",
+      shoved === 0 && turns / pages < 0.2 && pages > 30, { shoved, turns, pages });
   }
   {
     // the pace: faster, fewer, smaller, then a floor
