@@ -123,9 +123,21 @@
   var LEVELS = ["easy", "normal", "hard"], LEVEL_NAMES = { easy: "Easy", normal: "Normal", hard: "Hard" };
   var mode = store.get("pageturner_mode", "party"); if (mode !== "endless") mode = "party";
   var level = store.get("pageturner_level", "normal"); if (LEVELS.indexOf(level) < 0) level = "normal";
-  var records = {};
-  LEVELS.forEach(function (l) { records[l] = GS && GS.record ? GS.record("pageturner_record_" + l) : { get: function () { return { w: 0, l: 0, d: 0 }; }, add: function () {}, text: function () { return ""; } }; });
-  var best = GS ? GS.best("pageturner_best_endless", { higher: true }) : { get: function () { return 0; }, submit: function () { return false; } };
+  // Guides: the light through the coming leaf's holes on the page below,
+  // where they'll land (on: the easy way); off, only the standing leaf shows
+  // where its holes are (the hard way), with records of its own. A setting,
+  // picked on the menu, so never changed mid-run.
+  var guides = store.get("pageturner_guides", "on") !== "off";
+  var records = { on: {}, off: {} }, bests = {};
+  ["on", "off"].forEach(function (g) {
+    var tail = g === "on" ? "" : "_noguides";
+    LEVELS.forEach(function (l) { records[g][l] = GS && GS.record ? GS.record("pageturner_record_" + l + tail) : { get: function () { return { w: 0, l: 0, d: 0 }; }, add: function () {}, text: function () { return ""; } }; });
+    bests[g] = GS ? GS.best("pageturner_best_endless" + tail, { higher: true }) : { get: function () { return 0; }, submit: function () { return false; } };
+  });
+  // (the records for the way the guides are set)
+  function rec(l) { return records[guides ? "on" : "off"][l]; }
+  function best() { return bests[guides ? "on" : "off"]; }
+  var OFF_NOTE = ", guides off";
   var state = "menu";        // menu | play | ending (the last slam settling) | over
   var st = null, demo = null, moved = false, endAt = 0, overAt = 0, newBest = false, OVER_WAIT = 700, END_BEAT = 1000;
   var flats = [], pops = {}, parts = [], shake = 0, clockMs = 0;
@@ -162,15 +174,15 @@
     } else if (e.type === "slam") {
       sfxSlam(); floorKey = "";
       if (fx()) { shake = 1; slamDust(); }
-      if (st.mode === "endless" && st.worms[0].alive && best.submit(st.survived)) { if (!newBest) sfxBest(); newBest = true; }
+      if (st.mode === "endless" && st.worms[0].alive && best().submit(st.survived)) { if (!newBest) sfxBest(); newBest = true; }
       hud();
     } else if (e.type === "over") ended();
   }
   // the game's over: the score is kept now; the card comes up a moment later
   function ended() {
     var r = st.result;
-    if (st.mode === "party") records[level].add(r.outcome === "win" ? "w" : r.outcome === "draw" ? "d" : "l");
-    else if (r.pages > 0 && best.submit(r.pages)) newBest = true;
+    if (st.mode === "party") rec(level).add(r.outcome === "win" ? "w" : r.outcome === "draw" ? "d" : "l");
+    else if (r.pages > 0 && best().submit(r.pages)) newBest = true;
     state = "ending"; endAt = performance.now();
     if (r.outcome === "win" || r.outcome === "closed") setTimeout(sfxWin, 250); else setTimeout(sfxLose, 350);
     hud();
@@ -179,7 +191,7 @@
   function showEnd() {
     var r = st.result, title, big, lines = [], pill = null;
     if (st.mode === "party") {
-      var rec = records[level].get(), recText = LEVEL_NAMES[level] + " rivals: " + rec.w + " W · " + rec.l + " L" + (rec.d ? " · " + rec.d + " D" : "");
+      var rc = rec(level).get(), recText = LEVEL_NAMES[level] + " rivals" + (guides ? "" : OFF_NOTE) + ": " + rc.w + " W · " + rc.l + " L" + (rc.d ? " · " + rc.d + " D" : "");
       if (r.outcome === "win") { title = "Last worm wriggling!"; big = "You win"; lines.push("the others were squished by page " + r.page); }
       else if (r.outcome === "draw") { title = "Squished together"; big = "A draw"; lines.push("page " + r.page + " flattened the last of you at once"); }
       else {
@@ -189,10 +201,10 @@
       }
       pill = { text: recText, record: false };
     } else {
-      var b = best.get();
+      var b = best().get();
       if (r.outcome === "closed") { title = "The End"; big = r.pages + " pages"; lines.push("you crawled through every page of the book"); }
       else { title = "Squished!"; big = r.pages + (r.pages === 1 ? " page" : " pages"); lines.push("flattened by page " + r.page); }
-      pill = newBest ? { text: "your most pages yet", record: true } : { text: "most pages: " + b, record: false };
+      pill = newBest ? { text: "your most pages yet" + (guides ? "" : OFF_NOTE), record: true } : { text: "most pages" + (guides ? "" : OFF_NOTE) + ": " + b, record: false };
     }
     $("over-title").textContent = title;
     $("over-msg").textContent = big;
@@ -211,7 +223,7 @@
     if (!st) return;
     $("hud-page").textContent = st.page;
     var box = $("hud-worms");
-    if (st.mode === "endless") { box.textContent = "most pages " + Math.max(best.get(), st.survived); return; }
+    if (st.mode === "endless") { box.textContent = "most pages " + Math.max(best().get(), st.survived); return; }
     box.replaceChildren.apply(box, st.worms.map(function (w) {
       var c = document.createElement("span"), dot = document.createElement("i");
       c.className = "chip" + (w.id === 0 ? " you" : "") + (w.alive ? "" : " out");
@@ -369,8 +381,15 @@
   // the shadow of the leaf about to fall, with the light through its holes
   // where they will land: crisp from the first moment, the dark deepening
   // and the glow closing in as the leaf comes over
+  // (Guides off: the shadow alone, darkening as the leaf comes over, no
+  // light through it to give its holes away)
   function drawShadow(scene, near) {
     var leaf = scene.leaf, i;
+    if (!guides && scene === st) {
+      g.beginPath(); trace(quadPts(0, 0, 1, 1), floorMap);
+      g.fillStyle = "rgba(24, 18, 66, " + (0.2 + 0.3 * near).toFixed(3) + ")"; g.fill();
+      return;
+    }
     g.beginPath(); trace(quadPts(0, 0, 1, 1), floorMap); leaf.holes.forEach(function (h) { trace(h.poly, floorMap); });
     g.fillStyle = "rgba(24, 18, 66, " + (0.2 + 0.3 * near).toFixed(3) + ")"; g.fill("evenodd");
     g.save();
@@ -581,9 +600,12 @@
     document.querySelectorAll("#pick-mode button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === mode); });
     document.querySelectorAll("#pick-level button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === level); });
     $("pick-level").hidden = mode !== "party";
-    var r = records[level].get(), parts2 = [];
-    if (r.w + r.l + r.d) parts2.push(LEVEL_NAMES[level] + " rivals: " + r.w + " W · " + r.l + " L" + (r.d ? " · " + r.d + " D" : ""));
-    if (best.get()) parts2.push("Endless: " + best.get() + (best.get() === 1 ? " page" : " pages"));
+    var gb = $("guides");
+    gb.classList.toggle("on", guides); gb.setAttribute("aria-pressed", guides ? "true" : "false");
+    gb.querySelector("b").textContent = guides ? "on" : "off"; gb.querySelector("small").textContent = guides ? "easy: see where holes land" : "hard: read the standing page";
+    var r = rec(level).get(), parts2 = [], bp = best().get(), off = guides ? "" : OFF_NOTE;
+    if (r.w + r.l + r.d) parts2.push(LEVEL_NAMES[level] + " rivals" + off + ": " + r.w + " W · " + r.l + " L" + (r.d ? " · " + r.d + " D" : ""));
+    if (bp) parts2.push("Endless" + off + ": " + bp + (bp === 1 ? " page" : " pages"));
     $("tally").textContent = parts2.join(" · ");
     demo = E.create({ mode: mode, level: level, rng: rand(11) });
     floorKey = "";
@@ -594,13 +616,14 @@
   document.querySelectorAll("#pick-level button").forEach(function (b) {
     b.addEventListener("click", function () { level = b.dataset.v; store.set("pageturner_level", level); paintMenu(); });
   });
+  $("guides").addEventListener("click", function () { guides = !guides; store.set("pageturner_guides", guides ? "on" : "off"); paintMenu(); });
   document.querySelectorAll(".card button").forEach(function (b) { b.addEventListener("mousedown", function (e) { e.preventDefault(); }); });
   $("play").addEventListener("click", function () { start(mode, level); });
   $("again").addEventListener("click", function () { start(mode, level); });
   $("to-menu").addEventListener("click", toMenu);
   if (GS && GS.menuKeys) {
-    // the menu: 1 2 the mode, 3 4 5 how good the rivals are, Space or Enter opens the book
-    GS.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }, "#pick-level button"], start: "#play", space: true });
+    // the menu: 1 2 the mode, 3 4 5 how good the rivals are, G the guides, Space or Enter opens the book
+    GS.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }, "#pick-level button", { sel: "#guides", keys: ["g"] }], start: "#play", space: true });
     // the end card: Space or Enter again (not in its first moment), Backspace the menu
     GS.menuKeys({ active: function () { return state === "over" && performance.now() - overAt > OVER_WAIT; },
       groups: [{ sel: "#to-menu", keys: ["backspace"] }], start: "#again", space: true });
@@ -625,8 +648,9 @@
     advance: function (sec, input) { var n = Math.round(sec * 120); for (var i = 0; i < n && state === "play"; i++) { clockMs += 1000 / 120; update(1 / 120, input || [0, 0]); } },
     place: function (i, x, y) { var w = st.worms[i]; w.x = x; w.y = y; w.vx = w.vy = 0; },
     input: currentInput,
-    record: function (l) { return records[l || level].get(); },
-    best: function () { return best.get(); },
+    record: function (l) { return rec(l || level).get(); },
+    guides: function () { return guides; },
+    best: function () { return best().get(); },
     view: function () { return { S: S, CX: CX, OY: OY, VW: VW, VH: VH, FY: FY, FZ: FZ }; },
     project: function (x, y, z) { var r = $("stage").getBoundingClientRect(), q = P(x, y, z || 0); return [r.left + q[0], r.top + q[1]]; },
     flats: function () { return flats.length; },

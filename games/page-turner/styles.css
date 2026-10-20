@@ -194,3 +194,32 @@ body {
   .card .big { font-size: 26px; margin: 4px 0 2px; }
   .card .stats { margin-bottom: 10px; gap: 5px; font-size: 13.5px; }
 }
+
+/* ---- the guides switch: a pill like the rivals', saying what it does ----------------------- */
+.guides-row button { display: inline-flex; align-items: baseline; gap: 7px; }
+.guides-row button b { font-weight: 800; }
+.guides-row button small { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+.guides-row button.on small { color: var(--ink); }
+@media (max-width: 359px) {
+  .guides-row button { gap: 5px; }
+  .guides-row button small { font-size: 12px; }
+}
+/* (an upright phone with little height: the rows closer together, so the
+   card with its guides row still fits the screen without scrolling) */
+@media (max-width: 520px) and (max-height: 600px) {
+  .card { padding-top: 12px; padding-bottom: 11px; }
+  .card .tag { margin: 4px 0 5px; }
+  .card .how { margin-bottom: 8px; }
+  .seg { gap: 5px; margin-bottom: 7px; }
+  .seg button { padding: 5px 10px 4px; }
+  .levels { margin-bottom: 7px; }
+  .levels button { padding-top: 3px; padding-bottom: 2px; }
+  .playbtn { padding: 8px 10px 7px; }
+  .tally { margin-top: 6px; }
+}
+@media (max-height: 460px) and (min-width: 560px) {
+  .card > .how { grid-row: 3 / span 5; }
+  .card > .guides-row { grid-column: 2; grid-row: 5; }
+  .card > .playbtn { grid-row: 6; }
+  .card > .tally { grid-row: 7; }
+}

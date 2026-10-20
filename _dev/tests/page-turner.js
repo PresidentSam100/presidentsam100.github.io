@@ -380,4 +380,51 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner: on laptops (1280x900, 1366x657, 1280x600) and phones (390x664, 360x560, 375x553, 320x568, on its side 750x340) nothing is wider than the screen, the menu card shows whole without scrolling, and in play the book is on screen, clear of the corner buttons and the HUD, with the keys line showing",
       bad.length === 0, bad);
   }
+
+  // ---- guides: on (the light through the coming leaf's holes shows on the
+  // page below where they'll land) or off (only the standing leaf shows
+  // them), picked on the menu with G and kept; off has records of its own
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/page-turner/");
+    // the floor's brightness where a round hole's light would land, the leaf standing
+    const light = () => q.evaluate(async () => {
+      const PT = PageTurner, E = window.PageTurnerEngine;
+      PT.start("endless");
+      const st = PT.st();
+      for (let i = 0; i < 600 && !(st.phase === "stand" && st.t > 0.6); i++) PT.advance(1 / 60, [0, 0]);
+      st.leaf.holes = [E.makeHole(4, "sun", 0.12)];
+      const h = st.leaf.holes[0];
+      PT.place(0, 0.12, 0.88);
+      PT.freeze(true);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const cv = document.getElementById("book"), r = cv.getBoundingClientRect(), k = cv.width / r.width, at = PT.project(h.cx, h.cy, 0);
+      const d = cv.getContext("2d").getImageData(Math.round((at[0] - r.left) * k), Math.round((at[1] - r.top) * k), 1, 1).data;
+      PT.freeze(false); PT.toMenu();
+      return Math.round((d[0] + d[1] + d[2]) / 3);
+    });
+    const before = await q.evaluate(() => ({ on: PageTurner.guides(), key: document.getElementById("guides").getAttribute("data-gs-key"), saved: localStorage.getItem("pageturner_guides") }));
+    const lit = await light();
+    await q.keyboard.press("g");
+    const after = await q.evaluate(() => ({ on: PageTurner.guides(), saved: localStorage.getItem("pageturner_guides"), text: document.getElementById("guides").textContent }));
+    const dark = await light();
+    await q.reload(); await q.waitForTimeout(400);
+    const kept = await q.evaluate(() => PageTurner.guides());
+    // records: an Endless page reached with the guides off goes to their own best
+    const rec = await q.evaluate(() => {
+      const PT = PageTurner, E = window.PageTurnerEngine;
+      PT.start("endless");
+      const st = PT.st();
+      // (a hole where your worm is, each time: through every page)
+      for (let i = 0; i < 4000 && st.page < 4; i++) { if (st.leaf) { st.leaf.holes = [E.makeHole(4, "sun", 0.13)]; const m = E.panelMid(4); PT.place(0, m[0], m[1]); } PT.advance(1 / 60, [0, 0]); }
+      return { off: localStorage.getItem("pageturner_best_endless_noguides"), on: localStorage.getItem("pageturner_best_endless") };
+    });
+    check("page-turner: Guides on by default, G on the menu turns them off (its keycap shown), kept; with them on the page below lights up where a hole will land, off it doesn't",
+      before.on === true && before.key === "G" && before.saved == null && after.on === false && after.saved === "off" && /off/.test(after.text) && kept === false && lit - dark > 40,
+      { before, after, kept, lit, dark });
+    check("page-turner: with the guides off, Endless pages count toward a best of their own (pageturner_best_endless_noguides), not the guides-on best",
+      Number(rec.off) >= 2 && rec.on == null, rec);
+    check("page-turner (guides): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };
