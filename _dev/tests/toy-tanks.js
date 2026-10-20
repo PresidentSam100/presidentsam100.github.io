@@ -4,7 +4,8 @@
 // they're earned), and the page at a laptop's size and a phone's: the mouse,
 // the keys, the touch sticks, Visual FX off, and the arena fitting the screen.
 // The tanks that lay mines drive off them and don't blow themselves up; the
-// menu picks any mission up to the furthest reached; the mission card counts
+// violet tank drives at your tank's pace; the menu picks any mission up to
+// the furthest reached; the mission card counts
 // every kind, one too; a white tank stays out of sight when your tank is
 // lost; a shell's smoke lingers after it's gone. A mine's light is dark
 // until its layer is off it, then lit; in its last 2 s it blinks and beeps;
@@ -103,6 +104,17 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (let t = 0; t < 4000 && !shot; t += 16) if (E.step(st, 16, { mx: 1, my: 0 }).some((e) => e.t === "fire" && !e.player)) shot = { turret: g.turret, px: st.player.x, py: st.player.y };
     const direct = shot && Math.atan2(shot.py - g.y, shot.px - g.x);
     check("toy-tanks rules: the green tank aims ahead of a tank on the move", !!shot && Math.abs(shot.turret - direct) > 0.03, { shot, direct });
+  }
+
+  {
+    // the violet tank drives at your tank's pace: the furthest either goes in a step
+    const step = (st, t, input) => { const x = t.x, y = t.y; E.step(st, 16, input); return Math.hypot(t.x - x, t.y - y); };
+    const st = E.create([map([[2, 2, "P"], [12, 9, "v"]])], { seed: 1 }); play(st);
+    const v = st.enemies[0]; v.cool = 1e9; v.spec = Object.assign({}, v.spec, { fire: 1e9, mines: 0 });
+    let fastest = 0;
+    for (let t = 0; t < 4000; t += 16) fastest = Math.max(fastest, step(st, v, {}));
+    const you = step(st, st.player, { mx: 0, my: 1 });
+    check("toy-tanks rules: the violet tank drives at your tank's pace", fastest > 0 && Math.abs(fastest - you) < 0.002, { violet: fastest, you });
   }
 
   {

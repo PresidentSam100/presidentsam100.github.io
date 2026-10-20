@@ -45,7 +45,8 @@
   // least time between shells (ms); the AI's own manner is in `ai`. How
   // sharp a shot each one is is this game's own: `look` is how many bank
   // shots it weighs (0: it only fires straight at you), `wobble` how far
-  // off its aim can be (radians either way).
+  // off its aim can be (radians either way). The violet tank drives at
+  // your own tank's pace, though the table has it fast.
   var KINDS = {
     brown:  { name: "Brown",  move: "none",   shell: "normal", fire: 2600, bounces: 1, shells: 1, mines: 0, ai: "passive",    look: 0,  wobble: 0.12 },
     ash:    { name: "Ash",    move: "slow",   shell: "normal", fire: 2200, bounces: 1, shells: 1, mines: 0, ai: "defensive",  look: 8,  wobble: 0.09 },
@@ -53,7 +54,7 @@
     yellow: { name: "Yellow", move: "normal", shell: "normal", fire: 2200, bounces: 1, shells: 1, mines: 4, ai: "incautious", look: 12, wobble: 0.08 },
     pink:   { name: "Pink",   move: "slow",   shell: "normal", fire: 650,  bounces: 1, shells: 3, mines: 0, ai: "offensive",  look: 16, wobble: 0.07 },
     green:  { name: "Green",  move: "none",   shell: "fast",   fire: 1000, bounces: 2, shells: 2, mines: 0, ai: "active",     look: 40, wobble: 0.025 },
-    violet: { name: "Violet", move: "fast",   shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06 },
+    violet: { name: "Violet", move: "normal", shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06 },
     white:  { name: "White",  move: "slow",   shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06, invisible: true },
     black:  { name: "Black",  move: "vfast",  shell: "fast",   fire: 600,  bounces: 0, shells: 3, mines: 2, ai: "dynamic",    look: 0,  wobble: 0.02 }
   };
