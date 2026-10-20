@@ -194,6 +194,9 @@
     g.fillStyle = sh.enemy ? "#c8372d" : "#2f6fd6"; g.fillRect(-l / 2 + w * 0.3, -w / 2 + 1, w * 0.35, w - 2);
     g.restore();
   }
+  // a mine's blink in its last stretch: on or off at this clock (left: ms
+  // until it goes off; warn: how long the stretch is)
+  function mineBlink(left, warn, clock) { return Math.floor(clock / (left < warn / 3 ? 90 : 180)) % 2 === 0; }
   // left: ms until it goes off on its own; warn: the last stretch, when it blinks
   function mine(g, m, s, left, warn, clock) {
     var x = m.x * s, y = m.y * s, r = s * 0.27;
@@ -202,8 +205,11 @@
     g.strokeStyle = "#5a4310"; g.lineWidth = Math.max(1, s * 0.05); g.stroke();
     g.strokeStyle = "rgba(90, 67, 16, 0.5)"; g.lineWidth = Math.max(1, s * 0.03);
     g.beginPath(); g.arc(x, y, r * 0.62, 0, Math.PI * 2); g.stroke();
-    // the light in the middle: steady, then blinking faster as it nears its end
-    var on = left > warn || Math.floor(clock / (left < warn / 3 ? 90 : 180)) % 2 === 0;
+    // the light in the middle: dark while its layer is still on it, lit once
+    // it has driven off (armed), blinking in its last stretch, faster near
+    // the end (the page beeps with it: mineBlink), and flashing fast once a
+    // tank has come near and set it going
+    var on = m.trip != null ? Math.floor(clock / 50) % 2 === 0 : left <= warn ? mineBlink(left, warn, clock) : !!m.armed;
     g.fillStyle = on ? "#e0352a" : "#6e1a12";
     g.beginPath(); g.arc(x, y, r * 0.3, 0, Math.PI * 2); g.fill();
   }
@@ -243,6 +249,6 @@
       '<circle cx="10" cy="10" r="3.6" fill="' + c + '" stroke="' + d + '" stroke-width="1"/></svg>';
   }
 
-  window.ToyTanksArt = { COLORS: COLORS, LIFT: LIFT, shade: shade, mat: mat, rim: rim, blockSprite: blockSprite, block: block, hole: hole,
+  window.ToyTanksArt = { COLORS: COLORS, LIFT: LIFT, mineBlink: mineBlink, shade: shade, mat: mat, rim: rim, blockSprite: blockSprite, block: block, hole: hole,
     track: track, wreck: wreck, tank: tank, shell: shell, mine: mine, blast: blast, aim: aim, badge: badge };
 })();

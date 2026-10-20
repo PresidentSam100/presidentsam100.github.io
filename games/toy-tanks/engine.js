@@ -30,7 +30,8 @@
     shellSpeed: { normal: 5.2, fast: 8.2 },        // tiles a second
     move: { none: 0, slow: 1.5, normal: 2.3, fast: 3.1, vfast: 4.1 },
     fuseMs: 10000, mineWarnMs: 2000,                // (the last 2 s it blinks)
-    trigger: 1.05,                                  // a tank this near sets a mine off
+    trigger: 1.05,                                  // a tank this near sets a mine off...
+    tripMs: 400,                                    // ...with a beep, and it goes off this long after
     blast: 2.0,                                     // the blast's reach
     armClear: 1.3,                                  // its layer must get this far away before it can set it off
     playerShells: 5, playerMines: 2, playerBounces: 1, playerCooldown: 120,
@@ -337,10 +338,13 @@
       m.age += dt;
       if (!m.armed && (!m.owner.alive || Math.hypot(m.owner.x - m.x, m.owner.y - m.y) > TUNE.armClear)) m.armed = true;
       if (m.age >= TUNE.fuseMs) { boom(st, m); return; }
+      // a tank come near (its layer too, once it has been off it): a beep, and
+      // a moment later it goes off (`trip`: ms since the beep)
+      if (m.trip != null) { m.trip += dt; if (m.trip >= TUNE.tripMs) boom(st, m); return; }
       [st.player].concat(st.enemies).forEach(function (t) {
-        if (m.gone || !t.alive) return;
+        if (m.gone || m.trip != null || !t.alive) return;
         if (t === m.owner && !m.armed) return;
-        if (Math.hypot(t.x - m.x, t.y - m.y) < TUNE.trigger) boom(st, m);
+        if (Math.hypot(t.x - m.x, t.y - m.y) < TUNE.trigger) { m.trip = 0; st.events.push({ t: "trip", x: m.x, y: m.y }); }
       });
     });
     st.mines = st.mines.filter(function (m) { return !m.gone; });

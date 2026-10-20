@@ -78,6 +78,8 @@
     spent: function () { noise(0.07, 0.05, 1200); },
     clash: function () { tone(1500, 0.06, "square", 0.04); tone(900, 0.08, "triangle", 0.04, 0.03); },
     mine: function () { tone(880, 0.06, "square", 0.04); tone(660, 0.06, "square", 0.04, 0.08); },
+    tick: function () { tone(1480, 0.05, "square", 0.035); },        // a mine in its last stretch, with each blink
+    trip: function () { tone(1900, 0.09, "square", 0.05); },         // a tank come near a mine: it goes off a moment later
     blast: function () { noise(0.7, 0.3, 700); tone(90, 0.5, "sine", 0.18, 0, 40); },
     dead: function (you) { noise(0.45, 0.22, you ? 500 : 1100); tone(you ? 160 : 240, 0.35, "sawtooth", 0.07, 0, 60); },
     won: function () { [523, 659, 784, 1047].forEach(function (f, i) { tone(f, 0.18, "square", 0.05, i * 0.11); }); },
@@ -297,6 +299,7 @@
       else if (e.t === "spent" || e.t === "fizz") { SFX.spent(); if (f) burst(e.x, e.y, 5, "smoke", 380, 0.5); }
       else if (e.t === "clash") { SFX.clash(); if (f) burst(e.x, e.y, 7, "spark", 260, 2); }
       else if (e.t === "mine") SFX.mine();
+      else if (e.t === "trip") SFX.trip();
       else if (e.t === "blast") { SFX.blast(); if (f) { shake = Math.min(1.4, shake + 1); burst(e.x, e.y, 14, "smoke", 700, 1.2); burst(e.x, e.y, 10, "spark", 420, 3.2); } }
       else if (e.t === "cork") { if (f) burst(e.x, e.y, 8, "chip", 600, 2.4, "#8a5a30"); }
       else if (e.t === "dead") {
@@ -350,11 +353,23 @@
         // the treads turn as far as each tank drove
         [st.player].concat(st.enemies).forEach(function (t) { if (t.lx != null) t.tread = (t.tread || 0) + Math.hypot(t.x - t.lx, t.y - t.ly); t.lx = t.x; t.ly = t.y; });
         tick(16);
+        mineBeeps();
       }
       hud();
     } else if (ui !== "run") clock += dt;
     if (ui === "over") tick(dt);
     if (st) render();
+  }
+  // a mine in its last stretch beeps each time its light blinks on (faster
+  // near the end, as the light does: A.mineBlink); one a tank has set going
+  // beeps once, by its event
+  function mineBeeps() {
+    var warn = E.TUNE.mineWarnMs;
+    st.mines.forEach(function (m) {
+      var left = E.TUNE.fuseMs - m.age, on = m.trip == null && left <= warn && A.mineBlink(left, warn, clock);
+      if (on && !m.lit) SFX.tick();
+      m.lit = on;
+    });
   }
   function tick(dt) {
     // a shell gone (two meeting, a wall, a tank): what's left of its trail

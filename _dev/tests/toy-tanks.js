@@ -6,7 +6,9 @@
 // The tanks that lay mines drive off them and don't blow themselves up; the
 // menu picks any mission up to the furthest reached; the mission card counts
 // every kind, one too; a white tank stays out of sight when your tank is
-// lost; a shell's smoke lingers after it's gone.
+// lost; a shell's smoke lingers after it's gone. A mine's light is dark
+// until its layer is off it, then lit; in its last 2 s it blinks and beeps;
+// a tank come near sets it beeping, and it goes off 0.4 s later.
 const vm = require("vm"), fs = require("fs"), path = require("path");
 
 function engine(root) {
@@ -101,6 +103,20 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (let t = 0; t < 4000 && !shot; t += 16) if (E.step(st, 16, { mx: 1, my: 0 }).some((e) => e.t === "fire" && !e.player)) shot = { turret: g.turret, px: st.player.x, py: st.player.y };
     const direct = shot && Math.atan2(shot.py - g.y, shot.px - g.x);
     check("toy-tanks rules: the green tank aims ahead of a tank on the move", !!shot && Math.abs(shot.turret - direct) > 0.03, { shot, direct });
+  }
+
+  {
+    // a tank come near an armed mine (here your own, driven back onto): a
+    // beep at once, and the blast 0.4 s after it
+    const st = E.create([map([[5, 8, "P"], [20, 1, "b"]])], { seed: 1 }); play(st);
+    still(st.enemies[0]);
+    run(st, 16, { mine: true });
+    run(st, 1500, { mx: 1, my: 0 });
+    const m = st.mines[0];
+    let trip = null, blast = null;
+    for (let t = 0; t < 3000 && blast == null; t += 16) E.step(st, 16, { mx: -1, my: 0 }).forEach((e) => { if (e.t === "trip" && trip == null) trip = t; if (e.t === "blast") blast = t; });
+    check("toy-tanks rules: a tank come near a mine (your own too, once you've been off it) sets it beeping, and it goes off 0.4 s later, not at once",
+      m.armed && trip != null && blast != null && blast - trip >= 380 && blast - trip <= 420, { armed: m.armed, trip, blast });
   }
 
   // ---- the tanks that lay mines (yellow, violet, white, black): once a mine
@@ -314,6 +330,49 @@ module.exports = async ({ browser, base, check, lib }) => {
     }));
     check("toy-tanks: two shells meet and their smoke trails linger a moment after (0.45 s on, still there)", !!r.seg && r.met != null && r.parts > 0, r);
     check("toy-tanks (trails): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
+  // ---- a mine's light: dark while its layer is on it, lit once it's off,
+  // blinking in its last 2 s; and the page beeps with each blink until it goes
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => {
+      // (every tone's pitch, as the game sets it)
+      window.__tones = [];
+      const set = AudioParam.prototype.setValueAtTime;
+      AudioParam.prototype.setValueAtTime = function (v, t) { window.__tones.push(v); return set.call(this, v, t); };
+    }) });
+    const r = await q.evaluate(() => new Promise((res) => {
+      const A = window.ToyTanksArt, E = window.ToyTanksEngine;
+      // the light: the last colour the mine's drawing fills with
+      const light = (m, left, clock) => {
+        const fills = [], g = { beginPath() {}, arc() {}, stroke() {}, fill() { fills.push(this.fillStyle); }, fillStyle: "", strokeStyle: "", lineWidth: 1 };
+        A.mine(g, Object.assign({ x: 1, y: 1 }, m), 30, left, E.TUNE.mineWarnMs, clock);
+        return fills[fills.length - 1];
+      };
+      const looks = { under: light({ armed: false }, 9000, 0), off: light({ armed: true }, 9000, 0), lastOn: light({ armed: true }, 1500, 0), lastOff: light({ armed: true }, 1500, 180),
+        underLast: light({ armed: false }, 1500, 0) };
+      // the beeps: a mine with 2.3 s to go, away from every tank
+      ToyTanks.start(); ToyTanks.advance(1700, {});
+      const st = ToyTanks.st();
+      st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0, move: "none" }); });
+      let spot = null;
+      for (let y = 1; y < E.ROWS - 1 && !spot; y++) for (let x = 1; x < E.COLS - 1 && !spot; x++)
+        if (st.grid[y * E.COLS + x] === 0 && [st.player].concat(st.enemies).every((t) => Math.hypot(t.x - x - 0.5, t.y - y - 0.5) > 3.5)) spot = { x: x + 0.5, y: y + 0.5 };
+      st.mines.push({ id: 90010, x: spot.x, y: spot.y, owner: st.enemies[0], age: E.TUNE.fuseMs - 2300, armed: true, enemy: true });
+      window.__tones.length = 0;
+      const t0 = st.clock;
+      (function look() {
+        if (!st.mines.length || st.clock - t0 > 6000) return res({ looks, beeps: window.__tones.filter((v) => v === 1480).length, went: !st.mines.length, ms: st.clock - t0 });
+        requestAnimationFrame(look);
+      })();
+    }));
+    const L = r.looks;
+    check("toy-tanks: a mine's light is dark while its layer is still on it and lit once it's off; in its last 2 s it blinks (even with its layer still on it)",
+      L.under === L.lastOff && L.off === L.lastOn && L.under !== L.off && L.underLast === L.lastOn, L);
+    check("toy-tanks: a mine beeps with its blinks through its last 2 s, faster at the end, then goes off", r.went && r.beeps >= 5, { beeps: r.beeps, went: r.went, ms: r.ms });
+    check("toy-tanks (mine light): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
 
