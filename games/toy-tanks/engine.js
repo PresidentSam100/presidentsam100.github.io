@@ -34,6 +34,7 @@
     tripMs: 400,                                    // ...with a beep, and it goes off this long after
     blast: 2.0,                                     // the blast's reach
     armClear: 1.3,                                  // its layer must get this far away before it can set it off
+    keepOff: 2.9,                                   // how far the tanks keep from a mine they mind (the blast's reach and a margin)
     playerShells: 5, playerMines: 2, playerBounces: 1, playerCooldown: 120,
     leaveBarrelMs: 160,                             // a shell can't hit the tank that fired it until then
     turretTurn: 4.2,                                // radians a second (enemy turrets)
@@ -57,6 +58,21 @@
     violet: { name: "Violet", move: "normal", shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06 },
     white:  { name: "White",  move: "slow",   shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06, invisible: true },
     black:  { name: "Black",  move: "vfast",  shell: "fast",   fire: 600,  bounces: 0, shells: 3, mines: 2, ai: "dynamic",    look: 0,  wobble: 0.02 }
+  };
+  var KEEP_OFF = TUNE.keepOff;
+  // How wary each kind is (the ones that move; brown and green can't): the
+  // chance it heeds a given shell at all, how far ahead it sees one coming
+  // (ms), whether it sees one coming off a wall, and whether it keeps clear
+  // of every mine's blast or only its own side's (and any about to go off).
+  // None drives over a mine. The yellow tank is careless of shells.
+  var WARY = {
+    ash:    { heed: 0.1,  see: 450,  bank: false, mines: "own" },
+    marine: { heed: 0.15, see: 500,  bank: false, mines: "own" },
+    yellow: { heed: 0,    see: 0,    bank: false, mines: "all" },
+    pink:   { heed: 0.45, see: 700,  bank: true,  mines: "all" },
+    violet: { heed: 0.6,  see: 850,  bank: true,  mines: "all" },
+    white:  { heed: 0.6,  see: 850,  bank: true,  mines: "all" },
+    black:  { heed: 0.75, see: 1100, bank: true,  mines: "all" }
   };
   var LETTER = { b: "brown", a: "ash", m: "marine", y: "yellow", p: "pink", g: "green", v: "violet", w: "white", k: "black" };
 
@@ -117,6 +133,7 @@
       st.grid = lv.grid.slice();
       st.gone = lv.enemies.map(function () { return false; });
     } else st.grid = lv.grid.slice();     // (broken cork comes back with the mission)
+    st.gridVer = (st.gridVer || 0) + 1;     // (the shells' paths, as the enemies see them, worked out afresh)
     st.lv = lv;
     st.shells = []; st.mines = []; st.blasts = []; st.tracks = [];
     st.player = tank("player", lv.player.x, lv.player.y, 0);
@@ -177,7 +194,7 @@
     if (t.cool > 0 || shellsOf(st, t) >= max) return false;
     var speed = TUNE.shellSpeed[t.player ? "normal" : spec.shell], ax = Math.cos(t.turret), ay = Math.sin(t.turret);
     var mx = t.x + ax * (TANK_R + 0.2), my = t.y + ay * (TANK_R + 0.2);
-    var s = { id: st.nextId++, x: mx, y: my, vx: ax * speed, vy: ay * speed, owner: t, bounces: t.player ? TUNE.playerBounces : spec.bounces,
+    var s = { id: st.nextId++, x: mx, y: my, vx: ax * speed, vy: ay * speed, owner: t, bounces: t.player ? TUNE.playerBounces : spec.bounces, b0: t.player ? TUNE.playerBounces : spec.bounces,
       fast: !t.player && spec.shell === "fast", age: 0, enemy: !t.player };
     // a barrel inside a block: the shell is spent at once (it would come out the far side)
     if (stopsShell(tile(st, mx, my))) { st.events.push({ t: "fizz", x: mx, y: my }); t.cool = t.player ? TUNE.playerCooldown : spec.fire; return true; }
@@ -187,19 +204,21 @@
     return true;
   }
   // One shell's step: in short hops, bouncing off a wall face (each axis on
-  // its own) while it has bounces left, spent on the next.
-  function stepShell(st, s, dt) {
+  // its own) while it has bounces left, spent on the next. (ev: where its
+  // events go; none when the enemies only work out where it will be.)
+  function stepShell(st, s, dt) { return moveShell(st, s, dt, st.events); }
+  function moveShell(st, s, dt, ev) {
     var dist = Math.sqrt(s.vx * s.vx + s.vy * s.vy) * dt / 1000, hops = Math.max(1, Math.ceil(dist / 0.1));
     for (var h = 0; h < hops; h++) {
       var nx = s.x + s.vx * dt / 1000 / hops, ny = s.y + s.vy * dt / 1000 / hops;
       var hitX = stopsShell(tile(st, nx, s.y)), hitY = stopsShell(tile(st, s.x, ny)), hitXY = stopsShell(tile(st, nx, ny));
       if (hitX || hitY || hitXY) {
-        if (s.bounces <= 0) { st.events.push({ t: "spent", x: s.x, y: s.y }); return false; }
+        if (s.bounces <= 0) { if (ev) ev.push({ t: "spent", x: s.x, y: s.y }); return false; }
         s.bounces--;
         if (hitX) s.vx = -s.vx;
         if (hitY) s.vy = -s.vy;
         if (!hitX && !hitY) { s.vx = -s.vx; s.vy = -s.vy; }   // (a corner, head on)
-        st.events.push({ t: "bounce", x: s.x, y: s.y });
+        if (ev) ev.push({ t: "bounce", x: s.x, y: s.y });
         continue;
       }
       s.x = nx; s.y = ny;
@@ -225,7 +244,7 @@
     // cork in reach breaks (a block's centre within it)
     for (var ty = Math.floor(m.y - R); ty <= Math.floor(m.y + R); ty++) for (var tx = Math.floor(m.x - R); tx <= Math.floor(m.x + R); tx++) {
       if (tx < 0 || ty < 0 || tx >= COLS || ty >= ROWS) continue;
-      if (st.grid[ty * COLS + tx] === 2 && Math.hypot(tx + 0.5 - m.x, ty + 0.5 - m.y) <= R + 0.2) { st.grid[ty * COLS + tx] = 0; st.events.push({ t: "cork", x: tx + 0.5, y: ty + 0.5 }); }
+      if (st.grid[ty * COLS + tx] === 2 && Math.hypot(tx + 0.5 - m.x, ty + 0.5 - m.y) <= R + 0.2) { st.grid[ty * COLS + tx] = 0; st.gridVer++; st.events.push({ t: "cork", x: tx + 0.5, y: ty + 0.5 }); }
     }
     st.shells = st.shells.filter(function (s) { return Math.hypot(s.x - m.x, s.y - m.y) > R; });
     [st.player].concat(st.enemies).forEach(function (t) { if (t.alive && Math.hypot(t.x - m.x, t.y - m.y) <= R + TANK_R * 0.5) kill(st, t, "blast", m.owner); });
@@ -279,7 +298,8 @@
       if (input.fire) fire(st, p);
       if (input.mine) layMine(st, p);
     }
-    // the enemy tanks
+    // the enemy tanks (each seeing where the shells will go)
+    st.seen = shellPaths(st);
     st.enemies.forEach(function (e) { if (e.alive) think(st, e, dt); });
     separate(st);
     stepShells(st, dt);
@@ -458,25 +478,32 @@
     // the white tank fades from sight once the mission is under way
     if (spec.invisible) e.hidden = true;
 
-    // flee a mine in reach (mine layers mind every mine; the others only their own side's)
-    var threat = null;
+    // flee a mine in reach (the mines it minds: see WARY).
+    // Once fleeing it keeps on a little past the edge of the reach, and done,
+    // it picks a fresh way to go: the old one would take it straight back in,
+    // and it would dither on the edge, in and out a step at a time.
+    var threat = null, was = ai.flee;
     st.mines.forEach(function (m) {
-      if (!spec.mines && !m.enemy) return;
+      if (!minds(e, m)) return;
       var d = Math.hypot(m.x - e.x, m.y - e.y);
-      if (d < TUNE.blast + 0.9 && (!threat || d < threat.d)) threat = { m: m, d: d };
+      if (d < KEEP_OFF + (was ? 0.4 : 0) && (!threat || d < threat.d)) threat = { m: m, d: d };
     });
+    if (threat && threat.d >= KEEP_OFF && ai.fleeTo && Math.hypot(ai.fleeTo.x - e.x, ai.fleeTo.y - e.y) < 0.3) threat = null;
     ai.flee = threat ? 1 : 0;
+    if (was && !ai.flee) { ai.goal = null; ai.fleeTo = null; }
 
-    // dodge a shell bearing down (yellow tanks don't bother; brown and green can't move)
-    var dodge = null;
-    if (TUNE.move[spec.move] > 0 && spec.ai !== "incautious") {
-      st.shells.forEach(function (s) {
-        if (s.owner === e) return;
-        var rx = e.x - s.x, ry = e.y - s.y, sv = Math.hypot(s.vx, s.vy), along = (rx * s.vx + ry * s.vy) / sv;
-        if (along < 0 || along > (spec.ai === "dynamic" ? 5 : 3)) return;
-        var px = s.x + s.vx / sv * along, py = s.y + s.vy / sv * along, miss = Math.hypot(e.x - px, e.y - py);
-        if (miss < TANK_R + 0.45) { var side = (rx * s.vy - ry * s.vx) > 0 ? 1 : -1; dodge = { x: -s.vy / sv * side, y: s.vx / sv * side }; }
-      });
+    // dodge a shell it sees coming (its own too, back off a wall): the way
+    // to drive is worked out afresh every little while as long as one is
+    var dodge = null, w = WARY[e.kind], speed = TUNE.move[spec.move];
+    if (w && w.see > 0 && speed > 0) {
+      // (it looks every other step: its look ahead is far longer than that)
+      ai.lookT = (ai.lookT || 0) - dt;
+      if (ai.lookT <= 0) { ai.lookT = 32; ai.danger = incoming(st, e, w); }
+      if (ai.danger) {
+        ai.dodgeT = (ai.dodgeT || 0) - dt;
+        if (!ai.dodge || ai.dodgeT <= 0) { ai.dodge = dodgeWay(st, e, w, speed); ai.dodgeT = 120; }
+        dodge = ai.dodge;
+      } else ai.dodge = null;
     }
 
     // turret and fire
@@ -511,17 +538,17 @@
     }
 
     // where to drive
-    var speed = TUNE.move[spec.move];
     if (!speed) return;
-    if (ai.paused > 0) { ai.paused -= dt; return; }       // (a fast tank stops a moment as it fires)
+    if (ai.paused > 0) { ai.paused -= dt; if (!dodge) return; }   // (a fast tank stops a moment as it fires, unless it has to dodge)
     var dir = null;
-    if (dodge) dir = dodge;
+    if (dodge) dir = dodge.x || dodge.y ? dodge : null;           // (out of the way may be where it is)
     else if (threat) {
       // off to the safest open spot it can drive straight to (straight away
       // from the mine goes nowhere from one just laid underneath, or with a
       // wall behind)
-      ai.fleeT = (ai.fleeT || 0) - dt;
-      if (!ai.fleeTo || ai.fleeT <= 0 || Math.hypot(ai.fleeTo.x - e.x, ai.fleeTo.y - e.y) < 0.3) { ai.fleeTo = fleeGoal(st, e, null); ai.fleeT = 1200; }
+      // (a spot kept until it's reached, or the tank is stuck, or another mine is down)
+      var minded = st.mines.filter(function (m) { return minds(e, m); }).length;
+      if (!ai.fleeTo || ai.fleeN !== minded || Math.hypot(ai.fleeTo.x - e.x, ai.fleeTo.y - e.y) < 0.3) { ai.fleeTo = fleeGoal(st, e, null); ai.fleeN = minded; }
       if (ai.fleeTo) { var fx = ai.fleeTo.x - e.x, fy = ai.fleeTo.y - e.y, fl = Math.hypot(fx, fy) || 1; dir = { x: fx / fl, y: fy / fl }; }
     }
     else {
@@ -549,6 +576,8 @@
       var gx = e.x + Math.cos(a) * d, gy = e.y + Math.sin(a) * d;
       if (gx < 0.6 || gy < 0.6 || gx > COLS - 0.6 || gy > ROWS - 0.6) continue;
       if (blockedAt(st, gx, gy, TANK_R) || !pathClear(st, e.x, e.y, gx, gy) || mineOnPath(st, e, gx, gy)) continue;
+      // (never into the reach of a mine it minds: it would only flee again)
+      if (st.mines.some(function (m) { return minds(e, m) && Math.hypot(m.x - gx, m.y - gy) < KEEP_OFF; })) continue;
       var pd = Math.hypot(p.x - gx, p.y - gy), score = st.random() * 2;
       if (spec.ai === "offensive" || spec.ai === "dynamic") score -= pd;
       else if (spec.ai === "defensive") score -= Math.abs(pd - 7);
@@ -563,24 +592,115 @@
     return true;
   }
   // Would the straight drive from the tank to (bx, by) take it into a mine's
-  // reach: near enough to set it off, or into the blast's reach of one it's
-  // outside now (it could go off as the tank passes)? Only the mines it minds
-  // (mine layers every one, the others their own side's); its own, until it's
-  // armed, it can drive off.
+  // reach: near enough to set it off (any mine), or into the blast's reach of
+  // one it minds that it's outside now (it could go off as the tank passes)?
+  // Its own, until it's armed, it can drive off.
   function mineOnPath(st, e, bx, by) {
-    var ax = e.x, ay = e.y, vx = bx - ax, vy = by - ay, ll = vx * vx + vy * vy || 1, zone = TUNE.blast + 0.6;
+    var ax = e.x, ay = e.y, vx = bx - ax, vy = by - ay, ll = vx * vx + vy * vy || 1, zone = KEEP_OFF;
     return st.mines.some(function (m) {
-      if (m.gone || (!e.spec.mines && !m.enemy) || (m.owner === e && !m.armed)) return false;
+      if (m.gone || (m.owner === e && !m.armed)) return false;
       var k = Math.max(0, Math.min(1, ((m.x - ax) * vx + (m.y - ay) * vy) / ll));
       var near = Math.hypot(ax + vx * k - m.x, ay + vy * k - m.y);
-      return near < TUNE.trigger + 0.15 || (near < zone && Math.hypot(ax - m.x, ay - m.y) >= zone);
+      return near < TUNE.trigger + 0.15 || (minds(e, m) && near < zone && Math.hypot(ax - m.x, ay - m.y) >= zone);
     });
+  }
+  // The mines a tank keeps clear of: every one, for the wary kinds; for the
+  // others their own side's, and any about to go off (blinking, or set
+  // going by a tank come near).
+  function minds(e, m) {
+    var w = WARY[e.kind];
+    return !m.gone && ((w && w.mines === "all") || m.enemy || m.trip != null || TUNE.fuseMs - m.age <= TUNE.mineWarnMs);
+  }
+
+  // ---- seeing shells coming ------------------------------------------------------------
+  // Where a shell will be, every LOOK ms from when it's first looked at,
+  // bounces and all (the very steps it will take): worked out once and kept
+  // with it, again only if a block has gone since (cork, broken by a mine).
+  // Each point: where, and how many walls it has come off by then (nb).
+  // (It's worked out only as far ahead as a tank looks: a shell gone first
+  // costs no more.)
+  var LOOK = 40, LOOK_N = 30;
+  function bounced(s) { return (s.b0 != null ? s.b0 : s.bounces) - s.bounces; }
+  function pathTo(st, s, upto) {
+    if (!s.path || s.pathGrid !== st.gridVer) {
+      s.path = []; s.pathAge = s.age; s.pathGrid = st.gridVer; s.pathEnd = false;
+      s.pathRun = { x: s.x, y: s.y, vx: s.vx, vy: s.vy, bounces: s.bounces, b: s.bounces, done: bounced(s) };
+    }
+    var c = s.pathRun;
+    while (!s.pathEnd && s.path.length < upto) {
+      if (moveShell(st, c, LOOK, null)) s.path.push({ x: c.x, y: c.y, nb: c.done + c.b - c.bounces });
+      else s.pathEnd = true;
+    }
+    return s.path;
+  }
+  // every shell, for the tanks to look at this step: its path, the point
+  // next ahead of where it is now (k), the walls it has come off (done)
+  function shellPaths(st) {
+    return st.shells.map(function (s) {
+      var k = s.path && s.pathGrid === st.gridVer ? Math.max(0, Math.floor((s.age - s.pathAge) / LOOK)) : 0;
+      return { s: s, path: pathTo(st, s, k + LOOK_N), k: k, done: bounced(s), speed: Math.hypot(s.vx, s.vy) };
+    });
+  }
+  // the i-th point ahead on a shell's path that a tank sees: as far ahead as
+  // it looks, off a wall only if it sees bank shots, and its own only once
+  // it has come back off one (null: not this one)
+  function sees(e, w, P, i) {
+    var q = P.path[P.k + i];
+    if (!q || i * LOOK >= w.see) return null;
+    if (q.nb > P.done && !w.bank) return null;
+    if (P.s.owner === e && !q.nb) return null;
+    return q;
+  }
+  // (a shell too far off to come near in the time a tank looks ahead isn't looked at)
+  function within(P, e, ms) { return Math.hypot(P.s.x - e.x, P.s.y - e.y) <= P.speed * ms / 1000 + DANGER + 0.5; }
+  // A shell on its way to the tank that it heeds (whether it does is
+  // settled the first time it sees it coming, and kept with the shell)
+  var DANGER = TANK_R + SHELL_R + 0.3;
+  function incoming(st, e, w) {
+    return st.seen.some(function (P) {
+      if (!within(P, e, w.see)) return false;
+      for (var i = 0; i * LOOK < w.see && P.path[P.k + i]; i++) {
+        var q = sees(e, w, P, i);
+        if (!q || Math.hypot(q.x - e.x, q.y - e.y) >= DANGER) continue;
+        var heeds = P.s.heeds || (P.s.heeds = {});
+        if (heeds[e.slot] == null) heeds[e.slot] = st.random() < w.heed;
+        return heeds[e.slot];
+      }
+      return false;
+    });
+  }
+  // Which way to drive out of the way: of sixteen headings, and staying put,
+  // the one that keeps furthest from every shell it sees over the time it
+  // looks ahead (stopping where a block would stop it), and doesn't take it
+  // over a mine.
+  function dodgeWay(st, e, w, speed) {
+    var n = Math.min(LOOK_N, Math.ceil(w.see / LOOK) + 3), sl = speed * LOOK / 1000, most = sl * n, best = null, bestScore = -1e9;
+    var mv = Math.hypot(e.vx, e.vy) || 1, near = st.seen.filter(function (P) { return within(P, e, n * LOOK); });
+    for (var k = -1; k < 16; k++) {
+      var dx = k < 0 ? 0 : Math.cos(k * Math.PI / 8), dy = k < 0 ? 0 : Math.sin(k * Math.PI / 8), free = 0, clear = 1e9;
+      if (k >= 0) while (free < most && !blockedAt(st, e.x + dx * (free + 0.2), e.y + dy * (free + 0.2), TANK_R)) free += 0.2;
+      for (var i = 0; i < n; i++) {
+        var d = Math.min(sl * (i + 1), free), x = e.x + dx * d, y = e.y + dy * d;
+        for (var j = 0; j < near.length; j++) {
+          var P = near[j], q = P.path[P.k + i];
+          if (!q || (q.nb > P.done && !w.bank) || (P.s.owner === e && !q.nb)) continue;
+          clear = Math.min(clear, Math.hypot(q.x - x, q.y - y));
+        }
+      }
+      // (clear enough is clear enough; then: not over a mine, and keeping on
+      // much as it was going rather than turning about)
+      var score = Math.min(clear, DANGER + 0.5) * 10;
+      if (k >= 0 && mineOnPath(st, e, e.x + dx * Math.min(free, most), e.y + dy * Math.min(free, most))) score -= 30;
+      if (k >= 0) score += (dx * e.vx + dy * e.vy) / mv * 0.2; else score -= 0.3;
+      if (score > bestScore) { bestScore = score; best = { x: dx, y: dy }; }
+    }
+    return best;
   }
   // The open spot nearby farthest from the mines it minds (out of the
   // blast's reach if it can), that it can drive straight to; `extra`, a mine
   // it means to lay where it stands. Null when there's none.
   function fleeGoal(st, e, extra) {
-    var ms = st.mines.filter(function (m) { return !m.gone && (e.spec.mines || m.enemy); });
+    var ms = st.mines.filter(function (m) { return minds(e, m); });
     if (extra) ms = ms.concat(extra);
     var best = null, bestScore = -1e9;
     for (var i = 0; i < 28; i++) {
@@ -590,7 +710,7 @@
       if (blockedAt(st, gx, gy, TANK_R) || !pathClear(st, e.x, e.y, gx, gy) || mineOnPath(st, e, gx, gy)) continue;
       var safe = 1e9;
       ms.forEach(function (m) { safe = Math.min(safe, Math.hypot(m.x - gx, m.y - gy)); });
-      var score = Math.min(safe, TUNE.blast + 1.2) * 3 - d * 0.3 + st.random() * 0.2;
+      var score = Math.min(safe, KEEP_OFF + 0.6) * 3 - d * 0.3 + st.random() * 0.2;
       if (score > bestScore) { bestScore = score; best = { x: gx, y: gy, safe: safe }; }
     }
     return best;
@@ -600,7 +720,7 @@
   function canClear(st, e) {
     if ([st.player].concat(st.enemies).some(function (t) { return t !== e && t.alive && Math.hypot(t.x - e.x, t.y - e.y) < TUNE.trigger + 0.5; })) return false;
     var g = fleeGoal(st, e, { x: e.x, y: e.y });
-    return !!g && g.safe >= TUNE.blast + 0.9;
+    return !!g && g.safe >= KEEP_OFF;
   }
 
   window.ToyTanksEngine = {

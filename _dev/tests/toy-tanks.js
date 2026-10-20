@@ -108,6 +108,75 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   {
+    // a yellow tank among its own mines drives off them and on: no turning
+    // about on the edge of their reach (a reversal within 0.3 s of the last)
+    let rapid = 0, flips = 0;
+    for (let seed = 1; seed <= 3; seed++) {
+      const st = E.create([map([[2, 2, "P"], [11, 8, "y"]])], { seed }); play(st);
+      st.player.cool = 1e9;
+      const y = st.enemies[0];
+      let h = null, last = -1e9;
+      for (let t = 0; t < 20000 && y.alive; t += 16) {
+        E.step(st, 16, {});
+        if (Math.hypot(y.vx, y.vy) < 0.1) continue;
+        const a = Math.atan2(y.vy, y.vx);
+        if (h != null && Math.abs(Math.atan2(Math.sin(a - h), Math.cos(a - h))) > Math.PI / 2) { flips++; if (t - last < 300) rapid++; last = t; }
+        h = a;
+      }
+    }
+    check("toy-tanks rules: a yellow tank among its own mines doesn't turn about on the edge of their reach (no reversal within 0.3 s of the last, 60 s in all)", rapid <= 3, { rapid, flips });
+  }
+
+  {
+    // dodging: a shell a tank heeds (here, every one), straight at it, it
+    // drives out of the way of (off the shell's line, not onto it)
+    let alive = 0, n = 0;
+    for (const kind of ["p", "v", "w", "k"]) for (let seed = 1; seed <= 5; seed++) {
+      const st = E.create([map([[3, 8, "P"], [11, 8, kind]])], { seed }); play(st);
+      const e = st.enemies[0]; e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 });
+      run(st, 400, {});
+      E.step(st, 16, { aim: Math.atan2(e.y - st.player.y, e.x - st.player.x), fire: true });
+      st.shells.forEach((s) => { s.heeds = { [e.slot]: true }; });
+      for (let t = 0; t < 3000 && e.alive; t += 16) E.step(st, 16, {});
+      n++; if (e.alive) alive++;
+    }
+    check("toy-tanks rules: a pink, violet, white or black tank gets out of the way of a shell it heeds, fired straight at it", alive === n, { alive, n });
+  }
+  {
+    // its own shell, come back off a wall: a tank sees that coming too
+    let alive = 0, n = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      const m = map([[19, 2, "P"], [6, 8, "p"]]); m.map = m.map.map((r, y) => (y >= 5 && y <= 11 ? r.slice(0, 3) + "#" + r.slice(4) : r));
+      const st = E.create([m], { seed }); play(st);
+      const e = st.enemies[0]; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 }); st.player.cool = 1e9;
+      e.turret = Math.PI; e.cool = 0; E.fire(st, e); e.cool = 1e9;
+      st.shells.forEach((s) => { s.heeds = { [e.slot]: true }; });
+      // (driving back along the shell's line, as if it meant to)
+      e.ai.goal = { x: 12.5, y: 8.5 }; e.ai.t = 1e9; e.ai.think = 1e9;
+      for (let t = 0; t < 2500 && e.alive; t += 16) E.step(st, 16, {});
+      n++; if (e.alive) alive++;
+    }
+    check("toy-tanks rules: a tank sees its own shell coming back off a wall and gets out of its way", alive === n, { alive, n });
+  }
+  {
+    // your mine about to go off beside a tank (ash and marine mind it then;
+    // pink, violet and black keep clear of all of them): it gets out of reach
+    const out = {};
+    for (const [kind, letter, left] of [["ash", "a", 1900], ["marine", "m", 1900], ["pink", "p", 3000], ["violet", "v", 3000], ["black", "k", 3000]]) {
+      let alive = 0;
+      for (let seed = 1; seed <= 5; seed++) {
+        const st = E.create([map([[3, 8, "P"], [12, 8, letter]])], { seed }); play(st);
+        const e = st.enemies[0]; e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 }); st.player.cool = 1e9;
+        st.mines.push({ id: 900, x: e.x - 1.4, y: e.y, owner: st.player, age: E.TUNE.fuseMs - left, armed: true, enemy: false });
+        run(st, left + 500, {});
+        if (e.alive) alive++;
+      }
+      out[kind] = alive;
+    }
+    check("toy-tanks rules: a tank beside your mine gets out of its reach before it goes off (ash and marine once it blinks)", Object.values(out).every((v) => v === 5), out);
+  }
+
+  {
     // the violet tank drives at your tank's pace: the furthest either goes in a step
     const step = (st, t, input) => { const x = t.x, y = t.y; E.step(st, 16, input); return Math.hypot(t.x - x, t.y - y); };
     const st = E.create([map([[2, 2, "P"], [12, 9, "v"]])], { seed: 1 }); play(st);
