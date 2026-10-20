@@ -788,6 +788,70 @@ module.exports = async ({ browser, base, check, lib }) => {
       got.off.score === 1 && got.off.claim.blocks === 1 && got.off.claim.lit === 0 && got.off.claim.rings.length === 0 && got.off.claim.mark.join() === "" && got.off.claim.letter === "Y", got.off.claim);
   }
 
+  // ---- Dots and Boxes, the night over the city: with FX on two searchlights
+  // sweep the sky, stars twinkle and windows in the skyline go dark and light
+  // again; a box claimed sends a firework up in its owner's colour, into open
+  // sky (not behind the board), and a win a show of them; paused, it all
+  // stops where it is. FX off: the same sky held still, and no fireworks.
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const p = await open("dots-and-boxes/", off);
+      await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+      await p.click("#startGame");
+      const look = () => p.evaluate(() => {
+        const q = (s) => [...document.querySelectorAll(s)];
+        const anims = (s) => q(s).map((e) => e.getAnimations().map((a) => a.animationName + ":" + a.playState).join("+"));
+        return { beams: q(".sky-back .beam").length, stars: q(".sky .twinkles .twinkle").length, windows: q(".sky .lights-out .window").length,
+          beam: anims(".sky-back .beam"), star: anims(".sky .twinkles"), window: anims(".sky .lights-out"),
+          rest: q(".sky-back .beam").map((b) => getComputedStyle(b).transform !== "none") };
+      });
+      const sky = await look();
+      // a box claimed: what goes up (watched as it's added), and where
+      const claim = await p.evaluate(() => {
+        const seen = window.__seen = [];
+        new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
+          if (n.classList && n.classList.contains("burst")) { const r = n.getBoundingClientRect(); seen.push({ cls: n.className, x: r.left, y: r.top }); }
+        }))).observe(document.querySelector(".sky") || document.body, { childList: true, subtree: true });
+        hLines[0][0] = "ai"; vLines[0][0] = "ai"; vLines[0][1] = "ai";
+        play("h", 1, 0);
+        const b = document.getElementById("board").getBoundingClientRect();
+        // (a moment for the watcher to hear of it)
+        return new Promise((res) => setTimeout(() => res({ n: seen.length, cls: seen.map((s) => s.cls).join(), onBoard: seen.some((s) => s.x > b.left && s.x < b.right && s.y > b.top && s.y < b.bottom) }), 60));
+      });
+      // paused (P), the sky stops where it is; P again and it goes on
+      const pausedIs = (on) => p.waitForFunction((on) => document.documentElement.classList.contains("db-paused") === on, on, { timeout: 8000 }).then(() => p.waitForTimeout(100), () => {});
+      await p.keyboard.press("p"); await pausedIs(true);
+      const paused = await look();
+      await p.keyboard.press("p"); await pausedIs(false);
+      const resumed = await look();
+      // the last box, and the game, yours: a show of fireworks in your colour
+      const show = await p.evaluate(() => new Promise((res) => {
+        const from = window.__seen.length;
+        for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) if (!(r === 0 && c < 2)) boxes[r][c] = (r + c) % 2 ? "ai" : "human";
+        scores.human = 1 + [...boxes.flat()].filter((o, i) => i > 1 && o === "human").length; scores.ai = [...boxes.flat()].filter((o) => o === "ai").length;
+        hLines[0][1] = "ai"; hLines[1][1] = "ai";
+        play("v", 0, 2);
+        setTimeout(() => { const s = window.__seen.slice(from); res({ over: gameOver, won: scores.human > scores.ai, n: s.length, mine: s.filter((x) => / human/.test(x.cls)).length }); }, 3200);
+      }));
+      got[off ? "off" : "on"] = { sky, claim, paused, resumed, show };
+      await done(p, "dots-and-boxes night sky FX " + (off ? "off" : "on"));
+    }
+    const on = got.on, offS = got.off;
+    const all = (list, re) => list.length > 0 && list.every((a) => re.test(a));
+    check("dots-and-boxes, FX on: two searchlights sweep the sky, three sets of stars twinkle and three sets of skyline windows go dark and light again",
+      on.sky.beams === 2 && on.sky.stars === 14 && on.sky.windows >= 12 && on.sky.beam.join() === "dbSweepL:running,dbSweepR:running" &&
+      all(on.sky.star, /^dbTwinkle:running$/) && on.sky.star.length === 3 && all(on.sky.window, /^dbLightsOut:running$/) && on.sky.window.length === 3, on.sky);
+    check("dots-and-boxes, FX on: a box you claim sends one firework up in your colour, into open sky off the board; a win sends up a show of them (seven more)",
+      on.claim.n === 1 && / human/.test(on.claim.cls) && !on.claim.onBoard && on.show.over && on.show.won && on.show.n >= 7 && on.show.mine === on.show.n, { claim: on.claim, show: on.show });
+    check("dots-and-boxes, FX on: paused, the sky's motion stops where it is, and goes on again on resume",
+      all(on.paused.beam.concat(on.paused.star, on.paused.window), /:paused$/) && all(on.resumed.beam.concat(on.resumed.star, on.resumed.window), /:running$/), { paused: on.paused, resumed: on.resumed });
+    check("dots-and-boxes, FX off: the same sky (the beams, every star and window) held still, the beams at rest on their slant; no fireworks for a box or a win",
+      offS.sky.beams === 2 && offS.sky.stars === 14 && offS.sky.windows >= 12 && offS.sky.windows === on.sky.windows &&
+      offS.sky.beam.concat(offS.sky.star, offS.sky.window).every((a) => a === "") && offS.sky.rest.every(Boolean) &&
+      offS.claim.n === 0 && offS.show.over && offS.show.n === 0, { sky: offS.sky, claim: offS.claim, show: offS.show });
+  }
+
   // ---- Tall Order, FX on: a trimmed tier's offcut drops a tier's height,
   // then sheds tumbling crumbs of frosting and sponge as it falls on whole,
   // out of the picture (it used to break up into them and vanish in mid air,

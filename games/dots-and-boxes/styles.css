@@ -31,6 +31,57 @@ body::before {
   content: ""; position: fixed; left: 0; right: 0; bottom: 0; height: 170px; z-index: -1; pointer-events: none;
   background: var(--skyline) 0 100% / 1200px 170px repeat-x;
 }
+/* ---- the night over the city (game.js fills it in) ----
+   Behind the skyline two searchlights sweep the sky; in front of it a few
+   windows go dark and light again; above, some stars twinkle; and a box
+   claimed sends a firework up into the open sky in its owner's colour, a win
+   a whole show. With Visual FX off it's the same sky held still (the beams at
+   rest, the stars steady, every window lit) and no fireworks. Paused, it all
+   stops where it is. */
+.sky-back, .sky { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+.sky-back { z-index: -2; }
+.sky { z-index: -1; }
+.beam {
+  position: absolute; bottom: 60px; width: min(36vw, 340px); height: 92vh; margin-left: calc(min(36vw, 340px) / -2);
+  background: linear-gradient(to top, rgba(205, 220, 255, 0.11), rgba(205, 220, 255, 0.04) 60%, rgba(205, 220, 255, 0));
+  clip-path: polygon(48.5% 100%, 51.5% 100%, 100% 0, 0 0);
+  transform-origin: 50% 100%; transform: rotate(var(--rest)); will-change: transform;
+}
+/* (each beam's swing written out: keyframes that read variables would be
+   worked out afresh every frame instead of left to the compositor) */
+html.fx-on .beam.left { animation: dbSweepL 17s ease-in-out infinite alternate; }
+html.fx-on .beam.right { animation: dbSweepR 21s ease-in-out -7s infinite alternate; }
+@keyframes dbSweepL { from { transform: rotate(-26deg); } to { transform: rotate(8deg); } }
+@keyframes dbSweepR { from { transform: rotate(27deg); } to { transform: rotate(-7deg); } }
+.twinkles, .lights-out { position: absolute; inset: 0; }
+.twinkles { opacity: 0.6; }
+.twinkle { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.45); }
+html.fx-on .twinkles.s0 { animation: dbTwinkle 4.3s ease-in-out infinite; }
+html.fx-on .twinkles.s1 { animation: dbTwinkle 6.1s ease-in-out -2.2s infinite; }
+html.fx-on .twinkles.s2 { animation: dbTwinkle 7.7s ease-in-out -5.1s infinite; }
+@keyframes dbTwinkle { 0%, 100% { opacity: 0.6; } 45% { opacity: 0.15; } 58% { opacity: 1; } }
+/* (a window's light out: the building's own dark over it, for a while) */
+.lights-out { opacity: 0; }
+.lights-out .window { position: absolute; width: 3px; height: 4px; background: #0a0f1f; }
+html.fx-on .lights-out.s0 { animation: dbLightsOut 13s steps(1, end) -4s infinite; }
+html.fx-on .lights-out.s1 { animation: dbLightsOut 19s steps(1, end) -11s infinite; }
+html.fx-on .lights-out.s2 { animation: dbLightsOut 23s steps(1, end) -2s infinite; }
+@keyframes dbLightsOut { 0% { opacity: 0; } 70% { opacity: 0.92; } 86% { opacity: 0; } }
+.burst { position: absolute; width: 0; height: 0; animation: dbDrift 1.25s ease-in forwards; }
+@keyframes dbDrift { to { transform: translateY(16px); } }
+.burst.human { color: #ff8a98; } .burst.ai { color: #7fd4ff; }
+.burst i {
+  position: absolute; left: -1.5px; top: -1.5px; width: 3px; height: 3px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 5px 1px currentColor;
+  animation: dbSpark 1.15s cubic-bezier(0.15, 0.7, 0.3, 1) forwards;
+}
+.burst.big i { left: -2px; top: -2px; width: 4px; height: 4px; }
+@keyframes dbSpark { 0% { transform: rotate(var(--a)) translateX(0); opacity: 1; } 70% { opacity: 0.85; } 100% { transform: rotate(var(--a)) translateX(var(--d)); opacity: 0; } }
+.burst b { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(currentColor, transparent 70%); opacity: 0; animation: dbFlare 0.55s ease-out forwards; }
+@keyframes dbFlare { 0% { opacity: 0.5; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.7); } }
+/* (!important: the rules that start the motion set its play state too, in their shorthand) */
+html.db-paused .sky *, html.db-paused .sky-back * { animation-play-state: paused !important; }
+html.fx-off .sky *, html.fx-off .sky-back * { animation: none; }
 /* the title as a neon sign */
 h1 {
   margin: 0; font-family: var(--sign); font-weight: 400; font-size: 3.1rem; line-height: 1; letter-spacing: 0.06em; color: #fff4f6;

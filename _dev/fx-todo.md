@@ -131,3 +131,17 @@ Done (checked in `tests/fx-more.js`):
   clicks-per-second number.
 
 Already good models: Reaction, Lanterns, Slither, the Sudoku stamp.
+
+## Round 3 (2026-10-20)
+
+Done (checked in `tests/fx-more.js`):
+- Dots and Boxes, the night over the city. Two searchlights sweep the sky
+  from behind the skyline, three sets of stars twinkle and three sets of the
+  skyline's own windows go dark and light again, each on its own slow beat. A
+  box claimed sends a firework up in its owner's colour into open sky (off the
+  title, tallies, board, buttons and moon; smaller on a phone, where the open
+  sky is only the gaps beside the title), and the game's end sends up a show
+  of seven (a draw's in both colours by turns). Paused, it stops where it is.
+  FX off: the same sky held still (the beams at rest on their slant, the stars
+  steady, every window lit) and no fireworks. All CSS, run by the compositor:
+  idle it costs the page's main thread next to nothing.

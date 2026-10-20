@@ -262,7 +262,7 @@ function play(type, r, c) {
   const made = placeLine(type, r, c, HUMAN);
   scores.human += made;
   sfxHuman();
-  if (made > 0) sfxClaim(HUMAN);
+  if (made > 0) { sfxClaim(HUMAN); skyClaim(HUMAN, made); }
   lastLine = { type, r, c };
   draw(); updateScores();
   if (checkOver()) return;
@@ -285,7 +285,7 @@ function aiTurn() {
   const made = placeLine(mv.type, mv.r, mv.c, AI);
   scores.ai += made;
   sfxAI();
-  if (made > 0) sfxClaim(AI);
+  if (made > 0) { sfxClaim(AI); skyClaim(AI, made); }
   lastLine = { type: mv.type, r: mv.r, c: mv.c };
   draw(); updateScores();
   if (checkOver()) { busy = false; syncPlayable(); return; }
@@ -303,9 +303,9 @@ function checkOver() {
   const total = N*N;
   if (scores.human + scores.ai >= total) {
     gameOver = true;
-    if (scores.human > scores.ai) { record.w++; setStatus(`You win ${scores.human} to ${scores.ai}! 🎉`); sfxWin(); }
-    else if (scores.ai > scores.human) { record.l++; setStatus(`AI wins ${scores.ai} to ${scores.human}.`); sfxLose(); }
-    else { record.d++; setStatus(`A draw: ${scores.human} each.`); sfxDraw(); }
+    if (scores.human > scores.ai) { record.w++; setStatus(`You win ${scores.human} to ${scores.ai}! 🎉`); sfxWin(); skyShow(HUMAN); }
+    else if (scores.ai > scores.human) { record.l++; setStatus(`AI wins ${scores.ai} to ${scores.human}.`); sfxLose(); skyShow(AI); }
+    else { record.d++; setStatus(`A draw: ${scores.human} each.`); sfxDraw(); skyShow(null); }
     updateRecord();
     syncPlayable();
     return true;
@@ -394,6 +394,95 @@ function snapshot() {
 }
 function restore(s) { hLines = s.h; vLines = s.v; }
 
+// --- the night over the city, behind everything ---
+// Two searchlights sweep the sky from behind the skyline, a few stars
+// twinkle, and some of the skyline's windows go dark and light again (the
+// windows are the skyline picture's own: --skyline in styles.css, a 1200 px
+// tile along the bottom). A box claimed sends a firework up into the open sky
+// in its owner's colour; the game's end sends up a show. The motion is CSS
+// and runs with Visual FX on only; FX off, the same sky holds still, and no
+// fireworks go up.
+const skyBack = document.querySelector('.sky-back'), sky = document.querySelector('.sky');
+const BEAMS = [['left', 14, -12], ['right', 82, 14]];   // which, left %, the angle it rests at (its swing: styles.css)
+const STARS = [[8, 12], [15, 31], [23, 7], [31, 22], [42, 5], [47, 35], [57, 16], [66, 29], [72, 8], [79, 41], [93, 26], [36, 45], [61, 48], [4, 40]];
+const WINDOWS = [[3, 105], [43, 125], [219, 106], [273, 140], [331, 86], [434, 116], [525, 116], [575, 87], [700, 122], [868, 92], [936, 102], [1102, 133]];
+function skyEl(cls, style) { const e = document.createElement(cls === 'burst' ? 'div' : 'span'); e.className = cls; Object.assign(e.style, style || {}); return e; }
+function buildSky() {
+  if (!skyBack || !sky) return;
+  skyBack.textContent = '';
+  BEAMS.forEach(([side, x, rest]) => {
+    const b = skyEl('beam ' + side, { left: x + '%' });
+    b.style.setProperty('--rest', rest + 'deg');
+    skyBack.appendChild(b);
+  });
+  // (the stars, and the windows, in three sets that each twinkle or go dark
+  // together on a beat of their own: three animations, not one each, keeps
+  // the sky cheap to run)
+  [...sky.querySelectorAll('.twinkles, .lights-out')].forEach((e) => e.remove());
+  const sets = (cls) => [0, 1, 2].map((j) => sky.appendChild(skyEl(cls + ' s' + j)));
+  const stars = sets('twinkles');
+  STARS.forEach(([x, y], i) => stars[i % 3].appendChild(skyEl('twinkle', { left: x + '%', top: y + '%' })));
+  // (the windows over every tile of the skyline the screen is wide enough for)
+  const dark = sets('lights-out');
+  for (let k = 0; k * 1200 < innerWidth; k++) WINDOWS.forEach(([x, y], i) => {
+    dark[(i + k) % 3].appendChild(skyEl('window', { left: (x + k * 1200) + 'px', bottom: (170 - y - 4) + 'px' }));
+  });
+}
+let skyW = 0;
+addEventListener('resize', () => { if (Math.ceil(innerWidth / 1200) !== skyW) { skyW = Math.ceil(innerWidth / 1200); buildSky(); } });
+// Somewhere in the open sky for a firework: off the title, the tallies, the
+// board, the buttons and the moon when there's room (on a laptop there always
+// is); on a phone, wherever is furthest from them.
+function skySpot(r) {
+  const keep = ['h1', '.scoreboard', '#status', '#board', '.controls', '.record', '.nav-back-games', '.gs-corner']
+    .map((q) => document.querySelector(q)).filter(Boolean).map((e) => e.getBoundingClientRect()).filter((b) => b.width > 0);
+  // (the moon: the body's background, at 86% across and 11% down, its halo 44 px round)
+  const bb = document.body.getBoundingClientRect(), mx = bb.left + bb.width * 0.86, my = bb.top + bb.height * 0.11;
+  keep.push({ left: mx - 46, right: mx + 46, top: my - 46, bottom: my + 46 });
+  let best = null, bestD = -Infinity;
+  for (let i = 0; i < 30; i++) {
+    const x = r + Math.random() * Math.max(1, innerWidth - 2 * r), y = r + Math.random() * Math.max(1, innerHeight * 0.6 - r);
+    let d = Infinity;
+    for (const b of keep) {
+      const dx = Math.max(b.left - x, 0, x - b.right), dy = Math.max(b.top - y, 0, y - b.bottom);
+      d = Math.min(d, dx || dy ? Math.hypot(dx, dy) : -Math.min(x - b.left, b.right - x, y - b.top, b.bottom - y));
+    }
+    if (d >= r + 10) return { x, y };
+    if (d > bestD) { bestD = d; best = { x, y }; }
+  }
+  return best;
+}
+let skyPaused = false;
+function firework(owner, big) {
+  if (!sky || !animOn() || skyPaused) return;
+  if (innerWidth < 600) big = false;   // (no room for the big ones on a phone)
+  const live = sky.querySelectorAll('.burst');
+  if (live.length >= 6) live[0].remove();
+  // (smaller on a narrow screen, where the open sky is only the gaps beside the title)
+  const r = Math.round((big ? 72 : 44) * Math.max(0.6, Math.min(1, innerWidth / 900))), at = skySpot(r), n = big ? 22 : 14;
+  const b = skyEl('burst', { left: at.x + 'px', top: at.y + 'px' });
+  b.classList.add(owner); if (big) b.classList.add('big');
+  b.appendChild(document.createElement('b'));
+  for (let i = 0; i < n; i++) {
+    const s = document.createElement('i');
+    s.style.setProperty('--a', (i * 360 / n + Math.random() * 10) + 'deg');
+    s.style.setProperty('--d', Math.round(r * (0.72 + Math.random() * 0.28)) + 'px');
+    b.appendChild(s);
+  }
+  sky.appendChild(b);
+  setTimeout(() => b.remove(), 1400);
+}
+// a box claimed: one firework for each (two at once, a beat apart)
+function skyClaim(owner, made) { for (let i = 0; i < made; i++) { if (i) setTimeout(() => firework(owner), i * 140); else firework(owner); } }
+// the end: a show in the winner's colour (a draw, both by turns)
+function skyShow(winner) {
+  const myRound = round;
+  for (let i = 0; i < 7; i++) setTimeout(() => { if (myRound === round) firework(winner || (i % 2 ? AI : HUMAN), i % 3 === 0); }, 250 + i * 330);
+}
+addEventListener('reducemotionchange', () => { if (!animOn() && sky) sky.querySelectorAll('.burst').forEach((e) => e.remove()); });
+skyW = Math.ceil(innerWidth / 1200);
+buildSky();
+
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
 const modeModal = document.getElementById('modeModal');
 function showModeModal(){ modeModal.classList.add('open'); }
@@ -470,5 +559,7 @@ if (window.GameShell && GameShell.pausable) GameShell.pausable({
   auto: false, hold: true,
   restart: newGame,
   menu: showModeModal,
+  // (the night sky stops where it is while paused)
+  onChange: (p) => { skyPaused = p; document.documentElement.classList.toggle('db-paused', p); },
 });
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
