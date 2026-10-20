@@ -83,6 +83,24 @@ body {
 #pad.mael #p-hold { order: 1; } #pad.mael #p-turnl { order: 2; } #pad.mael #p-turnr { order: 3; } #pad.mael #p-hard { order: 4; }
 #pad.mael #p-left { order: 5; } #pad.mael #p-rot { order: 6; } #pad.mael #p-right { order: 7; } #pad.mael #p-soft { order: 8; }
 #pad.mael button { padding: 12px 0; }
+/* a phone on its side: the pad in two halves at the screen's sides, the
+   moves under the left thumb (hold, soft drop; left, right) and the spin
+   and the drop under the right (Maelstrom: the two turns; spin, hard drop),
+   so the well or the plus has the screen's whole height between them
+   (game.js measures the halves). The same query is in game.js. */
+@media (orientation: landscape) and (max-height: 500px) {
+  #pad, #pad.mael {
+    top: 0; pointer-events: none; background: none;
+    grid-template-columns: repeat(2, 56px) 1fr repeat(2, 56px); grid-template-rows: 1fr auto auto;
+    padding: 10px max(10px, env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+  #pad button, #pad.mael button { pointer-events: auto; padding: 13px 0; }
+  #p-hold { grid-area: 2 / 1; } #p-soft { grid-area: 2 / 2; }
+  #p-left { grid-area: 3 / 1; } #p-right { grid-area: 3 / 2; }
+  #p-hard { grid-area: 2 / 4 / 3 / 6; } #p-rot { grid-area: 3 / 4 / 4 / 6; }
+  #pad.mael #p-turnl { grid-area: 2 / 4; } #pad.mael #p-turnr { grid-area: 2 / 5; }
+  #pad.mael #p-rot { grid-area: 3 / 4; } #pad.mael #p-hard { grid-area: 3 / 5; }
+}
 
 /* ---- panels -------------------------------------------------------------- */
 .panel {

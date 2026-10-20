@@ -436,6 +436,12 @@
   // ---- canvas ------------------------------------------------------------------------
   var cv = $("stage"), g = cv.getContext("2d");
   var W = 0, H = 0, cell = 24, wellX = 0, wellY = 0, sea = null;
+  // A phone on its side has the pad in two halves at the screen's sides
+  // (styles.css, the same query): the play area goes between them, the
+  // screen's whole height. sideL, sideR: the room it has across.
+  var sideQuery = window.matchMedia ? window.matchMedia("(orientation: landscape) and (max-height: 500px)") : null;
+  var sideL = 0, sideR = 0;
+  function sideBox(c) { return Math.max(9, Math.floor(c * 0.55)) * 4 + 22; }   // the hold and next boxes' width (drawSide)
   function resize() {
     var dpr = Math.min(2, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
@@ -444,16 +450,36 @@
     var padEl = $("pad");
     // fixed-position elements have no offsetParent; measure instead
     var padOn = padEl && !padEl.hidden && padEl.getClientRects().length;
-    var padB = padOn ? 128 : 24;
-    cell = Math.floor(Math.min((H - 86 - padB) / VIS, W / (W > 700 ? 22 : 13)));
-    cell = Math.max(14, Math.min(34, cell));
+    var side = !!(padOn && sideQuery && sideQuery.matches);
+    sideL = 0; sideR = W;
+    if (side) padEl.querySelectorAll("button").forEach(function (b) {
+      var r = b.getBoundingClientRect();
+      if (!r.width) return;
+      if (r.left + r.width / 2 < W / 2) sideL = Math.max(sideL, r.right + 6); else sideR = Math.min(sideR, r.left - 6);
+    });
+    // (kept in the middle of the screen, under the score box: as wide on
+    // each side as the nearer half of the pad leaves)
+    var half = Math.min(W / 2 - sideL, sideR - W / 2);
+    var padB = side ? 10 : padOn ? 128 : 24;
+    // (the top: under the score box, which on a narrow screen sits below the corner buttons)
+    var top = W > 700 ? 64 : 104;
+    if (side) top = $("hud").hidden ? 64 : Math.max(64, Math.round($("hud").getBoundingClientRect().bottom + 10));
+    if (side) {
+      // the well and the boxes beside it between the halves, as tall as the screen allows
+      cell = Math.min(34, Math.floor((H - top - 14) / VIS));
+      while (cell > 8 && COLS * cell + 2 * (sideBox(cell) + 18) > 2 * half) cell--;
+    } else {
+      cell = Math.floor(Math.min((H - 86 - padB) / VIS, W / (W > 700 ? 22 : 13)));
+      cell = Math.max(14, Math.min(34, cell));
+    }
     wellX = Math.round(W / 2 - (COLS * cell) / 2);
-    wellY = Math.round(Math.max(W > 700 ? 64 : 104, (H - padB - VIS * cell) / 2 + 30));
+    wellY = Math.round(Math.max(top, (H - padB - VIS * cell) / 2 + 30));
     // Maelstrom's plus: 26 cells across and down, a row's room above it for
-    // the piece coming in, clear of the HUD and (two rows of it) the pad
-    var mTop = W > 700 ? 64 : 104, mPad = padOn ? padEl.getBoundingClientRect().height + 8 : 16;
+    // the piece coming in, clear of the HUD and the pad (two rows of it under
+    // the plus, or its halves beside it)
+    var mTop = top, mPad = side ? 10 : padOn ? padEl.getBoundingClientRect().height + 8 : 16;
     var room = H - mTop - mPad;
-    mcell = Math.max(8, Math.min(30, Math.floor(Math.min(room / 27, (W - 8) / 26))));
+    mcell = Math.max(side ? 6 : 8, Math.min(30, Math.floor(Math.min(room / 27, (2 * half - 8) / 26))));
     mcx = Math.round(W / 2);
     mcy = Math.round(mTop + mcell + Math.max(0, (room - 27 * mcell) / 2) + 13 * mcell);
     if (!sea) sea = A.makeSea(W, H); else sea.resize(W, H);
@@ -923,28 +949,43 @@
         A.cell(g, offx + c[0] * s, offy + c[1] * s, s, t);
       });
     }
-    var bw = mini * 4 + 22;
-    var hx = wellX - bw - 14, nx = wellX + COLS * cell + 14;
-    var compact = hx < 4 || nx + bw > W - 4;
-    if (compact) {
+    var s = sideRects(), h = s.hold, nb = s.next;
+    if (s.compact) {
       // phones: hold tucked above-left, three previews above-right
-      var topY = wellY - HID * cell - 6 - (mini * 2 + 26);
-      if (topY < 40) topY = 40;
-      box(px(0) - 4, topY, mini * 3 + 16, mini * 2 + 24, "HOLD");
-      if (hold) drawMini(hold, px(0) + 6, topY + 16, mini * 0.8);
-      var qx = px(COLS) + 4 - (mini * 3 + 16) * 1;
-      box(qx, topY, mini * 3 + 16, mini * 2 + 24, "NEXT");
+      box(h.x, h.y, h.w, h.h, "HOLD");
+      if (hold) drawMini(hold, h.x + 10, h.y + 16, mini * 0.8);
+      box(nb.x, nb.y, nb.w, nb.h, "NEXT");
       for (var q = 0; q < 2; q++) {
-        if (queue[q]) drawMini(queue[q], qx + 6 + q * (mini * 1.7), topY + 16, mini * 0.55);
+        if (queue[q]) drawMini(queue[q], nb.x + 6 + q * (mini * 1.7), nb.y + 16, mini * 0.55);
       }
       return;
     }
-    box(hx, wellY, bw, mini * 3 + 20, "HOLD");
-    if (hold) drawMini(hold, hx + 10, wellY + 20, mini);
-    box(nx, wellY, bw, mini * 2.6 * 5 + 20, "NEXT");
+    box(h.x, h.y, h.w, h.h, "HOLD");
+    if (hold) drawMini(hold, h.x + 10, h.y + 20, mini);
+    box(nb.x, nb.y, nb.w, nb.h, "NEXT");
     for (var i = 0; i < 5; i++) {
-      if (queue[i]) drawMini(queue[i], nx + 10, wellY + 22 + i * mini * 2.6, mini);
+      if (queue[i]) drawMini(queue[i], nb.x + 10, nb.y + 22 + i * mini * 2.6, mini);
     }
+  }
+  // where the hold and next boxes go: beside the well, or above it where
+  // there's no room beside it (sideL, sideR: see resize)
+  function sideRects() {
+    var mini = Math.max(9, Math.floor(cell * 0.55)), bw = sideBox(cell);
+    var hx = wellX - bw - 14, nx = wellX + COLS * cell + 14;
+    if (hx < sideL + 4 || nx + bw > sideR - 4) {
+      var topY = Math.max(40, wellY - HID * cell - 6 - (mini * 2 + 26)), sw = mini * 3 + 16, sh = mini * 2 + 24;
+      return { compact: true, hold: { x: px(0) - 4, y: topY, w: sw, h: sh }, next: { x: px(COLS) + 4 - sw, y: topY, w: sw, h: sh } };
+    }
+    return { compact: false, hold: { x: hx, y: wellY, w: bw, h: mini * 3 + 20 }, next: { x: nx, y: wellY, w: bw, h: mini * 2.6 * 5 + 20 } };
+  }
+  // what's drawn of the play (a test hook): the well's frame and the hold
+  // and next boxes; in Maelstrom the plus with the row above it for the
+  // piece coming in (its hold and next boxes are in its corners)
+  function playAreas() {
+    if (mode === "maelstrom") return [{ n: "plus", x: mcx - 13 * mcell, y: mcy - 14 * mcell, w: 26 * mcell, h: 27 * mcell }];
+    var s = sideRects();
+    return [{ n: "well", x: px(0) - 4, y: py(HID) - 4, w: COLS * cell + 8, h: VIS * cell + 8 },
+      Object.assign({ n: "hold" }, s.hold), Object.assign({ n: "next" }, s.next)];
   }
 
   function hudDom() {
@@ -1196,6 +1237,7 @@
     turn: turnBoard,
     board: function () { return mael; },
     view: function () { return { angle: viewAngle(), t: view.t, cell: mcell, cx: mcx, cy: mcy }; },
+    areas: playAreas,
     switches: function () { return { intense: intense, juggle: juggle }; },
     test: {
       fill: function (visRow, cols) {           // paint cells on a visible row

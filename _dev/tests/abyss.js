@@ -2,7 +2,8 @@
 // held soft drop lets go when the tab loses focus; the Sprint clock ticks
 // between locks; a 0 is never "a new record"; the buttons' keycaps hide on a
 // touch-only phone; a full row clears at the same pace with Visual FX on and
-// off; Maelstrom, its switches, its turns and its fit (see below). Frames are
+// off; Maelstrom, its switches, its turns and its fit (see below); on a
+// phone on its side the pad's two halves keep clear of the play area. Frames are
 // stepped by the test (see STEPPED), so timing doesn't depend on how busy the
 // machine is.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver,"];
@@ -329,5 +330,39 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("abyss, Maelstrom: on phones the pad's two turn buttons (Maelstrom only) turn the board; at 320 x 568, 375 x 553, 360 x 640, 390 x 664, 1366 x 657, 1280 x 600 and 1280 x 900 the plus fits between the score box and the pad",
       fits.every((f) => f.ok && !f.errs), fits);
+  }
+
+  // ---- a phone on its side: the pad in two halves at the screen's sides,
+  // and the play area (the well with its hold and next boxes, or the plus
+  // with a row above it) between them, on the screen, under no button and
+  // not under the score box; in Descent, Maelstrom and Maelstrom juggle
+  {
+    const side = [];
+    for (const [w, h] of [[844, 390], [667, 375], [740, 360]]) {
+      const ctx = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const q = await lib.open(ctx, base, "games/abyss/");
+      for (const m of ["descent", "maelstrom", "juggle"]) {
+        const r = await q.evaluate((m) => {
+          Abyss.toMenu();
+          if (Abyss.switches().juggle !== (m === "juggle")) { Abyss.start("maelstrom"); Abyss.toMenu(); document.getElementById("opt-juggle").click(); }
+          Abyss.start(m === "descent" ? "descent" : "maelstrom");
+          const box = (e) => { const b = e.getBoundingClientRect(); return { n: e.id, x: b.left, y: b.top, w: b.width, h: b.height }; };
+          const areas = Abyss.areas(), hud = box(document.getElementById("hud"));
+          const btns = [...document.querySelectorAll("#pad button")].filter((b) => b.getClientRects().length && b.getBoundingClientRect().width).map(box);
+          const meet = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+          const play = areas[0], under = [];
+          areas.forEach((a) => btns.concat(hud).forEach((b) => { if (meet(a, b)) under.push(a.n + "/" + b.n); }));
+          return { juggle: Abyss.switches().juggle, n: btns.length, under, off: areas.filter((a) => a.x < 0 || a.y < 0 || a.x + a.w > innerWidth || a.y + a.h > innerHeight).map((a) => a.n),
+            left: btns.filter((b) => b.x + b.w <= play.x).length, right: btns.filter((b) => b.x >= play.x + play.w).length };
+        }, m);
+        let turned = null;
+        if (m === "maelstrom") { await q.evaluate(() => Abyss.board().openArms(2)); await q.tap("#p-turnl"); turned = await q.evaluate(() => Abyss.board().top); }
+        side.push({ size: w + "x" + h, m, ok: r.juggle === (m === "juggle") && r.n === (m === "descent" ? 6 : 8) && !r.under.length && !r.off.length && r.left + r.right === r.n && r.left === 4 && (m !== "maelstrom" || turned === 1), r, turned });
+      }
+      side.push({ size: w + "x" + h, m: "errors", ok: !q.errs.length, errs: q.errs });
+      await ctx.close();
+    }
+    check("abyss: on a phone on its side (844 x 390, 667 x 375, 740 x 360) the pad is in two halves at the screen's sides (four buttons on the left), and in Descent, Maelstrom and Maelstrom juggle the play area is on the screen between them, under no button and not under the score box; its turn buttons still turn the board",
+      side.every((s) => s.ok), side.filter((s) => !s.ok).concat(side.length ? [] : ["none run"]));
   }
 };
