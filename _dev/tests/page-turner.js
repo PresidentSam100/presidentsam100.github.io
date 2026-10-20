@@ -177,6 +177,27 @@ module.exports = async ({ browser, base, check, lib }) => {
   // the page's own game, held still at the moment a leaf stands up
   const standing = (p, mode, level) => p.evaluate(([mode, level]) => { const PT = PageTurner; PT.start(mode, level); PT.freeze(true); while (PT.st().phase !== "stand") PT.advance(1 / 60); return PT.st().page; }, [mode, level || "normal"]);
 
+  // ---- a worm squished lies flat on the page that squished it, from the
+  // slam until the next page lands over it, and on no later one
+  {
+    const p = await open();
+    const r = await p.evaluate(() => {
+      const PT = PageTurner, E = window.PageTurnerEngine;
+      PT.start("party", "normal"); PT.freeze(true);
+      const st = PT.st();
+      // (you kept in a hole, Rosy kept on a panel with no hole, until page 1 lands; then you in page 2's)
+      const keep = () => { const h = st.leaf.holes[0]; PT.place(0, h.cx, h.cy); };
+      const m = E.panelMid(st.leaf.prints[0].panel);
+      while (st.landed === 0) { keep(); PT.place(1, m[0], m[1]); PT.advance(1 / 120); }
+      const after = { alive: st.worms[1].alive, floor: st.floor.n, page: st.page, shown: PT.flatsShown() };
+      while (st.landed === 1 && st.phase !== "over") { keep(); PT.advance(1 / 120); }
+      return { after, next: { floor: st.floor.n, shown: PT.flatsShown(), phase: st.phase } };
+    });
+    check("page-turner: a worm squished by page 1 lies flat on page 1 from the slam (not on the next page), and is gone once page 2 lands over it",
+      !r.after.alive && r.after.floor === 1 && r.after.shown.includes(1) && r.next.floor === 2 && !r.next.shown.includes(1), r);
+    await done(p, "(squished worm)");
+  }
+
   // ---- the menu's keys, then the arrows and WASD
   let p = await open();
   const caps = await p.evaluate(() => [...document.querySelectorAll("#pick-mode button b, #pick-level button, #play")].map((b) => b.getAttribute("data-gs-key")).join(" "));

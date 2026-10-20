@@ -161,6 +161,8 @@
     E.step(st, dt, { x: inp[0], y: inp[1] });
     st.events.forEach(handle);
   }
+  // a squished worm shows on the page that squished it, until the next one lands over it
+  function onFloor(f, scene) { return !!scene.floor && f.page === scene.floor.n; }
   function handle(e) {
     if (e.type === "stand") { sfxStand(); hud(); }
     else if (e.type === "tip") sfxTip(E.stage(st.page).fall);
@@ -168,7 +170,8 @@
     else if (e.type === "through") { pops[e.id] = clockMs; sfxThrough(e.id); }
     else if (e.type === "squish") {
       var w = st.worms[e.id];
-      flats.push({ id: e.id, x: w.x, y: w.y, ang: w.ang, at: clockMs, page: st.page });
+      // (the page that landed on it: by now the book has gone on to the next)
+      flats.push({ id: e.id, x: w.x, y: w.y, ang: w.ang, at: clockMs, page: w.out });
       sfxSquish();
       if (fx()) puff(w.x, w.y, 10, WORMS[e.id].light);
     } else if (e.type === "slam") {
@@ -506,7 +509,7 @@
     if (falling && !over) drawLeaf(scene.leaf, leafMap(th, curl), { shade: 0.1 * (1 - tilt) });
     // the squished, flat on the page they were squished by
     flats.forEach(function (f) {
-      if (!scene.floor || f.page !== scene.floor.n) return;
+      if (!onFloor(f, scene)) return;
       var age = (clockMs - f.at) / 1000, sxk = fx() ? 1 + 0.16 * Math.sin(age * 26) * Math.exp(-age * 5) : 0;
       drawWorm({ id: f.id, x: f.x, y: f.y, ang: f.ang, crawl: 0, bend: 0 }, { flat: true, sx: sxk });
     });
@@ -654,6 +657,7 @@
     view: function () { return { S: S, CX: CX, OY: OY, VW: VW, VH: VH, FY: FY, FZ: FZ }; },
     project: function (x, y, z) { var r = $("stage").getBoundingClientRect(), q = P(x, y, z || 0); return [r.left + q[0], r.top + q[1]]; },
     flats: function () { return flats.length; },
+    flatsShown: function () { return st ? flats.filter(function (f) { return onFloor(f, st); }).map(function (f) { return f.id; }) : []; },
     parts: function () { return parts.length; },
     shaking: function () { return shake > 0; },
     freeze: function (on) { frozen = !!on; },
