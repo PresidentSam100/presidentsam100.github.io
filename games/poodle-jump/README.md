@@ -1,35 +1,35 @@
 # Poodle Jump
 
 A web-ready jumper in the Doodle Jump style (starring a poodle), built with HTML5 Canvas and plain JavaScript: no
-build step, no dependencies, no asset files (everything is drawn with code and
+build step, no asset files (everything is drawn with code and
 the sound effects are synthesized with the Web Audio API).
 
 ## Run it
 
-Just open `index.html` in any modern browser (double-click works: the scripts
-are classic `<script>` tags, so it runs straight from `file://`).
-
-To serve it instead (recommended for mobile testing / deployment):
+It is one of the games on this site, and it loads the site's shared scripts
+from `games/` (`motion-toggle.js`, `mute-toggle.js`, `game-shell.js`: the
+Visual FX, sound and pause buttons, the pause card and the "Leave this game?"
+box). So serve the whole site, not just this folder:
 
 ```bash
-# from this folder
+# from the repository root
 python -m http.server 8000
-# then visit http://localhost:8000
+# then visit http://localhost:8000/games/poodle-jump/
 ```
-
-Deploy by uploading the whole folder to any static host (GitHub Pages, Netlify,
-S3, …).
 
 ## Controls
 
 | Action | Keyboard | Mouse | Touch |
 |--------|----------|-------|-------|
 | Move   | ← → or A / D | none | ◀ ▶ on-screen buttons |
-| Shoot  | Space / ↑ / W (straight up) | click to aim | tap the play area |
-| Pause / resume | P | none | none |
+| Shoot  | Space / ↑ / W (straight up) | click to aim | tap the play area, or 🎯 |
+| Pause / resume | P | the ⏸ button | the ⏸ button |
 | Start / restart | Space / Enter | click | tap |
+| Back to the start card | Backspace (Game Over, or Menu on the pause card) | none | the Menu button on Game Over |
+| Leave for the games page | Esc (asks first mid-run) | ← Games | ← Games |
 
-The game also auto-pauses when the window or tab loses focus.
+While paused, the card also has Restart (R) and Menu (Backspace). The game
+also auto-pauses when the window or tab loses focus.
 
 ## Features
 
@@ -93,16 +93,4 @@ js/
   player.js       the doodle character
   game.js         world, camera, spawning, collisions, scoring, UI
   main.js         bootstrap + game loop
-test/
-  smoke.js        headless logic tests (node test/smoke.js)
 ```
-
-## Tests
-
-```bash
-node test/smoke.js
-```
-
-Runs the game logic in a stubbed DOM and verifies bounces, each platform type,
-springs, stomps, fatal contacts, the UFO beam, bullets, power-ups, and 1500
-frames of loop stability.

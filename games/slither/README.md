@@ -3,7 +3,8 @@
 Grid snake in a temple-ruins style, with three modes:
 
 - **Classic**: endless, with optional portals and obstacles.
-- **2-Player**: local, last snake alive.
+- **2-Player**: local, last snake alive, in a match of first to 1, 2 or 3
+  rounds, or endless.
 - **Labyrinth**: a campaign inspired by *Ziggy's Labyrinth* (Lankyware, 2024).
 
 ## The Labyrinth
@@ -71,7 +72,11 @@ Controls:
 - **Click switches**: 1, 2 and 3.
 - **Fire eggs**: Space or E lays one (P2: Enter), as do the 🥚 buttons and a
   gamepad's A; in Fire Eggs, P pauses.
-- **Other keys**: R retries, M toggles the music, and Space pauses.
+- **Pause**: P or Space (P alone in Fire Eggs), or the ⏸ button; the pause
+  card has Restart (R) and Menu (Backspace).
+- **Other keys**: in the Labyrinth R retries the level and M toggles the
+  music; [ mutes; on a result card Enter is its main button and Backspace the
+  menu; Esc leaves for the games page (asking first mid-game).
 
 ## Runtime files (loaded by the browser)
 

@@ -1,18 +1,23 @@
 # Spacer: JavaScript Edition
 
 A from-scratch homage to the 1981 Namco arcade classic, built with vanilla
-HTML5 Canvas + JavaScript. **Everything lives in a single self-contained
-`index.html`** (inline CSS + JS): no build step, no dependencies, no asset
-files. Just open it in a browser (double-click works; it runs from `file://`)
-or drop it on any static host.
+HTML5 Canvas + JavaScript: no build step, no asset files (the sprites are
+drawn in code, the sound is Web Audio). It is one of the games on this site,
+so it also loads the site's shared scripts from `games/` (`motion-toggle.js`,
+`mute-toggle.js`, `game-shell.js`: the Visual FX, sound and pause buttons and
+the "Leave this game?" box) and its Oxanium font from Google Fonts. To run it
+locally, serve the whole site (for example `python -m http.server 8000` from
+the repository root) and open `/games/spacer/`.
 
 ```
-galaga/
-├── index.html        the entire game: markup, styles, and all logic inline
+spacer/
+├── index.html        the page: cabinet, canvas, key legend, touch buttons
+├── styles.css        the arcade cabinet look
+├── game.js           all of the game's logic
 └── README.md
 ```
 
-The inline script is organised in sections you can search for:
+`game.js` is organised in sections you can search for:
 `utils` (constants, math, Catmull-Rom flight paths) · `audio` (Web Audio SFX) ·
 `sprites` (pixel-art) · `entities` (Player, Enemy AI, projectiles, FX) ·
 `game` (loop, spawning, scoring, collisions, HUD, stage flow).
@@ -22,19 +27,26 @@ The inline script is organised in sections you can search for:
 | Key | Action |
 |-----|--------|
 | ← → or A / D | Move (in game) · pick start stage (title screen) |
-| Space | Fire (max 2 shots on screen, 4 when dual) |
-| ↑ ↓ | Select life mode (title screen) |
+| Space | Fire (max 2 shots on screen, 4 when dual; more with Rapid and Spread) |
+| ↑ ↓ or 1 2 3 | Select life mode (title screen) |
 | Space / Enter | Start / restart (on the end screens Space waits a moment, as it fires in play) |
-| Backspace | Back to the title (game over / complete screens; ● on a touch screen) |
-| E | Open the **enemy guide** (title screen) |
-| P | **Pause menu** (Resume / Restart / Visual FX / Quit) |
+| Backspace | Back to the title (game over / complete screens) |
+| E | Open the **guide** (title and game over screens) |
+| P | **Pause menu** (Resume / Restart / Visual FX / Quit), also the ⏸ button |
 | V (or F) | Toggle **Visual FX** (the site-wide switch, also the ✨ button) |
-| M | Mute |
+| M | Mute (also the speaker button) |
+| Esc | Leave for the games page (asking first while a run is going) |
+
+On a touch screen the ◀ ● ▶ buttons move and fire. On the title screen ◀ ▶
+pick the start stage, ● steps through the life modes and a tap on the screen
+starts; on the end screens ● goes back to the title. While paused, tap a menu
+item to choose it.
 
 ## Accessibility
 
-- **Pause menu** (P): a real menu with **Resume**, **Restart** the run, toggle
-  **Visual FX**, or **Quit to Title** (↑↓ to select, Enter to confirm).
+- **Pause menu** (P or the ⏸ button): a real menu with **Resume**, **Restart**
+  the run, toggle **Visual FX**, or **Quit to Title** (↑↓ to select, Enter to
+  confirm; Restart and Quit ask first).
 - **Visual FX** (V or F, the ✨ button, or the pause menu; **remembered** across
   sessions, and the same switch every game on the site has). With it **on**
   (default) the game has punchy juice: brief
@@ -54,19 +66,20 @@ The inline script is organised in sections you can search for:
 ## Guide (enemies & power-ups)
 
 Press **E** on the title screen for an in-game **encyclopedia** with two tabs:
-**← / →** browses entries, **↑ / ↓** switches tab, **E / Esc** returns:
+**← / →** browses entries, **↑ / ↓** switches tab, **E**, **Enter**, **Esc** or
+**Backspace** returns:
 
 - **Enemies**: every type with an animated sprite, name, point values, and a
   short lore blurb (Zako, Goei, Flagships, Captured Fighter, the transformed
   trios Ogawamushi / Ei / Galboss, the challenging-stage specials Tonbo / Momiji
   / Spaceship, and our custom Raider).
-- **Power-ups**: each of the six (Spread, Pierce, Rapid, Shield, Speed, Hunter)
-  with its capsule icon, what it does, and that buffs are 12 s, stack, and are
-  lost on death.
+- **Power-ups**: each of the eight (Spread, Pierce, Rapid, Shield, Speed,
+  Hunter, Slow-mo, Double) with its capsule icon, what it does, and that buffs
+  are 12 s, stack, and are lost on death.
 
 ## Game modes
 
-On the title screen pick a **life mode** with ↑ / ↓ and a **starting stage
+On the title screen pick a **life mode** with ↑ / ↓ (or 1, 2, 3) and a **starting stage
 (1 to 255)** with ← / → (hold to scroll fast), then Enter:
 
 - **3 Lives**: the classic arcade default.
@@ -95,7 +108,8 @@ badges would run under the power-up bars).
 ## Features implemented
 
 **Player**
-- Movement, twin-limited firing, 3 fighters, spawn invulnerability flash.
+- Movement, twin-limited firing, fighters by life mode (3, 1 or endless),
+  spawn invulnerability flash.
 - **Dual fighter**: rescue a captured ship to fly two fighters at once
   (wider hitbox, double shots).
 - **Power-ups**: each combat stage seeds 1 or 2 **flashing carrier enemies** that
@@ -106,6 +120,8 @@ badges would run under the power-up bars).
   - **Shield (+)**: absorbs one hit and blocks the tractor beam
   - **Speed (F)**: ~1.7× movement speed
   - **Hunter (H)**: shots home in on the nearest enemy
+  - **Slow-mo (T)**: slows the whole game down, you, enemies and bombs alike
+  - **Double (2)**: every point you score counts twice
 
   Buffs **stack** (each with its own HUD timer bar) and are lost on death.
 

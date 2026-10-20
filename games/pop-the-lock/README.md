@@ -1,7 +1,10 @@
 # Pop the Lock
 
-A small, self-contained arcade game remake for the web, built with vanilla
-HTML5 Canvas + JavaScript. No build step, no dependencies, no assets.
+A small arcade game remake for the web, built with vanilla HTML5 Canvas +
+JavaScript. No build step, no assets. It is one of the games on this site and
+loads the site's shared scripts from `games/` (`motion-toggle.js`,
+`mute-toggle.js`, `game-shell.js`: the Visual FX, sound and pause buttons, the
+pause card and the "Leave this game?" box).
 
 A dial sweeps around the lock. **Tap when it crosses the glowing notch.**
 Each hit reverses the sweep, relocates the notch, and speeds things up.
@@ -14,23 +17,19 @@ Clear enough notches to open the lock and climb levels. One miss ends the run.
 | Pop the lock | Click • Tap • `Space` / `Enter` |
 | Start / Retry | The **PLAY** button, any tap, `Space` or `Enter` |
 | Pick a colour | Its swatch, or `1` to `5` |
-| Mute / unmute | 🔊 button (bottom-right) |
+| Pause / resume | `P` or the ⏸ button (the card has Restart and Menu) |
+| Mute / unmute | `M` or the 🔊 button (top right) |
+| Leave for the games page | `Esc` (asks first mid-run) or ← Games |
 
 ## Run it
 
-It's a static site, just open it:
+Serve the whole site, not just this folder, so the shared scripts load:
 
 ```
-# Option A: double-click index.html
-# Option B: serve it locally (recommended for mobile testing)
+# from the repository root
 python -m http.server 8000
-# then visit http://localhost:8000
+# then visit http://localhost:8000/games/pop-the-lock/
 ```
-
-## Deploy
-
-Drop the folder onto any static host: GitHub Pages, Netlify, Vercel,
-Cloudflare Pages, S3, itch.io. No configuration required.
 
 ## Files
 
