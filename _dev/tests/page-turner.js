@@ -97,6 +97,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner rules: every hole lies inside its panel and is no smaller than the last pages' holes, and its printed rim runs outside its cut (the moon's horns too)", !!E.rim && out.length === 0, out.slice(0, 4));
   }
   {
+    // the star covers about as much page as a window or a flower of the same
+    // size (the size that lets a worm through), not half as much again
+    const area = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const q = pts[(i + 1) % pts.length]; a += pts[i][0] * q[1] - q[0] * pts[i][1]; } return Math.abs(a / 2); };
+    const r = {}; for (const k of ["sun", "window", "flower", "star"]) r[k] = +(area(E.SHAPES[k]) / area(E.SHAPES.sun)).toFixed(2);
+    check("page-turner rules: a star hole covers about as much page as a window or a flower of its size (within a tenth), not far more",
+      Math.abs(r.star - r.window) <= 0.1 * r.window && Math.abs(r.star - r.flower) <= 0.1 * r.flower, r);
+  }
+  {
     // four worms in one big hole all go through; the game goes on to page 2
     const st = setup("party", [E.makeHole(4, "sun", 0.135)]);
     const c = E.panelMid(4);

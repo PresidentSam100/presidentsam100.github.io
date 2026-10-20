@@ -263,7 +263,7 @@
   function motif(kind, cx, cy, s) {
     var pts;
     if (kind === "moon") { var o = E.midOf("moon"); pts = E.SHAPES.moon.map(function (p) { return [cx + (p[0] - o[0]) * s * 0.5, cy + (p[1] - o[1]) * s * 0.5]; }); }
-    else if (kind === "star") pts = E.SHAPES.star.map(function (p) { return [cx + p[0] * s * 0.6, cy + p[1] * s * 0.6]; });
+    else if (kind === "star") pts = E.SHAPES.star.map(function (p) { return [cx + p[0] * s * 0.75, cy + p[1] * s * 0.75]; });
     else if (kind === "flower") pts = E.SHAPES.flower.map(function (p) { return [cx + p[0] * s * 0.8, cy + p[1] * s * 0.8]; });
     else if (kind === "window") pts = E.SHAPES.window.map(function (p) { return [cx + p[0] * s * 0.78, cy + p[1] * s * 0.78]; });
     else pts = E.SHAPES.sun.map(function (p) { return [cx + p[0] * s * 0.62, cy + p[1] * s * 0.62]; });

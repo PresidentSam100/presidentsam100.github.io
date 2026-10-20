@@ -110,8 +110,9 @@
     })(),
     // a flower: six round petals
     flower: scaleTo(ring(60, function (a) { return 1 + 0.2 * Math.pow(Math.abs(Math.cos(a * 3)), 1.6); })),
-    // a star: five fat points
-    star: scaleTo(ring(10, function (a, i) { return i % 2 ? 0.6 : 1; })),
+    // a star: five plump points, as much page as a window or a flower of
+    // its size (deeper notches would spread it far wider for the same fit)
+    star: scaleTo(ring(10, function (a, i) { return i % 2 ? 0.75 : 1; })),
     // a moon: a fat crescent
     moon: crescent(0)
   };
