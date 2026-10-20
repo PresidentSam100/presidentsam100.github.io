@@ -477,8 +477,11 @@
     var tilt = E.tilt(scene), falling = scene.phase === "fall", s = E.stage(scene.page);
     var front = falling || scene.phase === "over" ? scene.next : scene.leaf, tremble = 0;
     if (scene.phase === "stand" && fx() && state === "play") { var u = scene.t / s.stand; tremble = 0.035 * Math.sin(scene.t * 13) * u * u; }
-    drawStanding(scene, front, Math.PI / 2 + Math.max(0, tremble));
+    // the half lying flat, then the half standing over it: the cover's far
+    // edge runs on behind the spine, so a standing leaf hides it (the cover
+    // still shows either side), as the leaf does once it falls
     g.drawImage(fcv, 0, 0, fcv.width, fcv.height, 0, 0, VW, VH);
+    drawStanding(scene, front, Math.PI / 2 + Math.max(0, tremble));
     if (scene.phase === "stand" || falling) drawShadow(scene, scene.phase === "stand" ? 0.3 * Math.min(1, scene.t / s.stand) : 0.3 + 0.7 * tilt);
     var th = Math.PI / 2 + tilt * Math.PI / 2, curl = fx() ? 0.22 * Math.sin(Math.PI * tilt) : 0, over = falling && tilt > EDGE_ON;
     if (falling && !over) drawLeaf(scene.leaf, leafMap(th, curl), { shade: 0.1 * (1 - tilt) });

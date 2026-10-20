@@ -301,6 +301,33 @@ module.exports = async ({ browser, base, check, lib }) => {
       rising >= 5 && r.frames >= 5 && (off ? r.parts === 0 && !r.shaking : r.parts > 0 && r.shaking), { tilts: r.tilts.map((t) => +t.toFixed(3)), frames: r.frames, parts: r.parts, shaking: r.shaking });
     await done(q, "FX " + (off ? "off" : "on"));
   }
+
+  // ---- a leaf standing at the spine is over the cover's far edge, waiting
+  // and as the one in front of it falls (as the falling one is): the red
+  // cover shows only either side of the book
+  {
+    const q = await open(null, { before: fxSet(true) });
+    await standing(q, "endless");
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, E = PageTurnerEngine, cv = document.getElementById("book"), g = cv.getContext("2d");
+      PT.place(0, 0.5, 0.85);
+      const P = (x, y, z) => { const v = PT.view(), w = 1 + 0.06 * (y - 0.5) + 0.08 * z; return [v.CX + (x - 0.5) * v.S * w, v.OY + (y * v.FY - z * v.FZ) * v.S]; };
+      const red = (x, y, z) => { const k = cv.width / PT.view().VW, q = P(x, y, z), d = g.getImageData(Math.round(q[0] * k), Math.round(q[1] * k), 1, 1).data; return Math.hypot(d[0] - 217, d[1] - 71, d[2] - 59) < 30; };
+      // (just above the spine, under the leaf's printed border; and the cover beside the page lying flat)
+      const look = () => ({ spine: [0.15, 0.5, 0.85].filter((x) => red(x, 0, 0.012)).length, sides: [red(-0.025, 0.9, -0.012), red(1.025, 0.9, -0.012)].filter(Boolean).length });
+      const frame = (then) => requestAnimationFrame(() => requestAnimationFrame(then));
+      PT.advance(E.stage(1).stand * 0.5);
+      frame(() => {
+        const wait = look();
+        while (PT.st().phase !== "fall") PT.advance(1 / 120);
+        while (E.tilt(PT.st()) < 0.5) PT.advance(1 / 240);
+        frame(() => res({ wait, turn: look(), tilt: +E.tilt(PT.st()).toFixed(2) }));
+      });
+    }));
+    check("page-turner: a leaf standing at the spine is drawn over the cover's far edge, waiting and while the leaf in front of it falls; the red cover still shows either side",
+      r.wait.spine === 0 && r.turn.spine === 0 && r.wait.sides === 2 && r.turn.sides === 2, r);
+    await done(q, "leaf over the cover");
+  }
   await ctx.close();
 
   // ---- a thumb: down anywhere off the book, dragging steers; up, it stops
