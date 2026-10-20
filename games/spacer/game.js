@@ -446,7 +446,7 @@ const Sprites = {};
   Sprites.boss = [makeSprite(bossDown, bossPalGreen), makeSprite(bossUp, bossPalGreen)];
   Sprites.bossHit = [makeSprite(bossDown, bossPalBlue), makeSprite(bossUp, bossPalBlue)];
 
-  // ----- Raider (side-attacker) two frames: an angular orange/purple hornet --
+  // ----- Raider (side-attacker) two frames: an angular orange/purple hornet
   const raiderDown = [
     '................',
     '.....O....O.....',
@@ -489,7 +489,7 @@ const Sprites = {};
   // ----- Transformed & challenging-stage special enemies (two frames each) ----
   const anim = (rowsA, rowsB, pal) => [makeSprite(rowsA, pal), makeSprite(rowsB, pal)];
 
-  // Tonbo (dragonfly) -- wings flap
+  // Tonbo (dragonfly): wings flap
   Sprites.tonbo = anim([
     '.......AA.......', '......AWWA......', '.......AA.......',
     '.B.....AA.....B.', 'BBB...AAAA...BBB', 'BBBB.AAAAAA.BBBB',
@@ -504,7 +504,7 @@ const Sprites = {};
     '.......A........', '................', '................', '................',
   ], { A: '#18e0ff', W: '#ffffff', B: '#7fd4ff' });
 
-  // Ogawamushi / Sasori (segmented crawler) -- segments & legs crawl
+  // Ogawamushi / Sasori (segmented crawler): segments & legs crawl
   Sprites.ogawamushi = anim([
     '................', '..K..........K..', '...OOOOOOOOOO...',
     '..OOKOOKKOOKOO..', '..OOOOOOOOOOOO..', '..OOKOOKKOOKOO..',
@@ -519,7 +519,7 @@ const Sprites = {};
     '................', '................', '................', '................',
   ], { O: '#ff7a18', K: '#6b2a00' });
 
-  // Momiji (maple leaf) -- symmetric flutter (side points & width shift)
+  // Momiji (maple leaf): symmetric flutter (side points & width shift)
   Sprites.momiji = anim([
     '.......RR.......', '......RRRR......', '..RR..RRRR..RR..',
     '..RRRRRRRRRRRR..', '...RRRRRRRRRR...', '.RRRRRRRRRRRRRR.',
@@ -534,7 +534,7 @@ const Sprites = {};
     '.......RR.......', '................', '................', '................',
   ], { R: '#ff5a2a' });
 
-  // Ei / Midori (green manta ray) -- wings/tail undulate
+  // Ei / Midori (green manta ray): wings/tail undulate
   Sprites.ei = anim([
     '.......GG.......', '......GGGG......', '.....GGGGGG.....',
     '....GGGGGGGG....', '...GGWGGGGWGG...', '..GGGGGGGGGGGG..',
@@ -549,7 +549,7 @@ const Sprites = {};
     '......GGGG......', '.....GG..GG.....', '................', '................',
   ], { G: '#2fc84f', W: '#ffffff' });
 
-  // Galboss (Galaxian flagship) -- wings flap
+  // Galboss (Galaxian flagship): wings flap
   Sprites.galboss = anim([
     '......YYYY......', '.....YBBBBY.....', '....RRRRRRRR....',
     '...RRRRRRRRRR...', '..RRRWRRRRWRR...', '..RRRRRRRRRRRR..',
@@ -564,7 +564,7 @@ const Sprites = {};
     '................', '................', '................', '................',
   ], { R: '#ff3b3b', B: '#2f6bff', Y: '#ffd23f', W: '#ffffff' });
 
-  // Enterprise (starship) -- nacelle/exhaust glow blinks
+  // Spaceship (a starship): nacelle/exhaust glow blinks
   Sprites.enterprise = anim([
     '....WWWWWWWW....', '...WWWWWWWWWW...', '....WWWWWWWW....',
     '.......WW.......', '......GGGG......', '.....GGGGGG.....',
@@ -1119,7 +1119,7 @@ class Enemy {
     this.y = this.fromY;
   }
 
-  // fly back to the formation slot from wherever we are now (no teleport) --
+  // fly back to the formation slot from wherever we are now (no teleport),
   // used by the tractor-beam boss, which is mid-screen when it heads home
   returnToSlot() {
     this.state = 'return';
@@ -1202,7 +1202,7 @@ class Enemy {
           if (this.raider) this.dead = true;        // extra attacker exits for good
           else if (game.finalAttack) {
             // end of stage: the survivors keep diving relentlessly (re-entering
-            // from the top) until you shoot them down -- they never just leave
+            // from the top) until you shoot them down; they never just leave
             this.diveCount++;
             this.x = clamp(rand(40, WIDTH - 40), 20, WIDTH - 20);
             this.y = -30;
@@ -1517,7 +1517,7 @@ const CHALLENGE_TYPES = [
   { type: T_BEE, bonus: 1000 }, { type: T_BUTTERFLY, bonus: 1000 },
   { type: T_TONBO, bonus: 1500 }, { type: T_OGAWAMUSHI, bonus: 1500 },
   { type: T_MOMIJI, bonus: 2000 }, { type: T_EI, bonus: 2000 },
-  { type: T_GALBOSS, bonus: 3000 }, { type: T_ENTERPRISE, bonus: 3000 },
+  { type: T_GALBOSS, bonus: 3000 }, { type: T_ENTERPRISE, bonus: 3000, name: 'spaceship' },
 ];
 
 // deterministic per-stage RNG so a given stage always plays the same way
@@ -1541,8 +1541,8 @@ function shuffled(arr, rng) {
 
 // Builds a distinct behaviour profile for any stage (1..255 and beyond).
 // Difficulty scalars ramp then saturate; style selection cycles for variety.
-// Past 255 (Infinite) the patterns come round again -- stage 256 flies 1's,
-// 257 flies 2's -- at the full stage-255 difficulty.
+// Past 255 (Infinite) the patterns come round again (stage 256 flies 1's,
+// 257 flies 2's), at the full stage-255 difficulty.
 function stageProfile(stage) {
   const ps = ((stage - 1) % 255) + 1;      // pattern stage: 1..255, wrapping
   const rng = mulberry32(ps * 2654435761 + 12345);
@@ -1585,7 +1585,7 @@ function stageProfile(stage) {
     diveStyles,
     entrances,
     sway,
-    // difficulty scalars -- gentle, gradual ramp so mid-game stays fair
+    // difficulty scalars: a gentle, gradual ramp so mid-game stays fair
     enterSpeed: 150 + Math.min(ds, 120) * 1.1,
     diveSpeedMul: 1 + d * 0.5,                  // up to ~1.5x at very late stages
     bombsMin: ds < 24 ? 1 : 2,
@@ -1667,7 +1667,7 @@ const ENCYCLOPEDIA = [
   { sprite: 'playerCaptured', name: 'CAPTURED FIGHTER', pts: '500 / 1000', desc: [
     'Your abducted ship. Free it by',
     'downing its Boss mid-dive for a Dual',
-    'Fighter -- or shoot it down (for',
+    'Fighter, or shoot it down (for',
     'points) and lose it for good.'] },
   { sprite: 'ogawamushi', name: 'OGAWAMUSHI', pts: '160  /  1000 (trio)', desc: [
     'A transformed trio (stages 4-6).',
@@ -1686,7 +1686,7 @@ const ENCYCLOPEDIA = [
     'from Galaxian.'] },
   { sprite: 'tonbo', name: 'TONBO', pts: '160', desc: [
     'A dragonfly seen only in the 3rd',
-    'challenging stage. Never attacks --',
+    'challenging stage. Never attacks:',
     'just a target in the shooting',
     'gallery.'] },
   { sprite: 'momiji', name: 'MOMIJI', pts: '160', desc: [
@@ -1697,7 +1697,7 @@ const ENCYCLOPEDIA = [
   { sprite: 'enterprise', name: 'SPACESHIP', pts: '160', desc: [
     'A starship cameo in the 8th',
     'challenging stage. A rare bonus',
-    'target -- shoot it before it leaves',
+    'target: shoot it before it leaves',
     'the screen.'] },
   { sprite: 'raider', name: 'RAIDER  (custom)', pts: '100 / 160', desc: [
     'Our own addition: lone hornets that',
@@ -1714,8 +1714,8 @@ const POWER_GUIDE = [
     'outward, for much wider coverage.'] },
   { type: 'pierce', name: 'PIERCE', desc: [
     'Shots punch straight through',
-    'enemies instead of stopping --',
-    'great against columns and waves.'] },
+    'enemies instead of stopping.',
+    'Great against columns and waves.'] },
   { type: 'rapid', name: 'RAPID', desc: [
     'Doubles your fire rate and the',
     'on-screen shot limit for a',
@@ -1733,13 +1733,13 @@ const POWER_GUIDE = [
     'nearest enemy, curving to',
     'track and strike it.'] },
   { type: 'slow', name: 'SLOW-MO', desc: [
-    'Slows the WHOLE game down -- you,',
-    'enemies, bombs and all -- giving',
+    'Slows the WHOLE game down (you,',
+    'enemies, bombs and all), giving',
     'far more time to read and react.'] },
   { type: 'double', name: 'DOUBLE', desc: [
     'All points you score are worth',
-    'double while it is active --',
-    'rack up the high score fast.'] },
+    'double while it is active.',
+    'Rack up the high score fast.'] },
 ];
 
 // ===========================================================================
@@ -2076,7 +2076,7 @@ class Game {
     this.enemies = [];
     this.bombs = [];
     this.bullets = [];
-    // note: this.powerups is intentionally NOT cleared -- a capsule from the
+    // note: this.powerups is intentionally NOT cleared: a capsule from the
     // previous stage keeps falling and stays collectible into this one
     this.playTime = 0;
     this.attackTimer = 2.5;
@@ -2236,7 +2236,7 @@ class Game {
     this.bonusType = spec.type;
     this.bonusWaveBonus = spec.bonus;
     this.bonusWaveShot = [0, 0, 0, 0, 0];   // enemies the player has downed per wave
-    this.bonusName = spec.type.toUpperCase();
+    this.bonusName = (spec.name || spec.type).toUpperCase();   // (the name the enemy guide gives it)
     const speed = 135 + Math.min(this.stage, 80) * 2;
     for (let w = 0; w < 5; w++) {
       const path = this.bonusPath(w);
@@ -2727,7 +2727,7 @@ class Game {
 
     // -------- PLAYING --------
     // Slow-mo power scales the WHOLE simulation (player, enemies, bombs, falling
-    // capsules, attacks -- everything), so the player gets more real time to
+    // capsules, attacks, everything), so the player gets more real time to
     // react. The factor eases in/out smoothly instead of snapping. Buff timers
     // still run in real time so the power lasts ~12s.
     const realDt = dt;
@@ -2788,7 +2788,7 @@ class Game {
 
     // side raiders: one at a time, spread through the stage. The gap shrinks as
     // the formation thins out, so the remaining raiders still all show up even
-    // on a quick clear -- and we stop once the formation is gone (a late raider
+    // on a quick clear, and we stop once the formation is gone (a late raider
     // shouldn't stall the stage clear).
     if (this.raidersLeft > 0) {
       const formationNow = this.enemies.filter((e) => !e.raider && !e.convoyCharge).length;
@@ -2932,7 +2932,7 @@ class Game {
     if (!this.player || this.player.state !== 'alive') return;
     const boxes = this.player.boxes();
 
-    // diving enemies vs player (body collision) -- a crash kills only the
+    // diving enemies vs player (body collision): a crash kills only the
     // player; the enemy flies on unharmed
     for (const e of this.enemies) {
       if (e.dead || e.spawnDelay > 0 || e.bonus) continue; // flyby enemies are harmless

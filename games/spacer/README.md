@@ -155,7 +155,7 @@ badges would run under the power-up bars).
 
 **Challenging / bonus stages** (stages 3, 7, 11, 15, …)
 - Each is **one rotating enemy line-up** (Zako, Goei, Tonbo, Ogawamushi, Momiji,
-  Ei, Galboss, Enterprise) **plus four Flagships**, in 5 waves of 8: flying
+  Ei, Galboss, Spaceship) **plus four Flagships**, in 5 waves of 8: flying
   through in patterns, never attacking.
 - **Clear a whole wave** for a bonus (1000 to 3000). Per-hit scoring, and a
   **PERFECT 10,000** for shooting all 40.

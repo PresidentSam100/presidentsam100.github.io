@@ -13,9 +13,12 @@ module.exports = async ({ check, lib }) => {
     [ch(0x2014), "em dash"], [ch(0x2013), "en dash"], [ch(0x2012), "figure dash"], [ch(0x2015), "horizontal bar"],
     ["&" + "mdash;", "em dash entity"], ["&" + "ndash;", "en dash entity"], ["\\" + "u2014", "em dash escape"], ["\\" + "u2013", "en dash escape"],
   ];
-  const SKIP = new Set(["node_modules", ".git", "test-results", "playwright-report"]);
+  const SKIP = new Set(["node_modules", ".git", ".claude", "test-results", "playwright-report"]);   // (.claude: the tools' own copies, not the site)
   const TEXT = /\.(js|html|css|md|json|txt|xml|svg|yml|yaml)$/i;
-  const found = [];
+  // (nor two hyphens standing in for one, "this -- that", outside the dev kit,
+  // whose "npm test -- suite" is a command's own way of writing)
+  const TWO = /(^|\s)--(\s|['"`]|$)/gm;
+  const found = [], two = [];
   let files = 0;
   (function walk(dir) {
     for (const f of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -30,7 +33,10 @@ module.exports = async ({ check, lib }) => {
         while (at !== -1) { n++; at = text.indexOf(s, at + s.length); }
         if (n) found.push(path.relative(lib.ROOT, p).replace(/\\/g, "/") + ": " + n + " " + name);
       }
+      const rel = path.relative(lib.ROOT, p).replace(/\\/g, "/"), m = rel.startsWith("_dev/") ? null : text.match(TWO);
+      if (m) two.push(rel + ": " + m.length);
     }
   })(lib.ROOT);
   check("no dashes anywhere in the project's text, comments, tests or docs (" + files + " files read)", files > 200 && found.length === 0, found.slice(0, 20));
+  check("no two hyphens standing in for a dash in the site's pages, games or docs", two.length === 0, two.slice(0, 20));
 };

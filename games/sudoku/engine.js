@@ -202,7 +202,7 @@
     })(0);
   }
 
-  // -- tier 2 --
+  // ---- tier 2 ----
   function lockedCandidates(S) {
     // Pointing: within a box, a digit confined to one row/column clears
     // that line outside the box. Claiming: within a line, a digit confined
@@ -285,7 +285,7 @@
     return false;
   }
 
-  // -- tier 3 --
+  // ---- tier 3 ----
   // Fish of `size` (2 = X-Wing, 3 = Swordfish): if a digit's spots in
   // `size` rows all fall in the same `size` columns, it's gone from the
   // rest of those columns. Then the same with rows and columns swapped.
