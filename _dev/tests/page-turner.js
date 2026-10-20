@@ -105,6 +105,21 @@ module.exports = async ({ browser, base, check, lib }) => {
       Math.abs(r.star - r.window) <= 0.1 * r.window && Math.abs(r.star - r.flower) <= 0.1 * r.flower, r);
   }
   {
+    // the leaves to come are made ahead, the same ones whatever happens on
+    // the page: the two behind the next stand ready, and move up a place as
+    // each leaf lands
+    const st = E.create({ mode: "endless", rng: seeded(5) });
+    const ahead = () => [st.leaf, st.next].concat(st.later || []).map((l) => l && l.n);
+    const first = ahead(), seen = [st.next, (st.later || [])[0], (st.later || [])[1]];
+    // (your worm sat in a round hole cut in the first leaf, so it goes through)
+    st.leaf.holes = [E.makeHole(4, "sun", 0.135)];
+    const m = E.panelMid(4); st.worms[0].x = m[0]; st.worms[0].y = m[1];
+    for (let i = 0; i < 2000 && st.page < 2; i++) E.step(st, 1 / 60, { x: 0, y: 0 });
+    const was = { leaf: st.leaf === seen[0], next: st.next === seen[1], later: (st.later || [])[0] === seen[2] };
+    check("page-turner rules: the leaves to come stand ready two behind the next (pages 1 to 4 at the start), and each moves up a place as a leaf lands",
+      first.join() === "1,2,3,4" && was.leaf && was.next && was.later && ahead().join() === "2,3,4,5", { first, now: ahead(), was });
+  }
+  {
     // four worms in one big hole all go through; the game goes on to page 2
     const st = setup("party", [E.makeHole(4, "sun", 0.135)]);
     const c = E.panelMid(4);
@@ -456,6 +471,42 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "leaf over the cover");
   }
   await ctx.close();
+
+  // ---- the leaf about to fall stands still till it tips (no twitch, FX on),
+  // and the leaves behind it are drawn whole from the start (pictures, words
+  // and holes), the same ones that stand in front once it falls
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await open(c, { before: fxSet(false) });
+    await standing(q, "endless");
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, E = PageTurnerEngine, cv = document.getElementById("book"), g = cv.getContext("2d"), st = PT.st();
+      PT.place(0, 0.5, 0.9);
+      // (the standing half: from the top of the book down to the spine)
+      const v = PT.view(), k = cv.width / v.VW, top = Math.max(0, Math.round((v.OY - 1.1 * v.FZ * v.S) * k)), h = Math.round(v.OY * k) - top - 2;
+      const shot = () => g.getImageData(0, top, cv.width, h).data;
+      const frame = (then) => requestAnimationFrame(() => requestAnimationFrame(then));
+      const s = E.stage(st.page), looks = [], snaps = [];
+      let i = 0;
+      (function next() {
+        if (i >= 4) {
+          let differ = 0; for (let j = 0; j < snaps[0].length; j += 4) if (Math.abs(snaps[0][j] - snaps[3][j]) + Math.abs(snaps[0][j + 1] - snaps[3][j + 1]) > 6) differ++;
+          // then on to the fall: the leaf that stood behind is the one in front now
+          while (st.phase !== "fall") PT.advance(1 / 120);
+          frame(() => res({ looks, differ, fall: PT.standing ? PT.standing() : null, was: looks[0] }));
+          return;
+        }
+        PT.advance(s.stand * 0.22);
+        frame(() => { looks.push(Object.assign({ phase: st.phase, next: st.next.n, later: (st.later || []).map((l) => l.n) }, PT.standing && PT.standing())); snaps.push(shot()); i++; next(); });
+      })();
+    }));
+    const upright = r.looks.every((l) => l.phase === "stand" && Math.abs(l.th - Math.PI / 2) < 1e-9);
+    const whole = r.looks.every((l) => l.behind && l.behind[0] === l.next && l.behind[1] === l.later[0]);
+    check("page-turner: with Visual FX on the leaf about to fall stands still till it tips (upright, the standing half not moving a pixel), and the leaves behind it are drawn whole (pictures, words, holes) from the start, the same ones that stand in front as it falls",
+      upright && whole && r.differ === 0 && r.fall && r.fall.front === r.was.next && r.fall.behind[0] === r.was.later[0], r);
+    check("page-turner (leaf standing still): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 
   // ---- a thumb: down anywhere off the book, dragging steers; up, it stops
   {

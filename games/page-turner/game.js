@@ -80,7 +80,7 @@
       if (need <= top + 0.5) break;
       top = need;
     }
-    floorKey = "";
+    floorKey = ""; stands.forEach(function (t) { t.key = ""; });
   }
 
   // ---- sound ---------------------------------------------------------------------------------
@@ -360,17 +360,59 @@
     g = keep;
   }
   // the far half, standing: the cover behind, the edges of the leaves still
-  // to fall, and the front one, its holes showing the leaf behind it
-  function drawStanding(scene, front, th) {
-    g.fillStyle = CLOTH; poly3([[-0.05, -0.035, -0.012], [1.05, -0.035, -0.012], [1.05, -0.035, 1.06], [-0.05, -0.035, 1.06]]); g.fill();
-    g.fillStyle = CLOTH_DARK; poly3([[-0.05, -0.035, 1.06], [1.05, -0.035, 1.06], [1.05, -0.06, 1.06], [-0.05, -0.06, 1.06]]); g.fill();
-    for (var i = 0; i < 5; i++) {
-      var y = -0.03 + i * 0.006;
-      g.fillStyle = paper(front.n + 5 - i)[0]; poly3([[0, y, 1], [1, y, 1], [1, y + 0.006, 1], [0, y + 0.006, 1]]); g.fill();
+  // to fall, and the front one, its holes showing the leaves behind it as
+  // they are, pictures, words and holes and all, so nothing comes up on one
+  // as the leaf before it falls (the third behind, seen only through three
+  // holes in a row, is plain). It stands still until the front leaf tips,
+  // so it's painted onto a canvas of its own; the one to stand next is
+  // painted ahead while this one waits, a layer a frame (no frame does much
+  // more than one leaf), so the tip itself only swaps them.
+  var stands = [0, 1].map(function () { var c = document.createElement("canvas"); return { cv: c, g: c.getContext("2d"), key: "", used: 0, steps: [] }; });
+  var settle = document.createElement("canvas").getContext("2d");   // (drawn into, 1 x 1: a canvas does its drawing then, not on first sight)
+  var standing = null, standFrame = 0;
+  settle.canvas.width = settle.canvas.height = 1;
+  function behindOf(scene, front) { return (front === scene.leaf ? [scene.next].concat(scene.later || []) : (scene.later || [])).filter(Boolean).slice(0, 2); }
+  function standKeyOf(front, behind) { var id = function (l) { return l.n + ":" + l.seed; }; return [VW, VH, S, dpr, id(front), behind.map(id).join("/")].join(","); }
+  function prepareStanding(slot, front, behind, key) {
+    slot.key = key;
+    var far = 0.004 * (behind.length + 1);
+    slot.steps = [function () {
+      if (slot.cv.width !== cv.width || slot.cv.height !== cv.height) { slot.cv.width = cv.width; slot.cv.height = cv.height; g.setTransform(dpr, 0, 0, dpr, 0, 0); }
+      g.clearRect(0, 0, VW, VH);
+      g.fillStyle = CLOTH; poly3([[-0.05, -0.035, -0.012], [1.05, -0.035, -0.012], [1.05, -0.035, 1.06], [-0.05, -0.035, 1.06]]); g.fill();
+      g.fillStyle = CLOTH_DARK; poly3([[-0.05, -0.035, 1.06], [1.05, -0.035, 1.06], [1.05, -0.06, 1.06], [-0.05, -0.06, 1.06]]); g.fill();
+      for (var i = 0; i < 5; i++) {
+        var y = -0.03 + i * 0.006;
+        g.fillStyle = paper(front.n + 5 - i)[0]; poly3([[0, y, 1], [1, y, 1], [1, y + 0.006, 1], [0, y + 0.006, 1]]); g.fill();
+      }
+      g.fillStyle = shadeHex(paper(front.n + behind.length + 1)[0], 0.72); poly3([[0, -far, 0], [1, -far, 0], [1, -far, 1], [0, -far, 1]]); g.fill();
+    }];
+    // the leaves behind the front one, the farthest first, a shade darker each; then the front one
+    behind.forEach(function (l, j) { slot.steps.splice(1, 0, function () { drawLeaf(l, leafMap(Math.PI / 2, 0, 0.004 * (j + 1)), { shade: 0.18 + 0.08 * j }); }); });
+    slot.steps.push(function () { drawLeaf(front, leafMap(Math.PI / 2, 0), { shade: 0.1 }); });
+  }
+  function standStep(slot) {
+    var keep = g; g = slot.g;
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    slot.steps.shift()();
+    g = keep;
+    settle.drawImage(slot.cv, 0, 0, 1, 1);
+  }
+  function drawStanding(scene, front) {
+    var behind = behindOf(scene, front), key = standKeyOf(front, behind), busy = false;
+    standing = { front: front.n, behind: behind.map(function (l) { return l.n; }), th: Math.PI / 2 };
+    var slot = stands[0].key === key ? stands[0] : stands[1].key === key ? stands[1] : null;
+    if (!slot) { slot = stands[0].used <= stands[1].used ? stands[0] : stands[1]; prepareStanding(slot, front, behind, key); }
+    // (all of it now if it isn't ready: this is the one on show)
+    while (slot.steps.length) { standStep(slot); busy = true; }
+    slot.used = ++standFrame;
+    g.drawImage(slot.cv, 0, 0, slot.cv.width, slot.cv.height, 0, 0, VW, VH);
+    // the one to stand once this front leaf falls, a layer on each quiet frame
+    if (!busy && front === scene.leaf && scene.next) {
+      var nb = behindOf(scene, scene.next), nk = standKeyOf(scene.next, nb), other = slot === stands[0] ? stands[1] : stands[0];
+      if (other.key !== nk) prepareStanding(other, scene.next, nb, nk);
+      else if (other.steps.length) standStep(other);
     }
-    // the leaf behind the front one
-    g.fillStyle = shadeHex(paper(front.n + 1)[0], 0.82); poly3([[0, -0.004, 0], [1, -0.004, 0], [1, -0.004, 1], [0, -0.004, 1]]); g.fill();
-    drawLeaf(front, leafMap(th, 0), { shade: 0.1 });
   }
   // the shadow of the leaf about to fall, with the light through its holes
   // where they will land: crisp from the first moment, the dark deepening
@@ -488,13 +530,12 @@
     if (shake > 0 && fx()) { sx = (Math.random() - 0.5) * S * 0.02 * shake; sy = (Math.random() - 0.5) * S * 0.02 * shake; }
     g.translate(sx, sy);
     var tilt = E.tilt(scene), falling = scene.phase === "fall", s = E.stage(scene.page);
-    var front = falling || scene.phase === "over" ? scene.next : scene.leaf, tremble = 0;
-    if (scene.phase === "stand" && fx() && state === "play") { var u = scene.t / s.stand; tremble = 0.035 * Math.sin(scene.t * 13) * u * u; }
+    var front = falling || scene.phase === "over" ? scene.next : scene.leaf;
     // the half lying flat, then the half standing over it: the cover's far
     // edge runs on behind the spine, so a standing leaf hides it (the cover
     // still shows either side), as the leaf does once it falls
     g.drawImage(fcv, 0, 0, fcv.width, fcv.height, 0, 0, VW, VH);
-    drawStanding(scene, front, Math.PI / 2 + Math.max(0, tremble));
+    drawStanding(scene, front);
     if (scene.phase === "stand" || falling) drawShadow(scene, scene.phase === "stand" ? 0.3 * Math.min(1, scene.t / s.stand) : 0.3 + 0.7 * tilt);
     var th = Math.PI / 2 + tilt * Math.PI / 2, curl = fx() ? 0.22 * Math.sin(Math.PI * tilt) : 0, over = falling && tilt > EDGE_ON;
     if (falling && !over) drawLeaf(scene.leaf, leafMap(th, curl), { shade: 0.1 * (1 - tilt) });
@@ -602,7 +643,7 @@
     if (bp) parts2.push("Endless" + off + ": " + bp + (bp === 1 ? " page" : " pages"));
     $("tally").textContent = parts2.join(" · ");
     demo = E.create({ mode: mode, level: level, rng: rand(11) });
-    floorKey = "";
+    floorKey = ""; stands.forEach(function (t) { t.key = ""; });
   }
   document.querySelectorAll("#pick-mode button").forEach(function (b) {
     b.addEventListener("click", function () { mode = b.dataset.v; store.set("pageturner_mode", mode); paintMenu(); });
@@ -648,6 +689,9 @@
     view: function () { return { S: S, CX: CX, OY: OY, VW: VW, VH: VH, FY: FY, FZ: FZ }; },
     project: function (x, y, z) { var r = $("stage").getBoundingClientRect(), q = P(x, y, z || 0); return [r.left + q[0], r.top + q[1]]; },
     flats: function () { return flats.length; },
+    // what the standing half showed last frame: the front leaf, the leaves
+    // drawn whole behind it, and the angle it stood at
+    standing: function () { return standing; },
     flatsShown: function () { return st ? flats.filter(function (f) { return onFloor(f, st); }).map(function (f) { return f.id; }) : []; },
     parts: function () { return parts.length; },
     shaking: function () { return shake > 0; },

@@ -227,14 +227,21 @@
       cpu: level ? { level: level, readAt: 0, read: false, second: false, target: null, hole: -1, decoy: false, wander: null, next: 0 } : null };
   }
 
+  function pageRng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
   // ---- a game -------------------------------------------------------------------------
   // opts: { mode: "party" | "endless", level: "easy" | "normal" | "hard", rng }
   function create(opts) {
     opts = opts || {};
     var rng = opts.rng || Math.random, mode = opts.mode === "endless" ? "endless" : "party";
     var st = { mode: mode, level: LEVELS[opts.level] ? opts.level : "normal", rng: rng, clock: 0, t: 0, phase: "intro",
-      page: 1, survived: 0, landed: 0, leaf: null, next: null, floor: null, worms: [], events: [], result: null };
-    st.leaf = makeLeaf(1, rng); st.next = makeLeaf(2, rng);
+      page: 1, survived: 0, landed: 0, leaf: null, next: null, later: [], floor: null, worms: [], events: [], result: null };
+    // The leaves to come are made ahead (the book shows the ones standing
+    // behind the next to fall, details and all), from a run of numbers of
+    // their own, so how far ahead they're made changes nothing else: `next`
+    // stands right behind the leaf about to fall, `later` the two after it.
+    st.pages = pageRng(Math.floor(rng() * 4294967296));
+    st.leaf = makeLeaf(1, st.pages); st.next = makeLeaf(2, st.pages); st.later = [makeLeaf(3, st.pages), makeLeaf(4, st.pages)];
     if (mode === "endless") st.worms.push(makeWorm(0, 0.5, 0.62, null));
     else {
       st.worms.push(makeWorm(0, 0.3, 0.68, null));
@@ -451,7 +458,7 @@
       if (!you.alive) { you.place = through.length + 1; return finish(st, "loss", page - 1); }
       if (through.length === 1) { you.place = 1; return finish(st, "win", page); }
     }
-    st.page++; st.leaf = st.next; st.next = makeLeaf(st.page + 1, st.rng);
+    st.page++; st.leaf = st.next; st.next = st.later.shift(); st.later.push(makeLeaf(st.page + 3, st.pages));
     st.phase = "land";
   }
   function finish(st, outcome, pages) {
