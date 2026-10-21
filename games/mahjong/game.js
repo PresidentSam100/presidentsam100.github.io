@@ -423,17 +423,16 @@
   var TW = 44, TH = 58, dailyRecorded = false;
 
   // ---- motion --------------------------------------------------------------------
-  // "Animations" on the menu (on to begin with, remembered): a deal's tiles
-  // drop in from above the desk, a matched pair comes together and is gone,
-  // and a shuffle's tiles travel to their new places. With Visual FX off the
-  // deal and the pair are told calmly, by fading, and a shuffle's tiles still
-  // travel (where a tile goes is play), only straight. The clock is
-  // the same either way, as the game never waits for any of it: every tile is
-  // where it belongs from the first moment and is only drawn on its way, so a
-  // press or a key lands whatever is still moving (settle), a matched pair is
-  // out of play while it is still drawn leaving (the next pair can be taken at
-  // once), and no clock runs while a deal drops.
-  var anim = store.get("mahjong_anim", "1") !== "0";
+  // Visual FX is the one switch for it: with it on, a deal's tiles drop in
+  // from above the desk, a matched pair comes together and is gone, and a
+  // shuffle's tiles travel to their new places, lifted on the way. With it
+  // off the deal and the pair are told calmly, by fading, and a shuffle's
+  // tiles still travel (where a tile goes is play), only straight. The clock
+  // is the same either way, as the game never waits for any of it: every
+  // tile is where it belongs from the first moment and is only drawn on its
+  // way, so a press or a key lands whatever is still moving (settle), a
+  // matched pair is out of play while it is still drawn leaving (the next
+  // pair can be taken at once), and no clock runs while a deal drops.
   var DROP_MS = 330, DROP_STEP = 6;   // a tile's fall, and the gap between one tile and the next
   var dealing = false;                // a deal still coming in
   var moves = [], ghosts = [], moveTimers = [];   // a deal's or a shuffle's tiles on their way; matched pairs on their way out
@@ -467,7 +466,7 @@
   // bottom layer first, sweeping across it; with it off each layer fades in.
   function dealIn() {
     var ids = Object.keys(els).map(Number), n = ids.length, board = $("board");
-    if (!anim || !n || !board.animate) return;
+    if (!n || !board.animate) return;
     var left = n, landed = function () { if (--left === 0) dealing = false; };
     dealing = true;
     if (!fx()) {
@@ -498,7 +497,7 @@
   var OFF_MS = 430, FADE_MS = 260;
   function sendOff(ea, eb) {
     var pair = [ea, eb];
-    if (!anim || !ea.animate) { pair.forEach(function (el) { el.remove(); }); return; }
+    if (!ea.animate) { pair.forEach(function (el) { el.remove(); }); return; }
     var ra = ea.getBoundingClientRect(), rb = eb.getBoundingClientRect();
     var dx = (rb.left - ra.left) / 2, dy = (rb.top - ra.top) / 2, flying = fx();
     pair.forEach(function (el, k) {
@@ -521,7 +520,7 @@
   // with it off.
   function shuffleIn(was) {
     var ids = Object.keys(els).map(Number);
-    if (!anim || !ids.length || !$("board").animate) return;
+    if (!ids.length || !$("board").animate) return;
     var lift = fx() ? 1 : 0, from = {}, rects = {};
     ids.forEach(function (i) { (from[was[i]] = from[was[i]] || []).push(i); rects[i] = els[i].getBoundingClientRect(); });
     ids.forEach(function (j, n) {
@@ -843,8 +842,8 @@
   var hudDead = false;
   // The desk is clear: the clock stops and the result is kept that moment,
   // and the card comes up once the last pair has gone, a beat after its
-  // leaving ends (OVER_BEAT). With Animations off the card waits just as
-  // long, so it never lands on the last two tiles either way.
+  // leaving ends (OVER_BEAT): their flight with Visual FX on, their fade with
+  // it off, so it never lands on the last two tiles either way.
   var OVER_BEAT = 80, overT = 0;
   function win() {
     state = "over";
@@ -930,9 +929,6 @@
       : "today's " + dailyLayout(d.n).name.toLowerCase() + ", shareable " + keyCap("2");
     // the layout: its name and picture, and its own fastest clear. On the
     // Daily it is the day's own and the arrows are off.
-    $("anim-state").textContent = anim ? "on" : "off";
-    $("opt-anim").setAttribute("aria-pressed", anim ? "true" : "false");
-    $("opt-anim").classList.toggle("on", anim);
     var l = layoutNow(), what = l.name.toLowerCase(), bt = bestOf(l);
     $("lay-name").textContent = l.name;
     $("lay-note").textContent = mode === "daily" ? "today's Daily layout" : "layout " + (LAYOUTS.indexOf(l) + 1) + " of " + LAYOUTS.length;
@@ -991,12 +987,7 @@
   });
   $("lay-prev").addEventListener("click", function () { stepLayout(-1); });
   $("lay-next").addEventListener("click", function () { stepLayout(1); });
-  $("opt-anim").addEventListener("click", function () {
-    anim = !anim;
-    store.set("mahjong_anim", anim ? "1" : "0");
-    paintMenu();
-  });
-  ["lay-prev", "lay-next", "opt-anim"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
+  ["lay-prev", "lay-next"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
   // (a press on the desk, off the tiles, lands a deal still coming in too)
   $("desk").addEventListener("click", function () { if (dealing) settle(); });
   window.addEventListener("resize", function () { if (state === "menu") paintMenu(); });   // (the picture is drawn at its size on screen)
@@ -1066,10 +1057,10 @@
     groups: [{ sel: "#btn-newdeal", keys: ["n"] }, { sel: "#btn-giveup", keys: ["g"] }]
   });
 
-  // the menu's layout arrows take the arrow keys and Animations takes A, shown on them
+  // the menu's layout arrows take the arrow keys, shown on them
   if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
     active: function () { return state === "menu"; },
-    groups: [{ sel: "#lay-prev", keys: ["arrowleft"] }, { sel: "#lay-next", keys: ["arrowright"] }, { sel: "#opt-anim", keys: ["a"] }]
+    groups: [{ sel: "#lay-prev", keys: ["arrowleft"] }, { sel: "#lay-next", keys: ["arrowright"] }]
   });
 
   toMenu();
@@ -1080,7 +1071,6 @@
     layout: function () { return dealt.id; },
     layouts: function () { return LAYOUTS.map(function (l) { return { id: l.id, name: l.name, best: l.best, pos: l.make() }; }); },
     isFree: function (i) { return isFree(pos, i, live); },
-    anim: function () { return anim; },
     dealing: function () { return dealing; },
     moving: function () { return moves.length; },
     leaving: function () { return ghosts.length; },

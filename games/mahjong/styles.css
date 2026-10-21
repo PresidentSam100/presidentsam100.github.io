@@ -174,16 +174,13 @@ kbd {
 }
 
 .pick .seg { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
-.seg button, .opt {
+.seg button {
   font-family: inherit; font-size: 16px; text-align: left; cursor: pointer;
   color: var(--ink); background: rgba(255, 255, 255, 0.55);
   border: 1.5px solid #c9b58a; border-radius: 9px; padding: 9px 13px;
   display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
 }
 .seg button small { font-size: 13px; color: #7a6648; }
-/* Animations, on or off: a row like the modes', its key (A) at the end */
-.opt { width: 100%; margin-bottom: 12px; --gs-key-bg: var(--ink); }
-.opt.on #anim-state { color: var(--lacquer); }
 .seg button.on { border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); background: #fff; }
 .seg button.on b { color: var(--lacquer); }
 
@@ -241,8 +238,7 @@ kbd {
   .card .tag { margin: 1px 0 7px; font-size: 14.5px; }
   .card .how { font-size: 14px; line-height: 1.45; margin-bottom: 9px; }
   .pick .seg { gap: 6px; margin-bottom: 8px; }
-  .seg button, .opt { padding: 6px 11px; font-size: 15px; }
-  .opt { margin-bottom: 8px; }
+  .seg button { padding: 6px 11px; font-size: 15px; }
   .layrow { margin-bottom: 8px; gap: 8px; }
   .layrow canvas { width: 72px; height: 51px; }
   .layrow > button { padding: 8px 9px; }
@@ -255,10 +251,9 @@ kbd {
 @media (max-width: 400px) {
   .layrow .lay { flex-direction: column; gap: 2px; }
   .lay-text { text-align: center; line-height: 1.2; }
-  .opt { font-size: 14.5px; gap: 6px; padding: 6px 9px; }
 }
 /* the narrowest phones (320 px): the rules a size smaller and the picture a
-   little, so the card, Animations row and all, still shows whole */
+   little, so the card still shows whole */
 @media (max-width: 340px) {
   .card .how { font-size: 13px; line-height: 1.4; }
   .layrow canvas { width: 64px; height: 45px; }

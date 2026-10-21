@@ -42,7 +42,6 @@ const MENUS = {
   "sudoku/": { keys: ["e", "d", "h", "x"] },
   "darkroom/": { keys: ["d"] },
   "typetwo/": { keys: ["1", "2", "3"] },                // (◂ ▸ step through the modes too, and Enter starts: the game's own keys)
-  "mahjong/": { keys: ["a"] },                          // (1 2 pick the mode, the game's own keys; the arrows step through the layouts: mahjong.js)
   "page-turner/": { keys: ["3", "4", "5", "2", "1"], enter: true },   // (the rivals 3 4 5 show only for Party: 2 picks Endless)
 };
 
