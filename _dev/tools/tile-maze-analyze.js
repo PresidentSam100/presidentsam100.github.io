@@ -1,4 +1,5 @@
-/* Dev tool: estimate puzzle DIFFICULTY (not just solution length).
+/* Dev tool: estimate puzzle DIFFICULTY (not just solution length). A module
+ * for tile-maze-gen.js and tile-maze-sortlevels.js; it prints nothing itself.
  *
  * Optimal move count alone is misleading: a 26-move forced ice slide is easier
  * than a 12-move route through poison + live water where most moves are traps.
@@ -12,7 +13,7 @@
  *   mech      - count of distinct mechanic tiles present (y,o,u,b)
  *   combo     - bonus when interacting mechanics coexist (orange+water, yellow+water, ice+orange)
  */
-const { resolveMove, tileAt } = require("./engine.js");
+const { resolveMove, tileAt } = require("../../games/tile-maze/engine.js");
 
 const DIRS = ["up", "down", "left", "right"];
 

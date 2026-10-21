@@ -1,10 +1,11 @@
 /* Dev tool: procedurally generate + validate themed levels.
+ *   node _dev/tools/tile-maze-gen.js
  * Each candidate is solved with BFS (same engine the game uses) and kept only
  * if the optimal solution length falls inside a target difficulty band.
  * Prints ready-to-paste grids. Not shipped to players.
  */
-const { resolveMove, tileAt } = require("./engine.js");
-const { analyze } = require("./analyze.js");
+const { resolveMove, tileAt } = require("../../games/tile-maze/engine.js");
+const { analyze } = require("./tile-maze-analyze.js");
 
 const DIRS = ["up", "down", "left", "right"];
 

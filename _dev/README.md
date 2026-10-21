@@ -74,3 +74,23 @@ a short window in one `p.evaluate`. To try a suite under load, use
 - `tools/steamfitter-junction-levels.js`: generates Steamfitter's junction
   levels (31 to 36). Seeded, so it reprints the same six levels; see the comment
   at its top.
+- `tools/logicgate-split-levels.js`: writes LogicGate's split levels
+  (`games/logicgate/levels-split.js`), seeded the same way.
+
+The games' own build and check scripts live here too, so the site doesn't
+serve them. Each runs from the repo's root and reads (or writes) its game's
+files in `games/`; the comment at the top of each says more.
+
+- `tools/24-build-puzzles.js`: rebuilds 24's puzzle pools
+  (`games/24/puzzles.js`); `--check` compares without writing.
+- `tools/darkroom-check-puzzles.js`: proves every Darkroom picture can be
+  solved without guessing (one id, or `--daily` for a year of dailies).
+- `tools/lanterns-build-data.js`: builds Lanterns' word list
+  (`games/lanterns/data.js`) from the HSK dataset (a `complete.json` you
+  download) and `tools/lanterns-curated.js`, the hand-checked words.
+- `tools/slither-verify.js`: proves every Slither Labyrinth level can be
+  finished in time (a level number, `--route`, `--bot`).
+- `tools/tile-maze-verify.js`, `tile-maze-sortlevels.js`, `tile-maze-gen.js`
+  (with `tile-maze-analyze.js`, their difficulty score): prove Tile Maze's
+  levels solvable, re-sort `games/tile-maze/levels.js` by difficulty (it
+  rewrites the file), and generate new candidate levels.

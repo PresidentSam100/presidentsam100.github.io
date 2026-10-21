@@ -5,7 +5,8 @@
  * under: never change it, and give every new level one of its own. Its name
  * is only what's shown, and can change freely.
  * Levels 1-8 are a deliberate tutorial onramp (one mechanic at a time);
- * levels 9+ are ordered by DIFFICULTY (see analyze.js, not just move count).
+ * levels 9+ are ordered by DIFFICULTY (see _dev/tools/tile-maze-analyze.js,
+ * not just move count).
  */
 (function (root, factory) {
   const mod = factory();

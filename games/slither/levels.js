@@ -7,7 +7,7 @@
    instead, naming the touch control that does the same.
    `id` keys saved best times, so never reuse or rename one. Every grid row
    must be the same width. The tile legend is at the top of
-   labyrinth-engine.js. Run `node verify.js` after editing: it proves each
+   labyrinth-engine.js. Run `node _dev/tools/slither-verify.js` after editing: it proves each
    level can be finished and checks the time limits.
 
    Spike levels keep spikeMs a whole number of 135 ms steps (1080 = 8,

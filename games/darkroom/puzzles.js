@@ -1,7 +1,7 @@
 /* =====================================================================
    Darkroom: the negatives. Hand-drawn pixel art; "#" is ink.
 
-   Every picture must pass `node check-puzzles.js`, which proves the line
+   Every picture must pass `node _dev/tools/darkroom-check-puzzles.js`, which proves the line
    solver finishes it with no guessing (and so the solution is unique).
    Ids key saved progress: never reuse or rename one. Names are only
    shown once a print is developed, so don't spoil them in the UI.

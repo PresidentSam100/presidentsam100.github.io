@@ -1,5 +1,5 @@
 /* =====================================================================
-   Slither: Labyrinth level solver. Used by verify.js (Node) and the
+   Slither: Labyrinth level solver. Used by _dev/tools/slither-verify.js (Node) and the
    level editor (browser) to prove a level can be finished.
 
    It searches for a route that eats every red apple and reaches an exit.
@@ -347,7 +347,7 @@
     return { won: st.status === "won", status: st.status, cause: st.cause, secs: st.elapsed / 1000 };
   }
 
-  // Routes written as text (verify.js --route prints them): "0 1 1g 2@5,3 click@4,8".
+  // Routes written as text (slither-verify.js --route prints them): "0 1 1g 2@5,3 click@4,8".
   function routeFromText(text, cols) {
     return String(text).trim().split(/\s+/).map(function (tok) {
       var m = /^click@(\d+),(\d+)$/.exec(tok);

@@ -1,10 +1,13 @@
-/* Dev tool: reorder levels by DIFFICULTY (analyze.js score) and rewrite
- * levels.js. The first 8 (tutorial) keep their fixed teaching order; the
- * rest are sorted by ascending difficulty score.
+/* Dev tool: reorder levels by DIFFICULTY (tile-maze-analyze.js score) and
+ * rewrite games/tile-maze/levels.js. The first 8 (tutorial) keep their fixed
+ * teaching order; the rest are sorted by ascending difficulty score.
+ *   node _dev/tools/tile-maze-sortlevels.js
  */
 const fs = require("fs");
-const LEVELS = require("./levels.js");
-const { analyze } = require("./analyze.js");
+const path = require("path");
+const FILE = path.join(__dirname, "..", "..", "games", "tile-maze", "levels.js");
+const LEVELS = require(FILE);
+const { analyze } = require("./tile-maze-analyze.js");
 
 const TUT = 8;
 const tut = LEVELS.slice(0, TUT);
@@ -33,7 +36,8 @@ const header = `/*
  * under: never change it, and give every new level one of its own. Its name
  * is only what's shown, and can change freely.
  * Levels 1-8 are a deliberate tutorial onramp (one mechanic at a time);
- * levels 9+ are ordered by DIFFICULTY (see analyze.js, not just move count).
+ * levels 9+ are ordered by DIFFICULTY (see _dev/tools/tile-maze-analyze.js,
+ * not just move count).
  */
 (function (root, factory) {
   const mod = factory();
@@ -56,7 +60,7 @@ const footer = `
 });
 `;
 
-fs.writeFileSync("levels.js", header + body + footer);
+fs.writeFileSync(FILE, header + body + footer);
 
 console.log("Reordered " + ordered.length + " levels by difficulty:\n");
 ordered.forEach((l, i) => {

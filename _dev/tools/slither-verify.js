@@ -1,12 +1,12 @@
 /* =====================================================================
    Slither: Labyrinth level checker. Node only, NOT loaded by any page.
 
-     node verify.js            check every level
-     node verify.js 7          check level 7 only (1-based)
-     node verify.js 7 --route  also print the route it found
-     node verify.js --bot      also let a bot play the enemy levels (slow)
+     node _dev/tools/slither-verify.js            check every level
+     node _dev/tools/slither-verify.js 7          check level 7 only (1-based)
+     node _dev/tools/slither-verify.js 7 --route  also print the route it found
+     node _dev/tools/slither-verify.js --bot      also let a bot play the enemy levels (slow)
 
-   The search itself lives in solver.js (the level editor uses it too):
+   The search itself lives in the game's solver.js (the level editor uses it too):
    it finds a route that eats every red apple and reaches an exit, and
    replays it through labyrinth-engine.js so only routes the real rules
    accept count. Levels marked `unproven: "<reason>"` (they need enemies or
@@ -18,9 +18,9 @@
    hint, not a verdict: a person reacts better than the bot.
    ===================================================================== */
 "use strict";
-var E = require("./labyrinth-engine.js");
-var S = require("./solver.js");
-var LEVELS = require("./levels.js");
+var E = require("../../games/slither/labyrinth-engine.js");
+var S = require("../../games/slither/solver.js");
+var LEVELS = require("../../games/slither/levels.js");
 
 var args = process.argv.slice(2);
 var only = args[0] && /^\d+$/.test(args[0]) ? Number(args[0]) : 0;

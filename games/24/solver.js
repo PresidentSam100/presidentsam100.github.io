@@ -4,7 +4,7 @@
    Numbers are fractions { n, d } with d > 0 and gcd(n, d) = 1, so 8/3 is
    8/3 and never 2.6666. The page uses solve() to show the answer after a
    skip and to give hints from wherever the player has got to;
-   build-puzzles.js (Node, not loaded by the page) uses it to sort every
+   _dev/tools/24-build-puzzles.js (Node) uses it to sort every
    hand into the puzzle pools in puzzles.js.
 
    A "step" merges two cards: { a, op, b, r } with op one of + - * /.

@@ -1,6 +1,6 @@
 /* =====================================================================
-   Darkroom: nonogram logic, shared by the page and by check-puzzles.js
-   (Node). No DOM.
+   Darkroom: nonogram logic, shared by the page and by
+   _dev/tools/darkroom-check-puzzles.js (Node). No DOM.
 
    A picture is rows of "." and "#". Cells during solving are 0 unknown,
    1 filled, 2 empty. The solver plays like a careful human: it looks at

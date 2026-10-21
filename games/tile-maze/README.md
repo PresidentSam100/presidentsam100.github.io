@@ -25,25 +25,25 @@ or the window is away.
 | `editor.html` / `editor.js` / `editor.css` | level editor, linked from the game page |
 | `styles.css` | game styles |
 
-## Dev tools: Node only, NOT loaded by any page
+## Dev tools: Node only, in `_dev/tools` (which the site doesn't publish)
 
-These are command-line scripts. They `require()` Node built-ins and would throw
-in a browser; nothing links to them, so they ship as inert files.
+Command-line scripts, run from the repo's root:
 
 ```sh
-node verify.js      # BFS every level to prove it's solvable: run after editing levels.js
-node analyze.js     # score each level's DIFFICULTY (not just solution length)
-node sortlevels.js  # reorder levels.js by ascending difficulty (first 8 keep their tutorial order)
-node gen.js         # generate themed candidate levels (BFS-checked) and print the grids to paste in
+node _dev/tools/tile-maze-verify.js      # BFS every level to prove it's solvable: run after editing levels.js
+node _dev/tools/tile-maze-sortlevels.js  # reorder levels.js by ascending difficulty (first 8 keep their tutorial order)
+node _dev/tools/tile-maze-gen.js         # generate themed candidate levels (BFS-checked) and print the grids to paste in
 ```
 
-`sortlevels.js` **rewrites `levels.js` in place**: commit first.
+`tile-maze-analyze.js` scores each level's DIFFICULTY (not just solution
+length) for the other two. `tile-maze-sortlevels.js` **rewrites `levels.js` in
+place**: commit first.
 
 Each level has an `id` and a `name`. A player's progress (levels solved, best
 times) is saved under the `id`, so a level can be renamed, or the list
 re-sorted, without anyone losing theirs. Never change an `id`; a new level
-needs one of its own (its first name will do), and `verify.js` says so if one
+needs one of its own (its first name will do), and `tile-maze-verify.js` says so if one
 is missing or used twice.
 
-They all run on `engine.js` (directly, or through `analyze.js`), so the
+They all run on `engine.js` (directly, or through `tile-maze-analyze.js`), so the
 difficulty scores reflect the same move rules the game actually plays by.

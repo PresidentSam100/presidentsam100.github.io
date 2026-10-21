@@ -1,19 +1,19 @@
 /* =====================================================================
    Darkroom: puzzle checker. Node only, NOT loaded by any page.
 
-     node check-puzzles.js          check every shipped picture
-     node check-puzzles.js cat      check one, by id
-     node check-puzzles.js --daily  spot-check a year of dailies
+     node _dev/tools/darkroom-check-puzzles.js          check every shipped picture
+     node _dev/tools/darkroom-check-puzzles.js cat      check one, by id
+     node _dev/tools/darkroom-check-puzzles.js --daily  spot-check a year of dailies
 
-   A puzzle ships only if the line solver (nono.js) finishes it: then a
+   A puzzle ships only if the game's line solver (nono.js) finishes it: then a
    player never has to guess, and the solution is unique. For a stuck
    puzzle it prints the partial grid ('#' and '.' are forced, '?' is
    where placements disagree) so the picture can be nudged until it
    locks. It also checks ids are unique and every row is the right width.
    ===================================================================== */
 "use strict";
-var N = require("./nono.js");
-var ROLLS = require("./puzzles.js");
+var N = require("../../games/darkroom/nono.js");
+var ROLLS = require("../../games/darkroom/puzzles.js");
 
 var only = process.argv[2] && process.argv[2].indexOf("--") !== 0 ? process.argv[2] : null;
 var bad = 0, ids = {};

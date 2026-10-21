@@ -95,7 +95,7 @@ Controls:
 | `music.js` | one generated tune per zone |
 | `levelcode.js` | share codes for levels (`#play=` / `#edit=` links) |
 | `editor.html`, `editor.css`, `editor.js` | the level editor |
-| `solver.js`, `solver-worker.js` | the level checker, used by the editor (in a Web Worker) and by `verify.js` |
+| `solver.js`, `solver-worker.js` | the level checker, used by the editor (in a Web Worker) and by the dev tool below |
 | `styles.css` | page styles: torch-lit temple wall, sandstone tablets, stone controls |
 
 Saved data:
@@ -110,12 +110,14 @@ Saved data:
 `snake_best` and `slither_labyrinth` are listed in the hub's "reset all high
 scores" block in `games/index.html`.
 
-## Dev tool (Node only, NOT loaded by any page)
+## Dev tool (Node only, in `_dev/tools`, which the site doesn't publish)
+
+From the repo's root:
 
 ```sh
-node verify.js            # prove every level can be finished; check time limits
-node verify.js 7 --route  # one level, and print the route it found
-node verify.js --bot      # also let a bot play the enemy levels (slow)
+node _dev/tools/slither-verify.js            # prove every level can be finished; check time limits
+node _dev/tools/slither-verify.js 7 --route  # one level, and print the route it found
+node _dev/tools/slither-verify.js --bot      # also let a bot play the enemy levels (slow)
 ```
 
 Run it after editing `levels.js`. It searches for a route while modelling the
@@ -138,6 +140,6 @@ instead of passing:
 - boss fights
 - stages and arenas
 
-An unproven level can carry a hand-checked `proof` route that `verify.js`
+An unproven level can carry a hand-checked `proof` route that the checker
 replays with the enemies in play. With `--bot`, a bot also plays each level
 that has enemies, as a difficulty hint.

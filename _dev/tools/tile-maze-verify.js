@@ -1,6 +1,7 @@
-/* Dev tool: BFS over (row,col,flavor) to prove each level is solvable. */
-const { resolveMove, findStart, tileAt, isWall } = require("./engine.js");
-const LEVELS = require("./levels.js");
+/* Dev tool: BFS over (row,col,flavor) to prove each level is solvable.
+ *   node _dev/tools/tile-maze-verify.js */
+const { resolveMove, findStart, tileAt, isWall } = require("../../games/tile-maze/engine.js");
+const LEVELS = require("../../games/tile-maze/levels.js");
 
 const DIRS = ["up", "down", "left", "right"];
 

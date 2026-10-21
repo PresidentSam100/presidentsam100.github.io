@@ -4,7 +4,7 @@
    Pure rules: no DOM, no audio, no clock of its own. The page
    (labyrinth.js) feeds it input and elapsed milliseconds, then turns the
    events it leaves in `state.events` into sound and HUD updates. solver.js
-   (the level checker, used by verify.js and the editor) drives the same
+   (the level checker, used by _dev/tools/slither-verify.js and the editor) drives the same
    code, so levels are checked against the rules the game actually plays.
 
    Every snake moves on its own timer, so advance() walks time forward

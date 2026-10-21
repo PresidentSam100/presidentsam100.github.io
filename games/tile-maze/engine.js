@@ -1,7 +1,7 @@
 /*
  * Tile Maze - shared rules engine.
  * Pure logic, no DOM. Used by both the browser game (game.js)
- * and the Node level verifier (verify.js).
+ * and the Node dev tools (_dev/tools/tile-maze-*.js).
  *
  * Tile legend (single chars in level grids):
  *   r  red     - solid wall, cannot be entered
