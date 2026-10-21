@@ -162,5 +162,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
+  // ---- an upright phone's start card: each sum's two ranges on one line,
+  // the boxes whole on the card, and a three digit number whole in its box
+  const lines = {};
+  for (const [w, h] of [[320, 568], [360, 640], [390, 664], [430, 932]]) {
+    const c = await lib.newContext(browser, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+    const q = await lib.open(c, base, "games/metazac/");
+    lines[w] = await q.evaluate(() => [...document.querySelectorAll(".opt .range")].map((rg) => {
+      const ins = [...rg.querySelectorAll("input")], box = rg.closest(".settings").getBoundingClientRect();
+      const rows = new Set(ins.map((i) => Math.round(i.getBoundingClientRect().top))).size;
+      const inside = ins.every((i) => { const r = i.getBoundingClientRect(); return r.left >= box.left && r.right <= box.right; });
+      const whole = ins.every((i) => { const v = i.value; i.value = "100"; const ok = i.scrollWidth <= i.clientWidth + 1; i.value = v; return ok; });
+      return { rows, inside, whole };
+    }));
+    await c.close();
+  }
+  check("metazac, phones 320 to 430 px: each sum's two ranges stay on one line, on the card, a three digit number whole in each box",
+    Object.values(lines).every((l) => l.length === 2 && l.every((r) => r.rows === 1 && r.inside && r.whole)), lines);
+
   await ctx.close();
 };
