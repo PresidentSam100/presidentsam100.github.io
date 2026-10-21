@@ -268,7 +268,11 @@
   //   (unseen, it still names the button and holds its room), and the shape
   //   is laid over the middle of the button;
   // - the "← Games" arrow is a shape in place of the character, as wide on
-  //   every device, centred on the capitals of the word after it.
+  //   every device, centred on the capitals of the word after it;
+  // - a mark beside words in a button or link ("↻ Restart", "☰ Menu",
+  //   "Pop ✓", "Game ▾") is a shape in the line, as wide on every device,
+  //   its middle on the capitals' middle; the character stays inside it,
+  //   unseen, so the label reads (and is read out) as before.
   // [class, width, height (em), shape]; a browser with no CSS masks keeps the
   // characters.
   // (a ring open at the top right, its arrowhead at the top going clockwise)
@@ -289,6 +293,34 @@
     "⌫": ["erase", 1.13, 0.85, shape("0 3 24 18", "%3Cpath d='M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H7.07L2.4 12l4.66-7H22v14zm-11.59-2L14 13.41 17.59 17 19 15.59 15.41 12 19 8.41 17.59 7 14 10.59 10.41 7 9 8.41 12.59 12 9 15.59z'/%3E")]
   };
   MARKS["⟳"] = MARKS["↻"];
+  // The marks beside words, a size down to sit with the letters: [class,
+  // width, height (em), shape]; the tick and the three bars are drawn as
+  // heavy as the words' own strokes (wordShape: a display face can be heavy
+  // at a plain weight, so the stroke is measured from its letters)
+  var WORD_MARKS = {
+    "▶": ["right", 0.63, 0.7, MARKS["▶"][3]],
+    "◀": ["left", 0.63, 0.7, MARKS["◀"][3]],
+    "▸": ["right-small", 0.42, 0.47, MARKS["▶"][3]],
+    "◂": ["left-small", 0.42, 0.47, MARKS["◀"][3]],
+    "▾": ["down", 0.5, 0.45, MARKS["▼"][3]],
+    "↻": ["cw", 0.72, 0.86, MARKS["↻"][3]],
+    "↺": ["ccw", 0.72, 0.86, MARKS["↺"][3]],
+    "↶": ["undo", 0.8, 0.35, MARKS["↶"][3]],
+    "↷": ["redo", 0.8, 0.35, MARKS["↷"][3]],
+    "☰": ["menu", 0.72, 0.61, null],
+    "✓": ["tick", 0.8, 0.63, null]
+  };
+  WORD_MARKS["⟳"] = WORD_MARKS["↻"];
+  var WORD_RE = /[▶◀▸◂▾↻⟳↺↶↷☰✓][︎️]?/;
+  // (stem: the face's upright stroke, in em; the tick is 0.8em across 24
+  // units, the bars 0.72em across 20, and each takes 0.9 of the stem)
+  function wordShape(ch, stem) {
+    if (ch === "✓") return shape("0 0 24 19", "%3Cpath d='M2.5 10L9 16.5L21.5 2.5' fill='none' stroke='%23000' stroke-width='" +
+      Math.max(2.2, Math.min(5, stem * 0.9 * 24 / 0.8)).toFixed(2) + "' stroke-linecap='round' stroke-linejoin='round'/%3E");
+    var bh = Math.max(2, Math.min(4.4, stem * 0.9 * 20 / 0.72));
+    var h = bh.toFixed(2), r = (bh / 2).toFixed(2), mid = ((17 - bh) / 2).toFixed(2), low = (17 - bh).toFixed(2);
+    return shape("0 0 20 17", [0, mid, low].map(function (y) { return "%3Crect y='" + y + "' width='20' height='" + h + "' rx='" + r + "'/%3E"; }).join(""));
+  }
   // (window.CSS: the CSS here is the FX-off rules above)
   var MASKS = !!(window.CSS && window.CSS.supports && (window.CSS.supports("mask-image", "none") || window.CSS.supports("-webkit-mask-image", "none")));
   (function injectMarks() {
@@ -306,7 +338,18 @@
         return ".gs-mark-" + m[0] + "::before{width:" + m[1] + "em;height:" + m[2] + "em;margin:" + (-m[2] / 2) + "em 0 0 " + (-m[1] / 2) + "em;--gs-ico:" + m[3] + "}";
       }).join("") +
       // (lifted to the capitals' middle by arrowLift; .14em until it's measured)
-      ".gs-back-arrow{display:inline-block;width:.85em;height:.425em;vertical-align:.14em;" + fill;
+      ".gs-back-arrow{display:inline-block;width:.85em;height:.425em;vertical-align:.14em;" + fill +
+      // a mark beside words: its box, a little room either side as a face
+      // gives its marks, the character in it at no size (lifted to the
+      // capitals' middle by symLift; .05em until it's measured)
+      ".gs-sym{display:inline-block!important;position:relative!important;overflow:hidden!important;margin:0 .09em!important;padding:0!important;" +
+      "border:0!important;background:none!important;font-size:inherit!important;vertical-align:.05em}" +
+      ".gs-sym>span{font-size:0!important;line-height:0!important}" +
+      ".gs-sym::before{content:'';position:absolute;inset:0;pointer-events:none;" + fill +
+      Object.keys(WORD_MARKS).map(function (k) {
+        var m = WORD_MARKS[k];
+        return ".gs-sym-" + m[0] + "{width:" + m[1] + "em!important;height:" + m[2] + "em!important" + (m[3] ? ";--gs-ico:" + m[3] : "") + "}";
+      }).join("");
     (document.head || document.documentElement).appendChild(st);
   })();
   function markButton(b) {
@@ -324,7 +367,85 @@
   function markAll(root) {
     var bs = root.querySelectorAll("button");
     for (var i = 0; i < bs.length; i++) markButton(bs[i]);
+    markWords(root);
     steadyLines(root);
+  }
+  // the marks beside words in the labels in root (root itself too)
+  var LABELS = "button,a,[role=button],summary";
+  function markWords(root) {
+    if (!MASKS || !root || !root.querySelectorAll) return;
+    var hosts = Array.prototype.slice.call(root.querySelectorAll(LABELS));
+    if (root.matches && root.matches(LABELS)) hosts.push(root);
+    hosts.forEach(function (h) {
+      // (a lone mark is markButton's; the corner row and "← Games" have their own)
+      if (!WORD_RE.test(h.textContent) || !/[A-Za-z0-9]/.test(h.textContent) || h.closest(".gs-corner,.nav-back-games") || h.isContentEditable) return;
+      var walk = document.createTreeWalker(h, NodeFilter.SHOW_TEXT), found = [], n;
+      while ((n = walk.nextNode())) if (WORD_RE.test(n.data) && !n.parentElement.closest(".gs-sym,.gs-mark,kbd,.gs-kbd,svg,script,style")) found.push(n);
+      found.forEach(markText);
+    });
+  }
+  function markText(n) {
+    var d = getComputedStyle(n.parentElement).display;
+    // (in a flex or grid box each run of text is an item of its own, and the
+    // space between a mark and its word would be lost at the item's edge: the
+    // whole run goes in one box first)
+    if (/flex|grid/.test(d)) {
+      var run = document.createElement("span");
+      run.className = "gs-words";
+      n.parentNode.insertBefore(run, n);
+      run.appendChild(n);
+    }
+    var m;
+    while (n && (m = WORD_RE.exec(n.data))) {
+      var ch = n.splitText(m.index), rest = ch.splitText(m[0].length), w = WORD_MARKS[m[0].charAt(0)];
+      var box = document.createElement("span"), inner = document.createElement("span");
+      box.className = "gs-sym gs-sym-" + w[0];
+      ch.parentNode.insertBefore(box, ch);
+      box.appendChild(inner);
+      inner.appendChild(ch);
+      symLift(box);
+      n = rest;
+    }
+  }
+  // A mark's middle on the capitals' middle: their height measured from the
+  // face's own letters (as the "← Games" arrow's), and the tick's and bars'
+  // weight from its stroke, again once a web font arrives
+  var capHOf = {}, stemOf = {};
+  function symLift(box) {
+    try {
+      var cs = getComputedStyle(box), key = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontFamily, h = parseFloat(cs.height) / parseFloat(cs.fontSize);
+      if (!(key in capHOf)) {
+        capCtx = capCtx || document.createElement("canvas").getContext("2d");
+        capCtx.font = cs.fontStyle + " " + cs.fontWeight + " 100px " + cs.fontFamily;
+        var cap = capCtx.measureText("H").actualBoundingBoxAscent / 100;
+        capHOf[key] = cap > 0.3 && cap < 1.2 ? cap : 0;
+      }
+      if (capHOf[key] && h > 0) box.style.verticalAlign = ((capHOf[key] - h) / 2).toFixed(3) + "em";
+      var ch = box.textContent.charAt(0);
+      if (!WORD_MARKS[ch][3]) box.style.setProperty("--gs-ico", wordShape(ch, stem(cs, key)));
+    } catch (e) {}
+  }
+  // the face's upright stroke: the ink across an "l" halfway up its stem
+  function stem(cs, key) {
+    if (key in stemOf) return stemOf[key];
+    var s = 0;
+    try {
+      var c = document.createElement("canvas");
+      c.width = 160; c.height = 1;
+      var x = c.getContext("2d");
+      x.font = cs.fontStyle + " " + cs.fontWeight + " 100px " + cs.fontFamily;
+      x.fillText("l", 40, 40);
+      var row = x.getImageData(0, 0, 160, 1).data;
+      for (var i = 3; i < row.length; i += 4) s += row[i] / 255;
+      s /= 100;
+    } catch (e) {}
+    // (a face that hides its letters from the canvas: a plain regular stroke)
+    return (stemOf[key] = s > 0.03 && s < 0.3 ? s : 0.09);
+  }
+  function symLiftAll() {
+    capHOf = {}; stemOf = {};
+    var all = document.querySelectorAll(".gs-sym");
+    for (var i = 0; i < all.length; i++) symLift(all[i]);
   }
   // A line of normal height is as tall as the tallest face in it, and an
   // emoji or a mark the game's face lacks brings in the device's own face
@@ -583,6 +704,8 @@
       list.forEach(function (m) {
         if (m.type === "attributes") { found.push(m.target); return; }
         if (m.target.nodeType === 1 && m.target.tagName === "BUTTON") markButton(m.target);
+        // (a label's words rewritten: its marks drawn again)
+        if (m.target.nodeType === 1 && m.target.closest) markWords(m.target.closest(LABELS));
         m.addedNodes.forEach(function (nd) {
           if (nd.nodeType !== 1) return;
           if (nd.matches(CAP_SEL)) found.push(nd);
@@ -596,8 +719,8 @@
     }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-gs-key"] });
     // a web font in: the faces are measured afresh
     if (document.fonts && document.fonts.addEventListener)
-      document.fonts.addEventListener("loadingdone", function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); steadyAgain(); });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); steadyAgain(); });
+      document.fonts.addEventListener("loadingdone", function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); symLiftAll(); steadyAgain(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { capOf = {}; rootCap = null; capsAll(); arrowLift(); symLiftAll(); steadyAgain(); });
   }
 
   var btn = null, shown = "";

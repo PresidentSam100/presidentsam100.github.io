@@ -5,6 +5,8 @@
 // - the "← Games" arrow is a shape, its middle on the capitals' middle;
 // - a button whose label is just ◀ ▶ ▲ ▼ ● ⟳ ⌫ and the like has the shape
 //   laid over its middle;
+// - a mark beside words in a button or link (↻ Restart, ☰ Menu, Pop ✓,
+//   Game ▾) is a shape in the line, its middle on the capitals' middle;
 // - a line of normal height holding a lent character keeps the height its
 //   own face gives it. Checked by lending taller faces: a test face over the
 //   lent ones with far more ascent and descent, first in every stack but
@@ -78,6 +80,25 @@ module.exports = async ({ browser, base, check, lib }) => {
       const y = box.t + parseFloat(cs.top) + parseFloat(cs.marginTop) + parseFloat(cs.height) / 2;
       marks.push({ t, shape: cs.content !== "none" && parseFloat(cs.width) > 0, off: +Math.max(Math.abs(x - (box.l + box.r) / 2), Math.abs(y - (box.t + box.b) / 2)).toFixed(2) });
     }
+    // the marks beside words in labels, shown or not: each a shape, and where
+    // shown its middle on the capitals' middle
+    const words = { un: [], off: [] }, WORD = /[▶◀▸◂▾↻⟳↺↶↷☰✓]/;
+    for (const h of document.querySelectorAll("button,a,[role=button],summary")) {
+      if (h.closest(".gs-corner,.nav-back-games") || !/[A-Za-z0-9]/.test(h.textContent)) continue;
+      const w = document.createTreeWalker(h, NodeFilter.SHOW_TEXT);
+      for (let n; (n = w.nextNode());) if (WORD.test(n.data) && !n.parentElement.closest(".gs-sym,.gs-mark,kbd,.gs-kbd")) words.un.push(h.textContent.trim().replace(/\s+/g, " ").slice(0, 24));
+    }
+    for (const s of document.querySelectorAll(".gs-sym")) {
+      const r = s.getBoundingClientRect();
+      if (!r.width || getComputedStyle(s, "::before").content === "none") continue;
+      const mk = document.createElement("span");
+      mk.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+      s.parentNode.insertBefore(mk, s.nextSibling); const base = mk.getBoundingClientRect().bottom; mk.remove();
+      const c = document.createElement("canvas").getContext("2d"), cs = getComputedStyle(s.parentElement);
+      c.font = cs.fontStyle + " " + cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+      const off = (r.top + r.bottom) / 2 - (base - c.measureText("H").actualBoundingBoxAscent / 2);
+      if (!(Math.abs(off) <= 1)) words.off.push(s.parentElement.textContent.trim().slice(0, 24) + " " + off.toFixed(2));
+    }
     // the web fonts the page asks for, and the first face of its text and its back link
     const urls = Array.from(document.querySelectorAll('link[href*="fonts.googleapis"]')).map((l) => l.href);
     for (const sh of Array.from(document.styleSheets)) { try { for (const r of Array.from(sh.cssRules)) if (r.href && /fonts\.googleapis/.test(r.href)) urls.push(r.href); } catch (e) {} }
@@ -86,7 +107,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const first = (el) => getComputedStyle(el).fontFamily.split(",")[0].trim().replace(/^["']|["']$/g, "");
     const web = { body: first(document.body), back: back ? first(back) : null, loads: [...fams] };
     web.ok = fams.has(web.body) && (!back || fams.has(web.back));
-    return { tsa, arrow, marks, web };
+    return { tsa, arrow, marks, words, web };
   }, MARKS);
 
   // lend taller faces: whose letters move in their box, or whose box grows?
@@ -134,13 +155,14 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   const SHAPED = (l) => l.marks.every((m) => m.shape && m.off <= 0.5);
   const pages = lib.gamePages();
-  const bad = { tsa: [], arrow: [], marks: [], lent: [], control: [], web: [] };
+  const bad = { tsa: [], arrow: [], marks: [], words: [], lent: [], control: [], web: [] };
   for (const g of pages) {
     const p = await lib.open(ctx, base, "games/" + g);
     const l = await look(p);
     if (l.tsa !== "100%") bad.tsa.push(g + " " + l.tsa);
     if (!l.arrow || !l.arrow.shape || /←/.test(l.arrow.text) || !(Math.abs(l.arrow.off) <= 1)) bad.arrow.push(g + " " + JSON.stringify(l.arrow));
     if (!SHAPED(l)) bad.marks.push(g + " " + JSON.stringify(l.marks));
+    if (l.words.un.length || l.words.off.length) bad.words.push(g + " " + JSON.stringify(l.words));
     if (!l.web.ok) bad.web.push(g + " " + JSON.stringify(l.web));
     const s = await lent(p);
     if (s.moved.length) bad.lent.push(g + ": " + s.moved.slice(0, 4).join(", "));
@@ -161,6 +183,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("every game's \"← Games\" arrow is a shape, not a lent character, its middle within 1px of the capitals' middle (" + pages.length + " pages)", bad.arrow.length === 0, bad.arrow);
   check("every game's page and its \"← Games\" button start with a web font the page loads, not the device's own (" + pages.length + " pages)", bad.web.length === 0, bad.web);
   check("every button that is just ◀ ▶ ▲ ▼ ● ⌫ or the like on a first screen has its shape laid over the button's middle (within 0.5px)", bad.marks.length === 0, bad.marks);
+  check("every ▶ ◀ ▸ ◂ ▾ ↻ ⟳ ↺ ↶ ↷ ☰ ✓ beside words in a button or link (the pause card's too) is a shape, its middle within 1px of the capitals' middle (" + pages.length + " pages)", bad.words.length === 0, bad.words);
   check("with taller faces lent for the marks and emoji, no label's letters move in their box and no box changes height (" + n + " pages)", bad.lent.length === 0, bad.lent);
   check("(the taller lent faces arrive: a control line outside the fix grows by 3px or more on every page)", bad.control.length === 0, bad.control);
 
@@ -181,9 +204,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
+  // ---- a label the game writes afresh gets its shape again, and reads the same
+  let p = await lib.open(ctx, base, "games/klondike/");
+  const rewrite = await p.evaluate(async () => {
+    const b = Array.from(document.querySelectorAll("button")).find((e) => /Game/.test(e.textContent));
+    b.textContent = "↻ Again ▾";
+    await new Promise((r) => setTimeout(r, 50));
+    return { text: b.textContent, shapes: Array.from(b.querySelectorAll(".gs-sym")).map((s) => s.className) };
+  });
+  check("a label written afresh (\"↻ Again ▾\") gets its marks drawn as shapes again, its text the same",
+    rewrite.text === "↻ Again ▾" && rewrite.shapes.length === 2, rewrite);
+  await p.close();
+
   // ---- drawn as text, where a phone may draw an emoji
   const VS = "︎";
-  let p = await lib.open(ctx, base, "games/chess/");
+  p = await lib.open(ctx, base, "games/chess/");
   const pawns = await p.evaluate(() => Array.from(document.querySelectorAll(".sq .pc, .sq span")).map((e) => e.textContent).filter((t) => t.startsWith("♟")));
   const chessTitle = await p.evaluate(() => document.querySelector("h1").textContent);
   check("chess: every pawn on the board, and the ♟ in the title, ask to be drawn as text", pawns.length === 16 && pawns.every((t) => t === "♟" + VS) && chessTitle.startsWith("♟" + VS), { pawns: pawns.length, sample: pawns[0] && [...pawns[0]].map((c) => c.codePointAt(0).toString(16)), chessTitle });
