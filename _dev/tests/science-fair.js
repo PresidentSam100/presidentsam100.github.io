@@ -5,6 +5,7 @@
 // are far bigger than the rocky planets and hang by two strings; and the board
 // shows the mode's own planets: all nine, or in Classic the four rocky ones,
 // closed in on and spread across it, the others slid away, the sun still in.
+// With Visual FX on, the glide between those views keeps every thread tied.
 // The report card's grade stamp sits on none of its words, phones included.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
@@ -119,6 +120,58 @@ module.exports = async ({ browser, base, check, lib }) => {
       { classic: classic.planets.map((q) => [q.left, q.right, q.w]), sun: classic.sun });
     check("science-fair (diorama): no page errors", p.errs.length === 0, p.errs);
     await p.close();
+    await ctx.close();
+  }
+
+  // ---- a change of view with Visual FX on: as the planets glide (Grand Tour
+  // to Classic and back), every frame each tag's two threads run from its
+  // cutout's edge down to the tag, each cutout's string down to its paper, and
+  // each knot in sight sits on the ruler or on the wire, still showing, and
+  // between its ends (in Classic the ruler runs on past the board's edge, so
+  // the ones sliding away never leave it). (The
+  // tags' threads were tied only as the glide began and once it was over, so
+  // they hung in the air where the cutouts had been, up to 300 px off; on a
+  // phone the outer four slid in at the ruler's height and dropped to the
+  // wire on the way, their knots on nothing.)
+  for (const [label, opts] of [["desktop", {}], ["phone", devices["Pixel 7"]]]) {
+    const ctx = await lib.newContext(browser, opts);
+    const p = await lib.open(ctx, base, "games/science-fair/");
+    await p.evaluate(() => { if (window.RM_ON()) document.querySelector(".rm-toggle").click(); });
+    const glide = (from, to) => p.evaluate(([from, to]) => new Promise((res) => {
+      const key = (k) => document.dispatchEvent(new KeyboardEvent("keydown", { key: k, code: "Digit" + k, bubbles: true }));
+      const A = window.SciArt, worst = { ties: 0, string: 0, knot: 0 }, at = {};
+      const look = () => [...document.querySelectorAll("#planets .hang")].forEach((h, i) => {
+        const btn = h.querySelector("button.pad"), str = h.querySelector(".string"), tag = h.querySelector(".tag"), ties = h.querySelectorAll(".tie");
+        // (in the cutout's own frame: the sway turns it all together)
+        const r = A.PLANETS[i].r * btn.offsetWidth / A.planetSVG(i).w, cx = h.offsetWidth / 2, cy = btn.offsetTop + btn.offsetHeight / 2;
+        const d = Math.max(4, Math.min(tag.offsetWidth / 2 - 8, r * 0.7)), edge = cy + Math.sqrt(Math.max(0, r * r - d * d)) - 3;
+        let off = 0;
+        [-d, d].forEach((dx, k) => {
+          const t = ties[k];
+          off = Math.max(off, Math.abs(t.offsetLeft + 0.75 - (cx + dx)), Math.abs(t.offsetTop - edge), Math.abs(t.offsetTop + t.offsetHeight - (tag.offsetTop + 3)));
+        });
+        const foot = str.offsetTop + str.offsetHeight + (parseFloat(getComputedStyle(str).marginBottom) || 0);
+        // (a knot is on a line when at its height and between its ends)
+        const rr = document.getElementById("ruler").getBoundingClientRect(), wire = document.getElementById("wire"), ws = getComputedStyle(wire), wr = wire.getBoundingClientRect();
+        const kx = h.offsetLeft + h.offsetWidth / 2, along = (b) => Math.max(0, b.left - kx, kx - b.right);
+        const onRuler = Math.max(Math.abs(h.offsetTop - rr.bottom), along(rr));
+        const onWire = ws.visibility !== "hidden" && +ws.opacity > 0.05 ? Math.max(Math.abs(h.offsetTop - wire.offsetTop), along(wr)) : Infinity;
+        const seen = h.getBoundingClientRect().left < innerWidth - 20 && kx < innerWidth;
+        const q = { ties: off, string: Math.abs(foot - (cy - r)), knot: seen ? Math.min(onRuler, onWire) : 0 };
+        Object.keys(q).forEach((k) => { if (q[k] > worst[k]) { worst[k] = q[k]; at[k] = A.PLANETS[i].name; } });
+      });
+      key(from);
+      setTimeout(() => {
+        key(to);
+        const t0 = performance.now();
+        (function tick() { look(); if (performance.now() - t0 < 1100) requestAnimationFrame(tick); else res({ worst: Object.fromEntries(Object.entries(worst).map(([k, v]) => [k, Math.round(v * 10) / 10])), at }); })();
+      }, 1300);
+    }), [from, to]);
+    const toClassic = await glide("2", "1"), toGrand = await glide("1", "2");
+    const ok = (g) => g.worst.ties <= 2 && g.worst.string <= 2 && g.worst.knot <= 2;
+    check("science-fair (" + label + "), Visual FX on: as the view glides to Classic and back, the tags' threads stay tied to their cutouts and the knots to the ruler or the wire, every frame",
+      ok(toClassic) && ok(toGrand), { toClassic, toGrand });
+    check("science-fair (" + label + ", glide): no page errors", p.errs.length === 0, p.errs);
     await ctx.close();
   }
 

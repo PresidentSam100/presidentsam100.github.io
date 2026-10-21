@@ -71,6 +71,11 @@ body::after {
   background: var(--thread);
   box-shadow: 0 2px 3px rgba(0, 0, 0, 0.25);
 }
+/* (not on a wide board, nor in Classic, where the board has closed in) */
+#wire.gone { opacity: 0; visibility: hidden; }
+/* in Classic the ruler and the wire run on past the board's right edge, where
+   the planets not in play hang out of sight (game.js) */
+#ruler.long, #wire.long { right: -300%; }
 
 /* one hanging cutout: string + planet button + masking-tape tag */
 .hang {
@@ -92,13 +97,20 @@ body::after {
 }
 .hang.two .knot::before { left: -2.5px; }
 .hang.two .knot::after { right: -2.5px; }
+/* (otherwise none of it glides: the FX-off switch only shortens a transition,
+   and Safari then reports a cutout's old place for a frame, which its tag's
+   threads would be tied to) */
+#wire, .hang, .hang .string, .hang .knot, .hang .tie, .hang .tag { transition: none; }
 /* A change of view (a mode picked, a window resized) glides: the planets to
-   their new places and sizes, their threads with them, and the sun. Only with
+   their new places and sizes, their threads with them (the tags' own two are
+   tied again each frame: game.js), the wire, and the sun. Only with
    Visual FX on, and not the first hanging as the page opens (.hung). */
 .fxon.hung .hang { transition: left 0.9s cubic-bezier(0.4, 0, 0.2, 1), top 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.5s ease; }
 .fxon.hung .hang .string { transition: height 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), margin-bottom 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
 .fxon.hung .hang .knot { transition: width 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
 .fxon.hung .hang button.pad { transition: transform 0.12s ease, filter 0.12s ease, width 0.9s cubic-bezier(0.4, 0, 0.2, 1), margin-top 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+.fxon.hung #ruler { transition: right 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
+.fxon.hung #wire { transition: top 0.9s cubic-bezier(0.4, 0, 0.2, 1), right 0.9s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.9s; }
 .fxon.hung #sun { transition: left 0.9s cubic-bezier(0.4, 0, 0.2, 1), top 0.9s cubic-bezier(0.4, 0, 0.2, 1), width 0.9s cubic-bezier(0.4, 0, 0.2, 1), height 0.9s cubic-bezier(0.4, 0, 0.2, 1); }
 
 .hang button.pad {

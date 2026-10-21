@@ -169,11 +169,13 @@
   // Each tag hangs from its cutout by two threads, a little in from the tag's
   // ends, up to where they meet the paper's round edge (and on behind it).
   // Measured in the cutout's own frame (offsets: the sway's turn leaves them
-  // be), so the threads turn with it.
-  var tieT = 0;
+  // be), so the threads turn with it. The cutout's size is read as it is this
+  // moment (mid-glide it is on its way to p.r), so the threads keep up.
+  var tieT = 0, tieTill = 0;
   function tie() {
-    pads.forEach(function (p) {
-      var tag = p.el.querySelector(".tag"), ties = p.el.querySelectorAll(".tie"), r = p.r;
+    pads.forEach(function (p, i) {
+      var tag = p.el.querySelector(".tag"), ties = p.el.querySelectorAll(".tie");
+      var r = A.PLANETS[i].r * p.btn.offsetWidth / p.box.w;
       if (!tag || ties.length < 2 || !r) return;
       var cx = p.el.offsetWidth / 2, cy = p.btn.offsetTop + p.btn.offsetHeight / 2;
       var d = Math.max(4, Math.min(tag.offsetWidth / 2 - 8, r * 0.7));
@@ -187,13 +189,22 @@
   function layout() {
     boardW = window.innerWidth; boardH = window.innerHeight;
     var twoRows = boardW < 820, close = active() === 4;
-    $("wire").hidden = !twoRows || close;
+    // (the wire fades with the glide, so the cutouts sliding off along it
+    // hang from it till they are gone: styles.css)
+    $("wire").classList.toggle("gone", !twoRows || close);
+    // (and in Classic the ruler and the wire run on past the board's right
+    // edge, gliding out as the planets do, so the ones slid away keep to them)
+    $("ruler").classList.toggle("long", close);
+    $("wire").classList.toggle("long", close);
     var rulerR = $("ruler").getBoundingClientRect();
     var anchor1 = rulerR.bottom;
     var anchor2 = boardH * 0.44;
     if (twoRows) $("wire").style.top = anchor2 + "px";
 
-    var rows = close ? [[0, 1, 2, 3]] : twoRows ? [[0, 1, 2, 3, 4], [5, 6, 7, 8]] : [[0, 1, 2, 3, 4, 5, 6, 7, 8]];
+    // (on a phone the outer four hang from the wire, and keep to it while
+    // slid away, so a change of view slides them in and out along it)
+    var lower = twoRows ? [5, 6, 7, 8] : [];
+    var rows = close ? [[0, 1, 2, 3]] : twoRows ? [[0, 1, 2, 3, 4], lower] : [[0, 1, 2, 3, 4, 5, 6, 7, 8]];
     var away = close ? [4, 5, 6, 7, 8] : [];
     // side margins leave room for the masking-tape tags, which are wider
     // than the smallest cutouts
@@ -224,18 +235,18 @@
     var sk = Math.max(0.35, Math.min(2.2, vroom / 220));
 
     var past = boardW + 50;                            // where the ones slid away begin
-    rows.concat([away]).forEach(function (row, ri) {
+    rows.concat([away]).forEach(function (row) {
       var gone = row === away;
-      var anchor = ri === 0 || gone ? anchor1 : anchor2;
       var total = gap * (row.length - 1);
       row.forEach(function (i) { total += 2 * halfW(i) * scale; });
       var x = gone ? past : (boardW - total) / 2;
       row.forEach(function (i) {
         var p = pads[i], base = A.PLANETS[i], k = scale * own(i);
+        var low = lower.indexOf(i) !== -1, anchor = low ? anchor2 : anchor1;
         var dr = base.r * k;                           // on-screen radius
         var hw = halfW(i) * scale;                     // half the footprint
         var sw = p.box.w * k;                          // svg box width on screen
-        var sl = Math.max(26, STRINGS[i] * sk * (ri === 1 && !gone ? 0.9 : 1));
+        var sl = Math.max(26, STRINGS[i] * sk * (low ? 0.9 : 1));
         p.x = x + hw; p.y = anchor + sl + dr; p.r = dr;
         p.el.style.left = (p.x - sw / 2) + "px";
         p.el.style.top = anchor + "px";
@@ -264,8 +275,13 @@
       });
     });
     tie();
-    // (and again once a gliding change of view has settled)
-    clearTimeout(tieT); tieT = setTimeout(tie, 950);
+    // (and again every frame while a gliding change of view settles: the tags
+    // ride their cutouts, and their threads must stay tied to both)
+    tieTill = performance.now() + 950;
+    if (!tieT) tieT = requestAnimationFrame(function step() {
+      tie();
+      tieT = performance.now() < tieTill ? requestAnimationFrame(step) : 0;
+    });
 
     // foil asteroids high up between the planets
     [[0.13, 20, 40], [0.36, 34, 30], [0.63, 26, 44], [0.88, 40, 34]].forEach(function (cfg, k) {
