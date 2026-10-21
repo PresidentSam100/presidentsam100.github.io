@@ -65,6 +65,46 @@ module.exports = async ({ browser, base, check, lib }) => {
       await key("a", false); const f1 = await fleet(); await key("a", true); await key("a", true); const f2 = await fleet();
       const drops = await q.evaluate(() => ({ drop: document.querySelectorAll("#playerGrid .cell.drop").length, ship: document.querySelectorAll("#playerGrid .cell.ship").length,
         swell: getComputedStyle(document.getElementById("playerGrid"), "::before").animationName }));
+      // A new fleet at random over the last one (FX on): every ship comes down
+      // whole, never a cell of it ahead of the rest, also where it lies on a
+      // cell a ship of the last fleet had (that cell kept its old drop, long
+      // landed, and showed at once). Read the moment A is pressed (every hull
+      // still to come down) and mid-drop (each ship's cells all alike); then
+      // A pressed again and again, and all landed in the end.
+      const over = fxOff ? null : await q.evaluate(async () => {
+        const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+        const cells = () => [...document.querySelectorAll("#playerGrid .cell.ship")];
+        // (how far down its drop a hull is: its fade and its scale, which a
+        // cell's own size doesn't change as it does the shift)
+        const look = (e) => { const s = getComputedStyle(e, "::before"), m = /matrix\(([-\d.e]+)/.exec(s.transform); return (+s.opacity).toFixed(2) + " " + (m ? (+m[1]).toFixed(3) : s.transform); };
+        const shown = () => cells().filter((e) => getComputedStyle(e, "::before").opacity !== "0").length;
+        // the ships whose cells don't all look alike (each ship has its own grey, ship0 to ship4)
+        const split = () => {
+          const by = {};
+          cells().forEach((e) => { const k = [...e.classList].find((c) => /^ship\d$/.test(c)); (by[k] = by[k] || new Set()).add(look(e)); });
+          return Object.keys(by).filter((k) => by[k].size > 1);
+        };
+        const random = () => document.getElementById("randomBtn").click();
+        const res = { tries: 0, shared: 0 };
+        await wait(1300);   // the last fleet all landed
+        while (!res.shared && res.tries < 12) {
+          const old = new Set(cells().map((e) => e.dataset.r + "," + e.dataset.c));
+          random(); res.tries++;
+          res.shared = cells().filter((e) => old.has(e.dataset.r + "," + e.dataset.c)).length;
+          if (!res.shared) await wait(1300);
+        }
+        res.shownAt0 = shown();
+        res.split = [];
+        for (let i = 0; i < 6; i++) { await wait(60); res.split.push(...split()); }
+        for (let i = 0; i < 5; i++) { random(); await wait(45); }
+        random(); res.again = { shownAt0: shown(), split: [] };
+        for (let i = 0; i < 6; i++) { await wait(60); res.again.split.push(...split()); }
+        await wait(1300);
+        res.landed = cells().filter((e) => /^1\.00 (none|1\.000)$/.test(look(e))).length; res.cells = cells().length;
+        return res;
+      });
+      if (over) check("salvo " + label + ", Visual FX on: a fleet dealt at random over the last one drops ship by ship, each ship whole, none of its cells ahead (also where it lies on a cell of the last fleet, and with A pressed again and again)",
+        over.shared > 0 && over.shownAt0 === 0 && !over.split.length && over.again.shownAt0 === 0 && !over.again.split.length && over.landed === 17 && over.cells === 17, over);
       // a ship set down by hand, on a fresh fleet screen
       await q.click("#resetBtn");
       await q.click('#playerGrid .cell[data-r="0"][data-c="0"]');

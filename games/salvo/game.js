@@ -104,6 +104,11 @@
   // another: --dd, when). With FX off it's simply there.
   function dropIn(ships) {
     if (window.RM_ON && window.RM_ON()) return;
+    // render() has just taken every cell's drop away; the page is made to see
+    // that before the new drops go on. Otherwise a cell that held a ship of
+    // the last fleet and holds one of the new fleet keeps its old drop, long
+    // landed, and shows before the rest of its ship comes down.
+    void playerGrid.offsetWidth;
     ships.forEach((ship, i) => ship.cells.forEach((p) => {
       const e = cellEl(playerGrid, p[0], p[1]);
       if (e) { e.style.setProperty("--dd", (i * 90) + "ms"); e.classList.add("drop"); }
