@@ -133,11 +133,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["style", "class"] });
     window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => {});
     look();
-    // (done once a name has shown, by the page's clock: the reveal is at ~0.9 s)
+    // (done once a name has shown, by the page's clock: the reveal is at ~1.6 s)
     (function wait(n) { if (/You|CPU/.test(last || "") || n > 600) setTimeout(() => { mo.disconnect(); res(log); }, 400); else setTimeout(() => wait(n + 1), 20); })(0);
   }));
   const shown = seen.filter(Boolean);
   check("coin flip, FX off: a neutral ? then the winner, no flashing between names", shown.length <= 2 && /^\?/.test(shown[0]) && /You|CPU/.test(shown[shown.length - 1]), seen);
+  // the same flip with FX on and off: the winner shows, and the box goes, at
+  // the same moments (by the page's clock, so a slow machine slows both)
+  const flipTimes = async () => { await p.waitForFunction(() => !document.querySelector(".cf-overlay")); return p.evaluate(() => new Promise((res) => {
+    const t0 = performance.now(); let named = null;
+    const mo = new MutationObserver(() => { const s = document.querySelector(".cf-sub"); if (named === null && s && /first/.test(s.textContent)) named = performance.now() - t0; });
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+    window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => { mo.disconnect(); res({ named: Math.round(named), done: Math.round(performance.now() - t0) }); });
+  })); };
+  const flipOff = await flipTimes();
+  await p.evaluate(() => localStorage.setItem("reduceMotion:tic-tac-toe", "0")); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  const flipOn = await flipTimes();
+  check("coin flip: as long with FX off as with FX on (the winner named and the box gone at the same moments)",
+    Math.abs(flipOff.named - flipOn.named) <= 120 && Math.abs(flipOff.done - flipOn.done) <= 120, { flipOff, flipOn });
   await p.close();
   await c2.close();
 

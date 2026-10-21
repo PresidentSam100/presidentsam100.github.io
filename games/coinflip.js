@@ -3,8 +3,9 @@
    who goes first, then calls back with "you" or "cpu".
 
    - Visual FX ON  -> a slot-machine reel that spins and decelerates.
-   - Visual FX OFF -> a neutral "?" for a few slow ticks, then the winner
-                      fades in once (alternating the names read as a strobe).
+   - Visual FX OFF -> a neutral "?" in place to the same ticks, then the
+                      winner fades in once (alternating the names read as a
+                      strobe). Both take the same time.
 
    Usage:
      coinFlip({ you: "You (X)", cpu: "CPU (O)", accent: "#89b4fa" },
@@ -87,6 +88,10 @@
       setTimeout(function () { ov.remove(); if (cb) cb(result); }, 850);
     }
 
+    // the reel's ticks as it slows, and when it stops (the calm version keeps
+    // the same beat, so a flip takes as long with FX off)
+    var TICKS = [0, 80, 170, 270, 380, 500, 640, 800, 990, 1210, 1430], STOP_MS = 1560;
+
     // A strictly-alternating run of ~base frames that STARTS on a random side and
     // ENDS on the winner, so the opening frame never reveals who was picked.
     function buildSeq(base) {
@@ -98,19 +103,20 @@
     }
 
     if (reduce) {
-      // ---- calm version: the same card, a neutral "?" while it "flips" to a
-      // few slow ticks, then the winner fades in once. (It used to swap the two
-      // names in their colours from ~55ms apart, which read as a strobe.) The
-      // fade uses el.animate, which the FX-off CSS switch doesn't flatten. ----
+      // ---- calm version: the same card, a neutral "?" while it "flips" to the
+      // reel's ticks, then the winner fades in once, as the reel would stop.
+      // (It used to swap the two names in their colours from ~55ms apart,
+      // which read as a strobe.) The fade uses el.animate, which the FX-off
+      // CSS switch doesn't flatten. ----
       win.innerHTML = '<div class="cf-nm cf-q">?</div>';
       var nm = win.querySelector(".cf-nm");
-      [0, 220, 440, 660].forEach(function (t, k) { setTimeout(function () { tick(k % 2); }, t); });
+      TICKS.forEach(function (t, k) { setTimeout(function () { tick(k % 2); }, t); });
       setTimeout(function () {
         nm.classList.remove("cf-q");
         nm.textContent = sFaces[resIdx]; nm.style.color = cols[resIdx];
         if (nm.animate) nm.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
         finish();
-      }, 880);
+      }, STOP_MS);
     } else {
       // ---- slot-machine reel: a strip of names that spins up and decelerates ----
       var lineH = win.clientHeight || 70;
@@ -127,9 +133,9 @@
       win.appendChild(strip);
       var travel = (seq.length - 1) * lineH;
       strip.style.transition = "transform 1.5s cubic-bezier(0.12, 0.78, 0.18, 1)";
-      [0, 80, 170, 270, 380, 500, 640, 800, 990, 1210, 1430].forEach(function (t, kk) { setTimeout(function () { tick(kk % 2); }, t); });
+      TICKS.forEach(function (t, kk) { setTimeout(function () { tick(kk % 2); }, t); });
       requestAnimationFrame(function () { requestAnimationFrame(function () { strip.style.transform = "translateY(-" + travel + "px)"; }); });
-      setTimeout(finish, 1560);
+      setTimeout(finish, STOP_MS);
     }
   }
   window.coinFlip = coinFlip;
