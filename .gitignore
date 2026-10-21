@@ -1,0 +1,30 @@
+# Kept out of the repo on every machine (this one also has local rules of
+# its own; these don't depend on them).
+
+# Claude Code: settings, scheduled tasks, helper worktrees, local notes
+.claude/
+CLAUDE.local.md
+
+# Node: installed packages and logs (the test kit's are in _dev/.gitignore)
+node_modules/
+npm-debug.log*
+*.log
+
+# Playwright output
+test-results/
+playwright-report/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Operating systems
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Secrets, should a script ever need any
+.env
+.env.*
