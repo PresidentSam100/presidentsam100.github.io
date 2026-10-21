@@ -147,13 +147,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   const sh0 = await seen(); await tog(); const sh1 = await seen(); await tog(); const sh2 = await seen();
   check("passport dash: paused, the flag, its caption and the tags hide; resumed, they're back",
     sh0.flag && sh0.cap && sh0.tags && !sh1.flag && !sh1.cap && !sh1.tags && sh2.flag && sh2.cap && sh2.tags, { sh0, sh1, sh2 });
-  await p.evaluate(() => { const c = Passport.current(); Passport.answer(c.correct); });
-  await tog();
-  await p.waitForTimeout(1300);   // past the stamp's beat
-  const sh3 = await seen();
-  await p.evaluate(() => { window.__deal = null; document.getElementById("postcard").addEventListener("animationstart", (e) => { window.__deal = e.animationName; }); });
-  await tog(); await p.waitForTimeout(150);
-  const sh4 = await seen(), deal = await p.evaluate(() => window.__deal);
+  // (in the page: the answer and the pause in one go, so the pause is sure
+  // to land in the stamp's beat, then past the beat on the page's own clock;
+  // resumed, the next flag and its drop are waited for, not given a set time)
+  const { sh3, sh4, deal } = await p.evaluate(() => new Promise((res) => {
+    const vis = (el) => !!el && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== "hidden";
+    const look = () => ({ flag: vis(document.getElementById("flag")), cap: vis(document.getElementById("post-cap")), tags: [...document.querySelectorAll("#tags .tag")].some(vis),
+      stamp: vis(document.getElementById("big-stamp")), code: Passport.current().code, state: Passport.state() });
+    const btn = document.querySelector(".gs-pause-btn");
+    Passport.answer(Passport.current().correct);
+    btn.click();
+    setTimeout(() => {
+      const sh3 = look();
+      let deal = null;
+      document.getElementById("postcard").addEventListener("animationstart", (e) => { deal = e.animationName; });
+      btn.click();
+      const t0 = performance.now();
+      (function wait() { const s = look(); if ((s.state === "ask" && deal) || performance.now() - t0 > 8000) res({ sh3, sh4: s, deal }); else setTimeout(wait, 20); })();
+    }, 1300);
+  }));
   check("passport dash: a pause during a stamp hides it, and the next flag waits for the resume, then drops in",
     !sh3.flag && !sh3.stamp && sh3.state === "reveal" && sh3.code === sh2.code && sh4.state === "ask" && sh4.code !== sh2.code && sh4.flag && deal === "deal", { sh2, sh3, sh4, deal });
   check("passport (dash, hidden while paused): no page errors", p.errs.length === 0, p.errs);

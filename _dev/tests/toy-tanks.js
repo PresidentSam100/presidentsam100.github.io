@@ -446,12 +446,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- two shells meet: what's left of their smoke trails lingers and fades,
-  // rather than going with them (Visual FX on)
+  // rather than going with them (Visual FX on). On a hand-made mission (the
+  // same floor every run), and timed by the engine's own steps (the meeting
+  // caught in the step it happens, the trail read 0.45 s of play after),
+  // however few frames a busy machine draws
   {
     const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
     const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:toy-tanks", "0"); } catch (e) {} }) });
     const r = await q.evaluate(() => new Promise((res) => {
-      ToyTanks.start(); ToyTanks.advance(1700, {});
+      ToyTanks.start(5); ToyTanks.advance(1700, {});
       const st = ToyTanks.st(), E = window.ToyTanksEngine;
       st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0, move: "none" }); });
       // a clear stretch of floor, 7 tiles of a row, no tank near the line
@@ -465,16 +468,19 @@ module.exports = async ({ browser, base, check, lib }) => {
       if (!seg) return res({ seg: null });
       st.shells.push({ id: 90001, x: seg.x + 0.5, y: seg.y + 0.5, vx: 5.2, vy: 0, owner: st.player, bounces: 0, fast: false, age: 1000, enemy: false },
         { id: 90002, x: seg.x + 6.5, y: seg.y + 0.5, vx: -5.2, vy: 0, owner: st.enemies[0], bounces: 0, fast: false, age: 1000, enemy: true });
-      let t0 = null;
-      const start = st.clock;
-      (function look() {
-        if (t0 == null && !st.shells.length) t0 = st.clock;
-        if (t0 != null && st.clock >= t0 + 450) return res({ seg, met: st.clock - start, parts: ToyTanks.fx().parts });
-        if (st.clock - start > 8000) return res({ seg, met: null });
-        requestAnimationFrame(look);
-      })();
+      // (each shell's last step; the trail read 0.45 s on, as that step's
+      // effects have been aged: the game ages them after each step)
+      const start = st.clock, gone = {}, step = E.step;
+      E.step = function (s) {
+        const ev = step.apply(this, arguments);
+        [90001, 90002].forEach((id) => { if (gone[id] == null && !s.shells.some((sh) => sh.id === id)) gone[id] = s.clock; });
+        const t0 = Math.max(gone[90001], gone[90002]);
+        if (t0 >= 0 && s.clock >= t0 + 466) { E.step = step; res({ seg, met: t0 - start, together: gone[90001] === gone[90002], parts: ToyTanks.fx().parts }); }
+        else if (s.clock - start > 8000) { E.step = step; res({ seg, met: null }); }
+        return ev;
+      };
     }));
-    check("toy-tanks: two shells meet and their smoke trails linger a moment after (0.45 s on, still there)", !!r.seg && r.met != null && r.parts > 0, r);
+    check("toy-tanks: two shells meet and their smoke trails linger a moment after (0.45 s on, still there)", !!r.seg && r.met != null && r.together && r.parts > 0, r);
     check("toy-tanks (trails): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }

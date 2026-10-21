@@ -27,7 +27,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // and nearly half a second between the lines of a run of boxes (it used to
   // be a third of a second for both), with Visual FX off as with it on.
   // Timed in the page: three sides of the corner box are down, so the CPU
-  // takes the fourth and then has to go again.
+  // takes the fourth and then has to go again. Each of its lines is timed as
+  // the game lays it (placeLine), so a busy machine's late poll can't shorten
+  // the gap between them.
   {
     const times = {}, errs = [];
     for (const off of [false, true]) {
@@ -37,19 +39,18 @@ module.exports = async ({ browser, base, check, lib }) => {
       times[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
         const theirs = () => hLines.concat(vLines).reduce((n, row) => n + row.filter((v) => v === "ai").length, 0);
         hLines[0][0] = "human"; vLines[0][0] = "human"; vLines[0][1] = "human"; draw();
-        const n0 = theirs(), t0 = performance.now(), at = [];
+        const n0 = theirs(), t0 = performance.now(), at = [], lay = placeLine;
+        placeLine = function (type, r, c, who) { const made = lay.apply(this, arguments); if (who === AI) at.push(Math.round(performance.now() - t0)); return made; };
         play("h", 2, 2);   // (a line well away from that box)
         (function poll() {
-          const n = theirs() - n0;
-          while (at.length < n) at.push(Math.round(performance.now() - t0));
-          if (at.length >= 2 || performance.now() - t0 > 8000) res({ reply: at.length ? at[0] : -1, again: at.length > 1 ? at[1] - at[0] : -1, boxes: scores.ai });
-          else setTimeout(poll, 5);
+          if (at.length >= 2 || performance.now() - t0 > 8000) { placeLine = lay; res({ reply: at.length ? at[0] : -1, again: at.length > 1 ? at[1] - at[0] : -1, boxes: scores.ai, lines: theirs() - n0 }); }
+          else setTimeout(poll, 20);
         })();
       }));
       errs.push(...q.errs);
       await q.close();
     }
-    const slow = (t) => t.reply >= 600 && t.boxes >= 1 && t.again >= 430;
+    const slow = (t) => t.reply >= 600 && t.boxes >= 1 && t.lines >= 2 && t.again >= 430;
     check("dots-and-boxes: the CPU takes at least 0.6 s to answer and 0.43 s between the lines of a run of boxes, with Visual FX off as with it on", slow(times.on) && slow(times.off), times);
     check("dots-and-boxes (the CPU's pause): no page errors", errs.length === 0, errs);
   }

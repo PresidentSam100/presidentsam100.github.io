@@ -117,13 +117,14 @@ module.exports = async ({ browser, base, check, lib }) => {
   const said = async (dev) => {
     const c = await lib.newContext(browser, dev);
     const pg = await lib.open(c, base, "games/meteor-menace/", { before: (x) => lib.injectScript(x, "games/meteor-menace/game.js", [OVER]) });
-    // every string the canvas fills, over a few frames
+    // every string the canvas fills, over a few frames (counted, not timed:
+    // a busy machine can draw none in a set wait)
     await pg.evaluate(() => { window.__said = []; const real = CanvasRenderingContext2D.prototype.fillText; CanvasRenderingContext2D.prototype.fillText = function (s) { window.__said.push(String(s)); return real.apply(this, arguments); }; });
-    const texts = async () => {
-      await pg.evaluate(() => { window.__said = []; });
-      await pg.waitForTimeout(150);
-      return pg.evaluate(() => window.__said.join("|"));
-    };
+    const texts = () => pg.evaluate(() => new Promise((res) => {
+      window.__said = [];
+      let n = 0;
+      (function frame() { if (++n > 4) res(window.__said.join("|")); else requestAnimationFrame(frame); })();
+    }));
     const menu = await texts();
     await pg.evaluate(() => { __game.start(); __game.over(); });
     const over = await texts();

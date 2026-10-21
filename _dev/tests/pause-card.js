@@ -236,8 +236,13 @@ const table = (lib) => [
     start: async (p) => { await p.keyboard.press("2"); await p.keyboard.press("Enter"); await p.waitForTimeout(300); await p.keyboard.press("ArrowUp"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => __game.state === "playing" && __game.score === 0 && __game.mode === "cars"),
     menu: (p) => p.evaluate(() => __game.state === "menu") },
+  // (the bird kept safe all the while: with no one flapping it falls, and on a
+  // busy machine it crashed before the card's steps were done)
   { name: "flappy-world", path: "flappy-world/", row: true, same: true,
-    start: async (p) => { await p.keyboard.press("Space"); await p.waitForFunction(() => game.gameState === "PLAYING", null, { timeout: 8000 }); },
+    start: async (p) => {
+      await p.evaluate(() => Object.defineProperty(game, "invincibleTime", { configurable: true, get: () => 1e9, set: () => {} }));
+      await p.keyboard.press("Space"); await p.waitForFunction(() => game.gameState === "PLAYING", null, { timeout: 8000 });
+    },
     fresh: (p) => p.evaluate(() => /^(PLAYING|PAUSED)$/.test(game.gameState) && game.score === 0),
     menu: (p) => p.evaluate(() => game.gameState === "MENU") },
   { name: "poodle-jump", path: "poodle-jump/", row: true,
