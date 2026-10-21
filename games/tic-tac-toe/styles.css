@@ -282,4 +282,3 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
 .cf-title { font-weight: 400; font-size: 1rem; letter-spacing: 0.08em; text-transform: none; color: var(--chalk-dim); }
 .cf-window { font-family: "Cabin Sketch", "Patrick Hand", cursive; font-weight: 700; }
 .cf-sub { font-weight: 400; font-size: 1.2rem; color: var(--chalk-dim); }
-.cf-q { color: var(--chalk-dim); }

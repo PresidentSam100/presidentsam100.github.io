@@ -345,4 +345,3 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
 .cf-title { font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 0.9rem; letter-spacing: 0.14em; color: var(--label); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
 .cf-window { font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4); }
 .cf-sub { font-size: 1.15rem; font-weight: 600; color: var(--label); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
-.cf-q { color: var(--dim); }

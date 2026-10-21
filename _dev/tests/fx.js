@@ -121,23 +121,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
   }
 
-  // the shared coin flip, FX off: no flashing between the names
+  // the shared coin flip: the two names take turns, quick at first and
+  // slowing, the last the winner; with FX off each changes in place, with it
+  // on the reel scrolls each in, at the same moments. (Math.random fixed, so
+  // both are the same flip; each name caught, every few ms, once it is fully in.)
   p = await lib.open(c2, base, "games/tic-tac-toe/");
-  await p.evaluate(() => localStorage.setItem("reduceMotion:tic-tac-toe", "1")); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
-  // every name the box shows, caught as it changes (a poll on a busy machine
-  // could miss the ? or a flash altogether), until the winner has stood a moment
-  const seen = await p.evaluate(() => new Promise((res) => {
-    const log = []; let last = null;
-    const look = () => { const el = document.querySelector(".cf-nm"); const v = el ? el.textContent + "|" + el.style.color : null; if (v !== last) { log.push(v); last = v; } };
-    const mo = new MutationObserver(look);
-    mo.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["style", "class"] });
-    window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => {});
-    look();
-    // (done once a name has shown, by the page's clock: the reveal is at ~1.6 s)
-    (function wait(n) { if (/You|CPU/.test(last || "") || n > 600) setTimeout(() => { mo.disconnect(); res(log); }, 400); else setTimeout(() => wait(n + 1), 20); })(0);
-  }));
-  const shown = seen.filter(Boolean);
-  check("coin flip, FX off: a neutral ? then the winner, no flashing between names", shown.length <= 2 && /^\?/.test(shown[0]) && /You|CPU/.test(shown[shown.length - 1]), seen);
+  const turnsSeen = async (off) => {
+    await p.evaluate((off) => localStorage.setItem("reduceMotion:tic-tac-toe", off ? "1" : "0"), off);
+    await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+    return p.evaluate(() => new Promise((res) => {
+      const rs = [0.3, 0.7]; let ri = 0; Math.random = () => rs[ri++ % 2];
+      const log = [], tops = new Set();
+      let last = null;
+      window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => res({ log, tops: tops.size }));
+      const t0 = performance.now();
+      (function look() {
+        const win = document.querySelector(".cf-window");
+        if (!win) return;
+        const nms = win.querySelectorAll(".cf-nm");
+        let name;
+        if (nms.length > 1) {
+          // (the reel: the name scrolled fully into the window)
+          const m = new DOMMatrix(getComputedStyle(nms[0].parentElement).transform);
+          name = nms[Math.min(nms.length - 1, Math.floor((-m.m42 + 0.5) / nms[0].offsetHeight))].textContent;
+        } else if (nms.length) { name = nms[0].textContent; tops.add(Math.round(nms[0].getBoundingClientRect().top)); }
+        if (name !== last) { log.push([Math.round(performance.now() - t0), name]); last = name; }
+        setTimeout(look, 4);
+      })();
+    }));
+  };
+  const turnsOff = await turnsSeen(true), turnsOn = await turnsSeen(false);
+  // (a busy machine can hold up a timer or two: the reel's turns are matched
+  // to the calm ones by their usual offset, and a couple may stray; slowing
+  // is the last three turns' average against the first three's)
+  const lo = turnsOff.log, ln = turnsOn.log, n = lo.length;
+  const slows = (l) => (l[n - 1][0] - l[n - 4][0]) / 3 > 1.4 * (l[4][0] - l[1][0]) / 3;
+  const d = ln.length === n ? ln.slice(1).map((e, k) => e[0] - lo[k + 1][0]) : [], med = [...d].sort((x, y) => x - y)[d.length >> 1];
+  check("coin flip: the two names take turns, quick at first and slowing, the last the winner; with FX off in place (nothing moves), with FX on the reel brings each in at the same moments (all but two within 50 ms)",
+    n >= 11 && lo.every((e, k) => k === 0 || e[1] !== lo[k - 1][1]) && lo[n - 1][1] === "You" && slows(lo) && turnsOff.tops === 1 &&
+    ln.length === n && ln.every((e, k) => e[1] === lo[k][1]) && d.filter((x) => Math.abs(x - med) > 50).length <= 2,
+    { turnsOff, turnsOn });
   // the same flip with FX on and off: the winner shows, and the box goes, at
   // the same moments (by the page's clock, so a slow machine slows both)
   const flipTimes = async () => { await p.waitForFunction(() => !document.querySelector(".cf-overlay")); return p.evaluate(() => new Promise((res) => {
@@ -146,9 +169,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     mo.observe(document.body, { subtree: true, childList: true, characterData: true });
     window.coinFlip({ you: "You (X)", cpu: "CPU (O)" }, () => { mo.disconnect(); res({ named: Math.round(named), done: Math.round(performance.now() - t0) }); });
   })); };
-  const flipOff = await flipTimes();
-  await p.evaluate(() => localStorage.setItem("reduceMotion:tic-tac-toe", "0")); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  // (the page has FX on from the last flip)
   const flipOn = await flipTimes();
+  await p.evaluate(() => localStorage.setItem("reduceMotion:tic-tac-toe", "1")); await p.reload({ waitUntil: "domcontentloaded" }); await p.waitForTimeout(300);
+  const flipOff = await flipTimes();
   check("coin flip: as long with FX off as with FX on (the winner named and the box gone at the same moments)",
     Math.abs(flipOff.named - flipOn.named) <= 120 && Math.abs(flipOff.done - flipOn.done) <= 120, { flipOff, flipOn });
   await p.close();

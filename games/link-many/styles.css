@@ -274,4 +274,3 @@ button.btn:focus-visible, .opt:focus-visible { outline: 3px solid var(--yellow);
 .cf-window { font-family: "Lilita One", "Nunito", sans-serif; font-weight: 400; letter-spacing: 0.02em; }
 .cf-window .cf-nm { text-shadow: 0 3px 0 rgba(27, 43, 92, 0.25); }
 .cf-sub { font-weight: 800; color: var(--muted); }
-.cf-q { color: var(--blue); }

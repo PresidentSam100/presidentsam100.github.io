@@ -2,10 +2,10 @@
    Shared first-turn picker. Always animates a flip before announcing
    who goes first, then calls back with "you" or "cpu".
 
-   - Visual FX ON  -> a slot-machine reel that spins and decelerates.
-   - Visual FX OFF -> a neutral "?" in place to the same ticks, then the
-                      winner fades in once (alternating the names read as a
-                      strobe). Both take the same time.
+   The two names take turns, quick at first and slowing, and the last is
+   the winner (the first is either, so it gives nothing away):
+   - Visual FX ON  -> a slot-machine reel, each name scrolling on to the next;
+   - Visual FX OFF -> the names changing in place, at the same moments.
 
    Usage:
      coinFlip({ you: "You (X)", cpu: "CPU (O)", accent: "#89b4fa" },
@@ -14,7 +14,7 @@
    Theming: the default look (a dark glass card) is written with :where(),
    so it has no specificity and a game restyles any part in its own CSS:
      .cf-overlay  the backdrop          .cf-window  the reel / name window
-     .cf-card     the card              .cf-nm      a name (.cf-q: the "?")
+     .cf-card     the card              .cf-nm      a name
      .cf-title    "Who goes first?"     .cf-sub     "flipping…" / the result
    The names keep their own colours (youColor / cpuColor) inline.
    ===================================================================== */
@@ -42,8 +42,7 @@
     ":where(.cf-title){font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:#9aa6b8;font-weight:800;margin-bottom:14px}" +
     ":where(.cf-window){position:relative;overflow:hidden;height:1.18em;font-size:clamp(34px,12vw,64px);font-weight:900;line-height:1.18}" +
     ":where(.cf-sub){margin-top:16px;font-size:1rem;color:#9aa6b8;font-weight:800;min-height:1.4em}" +
-    ":where(.cf-nm){height:100%;display:flex;align-items:center;justify-content:center;white-space:nowrap}" +
-    ":where(.cf-q){color:#9aa6b8}";
+    ":where(.cf-nm){height:100%;display:flex;align-items:center;justify-content:center;white-space:nowrap}";
   function injectCss() {
     if (document.getElementById("cf-style")) return;
     var st = document.createElement("style");
@@ -88,9 +87,16 @@
       setTimeout(function () { ov.remove(); if (cb) cb(result); }, 850);
     }
 
-    // the reel's ticks as it slows, and when it stops (the calm version keeps
-    // the same beat, so a flip takes as long with FX off)
-    var TICKS = [0, 80, 170, 270, 380, 500, 640, 800, 990, 1210, 1430], STOP_MS = 1560;
+    // The moments of the n turns, over SPIN_MS: each a little longer than the
+    // one before, 85 ms to start with (the turns add up to SPIN_MS). The reel
+    // and the calm version keep the same moments, so a flip takes as long
+    // either way; the result is told at STOP_MS.
+    var SPIN_MS = 1500, STOP_MS = 1560;
+    function turns(n) {
+      var first = 85, last = 2 * SPIN_MS / n - first, t = 0, at = [];
+      for (var k = 0; k < n; k++) { t += first + (last - first) * (n > 1 ? k / (n - 1) : 0); at.push(Math.round(t)); }
+      return at;
+    }
 
     // A strictly-alternating run of ~base frames that STARTS on a random side and
     // ENDS on the winner, so the opening frame never reveals who was picked.
@@ -102,25 +108,29 @@
       return s;
     }
 
+    // Either way the turns count from the next frame drawn (the reel can't
+    // move before it), or a tenth of a second on in a tab that draws none
+    function begin(fn, ready) {
+      var gone = false, go = function () { if (!gone) { gone = true; fn(); } };
+      if (ready) ready.then(go); else requestAnimationFrame(go);
+      setTimeout(go, 100);
+    }
+
+    var seq = buildSeq(11), at = turns(seq.length - 1);
     if (reduce) {
-      // ---- calm version: the same card, a neutral "?" while it "flips" to the
-      // reel's ticks, then the winner fades in once, as the reel would stop.
-      // (It used to swap the two names in their colours from ~55ms apart,
-      // which read as a strobe.) The fade uses el.animate, which the FX-off
-      // CSS switch doesn't flatten. ----
-      win.innerHTML = '<div class="cf-nm cf-q">?</div>';
+      // ---- calm version: the same card, the names changing in place ----
+      win.innerHTML = '<div class="cf-nm"></div>';
       var nm = win.querySelector(".cf-nm");
-      TICKS.forEach(function (t, k) { setTimeout(function () { tick(k % 2); }, t); });
-      setTimeout(function () {
-        nm.classList.remove("cf-q");
-        nm.textContent = sFaces[resIdx]; nm.style.color = cols[resIdx];
-        if (nm.animate) nm.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
-        finish();
-      }, STOP_MS);
+      var show = function (idx) { nm.textContent = sFaces[idx]; nm.style.color = cols[idx]; };
+      show(seq[0]);
+      begin(function () {
+        at.forEach(function (t, k) { setTimeout(function () { show(seq[k + 1]); tick(k % 2); }, t); });
+        setTimeout(finish, STOP_MS);
+      });
     } else {
-      // ---- slot-machine reel: a strip of names that spins up and decelerates ----
+      // ---- slot-machine reel: a strip of the names, each scrolled into the
+      // window at its moment, the last one settling ----
       var lineH = win.clientHeight || 70;
-      var seq = buildSeq(14), L = seq.length;
       var strip = document.createElement("div");
       strip.style.cssText = "display:flex;flex-direction:column;will-change:transform;";
       seq.forEach(function (idx) {
@@ -131,11 +141,16 @@
         strip.appendChild(d);
       });
       win.appendChild(strip);
-      var travel = (seq.length - 1) * lineH;
-      strip.style.transition = "transform 1.5s cubic-bezier(0.12, 0.78, 0.18, 1)";
-      TICKS.forEach(function (t, kk) { setTimeout(function () { tick(kk % 2); }, t); });
-      requestAnimationFrame(function () { requestAnimationFrame(function () { strip.style.transform = "translateY(-" + travel + "px)"; }); });
-      setTimeout(finish, STOP_MS);
+      var frames = [{ transform: "translateY(0)", offset: 0, easing: "linear" }];
+      at.forEach(function (t, k) {
+        frames.push({ transform: "translateY(-" + (k + 1) * lineH + "px)", offset: t / SPIN_MS, easing: k === at.length - 2 ? "ease-out" : "linear" });
+      });
+      var spin = strip.animate ? strip.animate(frames, { duration: SPIN_MS, fill: "forwards" }) : null;
+      if (!spin) strip.style.transform = frames[frames.length - 1].transform;
+      begin(function () {
+        at.forEach(function (t, k) { setTimeout(function () { tick(k % 2); }, t); });
+        setTimeout(finish, STOP_MS);
+      }, spin && spin.ready);
     }
   }
   window.coinFlip = coinFlip;
