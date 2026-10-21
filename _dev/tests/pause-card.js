@@ -475,9 +475,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     const rHeld = await p.evaluate(() => ({ cls: document.getElementById("panel").className, attempt: document.getElementById("attempt").textContent, times: document.getElementById("times").textContent }));
     await p.keyboard.press("p"); await p.waitForTimeout(150);
     const rBack = await p.evaluate(() => ({ cls: document.getElementById("panel").className, attempt: document.getElementById("attempt").textContent }));
-    await p.waitForFunction(() => /\bgo\b/.test(document.getElementById("panel").className), null, { timeout: 15000 });
-    await p.waitForFunction(() => document.querySelector(".gs-pause-btn").getAttribute("aria-disabled") === "true", null, { timeout: 900 }).catch(() => {});
-    const rDraw = await dim(p), rKey = await lib.fireKey(p, { key: "p" }), rDrawCard = await cardUp(p);
+    // (DRAW! stands for a second: caught in the page, the button watched each
+    // frame and P fired the moment it dims, as a busy machine's trips to the
+    // page could outlast the window)
+    const { rDraw, rKey, rDrawCard } = await p.evaluate(() => new Promise((res) => {
+      const panel = document.getElementById("panel"), btn = document.querySelector(".gs-pause-btn");
+      const card = () => [".gs-pause:not(.gs-dialog)", ".gs-pause-more"].some((s) => { const c = document.querySelector(s); return !!c && !c.hidden; });
+      let seen = false;
+      (function look() {
+        const go = /\bgo\b/.test(panel.className);
+        if (go) seen = true;
+        if (go && btn.getAttribute("aria-disabled") === "true") {
+          const e = new KeyboardEvent("keydown", { key: "p", bubbles: true, cancelable: true });
+          (document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body).dispatchEvent(e);
+          // (the card looked for a moment later, on the page's clock: a card
+          // that came up a tick late would still be caught)
+          return setTimeout(() => res({ rDraw: "true", rKey: e.defaultPrevented, rDrawCard: card() }), 200);
+        }
+        if (seen && !go) return res({ rDraw: btn.getAttribute("aria-disabled"), rKey: null, rDrawCard: card() });
+        requestAnimationFrame(look);
+      })();
+      setTimeout(() => res({ rDraw: "timeout", rKey: null, rDrawCard: card() }), 20000);
+    }));
     check("reaction: ⏸ live in the standoff: paused, the duel is called off (no DRAW!, nothing scored) and the resume starts it over; once DRAW! is called it's dimmed and P does nothing",
       rStand === "false" && rCard && /wait/.test(rHeld.cls) && rHeld.attempt === "1/10" && rHeld.times === rT0 && /wait/.test(rBack.cls) && rBack.attempt === "1/10" && rDraw === "true" && !rKey && !rDrawCard,
       { rStand, rCard, rHeld, rBack, rDraw, rKey, rDrawCard });
