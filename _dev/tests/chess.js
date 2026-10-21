@@ -937,5 +937,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess three (pause): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
+
+  // ---- a captured piece keeps its own colour: with FX on it flies off in
+  // that colour (to its tray with 2 players, shrinking away where it fell with
+  // 4), and with FX on or off each tray holds the other side's pieces in their
+  // own colour, outlined as on the board (Black's dark in White's tray,
+  // White's light in Black's)
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/chess/", { before: async (pg) => {
+        await pg.addInitScript((off) => localStorage.setItem("reduceMotion:chess", off ? "1" : "0"), off);
+        await lib.injectScript(pg, "games/chess/game.js", [HOOK2]);
+      } });
+      got[off ? "off" : "on"] = await q.evaluate(() => {
+        document.getElementById("menu").classList.remove("show");
+        const C = __chess, go = (f, t) => C.doMove(C.legalFor(C.G, f).find((m) => m.to === t));
+        // the flying piece held halfway, then taken off (its own cleanup comes
+        // a tick later, too late for the next capture's look); the tray's newest piece
+        const flying = () => {
+          const f = document.querySelector(".pc.fly"); if (!f) return null;
+          f.getAnimations().forEach((a) => { a.pause(); a.currentTime = a.effect.getTiming().duration / 2; });
+          const o = { color: getComputedStyle(f).color, glyph: f.textContent }; f.remove(); return o;
+        };
+        const tray = (id) => {
+          const e = document.getElementById(id).lastElementChild, s = e && getComputedStyle(e);
+          return e && { color: s.color, glyph: e.textContent, stroke: s.webkitTextStrokeColor, strokeW: parseFloat(s.webkitTextStrokeWidth) };
+        };
+        C.start(2);
+        go(52, 36); go(11, 27); go(36, 27);                  // e4 d5 exd5: White takes a black pawn
+        const flyW = flying(), trayW = tray("capW");
+        go(3, 27);                                          // Qxd5: Black takes a white pawn
+        const flyB = flying(), trayB = tray("capB");
+        // 4 players: Red's rook takes a blue knight
+        C.start(4, 3);
+        const G = C.G, b = G.board.map(() => null), at = (r, c) => r * 14 + c;
+        b[at(13, 7)] = { o: "r", t: "k", dead: false }; b[at(0, 7)] = { o: "y", t: "k", dead: false }; b[at(7, 13)] = { o: "g", t: "k", dead: false }; b[at(3, 0)] = { o: "b", t: "k", dead: false };
+        b[at(7, 5)] = { o: "r", t: "r", dead: false }; b[at(7, 3)] = { o: "b", t: "n", dead: false };
+        G.board = b; G.turn = "r"; C.render();
+        go(at(7, 5), at(7, 3));
+        return { flyW, trayW, flyB, trayB, four: flying() };
+      });
+      got[off ? "off" : "on"].errs = q.errs;
+      await q.close();
+    }
+    const W = "rgb(251, 242, 226)", B = "rgb(42, 33, 26)", BLUE = "rgb(90, 130, 230)", PAWN = "♟︎";
+    const trays = (g) => !!g.trayW && g.trayW.color === B && g.trayW.glyph === PAWN && g.trayW.stroke === "rgb(244, 236, 220)" && g.trayW.strokeW > 0 &&
+      !!g.trayB && g.trayB.color === W && g.trayB.glyph === PAWN && g.trayB.stroke === "rgb(25, 29, 36)" && g.trayB.strokeW > 0;
+    const on = got.on, off = got.off;
+    check("chess: a captured piece keeps its own colour: Black's pawn flies to 'Captured by White' and lies there dark, White's to 'Captured by Black' and lies there light, each outlined as on the board; with 4 players a taken piece shrinks away in its owner's colour",
+      !!on.flyW && on.flyW.color === B && !!on.flyB && on.flyB.color === W && trays(on) && !!on.four && on.four.color === BLUE, on);
+    check("chess, FX off: nothing flies, and the trays are the same (each piece in its own colour)", off.flyW === null && off.flyB === null && off.four === null && trays(off), off);
+    check("chess (captured colours): no page errors", on.errs.length === 0 && off.errs.length === 0, { on: on.errs, off: off.errs });
+  }
   await ctx.close();
 };

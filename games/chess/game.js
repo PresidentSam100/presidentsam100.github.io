@@ -4,7 +4,6 @@
   const $ = (id) => document.getElementById(id);
   // (the pawn with ︎: a phone may otherwise draw it, alone of the set, as an emoji)
   const FILLED = { k:"♚",q:"♛",r:"♜",b:"♝",n:"♞",p:"♟︎" };
-  const OUTLINE = { k:"♔",q:"♕",r:"♖",b:"♗",n:"♘",p:"♙" };
   const VAL = { p:1,n:3,b:3,r:5,q:9,k:0 };
   const idx = (G,r,c) => r*G.dim+c;
   const rc  = (G,i) => [ (i/G.dim)|0, i%G.dim ];
@@ -247,12 +246,10 @@
     document.body.appendChild(g);
     let to = null;
     if(G.mode===2){
-      const tray = $(by==="w" ? "capW" : "capB"), tn = tray.lastChild;
-      if(tn && tn.nodeType===3 && tn.length){
-        const rg = document.createRange(); rg.setStart(tn, tn.length-1); rg.setEnd(tn, tn.length);
-        const tr = rg.getBoundingClientRect();
-        if(tr.width) to = { x: tr.left + tr.width/2 - (r.left + r.width/2), y: tr.top + tr.height/2 - (r.top + r.height/2), s: tr.height / (r.width * 0.8) };
-      }
+      // (to the tray's newest piece: render() has just put it there)
+      const tp = $(by==="w" ? "capW" : "capB").lastElementChild;
+      const tr = tp && tp.getBoundingClientRect();
+      if(tr && tr.width) to = { x: tr.left + tr.width/2 - (r.left + r.width/2), y: tr.top + tr.height/2 - (r.top + r.height/2), s: tr.height / (r.width * 0.8) };
     }
     const frames = to
       ? [{ transform:"translate(-50%,-50%)", opacity:1 },
@@ -299,10 +296,12 @@
       boardEl.appendChild(sq);
     }
     if(G.mode===2){
-      $("capW").innerHTML = G.capList.filter(x=>x.by==="w").map(x=>OUTLINE[x.t]||FILLED[x.t]).join("")||"&nbsp;";
-      $("capB").innerHTML = G.capList.filter(x=>x.by==="b").map(x=>FILLED[x.t]).join("")||"&nbsp;";
-      // colour captured glyphs
-      [["capW","b"],["capB","w"]].forEach(([id])=>{});
+      // each tray holds the other side's pieces in their own colour, outlined
+      // as on the board (so a piece that flies there lands as itself)
+      const caps = (by) => { const col = G.players[by==="w" ? "b" : "w"].color, cls = "pc " + (lum(col)>0.55?"lt":"dk");
+        return G.capList.filter(x=>x.by===by).map(x=>'<span class="'+cls+'" style="color:'+col+'">'+FILLED[x.t]+'</span>').join("")||"&nbsp;"; };
+      $("capW").innerHTML = caps("w");
+      $("capB").innerHTML = caps("b");
     } else renderPlayers();
     renderClocks();
     renderLog();
