@@ -119,5 +119,77 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
   }
+
+  // ---- the fleet screen's keycaps, where there's a keyboard (a laptop, and
+  // a window as narrow as a phone): each in the middle of its button top to
+  // bottom (the level buttons' 1 2 3 hung low, near the foot), and R and A
+  // in the middle of their caps (they sat on the cap's foot). The letters
+  // are read from the pixels, four to a CSS pixel. The suites keep the web
+  // fonts out, so Barlow Condensed comes as a stand-in face given Barlow's
+  // own heights: its capitals sit low in their line, which is what put R
+  // and A on the foot.
+  const BARLOW = '@font-face { font-family: "Barlow Condensed"; src: local("Arial Narrow"), local("Arial"); font-weight: 100 900; ascent-override: 100%; descent-override: 20%; line-gap-override: 0%; }';
+  for (const [label, vp] of [["laptop", { width: 1280, height: 900 }], ["narrow window", { width: 390, height: 1100 }]]) {
+    const c = await lib.newContext(browser, { viewport: vp, deviceScaleFactor: 4 });
+    await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: BARLOW }));
+    const q = await lib.open(c, base, "games/salvo/");
+    await q.keyboard.press("a"); await q.waitForTimeout(150);
+    const caps = await q.evaluate(() => {
+      const out = [];
+      document.querySelectorAll("#placeControls button").forEach((b) => {
+        // a keycap drawn from the attribute (::after) is read through a twin
+        // of it, an element drawn the same in its place
+        let k = b.querySelector("kbd"), twin = null, st = null;
+        if (!k && b.hasAttribute("data-gs-key")) {
+          const cs = getComputedStyle(b, "::after");
+          twin = document.createElement("span");
+          for (const prop of cs) twin.style.setProperty(prop, cs.getPropertyValue(prop));
+          twin.style.setProperty("content", "normal"); twin.textContent = b.getAttribute("data-gs-key");
+          st = document.createElement("style"); st.textContent = ".twin-of::after { display: none !important; }"; document.head.appendChild(st);
+          b.classList.add("twin-of"); b.appendChild(twin); k = twin;
+        }
+        if (!k) return;
+        const r = k.getBoundingClientRect(), br = b.getBoundingClientRect();
+        out.push({ key: k.textContent, off: +((r.top + r.bottom) / 2 - (br.top + br.bottom) / 2).toFixed(2) });
+        if (twin) { twin.remove(); st.remove(); b.classList.remove("twin-of"); }
+      });
+      return out;
+    });
+    // R and A: the rows with ink inside the cap's borders, clear of its round
+    // corners (a picture of the whole CSS pixels round the cap, so a row of
+    // it is a known height on the page)
+    const ink = [];
+    for (const k of await q.$$("#rotateBtn kbd, #randomBtn kbd")) {
+      const g = await k.evaluate((e) => { const cs = getComputedStyle(e), r = e.getBoundingClientRect(); return { key: e.textContent, x: r.left, y: r.top, right: r.right, bottom: r.bottom, b: parseFloat(cs.borderTopWidth), r: parseFloat(cs.borderTopLeftRadius) }; });
+      const clip = { x: Math.floor(g.x), y: Math.floor(g.y), width: Math.ceil(g.right) - Math.floor(g.x), height: Math.ceil(g.bottom) - Math.floor(g.y) };
+      const png = (await q.screenshot({ clip })).toString("base64");
+      ink.push(await q.evaluate(async ({ png, g, clip }) => {
+        const S = 4, img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+        const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+        const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+        const d = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width;
+        const L = (i, j) => { const n = (j * W + i) * 4; return 0.3 * d[n] + 0.59 * d[n + 1] + 0.11 * d[n + 2]; };
+        const row = (y) => Math.round((y - clip.y) * S), col = (v) => Math.round((v - clip.x) * S);
+        const top = g.y + g.b, foot = g.bottom - g.b;   // the inside of the cap
+        const x0 = col(g.x + g.r + 0.5), x1 = col(g.right - g.r - 0.5), y0 = row(top + 0.5), y1 = row(foot - 0.5);
+        const dev = [];
+        for (let j = y0; j < y1; j++) {
+          const v = []; for (let i = x0; i < x1; i++) v.push(L(i, j)); v.sort((a, b) => a - b);
+          const fill = v[v.length >> 1]; let m = 0; for (let i = x0; i < x1; i++) m = Math.max(m, Math.abs(L(i, j) - fill)); dev.push(m);
+        }
+        const most = Math.max(...dev); let t = -1, bt = -1;
+        dev.forEach((v, n) => { if (v > most / 2) { if (t < 0) t = n; bt = n; } });
+        return { key: g.key, above: +(clip.y + (y0 + t) / S - top).toFixed(2), below: +(foot - clip.y - (y0 + bt + 1) / S).toFixed(2) };
+      }, { png, g, clip }));
+    }
+    const digits = caps.filter((k) => /^[123]$/.test(k.key));
+    check("salvo " + label + ": every keycap on the fleet screen is in the middle of its button top to bottom (the levels' 1 2 3 too)",
+      digits.length === 3 && caps.length >= 7 && caps.every((k) => Math.abs(k.off) <= 0.6), caps);
+    check("salvo " + label + ": R and A sit in the middle of their caps, clear of the top and the foot",
+      ink.length === 2 && ink.every((k) => k.above > 0.6 && k.below > 0.6 && Math.abs(k.above - k.below) <= 1.2), ink);
+    check("salvo " + label + " (keycaps): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
   await ctx.close();
 };

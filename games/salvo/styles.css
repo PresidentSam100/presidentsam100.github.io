@@ -268,7 +268,7 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
 .btn:active { transform: translateY(2px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 1px 0 #8a6a0c, 0 2px 5px rgba(0, 0, 0, 0.3); }
 .btn:disabled { opacity: .45; cursor: default; filter: grayscale(.5); transform: none; }
 .btn.ghost {
-  font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1rem; color: #eef2f5;
+  font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; font-weight: 700; font-size: 1rem; color: #eef2f5;
   background: linear-gradient(180deg, #58626c, #434c55); border-color: #262b30;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 3px 0 #22272c, 0 6px 12px rgba(0, 0, 0, 0.25);
 }
@@ -284,8 +284,24 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
 }
 .dbtn:hover { color: var(--label); }
 .dbtn.sel { color: var(--radar); border-color: rgba(125, 255, 168, 0.7); background: #1d2a22; box-shadow: inset 0 0 8px rgba(125, 255, 168, 0.25), 0 2px 0 #1c2024; }
-.btn kbd { display: inline-grid; place-items: center; min-width: 1.15em; height: 1.15em; margin-left: 4px; padding: 0 3px;
-  font-family: "Barlow Condensed", sans-serif; font-size: 0.74em; font-weight: 700; border: 1px solid currentColor; border-radius: 4px; opacity: 0.6; }
+/* A button's words and its keycap side by side, each in the middle of the
+   button top to bottom. (In one line a keycap stood on the words' baseline,
+   and on the short level buttons the 1 2 3 hung low, near the foot.) */
+.btn, .dbtn { display: inline-flex; align-items: center; justify-content: center; }
+@media not all and (hover: none) { .btn .gs-keys { display: flex; margin-left: 0.25em; } }
+/* Barlow's capitals sit a little low in their line: the words move by that
+   (--gs-cap, motion-toggle.js), and the keycap moves back, so both are in
+   the middle (the level buttons' keycap is 0.8 of their size) */
+.dbtn { padding-top: calc(5px + var(--gs-cap, 0) * 1em); padding-bottom: calc(5px - var(--gs-cap, 0) * 1em); }
+.dbtn[data-gs-key]::after { position: relative; top: calc(var(--gs-cap, 0) * -1.25em); }
+.btn.ghost { padding-top: calc(0.6rem + var(--gs-cap, 0) * 1em); padding-bottom: calc(0.6rem - var(--gs-cap, 0) * 1em); }
+.btn.ghost .gs-keys { position: relative; top: calc(var(--gs-cap, 0) * -1em); }
+/* the key's letter in the middle of its cap: the padding leans by how far
+   the face's capitals sit from the middle of their line (--gs-cap, measured
+   on the page's own face, so the keys are in it, stand-ins and all) */
+.btn kbd { display: inline-flex; align-items: center; justify-content: center; min-width: 1.15em; height: 1.15em; margin-left: 4px;
+  padding: max(0px, calc(var(--gs-cap, 0) * 2em)) 3px max(0px, calc(var(--gs-cap, 0) * -2em)); line-height: 1;
+  font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif; font-size: 0.74em; font-weight: 700; border: 1px solid currentColor; border-radius: 4px; opacity: 0.6; }
 
 /* ---- the end card: a riveted plate ---- */
 .overlay { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 1rem;
