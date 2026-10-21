@@ -328,9 +328,10 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the report card's grade stamp (and an A+'s gold star) lands on none
   // of the card's words, whichever title and grade it shows, on laptops and
-  // phones (on a narrow phone it used to sit on the title)
+  // phones (on a narrow phone it used to sit on the title), and the title
+  // keeps the middle of the sheet (the stamp shrinks on a phone instead)
   {
-    const SIZES = [["laptop", 1366, 657], ["laptop", 1280, 900], ["phone", 390, 664], ["phone", 375, 553], ["phone", 360, 560], ["phone", 320, 568]];
+    const SIZES = [["laptop", 1366, 657], ["laptop", 1280, 900], ["phone", 430, 932], ["phone", 412, 915], ["phone", 390, 664], ["phone", 375, 553], ["phone", 360, 560], ["phone", 320, 568]];
     const bad = {};
     for (const [kind, w, h] of SIZES) {
       const ctx = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
@@ -343,6 +344,12 @@ module.exports = async ({ browser, base, check, lib }) => {
         for (const t of ["Project review", "Judges' notes", "Grading time", "Field notes"]) for (const gr of ["A+", "A", "B+", "B", "C+", "C", "D"]) {
           document.getElementById("over-title").textContent = t;
           g.textContent = gr; g.classList.toggle("gold", gr === "A+");
+          // (the title's middle against the sheet's: its padding is even)
+          if (gr === "A") {
+            const sh = document.querySelector("#over .sheet").getBoundingClientRect(), tl = lines(document.getElementById("over-title"));
+            const mid = (Math.min(...tl.map((r) => r.left)) + Math.max(...tl.map((r) => r.right))) / 2;
+            if (Math.abs(mid - (sh.left + sh.right) / 2) > 2) out.push(t + ": title " + (mid - (sh.left + sh.right) / 2).toFixed(1) + "px off the middle");
+          }
           // the stamp is a circle; the star, a glyph's box off its top right, turned with it
           const b = g.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2, R = g.offsetWidth / 2;
           let star = null;
@@ -364,7 +371,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       if (p.errs.length) bad[w + "x" + h + " errors"] = p.errs;
       await ctx.close();
     }
-    check("science-fair: the report card's grade stamp and an A+'s star are on none of its words (title, round, notes), every title and grade, on laptops (1366x657, 1280x900) and phones (390x664, 375x553, 360x560, 320x568)",
+    check("science-fair: the report card's grade stamp and an A+'s star are on none of its words (title, round, notes), and the title is in the middle of the sheet (within 2px), every title and grade, on laptops (1366x657, 1280x900) and phones (430 to 320 px)",
       Object.keys(bad).length === 0, bad);
   }
 };
