@@ -21,7 +21,11 @@
 //   among other emoji, flat (U+FE0E) where it is a mark in a set colour;
 // - every game's page and its "← Games" button start with a web font the
 //   page loads, not the device's own face (Segoe UI here, San Francisco on
-//   an iPhone, Roboto on Android: a different look on each).
+//   an iPhone, Roboto on Android: a different look on each);
+// - the corner row's resize watcher never resizes what it watches inside its
+//   own call, so no page raises "ResizeObserver loop completed with
+//   undelivered notifications" (an error event; Safari logs it), not even
+//   with the taller faces swapped in.
 module.exports = async ({ browser, base, check, lib }) => {
   const fs = require("fs"), path = require("path");
   const PICTURES = "⚙🖐🖼⛓⛏✖✈🏷⌨❤✂🏟👁🖱🛠⚠🕳☀↔↕↩❄";
@@ -44,6 +48,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   const { devices } = require("@playwright/test");
   const ctx = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } }));
+  await ctx.addInitScript(() => { window.__roLoops = 0; window.addEventListener("error", (e) => { if (/ResizeObserver loop/.test(e.message || "")) window.__roLoops++; }); });
   const MARKS = "◀▶▲▼▽●⊞⟳↻↺↶↷⌫";
   const RANGES = "U+2190-21FF, U+2200-22FF, U+2300-23FF, U+25A0-25FF, U+2600-27BF, U+27F0-27FF, U+2900-297F, U+2B00-2BFF, U+1F000-1FAFF, U+FE0F";
   const STRESS = ["Segoe UI Symbol", "Cambria Math", "Segoe UI Emoji"].map((f) =>
@@ -155,7 +160,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   const SHAPED = (l) => l.marks.every((m) => m.shape && m.off <= 0.5);
   const pages = lib.gamePages();
-  const bad = { tsa: [], arrow: [], marks: [], words: [], lent: [], control: [], web: [] };
+  const bad = { tsa: [], arrow: [], marks: [], words: [], lent: [], control: [], web: [], loops: [] };
   for (const g of pages) {
     const p = await lib.open(ctx, base, "games/" + g);
     const l = await look(p);
@@ -167,6 +172,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     const s = await lent(p);
     if (s.moved.length) bad.lent.push(g + ": " + s.moved.slice(0, 4).join(", "));
     if (!(s.grew >= 3)) bad.control.push(g + " " + s.grew);
+    // (after a frame or two, for a refit the faces set off)
+    const loops = await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(window.__roLoops)))));
+    if (loops) bad.loops.push(g + " " + loops);
     check(g + ": no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }
@@ -186,6 +194,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("every ▶ ◀ ▸ ◂ ▾ ↻ ⟳ ↺ ↶ ↷ ☰ ✓ beside words in a button or link (the pause card's too) is a shape, its middle within 1px of the capitals' middle (" + pages.length + " pages)", bad.words.length === 0, bad.words);
   check("with taller faces lent for the marks and emoji, no label's letters move in their box and no box changes height (" + n + " pages)", bad.lent.length === 0, bad.lent);
   check("(the taller lent faces arrive: a control line outside the fix grows by 3px or more on every page)", bad.control.length === 0, bad.control);
+  check("no game page raises a ResizeObserver loop error, loading or with the taller faces swapped in (" + pages.length + " pages)", bad.loops.length === 0, bad.loops);
 
   // ---- the touch pads that show only in play
   const PADS = [

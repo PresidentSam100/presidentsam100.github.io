@@ -798,9 +798,15 @@
     capsWatch();
     window.addEventListener("resize", function () { render(); markBack(); syncRow(); fit(); });
     // the link's size can change after this runs (its web font arriving), and
-    // so can the row's (the sound and ⏸ buttons joining it)
+    // so can the row's (the sound and ⏸ buttons joining it). The row is fitted
+    // again on the next frame, not inside the observer's own call: fitting it
+    // resizes what the observer watches, and a size changed there makes the
+    // browser report a loop (an error event; Safari logs it).
     if (window.ResizeObserver) {
-      var ro = new ResizeObserver(function () { syncRow(); fit(); centreKey(); });
+      var refit = 0;
+      var ro = new ResizeObserver(function () {
+        if (!refit) refit = requestAnimationFrame(function () { refit = 0; syncRow(); fit(); centreKey(); });
+      });
       if (back) ro.observe(back);
       ro.observe(corner);
     }
