@@ -337,5 +337,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "yi pass and pause keys");
   }
 
+  // ---- a rival down to one card reads "1 card", not "1 cards"
+  {
+    const q = await lib.open(ctx, base, "games/yi/");
+    await deal(q);
+    const counts = await q.evaluate(() => {
+      G.players[1].hand = [G.players[1].hand[0]];
+      render();
+      return Array.from(document.querySelectorAll(".opp")).map((o) => ({ name: o.querySelector(".oname").textContent, count: o.querySelector(".ocount").textContent }));
+    });
+    const rival = await q.evaluate(() => G.players[1].name);
+    const it = counts.find((c) => c.name === rival);
+    check("yi: a rival down to one card reads \"1 card\" (and the others \"7 cards\")",
+      !!it && /^1 card(?!s)/.test(it.count) && counts.filter((c) => c !== it).every((c) => /^\d+ cards/.test(c.count)), { rival, counts });
+    await done(q, "yi one card");
+  }
+
   await ctx.close();
 };

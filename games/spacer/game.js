@@ -2930,7 +2930,7 @@ class Game {
     this.bannerMain = 'NUMBER OF HITS  ' + this.bonusHits;
     this.mode = 'bonusResult';
     this.modeTimer = 3.0;
-    this.announce(this.bonusHits + ' hits. ' + (this.bonusHits >= 40 ? 'Perfect! 10000 bonus.' : 'Bonus ' + bonus + '.'));
+    this.announce(this.bonusHits + (this.bonusHits === 1 ? ' hit. ' : ' hits. ') + (this.bonusHits >= 40 ? 'Perfect! 10000 bonus.' : 'Bonus ' + bonus + '.'));
     Sound.coin();
   }
 

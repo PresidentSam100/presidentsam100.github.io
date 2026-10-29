@@ -832,7 +832,8 @@
   function hud() {
     $("hud-time").textContent = fmt(clock());
     $("hud-left").textContent = live.size + " tiles";
-    $("hud-pairs").textContent = dead ? "no reshuffle fits: undo a pair, or" : freePairs().length + " pairs open";
+    var open = dead ? 0 : freePairs().length;
+    $("hud-pairs").textContent = dead ? "no reshuffle fits: undo a pair, or" : open + (open === 1 ? " pair open" : " pairs open");
     $("hud-stuck").hidden = !dead;
     $("btn-giveup").hidden = mode !== "daily";
     // (the dead board's bar come or gone: the HUD may move or change height)

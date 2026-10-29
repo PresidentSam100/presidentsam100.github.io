@@ -158,7 +158,7 @@
   function checkSolvable() {
     const v = validate(); if (!v.ok) { updateStatus("⚠\uFE0F Fix first: " + v.msgs.join(" · "), "bad"); return; }
     const sol = solve(grid);
-    if (sol) updateStatus("✓ Solvable in " + sol.length + " moves:  " + sol.join(" "), "good");
+    if (sol) updateStatus("✓ Solvable in " + sol.length + (sol.length === 1 ? " move:  " : " moves:  ") + sol.join(" "), "good");
     else updateStatus("✗ Unsolvable: no path from Start to Goal.", "bad");
   }
 
@@ -233,7 +233,7 @@
     tstate = res.final; setFlavor(tstate.flavor); refreshLive();
     if (A && res.hitWall && !res.win) { SFX.thud(); await A.bump(tCtx(gen), dir, tstate); if (gen !== testGen) return; }   // (FX off: put against the wall a moment, then back)
     tlocked = false;
-    if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + " moves."; overlayT = setTimeout(() => { testOverlay.hidden = false; }, 250); }
+    if (res.win) { twon = true; SFX.win(); testTitle.textContent = "Solved! 🎉"; testSub.textContent = "Reached the goal in " + tmoves + (tmoves === 1 ? " move." : " moves."); overlayT = setTimeout(() => { testOverlay.hidden = false; }, 250); }
   }
 
   // ---- import / export ----

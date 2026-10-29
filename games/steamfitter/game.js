@@ -656,7 +656,7 @@
       if (testingEditor) { sfxLevel(); banner("TEST PASSED: it connects!"); bannerTimer = 1.4; refreshHud(); return; }
       recordSolve();   // (rotateAt recorded it as the line connected; this covers any other way here)
       sfxLevel();
-      banner((isCustom ? "CUSTOM" : "LEVEL " + (curLevel + 1)) + " SOLVED: " + moves + " moves");
+      banner((isCustom ? "CUSTOM" : "LEVEL " + (curLevel + 1)) + " SOLVED: " + moves + (moves === 1 ? " move" : " moves"));
       bannerTimer = 1.8;
       refreshHud();
       return;

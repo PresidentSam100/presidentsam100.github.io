@@ -125,5 +125,16 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("lights-out: a click on the hinted bulb stops its glint at once", answered.was && answered.left === 0 && answered.still === "none", answered);
   await done(p, "hint after a click");
+
+  // ---- a count of one reads "1 move", not "1 moves" (today's sign put out in one)
+  p = await open(ctx);
+  const one = await p.evaluate(() => {
+    const d = LightsOut.daily();
+    localStorage.setItem("lightsout_daily", JSON.stringify(Object.assign({}, d, { done: true, moves: 1, par: 1 })));
+    LightsOut.toMenu();
+    return document.getElementById("daily-small").textContent;
+  });
+  check("lights-out: a sign put out in one press reads \"1 move\"", /done: 1 move \(par 1\)/.test(one), one);
+  await done(p, "one move");
   await ctx.close();
 };

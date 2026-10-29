@@ -363,9 +363,11 @@
     hud();
   }
 
+  function movesOf(n) { return n + (n === 1 ? " move" : " moves"); }
+
   function hud() {
     $("hud-mode").textContent = mode === "windup" ? "last reel" : mode === "daily" ? "daily" : "zen";
-    $("hud-moves").textContent = moves + (moves === 1 ? " move" : " moves");
+    $("hud-moves").textContent = movesOf(moves);
     $("hud-par").textContent = "par " + par;
     if (mode === "windup" && state === "play") {
       var left = Math.max(0, budget - moves);
@@ -385,7 +387,7 @@
       closed = true;
       if (bestLevel) bestLevel.submit(level);
       $("over-title").textContent = "House dark: level " + level + " closed";
-      $("over-msg").textContent = moves + " moves · par " + par;
+      $("over-msg").textContent = movesOf(moves) + " · par " + par;
       lines.push("the reel had " + (budget - moves) + " to spare");
       lines.push("best run: level " + (bestLevel ? bestLevel.get() : level));
       $("again").innerHTML = "Next level" + ENTER_CAP;
@@ -399,9 +401,9 @@
       }
       var rec = readDaily();
       $("over-title").textContent = "Lights out";
-      $("over-msg").textContent = moves + " moves · par " + par;
+      $("over-msg").textContent = movesOf(moves) + " · par " + par;
       lines.push("daily feature No. " + rec.n + (dailyRecorded
-        ? ", recorded earlier: " + rec.moves + " moves"
+        ? ", recorded earlier: " + movesOf(rec.moves)
         : overParVal === 0 ? ", a perfect blackout!" : ""));
       $("again").innerHTML = "Once more (just for fun)" + ENTER_CAP;
       $("share").hidden = false;
@@ -412,7 +414,7 @@
       if (z[dkey] == null || overParVal < z[dkey]) z[dkey] = overParVal;
       store.set("lightsout_zen", JSON.stringify(z));
       $("over-title").textContent = "Lights out";
-      $("over-msg").textContent = moves + " moves · par " + par;
+      $("over-msg").textContent = movesOf(moves) + " · par " + par;
       lines.push(overParVal === 0 ? "a perfect blackout!" : "+" + overParVal + " over par");
       lines.push(n + "×" + n + " signs put out: " + z["s" + n]);
       $("again").innerHTML = "New sign" + ENTER_CAP;
@@ -446,7 +448,7 @@
   function shareDaily() {
     var d = readDaily();
     var text = "Lights Out · Daily feature No. " + d.n + " (" + d.ymd + ")\n" +
-      "Dark in " + d.moves + " moves · par " + d.par + " 🎬\n" +
+      "Dark in " + movesOf(d.moves) + " · par " + d.par + " 🎬\n" +
       location.origin + location.pathname;
     function copied() { $("share").textContent = "copied!"; setTimeout(function () { $("share").textContent = "Share result"; }, 1400); }
     // (the clipboard wasn't allowed: show the result to copy, in the game's own look)
@@ -470,7 +472,7 @@
     });
     var d = readDaily();
     $("daily-small").innerHTML = d.done
-      ? "done: " + d.moves + " moves (par " + d.par + ") ✓ " + keyCap("2")
+      ? "done: " + movesOf(d.moves) + " (par " + d.par + ") ✓ " + keyCap("2")
       : "today's sign, share your moves " + keyCap("2");
     var parts = [];
     if (bestLevel && bestLevel.get()) parts.push("last reel: level " + bestLevel.get());

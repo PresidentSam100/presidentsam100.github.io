@@ -1166,7 +1166,7 @@ function render() {
     html +=
       '<div class="opp' + (active ? " active" : "") + '">' +
       '<div class="oname">' + p.name + "</div>" +
-      '<div class="ocount">' + p.hand.length + " cards" +
+      '<div class="ocount">' + p.hand.length + (p.hand.length === 1 ? " card" : " cards") +
       (G.drew[i] ? ' <b class="drew">+' + G.drew[i] + "</b>" : "") + "</div>" +
       '<div class="mini-backs">' + backs + "</div>" +
       (p.hand.length === 1 && p.calledUno
