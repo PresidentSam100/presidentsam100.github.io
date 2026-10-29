@@ -5,7 +5,7 @@
   "use strict";
   var P = window.PoolPhysics, Ru = window.PoolRules, AI = window.PoolAI;
   var L = P.L, W = P.W, R = P.R;
-  var RAIL = 0.118, CUSH = 0.042;       // wood rail and cushion depth behind the cushion nose (m)
+  var RAIL = 0.165, CUSH = 0.042;       // wood rail and cushion depth behind the cushion nose (m): deep enough that a side pocket's liner has wood round it
   var LEVEL_KEYS = ["easy", "medium", "hard"];
 
   // ---- canvas and the one view transform ----------------------------------------
@@ -321,10 +321,10 @@
   }
 
   // ---- the static table ---------------------------------------------------------------
+  // a pocket's hole: the very circle a ball drops into (physics.js)
   function holeOf(k) {
     var p = P.pockets[k];
-    return p.side ? { x: p.mx, y: p.my + p.oy * 0.056, r: 0.054 }
-                  : { x: p.mx + p.ox * (0.0608 + 0.026), y: p.my + p.oy * (0.0608 + 0.026), r: 0.061 };
+    return { x: p.x, y: p.y, r: p.r };
   }
   // the cushion rubber: each nose segment, closed off along its pocket jaws
   function cushionPolys() {
@@ -461,17 +461,31 @@
       g.beginPath(); g.moveTo(a[0] + ux * PT, a[1] + uy * PT); g.lineTo(b[0] - ux * PT, b[1] - uy * PT);
       g.strokeStyle = "rgba(160,235,180,0.35)"; g.lineWidth = px * 1.6; g.stroke();
     });
-    // cushion shadow on the cloth
+    // cushion shadow on the cloth: along each cushion's nose only, ending
+    // where its points turn away, so none lies across a pocket's mouth
     g.save();
     g.beginPath(); g.rect(0, 0, L, W); g.clip();
     g.strokeStyle = "rgba(0,0,0,0.22)"; g.lineWidth = 0.012;
-    g.strokeRect(0, 0, L, W);
+    g.beginPath();
+    cushionPolys().forEach(function (c) {
+      var a = c[0], b = c[1], ux = b[0] - a[0], uy = b[1] - a[1], ul = Math.hypot(ux, uy);
+      ux /= ul; uy /= ul;
+      g.moveTo(a[0] + ux * PT, a[1] + uy * PT); g.lineTo(b[0] - ux * PT, b[1] - uy * PT);
+    });
+    g.stroke();
     g.restore();
     // pockets: leather liner on the wood, then the hole. Over the cushions, so
     // each jaw runs into the liner's round rim instead of poking past it in a
-    // sharp point (the jaw's far end lies under the rim)
+    // sharp point (the jaw's far end lies under the rim). Both stay behind the
+    // pocket's mouth: a side pocket's shallow shelf would put the liner's rim
+    // out on the playing cloth
     for (var k = 0; k < 6; k++) {
-      var h = holeOf(k);
+      var h = holeOf(k), pk = P.pockets[k], qx = -pk.oy, qy = pk.ox;
+      g.save();
+      g.beginPath();
+      g.moveTo(pk.mx + qx, pk.my + qy); g.lineTo(pk.mx + qx + pk.ox, pk.my + qy + pk.oy);
+      g.lineTo(pk.mx - qx + pk.ox, pk.my - qy + pk.oy); g.lineTo(pk.mx - qx, pk.my - qy);
+      g.clip();
       g.beginPath(); g.arc(h.x, h.y, h.r + 0.014, 0, Math.PI * 2);
       g.fillStyle = "#1e120a"; g.fill();
       g.strokeStyle = "rgba(201,164,92,0.55)"; g.lineWidth = px * 1.5; g.stroke();
@@ -479,6 +493,7 @@
       hg.addColorStop(0, "#000"); hg.addColorStop(0.75, "#070404"); hg.addColorStop(1, "#1a0f08");
       g.beginPath(); g.arc(h.x, h.y, h.r, 0, Math.PI * 2);
       g.fillStyle = hg; g.fill();
+      g.restore();
     }
 
     // mother-of-pearl sights
@@ -618,7 +633,10 @@
   function endShot() {
     var res = Ru.resolve(G.st, G.before, G.world.ev, G.shotCall);
     var o = res.out, me = o.shooter, st = res.st;
-    if (o.respot8) { P.spotBall(G.balls, 8); toast("The 8 went down on the break: respotted", "info"); }
+    // balls down on the break set no groups (the standard rules): the table
+    // stays open, said so it doesn't look like the groups went astray
+    var stillOpen = G.st.isBreak && !o.foul && o.potted.length > 0;
+    if (o.respot8) { P.spotBall(G.balls, 8); if (!stillOpen) toast("The 8 went down on the break: respotted", "info"); }
     if (o.cueIn) { cue().on = false; }
     G.st = st;
     if (o.winner >= 0) { gameOver(o); return; }
@@ -630,6 +648,8 @@
     } else if (o.assigned) {
       var g = o.assigned === "solid" ? "solids" : "stripes";
       toast(G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g + "!" : "CPU takes " + g, "good");
+    } else if (stillOpen) {
+      toast((o.respot8 ? "The 8 is respotted. " : "") + "Table still open: the next ball potted sets the groups", "info");
     } else if (st.turn !== me) {
       toast(yours ? "Your turn" : nameOf(st.turn) + "'s turn", "info");
     }

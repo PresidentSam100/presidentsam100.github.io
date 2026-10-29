@@ -26,10 +26,20 @@
   var VMAX = 8;           // cue ball speed at full power
   var TIP_MAX = 0.5;      // furthest cue-tip offset from centre, as a fraction of R
 
-  // pocket mouths: corners measured along each rail from the corner,
-  // sides as a half-width either side of the middle of the long rail
-  var CM = 0.086, SM = 0.066;
-  var CJ = 0.06, SJ = 0.05;           // jaw lengths
+  // pockets, cut to the world-standard table (the WPA's equipment specs), in
+  // inches as the specs give them. A corner's mouth is 4 5/8" from point to
+  // point, its facings at 142° to the cushion (7° in from parallel, so the
+  // throat narrows going in); a side's mouth is 5 1/8", wider, its facings at
+  // 104° (14° in from square). The hole, the slate's cut, sits back from the
+  // mouth by the shelf: 1" at a corner, 1/4" at a side (the gentle end of the
+  // specs' range, so fewer slow balls hang in the jaws). A ball drops once its
+  // centre is over the hole, the same circle the table draws.
+  var IN = 0.0254;
+  var C_MOUTH = 4.625 * IN, S_MOUTH = 5.125 * IN;
+  var C_TURN = 7 * Math.PI / 180, S_TURN = 14 * Math.PI / 180;
+  var C_SHELF = 1 * IN, S_SHELF = 0.25 * IN;
+  var C_HOLE = 2.3 * IN, S_HOLE = 2.4 * IN;             // the holes' radii
+  var CM = C_MOUTH / Math.SQRT2, SM = S_MOUTH / 2;     // corners: along each rail from the corner; sides: half the mouth
 
   // ---- geometry ----------------------------------------------------------------
   var pockets = [], segs = [], points = [];
@@ -38,27 +48,33 @@
     segs.push({ ax: ax, ay: ay, bx: bx, by: by, dx: dx / len, dy: dy / len, len: len, nx: -dy / len, ny: dx / len });
   }
   function pt(x, y) { points.push({ x: x, y: y }); }
+  // a pocket's facing: from the cushion's point (px, py) off along the axis
+  // (ax, ay), turned in toward the other point (nx, ny), on into the hole
+  function facing(px, py, ax, ay, nx, ny, turn, hole) {
+    var dx = ax * Math.cos(turn) + nx * Math.sin(turn), dy = ay * Math.cos(turn) + ny * Math.sin(turn);
+    var fx = px - hole.x, fy = py - hole.y, b = fx * dx + fy * dy, c = fx * fx + fy * fy - hole.r * hole.r;
+    var root = Math.sqrt(Math.max(0, b * b - c)), t = Math.min(-b - root + 0.25 * IN, -b + root - 0.002);
+    seg(px, py, px + dx * t, py + dy * t);
+    pt(px, py); pt(px + dx * t, py + dy * t);
+  }
   function corner(cx, cy) {
     var sx = cx ? 1 : -1, sy = cy ? 1 : -1;
     var ox = sx * Math.SQRT1_2, oy = sy * Math.SQRT1_2;   // the pocket's axis, pointing off the table
     var hx = cx - sx * CM, hy = cy;                       // where the long cushion ends
     var vx = cx, vy = cy - sy * CM;                       // where the short cushion ends
-    seg(hx, hy, hx + ox * CJ, hy + oy * CJ);
-    seg(vx, vy, vx + ox * CJ, vy + oy * CJ);
-    pt(hx, hy); pt(vx, vy);
-    pt(hx + ox * CJ, hy + oy * CJ); pt(vx + ox * CJ, vy + oy * CJ);
-    pockets.push({ x: cx + ox * 0.014, y: cy + oy * 0.014, r: 0.062,
-                   mx: (hx + vx) / 2, my: (hy + vy) / 2, ox: ox, oy: oy, side: false,
+    var mx = (hx + vx) / 2, my = (hy + vy) / 2, back = C_SHELF + C_HOLE;
+    var hole = { x: mx + ox * back, y: my + oy * back, r: C_HOLE };
+    facing(hx, hy, ox, oy, (vx - hx) / C_MOUTH, (vy - hy) / C_MOUTH, C_TURN, hole);
+    facing(vx, vy, ox, oy, (hx - vx) / C_MOUTH, (hy - vy) / C_MOUTH, C_TURN, hole);
+    pockets.push({ x: hole.x, y: hole.y, r: hole.r, mx: mx, my: my, ox: ox, oy: oy, side: false,
                    jaw: [[hx, hy], [vx, vy]] });
   }
   function side(cy) {
     var sy = cy ? 1 : -1, x0 = L / 2;
-    seg(x0 - SM, cy, x0 - SM + 0.008, cy + sy * SJ);
-    seg(x0 + SM, cy, x0 + SM - 0.008, cy + sy * SJ);
-    pt(x0 - SM, cy); pt(x0 + SM, cy);
-    pt(x0 - SM + 0.008, cy + sy * SJ); pt(x0 + SM - 0.008, cy + sy * SJ);
-    pockets.push({ x: x0, y: cy + sy * 0.068, r: 0.064,
-                   mx: x0, my: cy, ox: 0, oy: sy, side: true,
+    var hole = { x: x0, y: cy + sy * (S_SHELF + S_HOLE), r: S_HOLE };
+    facing(x0 - SM, cy, 0, sy, 1, 0, S_TURN, hole);
+    facing(x0 + SM, cy, 0, sy, -1, 0, S_TURN, hole);
+    pockets.push({ x: hole.x, y: hole.y, r: hole.r, mx: x0, my: cy, ox: 0, oy: sy, side: true,
                    jaw: [[x0 - SM, cy], [x0 + SM, cy]] });
   }
   // pockets in order: 0 top-left, 1 top-middle, 2 top-right, 3 bottom-left, 4 bottom-middle, 5 bottom-right

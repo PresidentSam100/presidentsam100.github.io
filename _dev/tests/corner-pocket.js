@@ -422,6 +422,122 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "first frame");
   }
 
+  // ---- the pockets are cut as on the world-standard table (WPA): a corner's
+  // mouth 4 1/2 to 4 5/8 in from point to point, a side's 5 to 5 1/8 in (so
+  // wider), the facings at 142° and 104° to the cushion, the hole back from
+  // the mouth by 1 to 2 1/4 in at a corner and 0 to 3/8 in at a side
+  p = await open();
+  const cut = await p.evaluate(() => {
+    const P = PoolPhysics, IN = 0.0254, at = (s, q) => Math.abs(s.ax - q[0]) < 1e-9 && Math.abs(s.ay - q[1]) < 1e-9;
+    return P.pockets.map((k) => {
+      const mouth = Math.hypot(k.jaw[1][0] - k.jaw[0][0], k.jaw[1][1] - k.jaw[0][1]);
+      // at each point: the angle from the cushion (running away from the pocket) round to the facing
+      const angles = k.jaw.map((q) => {
+        const j = P.segs.find((s) => s.len < 0.2 && at(s, q));
+        const c = P.segs.find((s) => s.len >= 0.2 && (at(s, q) || (Math.abs(s.bx - q[0]) < 1e-9 && Math.abs(s.by - q[1]) < 1e-9)));
+        const ax = at(c, q) ? c.dx : -c.dx, ay = at(c, q) ? c.dy : -c.dy;
+        return +(Math.acos(ax * j.dx + ay * j.dy) * 180 / Math.PI).toFixed(1);
+      });
+      const shelf = (k.x - k.mx) * k.ox + (k.y - k.my) * k.oy - k.r;
+      return { side: k.side, mouth: +(mouth / IN).toFixed(3), angles, shelf: +(shelf / IN).toFixed(3) };
+    });
+  });
+  const inRange = (v, lo, hi) => v >= lo - 1e-6 && v <= hi + 1e-6;
+  check("corner-pocket: the pockets are cut to the standard table: corner mouths 4.5 to 4.625 in, side mouths 5 to 5.125 in (wider), facings at 142° and 104°, shelves 1 to 2.25 in and 0 to 0.375 in",
+    cut.length === 6 && cut.every((k) => k.side
+      ? inRange(k.mouth, 5, 5.125) && k.angles.every((a) => Math.abs(a - 104) <= 1) && inRange(k.shelf, 0, 0.375)
+      : inRange(k.mouth, 4.5, 4.625) && k.angles.every((a) => Math.abs(a - 142) <= 1) && inRange(k.shelf, 1, 2.25)), cut);
+
+  // ... and every hole's leather liner lies on the rail's wood, with wood
+  // beyond it (none past the table's outer edge, its corners rounded 0.07 m)
+  const onWood = await p.evaluate(() => {
+    const P = PoolPhysics, V = __pool.V, o = V.outer, a = __pool.toWorld(o.x, o.y), b = __pool.toWorld(o.x + o.w, o.y + o.h);
+    const x0 = Math.min(a.x, b.x), x1 = Math.max(a.x, b.x), y0 = Math.min(a.y, b.y), y1 = Math.max(a.y, b.y), rr = 0.07, m = 0.005;
+    const inside = (x, y) => {
+      const cx = Math.max(x0 + rr, Math.min(x1 - rr, x)), cy = Math.max(y0 + rr, Math.min(y1 - rr, y));
+      return Math.hypot(x - cx, y - cy) <= rr - m;
+    };
+    return P.pockets.map((k, i) => {
+      let out = 0;
+      for (let t = 0; t < 72; t++) { const th = t / 72 * Math.PI * 2; if (!inside(k.x + Math.cos(th) * (k.r + 0.014), k.y + Math.sin(th) * (k.r + 0.014))) out++; }
+      return { pocket: i, out };
+    }).filter((k) => k.out > 0);
+  });
+  check("corner-pocket: every pocket's liner sits on the rail's wood, none of it past the table's edge", onWood.length === 0, onWood);
+  await done(p, "pocket cut");
+
+  // ---- the cushion's shadow on the cloth runs along each cushion only, not
+  // on across a pocket's mouth (read off the table as drawn: a strip at the
+  // cushion's foot against cloth a little further out)
+  p = await open();
+  await p.waitForTimeout(300);
+  const shade = await p.evaluate(() => {
+    const P = PoolPhysics, L = P.L, cv = document.getElementById("table"), g = cv.getContext("2d"), dpr = cv.width / innerWidth;
+    const lum = (x, y) => {
+      const s = __pool.toScreen(x, y), d = g.getImageData(Math.round(s.x * dpr) - 3, Math.round(s.y * dpr), 7, 1).data;
+      let t = 0; for (let i = 0; i < d.length; i += 4) t += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      return t / 7;
+    };
+    const ratio = (x, y, y2) => +(lum(x, y) / lum(x, y2)).toFixed(3);
+    const cm = P.pockets[0].jaw[0][0];   // where the long cushion ends at the top left corner
+    return {
+      cushion: ratio(L / 4, 0.003, 0.02),
+      cornerMouth: ratio(cm - 0.01, 0.003, 0.016),
+      sideMouth: ratio(L / 2, 0.003, 0.02),
+    };
+  });
+  check("corner-pocket: the cushion's shadow lies along the cushion and stops at a pocket's mouth (corner and side), no strip running on across it",
+    shade.cushion < 0.88 && shade.cornerMouth > 0.92 && shade.sideMouth > 0.92, shade);
+  await done(p, "cushion shadow");
+
+  // ---- balls still go in: a straight shot down each pocket's axis, and a
+  // ball rolled along a cushion into a corner, along both rails
+  p = await open();
+  const pots = await p.evaluate(() => {
+    const P = PoolPhysics, R = P.R, W = P.W, out = [];
+    const shoot = (ob, cue, angle, power) => {
+      const w = P.simulate([P.makeBall(0, cue[0], cue[1]), P.makeBall(1, ob[0], ob[1])], { angle, power, tipX: 0, tipY: 0 });
+      const got = w.ev.pocketed.find((e) => e.id === 1);
+      return got ? got.pocket : -1;
+    };
+    P.pockets.forEach((k, i) => {
+      const ob = [k.mx - k.ox * 0.25, k.my - k.oy * 0.25], cue = [k.mx - k.ox * 0.6, k.my - k.oy * 0.6];
+      out.push({ shot: "straight " + i, want: i, got: shoot(ob, cue, Math.atan2(k.oy, k.ox), 0.3) });
+    });
+    out.push({ shot: "along the top rail", want: 0, got: shoot([0.4, R + 0.0005], [0.75, R + 0.0005], Math.PI, 0.3) });
+    out.push({ shot: "along the head rail", want: 0, got: shoot([R + 0.0005, 0.4], [R + 0.0005, 0.75], -Math.PI / 2, 0.3) });
+    out.push({ shot: "along the foot rail", want: 5, got: shoot([P.L - R - 0.0005, W - 0.4], [P.L - R - 0.0005, W - 0.75], Math.PI / 2, 0.3) });
+    return out;
+  });
+  check("corner-pocket: a straight shot into each of the six pockets goes in, and so does a ball rolled along a cushion into a corner",
+    pots.every((s) => s.got === s.want), pots);
+  await done(p, "pockets take balls");
+
+  // ---- the groups follow the standard rules, and the table says so: balls
+  // potted on the break set nothing (the table stays open, a toast says the
+  // next ball potted decides); the next stripe potted makes you stripes
+  p = await open();
+  await start(p, "you");
+  const open8 = await p.evaluate(() => {
+    const G = __pool.G, P = PoolPhysics, Ru = PoolRules;
+    const last = () => (G.toasts[G.toasts.length - 1] || {}).text || "";
+    G.st = Ru.newGame(0); G.st.inHand = null;
+    G.before = P.cloneBalls(G.balls); G.shotCall = -1;
+    G.world = { ev: { firstHit: 1, railAfter: true, firstBehind: false, crossed: true, pocketed: [{ id: 3, pocket: 0 }] }, sfx: [] };
+    __pool.endShot();
+    const afterBreak = { toast: last(), groups: G.st.groups.slice(), open: G.st.open, turn: G.st.turn };
+    G.phase = "aim";
+    G.before = P.cloneBalls(G.balls);
+    G.world = { ev: { firstHit: 11, railAfter: true, firstBehind: false, crossed: true, pocketed: [{ id: 11, pocket: 2 }] }, sfx: [] };
+    __pool.endShot();
+    return { afterBreak, next: { toast: last(), groups: G.st.groups.slice(), open: G.st.open } };
+  });
+  check("corner-pocket: a solid potted on the break leaves the table open, and a toast says the next ball potted sets the groups; the next potted stripe makes you stripes",
+    /Table still open/.test(open8.afterBreak.toast) && /next ball potted sets the groups/.test(open8.afterBreak.toast) &&
+      open8.afterBreak.groups[0] === null && open8.afterBreak.groups[1] === null && open8.afterBreak.open && open8.afterBreak.turn === 0 &&
+      /You're stripes!/.test(open8.next.toast) && open8.next.groups[0] === "stripe" && open8.next.groups[1] === "solid" && !open8.next.open, open8);
+  await done(p, "open table after the break");
+
   // ---- How to play states the 8-ball rules and the aiming keys
   p = await open();
   const how8 = await p.evaluate(() => document.querySelector(".how ul").textContent.replace(/\s+/g, " "));

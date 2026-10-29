@@ -47,6 +47,8 @@
   function potLine(balls, ob, k) {
     var pk = P.pockets[k];
     var ax = pk.mx + pk.ox * 0.02, ay = pk.my + pk.oy * 0.02;
+    // a ball hanging in the jaws, already at the mouth: on into the hole
+    if ((ob.x - pk.mx) * pk.ox + (ob.y - pk.my) * pk.oy > -R) { ax = pk.x; ay = pk.y; }
     var ux = ax - ob.x, uy = ay - ob.y, d2 = Math.sqrt(ux * ux + uy * uy);
     if (d2 < 1e-6) return null;
     ux /= d2; uy /= d2;
