@@ -3,8 +3,11 @@
 // up afresh, a mission tried again kept as it was), the records (saved as
 // they're earned), and the page at a laptop's size and a phone's: the mouse,
 // the keys, the touch sticks, Visual FX off, and the arena fitting the screen.
-// The tanks that lay mines drive off them and don't blow themselves up; the
-// violet tank drives at your tank's pace; the menu picks any of the
+// The tanks that lay mines drive off them and don't blow themselves up; a
+// tank gets out of a shell's way only once it has noticed it and reacted,
+// the later a kind comes in the campaign the better it does, the black best
+// of all, and none is out of the way at once; the violet tank drives at
+// your tank's pace; the menu picks any of the
 // missions, and a run's records (missions cleared, tanks destroyed) count
 // from the one it starts on; the mission card counts
 // every kind, one too; a white tank stays out of sight when your tank is
@@ -128,19 +131,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   {
-    // dodging: a shell a tank heeds (here, every one), straight at it, it
-    // drives out of the way of (off the shell's line, not onto it)
+    // dodging: a shell a tank has noticed (here, every one, and long enough
+    // ago to act on), straight at it, it drives out of the way of (off the
+    // shell's line, not onto it)
     let alive = 0, n = 0;
     for (const kind of ["p", "v", "w", "k"]) for (let seed = 1; seed <= 5; seed++) {
       const st = E.create([map([[3, 8, "P"], [11, 8, kind]])], { seed }); play(st);
       const e = st.enemies[0]; e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 });
       run(st, 400, {});
       E.step(st, 16, { aim: Math.atan2(e.y - st.player.y, e.x - st.player.x), fire: true });
-      st.shells.forEach((s) => { s.heeds = { [e.slot]: true }; });
+      st.shells.forEach((s) => { s.noticed = { [e.slot]: -1e9 }; });
       for (let t = 0; t < 3000 && e.alive; t += 16) E.step(st, 16, {});
       n++; if (e.alive) alive++;
     }
-    check("toy-tanks rules: a pink, violet, white or black tank gets out of the way of a shell it heeds, fired straight at it", alive === n, { alive, n });
+    check("toy-tanks rules: a pink, violet, white or black tank gets out of the way of a shell it has noticed, fired straight at it", alive === n, { alive, n });
   }
   {
     // its own shell, come back off a wall: a tank sees that coming too
@@ -150,13 +154,51 @@ module.exports = async ({ browser, base, check, lib }) => {
       const st = E.create([m], { seed }); play(st);
       const e = st.enemies[0]; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 }); st.player.cool = 1e9;
       e.turret = Math.PI; e.cool = 0; E.fire(st, e); e.cool = 1e9;
-      st.shells.forEach((s) => { s.heeds = { [e.slot]: true }; });
+      st.shells.forEach((s) => { s.noticed = { [e.slot]: -1e9 }; });
       // (driving back along the shell's line, as if it meant to)
       e.ai.goal = { x: 12.5, y: 8.5 }; e.ai.t = 1e9; e.ai.think = 1e9;
       for (let t = 0; t < 2500 && e.alive; t += 16) E.step(st, 16, {});
       n++; if (e.alive) alive++;
     }
     check("toy-tanks rules: a tank sees its own shell coming back off a wall and gets out of its way", alive === n, { alive, n });
+  }
+  {
+    // how well each kind gets out of the way, left to itself: sitting still
+    // until it moves to dodge, one shell fired straight at it from 3, 5, 8
+    // and 12 tiles, 40 seeded tries each. A tank has to notice a shell, and
+    // then react, before it moves: the further off one comes from, the likelier
+    // it gets clear, and the sharper the kind (the later it comes in the
+    // campaign), the better it does. No kind is out of the way at once.
+    const KINDS = [["ash", "a"], ["marine", "m"], ["pink", "p"], ["violet", "v"], ["white", "w"], ["black", "k"]], FAR = [5, 8, 12];
+    const got = {}, first = {};
+    for (const [kind, letter] of KINDS) {
+      got[kind] = {};
+      for (const dist of [3].concat(FAR)) {
+        let alive = 0;
+        for (let seed = 1; seed <= 40; seed++) {
+          const st = E.create([map([[15 - dist, 8, "P"], [15, 8, letter]])], { seed }); play(st);
+          const e = st.enemies[0]; e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 });
+          e.ai.paused = 1e9;   // (it sits where it is unless it has a shell to dodge)
+          run(st, 400, {});
+          E.step(st, 16, { aim: Math.atan2(e.y - st.player.y, e.x - st.player.x), fire: true });
+          for (let t = 16; t < 4000 && e.alive && st.shells.length; t += 16) {
+            E.step(st, 16, {});
+            if (e.ai.dodge && (first[kind] == null || t < first[kind])) first[kind] = t;
+          }
+          if (e.alive) alive++;
+        }
+        got[kind][dist] = alive;
+      }
+    }
+    const far = (k) => FAR.reduce((a, d) => a + got[k][d], 0), names = KINDS.map(([k]) => k);
+    check("toy-tanks rules: getting out of the way of shells from 5 to 12 tiles off, each kind does better than the one before it (ash, marine, pink, violet, white, black), and black best of all",
+      names.every((k, i) => i === 0 || far(k) > far(names[i - 1])), got);
+    check("toy-tanks rules: black gets out of the way of every shell from 8 tiles off and more, the others miss some",
+      got.black[8] === 40 && got.black[12] === 40 && names.every((k) => k === "black" || got[k][8] < 40 || got[k][12] < 40), got);
+    check("toy-tanks rules: from 3 tiles off only a black tank ever gets clear, and not every time",
+      got.black[3] > 0 && got.black[3] < 40 && names.every((k) => k === "black" || got[k][3] === 0), got);
+    check("toy-tanks rules: no tank starts to dodge the moment a shell is fired at it: black, the quickest, takes 0.15 s and more, the ash 0.3 s and more",
+      first.black >= 150 && first.ash >= 300 && names.every((k) => first[k] >= 150), first);
   }
   {
     // your mine about to go off beside a tank (ash and marine mind it then;

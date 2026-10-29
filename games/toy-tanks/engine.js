@@ -60,19 +60,29 @@
     black:  { name: "Black",  move: "vfast",  shell: "fast",   fire: 600,  bounces: 0, shells: 3, mines: 2, ai: "dynamic",    look: 0,  wobble: 0.02 }
   };
   var KEEP_OFF = TUNE.keepOff;
-  // How wary each kind is (the ones that move; brown and green can't): the
-  // chance it heeds a given shell at all, how far ahead it sees one coming
-  // (ms), whether it sees one coming off a wall, and whether it keeps clear
-  // of every mine's blast or only its own side's (and any about to go off).
-  // None drives over a mine. The yellow tank is careless of shells.
+  // How wary each kind is (the ones that move; brown and green can't), the
+  // later a kind comes in the campaign the sharper: the ash is slow to see a
+  // shell coming and slow to get going, the black sees one at once and
+  // picks its way out best.
+  // - see: how far ahead it looks for a shell coming at it (ms); bank:
+  //   whether it sees one coming off a wall.
+  // - notice: how soon it notices one coming in that time (the chance a
+  //   second, so the longer a shell has been coming the likelier it has).
+  // - react: how long it takes to start moving once it has (ms).
+  // - ways: how many ways out it weighs; slip: how far off (in tiles) its
+  //   sense of how clear each one keeps can be, so a weak tank now and then
+  //   picks a poor way, and keeps to it.
+  // - mines: whether it keeps clear of every mine's blast or only its own
+  //   side's (and any about to go off). None drives over a mine.
+  // The yellow tank is careless of shells.
   var WARY = {
-    ash:    { heed: 0.1,  see: 450,  bank: false, mines: "own" },
-    marine: { heed: 0.15, see: 500,  bank: false, mines: "own" },
-    yellow: { heed: 0,    see: 0,    bank: false, mines: "all" },
-    pink:   { heed: 0.45, see: 700,  bank: true,  mines: "all" },
-    violet: { heed: 0.6,  see: 850,  bank: true,  mines: "all" },
-    white:  { heed: 0.6,  see: 850,  bank: true,  mines: "all" },
-    black:  { heed: 0.75, see: 1100, bank: true,  mines: "all" }
+    ash:    { see: 900,  bank: false, notice: 0.8, react: 330, ways: 8,  slip: 0.5,  mines: "own" },
+    marine: { see: 950,  bank: false, notice: 1.2, react: 300, ways: 8,  slip: 0.4,  mines: "own" },
+    yellow: { see: 0,    bank: false, notice: 0,   react: 0,   ways: 0,  slip: 0,    mines: "all" },
+    pink:   { see: 1000, bank: true,  notice: 3,   react: 250, ways: 16, slip: 0.3,  mines: "all" },
+    violet: { see: 1050, bank: true,  notice: 4.5, react: 210, ways: 16, slip: 0.2,  mines: "all" },
+    white:  { see: 1150, bank: true,  notice: 7,   react: 165, ways: 16, slip: 0.12, mines: "all" },
+    black:  { see: 1200, bank: true,  notice: 10,  react: 130, ways: 16, slip: 0.05, mines: "all" }
   };
   var LETTER = { b: "brown", a: "ash", m: "marine", y: "yellow", p: "pink", g: "green", v: "violet", w: "white", k: "black" };
 
@@ -498,12 +508,12 @@
     if (w && w.see > 0 && speed > 0) {
       // (it looks every other step: its look ahead is far longer than that)
       ai.lookT = (ai.lookT || 0) - dt;
-      if (ai.lookT <= 0) { ai.lookT = 32; ai.danger = incoming(st, e, w); }
+      if (ai.lookT <= 0) { ai.lookT = LOOK_EVERY; ai.danger = incoming(st, e, w); }
       if (ai.danger) {
         ai.dodgeT = (ai.dodgeT || 0) - dt;
         if (!ai.dodge || ai.dodgeT <= 0) { ai.dodge = dodgeWay(st, e, w, speed); ai.dodgeT = 120; }
         dodge = ai.dodge;
-      } else ai.dodge = null;
+      } else { ai.dodge = null; ai.slips = null; }
     }
 
     // turret and fire
@@ -653,31 +663,38 @@
   }
   // (a shell too far off to come near in the time a tank looks ahead isn't looked at)
   function within(P, e, ms) { return Math.hypot(P.s.x - e.x, P.s.y - e.y) <= P.speed * ms / 1000 + DANGER + 0.5; }
-  // A shell on its way to the tank that it heeds (whether it does is
-  // settled the first time it sees it coming, and kept with the shell)
-  var DANGER = TANK_R + SHELL_R + 0.3;
+  // A shell on its way to the tank that it has noticed in time to act on:
+  // at each look, one coming at it that it hasn't noticed yet it may notice
+  // (the time it did is kept with the shell), and it acts on it once its
+  // reaction time has passed since.
+  var DANGER = TANK_R + SHELL_R + 0.3, LOOK_EVERY = 32;
   function incoming(st, e, w) {
+    var chance = 1 - Math.exp(-w.notice * LOOK_EVERY / 1000);
     return st.seen.some(function (P) {
       if (!within(P, e, w.see)) return false;
       for (var i = 0; i * LOOK < w.see && P.path[P.k + i]; i++) {
         var q = sees(e, w, P, i);
         if (!q || Math.hypot(q.x - e.x, q.y - e.y) >= DANGER) continue;
-        var heeds = P.s.heeds || (P.s.heeds = {});
-        if (heeds[e.slot] == null) heeds[e.slot] = st.random() < w.heed;
-        return heeds[e.slot];
+        var noticed = P.s.noticed || (P.s.noticed = {});
+        if (noticed[e.slot] == null && st.random() < chance) noticed[e.slot] = st.clock;
+        return noticed[e.slot] != null && st.clock - noticed[e.slot] >= w.react;
       }
       return false;
     });
   }
-  // Which way to drive out of the way: of sixteen headings, and staying put,
-  // the one that keeps furthest from every shell it sees over the time it
-  // looks ahead (stopping where a block would stop it), and doesn't take it
-  // over a mine.
+  // Which way to drive out of the way: of the headings it weighs, and
+  // staying put, the one it judges keeps furthest from every shell it sees
+  // over the time it looks ahead (stopping where a block would stop it),
+  // and doesn't take it over a mine. (How far off its judgement of each is,
+  // its slip, is drawn as it starts to get out of the way and kept till it's
+  // clear: a weak tank sticks to a poor pick rather than dithering.)
   function dodgeWay(st, e, w, speed) {
     var n = Math.min(LOOK_N, Math.ceil(w.see / LOOK) + 3), sl = speed * LOOK / 1000, most = sl * n, best = null, bestScore = -1e9;
     var mv = Math.hypot(e.vx, e.vy) || 1, near = st.seen.filter(function (P) { return within(P, e, n * LOOK); });
-    for (var k = -1; k < 16; k++) {
-      var dx = k < 0 ? 0 : Math.cos(k * Math.PI / 8), dy = k < 0 ? 0 : Math.sin(k * Math.PI / 8), free = 0, clear = 1e9;
+    var ai = e.ai;
+    if (!ai.slips) { ai.slips = []; for (var s = 0; s <= w.ways; s++) ai.slips.push((st.random() * 2 - 1) * w.slip); }
+    for (var k = -1; k < w.ways; k++) {
+      var dx = k < 0 ? 0 : Math.cos(k * 2 * Math.PI / w.ways), dy = k < 0 ? 0 : Math.sin(k * 2 * Math.PI / w.ways), free = 0, clear = 1e9;
       if (k >= 0) while (free < most && !blockedAt(st, e.x + dx * (free + 0.2), e.y + dy * (free + 0.2), TANK_R)) free += 0.2;
       for (var i = 0; i < n; i++) {
         var d = Math.min(sl * (i + 1), free), x = e.x + dx * d, y = e.y + dy * d;
@@ -689,7 +706,7 @@
       }
       // (clear enough is clear enough; then: not over a mine, and keeping on
       // much as it was going rather than turning about)
-      var score = Math.min(clear, DANGER + 0.5) * 10;
+      var score = Math.min(clear + ai.slips[k + 1], DANGER + 0.5) * 10;
       if (k >= 0 && mineOnPath(st, e, e.x + dx * Math.min(free, most), e.y + dy * Math.min(free, most))) score -= 30;
       if (k >= 0) score += (dx * e.vx + dy * e.vy) / mv * 0.2; else score -= 0.3;
       if (score > bestScore) { bestScore = score; best = { x: dx, y: dy }; }
