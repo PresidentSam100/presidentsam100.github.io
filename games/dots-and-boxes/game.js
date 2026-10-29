@@ -396,16 +396,20 @@ function restore(s) { hLines = s.h; vLines = s.v; }
 
 // --- the night over the city, behind everything ---
 // Two searchlights sweep the sky from behind the skyline, a few stars
-// twinkle, and some of the skyline's windows go dark and light again (the
-// windows are the skyline picture's own: --skyline in styles.css, a 1200 px
-// tile along the bottom). A box claimed sends a firework up into the open sky
-// in its owner's colour; the game's end sends up a show. The motion is CSS
-// and runs with Visual FX on only; FX off, the same sky holds still, and no
-// fireworks go up.
+// twinkle, some of the skyline's windows go dark and light again, and red
+// lights blink on top of the tallest masts (the windows and masts are the
+// skyline picture's own: --skyline in styles.css, a 1200 px tile along the
+// bottom). Now and then a shooting star crosses the open sky, and a plane's
+// lights pass high over the city. A box claimed sends a firework up into the
+// open sky in its owner's colour; the game's end sends up a show. All of it
+// runs behind the picker too, from the moment the page opens. The motion is
+// CSS and runs with Visual FX on only; FX off, the same sky holds still (the
+// mast lights steady), and no shooting stars, planes or fireworks go by.
 const skyBack = document.querySelector('.sky-back'), sky = document.querySelector('.sky');
 const BEAMS = [['left', 14, -12], ['right', 82, 14]];   // which, left %, the angle it rests at (its swing: styles.css)
 const STARS = [[8, 12], [15, 31], [23, 7], [31, 22], [42, 5], [47, 35], [57, 16], [66, 29], [72, 8], [79, 41], [93, 26], [36, 45], [61, 48], [4, 40]];
 const WINDOWS = [[3, 105], [43, 125], [219, 106], [273, 140], [331, 86], [434, 116], [525, 116], [575, 87], [700, 122], [868, 92], [936, 102], [1102, 133]];
+const MASTS = [[216.2, 64.7], [367.6, 56.1], [502.6, 40.5], [691.7, 55.9], [949.4, 47.9], [1104.4, 36.2]];   // the tallest masts' tops, middle of each
 function skyEl(cls, style) { const e = document.createElement(cls === 'burst' ? 'div' : 'span'); e.className = cls; Object.assign(e.style, style || {}); return e; }
 function buildSky() {
   if (!skyBack || !sky) return;
@@ -415,18 +419,23 @@ function buildSky() {
     b.style.setProperty('--rest', rest + 'deg');
     skyBack.appendChild(b);
   });
-  // (the stars, and the windows, in three sets that each twinkle or go dark
-  // together on a beat of their own: three animations, not one each, keeps
-  // the sky cheap to run)
-  [...sky.querySelectorAll('.twinkles, .lights-out')].forEach((e) => e.remove());
+  // (the stars, the windows and the mast lights, in three sets that each
+  // twinkle, go dark or blink together on a beat of their own: three
+  // animations, not one each, keeps the sky cheap to run)
+  [...sky.querySelectorAll('.twinkles, .lights-out, .masts')].forEach((e) => e.remove());
   const sets = (cls) => [0, 1, 2].map((j) => sky.appendChild(skyEl(cls + ' s' + j)));
   const stars = sets('twinkles');
   STARS.forEach(([x, y], i) => stars[i % 3].appendChild(skyEl('twinkle', { left: x + '%', top: y + '%' })));
-  // (the windows over every tile of the skyline the screen is wide enough for)
-  const dark = sets('lights-out');
-  for (let k = 0; k * 1200 < innerWidth; k++) WINDOWS.forEach(([x, y], i) => {
-    dark[(i + k) % 3].appendChild(skyEl('window', { left: (x + k * 1200) + 'px', bottom: (170 - y - 4) + 'px' }));
-  });
+  // (the windows and the masts over every tile of the skyline the screen is wide enough for)
+  const dark = sets('lights-out'), masts = sets('masts');
+  for (let k = 0; k * 1200 < innerWidth; k++) {
+    WINDOWS.forEach(([x, y], i) => {
+      dark[(i + k) % 3].appendChild(skyEl('window', { left: (x + k * 1200) + 'px', bottom: (170 - y - 4) + 'px' }));
+    });
+    MASTS.forEach(([x, y], i) => {
+      masts[(i + k) % 3].appendChild(skyEl('mast', { left: (x + k * 1200 - 1.5) + 'px', bottom: (170 - y - 1.5) + 'px' }));
+    });
+  }
 }
 let skyW = 0;
 addEventListener('resize', () => { if (Math.ceil(innerWidth / 1200) !== skyW) { skyW = Math.ceil(innerWidth / 1200); buildSky(); } });
@@ -434,7 +443,7 @@ addEventListener('resize', () => { if (Math.ceil(innerWidth / 1200) !== skyW) { 
 // board, the buttons and the moon when there's room (on a laptop there always
 // is); on a phone, wherever is furthest from them.
 function skySpot(r) {
-  const keep = ['h1', '.scoreboard', '#status', '#board', '.controls', '.record', '.nav-back-games', '.gs-corner']
+  const keep = ['h1', '.scoreboard', '#status', '#board', '.controls', '.record', '.nav-back-games', '.gs-corner', '.modal-overlay.open .modal']
     .map((q) => document.querySelector(q)).filter(Boolean).map((e) => e.getBoundingClientRect()).filter((b) => b.width > 0);
   // (the moon: the body's background, at 86% across and 11% down, its halo 44 px round)
   const bb = document.body.getBoundingClientRect(), mx = bb.left + bb.width * 0.86, my = bb.top + bb.height * 0.11;
@@ -479,13 +488,37 @@ function skyShow(winner) {
   const myRound = round;
   for (let i = 0; i < 7; i++) setTimeout(() => { if (myRound === round) firework(winner || (i % 2 ? AI : HUMAN), i % 3 === 0); }, 250 + i * 330);
 }
-addEventListener('reducemotionchange', () => { if (!animOn() && sky) sky.querySelectorAll('.burst').forEach((e) => e.remove()); });
+// Now and then, a shooting star across the open sky, and a plane's lights
+// (a steady one, a red one blinking, a white flash) crossing high over the
+// city at an easy pace, one plane at a time. Not with FX off, nor while
+// paused or out of sight.
+function skyLive() { return !!sky && animOn() && !skyPaused && !document.hidden; }
+function shootingStar() {
+  if (!skyLive()) return;
+  const at = skySpot(60), down = Math.random() < 0.5;
+  const m = skyEl('meteor', { left: at.x + 'px', top: at.y + 'px', transform: 'rotate(' + Math.round(down ? 18 + Math.random() * 20 : 142 + Math.random() * 20) + 'deg)' });
+  m.appendChild(document.createElement('i')).addEventListener('animationend', () => m.remove());
+  sky.appendChild(m);
+}
+function planeOver() {
+  if (!skyLive() || sky.querySelector('.plane')) return;
+  const p = skyEl('plane', { top: Math.round(innerHeight * (0.05 + Math.random() * 0.22)) + 'px', animationDuration: Math.round((innerWidth + 60) / 42) + 's' });
+  if (Math.random() < 0.5) p.classList.add('west');
+  p.append(document.createElement('s'), document.createElement('i'), document.createElement('b'));
+  p.addEventListener('animationend', (e) => { if (e.target === p) p.remove(); });
+  sky.appendChild(p);
+}
+(function meteors() { setTimeout(() => { shootingStar(); meteors(); }, 6000 + Math.random() * 10000); })();
+(function planes() { setTimeout(() => { planeOver(); planes(); }, 9000 + Math.random() * 14000); })();
+addEventListener('reducemotionchange', () => { if (!animOn() && sky) sky.querySelectorAll('.burst, .meteor, .plane').forEach((e) => e.remove()); });
 skyW = Math.ceil(innerWidth / 1200);
 buildSky();
 
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
+// (the picker stands over the night city itself: the title, tallies and
+// board are put out of sight while it's up, and the sky goes on behind it)
 const modeModal = document.getElementById('modeModal');
-function showModeModal(){ modeModal.classList.add('open'); }
+function showModeModal(){ modeModal.classList.add('open'); document.documentElement.classList.add('db-menu'); }
 function setupModeModal(onStart){
   modeModal.querySelectorAll('.opts').forEach(group => {
     const sel = document.getElementById(group.dataset.target);
@@ -499,6 +532,7 @@ function setupModeModal(onStart){
   });
   document.getElementById('startGame').addEventListener('click', () => {
     modeModal.classList.remove('open');
+    document.documentElement.classList.remove('db-menu');
     onStart();
   });
 }

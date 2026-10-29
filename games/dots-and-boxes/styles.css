@@ -33,11 +33,13 @@ body::before {
 }
 /* ---- the night over the city (game.js fills it in) ----
    Behind the skyline two searchlights sweep the sky; in front of it a few
-   windows go dark and light again; above, some stars twinkle; and a box
-   claimed sends a firework up into the open sky in its owner's colour, a win
-   a whole show. With Visual FX off it's the same sky held still (the beams at
-   rest, the stars steady, every window lit) and no fireworks. Paused, it all
-   stops where it is. */
+   windows go dark and light again and red lights blink on the tallest masts;
+   above, some stars twinkle, and now and then a shooting star goes over or a
+   plane's lights cross the city; and a box claimed sends a firework up into
+   the open sky in its owner's colour, a win a whole show. With Visual FX off
+   it's the same sky held still (the beams at rest, the stars steady, every
+   window and mast light lit) and nothing goes by. Paused, it all stops where
+   it is. */
 .sky-back, .sky { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .sky-back { z-index: -2; }
 .sky { z-index: -1; }
@@ -67,6 +69,32 @@ html.fx-on .lights-out.s0 { animation: dbLightsOut 13s steps(1, end) -4s infinit
 html.fx-on .lights-out.s1 { animation: dbLightsOut 19s steps(1, end) -11s infinite; }
 html.fx-on .lights-out.s2 { animation: dbLightsOut 23s steps(1, end) -2s infinite; }
 @keyframes dbLightsOut { 0% { opacity: 0; } 70% { opacity: 0.92; } 86% { opacity: 0; } }
+/* (the warning lights for aircraft on the tallest masts: a slow red blink) */
+.masts { position: absolute; inset: 0; opacity: 0.75; }
+.mast { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #ff5a5a; box-shadow: 0 0 4px 1px rgba(255, 80, 80, 0.55); }
+html.fx-on .masts.s0 { animation: dbMast 2.3s ease-in-out infinite; }
+html.fx-on .masts.s1 { animation: dbMast 2.9s ease-in-out -1.1s infinite; }
+html.fx-on .masts.s2 { animation: dbMast 3.4s ease-in-out -2.3s infinite; }
+@keyframes dbMast { 0%, 40%, 100% { opacity: 0.2; } 12% { opacity: 1; } }
+/* a shooting star: a streak that runs out along its slant (game.js turns it) and fades */
+.meteor { position: absolute; width: 0; height: 0; }
+.meteor i {
+  position: absolute; right: 0; top: -1px; width: 110px; height: 2px; border-radius: 1px; transform-origin: 100% 50%;
+  background: linear-gradient(to right, rgba(235, 242, 255, 0), rgba(235, 242, 255, 0.85)); opacity: 0;
+  animation: dbMeteor 0.9s ease-out forwards;
+}
+@keyframes dbMeteor { 0% { transform: translateX(0) scaleX(0.1); opacity: 0; } 18% { opacity: 1; } 100% { transform: translateX(170px) scaleX(1); opacity: 0; } }
+/* a plane crossing high over the city (its pace: game.js), its lights a
+   steady one, a red one blinking and a white flash */
+.plane { position: absolute; left: 0; width: 0; height: 0; animation: dbFly linear forwards; }
+.plane.west { animation-direction: reverse; }
+@keyframes dbFly { from { transform: translateX(-30px); } to { transform: translateX(calc(100vw + 30px)); } }
+.plane s, .plane i, .plane b { position: absolute; top: -1px; width: 2px; height: 2px; border-radius: 50%; }
+.plane s { left: -1px; background: rgba(255, 244, 220, 0.75); }
+.plane i { left: 3px; background: #ff5a5a; box-shadow: 0 0 3px 1px rgba(255, 80, 80, 0.5); animation: dbBlink 1.3s steps(1, end) infinite; }
+.plane b { left: -6px; background: #fff; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6); opacity: 0; animation: dbStrobe 1.7s linear infinite; }
+@keyframes dbBlink { 0% { opacity: 1; } 50% { opacity: 0.15; } }
+@keyframes dbStrobe { 0%, 7% { opacity: 1; } 8%, 100% { opacity: 0; } }
 .burst { position: absolute; width: 0; height: 0; animation: dbDrift 1.25s ease-in forwards; }
 @keyframes dbDrift { to { transform: translateY(16px); } }
 .burst.human { color: #ff8a98; } .burst.ai { color: #7fd4ff; }
@@ -206,15 +234,10 @@ html.fx-off .last-mark { animation: none; }
 .opt.sel { color: #04121e; background: var(--ai); border-color: var(--ai); box-shadow: 0 0 14px rgba(63, 182, 255, 0.45); }
 #startGame { margin-top: 6px; color: #fff; background: linear-gradient(180deg, #ff6f80, #e8455a); border-color: #ff8795; box-shadow: 0 0 16px rgba(255, 90, 110, 0.4); }
 #closeRules { color: #04121e; background: var(--ai); border-color: var(--ai); }
-/* the opening screen: the night city itself, behind the card */
-#modeModal {
-  background:
-    var(--skyline) 0 100% / 1200px 170px repeat-x,
-    radial-gradient(circle at 86% 11%, #fdf6dc 0 26px, rgba(253, 246, 220, 0.18) 27px 44px, rgba(253, 246, 220, 0) 70px),
-    var(--stars) 0 0 / 300px 220px,
-    radial-gradient(ellipse 90% 40% at 50% 105%, rgba(255, 150, 120, 0.22), rgba(255, 150, 120, 0) 70%),
-    linear-gradient(180deg, #060a18 0%, #0c1430 55%, #1a1f44 100%);
-}
+/* the opening screen: the night city itself, behind the card (the page's own
+   sky, live, with the title, tallies and board out of sight: game.js) */
+#modeModal { background: none; }
+html.db-menu body > :is(h1, .scoreboard, #status, #board, .controls, .record) { visibility: hidden; }
 @media (max-width: 560px) {
   body { padding: 56px 12px 40px; gap: 12px; }
   h1 { font-size: 2.5rem; }
