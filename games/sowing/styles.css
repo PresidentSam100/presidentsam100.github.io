@@ -97,9 +97,14 @@ html.fx-on .pit.drop .seeds, html.fx-on .store.drop .seeds { animation: sw-drop 
 .pit.far[data-gs-key]::after { top: auto; bottom: 6%; }
 
 .tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+/* The words and the keycap side by side, each in the middle top to bottom
+   (in one line the keycap stood on the words' baseline, low); the red foot
+   is drawn inside the padding, so 3px more below than above keeps both in
+   the middle of the black face over it. */
 .tools button {
+  display: inline-flex; align-items: center; justify-content: center;
   font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; color: var(--cream);
-  background: var(--black); border: 2px solid var(--black); border-radius: 10px; padding: 6px 12px;
+  background: var(--black); border: 2px solid var(--black); border-radius: 10px; padding: 4.5px 12px 7.5px;
   box-shadow: inset 0 -3px 0 var(--red);
 }
 .tools button:disabled { opacity: 0.45; cursor: default; }

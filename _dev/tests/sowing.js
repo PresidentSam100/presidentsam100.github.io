@@ -9,7 +9,8 @@
 // paused, keys sow nothing; the end card counts the stores, keeps the record, ignores Space
 // for a moment, then plays again, and Backspace goes to the menu; sowing
 // keeps its pace with Visual FX off (only the hop goes); on a phone a tap on
-// one of your pits sows from it.
+// one of your pits sows from it; Hint, Undo, New game and Menu have their
+// words and keycaps in the middle of the button's face.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/sowing/", opts);
@@ -161,6 +162,67 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("sowing, phone: a tap on one of your pits sows from it (the pits a fair size to tap)", b[2] === 0 && b[6] === 1 && r.w >= 32, { b, w: r.w });
     await done(q, "phone");
     await c.close();
+  }
+
+  // ---- Hint, Undo, New game and Menu: each label in the middle of its
+  // button's black face top to bottom (the face is above the red foot drawn
+  // inside the button), and where there's a keyboard each keycap too. The
+  // first capital is read from the pixels, four to a CSS pixel. The suites
+  // keep the web fonts out, so Work Sans comes as a stand-in face given its
+  // own heights (its line sits as Work Sans's does).
+  {
+    const { devices } = require("@playwright/test");
+    const WORK = '@font-face { font-family: "Work Sans"; src: local("Arial"); font-weight: 100 900; ascent-override: 93%; descent-override: 24%; line-gap-override: 0%; }';
+    for (const [label, opts] of [["laptop", { deviceScaleFactor: 4 }], ["phone", Object.assign({}, devices["Pixel 7"], { deviceScaleFactor: 4 })]]) {
+      const c = await lib.newContext(browser, opts);
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: WORK }));
+      const q = await open(c);
+      await q.evaluate(() => Sowing.start()); await q.waitForTimeout(200);
+      const seen = [];
+      for (const id of ["btn-hint", "btn-undo", "btn-new", "btn-menu"]) {
+        const g = await q.evaluate((id) => {
+          const b = document.getElementById(id), cs = getComputedStyle(b), r = b.getBoundingClientRect();
+          const top = r.top + parseFloat(cs.borderTopWidth), foot = r.bottom - parseFloat(cs.borderBottomWidth) - 3;
+          const t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()), at = t.textContent.search(/\S/), rg = document.createRange();
+          rg.setStart(t, at); rg.setEnd(t, at + 1);
+          const ch = rg.getBoundingClientRect();
+          // the keycap, drawn from the attribute (::after), read through a twin of it drawn the same in its place
+          let key = null;
+          const ks = getComputedStyle(b, "::after");
+          if (b.hasAttribute("data-gs-key") && ks.display !== "none") {
+            const twin = document.createElement("span"), st = document.createElement("style");
+            for (const prop of ks) twin.style.setProperty(prop, ks.getPropertyValue(prop));
+            twin.style.setProperty("content", "normal"); twin.textContent = b.getAttribute("data-gs-key");
+            st.textContent = ".twin-of::after { display: none !important; }"; document.head.appendChild(st);
+            b.classList.add("twin-of"); b.appendChild(twin);
+            const kr = twin.getBoundingClientRect(); key = +((kr.top + kr.bottom) / 2 - (top + foot) / 2).toFixed(2);
+            twin.remove(); st.remove(); b.classList.remove("twin-of");
+          }
+          return { id, x: r.left, y: r.top, right: r.right, bottom: r.bottom, top, foot, cx0: ch.left, cx1: ch.right, key };
+        }, id);
+        const clip = { x: Math.floor(g.x), y: Math.floor(g.y), width: Math.ceil(g.right) - Math.floor(g.x), height: Math.ceil(g.bottom) - Math.floor(g.y) };
+        const png = (await q.screenshot({ clip })).toString("base64");
+        seen.push(await q.evaluate(async ({ png, g, clip }) => {
+          const S = 4, img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+          const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+          const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+          const d = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width;
+          const lum = (i, j) => { const n = (j * W + i) * 4; return 0.3 * d[n] + 0.59 * d[n + 1] + 0.11 * d[n + 2]; };
+          const row = (y) => Math.round((y - clip.y) * S), col = (v) => Math.round((v - clip.x) * S);
+          let t = -1, bt = -1;   // the rows the cream capital has ink in, on the black face
+          for (let j = row(g.top + 0.5); j < row(g.foot); j++) {
+            let lit = false; for (let i = col(g.cx0); i < col(g.cx1) && !lit; i++) lit = lum(i, j) > 150;
+            if (lit) { if (t < 0) t = j; bt = j; }
+          }
+          return { id: g.id, above: +(clip.y + t / S - g.top).toFixed(2), below: +(g.foot - clip.y - (bt + 1) / S).toFixed(2), key: g.key };
+        }, { png, g, clip }));
+      }
+      const keyed = label === "laptop";
+      check("sowing " + label + ": Hint, Undo, New game and Menu each have their label in the middle of the button's face, above the red foot" + (keyed ? ", and their keycaps too" : ""),
+        seen.length === 4 && seen.every((s) => s.above > 2 && s.below > 2 && Math.abs(s.above - s.below) <= 1.2 && (keyed ? s.key !== null && Math.abs(s.key) <= 0.6 : s.key === null)), seen);
+      await done(q, "tool buttons, " + label);
+      await c.close();
+    }
   }
   await ctx.close();
 };
