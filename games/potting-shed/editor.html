@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%AA%B4%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Potting Shed: build a shed | Sam Lu</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito+Sans:wght@400;600;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="editor.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Build your own Potting Shed: benches, brick floor, patches of sun, pots and the gardener. Check it can be solved, test it, save it, or share it as a link." />
+    <meta name="author" content="Sam Lu" />
+</head>
+<body class="editor">
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<main id="ed">
+  <header class="ed-head">
+    <h1 class="ed-title">Potting Shed</h1>
+    <p class="ed-sub">Build a shed</p>
+  </header>
+
+  <!-- the shed being built (and, in a test, played) -->
+  <section class="ed-boardcol">
+    <canvas id="ed-board" aria-label="The shed you're building: click or drag to paint, right-click for floor"></canvas>
+    <p class="ed-status" id="ed-status" role="status" aria-live="polite"></p>
+    <div class="ed-testbar" id="ed-testbar" hidden>
+      <span class="ed-count" id="ed-count">0 moves · 0 pushes</span>
+      <button type="button" id="ed-undo">Undo</button>
+      <button type="button" id="ed-over">Start over</button>
+      <button type="button" id="ed-stop">Stop</button>
+    </div>
+    <!-- a test on a touch screen: the game's pad -->
+    <div class="pad" id="pad" aria-hidden="true">
+      <button type="button" id="t-up" class="up">▲</button>
+      <button type="button" id="t-left" class="left">◀</button>
+      <button type="button" id="t-undo" class="undo">↶</button>
+      <button type="button" id="t-right" class="right">▶</button>
+      <button type="button" id="t-down" class="down">▼</button>
+    </div>
+  </section>
+
+  <!-- the tools: a seed packet -->
+  <aside class="ed-side card">
+    <h2>Paint</h2>
+    <div class="ed-palette" id="ed-palette" role="toolbar" aria-label="What to paint"></div>
+    <p class="ed-what" id="ed-what"></p>
+
+    <div class="ed-row ed-size">
+      <label>Across <input type="number" id="ed-w" min="5" max="16" inputmode="numeric" /></label>
+      <label>Down <input type="number" id="ed-h" min="5" max="12" inputmode="numeric" /></label>
+      <button type="button" id="ed-frame" title="Benches all round the edge">Benches round</button>
+    </div>
+    <label class="ed-field">Name <input type="text" id="ed-name" maxlength="40" placeholder="My shed" autocomplete="off" /></label>
+
+    <div class="ed-row">
+      <button type="button" class="ed-go" id="ed-test">Test</button>
+      <button type="button" id="ed-check">Check</button>
+      <button type="button" id="ed-save">Save</button>
+      <button type="button" id="ed-savenew" title="Keep the saved shed as it was and save this as another" hidden>Save as new</button>
+      <button type="button" id="ed-new">New</button>
+    </div>
+    <div class="ed-row">
+      <button type="button" id="ed-play">Play in the game</button>
+      <button type="button" id="ed-share">Copy share link</button>
+      <button type="button" id="ed-export">Export</button>
+      <button type="button" id="ed-import">Import</button>
+    </div>
+
+    <h2>My sheds</h2>
+    <div class="ed-saved" id="ed-saved"></div>
+
+    <a class="ed-back" id="ed-back" href="./" data-leave>Back to the game</a>
+  </aside>
+</main>
+
+<!-- export and import -->
+<section class="panel" id="ed-io" hidden>
+  <div class="card">
+    <h2 id="ed-io-title">Export</h2>
+    <textarea id="ed-io-text" spellcheck="false" aria-label="The shed as text"></textarea>
+    <p class="ed-io-note" id="ed-io-note"></p>
+    <div class="ed-io-row">
+      <button type="button" class="ed-go" id="ed-io-load" hidden>Load into the editor</button>
+      <button type="button" id="ed-io-copy">Copy</button>
+      <button type="button" id="ed-io-close">Close</button>
+    </div>
+  </div>
+</section>
+
+<!-- the end of a test -->
+<section class="panel" id="ed-done" hidden>
+  <div class="card end">
+    <h2>Potted!</h2>
+    <p class="big" id="ed-done-msg">0 moves</p>
+    <p class="stats" id="ed-done-stats"></p>
+    <div class="ed-io-row">
+      <button type="button" class="ed-go" id="ed-back-edit">Back to editing</button>
+      <button type="button" id="ed-again">Test again</button>
+    </div>
+  </div>
+</section>
+
+<script src="engine.js"></script>
+<script src="art.js"></script>
+<script src="editor.js"></script>
+</body>
+</html>

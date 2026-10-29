@@ -113,6 +113,17 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--pack
 html.fx-off .tile.nope { animation: none; }
 @keyframes ps-nope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 .lock-note { min-height: 18px; margin-top: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--terra-deep); }
+/* sheds of your own (from the editor): a label each, the list scrolling past a few rows */
+.mine { margin-top: 6px; }
+.minelist { display: flex; flex-wrap: wrap; gap: 6px; max-height: 92px; overflow-y: auto; padding: 2px; }
+.tile.mine-tile { height: 36px; max-width: 100%; padding: 0 12px; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--leaf); border-color: #2f4f1e; box-shadow: 0 2px 0 #2f4f1e; }
+/* the shed editor's door: a painted tin label like the shed's own buttons */
+.build {
+  display: block; margin-top: 10px; text-align: center; text-decoration: none; cursor: pointer;
+  font-size: 15px; font-weight: 800; color: var(--packet);
+  background: var(--wood); border: 2px solid #3e2814; border-radius: 6px; padding: 6px 12px; box-shadow: 0 2px 0 #3e2814;
+}
+.build:active { transform: translateY(2px); box-shadow: none; }
 @media (min-width: 760px) {
   .card.menu { width: min(820px, 100%); display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; }
   .card.menu::before { grid-column: 1 / -1; }

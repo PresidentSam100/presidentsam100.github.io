@@ -76,6 +76,12 @@
       <h2 class="sheds-k" id="sheds-k">Sheds</h2>
       <div class="shedgrid" id="shed-grid" role="group" aria-labelledby="sheds-k"></div>
       <p class="lock-note" id="lock-note" role="status" aria-live="polite"></p>
+      <!-- the sheds you've built and saved in the editor -->
+      <div class="mine" id="mine" hidden>
+        <h2 class="sheds-k" id="mine-k">My sheds</h2>
+        <div class="minelist" id="mine-list" role="group" aria-labelledby="mine-k"></div>
+      </div>
+      <a class="build" id="to-editor" href="./editor.html" data-leave>Build a shed</a>
     </div>
   </div>
 </section>
@@ -93,6 +99,8 @@
   </div>
 </section>
 
+<script src="engine.js"></script>
+<script src="art.js"></script>
 <script src="game.js"></script>
 </body>
 </html>

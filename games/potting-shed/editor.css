@@ -1,0 +1,90 @@
+/* =====================================================================
+   Potting Shed, the shed editor: the shed's planks (styles.css), the shed
+   being built on one side and a seed packet of tools on the other (on a
+   phone, one under the other, the page scrolling). The buttons are the
+   shed's painted tin labels.
+   ===================================================================== */
+
+body.editor { overflow-x: hidden; overflow-y: auto; padding: 60px 14px 28px; }
+#ed { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10px 22px; max-width: 1240px; margin: 0 auto; }
+.ed-head { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 14px; }
+.ed-title { font-family: "Alfa Slab One", serif; font-weight: 400; font-size: 30px; line-height: 1.1; color: var(--terra-deep); }
+.ed-sub { font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 14px; color: var(--leaf); }
+
+/* ---- the shed ------------------------------------------------------------------------ */
+.ed-boardcol { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; }
+#ed-board { display: block; border-radius: 4px; box-shadow: 0 2px 0 var(--ink), 6px 8px 0 rgba(47, 36, 24, 0.25); touch-action: none; cursor: crosshair; }
+body.testing #ed-board { cursor: default; }
+.ed-status { min-height: 21px; max-width: 640px; font-size: 15px; font-weight: 600; line-height: 1.4; text-align: center; color: var(--ink); }
+.ed-status.bad { color: var(--terra-deep); }
+.ed-status.good { color: var(--leaf); }
+.ed-testbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.ed-testbar[hidden] { display: none; }
+.ed-count { font-weight: 800; font-size: 15px; color: var(--ink); font-variant-numeric: tabular-nums; margin-right: 4px; }
+/* the pad only while a test runs, and only on a touch screen (styles.css) */
+body.editor:not(.testing) .pad { display: none; }
+
+/* ---- the tools: a seed packet --------------------------------------------------------- */
+.ed-side.card { width: min(380px, 100%); display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; }
+.ed-side.card::before { margin-bottom: 4px; }
+.card.ed-side h2 { font-size: 19px; line-height: 1.15; color: var(--terra-deep); }
+/* (a test plays in the shed: the tools wait) */
+body.testing .ed-side { opacity: 0.55; pointer-events: none; }
+.ed-palette { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ed-palette button {
+  display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; min-width: 0;
+  font-family: inherit; font-size: 13px; font-weight: 800; line-height: 1.15; text-align: center; color: var(--ink);
+  background: #efe4c6; border: 2px solid var(--ink-dim); border-radius: 6px; padding: 4px 3px 3px;
+}
+.ed-palette button canvas { flex: none; display: block; width: 28px; height: 28px; }
+.ed-palette button[aria-pressed="true"] { color: var(--packet); background: var(--wood); border-color: #3e2814; box-shadow: 0 2px 0 #3e2814; }
+.ed-palette button:focus-visible { outline: 3px solid var(--terra); outline-offset: 1px; }
+.ed-what { min-height: 36px; font-size: 13px; line-height: 1.4; color: var(--ink-dim); }
+.ed-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.ed-row > * { flex: 1 1 auto; }
+.ed-size label { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; flex: 0 1 auto; }
+.ed-size input { width: 54px; }
+.ed-field { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.ed-field input { flex: 1; min-width: 0; }
+.ed-side input {
+  font-family: inherit; font-size: 15px; color: var(--ink);
+  background: #fff; border: 2px solid var(--ink-dim); border-radius: 6px; padding: 5px 8px;
+}
+/* the buttons: the shed's tin labels; Test (and a box's first) in terracotta */
+.ed-side button, .ed-testbar button, .ed-io-row button, .ed-back {
+  font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer; color: var(--packet);
+  background: var(--wood); border: 2px solid #3e2814; border-radius: 6px; padding: 6px 10px; box-shadow: 0 2px 0 #3e2814;
+}
+.ed-side .ed-palette button { box-shadow: none; }
+.ed-side .ed-palette button[aria-pressed="true"] { box-shadow: 0 2px 0 #3e2814; }
+.ed-go { font-family: "Alfa Slab One", serif !important; font-weight: 400 !important; font-size: 16px !important; background: var(--terra) !important; border-color: var(--terra-deep) !important; box-shadow: 0 2px 0 var(--terra-deep) !important; }
+.ed-side button:active, .ed-testbar button:active, .ed-io-row button:active { transform: translateY(2px); box-shadow: none; }
+.ed-side button:disabled { opacity: 0.45; cursor: default; box-shadow: none !important; transform: none; }
+.ed-saved { display: flex; flex-direction: column; gap: 5px; }
+.ed-saved .empty { font-size: 13px; color: var(--ink-dim); }
+.saved-item { display: flex; align-items: center; gap: 5px; }
+.saved-item .nm { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-item.editing .nm { color: var(--terra-deep); }
+.ed-side .saved-item button { font-size: 13px; padding: 3px 8px; }
+.ed-back { display: block; margin-top: 4px; text-align: center; text-decoration: none; }
+
+/* ---- the boxes: export / import, the end of a test --------------------------------------- */
+#ed-io .card { width: min(560px, 100%); }
+#ed-io textarea {
+  display: block; width: 100%; height: 220px; margin-top: 10px; resize: vertical;
+  font: 13px/1.35 Consolas, "Courier New", monospace; color: var(--ink);
+  background: #fff; border: 2px solid var(--ink-dim); border-radius: 6px; padding: 8px;
+}
+.ed-io-note { margin-top: 8px; font-size: 13px; line-height: 1.4; color: var(--ink-dim); }
+.ed-io-note.bad { color: var(--terra-deep); font-weight: 600; }
+.ed-io-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+
+@media (max-width: 520px) {
+  body.editor { padding: 58px 8px 24px; }
+  .ed-title { font-size: 24px; }
+  .ed-sub { font-size: 12.5px; }
+  .ed-status { font-size: 14px; }
+  .ed-side.card { padding: 0 14px 14px; }
+  .ed-side.card::before { margin: 0 -14px 4px; }
+  #ed-io textarea { height: 170px; }
+}

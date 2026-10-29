@@ -2,12 +2,17 @@
    Potting Shed: the box-pushing puzzle (Sokoban) on a brick floor. The
    gardener pushes terracotta pots, one at a time and never pulling, onto
    the patches of sun from the window; a pot in the sun blooms. Thirty
-   sheds, from one pot to five.
+   sheds, from one pot to five. The rules are engine.js's and the art
+   art.js's, shared with the shed editor (editor.html, L on the menu), whose
+   sheds come back here: "My sheds" on the menu (localStorage
+   pottingshed_mine), or a "#play=<code>" link. A shed of your own is
+   played as the others are, with its clock, but keeps no records.
    ===================================================================== */
 (function () {
   "use strict";
 
   var $ = function (id) { return document.getElementById(id); };
+  var Engine = window.PottingShedEngine, Art = window.PottingShedArt;
   function fx() { return !(window.RM_ON && window.RM_ON()); }
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
@@ -50,22 +55,8 @@
     { name: "The Allotment", map: ["##########", "#.. #    #", "#.    #$ #", "# .#     #", "##$# ### #", "#  $@$ $ #", "#  .#    #", "##########"] }, // 51
     { name: "Head Gardener", map: ["##########", "#   #    #", "#   $ # *#", "## # $@#.#", "#  $ ## .#", "# #$     #", "#   #..  #", "##########"] } // 61
   ];
-  function parse(n) {
-    var rows = SHEDS[n].map, h = rows.length, w = 0, i;
-    for (i = 0; i < h; i++) w = Math.max(w, rows[i].length);
-    var L = { w: w, h: h, wall: [], sun: [], pots: [], me: 0 };
-    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-      var c = rows[y][x] || " ", k = y * w + x;
-      L.wall[k] = c === "#";
-      L.sun[k] = c === "." || c === "*" || c === "+";
-      if (c === "$" || c === "*") L.pots.push(k);
-      if (c === "@" || c === "+") L.me = k;
-    }
-    // the floor outside the walls is no floor at all: flood from the gardener
-    L.inside = []; var q = [L.me]; L.inside[L.me] = true;
-    while (q.length) { var at = q.pop(); [1, -1, w, -w].forEach(function (d) { var n2 = at + d; if (n2 >= 0 && n2 < w * h && !L.wall[n2] && !L.inside[n2]) { L.inside[n2] = true; q.push(n2); } }); }
-    return L;
-  }
+  // shed n of the thirty, or (n null) the shed of your own being played
+  function parse(n) { return Engine.parse(n == null ? own.map : SHEDS[n].map); }
 
   // ---- the canvas ------------------------------------------------------------------------
   var cv = $("stage"), g = cv.getContext("2d");
@@ -119,6 +110,7 @@
   var shed = kept == null ? -1 : Math.max(0, Math.min(SHEDS.length - 1, Number(kept) || 0));
   if (shed < 0 || !isOpen(shed)) for (shed = 0; shed < SHEDS.length - 1 && isOpen(shed + 1) && bests[shed]; shed++);
   var state = "menu";       // menu | play | blooming (the last flower opening) | done
+  var own = null;           // a shed of your own ({ name, map }) when it's the one chosen or played
   var L = null, me = 0, pots = [], moves = 0, pushes = 0, history = [], facing = 1;
   // blooms: a pot in the sun's flower opening, by cell (0 to 1); wilts: a pot
   // pushed out of the sun, its flower closing as it goes (Visual FX on)
@@ -129,7 +121,6 @@
 
   // "1 move", "2 moves": a count and its word, one or many
   function count(n, one, many) { return n + " " + (n === 1 ? one : many); }
-  function potAt(k) { return pots.indexOf(k); }
   function solved() { return pots.every(function (k) { return L.sun[k]; }); }
 
   // ---- the clock ----------------------------------------------------------------------------
@@ -163,21 +154,30 @@
   function mss(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
   function mssT(ms) { var t = Math.floor(ms / 100), s = Math.floor(t / 10); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2) + "." + t % 10; }
 
+  // n: one of the thirty (null: the one chosen, or your own being played);
   // keep: Start over, the same go at the shed (the clock runs on)
   function startShed(n, keep) {
-    if (n != null) shed = n;
-    store.set("pottingshed_shed", String(shed));
+    if (n != null) { shed = n; dropOwn(); }
+    if (!own) store.set("pottingshed_shed", String(shed));
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    L = parse(shed); me = L.me; pots = L.pots.slice(); moves = 0; pushes = 0; history = []; tween = null; blooms = {}; wilts = {};
+    L = parse(own ? null : shed); me = L.me; pots = L.pots.slice(); moves = 0; pushes = 0; history = []; tween = null; blooms = {}; wilts = {};
     pots.forEach(function (k) { if (L.sun[k]) blooms[k] = 1; });
     if (!keep) { clockStart = null; clockStop = null; }
     state = "play";
     $("menu").hidden = true; $("done").hidden = true; $("hud").hidden = false;
     layout(); hud();
   }
+  // a shed of your own: played as the others are
+  function startOwn(m) { own = m; startShed(null); }
+  function dropOwn() {
+    if (!own) return;
+    own = null;
+    // (a link's shed goes with it; `history` here is the shed's undo list)
+    if (/[#&]play=/.test(location.hash)) try { window.history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }
   function hud() {
-    $("hud-shed").textContent = (shed + 1) + " · " + SHEDS[shed].name;
+    $("hud-shed").textContent = own ? own.name : (shed + 1) + " · " + SHEDS[shed].name;
     $("hud-moves").textContent = moves;
     $("hud-moves-w").textContent = moves === 1 ? "move" : "moves";
     $("hud-pushes").textContent = pushes;
@@ -194,14 +194,14 @@
   function step(dx, dy) {
     if (state !== "play" || P.isPaused()) return;
     if (dx) facing = dx;
-    var d = dx + dy * L.w, to = me + d;
-    if (L.wall[to]) { sfxBump(); return; }
-    var p = potAt(to), pushed = -1;
-    if (p >= 0) {
-      var beyond = to + d;
-      if (L.wall[beyond] || potAt(beyond) >= 0) { sfxBump(); return; }
+    // (the rule is engine.js's: a pot goes one cell, never into a bench or another pot)
+    var r = Engine.move(L, me, pots, dx, dy);
+    if (!r) { sfxBump(); return; }
+    var to = r.me, pushed = r.pushed;
+    if (pushed >= 0) {
+      var beyond = r.to;
       history.push({ me: me, pots: pots.slice(), moves: moves, pushes: pushes });
-      pots[p] = beyond; pushes++; pushed = p;
+      pots = r.pots; pushes++;
       // (its flower as it was: open in the sun, or still closing from the last push out)
       var open = L.sun[to] ? blooms[to] || 0 : wilts[to] || 0;
       delete blooms[to]; delete wilts[to];
@@ -242,6 +242,8 @@
     state = "blooming";
     plantedAt = performance.now();
     clockStop = Date.now();
+    // (a shed of your own keeps no records)
+    if (own) { potted = { own: true, t: clockMs() }; showClock(); return; }
     // the fewest moves and the fastest time are records of their own: a slow
     // go in fewer moves keeps its moves, a quick one in more keeps its time
     var t = clockMs(), b = bests[shed];
@@ -263,16 +265,17 @@
     state = "done";
     doneAt = performance.now();
     setTimeout(sfxDone, 120);
-    var last = shed + 1 >= SHEDS.length;
-    $("done-title").textContent = last ? "Every shed is potted" : "Potted!";
+    var last = !!own || shed + 1 >= SHEDS.length;
+    $("done-title").textContent = last && !own ? "Every shed is potted" : "Potted!";
     $("done-msg").textContent = count(moves, "move", "moves");
     var time = document.createElement("span"), line = document.createElement("span"), bestsRow = document.createElement("span");
     time.className = "time";
     time.textContent = "in " + mssT(potted.t);
-    line.textContent = count(pushes, "push", "pushes") + " · shed " + (shed + 1) + ", " + SHEDS[shed].name;
+    line.textContent = count(pushes, "push", "pushes") + (own ? " · " + own.name + ", a shed of your own" : " · shed " + (shed + 1) + ", " + SHEDS[shed].name);
     bestsRow.className = "bests";
     var pill = function (text, record) { var s = document.createElement("span"); s.className = "best" + (record ? " record" : ""); s.textContent = text; bestsRow.appendChild(s); };
-    if (!b) pill("first time through", false);
+    if (own) pill("a shed of your own keeps no records", false);
+    else if (!b) pill("first time through", false);
     else {
       pill(isBest ? "your fewest moves here yet" : "fewest: " + count(b.m, "move", "moves"), isBest);
       if (b.t == null) pill("first time on the clock", false);
@@ -324,66 +327,13 @@
     });
   }
   var drawn = [];   // what the last frame drew, in order (for the tests)
-  function drawBrick(x, y, s, k) {
-    g.fillStyle = (Math.floor(k / L.w) + k) % 2 ? "#b8673f" : "#b05f39";
-    g.fillRect(x, y, s, s);
-    g.strokeStyle = "rgba(70, 30, 15, 0.35)"; g.lineWidth = 1;
-    // herringbone: two bricks a cell, turned by the cell's place
-    g.beginPath();
-    if ((k + Math.floor(k / L.w)) % 2) { g.moveTo(x, y + s / 2 + 0.5); g.lineTo(x + s, y + s / 2 + 0.5); g.moveTo(x + s / 2 + 0.5, y); g.lineTo(x + s / 2 + 0.5, y + s / 2); }
-    else { g.moveTo(x + s / 2 + 0.5, y); g.lineTo(x + s / 2 + 0.5, y + s); g.moveTo(x + s / 2, y + s / 2 + 0.5); g.lineTo(x + s, y + s / 2 + 0.5); }
-    g.strokeRect(x + 0.5, y + 0.5, s - 1, s - 1);
-    g.stroke();
-  }
-  function drawBench(x, y, s, k) {
-    g.fillStyle = "#6e4a2c"; g.fillRect(x, y, s, s);
-    g.fillStyle = "#83593a";
-    for (var i = 0; i < 3; i++) g.fillRect(x + 2, y + 2 + i * (s / 3), s - 4, s / 3 - 4);
-    g.fillStyle = "rgba(40, 24, 10, 0.35)"; g.fillRect(x, y + s - 4, s, 4);
-  }
-  function drawSun(x, y, s) {
-    var gr = g.createRadialGradient(x + s / 2, y + s / 2, 2, x + s / 2, y + s / 2, s * 0.7);
-    gr.addColorStop(0, "rgba(255, 238, 160, 0.95)"); gr.addColorStop(1, "rgba(255, 214, 110, 0.15)");
-    g.fillStyle = gr; g.fillRect(x + 2, y + 2, s - 4, s - 4);
-    g.strokeStyle = "rgba(255, 246, 200, 0.9)"; g.lineWidth = 2;
-    g.strokeRect(x + 4, y + 4, s - 8, s - 8);
-  }
+  // (the art is art.js's, shared with the shed editor)
+  function drawBrick(x, y, s, k) { Art.brick(g, x, y, s, k, L.w); }
+  function drawBench(x, y, s) { Art.bench(g, x, y, s); }
+  function drawSun(x, y, s) { Art.sun(g, x, y, s); }
   // bloom: how far its flower is open (0 none, 1 full): opening in the sun, closing out of it
-  function drawPot(x, y, s, bloom) {
-    var c = x + s / 2, top = y + s * 0.3, bot = y + s * 0.88;
-    // its shadow, the pot, its rim
-    g.fillStyle = "rgba(60, 25, 10, 0.3)"; g.beginPath(); g.ellipse(c, bot, s * 0.3, s * 0.08, 0, 0, 7); g.fill();
-    g.fillStyle = "#c9663d";
-    g.beginPath(); g.moveTo(c - s * 0.3, top); g.lineTo(c + s * 0.3, top); g.lineTo(c + s * 0.22, bot); g.lineTo(c - s * 0.22, bot); g.closePath(); g.fill();
-    g.fillStyle = "#df7c4f"; g.fillRect(c - s * 0.34, top - s * 0.08, s * 0.68, s * 0.12);
-    g.strokeStyle = "#7a3416"; g.lineWidth = 1.5; g.strokeRect(c - s * 0.34, top - s * 0.08, s * 0.68, s * 0.12);
-    // the seedling, and in the sun its flower
-    g.strokeStyle = "#3f7a2c"; g.lineWidth = Math.max(2, s * 0.05);
-    g.beginPath(); g.moveTo(c, top - s * 0.08); g.lineTo(c, top - s * 0.28); g.stroke();
-    g.fillStyle = "#5c9a3a";
-    g.beginPath(); g.ellipse(c - s * 0.09, top - s * 0.2, s * 0.09, s * 0.045, -0.5, 0, 7); g.fill();
-    g.beginPath(); g.ellipse(c + s * 0.09, top - s * 0.24, s * 0.09, s * 0.045, 0.5, 0, 7); g.fill();
-    if (bloom > 0) {
-      var r = s * 0.12 * Math.min(1, bloom);
-      g.fillStyle = "#f2c230";
-      for (var i = 0; i < 5; i++) { var a = i * Math.PI * 2 / 5; g.beginPath(); g.arc(c + Math.cos(a) * r, top - s * 0.32 + Math.sin(a) * r, r * 0.75, 0, 7); g.fill(); }
-      g.fillStyle = "#8a4a12"; g.beginPath(); g.arc(c, top - s * 0.32, r * 0.6, 0, 7); g.fill();
-    }
-  }
-  function drawGardener(x, y, s) {
-    var c = x + s / 2, m = y + s / 2;
-    g.fillStyle = "rgba(60, 25, 10, 0.28)"; g.beginPath(); g.ellipse(c, y + s * 0.86, s * 0.26, s * 0.08, 0, 0, 7); g.fill();
-    // apron and shirt
-    g.fillStyle = "#3f6b8a"; g.beginPath(); g.ellipse(c, m + s * 0.12, s * 0.26, s * 0.3, 0, 0, 7); g.fill();
-    g.fillStyle = "#a9c1a0"; g.fillRect(c - s * 0.13, m, s * 0.26, s * 0.36);
-    // head and a wide straw hat
-    g.fillStyle = "#f0c9a4"; g.beginPath(); g.arc(c, m - s * 0.16, s * 0.14, 0, 7); g.fill();
-    g.fillStyle = "#e3c06a"; g.beginPath(); g.ellipse(c, m - s * 0.24, s * 0.3, s * 0.09, 0, 0, 7); g.fill();
-    g.fillStyle = "#d4ac4f"; g.beginPath(); g.ellipse(c, m - s * 0.3, s * 0.14, s * 0.1, 0, 0, 7); g.fill();
-    g.fillStyle = "#b5402f"; g.fillRect(c - s * 0.14, m - s * 0.27, s * 0.28, s * 0.04);
-    // eyes, looking the way it last went
-    g.fillStyle = "#2a1a10"; g.beginPath(); g.arc(c - s * 0.04 + facing * s * 0.025, m - s * 0.15, s * 0.018, 0, 7); g.arc(c + s * 0.04 + facing * s * 0.025, m - s * 0.15, s * 0.018, 0, 7); g.fill();
-  }
+  function drawPot(x, y, s, bloom) { Art.pot(g, x, y, s, bloom); }
+  function drawGardener(x, y, s) { Art.gardener(g, x, y, s, facing); }
 
   // ---- the loop, pause and the way out ------------------------------------------------------
   // (a hidden tab or window pauses, the clock held and the shed out of sight;
@@ -391,7 +341,7 @@
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
     onChange: function (paused) { document.body.classList.toggle("paused", paused); if (paused) holdClock("pause"); else releaseClock("pause"); },
-    restart: function () { startShed(shed, true); },
+    restart: function () { startShed(null, true); },
     menu: toMenu
   }) : { isPaused: function () { return false; } };
   document.addEventListener("visibilitychange", function () { if (document.hidden) holdClock("away"); else if (document.hasFocus()) releaseClock("away"); });
@@ -439,7 +389,7 @@
   });
   $("t-undo").addEventListener("click", undo);
   $("btn-undo").addEventListener("click", undo);
-  $("btn-restart").addEventListener("click", function () { if (state === "play") startShed(shed, true); });
+  $("btn-restart").addEventListener("click", function () { if (state === "play") startShed(null, true); });
   $("btn-sheds").addEventListener("click", function () {
     if (state === "blooming") return;   // (the card is on its way)
     if (window.GameShell && GameShell.askQuit && moves > 0) GameShell.askQuit({ title: "Leave this shed for the others?", ok: "Sheds" }, toMenu); else toMenu();
@@ -456,6 +406,7 @@
   function paintMenu() {
     paintGrid();
     paintChosen();
+    paintMine();
     var done = SHEDS.filter(function (_, i) { return bests[i]; }).length;
     $("tally").textContent = done ? done + " of " + SHEDS.length + " sheds potted" : "";
   }
@@ -480,16 +431,25 @@
   }
   function choose(n) {
     shed = n;
+    dropOwn();
     store.set("pottingshed_shed", String(shed));
     Array.prototype.forEach.call(grid.children, function (t, i) { t.classList.toggle("current", i === shed); });
     paintChosen();
   }
   function paintChosen() {
-    var S = SHEDS[shed], Lm = parse(shed), b = bests[shed];
-    $("pick-name").textContent = S.name;
-    $("pick-note").textContent = "shed " + (shed + 1) + " of " + SHEDS.length + " · " + count(Lm.pots.length, "pot", "pots");
-    $("pick-best").textContent = b ? "fewest moves: " + b.m + " (" + count(b.p, "push", "pushes") + ")" + (b.t != null ? " · fastest " + mssT(b.t) : "") : "not potted yet";
-    $("play").firstChild.textContent = b ? "Pot it again " : "Pot this shed ";
+    var Lm = parse(own ? null : shed);
+    if (own) {
+      $("pick-name").textContent = own.name;
+      $("pick-note").textContent = "a shed of your own · " + count(Lm.pots.length, "pot", "pots");
+      $("pick-best").textContent = "it keeps no records";
+      $("play").firstChild.textContent = "Pot this shed ";
+    } else {
+      var S = SHEDS[shed], b = bests[shed];
+      $("pick-name").textContent = S.name;
+      $("pick-note").textContent = "shed " + (shed + 1) + " of " + SHEDS.length + " · " + count(Lm.pots.length, "pot", "pots");
+      $("pick-best").textContent = b ? "fewest moves: " + b.m + " (" + count(b.p, "push", "pushes") + ")" + (b.t != null ? " · fastest " + mssT(b.t) : "") : "not potted yet";
+      $("play").firstChild.textContent = b ? "Pot it again " : "Pot this shed ";
+    }
     // the shed in small: benches, sun, pots
     var small = window.matchMedia && window.matchMedia("(max-width: 520px)").matches;
     var c = Math.floor(Math.min((small ? 72 : 120) / Lm.w, (small ? 60 : 84) / Lm.h));
@@ -509,19 +469,60 @@
     if (i < 0) return;
     if (isOpen(i)) { if (i !== shed) choose(i); } else sayLocked(i, null);
   }).observe(grid, { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
-  $("play").addEventListener("click", function () { startShed(shed); });
+  $("play").addEventListener("click", function () { startShed(own ? null : shed); });
   $("next").addEventListener("click", function () { startShed(Math.min(SHEDS.length - 1, shed + 1)); });
-  $("replay").addEventListener("click", function () { startShed(shed); });
+  $("replay").addEventListener("click", function () { startShed(null); });
   $("to-sheds").addEventListener("click", toMenu);
+
+  // ---- sheds of your own ----------------------------------------------------------------------
+  // The editor's saved sheds (localStorage pottingshed_mine) are "My sheds" on
+  // the menu, a tile each going straight in. A "#play=<code>" link (the
+  // editor's Play and share link) is the chosen shed on the menu, Pot this
+  // shed (Space or Enter) going in, until one of the thirty is chosen.
+  function mineList() {
+    var a = [];
+    try { a = JSON.parse(store.get("pottingshed_mine", "[]")) || []; } catch (e) { a = []; }
+    var out = [];
+    (Array.isArray(a) ? a : []).forEach(function (raw) { try { var m = Engine.clean(raw); if (!Engine.problems(m.map).length) out.push(m); } catch (e) {} });
+    return out;
+  }
+  function paintMine() {
+    var box = $("mine-list"), a = mineList();
+    box.replaceChildren();
+    $("mine").hidden = !a.length;
+    a.forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button"; b.className = "tile mine-tile"; b.textContent = m.name;
+      b.setAttribute("aria-label", m.name + ", a shed of your own");
+      b.addEventListener("click", function () { startOwn(m); });
+      box.appendChild(b);
+    });
+  }
+  function readLink() {
+    var m = /[#&]play=([^&]+)/.exec(location.hash || "");
+    if (!m) return;
+    try {
+      var sh = Engine.decode(m[1]), errs = Engine.problems(sh.map);
+      if (errs.length) throw new Error(errs[0].charAt(0).toUpperCase() + errs[0].slice(1) + ".");
+      own = sh;
+    } catch (err) {
+      if (window.GameShell && GameShell.alert) GameShell.alert({ title: "That shed won't open", text: String(err && err.message || err) });
+    }
+  }
+  readLink();
+  // (a link pasted over this page changes only its hash: taken up on the menu)
+  window.addEventListener("hashchange", function () { if (state === "menu") { readLink(); paintMenu(); } });
+
   if (window.GameShell && GameShell.gridKeys) {
-    // the list: the arrows ring a shed (from the chosen one), Enter goes into it
-    GameShell.gridKeys({ active: function () { return state === "menu"; }, sel: "#shed-grid .tile",
+    // the list: the arrows ring a shed (from the chosen one), Enter goes into
+    // it; on down into My sheds
+    GameShell.gridKeys({ active: function () { return state === "menu"; }, sel: "#shed-grid .tile, #mine-list .tile",
       first: function () { return grid.querySelector(".tile.current"); } });
     $("sheds-k").insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
   }
   if (window.GameShell && GameShell.menuKeys) {
-    // the chosen shed: Space or Enter goes in
-    GameShell.menuKeys({ active: function () { return state === "menu"; }, start: "#play", space: true });
+    // the chosen shed: Space or Enter goes in; L the shed editor
+    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#to-editor", keys: ["l"] }], start: "#play", space: true });
     // in a shed: U undo, R start the shed over, Backspace the sheds
     GameShell.menuKeys({ active: function () { return state === "play" && !P.isPaused(); },
       groups: [{ sel: "#tools button", keys: ["u", "r", "backspace"] }] });
@@ -561,6 +562,10 @@
     flowers: function () { return pots.map(function (k) { return { k: k, sun: L.sun[k], bloom: blooms[k] || 0, wilt: wilts[k] || 0 }; }); },
     // set the shed up as a test needs it: the gardener and the pots (in the
     // sun, open)
-    put: function (at, ps) { me = at; pots = ps.slice(); tween = null; wilts = {}; blooms = {}; pots.forEach(function (k) { if (L.sun[k]) blooms[k] = 1; }); }
+    put: function (at, ps) { me = at; pots = ps.slice(); tween = null; wilts = {}; blooms = {}; pots.forEach(function (k) { if (L.sun[k]) blooms[k] = 1; }); },
+    // a shed of your own: the one chosen or played (null for none), playing one, My sheds
+    own: function () { return own; },
+    startOwn: function (m) { startOwn(Engine.clean(m)); },
+    mine: mineList
   };
 })();
