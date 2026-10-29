@@ -345,10 +345,12 @@
       g.lineTo(sx, Y(fh * 0.9));
     }
     g.lineTo(VW, VH); g.closePath(); g.fill();
-    // the winds: a column of chevrons at the right edge, one row a band, always shown
-    drawWinds(FF);
-    // the near land
+    // the near land, and the balloon's shadow on it
     drawLand(FF, L);
+    if (state !== "menu" && b) drawShadow();
+    // the winds: a column of chevrons at the right edge, one row a band,
+    // always shown, over the rock (the balloon passes over it)
+    drawWinds(FF);
     if (state !== "menu" && b) drawBalloon();
     // the dust that rides the winds
     if (motes.length) {
@@ -424,12 +426,29 @@
     // where the balloon is, on the column
     if (b && state === "play") { g.fillStyle = "#c4473a"; g.beginPath(); g.arc(x - 6, Y(b.y), 4, 0, 7); g.fill(); }
   }
+  // the balloon's shadow on the ground below: laid along the land, on the
+  // rock's top face under the skyline (never in the air), so on a slope or
+  // over a drop it follows the ground; wider and fainter the higher the balloon
+  function drawShadow() {
+    var up = (b.y - groundAt(F, b.x)) / SKY, half = ENVELOPE * (0.8 + up), th = ENVELOPE * S * 0.36;
+    // (its ends, and every point the ground is known at between them, so the
+    // edge keeps to the skyline into each corner)
+    var xs = [b.x - half], top = [], bot = [];
+    for (var v = (Math.floor((b.x - half) / (STEP / 2)) + 1) * (STEP / 2); v < b.x + half; v += STEP / 2) xs.push(v);
+    xs.push(b.x + half);
+    var n = xs.length - 1;
+    for (var k = 0; k <= n; k++) {
+      var u = (xs[k] - b.x) / half, sy = Y(groundAt(F, xs[k]));
+      top.push([X(xs[k]), sy]); bot.push([X(xs[k]), sy + th * Math.sqrt(Math.max(0, 1 - u * u))]);
+    }
+    g.fillStyle = "rgba(60, 30, 26, " + (0.28 * (1 - up)).toFixed(3) + ")";
+    g.beginPath(); g.moveTo(top[0][0], top[0][1]);
+    for (k = 1; k <= n; k++) g.lineTo(top[k][0], top[k][1]);
+    for (k = n; k >= 0; k--) g.lineTo(bot[k][0], bot[k][1]);
+    g.closePath(); g.fill();
+  }
   function drawBalloon() {
     var x = X(b.x), y = Y(b.y), r = ENVELOPE * S;
-    // its shadow on the ground below
-    var gy = Y(groundAt(F, b.x)), up = (b.y - groundAt(F, b.x)) / SKY;
-    g.fillStyle = "rgba(60, 30, 26, " + (0.28 * (1 - up)).toFixed(3) + ")";
-    g.beginPath(); g.ellipse(x, gy, r * (0.8 + up), r * 0.18, 0, 0, 7); g.fill();
     // ropes and basket
     var by = y + (BASKET_DROP - 12) * S;
     g.strokeStyle = "#4b2e3a"; g.lineWidth = Math.max(1, 1.6 * S);

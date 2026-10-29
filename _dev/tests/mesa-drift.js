@@ -9,7 +9,8 @@
 // kept as it's passed; the end card ignores Space for a moment, then flies
 // again, and Backspace goes to the modes; paused, Space burns nothing; with
 // Visual FX off no dust rides the winds (the arrows show them all the same);
-// on a phone the burn button, held, burns.
+// on a phone the burn button, held, burns; the wind guide is drawn over the
+// rock; the balloon's shadow lies along the land, slopes and all.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/mesa-drift/", opts);
@@ -197,5 +198,78 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => MesaDrift.start("calm"));
   check("mesa-drift: on a desktop there are no touch buttons", (await p.evaluate(() => getComputedStyle(document.getElementById("tbtns")).display)) === "none", null);
   await done(p, "desktop buttons");
+
+  // ---- the wind guide at the right edge is drawn over the rock, not behind
+  // it: down its whole height it is the guide's cream laid over what lies just
+  // beside it (on the menu, Visual FX off so no dust crosses it), on a desktop
+  // and on a phone
+  {
+    const { devices } = require("@playwright/test");
+    for (const [label, opts] of [["desktop", null], ["phone", devices["Pixel 7"]]]) {
+      const c = opts ? await lib.newContext(browser, opts) : ctx;
+      const q = await open(c, { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:mesa-drift", "1"); } catch (e) {} }) });
+      const guide = await q.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cv = document.getElementById("stage"), g = cv.getContext("2d"), k = cv.width / innerWidth;
+        const VH = innerHeight, x = innerWidth - 56, PADB = matchMedia("(hover: none)").matches ? 104 : 0;
+        const SKY = MesaDrift.layers[4], S = (VH - 60 - PADB) / SKY, Y = (v) => VH - PADB - v * S;
+        const px = (sx, sy) => Array.from(g.getImageData(Math.round(sx * k), Math.round(sy * k), 1, 1).data);
+        const bad = [];
+        let rows = 0;
+        for (let sy = Y(SKY) + 4; sy < Y(0) - 4; sy += 6) {
+          if (MesaDrift.layers.slice(1, 4).some((v) => Math.abs(Y(v) - sy) < 3)) continue;   // (the lines between the bands)
+          const inside = px(x + 3, sy), beside = px(x - 14, sy);
+          const off = Math.max(...[246, 236, 214].map((c, i) => Math.abs(0.55 * c + 0.45 * beside[i] - inside[i])));
+          rows++;
+          if (off > 14) bad.push(Math.round(sy) + ": " + inside.slice(0, 3) + " beside " + beside.slice(0, 3));
+        }
+        res({ rows, bad });
+      }))));
+      // (a row or two where a rock's edge runs between the two places looked at)
+      check("mesa-drift, " + label + ": the wind guide at the right edge is drawn over the rock, not hidden behind it", guide.rows > 20 && guide.bad.length <= 2, guide);
+      await done(q, "wind guide, " + label);
+      if (opts) await c.close();
+    }
+  }
+
+  // ---- the balloon's shadow lies along the land: over the flight's steepest
+  // slope it follows the ground across its whole width instead of sitting
+  // flat as an oval (its outline is caught as it is drawn)
+  {
+    const q = await open();
+    await q.evaluate(() => MesaDrift.start("calm")); await q.waitForTimeout(150);
+    const shade = await q.evaluate(() => new Promise((res) => {
+      const w = MesaDrift.world();
+      let at = 0, most = 0;
+      for (let x = 300; x < w.width - 300; x += 5) { const d = Math.abs(w.ground(x + 40) - w.ground(x - 40)); if (d > most) { most = d; at = x; } }
+      MesaDrift.place(at, w.ground(at) + 120, 0, 0);
+      const P = CanvasRenderingContext2D.prototype, real = {};
+      let path = [];
+      ["beginPath", "moveTo", "lineTo", "ellipse", "fill"].forEach((k) => { real[k] = P[k]; });
+      const undo = () => Object.keys(real).forEach((k) => { P[k] = real[k]; });
+      P.beginPath = function () { path = []; return real.beginPath.apply(this, arguments); };
+      P.moveTo = function (x, y) { path.push([x, y]); return real.moveTo.apply(this, arguments); };
+      P.lineTo = function (x, y) { path.push([x, y]); return real.lineTo.apply(this, arguments); };
+      P.ellipse = function () { path.push("ellipse"); return real.ellipse.apply(this, arguments); };
+      P.fill = function () {
+        if (/^rgba\(60, 30, 26/.test(this.fillStyle)) {
+          const b = MesaDrift.balloon(), pts = path.filter((p) => Array.isArray(p)), n = pts.length / 2 - 1;
+          undo();
+          if (!(n >= 1) || path.includes("ellipse")) return res({ slope: most, shape: path.includes("ellipse") ? "an oval" : "?", points: pts.length }), real.fill.apply(this, arguments);
+          // the outline's upper edge against the ground under each of its points
+          // (it runs along the skyline, the shadow lying below it, on the rock)
+          const S = (innerHeight - 60) / MesaDrift.layers[4], top = pts.slice(0, n + 1), bot = pts.slice(n + 1).reverse();
+          const edge = top.map((p) => p[1]), xc = (top[0][0] + top[n][0]) / 2;
+          const gr = top.map((p) => w.ground(b.x + (p[0] - xc) / S));
+          const err = Math.max(...edge.map((m, k) => Math.abs(m - edge[0] + (gr[k] - gr[0]) * S)));
+          res({ slope: most, shape: bot.every((p, k) => p[1] >= top[k][1]) ? "laid along the land" : "partly in the air", points: pts.length,
+            err: Math.round(err * 10) / 10, rise: Math.round(Math.max(...edge) - Math.min(...edge)) });
+        }
+        return real.fill.apply(this, arguments);
+      };
+    }));
+    check("mesa-drift: over a steep slope the balloon's shadow follows the ground across its width, not a flat oval",
+      shade.shape === "laid along the land" && shade.points >= 18 && shade.err < 2 && shade.rise > 15, shade);
+    await done(q, "shadow");
+  }
   await ctx.close();
 };
