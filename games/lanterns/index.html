@@ -41,8 +41,10 @@
   <span id="hud-score">0</span>
   <span id="hud-combo"></span>
   <span id="hud-wishes">🏮🏮🏮</span>
+  <span id="hud-bursts" role="img" aria-label="3 fireworks left">✦✦✦</span>
 </div>
-<div id="echo" hidden></div>
+<div id="echo" hidden><span class="ph">type the pinyin…</span></div>
+<button type="button" id="burst" hidden><b>✦</b> Fireworks <span class="gs-keys"><kbd>Enter</kbd></span></button>
 
 <section class="panel" id="menu">
   <div class="card">
@@ -50,11 +52,11 @@
     <p class="tag">the pinyin typing festival</p>
     <p class="how">
       Paper lanterns rise with a word in hanzi: <b>type its pinyin</b> to
-      light it before it drifts away. Each letter narrows it down, and a
-      full match lights the most urgent one. If a longer word up there
-      still fits (ni, with nian rising), it waits a beat, or
-      <kbd>Space</kbd> or <kbd>Enter</kbd> lights it now. <kbd>Backspace</kbd> steps back.
-      Type <kbd>V</kbd> for ü (旅 = lv). Three lost lanterns end the night.
+      light it before it drifts away. No two up start with the same letter:
+      your first letter picks one, the rest light it. <kbd>Backspace</kbd> steps back.
+      Type <kbd>V</kbd> for ü (旅 = lv). <kbd>Enter</kbd> sets off <b>fireworks</b>
+      that light every lantern near the top: three a night, in either mode.
+      Three lost lanterns end the night.
     </p>
     <p class="how">
       <b>Tone Master:</b> type each syllable's tone after it: 1 to 4, and

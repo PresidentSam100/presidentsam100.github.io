@@ -45,30 +45,56 @@ body {
 }
 .nav-back-games:hover { border-color: var(--ink); background: var(--paper-hi); }
 
+/* the score, the streak and the wishes left, each centred in the slip by its
+   capitals (the wishes' lanterns by the line they stand on) */
 .hud {
   position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
-  display: flex; gap: 18px; align-items: baseline;
+  display: flex; gap: 18px; align-items: center;
   background: rgba(241, 232, 212, 0.9);
   border: 1.5px solid rgba(29, 24, 20, 0.5); border-radius: 4px;
-  padding: 5px 20px;
+  height: 45px; padding: 0 20px; width: max-content; max-width: calc(100vw - 16px);
   pointer-events: none;
 }
+.hud[hidden] { display: none; }
+/* (no span gives way: half a phone's width used to squeeze the wishes onto
+   lines of their own; the lanterns and stars, a lent face's, a hair lower) */
+.hud span { flex: none; white-space: nowrap; text-box: trim-both cap alphabetic; }
+.hud #hud-wishes, .hud #hud-bursts { position: relative; top: 0.03em; }
 .hud #hud-score { font-size: 23px; font-weight: 700; color: var(--ink); }
 .hud #hud-combo { font-size: 15px; font-weight: 700; color: var(--seal); min-width: 40px; }
 .hud #hud-wishes { font-size: 15px; letter-spacing: 2px; }
+.hud #hud-bursts { font-size: 15px; color: var(--seal); letter-spacing: 2px; }
 
-/* what you've typed so far */
+/* the fireworks' button, a slip of the same paper by the typing (game.js shows
+   it while any are left) */
+#burst {
+  position: fixed; right: 28px; bottom: 26px; z-index: 20;
+  display: inline-flex; align-items: center; gap: 7px; height: 49px; padding: 0 16px;
+  font: 700 16px/1 "Gentium Book Plus", Georgia, serif; color: var(--ink); cursor: pointer;
+  background: rgba(248, 242, 227, 0.94);
+  border: 1.5px solid rgba(29, 24, 20, 0.55); border-radius: 4px;
+  box-shadow: 0 2px 10px rgba(60, 44, 20, 0.22);
+}
+#burst[hidden] { display: none; }
+#burst b { color: var(--seal); font-size: 17px; }
+#burst:active { transform: translateY(1px); }
+
+/* what you've typed so far, or what to do (game.js), centred in the slip by
+   its capitals, whatever the face: the span's box is trimmed to them */
 #echo {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 20;
+  display: flex; align-items: center; justify-content: center;
   font: 700 27px/1 "Gentium Book Plus", Georgia, serif; letter-spacing: 4px;
   color: var(--ink);
   background: rgba(248, 242, 227, 0.94);
   border: 1.5px solid rgba(29, 24, 20, 0.55); border-radius: 4px;
   box-shadow: 0 2px 10px rgba(60, 44, 20, 0.22);
-  padding: 10px 22px; min-width: 130px; min-height: 46px; text-align: center;
+  padding: 0 22px; min-width: 130px; height: 49px;
   pointer-events: none;
 }
-#echo:empty::before { content: "type the pinyin…"; font-size: 15px; font-weight: 400; color: var(--ink-soft); letter-spacing: 1px; }
+#echo[hidden] { display: none; }
+#echo span { text-box: trim-both cap alphabetic; }
+#echo .ph { font-size: 15px; font-weight: 400; color: var(--ink-soft); letter-spacing: 1px; }
 
 /* ---- panels ------------------------------------------------------------ */
 .panel {
@@ -78,6 +104,9 @@ body {
   background: rgba(236, 228, 208, 0.64);          /* the painting, gone into mist */
 }
 .panel[hidden] { display: none; }
+/* a night that ends dark: the painting goes to dusk behind the card (game.js
+   draws it), rather than into the mist */
+#over.dusk { background: none; }
 
 /* a card is a small scroll: paper (::after) mounted on silk (::before), the
    silk deeper above and below than at the sides */
@@ -170,9 +199,12 @@ kbd {
   .panel { padding: 78px 22px 30px; }                    /* the mount clears the corner buttons */
   .card { padding: 18px 18px 16px; }
   .card .how { font-size: 14.5px; line-height: 1.5; margin-bottom: 11px; }
-  .hud { top: 58px; gap: 12px; padding: 4px 14px; }
+  .hud { top: 58px; gap: 12px; height: 38px; padding: 0 14px; }
   .hud #hud-score { font-size: 19px; }
-  #echo { bottom: 14px; font-size: 21px; }
+  #echo { bottom: 14px; font-size: 21px; height: 46px; }
+  /* (above the typing, so a long word never runs under it) */
+  #burst { right: auto; left: 50%; bottom: 70px; transform: translateX(-50%); height: 40px; font-size: 15px; }
+  #burst:active { transform: translate(-50%, 1px); }
   .card h1 { font-size: 31px; }
   .card h1::first-letter { font-size: 26px; }
   .card h2 { font-size: 26px; }

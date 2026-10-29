@@ -1,13 +1,14 @@
 /* =====================================================================
    Lanterns: pinyin typing at the festival.
 
-   Paper lanterns rise with hanzi on them. Every letter narrows the field
-   to the lanterns whose pinyin starts that way; a full match lights the
-   most urgent one and it soars, and a wrong letter thuds and breaks your
-   streak without being consumed. A full match that's also the start of a
-   longer word up there (ni, with nian rising) waits a moment for the next
-   letter; Space lights it at once. Backspace steps back. Type v for ü:
-   u is accepted too. Three lanterns lost to the dark end the night.
+   Paper lanterns rise with hanzi on them, no two up at once starting
+   with the same letter of pinyin. The first letter typed picks that one
+   lantern and rings it, and the rest go to it: a full match lights it and
+   it soars, and a wrong letter thuds and breaks your streak without being
+   consumed. Backspace steps back. Type v for ü: u is accepted too. Enter
+   sets off fireworks that light every lantern in the upper part of the
+   sky, three a night. Three lanterns lost to the dark end the night, and
+   the ones still up float away into the dusk.
 
    Modes: festival (toneless pinyin) and tone (type the tone numbers,
    5 for neutral, 0 accepted too). Each keeps its own best score.
@@ -83,6 +84,16 @@
     o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + 0.14);
   }
   function clearChime() { [660, 784, 990].forEach(function (f, i) { pluck(f, 0.09, i * 0.06); }); }
+  // fireworks going off, and the sputter of a press with none left
+  function boom() {
+    var ac = audio(); if (!ac) return;
+    var t0 = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = "sine"; o.frequency.setValueAtTime(110, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + 0.4);
+    g.gain.setValueAtTime(0.2, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.5);
+    o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + 0.55);
+    [1320, 1568, 1760, 2093].forEach(function (f, i) { pluck(f, 0.05, 0.12 + i * 0.05); });
+  }
+  function sputter() { pluck(196, 0.08); pluck(147, 0.07, 0.08); }
   function gong(big) {
     var ac = audio(); if (!ac) return;
     var t0 = ac.currentTime;
@@ -104,8 +115,9 @@
   var script = store.get("lanterns_script", "simp");   // simp | trad
   if (script !== "simp" && script !== "trad") script = "simp";
   var lanterns = [], buffer = "";
-  var waiting = null, waitT = 0;       // a full match held while a longer word still fits (handleChar)
-  var WAIT = 0.5;                      // how long it waits for the next letter, in seconds of play
+  var aim = null;                      // the one lantern the letters typed so far go to (target)
+  var bursts = 0, burst = null;        // fireworks left this night, and the one going off (fireworks)
+  var BURSTS = { festival: 3, tone: 3 };
   var score = 0, cleared = 0, escaped = 0, streak = 0, bestStreak = 0;
   var runBest = NaN;                   // the mode's best as the night began (NaN: none yet)
   var spawnT = 0, elapsed = 0;
@@ -120,11 +132,18 @@
     });
   }
 
-  // a rising lantern whose pinyin goes on past the buffer (年 while "ni" is typed)
-  function longerFits() {
-    return candidates().some(function (l) {
-      return l.keys.some(function (k) { return k.length > buffer.length && k.indexOf(buffer) === 0; });
-    });
+  // The one lantern the letters go to: the first letter typed locks onto it
+  // (handleChar), and only it is ringed and shows them, until it lights or
+  // slips away, or Backspace takes every letter back
+  function target() {
+    if (!buffer || !aim || aim.state !== "up") aim = null;
+    return aim;
+  }
+  // the first letters of the lanterns up now (no two alike: spawn)
+  function firstsUp() {
+    var f = {};
+    lanterns.forEach(function (l) { if (l.state === "up") f[l.keys[0][0]] = true; });
+    return f;
   }
 
   function makeLantern(wi, xFrac) {
@@ -149,13 +168,17 @@
     };
   }
   function tierCap() { return cleared < 8 ? 1 : cleared < 20 ? 2 : 3; }
+  // A new lantern, from the words of this night's level, whose pinyin starts
+  // with a letter no lantern up there starts with: the first letter typed
+  // picks one lantern, so no two may share it. With every free letter's words
+  // up already, none comes this time. (A word named by a test comes anyway.)
   function spawn(forceHanzi) {
     var pool = [];
-    var activeW = {};
+    var activeW = {}, firsts = firstsUp();
     lanterns.forEach(function (l) { activeW[l.wi] = true; });
     W0RDS.forEach(function (w, i) {
       if (forceHanzi ? (w[0] === forceHanzi || w[4] === forceHanzi)
-                     : (w[3] <= tierCap() && !activeW[i])) pool.push(i);
+                     : (w[3] <= tierCap() && !activeW[i] && !firsts[w[1][0]])) pool.push(i);
     });
     if (!pool.length) return null;
     var wi = pool[Math.floor(Math.random() * pool.length)];
@@ -175,38 +198,18 @@
     if (mode === "tone" && ch === "0") ch = "5";
     var legal = mode === "tone" ? /^[a-z1-5]$/ : /^[a-z]$/;
     if (!legal.test(ch)) return;
-    // every letter narrows the field: feichang and fanguan both glow on
-    // 'f', and the second letter decides between them
-    var nb = buffer + ch;
-    var matches = lanterns.filter(function (l) {
-      return l.state === "up" && l.keys.some(function (k) { return k.indexOf(nb) === 0; });
-    });
-    if (!matches.length) {
-      // a word left waiting (below) is what was meant: it lights, and this
-      // letter starts the next word
-      if (waiting) { light(waiting); handleChar(ch); return; }
-      miss(); return;                            // not consumed
-    }
-    buffer = nb;
+    // the first letter locks onto the one lantern it starts (the highest, in
+    // case two ever share it), and the rest go to that one alone: a letter it
+    // doesn't go on with is a miss, whatever else is up
+    var nb = buffer + ch, fits = function (l) { return l.state === "up" && l.keys.some(function (k) { return k.indexOf(nb) === 0; }); };
+    var t = target(), pick = null;
+    if (t) pick = fits(t) ? t : null;
+    else lanterns.forEach(function (l) { if (fits(l) && (!pick || l.y < pick.y)) pick = l; });
+    if (!pick) { miss(); return; }               // not consumed
+    buffer = nb; aim = pick;
     tick();
-    waiting = null;
-    var full = matches.filter(function (l) { return l.keys.some(function (k) { return k === nb; }); });
-    if (full.length) {
-      var pick = full[0];
-      full.forEach(function (l) { if (l.y < pick.y) pick = l; });
-      // "ni" is all of 你 but only the start of 年 (nian): while a longer word
-      // up there still fits, the short one waits a moment for the next
-      // letter rather than lighting and leaving 年 untypeable. A letter that
-      // goes on to the longer word takes it; anything else, Space, or a
-      // moment's pause lights the short one.
-      if (longerFits()) { waiting = pick; waitT = 0; }
-      else light(pick);
-    }
+    if (pick.keys.some(function (k) { return k === nb; })) light(pick);
     echo();
-  }
-  // Space or Enter: light the word that's waiting, now
-  function lightWaiting() {
-    if (state === "play" && !P.isPaused() && waiting) light(waiting);
   }
   function miss() {
     thud();
@@ -238,17 +241,47 @@
       }
     }
     buffer = "";
-    waiting = null;
+    aim = null;
     hud(); echo();
   }
   function unlockBack() {
     if (buffer.length > 0) buffer = buffer.slice(0, -1);
-    waiting = null;
     echo();
   }
+
+  // ---- fireworks ---------------------------------------------------------------------
+  // Enter sets them off, three a night: a burst at the top of the sky whose
+  // light comes down through its upper part, lighting every lantern it
+  // reaches, the ones about to slip away first. They count as lit, for a
+  // small sum each and nothing to the streak. One at a time; with none left
+  // it only sputters.
+  var BURST_SPEED = 1100;              // px a second the light comes down
+  function burstReach() { return H * 0.45; }
+  function fireworks() {
+    if (state !== "play" || P.isPaused() || burst) return;
+    if (bursts <= 0) { sputter(); return; }
+    bursts--;
+    burst = { y: 0, bottom: burstReach() };
+    boom();
+    hud();
+  }
+  function lightByBurst(l) {
+    l.state = "lit"; l.litT = 0;
+    cleared++;
+    score += 10;                                 // (a small sum: no streak, no length)
+    if (bests[mode]) bests[mode].submit(score);
+    floats.push({ x: l.x, y: l.y - l.size * 0.8, t: 0, text: marked(l.pin) + "  ·  " + l.gloss });
+    if (fx()) for (var i = 0; i < 8; i++) sparks.push({ x: l.x, y: l.y, vx: (Math.random() - 0.5) * 120, vy: -20 - Math.random() * 70, t: 0.6 + Math.random() * 0.4 });
+    if (l === aim) { buffer = ""; aim = null; echo(); }
+  }
+  // (in a span of its own, which styles.css centres in the slip by its
+  // capitals; with nothing typed, what to do)
   function echo() {
-    var e = $("echo");
-    e.textContent = buffer;
+    var e = $("echo"), sp = document.createElement("span");
+    if (buffer) sp.textContent = buffer;
+    else { sp.className = "ph"; sp.textContent = "type the pinyin…"; }
+    e.textContent = "";
+    e.appendChild(sp);
   }
 
   // ---- run --------------------------------------------------------------------------
@@ -256,7 +289,8 @@
     if (m) mode = m;
     store.set("lanterns_mode", mode);
     audio(); gong(false);
-    lanterns = []; buffer = ""; waiting = null;
+    lanterns = []; buffer = ""; aim = null;
+    bursts = BURSTS[mode]; burst = null;
     score = 0; cleared = 0; escaped = 0; streak = 0; bestStreak = 0;
     runBest = bests[mode] ? GameShell.store.getNum(bests[mode].key, NaN) : NaN;
     spawnT = 0.35; elapsed = 0; floats = []; sparks = [];
@@ -271,6 +305,10 @@
     $("hud-score").textContent = score.toLocaleString();
     $("hud-combo").textContent = streak > 1 ? "×" + (1 + Math.min(10, streak - 1) * 0.1).toFixed(1) : "";
     $("hud-wishes").textContent = "🏮".repeat(Math.max(0, 3 - escaped)) + "✖\uFE0F".repeat(escaped);
+    // the fireworks left, and their button while there are any
+    $("hud-bursts").textContent = "✦".repeat(bursts) || "0";
+    $("hud-bursts").setAttribute("aria-label", bursts + (bursts === 1 ? " firework left" : " fireworks left"));
+    $("burst").hidden = bursts <= 0 || state !== "play";
   }
   function gameOver() {
     state = "over";
@@ -278,6 +316,7 @@
     // let go of the typing box, so Backspace here means "back to the modes"
     // (startRun focuses it again)
     $("kbd").blur();
+    buffer = ""; aim = null; burst = null;
     gong(true);
     var b = bests[mode];
     if (b) b.submit(score);
@@ -289,13 +328,17 @@
     $("over-stats").textContent =
       (mode === "tone" ? "tone master" : "festival") + " · best streak counted ×" + (1 + Math.min(10, Math.max(0, bestStreak - 1)) * 0.1).toFixed(1) + "\n" +
       (isBest ? "a new record night! 🏮" : "best: " + (b ? b.get().toLocaleString() : score));
-    $("hud").hidden = true; $("echo").hidden = true;
+    $("hud").hidden = true; $("echo").hidden = true; $("burst").hidden = true;
+    // the painting goes to dusk behind the card (draw), not into the mist
+    $("over").classList.toggle("dusk", cleared < 40);
     $("over").hidden = false;
   }
 
   // ---- update -------------------------------------------------------------------------
   function update(dt) {
-    if (state !== "play") return;
+    // after the night (on the results, or back at the modes) the lanterns
+    // still up float on and away, lit or not: none comes, and none counts
+    if (state !== "play") { if (lanterns.length || floats.length || sparks.length) drift(dt); return; }
     elapsed += dt;
     if (!spawnOff) {
       spawnT -= dt;
@@ -306,13 +349,28 @@
         spawnT = interval;
       }
     }
+    drift(dt);
+    // the fireworks' light coming down: every lantern above it is lit
+    if (burst && state === "play") {
+      burst.y = Math.min(burst.bottom, burst.y + BURST_SPEED * dt);
+      var lit = 0;
+      lanterns.forEach(function (l) { if (l.state === "up" && l.y <= burst.y) { lightByBurst(l); lit++; } });
+      if (lit) { clearChime(); hud(); }
+      if (burst.y >= burst.bottom) burst = null;
+    }
+  }
+  // the lanterns rise (one that slips off the top in play is lost to the dark),
+  // and the glosses and sparks of the lit ones fade
+  function drift(dt) {
+    if (state !== "play") elapsed += dt;
     lanterns.forEach(function (l) {
       if (l.state === "up") {
         l.y -= l.vy * dt;
         if (fx()) l.x += Math.sin(elapsed * 1.3 + l.sway) * 8 * dt;
         if (l.y < -l.size) {
           l.state = "gone";
-          if (buffer && candidates().length === 0) { buffer = ""; echo(); }
+          if (state !== "play") return;
+          if (l === aim) { buffer = ""; aim = null; echo(); }
           escaped++;
           gong(false);
           hud();
@@ -325,13 +383,6 @@
       }
     });
     lanterns = lanterns.filter(function (l) { return l.state !== "gone"; });
-    // a waiting word lights when its moment is up, or as soon as no longer
-    // word it could be is still up there; one that slipped away is let go
-    if (waiting && state === "play") {
-      waitT += dt;
-      if (waiting.state !== "up") waiting = null;
-      else if (waitT >= WAIT || !longerFits()) light(waiting);
-    }
     floats.forEach(function (f) { f.t += dt; });
     floats = floats.filter(function (f) { return f.t < 1.6; });
     sparks.forEach(function (s) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; s.t -= dt; });
@@ -349,6 +400,7 @@
   var scroll = document.createElement("canvas");
   var mistT = 0;                       // how far the mist has drifted, in seconds of Visual FX
   var dusk = 0;                        // how far the evening has closed in (draw)
+  var DUSK = 0.52;                     // how far it closes in once the night is over
   var PAPER = "241,232,212", INK = "29,24,20", SEAL = "198,48,28";
 
   // a seeded generator, so a resize brushes the same painting again
@@ -553,8 +605,7 @@
     var chn = l.hanzi.length;
     // longer words ride wider lanterns so the hanzi never crowd
     var bw = s * (0.92 + (chn - 1) * 0.5), bh = s * 1.12;
-    var isCand = buffer && l.state === "up" &&
-      l.keys.some(function (k) { return k.indexOf(buffer) === 0; });
+    var isCand = l === aim && l.state === "up";      // (the one the letters go to: draw)
     var lit = l.state === "lit";
     // its light on the paper: a warm bloom, wider once it's lit
     var R = Math.max(bw, bh) * 0.6;
@@ -606,8 +657,8 @@
     g.textAlign = "center"; g.textBaseline = "middle";
     g.fillText(l.hanzi, x, y + 1);
   }
-  // A word the typing still fits is ringed with one turn of the red brush,
-  // and under it only what has been typed so far - never the rest of the
+  // The lantern the letters go to is ringed with one turn of the red brush,
+  // and under it only what has been typed so far, never the rest of the
   // answer. Drawn after every lantern (draw), so none hangs across it.
   function drawTyped(l) {
     var s = l.size, x = l.x, y = l.y;
@@ -623,6 +674,25 @@
     g.strokeText(buffer, x, y + bh / 2 + tl + 24);
     g.fillStyle = "rgb(" + INK + ")";
     g.fillText(buffer, x, y + bh / 2 + tl + 24);
+  }
+
+  function drawBurst(b) {
+    var fade = b.y < b.bottom * 0.6 ? 1 : Math.max(0, 1 - (b.y - b.bottom * 0.6) / (b.bottom * 0.4));
+    g.globalAlpha = fade;
+    if (fx()) {
+      var wash = g.createLinearGradient(0, 0, 0, b.y);
+      wash.addColorStop(0, "rgba(255,214,140,0.42)"); wash.addColorStop(0.8, "rgba(238,124,44,0.22)"); wash.addColorStop(1, "rgba(238,124,44,0)");
+      g.fillStyle = wash; g.fillRect(0, 0, W, b.y);
+      g.fillStyle = "rgba(255,240,200,0.9)"; g.fillRect(0, b.y - 2, W, 4);
+      for (var i = 0; i < 4; i++) {
+        g.fillStyle = "rgba(" + (i % 2 ? SEAL : "246,196,92") + ",0.85)";
+        g.fillRect(Math.random() * W, b.y - 2 - Math.random() * 10, 2.5, 3 + Math.random() * 7);
+      }
+    } else {
+      g.fillStyle = "rgba(246,196,92,0.24)"; g.fillRect(0, 0, W, b.y);
+      g.fillStyle = "rgba(" + SEAL + ",0.7)"; g.fillRect(0, b.y - 1.5, W, 3);
+    }
+    g.globalAlpha = 1;
   }
 
   function draw(t, dt) {
@@ -674,22 +744,26 @@
     g.textAlign = "center"; g.textBaseline = "middle";
     g.fillText(script === "trad" ? "燈" : "灯", sx + sz / 2, sy + sz / 2 + 1);
     // Dusk closes in with each lantern lost to it, and falls when the third
-    // goes (unless the night lit forty: then the sky stays full of light). It
-    // deepens over a moment with Visual FX on, and at once with it off.
-    var want = state === "play" ? escaped * 0.07 : state === "over" && cleared < 40 ? 0.36 : 0;
+    // goes (unless the night lit forty: then the sky stays full of light):
+    // the painting goes dark, the lanterns still glowing over it. It deepens
+    // over a moment with Visual FX on, and at once with it off.
+    var want = state === "play" ? escaped * 0.07 : state === "over" && cleared < 40 ? DUSK : 0;
     dusk = fx() ? dusk + (want - dusk) * Math.min(1, (dt || 0) * 2.5) : want;
     if (dusk > 0.004) {
       g.fillStyle = "rgba(38,42,52," + dusk.toFixed(3) + ")";
       g.fillRect(0, 0, W, H);
     }
 
-    // The lanterns the typing still fits go on top of the rest, and their
-    // rings and typed letters over all of them: a lantern hanging across
-    // another used to hide what had been typed under it
-    var fits = candidates();
-    lanterns.forEach(function (l) { if (fits.indexOf(l) === -1) drawLantern(l, t); });
-    fits.forEach(function (l) { drawLantern(l, t); });
-    fits.forEach(drawTyped);
+    // the fireworks: a burst at the top of the sky and its light coming down
+    // (with Visual FX on it glows and throws sparks; off, the same light, plainer)
+    if (burst) drawBurst(burst);
+
+    // The lantern the letters go to goes on top of the rest, and its ring and
+    // typed letters over all of them: a lantern hanging across another used
+    // to hide what had been typed under it
+    var aimed = target();
+    lanterns.forEach(function (l) { if (l !== aimed) drawLantern(l, t); });
+    if (aimed) { drawLantern(aimed, t); drawTyped(aimed); }
 
     // sparks + floating glosses
     sparks.forEach(function (s, i) {
@@ -739,7 +813,8 @@
     if (P.isPaused()) return;
     if (state === "play") {
       if (e.key === "Backspace") { e.preventDefault(); unlockBack(); return; }
-      if (e.key === " " || e.key === "Enter") { e.preventDefault(); lightWaiting(); return; }
+      if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) fireworks(); return; }
+      if (e.key === " ") { e.preventDefault(); return; }
       if (e.key.length === 1) { e.preventDefault(); handleChar(e.key); }
       return;
     }
@@ -778,9 +853,7 @@
     var v = this.value;
     this.value = "";
     if (state !== "play") return;
-    for (var i = 0; i < v.length; i++) {
-      if (v[i] === " ") lightWaiting(); else handleChar(v[i]);
-    }
+    for (var i = 0; i < v.length; i++) if (v[i] !== " ") handleChar(v[i]);
   });
   cv.addEventListener("pointerdown", function () {
     if (state === "play") $("kbd").focus({ preventScroll: true });
@@ -802,7 +875,7 @@
   }
   function toMenu() {
     state = "menu";
-    $("over").hidden = true; $("hud").hidden = true; $("echo").hidden = true;
+    $("over").hidden = true; $("hud").hidden = true; $("echo").hidden = true; $("burst").hidden = true;
     $("menu").hidden = false;
     paintMenu();
   }
@@ -828,6 +901,9 @@
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
   $("to-menu").addEventListener("click", toMenu);
+  // the fireworks' button (for a tap): it keeps the typing box, and its keyboard, up
+  $("burst").addEventListener("pointerdown", function (e) { e.preventDefault(); });
+  $("burst").addEventListener("click", function () { fireworks(); if (state === "play") $("kbd").focus({ preventScroll: true }); });
 
   // ---- go ----------------------------------------------------------------------------------------
   resize();
@@ -842,18 +918,22 @@
     escapedCount: function () { return escaped; },
     streakNow: function () { return streak; },
     bufferNow: function () { return buffer; },
-    lockedHanzi: function () {
-      var cs = candidates();
-      if (!cs.length) return null;
-      var pick = cs[0];
-      cs.forEach(function (l) { if (l.y < pick.y) pick = l; });
-      return pick.hanzi;
-    },
+    lockedHanzi: function () { var t = target(); return t ? t.hanzi : null; },
     candidateCount: function () { return candidates().length; },
     active: function () {
       return lanterns.filter(function (l) { return l.state === "up"; })
         .map(function (l) { return { hanzi: l.hanzi, key: l.keys[0], y: l.y }; });
     },
+    // every lantern on screen, lit or not, and how far the dusk has closed in
+    all: function () {
+      return lanterns.map(function (l) { return { hanzi: l.hanzi, state: l.state, y: l.y }; });
+    },
+    duskNow: function () { return dusk; },
+    fireworks: fireworks,
+    burstsLeft: function () { return bursts; },
+    bursting: function () { return !!burst; },
+    aimed: function () { var t = target(); return t ? t.hanzi : null; },
+    height: function () { return H; },
     spawnWord: function (h, xFrac, y) {
       var l = spawn(h);
       if (l && xFrac != null) l.x = xFrac * W;
