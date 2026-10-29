@@ -441,6 +441,9 @@
   // screen's whole height. sideL, sideR: the room it has across.
   var sideQuery = window.matchMedia ? window.matchMedia("(orientation: landscape) and (max-height: 500px)") : null;
   var sideL = 0, sideR = 0;
+  // sideGap: between the well and the boxes beside it (closer on a phone
+  // held upright, where 14 px more often than not puts them above the well)
+  var sideGap = 14;
   function sideBox(c) { return Math.max(9, Math.floor(c * 0.55)) * 4 + 22; }   // the hold and next boxes' width (drawSide)
   function resize() {
     var dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -472,8 +475,25 @@
       cell = Math.floor(Math.min((H - 86 - padB) / VIS, W / (W > 700 ? 22 : 13)));
       cell = Math.max(14, Math.min(34, cell));
     }
+    sideGap = 14;
+    var compactAt = 0;
+    if (!side && W <= 700) {
+      // A phone upright: the hold and next boxes beside the well where they
+      // fit (8 px from it if 14 is too much), the well a little narrower if
+      // need be; or, where that would shrink it more than putting them above
+      // it does, above it, under the score box, the well moved down for them
+      // (never over the score box or the corner buttons)
+      var beside = function (c, gap) { return Math.round(W / 2 - (COLS * c) / 2) - sideBox(c) - gap >= 4; };
+      var over = function (c) { return Math.max(9, Math.floor(c * 0.55)) * 2 + 26; };   // the boxes above the well, and the gap under them (sideRects)
+      var cB = cell, cA = cell;
+      while (cB > 14 && !beside(cB, 8)) cB--;
+      while (cA > 12 && top + over(cA) + 6 + (HID + VIS) * cA + 4 > H - padB) cA--;
+      if (beside(cell, 14)) sideGap = 14;
+      else if (cB >= cA && beside(cB, 8)) { cell = cB; sideGap = beside(cB, 14) ? 14 : 8; }
+      else { cell = cA; compactAt = top + over(cA) + 6 + HID * cA; }
+    }
     wellX = Math.round(W / 2 - (COLS * cell) / 2);
-    wellY = Math.round(Math.max(top, (H - padB - VIS * cell) / 2 + 30));
+    wellY = Math.round(Math.max(top, compactAt, (H - padB - VIS * cell) / 2 + 30));
     // Maelstrom's plus: 26 cells across and down, a row's room above it for
     // the piece coming in, clear of the HUD and the pad (two rows of it under
     // the plus, or its halves beside it)
@@ -971,7 +991,7 @@
   // there's no room beside it (sideL, sideR: see resize)
   function sideRects() {
     var mini = Math.max(9, Math.floor(cell * 0.55)), bw = sideBox(cell);
-    var hx = wellX - bw - 14, nx = wellX + COLS * cell + 14;
+    var hx = wellX - bw - sideGap, nx = wellX + COLS * cell + sideGap;
     if (hx < sideL + 4 || nx + bw > sideR - 4) {
       var topY = Math.max(40, wellY - HID * cell - 6 - (mini * 2 + 26)), sw = mini * 3 + 16, sh = mini * 2 + 24;
       return { compact: true, hold: { x: px(0) - 4, y: topY, w: sw, h: sh }, next: { x: px(COLS) + 4 - sw, y: topY, w: sw, h: sh } };

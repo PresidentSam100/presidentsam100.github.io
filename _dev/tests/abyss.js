@@ -365,4 +365,38 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss: on a phone on its side (844 x 390, 667 x 375, 740 x 360) the pad is in two halves at the screen's sides (four buttons on the left), and in Descent, Maelstrom and Maelstrom juggle the play area is on the screen between them, under no button and not under the score box; its turn buttons still turn the board",
       side.every((s) => s.ok), side.filter((s) => !s.ok).concat(side.length ? [] : ["none run"]));
   }
+
+  // ---- a phone upright: the well and its hold and next boxes (or the plus)
+  // all on the screen, none over another, nor under the score box, the
+  // corner buttons, the way back or the pad; the hold and next boxes below
+  // the score box. At the start of a run and a few pieces in (Sprint's
+  // clock widens the score box), small phones and tall ones
+  {
+    const up = [];
+    for (const [w, h] of [[320, 568], [360, 560], [375, 553], [360, 640], [390, 664], [412, 915], [390, 844]]) {
+      const ctx = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const q = await lib.open(ctx, base, "games/abyss/");
+      for (const m of ["descent", "sprint", "maelstrom"]) {
+        for (const when of ["start", "in"]) {
+          const r = await q.evaluate(([m, when]) => {
+            if (when === "start") { Abyss.toMenu(); Abyss.start(m); } else for (let i = 0; i < 3; i++) Abyss.hard();
+            const box = (n, e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return b.width ? { n, x: b.left, y: b.top, w: b.width, h: b.height } : null; };
+            const others = [box("score", document.getElementById("hud")), box("corner", document.querySelector(".gs-corner")), box("back", document.querySelector(".nav-back-games"))]
+              .concat([...document.querySelectorAll("#pad button")].map((b) => box(b.id, b))).filter(Boolean);
+            const meet = (a, b) => Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x) > 0.5 && Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y) > 0.5;
+            const areas = Abyss.areas(), score = others[0], under = [];
+            areas.forEach((a, i) => { others.forEach((o) => { if (meet(a, o)) under.push(a.n + "/" + o.n); }); areas.slice(i + 1).forEach((b) => { if (meet(a, b)) under.push(a.n + "/" + b.n); }); });
+            const off = areas.filter((a) => a.x < -0.5 || a.y < -0.5 || a.x + a.w > innerWidth + 0.5 || a.y + a.h > innerHeight + 0.5).map((a) => a.n);
+            const high = areas.filter((a) => (a.n === "hold" || a.n === "next") && score && a.y < score.y + score.h).map((a) => a.n);
+            return { n: areas.length, under, off, high };
+          }, [m, when]);
+          up.push({ size: w + "x" + h, m, when, ok: r.n === (m === "maelstrom" ? 1 : 3) && !r.under.length && !r.off.length && !r.high.length, r });
+        }
+      }
+      up.push({ size: w + "x" + h, m: "errors", ok: !q.errs.length, errs: q.errs });
+      await ctx.close();
+    }
+    check("abyss: on a phone upright (320 x 568, 360 x 560, 375 x 553, 360 x 640, 390 x 664, 412 x 915, 390 x 844), in Descent, Sprint and Maelstrom, the well with its hold and next boxes (or the plus) is on the screen, nothing over anything else nor under the score box, the corner buttons, the way back or the pad, the hold and next boxes below the score box",
+      up.every((u) => u.ok), up.filter((u) => !u.ok));
+  }
 };
