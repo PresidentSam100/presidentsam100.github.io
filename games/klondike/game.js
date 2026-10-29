@@ -75,8 +75,9 @@
     CW = Math.max(38, Math.min(76, Math.floor((vw - 8 * 10) / 7)));
     CH = Math.round(CW * 1.4);
     GAP = Math.round(CW * 0.14);
-    upStep = Math.round(CH * 0.26);
-    downStep = Math.max(5, Math.round(CH * 0.11));
+    // one even step down a column, face down or face up, deep enough to
+    // show a covered card's rank and suit (styles.css .idx)
+    upStep = downStep = Math.round(CH * 0.21);
     TOPY = GAP;
     TABY = TOPY + CH + GAP;
     document.documentElement.style.setProperty("--cw", CW + "px");
@@ -157,6 +158,15 @@
     var an = el._arc = el.animate(frames, { duration: 200 + Math.min(160, dist * 0.25), easing: "cubic-bezier(.35,.1,.25,1)" });
     an.onfinish = an.oncancel = function () { if (el._arc === an) { el._arc = null; el.classList.remove("arc"); } };
   }
+  // A card on its way somewhere (to a new place, or a run let go going back)
+  // goes over the cards at rest until it is there: the longest trip, an arc,
+  // takes 360 ms. Its place in the order among the others on the way is its
+  // place at rest (--z, styles.css).
+  function lift(el, on) {
+    clearTimeout(el._lift);
+    el.classList.toggle("lift", on);
+    if (on) el._lift = setTimeout(function () { el.classList.remove("lift"); }, 420);
+  }
   // Where every card belongs right now; z-order follows pile order.
   function position(instant) {
     var z = 1;
@@ -164,9 +174,13 @@
       var el = cardEl(c), at = x + "," + y;
       // (a dragged run let go goes back with FX off too: there's no CSS glide then)
       if (!instant && el._at && (el._at !== at || (el._back && !fx()))) arcTo(el, x, y);
+      // (one still on its way from a moment ago stays lifted till it lands)
+      if (instant) lift(el, false);
+      else if (el._at && (el._at !== at || el._back)) lift(el, true);
       el._at = at; el._back = false;
       el.classList.toggle("down", !c.up);
       if (instant) el.classList.add("noanim");
+      el.style.setProperty("--z", z);
       el.style.zIndex = z++;
       el.style.transform = "translate(" + x + "px," + y + "px)";
       if (instant) requestAnimationFrame(function () { el.classList.remove("noanim"); });
@@ -527,7 +541,7 @@
       dx: 0, dy: 0, sx: p.x, sy: p.y, moved: false,
       origins: cards.map(function (c) { var m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(cardEl(c).style.transform); return { x: +m[1], y: +m[2] }; }),
     };
-    cards.forEach(function (c) { cardEl(c).classList.add("drag"); });
+    cards.forEach(function (c, i) { var el = cardEl(c); el.style.setProperty("--run", i); el.classList.add("drag"); });
   });
   field.addEventListener("pointermove", function (e) {
     if (!drag || e.pointerId !== drag.id) return;
@@ -834,6 +848,26 @@
       G.undo = []; G.moves = 0;
       started = true; running = true; finishing = false;
       buildCards(); position(true); afterChange();
+    },
+    // A table laid out for testing: each column written as state() shows it
+    // ("*" for a face-down card), the rest of the pack on the stock. The cards
+    // stay in the order a deal put them on the page, as after a game's moves.
+    stage: function (cols) {
+      finishDeal();
+      G = K.deal(dealSeed, draw3);
+      buildCards();
+      var used = {};
+      var card = function (t) {
+        var c = { s: SUITS.indexOf(t.slice(-1)), r: RANKS.indexOf(t.replace("*", "").slice(0, -1)), up: t[0] !== "*" };
+        used[c.s + "-" + c.r] = true;
+        return c;
+      };
+      G.tab = cols.map(function (col) { return col ? col.split(" ").map(card) : []; });
+      G.stock = []; G.waste = []; G.found = [[], [], [], []];
+      for (var s = 0; s < 4; s++) for (var r = 1; r <= 13; r++) if (!used[s + "-" + r]) G.stock.push({ s: s, r: r, up: false });
+      G.undo = []; G.moves = 0;
+      started = true; running = true; finishing = false;
+      position(true); afterChange();
     },
   };
 })();

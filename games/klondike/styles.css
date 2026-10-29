@@ -156,8 +156,13 @@ body {
 .card.noanim { transition: none; }
 /* a card going out from the stock as a deal is dealt (game.js dealOut): a longer, settling flight */
 .card.dealt { transition: transform 0.26s cubic-bezier(0.25, 0.8, 0.3, 1); }
-.card.arc { z-index: 800 !important; transition: none; }   /* (game.js arcTo) */
-.card.drag { z-index: 900 !important; box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.6); transition: none; }
+/* a card on its way somewhere (game.js put, arcTo) goes over every card at
+   rest, and a dragged run over everything; each keeps its own place in the
+   order (--z its place at rest, --run its place in the run), so a run's cards
+   stay stacked as they lie, whatever order they sit in on the page */
+.card.lift, .card.arc { z-index: calc(800 + var(--z, 0)) !important; }
+.card.arc { transition: none; }   /* (game.js arcTo) */
+.card.drag { z-index: calc(900 + var(--run, 0)) !important; box-shadow: 4px 8px 12px rgba(0, 0, 0, 0.6); transition: none; }
 .card.hintsrc { outline: 2px solid var(--gold); outline-offset: -2px; }
 .card .idx {
   position: absolute; top: 2px; left: 4px; line-height: 1;
@@ -165,7 +170,8 @@ body {
   font-family: Bitter, Georgia, serif;
   text-align: center; white-space: pre-line;
 }
-.card .idx small { display: block; font-size: calc(var(--cw) * 0.22); }
+/* the suit beside the rank, on one line: all of it shows in a column's step */
+.card .idx small { margin-left: 0.06em; font-size: calc(var(--cw) * 0.22); }
 .card .pip {
   position: absolute; right: 6%; bottom: 2%;
   font-size: calc(var(--cw) * 0.62); line-height: 1;
@@ -197,14 +203,17 @@ body {
 #cascade { position: absolute; inset: 0; width: 100%; height: 100%; display: none; z-index: 950; }
 #cascade.on { display: block; }
 
+/* (its line and its place are whole pixels, so the words and the keycap
+   fall on the pixel grid alike, and the cap is raised to the capitals'
+   middle; the cap's own line is whole pixels too, its word in the middle) */
 #autofinish {
-  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%); z-index: 940;
-  font: 700 15px Bitter, Georgia, serif; color: #2b2015; cursor: pointer;
+  position: absolute; left: 50%; bottom: 7%; bottom: round(7%, 1px); transform: translateX(-50%); z-index: 940;
+  font: 700 15px Bitter, Georgia, serif; line-height: 20px; color: #2b2015; cursor: pointer;
   background: linear-gradient(180deg, #ffe9a8, var(--gold) 70%, #b07f1c);
   border: 2px solid #6b4e10; border-radius: 8px; padding: 9px 18px;
   box-shadow: 0 0 18px rgba(233, 182, 64, 0.5), 0 4px 10px rgba(0, 0, 0, 0.5);
 }
-#autofinish kbd { font-size: 12px; background: linear-gradient(180deg, var(--wood2), var(--wood3)); }
+#autofinish kbd { font-size: 12px; line-height: 14px; vertical-align: 0.14em; background: linear-gradient(180deg, var(--wood2), var(--wood3)); }
 
 .statusbar { display: flex; gap: 6px; margin-top: 8px; width: 100%; }
 .statusbar span {

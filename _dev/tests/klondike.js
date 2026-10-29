@@ -346,4 +346,180 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike: the How to play key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
     await c.close();
   }
+
+  // ---- a dragged run stays stacked as it lies, and over every other card:
+  // while it is held (mouse, touch), as it goes back from where it was let go,
+  // and as it travels to where it was dropped (FX on and off). The cards are
+  // first put on the page in the reverse of the run's order, so the run's
+  // order can't come from the page's. What is drawn on top is read at each
+  // card's own strip (the last one's middle) in the same task as the let-go,
+  // where the trip starts.
+  const RUN = ["10♥", "9♣", "8♦", "7♠", "6♥", "5♣", "4♦", "3♠"];
+  const TABLE = ["*K♠ *Q♠ *J♠ " + RUN.join(" "), "", "", "*9♠ *9♥ J♣", "*A♠ *A♣ *A♦ *2♥ *2♦ *3♣ *4♣ *5♥ Q♥", "", ""];
+  const STACKS = () => {
+    const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
+    const el = (t) => document.querySelector('.card[data-key="' + SUITS.indexOf(t.slice(-1)) + "-" + RANKS.indexOf(t.slice(0, -1)) + '"]');
+    window.__stage = (cols) => {
+      Klondike.stage(cols);
+      const f = document.getElementById("field");
+      [...f.querySelectorAll(".card")].reverse().forEach((c) => f.appendChild(c));
+    };
+    // the run's cards that aren't the one drawn at their own strip
+    window.__wrong = (run) => {
+      const out = [], bs = run.map((t) => el(t).getBoundingClientRect());
+      run.forEach((t, i) => {
+        const b = bs[i], y = i < run.length - 1 ? (b.top + bs[i + 1].top) / 2 : b.top + b.height / 2;
+        const hit = document.elementFromPoint(b.left + b.width / 2, y), c = hit && hit.closest(".card");
+        if (!c || c !== el(t)) out.push(t + " under " + (c ? c.getAttribute("aria-label") : hit && hit.id));
+      });
+      return out;
+    };
+    // a press on a card's strip, a drag by (dx, dy), and the let-go, played
+    // in the page (pointer events as a mouse sends them): what's on top just
+    // after the let-go, and the state after
+    window.__fling = (t, dx, dy) => {
+      const f = document.getElementById("field"), b = el(t).getBoundingClientRect();
+      const x = b.left + b.width / 2, y = b.top + 6, at = (type, px, py) => f.dispatchEvent(new PointerEvent(type, { pointerId: 41, pointerType: "mouse", isPrimary: true, bubbles: true, button: 0, buttons: type === "pointerup" ? 0 : 1, clientX: px, clientY: py }));
+      at("pointerdown", x, y);
+      for (let k = 1; k <= 6; k++) at("pointermove", x + dx * k / 6, y + dy * k / 6);
+      const held = __wrong(__run);
+      at("pointerup", x + dx, y + dy);
+      return { held, after: __wrong(__run), tab: Klondike.state().tab };
+    };
+  };
+  const toward = (p, t) => p.evaluate((t) => {
+    const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
+    const b = document.querySelector('.card[data-key="' + SUITS.indexOf(t.slice(-1)) + "-" + RANKS.indexOf(t.slice(0, -1)) + '"]').getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + 6, w: b.width, h: b.height };
+  }, t);
+  for (const off of [false, true]) {
+    const tag = off ? "FX off" : "FX on";
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/klondike/", { before: async (pg) => { if (off) await pg.addInitScript(FX_OFF); await pg.addInitScript(STACKS); } });
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    await q.evaluate((run) => { window.__run = run; }, RUN);
+    // held by the mouse, over the column of five face-down cards and a queen
+    await q.evaluate((cols) => __stage(cols), TABLE);
+    const from = await toward(q, "10♥"), over = await toward(q, "Q♥");
+    await q.mouse.move(from.x, from.y); await q.mouse.down();
+    for (let k = 1; k <= 8; k++) await q.mouse.move(from.x + (over.x - from.x) * k / 8, from.y + (over.y - from.h * 0.6 - from.y) * k / 8);
+    const held = await q.evaluate(() => __wrong(__run));
+    await q.mouse.up();
+    // let go there (no place for it): it goes back, over the other cards
+    await q.evaluate((cols) => __stage(cols), TABLE);
+    const back = await q.evaluate((d) => __fling("10♥", d.x, d.y), { x: over.x - from.x, y: over.y - from.h * 0.6 - from.y });
+    // dropped on the jack, let go well below it: it travels up onto it
+    await q.evaluate((cols) => __stage(cols), TABLE);
+    const jack = await toward(q, "J♣");
+    const drop = await q.evaluate((d) => __fling("10♥", d.x, d.y), { x: jack.x - from.x, y: jack.y + jack.h * 1.4 - from.y });
+    check("klondike, " + tag + ": a dragged run is drawn as it lies, each card over the one beneath it and the whole run over the other cards, while held by the mouse",
+      held.length === 0, held);
+    check("klondike, " + tag + ": a run let go where it can't go goes back drawn as it lies, over the other cards",
+      back.held.length === 0 && back.after.length === 0 && /^\*K♠ \*Q♠ \*J♠ 10♥/.test(back.tab[0]), back);
+    check("klondike, " + tag + ": a run dropped on a column travels there drawn as it lies, over the other cards",
+      drop.held.length === 0 && drop.after.length === 0 && / J♣ 10♥ 9♣ 8♦ 7♠ 6♥ 5♣ 4♦ 3♠$/.test(drop.tab[3]), drop);
+    check("klondike (" + tag + ", runs): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  // held by a finger (touch events, as a phone sends them)
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(STACKS) });
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    await q.evaluate((run) => { window.__run = run; }, RUN);
+    await q.evaluate((cols) => __stage(cols), TABLE);
+    const from = await toward(q, "10♥"), over = await toward(q, "Q♥");
+    const cdp = await c.newCDPSession(q), touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+    await touch("touchStart", from.x, from.y);
+    for (let k = 1; k <= 8; k++) await touch("touchMove", from.x + (over.x - from.x) * k / 8, from.y + (over.y - from.h * 0.6 - from.y) * k / 8);
+    const moved = await q.evaluate(() => { const b = document.querySelector('.card[data-key="1-10"]'); return b.classList.contains("drag"); });
+    const held = await q.evaluate(() => __wrong(__run));
+    await touch("touchEnd");
+    check("klondike, phone: a run held by a finger is drawn as it lies, each card over the one beneath it and the whole run over the other cards",
+      moved && held.length === 0, { moved, held });
+    check("klondike (phone, runs): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- down a column every card is the same step below the last, face down
+  // or face up, and the step leaves a covered card's rank and suit in sight;
+  // the deepest column there can be (6 face down, 13 up) fits the table
+  const DEEP = ["", "*2♠ *3♥ *4♥ *6♠ *7♣ *8♥ K♦ Q♣ J♦ 10♣ 9♦ 8♠ 7♥ 6♣ 5♦ 4♠ 3♦ 2♣ A♥", "", "", "", "", ""];
+  for (const [label, opts] of [["laptop", {}], ["phone", { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["small phone", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/klondike/");
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    await q.evaluate((cols) => Klondike.stage(cols), DEEP);
+    const m = await q.evaluate(() => {
+      const cards = Klondike.state().tab[1].split(" ").map((t) => t.replace("*", ""));
+      const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
+      const els = cards.map((t) => document.querySelector('.card[data-key="' + SUITS.indexOf(t.slice(-1)) + "-" + RANKS.indexOf(t.slice(0, -1)) + '"]'));
+      const tops = els.map((e) => e.getBoundingClientRect().top), steps = tops.slice(1).map((t, i) => +(t - tops[i]).toFixed(1));
+      // how far down a covered face-up card's rank and suit have ink (the
+      // ten's: the widest rank): each piece's baseline, from the top of its
+      // text, and how far its letters reach below that, by the face's measures
+      const ten = els[9], idx = ten.querySelector(".idx"), small = idx.querySelector("small"), cv = document.createElement("canvas").getContext("2d");
+      const reach = (node, el, text) => {
+        const r = document.createRange(), cs = getComputedStyle(el);
+        r.selectNodeContents(node);
+        cv.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+        const m = cv.measureText(text);
+        return r.getBoundingClientRect().top + m.fontBoundingBoxAscent + m.actualBoundingBoxDescent;
+      };
+      const ink = Math.max(reach(idx.firstChild, idx, idx.firstChild.textContent), reach(small, small, small.textContent)) - ten.getBoundingClientRect().top;
+      const fld = document.getElementById("field").getBoundingClientRect(), last = els[els.length - 1].getBoundingClientRect();
+      return { steps, ink: +ink.toFixed(1), ch: +ten.getBoundingClientRect().height.toFixed(1), inField: last.bottom <= fld.bottom + 0.5, wide: document.documentElement.scrollWidth > innerWidth };
+    });
+    const even = Math.max(...m.steps) - Math.min(...m.steps) <= 1;
+    check("klondike, " + label + ": down a column face-down and face-up cards are the same step apart, and the step shows a covered card's rank and suit whole",
+      even && m.steps[0] >= m.ink, m);
+    check("klondike, " + label + ": the deepest column there can be fits the table, nothing wider than the screen", m.inField && !m.wide, m);
+    await c.close();
+  }
+
+  // ---- "Pan it all": its Enter keycap in the middle of the words' capitals,
+  // and the cap's word in the middle of the cap's face. Ink is read from the
+  // pixels, four to a CSS pixel. The suites keep the web fonts out, so Bitter
+  // comes as a stand-in face given Bitter's own heights (its line sits as
+  // Bitter's does).
+  {
+    const BITTER = '@font-face { font-family: "Bitter"; src: local("Georgia"); font-weight: 100 900; ascent-override: 94%; descent-override: 27%; line-gap-override: 0%; }';
+    const seen = [];
+    for (const [w, h] of [[1280, 900], [420, 760]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, deviceScaleFactor: 4 });
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: BITTER }));
+      const q = await lib.open(c, base, "games/klondike/");
+      await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+      await q.evaluate(() => { Klondike.almostWin(); document.getElementById("autofinish").scrollIntoView({ block: "center" }); });
+      await q.waitForTimeout(150);
+      const g = await q.evaluate(() => {
+        const b = document.getElementById("autofinish"), r = b.getBoundingClientRect(), k = b.querySelector("kbd"), kr = k.getBoundingClientRect(), ks = getComputedStyle(k);
+        const t = [...b.childNodes].find((n) => n.nodeType === 3 && /Pan/.test(n.textContent)), at = t.textContent.indexOf("P"), rp = document.createRange(), re = document.createRange();
+        rp.setStart(t, at); rp.setEnd(t, at + 1); re.setStart(k.firstChild, 0); re.setEnd(k.firstChild, 1);
+        const box = (x) => { const v = x.getBoundingClientRect(); return { l: v.left, r: v.right, t: v.top, b: v.bottom }; };
+        return { x: r.left, y: r.top, right: r.right, bottom: r.bottom, P: box(rp), E: box(re), key: { t: kr.top, b: kr.bottom, ft: kr.top + parseFloat(ks.borderTopWidth), fb: kr.bottom - parseFloat(ks.borderBottomWidth) } };
+      });
+      const clip = { x: Math.floor(g.x), y: Math.floor(g.y), width: Math.ceil(g.right) - Math.floor(g.x), height: Math.ceil(g.bottom) - Math.floor(g.y) };
+      const png = (await q.screenshot({ clip })).toString("base64");
+      seen.push(Object.assign({ size: w + "x" + h }, await q.evaluate(async ({ png, g, clip }) => {
+        const S = 4, img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+        const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+        const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+        const d = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width;
+        const lum = (i, j) => { const n = (j * W + i) * 4; return 0.3 * d[n] + 0.59 * d[n + 1] + 0.11 * d[n + 2]; };
+        const row = (y) => Math.round((y - clip.y) * S), col = (v) => Math.round((v - clip.x) * S);
+        // the rows a letter has ink in: dark on the gold (the P), cream on the wood (the E)
+        const ink = (box, top, bot, lit) => {
+          let t = -1, b = -1;
+          for (let j = row(top); j < row(bot); j++) { let on = false; for (let i = col(box.l) + 1; i < col(box.r) - 1 && !on; i++) on = lit(lum(i, j)); if (on) { if (t < 0) t = j; b = j; } }
+          return t < 0 ? null : (clip.y + t / S + clip.y + (b + 1) / S) / 2;
+        };
+        const caps = ink(g.P, g.P.t, g.P.b, (v) => v < 90), e = ink(g.E, g.key.ft + 0.5, g.key.fb, (v) => v > 170);
+        return { cap: caps === null || e === null ? null : +((g.key.t + g.key.b) / 2 - caps).toFixed(2), word: e === null ? null : +(e - (g.key.ft + g.key.fb) / 2).toFixed(2) };
+      }, { png, g, clip })));
+      await c.close();
+    }
+    check("klondike: \"Pan it all\" has its Enter keycap in the middle of the words' capitals, and the cap's word in the middle of its face (laptop, narrow window: within 0.75 px)",
+      seen.every((s) => s.cap !== null && Math.abs(s.cap) <= 0.75 && Math.abs(s.word) <= 0.75), seen);
+  }
 };

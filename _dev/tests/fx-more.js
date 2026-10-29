@@ -704,7 +704,9 @@ module.exports = async ({ browser, base, check, lib }) => {
         const a = el.getAnimations().find((x) => x.effect.getKeyframes().length === 9);
         const ys = a ? a.effect.getKeyframes().map((k) => +/,\s*([-\d.]+)px\)/.exec(k.transform)[1]) : [];
         const grows = a ? a.effect.getKeyframes().some((k) => !/scale\(1\)$/.test(k.transform)) : false;
-        return { moved, arc: !!a, above: el.classList.contains("arc") && getComputedStyle(el).zIndex === "800",
+        // (above every card at rest: a flying card's layer is 800 plus its place in the run it came from)
+        const rest = Math.max(0, ...Array.from(document.querySelectorAll(".card:not(.arc)")).map((c) => +getComputedStyle(c).zIndex || 0));
+        return { moved, arc: !!a, above: el.classList.contains("arc") && +getComputedStyle(el).zIndex >= 800 && +getComputedStyle(el).zIndex > rest,
           lifted: ys.length ? Math.min(...ys) < Math.min(ys[0], ys[8]) - 5 : false, grows, ms: a ? Math.round(a.effect.getComputedTiming().endTime) : 0 };
       });
       await done(p, "klondike arc FX " + (off ? "off" : "on"));
