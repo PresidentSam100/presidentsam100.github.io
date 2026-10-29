@@ -71,8 +71,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     // (a middle cell: the top-left one sits under the fixed ← Games button)
     ["minesweeper", "minesweeper/", (p) => clickMidCell(p)],
     ["minesweeper endless", "minesweeper/endless.html", (p) => clickMidCell(p, "right")],
-    ["pop-the-lock", "pop-the-lock/", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("Space"); await p.waitForTimeout(150); },
-      (pg) => lib.injectScript(pg, "games/pop-the-lock/game.js", [["if (d <= tol) pop();", "if (true) pop();"]])],
+    // (any tap pops, and the dial never slips past the notch untapped: on a
+    // busy machine the second Space can come well after the first)
+    ["pop-the-lock", "pop-the-lock/", async (p) => { await p.keyboard.press("Space"); await p.waitForFunction(() => document.getElementById("overlay").classList.contains("hidden")); await p.keyboard.press("Space"); await p.waitForTimeout(150); },
+      (pg) => lib.injectScript(pg, "games/pop-the-lock/game.js", [["if (d <= tol) pop();", "if (true) pop();"], ["if (traveled > exitTravel + pastArc()) fail(true);", "if (false) fail(true);"]])],
     ["slither", "slither/", async (p) => { await p.click("#play-btn"); await p.waitForTimeout(300); await p.evaluate(() => { __G.count = 0; const s = __G.snakes[0]; __G.food = { x: s.body[0].x + s.dir.x, y: s.body[0].y + s.dir.y }; }); await p.waitForTimeout(500); },   // (count: the 3, 2, 1 before the round, skipped)
       (pg) => lib.injectScript(pg, "games/slither/game.js", [["  var G = {", "  var G = window.__G = {"]])],
     ["steamfitter panic", "steamfitter/", async (p) => { await p.evaluate(() => { __game.setMode("panic"); __game.setQueue(["H", "H", "H", "H", "H"]); }); await p.waitForTimeout(150);
@@ -396,13 +398,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   {
     const p = await lib.open(ctx, base, "games/flappy-world/", { before: (pg) => seed(pg, { flappyWorld_hiScore_1: "1", flappyWorld_hiScore_3: "1" }) });
+    await p.waitForFunction(() => typeof game !== "undefined" && game.gameState === "MENU", null, { timeout: 15000 }).catch(() => {});
+    // (the score is set in the run's first frame and the bird kept from the
+    // ground, by the page: set from here, a busy machine set it after an
+    // unflapped bird had already crashed. Whether the run is still going is
+    // read the moment the best is seen stored, so a best kept only at the
+    // crash doesn't pass.)
+    await p.evaluate(() => {
+      window.__best = null;
+      const f = () => {
+        if (game.gameState === "PLAYING" && !window.__set) { window.__set = true; game.score = 5; game.invincibleTime = 1e9; }
+        const v = [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")];
+        if (window.__set && v.includes("5")) { window.__best = { v, state: game.gameState }; return; }
+        requestAnimationFrame(f);
+      };
+      requestAnimationFrame(f);
+    });
     await p.keyboard.press("Space");
-    await p.waitForFunction(() => game.gameState === "PLAYING", null, { timeout: 8000 }).catch(() => {});
-    await p.evaluate(() => { game.score = 5; });
-    // (polled: it's saved by the game's next update, slower on a busy machine)
-    await p.waitForFunction(() => [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")].includes("5"), null, { timeout: 8000 }).catch(() => {});
-    const v = await p.evaluate(() => [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")]);
-    check("flappy-world: a new best is saved mid-run", v.includes("5"), v);
+    await p.waitForFunction(() => window.__best, null, { timeout: 15000 }).catch(() => {});
+    const best = await p.evaluate(() => window.__best || { v: [localStorage.getItem("flappyWorld_hiScore_1"), localStorage.getItem("flappyWorld_hiScore_3")], state: game.gameState });
+    check("flappy-world: a new best is saved mid-run", best.v.includes("5") && best.state === "PLAYING", best);
     await done(p, "flappy-world best");
   }
   {
