@@ -1,24 +1,32 @@
 // Page Turner (a bookworm under the falling pages of a picture book). The
 // rules first, driven through the engine itself under node: a worm wholly
 // inside a hole goes through and one past its edge is squished, for every
-// shape; several share a hole; worms bump, and one can shove another out of
-// a hole; pages come faster with fewer, smaller holes; every page's holes
+// shape; every hole on a page covers as much of it as the others, their
+// printed trim clear of each other; no panel is a hole more than three pages
+// in a row; several share a hole; worms bump, and one can shove another out of
+// a hole, but a CPU worm never presses on a player's (it gives way, and
+// makes its way back in round them); pages come faster with fewer, smaller holes; every page's holes
 // can be reached from anywhere on it within the warning its shadow gives,
 // with a reaction to spare (worked out for every way the holes can fall, and
 // played out from the far corner on the last, quickest pages); Party's last
 // worm wriggling wins, the last ones squished together draw, and squished
 // before the others is a loss in its place; Endless counts pages and closes
-// the book at 99; the CPU worms read the pages, the hard ones better.
+// the book at 99; the CPU worms read the pages, the hard ones better, and
+// spread over the holes, leaving you your hole's middle; 2 Players: each
+// worm on its own keys, the last wriggling wins, squished together a draw.
 // Then the page: the menu's keys, the arrows and WASD, a thumb anywhere on
 // the screen steering, the Endless best kept the moment it's passed and the
 // Party record the moment a game ends, P covering the book and picking up
 // where it stopped, the end card's keys, Visual FX off still animating the
-// fall (with no dust or shake), and the book fitting laptops and phones.
+// fall (with no dust or shake), 2 Players (WASD against the arrows, a
+// thumb on each half of a phone, the sitting's tally), and the book fitting
+// laptops and phones.
 module.exports = async ({ browser, base, check, lib }) => {
   const path = require("path");
   const { devices } = require("@playwright/test");
   const E = require(path.join(lib.ROOT, "games/page-turner/engine.js"));
   const R = E.TUNE.R;
+  const area = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const q = pts[(i + 1) % pts.length]; a += pts[i][0] * q[1] - q[0] * pts[i][1]; } return Math.abs(a / 2); };
   const seeded = (a) => () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
 
   // ---- the rules ----------------------------------------------------------------------
@@ -86,28 +94,76 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("page-turner rules: the holes take every shape, stars and moons from page 1 (seen on each of pages 1 to 7 across seeds), no two alike on a page",
       !!E.SHAPES.moon && bad.length === 0 && [1, 2, 3, 4, 5, 6, 7].every((p) => seen.star.has(p) && seen.moon.has(p)), { bad: bad.slice(0, 3), star: [...seen.star], moon: [...seen.moon] });
-    // and every hole inside its panel, never smaller than the last pages', its printed rim outside it
-    const out = [];
+    // and every hole inside its panel, covering no less page than the last pages', its printed rim outside it
+    const out = [], least = area(E.makeHole(4, "sun", E.sizeFor("sun", E.stage(99).rin)).poly);
     for (let seed = 1; seed <= 8; seed++) for (let p = 1; p <= 40; p++) for (const h of E.makeLeaf(p, seeded(seed * 77 + p)).holes) {
       const m = E.panelMid(h.panel), half = E.TUNE.panelHalf;
       if (h.poly.some((q) => Math.abs(q[0] - m[0]) > half || Math.abs(q[1] - m[1]) > half)) out.push({ seed, p, shape: h.shape, why: "past its panel" });
-      if (h.rin < E.stage(99).rin - 1e-9) out.push({ seed, p, shape: h.shape, why: "smaller than the last pages'", rin: h.rin });
+      if (area(h.poly) < least * 0.999) out.push({ seed, p, shape: h.shape, why: "less page than the last pages'", rin: h.rin });
       if (E.rim && E.rim(h, 0.013).some((q) => E.edgeDepth(h, q[0], q[1]) > -0.004)) out.push({ seed, p, shape: h.shape, why: "rim on the hole" });
     }
-    check("page-turner rules: every hole lies inside its panel and is no smaller than the last pages' holes, and its printed rim runs outside its cut (the moon's horns too)", !!E.rim && out.length === 0, out.slice(0, 4));
+    check("page-turner rules: every hole lies inside its panel and covers no less page than the last pages' holes, and its printed rim runs outside its cut (the moon's horns too)", !!E.rim && out.length === 0, out.slice(0, 4));
+  }
+  {
+    // every hole on a page covers as much of it as the others, whatever its
+    // shape: as much as a round one of the page's size (the moon, which
+    // spreads furthest for its fit, no longer looking twice as big)
+    const bad = [];
+    for (let seed = 1; seed <= 10; seed++) for (let p = 1; p <= 40; p++) {
+      const l = E.makeLeaf(p, seeded(seed * 131 + p)), round = area(E.makeHole(4, "sun", E.sizeFor("sun", E.stage(p).rin)).poly);
+      l.holes.forEach((h) => { const r = area(h.poly) / round; if (Math.abs(r - 1) > 0.02) bad.push({ seed, p, shape: h.shape, r: +r.toFixed(2) }); });
+    }
+    check("page-turner rules: every hole on a page covers as much of it as a round one of the page's size, whatever its shape (within 2%; pages 1 to 40)", bad.length === 0, bad.slice(0, 5));
+  }
+  {
+    // no two holes' printed trim meets: each hole's rim (and a sun's rays),
+    // the lines' own width included, keeps 0.004 or more from the next one's
+    const RIM = E.TUNE.rim || 0.013, INK = 0.0075 / 2, RAY = 0.0075 * 1.3 / 2, GAP = 0.004;
+    const rays = (h) => E.sunRays ? E.sunRays(h) : [h.rin + 0.024, Math.min(E.TUNE.panelHalf - 0.004, h.rin + 0.04)];
+    const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy; let s = l2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2 : 0; s = Math.max(0, Math.min(1, s)); return Math.hypot(p[0] - a[0] - s * dx, p[1] - a[1] - s * dy); };
+    // (a hole's printed trim as line segments, each with how far its line spreads)
+    const trim = (h) => {
+      const out = [], rim = E.rim(h, RIM);
+      rim.forEach((p, i) => out.push([p, rim[(i + 1) % rim.length], INK]));
+      if (h.shape === "sun") { const [r0, r1] = rays(h); for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; out.push([[h.cx + Math.cos(a) * r0, h.cy + Math.sin(a) * r0], [h.cx + Math.cos(a) * r1, h.cy + Math.sin(a) * r1], RAY]); } }
+      return out;
+    };
+    const apart = (A, B) => { let m = Infinity; for (const [a0, a1, wa] of A) for (const [b0, b1, wb] of B) m = Math.min(m, Math.min(segDist(a0, b0, b1), segDist(a1, b0, b1), segDist(b0, a0, a1), segDist(b1, a0, a1)) - wa - wb); return m; };
+    const bad = [];
+    for (let seed = 1; seed <= 12; seed++) for (let p = 1; p <= 30; p++) {
+      const hs = E.makeLeaf(p, seeded(seed * 59 + p)).holes, tr = hs.map(trim);
+      for (let i = 0; i < hs.length; i++) for (let j = i + 1; j < hs.length; j++) { const d = apart(tr[i], tr[j]); if (d < GAP) bad.push({ seed, p, a: hs[i].shape + "@" + hs[i].panel, b: hs[j].shape + "@" + hs[j].panel, gap: +d.toFixed(4) }); }
+    }
+    check("page-turner rules: no two holes on a page overlap, nor their printed trim (rims, a sun's rays, the lines' width included: 0.004 apart or more; pages 1 to 30)", bad.length === 0, { n: bad.length, first: bad.slice(0, 4) });
+  }
+  {
+    // no panel is a hole on more than three pages in a row, so a look down
+    // holes that line up always ends on a page's paper (the game's own pages)
+    const bad = [], longest = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const st = E.create({ mode: "endless", rng: seeded(seed * 17 + 3) }), leaves = [];
+      for (let i = 0; i < 200000 && st.page < 45 && st.phase !== "over"; i++) {
+        if (leaves[leaves.length - 1] !== st.leaf) leaves.push(st.leaf);
+        const h = st.leaf.holes[0]; st.worms[0].x = h.cx; st.worms[0].y = h.cy; st.worms[0].vx = st.worms[0].vy = 0;
+        E.step(st, 1 / 30, { x: 0, y: 0 });
+      }
+      let most = 0;
+      for (let pn = 0; pn < 9; pn++) { let run = 0; leaves.forEach((l) => { run = l.holes.some((h) => h.panel === pn) ? run + 1 : 0; most = Math.max(most, run); if (run > 3) bad.push({ seed, page: l.n, panel: pn, run }); }); }
+      longest.push(most);
+    }
+    check("page-turner rules: no panel is a hole on more than three pages in a row (12 games to page 45)", bad.length === 0, { longest, first: bad.slice(0, 3) });
   }
   {
     // the star covers about as much page as a window or a flower of the same
     // size (the size that lets a worm through), not half as much again
-    const area = (pts) => { let a = 0; for (let i = 0; i < pts.length; i++) { const q = pts[(i + 1) % pts.length]; a += pts[i][0] * q[1] - q[0] * pts[i][1]; } return Math.abs(a / 2); };
     const r = {}; for (const k of ["sun", "window", "flower", "star"]) r[k] = +(area(E.SHAPES[k]) / area(E.SHAPES.sun)).toFixed(2);
     check("page-turner rules: a star hole covers about as much page as a window or a flower of its size (within a tenth), not far more",
       Math.abs(r.star - r.window) <= 0.1 * r.window && Math.abs(r.star - r.flower) <= 0.1 * r.flower, r);
   }
   {
     // the leaves to come are made ahead, the same ones whatever happens on
-    // the page: the two behind the next stand ready, and move up a place as
-    // each leaf lands
+    // the page: the three behind the next stand ready (as far down as holes
+    // in a row can show), and move up a place as each leaf lands
     const st = E.create({ mode: "endless", rng: seeded(5) });
     const ahead = () => [st.leaf, st.next].concat(st.later || []).map((l) => l && l.n);
     const first = ahead(), seen = [st.next, (st.later || [])[0], (st.later || [])[1]];
@@ -116,8 +172,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const m = E.panelMid(4); st.worms[0].x = m[0]; st.worms[0].y = m[1];
     for (let i = 0; i < 2000 && st.page < 2; i++) E.step(st, 1 / 60, { x: 0, y: 0 });
     const was = { leaf: st.leaf === seen[0], next: st.next === seen[1], later: (st.later || [])[0] === seen[2] };
-    check("page-turner rules: the leaves to come stand ready two behind the next (pages 1 to 4 at the start), and each moves up a place as a leaf lands",
-      first.join() === "1,2,3,4" && was.leaf && was.next && was.later && ahead().join() === "2,3,4,5", { first, now: ahead(), was });
+    check("page-turner rules: the leaves to come stand ready three behind the next (pages 1 to 5 at the start), and each moves up a place as a leaf lands",
+      first.join() === "1,2,3,4,5" && was.leaf && was.next && was.later && ahead().join() === "2,3,4,5,6", { first, now: ahead(), was });
   }
   {
     // four worms in one big hole all go through; the game goes on to page 2
@@ -129,22 +185,50 @@ module.exports = async ({ browser, base, check, lib }) => {
       seen.filter((e) => e.type === "through").length === 4 && st.page === 2 && !st.result && E.alive(st).length === 4, { page: st.page, result: st.result, ev: seen.map((e) => e.type) });
   }
   {
-    // worms are solid (they never overlap), but one settled wholly inside a
-    // hole keeps its place there: one crawling into it bumps it and is held
-    // off; nudged at most within the hole, never out, it goes through, and
-    // the one pressing on it is squished
+    // worms are solid (they never overlap), and one crawling into a worm
+    // settled in a hole shoves it, out of the hole too: a CPU there gives way
+    // and, with no room left beside you, is squished while you go through
     const h = E.makeHole(4, "sun", 0.07), c = E.panelMid(4);
     const st = setup("party", [h]);
     gone(st, 2); gone(st, 3);
     still(st, 0, c[0] - 0.2, c[1]);
-    // (the rival has read the leaf and keeps to the hole's middle)
+    // (the rival has read the leaf and sits in the hole's middle)
     const rival = st.worms[1]; rival.x = c[0]; rival.y = c[1]; rival.vx = rival.vy = 0;
-    Object.assign(rival.cpu, { read: true, second: true, readAt: 0, next: 1e9, hole: 0, target: [c[0], c[1]], decoy: false });
+    Object.assign(rival.cpu, { read: true, second: true, readAt: 0, next: 0, hole: 0, target: [c[0], c[1]], decoy: false });
     let closest = 1, bumps = 0, out = false;
-    const seen = toSlam(st, (s) => { closest = Math.min(closest, Math.hypot(s.worms[0].x - rival.x, s.worms[0].y - rival.y)); bumps += s.events.filter((e) => e.type === "bump").length; if (!E.fits(h, rival.x, rival.y)) out = true; return { x: 1, y: 0 }; });
-    check("page-turner rules: worms are solid: one crawling into a worm settled in a hole bumps it but can't shove it out; the settled one goes through, the one pressing on it is squished",
-      closest >= 2 * R - 0.002 && bumps > 0 && !out && seen.some((e) => e.type === "through" && e.id === 1) && seen.some((e) => e.type === "squish" && e.id === 0),
+    const seen = toSlam(st, (s) => {
+      const w = s.worms[0];
+      if (rival.alive) { closest = Math.min(closest, Math.hypot(w.x - rival.x, w.y - rival.y)); if (!E.fits(h, rival.x, rival.y)) out = true; }
+      bumps += s.events.filter((e) => e.type === "bump").length;
+      const d = Math.hypot(c[0] - w.x, c[1] - w.y);
+      return d < 0.004 ? { x: 0, y: 0 } : { x: (c[0] - w.x) / Math.max(d, 0.035), y: (c[1] - w.y) / Math.max(d, 0.035) };
+    });
+    check("page-turner rules: worms are solid: one crawling into a worm settled in a hole bumps it and shoves it out; a CPU there gives way, and with no room left beside you it's squished while you go through",
+      closest >= 2 * R - 0.002 && bumps > 0 && out && seen.some((e) => e.type === "through" && e.id === 0) && seen.some((e) => e.type === "squish" && e.id === 1),
       { closest, bumps, out, ev: seen.filter((e) => e.type !== "bump").map((e) => e.type + (e.id != null ? e.id : "")) });
+  }
+  {
+    // a CPU knocked out of its hole (its spot now where you are) looks round
+    // at once and heads back in, round you, to a spot clear of you, and goes
+    // through; on the way it never presses on you, sitting in the middle
+    const h = E.makeHole(4, "sun", 0.12), c = E.panelMid(4);
+    const st = setup("party", [h]);
+    gone(st, 2); gone(st, 3);
+    still(st, 0, c[0], c[1]);
+    const rival = st.worms[1]; rival.x = c[0] + h.room + 0.03; rival.y = c[1] + 0.012; rival.vx = rival.vy = 0;
+    Object.assign(rival.cpu, { read: true, second: true, readAt: 0, next: 1e9, hole: 0, target: [c[0] + 0.03, c[1]], decoy: false, wasIn: true });
+    let press = 0, moved = 0, backIn = null, t = 0;
+    const seen = toSlam(st, (s) => {
+      t += 1 / 60;
+      const w = s.worms[0], dx = w.x - rival.x, dy = w.y - rival.y, d = Math.hypot(dx, dy);
+      if (d < 2 * R + 0.002 && (rival.vx * dx + rival.vy * dy) / d > 0.1) press += 1 / 60;
+      moved = Math.max(moved, Math.hypot(w.x - c[0], w.y - c[1]));
+      if (backIn == null && E.fits(h, rival.x, rival.y)) backIn = +t.toFixed(2);
+      return null;
+    });
+    check("page-turner rules: a CPU knocked out of its hole heads straight back in, round you, to a spot clear of you, and goes through; it never presses on you (you, in the middle, aren't moved)",
+      press === 0 && moved < 0.002 && backIn != null && backIn < 1 && seen.some((e) => e.type === "through" && e.id === 1),
+      { press: +press.toFixed(3), moved: +moved.toFixed(4), backIn, ev: seen.filter((e) => e.type !== "bump").map((e) => e.type + (e.id != null ? e.id : "")) });
   }
   {
     // the CPU worms don't all make for a hole's dead middle: three making for
@@ -159,38 +243,93 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner rules: CPU worms making for one big hole aim at spots apart in it (a worm's width or more), not all for its middle", gaps.length === 3 && Math.min(...gaps) >= 2 * R - 0.012, gaps.map((g) => +g.toFixed(3)));
   }
   {
-    // played out against three CPUs: you, once wholly in a hole (and still),
-    // are never shoved out of it, and worms seldom turn about in a shoving match
-    let shoved = 0, turns = 0, pages = 0;
-    for (const level of ["easy", "normal", "hard"]) for (let seed = 1; seed <= 4; seed++) {
-      const st = E.create({ mode: "party", level, rng: seeded(seed * 31 + 7) });
-      const last = st.worms.map(() => ({ dir: null, at: -9 }));
-      let reactAt = null, inFor = 0;
-      for (let t = 0; t < 90 && st.phase !== "over"; t += 1 / 60) {
-        const w = st.worms[0], live = st.phase === "stand" || st.phase === "fall";
-        if (st.phase === "stand" && reactAt == null) reactAt = t + 0.4;
-        if (!live) reactAt = null;
-        let input = null;
-        if (live && reactAt != null && t >= reactAt && E.fitHole(st.leaf, w.x, w.y) < 0) {
-          let best = null, bd = 9; st.leaf.holes.forEach((h) => { const d = Math.hypot(h.cx - w.x, h.cy - w.y); if (d < bd) { bd = d; best = h; } });
-          input = { x: (best.cx - w.x) / bd, y: (best.cy - w.y) / bd };
+    // the CPU worms keep out of your way: played out against a you that
+    // crawls for the nearest hole's middle and stops there, they spread over
+    // the holes there are (sharing yours on under half the pages) and leave
+    // you its middle (nearer it than you in no more than 1 in 10 of those)
+    const res = {};
+    for (const level of ["easy", "normal", "hard"]) {
+      let pages = 0, share = 0, nearer = 0;
+      for (let seed = 1; seed <= 10; seed++) {
+        const st = E.create({ mode: "party", level, rng: seeded(seed * 31 + 7) });
+        let reactAt = null, aim = null;
+        for (let t = 0; t < 90 && st.phase !== "over"; t += 1 / 60) {
+          const w = st.worms[0], live = st.phase === "stand" || st.phase === "fall";
+          if (st.phase === "stand" && reactAt == null) { reactAt = t + 0.4; aim = null; }
+          if (!live) reactAt = null;
+          let input = null;
+          if (live && reactAt != null && t >= reactAt) {
+            if (!aim) { let bd = 9; st.leaf.holes.forEach((h) => { const d = Math.hypot(h.cx - w.x, h.cy - w.y); if (d < bd) { bd = d; aim = h; } }); }
+            const d = Math.hypot(aim.cx - w.x, aim.cy - w.y);
+            input = d < 0.01 ? { x: 0, y: 0 } : { x: (aim.cx - w.x) / Math.max(d, 0.035), y: (aim.cy - w.y) / Math.max(d, 0.035) };
+          }
+          // (who is in your hole as the leaf lands)
+          if (st.phase === "fall" && st.t + 1 / 60 >= E.stage(st.page).fall - 1e-9 && w.alive) {
+            const hi = E.fitHole(st.leaf, w.x, w.y), h = st.leaf.holes[hi];
+            if (hi >= 0) st.worms.slice(1).forEach((o) => { if (o.alive && E.fitHole(st.leaf, o.x, o.y) === hi) { share++; if (Math.hypot(o.x - h.cx, o.y - h.cy) < Math.hypot(w.x - h.cx, w.y - h.cy)) nearer++; } });
+          }
+          E.step(st, 1 / 60, input);
+          if (st.events.some((e) => e.type === "slam")) pages++;
         }
-        const before = st.worms.map((o) => [o.x, o.y]);
-        E.step(st, 1 / 60, input);
-        st.events.forEach((e) => { if (e.type === "slam") pages++; });
-        const fit = st.phase === "stand" || st.phase === "fall" ? E.fitHole(st.leaf, w.x, w.y) >= 0 : false;
-        if (fit) inFor += 1 / 60; else { if (inFor > 0.2 && (st.phase === "stand" || st.phase === "fall")) shoved++; inFor = 0; }
-        st.worms.forEach((o, i) => {
-          const dx = o.x - before[i][0], dy = o.y - before[i][1], d = Math.hypot(dx, dy);
-          if (!o.alive || d < 0.002) return;
-          const dir = [dx / d, dy / d], L = last[i], touching = st.worms.some((q) => q !== o && q.alive && Math.hypot(q.x - o.x, q.y - o.y) < 2 * R + 0.004);
-          if (L.dir && dir[0] * L.dir[0] + dir[1] * L.dir[1] < -0.5) { if (t - L.at < 0.3 && touching) turns++; L.at = t; }
-          L.dir = dir;
-        });
       }
+      res[level] = { pages, share, nearer };
     }
-    check("page-turner rules: against CPU worms (every level), you are never shoved out of a hole you're settled in, and worms seldom turn about in a shoving match (back and forth within 0.3 s while touching another: under one in five pages)",
-      shoved === 0 && turns / pages < 0.2 && pages > 30, { shoved, turns, pages });
+    check("page-turner rules: CPU worms (every level) spread over the holes and leave you your hole's middle: in your hole as it lands on under half the pages, nearer its middle than you in 1 in 10 of those at most",
+      Object.values(res).every((r) => r.pages > 30 && r.share / r.pages < 0.5 && r.nearer <= Math.max(1, r.share * 0.1)), res);
+  }
+  {
+    // played out against three CPUs (every level), a you that crawls for the
+    // nearest hole's middle and stops there: no CPU presses on you (touching
+    // you while moving your way: under 0.02 s a page), seldom so much as
+    // touches you, never shoves you out of a hole you're settled in; worms
+    // seldom turn about in a shoving match; and the CPUs knocked out of a
+    // hole with time to spare mostly get back into one
+    const res = {};
+    for (const level of ["easy", "normal", "hard"]) {
+      let pages = 0, shoved = 0, press = 0, touch = 0, turns = 0, knocked = 0, back = 0;
+      for (let seed = 1; seed <= 6; seed++) {
+        const st = E.create({ mode: "party", level, rng: seeded(seed * 31 + 7) });
+        const last = st.worms.map(() => ({ dir: null, at: -9 })), wasIn = st.worms.map(() => false), knockedOn = st.worms.map(() => 0);
+        let reactAt = null, aim = null, inFor = 0;
+        for (let t = 0; t < 90 && st.phase !== "over"; t += 1 / 60) {
+          const w = st.worms[0], live = st.phase === "stand" || st.phase === "fall";
+          if (st.phase === "stand" && reactAt == null) { reactAt = t + 0.4; aim = null; }
+          if (!live) reactAt = null;
+          let input = null;
+          if (live && reactAt != null && t >= reactAt) {
+            if (!aim) { let bd = 9; st.leaf.holes.forEach((h) => { const d = Math.hypot(h.cx - w.x, h.cy - w.y); if (d < bd) { bd = d; aim = h; } }); }
+            const d = Math.hypot(aim.cx - w.x, aim.cy - w.y);
+            input = d < 0.01 ? { x: 0, y: 0 } : { x: (aim.cx - w.x) / Math.max(d, 0.035), y: (aim.cy - w.y) / Math.max(d, 0.035) };
+          }
+          const before = st.worms.map((o) => [o.x, o.y]), stopped = !input || (!input.x && !input.y);
+          E.step(st, 1 / 60, input);
+          st.events.forEach((e) => { if (e.type === "slam") pages++; });
+          const now = st.phase === "stand" || st.phase === "fall";
+          const fit = now && w.alive ? E.fitHole(st.leaf, w.x, w.y) >= 0 : false;
+          if (fit && stopped) inFor += 1 / 60; else if (!fit) { if (inFor > 0.2 && now) shoved++; inFor = 0; }
+          st.worms.forEach((o, i) => {
+            if (i && o.alive && w.alive) {
+              const dx = w.x - o.x, dy = w.y - o.y, d = Math.hypot(dx, dy);
+              if (d < 2 * R + 0.002) { touch += 1 / 60; if ((o.vx * dx + o.vy * dy) / (d || 1) > 0.1) press += 1 / 60; }
+            }
+            if (i && o.alive && now) {
+              const inn = E.fitHole(st.leaf, o.x, o.y) >= 0;
+              if (wasIn[i] && !inn && E.timeLeft(st) > 0.6) { knocked++; knockedOn[i] = st.page; }
+              if (inn && knockedOn[i] === st.page) { back++; knockedOn[i] = 0; }
+              wasIn[i] = inn;
+            } else wasIn[i] = false;
+            const mx = o.x - before[i][0], my = o.y - before[i][1], md = Math.hypot(mx, my);
+            if (!o.alive || md < 0.002) return;
+            const dir = [mx / md, my / md], L = last[i], touching = st.worms.some((q) => q !== o && q.alive && Math.hypot(q.x - o.x, q.y - o.y) < 2 * R + 0.004);
+            if (L.dir && dir[0] * L.dir[0] + dir[1] * L.dir[1] < -0.5) { if (t - L.at < 0.3 && touching) turns++; L.at = t; }
+            L.dir = dir;
+          });
+        }
+      }
+      res[level] = { pages, shoved, press: +(press / pages).toFixed(3), touch: +(touch / pages).toFixed(3), turns: +(turns / pages).toFixed(3), knocked, back };
+    }
+    check("page-turner rules: against CPU worms (every level), no CPU presses on you (under 0.02 s a page touching you while moving your way; touching at all under 0.15 s), none shoves you out of a hole you're settled in, worms seldom turn about in a shoving match (under one in five pages), and CPUs knocked out of a hole with time to spare get back into one (3 in 4 or more)",
+      Object.values(res).every((r) => r.pages > 30 && r.press < 0.02 && r.touch < 0.15 && r.shoved === 0 && r.turns < 0.2 && r.back >= r.knocked * 0.75), res);
   }
   {
     // the pace: faster, fewer, smaller, then a floor
@@ -235,10 +374,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       const h = E.makeHole(panel, shape, E.sizeFor(shape, E.stage(p).rin)), st = setup("endless", [h], p);
       still(st, 0, sx, sy);
       let t = 0;
-      const seen = toSlam(st, (s) => { t += 1 / 60; const w = s.worms[0]; if (t < E.TUNE.react || E.fits(h, w.x, w.y)) return { x: 0, y: 0 }; const d = Math.hypot(h.cx - w.x, h.cy - w.y); return { x: (h.cx - w.x) / d, y: (h.cy - w.y) / d }; });
+      // (letting go in time to stop on its middle: the moon's thick part is narrow)
+      const seen = toSlam(st, (s) => { t += 1 / 60; const w = s.worms[0], d = Math.hypot(h.cx - w.x, h.cy - w.y), v = Math.hypot(w.vx, w.vy); if (t < E.TUNE.react || d <= v * v / (2 * E.TUNE.decel) + 0.002) return { x: 0, y: 0 }; return { x: (h.cx - w.x) / d, y: (h.cy - w.y) / d }; });
       if (!seen.some((e) => e.type === "through")) bad.push({ p, shape, panel });
     }
-    check("page-turner rules: on the quickest pages, a worm in the far corner that waits 0.4 s and then crawls straight for the hole gets through it (every shape, every corner)", bad.length === 0, bad.slice(0, 5));
+    check("page-turner rules: on the quickest pages, a worm in the far corner that waits 0.4 s and then crawls straight for the hole's middle, letting go to stop there, gets through it (every shape, every corner)", bad.length === 0, bad.slice(0, 5));
   }
   {
     // Party: last worm wriggling, a draw, a loss in its place
@@ -267,6 +407,24 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner rules (Endless): each page got through counts, page 99 closes the book, and a squish ends the run with the pages before it",
       a.survived === 1 && !a.result && a.page === 2 && b.result && b.result.outcome === "closed" && b.result.pages === 99 && z.result && z.result.outcome === "squished" && z.result.pages === 11,
       { a: [a.survived, a.page], b: b.result, z: z.result });
+  }
+  {
+    // 2 Players: each worm steered by its own input (Player 1's first), no
+    // CPU; one squished while the other goes through is the other's win;
+    // both squished by one leaf, a draw; both through, on to the next page;
+    // both through page 99, the book closes on a draw
+    const c = E.panelMid(4), out = [0.85, 0.85];
+    const duo = (a, b, page) => { const st = setup("duo", [E.makeHole(4, "sun", 0.1)], page || 6); still(st, 0, a[0], a[1]); still(st, 1, b[0], b[1]); toSlam(st); return st; };
+    const one = duo(c, out), two = duo(out, c), both = duo(out, [0.15, 0.85]), on = duo([c[0] - 0.045, c[1]], [c[0] + 0.045, c[1]]), end = duo([c[0] - 0.045, c[1]], [c[0] + 0.045, c[1]], 99);
+    const st = E.create({ mode: "duo", rng: seeded(3) }), a = [st.worms[0].x, st.worms[0].y], b = [st.worms[1].x, st.worms[1].y];
+    for (let i = 0; i < 30; i++) E.step(st, 1 / 60, [{ x: 1, y: 0 }, { x: 0, y: -1 }]);
+    const steer = { p1: [+(st.worms[0].x - a[0]).toFixed(3), +(st.worms[0].y - a[1]).toFixed(3)], p2: [+(st.worms[1].x - b[0]).toFixed(3), +(st.worms[1].y - b[1]).toFixed(3)] };
+    check("page-turner rules (2 Players): two worms, Player 1 and Player 2, each on its own input; squished while the other goes through is the other's win, squished together a draw, both through goes on, and both through page 99 closes the book",
+      st.worms.length === 2 && st.worms.map((w) => w.name).join() === "Player 1,Player 2" && st.worms.every((w) => !w.cpu) &&
+      steer.p1[0] > 0.1 && Math.abs(steer.p1[1]) < 0.005 && steer.p2[1] < -0.1 && Math.abs(steer.p2[0]) < 0.005 &&
+      one.result && one.result.outcome === "win" && one.result.winner === 0 && two.result && two.result.outcome === "win" && two.result.winner === 1 &&
+      both.result && both.result.outcome === "draw" && !on.result && on.page === 7 && end.result && end.result.outcome === "closed",
+      { steer, one: one.result, two: two.result, both: both.result, on: [on.page, on.result], end: end.result });
   }
   {
     // the CPU worms: all four played by them, hard against easy, over the same pages
@@ -324,11 +482,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   const caps = await p.evaluate(() => [...document.querySelectorAll("#pick-mode button b, #pick-level button, #play")].map((b) => b.getAttribute("data-gs-key")).join(" "));
   await p.keyboard.press("2"); await p.waitForTimeout(80);
   const endless = await p.evaluate(() => ({ mode: PageTurner.mode(), levels: document.getElementById("pick-level").hidden, kept: localStorage.getItem("pageturner_mode") }));
-  await p.keyboard.press("1"); await p.keyboard.press("5"); await p.waitForTimeout(80);
+  await p.keyboard.press("1"); await p.keyboard.press("6"); await p.waitForTimeout(80);
   await p.keyboard.press("Enter"); await p.waitForTimeout(150);
   const began = await p.evaluate(() => ({ state: PageTurner.state(), mode: PageTurner.mode(), level: PageTurner.level(), page: document.getElementById("hud-page").textContent, chips: [...document.querySelectorAll("#hud-worms .chip")].map((c) => c.textContent).join(" ") }));
-  check("page-turner: the menu's modes wear 1 and 2 and the rivals 3 4 5; 2 picks Endless (no rivals to pick), 1 Party, 5 Hard, and Enter opens the book at page 1 with four worms",
-    caps === "1 2 3 4 5 Space or Enter" && endless.mode === "endless" && endless.levels && endless.kept === "endless" && began.state === "play" && began.mode === "party" && began.level === "hard" && began.page === "1" && began.chips === "You Rosy Clem Indy",
+  check("page-turner: the menu's modes wear 1 2 3 and the rivals 4 5 6; 2 picks Endless (no rivals to pick), 1 Party, 6 Hard, and Enter opens the book at page 1 with four worms",
+    caps === "1 2 3 4 5 6 Space or Enter" && endless.mode === "endless" && endless.levels && endless.kept === "endless" && began.state === "play" && began.mode === "party" && began.level === "hard" && began.page === "1" && began.chips === "You Rosy Clem Indy",
     { caps, endless, began });
   const moveBy = async (key) => {
     const a = await p.evaluate(() => { const w = PageTurner.st().worms[0]; return [w.x, w.y]; });
@@ -364,6 +522,80 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("page-turner: Esc mid-game asks \"Leave this game?\" over the book covered whole; any other key plays on",
     leaveBox && leaveBox.title === "Leave this game?" && leaveBox.img && p.leaves === 0 && (await p.evaluate(() => PageTurner.state())) === "play", { leaveBox, leaves: p.leaves });
   await done(p, "menu, keys and pause");
+
+  // ---- 2 Players: 3 on the menu picks it (no rivals to pick), Enter opens the
+  // book with two worms; W A S D steer Player 1 alone, the arrows Player 2
+  // alone, the keys line says so; P pauses as in the other modes; the end card
+  // names the winner, or a draw, with the sitting's tally, also on the menu
+  {
+    const q = await open();
+    const recBefore = await q.evaluate(() => ["easy", "normal", "hard"].map((l) => localStorage.getItem("pageturner_record_" + l)).join());
+    await q.keyboard.press("3"); await q.waitForTimeout(80);
+    const picked = await q.evaluate(() => ({ mode: PageTurner.mode(), levels: document.getElementById("pick-level").hidden, kept: localStorage.getItem("pageturner_mode") }));
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const began = await q.evaluate(() => {
+      const shown = [...document.querySelectorAll("#keys > span")].filter((s) => getComputedStyle(s).display !== "none").map((s) => s.textContent.replace(/\s+/g, " ").trim());
+      return { state: PageTurner.state(), mode: PageTurner.mode(), worms: PageTurner.st().worms.length, chips: [...document.querySelectorAll("#hud-worms .chip")].map((c) => c.textContent).join(" "), keys: shown };
+    });
+    // (the keys held while a leaf stands: 3 s before it lands; the clock held after)
+    await q.evaluate(() => { const PT = PageTurner; PT.freeze(true); for (let i = 0; i < 600 && PT.st().phase !== "stand"; i++) PT.advance(1 / 60); PT.place(0, 0.3, 0.6); PT.place(1, 0.7, 0.6); PT.freeze(false); });
+    const pos = () => q.evaluate(() => PageTurner.st().worms.map((w) => [+w.x.toFixed(3), +w.y.toFixed(3)]));
+    const hold = async (key) => {
+      // (both worms at rest first: one let go a moment ago still slides to a stop)
+      await q.waitForFunction(() => PageTurner.st().worms.every((w) => Math.hypot(w.vx, w.vy) < 1e-6), null, { timeout: 5000 });
+      const a = await pos();
+      await q.keyboard.down(key); await q.waitForTimeout(60);
+      const inp = await q.evaluate(() => [PageTurner.input(0), PageTurner.input(1)]);
+      await q.waitForTimeout(240); await q.keyboard.up(key);
+      const b = await pos();
+      return { inp, d1: [+(b[0][0] - a[0][0]).toFixed(3), +(b[0][1] - a[0][1]).toFixed(3)], d2: [+(b[1][0] - a[1][0]).toFixed(3), +(b[1][1] - a[1][1]).toFixed(3)] };
+    };
+    const w = await hold("w"), right = await hold("ArrowRight");
+    await q.evaluate(() => PageTurner.freeze(true));
+    check("page-turner (2 Players): 3 on the menu picks 2 Players (no rivals to pick), Enter opens the book with Player 1 and Player 2, and the keys line names each one's keys",
+      picked.mode === "duo" && picked.levels && picked.kept === "duo" && began.state === "play" && began.mode === "duo" && began.worms === 2 && began.chips === "Player 1 Player 2" &&
+      began.keys.join("|") === "Player 1 WASD, Player 2 ←↑↓→ to crawl", { picked, began });
+    check("page-turner (2 Players): W A S D steer Player 1 alone (W up) and the arrows Player 2 alone (→ right)",
+      w.d1[1] < -0.03 && Math.abs(w.d2[0]) < 0.002 && Math.abs(w.d2[1]) < 0.002 && w.inp[0].join() === "0,-1" && w.inp[1].join() === "0,0" &&
+      right.d2[0] > 0.03 && Math.abs(right.d1[0]) < 0.002 && Math.abs(right.d1[1]) < 0.002 && right.inp[1].join() === "1,0" && right.inp[0].join() === "0,0", { w, right });
+    await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const paused = await q.evaluate(() => { const card = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!card && !card.hidden; });
+    await q.keyboard.press("p"); await q.waitForTimeout(100);
+    // Player 2 squished, Player 1 through; then both squished together
+    const finish = (who) => q.evaluate((who) => {
+      const PT = PageTurner;
+      if (PT.state() !== "play") PT.start(PT.mode());
+      PT.freeze(true);
+      for (let i = 0; i < 1200 && PT.state() === "play" && PT.st().phase !== "stand"; i++) PT.advance(1 / 60);
+      const s = PT.st(), h = s.leaf.holes[0];
+      // (two places well off every hole, apart)
+      const spots = [];
+      for (let y = 0.06; y < 0.95; y += 0.05) for (let x = 0.06; x < 0.95; x += 0.05) if (s.leaf.holes.every((o) => Math.hypot(o.cx - x, o.cy - y) > o.rin + 0.06)) spots.push([x, y]);
+      const a = spots[0], b = spots.find((p) => Math.hypot(p[0] - a[0], p[1] - a[1]) > 0.12);
+      for (let i = 0; i < 3600 && PT.state() === "play"; i++) { PT.place(0, who === "draw" ? a[0] : h.cx, who === "draw" ? a[1] : h.cy); PT.place(1, b[0], b[1]); PT.advance(1 / 60); }
+    }, who);
+    const card = () => q.evaluate(() => ({ title: document.getElementById("over-title").textContent, big: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent, tally: PageTurner.tally && PageTurner.tally() }));
+    const before = await q.evaluate(() => (PageTurner.tally ? PageTurner.tally() : [0, 0, 0]));
+    await finish("p1");
+    await q.waitForFunction(() => PageTurner.state() === "over", null, { timeout: 15000 });
+    const won = await card();
+    await q.waitForFunction(() => performance.now() - PageTurner.overAt() > 750, null, { timeout: 15000 });
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const again = await q.evaluate(() => ({ state: PageTurner.state(), mode: PageTurner.mode() }));
+    await finish("draw");
+    await q.waitForFunction(() => PageTurner.state() === "over", null, { timeout: 15000 });
+    const drew = await card();
+    await q.waitForFunction(() => performance.now() - PageTurner.overAt() > 750, null, { timeout: 15000 });
+    await q.keyboard.press("Backspace"); await q.waitForTimeout(150);
+    const menu = await q.evaluate(() => ({ state: PageTurner.state(), tally: document.getElementById("tally").textContent, rec: ["easy", "normal", "hard"].map((l) => localStorage.getItem("pageturner_record_" + l)).join() }));
+    const [p1, p2, d] = before, draws = (n) => (n ? " · " + n + (n === 1 ? " draw" : " draws") : "");
+    const wonText = "this sitting: Player 1 " + (p1 + 1) + " · Player 2 " + p2 + draws(d), drewText = "Player 1 " + (p1 + 1) + " · Player 2 " + p2 + draws(d + 1);
+    check("page-turner (2 Players): P pauses; Player 2 squished while Player 1 goes through is Player 1's win, both squished a draw; the card keeps the sitting's tally (Player 1 1 · Player 2 0, then · 1 draw), the menu shows it, and no Party record is touched",
+      paused && won.title === "Last worm wriggling!" && won.big === "Player 1 wins" && /Player 2 was squished by page \d+/.test(won.stats) && won.stats.endsWith(wonText) &&
+      again.state === "play" && again.mode === "duo" && drew.big === "A draw" && drew.stats.endsWith("this sitting: " + drewText) &&
+      menu.state === "menu" && menu.tally.includes("2 Players: " + drewText) && menu.rec === recBefore, { paused, won, again, drew, menu, recBefore, before });
+    await done(q, "2 Players");
+  }
 
   // ---- Endless: the best is kept the moment it's passed; Party: the record the moment a game ends
   p = await open();
@@ -474,7 +706,9 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the leaf about to fall stands still till it tips (no twitch, FX on),
   // and the leaves behind it are drawn whole from the start (pictures, words
-  // and holes), the same ones that stand in front once it falls
+  // and holes), three of them (as far down as holes in a row can show, so no
+  // plain one shows down three holes and comes up whole later), the same
+  // ones that stand in front once it falls
   {
     const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
     const q = await open(c, { before: fxSet(false) });
@@ -501,11 +735,111 @@ module.exports = async ({ browser, base, check, lib }) => {
       })();
     }));
     const upright = r.looks.every((l) => l.phase === "stand" && Math.abs(l.th - Math.PI / 2) < 1e-9);
-    const whole = r.looks.every((l) => l.behind && l.behind[0] === l.next && l.behind[1] === l.later[0]);
-    check("page-turner: with Visual FX on the leaf about to fall stands still till it tips (upright, the standing half not moving a pixel), and the leaves behind it are drawn whole (pictures, words, holes) from the start, the same ones that stand in front as it falls",
-      upright && whole && r.differ === 0 && r.fall && r.fall.front === r.was.next && r.fall.behind[0] === r.was.later[0], r);
+    const whole = r.looks.every((l) => l.behind && l.behind.length === 3 && l.behind[0] === l.next && l.behind[1] === l.later[0] && l.behind[2] === l.later[1]);
+    check("page-turner: with Visual FX on the leaf about to fall stands still till it tips (upright, the standing half not moving a pixel), and the three leaves behind it are drawn whole (pictures, words, holes) from the start, the same ones that stand in front as it falls",
+      upright && whole && r.differ === 0 && r.fall && r.fall.front === r.was.next && r.fall.behind.length === 3 && r.fall.behind[0] === r.was.later[0] && r.fall.behind[2] === r.was.later[2], r);
     check("page-turner (leaf standing still): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
+  }
+
+  // ---- down a hole in the pages landed, the page beneath shows as it is
+  // (its pictures and words, in the hole's shadow), not a plain colour that
+  // the page's own details only come up on later
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await open(c, { before: fxSet(true) });
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, E = PageTurnerEngine, st = (PT.start("endless"), PT.freeze(true), PT.st());
+      // (through pages 1 and 2, your worm kept in a hole; then off the page's holes)
+      while (st.landed < 2 && st.phase !== "over") { const h = st.leaf.holes[0]; PT.place(0, h.cx, h.cy); PT.advance(1 / 120); }
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cv = document.getElementById("book"), g = cv.getContext("2d"), cr = cv.getBoundingClientRect(), k = cv.width / cr.width, w = st.worms[0];
+        const holes = st.floor.holes.filter((h) => Math.hypot(h.cx - w.x, h.cy - w.y) > h.rin + 0.06).map((h) => {
+          const cols = [];
+          for (let y = h.cy - 0.2; y <= h.cy + 0.2; y += 0.008) for (let x = h.cx - 0.2; x <= h.cx + 0.2; x += 0.008) {
+            if (E.edgeDepth(h, x, y) < 0.02) continue;
+            const at = PT.project(x, y, 0), d = g.getImageData(Math.round((at[0] - cr.left) * k), Math.round((at[1] - cr.top) * k), 1, 1).data;
+            cols.push([d[0], d[1], d[2]]);
+          }
+          const med = [0, 1, 2].map((i) => cols.map((c) => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
+          const off = cols.filter((c) => Math.abs(c[0] - med[0]) + Math.abs(c[1] - med[1]) + Math.abs(c[2] - med[2]) > 24).length;
+          return { shape: h.shape, n: cols.length, inked: +(off / cols.length).toFixed(3) };
+        });
+        res({ page: st.page, floor: st.floor.n, holes });
+      }));
+    }));
+    check("page-turner: down every hole in the pages landed, the page beneath shows its own pictures and words (some of each hole inked, not one plain colour)",
+      r.holes.length >= 2 && r.holes.every((h) => h.n > 20 && h.inked >= 0.03), r);
+    await done(q, "the page beneath");
+    await c.close();
+  }
+
+  // ---- the red cover is one piece either side of the book: from the
+  // standing half's board down across the fold at the spine to the flat
+  // half's, however many pages have landed (laptop and phone, FX on and off;
+  // after 25 with FX off, as with it on the last slam's dust is still about)
+  {
+    const bad = [];
+    for (const [w, h, fxOff] of [[1366, 657, false], [1366, 657, true], [390, 664, false], [390, 664, true]]) {
+      const c = await lib.newContext(browser, w < 700 ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await open(c, { before: fxSet(fxOff) });
+      for (const pages of fxOff ? [0, 25] : [0]) {
+        const r = await q.evaluate((pages) => new Promise((res) => {
+          const PT = PageTurner, st = (PT.start("endless"), PT.freeze(true), PT.st());
+          while (st.landed < pages && st.phase !== "over") { const hh = st.leaf.holes[0]; PT.place(0, hh.cx, hh.cy); PT.advance(1 / 60); }
+          while (st.phase !== "stand") { const hh = st.leaf.holes[0]; PT.place(0, hh.cx, hh.cy); PT.advance(1 / 60); }
+          PT.place(0, 0.5, 0.9);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const cv = document.getElementById("book"), g = cv.getContext("2d"), cr = cv.getBoundingClientRect(), k = cv.width / cr.width;
+            const th = 0.012 + Math.min(0.03, st.landed * 0.0012), out = [];
+            // (along the fold, each side: from the standing board's foot to the flat board's far edge)
+            for (const x of [-0.03, -0.015, 1.015, 1.03]) for (const f of [0.2, 0.5, 0.8]) {
+              const at = PT.project(x, -0.035 + 0.005 * f, -0.012 - (th - 0.012) * f), d = g.getImageData(Math.round((at[0] - cr.left) * k), Math.round((at[1] - cr.top) * k), 1, 1).data;
+              if (Math.hypot(d[0] - 217, d[1] - 71, d[2] - 59) > 40) out.push({ x, f, rgb: [d[0], d[1], d[2]] });
+            }
+            res({ landed: st.landed, th: +th.toFixed(3), out });
+          }));
+        }), pages);
+        if (r.out.length) bad.push(Object.assign({ size: w + "x" + h }, r));
+      }
+      if (q.errs.length) bad.push({ size: w + "x" + h, errs: q.errs });
+      await q.close(); await c.close();
+    }
+    check("page-turner: the red cover runs on unbroken from the standing half's board to the flat half's either side of the book, on the first page and after 25 (laptop and phone, FX on and off)", bad.length === 0, bad);
+  }
+
+  // ---- the menu: the Guides pill's words sit in its middle (small letters
+  // sit low on the line: the middle of their ascenders-to-baseline and of
+  // their x-height band, between them, on the pill's middle), laptop and
+  // phone; and the how-to-play says nothing of worms never being shoved out
+  {
+    const bad = [];
+    let how = "";
+    for (const [w, h] of [[1366, 657], [390, 664], [320, 568]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+      const q = await open(c);
+      const r = await q.evaluate(() => {
+        const b = document.getElementById("guides"), br = b.getBoundingClientRect(), cs = getComputedStyle(b);
+        const mid = (br.top + parseFloat(cs.borderTopWidth) + br.bottom - parseFloat(cs.borderBottomWidth)) / 2;
+        const cx = document.createElement("canvas").getContext("2d"), got = [];
+        for (const el of b.querySelectorAll("b, small")) {
+          const s = getComputedStyle(el);
+          // (the baseline: a zero-sized box sitting on it)
+          const mark = document.createElement("span"); mark.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+          el.appendChild(mark); const base = mark.getBoundingClientRect().top; mark.remove();
+          cx.font = s.fontStyle + " " + s.fontWeight + " " + s.fontSize + " " + s.fontFamily;
+          got.push({ base, top: base - cx.measureText(el.textContent).actualBoundingBoxAscent, xTop: base - cx.measureText("x").actualBoundingBoxAscent });
+        }
+        const base = Math.max(...got.map((g) => g.base)), top = Math.min(...got.map((g) => g.top)), xTop = Math.min(...got.map((g) => g.xTop));
+        return { off: +((((top + base) / 2 + (xTop + base) / 2) / 2) - mid).toFixed(2), asc: +((top + base) / 2 - mid).toFixed(2), xband: +((xTop + base) / 2 - mid).toFixed(2), how: document.querySelector("#menu .how").textContent };
+      });
+      how = r.how;
+      if (Math.abs(r.off) > 0.75) bad.push({ size: w + "x" + h, off: r.off, asc: r.asc, xband: r.xband });
+      await done(q, "Guides pill " + w + "x" + h);
+      await c.close();
+    }
+    check("page-turner: the Guides pill's words sit in its middle (laptop, phone, 320 px: within 0.75 px)", bad.length === 0, bad);
+    check("page-turner: the menu's how-to-play no longer says worms can share a hole and none is shoved out", !/shoved out|share a hole/i.test(how), how.trim().replace(/\s+/g, " "));
   }
 
   // ---- a thumb: down anywhere off the book, dragging steers; up, it stops
@@ -528,7 +862,38 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
-  // ---- it fits: laptops and phones, the menu and in play
+  // ---- 2 Players on a phone: a thumb on each half, at once, each steering
+  // its own worm, a stick shown under each (its knob the worm's colour); the
+  // hint says which half is whose
+  {
+    const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } }));
+    const q = await open(c);
+    await q.evaluate(() => { PageTurner.start("duo"); PageTurner.place(0, 0.3, 0.5); PageTurner.place(1, 0.7, 0.5); });
+    const hint = await q.evaluate(() => [...document.querySelectorAll("#keys > span")].filter((s) => getComputedStyle(s).display !== "none").map((s) => s.textContent.replace(/\s+/g, " ").trim()));
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, a = PT.st().worms.map((w) => [w.x, w.y]), L = [80, innerHeight - 70], Rt = [innerWidth - 80, innerHeight - 70];
+      const fire = (type, id, x, y, at) => document.elementFromPoint(at[0], at[1]).dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: id, pointerType: "touch", clientX: x, clientY: y, isPrimary: id === 1 }));
+      fire("pointerdown", 1, L[0], L[1], L); fire("pointerdown", 2, Rt[0], Rt[1], Rt);
+      fire("pointermove", 1, L[0] + 45, L[1], L); fire("pointermove", 2, Rt[0], Rt[1] - 45, Rt);
+      const el = (id) => document.getElementById(id) || { hidden: true };
+      const inp = [PT.input(0), PT.input(1)], sticks = ["stick", "stick2"].map((id) => !el(id).hidden), knob2 = document.getElementById("knob2") && getComputedStyle(document.getElementById("knob2")).backgroundColor;
+      setTimeout(() => {
+        const b = PT.st().worms.map((w) => [w.x, w.y]);
+        fire("pointerup", 1, L[0] + 45, L[1], L); fire("pointerup", 2, Rt[0], Rt[1] - 45, Rt);
+        res({ inp, sticks, knob2, d1: [+(b[0][0] - a[0][0]).toFixed(3), +(b[0][1] - a[0][1]).toFixed(3)], d2: [+(b[1][0] - a[1][0]).toFixed(3), +(b[1][1] - a[1][1]).toFixed(3)], after: [PT.input(0), PT.input(1)], hidden: ["stick", "stick2"].map((id) => el(id).hidden) });
+      }, 300);
+    }));
+    check("page-turner (2 Players, phone): the hint says Player 1 drags on the left half and Player 2 on the right; a thumb on each, at once, steers each worm its own way (left dragged right, right dragged up), a stick under each, the right one's knob pink; lifted, both stop",
+      hint.join("|") === "Player 1 drags on the left half, Player 2 on the right" && r.inp[0][0] > 0.95 && Math.abs(r.inp[0][1]) < 0.05 && r.inp[1][1] < -0.95 && Math.abs(r.inp[1][0]) < 0.05 &&
+      r.sticks.every(Boolean) && r.knob2 === "rgb(255, 95, 151)" && r.d1[0] > 0.05 && Math.abs(r.d1[1]) < 0.01 && r.d2[1] < -0.05 && Math.abs(r.d2[0]) < 0.01 &&
+      r.after.every((v) => v.join() === "0,0") && r.hidden.every(Boolean), { hint, r });
+    await done(q, "2 Players on a phone");
+    await c.close();
+  }
+
+  // ---- it fits: laptops and phones, the menu (Party picked, with its
+  // rivals, and 2 Players) and in play (Party, and 2 Players with its longer
+  // keys line)
   {
     const sizes = [[1280, 900], [1366, 657], [1280, 600], [390, 664], [360, 560], [375, 553], [320, 568], [750, 340]];
     const bad = [];
@@ -536,13 +901,11 @@ module.exports = async ({ browser, base, check, lib }) => {
       const phone = w < 700 || h < 460;
       const c = await lib.newContext(browser, phone ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
       const q = await open(c);
-      const menu = await q.evaluate((w) => {
+      const menuOf = () => q.evaluate((w) => {
         const panel = document.getElementById("menu"), card = panel.querySelector(".card").getBoundingClientRect();
         return { wide: document.documentElement.scrollWidth > w, scrolls: panel.scrollHeight > panel.clientHeight + 1, card: card.bottom <= innerHeight && card.top >= 0 && card.right <= w };
       }, w);
-      await q.evaluate(() => { PageTurner.start("party", "normal"); PageTurner.freeze(true); });
-      await q.waitForTimeout(400);
-      const play = await q.evaluate((w) => {
+      const playOf = () => q.evaluate((w) => {
         const PT = PageTurner, a = PT.project(-0.05, -0.035, 1.06), b = PT.project(1.05, 1.05, -0.05), c2 = PT.project(1.05, -0.035, 1.06);
         const book = { left: Math.min(a[0], b[0]), right: Math.max(b[0], c2[0]), top: a[1], bottom: b[1] };
         const hit = (r) => r.width > 0 && r.left < book.right && r.right > book.left && r.top < book.bottom && r.bottom > book.top;
@@ -551,11 +914,18 @@ module.exports = async ({ browser, base, check, lib }) => {
         const hudHit = corner.some((r) => r.width > 0 && r.left < hud.right && r.right > hud.left && r.top < hud.bottom && r.bottom > hud.top);
         return { wide: document.documentElement.scrollWidth > w, inside: book.left >= 0 && book.right <= w && book.top >= 0 && book.bottom <= innerHeight, under: corner.some(hit), hud: hit(hud) || hudHit, keys: keys.height > 0 && keys.bottom <= innerHeight + 0.5 && keys.right <= w, size: Math.round(book.right - book.left) };
       }, w);
-      if (menu.wide || menu.scrolls || !menu.card || play.wide || !play.inside || play.under || play.hud || !play.keys) bad.push({ size: w + "x" + h, menu, play });
+      for (const mode of ["party", "duo"]) {
+        await q.evaluate((mode) => { PageTurner.toMenu(); const b = document.querySelector('#pick-mode button[data-v="' + mode + '"]'); if (b) b.click(); }, mode);
+        const menu = await menuOf();
+        await q.evaluate((mode) => { PageTurner.start(mode, "normal"); PageTurner.freeze(true); }, mode);
+        await q.waitForTimeout(400);
+        const play = await playOf();
+        if (menu.wide || menu.scrolls || !menu.card || play.wide || !play.inside || play.under || play.hud || !play.keys) bad.push({ size: w + "x" + h, mode, menu, play });
+      }
       if (q.errs.length) bad.push({ size: w + "x" + h, errs: q.errs });
       await q.close(); await c.close();
     }
-    check("page-turner: on laptops (1280x900, 1366x657, 1280x600) and phones (390x664, 360x560, 375x553, 320x568, on its side 750x340) nothing is wider than the screen, the menu card shows whole without scrolling, and in play the book is on screen, clear of the corner buttons and the HUD, with the keys line showing",
+    check("page-turner: on laptops (1280x900, 1366x657, 1280x600) and phones (390x664, 360x560, 375x553, 320x568, on its side 750x340) nothing is wider than the screen, the menu card shows whole without scrolling (Party with its rivals, and 2 Players), and in play (Party, 2 Players) the book is on screen, clear of the corner buttons and the HUD, with the keys line showing",
       bad.length === 0, bad);
   }
 

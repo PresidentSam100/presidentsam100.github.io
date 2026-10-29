@@ -42,7 +42,7 @@ const MENUS = {
   "sudoku/": { keys: ["e", "d", "h", "x"] },
   "darkroom/": { keys: ["d"] },
   "typetwo/": { keys: ["1", "2", "3"] },                // (◂ ▸ step through the modes too, and Enter starts: the game's own keys)
-  "page-turner/": { keys: ["3", "4", "5", "2", "1"], enter: true },   // (the rivals 3 4 5 show only for Party: 2 picks Endless)
+  "page-turner/": { keys: ["4", "5", "6", "3", "2", "1"], enter: true },   // (the rivals 4 5 6 show only for Party: 3 picks 2 Players, 2 Endless)
 };
 
 module.exports = async ({ browser, base, check, lib }) => {

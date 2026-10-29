@@ -40,10 +40,12 @@
     <span class="hud-worms" id="hud-worms"></span>
   </div>
   <div class="stage" id="stage"><canvas id="book" aria-label="The open book: crawl into a hole in the falling page before it lands"></canvas></div>
-  <p class="keys" id="keys"><span class="gs-keys"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to crawl</span><span class="gs-touch">touch anywhere and drag to crawl that way</span></p>
+  <p class="keys" id="keys"><span class="gs-keys solo"><kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> or <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd> to crawl</span><span class="gs-touch solo">touch anywhere and drag to crawl that way</span><span class="gs-keys two"><i class="dot p1"></i>Player 1 <kbd class="gs-kbd">W</kbd><kbd class="gs-kbd">A</kbd><kbd class="gs-kbd">S</kbd><kbd class="gs-kbd">D</kbd>, <i class="dot p2"></i>Player 2 <kbd class="gs-kbd">&larr;</kbd><kbd class="gs-kbd">&uarr;</kbd><kbd class="gs-kbd">&darr;</kbd><kbd class="gs-kbd">&rarr;</kbd> to crawl</span><span class="gs-touch two"><i class="dot p1"></i>Player 1 drags on the left half, <i class="dot p2"></i>Player 2 on the right</span></p>
 </main>
-<!-- the thumb's stick: wherever a finger lands, dragging from there steers -->
+<!-- the thumb's stick: wherever a finger lands, dragging from there steers
+     (two players: one each, on their own half of the screen) -->
 <div class="stick" id="stick" hidden><span class="knob" id="knob"></span></div>
+<div class="stick" id="stick2" hidden><span class="knob" id="knob2"></span></div>
 
 <section class="panel" id="menu">
   <div class="card">
@@ -52,12 +54,12 @@
     <p class="how">
       Pages fall flat one after another, with some pictures cut right through. Each page's
       shadow shows its holes bright where they'll land: get <b>wholly inside one</b> to go
-      through, or be squished. Worms can share a hole; once in, none is shoved out.
-      Pages come faster, with fewer, smaller holes.
+      through, or be squished. Pages come faster, with fewer, smaller holes.
     </p>
     <div class="seg" id="pick-mode">
       <button type="button" data-v="party"><b>Party</b><small>outlast three rival worms</small></button>
       <button type="button" data-v="endless"><b>Endless</b><small>alone: how many pages can you last?</small></button>
+      <button type="button" data-v="duo"><b>2 Players</b><small><span class="gs-keys">head to head: WASD against the arrows</span><span class="gs-touch">head to head: a thumb each</span></small></button>
     </div>
     <div class="levels" id="pick-level">
       <span class="lbl">rivals</span>

@@ -65,6 +65,11 @@ body {
 .chip.you { font-weight: 800; }
 .keys { text-align: center; font-size: 13px; font-weight: 600; color: var(--moonlight); min-height: 18px; }
 .keys .gs-kbd { color: var(--moonlight); }
+/* (one worm's keys, or two players' each, a dot of each worm's colour by their name) */
+.keys:not(.duo) .two, .keys.duo .solo { display: none; }
+.keys .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--moonlight); margin: 0 4px 0 2px; vertical-align: -1px; }
+.keys .dot.p1 { background: #4cc35c; }
+.keys .dot.p2 { background: #ff5f97; }
 
 /* the thumb's stick */
 .stick {
@@ -128,6 +133,7 @@ body {
 .card .stats { display: flex; flex-direction: column; align-items: center; gap: 7px; margin: 4px 0 16px; font-size: 15px; font-weight: 600; color: var(--ink-soft); }
 .stats .best { font-weight: 800; color: var(--ink); border: 2.5px solid var(--ink); border-radius: 999px; padding: 3px 14px 2px; background: var(--white); }
 .stats .best.record { background: var(--mint); }
+.stats .nw { white-space: nowrap; }
 .card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 .card .row button { width: auto; min-width: 120px; font-size: 16px; padding: 10px 16px 9px; }
 .card .row .ghost {
@@ -195,9 +201,18 @@ body {
   .card .stats { margin-bottom: 10px; gap: 5px; font-size: 13.5px; }
 }
 
+/* (a short screen: each mode's name and what it is on one line where they
+   fit, so the three modes, the rivals and the guides all show without scrolling) */
+@media (max-height: 640px) {
+  .seg button { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 8px; }
+}
+
 /* ---- the guides switch: a pill like the rivals', saying what it does ----------------------- */
 .guides-row button { display: inline-flex; align-items: baseline; gap: 7px; }
 .guides-row button b { font-weight: 800; }
+/* (its words are small letters, which sit low on the line: lifted, with
+   their keycap, to the middle of the pill, at every size) */
+.guides-row button b, .guides-row button small, .guides-row button::after { position: relative; top: -1.75px; }
 .guides-row button small { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
 .guides-row button.on small { color: var(--ink); }
 @media (max-width: 359px) {
@@ -217,9 +232,12 @@ body {
   .playbtn { padding: 8px 10px 7px; }
   .tally { margin-top: 6px; }
 }
+/* (on its side: the rivals and the guides under the how-to, the three
+   modes, the book's button and the tally beside them) */
 @media (max-height: 460px) and (min-width: 560px) {
-  .card > .how { grid-row: 3 / span 5; }
-  .card > .guides-row { grid-column: 2; grid-row: 5; }
-  .card > .playbtn { grid-row: 6; }
-  .card > .tally { grid-row: 7; }
+  .card > .how { grid-row: 3; margin-bottom: 9px; }
+  .card > #pick-level { grid-column: 1; grid-row: 4; }
+  .card > .guides-row { grid-column: 1; grid-row: 5; margin-bottom: 0; }
+  .card > .playbtn { grid-column: 2; grid-row: 4; }
+  .card > .tally { grid-column: 2; grid-row: 5; }
 }

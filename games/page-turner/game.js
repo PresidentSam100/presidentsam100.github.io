@@ -121,7 +121,8 @@
 
   // ---- the game ----------------------------------------------------------------------------------
   var LEVELS = ["easy", "normal", "hard"], LEVEL_NAMES = { easy: "Easy", normal: "Normal", hard: "Hard" };
-  var mode = store.get("pageturner_mode", "party"); if (mode !== "endless") mode = "party";
+  var MODES = ["party", "endless", "duo"];
+  var mode = store.get("pageturner_mode", "party"); if (MODES.indexOf(mode) < 0) mode = "party";
   var level = store.get("pageturner_level", "normal"); if (LEVELS.indexOf(level) < 0) level = "normal";
   // Guides: the light through the coming leaf's holes on the page below,
   // where they'll land (on: the easy way); off, only the standing leaf shows
@@ -138,12 +139,15 @@
   function rec(l) { return records[guides ? "on" : "off"][l]; }
   function best() { return bests[guides ? "on" : "off"]; }
   var OFF_NOTE = ", guides off";
+  // two players' games this sitting (not kept: who sits down next is anyone):
+  // Player 1's wins, Player 2's, and the draws
+  var duoTally = [0, 0, 0];
   var state = "menu";        // menu | play | ending (the last slam settling) | over
   var st = null, demo = null, moved = false, endAt = 0, overAt = 0, newBest = false, OVER_WAIT = 700, END_BEAT = 1000;
   var flats = [], pops = {}, parts = [], shake = 0, clockMs = 0;
 
   function start(m, l) {
-    if (m) mode = m === "endless" ? "endless" : "party";
+    if (m) mode = MODES.indexOf(m) >= 0 ? m : "party";
     if (l && LEVELS.indexOf(l) >= 0) level = l;
     store.set("pageturner_mode", mode); store.set("pageturner_level", level);
     audio();
@@ -152,13 +156,21 @@
     state = "play"; moved = false; newBest = false; flats = []; pops = {}; parts = []; shake = 0; frozen = false;
     clearInput();
     $("menu").hidden = true; $("over").hidden = true; $("hud").hidden = false; $("keys").hidden = false;
+    $("keys").classList.toggle("duo", mode === "duo");
     layout(); hud();
   }
+  // (forced: the tests' input, [x, y]; for two players, one of those each)
   function update(dt, forced) {
     if (!st || state !== "play" || pause.isPaused()) return;
-    var inp = forced || currentInput();
-    if (inp[0] || inp[1]) moved = true;
-    E.step(st, dt, { x: inp[0], y: inp[1] });
+    if (st.mode === "duo") {
+      var two = forced ? (Array.isArray(forced[0]) ? forced : [forced, [0, 0]]) : [playerInput(0), playerInput(1)];
+      if (two.some(function (v) { return v[0] || v[1]; })) moved = true;
+      E.step(st, dt, two.map(function (v) { return { x: v[0], y: v[1] }; }));
+    } else {
+      var inp = forced || currentInput();
+      if (inp[0] || inp[1]) moved = true;
+      E.step(st, dt, { x: inp[0], y: inp[1] });
+    }
     st.events.forEach(handle);
   }
   // a squished worm shows on the page that squished it, until the next one lands over it
@@ -185,11 +197,13 @@
   function ended() {
     var r = st.result;
     if (st.mode === "party") rec(level).add(r.outcome === "win" ? "w" : r.outcome === "draw" ? "d" : "l");
+    else if (st.mode === "duo") duoTally[r.outcome === "win" ? r.winner : 2]++;
     else if (r.pages > 0 && best().submit(r.pages)) newBest = true;
     state = "ending"; endAt = performance.now();
     if (r.outcome === "win" || r.outcome === "closed") setTimeout(sfxWin, 250); else setTimeout(sfxLose, 350);
     hud();
   }
+  function duoText() { return "Player 1 " + duoTally[0] + " · Player 2 " + duoTally[1] + (duoTally[2] ? " · " + duoTally[2] + (duoTally[2] === 1 ? " draw" : " draws") : ""); }
   function ordinal(n) { return n + (n === 2 ? "nd" : n === 3 ? "rd" : n === 1 ? "st" : "th"); }
   function showEnd() {
     var r = st.result, title, big, lines = [], pill = null;
@@ -203,6 +217,11 @@
         lines.push("flattened by page " + r.page + ", " + left + (left === 1 ? " worm" : " worms") + " still wriggling");
       }
       pill = { text: recText, record: false };
+    } else if (st.mode === "duo") {
+      if (r.outcome === "win") { title = "Last worm wriggling!"; big = st.worms[r.winner].name + " wins"; lines.push(st.worms[1 - r.winner].name + " was squished by page " + r.page); }
+      else if (r.outcome === "closed") { title = "The End"; big = "A draw"; lines.push("you both crawled through every page of the book"); }
+      else { title = "Squished together"; big = "A draw"; lines.push("page " + r.page + " flattened you both at once"); }
+      pill = { text: "this sitting: ", record: false, tally: true };
     } else {
       var b = best().get();
       if (r.outcome === "closed") { title = "The End"; big = r.pages + " pages"; lines.push("you crawled through every page of the book"); }
@@ -212,7 +231,18 @@
     $("over-title").textContent = title;
     $("over-msg").textContent = big;
     var kids = lines.map(function (t) { var s = document.createElement("span"); s.textContent = t; return s; });
-    if (pill) { var p = document.createElement("span"); p.className = "best" + (pill.record ? " record" : ""); p.textContent = pill.text; kids.push(p); }
+    if (pill) {
+      var p = document.createElement("span"); p.className = "best" + (pill.record ? " record" : ""); p.textContent = pill.text;
+      // (the sitting's tally: the two players' scores kept on one line, the draws after them)
+      if (pill.tally) {
+        var parts = duoText().split(" · ");
+        [parts.slice(0, 2).join(" · ")].concat(parts.slice(2)).forEach(function (t, i) {
+          if (i) p.appendChild(document.createTextNode(" · "));
+          var n = document.createElement("span"); n.className = "nw"; n.textContent = t; p.appendChild(n);
+        });
+      }
+      kids.push(p);
+    }
     $("over-stats").replaceChildren.apply($("over-stats"), kids);
     $("over").hidden = false; $("keys").hidden = true;
     state = "over"; overAt = performance.now();
@@ -229,7 +259,7 @@
     if (st.mode === "endless") { box.textContent = "most pages " + Math.max(best().get(), st.survived); return; }
     box.replaceChildren.apply(box, st.worms.map(function (w) {
       var c = document.createElement("span"), dot = document.createElement("i");
-      c.className = "chip" + (w.id === 0 ? " you" : "") + (w.alive ? "" : " out");
+      c.className = "chip" + (w.id === 0 && st.mode === "party" ? " you" : "") + (w.alive ? "" : " out");
       dot.style.background = WORMS[w.id].body;
       c.appendChild(dot); c.appendChild(document.createTextNode(w.name));
       return c;
@@ -299,11 +329,11 @@
       if (p.kind === "sun") rays(m[0], m[1], 0.08, 0.115, map, lw);
       if (p.kind === "window") { g.beginPath(); var a = map(m[0] - 0.08, m[1]), b = map(m[0] + 0.08, m[1]), c = map(m[0], m[1] - 0.08), d = map(m[0], m[1] + 0.08); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.moveTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.stroke(); }
     });
-    // round each hole, a printed rim along its cut
+    // round each hole, a printed rim along its cut (inside its panel, clear of the next hole's: E.TUNE)
     leaf.holes.forEach(function (h) {
       g.globalAlpha = 0.7; g.strokeStyle = ink; g.lineWidth = lw;
-      g.beginPath(); trace(E.rim(h, 0.013), map); g.stroke();
-      if (h.shape === "sun") rays(h.cx, h.cy, h.rin + 0.024, Math.min(T.panelHalf - 0.004, h.rin + 0.04), map, lw);
+      g.beginPath(); trace(E.rim(h, T.rim), map); g.stroke();
+      if (h.shape === "sun") { var rr = E.sunRays(h); rays(h.cx, h.cy, rr[0], rr[1], map, lw); }
     });
     // the words, nonsense in tidy lines
     g.globalAlpha = 0.5; g.strokeStyle = ink; g.lineWidth = Math.max(1.2, S * 0.011); g.lineCap = "round";
@@ -312,10 +342,10 @@
     g.stroke(); g.lineCap = "butt";
     g.globalAlpha = 1;
     g.restore();
-    // down a hole in a page lying flat: the page beneath, in the hole's shadow
+    // down a hole in a page lying flat: the page beneath (painted before it,
+    // paintFloor), in the shadow of the hole's far edge
     if (opts.under) leaf.holes.forEach(function (h) {
-      g.beginPath(); trace(h.poly, map); g.fillStyle = shadeHex(paper(leaf.n - 1)[0], 0.8); g.fill();
-      g.save(); g.clip(); g.lineWidth = Math.max(2, S * 0.012); g.strokeStyle = "rgba(43, 29, 61, 0.35)";
+      g.save(); g.beginPath(); trace(h.poly, map); g.clip(); g.lineWidth = Math.max(2, S * 0.012); g.strokeStyle = "rgba(43, 29, 61, 0.35)";
       g.beginPath(); trace(h.poly, function (x, r) { return map(x, r - 0.006); }); g.stroke(); g.restore();
     });
     if (opts.shade) {
@@ -348,6 +378,9 @@
     // the cover board under the pages, its edge, and the pages already landed
     g.fillStyle = "rgba(20, 24, 70, 0.35)"; poly3([[-0.06, -0.02, -th - 0.03], [1.06, -0.02, -th - 0.03], [1.07, 1.075, -th - 0.03], [-0.07, 1.075, -th - 0.03]]); g.fill();
     g.fillStyle = CLOTH; poly3([[-0.05, -0.03, -th], [1.05, -0.03, -th], [1.05, 1.05, -th], [-0.05, 1.05, -th]]); g.fill();
+    // (and the fold at the spine up to the standing half's board, so the
+    // cover is one piece either side of the book, however deep the pages)
+    poly3([[-0.05, -0.035, -0.012], [1.05, -0.035, -0.012], [1.05, -0.03, -th], [-0.05, -0.03, -th]]); g.fill();
     g.fillStyle = CLOTH_DARK; poly3([[-0.05, 1.05, -th], [1.05, 1.05, -th], [1.05, 1.05, -th - 0.03], [-0.05, 1.05, -th - 0.03]]); g.fill();
     g.fillStyle = "#f4f1ff"; poly3([[0, 1, 0], [1, 1, 0], [1, 1, -th], [0, 1, -th]]); g.fill();
     var n = Math.max(3, Math.min(14, (scene.landed || 0) + 3));
@@ -356,14 +389,24 @@
       g.strokeStyle = paper((scene.floor ? scene.floor.n : 0) - i)[0]; g.lineWidth = Math.max(1, th * FZ * S / n * 0.8);
       g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
     }
-    drawLeaf(scene.floor || TITLE, floorMap, { under: !!scene.floor });
+    // the pages landed, from the deepest that can show down holes in a row
+    // up to the top one (the book's first page under the first few), each
+    // painted over a shade darker, so down a hole the page beneath shows as
+    // it is, in the shadow of the one over it
+    var pile = [scene.floor].concat(scene.under || []).filter(Boolean);
+    if (pile.length <= E.RUN) pile.push(TITLE);
+    for (var j = pile.length - 1; j >= 0; j--) {
+      if (j < pile.length - 1) { g.fillStyle = "rgba(0, 0, 0, 0.2)"; g.beginPath(); trace(quadPts(0, 0, 1, 1), floorMap); g.fill(); }
+      drawLeaf(pile[j], floorMap, { under: j < pile.length - 1 });
+    }
     g = keep;
   }
   // the far half, standing: the cover behind, the edges of the leaves still
   // to fall, and the front one, its holes showing the leaves behind it as
   // they are, pictures, words and holes and all, so nothing comes up on one
-  // as the leaf before it falls (the third behind, seen only through three
-  // holes in a row, is plain). It stands still until the front leaf tips,
+  // as the leaf before it falls: three of them, as far as holes in a row
+  // can show (E.RUN; the one behind those is plain, and a fourth hole in a
+  // row never lines up to show it). It stands still until the front leaf tips,
   // so it's painted onto a canvas of its own; the one to stand next is
   // painted ahead while this one waits, a layer a frame (no frame does much
   // more than one leaf), so the tip itself only swaps them.
@@ -371,7 +414,7 @@
   var settle = document.createElement("canvas").getContext("2d");   // (drawn into, 1 x 1: a canvas does its drawing then, not on first sight)
   var standing = null, standFrame = 0;
   settle.canvas.width = settle.canvas.height = 1;
-  function behindOf(scene, front) { return (front === scene.leaf ? [scene.next].concat(scene.later || []) : (scene.later || [])).filter(Boolean).slice(0, 2); }
+  function behindOf(scene, front) { return (front === scene.leaf ? [scene.next].concat(scene.later || []) : (scene.later || [])).filter(Boolean).slice(0, E.RUN); }
   function standKeyOf(front, behind) { var id = function (l) { return l.n + ":" + l.seed; }; return [VW, VH, S, dpr, id(front), behind.map(id).join("/")].join(","); }
   function prepareStanding(slot, front, behind, key) {
     slot.key = key;
@@ -586,21 +629,28 @@
   }
 
   // ---- input: the arrows or WASD, or a thumb anywhere ------------------------------------------------------
+  // (two players: WASD or a thumb on the left half of the screen steer
+  // Player 1, the arrows or a thumb on the right half Player 2)
   var DIRS = { arrowleft: [-1, 0], arrowright: [1, 0], arrowup: [0, -1], arrowdown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1] };
-  var held = {}, stick = null;
-  function clearInput() { held = {}; stick = null; $("stick").hidden = true; }
-  function currentInput() {
-    if (stick) {
-      var dx = stick.x - stick.x0, dy = stick.y - stick.y0, len = Math.hypot(dx, dy);
-      if (len < 6) return [0, 0];
-      var m = Math.min(1, (len - 6) / 34);
-      return [dx / len * m, dy / len * m];
-    }
+  var SIDE = { a: 0, d: 0, w: 0, s: 0, arrowleft: 1, arrowright: 1, arrowup: 1, arrowdown: 1 };
+  var STICKS = [["stick", "knob"], ["stick2", "knob2"]];
+  var held = {}, sticks = [null, null];
+  function clearInput() { held = {}; sticks = [null, null]; STICKS.forEach(function (n) { $(n[0]).hidden = true; }); }
+  function stickInput(s) {
+    var dx = s.x - s.x0, dy = s.y - s.y0, len = Math.hypot(dx, dy);
+    if (len < 6) return [0, 0];
+    var m = Math.min(1, (len - 6) / 34);
+    return [dx / len * m, dy / len * m];
+  }
+  // the keys held for one side (null: both sets)
+  function keysInput(side) {
     var x = 0, y = 0;
-    for (var k in held) if (held[k] && DIRS[k]) { x += DIRS[k][0]; y += DIRS[k][1]; }
+    for (var k in held) if (held[k] && DIRS[k] && (side == null || SIDE[k] === side)) { x += DIRS[k][0]; y += DIRS[k][1]; }
     var l = Math.hypot(x, y);
     return l ? [x / l, y / l] : [0, 0];
   }
+  function currentInput() { return sticks[0] ? stickInput(sticks[0]) : keysInput(null); }
+  function playerInput(i) { return sticks[i] ? stickInput(sticks[i]) : keysInput(i); }
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var k = e.key.toLowerCase();
@@ -611,22 +661,27 @@
   });
   document.addEventListener("keyup", function (e) { var k = e.key.toLowerCase(); if (DIRS[k]) delete held[k]; });
   window.addEventListener("blur", clearInput);
-  // the stick: wherever a finger (or the mouse) goes down, dragging from there steers
-  function stickAt(x, y) {
-    var el = $("stick"), knob = $("knob"), dx = x - stick.x0, dy = y - stick.y0, len = Math.hypot(dx, dy), m = Math.min(1, 40 / (len || 1));
-    el.style.left = stick.x0 + "px"; el.style.top = stick.y0 + "px";
+  // the stick: wherever a finger (or the mouse) goes down, dragging from
+  // there steers; with two players, one on each half, its knob the worm's colour
+  function stickAt(i, x, y) {
+    var s = sticks[i], el = $(STICKS[i][0]), knob = $(STICKS[i][1]), dx = x - s.x0, dy = y - s.y0, len = Math.hypot(dx, dy), m = Math.min(1, 40 / (len || 1));
+    el.style.left = s.x0 + "px"; el.style.top = s.y0 + "px";
     knob.style.transform = "translate(" + (len > 40 ? dx * m : dx) + "px, " + (len > 40 ? dy * m : dy) + "px)";
   }
   document.addEventListener("pointerdown", function (e) {
-    if (state !== "play" || pause.isPaused() || stick) return;
+    if (state !== "play" || pause.isPaused()) return;
     if (e.target.closest && e.target.closest("button, a, .panel, .gs-corner, .gs-pause, .gs-dialog")) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
-    $("stick").hidden = false; stickAt(e.clientX, e.clientY);
+    var two = st && st.mode === "duo", i = two && e.clientX >= window.innerWidth / 2 ? 1 : 0;
+    if (sticks[i]) return;
+    sticks[i] = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY };
+    $(STICKS[i][0]).hidden = false; $(STICKS[i][1]).style.background = two ? WORMS[i].body : "";
+    stickAt(i, e.clientX, e.clientY);
     audio();
   });
-  document.addEventListener("pointermove", function (e) { if (!stick || e.pointerId !== stick.id) return; stick.x = e.clientX; stick.y = e.clientY; stickAt(e.clientX, e.clientY); });
-  function lift(e) { if (stick && e.pointerId === stick.id) { stick = null; $("stick").hidden = true; } }
+  function stickOf(e) { for (var i = 0; i < 2; i++) if (sticks[i] && sticks[i].id === e.pointerId) return i; return -1; }
+  document.addEventListener("pointermove", function (e) { var i = stickOf(e); if (i < 0) return; sticks[i].x = e.clientX; sticks[i].y = e.clientY; stickAt(i, e.clientX, e.clientY); });
+  function lift(e) { var i = stickOf(e); if (i >= 0) { sticks[i] = null; $(STICKS[i][0]).hidden = true; } }
   document.addEventListener("pointerup", lift);
   document.addEventListener("pointercancel", lift);
 
@@ -641,6 +696,7 @@
     var r = rec(level).get(), parts2 = [], bp = best().get(), off = guides ? "" : OFF_NOTE;
     if (r.w + r.l + r.d) parts2.push(LEVEL_NAMES[level] + " rivals" + off + ": " + r.w + " W · " + r.l + " L" + (r.d ? " · " + r.d + " D" : ""));
     if (bp) parts2.push("Endless" + off + ": " + bp + (bp === 1 ? " page" : " pages"));
+    if (duoTally[0] + duoTally[1] + duoTally[2]) parts2.push("2 Players: " + duoText());
     $("tally").textContent = parts2.join(" · ");
     demo = E.create({ mode: mode, level: level, rng: rand(11) });
     floorKey = ""; stands.forEach(function (t) { t.key = ""; });
@@ -657,7 +713,7 @@
   $("again").addEventListener("click", function () { start(mode, level); });
   $("to-menu").addEventListener("click", toMenu);
   if (GS && GS.menuKeys) {
-    // the menu: 1 2 the mode, 3 4 5 how good the rivals are, G the guides, Space or Enter opens the book
+    // the menu: 1 2 3 the mode, 4 5 6 how good the rivals are, G the guides, Space or Enter opens the book
     GS.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }, "#pick-level button", { sel: "#guides", keys: ["g"] }], start: "#play", space: true });
     // the end card: Space or Enter again (not in its first moment), Backspace the menu
     GS.menuKeys({ active: function () { return state === "over" && performance.now() - overAt > OVER_WAIT; },
@@ -682,7 +738,9 @@
     // run the game on by `sec`, as if `input` ([x, y]) were held throughout
     advance: function (sec, input) { var n = Math.round(sec * 120); for (var i = 0; i < n && state === "play"; i++) { clockMs += 1000 / 120; update(1 / 120, input || [0, 0]); } },
     place: function (i, x, y) { var w = st.worms[i]; w.x = x; w.y = y; w.vx = w.vy = 0; },
-    input: currentInput,
+    // the way the worm is steered (two players: Player i's)
+    input: function (i) { return i == null ? currentInput() : playerInput(i); },
+    tally: function () { return duoTally.slice(); },
     record: function (l) { return rec(l || level).get(); },
     guides: function () { return guides; },
     best: function () { return best().get(); },

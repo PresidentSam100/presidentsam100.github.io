@@ -20,6 +20,9 @@
      Party      you and three CPU worms; last worm wriggling wins, and the
                 last ones squished by the same leaf draw
      Endless    you alone: how many pages you last, up to page 99
+     Duo        two players, one keyboard: the one still wriggling when
+                the other is squished wins; squished by the same leaf, or
+                both through page 99, a draw
 
    step(st, dt, input) moves the game on; what happened lands in st.events
    (a leaf standing up, the slam, a worm through or squished...) for the
@@ -43,12 +46,13 @@
     intro: 1.2,         // the book settling open before the first leaf stands up
     cap: 99,            // Endless closes the book after this page
     panelHalf: 0.1667,  // half a panel
-    holeRoom: 0.162     // how far a hole may reach from its panel's middle
+    rim: 0.013,         // how far outside a hole's cut its printed rim runs (the line 0.0075 wide)
+    holeRoom: 0.146     // how far a hole may reach from its panel's middle: its rim keeps 0.004 inside the panel, clear of the next one's
   };
 
   // ---- the pace ----------------------------------------------------------------------
-  // By page: how many holes, their size (the radius of the biggest circle that
-  // fits inside, whatever the shape), how long the leaf stands before it tips,
+  // By page: how many holes, their size (a round one's radius: the others
+  // cover as much page, sizeFor), how long the leaf stands before it tips,
   // how long it takes to fall, and the beat after it lands. The warning is
   // stand + fall: from the moment the shadow shows where the holes will land
   // to the slam. The holes shrink gently all the way to page 30; the leaf
@@ -119,18 +123,27 @@
   // (the moon's horns lie on its disc, so the circle round it all is that disc)
   var MID = { moon: [Math.cos(MOON_TURN) * -MOON_C / MOON_R, Math.sin(MOON_TURN) * -MOON_C / MOON_R] };
   function midOf(k) { return MID[k] || [0, 0]; }
-  var SHAPE_EXT = {}, SHAPE_ROOM = {};
+  function areaOf(pts) { var a = 0; for (var i = 0; i < pts.length; i++) { var q = pts[(i + 1) % pts.length]; a += pts[i][0] * q[1] - q[0] * pts[i][1]; } return Math.abs(a) / 2; }
+  var SHAPE_EXT = {}, SHAPE_ROOM = {}, SHAPE_AREA = {};
   Object.keys(SHAPES).forEach(function (k) {
     var m = midOf(k);
     SHAPE_EXT[k] = SHAPES[k].reduce(function (r, p) { return Math.max(r, Math.hypot(p[0], p[1])); }, 0);
     SHAPE_ROOM[k] = SHAPES[k].reduce(function (r, p) { return Math.max(r, Math.hypot(p[0] - m[0], p[1] - m[1])); }, 0);
+    SHAPE_AREA[k] = areaOf(SHAPES[k]);
   });
-  // How big a hole of this shape is on a page whose holes are `rin`: that
-  // size if it fits its panel, else as big as fits. Every shape comes on
-  // every page: the star and the moon, which reach furthest, are smaller
-  // than a page's other holes until those are as small, and never smaller
-  // than the last pages' holes (the moon's biggest is just over those).
-  function sizeFor(shape, rin) { return Math.min(rin, TUNE.holeRoom / SHAPE_ROOM[shape]); }
+  // Every hole on a page covers as much of it as the others, whatever its
+  // shape: as much as a round one of the page's size. So a shape that spreads
+  // further for its fit is cut narrower (the moon most: a worm must keep to
+  // its thick middle). WIDE: how much bigger a round hole is than a shape of
+  // as much page; RIN_TOP: the biggest page size every shape fits its panel
+  // at (the moon's), which the first pages are held to.
+  var WIDE = {}, RIN_TOP = Infinity;
+  Object.keys(SHAPES).forEach(function (k) {
+    WIDE[k] = Math.sqrt(SHAPE_AREA.sun / SHAPE_AREA[k]);
+    RIN_TOP = Math.min(RIN_TOP, TUNE.holeRoom / (SHAPE_ROOM[k] * WIDE[k]));
+  });
+  // how big (the biggest circle inside it) a hole of this shape is on a page whose holes are `rin`
+  function sizeFor(shape, rin) { return Math.min(rin, RIN_TOP) * WIDE[shape]; }
 
   function segDist(px, py, a, b) {
     var dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy;
@@ -164,6 +177,9 @@
     h.room = rin - (TUNE.R - TUNE.squeeze);        // the fit region's own radius, round the middle
     return h;
   }
+  // a sun's printed rays, from and to how far out from its middle (round
+  // ends, the line 0.0098 wide: inside its panel by 0.004 as a rim is)
+  function sunRays(h) { return [h.rin + 0.024, Math.min(TUNE.panelHalf - 0.009, h.rin + 0.04)]; }
   // a hole's outline widened by `grow` all round (a rim printed along its
   // cut): the shape spread about its middle, or for the moon, a fatter moon
   function rim(h, grow) {
@@ -196,10 +212,17 @@
   // ---- a leaf -------------------------------------------------------------------------
   // Its holes, and what is printed in the other panels: a picture that is
   // only printed (no way through), or a block of the book's nonsense words.
-  var PRINTS = ["sun", "moon", "star", "flower", "window"];
-  function makeLeaf(n, rng) {
-    var s = stage(n), panels = [0, 1, 2, 3, 4, 5, 6, 7, 8], i;
-    for (i = panels.length - 1; i > 0; i--) { var j = Math.floor(rng() * (i + 1)), t = panels[i]; panels[i] = panels[j]; panels[j] = t; }
+  // No panel is a hole on more than three leaves in a row (`before`: the
+  // leaves made just before this one, the last one last), so a look down
+  // holes that line up always ends on a leaf's paper.
+  var PRINTS = ["sun", "moon", "star", "flower", "window"], RUN = 3;
+  function holeAt(leaf, panel) { return leaf.holes.some(function (h) { return h.panel === panel; }); }
+  function makeLeaf(n, rng, before) {
+    var s = stage(n), panels = [0, 1, 2, 3, 4, 5, 6, 7, 8], i, j, t;
+    for (i = panels.length - 1; i > 0; i--) { j = Math.floor(rng() * (i + 1)); t = panels[i]; panels[i] = panels[j]; panels[j] = t; }
+    var last = (before || []).slice(-RUN), barred = function (p) { return last.length === RUN && last.every(function (l) { return holeAt(l, p); }); };
+    // (a hole's panel that would make one run too many swaps with the first that won't, printed instead)
+    for (i = 0; i < s.holes; i++) if (barred(panels[i])) for (j = s.holes; j < 9; j++) if (!barred(panels[j])) { t = panels[i]; panels[i] = panels[j]; panels[j] = t; break; }
     // (each hole's shape drawn from those not yet on the page: no two alike)
     var left = [], leaf = { n: n, holes: [], prints: [], seed: Math.floor(rng() * 1e9) };
     for (i = 0; i < 9; i++) {
@@ -212,7 +235,7 @@
   }
 
   // ---- worms --------------------------------------------------------------------------
-  var NAMES = ["You", "Rosy", "Clem", "Indy"];
+  var NAMES = ["You", "Rosy", "Clem", "Indy"], DUO_NAMES = ["Player 1", "Player 2"];
   var LEVELS = {
     // read: seconds after a leaf stands before it's read; speed: of yours;
     // err: how far off its middle a hole is aimed at; misread: the chance
@@ -224,26 +247,33 @@
   };
   function makeWorm(i, x, y, level) {
     return { id: i, name: NAMES[i], x: x, y: y, vx: 0, vy: 0, ang: -Math.PI / 2, crawl: 0, alive: true, out: 0, place: 0,
-      cpu: level ? { level: level, readAt: 0, read: false, second: false, target: null, hole: -1, decoy: false, wander: null, next: 0 } : null };
+      cpu: level ? { level: level, readAt: 0, read: false, second: false, target: null, hole: -1, decoy: false, wander: null, next: 0, wasIn: false, round: -1, side: 1 } : null };
   }
 
   function pageRng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
   // ---- a game -------------------------------------------------------------------------
-  // opts: { mode: "party" | "endless", level: "easy" | "normal" | "hard", rng }
+  // opts: { mode: "party" | "endless" | "duo", level: "easy" | "normal" | "hard", rng }
   function create(opts) {
     opts = opts || {};
-    var rng = opts.rng || Math.random, mode = opts.mode === "endless" ? "endless" : "party";
+    var rng = opts.rng || Math.random, mode = opts.mode === "endless" || opts.mode === "duo" ? opts.mode : "party";
     var st = { mode: mode, level: LEVELS[opts.level] ? opts.level : "normal", rng: rng, clock: 0, t: 0, phase: "intro",
-      page: 1, survived: 0, landed: 0, leaf: null, next: null, later: [], floor: null, worms: [], events: [], result: null };
+      page: 1, survived: 0, landed: 0, leaf: null, next: null, later: [], floor: null, under: [], made: [], worms: [], events: [], result: null };
     // The leaves to come are made ahead (the book shows the ones standing
-    // behind the next to fall, details and all), from a run of numbers of
-    // their own, so how far ahead they're made changes nothing else: `next`
-    // stands right behind the leaf about to fall, `later` the two after it.
+    // behind the next to fall, details and all, as far down as holes in a
+    // row can show), from a run of numbers of their own, so how far ahead
+    // they're made changes nothing else: `next` stands right behind the leaf
+    // about to fall, `later` the three after it. The ones landed are kept
+    // as far down too: `floor` on top, `under` the ones beneath it, the
+    // latest first.
     st.pages = pageRng(Math.floor(rng() * 4294967296));
-    st.leaf = makeLeaf(1, st.pages); st.next = makeLeaf(2, st.pages); st.later = [makeLeaf(3, st.pages), makeLeaf(4, st.pages)];
+    st.leaf = makeNext(st, 1); st.next = makeNext(st, 2); st.later = [makeNext(st, 3), makeNext(st, 4), makeNext(st, 5)];
     if (mode === "endless") st.worms.push(makeWorm(0, 0.5, 0.62, null));
-    else {
+    else if (mode === "duo") {
+      st.worms.push(makeWorm(0, 0.3, 0.68, null));
+      st.worms.push(makeWorm(1, 0.7, 0.68, null));
+      st.worms.forEach(function (w) { w.name = DUO_NAMES[w.id]; });
+    } else {
       st.worms.push(makeWorm(0, 0.3, 0.68, null));
       st.worms.push(makeWorm(1, 0.7, 0.68, st.level));
       st.worms.push(makeWorm(2, 0.3, 0.36, st.level));
@@ -251,6 +281,8 @@
     }
     return st;
   }
+  // (the leaf for page n, kept with the last ones made for makeLeaf's runs)
+  function makeNext(st, n) { var l = makeLeaf(n, st.pages, st.made); st.made = st.made.concat([l]).slice(-RUN); return l; }
   function alive(st) { return st.worms.filter(function (w) { return w.alive; }); }
   function emit(st, type, extra) { var e = extra || {}; e.type = type; e.at = st.clock; st.events.push(e); }
 
@@ -288,29 +320,18 @@
   }
 
   // solid worms: overlapping footprints push apart, half each, so a worm
-  // crawling into another shoves it along at half speed. But a worm settled
-  // wholly inside a hole of the leaf standing or falling keeps its place:
-  // one that runs into it takes the whole push, so no worm is shoved out of
-  // a hole it got to first (it gives its half only where that leaves it still
-  // wholly inside, making room in a hole for two); of two settled in one hole,
-  // the one moving takes it, as much as it's the quicker (two loose ones share
-  // it half each)
-  // (a's share of a push between two settled worms: the moving one's)
-  function quicker(a, b) { var sa = Math.hypot(a.vx, a.vy), sb = Math.hypot(b.vx, b.vy); return sa + sb < 1e-6 ? 0.5 : sa / (sa + sb); }
+  // crawling into another shoves it along at half speed, out of a hole too
+  // (the CPU worms give way to a player's, giveWay: they never shove one)
   function separate(st) {
-    var ws = alive(st), R2 = TUNE.R * 2, hit = 0, live = st.phase === "stand" || st.phase === "fall";
-    var settled = ws.map(function (w) { return live ? fitHole(st.leaf, w.x, w.y) >= 0 : false; }), holeOf = ws.map(function (w) { return live ? fitHole(st.leaf, w.x, w.y) : -1; });
-    // (a settled worm moved by dx, dy: still wholly inside its hole?)
-    var stays = function (k, w, dx, dy) { return fits(st.leaf.holes[holeOf[k]], w.x + dx, w.y + dy); };
+    var ws = alive(st), R2 = TUNE.R * 2, hit = 0;
     for (var it = 0; it < 3; it++) {
       for (var i = 0; i < ws.length; i++) for (var j = i + 1; j < ws.length; j++) {
         var a = ws[i], b = ws[j], dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
         if (d >= R2) continue;
         var nx, ny;
         if (d > 1e-6) { nx = dx / d; ny = dy / d; } else { var g = st.rng() * Math.PI * 2; nx = Math.cos(g); ny = Math.sin(g); }
-        var push = R2 - d, ka = settled[i] === settled[j] ? (settled[i] ? quicker(a, b) : 0.5) :
-          settled[i] ? (stays(i, a, -nx * push / 2, -ny * push / 2) ? 0.5 : 0) : (stays(j, b, nx * push / 2, ny * push / 2) ? 0.5 : 1);
-        a.x -= nx * push * ka; a.y -= ny * push * ka; b.x += nx * push * (1 - ka); b.y += ny * push * (1 - ka);
+        var push = (R2 - d) / 2;
+        a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push;
         if (it === 0 && R2 - d > 0.002) hit = Math.max(hit, Math.hypot(a.vx - b.vx, a.vy - b.vy));
       }
       ws.forEach(function (w) { var R = TUNE.R; w.x = Math.max(R, Math.min(1 - R, w.x)); w.y = Math.max(R, Math.min(1 - R, w.y)); });
@@ -327,18 +348,24 @@
     var s = stage(st.page);
     return st.phase === "stand" ? s.stand - st.t + s.fall : st.phase === "fall" ? s.fall - st.t : 0;
   }
+  // (a worm that isn't a CPU making for a hole counts as in it once it's in
+  // it or close by: you, on your way in)
+  function nearHole(h, o) { return fits(h, o.x, o.y) || Math.hypot(o.x - h.cx, o.y - h.cy) < h.room + TUNE.R * 4; }
   function crowd(st, w, hi) {
     var h = st.leaf.holes[hi], n = 0;
-    st.worms.forEach(function (o) { if (o !== w && o.alive && (o.cpu ? o.cpu.hole === hi : fits(h, o.x, o.y))) n++; });
+    st.worms.forEach(function (o) { if (o !== w && o.alive && (o.cpu && o.cpu.read && !o.cpu.decoy ? o.cpu.hole === hi : nearHole(h, o))) n++; });
     return n;
   }
-  // (first: the first reading of a leaf, the only one that can misread it)
+  // (first: the first reading of a leaf, the only one that can misread it;
+  // COMPANY: what each worm already in a hole or on its way costs it, in
+  // seconds of crawl, so the worms spread over the holes there are)
+  var COMPANY = 0.25;
   function choose(st, w, exact, first) {
     var b = w.cpu, L = LEVELS[b.level], left = timeLeft(st), top = TUNE.speed * L.speed, best = -1, bestScore = Infinity;
     st.leaf.holes.forEach(function (h, i) {
       var d = Math.hypot(h.cx - w.x, h.cy - w.y), go = d / top + 0.12;
-      var full = crowd(st, w, i) - capacity(h) + 1;
-      var score = go + (full > 0 ? 0.7 * full : 0) + (go > left ? 5 : 0) + (i === b.hole ? -0.15 : 0);
+      var n = crowd(st, w, i), full = n - capacity(h) + 1;
+      var score = go + COMPANY * n + (full > 0 ? 0.7 * full : 0) + (go > left ? 5 : 0) + (i === b.hole ? -0.15 : 0);
       if (score < bestScore) { bestScore = score; best = i; }
     });
     b.hole = best; b.decoy = false;
@@ -350,23 +377,32 @@
     var h = st.leaf.holes[best], e = exact ? L.err * 0.25 : L.err, a = st.rng() * Math.PI * 2, r = e * Math.sqrt(st.rng()), at = spot(st, w, best, e);
     b.target = [at[0] + Math.cos(a) * r, at[1] + Math.sin(a) * r];
   }
-  // Where in a hole to make for: of its middle and six spots round it (all
-  // wholly inside), the one furthest from the worms in it or making for it,
-  // the nearer to this one of those as far: not all for the dead middle.
+  // Where in a hole to make for: of its middle and the spots round it on
+  // two rings (all wholly inside), the one furthest from the other worms
+  // there (a CPU's aim; anyone else in it or close by, where it is and,
+  // for you, where you're crawling), the nearer to this one of those as far:
+  // not all for the dead middle, and out of the way of a worm that's there.
   // (off: how far off it the worm's aim may be: the spots keep that far in,
   // so a worm misses a hole no more often than when all aimed at the middle)
-  function spot(st, w, hi, off) {
-    var h = st.leaf.holes[hi], q = Math.max(0, Math.min(h.room * 0.85, h.room - (off || 0))), best = [h.cx, h.cy], bestScore = -Infinity, others = [];
+  // Gives the spot and how clear it is.
+  var CLEAR = TUNE.R * 2 + 0.012;   // clear enough: footprints apart, with a little to spare
+  function claims(st, w, hi) {
+    var h = st.leaf.holes[hi], out = [];
     st.worms.forEach(function (o) {
       if (o === w || !o.alive) return;
-      if (fits(h, o.x, o.y)) others.push([o.x, o.y]);
-      if (o.cpu && o.cpu.hole === hi && o.cpu.target) others.push(o.cpu.target);
+      if (o.cpu && o.cpu.hole === hi && o.cpu.target) out.push(o.cpu.target);
+      if (nearHole(h, o)) { out.push([o.x, o.y]); if (!o.cpu) out.push([o.x + o.vx * 0.2, o.y + o.vy * 0.2], [h.cx, h.cy]); }
     });
-    for (var k = -1; k < 6; k++) {
-      var x = k < 0 ? h.cx : h.cx + Math.cos(k * Math.PI / 3) * q, y = k < 0 ? h.cy : h.cy + Math.sin(k * Math.PI / 3) * q, clear = 1;
+    return out;
+  }
+  function spot(st, w, hi, off) {
+    var h = st.leaf.holes[hi], q = Math.max(0, Math.min(h.room * 0.9, h.room - (off || 0))), best = [h.cx, h.cy, 1], bestScore = -Infinity, others = claims(st, w, hi);
+    for (var k = -1; k < 16; k++) {
+      var r = k < 8 ? q : q * 0.5, a = (k % 8) * Math.PI / 4 + (k < 8 ? 0 : Math.PI / 8);
+      var x = k < 0 ? h.cx : h.cx + Math.cos(a) * r, y = k < 0 ? h.cy : h.cy + Math.sin(a) * r, clear = 1;
       others.forEach(function (o) { clear = Math.min(clear, Math.hypot(o[0] - x, o[1] - y)); });
-      var score = Math.min(clear, TUNE.R * 2 + 0.01) * 10 - Math.hypot(x - w.x, y - w.y);
-      if (score > bestScore) { bestScore = score; best = [x, y]; }
+      var score = Math.min(clear, CLEAR) * 10 - Math.hypot(x - w.x, y - w.y);
+      if (score > bestScore) { bestScore = score; best = [x, y, clear]; }
     }
     return best;
   }
@@ -376,13 +412,23 @@
       var since = st.phase === "stand" ? st.t : stage(st.page).stand + st.t;
       if (!b.read && since >= b.readAt) { b.read = true; choose(st, w, false, true); b.next = since + 0.25; }
       if (b.read && !b.second && st.phase === "fall" && st.t >= L.second * stage(st.page).fall) { b.second = true; choose(st, w, true, false); }
+      // knocked out of its hole (a player's shove): a look round at once for
+      // a way back in, a spot clear of the one that shoved it, or a hole with room
+      var mine = b.read && !b.decoy ? st.leaf.holes[b.hole] : null, inNow = !!mine && fits(mine, w.x, w.y);
+      if (b.wasIn && !inNow) b.next = since;
+      b.wasIn = inNow;
       // a full hole: look again for one with room that can still be reached
       if (b.read && !b.decoy && since >= b.next) {
         b.next = since + 0.25;
         var h = st.leaf.holes[b.hole];
         if (h && crowd(st, w, b.hole) >= capacity(h) && !fits(h, w.x, w.y)) choose(st, w, b.second, false);
-        // its spot taken by a worm settled there: another spot in the same hole
-        else if (h && b.target && st.worms.some(function (o) { return o !== w && o.alive && fits(h, o.x, o.y) && Math.hypot(o.x - b.target[0], o.y - b.target[1]) < TUNE.R * 2; })) b.target = spot(st, w, b.hole);
+        // its spot crowded (a worm there or on its way, you too): a clearer
+        // one in the same hole, where there is one
+        else if (h && b.target) {
+          var tg = b.target, close = 1;
+          claims(st, w, b.hole).forEach(function (o) { close = Math.min(close, Math.hypot(o[0] - tg[0], o[1] - tg[1])); });
+          if (close < CLEAR) { var at = spot(st, w, b.hole); if (Math.min(at[2], CLEAR) > close + 0.01) b.target = [at[0], at[1]]; }
+        }
       }
     }
     if (!b.read || !b.target) {
@@ -391,9 +437,39 @@
         var spread = b.level === "easy" ? 0.36 : b.level === "normal" ? 0.2 : 0.12;
         b.wander = [0.5 + (st.rng() - 0.5) * 2 * spread, 0.5 + (st.rng() - 0.5) * 2 * spread];
       }
-      return steer(w, b.wander, 0.35);
+      return giveWay(st, w, steer(w, b.wander, 0.35));
     }
-    return steer(w, b.target, 1);
+    return giveWay(st, w, steer(w, b.target, 1));
+  }
+  // A CPU never presses on a player's worm. Near enough that the way it's
+  // going would bring it up against one before it could stop, it drops what
+  // of that way leads into it and slides round it instead, to the side its
+  // way leans (kept while it goes round, so it never dithers); touching, it
+  // backs off a little. So it can share a player's hole, beside them, but
+  // never shoves; a player can still shove a CPU, out of a hole too, and it
+  // makes its way back in round them.
+  var GIVE = 0.004;
+  function giveWay(st, w, v) {
+    var b = w.cpu, x = v[0], y = v[1], want = Math.hypot(x, y), R2 = TUNE.R * 2, round = -1;
+    st.worms.forEach(function (o) {
+      if (o === w || !o.alive || o.cpu) return;
+      var dx = o.x - w.x, dy = o.y - w.y, d = Math.hypot(dx, dy);
+      if (d < 1e-6) return;
+      var nx = dx / d, ny = dy / d, closing = Math.max(0, w.vx * nx + w.vy * ny);
+      if (d >= R2 + GIVE + closing * closing / (2 * TUNE.decel)) return;
+      var into = x * nx + y * ny;
+      if (into <= 0) return;
+      x -= nx * into; y -= ny * into;
+      // (headed straight at it: round it, at the pace it wanted)
+      var lean = x * -ny + y * nx;
+      if (b.round !== o.id) { b.round = o.id; b.side = lean > 0.01 ? 1 : lean < -0.01 ? -1 : w.id % 2 ? 1 : -1; }
+      round = o.id;
+      var more = Math.max(0, Math.min(want, into) * 0.8 - Math.hypot(x, y));
+      x += -ny * b.side * more; y += nx * b.side * more;
+      if (d < R2 + 0.002) { x -= nx * 0.3; y -= ny * 0.3; }
+    });
+    if (round < 0) b.round = -1;
+    return [x, y];
   }
   // head for a point and slow down on arriving
   function steer(w, to, gain) {
@@ -404,7 +480,8 @@
   }
 
   // ---- one tick ----------------------------------------------------------------------------
-  // input: { x, y } the way you're crawling (length up to 1), or null
+  // input: { x, y } the way you're crawling (length up to 1), or null; for
+  // two players, a list of those, Player 1's first
   function step(st, dt, input) {
     st.events = [];
     var left = Math.max(0, Math.min(0.25, dt));
@@ -422,7 +499,8 @@
     if (st.phase === "over") return;
     st.worms.forEach(function (w) {
       if (!w.alive) return;
-      var inp = w.cpu ? brain(st, w) : (input ? [input.x || 0, input.y || 0] : [0, 0]);
+      var mine = Array.isArray(input) ? input[w.id] : w.id === 0 ? input : null;
+      var inp = w.cpu ? brain(st, w) : (mine ? [mine.x || 0, mine.y || 0] : [0, 0]);
       moveWorm(w, inp[0], inp[1], dt, TUNE.speed * (w.cpu ? LEVELS[w.cpu.level].speed : 1));
     });
     separate(st);
@@ -432,7 +510,7 @@
     st.worms.forEach(function (w) {
       if (!w.cpu) return;
       var L = LEVELS[w.cpu.level];
-      w.cpu.read = false; w.cpu.second = false; w.cpu.target = null; w.cpu.hole = -1; w.cpu.decoy = false;
+      w.cpu.read = false; w.cpu.second = false; w.cpu.target = null; w.cpu.hole = -1; w.cpu.decoy = false; w.cpu.wasIn = false;
       w.cpu.readAt = L.read[0] + st.rng() * (L.read[1] - L.read[0]);
     });
     emit(st, "stand", { page: st.page });
@@ -446,11 +524,17 @@
       else { flat.push(w); w.alive = false; w.out = st.page; w.vx = w.vy = 0; emit(st, "squish", { id: w.id }); }
     });
     emit(st, "slam", { page: st.page, through: through.length, flat: flat.length });
+    st.under = (st.floor ? [st.floor] : []).concat(st.under).slice(0, RUN);
     st.floor = leaf; st.landed++;
     var you = st.worms[0], page = st.page;
     if (st.mode === "endless") {
       if (!you.alive) return finish(st, "squished", page - 1);
       st.survived = page;
+      if (page >= TUNE.cap) return finish(st, "closed", page);
+    } else if (st.mode === "duo") {
+      if (through.length) st.survived = page;
+      if (!through.length) return finish(st, "draw", page - 1);
+      if (through.length === 1) { st.winner = through[0].id; return finish(st, "win", page); }
       if (page >= TUNE.cap) return finish(st, "closed", page);
     } else {
       if (you.alive) st.survived = page;
@@ -458,12 +542,12 @@
       if (!you.alive) { you.place = through.length + 1; return finish(st, "loss", page - 1); }
       if (through.length === 1) { you.place = 1; return finish(st, "win", page); }
     }
-    st.page++; st.leaf = st.next; st.next = st.later.shift(); st.later.push(makeLeaf(st.page + 3, st.pages));
+    st.page++; st.leaf = st.next; st.next = st.later.shift(); st.later.push(makeNext(st, st.page + 4));
     st.phase = "land";
   }
   function finish(st, outcome, pages) {
     st.phase = "over"; st.t = 0;
-    st.result = { outcome: outcome, pages: pages, page: st.page, place: st.worms[0].place || 0 };
+    st.result = { outcome: outcome, pages: pages, page: st.page, place: st.worms[0].place || 0, winner: st.winner != null ? st.winner : -1 };
     emit(st, "over", { outcome: outcome });
   }
 
@@ -495,7 +579,7 @@
 
   return {
     TUNE: TUNE, LEVELS: LEVELS, NAMES: NAMES, SHAPES: SHAPES, SHAPE_EXT: SHAPE_EXT, SHAPE_ROOM: SHAPE_ROOM, PRINTS: PRINTS,
-    stage: stage, sizeFor: sizeFor, midOf: midOf, makeHole: makeHole, rim: rim, fitRegion: fitRegion, makeLeaf: makeLeaf, panelMid: panelMid,
+    stage: stage, sizeFor: sizeFor, midOf: midOf, makeHole: makeHole, rim: rim, sunRays: sunRays, fitRegion: fitRegion, makeLeaf: makeLeaf, panelMid: panelMid, RUN: RUN,
     fits: fits, fitHole: fitHole, edgeDepth: edgeDepth, capacity: capacity,
     create: create, step: step, tilt: tilt, alive: alive, timeLeft: timeLeft,
     travelTime: travelTime, nearestFit: nearestFit, reach: reach, moveWorm: moveWorm
