@@ -138,6 +138,21 @@ body.paused .counter canvas { visibility: hidden; }
   --lh: 28px; font-size: 17px; line-height: var(--lh); text-align: left; margin-bottom: 14px;
   background: repeating-linear-gradient(180deg, transparent 0 calc(var(--lh) - 2px), var(--check-rule) calc(var(--lh) - 2px) calc(var(--lh) - 1px), transparent calc(var(--lh) - 1px) var(--lh));
 }
+/* the way to play: two specials on the check, the one picked in cherry vinyl */
+.seg { display: flex; gap: 10px; margin-bottom: 14px; }
+.seg button {
+  flex: 1 1 0; min-width: 0; font-family: inherit; font-weight: 400; cursor: pointer; color: var(--ink); letter-spacing: 0.3px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 5px 8px 7px;
+  background: var(--cream); border: 2px solid var(--chrome); border-radius: 14px;
+  box-shadow: 0 0 0 1px var(--chrome-lo), 0 3px 0 1px var(--chrome-lo);
+}
+.seg b { font-weight: 400; font-size: 21px; line-height: 1.15; }
+.seg small { font-size: 14px; line-height: 1.2; color: var(--ink-dim); }
+.seg button[aria-pressed="true"] { color: var(--cream); background: var(--cherry); box-shadow: 0 0 0 1px var(--chrome-lo), 0 3px 0 1px var(--cherry-deep); }
+.seg button[aria-pressed="true"] small { color: rgba(255, 248, 230, 0.86); }
+.seg button:hover { filter: brightness(1.05); }
+.seg button:active { transform: translateY(2px); box-shadow: 0 0 0 1px var(--chrome-lo), 0 1px 0 1px var(--chrome-lo); }
+.seg button[aria-pressed="true"]:active { box-shadow: 0 0 0 1px var(--chrome-lo), 0 1px 0 1px var(--cherry-deep); }
 .playbtn, .card .row button {
   font-family: inherit; font-weight: 400; cursor: pointer; color: var(--cream); letter-spacing: 0.5px;
   background: var(--cherry); border: 3px solid var(--chrome); border-radius: 999px;
@@ -185,13 +200,23 @@ body.paused .counter canvas { visibility: hidden; }
   .card h2 { font-size: 32px; }
   .card .tag { margin: 4px 0 6px; }
   .card .how { --lh: 24px; font-size: 16px; margin-bottom: 10px; }
+  .seg { gap: 8px; margin-bottom: 10px; }
+  .seg button { padding: 4px 6px 6px; }
+  .seg b { font-size: 19px; }
+  .seg small { font-size: 13px; }
   .playbtn { font-size: 22px; padding: 6px 12px; }
   .tally { margin-top: 8px; font-size: 16px; }
 }
 /* a short phone: the card's spacing closes up (none of its words go) */
 @media (max-width: 560px) and (max-height: 600px) {
-  .card .how { --lh: 21px; font-size: 15px; }
   .card h1 { font-size: 38px; }
+  .card::before { margin-bottom: 6px; padding: 8px 0 4px; }
+  .card .tag { margin: 3px 0 5px; }
+  .card .how { --lh: 19px; font-size: 15px; margin-bottom: 8px; }
+  .seg { margin-bottom: 8px; }
+  .seg button { padding: 3px 6px 5px; }
+  .playbtn { padding: 4px 12px; }
+  .tally { margin-top: 6px; }
 }
 /* a short laptop screen: the same */
 @media (min-width: 561px) and (max-height: 700px) {

@@ -9,6 +9,14 @@
    level 5 empty tumblers mixed in. Two bests: the level reached, and the
    most marbles found in a run.
 
+   That is The Works. Short Order is the other way to play: one coloured
+   marble goes in, a black skull marble into every other tumbler, and the
+   counter asks for that one colour alone. Following one marble is easier
+   than following them all, so its levels start with quicker hands (a
+   ladder of its own, under the same limits). A skull costs a life and
+   shows where the colour was, then the same level is dealt again: only a
+   find moves a run on. Its best is the level reached.
+
    Everything that moves runs on the game's own clock (`clock`), which the
    animation frame moves on only while a run is in play and not paused, and
    every step of a round is an event on that clock (after()). A late frame
@@ -35,8 +43,11 @@
     { name: "yellow", col: "#f6c619", hi: "#fff5b8", lo: "#8d6200" },
     { name: "green", col: "#2ea65a", hi: "#b2f2c8", lo: "#0d4a25" },
     { name: "purple", col: "#8d50d2", hi: "#dcc4ff", lo: "#391561" },
-    { name: "orange", col: "#f47b18", hi: "#ffd0a3", lo: "#773100" }
+    { name: "orange", col: "#f47b18", hi: "#ffd0a3", lo: "#773100" },
+    // (Short Order's: black glass with a bone-white skull, never asked for)
+    { name: "skull", col: "#2c2733", hi: "#8b8496", lo: "#09070c", skull: true }
   ];
+  var SKULL = 6;
 
   // ---- the levels -----------------------------------------------------------------------
   // [tumblers, marbles (the rest are empty), switches, ms a switch takes one
@@ -57,19 +68,38 @@
     [6, 5, 14, 370, 90, 3, 5],
     [6, 6, 15, 350, 80, 3, 5]
   ];
+  // Short Order's: one marble to follow, so quicker hands and more switches
+  // from the first level, and each level still a little harder than the last
+  // (the same columns; the one marble, the rest skulls)
+  var SHORT = [
+    [3, 1, 4, 640, 170, 1, 2],
+    [3, 1, 6, 580, 150, 1, 2],
+    [4, 1, 6, 540, 140, 1, 3],
+    [4, 1, 8, 490, 125, 1, 3],
+    [5, 1, 8, 460, 115, 1, 4],
+    [5, 1, 9, 430, 105, 2, 4],
+    [5, 1, 11, 400, 100, 2, 4],
+    [6, 1, 11, 380, 95, 2, 5],
+    [6, 1, 12, 360, 90, 2, 5],
+    [6, 1, 14, 340, 85, 2, 5],
+    [6, 1, 15, 320, 80, 3, 5],
+    [6, 1, 16, 300, 75, 3, 5]
+  ];
   // How quick it may ever get, so a shuffle stays something a person can
   // follow: a watcher gets at least WATCH ms for each switch, however many
   // happen at once (three pairs together take three times as long); no
   // switch travels in under FLOOR ms; and no tumbler crosses more than a
   // slot every SLOT_MS ms (a long switch takes longer).
   var WATCH = 180, FLOOR = 240, SLOT_MS = 110, MOST_SWITCHES = 24;
-  function spec(n) {
+  // (a level of The Works, or of Short Order with `md` "short")
+  function spec(n, md) {
     n = Math.max(1, Math.floor(n) || 1);
-    var row = LEVELS[Math.min(n, LEVELS.length) - 1], past = Math.max(0, n - LEVELS.length);
+    var short = md === "short", table = short ? SHORT : LEVELS;
+    var row = table[Math.min(n, table.length) - 1], past = Math.max(0, n - table.length);
     return {
       level: n,
       cups: row[0],
-      marbles: past ? [5, 4, 6][(past - 1) % 3] : row[1],
+      marbles: short ? 1 : past ? [5, 4, 6][(past - 1) % 3] : row[1],
       swaps: Math.min(MOST_SWITCHES, row[2] + past),
       ms: Math.max(FLOOR, row[3] - 10 * past),
       gap: Math.max(60, row[4] - 2 * past),
@@ -116,7 +146,8 @@
 
   // the moments of a round (ms on the game clock)
   var FADE_IN = 260, STAGGER = 230, FALL = 430, FLIP = 460, HOLD = 420, SETTLE = 320, LIFT = 330, CLEAR_MS = 1500, LOST_MS = 1500, OVER_WAIT = 700;
-  function lookTime(m) { return 650 + 110 * m; }   // the marbles stay in sight this long once the last is in
+  var STAGGER_SHORT = 150, AGAIN_MS = 1300;   // (Short Order: a skull in every other tumbler goes in quicker; after a skull, the wait before the level is dealt again)
+  function lookTime(m) { return 650 + 110 * m; }   // the marbles stay in sight this long once the last is in (m: the colours to remember)
 
   // ---- sound -----------------------------------------------------------------------------
   var actx = null;
@@ -159,6 +190,16 @@
     get: function () { return Number(store.get("switcheroo_best_found", "0")) || 0; },
     submit: function (v) { if (v > this.get()) { store.set("switcheroo_best_found", String(v)); return true; } return false; }
   };
+  var bestShort = window.GameShell ? GameShell.best("switcheroo_short_best", { higher: true }) : {
+    get: function () { return Number(store.get("switcheroo_short_best", "0")) || 0; },
+    submit: function (v) { if (v > this.get()) { store.set("switcheroo_short_best", String(v)); return true; } return false; }
+  };
+  // the way to play: "works" (every colour) or "short" (one among skulls),
+  // the last one picked kept for next time (a setting, not a record)
+  var MODES = ["works", "short"];
+  var mode = store.get("switcheroo_mode", "works");
+  if (MODES.indexOf(mode) < 0) mode = "works";
+  function levelBest() { return mode === "short" ? bestShort : best; }   // the best level reached, this way to play
   var state = "menu";       // menu | play | over
   var phase = "";           // in play: deal | flip | hold | shuffle | settle | ask | show | clear | lost
   var level = 1, lives = 3, picks = 0, found = 0, startBest = 0, startFound = 0, overAt = 0, serial = 0;
@@ -178,7 +219,7 @@
 
   function startRun(at) {
     level = Math.max(1, Math.floor(at) || 1); lives = 3; picks = 0; found = 0;
-    startBest = best.get() || 0; startFound = bestFound.get() || 0;
+    startBest = levelBest().get() || 0; startFound = bestFound.get() || 0;
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     state = "play";
@@ -187,13 +228,14 @@
   }
 
   // a round: the tumblers set out mouth up, a marble into each (some left
-  // empty), a look, then over they go and the switching starts
+  // empty; in Short Order a skull into every one but the colour's), a look,
+  // then over they go and the switching starts
   function deal() {
     queue.length = 0; serial++;
-    S = spec(level);
-    var n = S.cups, m = S.marbles, colours = shuffled([0, 1, 2, 3, 4, 5]).slice(0, m), where = shuffled(range(n)).slice(0, m);
+    S = spec(level, mode);
+    var short = mode === "short", n = S.cups, m = S.marbles, colours = shuffled([0, 1, 2, 3, 4, 5]).slice(0, m), where = shuffled(range(n)).slice(0, m);
     cups = []; order = [];
-    for (var i = 0; i < n; i++) { cups.push({ m: -1, up: true, dropAt: -1, mv: null, lift: { from: 0, to: 0, at: -1e9 }, done: false, mark: null }); order.push(i); }
+    for (var i = 0; i < n; i++) { cups.push({ m: short ? SKULL : -1, up: true, dropAt: -1, mv: null, lift: { from: 0, to: 0, at: -1e9 }, done: false, mark: null }); order.push(i); }
     where.forEach(function (slot, k) { cups[slot].m = colours[k]; });
     dealtWith = cups.map(function (c) { return c.m; });
     steps = plan(S);
@@ -203,20 +245,20 @@
     layout(); hud(); keysLine();
     say("Watch the marbles go in");
     // the marbles go in left to right, one after another
-    var k = 0;
+    var k = 0, gap = short ? STAGGER_SHORT : STAGGER;
     for (var s = 0; s < n; s++) {
       var c = cups[order[s]];
       if (c.m < 0) continue;
-      c.dropAt = clock + FADE_IN + k * STAGGER;
-      after(FADE_IN + k * STAGGER + FALL * 0.9, sfxClink);
+      c.dropAt = clock + FADE_IN + k * gap;
+      after(FADE_IN + k * gap + FALL * 0.9, sfxClink);
       k++;
     }
-    after(FADE_IN + (m - 1) * STAGGER + FALL + lookTime(m), turnOver);
+    after(FADE_IN + (k - 1) * gap + FALL + lookTime(m), turnOver);
   }
   function range(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); return a; }
   function turnOver() {
     phase = "flip"; flipAt = clock;
-    say("Keep your eye on them");
+    if (mode === "short") say(["Keep your eye on ", asks[0], ""]); else say("Keep your eye on them");
     after(FLIP * 0.8, sfxFlip);
     after(FLIP, function () { cups.forEach(function (c) { c.up = false; }); phase = "hold"; });
     after(FLIP + HOLD, shuffle);
@@ -278,7 +320,8 @@
     phase = "show";
     if (cup.m === want) {
       found++; cup.done = true;
-      bestFound.submit(found); hud();      // (the most found in a run: saved the moment it's passed)
+      if (mode === "works") bestFound.submit(found);   // (the most found in a run: saved the moment it's passed)
+      hud();
       raise(cup, 1); mark(cup, "good"); sparkle(slot);
       after(LIFT * 0.6, sfxGood);
       say("Found it!", "good");
@@ -287,13 +330,14 @@
       lives--; hud();
       raise(cup, 1); mark(cup, "bad"); shakeAt = clock; cup.done = true;
       after(LIFT * 0.6, sfxBad);
-      say(cup.m < 0 ? "Nothing under that one" : "That's " + MARBLES[cup.m].name, "bad");
+      say(cup.m < 0 ? "Nothing under that one" : "That's " + (cup.m === SKULL ? "a " : "") + MARBLES[cup.m].name, "bad");
       // then the asked colour's tumbler lifts too, and both stay up for the
-      // rest of the round
+      // rest of the round (in Short Order, the round's one question: the same
+      // level is dealt again, so only a find moves the run on)
       var right = cupWith(want);
       after(LIFT + 480, function () { raise(right, 1); right.done = true; say(["There's ", want, ""]); });
       after(LIFT * 2 + 480 + 700, function () { mark(cup, null); });
-      after(LIFT * 3 + 480 + 900, lives > 0 ? askNext : lose);
+      after(LIFT * 3 + 480 + 900, lives <= 0 ? lose : mode === "short" ? dealAgain : askNext);
     }
     return true;
   }
@@ -302,12 +346,21 @@
     cups.forEach(function (c) { if (!c.done) { raise(c, 1); c.done = true; } });
     var reached = level + 1;
     // the best level reached is saved now, the moment it's reached
-    if (reached > (best.get() || 0)) best.submit(reached);
+    if (reached > (levelBest().get() || 0)) levelBest().submit(reached);
     hud();
     say("Round clear! On to level " + reached, "good");
     after(LIFT * 0.5, sfxClear);
     fadeAt = clock + CLEAR_MS - 300;
     after(CLEAR_MS, function () { level = reached; deal(); });
+  }
+  // Short Order after a skull: the skulls left down show themselves, then
+  // the same level is dealt again (a fresh deal and shuffle)
+  function dealAgain() {
+    phase = "show";
+    cups.forEach(function (c) { if (!c.done) { raise(c, 1); c.done = true; } });
+    say("Level " + level + " again");
+    fadeAt = clock + AGAIN_MS - 300;
+    after(AGAIN_MS, deal);
   }
   function lose() {
     phase = "lost";
@@ -319,13 +372,14 @@
   function finish() {
     state = "over"; phase = ""; queue.length = 0;
     overAt = performance.now();
-    var b = best.get() || 0, isBest = level > startBest && level >= 2;
+    var b = levelBest().get() || 0, isBest = level > startBest && level >= 2;
     $("over-title").textContent = "Out of lives";
     $("over-msg").textContent = "Level " + level;
     var line = document.createElement("span"), pill = document.createElement("span");
     var cleared = level - 1;
-    line.textContent = cleared + (cleared === 1 ? " round" : " rounds") + " cleared · " + found + (found === 1 ? " marble" : " marbles") + " found" +
-      (found > startFound ? " (the most yet)" : "");
+    // (in Short Order a round cleared is the one marble found: the rounds say it all)
+    line.textContent = cleared + (cleared === 1 ? " round" : " rounds") + " cleared" + (mode === "short" ? " in Short Order" :
+      " · " + found + (found === 1 ? " marble" : " marbles") + " found" + (found > startFound ? " (the most yet)" : ""));
     pill.className = "best" + (isBest ? " record" : "");
     pill.textContent = isBest ? "your best level yet" : b >= 2 ? "best: level " + b : "no round cleared yet";
     $("over-stats").replaceChildren(line, pill);
@@ -339,10 +393,19 @@
     paintMenu();
     menuScene();
   }
+  // the menu: the way to play that's picked, and its bests
   function paintMenu() {
-    var b = best.get() || 0;
-    var f = bestFound.get() || 0;
+    var b = levelBest().get() || 0;
+    var f = mode === "works" ? bestFound.get() || 0 : 0;
     $("tally").textContent = (b >= 2 ? "best: reached level " + b : "no round cleared yet") + (f ? " · most found: " + f : "");
+    var btns = document.querySelectorAll("#pick-mode button");
+    for (var i = 0; i < btns.length; i++) btns[i].setAttribute("aria-pressed", String(btns[i].getAttribute("data-v") === mode));
+  }
+  function setMode(md) {
+    if (MODES.indexOf(md) < 0 || state !== "menu") return false;
+    mode = md; store.set("switcheroo_mode", md);
+    paintMenu();
+    return true;
   }
 
   // ---- the words round the counter ----------------------------------------------------------------
@@ -358,7 +421,7 @@
   }
   function hud() {
     $("hud-level").textContent = level;
-    $("hud-best").textContent = Math.max(best.get() || 0, level);
+    $("hud-best").textContent = Math.max(levelBest().get() || 0, level);
     $("hud-found").textContent = found;
     var lv = $("hud-lives"), dots = lv.querySelectorAll("i");
     for (var i = 0; i < dots.length; i++) dots[i].classList.toggle("lost", i >= lives);
@@ -368,7 +431,7 @@
     var n = S.cups, k = function (t) { var e = document.createElement("kbd"); e.className = "gs-kbd"; e.textContent = t; return e; };
     var keys = document.createElement("span"), touch = document.createElement("span");
     keys.className = "gs-keys"; touch.className = "gs-touch";
-    keys.append(k("1"), " to ", k(String(n)), " or a click picks a tumbler · ", k("P"), " pauses");
+    keys.append(k("1"), " to ", k(String(n)), " or a click picks a tumbler");
     touch.textContent = "tap a tumbler to pick it";
     $("keys").replaceChildren(keys, touch);
   }
@@ -467,13 +530,36 @@
     var gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.08, x, y, r);
     gr.addColorStop(0, mb.hi); gr.addColorStop(0.42, mb.col); gr.addColorStop(1, mb.lo);
     g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
-    // the cat's-eye swirl inside the glass, and the window's glint on it
-    g.save(); g.beginPath(); g.arc(x, y, r * 0.96, 0, 7); g.clip();
-    g.strokeStyle = mb.hi; g.globalAlpha *= 0.5; g.lineWidth = r * 0.2; g.lineCap = "round";
-    g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.4); g.bezierCurveTo(x - r * 0.2, y - r * 0.45, x + r * 0.2, y + r * 0.6, x + r * 0.7, y - r * 0.3); g.stroke();
-    g.restore();
+    if (mb.skull) drawSkull(x, y + r * 0.04, r);
+    else {
+      // the cat's-eye swirl inside the glass, and the window's glint on it
+      g.save(); g.beginPath(); g.arc(x, y, r * 0.96, 0, 7); g.clip();
+      g.strokeStyle = mb.hi; g.globalAlpha *= 0.5; g.lineWidth = r * 0.2; g.lineCap = "round";
+      g.beginPath(); g.moveTo(x - r * 0.7, y + r * 0.4); g.bezierCurveTo(x - r * 0.2, y - r * 0.45, x + r * 0.2, y + r * 0.6, x + r * 0.7, y - r * 0.3); g.stroke();
+      g.restore();
+    }
     g.fillStyle = "rgba(255, 255, 255, 0.85)"; g.beginPath(); g.ellipse(x - r * 0.36, y - r * 0.44, r * 0.22, r * 0.13, -0.5, 0, 7); g.fill();
     g.strokeStyle = mb.lo; g.globalAlpha *= 0.55; g.lineWidth = 1; g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke();
+    g.restore();
+  }
+  // the skull set in a black marble: a bone-white crown and jaw, dark eyes and nose
+  function drawSkull(x, y, r) {
+    var bone = "#f1ead8", hole = "#120e16";
+    g.save();
+    g.fillStyle = bone;
+    g.beginPath(); g.arc(x, y - r * 0.12, r * 0.46, Math.PI * 0.82, Math.PI * 2.18); g.fill();
+    // the jaw, with its teeth
+    var jw = r * 0.5, jt = y + r * 0.1, jb = y + r * 0.46;
+    g.beginPath(); g.moveTo(x - jw / 2, jt); g.lineTo(x + jw / 2, jt); g.lineTo(x + jw / 2 - r * 0.04, jb); g.lineTo(x - jw / 2 + r * 0.04, jb); g.closePath(); g.fill();
+    g.strokeStyle = hole; g.lineWidth = Math.max(0.8, r * 0.05); g.lineCap = "butt";
+    g.beginPath();
+    for (var i = -1; i <= 1; i++) { g.moveTo(x + i * jw / 4, jt + r * 0.13); g.lineTo(x + i * jw / 4, jb); }
+    g.stroke();
+    // the eyes and the nose
+    g.fillStyle = hole;
+    g.beginPath(); g.ellipse(x - r * 0.19, y - r * 0.1, r * 0.13, r * 0.15, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(x + r * 0.19, y - r * 0.1, r * 0.13, r * 0.15, 0, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(x, y + r * 0.04); g.lineTo(x - r * 0.06, y + r * 0.15); g.lineTo(x + r * 0.06, y + r * 0.15); g.closePath(); g.fill();
     g.restore();
   }
   // the tumbler's body: red pebbled plastic, wider at the mouth
@@ -650,12 +736,16 @@
     if (y < BASE - CH - LIFTH - 10 || y > KEYY + 14) return;
     pick(slot);
   });
+  $("pick-mode").addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("button[data-v]");
+    if (b) setMode(b.getAttribute("data-v"));
+  });
   $("play").addEventListener("click", function () { startRun(1); });
   $("again").addEventListener("click", function () { startRun(1); });
   $("to-menu").addEventListener("click", toMenu);
   if (window.GameShell && GameShell.menuKeys) {
-    // the menu: Space or Enter deals
-    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: [], start: "#play", space: true });
+    // the menu: 1 The Works, 2 Short Order, Space or Enter deals
+    GameShell.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }], start: "#play", space: true });
     // out of lives: Space or Enter again (not in its first moment), Backspace the menu
     GameShell.menuKeys({ active: function () { return state === "over" && performance.now() - overAt > OVER_WAIT; },
       groups: [{ sel: "#to-menu", keys: ["backspace"] }], start: "#again", space: true });
@@ -676,14 +766,18 @@
     found: function () { return found; },
     serial: function () { return serial; },
     clock: function () { return clock; },
-    best: function () { return best.get() || 0; },
+    best: function () { return levelBest().get() || 0; },
+    mode: function () { return mode; },
+    setMode: setMode,
+    SKULL: SKULL,
+    // a level of The Works, or of Short Order with md "short"
     spec: spec,
-    plan: function (n) { return plan(spec(n)); },
+    plan: function (n, md) { return plan(spec(n, md)); },
     limits: { WATCH: WATCH, FLOOR: FLOOR, SLOT_MS: SLOT_MS },
     start: startRun,
     toMenu: toMenu,
     pick: pick,
-    // the round as dealt (the marble in each slot, -1 empty), the switches to come, and now
+    // the round as dealt (the marble in each slot, -1 empty, SKULL a skull), the switches to come, and now
     dealt: function () { return dealtWith.slice(); },
     steps: function () { return steps.map(function (s) { return { pairs: s.pairs.map(function (p) { return p.slice(); }), dur: s.dur, gap: s.gap }; }); },
     contents: function () { return order.map(function (ci) { return cups[ci].m; }); },
@@ -693,6 +787,7 @@
     // each tumbler as drawn: its slot, where it is, and whether it's mid-switch
     drawn: function () { return order.map(function (ci, slot) { var c = cups[ci], q = cupPos(c, slot); return { slot: slot, x: q.x, y: q.y, moving: !!c.mv, p: q.p, from: c.mv ? c.mv.from : slot, to: c.mv ? c.mv.to : slot, lift: liftOf(c), up: c.up }; }); },
     slotX: slotX,
+    marbleR: function () { return MR; },
     // a round not yet switching, at once to its first question (every
     // switch applied, as the shuffle would have)
     skip: function () {

@@ -17,7 +17,10 @@
 // hides it too and keeps the question; with Visual FX off the tumblers
 // still travel round each other and lift; the keys; a tap picks on a
 // phone; the menu and the counter fit every screen without scrolling; and
-// the games page's reset clears both bests.
+// the games page's reset clears both bests. Short Order (one colour among
+// skulls): its own quicker ladder, under the same limits; the menu's 1 and 2
+// pick the way to play; a skull costs a life and deals the level again; its
+// best under its own key; the skull drawn; and no pause hint on the keys line.
 module.exports = async ({ browser, base, check, lib }) => {
   const { devices } = require("@playwright/test");
   const ctx = await lib.newContext(browser);
@@ -93,7 +96,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("p"); await p.waitForTimeout(150);
   const faces = await p.evaluate(() => {
     const out = {};
-    ["#ask", "#hud", "#keys", "#play", "#tally", "#again", "#to-menu", ".nav-back-games", ".rm-toggle", ".mute-toggle", ".gs-pause-btn", ".gs-pause-card h2", ".gs-pause-card button"].forEach((sel) => {
+    ["#ask", "#hud", "#keys", "#pick-mode b", "#pick-mode small", "#play", "#tally", "#again", "#to-menu", ".nav-back-games", ".rm-toggle", ".mute-toggle", ".gs-pause-btn", ".gs-pause-card h2", ".gs-pause-card button"].forEach((sel) => {
       const e = document.querySelector(sel);
       if (!e) { out[sel] = "missing"; return; }
       const cs = getComputedStyle(e);
@@ -101,7 +104,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     return out;
   });
-  check("switcheroo: its writing is all in Chewy at weight 400 (the question, HUD, keys line, buttons, tally, corner buttons and the pause card)",
+  check("switcheroo: its writing is all in Chewy at weight 400 (the question, HUD, keys line, the ways to play, buttons, tally, corner buttons and the pause card)",
     Object.values(faces).every((f) => f === "Chewy 400"), faces);
   await done(p, "model and menu");
 
@@ -371,6 +374,135 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("switcheroo: a fresh run asks nothing on the way out; once a pick is made it does", guard.a0 === false && guard.a1 === true, guard);
   await done(p, "guard");
 
+  // ---- Short Order: one colour among skulls, on a ladder of its own (in a
+  // context of its own, as the way to play picked is kept)
+  {
+    const sc = await lib.newContext(browser);
+    const sOpen = (opts) => lib.open(sc, base, "games/switcheroo/", { before: async (pg) => { if (opts && opts.stepped) await pg.addInitScript(STEPPED); if (opts && opts.seed) await pg.addInitScript((kv) => { for (const k in kv) localStorage.setItem(k, kv[k]); }, opts.seed); } });
+    // the ladder: within every limit to level 100, each level harder than the
+    // one before through the table, and quicker than The Works from level 1
+    let q = await sOpen();
+    const sm = await q.evaluate(() => {
+      const bad = [];
+      let prev = null, mono = true, strict = true, minMotion = 1e9, minWatch = 1e9, maxSpeed = 0, longest = 0;
+      for (let n = 1; n <= 100; n++) {
+        const s = Switcheroo.spec(n, "short");
+        if (s.marbles !== 1) bad.push([n, "marbles", s.marbles]);
+        if (prev && (s.cups < prev.cups || s.swaps < prev.swaps || s.ms > prev.ms || s.gap > prev.gap || s.pairs < prev.pairs || s.span < prev.span)) mono = false;
+        // (through the table and past it till the floors: a little harder every level)
+        if (prev && n <= 18 && !(s.cups > prev.cups || s.swaps > prev.swaps || s.ms < prev.ms || s.gap < prev.gap || s.pairs > prev.pairs)) strict = false;
+        prev = s;
+        for (let k = 0; k < 25; k++) {
+          let total = 0, count = 0;
+          Switcheroo.plan(n, "short").forEach((st) => {
+            const span = Math.max(...st.pairs.map((q) => q[1] - q[0]));
+            count += st.pairs.length; total += st.dur + st.gap;
+            minMotion = Math.min(minMotion, st.dur);
+            minWatch = Math.min(minWatch, (st.dur + st.gap) / st.pairs.length);
+            maxSpeed = Math.max(maxSpeed, (span / st.dur) * 1000);
+            if (st.pairs.length > s.pairs || st.pairs.some((q) => q[1] - q[0] > s.span || q[1] >= s.cups)) bad.push([n, "reach", st.pairs]);
+          });
+          if (count !== s.swaps) bad.push([n, "switches", count, s.swaps]);
+          longest = Math.max(longest, total);
+        }
+      }
+      // side by side with The Works, levels 1 to 12
+      const side = [];
+      for (let n = 1; n <= 12; n++) { const w = Switcheroo.spec(n), s = Switcheroo.spec(n, "short"); side.push({ n, w: [w.cups, w.swaps, w.ms, w.gap], s: [s.cups, s.swaps, s.ms, s.gap] }); }
+      const quicker = side.every((r) => r.s[2] < r.w[2] && r.s[1] >= r.w[1] && r.s[3] <= r.w[3]);
+      return { bad: bad.slice(0, 5), mono, strict, minMotion, minWatch: Math.round(minWatch), maxSpeed: +maxSpeed.toFixed(2), longest, quicker, one: side[0] };
+    });
+    check("switcheroo Short Order model: every level up to 100 one marble, a switch at least 240 ms, at least 180 ms of watching a switch, no tumbler over 9.1 slots a second, no shuffle past 16 s, and the levels only get harder (each a little harder than the last up to the floors)",
+      sm.bad.length === 0 && sm.mono && sm.strict && sm.minMotion >= 240 && sm.minWatch >= 180 && sm.maxSpeed <= 9.1 && sm.longest <= 16000, sm);
+    check("switcheroo Short Order model: quicker hands than The Works from level 1 (each of levels 1 to 12: quicker switches, as many switches or more, gaps no longer)",
+      sm.quicker && sm.one.s[2] < sm.one.w[2] && sm.one.s[1] > sm.one.w[1], sm.one);
+
+    // the menu: 1 and 2 pick the way to play (worn on their names), a pick is
+    // kept, and Space deals the one picked
+    const pick0 = await q.evaluate(() => {
+      const bs = [...document.querySelectorAll("#pick-mode button")];
+      return { n: bs.length, caps: bs.map((b) => { const e = b.querySelector("b"); return e ? e.getAttribute("data-gs-key") : null; }), pressed: bs.map((b) => b.getAttribute("aria-pressed")), mode: Switcheroo.mode && Switcheroo.mode() };
+    });
+    await q.keyboard.press("2"); await q.waitForTimeout(80);
+    const pick2 = await q.evaluate(() => ({ state: Switcheroo.state(), mode: Switcheroo.mode && Switcheroo.mode(), pressed: [...document.querySelectorAll("#pick-mode button")].map((b) => b.getAttribute("aria-pressed")), saved: localStorage.getItem("switcheroo_mode") }));
+    await q.keyboard.press("Space"); await q.waitForTimeout(100);
+    const dealt2 = await q.evaluate(() => ({ state: Switcheroo.state(), mode: Switcheroo.mode && Switcheroo.mode(), dealt: Switcheroo.dealt() }));
+    check("switcheroo: the menu offers The Works and Short Order, keys 1 and 2 on their names; 2 picks Short Order without dealing (kept for next time), and Space then deals it",
+      pick0.n === 2 && pick0.caps.join() === "1,2" && pick0.pressed.join() === "true,false" && pick0.mode === "works" &&
+      pick2.state === "menu" && pick2.mode === "short" && pick2.pressed.join() === "false,true" && pick2.saved === "short" &&
+      dealt2.state === "play" && dealt2.mode === "short", { pick0, pick2, dealt2 });
+    // in play, the line under the counter names the picking keys and nothing about pausing (the corner ⏸ wears P)
+    const keysLine = await q.evaluate(() => ({ text: document.querySelector("#keys .gs-keys").textContent, kbds: [...document.querySelectorAll("#keys kbd")].map((k) => k.textContent) }));
+    check("switcheroo: the keys line in play says the number keys or a click pick a tumbler, and nothing about pausing",
+      /or a click picks a tumbler/.test(keysLine.text) && !/paus/i.test(keysLine.text) && keysLine.kbds.indexOf("P") < 0, keysLine);
+    await done(q, "Short Order menu");
+
+    // a round: one colour, a skull in every other tumbler; a skull costs a
+    // life and the same level is dealt again; the colour found clears the
+    // round, its best saved under its own key (The Works' keys untouched)
+    q = await sOpen({ stepped: true, seed: { switcheroo_mode: "short" } });
+    const round = await q.evaluate(() => {
+      const S = Switcheroo.SKULL;
+      Switcheroo.start(1);
+      const dealt = Switcheroo.dealt(), serial = Switcheroo.serial();
+      const colours = dealt.filter((m) => m >= 0 && m < 6), skulls = dealt.filter((m) => m === S);
+      Switcheroo.skip();
+      __until(() => Switcheroo.phase() === "ask", 600);
+      const asked = Switcheroo.asking(), right = Switcheroo.where(asked);
+      const wrong = Switcheroo.contents().findIndex((m) => m === S);
+      const t0 = Switcheroo.clock();
+      Switcheroo.pick(wrong);
+      const missed = { lives: Switcheroo.lives(), status: document.getElementById("ask").textContent };
+      // the skull in sight under its tumbler, the mark gone: its pixels
+      __until(() => Switcheroo.clock() > t0 + 1950, 400);
+      const cv = document.getElementById("stage"), g = cv.getContext("2d"), k = cv.width / cv.getBoundingClientRect().width;
+      const look = (slot) => {
+        if (!(slot >= 0) || !Switcheroo.marbleR) return null;
+        const d = Switcheroo.drawn()[slot], r = Switcheroo.marbleR(), cx = d.x, cy = d.y - r;
+        const box = g.getImageData(Math.round((cx - r) * k), Math.round((cy - r) * k), Math.round(2 * r * k), Math.round(2 * r * k)).data;
+        let n = 0, dark = 0, bone = 0;
+        for (let y = 0; y < 2 * r * k; y++) for (let x = 0; x < 2 * r * k; x++) {
+          const dx = x / k - r, dy = y / k - r; if (dx * dx + dy * dy > r * r * 0.7) continue;
+          const i = (y * Math.round(2 * r * k) + x) * 4, R = box[i], G = box[i + 1], B = box[i + 2];
+          n++; if (R < 70 && G < 70 && B < 70) dark++; if (R > 215 && G > 205 && B > 180 && R - B > 12) bone++;
+        }
+        return { dark: +(dark / n).toFixed(2), bone: +(bone / n).toFixed(2) };
+      };
+      const skullPx = look(wrong), colourPx = look(right);
+      __until(() => Switcheroo.phase() === "deal", 400);
+      const again = { level: Switcheroo.level(), phase: Switcheroo.phase(), fresh: Switcheroo.serial() === serial + 1, found: Switcheroo.found(), lives: Switcheroo.lives() };
+      // now find it
+      Switcheroo.skip();
+      __until(() => Switcheroo.phase() === "ask", 600);
+      const found = Switcheroo.pick(Switcheroo.where(Switcheroo.asking()));
+      __until(() => Switcheroo.phase() === "clear", 600);
+      const clear = { phase: Switcheroo.phase(), found: Switcheroo.found(), short: localStorage.getItem("switcheroo_short_best"), works: localStorage.getItem("switcheroo_best"), mostFound: localStorage.getItem("switcheroo_best_found") };
+      __until(() => Switcheroo.level() === 2 && Switcheroo.phase() === "deal", 400);
+      return { n: dealt.length, colours, skulls: skulls.length, asked, coloursAsked: colours.indexOf(asked) >= 0, missed, skullPx, colourPx, again, found, clear, level2: Switcheroo.level(), dealt2: Switcheroo.dealt() };
+    });
+    check("switcheroo Short Order: a round deals one coloured marble and a skull into every other tumbler, and asks for that colour",
+      round.colours.length === 1 && round.skulls === round.n - 1 && round.coloursAsked && round.dealt2.filter((m) => m >= 0 && m < 6).length === 1, round);
+    check("switcheroo Short Order: picking a skull costs a life (\"That's a skull\"), shows where the colour was, then deals the same level again, fresh (nothing found, no level up)",
+      round.missed.lives === 2 && /skull/.test(round.missed.status) && round.again.level === 1 && round.again.phase === "deal" && round.again.fresh && round.again.found === 0 && round.again.lives === 2,
+      { missed: round.missed, again: round.again });
+    check("switcheroo Short Order: the skull marble is drawn black with a bone-white skull, unlike the coloured one",
+      !!round.skullPx && !!round.colourPx && round.skullPx.dark > 0.25 && round.skullPx.bone > 0.08 && round.colourPx.dark < 0.05, { skull: round.skullPx, colour: round.colourPx });
+    check("switcheroo Short Order: finding the colour clears the round to level 2, its best saved at once under its own key (switcheroo_short_best), The Works' best level and most found untouched",
+      round.found === true && round.clear.phase === "clear" && round.clear.found === 1 && round.clear.short === "2" && round.clear.works === null && round.clear.mostFound === null && round.level2 === 2,
+      round.clear);
+    await done(q, "Short Order round");
+
+    // the menu's tally is the picked way's own best
+    q = await sOpen({ seed: { switcheroo_best: "6", switcheroo_best_found: "14", switcheroo_short_best: "4", switcheroo_mode: "works" } });
+    const tally1 = await q.evaluate(() => document.getElementById("tally").textContent);
+    await q.keyboard.press("2"); await q.waitForTimeout(80);
+    const tally2 = await q.evaluate(() => ({ tally: document.getElementById("tally").textContent, hud: (Switcheroo.start(1), document.getElementById("hud-best").textContent) }));
+    check("switcheroo: the menu's tally shows the picked way's own best (The Works: level 6 and 14 found; Short Order: level 4), and the HUD's best is Short Order's in a Short Order run",
+      tally1 === "best: reached level 6 · most found: 14" && tally2.tally === "best: reached level 4" && tally2.hud === "4", { tally1, tally2 });
+    await done(q, "Short Order bests");
+    await sc.close();
+  }
+
   // ---- fit: the menu, the counter in play and the end card, with nothing scrolling, at laptop and phone sizes
   const SIZES = [[1280, 900], [1366, 657], [1280, 600], [390, 664], [360, 560], [375, 553], [320, 568]];
   const misfit = [];
@@ -424,12 +556,13 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the games page's reset clears the best
   {
-    const q = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("switcheroo_best", "7"); localStorage.setItem("switcheroo_best_found", "12"); localStorage.setItem("reduceMotion:switcheroo", "1"); } catch (e) {} }) });
+    const q = await lib.open(ctx, base, "games/", { waitCorner: false, before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("switcheroo_best", "7"); localStorage.setItem("switcheroo_best_found", "12"); localStorage.setItem("switcheroo_short_best", "5"); localStorage.setItem("switcheroo_mode", "short"); localStorage.setItem("reduceMotion:switcheroo", "1"); } catch (e) {} }) });
     const before = await q.evaluate(() => localStorage.getItem("switcheroo_best"));
     await q.click("#reset-scores"); await q.waitForTimeout(150);
     await q.click("#reset-dialog .dialog-ok"); await q.waitForTimeout(200);
-    const after = await q.evaluate(() => ({ best: localStorage.getItem("switcheroo_best"), found: localStorage.getItem("switcheroo_best_found"), fx: localStorage.getItem("reduceMotion:switcheroo") }));
+    const after = await q.evaluate(() => ({ best: localStorage.getItem("switcheroo_best"), found: localStorage.getItem("switcheroo_best_found"), short: localStorage.getItem("switcheroo_short_best"), mode: localStorage.getItem("switcheroo_mode"), fx: localStorage.getItem("reduceMotion:switcheroo") }));
     check("switcheroo: the games page's reset all high scores clears its best level and most found (and keeps its Visual FX setting)", before === "7" && after.best === null && after.found === null && after.fx === "1", { before, after });
+    check("switcheroo: the reset clears Short Order's best level too, and keeps the way to play last picked (a setting)", after.short === null && after.mode === "short", after);
     await q.close();
   }
 

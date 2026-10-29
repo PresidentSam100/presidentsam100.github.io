@@ -49,12 +49,16 @@
     <h1>Switcheroo</h1>
     <p class="tag">keep your eye on the marbles</p>
     <p class="how">
-      A marble drops into each tumbler, then the tumblers turn over and switch
-      places. When they stop, find each colour the counter asks for: click or
-      tap its tumbler, or press its number. A wrong pick costs one of your
-      three lives. Every round cleared is a level up, with more tumblers and
-      quicker hands, then pairs switching at once and empty tumblers mixed in.
+      A marble drops into each tumbler, then they turn over and switch places.
+      When they stop, find the colour the counter asks for: click or tap its
+      tumbler, or press its number. A wrong pick costs one of your three
+      lives. Each round cleared is a level up: more tumblers, quicker hands,
+      then pairs switching at once and, in The Works, empty tumblers too.
     </p>
+    <div class="seg" id="pick-mode">
+      <button type="button" data-v="works" aria-pressed="true"><b>The Works</b><small>find every colour</small></button>
+      <button type="button" data-v="short" aria-pressed="false"><b>Short Order</b><small>one colour among skulls, quicker</small></button>
+    </div>
     <button type="button" class="playbtn" id="play">Deal me in</button>
     <p class="tally" id="tally"></p>
   </div>

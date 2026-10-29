@@ -24,6 +24,7 @@ const MENUS = {
   "sunset-slice/": { keys: ["1", "2", "3"], pick: true },
   "speedle/": { keys: ["1", "2"], pick: true },
   "stopwatch/": { keys: ["1", "2"] },
+  "switcheroo/": { keys: ["1", "2"], enter: true },     // (The Works, Short Order; Deal me in starts)
   "salvo/": { keys: ["1", "2", "3"] },
   "chess/": { keys: ["2", "4"], fresh: true },          // (each opens a sub-menu; 3 goes to the 3-player page: below)
   "chess/three.html": { keys: ["1", "2", "3"], pick: true },
