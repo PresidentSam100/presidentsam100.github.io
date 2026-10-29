@@ -55,16 +55,14 @@
       <button type="button" data-v="pilgrimage"><b>Pilgrimage</b><small>sixteen windows, three beads</small></button>
       <button type="button" data-v="vigil"><b>Vigil</b><small>sixteen windows, one bead</small></button>
     </div>
-    <!-- the window to start from: the one before, its picture and name
-         (game.js), the next; only the windows a game has reached are open -->
-    <div class="winrow" id="pick-window">
-      <button type="button" id="win-prev" aria-label="The window before">◀</button>
-      <span class="winpick">
-        <canvas id="win-pic" aria-hidden="true"></canvas>
-        <span class="win-text"><b id="win-name">I · The Lancets</b><small id="win-note"></small></span>
-      </span>
-      <button type="button" id="win-next" aria-label="The next window">▶</button>
+    <!-- the window to start from: the one picked, its picture and name, and
+         all sixteen in a grid under it (game.js); only the windows a game has
+         reached are open -->
+    <div class="winpick" id="pick-window">
+      <canvas id="win-pic" aria-hidden="true"></canvas>
+      <span class="win-text"><b id="win-name">I · The Lancets</b><small id="win-note"></small></span>
     </div>
+    <div class="wingrid" id="win-grid" role="group" aria-label="The window to start from"></div>
     <button type="button" class="playbtn" id="play"><b>Light the windows</b></button>
     <p class="bests" id="bests"></p>
   </div>

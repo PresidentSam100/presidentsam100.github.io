@@ -66,16 +66,11 @@
         <button type="button" data-v="classic"><b>Classic</b><small>a fresh deal, fastest clear <span class="gs-keys"><kbd>1</kbd></span></small></button>
         <button type="button" data-v="daily"><b>Daily</b><small id="daily-small">today's layout, shareable <span class="gs-keys"><kbd>2</kbd></span></small></button>
       </div>
-      <!-- the layout a Classic deal is laid in: the one before, its picture and
-           name (game.js), the next. The Daily's is the day's own (game.js dailyLayout). -->
-      <div class="layrow" id="pick-layout">
-        <button type="button" id="lay-prev" aria-label="The layout before">◀</button>
-        <span class="lay">
-          <canvas id="lay-pic" aria-hidden="true"></canvas>
-          <span class="lay-text"><b id="lay-name">Turtle</b><small id="lay-note"></small></span>
-        </span>
-        <button type="button" id="lay-next" aria-label="The next layout">▶</button>
-      </div>
+      <!-- the layout a Classic deal is laid in: all eight, a little picture
+           of each (game.js), the picked one's name under them. The Daily's is
+           the day's own (game.js dailyLayout). -->
+      <div class="laygrid" id="pick-layout" role="group" aria-label="The layout to deal"></div>
+      <p class="lay-text"><b id="lay-name">Turtle</b> <small id="lay-note"></small><span id="lay-keys"></span></p>
     </div>
     <button type="button" class="playbtn" id="play"><b id="play-what">Deal the turtle</b> <span class="gs-keys"><kbd>Space or Enter</kbd></span></button>
     <p class="bests" id="bests"></p>

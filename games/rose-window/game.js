@@ -810,18 +810,44 @@
     $("bests").textContent = parts.length ? "best: " + parts.join(" · ") : "no windows lit yet";
     paintPick();
   }
-  // the window to start from: its name, how many are open, and whether a best is kept
+  // the window to start from: its name, how many are open, and whether a best
+  // is kept (or, for a moment, why a window pressed isn't open yet); every
+  // window in the grid, open or not, the picked one lit
+  var shutNote = "", shutT = 0;
   function paintPick() {
     $("win-name").textContent = ROMAN[pick] + " · " + WINDOWS[pick].name;
     var open = reached + 1;
-    $("win-note").textContent = (open === 1 ? "one window open: reach more to start from them" :
+    $("win-note").textContent = shutNote || (open === 1 ? "one window open: reach more to start from them" :
       open === WINDOWS.length ? "all " + COUNT[open] + " open" : COUNT[open] + " of " + COUNT[WINDOWS.length] + " open") +
       (pick > 0 ? " · no best kept from here" : "");
-    $("win-prev").disabled = $("win-next").disabled = reached === 0;
+    if (keysHint) $("win-note").insertAdjacentHTML("beforeend", keysHint);
+    tiles.forEach(function (b, i) {
+      var shut = i > reached;
+      b.classList.toggle("locked", shut);
+      b.classList.toggle("on", i === pick);
+      b.setAttribute("aria-pressed", i === pick ? "true" : "false");
+      if (shut) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled");
+      b.setAttribute("aria-label", "Window " + ROMAN[i] + (shut ? ", not reached yet" : ", " + WINDOWS[i].name));
+      b.title = shut ? "Not reached yet" : WINDOWS[i].name;
+    });
     drawPick();
     // (the window behind the card is the one picked)
     if (state === "menu") panes = glaze(pick);
   }
+  // a tile for every window, tinted with the glass it has most of
+  var tiles = WINDOWS.map(function (w, i) {
+    var n = {}, hue = "sapphire";
+    glaze(i).forEach(function (p) { if (p.max > 0) { n[p.hue] = (n[p.hue] || 0) + 1; if (n[p.hue] > (n[hue] || 0)) hue = p.hue; } });
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "wt"; b.textContent = ROMAN[i];
+    b.style.setProperty("--lt", GLASS[hue][0]); b.style.setProperty("--body", GLASS[hue][1]); b.style.setProperty("--deep", GLASS[hue][2]);
+    b.addEventListener("click", function () { choose(i); });
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus, as the modes)
+    $("win-grid").appendChild(b);
+    return b;
+  });
+  // the keycaps for the grid (with a keyboard), after the note
+  var keysHint = window.GameShell && GameShell.gridKeys ? GameShell.gridKeys.hint() : "";
   // a little picture of it: the arch, its glass, its stone
   function drawPick() {
     var c = $("win-pic"), cs = c.getBoundingClientRect(), r = window.devicePixelRatio || 1;
@@ -837,9 +863,18 @@
       k.fillRect(p.x + 1, p.y + 1, CW - 2, CH - 2);
     });
   }
-  function stepPick(d) {
-    if (state !== "menu" || reached === 0) return;
-    pick = (pick + d + reached + 1) % (reached + 1);
+  // a window picked to start from: one not reached yet says so instead
+  function choose(i) {
+    if (state !== "menu") return;
+    if (i > reached) {
+      shutNote = "🔒 Window " + ROMAN[i] + " opens once a game reaches it";
+      clearTimeout(shutT);
+      shutT = setTimeout(function () { shutNote = ""; if (state === "menu") paintPick(); }, 2600);
+      paintPick();
+      return;
+    }
+    shutNote = "";
+    pick = i;
     store.set("rosewindow_from", String(pick));
     paintPick();
   }
@@ -861,17 +896,24 @@
     // the Enter that should start would press the mode again
     b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
-  $("win-prev").addEventListener("click", function () { stepPick(-1); });
-  $("win-next").addEventListener("click", function () { stepPick(1); });
-  ["win-prev", "win-next"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
   $("play").addEventListener("click", function () { startRun(mode); });
   $("again").addEventListener("click", function () { startRun(mode); });
   $("to-menu").addEventListener("click", toMenu);
   if (window.GameShell && GameShell.menuKeys) {
-    // the modes take 1 and 2, ← and → the window to start from, and Space or
-    // Enter lights the windows
+    // the modes take 1 and 2, and Space or Enter lights the windows
     GameShell.menuKeys({ active: function () { return state === "menu"; },
-      groups: ["#pick-mode button", { sel: "#win-prev", keys: ["arrowleft"] }, { sel: "#win-next", keys: ["arrowright"] }], start: "#play", space: true });
+      groups: ["#pick-mode button"], start: "#play", space: true });
+    // the arrows walk the grid of windows, the pick going with the ring onto
+    // an open one (one not reached yet says so), and Enter starts from the
+    // window picked (a press since may have picked another), or says again
+    // why a ringed one isn't open
+    GameShell.gridKeys({ active: function () { return state === "menu"; }, sel: "#win-grid .wt",
+      first: function () { return tiles[pick]; },
+      open: function (tile) { var i = tiles.indexOf(tile); if (i > reached) choose(i); else startRun(mode); } });
+    new MutationObserver(function () {
+      var at = $("win-grid").querySelector(".wt[data-gs-pick]");
+      if (at && (tiles.indexOf(at) !== pick || shutNote)) choose(tiles.indexOf(at));
+    }).observe($("win-grid"), { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
     // the end card: Space or Enter again (not in its first moments, so a key
     // still down from play can't skip it), Backspace back to the modes;
     // Esc is left alone, and leaves for the games page

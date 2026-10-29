@@ -3,7 +3,9 @@
 // the stage banners pause when the window is away; a held P / F acts
 // once; the game starts with storage blocked; capsules and explosions move
 // the same at 60 and 144 Hz; the screen keeps its shape on narrow screens;
-// on a phone the touch buttons work the title's pickers; and the canvas
+// on a phone the touch buttons work the title's pickers; S on the title
+// lists all 255 stages to pick the start from (a click or a tap on the
+// start stage too); and the canvas
 // hints say what a tap does on a phone, the keys on a desktop; and the title
 // names no Visual FX switch nor the bar under the screen a pause (the corner
 // buttons are both); on a 2x screen it is drawn at the screen's resolution;
@@ -164,6 +166,59 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("spacer, phone: on GAME OVER and CONGRATULATIONS ● goes back to the title (not a reflex tap as the run ends); a tap on the screen plays again",
     end[0][0] === "gameover" && end[0][1] === "attract" && end[1][0] === "complete" && end[1][1] === "attract" && again === "ready", { end, again });
   await done(p, "touch pickers");
+  await c.close();
+
+  // ---- the list of stages: S on the title lists all 255 (the challenging
+  // ones in gold), opening on the start stage; the arrows move along it (↓ a
+  // row of 15), Enter picks the stage to start from and goes back to the
+  // title, Esc goes back as it was (staying in the game); Enter on the title
+  // then starts there. With a mouse a click on the title's start stage opens
+  // it and a click on a stage picks it (anywhere else goes back); on a phone
+  // a tap does the same, and a tap elsewhere on the title still starts
+  // (a point on the screen, in screen units, on the page)
+  const onScreen = (q, sx, sy) => q.evaluate(([sx, sy]) => { const cv = document.getElementById("screen"), r = cv.getBoundingClientRect(); return { x: r.left + cv.clientLeft + sx * cv.clientWidth / 448, y: r.top + cv.clientTop + sy * cv.clientHeight / 576 }; }, [sx, sy]);
+  const cellOf = (n) => [14 + ((n - 1) % 15) * 28 + 14, 92 + Math.floor((n - 1) / 15) * 24 + 12];
+  // (every number one frame draws, with its colour)
+  const drawnNums = (q) => q.evaluate(() => new Promise((ok) => {
+    const ctx = document.getElementById("screen").getContext("2d"), seen = {}, orig = ctx.fillText;
+    ctx.fillText = function (s) { if (/^\d+$/.test(s)) seen[s] = this.fillStyle; return orig.apply(this, arguments); };
+    requestAnimationFrame(() => requestAnimationFrame(() => { delete ctx.fillText; ok(seen); }));
+  }));
+  c = await lib.newContext(browser);
+  p = await lib.open(c, base, "games/spacer/");
+  await p.keyboard.press("s"); await p.waitForTimeout(60);
+  const listed = Object.assign(await st(p), { cursor: await p.evaluate(() => game.stageCursor) });
+  const nums = await drawnNums(p);
+  for (const k of ["ArrowRight", "ArrowRight", "ArrowDown", "ArrowDown", "ArrowLeft"]) { await p.keyboard.press(k); await p.waitForTimeout(30); }
+  const moved = await p.evaluate(() => game.stageCursor);
+  await p.keyboard.press("Enter"); await p.waitForTimeout(60);
+  const picked = await st(p);
+  await p.keyboard.press("s"); await p.waitForTimeout(60);
+  await p.keyboard.press("ArrowRight"); await p.keyboard.press("Escape"); await p.waitForTimeout(150);
+  const backed = Object.assign(await st(p), { leaves: p.leaves });
+  await p.keyboard.press("Enter"); await p.waitForTimeout(100);
+  const started = await st(p);
+  check("spacer: S on the title lists all 255 stages (the challenging ones in gold), opening on the start stage; the arrows move along it (↓ a row of 15), Enter picks the one to start from and goes back to the title; Esc goes back as it was, staying in the game; Enter then starts there",
+    listed.mode === "stages" && listed.cursor === 1 && Object.keys(nums).length === 255 && nums["3"] === "#ffd23f" && nums["4"] !== "#ffd23f" &&
+    moved === 32 && picked.mode === "attract" && picked.startStage === 32 && backed.mode === "attract" && backed.startStage === 32 && backed.leaves === 0 &&
+    started.mode === "ready" && started.stage === 32,
+    { listed: [listed.mode, listed.cursor], nums: Object.keys(nums).length, gold: [nums["3"], nums["4"]], moved, picked: [picked.mode, picked.startStage], backed, started: [started.mode, started.stage] });
+  await p.evaluate(() => game.toTitle());
+  const click = async (sx, sy) => { const at = await onScreen(p, sx, sy); await p.mouse.click(at.x, at.y); await p.waitForTimeout(60); return st(p); };
+  const m1 = await click(224, 418), m2 = await click(...cellOf(100)), m3 = await click(224, 418), m4 = await click(224, 545);
+  check("spacer: with a mouse a click on the title's start stage opens the list of stages, a click on a stage picks it, and a click off the list goes back",
+    m1.mode === "stages" && m2.mode === "attract" && m2.startStage === 100 && m3.mode === "stages" && m4.mode === "attract" && m4.startStage === 100,
+    { m1: m1.mode, m2: [m2.mode, m2.startStage], m3: m3.mode, m4: [m4.mode, m4.startStage] });
+  await done(p, "stage list");
+  await c.close();
+  c = await lib.newContext(browser, devices["Pixel 7"]);
+  p = await lib.open(c, base, "games/spacer/");
+  const tap = async (sx, sy) => { const at = await onScreen(p, sx, sy); await p.touchscreen.tap(at.x, at.y); await p.waitForTimeout(80); return st(p); };
+  const t5 = await tap(224, 418), t6 = await tap(...cellOf(7)), t7 = await tap(224, 288);
+  check("spacer, phone: a tap on the title's start stage opens the list of stages, a tap on a stage picks it, and a tap elsewhere on the title starts from it",
+    t5.mode === "stages" && t6.mode === "attract" && t6.startStage === 7 && t7.mode === "ready" && t7.stage === 7,
+    { t5: t5.mode, t6: [t6.mode, t6.startStage], t7: [t7.mode, t7.stage] });
+  await done(p, "stage list, phone");
   await c.close();
 
   // ---- the canvas hints: what a tap does on a phone, the keys on a desktop

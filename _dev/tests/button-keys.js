@@ -18,9 +18,11 @@ const ALLOW = {
   "klondike/": [".mtop"],                   // the two menus: every item inside shows its key
   "lights-out/": [".bulb"],                 // the board (arrows walk it)
   "logicgate/": [".theme-btn", ".dot"],     // the look, and the level grid (G hands it the arrows)
+  "mahjong/": [".lt"],                      // the layouts: a grid the arrows walk (the keys beside the picked one's name)
   "metazac/": ["#power-btn"],               // (it says SPACE on its face)
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
+  "rose-window/": [".wt"],                  // the windows to start from: a grid the arrows walk (the keys after its note)
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
   "sowing/": [".pit"],                      // the far row (the near row wears 1 to 6, and a friend's far row on its turn)
   "stone-garden/": [".cell"],               // the board (the arrows on its frame walk it, Enter on the cursor's place)

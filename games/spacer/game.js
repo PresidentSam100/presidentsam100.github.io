@@ -1639,6 +1639,10 @@ function stageBadges(stage) {
 
 // the between-stage banners (READY, STAGE CLEAR, the bonus tally): part of a run
 const BANNER_MODES = ['ready', 'cleared', 'bonusResult'];
+// a challenging stage: 3, 7, 11, 15, …
+const isChallengeStage = (n) => n >= 3 && (n - 3) % 4 === 0;
+// the list of stages (S on the title): all 255 in a grid, 15 to a row
+const STAGE_GRID = { cols: 15, x: 14, y: 92, w: 28, h: 24 };
 
 // selectable life modes shown on the title screen
 const LIFE_MODES = [
@@ -1838,14 +1842,27 @@ class Game {
       // first, as Home does, with the run paused underneath (guardLeave,
       // below); on the title and the game-over and complete screens it just
       // goes.
-      if (k === 'escape' && this.mode === 'gallery')
+      if (k === 'escape' && (this.mode === 'gallery' || this.mode === 'stages'))
         e.preventDefault();
       Sound.init();
       Sound.resume();
       // a held P / Esc / F / Enter / E / Backspace acts once: its repeats would
       // flip the pause, Visual FX or the guide back and forth (moving, firing
       // and the stage picker still repeat)
-      if (e.repeat && ['p', 'escape', 'f', 'enter', 'e', 'backspace'].includes(k)) return;
+      if (e.repeat && ['p', 'escape', 'f', 'enter', 'e', 'backspace', 's'].includes(k)) return;
+      // the list of stages captures input while open: the arrows move along
+      // it, Enter or Space picks the stage to start from, S / Esc / Backspace
+      // go back to the title as it was
+      if (this.mode === 'stages') {
+        if (k === 'arrowleft' || k === 'a') this.stageNav(-1);
+        else if (k === 'arrowright' || k === 'd') this.stageNav(1);
+        else if (k === 'arrowup') this.stageNav(-STAGE_GRID.cols);
+        else if (k === 'arrowdown') this.stageNav(STAGE_GRID.cols);
+        else if ((k === 'enter' || k === ' ') && !e.repeat) this.pickStage(this.stageCursor);
+        else if (k === 's' || k === 'escape' || k === 'backspace') this.mode = 'attract';
+        return;
+      }
+      if (k === 's' && this.mode === 'attract') { this.openStages(); return; }
       // guide (gallery) captures input while open: ←→ browse, ↑↓ switch tab
       if (this.mode === 'gallery') {
         if (k === 'arrowleft' || k === 'a') this.galleryNav(-1);
@@ -1919,6 +1936,55 @@ class Game {
     if (this.mode !== 'attract' || i === this.menuIndex) return;
     this.menuIndex = i;
     Sound.bonusTick();
+  }
+
+  // the list of every stage, to pick the one to start from (S on the title,
+  // or a tap or a click on its start stage); it opens on the stage picked
+  openStages() {
+    if (this.mode !== 'attract') return;
+    this.mode = 'stages';
+    this.stageCursor = this.startStage;
+    Sound.coin();
+    this.announce('All 255 stages. Pick the stage to start from.');
+  }
+  stageNav(d) {
+    const n = this.stageCursor + d;
+    if (n < 1 || n > 255) return;
+    this.stageCursor = n;
+    Sound.bonusTick();
+  }
+  pickStage(n) {
+    this.startStage = n;
+    this.mode = 'attract';
+    Sound.bonusTick();
+    this.announce('Start stage ' + n + '.');
+  }
+  // where stage n sits in the list, and which stage (or 0) is at a point
+  stageCell(n) {
+    const g = STAGE_GRID, i = n - 1;
+    return { x: g.x + (i % g.cols) * g.w, y: g.y + Math.floor(i / g.cols) * g.h, w: g.w, h: g.h };
+  }
+  stageAt(x, y) {
+    const g = STAGE_GRID, c = Math.floor((x - g.x) / g.w), r = Math.floor((y - g.y) / g.h);
+    if (c < 0 || c >= g.cols || r < 0) return 0;
+    const n = r * g.cols + c + 1;
+    return n <= 255 ? n : 0;
+  }
+  // a tap or a click on the screen, in screen units: on the title the start
+  // stage opens the list; on the list a stage is picked, and anywhere else
+  // goes back. True if it did something.
+  screenTap(x, y) {
+    if (this.mode === 'attract') {
+      if (Math.abs(y - 418) > 16 || Math.abs(x - WIDTH / 2) > 140) return false;
+      this.openStages();
+      return true;
+    }
+    if (this.mode === 'stages') {
+      const n = this.stageAt(x, y);
+      if (n) this.pickStage(n); else this.mode = 'attract';
+      return true;
+    }
+    return false;
   }
 
   // pick the starting stage on the title screen (held arrows repeat)
@@ -2081,7 +2147,7 @@ class Game {
     this.playTime = 0;
     this.attackTimer = 2.5;
     this.captureCd = this.profile.captureCooldown;
-    this.isBonus = this.stage >= 3 && (this.stage - 3) % 4 === 0; // 3, 7, 11, 15, …
+    this.isBonus = isChallengeStage(this.stage);
     this.raidersLeft = this.isBonus ? 0 : this.profile.earlyChargers; // side raiders to spawn
     this.raiderTimer = 3.0;   // first one ~3s in, then spread out
     this.raiderIndex = 0;
@@ -2965,6 +3031,7 @@ class Game {
 
     if (this.mode === 'attract') { this.drawAttract(ctx); this.drawHUD(ctx); return; }
     if (this.mode === 'gallery') { this.drawGallery(ctx); return; }
+    if (this.mode === 'stages') { this.drawStages(ctx); return; }
 
     // tractor beams behind enemies
     for (const e of this.enemies) if (e.state === 'beam') e.drawBeam(ctx);
@@ -3157,6 +3224,21 @@ class Game {
     this.keys(ctx, '[◀][▶] BROWSE   [▲][▼] ENEMIES/POWER-UPS   [E]/[ESC] BACK', WIDTH / 2, HEIGHT - 34, 10, '#fff', 'center');
   }
 
+  // the list of stages: every one of the 255, the challenging ones in gold,
+  // the one picked to start from lit, and the arrows' place ringed in cyan
+  drawStages(ctx) {
+    this.text(ctx, 'STAGES', WIDTH / 2, 44, 24, '#ff3b5c', 'center');
+    this.text(ctx, 'PICK THE STAGE TO START FROM', WIDTH / 2, 70, 11, '#18e0ff', 'center');
+    for (let n = 1; n <= 255; n++) {
+      const r = this.stageCell(n), picked = n === this.startStage, at = n === this.stageCursor;
+      if (picked) { ctx.fillStyle = '#2b2170'; ctx.fillRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+      if (at) { ctx.strokeStyle = '#18e0ff'; ctx.lineWidth = 2; ctx.strokeRect(r.x + 1, r.y + 1, r.w - 2, r.h - 2); }
+      this.text(ctx, String(n), r.x + r.w / 2, r.y + r.h / 2 + 1, 10, at || picked ? '#fff' : isChallengeStage(n) ? '#ffd23f' : '#8fa0d8', 'center');
+    }
+    this.text(ctx, 'GOLD: A CHALLENGING STAGE', WIDTH / 2, 518, 10, '#ffd23f', 'center');
+    this.keys(ctx, '[◀][▶][▲][▼] MOVE   [ENTER] PICK   [S]/[ESC] BACK', WIDTH / 2, HEIGHT - 34, 10, '#fff', 'center', 'TAP A STAGE TO PICK IT, OR BELOW TO GO BACK');
+  }
+
   drawAttract(ctx) {
     this.text(ctx, 'SPACER', WIDTH / 2, 128, 48, '#ff3b5c', 'center');
     this.text(ctx, 'JAVASCRIPT EDITION', WIDTH / 2, 164, 12, '#18e0ff', 'center');
@@ -3186,7 +3268,7 @@ class Game {
     // corner, by the pause button, and V still flips it.)
     if (this.blinkOn())
       this.keys(ctx, '[▲][▼] MODE  [◀][▶] STAGE  [SPACE]/[ENTER] START', WIDTH / 2, HEIGHT - 44, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
-    this.keys(ctx, '[E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 22, 10, '#8fa0d8', 'center', '');
+    this.keys(ctx, '[S] ALL STAGES   [E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 22, 10, '#8fa0d8', 'center', 'TAP THE START STAGE FOR ALL STAGES');
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {
@@ -3301,19 +3383,30 @@ window.addEventListener('load', () => {
   // the run ended mustn't skip past it)
   bindHold('t-fire', 'fire', () => g.onMenuKey('arrowdown'), false, () => { if (g.time - g.endedAt > 0.8) g.toTitle(); });
 
+  // from the page to screen units (the canvas is scaled, inside its border)
+  const toScreen = (cx, cy) => {
+    const r = canvas.getBoundingClientRect();
+    return { x: (cx - r.left - canvas.clientLeft) * WIDTH / canvas.clientWidth, y: (cy - r.top - canvas.clientTop) * HEIGHT / canvas.clientHeight };
+  };
   // Tap the screen to start a game from the title / game-over / complete
-  // screens; while paused, tap a menu item to choose it.
+  // screens (on the title, a tap on the start stage opens the list of
+  // stages, where a tap picks one); while paused, tap a menu item to choose it.
   canvas.addEventListener('touchstart', (e) => {
     Sound.init(); Sound.resume();
-    if (g && (g.mode === 'attract' || g.mode === 'gameover' || g.mode === 'complete')) {
+    const t = e.changedTouches[0], at = t && toScreen(t.clientX, t.clientY);
+    if (g && at && (g.mode === 'attract' || g.mode === 'stages') && g.screenTap(at.x, at.y)) {
+      e.preventDefault();
+    } else if (g && (g.mode === 'attract' || g.mode === 'gameover' || g.mode === 'complete')) {
       e.preventDefault();
       g.onStartKey();
-    } else if (g && g.mode === 'paused' && e.changedTouches.length) {
-      // from the page to screen units (the canvas is scaled, inside its border)
-      const t = e.changedTouches[0], r = canvas.getBoundingClientRect();
-      const x = (t.clientX - r.left - canvas.clientLeft) * WIDTH / canvas.clientWidth;
-      const y = (t.clientY - r.top - canvas.clientTop) * HEIGHT / canvas.clientHeight;
-      if (g.pauseTap(x, y)) e.preventDefault();
+    } else if (g && g.mode === 'paused' && at) {
+      if (g.pauseTap(at.x, at.y)) e.preventDefault();
     }
   }, { passive: false });
+  // with a mouse, a click does on the title and the list of stages what a tap does there
+  canvas.addEventListener('click', (e) => {
+    if (!g || (g.mode !== 'attract' && g.mode !== 'stages')) return;
+    const at = toScreen(e.clientX, e.clientY);
+    g.screenTap(at.x, at.y);
+  });
 });

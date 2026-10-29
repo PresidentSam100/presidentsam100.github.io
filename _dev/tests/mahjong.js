@@ -5,7 +5,8 @@
 // costs nothing and points at Undo, and so does the no-pairs nudge when no
 // reshuffle can fit, which also offers New deal (and on the Daily, giving
 // up), asking first; the keycaps hide on a phone. Eight layouts, each a valid
-// board of 144 tiles, picked on the menu with the arrows; each deals the full
+// board of 144 tiles, all listed on the menu in a grid of pictures, picked
+// with a press or the arrows; each deals the full
 // set, can be cleared, fits the screen and keeps its own fastest clear; the
 // Daily's is the day's own, at random, every layout once in each round of
 // days and never the same two days running; the games page's reset clears
@@ -203,30 +204,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     lays.map((l) => l.name).join() === NAMES.join() && lays[0].id === "turtle" && lays[0].best === "mahjong_best_classic" && new Set(lays.map((l) => l.id)).size === N && new Set(lays.map((l) => l.best)).size === N &&
     lays.every((l) => l.n === 144 && l.bad.length === 0), lays);
 
-  // ---- the menu's arrows pick the layout (the arrow keys, shown on them, round
-  // and round); the name, the picture, the deal button and the fastest clear follow
+  // ---- the menu lists all eight layouts in a grid, each its own little
+  // picture: a click picks one (remembered); the arrow keys walk the grid
+  // (shown beside the note), the pick going along; Enter deals the one
+  // picked; the name, its place, the deal button and the fastest clear follow
   const menuNow = () => p.evaluate(() => {
-    const cv = document.getElementById("lay-pic"), t = (id) => (document.getElementById(id) || {}).textContent || "";
-    let ink = 0, sum = 0;
-    if (cv) { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 200) { ink++; sum = (sum + i * 7) % 1000003; } }
-    const cap = (id) => { const b = document.getElementById(id); return b ? b.getAttribute("data-gs-key") : null; };
-    return { name: t("lay-name"), note: t("lay-note"), play: t("play-what"), bests: t("bests"), stored: localStorage.getItem("mahjong_layout"), ink, sum,
-      caps: [cap("lay-prev"), cap("lay-next")], off: [...document.querySelectorAll("#pick-layout button")].map((b) => b.disabled) };
+    const t = (id) => (document.getElementById(id) || {}).textContent || "";
+    const tiles = [...document.querySelectorAll("#pick-layout .lt")];
+    const inkOf = (cv) => { let ink = 0, sum = 0; if (cv) { const d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data; for (let i = 3; i < d.length; i += 4) if (d[i] > 200) { ink++; sum = (sum + i * 7) % 1000003; } } return { ink, sum }; };
+    return { name: t("lay-name"), note: t("lay-note"), play: t("play-what"), bests: t("bests"), stored: localStorage.getItem("mahjong_layout"),
+      tiles: tiles.length, shown: tiles.filter((b) => b.getClientRects().length > 0).length, on: tiles.findIndex((b) => b.classList.contains("on")),
+      pics: tiles.map((b) => inkOf(b.querySelector("canvas"))), keys: [...document.querySelectorAll("#lay-keys kbd")].map((k) => k.textContent).join(" "),
+      off: tiles.map((b) => b.getAttribute("aria-disabled") === "true") };
   });
-  const pick = async (name) => { for (let i = 0; i <= N && (await menuNow()).name !== name; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(40); } };
+  const pick = async (name) => { await p.evaluate((i) => document.querySelectorAll("#pick-layout .lt")[i].click(), NAMES.indexOf(name)); await p.waitForTimeout(40); };
   const seen = [await menuNow()];
   for (let i = 0; i < N; i++) { await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60); seen.push(await menuNow()); }
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
+  const end = await menuNow();
   await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(60);
   const back = await menuNow();
-  if (await p.$("#lay-next")) await p.click("#lay-next");
-  await p.waitForTimeout(60);
+  await p.evaluate(() => document.querySelectorAll("#pick-layout .lt")[0].click()); await p.waitForTimeout(60);
   const clicked = await menuNow();
-  check("mahjong: on the menu the right and left arrow keys (shown on the two arrows) go through the layouts, round and round, and a click on an arrow does too; the pick is remembered",
-    seen.map((s) => s.name).join() === NAMES.concat("Turtle").join() && seen[0].caps.join() === "←,→" && seen[1].stored === "fortress" &&
-    back.name === NAMES[N - 1] && clicked.name === "Turtle" && clicked.stored === "turtle", { names: seen.map((s) => s.name), caps: seen[0].caps, back: back.name, clicked: [clicked.name, clicked.stored] });
-  check("mahjong: each layout shows its own picture, its name on the deal button, and its place among the eight",
-    new Set(seen.slice(0, N).map((s) => s.sum)).size === N && seen.slice(0, N).every((s, i) => s.ink > 300 && s.play === "Deal the " + s.name.toLowerCase() && s.note === "layout " + (i + 1) + " of " + N),
-    seen.map((s) => [s.name, s.ink, s.sum, s.play, s.note]));
+  check("mahjong: the menu lists all eight layouts in a grid; the arrow keys (shown beside the note) walk it, the pick going along, and a click picks one; the pick is remembered",
+    seen[0].tiles === N && seen[0].shown === N && seen.map((s) => s.name).join() === ["Turtle"].concat(NAMES).join() && seen.every((s) => s.on === NAMES.indexOf(s.name)) &&
+    seen[0].keys === "← ↑ ↓ →" && seen[2].stored === "fortress" && end.name === "Spider" && back.name === "Crown" && clicked.name === "Turtle" && clicked.stored === "turtle" && clicked.on === 0,
+    { names: seen.map((s) => s.name), on: seen.map((s) => s.on), keys: seen[0].keys, end: end.name, back: back.name, clicked: [clicked.name, clicked.stored, clicked.on] });
+  check("mahjong: each layout in the grid shows its own picture; the one picked has its name on the deal button and its place among the eight",
+    new Set(seen[0].pics.map((s) => s.sum)).size === N && seen[0].pics.every((s) => s.ink > 100) &&
+    seen.slice(1).every((s, i) => s.play === "Deal the " + s.name.toLowerCase() && s.note === "layout " + (i + 1) + " of " + N),
+    { pics: seen[0].pics, plays: seen.map((s) => [s.name, s.play, s.note]) });
+  // ...Enter with the ring up deals the layout picked; on the Daily the grid
+  // is the day's own (the others faded), the arrows pick nothing and a press
+  // on another layout says why
+  // (the ring on Butterfly, then a click on Fortress: the pick is Fortress)
+  await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(40);
+  const ringed = await menuNow();
+  await p.evaluate(() => document.querySelectorAll("#pick-layout .lt")[1].click()); await p.waitForTimeout(40);
+  await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+  const enterDealt = await p.evaluate(() => ({ state: Mahjong.state(), layout: Mahjong.layout() }));
+  await p.evaluate(() => Mahjong.toMenu()); await p.keyboard.press("2"); await p.waitForTimeout(60);
+  const daily = await menuNow();
+  const other = (daily.on + 1) % N;
+  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
+  await p.evaluate((i) => document.querySelectorAll("#pick-layout .lt")[i].click(), other); await p.waitForTimeout(60);
+  const dailyAfter = await menuNow();
+  const faded = await p.evaluate(() => [...document.querySelectorAll("#pick-layout .lt")].filter((b) => b.getAttribute("aria-disabled") === "true").length);
+  await p.keyboard.press("1"); await p.waitForTimeout(60);
+  check("mahjong: Enter with the ring up deals the layout picked; on the Daily the grid shows the day's own (the rest faded), and neither the arrows nor a press pick another, a press saying why",
+    ringed.name === "Butterfly" && enterDealt.state === "play" && enterDealt.layout === "fortress" && /today's Daily layout/.test(daily.note) && daily.on >= 0 && faded === N - 1 &&
+    dailyAfter.on === daily.on && /the Daily deals the day's own/.test(dailyAfter.note), { enterDealt, daily: [daily.name, daily.on, daily.note], dailyAfter: [dailyAfter.on, dailyAfter.note], faded });
 
   // ---- each layout deals its own 144 tiles (the full set, all on the screen),
   // can be cleared, and keeps its own fastest clear
@@ -258,7 +285,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   await p.evaluate(() => Mahjong.toMenu());
   const afterAll = [await menuNow()];
-  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
+  await pick("Turtle");
   afterAll.push(await menuNow());
   check("mahjong: the menu shows the picked layout's own fastest clear", new RegExp("^fastest " + NAMES[N - 1].toLowerCase() + " clear: \\d+:\\d\\d$").test(afterAll[0].bests) && /^fastest turtle clear: \d+:\d\d$/.test(afterAll[1].bests), afterAll.map((s) => s.bests));
 
@@ -280,8 +307,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     days.same && early.every((r) => r === 5) && rounds.length >= 70 && rounds.every((r) => r === N) && runs.length === 0 && firsts.size >= 6 && Object.keys(count).length === N &&
       Math.max(...Object.values(count)) - Math.min(...Object.values(count)) <= 1 && day(20) === "turtle",
     { same: days.same, early, notAll: rounds.filter((r) => r !== N).length, runs: runs.slice(0, 5), firsts: [...firsts], count, from21: days.a.slice(30, 30 + N) });
-  // ...on the menu: today's is shown with the arrows off, whatever is picked
-  // for Classic, which is still picked afterwards; Enter deals it
+  // ...on the menu: today's is shown, the grid's others off, whatever is
+  // picked for Classic, which is still picked afterwards; Enter deals it
   await pick("Fortress");
   await p.keyboard.press("2"); await p.waitForTimeout(60);
   const todays = await p.evaluate(() => Mahjong.dailyOf());
@@ -295,8 +322,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => Mahjong.toMenu());
   await p.keyboard.press("1"); await p.waitForTimeout(60);
   const onClassic = await menuNow();
-  check("mahjong: the Daily shows today's layout by name on the menu, with the arrows off (the arrow key changes nothing), and deals it; back on Classic the Fortress is still picked",
-    onDaily.name === todaysName && onDaily.note === "today's Daily layout" && onDaily.off.length === 2 && onDaily.off.every(Boolean) && onDaily.play === "Deal the " + todaysName.toLowerCase() &&
+  check("mahjong: the Daily shows today's layout by name on the menu, the grid's others off (the arrow key changes nothing), and deals it; back on Classic the Fortress is still picked",
+    onDaily.name === todaysName && onDaily.note === "today's Daily layout" && onDaily.off.length === N && onDaily.off.filter(Boolean).length === N - 1 && !onDaily.off[onDaily.on] && onDaily.play === "Deal the " + todaysName.toLowerCase() &&
     dailySmall.startsWith("today's " + todaysName.toLowerCase() + ", shareable") && onDaily2.name === todaysName && onDaily2.stored === "fortress" &&
     dailyDeal.layout === todays && dailyDeal.left === 144 && onClassic.name === "Fortress" && !onClassic.off.some(Boolean),
     { todays, dailySmall, onDaily: [onDaily.name, onDaily.note, onDaily.off, onDaily.play], onDaily2: [onDaily2.name, onDaily2.stored], dailyDeal, onClassic: [onClassic.name, onClassic.off] });
@@ -697,11 +724,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- on a small phone every layout is on the screen whole, and the menu
-  // card with its layout row is too (nothing cut off above or below)
+  // card with its layouts is too (nothing cut off above or below)
   ctx = await lib.newContext(browser, { viewport: { width: 320, height: 568 }, hasTouch: true, isMobile: true });
   p = await open(ctx, true);
   const card = await p.evaluate(() => { const r = document.querySelector("#menu .card").getBoundingClientRect(), h = document.querySelector("#menu h1").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), h1: Math.round(h.top), H: innerHeight, W: innerWidth, right: Math.round(r.right) }; });
-  check("mahjong: on a 320 x 568 phone the menu card, layout row and all, is on the screen whole, its heading below the corner buttons' row", card.top >= 0 && card.bottom <= card.H && card.right <= 320 && card.h1 >= 44, card);
+  check("mahjong: on a 320 x 568 phone the menu card, the layouts and all, is on the screen whole, its heading below the corner buttons' row", card.top >= 0 && card.bottom <= card.H && card.right <= 320 && card.h1 >= 44, card);
   const small = {};
   for (let i = 0; i < 5; i++) {
     small[await p.evaluate(() => (document.getElementById("lay-name") || {}).textContent || "none")] = await p.evaluate(() => {
@@ -711,7 +738,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       Mahjong.toMenu();
       return ok;
     });
-    if (await p.$("#lay-next")) await p.tap("#lay-next");
+    await p.tap("#pick-layout .lt:nth-child(" + (i + 2) + ")");
     await p.waitForTimeout(60);
   }
   check("mahjong: on a 320 x 568 phone each of the five layouts is on the screen whole", Object.keys(small).length === 5 && Object.values(small).every(Boolean), small);

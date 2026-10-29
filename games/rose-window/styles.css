@@ -103,21 +103,28 @@ body {
 .seg button.on b { color: #fff8e2; }
 .seg button.on small { color: #dfe7fb; }
 
-/* the window to start from: ◀, its picture and name, ▶ (lead-framed panes) */
-.winrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.winrow > button {
-  font-family: inherit; font-size: 16px; cursor: pointer; color: var(--gilt);
-  background: rgba(21, 18, 26, 0.45); border: 2px solid var(--lead); border-radius: 10px; padding: 10px 11px;
-  box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.18);
-  display: inline-flex; align-items: center; gap: 6px;
-}
-.winrow > button:hover { filter: brightness(1.15); }
-.winrow > button:disabled { opacity: 0.4; cursor: default; filter: none; }
-.winpick { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+/* the window to start from: the one picked, its picture and name, and every
+   window under it, eight to a row, each a little pane of its own glass in
+   lead (the picked one ringed in gilt; one not yet reached is slate) */
+.winpick { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px; }
 .winpick canvas { width: 45px; height: 60px; flex: none; }
 .win-text { min-width: 0; }
 .win-text b { display: block; font-size: 17px; color: var(--vellum); }
 .win-text small { display: block; font-size: 13.5px; color: var(--dim); font-style: italic; }
+.wingrid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-bottom: 12px; }
+.wingrid .wt {
+  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; min-width: 0; height: 32px; padding: 0;
+  color: #fff8e2; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6);
+  background: linear-gradient(170deg, var(--lt), var(--body) 55%, var(--deep));
+  border: 2px solid var(--lead); border-radius: 8px 8px 4px 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+.wingrid .wt:hover { filter: brightness(1.12); }
+.wingrid .wt.on { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4), 0 0 0 2px var(--gilt), 0 0 12px rgba(236, 201, 111, 0.55); }
+.wingrid .wt.locked {
+  color: var(--dim); text-shadow: none; cursor: not-allowed; filter: none;
+  background: rgba(21, 18, 26, 0.55); box-shadow: inset 0 0 0 1px rgba(236, 201, 111, 0.12); opacity: 0.6;
+}
 
 kbd {
   font-family: "Alegreya", Georgia, serif; font-size: 12px; font-weight: 700;
@@ -166,11 +173,31 @@ kbd {
   .card { padding: 20px 18px 18px; }
   .card h1 { font-size: 30px; }
   .card .how { font-size: 15px; }
-  .winrow { gap: 8px; }
-  .winrow > button { padding: 9px 8px; }
   .winpick { gap: 9px; }
+  .wingrid { gap: 4px; }
+  .wingrid .wt { font-size: 12.5px; height: 30px; border-radius: 7px 7px 3px 3px; }
   .win-text b { font-size: 15.5px; }
   .win-text small { font-size: 12.5px; }
+}
+
+/* a short laptop window or a phone: the menu card closes up its spacing, with
+   everything still on it (the rules, both modes, all sixteen windows, the
+   button, the bests), so it shows whole where it can */
+@media (max-height: 700px), (max-width: 640px) {
+  .card { padding: 16px 18px 14px; }
+  .card h1 { font-size: 29px; }
+  .card .tag { margin: 0 0 6px; }
+  .card .how { line-height: 1.38; margin-bottom: 10px; }
+  .seg { gap: 6px; margin-bottom: 8px; }
+  .seg button { padding: 5px 13px; }
+  .winpick { margin-bottom: 6px; }
+  .winpick canvas { width: 36px; height: 48px; }
+  .wingrid { margin-bottom: 10px; }
+  .playbtn { padding: 8px 12px; }
+  .bests { margin-top: 8px; }
+}
+@media (max-width: 400px) {
+  .card .how { font-size: 14px; }
 }
 
 /* the shared pause card's backdrop (game-shell.js), the nave's dusk */

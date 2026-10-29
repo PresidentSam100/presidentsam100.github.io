@@ -184,21 +184,22 @@ kbd {
 .seg button.on { border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); background: #fff; }
 .seg button.on b { color: var(--lacquer); }
 
-/* the layout picker: the one before, a little picture of the layout with its
-   name, the next (the arrows wear the arrow keys: game.js, GameShell.menuKeys) */
-.layrow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.layrow > button {
-  font: 700 14px/1 "Lora", serif; cursor: pointer; flex: none;
-  color: var(--ink); background: rgba(255, 255, 255, 0.55);
-  border: 1.5px solid #c9b58a; border-radius: 9px; padding: 10px 10px;
-  --gs-key-bg: var(--ink); --gs-key-fg: var(--paperlight);
+/* the layouts: all eight, four to a row, each a little picture of it on paper
+   (the picked one edged in lacquer), and the picked one's name under them; on
+   the Daily the grid shows the day's own, the rest faded */
+.laygrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin-bottom: 4px; }
+.laygrid .lt {
+  min-width: 0; padding: 4px 0; cursor: pointer;
+  background: rgba(255, 255, 255, 0.55); border: 1.5px solid #c9b58a; border-radius: 7px;
 }
-.layrow > button:hover { background: #fff; }
-.layrow > button:disabled { opacity: 0.45; cursor: default; background: rgba(255, 255, 255, 0.55); }
-.layrow .lay { flex: 1; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
-.layrow canvas { width: 96px; height: 68px; flex: none; }
-.lay-text b { display: block; font-size: 17px; color: var(--lacquer); }
-.lay-text small { display: block; font-size: 12.5px; color: #7a6648; }
+.laygrid .lt:hover { background: #fff; }
+.laygrid .lt canvas { display: block; width: 56px; height: 40px; margin: 0 auto; }
+.laygrid .lt.on { background: #fff; border-color: var(--lacquer); box-shadow: inset 0 0 0 1.5px var(--lacquer); }
+.laygrid.daily .lt:not(.on) { opacity: 0.4; cursor: default; }
+.laygrid.daily .lt:not(.on):hover { background: rgba(255, 255, 255, 0.55); }
+.lay-text { text-align: center; margin-bottom: 12px; line-height: 1.3; }
+.lay-text b { font-size: 16px; color: var(--lacquer); }
+.lay-text small { font-size: 12.5px; color: #7a6648; }
 
 .playbtn {
   font-family: inherit; font-size: 19px; font-weight: 700;
@@ -239,24 +240,19 @@ kbd {
   .card .how { font-size: 14px; line-height: 1.45; margin-bottom: 9px; }
   .pick .seg { gap: 6px; margin-bottom: 8px; }
   .seg button { padding: 6px 11px; font-size: 15px; }
-  .layrow { margin-bottom: 8px; gap: 8px; }
-  .layrow canvas { width: 72px; height: 51px; }
-  .layrow > button { padding: 8px 9px; }
-  .lay-text b { font-size: 15.5px; }
+  .laygrid { gap: 4px; }
+  .laygrid .lt { padding: 3px 0; border-radius: 6px; }
+  .laygrid .lt canvas { width: 41px; height: 29px; }
+  .lay-text { margin-bottom: 8px; }
+  .lay-text b { font-size: 15px; }
   .playbtn { font-size: 17px; padding: 9px; }
   .bests { margin-top: 7px; }
 }
 
-/* a narrow screen: the layout's name goes under its picture */
-@media (max-width: 400px) {
-  .layrow .lay { flex-direction: column; gap: 2px; }
-  .lay-text { text-align: center; line-height: 1.2; }
-}
-/* the narrowest phones (320 px): the rules a size smaller and the picture a
-   little, so the card still shows whole */
+/* the narrowest phones (320 px): the rules a size smaller, so the card still
+   shows whole */
 @media (max-width: 340px) {
   .card .how { font-size: 13px; line-height: 1.4; }
-  .layrow canvas { width: 64px; height: 45px; }
   .bests { margin-top: 5px; }
 }
 

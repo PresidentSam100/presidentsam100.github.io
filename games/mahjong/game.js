@@ -927,14 +927,23 @@
     $("daily-small").innerHTML = d.done
       ? "done: " + fmt(d.ms) + " ✓ " + keyCap("2")
       : "today's " + dailyLayout(d.n).name.toLowerCase() + ", shareable " + keyCap("2");
-    // the layout: its name and picture, and its own fastest clear. On the
-    // Daily it is the day's own and the arrows are off.
+    // the layout: every one's picture in the grid, the picked one edged, its
+    // name and place (or, for a moment, why a press picked nothing), and its
+    // own fastest clear. On the Daily it is the day's own and the grid picks
+    // nothing.
     var l = layoutNow(), what = l.name.toLowerCase(), bt = bestOf(l);
     $("lay-name").textContent = l.name;
-    $("lay-note").textContent = mode === "daily" ? "today's Daily layout" : "layout " + (LAYOUTS.indexOf(l) + 1) + " of " + LAYOUTS.length;
-    $("lay-prev").disabled = $("lay-next").disabled = mode === "daily";
+    $("lay-note").textContent = layNote || (mode === "daily" ? "today's Daily layout" : "layout " + (LAYOUTS.indexOf(l) + 1) + " of " + LAYOUTS.length);
+    $("lay-keys").hidden = mode === "daily";
+    $("pick-layout").classList.toggle("daily", mode === "daily");
+    layTiles.forEach(function (b, i) {
+      var on = LAYOUTS[i] === l;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+      if (mode === "daily" && !on) b.setAttribute("aria-disabled", "true"); else b.removeAttribute("aria-disabled");
+      drawLayout(b.firstChild, LAYOUTS[i]);
+    });
     $("play-what").textContent = "Deal the " + what;
-    drawLayout($("lay-pic"), l);
     $("bests").textContent = bt && cleared(l)
       ? "fastest " + what + " clear: " + fmt(bt.get())
       : "no " + what + " cleared yet";
@@ -958,11 +967,36 @@
       g.fillRect(x + 1, y, u - 0.6, v - 0.6);
     });
   }
-  // the layout before or after the picked one (round and round)
-  function stepLayout(d) {
-    if (mode === "daily") return;
-    var i = LAYOUTS.indexOf(layoutBy(layoutId));
-    layoutId = LAYOUTS[(i + d + LAYOUTS.length) % LAYOUTS.length].id;
+  // a tile in the grid for every layout: its little picture (its name to a
+  // screen reader and on hover)
+  var layTiles = LAYOUTS.map(function (l, i) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "lt"; b.title = l.name; b.setAttribute("aria-label", l.name);
+    var cv = document.createElement("canvas");
+    cv.setAttribute("aria-hidden", "true");
+    b.appendChild(cv);
+    b.addEventListener("click", function () { chooseLayout(i); });
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus, as the modes)
+    $("pick-layout").appendChild(b);
+    return b;
+  });
+  // the keys that walk the grid, after the note (with a keyboard)
+  $("lay-keys").innerHTML = ' <span class="gs-keys" style="white-space:nowrap"><kbd class="gs-kbd">←</kbd> <kbd class="gs-kbd">↑</kbd> <kbd class="gs-kbd">↓</kbd> <kbd class="gs-kbd">→</kbd></span>';
+  // a layout picked for a Classic deal; on the Daily, a press on another
+  // says the Daily's is the day's own
+  var layNote = "", layNoteT = 0;
+  function chooseLayout(i) {
+    if (state !== "menu" || i < 0) return;
+    if (mode === "daily") {
+      if (LAYOUTS[i] === layoutNow()) return;
+      layNote = "the Daily deals the day's own; Classic deals any";
+      clearTimeout(layNoteT);
+      layNoteT = setTimeout(function () { layNote = ""; if (state === "menu") paintMenu(); }, 2600);
+      paintMenu();
+      return;
+    }
+    layNote = "";
+    layoutId = LAYOUTS[i].id;
     store.set("mahjong_layout", layoutId);
     paintMenu();
   }
@@ -985,9 +1019,6 @@
     // the Enter that should deal would press the mode again
     b.addEventListener("mousedown", function (e) { e.preventDefault(); });
   });
-  $("lay-prev").addEventListener("click", function () { stepLayout(-1); });
-  $("lay-next").addEventListener("click", function () { stepLayout(1); });
-  ["lay-prev", "lay-next"].forEach(function (id) { $(id).addEventListener("mousedown", function (e) { e.preventDefault(); }); });   // (no focus, as the modes)
   // (a press on the desk, off the tiles, lands a deal still coming in too)
   $("desk").addEventListener("click", function () { if (dealing) settle(); });
   window.addEventListener("resize", function () { if (state === "menu") paintMenu(); });   // (the picture is drawn at its size on screen)
@@ -1057,11 +1088,17 @@
     groups: [{ sel: "#btn-newdeal", keys: ["n"] }, { sel: "#btn-giveup", keys: ["g"] }]
   });
 
-  // the menu's layout arrows take the arrow keys, shown on them
-  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
-    active: function () { return state === "menu"; },
-    groups: [{ sel: "#lay-prev", keys: ["arrowleft"] }, { sel: "#lay-next", keys: ["arrowright"] }]
-  });
+  // the arrow keys walk the menu's grid of layouts (a Classic deal's), the pick
+  // going with the ring, and Enter deals the one picked, as without the ring
+  if (window.GameShell && GameShell.gridKeys) {
+    GameShell.gridKeys({ active: function () { return state === "menu" && mode === "classic"; }, sel: "#pick-layout .lt",
+      first: function () { return layTiles[LAYOUTS.indexOf(layoutNow())]; },
+      open: function () { startRun(mode); } });
+    new MutationObserver(function () {
+      var at = $("pick-layout").querySelector(".lt[data-gs-pick]");
+      if (at && LAYOUTS[layTiles.indexOf(at)] !== layoutNow()) chooseLayout(layTiles.indexOf(at));
+    }).observe($("pick-layout"), { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
+  }
 
   toMenu();
 

@@ -9,9 +9,10 @@
 // begins again, and Backspace goes to the modes; paused, the keys neither
 // move the bar nor send the light; with Visual FX off a broken pane throws no
 // shards and the bead leaves no trail; on a phone a drag moves the bar and a
-// tap sends the light. Sixteen windows: a game that reaches one opens it on
-// the menu, where ← and → (shown on ◀ ▶) pick one to start from among those
-// open, the pick kept; a game from any but I keeps no best, and says so.
+// tap sends the light. Sixteen windows, all in a grid on the menu: a game
+// that reaches one opens it there, a press or the arrows pick one to start
+// from among those open (a locked one says why), Enter on the ringed one
+// starts from it, the pick kept; a game from any but I keeps no best, and says so.
 // (the physics stepped by hand, and a few more things to read, through
 // lines served into the game's script)
 const HOOK = ["    gameOver: gameOver\n  };", `    gameOver: gameOver,
@@ -51,37 +52,64 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("rose-window: a Vigil ends when its one bead falls", (await st(p)).state === "over", await st(p));
   await done(p, "menu");
 
-  // ---- the window to start from: only window I open at first (◀ ▶ off); a game
-  // that reaches window II opens it
+  // ---- the window to start from: all sixteen in a grid on the menu, only
+  // window I open at first (the rest locked, a press on one saying so); a
+  // game that reaches window II opens it
+  // (the grid in the page: each tile's numeral, whether it's open, and the pick)
+  const grid = (p) => p.evaluate(() => {
+    const t = [...document.querySelectorAll("#win-grid .wt")];
+    return { n: t.length, names: t.map((b) => b.textContent).join(" "), open: t.filter((b) => !b.classList.contains("locked")).length,
+      on: t.findIndex((b) => b.classList.contains("on")), shown: t.filter((b) => b.getClientRects().length > 0).length,
+      pick: RoseWindow.pick(), note: document.getElementById("win-note").textContent, name: document.getElementById("win-name").textContent };
+  });
   p = await hooked();
-  const first = await p.evaluate(() => ({ pick: RoseWindow.pick(), reached: RoseWindow.reached(), off: document.getElementById("win-prev").disabled && document.getElementById("win-next").disabled, note: document.getElementById("win-note").textContent }));
-  await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
-  const still = await p.evaluate(() => RoseWindow.pick());
+  const first = await grid(p);
+  await p.evaluate(() => document.querySelectorAll("#win-grid .wt")[4].click()); await p.waitForTimeout(60);
+  const shut = await grid(p);
+  await p.keyboard.press("ArrowRight"); await p.keyboard.press("ArrowRight"); await p.waitForTimeout(60);
+  const still = await grid(p);
   const opened = await p.evaluate(() => { RoseWindow.start("pilgrimage"); RoseWindow.launch(); RoseWindow.breakAllBut(1); for (let k = 0; k < 3 && !RoseWindow.lit(); k++) RoseWindow.knock(0); for (let i = 0; i < 400 && RoseWindow.win() === 0; i++) RoseWindow.step(1 / 60); return { win: RoseWindow.win(), reached: RoseWindow.reached(), kept: localStorage.getItem("rosewindow_reached") }; });
-  check("rose-window: at first only window I is open (◀ ▶ off, → does nothing); a game that reaches window II opens it",
-    first.pick === 0 && first.reached === 0 && first.off && /one window open/.test(first.note) && still === 0 && opened.win === 1 && opened.reached === 1 && opened.kept === "1", { first, still, opened });
+  await p.evaluate(() => RoseWindow.toMenu());
+  const after = await grid(p);
+  check("rose-window: the menu lists all sixteen windows (I to XVI) in a grid, only window I open at first; a press on a locked one, or the arrows onto it, says it isn't reached yet and leaves the pick on I",
+    first.n === 16 && first.shown === 16 && first.names === "I II III IV V VI VII VIII IX X XI XII XIII XIV XV XVI" && first.open === 1 && first.on === 0 && first.pick === 0 && /one window open/.test(first.note) &&
+    shut.pick === 0 && /Window V opens once a game reaches it/.test(shut.note) && still.pick === 0 && /Window II opens once a game reaches it/.test(still.note),
+    { first, shut, still });
+  check("rose-window: a game that reaches window II opens it in the grid", opened.win === 1 && opened.reached === 1 && opened.kept === "1" && after.open === 2 && after.on === 0, { opened, after });
   await done(p, "first window");
-  // ...with four open: → and ← go round those four (shown on ◀ ▶), the pick kept, the
-  // window behind the card the one picked; Space starts from it, and a game from
-  // it keeps no best (the end card says so), while one from I does
-  p = await open(null, { before: (pg) => pg.addInitScript(() => { try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("rosewindow_reached", "3"); } } catch (e) {} }) });
-  const arrowCaps = await p.evaluate(() => ["win-prev", "win-next"].map((id) => document.getElementById(id).getAttribute("data-gs-key")));
+  // ...with four open: a press on a tile picks it (its name shown, the
+  // window behind the card the one picked); the arrows walk the grid, the
+  // pick going with the ring onto open windows only (↓ to the row below);
+  // the pick is kept through a reload; Space starts from it, and Enter on
+  // the ringed window starts from that one; a game from any but I keeps no
+  // best (the end card says so)
+  p = await hooked(null, (pg) => pg.addInitScript(() => { try { if (!sessionStorage.getItem("seeded")) { sessionStorage.setItem("seeded", "1"); localStorage.setItem("rosewindow_reached", "3"); } } catch (e) {} }));
+  const four = await grid(p);
+  await p.evaluate(() => document.querySelectorAll("#win-grid .wt")[3].click()); await p.waitForTimeout(60);
+  const tapped = await grid(p);
+  const behind = await p.evaluate(() => JSON.stringify(RoseWindow.panes().map((q) => [q.c, q.r, q.max])) === JSON.stringify(RoseWindow.windows()[3].panes));
   const walk = [];
-  for (const k of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await p.keyboard.press(k); await p.waitForTimeout(40); walk.push(await p.evaluate(() => RoseWindow.pick())); }
-  await p.keyboard.press("ArrowLeft"); await p.waitForTimeout(40);
-  const atIV = await p.evaluate(() => ({ pick: RoseWindow.pick(), kept: localStorage.getItem("rosewindow_from"), name: document.getElementById("win-name").textContent, note: document.getElementById("win-note").textContent }));
+  for (const k of ["ArrowLeft", "ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "ArrowLeft"]) { await p.keyboard.press(k); await p.waitForTimeout(40); walk.push(await p.evaluate(() => RoseWindow.pick())); }
+  const atIII = Object.assign(await grid(p), { kept: await p.evaluate(() => localStorage.getItem("rosewindow_from")) });
   await p.reload(); await p.waitForFunction(() => window.RoseWindow);
-  const afterReload = await p.evaluate(() => RoseWindow.pick());
-  const fromIV = await p.evaluate(() => {
+  const afterReload = await grid(p);
+  const fromIII = await p.evaluate(() => {
     localStorage.removeItem("rosewindow_best_pilgrimage");
-    RoseWindow.start("pilgrimage"); const s = { win: RoseWindow.win(), from: RoseWindow.from(), hud: document.getElementById("hud-win").textContent };
+    document.getElementById("play").click(); const s = { state: RoseWindow.state(), win: RoseWindow.win(), from: RoseWindow.from(), hud: document.getElementById("hud-win").textContent };
     RoseWindow.launch(); RoseWindow.knock(0); RoseWindow.knock(0); RoseWindow.gameOver(false);
     return Object.assign(s, { score: RoseWindow.score(), best: localStorage.getItem("rosewindow_best_pilgrimage"), line: document.querySelector("#over-stats .best").textContent });
   });
-  check("rose-window: with four windows open, → and ← (on ◀ ▶) go round those four, the pick kept through a reload; Space starts from it, and a game from IV keeps no best, the end card saying so",
-    arrowCaps.join() === "←,→" && walk.join() === "1,2,3,0,3" && atIV.pick === 2 && atIV.kept === "2" && /^III · The Rose$/.test(atIV.name) && /four of sixteen open · no best kept from here/.test(atIV.note) && afterReload === 2 &&
-    fromIV.win === 2 && fromIV.from === 2 && /^III · /.test(fromIV.hud) && fromIV.score > 0 && fromIV.best === null && /no best kept/.test(fromIV.line),
-    { arrowCaps, walk, atIV, afterReload, fromIV });
+  await p.evaluate(() => RoseWindow.toMenu());
+  await p.keyboard.press("ArrowRight"); await p.keyboard.press("ArrowRight"); await p.keyboard.press("Enter"); await p.waitForTimeout(120);
+  const entered = await st(p);
+  check("rose-window: with four windows open, a press on IV picks it (the window behind the card IV); the arrows walk the grid, the pick going along onto open windows and staying put on locked ones; the pick is kept through a reload",
+    four.open === 4 && four.on === 0 && tapped.pick === 3 && tapped.on === 3 && /^IV · /.test(tapped.name) && /four of sixteen open · no best kept from here/.test(tapped.note) && behind &&
+    walk.join() === "3,2,3,3,3,2" && atIII.pick === 2 && atIII.kept === "2" && /^III · The Rose$/.test(atIII.name) && afterReload.pick === 2 && afterReload.on === 2,
+    { four, tapped, behind, walk, atIII, afterReload });
+  check("rose-window: Play starts from the window picked, and a game from III keeps no best, the end card saying so; Enter on the ringed window starts from that one",
+    fromIII.state === "play" && fromIII.win === 2 && fromIII.from === 2 && /^III · /.test(fromIII.hud) && fromIII.score > 0 && fromIII.best === null && /no best kept/.test(fromIII.line) &&
+    entered.state === "play" && entered.win === 3,
+    { fromIII, entered });
   await done(p, "start window");
 
   // ---- every window: its glass inside the arch, some to break, and none
