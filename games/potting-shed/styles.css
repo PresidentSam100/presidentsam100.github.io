@@ -50,6 +50,8 @@ body {
 .hud b { font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
 .yard { flex: 1; width: 100%; max-width: 760px; min-height: 160px; position: relative; }
 .yard canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+/* paused (game.js): the shed out of sight while its clock is held, so a pause is no free look */
+body.paused .yard canvas { visibility: hidden; }
 .tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .tools button, .card .row button {
   font-family: inherit; font-size: 15px; font-weight: 800; cursor: pointer; color: var(--packet);
@@ -82,29 +84,51 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--pack
 .card h2 { font-size: 30px; }
 .card .tag { font-weight: 800; letter-spacing: 2px; text-transform: uppercase; font-size: 12.5px; color: var(--leaf); margin: 4px 0 10px; }
 .card .how { font-size: 15.5px; line-height: 1.5; margin-bottom: 14px; }
-.picker { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.picker > button {
-  font-size: 18px; min-width: 44px; height: 44px; padding: 0 8px; cursor: pointer; color: var(--packet);
-  background: var(--wood); border: 2px solid #3e2814; border-radius: 8px; flex: none;
-  display: inline-flex; align-items: center; justify-content: center; gap: 2px;
-}
-.pick-shed { flex: 1; display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: #efe4c6; border: 2px dashed var(--ink-dim); border-radius: 4px; min-height: 96px; }
+.pick-shed { display: flex; align-items: center; gap: 12px; padding: 8px 10px; margin-bottom: 12px; background: #efe4c6; border: 2px dashed var(--ink-dim); border-radius: 4px; min-height: 96px; }
 .pick-shed canvas { flex: none; }
 .pick-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .pick-text b { font-family: "Alfa Slab One", serif; font-weight: 400; font-size: 19px; color: var(--ink); }
 .pick-text small { font-size: 13px; color: var(--ink-dim); }
-.playbtn, .card .row button:first-child:not([hidden]) {
+.playbtn, .card .row #next {
   font-family: "Alfa Slab One", serif; font-weight: 400; color: var(--packet); background: var(--terra); border-color: var(--terra-deep); box-shadow: 0 3px 0 var(--terra-deep);
 }
 .playbtn { width: 100%; font-size: 21px; padding: 9px 12px; cursor: pointer; border: 2px solid var(--terra-deep); border-radius: 6px; }
 .playbtn:active { transform: translateY(2px); box-shadow: none; }
 .tally { margin-top: 10px; text-align: center; font-size: 14px; color: var(--ink-dim); min-height: 18px; }
+/* the list of sheds: wooden plant labels, a potted one with a flower in its
+   corner, a locked one weathered pale; beside the rest on a wide screen */
+.sheds { margin-top: 14px; }
+.card .sheds-k { font-size: 17px; color: var(--ink); margin-bottom: 8px; }
+.shedgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; }
+.tile {
+  position: relative; height: 38px; padding: 0; cursor: pointer;
+  font-family: "Alfa Slab One", serif; font-size: 16px; font-variant-numeric: tabular-nums; color: var(--packet);
+  background: var(--wood); border: 2px solid #3e2814; border-radius: 6px; box-shadow: 0 2px 0 #3e2814;
+}
+.tile:active { transform: translateY(2px); box-shadow: none; }
+.tile.potted::after { content: ""; position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #f2c230; box-shadow: 0 0 0 1.5px #8a4a12; }
+.tile.current { outline: 3px solid var(--terra); outline-offset: 1px; }
+.tile.locked { color: #f4ecd8; background: #b9a888; border-color: #8c7a5c; box-shadow: 0 2px 0 #8c7a5c; cursor: not-allowed; }
+.tile.nope { animation: ps-nope 0.3s ease; }
+html.fx-off .tile.nope { animation: none; }
+@keyframes ps-nope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.lock-note { min-height: 18px; margin-top: 8px; text-align: center; font-size: 13px; font-weight: 600; color: var(--terra-deep); }
+@media (min-width: 760px) {
+  .card.menu { width: min(820px, 100%); display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; }
+  .card.menu::before { grid-column: 1 / -1; }
+  .card.menu .sheds { margin-top: 6px; }
+}
 .card.end { text-align: center; }
 .card .big { font-family: "Alfa Slab One", serif; font-size: 36px; margin: 4px 0; }
 .card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 2px 0 16px; color: var(--ink-dim); }
+.stats .time { font-weight: 800; font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* the fewest moves and the fastest time, side by side where they fit */
+.stats .bests { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 8px; }
 .stats .best { font-weight: 800; border: 2px solid var(--ink); border-radius: 999px; padding: 2px 14px; background: #efe4c6; color: var(--ink); }
 .stats .best.record { background: #f2c230; }
-.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+/* Again and Sheds side by side, the next shed across the row under them */
+.card .row { display: grid; grid-template-columns: auto auto; gap: 10px; justify-content: center; }
+.card .row #next { grid-column: 1 / -1; }
 
 @media (max-width: 520px) {
   .shed { padding-top: 58px; gap: 8px; }
@@ -112,7 +136,20 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--pack
   .hud-shed { font-size: 14px; }
   .panel { padding-top: 62px; }
   .card h1 { font-size: 30px; }
-  .pick-shed { gap: 8px; }
+  .card .how { font-size: 14.5px; line-height: 1.45; margin-bottom: 12px; }
+  .pick-shed { gap: 8px; min-height: 80px; padding: 6px 8px; margin-bottom: 10px; }
+  .playbtn { padding: 8px 12px; }
+  .tally { margin-top: 8px; }
+  .sheds { margin-top: 10px; }
+  .tile { height: 36px; }
+}
+/* the narrowest phones: the card closer to the edges, so six tiles a row
+   stay big enough to tap */
+@media (max-width: 380px) {
+  .panel { padding-left: 10px; padding-right: 10px; }
+  .card { padding: 0 14px 16px; }
+  .card::before { margin: 0 -14px 14px; }
+  .shedgrid { gap: 5px; }
 }
 
 .gs-pause { background: rgba(47, 36, 24, 0.4); }

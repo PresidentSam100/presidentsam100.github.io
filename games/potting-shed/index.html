@@ -12,10 +12,10 @@
 <script src="../motion-toggle.js"></script>
 <script src="../mute-toggle.js"></script>
 <script src="../game-shell.js"></script>
-    <meta name="description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through twelve sheds. A browser game by Sam Lu." />
+    <meta name="description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through thirty sheds. A browser game by Sam Lu." />
     <meta property="og:title" content="Potting Shed | Sam Lu" />
     <meta property="og:type" content="website" />
-    <meta property="og:description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through twelve sheds. A browser game by Sam Lu." />
+    <meta property="og:description" content="Potting Shed, the box-pushing puzzle in a garden shed: push the terracotta pots onto the patches of sun, one at a time and never pulling, through thirty sheds. A browser game by Sam Lu." />
     <meta name="twitter:card" content="summary" />
     <meta name="author" content="Sam Lu" />
     <!-- Google tag (gtag.js) -->
@@ -33,8 +33,9 @@
 <main class="shed">
   <div class="hud" id="hud" hidden>
     <span class="hud-shed" id="hud-shed">1 · First Pot</span>
-    <span><b id="hud-moves">0</b> moves</span>
-    <span><b id="hud-pushes">0</b> pushes</span>
+    <span><b id="hud-moves">0</b> <span id="hud-moves-w">moves</span></span>
+    <span><b id="hud-pushes">0</b> <span id="hud-pushes-w">pushes</span></span>
+    <span class="hud-time" aria-label="time"><b id="hud-time">0:00</b></span>
   </div>
   <!-- the shed's floor, benches, sun and pots: painted by game.js -->
   <div class="yard" id="yard"><canvas id="stage" aria-label="The shed: a brick floor between benches; push every pot onto a patch of sun"></canvas></div>
@@ -54,24 +55,28 @@
 </main>
 
 <section class="panel" id="menu">
-  <div class="card">
-    <h1>Potting Shed</h1>
-    <p class="tag">every pot in the sun</p>
-    <p class="how">
-      Walk the gardener round the shed and push the terracotta pots onto the patches of
-      sun from the window. A pot only goes the way it's pushed, one at a time: nothing
-      can pull it back out of a corner, so think before you shove. A pot in the sun blooms.
-    </p>
-    <div class="picker" id="picker">
-      <button type="button" id="pick-prev" aria-label="The shed before">◀</button>
-      <span class="pick-shed">
+  <div class="card menu">
+    <div class="intro">
+      <h1>Potting Shed</h1>
+      <p class="tag">every pot in the sun</p>
+      <p class="how">
+        Walk the gardener round the shed and push the terracotta pots onto the patches of
+        sun from the window. A pot only goes the way it's pushed, one at a time: nothing
+        can pull it back out of a corner, so think before you shove. A pot in the sun blooms.
+      </p>
+      <div class="pick-shed" id="picker">
         <canvas id="pick-pic" aria-hidden="true"></canvas>
         <span class="pick-text"><b id="pick-name">First Pot</b><small id="pick-note"></small><small id="pick-best"></small></span>
-      </span>
-      <button type="button" id="pick-next" aria-label="The next shed">▶</button>
+      </div>
+      <button type="button" class="playbtn" id="play">Pot this shed</button>
+      <p class="tally" id="tally"></p>
     </div>
-    <button type="button" class="playbtn" id="play">Pot this shed</button>
-    <p class="tally" id="tally"></p>
+    <!-- every shed, a tile each: a shed opens once the one before it is potted -->
+    <div class="sheds">
+      <h2 class="sheds-k" id="sheds-k">Sheds</h2>
+      <div class="shedgrid" id="shed-grid" role="group" aria-labelledby="sheds-k"></div>
+      <p class="lock-note" id="lock-note" role="status" aria-live="polite"></p>
+    </div>
   </div>
 </section>
 
@@ -81,9 +86,9 @@
     <p class="big" id="done-msg">0 moves</p>
     <p class="stats" id="done-stats"></p>
     <div class="row">
-      <button type="button" id="next">Next shed</button>
       <button type="button" id="replay">Again</button>
       <button type="button" id="to-sheds">Sheds</button>
+      <button type="button" id="next">Next shed</button>
     </div>
   </div>
 </section>

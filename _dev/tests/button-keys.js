@@ -22,6 +22,7 @@ const ALLOW = {
   "metazac/": ["#power-btn"],               // (it says SPACE on its face)
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
+  "potting-shed/": ["#shed-grid .tile"],    // the shed list (the arrows walk it, the keys on its heading)
   "rose-window/": [".wt"],                  // the windows to start from: a grid the arrows walk (the keys after its note)
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
   "sowing/": [".pit"],                      // the far row (the near row wears 1 to 6, and a friend's far row on its turn)
