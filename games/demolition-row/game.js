@@ -43,28 +43,29 @@
       },
     };
     const COLOR_HEX = ["#ff8c2b", "#34c759", "#3f8cff", "#a25cff", "#ff4db8"]; // orange green blue purple magenta
-    // The 50 stages, in three runs: 3 colors (stages 1 to 16), then 4 (17 to
-    // 33), then 5 (34 to 50), so the first ones are much easier (with fewer
-    // colors, groups of 4 come far more often). Through each run the blocks
-    // fall faster stage by stage, more of them are stone, and the goal line
-    // comes down: clear the pile to 5 rows or fewer in a run's first third, 4
-    // in its second, 3 in its last (never above the starting pile: the
-    // 5-color run starts lower, at 5 rows, so it goes 4, 4, 3). Tuned with the
-    // game's own CPU (normal) playing each stage a dozen times: it clears
-    // stage 1 every time and stage 50 about one time in twelve, falling off
-    // evenly in between (with 5 colors from stage 1, as before, it cleared
-    // stage 1 seven times in twelve and nothing from stage 17 on).
-    const STAGE_TIERS = [
-      { colors: 3, from: 1, to: 16, slowMs: 950, fastMs: 550, startRows: 6, stones: [0.04, 0.1] },
-      { colors: 4, from: 17, to: 33, slowMs: 900, fastMs: 500, startRows: 6, stones: [0.05, 0.11] },
-      { colors: 5, from: 34, to: 50, slowMs: 900, fastMs: 500, startRows: 5, stones: [0.05, 0.1] },
-    ];
+    // The 50 stages, each a little harder than the one before and never
+    // easier in anything, even where the colors change: the blocks fall a
+    // little faster every stage (0.80x at stage 1 to 1.65x at 50, the same
+    // step up each time), a little more of the pile is stone, and the colors
+    // go from 3 (stages 1 to 16, where groups of 4 come far more often) to 4
+    // (17 to 33) to 5 (34 to 50). Every stage starts with 5 rows to clear down
+    // to 4. Tuned with the game's own CPU (normal) playing each stage over and
+    // over: it clears every stage to 33, taking longer as they go, then stage
+    // 34 two times in three, falling off evenly to about one in eight at 50.
+    // (Before, each run of colors started slow again with its goal line high,
+    // so a stage could be easier than the one before it.)
+    const STAGE_COLORS = [[34, 5], [17, 4], [1, 3]];           // (from stage, colors)
+    const STAGE_SPEED = [0.8, 1.65];                           // x the base speed, stage 1 and 50
+    const STAGE_STONES = [[1, 0.02], [33, 0.05], [50, 0.11]];  // stone share, rising in a line between these
     function stageSpec(n) {
-      const t = STAGE_TIERS.find((x) => n >= x.from && n <= x.to) || STAGE_TIERS[STAGE_TIERS.length - 1];
-      const k = n - t.from, len = t.to - t.from + 1, f = len > 1 ? k / (len - 1) : 0;
-      return { colors: t.colors, fallMs: Math.round(t.slowMs + (t.fastMs - t.slowMs) * f), stones: t.stones[0] + (t.stones[1] - t.stones[0]) * f,
-        goalRows: Math.min(t.startRows - 1, 5 - Math.min(2, Math.floor((3 * k) / len))), startRows: t.startRows };
+      n = Math.max(1, Math.min(50, n));
+      const colors = STAGE_COLORS.find((x) => n >= x[0])[1];
+      const speed = STAGE_SPEED[0] * Math.pow(STAGE_SPEED[1] / STAGE_SPEED[0], (n - 1) / 49);
+      const i = n <= STAGE_STONES[1][0] ? 0 : 1, [a, sa] = STAGE_STONES[i], [b, sb] = STAGE_STONES[i + 1];
+      return { colors, fallMs: Math.round(CONFIG.baseFallMs / speed), stones: sa + (sb - sa) * (n - a) / (b - a), goalRows: 4, startRows: 5 };
     }
+    // a fall speed as the menu and the panel show it (x the base speed)
+    function speedOf(fallMs) { return (CONFIG.baseFallMs / fallMs).toFixed(2); }
     // The furthest stage a run has reached: the stage list is open up to it
     // (saved the moment it's reached; the games page's reset clears it).
     const STAGE_REACHED = "demolitionRow_stageReached";
@@ -77,6 +78,7 @@
     const POP_MS = 750;         // how long a chain step's "×2", "×3" shows where it cleared
     const ROT_SPEED = 0.013;    // radians/ms for the rotation animation (~120ms per 90°)
     const SPAWN_MS = 360;       // grow-in animation before a piece is fully active (a "prep" beat)
+    const TURN_MS = 240;        // a Crystal turning over to its next color (Visual FX on: drawn only)
 
     // ------------------------------ Sound --------------------------------
     // Tiny synthesized SFX engine (Web Audio, no files). Created on first gesture.
@@ -320,12 +322,23 @@
         if (!this.controllable()) return;
         dir = dir < 0 ? -1 : 1; const p = this.piece;
         if (p.type === "iron") return;
-        if (p.mono) { const n = p.crystalColor < 0 ? (dir > 0 ? 0 : this.colors - 1) : ((p.crystalColor + dir) % this.colors + this.colors) % this.colors; p.crystalColor = n; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: n, aug: null }; if (!this.muted) SFX.cycle(); return; }
+        if (p.mono) { const was = p.crystalColor, n = was < 0 ? (dir > 0 ? 0 : this.colors - 1) : ((was + dir) % this.colors + this.colors) % this.colors; p.crystalColor = n; for (const k of ["C", "U", "D", "L", "R"]) p.cells[k] = { t: "n", c: n, aug: null }; if (n !== was) this.turnFrom(was); if (!this.muted) SFX.cycle(); return; }
         p.cells = dir > 0 ? rotateCellsCW(p.cells) : rotateCellsCCW(p.cells);
         p.rotOffset = -dir * Math.PI / 2;
         if (!this.muted) SFX.rotate();
       }
-      setCrystalColor(color) { if (this.controllable() && this.piece.type === "plus" && this.piece.mono) { this.piece.crystalColor = color; for (const k of ["C", "U", "D", "L", "R"]) this.piece.cells[k] = { t: "n", c: color, aug: null }; if (!this.muted) SFX.cycle(); } }
+      setCrystalColor(color) { if (this.controllable() && this.piece.type === "plus" && this.piece.mono) { const was = this.piece.crystalColor; this.piece.crystalColor = color; for (const k of ["C", "U", "D", "L", "R"]) this.piece.cells[k] = { t: "n", c: color, aug: null }; if (color !== was) this.turnFrom(was); if (!this.muted) SFX.cycle(); } }
+      // A Crystal's new color is shown turning over (drawPiece, Visual FX on):
+      // the face it had narrows to edge-on about the up-down axis, then the
+      // new one opens out. Only the drawing takes the time: the color counts
+      // at once. A press while the old face is still turning away lets the
+      // newest color open out; one while the new face is opening turns that
+      // face away from the same width (no jump).
+      turnFrom(was) {
+        const p = this.piece, now = this.now(), t = p.turn, u = t ? (now - t.t0) / TURN_MS : 1;
+        if (u < 0.5) return;
+        p.turn = { from: was, t0: u < 1 ? now - (1 - u) * TURN_MS : now };
+      }
       hardDrop() { if (!this.controllable()) return; if (this.phase === "spawning") this.spawnT = 1; while (true) { const p = { r: this.piece.pivot.r + 1, c: this.piece.pivot.c }; if (canPlace(this.grid, this.piece.type, p)) this.piece.pivot = p; else break; } this.lock(); }
 
       tickFall(dt) {
@@ -527,6 +540,7 @@
         if (this.slowUntil > since) this.slowUntil += d;
         if (this.flashUntil > since) this.flashUntil += d;
         if (this.flash && this.flash.until > since) this.flash.until += d;
+        if (this.piece && this.piece.turn) this.piece.turn.t0 += d;   // (a Crystal turning over holds still too)
       }
     }
 
@@ -805,13 +819,21 @@
           return;
         }
         const cx = p.pivot.c * cell, cy = p.pivot.r * cell + off;
-        const drawOne = (cl, x, y) => p.mono ? this.drawCrystal(cl.c, x, y) : this.drawCell(cl, x, y, true);
+        // a Crystal turning over to its next color (Visual FX on): squeezed
+        // across about its middle column, as if turning about the up-down
+        // axis, its old face until edge-on and then the new one, each face
+        // darker the further it has turned away
+        const u = p.mono && p.turn && !reducedMotion() ? (b.now() - p.turn.t0) / TURN_MS : 1;
+        const across = u < 1 ? Math.abs(Math.cos(u * Math.PI)) : 1, face = u < 0.5 ? p.turn.from : null;
+        if (across < 1) { const mid = cx + cell / 2; ctx.save(); ctx.translate(mid, 0); ctx.scale(Math.max(0.04, across), 1); ctx.translate(-mid, 0); }
+        const drawOne = (cl, x, y) => p.mono ? this.drawCrystal(face == null ? cl.c : face, x, y, 0.45 * (1 - across)) : this.drawCell(cl, x, y, true);
         drawOne(p.cells.C, cx, cy);
         const ang = p.rotOffset || 0, cos = Math.cos(ang), sin = Math.sin(ang);
         for (const [key, dc, dr] of [["U", 0, -1], ["D", 0, 1], ["L", -1, 0], ["R", 1, 0]]) {
           const rx = dc * cos - dr * sin, ry = dc * sin + dr * cos;
           drawOne(p.cells[key], cx + rx * cell, cy + ry * cell);
         }
+        if (across < 1) ctx.restore();
         if (restore) ctx.restore();
       }
       drawIron(x, y) {
@@ -850,8 +872,9 @@
         ctx.fillStyle = "#ffe14d"; ctx.fill();
         ctx.lineJoin = "round"; ctx.lineWidth = 1.6; ctx.strokeStyle = "rgba(20,16,2,0.92)"; ctx.stroke();
       }
-      // faceted "crystal" look for the active crystal wildcard, tinted by its current color
-      drawCrystal(c, x, y) {
+      // faceted "crystal" look for the active crystal wildcard, tinted by its
+      // current color; `dim`: how far it has turned away (drawPiece), shading it
+      drawCrystal(c, x, y, dim) {
         const ctx = this.ctx, s = this.cell, pad = 2, r = 6, X = x + pad, Y = y + pad, W = s - pad * 2, H = s - pad * 2;
         ctx.fillStyle = c < 0 ? "#dfe6f2" : COLOR_HEX[c]; this.rr(X, Y, W, H, r); ctx.fill(); // white when uncolored
         ctx.save(); this.rr(X, Y, W, H, r); ctx.clip();
@@ -861,6 +884,7 @@
         ctx.fillStyle = "rgba(255,255,255,0.9)"; ctx.beginPath(); ctx.arc(X + W * 0.5, Y + H * 0.42, 2.4, 0, Math.PI * 2); ctx.fill();
         ctx.restore();
         ctx.strokeStyle = "rgba(255,255,255,0.85)"; ctx.lineWidth = 2; this.rr(X + 1, Y + 1, W - 2, H - 2, r); ctx.stroke();
+        if (dim > 0) { ctx.fillStyle = "rgba(10,20,34," + dim.toFixed(3) + ")"; this.rr(X, Y, W, H, r); ctx.fill(); }
       }
       drawLine(y, color, label) { const ctx = this.ctx, W = this.b.cfg.cols * this.cell, yy = Math.max(2, y); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash([8, 6]); ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = "700 11px Quicksand, sans-serif"; ctx.textAlign = "left"; ctx.fillText(label, 4, yy < 12 ? yy + 12 : yy - 3); }
       drawCell(cell, x, y, active) {
@@ -1040,6 +1064,14 @@
         if (this.mode === "vs") { this.vsRng = makeRNG(seed + 4242); this.vsStructure = this.genVSStructure(); }
         for (let i = 0; i < this.count; i++) this.players.push(this.makePlayer(i, seed + i * 777));
         document.getElementById("mode-label").textContent = this.modeLabel();
+        for (const p of this.players) this.updateHud(p);
+        this.fit();
+        // a panel that changes size (a long power-up name wrapping) fits the
+        // screen again, on the next frame
+        if (window.ResizeObserver) {
+          let q = 0; this.ro = new ResizeObserver(() => { if (!q) q = requestAnimationFrame(() => { q = 0; if (GAME === this) this.fit(); }); });
+          for (const p of this.players) this.ro.observe(p.hud);
+        }
         this.loop = this.loop.bind(this); this.raf = requestAnimationFrame(this.loop);
       }
       modeLabel() { if (this.mode === "stage") return "50-Stage Mode"; if (this.mode === "endless") return "Endless Mode"; const cpus = this.opts.ptypes.slice(0, this.opts.players).filter((t) => t === "cpu").length; const fmtTxt = this.opts.fmt === Infinity ? "∞ infinite" : "first to " + this.opts.fmt; return "VS · " + fmtTxt + " · " + this.opts.players + " players" + (cpus ? " · " + cpus + " CPU" : ""); }
@@ -1060,23 +1092,53 @@
         const hud = document.createElement("div"); hud.className = "hud";
         const isCpu = isVS && this.opts.ptypes[i] === "cpu";
         const name = isVS ? ((isCpu ? "CPU " : "Player ") + (i + 1)) : "You";
+        // the board's panel: its rows, with the Next piece beside them (not on
+        // a row of its own); a lone board has the panel beside it (fit)
         hud.innerHTML =
-          '<div class="hud-row"><span class="name">' + name + '</span><span style="display:flex;align-items:center;gap:8px;"><button class="pmute" type="button" title="Mute this board">🔊</button><span class="wins" data-wins></span></span></div>' +
-          '<div class="hud-row"><span class="stat">Score <b data-score>0</b></span><span class="stat" data-extra></span></div>' +
-          '<div class="meter"><span data-gauge></span></div>' +
-          '<div class="hud-row" style="align-items:center;"><span class="special" data-special>&nbsp;</span>' +
-            '<span class="stat" style="display:flex;align-items:center;gap:6px;">Next <canvas class="next" width="66" height="66" style="width:66px;height:66px;background:#123a5c;border-radius:6px;"></canvas></span></div>' +
-          (this.mode === "endless" ? '<div class="stars" data-stars></div>' : "");
+          '<div class="hud-main">' +
+            '<div class="hud-row"><span class="name">' + name + '</span><span class="hud-tools"><button class="pmute" type="button" title="Mute this board">🔊</button><span class="wins" data-wins></span></span></div>' +
+            '<div class="hud-row"><span class="stat">Score <b data-score>0</b></span><span class="stat" data-extra></span></div>' +
+            '<div class="meter"><span data-gauge></span></div>' +
+            '<span class="special" data-special>&nbsp;</span>' +
+            (this.mode === "endless" ? '<div class="stars" data-stars></div>' : "") +
+          '</div>' +
+          '<div class="hud-next"><span class="stat">Next</span><canvas class="next" width="66" height="66"></canvas></div>';
         const canvas = document.createElement("canvas"); canvas.className = "board";
         col.appendChild(hud); col.appendChild(canvas); this.boardsEl.appendChild(col);
         // per-board mute toggle
         const mbtn = hud.querySelector(".pmute");
         mbtn.addEventListener("click", () => { board.muted = !board.muted; mbtn.textContent = board.muted ? "🔇" : "🔊"; mbtn.classList.toggle("off", board.muted); });
         const p = { board, hud, canvas, renderer: new Renderer(board, canvas), nextCanvas: hud.querySelector(".next"), cpu: isCpu ? new CPU(board, (this.opts.diffs && this.opts.diffs[i]) || "normal", makeRNG(seed + 999)) : null, name, isCpu };
-        this.fitCanvas(canvas);
         return p;
       }
-      fitCanvas(canvas) { const n = this.count || 1; const maxW = this.mode === "vs" ? Math.min(window.innerWidth / n - 18, n >= 3 ? 240 : 300) : Math.min(window.innerWidth - 32, 360); const natural = CONFIG.cols * CONFIG.cell; if (natural > maxW) { const k = maxW / natural; canvas.style.width = natural * k + "px"; canvas.style.height = CONFIG.rows * CONFIG.cell * k + "px"; } }
+      // The whole play screen fits the window with nothing to scroll: the
+      // title, the bar, the boards, the on-screen pad and the byline. A window
+      // wider than a phone has the pad beside the boards; a lone board has its
+      // panel beside it; then the boards take the width there is, and shrink
+      // until the page ends inside the window. Run again on a resize.
+      fit() {
+        const area = document.getElementById("game-area"), wrap = area.parentNode, n = this.count, vs = this.mode === "vs";
+        const W = document.documentElement.clientWidth || window.innerWidth, H = window.innerHeight;
+        const natW = CONFIG.cols * CONFIG.cell, natH = CONFIG.rows * CONFIG.cell;
+        area.classList.toggle("solo", !vs); area.classList.toggle("side", W >= 640 || W > H);
+        const side = area.classList.contains("side") ? document.getElementById("touchpad").offsetWidth + 20 : 0;
+        const panel = vs ? 0 : this.players[0].hud.offsetWidth + 12;
+        const maxW = vs ? Math.min((W - 32 - side) / n - 18, n >= 3 ? 240 : 300) : Math.min(W - 32 - side - panel, natW), kW = Math.min(1, maxW / natW);
+        // (a VS board's column keeps its share of the width as the board
+        // shrinks, so its panel has room; a narrow or short one closes up)
+        const colW = Math.floor(Math.min(maxW, natW));
+        for (const p of this.players) {
+          const col = p.canvas.parentNode; col.style.width = vs ? colW + "px" : "";
+          col.classList.toggle("tight", vs && (colW < 200 || H < 500)); col.classList.toggle("tighter", vs && colW < 96);
+        }
+        const set = (k) => { for (const p of this.players) { p.canvas.style.width = natW * k + "px"; p.canvas.style.height = natH * k + "px"; } };
+        // how far the page runs past the window's bottom (the byline and the
+        // page's own bottom margin included)
+        const by = document.getElementById("byline");
+        const over = () => Math.ceil(by.getBoundingClientRect().bottom + parseFloat(getComputedStyle(by).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H);
+        let k = kW; set(k);
+        for (let i = 0; i < 4; i++) { const o = over(); if (o <= 0) break; k = Math.max(0.12, Math.min(kW, (natH * k - o) / natH)); set(k); }
+      }
 
       setupStage(board, stage) {
         const sp = stageSpec(stage); board.opts.stage = stage - 1;
@@ -1190,10 +1252,10 @@
         const sp = q("[data-special]");
         const nextPow = b.pq && b.pq.length ? b.pq[0] : null; // next powerup waiting in the queue
         sp.innerHTML = nextPow ? ("Banked: <b>" + SPECIAL_NAME[nextPow] + "</b>" + (b.pq.length > 1 ? " +" + (b.pq.length - 1) : "")) : "&nbsp;";
-        const w = q("[data-wins]"); if (w) w.textContent = this.mode === "vs" ? "Wins " + (b.wins || 0) + " (match " + (b.matchWins || 0) + "/" + (this.opts.fmt === Infinity ? "∞" : this.opts.fmt) + ")" : "";
+        const w = q("[data-wins]"); if (w) w.innerHTML = this.mode === "vs" ? '<span class="nw">Wins ' + (b.wins || 0) + '</span> <span class="nw">(match ' + (b.matchWins || 0) + "/" + (this.opts.fmt === Infinity ? "∞" : this.opts.fmt) + ")</span>" : "";
         const ex = q("[data-extra]");
-        if (this.mode === "stage") ex.innerHTML = "Stage <b>" + b.stage + "</b>/50 · Spd <b>" + (CONFIG.baseFallMs / b.fallMs).toFixed(1) + "x</b>";
-        else if (this.mode === "endless") ex.innerHTML = "Lvl <b>" + b.level + "</b> · Best <b>" + Math.max(b.high || 0, b.score) + "</b>";
+        if (this.mode === "stage") ex.innerHTML = '<span class="nw">Stage <b>' + b.stage + '</b>/50</span> · <span class="nw">Spd <b>' + speedOf(b.fallMs) + "x</b></span>";
+        else if (this.mode === "endless") ex.innerHTML = '<span class="nw">Lvl <b>' + b.level + '</b></span> · <span class="nw">Best <b>' + Math.max(b.high || 0, b.score) + "</b></span>";
         else ex.innerHTML = b.bonusActive() ? '<span class="bonus-tag">x20!</span>' : "";
         const st = q("[data-stars]"); if (st) { const filled = "★".repeat(b.starCount) + "☆".repeat(Math.max(0, 3 - b.starCount)); const bonus = b.bonusActive() ? ' · <span class="bonus-tag">x20 ' + Math.ceil((b.bonusUntil - b.now()) / 1000) + "s</span>" : ""; st.innerHTML = "Stars " + filled + " (" + b.starCount + "/3)" + bonus; }
       }
@@ -1212,7 +1274,7 @@
       pauseToggle() { if (this.state === "playing") this.pause(); else if (this.state === "paused") this.resume(); }
       // a round-end timer left running would put this game's result card (or
       // its next round) over whatever comes next
-      destroy() { cancelAnimationFrame(this.raf); clearTimeout(this.roundTimer); }
+      destroy() { cancelAnimationFrame(this.raf); clearTimeout(this.roundTimer); if (this.ro) this.ro.disconnect(); }
     }
 
     // ------------------------------ Input --------------------------------
@@ -1352,10 +1414,11 @@
     const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diffs: ["normal", "normal", "normal", "normal"], fmt: 2 };
     function pickGroup(id, attr, cb) { document.getElementById(id).addEventListener("click", (e) => { const btn = e.target.closest("button[" + attr + "]"); if (!btn) return; [...e.currentTarget.querySelectorAll("button")].forEach((b) => b.classList.remove("sel")); btn.classList.add("sel"); cb(btn.getAttribute(attr)); }); }
     pickGroup("mode-pick", "data-mode", (v) => { sel.mode = v; document.getElementById("vs-opts").style.display = v === "vs" ? "" : "none"; document.getElementById("stage-opts").style.display = v === "stage" ? "" : "none"; });
-    // The stage list (50-Stage): every stage a run has reached is open, the
-    // rest locked, and a run starts at the one picked. A locked one says why.
-    // ← → step through them (their keys on the line under them that says
-    // what the picked stage asks: its colors, goal and speed).
+    // The stage list (50-Stage): all 50 at once, every stage a run has
+    // reached open, the rest locked, and a run starts at the one picked. A
+    // locked one says why, on the line under them that says what the picked
+    // stage asks (its colors, goal and speed). The arrows walk them, the pick
+    // going with the ring, and Enter plays (the keys beside its heading).
     const stageGrid = document.getElementById("stage-grid"), stageInfo = document.getElementById("stage-info");
     sel.stage = (() => { try { return Math.min(stageReached(), parseInt(localStorage.getItem("demolitionRow_stagePick"), 10) || 1); } catch (e) { return 1; } })();
     function paintStages(note) {
@@ -1373,11 +1436,14 @@
         b.setAttribute("aria-label", "Stage " + n + (shut ? ", locked" : ""));
         b.title = shut ? "Stage " + n + " is locked: reach it in a run to open it" : "Stage " + n + ": " + stageSpec(n).colors + " colors";
       });
-      // (the picked one in view in the row)
+      // (the picked one in view, where the list scrolls in its box: a phone)
       const on = stageGrid.querySelector(".st.sel");
-      if (on && stageGrid.clientWidth) stageGrid.scrollLeft = Math.max(0, on.offsetLeft - stageGrid.offsetLeft - (stageGrid.clientWidth - on.offsetWidth) / 2);
+      if (on && stageGrid.scrollHeight > stageGrid.clientHeight + 1) {
+        const g = stageGrid.getBoundingClientRect(), r = on.getBoundingClientRect();
+        if (r.top < g.top || r.bottom > g.bottom) stageGrid.scrollTop += r.top - g.top - (g.height - r.height) / 2;
+      }
       const sp = stageSpec(sel.stage);
-      stageInfo.textContent = note || (sp.colors + " colors · clear to " + sp.goalRows + " rows · speed " + (CONFIG.baseFallMs / sp.fallMs).toFixed(1) + "x");
+      stageInfo.textContent = note || (sp.colors + " colors · clear to " + sp.goalRows + " rows · speed " + speedOf(sp.fallMs) + "x");
     }
     function pickStage(n) {
       if (n < 1 || n > CONFIG.stage.total) return;
@@ -1388,6 +1454,18 @@
     }
     stageGrid.addEventListener("click", (e) => { const b = e.target.closest(".st"); if (b) pickStage(+b.dataset.stage); });
     paintStages();
+    // (Enter on a locked one says again why; on an open one it plays from
+    // the stage picked, which a click since may have changed)
+    if (window.GameShell && GameShell.gridKeys) {
+      GameShell.gridKeys({ active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "stage", sel: "#stage-grid .st",
+        first: () => stageGrid.querySelector(".st.sel"),
+        open: (tile) => { if (+tile.dataset.stage > stageReached()) pickStage(+tile.dataset.stage); else startGame(); } });
+      new MutationObserver(() => {
+        const at = stageGrid.querySelector(".st[data-gs-pick]");
+        if (at) pickStage(+at.dataset.stage);
+      }).observe(stageGrid, { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
+      document.querySelector("#stage-opts .lbl").insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
+    }
     pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
     pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
     // per-slot Human/CPU toggle + per-CPU difficulty dropdown
@@ -1434,8 +1512,8 @@
         "<br><b>P2</b> <kbd>K</kbd><kbd>;</kbd> move · <kbd>I</kbd>/<kbd>P</kbd> rotate · <kbd>O</kbd> soft · <kbd>L</kbd> hard" +
         "<br><b>P3</b> numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard" +
         "<br><b>P4</b> <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
-        "<br>solo: any scheme works · ⏸ pauses<br></span>" +
-        "on touch: use the on-screen pad below the board";
+        "<br>solo: any scheme works<br></span>" +
+        "on touch: use the on-screen pad by the board";
     }
     updateKeysHelp();
 
@@ -1443,6 +1521,11 @@
     // handleKey bails without a game, so letters type into the menu's
     // dropdowns again
     function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); }
+    // the play screen is fitted to the window again when it changes size,
+    // and once the web fonts have come (the panel's text takes their size)
+    window.addEventListener("resize", () => { if (GAME) GAME.fit(); });
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (GAME) GAME.fit(); });
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", () => { if (GAME) GAME.fit(); });
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";
@@ -1476,11 +1559,6 @@
           else { sel.ptypes[slot] = "cpu"; sel.diffs[slot] = LEVELS[to]; }
           updateVsOpts();
         }
-      });
-      // (and 50-Stage's stage, its keys on the line about the stage picked)
-      GameShell.rowKeys({
-        active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "stage",
-        rows: [{ step: (d) => pickStage(sel.stage + d), ring: () => stageInfo, shown: () => sel.mode === "stage" }]
       });
       GameShell.rowKeys({
         active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "vs",

@@ -13,7 +13,7 @@
 const ALLOW = {
   "24/": [".key"],                          // the phone's own keys: the line under it maps the keyboard to them
   "darkroom/": [".frame"],                  // the prints: a grid the arrows walk (the keys on the first roll)
-  "demolition-row/": [".st"],               // the stage list (← → step it, the keys on the line under it)
+  "demolition-row/": [".st"],               // the stage list: a grid the arrows walk (the keys by its heading)
   "hash/": [".card"],                       // the board
   "klondike/": [".mtop"],                   // the two menus: every item inside shows its key
   "lights-out/": [".bulb"],                 // the board (arrows walk it)

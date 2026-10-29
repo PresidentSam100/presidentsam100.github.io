@@ -85,7 +85,8 @@
       @keyframes drSnowFar { to { transform: translateY(240px); } }
       @keyframes drSnowNear { to { transform: translateY(360px); } }
       a { color: var(--accent); text-decoration: none; font-weight: 600; }
-      .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 2rem; gap: 0.8rem; }
+      .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 0.75rem; gap: 0.8rem; }
+      @supports (min-height: 100dvh) { body, .wrap { min-height: 100dvh; } }
       .back-link { position: fixed; top: 10px; left: 10px; z-index: 30; font-size: 0.85rem; }
       /* the header sits on the sky and the misty far pines: a frost halo keeps it legible */
       h1.title { font-size: 2.1rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-shadow: 0 1px 0 #fff, 0 0 14px rgba(240, 248, 253, 0.95); }
@@ -95,10 +96,21 @@
       /* between phone and desktop widths the subtitle fits on one line and the
          mode label lands on the far pines, so it gets the same halo */
       #mode-label { text-shadow: 0 0 2px #eef7fc, 0 0 6px #eef7fc, 0 0 10px #eef7fc; }
-      .boards { display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap; justify-content: center; }
+      /* the boards share one row, each sized by game.js's fit() so the whole
+         play screen fits the window */
+      .boards { display: flex; gap: 1.2rem; align-items: stretch; justify-content: center; }
       .board-col { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; }
-      .hud { width: 100%; display: flex; flex-direction: column; gap: 0.35rem; }
-      .hud-row { display: flex; justify-content: space-between; gap: 0.6rem; align-items: baseline; }
+      /* (VS boards line up, whatever their panels' heights) */
+      #game-area:not(.solo) .board-col > canvas.board { margin-top: auto; }
+      /* a board's panel: its rows, and the Next piece beside them. It takes
+         the board's width, never widening the column (width 0, min 100%) */
+      .hud { width: 0; min-width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.6rem; align-items: start; }
+      .hud-main { display: flex; flex-direction: column; gap: 0.35rem; min-width: 0; }
+      .hud-row { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0 0.6rem; align-items: baseline; }
+      .hud-tools { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 2px 8px; }
+      .hud-next { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+      .hud-next .stat { font-size: 0.78rem; line-height: 1; }
+      .stat .nw, .wins .nw { white-space: nowrap; }
       .hud .name { font-weight: 700; font-size: 1.05rem; }
       .hud .wins { color: var(--wins); font-weight: 700; }
       .pmute { background: rgba(255, 255, 255, 0.7); border: 1px solid var(--line); border-radius: 6px; padding: 1px 5px; font-size: 0.85rem; line-height: 1.3; cursor: pointer; opacity: 0.9; }
@@ -123,7 +135,31 @@
           linear-gradient(180deg, #1c4b70 0%, #123a5c 55%, #0d2e4b 100%);
         box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.85), 0 0 0 4px rgba(22, 50, 79, 0.2), 0 14px 30px -10px rgba(22, 60, 100, 0.55);
       }
-      canvas.next { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+      canvas.next { width: 66px; height: 66px; background: #123a5c; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+      /* a lone board (50-Stage, Endless) has its panel beside it, stacked */
+      #game-area.solo .board-col { flex-direction: row; align-items: flex-start; gap: 12px; }
+      #game-area.solo .hud { width: 150px; min-width: 0; grid-template-columns: minmax(0, 1fr); row-gap: 0.6rem; }
+      #game-area.solo .hud-main { gap: 0.45rem; }
+      #game-area.solo .hud-row { justify-content: flex-start; gap: 0.15rem 0.5rem; }
+      #game-area.solo .hud-tools { justify-content: flex-start; }
+      /* (room kept for a power-up's name on two lines, so a panel's height
+         holds still as one is banked) */
+      #game-area.solo .special { min-height: 2.5em; }
+      #game-area.solo .hud-next { align-items: flex-start; }
+      /* a narrow board (VS on a phone, or on a short screen): its panel
+         closes up, and on the narrowest the Next piece goes under the rows */
+      .board-col.tight .hud { column-gap: 0.35rem; }
+      .board-col.tight .hud-tools { display: contents; }
+      .board-col.tight .wins { flex-basis: 100%; }
+      .board-col.tight .hud-main { gap: 0.25rem; }
+      .board-col.tight .hud .name, .board-col.tight .hud .stat, .board-col.tight .hud .special, .board-col.tight .hud .wins { font-size: 0.74rem; line-height: 1.25; }
+      .board-col.tight canvas.next { width: 40px; height: 40px; }
+      .board-col.tight .pmute { font-size: 0.75rem; padding: 0 3px; }
+      .board-col.tighter .hud { grid-template-columns: minmax(0, 1fr); row-gap: 0.25rem; }
+      .board-col.tighter .hud-next { flex-direction: row; justify-content: flex-start; gap: 4px; }
+      .board-col.tighter .hud .name, .board-col.tighter .hud .stat, .board-col.tighter .hud .special, .board-col.tighter .hud .wins { font-size: 0.68rem; }
+      .board-col.tighter canvas.next { width: 30px; height: 30px; }
+      .board-col.tighter .hud-main { gap: 0.15rem; }
       .btn {
         cursor: pointer; color: #fff; border: none; border-radius: 10px; padding: 0.55rem 1rem;
         background: linear-gradient(180deg, #6fd0ff, var(--accent));
@@ -145,17 +181,52 @@
       .btn:focus-visible, .tbtn:focus-visible, .diffsel:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
       .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
-      /* the stage list: one row of all 50 that scrolls sideways (a grid of
-         them made the menu too tall for a short laptop or phone), each run of
-         stages (3, 4, 5 colors) a deeper tint; a locked stage is faded, and
-         says why when picked */
-      .stage-grid { display: flex; gap: 4px; max-width: 380px; margin: 0 auto; padding: 2px 2px 6px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
-      .card .group .stage-grid .st { flex: 0 0 34px; min-width: 0; height: 32px; padding: 0; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+      /* the stage list: all 50 at once, ten to a row (on a phone as many as
+         fit, in a box that scrolls), each run of stages (3, 4, 5 colors) a
+         deeper tint; a locked stage is faded, and says why when picked. The
+         keys' ring sits close, so it shows inside the box */
+      .stage-grid { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; max-width: 400px; margin: 0 auto; padding: 3px; --gs-pick: var(--text); }
+      .card .group .stage-grid .st { min-width: 0; height: 30px; padding: 0; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+      .card .group .stage-grid .st[data-gs-pick] { outline-offset: 1px; }
       .card .group .stage-grid .st.c4 { background: rgba(214, 236, 255, 0.85); }
       .card .group .stage-grid .st.c5 { background: rgba(190, 220, 248, 0.9); }
       .card .group .stage-grid .st.locked { opacity: 0.4; box-shadow: none; }
       .card .group .stage-grid .st.sel { background: linear-gradient(180deg, #6fd0ff, var(--accent)); color: #fff; }
-      .card p.stage-info { margin: 0.3rem auto 0; font-size: 0.8rem; line-height: 1.35; min-height: 1.35em; max-width: 380px; }
+      .card p.stage-info { margin: 0.3rem auto 0; font-size: 0.8rem; line-height: 1.35; min-height: 1.35em; max-width: 400px; }
+      /* a wide screen: the menu in two columns under the title and its
+         lines, the mode, its options (the stage list, or a match's setup)
+         and Play down the left, the keys and the power-ups down the right,
+         so the list doesn't make the card taller than a laptop's screen */
+      @media (min-width: 900px) {
+        #menu > .card { max-width: 880px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 1.75rem; align-items: start; }
+        #menu > .card > h2 { grid-column: 1 / -1; grid-row: 1; }
+        #menu > .card > p { grid-column: 1 / -1; grid-row: 2; }
+        #menu > .card > .group { grid-column: 1; grid-row: 3; }
+        #menu > .card > #stage-opts, #menu > .card > #vs-opts { grid-row: 4; }
+        #menu > .card > .row { grid-column: 1; grid-row: 5; }
+        #menu > .card > #keys-help { grid-column: 2; grid-row: 3 / 5; align-self: center; }
+        #menu > .card > details.dict-wrap { grid-column: 2; grid-row: 5; }
+      }
+      /* (a short laptop screen: closer set, so the card's top clears the corner buttons) */
+      @media (min-width: 900px) and (max-height: 700px) {
+        #menu > .card { padding-top: 1rem; padding-bottom: 1rem; }
+        .stage-grid { gap: 3px; }
+        .card .group .stage-grid .st { height: 27px; }
+      }
+      /* (the keys beside the list's heading keep their own case) */
+      #stage-opts .lbl .gs-kbd { text-transform: none; }
+      /* a phone: as many to a row as fit at a size to tap, in a box that
+         scrolls, as tall as leaves Play on the screen (two and a half rows
+         on a short phone, about five on a tall one) */
+      @media (max-width: 520px) {
+        .stage-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); max-width: none; overflow-y: auto; overscroll-behavior: contain;
+          max-height: clamp(104px, calc(100vh - 460px), 204px); max-height: clamp(104px, calc(100dvh - 460px), 204px); }
+        .card .group .stage-grid .st { height: 36px; font-size: 0.85rem; }
+      }
+      /* a short, wider window (a phone on its side): the list scrolls in its box */
+      @media (max-height: 520px) and (min-width: 521px) and (max-width: 899px) {
+        .stage-grid { overflow-y: auto; overscroll-behavior: contain; max-height: 110px; }
+      }
       .prow { display: flex; gap: 0.5rem; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 0.4rem; }
       /* the CPU difficulty: the browser's arrow swapped for an ice-blue chevron */
       .diffsel { -webkit-appearance: none; -moz-appearance: none; appearance: none; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%232f8fe0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 0.6rem center / 12px 8px; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 0.5rem 1.9rem 0.5rem 0.6rem; font-family: inherit; font-size: 0.9rem; font-weight: 600; cursor: pointer; }
@@ -216,7 +287,19 @@
       .dict-item { font-size: 0.85rem; color: var(--muted); padding: 0.28rem 0; line-height: 1.45; border-top: 1px solid var(--line); font-weight: 500; }
       .dict-item b { color: var(--text); }
       /* On-screen control pad: the only input path on touch devices. */
-      .touchpad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; width: min(100%, 360px); margin: 0.8rem auto 0; touch-action: none; }
+      .touchpad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; width: min(100%, 360px); margin: 0.6rem auto 0; touch-action: none; }
+      /* a window wider than a phone (or one on its side): the pad stands
+         beside the boards, two by three (turns, moves, drops) */
+      #game-area.side { display: grid; grid-template-columns: auto auto; grid-template-areas: "bar bar" "boards pad"; justify-content: center; align-items: end; column-gap: 20px; }
+      #game-area.side > .row { grid-area: bar; }
+      #game-area.side > .boards { grid-area: boards; }
+      #game-area.side > .touchpad { grid-area: pad; width: 150px; margin: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #game-area.side .tbtn[data-act="ccw"] { grid-area: 1 / 1; }
+      #game-area.side .tbtn[data-act="cw"] { grid-area: 1 / 2; }
+      #game-area.side .tbtn[data-act="left"] { grid-area: 2 / 1; }
+      #game-area.side .tbtn[data-act="right"] { grid-area: 2 / 2; }
+      #game-area.side .tbtn[data-act="soft"] { grid-area: 3 / 1; }
+      #game-area.side .tbtn.hard { grid-area: 3 / 2; }
       /* min-height 44px is the accessible tap-target floor on iOS/Android,
          without it the shorter ⤓ Drop button lands at 37px. */
       .tbtn {
@@ -229,7 +312,7 @@
       .tbtn.rot { color: var(--accent); }
       .tbtn.hard { grid-column: 1 / -1; padding: 0.6rem 0; font-size: 1rem; color: var(--danger); border-color: rgba(217, 67, 74, 0.45); }
       .tbtn.held, .tbtn:active { background: #d6f0ff; border-color: var(--accent); color: var(--accent); box-shadow: none; }
-      #byline { color: var(--muted); font-size: 75%; margin-top: 0.4rem; }
+      #byline { color: var(--muted); font-size: 75%; margin: 0.4rem 0 0; }
       /* tasteful overlay entrance (auto-disabled by reduce-motion) */
       .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
       @keyframes drCardRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -255,6 +338,17 @@
         /* (a card leaves the corner buttons their room: a tall one starts
            below them and the overlay scrolls, its heading never under them) */
         .overlay { padding-top: 62px; }
+        /* in play, the bar stays one line: the mode's name wraps beside ☰ Menu */
+        #game-area > .row { flex-wrap: nowrap; }
+        #mode-label { min-width: 0; font-size: 0.8rem; text-align: left; line-height: 1.25; }
+        /* a lone board's panel, beside it, closer set (a power-up's name
+           that wraps refits the screen: fit) */
+        #game-area.solo .hud { width: 106px; row-gap: 0.3rem; }
+        #game-area.solo .hud-main { gap: 0.25rem; }
+        #game-area.solo .board-col { gap: 10px; }
+        #game-area.solo .special { min-height: 1.25em; }
+        #game-area.solo .stars { font-size: 0.78rem; }
+        #game-area.solo canvas.next { width: 48px; height: 48px; }
       }
       /* a small phone with the browser's bars showing: the same menu, closer set */
       @media (max-width: 380px) and (max-height: 600px) {
@@ -268,6 +362,19 @@
         .keys { line-height: 1.45; margin-top: 0.3rem; }
         details.dict-wrap { margin-top: 0.5rem; }
       }
+
+/* a phone on its side: the header closes up to a line each, a lone board's
+   panel keeps its Next piece beside its rows, and the byline sits close */
+@media (orientation: landscape) and (max-height: 500px) {
+  .wrap { gap: 0.3rem; padding-bottom: 0.3rem; }
+  h1.title { font-size: 1.25rem; }
+  .subtitle { font-size: 0.72rem; margin-top: 0.1rem; }
+  #game-area > .row { margin-bottom: 0.3rem !important; }
+  #menu-btn { padding: 0.35rem 0.8rem; }
+  #game-area.solo .hud { width: 200px; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.5rem; }
+  #game-area.solo canvas.next { width: 54px; height: 54px; }
+  #byline { margin: 0; }
+}
 
 /* While a box asks something ("Leave this game?", "Start over?") it is the
    only card up: the pause card, still paused, waits out of sight under it. */
