@@ -1046,26 +1046,29 @@ function flyDraw(pi, n) {
 // One card's glide from the deck's centre (dcx, dcy) to where it now sits,
 // `delay` ms from now: it waits at the deck (at opacity `wait`), starting at
 // `startScale` and twisted `rot` degrees (Visual FX on only), then settles
-// into place.
-function glideIn(node, dcx, dcy, startScale, delay, rot, wait) {
+// into place, over `ms` (a draw's DRAW_TRANS unless given).
+function glideIn(node, dcx, dcy, startScale, delay, rot, wait, ms) {
   if (!node.animate) return;
   var r = node.getBoundingClientRect();
   var from = "translate(" + (dcx - (r.left + r.width / 2)) + "px," +
     (dcy - (r.top + r.height / 2)) + "px) scale(" + startScale + ")" +
     (rot && fxOn() ? " rotate(" + rot + "deg)" : "");
   node.animate([{ transform: from, opacity: +wait }, { opacity: 1, offset: 0.8 }, { transform: "none", opacity: 1 }],
-    { duration: DRAW_TRANS * 1000, delay: delay, easing: "cubic-bezier(.3,.6,.3,1)", fill: "backwards" });
+    { duration: ms || DRAW_TRANS * 1000, delay: delay, easing: "cubic-bezier(.3,.6,.3,1)", fill: "backwards" });
 }
 
-// Visual FX on: a new hand is dealt round the table from the deck, a card at
-// a time: yours fan in, twisting straight as they land in your hand; each
-// CPU's shrink into its row. The first turn waits for the last card. With FX
-// off the hands are simply there.
+// A new hand is dealt round the table from the deck, a card at a time: yours
+// come into your hand (with Visual FX on fanned, twisting straight as they
+// land), each CPU's shrink into its row. With FX off the deal is quicker and
+// plainer. The first turn waits for the last card.
+var DEAL_PLAIN_MS = 180; // each card's glide with FX off (a draw's is DRAW_TRANS)
 function dealFx() {
-  if (reducedMotion() || !G) return;
-  var n = G.players.length, per = G.players[0].hand.length;
-  var step = Math.min(45, 1300 / (n * per)); // the whole deal stays under ~1.6s
-  var dealMs = (n * per - 1) * step + DRAW_TRANS * 1000 + 90;
+  if (!G) return;
+  var lively = fxOn(), n = G.players.length, per = G.players[0].hand.length;
+  // the whole deal stays under ~1.6s, or ~0.9s with FX off
+  var step = lively ? Math.min(45, 1300 / (n * per)) : Math.min(20, 600 / (n * per));
+  var glide = lively ? DRAW_TRANS * 1000 : DEAL_PLAIN_MS;
+  var dealMs = (n * per - 1) * step + glide + 90;
   drawAnimUntil = Math.max(drawAnimUntil, Date.now() + dealMs);
   var keys = G.players[0].hand.map(function (c) { return "c" + c.id; });
   keys.forEach(function (k) { glidingKeys[k] = true; });
@@ -1085,7 +1088,7 @@ function dealFx() {
         var el = rows[p] && rows[p][r];
         if (!el) continue;
         var fan = p === 0 ? (r - (per - 1) / 2) * 7 - 12 : 0;
-        glideIn(el, dcx, dcy, p === 0 ? 1 : 3.2, (r * n + p) * step, fan, "0");
+        glideIn(el, dcx, dcy, p === 0 ? 1 : 3.2, (r * n + p) * step, fan, "0", glide);
       }
     }
   });

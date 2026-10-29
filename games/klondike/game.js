@@ -61,8 +61,7 @@
     snap: function () { snapNoise(0.16); },
     flip: function () { snapNoise(0.1); tone(700, 0.04, 0.03, "sine", 1000); },
     draw: function () { snapNoise(0.12); },
-    deal: function () { for (var i = 0; i < 7; i++) snapNoise(0.08, i * 0.045); },
-    card: function () { snapNoise(0.07); },      // one card dealt (Visual FX on: the deal is dealt out)
+    card: function () { snapNoise(0.07); },      // one card dealt
     deny: function () { tone(180, 0.08, 0.05, "square"); },
     undo: function () { tone(500, 0.05, 0.04, "sine", 350); },
     found: function () { tone(880, 0.07, 0.05); tone(1320, 0.08, 0.04, "triangle", null, 0.05); },
@@ -202,16 +201,19 @@
   function bestKey() { return "klondike_best_" + (draw3 ? "draw3" : "draw1"); }
 
   // ---- the deal, dealt out --------------------------------------------------------
-  // With Visual FX on a new deal is dealt: the tableau's cards start on the
-  // stock, face down, and go out from it the way they do by hand (a card to
-  // each pile in turn, left to right, a row at a time), the last onto each pile
-  // turning up as it lands. A press, a key, or anything the game is asked to
-  // do meanwhile finishes it at once, the cards where they belong. With FX off
-  // they are simply there. Nothing is in play until it is done: no clock runs.
+  // A new deal is dealt: the tableau's cards start on the stock, face down,
+  // and go out from it the way they do by hand (a card to each pile in turn,
+  // left to right, a row at a time), the last onto each pile turning up as it
+  // lands. With Visual FX on each card settles into place; with it off the deal
+  // is quicker and plainer, every card going straight there. A press, a key,
+  // or anything the game is asked to do meanwhile finishes it at once, the
+  // cards where they belong. Nothing is in play until it is done: no clock runs.
   var dealing = false, dealRun = 0, dealTimers = [];
   var DEAL_STEP = 36, DEAL_FLY = 260;      // ms between cards, and for each one's flight (styles.css, .card.dealt)
+  var PLAIN_STEP = 18, PLAIN_FLY = 140;    // the same with FX off (played by script: motion-toggle.js flattens the CSS transition)
   function dealOut() {
-    var run = ++dealRun, order = [];
+    var run = ++dealRun, order = [], lively = fx();
+    var step = lively ? DEAL_STEP : PLAIN_STEP, flight = lively ? DEAL_FLY : PLAIN_FLY;
     dealing = true;
     for (var row = 0; row < 7; row++) {
       for (var ti = row; ti < 7; ti++) order.push({ c: G.tab[ti][row], x: pileX(ti), y: TABY + row * downStep });
@@ -225,15 +227,22 @@
     order.forEach(function (o, k) {
       dealTimers.push(setTimeout(function () {
         if (run !== dealRun) return;
-        o.el.classList.remove("noanim");
-        o.el.classList.add("dealt");
         o.el.style.zIndex = 200 + k;       // over the ones dealt before it, in flight and at rest
-        place(o.el, o.x, o.y);
+        if (lively) {
+          o.el.classList.remove("noanim");
+          o.el.classList.add("dealt");
+          place(o.el, o.x, o.y);
+        } else {
+          place(o.el, o.x, o.y);
+          var an = o.el._arc = o.el.animate([{ transform: "translate(" + pileX(0) + "px," + TOPY + "px)" }, { transform: "translate(" + o.x + "px," + o.y + "px)" }],
+            { duration: PLAIN_FLY, easing: "ease-out" });
+          an.onfinish = an.oncancel = function () { if (o.el._arc === an) o.el._arc = null; };
+        }
         SFX.card();
-        if (o.c.up) dealTimers.push(setTimeout(function () { if (run === dealRun) o.el.classList.remove("down"); }, DEAL_FLY * 0.7));
-      }, k * DEAL_STEP));
+        if (o.c.up) dealTimers.push(setTimeout(function () { if (run === dealRun) o.el.classList.remove("down"); }, lively ? DEAL_FLY * 0.7 : PLAIN_FLY));
+      }, k * step));
     });
-    dealTimers.push(setTimeout(function () { if (run === dealRun) finishDeal(); }, order.length * DEAL_STEP + DEAL_FLY + 60));
+    dealTimers.push(setTimeout(function () { if (run === dealRun) finishDeal(); }, order.length * step + flight + 60));
   }
   function finishDeal() {
     if (!dealing) return;
@@ -241,7 +250,7 @@
     dealRun++;
     dealTimers.forEach(clearTimeout);
     dealTimers = [];
-    els.forEach(function (el) { el.classList.remove("dealt"); });
+    els.forEach(function (el) { el.classList.remove("dealt"); if (el._arc) el._arc.cancel(); });
     position(true);
   }
   // (the switch flipped off mid-deal, or the tab put away: timers crawl there)
@@ -262,7 +271,7 @@
     position(true);
     clearHints();
     status(); tickTime();
-    if (fx()) dealOut(); else SFX.deal();
+    dealOut();
   }
   function begin() {
     if (started) return;

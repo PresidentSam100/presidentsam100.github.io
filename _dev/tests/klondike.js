@@ -3,10 +3,11 @@
 // or a new deal cut it short); a new deal stops an auto-finish still flying
 // cards home; keys do nothing under the pause card; in draw three the whole
 // top waste card answers a click; a won deal can't be undone and won again.
-// With Visual FX on a new deal is dealt out: every card starts on the stock,
-// face down, and the tableau goes out a card at a time, a card to each pile in
-// turn, ending where a deal simply laid out puts them; a press, a key, the
-// switch flipped off or a resize finishes it at once; with FX off it is there.
+// A new deal is dealt out: every card starts on the stock, face down, and
+// the tableau goes out a card at a time, a card to each pile in turn, ending
+// where a deal simply laid out puts them; a press, a key, the switch flipped
+// off or a resize finishes it at once; with FX off it goes out too, quicker
+// and straight.
 // requestAnimationFrame (and performance.now) on a clock the test advances
 const STEPPED = () => {
   let t = 1000, q = [];
@@ -27,12 +28,16 @@ const FX_OFF = () => { try { localStorage.setItem("reduceMotion:klondike", "1");
 // the left, a row at a time). __going: whether a deal is still going out.
 const SNAPS = () => {
   window.__going = () => !!(window.Klondike && Klondike.dealing && Klondike.dealing());
-  window.__snap = () => {
+  // the tableau's cards in the deal's order
+  window.__order = () => {
     const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"], SUITS = ["♠", "♥", "♦", "♣"];
-    const rect = (el) => el.getBoundingClientRect(), st = Klondike.state();
     const key = (s) => { s = s.replace("*", ""); return SUITS.indexOf(s.slice(-1)) + "-" + RANKS.indexOf(s.slice(0, -1)); };
-    const tab = st.tab.map((t) => (t ? t.split(" ") : []).map(key)), order = [];
+    const tab = Klondike.state().tab.map((t) => (t ? t.split(" ") : []).map(key)), order = [];
     for (let row = 0; row < 7; row++) for (let ti = row; ti < 7; ti++) if (tab[ti][row]) order.push(tab[ti][row]);
+    return order;
+  };
+  window.__snap = () => {
+    const rect = (el) => el.getBoundingClientRect(), st = Klondike.state(), order = __order();
     const cards = [...document.querySelectorAll("#field .card")];
     const home = rect(cards.find((el) => !order.includes(el.dataset.key)));   // (a card of the stock's own: where the stock is)
     const at = {};
@@ -238,6 +243,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike (the deal): no page errors", q.errs.length === 0, q.errs);
     await q.close();
 
+    // ---- with Visual FX off a new deal is dealt out too, quicker and plainer:
+    // the same cards in the same order, each sent straight from the stock by
+    // script (motion-toggle.js flattens CSS transitions then); every card sent
+    // is recorded as it goes
+    q = await lib.open(c, base, "games/klondike/", { before: async (pg) => {
+      await pg.addInitScript(FX_OFF); await pg.addInitScript(SNAPS);
+      await pg.addInitScript(() => {
+        const real = Element.prototype.animate;
+        Element.prototype.animate = function (frames, opts) {
+          if (window.__sent && this.dataset && this.dataset.key)
+            __sent.push({ key: this.dataset.key, at: performance.now(), frames: frames.length, from: String(frames[0].transform).replace(/\s/g, ""), ms: opts && opts.duration });
+          return real.apply(this, arguments);
+        };
+      });
+    } });
+    await q.waitForFunction(() => !__going(), null, { timeout: 15000 });
+    const plain = await q.evaluate(() => new Promise((res) => {
+      window.__sent = [];
+      document.getElementById("m-new").click();
+      const first = __snap();
+      (function tick() {
+        if (__going()) { setTimeout(tick, 10); return; }
+        const order = __order(), sent = __sent.filter((s, i) => __sent.findIndex((t) => t.key === s.key) === i);
+        const stock = [...document.querySelectorAll("#field .card")].find((el) => !order.includes(el.dataset.key)).style.transform.replace(/\s/g, "");
+        const gaps = sent.slice(1).map((s, i) => s.at - sent[i].at).sort((a, b) => a - b);
+        res({ first, last: __snap(), fxOff: window.RM_ON(), inOrder: sent.map((s) => s.key).join() === order.join(),
+          straight: sent.every((s) => s.frames === 2 && s.from === stock), sent: sent.length,
+          gap: gaps.length ? Math.round(gaps[gaps.length >> 1]) : null, ms: sent.length ? Math.max(...sent.map((s) => s.ms)) : null });
+      })();
+    }));
+    const flatOff = await laid(q);
+    check("klondike, FX off: a new deal is dealt out too: it starts with all 52 cards on the stock, face down, and the 28 go out one at a time in the deal's order, each straight from the stock",
+      plain.fxOff && plain.first.dealing && plain.first.onStock === 52 && plain.first.up === 0 && plain.sent === 28 && plain.inOrder && plain.straight,
+      Object.assign({}, plain, { first: slim(plain.first), last: undefined }));
+    check("klondike, FX off: the deal is quicker than with FX on (cards closer together, shorter flights) and ends where a deal simply laid out puts every card, no move made and no clock run",
+      plain.sent === 28 && plain.gap < 30 && plain.ms < 260 && !plain.last.dealing && plain.last.onStock === 24 && plain.last.up === 7 && same(plain.last, flatOff) &&
+      plain.last.moves === 0 && plain.last.timerMs === 0, { gap: plain.gap, ms: plain.ms, last: slim(plain.last) });
+    check("klondike (the deal, FX off): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+
     // ---- the same on a slowed deal (a card every 0.6 s), so a press or a key
     // is sure to land while it is still going out
     q = await lib.open(c, base, "games/klondike/", { before: async (pg) => {
@@ -271,15 +316,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.keyboard.press("Escape"); await q.waitForTimeout(80);
     check("klondike: a new deal confirmed with Enter is dealt out too; a key while it is going out finishes it and then does what it does (F1: How to play)",
       byKey.dealing && byKey.moves === 0 && !keyed.dealing && keyed.onStock === 24 && keyed.up === 7 && keyed.box, { byKey: slim(byKey), keyed: slim(keyed) });
-    // Visual FX switched off mid-deal lands the cards; with it off a new deal is simply there
+    // Visual FX switched off mid-deal lands the cards
     await q.keyboard.press("n"); await q.waitForTimeout(80);
     const going = await q.evaluate(() => __going());
     await q.evaluate(() => document.querySelector(".rm-toggle").click()); await q.waitForTimeout(80);
     const flipped = await q.evaluate(() => __snap());
-    const off = await q.evaluate(() => { document.getElementById("m-new").click(); return Object.assign(__snap(), { fxOff: window.RM_ON() }); });
-    check("klondike: Visual FX switched off mid-deal lands every card at once; with it off a new deal is simply there",
-      going && !flipped.dealing && flipped.onStock === 24 && flipped.up === 7 && off.fxOff && !off.dealing && off.onStock === 24 && off.up === 7 && off.seed !== flipped.seed,
-      { going, flipped: slim(flipped), off: slim(off) });
+    check("klondike: Visual FX switched off mid-deal lands every card at once",
+      going && !flipped.dealing && flipped.onStock === 24 && flipped.up === 7, { going, flipped: slim(flipped) });
     // a window resized mid-deal: the cards land where the new size puts them
     await q.evaluate(() => { document.querySelector(".rm-toggle").click(); document.getElementById("m-new").click(); });
     const going2 = await q.evaluate(() => __going());

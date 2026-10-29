@@ -398,10 +398,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("tic-tac-toe, FX off: the marks and the strike, with no dust", got.off.mark === 0 && got.off.replied && got.off.strike === 0 && got.off.won === "0", got.off);
   }
 
-  // ---- Yi, FX on: a new hand is dealt round the table a card at a time from
-  // the deck (yours fan in) and the first turn waits for it; FX off: the
-  // hands are simply there (a deal is a flourish; a card played or drawn in
-  // play travels with FX off too: yi.js)
+  // ---- Yi: a new hand is dealt round the table a card at a time from the
+  // deck and the first turn waits for it; FX on yours fan in, FX off they
+  // come straight, the deal quicker (a card played or drawn in play travels
+  // with FX off too: yi.js)
   {
     const got = {};
     for (const off of [false, true]) {
@@ -409,12 +409,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       // each card's starting twist / offset is recorded as its glide is set
       // going (a busy machine can be past it by the next frame), timed from the click
       await p.evaluate(() => {
-        window.__deal = { fanned: new Set(), minis: new Set(), t0: 0 };
+        window.__deal = { fanned: new Set(), straight: new Set(), minis: new Set(), t0: 0 };
         document.getElementById("startBtn").addEventListener("click", () => { __deal.t0 = Date.now(); }, true);
         const real = Element.prototype.animate;
         Element.prototype.animate = function (frames) {
           const from = (frames && frames[0] && frames[0].transform) || "";
-          if (this.matches("#hand .card") && /rotate/.test(from)) __deal.fanned.add(this.dataset.flipkey);
+          if (this.matches("#hand .card") && /translate/.test(from)) __deal[/rotate/.test(from) ? "fanned" : "straight"].add(this.dataset.flipkey);
           if (this.matches("#opponents .mini-back") && /translate/.test(from)) __deal.minis.add(this.dataset.flipkey);
           return real.apply(this, arguments);
         };
@@ -424,12 +424,13 @@ module.exports = async ({ browser, base, check, lib }) => {
       const settled = await p.waitForFunction(() => __deal.t0 && Date.now() > drawAnimUntil &&
         ![...document.querySelectorAll("#hand .card, #opponents .mini-back")].some((c) => c.getAnimations().length), null, { timeout: 10000 }).then(() => true, () => false);
       got[off ? "off" : "on"] = await p.evaluate((settled) => ({ hand: document.querySelectorAll("#hand .card").length, fanned: __deal.fanned.size,
-        minis: __deal.minis.size, waits: Math.round(drawAnimUntil - __deal.t0), settled }), settled);
+        straight: __deal.straight.size, minis: __deal.minis.size, waits: Math.round(drawAnimUntil - __deal.t0), settled }), settled);
       await done(p, "yi FX " + (off ? "off" : "on"));
     }
     check("yi, FX on: the hand is dealt round the table from the deck, yours fanning in, and it all settles before the first turn",
       got.on.hand === 7 && got.on.fanned >= 1 && got.on.minis >= 1 && got.on.waits > 300 && got.on.settled, got.on);
-    check("yi, FX off: the hands are simply there", got.off.hand === 7 && got.off.fanned === 0 && got.off.minis === 0 && got.off.waits <= 0 && got.off.settled, got.off);
+    check("yi, FX off: the hand is dealt round the table from the deck too, yours coming straight in, quicker than with FX on, and it all settles before the first turn",
+      got.off.hand === 7 && got.off.fanned === 0 && got.off.straight >= 1 && got.off.minis >= 1 && got.off.waits > 0 && got.off.waits < got.on.waits && got.off.settled, got.off);
   }
 
   // ---- Minesweeper, FX on: a win sends a wave across the board from the cell
@@ -663,28 +664,31 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("steamfitter, FX off: the pipe jumps", got.off.turned !== got.off.from && got.off.first === 0 && got.off.least === 0, got.off);
   }
 
-  // ---- Hash, FX on: the deal comes face down from the pile, a card after
-  // another, each turning face up where it lands, all down within about a
-  // second; FX off: the cards are simply there
+  // ---- Hash: a new game's deal comes from the pile, a card after another;
+  // FX on face down, each turning face up where it lands, all down within
+  // about a second; FX off face up with no turn, and quicker
   {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("hash/", off);
       got[off ? "off" : "on"] = await p.evaluate(() => {
         document.getElementById("newBtn").click();
-        const backs = [...document.querySelectorAll(".flyer.back")], anims = backs.map((f) => f.getAnimations()[0]).filter(Boolean);
-        const lags = anims.map((a) => a.effect.getTiming().delay);
-        return { cards: document.querySelectorAll("#board .card").length, waiting: document.querySelectorAll("#board .card.arriving").length, backs: backs.length,
+        const flyers = [...document.querySelectorAll(".flyer")], anims = flyers.map((f) => f.getAnimations()[0]).filter(Boolean);
+        const lags = anims.map((a) => a.effect.getTiming().delay), backs = flyers.filter((f) => f.classList.contains("back")).length;
+        return { cards: document.querySelectorAll("#board .card").length, waiting: document.querySelectorAll("#board .card.arriving").length, backs, faces: flyers.length - backs,
+          turns: anims.filter((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || ""))).length,
           lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + anims[0].effect.getTiming().duration : 0 };
       });
       // (and all of them landed, by the page's own clock)
-      got[off ? "off" : "on"].after = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ backs: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }), 1600)));
+      got[off ? "off" : "on"].after = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ flyers: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }), 1600)));
       await done(p, "hash deal FX " + (off ? "off" : "on"));
     }
     check("hash, FX on: the deal comes face down from the pile, one card after another, each turned face up where it lands, all down inside ~0.8s",
-      got.on.cards >= 12 && got.on.backs === got.on.cards && got.on.waiting === got.on.cards && JSON.stringify(got.on.lags) === "[0,30,60,90]" && got.on.ends <= 800 &&
-      got.on.after.backs === 0 && got.on.after.waiting === 0, got.on);
-    check("hash, FX off: the cards are simply there", got.off.cards >= 12 && got.off.backs === 0 && got.off.waiting === 0, got.off);
+      got.on.cards >= 12 && got.on.backs === got.on.cards && got.on.turns === got.on.cards && got.on.waiting === got.on.cards && JSON.stringify(got.on.lags) === "[0,30,60,90]" && got.on.ends <= 800 &&
+      got.on.after.flyers === 0 && got.on.after.waiting === 0, got.on);
+    check("hash, FX off: the deal comes from the pile too, face up with no turn, one card after another and quicker than with FX on",
+      got.off.cards >= 12 && got.off.faces === got.off.cards && got.off.backs === 0 && got.off.turns === 0 && got.off.waiting === got.off.cards &&
+      JSON.stringify(got.off.lags) === "[0,15,30,45]" && got.off.ends > 0 && got.off.ends < got.on.ends && got.off.after.flyers === 0 && got.off.after.waiting === 0, got.off);
   }
 
   // ---- Klondike, FX on: a card that travels arcs there, lifted mid-flight

@@ -252,6 +252,7 @@
   var hintIds = []; // ids of the cards a hint has lit, until the table changes
   var gameNo = 0; // bumped by newGame, so a claim's slide-out from the last game stops
   var trayNew = false; // the tray's cards have just come in (they're dealt in)
+  var dealing = false; // a new game's deal still coming in from the pile: no clock yet
 
   function $(id) { return document.getElementById(id); }
   var boardEl = $("board");
@@ -319,25 +320,47 @@
   }
   function boxOf(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }
   // new cards: from the pile, face down, turning face up where they land
-  // (Visual FX off: the same trip, face up all the way, with no turn)
-  function dealFromPile(ids) {
-    var from = placePile();
-    if (!from) { ids.forEach(function (id) { delete arriving[id]; }); return; }
-    var step = ids.length > 6 ? 30 : 70;
+  // (Visual FX off: the same trip, face up all the way, with no turn, and a
+  // new game's deal quicker); `opening`: a new game's deal, whose last card
+  // landing starts the clock
+  function dealFromPile(ids, opening) {
+    var from = placePile(), left = ids.length;
+    var landed = function () { if (--left === 0 && opening) dealLanded(); };
+    if (!from || !left) { ids.forEach(function (id) { delete arriving[id]; }); if (opening) dealLanded(); return; }
+    var turn = fxOn(), plain = opening && !turn;
+    var step = plain ? 15 : ids.length > 6 ? 30 : 70;
     ids.forEach(function (id, k) {
       var el = boardEl.querySelector('.card[data-id="' + id + '"]');
-      if (!el) { delete arriving[id]; return; }
-      var turn = fxOn(), back;
+      if (!el) { delete arriving[id]; landed(); return; }
+      var back;
       if (turn) { back = document.createElement("div"); back.className = "card back"; back.innerHTML = ""; }
       else { back = el.cloneNode(true); back.classList.remove("arriving"); back.removeAttribute("tabindex"); }
-      fly(back, from, boxOf(el), { duration: 360, delay: k * step, turn: turn }, function () {
+      fly(back, from, boxOf(el), { duration: plain ? 180 : 360, delay: k * step, turn: turn }, function () {
         delete arriving[id];
         var now = boardEl.querySelector('.card[data-id="' + id + '"]');
-        if (!now) return;
-        now.classList.remove("arriving");
-        if (turn) now.animate([{ transform: "perspective(600px) rotateY(-90deg)" }, { transform: "none" }], { duration: 160, easing: "ease-out" });
+        if (now) {
+          now.classList.remove("arriving");
+          if (turn) now.animate([{ transform: "perspective(600px) rotateY(-90deg)" }, { transform: "none" }], { duration: 160, easing: "ease-out" });
+        }
+        landed();
       });
     });
+  }
+  // The clock starts once a new game's deal is all down (not while it is
+  // paused or over). A press or a key while it is still coming in lands it at
+  // once, the clock starting then, and then does what it does; a pause lands
+  // it too (a hidden tab pauses).
+  function dealLanded() {
+    if (!dealing) return;
+    dealing = false;
+    if (!PAUSE.isPaused() && !over) startTimer();
+  }
+  function landDeal() {
+    if (!dealing) return false;
+    clearFlights();
+    boardEl.querySelectorAll(".card.arriving").forEach(function (el) { el.classList.remove("arriving"); });
+    dealLanded();
+    return true;
   }
   // a claimed Hash: each card to its place in the Found list (or the tray)
   function flyToKept(sources, targetOf) {
@@ -472,7 +495,7 @@
   }
 
   // ---- timer -----------------------------------------------------------
-  // The clock starts when the deal is shown (newGame) and holds while the
+  // The clock starts when the deal is down (dealLanded) and holds while the
   // game is paused (a hidden tab pauses it): what it ran before the last
   // hold is banked, and startTime is when it last started running.
   function clockMs() {
@@ -482,7 +505,7 @@
     statTime.textContent = fmtTime(clockMs() + penalty);
   }
   function startTimer() {
-    if (timerId) return;
+    if (timerId || dealing) return;
     startTime = Date.now();
     timerId = setInterval(showTime, 250);
   }
@@ -494,18 +517,14 @@
   }
 
   // ---- board rendering -------------------------------------------------
-  // animIds: ids of cards that should play an entrance animation;
-  // animClass: which one ("dealt" by default, "enter-left" for set refills).
-  // inPlay: cards brought in during play (a refill, three more), which come
-  // from the pile with Visual FX off too, as where a card goes is play; a
-  // new game's deal comes from it with FX on only.
-  function render(animIds, animClass, inPlay) {
-    animClass = animClass || "dealt";
-    var fromPile = (fxOn() || inPlay) && animIds && animIds.length > 0;
+  // animIds: ids of cards new to the table, which come from the pile with
+  // Visual FX on or off, as where a card goes is play: a new game's deal
+  // (`opening`) and the cards brought in during play (a refill, three more).
+  function render(animIds, opening) {
+    var fromPile = animIds && animIds.length > 0;
     // the cards are rebuilt on every change: keep keyboard focus on the same spot
     var focused = boardEl.contains(document.activeElement) ? +document.activeElement.dataset.idx : -1;
     boardEl.innerHTML = "";
-    var nth = 0;   // the dealt cards' order, for the deal's stagger (styles.css)
     // 3 columns; widen rows gracefully when 12/15/18 cards.
     for (var i = 0; i < board.length; i++) {
       var card = board[i];
@@ -520,11 +539,7 @@
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
       // a hinted card glows until it's picked (then it shows as picked)
       else if (hintIds.indexOf(card.id) !== -1) el.classList.add("hint");
-      if (animIds && animIds.indexOf(card.id) !== -1) {
-        // from the pile (below), or (a new game's deal with FX off) as it always has
-        if (fromPile) arriving[card.id] = true;
-        else { el.classList.add(animClass); el.style.setProperty("--dd", nth++ * 20 + "ms"); }
-      }
+      if (fromPile && animIds.indexOf(card.id) !== -1) arriving[card.id] = true;   // (from the pile: below)
       if (arriving[card.id]) el.classList.add("arriving");
       boardEl.appendChild(el);
     }
@@ -536,7 +551,7 @@
     // fit the viewport height (no scrolling) whether it's 12, 15 or 18 cards.
     boardEl.style.setProperty("--rows", Math.max(1, Math.ceil(board.length / 3)));
     renderTray();
-    if (fromPile) dealFromPile(animIds.filter(function (id) { return arriving[id]; }));
+    if (fromPile) dealFromPile(animIds.filter(function (id) { return arriving[id]; }), opening);
     else placePile();
   }
 
@@ -773,7 +788,7 @@
       selected = [];
       traySel = -1;
       trayNew = !flown;   // (cards flown into the tray are in already)
-      render(newIds, "enter-left", true);
+      render(newIds);
       locked = false;
       updateAddBtn();
       if (result) endGame(result);
@@ -853,6 +868,7 @@
 
   function onAdd() {
     if (locked || over || PAUSE.isPaused()) return;
+    landDeal();   // (a deal still coming in lands first, starting the clock)
     if (deck.length === 0) return;
     if (findAny()) {
       // There WAS one: gentle nudge, no new cards.
@@ -869,12 +885,13 @@
     moved = true;
     hintIds = [];
     setMsg("Dealt 3 more cards.", "info");
-    render(dealt, null, true);
+    render(dealt);
     updateAddBtn();
   }
 
   function onHint() {
     if (locked || over || PAUSE.isPaused()) return;
+    landDeal();
     var one = MODES[mode].one, an = mode === "ultra" ? "an " : "a ";
     var trio = findAny();
     if (!trio) {
@@ -993,20 +1010,20 @@
     var dealt = dealUpTo(12);
     // Guarantee an opening one exists (deal more if the first 12 have none).
     dealt = dealt.concat(ensureSetAvailable());
-    renderRules();
-    render(dealt);
-    renderLog();
-    renderBest();
-    updateAddBtn();
-    // The clock starts with the deal shown. A deal in a hidden tab (a page
-    // opened in the background, New game while hidden) never gets the hide
-    // that auto-pauses, so it starts paused instead, cards blank.
     stopTimer();
     banked = 0;
     statTime.textContent = "0:00";
+    dealing = true;
+    renderRules();
+    render(dealt, true);
+    renderLog();
+    renderBest();
+    updateAddBtn();
+    // The clock starts when the deal is down (dealLanded). A deal in a hidden
+    // tab (a page opened in the background, New game while hidden) never gets
+    // the hide that auto-pauses, so it starts paused instead, cards blank.
     if (document.hidden) PAUSE.pause();
-    else if (PAUSE.isPaused()) PAUSE.resume(); // (which starts the clock)
-    else startTimer();
+    else if (PAUSE.isPaused()) PAUSE.resume(); // (which starts the clock, once the deal is down)
   }
 
   // Normal / Set-Chain / UltraSet, Junior and Daily: each change deals a new
@@ -1026,7 +1043,9 @@
   }
 
   // ---- events ----------------------------------------------------------
+  // (a press or a key while a new game's deal is coming in lands it first)
   boardEl.addEventListener("click", function (e) {
+    landDeal();
     var el = e.target.closest(".card");
     if (!el) return;
     onCardActivate(parseInt(el.dataset.idx, 10));
@@ -1046,6 +1065,7 @@
     var el = e.target.closest(".card");
     if (!el) return;
     e.preventDefault();
+    landDeal();
     onCardActivate(parseInt(el.dataset.idx, 10));
   });
   trayCards.addEventListener("keydown", function (e) {
@@ -1096,7 +1116,7 @@
           onChange: function (paused) {
             boardEl.classList.toggle("paused", paused);
             trayEl.classList.toggle("paused", paused);
-            if (paused) stopTimer();
+            if (paused) { landDeal(); stopTimer(); }
             else if (!over) startTimer();
           },
           restart: newGame,     // on the card: a new deal (there is no menu)

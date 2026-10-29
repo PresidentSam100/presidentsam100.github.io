@@ -303,31 +303,14 @@ html.fx-off .card.exit-right {
   box-shadow: 0 0 0 3px var(--emerald), 0 0 22px rgba(52, 201, 138, 0.55);
 }
 
-/* replacements arrive from the left (through the imaginary left column) */
-.card.enter-left {
-  animation: enterLeft 0.42s cubic-bezier(0.2, 0.8, 0.25, 1);
-  z-index: 2;
-}
-@keyframes enterLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-185%) scale(0.86);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* dealt-in / feedback animations */
+/* dealt-in / feedback animations (the table's new cards come from the
+   pile instead: game.js dealFromPile) */
 .card.dealt {
   animation: dealIn 0.3s ease;
 }
-/* Visual FX on: the deal turns each card face up from edge-on, one after
-   another (--dd, 20ms apart: every face is still readable within a few
-   tenths of a second, so the clock loses nothing to it) */
+/* Visual FX on: the tray's new cards turn face up from edge-on */
 html.fx-on .card.dealt {
-  animation: dealFlip 0.32s cubic-bezier(0.2, 0.75, 0.3, 1) var(--dd, 0ms) backwards;
+  animation: dealFlip 0.32s cubic-bezier(0.2, 0.75, 0.3, 1) backwards;
 }
 @keyframes dealFlip {
   from {

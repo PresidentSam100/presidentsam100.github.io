@@ -1,7 +1,8 @@
 // Hash: a hint stays lit through the re-renders that picking cards causes,
 // so the next hint shows a second card instead of charging again for the
 // first; Enter or Space on a card keeps keyboard focus on that card. The
-// clock runs from the deal, and a deal in a hidden tab starts paused; P / Esc
+// clock runs from the moment the deal is down (FX on and off), a press while
+// it is coming in landing it first, and a deal in a hidden tab starts paused; P / Esc
 // / a hidden tab pause it, with the cards blank under the pause card; leaving
 // or ↻ New game mid-deck asks first with the game paused; a best time leaves
 // the paused time out and keeps the hint penalty in. A hint glows blue, not
@@ -9,16 +10,19 @@
 // row in Found (in Set-Chain to the Last Hash beside the table) and the new
 // cards come from the pile, with Visual FX on (face down, turning up as they
 // land) and off (face up, no turn) alike.
-const HOOK = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; } };\n})();"];
+const HOOK = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; }, clock: clockMs };\n})();"];
+// (in the page) whether a deal's cards are still coming in from the pile
+const COMING = "!!document.querySelector('#board .card.arriving, .flyer')";
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const p = await lib.open(ctx, base, "games/hash/", { before: (pg) => lib.injectScript(pg, "games/hash/game.js", [HOOK]) });
   const lit = () => p.evaluate(() => [...document.querySelectorAll("#board .card.hint")].map((c) => +c.dataset.idx));
-  // a new deal, saying yes if it asks first (mid-deck it does)
+  // a new deal, saying yes if it asks first (mid-deck it does), and down
   const deal = async () => {
     await p.click("#newBtn"); await p.waitForTimeout(100);
     if (await p.evaluate(() => !!document.querySelector(".gs-dialog"))) { await p.keyboard.press("Enter"); await p.waitForTimeout(100); }
+    await p.waitForFunction("!" + COMING, null, { timeout: 8000 });
   };
 
   // hint, pick the glowing card, put it back, hint again
@@ -55,7 +59,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("hash: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
-  const open = () => lib.open(ctx, base, "games/hash/", { before: (pg) => lib.injectScript(pg, "games/hash/game.js", [HOOK]) });
+  // (the page's first deal down before anything is pressed)
+  const open = async () => {
+    const q = await lib.open(ctx, base, "games/hash/", { before: (pg) => lib.injectScript(pg, "games/hash/game.js", [HOOK]) });
+    await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
+    return q;
+  };
   const time = (q) => q.evaluate(() => document.getElementById("statTime").textContent);
   // how many cards show their faces; whether the pause card is up
   const look = (q) => q.evaluate(() => ({
@@ -79,11 +88,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     opened.paused && opened.faces === 0 && opened.time === "0:00" && !resumed.paused && redealt.paused && redealt.faces === 0, { opened, resumed, redealt });
   await hidden.close();
 
-  // ---- on a visible tab the clock runs from the deal
+  // ---- the clock waits for the deal: none while a new game's cards are still
+  // coming in from the pile, running once the last is down (FX on and off); a
+  // press on a card meanwhile lands the deal at once, the clock starting then,
+  // and picks the card
+  for (const off of [false, true]) {
+    const r = await lib.open(ctx, base, "games/hash/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/hash/game.js", [HOOK]);
+      if (off) await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:hash", "1"); } catch (e) {} });
+    } });
+    await r.waitForFunction("!" + COMING, null, { timeout: 8000 });
+    const waited = await r.evaluate((coming) => new Promise((res) => {
+      const still = new Function("return " + coming);
+      document.getElementById("newBtn").click();   // (an untouched game: it deals at once)
+      let most = 0, seen = 0;
+      (function look() {
+        if (still()) { most = Math.max(most, __h.clock()); seen++; return setTimeout(look, 10); }
+        setTimeout(() => res({ most, seen, later: __h.clock() }), 300);
+      })();
+    }), COMING);
+    const pressed = await r.evaluate((coming) => new Promise((res) => {
+      const still = new Function("return " + coming);
+      document.getElementById("newBtn").click();
+      const was = still();
+      document.querySelector("#board .card").click();
+      const now = { was, still: still(), picked: document.querySelectorAll("#board .card.selected").length };
+      setTimeout(() => res(Object.assign(now, { clock: __h.clock() })), 300);
+    }), COMING);
+    check("hash, FX " + (off ? "off" : "on") + ": the clock stays at nothing while a new game's deal is coming in and runs once it is down",
+      waited.seen > 0 && waited.most === 0 && waited.later >= 150, waited);
+    check("hash, FX " + (off ? "off" : "on") + ": a press on a card while the deal is coming in lands it at once, the clock starting then, and picks the card",
+      pressed.was && !pressed.still && pressed.picked === 1 && pressed.clock >= 150, pressed);
+    check("hash (the clock and the deal, FX " + (off ? "off" : "on") + "): no page errors", r.errs.length === 0, r.errs);
+    await r.close();
+  }
+
+  // ---- on a visible tab the clock runs once the deal is down
   let q = await open();
   await q.waitForTimeout(2300);
   const after = await time(q);
-  check("hash: on a visible tab the clock runs from the deal", after !== "0:00", { after });
+  check("hash: on a visible tab the clock runs once the deal is down", after !== "0:00", { after });
   await q.click('.card[data-idx="0"]');
 
   // ---- P pauses: the clock holds, the cards go blank and take no picks; P resumes;
@@ -146,7 +190,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const run = await q.evaluate(async () => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     const card = (i) => document.querySelector('#board .card[data-idx="' + i + '"]');
-    document.getElementById("newBtn").click();         // a fresh deal: the clock starts
+    document.getElementById("newBtn").click();         // a fresh deal: the clock starts once it is down
+    while (document.querySelector("#board .card.arriving, .flyer")) await wait(10);
     const t0 = performance.now();
     await wait(400);
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", bubbles: true }));
@@ -197,10 +242,15 @@ module.exports = async ({ browser, base, check, lib }) => {
   const HOOK2 = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n" +
     "  window.__h = { get board() { return board; }, get deck() { return deck; }, get tray() { return tray; }, get log() { return log; }, get mode() { return mode; }, get locked() { return locked; },\n" +
     "    findSet: findSet, findAny: findAny, emptyDeck: function () { deck = []; }, table: function (codes) { board = codes.map(function (s) { return cardOf(s.split('').map(Number)); }); selected = []; hintIds = []; render(); } };\n})();"];
-  const openM = (c, seed) => lib.open(c || ctx, base, "games/hash/", { before: async (pg) => {
-    await lib.injectScript(pg, "games/hash/game.js", [HOOK2]);
-    if (seed) await pg.addInitScript((s) => { try { localStorage.setItem("hash_prefs", s); } catch (e) {} }, JSON.stringify(seed));
-  } });
+  // (the page's first deal down before anything is pressed)
+  const openM = async (c, seed) => {
+    const q = await lib.open(c || ctx, base, "games/hash/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/hash/game.js", [HOOK2]);
+      if (seed) await pg.addInitScript((s) => { try { localStorage.setItem("hash_prefs", s); } catch (e) {} }, JSON.stringify(seed));
+    } });
+    await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
+    return q;
+  };
   const code = (s) => s.split("").map(Number);
   const third = (a, b) => a.map((v, f) => (6 - v - b[f]) % 3);
   const isUltra = (cs) => [[0, 1, 2, 3], [0, 2, 1, 3], [0, 3, 1, 2]].some((o) => third(cs[o[0]], cs[o[1]]).join() === third(cs[o[2]], cs[o[3]]).join());
@@ -217,6 +267,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     __h.emptyDeck();
     for (let n = 0; n < 40 && document.getElementById("overlay").hidden; n++) {
+      // (a deal or a claim's cards still on their way first)
+      for (let k = 0; k < 300 && document.querySelector("#board .card.arriving, .flyer"); k++) await wait(10);
       const f = __h.findAny();
       if (!f) break;
       for (const c of f) {
