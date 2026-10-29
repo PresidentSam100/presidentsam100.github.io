@@ -28,6 +28,7 @@ const ALLOW = {
   "slither/editor.html": ["*"],
   "tile-maze/editor.html": ["*"],
   "toy-tanks/editor.html": ["*"],
+  "toy-tanks/": [".mt"],                    // the missions: a grid the arrows walk (the keys by its heading)
   "speedle/": [".key"],                     // the on-screen keyboard
   "steamfitter/": [".ls-cell", ".ls-create"],   // the level grid (the arrows walk it, the keys on its heading)
   "sudoku/": [".key"],                      // the digit pad

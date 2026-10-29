@@ -304,12 +304,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   let p = await lib.open(ctx, base, "games/toy-tanks/");
   {
     const menu = await p.evaluate(() => ({ ui: ToyTanks.ui(), play: document.getElementById("play").getAttribute("data-gs-key"),
-      caps: ["stage-down", "stage-up"].map((id) => document.getElementById(id).getAttribute("data-gs-key")).join(" "),
-      down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled, n: document.getElementById("stage-n").textContent }));
+      tiles: document.querySelectorAll("#mission-grid .mt").length, on: [...document.querySelectorAll("#mission-grid .mt.on")].map((b) => b.textContent).join(),
+      caps: [...document.querySelectorAll("#missions-k .gs-kbd")].map((k) => k.textContent).join(" "), n: document.getElementById("stage-n").textContent }));
     await p.keyboard.press("Enter"); await p.waitForTimeout(150);
     const card = await p.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, banner: document.getElementById("banner").textContent, best: localStorage.getItem("toytanks_best_cleared") }));
-    check("toy-tanks: the menu takes keys (← → step the mission, ◀ shut at mission 1 and ▶ open; Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and no mission cleared is a record yet",
-      menu.ui === "menu" && menu.play === "Space or Enter" && menu.caps === "← →" && menu.down && !menu.up && menu.n === "From mission 1" && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best == null, { menu, card });
+    check("toy-tanks: the menu takes keys (the grid of missions, mission 1 picked, its arrows and Enter shown by its heading; Roll out wears Space or Enter), Enter rolls out, the mission card names the mission and its tanks, and no mission cleared is a record yet",
+      menu.ui === "menu" && menu.play === "Space or Enter" && menu.tiles === 100 && menu.on === "1" && menu.caps === "← ↑ ↓ → Enter" && menu.n === "From mission 1" && card.ui === "run" && card.mission === 1 && /Mission 1/.test(card.banner) && /Enemy tanks: \d/.test(card.banner) && card.best == null, { menu, card });
 
     // a mission tried again after a lost tank is the same one (a drawn-up mission keeps its layout)
     const before = await p.evaluate(() => { ToyTanks.advance(1700, {}); const st = ToyTanks.st(); return { grid: st.grid.join(""), foes: st.enemies.map((e) => e.kind + e.x + "," + e.y).join() }; });
@@ -380,38 +380,74 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: mission 20 brings the white tanks, seen on the mission card and gone from sight once it starts", r.n === 2 && r.onCard && r.gone, r);
   }
 
-  // ---- the menu's start: ◀ ▶ (← →, held to run on) step the mission, any of
-  // the 100; the run starts there, and its card counts every kind of tank,
-  // one too
+  // ---- the menu's start: every one of the 100 missions in a grid, any of
+  // them open, the hand-made ones (every fifth) marked; a click picks one, the
+  // arrows walk the grid (held, they run on), kept; the run starts from the
+  // one picked, and its card counts every kind of tank, one too
   {
     const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
     const q = await lib.open(c, base, "games/toy-tanks/");
-    const read = () => q.evaluate(() => ({ n: document.getElementById("stage-n").textContent, note: document.getElementById("stage-note").textContent, down: document.getElementById("stage-down").disabled, up: document.getElementById("stage-up").disabled }));
-    // (a key held down: its repeats step on too)
+    const read = () => q.evaluate(() => {
+      const tiles = [...document.querySelectorAll("#mission-grid .mt")];
+      return { n: document.getElementById("stage-n").textContent, note: document.getElementById("stage-note").textContent, tiles: tiles.length,
+        nums: tiles.map((b) => +b.textContent).join() === Array.from({ length: 100 }, (_, i) => i + 1).join(),
+        shut: tiles.filter((b) => b.disabled || b.classList.contains("locked") || b.getAttribute("aria-disabled") === "true").length,
+        fixed: tiles.filter((b) => b.classList.contains("fixed")).map((b) => +b.textContent).join(),
+        on: tiles.filter((b) => b.classList.contains("on")).map((b) => +b.textContent).join(), ring: (document.querySelector("#mission-grid [data-gs-pick]") || {}).textContent || null };
+    });
+    // (a key held down: its repeats walk on too)
     const hold = (key, n) => q.evaluate(([key, n]) => { for (let i = 0; i < n; i++) document.dispatchEvent(new KeyboardEvent("keydown", { key, repeat: true, bubbles: true })); }, [key, n]);
     const a = await read();
-    await q.keyboard.press("ArrowRight"); await q.keyboard.press("ArrowRight");
-    const b = await read();
+    await q.click("#mission-grid .mt:nth-child(7)");
+    const seven = await read();
+    await q.keyboard.press("ArrowRight");      // (the first arrow rings the mission picked)
+    const ringed = await read();
+    await q.keyboard.press("ArrowRight"); await q.keyboard.press("ArrowDown"); await q.keyboard.press("ArrowLeft"); await q.keyboard.press("ArrowLeft");
+    const walked = await read();
     await hold("ArrowRight", 30);
-    const past = await read();
+    const ran = await read();
     await hold("ArrowRight", 100);
     const top = await read();
-    await q.keyboard.press("ArrowLeft");
-    const back = await read();
-    await hold("ArrowLeft", 88);
-    await q.click("#stage-down");
+    await q.click("#mission-grid .mt:nth-child(10)");
     const ten = await read();
     await q.keyboard.press("Enter"); await q.waitForTimeout(150);
     const went = await q.evaluate(() => ({ ui: ToyTanks.ui(), mission: ToyTanks.st().mi + 1, kept: localStorage.getItem("toytanks_start"),
       kinds: [...document.querySelectorAll("#banner .b-kind")].map((k) => k.textContent.trim()).sort().join(" ") }));
-    check("toy-tanks: on the menu ◀ ▶ (← →, held to run on) pick the mission to start from, any of the 100, kept, and the run starts there",
-      a.n === "From mission 1" && a.note === "the whole campaign" && a.down && !a.up && b.n === "From mission 3" && b.note === "missions 3 to 100" &&
-      past.n === "From mission 33" &&
-      top.n === "From mission 100" && top.up && !top.down && back.n === "From mission 99" && ten.n === "From mission 10" &&
-      went.ui === "run" && went.mission === 10 && went.kept === "10", { a, b, past, top, back, ten, went });
+    const fives = Array.from({ length: 20 }, (_, i) => (i + 1) * 5).join();
+    check("toy-tanks: the menu lists all 100 missions in a grid, every one open, the hand-made ones (every fifth) marked, mission 1 picked to begin with",
+      a.tiles === 100 && a.nums && a.shut === 0 && a.fixed === fives && a.on === "1" && a.n === "From mission 1" && a.note === "the whole campaign", a);
+    check("toy-tanks: a click on a mission picks it (kept); the arrows walk the grid from it (→ ↓ ← a row of ten), held they run on, the pick going with them; the run starts from the one picked",
+      seven.on === "7" && seven.n === "From mission 7" && seven.note === "missions 7 to 100" && ringed.ring === "7" && ringed.on === "7" &&
+      walked.ring === "16" && walked.on === "16" && ran.on === "46" && top.on === "100" && ten.on === "10" && ten.n === "From mission 10" &&
+      went.ui === "run" && went.mission === 10 && went.kept === "10", { seven, ringed, walked, ran, top, ten, went });
     check("toy-tanks: the mission card counts every kind of tank, a lone one too (mission 10: ×2 pink, ×1 marine)", went.kinds === "×1 ×2", went.kinds);
     check("toy-tanks (stage pick): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
+  }
+
+  // ---- the grid of missions fits: on a laptop all 100 in sight at once, the
+  // menu not scrolling; on a phone five to a row, big enough to tap, in a box
+  // of their own that scrolls, the mission picked in sight as the menu opens;
+  // nothing wider than the screen anywhere
+  {
+    const fits = {};
+    for (const [w, h, mob] of [[1366, 657, false], [1280, 600, false], [390, 664, true], [320, 568, true]]) {
+      const c = await lib.newContext(browser, mob ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true } : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("toytanks_start", "73"); } catch (e) {} }) });
+      fits[w + "x" + h] = await q.evaluate(() => {
+        const box = document.getElementById("mission-box"), b = box.getBoundingClientRect(), tiles = [...document.querySelectorAll("#mission-grid .mt")];
+        const t = tiles[0].getBoundingClientRect(), pick = tiles[72].getBoundingClientRect(), panel = document.getElementById("menu");
+        const row = tiles.filter((x) => Math.abs(x.getBoundingClientRect().top - t.top) < 1).length;
+        return { row, w: Math.round(t.width), h: Math.round(t.height), boxScrolls: box.scrollHeight > box.clientHeight + 1, pageScroll: panel.scrollHeight - panel.clientHeight,
+          pickSeen: pick.top >= b.top - 1 && pick.bottom <= b.bottom + 1, wide: document.documentElement.scrollWidth > innerWidth };
+      });
+      check("toy-tanks (fit " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    const lap = ["1366x657", "1280x600"].every((k) => { const f = fits[k]; return f.row === 10 && !f.boxScrolls && f.pageScroll <= 0 && f.pickSeen && !f.wide; });
+    const phone = ["390x664", "320x568"].every((k) => { const f = fits[k]; return f.row === 5 && f.w >= 40 && f.h >= 36 && f.boxScrolls && f.pickSeen && !f.wide; });
+    check("toy-tanks: the grid of missions fits (laptop: ten to a row, all in sight, the menu not scrolling; phone: five to a row, at least 40 x 36 px, the box scrolling with the mission picked in sight; never wider than the screen)",
+      lap && phone, fits);
   }
 
   // ---- the name stays where it is as a run starts, and so does the arena

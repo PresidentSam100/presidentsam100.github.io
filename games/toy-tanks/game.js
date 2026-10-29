@@ -11,8 +11,9 @@
    starts on (any of them, picked on the menu) to its end.
 
    Keys: WASD or the arrows drive, the mouse aims, a click or Space fires,
-   a right-click or E lays a mine, P pauses; on the menu ← → pick the
-   mission to start from (held, they run on), Space or Enter starts, and L
+   a right-click or E lays a mine, P pauses; on the menu the arrows walk
+   the grid of missions to pick the one to start from (a click picks one
+   too), Space or Enter starts, and L
    opens the mission editor (editor.html), whose missions come back here as
    "#play=" links, played on their own (Backspace: back to the campaign);
    on the end card Space or Enter plays again and Backspace is the menu. Esc leaves (asking first mid-run): the
@@ -292,7 +293,7 @@
     // (the HUD, unseen, filled as a run starts it: the same size, so nothing moves when one does)
     $("h-lives").dataset.v = ""; hud();
     banner("");
-    paintBack(); paintMenu();
+    paintBack(); paintMenu(); showPick();
   }
 
   function burst(x, y, n, t, life, spread, c) {
@@ -462,37 +463,35 @@
     startAt = Math.max(1, Math.min(startAt, TOTAL));
     $("stage-n").textContent = "From mission " + startAt;
     $("stage-note").textContent = startAt === 1 ? "the whole campaign" : "missions " + startAt + " to " + TOTAL;
-    $("stage-down").disabled = startAt <= 1;
-    $("stage-up").disabled = startAt >= TOTAL;
+    tiles.forEach(function (b, i) { var on = i + 1 === startAt; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
     var bc = bestCleared.get(), bk = bestKills.get();
     $("bests").textContent = bc || bk ? "Most in a run: " + bc + (bc === 1 ? " mission" : " missions") + " cleared · " + bk + " destroyed" : "";
     paintShared();
     if (window.GameShell && GameShell.menuKeys && menuApi) menuApi.refresh && menuApi.refresh();
   }
-  function stepStart(d) {
-    var n = Math.max(1, Math.min(TOTAL, startAt + d));
+  // every mission in a grid, any of them to start from, the one picked lit;
+  // the hand-made ones (every fifth) yellow
+  var tiles = [];
+  for (var tn = 1; tn <= TOTAL; tn++) (function (n) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mt" + (L.FIXED[n] ? " fixed" : ""); b.textContent = n;
+    b.setAttribute("aria-label", "Mission " + n + (L.FIXED[n] ? ", laid out by hand" : ""));
+    b.addEventListener("click", function () { choose(n); });
+    b.addEventListener("mousedown", function (e) { e.preventDefault(); });   // (no focus: Enter stays Roll out's)
+    $("mission-grid").appendChild(b);
+    tiles.push(b);
+  })(tn);
+  function choose(n) {
+    n = Math.max(1, Math.min(TOTAL, n));
     if (n === startAt) return;
     startAt = n; store.set("toytanks_start", String(n)); paintMenu();
   }
-  // ◀ ▶ step a mission; held down (a finger, the mouse) they run on. A press
-  // steps as it lands, so the click after it is let by; a key's click (from
-  // the menu's ← →) steps on its own.
-  ["stage-down", "stage-up"].forEach(function (id, i) {
-    var b = $(id), d = i ? 1 : -1, hold = null;
-    function stop() { clearTimeout(hold); clearInterval(hold); hold = null; }
-    b.addEventListener("pointerdown", function (e) {
-      if (b.disabled || e.button > 0) return;
-      e.preventDefault(); stepStart(d); stop();
-      hold = setTimeout(function () { hold = setInterval(function () { if (b.disabled) stop(); else stepStart(d); }, 70); }, 420);
-    });
-    ["pointerup", "pointerleave", "pointercancel"].forEach(function (t) { b.addEventListener(t, stop); });
-    b.addEventListener("click", function (e) { if (!e.detail) stepStart(d); });
-  });
-  // (and ← → held down run on too: the menu's keys take a press, not its repeats)
-  document.addEventListener("keydown", function (e) {
-    if (ui !== "menu" || !e.repeat || e.ctrlKey || e.metaKey || e.altKey || document.querySelector(".gs-dialog")) return;
-    if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepStart(e.key === "ArrowLeft" ? -1 : 1); }
-  });
+  // (where the grid scrolls in its box, a phone's: the mission picked in sight)
+  function showPick() {
+    var box = $("mission-box"), b = tiles[startAt - 1];
+    if (!b || box.scrollHeight <= box.clientHeight) return;
+    if (b.offsetTop < box.scrollTop || b.offsetTop + b.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = b.offsetTop - (box.clientHeight - b.offsetHeight) / 2;
+  }
   $("play").addEventListener("click", startRun);
   $("again").addEventListener("click", startRun);
   $("to-menu").addEventListener("click", toMenu);
@@ -517,7 +516,8 @@
     }
   }
   function paintShared() {
-    $("start-pick").hidden = !!shared;
+    $("start-pick").hidden = $("missions").hidden = !!shared;
+    $("menu").querySelector(".card").classList.toggle("has-grid", !shared);
     $("shared").hidden = !shared; $("to-campaign").hidden = !shared;
     if (shared) $("shared-name").textContent = shared.name;
   }
@@ -537,7 +537,21 @@
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(P ? { active: inRun, pausable: P } : inRun);
   var menuApi = null;
   if (window.GameShell && GameShell.menuKeys) {
-    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#stage-down", keys: ["arrowleft"] }, { sel: "#stage-up", keys: ["arrowright"] }, { sel: "#to-editor", keys: ["l"] }, { sel: "#to-campaign", keys: ["Backspace"] }], start: "#play", space: true });
+    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#to-editor", keys: ["l"] }, { sel: "#to-campaign", keys: ["Backspace"] }], start: "#play", space: true });
+    // the arrows walk the grid of missions, the pick going with the ring (held,
+    // they run on), and Enter rolls out from the one picked (a click since may
+    // have picked another); the keycaps for it (with a keyboard) beside the
+    // grid's heading
+    if (GameShell.gridKeys) {
+      GameShell.gridKeys({ active: function () { return ui === "menu" && !shared; }, sel: "#mission-grid .mt",
+        first: function () { return tiles[startAt - 1]; },
+        open: function () { startRun(); } });
+      new MutationObserver(function () {
+        var at = $("mission-grid").querySelector(".mt[data-gs-pick]");
+        if (at) choose(tiles.indexOf(at) + 1);
+      }).observe($("mission-grid"), { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
+      $("missions-k").insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
+    }
     // (the end card: Space fires in play, so for a moment after the card comes
     // up no key counts: one pressed as the last tank went can't skip it)
     GameShell.menuKeys({ active: function () { return ui === "over" && performance.now() - overAt > 700; }, groups: [{ sel: "#to-menu", keys: ["Backspace"] }], start: "#again", space: true });

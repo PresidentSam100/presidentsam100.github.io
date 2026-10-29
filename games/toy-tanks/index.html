@@ -63,7 +63,7 @@
 </main>
 
 <section class="panel" id="menu">
-  <div class="card">
+  <div class="card has-grid">
     <h2>Toy Tanks</h2>
     <p class="how">
       Destroy every enemy tank to clear a mission. Your shells <b>bounce</b>
@@ -73,11 +73,14 @@
       Three lives, and one more every fifth mission.
     </p>
     <div class="pick" id="start-pick">
-      <div class="stage">
-        <button type="button" class="step" id="stage-down" aria-label="The mission before"><span class="tri tri-l"></span></button>
-        <div class="stage-read" aria-live="polite"><b id="stage-n">From mission 1</b><small id="stage-note">the whole campaign</small></div>
-        <button type="button" class="step" id="stage-up" aria-label="The next mission"><span class="tri tri-r"></span></button>
-      </div>
+      <div class="stage-read" aria-live="polite"><b id="stage-n">From mission 1</b><small id="stage-note">the whole campaign</small></div>
+    </div>
+    <!-- the mission to start from: all hundred in a grid (game.js), any of
+         them; beside the rest on a wide screen -->
+    <div class="missions" id="missions">
+      <h3 class="missions-k" id="missions-k">Missions</h3>
+      <div class="mbox" id="mission-box"><div class="mgrid" id="mission-grid" role="group" aria-labelledby="missions-k"></div></div>
+      <p class="mlegend"><i class="swatch" aria-hidden="true"></i>hand-made, the same every run</p>
     </div>
     <!-- a mission of your own, from the editor's "#play=" link: played in place of the campaign -->
     <div class="shared-box" id="shared" hidden><b id="shared-name"></b><small>a mission of your own: no records</small></div>
