@@ -396,5 +396,57 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
   }
 
+  // ---- a truck is one vehicle: no road shows between its box and its cab,
+  // along its side or across its roof, whichever way it drives (the lane is
+  // drawn with the truck and without it: where the truck is, a pixel still
+  // the empty lane's is road showing through)
+  {
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
+    await q.keyboard.press("2"); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
+    const truck = await q.evaluate(() => {
+      const c = document.getElementById("game"), g = c.getContext("2d"), R = __game.rows, gy = __game.player.gy, now = performance.now;
+      // a lane with another lane in front of it (so nothing nearer stands over the truck), clear of the bird
+      let r = null;
+      for (let k = gy + 2; k < gy + 9 && r === null; k++) if (R[k] && R[k].type === "road" && R[k - 1] && R[k - 1].type === "road") r = k;
+      if (r === null) return { noLane: true };
+      const row = R[r], near = R[r - 1], keep = { items: row.items, dir: row.dir, coin: row.coin, pol: row.police.state, nearItems: near.items, nearPol: near.police.state };
+      let t = null;
+      const tr = g.translate;
+      g.translate = function () { const out = tr.apply(this, arguments); if (!t) t = g.getTransform(); return out; };
+      const shot = () => { performance.now = () => 5000; try { __game.render(); } finally { performance.now = now; } return g.getImageData(0, 0, c.width, c.height).data; };
+      const out = {};
+      try {
+        row.coin = null; row.police.state = "none"; near.items = []; near.police.state = "none";
+        for (const dir of [1, -1]) {
+          row.dir = dir;
+          row.items = []; const empty = shot();
+          row.items = [{ x: 3, len: 2.8, type: "truck", color: "#d94f4f" }]; const full = shot();
+          const x = 3 * 64, w = 2.8 * 64, y0 = __game.rowTop(r) + 64 * 0.24, d = 32;
+          const lines = {};
+          for (const [name, wy] of [["side", y0 + d - 10], ["roof", y0 - 8]]) {
+            let road = 0, drawn = 0, first = null;
+            for (let wx = x + 6; wx <= x + w - 6; wx++) {
+              const px = Math.round(t.a * wx + t.e), py = Math.round(t.d * wy + t.f), i = (py * c.width + px) * 4;
+              const same = Math.max(Math.abs(full[i] - empty[i]), Math.abs(full[i + 1] - empty[i + 1]), Math.abs(full[i + 2] - empty[i + 2])) <= 8;
+              if (same) { road++; if (first === null) first = Math.round(wx - x); } else drawn++;
+            }
+            lines[name] = { road, drawn, first };
+          }
+          out[dir > 0 ? "right" : "left"] = lines;
+        }
+      } finally {
+        Object.assign(row, { items: keep.items, dir: keep.dir, coin: keep.coin }); row.police.state = keep.pol;
+        near.items = keep.nearItems; near.police.state = keep.nearPol;
+        g.translate = tr;
+      }
+      return out;
+    });
+    check("road-bird: a truck is one vehicle: no road shows between its box and its cab, along its side or over its roof, driving either way",
+      !!truck && !truck.noLane && ["right", "left"].every((s) => ["side", "roof"].every((l) => truck[s][l].road === 0 && truck[s][l].drawn > 150)), truck);
+    check("road-bird (truck): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
   await ctx.close();
 };

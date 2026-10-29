@@ -1615,23 +1615,37 @@ function drawVehicle(row, it, top) {
   ctx.fillStyle = "rgba(0,0,0,.22)";
   roundRect(x + 3, y0 + d - 6, w - 6, 9, 5); ctx.fill();
   ctx.fillStyle = "#1b1b1f";
-  ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
-  ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
 
   if (it.type === "truck") {
-    const cabW = w * 0.26, trailW = w * 0.66;
-    const cabX = facingRight ? x + w - cabW : x;
-    const trailX = facingRight ? x + 2 : x + w - trailW - 2;
-    block(cabX, y0, cabW, d, 16, it.color, 4);
-    ctx.fillStyle = "#bfe4ff"; // windshield strip on the cab's front face
-    roundRect(cabX + 3, y0 + d - 14, cabW - 6, 7, 2); ctx.fill();
-    block(trailX, y0, trailW, d, 30, "#e9e9ee", 3);
+    // one lorry: the box and the cab built on one frame, the cab hard up
+    // against the box, its hood in front (all mirrored for the way it drives)
+    const at = (f, wd) => facingRight ? x + w * f : x + w - w * f - wd; // f: share of the length from the back
+    for (const f of [0.08, 0.2, 0.82]) ctx.fillRect(at(f, 11), y0 + d - 4, 11, 7); // tandem under the box, one axle under the cab
+    const boxW = w * 0.68, cabW = w - 4 - boxW + 2, bodyW = cabW * 0.6, hoodW = cabW - bodyW + 3;
+    const boxX = at(0, boxW) + (facingRight ? 2 : -2), cabX = at(0.68, cabW);
+    const bodyX = facingRight ? cabX : cabX + cabW - bodyW, hoodX = facingRight ? cabX + bodyW - 3 : cabX;
+    block(boxX, y0, boxW, d, 30, "#e9e9ee", 3);
     ctx.strokeStyle = "rgba(0,0,0,.14)"; ctx.lineWidth = 2; // container ridges
     for (let i = 1; i < 4; i++) {
-      const lx = trailX + trailW * i / 4;
+      const lx = boxX + boxW * i / 4;
       ctx.beginPath(); ctx.moveTo(lx, y0 + d - 30); ctx.lineTo(lx, y0 + d - 2); ctx.stroke();
     }
+    block(hoodX, y0 + 1, hoodW, d - 2, 15, it.color, 4);
+    block(bodyX, y0, bodyW, d, 26, it.color, 3);
+    ctx.fillStyle = "#bfe4ff";
+    roundRect(bodyX + 3, y0 + d - 23, bodyW - 6, 8, 2); ctx.fill();   // side window
+    roundRect(facingRight ? bodyX + bodyW - 6 : bodyX + 2, y0 - 23, 4, d - 6, 2); ctx.fill(); // windscreen, the roof's front edge
+    ctx.fillStyle = "rgba(0,0,0,.28)"; // where the cab meets the box
+    ctx.fillRect(facingRight ? cabX : cabX + cabW - 2, y0 + d - 26, 2, 20);
+    ctx.fillStyle = "#2c2c33"; // the frame rail, one along the whole length
+    roundRect(x + 3, y0 + d - 6, w - 6, 5, 2); ctx.fill();
+    ctx.fillStyle = "#fff3b0"; // headlight, leading edge
+    ctx.fillRect(facingRight ? x + w - 8 : x + 3, y0 + d - 13, 5, 5);
+    ctx.fillStyle = "#e04438"; // taillight, trailing edge
+    ctx.fillRect(facingRight ? x + 4 : x + w - 9, y0 + d - 15, 5, 6);
   } else {
+    ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
+    ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
     block(x + 2, y0, w - 4, d, 13, it.color, 5);          // body
     const cabW = w * 0.5, cabX = x + w * 0.25;
     block(cabX, y0 + 2, cabW, d - 4, 25, it.color, 4);    // raised cabin
