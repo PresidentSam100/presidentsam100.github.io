@@ -1873,21 +1873,22 @@ function hopPose() {
   return { lift, sclX, sclY };
 }
 
+// eagle warning: darkens as the chicken nears the bottom border (where the eagle strikes)
+function drawEagleWarning(sx, baseY) {
+  const warnStart = EAGLE_BORDER - TILE * 1.8;
+  if (baseY <= warnStart) return;
+  const p = clamp((baseY - warnStart) / (EAGLE_BORDER - warnStart), 0, 1);
+  ctx.fillStyle = "rgba(20,20,30," + (0.12 + 0.28 * p) + ")";
+  ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill();
+}
+
 function drawPlayer() {
   const sx = (renderGx + 0.5) * TILE;
   const baseY = (-renderGy * TILE - cameraY);
   const pose = hopPose();
   const lift = pose.lift;
 
-  // eagle warning: darkens as the chicken nears the bottom border (where the eagle strikes)
-  if (state === "playing") {
-    const warnStart = EAGLE_BORDER - TILE * 1.8;
-    if (baseY > warnStart) {
-      const p = clamp((baseY - warnStart) / (EAGLE_BORDER - warnStart), 0, 1);
-      ctx.fillStyle = "rgba(20,20,30," + (0.12 + 0.28 * p) + ")";
-      ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill();
-    }
-  }
+  if (state === "playing") drawEagleWarning(sx, baseY);
 
   // ground shadow
   ctx.fillStyle = "rgba(0,0,0,.22)";
@@ -1919,10 +1920,7 @@ function drawDeathState() {
 
   if (da.cause === "water" || da.cause === "river") {
     const r = Math.round(da.gy), top = rowTopY(r), row = rows[r];
-    ctx.save();
-    ctx.beginPath(); ctx.rect(SCENE_L, top, W, TILE); ctx.clip(); // keep the splash on the water row only
     drawSplash(sx, sy, t, da.face);
-    ctx.restore();
     if (row && row.type === "river") {
       for (const it of row.items) drawPlatform(row, it, top); // splash sits under logs/pads
       if (row.coin && !row.coin.got) drawCoin(coinColOf(row), top, -10); // ...and the coin stays on top of its pad/log
@@ -2311,6 +2309,19 @@ function render() {
     } else if (below && below.type === "grass") {
       for (const c of below.trees) drawTree(c * TILE + TILE / 2, top + TILE * 0.62);
     }
+  }
+  // The eagle's warning ring and a splash reach past the chicken's own row,
+  // and the rows in front of it, drawn after it, covered their lower part.
+  // So that part goes on again on top, clipped to below the row: the part
+  // above it, and the chicken itself, stay as the loop drew them.
+  const ringOrSplash = state === "playing" || ((state === "dying" || state === "dead") && deathAnim && (deathAnim.cause === "water" || deathAnim.cause === "river"));
+  if (chickenRow !== null && ringOrSplash) {
+    const below = rowTopY(chickenRow) + TILE;
+    ctx.save();
+    ctx.beginPath(); ctx.rect(SCENE_L, below, W, H - below); ctx.clip();
+    if (state === "playing") drawEagleWarning((renderGx + 0.5) * TILE, -renderGy * TILE - cameraY);
+    else drawSplash((deathAnim.gx + 0.5) * TILE, -deathAnim.gy * TILE - cameraY, deathAnim.t, deathAnim.face);
+    ctx.restore();
   }
   if (state === "eagle") {
     if (!eagle.grabbed) drawPlayer();

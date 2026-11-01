@@ -457,5 +457,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
   }
 
+  // ---- the eagle's warning ring and a splash aren't cut off at the edge of
+  // the chicken's row: the ring reaches into the rows in front of it (below
+  // on the screen), and the splash's ripples into the rows on both sides.
+  // Each is drawn with the effect and without it (a switch added for the
+  // test): rows away from the chicken's, a pixel the effect leaves alone is
+  // one it was cut off from. (Both used to stop dead at the row's edge.)
+  {
+    const RING = ["ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill();", "if (!window.__noFx) { ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill(); }"];
+    const SPLASH = ["function drawSplash(sx, sy, t, face) {", "function drawSplash(sx, sy, t, face) {\n  if (window.__noFx) return;"];
+    const MORE = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get cam() { return cameraY; },\n  set cam(v) { cameraY = v; },\n  get da() { return deathAnim; },\n  get rgx() { return renderGx; },\n  get rgy() { return renderGy; },"];
+    const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [MORE, RING, SPLASH]) });
+    await q.keyboard.press("2"); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
+    const seen = await q.evaluate(() => {
+      const c = document.getElementById("game"), g = c.getContext("2d"), now = performance.now, G = __game;
+      let t = null; const tr = g.translate;
+      g.translate = function () { const o = tr.apply(this, arguments); if (!t) t = g.getTransform(); return o; };
+      const shot = (off) => { window.__noFx = off; performance.now = () => 5000; try { G.render(); } finally { performance.now = now; window.__noFx = false; } return g.getImageData(0, 0, c.width, c.height).data; };
+      // how many pixels along a line across the effect it changes, at a world y
+      const changed = (a, b, sx, wy, half) => {
+        let n = 0;
+        for (let wx = sx - half; wx <= sx + half; wx++) {
+          const px = Math.round(t.a * wx + t.e), py = Math.round(t.d * wy + t.f), i = (py * c.width + px) * 4;
+          if (Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2])) > 6) n++;
+        }
+        return n;
+      };
+      const out = {};
+      try {
+        // the ring, with the chicken two thirds of a row from where the eagle strikes
+        G.cam = -G.rgy * 64 - (768 - 32 - 40);
+        const sx = (G.rgx + 0.5) * 64, by = -G.rgy * 64 - G.cam, r = Math.round(G.rgy), bottom = G.rowTop(r) + 64;
+        const on = shot(false), off = shot(true);
+        out.ring = { inRow: changed(on, off, sx, by + 20, 10), below: changed(on, off, sx, bottom + 6, 14) };
+        // the splash, its outer ripple a little wider than the row
+        G.death("water");
+        G.da.t = 0.6;
+        const dx = (G.da.gx + 0.5) * 64, dy = -G.da.gy * 64 - G.cam, rr = Math.round(G.da.gy), top = G.rowTop(rr);
+        const s1 = shot(false), s0 = shot(true);
+        out.splash = { above: changed(s1, s0, dx, top - 1.5, 6), below: changed(s1, s0, dx, top + 64 + 1.5, 6) };
+      } finally { g.translate = tr; }
+      return out;
+    });
+    check("road-bird: the eagle's warning ring isn't cut off at the chicken's row: it reaches over the row in front, drawn on top of it",
+      seen.ring.inRow > 10 && seen.ring.below > 20, seen.ring);
+    check("road-bird: a splash isn't cut off at the water's row: its ripple reaches into the rows above and below",
+      seen.splash.above > 0 && seen.splash.below > 0, seen.splash);
+    check("road-bird (ring and splash): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
   await ctx.close();
 };
