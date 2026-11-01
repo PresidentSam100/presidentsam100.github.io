@@ -16,7 +16,7 @@
     { name: "Easy", cands: 4, places: 3, powers: [0.24, 0.42], spins: [[0, 0]],
       aim: 0.017, pow: 0.12, safety: false, position: false, pick: 3, robust: false },
     { name: "Medium", cands: 7, places: 5, powers: [0.18, 0.3, 0.48], spins: [[0, 0], [0, 0.55], [0, -0.6]],
-      aim: 0.0065, pow: 0.05, safety: true, position: true, pick: 1, robust: false },
+      aim: 0.0058, pow: 0.05, safety: true, position: true, pick: 1, robust: false },
     { name: "Hard", cands: 10, places: 8, powers: [0.16, 0.26, 0.4, 0.62], spins: [[0, 0], [0, 0.6], [0, -0.7], [0.45, 0.2]],
       aim: 0.0016, pow: 0.02, safety: true, position: true, pick: 1, robust: true }
   ];
