@@ -10,7 +10,10 @@
 // end card and kept in the record, the card ignoring Space for a moment, then
 // playing again, and
 // Backspace going to the menu; with Visual FX off the stones turn without
-// the turning motion; on a phone a tap on a ringed place puts a stone there.
+// the turning motion; on a phone a tap on a ringed place puts a stone there;
+// the turn line sits in the middle of the tally whatever the two names; and
+// Hint, Undo, New game and Menu have their words and keycaps in the middle
+// of the button's face.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/stone-garden/", opts);
@@ -203,6 +206,96 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("stone-garden, phone: a tap on a ringed place puts a stone there, and the board shows no keycaps", tapped === 1 && phoneCaps === 0, { tapped, phoneCaps });
     await done(q, "phone");
     await c.close();
+  }
+  // ---- the turn line in the middle of the tally, against every keeper and a
+  // friend: the two sides are as wide as each other, whatever their names
+  // ("you" beside "the master" put it 16 to 21 px left of the middle on a
+  // laptop), on a laptop and a small phone
+  {
+    const seen = [];
+    for (const [w, h, phone] of [[1280, 900, 0], [320, 568, 1]]) {
+      const c = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const q = await open(c);
+      for (const foe of ["novice", "monk", "master", "friend"]) {
+        await q.evaluate((foe) => { StoneGarden.toMenu(); document.querySelector('#pick-foe button[data-v="' + foe + '"]').click(); StoneGarden.start(); }, foe);
+        await q.waitForTimeout(150);
+        seen.push(Object.assign({ size: w + "x" + h }, await q.evaluate((foe) => {
+          const t = document.getElementById("tally").getBoundingClientRect(), r = document.createRange();
+          r.selectNodeContents(document.getElementById("turn")); const tr = r.getBoundingClientRect();
+          const a = document.getElementById("side-b").getBoundingClientRect(), b = document.getElementById("side-w").getBoundingClientRect();
+          return { foe, names: [document.getElementById("name-b").textContent, document.getElementById("name-w").textContent],
+            off: +(((tr.left + tr.right) - (t.left + t.right)) / 2).toFixed(1), sides: [+a.width.toFixed(1), +b.width.toFixed(1)] };
+        }, foe)));
+      }
+      check("stone-garden (tally " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close();
+      await c.close();
+    }
+    check("stone-garden: the turn line sits in the middle of the tally (within 1 px) and the two sides are as wide as each other, against every keeper and a friend, on a laptop and a small phone",
+      seen.every((v) => Math.abs(v.off) <= 1 && Math.abs(v.sides[0] - v.sides[1]) < 1), seen);
+  }
+
+  // ---- Hint, Undo, New game and Menu: each word in the middle of its
+  // button's face top to bottom, and where there's a keyboard each keycap
+  // too (the word sat 1.25 px low and the keycap 2 px low). The first capital
+  // is read from the pixels, four to a CSS pixel. The suites keep the web
+  // fonts out, so Zen Kaku Gothic New comes as a stand-in face given its own
+  // heights (its line sits as Zen Kaku Gothic New's does).
+  {
+    const { devices } = require("@playwright/test");
+    const ZEN = '@font-face { font-family: "Zen Kaku Gothic New"; src: local("Arial"); font-weight: 100 900; ascent-override: 116%; descent-override: 29%; line-gap-override: 0%; }';
+    for (const [label, opts] of [["laptop", { deviceScaleFactor: 4 }], ["phone", Object.assign({}, devices["Pixel 7"], { deviceScaleFactor: 4 })]]) {
+      const c = await lib.newContext(browser, opts);
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: ZEN }));
+      const q = await open(c);
+      // (a friend's game, one stone down, so Undo can be pressed and is drawn at full strength)
+      await q.evaluate(() => { document.querySelector('#pick-foe button[data-v="friend"]').click(); StoneGarden.start(); });
+      await idle(q); await q.evaluate(() => StoneGarden.play(19)); await idle(q); await q.waitForTimeout(150);
+      const seen = [];
+      for (const id of ["btn-hint", "btn-undo", "btn-new", "btn-menu"]) {
+        const g = await q.evaluate((id) => {
+          const b = document.getElementById(id), cs = getComputedStyle(b), r = b.getBoundingClientRect();
+          const top = r.top + parseFloat(cs.borderTopWidth), foot = r.bottom - parseFloat(cs.borderBottomWidth);
+          const t = [...b.childNodes].find((n) => n.nodeType === 3 && n.textContent.trim()), at = t.textContent.search(/\S/), rg = document.createRange();
+          rg.setStart(t, at); rg.setEnd(t, at + 1);
+          const ch = rg.getBoundingClientRect();
+          // the keycap, drawn from the attribute (::after), read through a twin of it drawn the same in its place
+          let key = null;
+          const ks = getComputedStyle(b, "::after");
+          if (b.hasAttribute("data-gs-key") && ks.display !== "none") {
+            const twin = document.createElement("span"), st = document.createElement("style");
+            for (const prop of ks) twin.style.setProperty(prop, ks.getPropertyValue(prop));
+            twin.style.setProperty("content", "normal"); twin.textContent = b.getAttribute("data-gs-key");
+            st.textContent = ".twin-of::after { display: none !important; }"; document.head.appendChild(st);
+            b.classList.add("twin-of"); b.appendChild(twin);
+            const kr = twin.getBoundingClientRect(); key = +((kr.top + kr.bottom) / 2 - (top + foot) / 2).toFixed(2);
+            twin.remove(); st.remove(); b.classList.remove("twin-of");
+          }
+          return { id, disabled: b.disabled, x: r.left, y: r.top, right: r.right, bottom: r.bottom, top, foot, cx0: ch.left, cx1: ch.right, key };
+        }, id);
+        const clip = { x: Math.floor(g.x), y: Math.floor(g.y), width: Math.ceil(g.right) - Math.floor(g.x), height: Math.ceil(g.bottom) - Math.floor(g.y) };
+        const png = (await q.screenshot({ clip })).toString("base64");
+        seen.push(await q.evaluate(async ({ png, g, clip }) => {
+          const S = 4, img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+          const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+          const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+          const d = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width;
+          const lum = (i, j) => { const n = (j * W + i) * 4; return 0.3 * d[n] + 0.59 * d[n + 1] + 0.11 * d[n + 2]; };
+          const row = (y) => Math.round((y - clip.y) * S), col = (v) => Math.round((v - clip.x) * S);
+          let t = -1, bt = -1;   // the rows the pale capital has ink in, on the cedar face
+          for (let j = row(g.top + 0.5); j < row(g.foot); j++) {
+            let lit = false; for (let i = col(g.cx0); i < col(g.cx1) && !lit; i++) lit = lum(i, j) > 175;
+            if (lit) { if (t < 0) t = j; bt = j; }
+          }
+          return { id: g.id, disabled: g.disabled, word: t < 0 ? null : +((t + bt + 1) / 2 / S + clip.y - (g.top + g.foot) / 2).toFixed(2), key: g.key };
+        }, { png, g, clip }));
+      }
+      const phone = label === "phone";
+      check("stone-garden (" + label + "): Hint, Undo, New game and Menu have their words in the middle of the face top to bottom (within 0.6 px)" + (phone ? " (no keycaps on a phone)" : ", and their keycaps too"),
+        seen.every((v) => !v.disabled && v.word !== null && Math.abs(v.word) <= 0.6 && (phone ? v.key === null : v.key !== null && Math.abs(v.key) <= 0.6)), seen);
+      await done(q, "buttons " + label);
+      await c.close();
+    }
   }
   await ctx.close();
 };

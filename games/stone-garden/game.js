@@ -186,6 +186,23 @@
   var COLS = "abcdefgh";
   function placeName(i) { return COLS[i & 7] + (8 - (i >> 3)); }
 
+  // The two sides of the tally as wide as the wider of them, so the turn line
+  // between them sits in the middle whatever the names ("you" beside "the
+  // master"). Again when the names change, the screen does, or the faces load.
+  var evenFor = "";
+  function evenSides() {
+    var a = $("side-b"), b = $("side-w");
+    a.style.minWidth = b.style.minWidth = "";
+    var w = Math.ceil(Math.max(a.getBoundingClientRect().width, b.getBoundingClientRect().width));
+    if (w) a.style.minWidth = b.style.minWidth = w + "px";
+    evenFor = nameOf(B) + "|" + nameOf(W);
+  }
+  window.addEventListener("resize", evenSides);
+  if (document.fonts) {
+    document.fonts.ready.then(evenSides);
+    if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", evenSides);
+  }
+
   // draw the board as it stands; `turned` are the stones that just turned
   // (they turn over, one after another, with Visual FX on), `dropped` the one set down
   function paint(turned, dropped) {
@@ -219,6 +236,7 @@
     var n = count(board);
     $("count-b").textContent = n.b; $("count-w").textContent = n.w;
     $("name-b").textContent = nameOf(B); $("name-w").textContent = nameOf(W);
+    if (nameOf(B) + "|" + nameOf(W) !== evenFor) evenSides();
     $("side-b").classList.toggle("now", state === "play" && turn === B);
     $("side-w").classList.toggle("now", state === "play" && turn === W);
     $("turn").textContent = notice || (state !== "play" ? "" : isCpu(turn) ? FOES[foe].name + " is thinking" :

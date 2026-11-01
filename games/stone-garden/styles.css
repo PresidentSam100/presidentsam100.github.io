@@ -56,7 +56,9 @@ body {
   color: var(--washi); text-shadow: 0 2px 0 rgba(30, 40, 14, 0.6);
 }
 .tally { display: flex; align-items: center; justify-content: center; gap: 14px; width: 100%; }
-.side { display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
+/* (game.js makes the two sides as wide as the wider, so the turn line
+   between them sits in the middle whatever the names) */
+.side { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 5px 12px; border-radius: 999px;
   background: rgba(30, 40, 14, 0.35); border: 1px solid rgba(238, 241, 221, 0.18); }
 .side b { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; min-width: 1.4em; text-align: center; }
 .side small { font-size: 13px; color: #d9dfc2; }
@@ -153,11 +155,18 @@ html.fx-on .cell .st.turn { animation: sg-turn 0.32s ease-in-out both; }
   font-family: inherit; cursor: pointer;
 }
 .tools button {
+  display: inline-flex; align-items: center; justify-content: center;
   font-size: 15px; font-weight: 700; color: var(--washi);
   background: linear-gradient(175deg, var(--cedar-hi), var(--cedar));
-  border: 2px solid var(--cedar-deep); border-radius: 8px; padding: 6px 12px;
+  border: 2px solid var(--cedar-deep); border-radius: 8px; padding: 4.75px 12px 7.25px;
   box-shadow: 0 2px 4px rgba(20, 14, 8, 0.35);
 }
+/* The word and its keycap side by side, each in the middle of the face top
+   to bottom. In one line the keycap stood on the word's baseline, low; and
+   Zen Kaku Gothic New's capitals sit 1.25 px below the middle of its line at
+   this size, so the padding lifts the line that much and the keycap, centred
+   on the line, comes back down by the same. */
+.tools button::after { position: relative; top: 1.25px; }
 .tools button:disabled { opacity: 0.45; cursor: default; }
 .tools button:not(:disabled):hover { filter: brightness(1.12); }
 .keys { font-size: 13px; color: #e3e8cf; text-align: center; }
@@ -226,7 +235,7 @@ kbd {
   /* the turn between the two sides: each side's name goes under its stone and
      count, which leaves the middle room for two lines ("the master is thinking") */
   .tally { justify-content: space-between; gap: 6px; min-height: 46px; }
-  .side { display: grid; grid-template-areas: "stone count" "name name"; column-gap: 6px; row-gap: 0; justify-items: center;
+  .side { display: grid; grid-template-areas: "stone count" "name name"; column-gap: 6px; row-gap: 0; justify-items: center; justify-content: center;
     padding: 3px 10px 4px; border-radius: 14px; flex: none; }
   #side-w { grid-template-areas: "count stone" "name name"; }
   .side .stone { grid-area: stone; }
@@ -242,7 +251,7 @@ kbd {
 }
 /* the four tools still on one line on the narrowest phones */
 @media (max-width: 360px) {
-  .tools button { padding: 6px 9px; }
+  .tools button { padding: 4.75px 9px 7.25px; }
 }
 
 /* the shared pause card's backdrop (game-shell.js), the moss's shade */
