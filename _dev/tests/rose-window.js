@@ -13,6 +13,8 @@
 // that reaches one opens it there, a press or the arrows pick one to start
 // from among those open (a locked one says why), Enter on the ringed one
 // starts from it, the pick kept; a game from any but I keeps no best, and says so.
+// The points show where they were won: each pane, a crack, a jewel at the bar
+// (rising with Visual FX on, still with it off, held by a pause).
 // (the physics stepped by hand, and a few more things to read, through
 // lines served into the game's script)
 const HOOK = ["    gameOver: gameOver\n  };", `    gameOver: gameOver,
@@ -308,6 +310,85 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("rose-window, phone: a drag moves the bar without sending the light; a tap sends it", Math.abs(dragged.x - 100) < 8 && dragged.serving && !tapped, { dragged, tapped });
     await done(q, "phone");
     await c.close();
+  }
+
+  // ---- the points: every third pane broken, "+N" at the pane (N what it
+  // added) with the combo; the other breaks and a crack (nearly every hit)
+  // show nothing; "+50" at the bar for a jewel (its word over it); rising with
+  // Visual FX on, holding still with it off, gone in a second; and a pause
+  // holds them
+  {
+    const pts = {};
+    for (const off of [false, true]) {
+      const q = await hooked(null, (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:rose-window", off ? "1" : "0"); } catch (e) {} }, off));
+      pts[off ? "off" : "on"] = await q.evaluate(() => {
+        if (!RoseWindow.shown) return null;
+        RoseWindow.start("pilgrimage");        // (the bead waits on the bar: nothing else breaks)
+        const plain = () => RoseWindow.panes().filter((x) => !x.broken && x.max > 0);
+        const knockPlain = () => {
+          const list = plain(), i = list.findIndex((x) => x.max === 1), p = list[i], s0 = RoseWindow.score();
+          RoseWindow.knock(i);
+          const top = RoseWindow.shown().slice(-1)[0], plus = RoseWindow.shown().filter((q) => q.age === 0 && /^\+/.test(q.text)).length;
+          return { at: [p.x + 16, p.y], gain: RoseWindow.score() - s0, top, plus };
+        };
+        const breaks = [knockPlain(), knockPlain(), knockPlain()];
+        const s1 = RoseWindow.score();
+        RoseWindow.drop("slow");
+        // (stepped until the bar has it: a pane broken may have let a jewel of
+        // its own fall, which takes far longer to come down)
+        for (let i = 0; i < 60 && RoseWindow.score() < s1 + 50; i++) RoseWindow.step(1 / 60);
+        const bar = RoseWindow.bar(), all = RoseWindow.shown();
+        const jewel = { gain: RoseWindow.score() - s1, plus: all.find((q) => q.text === "+50"), word: all.find((q) => q.text === "slower light"), bar };
+        // the first break's points, followed through their second
+        const seen = [];
+        const first = () => RoseWindow.shown().find((q) => q.text === breaks[2].top.text && q.x === breaks[2].top.x) || null;
+        for (let f = 0; f <= 60; f += 10) { seen.push(first()); for (let k = 0; k < 10; k++) RoseWindow.step(1 / 60); }
+        // a crack in thick glass (window III, the Rose, has some)
+        for (let w = 0; w < 2; w++) { RoseWindow.breakAllBut(1); RoseWindow.knock(0); RoseWindow.knock(0); for (let i = 0; i < 200 && RoseWindow.lit(); i++) RoseWindow.step(1 / 60); }
+        const thick = (() => {
+          const list = plain(), i = list.findIndex((x) => x.max === 2), p = list[i];
+          if (!p) return { none: RoseWindow.win() };
+          const s0 = RoseWindow.score();
+          RoseWindow.knock(i);
+          return { at: [p.x + 16, p.y], gain: RoseWindow.score() - s0, plus: RoseWindow.shown().filter((q) => q.age === 0 && /^\+/.test(q.text)).length };
+        })();
+        return { breaks, thick, jewel, seen };
+      });
+      await done(q, "points FX " + (off ? "off" : "on"));
+    }
+    const b3 = (r) => r.breaks[2];
+    const ok = (r) => !!r && r.breaks[0].plus === 0 && r.breaks[1].plus === 0 && r.breaks[0].gain > 0 && r.breaks[1].gain > 0 &&
+      !!b3(r).top && b3(r).top.text === "+" + b3(r).gain + "  ×3" && b3(r).top.x === Math.round(b3(r).at[0]) && b3(r).top.y <= b3(r).at[1] && b3(r).top.y >= b3(r).at[1] - 72 &&
+      r.thick.gain === 5 && r.thick.plus === 0 &&
+      r.jewel.gain >= 50 && !!r.jewel.plus && !!r.jewel.word && r.jewel.word.y < r.jewel.plus.y && r.jewel.plus.x === Math.round(r.jewel.bar.x);
+    check("rose-window: every third pane broken shows \"+N  ×3\" at the pane (N what it added); the other breaks and a crack show nothing; a jewel \"+50\" at the bar, its word over it",
+      ok(pts.on) && ok(pts.off), { on: pts.on && { breaks: pts.on.breaks, thick: pts.on.thick, jewel: pts.on.jewel }, off: pts.off && pts.off.breaks });
+    check("rose-window: with Visual FX on the points rise as they fade; with it off they hold still and only fade; either way they're gone within a second",
+      !!pts.on && !!pts.off && pts.on.seen[2].y < pts.on.seen[0].y - 8 && pts.on.seen[4].a < 1 && pts.on.seen[6] === null &&
+      pts.off.seen.slice(0, 5).every((q) => q && q.y === pts.off.seen[0].y) && pts.off.seen[4].a < 1 && pts.off.seen[6] === null, { on: pts.on && pts.on.seen, off: pts.off && pts.off.seen });
+
+    const q = await hooked();
+    const t0 = await q.evaluate(() => {
+      if (!RoseWindow.shown) return null;
+      RoseWindow.start("pilgrimage");
+      for (let k = 0; k < 3; k++) { const list = RoseWindow.panes().filter((x) => !x.broken && x.max > 0); RoseWindow.knock(list.findIndex((x) => x.max === 1)); }   // (the third break shows its points)
+      return RoseWindow.shown()[0] || null;
+    });
+    const paused = { t0 };
+    if (t0) {
+      await q.keyboard.press("p");
+      const pframes = (n) => q.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k > n) r(); else requestAnimationFrame(f); })(); }), n);
+      const a0 = await q.evaluate(() => RoseWindow.shown()[0] && RoseWindow.shown()[0].age);
+      await pframes(40);
+      paused.held = await q.evaluate(() => RoseWindow.shown()[0] || null);
+      paused.a0 = a0;
+      await q.keyboard.press("p");
+      await q.waitForFunction(() => RoseWindow.shown().length === 0, null, { timeout: 8000 }).catch(() => {});
+      paused.after = await q.evaluate(() => RoseWindow.shown().length);
+    }
+    check("rose-window: under the pause card the points stay as they were, and play out once it's put away",
+      !!paused.t0 && !!paused.held && paused.held.age === paused.a0 && paused.after === 0, paused);
+    await done(q, "points paused");
   }
   await ctx.close();
 };

@@ -420,7 +420,13 @@
   }
 
   // ---- play ------------------------------------------------------------------------
-  function pop(text, x, y, col) { pops.push({ text: text, x: x, y: y, col: col || "#fff3c4", age: 0 }); }
+  // A floating word, or the points just won ("+N", where they were won).
+  // One close above another that's still young stands clear of it.
+  var GAIN = "#ffd66b";
+  function pop(text, x, y, col) {
+    for (var i = 0; i < 4 && pops.some(function (q) { return q.age < 0.45 && Math.abs(q.x - x) < 40 && Math.abs(q.y - y) < 16; }); i++) y -= 18;
+    pops.push({ text: text, x: x, y: y, col: col || "#fff3c4", age: 0 });
+  }
 
   function breakPane(p, ball) {
     if (p.max === 0) { sfxStone(); return; }
@@ -431,7 +437,9 @@
     combo++;
     var pts = 10 * Math.min(8, combo) * (p.max === 2 ? 2 : 1);
     setScore(score + pts);
-    if (combo >= 3 && combo % 3 === 0) pop("×" + Math.min(8, combo), p.x + CW / 2, p.y);
+    // every third break, the points at the pane and the combo they were won
+    // at (a pane breaks at nearly every hit: the score shows the others)
+    if (combo >= 3 && combo % 3 === 0) pop("+" + pts + "  ×" + Math.min(8, combo), p.x + CW / 2, p.y, GAIN);
     sfxPane();
     if (fx()) {
       var col = GLASS[p.hue];
@@ -459,6 +467,7 @@
   function catchJewel(j) {
     sfxJewel();
     setScore(score + 50);
+    pop("+50", barX, BAR_Y - 24, GAIN);   // (and the jewel's word over it)
     if (j.kind === "wide") { wideT = WIDE_T; pop("a wider bar", barX, BAR_Y - 24); }
     else if (j.kind === "slow") { slowT = SLOW_T; pop("slower light", barX, BAR_Y - 24); }
     else {
@@ -696,6 +705,7 @@
     else { g.beginPath(); g.moveTo(x - 3.5, y - 4.5); g.lineTo(x + 3.5, y - 4.5); g.lineTo(x - 3.5, y + 4.5); g.lineTo(x + 3.5, y + 4.5); g.closePath(); g.stroke(); }
   }
   // a line of text on the glass, outlined in lead (uncial: the title hand)
+  function popLook(q) { return { y: q.y - (fx() ? q.age * 26 : 0), a: q.age < 0.5 ? 1 : Math.max(0, 1 - (q.age - 0.5) / 0.5) }; }
   function text(str, x, y, size, col, uncial) {
     g.font = uncial ? size + "px \"Uncial Antiqua\", serif" : "700 " + size + "px Alegreya, Georgia, serif";
     g.textAlign = "center"; g.textBaseline = "middle";
@@ -715,6 +725,17 @@
     if (state === "menu") { g.restore(); return; }
     for (i = 0; i < jewels.length; i++) drawJewel(jewels[i]);
     drawBar();
+    g.restore();
+    // floating words and points, under the beads (so none ever hides one):
+    // whole for half their second, then fading; rising with Visual FX on,
+    // holding still with it off
+    for (i = 0; i < pops.length; i++) {
+      var q = pops[i], lk = popLook(q);
+      g.globalAlpha = lk.a;
+      text(q.text, q.x, lk.y, 17, q.col);
+      g.globalAlpha = 1;
+    }
+    g.save(); archPath(g, -1.5); g.clip();
     for (i = 0; i < balls.length; i++) drawBall(balls[i]);
     for (i = 0; i < shards.length; i++) {
       var s = shards[i];
@@ -724,14 +745,6 @@
       g.restore();
     }
     g.restore();
-    // floating words: they rise and fade with Visual FX on, and hold still
-    // while they last with it off
-    for (i = 0; i < pops.length; i++) {
-      var q = pops[i], rise = fx() ? q.age * 26 : 0;
-      g.globalAlpha = fx() ? Math.max(0, 1 - q.age) : 1;
-      text(q.text, q.x, q.y - rise, 17, q.col);
-      g.globalAlpha = 1;
-    }
     if (state === "play" && litT > 0) {
       text("Window " + ROMAN[win] + " is lit", R, 470, 30, "#ffe7a8", true);
       if (win + 1 < WINDOWS.length) text("next: " + WINDOWS[win + 1].name, R, 508, 18, "#efe5cf");
@@ -961,6 +974,8 @@
     knock: function (i) { var p = panes.filter(function (q) { return !q.broken && q.max > 0; })[i || 0]; if (p) breakPane(p, null); },
     drop: function (kind) { jewels.push({ kind: kind, x: barX, y: BAR_Y - 40, vy: 110 }); },
     loseBall: function () { balls = []; serving = false; loseBead(); },
+    // the words and points showing now: their text, where they're drawn and how strongly
+    shown: function () { return pops.map(function (q) { var lk = popLook(q); return { text: q.text, x: Math.round(q.x), y: +lk.y.toFixed(2), a: +lk.a.toFixed(3), age: +q.age.toFixed(3) }; }); },
     gameOver: gameOver
   };
 })();
