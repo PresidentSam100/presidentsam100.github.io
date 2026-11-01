@@ -723,21 +723,23 @@
   }
 
   // ---- Visual FX on: the signal's run after ⚡ Check --------------------
-  // The board shows the signal travelling column by column: each gate's
-  // output appears as the signal reaches it and its wires draw on toward the
-  // next gate, and the verdict (status, banner, sounds) waits until it reaches
-  // the bulb, about a second at most. With FX off it all shows at once.
+  // The board shows the signal travelling column by column from the
+  // switches: their wires draw on first, then each gate's output appears as
+  // the signal reaches it and its wires draw on toward the next gate, and the
+  // verdict (status, banner, sounds) waits until it reaches the bulb, about a
+  // second at most. With FX off it all shows at once. Until a Check no wire
+  // is lit, the switches' own included: the 0s and 1s are on the switches.
   // Anything that changes the board mid-run (a gate moved, a switch flipped,
   // Reset, another level or mode) cancels it.
   var flowing = false, flowToken = 0, flowStep = 0;
   function fxOn() { return !(window.RM_ON && window.RM_ON()); }
   function stopFlow() { flowing = false; flowToken++; }
-  // when the signal leaves a node in column col (inputs are live already)
-  function flowAt(col) { return Math.max(0, col - 1) * flowStep; }
+  // when the signal leaves a node in column col (the switches, column 0, at once)
+  function flowAt(col) { return col * flowStep; }
   function runFlow(memo) {
     var token = ++flowToken;
     flowing = true;
-    flowStep = Math.min(240, 900 / Math.max(1, maxCol - 2));
+    flowStep = Math.min(240, 900 / Math.max(1, maxCol - 1));
     relayout(true);
     setTimeout(function () {
       if (token !== flowToken) return;
@@ -754,21 +756,20 @@
     var H = dim ? dim.H : board.clientHeight;
     var lead = 14;   // a split's wires leave from a junction dot this far out
     var flowCss = function (c) {
-      return flow && c.kind !== "input"
+      return flow
         ? ' style="animation-delay:' + flowAt(c.col) + "ms;animation-duration:" + Math.round(flowStep * 0.85) + 'ms"' : "";
     };
     var wireCls = function (c) {
       var v = memo[c.id];
-      var show = checked || solved || c.kind === "input";
+      var show = checked || solved;
       return !show ? "none" : v === 1 ? "on" : v === 0 ? "off" : "none";
     };
 
     // wires
     var paths = "", dots = "";
     var wire = function (c, d) {
-      var flows = flow && c.kind !== "input";
-      paths += '<path class="wire w-' + wireCls(c) + (flows ? " flow" : "") + '"' +
-        (flows ? ' pathLength="1"' : "") + flowCss(c) + ' d="' + d + '"/>';
+      paths += '<path class="wire w-' + wireCls(c) + (flow ? " flow" : "") + '"' +
+        (flow ? ' pathLength="1"' : "") + flowCss(c) + ' d="' + d + '"/>';
     };
     if (chains) {
       // a split circuit's wires follow their routes (splitLayout): from box
@@ -807,7 +808,7 @@
     // a dot where a wire splits, so one signal feeding several gates reads as one
     nodes.forEach(function (c) {
       if (c.fan < 2) return;
-      dots += '<circle class="junc j-' + wireCls(c) + (flow && c.kind !== "input" ? " flow" : "") + '"' + flowCss(c) +
+      dots += '<circle class="junc j-' + wireCls(c) + (flow ? " flow" : "") + '"' + flowCss(c) +
         ' cx="' + (c.x + (chains ? box(c)[0] : halfW(c)) + lead) + '" cy="' + c.y + '" r="5"/>';
     });
     paths += dots;

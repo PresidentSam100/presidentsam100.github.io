@@ -1,6 +1,7 @@
 // LogicGate: Enter checks the circuit even after a mouse click left a button
 // focused (Reset, or the win banner's "Next level"), and a hint that names
-// the root gate names the right one.
+// the root gate names the right one. The signal starts at the switches: no wire is
+// lit before Check, and on Check the switches' wires draw on first.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   let p = await lib.open(ctx, base, "games/logicgate/");
@@ -48,6 +49,61 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("logicgate: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();
+
+  // ---- the signal starts at the switches: until ⚡ Check no wire is lit,
+  // the switches' own included (their 0s and 1s are on the switches), in
+  // both modes; on Check, with Visual FX on, the switches' wires draw on
+  // first and each gate's later, column by column; with it off it all lights
+  // at once. Set Inputs level 4, "Two of Three": AND(OR(A, B), C), lit by
+  // A = 1, B = 0, C = 1
+  {
+    const c = await lib.newContext(browser);
+    const runs = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(c, base, "games/logicgate/");
+      await q.evaluate((off) => {
+        localStorage.setItem("reduceMotion:logicgate", off ? "1" : "0");
+        localStorage.setItem("logicgate_mode", "inputs");
+        localStorage.setItem("logicgate_progress", JSON.stringify({ gates: { unlocked: 0, solved: [] }, inputs: { unlocked: 3, solved: [] } }));
+      }, off);
+      await q.reload({ waitUntil: "domcontentloaded" }); await q.waitForTimeout(300);
+      for (const [lab, clicks] of [["A", 2], ["B", 1], ["C", 2]])
+        for (let k = 0; k < clicks; k++) await q.evaluate((lab) => [...document.querySelectorAll(".input.toggle")].find((n) => n.querySelector(".lbl").textContent === lab).click(), lab);
+      // each wire: its class, its delay, and whether it leaves a switch (it starts at a switch's right edge)
+      const wires = () => q.evaluate(() => {
+        const sw = [...document.querySelectorAll("#nodes .node.input")].map((n) => { const r = n.getBoundingClientRect(); return r; });
+        const board = document.getElementById("wires").getBoundingClientRect(), svg = document.getElementById("wires");
+        const k = board.width / (+svg.getAttribute("width") || board.width);
+        return [...document.querySelectorAll("#wires .wire")].map((w) => {
+          const m = /^M([\d.]+) ([\d.]+)/.exec(w.getAttribute("d")), x = board.left + m[1] * k, y = board.top + m[2] * k;
+          const fromSwitch = sw.some((r) => Math.abs(x - r.right) < 3 && y > r.top && y < r.bottom);
+          return { fromSwitch, cls: w.getAttribute("class"), delay: parseFloat(w.style.animationDelay) || 0 };
+        });
+      });
+      const before = await wires();
+      await q.click("#checkBtn");
+      const at = await wires();
+      runs[off ? "off" : "on"] = { before, at };
+      check("logicgate FX " + (off ? "off" : "on") + " (from the switches): no page errors", q.errs.length === 0, q.errs);
+      await q.close();
+    }
+    // Place Gates level 1: two switches at 1, nothing placed: their wires dark too
+    const g = await lib.open(c, base, "games/logicgate/");
+    await g.evaluate(() => { localStorage.setItem("logicgate_mode", "gates"); });
+    await g.reload({ waitUntil: "domcontentloaded" }); await g.waitForTimeout(300);
+    const gates = await g.evaluate(() => ({ ones: [...document.querySelectorAll("#nodes .node.input .bit")].map((b) => b.textContent).join(""), wires: [...document.querySelectorAll("#wires .wire")].map((w) => w.getAttribute("class")) }));
+    await g.close();
+    const { on, off } = runs, sw = (l) => l.filter((w) => w.fromSwitch), rest = (l) => l.filter((w) => !w.fromSwitch);
+    check("logicgate: until Check no wire is lit, the switches' own included, in Set Inputs (switches set) and Place Gates (switches at 1)",
+      sw(on.before).length === 3 && on.before.every((w) => /w-none/.test(w.cls)) && gates.ones === "11" && gates.wires.length > 0 && gates.wires.every((c2) => /w-none/.test(c2)),
+      { before: on.before, gates });
+    check("logicgate, FX on: on Check the signal leaves the switches first (their wires draw on at once, lit or not by their bits) and each gate's wires after",
+      sw(on.at).length === 3 && sw(on.at).every((w) => /flow/.test(w.cls) && w.delay === 0 && /w-on|w-off/.test(w.cls)) && sw(on.at).filter((w) => /w-on/.test(w.cls)).length === 2 &&
+      rest(on.at).length > 0 && rest(on.at).every((w) => /flow/.test(w.cls) && w.delay > 0), on.at);
+    check("logicgate, FX off: on Check every wire lights at once, the switches' too, nothing travelling",
+      off.at.every((w) => !/flow/.test(w.cls) && /w-on|w-off/.test(w.cls)) && sw(off.at).filter((w) => /w-on/.test(w.cls)).length === 2, off.at);
+    await c.close();
+  }
 
   // "press ⚡ Check (or Enter)": the Enter goes on a touch-only phone, the button stays
   const { devices } = require("@playwright/test");
@@ -311,7 +367,8 @@ async function splitLevels({ browser, base, check, lib }) {
           let ov = 0;   // (boxes overlapping or closer than 6 px: the layout the game now replaces)
           for (let a = 0; a < rs.length; a++) for (let b = a + 1; b < rs.length; b++)
             if (Math.min(rs[a].right, rs[b].right) - Math.max(rs[a].left, rs[b].left) > -6 && Math.min(rs[a].bottom, rs[b].bottom) - Math.max(rs[a].top, rs[b].top) > -6) ov++;
-          return { at: els.map((e) => e.getAttribute("style")).join("|"), wires: document.getElementById("wires").innerHTML.replace(/<circle[^>]*>/g, ""), ov };
+          // (the wires' shapes: their lighting before a Check has changed since, the switches' wires now dark too)
+          return { at: els.map((e) => e.getAttribute("style")).join("|"), wires: [...document.querySelectorAll("#wires path")].map((w) => w.getAttribute("d")).join("|"), ov };
         });
       }
     }
