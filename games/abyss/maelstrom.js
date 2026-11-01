@@ -27,6 +27,12 @@
    it happens between pieces, with none in play: game.js says how long it
    takes, and the rules wait it out.
 
+   Juggle (opts.juggle): every arm open, and each has a piece of its own
+   sinking at once; the pieces block each other. The keys move the one in
+   the arm at the top, and the player turns the board a quarter either way
+   (turn) to bring another arm's piece to the top. An arm whose piece is
+   down gets the next one at once.
+
    The rules only: game.js draws it, times it, scores it and takes the keys.
    ===================================================================== */
 (function (root) {
@@ -51,7 +57,7 @@
   function create(T, hooks) {
     hooks = hooks || {};
     var grid = new Uint8Array(S * S), open = [true, false, false, false];
-    var top = 0, pcs = [null, null, null, null];
+    var top = 0, pcs = [null, null, null, null], juggle = false;
     var queue = [], bag = [], hold = null, canHold = true, over = false;
     var clearing = null;          // { cells: [board index], left: ms } while full lines dissolve
     var turning = null;           // { from, to, dir, quarters, ms, left } while the board turns to the next arm
@@ -67,19 +73,28 @@
     }
     function refill() { while (queue.length < 7) { if (!bag.length) bag = newBag(); queue.push(bag.shift()); } }
 
-    function fitsIn(k, t, r, x, y) {
-      var cs = T.ROT[t][r];
+    // (Juggle) the cells the other pieces in play hold: they block each other
+    function taken(self) {
+      var out = {};
+      pcs.forEach(function (p) {
+        if (!p || p === self) return;
+        cellsOf(p).forEach(function (c) { if (c[1] >= 0) { var b = toBoard(p.k, c[0], c[1]); out[idx(b[0], b[1])] = true; } });
+      });
+      return out;
+    }
+    function fitsIn(k, t, r, x, y, self) {
+      var cs = T.ROT[t][r], busy = juggle ? taken(self) : null;
       for (var i = 0; i < cs.length; i++) {
         var lx = x + cs[i][0], ly = y + cs[i][1];
         if (lx < 0 || lx > 9 || ly >= FLOOR) return false;
         if (ly < 0) continue;
         if (ly < ARM && !open[k]) return false;
-        var b = toBoard(k, lx, ly);
-        if (grid[idx(b[0], b[1])]) return false;
+        var b = toBoard(k, lx, ly), n = idx(b[0], b[1]);
+        if (grid[n] || (busy && busy[n])) return false;
       }
       return true;
     }
-    function fits(p, r, x, y) { return fitsIn(p.k, p.t, r, x, y); }
+    function fits(p, r, x, y) { return fitsIn(p.k, p.t, r, x, y, p); }
 
     function spawn(k, t) {
       var p = { t: t, r: 0, x: T.BASE[t].n >= 3 ? 3 : 4, y: -1, k: k, gravT: 0, lockT: 0, resets: 0, lowY: -1 };
@@ -107,8 +122,11 @@
     }
     // the next piece: in the arm at the top if it comes from there, or else
     // once the board has turned that arm to the top
+    // (Juggle: every arm without one gets the next piece at once)
     function fill() {
-      if (over || clearing || turning || pcs[top]) return;
+      if (over || clearing || turning) return;
+      if (juggle) { for (var k = 0; k < 4 && !over; k++) if (open[k] && !pcs[k]) spawn(k, next()); return; }
+      if (pcs[top]) return;
       if (nextArm !== top && open[nextArm]) { beginTurn(nextArm); return; }
       if (spawn(top, next())) nextArm = pickArm();
     }
@@ -123,10 +141,23 @@
     // the turn done: rows the other sides' pieces filled across this well
     // clear now, before its first piece comes in
     function endTurn() { top = turning.to; turning = null; if (!clearRows(top)) fill(); }
+    // Juggle: the player turns the board a quarter, at once (dir +1
+    // clockwise: the arm on the left comes to the top; -1 the other way).
+    // The pieces keep their places in their arms; the keys take the one now
+    // at the top, and rows filled across its well clear now.
+    function turn(dir) {
+      if (!juggle || over || clearing) return false;
+      var from = top;
+      top = (top + (dir > 0 ? 3 : 1)) % 4;
+      if (hooks.turn) hooks.turn(from, top, dir > 0 ? 1 : -1, 1);
+      if (!clearRows(top)) fill();
+      return true;
+    }
 
     function start(opts) {
       grid = new Uint8Array(S * S);
-      open = [true, !!opts.all, !!opts.all, !!opts.all];
+      juggle = !!opts.juggle;
+      open = [true, !!(opts.all || juggle), !!(opts.all || juggle), !!(opts.all || juggle)];
       top = 0; pcs = [null, null, null, null];
       queue = []; bag = []; hold = null; canHold = true; over = false; clearing = null; turning = null;
       runArm = 0; runLeft = runLength(); fresh = null;
@@ -302,9 +333,9 @@
     }
 
     return {
-      start: start, update: update, move: move, rotate: rotate, soft: soft, hard: hard, hold: doHold,
+      start: start, update: update, move: move, rotate: rotate, soft: soft, hard: hard, hold: doHold, turn: turn,
       ghostY: ghostY, openArms: openArms, fits: fits,
-      get top() { return top; }, get over() { return over; }, get turning() { return turning; }, get nextArm() { return nextArm; },
+      get top() { return top; }, get juggle() { return juggle; }, get over() { return over; }, get turning() { return turning; }, get nextArm() { return nextArm; },
       get clearing() { return clearing; }, get hold() { return hold; }, get canHold() { return canHold; },
       get queue() { refill(); return queue; }, get grid() { return grid; }, get open() { return open; },
       piece: function (k) { return pcs[k == null ? top : k]; },

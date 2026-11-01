@@ -99,7 +99,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.evaluate(() => { Abyss.start("descent"); Abyss.gameOver(); });
     const over = await shown();
     if (label === "phone") check("abyss: on a touch-only phone the buttons' keycaps are hidden", menu.length === 0 && over.length === 0, { menu, over });
-    else check("abyss: with a keyboard the buttons' keycaps show (four modes, the Intense switch, Dive)", menu.length === 6 && over.length === 2, { menu, over });
+    else check("abyss: with a keyboard the buttons' keycaps show (four modes, the Intense and Juggle switches, Dive)", menu.length === 7 && over.length === 2, { menu, over });
     check("abyss: the menu's key legend " + (label === "phone" ? "is hidden on a touch-only phone" : "shows with a keyboard"), legend === (label !== "phone"), legend);
     await ctx.close();
   }
@@ -144,7 +144,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.keyboard.press("p"); await q.waitForTimeout(300);
     const pause = await off([[".gs-pause:not(.gs-dialog) .gs-pause-card button kbd", "button"]]);
     const mid = (a, n, tol) => a.length === n && a.every((d) => Math.abs(d) <= tol);
-    check("abyss: each mode's and the switch's keycap sits in the middle of its name's line and Dive's beside the word, top to bottom", mid(menu, 6, 1), menu);
+    check("abyss: each mode's and each switch's keycap sits in the middle of its name's line and Dive's beside the word, top to bottom", mid(menu, 7, 1), menu);
     check("abyss: on the pause card each button's keycap sits in the middle of it, top to bottom", mid(pause, 3, 1), pause);
     check("abyss: the score and its two figures sit in the middle of their box, top to bottom", mid(hud, 3, 1.5), hud);
     // the end card's Dive again: its keycap reads dark on the glow, as Dive's
@@ -200,10 +200,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       kept: ["abyss_mode", "abyss_intense"].map((k) => localStorage.getItem(k)).join() }));
     await q.keyboard.press("2"); const sprint = await sw();
     await q.keyboard.press("4"); const mael = await sw();
-    await q.keyboard.press("i"); await q.keyboard.press("j"); const on = await sw();
+    await q.keyboard.press("i"); const on = await sw();
     await q.keyboard.press("i"); const off = await sw();
-    check("abyss: 4 picks Maelstrom; I flips Intense (kept, greyed in Sprint); no Juggle switch, and J does nothing",
-      sprint.mode === "sprint" && sprint.intenseOff && mael.mode === "maelstrom" && !mael.intenseOff && !mael.juggle && mael.opts === 1 &&
+    check("abyss: 4 picks Maelstrom; I flips Intense (kept, greyed in Sprint), with the Juggle switch beside it",
+      sprint.mode === "sprint" && sprint.intenseOff && mael.mode === "maelstrom" && !mael.intenseOff && mael.juggle && mael.opts === 2 &&
       on.intense === "true" && on.kept === "maelstrom,1" && off.intense === "false" && off.kept === "maelstrom,0",
       { sprint, mael, on, off });
 
@@ -609,5 +609,110 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss: with Visual FX on the points rise as they fade, with it off they hold still; either way they're gone within a second and a pause holds them",
       rises(got.on) && steady(got.off) && ["on", "off"].every((k) => got[k].framesLeft > 0 && got[k].framesLeft <= 40 && got[k].paused.life === 0), { on: [got.on.ys, got.on.framesLeft, got.on.paused], off: [got.off.ys, got.off.framesLeft, got.off.paused] });
     check("abyss (points): no page errors", !got.on.errs.length && !got.off.errs.length, [got.on.errs, got.off.errs]);
+  }
+  // ---- Juggle (J: a switch on Maelstrom, kept, greyed elsewhere): every
+  // arm open with a piece of its own sinking at once; the keys move the top
+  // arm's; E turns the plus clockwise (the arm on the left comes to the top),
+  // Q the other way, easing round on the screen over 0.18 s (a pause holds
+  // it); an arm whose piece is down gets the next at once; a row filled
+  // across an arm's well clears when a turn brings it to the top; the best
+  // is Juggle's own. On a touch phone the pad has two turn buttons, in
+  // Juggle only, and the plus and the pad fit the screen.
+  {
+    const ctx = await lib.newContext(browser);
+    const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]); } });
+    const sw = () => q.evaluate(() => ({ on: document.getElementById("opt-juggle").getAttribute("aria-pressed"), grey: document.getElementById("opt-juggle").disabled, kept: localStorage.getItem("abyss_juggle") }));
+    await q.keyboard.press("1"); const inDescent = await sw();
+    await q.keyboard.press("4"); await q.keyboard.press("j"); const onSw = await sw();
+    const key = (code) => document.dispatchEvent(new KeyboardEvent("keydown", { code, key: code.slice(-1).toLowerCase(), bubbles: true }));
+    const r = await q.evaluate((keySrc) => {
+      const key = eval(keySrc), out = {};
+      __frames(2); Abyss.start("maelstrom"); Abyss.test.setGrav(100000); __frames(2);
+      const B = Abyss.board();
+      out.start = { juggle: B.juggle, open: B.open.join(), arms: B.pieces().map((p) => p ? p.k : "-").join(), top: B.top };
+      const xs = () => B.pieces().map((p) => p && p.x), x0 = xs();
+      Abyss.move(-1);
+      const x1 = xs();
+      out.move = { top: x1[0] === x0[0] - 1, others: [1, 2, 3].every((k) => x1[k] === x0[k]) };
+      const a0 = Abyss.view().angle;
+      key("KeyE");
+      out.e = { top: B.top, a0, angles: [] };
+      const norm = (x) => ((x % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);   // (a full turn is the same picture)
+      for (let f = 0; f < 14; f++) { __frames(1); out.e.angles.push(+norm(Abyss.view().angle).toFixed(3)); }
+      key("KeyQ"); __frames(3);
+      out.paused = { top: B.top, a: +Abyss.view().angle.toFixed(3) };
+      return out;
+    }, key.toString());
+    // a pause mid-spin holds it; resumed, it finishes
+    await q.keyboard.press("p");
+    const held = await q.evaluate(() => { const a = Abyss.view().angle; __frames(20); return [+a.toFixed(3), +Abyss.view().angle.toFixed(3)]; });
+    await q.keyboard.press("p");
+    const r2 = await q.evaluate((keySrc) => {
+      const key = eval(keySrc), B = Abyss.board(), out = {};
+      __frames(20);
+      out.back = { top: B.top, angle: +Abyss.view().angle.toFixed(3) };
+      // the pieces fall and land on their own: every arm's first piece down, each arm given the next
+      Abyss.test.setGrav(15);
+      const cells = () => { let n = 0; for (let i = 0; i < B.grid.length; i++) if (B.grid[i]) n++; return n; };
+      for (let f = 0; f < 240 && cells() < 16; f++) __frames(1);
+      out.landed = { cells: cells(), pieces: B.pieces().filter(Boolean).length, over: B.over };
+      // a row filled across the well of the arm E brings round clears as it comes to the top
+      Abyss.test.setGrav(100000);
+      for (let k = 0; k < 4; k++) B.test.clearPiece(k);
+      for (let y = 0; y < 30; y++) for (let x = 0; x < 30; x++) B.test.set(x, y, 0);
+      const nxt = (B.top + 3) % 4, line = [];
+      for (let lx = 0; lx < 10; lx++) { const b = AbyssMaelstrom.toBoard(nxt, lx, 14); line.push(b); B.test.set(b[0], b[1], 1); }
+      const l0 = Abyss.lines();
+      key("KeyE");
+      out.turnClear = { top: B.top === nxt, state: Abyss.state() };
+      __frames(40);
+      out.turnClear.lines = Abyss.lines() - l0;
+      out.turnClear.gone = line.every((b) => !B.test.get(b[0], b[1]));
+      out.turnClear.pieces = B.pieces().filter(Boolean).length;
+      out.best = { juggle: localStorage.getItem("abyss_best_maelstrom_juggle"), mael: localStorage.getItem("abyss_best_maelstrom"), score: Abyss.score() };
+      return out;
+    }, key.toString());
+    const st = r.start, steps = r.e.angles;
+    check("abyss: J switches Juggle on (kept; greyed outside Maelstrom)", inDescent.grey && !onSw.grey && onSw.on === "true" && onSw.kept === "1", { inDescent, onSw });
+    check("abyss, Juggle: every arm open and a piece in each at once; the keys move only the top arm's",
+      st.juggle && st.open === "true,true,true,true" && st.arms === "0,1,2,3" && st.top === 0 && r.move.top && r.move.others, { start: st, move: r.move });
+    check("abyss, Juggle: E turns the plus clockwise at once in the rules (the west arm to the top), easing round on the screen over 0.18 s",
+      r.e.top === 3 && Math.abs(r.e.a0) < 1e-9 && steps[0] > 0 && steps[4] < Math.PI / 2 && Math.abs(steps[11] - Math.PI / 2) < 1e-3 && steps.every((a, i) => !i || a >= steps[i - 1]), r.e);
+    check("abyss, Juggle: Q turns it back the other way; a pause mid-spin holds it, and resumed it finishes",
+      r.paused.top === 0 && held[0] === held[1] && r2.back.top === 0 && Math.abs(r2.back.angle) < 1e-3, { paused: r.paused, held, back: r2.back });
+    check("abyss, Juggle: the pieces fall and land on their own, and each arm is given the next at once",
+      r2.landed.cells >= 16 && r2.landed.pieces === 4 && !r2.landed.over, r2.landed);
+    check("abyss, Juggle: a row filled across an arm's well clears as a turn brings that arm to the top",
+      r2.turnClear.top && r2.turnClear.state === "clearing" && r2.turnClear.lines === 1 && r2.turnClear.gone && r2.turnClear.pieces === 4, r2.turnClear);
+    check("abyss, Juggle: the best is its own (not Maelstrom's), saved as it's passed",
+      Number(r2.best.juggle) === r2.best.score && r2.best.score > 0 && r2.best.mael === null, r2.best);
+    check("abyss (Juggle): no page errors", q.errs.length === 0, q.errs);
+    await ctx.close();
+
+    // the touch pad: two turn buttons in Juggle only; one tap turns; the
+    // plus and the pad fit the screen, the plus clear of the pad
+    const pads = [];
+    for (const [w, h] of [[320, 568], [375, 553], [390, 664], [667, 375], [568, 320]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const t = await lib.open(c, base, "games/abyss/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("abyss_juggle", "1"); } catch (e) {} }) });
+      pads.push(Object.assign({ size: w + "x" + h }, await t.evaluate(() => {
+        const vis = (id) => { const e = document.getElementById(id); return !!e.getClientRects().length && e.getBoundingClientRect().width > 0; };
+        Abyss.start("maelstrom");
+        const out = { turnBtns: vis("p-ccw") && vis("p-cw") };
+        const btns = [...document.querySelectorAll("#pad button")].filter((b) => b.getClientRects().length && b.getBoundingClientRect().width).map((b) => b.getBoundingClientRect());
+        const a = Abyss.areas()[0];
+        out.fit = btns.every((b) => b.right <= innerWidth + 0.5 && b.bottom <= innerHeight + 0.5 && !(b.left < a.x + a.w && b.right > a.x && b.top < a.y + a.h && b.bottom > a.y)) &&
+          a.x >= -0.5 && a.x + a.w <= innerWidth + 0.5 && document.documentElement.scrollWidth <= innerWidth;
+        document.getElementById("p-cw").dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true }));
+        out.tapped = Abyss.board().top;
+        Abyss.toMenu(); Abyss.start("descent");
+        out.descent = vis("p-ccw") || vis("p-cw");
+        return out;
+      })));
+      pads[pads.length - 1].errs = t.errs.length;
+      await c.close();
+    }
+    check("abyss, Juggle on a touch phone (upright and on its side): two turn buttons on the pad, one tap turns, the plus and the pad on the screen and clear of each other; in Descent no turn buttons",
+      pads.every((x) => x.turnBtns && x.tapped === 3 && x.fit && !x.descent && !x.errs), pads);
   }
 };

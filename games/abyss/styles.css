@@ -90,6 +90,24 @@ body {
   #p-left { grid-area: 3 / 1; } #p-right { grid-area: 3 / 2; }
   #p-hard { grid-area: 2 / 4 / 3 / 6; } #p-rot { grid-area: 3 / 4 / 4 / 6; }
 }
+/* Juggle: two more, the plus a quarter either way (↺ ↻): a row of their
+   own over the six; on a phone on its side, over the drop and the spin */
+#pad .juggle-only { display: none; }
+body.juggle #pad .juggle-only { display: block; padding: 7px 0 6px; }
+/* (captioned "plus", so they can't be taken for the piece's spin) */
+#pad .juggle-only small { display: block; margin-top: 2px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); }
+@media (orientation: portrait), (min-height: 501px) {
+  body.juggle #pad button { grid-row: 2; }
+  body.juggle #pad #p-ccw { grid-area: 1 / 1 / 2 / 4; }
+  body.juggle #pad #p-cw { grid-area: 1 / 4 / 2 / 7; }
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  body.juggle #pad { grid-template-rows: 1fr auto auto auto; }
+  body.juggle #p-ccw { grid-area: 2 / 4; } body.juggle #p-cw { grid-area: 2 / 5; }
+  body.juggle #p-hold { grid-area: 3 / 1; } body.juggle #p-soft { grid-area: 3 / 2; }
+  body.juggle #p-left { grid-area: 4 / 1; } body.juggle #p-right { grid-area: 4 / 2; }
+  body.juggle #p-hard { grid-area: 3 / 4 / 4 / 6; } body.juggle #p-rot { grid-area: 4 / 4 / 5 / 6; }
+}
 
 /* ---- panels -------------------------------------------------------------- */
 .panel {
