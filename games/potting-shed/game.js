@@ -409,7 +409,29 @@
     paintMine();
     var done = SHEDS.filter(function (_, i) { return bests[i]; }).length;
     $("tally").textContent = done ? done + " of " + SHEDS.length + " sheds potted" : "";
+    showShed();
   }
+  // (on a phone the list is a box that scrolls, as tall as leaves the whole
+  // card on the screen, between its floor and its cap in styles.css: --fit
+  // is the room, measured again as the fonts, the lines and the window
+  // change; the chosen shed kept in sight)
+  function showShed() {
+    var t = grid.querySelector(".tile.current");
+    if (!t || grid.scrollHeight <= grid.clientHeight + 1) return;
+    var g = grid.getBoundingClientRect(), r = t.getBoundingClientRect();
+    if (r.top < g.top || r.bottom > g.bottom) grid.scrollTop += r.top - g.top - (g.height - r.height) / 2;
+  }
+  var fitAt = -1;
+  function fitSheds() {
+    var panel = $("menu"), card = panel.querySelector(".card");
+    if (panel.hidden || !window.matchMedia || !matchMedia("(max-width: 520px)").matches) return;
+    var cs = getComputedStyle(panel), room = panel.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - card.offsetHeight;
+    var fit = Math.max(0, Math.floor(grid.clientHeight + room));
+    if (fit === fitAt) return;
+    fitAt = fit; grid.style.setProperty("--fit", fit + "px"); showShed();
+  }
+  if (window.ResizeObserver) new ResizeObserver(fitSheds).observe($("menu").querySelector(".card"));
+  window.addEventListener("resize", fitSheds);
   function paintGrid() {
     grid.replaceChildren();
     SHEDS.forEach(function (S, i) {
@@ -434,7 +456,7 @@
     dropOwn();
     store.set("pottingshed_shed", String(shed));
     Array.prototype.forEach.call(grid.children, function (t, i) { t.classList.toggle("current", i === shed); });
-    paintChosen();
+    paintChosen(); showShed();
   }
   function paintChosen() {
     var Lm = parse(own ? null : shed);
@@ -451,8 +473,9 @@
       $("play").firstChild.textContent = b ? "Pot it again " : "Pot this shed ";
     }
     // the shed in small: benches, sun, pots
-    var small = window.matchMedia && window.matchMedia("(max-width: 520px)").matches;
-    var c = Math.floor(Math.min((small ? 72 : 120) / Lm.w, (small ? 60 : 84) / Lm.h));
+    // (smaller on a phone, and smaller again on a short one)
+    var small = window.matchMedia && window.matchMedia("(max-width: 520px)").matches, short = small && window.matchMedia("(max-height: 700px)").matches;
+    var c = Math.floor(Math.min((small ? 72 : 120) / Lm.w, (short ? 48 : small ? 60 : 84) / Lm.h));
     mini.width = Lm.w * c * 2; mini.height = Lm.h * c * 2; mini.style.width = Lm.w * c + "px"; mini.style.height = Lm.h * c + "px";
     mg.setTransform(2, 0, 0, 2, 0, 0);
     for (var k = 0; k < Lm.w * Lm.h; k++) {

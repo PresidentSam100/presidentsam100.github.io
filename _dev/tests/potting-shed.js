@@ -445,6 +445,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("potting-shed: the menu fits at 320 x 568, 360 x 640, 390 x 664, 375 x 553 and 360 x 560 phones and 1280 x 900, 1366 x 657 and 1280 x 600 laptops: nothing wider than the screen, the heading below the corner buttons, thirty tiles at least 40 x 34 px and all of the card shown (on a laptop with no scrolling)",
       bad.length === 0, bad.length ? bad : seen);
   }
+
+  // ---- on a phone the whole menu is on the screen with nothing to scroll:
+  // the list of sheds is a box taking the room the rest of the card leaves
+  // (at least two rows and some of the next where it scrolls), the chosen
+  // shed in view. On a first visit at every size; on 360 x 640 and 390 x 664
+  // also with most sheds potted (the count and a two-line best showing) and
+  // sheds of your own, in a strip of one row that scrolls sideways. A locked
+  // shed's line takes room only while it shows, the box giving way
+  {
+    const { devices } = require("@playwright/test");
+    const MINE = ["Keys", "The Long Greenhouse", "Corner pots", "Tomato row", "Bench end", "Rain barrel", "Grandma's shed", "Last one"].map((n) => ({ name: n, map: ["#######", "#@ $ .#", "#     #", "#     #", "#######"] }));
+    const BESTS = {}; for (let i = 0; i < 24; i++) BESTS[i] = { m: 134, p: 42, t: 83400 };
+    const fitOf = (q) => q.evaluate(() => {
+      const panel = document.getElementById("menu"), g = document.getElementById("shed-grid"), gr = g.getBoundingClientRect(), cur = g.querySelector(".tile.current").getBoundingClientRect();
+      const strip = document.getElementById("mine-list"), mine = [...strip.querySelectorAll(".tile")].map((t) => Math.round(t.getBoundingClientRect().top));
+      const note = document.getElementById("lock-note").getBoundingClientRect();
+      return { scroll: panel.scrollHeight - panel.clientHeight, box: Math.round(gr.height), boxScrolls: g.scrollHeight > g.clientHeight + 1,
+        current: cur.top >= gr.top - 0.5 && cur.bottom <= gr.bottom + 0.5, tally: document.getElementById("tally").textContent,
+        mineRows: new Set(mine).size, mineSideways: strip.scrollWidth > strip.clientWidth + 1, note: document.getElementById("lock-note").textContent,
+        noteSeen: note.height > 0 && note.top >= gr.bottom - 0.5 && note.bottom <= innerHeight };
+    });
+    const fine = (s) => s.scroll <= 0 && s.current && (!s.boxScrolls || s.box >= 102);
+    const bad = [], seen = {};
+    for (const [w, h] of [[320, 568], [360, 560], [360, 640], [375, 553], [390, 664]]) {
+      const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }));
+      let q = await open(c);
+      await q.waitForTimeout(300);
+      const s = seen[w + "x" + h] = await fitOf(q);
+      if (!fine(s)) bad.push(w + "x" + h);
+      if (w === 360 && h === 640) {   // a locked shed's line, then a shorter window
+        await q.click("#shed-grid .tile:nth-child(30)"); await q.waitForTimeout(150);
+        const l = seen[w + "x" + h + " locked"] = await fitOf(q);
+        if (!fine(l) || !/Shed 30 is locked/.test(l.note) || !l.noteSeen || l.box >= s.box) bad.push(w + "x" + h + " locked");
+        await q.setViewportSize({ width: 360, height: 560 }); await q.waitForTimeout(3000);
+        const t = seen["360x640 to 360x560"] = await fitOf(q);
+        if (!fine(t) || t.note !== "") bad.push("360x640 to 360x560");
+      }
+      await done(q, "menu " + w + "x" + h);
+      if (h >= 640) {
+        q = await open(c, { before: (pg) => pg.addInitScript(([m, b]) => { try { localStorage.setItem("pottingshed_mine", m); localStorage.setItem("pottingshed_best", b); localStorage.setItem("pottingshed_shed", "22"); } catch (e) {} }, [JSON.stringify(MINE), JSON.stringify(BESTS)]) });
+        await q.waitForTimeout(300);
+        const f = seen[w + "x" + h + " full"] = await fitOf(q);
+        if (!fine(f) || !/24 of 30/.test(f.tally) || f.mineRows !== 1 || !f.mineSideways) bad.push(w + "x" + h + " full");
+        await done(q, "menu " + w + "x" + h + " full");
+      }
+      await c.close();
+    }
+    check("potting-shed: on a phone the whole menu is on the screen with nothing to scroll, the list of sheds a box taking the room that's left (two rows and more where it scrolls, the chosen shed in view): a first visit at 320x568, 360x560, 360x640, 375x553 and 390x664, and at 360x640 and 390x664 with 24 sheds potted and eight of your own (a strip of one row, scrolling sideways); a locked shed's line shows under the box, which gives way, and a shorter window too",
+      bad.length === 0, { bad, seen });
+  }
   await ctx.close();
 };
 
