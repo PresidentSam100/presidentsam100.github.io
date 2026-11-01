@@ -52,9 +52,6 @@
   <button type="button" id="p-right" aria-label="Move right">▶</button>
   <button type="button" id="p-soft" aria-label="Soft drop">▽</button>
   <button type="button" id="p-hard" aria-label="Hard drop">▼</button>
-  <!-- (Maelstrom: the board turns left and right) -->
-  <button type="button" id="p-turnl" aria-label="Turn the board left">↶</button>
-  <button type="button" id="p-turnr" aria-label="Turn the board right">↷</button>
 </div>
 
 <section class="panel" id="menu">
@@ -69,7 +66,7 @@
     <!-- the key legend; on a touch-only device the pad's buttons are the controls -->
     <p class="keys gs-keys">
       <kbd>←</kbd><kbd>→</kbd> move · <kbd>↓</kbd> soft drop · <kbd>Space</kbd> hard drop<br>
-      <kbd>X</kbd> and <kbd>Z</kbd> spin · <kbd>C</kbd>/<kbd>Shift</kbd> hold · <kbd>Q</kbd><kbd>E</kbd> turn a Maelstrom
+      <kbd>X</kbd> and <kbd>Z</kbd> spin · <kbd>C</kbd>/<kbd>Shift</kbd> hold
     </p>
     <div class="pick">
       <div class="seg" id="pick-mode">
@@ -78,10 +75,9 @@
         <button type="button" data-v="krill"><b>Krill</b><small>small fry too: 1-, 2- and 3-cell drifters <span class="gs-keys"><kbd>3</kbd></span></small></button>
         <button type="button" data-v="maelstrom"><b>Maelstrom</b><small>a plus that turns, an arm more every 10 rows <span class="gs-keys"><kbd>4</kbd></span></small></button>
       </div>
-      <!-- two switches, kept: each counts only in the modes it names -->
+      <!-- a switch, kept: it counts only in Descent and Maelstrom -->
       <div class="seg opts" id="pick-opts">
         <button type="button" id="opt-intense" aria-pressed="false"><b>Intense</b><small>a faster start <span class="gs-keys"><kbd>I</kbd></span></small></button>
-        <button type="button" id="opt-juggle" aria-pressed="false"><b>Juggle</b><small>every arm at once <span class="gs-keys"><kbd>J</kbd></span></small></button>
       </div>
     </div>
     <button type="button" class="playbtn" id="play"><b>Dive</b> <span class="gs-keys"><kbd>Enter</kbd></span></button>

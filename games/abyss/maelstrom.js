@@ -3,10 +3,11 @@
 
    A 10 x 10 core with four arms, each 10 wide and 8 deep, on a 26 x 26
    grid (its four 8 x 8 corners are rock). Pieces sink from the arm at the
-   top toward the middle, and the whole board turns a quarter at a time,
-   bringing another arm to the top. A full line of 10 clears anywhere: across
-   an arm, or across the core either way, and the blocks beyond it slide in
-   toward the middle.
+   top toward the middle. Each piece comes in from an open arm the board
+   picks (a few in a row from one, then another), and before it does, the
+   whole board turns by itself to bring that arm to the top. A full line of
+   10 clears anywhere: across an arm, or across the core either way, and the
+   blocks beyond it slide in toward the middle.
 
    A piece's place is kept in its arm's own frame: lx across the arm (0 to 9),
    ly from the arm's outer edge in (0 to 7 the arm, 8 to 17 the core, on into
@@ -19,11 +20,10 @@
    still closed, to the middle line once it's open (the far half then
    belongs to that arm's pieces).
 
-   One piece at a time (single): it is always in the arm at the top, and when
-   the board turns it stays where it is on the screen while the board turns
-   under it (the turn is refused if it wouldn't fit there). Juggle: every
-   open arm has a piece of its own sinking toward the middle at once; the
-   one at the top is the one the keys move, and the pieces block each other.
+   One piece at a time, always in the arm at the top. The arm the next one
+   comes from is known as the current one sinks (nextArm), and the turn to
+   it happens between pieces, with none in play: game.js says how long it
+   takes, and the rules wait it out.
 
    The rules only: game.js draws it, times it, scores it and takes the keys.
    ===================================================================== */
@@ -42,13 +42,18 @@
 
   // T: the piece tables game.js keeps (TYPES, ROT, KI, KJ, BASE). hooks (all
   // optional): lock(k), clear(n, cells) -> ms the lines take to dissolve,
-  // collapsed() once they're gone, over(), spawn(k), turn(from, to)
+  // collapsed() once they're gone, over(), spawn(k), turn(from, to, dir,
+  // quarters) -> ms the board takes to turn
   function create(T, hooks) {
     hooks = hooks || {};
     var grid = new Uint8Array(S * S), open = [true, false, false, false];
-    var top = 0, juggle = false, pcs = [null, null, null, null];
+    var top = 0, pcs = [null, null, null, null];
     var queue = [], bag = [], hold = null, canHold = true, over = false;
-    var clearing = null;          // { cells: [board index], left: s } while full lines dissolve
+    var clearing = null;          // { cells: [board index], left: ms } while full lines dissolve
+    var turning = null;           // { from, to, dir, quarters, ms, left } while the board turns to the next arm
+    // the arms the pieces come from: runs of a few from one open arm, then
+    // another (an arm just opened has the next run)
+    var nextArm = 0, runArm = 0, runLeft = 0, fresh = null;
     var TYPES = "IJLOSTZ";
 
     function newBag() {
@@ -59,33 +64,19 @@
     function refill() { while (queue.length < 7) { if (!bag.length) bag = newBag(); queue.push(bag.shift()); } }
     function floorOf(k) { return open[(k + 2) % 4] ? MID : 18; }
 
-    // the board cells the pieces other than `self` are on
-    function taken(self) {
-      var out = {};
-      pcs.forEach(function (p) {
-        if (!p || p === self) return;
-        T.ROT[p.t][p.r].forEach(function (c) {
-          var ly = p.y + c[1];
-          if (ly < 0) return;
-          var b = toBoard(p.k, p.x + c[0], ly);
-          out[idx(b[0], b[1])] = true;
-        });
-      });
-      return out;
-    }
-    function fitsIn(k, t, r, x, y, self) {
-      var cs = T.ROT[t][r], fl = floorOf(k), busy = juggle ? taken(self) : null;
+    function fitsIn(k, t, r, x, y) {
+      var cs = T.ROT[t][r], fl = floorOf(k);
       for (var i = 0; i < cs.length; i++) {
         var lx = x + cs[i][0], ly = y + cs[i][1];
         if (lx < 0 || lx > 9 || ly >= fl) return false;
         if (ly < 0) continue;
         if (ly < 8 && !open[k]) return false;
-        var b = toBoard(k, lx, ly), n = idx(b[0], b[1]);
-        if (grid[n] || (busy && busy[n])) return false;
+        var b = toBoard(k, lx, ly);
+        if (grid[idx(b[0], b[1])]) return false;
       }
       return true;
     }
-    function fits(p, r, x, y) { return fitsIn(p.k, p.t, r, x, y, p); }
+    function fits(p, r, x, y) { return fitsIn(p.k, p.t, r, x, y); }
 
     function spawn(k, t) {
       var p = { t: t, r: 0, x: T.BASE[t].n >= 3 ? 3 : 4, y: -1, k: k, gravT: 0, lockT: 0, resets: 0, lowY: -1 };
@@ -97,24 +88,49 @@
     function next() { refill(); return queue.shift(); }
     function end() { if (over) return; over = true; if (hooks.over) hooks.over(); }
 
-    // which arms get a piece: in single play the one at the top, in juggle every open one
-    function fillArms() {
-      if (over || clearing) return;
-      if (!juggle) { if (!pcs[top]) spawn(top, next()); return; }
-      for (var k = 0; k < 4 && !over; k++) if (open[k] && !pcs[k]) spawn(k, next());
+    // ---- which arm, and the turn to it ---------------------------------------
+    function runLength() { return 3 + Math.floor(Math.random() * 3); }   // 3 to 5 pieces from an arm
+    function pickArm() {
+      if (fresh != null && open[fresh]) { runArm = fresh; runLeft = runLength(); }
+      else if (runLeft <= 0 || !open[runArm]) {
+        var others = [];
+        for (var k = 0; k < 4; k++) if (open[k] && k !== runArm) others.push(k);
+        if (others.length) runArm = others[Math.floor(Math.random() * others.length)];
+        runLeft = runLength();
+      }
+      fresh = null;
+      runLeft--;
+      return runArm;
     }
+    // the next piece: in the arm at the top if it comes from there, or else
+    // once the board has turned that arm to the top
+    function fill() {
+      if (over || clearing || turning || pcs[top]) return;
+      if (nextArm !== top && open[nextArm]) { beginTurn(nextArm); return; }
+      if (spawn(top, next())) nextArm = pickArm();
+    }
+    // dir +1: the board turns clockwise (the arm on the left comes to the
+    // top), -1 the other way; the arm across is half a turn, clockwise
+    function beginTurn(to) {
+      var s = ((top - to) % 4 + 4) % 4;
+      turning = { from: top, to: to, dir: s === 3 ? -1 : 1, quarters: s === 3 ? 1 : s, ms: 0, left: 0 };
+      turning.ms = turning.left = hooks.turn ? hooks.turn(turning.from, to, turning.dir, turning.quarters) || 0 : 0;
+      if (turning.left <= 0) endTurn();
+    }
+    function endTurn() { top = turning.to; turning = null; fill(); }
 
     function start(opts) {
       grid = new Uint8Array(S * S);
-      juggle = !!opts.juggle;
       open = [true, !!opts.all, !!opts.all, !!opts.all];
       top = 0; pcs = [null, null, null, null];
-      queue = []; bag = []; hold = null; canHold = true; over = false; clearing = null;
-      fillArms();
+      queue = []; bag = []; hold = null; canHold = true; over = false; clearing = null; turning = null;
+      runArm = 0; runLeft = runLength(); fresh = null;
+      nextArm = pickArm();
+      fill();
     }
 
     // ---- the piece the keys move (the one at the top) --------------------
-    function ctl() { return over || clearing ? null : pcs[top]; }
+    function ctl() { return over || clearing || turning ? null : pcs[top]; }
     function onShift(p) {
       if (!fits(p, p.r, p.x, p.y + 1) && p.resets < 15) { p.lockT = 0; p.resets++; }
     }
@@ -173,31 +189,6 @@
       return true;
     }
 
-    // ---- the turn ---------------------------------------------------------
-    // dir +1: the board turns clockwise (the arm on the left comes to the
-    // top), -1 the other way; a closed arm is passed over to the next open
-    // one. Refused (false) with no other arm open, mid-clear, or (single)
-    // when the piece wouldn't fit where it is in the new top arm.
-    function turn(dir) {
-      if (over || clearing) return false;
-      var to = top;
-      for (var n = 0; n < 3; n++) {
-        to = (to + (dir > 0 ? 3 : 1)) % 4;
-        if (open[to]) break;
-      }
-      if (to === top || !open[to]) return false;
-      var p = pcs[top];
-      if (!juggle && p) {
-        if (!fitsIn(to, p.t, p.r, p.x, p.y, p)) return false;
-        pcs[top] = null; p.k = to; pcs[to] = p;
-      }
-      var from = top;
-      top = to;
-      if (pcs[top]) onShift(pcs[top]);
-      if (hooks.turn) hooks.turn(from, to);
-      return true;
-    }
-
     // ---- gravity, locking, clearing ----------------------------------------
     function cellsOf(p) {
       return T.ROT[p.t][p.r].map(function (c) { return [p.x + c[0], p.y + c[1]]; });
@@ -221,7 +212,7 @@
         clearing.left = hooks.clear ? hooks.clear(full.count, full.cells) || 0 : 0;
         return;
       }
-      fillArms();
+      fill();
     }
     // every full line of 10: across each open arm, and the core's rows and columns
     function fullLines() {
@@ -288,7 +279,7 @@
       clearing = null;
       if (hooks.collapsed) hooks.collapsed();
       settlePieces();
-      fillArms();
+      fill();
     }
     // a piece the slide (or a newly opened arm's shorter floor) now overlaps
     // is lifted back out toward its own edge until it's clear
@@ -306,6 +297,11 @@
       if (clearing) {
         clearing.left -= dt;
         if (clearing.left <= 0) collapse();
+        return;
+      }
+      if (turning) {
+        turning.left -= dt;
+        if (turning.left <= 0) endTurn();
         return;
       }
       for (var k = 0; k < 4; k++) {
@@ -327,18 +323,19 @@
       }
     }
 
-    // arms open as the dive goes on (n of them, clockwise from the first)
+    // arms open as the dive goes on (n of them, clockwise from the first);
+    // the newest has the run after the next piece (that one's arm is known)
     function openArms(n) {
       var changed = false;
-      for (var k = 0; k < Math.min(4, n); k++) if (!open[k]) { open[k] = true; changed = true; }
-      if (changed) { settlePieces(); fillArms(); }
+      for (var k = 0; k < Math.min(4, n); k++) if (!open[k]) { open[k] = true; changed = true; fresh = k; }
+      if (changed) { settlePieces(); fill(); }
       return changed;
     }
 
     return {
-      start: start, update: update, move: move, rotate: rotate, soft: soft, hard: hard, hold: doHold, turn: turn,
+      start: start, update: update, move: move, rotate: rotate, soft: soft, hard: hard, hold: doHold,
       ghostY: ghostY, openArms: openArms, fits: fits,
-      get top() { return top; }, get juggle() { return juggle; }, get over() { return over; },
+      get top() { return top; }, get over() { return over; }, get turning() { return turning; }, get nextArm() { return nextArm; },
       get clearing() { return clearing; }, get hold() { return hold; }, get canHold() { return canHold; },
       get queue() { refill(); return queue; }, get grid() { return grid; }, get open() { return open; },
       piece: function (k) { return pcs[k == null ? top : k]; },
@@ -350,6 +347,7 @@
         get: function (x, y) { return grid[idx(x, y)]; },
         place: function (k, t, r, x, y) { pcs[k] = { t: t, r: r || 0, x: x, y: y, k: k, gravT: 0, lockT: 0, resets: 0, lowY: y }; return pcs[k]; },
         clearPiece: function (k) { pcs[k] = null; },
+        setNext: function (k) { nextArm = k; },
         lock: lock, collapse: function () { if (clearing) collapse(); }, full: fullLines
       }
     };
