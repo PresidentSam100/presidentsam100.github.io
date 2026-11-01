@@ -635,4 +635,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike, " + label + " (Daily sign): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+  // ---- a J, Q or K: its framed letter sits clear of the corner's rank and
+  // suit and of the suit at the bottom right, and the letter within its frame
+  for (const [label, opts] of [["laptop", {}], ["phone", { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["small phone", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    const got = await q.evaluate(() => {
+      Klondike.stage(["K♠", "Q♥", "J♣", "", "", "", ""]);
+      const meet = (a, b) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+      const ink = (el) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
+      return [...document.querySelectorAll(".card")].filter((e) => e.querySelector(".face") && !e.classList.contains("down") && e.getClientRects().length).map((card) => {
+        const f = card.querySelector(".face"), F = f.getBoundingClientRect(), cs = getComputedStyle(f);
+        const cv = document.createElement("canvas").getContext("2d");
+        cv.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+        const m = cv.measureText(f.textContent);
+        return { card: card.getAttribute("aria-label"), idx: meet(F, ink(card.querySelector(".idx"))), pip: meet(F, ink(card.querySelector(".pip"))),
+          fits: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent <= F.height - 2 };
+      });
+    });
+    check("klondike, " + label + ": a J, Q or K's frame touches neither the corner's rank and suit nor the suit at the bottom right, and its letter fits within it",
+      got.length === 3 && got.every((g) => !g.idx && !g.pip && g.fits), got);
+    check("klondike, " + label + " (court cards): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

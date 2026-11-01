@@ -193,12 +193,20 @@ body {
   font-size: calc(var(--cw) * 0.62); line-height: 1;
 }
 .card .face {
-  position: absolute; inset: 14% 12%;
+  position: absolute; inset: 14% 12%;   /* (J, Q, K: placed clear of the corners, below) */
   border: 1px solid currentColor; border-radius: 3px;
   display: flex; align-items: center; justify-content: center;
   font-weight: 400; font-size: calc(var(--cw) * 0.52);
   font-family: Sancreek, Georgia, serif;
   background: repeating-linear-gradient(45deg, transparent 0 4px, rgba(107, 90, 58, 0.10) 4px 8px);
+}
+/* J, Q and K: the framed letter sits between the corner's rank and suit and
+   a smaller suit at the bottom right, its frame touching neither */
+.card.court .pip { font-size: calc(var(--cw) * 0.3); }
+.card.court .face {
+  top: calc(var(--cw) * 0.23 + 6px); bottom: calc(var(--cw) * 0.3 + 8px);
+  /* (the letter within the frame: smaller on a phone's small card) */
+  font-size: min(calc(var(--cw) * 0.52), calc(var(--cw) * 0.69 - 14px));
 }
 .card.red { color: var(--red); }
 /* the back: deep green with a gold lattice, like an oilcloth map wrap; while

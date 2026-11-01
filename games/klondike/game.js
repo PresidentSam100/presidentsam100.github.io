@@ -119,6 +119,7 @@
       el.className = "card";
       var red = K.isRed(c);
       if (red) el.classList.add("red");
+      if (c.r > 10) el.classList.add("court");   // (J, Q, K: their framed letter, styles.css)
       el.dataset.key = c.s + "-" + c.r;
       // (︎: drawn as a plain suit, where a phone may otherwise draw an emoji)
       el.innerHTML = '<span class="idx">' + RANKS[c.r] + "<small>" + SUITS[c.s] + "︎</small></span>" +
