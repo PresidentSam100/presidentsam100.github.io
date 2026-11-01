@@ -317,6 +317,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
   // ---- on a short laptop screen the corner buttons cover no panel and not
   // the jar, and the fruit ladder ends with the jar, so nothing scrolls
   for (const [w, h] of [[1366, 657], [1280, 600], [1280, 720], [900, 600], [1280, 900]]) {
@@ -334,6 +335,135 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     check("jam-jar, " + w + "x" + h + ": the corner buttons cover no panel and not the jar, the fruit ladder ends with the jar, and the page doesn't scroll",
       got.under.length === 0 && got.chainOver <= 0 && got.scroll <= 0, got);
+    await c.close();
+  }
+
+  // ---- vs CPU. On the menu 3 and 4 pick Solo or vs CPU (kept: jamjar_foe).
+  // Against the CPU its own jar stands beside yours, fed the same fruit: in
+  // Rolling Boil both drop on the same second and the nth fruit is the same
+  // in both; in Slow Simmer it never drops a fruit you haven't dropped yet.
+  // Pausing holds both. A jar that overflows stops while the other plays on
+  // and wins the moment it passes; both over, the higher score wins (the
+  // same: a draw). Your first drop counts a loss until the game is decided,
+  // so a game walked away from stays one; the record is per pace (on the
+  // games page's reset list), and a jar against the CPU leaves the Solo
+  // bests alone.
+  const VS_DROPS = ["    fruits.push(makeFruit(x, DROP_Y, current));",
+    "    fruits.push(makeFruit(x, DROP_Y, current));\n    (window.__vsDrops = window.__vsDrops || []).push({ cpu: inCpu, tier: fruits[fruits.length - 1].tier, t: performance.now() });"];
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, VS_DROPS]); } });
+    const rec = (m) => q.evaluate((m) => JSON.parse(localStorage.getItem("jamjar_vs_" + m) || "null"), m);
+    await q.evaluate(() => __frames(5));
+    await q.keyboard.press("4"); await q.evaluate(() => __frames(2));
+    const menu = await q.evaluate(() => ({ foe: __game.foe, kept: localStorage.getItem("jamjar_foe"), state: __game.state,
+      caps: [...document.querySelectorAll("#pick-foe button b")].map((b) => b.getAttribute("data-gs-key")).join(" "),
+      on: document.querySelector("#pick-foe button.on").getAttribute("data-v"), cpuJar: document.getElementById("cpu").getClientRects().length > 0 }));
+    await q.keyboard.press("3"); await q.evaluate(() => __frames(2));
+    const solo = await q.evaluate(() => ({ foe: __game.foe, cpuJar: document.getElementById("cpu").getClientRects().length > 0 }));
+    check("jam-jar: on the menu 4 picks vs CPU (kept) and 3 Solo, without starting, each wearing its key; the CPU's jar stands beside yours only against it",
+      menu.foe === "cpu" && menu.kept === "cpu" && menu.state === "menu" && menu.caps === "3 4" && menu.on === "cpu" && menu.cpuJar && solo.foe === "solo" && !solo.cpuJar, { menu, solo });
+
+    // Rolling Boil: eight seconds, your aim moved about
+    await q.keyboard.press("4"); await q.keyboard.press("2"); await q.keyboard.press("Enter"); await q.evaluate(() => __frames(2));
+    const boil = await q.evaluate(() => {
+      for (let i = 0; i < 8; i++) { __game.setAim(100 + i * 45); __frames(60); }
+      __frames(10);
+      const d = window.__vsDrops || [], you = d.filter((x) => !x.cpu), cpu = d.filter((x) => x.cpu);
+      return { mode: __game.mode, state: __game.state, n: [you.length, cpu.length], you: you.map((x) => x.tier).join(""), cpu: cpu.map((x) => x.tier).join(""),
+        run: you.map((x, i) => __game.fruitAt(i)).join(""), sameTick: you.every((x, i) => cpu[i] && cpu[i].t === x.t), vs: __game.vs() };
+    });
+    check("jam-jar vs CPU, Rolling Boil: the CPU's jar drops with yours on every second, and the nth fruit is the same in both, the one run of fruit",
+      boil.mode === "boil" && boil.state === "play" && boil.n[0] === 8 && boil.n[1] === 8 && boil.you === boil.cpu && boil.you === boil.run && boil.sameTick, boil);
+    // paused: neither jar drops and the CPU's aim holds
+    await q.keyboard.press("p");
+    const p0 = await q.evaluate(() => __game.vs());
+    await q.evaluate(() => __frames(150));
+    const p1 = await q.evaluate(() => __game.vs());
+    await q.keyboard.press("p"); await q.evaluate(() => __frames(65));
+    const p2 = await q.evaluate(() => __game.vs());
+    check("jam-jar vs CPU: under the pause card neither jar drops and the CPU's aim holds still; resumed, both drop again",
+      p1.you.dealt === p0.you.dealt && p1.cpu.dealt === p0.cpu.dealt && p1.cpu.aim === p0.cpu.aim && p2.you.dealt === p0.you.dealt + 1 && p2.cpu.dealt === p0.cpu.dealt + 1, { p0, p1, p2 });
+    const walked = await q.evaluate(() => { __game.toMenu(); return JSON.parse(localStorage.getItem("jamjar_vs_boil") || "null"); });
+
+    // Slow Simmer: the CPU waits for your drops, and never drops a fruit you haven't
+    await q.keyboard.press("1"); await q.keyboard.press("Enter"); await q.evaluate(() => __frames(2));
+    const simmer = await q.evaluate(() => {
+      __frames(300);
+      const idle = __game.vs();
+      let ahead = 0;
+      for (let i = 0; i < 3; i++) {
+        __game.setAim(120 + i * 150); __game.drop();
+        for (let f = 0; f < 90; f += 5) { __frames(5); const v = __game.vs(); if (v.cpu.dealt > v.you.dealt) ahead++; }
+      }
+      for (let f = 0; f < 480; f += 5) { __frames(5); const v = __game.vs(); if (v.cpu.dealt > v.you.dealt) ahead++; }
+      return { idle, ahead, vs: __game.vs(), best: localStorage.getItem("jamjar_best"), rec: JSON.parse(localStorage.getItem("jamjar_vs_simmer") || "null") };
+    });
+    check("jam-jar vs CPU, Slow Simmer: the CPU drops nothing while you haven't, follows your three drops with its own three, never a fruit ahead of you",
+      simmer.idle.cpu.dealt === 0 && simmer.idle.cpu.fruits === 0 && simmer.ahead === 0 && simmer.vs.you.dealt === 3 && simmer.vs.cpu.dealt === 3, simmer);
+    // a merge against the CPU leaves the Solo best alone
+    const merged = await q.evaluate(() => {
+      __game.setQueue(0, 0); __game.setAim(470); __game.drop(); __frames(60);
+      __game.setQueue(0, 0); __game.setAim(470); __game.drop(); __frames(90);
+      return { score: __game.vs().you.score, best: localStorage.getItem("jamjar_best") };
+    });
+    check("jam-jar vs CPU: your first drop counts a loss until the game is decided (a game left for the menu stays one), and a merge leaves the Solo best alone",
+      walked && walked.l === 1 && walked.w === 0 && simmer.rec && simmer.rec.l === 1 && merged.score > 0 && merged.best === null, { walked, rec: simmer.rec, merged });
+
+    // the winner: Rolling Boil games decided by setting the jars' scores
+    const card = () => q.evaluate(() => ({ state: __game.state, up: !document.getElementById("overScreen").classList.contains("hidden"),
+      title: document.getElementById("overTitle").textContent, you: document.getElementById("finalScore").textContent, cpu: document.getElementById("cpuFinal").textContent,
+      line: document.getElementById("overBest").textContent, cpuShown: document.getElementById("cpuFinal").getClientRects().length > 0 }));
+    const fresh = () => q.evaluate(() => { __game.start("boil"); __frames(65); });
+    await fresh();
+    await q.evaluate(() => __game.setVs(null, { out: true, score: 80 }));
+    const waiting = await q.evaluate(() => { const a = __game.vs(); __frames(120); return { state: __game.state, a, b: __game.vs() }; });
+    await q.evaluate(() => __game.setVs({ score: 81 }));
+    const won = Object.assign(await card(), { rec: await rec("boil") });
+    await fresh();
+    await q.evaluate(() => __game.setVs({ out: true, score: 100 }));
+    const stopped = await q.evaluate(() => { const a = __game.vs(); __frames(180); return { state: __game.state, a, b: __game.vs() }; });
+    await q.evaluate(() => __game.setVs(null, { score: 101 }));
+    const lost = Object.assign(await card(), { rec: await rec("boil") });
+    await fresh();
+    await q.evaluate(() => __game.setVs({ out: true, score: 50 }, { out: true, score: 50 }));
+    const drew = Object.assign(await card(), { rec: await rec("boil") });
+    check("jam-jar vs CPU: the CPU's jar overflowed, you play on (it stays as it stopped) and win the moment you pass it, the card saying so with both scores",
+      waiting.state === "play" && waiting.b.cpu.dealt === waiting.a.cpu.dealt && waiting.b.you.dealt === waiting.a.you.dealt + 2 &&
+      won.state === "over" && won.up && won.title === "You win!" && won.you === "81" && won.cpu === "80" && won.cpuShown && /won\s1, lost\s1/.test(won.line), { waiting, won });
+    check("jam-jar vs CPU: your jar overflowed, the CPU plays on (yours stays as it stopped) and wins the moment it passes you",
+      stopped.state === "play" && stopped.b.you.dealt === stopped.a.you.dealt && stopped.b.cpu.dealt === stopped.a.cpu.dealt + 3 &&
+      lost.state === "over" && lost.title === "The CPU wins" && lost.you === "100" && lost.cpu === "101", { stopped, lost });
+    check("jam-jar vs CPU: both overflowed on the same score is a draw; the record (won 1, lost 2, drawn 1 here) is saved as each game ends",
+      drew.title === "A draw!" && won.rec.w === 1 && won.rec.l === 1 && lost.rec.l === 2 && drew.rec.w === 1 && drew.rec.l === 2 && drew.rec.d === 1, { won: won.rec, lost: lost.rec, drew: drew.rec });
+    const hub = await q.evaluate(() => fetch("../index.html").then((r) => r.text()));
+    check("jam-jar: the records against the CPU are on the games page's reset list, and the opponent picked is not",
+      /"jamjar_vs_simmer"/.test(hub) && /"jamjar_vs_boil"/.test(hub) && !/"jamjar_foe"/.test(hub), {});
+    check("jam-jar (vs CPU): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- vs CPU, the page: on a phone your jar, the scores, Next and the
+  // CPU's jar are all on the first screen (on its side too), nothing wider
+  // than the screen; on a laptop nothing scrolls and the corner buttons
+  // cover neither jar nor a panel
+  for (const [w, h, phone] of [[320, 568, 1], [360, 560, 1], [375, 553, 1], [390, 664, 1], [667, 375, 1], [568, 320, 1], [1366, 657, 0], [1280, 600, 0], [1280, 900, 0]]) {
+    const c = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/jam-jar/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("jamjar_foe", "cpu"); } catch (e) {} }) });
+    await q.evaluate(() => __game.start("simmer")); await q.waitForTimeout(300);
+    const got = await q.evaluate(({ w, phone }) => {
+      const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect());
+      const els = [...document.querySelectorAll("#game, #cpu, .panel")].filter((e) => e.getClientRects().length);
+      const under = els.filter((e) => { const r = e.getBoundingClientRect(); return corner.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top); }).map((e) => e.id || e.className);
+      const first = ["#game", "#cpu", ".score-panel", ".next-panel"].filter((s) => { const r = document.querySelector(s).getBoundingClientRect(); return !(r.width > 0 && r.top >= 0 && r.bottom <= innerHeight + 0.5); });
+      const jar = document.getElementById("game").getBoundingClientRect(), cpu = document.getElementById("cpu").getBoundingClientRect();
+      return { under, offFirst: first, wide: Math.max(document.documentElement.scrollWidth, innerWidth) - w, scroll: phone ? null : document.documentElement.scrollHeight - innerHeight,
+        jarW: Math.round(jar.width), cpuW: Math.round(cpu.width), cpuScore: document.getElementById("cpuScore").getClientRects().length > 0 };
+    }, { w, phone });
+    check("jam-jar vs CPU, " + w + "x" + h + ": your jar, the scores (yours and the CPU's), Next and the CPU's jar on the first screen, nothing under the corner buttons" +
+      (phone ? ", nothing wider than the screen" : ", nothing to scroll"),
+      got.under.length === 0 && got.offFirst.length === 0 && got.wide <= 0 && (phone || got.scroll <= 0) && got.cpuW > 0 && got.cpuW < got.jarW && got.cpuScore, got);
+    check("jam-jar vs CPU, " + w + "x" + h + ": no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
 };

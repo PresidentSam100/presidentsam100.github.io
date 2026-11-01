@@ -59,6 +59,7 @@
     document.addEventListener(t, function () { ac(); }, true);
   });
   function tone(f, dur, type, vol, delay, slide) {
+    if (inCpu) return;   // (the CPU's jar plays without a sound: the ones you hear are yours)
     var c = ac(); if (!c) return;
     var t = c.currentTime + (delay || 0);
     var o = c.createOscillator(), g = c.createGain();
@@ -326,8 +327,186 @@
   var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0, boilT = BOIL_S;
   var runBest = 0; // the best as this jar began (the stored one climbs mid-run, see applyMerge)
   var current = 0, next = 0;
-  function rndTier() { var r = Math.random(); return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
+  function rndTier(r) { return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
+  // The fruit to come: one seeded run for each jar begun, read by each jar at
+  // its own count (dealt: the fruit it has dropped), so against the CPU the
+  // nth fruit is the same in both jars.
+  var seed = 1, seq = [], dealt = 0;
+  function rand() {   // (a small seeded generator, mulberry32)
+    seed = (seed + 0x6D2B79F5) | 0;
+    var t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  }
+  function fruitAt(i) {
+    while (seq.length <= i) seq.push(rndTier(rand()));
+    return seq[i];
+  }
+
+  // ---- vs CPU ------------------------------------------------------------------
+  // Against the CPU it plays a jar of its own, on the very same code as yours.
+  // For its step and its drawing its jar is swapped into the jar variables
+  // (the fruit, the score, the fruit waiting, the aim ...) and the one not in
+  // play waits in `other`; a second swap puts yours back. So `other` is the
+  // CPU's jar while yours is in play, and yours while the CPU's is.
+  var foe = store.get("jamjar_foe", "solo") === "cpu" ? "cpu" : "solo";
+  var inCpu = false, out = false, lastDrop = null;   // out: this jar has overflowed (the other plays on)
+  var cpuCanvas = document.getElementById("cpu"), cctx = cpuCanvas.getContext("2d");
+  function freshJar() {
+    return { fruits: [], particles: [], score: 0, dangerT: 0, dropCd: 0, current: current, next: next, aimX: W / 2,
+             dealt: 0, out: false, lastDrop: null, ctx: cctx };
+  }
+  var other = freshJar();
+  function swapJar() {
+    var o = other, t;
+    t = fruits; fruits = o.fruits; o.fruits = t;
+    t = particles; particles = o.particles; o.particles = t;
+    t = score; score = o.score; o.score = t;
+    t = dangerT; dangerT = o.dangerT; o.dangerT = t;
+    t = dropCd; dropCd = o.dropCd; o.dropCd = t;
+    t = current; current = o.current; o.current = t;
+    t = next; next = o.next; o.next = t;
+    t = aimX; aimX = o.aimX; o.aimX = t;
+    t = dealt; dealt = o.dealt; o.dealt = t;
+    t = out; out = o.out; o.out = t;
+    t = lastDrop; lastDrop = o.lastDrop; o.lastDrop = t;
+    t = ctx; ctx = o.ctx; o.ctx = t;
+    inCpu = !inCpu;
+  }
+  function asCpu(fn) { swapJar(); try { fn(); } finally { swapJar(); } }
+  // the CPU's jar is drawn in the same W×H as yours, at the resolution its
+  // smaller size on the page needs
+  function fitCpu() {
+    var w = cpuCanvas.getBoundingClientRect().width;
+    if (!w) return;
+    var k = Math.min(dpr, Math.max(0.25, Math.ceil(w * (window.devicePixelRatio || 1) / W * 20) / 20));
+    if (cpuCanvas.width !== Math.round(W * k)) { cpuCanvas.width = Math.round(W * k); cpuCanvas.height = Math.round(H * k); }
+    cctx.setTransform(k, 0, 0, k, 0, 0);
+  }
+  // the page as the opponent picked lays it out: the CPU's jar beside yours
+  // or not, and the ladder fitted to your jar's new height
+  function relayout() {
+    document.body.dataset.foe = foe;
+    fitCpu();
+    layChain();
+  }
+
+  // The record against the CPU, for each pace: won, lost, drawn. Your first
+  // drop counts the game as lost until it is decided (then put right), so a
+  // game walked away from is a loss, and the record can't be padded that way.
+  var pending = false;
+  function vsRecord(m) {
+    try {
+      var o = JSON.parse(store.get("jamjar_vs_" + m, ""));
+      if (o && typeof o === "object") return { w: o.w | 0, l: o.l | 0, d: o.d | 0 };
+    } catch (e) {}
+    return { w: 0, l: 0, d: 0 };
+  }
+  function vsSave(m, r) { store.set("jamjar_vs_" + m, JSON.stringify(r)); }
+  function vsPlayed() { var r = vsRecord(mode); r.l++; vsSave(mode, r); pending = true; }
+  function recordText(m) { var r = vsRecord(m); return "won\u00a0" + r.w + ", lost\u00a0" + r.l + (r.d ? ", drawn\u00a0" + r.d : ""); }   // (a count never wraps away from its word)
+
+  // A jar that overflows stops and the other plays on: it wins the moment its
+  // score passes the stopped one's, and if it overflows too, the higher score
+  // wins (the same score: a draw). Run after each frame's steps, yours in play.
+  function judge() {
+    if (foe !== "cpu" || state !== "play") return;
+    var me = score, it = other.score;
+    if (out && other.out) finish(me > it ? "win" : me < it ? "loss" : "draw");
+    else if (out && it > me) finish("loss");
+    else if (other.out && me > it) finish("win");
+  }
+  var TITLES = { win: "You win!", loss: "The CPU wins", draw: "A draw!" };
+  function finish(res) {
+    state = "over";
+    aiming();
+    overAt = performance.now();
+    var r = vsRecord(mode);
+    if (pending) r.l = Math.max(0, r.l - 1);
+    pending = false;
+    r[res.charAt(0)]++;
+    vsSave(mode, r);
+    if (res === "win") sfxMelon();
+    document.getElementById("overTitle").textContent = TITLES[res];
+    document.getElementById("finalScore").textContent = score;
+    document.getElementById("cpuFinal").textContent = other.score;
+    document.getElementById("overBest").textContent = (mode === "boil" ? "Rolling Boil" : "Slow Simmer") + " vs CPU: " + recordText(mode);
+    document.getElementById("overScreen").classList.remove("hidden");
+    refreshHud();
+  }
+
+  // ---- the CPU's hand ----------------------------------------------------------
+  // It sees what you see: the fruit waiting and the next (in Slow Simmer it
+  // never drops a fruit you haven't dropped yet, so neither is ever further
+  // on). Its aim slides to its spot as a hand would, the same with Visual FX
+  // on or off (where a fruit goes is the game).
+  var CPU_AIM_V = 700;   // px a second, in the jar's own units
+  var brain = { at: null, wait: 0, since: 0, again: false };
+  function think(dt) {   // (run with the CPU's jar in play: asCpu)
+    if (out) return;
+    if (mode === "boil") {
+      // Rolling Boil: its fruit drops with yours on the second; it picks a
+      // spot after each drop, and looks again at half time
+      if (brain.at === null || (!brain.again && boilT < BOIL_S / 2)) { brain.again = brain.at !== null; brain.at = choose(); }
+      slide(dt);
+      return;
+    }
+    // Slow Simmer: once its last fruit has (mostly) settled it picks a spot,
+    // slides there and drops it after a moment's thought
+    brain.since += dt;
+    if (!settled()) return;
+    if (brain.at === null) { brain.at = choose(); brain.wait = 0.35 + Math.random() * 0.5; }
+    slide(dt);
+    if ((brain.wait -= dt) > 0 || Math.abs(aimX - brain.at) > 0.5 || dropCd > 0) return;
+    if (dealt >= other.dealt && !other.out) return;   // (waiting for you to drop yours)
+    drop();
+  }
+  function slide(dt) {
+    var d = brain.at - aimX, s = CPU_AIM_V * dt;
+    aimX += Math.abs(d) <= s ? d : d > 0 ? s : -s;
+  }
+  function settled() {
+    var f = lastDrop;
+    return !f || f.dead || brain.since > 1.6 || (f.contacted && Math.abs(f.vx) < 40 && Math.abs(f.vy) < 40);
+  }
+  // Its pick: every spot across the jar, the fruit dropped straight down onto
+  // the pile as it lies now. A spot scores for a twin it comes to rest
+  // against (more for a bigger pair, and for a fruit there to take the merge
+  // on), and against height (far more near the fill line), a smaller fruit
+  // buried under it and odd neighbours. What keeps it beatable: now and then
+  // (CPU_SLIP of its drops) it drops carelessly, anywhere that isn't over the
+  // fill line, and a little noise in the scoring and in its hand.
+  var CPU_NOISE = 70, CPU_HAND = 10, CPU_SLIP = 0.3;
+  function choose() {
+    var c = current, r = TIERS[c].r, spot = W / 2, top = -Infinity, i, f, slip = Math.random() < CPU_SLIP;
+    for (var x = JL + r + 1; x <= JR - r - 1; x += 6) {
+      var y = FLOOR - r;
+      for (i = 0; i < fruits.length; i++) {
+        f = fruits[i];
+        var dx = Math.abs(f.x - x), rr = f.r + r;
+        if (dx < rr) { var yc = f.y - Math.sqrt(rr * rr - dx * dx); if (yc < y) y = yc; }
+      }
+      var s = slip ? Math.random() * 1000 : -(FLOOR - y) * 0.6;
+      if (y - r < LOSE_Y + 40) s -= 3000;
+      for (i = 0; i < fruits.length && !slip; i++) {
+        f = fruits[i];
+        if (Math.hypot(f.x - x, f.y - y) > f.r + r + 8) continue;
+        if (f.tier === c) {
+          s += 300 + 60 * c;
+          for (var k = 0; k < fruits.length; k++) {
+            var g = fruits[k];
+            if (g.tier === c + 1 && Math.hypot(g.x - f.x, g.y - f.y) < g.r + TIERS[Math.min(c + 1, TIERS.length - 1)].r + 20) { s += 100; break; }
+          }
+        } else if (f.tier < c && f.y > y) s -= 50 * (c - f.tier);
+        else s -= 12 * Math.abs(f.tier - c);
+      }
+      s += (Math.random() - 0.5) * 2 * CPU_NOISE;
+      if (s > top) { top = s; spot = x; }
+    }
+    spot += (Math.random() + Math.random() - 1) * CPU_HAND;
+    return Math.max(JL + r + 1, Math.min(JR - r - 1, spot));
+  }
 
   function reset(m) {
     if (MODES[m]) { mode = m; store.set("jamjar_mode", mode); }
@@ -336,16 +515,22 @@
     fruits = []; particles = [];
     score = 0; dropCd = 0; dangerT = 0; boilT = BOIL_S; state = "play"; dropped = false;
     runBest = best.get();
-    current = rndTier(); next = rndTier();
+    seed = (Math.random() * 4294967296) | 0; seq = []; dealt = 0;
+    current = fruitAt(0); next = fruitAt(1);
+    out = false; lastDrop = null; pending = false;
+    other = freshJar();   // (the CPU's: the same first fruit and next as yours)
+    brain = { at: null, wait: 0, since: 0, again: false };
+    relayout();
     refreshHud();
     drawChain();
     document.getElementById("overScreen").classList.add("hidden");
     document.getElementById("menuScreen").classList.add("hidden");
     aiming();
   }
-  // the menu: an empty jar behind the two paces, the last one played picked
+  // the menu: an empty jar behind the paces and the opponents, the last ones played picked
   function toMenu() {
     state = "menu"; fruits = []; particles = []; dangerT = 0;
+    out = false; other = freshJar();   // (the CPU's jar empty behind the menu too)
     document.getElementById("overScreen").classList.add("hidden");
     document.getElementById("menuScreen").classList.remove("hidden");
     paintMenu();
@@ -353,8 +538,12 @@
   }
   function paintMenu() {
     document.querySelectorAll("#pick-mode button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === mode); });
-    var s = bestOf("simmer").get(), b2 = bestOf("boil").get();
-    document.getElementById("menuBest").textContent = s || b2 ? "best: Slow Simmer " + s + " · Rolling Boil " + b2 : "no jars filled yet";
+    document.querySelectorAll("#pick-foe button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === foe); });
+    var s = bestOf("simmer").get(), b2 = bestOf("boil").get(), rs = vsRecord("simmer"), rb = vsRecord("boil");
+    document.getElementById("menuBest").textContent = foe === "cpu"
+      ? (rs.w + rs.l + rs.d + rb.w + rb.l + rb.d ? "vs CPU · Slow Simmer: " + recordText("simmer") + " · Rolling Boil: " + recordText("boil") : "no games against the CPU yet")
+      : s || b2 ? "best: Slow Simmer " + s + " · Rolling Boil " + b2 : "no jars filled yet";
+    relayout();
   }
   // (Rolling Boil, in play: a finger slid on the jar aims instead of scrolling the page)
   function aiming() { document.body.classList.toggle("aiming", state === "play" && mode === "boil"); }
@@ -371,14 +560,17 @@
 
   // auto: Rolling Boil's own drop (there a click, a tap or a key only aims)
   function drop(auto) {
-    if (state !== "play" || P.isPaused() || (mode === "boil") !== !!auto) return;
+    if (state !== "play" || out || P.isPaused() || (mode === "boil") !== !!auto) return;
     if (dropCd > 0 && !auto) return;
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     fruits.push(makeFruit(x, DROP_Y, current));
-    dropped = true;
+    lastDrop = fruits[fruits.length - 1];
+    if (inCpu) brain = { at: null, wait: 0, since: 0, again: false };
+    else { if (!dropped && foe === "cpu") vsPlayed(); dropped = true; }
     sfxDrop();
-    current = next; next = rndTier();
+    dealt++;
+    current = next; next = fruitAt(dealt + 1);
     dropCd = auto ? 0 : 0.45;
     refreshHud();
   }
@@ -755,8 +947,9 @@
       if (t + 1 === TIERS.length - 1) sfxMelon(); // first watermelon fanfare
     }
     // a new best is saved the moment the score passes it, not only when the
-    // jar overflows, so closing the tab mid-jar keeps it
-    best.submit(score);
+    // jar overflows, so closing the tab mid-jar keeps it (a jar against the
+    // CPU keeps a record of its own instead: see vsRecord)
+    if (foe === "solo") best.submit(score);
     refreshHud();
   }
 
@@ -775,11 +968,15 @@
   // when the result card came up, for Space's moment's wait on it (see the keys)
   var OVER_WAIT = 700, overAt = 0;
   function gameOver() {
+    // against the CPU the jar just stops (yours or the CPU's, whichever is in
+    // play), and judge() decides the game
+    if (foe === "cpu") { out = true; sfxOver(); return; }
     state = "over";
     aiming();
     overAt = performance.now();
     best.submit(score);
     sfxOver();
+    document.getElementById("overTitle").textContent = "The jar overflowed!";
     document.getElementById("finalScore").textContent = score;
     // (against the best as the jar began: the stored one has kept pace mid-run;
     // a tie, or an empty first jar, isn't a new best)
@@ -844,7 +1041,7 @@
     ctx.fillText("FILL LINE", JL + 5, LOSE_Y - 6);
 
     // aim guide + the fruit waiting to drop
-    if (state === "play") {
+    if (state === "play" && !out) {
       var r = TIERS[current].r;
       var ax = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
       ctx.strokeStyle = "rgba(90, 50, 24, 0.22)";
@@ -910,6 +1107,31 @@
     ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(JL - g - 7, RIM - 10); ctx.lineTo(JL - g + 7, RIM - 10); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(JR + g - 7, RIM - 10); ctx.lineTo(JR + g + 7, RIM - 10); ctx.stroke();
+
+    // against the CPU: a jar that has overflowed says so under a wash, and
+    // while the other plays on, that one shows the score it has to pass
+    if (foe === "cpu" && state === "play") {
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      if (out) {
+        ctx.fillStyle = "rgba(255, 243, 223, 0.72)";
+        ctx.fillRect(JL - GLASS, RIM - 20, JR - JL + GLASS * 2, FLOOR - RIM + GLASS + 20);
+        ctx.fillStyle = "#c2452f";
+        ctx.font = "800 46px 'Baloo 2', sans-serif";
+        ctx.fillText("OVERFLOWED", W / 2, H * 0.42);
+        ctx.fillStyle = "#5a3218";
+        ctx.font = "800 34px 'Baloo 2', sans-serif";
+        ctx.fillText(score + " points", W / 2, H * 0.42 + 52);
+      } else if (other.out) {
+        var line = "PASS " + other.score + " TO WIN";
+        ctx.font = "800 30px 'Baloo 2', sans-serif";
+        var tw = ctx.measureText(line).width + 36;
+        ctx.fillStyle = "rgba(255, 243, 223, 0.9)";
+        ctx.beginPath(); ctx.arc(W / 2 - tw / 2 + 23, RIM + 63, 23, Math.PI / 2, Math.PI * 1.5); ctx.arc(W / 2 + tw / 2 - 23, RIM + 63, 23, -Math.PI / 2, Math.PI / 2); ctx.fill();
+        ctx.fillStyle = "#c2452f";
+        ctx.fillText(line, W / 2, RIM + 64);
+      }
+      ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+    }
   }
 
   // ---- HUD -------------------------------------------------------------------
@@ -949,8 +1171,10 @@
     return chainLayout(Math.max(8, ICON_R * (room - fixed) / (full.h - fixed)));
   }
   function refreshHud() {
+    if (inCpu) return;   // (the CPU's jar in play: the panels are yours, see cpuHud)
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = Math.max(best.get(), state === "menu" ? 0 : score);
+    cpuHud();
     nextCtx.clearRect(0, 0, 86, 86);
     var scale = Math.min(1, 34 / TIERS[next].r);
     nextCtx.save();
@@ -958,6 +1182,11 @@
     nextCtx.scale(scale, scale);
     paintFruit(nextCtx, next); // vectors at the panel's own resolution
     nextCtx.restore();
+  }
+  // the CPU's score beside yours (run with yours in play, so the CPU's jar is `other`)
+  function cpuHud() {
+    var el = document.getElementById("cpuScore"), v = String(other.score);
+    if (el.textContent !== v) el.textContent = v;
   }
   // The little evolution ladder. Every fruit at one body size, painted as
   // vectors at the panel's resolution (not a big sprite squashed down, which
@@ -1036,13 +1265,16 @@
   document.querySelectorAll("#pick-mode button").forEach(function (b) {
     b.addEventListener("click", function () { mode = b.getAttribute("data-v"); store.set("jamjar_mode", mode); paintMenu(); });
   });
+  document.querySelectorAll("#pick-foe button").forEach(function (b) {
+    b.addEventListener("click", function () { foe = b.getAttribute("data-v"); store.set("jamjar_foe", foe); paintMenu(); });
+  });
   if (window.GameShell && GameShell.menuKeys) {
-    // the menu: 1 and 2 pick the pace, Space or Enter starts
+    // the menu: 1 and 2 pick the pace, 3 and 4 Solo or vs CPU, Space or Enter starts
     GameShell.menuKeys({
       active: function () { return state === "menu"; },
-      groups: [{ sel: "#pick-mode button", into: "b" }], start: "#playBtn", space: true
+      groups: [{ sel: "#pick-mode button", into: "b" }, { sel: "#pick-foe button", into: "b" }], start: "#playBtn", space: true
     });
-    // on the result card Space or Enter is New jar, Backspace the paces (keycaps on the buttons)
+    // on the result card Space or Enter is New jar, Backspace the menu (keycaps on the buttons)
     GameShell.menuKeys({
       active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
       groups: [{ sel: "#modesBtn", keys: ["backspace"], caps: false }], start: "#againBtn", space: true
@@ -1051,7 +1283,7 @@
 
   // ---- pause + loop ------------------------------------------------------------
   var P = window.GameShell
-    ? GameShell.pausable({ canPause: function () { return state === "play"; }, restart: function () { reset(); }, menu: toMenu })   // (on the card: an empty jar again at the same pace, or the paces)
+    ? GameShell.pausable({ canPause: function () { return state === "play"; }, restart: function () { reset(); }, menu: toMenu })   // (on the card: an empty jar again at the same pace, or the menu)
     : { isPaused: function () { return false; } };
   // Until the first fruit drops there's nothing to lose, so leaving asks
   // first only once a fruit is in the jar (paused included), pausing through
@@ -1068,19 +1300,30 @@
     last = now;
     if (!P.isPaused()) {
       if (state === "play") {
-        // Rolling Boil: the next fruit goes when its second is up
-        if (mode === "boil") { boilT -= dt; if (boilT <= 0) { boilT += BOIL_S; drop(true); } }
+        // Rolling Boil: the next fruit goes when its second is up (the CPU's with yours)
+        if (mode === "boil") {
+          boilT -= dt;
+          if (boilT <= 0) { boilT += BOIL_S; drop(true); if (foe === "cpu") asCpu(function () { drop(true); }); }
+        }
         // steps of 1/120 s or less, two at the least: tall stacks stay calm,
         // and a slower screen's longer frames don't set the pile shivering
+        // (a jar that has overflowed stays as it stopped)
         var n = Math.max(2, Math.ceil(dt * 120 - 1e-6));
-        for (var s = 0; s < n; s++) physics(dt / n);
+        for (var s = 0; s < n && !out; s++) physics(dt / n);
+        if (foe === "cpu") {
+          asCpu(function () { think(dt); for (var s2 = 0; s2 < n && !out; s2++) physics(dt / n); });
+          cpuHud();
+          judge();
+        }
       }
       draw();
+      if (foe === "cpu") asCpu(draw);
     }
   }
   layChain();
   window.addEventListener("resize", layChain);   // (a phone turned, a window narrowed: the ladder stands or lies, and fills its panel)
   if (document.fonts) document.fonts.ready.then(layChain);   // (the panel's label, in its own face, may take another line)
+  window.addEventListener("resize", fitCpu);
   document.body.dataset.mode = mode;
   refreshHud();
   toMenu();
@@ -1102,5 +1345,17 @@
     reset: reset,
     start: function (m) { reset(m || mode); },
     toMenu: toMenu,
+    get foe() { return foe; },
+    setFoe: function (f) { foe = f; store.set("jamjar_foe", foe); paintMenu(); },
+    // both jars as they stand (yours, the CPU's), and the shared run of fruit
+    vs: function () { return { you: { score: score, out: out, dealt: dealt, fruits: fruits.length }, cpu: { score: other.score, out: other.out, dealt: other.dealt, fruits: other.fruits.length, aim: other.aimX } }; },
+    fruitAt: fruitAt,
+    // set either jar's score and whether it has overflowed, then judge
+    setVs: function (you, cpu) {
+      if (you) { if ("score" in you) score = you.score; if ("out" in you) out = you.out; }
+      if (cpu) { if ("score" in cpu) other.score = cpu.score; if ("out" in cpu) other.out = cpu.out; }
+      refreshHud();
+      judge();
+    },
   };
 })();

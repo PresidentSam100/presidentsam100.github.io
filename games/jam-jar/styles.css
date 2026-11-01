@@ -124,10 +124,65 @@ body {
 .modes button.on { background: #ffe9c9; border-color: #c2452f; box-shadow: inset 0 0 0 1px #c2452f; }
 .menu-card .menu-best { font-size: 13px; margin: 12px 0 0; }
 
+/* Solo or vs CPU: two buttons side by side */
+.modes.foes { flex-direction: row; }
+.modes.foes button { flex: 1 1 0; min-width: 0; }
+/* a short screen: the menu closes up its spacing to stay on it */
+@media (max-height: 620px) {
+  .menu-card { padding: 16px 20px 14px; }
+  .menu-card .tag { margin: 2px 0 10px; }
+  .modes { gap: 6px; margin-bottom: 12px; }
+  .modes button { padding: 6px 12px; }
+  .menu-card .menu-best { margin-top: 10px; }
+}
+/* a phone on its side: a wider card, the paces side by side too */
+@media (max-height: 500px) and (min-width: 520px) {
+  .menu-card { max-width: 560px; }
+  .modes { flex-direction: row; }
+  .modes button { flex: 1 1 0; min-width: 0; }
+}
+
 /* the hint names the pace being played */
 body:not([data-mode="boil"]) .boil-only, body[data-mode="boil"] .simmer-only { display: none; }
 /* Rolling Boil on a touch screen: a finger slid on the jar aims, never scrolls */
 body.aiming #game { touch-action: none; }
+
+/* ---- vs CPU -------------------------------------------------------------- */
+/* the score panel, the hint and the result card name what's being played */
+body:not([data-foe="cpu"]) .vs-only, body[data-foe="cpu"] .solo-only { display: none; }
+/* the CPU's jar stands after the panels, a little over half the size of
+   yours, which gives up width to make room for it */
+#far { display: none; }
+body[data-foe="cpu"] {
+  --jar-w: min(540px, calc((100dvh - 100px) * 0.75), calc((100vw - 360px) / 1.55));
+  --cpu-w: calc(var(--jar-w) * 0.55);
+}
+body[data-foe="cpu"] #far { display: block; }
+.cpu-panel { position: relative; }
+#cpu {
+  display: block;
+  width: var(--cpu-w);
+  height: auto;
+  border-radius: 12px;
+  background:
+    radial-gradient(240px 140px at 50% 6%, rgba(255, 250, 232, 0.6), rgba(255, 250, 232, 0) 60%),
+    linear-gradient(180deg, #f6e3bd 0%, #efd5a6 100%);
+  box-shadow:
+    inset 0 0 0 2px rgba(90, 50, 24, 0.35),
+    0 8px 20px rgba(60, 30, 8, 0.45);
+}
+/* its name hangs from the jar's foot, clear of the fruit waiting at the top */
+.cpu-tag {
+  position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
+  font: 800 11px/1 "Baloo 2", system-ui, sans-serif; letter-spacing: 2px;
+  color: #a06a33; background: #fff3df;
+  border: 2px solid #b9793e; border-radius: 8px;
+  padding: 3px 5px 2px 7px;
+}
+/* the result card: your score and the CPU's side by side */
+.finals { display: flex; justify-content: center; gap: 30px; }
+.finals .lbl { margin-top: 8px; }
+body[data-foe="cpu"] .finals .big { margin-top: 0; }
 
 /* ---- phones -------------------------------------------------------------- */
 /* the jar on top, and under it every panel, the jar's width: Score beside
@@ -147,5 +202,36 @@ body.aiming #game { touch-action: none; }
   .panel { padding: 8px 12px; }
   .val { font-size: 24px; }
   body { padding-top: 56px; } /* clear the fixed back link */
+
+  /* vs CPU: your jar a little shorter, so the row under it (the scores,
+     Next and the CPU's jar, as tall as Next) is on the first screen too */
+  body[data-foe="cpu"] {
+    --row-h: 128px;
+    --jar-w: min(540px, 94vw, calc((100dvh - 210px) * 0.75));
+    --cpu-w: calc(var(--row-h) * 0.75);
+  }
+  body[data-foe="cpu"] #wrap {
+    width: min(94vw, 540px);
+    grid-template-columns: 1fr auto var(--cpu-w);
+    grid-template-areas: "jar jar jar" "score next cpu" "how how how" "chain chain chain";
+  }
+  body[data-foe="cpu"] #game { justify-self: center; }
+  body[data-foe="cpu"] #far { display: contents; }
+  .cpu-panel { grid-area: cpu; align-self: start; }
+  body[data-foe="cpu"] .score-panel, body[data-foe="cpu"] .next-panel { padding: 8px 6px; }
+}
+/* a phone on its side, vs CPU: your jar, the CPU's and the scores with Next
+   side by side, How and the ladder under them */
+@media (max-width: 760px) and (orientation: landscape) {
+  body[data-foe="cpu"] {
+    --jar-w: min(540px, calc((100dvh - 72px) * 0.75), calc((94vw - 148px) / 1.55));
+    --cpu-w: calc(var(--jar-w) * 0.55);
+  }
+  body[data-foe="cpu"] #wrap {
+    width: auto;
+    grid-template-columns: var(--jar-w) var(--cpu-w) 128px;
+    grid-template-rows: auto auto 1fr auto auto;
+    grid-template-areas: "jar cpu score" "jar cpu next" "jar cpu ." "how how how" "chain chain chain";
+  }
 }
 

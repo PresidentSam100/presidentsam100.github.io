@@ -38,14 +38,16 @@
   <div id="wrap">
     <aside id="left">
       <div class="panel score-panel">
-        <div class="lbl">Score</div>
+        <div class="lbl"><span class="solo-only">Score</span><span class="vs-only">You</span></div>
         <div class="val" id="score">0</div>
-        <div class="lbl">Best</div>
-        <div class="val small" id="best">0</div>
+        <div class="lbl solo-only">Best</div>
+        <div class="val small solo-only" id="best">0</div>
+        <div class="lbl vs-only">CPU</div>
+        <div class="val vs-only" id="cpuScore">0</div>
       </div>
       <div class="panel hint-panel">
         <div class="lbl">How</div>
-        <p class="hint"><span class="simmer-only"><span class="gs-keys">Aim with the mouse, click to drop.</span><span class="gs-touch">Tap where the fruit should drop.</span></span><span class="boil-only"><span class="gs-keys">Aim with the mouse or ← →: a fruit drops every second.</span><span class="gs-touch">Slide a finger to aim: a fruit drops every second.</span></span> Two of a kind squish into the next fruit. Don't overflow the jar!</p>
+        <p class="hint"><span class="simmer-only"><span class="gs-keys">Aim with the mouse, click to drop.</span><span class="gs-touch">Tap where the fruit should drop.</span></span><span class="boil-only"><span class="gs-keys">Aim with the mouse or ← →: a fruit drops every second.</span><span class="gs-touch">Slide a finger to aim: a fruit drops every second.</span></span> Two of a kind squish into the next fruit. Don't overflow the jar!<span class="vs-only"> Outscore the CPU: its jar gets the same fruit as yours.</span></p>
       </div>
     </aside>
 
@@ -61,10 +63,19 @@
         <canvas id="chain" width="86" height="356"></canvas>
       </div>
     </aside>
+
+    <!-- vs CPU: the CPU's own jar, smaller, fed the same fruit as yours -->
+    <aside id="far">
+      <div class="cpu-panel">
+        <canvas id="cpu" width="540" height="720" aria-label="The CPU's jar"></canvas>
+        <span class="cpu-tag">CPU</span>
+      </div>
+    </aside>
   </div>
 
   <!-- the two paces: Slow Simmer drops a fruit when you say, Rolling Boil
-       once a second by itself (1 2 pick, Enter or Space starts) -->
+       once a second by itself (1 2 pick); then on your own or against the
+       CPU's jar (3 4 pick); Enter or Space starts -->
   <div id="menuScreen" class="overlay hidden">
     <div class="card menu-card">
       <h2>Jam Jar</h2>
@@ -73,6 +84,10 @@
         <button type="button" data-v="simmer"><b>Slow Simmer</b><small><span class="gs-keys">aim, then click to drop</span><span class="gs-touch">tap where each fruit should drop</span>: take your time</small></button>
         <button type="button" data-v="boil"><b>Rolling Boil</b><small>a fruit drops every second by itself: just aim</small></button>
       </div>
+      <div class="modes foes" id="pick-foe">
+        <button type="button" data-v="solo"><b>Solo</b><small>just your jar</small></button>
+        <button type="button" data-v="cpu"><b>vs CPU</b><small>the same fruit</small></button>
+      </div>
       <button class="btn" id="playBtn">Start a jar ▸</button>
       <p class="menu-best" id="menuBest"></p>
     </div>
@@ -80,12 +95,15 @@
 
   <div id="overScreen" class="overlay hidden">
     <div class="card">
-      <h2>The jar overflowed!</h2>
-      <div class="big" id="finalScore">0</div>
+      <h2 id="overTitle">The jar overflowed!</h2>
+      <div class="finals">
+        <div><div class="lbl vs-only">You</div><div class="big" id="finalScore">0</div></div>
+        <div class="vs-only"><div class="lbl">CPU</div><div class="big" id="cpuFinal">0</div></div>
+      </div>
       <p id="overBest"></p>
       <div class="row">
         <button class="btn" id="againBtn">New jar ▸</button>
-        <button class="btn plain" id="modesBtn" data-gs-key="⌫">Paces</button>
+        <button class="btn plain" id="modesBtn" data-gs-key="⌫">Menu</button>
       </div>
     </div>
   </div>
