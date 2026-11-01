@@ -175,11 +175,12 @@
     var rec = records[foe];
     $("record").textContent = rec ? "against " + FOES[foe].name + ": " + rec.text() : "two at one board: the near row sows first";
     // the pits of the row the keys sow from wear them, 1 to 6, where there's a
-    // keyboard: the near row, or the far row on a friend's turn there (its 1
-    // at the right, as the keys go along it, see the keydown handler)
+    // keyboard: the near row, or the far row on a friend's turn there; either
+    // way 1 to 6 left to right as the screen shows them (two at one keyboard
+    // read the one screen: see the keydown handler)
     var farKeys = foe === "friend" && turn === 1;
     for (var p = 0; p < 6; p++) {
-      places[farKeys ? 7 + p : p].setAttribute("data-gs-key", String(p + 1));
+      places[farKeys ? 12 - p : p].setAttribute("data-gs-key", String(p + 1));
       places[farKeys ? p : 7 + p].removeAttribute("data-gs-key");
     }
   }
@@ -304,8 +305,8 @@
     if (e.ctrlKey || e.metaKey || e.altKey || P.isPaused() || state !== "play") return;
     var k = e.key, mineRow = pitsOf(turn);
     if (/^[1-6]$/.test(k) && !isCpu(turn)) {
-      // the near row's pits by number, left to right; the far row's (a friend's) right to left as they face it
-      var i = turn === 0 ? Number(k) - 1 : 6 + Number(k);
+      // either row's pits by number, left to right as the screen shows them (the far row's pit 12 is its 1)
+      var i = turn === 0 ? Number(k) - 1 : 13 - Number(k);
       cursor = i; keyed = true; tryPlay(i); return;
     }
     if (k === "ArrowLeft" || k === "ArrowRight") {

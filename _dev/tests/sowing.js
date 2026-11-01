@@ -71,7 +71,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "menu and play");
 
   // ---- a friend's game: the keycaps go to the row whose turn it is, as the
-  // keys do (the far row's 1 at the right, where its keys start), each
+  // keys do (1 to 6 left to right as the screen shows them, the far row's too), each
   // centred on its pit and clear of the pit's count
   p = await open();
   await p.evaluate(() => { document.querySelector('#pick-foe button[data-v="friend"]').click(); Sowing.start(); });
@@ -90,11 +90,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("1"); await idle(p);   // 4 seeds from the first pit: the far row's turn
   const farTurn = await keysOn();
   await p.keyboard.press("1"); await idle(p);
-  const farSowed = await p.evaluate(() => ({ turn: Sowing.turn(), seven: Sowing.board()[7] }));
+  const farSowed = await p.evaluate(() => ({ turn: Sowing.turn(), twelve: Sowing.board()[12] }));
   const capOk = (s) => s.one.length === 1 && s.one[0].shown && Math.abs(s.one[0].mid) <= 1 && s.one[0].clear;
-  check("sowing: in a friend's game the row whose turn it is wears 1 to 6 (the far row's 1 at the right) and its 1 sows from there; each keycap centred on its pit, clear of the count",
-    nearTurn.near === "123456" && nearTurn.far === "------" && farTurn.near === "------" && farTurn.far === "654321" && capOk(nearTurn) && capOk(farTurn) &&
-      nearTurn.one[0].i === 0 && farTurn.one[0].i === 7 && farSowed.seven === 0, { nearTurn, farTurn, farSowed });
+  check("sowing: in a friend's game the row whose turn it is wears 1 to 6 left to right as the screen shows it (the far row's 1 at the left, too) and its 1 sows from there; each keycap centred on its pit, clear of the count",
+    nearTurn.near === "123456" && nearTurn.far === "------" && farTurn.near === "------" && farTurn.far === "123456" && capOk(nearTurn) && capOk(farTurn) &&
+      nearTurn.one[0].i === 0 && farTurn.one[0].i === 12 && farSowed.twelve === 0, { nearTurn, farTurn, farSowed });
   await done(p, "a friend's keys");
 
   // ---- the end card
