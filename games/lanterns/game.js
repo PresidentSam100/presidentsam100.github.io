@@ -223,17 +223,12 @@
     l.state = "lit"; l.litT = 0;
     streak++; cleared++;
     if (streak > bestStreak) bestStreak = streak;
-    var gain = Math.round(10 * l.keys[0].length * (1 + Math.min(10, streak - 1) * 0.1));
+    var mult = 1 + Math.min(10, streak - 1) * 0.1, gain = Math.round(10 * l.keys[0].length * mult);
     score += gain;
     // a new best is saved the moment it's earned, not only when the sky goes dark
     if (bests[mode]) bests[mode].submit(score);
     clearChime();
-    var fy = l.y - l.size * 0.8;
-    floats.forEach(function (f) {                 // don't stack two glosses
-      var fyNow = f.y - f.t * 34;
-      if (Math.abs(f.x - l.x) < 150 && Math.abs(fyNow - fy) < 30) fy = fyNow - 30;
-    });
-    floats.push({ x: l.x, y: fy, t: 0, text: marked(l.pin) + "  ·  " + l.gloss });
+    gloss(l, "+" + gain.toLocaleString() + (mult > 1 ? "  ×" + mult.toFixed(1) : ""));
     if (fx()) {
       for (var i = 0; i < 14; i++) {
         sparks.push({ x: l.x, y: l.y, vx: (Math.random() - 0.5) * 120,
@@ -243,6 +238,18 @@
     buffer = "";
     aim = null;
     hud(); echo();
+  }
+  // A lit lantern's gloss: what it scored ("+N", and "×1.x" while the streak
+  // multiplies it) over its pinyin and meaning, just above it, clear of a
+  // gloss still up nearby. It rises as it fades with Visual FX on; off, it
+  // stays where it was put, for the same time.
+  function gloss(l, pts) {
+    var fy = l.y - l.size * 0.8;
+    floats.forEach(function (f) {                 // don't stack two glosses
+      var fyNow = f.y - f.rise;
+      if (Math.abs(f.x - l.x) < 150 && Math.abs(fyNow - fy) < 52) fy = fyNow - 52;
+    });
+    floats.push({ x: l.x, y: fy, t: 0, rise: 0, pts: pts, text: marked(l.pin) + "  ·  " + l.gloss });
   }
   function unlockBack() {
     if (buffer.length > 0) buffer = buffer.slice(0, -1);
@@ -270,7 +277,7 @@
     cleared++;
     score += 10;                                 // (a small sum: no streak, no length)
     if (bests[mode]) bests[mode].submit(score);
-    floats.push({ x: l.x, y: l.y - l.size * 0.8, t: 0, text: marked(l.pin) + "  ·  " + l.gloss });
+    gloss(l, "+10");
     if (fx()) for (var i = 0; i < 8; i++) sparks.push({ x: l.x, y: l.y, vx: (Math.random() - 0.5) * 120, vy: -20 - Math.random() * 70, t: 0.6 + Math.random() * 0.4 });
     if (l === aim) { buffer = ""; aim = null; echo(); }
   }
@@ -383,7 +390,7 @@
       }
     });
     lanterns = lanterns.filter(function (l) { return l.state !== "gone"; });
-    floats.forEach(function (f) { f.t += dt; });
+    floats.forEach(function (f) { f.t += dt; if (fx()) f.rise += 34 * dt; });
     floats = floats.filter(function (f) { return f.t < 1.6; });
     sparks.forEach(function (s) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 60 * dt; s.t -= dt; });
     sparks = sparks.filter(function (s) { return s.t > 0; });
@@ -780,11 +787,17 @@
       g.font = "700 " + px + "px 'Gentium Book Plus', Georgia, serif";
       var tw = g.measureText(f.text).width;
       if (tw > W - 16) { px = Math.max(11, Math.floor(px * (W - 16) / tw)); g.font = "700 " + px + "px 'Gentium Book Plus', Georgia, serif"; tw = g.measureText(f.text).width; }
-      var fx0 = Math.max(tw / 2 + 8, Math.min(W - tw / 2 - 8, f.x));
+      var fx0 = Math.max(tw / 2 + 8, Math.min(W - tw / 2 - 8, f.x)), fy0 = f.y - f.rise;
       g.strokeStyle = "rgba(" + PAPER + ",0.92)"; g.lineWidth = 5;
-      g.strokeText(f.text, fx0, f.y - f.t * 34);
+      g.strokeText(f.text, fx0, fy0);
       g.fillStyle = "rgb(" + INK + ")";
-      g.fillText(f.text, fx0, f.y - f.t * 34);
+      g.fillText(f.text, fx0, fy0);
+      // what it scored, in the seal's red, over the words
+      g.font = "700 22px 'Gentium Book Plus', Georgia, serif";
+      var pw = g.measureText(f.pts).width, px0 = Math.max(pw / 2 + 8, Math.min(W - pw / 2 - 8, f.x));
+      g.strokeText(f.pts, px0, fy0 - px - 4);
+      g.fillStyle = "rgb(" + SEAL + ")";
+      g.fillText(f.pts, px0, fy0 - px - 4);
       g.globalAlpha = 1;
     });
   }
@@ -929,6 +942,8 @@
       return lanterns.map(function (l) { return { hanzi: l.hanzi, state: l.state, y: l.y }; });
     },
     duskNow: function () { return dusk; },
+    // the glosses up: what each scored, its words, where it is and how long it's been up
+    floatsNow: function () { return floats.map(function (f) { return { pts: f.pts, text: f.text, x: f.x, y: f.y - f.rise, t: f.t }; }); },
     fireworks: fireworks,
     burstsLeft: function () { return bursts; },
     bursting: function () { return !!burst; },

@@ -3,7 +3,8 @@
 // record; the results show the best streak of the night; a narrower window
 // brings the lanterns back inside it; no two lanterns up start alike and the
 // first letter locks onto one; Enter's fireworks; the dusk at the end of a
-// night, the lanterns floating on; the slips' words in their middles.
+// night, the lanterns floating on; the slips' words in their middles; what a
+// lit lantern scored, in its gloss.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver, xs: function () { return lanterns.map(function (l) { return l.x; }); }, width: function () { return W; },"];
 
 module.exports = async ({ browser, base, check, lib }) => {
@@ -292,6 +293,59 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("lanterns: the score, wishes and fireworks sit in the middle of the score slip, and what's typed or what to type in the middle of the typing slip (within 0.75 px, laptop and phone)",
     Object.values(mids).every((o) => ["score", "wishes", "bursts", "placeholder", "typed"].every((k) => o[k] !== null && Math.abs(o[k]) <= 0.75)), mids);
+
+  // ---- a lit lantern's gloss says what it scored, "+N" (and "×1.x" while the
+  // streak multiplies it), just above the lantern; fireworks' lanterns "+10".
+  // It rises as it fades with Visual FX on, holds its place with it off, is
+  // held by the pause, and is gone after its 1.6 s.
+  {
+    const wait = (q, ms) => q.evaluate((ms) => new Promise((r) => setTimeout(r, ms)), ms);
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await open();
+      const r = await q.evaluate((off) => {
+        window.RM_ON = () => off;
+        Lanterns.start("festival"); Lanterns.noSpawn(); Lanterns.setRise(0);
+        const o = {};
+        Lanterns.spawnWord("我", 0.5, 300);
+        const s0 = Lanterns.score(); Lanterns.type("wo"); const s1 = Lanterns.score();
+        Lanterns.spawnWord("出院", 0.25, 360);
+        Lanterns.type("chuyuan"); const s2 = Lanterns.score();
+        const f = Lanterns.floatsNow();
+        o.first = { pts: f[0] && f[0].pts, gain: s1 - s0, x: f[0] && f[0].x, w: Lanterns.width(), y: f[0] && f[0].y };
+        o.second = { pts: f[1] && f[1].pts, gain: s2 - s1, x: f[1] && f[1].x };
+        return o;
+      }, off);
+      const y0 = (await q.evaluate(() => Lanterns.floatsNow()))[0].y;
+      await wait(q, 400);
+      const y1 = (await q.evaluate(() => Lanterns.floatsNow()))[0].y;
+      r.moved = +(y0 - y1).toFixed(1);
+      // paused: the gloss holds where it is, its time standing still
+      await q.click(".gs-pause-btn");
+      const t0 = (await q.evaluate(() => Lanterns.floatsNow()))[0].t;
+      await wait(q, 500);
+      r.heldT = +((await q.evaluate(() => Lanterns.floatsNow()))[0].t - t0).toFixed(3);
+      await q.click(".gs-pause-btn", { force: true });
+      r.gone = await q.waitForFunction(() => Lanterns.floatsNow().length === 0, null, { timeout: 15000 }).then(() => true, () => false);
+      // the fireworks: each lantern their light reaches says "+10"
+      const fw = await q.evaluate(() => {
+        Lanterns.spawnWord("你", 0.3, 150); Lanterns.spawnWord("好", 0.7, 180);
+        const s0 = Lanterns.score(); Lanterns.fireworks();
+        return { s0 };
+      });
+      await q.waitForFunction(() => !Lanterns.bursting(), null, { timeout: 15000 });
+      r.fireworks = await q.evaluate((s0) => ({ gain: Lanterns.score() - s0, pts: Lanterns.floatsNow().map((f) => f.pts) }), fw.s0);
+      got[off ? "off" : "on"] = r;
+      await done(q, "score in the gloss (FX " + (off ? "off" : "on") + ")");
+    }
+    const ok = (r) => r.first.pts === "+" + r.first.gain.toLocaleString() && Math.abs(r.first.x - r.first.w / 2) < 1 && r.first.y < 300 && r.first.y > 200 &&
+      r.second.pts === "+" + r.second.gain.toLocaleString() + "  ×1.1" && r.heldT === 0 && r.gone &&
+      r.fireworks.gain === 20 && r.fireworks.pts.length === 2 && r.fireworks.pts.every((t) => t === "+10");
+    check("lanterns: a lit lantern's gloss says what it scored just above it (\"+N\", with \"×1.1\" on the second of a streak, the number the score went up by), the fireworks' lanterns \"+10\"; held by the pause, gone after its time",
+      ok(got.on) && ok(got.off), got);
+    check("lanterns: the gloss rises as it fades with Visual FX on, and holds its place with it off",
+      got.on.moved > 5 && got.off.moved === 0, { on: got.on.moved, off: got.off.moved });
+  }
 
   await ctx.close();
 };
