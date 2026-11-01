@@ -32,11 +32,20 @@
     ["#ffb45c", "#94500a"],   // tangerine
     ["#ff9fcb", "#9c2c62"]    // pink
   ];
+  // the worms, one colour each, as their names say (engine.js names them);
+  // only yours is green
   var WORMS = [
     { body: "#4cc35c", dark: "#237a33", light: "#b4f0a8" },   // you
     { body: "#ff5f97", dark: "#a5245a", light: "#ffc0d6" },   // Rosy
     { body: "#ff9d2e", dark: "#9a560c", light: "#ffd9a6" },   // Clem
-    { body: "#7484ff", dark: "#2f3aa0", light: "#c4caff" }    // Indy
+    { body: "#7484ff", dark: "#2f3aa0", light: "#c4caff" },   // Indy
+    { body: "#e63b33", dark: "#8c1a14", light: "#ffb5ae" },   // Ruby
+    { body: "#22b8ad", dark: "#0c6a63", light: "#a6ebe4" },   // Tilly
+    { body: "#a54fd6", dark: "#5c1f86", light: "#e2c3f6" },   // Plum
+    { body: "#4fb6f2", dark: "#17608f", light: "#bfe5fb" },   // Skye
+    { body: "#a8714f", dark: "#5e3a22", light: "#e8c9b3" },   // Coco
+    { body: "#939aab", dark: "#4b5263", light: "#d9dde6" },   // Ash
+    { body: "#f6f0e2", dark: "#8a7c5a", light: "#ffffff" }    // Pearl
   ];
   var INK = "#2b1d3d", CLOTH = "#d9473b", CLOTH_DARK = "#97281f";
   function paper(n) { return PAGES[((n % PAGES.length) + PAGES.length) % PAGES.length]; }
@@ -69,6 +78,10 @@
     // the biggest book that fits, its top clear of the corner buttons
     var corners = Array.prototype.slice.call(document.querySelectorAll(".nav-back-games, .gs-corner > *"))
       .map(function (e) { return e.getBoundingClientRect(); }).filter(function (r) { return r.width > 0; });
+    // (and of the HUD where it floats over the page: on a laptop, with many
+    // worms, its names take two lines)
+    var hb = $("hud");
+    if (!hb.hidden && getComputedStyle(hb).position === "fixed" && getComputedStyle(hb).flexDirection !== "column") { var hr = hb.getBoundingClientRect(); if (hr.width) corners.push(hr); }
     var top = 0;
     for (var pass = 0; pass < 4; pass++) {
       S = Math.max(60, Math.min(VW / BOOK_W, (VH - top) / BOOK_H));
@@ -135,8 +148,20 @@
     LEVELS.forEach(function (l) { records[g][l] = GS && GS.record ? GS.record("pageturner_record_" + l + tail) : { get: function () { return { w: 0, l: 0, d: 0 }; }, add: function () {}, text: function () { return ""; } }; });
     bests[g] = GS ? GS.best("pageturner_best_endless" + tail, { higher: true }) : { get: function () { return 0; }, submit: function () { return false; } };
   });
-  // (the records for the way the guides are set)
-  function rec(l) { return records[guides ? "on" : "off"][l]; }
+  // How many rival worms a Party has (a setting, kept; the menu's stepper).
+  // Its records are kept apart for each number: three's are the ones kept
+  // before the number could be picked, the others' keys say the number.
+  var rivals = E.rivalsOf(store.get("pageturner_rivals", String(E.RIVALS.normal)));
+  function recordOf(g, l, n) {
+    var k = l + "_" + n;
+    if (n === E.RIVALS.normal) return records[g][l];
+    if (!records[g][k]) records[g][k] = GS && GS.record ? GS.record("pageturner_record_" + l + "_" + n + (g === "on" ? "" : "_noguides")) : { get: function () { return { w: 0, l: 0, d: 0 }; }, add: function () {}, text: function () { return ""; } };
+    return records[g][k];
+  }
+  // (the records for the way the guides are set, and the rivals: these by default)
+  function rec(l, n) { return recordOf(guides ? "on" : "off", l, n || rivals); }
+  var WORDS = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+  function rivalsText(n, l) { return n + " " + LEVEL_NAMES[l] + (n === 1 ? " rival" : " rivals"); }
   function best() { return bests[guides ? "on" : "off"]; }
   var OFF_NOTE = ", guides off";
   // two players' games this sitting (not kept: who sits down next is anyone):
@@ -146,18 +171,20 @@
   var st = null, demo = null, moved = false, endAt = 0, overAt = 0, newBest = false, OVER_WAIT = 700, END_BEAT = 1000;
   var flats = [], pops = {}, parts = [], shake = 0, clockMs = 0;
 
-  function start(m, l) {
+  // (n: how many rivals, for a Party; left out, the number picked on the menu)
+  function start(m, l, n) {
     if (m) mode = MODES.indexOf(m) >= 0 ? m : "party";
     if (l && LEVELS.indexOf(l) >= 0) level = l;
+    if (n != null) setRivals(n);
     store.set("pageturner_mode", mode); store.set("pageturner_level", level);
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    st = E.create({ mode: mode, level: level });
+    st = E.create({ mode: mode, level: level, rivals: rivals });
     state = "play"; moved = false; newBest = false; flats = []; pops = {}; parts = []; shake = 0; frozen = false;
     clearInput();
     $("menu").hidden = true; $("over").hidden = true; $("hud").hidden = false; $("keys").hidden = false;
     $("keys").classList.toggle("duo", mode === "duo");
-    layout(); hud();
+    hud(); layout();
   }
   // (forced: the tests' input, [x, y]; for two players, one of those each)
   function update(dt, forced) {
@@ -196,7 +223,7 @@
   // the game's over: the score is kept now; the card comes up a moment later
   function ended() {
     var r = st.result;
-    if (st.mode === "party") rec(level).add(r.outcome === "win" ? "w" : r.outcome === "draw" ? "d" : "l");
+    if (st.mode === "party") rec(level, st.rivals).add(r.outcome === "win" ? "w" : r.outcome === "draw" ? "d" : "l");
     else if (st.mode === "duo") duoTally[r.outcome === "win" ? r.winner : 2]++;
     else if (r.pages > 0 && best().submit(r.pages)) newBest = true;
     state = "ending"; endAt = performance.now();
@@ -208,12 +235,12 @@
   function showEnd() {
     var r = st.result, title, big, lines = [], pill = null;
     if (st.mode === "party") {
-      var rc = rec(level).get(), recText = LEVEL_NAMES[level] + " rivals" + (guides ? "" : OFF_NOTE) + ": " + rc.w + " W · " + rc.l + " L" + (rc.d ? " · " + rc.d + " D" : "");
+      var rc = rec(level, st.rivals).get(), recText = rivalsText(st.rivals, level) + (guides ? "" : OFF_NOTE) + ": " + rc.w + " W · " + rc.l + " L" + (rc.d ? " · " + rc.d + " D" : "");
       if (r.outcome === "win") { title = "Last worm wriggling!"; big = "You win"; lines.push("the others were squished by page " + r.page); }
       else if (r.outcome === "draw") { title = "Squished together"; big = "A draw"; lines.push("page " + r.page + " flattened the last of you at once"); }
       else {
         var left = E.alive(st).length;
-        title = "Squished!"; big = ordinal(r.place) + " of 4";
+        title = "Squished!"; big = ordinal(r.place) + " of " + st.worms.length;
         lines.push("flattened by page " + r.page + ", " + left + (left === 1 ? " worm" : " worms") + " still wriggling");
       }
       pill = { text: recText, record: false };
@@ -256,6 +283,20 @@
     if (!st) return;
     $("hud-page").textContent = st.page;
     var box = $("hud-worms");
+    // (many worms: their names wrap onto more lines; floating over the page,
+    // in the room the corner buttons leave on either side of the middle)
+    var hb = $("hud"), many = st.worms.length > 4;
+    hb.classList.toggle("many", many);
+    hb.style.maxWidth = "";
+    if (many && getComputedStyle(hb).position === "fixed" && getComputedStyle(hb).flexDirection !== "column") {
+      var mid = window.innerWidth / 2, lo = 0, hi = window.innerWidth;
+      Array.prototype.forEach.call(document.querySelectorAll(".nav-back-games, .gs-corner > *"), function (e) {
+        var r = e.getBoundingClientRect();
+        if (!r.width) return;
+        if (r.right <= mid) lo = Math.max(lo, r.right); else if (r.left >= mid) hi = Math.min(hi, r.left);
+      });
+      hb.style.maxWidth = Math.max(160, Math.min(520, 2 * Math.min(mid - lo, hi - mid) - 24)) + "px";
+    }
     if (st.mode === "endless") { box.textContent = "most pages " + Math.max(best().get(), st.survived); return; }
     box.replaceChildren.apply(box, st.worms.map(function (w) {
       var c = document.createElement("span"), dot = document.createElement("i");
@@ -688,39 +729,51 @@
   // ---- the menu and the end card ------------------------------------------------------------------------
   function paintMenu() {
     document.querySelectorAll("#pick-mode button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === mode); });
-    document.querySelectorAll("#pick-level button").forEach(function (b) { b.classList.toggle("on", b.dataset.v === level); });
+    document.querySelectorAll("#pick-level button[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === level); });
     $("pick-level").hidden = mode !== "party";
+    // how many rivals: the stepper, and the Party button saying the number
+    $("rivals-n").textContent = rivals;
+    $("rivals-n").setAttribute("aria-label", rivals + (rivals === 1 ? " rival worm" : " rival worms"));
+    $("fewer").disabled = rivals <= E.RIVALS.min; $("more").disabled = rivals >= E.RIVALS.max;
+    $("party-small").textContent = "outlast " + WORDS[rivals] + (rivals === 1 ? " rival worm" : " rival worms");
     var gb = $("guides");
     gb.classList.toggle("on", guides); gb.setAttribute("aria-pressed", guides ? "true" : "false");
     gb.querySelector("b").textContent = guides ? "on" : "off"; gb.querySelector("small").textContent = guides ? "easy: see where holes land" : "hard: read the standing page";
     var r = rec(level).get(), parts2 = [], bp = best().get(), off = guides ? "" : OFF_NOTE;
-    if (r.w + r.l + r.d) parts2.push(LEVEL_NAMES[level] + " rivals" + off + ": " + r.w + " W · " + r.l + " L" + (r.d ? " · " + r.d + " D" : ""));
+    if (r.w + r.l + r.d) parts2.push(rivalsText(rivals, level) + off + ": " + r.w + " W · " + r.l + " L" + (r.d ? " · " + r.d + " D" : ""));
     if (bp) parts2.push("Endless" + off + ": " + bp + (bp === 1 ? " page" : " pages"));
     if (duoTally[0] + duoTally[1] + duoTally[2]) parts2.push("2 Players: " + duoText());
     $("tally").textContent = parts2.join(" · ");
-    demo = E.create({ mode: mode, level: level, rng: rand(11) });
+    demo = E.create({ mode: mode, level: level, rivals: rivals, rng: rand(11) });
     floorKey = ""; stands.forEach(function (t) { t.key = ""; });
   }
   document.querySelectorAll("#pick-mode button").forEach(function (b) {
     b.addEventListener("click", function () { mode = b.dataset.v; store.set("pageturner_mode", mode); paintMenu(); });
   });
-  document.querySelectorAll("#pick-level button").forEach(function (b) {
+  document.querySelectorAll("#pick-level button[data-v]").forEach(function (b) {
     b.addEventListener("click", function () { level = b.dataset.v; store.set("pageturner_level", level); paintMenu(); });
   });
+  function setRivals(n) { rivals = Math.max(E.RIVALS.min, Math.min(E.RIVALS.max, Math.round(n))); store.set("pageturner_rivals", String(rivals)); }
+  $("fewer").addEventListener("click", function () { setRivals(rivals - 1); paintMenu(); });
+  $("more").addEventListener("click", function () { setRivals(rivals + 1); paintMenu(); });
   $("guides").addEventListener("click", function () { guides = !guides; store.set("pageturner_guides", guides ? "on" : "off"); paintMenu(); });
   document.querySelectorAll(".card button").forEach(function (b) { b.addEventListener("mousedown", function (e) { e.preventDefault(); }); });
   $("play").addEventListener("click", function () { start(mode, level); });
   $("again").addEventListener("click", function () { start(mode, level); });
   $("to-menu").addEventListener("click", toMenu);
   if (GS && GS.menuKeys) {
-    // the menu: 1 2 3 the mode, 4 5 6 how good the rivals are, G the guides, Space or Enter opens the book
-    GS.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }, "#pick-level button", { sel: "#guides", keys: ["g"] }], start: "#play", space: true });
+    // the menu: 1 2 3 the mode, 4 5 6 how good the rivals are, the left and
+    // right arrows fewer or more of them (each wears its key on its face: a
+    // keycap where there's a keyboard, a minus or plus on a touch screen),
+    // G the guides, Space or Enter opens the book
+    GS.menuKeys({ active: function () { return state === "menu"; }, groups: [{ sel: "#pick-mode button", into: "b" }, "#pick-level button[data-v]",
+      { sel: "#fewer", keys: ["arrowleft"], caps: false }, { sel: "#more", keys: ["arrowright"], caps: false }, { sel: "#guides", keys: ["g"] }], start: "#play", space: true });
     // the end card: Space or Enter again (not in its first moment), Backspace the menu
     GS.menuKeys({ active: function () { return state === "over" && performance.now() - overAt > OVER_WAIT; },
       groups: [{ sel: "#to-menu", keys: ["backspace"] }], start: "#again", space: true });
   }
 
-  window.addEventListener("resize", layout);
+  window.addEventListener("resize", function () { hud(); layout(); });
   toMenu();
   layout();
   // (again once the corner buttons are in, which the book keeps clear of)
@@ -732,6 +785,7 @@
     state: function () { return state; },
     mode: function () { return mode; },
     level: function () { return level; },
+    rivals: function () { return rivals; },
     st: function () { return st; },
     start: start,
     toMenu: toMenu,
@@ -741,7 +795,7 @@
     // the way the worm is steered (two players: Player i's)
     input: function (i) { return i == null ? currentInput() : playerInput(i); },
     tally: function () { return duoTally.slice(); },
-    record: function (l) { return rec(l || level).get(); },
+    record: function (l, n) { return rec(l || level, n).get(); },
     guides: function () { return guides; },
     best: function () { return best().get(); },
     view: function () { return { S: S, CX: CX, OY: OY, VW: VW, VH: VH, FY: FY, FZ: FZ }; },

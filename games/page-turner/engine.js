@@ -17,8 +17,8 @@
    Geometry is in page widths: the page the worms crawl on runs from 0 to 1
    both ways, y = 0 along the spine. A worm is a circle of radius TUNE.R.
 
-     Party      you and three CPU worms; last worm wriggling wins, and the
-                last ones squished by the same leaf draw
+     Party      you and 1 to 10 CPU worms (3 unless picked); last worm
+                wriggling wins, and the last ones squished by the same leaf draw
      Endless    you alone: how many pages you last, up to page 99
      Duo        two players, one keyboard: the one still wriggling when
                 the other is squished wins; squished by the same leaf, or
@@ -235,7 +235,11 @@
   }
 
   // ---- worms --------------------------------------------------------------------------
-  var NAMES = ["You", "Rosy", "Clem", "Indy"], DUO_NAMES = ["Player 1", "Player 2"];
+  // (each rival's name goes with its colour: game.js paints them)
+  var NAMES = ["You", "Rosy", "Clem", "Indy", "Ruby", "Tilly", "Plum", "Skye", "Coco", "Ash", "Pearl"], DUO_NAMES = ["Player 1", "Player 2"];
+  // how many rival worms a Party may have, and how many unless picked
+  var RIVALS = { min: 1, max: 10, normal: 3 };
+  function rivalsOf(n) { n = Math.round(+n); return n >= RIVALS.min && n <= RIVALS.max ? n : RIVALS.normal; }
   var LEVELS = {
     // read: seconds after a leaf stands before it's read; speed: of yours;
     // err: how far off its middle a hole is aimed at; misread: the chance
@@ -252,12 +256,25 @@
 
   function pageRng(seed) { var a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; var t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 
+  // Where a Party's worms start: two rows across the page, the near one at
+  // y 0.68 and the far one at 0.36, each spread evenly (0.4 apart at most,
+  // never past 0.15 of the edges), the near row taking the odd one. Yours is
+  // the near row's spot nearest the middle (the left of two), so no rival
+  // starts with more of the page around it. With three rivals: the four
+  // corners of a square, yours at the near left, as it always was.
+  function starts(n) {
+    function row(k, y) { var gap = k > 1 ? Math.min(0.4, 0.7 / (k - 1)) : 0, out = []; for (var i = 0; i < k; i++) out.push([0.5 + (i - (k - 1) / 2) * gap, y]); return out; }
+    var near = row(Math.ceil(n / 2), 0.68), far = row(n - near.length, 0.36), mine = 0;
+    near.forEach(function (q, i) { if (Math.abs(q[0] - 0.5) < Math.abs(near[mine][0] - 0.5) - 1e-9) mine = i; });
+    return near.splice(mine, 1).concat(near, far);
+  }
+
   // ---- a game -------------------------------------------------------------------------
-  // opts: { mode: "party" | "endless" | "duo", level: "easy" | "normal" | "hard", rng }
+  // opts: { mode: "party" | "endless" | "duo", level: "easy" | "normal" | "hard", rivals: 1 to 10 (Party), rng }
   function create(opts) {
     opts = opts || {};
     var rng = opts.rng || Math.random, mode = opts.mode === "endless" || opts.mode === "duo" ? opts.mode : "party";
-    var st = { mode: mode, level: LEVELS[opts.level] ? opts.level : "normal", rng: rng, clock: 0, t: 0, phase: "intro",
+    var st = { mode: mode, level: LEVELS[opts.level] ? opts.level : "normal", rivals: mode === "party" ? rivalsOf(opts.rivals) : 0, rng: rng, clock: 0, t: 0, phase: "intro",
       page: 1, survived: 0, landed: 0, leaf: null, next: null, later: [], floor: null, under: [], made: [], worms: [], events: [], result: null };
     // The leaves to come are made ahead (the book shows the ones standing
     // behind the next to fall, details and all, as far down as holes in a
@@ -274,10 +291,7 @@
       st.worms.push(makeWorm(1, 0.7, 0.68, null));
       st.worms.forEach(function (w) { w.name = DUO_NAMES[w.id]; });
     } else {
-      st.worms.push(makeWorm(0, 0.3, 0.68, null));
-      st.worms.push(makeWorm(1, 0.7, 0.68, st.level));
-      st.worms.push(makeWorm(2, 0.3, 0.36, st.level));
-      st.worms.push(makeWorm(3, 0.7, 0.36, st.level));
+      starts(st.rivals + 1).forEach(function (q, i) { st.worms.push(makeWorm(i, q[0], q[1], i ? st.level : null)); });
     }
     return st;
   }
@@ -578,7 +592,7 @@
   }
 
   return {
-    TUNE: TUNE, LEVELS: LEVELS, NAMES: NAMES, SHAPES: SHAPES, SHAPE_EXT: SHAPE_EXT, SHAPE_ROOM: SHAPE_ROOM, PRINTS: PRINTS,
+    TUNE: TUNE, LEVELS: LEVELS, NAMES: NAMES, RIVALS: RIVALS, rivalsOf: rivalsOf, starts: starts, SHAPES: SHAPES, SHAPE_EXT: SHAPE_EXT, SHAPE_ROOM: SHAPE_ROOM, PRINTS: PRINTS,
     stage: stage, sizeFor: sizeFor, midOf: midOf, makeHole: makeHole, rim: rim, sunRays: sunRays, fitRegion: fitRegion, makeLeaf: makeLeaf, panelMid: panelMid, RUN: RUN,
     fits: fits, fitHole: fitHole, edgeDepth: edgeDepth, capacity: capacity,
     create: create, step: step, tilt: tilt, alive: alive, timeLeft: timeLeft,

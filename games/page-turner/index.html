@@ -62,12 +62,18 @@
       through, or be squished. Pages come faster, with fewer, smaller holes.
     </p>
     <div class="seg" id="pick-mode">
-      <button type="button" data-v="party"><b>Party</b><small>outlast three rival worms</small></button>
+      <button type="button" data-v="party"><b>Party</b><small id="party-small">outlast three rival worms</small></button>
       <button type="button" data-v="endless"><b>Endless</b><small>alone: how many pages can you last?</small></button>
       <button type="button" data-v="duo"><b>2 Players</b><small><span class="gs-keys">head to head: WASD against the arrows</span><span class="gs-touch">head to head: a thumb each</span></small></button>
     </div>
+    <!-- the rivals: how many (fewer and more, the number between: the
+         Party button above says it in words) and how good -->
     <div class="levels" id="pick-level">
-      <span class="lbl">rivals</span>
+      <span class="count" role="group" aria-label="How many rival worms">
+        <button type="button" id="fewer" aria-label="One rival fewer" title="One rival fewer"><span class="gs-touch">−</span><kbd class="gs-kbd gs-keys">&larr;</kbd></button>
+        <b id="rivals-n">3</b>
+        <button type="button" id="more" aria-label="One rival more" title="One rival more"><span class="gs-touch">+</span><kbd class="gs-kbd gs-keys">&rarr;</kbd></button>
+      </span>
       <button type="button" data-v="easy">Easy</button>
       <button type="button" data-v="normal">Normal</button>
       <button type="button" data-v="hard">Hard</button>

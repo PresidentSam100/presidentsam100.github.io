@@ -45,7 +45,7 @@ const MENUS = {
   "darkroom/": { keys: ["d"] },
   "patchword/": { keys: ["1", "2", "3"], enter: true },
   "typetwo/": { keys: ["1", "2", "3"] },                // (◂ ▸ step through the modes too, and Enter starts: the game's own keys)
-  "page-turner/": { keys: ["4", "5", "6", "3", "2", "1"], enter: true },   // (the rivals 4 5 6 show only for Party: 3 picks 2 Players, 2 Endless)
+  "page-turner/": { keys: ["4", "5", "6", "ArrowRight", "ArrowLeft", "3", "2", "1"], enter: true },   // (the rivals 4 5 6, and the arrows their number, show only for Party: 3 picks 2 Players, 2 Endless)
 };
 
 module.exports = async ({ browser, base, check, lib }) => {
@@ -55,6 +55,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // the option a key belongs to, on a menu that's up: its keycap, and whether its button can be pressed
   const optionFor = (p, key) => p.evaluate((key) => {
+    key = key.toLowerCase();
     for (const m of (window.GameShell && GameShell.menuKeys && GameShell.menuKeys.all) || []) {
       if (!m.active()) continue;
       for (const o of m.options()) {
@@ -70,7 +71,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     return null;
   }, key);
   const menuUp = (p) => p.evaluate(() => ((window.GameShell && GameShell.menuKeys && GameShell.menuKeys.all) || []).some((m) => m.active())).catch(() => false);
-  const label = (k) => (k.length === 1 ? k.toUpperCase() : k);
+  const label = (k) => ({ arrowleft: "←", arrowright: "→", arrowup: "↑", arrowdown: "↓" })[k.toLowerCase()] || (k.length === 1 ? k.toUpperCase() : k);
 
   // ---- every menu: each key presses its button, and the button shows the key
   for (const g of Object.keys(MENUS)) {

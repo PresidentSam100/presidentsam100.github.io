@@ -63,6 +63,12 @@ body {
 .chip i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); display: inline-block; }
 .chip.out { opacity: 0.5; text-decoration: line-through; }
 .chip.you { font-weight: 800; }
+/* many worms: their names wrap onto more lines, centred (a laptop's HUD,
+   floating between the corner buttons, is held to the gap they leave:
+   game.js measures it) */
+.hud.many { white-space: normal; max-width: calc(100vw - 20px); }
+.hud.many .hud-worms { flex-wrap: wrap; justify-content: center; column-gap: 8px; row-gap: 1px; }
+.hud.many .chip, .hud.many .hud-page { white-space: nowrap; }
 .keys { text-align: center; font-size: 13px; font-weight: 600; color: var(--moonlight); min-height: 18px; }
 .keys .gs-kbd { color: var(--moonlight); }
 /* (one worm's keys, or two players' each, a dot of each worm's colour by their name) */
@@ -119,6 +125,15 @@ body {
   background: var(--white); border: 2.5px solid var(--ink); border-radius: 999px; padding: 5px 12px 4px;
 }
 .levels button.on { background: var(--sky); box-shadow: 0 3px 0 var(--ink); }
+/* how many rivals: two small round buttons, the number between them; each
+   button's face is its key (a keycap where there's a keyboard, a minus or
+   a plus on a touch screen) */
+.levels .count { display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+.levels .count button { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; padding-left: 6px; padding-right: 6px; }
+.levels .count button .gs-touch { font-size: 17px; font-weight: 800; line-height: 1; }
+.levels .count button .gs-kbd { color: var(--ink); margin: 0; }
+.levels .count button:disabled { opacity: 0.4; cursor: default; }
+.levels .count b { font-family: "Krona One", "Encode Sans", sans-serif; font-weight: 400; font-size: 15px; min-width: 1.4em; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink); }
 
 .playbtn {
   width: 100%; font-family: "Krona One", "Encode Sans", sans-serif; font-weight: 400; font-size: 17px; cursor: pointer;
@@ -167,12 +182,18 @@ body {
   .tally { margin-top: 8px; }
   .card .big { font-size: 28px; }
 }
+/* (the rivals' row on one line on narrow phones: the stepper closer, the pills slimmer) */
+@media (max-width: 374px) {
+  .levels .count { gap: 2px; margin-right: 1px; }
+  .levels .count button { min-width: 24px; padding-left: 4px; padding-right: 4px; }
+  .levels .count b { font-size: 13.5px; }
+}
 @media (max-width: 359px) {
   .card h1 { font-size: 22px; }
   .card .how { font-size: 13.5px; line-height: 1.36; }
   .levels { gap: 4px; }
   .levels .lbl { letter-spacing: 0.5px; font-size: 11px; margin-right: 0; }
-  .levels button { font-size: 13px; padding: 4px 8px 3px; }
+  .levels button { font-size: 13px; padding: 4px 6px 3px; }
 }
 
 /* ---- a phone on its side: the HUD and the keys beside the book, the menu in two columns ------ */
@@ -180,6 +201,8 @@ body {
   .nook { padding: 6px 10px 6px; }
   .hud { position: fixed; top: 58px; left: 12px; transform: none; flex-direction: column; align-items: flex-start; gap: 4px; font-size: 12.5px; padding: 6px 10px 5px; }
   .hud-worms { flex-direction: column; align-items: flex-start; gap: 3px; }
+  /* (many worms: their names in two columns, so the list stays clear of the keys line) */
+  .hud.many .hud-worms { display: grid; grid-template-columns: auto auto; column-gap: 8px; row-gap: 3px; }
   .keys { position: fixed; left: 12px; bottom: 8px; width: calc(50vw - 170px); text-align: left; font-size: 12px; }
   .panel { padding: 54px 12px 6px; }
   .card { width: min(600px, calc(100% - 14px)); display: grid; grid-template-columns: 1fr 1fr; column-gap: 18px; padding: 11px 14px 11px; }

@@ -479,7 +479,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- the menu's keys, then the arrows and WASD
   let p = await open();
-  const caps = await p.evaluate(() => [...document.querySelectorAll("#pick-mode button b, #pick-level button, #play")].map((b) => b.getAttribute("data-gs-key")).join(" "));
+  const caps = await p.evaluate(() => [...document.querySelectorAll("#pick-mode button b, #pick-level button[data-v], #play")].map((b) => b.getAttribute("data-gs-key")).join(" "));
   await p.keyboard.press("2"); await p.waitForTimeout(80);
   const endless = await p.evaluate(() => ({ mode: PageTurner.mode(), levels: document.getElementById("pick-level").hidden, kept: localStorage.getItem("pageturner_mode") }));
   await p.keyboard.press("1"); await p.keyboard.press("6"); await p.waitForTimeout(80);
@@ -974,5 +974,104 @@ module.exports = async ({ browser, base, check, lib }) => {
       Number(rec.off) >= 2 && rec.on == null, rec);
     check("page-turner (guides): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
+  }
+  // ---- how many rivals: 1 to 10 (3 unless picked). On the menu the left
+  // and right arrows step the number (each worn on its button's face), held
+  // at 1 and 10, kept, and the Party button says it in words; it shows only
+  // for Party. The worms start apart, none overlapping, yours the near row's
+  // spot nearest the middle; a Party with ten plays to its end; their names
+  // fit the HUD on a small phone, a laptop and a phone on its side; and the
+  // records are kept for each number (three's in the old keys)
+  {
+    // the rules: the start for each number
+    const startBad = [];
+    for (let n = 1; n <= 10; n++) {
+      const st = E.create({ mode: "party", level: "normal", rivals: n, rng: seeded(n) }), ws = st.worms;
+      let close = Infinity;
+      for (let i = 0; i < ws.length; i++) for (let j = i + 1; j < ws.length; j++) close = Math.min(close, Math.hypot(ws[i].x - ws[j].x, ws[i].y - ws[j].y));
+      const you = ws[0], row = ws.filter((w) => Math.abs(w.y - you.y) < 1e-9);
+      const ok = ws.length === n + 1 && !you.cpu && ws.slice(1).every((w) => w.cpu) && close >= 2 * R + 0.02 &&
+        ws.every((w) => w.x >= 0.15 - 1e-9 && w.x <= 0.85 + 1e-9) && row.every((w) => Math.abs(you.x - 0.5) <= Math.abs(w.x - 0.5) + 1e-9) && new Set(ws.map((w) => w.name)).size === ws.length;
+      if (!ok) startBad.push({ n, worms: ws.length, close: +close.toFixed(3), you: [you.x, you.y] });
+    }
+    const four = E.create({ mode: "party", level: "normal", rng: seeded(3) }).worms.map((w) => [w.x, w.y].join()).join(" ");
+    check("page-turner rules: a Party has 1 to 10 rivals, the worms starting apart (none within a worm's width of another, none past 0.15 of the sides), yours the near row's spot nearest the middle, every name its own; with the three by default, the four corners as before",
+      startBad.length === 0 && four === "0.3,0.68 0.7,0.68 0.3,0.36 0.7,0.36" && E.create({ mode: "party", rivals: 0 }).rivals === 3 && E.create({ mode: "party", rivals: 11 }).rivals === 3, { startBad, four });
+
+    // the menu's stepper
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await open(c);
+    const look = () => q.evaluate(() => ({ n: PageTurner.rivals(), shown: document.getElementById("rivals-n").textContent, kept: localStorage.getItem("pageturner_rivals"),
+      fewer: document.getElementById("fewer").disabled, more: document.getElementById("more").disabled, party: document.getElementById("party-small").textContent,
+      caps: [document.querySelector("#fewer kbd").textContent, document.querySelector("#more kbd").textContent].join(" "), keysShown: getComputedStyle(document.querySelector("#fewer kbd")).display !== "none" }));
+    await q.evaluate(() => document.querySelector('#pick-mode button[data-v="party"]').click());
+    const at3 = await look();
+    for (let i = 0; i < 8; i++) await q.keyboard.press("ArrowRight");
+    const at10 = await look();
+    await q.keyboard.press("ArrowRight");
+    const past10 = await look();
+    for (let i = 0; i < 12; i++) await q.keyboard.press("ArrowLeft");
+    const at1 = await look();
+    await q.reload(); await q.waitForTimeout(300);
+    const kept1 = await look();
+    await q.keyboard.press("2"); await q.waitForTimeout(60);
+    const endless = await q.evaluate(() => document.getElementById("pick-level").hidden);
+    await q.keyboard.press("1");
+    check("page-turner: on the menu the arrows step the rivals (keycaps ← and → on the buttons' faces), 3 to begin with, held at 10 and at 1, kept; the Party button says the number in words, and the stepper shows only for Party",
+      at3.n === 3 && at3.shown === "3" && at3.kept == null && at3.caps === "← →" && at3.keysShown && /three rival worms/.test(at3.party) &&
+      at10.n === 10 && at10.more && !at10.fewer && at10.kept === "10" && /ten rival worms/.test(at10.party) && past10.n === 10 &&
+      at1.n === 1 && at1.fewer && !at1.more && /one rival worm$/.test(at1.party) && kept1.n === 1 && kept1.shown === "1" && endless, { at3, at10, past10, at1, kept1, endless });
+
+    // ten rivals: they start apart and the Party plays to its end; a loss is kept for ten, not in three's record
+    const ten = await q.evaluate(() => {
+      const PT = PageTurner;
+      PT.start("party", "normal", 10);
+      const st = PT.st(), worms = st.worms.length, chips = document.querySelectorAll("#hud-worms .chip").length;
+      // (you, kept away from every hole; one rival kept in one, so the leaf that squishes you is a loss)
+      for (let i = 0; i < 6000 && PT.state() === "play"; i++) {
+        const s = PT.st();
+        if (s.phase === "fall" && s.t > 0.3) {
+          const h = s.leaf.holes[0];
+          s.worms[1].cpu = null; PT.place(1, h.cx, h.cy);
+          for (let y = 0.06; y < 0.95; y += 0.05) for (let x = 0.06; x < 0.95; x += 0.05) if (s.leaf.holes.every((o) => Math.hypot(o.cx - x, o.cy - y) > o.rin + 0.06)) { PT.place(0, x, y); y = 1; break; }
+        }
+        PT.advance(1 / 60);
+      }
+      const r = PT.st().result;
+      return { worms, chips, state: PT.state(), outcome: r && r.outcome, place: r && r.place, rec10: localStorage.getItem("pageturner_record_normal_10"), rec3: localStorage.getItem("pageturner_record_normal") };
+    });
+    await q.waitForFunction(() => PageTurner.state() === "over", null, { timeout: 15000 }).catch(() => {});
+    const card = await q.evaluate(() => ({ big: document.getElementById("over-msg").textContent, stats: document.getElementById("over-stats").textContent }));
+    await q.waitForTimeout(800);
+    await q.keyboard.press("Backspace"); await q.waitForTimeout(150);
+    const tally = await q.evaluate(() => document.getElementById("tally").textContent);
+    check("page-turner: with ten rivals the book opens with eleven worms (eleven names in the HUD), plays to its end, and a loss is kept for ten rivals (pageturner_record_normal_10), not in three's (pageturner_record_normal), the card and the menu saying \"of 11\" and \"10 Normal rivals\"",
+      ten.worms === 11 && ten.chips === 11 && ten.outcome === "loss" && ten.rec10 === "{\"w\":0,\"l\":1,\"d\":0}" && ten.rec3 == null &&
+      / of 11$/.test(card.big) && /10 Normal rivals: 0 W · 1 L/.test(card.stats) && /10 Normal rivals: 0 W · 1 L/.test(tally), { ten, card, tally });
+    check("page-turner (rivals): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+
+    // ten rivals' names: in the HUD, every one on the screen, clear of the corner buttons, the book clear of them
+    const fit = [];
+    for (const [w, h, phone] of [[320, 568, 1], [390, 664, 1], [1366, 657, 0], [1280, 600, 0], [568, 320, 1], [750, 340, 1]]) {
+      const cc = await lib.newContext(browser, phone ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const qq = await open(cc);
+      await qq.evaluate(() => { PageTurner.start("party", "normal", 10); PageTurner.freeze(true); });
+      await qq.waitForTimeout(400);
+      fit.push(Object.assign({ size: w + "x" + h }, await qq.evaluate((w) => {
+        const PT = PageTurner, a = PT.project(-0.05, -0.035, 1.06), b = PT.project(1.05, 1.05, -0.05), c2 = PT.project(1.05, -0.035, 1.06);
+        const book = { left: Math.min(a[0], b[0]), right: Math.max(b[0], c2[0]), top: a[1], bottom: b[1] };
+        const meet = (r, s) => r.left < s.right && r.right > s.left && r.top < s.bottom && r.bottom > s.top;
+        const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].map((e) => e.getBoundingClientRect()).filter((r) => r.width);
+        const hud = document.getElementById("hud").getBoundingClientRect(), keys = document.getElementById("keys").getBoundingClientRect();
+        const chips = [...document.querySelectorAll("#hud-worms .chip")].map((e) => e.getBoundingClientRect());
+        return { chips: chips.length, onScreen: chips.every((r) => r.width > 0 && r.left >= 0 && r.right <= w && r.top >= 0 && r.bottom <= innerHeight && r.left >= hud.left - 0.5 && r.right <= hud.right + 0.5),
+          corner: corner.some((r) => meet(r, hud)), book: meet(hud, book), keys: keys.height > 0 && meet(hud, keys), wide: document.documentElement.scrollWidth > w };
+      }, w)));
+      if (qq.errs.length) fit.push({ size: w + "x" + h, errs: qq.errs });
+      await qq.close(); await cc.close();
+    }
+    check("page-turner: with ten rivals all eleven names fit the HUD, on the screen and clear of the corner buttons, the keys line and the book (320 x 568, 390 x 664, 1366 x 657, 1280 x 600, and on its side 568 x 320, 750 x 340)",
+      fit.every((f) => !f.errs && f.chips === 11 && f.onScreen && !f.corner && !f.book && !f.keys && !f.wide), fit);
   }
 };
