@@ -230,7 +230,16 @@ kbd {
 @media (max-width: 640px) {
   .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */
   .card h1 { font-size: 26px; letter-spacing: 5px; }
-  .hud { top: 58px; gap: 12px; padding: 5px 12px; }
+}
+/* The score box on a phone (or a window under 780 px wide): smaller. Upright
+   (and in a window up to 700 px wide, where game.js leaves the room for it)
+   under the corner buttons; otherwise still between them, game.js sliding it
+   clear of them if it must. */
+@media (max-width: 780px), (orientation: landscape) and (max-height: 500px) {
+  .hud { gap: 12px; padding: 5px 12px; }
   .hud #hud-score { font-size: 18px; }
   .hud #hud-lines, .hud #hud-depth { font-size: 12px; }
+}
+@media (max-width: 640px), (max-width: 700px) and (min-height: 501px) {
+  .hud { top: 58px; }
 }

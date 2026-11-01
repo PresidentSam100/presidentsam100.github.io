@@ -442,9 +442,31 @@
   // held upright, where 14 px more often than not puts them above the well)
   var sideGap = 14;
   function sideBox(c) { return Math.max(9, Math.floor(c * 0.55)) * 4 + 22; }   // the hold and next boxes' width (drawSide)
+  // The score box is centred between the corner buttons, or on a narrow
+  // screen under them (styles.css). Where it is in their row and centred it
+  // would run into them (a phone on its side, a window 700 to 780 px wide; a
+  // long score, Sprint's clock), it slides over just far enough to clear
+  // them by 8 px. hudRect keeps where it is, for draw().
+  var hudRect = null;
+  function placeHud() {
+    var el = $("hud");
+    el.style.left = "";
+    if (el.hidden) { hudRect = null; return; }
+    var r = el.getBoundingClientRect(), mid = W / 2, lo = -Infinity, hi = Infinity;
+    document.querySelectorAll(".nav-back-games, .gs-corner > *").forEach(function (b) {
+      var c = b.getBoundingClientRect();
+      if (!c.width || c.bottom <= r.top || c.top >= r.bottom) return;
+      if (c.left + c.width / 2 < mid) lo = Math.max(lo, c.right + 8 + r.width / 2);
+      else hi = Math.min(hi, c.left - 8 - r.width / 2);
+    });
+    var at = Math.max(lo, Math.min(hi, mid));
+    if (at !== mid) el.style.left = Math.round(at) + "px";
+    hudRect = el.getBoundingClientRect();
+  }
   function resize() {
     var dpr = Math.min(2, window.devicePixelRatio || 1);
     W = window.innerWidth; H = window.innerHeight;
+    placeHud();
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     var padEl = $("pad");
@@ -626,9 +648,15 @@
           if (c[1] >= HID) A.cell(g, px(c[0]), py(c[1]), cell, piece.t, { ghost: true });
         });
       }
+      // (a new piece comes in on the row above the well, which on a phone
+      // held upright lies partly under the score box: nothing of it is drawn
+      // there, so it comes out from under the box rather than through it)
+      var hb = hudRect;
+      if (hb) { g.save(); g.beginPath(); g.rect(0, 0, W, H); g.rect(hb.left, hb.top, hb.width, hb.height); g.clip("evenodd"); }
       cellsOf(piece.t, piece.r, piece.x, piece.y).forEach(function (c) {
         if (c[1] >= HID - 1) A.cell(g, px(c[0]), py(c[1]), cell, piece.t);
       });
+      if (hb) g.restore();
     }
 
     // particles: bubbles up, plankton adrift
@@ -1026,6 +1054,7 @@
     $("hud-score").textContent = score.toLocaleString();
     $("hud-lines").textContent = lines + (mode === "sprint" ? "/" + goal : "") + " rows";
     $("hud-depth").textContent = mode === "sprint" ? fmtTime(playMs) : (level * 100) + "m";
+    placeHud();
   }
 
   // ---- sound --------------------------------------------------------------------------
@@ -1108,7 +1137,11 @@
     if (P.isPaused()) return;
     update(dt);
     // the Sprint clock runs every frame, not only when a piece locks
-    if (mode === "sprint" && (state === "play" || state === "clearing")) $("hud-depth").textContent = fmtTime(playMs);
+    if (mode === "sprint" && (state === "play" || state === "clearing")) {
+      var clock = fmtTime(playMs), was = $("hud-depth").textContent.length;
+      $("hud-depth").textContent = clock;
+      if (clock.length !== was) placeHud();   // (a figure more: a wider box)
+    }
     draw(now, dt);
   }
 

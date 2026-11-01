@@ -3,7 +3,8 @@
 // between locks; a 0 is never "a new record"; the buttons' keycaps hide on a
 // touch-only phone; a full row clears at the same pace with Visual FX on and
 // off; Maelstrom, its switch, its arms and turns and its fit (see below); on a
-// phone on its side the pad's two halves keep clear of the play area. Frames are
+// phone on its side the pad's two halves keep clear of the play area; the
+// score box clear of the corner buttons and no new piece under it. Frames are
 // stepped by the test (see STEPPED), so timing doesn't depend on how busy the
 // machine is.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver,"];
@@ -434,5 +435,63 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("abyss: on a phone upright (320 x 568, 360 x 560, 375 x 553, 360 x 640, 390 x 664, 412 x 915, 390 x 844), in Descent, Sprint and Maelstrom, the well with its hold and next boxes (or the plus) is on the screen, nothing over anything else nor under the score box, the corner buttons, the way back or the pad, the hold and next boxes below the score box",
       up.every((u) => u.ok), up.filter((u) => !u.ok));
+  }
+
+  // ---- the score box at its widest (a seven-figure score, Sprint's clock)
+  // keeps clear of the corner buttons and the way back: on a phone on its
+  // side, and in a window 641 to 800 px wide (under them up to 700 px)
+  {
+    const got = [];
+    for (const [w, h, touch] of [[667, 375, 1], [740, 360, 1], [568, 320, 1], [641, 700, 0], [700, 800, 0], [720, 700, 0], [800, 600, 0], [1280, 900, 0]]) {
+      const ctx = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const q = await lib.open(ctx, base, "games/abyss/");
+      for (const m of ["descent", "sprint"]) {
+        got.push(Object.assign({ size: w + "x" + h, m }, await q.evaluate((m) => {
+          Abyss.toMenu(); Abyss.start(m); Abyss.test.setGrav(100000);
+          document.getElementById("hud-score").textContent = (1234567).toLocaleString();
+          Abyss.test.setLines(m === "sprint" ? 39 : 999);   // (the readout drawn again, the box placed for it)
+          const d = document.getElementById("hud-depth");
+          if (m === "sprint") { d.textContent = "59:59.99"; window.dispatchEvent(new Event("resize")); }
+          const hud = document.getElementById("hud").getBoundingClientRect();
+          const hit = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).filter((e) => {
+            const c = e.getBoundingClientRect();
+            return Math.min(hud.right, c.right) - Math.max(hud.left, c.left) > 0 && Math.min(hud.bottom, c.bottom) - Math.max(hud.top, c.top) > 0;
+          }).map((e) => e.className || e.textContent.trim());
+          return { hit, l: Math.round(hud.left), r: Math.round(hud.right), t: Math.round(hud.top), on: hud.left >= 0 && hud.right <= innerWidth };
+        }, m)));
+      }
+      got.push({ size: w + "x" + h, m: "errors", hit: q.errs, on: true });
+      await ctx.close();
+    }
+    check("abyss: the score box at its widest (1,234,567, Sprint's clock) runs into no corner button and not the way back, on a phone on its side (667 x 375, 740 x 360, 568 x 320) and in windows 641 to 800 px wide",
+      got.every((g) => g.on && g.hit.length === 0), got.filter((g) => !g.on || g.hit.length));
+  }
+
+  // ---- a new piece comes in on the row above the well, which on a phone
+  // held upright lies partly under the score box: none of it is drawn
+  // under the box, and the rest of that row it is
+  {
+    const got = [];
+    for (const [w, h] of [[320, 568], [390, 664]]) {
+      const ctx = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const q = await lib.open(ctx, base, "games/abyss/");
+      await q.evaluate(() => { Abyss.start("descent"); Abyss.test.setGrav(100000); Abyss.test.setPiece("I"); });
+      await q.waitForTimeout(300);
+      got.push(Object.assign({ size: w + "x" + h }, await q.evaluate(() => {
+        const cv = document.getElementById("stage"), k = cv.width / innerWidth, g = cv.getContext("2d");
+        const hud = document.getElementById("hud").getBoundingClientRect(), well = Abyss.areas()[0];
+        const cell = (well.w - 8) / 10, top = well.y + 4, row = top - cell, pc = Abyss.piece();
+        // the siphonophore (I) lies across the row above the well; a sample
+        // in the middle of each of its cells, in the band under the score box
+        // and in the band between the box and the well
+        const cyan = (x, y) => { const d = g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data; return d[1] > 140 && d[2] > 180; };
+        const xs = [0, 1, 2, 3].map((i) => well.x + 4 + (pc.x + i + 0.5) * cell);
+        const yUnder = (Math.max(row, hud.top) + hud.bottom) / 2, yBelow = (hud.bottom + top) / 2;
+        return { band: [Math.round(Math.max(row, hud.top)), Math.round(hud.bottom), Math.round(top)], under: xs.map((x) => cyan(x, yUnder)), below: hud.bottom + 2 < top ? xs.map((x) => cyan(x, yBelow)) : null };
+      })));
+      await ctx.close();
+    }
+    check("abyss: on a phone upright (320 x 568, 390 x 664) a new piece on the row above the well is drawn only below the score box, none of it under the box",
+      got.every((g) => g.band[0] < g.band[1] && g.under.every((c) => !c) && (!g.below || g.below.every((c) => c))), got);
   }
 };
