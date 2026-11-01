@@ -221,16 +221,31 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
   .b-line, .b-kind { font-size: 14px; }
   #banner { padding: 8px 14px 10px; border-width: 3px; }
   /* (five to a row, big enough to tap, in a box that scrolls: as many rows
-     in sight as leave Roll out on the screen, from two and a half on a short
-     phone to four and a half on a tall one) */
+     in sight as leave the whole card on the screen (--fit, game.js), from
+     two and a third on a short phone to four and a half on a tall one) */
   .mgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 5px; }
   .mt { height: 36px; font-size: 15px; }
-  .mbox { overflow-y: auto; overscroll-behavior: contain; max-height: clamp(112px, calc(100vh - 550px), 194px); max-height: clamp(112px, calc(100dvh - 550px), 194px); }
+  .mbox { overflow-y: auto; overscroll-behavior: contain; min-height: 96px; max-height: min(194px, var(--fit, 194px)); }
 }
 @media (max-height: 600px) and (max-width: 520px) {
   .card .how { font-size: 13px; line-height: 1.35; }
+  #menu .card .how { line-height: 1.3; }
   .seg button, .stage-read { padding: 5px 10px; }
   .playbtn { padding: 7px 10px; font-size: 20px; }
+}
+/* a phone short of room: the menu closer set and a little wider, Roll out
+   and Build a mission side by side, so the whole card is on the screen */
+@media (max-height: 700px) and (max-width: 520px) {
+  #menu { padding: 54px 10px 10px; }
+  #menu .card.has-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; padding: 8px 12px 12px; }
+  #menu .card.has-grid > * { grid-column: 1 / -1; }
+  #menu .card.has-grid > .playbtn { grid-column: 1; }
+  #menu .card.has-grid > .more-row { grid-column: 2; margin-top: 0; }
+  #menu .card h2 { font-size: 24px; }
+  #menu .card .how { margin: 5px 0 7px; }
+  #menu .pick, #menu .missions { margin-bottom: 8px; }
+  #menu .stage-read { padding: 4px 10px; }
+  #menu .bests { margin-top: 4px; }
 }
 /* a short, wider window (a phone on its side): the grid scrolls in its box */
 @media (max-height: 520px) and (min-width: 521px) {

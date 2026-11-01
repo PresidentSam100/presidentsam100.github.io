@@ -450,6 +450,39 @@ module.exports = async ({ browser, base, check, lib }) => {
       lap && phone, fits);
   }
 
+  // ---- on a phone the whole menu is on the screen with nothing to scroll:
+  // the box of missions takes the room the rest of the card leaves (at least
+  // two rows and some of the next, so it shows it scrolls), even with the
+  // longest bests line, and gives way as the window gets shorter, the mission
+  // picked kept in sight; the card clear of the corner buttons
+  {
+    const fits = {}, bad = [];
+    const read = (q) => q.evaluate(() => {
+      const panel = document.getElementById("menu"), box = document.getElementById("mission-box"), b = box.getBoundingClientRect();
+      const pick = document.querySelector("#mission-grid .mt.on").getBoundingClientRect(), card = panel.querySelector(".card").getBoundingClientRect();
+      const corner = Math.max(...[...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect().bottom));
+      return { scroll: panel.scrollHeight - panel.clientHeight, box: Math.round(b.height), boxScrolls: box.scrollHeight > box.clientHeight + 1,
+        pickSeen: pick.top >= b.top - 1 && pick.bottom <= b.bottom + 1, clear: card.top >= corner, bests: document.getElementById("bests").textContent };
+    });
+    const ok = (f) => f.scroll <= 0 && f.box >= 96 && f.boxScrolls && f.pickSeen && f.clear && /345 destroyed/.test(f.bests);
+    for (const [w, h] of [[320, 568], [360, 560], [360, 640], [375, 553], [390, 664]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+      const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("toytanks_start", "73"); localStorage.setItem("toytanks_best_cleared", "12"); localStorage.setItem("toytanks_best_kills", "345"); } catch (e) {} }) });
+      await q.waitForTimeout(300);
+      const f = fits[w + "x" + h] = await read(q);
+      if (!ok(f)) bad.push(w + "x" + h);
+      if (w === 360 && h === 640) {   // the window gets shorter: the box gives way
+        await q.setViewportSize({ width: 360, height: 560 }); await q.waitForTimeout(300);
+        const s = fits["360x640 to 360x560"] = await read(q);
+        if (!ok(s) || s.box >= f.box) bad.push("360x640 to 360x560");
+      }
+      check("toy-tanks (menu " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    check("toy-tanks: on a phone the whole menu is on the screen with nothing to scroll, the box of missions taking the room that's left (two rows and more, scrolling, the mission picked in sight), the longest bests line too, and giving way as the window gets shorter (320x568, 360x560, 360x640, 375x553, 390x664)",
+      bad.length === 0, { bad, fits });
+  }
+
   // ---- the name stays where it is as a run starts, and so does the arena
   // (the HUD beside the name where there's room, under it otherwise; its
   // room kept on the menu), the HUD clear of the corner buttons

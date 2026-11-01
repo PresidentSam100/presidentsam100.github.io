@@ -492,6 +492,21 @@
     if (!b || box.scrollHeight <= box.clientHeight) return;
     if (b.offsetTop < box.scrollTop || b.offsetTop + b.offsetHeight > box.scrollTop + box.clientHeight) box.scrollTop = b.offsetTop - (box.clientHeight - b.offsetHeight) / 2;
   }
+  // (on a phone the box is as tall as leaves the whole card on the screen,
+  // between its floor and its cap in styles.css, so the menu itself doesn't
+  // scroll: --fit is the room, measured again as the fonts, the lines and
+  // the window change)
+  var fitAt = -1;
+  function fitBox() {
+    var box = $("mission-box"), panel = $("menu"), card = panel.querySelector(".card");
+    if (panel.hidden || !window.matchMedia || !matchMedia("(max-width: 520px)").matches) return;
+    var cs = getComputedStyle(panel), room = panel.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - card.offsetHeight;
+    var fit = Math.max(0, Math.floor(box.clientHeight + room));
+    if (fit === fitAt) return;
+    fitAt = fit; box.style.setProperty("--fit", fit + "px"); showPick();
+  }
+  if (window.ResizeObserver) new ResizeObserver(fitBox).observe($("menu").querySelector(".card"));
+  window.addEventListener("resize", fitBox);
   $("play").addEventListener("click", startRun);
   $("again").addEventListener("click", startRun);
   $("to-menu").addEventListener("click", toMenu);
