@@ -402,7 +402,7 @@
   // goes straight in; the chosen shed (the one played last, or the next to
   // pot) is shown in small above Pot this shed, and the arrows walk the list
   // (the ring choosing as it goes), Enter going into the ringed one.
-  var mini = $("pick-pic"), mg = mini.getContext("2d"), grid = $("shed-grid"), lockNote = $("lock-note"), noteT = 0;
+  var mini = $("pick-pic"), mg = mini.getContext("2d"), grid = $("shed-grid"), lockNote = $("lock-note"), noteT = 0, noted = null;
   function paintMenu() {
     paintGrid();
     paintChosen();
@@ -414,9 +414,9 @@
   // (on a phone the list is a box that scrolls, as tall as leaves the whole
   // card on the screen, between its floor and its cap in styles.css: --fit
   // is the room, measured again as the fonts, the lines and the window
-  // change; the chosen shed kept in sight)
+  // change; the chosen shed kept in sight, or a locked one while its line shows)
   function showShed() {
-    var t = grid.querySelector(".tile.current");
+    var t = noted && noted.isConnected ? noted : grid.querySelector(".tile.current");
     if (!t || grid.scrollHeight <= grid.clientHeight + 1) return;
     var g = grid.getBoundingClientRect(), r = t.getBoundingClientRect();
     if (r.top < g.top || r.bottom > g.bottom) grid.scrollTop += r.top - g.top - (g.height - r.height) / 2;
@@ -446,10 +446,12 @@
   }
   function sayLocked(i, b) {
     lockNote.textContent = "🔒 Shed " + (i + 1) + " is locked. " + (isOpen(i - 1) ? "Pot shed " + i + " to open it." : "Pot the sheds before it first.");
+    // (on a phone the list's box gives the line room, keeping that shed in sight)
+    noted = grid.children[i] || null; lockNote.parentNode.classList.add("noting");
     // (the tile shakes its head; with Visual FX off the line alone says it)
     if (b) { b.classList.remove("nope"); void b.offsetWidth; b.classList.add("nope"); }
     clearTimeout(noteT);
-    noteT = setTimeout(function () { lockNote.textContent = ""; if (b) b.classList.remove("nope"); }, 2600);
+    noteT = setTimeout(function () { lockNote.textContent = ""; noted = null; lockNote.parentNode.classList.remove("noting"); if (b) b.classList.remove("nope"); }, 2600);
   }
   function choose(n) {
     shed = n;

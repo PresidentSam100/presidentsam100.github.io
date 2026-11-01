@@ -155,40 +155,63 @@ html.fx-off .tile.nope { animation: none; }
   .tile { height: 36px; }
 }
 /* a phone: the sheds in a box that scrolls, as tall as leaves the whole
-   menu on the screen (--fit, game.js), from two and a third rows up to all
-   five; room in it for the rings round a tile. Build a shed beside the
-   list's name, and sheds of your own in a strip that scrolls sideways */
+   menu on the screen (--fit, game.js), from two and a half rows up to all
+   five (down to one and a half while a locked shed's line shows); room in
+   it for the rings round a tile. Sheds of your own in a strip that scrolls
+   sideways */
 @media (max-width: 520px) {
   #menu .shedgrid { overflow-y: auto; overscroll-behavior: contain; padding: 5px; margin: 3px -5px -5px; min-height: 102px; max-height: min(214px, var(--fit, 214px)); }
-  #menu .sheds { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; }
-  #menu .sheds > * { grid-column: 1 / -1; }
-  #menu .sheds > #sheds-k { grid-column: 1; margin-bottom: 0; }
-  #menu .sheds > .build { grid-column: 2; grid-row: 1; margin-top: 0; }
+  #menu .sheds.noting .shedgrid { min-height: 56px; }
   #menu .mine:not([hidden]) { display: flex; align-items: center; gap: 8px; }
   #menu .mine .sheds-k { flex: none; margin-bottom: 0; }
   #menu .minelist { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; overscroll-behavior: contain; max-height: none; padding: 5px; margin: -5px 0; }
   #menu .minelist .tile { flex: none; }
 }
-/* a phone short of room: the menu closer set */
+/* a phone short of room: the menu closer set, and the line saying why a
+   shed is locked taking room only while it shows */
 @media (max-width: 520px) and (max-height: 700px) {
-  #menu.panel { padding: 58px 10px 12px; }
-  #menu .card { padding-bottom: 12px; }
-  #menu .card::before { margin-bottom: 8px; }
-  #menu .card h1 { font-size: 24px; }
-  #menu .card .tag { margin: 2px 0 6px; }
-  #menu .card .how { font-size: 13px; line-height: 1.38; margin-bottom: 8px; }
+  #menu.panel { padding: 58px 10px 8px; }
+  #menu .card { padding-bottom: 8px; }
+  #menu .card::before { margin-bottom: 6px; }
+  #menu .card h1 { font-size: 22px; }
+  #menu .card .tag { margin: 2px 0 4px; }
+  #menu .card .how { font-size: 12.5px; line-height: 1.33; margin-bottom: 8px; }
   #menu .pick-shed { min-height: 0; padding: 4px 8px; margin-bottom: 8px; }
   #menu .pick-text b { font-size: 17px; }
   #menu .pick-text small { font-size: 12.5px; line-height: 1.3; }
-  #menu .playbtn { padding: 5px 12px; }
+  #menu .playbtn { padding: 5px 8px; }
   #menu .tally { margin-top: 6px; }
   #menu .tally:empty { display: none; }
-  #menu .sheds { margin-top: 8px; }
-  #menu .sheds > .build { padding: 4px 10px; font-size: 14px; }
-  /* (the line saying why a shed is locked takes room only while it shows,
-     the list's box giving way) */
+  #menu .sheds { margin-top: 6px; }
+  #menu .build { padding: 3px 10px; font-size: 14px; }
   #menu .lock-note { margin-top: 6px; }
   #menu .lock-note:empty { min-height: 0; margin-top: 0; }
+  #menu .mine { margin-top: 5px; }
+  #menu .minelist .tile { height: 32px; }
+}
+/* a touch phone: Pot this shed and Build a shed side by side, and the
+   count of sheds potted beside the list's name */
+@media (max-width: 520px) and (hover: none) {
+  #menu .card.menu {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: center;
+    grid-template-areas: "band band" "h1 h1" "tag tag" "how how" "pick pick" "play build" "head head" "box box" "note note" "mine mine";
+  }
+  #menu .card.menu::before { grid-area: band; }
+  #menu .intro, #menu .sheds { display: contents; }
+  #menu .card h1 { grid-area: h1; }
+  #menu .card .tag { grid-area: tag; }
+  #menu .card .how { grid-area: how; }
+  #menu .pick-shed { grid-area: pick; }
+  #menu .playbtn { grid-area: play; font-size: 19px; }
+  #menu .build { grid-area: build; align-self: stretch; display: flex; align-items: center; justify-content: center; margin: 0; }
+  #menu #sheds-k { grid-area: head; justify-self: start; margin: 6px 0 0; }
+  #menu .tally { grid-area: head; justify-self: end; min-height: 0; margin: 6px 0 0; font-size: 12.5px; }
+  #menu .shedgrid { grid-area: box; }
+  #menu .lock-note { grid-area: note; }
+  #menu .mine { grid-area: mine; }
+}
+@media (max-width: 380px) and (hover: none) {
+  #menu .playbtn { font-size: 18px; }
 }
 /* the narrowest phones: the card closer to the edges, so six tiles a row
    stay big enough to tap */
