@@ -2202,7 +2202,7 @@ function drawMenu() {
   // Normal or Insane, side by side under the modes, each with its key on its
   // outer side (a tap picks one)
   const lv = levelRects();
-  [["Normal", "grass and lily pads to rest on", "#ffd23d"], ["Insane", "no grass or lily pads", "#ff7a6b"]].forEach(([name, says, on], i) => {
+  [["Normal", "with grass and lily pads", "#ffd23d"], ["Insane", "no grass or lily pads", "#ff7a6b"]].forEach(([name, says, on], i) => {
     const sel = insane === (i === 1), b = lv[i];
     drawLevel(b, sel ? on : "#f6f2e4", name, says, sel);
     keysCenter(i ? "[I]" : "[N]", i ? b.x + b.w + 26 : b.x - 26, b.y + b.h / 2 + 1, 17, sel ? on : "#fff", "");
