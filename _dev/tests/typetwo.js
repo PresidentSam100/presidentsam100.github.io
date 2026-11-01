@@ -2,7 +2,8 @@
 // wizard's robe and orb) is drawn but holds still; with FX on it moves.
 // A Zen run ends from its End session button or the End key, onto the
 // results; the menus' key legends hide on a touch-only phone. On the start
-// screen, Enter on a focused mode button only picks that mode.
+// screen, Enter on a focused mode button only picks that mode. A cleared
+// word's points carry the streak's multiplier.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const frames = async (fxOff) => {
@@ -98,5 +99,26 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("typetwo: no page errors (start screen keys)", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
+  }
+
+  // ---- a cleared word's points carry the streak's multiplier: "+N  ×1.04"
+  // for the first clean word, "×1.08" for the second
+  {
+    const cx = await lib.newContext(browser);
+    const p = await lib.open(cx, base, "games/typetwo/");
+    await p.click('.mode[data-mode="zen"]'); await p.keyboard.press("Enter");
+    await p.waitForFunction(() => __game.state === "playing" && __game.words.length >= 2, null, { timeout: 15000 });
+    const pops = [];
+    for (let k = 0; k < 2; k++) {
+      const word = await p.evaluate(() => { const w = __game.words.find((x) => x.y > 20) || __game.words[0]; return { text: w.text, x: w.x + w.w / 2 }; });
+      const s0 = await p.evaluate(() => __game.score);
+      await p.keyboard.type(word.text, { delay: 30 });   // (a key at a time, as typed)
+      await p.waitForFunction((s0) => __game.score > s0, s0, { timeout: 5000 }).catch(() => {});
+      pops.push(await p.evaluate(([x, s0]) => { const q = __game.pops.filter((t) => /^\+/.test(t.txt)).pop(); return { txt: q && q.txt, gained: __game.score - s0, dx: q && Math.round(q.x - x) }; }, [word.x, s0]));
+    }
+    check("typetwo: a cleared word's points carry the streak's multiplier, \"+N  ×1.04\" for the first clean word and \"×1.08\" for the second, at the word",
+      pops[0].txt === "+" + pops[0].gained + "  ×1.04" && pops[1].txt === "+" + pops[1].gained + "  ×1.08" && pops.every((q) => q.dx === 0), pops);
+    check("typetwo (points): no page errors", p.errs.length === 0, p.errs);
+    await cx.close();
   }
 };

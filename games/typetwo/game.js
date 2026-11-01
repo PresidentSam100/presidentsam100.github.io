@@ -414,7 +414,8 @@
 
     explode(w.x + w.w / 2, w.y, w.hue, 28);
     particles.push({ x: w.x + w.w / 2, y: w.y, vx: 0, vy: 0, life: 0.5, age: 0, kind: "ring", hue: w.hue });
-    scorePop(w.x + w.w / 2, w.y, "+" + gained);
+    // (with the streak's multiplier, as it stands for this word: ×1.04 up to ×2)
+    scorePop(w.x + w.w / 2, w.y, "+" + gained + "  ×" + +comboMult.toFixed(2));
     shake = Math.min(shake + 3, 10);
     Sound.kill();
 
@@ -1292,5 +1293,6 @@
     get score() { return score; },
     get lives() { return lives; },
     get target() { return target; },
+    get pops() { return particles.filter((q) => q.kind === "text").map((q) => ({ txt: q.txt, x: q.x, y: q.y })); },
   };
 })();
