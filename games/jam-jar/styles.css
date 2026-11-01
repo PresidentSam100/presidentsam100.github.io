@@ -17,7 +17,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 12px 10px 16px;
+  padding: 56px 10px 16px;   /* (the top clear of the corner buttons: on a short laptop screen the panels rise to it) */
   min-height: 100dvh;
 }
 

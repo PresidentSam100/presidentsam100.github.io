@@ -7,7 +7,8 @@
 // jumps further in a frame than its speed takes it; and the two paces (the
 // menu, Rolling Boil's drop every second, its own best: see the end); the
 // dashed lines pinned to the jar, still with Visual FX off and drifting with
-// it on; and "FILL LINE" clear of the glass.
+// it on; "FILL LINE" clear of the glass; and on a short laptop screen
+// nothing under the corner buttons and nothing to scroll.
 const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (x) { aimX = x; },
     aim: function () { return aimX; },
     cooldown: function () { return dropCd; },
@@ -314,6 +315,25 @@ module.exports = async ({ browser, base, check, lib }) => {
       !!got.label && got.label.x >= 58 + 3 && got.label.x + got.label.w < 482 - 60, got.label);
     check("jam-jar (dashes): no page errors", q.errs.length === 0, q.errs);
     await q.close();
+    await c.close();
+  }
+  // ---- on a short laptop screen the corner buttons cover no panel and not
+  // the jar, and the fruit ladder ends with the jar, so nothing scrolls
+  for (const [w, h] of [[1366, 657], [1280, 600], [1280, 720], [900, 600], [1280, 900]]) {
+    const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/jam-jar/");
+    await q.keyboard.press("Space"); await q.waitForTimeout(300);
+    const got = await q.evaluate(() => {
+      const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect());
+      const under = [...document.querySelectorAll("#game, .panel")].filter((e) => {
+        const r = e.getBoundingClientRect();
+        return corner.some((k) => r.left < k.right && r.right > k.left && r.top < k.bottom && r.bottom > k.top);
+      }).map((e) => e.id || e.className);
+      const jar = document.getElementById("game").getBoundingClientRect(), chain = document.querySelector(".chain-panel").getBoundingClientRect();
+      return { under, jarW: Math.round(jar.width), chainOver: Math.round(chain.bottom - jar.bottom), scroll: document.documentElement.scrollHeight - innerHeight };
+    });
+    check("jam-jar, " + w + "x" + h + ": the corner buttons cover no panel and not the jar, the fruit ladder ends with the jar, and the page doesn't scroll",
+      got.under.length === 0 && got.chainOver <= 0 && got.scroll <= 0, got);
     await c.close();
   }
 };

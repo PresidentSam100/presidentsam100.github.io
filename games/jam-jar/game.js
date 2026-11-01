@@ -933,9 +933,20 @@
     var el = document.getElementById("chain"), box = el.parentNode, cs = getComputedStyle(box);
     CHAIN = across && across.matches
       ? chainAcross(Math.floor(box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)))
-      : chainLayout();
+      : chainUpright(el, box);
     chainCtx = hiDpi("chain", CHAIN.w, CHAIN.h);
     drawChain();
+  }
+  // Standing, the ladder reaches no lower than the jar beside it (a laptop
+  // screen is short): its fruit come smaller until the panel ends with the
+  // jar. Everything in the ladder grows with the fruit size but the two end
+  // margins and the 3 px gaps, so the size that fits is a straight line away.
+  function chainUpright(el, box) {
+    var full = chainLayout(ICON_R), fixed = 8 + 3 * (TIERS.length - 1);
+    var c = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    var room = document.getElementById("game").getBoundingClientRect().bottom - c.top - (b.bottom - c.bottom);
+    if (full.h <= room) return full;
+    return chainLayout(Math.max(8, ICON_R * (room - fixed) / (full.h - fixed)));
   }
   function refreshHud() {
     document.getElementById("score").textContent = score;
@@ -953,10 +964,10 @@
   // came out jagged for the large fruit and soft for the small), on an even
   // step that's just tall enough for the tallest stem or crown to sit in the
   // gap instead of on the fruit above.
-  function chainLayout() {
+  function chainLayout(r) {
     var i, slots = [], step = 0, edge = 4;
     for (i = 0; i < TIERS.length; i++) {
-      var k = ICON_R / TIERS[i].r, ext = SPRITES[i].ext;
+      var k = r / TIERS[i].r, ext = SPRITES[i].ext;
       slots.push({ k: k, up: ext.up * k, down: ext.down * k });
       if (i) step = Math.max(step, slots[i - 1].down + slots[i].up + 3);
     }
@@ -1069,6 +1080,7 @@
   }
   layChain();
   window.addEventListener("resize", layChain);   // (a phone turned, a window narrowed: the ladder stands or lies, and fills its panel)
+  if (document.fonts) document.fonts.ready.then(layChain);   // (the panel's label, in its own face, may take another line)
   document.body.dataset.mode = mode;
   refreshHud();
   toMenu();
