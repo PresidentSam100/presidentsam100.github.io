@@ -1,24 +1,25 @@
 /* =====================================================================
    Abyss: Maelstrom, the board shaped like a plus.
 
-   A 10 x 10 core with four arms, each 10 wide and 8 deep, on a 26 x 26
-   grid (its four 8 x 8 corners are rock). Pieces sink from the arm at the
-   top toward the middle. Each piece comes in from an open arm the board
-   picks (a few in a row from one, then another), and before it does, the
-   whole board turns by itself to bring that arm to the top. A full line of
-   10 clears anywhere: across an arm, or across the core either way, and the
-   blocks beyond it slide in toward the middle.
+   A 10 x 10 core with four arms, each 10 wide and 10 deep, on a 30 x 30
+   grid (its four 10 x 10 corners are rock). Each arm and the core together
+   are that arm's well, the standard 10 wide and 20 deep: its pieces sink
+   from the arm's outer edge to the core's far edge, whether the arm across
+   is open or not. Each piece comes in from an open arm the board picks (a
+   few in a row from one, then another), and before it does, the whole board
+   turns by itself to bring that arm to the top.
+
+   A full row clears only in the well of the arm whose piece just landed:
+   one of its 20 rows across, the rows above it coming down one toward that
+   well's floor. Never a column, and never a line in another arm's well (a
+   row a piece fills there waits for that arm's next piece).
 
    A piece's place is kept in its arm's own frame: lx across the arm (0 to 9),
-   ly from the arm's outer edge in (0 to 7 the arm, 8 to 17 the core, on into
-   the opposite arm). Rows above the edge (ly < 0) are open water: a piece
-   may pass through, but one locked with a block there ends the dive. Arm k
-   counts clockwise from the top one as the dive begins (0 north, 1 east, 2
-   south, 3 west); the board's own grid never turns, only the view of it.
-
-   How deep a piece sinks: to the core's far edge while the opposite arm is
-   still closed, to the middle line once it's open (the far half then
-   belongs to that arm's pieces).
+   ly from the arm's outer edge in (0 to 9 the arm, 10 to 19 the core). Rows
+   above the edge (ly < 0) are open water: a piece may pass through, but one
+   locked with a block there ends the dive. Arm k counts clockwise from the
+   top one as the dive begins (0 north, 1 east, 2 south, 3 west); the board's
+   own grid never turns, only the view of it.
 
    One piece at a time, always in the arm at the top. The arm the next one
    comes from is known as the current one sinks (nextArm), and the turn to
@@ -30,12 +31,14 @@
 (function (root) {
   "use strict";
 
-  var S = 26, MID = 13;
+  var ARM = 10, CORE = 10, S = 2 * ARM + CORE, MID = S / 2;
+  var C0 = ARM, C1 = ARM + CORE;      // the core's first row and column, and one past its last
+  var FLOOR = ARM + CORE;             // every arm's well: ly 0 to 19
   function idx(x, y) { return x + y * S; }
-  function inPlus(x, y) { return x >= 0 && y >= 0 && x < S && y < S && ((x >= 8 && x < 18) || (y >= 8 && y < 18)); }
-  // arm k's frame to the board's: the north arm's (lx + 8, ly), turned k quarters clockwise
+  function inPlus(x, y) { return x >= 0 && y >= 0 && x < S && y < S && ((x >= C0 && x < C1) || (y >= C0 && y < C1)); }
+  // arm k's frame to the board's: the north arm's (lx + C0, ly), turned k quarters clockwise
   function toBoard(k, lx, ly) {
-    var x = lx + 8, y = ly, t;
+    var x = lx + C0, y = ly, t;
     for (var i = 0; i < k; i++) { t = x; x = S - 1 - y; y = t; }
     return [x, y];
   }
@@ -62,15 +65,14 @@
       return b;
     }
     function refill() { while (queue.length < 7) { if (!bag.length) bag = newBag(); queue.push(bag.shift()); } }
-    function floorOf(k) { return open[(k + 2) % 4] ? MID : 18; }
 
     function fitsIn(k, t, r, x, y) {
-      var cs = T.ROT[t][r], fl = floorOf(k);
+      var cs = T.ROT[t][r];
       for (var i = 0; i < cs.length; i++) {
         var lx = x + cs[i][0], ly = y + cs[i][1];
-        if (lx < 0 || lx > 9 || ly >= fl) return false;
+        if (lx < 0 || lx > 9 || ly >= FLOOR) return false;
         if (ly < 0) continue;
-        if (ly < 8 && !open[k]) return false;
+        if (ly < ARM && !open[k]) return false;
         var b = toBoard(k, lx, ly);
         if (grid[idx(b[0], b[1])]) return false;
       }
@@ -206,7 +208,7 @@
       });
       if (hooks.lock) hooks.lock(k);
       if (out) { end(); return; }
-      var full = fullLines();
+      var full = fullLines(k);
       if (full.count) {
         clearing = { cells: full.cells, lines: full, left: 0 };
         clearing.left = hooks.clear ? hooks.clear(full.count, full.cells) || 0 : 0;
@@ -214,75 +216,37 @@
       }
       fill();
     }
-    // every full line of 10: across each open arm, and the core's rows and columns
-    function fullLines() {
-      var rows = {}, cols = {}, cells = {}, count = 0;
-      function line(list) {
-        for (var i = 0; i < list.length; i++) if (!grid[list[i]]) return false;
-        list.forEach(function (n) { cells[n] = true; });
-        count++;
-        return true;
-      }
-      for (var k = 0; k < 4; k++) {
-        if (!open[k]) continue;
-        for (var d = 0; d < 8; d++) {
-          var list = [];
-          for (var lx = 0; lx < 10; lx++) { var b = toBoard(k, lx, d); list.push(idx(b[0], b[1])); }
-          if (line(list)) {
-            var b0 = toBoard(k, 0, d);
-            if (k % 2 === 0) rows[b0[1]] = true; else cols[b0[0]] = true;
-          }
+    // the full rows of arm k's well (its own frame's rows, ly 0 to 19)
+    function fullLines(k) {
+      var rows = [], cells = [];
+      for (var ly = 0; ly < FLOOR; ly++) {
+        var list = [];
+        for (var lx = 0; lx < 10; lx++) {
+          var b = toBoard(k, lx, ly), n = idx(b[0], b[1]);
+          if (!grid[n]) break;
+          list.push(n);
         }
+        if (list.length === 10) { rows.push(ly); cells = cells.concat(list); }
       }
-      for (var i = 8; i < 18; i++) {
-        var row = [], col = [];
-        for (var j = 8; j < 18; j++) { row.push(idx(j, i)); col.push(idx(i, j)); }
-        if (line(row)) rows[i] = true;
-        if (line(col)) cols[i] = true;
-      }
-      return { count: count, rows: rows, cols: cols, cells: Object.keys(cells).map(Number) };
+      return { count: rows.length, k: k, rows: rows, cells: cells };
     }
-    // the cleared cells go, then what lay beyond each line slides in toward
-    // the floor its pieces sink to: along the board's up-down band (the north
-    // and south arms and the core's rows) first, then across (the west and
-    // east arms and the core's columns). With both arms of a band open (or
-    // neither) each half slides in toward the middle line; with one, the band
-    // is that arm's well and slides toward the core's far edge. A line's place
-    // is skipped only where it's still empty, so a block the first slide
-    // brought into a cleared column stays.
+    // the cleared rows go, and the rows above them (toward the well's outer
+    // edge) come down to fill them, toward that well's floor
     function collapse() {
-      var L = clearing.lines;
-      clearing.cells.forEach(function (n) { grid[n] = 0; });
-      function pack(get, set, fromIn, toOut, cleared) {
-        // fromIn..toOut walks outward from the middle; cleared: positions to drop where empty
-        var keep = [], step = toOut > fromIn ? 1 : -1, n = Math.abs(toOut - fromIn) + 1, i, at;
-        for (i = 0, at = fromIn; i < n; i++, at += step) if (!(cleared[at] && !get(at))) keep.push(get(at));
-        for (i = 0, at = fromIn; i < n; i++, at += step) set(at, i < keep.length ? keep[i] : 0);
-      }
-      // a band: `near` the arm at its low end (north, west), `far` the other
-      function band(get, set, near, far, cleared) {
-        if (near && !far) pack(get, set, 17, 0, cleared);
-        else if (far && !near) pack(get, set, 8, S - 1, cleared);
-        else { pack(get, set, MID - 1, 0, cleared); pack(get, set, MID, S - 1, cleared); }
-      }
-      var x, y;
-      for (x = 8; x < 18; x++) {
-        (function (x) {
-          band(function (y) { return grid[idx(x, y)]; }, function (y, v) { grid[idx(x, y)] = v; }, open[0], open[2], L.rows);
-        })(x);
-      }
-      for (y = 8; y < 18; y++) {
-        (function (y) {
-          band(function (x) { return grid[idx(x, y)]; }, function (x, v) { grid[idx(x, y)] = v; }, open[3], open[1], L.cols);
-        })(y);
+      var L = clearing.lines, k = L.k, gone = {};
+      L.rows.forEach(function (ly) { gone[ly] = true; });
+      for (var lx = 0; lx < 10; lx++) {
+        var keep = [], ly, b, i;
+        for (ly = FLOOR - 1; ly >= 0; ly--) if (!gone[ly]) { b = toBoard(k, lx, ly); keep.push(grid[idx(b[0], b[1])]); }
+        for (ly = FLOOR - 1, i = 0; ly >= 0; ly--, i++) { b = toBoard(k, lx, ly); grid[idx(b[0], b[1])] = i < keep.length ? keep[i] : 0; }
       }
       clearing = null;
       if (hooks.collapsed) hooks.collapsed();
       settlePieces();
       fill();
     }
-    // a piece the slide (or a newly opened arm's shorter floor) now overlaps
-    // is lifted back out toward its own edge until it's clear
+    // a piece the slide now overlaps is lifted back out toward its own edge
+    // until it's clear
     function settlePieces() {
       pcs.forEach(function (p) {
         if (!p) return;
@@ -348,12 +312,12 @@
         place: function (k, t, r, x, y) { pcs[k] = { t: t, r: r || 0, x: x, y: y, k: k, gravT: 0, lockT: 0, resets: 0, lowY: y }; return pcs[k]; },
         clearPiece: function (k) { pcs[k] = null; },
         setNext: function (k) { nextArm = k; },
-        lock: lock, collapse: function () { if (clearing) collapse(); }, full: fullLines
+        lock: lock, collapse: function () { if (clearing) collapse(); }, full: function (k) { return fullLines(k == null ? top : k); }
       }
     };
   }
 
-  var api = { create: create, toBoard: toBoard, inPlus: inPlus, SIZE: S, MID: MID };
+  var api = { create: create, toBoard: toBoard, inPlus: inPlus, SIZE: S, MID: MID, ARM: ARM, CORE: CORE };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AbyssMaelstrom = api;
 })(this);

@@ -2,7 +2,8 @@
 // held soft drop lets go when the tab loses focus; the Sprint clock ticks
 // between locks; a 0 is never "a new record"; the buttons' keycaps hide on a
 // touch-only phone; a full row clears at the same pace with Visual FX on and
-// off; Maelstrom, its switch, its arms and turns and its fit (see below); on a
+// off; Maelstrom, its switch, its arms and turns, each arm's well 20 deep and
+// clearing only its own rows, and its fit (see below); on a
 // phone on its side the pad's two halves keep clear of the play area; the
 // score box clear of the corner buttons and no new piece under it. Frames are
 // stepped by the test (see STEPPED), so timing doesn't depend on how busy the
@@ -220,12 +221,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.start = { open: B.open.join(), pieces: B.pieces().filter(Boolean).length, k: B.piece().k, next: B.nextArm };
       // nine rows down already; the tenth (the core's last row, its gap filled by a standing I) opens the east arm
       Abyss.test.setLines(9);
-      for (let x = 8; x < 18; x++) if (x !== 12) B.test.set(x, 17, 1);
+      for (let x = 10; x < 20; x++) if (x !== 14) B.test.set(x, 19, 1);
       B.test.clearPiece(0); B.test.place(0, "I", 1, 2, 2);
       Abyss.hard();
       r.clearing = Abyss.state();
       __frames(30);
-      r.cleared = { state: Abyss.state(), lines: Abyss.lines(), open: B.open.join(), gap: [14, 15, 16, 17].map((y) => B.test.get(12, y) ? 1 : 0).join(""),
+      r.cleared = { state: Abyss.state(), lines: Abyss.lines(), open: B.open.join(), gap: [16, 17, 18, 19].map((y) => B.test.get(14, y) ? 1 : 0).join(""),
         k: B.piece() && B.piece().k, next: B.nextArm, mark: Abyss.view().mark };
       // that piece down: the board turns the east arm to the top by itself, with no piece in play, easing round
       B.test.clearPiece(0); B.test.place(0, "O", 0, 0, -1);   // (at the core's west side, clear of the rows the east arm's piece sinks along)
@@ -234,19 +235,45 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.turn = { on: !!T, to: T && T.to, ms: T && T.ms, piece: !!B.piece(), angles: [] };
       for (let f = 1; f <= 60; f++) { __frames(1); if (f % 6 === 0) r.turn.angles.push(+Abyss.view().angle.toFixed(4)); if (f === 24) r.turn.half = Abyss.view().angle; if (f === 46) r.turn.still = !!B.turning && !B.piece(); }
       r.turn.done = { top: B.top, turning: !!B.turning, k: B.piece() && B.piece().k, angle: Abyss.view().angle };
-      // the arms across open: a piece stops at the middle line (the east arm's, column 13 of the board)
+      // every arm open: a piece still sinks its well's whole 20 rows, to the
+      // core's far edge (the east arm's ly 19: column 10 of the board)
       B.openArms(4);
       B.test.clearPiece(B.top); B.test.place(B.top, "I", 0, 3, -1);
+      r.deep = { from: B.piece().y, to: B.ghostY() };
       Abyss.hard();
-      r.middle = { col13: [11, 12, 13, 14].every((y) => B.test.get(13, y)), col12: B.test.get(12, 11) };
+      r.deep.col10 = [13, 14, 15, 16].every((y) => B.test.get(10, y));
+      r.deep.col11 = !!B.test.get(11, 13);
       for (let f = 0; f < 120 && (B.turning || !B.piece()); f++) __frames(1);
-      // a full column of the core (x 15, rows 8 to 17) clears too
-      const lines0 = Abyss.lines();
-      for (let y = 9; y < 18; y++) B.test.set(15, y, 1);
-      B.test.clearPiece(B.top); B.test.place(0, "O", 0, 6, 7);   // (an O on rows 7-8, columns 14-15)
+      // a clean board, every arm open: a north piece that fills a column of
+      // the core (x 15, rows 10 to 19) but none of its own well's rows clears
+      // nothing; that column is a row of the east well, and the next east
+      // piece, landing anywhere, clears it, and only that well moves in
+      for (let k = 0; k < 4; k++) B.test.clearPiece(k);
+      for (let y = 0; y < 30; y++) for (let x = 0; x < 30; x++) B.test.set(x, y, 0);
+      for (let y = 11; y < 20; y++) B.test.set(15, y, 1);
+      const lines1 = Abyss.lines();
+      B.test.place(0, "I", 1, 3, 7);           // (standing at lx 5: board column 15, rows 7 to 10)
       B.test.lock(0);
       __frames(30);
-      r.column = { lines: Abyss.lines() - lines0, gone: [9, 12, 17].every((y) => !B.test.get(15, y)) };
+      r.column = { lines: Abyss.lines() - lines1, state: Abyss.state(), kept: [7, 10, 15, 19].every((y) => B.test.get(15, y)) };
+      for (let k = 0; k < 4; k++) B.test.clearPiece(k);
+      B.test.place(1, "I", 0, 3, -1);          // (lying across the east arm's first row: board column 29, rows 13 to 16)
+      B.test.lock(1);
+      __frames(30);
+      r.east = { lines: Abyss.lines() - lines1, gone: [10, 13, 19].every((y) => !B.test.get(15, y)), arm: [7, 8, 9].every((y) => B.test.get(15, y)),
+        moved: [13, 14, 15, 16].every((y) => B.test.get(28, y) && !B.test.get(29, y)) };
+      // a north row clear moves the north well alone: a block in the south
+      // arm stays where it is
+      for (let k = 0; k < 4; k++) B.test.clearPiece(k);
+      for (let y = 0; y < 30; y++) for (let x = 0; x < 30; x++) B.test.set(x, y, 0);
+      for (let x = 10; x < 20; x++) if (x !== 14) B.test.set(x, 19, 1);
+      B.test.set(12, 18, 1); B.test.set(12, 25, 1); B.test.set(25, 15, 1);
+      const lines2 = Abyss.lines();
+      B.test.place(0, "I", 1, 2, 16);          // (standing at lx 4: board column 14, rows 16 to 19)
+      B.test.lock(0);
+      __frames(30);
+      r.north = { lines: Abyss.lines() - lines2, down: !B.test.get(12, 18) && !!B.test.get(12, 19), south: !!B.test.get(12, 25), east: !!B.test.get(25, 15),
+        gap: [16, 17, 18, 19].map((y) => B.test.get(14, y) ? 1 : 0).join("") };
       r.best = localStorage.getItem("abyss_best_maelstrom");
       r.score = Abyss.score();
       return r;
@@ -261,10 +288,14 @@ module.exports = async ({ browser, base, check, lib }) => {
       tn.on && tn.to === 1 && tn.ms === 800 && !tn.piece && tn.still && Math.abs(tn.half + Math.PI / 4) < 0.02 &&
       steps.slice(0, 8).every((d) => d <= 0) && Math.abs(steps[1]) > Math.abs(steps[0]) && Math.abs(steps[6]) < Math.abs(steps[3]) &&
       tn.done.top === 1 && !tn.done.turning && tn.done.k === 1 && Math.abs(tn.done.angle + Math.PI / 2) < 1e-9, { tn, steps });
-    check("abyss, Maelstrom: with the arm across open, a piece stops at the middle line",
-      single.middle.col13 && !single.middle.col12, single.middle);
-    check("abyss, Maelstrom: a full column of the core clears too, and the dive's best is saved as it's passed",
-      single.column.lines === 1 && single.column.gone && Number(single.best) === single.score && single.score > 0, { column: single.column, best: single.best, score: single.score });
+    check("abyss, Maelstrom: with every arm open a piece still sinks its well's whole 20 rows (10 of arm, 10 of core) to the core's far edge",
+      single.deep.from === -1 && single.deep.to === 18 && single.deep.col10 && !single.deep.col11, single.deep);
+    check("abyss, Maelstrom: a north piece that fills a column of the core but no row of its own well clears nothing",
+      single.column.lines === 0 && single.column.state === "play" && single.column.kept, single.column);
+    check("abyss, Maelstrom: that column is a row of the east well: the next east piece clears it, and only the east well moves in (the north arm's blocks stay), and the dive's best is saved as it's passed",
+      single.east.lines === 1 && single.east.gone && single.east.arm && single.east.moved && Number(single.best) === single.score && single.score > 0, { east: single.east, best: single.best, score: single.score });
+    check("abyss, Maelstrom: a north row clear brings the north well's rows above it down one, and leaves the south and east arms' blocks where they are",
+      single.north.lines === 1 && single.north.down && single.north.south && single.north.east && single.north.gap === "0111", single.north);
     check("abyss (Maelstrom): no page errors", q.errs.length === 0, q.errs);
     await ctx.close();
   }

@@ -513,14 +513,14 @@
     }
     wellX = Math.round(W / 2 - (COLS * cell) / 2);
     wellY = Math.round(Math.max(top, compactAt, (H - padB - VIS * cell) / 2 + 30));
-    // Maelstrom's plus: 26 cells across and down, a row's room above it for
+    // Maelstrom's plus: MN cells across and down, a row's room above it for
     // the piece coming in, clear of the HUD and the pad (two rows of it under
     // the plus, or its halves beside it)
     var mTop = top, mPad = side ? 10 : padOn ? padEl.getBoundingClientRect().height + 8 : 16;
     var room = H - mTop - mPad;
-    mcell = Math.max(side ? 6 : 8, Math.min(30, Math.floor(Math.min(room / 27, (2 * half - 8) / 26))));
+    mcell = Math.max(side ? 6 : 8, Math.min(30, Math.floor(Math.min(room / (MN + 1), (2 * half - 8) / MN))));
     mcx = Math.round(W / 2);
-    mcy = Math.round(mTop + mcell + Math.max(0, (room - 27 * mcell) / 2) + 13 * mcell);
+    mcy = Math.round(mTop + mcell + Math.max(0, (room - (MN + 1) * mcell) / 2) + MM * mcell);
     if (!sea) sea = A.makeSea(W, H); else sea.resize(W, H);
   }
   window.addEventListener("resize", resize);
@@ -688,6 +688,9 @@
   // stops both. A marker at an arm's mouth shows where the next piece will
   // come in.
   var mcell = 14, mcx = 0, mcy = 0;
+  // the plus's measures (maelstrom.js): MN cells across, the middle at MM,
+  // arms MA deep, the core from MC0 to MC1 (one past its last)
+  var MN = AbyssMaelstrom.SIZE, MM = AbyssMaelstrom.MID, MA = AbyssMaelstrom.ARM, MC0 = MA, MC1 = MA + AbyssMaelstrom.CORE;
   var TURN_MS = 800, HALF_MS = 1200;
   var mClear = null, mTrail = null, mStreak = null, mOpened = null;   // what's being drawn: dissolving cells, a hard drop's trail (FX on) or streak (FX off), a newly opened arm
   var mMark = -1;                   // the arm whose marker the last frame drew (-1: none)
@@ -727,7 +730,7 @@
     cells.forEach(function (i) { mClear[i] = true; });
     if (fx()) {
       cells.forEach(function (i) {
-        var x = i % 26, y = Math.floor(i / 26), t2 = TYPES[mael.grid[i] - 1] || "I";
+        var x = i % MN, y = Math.floor(i / MN), t2 = TYPES[mael.grid[i] - 1] || "I";
         particles.push({ kind: "pk", bx: x + 0.5, by: y + 0.5, vx: (Math.random() - 0.5) * 3, vy: (Math.random() - 0.5) * 3,
           life: 0.9 + Math.random() * 0.5, t: t2 });
       });
@@ -788,19 +791,19 @@
     var most = 0, g0 = mael.grid;
     for (var k = 0; k < 4; k++) {
       if (!mael.open[k]) continue;
-      for (var ly = 0; ly < 8; ly++) {
+      for (var ly = 0; ly < MA; ly++) {
         var any = false;
-        for (var lx = 0; lx < 10 && !any; lx++) { var b = AbyssMaelstrom.toBoard(k, lx, ly); if (g0[b[0] + b[1] * 26]) any = true; }
-        if (any) { most = Math.max(most, 8 - ly); break; }
+        for (var lx = 0; lx < 10 && !any; lx++) { var b = AbyssMaelstrom.toBoard(k, lx, ly); if (g0[b[0] + b[1] * MN]) any = true; }
+        if (any) { most = Math.max(most, MA - ly); break; }
       }
     }
-    return 14 + most * 0.75;   // (an arm full to its edge reads like a well 20 deep)
+    return 14 + most * 6 / MA;   // (an arm full to its edge reads like Descent's well full to its top)
   }
 
   // the board's cell (bx, by) on the canvas while it's turned: drawn in the
   // turned frame, its top-left corner from the middle
-  function mx(b) { return (b - 13) * mcell; }
-  var ARMS = [[8, 0, 10, 8], [18, 8, 8, 10], [8, 18, 10, 8], [0, 8, 8, 10]];   // each arm's rectangle, in board cells
+  function mx(b) { return (b - MM) * mcell; }
+  var ARMS = [[MC0, 0, 10, MA], [MC1, MC0, MA, 10], [MC0, MC1, 10, MA], [0, MC0, MA, 10]];   // each arm's rectangle, in board cells
   function drawMael(dt) {
     var c = mcell, M = mael, grid0 = M.grid, k, x, y, i;
     g.save();
@@ -823,28 +826,34 @@
       }
     }
     g.fillStyle = "rgba(2,10,20,0.62)";
-    g.fillRect(mx(8), mx(8), 10 * c, 10 * c);
+    g.fillRect(mx(MC0), mx(MC0), 10 * c, 10 * c);
     // the sonar grid, faint
     g.strokeStyle = "rgba(80,160,220,0.07)"; g.lineWidth = 1;
     g.beginPath();
-    for (i = 1; i < 26; i++) {
-      var lo = i < 8 || i > 18 ? 8 : 0, hi = i < 8 || i > 18 ? 18 : 26;
+    for (i = 1; i < MN; i++) {
+      var lo = i < MC0 || i > MC1 ? MC0 : 0, hi = i < MC0 || i > MC1 ? MC1 : MN;
       g.moveTo(mx(i), mx(lo)); g.lineTo(mx(i), mx(hi));
       g.moveTo(mx(lo), mx(i)); g.lineTo(mx(hi), mx(i));
     }
     g.stroke();
-    // the middle lines, where a piece stops once the arm across from its own is open
+    // the well the pieces sink in now (the top arm's, or the one the board
+    // is turning to): its arm and the core, 10 by 20. Where the core meets
+    // an open arm its edge is dashed: the floor across, the walls beside.
+    var wk = M.turning ? M.turning.to : M.top, wo = M.open;
+    g.save();
+    g.rotate(wk * Math.PI / 2);                // (the north arm's well, turned to arm wk's)
     g.strokeStyle = "rgba(120,220,255,0.28)"; g.lineWidth = 1.5;
     g.setLineDash([c * 0.3, c * 0.3]);
     g.beginPath();
-    if (M.open[0] && M.open[2]) { g.moveTo(mx(8), mx(13)); g.lineTo(mx(18), mx(13)); }
-    if (M.open[1] && M.open[3]) { g.moveTo(mx(13), mx(8)); g.lineTo(mx(13), mx(18)); }
+    if (wo[(wk + 2) % 4]) { g.moveTo(mx(MC0), mx(MC1)); g.lineTo(mx(MC1), mx(MC1)); }
+    if (wo[(wk + 3) % 4]) { g.moveTo(mx(MC0), mx(MC0)); g.lineTo(mx(MC0), mx(MC1)); }
+    if (wo[(wk + 1) % 4]) { g.moveTo(mx(MC1), mx(MC0)); g.lineTo(mx(MC1), mx(MC1)); }
     g.stroke();
-    g.setLineDash([]);
+    g.restore();
     // the plus's outline
     g.strokeStyle = "rgba(80,200,255,0.35)"; g.lineWidth = 2;
     g.beginPath();
-    [[8, 0], [18, 0], [18, 8], [26, 8], [26, 18], [18, 18], [18, 26], [8, 26], [8, 18], [0, 18], [0, 8], [8, 8]].forEach(function (pt, n) {
+    [[MC0, 0], [MC1, 0], [MC1, MC0], [MN, MC0], [MN, MC1], [MC1, MC1], [MC1, MN], [MC0, MN], [MC0, MC1], [0, MC1], [0, MC0], [MC0, MC0]].forEach(function (pt, n) {
       if (n) g.lineTo(mx(pt[0]), mx(pt[1])); else g.moveTo(mx(pt[0]), mx(pt[1]));
     });
     g.closePath(); g.stroke();
@@ -859,11 +868,11 @@
       }
     }
     // the settled blocks (the dissolving ones fading, with FX on; dimmed, off)
-    for (y = 0; y < 26; y++) {
-      for (x = 0; x < 26; x++) {
-        var v = grid0[x + y * 26];
+    for (y = 0; y < MN; y++) {
+      for (x = 0; x < MN; x++) {
+        var v = grid0[x + y * MN];
         if (!v) continue;
-        if (mClear && mClear[x + y * 26]) {
+        if (mClear && mClear[x + y * MN]) {
           g.globalAlpha = fx() ? Math.max(0, 1 - sweep * 1.15) : 0.4;
           A.cell(g, mx(x), mx(y), c, TYPES[v - 1], { dim: false });
           g.globalAlpha = 1;
@@ -928,7 +937,7 @@
   // the piece the keys move and its sonar echo, on the screen as the top arm stands
   function drawMaelPiece(p) {
     var c = mcell;
-    function at(lx, ly) { return [mcx + (lx + 8 - 13) * c, mcy + (ly - 13) * c]; }
+    function at(lx, ly) { return [mcx + (lx + MC0 - MM) * c, mcy + (ly - MM) * c]; }
     var gy = mael.ghostY(p);
     if (gy !== p.y) mael.cellsOf({ t: p.t, r: p.r, x: p.x, y: gy }).forEach(function (cc) {
       if (cc[1] < 0) return;
@@ -967,8 +976,8 @@
   }
   // hold and next, in the plus's two top corners on the screen
   function drawMaelSide() {
-    var c = mcell, sq = 8 * c - 10, mini = Math.max(6, Math.floor(c * 0.62));
-    var lx = mcx - 13 * c + 2, rx = mcx + 5 * c + 8, ty = mcy - 13 * c + 2;
+    var c = mcell, sq = MA * c - 10, mini = Math.max(6, Math.floor(c * 0.62));
+    var lx = mcx - MM * c + 2, rx = mcx + (MC1 - MM) * c + 8, ty = mcy - MM * c + 2;
     function box(bx, by, bw, bh, label) {
       g.fillStyle = "rgba(2,10,20,0.62)";
       A.rr(g, bx, by, bw, bh, 8); g.fill();
@@ -1043,7 +1052,7 @@
   // and next boxes; in Maelstrom the plus with the row above it for the
   // piece coming in (its hold and next boxes are in its corners)
   function playAreas() {
-    if (mode === "maelstrom") return [{ n: "plus", x: mcx - 13 * mcell, y: mcy - 14 * mcell, w: 26 * mcell, h: 27 * mcell }];
+    if (mode === "maelstrom") return [{ n: "plus", x: mcx - MM * mcell, y: mcy - (MM + 1) * mcell, w: MN * mcell, h: (MN + 1) * mcell }];
     var s = sideRects();
     return [{ n: "well", x: px(0) - 4, y: py(HID) - 4, w: COLS * cell + 8, h: VIS * cell + 8 },
       Object.assign({ n: "hold" }, s.hold), Object.assign({ n: "next" }, s.next)];
