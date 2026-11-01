@@ -2,7 +2,8 @@
 // paused; a VS match's result card can't land on the menu or the next game;
 // a pause asked for in the beat between VS rounds (the "Leave this game?"
 // box, a tab switch) holds the next round paused. ☰ Menu mid-run asks first;
-// the menu's key legend hides on a phone, leaving the on-screen pad's line.
+// the menu's key legend hides on a phone, leaving the on-screen pad's line;
+// what a wave scores shows where it cleared.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = () => lib.open(ctx, base, "games/demolition-row/");
@@ -405,6 +406,78 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("demolition-row: in play the whole screen fits the window with nothing to scroll (pad, panels, title, byline), boards on one row and none a sliver, the Next piece beside the panel's rows (50-Stage, Endless, VS 2 and 4; phones 320x568, 375x553, 390x664 and one on its side, 664x390; laptops 1366x657, 1280x600, 1280x900)",
       Object.keys(bad).length === 0, bad);
     check("demolition-row (play screen fit): no page errors", errs.length === 0, errs);
+  }
+
+  // ---- what a wave scores shows where it cleared: "+800 ×20" for a four
+  // with the star bonus on, the score's own change; a chain's next wave "+80"
+  // with "×2", and "×20" on both while the bonus is on; a plain first wave
+  // (most pieces make one) shows nothing; with Visual FX on rising as it
+  // fades, off where it is; gone in under a second of play; a pause holds it
+  {
+    const SET = ([chain, bonus]) => {
+      const b = GAME.players[0].board, R = b.cfg.rows - 1, n = (c) => ({ t: "n", c, aug: null });
+      for (let r = 0; r < b.cfg.rows; r++) for (let c = 0; c < b.cfg.cols; c++) b.grid[r][c] = null;
+      for (let c = 0; c < 4; c++) b.grid[R][c] = n(0);
+      if (chain) { for (let c = 1; c < 4; c++) b.grid[R - 1][c] = n(1); b.grid[R][4] = n(1); }   // (what falls makes four of another colour)
+      b.bonusUntil = bonus ? b.now() + 8000 : 0;
+      // (as a piece locking starts a settle: the chain and its tallies from nothing)
+      b.chain = 0; b.settleTotals = { normals: 0, stones: 0, stars: 0 }; b.settleGained = 0; b.settleGaugeGain = 0; b.thunderQueue = [];
+      b.pops = []; b.piece = null; window.__s0 = b.score; b.onSettled(b.now());
+    };
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/demolition-row/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:demolition-row", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.click('#mode-pick [data-mode="endless"]'); await q.click("#play-btn"); await q.waitForFunction(() => GAME && GAME.players[0].board.piece);
+      await q.evaluate(SET, [false, true]);
+      await q.waitForFunction(() => GAME.players[0].board.pops.length, null, { timeout: 5000 });
+      // held at once (the board's clock stops), read as drawn; then 0.4 s of play later
+      await q.evaluate(() => GAME.pause());
+      await q.waitForFunction(() => (GAME.players[0].board.popsDrawn || []).length, null, { timeout: 5000 });
+      const a = await q.evaluate(() => ({ pop: GAME.players[0].board.pops[0], drawn: GAME.players[0].board.popsDrawn[0], clock: GAME.players[0].board.clock }));
+      await q.evaluate(() => GAME.resume());
+      await q.waitForFunction((c0) => GAME.players[0].board.clock > c0 + 400, a.clock, { timeout: 5000 });
+      await q.evaluate(() => GAME.pause());
+      await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const later = await q.evaluate(() => (GAME.players[0].board.popsDrawn || [])[0] || null);
+      // paused 1.3 s: still there; resumed, gone within a second of play
+      await q.evaluate(() => new Promise((r) => setTimeout(r, 1300)));
+      const held = await q.evaluate(() => GAME.players[0].board.pops.length);
+      await q.evaluate(() => GAME.resume());
+      await q.waitForFunction(() => !GAME.players[0].board.pops.length, null, { timeout: 3000 }).catch(() => {});
+      const goneAt = await q.evaluate((c0) => ({ left: GAME.players[0].board.pops.length, ms: Math.round(GAME.players[0].board.clock - c0) }), a.clock);
+      await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
+      const gain = await q.evaluate(() => GAME.players[0].board.score - __s0);
+      const r = { pts: a.pop.pts, n: a.pop.n, text: a.drawn.text, x: a.pop.x, y: a.pop.y, early: a.drawn.y, late: later && later.y, held, goneAt, gain };
+      if (!off) {
+        // a plain four: scored, nothing shown
+        await q.evaluate(SET, [false, false]);
+        await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
+        r.plain = await q.evaluate(() => ({ gain: GAME.players[0].board.score - __s0, shown: GAME.players[0].board.pops.length }));
+        // a chain with no bonus: only its second wave, "×2"
+        await q.evaluate(SET, [true, false]);
+        await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
+        r.chain2 = await q.evaluate(() => GAME.players[0].board.pops.map((p) => ({ pts: p.pts, n: p.n, bonus: p.bonus })));
+        // the chain, with the star bonus on: two waves, the second "×2", both "×20"
+        await q.evaluate(SET, [true, true]);
+        await q.waitForFunction(() => GAME.players[0].board.pops.length >= 2, null, { timeout: 5000 }).catch(() => {});
+        r.chain = await q.evaluate(() => GAME.players[0].board.pops.map((p) => ({ pts: p.pts, n: p.n, bonus: p.bonus })));
+      }
+      r.errs = q.errs.slice();
+      got[off ? "off" : "on"] = r;
+      await q.close();
+    }
+    const one = (r) => r && r.pts === 800 && r.gain === 800 && r.n === 1 && r.text === "+800 ×20" && r.x === 2 && r.y === 13.5 && r.held === 1 && r.goneAt.left === 0 && r.goneAt.ms <= 1100;
+    check("demolition-row: a wave's points show where it cleared (+800 ×20 for a four with the star bonus on, the score's change, at its middle), held by a pause and gone in under a second of play, with Visual FX on and off",
+      one(got.on) && one(got.off), got);
+    check("demolition-row: a plain first wave (a four, no chain, no bonus) scores its 40 and shows nothing; a chain with no bonus shows only its second wave, ×2",
+      !!got.on && !!got.on.plain && got.on.plain.gain === 40 && got.on.plain.shown === 0 && !!got.on.chain2 && got.on.chain2.length === 1 && got.on.chain2[0].n === 2 && got.on.chain2[0].pts === 80 && !got.on.chain2[0].bonus,
+      { plain: got.on && got.on.plain, chain2: got.on && got.on.chain2 });
+    check("demolition-row: with Visual FX on the points rise as they fade; with it off they stay where they are",
+      !!got.on && !!got.off && got.on.late != null && got.on.late < got.on.early - 5 && got.off.late === got.off.early, { on: got.on && [got.on.early, got.on.late], off: got.off && [got.off.early, got.off.late] });
+    const ch = got.on && got.on.chain;
+    check("demolition-row: a chain's next wave shows ×2, and with the star bonus on both show ×20 (+800, then +1600)",
+      !!ch && ch.length === 2 && ch[0].pts === 800 && ch[0].n === 1 && ch[0].bonus && ch[1].pts === 1600 && ch[1].n === 2 && ch[1].bonus, ch);
+    check("demolition-row (points): no page errors", !!got.on && !!got.off && !got.on.errs.length && !got.off.errs.length, { on: got.on && got.on.errs, off: got.off && got.off.errs });
   }
 
   await ctx.close();

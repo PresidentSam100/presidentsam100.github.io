@@ -901,8 +901,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Demolition Row, FX on: cleared ice blocks burst into chunks of their
-  // own colour, and a chain's second step pops a "×2" where it cleared, which
-  // swells in and drifts up; FX off: no chunks, and the "×2" holds still
+  // own colour, and a chain's second step pops a "×2" (under its "+N") where
+  // it cleared, which swells in and drifts up; FX off: no chunks, and the
+  // "×2" holds still, only fading
   {
     const got = {};
     for (const off of [false, true]) {
@@ -932,7 +933,8 @@ module.exports = async ({ browser, base, check, lib }) => {
             T += 16; b.update(16, T);
             const coloured = b.debris.filter((d) => d.col), pops = b.pops || [];
             if (b.chain === 1 && coloured.length && !r.chunks1) { r.chunks1 = coloured.length; r.cols1 = [...new Set(coloured.map((d) => d.col))]; }
-            if (pops.length && popAt < 0) { popAt = T; r.pop = { n: pops[0].n }; r.chunks2 = coloured.length; }
+            const two = pops.find((q) => q.n === 2);   // (the chain's second step: the first wave's "+N" came before it)
+            if (two && popAt < 0) { popAt = T; r.pop = { n: two.n, pts: two.pts }; r.chunks2 = coloured.length; }
             if (popAt >= 0) {
               texts.length = 0; R.draw();
               const tx = texts.find((q) => q.s === "×2");
@@ -949,12 +951,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const on = got.on, sOn = seen(on), sOff = seen(got.off), end = sOn[sOn.length - 1];
     check("demolition-row, FX on: four cleared ice blocks burst into chunks of their own colour",
       on.chunks1 === 20 && on.cols1.join() === "#ff8c2b" && on.chunks2 >= 20, { chunks1: on.chunks1, cols1: on.cols1, chunks2: on.chunks2 });
-    check("demolition-row, FX on: the chain's second step pops ×2 where it cleared; it swells past its size, settles, drifts up and fades, then goes",
-      !!on.pop && on.pop.n === 2 && on.banner === "CHAIN x2" && sOn.length >= 30 && Math.max(...sOn.map((q) => q[1])) > end[1] && sOn[0][1] < end[1] && end[2] < sOn[0][2] - 10 && end[3] < 0.5 && gone(on),
+    check("demolition-row, FX on: the chain's second step pops ×2 (with its points) where it cleared; it swells past its size, settles, drifts up and fades, then goes",
+      !!on.pop && on.pop.n === 2 && on.pop.pts > 0 && on.banner === "CHAIN x2" && sOn.length >= 30 && Math.max(...sOn.map((q) => q[1])) > end[1] && sOn[0][1] < end[1] && end[2] < sOn[0][2] - 10 && end[3] < 0.5 && gone(on),
       { pop: on.pop, banner: on.banner, first: sOn[0], peak: Math.max(...sOn.map((q) => q[1])), last: end, left: on.left });
-    check("demolition-row, FX off: no chunks; the ×2 shows at one size in one place, solid, then goes",
-      got.off.chunks1 === 0 && got.off.chunks2 === 0 && !!got.off.pop && got.off.pop.n === 2 && sOff.length >= 30 && new Set(sOff.map((q) => q.slice(1).join())).size === 1 && sOff[0][3] === 1 && gone(got.off),
-      { pop: got.off.pop, first: sOff[0], kinds: new Set(sOff.map((q) => q.slice(1).join())).size, left: got.off.left });
+    check("demolition-row, FX off: no chunks; the ×2 shows at one size in one place, solid, then fades and goes",
+      got.off.chunks1 === 0 && got.off.chunks2 === 0 && !!got.off.pop && got.off.pop.n === 2 && got.off.pop.pts > 0 && sOff.length >= 30 && new Set(sOff.map((q) => q.slice(1, 3).join())).size === 1 &&
+        sOff[0][3] === 1 && sOff[sOff.length - 1][3] < 0.5 && gone(got.off),
+      { pop: got.off.pop, first: sOff[0], last: sOff[sOff.length - 1], kinds: new Set(sOff.map((q) => q.slice(1, 3).join())).size, left: got.off.left });
   }
 
   // ---- Meteor Menace, FX on: a blasted rock cracks into inked chunks that

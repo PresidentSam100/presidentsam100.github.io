@@ -75,7 +75,7 @@
     const DIRS = [[-1,0],[1,0],[0,-1],[0,1]];
     const FALL_ACCEL = 0.00020; // rows per ms^2: gravity for the settle animation
     const FLASH_MS = 150;       // matched group flash duration before it clears
-    const POP_MS = 750;         // how long a chain step's "×2", "×3" shows where it cleared
+    const POP_MS = 900;         // how long a wave's "+N" (and a chain step's "×2"…) shows where it cleared
     const ROT_SPEED = 0.013;    // radians/ms for the rotation animation (~120ms per 90°)
     const SPAWN_MS = 360;       // grow-in animation before a piece is fully active (a "prep" beat)
     const TURN_MS = 240;        // a Crystal turning over to its next color (Visual FX on: drawn only)
@@ -233,6 +233,7 @@
         this.pendingClear = []; this.flashUntil = 0; this.thunderQueue = []; this.ironCrush = false;
         this.allowStars = false; this.allowSlow = true;
         this.fx = []; this.debris = []; this.pops = []; this.shake = 0; this.flash = null;
+        this.clock = 0;   // ms of play: runs only while the game does, so a pause holds what's timed by it
       }
       now() { return performance.now(); }
       bonusActive() { return this.now() < this.bonusUntil; }
@@ -354,6 +355,7 @@
 
       // Per-frame driver: grow-in beat, player control, or settle animation.
       update(dt, t) {
+        this.clock += dt;
         if (!this.alive || this.cleared) return;
         if (this.phase === "spawning") this.tickSpawn(dt);
         else if (this.phase === "control") this.tickFall(dt);
@@ -428,14 +430,15 @@
         const was = this.pendingClear.map(([rr, cc]) => this.grid[rr][cc]); // what's about to go, for its burst
         const r = applyClear(this.grid, this.pendingClear, !ironStep, ironStep, broken); this.addFx(this.pendingClear, was);
         if (broken.length) this.addBreakFx(broken);
-        if (this.chain >= 2) this.addChainPop(this.pendingClear, this.chain);
         if (!this.muted) {
           if (thunderStep) SFX.thunder(); else if (!ironStep) SFX.match(this.chain); // iron already played its own sound
           if (r.stoneCracks > 0) SFX.stoneHit();
           if (r.augSlow > 0) SFX.slow();
           if (r.stars > 0) SFX.star();
         }
-        this.tallyClear(r); this.pendingClear = [];
+        const gain = this.tallyClear(r);
+        this.addPop(this.pendingClear, gain, this.chain, this.bonusActive());
+        this.pendingClear = [];
         // Thunder combo: after the matched group clears, fire each thunder color
         // as its own flash beat: all BEFORE gravity. Only once nothing is left
         // to clear do the blocks fall.
@@ -448,10 +451,12 @@
       }
       tallyClear(r) {
         this.settleTotals.normals += r.normals; this.settleTotals.stones += r.stones; this.settleTotals.stars += r.stars;
-        this.settleGained += this.scoreFor(r, this.chain);
+        const gain = this.scoreFor(r, this.chain);
+        this.settleGained += gain;
         this.settleGaugeGain += (r.normals * this.cfg.pts.normal + r.stones * this.cfg.pts.stone + r.stars * this.cfg.pts.star) * this.chain; // gauge fills by the (pre-bonus) score gained: combos pump it via the chain multiplier
         if (r.augSlow > 0) { this.slowUntil = this.now() + this.cfg.slowDurationMs; this.flashBanner("SLOW", "#43e8ff"); }
         for (const color of r.augThunder) if (this.thunderQueue.indexOf(color) < 0) this.thunderQueue.push(color);
+        return gain;
       }
       finishSettle() {
         if (this.chain > 0) { this.afterClear(this.settleTotals, this.settleGained, this.settleGaugeGain); if (this.chain >= 2) this.flashBanner("CHAIN x" + this.chain, "#46e6a0"); }
@@ -499,12 +504,21 @@
         });
         if (this.debris.length > 600) this.debris.splice(0, this.debris.length - 600);
       }
-      // A chain step's multiplier, "×2", "×3"…, where that step cleared: shown
-      // in both FX modes (how it moves is the renderer's: see draw)
-      addChainPop(coords, n) {
-        const s = this.cfg.cell; let x = 0, y = 0;
-        for (const [r, c] of coords) { x += (c + 0.5) * s; y += (r + 0.5) * s; }
-        this.pops.push({ x: x / coords.length, y: y / coords.length, n, t: this.now() });
+      // What a wave of the clear scored, "+N", where it cleared (in cells), with
+      // the chain step's multiplier ("×2", "×3"…) and the star bonus's "×20":
+      // for a chain's waves and while the bonus is on, not a plain first wave
+      // (most pieces make one; the score shows it). Shown in both FX modes (how
+      // it moves is the renderer's: see draw). One still showing close by (the wave before)
+      // puts this one a little below it, or above it near the floor.
+      addPop(coords, pts, n, bonus) {
+        if (!coords.length || (n < 2 && !bonus)) return;
+        let x = 0, y = 0;
+        for (const [r, c] of coords) { x += c + 0.5; y += r + 0.5; }
+        x /= coords.length; y /= coords.length;
+        for (const q of this.pops) {
+          if (this.clock - q.t < POP_MS * 0.6 && Math.abs(q.x - x) < 2.5 && Math.abs(q.y - y) < 1.4) y = q.y + (q.y + 1.5 > this.cfg.rows - 0.5 ? -1.5 : 1.5);
+        }
+        this.pops.push({ x, y, pts, n, bonus, t: this.clock });
       }
       // A burst of stone shards where a stone block was destroyed.
       addBreakFx(coords) {
@@ -775,20 +789,41 @@
           }
           ctx.globalAlpha = 1;
         }
-        // a chain step's "×2", "×3" where it cleared. Visual FX on: it pops in,
-        // overshooting, and drifts up as it fades; off: it holds still, then goes
+        // a wave's "+N" where it cleared, the chain step's "×2", "×3" (green) and
+        // the star bonus's "×20" (gold) under it. Visual FX on: it pops in,
+        // overshooting, and drifts up as it fades; off: the same text in the
+        // same place for the same time, only fading. Timed by the board's own
+        // clock, so a pause holds it.
+        b.popsDrawn = [];   // (what this frame drew: a test hook)
         if (b.pops.length) {
-          b.pops = b.pops.filter((q) => now - q.t < POP_MS);
+          const pn = b.clock;
+          b.pops = b.pops.filter((q) => pn - q.t < POP_MS);
           const still = reducedMotion();
-          ctx.save(); ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round";
+          ctx.save(); ctx.textBaseline = "middle"; ctx.lineJoin = "round";
           for (const q of b.pops) {
-            const e = now - q.t, size = Math.min(44, 22 + q.n * 4), u = Math.min(1, e / 200);
+            const e = pn - q.t, u = Math.min(1, e / 200);
             const sc = still || u >= 1 ? 1 : 0.4 + 0.6 * u + 0.45 * Math.sin(u * Math.PI);
-            const x = Math.min(W - size, Math.max(size, q.x)), y = Math.max(topY + size, q.y) - (still ? 0 : e * 0.035);
-            ctx.globalAlpha = still ? 1 : Math.min(1, (POP_MS - e) / 250);
-            ctx.font = "700 " + Math.round(size * sc) + "px Quicksand, sans-serif";
-            ctx.lineWidth = 5; ctx.strokeStyle = "rgba(6,22,40,0.9)"; ctx.strokeText("×" + q.n, x, y);
-            ctx.fillStyle = "#46e6a0"; ctx.fillText("×" + q.n, x, y);
+            const P = Math.round(Math.max(16, Math.min(30, cell * 0.62)) * sc), M = Math.round(P * Math.min(1.25, 0.8 + 0.06 * q.n));
+            const mults = []; if (q.n >= 2) mults.push(["×" + q.n, "#46e6a0"]); if (q.bonus) mults.push(["×20", "#ffd23f"]);
+            const top = q.pts ? "+" + q.pts : "";
+            ctx.font = "700 " + P + "px Quicksand, sans-serif"; const tw = top ? ctx.measureText(top).width : 0;
+            ctx.font = "700 " + M + "px Quicksand, sans-serif"; const gap = M * 0.3;
+            const mw = mults.reduce((w, m, i) => w + ctx.measureText(m[0]).width + (i ? gap : 0), 0), half = Math.max(tw, mw) / 2 + 4;
+            const x = Math.min(W - half, Math.max(half, q.x * cell)), h = (top ? P : 0) + (mults.length ? M : 0);
+            const y = Math.max(topY + h / 2 + 4, q.y * cell) - (still ? 0 : e * 0.035);
+            ctx.globalAlpha = Math.max(0, Math.min(1, (POP_MS - e) / 250));
+            b.popsDrawn.push({ text: [top].concat(mults.map((m) => m[0])).filter(Boolean).join(" "), x, y, a: ctx.globalAlpha });
+            ctx.lineWidth = 5; ctx.strokeStyle = "rgba(6,22,40,0.9)";
+            let ly = y - h / 2;
+            if (top) {
+              ctx.textAlign = "center"; ctx.font = "700 " + P + "px Quicksand, sans-serif";
+              ctx.strokeText(top, x, ly + P / 2); ctx.fillStyle = "#f4fbff"; ctx.fillText(top, x, ly + P / 2); ly += P;
+            }
+            if (mults.length) {
+              ctx.textAlign = "left"; ctx.font = "700 " + M + "px Quicksand, sans-serif";
+              let lx = x - mw / 2;
+              for (const [t, col] of mults) { ctx.strokeText(t, lx, ly + M / 2); ctx.fillStyle = col; ctx.fillText(t, lx, ly + M / 2); lx += ctx.measureText(t).width + gap; }
+            }
           }
           ctx.restore();
         }
