@@ -5,7 +5,9 @@
 // a slow load's out-of-order first frame doesn't end a fresh game; a roll
 // slows steadily to a stop, turning till it stops; in a played jar no fruit
 // jumps further in a frame than its speed takes it; and the two paces (the
-// menu, Rolling Boil's drop every second, its own best: see the end).
+// menu, Rolling Boil's drop every second, its own best: see the end); the
+// dashed lines pinned to the jar, still with Visual FX off and drifting with
+// it on; and "FILL LINE" clear of the glass.
 const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (x) { aimX = x; },
     aim: function () { return aimX; },
     cooldown: function () { return dropCd; },
@@ -257,6 +259,60 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar, Slow Simmer: 1 and Enter start it, and a click drops at once where it points",
       simmer.mode === "simmer" && (await q.evaluate(() => window.__drops.length)) === n0 + 1 && simmer.drops.auto === false && Math.abs(simmer.drops.x - 200) <= 2 && simmer.hint, simmer);
     check("jam-jar (paces): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+  // ---- the dashed lines: the aim line's and the fill line's dashes sit on
+  // patterns pinned to the jar, so they don't jump when the next fruit (and
+  // so where the aim line starts) is another size; with Visual FX off they
+  // hold still, with it on they drift at a steady pace, the aim line down
+  // and the fill line to the right. And "FILL LINE" is written inside the
+  // jar, clear of the left pane of glass (its F was under it). The strokes
+  // are read off the canvas calls: a line's phase is where its pattern
+  // starts, as a place on the jar.
+  {
+    const SEEN = () => {
+      const P = CanvasRenderingContext2D.prototype, mv = P.moveTo, st = P.stroke, ft = P.fillText;
+      window.__lines = {}; window.__label = null;
+      P.moveTo = function (x, y) { this.__at = [x, y]; return mv.apply(this, arguments); };
+      P.stroke = function () {
+        if (this.canvas.id === "game" && this.__at) {
+          const d = this.getLineDash().join(",");
+          if (d === "4,8") window.__lines.aim = { s: this.__at[1], o: this.lineDashOffset };
+          if (d === "9,7") window.__lines.fill = { s: this.__at[0], o: this.lineDashOffset };
+        }
+        return st.apply(this, arguments);
+      };
+      P.fillText = function (t, x, y) { if (this.canvas.id === "game" && t === "FILL LINE") window.__label = { x, w: this.measureText(t).width }; return ft.apply(this, arguments); };
+    };
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await pg.addInitScript(SEEN); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
+    const got = await q.evaluate(() => {
+      const ph = (l, P) => ((l.s - l.o) % P + P) % P;
+      const read = () => ({ aim: ph(window.__lines.aim, 12), fill: ph(window.__lines.fill, 16) });
+      __frames(2); __game.start("simmer"); __frames(2);
+      const out = {};
+      // Visual FX off: the same phase whatever the fruit, and still over time
+      window.RM_ON = () => true;
+      out.off = [];
+      for (const tier of [0, 2, 4, 1, 3]) { __game.setQueue(tier, 0); __frames(2); out.off.push(read()); }
+      __frames(60); out.off.push(read());
+      // Visual FX on: half a second moves each pattern on by 9 px (18 a second), the aim line down, the fill line right
+      window.RM_ON = () => false;
+      __frames(2); const a = read(); __frames(30); const b = read();
+      __game.setQueue(4, 0); __frames(30); const cc = read();
+      out.on = { aim: [((b.aim - a.aim) % 12 + 12) % 12, ((cc.aim - b.aim) % 12 + 12) % 12], fill: [((b.fill - a.fill) % 16 + 16) % 16, ((cc.fill - b.fill) % 16 + 16) % 16] };
+      out.label = window.__label;
+      return out;
+    });
+    const same = (k) => got.off.every((v) => Math.abs(v[k] - got.off[0][k]) < 0.01);
+    check("jam-jar: with Visual FX off the aim line's dashes and the fill line's stay put, whatever the size of the next fruit, and hold still over time",
+      same("aim") && same("fill"), got.off);
+    check("jam-jar: with Visual FX on the aim line's dashes drift down and the fill line's to the right, at one steady pace (9 px each half second, a change of fruit too)",
+      got.on.aim.every((d) => Math.abs(d - 9) < 0.2) && got.on.fill.every((d) => Math.abs(d - 9) < 0.2), got.on);
+    check("jam-jar: \"FILL LINE\" is written inside the jar, clear of the left pane of glass",
+      !!got.label && got.label.x >= 58 + 3 && got.label.x + got.label.w < 482 - 60, got.label);
+    check("jam-jar (dashes): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
   }

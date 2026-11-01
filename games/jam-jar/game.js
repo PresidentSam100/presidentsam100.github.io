@@ -807,6 +807,17 @@
     ctx.restore();
   }
 
+  // The two dashed lines run on patterns pinned to the jar, not to where each
+  // line starts, so the aim line's dashes don't jump when the next fruit
+  // (and so the line's top) is a different size. With Visual FX on they
+  // drift at a steady DASH_V px a second (the fill line to the right, the
+  // aim line down); off, they hold still.
+  var DASH_V = 18;
+  function dashOffset(start, period, T) {
+    var o = (start - (reduced() ? 0 : T * DASH_V)) % period;
+    return o < 0 ? o + period : o;
+  }
+
   function draw() {
     ctx.clearRect(0, 0, W, H);
     var T = performance.now() / 1000;
@@ -822,13 +833,15 @@
       ? "rgba(210, 60, 40," + (reduced() ? 0.85 : 0.55 + 0.35 * Math.sin(T * 10)) + ")"
       : "rgba(160, 106, 51, 0.5)";
     ctx.setLineDash([9, 7]);
+    ctx.lineDashOffset = dashOffset(JL - 6, 16, T);
     ctx.lineWidth = warn ? 2.5 : 1.5;
     ctx.beginPath(); ctx.moveTo(JL - 6, LOSE_Y); ctx.lineTo(JR + 6, LOSE_Y); ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.setLineDash([]); ctx.lineDashOffset = 0;
     ctx.font = "700 11px 'Baloo 2', sans-serif";
     ctx.fillStyle = warn ? "rgba(210,60,40,0.9)" : "rgba(160,106,51,0.7)";
     ctx.textAlign = "left";
-    ctx.fillText("FILL LINE", JL - 4, LOSE_Y - 6);
+    // (inside the jar, clear of the left pane of glass drawn over its edge)
+    ctx.fillText("FILL LINE", JL + 5, LOSE_Y - 6);
 
     // aim guide + the fruit waiting to drop
     if (state === "play") {
@@ -836,9 +849,10 @@
       var ax = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
       ctx.strokeStyle = "rgba(90, 50, 24, 0.22)";
       ctx.setLineDash([4, 8]);
+      ctx.lineDashOffset = dashOffset(DROP_Y + r, 12, T);
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
-      ctx.setLineDash([]);
+      ctx.setLineDash([]); ctx.lineDashOffset = 0;
       ctx.globalAlpha = dropCd > 0 ? 0.45 : 1;
       drawSprite(SPRITES[current], ax, DROP_Y);
       ctx.globalAlpha = 1;
