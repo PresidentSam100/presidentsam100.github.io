@@ -384,4 +384,22 @@ module.exports = async ({ browser, base, check, lib }) => {
     s249.left >= s249.barsRight && s249.number && s37.left >= s37.barsRight && !s37.number, { s249, s37 });
   await done(p, "asks / badges");
   await c.close();
+
+  // ---- a kill's points float up where it fell, written "+N", N the points it added
+  {
+    const cx = await lib.newContext(browser);
+    const q = await lib.open(cx, base, "games/spacer/");
+    await q.waitForFunction(() => window.game);
+    await q.evaluate(() => game.startGame());
+    await q.waitForFunction(() => game.enemies && game.enemies.some((e) => !e.killed), null, { timeout: 20000 });
+    const pop = await q.evaluate(() => {
+      const e = game.enemies.find((x) => !x.killed), s0 = game.score, n0 = game.popups.length;
+      game.killEnemy(e);
+      const p = game.popups[game.popups.length - 1];
+      return { text: p && p.text, added: game.score - s0, at: p && Math.round(Math.hypot(p.x - e.x, p.y - e.y)), n: game.popups.length - n0 };
+    });
+    check("spacer: a kill's points read \"+N\" where it fell, N what it added to the score", pop.n === 1 && pop.text === "+" + pop.added && pop.added > 0 && pop.at === 0, pop);
+    await done(q, "points");
+    await cx.close();
+  }
 };

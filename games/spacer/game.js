@@ -2445,7 +2445,7 @@ class Game {
     const diving = ['dive', 'beam', 'return'].includes(boss.state);
     this.addScore(diving ? 1000 : 500);
     this.explosions.push(new Explosion(boss.x, boss.y - CAPTURE_OFFSET, false));
-    this.addPopup(boss.x, boss.y - CAPTURE_OFFSET, 'LOST! ' + (diving ? 1000 : 500), '#ff3b5c');
+    this.addPopup(boss.x, boss.y - CAPTURE_OFFSET, 'LOST! +' + (diving ? 1000 : 500), '#ff3b5c');
     Sound.playerDie();
   }
 
@@ -2462,7 +2462,7 @@ class Game {
         p.dual = true;
         p.invuln = Math.max(p.invuln, 0.6);
         this.addScore(1000);
-        this.addPopup(p.x, p.y - 20, '1000', '#ffd23f');
+        this.addPopup(p.x, p.y - 20, '+1000', '#ffd23f');
         this.freed = null;
         this.pendingDual = false;
         this.announce('Dual fighter! Two ships now.');
@@ -2542,9 +2542,9 @@ class Game {
     this.addScore(pts);
     // show the points, plus an x2 tag (in the Double colour) when it's active
     if (this.player && this.player.hasPower('double'))
-      this.addPopup(e.x, e.y, pts + ' x2', POWER_COLORS.double);
+      this.addPopup(e.x, e.y, '+' + pts + ' x2', POWER_COLORS.double);
     else
-      this.addPopup(e.x, e.y, '' + pts, popupCol);
+      this.addPopup(e.x, e.y, '+' + pts, popupCol);
 
     // canonical: downing a Flagship mid-dive makes all enemies hold fire briefly
     if (e.type === T_BOSS && diving) { this.fireFreeze = 3.0; this.triggerFlash('#ffffff', 0.5); }
@@ -2618,7 +2618,7 @@ class Game {
     if (g.alive <= 0 && !g.done) {
       g.done = true;
       this.addScore(g.bonus); // bonus for downing all three
-      this.addPopup(e.x, e.y, '' + g.bonus, '#ffd23f');
+      this.addPopup(e.x, e.y, '+' + g.bonus, '#ffd23f');
     }
   }
 
@@ -2944,16 +2944,16 @@ class Game {
       this.addScore(100);
       this.explosions.push(new Explosion(e.x, e.y, e.type === T_BOSS));
       if (this.player && this.player.hasPower('double'))
-        this.addPopup(e.x, e.y, '100 x2', POWER_COLORS.double);
+        this.addPopup(e.x, e.y, '+100 x2', POWER_COLORS.double);
       else
-        this.addPopup(e.x, e.y, '100', '#fff');
+        this.addPopup(e.x, e.y, '+100', '#fff');
       Sound.bonusTick();
       e.dead = true;
       // per-wave clear bonus: award once all 8 in a wave have been shot down
       if (e.bonusWave !== undefined && this.bonusWaveShot) {
         if (++this.bonusWaveShot[e.bonusWave] === 8) {
           this.addScore(this.bonusWaveBonus);
-          this.addPopup(WIDTH / 2, 90, 'WAVE CLEAR  ' + this.bonusWaveBonus, '#ffd23f');
+          this.addPopup(WIDTH / 2, 90, 'WAVE CLEAR  +' + this.bonusWaveBonus, '#ffd23f');
           Sound.coin();
         }
       }
