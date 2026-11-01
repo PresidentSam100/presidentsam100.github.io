@@ -1637,8 +1637,6 @@ function drawVehicle(row, it, top) {
     roundRect(facingRight ? bodyX + bodyW - 6 : bodyX + 2, y0 - 23, 4, d - 6, 2); ctx.fill(); // windscreen, the roof's front edge
     ctx.fillStyle = "rgba(0,0,0,.28)"; // where the cab meets the box
     ctx.fillRect(facingRight ? cabX : cabX + cabW - 2, y0 + d - 26, 2, 20);
-    ctx.fillStyle = "#2c2c33"; // the frame rail, one along the whole length
-    roundRect(x + 3, y0 + d - 6, w - 6, 5, 2); ctx.fill();
     ctx.fillStyle = "#fff3b0"; // headlight, leading edge
     ctx.fillRect(facingRight ? x + w - 8 : x + 3, y0 + d - 13, 5, 5);
     ctx.fillStyle = "#e04438"; // taillight, trailing edge

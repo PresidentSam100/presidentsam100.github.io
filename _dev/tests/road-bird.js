@@ -433,6 +433,13 @@ module.exports = async ({ browser, base, check, lib }) => {
             }
             lines[name] = { road, drawn, first };
           }
+          // the truck's foot, just over its wheels: none of the dark grey rail that ran its whole length
+          let dark = 0;
+          for (let wx = x + 6; wx <= x + w - 6; wx++) {
+            const px = Math.round(t.a * wx + t.e), py = Math.round(t.d * (y0 + d - 4) + t.f), i = (py * c.width + px) * 4;
+            if (Math.abs(full[i] - 44) <= 14 && Math.abs(full[i + 1] - 44) <= 14 && Math.abs(full[i + 2] - 51) <= 14) dark++;
+          }
+          lines.foot = { dark };
           out[dir > 0 ? "right" : "left"] = lines;
         }
       } finally {
@@ -444,6 +451,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     check("road-bird: a truck is one vehicle: no road shows between its box and its cab, along its side or over its roof, driving either way",
       !!truck && !truck.noLane && ["right", "left"].every((s) => ["side", "roof"].every((l) => truck[s][l].road === 0 && truck[s][l].drawn > 150)), truck);
+    check("road-bird: a truck has no dark grey line along its foot over the wheels, driving either way",
+      !!truck && !truck.noLane && ["right", "left"].every((s) => truck[s].foot.dark === 0), truck && !truck.noLane ? { right: truck.right.foot, left: truck.left.foot } : truck);
     check("road-bird (truck): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
