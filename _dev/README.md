@@ -88,6 +88,11 @@ files in `games/`; the comment at the top of each says more.
 - `tools/lanterns-build-data.js`: builds Lanterns' word list
   (`games/lanterns/data.js`) from the HSK dataset (a `complete.json` you
   download) and `tools/lanterns-curated.js`, the hand-checked words.
+- `tools/patchword-build-words.js`: builds Patchword's word list
+  (`games/patchword/words.js`) from ENABLE and 12dicts' `3of6game.txt`
+  (both public domain, downloaded first; the comment at its top says where
+  from), with the everyday words marked and the words kept out of it;
+  `--check` compares without writing.
 - `tools/slither-verify.js`: proves every Slither Labyrinth level can be
   finished in time (a level number, `--route`, `--bot`).
 - `tools/tile-maze-verify.js`, `tile-maze-sortlevels.js`, `tile-maze-gen.js`

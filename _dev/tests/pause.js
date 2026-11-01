@@ -253,6 +253,32 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("slither fire eggs: Space lays an egg (no pause), P pauses, Esc doesn't resume, P does", e0 === "⏸ Pause P" && !eggPaused && e1 === "▶ Resume P" && e2 === "▶ Resume P" && e3 === "⏸ Pause P", { e0, eggPaused, e1, e2, e3 });
   await done(p, "slither");
 
+  // ---- Patchword: the ⏸ button (or \) pauses; the block hides (no looking
+  // for words on a stopped clock), the clock stops and letters spell
+  // nothing; Enter resumes with the clock where it was. Esc mid-round, a
+  // word stitched, asks to leave
+  p = await lib.open(ctx, base, "games/patchword/");
+  const pw = () => p.evaluate(() => ({ off: document.querySelector(".gs-pause-btn").getAttribute("aria-disabled"), block: getComputedStyle(document.querySelector(".patch")).visibility,
+    clock: Patchword.left(), typed: Patchword.typed() }));
+  const pwMenu = await pw();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+  await p.evaluate(() => Patchword.stitchAny());
+  await p.keyboard.type("ab");
+  await p.click(".gs-pause-btn");
+  const pwPaused = await pw(), pwCard = await card(p);
+  await p.waitForTimeout(1200);
+  await p.keyboard.type("cd");
+  const pwHeld = await pw();
+  await p.keyboard.press("Enter"); await p.waitForTimeout(300);
+  const pwBack = await pw(), pwGone = !(await card(p));
+  await p.keyboard.press("Escape"); const pwAsk = await asked(p);
+  await p.keyboard.press("Enter"); await boxGone(p);
+  check("patchword: ⏸ dimmed on the menu, live in a round; paused, the block hides, the clock stops and letters spell nothing; Enter resumes with the clock where it was",
+    pwMenu.off === "true" && pwCard && pwPaused.block === "hidden" && pwHeld.clock === pwPaused.clock && pwHeld.typed === "" &&
+    pwGone && pwBack.block === "visible" && pwBack.clock <= pwPaused.clock && pwBack.clock > pwPaused.clock - 1.2, { pwMenu, pwPaused, pwHeld, pwBack, pwGone });
+  check("patchword: Esc mid-round (a word stitched) asks 'Leave this game?', and Enter plays on", pwAsk === "Leave this game?" && p.leaves === 0, { pwAsk, leaves: p.leaves });
+  await done(p, "patchword");
+
   // ---- Typetwo: typing while paused (the ⏸ button) doesn't count, and Enter
   // in the typing box doesn't fire the bomb; Esc is the way out
   p = await lib.open(ctx, base, "games/typetwo/");

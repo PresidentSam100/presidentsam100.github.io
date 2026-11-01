@@ -7,6 +7,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     // [game, how to get into play, a plain key the game claims, combos that must reach the browser]
     ["2048/", null, { key: "s", code: "KeyS" }, [{ key: "s", code: "KeyS", ctrlKey: true }, { key: "d", code: "KeyD", ctrlKey: true }, { key: "ArrowLeft", code: "ArrowLeft", altKey: true }]],
     ["tile-maze/", null, { key: "d", code: "KeyD" }, [{ key: "r", code: "KeyR", ctrlKey: true }, { key: "s", code: "KeyS", ctrlKey: true }]],
+    ["patchword/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }, { key: "q", code: "KeyQ" }, [{ key: "f", code: "KeyF", ctrlKey: true }, { key: "p", code: "KeyP", ctrlKey: true }]],
     ["speedle/", async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(300); }, null, [{ key: "f", code: "KeyF", ctrlKey: true }]],
     ["jam-jar/", null, { key: "p", code: "KeyP" }, [{ key: "p", code: "KeyP", ctrlKey: true }, { key: "ArrowLeft", code: "ArrowLeft", altKey: true }]],
     ["meteor-menace/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }, { key: "a", code: "KeyA" }, [{ key: "d", code: "KeyD", ctrlKey: true }, { key: "p", code: "KeyP", ctrlKey: true }]],

@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" data-letter-keys="off">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%A7%B5%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Patchword</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Titillium+Web:wght@400;600;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Patchword, a word hunt on a quilt: drag from patch to patch across a four by four block to spell as many words as you can before the tape measure runs out. A browser game by Sam Lu." />
+    <meta property="og:title" content="Patchword | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Patchword, a word hunt on a quilt: drag from patch to patch across a four by four block to spell as many words as you can before the tape measure runs out. A browser game by Sam Lu." />
+    <meta property="og:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Sam Lu's site: a little arcade of browser games, with a 2048 tile, a chess knight, an 8 ball, a playing card, a lantern and a mahjong tile" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The sewing table: a cutting mat with its grid and rulers (game.js
+     numbers them), the quilt block on it, the tape measure for a clock and
+     the pattern tissue the stitched words are listed on. -->
+<div class="rulers" id="rulers" aria-hidden="true"></div>
+<main class="table" id="table">
+  <div class="hud" id="hud" hidden>
+    <div class="tape" id="tape" aria-label="Time left">
+      <span class="case"><span class="clock" id="clock">1:30</span></span>
+      <span class="strip"><span class="blade" id="blade"></span></span>
+    </div>
+    <div class="tally"><span><b id="score">0</b> <small>points</small></span><span><b id="count">0</b> <small>words</small></span></div>
+  </div>
+  <div class="work" id="work">
+    <div class="col">
+      <div class="block" id="block" aria-label="A quilt block of four by four patches, a letter on each: drag from patch to patch to spell a word">
+        <svg class="thread" id="thread" aria-hidden="true"></svg>
+        <div class="patches" id="patches"></div>
+      </div>
+      <p class="word" id="word" aria-live="polite"></p>
+    </div>
+    <aside class="tissue" id="tissue" hidden>
+      <p class="tissue-head"><span>stitched</span><span class="grain" aria-hidden="true"></span></p>
+      <ol class="found" id="found"></ol>
+    </aside>
+  </div>
+  <p class="keys" id="keys"><span class="gs-keys">drag across the patches, or type a word: <kbd>Enter</kbd> stitches it, <kbd>⌫</kbd> unpicks a letter</span><span class="gs-touch">drag across the patches, or tap them one by one and tap the last again</span></p>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <h1 class="label"><span>Patchword</span></h1>
+    <p class="tag">stitch words across the quilt</p>
+    <p class="how">
+      Drag from patch to patch, across, down or corner to corner, to spell a word of three
+      letters or more; let go to stitch it. A patch is used once in a word, and <b>Qu</b> is
+      one patch. Or type the word and press Enter. Longer words are worth more:
+    </p>
+    <ul class="scale" aria-label="Points for each length">
+      <li><b>3, 4</b><span>1</span></li><li><b>5</b><span>2</span></li><li><b>6</b><span>3</span></li><li><b>7</b><span>5</span></li><li><b>8+</b><span>11</span></li>
+    </ul>
+    <div class="seg" id="pick-mode">
+      <button type="button" data-v="quick"><b>Quick stitch</b><small>a minute and a half</small></button>
+      <button type="button" data-v="long"><b>Long seam</b><small>three minutes</small></button>
+      <button type="button" data-v="daily"><b>Daily block</b><small id="daily-small">today's block, the same for everyone</small></button>
+    </div>
+    <button type="button" class="playbtn" id="play">Start sewing</button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card end">
+    <h2 id="over-title">Block finished</h2>
+    <p class="big" id="over-score">0</p>
+    <p class="stats" id="over-stats"></p>
+    <p class="best" id="over-best"></p>
+    <div class="row">
+      <button type="button" id="again">Sew again</button>
+      <button type="button" id="share" hidden>Share</button>
+      <button type="button" id="to-menu">Menu</button>
+    </div>
+    <div class="lists">
+      <h3 id="got-head">stitched</h3>
+      <ul class="chips" id="got"></ul>
+      <h3 id="missed-head">missed</h3>
+      <ul class="chips missed" id="missed"></ul>
+    </div>
+  </div>
+</section>
+
+<script src="words.js"></script>
+<script src="rules.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

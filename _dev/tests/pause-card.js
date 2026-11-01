@@ -63,6 +63,10 @@ const table = (lib) => [
     start: async (p) => { await p.evaluate(() => { TidePool.start("pool"); const m = TidePool.rules.anyMove(TidePool.board()); TidePool.swap(m[0], m[1]); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => TidePool.state() === "play" && TidePool.score() === 0 && TidePool.left() === 25 && !GameShell.leaveActive()),
     menu: (p) => p.evaluate(() => TidePool.state() === "menu" && !document.getElementById("menu").hidden) },
+  { name: "patchword", path: "patchword/", asks: true,
+    start: async (p) => { await p.evaluate(() => { Patchword.start("quick"); Patchword.stitchAny(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
+    fresh: (p) => p.evaluate(() => Patchword.state() === "play" && Patchword.score() === 0 && Patchword.found().length === 0 && !GameShell.leaveActive()),
+    menu: (p) => p.evaluate(() => Patchword.state() === "menu" && !document.getElementById("menu").hidden) },
   { name: "mahjong", path: "mahjong/",
     start: async (p) => { await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(300); await p.evaluate(() => Mahjong.removeOnePair()); },
     fresh: (p) => p.evaluate(() => Mahjong.state() === "play" && Mahjong.tilesLeft() === 144 && !GameShell.leaveActive()),
@@ -417,7 +421,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // typed, \ again resumes, and the ⏸ button names it (Departures has its
   // own check)
   {
-    const SLASH = ["lanterns", "typetwo", "speedle", "fish-a-fish"];
+    const SLASH = ["lanterns", "typetwo", "speedle", "patchword", "fish-a-fish"];
     for (const g of GAMES.filter((x) => SLASH.includes(x.name))) {
       const p = await lib.open(ctx, base, "games/" + g.path, { before: async (pg) => { await noFlip(pg); if (g.before) await g.before(pg); } });
       let r = null;

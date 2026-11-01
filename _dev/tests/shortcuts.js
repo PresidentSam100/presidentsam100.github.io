@@ -5,7 +5,7 @@
 // middle of its button, and no page errors.
 
 // Games where letters are gameplay (or M is already taken): only [ and ] work.
-const LETTERS_OFF = new Set(["speedle/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/"]);
+const LETTERS_OFF = new Set(["speedle/", "patchword/", "typetwo/", "lanterns/", "departures/", "fish-a-fish/", "neon-pinball/", "slither/"]);
 // Games whose pause has no key: their ⏸ button names none. (None now: the
 // games with no letter to spare pause on \, a symbol, and their ⏸ wears it.)
 const KEYLESS = new Set([]);

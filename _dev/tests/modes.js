@@ -42,6 +42,7 @@ const MENUS = {
   "minesweeper/": { keys: ["1", "2", "3", "4"] },       // (the tabs' C / D / E leave the page: below)
   "sudoku/": { keys: ["e", "d", "h", "x"] },
   "darkroom/": { keys: ["d"] },
+  "patchword/": { keys: ["1", "2", "3"], enter: true },
   "typetwo/": { keys: ["1", "2", "3"] },                // (◂ ▸ step through the modes too, and Enter starts: the game's own keys)
   "page-turner/": { keys: ["4", "5", "6", "3", "2", "1"], enter: true },   // (the rivals 4 5 6 show only for Party: 3 picks 2 Players, 2 Endless)
 };

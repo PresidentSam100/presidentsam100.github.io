@@ -1,0 +1,306 @@
+/* =====================================================================
+   Patchword: a quilter's sewing table. The page is a self-healing cutting
+   mat in aubergine, its grid, diagonals and ruler numbers printed pale;
+   on it a quilt block of sixteen cotton prints in a navy binding, a felt
+   letter sewn onto each patch, and the word being spelled stitched across
+   them in red thread. The clock is a tape measure reeling in, the words
+   are listed on a sheet of pattern tissue, the cards are quilt labels.
+   Titillium Web for the lettering, Space Mono for the numbers.
+   ===================================================================== */
+
+:root {
+  --mat: #4d2a4a;
+  --mat-deep: #351b33;
+  --line: rgba(236, 214, 240, 0.12);
+  --line-major: rgba(236, 214, 240, 0.28);
+  --ink: #2b1d2a;
+  --plum: #7a3a52;
+  --thread: #c41e3a;
+  --thread-deep: #8f1229;
+  --felt: #f7f0e3;
+  --felt-pick: #ffd166;
+  --felt-ok: #a9d99b;
+  --felt-dup: #c8cfe8;
+  --binding: #2b4677;
+  --binding-deep: #182a4d;
+  --cotton: #fbf6ea;
+  --tissue: #ece1c8;
+  --tissue-ink: #6a5838;
+  --tape: #f3c534;
+  --tape-deep: #c99a12;
+  --sans: "Titillium Web", "Segoe UI", system-ui, sans-serif;
+  --mono: "Space Mono", "Courier New", monospace;
+  --B: 400px;        /* the block, binding and all (game.js sizes it) */
+  --T: 240px;        /* the tissue beside it, or under it */
+  --L: 120px;
+  --bind: 10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: var(--sans); color: var(--ink);
+  background-color: var(--mat);
+  /* the mat's grid: a line every quarter inch, a brighter one every inch */
+  background-image:
+    radial-gradient(ellipse at 50% 35%, rgba(246, 232, 250, 0.1), transparent 65%),
+    linear-gradient(var(--line-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-major) 1px, transparent 1px),
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 100% 100%, 64px 64px, 64px 64px, 16px 16px, 16px 16px;
+  background-position: 0 0, 0 0, 0 0, 0 0, 0 0;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+/* the mat's two cutting diagonals, corner to corner */
+body::before {
+  content: ""; position: fixed; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(to top right, transparent calc(50% - 1px), rgba(236, 214, 240, 0.24) 50%, transparent calc(50% + 1px)),
+    linear-gradient(to bottom right, transparent calc(50% - 1px), rgba(236, 214, 240, 0.18) 50%, transparent calc(50% + 1px));
+}
+.rulers { position: fixed; inset: 0; pointer-events: none; font-family: var(--mono); font-size: 10px; color: rgba(236, 214, 240, 0.55); }
+.rulers span { position: absolute; line-height: 1; }
+
+.nav-back-games {
+  position: fixed; top: 14px; left: 14px; z-index: 50;
+  font-family: var(--sans); font-size: 15px; font-weight: 700; line-height: 1;
+  color: var(--plum); text-decoration: none;
+  background: var(--cotton); border: 1px solid #e3d3c3; border-radius: 4px;
+  box-shadow: 0 2px 0 rgba(58, 20, 36, 0.35);
+  padding: 7px 12px;
+}
+.nav-back-games:hover { filter: brightness(1.04); }
+
+/* ---- the table: everything in play ------------------------------------- */
+.table {
+  --gap: 8px;
+  position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center;
+  padding: 58px 12px 8px; gap: var(--gap); user-select: none; -webkit-user-select: none;
+}
+.table > * { flex: none; }
+.hud { display: flex; align-items: center; gap: 12px; width: var(--W, var(--B)); max-width: 100%; }
+.hud[hidden] { display: none; }
+
+/* the tape measure: a red case with the time on it, the yellow tape
+   reeling back in as the round runs down */
+.tape { flex: 1; display: flex; align-items: center; min-width: 0; height: 40px; }
+.case {
+  flex: none; position: relative; z-index: 1; width: 64px; height: 40px; border-radius: 12px 20px 20px 12px;
+  background: radial-gradient(circle at 40% 35%, #e05050, #a82424 70%); border: 2px solid #741515;
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.28), 0 2px 0 rgba(58, 20, 36, 0.4);
+  display: flex; align-items: center; justify-content: center;
+}
+.clock { font-family: var(--mono); font-weight: 700; font-size: 15px; color: #fff4e6; letter-spacing: 0.02em; }
+.strip { flex: 1; position: relative; height: 22px; margin-left: -4px; min-width: 0; }
+.blade {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 100%; transform-origin: left center;
+  /* inch marks, half inches, quarter inches */
+  background:
+    repeating-linear-gradient(90deg, rgba(30, 20, 10, 0.75) 0 1.5px, transparent 1.5px 32px) 0 0 / 100% 55%,
+    repeating-linear-gradient(90deg, rgba(30, 20, 10, 0.6) 0 1px, transparent 1px 16px) 0 0 / 100% 35%,
+    repeating-linear-gradient(90deg, rgba(30, 20, 10, 0.45) 0 1px, transparent 1px 8px) 0 0 / 100% 20%,
+    linear-gradient(var(--tape), #f7d561 60%, var(--tape-deep));
+  background-repeat: no-repeat;
+  border-radius: 0 2px 2px 0; box-shadow: 0 2px 0 rgba(58, 20, 36, 0.35);
+}
+/* the metal tab on the tape's end */
+.blade::after { content: ""; position: absolute; right: -5px; top: -3px; bottom: -3px; width: 6px; background: linear-gradient(90deg, #d8d8d8, #8e8e8e); border-radius: 1px 2px 2px 1px; }
+.tape.low .case { background: radial-gradient(circle at 40% 35%, #ff6a3d, #c22a0f 70%); }
+html.fx-on .tape.low .case { animation: pw-throb 1s ease-in-out infinite; }
+@keyframes pw-throb { 50% { transform: scale(1.06); } }
+
+.tally { flex: none; display: flex; gap: 10px; }
+.tally span {
+  display: inline-flex; align-items: baseline; gap: 4px; padding: 4px 10px; border-radius: 4px;
+  background: var(--cotton); box-shadow: 0 2px 0 rgba(58, 20, 36, 0.35); color: var(--plum);
+}
+.tally b { font-family: var(--mono); font-size: 18px; color: var(--ink); }
+.tally small { font-size: 12px; font-weight: 600; }
+
+.work, .col { display: flex; flex-direction: column; align-items: center; gap: var(--gap); }
+.work.wide { flex-direction: row; align-items: flex-start; gap: 16px; }
+
+/* ---- the quilt block ------------------------------------------------------ */
+.block {
+  position: relative; flex: none; width: var(--B); height: var(--B); padding: var(--bind);
+  background: var(--binding); border-radius: 6px;
+  box-shadow: inset 0 0 0 2px var(--binding-deep), 0 10px 22px rgba(40, 10, 24, 0.45);
+  touch-action: none; -webkit-touch-callout: none; cursor: pointer;
+}
+/* the binding's own stitching, a little in from its edge */
+.block::before { content: ""; position: absolute; inset: 4px; border: 1.5px dashed rgba(238, 230, 214, 0.55); border-radius: 4px; pointer-events: none; }
+.patches { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, 1fr); width: 100%; height: 100%; }
+body.paused .patches, body.paused .thread, body.paused .word { visibility: hidden; }
+/* paused: the block shows its quilted back, no letters */
+body.paused .block { background: repeating-linear-gradient(45deg, #f2ead9 0 10px, #e9dfca 10px 20px); }
+/* the thread runs under the felt letters, so they read whole */
+.patch { box-shadow: inset 0 0 0 1px rgba(30, 15, 25, 0.28); }
+/* stitched in the ditch: a running stitch round each patch */
+.patch::before { content: ""; position: absolute; inset: 5%; border: 1.5px dashed rgba(255, 252, 244, 0.6); pointer-events: none; }
+.felt {
+  position: absolute; z-index: 2; left: 19%; top: 19%; width: 62%; height: 62%; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #fffaf0, var(--felt) 60%, #e9dfcc);
+  border: 2px dashed #b4566a; box-shadow: 0 2px 0 rgba(30, 15, 25, 0.35);
+  font-weight: 900; font-size: calc(var(--P, 90px) * 0.42); line-height: 1; color: var(--ink);
+  text-transform: uppercase; transition: background-color .12s, transform .12s;
+}
+.felt small { font-size: 0.62em; text-transform: none; margin-left: 0.02em; }
+.patch.on .felt { background: var(--felt-pick); border-color: var(--thread); }
+.block.ok .patch.on .felt { background: var(--felt-ok); border-color: #3f7a34; }
+.block.dup .patch.on .felt { background: var(--felt-dup); border-color: #4a5a94; }
+html.fx-on .patch.on .felt { transform: scale(1.07); }
+/* a word stitched: the patches in it puff up one after another */
+html.fx-on .patch.got .felt { animation: pw-puff .34s ease-out both; animation-delay: calc(var(--k, 0) * 35ms); }
+@keyframes pw-puff { 40% { transform: scale(1.16); } 100% { transform: scale(1); } }
+html.fx-on .block.shake { animation: pw-shake .28s ease-in-out; }
+@keyframes pw-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
+/* the thread, from felt to felt */
+.patch { position: relative; }
+.patch::before { z-index: 1; }
+.thread { position: absolute; z-index: 1; left: var(--bind); top: var(--bind); width: calc(100% - 2 * var(--bind)); height: calc(100% - 2 * var(--bind)); overflow: visible; pointer-events: none; }
+.thread .under { fill: none; stroke: rgba(40, 10, 20, 0.35); stroke-linecap: round; stroke-linejoin: round; }
+.thread .over { fill: none; stroke: var(--thread); stroke-linecap: round; stroke-linejoin: round; }
+.thread .knot { fill: var(--thread); }
+.block.ok .thread .over { stroke: #2f6b26; }
+.block.ok .thread .knot { fill: #2f6b26; }
+.block.dup .thread .over { stroke: #3b4a85; }
+.block.dup .thread .knot { fill: #3b4a85; }
+
+/* ---- the cotton prints (game.js gives each patch one) ------------------- */
+.print-0 { background: linear-gradient(90deg, rgba(196, 48, 60, 0.45) 50%, transparent 50%) 0 0 / 14px 14px, linear-gradient(rgba(196, 48, 60, 0.45) 50%, transparent 50%) 0 0 / 14px 14px, #fbf4ec; }
+.print-1 { background: radial-gradient(circle, #f4efe4 2.2px, transparent 2.9px) 0 0 / 12px 12px, radial-gradient(circle, #f4efe4 2.2px, transparent 2.9px) 6px 6px / 12px 12px, #2a4072; }
+.print-2 { background: repeating-linear-gradient(135deg, #dea125 0 7px, #f3d47c 7px 12px); }
+.print-3 { background: radial-gradient(circle, #f3ead2 1.6px, transparent 2.2px) 0 0 / 10px 10px, radial-gradient(circle, #5f7a4c 1.8px, transparent 2.4px) 5px 5px / 10px 10px, #9db389; }
+.print-4 { background: repeating-linear-gradient(90deg, transparent 0 8px, rgba(240, 200, 90, 0.7) 8px 9px, transparent 9px 18px), repeating-linear-gradient(90deg, rgba(20, 30, 70, 0.5) 0 6px, transparent 6px 18px), repeating-linear-gradient(0deg, rgba(20, 30, 70, 0.5) 0 6px, transparent 6px 18px), #94303a; }
+.print-5 { background: radial-gradient(circle, #fff 1.5px, transparent 2px) 3px 3px / 13px 13px, radial-gradient(circle, #d4557a 2.6px, transparent 3.2px) 9px 9px / 13px 13px, #f3bccb; }
+.print-6 { background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 3px), repeating-linear-gradient(-45deg, rgba(0, 0, 0, 0.08) 0 1px, transparent 1px 4px), #5c7fa9; }
+.print-7 { background: repeating-linear-gradient(90deg, #3c5a8a 0 2px, transparent 2px 6px, #3c5a8a 6px 7px, transparent 7px 16px), #f1e9d6; }
+.print-8 { background: repeating-linear-gradient(90deg, #ec8670 0 5px, #f8c6b5 5px 9px); }
+.print-9 { background: conic-gradient(#8a6cb3 25%, transparent 0 50%, #8a6cb3 0 75%, transparent 0) 0 0 / 12px 12px, #cdbbe0; }
+.print-10 { background: radial-gradient(circle, #fffbea 1.6px, transparent 2.2px) 0 0 / 11px 11px, radial-gradient(circle, #e0752a 1.6px, transparent 2.2px) 5.5px 5.5px / 11px 11px, #f4d05a; }
+.print-11 { background: radial-gradient(ellipse 4.5px 2.2px, #b8dc9c 80%, transparent 100%) 0 0 / 14px 12px, radial-gradient(ellipse 2.2px 4.5px, #3f6a35 80%, transparent 100%) 7px 6px / 14px 12px, #6f9a5e; }
+.print-12 { background: repeating-linear-gradient(90deg, #8a5a3b 0 3px, #6c4328 3px 5px); }
+.print-13 { background: linear-gradient(135deg, #ef8a3c 25%, transparent 25%) -6px 0 / 12px 12px, linear-gradient(225deg, #ef8a3c 25%, transparent 25%) -6px 0 / 12px 12px, linear-gradient(315deg, #ef8a3c 25%, transparent 25%) 0 0 / 12px 12px, linear-gradient(45deg, #ef8a3c 25%, transparent 25%) 0 0 / 12px 12px, #fbe3c9; }
+.print-14 { background: radial-gradient(circle at 40% 40%, #cf2d3a 2.6px, transparent 3.2px) 0 0 / 16px 16px, radial-gradient(circle at 60% 60%, #cf2d3a 2.6px, transparent 3.2px) 3px 4px / 16px 16px, radial-gradient(circle, #4f8a3c 1.3px, transparent 1.8px) 9px 1px / 16px 16px, #fff6e6; }
+.print-15 { background: radial-gradient(circle, #e8c76a 1.8px, transparent 2.4px) 0 0 / 10px 10px, radial-gradient(circle, rgba(232, 199, 106, 0.5) 1.2px, transparent 1.8px) 5px 5px / 10px 10px, #683a5c; }
+
+/* ---- the pattern tissue the words go on -------------------------------- */
+.tissue {
+  position: relative; flex: none; width: var(--T); height: var(--L); overflow-y: auto; overscroll-behavior: contain;
+  padding: 10px 12px 12px; color: var(--tissue-ink);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0)),
+    var(--tissue);
+  border-radius: 2px; box-shadow: 0 6px 14px rgba(40, 10, 24, 0.35);
+  outline: 1.5px dashed rgba(106, 88, 56, 0.55); outline-offset: -6px;
+}
+.tissue[hidden] { display: none; }
+.tissue-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 6px; }
+/* the grainline arrow printed on every pattern piece */
+.grain { flex: 1; max-width: 90px; height: 8px; background: linear-gradient(var(--tissue-ink), var(--tissue-ink)) 0 50% / 100% 1.5px no-repeat; position: relative; opacity: 0.7; }
+.grain::before, .grain::after { content: ""; position: absolute; top: 0; border: 4px solid transparent; }
+.grain::before { left: -4px; border-right-color: var(--tissue-ink); }
+.grain::after { right: -4px; border-left-color: var(--tissue-ink); }
+.found { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.found li { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; font-size: 16px; color: #3d3020; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px dotted rgba(106, 88, 56, 0.4); }
+.found li b { font-family: var(--mono); font-weight: 700; font-size: 13px; color: var(--plum); }
+.found li.flash { background: rgba(196, 30, 58, 0.18); }
+html.fx-on .found li.new { animation: pw-in .3s ease-out; }
+@keyframes pw-in { from { transform: translateX(-10px); opacity: 0; } }
+.found .none { color: rgba(106, 88, 56, 0.75); font-weight: 400; text-transform: none; letter-spacing: 0; border: 0; }
+/* under the block (a narrow screen): the words run across in rows */
+.work:not(.wide) .found { flex-direction: row; flex-wrap: wrap; gap: 3px 12px; }
+.work:not(.wide) .found li { font-size: 14px; border: 0; gap: 4px; }
+
+/* ---- the word being spelled ------------------------------------------- */
+.word {
+  height: 40px; display: flex; align-items: center; justify-content: center; gap: 10px; max-width: 100%;
+  font-weight: 700; font-size: 26px; line-height: 1; letter-spacing: 0.1em; color: var(--cotton); text-transform: uppercase;
+  text-shadow: 0 2px 0 rgba(58, 20, 36, 0.45); white-space: nowrap;
+}
+.word .pts { font-family: var(--mono); font-size: 15px; letter-spacing: 0; padding: 3px 8px; border-radius: 4px; background: var(--cotton); color: var(--plum); text-shadow: none; text-transform: none; }
+.word .note { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; text-transform: none; color: #ffe3ea; }
+.word.ok .pts { background: var(--felt-ok); color: #1f4a18; }
+.word.dup .pts, .word.dup .note { color: #dfe4ff; }
+.word.dup .pts { background: #4a5a94; }
+.word.no { color: #ffd9de; }
+.word.nopath .letters { text-decoration: line-through wavy rgba(255, 217, 222, 0.9) 2px; }
+.keys { font-size: 13px; color: #ffe8ef; text-align: center; font-weight: 600; text-shadow: 0 1px 0 rgba(58, 20, 36, 0.5); max-width: 640px; }
+kbd { font-family: var(--sans); }
+
+/* ---- the cards: quilt labels ---------------------------------------------- */
+.panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 26px 16px; overflow-y: auto; background: rgba(30, 12, 28, 0.4); }
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  position: relative; width: min(460px, 100%); color: var(--ink);
+  background: radial-gradient(circle at 20% 0%, rgba(255, 255, 255, 0.6), transparent 60%), var(--cotton);
+  border: 6px solid var(--binding); border-radius: 6px;
+  box-shadow: 0 16px 34px rgba(40, 10, 24, 0.5);
+  outline: 1.5px dashed var(--thread); outline-offset: -12px;
+  padding: 24px 24px 20px;
+}
+.card h1.label { text-align: center; margin-bottom: 6px; }
+/* the woven name tape, its ends folded under and stitched */
+.label span {
+  display: inline-block; padding: 4px 20px 2px; font-size: 34px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1.1;
+  color: var(--thread); background: #fffdf8; border-left: 3px dashed var(--thread); border-right: 3px dashed var(--thread);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.12), inset 0 0 0 1px #eadfd0;
+}
+.card h2 { font-weight: 900; font-size: 28px; color: var(--binding); text-align: center; }
+.card .tag { text-align: center; font-weight: 700; color: var(--plum); margin-bottom: 10px; }
+.card .how { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
+.scale { list-style: none; display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; }
+.scale li { flex: 1; max-width: 64px; display: flex; flex-direction: column; align-items: center; padding: 3px 4px; border: 1.5px dashed rgba(122, 58, 82, 0.55); border-radius: 4px; }
+.scale b { font-size: 12px; font-weight: 700; color: var(--plum); }
+.scale span { font-family: var(--mono); font-weight: 700; font-size: 16px; }
+.seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+.seg button {
+  font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; color: var(--ink);
+  background: #fffdf7; border: 2px solid #dccbb8; border-radius: 6px; padding: 7px 12px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.seg button b { font-weight: 700; }
+.seg button small { font-size: 13px; color: #6d5a62; text-align: right; }
+.seg button.on { background: var(--binding); border-color: var(--binding-deep); color: var(--cotton); }
+.seg button.on small { color: #d9def0; }
+.playbtn, .card .row button {
+  font-family: inherit; font-weight: 700; cursor: pointer; color: #fffaf2;
+  background: var(--thread); border: 2px solid var(--thread-deep); border-radius: 6px; box-shadow: 0 3px 0 var(--thread-deep);
+}
+.playbtn { width: 100%; font-size: 21px; padding: 8px 12px; }
+.card .row button { font-size: 17px; padding: 7px 14px; }
+.card .row button + button { background: #fffdf7; color: var(--ink); border-color: #dccbb8; box-shadow: 0 3px 0 #c9b59e; }
+.playbtn:active, .card .row button:active { transform: translateY(2px); box-shadow: none; }
+.bests { margin-top: 10px; text-align: center; font-size: 14px; color: #6d5a62; min-height: 18px; }
+.card.end { text-align: center; }
+.card .big { font-family: var(--mono); font-weight: 700; font-size: 46px; line-height: 1.1; margin: 4px 0 0; color: var(--thread); }
+.card .stats { color: #5d4b53; margin-bottom: 8px; }
+.card .best { display: inline-block; font-weight: 700; border: 2px solid #dccbb8; border-radius: 999px; padding: 1px 14px; background: #fffdf7; margin-bottom: 14px; }
+.card .best.record { background: var(--felt-pick); border-color: var(--tape-deep); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+.lists { text-align: left; }
+.lists h3 { font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--plum); margin: 8px 0 5px; }
+.lists h3[hidden], .chips[hidden] { display: none; }
+.chips { list-style: none; display: flex; flex-wrap: wrap; gap: 5px; }
+.chips li { font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.03em; padding: 1px 8px; border-radius: 4px; background: #f1e6d3; color: #3d3020; }
+.chips li b { font-family: var(--mono); font-size: 12px; color: var(--plum); margin-left: 4px; }
+.chips.missed li { background: transparent; border: 1.5px dashed rgba(122, 58, 82, 0.5); color: #6d5a62; }
+
+.gs-pause { background: rgba(30, 12, 28, 0.5); }
+
+@media (max-width: 520px) {
+  .table { padding-top: 54px; --gap: 6px; }
+  .panel { padding-top: 62px; }
+  .card { padding: 20px 18px 16px; outline-offset: -10px; }
+  .label span { font-size: 28px; }
+  .word { font-size: 22px; height: 34px; }
+  .keys { font-size: 12px; }
+  .tally span { padding: 3px 7px; }
+  .tally b { font-size: 16px; }
+  .case { width: 58px; }
+}

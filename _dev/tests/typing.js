@@ -54,6 +54,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     check(g + ": no page errors", p.errs.length === 0, p.errs); await p.close();
   }
 
+  // Patchword: letters spell the word
+  p = await lib.open(ctx, base, "games/patchword/");
+  await p.keyboard.press("Enter"); await p.waitForTimeout(400);
+  a = await st(p);
+  await p.keyboard.press("m"); await p.keyboard.press("v");
+  b = await st(p);
+  const spelt = await p.evaluate(() => Patchword.typed());
+  await p.keyboard.press("BracketLeft"); await p.keyboard.press("BracketRight");
+  c = await st(p);
+  check("patchword mid-game: m / v are letters of the word, [ / ] toggle", b.m === a.m && b.f === a.f && spelt === "mv" && c.m === !a.m && c.f === !a.f, { a, b, c, spelt });
+  check("patchword: no page errors", p.errs.length === 0, p.errs); await p.close();
+
   // Tile Maze editor: brackets in the level-data box are just text
   p = await lib.open(ctx, base, "games/tile-maze/editor.html");
   a = await st(p);
