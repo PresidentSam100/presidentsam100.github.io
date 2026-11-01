@@ -78,18 +78,26 @@
 
   <!-- the two paces: Slow Simmer drops a fruit when you say, Rolling Boil
        once a second by itself (1 2 pick); then on your own or against the
-       CPU's jar (3 4 pick); Enter or Space starts -->
+       CPU's jar (3 4 pick), and against it the CPU's level (5 6 7 pick);
+       Enter or Space starts -->
   <div id="menuScreen" class="overlay hidden">
     <div class="card menu-card">
       <h2>Jam Jar</h2>
       <p class="tag">Two of a kind squish into the next fruit. Don't overflow the jar!</p>
-      <div class="modes" id="pick-mode">
-        <button type="button" data-v="simmer"><b>Slow Simmer</b><small><span class="gs-keys">aim, then click to drop</span><span class="gs-touch">tap where each fruit should drop</span>: take your time</small></button>
-        <button type="button" data-v="boil"><b>Rolling Boil</b><small>a fruit drops every second by itself: just aim</small></button>
-      </div>
-      <div class="modes foes" id="pick-foe">
-        <button type="button" data-v="solo"><b>Solo</b><small>just your jar</small></button>
-        <button type="button" data-v="cpu"><b>vs CPU</b><small>the same fruit</small></button>
+      <div class="picks">
+        <div class="modes" id="pick-mode">
+          <button type="button" data-v="simmer"><b>Slow Simmer</b><small><span class="gs-keys">aim, then click to drop</span><span class="gs-touch">tap where each fruit should drop</span>: take your time</small></button>
+          <button type="button" data-v="boil"><b>Rolling Boil</b><small>a fruit drops every second by itself: just aim</small></button>
+        </div>
+        <div class="modes foes" id="pick-foe">
+          <button type="button" data-v="solo"><b>Solo</b><small>just your jar</small></button>
+          <button type="button" data-v="cpu"><b>vs CPU</b><small>the same fruit</small></button>
+        </div>
+        <div class="modes levels vs-only" id="pick-level">
+          <button type="button" data-v="easy"><b>Easy</b></button>
+          <button type="button" data-v="medium"><b>Medium</b></button>
+          <button type="button" data-v="hard"><b>Hard</b></button>
+        </div>
       </div>
       <button class="btn" id="playBtn">Start a jar ▸</button>
       <p class="menu-best" id="menuBest"></p>

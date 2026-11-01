@@ -399,14 +399,15 @@
   // drop counts the game as lost until it is decided (then put right), so a
   // game walked away from is a loss, and the record can't be padded that way.
   var pending = false;
+  function recKey(m) { return "jamjar_vs_" + m + (level === "medium" ? "" : "_" + level); }   // (Medium keeps the first key)
   function vsRecord(m) {
     try {
-      var o = JSON.parse(store.get("jamjar_vs_" + m, ""));
+      var o = JSON.parse(store.get(recKey(m), ""));
       if (o && typeof o === "object") return { w: o.w | 0, l: o.l | 0, d: o.d | 0 };
     } catch (e) {}
     return { w: 0, l: 0, d: 0 };
   }
-  function vsSave(m, r) { store.set("jamjar_vs_" + m, JSON.stringify(r)); }
+  function vsSave(m, r) { store.set(recKey(m), JSON.stringify(r)); }
   function vsPlayed() { var r = vsRecord(mode); r.l++; vsSave(mode, r); pending = true; }
   function recordText(m) { var r = vsRecord(m); return "won\u00a0" + r.w + ", lost\u00a0" + r.l + (r.d ? ", drawn\u00a0" + r.d : ""); }   // (a count never wraps away from its word)
 
@@ -434,7 +435,7 @@
     document.getElementById("overTitle").textContent = TITLES[res];
     document.getElementById("finalScore").textContent = score;
     document.getElementById("cpuFinal").textContent = other.score;
-    document.getElementById("overBest").textContent = (mode === "boil" ? "Rolling Boil" : "Slow Simmer") + " vs CPU: " + recordText(mode);
+    document.getElementById("overBest").textContent = (mode === "boil" ? "Rolling Boil" : "Slow Simmer") + " vs " + LEVELS[level].name + " CPU: " + recordText(mode);
     document.getElementById("overScreen").classList.remove("hidden");
     refreshHud();
   }
@@ -477,38 +478,81 @@
   // the pile as it lies now. A spot scores for a twin it comes to rest
   // against (more for a bigger pair, and for a fruit there to take the merge
   // on), and against height (far more near the fill line), a smaller fruit
-  // buried under it and odd neighbours. What keeps it beatable: now and then
-  // (CPU_SLIP of its drops) it drops carelessly, anywhere that isn't over the
-  // fill line, and a little noise in the scoring and in its hand.
-  var CPU_NOISE = 70, CPU_HAND = 10, CPU_SLIP = 0.3;
+  // buried under it and odd neighbours. Its level sets how often it drops
+  // carelessly (slip: anywhere that isn't over the fill line), how much noise
+  // there is in its scoring, how far its hand misses, and how much it plans
+  // two fruit at a time (ahead): the one waiting and the next, which you see
+  // too, never anything further.
+  var LEVELS = {
+    easy: { slip: 0.8, noise: 70, hand: 40, ahead: 0, name: "Easy" },
+    medium: { slip: 0.3, noise: 70, hand: 10, ahead: 0, name: "Medium" },
+    hard: { slip: 0, noise: 30, hand: 8, ahead: 0.7, name: "Hard" },
+  };
+  var level = LEVELS[store.get("jamjar_cpu", "")] ? store.get("jamjar_cpu", "") : "medium";
   function choose() {
-    var c = current, r = TIERS[c].r, spot = W / 2, top = -Infinity, i, f, slip = Math.random() < CPU_SLIP;
+    var L = LEVELS[level], c = current, r = TIERS[c].r, spot = W / 2, top = -Infinity, slip = Math.random() < L.slip;
+    var pile = fruits.map(function (f) { return { x: f.x, y: f.y, r: f.r, tier: f.tier }; });
     for (var x = JL + r + 1; x <= JR - r - 1; x += 6) {
-      var y = FLOOR - r;
-      for (i = 0; i < fruits.length; i++) {
-        f = fruits[i];
-        var dx = Math.abs(f.x - x), rr = f.r + r;
-        if (dx < rr) { var yc = f.y - Math.sqrt(rr * rr - dx * dx); if (yc < y) y = yc; }
+      var y = landing(pile, x, r), s;
+      if (slip) { s = Math.random() * 1000; if (y - r < LOSE_Y + 40) s -= 3000; }
+      else {
+        s = spotScore(pile, c, x, y);
+        // two at a time: as good as the best spot for the next fruit on the pile this one leaves
+        if (L.ahead) s += L.ahead * bestSpot(settle(pile, c, x, y), next);
       }
-      var s = slip ? Math.random() * 1000 : -(FLOOR - y) * 0.6;
-      if (y - r < LOSE_Y + 40) s -= 3000;
-      for (i = 0; i < fruits.length && !slip; i++) {
-        f = fruits[i];
-        if (Math.hypot(f.x - x, f.y - y) > f.r + r + 8) continue;
-        if (f.tier === c) {
-          s += 300 + 60 * c;
-          for (var k = 0; k < fruits.length; k++) {
-            var g = fruits[k];
-            if (g.tier === c + 1 && Math.hypot(g.x - f.x, g.y - f.y) < g.r + TIERS[Math.min(c + 1, TIERS.length - 1)].r + 20) { s += 100; break; }
-          }
-        } else if (f.tier < c && f.y > y) s -= 50 * (c - f.tier);
-        else s -= 12 * Math.abs(f.tier - c);
-      }
-      s += (Math.random() - 0.5) * 2 * CPU_NOISE;
+      s += (Math.random() - 0.5) * 2 * L.noise;
       if (s > top) { top = s; spot = x; }
     }
-    spot += (Math.random() + Math.random() - 1) * CPU_HAND;
+    if (slip) cpuSlips++;
+    spot += (Math.random() + Math.random() - 1) * L.hand;
     return Math.max(JL + r + 1, Math.min(JR - r - 1, spot));
+  }
+  var cpuSlips = 0;   // (the careless ones, for the tests)
+  // where fruit of radius r dropped at x comes to rest on the pile
+  function landing(pile, x, r) {
+    var y = FLOOR - r;
+    for (var i = 0; i < pile.length; i++) {
+      var f = pile[i], dx = Math.abs(f.x - x), rr = f.r + r;
+      if (dx < rr) { var yc = f.y - Math.sqrt(rr * rr - dx * dx); if (yc < y) y = yc; }
+    }
+    return y;
+  }
+  function spotScore(pile, c, x, y) {
+    var r = TIERS[c].r, s = -(FLOOR - y) * 0.6;
+    if (y - r < LOSE_Y + 40) s -= 3000;
+    for (var i = 0; i < pile.length; i++) {
+      var f = pile[i];
+      if (Math.hypot(f.x - x, f.y - y) > f.r + r + 8) continue;
+      if (f.tier === c) {
+        s += 300 + 60 * c;
+        for (var k = 0; k < pile.length; k++) {
+          var g = pile[k];
+          if (g.tier === c + 1 && Math.hypot(g.x - f.x, g.y - f.y) < g.r + TIERS[Math.min(c + 1, TIERS.length - 1)].r + 20) { s += 100; break; }
+        }
+      } else if (f.tier < c && f.y > y) s -= 50 * (c - f.tier);
+      else s -= 12 * Math.abs(f.tier - c);
+    }
+    return s;
+  }
+  // the best a fruit c can do anywhere on the pile (a coarser look)
+  function bestSpot(pile, c) {
+    var r = TIERS[c].r, top = -Infinity;
+    for (var x = JL + r + 1; x <= JR - r - 1; x += 12) top = Math.max(top, spotScore(pile, c, x, landing(pile, x, r)));
+    return top;
+  }
+  // the pile once fruit c rests at (x, y), roughly: merged with a twin it touches
+  function settle(pile, c, x, y) {
+    var r = TIERS[c].r, after = pile.slice();
+    for (var i = 0; i < after.length; i++) {
+      var f = after[i];
+      if (f.tier === c && Math.hypot(f.x - x, f.y - y) <= f.r + r + 8) {
+        after.splice(i, 1);
+        if (c + 1 < TIERS.length) after.push({ x: (f.x + x) / 2, y: Math.max(f.y, y), r: TIERS[c + 1].r, tier: c + 1 });
+        return after;
+      }
+    }
+    after.push({ x: x, y: y, r: r, tier: c });
+    return after;
   }
 
   function reset(m) {
@@ -543,9 +587,10 @@
   function paintMenu() {
     document.querySelectorAll("#pick-mode button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === mode); });
     document.querySelectorAll("#pick-foe button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === foe); });
+    document.querySelectorAll("#pick-level button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === level); });
     var s = bestOf("simmer").get(), b2 = bestOf("boil").get(), rs = vsRecord("simmer"), rb = vsRecord("boil");
     document.getElementById("menuBest").textContent = foe === "cpu"
-      ? (rs.w + rs.l + rs.d + rb.w + rb.l + rb.d ? "vs CPU · Slow Simmer: " + recordText("simmer") + " · Rolling Boil: " + recordText("boil") : "no games against the CPU yet")
+      ? (rs.w + rs.l + rs.d + rb.w + rb.l + rb.d ? "vs " + LEVELS[level].name + " CPU · Slow Simmer: " + recordText("simmer") + " · Rolling Boil: " + recordText("boil") : "no games against the " + LEVELS[level].name + " CPU yet")
       : s || b2 ? "best: Slow Simmer " + s + " · Rolling Boil " + b2 : "no jars filled yet";
     relayout();
   }
@@ -1318,11 +1363,14 @@
   document.querySelectorAll("#pick-foe button").forEach(function (b) {
     b.addEventListener("click", function () { foe = b.getAttribute("data-v"); store.set("jamjar_foe", foe); paintMenu(); });
   });
+  document.querySelectorAll("#pick-level button").forEach(function (b) {
+    b.addEventListener("click", function () { level = b.getAttribute("data-v"); store.set("jamjar_cpu", level); paintMenu(); });
+  });
   if (window.GameShell && GameShell.menuKeys) {
-    // the menu: 1 and 2 pick the pace, 3 and 4 Solo or vs CPU, Space or Enter starts
+    // the menu: 1 and 2 pick the pace, 3 and 4 Solo or vs CPU, 5 6 7 the CPU's level (shown against it), Space or Enter starts
     GameShell.menuKeys({
       active: function () { return state === "menu"; },
-      groups: [{ sel: "#pick-mode button", into: "b" }, { sel: "#pick-foe button", into: "b" }], start: "#playBtn", space: true
+      groups: [{ sel: "#pick-mode button", into: "b" }, { sel: "#pick-foe button", into: "b" }, { sel: "#pick-level button", into: "b" }], start: "#playBtn", space: true
     });
     // on the result card Space or Enter is New jar, Backspace the menu (keycaps on the buttons)
     GameShell.menuKeys({
@@ -1428,6 +1476,20 @@
     start: function (m) { reset(m || mode); },
     toMenu: toMenu,
     get foe() { return foe; },
+    get level() { return level; },
+    setLevel: function (v) { level = v; store.set("jamjar_cpu", level); paintMenu(); },
+    // the CPU's pick for a pile laid out here ([{ x, tier }], each resting on
+    // the floor unless it gives its y), the fruit waiting and the next
+    cpuPick: function (pile, c, n) {
+      var r;
+      asCpu(function () {
+        fruits = pile.map(function (q) { var f = makeFruit(q.x, q.y != null ? q.y : FLOOR - TIERS[q.tier].r, q.tier); f.contacted = true; return f; });
+        current = c; next = n;
+        r = choose();
+      });
+      return r;
+    },
+    get cpuSlips() { return cpuSlips; },
     get fast() { return fast; },
     setFoe: function (f) { foe = f; store.set("jamjar_foe", foe); paintMenu(); },
     // both jars as they stand (yours, the CPU's), and the shared run of fruit

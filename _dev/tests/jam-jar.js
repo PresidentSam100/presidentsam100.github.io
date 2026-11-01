@@ -656,4 +656,95 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar (held arrows): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- the CPU's three levels. Against the CPU the menu shows Easy, Medium,
+  // Hard (5 6 7; kept: jamjar_cpu; not shown for Solo). Easy drops carelessly
+  // about 80% of the time, Medium about 30% (as it always has), Hard never;
+  // Hard alone plans two fruit at a time, the one waiting and the next (which
+  // you see too): seeded alike, Medium's picks don't change with the next
+  // fruit and Hard's do. Each level keeps its own record (Medium the first
+  // keys), named on the result card and the menu, all on the games page's
+  // reset list. The menu card fits every phone without scrolling.
+  const RESEED = () => { let s = 1; window.__seed = (n) => { s = n >>> 0; }; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await pg.addInitScript(RESEED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
+    const menu = () => q.evaluate(() => ({ level: __game.level, kept: localStorage.getItem("jamjar_cpu"), state: __game.state,
+      shown: document.getElementById("pick-level").getClientRects().length > 0,
+      caps: [...document.querySelectorAll("#pick-level button b")].map((b) => b.getAttribute("data-gs-key")).join(" "),
+      on: (document.querySelector("#pick-level button.on") || {}).getAttribute ? document.querySelector("#pick-level button.on").getAttribute("data-v") : null }));
+    await q.evaluate(() => __frames(3));
+    const solo = await menu();
+    await q.keyboard.press("7"); await q.evaluate(() => __frames(2));
+    const soloKey = await menu();
+    await q.keyboard.press("4"); await q.evaluate(() => __frames(2));
+    const vs = await menu();
+    await q.keyboard.press("7"); await q.evaluate(() => __frames(2));
+    const hard = await menu();
+    await q.keyboard.press("5"); await q.evaluate(() => __frames(2));
+    const easy = await menu();
+    check("jam-jar: the CPU's level shows on the menu only against it, Medium to begin with; 7 picks Hard and 5 Easy (kept), each wearing its key, none starting a jar",
+      !solo.shown && solo.level === "medium" && soloKey.level === "medium" && vs.shown && vs.on === "medium" && vs.caps === "5 6 7" &&
+      hard.level === "hard" && hard.on === "hard" && hard.kept === "hard" && easy.level === "easy" && easy.kept === "easy" && easy.state === "menu", { solo, soloKey, vs, hard, easy });
+
+    // careless drops: 300 picks a level on the same pile, from one seed
+    const share = await q.evaluate(() => {
+      const out = {}, pile = [{ x: 150, tier: 2 }, { x: 260, tier: 0 }, { x: 400, tier: 3 }];
+      for (const lv of ["easy", "medium", "hard"]) {
+        __game.setLevel(lv); window.__seed(99);
+        const s0 = __game.cpuSlips;
+        for (let i = 0; i < 300; i++) __game.cpuPick(pile, i % 3, (i + 1) % 3);
+        out[lv] = Math.round((__game.cpuSlips - s0) / 3) / 100;
+      }
+      return out;
+    });
+    check("jam-jar: Easy drops carelessly about 80% of the time, Medium about 30%, Hard never (300 picks each)",
+      share.easy >= 0.72 && share.easy <= 0.88 && share.medium >= 0.23 && share.medium <= 0.37 && share.hard === 0, share);
+    // the next fruit: a cherry waiting, a blueberry on the floor at 150. With
+    // a blueberry next (to merge with that one, and then with the cherry) Hard
+    // puts its cherry beside the blueberry; with an apricot next it has no
+    // reason to. Medium, seeded alike, picks the same either way.
+    const ahead = await q.evaluate(() => {
+      const pile = [{ x: 150, tier: 0 }], near = (xs) => Math.round(xs.filter((x) => Math.abs(x - 150) <= 60).length / xs.length * 100) / 100;
+      const picks = (lv, n) => { __game.setLevel(lv); window.__seed(7); const xs = []; for (let i = 0; i < 60; i++) xs.push(Math.round(__game.cpuPick(pile, 1, n))); return xs; };
+      const hb = picks("hard", 0), ha = picks("hard", 4), mb = picks("medium", 0), ma = picks("medium", 4);
+      return { hardNearWithBlueberry: near(hb), hardNearWithApricot: near(ha), mediumSame: mb.join() === ma.join(), hardSame: hb.join() === ha.join() };
+    });
+    check("jam-jar: Hard plans with the next fruit (a blueberry next: its cherry goes beside the blueberry on the floor; an apricot next: mostly not), and Medium's picks don't change with it",
+      ahead.hardNearWithBlueberry >= 0.6 && ahead.hardNearWithApricot <= 0.4 && ahead.mediumSame && !ahead.hardSame, ahead);
+
+    // records per level: Hard in Rolling Boil, won; Easy in Slow Simmer, walked away from
+    const recs = await q.evaluate(() => {
+      __game.setFoe("cpu"); __game.setLevel("hard"); __game.start("boil"); __frames(65);
+      const provisional = localStorage.getItem("jamjar_vs_boil_hard");
+      __game.setVs(null, { out: true, score: 5 }); __game.setVs({ score: 6 });
+      const won = { rec: localStorage.getItem("jamjar_vs_boil_hard"), line: document.getElementById("overBest").textContent };
+      __game.setLevel("easy"); __game.start("simmer"); __game.setAim(200); __game.drop(); __frames(5); __game.toMenu();
+      return { provisional, won, easy: localStorage.getItem("jamjar_vs_simmer_easy"), medium: [localStorage.getItem("jamjar_vs_boil"), localStorage.getItem("jamjar_vs_simmer")],
+        menu: document.getElementById("menuBest").textContent };
+    });
+    const hub = await q.evaluate(() => fetch("../index.html").then((r) => r.text()));
+    check("jam-jar: each level keeps its own record against the CPU (Hard and Easy their own keys, Medium's untouched), named on the result card and the menu, and on the games page's reset list",
+      recs.provisional === '{"w":0,"l":1,"d":0}' && recs.won.rec === '{"w":1,"l":0,"d":0}' && /vs Hard CPU/.test(recs.won.line) &&
+      recs.easy === '{"w":0,"l":1,"d":0}' && recs.medium[0] === null && recs.medium[1] === null && /vs Easy CPU/.test(recs.menu) &&
+      ["jamjar_vs_simmer_easy", "jamjar_vs_boil_easy", "jamjar_vs_simmer_hard", "jamjar_vs_boil_hard"].every((k) => hub.includes('"' + k + '"')) && !/"jamjar_cpu"/.test(hub), recs);
+    check("jam-jar (levels): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  // the menu against the CPU, with a record line showing, fits every screen: no scroll, the heading clear of the corner buttons
+  for (const [w, h, phone] of [[320, 568, 1], [360, 560, 1], [375, 553, 1], [390, 664, 1], [667, 375, 1], [568, 320, 1], [1366, 657, 0], [1280, 600, 0]]) {
+    const c = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/jam-jar/", { before: (pg) => pg.addInitScript(() => {
+      try { localStorage.setItem("jamjar_foe", "cpu"); localStorage.setItem("jamjar_vs_simmer", '{"w":12,"l":10,"d":1}'); localStorage.setItem("jamjar_vs_boil", '{"w":3,"l":14,"d":0}'); } catch (e) {}
+    }) });
+    const m = await q.evaluate((w) => {
+      const ov = document.getElementById("menuScreen"), card = ov.querySelector(".card");
+      const row = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect().bottom);
+      return { levels: document.getElementById("pick-level").getClientRects().length > 0, scroll: ov.scrollHeight - ov.clientHeight, wide: Math.max(document.documentElement.scrollWidth, innerWidth) - w,
+        below: Math.round(card.querySelector("h2").getBoundingClientRect().top - Math.max(...row)), bottom: Math.round(card.getBoundingClientRect().bottom - innerHeight) };
+    }, w);
+    check("jam-jar vs CPU, " + w + "x" + h + ": the menu with the CPU's levels and a record line fits the screen (no scroll, nothing wider, its heading below the corner buttons)",
+      m.levels && m.scroll <= 0 && m.wide <= 0 && m.below >= 0 && m.bottom <= 0, m);
+    await c.close();
+  }
 };
