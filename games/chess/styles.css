@@ -52,9 +52,9 @@ h1 { font-weight:800; letter-spacing:1px; margin:.4rem 0 .2rem; font-size:1.8rem
 .sq.l .coord { color:rgba(80,90,105,.75); }
 .sq.d .coord { color:rgba(226,220,204,.6); }
 /* the 4-player cross: its squares are smaller, so its labels a little larger
-   for their size; where a square is under 28px there's no room for one */
+   for their size (on a phone too, small as the two-player board's are: the
+   move list names its squares by them) */
 #board.four .coord { font-size:calc(var(--sq) * .24); }
-@media (max-width:460px){ #board.four .coord { display:none; } }
 .sq.sel::before { content:""; position:absolute; inset:0; background:var(--sel); opacity:.55; }
 .sq.last::before { content:""; position:absolute; inset:0; background:var(--last); opacity:.42; }
 .sq.check::after { content:""; position:absolute; inset:0; background:radial-gradient(circle, var(--check) 30%, transparent 72%); opacity:.85; }

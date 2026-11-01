@@ -39,11 +39,10 @@
   @keyframes ckPulse { from { opacity:.6; } to { opacity:0; } }
   .hint { fill:var(--move); opacity:.62; pointer-events:none; }
   /* the cells' names on the board's edge: the file on each home-row cell by
-     the rim, the rank on each sector's first file (too small to read on a
-     phone, so not shown there) */
+     the rim, the rank on each sector's first file (on a phone too, small as
+     the two-player board's are: the move list names its cells by them) */
   .lbl { font-size:11px; font-weight:700; text-anchor:middle; dominant-baseline:central; pointer-events:none; font-family:Georgia,"Times New Roman",serif; }
   .lbl.on-l { fill:rgba(80,62,40,.8); } .lbl.on-d { fill:rgba(240,228,204,.75); }
-  @media (max-width:600px){ .lbl { display:none; } }
   .side { display:flex; flex-direction:column; gap:10px; min-width:178px; max-width:230px; }
   .pchip { display:flex; align-items:center; gap:9px; background:var(--panel); border:1px solid var(--line);
     border-radius:10px; padding:8px 11px; font-weight:700; font-size:.92rem; }

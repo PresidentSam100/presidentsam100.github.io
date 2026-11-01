@@ -990,5 +990,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess, FX off: nothing flies, and the trays are the same (each piece in its own colour)", off.flyW === null && off.flyB === null && off.four === null && trays(off), off);
     check("chess (captured colours): no page errors", on.errs.length === 0 && off.errs.length === 0, { on: on.errs, off: off.errs });
   }
+
+  // ---- on a phone the 3- and 4-player boards keep their square names (the
+  // move list names squares by them), as the 2-player board does
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const seen = (sel) => [...document.querySelectorAll(sel)].filter((e) => getComputedStyle(e).display !== "none" && e.getBoundingClientRect().width > 0).length;
+    const html3 = fs.readFileSync(path.join(lib.ROOT, "games/chess/three.html"), "utf8").replace(HOOK3[0], HOOK3[1]);   // (the 3-player hook, as above)
+    const q3 = await lib.open(c, base, "games/chess/three.html", { before: (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html3 })) });
+    const three = await q3.evaluate((seenSrc) => { const seen = eval(seenSrc); __three.start(3); document.getElementById("menu").classList.remove("show");
+      return { all: document.querySelectorAll("#boardSvg .lbl").length, shown: seen("#boardSvg .lbl") }; }, "(" + seen.toString() + ")");
+    const q4 = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+    const four = await q4.evaluate((seenSrc) => { const seen = eval(seenSrc); __chess.start(4, 2); document.getElementById("menu").classList.remove("show");
+      return { all: document.querySelectorAll("#board .coord").length, shown: seen("#board .coord") }; }, "(" + seen.toString() + ")");
+    check("chess: on a 390 px phone the 3- and 4-player boards show their square names (every one), as the 2-player board does",
+      three.all > 0 && three.shown === three.all && four.all > 0 && four.shown === four.all, { three, four });
+    check("chess (phone labels): no page errors", q3.errs.length === 0 && q4.errs.length === 0, [q3.errs, q4.errs]);
+    await c.close();
+  }
   await ctx.close();
 };
