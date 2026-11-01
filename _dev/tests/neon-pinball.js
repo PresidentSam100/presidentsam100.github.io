@@ -3,7 +3,9 @@
 // plunger instead of draining, and a quick tap on LAUNCH plunges properly;
 // keys do nothing under the pause card, and a flipper held when the tab loses
 // focus drops; the ball save starts at the launch and, like the skill shot,
-// waits out a pause; the start card's best is current after a game. Frames
+// waits out a pause; the start card's best is current after a game; a top
+// lane's points show where it was rolled over (rising with Visual FX on, still
+// with it off, held by a pause), and a bumper's (several a second) don't. Frames
 // (and performance.now) are stepped by the test, so physics runs at exactly
 // the refresh rate asked for, however busy the machine is. On a 2× screen the
 // table is drawn at the screen's own resolution.
@@ -144,6 +146,67 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("neon-pinball: (guard) the bonus counts ×mult once, and the best is saved through it", b1.score === 208000 && b1.best === 208000, b1);
   const b3 = await bonusEnd(3);
   check("neon-pinball: on the last ball, an extra ball earned in the bonus count plays on instead of ending the game", b3.state === "ready" && b3.ball === 3 && b3.score === 208000, b3);
+
+  // ---- a top lane rolled over shows its points there: "+1,500", what it
+  // added to the score; it rises as it fades with Visual FX on and only fades
+  // with it off, is gone within a second, and a pause holds it. A bumper hit
+  // (several a second) shows none.
+  const LANE = () => {
+    // a fresh ball dropped slowly through each top lane in turn, until one
+    // scores a plain lane (not the skill shot): its delta, pops and lane
+    for (let i = 0; i < NeonPinball.geom().lanes.length; i++) {
+      NeonPinball.start("classic"); __frames(2); NeonPinball.launchNow(0.9); __frames(3);
+      const l = NeonPinball.geom().lanes[i];
+      NeonPinball.place(l.cx, l.y - l.h / 2 + 2, 0, 40);
+      const s0 = NeonPinball.state().score;
+      let hit = null;
+      for (let k = 0; k < 20 && !hit; k++) { __frames(1); const s = NeonPinball.state().score; if (s !== s0) hit = { delta: s - s0, pops: NeonPinball.pops() }; }
+      if (hit && hit.delta === 1500) return { l: { cx: l.cx, y: l.y, h: l.h }, hit };
+    }
+    return null;
+  };
+  const popRun = (off) => p.evaluate(([off, LANE]) => {
+    if (!NeonPinball.pops) return null;
+    const RM = window.RM_ON; window.RM_ON = () => off;
+    // a bumper: scored, nothing shown
+    NeonPinball.start("classic"); __frames(2); NeonPinball.launchNow(0.9); __frames(3);
+    const bm = NeonPinball.bumpers()[0];
+    NeonPinball.place(bm.x, bm.y - bm.r - 12, 0, 300);
+    const b0 = NeonPinball.state().score;
+    let bump = null;
+    for (let i = 0; i < 30 && !bump; i++) { __frames(1); const s = NeonPinball.state().score; if (s !== b0) bump = { delta: s - b0, pops: NeonPinball.pops().length }; }
+    const lane = eval("(" + LANE + ")")();
+    NeonPinball.over();   // (nothing more scores; the pop plays out)
+    const seen = [];
+    for (let f = 0; f <= 60; f += 10) { seen.push(NeonPinball.pops()[0] || null); __frames(10); }
+    window.RM_ON = RM;
+    return { bump, lane, seen };
+  }, [off, LANE.toString()]);
+  const popOn = await popRun(false), popOff = await popRun(true);
+  const atLane = (r) => !!r && !!r.lane && r.lane.hit.pops.length === 1 && r.lane.hit.pops[0].text === "+1,500" &&
+    Math.abs(r.lane.hit.pops[0].x - r.lane.l.cx) <= 1 && r.lane.hit.pops[0].y <= r.lane.l.y + r.lane.l.h / 2 + 13 && r.lane.hit.pops[0].y >= r.lane.l.y - 30 &&
+    !!r.bump && r.bump.delta % 750 === 0 && r.bump.pops === 0;
+  check("neon-pinball: a top lane rolled over shows \"+1,500\" just under the lane, exactly what it added; a bumper hit shows none",
+    atLane(popOn) && atLane(popOff), { on: popOn && { lane: popOn.lane, bump: popOn.bump }, off: popOff && { lane: popOff.lane, bump: popOff.bump } });
+  check("neon-pinball: with Visual FX on the points rise as they fade; with it off they hold still and only fade; either way they're gone within a second",
+    !!popOn && !!popOff && popOn.seen[2].y < popOn.seen[0].y - 8 && popOn.seen[4].a < 1 && popOn.seen[6] === null &&
+    popOff.seen.slice(0, 5).every((q) => q && q.y === popOff.seen[0].y) && popOff.seen[4].a < 1 && popOff.seen[6] === null,
+    { on: popOn && popOn.seen, off: popOff && popOff.seen });
+  const popPaused = await (async () => {
+    const t0 = await p.evaluate((LANE) => {
+      if (!NeonPinball.pops) return null;
+      const lane = eval("(" + LANE + ")")();
+      return lane && NeonPinball.pops()[0] || null;
+    }, LANE.toString());
+    if (!t0) return { t0 };
+    await p.keyboard.press("p");
+    const held = await p.evaluate(() => { __frames(120); return NeonPinball.pops()[0] || null; });
+    await p.keyboard.press("p");
+    const after = await p.evaluate(() => { NeonPinball.over(); __frames(60); return NeonPinball.pops().length; });
+    return { t0, held, after };
+  })();
+  check("neon-pinball: under the pause card the points stay as they were, and play out once it's put away",
+    !!popPaused.t0 && !!popPaused.held && popPaused.held.t === popPaused.t0.t && popPaused.held.text === popPaused.t0.text && popPaused.after === 0, popPaused);
 
   // ---- the start card's best after a game (above the 208,000 just above)
   const best = await p.evaluate(() => { NeonPinball.start("classic"); NeonPinball.setScore(345678); NeonPinball.over(); document.getElementById("modesBtn").click(); return document.getElementById("startBest").textContent; });

@@ -314,6 +314,26 @@
   let rings = [];
   const RING_S = 0.42;
   const addRing = (x, y, r, color) => { if (!reduced()) rings.push({ x, y, r, color, t: 0 }); };
+  // The points an award adds, at the part that gave them ("+N", what
+  // addScore counts: n × mult), and the multiplier where it goes up ("×N"):
+  // each shows POP_S, rising a little as it fades with Visual FX on, only
+  // fading with it off; one near another stands clear of it. Bumpers,
+  // slings and spinners go unsaid (they score several times a second; the
+  // score shows those). They're on the table's own clock (the loop), so a
+  // pause holds them.
+  let pops = [];
+  const POP_S = 0.9;
+  function popAt(x, y, o) {
+    for (let i = 0; i < 4 && pops.some((q) => q.t < 0.45 && Math.abs(q.x - x) < 34 && Math.abs(q.y - y) < 15); i++) y -= 16;
+    pops.push({ x, y, n: o.n, text: o.text, label: o.label || "", color: o.color || "#ffd23f", t: 0 });
+  }
+  const popText = (q) => q.text || (q.label ? q.label + " " : "") + "+" + q.n.toLocaleString();
+  // where a pop is drawn now, and how strongly: whole for the first half,
+  // then fading; rising 22 units, easing out, with Visual FX on
+  function popLook(q) {
+    const k = Math.min(1, q.t / POP_S);
+    return { y: q.y - (reduced() ? 0 : 22 * (1 - (1 - k) * (1 - k))), a: k < 0.5 ? 1 : Math.max(0, 1 - (k - 0.5) / 0.5) };
+  }
   let skillLane = -1, skillUntil = 0;
   let skillDrawn = "";   // how the last frame drew the skill lane (test hook)
   let comboAt = 0, comboN = 0;
@@ -334,8 +354,11 @@
   // The best is saved the moment the score passes it (not only when a ball
   // drains), so closing the tab mid-game still keeps it
   const keepBest = () => { if (score > best) { best = score; localStorage.setItem("pinball_best", best); } };
-  const addScore = (n) => {
-    score += Math.round(n * mult);
+  // at: where the points were won ({ x, y, label, color }), for their pop
+  const addScore = (n, at) => {
+    const got = Math.round(n * mult);
+    score += got;
+    if (at) popAt(at.x, at.y, Object.assign({ n: got }, at));
     keepBest();
     while (extraAwarded < EXTRA_AT.length && score >= EXTRA_AT[extraAwarded]) {
       extraAwarded++; extraBalls++; ticker("EXTRA BALL", "#46e6a0"); SFX.extra(); flashPulse(0.5, "70,230,160");
@@ -345,12 +368,12 @@
   const flashPulse = (v, c) => { if (!reduced()) { flash = Math.max(flash, v); if (c) flashColor = c; } };
   const addShake = (v) => { if (!reduced()) shake = Math.max(shake, v); };
   // Quick follow-ups on the big shots chain into combos.
-  function majorShot(label) {
+  function majorShot(label, at) {
     const now = playT;
     if (now - comboAt < 2200) {
       comboN = Math.min(comboN + 1, 5);
       const award = comboN * 2500;
-      addScore(award); SFX.combo();
+      addScore(award, at && { x: at.x, y: at.y - 16, label: "COMBO ×" + comboN }); SFX.combo();
       ticker("COMBO x" + comboN + "  +" + (award * mult).toLocaleString(), "#ffd23f");
     } else comboN = 0;
     comboAt = now;
@@ -447,27 +470,32 @@
   }
   function targetHit(t) {
     if (t.down) return;
-    t.down = true; t.lit = 1; addScore(1500); addBonus(400); SFX.target();
+    const at = { x: (t.ax + t.bx) / 2, y: (t.ay + t.by) / 2 - 14 };
+    t.down = true; t.lit = 1; addScore(1500, at); addBonus(400); SFX.target();
     const bankT = T.targets.filter((x) => x.bank === t.bank);
     if (bankT.every((x) => x.down)) {
-      addScore(15000); addBonus(2000); SFX.bankDone(); majorShot("BANK");
+      const mid = { x: bankT.reduce((a, x) => a + x.ax + x.bx, 0) / (2 * bankT.length), y: bankT.reduce((a, x) => a + x.ay + x.by, 0) / (2 * bankT.length) - 14 };
+      addScore(15000, mid); addBonus(2000); SFX.bankDone(); majorShot("BANK", mid);
       if (multiball && jackpotValue === 0) relightJackpot();
       else if (!multiball) onLock("BANK");
       bankT.forEach((x) => (x.resetAt = playT + 1300));
     }
   }
   function laneEnter(l) {
-    const idx = T.lanes.indexOf(l);
+    const idx = T.lanes.indexOf(l), at = { x: l.cx, y: l.y + l.h / 2 + 12 };
     if (skillLane === idx && playT < skillUntil) {
       skillUntil = 0; skillLane = -1;
-      addScore(25000); addBonus(1000);
-      ticker("SKILL SHOT", "#36f5ff"); SFX.skill(); flashPulse(0.5, "54,245,255"); majorShot("SKILL");
+      addScore(25000, Object.assign({ color: "#36f5ff" }, at)); addBonus(1000);
+      ticker("SKILL SHOT", "#36f5ff"); SFX.skill(); flashPulse(0.5, "54,245,255"); majorShot("SKILL", at);
     } else if (playT >= skillUntil) skillUntil = 0;
     if (l.lit) return;
-    l.lit = true; addScore(1500); addBonus(400); SFX.lane();
+    l.lit = true; addScore(1500, at); addBonus(400); SFX.lane();
     if (T.lanes.every((x) => x.lit)) {
       T.lanes.forEach((x) => (x.lit = false));
-      if (mult < 6) { mult++; ticker("MULTIPLIER x" + mult, "#ffd23f"); } addScore(5000); SFX.extra(); updateHUD();
+      // (under the middle of the lanes: the multiplier up, then the award at it)
+      const mid = { x: T.lanes.reduce((a, x) => a + x.cx, 0) / T.lanes.length, y: at.y + 18 };
+      if (mult < 6) { mult++; ticker("MULTIPLIER x" + mult, "#ffd23f"); popAt(mid.x, mid.y, { n: 0, text: "×" + mult, color: "#ff3df0" }); }
+      addScore(5000, mid); SFX.extra(); updateHUD();
     }
   }
   // The flipper buttons also rotate the lit top lanes: lane change.
@@ -478,7 +506,7 @@
     T.lanes.forEach((l, i) => (l.lit = lit[i]));
   }
   function inlaneEnter(l) {
-    l.lit = true; addScore(1000); addBonus(300); SFX.inlane();
+    l.lit = true; addScore(1000, { x: (l.x0 + l.x1) / 2, y: 606 }); addBonus(300); SFX.inlane();
     if (!kickbackLit && T.inlanes.every((x) => x.lit)) {
       kickbackLit = true; T.inlanes.forEach((x) => (x.lit = false));
       ticker("KICKBACK RELIT", "#46e6a0"); SFX.extra();
@@ -488,15 +516,16 @@
     if (o.side === "L" && kickbackLit) {
       kickbackLit = false; kickbackFlash = 1;
       b.x = T.kicker.x; b.vx = 10; b.vy = -1500;
-      addScore(2500); ticker("KICKBACK", "#46e6a0"); SFX.kickback(); addShake(4); flashPulse(0.3, "70,230,160");
+      addScore(2500, { x: T.kicker.x + 6, y: T.kicker.y - 24, color: "#46e6a0" }); ticker("KICKBACK", "#46e6a0"); SFX.kickback(); addShake(4); flashPulse(0.3, "70,230,160");
       return;
     }
-    addScore(2500); addBonus(500); SFX.outlane();
+    addScore(2500, { x: (o.x0 + o.x1) / 2 + (o.side === "L" ? 10 : -10), y: o.y0 + 6 }); addBonus(500); SFX.outlane();
     ticker(o.side === "L" ? "LEFT OUTLANE" : "RIGHT OUTLANE", "#9b8ec9");
   }
-  function loopPass(fromId) {
-    addScore(5000); addBonus(600); SFX.loop(); flashPulse(0.22, "255,210,63");
-    ticker("LOOP", "#ffd23f"); majorShot("LOOP");
+  function loopPass(lp) {
+    const at = { x: (lp.x0 + lp.x1) / 2, y: (lp.y0 + lp.y1) / 2 };
+    addScore(5000, at); addBonus(600); SFX.loop(); flashPulse(0.22, "255,210,63");
+    ticker("LOOP", "#ffd23f"); majorShot("LOOP", at);
   }
   function spinnerPass(sp, speed) {
     const n = Math.max(1, Math.round(speed / 130));
@@ -505,17 +534,18 @@
   function captureBall(b, sc) {
     b.captured = sc; b.captureT = playT + 650; b.vx = b.vy = 0;
     sc.lit = 1; SFX.scoop();
+    const at = { x: sc.x, y: sc.y - sc.r - 10 };
     if (multiball && sc.kind === "lock") {
       if (jackpotValue > 0) {
-        addScore(jackpotValue); ticker("JACKPOT " + (jackpotValue * mult).toLocaleString(), "#36f5ff");
-        SFX.jackpot(); flashPulse(0.6, "54,245,255"); addShake(4); majorShot("JACKPOT");
+        addScore(jackpotValue, Object.assign({ label: "JACKPOT", color: "#36f5ff" }, at)); ticker("JACKPOT " + (jackpotValue * mult).toLocaleString(), "#36f5ff");
+        SFX.jackpot(); flashPulse(0.6, "54,245,255"); addShake(4); majorShot("JACKPOT", at);
         mbJackpots++;
         jackpotValue = 0;   // relight it at the bumpers or a bank
-      } else addScore(sc.value);
+      } else addScore(sc.value, at);
       return;
     }
-    addScore(sc.value); addBonus(800);
-    majorShot("SCOOP");
+    addScore(sc.value, at); addBonus(800);
+    majorShot("SCOOP", at);
     if (sc.kind === "lock") onLock(sc.label || "LOCK");
   }
   function relightJackpot() {
@@ -650,7 +680,7 @@
           b.zone[key] = true;
           if (b.vy < -120) b.loopFrom = { id: lp.id, at: playT };
           else if (b.vy > 120 && b.loopFrom && b.loopFrom.id !== lp.id && playT - b.loopFrom.at < 1700) {
-            b.loopFrom = null; loopPass(lp.id);
+            b.loopFrom = null; loopPass(lp);
           }
         } else if (!inside) b.zone[key] = false;
       });
@@ -860,6 +890,19 @@
       ctx.strokeStyle = "#534a73"; ctx.strokeRect(396, 692, 10, 60);
     }
 
+    // the points just won, under the balls (so none ever hides one)
+    if (pops.length) {
+      ctx.font = "900 15px Orbitron, system-ui, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.lineJoin = "round"; ctx.lineWidth = 4; ctx.strokeStyle = "rgba(8,4,24,0.9)";
+      pops.forEach((q) => {
+        const lk = popLook(q), txt = popText(q);
+        ctx.globalAlpha = lk.a;
+        ctx.strokeText(txt, q.x, lk.y);
+        ctx.fillStyle = q.color; ctx.fillText(txt, q.x, lk.y);
+      });
+      ctx.globalAlpha = 1;
+    }
+
     // balls (with Visual FX on, a comet tail: a ribbon of the table's neon,
     // glowing, with a white core, both tapering away behind the ball)
     balls.forEach((b) => {
@@ -923,6 +966,7 @@
     }
     // (a ring plays out whatever happens next: the ball draining, the game ending)
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t >= RING_S) rings.splice(i, 1); }
+    for (let i = pops.length - 1; i >= 0; i--) { pops[i].t += dt; if (pops[i].t >= POP_S) pops.splice(i, 1); }
     draw(); requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -987,7 +1031,7 @@
     AC(); currentMode = mode || currentMode;
     T = TABLES[currentMode]();
     flippers = T.flipperSpecs.map(instFlip);
-    score = 0; ballNum = 1; locks = 0; hudCache = ""; extraBalls = 0; extraAwarded = 0; rings = [];
+    score = 0; ballNum = 1; locks = 0; hudCache = ""; extraBalls = 0; extraAwarded = 0; rings = []; pops = [];
     $("startScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
     startBall();
   }
@@ -1028,6 +1072,9 @@
     launchNow: (p) => { plunger.charge = p == null ? 0.9 : p; launch(); },
     setScore: (n) => { addScore(n); },
     lockNow: () => onLock("TEST"),
+    // the points on the table now: their text, where they're drawn and how strongly
+    pops: () => pops.map((q) => { const lk = popLook(q); return { text: popText(q), x: Math.round(q.x), y: +lk.y.toFixed(2), a: +lk.a.toFixed(3), t: +q.t.toFixed(3) }; }),
+    bumpers: () => T.bumpers.map((bm) => ({ x: bm.x, y: bm.y, r: bm.r })),
     geom: () => ({ flippers: flippers.map((f) => ({ px: f.px, py: f.py, len: f.len, theta: f.theta })), kicker: T.kicker, scoops: T.scoops, lanes: T.lanes, walls: T.walls.length }),
   };
 })();
