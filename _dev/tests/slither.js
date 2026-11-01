@@ -9,7 +9,7 @@ const path = require("path");
 const G_HOOK = ["  var G = {", "  var G = window.__G = {"];
 // every tone the page plays, as [freq, dur, type, …]
 const TONE_HOOK = ["    tone: tone,", "    tone: function () { (window.__tones = window.__tones || []).push([].slice.call(arguments)); return tone.apply(null, arguments); },"];
-const LAB_HOOK = ["  function inProgress() {", "  window.__lab = { st: function () { return st; }, tally: function (t) { tally = t; }, blastTally: function (t) { blastTally = t; } };\n  function inProgress() {"];
+const LAB_HOOK = ["  function inProgress() {", "  window.__lab = { st: function () { return st; }, tally: function (t) { tally = t; }, blastTally: function (t) { blastTally = t; }, effects: function () { return effects; } };\n  function inProgress() {"];
 
 // A wide open level with an amber click-switch and door, for the Labyrinth keys
 const TEST_LEVEL = {
@@ -306,6 +306,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   const chase2 = await chaseEnd(p);
   check("slither maze chase: the first end card has no best line (not \"Best 0\")", /^Score 0 /.test(chase1) && !/Best/.test(chase1), chase1);
   check("slither maze chase: with a best saved, the end card shows it (guard)", /Best 500/.test(chase2), chase2);
+  await p.close();
+
+  // ---- a sunstone eaten says what it's worth where it lay (every bead made
+  // a sunstone, the guardians kept home, so the first step eats one)
+  p = await lab();
+  await p.click('[data-mode="lab"]'); await p.waitForTimeout(200);
+  await openPanel(p, "Maze Chase", "^👻"); await p.waitForTimeout(300);
+  const sun0 = await p.evaluate(() => {
+    const st = __lab.st();
+    st.guards.forEach((g) => { g.timer = 1e9; });
+    Object.keys(st.items).forEach((k) => { if (st.items[k] === "bead") st.items[k] = "sunstone"; });
+    return st.chase.score;
+  });
+  for (const k of ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]) {
+    await p.keyboard.press(k);
+    if (await p.waitForFunction((s0) => __lab.st().chase.score > s0, sun0, { timeout: 1500 }).then(() => true, () => false)) break;
+  }
+  const sun = await p.evaluate((s0) => { const pop = __lab.effects().find((e) => e.text && /^\+/.test(e.text)); return { gained: __lab.st().chase.score - s0, text: pop && pop.text }; }, sun0);
+  check("slither maze chase: a sunstone eaten says \"+50\" where it lay", sun.text === "+50" && sun.gained >= 50, sun);
+  check("slither maze chase (sunstone): no page errors", p.errs.length === 0, p.errs);
   await p.close();
   p = await classic();
   await p.click("#play-btn");   // (heading right, into the wall; an apple may lie in the way)

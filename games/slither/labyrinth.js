@@ -794,10 +794,10 @@ window.SlitherLabyrinth = function (host) {
         case "win": onWin(); break;
         // maze chase
         case "bead": sfx.bead(); break;
-        case "sunstone": sfx.sunstone(); burst(e.at, "#ffd36e"); break;
-        case "guardEaten": sfx.bite(); popup(e.at, String(e.points), Art.rgb(Art.GUARDIANS[e.persona % 4].light)); break;
+        case "sunstone": sfx.sunstone(); burst(e.at, "#ffd36e"); popup(e.at, "+" + e.points, "#ffd36e"); break;   // (a few a maze: a bead's 10 goes unsaid)
+        case "guardEaten": sfx.bite(); popup(e.at, "+" + e.points, Art.rgb(Art.GUARDIANS[e.persona % 4].light)); break;
         case "bonusSpawn": burst(e.at, "#f2c037"); break;
-        case "bonus": host.SFX.eat(); popup(e.at, String(e.points), "#f2c037"); break;
+        case "bonus": host.SFX.eat(); popup(e.at, "+" + e.points, "#f2c037"); break;
         case "extraLife": sfxOneUp(); break;
         case "flip": if (e.ctrl) sfx.flipEnd(); break;
         // fire eggs

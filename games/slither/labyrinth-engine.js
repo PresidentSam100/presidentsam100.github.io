@@ -1167,8 +1167,9 @@
     if (it === "bead" || it === "sunstone") {
       delete st.items[n];
       C.left--; C.eaten++;
-      chaseScore(st, it === "bead" ? CHASE.bead : CHASE.sunstone);
-      st.events.push({ type: it, at: n });
+      var pts = it === "bead" ? CHASE.bead : CHASE.sunstone;
+      chaseScore(st, pts);
+      st.events.push({ type: it, at: n, points: pts });
       if (it === "sunstone") chaseFright(st);
       var due = CHASE.bonusAt.some(function (f) { return C.eaten === Math.round(st.lv.beads * f); });
       if (due && C.left && !st.items[st.lv.start]) {
