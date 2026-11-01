@@ -77,8 +77,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("fish-a-fish/", off, (pg) => lib.injectScript(pg, "games/fish-a-fish/game.js", [["    start: start, toMenu: toMenu, press: press,",
-        "    start: start, toMenu: toMenu, press: press,\n    get drops() { return drops.length; }, get popups() { return popups.map(function (q) { return q.text; }); },"]]));
-      got[off ? "off" : "on"] = await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.press(0); return { drops: FishAFish.drops, popups: FishAFish.popups }; });
+        "    start: start, toMenu: toMenu, press: press,\n    get drops() { return drops.length; },"]]));
+      got[off ? "off" : "on"] = await p.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); FishAFish.press(0); return { drops: FishAFish.drops, popups: FishAFish.popups().map((q) => q.text) }; });
       await done(p, "fish-a-fish splash FX " + (off ? "off" : "on"));
     }
     check("fish-a-fish: a strike on empty water sprays with FX on and not with FX off; the -2 shows in both",

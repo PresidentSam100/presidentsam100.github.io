@@ -247,4 +247,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close(); await c.close();
   }
   check("fish-a-fish: on short screens the menu leaves nothing out to fit: the how-to is shown and the whole card (Cast off, the bests) is inside the window", shortBad.length === 0, shortBad);
+
+  // ---- the fifth catch in a row says "streak ×2!" at that fish, over its
+  // points (it used to be in the middle of the water)
+  {
+    const cx = await lib.newContext(browser);
+    const p = await open(cx);
+    const got = await p.evaluate(() => {
+      FishAFish.start("daybreak"); FishAFish.hold();
+      const at = FishAFish.geometry()[2];
+      for (let i = 0; i < 5; i++) { FishAFish.force(2, "perch", "bite", 9); FishAFish.press(2); }
+      const ps = FishAFish.popups(), st = ps.find((q) => /^streak/.test(q.text)), last = ps.filter((q) => /^\+/.test(q.text)).pop();
+      return { streak: FishAFish.state().streak, text: st && st.text, dx: st && Math.round(st.x - at.x), above: !!st && !!last && st.y < last.y, x: at.x };
+    });
+    check("fish-a-fish: the fifth catch in a row writes \"streak ×2!\" at that fish, over its points", got.streak === 5 && got.text === "streak ×2!" && got.dx === 0 && got.above, got);
+    await done(p, "streak at the fish");
+    await cx.close();
+  }
 };

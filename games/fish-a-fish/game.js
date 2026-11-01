@@ -256,7 +256,9 @@
         splashDrops(s.x, s.y, 10);
         s.phase = "idle";
         SFX.catchIt(pts);
-        if (streak === 5 || streak === 10) { popup(W / 2, waterY + (H - waterY) * 0.08, "streak ×" + mult() + "!", "gold"); SFX.streak(); }
+        // the streak's new multiplier (from the next catch on), at the fish that
+        // made it: popup() stacks it over the catch's points
+        if (streak === 5 || streak === 10) { popup(s.x, s.y - s.r * 3.2, "streak ×" + mult() + "!", "gold"); SFX.streak(); }
       }
     } else if (s.phase === "hint") {
       s.phase = "idle";
@@ -620,5 +622,7 @@
     tags: function () { return spots.map(tagLabel); },
     // spots whose steady (Visual FX off) escape warning was drawn last frame
     cues: function () { return { escapeWarn: cues.escapeWarn.slice() }; },
+    // the words floating up now, and where they were put
+    popups: function () { return popups.map(function (p) { return { text: p.text, x: p.x, y: p.y }; }); },
   };
 })();
