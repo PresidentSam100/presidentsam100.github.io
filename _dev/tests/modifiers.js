@@ -9,7 +9,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["tile-maze/", null, { key: "d", code: "KeyD" }, [{ key: "r", code: "KeyR", ctrlKey: true }, { key: "s", code: "KeyS", ctrlKey: true }]],
     ["patchword/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }, { key: "q", code: "KeyQ" }, [{ key: "f", code: "KeyF", ctrlKey: true }, { key: "p", code: "KeyP", ctrlKey: true }]],
     ["speedle/", async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(300); }, null, [{ key: "f", code: "KeyF", ctrlKey: true }]],
-    ["jam-jar/", null, { key: "p", code: "KeyP" }, [{ key: "p", code: "KeyP", ctrlKey: true }, { key: "ArrowLeft", code: "ArrowLeft", altKey: true }]],
+    ["jam-jar/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }, { key: "p", code: "KeyP" }, [{ key: "p", code: "KeyP", ctrlKey: true }, { key: "ArrowLeft", code: "ArrowLeft", altKey: true }]],
     ["meteor-menace/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }, { key: "a", code: "KeyA" }, [{ key: "d", code: "KeyD", ctrlKey: true }, { key: "p", code: "KeyP", ctrlKey: true }]],
     ["salvo/", null, { key: "r", code: "KeyR" }, [{ key: "r", code: "KeyR", ctrlKey: true }, { key: "a", code: "KeyA", ctrlKey: true }]],
     ["typetwo/", async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(500); await p.evaluate(() => document.activeElement.blur()); }, { key: "q", code: "KeyQ" }, [{ key: "f", code: "KeyF", ctrlKey: true }]],

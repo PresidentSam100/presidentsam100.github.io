@@ -46,6 +46,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     "demolition-row/": "#menu .card h2",
     "toy-tanks/": "#menu .card h2",
     "switcheroo/": ".card h1",
+    "jam-jar/": ".menu-card h2",
     "page-turner/": ".card h1",
   };
   {
@@ -125,7 +126,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["toy-tanks", [".hud", ".chip.lives", "#hint"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
     ["jackblack", [".plaque", ".print"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
     ["departures", ["#desk label", "#hint"], async (p) => { await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(200); await p.evaluate(() => Departures.type("niger")); await p.waitForTimeout(100); }],
-    ["jam-jar", [".hint-panel", ".hint-panel .hint", "#chain"], null],
+    ["jam-jar", [".hint-panel", ".hint-panel .hint", "#chain"], async (p) => { await p.keyboard.press("Enter"); await p.waitForTimeout(300); }],
     ["speedle", ["header.top p", ".key[data-pts]::after"], async (p) => { await p.click("#m-sprint"); await p.waitForTimeout(300); }],
     ["click-tap", ["header.top p"], null],
     ["slither", [".subtitle"], null],

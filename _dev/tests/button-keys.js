@@ -51,7 +51,7 @@ const CARDS = {
   "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Space or Enter"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
   "hash/": [["#ovBtn", "Space or Enter"]],
-  "jam-jar/": [["#againBtn", "Space or Enter"]],
+  "jam-jar/": [["#againBtn", "Space or Enter"], ["#modesBtn", "⌫"]],
   "steamfitter/": [["#againBtn", "Space or Enter"]],
   "salvo/": [["#againBtn", "Space or Enter"]],
   "sunset-slice/": [["#again", "Space or Enter"], ["#restart", "R"], ["#quit", "⌫"]],

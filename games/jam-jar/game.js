@@ -307,25 +307,57 @@
   buildSprites();
 
   // ---- state -----------------------------------------------------------------
-  var best = window.GameShell ? GameShell.best("jamjar_best", { higher: true }) : { get: function () { return 0; }, submit: function () {} };
+  // Two paces. Slow Simmer: a fruit drops when you click (or tap, or press
+  // Space). Rolling Boil: one drops by itself every BOIL_S seconds wherever
+  // you're aiming, and a click only aims. Each keeps its own best.
+  var MODES = { simmer: "jamjar_best", boil: "jamjar_best_boil" }, BOIL_S = 1;
+  var store = window.GameShell ? GameShell.store : { get: function (k, f) { return f; }, set: function () {} };
+  var mode = store.get("jamjar_mode", "simmer");
+  if (!MODES[mode]) mode = "simmer";
+  var bests = {};
+  function bestOf(m) {
+    if (!bests[m]) bests[m] = window.GameShell ? GameShell.best(MODES[m], { higher: true }) : { get: function () { return 0; }, submit: function () {} };
+    return bests[m];
+  }
+  var best = bestOf(mode);
   var fruits = [], particles = [];
-  var state = "play"; // play | over
+  var state = "menu"; // menu | play | over
   var dropped = false; // a fruit has gone into this jar (until then leaving doesn't ask, see the pause)
-  var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0;
+  var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0, boilT = BOIL_S;
   var runBest = 0; // the best as this jar began (the stored one climbs mid-run, see applyMerge)
   var current = 0, next = 0;
   function rndTier() { var r = Math.random(); return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
 
-  function reset() {
+  function reset(m) {
+    if (MODES[m]) { mode = m; store.set("jamjar_mode", mode); }
+    best = bestOf(mode);
+    document.body.dataset.mode = mode;
     fruits = []; particles = [];
-    score = 0; dropCd = 0; dangerT = 0; state = "play"; dropped = false;
+    score = 0; dropCd = 0; dangerT = 0; boilT = BOIL_S; state = "play"; dropped = false;
     runBest = best.get();
     current = rndTier(); next = rndTier();
     refreshHud();
     drawChain();
     document.getElementById("overScreen").classList.add("hidden");
+    document.getElementById("menuScreen").classList.add("hidden");
+    aiming();
   }
+  // the menu: an empty jar behind the two paces, the last one played picked
+  function toMenu() {
+    state = "menu"; fruits = []; particles = []; dangerT = 0;
+    document.getElementById("overScreen").classList.add("hidden");
+    document.getElementById("menuScreen").classList.remove("hidden");
+    paintMenu();
+    aiming();
+  }
+  function paintMenu() {
+    document.querySelectorAll("#pick-mode button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-v") === mode); });
+    var s = bestOf("simmer").get(), b2 = bestOf("boil").get();
+    document.getElementById("menuBest").textContent = s || b2 ? "best: Slow Simmer " + s + " · Rolling Boil " + b2 : "no jars filled yet";
+  }
+  // (Rolling Boil, in play: a finger slid on the jar aims instead of scrolling the page)
+  function aiming() { document.body.classList.toggle("aiming", state === "play" && mode === "boil"); }
 
   function makeFruit(x, y, tier) {
     var r = TIERS[tier].r;
@@ -337,15 +369,17 @@
              rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
 
-  function drop() {
-    if (state !== "play" || dropCd > 0 || P.isPaused()) return;
+  // auto: Rolling Boil's own drop (there a click, a tap or a key only aims)
+  function drop(auto) {
+    if (state !== "play" || P.isPaused() || (mode === "boil") !== !!auto) return;
+    if (dropCd > 0 && !auto) return;
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     fruits.push(makeFruit(x, DROP_Y, current));
     dropped = true;
     sfxDrop();
     current = next; next = rndTier();
-    dropCd = 0.45;
+    dropCd = auto ? 0 : 0.45;
     refreshHud();
   }
 
@@ -742,6 +776,7 @@
   var OVER_WAIT = 700, overAt = 0;
   function gameOver() {
     state = "over";
+    aiming();
     overAt = performance.now();
     best.submit(score);
     sfxOver();
@@ -807,6 +842,17 @@
       ctx.globalAlpha = dropCd > 0 ? 0.45 : 1;
       drawSprite(SPRITES[current], ax, DROP_Y);
       ctx.globalAlpha = 1;
+      // Rolling Boil: a ring round it closes as its second runs out (the
+      // same with Visual FX on or off: it tells the time)
+      if (mode === "boil") {
+        var left = Math.max(0, Math.min(1, boilT / BOIL_S));
+        ctx.lineWidth = 4; ctx.lineCap = "round";
+        ctx.strokeStyle = "rgba(160, 106, 51, 0.25)";
+        ctx.beginPath(); ctx.arc(ax, DROP_Y, r + 7, 0, 7); ctx.stroke();
+        ctx.strokeStyle = "rgba(194, 69, 47, 0.9)";
+        ctx.beginPath(); ctx.arc(ax, DROP_Y, r + 7, -Math.PI / 2, -Math.PI / 2 + (1 - left) * Math.PI * 2); ctx.stroke();
+        ctx.lineCap = "butt";
+      }
     }
 
     // fruit
@@ -879,7 +925,7 @@
   }
   function refreshHud() {
     document.getElementById("score").textContent = score;
-    document.getElementById("best").textContent = Math.max(best.get(), score);
+    document.getElementById("best").textContent = Math.max(best.get(), state === "menu" ? 0 : score);
     nextCtx.clearRect(0, 0, 86, 86);
     var scale = Math.min(1, 34 / TIERS[next].r);
     nextCtx.save();
@@ -941,7 +987,7 @@
   canvas.addEventListener("pointermove", function (e) { aimX = canvasX(e); });
   canvas.addEventListener("pointerdown", function (e) {
     aimX = canvasX(e);
-    if (state === "play") drop();
+    if (state === "play" && mode === "simmer") drop();
   });
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
@@ -950,30 +996,41 @@
     // pressed as the last fruit fell mustn't skip the result), and one held
     // down never counts
     if (state !== "play") {
-      if (e.key === " " && (e.repeat || performance.now() - overAt < OVER_WAIT)) e.preventDefault();
+      if (state === "over" && e.key === " " && (e.repeat || performance.now() - overAt < OVER_WAIT)) e.preventDefault();
       return;
     }
     if (P.isPaused()) return;                          // paused: no aiming, no dropping
     if (e.key === "ArrowLeft") { e.preventDefault(); aimX -= e.repeat ? 14 : 22; }
     else if (e.key === "ArrowRight") { e.preventDefault(); aimX += e.repeat ? 14 : 22; }
-    else if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat) drop(); }
+    else if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat && mode === "simmer") drop(); }
     aimX = Math.max(JL, Math.min(JR, aimX));
   });
-  document.getElementById("againBtn").addEventListener("click", reset);
-  // on the result card Space or Enter is New jar (its keycap is on the button)
-  if (window.GameShell && GameShell.menuKeys) GameShell.menuKeys({
-    active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
-    start: "#againBtn", space: true
+  document.getElementById("againBtn").addEventListener("click", function () { reset(); });
+  document.getElementById("modesBtn").addEventListener("click", toMenu);
+  document.getElementById("playBtn").addEventListener("click", function () { reset(mode); });
+  document.querySelectorAll("#pick-mode button").forEach(function (b) {
+    b.addEventListener("click", function () { mode = b.getAttribute("data-v"); store.set("jamjar_mode", mode); paintMenu(); });
   });
+  if (window.GameShell && GameShell.menuKeys) {
+    // the menu: 1 and 2 pick the pace, Space or Enter starts
+    GameShell.menuKeys({
+      active: function () { return state === "menu"; },
+      groups: [{ sel: "#pick-mode button", into: "b" }], start: "#playBtn", space: true
+    });
+    // on the result card Space or Enter is New jar, Backspace the paces (keycaps on the buttons)
+    GameShell.menuKeys({
+      active: function () { return !document.getElementById("overScreen").classList.contains("hidden"); },
+      groups: [{ sel: "#modesBtn", keys: ["backspace"], caps: false }], start: "#againBtn", space: true
+    });
+  }
 
   // ---- pause + loop ------------------------------------------------------------
   var P = window.GameShell
-    ? GameShell.pausable({ canPause: function () { return state === "play"; }, restart: reset })   // (on the card: an empty jar again; there is no menu)
+    ? GameShell.pausable({ canPause: function () { return state === "play"; }, restart: function () { reset(); }, menu: toMenu })   // (on the card: an empty jar again at the same pace, or the paces)
     : { isPaused: function () { return false; } };
-  // The game opens on an empty jar, already in play. Until the first fruit
-  // drops there's nothing to lose, so leaving asks first only once a fruit is
-  // in the jar (paused included), pausing through P; an empty jar and the
-  // overflow card don't
+  // Until the first fruit drops there's nothing to lose, so leaving asks
+  // first only once a fruit is in the jar (paused included), pausing through
+  // P; the menu, an empty jar and the overflow card don't
   if (window.GameShell) GameShell.guardLeave({ active: function () { return state === "play" && dropped; }, pausable: P });
 
   var last = performance.now();
@@ -986,6 +1043,8 @@
     last = now;
     if (!P.isPaused()) {
       if (state === "play") {
+        // Rolling Boil: the next fruit goes when its second is up
+        if (mode === "boil") { boilT -= dt; if (boilT <= 0) { boilT += BOIL_S; drop(true); } }
         // steps of 1/120 s or less, two at the least: tall stacks stay calm,
         // and a slower screen's longer frames don't set the pile shivering
         var n = Math.max(2, Math.ceil(dt * 120 - 1e-6));
@@ -996,20 +1055,26 @@
   }
   layChain();
   window.addEventListener("resize", layChain);   // (a phone turned, a window narrowed: the ladder stands or lies, and fills its panel)
-  reset();
+  document.body.dataset.mode = mode;
+  refreshHud();
+  toMenu();
   requestAnimationFrame(loop);
 
   // test hook
   window.__game = {
     get fruits() { return fruits; },
     get state() { return state; },
+    get mode() { return mode; },
+    get boilT() { return boilT; },
     get score() { return score; },
     get dangerT() { return dangerT; },
     get particles() { return particles; },
     squash: function (f) { return squashOf(f); },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
-    drop: drop,
+    drop: function () { drop(mode === "boil"); },
     reset: reset,
+    start: function (m) { reset(m || mode); },
+    toMenu: toMenu,
   };
 })();

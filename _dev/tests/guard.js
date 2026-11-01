@@ -16,7 +16,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   };
   // [game, path, makeActive(p), before(pg)?]: fresh screen inactive, then active
   const guards = [
-    ["jam-jar", "jam-jar/", (p) => p.evaluate(() => __game.drop())],
+    ["jam-jar", "jam-jar/", (p) => p.evaluate(() => { __game.start("simmer"); __game.drop(); })],
     ["mahjong", "mahjong/", async (p) => { await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(300); await p.evaluate(() => Mahjong.removeOnePair()); }],
     ["klondike", "klondike/", (p) => p.evaluate(() => Klondike.draw())],
     ["lights-out", "lights-out/", async (p) => { await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(200); await p.evaluate(() => LightsOut.press(0)); }],
@@ -424,7 +424,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   {
     const p = await lib.open(ctx, base, "games/jam-jar/", { before: (pg) => seed(pg, { jamjar_best: "1" }) });
-    await p.evaluate(() => { __game.setQueue(0, 0); __game.setAim(240); __game.drop(); });
+    await p.evaluate(() => { __game.start("simmer"); __game.setQueue(0, 0); __game.setAim(240); __game.drop(); });
     // the twin goes in once the first has landed and the drop cooldown is over
     // (polled: the jar's clock runs slow on a busy machine), then the merge is saved
     await p.waitForFunction(() => { const f = __game.fruits; if (f.length === 1 && f[0].contacted) { __game.setQueue(0, 0); __game.setAim(240); __game.drop(); } return __game.fruits.length !== 1; }, null, { timeout: 10000 }).catch(() => {});

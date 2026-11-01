@@ -529,6 +529,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       const p = await open("jam-jar/", off);
       got[off ? "off" : "on"] = await p.evaluate(() => new Promise((res) => {
         const G = __game, t0 = performance.now();
+        G.start("simmer");
         let f = null, most = 0, landedAt = null, frames = 0;
         (function w() {
           // (dropped once the jar takes it: a page that's still settling can refuse the first try)

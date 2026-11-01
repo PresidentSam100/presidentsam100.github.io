@@ -3,8 +3,9 @@
 // and not on an empty first jar); on a 2× screen the jar and its fruit are
 // drawn at 2× (they were blurry), and a click still drops where it points;
 // a slow load's out-of-order first frame doesn't end a fresh game; a roll
-// slows steadily to a stop, turning till it stops; and in a played jar no
-// fruit jumps further in a frame than its speed takes it.
+// slows steadily to a stop, turning till it stops; in a played jar no fruit
+// jumps further in a frame than its speed takes it; and the two paces (the
+// menu, Rolling Boil's drop every second, its own best: see the end).
 const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (x) { aimX = x; },
     aim: function () { return aimX; },
     cooldown: function () { return dropCd; },
@@ -15,6 +16,16 @@ const HOOK = ["    setAim: function (x) { aimX = x; },", `    setAim: function (
 // (the physics step itself, for the rolling check: run by hand, so the
 // numbers don't depend on the frame rate)
 const PHYS_HOOK = ["  window.__game = {", "  window.__game = {\n    physics: physics,"];
+// (every drop, where it went and whether the jar dropped it by itself)
+const DROPS_HOOK = ["    fruits.push(makeFruit(x, DROP_Y, current));", "    fruits.push(makeFruit(x, DROP_Y, current));\n    (window.__drops = window.__drops || []).push({ x: Math.round(x), auto: !!auto });"];
+// requestAnimationFrame and performance.now on a clock the test advances:
+// __frames(n) runs n frames of 1/60 s
+const STEPPED = () => {
+  let t = 1000, q = [];
+  performance.now = () => t;
+  window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+  window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+};
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (opts) => lib.open(ctx, base, "games/jam-jar/", Object.assign({ before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]) }, opts));
@@ -22,6 +33,7 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- paused, Space / ↓ drop nothing and ← → leave the aim; resumed, Space drops
   let p = await open();
+  await p.evaluate(() => __game.start("simmer"));
   await p.keyboard.press("Space");
   // the next drop waits out a 0.45 s cooldown on the jar's own clock (slow
   // frames slow it): wait for it to run out, so the resumed Space can drop
@@ -43,7 +55,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const q = await lib.open(ctx, base, "games/jam-jar/", { before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js",
       [HOOK, ["  var last = performance.now();\n  function loop(now) {", "  var last = performance.now() + 3000;\n  function loop(now) {"]]) });
-    const st = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(__game.state); })(); }));
+    const st = await q.evaluate(() => new Promise((r) => { __game.start("simmer"); let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(__game.state); })(); }));
     check("jam-jar: a slow load's out-of-order first frame doesn't end a fresh game", st === "play", st);
     await done(q, "first frame");
   }
@@ -65,7 +77,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   p = await lib.open(hi, base, "games/jam-jar/", { before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]) });
   const size = () => p.evaluate(() => { const c = document.getElementById("game"); return { w: c.width, h: c.height, berry: __game.spriteWidth(0) }; });
   const two = await size();
-  await p.evaluate(() => __game.setQueue(0, 0));
+  await p.evaluate(() => { __game.start("simmer"); __game.setQueue(0, 0); });
   const box = await p.evaluate(() => { const r = document.getElementById("game").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width }; });
   await p.mouse.click(box.x + box.w * (400 / 540), box.y + 200); await p.waitForTimeout(100);
   const fx = await p.evaluate(() => __game.fruits.length ? Math.round(__game.fruits[0].x) : "none (" + (__game.paused() ? "paused" : __game.cooldown() > 0 ? "cooling" : "?") + ")");
@@ -85,7 +97,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const c = await lib.newContext(browser);
     const q = await lib.open(c, base, "games/jam-jar/", { before: (pg) => lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, PHYS_HOOK]) });
     const roll = await q.evaluate(() => {
-      __game.setQueue(0, 0); __game.setAim(270); __game.drop();
+      __game.start("simmer"); __game.setQueue(0, 0); __game.setAim(270); __game.drop();
       const f = __game.fruits[0], step = 1 / 120;
       for (let i = 0; i < 480; i++) __game.physics(step);          // down onto the floor, and still
       const rest = Math.abs(f.vx) + Math.abs(f.vy);
@@ -162,6 +174,89 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar: in a played jar no fruit jumps further in a frame than its speed takes it (8 px at most beyond), merges included",
       jumps.state === "play" && jumps.merges >= 5 && jumps.worst <= 8, jumps);
     check("jam-jar (jumps): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+  }
+
+  // ---- the paces. The page opens on the menu with no jar in play; 2 picks
+  // Rolling Boil without starting it and Enter starts it (kept for next
+  // time). There a fruit drops by itself each second (60 frames at 60 Hz)
+  // where the aim is: a click only aims, Space and ↓ drop nothing, and the
+  // waiting fruit's second counts down; nothing drops under the pause card,
+  // and the count carries on after it. A finger on the jar aims instead of
+  // scrolling, and the hint says how it plays. The jar's best is its own
+  // (jamjar_best_boil, on the games page's reset list), and the result
+  // card's Backspace goes back to the paces. Slow Simmer still drops on a click.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, DROPS_HOOK]); } });
+    const look = () => q.evaluate(() => ({ state: __game.state, mode: __game.mode, menu: !document.getElementById("menuScreen").classList.contains("hidden"),
+      on: (document.querySelector("#pick-mode button.on") || {}).getAttribute ? document.querySelector("#pick-mode button.on").getAttribute("data-v") : null,
+      drops: (window.__drops || []).length, auto: (window.__drops || []).map((d) => d.auto), boilT: +__game.boilT.toFixed(3) }));
+    await q.evaluate(() => __frames(5));
+    const opened = await look();
+    await q.keyboard.press("2"); await q.evaluate(() => __frames(2));
+    const picked = await look();
+    await q.keyboard.press("Enter"); await q.evaluate(() => __frames(2));
+    const started = Object.assign(await look(), { kept: await q.evaluate(() => localStorage.getItem("jamjar_mode")) });
+    check("jam-jar: the page opens on the paces menu with no jar in play; 2 picks Rolling Boil without starting it, Enter starts it, and the pace is kept",
+      opened.state === "menu" && opened.menu && opened.on === "simmer" && picked.state === "menu" && picked.on === "boil" &&
+      started.state === "play" && started.mode === "boil" && !started.menu && started.kept === "boil", { opened, picked, started });
+
+    // a click aims, Space and ↓ drop nothing; the jar drops by itself once its second is up, where the aim is
+    const box = await q.evaluate(() => { const r = document.getElementById("game").getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width }; });
+    await q.evaluate(() => { __game.setQueue(0, 0); __frames(30); });
+    await q.mouse.click(box.x + box.w * (400 / 540), box.y + 200);
+    await q.keyboard.press("Space"); await q.keyboard.press("ArrowDown");
+    const half = await look();
+    await q.evaluate(() => __frames(27));
+    const early = await look();
+    await q.evaluate(() => __frames(5));
+    const first = Object.assign(await look(), { x: await q.evaluate(() => window.__drops && window.__drops[0] && window.__drops[0].x) });
+    await q.evaluate(() => __frames(60));
+    const second = await look();
+    check("jam-jar, Rolling Boil: a click only aims and Space and ↓ drop nothing; the fruit drops by itself when its second is up (not 59 frames in, by 64), where the click aimed, and the next a second later",
+      half.drops === 0 && Math.abs(half.boilT - (1 - 32 / 60)) < 0.01 && early.drops === 0 && first.drops === 1 && first.auto[0] === true && Math.abs(first.x - 400) <= 2 && second.drops === 2,
+      { half, early, first, second });
+
+    // paused: no drop, the second held; resumed, it carries on
+    await q.keyboard.press("p");
+    const pausedAt = await look();
+    await q.evaluate(() => __frames(150));
+    const under = await look();
+    await q.keyboard.press("p"); await q.evaluate(() => __frames(2));
+    const resumed = await look();
+    await q.evaluate(() => __frames(61));
+    const after = await look();
+    check("jam-jar, Rolling Boil: under the pause card nothing drops and the second holds; resumed, the drops carry on",
+      under.drops === pausedAt.drops && under.boilT === pausedAt.boilT && after.drops === resumed.drops + 1, { pausedAt, under, resumed, after });
+
+    const how = await q.evaluate(() => {
+      const shown = (sel) => [...document.querySelectorAll(sel)].some((e) => e.getClientRects().length);
+      return { touch: getComputedStyle(document.getElementById("game")).touchAction, boilHint: shown(".hint .boil-only"), simmerHint: shown(".hint .simmer-only") };
+    });
+    check("jam-jar, Rolling Boil: a finger on the jar aims instead of scrolling, and the hint says a fruit drops every second",
+      how.touch === "none" && how.boilHint && !how.simmerHint, how);
+
+    // its own best; Backspace on the result card goes back to the paces
+    await q.evaluate(() => __game.overflow(25));
+    await q.evaluate(() => __frames(60));
+    await q.keyboard.press("Backspace"); await q.evaluate(() => __frames(2));
+    const back = Object.assign(await look(), await q.evaluate(() => ({ boilBest: localStorage.getItem("jamjar_best_boil"), simmerBest: localStorage.getItem("jamjar_best"),
+      menuBest: document.getElementById("menuBest").textContent, touch: getComputedStyle(document.getElementById("game")).touchAction })));
+    const hub = await q.evaluate(() => fetch("../index.html").then((r) => r.text()));
+    check("jam-jar, Rolling Boil: its best is its own (jamjar_best_boil, on the games page's reset list), and Backspace on the result card goes back to the paces",
+      back.boilBest === "25" && back.simmerBest === null && back.state === "menu" && back.menu && /Rolling Boil 25/.test(back.menuBest) && back.touch !== "none" &&
+      /"jamjar_best_boil"/.test(hub), back);
+
+    // Slow Simmer: a click drops at once
+    await q.keyboard.press("1"); await q.keyboard.press("Enter"); await q.evaluate(() => __frames(2));
+    const n0 = await q.evaluate(() => (window.__drops || []).length);
+    await q.mouse.click(box.x + box.w * (200 / 540), box.y + 200);
+    const simmer = await q.evaluate(() => ({ mode: __game.mode, drops: window.__drops.slice(-1)[0], hint: [...document.querySelectorAll(".hint .simmer-only")].some((e) => e.getClientRects().length) }));
+    check("jam-jar, Slow Simmer: 1 and Enter start it, and a click drops at once where it points",
+      simmer.mode === "simmer" && (await q.evaluate(() => window.__drops.length)) === n0 + 1 && simmer.drops.auto === false && Math.abs(simmer.drops.x - 200) <= 2 && simmer.hint, simmer);
+    check("jam-jar (paces): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
   }

@@ -288,7 +288,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // round the newborn either
   for (const off of [true, false]) {
     const p = await open("jam-jar", off);
-    await p.evaluate(() => { __game.reset(); __game.setQueue(0, 0); __game.setAim(270); __game.drop(); });
+    await p.evaluate(() => { __game.start("simmer"); __game.setQueue(0, 0); __game.setAim(270); __game.drop(); });
     // the twin goes in once the first has landed and the drop cooldown is over
     // (polled: on a busy machine the jar's clock runs slow)
     await p.waitForFunction(() => { const f = __game.fruits; if (f.length === 1 && f[0].contacted) { __game.setQueue(0, 0); __game.setAim(270); __game.drop(); } return __game.fruits.length !== 1; }, null, { timeout: 10000 }).catch(() => {});
