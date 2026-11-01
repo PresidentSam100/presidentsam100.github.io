@@ -632,4 +632,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar vs CPU, " + label + " (points): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- a held arrow moves the aim from the press on, steadily, with no wait
+  // for the keyboard's repeat (a held key here sends one keydown, as the
+  // first half second of a real one does); let go, it stops; paused, it holds
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
+    await q.evaluate(() => { __game.start("simmer"); __frames(3); __game.setAim(150); });
+    await q.keyboard.down("ArrowRight");
+    const a = await q.evaluate(() => { const r = [__game.aim()]; for (let i = 0; i < 3; i++) { __frames(5); r.push(__game.aim()); } return r; });
+    await q.keyboard.up("ArrowRight");
+    const after = await q.evaluate(() => { const x0 = __game.aim(); __frames(10); return [x0, __game.aim()]; });
+    await q.keyboard.down("ArrowLeft");
+    const left = await q.evaluate(() => { const x0 = __game.aim(); __frames(10); return [x0, __game.aim()]; });
+    await q.keyboard.press("p");
+    const paused = await q.evaluate(() => { const x0 = __game.aim(); __frames(10); return [x0, __game.aim(), __game.paused()]; });
+    await q.keyboard.up("ArrowLeft");
+    const steps = a.slice(1).map((x, i) => +(x - a[i]).toFixed(2));
+    check("jam-jar: a held arrow moves the aim from the press on, the same distance every few frames (no wait for the keyboard's repeat); let go, it stops",
+      a[0] === 172 && steps.every((d) => Math.abs(d - 35) < 0.5) && after[1] === after[0] && left[1] < left[0] - 60, { a, steps, after, left });
+    check("jam-jar: paused, a held arrow doesn't move the aim", paused[2] === true && paused[1] === paused[0], paused);
+    check("jam-jar (held arrows): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

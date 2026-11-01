@@ -1284,6 +1284,15 @@
     aimX = canvasX(e);
     if (state === "play" && mode === "simmer") drop();
   });
+  // A held arrow moves the aim from the moment it's pressed, AIM_SPEED a
+  // second (the keyboard's own repeat waits half a second first): the press
+  // nudges it a step, and the loop runs it on while the key stays down.
+  var held = { L: false, R: false }, AIM_SPEED = 420;
+  document.addEventListener("keyup", function (e) {
+    if (e.key === "ArrowLeft") held.L = false;
+    else if (e.key === "ArrowRight") held.R = false;
+  });
+  window.addEventListener("blur", function () { held.L = held.R = false; });   // (a key let go in another window never comes up here)
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey) return;   // browser shortcuts (Ctrl+P, Ctrl+S, Alt+←…) aren't game keys
     // the result card: Space is New jar's (below), but it is the drop key in
@@ -1295,8 +1304,8 @@
       return;
     }
     if (P.isPaused()) return;                          // paused: no aiming, no dropping
-    if (e.key === "ArrowLeft") { e.preventDefault(); aimX -= e.repeat ? 14 : 22; }
-    else if (e.key === "ArrowRight") { e.preventDefault(); aimX += e.repeat ? 14 : 22; }
+    if (e.key === "ArrowLeft") { e.preventDefault(); if (!e.repeat) { held.L = true; aimX -= 22; } }
+    else if (e.key === "ArrowRight") { e.preventDefault(); if (!e.repeat) { held.R = true; aimX += 22; } }
     else if (e.key === " " || e.key === "ArrowDown") { e.preventDefault(); if (!e.repeat && mode === "simmer") drop(); }
     aimX = Math.max(JL, Math.min(JR, aimX));
   });
@@ -1385,6 +1394,7 @@
     var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
+      if (state === "play" && held.L !== held.R) aimX = Math.max(JL, Math.min(JR, aimX + (held.R ? 1 : -1) * AIM_SPEED * dt));
       for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);
       fastUi();
       draw();
