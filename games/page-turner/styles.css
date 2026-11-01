@@ -52,23 +52,28 @@ body {
 .stage canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
 .hud {
   position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 20;
-  display: flex; align-items: center; gap: 14px; white-space: nowrap; pointer-events: none;
+  display: flex; align-items: center; gap: 1em; white-space: nowrap; pointer-events: none;
   background: var(--white); border: 2.5px solid var(--ink); border-radius: 12px; box-shadow: 0 3px 0 var(--ink);
   padding: 5px 14px 4px; font-weight: 700; font-size: 14px;
 }
 .hud[hidden] { display: none; }
-.hud-page b { font-family: "Krona One", "Encode Sans", sans-serif; font-weight: 400; font-size: 17px; color: var(--ink); font-variant-numeric: tabular-nums; }
-.hud-worms { display: flex; gap: 10px; align-items: center; }
-.chip { display: inline-flex; align-items: center; gap: 4px; }
-.chip i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--ink); display: inline-block; }
+.hud-page b { font-family: "Krona One", "Encode Sans", sans-serif; font-weight: 400; font-size: 1.21em; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* (sizes in em: when game.js fitHud makes the words smaller, the dots and
+   gaps come down with them) */
+.hud-worms { display: flex; gap: 0.71em; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 0.3em; }
+.chip i { width: 0.86em; height: 0.86em; border-radius: 50%; border: 2px solid var(--ink); display: inline-block; }
 .chip.out { opacity: 0.5; text-decoration: line-through; }
 .chip.you { font-weight: 800; }
 /* many worms: their names wrap onto more lines, centred (a laptop's HUD,
    floating between the corner buttons, is held to the gap they leave:
    game.js measures it) */
 .hud.many { white-space: normal; max-width: calc(100vw - 20px); }
-.hud.many .hud-worms { flex-wrap: wrap; justify-content: center; column-gap: 8px; row-gap: 1px; }
+.hud.many .hud-worms { flex-wrap: wrap; justify-content: center; column-gap: 0.57em; row-gap: 1px; }
 .hud.many .chip, .hud.many .hud-page { white-space: nowrap; }
+/* (one line where it fits: game.js fitHud makes the words smaller first) */
+.hud.many.one { white-space: nowrap; }
+.hud.many.one .hud-worms { flex-wrap: nowrap; }
 .keys { text-align: center; font-size: 13px; font-weight: 600; color: var(--moonlight); min-height: 18px; }
 .keys .gs-kbd { color: var(--moonlight); }
 /* (one worm's keys, or two players' each, a dot of each worm's colour by their name) */
@@ -163,10 +168,10 @@ body {
 /* ---- a phone held upright: the HUD under the corner buttons ------------------------------ */
 @media (max-width: 699px) {
   .nook { padding-top: 56px; }
-  .hud { position: static; transform: none; align-self: center; gap: 10px; font-size: 12.5px; padding: 4px 10px 3px; }
-  .hud-page b { font-size: 15px; }
-  .hud-worms { gap: 7px; }
-  .chip i { width: 10px; height: 10px; }
+  .hud { position: static; transform: none; align-self: center; gap: 0.8em; font-size: 12.5px; padding: 4px 10px 3px; }
+  .hud-page b { font-size: 1.2em; }
+  .hud-worms { gap: 0.56em; }
+  .chip i { width: 0.8em; height: 0.8em; }
   .panel { padding-top: 62px; padding-left: 12px; padding-right: 12px; padding-bottom: 14px; }
   .card { padding: 15px 16px 13px; }
   .card h1 { font-size: 25px; }

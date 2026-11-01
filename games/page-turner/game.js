@@ -283,9 +283,10 @@
     if (!st) return;
     $("hud-page").textContent = st.page;
     var box = $("hud-worms");
-    // (many worms: their names wrap onto more lines; floating over the page,
-    // in the room the corner buttons leave on either side of the middle)
-    var hb = $("hud"), many = st.worms.length > 4;
+    // (many worms: their names on one line if they fit (fitHud), else they
+    // wrap onto more; floating over the page, in the room the corner buttons
+    // leave on either side of the middle)
+    var hb = $("hud"), many = st.worms.length > 4, room = window.innerWidth - 20;
     hb.classList.toggle("many", many);
     hb.style.maxWidth = "";
     if (many && getComputedStyle(hb).position === "fixed" && getComputedStyle(hb).flexDirection !== "column") {
@@ -295,7 +296,8 @@
         if (!r.width) return;
         if (r.right <= mid) lo = Math.max(lo, r.right); else if (r.left >= mid) hi = Math.min(hi, r.left);
       });
-      hb.style.maxWidth = Math.max(160, Math.min(520, 2 * Math.min(mid - lo, hi - mid) - 24)) + "px";
+      room = 2 * Math.min(mid - lo, hi - mid) - 24;
+      hb.style.maxWidth = Math.max(160, Math.min(520, room)) + "px";
     }
     if (st.mode === "endless") { box.textContent = "most pages " + Math.max(best().get(), st.survived); return; }
     box.replaceChildren.apply(box, st.worms.map(function (w) {
@@ -305,6 +307,20 @@
       c.appendChild(dot); c.appendChild(document.createTextNode(w.name));
       return c;
     }));
+    fitHud(hb, room);
+  }
+  // Many worms (not on a phone on its side, where they're a list down the
+  // side): their names on one line where they'll go, the HUD's words half a
+  // pixel smaller at a time, down to 10 px; past that they wrap as before.
+  function fitHud(hb, room) {
+    hb.style.fontSize = "";
+    hb.classList.remove("one");
+    if (!hb.classList.contains("many") || getComputedStyle(hb).flexDirection === "column") return;
+    var keep = hb.style.maxWidth;
+    hb.classList.add("one"); hb.style.maxWidth = room + "px";
+    var size = parseFloat(getComputedStyle(hb).fontSize);
+    while (hb.scrollWidth > room && size > 10) { size -= 0.5; hb.style.fontSize = size + "px"; }
+    if (hb.scrollWidth > room) { hb.classList.remove("one"); hb.style.fontSize = ""; hb.style.maxWidth = keep; }
   }
 
   // ---- what each page has printed on it ----------------------------------------------------------

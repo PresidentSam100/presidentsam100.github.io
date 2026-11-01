@@ -1074,4 +1074,26 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner: with ten rivals all eleven names fit the HUD, on the screen and clear of the corner buttons, the keys line and the book (320 x 568, 390 x 664, 1366 x 657, 1280 x 600, and on its side 568 x 320, 750 x 340)",
       fit.every((f) => !f.errs && f.chips === 11 && f.onScreen && !f.corner && !f.book && !f.keys && !f.wide), fit);
   }
+  // ---- many worms' names on one line where they'll go (the HUD's words a
+  // little smaller): ten rivals on a laptop, five on a 320 px phone; three
+  // as they always were
+  {
+    const got = [];
+    for (const [w, h, n, touch] of [[1366, 657, 10, 0], [1280, 900, 10, 0], [1024, 600, 10, 0], [320, 568, 5, 1], [390, 664, 5, 1], [1366, 657, 3, 0]]) {
+      const c = await lib.newContext(browser, touch ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/page-turner/");
+      got.push(Object.assign({ size: w + "x" + h, n }, await q.evaluate((n) => {
+        PageTurner.start("party", PageTurner.level(), n);
+        const chips = [...document.querySelectorAll("#hud-worms .chip")].map((e) => e.getBoundingClientRect());
+        const hud = document.getElementById("hud").getBoundingClientRect();
+        const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map((e) => e.getBoundingClientRect());
+        return { chips: chips.length, rows: new Set(chips.map((r) => Math.round(r.top))).size, font: parseFloat(getComputedStyle(document.getElementById("hud")).fontSize),
+          onScreen: hud.left >= 0 && hud.right <= innerWidth, corner: corner.some((k) => k.left < hud.right && k.right > hud.left && k.top < hud.bottom && k.bottom > hud.top) };
+      }, n)));
+      got[got.length - 1].errs = q.errs.length;
+      await c.close();
+    }
+    check("page-turner: many worms' names sit on one line where they'll go (ten rivals on a laptop down to 1024 px, five on a 320 px phone), the words no smaller than 10 px, clear of the corner buttons; three rivals as before",
+      got.every((g) => g.chips === g.n + 1 && g.rows === 1 && g.font >= 10 && g.onScreen && !g.corner && !g.errs) && got[got.length - 1].font === 14, got);
+  }
 };
