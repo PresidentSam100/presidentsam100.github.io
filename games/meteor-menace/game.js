@@ -306,7 +306,7 @@
   function start() {
     score = 0; lives = 3; wave = 1; extraAt = 10000;
     savedBest = best.get();
-    rocks = []; bullets = []; ebullets = []; booms = []; words = []; chunks = [];
+    rocks = []; bullets = []; ebullets = []; booms = []; words = []; chunks = []; gains = [];
     saucer = null; saucerT = rand(14, 22);
     ship = newShip(); respawnT = 0; shake = 0;
     state = "play";
@@ -332,6 +332,26 @@
       text: text, t: 0, rot: rand(-0.16, 0.16)
     });
   }
+  // The points a saucer scores, where it was hit: "+200" or "+1000",
+  // lettered like the comic, under the sound word (where addWord puts it).
+  // Rocks go unsaid: they're shot several a second, and the words mark them. Each shows
+  // GAIN_S, rising a little as it fades with Visual FX on, only fading with
+  // it off; several close together stand clear of each other. They run on
+  // the game's clock (update), so a pause holds them.
+  var gains = [], GAIN_S = 0.9;
+  function addGain(x, y, n, underWord) {
+    if (underWord) { x = Math.min(Math.max(x, 70), W - 70); y = Math.min(Math.max(y, 60), H - 40) + 32; }
+    x = Math.min(Math.max(x, 34), W - 34); y = Math.min(Math.max(y, 30), H - 16);
+    for (var i = 0; i < 4 && gains.some(function (q) { return q.t < 0.45 && Math.abs(q.x - x) < 44 && Math.abs(q.y - y) < 20; }); i++) y -= 22;
+    gains.push({ x: x, y: y, n: n, t: 0 });
+  }
+  // where a gain is drawn now, and how strongly: whole for its first half,
+  // then fading; rising 16 units, easing out, with Visual FX on
+  function gainLook(q) {
+    var k = Math.min(1, q.t / GAIN_S);
+    return { y: q.y - (fx() ? 16 * (1 - (1 - k) * (1 - k)) : 0), a: k < 0.55 ? 1 : Math.max(0, 1 - (k - 0.55) / 0.45) };
+  }
+
   // A blasted rock cracks (Visual FX on): jagged chunks of it are thrown out
   // all round, tumbling, and shrink away. They're only for show: nothing
   // hits them, and the rocks it splits into are the same either way.
@@ -401,6 +421,7 @@
     // effect timers run everywhere
     for (i = booms.length - 1; i >= 0; i--) { booms[i].t += dt; if (booms[i].t > booms[i].dur) booms.splice(i, 1); }
     for (i = words.length - 1; i >= 0; i--) { words[i].t += dt; if (words[i].t > 0.9) words.splice(i, 1); }
+    for (i = gains.length - 1; i >= 0; i--) { gains[i].t += dt; if (gains[i].t >= GAIN_S) gains.splice(i, 1); }
     for (i = chunks.length - 1; i >= 0; i--) {
       var ch = chunks[i];
       ch.t += dt;
@@ -474,7 +495,9 @@
       }
       if (hit) continue;
       if (saucer && Math.hypot(bl.x - saucer.x, bl.y - saucer.y) < 22) {
-        score += saucer.small ? 1000 : 200;
+        var won = saucer.small ? 1000 : 200;
+        score += won;
+        addGain(saucer.x, saucer.y, won, true);
         addBoom(saucer.x, saucer.y, true);
         addWord(saucer.x, saucer.y, "ZAP!");
         saucer = null;
@@ -814,6 +837,20 @@
     ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   }
 
+  function drawGain(q) {
+    var lk = gainLook(q), txt = "+" + q.n;
+    ctx.globalAlpha = lk.a;
+    ctx.font = "24px " + FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = INK; ctx.lineWidth = 5;
+    ctx.strokeText(txt, q.x, lk.y);
+    ctx.fillStyle = YELLOW;
+    ctx.fillText(txt, q.x, lk.y);
+    ctx.globalAlpha = 1;
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  }
+
   // ---- render --------------------------------------------------------------
   function render() {
     ctx.setTransform(kx, 0, 0, ky, 0, 0);   // logical units, at the screen's own resolution
@@ -846,7 +883,13 @@
       ctx.beginPath(); ctx.arc(eb.x, eb.y, 3.6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
     }
 
-    // ship (blinks while under grace)
+    for (i = 0; i < chunks.length; i++) drawChunk(chunks[i]);
+    for (i = 0; i < booms.length; i++) drawBoom(booms[i]);
+    for (i = 0; i < words.length; i++) drawWord(words[i]);
+    for (i = 0; i < gains.length; i++) drawGain(gains[i]);
+
+    // ship (blinks while under grace), over the bursts, words and points, so
+    // none of them ever hides it
     if (ship && state === "play") {
       // blinks under grace with Visual FX on; off, it stays steady (the dashed ring marks grace)
       var blink = fx() && ship.grace > 0 && Math.floor(ship.grace * 8) % 2 === 0;
@@ -859,10 +902,6 @@
         ctx.setLineDash([]);
       }
     }
-
-    for (i = 0; i < chunks.length; i++) drawChunk(chunks[i]);
-    for (i = 0; i < booms.length; i++) drawBoom(booms[i]);
-    for (i = 0; i < words.length; i++) drawWord(words[i]);
 
     // ---- HUD
     if (state === "play") {
@@ -951,6 +990,9 @@
       saucer = { x: -30, y: 160, dir: 1, small: !!small, shotT: 1.1, bobT: 0 };
     },
     addScore: function (n) { score += n; },
+    get bullets() { return bullets; },
+    // the points on the panel now: their text, where they're drawn and how strongly
+    get gains() { return gains.map(function (q) { var lk = gainLook(q); return { text: "+" + q.n, x: Math.round(q.x), y: +lk.y.toFixed(2), a: +lk.a.toFixed(3), t: +q.t.toFixed(3) }; }); },
     start: start
   };
 })();

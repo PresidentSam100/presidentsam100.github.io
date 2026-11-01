@@ -4,7 +4,9 @@
 // 2× screen the panel is drawn at the screen's own resolution; on a touch-only phone the key captions
 // hide and the panel says TAP where it says PRESS [SPACE] OR [ENTER]. Three rockets under
 // the score are three lives, and the next one launches soon after a crash.
-// A slow load's out-of-order first frame doesn't step the clock back.
+// A slow load's out-of-order first frame doesn't step the clock back. A hit's
+// points show where it scored them (rising with Visual FX on, still with it
+// off, held by a pause).
 const HOOK = ["  function drawShipAt(x, y, a, opts) {\n", "  function drawShipAt(x, y, a, opts) {\n    if (opts && opts.scale === 1.6) window.__menuShip = [x, y, a];\n"];
 const OVER = ["    start: start\n  };", "    start: start,\n    over: function () { lives = 0; gameOver(); }\n  };"];
 
@@ -141,4 +143,72 @@ module.exports = async ({ browser, base, check, lib }) => {
     /ROTATE/.test(desk.names) && /THRUST/.test(desk.names) && /FIRE/.test(desk.names) && !/PAUSE|ESC/.test(desk.names), desk);
   check("meteor-menace: on a touch-only phone the panel says TAP instead, and the key captions are hidden",
     /TAP TO BLAST OFF/.test(phone.menu) && /TAP FOR THE NEXT ISSUE/.test(phone.over) && !/ENTER/.test(phone.menu + phone.over) && phone.caps.length === 3 && phone.caps.every((d) => d === "none"), phone);
+
+  // ---- a saucer hit shows its points where it was hit: "+N", N what it
+  // added, under the sound word; a rock (shot several a second) shows none;
+  // rising as it fades with Visual FX on, still with it off; gone within a
+  // second; held by a pause. Frames are stepped here, so it's exact.
+  {
+    const STEPPED = () => {
+      let t = 1000, q = [];
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => { try { cb(t); } catch (e) { setTimeout(() => { throw e; }); } }); } };
+    };
+    const ctx2 = await lib.newContext(browser);
+    const q = await lib.open(ctx2, base, "games/meteor-menace/", { before: (pg) => pg.addInitScript(STEPPED) });
+    // one rock left, still; a big one at (180, 150) to shoot, or one far off
+    // and a saucer held still at (180, 150) instead; a shot fired at (180, 150)
+    const shoot = (what, off) => q.evaluate(([what, off]) => {
+      if (!("gains" in __game)) return null;
+      const RM = window.RM_ON; window.RM_ON = () => off;
+      __game.start(); __frames(2);
+      const rocks = __game.rocks; rocks.splice(1);
+      const rk = rocks[0]; rk.vx = 0; rk.vy = 0; rk.size = 3; rk.r = 44;
+      if (what === "rock") { rk.x = 180; rk.y = 150; }
+      else { rk.x = 60; rk.y = 400; __game.forceSaucer(what === "small"); Object.assign(__game.saucer, { x: 180, y: 150, dir: 0, shotT: 99 }); }
+      __game.bullets.push({ x: 120, y: 150, vx: 540, vy: 0, life: 0.95 });
+      const s0 = __game.score;
+      let hit = null;
+      for (let i = 0; i < 40 && !hit; i++) {
+        const at = __game.saucer ? { x: __game.saucer.x, y: __game.saucer.y } : null;
+        __frames(1);
+        if (__game.score !== s0) hit = { delta: __game.score - s0, gains: __game.gains, at };
+      }
+      const seen = [];
+      for (let f = 0; f <= 60; f += 10) { seen.push(__game.gains[0] || null); __frames(10); }
+      window.RM_ON = RM;
+      return { hit, seen };
+    }, [what, off]);
+    const rock = await shoot("rock", false), big = await shoot("big", false), small = await shoot("small", false), still = await shoot("big", true);
+    const one = (r, text) => !!r && !!r.hit && r.hit.gains.length === 1 && r.hit.gains[0].text === text && r.hit.gains[0].text === "+" + r.hit.delta &&
+      Math.abs(r.hit.gains[0].x - r.hit.at.x) < 2 && Math.abs(r.hit.gains[0].y - (r.hit.at.y + 32)) < 3;
+    check("meteor-menace: a saucer shot shows \"+200\" (a small one \"+1000\") just under its sound word, exactly what it added to the score; a rock shows none",
+      one(big, "+200") && one(small, "+1000") && one(still, "+200") && !!rock && !!rock.hit && rock.hit.delta === 20 && rock.hit.gains.length === 0,
+      { rock: rock && rock.hit, big: big && big.hit, small: small && small.hit, still: still && still.hit });
+    check("meteor-menace: with Visual FX on the points rise as they fade; with it off they hold still and only fade; either way they're gone within a second",
+      !!big && !!still && big.seen[2].y < big.seen[0].y - 6 && big.seen[4].a < 1 && big.seen[6] === null &&
+      still.seen.slice(0, 5).every((g) => g && g.y === still.seen[0].y) && still.seen[4].a < 1 && still.seen[6] === null, { on: big && big.seen, off: still && still.seen });
+    const t0 = await q.evaluate(() => {
+      if (!("gains" in __game)) return null;
+      __game.start(); __frames(2);
+      const rocks = __game.rocks; rocks.splice(1);
+      const rk = rocks[0]; rk.x = 60; rk.y = 400; rk.vx = 0; rk.vy = 0;
+      __game.forceSaucer(false); Object.assign(__game.saucer, { x: 180, y: 150, dir: 0, shotT: 99 });
+      __game.bullets.push({ x: 120, y: 150, vx: 540, vy: 0, life: 0.95 });
+      for (let i = 0; i < 40 && !__game.gains.length; i++) __frames(1);
+      return __game.gains[0] || null;
+    });
+    let paused = { t0 };
+    if (t0) {
+      await q.keyboard.press("p");
+      paused.held = await q.evaluate(() => { __frames(120); return __game.gains[0] || null; });
+      await q.keyboard.press("p");
+      paused.after = await q.evaluate(() => { __frames(60); return __game.gains.length; });
+    }
+    check("meteor-menace: under the pause card the points stay as they were, and play out once it's put away",
+      !!paused.t0 && !!paused.held && paused.held.t === paused.t0.t && paused.after === 0, paused);
+    check("meteor-menace (points): no page errors", q.errs.length === 0, q.errs);
+    await ctx2.close();
+  }
 };
