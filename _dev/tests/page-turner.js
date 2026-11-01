@@ -1096,4 +1096,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner: many worms' names sit on one line where they'll go (ten rivals on a laptop down to 1024 px, five on a 320 px phone), the words no smaller than 10 px, clear of the corner buttons; three rivals as before",
       got.every((g) => g.chips === g.n + 1 && g.rows === 1 && g.font >= 10 && g.onScreen && !g.corner && !g.errs) && got[got.length - 1].font === 14, got);
   }
+
+  // ---- the rug: with Visual FX on its stars and moons drift down and to the
+  // left; with it off they lie still
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/page-turner/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:page-turner", off ? "1" : "0"); } catch (e) {} }, off) });
+      const at = () => q.evaluate(() => { const m = new DOMMatrixReadOnly(getComputedStyle(document.body, "::before").transform); return [+m.m41.toFixed(2), +m.m42.toFixed(2)]; });
+      const a = await at();
+      await q.evaluate(() => new Promise((r) => setTimeout(r, 1200)));
+      const b = await at();
+      got[off ? "off" : "on"] = { a, b, anim: await q.evaluate(() => getComputedStyle(document.body, "::before").animationName), errs: q.errs.length };
+      await c.close();
+    }
+    const on = got.on, off = got.off;
+    check("page-turner: with Visual FX on the rug's stars and moons drift down and to the left; with it off they lie still",
+      on.anim === "rug-drift" && on.b[0] < on.a[0] && on.b[1] > on.a[1] && off.a[0] === off.b[0] && off.a[1] === off.b[1] && !on.errs && !off.errs, got);
+  }
 };

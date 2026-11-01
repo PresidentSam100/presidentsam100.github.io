@@ -28,14 +28,24 @@
 html, body { height: 100%; }
 body {
   font-family: "Encode Sans", system-ui, sans-serif; color: var(--ink);
-  background:
-    radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 214, 140, 0.2), rgba(255, 214, 140, 0) 70%),
-    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 7px),
-    var(--rug-art),
-    var(--rug);
+  background: var(--rug);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
+/* the rug: its stars and moons on a layer of their own over the blue, and the
+   weave and the lamp's glow over them. With Visual FX on the stars and moons
+   drift slowly down and to the left, a whole tile (150 px) every 40 s, round
+   and round; off, they lie still, the rug as it always was. */
+body::before, body::after { content: ""; position: fixed; pointer-events: none; }
+body::before { inset: -150px; z-index: -2; background: var(--rug-art); }
+body::after {
+  inset: 0; z-index: -1;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 45%, rgba(255, 214, 140, 0.2), rgba(255, 214, 140, 0) 70%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 2px, transparent 2px 7px);
+}
+html.fx-on body::before { animation: rug-drift 40s linear infinite; }
+@keyframes rug-drift { from { transform: translate(0, 0); } to { transform: translate(-150px, 150px); } }
 
 .nav-back-games {
   position: fixed; top: 16px; left: 18px; z-index: 50;
