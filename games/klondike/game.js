@@ -280,7 +280,8 @@
     finishRun++;   // an auto-finish still flying cards home stops here
     stopCascade();
     $("autofinish").hidden = true;
-    $("win-title").textContent = isDaily ? "KLONDIKE · DAILY CLAIM " + today().n : "KLONDIKE";
+    // (the claim is its own span: on a narrow screen it drops to a line of its own)
+    $("win-title").innerHTML = isDaily ? 'KLONDIKE<span class="claim"><span class="sep"> · </span>DAILY CLAIM ' + today().n + "</span>" : "KLONDIKE";
     buildCards();
     position(true);
     clearHints();

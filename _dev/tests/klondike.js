@@ -614,4 +614,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike (win box keys): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- the Daily's sign (KLONDIKE · DAILY CLAIM N) stays on the screen: on a
+  // phone the claim hangs as a second line, KLONDIKE as big as on a plain deal;
+  // on a laptop it is all one line, the plank as tall as a plain deal's
+  for (const [label, w, opts] of [["laptop", 1280, {}], ["phone", 390, { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
+    ["small phone", 320, { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
+    const sign = (daily) => q.evaluate((daily) => {
+      Klondike.deal(41, daily);
+      const t = document.getElementById("win-title"), r = t.getBoundingClientRect();
+      return { text: t.textContent, left: r.left, right: r.right, h: r.height, fs: getComputedStyle(t).fontSize, wide: document.documentElement.scrollWidth };
+    }, daily);
+    const plain = await sign(false), daily = await sign(true);
+    const onScreen = daily.left >= 0 && daily.right <= w && daily.wide <= w;
+    check("klondike, " + label + ": the Daily's sign reads KLONDIKE · DAILY CLAIM N and stays on the screen" + (w < 640 ? ", the claim on a second line" : ", all on one line"),
+      /^KLONDIKE · DAILY CLAIM \d+$/.test(daily.text) && onScreen && daily.fs === plain.fs && (w < 640 ? daily.h > plain.h * 1.15 : Math.abs(daily.h - plain.h) < 1),
+      { w, plain, daily });
+    check("klondike, " + label + " (Daily sign): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

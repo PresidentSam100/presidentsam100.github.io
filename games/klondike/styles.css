@@ -61,6 +61,12 @@ body {
   padding: 2px 24px 6px;
   text-shadow: 0 2px 0 #1d1409, 0 0 18px rgba(255, 200, 90, 0.35);
 }
+/* The Daily's sign reads KLONDIKE · DAILY CLAIM N on one plank; under 640 px
+   that runs off the screen, so the claim hangs as a smaller second line. */
+@media (max-width: 639px) {
+  .sign h1 .claim { display: block; font-size: 0.55em; line-height: 1.15; letter-spacing: 0.1em; margin-top: -3px; }
+  .sign h1 .sep { display: none; }
+}
 
 .menubar { display: flex; gap: 8px; margin: 10px 0 8px; position: relative; z-index: 60; }
 .mtop {
