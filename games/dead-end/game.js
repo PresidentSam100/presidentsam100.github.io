@@ -240,7 +240,7 @@
     events.forEach(function (e) {
       var lv = st.lv, x = e.cell != null ? e.cell % lv.cols : 0, y = e.cell != null ? Math.floor(e.cell / lv.cols) : 0;
       if (e.t === "tin") SFX.tin();
-      else if (e.t === "torch") { SFX.torch(); popups.push({ x: x, y: y, text: "TORCH!", color: "#ffb347", age: 0 }); }
+      else if (e.t === "torch") { SFX.torch(); popups.push({ x: x, y: y, text: "TORCH! +" + E.TUNE.torch, color: "#ffb347", age: 0 }); }
       else if (e.t === "plank") { SFX.plank(); popups.push({ x: x, y: y, text: "+PLANK", color: "#e8c48a", age: 0 }); }
       else if (e.t === "board") SFX.board();
       else if (e.t === "smash") SFX.smash();
@@ -248,7 +248,7 @@
       else if (e.t === "knock") { SFX.knock(Math.log(e.pts / E.TUNE.knock) / Math.LN2); popups.push({ x: e.x, y: e.y, text: "+" + e.pts, color: "#fff2b0", age: 0 }); }
       else if (e.t === "bitten") { SFX.bitten(); shake = 1; flash = 1; note(e.lives > 0 ? "Bitten!" : "That's the last of you"); }
       else if (e.t === "again") note(keysOrTouch("Pick a way to run", "Swipe to run"));
-      else if (e.t === "clear") { SFX.clear(); note("Block cleared"); }
+      else if (e.t === "clear") { SFX.clear(); note("Block cleared +" + fmt(E.TUNE.clear)); }
       else if (e.t === "over") { SFX.over(); finish(); }
     });
   }
@@ -361,6 +361,7 @@
     start: startRun,
     shared: function () { return shared; },
     cell: function () { return cell; },
+    popups: function () { return popups.map(function (q) { return { text: q.text, x: q.x, y: q.y }; }); },
     // run the rules on by hand (ms of game time), as if these keys had been pressed first
     advance: function (ms, input) { var seen = []; for (var t = 0; t < ms; t += 16) { handle(E.step(st, 16, t === 0 ? input : null)); st.events.forEach(function (e) { seen.push(e.t); }); if (st.status === "next") nextStreet(); if (ui !== "run") break; } if (st.status === "play") { started = true; note(""); } hud(); return seen; }
   };

@@ -86,6 +86,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     s.dead.forEach((z) => { z.hold = 1e9; });
     Object.keys(s.items).forEach((k, i) => { if (i > 0) { if (s.items[k] !== "plank") s.left--; delete s.items[k]; } });
     const lastItem = +Object.keys(s.items)[0], was = s.lv.name, score = s.score;
+    // (every text the note is given on the way: the observer's records, read at the end)
+    const noteObs = new MutationObserver(() => {}); noteObs.observe(document.getElementById("note"), { childList: true });
     s.player.cell = lastItem; s.player.to = -1; s.player.last = -1; s.items[lastItem] = "tin";
     // step onto it from next door
     const E = DeadEndEngine; let from = -1, dir = -1;
@@ -93,10 +95,26 @@ module.exports = async ({ browser, base, check, lib }) => {
     s.player.cell = from; s.player.dir = -1;
     DeadEnd.advance(3500, { dir });
     const t = DeadEnd.st();
-    return { was, now: t.lv.name, carried: t.score >= score + 500, lives: t.lives, status: t.status, ui: DeadEnd.ui() };
+    const notes = []; noteObs.takeRecords().forEach((m) => m.addedNodes.forEach((n) => notes.push(n.textContent))); noteObs.disconnect();
+    return { was, now: t.lv.name, carried: t.score >= score + 500, lives: t.lives, status: t.status, ui: DeadEnd.ui(), notes };
   });
   check("dead-end: the last tin clears the block, and the run moves on to Mill Lane with the score (and a bonus) carried over",
     next.was === "Elm Street" && next.now === "Mill Lane" && next.carried && next.lives === 3 && next.ui === "run", next);
+  check("dead-end: the block's clearing says what it's worth, \"Block cleared +500\"", next.notes.includes("Block cleared +500"), next.notes);
+  // ---- a torch picked up says what it's worth where it lay
+  const torch = await p.evaluate(() => {
+    const s = DeadEnd.st(), E = DeadEndEngine;
+    s.dead.forEach((z) => { z.hold = 1e9; });
+    const at = s.player.cell; let to = -1, dir = -1;
+    for (let d = 0; d < 4; d++) { const m = E.neighbor(s.lv, at, d); if (!s.lv.wall[m] && !s.lv.gate[m]) { to = m; dir = d; break; } }
+    if (!s.items[to] || s.items[to] === "plank") s.left++;   // (a torch counts toward the block, as a tin does)
+    s.items[to] = "torch";
+    const s0 = s.score;
+    DeadEnd.advance(700, { dir });
+    const lv = s.lv, pop = DeadEnd.popups().find((q) => /^TORCH/.test(q.text));
+    return { gained: DeadEnd.st().score - s0, text: pop && pop.text, at: !!pop && pop.x === to % lv.cols && pop.y === Math.floor(to / lv.cols) };
+  });
+  check("dead-end: a torch picked up says \"TORCH! +50\" where it lay", torch.text === "TORCH! +50" && torch.gained >= 50 && torch.at, torch);
   await p.keyboard.press("Escape"); await p.waitForTimeout(250); await p.keyboard.press("Enter"); await p.waitForTimeout(400);
   check("dead-end: no page errors", p.errs.length === 0, p.errs);
   await p.close();
