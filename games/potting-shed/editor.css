@@ -101,3 +101,11 @@ body.testing .ed-side { opacity: 0.55; pointer-events: none; }
 @media (max-width: 360px) {
   .ed-acts button { padding-left: 4px; padding-right: 4px; font-size: 13px; }
 }
+/* (and with a keyboard's keycaps beside them, a closer card edge and keycap) */
+@media (max-width: 340px) {
+  .ed-side.card { padding: 0 9px 12px; }
+  .ed-side.card::before { margin: 0 -9px 4px; }
+  .ed-acts button { padding-left: 3px; padding-right: 3px; }
+  .ed-acts button[data-gs-key]::after { margin-left: 0.35em; }
+  .ed-acts button, .ed-palette button { font-size: 12.5px; }
+}

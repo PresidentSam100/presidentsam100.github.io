@@ -352,6 +352,29 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("potting-shed editor: the eight actions sit in two even columns, every button the same width and height, the columns lined up and filling the packet, on laptops and phones (1366 x 657, 1280 x 900, 390, 320)",
       grid.every((g) => g.n === 8 && g.w < 0.5 && g.h < 0.5 && Math.abs(g.half) < 0.5 && g.left < 0.5 && g.right < 0.5), grid);
+
+    // every tool's and action's words on one line, keycaps showing (a mouse)
+    // or not (touch), down to a 320 px window
+    const wraps = {};
+    for (const [w, h, phone] of [[320, 568, 0], [320, 568, 1], [340, 640, 0], [360, 640, 0], [390, 664, 1]]) {
+      const cc = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const qq = await lib.open(cc, base, "games/potting-shed/editor.html");
+      await qq.evaluate((m) => PottingShedEditor.open(m), SHED);
+      await qq.waitForTimeout(150);
+      wraps[w + "x" + h + (phone ? " touch" : " mouse")] = await qq.evaluate(() => [...document.querySelectorAll(".ed-acts button, .ed-palette button")].filter((b) => b.getClientRects().length).filter((b) => {
+        const tops = new Set();
+        for (const n of b.childNodes) {
+          if (n.nodeType !== 3 || !n.textContent.trim()) continue;
+          const r = document.createRange(); r.selectNodeContents(n);
+          for (const x of r.getClientRects()) if (x.width > 1) tops.add(Math.round(x.top));
+        }
+        return tops.size > 1;
+      }).map((b) => b.textContent.trim()));
+      await qq.close();
+      await cc.close();
+    }
+    check("potting-shed editor: every tool's and action's words sit on one line, with a mouse's keycaps beside them or on touch, down to a 320 px window",
+      Object.values(wraps).every((a) => a.length === 0), wraps);
   }
   await ctx.close();
 };
