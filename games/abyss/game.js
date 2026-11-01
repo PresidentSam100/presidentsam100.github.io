@@ -122,6 +122,8 @@
   // Visual FX on: a hard drop leaves a trail of fading copies of the piece
   // down the rows it fell through, brightest where it lands
   var dropTrail = null, TRAIL_LIFE = 0.26;
+  // the points a clear scores, written where it cleared (see addPop)
+  var pops = [], POP_S = 0.9;
 
   function newBag() {
     var b = (mode === "krill" ? TYPES : "IJLOSTZ").split("");
@@ -250,13 +252,14 @@
       // FX off: no sweep, so the walls point at those rows, a while after
       // they collapse too
       if (!fx()) clearMark = { rows: full.slice(), life: 0.5 };
-      var n = full.length;
+      var n = full.length, twice = false;
       var base = lineScore(n) * level;
-      if (n === 4) { if (b2b) base = Math.floor(base * 1.5); b2b = true; }
+      if (n === 4) { if (b2b) { base = Math.floor(base * 1.5); twice = true; } b2b = true; }
       else b2b = false;
       score += base;
       lines += n;
       sndClear(n);
+      addPop(px(COLS / 2), (py(full[0]) + py(full[n - 1] + 1)) / 2, base, twice, cell);
       if (fx()) {
         full.forEach(function (ry) {
           for (var cx2 = 0; cx2 < COLS; cx2++) {
@@ -317,7 +320,7 @@
     queue = []; bag = []; hold = null; canHold = true;
     startLevel = !intense ? 1 : mode === "descent" ? 8 : mode === "maelstrom" ? 3 : 1;
     score = 0; lines = 0; level = startLevel; b2b = false; playMs = 0;
-    particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null; dropTrail = null;
+    particles = []; clearingRows = []; flashT = 0; dropMark = null; clearMark = null; dropTrail = null; pops = [];
     das.L = null; das.R = null; softHeld = false;
     $("menu").hidden = true; $("over").hidden = true;
     $("hud").hidden = false;
@@ -676,6 +679,38 @@
     particles = particles.filter(function (p) { return p.life > 0; });
 
     drawSide();
+    drawPops(dt);
+  }
+
+  // ---- the points, where they're scored ---------------------------------------------------
+  // A clear's points ("+N", and "×1.5" for a four after a four) over the rows
+  // that went, in the readout's face and glow. Visual FX on, they rise a
+  // little as they fade; off, the same words in the same place for as long,
+  // only fading. They run on the frames' clock, so a pause holds them; one
+  // that would land on another just written goes up out of its way.
+  function addPop(x, y, pts, twice, c) {
+    pops.forEach(function (p) { if (POP_S - p.life < 0.4 && Math.abs(p.y0 - y) < c * 1.4 && Math.abs(p.x - x) < c * 6) y = p.y0 - c * 1.5; });
+    pops.push({ text: "+" + pts.toLocaleString() + (twice ? " ×1.5" : ""), x: x, y0: y, c: c, life: POP_S, y: y, a: 1 });
+  }
+  function drawPops(dt) {
+    pops.forEach(function (p) {
+      p.life -= dt;
+      var t = Math.min(1, 1 - p.life / POP_S), size = Math.max(15, Math.round(p.c * 0.9));
+      p.a = t < 0.55 ? 1 : Math.max(0, 1 - (t - 0.55) / 0.45);
+      p.y = p.y0 - (fx() ? p.c * 1.1 * (1 - Math.pow(1 - t, 3)) : 0);
+      g.save();
+      g.globalAlpha = p.a;
+      g.font = "700 " + size + "px 'Share Tech Mono', 'Courier New', monospace";
+      g.textAlign = "center"; g.textBaseline = "middle";
+      g.lineJoin = "round"; g.lineWidth = Math.max(3, size * 0.22);
+      g.strokeStyle = "rgba(2,10,20,0.9)";
+      g.strokeText(p.text, p.x, p.y);
+      g.shadowColor = "rgba(89,210,245,0.8)"; g.shadowBlur = size * 0.6;
+      g.fillStyle = "#bff4ff";
+      g.fillText(p.text, p.x, p.y);
+      g.restore();
+    });
+    pops = pops.filter(function (p) { return p.life > 0; });
   }
 
   // ---- Maelstrom ------------------------------------------------------------------------
@@ -719,11 +754,16 @@
   // full lines: scored as Descent scores them, then they dissolve (the same
   // time with Visual FX on or off) and the blocks beyond them slide in
   function maelCleared(n, cells) {
-    var base = lineScore(n) * level;
-    if (n >= 4) { if (b2b) base = Math.floor(base * 1.5); b2b = true; } else b2b = false;
+    var base = lineScore(n) * level, twice = false;
+    if (n >= 4) { if (b2b) { base = Math.floor(base * 1.5); twice = true; } b2b = true; } else b2b = false;
     score += base;
     lines += n;
     sndClear(n);
+    // (where the cleared cells' middle is on the screen, the board as it stands)
+    var sx = 0, sy = 0, ang = viewAngle();
+    cells.forEach(function (i) { sx += i % MN + 0.5; sy += Math.floor(i / MN) + 0.5; });
+    sx = mx(sx / cells.length); sy = mx(sy / cells.length);
+    addPop(mcx + sx * Math.cos(ang) - sy * Math.sin(ang), mcy + sx * Math.sin(ang) + sy * Math.cos(ang), base, twice, mcell);
     state = "clearing";
     sweep = 0;
     mClear = {};
@@ -933,6 +973,7 @@
     var pc = M.piece();
     if (pc && state === "play") drawMaelPiece(pc);
     drawMaelSide();
+    drawPops(dt);
   }
   // the piece the keys move and its sonar echo, on the screen as the top arm stands
   function drawMaelPiece(p) {
@@ -1306,6 +1347,8 @@
       setLines: function (n) { lines = n; hudDom(); },
       setGrav: function (ms) { gravOverride = ms; },
       setPiece: function (t) { piece = { t: t, r: 0, x: t === "O" ? 4 : 3, y: 0 }; },
+      // the points written on the board: their words, where they were last drawn, how strong
+      pops: function () { return pops.map(function (p) { return { text: p.text, x: p.x, y0: p.y0, y: p.y, a: p.a, life: p.life }; }); },
       // the Visual FX off marks: what the last frame drew, and time left (s)
       marks: function () {
         return { dropDrawn: drawn.drop, clearDrawn: drawn.clear.slice(), trailDrawn: drawn.trail,

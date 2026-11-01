@@ -5,7 +5,8 @@
 // off; Maelstrom, its switch, its arms and turns, each arm's well 20 deep and
 // clearing only its own rows, and its fit (see below); on a
 // phone on its side the pad's two halves keep clear of the play area; the
-// score box clear of the corner buttons and no new piece under it. Frames are
+// score box clear of the corner buttons and no new piece under it; a clear's
+// points written where it cleared. Frames are
 // stepped by the test (see STEPPED), so timing doesn't depend on how busy the
 // machine is.
 const HOOK = ["start: startRun,", "start: startRun, gameOver: gameOver,"];
@@ -524,5 +525,68 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("abyss: on a phone upright (320 x 568, 390 x 664) a new piece on the row above the well is drawn only below the score box, none of it under the box",
       got.every((g) => g.band[0] < g.band[1] && g.under.every((c) => !c) && (!g.below || g.below.every((c) => c))), got);
+  }
+
+  // ---- a clear's points are written where it cleared: "+100" over a single
+  // row, "+1,200 ×1.5" over a four after a four, and in Maelstrom over the
+  // cleared cells; with Visual FX on they rise, off they hold still, and
+  // either way they're gone within a second; a pause holds them
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const ctx = await lib.newContext(browser);
+      const q = await lib.open(ctx, base, "games/abyss/", { before: async (pg) => {
+        await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/abyss/game.js", [HOOK]);
+        await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:abyss", off ? "1" : "0"); } catch (e) {} }, off);
+      } });
+      got[off ? "off" : "on"] = await q.evaluate(() => {
+        __frames(2); Abyss.start("descent"); Abyss.test.setGrav(100000); __frames(2);
+        const r = {}, well = () => Abyss.areas()[0];
+        // one row: the bottom one, its last four cells filled by a lying I
+        Abyss.test.fill(19, [0, 1, 2, 3, 4, 5]);
+        Abyss.test.setPiece("I"); Abyss.move(1); Abyss.move(1); Abyss.move(1);
+        Abyss.hard(); __frames(1);
+        const w = well(), c = (w.w - 8) / 10, rowTop = w.y + 4 + 19 * c, pop = Abyss.test.pops()[0];
+        r.one = { n: Abyss.test.pops().length, text: pop && pop.text, inRow: !!pop && pop.y0 >= rowTop && pop.y0 <= rowTop + c, mid: !!pop && Math.abs(pop.x - (w.x + w.w / 2)) < 1 };
+        const ys = [pop.y];
+        __frames(20); ys.push(Abyss.test.pops()[0].y);
+        // paused: nothing moves on
+        const life0 = Abyss.test.pops()[0].life;
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+        __frames(40);
+        r.paused = { life: Abyss.test.pops().length ? +(Abyss.test.pops()[0].life - life0).toFixed(3) : null };
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+        __frames(1);
+        let f = 0;
+        while (Abyss.test.pops().length && f < 120) { __frames(1); f++; if (f === 10 && Abyss.test.pops().length) ys.push(Abyss.test.pops()[0].y); }
+        r.ys = ys.map((y) => +y.toFixed(1)); r.framesLeft = f;
+        // two fours in a row: the second is worth half again
+        for (const k of [0, 1]) {
+          for (let y = 16; y < 20; y++) Abyss.test.fill(y, [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+          Abyss.test.setPiece("I"); Abyss.rotate(1); for (let i = 0; i < 6; i++) Abyss.move(1);
+          Abyss.hard(); __frames(1);
+          if (k === 0) { r.four = Abyss.test.pops().map((p) => p.text); __frames(60); }
+          else r.twice = Abyss.test.pops().map((p) => p.text);
+          for (let i = 0; i < 30 && Abyss.state() === "clearing"; i++) __frames(1);
+        }
+        // Maelstrom: the north well's floor row, its gap filled by a standing I
+        Abyss.toMenu(); __frames(2); Abyss.start("maelstrom"); Abyss.test.setGrav(100000); __frames(2);
+        const B = Abyss.board();
+        for (let x = 10; x < 20; x++) if (x !== 14) B.test.set(x, 19, 1);
+        B.test.clearPiece(0); B.test.place(0, "I", 1, 2, 16);
+        B.test.lock(0); __frames(1);
+        const v = Abyss.view(), mp = Abyss.test.pops()[0];
+        r.mael = { text: mp && mp.text, dx: mp && +(mp.x - v.cx).toFixed(1), dy: mp && +(mp.y0 - (v.cy + 4.5 * v.cell)).toFixed(1) };
+        return r;
+      });
+      got[off ? "off" : "on"].errs = q.errs;
+      await ctx.close();
+    }
+    const steady = (r) => r.ys.every((y) => Math.abs(y - r.ys[0]) < 0.01), rises = (r) => r.ys[1] < r.ys[0] - 3 && r.ys[2] <= r.ys[1];
+    check("abyss: a clear's points are written over the rows it cleared (\"+100\" for a row), a four after a four as \"+1,200 ×1.5\", and in Maelstrom over the cleared cells",
+      ["on", "off"].every((k) => { const r = got[k]; return r.one.n === 1 && r.one.text === "+100" && r.one.inRow && r.one.mid && r.four.join() === "+800" && r.twice.join() === "+1,200 ×1.5" && r.mael.text === "+100" && Math.abs(r.mael.dx) < 1 && Math.abs(r.mael.dy) < 1; }), got);
+    check("abyss: with Visual FX on the points rise as they fade, with it off they hold still; either way they're gone within a second and a pause holds them",
+      rises(got.on) && steady(got.off) && ["on", "off"].every((k) => got[k].framesLeft > 0 && got[k].framesLeft <= 40 && got[k].paused.life === 0), { on: [got.on.ys, got.on.framesLeft, got.on.paused], off: [got.off.ys, got.off.framesLeft, got.off.paused] });
+    check("abyss (points): no page errors", !got.on.errs.length && !got.off.errs.length, [got.on.errs, got.off.errs]);
   }
 };
