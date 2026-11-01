@@ -291,13 +291,17 @@
     $("vScore").textContent = score;
     $("vStreak").textContent = streak;
     flashLane(col, true);
-    showJudgment(col, j.label, j.cls);
+    showJudgment(col, j.label, j.cls, "+" + j.points);
     hitBurst(t, j.cls === "perfect");
     clearTileEl(t, "hit");
     hitSound(col);
   }
 
-  function showJudgment(col, label, cls) {
+  // The judgment in the lane, and under it what a Precision hit scored ("+N").
+  // It rises and fades with Visual FX on and holds still with it off, for
+  // JUDGE_MS on the run's clock: a pause holds its animation and its timer.
+  const JUDGE_MS = 620;
+  function showJudgment(col, label, cls, pts) {
     const l = lanes[col];
     // FX off: labels hold still instead of rising away (styles.css), so a new one
     // replaces the lane's last one rather than printing on top of it
@@ -305,8 +309,21 @@
     const el = document.createElement("div");
     el.className = "judge " + cls;
     el.textContent = label;
+    if (pts) { const b = document.createElement("b"); b.className = "pts"; b.textContent = pts; el.appendChild(b); }
     l.appendChild(el);
-    setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 620);
+    judgeTimer(el, JUDGE_MS);
+  }
+  function judgeTimer(el, ms) {
+    el._left = ms; el._from = performance.now();
+    el._timer = setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, ms);
+  }
+  // (paused: each label's time left kept and its timer stopped; resumed, run on)
+  function holdJudgments(paused) {
+    $("board").classList.toggle("held", paused);
+    document.querySelectorAll(".judge").forEach((el) => {
+      if (paused) { clearTimeout(el._timer); el._left -= performance.now() - el._from; }
+      else judgeTimer(el, Math.max(0, el._left));
+    });
   }
 
   // t is the tile that expired/was pressed-too-early, or null for a press
@@ -400,6 +417,7 @@
     ? GameShell.pausable({
         canPause: () => state === "running",
         onChange: (paused) => {
+          holdJudgments(paused);
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;
           const delta = performance.now() - pausedAt;

@@ -130,6 +130,9 @@ section[hidden] { display: none; }
 /* Visual FX off: judgePop would jump to its last frame (opacity 0), so the label
    holds still, fully shown, until game.js removes it after 620ms */
 html.fx-off .judge { animation: none; }
+/* what a Precision hit scored, under its judgment; and paused, the label holds */
+.judge .pts { display: block; font-size: 0.8rem; letter-spacing: 0.02em; margin-top: -1px; }
+.board.held .judge { animation-play-state: paused; }
 /* Visual FX on: a hit's burst, in its lane's colour (game.js hitBurst) */
 .burst { position: absolute; left: 50%; width: 0; height: 0; pointer-events: none; z-index: 3; }
 .burst .ring { position: absolute; left: -26px; top: -26px; width: 52px; height: 52px; border-radius: 50%;
