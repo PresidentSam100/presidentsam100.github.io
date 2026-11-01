@@ -399,7 +399,9 @@
   }
   $("ed-export").addEventListener("click", function () { openIO(false); });
   $("ed-import").addEventListener("click", function () { openIO(true); });
-  $("ed-io-close").addEventListener("click", function () { $("ed-io").hidden = true; });
+  // (its text lets go of the keys as it goes, so the next key is a tool's again, not typing)
+  function closeIO() { $("ed-io-text").blur(); $("ed-io").hidden = true; }
+  $("ed-io-close").addEventListener("click", closeIO);
   $("ed-io-copy").addEventListener("click", function () {
     var t = $("ed-io-text"), b = this;
     t.select();
@@ -410,7 +412,7 @@
   $("ed-io-load").addEventListener("click", function () {
     var m;
     try { m = fromText($("ed-io-text").value); } catch (err) { var note = $("ed-io-note"); note.className = "ed-io-note bad"; note.textContent = String(err && err.message || err); return; }
-    unsavedAsk("Load this shed?", "Load it", function () { $("ed-io").hidden = true; open(m, null); kept = snapshot(); say('Loaded "' + m.name + '".'); });
+    unsavedAsk("Load this shed?", "Load it", function () { closeIO(); open(m, null); kept = snapshot(); say('Loaded "' + m.name + '".'); });
   });
 
   // ---- keys -----------------------------------------------------------------------------------------
@@ -418,7 +420,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector(".gs-dialog")) return;
     // Esc closes the export / import box, from its text too
-    if (e.key === "Escape" && !$("ed-io").hidden) { e.preventDefault(); $("ed-io").hidden = true; return; }
+    if (e.key === "Escape" && !$("ed-io").hidden) { e.preventDefault(); closeIO(); return; }
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (!T) return;
     // (a test claims Esc: it stops the test rather than leaving)
@@ -428,6 +430,15 @@
     if (d) { e.preventDefault(); if (!e.repeat) tstep(d[0], d[1]); }
   });
   if (window.GameShell && GameShell.menuKeys) {
+    // building: 1 to 6 the paint, B benches round, T test, C check, S save
+    // (A as new), N new, G play it in the game, L copy its link, E export,
+    // I import, Backspace back to the game (each key on its button; none
+    // while typing a name or a size, or with a box up)
+    GameShell.menuKeys({ active: function () { return !T && $("ed-io").hidden && $("ed-done").hidden; }, root: "#ed-palette",
+      groups: [{ sel: "#ed-palette button" }, { sel: "#ed-frame", keys: ["b"] },
+        { sel: "#ed-test", keys: ["t"] }, { sel: "#ed-check", keys: ["c"] }, { sel: "#ed-save", keys: ["s"] }, { sel: "#ed-new", keys: ["n"] }, { sel: "#ed-savenew", keys: ["a"] },
+        { sel: "#ed-play", keys: ["g"] }, { sel: "#ed-share", keys: ["l"] }, { sel: "#ed-export", keys: ["e"] }, { sel: "#ed-import", keys: ["i"] },
+        { sel: "#ed-back", keys: ["backspace"] }] });
     // in a test: U a step back, R start over, Backspace stop
     GameShell.menuKeys({ active: function () { return !!T && $("ed-done").hidden; }, groups: [{ sel: "#ed-testbar button", keys: ["u", "r", "backspace"] }] });
     // the card after it: Enter back to editing, R test again

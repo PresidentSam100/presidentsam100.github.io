@@ -12,6 +12,8 @@
 // map import back. In the game, L on the menu opens the editor, a saved shed
 // is under My sheds and plays, keeping no records, and a "#play=" link is the
 // chosen shed. Also on a phone: touch paints, and nothing runs off the side.
+// Every tool wears its key and the key presses it, and the actions sit in two
+// even columns, every button the same size.
 const http = require("http");
 
 module.exports = async ({ browser, base, check, lib }) => {
@@ -283,6 +285,73 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("potting-shed editor (phone): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();
+  }
+  // ---- the tools' keys: 1 to 6 the paint, B benches round, T test, C check,
+  // S save, N new, G play in the game, L copy the link, E export, I import,
+  // Backspace back to the game, each worn on its button; typed into the
+  // name they're only letters. And the actions in two even columns: every
+  // button the same width and height, the columns lined up edge to edge and
+  // filling the packet (they were each as wide as their words), on a laptop
+  // and on phones
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/potting-shed/editor.html");
+    const SHED = { name: "Keys", map: ["#######", "#@ $ .#", "#     #", "#     #", "#######"] };
+    await q.evaluate((m) => { localStorage.removeItem("pottingshed_mine"); PottingShedEditor.open(m); }, SHED);
+    await q.waitForTimeout(150);
+    const caps = await q.evaluate(() => Object.fromEntries(["ed-test", "ed-check", "ed-save", "ed-new", "ed-play", "ed-share", "ed-export", "ed-import", "ed-frame", "ed-back"]
+      .map((id) => [id, document.getElementById(id).getAttribute("data-gs-key")]).concat([["palette", [...document.querySelectorAll("#ed-palette button")].map((b) => b.getAttribute("data-gs-key")).join("")]])));
+    const r = {};
+    await q.keyboard.press("3"); r.three = await q.evaluate(() => PottingShedEditor.tool());
+    await q.keyboard.press("1");
+    await q.keyboard.press("e"); r.exported = await q.evaluate(() => !document.getElementById("ed-io").hidden && document.getElementById("ed-io-title").textContent);
+    await q.keyboard.press("Escape"); await q.keyboard.press("i"); r.imported = await q.evaluate(() => !document.getElementById("ed-io").hidden && document.getElementById("ed-io-title").textContent);
+    await q.keyboard.press("Escape");
+    await q.keyboard.press("c");
+    await q.waitForFunction(() => PottingShedEditor.checked() && PottingShedEditor.checked() !== "checking", null, { timeout: 15000 }).catch(() => {});
+    r.checked = await q.evaluate(() => !!PottingShedEditor.checked());
+    await q.keyboard.press("s"); await q.waitForTimeout(100);
+    r.saved = await q.evaluate(() => PottingShedEditor.saved().length);
+    await q.keyboard.press("t"); await q.waitForTimeout(100);
+    r.testing = await q.evaluate(() => !!PottingShedEditor.test());
+    await q.keyboard.press("Escape"); await q.waitForTimeout(100);
+    r.stopped = await q.evaluate(() => !PottingShedEditor.test());
+    // typed into the name, T and E are letters
+    await q.click("#ed-name"); await q.keyboard.press("End"); await q.keyboard.type("te");
+    r.typed = await q.evaluate(() => ({ name: document.getElementById("ed-name").value, testing: !!PottingShedEditor.test(), box: !document.getElementById("ed-io").hidden }));
+    await q.evaluate(() => document.activeElement.blur());
+    // B: benches all round (a shed with a gap in its wall gets it closed)
+    await q.evaluate(() => PottingShedEditor.paint(3, 0, " "));
+    await q.keyboard.press("b"); r.closed = await q.evaluate(() => PottingShedEditor.map()[0][3] === "#");
+    check("potting-shed editor: every tool shows its key (1 to 6 the paints, B, T, C, S, N, G, L, E, I, ⌫ back to the game)",
+      caps.palette === "123456" && caps["ed-frame"] === "B" && caps["ed-test"] === "T" && caps["ed-check"] === "C" && caps["ed-save"] === "S" && caps["ed-new"] === "N" &&
+      caps["ed-play"] === "G" && caps["ed-share"] === "L" && caps["ed-export"] === "E" && caps["ed-import"] === "I" && caps["ed-back"] === "⌫", caps);
+    check("potting-shed editor: the keys press their tools (3 picks sun, E export, I import, C checks, S saves, T tests and Esc stops it, B closes the walls), and typed into the name they're only letters",
+      r.three === "." && r.exported === "Export" && r.imported === "Import" && r.checked && r.saved === 1 && r.testing && r.stopped &&
+      r.typed.name === "Keyste" && !r.typed.testing && !r.typed.box && r.closed, r);
+    check("potting-shed editor (keys): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await c.close();
+
+    const grid = [];
+    for (const [w, h, phone] of [[1366, 657, 0], [1280, 900, 0], [390, 664, 1], [320, 568, 1]]) {
+      const cc = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+      const qq = await lib.open(cc, base, "games/potting-shed/editor.html");
+      await qq.evaluate((m) => PottingShedEditor.open(m), SHED);
+      await qq.waitForTimeout(150);
+      grid.push(Object.assign({ size: w + "x" + h }, await qq.evaluate(() => {
+        const box = document.querySelector(".ed-acts").getBoundingClientRect(), gap = parseFloat(getComputedStyle(document.querySelector(".ed-acts")).columnGap);
+        const bs = [...document.querySelectorAll(".ed-acts button")].filter((b) => b.getClientRects().length).map((b) => b.getBoundingClientRect());
+        const ws = bs.map((r) => r.width), hs = bs.map((r) => r.height);
+        const lefts = bs.filter((r, i) => i % 2 === 0).map((r) => r.left), rights = bs.filter((r, i) => i % 2 === 1).map((r) => r.right);
+        const span = (a) => Math.max(...a) - Math.min(...a);
+        return { n: bs.length, w: span(ws), h: span(hs), half: +(ws[0] - (box.width - gap) / 2).toFixed(2), left: +(span(lefts) + Math.abs(lefts[0] - box.left)).toFixed(2), right: +(span(rights) + Math.abs(rights[0] - box.right)).toFixed(2) };
+      })));
+      await qq.close();
+      await cc.close();
+    }
+    check("potting-shed editor: the eight actions sit in two even columns, every button the same width and height, the columns lined up and filling the packet, on laptops and phones (1366 x 657, 1280 x 900, 390, 320)",
+      grid.every((g) => g.n === 8 && g.w < 0.5 && g.h < 0.5 && Math.abs(g.half) < 0.5 && g.left < 0.5 && g.right < 0.5), grid);
   }
   await ctx.close();
 };

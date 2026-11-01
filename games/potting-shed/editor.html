@@ -67,14 +67,14 @@
     </div>
     <label class="ed-field">Name <input type="text" id="ed-name" maxlength="40" placeholder="My shed" autocomplete="off" /></label>
 
-    <div class="ed-row">
+    <!-- what to do with it: two even columns (Save as new, when there's a
+         saved shed to keep, across both) -->
+    <div class="ed-acts">
       <button type="button" class="ed-go" id="ed-test">Test</button>
       <button type="button" id="ed-check">Check</button>
       <button type="button" id="ed-save">Save</button>
-      <button type="button" id="ed-savenew" title="Keep the saved shed as it was and save this as another" hidden>Save as new</button>
       <button type="button" id="ed-new">New</button>
-    </div>
-    <div class="ed-row">
+      <button type="button" class="wide" id="ed-savenew" title="Keep the saved shed as it was and save this as another" hidden>Save as new</button>
       <button type="button" id="ed-play">Play in the game</button>
       <button type="button" id="ed-share">Copy share link</button>
       <button type="button" id="ed-export">Export</button>
@@ -97,7 +97,7 @@
     <div class="ed-io-row">
       <button type="button" class="ed-go" id="ed-io-load" hidden>Load into the editor</button>
       <button type="button" id="ed-io-copy">Copy</button>
-      <button type="button" id="ed-io-close">Close</button>
+      <button type="button" id="ed-io-close" data-gs-key="Esc">Close</button>
     </div>
   </div>
 </section>
