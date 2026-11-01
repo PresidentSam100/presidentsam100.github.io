@@ -275,6 +275,24 @@ module.exports = async ({ browser, base, check, lib }) => {
       __frames(30);
       r.north = { lines: Abyss.lines() - lines2, down: !B.test.get(12, 18) && !!B.test.get(12, 19), south: !!B.test.get(12, 25), east: !!B.test.get(25, 15),
         gap: [16, 17, 18, 19].map((y) => B.test.get(14, y) ? 1 : 0).join("") };
+      // a line of the core filled while one arm is at the top, a row of the
+      // next arm round's well (a column, from the top arm's side), clears the
+      // moment the board has turned that arm to the top, before its first piece
+      __frames(30);
+      for (let k = 0; k < 4; k++) B.test.clearPiece(k);
+      for (let y = 0; y < 30; y++) for (let x = 0; x < 30; x++) B.test.set(x, y, 0);
+      const top3 = B.top, nxt = (top3 + 1) % 4, line = [];
+      for (let lx = 0; lx < 10; lx++) { const b = AbyssMaelstrom.toBoard(nxt, lx, 14); line.push(b); B.test.set(b[0], b[1], 1); }
+      const lines3 = Abyss.lines();
+      B.test.setNext(nxt);
+      B.test.place(top3, "O", 0, 0, 0); B.test.lock(top3);   // (a piece down out of the way: the board turns next)
+      const turned = { on: !!B.turning, to: B.turning && B.turning.to };
+      let f = 0;
+      while (B.turning && f < 120) { __frames(1); f++; }
+      turned.atEnd = { top: B.top, clearing: Abyss.state(), piece: !!B.piece(), lines: Abyss.lines() - lines3 };
+      __frames(30);
+      turned.after = { lines: Abyss.lines() - lines3, gone: line.every((b) => !B.test.get(b[0], b[1])), piece: B.piece() && B.piece().k };
+      r.turned = turned;
       r.best = localStorage.getItem("abyss_best_maelstrom");
       r.score = Abyss.score();
       return r;
@@ -297,6 +315,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       single.east.lines === 1 && single.east.gone && single.east.arm && single.east.moved && Number(single.best) === single.score && single.score > 0, { east: single.east, best: single.best, score: single.score });
     check("abyss, Maelstrom: a north row clear brings the north well's rows above it down one, and leaves the south and east arms' blocks where they are",
       single.north.lines === 1 && single.north.down && single.north.south && single.north.east && single.north.gap === "0111", single.north);
+    const tu = single.turned;
+    check("abyss, Maelstrom: a row filled across another side's well clears as soon as the board has turned that side to the top, before its first piece comes in",
+      tu.on && tu.atEnd.top === tu.to && tu.atEnd.clearing === "clearing" && !tu.atEnd.piece && tu.after.lines === 1 && tu.after.gone && tu.after.piece === tu.to, tu);
     check("abyss (Maelstrom): no page errors", q.errs.length === 0, q.errs);
     await ctx.close();
   }

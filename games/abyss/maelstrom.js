@@ -11,8 +11,9 @@
 
    A full row clears only in the well of the arm whose piece just landed:
    one of its 20 rows across, the rows above it coming down one toward that
-   well's floor. Never a column, and never a line in another arm's well (a
-   row a piece fills there waits for that arm's next piece).
+   well's floor. Never a column, and never a line in another arm's well: a
+   row another side's pieces fill across this well clears when the board
+   turns this arm to the top, before its first piece comes in.
 
    A piece's place is kept in its arm's own frame: lx across the arm (0 to 9),
    ly from the arm's outer edge in (0 to 9 the arm, 10 to 19 the core). Rows
@@ -119,7 +120,9 @@
       turning.ms = turning.left = hooks.turn ? hooks.turn(turning.from, to, turning.dir, turning.quarters) || 0 : 0;
       if (turning.left <= 0) endTurn();
     }
-    function endTurn() { top = turning.to; turning = null; fill(); }
+    // the turn done: rows the other sides' pieces filled across this well
+    // clear now, before its first piece comes in
+    function endTurn() { top = turning.to; turning = null; if (!clearRows(top)) fill(); }
 
     function start(opts) {
       grid = new Uint8Array(S * S);
@@ -208,13 +211,15 @@
       });
       if (hooks.lock) hooks.lock(k);
       if (out) { end(); return; }
+      if (!clearRows(k)) fill();
+    }
+    // arm k's well's full rows start to clear (true), or there are none
+    function clearRows(k) {
       var full = fullLines(k);
-      if (full.count) {
-        clearing = { cells: full.cells, lines: full, left: 0 };
-        clearing.left = hooks.clear ? hooks.clear(full.count, full.cells) || 0 : 0;
-        return;
-      }
-      fill();
+      if (!full.count) return false;
+      clearing = { cells: full.cells, lines: full, left: 0 };
+      clearing.left = hooks.clear ? hooks.clear(full.count, full.cells) || 0 : 0;
+      return true;
     }
     // the full rows of arm k's well (its own frame's rows, ly 0 to 19)
     function fullLines(k) {
