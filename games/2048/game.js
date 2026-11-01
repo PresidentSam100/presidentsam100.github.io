@@ -133,6 +133,49 @@
     a.onfinish = a.oncancel = function () { if (s.parentNode) s.parentNode.removeChild(s); };
   }
 
+  // The points a big merge adds (a key of POP_FROM or more: the small ones
+  // come nearly every move, and the score shows those), on the key it made:
+  // "+N" pops on the key as it's revealed and fades. With Visual FX on it rises off the key as it
+  // fades; with it off the same number, in the same place, for the same
+  // time, only fading. Each merged key gets its own (a second one on the
+  // same key while the first still shows sits a little lower), and a pause
+  // holds them where they are.
+  var POP_MS = 850, POP_FROM = 128;
+  var popsEl = document.createElement("div");
+  popsEl.className = "pops";
+  popsEl.setAttribute("aria-hidden", "true");
+  tilesEl.parentNode.appendChild(popsEl);
+  var pops = [];                     // { el, anim, r, c, at }
+  var shell = null;                  // the pause (GameShell.pausable), once set up
+  function pointsPop(t) {
+    if (!popsEl.animate) return;
+    var now = performance.now(), below = 0;
+    pops.forEach(function (q) { if (q.r === t.r && q.c === t.c && now - q.at < POP_MS * 0.5) below++; });
+    var s = document.createElement("span");
+    s.className = "pop-pts";
+    s.textContent = "+" + t.val;
+    s.style.left = (t.c * step + cellSize / 2) + "px";
+    s.style.top = (t.r * step + cellSize * (0.32 + 0.3 * below)) + "px";
+    s.style.fontSize = Math.max(14, Math.round(cellSize * 0.27)) + "px";
+    popsEl.appendChild(s);
+    var rise = fxOn() ? -Math.round(cellSize * 0.4) : 0, at = "translate(-50%, -50%) ";
+    var a = s.animate([
+      { transform: at + "translateY(0)", opacity: 1 },
+      { transform: at + "translateY(" + Math.round(rise * 0.5) + "px)", opacity: 1, offset: 0.55 },
+      { transform: at + "translateY(" + rise + "px)", opacity: 0 }
+    ], { duration: POP_MS, easing: "ease-out", fill: "forwards" });
+    var q = { el: s, anim: a, r: t.r, c: t.c, at: now };
+    pops.push(q);
+    if (shell && shell.isPaused()) a.pause();
+    a.onfinish = a.oncancel = function () {
+      if (s.parentNode) s.parentNode.removeChild(s);
+      var i = pops.indexOf(q);
+      if (i >= 0) pops.splice(i, 1);
+    };
+  }
+  function holdPops(paused) { pops.forEach(function (q) { if (paused) q.anim.pause(); else q.anim.play(); }); }
+  function clearPops() { pops.slice().forEach(function (q) { q.anim.cancel(); }); }
+
   // Static background cells (built once).
   for (var i = 0; i < SIZE * SIZE; i++) {
     var bg = document.createElement("div");
@@ -246,6 +289,7 @@
         m.el.style.zIndex = "3";
         m.inner.classList.add("pop", "is-merged");
         if (fxOn() && lastVec) mergeFx(m, lastVec);
+        if (m.val >= POP_FROM) pointsPop(m);
       }
     }
     pendingMerges = [];
@@ -478,6 +522,7 @@
     }
     pending = [];
     pendingMerges = [];
+    clearPops();
     tilesEl.innerHTML = "";
     tiles = {};
     nextId = 1;
@@ -611,9 +656,10 @@
   // The ⏸ button and P bring up the card, for its Restart (AC's new game; the
   // two modes are on the page). There is no clock, so a hidden tab doesn't
   // pause, and the arrows do nothing under the card.
-  if (window.GameShell && GameShell.pausable) GameShell.pausable({
+  if (window.GameShell && GameShell.pausable) shell = GameShell.pausable({
     canPause: function () { return !over; }, auto: false, hold: true,
-    restart: newGame
+    restart: newGame,
+    onChange: holdPops
   });
 
   mode = lsGet(MODE_KEY, "normal") === "fib" ? "fib" : "normal";

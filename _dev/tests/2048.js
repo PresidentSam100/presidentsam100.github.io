@@ -2,7 +2,7 @@
 // "Keep Going" the Game Over card comes up and leaving no longer asks; the AC
 // key and the mode buttons ask before wiping a game in progress, and don't
 // on a fresh board or a finished game; a key slides to its cell at the same
-// pace with Visual FX on or off.
+// pace with Visual FX on or off; a merge's points pop on the key it made.
 const HOOK = ["  newGame();\n})();", `  newGame();
   window.__set2048 = function (rows) {
     newGame(); tilesEl.innerHTML = ""; tiles = {}; grid = [];
@@ -90,5 +90,57 @@ module.exports = async ({ browser, base, check, lib }) => {
   const slidOk = (s) => s && s.ms >= 60 && s.ms <= 150 && s.to < s.half - 10 && s.half < s.from - 10;
   check("2048: a key slides across to its cell (halfway through, it's between the two) in the same 90 ms, with Visual FX on and with it off",
     slidOk(slides.on) && slidOk(slides.off) && slides.off.ms === slides.on.ms, slides);
+
+  // ---- a big merge's points pop on the key it made: "+128" for two 64s, the
+  // score's own change, centred on that key; with Visual FX on rising as it
+  // fades, off the same place throughout; under a second on screen; a pause
+  // holds it. A small merge (two 2s) pops nothing: they come nearly every move
+  const pops = {};
+  for (const off of [false, true]) {
+    const q = await lib.open(ctx, base, "games/2048/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/2048/game.js", [HOOK]);
+      await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:2048", off ? "1" : "0"); } catch (e) {} }, off);
+    } });
+    if (!off) {
+      await q.evaluate(() => __set2048([[2, 2, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]));
+      await q.keyboard.press("ArrowLeft"); await q.waitForTimeout(400);
+      pops.small = await q.evaluate(() => ({ n: document.querySelectorAll(".pop-pts").length, score: document.getElementById("score").textContent }));
+    }
+    await q.evaluate(() => __set2048([[64, 64, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]));
+    await q.keyboard.press("ArrowLeft");
+    await q.waitForFunction(() => document.querySelector(".pop-pts"), null, { timeout: 5000 });
+    pops[off ? "off" : "on"] = await q.evaluate(() => {
+      const el = document.querySelector(".pop-pts"), a = el.getAnimations()[0];
+      const key = [...document.querySelectorAll("#tiles .tile")].find((t) => t.textContent === "128" && t.style.transform.indexOf("translate(0px, 0px)") === 0).getBoundingClientRect();
+      a.pause();
+      const ms = a.effect.getComputedTiming().endTime;
+      const at = (f) => { a.currentTime = ms * f; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, o: +getComputedStyle(el).opacity }; };
+      const early = at(0.1), late = at(0.8), end = at(0.999);
+      return { text: el.textContent, score: document.getElementById("score").textContent, ms: Math.round(ms), n: document.querySelectorAll(".pop-pts").length,
+        onKey: Math.abs(early.x - (key.left + key.width / 2)) < 2 && early.y > key.top && early.y < key.bottom, rise: Math.round(early.y - late.y), endOpacity: end.o };
+    });
+    check("2048 FX " + (off ? "off" : "on") + " points: no page errors", q.errs.length === 0, q.errs);
+    if (off) {
+      // (a fresh merge, played in real time, then paused: it stays; resumed, it goes)
+      await q.evaluate(() => __set2048([[0, 0, 0, 0], [0, 0, 0, 0], [256, 256, 0, 0], [0, 0, 0, 0]]));
+      await q.keyboard.press("ArrowLeft");
+      await q.waitForFunction(() => document.querySelector(".pop-pts"), null, { timeout: 5000 });
+      await q.keyboard.press("p");
+      await q.waitForTimeout(1300);
+      pops.paused = await q.evaluate(() => { const el = document.querySelector(".pop-pts"); return el ? { text: el.textContent, state: el.getAnimations()[0].playState } : null; });
+      await q.keyboard.press("p");
+      await q.waitForFunction(() => !document.querySelector(".pop-pts"), null, { timeout: 3000 }).catch(() => {});
+      pops.resumed = await q.evaluate(() => document.querySelectorAll(".pop-pts").length);
+    }
+    await q.close();
+  }
+  const popOk = (s) => s && s.text === "+128" && /^(128|132)$/.test(s.score) && s.n === 1 && s.onKey && s.ms >= 700 && s.ms <= 1000 && s.endOpacity < 0.05;
+  check("2048: a big merge's points (+128 for two 64s, the score's change) pop on the key it made and are gone in under a second, with Visual FX on and off",
+    popOk(pops.on) && popOk(pops.off) && pops.on.ms === pops.off.ms, pops);
+  check("2048: a small merge (two 2s) pops no points: they come nearly every move", !!pops.small && pops.small.n === 0 && pops.small.score === "4", pops.small);
+  check("2048: with Visual FX on the points rise as they fade; with it off they stay where they are",
+    pops.on && pops.off && pops.on.rise > 5 && Math.abs(pops.off.rise) < 1, { on: pops.on && pops.on.rise, off: pops.off && pops.off.rise });
+  check("2048: a pause holds the points where they are (still there after 1.3 s), and resumed they go",
+    !!pops.paused && pops.paused.text === "+512" && pops.paused.state === "paused" && pops.resumed === 0, { paused: pops.paused, resumed: pops.resumed });
   await ctx.close();
 };

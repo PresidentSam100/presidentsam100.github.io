@@ -407,6 +407,28 @@
       pointer-events: none;
     }
 
+    /* the points a merge adds, "+N" on its key (game.js): lit LCD green with
+       a dark rim so it reads on every key colour */
+    .pops {
+      position: absolute;
+      inset: var(--gap);
+      z-index: 5;
+      pointer-events: none;
+    }
+    .pop-pts {
+      position: absolute;
+      font-family: "Rubik", system-ui, sans-serif;
+      font-style: italic;
+      font-weight: 800;
+      line-height: 1;
+      white-space: nowrap;
+      color: #d8ff8a;
+      text-shadow:
+        0 0 2px #16181c, 1px 1px 0 #16181c, -1px 1px 0 #16181c, 1px -1px 0 #16181c, -1px -1px 0 #16181c,
+        0 2px 0 #16181c, 0 3px 6px rgba(0, 0, 0, 0.55);
+      opacity: 0;
+    }
+
     /* Visual FX off: nothing pops in, so the keys the last move added stay
        marked until the next move (game.js sets the classes): a merged key
        gets a lit ring round it, a new key a lit LED in its corner */
