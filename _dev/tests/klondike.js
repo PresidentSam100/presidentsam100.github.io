@@ -7,7 +7,8 @@
 // the tableau goes out a card at a time, a card to each pile in turn, ending
 // where a deal simply laid out puts them; a press, a key, the switch flipped
 // off or a resize finishes it at once; with FX off it goes out too, quicker
-// and straight.
+// and straight. Space draws from the stock as a click does, and the stock
+// wears its keycap; every button on the win box wears a key that presses it.
 // requestAnimationFrame (and performance.now) on a clock the test advances
 const STEPPED = () => {
   let t = 1000, q = [];
@@ -96,11 +97,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.evaluate(() => { Klondike.deal(7); Klondike.draw(); Klondike.draw(); });
   await p.keyboard.press("p"); await p.waitForTimeout(100);
   const k0 = await p.evaluate(() => Klondike.state());
-  for (const k of ["u", "h", "r", "n", "Enter"]) await p.keyboard.press(k);
+  for (const k of ["u", "h", "r", "n", "Enter", "Space"]) await p.keyboard.press(k);
   await p.keyboard.press("Control+z");
   await p.waitForTimeout(100);
   const k1 = await p.evaluate(() => ({ st: Klondike.state(), hints: document.querySelectorAll(".hintsrc, .hintdst").length }));
-  check("klondike: U, H, R, N, Enter and Ctrl+Z do nothing while paused",
+  check("klondike: U, H, R, N, Enter, Space and Ctrl+Z do nothing while paused",
     k0.paused && k1.st.paused && k1.st.seed === k0.seed && k1.st.moves === k0.moves && k1.st.waste === k0.waste && k1.hints === 0, { k0: [k0.seed, k0.moves, k0.waste], k1: [k1.st.seed, k1.st.moves, k1.st.waste, k1.hints] });
   await p.keyboard.press("p");
 
@@ -521,5 +522,96 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("klondike: \"Pan it all\" has its Enter keycap in the middle of the words' capitals, and the cap's word in the middle of its face (laptop, narrow window: within 0.75 px)",
       seen.every((s) => s.cap !== null && Math.abs(s.cap) <= 0.75 && Math.abs(s.word) <= 0.75), seen);
+  }
+
+  // ---- Space draws from the stock as a click on it does: one card in draw
+  // one, three in draw three, the waste turned back over once the stock is
+  // empty; a Space held down draws once; with a menu button in focus it still
+  // draws (and opens no menu). The stock wears its Space keycap (with a
+  // keyboard; none on a touch-only phone). T is the rule, not a draw.
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    const st = () => q.evaluate(() => { const s = Klondike.state(); return { stock: s.stock, waste: s.waste ? s.waste.split(" ").length : 0, draw3: s.draw3, moves: s.moves }; });
+    await q.evaluate(() => Klondike.deal(5));
+    await q.keyboard.press("Space"); const one = await st();
+    await q.keyboard.down("Space"); await q.keyboard.down("Space"); await q.keyboard.down("Space"); await q.keyboard.up("Space");
+    const held = await st();
+    // the Game menu's button in focus (as after a click on it and back out): Space still draws
+    await q.evaluate(() => { document.querySelector("#menu-game .mtop").focus(); });
+    await q.keyboard.press("Space");
+    const focused = Object.assign(await st(), { menu: await q.evaluate(() => !document.querySelector("#menu-game .mlist").hidden) });
+    // to the end of the stock, then once more: the waste goes back over
+    await q.evaluate(() => { while (Klondike.state().stock) Klondike.draw(); });
+    const empty = await st();
+    await q.keyboard.press("Space"); const turned = await st();
+    // draw three (an untouched deal: T switches at once), and Space turns three
+    await q.evaluate(() => Klondike.deal(6));
+    await q.keyboard.press("t"); await q.waitForTimeout(150);
+    await q.evaluate(() => Klondike.deal(6));
+    await q.keyboard.press("Space"); const three = await st();
+    await q.keyboard.press("Space"); const six = await st();
+    // (once the cards drawn have landed: one on its way goes over the cap, as over every card at rest)
+    await q.waitForFunction(() => !document.querySelector(".card.lift, .card.arc"), null, { timeout: 10000 });
+    const cap = await q.evaluate(() => {
+      const k = document.querySelector("#stock-key kbd");
+      if (!k) return { text: null };
+      const s = document.getElementById("slot-stock").getBoundingClientRect(), r = k.getBoundingClientRect();
+      // (what's on top there, the cap taking presses for the moment: a hit test passes over it otherwise)
+      const host = document.getElementById("stock-key"), lets = getComputedStyle(host).pointerEvents;
+      host.style.pointerEvents = "auto";
+      const top = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2)[0];
+      host.style.pointerEvents = "";
+      return { text: k.textContent, shown: !!k.getClientRects().length && r.width > 0, inside: r.left >= s.left - 1 && r.right <= s.right + 1 && r.top >= s.top && r.bottom <= s.bottom + 1,
+        onTop: !!top && host.contains(top), lets };
+    });
+    check("klondike: Space draws from the stock as a click does: one card in draw one (a held Space only once, and with a menu's button in focus too, opening no menu), the waste back over once the stock is empty, and three at a time in draw three",
+      one.stock === 23 && one.waste === 1 && held.stock === 22 && focused.stock === 21 && !focused.menu && empty.stock === 0 && empty.waste === 24 && turned.stock === 24 && turned.waste === 0 &&
+      three.draw3 && three.stock === 21 && three.waste === 3 && six.stock === 18 && six.waste === 6, { one, held, focused, empty, turned, three, six });
+    check("klondike: the stock wears its Space keycap, at its foot over its cards, letting presses through", cap.text === "Space" && cap.shown && cap.inside && cap.onTop && cap.lets === "none", cap);
+    check("klondike (Space): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+    const ph = await lib.newContext(browser, { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const r = await lib.open(ph, base, "games/klondike/");
+    const phoneCap = await r.evaluate(() => { const k = document.querySelector("#stock-key kbd"); return !!k && !!k.getClientRects().length; });
+    check("klondike: on a touch-only phone the stock shows no keycap", !phoneCap, phoneCap);
+    await ph.close();
+  }
+
+  // ---- the win box: every button wears its key, and the key presses it.
+  // The Daily's: Share S, Deal new Enter (the one in focus), Same deal R;
+  // a plain deal's has no Share. Space presses nothing there (it's the draw)
+  {
+    const c = await lib.newContext(browser);
+    await c.grantPermissions(["clipboard-read", "clipboard-write"]);
+    const q = await lib.open(c, base, "games/klondike/", { before: (pg) => pg.addInitScript(FX_OFF) });
+    await q.waitForFunction(() => !Klondike.dealing(), null, { timeout: 10000 });
+    const winNow = (daily) => q.evaluate((daily) => { Klondike.deal(daily ? 41 : 42, daily); Klondike.almostWin(); for (let i = 0; i < 4; i++) Klondike.move("t" + i, "f" + i, 1); }, daily);
+    const look = () => q.evaluate(() => ({ up: !document.getElementById("shade").hidden, title: document.getElementById("mb-title").textContent,
+      keys: [...document.querySelectorAll("#mb-row button")].map((b) => b.textContent.trim() + ":" + b.getAttribute("data-gs-key")).join("|"),
+      focus: document.activeElement && document.activeElement.closest("#mb-row") ? document.activeElement.textContent.trim() : null, st: Klondike.state() }));
+    await winNow(true); await q.waitForTimeout(100);
+    const daily = await look();
+    await q.keyboard.press("Space"); await q.waitForTimeout(150);
+    const spaced = await look();
+    await q.keyboard.press("s"); await q.waitForTimeout(150);
+    const shared = await q.evaluate(async () => ({ btn: [...document.querySelectorAll("#mb-row button")].map((b) => b.textContent.trim()).join("|"), clip: await navigator.clipboard.readText().catch(() => "") }));
+    await q.keyboard.press("r"); await q.waitForTimeout(150);
+    const same = await look();
+    await winNow(false); await q.waitForTimeout(100);
+    const plain = await look();
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const fresh = await look();
+    check("klondike: the Daily's win box wears a key on every button (Share S, Deal new Enter, the one in focus, Same deal R); a plain deal's has no Share",
+      daily.up && daily.title === "You struck gold!" && daily.keys === "Share:S|Deal new:Enter|Same deal:R" && daily.focus === "Deal new" && plain.keys === "Deal new:Enter|Same deal:R",
+      { daily: [daily.keys, daily.focus], plain: plain.keys });
+    check("klondike: on the win box S shares, R deals the same deal again (the Daily still), Enter deals a new one, and Space presses nothing",
+      spaced.up && spaced.st.seed === daily.st.seed && /copied!/.test(shared.btn) && /Daily claim/.test(shared.clip) &&
+      !same.up && same.st.seed === 41 && same.st.isDaily && same.st.moves === 0 && !same.st.won &&
+      !fresh.up && fresh.st.seed !== 42 && !fresh.st.isDaily && fresh.st.moves === 0,
+      { spaced: spaced.up, shared, same: [same.up, same.st.seed, same.st.isDaily, same.st.moves], fresh: [fresh.up, fresh.st.seed, fresh.st.isDaily] });
+    check("klondike (win box keys): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
   }
 };

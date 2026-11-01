@@ -91,7 +91,7 @@
     cascade.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
     for (var i = 0; i < 7; i++) {
       var sx = GAP + i * (CW + GAP);
-      if (i < 1) place($("slot-stock"), sx, TOPY);
+      if (i < 1) { place($("slot-stock"), sx, TOPY); place($("stock-key"), sx, TOPY); }
       if (i === 1) place($("slot-waste"), sx, TOPY);
       if (i >= 3) place($("slot-f" + (i - 3)), sx, TOPY);
       place($("slot-t" + i), sx, TABY);
@@ -377,9 +377,9 @@
       (isBest ? "<br>Your fastest strike yet!" : "") +
       "<br><small>" + (st.w || 0) + " of " + (st.p || 0) + " games won</small>",
       [
-        isDaily ? ["Share", shareDaily] : null,
-        ["Deal new", function () { closeBox(); newDeal(); }],
-        ["Same deal", function () { closeBox(); newDeal(dealSeed, isDaily); }],
+        isDaily ? ["Share", shareDaily, "S"] : null,
+        ["Deal new", function () { closeBox(); newDeal(); }, "Enter"],
+        ["Same deal", function () { closeBox(); newDeal(dealSeed, isDaily); }, "R"],
       ], true);
   }
   function shareDaily(e) {
@@ -622,7 +622,10 @@
   document.addEventListener("click", closeMenus);
   menuWire("menu-game"); menuWire("menu-help");
 
-  // `end`: the box is the end of a game (the win), not a note over one in play
+  // `end`: the box is the end of a game (the win), not a note over one in play.
+  // Each button is [label, press, key]: its key is shown on it and presses it
+  // (boxKey). With no keys given, the first is Enter. The Enter one has the
+  // focus.
   var boxEnd = false;
   function msgbox(title, html, buttons, end) {
     boxEnd = !!end;
@@ -635,11 +638,23 @@
       btn.type = "button"; btn.textContent = b[0];
       btn.addEventListener("click", b[1]);
       row.appendChild(btn);
-      // the first button has the focus, so Enter is its press: it says so
-      if (i === 0) btn.setAttribute("data-gs-key", "Enter");
-      if (i === 0) setTimeout(function () { btn.focus({ preventScroll: true }); }, 0);
+      var key = b[2] || (i === 0 ? "Enter" : null);
+      if (key) btn.setAttribute("data-gs-key", key);
+      if (key === "Enter") setTimeout(function () { btn.focus({ preventScroll: true }); }, 0);
     });
     $("shade").hidden = false;
+  }
+  // a key that a button on the box wears presses it (Enter: the button with
+  // the focus, if one has it, as a browser would)
+  function boxKey(e) {
+    if (e.repeat) return false;
+    var btns = [].slice.call($("mb-row").querySelectorAll("button"));
+    if (e.key === "Enter" && btns.indexOf(document.activeElement) !== -1) return false;
+    var want = e.key === "Enter" ? "enter" : e.key.length === 1 ? e.key.toLowerCase() : null;
+    var hit = want && btns.filter(function (b) { return (b.getAttribute("data-gs-key") || "").toLowerCase() === want; })[0];
+    if (!hit) return false;
+    hit.click();
+    return true;
   }
   function closeBox() { $("shade").hidden = true; }
   $("shade").addEventListener("click", function (e) { if (e.target === $("shade")) closeBox(); });
@@ -674,7 +689,7 @@
       "<li>Only a King may move to an empty column.</li>" +
       "<li>Click the stock to draw; double-click or right-click a card to send it home.</li>" +
       // (the key legend hides on a touch-only device: no keys to press)
-      '<li class="gs-keys"><kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal · <kbd>F1</kbd> this box.</li></ul>',
+      '<li class="gs-keys"><kbd>Space</kbd> draw · <kbd>U</kbd> undo · <kbd>H</kbd> hint · <kbd>R</kbd> restart · <kbd>F2</kbd> new deal · <kbd>T</kbd> draw one or three (a new deal) · <kbd>F1</kbd> this box.</li></ul>',
       [["OK", closeBox]]);
   });
   $("autofinish").addEventListener("click", autoFinish);
@@ -693,9 +708,14 @@
     if (!$("shade").hidden) {
       if (e.key === "Escape" && !boxEnd) { closeBox(); e.preventDefault(); }
       else if (e.key === "Backspace" && boxEnd && !e.repeat) { closeBox(); e.preventDefault(); }
+      else if (boxKey(e)) e.preventDefault();
+      // (Space draws on the table; on a box it presses nothing, not even the button with the focus)
+      else if (e.key === " ") e.preventDefault();
       return;
     }
     var k = e.key.toLowerCase();
+    // Space draws from the stock, as a click on it does (a held one draws once)
+    if (e.key === " ") { e.preventDefault(); if (!e.repeat) drawClick(); return; }
     if (e.key === "F2" || k === "n") { e.preventDefault(); freshDeal(); }
     else if (e.key === "F1") { e.preventDefault(); if (!e.repeat) $("m-rules").click(); }   // Help's How to play, as in the old game
     else if (k === "u") doUndo();

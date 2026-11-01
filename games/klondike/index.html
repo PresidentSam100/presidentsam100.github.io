@@ -50,7 +50,7 @@
         <button type="button" role="menuitem" id="m-undo">Undo <span class="gs-keys"><kbd>U</kbd></span></button>
         <button type="button" role="menuitem" id="m-hint">Hint <span class="gs-keys"><kbd>H</kbd></span></button>
         <hr />
-        <button type="button" role="menuitem" id="m-draw3" aria-checked="false"><i class="check"></i>Draw three <span class="gs-keys"><kbd>T</kbd></span></button>
+        <button type="button" role="menuitem" id="m-draw3" aria-checked="false"><i class="check"></i><span class="mtext">Draw three a turn<small>the rule; starts a new deal</small></span> <span class="gs-keys"><kbd>T</kbd></span></button>
         <hr />
         <button type="button" role="menuitem" id="m-daily">Daily claim <span class="gs-keys"><kbd>D</kbd></span></button>
       </div>
@@ -64,7 +64,9 @@
   </div>
 
   <div class="field" id="field" aria-label="The solitaire table">
-    <div class="slot stock" id="slot-stock" title="Stock: click to draw"><span>↻</span></div>
+    <div class="slot stock" id="slot-stock" title="Stock: click or press Space to draw"><span>↻</span></div>
+    <!-- the stock's key, over its cards (game.js layout puts it with the stock) -->
+    <span class="gs-keys stock-key" id="stock-key" aria-hidden="true"><kbd>Space</kbd></span>
     <div class="slot" id="slot-waste"></div>
     <div class="slot pan" id="slot-f0"></div>
     <div class="slot pan" id="slot-f1"></div>
