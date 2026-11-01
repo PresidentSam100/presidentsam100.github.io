@@ -123,6 +123,13 @@
   //   selT: how long the picked piece has been picked; it stirs while it is
   //     (see stir), in its own way.
   var bubbles = [], clears = [], ripples = [], nope = null, selT = 0, selWas = -1;
+  //   pts: what a wave of the wash scored, "+N" (and "×N" for a chain's
+  //     second wave on), for a chain's waves and for four or more at once
+  //     (not a plain three), {x, y, n, chain, t}, at the middle of the biggest
+  //     group it washed away (in cells). With FX on it rises as it fades; off,
+  //     the same text in the same place for the same time, only fading. It
+  //     runs on the game's clock, so a pause holds it.
+  var pts = [], PTS_T = 0.85;
   var STEP_MS = 260;
   var SWAP_T = 0.16, FALL_T = 0.24, NOPE_T = 0.34, CLEAR_T = 0.42, RIPPLE_T = 0.6;
 
@@ -132,7 +139,7 @@
     store.set("tidepool_mode", mode);
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = []; clears = []; ripples = []; nope = null;
+    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = []; clears = []; ripples = []; nope = null; pts = [];
     runBest = bestNow() ? bestNow().get() : 0;
     timeLeft = MODES[mode].time || 0; swapsLeft = MODES[mode].swaps || 0;
     state = "play";
@@ -177,7 +184,9 @@
     chainMax = Math.max(chainMax, chain);
     cleared += hit.length;
     // points: 10 a piece, more for long lines, doubled by each wave of a chain
-    addScore(hit.length * 10 * chain + (hit.length > 3 ? (hit.length - 3) * 20 : 0));
+    var gain = hit.length * 10 * chain + (hit.length > 3 ? (hit.length - 3) * 20 : 0);
+    addScore(gain);
+    if (chain > 1 || hit.length > 3) pointsAt(hit, gain, chain);   // (a plain three, nearly every swap, goes unsaid)
     splash(chain);
     if (chain > 1) flash("tide ×" + chain);
     washing = hit.slice();
@@ -212,6 +221,32 @@
       }
       for (var n = w; n >= 0; n--) { board[n * N + c] = Math.floor(Math.random() * KINDS); anims.push({ i: n * N + c, fr: n - (w + 1), fc: c, t: 0, d: FALL_T, kind: "fall" }); }
     }
+  }
+  // a wave's "+N" at the middle of the biggest group of touching cells it
+  // washed away; one still showing close by (a chain's last wave) puts this
+  // one a little below it (above it, on the bottom row)
+  function pointsAt(hit, n, chain) {
+    var left = hit.slice(), best = [];
+    while (left.length) {
+      var group = [left.pop()];
+      for (var j = 0; j < group.length; j++) {
+        for (var q = left.length - 1; q >= 0; q--) {
+          var a = group[j], b = left[q];
+          if ((Math.floor(a / N) === Math.floor(b / N) && Math.abs(a - b) === 1) || Math.abs(a - b) === N) { group.push(b); left.splice(q, 1); }
+        }
+      }
+      if (group.length > best.length) best = group;
+    }
+    var x = 0, y = 0;
+    best.forEach(function (i) { x += i % N + 0.5; y += Math.floor(i / N) + 0.5; });
+    x /= best.length; y /= best.length;
+    pts.forEach(function (o) { if (o.t < PTS_T * 0.7 && Math.abs(o.x - x) < 2 && Math.abs(o.y - y) < 0.8) y = o.y + (o.y + 0.85 > N - 0.5 ? -0.85 : 0.85); });
+    pts.push({ x: x, y: Math.max(0.5, Math.min(N - 0.5, y)), n: n, chain: chain, t: 0 });
+  }
+  // where a "+N" is drawn (px on the pool) and how strongly, t seconds in
+  function ptsLook(o) {
+    var u = Math.min(1, o.t / PTS_T), rise = fx() ? 0.45 * (1 - Math.pow(1 - u, 2)) : 0;
+    return { x: o.x * CELL, y: (o.y - rise) * CELL, a: u < 0.55 ? 1 : Math.max(0, 1 - (u - 0.55) / 0.45) };
   }
   var timers = [];
   function later(fn) { timers.push(setTimeout(function () { if (state === "play" || state === "over") fn(); }, STEP_MS)); }
@@ -251,6 +286,7 @@
     if (nope) { nope.t += dt; if (nope.t >= NOPE_T) nope = null; }
     if (sel !== selWas) { selWas = sel; selT = 0; } else if (sel >= 0) selT += dt;
     if (flashT > 0) flashT -= dt;
+    for (k = pts.length - 1; k >= 0; k--) { pts[k].t += dt; if (pts[k].t >= PTS_T) pts.splice(k, 1); }
     if (state !== "play") return;
     if (mode === "tide" && !busy) { timeLeft -= dt; if (timeLeft <= 0) { timeLeft = 0; hud(); finish(); return; } hud(); }
     else if (mode === "tide") { timeLeft -= dt; if (timeLeft < 0) timeLeft = 0; hud(); }
@@ -299,6 +335,23 @@
     if (keyed && state === "play") ring(cursor, "#ff7a59", 3);
     if (hintAt) { ring(hintAt[0], "rgba(255, 255, 255, 0.85)", 2); ring(hintAt[1], "rgba(255, 255, 255, 0.85)", 2); }
     for (var b = 0; b < bubbles.length; b++) { var bb = bubbles[b]; g.strokeStyle = "rgba(255, 255, 255, " + (0.8 * (1 - bb.t / 0.7)).toFixed(2) + ")"; g.lineWidth = 1.5; g.beginPath(); g.arc(bb.x, bb.y, bb.r, 0, 7); g.stroke(); }
+    pts.forEach(function (o) {
+      var L = ptsLook(o), big = Math.round(CELL * 0.5), small = Math.round(CELL * 0.34);
+      var txt = "+" + o.n, mult = o.chain > 1 ? "×" + o.chain : "";
+      g.globalAlpha = L.a; g.textBaseline = "middle"; g.lineJoin = "round";
+      g.font = "800 " + big + "px \"Sniglet\", sans-serif";
+      var w = g.measureText(txt).width, gap = mult ? CELL * 0.08 : 0;
+      g.font = "800 " + small + "px \"Sniglet\", sans-serif";
+      var mw = mult ? g.measureText(mult).width : 0, x0 = Math.max(4, Math.min(SIZE - 4 - w - gap - mw, L.x - (w + gap + mw) / 2));
+      g.textAlign = "left";
+      g.font = "800 " + big + "px \"Sniglet\", sans-serif";
+      g.lineWidth = Math.max(3, CELL * 0.09); g.strokeStyle = "#0f5d6b"; g.strokeText(txt, x0, L.y); g.fillStyle = "#fffaf0"; g.fillText(txt, x0, L.y);
+      if (mult) {
+        g.font = "800 " + small + "px \"Sniglet\", sans-serif";
+        g.strokeText(mult, x0 + w + gap, L.y); g.fillStyle = "#ffb08a"; g.fillText(mult, x0 + w + gap, L.y);
+      }
+      g.globalAlpha = 1;
+    });
     if (flashT > 0) {
       g.globalAlpha = fx() ? Math.min(1, flashT) : 1;
       g.font = "800 " + Math.round(CELL * 0.55) + "px \"Sniglet\", sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
@@ -572,6 +625,8 @@
       ripples: function () { return ripples.length; },
       bubbles: function () { return bubbles.length; },
       nope: function () { return nope ? { a: nope.a, c: nope.c } : null; },
+      // the "+N" now showing: its text, where it's drawn (px on the pool) and how strongly
+      points: function () { return pts.map(function (o) { var L = ptsLook(o); return { n: o.n, chain: o.chain, t: o.t, x: L.x, y: L.y, a: L.a, cx: o.x, cy: o.y }; }); },
       // how the picked piece stirs right now (still with FX off or nothing picked)
       picked: function () { return fx() && sel >= 0 && board[sel] >= 0 ? stir(board[sel], selT) : STILL; },
       stir: stir

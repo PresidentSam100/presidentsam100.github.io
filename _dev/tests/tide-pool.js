@@ -8,7 +8,8 @@
 // then wades in again, and Backspace goes to the menu; the arrows and Space
 // swap from the keyboard, but not while paused; the pieces slide and fall
 // into place the same with Visual FX on or off (only the flourishes need it on); on a phone a drag
-// from one piece onto its neighbour swaps them.
+// from one piece onto its neighbour swaps them; what a wave scores shows
+// where it washed away.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/tide-pool/", opts);
@@ -256,5 +257,68 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "phone");
     await c.close();
   }
+
+  // ---- what a wave scores shows where it washed away: "+60" for four in a
+  // row, the score's own change, at the middle of the four; a chain's next
+  // wave "+60" with "×2"; a plain three (nearly every swap) shows nothing;
+  // with Visual FX on it rises as it fades, off it stays put; gone in under a
+  // second of the game's clock; a pause holds it
+  const pts = {};
+  for (const off of [false, true]) {
+    const q = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tide-pool", off ? "1" : "0"); } catch (e) {} }, off) });
+    pts[off ? "off" : "on"] = await safe(q.evaluate((PLAIN) => {
+      const M = TidePool.motion;
+      TidePool.start("pool"); M.hold(true);
+      // (four in a row: 5 5 _ 5 along the bottom, a 5 above the gap swapped down into it)
+      const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b);
+      const s0 = TidePool.score(); TidePool.swap(50, 58);
+      const first = () => M.points().find((o) => o.n === 60 && o.chain === 1);
+      const at0 = first(), gain = TidePool.score() - s0;
+      M.step(0.1); const early = first();
+      M.step(0.5); const late = first();
+      M.step(0.3); const gone = !first();
+      return { gain, n: at0 && at0.n, cx: at0 && at0.cx, cy: at0 && at0.cy, early: early && early.y, late: late && late.y, lateA: late && late.a, gone };
+    }, PLAIN));
+    if (!off) {
+      // a plain three: scored, and nothing shown
+      pts.three = await safe(q.evaluate((PLAIN) => {
+        const M = TidePool.motion;
+        TidePool.toMenu(); TidePool.start("pool"); M.hold(true);
+        const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; TidePool.setBoard(b);
+        const s0 = TidePool.score(); TidePool.swap(58, 59);
+        return { gain: TidePool.score() - s0, shown: M.points().length };
+      }, PLAIN));
+      // a chain: the 4 4 above drop beside the swapped-in 4, and that wave's points come with ×2
+      pts.chain = await safe(q.evaluate(async (PLAIN) => {
+        const M = TidePool.motion;
+        TidePool.toMenu(); TidePool.start("pool"); M.hold(true);   // (the menu drops the last pool's pending waves)
+        const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[49] = 4; b[50] = 4; TidePool.setBoard(b);
+        TidePool.swap(58, 59);
+        await new Promise((r) => setTimeout(r, 900));   // (the waves go on the page's own timers)
+        const o = M.points().find((p) => p.chain === 2);
+        return o ? { n: o.n, chain: o.chain } : null;
+      }, PLAIN));
+      // in real time: paused at once, still there after 1.2 s; resumed, gone
+      await q.evaluate((PLAIN) => {
+        TidePool.toMenu(); TidePool.start("pool"); TidePool.motion.hold(false);
+        const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b); TidePool.swap(50, 58);
+      }, PLAIN);
+      await q.keyboard.press("p");
+      await wait(q, 1200);
+      pts.paused = await q.evaluate(() => TidePool.motion.points().some((o) => o.n === 60 && o.chain === 1));
+      await q.keyboard.press("p");
+      await wait(q, 1300);
+      pts.resumed = await q.evaluate(() => TidePool.motion.points().some((o) => o.n === 60 && o.chain === 1));
+    }
+    await done(q, "points FX " + (off ? "off" : "on"));
+  }
+  const ptOk = (r) => r && !r.error && r.gain === 60 && r.n === 60 && Math.abs(r.cx - 2) < 1e-9 && Math.abs(r.cy - 7.5) < 1e-9 && r.lateA > 0 && r.gone;
+  check("tide-pool: a wave's points show where it washed away (+60 for four, the score's change, at their middle) and are gone in under a second, with Visual FX on and off",
+    ptOk(pts.on) && ptOk(pts.off), pts);
+  check("tide-pool: a plain three (nearly every swap) scores its 30 and shows nothing", !!pts.three && pts.three.gain === 30 && pts.three.shown === 0, pts.three);
+  check("tide-pool: with Visual FX on the points rise as they fade; with it off they stay where they are",
+    !!pts.on && !!pts.off && pts.on.late < pts.on.early - 2 && pts.off.late === pts.off.early, { on: pts.on, off: pts.off });
+  check("tide-pool: a chain's next wave shows its points with ×2 (+60 for three)", !!pts.chain && pts.chain.n === 60 && pts.chain.chain === 2, pts.chain);
+  check("tide-pool: a pause holds the points (still there after 1.2 s), and resumed they go", pts.paused === true && pts.resumed === false, { paused: pts.paused, resumed: pts.resumed });
   await ctx.close();
 };
