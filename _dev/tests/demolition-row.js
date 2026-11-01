@@ -290,6 +290,40 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("demolition-row: on a phone the stage list's tiles are big enough to tap (40 by 36 at least), in a box that scrolls with the picked one in view, nothing sideways, Play on the first screen",
       Object.values(phones).every((s) => s.n === 50 && s.w >= 40 && s.h >= 36 && s.boxScrolls && s.picked && !s.sideways && s.play), phones);
+
+    // on a phone the whole menu is on the screen with nothing to scroll: the
+    // list's box takes the room the rest of the card leaves (at least two
+    // rows and some of the next, so it shows it scrolls), the picked one in
+    // view, the heading clear of the corner buttons; a locked one's longer
+    // note and a shorter window make the box give way
+    const whole = {}, bad = [];
+    const fitOf = (pg) => pg.evaluate(() => {
+      const menu = document.getElementById("menu"), g = document.getElementById("stage-grid"), gr = g.getBoundingClientRect(), picked = g.querySelector(".st.sel").getBoundingClientRect();
+      const corner = Math.max(...[...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect().bottom));
+      return { scroll: menu.scrollHeight - menu.clientHeight, box: Math.round(gr.height), boxScrolls: g.scrollHeight > g.clientHeight + 1,
+        picked: picked.top >= gr.top - 0.5 && picked.bottom <= gr.bottom + 0.5, clear: menu.querySelector("h2").getBoundingClientRect().top >= corner,
+        info: document.getElementById("stage-info").textContent };
+    });
+    const fine = (s) => s.scroll <= 0 && s.box >= 94 && s.boxScrolls && s.picked && s.clear;
+    for (const [w, h] of [[390, 664], [360, 640], [320, 568], [375, 553], [360, 560]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+      const q = await lib.open(c, base, "games/demolition-row/", { before: seed });
+      await q.waitForTimeout(300);
+      const s = whole[w + "x" + h] = await fitOf(q);
+      await q.evaluate(() => document.querySelector('#stage-grid .st[data-stage="30"]').click()); await q.waitForTimeout(200);
+      const l = whole[w + "x" + h + " locked"] = await fitOf(q);
+      if (!fine(s)) bad.push(w + "x" + h);
+      if (!fine(l) || !/Stage 30 is locked/.test(l.info)) bad.push(w + "x" + h + " locked");
+      if (w === 360 && h === 640) {   // the window gets shorter: the box gives way
+        await q.setViewportSize({ width: 360, height: 560 }); await q.waitForTimeout(300);
+        const t = whole["360x640 to 360x560"] = await fitOf(q);
+        if (!fine(t) || t.box >= l.box) bad.push("360x640 to 360x560");
+      }
+      check("demolition-row (menu " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: on a phone the whole menu is on the screen with nothing to scroll, the stage list's box taking the room that's left (two rows and more, scrolling, the picked one in view), a locked one's note too, and giving way as the window gets shorter (390x664, 360x640, 320x568, 375x553, 360x560)",
+      bad.length === 0, { bad, whole });
   }
 
   // ---- a Crystal turning to its next color: with Visual FX on it turns over

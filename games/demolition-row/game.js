@@ -1436,15 +1436,33 @@
         b.setAttribute("aria-label", "Stage " + n + (shut ? ", locked" : ""));
         b.title = shut ? "Stage " + n + " is locked: reach it in a run to open it" : "Stage " + n + ": " + stageSpec(n).colors + " colors";
       });
-      // (the picked one in view, where the list scrolls in its box: a phone)
+      showStage();
+      const sp = stageSpec(sel.stage);
+      stageInfo.textContent = note || (sp.colors + " colors · clear to " + sp.goalRows + " rows · speed " + speedOf(sp.fallMs) + "x");
+    }
+    // (the picked one in view, where the list scrolls in its box: a phone)
+    function showStage() {
       const on = stageGrid.querySelector(".st.sel");
       if (on && stageGrid.scrollHeight > stageGrid.clientHeight + 1) {
         const g = stageGrid.getBoundingClientRect(), r = on.getBoundingClientRect();
         if (r.top < g.top || r.bottom > g.bottom) stageGrid.scrollTop += r.top - g.top - (g.height - r.height) / 2;
       }
-      const sp = stageSpec(sel.stage);
-      stageInfo.textContent = note || (sp.colors + " colors · clear to " + sp.goalRows + " rows · speed " + speedOf(sp.fallMs) + "x");
     }
+    // (on a phone the box is as tall as leaves the whole menu on the screen,
+    // between its floor and its cap in styles.css, so the menu itself doesn't
+    // scroll: --fit is the room, measured again as the fonts, the lines and
+    // the window change)
+    let fitAt = -1;
+    function fitStages() {
+      const card = menu.querySelector(".card");
+      if (menu.classList.contains("hidden") || !stageGrid.getClientRects().length || !window.matchMedia || !matchMedia("(max-width: 520px)").matches) return;
+      const cs = getComputedStyle(menu), room = menu.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - card.offsetHeight;
+      const fit = Math.max(0, Math.floor(stageGrid.clientHeight + room));
+      if (fit === fitAt) return;
+      fitAt = fit; stageGrid.style.setProperty("--fit", fit + "px"); showStage();
+    }
+    if (window.ResizeObserver) new ResizeObserver(fitStages).observe(menu.querySelector(".card"));
+    window.addEventListener("resize", fitStages);
     function pickStage(n) {
       if (n < 1 || n > CONFIG.stage.total) return;
       if (n > stageReached()) { paintStages("🔒 Stage " + n + " is locked. Reach it in a run to open it."); return; }

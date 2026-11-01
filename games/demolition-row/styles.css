@@ -181,6 +181,8 @@
       .btn:focus-visible, .tbtn:focus-visible, .diffsel:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
       .btn:disabled { cursor: not-allowed; opacity: 0.45; filter: none; transform: none; }
       .row { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center; align-items: center; }
+      #play-row { margin-top: 1rem; }
+      #play-btn { padding: 0.7rem 1.6rem; font-size: 1.05rem; }
       /* the stage list: all 50 at once, ten to a row (on a phone as many as
          fit, in a box that scrolls), each run of stages (3, 4, 5 colors) a
          deeper tint; a locked stage is faded, and says why when picked. The
@@ -216,12 +218,39 @@
       /* (the keys beside the list's heading keep their own case) */
       #stage-opts .lbl .gs-kbd { text-transform: none; }
       /* a phone: as many to a row as fit at a size to tap, in a box that
-         scrolls, as tall as leaves Play on the screen (two and a half rows
-         on a short phone, about five on a tall one) */
+         scrolls, as tall as leaves the whole menu on the screen (--fit,
+         game.js): from two and a third rows on a short phone to about five
+         on a tall one */
       @media (max-width: 520px) {
         .stage-grid { grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); max-width: none; overflow-y: auto; overscroll-behavior: contain;
-          max-height: clamp(104px, calc(100vh - 460px), 204px); max-height: clamp(104px, calc(100dvh - 460px), 204px); }
+          min-height: 94px; max-height: min(204px, var(--fit, 204px)); }
         .card .group .stage-grid .st { height: 36px; font-size: 0.85rem; }
+      }
+      /* a phone short of room: the menu closer set, and on a touch screen
+         the pad's line beside Play */
+      @media (max-width: 520px) and (max-height: 700px) {
+        #menu > .card { padding-top: 0.5rem; padding-bottom: 0.6rem; }
+        #menu > .card > p { line-height: 1.32; margin: 0.2rem 0 0.4rem; }
+        #menu .group { margin: 0.35rem 0; }
+        #menu .card .group #mode-pick .btn { padding-top: 0.45rem; padding-bottom: 0.45rem; }
+        #menu .card p.stage-info { margin-top: 0.2rem; }
+        #play-row { margin-top: 0.5rem; }
+        #play-btn { padding: 0.6rem 1.4rem; }
+        #menu .keys { margin-top: 0.3rem; line-height: 1.45; }
+        #menu details.dict-wrap { margin-top: 0.5rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+      }
+      @media (max-width: 520px) and (max-height: 600px) {
+        #menu > .card > p { font-size: 0.84rem; }
+        #menu > .card > h2 { font-size: 1.25rem; }
+        #menu .group { margin: 0.3rem 0; }
+        #menu .group .lbl { margin-bottom: 0.25rem; }
+        #menu .card .group #mode-pick .btn { padding-top: 0.4rem; padding-bottom: 0.4rem; }
+        #menu .card p.stage-info { line-height: 1.25; }
+        #menu details.dict-wrap summary { padding: 0.3rem 0; }
+      }
+      @media (max-width: 520px) and (max-height: 700px) and (hover: none) {
+        #play-row { display: inline-flex; vertical-align: middle; }
+        #play-row + #keys-help { display: inline-block; vertical-align: middle; width: min(14rem, calc(100% - 6.2rem)); margin: 0.5rem 0 0 0.5rem; text-align: left; }
       }
       /* a short, wider window (a phone on its side): the list scrolls in its box */
       @media (max-height: 520px) and (min-width: 521px) and (max-width: 899px) {
