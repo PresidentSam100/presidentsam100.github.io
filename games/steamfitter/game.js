@@ -474,7 +474,9 @@
     refreshHud();
     if (traceConnected()) {
       flowing = true;
-      score += Math.max(50, 300 - moves * 5);
+      var solved = Math.max(50, 300 - moves * 5);   // (the fewer moves, the more)
+      score += solved;
+      scorePop(r, c, "SOLVED +" + solved);
       // solved: it counts now, not once the water has run to the drain
       if (mode === "levels") recordSolve();
       else if (mode === "puzzle") puzzleBest.submit(level + 1);
@@ -533,7 +535,9 @@
     if (cell.kind === "pipe") {
       if (cell.fillA > 0 || cell.fillB > 0) { sfxDenied(); return; } // watered pipe is welded shut
       if (water && water.r === r && water.c === c) { sfxDenied(); return; } // water is inside it right now
-      score = Math.max(0, score - 25); // demolition fee
+      var fee = Math.min(25, score); // demolition fee (never below 0)
+      score -= fee;
+      if (fee) scorePop(r, c, "−" + fee, "#d94f3d");
       sfxReplace();
     } else {
       sfxPlace();
@@ -663,6 +667,7 @@
     }
     state = "levelend";
     score += 150;
+    scorePop(drainR, COLS - 1, "+150");
     puzzleBest.submit(level + 1);
     sfxLevel();
     banner("PIPELINE SEALED: LEVEL " + (level + 1));
@@ -680,6 +685,7 @@
     if (distance >= goal) {
       state = "levelend";
       score += 200;
+      popAt(pt.x, pt.y - TS / 2, "+200");
       keepBest();
       sfxLevel();
       banner("SECTION SEALED: LEVEL " + (level + 1));
@@ -718,8 +724,9 @@
       particles.push({ x: x + (Math.random() - 0.5) * 20, y: y + (Math.random() - 0.5) * 20, vx: (Math.random() - 0.5) * 30, vy: -20 - Math.random() * 30, t: 0, life: 0.5, col: "rgba(200,205,214,0.5)", s: 4 + Math.random() * 4, steam: true });
     }
   }
-  function scorePop(r, c, txt) {
-    particles.push({ x: OX + c * TS + TS / 2, y: OY + r * TS, y0: OY + r * TS, vx: 0, vy: -30, t: 0, life: 0.8, txt: txt });
+  function scorePop(r, c, txt, col) { popAt(OX + c * TS + TS / 2, OY + r * TS, txt, col); }
+  function popAt(x, y, txt, col) {
+    particles.push({ x: x, y: y, y0: y, vx: 0, vy: -30, t: 0, life: 0.8, txt: txt, tcol: col });
   }
   // The spill, drawn still in both modes: a puddle with a crown of drops at
   // the spot the water got out. It stays until the next board.
@@ -980,11 +987,11 @@
     for (i = 0; i < particles.length; i++) {
       var p = particles[i], k = p.t / p.life;
       if (p.txt) {
-        // a score pop rises and fades; with Visual FX off it holds still and
-        // solid where it appeared until its life runs out (update() drops it)
+        // a score pop rises and fades; with Visual FX off it holds still where
+        // it appeared, solid for half its life, then fades (update() drops it)
         var still = reduced();
-        ctx.globalAlpha = still ? 1 : 1 - k;
-        ctx.fillStyle = "#e8b64c";
+        ctx.globalAlpha = still ? Math.min(1, 2 * (1 - k)) : 1 - k;
+        ctx.fillStyle = p.tcol || "#e8b64c";
         ctx.font = "700 20px 'Saira Condensed', sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(p.txt, p.x, still ? p.y0 : p.y);

@@ -6,7 +6,8 @@
 // once (no runaway path carve) and still deal when every carve gives up;
 // Panic's hover ghost shows the queued pipe you picked. The mode bar asks
 // before it throws away a run or an unsaved level, and "del" asks first.
-// A slow load's out-of-order first frame doesn't step the clock back.
+// A slow load's out-of-order first frame doesn't step the clock back. A
+// connecting turn's bonus and a dry pipe's fee are written where they're scored.
 const HOOKS = [
   ["window.PipeMania = {", `window.PipeMania = {
     __n: function () { return LV.length; },
@@ -19,6 +20,23 @@ const HOOKS = [
     __enc: function () { return stringFromGrid(); },
     __pathLen: function () { return pathLen; },
     __spr: function (t) { return SPR[t]; },
+    __setScore: function (v) { score = v; refreshHud(); },
+    __drainNow: function () { drainReached(); },
+    __spillNow: function (x, y) { distance = goal; spill({ x: x, y: y }); },
+    // level i, solved, then one pipe on its path turned a quarter off (no move counted): where
+    __oneOff: function (i) {
+      loadLevelData(LV[i], i); grid = gridFromString(LV[i].g); moves = 0;
+      var fp = findFlowPath();
+      for (var k = 1; k < fp.length; k++) {
+        var cell = grid[fp[k].r][fp[k].c];
+        if (cell.kind !== "pipe") continue;
+        var was = cell.type; cell.type = ROT[cell.type];
+        if (!traceConnected()) return { r: fp[k].r, c: fp[k].c };
+        cell.type = was;
+      }
+      return null;
+    },
+    __pops: function () { return particles.filter(function (q) { return q.txt; }).map(function (q) { return { txt: q.txt, x: q.x, y0: q.y0, col: q.tcol || null }; }); },
 `],
   // count the path carve's steps per board, and stop a runaway one (it froze the tab)
   ["function newPuzzle() {", "function newPuzzle() { window.__dfsCalls = 0;"],
@@ -255,6 +273,51 @@ module.exports = async ({ browser, base, check, lib }) => {
     const dts = await q.evaluate(() => new Promise((r) => { let k = 0; (function f() { if (++k < 10) requestAnimationFrame(f); else r(window.__dts || []); })(); }));
     check("steamfitter: a slow load's out-of-order first frame doesn't step the game's clock back", dts.length > 0 && Math.min(...dts) >= 0, { steps: dts.length, least: Math.min(...dts) });
     check("steamfitter: no page errors (first frame)", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- the points where they're scored: the turn that connects a level says
+  // "SOLVED +N" at that pipe (N: 300 less 5 a move, at least 50), and tearing
+  // out a dry pipe says "−25" in red there
+  {
+    const q = await ctx.newPage();
+    q.errs = []; q.on("pageerror", (e) => q.errs.push(e.message));
+    await lib.injectScript(q, "games/steamfitter/game.js", HOOKS);
+    await q.goto(base + "games/steamfitter/", { waitUntil: "domcontentloaded" }); await q.waitForTimeout(300);
+    const got = await q.evaluate(() => {
+      const g = PipeMania.__geom(), at = (r, c) => g.OX + c * g.TS + g.TS / 2, r = {};
+      __game.setMode("levels");
+      const off = PipeMania.__oneOff(0);
+      let s0 = __game.score, n = 0;
+      while (off && !__game.traceConnected() && n < 4) { s0 = __game.score; __game.rotateAt(off.r, off.c); n++; }
+      const solved = PipeMania.__pops().filter((p) => /^SOLVED/.test(p.txt)).pop();
+      r.solve = { off: !!off, turns: n, gained: __game.score - s0, txt: solved && solved.txt, at: solved && off && Math.abs(solved.x - at(off.r, off.c)) < 0.5, moves: __game.moves };
+      __game.setMode("panic"); __game.setQueue(["H", "H", "H", "H", "H"]);
+      const gr = __game.grid; let cell = null;
+      for (let y = 0; y < gr.length && !cell; y++) for (let x = 0; x < gr[y].length; x++) if (gr[y][x].kind === "empty") { cell = { r: y, c: x }; break; }
+      __game.place(cell.r, cell.c);
+      PipeMania.__setScore(100);
+      __game.place(cell.r, cell.c);
+      const fee = PipeMania.__pops().filter((p) => /^−/.test(p.txt)).pop();
+      r.fee = { score: __game.score, txt: fee && fee.txt, col: fee && fee.col, at: fee && Math.abs(fee.x - at(cell.r, cell.c)) < 0.5 };
+      // the level ends: Puzzle's at the drain, Panic's where the water left the board
+      __game.setMode("puzzle");
+      let s1 = __game.score; PipeMania.__drainNow();
+      const dr = PipeMania.__pops().filter((p) => p.txt === "+150").pop();
+      r.puzzle = { gained: __game.score - s1, state: __game.state, at: !!dr && Math.abs(dr.x - at(__game.drainR, __game.grid[0].length - 1)) < 0.5 && Math.abs(dr.y0 - (g.OY + __game.drainR * g.TS)) < 0.5 };
+      __game.setMode("panic");
+      s1 = __game.score; PipeMania.__spillNow(300, 200);
+      const sp = PipeMania.__pops().filter((p) => p.txt === "+200").pop();
+      r.panic = { gained: __game.score - s1, state: __game.state, at: !!sp && Math.abs(sp.x - 300) < 0.5 && Math.abs(sp.y0 - (200 - g.TS / 2)) < 0.5 };
+      return r;
+    });
+    check("steamfitter: the turn that connects a level writes \"SOLVED +N\" at that pipe, N what it added (300 less 5 a move)",
+      got.solve.off && got.solve.txt === "SOLVED +" + got.solve.gained && got.solve.gained === 300 - 5 * got.solve.moves && got.solve.at, got.solve);
+    check("steamfitter: tearing out a dry pipe writes \"−25\" in red at it, and the score drops 25",
+      got.fee.score === 75 && got.fee.txt === "−25" && got.fee.col === "#d94f3d" && got.fee.at, got.fee);
+    check("steamfitter: a level's end writes its bonus where it ends: Puzzle's \"+150\" at the drain, Panic's \"+200\" where the water left the board",
+      got.puzzle.gained === 150 && got.puzzle.state === "levelend" && got.puzzle.at && got.panic.gained === 200 && got.panic.state === "levelend" && got.panic.at, { puzzle: got.puzzle, panic: got.panic });
+    check("steamfitter (points): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
 
