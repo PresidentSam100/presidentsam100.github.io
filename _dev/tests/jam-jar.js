@@ -463,7 +463,173 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar vs CPU, " + w + "x" + h + ": your jar, the scores (yours and the CPU's), Next and the CPU's jar on the first screen, nothing under the corner buttons" +
       (phone ? ", nothing wider than the screen" : ", nothing to scroll"),
       got.under.length === 0 && got.offFirst.length === 0 && got.wide <= 0 && (phone || got.scroll <= 0) && got.cpuW > 0 && got.cpuW < got.jarW && got.cpuScore, got);
+    // your jar overflowed (on five figures): Speed up sits over it, on the screen, one line, nothing wider or scrolling for it
+    await q.evaluate(() => __game.setVs({ out: true, score: 99999 })); await q.waitForTimeout(200);
+    const fast = await q.evaluate(({ w, phone }) => {
+      const b = document.getElementById("fastBtn").getBoundingClientRect(), jar = document.getElementById("game").getBoundingClientRect();
+      return { shown: b.width > 0, inJar: b.left >= jar.left && b.right <= jar.right && b.top >= jar.top && b.bottom <= jar.bottom, onScreen: b.top >= 0 && b.bottom <= innerHeight,
+        oneLine: b.height < 60, wide: Math.max(document.documentElement.scrollWidth, innerWidth) - w, scroll: phone ? null : document.documentElement.scrollHeight - innerHeight };
+    }, { w, phone });
+    check("jam-jar vs CPU, " + w + "x" + h + ": once your jar has overflowed, Speed up sits over it on the first screen, on one line, and nothing gets wider" + (phone ? "" : " or scrolls"),
+      fast.shown && fast.inJar && fast.onScreen && fast.oneLine && fast.wide <= 0 && (phone || fast.scroll <= 0), fast);
     check("jam-jar vs CPU, " + w + "x" + h + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- vs CPU, Speed up: once your jar has overflowed and the CPU's plays
+  // on, a button over your jar (F) runs the CPU's jar at 4 times the speed,
+  // and F again puts it back. It isn't there while both jars play or once
+  // the game is decided, and under the pause card F does nothing and nothing
+  // moves. Sped up it is the same play: a game played out with the same
+  // random numbers ends the same, in a quarter of the frames.
+  {
+    const SEEDED = () => { let s = 7 * 2654435761 >>> 0; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); };
+    // (frames of 1/64 s, a step the clock holds exactly: 1/60 s ones come out a
+    // hair apart from frame to frame, enough to move a second's tick a frame)
+    const EXACT = () => {
+      let t = 1000, q = [];
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 64; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+    };
+    const c = await lib.newContext(browser);
+    const open = (seeded) => lib.open(c, base, "games/jam-jar/", { before: async (pg) => {
+      await pg.addInitScript(seeded ? EXACT : STEPPED);
+      if (seeded) await pg.addInitScript(SEEDED);
+      await pg.addInitScript(() => { try { localStorage.setItem("jamjar_foe", "cpu"); } catch (e) {} });
+      await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]);
+    } });
+    const btn = (q) => q.evaluate(() => { const b = document.getElementById("fastBtn"); return { shown: b.getClientRects().length > 0, key: b.getAttribute("data-gs-key"), text: b.textContent, fast: __game.fast }; });
+
+    // the toggle
+    let q = await open(false);
+    await q.evaluate(() => { __frames(5); __game.start("boil"); __frames(65); });
+    const before = await btn(q);
+    await q.evaluate(() => { __game.setVs({ out: true, score: 1e6 }); __frames(1); });   // (the button comes with the next frame)
+    const per = () => q.evaluate(() => { const a = __game.vs().cpu.dealt; __frames(120); return __game.vs().cpu.dealt - a; });
+    const shown = await btn(q);
+    const normal = await per();
+    await q.keyboard.press("f");
+    const on = await btn(q);
+    const sped = await per();
+    await q.keyboard.press("p");
+    const p0 = await q.evaluate(() => __game.vs().cpu.dealt);
+    await q.keyboard.press("f");
+    const underPause = Object.assign(await btn(q), { moved: await q.evaluate(() => { __frames(120); return __game.vs().cpu.dealt; }) - p0 });
+    await q.keyboard.press("p"); await q.evaluate(() => __frames(2));
+    await q.keyboard.press("f");
+    const off = await btn(q);
+    const back = await per();
+    check("jam-jar vs CPU: Speed up shows only once your jar has overflowed (wearing F); F runs the CPU's jar 4 times as fast (8 drops in 2 s, not 2) and F again puts it back; under the pause card F does nothing and nothing moves",
+      !before.shown && shown.shown && shown.key === "F" && !shown.fast && normal === 2 && on.fast && on.text === "Normal speed" && sped === 8 &&
+      underPause.fast && underPause.moved === 0 && !off.fast && /Speed up/.test(off.text) && back === 2, { before, shown, normal, on, sped, underPause, off, back });
+    check("jam-jar (speed up): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+
+    // the same game, played out at normal speed and sped up
+    const outcome = async (speedUp) => {
+      const g = await open(true);
+      await g.evaluate(() => { __frames(5); __game.start("boil"); __frames(70); __game.setVs({ out: true, score: 300 }); __frames(1); });
+      if (speedUp) await g.keyboard.press("f");
+      const r = await g.evaluate(() => {
+        let f = 0;
+        while (__game.state === "play" && f < 20000) { __frames(1); f++; }
+        const v = __game.vs();
+        return { frames: f, state: __game.state, title: document.getElementById("overTitle").textContent, cpu: v.cpu.score, dealt: v.cpu.dealt,
+          button: document.getElementById("fastBtn").getClientRects().length > 0, fast: __game.fast };
+      });
+      r.errs = g.errs.length;
+      await g.close();
+      return r;
+    };
+    const slow = await outcome(false), quick = await outcome(true);
+    check("jam-jar vs CPU: sped up, the CPU's jar plays the same game (the same random numbers: the same drops, score and result) in a quarter of the frames, and the button goes with the game",
+      slow.state === "over" && quick.state === "over" && quick.title === slow.title && quick.cpu === slow.cpu && quick.dealt === slow.dealt &&
+      Math.abs(quick.frames * 4 - slow.frames) <= 4 && !quick.button && !quick.fast && slow.errs === 0 && quick.errs === 0, { slow, quick });
+    await c.close();
+  }
+
+  // ---- a merge's points: "+N" (N what the merge added to the score) where
+  // the pair met, on for 0.8 s of the jar's own clock and then gone. With
+  // Visual FX on it rises as it fades; off, it holds still, as long on the
+  // screen. The pause card holds it. Against the CPU its jar shows its own
+  // on a laptop, where they're big enough to read, and not on a phone.
+  const TEXTS = () => {
+    const ft = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (t, x, y) {
+      if (/^\+\d+$/.test(t)) (window.__pops = window.__pops || []).push({ c: this.canvas.id, t, x: Math.round(x), y: Math.round(y * 10) / 10, a: Math.round(this.globalAlpha * 100) / 100, f: window.__f || 0 });
+      return ft.apply(this, arguments);
+    };
+  };
+  const MERGES = ["    var mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;\n",
+    "    var mx = (pa.x + pb.x) / 2, my = (pa.y + pb.y) / 2;\n    (window.__merges = window.__merges || []).push({ x: Math.round(mx), y: Math.round(my), cpu: inCpu, before: score, f: window.__f || 0 });\n"];
+  {
+    const c = await lib.newContext(browser);
+    const got = {};
+    for (const off of [true, false]) {
+      const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await pg.addInitScript(TEXTS); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, MERGES]); } });
+      got[off ? "off" : "on"] = await q.evaluate((off) => {
+        __frames(2); window.RM_ON = () => off; __game.start("simmer");
+        __game.setQueue(0, 0); __game.setAim(270); __game.drop();
+        __frames(40);
+        __game.setQueue(0, 0); __game.setAim(270); __game.drop();
+        let i = 0;
+        for (; i < 200 && !(window.__merges || []).length; i++) { window.__f = i; __frames(1); }
+        const end = i + 75;
+        for (; i < end; i++) { window.__f = i; __frames(1); }
+        const m = window.__merges[0], pops = (window.__pops || []).filter((p) => p.c === "game" && p.f >= m.f);
+        return { m, score: __game.score, n: pops.length, text: pops[0] && pops[0].t, first: pops[0], last: pops[pops.length - 1],
+          ys: pops.map((p) => p.y), frames: pops.length ? pops[pops.length - 1].f - pops[0].f + 1 : 0, after: (window.__pops || []).filter((p) => p.f > m.f + 60).length };
+      }, off);
+      check("jam-jar (points, FX " + (off ? "off" : "on") + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close();
+    }
+    const at = (g) => g.first && Math.abs(g.first.x - g.m.x) <= 2 && Math.abs(g.first.y - g.m.y) <= 4;
+    check("jam-jar: a merge shows \"+N\" where the pair met, N being what it added to the score (+3 for two blueberries)",
+      ["off", "on"].every((k) => got[k].text === "+" + (got[k].score - got[k].m.before) && got[k].text === "+3" && at(got[k])), got);
+    check("jam-jar: the \"+N\" fades out and is gone within a second (on about 0.8 s), as long with Visual FX off as on",
+      ["off", "on"].every((k) => got[k].frames >= 44 && got[k].frames <= 52 && got[k].last.a < 0.2 && got[k].after === 0) && Math.abs(got.off.frames - got.on.frames) <= 1,
+      { off: [got.off.frames, got.off.last, got.off.after], on: [got.on.frames, got.on.last, got.on.after] });
+    check("jam-jar: with Visual FX on the \"+N\" rises as it fades; off, it holds still in the same place",
+      got.off.ys.every((y) => y === got.off.ys[0]) && got.on.ys.every((y, i) => i === 0 || y <= got.on.ys[i - 1]) && got.on.ys[0] - got.on.ys[got.on.ys.length - 1] > 30,
+      { off: got.off.ys.slice(0, 3).concat(got.off.ys.slice(-2)), on: got.on.ys.slice(0, 3).concat(got.on.ys.slice(-2)) });
+
+    // under the pause card it holds; resumed, it runs out
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
+    await q.evaluate(() => {
+      __frames(2); __game.start("simmer");
+      __game.setQueue(0, 0); __game.setAim(270); __game.drop(); __frames(40);
+      __game.setQueue(0, 0); __game.setAim(270); __game.drop();
+      for (let i = 0; i < 200 && !__game.pops.length; i++) __frames(1);
+      __frames(10);
+    });
+    await q.keyboard.press("p");
+    const held = await q.evaluate(() => { const a = __game.pops.map((p) => p.t); __frames(120); return { a, b: __game.pops.map((p) => p.t) }; });
+    await q.keyboard.press("p");
+    const ran = await q.evaluate(() => { __frames(60); return __game.pops.length; });
+    check("jam-jar: under the pause card the \"+N\" holds where it is in its time; resumed, it runs out",
+      held.a.length === 1 && held.b.length === 1 && held.a[0] === held.b[0] && ran === 0, { held, ran });
+    check("jam-jar (points, pause): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  // the CPU's jar: its own "+N" on a laptop, none on a phone (too small to read)
+  for (const [label, opts] of [["laptop", { viewport: { width: 1366, height: 657 } }], ["phone", { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => {
+      await pg.addInitScript(STEPPED); await pg.addInitScript(TEXTS);
+      await pg.addInitScript(() => { try { localStorage.setItem("jamjar_foe", "cpu"); } catch (e) {} });
+      await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, MERGES]);
+    } });
+    const r = await q.evaluate(() => {
+      __frames(2); __game.start("boil");
+      for (let i = 0; i < 60 * 25 && !(window.__merges || []).some((m) => m.cpu); i++) { window.__f = i; __game.setAim(80 + (i % 380)); __frames(1); }
+      __frames(5);
+      const m = (window.__merges || []).filter((x) => x.cpu), p = (window.__pops || []).filter((x) => x.c === "cpu");
+      return { cpuMerges: m.length, cpuPops: p.length, first: p[0], merge: m[0], state: __game.state };
+    });
+    check("jam-jar vs CPU, " + label + ": the CPU's jar " + (label === "laptop" ? "shows its own \"+N\" where its pair met" : "shows no \"+N\" at its size (too small to read)"),
+      r.state === "play" && r.cpuMerges > 0 && (label === "laptop" ? r.cpuPops > 0 && Math.abs(r.first.y - r.merge.y) <= 46 : r.cpuPops === 0), r);
+    check("jam-jar vs CPU, " + label + " (points): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
 };

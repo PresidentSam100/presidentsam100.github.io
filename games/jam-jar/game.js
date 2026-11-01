@@ -352,10 +352,11 @@
   // CPU's jar while yours is in play, and yours while the CPU's is.
   var foe = store.get("jamjar_foe", "solo") === "cpu" ? "cpu" : "solo";
   var inCpu = false, out = false, lastDrop = null;   // out: this jar has overflowed (the other plays on)
-  var cpuCanvas = document.getElementById("cpu"), cctx = cpuCanvas.getContext("2d");
+  var pops = [];   // the merges' "+N" (popScore)
+  var cpuCanvas = document.getElementById("cpu"), cctx = cpuCanvas.getContext("2d"), cpuScale = 0;   // (css px to a jar unit)
   function freshJar() {
     return { fruits: [], particles: [], score: 0, dangerT: 0, dropCd: 0, current: current, next: next, aimX: W / 2,
-             dealt: 0, out: false, lastDrop: null, ctx: cctx };
+             dealt: 0, out: false, lastDrop: null, pops: [], ctx: cctx };
   }
   var other = freshJar();
   function swapJar() {
@@ -371,6 +372,7 @@
     t = dealt; dealt = o.dealt; o.dealt = t;
     t = out; out = o.out; o.out = t;
     t = lastDrop; lastDrop = o.lastDrop; o.lastDrop = t;
+    t = pops; pops = o.pops; o.pops = t;
     t = ctx; ctx = o.ctx; o.ctx = t;
     inCpu = !inCpu;
   }
@@ -383,6 +385,7 @@
     var k = Math.min(dpr, Math.max(0.25, Math.ceil(w * (window.devicePixelRatio || 1) / W * 20) / 20));
     if (cpuCanvas.width !== Math.round(W * k)) { cpuCanvas.width = Math.round(W * k); cpuCanvas.height = Math.round(H * k); }
     cctx.setTransform(k, 0, 0, k, 0, 0);
+    cpuScale = w / W;
   }
   // the page as the opponent picked lays it out: the CPU's jar beside yours
   // or not, and the ladder fitted to your jar's new height
@@ -512,7 +515,7 @@
     if (MODES[m]) { mode = m; store.set("jamjar_mode", mode); }
     best = bestOf(mode);
     document.body.dataset.mode = mode;
-    fruits = []; particles = [];
+    fruits = []; particles = []; pops = [];
     score = 0; dropCd = 0; dangerT = 0; boilT = BOIL_S; state = "play"; dropped = false;
     runBest = best.get();
     seed = (Math.random() * 4294967296) | 0; seq = []; dealt = 0;
@@ -520,6 +523,7 @@
     out = false; lastDrop = null; pending = false;
     other = freshJar();   // (the CPU's: the same first fruit and next as yours)
     brain = { at: null, wait: 0, since: 0, again: false };
+    fast = false;
     relayout();
     refreshHud();
     drawChain();
@@ -529,8 +533,8 @@
   }
   // the menu: an empty jar behind the paces and the opponents, the last ones played picked
   function toMenu() {
-    state = "menu"; fruits = []; particles = []; dangerT = 0;
-    out = false; other = freshJar();   // (the CPU's jar empty behind the menu too)
+    state = "menu"; fruits = []; particles = []; pops = []; dangerT = 0;
+    out = false; other = freshJar(); fast = false;   // (the CPU's jar empty behind the menu too)
     document.getElementById("overScreen").classList.add("hidden");
     document.getElementById("menuScreen").classList.remove("hidden");
     paintMenu();
@@ -824,6 +828,7 @@
       if (p.ring) continue; // the merge ring stays where the fruits met (it has no velocity: moving it made it NaN, so it never drew)
       p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 700 * dt;
     }
+    agePops(dt);
   }
 
   // The passes above trade pushes in proportion to mass, which is right for a
@@ -895,6 +900,7 @@
     juice(mx, my, TIERS[t].col, TIERS[t].r);
     if (t === TIERS.length - 1) {             // two watermelons vanish in glory
       score += 100;
+      popScore(mx, my, 100);
       sfxMelon();
     } else {
       var nf = makeFruit(mx, my, t + 1);
@@ -943,6 +949,7 @@
       nf.px = nf.x; nf.py = nf.y; // its travel this step starts here, not mid-shove
       fruits.push(nf);
       score += MERGE_SCORE[t + 1];
+      popScore(mx, my, MERGE_SCORE[t + 1]);
       sfxMerge(t + 1);
       if (t + 1 === TIERS.length - 1) sfxMelon(); // first watermelon fanfare
     }
@@ -963,6 +970,37 @@
       particles.push({ x: x, y: y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, t: 0, life: 0.5 + Math.random() * 0.3, col: col, s: 2 + Math.random() * 3.5 });
     }
     particles.push({ x: x, y: y, t: 0, life: 0.35, ring: true, col: col, s: r });
+  }
+
+  // A merge's points, "+N", where the pair met: on for POP_T s of the jar's
+  // own clock (so a pause holds it), fading over the last part. With Visual
+  // FX on it rises a little; off, it holds still: the same text, in the same
+  // place, as long. It sits below the rim, clear of the fruit waiting to
+  // drop, and one born beside a newer one moves out of its way.
+  var POP_T = 0.8, POP_RISE = 44, POP_PX = 32, POP_TOP = RIM + 70;
+  function popScore(x, y, n) {
+    y = Math.max(POP_TOP, y);
+    for (var i = 0; i < pops.length; i++) {
+      var o = pops[i];
+      if (o.t < 0.4 && Math.abs(o.x - x) < 70 && Math.abs(o.y - y) < 38) y = o.y - 40 >= POP_TOP ? o.y - 40 : o.y + 40;
+    }
+    pops.push({ x: x, y: y, n: n, t: 0 });
+  }
+  function agePops(dt) {
+    for (var i = pops.length - 1; i >= 0; i--) if ((pops[i].t += dt) >= POP_T) pops.splice(i, 1);
+  }
+  function drawPop(p) {
+    var k = p.t / POP_T, text = "+" + p.n;
+    var y = p.y - (reduced() ? 0 : POP_RISE * (1 - (1 - k) * (1 - k)));   // (rising, easing out)
+    ctx.font = "800 " + (POP_PX + Math.min(16, p.n / 4)) + "px 'Baloo 2', sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    var half = ctx.measureText(text).width / 2 + 6, x = Math.max(JL + half, Math.min(JR - half, p.x));
+    ctx.globalAlpha = k < 0.55 ? 1 : 1 - (k - 0.55) / 0.45;
+    ctx.lineJoin = "round"; ctx.lineWidth = 7; ctx.strokeStyle = "#fff3df";
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = "#c2452f";
+    ctx.fillText(text, x, y);
+    ctx.globalAlpha = 1; ctx.lineJoin = "miter"; ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
   }
 
   // when the result card came up, for Space's moment's wait on it (see the keys)
@@ -1108,13 +1146,16 @@
     ctx.beginPath(); ctx.moveTo(JL - g - 7, RIM - 10); ctx.lineTo(JL - g + 7, RIM - 10); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(JR + g - 7, RIM - 10); ctx.lineTo(JR + g + 7, RIM - 10); ctx.stroke();
 
+    // the merges' points (on the CPU's jar only where it is big enough to read them)
+    if (!inCpu || cpuScale * POP_PX >= 10) for (i = 0; i < pops.length; i++) drawPop(pops[i]);
+
     // against the CPU: a jar that has overflowed says so under a wash, and
     // while the other plays on, that one shows the score it has to pass
     if (foe === "cpu" && state === "play") {
       ctx.textAlign = "center"; ctx.textBaseline = "middle";
       if (out) {
         ctx.fillStyle = "rgba(255, 243, 223, 0.72)";
-        ctx.fillRect(JL - GLASS, RIM - 20, JR - JL + GLASS * 2, FLOOR - RIM + GLASS + 20);
+        ctx.fillRect(JL - GLASS, 0, JR - JL + GLASS * 2, FLOOR + GLASS);   // (a fruit stopped in the air above it too)
         ctx.fillStyle = "#c2452f";
         ctx.font = "800 46px 'Baloo 2', sans-serif";
         ctx.fillText("OVERFLOWED", W / 2, H * 0.42);
@@ -1290,6 +1331,51 @@
   // P; the menu, an empty jar and the overflow card don't
   if (window.GameShell) GameShell.guardLeave({ active: function () { return state === "play" && dropped; }, pausable: P });
 
+  // One frame of play: dt seconds of both jars.
+  function step(dt) {
+    // Rolling Boil: the next fruit goes when its second is up (the CPU's with yours)
+    if (mode === "boil") {
+      boilT -= dt;
+      if (boilT <= 0) { boilT += BOIL_S; drop(true); if (foe === "cpu") asCpu(function () { drop(true); }); }
+    }
+    // steps of 1/120 s or less, two at the least: tall stacks stay calm,
+    // and a slower screen's longer frames don't set the pile shivering
+    // (a jar that has overflowed stays as it stopped)
+    var n = Math.max(2, Math.ceil(dt * 120 - 1e-6));
+    for (var s = 0; s < n && !out; s++) physics(dt / n);
+    if (out) agePops(dt);   // (an overflowed jar's last points still fade)
+    if (foe === "cpu") {
+      asCpu(function () { think(dt); for (var s2 = 0; s2 < n && !out; s2++) physics(dt / n); if (out) agePops(dt); });
+      cpuHud();
+      judge();
+    }
+  }
+
+  // Speed up: once your jar has overflowed and the CPU's plays on, its jar
+  // can run at FAST times the speed until the game is decided, and back. It
+  // is the same play, frame for frame (FAST frames of it to each one drawn),
+  // so the CPU picks and drops exactly as it would have, only sooner.
+  var FAST = 4, fast = false, fastBtn = document.getElementById("fastBtn");
+  function fastUi() {
+    var show = foe === "cpu" && state === "play" && out && !other.out;
+    if (!show) fast = false;
+    if (fastBtn.hidden === show) { fastBtn.hidden = !show; if (show) placeFast(); }
+    var label = fast ? "Normal speed" : "Speed up ▸▸";
+    if (fastBtn.textContent !== label) { fastBtn.textContent = label; fastBtn.setAttribute("aria-pressed", String(fast)); }
+  }
+  // (over your jar, under OVERFLOWED)
+  function placeFast() {
+    var g = document.getElementById("game");
+    fastBtn.style.left = (g.offsetLeft + g.offsetWidth / 2) + "px";
+    fastBtn.style.top = (g.offsetTop + g.offsetHeight * 0.6) + "px";
+  }
+  fastBtn.addEventListener("click", function () { if (!fastBtn.hidden) { fast = !fast; fastUi(); } });
+  window.addEventListener("resize", function () { if (!fastBtn.hidden) placeFast(); });
+  if (window.GameShell && GameShell.menuKeys) {
+    // F presses it (its keycap on it), never under the pause card
+    GameShell.menuKeys({ active: function () { return !fastBtn.hidden && !P.isPaused(); }, groups: [{ sel: "#fastBtn", keys: ["f"] }] });
+  }
+
   var last = performance.now();
   function loop(now) {
     requestAnimationFrame(loop);
@@ -1299,23 +1385,8 @@
     var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
-      if (state === "play") {
-        // Rolling Boil: the next fruit goes when its second is up (the CPU's with yours)
-        if (mode === "boil") {
-          boilT -= dt;
-          if (boilT <= 0) { boilT += BOIL_S; drop(true); if (foe === "cpu") asCpu(function () { drop(true); }); }
-        }
-        // steps of 1/120 s or less, two at the least: tall stacks stay calm,
-        // and a slower screen's longer frames don't set the pile shivering
-        // (a jar that has overflowed stays as it stopped)
-        var n = Math.max(2, Math.ceil(dt * 120 - 1e-6));
-        for (var s = 0; s < n && !out; s++) physics(dt / n);
-        if (foe === "cpu") {
-          asCpu(function () { think(dt); for (var s2 = 0; s2 < n && !out; s2++) physics(dt / n); });
-          cpuHud();
-          judge();
-        }
-      }
+      for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);
+      fastUi();
       draw();
       if (foe === "cpu") asCpu(draw);
     }
@@ -1338,6 +1409,7 @@
     get score() { return score; },
     get dangerT() { return dangerT; },
     get particles() { return particles; },
+    get pops() { return pops; },
     squash: function (f) { return squashOf(f); },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
@@ -1346,6 +1418,7 @@
     start: function (m) { reset(m || mode); },
     toMenu: toMenu,
     get foe() { return foe; },
+    get fast() { return fast; },
     setFoe: function (f) { foe = f; store.set("jamjar_foe", foe); paintMenu(); },
     // both jars as they stand (yours, the CPU's), and the shared run of fruit
     vs: function () { return { you: { score: score, out: out, dealt: dealt, fruits: fruits.length }, cpu: { score: other.score, out: other.out, dealt: other.dealt, fruits: other.fruits.length, aim: other.aimX } }; },

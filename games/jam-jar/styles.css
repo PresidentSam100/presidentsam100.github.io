@@ -179,6 +179,11 @@ body[data-foe="cpu"] #far { display: block; }
   border: 2px solid #b9793e; border-radius: 8px;
   padding: 3px 5px 2px 7px;
 }
+/* Speed up: over your overflowed jar, under OVERFLOWED (placed by game.js) */
+#wrap { position: relative; }
+.fast-btn { position: absolute; z-index: 2; transform: translate(-50%, -50%); white-space: nowrap; }
+.fast-btn[hidden] { display: none; }
+.fast-btn:active { transform: translate(-50%, -50%) translateY(2px); }
 /* the result card: your score and the CPU's side by side */
 .finals { display: flex; justify-content: center; gap: 30px; }
 .finals .lbl { margin-top: 8px; }
@@ -212,13 +217,14 @@ body[data-foe="cpu"] .finals .big { margin-top: 0; }
   }
   body[data-foe="cpu"] #wrap {
     width: min(94vw, 540px);
-    grid-template-columns: 1fr auto var(--cpu-w);
+    grid-template-columns: minmax(0, 1fr) auto var(--cpu-w);
     grid-template-areas: "jar jar jar" "score next cpu" "how how how" "chain chain chain";
   }
   body[data-foe="cpu"] #game { justify-self: center; }
   body[data-foe="cpu"] #far { display: contents; }
   .cpu-panel { grid-area: cpu; align-self: start; }
   body[data-foe="cpu"] .score-panel, body[data-foe="cpu"] .next-panel { padding: 8px 6px; }
+  body[data-foe="cpu"] .score-panel .val { font-size: 22px; }   /* (five figures fit its narrow column) */
 }
 /* a phone on its side, vs CPU: your jar, the CPU's and the scores with Next
    side by side, How and the ladder under them */
