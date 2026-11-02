@@ -432,10 +432,12 @@
   // s of it, then its face at rest, every IDLE_T s from the moment the fruit
   // came (dropped, made by a merge, waiting at the top, shown in Next), so
   // fruit that came apart idle apart; the Preserves' fruit idle together. The
-  // clock stops with a pause. With Visual FX off every face rests.
+  // clock stops with a pause. With Visual FX off every face rests, and so
+  // does every face of a jar that's lost: overflowed (against the CPU, the
+  // other may play on, idling) or the game over.
   var IDLE_T = 4, IDLE_ACT = 2, idleT = 0;
   function idleU(at) {
-    if (reduced() || at == null) return -1;
+    if (reduced() || at == null || out || state === "over") return -1;
     var t = (idleT - at) % IDLE_T;
     if (t < 0) t += IDLE_T;
     return t < IDLE_ACT ? t / IDLE_ACT : -1;

@@ -755,7 +755,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // at once; a pause holds them; with Visual FX off every face rests
   {
     const cq = await lib.newContext(browser);
-    const q = await lib.open(cq, base, "games/jam-jar/", { before: (pg) => pg.addInitScript(STEPPED) });
+    const q = await lib.open(cq, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
     const r = await q.evaluate(() => {
       const G = window.__game, out = {};
       out.faces = Array.from({ length: 11 }, (_, i) => ({ start: G.faceDiff(i, -1, 0), end: G.faceDiff(i, -1, 0.999), mid: Math.max(...[0.2, 0.35, 0.5, 0.65].map((u) => G.faceDiff(i, -1, u))) }));
@@ -786,7 +786,23 @@ module.exports = async ({ browser, base, check, lib }) => {
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
       __frames(60); out.paused = +(G.idle().t - tp).toFixed(3);
       document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      // the jar lost: every face rests from then on (its fruit, the one waiting, Next, the Preserves)
+      __frames(2); G.drop(); __frames(20);
+      G.overflow(G.score);
+      const lost = [];
+      for (let i = 0; i < 16; i++) { __frames(15); lost.push(G.idle().chainU, G.idle().nextU, G.idleU(G.idle().heldAt), ...G.fruits.map((f) => G.idleU(f.born))); }
+      out.lost = { state: G.state, moving: lost.filter((u) => u >= 0).length };
       return out;
+    });
+    // against the CPU, your jar overflowed while the CPU's plays on: yours rests
+    const vs = await q.evaluate(() => {
+      const G = window.__game; G.setFoe("cpu"); __frames(2); G.start("simmer"); __frames(2);
+      const before = G.idleU(G.idle().heldAt) >= 0;
+      G.setVs({ score: 100, out: true }); const us = [];   // (ahead of the CPU's 0, so it plays on to pass you)
+      for (let i = 0; i < 16; i++) { __frames(15); us.push(G.idleU(G.idle().heldAt), G.idle().chainU); }
+      const r = { before, playing: G.state, moving: us.filter((u) => u >= 0).length };
+      G.setFoe("solo");
+      return r;
     });
     // Visual FX off: every face rests
     await q.evaluate(() => { localStorage.setItem("reduceMotion:jam-jar", "1"); });
@@ -798,6 +814,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.len.join() === "4,2" && r.born.every((x) => x === 0) && r.held.atDrop && r.held.acting && r.at15.join() === "true,true" && r.at25.join() === "false,true" &&
       r.merged && /m/.test(r.chain) && /r/.test(r.chain) && !/x/.test(r.chain) && r.paused === 0, r);
     check("jam-jar: with Visual FX off no face moves (the jar's fruit, the one waiting, the Preserves)", off.moving === 0, off);
+    check("jam-jar: once a jar is lost every face rests: the game over (its fruit, the one waiting, Next, the Preserves), and against the CPU your overflowed jar while the CPU plays on",
+      r.lost.state === "over" && r.lost.moving === 0 && vs.before && vs.playing === "play" && vs.moving === 0, { lost: r.lost, vs });
     await done(q, "idles");
     await cq.close();
   }
