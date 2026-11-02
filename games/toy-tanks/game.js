@@ -13,7 +13,8 @@
    Keys: WASD or the arrows drive, the mouse aims, a click or Space fires,
    a right-click or E lays a mine, P pauses; on the menu the arrows walk
    the grid of missions to pick the one to start from (a click picks one
-   too), Space or Enter starts, and L
+   too), Space or Enter starts, I opens the tank guide (Esc, I or Enter
+   shuts it), and L
    opens the mission editor (editor.html), whose missions come back here as
    "#play=" links, played on their own (Backspace: back to the campaign);
    on the end card Space or Enter plays again and Backspace is the menu. Esc leaves (asking first mid-run): the
@@ -377,7 +378,7 @@
     document.body.classList.remove("run");
     // (behind the menu: the first hand-made mission, or a mission of your own, standing still)
     st = E.create([shared || { map: L.FIXED[5] }], { seed: 1 }); st.wrecks = [];
-    $("menu").hidden = false; $("over").hidden = true; $("hud").hidden = true;
+    $("menu").hidden = false; $("over").hidden = true; $("hud").hidden = true; closeGuide();
     // (the HUD, unseen, filled as a run starts it: the same size, so nothing moves when one does)
     $("h-lives").dataset.v = ""; hud();
     banner("");
@@ -606,6 +607,93 @@
   $("again").addEventListener("click", startRun);
   $("to-menu").addEventListener("click", toMenu);
 
+  // ---- the tank guide ---------------------------------------------------------------------------
+  // Every kind of tank, yours first, then the enemies in the order they
+  // first roll out: each drawn with its own art on a scrap of the play mat,
+  // its name, the mission it first comes on, what it carries (worked out
+  // from the engine's own table, so it can't drift from it) and how it
+  // fights. From the menu: Tank guide, or I; Esc, I or Enter (or a tap off
+  // the card) shuts it.
+  var PACE = { none: "Stays put", slow: "Slow", normal: "Your pace", fast: "Fast", vfast: "Very fast" };
+  var WAYS = {
+    player: "Bank your shells off the walls; a shell of your own can hit you too.",
+    brown: "Fires when it has a clear shot at you; otherwise its turret sweeps about.",
+    ash: "Keeps its distance and banks shots off the walls; slow to see a shell coming.",
+    marine: "Keeps its distance and fires straight at you.",
+    yellow: "Lays mines as it goes. Never dodges a shell, but keeps clear of mines.",
+    pink: "Comes after you, banking shots off the walls.",
+    green: "The sharpest bank shots, aimed ahead of a tank on the move.",
+    violet: "Comes after you, and drops mines near you.",
+    white: "Comes after you, and drops mines near you. Vanishes once the mission starts: only its tread marks give it away.",
+    black: "Closes in for a straight line on you and fires the moment it has one, aimed ahead of a tank on the move. The best at dodging shells and mines."
+  };
+  function secs(ms) { return ms / 1000 + " s"; }
+  // what a kind carries: its pace, its shots (shells or fast rockets, and
+  // their bounces), how many in the air at once, its reload, its mines
+  function carries(kind) {
+    var k = E.KINDS[kind], T = E.TUNE;
+    var b = k ? k.bounces : T.playerBounces, n = k ? k.shells : T.playerShells, mines = k ? k.mines : T.playerMines;
+    var out = [k ? PACE[k.move] : "Steady pace", (k && k.shell === "fast" ? "fast rockets" : "shells") + ", " + (b === 0 ? "no bounce" : b === 1 ? "one bounce" : b === 2 ? "two bounces" : b + " bounces"), n + " at a time"];
+    if (k) out.push("reload " + secs(k.fire));
+    out.push(mines ? mines + (mines === 1 ? " mine" : " mines") : "no mines");
+    return out.join(" · ");
+  }
+  // a kind's picture: the tank on a scrap of the mat, its turret turned a little
+  function tankArt(kind) {
+    var W = 58, H = 46, dpr = Math.min(2, window.devicePixelRatio || 1), c = document.createElement("canvas");
+    c.className = "tg-art"; c.width = W * dpr; c.height = H * dpr; c.setAttribute("aria-hidden", "true");
+    var g = c.getContext("2d");
+    g.scale(dpr, dpr);
+    A.mat(g, W, H, 64);
+    var s = 40;
+    A.tank(g, { kind: kind, x: 24 / s, y: 24 / s, body: 0, turret: -0.45 }, s, { fx: false });
+    return c;
+  }
+  (function () {
+    var list = $("tank-list"), kinds = ["player"].concat(L.ORDER.map(function (o) { return o[0]; }));
+    var from = {};
+    L.ORDER.forEach(function (o) { from[o[0]] = o[1]; });
+    kinds.forEach(function (kind) {
+      var li = document.createElement("li"), text = document.createElement("div");
+      li.className = "tg"; li.setAttribute("data-kind", kind);
+      text.className = "tg-text";
+      text.innerHTML = '<p class="tg-head"><b class="tg-name">' + (kind === "player" ? "Your tank" : E.KINDS[kind].name) + '</b><span class="tg-from">' +
+        (kind === "player" ? "every mission" : "from mission " + from[kind]) + '</span></p><p class="tg-stats">' + carries(kind) + '</p><p class="tg-way">' + WAYS[kind] + "</p>";
+      li.appendChild(tankArt(kind)); li.appendChild(text);
+      list.appendChild(li);
+    });
+    $("gb-tanks").innerHTML = A.badge("player", 20) + A.badge("pink", 20) + A.badge("black", 20);
+  })();
+  var guideEl = $("guide");
+  function guideOpen() { return !guideEl.hidden; }
+  function openGuide() {
+    if (ui !== "menu" || guideOpen()) return;
+    guideEl.hidden = false;
+    $("guide-scroll").scrollTop = 0;
+    // (the list has the focus: the arrows scroll it where it scrolls)
+    try { $("guide-scroll").focus({ preventScroll: true }); } catch (e) {}
+  }
+  function closeGuide() {
+    if (!guideEl || !guideOpen()) return;
+    guideEl.hidden = true;
+    // (nothing keeps the focus: Enter stays Roll out's)
+    var a = document.activeElement;
+    if (a && a !== document.body && (guideEl.contains(a) || a === $("guide-btn"))) try { a.blur(); } catch (e) {}
+  }
+  $("guide-btn").addEventListener("click", openGuide);
+  $("guide-btn").addEventListener("mousedown", function (e) { e.preventDefault(); });
+  $("guide-close").addEventListener("click", closeGuide);
+  guideEl.addEventListener("click", function (e) { if (e.target === guideEl) closeGuide(); });
+  // (first, ahead of the menu's keys: Esc shuts the guide rather than leaving
+  // for the games page, and I and Enter shut it too)
+  window.addEventListener("keydown", function (e) {
+    if (!guideOpen() || !e.key || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === "Escape" || e.key === "Enter" || e.key === "i" || e.key === "I") {
+      e.preventDefault();
+      if (!e.repeat) closeGuide();
+    }
+  }, true);
+
   // ---- a mission of your own -----------------------------------------------------------------
   // The editor (editor.html) sends one here as a "#play=<code>" link
   // (levelcode.js), checked before it's played. It's played on its own, in
@@ -647,13 +735,15 @@
   if (window.GameShell && GameShell.guardLeave) GameShell.guardLeave(P ? { active: inRun, pausable: P } : inRun);
   var menuApi = null;
   if (window.GameShell && GameShell.menuKeys) {
-    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu"; }, groups: [{ sel: "#to-editor", keys: ["l"] }, { sel: "#to-campaign", keys: ["Backspace"] }], start: "#play", space: true });
+    // (not while the tank guide is up over the menu)
+    menuApi = GameShell.menuKeys({ active: function () { return ui === "menu" && !guideOpen(); },
+      groups: [{ sel: "#to-editor", keys: ["l"] }, { sel: "#to-campaign", keys: ["Backspace"] }, { sel: "#guide-btn", keys: ["i"], into: ".gb-label" }], start: "#play", space: true });
     // the arrows walk the grid of missions, the pick going with the ring (held,
     // they run on), and Enter rolls out from the one picked (a click since may
     // have picked another); the keycaps for it (with a keyboard) beside the
     // grid's heading
     if (GameShell.gridKeys) {
-      GameShell.gridKeys({ active: function () { return ui === "menu" && !shared; }, sel: "#mission-grid .mt",
+      GameShell.gridKeys({ active: function () { return ui === "menu" && !shared && !guideOpen(); }, sel: "#mission-grid .mt",
         first: function () { return tiles[startAt - 1]; },
         open: function () { startRun(); } });
       new MutationObserver(function () {

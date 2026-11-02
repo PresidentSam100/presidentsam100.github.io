@@ -946,6 +946,107 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks black tank: it can still be beaten (the bot wins at least 1 duel in 4)", duel.botWins >= duel.n / 4, duel);
   }
 
+  // ---- the tank guide: Tank guide on the menu (its key I) opens a card of
+  // every kind of tank, yours first, then the enemies in the order they
+  // first roll out: each drawn with the game's own art, its name, the
+  // mission it first comes on, what it carries (the engine's own numbers)
+  // and how it fights. Esc, I, Enter, Close or a click off the card shuts
+  // it (Esc without leaving the page); while it's up the menu's keys sleep
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const up = () => q.evaluate(() => !document.getElementById("guide").hidden);
+    const menu = () => q.evaluate(() => ({ ui: ToyTanks.ui(), start: localStorage.getItem("toytanks_start"), ring: (document.querySelector("#mission-grid [data-gs-pick]") || {}).textContent || null }));
+    const caps = await q.evaluate(() => ({ open: (document.querySelector("#guide-btn [data-gs-key]") || document.getElementById("guide-btn")).getAttribute("data-gs-key"), close: document.getElementById("guide-close").getAttribute("data-gs-key") }));
+    const before = await up();
+    await q.keyboard.press("i"); const byKey = await up();
+    // (the menu's keys asleep under it: the arrows walk no grid, Space rolls nothing out)
+    await q.keyboard.press("ArrowRight"); await q.keyboard.press("Space"); const asleep = await menu();
+    await q.keyboard.press("Escape"); await q.waitForTimeout(300); const esc = { up: await up(), leaves: q.leaves };
+    await q.click("#guide-btn"); const byClick = await up();
+    const list = await q.evaluate(() => [...document.querySelectorAll("#tank-list .tg")].map((li) => {
+      const cv = li.querySelector("canvas"), px = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, col = window.ToyTanksArt.COLORS[li.dataset.kind];
+      const want = [1, 3, 5].map((i) => parseInt(col.slice(i, i + 2), 16));
+      let hull = 0;
+      for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - want[0]) + Math.abs(px[i + 1] - want[1]) + Math.abs(px[i + 2] - want[2]) < 12) hull++;
+      return { kind: li.dataset.kind, name: li.querySelector(".tg-name").textContent, from: li.querySelector(".tg-from").textContent, stats: li.querySelector(".tg-stats").textContent, way: li.querySelector(".tg-way").textContent, hull, art: cv.clientWidth + "x" + cv.clientHeight };
+    }));
+    await q.keyboard.press("i"); const iShut = await up();
+    await q.click("#guide-btn"); await q.keyboard.press("Enter"); const enterShut = { up: await up(), ui: await q.evaluate(() => ToyTanks.ui()) };
+    await q.click("#guide-btn"); await q.click("#guide-close"); const closeShut = await up();
+    await q.click("#guide-btn"); await q.mouse.click(8, 640); const offShut = await up();
+    // (and nothing keeps the focus: Enter is Roll out's again)
+    await q.keyboard.press("Enter"); await q.waitForTimeout(150); const rolled = await q.evaluate(() => ToyTanks.ui());
+    const order = ["player"].concat(L.ORDER.map((o) => o[0])), first = {};
+    L.ORDER.forEach((o) => { first[o[0]] = o[1]; });
+    const bad = [];
+    order.forEach((kind, i) => {
+      const r = list[i], k = E.KINDS[kind], T = E.TUNE;
+      if (!r || r.kind !== kind) { bad.push(kind + ": not " + (i + 1) + (i === 0 ? "st" : "th")); return; }
+      const b = k ? k.bounces : T.playerBounces, n = k ? k.shells : T.playerShells, mines = k ? k.mines : T.playerMines;
+      const want = [n + " at a time", b === 0 ? "no bounce" : b === 1 ? "one bounce" : "two bounces", mines ? mines + " mine" : "no mines", k && k.shell === "fast" ? "fast rockets" : "shells"].concat(k ? ["reload " + k.fire / 1000 + " s"] : []);
+      if (r.name !== (k ? k.name : "Your tank")) bad.push(kind + ": named " + r.name);
+      if (r.from !== (k ? "from mission " + first[kind] : "every mission")) bad.push(kind + ": " + r.from);
+      want.forEach((s) => { if (!r.stats.includes(s)) bad.push(kind + ": no '" + s + "' in " + r.stats); });
+      if (!k && /reload/.test(r.stats)) bad.push("your tank: a reload");
+      if (r.way.length < 20) bad.push(kind + ": no line on how it fights");
+      if (r.hull < 30 || r.art !== "58x46") bad.push(kind + ": art " + r.art + ", " + r.hull + " pixels of its colour");
+    });
+    const black = list.find((r) => r.kind === "black") || {};
+    check("toy-tanks guide: every kind of tank listed, yours first, then brown, ash, marine, yellow, pink, green, violet, white, black: each drawn in its colour, named, the mission it first comes on, what it carries as the engine has it (pace, shots and bounces, how many at once, reload, mines), and a line on how it fights",
+      list.length === 10 && bad.length === 0, { bad, list: list.map((r) => r.kind + ": " + r.stats) });
+    // (its reload as the engine has it: the reload itself is pinned by the black tank's own check)
+    check("toy-tanks guide: the black tank's line: very fast, fast rockets that don't bounce, 3 at a time, its reload, 2 mines; it closes in for a straight line on you, the best at dodging",
+      black.stats === "Very fast · fast rockets, no bounce · 3 at a time · reload " + E.KINDS.black.fire / 1000 + " s · 2 mines" && /straight line on you/.test(black.way) && /dodging/.test(black.way), black);
+    check("toy-tanks guide: Tank guide wears I and opens by click or by I; Close wears Esc; Esc shuts it without leaving the page, and so do I, Enter, Close and a click off the card (Enter rolling nothing out); while it's up the arrows and Space do nothing to the menu; once shut Enter rolls out",
+      caps.open === "I" && caps.close === "Esc" && !before && byKey && asleep.ui === "menu" && asleep.start == null && asleep.ring == null && !esc.up && esc.leaves === 0 &&
+      byClick && !iShut && !enterShut.up && enterShut.ui === "menu" && !closeShut && !offShut && rolled === "run", { caps, before, byKey, asleep, esc, byClick, iShut, enterShut, closeShut, offShut, rolled });
+    check("toy-tanks (guide): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+  // ---- the guide fits: laptops (all ten in sight at once), phones upright
+  // and on their side (the list scrolling inside the card): the card below
+  // the corner buttons and whole on the screen, nothing to scroll but the
+  // list, every row reachable and whole, nothing cut off at the side; and a
+  // touch off the card shuts it on a phone
+  {
+    const { devices } = require("@playwright/test");
+    const ph = (d, w, h) => Object.assign({}, devices[d], { viewport: { width: w, height: h } });
+    const sizes = [["1366 x 657", { viewport: { width: 1366, height: 657 } }, true], ["1280 x 600", { viewport: { width: 1280, height: 600 } }, true],
+      ["320 x 568", ph("iPhone SE", 320, 568)], ["360 x 560", ph("Pixel 5", 360, 560)], ["390 x 664", ph("iPhone 13", 390, 664)],
+      ["750 x 340, on its side", ph("iPhone 13 landscape", 750, 340)], ["667 x 330, on its side", ph("iPhone SE landscape", 667, 330)]];
+    const bad = [], seen = {};
+    for (const [label, dev, all] of sizes) {
+      const c = await lib.newContext(browser, dev);
+      const q = await lib.open(c, base, "games/toy-tanks/");
+      if (dev.hasTouch) await q.tap("#guide-btn"); else await q.click("#guide-btn");
+      await q.waitForTimeout(150);
+      const r = await q.evaluate((w) => {
+        const panel = document.getElementById("guide"), card = panel.querySelector(".card"), sc = document.getElementById("guide-scroll"), b = card.getBoundingClientRect();
+        const corner = Math.max(...[...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect().bottom));
+        const rows = [...document.querySelectorAll("#tank-list .tg")], s0 = sc.getBoundingClientRect();
+        const inSight = rows.filter((li) => { const r = li.getBoundingClientRect(); return r.top >= s0.top - 1 && r.bottom <= s0.bottom + 1; }).length;
+        // (each row whole in the list's height, and nothing in it wider than it is)
+        const tall = rows.filter((li) => li.getBoundingClientRect().height > sc.clientHeight).length;
+        const side = rows.filter((li) => { const r = li.getBoundingClientRect(); return r.right > s0.right + 1 || [...li.querySelectorAll("canvas, p")].some((x) => { const q = x.getBoundingClientRect(); return q.right > r.right + 1 || q.left < r.left - 1 || x.scrollWidth > x.clientWidth + 1; }); }).length;
+        sc.scrollTop = sc.scrollHeight;
+        const last = rows[rows.length - 1].getBoundingClientRect(), s = sc.getBoundingClientRect(), x = document.getElementById("guide-close").getBoundingClientRect();
+        return { top: Math.round(b.top), corner: Math.round(corner), bottom: Math.round(b.bottom), h: innerHeight, panel: panel.scrollHeight - panel.clientHeight, rows: rows.length, inSight, tall, side,
+          last: last.bottom <= s.bottom + 1 && last.top >= s.top - 1, close: x.top >= b.top && x.bottom <= b.bottom && x.left >= 0 && x.right <= w, wide: Math.max(document.documentElement.scrollWidth, innerWidth) - w };
+      }, dev.viewport.width);
+      seen[label] = r;
+      if (r.top < r.corner || r.bottom > r.h || r.panel > 0 || r.rows !== 10 || r.tall || r.side || !r.last || !r.close || r.wide > 0 || (all && r.inSight !== 10)) bad.push(label);
+      if (dev.hasTouch) {
+        await q.touchscreen.tap(dev.viewport.width - 4, dev.viewport.height - 4); await q.waitForTimeout(100);
+        if (await q.evaluate(() => !document.getElementById("guide").hidden)) bad.push(label + ": a touch off the card left it up");
+      }
+      if (q.errs.length) bad.push(label + " errors: " + q.errs.join("; "));
+      await q.close(); await c.close();
+    }
+    check("toy-tanks guide: it fits at two laptop sizes (all ten in sight), three phones upright and two on their side (the list scrolling): the card under the corner buttons and whole on the screen, only the list scrolls, every row reachable and whole, nothing cut off at the side; a touch off the card shuts it",
+      bad.length === 0, { bad, seen });
+  }
+
   // ---- a mission over, won or lost: the shells still in the air stop where
   // they are (no more steps, bounces or hits), and the mines with them, until
   // the same mission again or the next one clears the board

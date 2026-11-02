@@ -162,8 +162,30 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 /* the mission to start from: the one picked, then all hundred in a grid,
    ten to a row (five on a phone, in a box of its own that scrolls), the
    hand-made ones yellow; beside the rest on a wide screen */
-.pick { margin-bottom: 12px; }
+.pick-row { display: flex; gap: 8px; margin-bottom: 12px; }
+.pick { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; }
+.pick > .stage-read { flex: 1 1 auto; }
 .pick[hidden] { display: none; }
+/* the way to the tank guide: three of the tanks over its name, beside the
+   mission picked (the whole row to itself with a mission of your own) */
+.ghost.guide-btn {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  padding: 4px 10px; font-size: 14px; line-height: 1.15; border-radius: 10px;
+}
+.pick[hidden] + .ghost.guide-btn { flex: 1 1 auto; }
+.guide-btn .gb-tanks { display: flex; gap: 2px; }
+.guide-btn .gb-tanks .tk { width: 17px; height: 17px; }
+.guide-btn .gb-label { white-space: nowrap; }
+.guide-btn .gb-label .gs-kbd, .guide-btn .gb-label[data-gs-key]::after { font-family: var(--face); font-weight: 400; }
+/* (the narrowest phones: the tanks stacked beside the name, on two lines,
+   so the mission picked keeps its one line) */
+@media (max-width: 340px) {
+  #menu .pick .stage-read { padding-left: 6px; padding-right: 6px; }
+  .ghost.guide-btn { flex-direction: row; gap: 5px; padding: 3px 6px; }
+  .guide-btn .gb-tanks { flex-direction: column; gap: 1px; }
+  .guide-btn .gb-tanks .tk { width: 14px; height: 14px; }
+  .guide-btn .gb-label { white-space: normal; width: min-content; }
+}
 .stage-read {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   font-family: var(--face); color: var(--cream); background: var(--blue); border: 3px solid var(--blue-deep); border-radius: 10px; padding: 7px 10px;
@@ -260,9 +282,20 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
   #menu .card.has-grid > .more-row { grid-column: 2; margin-top: 0; }
   #menu .card h2 { font-size: 24px; }
   #menu .card .how { margin: 5px 0 7px; }
-  #menu .pick, #menu .missions { margin-bottom: 8px; }
+  #menu .pick-row, #menu .missions { margin-bottom: 8px; }
   #menu .stage-read { padding: 4px 10px; }
   #menu .bests { margin-top: 4px; }
+}
+/* the shortest phones (an SE's 568 px less the browser's bars, and less):
+   closer still, so the card stays whole in the game's own lettering too */
+@media (max-height: 600px) and (max-width: 520px) {
+  #menu .card.has-grid { padding: 6px 12px 10px; }
+  #menu .card .how { margin: 3px 0 5px; }
+  #menu .pick-row, #menu .missions { margin-bottom: 6px; }
+  #menu .missions-k { margin-bottom: 4px; }
+  #menu .mlegend { margin-top: 5px; }
+  #menu .stage-read { padding: 3px 10px; }
+  #menu .bests { margin-top: 2px; }
 }
 /* a short, wider window (a phone on its side): the grid scrolls in its box */
 @media (max-height: 520px) and (min-width: 521px) {
@@ -294,6 +327,53 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 }
 
 .gs-pause { background: rgba(15, 42, 92, 0.45); }
+
+/* ---- the tank guide: a label card as tall as the window leaves (under the
+   corner buttons), its list scrolling inside it where it has to; each tank
+   on a scrap of the play mat in the box's red rim, two to a row where
+   there's room ---------------------------------------------------------------------- */
+#guide { z-index: 35; }
+.guide-card {
+  width: min(1240px, 100%); display: flex; flex-direction: column; max-height: calc(100vh - 74px);
+  padding: 14px 16px 14px;
+}
+@supports (height: 100dvh) { .guide-card { max-height: calc(100dvh - 74px); } }
+.guide-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 8px -6px 0; padding: 0 6px 4px; outline: none; }
+.guide-note { margin-bottom: 8px; font-size: 14px; line-height: 1.35; color: var(--ink-dim); }
+.tank-list { list-style: none; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; text-align: left; }
+@media (min-width: 700px) { .tank-list { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 10px; } }
+.tg {
+  display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 10px; align-items: center;
+  padding: 6px 10px 6px 6px; background: #fff; border: 2px solid rgba(36, 87, 176, 0.3); border-radius: 10px;
+}
+.tg-art { display: block; width: 58px; height: 46px; border: 3px solid #c63a2c; border-radius: 6px; box-sizing: content-box; }
+.tg-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 8px; }
+.tg-name { font-weight: 400; font-size: 17px; line-height: 1.2; color: var(--ink); }
+.tg-from { font-size: 13px; color: var(--red); }
+.tg-stats { font-size: 13px; line-height: 1.3; color: var(--blue-deep); }
+.tg-way { margin-top: 1px; font-size: 13px; line-height: 1.3; color: var(--ink-dim); }
+.guide-card .row { margin-top: 10px; }
+.guide-card .row .playbtn { flex: 0 1 220px; padding: 6px 12px; font-size: 19px; }
+.guide-card .playbtn .gs-kbd, .guide-card .playbtn[data-gs-key]::after { font-family: var(--face); font-weight: 400; }
+/* a phone upright: each tank beside its name, what it carries and how it
+   fights the whole width under them */
+@media (max-width: 520px) {
+  .tg { grid-template-columns: 46px minmax(0, 1fr); grid-template-areas: "art head" "stats stats" "way way"; gap: 4px 10px; padding: 6px 8px; }
+  .tg-text { display: contents; }
+  .tg-art { grid-area: art; width: 46px; height: 36.5px; border-width: 2px; }
+  .tg-head { grid-area: head; flex-direction: column; align-items: flex-start; }
+  .tg-stats { grid-area: stats; }
+  .tg-way { grid-area: way; margin-top: 0; }
+}
+/* a short, wide window (a phone on its side, a short laptop): closer set,
+   Close up beside the heading so the list has the height */
+@media (max-height: 620px) and (min-width: 521px) {
+  .guide-card { position: relative; padding: 8px 12px 10px; }
+  .guide-card h2 { font-size: 24px; line-height: 34px; }   /* (as tall as Close, so the list starts below it) */
+  .guide-scroll { margin-top: 4px; }
+  .guide-card .row { position: absolute; top: 8px; right: 12px; margin-top: 0; }
+  .guide-card .row .playbtn { padding: 3px 14px; font-size: 17px; }
+}
 
 /* ---- on the menu: the way to the mission editor, and a mission of your own ---------- */
 .more-row { display: flex; gap: 8px; margin-top: 8px; }
