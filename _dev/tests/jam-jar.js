@@ -801,4 +801,36 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "idles");
     await cq.close();
   }
+
+  // ---- the Preserves name every fruit: beside it on a laptop, under it in
+  // rows on a phone; every name inside the panel, at 10 px or more, clear of
+  // the fruit and of the other names, and drawn (its ink there)
+  for (const [w, h, phone] of [[1366, 657, 0], [1280, 600, 0], [390, 664, 1], [320, 568, 1]]) {
+    const c = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } : { viewport: { width: w, height: h } });
+    const q = await lib.open(c, base, "games/jam-jar/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:jam-jar", "1"); } catch (e) {} }) });
+    const n = await q.evaluate(() => {
+      const G = window.__game;
+      if (!G.chain) return { none: true };
+      const L = G.chain(), cv = document.getElementById("chain"), g = cv.getContext("2d"), k = cv.width / L.w;
+      const meet = (a, b) => a[0] < b[0] + b[2] && b[0] < a[0] + a[2] && a[1] < b[1] + b[3] && b[1] < a[1] + a[3];
+      const bad = [];
+      L.slots.forEach((s, i) => {
+        const nb = s.name;
+        if (nb[0] < 0 || nb[1] < 0 || nb[0] + nb[2] > L.w || nb[1] + nb[3] > L.h) bad.push([i, "outside"]);
+        L.slots.forEach((o, j) => {
+          if (j !== i && meet(nb, o.name)) bad.push([i, "name on name", j]);
+          const cx = Math.max(nb[0], Math.min(o.x, nb[0] + nb[2])), cy = Math.max(nb[1], Math.min(o.y, nb[1] + nb[3]));
+          if (Math.hypot(cx - o.x, cy - o.y) < o.r - 0.5) bad.push([i, "name on fruit", j]);
+        });
+        const d = g.getImageData(Math.round(nb[0] * k), Math.round(nb[1] * k), Math.max(1, Math.round(nb[2] * k)), Math.max(1, Math.round(nb[3] * k))).data;
+        let ink = 0; for (let p = 0; p < d.length; p += 4) if (d[p + 3] > 150 && d[p] < 150 && d[p + 2] < 80) ink++;
+        if (ink < 10) bad.push([i, "no ink"]);
+      });
+      return { px: L.px, side: L.side, bad, label: cv.getAttribute("aria-label") || "" };
+    });
+    check("jam-jar (" + w + "x" + h + "): the Preserves name every fruit (" + (phone ? "under it, in rows" : "beside it") + "), every name inside the panel at 10 px or more, clear of the fruit and the other names, and drawn",
+      !n.none && n.px >= 10 && n.side === !phone && n.bad.length === 0 && /Blueberry.*Watermelon/.test(n.label), n);
+    check("jam-jar (" + w + "x" + h + ", the Preserves' names): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };

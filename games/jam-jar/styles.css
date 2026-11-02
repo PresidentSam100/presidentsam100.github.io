@@ -68,6 +68,8 @@ body {
 .val.small { font-size: 20px; }
 .hint { font-size: 12.5px; line-height: 1.45; text-align: left; color: #7a4d22; }
 #next, #chain { display: block; margin: 4px auto 0; }
+/* (the ladder's panel closer at its sides: each fruit's name goes beside it, game.js) */
+.chain-panel { padding-left: 8px; padding-right: 8px; }
 
 /* ---- game over ----------------------------------------------------------- */
 .overlay {
@@ -227,6 +229,7 @@ body[data-foe="cpu"] .finals .big { margin-top: 0; }
   .chain-panel { grid-area: chain; }
   .hint { text-align: center; }
   .panel { padding: 8px 12px; }
+  .chain-panel { padding-left: 8px; padding-right: 8px; }
   .val { font-size: 24px; }
   body { padding-top: 56px; } /* clear the fixed back link */
 

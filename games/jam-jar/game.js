@@ -1335,31 +1335,34 @@
     g.setTransform(DPR2, 0, 0, DPR2, 0, 0);
     return g;
   }
-  var CHAIN_W = 100, ICON_R = 15, CHAIN, chainCtx;
+  var ICON_R = 15, CHAIN, chainCtx;
   var nextCtx = hiDpi("next", 86, 86);
-  // The ladder stands up beside the jar; on a phone, where the panels go
-  // under the jar (styles.css), it lies across its panel, smallest fruit on
-  // the left, as wide as the panel lets it.
+  // The ladder stands up beside the jar, each fruit's name beside it; on a
+  // phone, where the panels go under the jar (styles.css), it lies across
+  // its panel in rows, smallest fruit first, each name under its fruit.
   var across = window.matchMedia ? window.matchMedia("(max-width: 760px)") : null;
   function layChain() {
     var el = document.getElementById("chain"), box = el.parentNode, cs = getComputedStyle(box);
-    CHAIN = across && across.matches
-      ? chainAcross(Math.floor(box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)))
-      : chainUpright(el, box);
+    var w = Math.floor(box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+    CHAIN = across && across.matches ? chainAcross(w) : chainUpright(el, box, w);
     chainCtx = hiDpi("chain", CHAIN.w, CHAIN.h);
     drawChain();
   }
   // Standing, the ladder reaches no lower than the jar beside it (a laptop
   // screen is short): its fruit come smaller until the panel ends with the
-  // jar. Everything in the ladder grows with the fruit size but the two end
-  // margins and the 3 px gaps, so the size that fits is a straight line away.
-  function chainUpright(el, box) {
-    var full = chainLayout(ICON_R), fixed = 8 + 3 * (TIERS.length - 1);
+  // jar, and until every name fits beside them.
+  function chainUpright(el, box, w) {
     var c = el.getBoundingClientRect(), b = box.getBoundingClientRect();
     var room = document.getElementById("game").getBoundingClientRect().bottom - c.top - (b.bottom - c.bottom);
-    if (full.h <= room) return full;
-    return chainLayout(Math.max(8, ICON_R * (room - fixed) / (full.h - fixed)));
+    for (var r = ICON_R; r > 8; r -= 0.25) { var L = chainLayout(r, w); if (L.h <= room && L.fits) return L; }
+    return chainLayout(8, w);
   }
+  // The fruit's names: the biggest size (12 px down to 10) whose widest
+  // name fits the room
+  var NAME_INK = "#7a4d22", measure = document.createElement("canvas").getContext("2d");
+  function nameFont(px) { return "700 " + px + "px 'Baloo 2', sans-serif"; }
+  function nameW(px) { measure.font = nameFont(px); var m = 0; TIERS.forEach(function (t) { m = Math.max(m, measure.measureText(t.name).width); }); return m; }
+  function nameSize(room) { for (var px = 12; px > 10; px -= 0.5) if (nameW(px) <= room) return px; return 10; }
   function refreshHud() {
     if (inCpu) return;   // (the CPU's jar in play: the panels are yours, see cpuHud)
     document.getElementById("score").textContent = score;
@@ -1383,50 +1386,68 @@
     var el = document.getElementById("cpuScore"), v = String(other.score);
     if (el.textContent !== v) el.textContent = v;
   }
-  // The little evolution ladder. Every fruit at one body size, painted as
-  // vectors at the panel's resolution (not a big sprite squashed down, which
-  // came out jagged for the large fruit and soft for the small), on an even
-  // step that's just tall enough for the tallest stem or crown to sit in the
-  // gap instead of on the fruit above.
-  function chainLayout(r) {
-    var i, slots = [], step = 0, edge = 4;
+  // The little evolution ladder, standing: every fruit at one body size r,
+  // painted as vectors at the panel's resolution (not a big sprite squashed
+  // down, which came out jagged for the large fruit and soft for the small),
+  // on an even step just tall enough for the tallest stem or crown to sit in
+  // the gap instead of on the fruit above, and for a name: the fruit down the
+  // left of `w` px, each name beside it.
+  function chainLayout(r, w) {
+    var i, slots = [], step = 0, edge = 4, left = 0, right = 0;
     for (i = 0; i < TIERS.length; i++) {
       var k = r / TIERS[i].r, ext = SPRITES[i].ext;
       slots.push({ k: k, up: ext.up * k, down: ext.down * k });
-      if (i) step = Math.max(step, slots[i - 1].down + slots[i].up + 3);
+      left = Math.max(left, ext.left * k); right = Math.max(right, ext.right * k);
     }
-    for (i = 0; i < slots.length; i++) { slots[i].x = CHAIN_W / 2; slots[i].y = edge + slots[0].up + i * step; }
+    var x = edge + left, tx = x + right + 5, px = nameSize(w - tx - 1);
+    for (i = 1; i < slots.length; i++) step = Math.max(step, slots[i - 1].down + slots[i].up + 3, px + 3);
+    for (i = 0; i < slots.length; i++) { slots[i].x = x; slots[i].y = edge + slots[0].up + i * step; slots[i].tx = tx; slots[i].ty = slots[i].y; }
     var last = slots[slots.length - 1];
-    return { slots: slots, w: CHAIN_W, h: Math.ceil(last.y + last.down + edge) };
+    return { slots: slots, rows: [slots], w: w, h: Math.ceil(last.y + last.down + edge), px: px, side: true, fits: nameW(px) <= w - tx - 1 };
   }
-  // The same ladder laid across `w` px: every fruit at one body size (up to
-  // the upright one's), on an even step just wide enough that no leaf or
-  // crown touches the next fruit, the row centred.
+  // The same ladder lying across `w` px, in rows: every fruit at the
+  // standing one's size, each name under it; as many to a row as the widest
+  // name leaves room for, the rows as few as names of 10 px or more allow
+  // (the names as big as that leaves them), as even as they go, each centred.
   function chainAcross(w) {
-    var i, n = TIERS.length, gap = 3, edge = 3, unit = [], step = 0, up = 0, down = 0;
+    var i, n = TIERS.length, gap = 6, edge = 3, R = ICON_R, up = 0, down = 0, wide = 0;
     for (i = 0; i < n; i++) {
-      var u = 1 / TIERS[i].r, ext = SPRITES[i].ext;
-      unit.push({ u: u, l: ext.left * u, r: ext.right * u, up: ext.up * u, down: ext.down * u });
-      if (i) step = Math.max(step, unit[i - 1].r + unit[i].l);
+      var ext = SPRITES[i].ext, k = R / TIERS[i].r;
+      up = Math.max(up, ext.up * k); down = Math.max(down, ext.down * k); wide = Math.max(wide, (ext.left + ext.right) * k);
     }
-    var R = Math.min(ICON_R, (w - 2 * edge - (n - 1) * gap) / (unit[0].l + (n - 1) * step + unit[n - 1].r));
-    for (i = 0; i < n; i++) { up = Math.max(up, unit[i].up * R); down = Math.max(down, unit[i].down * R); }
-    var span = unit[0].l * R + (n - 1) * (step * R + gap) + unit[n - 1].r * R, x0 = (w - span) / 2 + unit[0].l * R;
-    var slots = unit.map(function (s, k) { return { k: R * s.u, x: x0 + k * (step * R + gap), y: edge + up }; });
-    return { slots: slots, w: w, h: Math.ceil(2 * edge + up + down) };
+    function most(px) { return Math.max(1, Math.floor((w - 2 * edge + gap) / (Math.max(wide, nameW(px)) + gap))); }
+    var px = 12, fewest = Math.ceil(n / most(10));
+    while (px > 10 && Math.ceil(n / most(px)) > fewest) px -= 0.5;
+    var cell = Math.max(wide, nameW(px)) + gap, rowsN = Math.ceil(n / most(px)), per = Math.ceil(n / rowsN);
+    var rowH = up + down + px + 6, slots = [], rows = [];
+    for (i = 0; i < n; i++) {
+      var row = Math.floor(i / per), col = i % per, inRow = Math.min(per, n - row * per);
+      var x = (w - inRow * cell) / 2 + cell / 2 + col * cell, y = edge + up + row * rowH;
+      var sl = { k: R / TIERS[i].r, x: x, y: y, tx: x, ty: y + down + 2 + px / 2 };
+      slots.push(sl); (rows[row] = rows[row] || []).push(sl);
+    }
+    return { slots: slots, rows: rows, w: w, h: Math.ceil(2 * edge + rowsN * rowH - 2), px: px, side: false };
   }
   function drawChain() {
-    var g = chainCtx, slots = CHAIN.slots, last = slots[slots.length - 1];
+    var g = chainCtx, slots = CHAIN.slots, i;
     chainU = idleU(0);   // (all of them at once)
     g.clearRect(0, 0, CHAIN.w, CHAIN.h);
     g.strokeStyle = "rgba(160,106,51,0.5)";
     g.lineWidth = 2;
-    g.beginPath(); g.moveTo(slots[0].x, slots[0].y); g.lineTo(last.x, last.y); g.stroke();
-    for (var i = 0; i < slots.length; i++) {
+    CHAIN.rows.forEach(function (row) {
+      if (row.length < 2) return;
+      g.beginPath(); g.moveTo(row[0].x, row[0].y); g.lineTo(row[row.length - 1].x, row[row.length - 1].y); g.stroke();
+    });
+    for (i = 0; i < slots.length; i++) {
       g.save(); g.translate(slots[i].x, slots[i].y); g.scale(slots[i].k, slots[i].k);
       paintFruit(g, i, chainU);
       g.restore();
     }
+    // each fruit's name, beside it standing, under it lying across
+    g.font = nameFont(CHAIN.px); g.fillStyle = NAME_INK;
+    g.textBaseline = "middle"; g.textAlign = CHAIN.side ? "left" : "center";
+    for (i = 0; i < slots.length; i++) g.fillText(TIERS[i].name, slots[i].tx, slots[i].ty);
+    g.textAlign = "left"; g.textBaseline = "alphabetic";
   }
 
   // ---- input -----------------------------------------------------------------
@@ -1598,6 +1619,15 @@
       return g.getImageData(0, 0, n, n).data;
     },
     faceHash: function (ti, u) { var d = this.facePixels(ti, u), h = 2166136261; for (var i = 0; i < d.length; i++) h = Math.imul(h ^ d[i], 16777619); return (h >>> 0).toString(16); },
+    // the Preserves as laid out: its size, the names' size, each fruit's
+    // place and body radius and its name's box ([x, y, w, h])
+    chain: function () {
+      measure.font = nameFont(CHAIN.px);
+      return { w: CHAIN.w, h: CHAIN.h, px: CHAIN.px, side: CHAIN.side, slots: CHAIN.slots.map(function (sl, i) {
+        var nw = measure.measureText(TIERS[i].name).width;
+        return { x: sl.x, y: sl.y, r: TIERS[i].r * sl.k, name: [CHAIN.side ? sl.tx : sl.tx - nw / 2, sl.ty - CHAIN.px / 2, nw, CHAIN.px] };
+      }) };
+    },
     faceDiff: function (ti, u1, u2) { var a = this.facePixels(ti, u1), b = this.facePixels(ti, u2), n = 0; for (var i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2] || a[i + 3] !== b[i + 3]) n++; return n; },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },

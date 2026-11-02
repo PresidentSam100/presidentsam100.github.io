@@ -167,7 +167,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   // Dead End's HUD on two lines (a big score, a long street's name): the
   // block gives up the height, so the Plank button stays on the screen; and
-  // Jam Jar's chain lies across its panel under the jar
+  // Jam Jar's chain lies across its panel under the jar, as wide as the
+  // panel, in a few rows (each fruit's name under it), three or more to a row
   {
     const got = {};
     for (const [w, h] of [[320, 568], [360, 560]]) {
@@ -178,13 +179,19 @@ module.exports = async ({ browser, base, check, lib }) => {
       await p.waitForTimeout(300);
       const de = await p.evaluate(() => { const hud = document.getElementById("hud").getBoundingClientRect(), b = document.getElementById("plank-btn").getBoundingClientRect(); return { hud: Math.round(hud.height), plank: Math.round(b.bottom), screen: innerHeight }; });
       const j = await lib.open(ctx, base, "games/jam-jar/");
-      const jj = await j.evaluate(() => { const c = document.getElementById("chain").getBoundingClientRect(), box = c.width && document.querySelector(".chain-panel"); const pr = box ? box.getBoundingClientRect() : c; return { w: Math.round(c.width), h: Math.round(c.height), inside: c.left >= pr.left && c.right <= pr.right }; });
+      const jj = await j.evaluate(() => {
+        const c = document.getElementById("chain").getBoundingClientRect(), box = c.width && document.querySelector(".chain-panel"); const pr = box ? box.getBoundingClientRect() : c;
+        const cs = box ? getComputedStyle(box) : null, inner = box ? box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : 0;
+        const rows = {}; ((window.__game && window.__game.chain) ? window.__game.chain().slots : []).forEach((s) => { const k = Math.round(s.y); rows[k] = (rows[k] || 0) + 1; });
+        return { w: Math.round(c.width), h: Math.round(c.height), inner: Math.floor(inner), inside: c.left >= pr.left && c.right <= pr.right, rows: Object.values(rows) };
+      });
       got[w + "x" + h] = { deadEnd: de, jamJar: jj };
       await ctx.close();
     }
     check("fit: dead end's HUD on two lines on a phone (a big score, a long street) still leaves the Plank button on the screen",
       Object.values(got).every((o) => o.deadEnd.hud > 45 && o.deadEnd.plank <= o.deadEnd.screen), got);
-    check("fit: jam jar's fruit chain lies across its panel under the jar on a phone", Object.values(got).every((o) => o.jamJar.w > o.jamJar.h * 3 && o.jamJar.inside), got);
+    check("fit: jam jar's fruit chain lies across its panel under the jar on a phone, as wide as the panel, in two to four rows of three or more (each name under its fruit)",
+      Object.values(got).every((o) => o.jamJar.inside && o.jamJar.w >= o.jamJar.inner - 1 && o.jamJar.w > o.jamJar.h && o.jamJar.rows.length >= 2 && o.jamJar.rows.length <= 4 && o.jamJar.rows.every((n) => n >= 3)), got);
   }
 
   // ---- small phones get the big pieces at a size that plays, with nothing
