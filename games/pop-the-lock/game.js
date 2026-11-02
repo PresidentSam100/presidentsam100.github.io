@@ -71,7 +71,12 @@
 
   function beep(freq, dur = 0.08, type = "sine", gain = 0.18) {
     if (muted) return;
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    // (none where the browser has no sound to give: the game plays on, silent)
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return;
+      try { audioCtx = new Ctx(); } catch (e) { return; }
+    }
     const t = audioCtx.currentTime;
     const osc = audioCtx.createOscillator();
     const g = audioCtx.createGain();

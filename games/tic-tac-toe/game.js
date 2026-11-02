@@ -29,14 +29,20 @@ const LINES = [
 
 // --- sound effects (Web Audio, synthesized: no assets) ---
 let _actx;
+// (null where the browser has no sound to give: the game plays on, silent)
 function actx(){
-  if (!_actx) _actx = new (window.AudioContext || window.webkitAudioContext)();
+  if (!_actx){
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try { _actx = new Ctx(); } catch (e) { return null; }
+  }
   if (_actx.state === 'suspended') _actx.resume();
   return _actx;
 }
 // Human draws an X: two quick graphite pencil strokes.
 function sfxHuman(){
-  const ctx = actx(), now = ctx.currentTime;
+  const ctx = actx(); if (!ctx) return;
+  const now = ctx.currentTime;
   for (let k = 0; k < 2; k++){
     const t = now + k*0.1, dur = 0.09, len = ctx.sampleRate*dur|0;
     const buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
@@ -49,7 +55,8 @@ function sfxHuman(){
 }
 // AI draws an O: one smooth ink stroke whose pitch glides around the circle and back.
 function sfxAI(){
-  const ctx = actx(), now = ctx.currentTime;
+  const ctx = actx(); if (!ctx) return;
+  const now = ctx.currentTime;
   const o = ctx.createOscillator(); o.type = 'sine';
   const g = ctx.createGain();
   o.frequency.setValueAtTime(330, now);
@@ -62,7 +69,8 @@ function sfxAI(){
 }
 // Play a short melody: each note is [frequency, duration, gap-to-next].
 function melody(seq, type){
-  const ctx = actx(); let t = ctx.currentTime;
+  const ctx = actx(); if (!ctx) return;
+  let t = ctx.currentTime;
   for (const [f, dur, gap] of seq){
     const o = ctx.createOscillator(); o.type = type;
     const g = ctx.createGain();

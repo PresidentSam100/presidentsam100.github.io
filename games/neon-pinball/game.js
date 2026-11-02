@@ -41,8 +41,14 @@
 
   // ---------- audio ----------
   let actx = null, master = null;
+  // (null where the browser has no sound to give: the game plays on, silent)
   function AC() {
-    if (!actx) { actx = new (window.AudioContext || window.webkitAudioContext)(); master = actx.createGain(); master.gain.value = 0.9; master.connect(actx.destination); }
+    if (!actx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      try { actx = new Ctx(); } catch (e) { return null; }
+      master = actx.createGain(); master.gain.value = 0.9; master.connect(actx.destination);
+    }
     if (actx.state === "suspended") actx.resume();
     return actx;
   }

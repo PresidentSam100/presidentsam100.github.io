@@ -274,4 +274,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("neon-pinball: the table keeps its own shape (440 x 760), whole on the screen, on a tall window, a short one and phones",
     Object.values(shapes).every((s) => Math.abs(s.shape - 1) <= 0.01 && s.whole), shapes);
+
+  // ---- a browser with no sound to give (no Web Audio, as Playwright's
+  // WebKit on Windows): the game still starts, launches and scores, silent
+  {
+    const ctx = await lib.newContext(browser);
+    const p = await lib.open(ctx, base, "games/neon-pinball/", { before: (pg) => pg.addInitScript(() => { delete window.AudioContext; delete window.webkitAudioContext; }) });
+    const r = await p.evaluate(() => {
+      const before = typeof window.AudioContext;
+      NeonPinball.start("classic"); NeonPinball.launchNow(0.9); NeonPinball.setScore(10);
+      return { before, state: NeonPinball.state().state, score: NeonPinball.state().score };
+    });
+    await p.waitForTimeout(300);
+    check("neon-pinball: with no sound to be had (no Web Audio) the game still starts, launches and scores, with no page errors",
+      r.before === "undefined" && r.state !== "ready" && r.score >= 10 && p.errs.length === 0, { r, errs: p.errs });
+    await ctx.close();
+  }
 };
