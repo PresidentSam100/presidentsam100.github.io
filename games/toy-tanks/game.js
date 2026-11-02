@@ -37,6 +37,15 @@
     return { get: function () { return store.getNum(key, 0); }, submit: function (v) { if (v > this.get()) { store.set(key, v); return true; } return false; } };
   }
   var bestCleared = record("toytanks_best_cleared"), bestKills = record("toytanks_best_kills");
+  // every mission cleared at least once in a campaign (a mission of your own
+  // never counts), ticked in the menu's grid
+  function clearedSet() { var o = {}; store.get("toytanks_cleared", "").split(",").forEach(function (x) { if (+x) o[+x] = true; }); return o; }
+  function markCleared(n) {
+    var o = clearedSet();
+    if (o[n]) return;
+    o[n] = true;
+    store.set("toytanks_cleared", Object.keys(o).map(Number).sort(function (a, b) { return a - b; }).join(","));
+  }
 
   // ---- sound ------------------------------------------------------------------
   // (muting is the shared speaker button's: mute-toggle.js routes every context)
@@ -326,7 +335,7 @@
         else { st.wrecks = st.wrecks.filter(function (w) { return w.kind !== "player"; }); missionCard(); }
       }
       else if (e.t === "go") { SFX.go(); begun = true; banner(""); }
-      else if (e.t === "won") { SFX.won(); banner('<span class="b-title">Mission cleared!</span>'); if (counts) bestCleared.submit(st.cleared); }
+      else if (e.t === "won") { SFX.won(); banner('<span class="b-title">Mission cleared!</span>'); if (counts) { bestCleared.submit(st.cleared); markCleared(st.mi + 1); } }
       else if (e.t === "lost") { SFX.lost(); banner('<span class="b-title">Tank destroyed</span><span class="b-line">' + (e.lives > 0 ? e.lives + (e.lives === 1 ? " life" : " lives") + " left" : "No lives left") + "</span>"); }
       else if (e.t === "life") SFX.life();
       else if (e.t === "over") { SFX.over(); finish(false); }
@@ -463,14 +472,20 @@
     startAt = Math.max(1, Math.min(startAt, TOTAL));
     $("stage-n").textContent = "From mission " + startAt;
     $("stage-note").textContent = startAt === 1 ? "the whole campaign" : "missions " + startAt + " to " + TOTAL;
-    tiles.forEach(function (b, i) { var on = i + 1 === startAt; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false"); });
+    var done = clearedSet();
+    tiles.forEach(function (b, i) {
+      var on = i + 1 === startAt;
+      b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+      b.classList.toggle("done", !!done[i + 1]);
+      b.setAttribute("aria-label", "Mission " + (i + 1) + (L.FIXED[i + 1] ? ", laid out by hand" : "") + (done[i + 1] ? ", cleared" : ""));
+    });
     var bc = bestCleared.get(), bk = bestKills.get();
     $("bests").textContent = bc || bk ? "Most in a run: " + bc + (bc === 1 ? " mission" : " missions") + " cleared · " + bk + " destroyed" : "";
     paintShared();
     if (window.GameShell && GameShell.menuKeys && menuApi) menuApi.refresh && menuApi.refresh();
   }
   // every mission in a grid, any of them to start from, the one picked lit;
-  // the hand-made ones (every fifth) yellow
+  // the hand-made ones (every fifth) yellow, the ones cleared ticked
   var tiles = [];
   for (var tn = 1; tn <= TOTAL; tn++) (function (n) {
     var b = document.createElement("button");

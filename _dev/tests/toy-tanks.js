@@ -722,4 +722,27 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("toy-tanks: in play the arena, the HUD and the sticks are whole on the screen with nothing to scroll, at three laptop sizes, four phones and two phones on their side", bad.length === 0, bad);
   }
+
+  // ---- a mission cleared in a campaign run is ticked in the menu's grid
+  // (kept, and listed for the screen reader), a mission of your own never;
+  // the legend says what the tick means
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/toy-tanks/");
+    const r = await q.evaluate(() => {
+      const win = () => { ToyTanks.st().enemies.forEach((t) => { t.alive = false; }); ToyTanks.advance(1900, {}); };
+      ToyTanks.start(7); ToyTanks.advance(1700, {}); win(); win();
+      return localStorage.getItem("toytanks_cleared");
+    });
+    await q.reload(); await q.waitForSelector(".mute-toggle"); await q.waitForTimeout(200);
+    const grid = await q.evaluate(() => {
+      const tiles = [...document.querySelectorAll("#mission-grid .mt")];
+      const tick = (b) => { const a = getComputedStyle(b, "::after"); return b.classList.contains("done") && a.content !== "none" && parseFloat(a.width) > 0; };
+      return { ticked: tiles.filter(tick).map((b) => +b.textContent).join(), label: tiles[6].getAttribute("aria-label"), legend: document.querySelector(".mlegend").textContent };
+    });
+    check("toy-tanks: a mission cleared in a campaign run is ticked in the menu's grid, kept after a reload (missions 7 and 8 here), its label saying so, and the legend explains the tick",
+      r === "7,8" && grid.ticked === "7,8" && /cleared/.test(grid.label) && /cleared/.test(grid.legend), { saved: r, grid });
+    check("toy-tanks (cleared ticks): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };

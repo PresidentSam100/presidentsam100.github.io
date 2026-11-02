@@ -175,8 +175,15 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 .mt.fixed { background: var(--yellow); border-color: var(--yellow-deep); box-shadow: 0 2px 0 var(--yellow-deep); }
 .mt.on { color: var(--cream); background: var(--blue); border-color: var(--blue-deep); box-shadow: 0 2px 0 var(--navy); }
 .mt.fixed.on { border-color: var(--yellow); }
+/* a mission cleared at least once: a tick in its top right corner, drawn
+   (the same on every device), in the tile's own ink */
+.mt { position: relative; }
+.mt.done { padding-right: 7px; }   /* (its number a little to the left, clear of the tick) */
+.mt.done::after, .mlegend .tick::after { content: ""; position: absolute; right: 3px; top: 2px; width: 3.5px; height: 7.5px; border: solid currentColor; border-width: 0 2px 2px 0; transform: rotate(45deg); }
 .mt:active { transform: translateY(2px); box-shadow: none; }
 .mlegend { margin-top: 8px; font-size: 13px; line-height: 1.3; color: var(--ink-dim); }
+.mlegend .tick { position: relative; display: inline-block; width: 14px; height: 14px; margin: 0 4px 0 12px; vertical-align: -2px; color: var(--ink); }
+.mlegend .tick::after { right: 4px; top: 1px; }
 .mlegend .swatch { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border-radius: 4px; background: var(--yellow); border: 2px solid var(--yellow-deep); }
 @media (min-width: 820px) {
   #menu .card.has-grid {
