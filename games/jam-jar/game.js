@@ -159,12 +159,33 @@
         }
         break;
       case 4: // apricot: joyful ^ ^ and an open smile
-        // idle: a happy hop and a little one after, the eyes squeezing, the smile wider
-        a = bump(u, 0.04, 0.62); d = shift(-r * 0.1 * bump(u, 0.06, 0.36) - r * 0.05 * bump(u, 0.4, 0.6));
-        arcStroke(-ex, ey + er * 0.3, er * 1.2 * (1 - 0.12 * a), Math.PI * 1.15, Math.PI * 1.85);
-        arcStroke(ex, ey + er * 0.3, er * 1.2 * (1 - 0.12 * a), Math.PI * 1.15, Math.PI * 1.85);
-        g.beginPath(); g.arc(0, r * 0.06, r * 0.16 * (1 + 0.15 * a), 0.1 * Math.PI, 0.9 * Math.PI); g.closePath(); g.fill();
-        unshift(d);
+        // idle: a whistle, the smile pursing into a little "o" off to one side,
+        // the eyes easing, two notes floating up from it in turn, and the smile again
+        a = ramp(u, 0.05, 0.22) - ramp(u, 0.78, 0.95);
+        arcFlat(-ex, ey + er * 0.3, er * 1.2, Math.PI * 1.15, Math.PI * 1.85, 1 - 0.35 * a);
+        arcFlat(ex, ey + er * 0.3, er * 1.2, Math.PI * 1.15, Math.PI * 1.85, 1 - 0.35 * a);
+        if (!a) { g.beginPath(); g.arc(0, r * 0.06, r * 0.16, 0.1 * Math.PI, 0.9 * Math.PI); g.closePath(); g.fill(); }
+        else {
+          // (the smile's straight top and round bottom drawing in to a round "o")
+          var wx = r * 0.05 * a, wy = r * (0.109 + 0.041 * a), ww = r * (0.152 - 0.084 * a);
+          g.beginPath();
+          g.ellipse(wx, wy, ww, r * (0.111 - 0.043 * a), 0, 0, Math.PI);
+          g.ellipse(wx, wy, ww, Math.max(0.01, r * 0.068 * a), 0, Math.PI, Math.PI * 2);
+          g.closePath(); g.fill();
+          [[0.3, 1], [0.5, -1]].forEach(function (n) {   // (each note: when it leaves, and which way it weaves)
+            var t = (u - n[0]) / 0.38;
+            if (t <= 0 || t >= 1) return;
+            var k = r * (0.07 + 0.03 * t);
+            g.save();
+            g.globalAlpha = A0 * (t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8);
+            // (out under the right eye and on past it toward the fruit's edge, never across it)
+            g.translate(r * (0.2 + 0.45 * t) + Math.sin(t * Math.PI * 2) * r * 0.03 * n[1], r * (0.2 - 0.42 * t));
+            g.beginPath(); g.ellipse(0, 0, k * 0.55, k * 0.4, -0.4, 0, 7); g.fill();   // its head
+            g.lineWidth = lw * 0.8;
+            g.beginPath(); g.moveTo(k * 0.5, -k * 0.1); g.lineTo(k * 0.5, -k * 1.6); g.quadraticCurveTo(k * 0.6, -k * 1.1, k * 1.15, -k * 0.95); g.stroke();   // its stem and flag
+            g.restore();
+          });
+        }
         break;
       case 5: // apple: determined brows and a grin
         // idle: game face, the brows dipping and the eyes narrowing, then a firm nod
