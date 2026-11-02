@@ -47,7 +47,9 @@
   // sharp a shot each one is is this game's own: `look` is how many bank
   // shots it weighs (0: it only fires straight at you), `wobble` how far
   // off its aim can be (radians either way). The violet tank drives at
-  // your own tank's pace, though the table has it fast.
+  // your own tank's pace, though the table has it fast. The black tank
+  // reloads in a second and hunts you: it keeps after a straight line on
+  // you and fires the moment it has one (think, pickGoal).
   var KINDS = {
     brown:  { name: "Brown",  move: "none",   shell: "normal", fire: 2600, bounces: 1, shells: 1, mines: 0, ai: "passive",    look: 0,  wobble: 0.12 },
     ash:    { name: "Ash",    move: "slow",   shell: "normal", fire: 2200, bounces: 1, shells: 1, mines: 0, ai: "defensive",  look: 8,  wobble: 0.09 },
@@ -57,7 +59,7 @@
     green:  { name: "Green",  move: "none",   shell: "fast",   fire: 1000, bounces: 2, shells: 2, mines: 0, ai: "active",     look: 40, wobble: 0.025 },
     violet: { name: "Violet", move: "normal", shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06 },
     white:  { name: "White",  move: "slow",   shell: "normal", fire: 750,  bounces: 1, shells: 5, mines: 2, ai: "offensive",  look: 20, wobble: 0.06, invisible: true },
-    black:  { name: "Black",  move: "vfast",  shell: "fast",   fire: 600,  bounces: 0, shells: 3, mines: 2, ai: "dynamic",    look: 0,  wobble: 0.02 }
+    black:  { name: "Black",  move: "vfast",  shell: "fast",   fire: 1000, bounces: 0, shells: 3, mines: 2, ai: "dynamic",    look: 0,  wobble: 0.02 }
   };
   var KEEP_OFF = TUNE.keepOff;
   // How wary each kind is (the ones that move; brown and green can't), the
@@ -445,6 +447,15 @@
     }
     return { hit: null, pts: pts.concat({ x: x, y: y }) };
   }
+  // Would a shot from the tank at angle a meet a mine near enough for its
+  // blast to take the tank?
+  function shootsOwnBlast(st, e, a) {
+    var ux = Math.cos(a), uy = Math.sin(a);
+    return st.mines.some(function (m) {
+      var dx = m.x - e.x, dy = m.y - e.y, along = dx * ux + dy * uy;
+      return !m.gone && along > 0 && Math.hypot(dx, dy) <= TUNE.blast + TANK_R + 0.3 && Math.abs(dx * uy - dy * ux) < MINE_R + SHELL_R + 0.1;
+    });
+  }
   function losClear(st, ax, ay, bx, by) {
     var d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d / 0.2);
     for (var i = 1; i < n; i++) if (stopsShell(tile(st, ax + (bx - ax) * i / n, ay + (by - ay) * i / n))) return false;
@@ -516,10 +527,13 @@
       } else { ai.dodge = null; ai.slips = null; }
     }
 
-    // turret and fire
-    if (!ai.flee && p.alive) {
+    // turret and fire (the black tank keeps its turret on you even as it
+    // gets clear of a mine, and looks again every tenth of a second or so:
+    // it fires the moment it has a line)
+    var hunts = spec.ai === "dynamic";
+    if ((!ai.flee || hunts) && p.alive) {
       if (ai.think <= 0) {
-        ai.think = spec.ai === "passive" ? 500 : 260 + st.random() * 160;
+        ai.think = spec.ai === "passive" ? 500 : hunts ? 90 + st.random() * 60 : 260 + st.random() * 160;
         ai.aimAt = chooseShot(st, e);
         if (ai.aimAt != null && spec.wobble) ai.aimAt += (st.random() * 2 - 1) * spec.wobble;
         // the brown tank only sweeps its turret about, and fires when it happens to bear on you
@@ -530,7 +544,10 @@
       if (ai.aimAt != null && Math.abs(wrap(e.turret - ai.aimAt)) < 0.06 && e.cool <= 0) {
         // (checked again as it fires, the scene having moved: never into one of its own, or itself)
         var check = trace(st, e.x + Math.cos(e.turret) * (TANK_R + 0.2), e.y + Math.sin(e.turret) * (TANK_R + 0.2), e.turret, spec.bounces, e, 30, 0.55);
-        if (!check.hit || check.hit === p) { fire(st, e); ai.paused = spec.move === "vfast" || spec.move === "fast" ? 160 : 0; ai.think = 0; }
+        // (a fast tank stops a moment as it fires, but not on its way off a
+        // mine: it would stop in the blast's reach. And the black tank never
+        // shoots a mine whose blast would reach it, such as one it has just laid.)
+        if ((!check.hit || check.hit === p) && !(hunts && shootsOwnBlast(st, e, e.turret))) { fire(st, e); ai.paused = (spec.move === "vfast" || spec.move === "fast") && !ai.flee ? 160 : 0; ai.think = 0; }
       }
     }
 
@@ -564,7 +581,8 @@
     else {
       ai.fleeTo = null;
       ai.t -= dt;
-      if (!ai.goal || ai.t <= 0 || Math.hypot(ai.goal.x - e.x, ai.goal.y - e.y) < 0.4) { ai.goal = pickGoal(st, e); ai.t = 1600 + st.random() * 1600; }
+      // (the black tank picks its next spot sooner: it keeps pressing)
+      if (!ai.goal || ai.t <= 0 || Math.hypot(ai.goal.x - e.x, ai.goal.y - e.y) < 0.4) { ai.goal = pickGoal(st, e); ai.t = (hunts ? 700 : 1600) + st.random() * (hunts ? 500 : 1600); }
       if (ai.goal) { var gx = ai.goal.x - e.x, gy = ai.goal.y - e.y, gl = Math.hypot(gx, gy) || 1; dir = { x: gx / gl, y: gy / gl }; }
     }
     if (dir) {
@@ -579,6 +597,7 @@
   // A nearby open tile to drive to: toward you for the offensive and
   // dynamic tanks, keeping a distance for the defensive ones, anywhere for
   // the yellow; one the tank can see a way to (a straight run of open floor).
+  // The black tank would rather a spot with a straight line on you.
   function pickGoal(st, e) {
     var p = st.player, best = null, bestScore = -1e9, spec = e.spec;
     for (var i = 0; i < 14; i++) {
@@ -589,7 +608,8 @@
       // (never into the reach of a mine it minds: it would only flee again)
       if (st.mines.some(function (m) { return minds(e, m) && Math.hypot(m.x - gx, m.y - gy) < KEEP_OFF; })) continue;
       var pd = Math.hypot(p.x - gx, p.y - gy), score = st.random() * 2;
-      if (spec.ai === "offensive" || spec.ai === "dynamic") score -= pd;
+      if (spec.ai === "offensive") score -= pd;
+      else if (spec.ai === "dynamic") score -= pd - (losClear(st, gx, gy, p.x, p.y) ? 4 : 0);
       else if (spec.ai === "defensive") score -= Math.abs(pd - 7);
       if (st.mines.some(function (m) { return Math.hypot(m.x - gx, m.y - gy) < TUNE.blast + 0.6; })) score -= 20;
       if (score > bestScore) { bestScore = score; best = { x: gx, y: gy }; }

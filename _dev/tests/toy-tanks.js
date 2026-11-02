@@ -772,4 +772,177 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("toy-tanks: the legend's tick stays on one line with its word, cleared, at 320, 360 and 390 px phones and a laptop", parted.length === 0, parted);
   }
+
+  // ---- the black tank: a fast rocket every second (its reload) that
+  // doesn't bounce, straight at your tank; the fastest tank of all; it fires
+  // the moment a line on you opens, and as it gets off its own mine (never
+  // into it); it gets out of a shell's way on the move; it hunts for a line
+  // on you, and a player can still beat it
+  {
+    const K = E.KINDS.black, wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    const back = (st, x, y) => { if (st.status === "lost") { st.player.alive = true; st.status = "play"; st.lives = 3; st.player.x = x; st.player.y = y; } };
+    // your tank in sight on the open floor, standing (set back where it was
+    // each time it's hit), a row of holes between (shells fly over them,
+    // tanks can't cross: each rocket seen in flight); the black laying no mines here
+    const st = E.create([map([[3, 8, "P"], [15, 8, "k"]].concat(Array.from({ length: E.ROWS }, (_, y) => [9, y, "o"])))], { seed: 1 }); play(st);
+    const k = st.enemies[0], shots = [];
+    k.spec = Object.assign({}, k.spec, { mines: 0 });
+    for (let t = 0; t < 12000; t += 16) {
+      E.step(st, 16, {}).forEach((ev) => {
+        if (ev.t !== "fire" || ev.player) return;
+        const s = st.shells.filter((x) => x.owner === k).pop();
+        shots.push({ t, off: s ? +Math.abs(wrap(Math.atan2(s.vy, s.vx) - Math.atan2(st.player.y - k.y, st.player.x - k.x))).toFixed(3) : null, speed: s ? +Math.hypot(s.vx, s.vy).toFixed(2) : null, bounces: s ? s.bounces : null });
+      });
+      back(st, 3.5, 8.5);
+    }
+    const gaps = shots.slice(1).map((s, i) => s.t - shots[i].t);
+    check("toy-tanks black tank: it reloads in 1 s: with your tank in sight it fires every second, never sooner and never much later (1 to 1.15 s between shots)",
+      K.fire === 1000 && shots.length >= 10 && gaps.every((g) => g >= 1000 && g <= 1150), { fire: K.fire, shots: shots.length, gaps });
+    // and a rocket fired at a wall: spent there
+    const w = E.create([map([[3, 2, "P"], [15, 8, "k"]])], { seed: 1 }); play(w);
+    const wk = w.enemies[0]; wk.spec = Object.assign({}, wk.spec, { fire: 1e9, mines: 0, move: "none" }); wk.cool = 0; wk.turret = 0;
+    E.fire(w, wk); wk.cool = 1e9;
+    const wev = run(w, 2000, {});
+    check("toy-tanks black tank: its shots are fast rockets (8.2 tiles a second, yours 5.2) that don't bounce (one fired at a wall is spent there), each straight at your tank",
+      shots.length >= 10 && shots.every((s) => s.speed === E.TUNE.shellSpeed.fast && s.speed > E.TUNE.shellSpeed.normal && s.bounces === 0 && s.off < 0.09) &&
+      K.shell === "fast" && K.bounces === 0 && wev.filter((e) => e.t === "bounce").length === 0 && wev.filter((e) => e.t === "spent").length === 1, { shots: shots.slice(0, 4), wall: wev.map((e) => e.t) });
+
+    // the fastest tank: its furthest step against yours, and every other kind's pace
+    const f = E.create([map([[2, 2, "P"], [18, 14, "k"]])], { seed: 1 }); play(f);
+    const fk = f.enemies[0]; fk.cool = 1e9; fk.spec = Object.assign({}, fk.spec, { fire: 1e9, mines: 0 });
+    let fastest = 0;
+    for (let t = 0; t < 3000; t += 16) { const x = fk.x, y = fk.y; E.step(f, 16, {}); fastest = Math.max(fastest, Math.hypot(fk.x - x, fk.y - y) * 1000 / 16); }
+    const others = Object.keys(E.KINDS).filter((n) => n !== "black").map((n) => E.TUNE.move[E.KINDS[n].move]);
+    check("toy-tanks black tank: the fastest tank of all (about 4.1 tiles a second, yours 2.3, no other kind over 2.3)",
+      Math.abs(fastest - E.TUNE.move.vfast) < 0.05 && fastest > E.TUNE.move.normal * 1.6 && others.every((v) => v < fastest), { fastest: +fastest.toFixed(2), you: E.TUNE.move.normal, others });
+
+    // the line opens (your tank out from behind a block, on the same bearing):
+    // it fires within 0.2 s, reloaded, its turret on you all along
+    const waits = [];
+    for (let seed = 1; seed <= 12; seed++) {
+      const o = E.create([map([[4, 8, "P"], [10, 7, "#"], [10, 8, "#"], [10, 9, "#"], [17, 8, "k"]])], { seed }); play(o);
+      const ok = o.enemies[0]; ok.spec = Object.assign({}, ok.spec, { move: "none", mines: 0 });
+      run(o, 2500, {});
+      o.player.x = 12.5 + (seed % 3) * 0.5;
+      let wait = null;
+      for (let t = 0; t < 1500 && wait == null; t += 16) if (E.step(o, 16, {}).some((ev) => ev.t === "fire" && !ev.player)) wait = t;
+      waits.push(wait);
+    }
+    check("toy-tanks black tank: it fires the moment it has a line on you (a line opening, it fires within 0.2 s, every time)", waits.every((v) => v != null && v <= 200), waits);
+
+    // its own mine just laid: it keeps firing as it drives off (no stop on the
+    // way), and gets clear; and with the mine between it and you it holds fire
+    const flee = [];
+    for (let seed = 1; seed <= 6; seed++) {
+      const o = E.create([map([[3, 8, "P"], [14, 8, "k"]])], { seed }); play(o);
+      const ok = o.enemies[0]; o.player.cool = 1e9; ok.ai.mineT = 1e9;
+      for (let t = 0; t < 2000; t += 16) { E.step(o, 16, {}); back(o, 3.5, 8.5); }
+      o.shells = []; ok.cool = 0;
+      E.layMine(o, ok);
+      const m = o.mines[0];
+      let fired = 0, fled = 0;
+      for (let t = 0; t < 2500; t += 16) { const ev = E.step(o, 16, {}); if (ok.ai.flee) { fled += 16; fired += ev.filter((x) => x.t === "fire" && !x.player).length; } back(o, 3.5, 8.5); }
+      flee.push({ fled, fired, alive: ok.alive, clear: +Math.hypot(ok.x - m.x, ok.y - m.y).toFixed(1) });
+    }
+    const hold = E.create([map([[3, 8, "P"], [14, 8, "k"]])], { seed: 2 }); play(hold);
+    const hk = hold.enemies[0]; hold.player.cool = 1e9; hk.ai.mineT = 1e9; hk.spec = Object.assign({}, hk.spec, { move: "none" });
+    for (let t = 0; t < 2000; t += 16) { E.step(hold, 16, {}); back(hold, 3.5, 8.5); }
+    hold.shells = []; hk.cool = 0;
+    hold.mines.push({ id: 991, x: hk.x - 1.2, y: hk.y, owner: hk, age: 0, armed: false, enemy: true });
+    const held = run(hold, 1500, {});
+    check("toy-tanks black tank: getting off its own mine it keeps firing at you, and gets clear; it never fires into a mine whose blast would take it",
+      flee.every((o) => o.fled > 0 && o.fired >= 1 && o.alive && o.clear > E.TUNE.blast + E.TANK_R) && !held.some((e) => e.t === "fire" && !e.player) && !held.some((e) => e.t === "blast") && hk.alive,
+      { flee, held: held.map((e) => e.t) });
+
+    // on the hunt (driving in at you, not sitting still), it gets out of
+    // the way of a shell fired straight at it from 8 and 10 tiles off every
+    // time, and from 6 nearly every time
+    const dodged = { 6: 0, 8: 0, 10: 0 };
+    for (const dist of [6, 8, 10]) for (let seed = 1; seed <= 20; seed++) {
+      const o = E.create([map([[15 - dist, 8, "P"], [15, 8, "k"]])], { seed }); play(o);
+      const ok = o.enemies[0]; ok.cool = 1e9; ok.spec = Object.assign({}, ok.spec, { fire: 1e9, mines: 0 });
+      run(o, 400, {});
+      E.step(o, 16, { aim: Math.atan2(ok.y - o.player.y, ok.x - o.player.x), fire: true });
+      for (let t = 0; t < 3000 && ok.alive && o.shells.length; t += 16) E.step(o, 16, {});
+      if (ok.alive) dodged[dist]++;
+    }
+    check("toy-tanks black tank: on the hunt it gets out of the way of a shell fired straight at it from 8 and 10 tiles off every time, and from 6 at least 4 times in 5 (20 seeded tries each)",
+      dodged[8] === 20 && dodged[10] === 20 && dodged[6] >= 16, dodged);
+
+    // duels: a player bot (it fires at the black when it has a straight line
+    // on it, at most every 0.35 s and a little off, gets out of the way of a
+    // shell coming at it, keeps off mines, and otherwise drives to the nearest
+    // square with a line on the black) against a lone black tank, in 30
+    // arenas of the campaign from mission 51 on
+    const duelBot = (seed) => {
+      const r = E.rng(seed), C = E.COLS;
+      let fireT = 0, dodgeT = 0, dodge = null, thinkT = 0, next = null;
+      const open = (s, x, y) => x >= 0 && y >= 0 && x < C && y < E.ROWS && s.grid[y * C + x] === 0;
+      const lineOn = (s, a, b) => { const g = Math.atan2(b.y - a.y, b.x - a.x); return E.trace(s, a.x + Math.cos(g) * 0.62, a.y + Math.sin(g) * 0.62, g, 0, a, 30, 0).hit === b; };
+      return (s) => {
+        const p = s.player, b = s.enemies[0], o = { mx: 0, my: 0 };
+        fireT -= 16; dodgeT -= 16; thinkT -= 16;
+        const seen = b.alive && lineOn(s, p, b), far = Math.hypot(b.x - p.x, b.y - p.y);
+        if (seen) {
+          const lead = far / 5.2 * 0.6;
+          o.aim = Math.atan2(b.y + b.vy * lead - p.y, b.x + b.vx * lead - p.x) + (r() * 2 - 1) * 0.04;
+          if (fireT <= 0) { o.fire = true; fireT = 350; }
+        }
+        if (dodgeT <= 0) {
+          dodge = null;
+          for (const sh of s.shells) {
+            if (sh.owner === p && sh.age < 300) continue;
+            const a = Math.atan2(sh.vy, sh.vx);
+            if (E.trace(s, sh.x, sh.y, a, sh.bounces, null, Math.hypot(sh.vx, sh.vy) * 0.75, 0).hit !== p) continue;
+            let best = -1;
+            for (const d of [[-Math.sin(a), Math.cos(a)], [Math.sin(a), -Math.cos(a)]]) {
+              let free = 0;
+              while (free < 2 && open(s, Math.floor(p.x + d[0] * (free + 0.5)), Math.floor(p.y + d[1] * (free + 0.5)))) free += 0.25;
+              if (free > best) { best = free; dodge = d; }
+            }
+            dodgeT = 250; break;
+          }
+        }
+        if (dodge) { o.mx = dodge[0]; o.my = dodge[1]; return o; }
+        for (const m of s.mines) { const d = Math.hypot(p.x - m.x, p.y - m.y); if (d < 2.9) { o.mx = (p.x - m.x) / (d || 1); o.my = (p.y - m.y) / (d || 1); return o; } }
+        if (thinkT <= 0) {
+          thinkT = 300; next = null;
+          const sx = Math.floor(p.x), sy = Math.floor(p.y), from = new Map([[sy * C + sx, null]]), q = [[sx, sy]];
+          let found = null;
+          while (q.length && !found) {
+            const [x, y] = q.shift(), cx = x + 0.5, cy = y + 0.5;
+            if (Math.hypot(b.x - cx, b.y - cy) >= 4.5 && E.losClear(s, cx, cy, b.x, b.y) && s.mines.every((m) => Math.hypot(m.x - cx, m.y - cy) > 2.6)) { found = [x, y]; break; }
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (open(s, nx, ny) && !from.has(ny * C + nx)) { from.set(ny * C + nx, [x, y]); q.push([nx, ny]); } }
+          }
+          for (let cell = found, prev = found; cell; prev = cell, cell = from.get(cell[1] * C + cell[0])) next = prev;
+        }
+        if (next && !(seen && far >= 4.5)) { const dx = next[0] + 0.5 - p.x, dy = next[1] + 0.5 - p.y, l = Math.hypot(dx, dy); if (l > 0.1) { o.mx = dx / l; o.my = dy / l; } }
+        return o;
+      };
+    };
+    // (a mission's enemies taken out, a lone black tank where the furthest one was)
+    const lone = (m) => {
+      const rows = m.map.map((r) => r.split("")), you = [0, 0];
+      let spot = null, d0 = -1;
+      rows.forEach((r, y) => r.forEach((ch, x) => { if (ch === "P") { you[0] = x; you[1] = y; } }));
+      rows.forEach((r, y) => r.forEach((ch, x) => { if (E.LETTER[ch]) { const d = Math.hypot(x - you[0], y - you[1]); if (d > d0) { d0 = d; spot = [x, y]; } rows[y][x] = "."; } }));
+      rows[spot[1]][spot[0]] = "k";
+      return { map: rows.map((r) => r.join("")) };
+    };
+    const duel = { n: 30, botWins: 0, blackWins: 0, ms: 0, line: 0 };
+    for (let i = 0; i < duel.n; i++) {
+      const d = E.create([lone(L.campaign(500 + i, E.rng)[50 + i])], { seed: 100 + i }), bot = duelBot(3101 + i * 31), bk = d.enemies[0];
+      for (let t = 0; t < 60000 && d.status !== "won" && d.status !== "lost"; t += 16) {
+        E.step(d, 16, bot(d));
+        if (d.status !== "play" || !bk.alive || !d.player.alive) continue;
+        duel.ms += 16;
+        const a = Math.atan2(d.player.y - bk.y, d.player.x - bk.x);
+        if (E.trace(d, bk.x + Math.cos(a) * 0.62, bk.y + Math.sin(a) * 0.62, a, 0, bk, 30, 0).hit === d.player) duel.line += 16;
+      }
+      if (d.status === "won") duel.botWins++; else if (d.status === "lost") duel.blackWins++;
+    }
+    duel.line = +(duel.line / duel.ms).toFixed(2);
+    check("toy-tanks black tank: it hunts for a line on you (in 30 seeded duels with a player bot it has a straight line on the bot 60% of the time and more)", duel.line >= 0.6, duel);
+    check("toy-tanks black tank: it can still be beaten (the bot wins at least 1 duel in 4)", duel.botWins >= duel.n / 4, duel);
+  }
 };
