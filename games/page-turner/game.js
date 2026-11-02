@@ -310,17 +310,32 @@
     fitHud(hb, room);
   }
   // Many worms (not on a phone on its side, where they're a list down the
-  // side): their names on one line where they'll go, the HUD's words half a
-  // pixel smaller at a time, down to 10 px; past that they wrap as before.
+  // side): their names on one line, the HUD's words half a pixel smaller at
+  // a time, down to 10 px. Where that leaves them no room (ten rivals on a
+  // phone), each worm's colour goes under its name as a bar in place of the
+  // dot beside it, and then the page number onto a line of its own over the
+  // names; past that they wrap as before.
   function fitHud(hb, room) {
     hb.style.fontSize = "";
-    hb.classList.remove("one");
+    hb.classList.remove("one", "bars", "split");
     if (!hb.classList.contains("many") || getComputedStyle(hb).flexDirection === "column") return;
-    var keep = hb.style.maxWidth;
-    hb.classList.add("one"); hb.style.maxWidth = room + "px";
-    var size = parseFloat(getComputedStyle(hb).fontSize);
-    while (hb.scrollWidth > room && size > 10) { size -= 0.5; hb.style.fontSize = size + "px"; }
-    if (hb.scrollWidth > room) { hb.classList.remove("one"); hb.style.fontSize = ""; hb.style.maxWidth = keep; }
+    var keep = hb.style.maxWidth, ways = [["one"], ["one", "bars"], ["one", "bars", "split"]];
+    hb.style.maxWidth = room + "px";
+    for (var i = 0; i < ways.length; i++) {
+      DOMTokenList.prototype.add.apply(hb.classList, ways[i]);
+      var size = parseFloat(getComputedStyle(hb).fontSize);
+      while (!inside(hb) && size > 10) { size -= 0.5; hb.style.fontSize = size + "px"; }
+      if (inside(hb)) return;
+      hb.classList.remove("one", "bars", "split"); hb.style.fontSize = "";
+    }
+    hb.style.maxWidth = keep;
+  }
+  // (the page number and every name within the HUD's padding: a line too
+  // long spills past it, on both sides where it's centred)
+  function inside(hb) {
+    var r = hb.getBoundingClientRect(), cs = getComputedStyle(hb);
+    var lo = r.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft) - 0.5, hi = r.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight) + 0.5;
+    return Array.prototype.every.call(hb.querySelectorAll(".hud-page, .chip"), function (e) { var q = e.getBoundingClientRect(); return q.left >= lo && q.right <= hi; });
   }
 
   // ---- what each page has printed on it ----------------------------------------------------------

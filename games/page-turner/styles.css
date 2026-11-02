@@ -84,6 +84,14 @@ html.fx-on body::before { animation: rug-drift 40s linear infinite; }
 /* (one line where it fits: game.js fitHud makes the words smaller first) */
 .hud.many.one { white-space: nowrap; }
 .hud.many.one .hud-worms { flex-wrap: nowrap; }
+/* (where even 10 px words leave the names no room on one line, ten rivals
+   on a phone: each worm's colour goes under its name as a bar, in place of
+   the dot beside it, and then the page number onto a line of its own over
+   the names) */
+.hud.many.bars .hud-worms { column-gap: 0.36em; }
+.hud.many.bars .chip { position: relative; padding-bottom: 0.32em; }
+.hud.many.bars .chip i { position: absolute; left: 0; right: 0; bottom: 0; width: auto; height: 0.24em; border: 0; border-radius: 1em; box-shadow: 0 0 0 1px var(--ink); }
+.hud.many.split { flex-direction: column; gap: 0; padding-left: 6px; padding-right: 6px; }
 .keys { text-align: center; font-size: 13px; font-weight: 600; color: var(--moonlight); min-height: 18px; }
 .keys .gs-kbd { color: var(--moonlight); }
 /* (one worm's keys, or two players' each, a dot of each worm's colour by their name) */
