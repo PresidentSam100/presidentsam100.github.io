@@ -581,29 +581,50 @@
   // never drops a fruit you haven't dropped yet, so neither is ever further
   // on). Its aim slides to its spot as a hand would, the same with Visual FX
   // on or off (where a fruit goes is the game).
-  var CPU_AIM_V = 700;   // px a second, in the jar's own units
-  var brain = { at: null, wait: 0, since: 0, again: false };
+  var CPU_AIM_V = 700, CPU_TRY_V = 300;   // px a second, in the jar's own units (trying spots: unhurried)
+  // Slow Simmer keeps the two jars in step, a fruit each in turn: it never
+  // drops a fruit you haven't, and you don't drop your next until it has
+  // dropped its own (heldUp), so it never keeps you waiting longer than
+  // OWE_S. While it waits for you its hand roams, trying spots on its pile;
+  // once you've dropped, it picks one (on a settled pile, or on the pile as it
+  // lies if settling takes a while) and drops by OWE_S at the latest.
+  var OWE_S = 0.9, OWE_PICK = 0.4;
+  var brain = { at: null, wait: 0, since: 0, again: false, owe: 0, tryAt: null, tryT: 0 };
   function think(dt) {   // (run with the CPU's jar in play: asCpu)
     if (out) return;
     if (mode === "boil") {
       // Rolling Boil: its fruit drops with yours on the second; it picks a
       // spot after each drop, and looks again at half time
       if (brain.at === null || (!brain.again && boilT < BOIL_S / 2)) { brain.again = brain.at !== null; brain.at = choose(); }
-      slide(dt);
+      slide(brain.at, CPU_AIM_V, dt);
       return;
     }
-    // Slow Simmer: once its last fruit has (mostly) settled it picks a spot,
-    // slides there and drops it after a moment's thought
     brain.since += dt;
-    if (!settled()) return;
-    if (brain.at === null) { brain.at = choose(); brain.wait = 0.35 + Math.random() * 0.5; }
-    slide(dt);
+    // Slow Simmer, waiting for you to drop yours: its hand roams, trying a
+    // spot every half second to a second
+    if (!other.out && dealt >= other.dealt) {
+      if ((brain.tryT -= dt) <= 0) { brain.tryAt = choose(true); brain.tryT = 0.5 + Math.random() * 0.5; }
+      slide(brain.tryAt, CPU_TRY_V, dt);
+      return;
+    }
+    // your fruit is in (with your jar overflowed it plays on alone, at its
+    // own pace): once its last fruit has (mostly) settled it picks a spot,
+    // slides there and drops it after a moment's thought; with you waiting,
+    // a shorter thought, and by OWE_S it drops wherever its hand is
+    var hurry = !other.out;
+    if (hurry) brain.owe += dt;
+    if (brain.at === null && (settled() || (hurry && brain.owe >= OWE_PICK))) {
+      brain.at = choose();
+      brain.wait = hurry ? 0.15 + Math.random() * 0.3 : 0.35 + Math.random() * 0.5;
+    }
+    if (brain.at === null) return;
+    slide(brain.at, CPU_AIM_V, dt);
+    if (hurry && brain.owe >= OWE_S && dropCd <= 0) { drop(); return; }
     if ((brain.wait -= dt) > 0 || Math.abs(aimX - brain.at) > 0.5 || dropCd > 0) return;
-    if (dealt >= other.dealt && !other.out) return;   // (waiting for you to drop yours)
     drop();
   }
-  function slide(dt) {
-    var d = brain.at - aimX, s = CPU_AIM_V * dt;
+  function slide(at, v, dt) {
+    var d = at - aimX, s = v * dt;
     aimX += Math.abs(d) <= s ? d : d > 0 ? s : -s;
   }
   function settled() {
@@ -625,7 +646,8 @@
     hard: { slip: 0, noise: 30, hand: 8, ahead: 0.7, name: "Hard" },
   };
   var level = LEVELS[store.get("jamjar_cpu", "")] ? store.get("jamjar_cpu", "") : "medium";
-  function choose() {
+  // (quick: a spot to try while it waits for you, a look at this fruit only, never counted careless)
+  function choose(quick) {
     var L = LEVELS[level], c = current, r = TIERS[c].r, spot = W / 2, top = -Infinity, slip = Math.random() < L.slip;
     var pile = fruits.map(function (f) { return { x: f.x, y: f.y, r: f.r, tier: f.tier }; });
     for (var x = JL + r + 1; x <= JR - r - 1; x += 6) {
@@ -634,12 +656,12 @@
       else {
         s = spotScore(pile, c, x, y);
         // two at a time: as good as the best spot for the next fruit on the pile this one leaves
-        if (L.ahead) s += L.ahead * bestSpot(settle(pile, c, x, y), next);
+        if (L.ahead && !quick) s += L.ahead * bestSpot(settle(pile, c, x, y), next);
       }
       s += (Math.random() - 0.5) * 2 * L.noise;
       if (s > top) { top = s; spot = x; }
     }
-    if (slip) cpuSlips++;
+    if (slip && !quick) cpuSlips++;
     spot += (Math.random() + Math.random() - 1) * L.hand;
     return Math.max(JL + r + 1, Math.min(JR - r - 1, spot));
   }
@@ -702,7 +724,7 @@
     current = fruitAt(0); next = fruitAt(1); heldAt = nextAt = idleT;
     out = false; lastDrop = null; pending = false;
     other = freshJar();   // (the CPU's: the same first fruit and next as yours)
-    brain = { at: null, wait: 0, since: 0, again: false };
+    brain = { at: null, wait: 0, since: 0, again: false, owe: 0, tryAt: null, tryT: 0 };
     fast = false;
     relayout();
     refreshHud();
@@ -744,15 +766,21 @@
              rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
 
+  // Slow Simmer against the CPU, the two jars keep step, a fruit each in
+  // turn: the CPU never drops a fruit you haven't (think), and you don't drop
+  // your next until the CPU has dropped the one before it. A jar that has
+  // overflowed holds no one up.
+  function heldUp() { return !inCpu && foe === "cpu" && mode === "simmer" && state === "play" && !out && !other.out && other.dealt < dealt; }
   // auto: Rolling Boil's own drop (there a click, a tap or a key only aims)
   function drop(auto) {
     if (state !== "play" || out || P.isPaused() || (mode === "boil") !== !!auto) return;
     if (dropCd > 0 && !auto) return;
+    if (heldUp()) return;
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     fruits.push(makeFruit(x, DROP_Y, current));
     lastDrop = fruits[fruits.length - 1];
-    if (inCpu) brain = { at: null, wait: 0, since: 0, again: false };
+    if (inCpu) brain = { at: null, wait: 0, since: 0, again: false, owe: 0, tryAt: null, tryT: 0 };
     else { if (!dropped && foe === "cpu") vsPlayed(); dropped = true; }
     sfxDrop();
     dealt++;
@@ -1270,9 +1298,19 @@
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
-      ctx.globalAlpha = dropCd > 0 ? 0.45 : 1;
+      var held = heldUp();
+      ctx.globalAlpha = dropCd > 0 || held ? 0.45 : 1;
       drawFace(current, ax, DROP_Y, heldAt);
       ctx.globalAlpha = 1;
+      // (yours waits while the CPU drops its fruit: it says so beside it, on
+      // the side with more room, clear of the fill line under a big fruit)
+      if (held) {
+        var right = ax < (JL + JR) / 2;
+        ctx.font = "700 15px 'Baloo 2', sans-serif"; ctx.textAlign = right ? "left" : "right"; ctx.textBaseline = "middle";
+        ctx.fillStyle = "rgba(160, 106, 51, 0.9)";
+        ctx.fillText("the CPU's turn", ax + (right ? r + 10 : -r - 10), DROP_Y);
+        ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+      }
       // Rolling Boil: a ring round it closes as its second runs out (the
       // same with Visual FX on or off: it tells the time)
       if (mode === "boil") {

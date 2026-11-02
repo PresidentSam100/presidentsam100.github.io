@@ -851,4 +851,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar (" + w + "x" + h + ", the Preserves' names): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
+
+  // ---- Slow Simmer against the CPU: a fruit each, in turn. While it waits
+  // for you the CPU's hand roams the jar, trying spots, and drops nothing;
+  // your next fruit waits until the CPU has dropped the one before it, and
+  // it never keeps you more than a second (you dropping the moment you may,
+  // its last fruit still falling; at its quickest and at its slowest
+  // thinking); once the CPU's jar has overflowed, nothing waits
+  {
+    const c = await lib.newContext(browser);
+    const CD_HOOK = ["    setAim: function (x) { aimX = x; },", "    setAim: function (x) { aimX = x; },\n    setCd: function (v) { dropCd = v; },"];
+    const q = await lib.open(c, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await pg.addInitScript(RESEED); await lib.injectScript(pg, "games/jam-jar/game.js", [CD_HOOK]); } });
+    const r = await q.evaluate(() => {
+      const G = window.__game, v = () => G.vs(), out = {};
+      window.__seed(5);   // (one run of random numbers: the same tries every time)
+      G.setFoe("cpu"); __frames(2); G.start("simmer"); __frames(2);
+      // three seconds without your drop
+      const aims = [];
+      for (let i = 0; i < 180; i++) { __frames(1); aims.push(v().cpu.aim); }
+      out.roam = { range: Math.round(Math.max(...aims) - Math.min(...aims)), stops: aims.filter((a, i) => i > 0 && a === aims[i - 1] && a !== aims[i - 2]).length, cpu: v().cpu.dealt };
+      // yours dropped, your next tried at once (your own cooldown cleared): held
+      G.setAim(200); G.drop(); __frames(2);
+      G.setCd(0); G.setAim(380); G.drop(); __frames(1);
+      out.held = { you: v().you.dealt, cpu: v().cpu.dealt };
+      // turn after turn, each of yours the frame the CPU's lands: the frames it keeps you
+      const turns = (n, since) => {
+        const waits = [], d0 = v().you.dealt;
+        for (let t = 0; t < n; t++) {
+          while (v().cpu.dealt < v().you.dealt && since < 600) { __frames(1); since++; }
+          waits.push(since);
+          if (G.state !== "play" || v().you.out || v().cpu.out) break;
+          G.setCd(0); G.setAim(80 + (t * 97) % 380); G.drop(); since = 0;
+        }
+        return { waits: waits.join(" "), max: Math.max(...waits), yours: v().you.dealt - d0 };
+      };
+      out.medium = turns(12, 3);
+      G.setLevel("hard"); G.start("simmer"); __frames(2);
+      const rnd = Math.random; Math.random = () => 0.999;   // (its thoughts at their longest)
+      G.setAim(240); G.drop();
+      out.slowest = turns(12, 0);
+      Math.random = rnd;
+      // the CPU's jar overflowed (ahead of you, so you play on to pass it): you drop on without waiting
+      G.setVs({ score: 0 }, { out: true, score: 5000 }); __frames(36);
+      const was = v().you.dealt; G.drop(); __frames(36); G.drop(); __frames(2);
+      out.free = v().you.dealt - was;
+      G.setFoe("solo"); G.setLevel("medium");
+      return out;
+    });
+    check("jam-jar vs CPU, Slow Simmer: waiting for your drop the CPU's hand roams the jar, trying spots, and drops nothing",
+      r.roam.cpu === 0 && r.roam.range >= 60 && r.roam.stops >= 2, r.roam);
+    check("jam-jar vs CPU, Slow Simmer: a fruit each, in turn: your next drop waits until the CPU has dropped the one before it, never more than a second (Medium; Hard at its slowest thinking), then goes; once the CPU's jar has overflowed nothing waits",
+      r.held.you === 1 && r.held.cpu === 0 && r.medium.max <= 60 && r.medium.yours >= 10 && r.slowest.max <= 60 && r.slowest.yours >= 10 && r.free === 2, r);
+    check("jam-jar (in turn): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };
