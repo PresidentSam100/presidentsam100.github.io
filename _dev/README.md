@@ -61,7 +61,11 @@ round trips can outlast a short cue. Don't read a cue after a fixed wait.
 Instead, poll for it (`waitForFunction`), catch it as it happens (a
 MutationObserver or an `animationstart` listener set up before the action), or
 wait on the page's own clock (`setTimeout` inside `p.evaluate`, which ends after
-the game's earlier, shorter timers). Count frames rather than milliseconds. Use
+the game's earlier, shorter timers). Where a check times a page's timers
+against each other, Playwright's fake clock (`p.clock.install()`, then
+`pauseAt` and `runFor`) puts every timer at its exact moment however busy the
+machine; the clock is the whole context's, so use it where the context has no
+other page (as fx.js's coin flip does). Count frames rather than milliseconds. Use
 `lib.leftBy(p, n)` for a trip to the games page. Do steps that must land inside
 a short window in one `p.evaluate`. To try a suite under load, use
 `tools/run-slowed.js` (below).

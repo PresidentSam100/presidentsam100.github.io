@@ -199,19 +199,25 @@ module.exports = async ({ browser, base, check, lib }) => {
 
     // the jewels: a wider bar, slower light, three beads
     const jewels = await q.evaluate(() => {
-      RoseWindow.start("pilgrimage"); RoseWindow.launch();
-      const w0 = RoseWindow.bar().w, sp = (b) => Math.hypot(b.vx, b.vy);
-      const s0 = sp(RoseWindow.live()[0]);
-      // (stepped only until the bar has it)
-      const take = (k) => { RoseWindow.drop(k); for (let i = 0; i < 60 && RoseWindow.jewels() > 0; i++) RoseWindow.step(1 / 60); };
-      const settle = () => { for (let i = 0; i < 20; i++) RoseWindow.step(1 / 60); };
-      take("wide"); settle(); const w1 = RoseWindow.bar().w;
-      take("slow"); settle(); const s1 = sp(RoseWindow.live()[0]);
-      take("three"); const n = RoseWindow.live().length;
-      // with two beads in the air, the next three-bead jewel makes each of them three
-      RoseWindow.put(240, 330, 40, -300); RoseWindow.live().push({ x: 180, y: 330, vx: -60, vy: -290, trail: [] });
-      take("three"); const n2 = RoseWindow.live().length;
-      return { w0: Math.round(w0), w1: Math.round(w1), s0: Math.round(s0), s1: Math.round(s1), n, n2 };
+      // (chance held at a half throughout: a pane the bead breaks on its way
+      // could let a jewel of its own fall, and a stray three-bead jewel caught
+      // along with these makes nine; the bead goes straight up)
+      const rnd = Math.random; Math.random = () => 0.5;
+      try {
+        RoseWindow.start("pilgrimage"); RoseWindow.launch();
+        const w0 = RoseWindow.bar().w, sp = (b) => Math.hypot(b.vx, b.vy);
+        const s0 = sp(RoseWindow.live()[0]);
+        // (stepped only until the bar has it)
+        const take = (k) => { RoseWindow.drop(k); for (let i = 0; i < 60 && RoseWindow.jewels() > 0; i++) RoseWindow.step(1 / 60); };
+        const settle = () => { for (let i = 0; i < 20; i++) RoseWindow.step(1 / 60); };
+        take("wide"); settle(); const w1 = RoseWindow.bar().w;
+        take("slow"); settle(); const s1 = sp(RoseWindow.live()[0]);
+        take("three"); const n = RoseWindow.live().length;
+        // with two beads in the air, the next three-bead jewel makes each of them three
+        RoseWindow.put(240, 330, 40, -300); RoseWindow.live().push({ x: 180, y: 330, vx: -60, vy: -290, trail: [] });
+        take("three"); const n2 = RoseWindow.live().length;
+        return { w0: Math.round(w0), w1: Math.round(w1), s0: Math.round(s0), s1: Math.round(s1), n, n2 };
+      } finally { Math.random = rnd; }
     });
     check("rose-window: the jewels caught give a wider bar, slower light and three beads; with two beads in the air the three-bead jewel makes each of them three (six)",
       jewels.w1 > jewels.w0 + 30 && jewels.s1 < jewels.s0 * 0.8 && jewels.n === 3 && jewels.n2 === 6, jewels);
