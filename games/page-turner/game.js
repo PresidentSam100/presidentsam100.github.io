@@ -606,6 +606,39 @@
     g.restore();
   }
 
+  // ---- two players: whose worm is whose ------------------------------------------------------------------
+  // At the start, a tag over each worm in its colour: its player, and the
+  // keys it crawls by (on a touch screen, the half of the screen it's steered
+  // from). It stays while the book opens and the first leaf stands, and fades
+  // as that leaf goes over.
+  var DUO_HOW = [["WASD", "left half"], ["arrow keys", "right half"]], tagsShown = [];
+  function tagAlpha(scene) {
+    if (scene !== st || scene.mode !== "duo" || scene.page !== 1) return 0;
+    if (scene.phase === "intro" || scene.phase === "stand") return 1;
+    return scene.phase === "fall" ? Math.max(0, 1 - E.tilt(scene) / 0.35) : 0;
+  }
+  function drawTag(w, alpha) {
+    var c = WORMS[w.id], k = S * (1 + 0.06 * (w.y - 0.5)), base = P(w.x, w.y, 0);
+    var big = Math.max(11, Math.round(k * 0.032)), small = Math.max(10, Math.round(k * 0.024)), pad = Math.round(big * 0.55);
+    var how = DUO_HOW[w.id][GS && GS.touchOnly && GS.touchOnly() ? 1 : 0], font = "'Encode Sans', system-ui, sans-serif";
+    g.save(); g.globalAlpha = alpha;
+    g.font = "800 " + big + "px " + font; var w1 = g.measureText(w.name).width;
+    g.font = "700 " + small + "px " + font; var w2 = g.measureText(how).width;
+    var bw = Math.ceil(Math.max(w1, w2) + pad * 2), bh = Math.ceil(big * 1.15 + small * 1.15 + pad), tip = base[1] - T.R * k * 1.7, arrow = Math.max(5, big * 0.45);
+    var x = Math.round(base[0] - bw / 2), y = Math.round(tip - arrow - bh), r = Math.min(bh / 2, big * 0.6);
+    g.beginPath();
+    g.moveTo(x + r, y); g.lineTo(x + bw - r, y); g.arcTo(x + bw, y, x + bw, y + r, r); g.lineTo(x + bw, y + bh - r); g.arcTo(x + bw, y + bh, x + bw - r, y + bh, r);
+    g.lineTo(base[0] + arrow, y + bh); g.lineTo(base[0], tip); g.lineTo(base[0] - arrow, y + bh);
+    g.lineTo(x + r, y + bh); g.arcTo(x, y + bh, x, y + bh - r, r); g.lineTo(x, y + r); g.arcTo(x, y, x + r, y, r); g.closePath();
+    g.fillStyle = c.body; g.fill(); g.lineWidth = Math.max(1.5, k * 0.004); g.strokeStyle = INK; g.lineJoin = "round"; g.stroke(); g.lineJoin = "miter";
+    g.fillStyle = INK; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "800 " + big + "px " + font; g.fillText(w.name, base[0], y + pad / 2 + big * 0.6);
+    g.font = "700 " + small + "px " + font; g.fillText(how, base[0], y + pad / 2 + big * 1.15 + small * 0.6);
+    g.textAlign = "start"; g.textBaseline = "alphabetic";
+    g.restore();
+    tagsShown.push({ id: w.id, name: w.name, how: how, x: x, y: y, w: bw, h: bh, tip: tip, alpha: alpha });
+  }
+
   // ---- dust, puffs and the shake (Visual FX on) ----------------------------------------------------------
   function puff(x, y, n, color) {
     var c = P(x, y, 0);
@@ -628,6 +661,7 @@
   function draw() {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, VW, VH);
+    tagsShown = [];
     var scene = st || demo;
     if (!scene) return;
     paintFloor(scene);
@@ -661,6 +695,8 @@
       // the worms under it, seen through it, so a last dash can still be steered
       ws.forEach(function (w) { drawWorm(w, { alpha: 0.42 }); });
     }
+    var tag = tagAlpha(scene);
+    if (tag > 0) ws.forEach(function (w) { drawTag(w, tag); });
     parts.forEach(function (p) {
       var a = 1 - p.life / p.max;
       g.globalAlpha = Math.max(0, a * 0.85); g.fillStyle = p.color;
@@ -825,6 +861,8 @@
     // what the standing half showed last frame: the front leaf, the leaves
     // drawn whole behind it, and the angle it stood at
     standing: function () { return standing; },
+    // the two players' tags drawn last frame (2 Players, at the start)
+    tags: function () { return tagsShown.slice(); },
     flatsShown: function () { return st ? flats.filter(function (f) { return onFloor(f, st); }).map(function (f) { return f.id; }) : []; },
     parts: function () { return parts.length; },
     shaking: function () { return shake > 0; },

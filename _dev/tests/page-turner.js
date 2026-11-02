@@ -612,6 +612,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "2 Players");
   }
 
+  // ---- 2 Players: at the start a tag over each worm, in its colour, says
+  // whose it is and its keys (on a touch screen, its half of the screen); it
+  // fades as the first leaf goes over and is gone once it lands; a Party has
+  // none (laptop and phone)
+  for (const [w, h, phone] of [[1366, 657, 0], [390, 664, 1]]) {
+    const c = await lib.newContext(browser, Object.assign({}, phone ? devices["iPhone 13"] : {}, { viewport: { width: w, height: h } }));
+    const q = await open(c);
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, E = PageTurnerEngine, frame = (then) => requestAnimationFrame(() => requestAnimationFrame(then));
+      const cv = document.getElementById("book"), g = cv.getContext("2d"), cr = cv.getBoundingClientRect(), k = cv.width / PT.view().VW;
+      const tags = () => (PT.tags ? PT.tags() : []), out = {};
+      const toStand = (mode) => { PT.start(mode); PT.freeze(true); while (PT.st().phase !== "stand") PT.advance(1 / 60); };
+      toStand("duo");
+      frame(() => {
+        out.start = tags().map((t) => {
+          const wm = PT.st().worms[t.id], at = PT.project(wm.x, wm.y, 0), px = g.getImageData(Math.round((t.x + 3) * k), Math.round((t.y + t.h / 2) * k), 1, 1).data;
+          return { id: t.id, name: t.name, how: t.how, over: Math.abs(t.x + t.w / 2 - (at[0] - cr.left)) < 2 && t.tip < at[1] - cr.top && t.x >= 0 && t.y >= 0 && t.x + t.w <= PT.view().VW, fill: [px[0], px[1], px[2]] };
+        });
+        while (PT.st().phase !== "fall") PT.advance(1 / 120);
+        while (E.tilt(PT.st()) < 0.17) PT.advance(1 / 240);
+        frame(() => {
+          out.fading = tags().map((t) => +t.alpha.toFixed(2));
+          while (PT.state() === "play" && PT.st().phase === "fall") PT.advance(1 / 120);
+          frame(() => {
+            out.landed = tags().length;
+            toStand("party");
+            frame(() => { out.party = tags().length; res(out); });
+          });
+        });
+      });
+    }));
+    const want = phone ? ["left half", "right half"] : ["WASD", "arrow keys"], col = [[76, 195, 92], [255, 95, 151]];
+    check("page-turner (2 Players, " + w + "x" + h + "): at the start a tag over each worm in its colour says Player 1 / Player 2 and " + want.join(" / ") + "; it fades as the first leaf goes over and is gone once it lands; a Party has none",
+      r.start.length === 2 && r.start.every((t, i) => t.id === i && t.name === "Player " + (i + 1) && t.how === want[i] && t.over && Math.hypot(t.fill[0] - col[i][0], t.fill[1] - col[i][1], t.fill[2] - col[i][2]) < 40) &&
+      r.fading.length === 2 && r.fading.every((a) => a > 0.2 && a < 0.8) && r.landed === 0 && r.party === 0, r);
+    await done(q, "2 Players tags (" + w + "x" + h + ")");
+    await c.close();
+  }
+
   // ---- Endless: the best is kept the moment it's passed; Party: the record the moment a game ends
   p = await open();
   await standing(p, "endless");
