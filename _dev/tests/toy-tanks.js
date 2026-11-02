@@ -756,5 +756,20 @@ module.exports = async ({ browser, base, check, lib }) => {
       r === "7,8" && grid.ticked === "7,8" && /cleared/.test(grid.label) && /cleared/.test(grid.legend), { saved: r, grid });
     check("toy-tanks (cleared ticks): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
+    // the legend's tick stays on the line of its word "cleared", on phones too
+    const parted = [];
+    for (const [w, h] of [[320, 568], [360, 640], [390, 664], [1366, 657]]) {
+      const pc = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500 });
+      const pq = await lib.open(pc, base, "games/toy-tanks/");
+      const d = await pq.evaluate(() => {
+        const tick = document.querySelector(".mlegend .tick"), word = tick.nextSibling, rg = document.createRange();
+        rg.selectNodeContents(word);
+        const a = tick.getBoundingClientRect(), b = rg.getBoundingClientRect();
+        return { word: word.textContent, dy: Math.round(Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2)) };
+      });
+      if (d.word !== "cleared" || d.dy > 4) parted.push(Object.assign({ size: w + "x" + h }, d));
+      await pc.close();
+    }
+    check("toy-tanks: the legend's tick stays on one line with its word, cleared, at 320, 360 and 390 px phones and a laptop", parted.length === 0, parted);
   }
 };
