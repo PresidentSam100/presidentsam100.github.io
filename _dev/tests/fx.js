@@ -467,8 +467,17 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- FX-3: Road Bird with FX on: a hop leaves a motion-blur trail, a
   // collected coin sparkles, and a crash shakes the screen; with FX off the
-  // same play has none of that (the coin still counts)
+  // same play has none of that (the coin still counts). The page runs on a
+  // clock the test moves on a frame (1/60 s) at a time: the trail keeps the
+  // poses of the last fraction of a second, so on a busy machine's long
+  // frames a hop left only one of them, however well the game drew it.
   {
+    const STEPPED = () => {
+      let t = 1000, q = [];
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+    };
     const c7 = await lib.newContext(browser);
     const HOOK = ["window.__game = {", `window.__game = {
   get fx() { return { trail: typeof trail === "undefined" ? 0 : trail.length, sparkles: typeof sparkles === "undefined" ? 0 : sparkles.length, shake: typeof shakeT === "undefined" ? 0 : shakeT }; },
@@ -478,25 +487,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     const got = {};
     for (const off of [false, true]) {
       const p = await lib.open(c7, base, "games/road-bird/", { before: async (pg) => {
+        await pg.addInitScript(STEPPED);
         await lib.injectScript(pg, "games/road-bird/game.js", [HOOK]);
         await pg.addInitScript((off) => localStorage.setItem("reduceMotion:road-bird", off ? "1" : "0"), off);
       } });
-      await p.keyboard.press("Space"); await p.waitForTimeout(300);
+      await p.keyboard.press("Space"); await p.evaluate(() => __frames(18));
       await p.evaluate(() => __game.clearRow0());
-      // a sideways hop along the start row, watched for 30 frames (counted, not
-      // timed: a busy machine draws fewer in half a second)
-      const watch = p.evaluate(() => new Promise((res) => {
-        let most = 0, n = 0;
-        (function tick() { most = Math.max(most, __game.fx.trail); if (++n < 30) requestAnimationFrame(tick); else res(most); })();
-      }));
+      // a sideways hop along the start row, watched for 30 frames
       await p.keyboard.press("ArrowLeft");
-      const trail = await watch;
-      await p.waitForTimeout(200);
+      const trail = await p.evaluate(() => { let most = 0; for (let i = 0; i < 30; i++) { __frames(1); most = Math.max(most, __game.fx.trail); } return most; });
+      await p.evaluate(() => __frames(12));
       const coins0 = await p.evaluate(() => __game.coins);
       await p.evaluate(() => __game.coinHere());
       // (read the moment the coin is counted, its sparkles with it)
-      const coin = await p.waitForFunction((c0) => __game.coins > c0 && { coins: __game.coins, sparkles: __game.fx.sparkles }, coins0, { timeout: 8000, polling: "raf" })
-        .then((h) => h.jsonValue(), () => p.evaluate(() => ({ coins: __game.coins, sparkles: __game.fx.sparkles })));
+      const coin = await p.evaluate((c0) => {
+        for (let i = 0; i < 480 && !(__game.coins > c0); i++) __frames(1);
+        return { coins: __game.coins, sparkles: __game.fx.sparkles };
+      }, coins0);
       await p.evaluate(() => __game.death("runover"));
       const shake = await p.evaluate(() => __game.fx.shake);
       got[off ? "off" : "on"] = { state: await p.evaluate(() => __game.state), trail, gained: coin.coins - coins0, sparkles: coin.sparkles, shake };
