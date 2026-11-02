@@ -715,4 +715,53 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss, Juggle on a touch phone (upright and on its side): two turn buttons on the pad, one tap turns, the plus and the pad on the screen and clear of each other; in Descent no turn buttons",
       pads.every((x) => x.turnBtns && x.tapped === 3 && x.fit && !x.descent && !x.errs), pads);
   }
+
+  // ---- T-spins: a T turned into a slot under an overhang, one it can't drop
+  // into, clears its rows. A double turns at the foot of its slot; a triple
+  // only gets in by the kick that takes it two rows down (the SRS tables are
+  // written y-up, the board runs y-down), in Descent and in a Maelstrom well,
+  // which turns its pieces with code of its own. No spin bonus: they score as
+  // any double or triple does
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/abyss/", { before: (pg) => pg.addInitScript(STEPPED) });
+    const r = await q.evaluate(() => {
+      const out = {}, D = (n) => Array(n).fill("D").join(" ");
+      const KEYS = { L: () => Abyss.move(-1), R: () => Abyss.move(1), D: () => Abyss.soft(), CW: () => Abyss.rotate(1), CCW: () => Abyss.rotate(-1) };
+      const go = (keys) => keys.split(" ").forEach((k) => KEYS[k]());
+      const at = (p) => p && p.r + "@" + p.x + "," + p.y, pop = () => (Abyss.test.pops()[0] || {}).text;
+      const fresh = (m) => { Abyss.toMenu(); __frames(2); Abyss.start(m); Abyss.test.setGrav(100000); __frames(2); };
+      const fill = (rows) => rows.forEach(([y, s]) => Abyss.test.fill(y, [...s].map((ch, x) => (ch === "#" ? x : -1)).filter((x) => x >= 0)));
+      const settle = () => { for (let i = 0; i < 60 && Abyss.state() === "clearing"; i++) __frames(1); };
+      const TST = [[15, "....######"], [16, ".....#####"], [17, "####.#####"], [18, "###..#####"], [19, "####.#####"]];
+      // the double: pointing down, the roof over the slot's left side
+      fresh("descent");
+      fill([[17, "####......"], [18, "###...####"], [19, "####.#####"]]);
+      Abyss.test.setPiece("T"); go(D(17) + " CW " + D(2));
+      out.tsd = { before: at(Abyss.piece()) }; go("CW"); out.tsd.after = at(Abyss.piece());
+      Abyss.hard(); Object.assign(out.tsd, { lines: Abyss.lines(), pop: pop() }); settle();
+      out.tsd.rows = [17, 18, 19].map((y) => Abyss.row(y)).join("|");
+      // the triple: standing, two rows down
+      fresh("descent");
+      fill(TST);
+      Abyss.test.setPiece("T"); go("L L " + D(17) + " R");
+      out.tst = { before: at(Abyss.piece()) }; go("CCW"); out.tst.after = at(Abyss.piece());
+      Abyss.hard(); Object.assign(out.tst, { lines: Abyss.lines(), pop: pop() }); settle();
+      out.tst.rows = [17, 18, 19].map((y) => Abyss.row(y)).join("|");
+      // the triple in Maelstrom's north well (board columns 10 to 19, its floor row 19)
+      fresh("maelstrom");
+      const B = Abyss.board();
+      TST.forEach(([y, s]) => [...s].forEach((ch, x) => { if (ch === "#") B.test.set(10 + x, y, 1); }));
+      B.test.clearPiece(0); B.test.place(0, "T", 0, 2, 15);
+      out.mael = { before: at(B.piece()) }; go("CCW"); out.mael.after = at(B.piece());
+      Abyss.hard(); __frames(1); out.mael.pop = pop();
+      return out;
+    });
+    check("abyss: T-spins: a T turned under an overhang into a slot it can't drop into clears its rows (a double turning at the slot's foot; a triple only by the kick two rows down, in Descent and in a Maelstrom well), scoring as any double (+300) or triple (+500)",
+      r.tsd.before === "1@3,19" && r.tsd.after === "2@3,19" && r.tsd.lines === 2 && r.tsd.pop === "+300" && r.tsd.rows === "..........|..........|####......" &&
+      r.tst.before === "0@2,17" && r.tst.after === "3@3,19" && r.tst.lines === 3 && r.tst.pop === "+500" && r.tst.rows === "..........|....######|.....#####" &&
+      r.mael.before === "0@2,15" && r.mael.after === "3@3,17" && r.mael.pop === "+500", r);
+    check("abyss (T-spins): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

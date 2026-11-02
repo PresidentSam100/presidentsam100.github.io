@@ -1388,6 +1388,7 @@
     toMenu: toMenu,
     move: tryMove,
     rotate: tryRotate,
+    soft: softStep,
     hard: hardDrop,
     holdNow: doHold,
     board: function () { return mael; },
