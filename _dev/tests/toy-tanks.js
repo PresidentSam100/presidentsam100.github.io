@@ -945,4 +945,52 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks black tank: it hunts for a line on you (in 30 seeded duels with a player bot it has a straight line on the bot 60% of the time and more)", duel.line >= 0.6, duel);
     check("toy-tanks black tank: it can still be beaten (the bot wins at least 1 duel in 4)", duel.botWins >= duel.n / 4, duel);
   }
+
+  // ---- a mission over, won or lost: the shells still in the air stop where
+  // they are (no more steps, bounces or hits), and the mines with them, until
+  // the same mission again or the next one clears the board
+  {
+    const where = (st) => st.shells.map((x) => x.id + ":" + x.x.toFixed(3) + "," + x.y.toFixed(3)).join(" ");
+    const out = {};
+    for (const how of ["lost", "won"]) {
+      const st = E.create([map([[3, 8, "P"], [18, 8, "b"], [18, 2, "b"]]), map([[3, 8, "P"], [18, 8, "b"]])], { seed: 1 }); play(st);
+      st.enemies.forEach(still);
+      // (two of your shells in the air, up and down the arena, clear of every tank; a mine down)
+      run(st, 16, { aim: -Math.PI / 2, fire: true, mine: true }); run(st, 200, {}); run(st, 16, { aim: Math.PI / 2, fire: true }); run(st, 100, {});
+      if (how === "lost") st.player.alive = false; else st.enemies.forEach((e) => { e.alive = false; });
+      const ended = E.step(st, 16, {}), at = where(st), mines = st.mines.length;
+      const ev = run(st, 1500, {});
+      const o = out[how] = { ended: ended.some((e) => e.t === how), shells: st.shells.length, still: where(st) === at, quiet: ev.filter((e) => e.t !== how).map((e) => e.t), mines: st.mines.length === mines && mines === 1 };
+      run(st, 400, {});
+      o.after = { mission: st.mi + 1, status: st.status, shells: st.shells.length, mines: st.mines.length };
+    }
+    check("toy-tanks: a mission lost or won, the shells in the air stop where they are (none spent, none bounces or hits), the mines with them, until the same mission again or the next clears the board",
+      ["lost", "won"].every((h) => { const o = out[h]; return o.ended && o.shells === 2 && o.still && o.quiet.length === 0 && o.mines && o.after.status === "start" && o.after.shells === 0 && o.after.mines === 0 && o.after.mission === (h === "won" ? 2 : 1); }), out);
+  }
+  {
+    // and on the page (Visual FX on): drawn where they stopped, their
+    // flames at rest and no more smoke behind them, till the mission starts again
+    const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:toy-tanks", "0"); } catch (e) {} }) });
+    const r = await q.evaluate(() => new Promise((res) => {
+      ToyTanks.start(5); ToyTanks.advance(1700, {});
+      const st = ToyTanks.st(), A = window.ToyTanksArt, orig = A.shell;
+      st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0, move: "none" }); });
+      ToyTanks.advance(16, { aim: -Math.PI / 2, fire: true }); ToyTanks.advance(160, {}); ToyTanks.advance(16, { aim: Math.PI / 2, fire: true }); ToyTanks.advance(160, {});
+      st.player.alive = false; ToyTanks.advance(16, {});
+      const at = st.shells.map((x) => x.x.toFixed(3) + "," + x.y.toFixed(3)).sort().join(" "), smoke0 = ToyTanks.fx().parts, drawn = new Set();
+      let draws = 0, still = true;
+      A.shell = function (g, sh, sz, clock, f) { draws++; drawn.add(sh.x.toFixed(3) + "," + sh.y.toFixed(3)); if (f) still = false; return orig.apply(this, arguments); };
+      setTimeout(() => {
+        A.shell = orig;
+        const smoke1 = ToyTanks.fx().parts, status = st.status;
+        ToyTanks.advance(1800, {});
+        res({ status, shells: at ? at.split(" ").length : 0, draws, same: [...drawn].sort().join(" ") === at, still, smoke0, smoke1, after: ToyTanks.st().shells.length });
+      }, 450);
+    }));
+    check("toy-tanks: on the page, the shells of a mission lost are drawn where they stopped, their flames at rest and no new smoke, till the mission starts again",
+      r.status === "lost" && r.shells === 2 && r.draws > 0 && r.same && r.still && r.smoke1 <= r.smoke0 && r.after === 0, r);
+    check("toy-tanks (shells stopped): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };

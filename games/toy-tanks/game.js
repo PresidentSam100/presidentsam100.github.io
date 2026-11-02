@@ -195,7 +195,7 @@
         // the white tank fades from sight once a mission is under way
         if (o.t.hidden && !showAll) return;
         A.tank(g, o.t, s, { fx: f, tread: o.t.tread || 0 });
-      } else A.shell(g, o.sh, s, clock, f);
+      } else A.shell(g, o.sh, s, clock, f && st.status === "play");   // (a mission over: its shells stand still, their flames too)
     });
     // effects: smoke, sparks, flashes (Visual FX on), then the blasts
     parts.forEach(function (p) {
@@ -401,8 +401,8 @@
     }
     parts.forEach(function (p) { p.age += dt; p.x += p.vx * dt / 1000; p.y += p.vy * dt / 1000; p.vx *= 0.94; p.vy *= 0.94; });
     parts = parts.filter(function (p) { return p.age < p.life; });
-    // a smoke trail behind each shell (Visual FX on)
-    if (fx() && st) st.shells.forEach(function (sh) { if (Math.random() < 0.45) parts.push({ t: "smoke", sid: sh.id, x: sh.x - sh.vx * 0.03, y: sh.y - sh.vy * 0.03, vx: 0, vy: 0, age: 0, life: sh.fast ? 520 : 360 }); });
+    // a smoke trail behind each shell in flight (Visual FX on)
+    if (fx() && st && st.status === "play") st.shells.forEach(function (sh) { if (Math.random() < 0.45) parts.push({ t: "smoke", sid: sh.id, x: sh.x - sh.vx * 0.03, y: sh.y - sh.vy * 0.03, vx: 0, vy: 0, age: 0, life: sh.fast ? 520 : 360 }); });
     shake = Math.max(0, shake - dt / 380);
   }
 

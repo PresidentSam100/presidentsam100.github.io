@@ -318,15 +318,13 @@
     stepMines(st, dt);
     stepEffects(st, dt);
 
-    if (!p.alive) { st.status = "lost"; st.statusMs = 0; st.lives--; st.events.push({ t: "lost", lives: st.lives }); endShells(st); }
-    else if (!enemiesLeft(st)) { st.status = "won"; st.statusMs = 0; st.cleared++; st.events.push({ t: "won", mission: st.mi + 1 }); endShells(st); }
+    // (the mission over, won or lost, the shells still in the air stop where
+    // they are, and the mines with them: nothing more is stepped until the
+    // next mission, or the same again, clears the board, so one can't win or
+    // lose it after the fact)
+    if (!p.alive) { st.status = "lost"; st.statusMs = 0; st.lives--; st.events.push({ t: "lost", lives: st.lives }); }
+    else if (!enemiesLeft(st)) { st.status = "won"; st.statusMs = 0; st.cleared++; st.events.push({ t: "won", mission: st.mi + 1 }); }
     return st.events;
-  }
-  // the mission's over: the shells still in the air go out in a puff (one
-  // can't win or lose it after the fact)
-  function endShells(st) {
-    st.shells.forEach(function (s) { st.events.push({ t: "spent", x: s.x, y: s.y }); });
-    st.shells = [];
   }
   function advanceAfter(st) {
     if (st.status === "lost") {
