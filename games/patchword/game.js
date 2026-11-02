@@ -55,7 +55,7 @@
   var dailyCounts = false, dailyDay = "", overAt = 0, OVER_WAIT = 900, held = false, lastTick = -1, runBest = 0;
   // the word being spelled: its patches (null: typed letters with no path),
   // how it came (by "tap" / drag, or "type"), and the letters typed
-  var path = [], source = null, typed = "";
+  var path = [], source = null, typed = "", paths = [];   // (paths: every place the letters typed are found)
   // a moment's word on what just happened to a word: { cls, letters, note, pts, until }
   var cue = null;
 
@@ -106,7 +106,7 @@
   }
 
   // ---- the word being spelled ------------------------------------------------------
-  function clearWord() { path = []; source = null; typed = ""; dragging = false; tapSubmit = false; }
+  function clearWord() { path = []; paths = []; source = null; typed = ""; dragging = false; tapSubmit = false; }
   function letters() {
     if (source === "type") return typed;
     return path && path.length ? R.spell(tiles, path) : "";
@@ -116,7 +116,7 @@
     if (typed.length >= 20) return;
     cue = null;
     typed += ch;
-    path = R.pathFor(tiles, typed, path || []);
+    retrace();
     if (path) pluck(path.length); else sfxSoft();
     render();
   }
@@ -124,13 +124,27 @@
     cue = null;
     if (source === "type") {
       typed = typed.slice(0, -1);
-      path = typed ? R.pathFor(tiles, typed, path || []) : [];
-      if (!typed) source = null;
+      retrace();
+      if (!typed) { source = null; path = []; }
     } else if (path.length) {
       path.pop();
       if (!path.length) source = null;
     }
     render();
+  }
+
+  // the letters typed, found on the block: every place they are (each lit,
+  // each with its thread), not one picked of several; the word is the same
+  // whichever is meant, so any of them stitches it
+  function retrace() {
+    paths = R.pathsFor(tiles, typed);
+    path = paths.length ? paths[0] : null;
+  }
+  // (the patches of every path spelling the word, each at its earliest place in one: the order they puff in)
+  function cellsOf(list) {
+    var at = {};
+    list.forEach(function (p) { p.forEach(function (i, k) { if (at[i] == null || k < at[i]) at[i] = k; }); });
+    return Object.keys(at).map(Number).sort(function (a, b) { return at[a] - at[b]; }).map(function (i) { return [i, at[i]]; });
   }
 
   // Stitch the word spelled, if it is one: its points, its place on the
@@ -145,7 +159,7 @@
     else if (w.length < 3) out = refuse(w, "short", "three letters at least");
     else if (foundSet[w]) { out = refuse(w, "dup", "stitched already"); flashFound(w); }
     else if (!R.isWord(w)) out = refuse(w, "no", "not a word");
-    else out = accept(w, p);
+    else out = accept(w, p, source === "type" && paths.length > 1 ? paths : null);
     clearWord();
     render();
     return out;
@@ -156,7 +170,7 @@
     if (fx() && kind !== "dup") { var b = $("block"); b.classList.remove("shake"); void b.offsetWidth; b.classList.add("shake"); }
     return kind;
   }
-  function accept(w, p) {
+  function accept(w, p, all) {
     var pts = R.points(w);
     found.push(w); foundSet[w] = true; score += pts;
     // (a first go still on the clock at midnight stops counting: the new
@@ -177,7 +191,7 @@
     Array.prototype.forEach.call(els, function (el) { el.classList.remove("got"); });
     if (fx()) {
       void $("patches").offsetWidth;
-      p.forEach(function (i, k) { els[i].style.setProperty("--k", k); els[i].classList.add("got"); });
+      cellsOf(all || [p]).forEach(function (c) { els[c[0]].style.setProperty("--k", c[1]); els[c[0]].classList.add("got"); });
     }
     paintFound(w);
     hud();
@@ -210,14 +224,14 @@
     return foundSet[w] ? "dup" : R.isWord(w) ? "ok" : "";
   }
   function render() {
-    var on = {}, p = path || [];
-    p.forEach(function (i) { on[i] = true; });
+    var on = {}, p = path || [], all = source === "type" && paths.length > 1 ? paths : p.length ? [p] : [];
+    all.forEach(function (q) { q.forEach(function (i) { on[i] = true; }); });
     var els = document.querySelectorAll(".patch");
     for (var i = 0; i < els.length; i++) els[i].classList.toggle("on", !!on[i]);
     var w = letters(), v = cue ? "" : verdict(w), block = $("block");
     block.classList.toggle("ok", v === "ok");
     block.classList.toggle("dup", v === "dup");
-    drawThread(p);
+    drawThread(all);
     // the line under the block: the word being spelled, or what just
     // happened to the last one
     var line = $("word"), html = "", cls = "word";
@@ -237,17 +251,20 @@
   }
   function esc(s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
   // the red thread from felt to felt, a running stitch with its shadow;
-  // a knot where it starts
-  function drawThread(p) {
-    var svg = $("thread"), Pz = patchSize(), out = "";
-    if (p.length) {
+  // a knot where it starts (one for each path the letters typed are found along)
+  function drawThread(list) {
+    var svg = $("thread"), Pz = patchSize(), unders = "", overs = "", knots = "";
+    var wd = Math.max(3, Pz * 0.07), dash = (Pz * 0.16).toFixed(1) + " " + (Pz * 0.1).toFixed(1);
+    // (every shadow, then every thread, then every knot: no path's shadow over another's thread)
+    list.forEach(function (p) {
+      if (!p.length) return;
       var pts = p.map(function (i) { return ((i % 4 + 0.5) * Pz).toFixed(1) + "," + ((Math.floor(i / 4) + 0.5) * Pz).toFixed(1); }).join(" ");
-      var wd = Math.max(3, Pz * 0.07), dash = (Pz * 0.16).toFixed(1) + " " + (Pz * 0.1).toFixed(1);
       var x0 = (p[0] % 4 + 0.5) * Pz, y0 = (Math.floor(p[0] / 4) + 0.5) * Pz;
-      out = '<polyline class="under" points="' + pts + '" stroke-width="' + (wd * 1.3).toFixed(1) + '" stroke-dasharray="' + dash + '" transform="translate(1 2)"/>' +
-        '<polyline class="over" points="' + pts + '" stroke-width="' + wd.toFixed(1) + '" stroke-dasharray="' + dash + '"/>' +
-        '<circle class="knot" cx="' + x0.toFixed(1) + '" cy="' + y0.toFixed(1) + '" r="' + (wd * 0.9).toFixed(1) + '"/>';
-    }
+      unders += '<polyline class="under" points="' + pts + '" stroke-width="' + (wd * 1.3).toFixed(1) + '" stroke-dasharray="' + dash + '" transform="translate(1 2)"/>';
+      overs += '<polyline class="over" points="' + pts + '" stroke-width="' + wd.toFixed(1) + '" stroke-dasharray="' + dash + '"/>';
+      knots += '<circle class="knot" cx="' + x0.toFixed(1) + '" cy="' + y0.toFixed(1) + '" r="' + (wd * 0.9).toFixed(1) + '"/>';
+    });
+    var out = unders + overs + knots;
     if (svg.innerHTML !== out) svg.innerHTML = out;
   }
   function patchSize() { return $("patches").clientWidth / 4 || 1; }
@@ -384,10 +401,10 @@
     $("got").innerHTML = got.length ? got.map(function (w) { return "<li>" + w + "<b>" + R.points(w) + "</b></li>"; }).join("") : "<li>nothing this time</li>";
     var missed = Object.keys(words).filter(function (w) { return !foundSet[w] && R.isEveryday(w); })
       .sort(function (a, c) { return c.length - a.length || (a < c ? -1 : 1); });
-    var shown = missed.slice(0, 18);
-    $("missed-head").textContent = missed.length ? "everyday words missed · " + missed.length + (missed.length > shown.length ? " (the longest " + shown.length + ")" : "") : "every everyday word found!";
-    $("missed").innerHTML = shown.map(function (w) { return "<li>" + w + "<b>" + R.points(w) + "</b></li>"; }).join("");
-    $("missed").hidden = !shown.length;
+    // (all of them: the card scrolls, its buttons above the lists)
+    $("missed-head").textContent = missed.length ? "everyday words missed · " + missed.length : "every everyday word found!";
+    $("missed").innerHTML = missed.map(function (w) { return "<li>" + w + "<b>" + R.points(w) + "</b></li>"; }).join("");
+    $("missed").hidden = !missed.length;
     setTimeout(function () {
       if (state !== "over") return;
       $("hud").hidden = true; $("tissue").hidden = true; $("keys").hidden = true;

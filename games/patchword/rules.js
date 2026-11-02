@@ -154,6 +154,29 @@
     for (var s = 0; s < starts.length; s++) if (go(starts[s], typed)) return path;
     return null;
   }
+  // Every path that spells `typed` (up to `most`, 64 unless given): letters
+  // typed may be found in more than one place on the block (four E's, two
+  // ST's side by side), and a typed word may be stitched along any of them.
+  function pathsFor(tiles, typed, most) {
+    var out = [];
+    if (!typed) return out;
+    most = most || 64;
+    var used = [], path = [];
+    function go(i, rest) {
+      if (out.length >= most) return;
+      var t = tiles[i], take;
+      if (rest.lastIndexOf(t, 0) === 0) take = t.length;
+      else if (t === "qu" && rest === "q") take = 1;
+      else return;
+      used[i] = true; path.push(i);
+      var left = rest.slice(take);
+      if (!left) out.push(path.slice());
+      else for (var j = 0; j < NEXT[i].length; j++) if (!used[NEXT[i][j]]) go(NEXT[i][j], left);
+      used[i] = false; path.pop();
+    }
+    for (var s = 0; s < CELLS; s++) go(s, typed);
+    return out;
+  }
   // the word a path spells
   function spell(tiles, path) { return path.map(function (i) { return tiles[i]; }).join(""); }
   // a path that keeps the rules: patches side by side or corner to corner, none twice
@@ -179,7 +202,7 @@
     N: N, NEXT: NEXT, WEIGHTS: WEIGHTS,
     load: load, isWord: isWord, isEveryday: isEveryday, size: function () { load(); return WORDS.length; },
     adjacent: adjacent, patches: patches, solve: solve, points: points, deal: deal,
-    pathFor: pathFor, spell: spell, fair: fair, mulberry: mulberry
+    pathFor: pathFor, pathsFor: pathsFor, spell: spell, fair: fair, mulberry: mulberry
   };
   root.PatchwordRules = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

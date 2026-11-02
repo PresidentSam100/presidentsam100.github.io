@@ -254,10 +254,21 @@ kbd { font-family: var(--sans); }
 .card h2 { font-weight: 900; font-size: 28px; color: var(--binding); text-align: center; }
 .card .tag { text-align: center; font-weight: 700; color: var(--plum); margin-bottom: 10px; }
 .card .how { font-size: 15px; line-height: 1.5; margin-bottom: 8px; }
-.scale { list-style: none; display: flex; justify-content: center; gap: 6px; margin-bottom: 14px; }
-.scale li { flex: 1; max-width: 64px; display: flex; flex-direction: column; align-items: center; padding: 3px 4px; border: 1.5px dashed rgba(122, 58, 82, 0.55); border-radius: 4px; }
-.scale b { font-size: 12px; font-weight: 700; color: var(--plum); }
-.scale span { font-family: var(--mono); font-weight: 700; font-size: 16px; }
+/* the points for each length, "3/4 -> 1" and so on, each on one line (the
+   arrows drawn, not a font's glyph: the same on every device); on a card too
+   narrow for one row they wrap onto a second, centred */
+.scale { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-bottom: 14px; }
+.scale li { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; padding: 2px 5px; border: 1.5px dashed rgba(122, 58, 82, 0.55); border-radius: 4px; }
+.scale b { font-size: 13px; font-weight: 700; color: var(--plum); }
+.scale span { font-family: var(--mono); font-weight: 700; font-size: 15px; }
+.to { position: relative; display: inline-block; width: 9px; height: 2px; margin-right: 4px; background: currentColor; opacity: 0.6; vertical-align: middle; }
+.to::after { content: ""; position: absolute; right: -4px; top: -3px; border-left: 5px solid currentColor; border-top: 4px solid transparent; border-bottom: 4px solid transparent; }
+@media (max-width: 370px) {
+  .scale { gap: 4px; }
+  .scale li { gap: 3px; padding: 2px 4px; }
+  .scale b { font-size: 12px; }
+  .scale span { font-size: 14px; }
+}
 .seg { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
 .seg button {
   font-family: inherit; font-size: 16px; text-align: left; cursor: pointer; color: var(--ink);

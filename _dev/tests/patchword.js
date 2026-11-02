@@ -94,7 +94,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     play.again === "dup" && /\bdup\b/.test(play.againLine) && play.tat === "nopath" && play.cot === "nopath" && play.soar === "nopath" &&
     play.short === "short" && play.junk === "no" && play.one === null && play.score === 5, play);
 
-  // ---- typing: the stitching finds its way, keeping to the path it had
+  // ---- typing: the stitching finds its way (on this block each word typed has one)
   const typed = await p.evaluate(() => {
     const out = {}, path = () => { const x = Patchword.path(); return x ? x.join() : null; };
     Patchword.type("tea"); out.tea = path();
@@ -320,6 +320,57 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("patchword: at 320x568, 360x640, 390x664, 375x553, 360x560, 1366x657, 1280x600 and 1280x900 the round fits: nothing off the screen or under the corner buttons, the block at least 250 px on a phone (380 on a laptop), the tissue under it on a phone and beside it on a laptop",
     bad.length === 0, bad);
+
+  // ---- the menu's scoring reads "3/4 -> 1", "5 -> 2" ... (the arrows drawn),
+  // the five on one row from a 360 px phone up, wrapping inside the card below
+  {
+    const rows = {};
+    for (const [w, h] of [[1366, 657], [390, 664], [360, 640], [320, 568]]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, isMobile: w < 500, hasTouch: w < 500 });
+      const q = await lib.open(c, base, "games/patchword/");
+      rows[w + "x" + h] = await q.evaluate(() => {
+        const lis = [...document.querySelectorAll(".scale li")], card = document.querySelector("#menu .card").getBoundingClientRect();
+        return { text: lis.map((li) => li.querySelector("b").textContent + ">" + li.querySelector("span").textContent).join(" "), arrows: lis.filter((li) => li.querySelector(".to") && li.querySelector(".to").getBoundingClientRect().width > 4).length,
+          rows: new Set(lis.map((li) => Math.round(li.getBoundingClientRect().top))).size, inside: lis.every((li) => { const r = li.getBoundingClientRect(); return r.left >= card.left && r.right <= card.right; }) };
+      });
+      await c.close();
+    }
+    check("patchword: the menu's scoring reads 3/4 -> 1, 5 -> 2, 6 -> 3, 7 -> 5, 8+ -> 11, each with its arrow, one row from a 360 px phone up and inside the card at 320",
+      Object.values(rows).every((r) => r.text === "3/4>1 5>2 6>3 7>5 8+>11" && r.arrows === 5 && r.inside) && rows["1366x657"].rows === 1 && rows["390x664"].rows === 1 && rows["360x640"].rows === 1, rows);
+  }
+
+  // ---- the end card lists every everyday word missed, longest first (no cap)
+  {
+    const q = await open();
+    await begin(q);
+    await q.evaluate(() => { Patchword.setTime(0.02); Patchword.step(0.05); });
+    await q.waitForFunction(() => !document.getElementById("over").hidden, null, { timeout: 5000 });
+    const end = await q.evaluate(() => {
+      const want = Patchword.words().filter((w) => Patchword.rules.isEveryday(w));
+      const shown = [...document.querySelectorAll("#missed li")].map((e) => e.firstChild.textContent);
+      return { want: want.length, shown: shown.length, all: want.every((w) => shown.includes(w)), longestFirst: shown.every((w, i) => i === 0 || shown[i - 1].length >= w.length), head: document.getElementById("missed-head").textContent };
+    });
+    check("patchword: the end card lists every everyday word missed (" + end.want + " on this block), longest first, the heading counting them all",
+      end.want > 18 && end.shown === end.want && end.all && end.longestFirst && end.head === "everyday words missed · " + end.want, end);
+    await q.close();
+  }
+
+  // ---- typed letters found in more than one place light every place, each
+  // with its thread (four E's, three ways to spell ST), not one picked; the
+  // word stitches whichever is meant
+  {
+    const q = await open();
+    await q.evaluate(() => { Patchword.start("quick"); Patchword.hold(true); Patchword.setTiles(["s", "t", "e", "a", "e", "r", "s", "t", "l", "e", "n", "o", "e", "d", "i", "m"]); });
+    const look = () => q.evaluate(() => ({ lit: document.querySelectorAll(".patch.on").length, knots: document.querySelectorAll("#thread .knot").length, threads: document.querySelectorAll("#thread .over").length }));
+    await q.evaluate(() => Patchword.type("e")); const e = await look();
+    await q.keyboard.press("Backspace"); await q.evaluate(() => Patchword.type("st")); const st = await look();
+    await q.keyboard.press("Backspace"); await q.keyboard.press("Backspace");
+    await q.evaluate(() => Patchword.type("set")); const set = await look();
+    const stitched = await q.evaluate(() => ({ r: Patchword.enter(), found: Patchword.found() }));
+    check("patchword: typed letters found in more than one place light every place, each with its thread (E: 4 patches, 4 knots; ST: 3 ways, 4 patches; SET: 3 ways, 6 patches), and the word stitches",
+      e.lit === 4 && e.knots === 4 && st.knots === 3 && st.threads === 3 && st.lit === 4 && set.knots === 3 && set.lit === 6 && stitched.r === "ok" && stitched.found.includes("set"), { e, st, set, stitched });
+    await done(q, "typed paths");
+  }
 
   await ctx.close();
 };
