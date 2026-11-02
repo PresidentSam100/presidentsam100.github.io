@@ -747,4 +747,58 @@ module.exports = async ({ browser, base, check, lib }) => {
       m.levels && m.scroll <= 0 && m.wide <= 0 && m.below >= 0 && m.bottom <= 0, m);
     await c.close();
   }
+
+  // ---- idles (Visual FX on): every fruit an idle of its own, all the same
+  // length (2 s of it every 4 s), starting and ending on its face at rest,
+  // counted from when the fruit came (dropped, made by a merge, waiting at
+  // the top, in Next), so fruit that came apart idle apart; the Preserves all
+  // at once; a pause holds them; with Visual FX off every face rests
+  {
+    const cq = await lib.newContext(browser);
+    const q = await lib.open(cq, base, "games/jam-jar/", { before: (pg) => pg.addInitScript(STEPPED) });
+    const r = await q.evaluate(() => {
+      const G = window.__game, out = {};
+      out.faces = Array.from({ length: 11 }, (_, i) => ({ start: G.faceDiff(i, -1, 0), end: G.faceDiff(i, -1, 0.999), mid: Math.max(...[0.2, 0.35, 0.5, 0.65].map((u) => G.faceDiff(i, -1, u))) }));
+      // (each its own: no two fruit move the same at the same moments, told by which of their moments differ from rest)
+      const sig = (i) => [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8].map((u) => G.faceDiff(i, -1, u) > 0 ? 1 : 0).join("") + ":" + [0.2, 0.5].map((u) => G.faceDiff(i, 0.2, u)).join(",");
+      out.alike = new Set(Array.from({ length: 11 }, (_, i) => sig(i))).size;
+      __frames(2); G.start("simmer"); __frames(2);
+      out.len = [G.idle().T, G.idle().ACT];
+      // two blueberries a second apart, the second onto the first: they make a cherry
+      G.setQueue(0, 0); G.setAim(270); G.drop(); const tA = G.idle().t;
+      const held = { heldAt: G.idle().heldAt, nextAt: G.idle().nextAt, u: G.idleU(G.idle().heldAt) };
+      __frames(60); G.setQueue(0, 0); G.setAim(270); G.drop(); const tB = G.idle().t;
+      const a = G.fruits[0], b = G.fruits[1];
+      out.born = [+(a.born - tA).toFixed(3), +(b.born - tB).toFixed(3)];
+      out.held = { atDrop: +(held.heldAt - tA).toFixed(3) === 0 && +(held.nextAt - tA).toFixed(3) === 0, acting: held.u >= 0 && held.u < 0.05 };
+      // (a second and a half after the first: both moving; a second later only the second)
+      __frames(30); out.at15 = [G.idleU(a.born) >= 0, G.idleU(b.born) >= 0];
+      __frames(60); out.at25 = [G.idleU(a.born) >= 0, G.idleU(b.born) >= 0];
+      for (let i = 0; i < 240 && !G.fruits.some((f) => f.tier === 1); i++) __frames(1);
+      const cherry = G.fruits.find((f) => f.tier === 1);
+      out.merged = !!cherry && cherry.born > tB;
+      // the Preserves: all at once, on the page's own idle clock
+      const ch = [];
+      for (let i = 0; i < 16; i++) { __frames(15); ch.push(G.idle().chainU === G.idleU(0) ? (G.idle().chainU >= 0 ? "m" : "r") : "x"); }
+      out.chain = ch.join("");
+      // a pause holds the clock
+      const tp = G.idle().t;
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      __frames(60); out.paused = +(G.idle().t - tp).toFixed(3);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      return out;
+    });
+    // Visual FX off: every face rests
+    await q.evaluate(() => { localStorage.setItem("reduceMotion:jam-jar", "1"); });
+    await q.reload(); await q.waitForSelector(".mute-toggle");
+    const off = await q.evaluate(() => { const G = window.__game, us = []; __frames(2); G.start("simmer"); for (let i = 0; i < 12; i++) { __frames(20); us.push(G.idleU(0), G.idle().chainU, G.idleU(G.idle().heldAt)); } return { moving: us.filter((u) => u >= 0).length }; });
+    check("jam-jar: every fruit has an idle of its own (no two alike), starting and ending on its face at rest and moving between",
+      r.faces.length === 11 && r.faces.every((f) => f.start === 0 && f.end === 0 && f.mid > 100) && r.alike === 11, { faces: r.faces, alike: r.alike });
+    check("jam-jar: the idles are 2 s every 4 s, from when each fruit came: dropped, made by a merge, waiting at the top and in Next; two fruit dropped a second apart idle apart; the Preserves all at once; a pause holds them",
+      r.len.join() === "4,2" && r.born.every((x) => x === 0) && r.held.atDrop && r.held.acting && r.at15.join() === "true,true" && r.at25.join() === "false,true" &&
+      r.merged && /m/.test(r.chain) && /r/.test(r.chain) && !/x/.test(r.chain) && r.paused === 0, r);
+    check("jam-jar: with Visual FX off no face moves (the jar's fruit, the one waiting, the Preserves)", off.moving === 0, off);
+    await done(q, "idles");
+    await cq.close();
+  }
 };

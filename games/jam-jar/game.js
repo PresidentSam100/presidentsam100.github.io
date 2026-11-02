@@ -78,94 +78,168 @@
   function sfxMelon() { [523, 659, 784, 1047, 1319].forEach(function (f, i) { tone(f, 0.18, "triangle", 0.16, i * 0.08); }); }
   function sfxOver() { [392, 311, 262, 196].forEach(function (f, i) { tone(f, 0.26, "sawtooth", 0.12, i * 0.12); }); }
 
-  // ---- fruit sprites (drawn once per tier: fruits don't rotate) --------------
+  // ---- fruit sprites (each tier's body drawn once; its face drawn live) -------
   // Every tier wears its own face: same family, different personalities.
-  function faceFor(g, r, tier) {
+  // `u` is how far through its idle the fruit is (0 to 1, see idleU), or
+  // below 0 at rest: every idle starts and ends on the face at rest, drawn
+  // by exactly the calls that draw it then.
+  function faceFor(g, r, tier, u) {
     var INK = "#3a2417";
     var ex = r * 0.28, ey = -r * 0.12, er = Math.max(1.6, r * 0.07);
     var lw = Math.max(1.4, r * 0.05);
+    if (u == null) u = -1;
+    var A0 = g.globalAlpha;   // (a fruit drawn faded stays faded: the waiting one, cooling down)
     g.strokeStyle = INK; g.fillStyle = INK; g.lineWidth = lw; g.lineCap = "round";
     function dot(x, y, rr) { g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill(); }
+    function oval(x, y, rx, ry) { g.beginPath(); g.ellipse(x, y, rx, Math.max(0.01, ry), 0, 0, 7); g.fill(); }
     function arcStroke(x, y, rr, a0, a1) { g.beginPath(); g.arc(x, y, rr, a0, a1); g.stroke(); }
+    // (an arc pressed flat by ky: a ^ closing to a line, or opening from one)
+    function arcFlat(x, y, rr, a0, a1, ky) {
+      if (ky >= 1) { arcStroke(x, y, rr, a0, a1); return; }
+      g.beginPath();
+      for (var i = 0; i <= 12; i++) { var a = a0 + (a1 - a0) * i / 12; g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr * ky); }
+      g.stroke();
+    }
     function blush(col) {
       g.fillStyle = col || "rgba(255,120,120,0.4)";
       g.beginPath(); g.ellipse(-r * 0.5, r * 0.12, r * 0.13, r * 0.08, 0, 0, 7); g.fill();
       g.beginPath(); g.ellipse(r * 0.5, r * 0.12, r * 0.13, r * 0.08, 0, 0, 7); g.fill();
       g.fillStyle = INK;
     }
+    // (the face lifted or lowered by dy for a bob, a hop or a nod; untouched at rest)
+    function shift(dy) { if (dy) { g.save(); g.translate(0, dy); } return dy; }
+    function unshift(dy) { if (dy) g.restore(); }
+    var a, b, d, o, s;
     switch (tier) {
       case 0: // blueberry: wide baby eyes, little "o" mouth
-        dot(-ex, ey, er * 1.25); dot(ex, ey, er * 1.25);
-        g.fillStyle = "#fff"; dot(-ex + er * 0.4, ey - er * 0.4, er * 0.4); dot(ex + er * 0.4, ey - er * 0.4, er * 0.4);
+        // idle: a big slow blink, then a hiccup (the "o" puffs and the face jolts up)
+        o = 1 - 0.9 * bump(u, 0.04, 0.34); a = bump(u, 0.5, 0.78);
+        d = shift(-r * 0.06 * a);
+        if (o === 1) { dot(-ex, ey, er * 1.25); dot(ex, ey, er * 1.25); }
+        else { oval(-ex, ey, er * 1.25, er * 1.25 * o); oval(ex, ey, er * 1.25, er * 1.25 * o); }
+        if (o > 0.6) { g.fillStyle = "#fff"; dot(-ex + er * 0.4, ey - er * 0.4 * o, er * 0.4); dot(ex + er * 0.4, ey - er * 0.4 * o, er * 0.4); }
         g.fillStyle = INK;
-        g.beginPath(); g.arc(0, r * 0.14, r * 0.08, 0, 7); g.stroke();
+        g.beginPath(); g.arc(0, r * 0.14, r * 0.08 * (1 + 0.5 * a), 0, 7); g.stroke();
+        unshift(d);
         break;
       case 1: // cherry: a wink and a cheeky grin
-        dot(-ex, ey, er);
-        arcStroke(ex, ey, er * 1.1, Math.PI * 1.15, Math.PI * 1.85); // winking eye ^
+        // idle: the wink swaps to the other eye, the tongue pokes out further, and back
+        s = ramp(u, 0.1, 0.28) - ramp(u, 0.72, 0.9); a = bump(u, 0.38, 0.66);
+        wink(-ex, 1 - s); wink(ex, s);
         arcStroke(0, r * 0.02, r * 0.2, 0.15 * Math.PI, 0.85 * Math.PI);
-        g.beginPath(); g.moveTo(r * 0.12, r * 0.2); g.quadraticCurveTo(r * 0.2, r * 0.3, r * 0.08, r * 0.3); g.stroke(); // tongue tip
+        g.beginPath(); g.moveTo(r * 0.12, r * 0.2); g.quadraticCurveTo(r * (0.2 + 0.04 * a), r * (0.3 + 0.08 * a), r * 0.08, r * (0.3 + 0.07 * a)); g.stroke(); // tongue tip
         break;
       case 2: // strawberry: happy closed eyes, big smile
+        // idle: a giggle, two quick bobs, the smile wider and the blush glowing
+        a = bump(u, 0.05, 0.75); d = shift(-r * 0.075 * (bump(u, 0.08, 0.3) + bump(u, 0.3, 0.52)));
         arcStroke(-ex, ey, er * 1.3, Math.PI * 1.1, Math.PI * 1.9);
         arcStroke(ex, ey, er * 1.3, Math.PI * 1.1, Math.PI * 1.9);
-        arcStroke(0, r * 0.02, r * 0.24, 0.15 * Math.PI, 0.85 * Math.PI);
-        blush();
+        arcStroke(0, r * 0.02, r * 0.24 * (1 + 0.12 * a), 0.15 * Math.PI, 0.85 * Math.PI);
+        unshift(d);
+        blush(a ? "rgba(255,120,120," + (0.4 + 0.25 * a) + ")" : null);
         break;
       case 3: // plum: sleepy lids and a tiny content smile
-        g.beginPath(); g.moveTo(-ex - er, ey); g.lineTo(-ex + er, ey); g.stroke();
-        g.beginPath(); g.moveTo(ex - er, ey); g.lineTo(ex + er, ey); g.stroke();
+        // idle: a slow yawn, the mouth opening to an O while the lids droop, and back
+        a = ramp(u, 0.05, 0.35) - ramp(u, 0.62, 0.9); d = er * 0.45 * a;
+        g.beginPath(); g.moveTo(-ex - er, ey + d); g.lineTo(-ex + er, ey + d); g.stroke();
+        g.beginPath(); g.moveTo(ex - er, ey + d); g.lineTo(ex + er, ey + d); g.stroke();
+        if (a) g.globalAlpha = A0 * (1 - a);
         arcStroke(0, r * 0.08, r * 0.12, 0.2 * Math.PI, 0.8 * Math.PI);
+        g.globalAlpha = A0;
+        if (a) oval(0, r * 0.13, r * 0.075 * (0.6 + 0.4 * a), r * 0.12 * a);
         break;
       case 4: // apricot: joyful ^ ^ and an open smile
-        arcStroke(-ex, ey + er * 0.3, er * 1.2, Math.PI * 1.15, Math.PI * 1.85);
-        arcStroke(ex, ey + er * 0.3, er * 1.2, Math.PI * 1.15, Math.PI * 1.85);
-        g.beginPath(); g.arc(0, r * 0.06, r * 0.16, 0.1 * Math.PI, 0.9 * Math.PI); g.closePath(); g.fill();
+        // idle: a happy hop and a little one after, the eyes squeezing, the smile wider
+        a = bump(u, 0.04, 0.62); d = shift(-r * 0.1 * bump(u, 0.06, 0.36) - r * 0.05 * bump(u, 0.4, 0.6));
+        arcStroke(-ex, ey + er * 0.3, er * 1.2 * (1 - 0.12 * a), Math.PI * 1.15, Math.PI * 1.85);
+        arcStroke(ex, ey + er * 0.3, er * 1.2 * (1 - 0.12 * a), Math.PI * 1.15, Math.PI * 1.85);
+        g.beginPath(); g.arc(0, r * 0.06, r * 0.16 * (1 + 0.15 * a), 0.1 * Math.PI, 0.9 * Math.PI); g.closePath(); g.fill();
+        unshift(d);
         break;
       case 5: // apple: determined brows and a grin
-        dot(-ex, ey, er); dot(ex, ey, er);
-        g.beginPath(); g.moveTo(-ex - er * 1.2, ey - er * 1.8); g.lineTo(-ex + er * 0.8, ey - er * 1.1); g.stroke();
-        g.beginPath(); g.moveTo(ex + er * 1.2, ey - er * 1.8); g.lineTo(ex - er * 0.8, ey - er * 1.1); g.stroke();
+        // idle: game face, the brows dipping and the eyes narrowing, then a firm nod
+        a = ramp(u, 0.05, 0.25) - ramp(u, 0.75, 0.92); d = shift(r * 0.05 * bump(u, 0.42, 0.62));
+        if (a) { oval(-ex, ey, er, er * (1 - 0.35 * a)); oval(ex, ey, er, er * (1 - 0.35 * a)); }
+        else { dot(-ex, ey, er); dot(ex, ey, er); }
+        g.beginPath(); g.moveTo(-ex - er * 1.2, ey - er * (1.8 - 0.2 * a)); g.lineTo(-ex + er * 0.8, ey - er * (1.1 - 0.5 * a)); g.stroke();
+        g.beginPath(); g.moveTo(ex + er * 1.2, ey - er * (1.8 - 0.2 * a)); g.lineTo(ex - er * 0.8, ey - er * (1.1 - 0.5 * a)); g.stroke();
         arcStroke(0, r * 0.02, r * 0.2, 0.2 * Math.PI, 0.8 * Math.PI);
+        unshift(d);
         break;
       case 6: // peach: shy sideways glance and a blush
-        dot(-ex + er * 0.7, ey, er); dot(ex + er * 0.7, ey, er);
-        arcStroke(er * 0.5, r * 0.09, r * 0.1, 0.2 * Math.PI, 0.8 * Math.PI);
-        blush("rgba(230,90,90,0.45)");
+        // idle: a glance the other way and back, the blush deepening
+        a = ramp(u, 0.08, 0.26) - ramp(u, 0.62, 0.82); s = 1 - 2 * a;
+        dot(-ex + er * (0.7 - 1.7 * a), ey, er); dot(ex + er * (0.7 - 1.7 * a), ey, er);
+        arcStroke(er * 0.5 * s, r * 0.09, r * 0.1, 0.2 * Math.PI, 0.8 * Math.PI);
+        blush("rgba(230,90,90," + (a ? 0.45 + 0.22 * a : 0.45) + ")");
         break;
       case 7: // grapefruit: deadpan, the same flat brows, now over a plain smile
-        dot(-ex, ey, er); dot(ex, ey, er);
+        // idle: one brow slowly rises, unimpressed (its eye a touch wider), and drops
+        a = ramp(u, 0.08, 0.4) - ramp(u, 0.7, 0.92);
+        dot(-ex, ey, er); dot(ex, ey, er * (1 + 0.15 * a));
         g.beginPath(); g.moveTo(-ex - er, ey - er * 1.6); g.lineTo(-ex + er, ey - er * 1.6); g.stroke();
-        g.beginPath(); g.moveTo(ex - er, ey - er * 1.6); g.lineTo(ex + er, ey - er * 1.6); g.stroke();
+        g.beginPath(); g.moveTo(ex - er, ey - er * (1.6 + 1.1 * a)); g.lineTo(ex + er, ey - er * (1.6 + 1.5 * a)); g.stroke();
         arcStroke(0, r * 0.02, r * 0.2, 0.2 * Math.PI, 0.8 * Math.PI);
         break;
       case 8: // pineapple: too cool, a shades bar and a smirk
-        g.fillRect(-ex - er * 1.6, ey - er * 0.9, (ex + er * 1.6) * 2, er * 1.8);
-        g.beginPath(); g.moveTo(-ex - er * 1.6, ey - er * 0.4); g.lineTo(-r * 0.55, ey - er * 0.8); g.stroke();
-        g.beginPath(); g.moveTo(ex + er * 1.6, ey - er * 0.4); g.lineTo(r * 0.55, ey - er * 0.8); g.stroke();
-        g.beginPath(); g.moveTo(-r * 0.06, r * 0.14); g.quadraticCurveTo(r * 0.1, r * 0.2, r * 0.16, r * 0.1); g.stroke();
+        // idle: the shades slide down for a peek over them and push back up, the smirk lifting
+        a = ramp(u, 0.1, 0.3) - ramp(u, 0.66, 0.86); d = er * 1.5 * a;
+        if (a) { dot(-ex, ey - er * 0.1, er * 0.85); dot(ex, ey - er * 0.1, er * 0.85); }
+        g.fillRect(-ex - er * 1.6, ey - er * 0.9 + d, (ex + er * 1.6) * 2, er * 1.8);
+        g.beginPath(); g.moveTo(-ex - er * 1.6, ey - er * 0.4 + d); g.lineTo(-r * 0.55, ey - er * 0.8 + d); g.stroke();
+        g.beginPath(); g.moveTo(ex + er * 1.6, ey - er * 0.4 + d); g.lineTo(r * 0.55, ey - er * 0.8 + d); g.stroke();
+        g.beginPath(); g.moveTo(-r * 0.06, r * 0.14); g.quadraticCurveTo(r * 0.1, r * (0.2 - 0.05 * a), r * 0.16, r * (0.1 - 0.04 * a)); g.stroke();
         break;
       case 9: // melon: the serene elder, spectacles and closed eyes
+        // idle: the eyes open for a calm peek, a glint crosses the glasses, and they close
+        o = ramp(u, 0.12, 0.3) - ramp(u, 0.64, 0.84);
         // a ∪ arc draws below its centre, so lift it to sit mid-lens
+        if (o) g.globalAlpha = A0 * (1 - o);
         arcStroke(-ex, ey - er * 0.8, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI); // ∪ closed eyes
         arcStroke(ex, ey - er * 0.8, er * 1.15, 0.15 * Math.PI, 0.85 * Math.PI);
+        g.globalAlpha = A0;
+        if (o) { dot(-ex, ey, er * 0.9 * o); dot(ex, ey, er * 0.9 * o); }
         g.lineWidth = lw * 0.7;
         arcStroke(-ex, ey, er * 2, 0, 7); arcStroke(ex, ey, er * 2, 0, 7); // glasses
         g.beginPath(); g.moveTo(-ex + er * 2, ey); g.lineTo(ex - er * 2, ey); g.stroke();
+        // (the glint: a streak across each lens in turn, inside its rim)
+        [[-ex, 0.3, 0.52], [ex, 0.4, 0.62]].forEach(function (L) {
+          var gb = bump(u, L[1], L[2]);
+          if (!gb) return;
+          var gp = (u - L[1]) / (L[2] - L[1]);
+          g.save();
+          g.beginPath(); g.arc(L[0], ey, er * 2 - lw * 0.35, 0, 7); g.clip();
+          g.strokeStyle = "rgba(255,255,255," + (0.9 * gb) + ")"; g.lineWidth = lw * 1.5;
+          g.beginPath(); g.moveTo(L[0] - er * 3 + er * 4.4 * gp, ey - er * 2.2); g.lineTo(L[0] - er * 4.4 + er * 4.4 * gp, ey + er * 2.2); g.stroke();
+          g.restore();
+        });
         g.lineWidth = lw;
         arcStroke(0, r * 0.06, r * 0.14, 0.2 * Math.PI, 0.8 * Math.PI);
         break;
       default: // watermelon: the beaming king, starry eyes, huge open grin
+        // idle: the star eyes twinkle round a full turn, swelling, and the grin widens
+        s = ramp(u, 0.08, 0.7); a = bump(u, 0.08, 0.7); b = bump(u, 0.15, 0.75);
         g.save();
-        g.translate(-ex, ey); star(g, er * 1.5); g.restore();
+        g.translate(-ex, ey); if (a) { g.rotate(s * Math.PI * 2); g.scale(1 + 0.25 * a, 1 + 0.25 * a); } star(g, er * 1.5); g.restore();
         g.save();
-        g.translate(ex, ey); star(g, er * 1.5); g.restore();
-        g.beginPath(); g.arc(0, r * 0.05, r * 0.24, 0.08 * Math.PI, 0.92 * Math.PI); g.closePath(); g.fill();
+        g.translate(ex, ey); if (a) { g.rotate(-s * Math.PI * 2); g.scale(1 + 0.25 * a, 1 + 0.25 * a); } star(g, er * 1.5); g.restore();
+        g.beginPath(); g.arc(0, r * 0.05, r * 0.24 * (1 + 0.1 * b), 0.08 * Math.PI, 0.92 * Math.PI); g.closePath(); g.fill();
         g.fillStyle = "#e0413f";
-        g.beginPath(); g.arc(0, r * 0.21, r * 0.1, Math.PI, 0); g.fill();
+        g.beginPath(); g.arc(0, r * 0.21 + r * 0.024 * b, r * 0.1 * (1 + 0.1 * b), Math.PI, 0); g.fill();
         g.fillStyle = INK;
     }
+    // (an eye open (1) or winking (0): a dot pressing flat to a line, then a ^ rising from it)
+    function wink(x, op) {
+      if (op >= 1) dot(x, ey, er);
+      else if (op <= 0) arcStroke(x, ey, er * 1.1, Math.PI * 1.15, Math.PI * 1.85); // winking eye ^
+      else if (op > 0.5) oval(x, ey, er, er * (op - 0.5) * 2);
+      else arcFlat(x, ey, er * 1.1, Math.PI * 1.15, Math.PI * 1.85, (0.5 - op) * 2);
+    }
   }
+  // (0 to 1 and back over [a, b] of an idle, eased in and out; 0 outside it and at rest)
+  function bump(u, a, b) { if (u < a || u > b) return 0; var s = Math.sin(Math.PI * (u - a) / (b - a)); return s * s; }
+  // (0 to 1 over [a, b] of an idle, eased; 0 before it and at rest, 1 after)
+  function ramp(u, a, b) { if (u <= a) return 0; if (u >= b) return 1; var x = (u - a) / (b - a); return x * x * (3 - 2 * x); }
   function star(g, rr) {
     g.beginPath();
     for (var i = 0; i <= 10; i++) {
@@ -183,8 +257,9 @@
   for (var pI0 = 0; pI0 < 14; pI0++) PORES.push([Math.random() * Math.PI * 2, Math.sqrt(Math.random()) * 0.75]);
   // Paints tier ti as vectors at its true radius, centred on the origin. Any
   // scale already on g applies to the paths themselves, so a small copy is
-  // as crisp as the big one.
-  function paintFruit(g, ti) {
+  // as crisp as the big one. `u`: where it is in its idle (faceFor); `bare`:
+  // the body alone, its face left to be drawn live over it.
+  function paintFruit(g, ti, u, bare) {
     var t = TIERS[ti], r = t.r;
     // body
     var grad = g.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.15, 0, 0, r * 1.05);
@@ -270,23 +345,36 @@
       }
       g.restore();
     }
-    faceFor(g, r, ti);
+    if (!bare) faceFor(g, r, ti, u);
   }
   // each sprite is `size` logical px square, painted at the canvas's pixel
-  // ratio (so drawn with an explicit size: drawSprite)
+  // ratio (so drawn with an explicit size: drawSprite). A tier's sprite has
+  // its face, for how far its ink reaches; its body is the same without it,
+  // drawn under a face drawn live (drawFace), which can move.
+  var BODIES = [];
   function buildSprites() {
-    SPRITES = TIERS.map(function (t, ti) {
-      var r = t.r, pad = 16, s = document.createElement("canvas"); // room for the cherry's stem tip
+    function sprite(ti, bare) {
+      var r = TIERS[ti].r, pad = 16, s = document.createElement("canvas"); // room for the cherry's stem tip
       var size = (r + pad) * 2;
       s.width = s.height = Math.round(size * dpr);
       var g = s.getContext("2d");
       g.scale(dpr, dpr);
       g.translate(r + pad, r + pad);
-      paintFruit(g, ti);
-      return { c: s, off: r + pad, size: size, ext: inkRows(s, r + pad, dpr) };
-    });
+      paintFruit(g, ti, -1, bare);
+      return { c: s, off: r + pad, size: size, ext: bare ? null : inkRows(s, r + pad, dpr) };
+    }
+    SPRITES = TIERS.map(function (t, ti) { return sprite(ti, false); });
+    BODIES = TIERS.map(function (t, ti) { return sprite(ti, true); });
   }
   function drawSprite(sp, x, y) { ctx.drawImage(sp.c, x - sp.off, y - sp.off, sp.size, sp.size); }
+  // a fruit of tier ti at (x, y) of the current transform: its body, and its
+  // face live over it, `at` its idle's start (idleU)
+  function drawFace(ti, x, y, at) {
+    drawSprite(BODIES[ti], x, y);
+    ctx.save(); ctx.translate(x, y);
+    faceFor(ctx, TIERS[ti].r, ti, idleU(at));
+    ctx.restore();
+  }
   // how far a sprite's ink reaches above and below its centre, and to
   // either side: stems, leaves and crowns included: read off the finished
   // pixels (k of them to a logical px)
@@ -326,9 +414,22 @@
   var dropped = false; // a fruit has gone into this jar (until then leaving doesn't ask, see the pause)
   var score = 0, aimX = W / 2, dropCd = 0, dangerT = 0, boilT = BOIL_S;
   var runBest = 0; // the best as this jar began (the stored one climbs mid-run, see applyMerge)
-  var current = 0, next = 0;
+  var current = 0, next = 0, heldAt = 0, nextAt = 0;   // (when the fruit waiting at the top, and the one in Next, came: their idles)
   function rndTier(r) { return r < 0.30 ? 0 : r < 0.55 ? 1 : 0.75 > r ? 2 : r < 0.9 ? 3 : 4; }
   function reduced() { return !!(window.RM_ON && window.RM_ON()); }
+  // ---- idles (Visual FX on) ----------------------------------------------------
+  // Every fruit has an idle of its own (faceFor), all the same length: IDLE_ACT
+  // s of it, then its face at rest, every IDLE_T s from the moment the fruit
+  // came (dropped, made by a merge, waiting at the top, shown in Next), so
+  // fruit that came apart idle apart; the Preserves' fruit idle together. The
+  // clock stops with a pause. With Visual FX off every face rests.
+  var IDLE_T = 4, IDLE_ACT = 2, idleT = 0;
+  function idleU(at) {
+    if (reduced() || at == null) return -1;
+    var t = (idleT - at) % IDLE_T;
+    if (t < 0) t += IDLE_T;
+    return t < IDLE_ACT ? t / IDLE_ACT : -1;
+  }
   // The fruit to come: one seeded run for each jar begun, read by each jar at
   // its own count (dealt: the fruit it has dropped), so against the CPU the
   // nth fruit is the same in both jars.
@@ -355,7 +456,7 @@
   var pops = [];   // the merges' "+N" (popScore)
   var cpuCanvas = document.getElementById("cpu"), cctx = cpuCanvas.getContext("2d"), cpuScale = 0;   // (css px to a jar unit)
   function freshJar() {
-    return { fruits: [], particles: [], score: 0, dangerT: 0, dropCd: 0, current: current, next: next, aimX: W / 2,
+    return { fruits: [], particles: [], score: 0, dangerT: 0, dropCd: 0, current: current, next: next, heldAt: idleT, nextAt: idleT, aimX: W / 2,
              dealt: 0, out: false, lastDrop: null, pops: [], ctx: cctx };
   }
   var other = freshJar();
@@ -368,6 +469,8 @@
     t = dropCd; dropCd = o.dropCd; o.dropCd = t;
     t = current; current = o.current; o.current = t;
     t = next; next = o.next; o.next = t;
+    t = heldAt; heldAt = o.heldAt; o.heldAt = t;
+    t = nextAt; nextAt = o.nextAt; o.nextAt = t;
     t = aimX; aimX = o.aimX; o.aimX = t;
     t = dealt; dealt = o.dealt; o.dealt = t;
     t = out; out = o.out; o.out = t;
@@ -563,7 +666,7 @@
     score = 0; dropCd = 0; dangerT = 0; boilT = BOIL_S; state = "play"; dropped = false;
     runBest = best.get();
     seed = (Math.random() * 4294967296) | 0; seq = []; dealt = 0;
-    current = fruitAt(0); next = fruitAt(1);
+    current = fruitAt(0); next = fruitAt(1); heldAt = nextAt = idleT;
     out = false; lastDrop = null; pending = false;
     other = freshJar();   // (the CPU's: the same first fruit and next as yours)
     brain = { at: null, wait: 0, since: 0, again: false };
@@ -603,6 +706,7 @@
     // berry ~47×, so it barrels through berries while a berry barely nudges it
     // (r is its size now, R its own: a newborn grows into it, see GROW_T)
     return { x: x, y: y, px: x, py: y, vx: 0, vy: 0, r: r, R: r, grow: 0, tier: tier, im: 1 / (r * r * r), mergeCd: 0.1,
+             born: idleT, // (its idle counts from now: idleU)
              rot: 0, w: 0, // upright, just as it hung before the drop touch: false, contacted: false, dead: false,
              rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
@@ -619,7 +723,7 @@
     else { if (!dropped && foe === "cpu") vsPlayed(); dropped = true; }
     sfxDrop();
     dealt++;
-    current = next; next = fruitAt(dealt + 1);
+    current = next; next = fruitAt(dealt + 1); heldAt = nextAt = idleT;
     dropCd = auto ? 0 : 0.45;
     refreshHud();
   }
@@ -1077,13 +1181,13 @@
     return f.sq.a * Math.exp(-f.sq.t * 11) * Math.cos(f.sq.t * 26);
   }
   function drawFruit(f) {
-    var sp = SPRITES[f.tier], k = squashOf(f);
+    var k = squashOf(f);
     ctx.save();
     ctx.translate(f.x, f.y + f.r * k);
     if (k) ctx.scale(1 + k, 1 - k);
     if (f.r < f.R) ctx.scale(f.r / f.R, f.r / f.R);   // a newborn, growing
     ctx.rotate(f.rot);
-    drawSprite(sp, 0, 0);
+    drawFace(f.tier, 0, 0, f.born);
     ctx.restore();
   }
 
@@ -1134,7 +1238,7 @@
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
       ctx.globalAlpha = dropCd > 0 ? 0.45 : 1;
-      drawSprite(SPRITES[current], ax, DROP_Y);
+      drawFace(current, ax, DROP_Y, heldAt);
       ctx.globalAlpha = 1;
       // Rolling Boil: a ring round it closes as its second runs out (the
       // same with Visual FX on or off: it tells the time)
@@ -1261,12 +1365,17 @@
     document.getElementById("score").textContent = score;
     document.getElementById("best").textContent = Math.max(best.get(), state === "menu" ? 0 : score);
     cpuHud();
+    paintNext();
+  }
+  var nextU = -1, chainU = -1;   // (the idle moments Next and the Preserves were last painted at)
+  function paintNext() {
+    nextU = idleU(nextAt);
     nextCtx.clearRect(0, 0, 86, 86);
     var scale = Math.min(1, 34 / TIERS[next].r);
     nextCtx.save();
     nextCtx.translate(43, 43);
     nextCtx.scale(scale, scale);
-    paintFruit(nextCtx, next); // vectors at the panel's own resolution
+    paintFruit(nextCtx, next, nextU); // vectors at the panel's own resolution
     nextCtx.restore();
   }
   // the CPU's score beside yours (run with yours in play, so the CPU's jar is `other`)
@@ -1308,13 +1417,14 @@
   }
   function drawChain() {
     var g = chainCtx, slots = CHAIN.slots, last = slots[slots.length - 1];
+    chainU = idleU(0);   // (all of them at once)
     g.clearRect(0, 0, CHAIN.w, CHAIN.h);
     g.strokeStyle = "rgba(160,106,51,0.5)";
     g.lineWidth = 2;
     g.beginPath(); g.moveTo(slots[0].x, slots[0].y); g.lineTo(last.x, last.y); g.stroke();
     for (var i = 0; i < slots.length; i++) {
       g.save(); g.translate(slots[i].x, slots[i].y); g.scale(slots[i].k, slots[i].k);
-      paintFruit(g, i);
+      paintFruit(g, i, chainU);
       g.restore();
     }
   }
@@ -1442,6 +1552,10 @@
     var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
+      idleT += dt;
+      // (Next and the Preserves painted again while their fruit move, and once more as they come to rest)
+      if (!inCpu && (nextU >= 0 || idleU(nextAt) >= 0)) paintNext();
+      if (chainCtx && (chainU >= 0 || idleU(0) >= 0)) drawChain();
       if (state === "play" && held.L !== held.R) aimX = Math.max(JL, Math.min(JR, aimX + (held.R ? 1 : -1) * AIM_SPEED * dt));
       for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);
       fastUi();
@@ -1469,6 +1583,22 @@
     get particles() { return particles; },
     get pops() { return pops; },
     squash: function (f) { return squashOf(f); },
+    // the idles: the clock, an idle's moment for a start time (below 0: at
+    // rest), when the fruit waiting and the one in Next came, the moment the
+    // Preserves were last painted at; and a fruit painted at a moment u, as a
+    // hash of its pixels, or how many of them differ between two moments
+    idle: function () { return { t: idleT, T: IDLE_T, ACT: IDLE_ACT, heldAt: heldAt, nextAt: nextAt, chainU: chainU, nextU: nextU }; },
+    idleU: idleU,
+    facePixels: function (ti, u) {
+      var r = TIERS[ti].r, n = Math.ceil((r + 16) * 4), c = document.createElement("canvas");
+      c.width = c.height = n;
+      var g = c.getContext("2d");
+      g.scale(2, 2); g.translate(r + 16, r + 16);
+      paintFruit(g, ti, u);
+      return g.getImageData(0, 0, n, n).data;
+    },
+    faceHash: function (ti, u) { var d = this.facePixels(ti, u), h = 2166136261; for (var i = 0; i < d.length; i++) h = Math.imul(h ^ d[i], 16777619); return (h >>> 0).toString(16); },
+    faceDiff: function (ti, u1, u2) { var a = this.facePixels(ti, u1), b = this.facePixels(ti, u2), n = 0; for (var i = 0; i < a.length; i += 4) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2] || a[i + 3] !== b[i + 3]) n++; return n; },
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
     drop: function () { drop(mode === "boil"); },
