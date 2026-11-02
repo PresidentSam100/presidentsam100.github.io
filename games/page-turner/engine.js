@@ -4,7 +4,7 @@
    A giant picture book lies open with its far half standing upright.
    One leaf at a time stands up from that half, tips over and falls flat
    onto the half the worms crawl on. Every leaf is a grid of 3 x 3 panels
-   and some of its pictures are cut right through: a worm wholly inside one
+   inside a printed border, and some of its pictures are cut right through: a worm wholly inside one
    of those holes when the leaf lands goes through to the next page; one
    anywhere else is squished flat and out. Several worms may share a hole,
    and worms are solid, so one can shove another out of it.
@@ -45,10 +45,16 @@
     react: 0.4,         // the reaction every warning leaves room for
     intro: 1.2,         // the book settling open before the first leaf stands up
     cap: 99,            // Endless closes the book after this page
-    panelHalf: 0.1667,  // half a panel
     rim: 0.013,         // how far outside a hole's cut its printed rim runs (the line 0.0075 wide)
-    holeRoom: 0.146     // how far a hole may reach from its panel's middle: its rim keeps 0.004 inside the panel, clear of the next one's
+    border: [0.025, 0.04] // the page's printed border: its two lines, how far in from the paper's edge (0.0075 wide too)
   };
+  // The 3 x 3 panels fill the page inside the border's inner line (grid: how
+  // far in they start), and a hole may reach as far from its panel's middle
+  // as keeps its rim 0.004 inside the panel: clear of the border and of the
+  // next panel's hole.
+  TUNE.grid = TUNE.border[1] + 0.0075 / 2;
+  TUNE.panelHalf = (1 - 2 * TUNE.grid) / 6;
+  TUNE.holeRoom = TUNE.panelHalf - TUNE.rim - 0.0075 / 2 - 0.004;
 
   // ---- the pace ----------------------------------------------------------------------
   // By page: how many holes, their size (a round one's radius: the others
@@ -170,7 +176,7 @@
   function fits(h, x, y) { return edgeDepth(h, x, y) >= TUNE.R - TUNE.squeeze; }
   function fitHole(leaf, x, y) { for (var i = 0; i < leaf.holes.length; i++) if (fits(leaf.holes[i], x, y)) return i; return -1; }
 
-  function panelMid(i) { return [(i % 3) / 3 + 1 / 6, Math.floor(i / 3) / 3 + 1 / 6]; }
+  function panelMid(i) { var w = 2 * TUNE.panelHalf; return [0.5 + (i % 3 - 1) * w, 0.5 + (Math.floor(i / 3) - 1) * w]; }
   function makeHole(panel, shape, rin) {
     var m = panelMid(panel), base = SHAPES[shape], o = midOf(shape), cx = m[0] - o[0] * rin, cy = m[1] - o[1] * rin;
     var h = { panel: panel, shape: shape, rin: rin, cx: cx, cy: cy, poly: base.map(function (p) { return [cx + p[0] * rin, cy + p[1] * rin]; }) };

@@ -137,6 +137,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner rules: no two holes on a page overlap, nor their printed trim (rims, a sun's rays, the lines' width included: 0.004 apart or more; pages 1 to 30)", bad.length === 0, { n: bad.length, first: bad.slice(0, 4) });
   }
   {
+    // nor does it run into the page's printed border: each hole's rim (and a
+    // sun's rays), the lines' width included, keeps 0.004 or more inside the
+    // border's inner line, every shape in every panel, page 1's holes (the
+    // biggest) on
+    const T = E.TUNE, INK = 0.0075 / 2, RAY = 0.0075 * 1.3 / 2, line = (T.border ? T.border[1] : 0.04) + 0.0075 / 2, bad = [];
+    for (let p = 1; p <= 40; p++) for (const k of Object.keys(E.SHAPES)) for (let pn = 0; pn < 9; pn++) {
+      const h = E.makeHole(pn, k, E.sizeFor(k, E.stage(p).rin)), pts = E.rim(h, T.rim).map((q) => [q[0], q[1], INK]);
+      if (k === "sun") { const r1 = E.sunRays(h)[1]; for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2; pts.push([h.cx + Math.cos(a) * r1, h.cy + Math.sin(a) * r1, RAY]); } }
+      const gap = Math.min(...pts.map((q) => Math.min(q[0], q[1], 1 - q[0], 1 - q[1]) - q[2])) - line;
+      if (gap < 0.004 - 1e-6) bad.push({ p, shape: k, panel: pn, gap: +gap.toFixed(4) });
+    }
+    check("page-turner rules: every hole keeps inside the page's printed border: its rim (and a sun's rays, the lines' width included) 0.004 or more inside the border's inner line, every shape in every panel, pages 1 to 40",
+      bad.length === 0, { n: bad.length, first: bad.slice(0, 4) });
+  }
+  {
     // no panel is a hole on more than three pages in a row, so a look down
     // holes that line up always ends on a page's paper (the game's own pages)
     const bad = [], longest = [];
@@ -771,6 +786,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("page-turner: down every hole in the pages landed, the page beneath shows its own pictures and words (some of each hole inked, not one plain colour)",
       r.holes.length >= 2 && r.holes.every((h) => h.n > 20 && h.inked >= 0.03), r);
     await done(q, "the page beneath");
+    await c.close();
+  }
+
+  // ---- the holes keep inside the page's printed border: between its two
+  // lines there's nothing but paper all the way round, with a hole at its
+  // biggest (page 1's) in every outer panel: stars and moons, flowers, a sun
+  // and a window (laptop and phone)
+  for (const [w, h, phone] of [[1366, 657, 0], [390, 664, 1]]) {
+    const c = await lib.newContext(browser, Object.assign({}, phone ? devices["iPhone 13"] : {}, { viewport: { width: w, height: h } }));
+    const q = await open(c);
+    const r = await q.evaluate(() => new Promise((res) => {
+      const PT = PageTurner, E = PageTurnerEngine, rin = E.stage(1).rin;
+      PT.start("endless"); PT.freeze(true);
+      const st = PT.st(), holes = [["star", 0], ["sun", 1], ["moon", 2], ["flower", 3], ["window", 5], ["moon", 6], ["star", 7], ["flower", 8]].map(([k, pn]) => E.makeHole(pn, k, E.sizeFor(k, rin)));
+      st.floor = { n: 1, holes, prints: [{ panel: 4, kind: "words" }], seed: 5 }; st.landed = 1;
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const cv = document.getElementById("book"), g = cv.getContext("2d"), cr = cv.getBoundingClientRect(), k = cv.width / cr.width;
+        const B = E.TUNE.border || [0.025, 0.04], d = (B[0] + B[1]) / 2, cols = [];
+        const at = (x, y) => { const a = PT.project(x, y, 0), px = g.getImageData(Math.round((a[0] - cr.left) * k), Math.round((a[1] - cr.top) * k), 1, 1).data; cols.push([px[0], px[1], px[2]]); };
+        for (let t = d; t <= 1 - d + 1e-9; t += 0.004) { at(t, d); at(t, 1 - d); at(d, t); at(1 - d, t); }
+        const med = [0, 1, 2].map((i) => cols.map((c) => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
+        res({ n: cols.length, off: cols.filter((c) => Math.abs(c[0] - med[0]) + Math.abs(c[1] - med[1]) + Math.abs(c[2] - med[2]) > 24).length, med });
+      }));
+    }));
+    check("page-turner (" + w + "x" + h + "): no hole runs into the page's printed border: between its two lines, all the way round, nothing but paper with page 1's holes in every outer panel",
+      r.n > 400 && r.off === 0, r);
+    await done(q, "the border (" + w + "x" + h + ")");
     await c.close();
   }
 

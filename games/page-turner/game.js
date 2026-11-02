@@ -334,12 +334,14 @@
   function artOf(leaf) {
     if (leaf.art) return leaf.art;
     var r = rand(leaf.seed || 1), words = [];
+    // (laid out as on a page of three equal thirds, then drawn into the panels inside the border)
+    var into = function (u) { return T.grid + u * (1 - 2 * T.grid); };
     leaf.prints.forEach(function (p) {
       if (p.kind !== "words") return;
       var c = p.panel % 3, row = Math.floor(p.panel / 3), x0 = c / 3 + 0.04, x1 = (c + 1) / 3 - 0.04;
       for (var line = 0; line < 5; line++) {
         var y = row / 3 + 0.075 + line * 0.047, x = x0 + (line === 0 ? 0.03 : 0), end = line === 4 ? x0 + (x1 - x0) * (0.4 + r() * 0.3) : x1;
-        while (x < end - 0.02) { var len = Math.min(end - x, 0.02 + r() * 0.05); words.push([x, x + len, y]); x += len + 0.018; }
+        while (x < end - 0.02) { var len = Math.min(end - x, 0.02 + r() * 0.05); words.push([into(x), into(x + len), into(y)]); x += len + 0.018; }
       }
     });
     leaf.art = { words: words };
@@ -373,23 +375,26 @@
     leaf.holes.forEach(function (h) { trace(h.poly, map); });
     g.fillStyle = col[0]; g.fill("evenodd");
     g.save(); g.clip("evenodd");
-    // a printed border, as a picture book has
+    // a printed border, as a picture book has (the panels sit inside it: E.TUNE)
+    var bo = T.border[0], bi = T.border[1], k = 1 - 2 * T.grid;
     g.lineWidth = lw; g.strokeStyle = ink; g.globalAlpha = 0.55;
-    g.beginPath(); trace(quadPts(0.025, 0.025, 0.975, 0.975), map); g.stroke();
-    g.globalAlpha = 0.28; g.beginPath(); trace(quadPts(0.04, 0.04, 0.96, 0.96), map); g.stroke();
-    // the pictures that are only printed
+    g.beginPath(); trace(quadPts(bo, bo, 1 - bo, 1 - bo), map); g.stroke();
+    g.globalAlpha = 0.28; g.beginPath(); trace(quadPts(bi, bi, 1 - bi, 1 - bi), map); g.stroke();
+    // the pictures that are only printed (sized to the panels, `k` of a third)
     leaf.prints.forEach(function (p) {
       if (p.kind === "words") return;
-      var m = E.panelMid(p.panel), pts = motif(p.kind, m[0], m[1], 0.105);
+      var m = E.panelMid(p.panel), pts = motif(p.kind, m[0], m[1], 0.105 * k), q = 0.08 * k;
       g.globalAlpha = 0.16; g.fillStyle = ink; g.beginPath(); trace(pts, map); g.fill();
       g.globalAlpha = 0.75; g.strokeStyle = ink; g.lineWidth = lw; g.beginPath(); trace(pts, map); g.stroke();
-      if (p.kind === "sun") rays(m[0], m[1], 0.08, 0.115, map, lw);
-      if (p.kind === "window") { g.beginPath(); var a = map(m[0] - 0.08, m[1]), b = map(m[0] + 0.08, m[1]), c = map(m[0], m[1] - 0.08), d = map(m[0], m[1] + 0.08); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.moveTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.stroke(); }
+      if (p.kind === "sun") rays(m[0], m[1], q, 0.115 * k, map, lw);
+      if (p.kind === "window") { g.beginPath(); var a = map(m[0] - q, m[1]), b = map(m[0] + q, m[1]), c = map(m[0], m[1] - q), d = map(m[0], m[1] + q); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.moveTo(c[0], c[1]); g.lineTo(d[0], d[1]); g.stroke(); }
     });
-    // round each hole, a printed rim along its cut (inside its panel, clear of the next hole's: E.TUNE)
+    // round each hole, a printed rim along its cut (inside its panel, clear of
+    // the border and the next hole's: E.TUNE; round joins, so the moon's horns
+    // end no further out than the line's own width)
     leaf.holes.forEach(function (h) {
-      g.globalAlpha = 0.7; g.strokeStyle = ink; g.lineWidth = lw;
-      g.beginPath(); trace(E.rim(h, T.rim), map); g.stroke();
+      g.globalAlpha = 0.7; g.strokeStyle = ink; g.lineWidth = lw; g.lineJoin = "round";
+      g.beginPath(); trace(E.rim(h, T.rim), map); g.stroke(); g.lineJoin = "miter";
       if (h.shape === "sun") { var rr = E.sunRays(h); rays(h.cx, h.cy, rr[0], rr[1], map, lw); }
     });
     // the words, nonsense in tidy lines
