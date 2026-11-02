@@ -63,6 +63,12 @@ const table = (lib) => [
     start: async (p) => { await p.evaluate(() => { TidePool.start("pool"); const m = TidePool.rules.anyMove(TidePool.board()); TidePool.swap(m[0], m[1]); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => TidePool.state() === "play" && TidePool.score() === 0 && TidePool.left() === 25 && !GameShell.leaveActive()),
     menu: (p) => p.evaluate(() => TidePool.state() === "menu" && !document.getElementById("menu").hidden) },
+  // (Orbits: in play with a comet in the air; Restart puts back the opening
+  // push and clears the last flight, the launches made still counting)
+  { name: "orbits", path: "orbits/", ask: "Start this chart over?",
+    start: async (p) => { await p.evaluate(() => { Orbits.start(0); Orbits.restart(); Orbits.setPush(1150, 130); Orbits.launch(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
+    fresh: (p) => p.evaluate(() => Orbits.state() === "aim" && Orbits.push().join() === Orbits.level().push.join() && !Orbits.trace() && !GameShell.leaveActive()),
+    menu: (p) => p.evaluate(() => Orbits.state() === "menu" && !document.getElementById("menu").hidden) },
   { name: "patchword", path: "patchword/", asks: true,
     start: async (p) => { await p.evaluate(() => { Patchword.start("quick"); Patchword.stitchAny(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => Patchword.state() === "play" && Patchword.score() === 0 && Patchword.found().length === 0 && !GameShell.leaveActive()),

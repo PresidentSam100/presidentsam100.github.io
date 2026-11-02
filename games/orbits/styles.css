@@ -1,0 +1,233 @@
+/* =====================================================================
+   Orbits: a plate from an observatory's star atlas. The page is the
+   plate itself, ivory paper with a little foxing; the chart (painted by
+   game.js) is engraved on it in Prussian-blue ink, with its border ruled
+   and ticked, the suns and gates laid in gold leaf and the push drawn in
+   vermilion, as a navigator plots a course in red. The log beside it, the
+   cards and the buttons are the same paper, ink and gold, lettered in a
+   draughtsman's monospace (Martian Mono). No dark desk round the paper:
+   the plate fills the screen.
+   ===================================================================== */
+
+:root {
+  --paper: #f3ecdb;
+  --paper-hi: #f8f3e6;
+  --paper-lo: #e7dec7;
+  --ink: #1f2a44;
+  --ink-soft: #4e5a74;
+  --ink-faint: rgba(31, 42, 68, 0.28);
+  --gold: #c99a2e;
+  --gold-hi: #f2d98a;
+  --gold-deep: #8d6614;
+  --red: #b8402b;
+  --leaf: linear-gradient(170deg, #f6e3a0, #ddb54e 48%, #b38726);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  font-family: "Martian Mono", ui-monospace, monospace; font-stretch: 87.5%; color: var(--ink);
+  background:
+    radial-gradient(circle at 12% 18%, rgba(160, 120, 60, 0.07) 0 3px, transparent 26px),
+    radial-gradient(circle at 83% 71%, rgba(160, 120, 60, 0.06) 0 4px, transparent 34px),
+    radial-gradient(circle at 64% 9%, rgba(160, 120, 60, 0.05) 0 2px, transparent 18px),
+    radial-gradient(circle at 30% 88%, rgba(160, 120, 60, 0.05) 0 3px, transparent 24px),
+    radial-gradient(ellipse at 50% 50%, var(--paper-hi), var(--paper) 62%, var(--paper-lo));
+  overflow: hidden;
+}
+.nav-back-games {
+  position: fixed; top: 14px; left: 16px; z-index: 50;
+  font-family: inherit; font-stretch: 87.5%; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--ink); text-decoration: none;
+  background: var(--paper-hi); border: 1.5px solid var(--ink); border-radius: 3px;
+  box-shadow: inset 0 0 0 2px var(--paper-hi), inset 0 0 0 3px var(--ink-faint), 0 1px 3px rgba(31, 42, 68, 0.18);
+  padding: 6px 12px;
+}
+.nav-back-games:hover { background: #fffaf0; }
+
+kbd {
+  font-family: inherit; font-stretch: 87.5%; font-size: 11px; font-weight: 600;
+  color: var(--paper-hi); background: var(--ink); border-radius: 3px; padding: 0 5px 1px; margin: 0 1px;
+}
+
+/* ---- the plate: the chart with its log and helm --------------------------- */
+.plate { position: fixed; inset: 0; }
+.chart { position: absolute; }
+.chart canvas { position: absolute; left: 0; top: 0; display: block; touch-action: none; }
+.log, .helm { position: absolute; }
+.log[hidden], .helm[hidden] { display: none; }
+
+.log { display: flex; flex-direction: column; gap: 4px; }
+body.wide .log { align-items: flex-end; text-align: right; }
+body.tall .log { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 2px 14px; text-align: center; }
+.log-name { font-weight: 700; font-size: 14px; letter-spacing: 0.02em; }
+.log-row { font-size: 13px; color: var(--ink-soft); }
+.log-row b { font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.log-k { text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.log-best { font-size: 12px; }
+.log-best.won { color: var(--gold-deep); font-weight: 700; }
+
+.helm { display: flex; flex-direction: column; gap: 8px; }
+.dials { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.dial b { font-size: 15px; font-weight: 700; color: var(--red); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.status { font-size: 12.5px; line-height: 1.4; min-height: 2.8em; color: var(--ink); }
+.status.bad { color: var(--red); }
+.status.good { color: var(--gold-deep); font-weight: 700; }
+
+.helm button, .card .row button {
+  font-family: inherit; font-stretch: 87.5%; font-size: 13px; font-weight: 600; letter-spacing: 0.02em; cursor: pointer;
+  color: var(--ink); background: var(--paper-hi);
+  border: 1.5px solid var(--ink); border-radius: 3px; padding: 6px 11px;
+  box-shadow: inset 0 0 0 2px var(--paper-hi), inset 0 0 0 3px var(--ink-faint);
+}
+.helm button:hover, .card .row button:hover { background: #fffaf0; }
+.helm button:active, .card .row button:active { transform: translateY(1px); }
+.helm button:disabled { opacity: 0.45; cursor: default; }
+/* the button that sends the comet (and the next chart): gold leaf */
+.helm button.go, .card .row button.go, .playbtn {
+  background: var(--leaf); color: var(--ink); border-color: var(--gold-deep);
+  box-shadow: inset 0 0 0 1px rgba(255, 248, 220, 0.6), 0 1px 0 var(--gold-deep);
+}
+.tools { display: flex; flex-wrap: wrap; gap: 6px; }
+/* Launch, and Skip in its place while the comet flies: both laid in one cell */
+.two { display: inline-grid; }
+.two > span { grid-area: 1 / 1; }
+.two .b, #btn-launch.flying .two .a { visibility: hidden; }
+#btn-launch.flying .two .b { visibility: visible; }
+/* turn and strength: four small plates of their own */
+.nudge { display: grid; grid-template-columns: repeat(4, auto); gap: 6px; justify-content: start; }
+.nudge button { min-width: 46px; height: 34px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; touch-action: manipulation; }
+.nudge svg { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.keys { font-size: 11.5px; line-height: 1.5; color: var(--ink-soft); }
+
+/* ---- the cards: a cartouche on the plate ------------------------------------- */
+.panel {
+  position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto; background: rgba(243, 236, 219, 0.55);
+}
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(460px, 100%); background: var(--paper-hi);
+  border: 1.5px solid var(--ink); border-radius: 2px;
+  box-shadow: inset 0 0 0 4px var(--paper-hi), inset 0 0 0 5px rgba(31, 42, 68, 0.5), 0 12px 34px rgba(31, 42, 68, 0.22);
+  padding: 22px 24px 18px;
+}
+.card h1, .card h2 { font-weight: 800; color: var(--ink); letter-spacing: 0.08em; }
+.card h1 { font-size: 30px; text-transform: uppercase; }
+.card h1::after { content: ""; display: inline-block; width: 0.42em; height: 0.42em; margin-left: 0.3em; vertical-align: 0.42em;
+  background: var(--leaf); clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); }
+.card h2 { font-size: 22px; }
+.card .tag { color: var(--gold-deep); font-weight: 600; font-size: 12.5px; letter-spacing: 0.04em; margin: 4px 0 10px; }
+.card .how { font-size: 13px; line-height: 1.55; margin-bottom: 12px; font-weight: 400; }
+.pick { display: flex; align-items: center; gap: 12px; padding: 8px 10px; margin-bottom: 12px; border: 1px dashed var(--ink-soft); border-radius: 2px; background: rgba(231, 222, 199, 0.4); }
+.pick canvas { flex: none; width: 76px; height: 76px; }
+.pick-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pick-text b { font-size: 15px; font-weight: 700; }
+.pick-text small { font-size: 11.5px; color: var(--ink-soft); line-height: 1.4; }
+.playbtn {
+  width: 100%; font-family: inherit; font-stretch: 87.5%; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; cursor: pointer;
+  border: 1.5px solid var(--gold-deep); border-radius: 3px; padding: 9px 12px;
+}
+.playbtn:active { transform: translateY(1px); }
+/* the charts' heading, and how many are charted beside it (under it where
+   the arrows' keycaps leave no room) */
+.charts-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; margin-bottom: 8px; }
+.card .charts-head .charts-k { margin-bottom: 0; }
+.tally { font-size: 12px; color: var(--ink-soft); }
+
+/* the charts: a plate to a row, its numeral first; a chart charted is gold
+   leaf, one not yet open a faint dotted outline */
+.charts { margin-top: 14px; }
+.card .charts-k { font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 8px; }
+.grid { display: grid; grid-template-columns: auto repeat(5, 1fr); gap: 5px 6px; align-items: center; }
+.plate-k { font-size: 11px; font-weight: 700; color: var(--ink-soft); text-align: right; padding-right: 2px; white-space: nowrap; }
+.plate-k small { display: block; font-size: 9.5px; font-weight: 400; letter-spacing: 0.02em; }
+.lv {
+  position: relative; width: 32px; height: 32px; justify-self: center; padding: 0; cursor: pointer;
+  font-family: inherit; font-stretch: 87.5%; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--ink);
+  background: var(--paper-hi); border: 1.5px solid var(--ink); border-radius: 50%;
+}
+.lv:hover { background: #fffaf0; }
+.lv.charted { background: var(--leaf); border-color: var(--gold-deep); }
+.lv.current { box-shadow: 0 0 0 2px var(--paper-hi), 0 0 0 4px var(--red); }
+.lv.locked { color: var(--ink-faint); border: 1.5px dotted var(--ink-faint); background: transparent; cursor: not-allowed; }
+.lv.nope { animation: ob-nope 0.3s ease; }
+html.fx-off .lv.nope { animation: none; }
+@keyframes ob-nope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+.lock-note { min-height: 16px; margin-top: 8px; text-align: center; font-size: 11.5px; font-weight: 600; color: var(--red); }
+
+@media (min-width: 680px) {
+  .card.menu { width: min(860px, 100%); display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; }
+  .card.menu .charts { margin-top: 2px; }
+}
+
+/* the end card */
+.card.end { text-align: center; width: min(420px, 100%); }
+.card .big { font-size: 22px; font-weight: 700; margin: 6px 0 4px; font-variant-numeric: tabular-nums; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px 0 16px; font-size: 12.5px; color: var(--ink-soft); }
+.stats .best { font-weight: 700; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 999px; padding: 2px 12px; background: var(--paper); }
+.stats .best.record { background: var(--leaf); border-color: var(--gold-deep); }
+.card .row { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/* ---- phones ----------------------------------------------------------------- */
+@media (max-width: 520px) {
+  .panel { padding-top: 60px; }
+  .card { padding: 18px 16px 14px; }
+  .card h1 { font-size: 26px; }
+  .card .how { font-size: 12px; line-height: 1.5; }
+  .grid { gap: 4px 5px; }
+  .lv { width: 30px; height: 30px; font-size: 12px; }
+}
+/* short of room (a phone with its bars showing, a short laptop window): the
+   menu closer set, everything still on it */
+@media (max-height: 720px) {
+  .panel { padding-top: 58px; padding-bottom: 10px; }
+  .card { padding-top: 14px; padding-bottom: 10px; }
+  .card .tag { margin: 2px 0 6px; }
+  .card .how { margin-bottom: 8px; line-height: 1.45; }
+  .pick { padding: 5px 8px; margin-bottom: 8px; }
+  .pick canvas { width: 60px; height: 60px; }
+  .playbtn { padding: 7px 10px; }
+  .charts { margin-top: 8px; }
+  .lock-note { margin-top: 4px; }
+  .lock-note:empty { min-height: 0; margin-top: 0; }
+}
+@media (max-width: 520px) and (max-height: 700px) {
+  .panel { padding: 56px 10px 8px; }
+  .card { padding: 12px 14px 8px; }
+  .card h1 { font-size: 22px; }
+  .card .tag { margin: 0 0 4px; }
+  .card .how { font-size: 11.5px; line-height: 1.38; margin-bottom: 6px; }
+  .pick { gap: 9px; margin-bottom: 6px; }
+  .pick canvas { width: 50px; height: 50px; }
+  .pick-text b { font-size: 14px; }
+  .charts { margin-top: 8px; }
+  .charts-head { margin-bottom: 4px; }
+  .grid { gap: 3px 5px; }
+  .lv { width: 28px; height: 28px; }
+}
+/* a phone on its side: the two columns close set, so the whole card shows */
+@media (min-width: 680px) and (max-height: 430px) {
+  .panel { padding: 52px 12px 6px; }
+  .card { padding: 10px 16px 8px; }
+  .card.menu { column-gap: 20px; }
+  .card h1 { font-size: 21px; }
+  .card .tag { font-size: 11.5px; margin: 0 0 4px; }
+  .card .how { font-size: 11px; line-height: 1.35; margin-bottom: 6px; }
+  .pick { padding: 4px 8px; gap: 8px; margin-bottom: 6px; }
+  .pick canvas { width: 44px; height: 44px; }
+  .pick-text b { font-size: 13.5px; }
+  .pick-text small { font-size: 11px; line-height: 1.3; }
+  .playbtn { font-size: 14.5px; padding: 5px 10px; }
+  .tally { font-size: 11.5px; }
+  .card .charts-k { font-size: 13px; }
+  .charts-head { margin-bottom: 4px; }
+  .grid { gap: 2px 6px; }
+  .plate-k { font-size: 10.5px; }
+  .plate-k small { font-size: 9px; }
+  .lv { width: 27px; height: 27px; font-size: 12px; }
+  .lock-note { margin-top: 2px; }
+}
+
+.gs-pause { background: rgba(243, 236, 219, 0.5); }

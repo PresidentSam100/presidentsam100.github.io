@@ -97,6 +97,13 @@ files in `games/`; the comment at the top of each says more.
   (both public domain, downloaded first; the comment at its top says where
   from), with the everyday words marked and the words kept out of it;
   `--check` compares without writing.
+- `tools/orbits-check.js`: proves every Orbits chart can be charted. A sweep
+  of pushes on the keys' half steps finds, for each chart, the push with the
+  widest margin (every push within three tenths of it charts too, so the
+  half steps can't jump the patch) whose dotted line ends by its own length
+  or at its first swing past a sun, checks that the opening push charts
+  nothing, and prints a SOLUTIONS array for `tests/orbits.js` (a chart
+  number for one chart; `--check` tests the stored pushes instead).
 - `tools/slither-verify.js`: proves every Slither Labyrinth level can be
   finished in time (a level number, `--route`, `--bot`).
 - `tools/tile-maze-verify.js`, `tile-maze-sortlevels.js`, `tile-maze-gen.js`

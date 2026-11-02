@@ -22,6 +22,7 @@ const ALLOW = {
   "metazac/": ["#power-btn"],               // (it says SPACE on its face)
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
+  "orbits/": [".lv"],                       // the charts: a grid the arrows walk (the keys on its heading)
   "potting-shed/": ["#shed-grid .tile", "#mine-list .tile"],   // the shed lists (the arrows walk them, the keys on the heading)
   "potting-shed/editor.html": [".saved-item button"],   // my sheds' Edit, Play and Delete: a list the arrows walk (the keys by its heading)
   "rose-window/": [".wt"],                  // the windows to start from: a grid the arrows walk (the keys after its note)
@@ -70,6 +71,7 @@ const CARDS = {
   "tic-tac-toe/": [["#closeRules", "Enter"], ["#symPick button", "X"]],
   "klondike/": [["#m-rules", "F1"]],
   "pop-the-lock/": [["#play", "Space or Enter"]],
+  "orbits/": [["#btn-launch", "Space or Enter"], ["#btn-reset", "R"], ["#btn-charts", "⌫"], ["#n-ccw", "←"], ["#n-cw", "→"], ["#n-less", "↓"], ["#n-more", "↑"], ["#again", "R"], ["#to-charts", "⌫"], ["#next", "Space or Enter"]],
 };
 
 // the keycap an element wears: its own data-gs-key, one inside it, or a <kbd> inside it
