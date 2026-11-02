@@ -125,7 +125,8 @@
       hasCastle:true, castle:{wk:true,wq:true,bk:true,bq:true}, ep:null, last:null, over:false, winner:null,
       ending:1, sel:-1, legal:[], history:[], capList:[],
       halfmove:0, positions:[],   // (the draw rules: half-moves since a capture or pawn move, and every position so far)
-      sans:[], result:null };     // (the move log: each move as { col, san }, and "1-0" / "0-1" / "½-½" once it's over)
+      sans:[], result:null,       // (the move log: each move as { col, san }, and "1-0" / "0-1" / "½-½" once it's over)
+      opening:null };             // (and the named opening its moves have reached: openings())
   }
   function make4P(ending){
     const dim=14, board=new Array(dim*dim).fill(null), back=["r","n","b","q","k","b","n","r"];
@@ -209,55 +210,137 @@
     return (0.2126*r + 0.7152*g + 0.0722*b) / 255; }
 
   // ---- A move slides its piece across from the square it left, with Visual
-  // FX on or off (where a piece goes is play). FX on (RM_ON() is true when
-  // it's off) adds: a capture flies to its tray (or, with four players,
-  // shrinks away where it fell), and a king in check pulses (styles.css).
+  // FX on or off (where a piece goes is play), castling's rook with it. FX on
+  // (RM_ON() is true when it's off) is the lively way: the piece leaves a
+  // short trail of fading copies behind it (trails), a capture arcs up to its
+  // tray (or, with four players, spins away where it fell), and a king in
+  // check pulses (styles.css). FX off is the calm way, at the same pace: the
+  // piece glides in a straight line, softly in and out, with no trail, and a
+  // capture doesn't fly: it shows in its tray as the move lands (with four
+  // players it's simply gone). Undo plays its moves back the same ways
+  // (playBack).
   function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
-  const SLIDE_MS = 200;
-  let slide = null;   // the last move { from, to, t0 }, while its piece slides
+  const SLIDE_MS = 200, FLY_MS = 420, FALL_MS = 320, SLIDE_EASE = "cubic-bezier(.25,.8,.35,1)";
+  // the latest motion, while it plays: { paths: [from, to, the piece it
+  // travels as] for each piece that slides, ret: a capture coming back,
+  // back: an undo playing back, ms, t0 }
+  let slide = null;
+  const sqAt = (i) => boardEl.querySelector('.sq[data-i="'+i+'"]');
   // The board is rebuilt on every render, often twice for one move, so each
   // render starts the slide again at the point it had reached.
   function playSlide(){
     if(!slide) return;
     const el = performance.now() - slide.t0;
-    if(el >= SLIDE_MS){ slide = null; return; }
-    const sqTo = boardEl.querySelector('.sq[data-i="'+slide.to+'"]'), sqFrom = boardEl.querySelector('.sq[data-i="'+slide.from+'"]');
-    const pc = sqTo && sqTo.querySelector(".pc");
-    if(!pc || !sqFrom || !pc.animate) return;
-    const a = sqFrom.getBoundingClientRect(), b = sqTo.getBoundingClientRect();
-    sqTo.style.zIndex = "5";   // above the squares it passes over
-    const an = pc.animate([{ transform:"translate("+(a.left-b.left)+"px,"+(a.top-b.top)+"px)" }, { transform:"none" }],
-      { duration:SLIDE_MS, easing:"cubic-bezier(.25,.8,.35,1)" });
-    an.currentTime = el;
-    an.onfinish = () => { sqTo.style.zIndex = ""; };
+    if(el >= slide.ms){ slide = null; return; }
+    const lively = fxOn();
+    if(el < SLIDE_MS) for(const [from, to, as] of slide.paths){
+      const sqTo = sqAt(to), sqFrom = sqAt(from), pc = sqTo && sqTo.querySelector(".pc");
+      if(!pc || !sqFrom || !pc.animate) continue;
+      const a = sqFrom.getBoundingClientRect(), b = sqTo.getBoundingClientRect(), is = pc.textContent;
+      sqTo.style.zIndex = "5";   // above the squares it passes over
+      if(as) pc.textContent = FILLED[as];   // (a promotion taken back goes back as the piece it became, and lands as the pawn)
+      const an = pc.animate([{ transform:"translate("+(a.left-b.left)+"px,"+(a.top-b.top)+"px)" }, { transform:"none" }],
+        { duration:SLIDE_MS, easing: lively ? SLIDE_EASE : "ease-in-out" });
+      an.currentTime = el;
+      an.onfinish = () => { sqTo.style.zIndex = ""; pc.textContent = is; };
+    }
+    if(slide.ret) playReturn(slide.ret, el);
   }
-  // a new game or an undo drops whatever is still on its way
-  function stopMotion(){ slide = null; document.querySelectorAll(".pc.fly").forEach(g=>g.remove()); }
-  // the captured piece, lifted off its square to the tray it lands in
-  function flyCapture(piece, fromSq, by){
-    const sq = boardEl.querySelector('.sq[data-i="'+fromSq+'"]');
+  // FX on, a moving piece leaves a short trail: copies of it at its own size
+  // that follow it along its path, each a little later and fainter than the
+  // one before (how far behind, in ms, and how strong), gone soon after it
+  // lands. trails: { from, to, glyph, color, cls, t0 } while their copies
+  // are out, kept apart from the slide so a reply or an undo's next step
+  // doesn't cut them short; each render draws them again where they'd got to.
+  const TRAIL = [[30,.3],[60,.2],[90,.12]], TRAIL_FADE = 120, TRAIL_END = SLIDE_MS + 90 + TRAIL_FADE;
+  let trails = [];
+  function startTrails(paths, t0){
+    if(!fxOn()) return;
+    const V = shown || G;
+    for(const [from, to, as] of paths){
+      const p = V.board[to]; if(!p) continue;
+      const col = G.players[p.o].color;
+      trails.push({ from, to, glyph:FILLED[as || p.t], color:col, cls: lum(col)>0.55 ? "lt" : "dk", t0 });
+    }
+  }
+  function playTrails(){
+    const now = performance.now();
+    trails = trails.filter(t => now - t.t0 < TRAIL_END);
+    for(const t of trails){
+      const sqTo = sqAt(t.to), sqFrom = sqAt(t.from);
+      if(!sqTo || !sqFrom || !sqTo.animate) continue;
+      const a = sqFrom.getBoundingClientRect(), b = sqTo.getBoundingClientRect(), start = "translate("+(a.left-b.left)+"px,"+(a.top-b.top)+"px)";
+      for(const [late, strong] of TRAIL){
+        const g = document.createElement("span");
+        g.className = "ghost " + t.cls; g.textContent = t.glyph; g.style.color = t.color;
+        sqTo.appendChild(g);
+        const an = g.animate([{ transform:start, opacity:strong, easing:SLIDE_EASE }, { transform:"none", opacity:strong, offset:SLIDE_MS/(SLIDE_MS+TRAIL_FADE) },
+          { transform:"none", opacity:0 }], { duration:SLIDE_MS+TRAIL_FADE, delay:late, fill:"both" });
+        an.currentTime = now - t.t0;
+        an.onfinish = () => g.remove();
+      }
+    }
+  }
+  // a capture taken back, FX on: the piece rises out of its place in the
+  // tray (ret.from) and flies back to its square the way it went, or, with
+  // four players, grows back where it fell
+  function playReturn(ret, el){
+    const sq = sqAt(ret.sq), pc = sq && sq.querySelector(".pc");
+    if(!pc || !pc.animate) return;
+    const b = sq.getBoundingClientRect(), f = ret.from;
+    let frames;
+    if(f){
+      const x = f.x - (b.left + b.width/2 + scrollX), y = f.y - (b.top + b.height/2 + scrollY);
+      frames = [{ transform:"translate("+x+"px,"+y+"px) scale("+f.fs/parseFloat(getComputedStyle(pc).fontSize)+")" },
+        { transform:"translate("+x*0.5+"px,"+(y*0.5-b.height*0.6)+"px) scale(.8)", offset:.5 }, { transform:"none" }];
+    } else frames = [{ transform:"rotate(-25deg) scale(.3)", opacity:0 }, { transform:"none", opacity:getComputedStyle(pc).opacity }];
+    sq.style.zIndex = "6";   // above the board, and the piece leaving
+    const an = pc.animate(frames, { duration: f ? FLY_MS : FALL_MS, easing:"ease-in-out" });
+    an.currentTime = el;
+    an.onfinish = () => { sq.style.zIndex = ""; };
+  }
+  // a new game, an undo or a pause lands whatever is still on its way
+  function stopMotion(){
+    slide = null; shown = null; clearTimeout(backTimer); trails = [];
+    inbound.clear(); flights.forEach(a=>a.cancel()); flights.clear(); lands.forEach(clearTimeout); lands.clear();
+    document.querySelectorAll(".pc.fly").forEach(g=>g.remove());
+  }
+  // the captured piece, lifted off its square to the tray it lands in: its
+  // place there is kept, unseen, until it lands on it (inbound); FX off it
+  // doesn't fly, and its place fills as the move lands (lands: the timers)
+  const inbound = new Set(), flights = new Set(), lands = new Set();
+  function flyCapture(piece, fromSq, by, entry){
+    const sq = sqAt(fromSq), lively = fxOn();
     if(!sq || !document.body.animate) return;
     const r = sq.getBoundingClientRect(), col = G.players[piece.o].color;
+    let to = null, tp = null;
+    if(G.mode===2){
+      // (to the tray's newest piece: render() has just put it there)
+      tp = $(by==="w" ? "capW" : "capB").lastElementChild;
+      const tr = tp && tp.getBoundingClientRect();
+      if(tr && tr.width) to = { x: tr.left + tr.width/2 - (r.left + r.width/2), y: tr.top + tr.height/2 - (r.top + r.height/2), s: parseFloat(getComputedStyle(tp).fontSize) / (r.width * 0.8) };
+    }
+    if(!lively){
+      if(to){ tp.style.visibility = "hidden"; inbound.add(entry);
+        const t = setTimeout(()=>{ lands.delete(t); if(inbound.delete(entry)) renderTrays(); }, SLIDE_MS); lands.add(t); }
+      return;
+    }
     const g = document.createElement("span");
     g.className = "pc fly " + (lum(col)>0.55?"lt":"dk");
     g.textContent = FILLED[piece.t]; g.style.color = col;
     g.style.left = (r.left + r.width/2) + "px"; g.style.top = (r.top + r.height/2) + "px";
     g.style.fontSize = (r.width * 0.8) + "px";
     document.body.appendChild(g);
-    let to = null;
-    if(G.mode===2){
-      // (to the tray's newest piece: render() has just put it there)
-      const tp = $(by==="w" ? "capW" : "capB").lastElementChild;
-      const tr = tp && tp.getBoundingClientRect();
-      if(tr && tr.width) to = { x: tr.left + tr.width/2 - (r.left + r.width/2), y: tr.top + tr.height/2 - (r.top + r.height/2), s: tr.height / (r.width * 0.8) };
-    }
-    const frames = to
-      ? [{ transform:"translate(-50%,-50%)", opacity:1 },
-         { transform:"translate(-50%,-50%) translate("+to.x*0.5+"px,"+(to.y*0.5-r.height*0.6)+"px) scale(.8)", opacity:1, offset:.5 },
-         { transform:"translate(-50%,-50%) translate("+to.x+"px,"+to.y+"px) scale("+to.s+")", opacity:.2 }]
-      : [{ transform:"translate(-50%,-50%) rotate(0)", opacity:1 }, { transform:"translate(-50%,-50%) rotate(-25deg) scale(.3)", opacity:0 }];
-    const an = g.animate(frames, { duration: to ? 420 : 320, easing:"ease-in-out" });
-    an.onfinish = an.oncancel = () => g.remove();
+    if(to){ tp.style.visibility = "hidden"; inbound.add(entry); }
+    const end = to && { transform:"translate(-50%,-50%) translate("+to.x+"px,"+to.y+"px) scale("+to.s+")" };
+    const frames = !to ? [{ transform:"translate(-50%,-50%) rotate(0)", opacity:1 }, { transform:"translate(-50%,-50%) rotate(-25deg) scale(.3)", opacity:0 }]
+      : [{ transform:"translate(-50%,-50%)" },
+         { transform:"translate(-50%,-50%) translate("+to.x*0.5+"px,"+(to.y*0.5-r.height*0.6)+"px) scale(.8)", offset:.5 }, end];
+    const an = g.animate(frames, { duration: to ? FLY_MS : FALL_MS, easing:"ease-in-out" });
+    flights.add(an);
+    // landed: it goes, and the tray shows its own piece there
+    an.onfinish = () => { g.remove(); if(flights.delete(an) && inbound.delete(entry)) renderTrays(); };
+    an.oncancel = () => g.remove();
   }
 
   function render(){
@@ -265,16 +348,20 @@
     // (paused: the squares alone, with no piece, last move, check or move dot
     // on them, so a pause is no free look at the position)
     const hide = paused;
-    const inCk = !hide && !G.over && inCheck(G,G.board,G.turn) ? kingSq(G,G.board,G.turn) : -1;
+    if(hide) stopMotion();
+    // the position drawn: the game's, or while an undo takes back two moves,
+    // the one between them (playBack)
+    const V = shown || G;
+    const inCk = !hide && !V.over && inCheck(G,V.board,V.turn) ? kingSq(G,V.board,V.turn) : -1;
     const cells=[]; for(let i=0;i<G.board.length;i++) cells.push(i);
     const seq = flipped ? cells.slice().reverse() : cells;
     for(const i of seq){
       const [r,c]=rc(G,i); const sq=document.createElement("div");
       if(!G.valid(r,c)){ sq.className="sq off"; boardEl.appendChild(sq); continue; }
       sq.className="sq "+((r+c)%2===0?"l":"d"); sq.dataset.i=i;
-      const p=hide ? null : G.board[i]; if(!p) sq.classList.add("empty");
+      const p=hide ? null : V.board[i]; if(!p) sq.classList.add("empty");
       if(!hide && i===G.sel) sq.classList.add("sel");
-      if(!hide && G.last&&(i===G.last.from||i===G.last.to)) sq.classList.add("last");
+      if(!hide && V.last&&(i===V.last.from||i===V.last.to)) sq.classList.add("last");
       if(i===inCk) sq.classList.add("check");
       const mv=hide ? null : G.legal.find(m=>m.to===i);
       if(mv){ const d=document.createElement("div"); d.className="dot"; sq.appendChild(d); if(mv.cap) sq.classList.add("cap"); }
@@ -295,17 +382,21 @@
       sq.addEventListener("click",()=>onSquare(i));
       boardEl.appendChild(sq);
     }
-    if(G.mode===2){
-      // each tray holds the other side's pieces in their own colour, outlined
-      // as on the board (so a piece that flies there lands as itself)
-      const caps = (by) => { const col = G.players[by==="w" ? "b" : "w"].color, cls = "pc " + (lum(col)>0.55?"lt":"dk");
-        return G.capList.filter(x=>x.by===by).map(x=>'<span class="'+cls+'" style="color:'+col+'">'+FILLED[x.t]+'</span>').join("")||"&nbsp;"; };
-      $("capW").innerHTML = caps("w");
-      $("capB").innerHTML = caps("b");
-    } else renderPlayers();
+    if(G.mode===2) renderTrays(); else renderPlayers();
     renderClocks();
     renderLog();
-    if(hide) stopMotion(); else playSlide();
+    $("undoBtn").disabled = !canUndo();
+    if(!hide){ playSlide(); playTrails(); }
+  }
+  // each tray holds the other side's pieces in their own colour, outlined as
+  // on the board (so a piece that flies there lands as itself); one still on
+  // its way there has its place kept, unseen
+  function renderTrays(){
+    const V = shown || G;
+    const caps = (by) => { const col = G.players[by==="w" ? "b" : "w"].color, cls = "pc " + (lum(col)>0.55?"lt":"dk");
+      return V.capList.filter(x=>x.by===by).map(x=>'<span class="'+cls+'" style="color:'+col+(inbound.has(x) ? ';visibility:hidden' : '')+'">'+FILLED[x.t]+'</span>').join("")||"&nbsp;"; };
+    $("capW").innerHTML = caps("w");
+    $("capB").innerHTML = caps("b");
   }
 
   // ============================================================ clock
@@ -391,7 +482,10 @@
   }
 
   function onSquare(i){
-    if(G.over || cpuThinking) return; const p=G.board[i];
+    if(G.over || cpuThinking) return;
+    // (an undo still playing back lands first: a click never starts a move beside it)
+    if(shown || (slide && slide.back && performance.now()-slide.t0 < slide.ms)){ stopMotion(); render(); }
+    const p=G.board[i];
     if(p && !p.dead && p.o===G.turn){ G.sel=i; G.legal=legalFor(G,i); render(); return; }
     if(G.sel>=0){ const m=G.legal.find(mm=>mm.to===i);
       if(m){ if(m.promo){ askPromo(m); return; } doMove(m); return; } }
@@ -416,7 +510,7 @@
       castle:G.castle?Object.assign({},G.castle):null,
       players:JSON.parse(JSON.stringify(G.players)), capList:G.capList.slice(), over:G.over, winner:G.winner,
       halfmove:G.halfmove, positions:G.positions ? G.positions.slice() : null,
-      sans:G.sans ? G.sans.slice() : null, result:G.result||null,
+      sans:G.sans ? G.sans.slice() : null, result:G.result||null, opening:G.opening||null,
       clock: G.clock ? { enabled:G.clock.enabled, w:G.clock.w, b:G.clock.b, inc:G.clock.inc, running:G.clock.running } : null };
   }
 
@@ -480,22 +574,16 @@
     el.innerHTML += G.result ? '<li class="res">'+G.result+'</li>' : "";
     // (paused: no free look at the game, as on the board)
     el.classList.toggle("hid", paused);
+    // the opening, under the heading (2 players), hidden by a pause as the log is
+    const op=$("logOpening");
+    if(op){ op.textContent = G.mode===2 && G.opening || ""; op.hidden = !op.textContent; op.classList.toggle("hid", paused); }
     $("logNone").hidden = rows.length>0 || !!G.result;
     el.scrollTop = el.scrollHeight;   // the latest move in view
   }
 
-  function doMove(m, promoType){
-    const b=G.board, p=b[m.from], col=p.o;
-    const captured = m.ep ? b[G.ep.victim] : b[m.to];
-    const capSq = m.ep ? G.ep.victim : m.to;
-    const san = sanOf(m, promoType);
-    G.history.push(snapshot());
-    if(G.clock && G.clock.enabled) G.clock[col] += G.clock.inc;
-
-    G.board = applyTo(G,b,m,promoType);
-    if(captured) G.capList.push({by:col, t:captured.t});
-    G.halfmove = captured || p.t==="p" ? 0 : (G.halfmove||0)+1;
-
+  // what a move (of p, col's) leaves of the castling rights, and the square a
+  // pawn can take en passant on
+  function rightsAfter(m, p, col){
     if(G.hasCastle && G.castle){
       if(p.t==="k"){ G.castle[col+"k"]=false; G.castle[col+"q"]=false; }
       if(m.from===56||m.to===56) G.castle.wq=false; if(m.from===63||m.to===63) G.castle.wk=false;
@@ -503,6 +591,57 @@
     }
     if(m.dbl){ const [fr,fc]=rc(G,m.from), [dr,dc]=G.pawnDir[col]; G.ep={ sq:idx(G,fr+dr,fc+dc), victim:m.to }; }
     else G.ep=null;
+  }
+
+  // ---- the openings the 2-player log names (their table is openings.js).
+  // Each is kept as the position its moves reach, as posKey() writes it (the
+  // pieces, the side to move, castling rights and a real en passant), so a
+  // game that gets there by another order of moves is named too. Built once,
+  // as the page loads, by playing each line through on a board of its own (G
+  // stands in for it meanwhile, as the rules read G).
+  let OPENINGS = null;
+  function openings(){
+    if(OPENINGS) return OPENINGS;
+    OPENINGS = new Map();
+    const game = G;
+    try{
+      for(const [name, line] of (window.CHESS_OPENINGS || [])){
+        G = make2P();
+        let ok = true;
+        for(const tok of line.split(" ")){
+          const san = tok.replace(/[+#]$/,""), t = /^[KQRBN]/.test(san) ? san[0].toLowerCase() : san[0]==="O" ? "k" : "p";
+          const sq = san[0]==="O" ? null : san.match(/[a-h][1-8]/g).pop();
+          let m = null;
+          for(let i=0;i<64 && !m;i++){ const q=G.board[i];
+            if(q && q.o===G.turn && q.t===t) m = legalFor(G,i).find(x=> (!sq || sqName(x.to)===sq) && sanOf(x,"q")===san) || null; }
+          if(!m){ ok = false; break; }
+          const p = G.board[m.from];
+          G.board = applyTo(G,G.board,m,"q"); rightsAfter(m, p, p.o); G.turn = p.o==="w" ? "b" : "w";
+        }
+        if(ok) OPENINGS.set(posKey(), name);
+      }
+    } finally { G = game; }
+    return OPENINGS;
+  }
+
+  function doMove(m, promoType){
+    const b=G.board, p=b[m.from], col=p.o;
+    const captured = m.ep ? b[G.ep.victim] : b[m.to];
+    const capSq = m.ep ? G.ep.victim : m.to;
+    const san = sanOf(m, promoType);
+    const [hr] = rc(G,m.from), rook = !m.castle ? null : m.castle==="k" ? [idx(G,hr,7), idx(G,hr,5)] : [idx(G,hr,0), idx(G,hr,3)];
+    const h = snapshot();
+    // (the move made from here, as Undo plays it back: the rules never read it)
+    h.move = { from:m.from, to:m.to, rook, promo: m.promo ? (promoType||"q") : null, cap: captured ? { sq:capSq, by:col } : null };
+    G.history.push(h);
+    if(G.clock && G.clock.enabled) G.clock[col] += G.clock.inc;
+
+    G.board = applyTo(G,b,m,promoType);
+    const took = captured ? {by:col, t:captured.t} : null;
+    if(took) G.capList.push(took);
+    G.halfmove = captured || p.t==="p" ? 0 : (G.halfmove||0)+1;
+
+    rightsAfter(m, p, col);
     let entry=null;
     if(G.mode===2){
       const opp = col==="w" ? "b" : "w";
@@ -519,9 +658,10 @@
     G.last={from:m.from,to:m.to}; G.sel=-1; G.legal=[];
     if(m.castle) SFX.castle(); else if(m.promo) SFX.promote(); else if(captured) SFX.capture(); else SFX.move();
 
-    slide = { from:m.from, to:m.to, t0:performance.now() };
+    slide = { paths:[[m.from, m.to]].concat(rook ? [rook] : []), ms:SLIDE_MS, t0:performance.now() };
+    startTrails(slide.paths, slide.t0);
     render();
-    if(captured && fxOn()) flyCapture(captured, capSq, col);
+    if(captured) flyCapture(captured, capSq, col, took);
     advance(col);
   }
 
@@ -542,6 +682,7 @@
         if(G.mode===2){
           const key=posKey();
           G.positions.push(key);
+          if(openings().has(key)) G.opening=openings().get(key);   // (a name it keeps once its moves leave the table)
           if(G.positions.filter(k=>k===key).length>=3) return endGame("Draw: threefold repetition","The same position has come up three times, with the same player to move.");
           if(G.halfmove>=100) return endGame("Draw: 50-move rule","Fifty moves each have gone by with no capture and no pawn move.");
         }
@@ -632,22 +773,53 @@
   function popOnce(){
     const h=G.history.pop();
     G.board=h.board.map(p=>p); G.turn=h.turn; G.ep=h.ep; G.last=h.last; G.castle=h.castle;
-    G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[]; stopMotion();
+    G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner; G.sel=-1; G.legal=[];
     G.halfmove=h.halfmove; G.positions=h.positions;   // (so the draw rules count from where play resumes)
-    G.sans=h.sans; G.result=h.result;                 // (and the move log ends where play resumes)
+    G.sans=h.sans; G.result=h.result; G.opening=h.opening;   // (and the move log, its opening too, ends where play resumes)
     if(h.clock) G.clock = { enabled:h.clock.enabled, w:h.clock.w, b:h.clock.b, inc:h.clock.inc, running:h.clock.running, lastTick:Date.now() };
+    return h;
   }
+  // Undo takes back your own moves: with none of them on the board (playing
+  // Black, the CPU's opening move alone) it has nothing to do, and its button
+  // shows that (render), so the CPU's move can't be taken back from under it.
+  function canUndo(){ return !!G && G.history.length>0 && (!G.vsCPU || G.history.some(h=>h.turn!==G.cpuColor)); }
   // Vs CPU, undo always hands control back to the human: a completed CPU
   // reply pops twice (its move + the human move before it); a cancelled
   // mid-think undo pops just the human's move, since the CPU never moved.
   function undo(){
-    if(!G.history.length) return;
+    if(!canUndo()) return;
     if(cpuThinking) cancelCpuThink();
     clearTimeout(endCardTimer);   // an undo just after the game ends: its end card mustn't show over the game again
-    popOnce();
-    while(G.vsCPU && !G.over && G.turn===G.cpuColor && G.history.length) popOnce();
+    stopMotion(); render();       // (whatever is still on its way lands, so the playback starts from the board as it stands)
+    const steps=[popOnce()];
+    while(G.vsCPU && !G.over && G.turn===G.cpuColor && G.history.length) steps.push(popOnce());
     if(G.clock) G.clock.lastTick=Date.now();
-    $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G,G.board,G.turn));
+    $("overOverlay").classList.remove("show"); playBack(steps, 0); setStatus(inCheck(G,G.board,G.turn));
+  }
+  // ---- Undo plays the moves it takes back in reverse, the last one first,
+  // as a move plays with Visual FX on or off: each piece slides back to the
+  // square it came from (castling's rook too; a promotion goes back as the
+  // piece it became and lands as the pawn), and with FX on a piece it took
+  // rises out of its tray and flies back to its square (with four players it
+  // grows back where it fell; with FX off it's simply there again, as it
+  // went). The game is back where play resumes at once: only the drawing
+  // catches up, and an undo of two moves (yours and the CPU's reply) shows
+  // the position between them while the reply goes back.
+  let shown=null, backTimer=null;
+  function playBack(steps, k){
+    const h=steps[k], mv=h.move;
+    shown = k<steps.length-1 ? h : null;
+    let ret=null;
+    if(mv && mv.cap && fxOn()){
+      // (where it lies: its side's newest piece in the tray, on the board as drawn)
+      const tp = G.mode===2 && $(mv.cap.by==="w" ? "capW" : "capB").lastElementChild, r = tp && tp.getBoundingClientRect();
+      ret = { sq:mv.cap.sq, from: r && r.width ? { x:r.left+r.width/2+scrollX, y:r.top+r.height/2+scrollY, fs:parseFloat(getComputedStyle(tp).fontSize) } : null };
+    }
+    slide = mv ? { paths:[[mv.to, mv.from, mv.promo]].concat(mv.rook ? [[mv.rook[1], mv.rook[0]]] : []), ret, back:true,
+      ms: ret ? (ret.from ? FLY_MS : FALL_MS) : SLIDE_MS, t0:performance.now() } : null;
+    if(slide) startTrails(slide.paths, slide.t0);
+    render();
+    if(shown) backTimer=setTimeout(()=>playBack(steps, k+1), slide ? slide.ms : 0);
   }
 
   // ============================================================ CPU (worker)
@@ -874,4 +1046,5 @@
   }
 
   start(2);  // build a board behind the menu
+  openings();   // (the openings table, built now, behind the menu: a move that had to build it could run past its own slide)
 })();

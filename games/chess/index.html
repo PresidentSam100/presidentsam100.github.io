@@ -41,7 +41,7 @@
 
 <div class="layout">
   <!-- the move log: the game in algebraic notation, a scoresheet beside the board -->
-  <div class="tray logbox" id="logBox"><h3>Moves</h3><p class="none" id="logNone">No moves yet</p><ol class="log" id="moveLog" aria-label="Moves"></ol></div>
+  <div class="tray logbox" id="logBox"><h3>Moves</h3><p class="opening" id="logOpening" hidden></p><p class="none" id="logNone">No moves yet</p><ol class="log" id="moveLog" aria-label="Moves"></ol></div>
   <div class="boardwrap"><div id="board"></div></div>
   <div class="side">
     <div id="side2">
@@ -141,6 +141,7 @@
   <button class="btn primary" id="overAgain" style="width:100%">New Game</button>
 </div></div>
 
+<script src="openings.js"></script>
 <script src="game.js"></script>
 <!-- a cup on the table by each player (decoration, never in the way) -->
 <script src="cups.js"></script>

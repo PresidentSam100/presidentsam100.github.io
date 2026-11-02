@@ -7,7 +7,7 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK2 = ["start(2);  // build a board behind the menu",
-  "start(2);  // build a board behind the menu\n  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start, render: render };"];
+  "start(2);  // build a board behind the menu\n  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start, render: render, sanOf: sanOf };"];
 const HOOK3 = ["start(3); // build board behind menu (default frozen-pieces rule)",
   "start(3); // build board behind menu (default frozen-pieces rule)\n  window.__three = { get G() { return G; }, cid: cid, genMoves: genMoves, legalFor: legalFor, inCheck: inCheck, doMove: doMove, start: start };"];
 
@@ -752,8 +752,23 @@ module.exports = async ({ browser, base, check, lib }) => {
         if (!log || !lb) return { opera, missing: true };
         const last = log.lastElementChild && log.lastElementChild.getBoundingClientRect(), lv = log.getBoundingClientRect();
         const parts = [box(lb), box(document.querySelector(".boardwrap")), box(document.querySelector(".side"))];
-        return { opera, empty, full: page(), vw: innerWidth, log: parts[0], board: parts[1], side: parts[2],
+        // how far the list stops short of the panel's foot (inside its padding), and the rows it shows before it scrolls
+        const fillOf = () => { const l = log.getBoundingClientRect(), b = lb.getBoundingClientRect();
+          return { gap: Math.round(b.bottom - parseFloat(getComputedStyle(lb).paddingBottom) - l.bottom), rows: Math.floor(log.clientHeight / log.firstElementChild.getBoundingClientRect().height), panel: Math.round(b.height) }; };
+        const fill = fillOf();
+        const res = { opera, empty, full: page(), vw: innerWidth, log: parts[0], board: parts[1], side: parts[2], fill,
           scrolls: log.scrollHeight > log.clientHeight + 10, lastIn: !!last && last.bottom <= lv.bottom + 1 && last.top >= lv.top - 1 };
+        // the longest opening name, under the heading: whole, inside the panel, above the list, which still fills the rest
+        C.G.opening = "Italian Game: Two Knights Defence, Traxler Counterattack"; C.render();
+        const on = document.getElementById("logOpening");
+        if (on) {
+          const ob = on.getBoundingClientRect(), pb = lb.getBoundingClientRect();
+          res.named = { shown: !on.hidden && getComputedStyle(on).visibility === "visible", text: on.textContent,
+            inside: ob.left >= pb.left && ob.right <= pb.right && ob.top >= pb.top && ob.bottom <= pb.bottom && ob.height > 0,
+            whole: on.scrollWidth <= on.clientWidth + 1 && on.scrollHeight <= on.clientHeight + 1, above: ob.bottom <= log.getBoundingClientRect().top + 1,
+            fill: fillOf(), box: box(lb), full: page() };
+        }
+        return res;
       }, [OPERA, label === "1280x900"]);
       got[label].errs = q.errs;
       await c.close();
@@ -768,6 +783,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       wideOnes.every((k) => wide(got[k])), Object.fromEntries(wideOnes.map((k) => [k, got[k]])));
     check("chess log: on a phone it sits right under the board, above the trays and buttons, inside the screen, and a long game scrolls inside it to the latest move (390, 360, 320 px, and 375 x 553)",
       ["390", "360", "320", "375x553"].every((k) => narrow(got[k])), { p390: got["390"], p360: got["360"], p320: got["320"], short: got["375x553"] });
+    const all = Object.keys(got);
+    check("chess log: its list fills the whole panel before it scrolls, on a laptop (the panel as tall as the board) and on a phone (1280 x 900 to 1920 x 1080, 1366 x 657, 1280 x 600, 390, 360, 320 px, 375 x 553)",
+      all.every((k) => !got[k].missing && got[k].fill.gap <= 2), Object.fromEntries(all.map((k) => [k, got[k].fill])));
+    check("chess log: an opening's name, the longest there is, shows whole under the heading, inside the panel and above the list, which still fills the rest; on a laptop the panel is no taller for it, on a phone the log starts where it did, and the page is no wider",
+      all.every((k) => { const g = got[k], n = g.named; return !!n && n.shown && n.inside && n.whole && n.above && n.fill.gap <= 2 && n.full[1] <= g.vw && n.box[1] === g.log[1] &&
+        (wideOnes.includes(k) ? n.box[3] === g.log[3] : true); }), Object.fromEntries(all.map((k) => [k, got[k].named])));
     check("chess log (sizes): no page errors", Object.values(got).every((g) => g.errs.length === 0), Object.fromEntries(Object.entries(got).map(([k, g]) => [k, g.errs])));
   }
 
@@ -1007,6 +1028,495 @@ module.exports = async ({ browser, base, check, lib }) => {
       three.all > 0 && three.shown === three.all && four.all > 0 && four.shown === four.all, { three, four });
     check("chess (phone labels): no page errors", q3.errs.length === 0 && q4.errs.length === 0, [q3.errs, q4.errs]);
     await c.close();
+  }
+
+  // ---- how pieces move. A move glides in a straight line at the piece's
+  // own size, FX on or off, in the same time. FX on is lively: the piece
+  // leaves a short trail of fading copies behind it, and a capture arcs up to
+  // its tray; FX off is calm: no trail, and a capture that doesn't fly. A capture's place in its tray is
+  // kept empty until it gets there: FX on, it shows only as the flying piece
+  // lands on it (in its place, at its size, as itself); FX off, as the move
+  // lands. And Undo plays the move back as a move plays: the piece slides
+  // back from the square it went to (castling's rook too; a promotion goes
+  // back as the piece it became and lands as the pawn), and a piece it took
+  // leaves its tray at once and, FX on, flies back out of it to the square
+  // it was taken on (with four players it grows back where it fell); FX off
+  // it's simply there again. Two undos at once: the first lands, the second
+  // plays. On a laptop and a phone. Each motion is read held at points of
+  // its run (never after a wait), and the rules are back exactly as they were.
+  {
+    const { devices } = require("@playwright/test");
+    // (in the page) the piece on square i, its centre (and width) as drawn, and
+    // as drawn held at a point k (0 to 1) of its animation; every piece's
+    // motion run to its end; the game as the rules read it
+    const PROBE = () => {
+      window.__pc = (i) => document.querySelector('#board .sq[data-i="' + i + '"] .pc');
+      window.__mid = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, r.width]; };
+      window.__held = (e, k) => { const a = e && e.getAnimations()[0]; if (!a) return null; a.pause(); a.currentTime = a.effect.getTiming().duration * k; return __mid(e); };
+      window.__land = () => document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".pc, text.glyph")).forEach((a) => a.finish());
+      window.__rules = () => { const G = (window.__chess || window.__three).G; return JSON.stringify([G.board, G.turn, G.castle, G.ep, G.capList, G.halfmove, G.positions, G.sans, G.log, G.over]); };
+      window.__until = async (f) => { for (let n = 0; n < 900 && !f(); n++) await new Promise((r) => requestAnimationFrame(r)); return f(); };
+      // the page's clock held still while fn runs: a move's renders all start its motion at its start, however busy the machine
+      window.__still = (fn) => { const real = performance.now, t = real.call(performance); performance.now = () => t; try { return fn(); } finally { performance.now = real; } };
+    };
+    const near = (a, b, px) => !!a && !!b && Math.hypot(a[0] - b[0], a[1] - b[1]) <= (px || 2);
+    // how far along the way from a to c point b is (0 to 1), and how far off it
+    const along = (a, b, c) => { if (!a || !b || !c) return NaN; const dx = c[0] - a[0], dy = c[1] - a[1], L = dx * dx + dy * dy; return L ? ((b[0] - a[0]) * dx + (b[1] - a[1]) * dy) / L : NaN; };
+    const off = (a, b, c) => { if (!a || !b || !c) return NaN; const dx = c[0] - a[0], dy = c[1] - a[1]; return Math.abs((b[0] - a[0]) * dy - (b[1] - a[1]) * dx) / Math.hypot(dx, dy); };
+    // slid: drawn at the start where it was, a quarter of the way on part of the way there, and at the end where it is now
+    const slid = (from, s0, s25, end) => near(s0, from) && along(from, s25, end) > 0.1 && along(from, s25, end) < 0.95 && !near(end, from, 10);
+    const openFx = (c, url, offFx, before) => lib.open(c, base, url, { before: async (pg) => {
+      await pg.addInitScript((offFx) => localStorage.setItem("reduceMotion:chess", offFx ? "1" : "0"), offFx);
+      await pg.addInitScript(PROBE);
+      await before(pg);
+    } });
+    const hook2 = (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]);
+    const html3 = fs.readFileSync(path.join(lib.ROOT, "games/chess/three.html"), "utf8").replace(HOOK3[0], HOOK3[1]);
+    const hook3 = (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8", body: html3 }));
+
+    // the 2-player board (local) and the 4-player cross
+    const local = {};
+    for (const [size, opts] of [["laptop", {}], ["phone", devices["iPhone 13"]]]) {
+      const c = await lib.newContext(browser, opts);
+      for (const offFx of [false, true]) {
+        const q = await openFx(c, "games/chess/", offFx, hook2);
+        const r = await q.evaluate(async () => {
+          document.getElementById("menu").classList.remove("show");
+          const C = __chess, go = (f, t, pr) => __still(() => C.doMove(C.legalFor(C.G, f).find((m) => m.to === t), pr));
+          const undo = () => __still(() => document.getElementById("undoBtn").click());
+          const seen = (e) => !!e && getComputedStyle(e).visibility === "visible";
+          const slot = () => document.getElementById("capW").lastElementChild, flying = () => document.querySelector(".pc.fly");
+          const setup = (pieces, castle, turn) => {
+            C.start(2); const G = C.G, b = new Array(64).fill(null);
+            for (const [i, o, t] of pieces) b[i] = { o, t, dead: false };
+            G.board = b; G.turn = turn || "w"; G.ep = null; G.castle = Object.assign({ wk: false, wq: false, bk: false, bq: false }, castle || {}); C.render();
+          };
+          const out = {};
+          // the way Nf3 goes, and exd5's capture to its tray, held at points of their runs: where, how wide, any tilt
+          const pt = (e, k) => { const m = __held(e, k), t = getComputedStyle(e).transform, v = /^matrix\(/.test(t) ? t.slice(7, -1).split(",").map(Number) : [1, 0, 0, 1];
+            return { m, tilt: Math.abs(v[1]) + Math.abs(v[2]) }; };
+          C.start(2); go(62, 45);
+          const nf = __pc(45), na = nf.getAnimations()[0];
+          // the trail: its copies and the piece, each held 120 ms into the move (where, how strong, how big, any scale or turn)
+          const held = (e, t) => { const a = e.getAnimations()[0]; if (!a) return null; a.pause(); a.currentTime = t;
+            const r = e.getBoundingClientRect(), cs = getComputedStyle(e), v = /^matrix\(/.test(cs.transform) ? cs.transform.slice(7, -1).split(",").map(Number) : [1, 0, 0, 1];
+            return { m: [r.left + r.width / 2, r.top + r.height / 2], o: +cs.opacity, fs: cs.fontSize, plain: v[0] === 1 && v[3] === 1 && v[1] === 0 && v[2] === 0 }; };
+          const copies = [...document.querySelectorAll('#board .sq[data-i="45"] .ghost')];
+          out.trail = { n: copies.length, piece: held(nf, 120), copies: copies.map((g) => held(g, 120)) };
+          out.path = { dur: na.effect.getTiming().duration, pts: [0, 0.15, 0.3, 0.45, 0.6, 0.8, 0.999].map((k) => pt(nf, k)) };
+          na.finish(); out.path.rest = __mid(nf);
+          // let the copies run on: gone soon after the piece is down
+          copies.forEach((g) => g.getAnimations().forEach((a) => a.play()));
+          out.trail.gone = await __until(() => !document.querySelector("#board .ghost"));
+          C.start(2); go(52, 36); go(11, 27); __land(); go(36, 27);
+          const fp = flying(), fpa = fp && fp.getAnimations()[0];
+          out.flyPath = fp ? { dur: fpa.effect.getTiming().duration, pts: [0, 0.25, 0.5, 0.75, 0.999].map((k) => pt(fp, k)) } : null;
+          __land(); await __until(() => !flying());
+          // exd5 sends Black's pawn to "Captured by White"
+          C.start(2); go(52, 36); go(11, 27); __land();
+          const before = __rules();
+          go(36, 27);
+          const f = flying(), fa = f && f.getAnimations()[0];
+          out.fly = { flying: !!f, slotSeen: seen(slot()) };
+          if (fa) {
+            const end = __held(f, 1 - 1e-4);
+            Object.assign(out.fly, { end, slot: __mid(slot()), opacity: +getComputedStyle(f).opacity, slotAtEnd: seen(slot()) });
+          }
+          __land(); await __until(() => !flying() && seen(slot()));
+          out.fly.landed = seen(slot());
+          // ...and Undo takes it back out of the tray to d5, the pawn sliding back to e4
+          const rest = { d5: __mid(__pc(27)), slot: __mid(slot()) };
+          undo();
+          out.cap = { rest, trayLeft: document.getElementById("capW").children.length, rules: __rules() === before,
+            m0: __held(__pc(36), 0), m25: __held(__pc(36), 0.25), c0: __held(__pc(27), 0), c5: __held(__pc(27), 0.5) };
+          __land(); out.cap.mEnd = __mid(__pc(36)); out.cap.cEnd = __mid(__pc(27));
+          // Undo straight after the capture, while it's still on its way: it comes back from its place in the tray
+          go(36, 27);
+          const inAir = __mid(slot());
+          undo();
+          out.midFly = { flies: document.querySelectorAll(".pc.fly").length, trayLeft: document.getElementById("capW").children.length, c0: __held(__pc(27), 0), slot: inAir, rules: __rules() === before };
+          __land();
+          // a plain move: e4, and back
+          C.start(2); go(52, 36); __land();
+          const e4 = __mid(__pc(36));
+          undo();
+          out.plain = { from: e4, m0: __held(__pc(52), 0), m25: __held(__pc(52), 0.25), copies: document.querySelectorAll('#board .sq[data-i="52"] .ghost').length };
+          __land(); out.plain.end = __mid(__pc(52));
+          // two undos at once (after e4 e5): the first lands, the second plays
+          go(52, 36); go(12, 28); __land();
+          undo(); undo();
+          out.twice = { start: C.G.history.length === 0 && C.G.turn === "w", e2: __pc(52) ? __pc(52).getAnimations().length : -1, e7: __pc(12) ? __pc(12).getAnimations().length : -1, e4: !!__pc(36), e5: !!__pc(28) };
+          __land();
+          // O-O: the rook slides across too, and Undo slides both back
+          setup([[60, "w", "k"], [63, "w", "r"], [4, "b", "k"]], { wk: true });
+          const h1 = __mid(__pc(63));
+          go(60, 62);
+          out.castle = { h1, rook0: __held(__pc(61), 0), copies: [61, 62].map((i) => document.querySelectorAll('#board .sq[data-i="' + i + '"] .ghost').length) };
+          __land(); out.castle.f1 = __mid(__pc(61)); out.castle.g1 = __mid(__pc(62));
+          undo();
+          out.castle.k0 = __held(__pc(60), 0); out.castle.r0 = __held(__pc(63), 0);
+          __land();
+          // a8=Q taken back: a queen goes back, and lands as the pawn
+          setup([[60, "w", "k"], [23, "b", "k"], [8, "w", "p"]]);
+          go(8, 0, "q"); __land();
+          undo();
+          out.promo = { as: __pc(8) && __pc(8).textContent, moving: __pc(8) ? __pc(8).getAnimations().length : 0 };
+          __land(); await __until(() => __pc(8) && __pc(8).textContent !== "♛");
+          out.promo.lands = __pc(8) && __pc(8).textContent;
+          // en passant (d5 exd6) taken back: the pawn it took comes back to d5, the square it was taken on
+          setup([[60, "w", "k"], [4, "b", "k"], [28, "w", "p"], [11, "b", "p"]], null, "b");
+          go(11, 27); go(28, 19); __land(); await __until(() => !flying());
+          const ep = { slot: __mid(slot()), d6: __mid(__pc(19)) };
+          undo();
+          Object.assign(ep, { d6empty: !__pc(19), trayLeft: document.getElementById("capW").children.length, m0: __held(__pc(28), 0), c0: __held(__pc(27), 0) });
+          __land(); ep.cEnd = __mid(__pc(27));
+          out.ep = ep;
+          // a click while a one-move undo plays back lands it at once, then counts (it picks up the pawn back on e4)
+          C.start(2); go(52, 36); go(11, 27); go(36, 27); __land(); await __until(() => !flying());
+          undo();
+          document.querySelector('#board .sq[data-i="36"]').dispatchEvent(new MouseEvent("click"));
+          out.clickOne = { moving: document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".pc")).length, sel: C.G.sel, d5: !!__pc(27), e4: !!__pc(36) };
+          // 4 players: Red's rook takes a blue knight, and Undo
+          C.start(4, 3);
+          const G4 = C.G, b4 = G4.board.map(() => null), at = (r, c) => r * 14 + c;
+          b4[at(13, 7)] = { o: "r", t: "k", dead: false }; b4[at(0, 7)] = { o: "y", t: "k", dead: false }; b4[at(7, 13)] = { o: "g", t: "k", dead: false }; b4[at(3, 0)] = { o: "b", t: "k", dead: false };
+          b4[at(7, 5)] = { o: "r", t: "r", dead: false }; b4[at(7, 3)] = { o: "b", t: "n", dead: false };
+          G4.board = b4; G4.turn = "r"; C.render();
+          const before4 = __rules();
+          go(at(7, 5), at(7, 3));
+          const copies4 = document.querySelectorAll('#board .sq[data-i="' + at(7, 3) + '"] .ghost').length;
+          __land(); await __until(() => !flying());
+          const rook = __mid(__pc(at(7, 3)));
+          undo();
+          const kn = __pc(at(7, 3)), ka = kn && kn.getAnimations()[0];
+          out.four = { copies: copies4, rook, rules: __rules() === before4, knight: !!kn && kn.textContent === "♞", grows: !!ka && Object.keys(ka.effect.getKeyframes()[0]).includes("opacity"),
+            m0: __held(__pc(at(7, 5)), 0), m25: __held(__pc(at(7, 5)), 0.25) };
+          __land(); out.four.end = __mid(__pc(at(7, 5)));
+          C.start(2);
+          return out;
+        });
+        // paused while an undo plays it back: nothing is left in the air, and resumed, the board is as the game is
+        const paused = await q.evaluate(async () => {
+          const C = __chess, go = (f, t) => C.doMove(C.legalFor(C.G, f).find((m) => m.to === t));
+          C.start(2); go(52, 36); go(11, 27); go(36, 27); __land(); await __until(() => !document.querySelector(".pc.fly"));
+          document.getElementById("undoBtn").click();
+          document.querySelector(".gs-pause-btn").click();
+          const card = !document.querySelector(".gs-pause:not(.gs-dialog)").hidden;
+          document.querySelector(".gs-pause:not(.gs-dialog) button").click();
+          const moving = document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".pc")).length;
+          return { card, moving, flies: document.querySelectorAll(".pc.fly").length, d5: !!__pc(27) && getComputedStyle(__pc(27)).visibility === "visible", e4: !!__pc(36), tray: document.getElementById("capW").children.length };
+        });
+        local[size + (offFx ? " off" : " on")] = Object.assign(r, { paused, errs: q.errs });
+        await q.close();
+      }
+      await c.close();
+    }
+    const sizes = ["laptop on", "laptop off", "phone on", "phone off"];
+    // a move: every point on the straight line from where it set off to where it lands, at its own width, untilted, over several frames
+    const moved = (g) => {
+      const P = g.path, a = P.pts[0].m, c = P.rest, wide = P.pts.map((q) => q.m[2] / c[2]), offs = P.pts.map((q) => off(a, q.m, c));
+      return P.dur >= 150 && !near(a, c, 30) && P.pts.every((q) => q.tilt < 1e-6) && offs.every((d) => d < 1) && wide.every((w) => Math.abs(w - 1) < 0.01);
+    };
+    // the trail: three copies behind the piece on its way, on its line, each further back and fainter, at its size, unscaled, gone after
+    const trailed = (g) => {
+      const T = g.trail, a = g.path.pts[0].m, c = g.path.rest;
+      return !!T && T.n === 3 && !!T.piece && T.copies.every((q, i) => !!q && q.plain && q.fs === T.piece.fs && off(a, q.m, c) < 1.5 && q.o > 0 && q.o < 0.5 &&
+        along(a, q.m, c) < along(a, T.piece.m, c) - 0.02 && (i === 0 || (along(a, q.m, c) < along(a, T.copies[i - 1].m, c) && q.o < T.copies[i - 1].o))) && T.gone;
+    };
+    // halfway between two points; a capture flying to the tray (FX on): arcing up, well above halfway at half its time, whichever way the tray lies
+    const half = (a, c) => [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2];
+    const flew = (g) => {
+      const F = g.flyPath; if (!F) return false;
+      const a = F.pts[0].m, c = F.pts[F.pts.length - 1].m;
+      return F.dur >= 150 && F.pts.every((q) => q.tilt < 1e-6) && half(a, c)[1] - F.pts[2].m[1] > 10;
+    };
+    check("chess, FX off: the calm way: a move glides in a straight line at the piece's own size over several frames, with no trail (castling's rook, an undo and 4 players too), and a capture doesn't fly (laptop and phone)",
+      ["laptop off", "phone off"].every((k) => { const g = local[k]; return moved(g) && g.trail.n === 0 && g.castle.copies.join() === "0,0" && g.plain.copies === 0 && g.four.copies === 0 && g.flyPath === null; }),
+      { laptop: { path: local["laptop off"].path, fly: local["laptop off"].flyPath }, phone: { path: local["phone off"].path, fly: local["phone off"].flyPath } });
+    check("chess, FX on: the lively way: a move glides at the piece's own size (no lift) and leaves a trail, three copies following it along its line, each further back and fainter, gone after it lands; castling's rook, an undo and 4 players too; a capture arcs up to its tray (laptop and phone)",
+      ["laptop on", "phone on"].every((k) => { const g = local[k]; return moved(g) && trailed(g) && g.castle.copies.join() === "3,3" && g.plain.copies === 3 && g.four.copies === 3 && flew(g); }),
+      { laptop: { path: local["laptop on"].path, trail: local["laptop on"].trail, castle: local["laptop on"].castle.copies, undo: local["laptop on"].plain.copies, four: local["laptop on"].four.copies, fly: local["laptop on"].flyPath },
+        phone: { path: local["phone on"].path, trail: local["phone on"].trail, fly: local["phone on"].flyPath } });
+    check("chess: FX on or off, a move takes the same time (the pace of play is the same)",
+      ["laptop", "phone"].every((s) => local[s + " on"].path.dur === local[s + " off"].path.dur), ["laptop", "phone"].map((s) => [local[s + " on"].path.dur, local[s + " off"].path.dur]));
+    const lands = (g) => g.fly.flying && !g.fly.slotSeen && !g.fly.slotAtEnd && near(g.fly.end, g.fly.slot, 3) && Math.abs(g.fly.end[2] / g.fly.slot[2] - 1) < 0.15 && g.fly.opacity === 1 && g.fly.landed;
+    check("chess, FX on: a captured piece's place in its tray stays empty while it flies there, and it shows as the flying piece lands on it (in its place, at its size, as itself; laptop and phone)",
+      lands(local["laptop on"]) && lands(local["phone on"]), { laptop: local["laptop on"].fly, phone: local["phone on"].fly });
+    const plain = (g) => !g.fly.flying && !g.fly.slotSeen && g.fly.landed;
+    check("chess, FX off: nothing flies, and the captured piece shows in its tray as the move lands, not before (laptop and phone)",
+      plain(local["laptop off"]) && plain(local["phone off"]), { laptop: local["laptop off"].fly, phone: local["phone off"].fly });
+    check("chess: Undo slides the piece back from the square it went to, FX on or off (e4 and back; laptop and phone)",
+      sizes.every((k) => slid(local[k].plain.from, local[k].plain.m0, local[k].plain.m25, local[k].plain.end)), Object.fromEntries(sizes.map((k) => [k, local[k].plain])));
+    const capBack = (g, fxOn) => g.cap.rules && g.cap.trayLeft === 0 && slid(g.cap.rest.d5, g.cap.m0, g.cap.m25, g.cap.mEnd) && near(g.cap.cEnd, g.cap.rest.d5) &&
+      (fxOn ? near(g.cap.c0, g.cap.rest.slot, 3) && Math.abs(g.cap.c0[2] / g.cap.rest.slot[2] - 1) < 0.15 && !near(g.cap.c5, g.cap.rest.slot, 10) && !near(g.cap.c5, g.cap.cEnd, 10) &&
+        half(g.cap.rest.slot, g.cap.cEnd)[1] - g.cap.c5[1] > 10 : g.cap.c0 === null);
+    check("chess: Undo of a capture (exd5) takes the pawn out of the tray at once and slides White's back; FX on, Black's flies back out of its place in the tray to d5 in an arc, FX off it's there again at once (laptop and phone)",
+      capBack(local["laptop on"], true) && capBack(local["phone on"], true) && capBack(local["laptop off"], false) && capBack(local["phone off"], false), Object.fromEntries(sizes.map((k) => [k, local[k].cap])));
+    check("chess: Undo straight after a capture, before it's in its tray, leaves nothing in the air or in the tray; FX on it comes back from its place there, FX off it's on its square again at once",
+      sizes.every((k) => { const g = local[k].midFly; return g.flies === 0 && g.trayLeft === 0 && g.rules && (/off/.test(k) ? g.c0 === null : near(g.c0, g.slot, 3)); }), Object.fromEntries(sizes.map((k) => [k, local[k].midFly])));
+    check("chess: two undos at once (after e4 e5) take both back: the first lands at once, the second plays (e2's pawn slides back, e7's is still)",
+      sizes.every((k) => local[k].twice.start && local[k].twice.e2 === 1 && local[k].twice.e7 === 0 && !local[k].twice.e4 && !local[k].twice.e5), Object.fromEntries(sizes.map((k) => [k, local[k].twice])));
+    check("chess: castling slides the rook across with the king, and Undo slides both back (O-O; FX on or off)",
+      sizes.every((k) => { const g = local[k].castle; return near(g.rook0, g.h1) && near(g.k0, g.g1) && near(g.r0, g.f1); }), Object.fromEntries(sizes.map((k) => [k, local[k].castle])));
+    check("chess: Undo of a8=Q slides a queen back, which lands as the pawn (FX on or off)",
+      sizes.every((k) => local[k].promo.as === "♛" && local[k].promo.moving === 1 && local[k].promo.lands === "♟︎"), Object.fromEntries(sizes.map((k) => [k, local[k].promo])));
+    const epBack = (g, fxOn) => g.d6empty && g.trayLeft === 0 && near(g.m0, g.d6) && !!g.cEnd && (fxOn ? near(g.c0, g.slot, 3) : g.c0 === null);
+    check("chess: Undo of en passant (d5 exd6) slides the pawn back from d6 and brings Black's pawn back to d5, the square it was taken on: out of the tray with FX on, there at once with FX off",
+      sizes.every((k) => epBack(local[k].ep, !/off/.test(k))), Object.fromEntries(sizes.map((k) => [k, local[k].ep])));
+    const fourBack = (g, fxOn) => g.rules && g.knight && g.grows === fxOn && slid(g.rook, g.m0, g.m25, g.end);
+    check("chess 4 players: Undo of a capture slides the rook back; FX on the knight it took grows back where it fell, FX off it's there again at once",
+      fourBack(local["laptop on"].four, true) && fourBack(local["phone on"].four, true) && fourBack(local["laptop off"].four, false) && fourBack(local["phone off"].four, false), Object.fromEntries(sizes.map((k) => [k, local[k].four])));
+    check("chess: a click while an undo plays it back lands it at once, then counts (exd5 taken back, a click on e4 picks the pawn up there)",
+      sizes.every((k) => { const g = local[k].clickOne; return g.moving === 0 && g.sel === 36 && g.d5 && g.e4; }), Object.fromEntries(sizes.map((k) => [k, local[k].clickOne])));
+    check("chess: a pause while an undo plays it back leaves nothing in the air, and resumed the board is the game's (both pawns back, on e4 and d5, the tray empty)",
+      sizes.every((k) => { const g = local[k].paused; return g.card && g.moving === 0 && g.flies === 0 && g.d5 && g.e4 && g.tray === 0; }), Object.fromEntries(sizes.map((k) => [k, local[k].paused])));
+    check("chess (tray and undo motion): no page errors", sizes.every((k) => local[k].errs.length === 0), Object.fromEntries(sizes.map((k) => [k, local[k].errs])));
+
+    // vs CPU, Undo takes back the CPU's reply and your move: played back in
+    // order, the reply first (the board showing the position between them),
+    // then yours; the rules are back at the start at once. A click while the
+    // reply goes back lands it all at once, and then counts.
+    const cpu = {};
+    for (const offFx of [false, true]) {
+      const q = await openFx(ctx, "games/chess/", offFx, hook2);
+      const e4 = () => q.evaluate(() => { const C = __chess; C.doMove(C.legalFor(C.G, 52).find((x) => x.to === 36)); });
+      const reply = () => q.waitForFunction(() => __chess.G.history.length === 2 && !__chess.G.over, null, { timeout: 20000 }).then(() => true, () => false);
+      await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "cpu", difficulty: "easy", side: "w", base: 0, inc: 0 }); });
+      await e4();
+      const replied = await reply();
+      const two = await q.evaluate(async () => {
+        const C = __chess, mv = C.G.last;
+        __land();
+        const rest = { cpu: __mid(__pc(mv.to)), mine: __mid(__pc(36)) };
+        // each redraw of the board, as it happens
+        const draws = [];
+        new MutationObserver(() => draws.push({ e2: !!__pc(52), e4: !!__pc(36), e2at: __pc(52) && __held(__pc(52), 0) })).observe(document.getElementById("board"), { childList: true });
+        document.getElementById("undoBtn").click();
+        const G = C.G;
+        const first = { rules: G.history.length === 0 && G.turn === "w" && !!G.board[52] && !G.board[36] && !!G.board[mv.from] && !G.board[mv.to],
+          e2: !!__pc(52), e4: !!__pc(36), cpuFrom: !!__pc(mv.from), cpuTo: !!__pc(mv.to), cpu0: __held(__pc(mv.from), 0) };
+        await __until(() => draws.some((d) => d.e2));
+        __land();
+        return { mv, rest, first, second: draws.find((d) => d.e2) || null, end: { e2: !!__pc(52), e4: !!__pc(36), cpuFrom: !!__pc(mv.from), cpuTo: !!__pc(mv.to) } };
+      });
+      // again, with a click on e2 while the reply goes back
+      await e4();
+      const replied2 = await reply();
+      const click = await q.evaluate(async () => {
+        const C = __chess, mv = C.G.last;
+        __land();
+        document.getElementById("undoBtn").click();
+        const mid = { e4: !!__pc(36), e2: !!__pc(52) };
+        // e2, empty as drawn just then, where the game has the pawn back
+        document.querySelector('#board .sq[data-i="52"]').dispatchEvent(new MouseEvent("click"));
+        const now = { moving: document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches(".pc")).length,
+          e2: !!__pc(52), e4: !!__pc(36), cpuFrom: !!__pc(mv.from), cpuTo: !!__pc(mv.to), sel: C.G.sel, history: C.G.history.length };
+        // and nothing comes after it: no redraw, by the page's own clock, past the longest step a playback has
+        let redraws = 0;
+        new MutationObserver(() => redraws++).observe(document.getElementById("board"), { childList: true });
+        await new Promise((r) => setTimeout(r, 600));
+        return { mid, now, redraws, still: { sel: document.querySelectorAll("#board .sq.sel").length, e2: !!__pc(52), e4: !!__pc(36) } };
+      });
+      cpu[offFx ? "off" : "on"] = { replied, replied2, two, click, errs: q.errs };
+      await q.close();
+    }
+    const order = (g) => g.replied && g.two.first.rules && g.two.first.e4 && !g.two.first.e2 && g.two.first.cpuFrom && !g.two.first.cpuTo && near(g.two.first.cpu0, g.two.rest.cpu) &&
+      !!g.two.second && near(g.two.second.e2at, g.two.rest.mine) && g.two.end.e2 && !g.two.end.e4 && g.two.end.cpuFrom && !g.two.end.cpuTo;
+    check("chess vs CPU: Undo plays back the CPU's reply first (your pawn still on e4 meanwhile), then your e4, each piece sliding back from where it went (FX on or off); the game is back at the start at once",
+      order(cpu.on) && order(cpu.off), { on: cpu.on.two, off: cpu.off.two, replied: [cpu.on.replied, cpu.off.replied] });
+    const clicked = (g) => g.replied2 && g.click.mid.e4 && !g.click.mid.e2 && g.click.now.moving === 0 && g.click.now.e2 && !g.click.now.e4 && g.click.now.cpuFrom && !g.click.now.cpuTo &&
+      g.click.now.sel === 52 && g.click.now.history === 0 && g.click.redraws === 0 && g.click.still.sel === 1 && g.click.still.e2 && !g.click.still.e4;
+    check("chess vs CPU: a click while the reply goes back lands the playback at once, then counts (it picks the pawn back on e2), and nothing plays after it",
+      clicked(cpu.on) && clicked(cpu.off), { on: cpu.on.click, off: cpu.off.click });
+    check("chess (undo vs CPU): no page errors", cpu.on.errs.length === 0 && cpu.off.errs.length === 0, { on: cpu.on.errs, off: cpu.off.errs });
+
+    // the 3-player board: Undo slides the piece back too, and FX on a piece it took grows back where it fell
+    const three = {};
+    for (const [label, c, offFx] of [["laptop on", ctx, false], ["laptop off", ctx, true], ["phone on", null, false]]) {
+      const cc = c || await lib.newContext(browser, devices["iPhone 13"]);
+      const q = await openFx(cc, "games/chess/three.html", offFx, hook3);
+      three[label] = await q.evaluate(() => {
+        const T = __three; document.getElementById("menu").classList.remove("show");
+        // the piece drawn on a cell (its glyph sits at the cell's centroid, the mean of its corners; the
+        // last there, as a captured piece's falling copy goes under the one that took it)
+        const at = (cell) => {
+          const pts = document.querySelector('polygon.cell[data-c="' + cell + '"]').getAttribute("points").split(" ").map((p) => p.split(",").map(Number));
+          const x = pts.reduce((s, p) => s + p[0], 0) / 4, y = pts.reduce((s, p) => s + p[1], 0) / 4;
+          return [...document.querySelectorAll("#boardSvg text.glyph")].filter((t) => Math.abs(+t.getAttribute("x") - x) < 0.6 && Math.abs(+t.getAttribute("y") - y) < 0.6).pop() || null;
+        };
+        const play = (a, b) => __still(() => T.doMove(T.legalFor(a).find((m) => m.to === b)));
+        const undo = () => __still(() => document.getElementById("undoBtn").click());
+        const out = {};
+        T.start(3);
+        const e2 = T.cid(0, 2, 4), e4 = T.cid(0, 0, 4);
+        play(e2, e4);
+        const ma = at(e4) && at(e4).getAnimations()[0];
+        out.frames = ma ? ma.effect.getKeyframes().map((k) => k.transform || "") : null;
+        out.copies = document.querySelectorAll("#boardSvg text.ghost").length;
+        __land();
+        const from = __mid(at(e4));
+        undo();
+        out.plain = { from, m0: __held(at(e2), 0), m25: __held(at(e2), 0.25) };
+        __land(); out.plain.end = __mid(at(e2));
+        // Red's rook takes a white knight up its file, and Undo
+        T.start(1);
+        const pc = (o, t) => ({ o, t, dead: false }), b = new Array(96).fill(null);
+        b[T.cid(0, 3, 4)] = pc("r", "k"); b[T.cid(1, 3, 4)] = pc("w", "k"); b[T.cid(2, 3, 4)] = pc("k", "k");
+        b[T.cid(0, 3, 0)] = pc("r", "r"); b[T.cid(0, 0, 0)] = pc("w", "n");
+        T.G.board = b; T.G.turn = "r";
+        const before = __rules();
+        play(T.cid(0, 3, 0), T.cid(0, 0, 0)); __land();
+        const rook = __mid(at(T.cid(0, 0, 0)));
+        undo();
+        const kn = at(T.cid(0, 0, 0)), ka = kn && kn.getAnimations()[0];
+        out.cap = { rook, rules: __rules() === before, knight: !!kn && kn.textContent === "♞", grows: !!ka && Object.keys(ka.effect.getKeyframes()[0]).includes("opacity"),
+          m0: __held(at(T.cid(0, 3, 0)), 0), m25: __held(at(T.cid(0, 3, 0)), 0.25) };
+        __land(); out.cap.end = __mid(at(T.cid(0, 3, 0)));
+        // a click while the undo plays back lands it at once, then counts (on the rook: it's picked up)
+        play(T.cid(0, 3, 0), T.cid(0, 0, 0)); __land();
+        undo();
+        document.querySelector('polygon.cell[data-c="' + T.cid(0, 3, 0) + '"]').dispatchEvent(new MouseEvent("click"));
+        out.click = { moving: document.getAnimations().filter((a) => a.effect && a.effect.target && a.effect.target.matches("text.glyph")).length, sel: T.G.sel === T.cid(0, 3, 0) };
+        return out;
+      });
+      three[label].errs = q.errs;
+      await q.close();
+      if (!c) await cc.close();
+    }
+    const t3 = Object.keys(three);
+    check("chess three: Undo slides the piece back from the cell it went to, FX on or off (e2-e4 and back; laptop and phone)",
+      t3.every((k) => slid(three[k].plain.from, three[k].plain.m0, three[k].plain.m25, three[k].plain.end)), Object.fromEntries(t3.map((k) => [k, three[k].plain])));
+    check("chess three: Undo of a capture slides the rook back; FX on the knight it took grows back where it fell, FX off it's there again at once",
+      t3.every((k) => { const g = three[k].cap; return g.rules && g.knight && g.grows === !/off/.test(k) && slid(g.rook, g.m0, g.m25, g.end); }), Object.fromEntries(t3.map((k) => [k, three[k].cap])));
+    check("chess three: a click while an undo plays back lands it at once, then counts (it picks up the rook)", t3.every((k) => three[k].click.moving === 0 && three[k].click.sel), Object.fromEntries(t3.map((k) => [k, three[k].click])));
+    check("chess three: a move glides plainly (straight, at its own size: two keyframes, no scale or turn); FX on it leaves a trail of three copies, FX off none",
+      t3.every((k) => { const f = three[k].frames; return !!f && f.length === 2 && !f.some((t) => /scale|rotate/.test(t)) && three[k].copies === (/off/.test(k) ? 0 : 3); }),
+      Object.fromEntries(t3.map((k) => [k, { frames: three[k].frames, copies: three[k].copies }])));
+    check("chess three (undo motion): no page errors", t3.every((k) => three[k].errs.length === 0), Object.fromEntries(t3.map((k) => [k, three[k].errs])));
+
+    // the 3-player page shares the log's look (cafe.css): its list fills the whole panel too before it scrolls
+    const fill3 = {};
+    for (const [label, opts] of [["1366x657", { viewport: { width: 1366, height: 657 } }], ["390", devices["iPhone 13"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/chess/three.html", { before: hook3 });
+      fill3[label] = await q.evaluate(() => {
+        const T = __three; T.start(3); document.getElementById("menu").classList.remove("show");
+        T.G.log = Array.from({ length: 150 }, (_, k) => ({ col: ["r", "w", "k"][k % 3], text: "e2-e4" }));
+        document.querySelector('polygon.cell[data-c="' + T.cid(0, 1, 0) + '"]').dispatchEvent(new MouseEvent("click"));   // (an empty cell: a redraw)
+        const log = document.getElementById("moveLog"), lb = document.getElementById("logBox"), l = log.getBoundingClientRect(), b = lb.getBoundingClientRect();
+        return { gap: Math.round(b.bottom - parseFloat(getComputedStyle(lb).paddingBottom) - l.bottom), scrolls: log.scrollHeight > log.clientHeight + 10 };
+      });
+      fill3[label].errs = q.errs;
+      await c.close();
+    }
+    check("chess three: the move log's list fills its whole panel before it scrolls, as on the 2-player board (1366 x 657 and a 390 px phone)",
+      Object.values(fill3).every((g) => g.gap <= 2 && g.scrolls && g.errs.length === 0), fill3);
+  }
+
+  // ---- the move log names the opening a 2-player game is in (openings.js),
+  // under its heading: the latest position that is a named opening, however
+  // the moves got there, a deeper one naming it more closely, and the name
+  // kept once the game leaves them. Undo takes a name back with its move; a
+  // pause hides it with the log; an offbeat start names nothing; the 3- and
+  // 4-player boards have none.
+  {
+    const q = await lib.open(ctx, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+    const named = await q.evaluate(() => {
+      document.getElementById("menu").classList.remove("show");
+      const C = __chess;
+      const shown = () => { const e = document.getElementById("logOpening"); return e && !e.hidden ? e.textContent : null; };
+      // a fresh game, played through moves written as the log writes them; the name it shows
+      const line = (moves) => {
+        C.start(2);
+        for (const tok of moves.split(" ")) {
+          let m = null;
+          for (let i = 0; i < 64 && !m; i++) m = C.legalFor(C.G, i).find((x) => C.sanOf(x, "q") === tok) || null;
+          if (!m) return "no move " + tok;
+          C.doMove(m, "q");
+        }
+        return shown();
+      };
+      const out = {};
+      const lines = { london: "d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3", ruy: "e4 e5 Nf3 Nc6 Bb5", morphy: "e4 e5 Nf3 Nc6 Bb5 a6", qgd: "d4 d5 c4 e6", qga: "d4 d5 c4 dxc4",
+        sicilian: "e4 c5", najdorf: "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", italian: "e4 e5 Nf3 Nc6 Bc4", french: "e4 e6 d4 d5", caro: "e4 c6 d4 d5",
+        kid: "d4 Nf6 c4 g6 Nc3 Bg7", kidNormal: "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6", viaEnglish: "c4 e6 d4 d5", viaNd2: "e4 c6 d4 d5 Nd2 dxe4 Nxe4 Bf5",
+        offbeat: "a4 h5 h4 a5", oneMove: "e4" };
+      for (const [k, moves] of Object.entries(lines)) out[k] = line(moves);
+      // Undo, a move at a time from the Ruy Lopez back to the start
+      line("e4 e5 Nf3 Nc6 Bb5");
+      const undo = () => { document.getElementById("undoBtn").click(); return shown(); };
+      out.undo = [shown(), undo(), undo(), undo(), undo()];
+      // a pause hides it, as the log
+      line("e4 c5");
+      document.querySelector(".gs-pause-btn").click();
+      const seen = () => { const e = document.getElementById("logOpening"); return e ? getComputedStyle(e).visibility : null; };
+      out.paused = seen();
+      document.querySelector(".gs-pause:not(.gs-dialog) button").click();
+      out.resumed = seen();
+      // 4 players: a move, and no name
+      C.start(4, 2); document.getElementById("menu").classList.remove("show");
+      const at = (r, c) => r * 14 + c, m4 = C.legalFor(C.G, at(12, 7)).find((x) => x.to === at(10, 7));
+      if (m4) C.doMove(m4);
+      out.four = { moved: !!m4, name: shown() };
+      C.start(2);
+      return out;
+    });
+    const want = { london: "London System", ruy: "Ruy Lopez", morphy: "Ruy Lopez: Morphy Defence", qgd: "Queen's Gambit Declined", qga: "Queen's Gambit Accepted",
+      sicilian: "Sicilian Defence", najdorf: "Sicilian Defence: Najdorf Variation", italian: "Italian Game", french: "French Defence", caro: "Caro-Kann Defence",
+      kid: "King's Indian Defence", kidNormal: "King's Indian Defence: Normal Variation" };
+    check("chess log: known lines name their opening under the heading (London System, kept as the game leaves it; Ruy Lopez and its Morphy Defence; Queen's Gambit Declined and Accepted; Sicilian and its Najdorf; Italian; French; Caro-Kann; King's Indian and its Normal Variation)",
+      Object.entries(want).every(([k, v]) => named[k] === v), Object.fromEntries(Object.keys(want).map((k) => [k, named[k]])));
+    check("chess log: a position reached by another order of moves is named too (1. c4 e6 2. d4 d5 is the Queen's Gambit Declined; the Caro-Kann's Classical Variation by 3. Nd2)",
+      named.viaEnglish === "Queen's Gambit Declined" && named.viaNd2 === "Caro-Kann Defence: Classical Variation", { viaEnglish: named.viaEnglish, viaNd2: named.viaNd2 });
+    check("chess log: an offbeat start (1. a4 h5 2. h4 a5), or 1. e4 alone, names nothing", named.offbeat === null && named.oneMove === null, { offbeat: named.offbeat, oneMove: named.oneMove });
+    check("chess log: Undo takes a name back with the move that brought it (Ruy Lopez, then King's Knight Opening, again, King's Pawn Game, none)",
+      JSON.stringify(named.undo) === JSON.stringify(["Ruy Lopez", "King's Knight Opening", "King's Knight Opening", "King's Pawn Game", null]), named.undo);
+    check("chess log: a pause hides the opening's name with the log; the 4-player board names none",
+      named.paused === "hidden" && named.resumed === "visible" && named.four.moved && named.four.name === null, { paused: named.paused, resumed: named.resumed, four: named.four });
+    check("chess (openings): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- Undo takes back only your own moves. Playing Black against the CPU,
+  // its opening move can't be undone (the button and its key do nothing, and
+  // the button shows it), so nothing gets stuck: its move stands, you still
+  // move Black, and it replies. On a fresh board (2 and 3 players) Undo shows
+  // as unavailable too, and comes back once there's a move to take back.
+  {
+    const q = await lib.open(ctx, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+    const look = () => q.evaluate(() => { const u = document.getElementById("undoBtn"); return { off: u.disabled, faded: parseFloat(getComputedStyle(u).opacity) < 0.6 }; });
+    await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "cpu", difficulty: "easy", side: "b", base: 0, inc: 0 }); });
+    const opened = await q.waitForFunction(() => __chess.G.history.length === 1 && __chess.G.turn === "b", null, { timeout: 20000 }).then(() => true, () => false);
+    const cpuMove = await q.evaluate(() => __chess.G.last);
+    const before = await look();
+    await q.evaluate(() => document.getElementById("undoBtn").click());
+    await q.keyboard.press("u");
+    // (by the page's own clock, past anything an undo could have set going: a playback, a CPU's think)
+    await q.evaluate(() => new Promise((r) => setTimeout(r, 600)));
+    const after = await q.evaluate(() => ({ moves: __chess.G.history.length, turn: __chess.G.turn, last: __chess.G.last,
+      thinking: /thinking/.test(document.getElementById("status").textContent), dlg: !!document.querySelector(".gs-dialog") }));
+    // Black's e7-e5, by clicks, and the CPU replies
+    await q.click('.sq[data-i="12"]'); await q.click('.sq[data-i="28"]');
+    const replied = await q.waitForFunction(() => __chess.G.history.length === 3 && __chess.G.turn === "b", null, { timeout: 20000 }).then(() => true, () => false);
+    const mine = await look();
+    check("chess vs CPU, playing Black: Undo can't take back the CPU's opening move (button and key do nothing, the button faded), so its move stands, you still move Black and it replies",
+      opened && before.off && before.faded && after.moves === 1 && after.turn === "b" && JSON.stringify(after.last) === JSON.stringify(cpuMove) && !after.thinking && !after.dlg &&
+      replied && !mine.off && !mine.faded, { opened, cpuMove, before, after, replied, mine });
+    // a fresh local board, then a move on it
+    const fresh = await q.evaluate(() => { __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 0, inc: 0 }); const u = document.getElementById("undoBtn"), off = u.disabled; const C = __chess; C.doMove(C.legalFor(C.G, 52).find((x) => x.to === 36)); return { off, then: u.disabled }; });
+    check("chess (undo): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    const t = await lib.open(ctx, base, "games/chess/three.html", { before: (pg) => pg.route(/\/games\/chess\/three\.html$/, (r) => r.fulfill({ contentType: "text/html; charset=utf-8",
+      body: fs.readFileSync(path.join(lib.ROOT, "games/chess/three.html"), "utf8").replace(HOOK3[0], HOOK3[1]) })) });
+    const three = await t.evaluate(() => {
+      const T = __three; T.start(3); document.getElementById("menu").classList.remove("show");
+      const u = document.getElementById("undoBtn"), off = u.disabled;
+      for (let c = 0; c < 96; c++) { const ms = T.legalFor(c); if (ms.length) { T.doMove(ms[0]); break; } }
+      return { off, then: u.disabled };
+    });
+    check("chess: on a fresh board Undo shows as unavailable, and is there again after a move (2 and 3 players)", fresh.off && !fresh.then && three.off && !three.then, { fresh, three });
+    check("chess three (undo): no page errors", t.errs.length === 0, t.errs);
+    await t.close();
   }
   await ctx.close();
 };

@@ -75,6 +75,12 @@ html.fx-on .sq.check::after { animation:checkPulse .9s ease-in-out infinite alte
 .sq .pc.lt, .promo button.lt { -webkit-text-stroke:.045em #191d24; text-shadow:0 .04em .06em rgba(8,10,14,.5); }
 .sq .pc.dk, .promo button.dk { -webkit-text-stroke:.045em #f4ecdc; text-shadow:0 .03em .05em rgba(0,0,0,.4); }
 .sq .pc.dead { opacity:.4; filter:grayscale(.6); }
+/* Visual FX on: the fading copies a moving piece leaves behind it (game.js,
+   trails), at its own size and outlined like it, under the pieces */
+.sq .ghost { position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center;
+  line-height:1; font-weight:400; pointer-events:none; paint-order:stroke fill; }
+.sq .ghost.lt { -webkit-text-stroke:.045em #191d24; }
+.sq .ghost.dk { -webkit-text-stroke:.045em #f4ecdc; }
 .sq .dot { position:absolute; z-index:1; width:30%; height:30%; border-radius:50%; background:var(--move); opacity:.7; }
 .sq.cap .dot { width:86%; height:86%; background:transparent; border:5px solid var(--move); opacity:.7; }
 .sq:hover:not(.empty):not(.off) { filter:brightness(1.06); }

@@ -30,7 +30,7 @@
     filter:drop-shadow(0 16px 40px rgba(0,0,0,.5)); }
   .cell { cursor:pointer; stroke:#2c2620; stroke-width:.6; }
   .cell.dot { }
-  .glyph { font-size:30px; text-anchor:middle; dominant-baseline:central; pointer-events:none;
+  .glyph, .ghost { font-size:30px; text-anchor:middle; dominant-baseline:central; pointer-events:none;
     paint-order:stroke; stroke:rgba(0,0,0,.55); stroke-width:1.1px; font-family:"Segoe UI Symbol",system-ui,sans-serif; }
   .glyph.dead { opacity:.4; }
   /* Visual FX on: the king in check pulses (with FX off its cell holds a still red) */
@@ -252,20 +252,33 @@
 
   const svg=$("boardSvg");
   // ---- A move slides its piece across from the cell it left, with Visual FX
-  // on or off (where a piece goes is play); FX on (RM_ON() is true when it's
-  // off) adds a captured piece shrinking away under it.
+  // on or off (where a piece goes is play). FX on (RM_ON() is true when it's
+  // off) is the lively way: the piece leaves a short trail of fading copies
+  // behind it, at its own size, each a little later and fainter than the one
+  // before and gone soon after it lands, and a captured piece shrinks away
+  // under it; FX off, the calm way at the same pace, it glides in a straight
+  // line, softly in and out, with no trail. Undo plays the move
+  // backwards: the piece slides back (a promotion goes back as the piece it
+  // became and lands as the pawn) and, FX on, a piece it took grows back
+  // where it fell (FX off it's simply there again, as it went).
   function fxOn(){ return !(window.RM_ON && window.RM_ON()); }
-  const SLIDE_MS=200, FALL_MS=320;
-  let slide=null;   // the last move { from, to, cap, t0 }, while it plays
+  const SLIDE_MS=200, FALL_MS=320, SLIDE_EASE="cubic-bezier(.25,.8,.35,1)";
+  const TRAIL=[[30,.3],[60,.2],[90,.12]], TRAIL_FADE=120, TRAIL_END=SLIDE_MS+90+TRAIL_FADE;   // (the trail's copies: how far behind, in ms, and how strong)
+  let slide=null;   // the last move { from, to, cap, t0 } while it plays (back: an undo playing it; as: the piece it goes back as)
   // render() rebuilds the board, often twice for one move, so each render
   // picks the motion up at the point it had reached
-  function playSlide(moved){
+  function playSlide(moved, risen){
     if(!slide) return;
     const el=performance.now()-slide.t0;
-    if(el>=FALL_MS || !moved || !moved.animate){ slide=null; return; }
+    if(el>=(fxOn() ? Math.max(FALL_MS,TRAIL_END) : FALL_MS) || !moved || !moved.animate){ slide=null; return; }
     const a=centroid(slide.from), b=centroid(slide.to);
     svg.appendChild(moved);   // above the cells it passes over
-    if(slide.cap && fxOn()){ const p=slide.cap, g=document.createElementNS(SVG,"text");
+    if(slide.cap && fxOn() && slide.back && risen){
+      risen.style.transformBox="fill-box"; risen.style.transformOrigin="center";
+      const an=risen.animate([{ transform:"rotate(-25deg) scale(.3)", opacity:0 }, { transform:"none", opacity:getComputedStyle(risen).opacity }],
+        { duration:FALL_MS, easing:"ease-in-out" });
+      an.currentTime=el; }
+    else if(slide.cap && fxOn() && !slide.back){ const p=slide.cap, g=document.createElementNS(SVG,"text");
       g.setAttribute("x",b[0].toFixed(1)); g.setAttribute("y",b[1].toFixed(1));
       g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
       g.style.transformBox="fill-box"; g.style.transformOrigin="center";
@@ -273,9 +286,18 @@
       const an=g.animate([{ transform:"rotate(0)", opacity:1 }, { transform:"rotate(-25deg) scale(.3)", opacity:0 }],
         { duration:FALL_MS, easing:"ease-in-out" });
       an.currentTime=el; an.onfinish=()=>g.remove(); }
-    if(el<SLIDE_MS){ const an=moved.animate([{ transform:"translate("+(a[0]-b[0]).toFixed(1)+"px,"+(a[1]-b[1]).toFixed(1)+"px)" }, { transform:"none" }],
-      { duration:SLIDE_MS, easing:"cubic-bezier(.25,.8,.35,1)" });
-      an.currentTime=el; }
+    const start="translate("+(a[0]-b[0]).toFixed(1)+"px,"+(a[1]-b[1]).toFixed(1)+"px)";
+    if(fxOn() && el<TRAIL_END) for(const [late, strong] of TRAIL){   // the trail, under the piece
+      const g=document.createElementNS(SVG,"text");
+      g.setAttribute("x",b[0].toFixed(1)); g.setAttribute("y",b[1].toFixed(1)); g.setAttribute("class","ghost"); g.setAttribute("fill",moved.getAttribute("fill"));
+      g.textContent=slide.as ? FILLED[slide.as] : moved.textContent; svg.insertBefore(g,moved);
+      const an=g.animate([{ transform:start, opacity:strong, easing:SLIDE_EASE }, { transform:"none", opacity:strong, offset:SLIDE_MS/(SLIDE_MS+TRAIL_FADE) },
+        { transform:"none", opacity:0 }], { duration:SLIDE_MS+TRAIL_FADE, delay:late, fill:"both" });
+      an.currentTime=el; an.onfinish=()=>g.remove(); }
+    if(el<SLIDE_MS){ const is=moved.textContent;
+      if(slide.as) moved.textContent=FILLED[slide.as];
+      const an=moved.animate([{ transform:start }, { transform:"none" }], { duration:SLIDE_MS, easing: fxOn() ? SLIDE_EASE : "ease-in-out" });
+      an.currentTime=el; an.onfinish=()=>{ moved.textContent=is; }; }
   }
   function render(){
     while(svg.firstChild) svg.removeChild(svg.firstChild);
@@ -283,7 +305,7 @@
     // on them, so a pause is no free look at the position)
     const hide = paused;
     const inCk = !hide && !G.over && inCheck(G.board,G.turn) ? kingCell(G.board,G.turn) : -1;
-    let moved=null;
+    let moved=null, risen=null;
     for(let c=0;c<96;c++){
       const s=sOf(c),r=rOf(c); const k=corners(c);
       const poly=document.createElementNS(SVG,"polygon");
@@ -320,7 +342,7 @@
       if(p){ const ct=centroid(c); const g=document.createElementNS(SVG,"text");
         g.setAttribute("x",ct[0].toFixed(1)); g.setAttribute("y",ct[1].toFixed(1));
         g.setAttribute("class","glyph"+(p.dead?" dead":"")); g.setAttribute("fill",PLAYERS[p.o].color);
-        g.textContent=FILLED[p.t]; svg.appendChild(g); if(slide&&c===slide.to) moved=g; }
+        g.textContent=FILLED[p.t]; svg.appendChild(g); if(slide&&c===slide.to) moved=g; if(slide&&slide.back&&c===slide.from) risen=g; }
       // the cell's name on the board's edge: its file by the rim on the home
       // row, its rank on the sector's first file (beside the seam)
       const k4=corners(c), ct=centroid(c), light=((fOf(c)+r)%2===0);
@@ -330,7 +352,8 @@
       if(r===3) label(FILE3[sOf(c)*8+fOf(c)], (k4[2][0]+k4[3][0])/2, (k4[2][1]+k4[3][1])/2);
       if(fOf(c)===0) label(String(4-r), (k4[0][0]+k4[3][0])/2, (k4[0][1]+k4[3][1])/2);
     }
-    playSlide(moved);
+    playSlide(moved, risen);
+    $("undoBtn").disabled = !G.history.length;   // (nothing to take back yet: it shows, faded with its key)
     renderPlayers();
     renderLog();
   }
@@ -382,7 +405,9 @@
 
   // ----------------------------------------------------------------- play
   function onCell(c){
-    if(G.over) return; const p=G.board[c];
+    if(G.over) return;
+    if(slide && slide.back && performance.now()-slide.t0 < FALL_MS){ slide=null; render(); }   // (an undo still playing back lands first)
+    const p=G.board[c];
     if(p&&!p.dead&&p.o===G.turn){ G.sel=c; G.legal=legalFor(c); render(); return; }
     if(G.sel>=0){ const m=G.legal.find(mm=>mm.to===c); if(m){ if(m.promo){ askPromo(m); return; } doMove(m); return; } }
     G.sel=-1; G.legal=[]; render();
@@ -434,10 +459,14 @@
     renderLog();
     clearTimeout(endCardTimer);
     endCardTimer=setTimeout(()=>{ $("overTitle").textContent=title; $("overMsg").textContent=msg; $("overOverlay").classList.add("show"); },350); }
-  function undo(){ if(!G.history.length) return; clearTimeout(endCardTimer); const h=G.history.pop();
+  function undo(){ if(!G.history.length) return; clearTimeout(endCardTimer); const h=G.history.pop(), m=G.last, went=m&&G.board[m.to];
     G.board=h.board.map(x=>x); G.turn=h.turn; G.last=h.last; G.players=h.players; G.capList=h.capList; G.over=h.over; G.winner=h.winner;
     G.log=h.log; G.result=h.result;   // (the log ends where play resumes)
-    G.sel=-1; G.legal=[]; slide=null; $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
+    G.sel=-1; G.legal=[];
+    // (played back: the piece from the cell it went to, and what it took back where it fell)
+    const was=m&&G.board[m.from];
+    slide = m ? { from:m.to, to:m.from, cap:G.board[m.to], back:true, as: went && was && went.t!==was.t ? went.t : null, t0:performance.now() } : null;
+    $("overOverlay").classList.remove("show"); render(); setStatus(inCheck(G.board,G.turn)); }
 
   // ----------------------------------------------------------------- wiring
   $("newBtn").addEventListener("click",()=>start(G.ending));
