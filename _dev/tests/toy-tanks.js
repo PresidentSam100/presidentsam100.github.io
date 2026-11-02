@@ -326,22 +326,34 @@ module.exports = async ({ browser, base, check, lib }) => {
 
     // the mouse: the turret follows the pointer; a click fires, a right-click lays a mine; the keys drive, Space fires, E lays a mine
     const geo = await p.evaluate(() => { ToyTanks.advance(1700, {}); const st = ToyTanks.st(); st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0 }); }); const r = document.getElementById("arena").getBoundingClientRect(), s = ToyTanks.cell(), fr = Math.round(s / 2); return { x: r.left + fr, y: r.top + fr, s, px: st.player.x, py: st.player.y }; });
-    const tx = geo.px + 3, ty = geo.py - 2;
-    await p.mouse.move(geo.x + tx * geo.s, geo.y + ty * geo.s); await p.waitForTimeout(120);
+    const tx = geo.px + 3, ty = geo.py - 2, want = Math.atan2(ty - geo.py, tx - geo.px);
+    // (a press is taken on the game's next step, and on a busy machine the
+    // frames come late, each counting for at most 0.1 s of play: so each
+    // result is polled, and D is held until the tank has driven clear of its
+    // first mine, past the 0.8 one mine keeps from another, not for a set time)
+    const until = (fn, arg) => p.waitForFunction(fn, arg, { timeout: 15000 }).catch(() => {});
+    await p.mouse.move(geo.x + tx * geo.s, geo.y + ty * geo.s);
+    await until((want) => Math.abs(ToyTanks.st().player.turret - want) < 0.08, want);
     const aim = await p.evaluate(() => ToyTanks.st().player.turret);
-    await p.mouse.down(); await p.mouse.up(); await p.waitForTimeout(80);
+    await p.mouse.down(); await p.mouse.up();
+    await until(() => ToyTanks.st().shells.some((s) => !s.enemy));
     const fired = await p.evaluate(() => ToyTanks.st().shells.filter((s) => !s.enemy).length);
-    await p.mouse.click(geo.x + tx * geo.s, geo.y + ty * geo.s, { button: "right" }); await p.waitForTimeout(80);
+    await p.mouse.click(geo.x + tx * geo.s, geo.y + ty * geo.s, { button: "right" });
+    await until(() => ToyTanks.st().mines.length >= 1);
     const mines = await p.evaluate(() => ToyTanks.st().mines.length);
     const x0 = await p.evaluate(() => ToyTanks.st().player.x);
-    await p.keyboard.down("d"); await p.waitForTimeout(400); await p.keyboard.up("d");
+    await p.keyboard.down("d"); await until((x0) => ToyTanks.st().player.x > x0 + 0.9, x0); await p.keyboard.up("d");
     const x1 = await p.evaluate(() => ToyTanks.st().player.x);
-    await p.keyboard.press("e"); await p.waitForTimeout(80);
+    await p.keyboard.press("e");
+    await until(() => ToyTanks.st().mines.length >= 2);
     const mines2 = await p.evaluate(() => ToyTanks.st().mines.length);
-    await p.keyboard.press("Space"); await p.waitForTimeout(80);
-    const fired2 = await p.evaluate(() => ToyTanks.st().shells.filter((s) => !s.enemy).length);
+    // (a new shell: the click's may still be in flight)
+    const ids = await p.evaluate(() => ToyTanks.st().shells.map((s) => s.id));
+    await p.keyboard.press("Space");
+    await until((ids) => ToyTanks.st().shells.some((s) => !s.enemy && !ids.includes(s.id)), ids);
+    const fired2 = await p.evaluate((ids) => ToyTanks.st().shells.filter((s) => !s.enemy && !ids.includes(s.id)).length, ids);
     check("toy-tanks laptop: the turret turns to the mouse, a click fires, a right-click lays a mine; D drives, E lays a mine, Space fires",
-      Math.abs(aim - Math.atan2(ty - geo.py, tx - geo.px)) < 0.08 && fired >= 1 && mines === 1 && x1 > x0 + 0.3 && mines2 === 2 && fired2 >= 1, { aim, want: Math.atan2(ty - geo.py, tx - geo.px), fired, mines, x0, x1, mines2, fired2 });
+      Math.abs(aim - want) < 0.08 && fired >= 1 && mines === 1 && x1 > x0 + 0.3 && mines2 === 2 && fired2 >= 1, { aim, want, fired, mines, x0, x1, mines2, fired2 });
 
     // records: a tank destroyed is saved at once
     const kills = await p.evaluate(() => {

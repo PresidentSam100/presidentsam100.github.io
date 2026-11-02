@@ -380,16 +380,18 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p = await open("salvo", true);
     await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
     await p.keyboard.press("a"); await p.keyboard.press("Enter");
-    // A hit lets you fire again, and only a miss brings the computer's reply:
-    // fire down the grid until one does (each shot waits for the player's
-    // turn, and the reply is polled, so a busy machine's slow turn still counts)
+    // A hit lets you fire again (one that sinks a ship too), and only a miss
+    // brings the computer's reply: fire down the grid until one does. Once the
+    // shot is drawn, the radar says which: still live, it's your turn again;
+    // a miss has handed the turn over, and the reply is polled, so a busy
+    // machine's slow turn still counts
     for (let i = 0; i < 20; i++) {
       await p.waitForSelector("#enemyGrid.active", { timeout: 30000 }).catch(() => {});
-      const before = await p.evaluate(() => document.getElementById("status").textContent);
       await p.locator("#enemyGrid .cell").nth(i).click();
-      const replied = await p.waitForFunction((before) => document.querySelector("#playerGrid .cell.last") ||
-        (/again/i.test(document.getElementById("status").textContent) && document.getElementById("status").textContent !== before), before, { timeout: 30000 }).then(() => true, () => false);
-      if (!replied || await p.evaluate(() => !!document.querySelector("#playerGrid .cell.last"))) break;
+      await p.waitForFunction((i) => document.querySelectorAll("#enemyGrid .cell")[i].matches(".hit, .sunk, .miss"), i, { timeout: 30000 }).catch(() => {});
+      if (await p.evaluate(() => !!document.querySelector("#enemyGrid.active"))) continue;
+      await p.waitForSelector("#playerGrid .cell.last", { timeout: 30000 }).catch(() => {});
+      break;
     }
     const s = await p.evaluate(() => ["#enemyGrid", "#playerGrid"].map((g) => { const c = document.querySelector(g + " .cell.last"); return c ? getComputedStyle(c).outlineStyle : null; }));
     check("salvo: the last shot at each grid is framed", s[0] === "dashed" && s[1] === "dashed", s);

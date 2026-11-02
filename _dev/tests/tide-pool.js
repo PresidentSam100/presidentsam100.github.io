@@ -298,17 +298,24 @@ module.exports = async ({ browser, base, check, lib }) => {
         const o = M.points().find((p) => p.chain === 2);
         return o ? { n: o.n, chain: o.chain } : null;
       }, PLAIN));
-      // in real time: paused at once, still there after 1.2 s; resumed, gone
+      // on the game's own frames: the clock held from the swap until P has
+      // paused, then let go, thirty frames on the points are still there and
+      // no older; resumed, they go (polled: a busy machine draws few frames,
+      // and each counts for at most 0.05 s of play)
       await q.evaluate((PLAIN) => {
-        TidePool.toMenu(); TidePool.start("pool"); TidePool.motion.hold(false);
+        TidePool.toMenu(); TidePool.start("pool"); TidePool.motion.hold(true);
         const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b); TidePool.swap(50, 58);
       }, PLAIN);
       await q.keyboard.press("p");
-      await wait(q, 1200);
-      pts.paused = await q.evaluate(() => TidePool.motion.points().some((o) => o.n === 60 && o.chain === 1));
+      pts.paused = await safe(q.evaluate(() => new Promise((res) => {
+        const age = () => { const o = TidePool.motion.points().find((o) => o.n === 60 && o.chain === 1); return o ? o.t : null; };
+        TidePool.motion.hold(false);
+        const t0 = age();
+        let n = 0;
+        (function look() { if (++n < 30) requestAnimationFrame(look); else res({ t0, t30: age() }); })();
+      })));
       await q.keyboard.press("p");
-      await wait(q, 1300);
-      pts.resumed = await q.evaluate(() => TidePool.motion.points().some((o) => o.n === 60 && o.chain === 1));
+      pts.resumed = await q.waitForFunction(() => !TidePool.motion.points().some((o) => o.n === 60 && o.chain === 1), null, { timeout: 15000 }).then(() => false, () => true);
     }
     await done(q, "points FX " + (off ? "off" : "on"));
   }
@@ -319,6 +326,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tide-pool: with Visual FX on the points rise as they fade; with it off they stay where they are",
     !!pts.on && !!pts.off && pts.on.late < pts.on.early - 2 && pts.off.late === pts.off.early, { on: pts.on, off: pts.off });
   check("tide-pool: a chain's next wave shows its points with ×2 (+60 for three)", !!pts.chain && pts.chain.n === 60 && pts.chain.chain === 2, pts.chain);
-  check("tide-pool: a pause holds the points (still there after 1.2 s), and resumed they go", pts.paused === true && pts.resumed === false, { paused: pts.paused, resumed: pts.resumed });
+  check("tide-pool: a pause holds the points (thirty frames on, still there and no older), and resumed they go",
+    !!pts.paused && pts.paused.t0 === 0 && pts.paused.t30 === 0 && pts.resumed === false, { paused: pts.paused, resumed: pts.resumed });
   await ctx.close();
 };

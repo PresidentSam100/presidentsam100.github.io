@@ -258,14 +258,22 @@ module.exports = async ({ browser, base, check, lib }) => {
     const p3 = await open(null, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:patchword", off ? "1" : "0"); } catch (e) {} }, off) });
     await begin(p3);
     const fxr = await p3.evaluate(() => {
-      Patchword.submitPath([0, 1, 2]);
-      const puff = document.getAnimations().filter((a) => a.animationName === "pw-puff").length, line = document.getElementById("word").className;
-      Patchword.submitPath([0, 1, 4]);
-      const shake = document.getAnimations().filter((a) => a.animationName === "pw-shake").length, line2 = document.getElementById("word").className;
-      Patchword.type("ra");
-      return { puff, shake, line, line2, score: Patchword.score() };
+      // (the clock held still for this one step: the line says what just
+      // happened to a word for 1.1 s of real time, and a busy machine can
+      // take that long over stitching it)
+      const now = performance.now, t = now.call(performance);
+      performance.now = () => t;
+      try {
+        Patchword.submitPath([0, 1, 2]);
+        const puff = document.getAnimations().filter((a) => a.animationName === "pw-puff").length, line = document.getElementById("word").className;
+        Patchword.submitPath([0, 1, 4]);
+        const shake = document.getAnimations().filter((a) => a.animationName === "pw-shake").length, line2 = document.getElementById("word").className;
+        Patchword.type("ra");
+        return { puff, shake, line, line2, score: Patchword.score() };
+      } finally { performance.now = now; }
     });
-    await wait(p3, 400);
+    // (the picked felt eases into its colour: polled)
+    await p3.waitForFunction(() => getComputedStyle(document.querySelectorAll(".felt")[5]).backgroundColor === "rgb(255, 209, 102)", null, { timeout: 5000 }).catch(() => {});
     fxr.felt = await p3.evaluate(() => getComputedStyle(document.querySelectorAll(".felt")[5]).backgroundColor);
     check("patchword, FX " + (off ? "off: nothing puffs or shakes" : "on: a word puffs its patches up, a refusal shakes the block") + "; the score, the word's colours and the picked felt are the same",
       (off ? fxr.puff === 0 && fxr.shake === 0 : fxr.puff === 3 && fxr.shake === 1) && fxr.score === 1 && /\bok\b/.test(fxr.line) && /\bno\b/.test(fxr.line2) && fxr.felt === "rgb(255, 209, 102)", fxr);
