@@ -329,6 +329,35 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("potting-shed editor: the keys press their tools (3 picks sun, E export, I import, C checks, S saves, T tests and Esc stops it, B closes the walls), and typed into the name they're only letters",
       r.three === "." && r.exported === "Export" && r.imported === "Import" && r.checked && r.saved === 1 && r.testing && r.stopped &&
       r.typed.name === "Keyste" && !r.typed.testing && !r.typed.box && r.closed, r);
+    // the export / import box, its text having the keys: Ctrl+C copies it
+    // all, Ctrl+Enter loads an import (Enter alone a new line in it)
+    const k = {};
+    await q.keyboard.press("e");
+    k.caps = await q.evaluate(() => ["ed-io-copy", "ed-io-load", "ed-io-close"].map((id) => document.getElementById(id).getAttribute("data-gs-key")).join("|"));
+    await q.keyboard.press("Control+c"); await q.waitForTimeout(80);
+    k.copied = await q.evaluate(() => document.getElementById("ed-io-copy").textContent);
+    await q.keyboard.press("Escape");
+    await q.keyboard.press("i");
+    await q.keyboard.type("#######"); await q.keyboard.press("Enter");
+    k.newline = await q.evaluate(() => ({ open: !document.getElementById("ed-io").hidden, lines: document.getElementById("ed-io-text").value.split("\n").length }));
+    await q.fill("#ed-io-text", ["#######", "#@ $ .#", "#  #  #", "#     #", "#######"].join("\n"));
+    await q.focus("#ed-io-text");
+    await q.keyboard.press("Control+Enter"); await q.waitForTimeout(100);
+    if (await q.evaluate(() => !!document.querySelector(".gs-dialog"))) await q.click(".gs-dialog button:has-text('Load it')");
+    await q.waitForTimeout(100);
+    k.loaded = await q.evaluate(() => ({ shut: document.getElementById("ed-io").hidden, row: PottingShedEditor.map()[2] }));
+    // My sheds: the arrows walk each shed's Edit, Play and Delete, Enter presses the ringed one (the keys by the heading)
+    const ringed = () => q.evaluate(() => { const b = document.querySelector("#ed-saved [data-gs-pick]"); return b ? b.textContent : null; });
+    k.hint = await q.evaluate(() => { const h = document.querySelector("#ed-saved-h .gs-grid-keys"); return h && !h.hidden && getComputedStyle(h).display !== "none" ? h.textContent.replace(/\s+/g, "") : null; });
+    const walk = [];
+    for (const key of ["ArrowDown", "ArrowRight", "ArrowRight", "ArrowLeft"]) { await q.keyboard.press(key); walk.push(await ringed()); }
+    await q.keyboard.press("ArrowRight"); await q.keyboard.press("Enter"); await q.waitForTimeout(100);
+    k.asked = await q.evaluate(() => (document.querySelector(".gs-dialog h2") || {}).textContent || null);
+    if (k.asked) await q.click(".gs-dialog button:has-text('Keep it')");
+    k.walk = walk;
+    check("potting-shed editor: in the export / import box Copy wears Ctrl+C and Load Ctrl+Enter, and they press them from its text (Enter alone is a new line); the arrows walk My sheds' Edit, Play and Delete (their keys by its heading) and Enter presses the ringed one",
+      k.caps === "Ctrl+C|Ctrl+Enter|Esc" && k.copied === "Copied" && k.newline.open && k.newline.lines === 2 && k.loaded.shut && k.loaded.row === "#  #  #" &&
+      k.hint === "←↑↓→Enter" && walk.join() === "Edit,Play,Delete,Play" && /Delete this shed/.test(k.asked || ""), k);
     check("potting-shed editor (keys): no page errors", q.errs.length === 0, q.errs);
     await q.close();
     await c.close();

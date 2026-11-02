@@ -23,7 +23,7 @@ const ALLOW = {
   "minesweeper/": [".tb-close", "#navClassic", "#face"],             // (N is on the Keyboard line; the face keeps its old look)
   "minesweeper/endless.html": [".tb-close", ".mode", "#face"],
   "potting-shed/": ["#shed-grid .tile", "#mine-list .tile"],   // the shed lists (the arrows walk them, the keys on the heading)
-  "potting-shed/editor.html": [".saved-item button"],   // my sheds' Edit and Delete: a list (the tools above wear their keys)
+  "potting-shed/editor.html": [".saved-item button"],   // my sheds' Edit, Play and Delete: a list the arrows walk (the keys by its heading)
   "rose-window/": [".wt"],                  // the windows to start from: a grid the arrows walk (the keys after its note)
   "science-fair/": [".pad"],                // (each planet's number is on the tag beside it)
   "sowing/": [".pit"],                      // the far row (the near row wears 1 to 6, and a friend's far row on its turn)
@@ -52,7 +52,7 @@ const CARDS = {
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
   "hash/": [["#ovBtn", "Space or Enter"]],
   "jam-jar/": [["#againBtn", "Space or Enter"], ["#modesBtn", "⌫"]],
-  "potting-shed/editor.html": [["#ed-test", "T"], ["#ed-check", "C"], ["#ed-save", "S"], ["#ed-new", "N"], ["#ed-play", "G"], ["#ed-share", "L"], ["#ed-export", "E"], ["#ed-import", "I"], ["#ed-frame", "B"], ["#ed-io-close", "Esc"]],
+  "potting-shed/editor.html": [["#ed-test", "T"], ["#ed-check", "C"], ["#ed-save", "S"], ["#ed-new", "N"], ["#ed-play", "G"], ["#ed-share", "L"], ["#ed-export", "E"], ["#ed-import", "I"], ["#ed-frame", "B"], ["#ed-io-close", "Esc"], ["#ed-io-copy", "Ctrl+C"], ["#ed-io-load", "Ctrl+Enter"]],
   "steamfitter/": [["#againBtn", "Space or Enter"]],
   "salvo/": [["#againBtn", "Space or Enter"]],
   "sunset-slice/": [["#again", "Space or Enter"], ["#restart", "R"], ["#quit", "⌫"]],

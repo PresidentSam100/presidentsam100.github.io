@@ -328,8 +328,9 @@
     else go();
   }
   function showSaved() {
-    var box = $("ed-saved"), a = savedList();
+    var box = $("ed-saved"), a = savedList(), keys = document.querySelector("#ed-saved-h .gs-grid-keys");
     box.replaceChildren();
+    if (keys) keys.hidden = !a.length;   // (no sheds, nothing for the arrows to walk)
     if (!a.length) { var p = document.createElement("p"); p.className = "empty"; p.textContent = "None yet: Save keeps the one you're building here, and in the game's My sheds."; box.appendChild(p); return; }
     a.forEach(function (raw, i) {
       var m;
@@ -417,10 +418,27 @@
 
   // ---- keys -----------------------------------------------------------------------------------------
   var DIRK = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1], A: [-1, 0], D: [1, 0], W: [0, -1], S: [0, 1] };
+  // The export / import box keeps its keys from its text too (which has the
+  // keys while it's up, so they take Ctrl, or Cmd on a Mac): Esc closes it,
+  // Ctrl+C copies all its text (a part picked out copies as it always does),
+  // Ctrl+Enter loads an import (Enter is a new line in it)
+  var MOD = /Mac|iPhone|iPad/.test(navigator.platform || "") ? "⌘" : "Ctrl+";
+  $("ed-io-copy").setAttribute("data-gs-key", MOD + "C");
+  $("ed-io-load").setAttribute("data-gs-key", MOD + "Enter");
+  function ioKey(e) {
+    var mod = (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey, t = $("ed-io-text");
+    var whole = t.selectionStart === t.selectionEnd || (t.selectionStart === 0 && t.selectionEnd === t.value.length);
+    if (e.key === "Escape" && !e.ctrlKey && !e.metaKey && !e.altKey) closeIO();
+    else if (mod && (e.key === "c" || e.key === "C") && whole) $("ed-io-copy").click();
+    else if (mod && e.key === "Enter" && !$("ed-io-load").hidden) { if (!e.repeat) $("ed-io-load").click(); }
+    else return false;
+    e.preventDefault();
+    return true;
+  }
   document.addEventListener("keydown", function (e) {
-    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector(".gs-dialog")) return;
-    // Esc closes the export / import box, from its text too
-    if (e.key === "Escape" && !$("ed-io").hidden) { e.preventDefault(); closeIO(); return; }
+    if (document.querySelector(".gs-dialog")) return;
+    if (!$("ed-io").hidden && ioKey(e)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
     if (!T) return;
     // (a test claims Esc: it stops the test rather than leaving)
@@ -443,6 +461,13 @@
     GameShell.menuKeys({ active: function () { return !!T && $("ed-done").hidden; }, groups: [{ sel: "#ed-testbar button", keys: ["u", "r", "backspace"] }] });
     // the card after it: Enter back to editing, R test again
     GameShell.menuKeys({ active: function () { return !!T && !$("ed-done").hidden; }, groups: [{ sel: "#ed-again", keys: ["r"] }], start: "#ed-back-edit" });
+  }
+  if (window.GameShell && GameShell.gridKeys) {
+    // My sheds: the arrows walk its buttons (each shed's Edit, Play and
+    // Delete), Enter presses the ringed one; the keys by its heading
+    GameShell.gridKeys({ active: function () { return !T && $("ed-io").hidden && $("ed-done").hidden; }, sel: "#ed-saved .saved-item button" });
+    $("ed-saved-h").insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
+    showSaved();
   }
 
   // Leaving asks first while the shed has changes that aren't saved, shared
