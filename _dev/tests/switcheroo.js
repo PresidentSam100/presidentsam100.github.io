@@ -176,12 +176,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     const want = Switcheroo.asking(), right = Switcheroo.where(want);
     const wrong = Switcheroo.contents().findIndex((m, slot) => slot !== right && m >= 0), under = Switcheroo.contents()[wrong];
     Switcheroo.pick(wrong);
-    const asked = [];
-    for (let i = 0; i < 3000 && Switcheroo.phase() !== "clear" && Switcheroo.state() === "play"; i++) { const a = Switcheroo.asking(); if (a >= 0 && asked[asked.length - 1] !== a) asked.push(a); __frames(1); }
-    return { under, asked, phase: Switcheroo.phase(), wrongUp: Switcheroo.drawn()[wrong].lift, lives: Switcheroo.lives() };
+    const asked = [], marks = [];
+    for (let i = 0; i < 3000 && Switcheroo.phase() !== "clear" && Switcheroo.state() === "play"; i++) {
+      const a = Switcheroo.asking(); if (a >= 0 && asked[asked.length - 1] !== a) asked.push(a);
+      const m = Switcheroo.drawn()[wrong].mark; if (marks[marks.length - 1] !== m) marks.push(m);
+      __frames(1);
+    }
+    // (the cross still there as the round clears, and gone with the next deal)
+    const phase = Switcheroo.phase(), wrongUp = Switcheroo.drawn()[wrong].lift, clearing = Switcheroo.drawn()[wrong].mark, lives = Switcheroo.lives();
+    __until(() => Switcheroo.level() === 2 && Switcheroo.phase() !== "clear", 600);
+    return { under, asked, phase, wrongUp, lives, marks, clearing, next: Switcheroo.drawn().map((c) => c.mark) };
   });
   check("switcheroo: after a wrong pick both tumblers stay up and the colour seen under the wrong one is never asked (level 1: the last tumbler shows itself and the round clears)",
     seen.phase === "clear" && seen.asked.length === 0 && seen.wrongUp > 0.99 && seen.lives === 2, seen);
+  check("switcheroo: a wrong pick's cross stays on its tumbler until the round is over (as a find's tick does), and the next round's tumblers have none",
+    seen.marks.join() === "bad" && seen.clearing === "bad" && seen.next.every((m) => m === null), seen);
   await done(p, "a colour seen isn't asked");
 
   // ---- a pick, a key or a click mid-shuffle does nothing
@@ -453,7 +462,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       const t0 = Switcheroo.clock();
       Switcheroo.pick(wrong);
       const missed = { lives: Switcheroo.lives(), status: document.getElementById("ask").textContent };
-      // the skull in sight under its tumbler, the mark gone: its pixels
+      // the skull in sight under its tumbler (its cross above it): its pixels
       __until(() => Switcheroo.clock() > t0 + 1950, 400);
       const cv = document.getElementById("stage"), g = cv.getContext("2d"), k = cv.width / cv.getBoundingClientRect().width;
       const look = (slot) => {

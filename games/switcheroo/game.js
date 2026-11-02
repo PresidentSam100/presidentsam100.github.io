@@ -332,11 +332,11 @@
       after(LIFT * 0.6, sfxBad);
       say(cup.m < 0 ? "Nothing under that one" : "That's " + (cup.m === SKULL ? "a " : "") + MARBLES[cup.m].name, "bad");
       // then the asked colour's tumbler lifts too, and both stay up for the
-      // rest of the round (in Short Order, the round's one question: the same
-      // level is dealt again, so only a find moves the run on)
+      // rest of the round, the wrong one's cross with it as a find keeps its
+      // tick (in Short Order, the round's one question: the same level is
+      // dealt again, so only a find moves the run on)
       var right = cupWith(want);
       after(LIFT + 480, function () { raise(right, 1); right.done = true; say(["There's ", want, ""]); });
-      after(LIFT * 2 + 480 + 700, function () { mark(cup, null); });
       after(LIFT * 3 + 480 + 900, lives <= 0 ? lose : mode === "short" ? dealAgain : askNext);
     }
     return true;
@@ -784,8 +784,8 @@
     asking: function () { return phase === "ask" ? asks[askI] : -1; },
     where: function (mi) { var c = cupWith(mi); return c ? slotOf(c) : -1; },
     colour: function (mi) { return MARBLES[mi].name; },
-    // each tumbler as drawn: its slot, where it is, and whether it's mid-switch
-    drawn: function () { return order.map(function (ci, slot) { var c = cups[ci], q = cupPos(c, slot); return { slot: slot, x: q.x, y: q.y, moving: !!c.mv, p: q.p, from: c.mv ? c.mv.from : slot, to: c.mv ? c.mv.to : slot, lift: liftOf(c), up: c.up }; }); },
+    // each tumbler as drawn: its slot, where it is, whether it's mid-switch, and its tick or cross
+    drawn: function () { return order.map(function (ci, slot) { var c = cups[ci], q = cupPos(c, slot); return { slot: slot, x: q.x, y: q.y, moving: !!c.mv, p: q.p, from: c.mv ? c.mv.from : slot, to: c.mv ? c.mv.to : slot, lift: liftOf(c), up: c.up, mark: c.mark ? c.mark.kind : null }; }); },
     slotX: slotX,
     marbleR: function () { return MR; },
     // a round not yet switching, at once to its first question (every
