@@ -229,14 +229,23 @@
   }
 
   // ---- a test: the game's rules on the shed as drawn ------------------------------------------------
-  var T = null;
+  // Its clock is shown as the game's is: from the first step to the last pot
+  // in the sun, Start over and Undo leaving it running; nothing is kept, it
+  // only says how long the go took.
+  var T = null, tick = null;
   var kbd = function (k) { return '<kbd class="gs-kbd">' + k + "</kbd>"; };
-  function startTest() {
+  function tclock() { return !T || T.t0 == null ? 0 : (T.t1 != null ? T.t1 : Date.now()) - T.t0; }
+  // (1:05 as it runs, 1:05.3 on the card: the game's own)
+  function mss(ms) { var s = Math.floor(ms / 1000); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2); }
+  function mssT(ms) { var t = Math.floor(ms / 100), s = Math.floor(t / 10); return Math.floor(s / 60) + ":" + ("0" + s % 60).slice(-2) + "." + t % 10; }
+  // keep: Start over, the same go (its clock runs on)
+  function startTest(keep) {
     if (!validate()) return;
     stopCheck();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    var L = E.parse(map);
-    T = { L: L, me: L.me, pots: L.pots.slice(), moves: 0, pushes: 0, hist: [], facing: 1, done: false };
+    var L = E.parse(map), t0 = keep === true && T ? T.t0 : null;
+    T = { L: L, me: L.me, pots: L.pots.slice(), moves: 0, pushes: 0, hist: [], facing: 1, done: false, t0: t0, t1: null };
+    if (!tick) tick = setInterval(function () { if (T && !T.done && T.t0 != null) showCount(); }, 250);
     document.body.classList.add("testing");
     $("ed-testbar").hidden = false; $("ed-done").hidden = true;
     say('<span class="gs-keys">' + ["←", "↑", "↓", "→"].map(kbd).join("") + " or " + ["W", "A", "S", "D"].map(kbd).join("") + " walk and push, " + kbd("Esc") + " stops.</span>" +
@@ -249,24 +258,29 @@
   function stopTest() {
     if (!T) return;
     T = null;
+    clearInterval(tick); tick = null;
     document.body.classList.remove("testing");
     $("ed-testbar").hidden = true; $("ed-done").hidden = true;
     render(); validate();
   }
-  function showCount() { $("ed-count").textContent = count(T.moves, "move", "moves") + " · " + count(T.pushes, "push", "pushes"); }
+  function showCount() {
+    var v = count(T.moves, "move", "moves") + " · " + count(T.pushes, "push", "pushes") + " · " + mss(tclock());
+    if ($("ed-count").textContent !== v) $("ed-count").textContent = v;
+  }
   // one step (one a press): the game's rule, engine.js's move()
   function tstep(dx, dy) {
     if (!T || T.done) return;
     if (dx) T.facing = dx;
     var r = E.move(T.L, T.me, T.pots, dx, dy);
     if (!r) return;
+    if (T.t0 == null) T.t0 = Date.now();
     T.hist.push({ me: T.me, pots: T.pots.slice(), moves: T.moves, pushes: T.pushes });
     T.me = r.me; T.pots = r.pots; T.moves++;
     if (r.pushed >= 0) T.pushes++;
     showCount(); render();
     if (T.pots.every(function (k) { return T.L.sun[k]; })) {
       var tt = T;
-      tt.done = true;
+      tt.done = true; tt.t1 = Date.now(); showCount();
       setTimeout(function () { if (T === tt) showDone(); }, 350);
     }
   }
@@ -278,7 +292,7 @@
   }
   function showDone() {
     $("ed-done-msg").textContent = count(T.moves, "move", "moves");
-    $("ed-done-stats").textContent = count(T.pushes, "push", "pushes") + " · every pot in the sun";
+    $("ed-done-stats").textContent = count(T.pushes, "push", "pushes") + " · " + mssT(tclock()) + " · every pot in the sun";
     $("ed-done").hidden = false;
   }
   [["t-up", 0, -1], ["t-left", -1, 0], ["t-right", 1, 0], ["t-down", 0, 1]].forEach(function (b) {
@@ -286,7 +300,7 @@
   });
   $("t-undo").addEventListener("click", tundo);
   $("ed-undo").addEventListener("click", tundo);
-  $("ed-over").addEventListener("click", function () { if (T) startTest(); });
+  $("ed-over").addEventListener("click", function () { if (T) startTest(true); });
   $("ed-stop").addEventListener("click", stopTest);
   $("ed-back-edit").addEventListener("click", stopTest);
   $("ed-again").addEventListener("click", startTest);
@@ -501,7 +515,7 @@
     dirty: dirty,
     playUrl: function () { return playUrl(shed()); },
     cell: function () { return s; },
-    test: function () { return T ? { me: T.me, pots: T.pots.slice(), moves: T.moves, pushes: T.pushes, done: T.done } : null; },
+    test: function () { return T ? { me: T.me, pots: T.pots.slice(), moves: T.moves, pushes: T.pushes, done: T.done, clock: tclock() } : null; },
     step: tstep,
     saved: savedList
   };

@@ -405,5 +405,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("potting-shed editor: every tool's and action's words sit on one line, with a mouse's keycaps beside them or on touch, down to a 320 px window",
       Object.values(wraps).every((a) => a.length === 0), wraps);
   }
+
+  // ---- a test's clock, shown as the game's is: still until the first step,
+  // then running (Start over leaves it running), stopped as the last pot
+  // lands, and on the card. Time is the test's own, moved on by hand.
+  {
+    const c = await lib.newContext(browser, { viewport: { width: 1366, height: 657 } });
+    const q = await lib.open(c, base, "games/potting-shed/editor.html", { before: (pg) => pg.addInitScript(() => { let now = 1.7e12; Date.now = () => now; window.__adv = (ms) => { now += ms; }; }) });
+    const SHED = { name: "Clock", map: ["#######", "#@ $ .#", "#     #", "#     #", "#######"] };
+    await q.evaluate((m) => { localStorage.removeItem("pottingshed_mine"); PottingShedEditor.open(m); }, SHED);
+    const bar = () => q.evaluate(() => ({ text: document.getElementById("ed-count").textContent, clock: PottingShedEditor.test() && PottingShedEditor.test().clock }));
+    await q.keyboard.press("t"); await q.waitForTimeout(100);
+    await q.evaluate(() => __adv(5000)); await q.waitForTimeout(350);
+    const before = await bar();
+    await q.keyboard.press("ArrowRight"); await q.evaluate(() => __adv(65000)); await q.waitForTimeout(400);
+    const running = await bar();
+    await q.keyboard.press("r"); await q.waitForTimeout(100);
+    const over = await bar();
+    for (let i = 0; i < 3; i++) { await q.keyboard.press("ArrowRight"); await q.waitForTimeout(60); }
+    await q.evaluate(() => __adv(10000)); await q.waitForTimeout(400);
+    const potted = await bar();
+    await q.waitForFunction(() => !document.getElementById("ed-done").hidden, null, { timeout: 5000 });
+    const card = await q.evaluate(() => document.getElementById("ed-done-stats").textContent);
+    check("potting-shed editor: a test's clock is shown as the game's: still until the first step, then running; Start over leaves it running; it stops as the last pot lands, and the card shows it",
+      / · 0:00$/.test(before.text) && before.clock === 0 && / · 1:05$/.test(running.text) && over.clock === 65000 && / · 1:05$/.test(over.text) && /^0 moves/.test(over.text) &&
+      potted.clock === 65000 && / · 1:05$/.test(potted.text) && /1:05\.0/.test(card), { before, running, over, potted, card });
+    check("potting-shed editor (test clock): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
   await ctx.close();
 };
