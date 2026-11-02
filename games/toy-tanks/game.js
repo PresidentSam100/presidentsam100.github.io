@@ -148,6 +148,7 @@
     sprites = { wood: A.blockSprite(s, false), cork: A.blockSprite(s, true) };
     paintBack();
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    placeBanner();
   }
   // the mat, the rim and the holes: drawn once a mission (they never change)
   function paintBack() {
@@ -233,15 +234,93 @@
       $("h-lives").setAttribute("aria-label", lives + (lives === 1 ? " life" : " lives"));
     }
     $("mine-btn").disabled = !(ui === "run" && st.status === "play" && st.player.alive && E.minesOf(st, st.player) < E.TUNE.playerMines);
-    var key = $("hud").hidden + "|" + $("hud").textContent;
+    // (the lives are badges, no text: counted too, as fewer can change the HUD's rows)
+    var key = $("hud").hidden + "|" + $("hud").textContent + "|" + lives;
     if (key !== hudKey) { hudKey = key; if (chrome() !== fitChrome) { fit(); } }
   }
   var bannerText = "";
   function banner(html) {
-    if (html === bannerText) return;
-    bannerText = html;
-    $("banner").innerHTML = html;
-    $("banner").className = html ? "show" : "";
+    if (html !== bannerText) {
+      bannerText = html;
+      $("banner").innerHTML = html;
+      $("banner").className = html ? "show" : "";
+    }
+    placeBanner();
+  }
+  // Where the banner goes. It shows while the tanks stand on the board (the
+  // mission card, Mission cleared!, Tank destroyed), so it never covers a
+  // tank or the floor round one. It goes off the arena where the window has
+  // room for it whole: as a card beside the arena (a laptop), or else the
+  // nearest spot to the arena it fits, as a card or set closer in a strip
+  // (over the name and the HUD on a phone, by the HUD on a phone on its
+  // side). Failing that, a strip over the arena wherever it hides no tank,
+  // nor a shell or a mine (the end of a mission leaves them standing), and
+  // as little of the arena as it can, against its top or bottom edge where
+  // it can. Never over the corner buttons or the touch sticks.
+  var STRIPS = [520, 360, 260, 200, 150], placedFor = "";
+  function placeBanner() {
+    var el = $("banner"), name = document.querySelector(".title");
+    if (!bannerText || !st || !canvas.getClientRects().length) { name.classList.remove("under-banner"); placedFor = ""; return; }
+    var W = document.documentElement.clientWidth, H = window.innerHeight, a = canvas.getBoundingClientRect();
+    placedFor = [a.left, a.top, a.width, W, H].join();
+    var ox = a.left + fr, oy = a.top + fr, mx = (a.left + a.right) / 2, my = (a.top + a.bottom) / 2;
+    function grow(r, pad) { return { l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad }; }
+    var keep = [];
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-back-games, .gs-corner > *, #move-stick, #aim-stick, #mine-btn"), function (e) {
+      if (e.getClientRects().length) keep.push(grow(e.getBoundingClientRect(), 3));
+    });
+    // (a tank: a tile and a fifth each way from its middle, the tank and the
+    // floor round it; a shell or a mine, less)
+    function round(list, r) { return list.map(function (o) { return { l: ox + (o.x - r) * s, t: oy + (o.y - r) * s, r: ox + (o.x + r) * s, b: oy + (o.y + r) * s }; }); }
+    var tanks = [st.player].concat(st.enemies).filter(function (t) { return t.alive; });
+    var near = keep.concat(round(tanks, 1.2)), bits = near.concat(round(st.shells, 0.4), round(st.mines, 0.55));
+    var offArena = keep.concat([grow(a, 3)]);
+    // its size as a card (strip 0), or as a strip at most this wide
+    function form(strip) {
+      el.classList.toggle("strip", !!strip);
+      el.style.maxWidth = strip ? Math.min(strip, W - 16) + "px" : "";
+      return { strip: strip, w: el.offsetWidth, h: el.offsetHeight };
+    }
+    el.style.left = "0px"; el.style.top = "0px";
+    var forms = [form(0)].concat(STRIPS.map(form));
+    function clear(x, y, f, avoid) {
+      for (var i = 0; i < avoid.length; i++) { var o = avoid[i]; if (x < o.r && x + f.w > o.l && y < o.b && y + f.h > o.t) return false; }
+      return true;
+    }
+    // the place clear of `avoid` with the lowest score, of these forms
+    function best(list, avoid, score) {
+      var top = null;
+      list.forEach(function (f) {
+        for (var y = 4; y + f.h <= H - 4; y += 4) for (var x = 4; x + f.w <= W - 4; x += 4) {
+          if (!clear(x, y, f, avoid)) continue;
+          var sc = score(x, y, f);
+          if (!top || sc < top.sc) top = { x: x, y: y, f: f, sc: sc };
+        }
+      });
+      return top;
+    }
+    function apart(x, y, f) { return Math.hypot(x + f.w / 2 - mx, y + f.h / 2 - my); }
+    // (over the arena: how much of it hidden, and how far from its top or bottom edge)
+    function hides(x, y, f) {
+      var w = Math.max(0, Math.min(x + f.w, a.right) - Math.max(x, a.left)), h = Math.max(0, Math.min(y + f.h, a.bottom) - Math.max(y, a.top));
+      return w * h + 30 * Math.min(Math.abs(y - a.top), Math.abs(a.bottom - y - f.h));
+    }
+    var at = best([forms[0]], offArena, function (x, y, f) { return y + f.h / 2 >= a.top && y + f.h / 2 <= a.bottom ? apart(x, y, f) : 1e9; });
+    if (at && at.sc >= 1e9) at = null;
+    at = at || best(forms, offArena, apart) || best(forms.slice(1), bits, hides) || best(forms.slice(1), near, hides) ||
+      best(forms.slice(1), keep.concat(round(tanks, 0.75)), hides);
+    if (!at) { at = { f: forms[0], x: Math.round(mx - forms[0].w / 2), y: Math.round(my - forms[0].h / 2) }; }
+    form(at.f.strip);
+    el.style.left = at.x + "px"; el.style.top = at.y + "px";
+    // (the game's name, part under it, is put out of sight while it's up rather than peek out round it)
+    var nr = name.getBoundingClientRect();
+    name.classList.toggle("under-banner", at.x < nr.right && at.x + at.f.w > nr.left && at.y < nr.bottom && at.y + at.f.h > nr.top);
+  }
+  // (placed again if the arena has moved under it since: the window, the HUD's rows)
+  function keepBannerPlaced() {
+    if (!bannerText) return;
+    var a = canvas.getBoundingClientRect();
+    if ([a.left, a.top, a.width, document.documentElement.clientWidth, window.innerHeight].join() !== placedFor) placeBanner();
   }
   function missionCard() {
     var kinds = {}, order = [];
@@ -378,6 +457,7 @@
       hud();
     } else if (ui !== "run") clock += dt;
     if (ui === "over") tick(dt);
+    keepBannerPlaced();
     if (st) render();
   }
   // a mine in its last stretch beeps each time its light blinks on (faster

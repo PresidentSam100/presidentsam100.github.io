@@ -993,4 +993,80 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks (shells stopped): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
+
+  // ---- the banner (the mission card, Mission cleared!, Tank destroyed)
+  // covers no tank: off the arena where the window has room (a card beside
+  // it on a laptop, a strip over the name and the HUD on a phone, by the HUD
+  // on a phone on its side), and only otherwise over a part of the arena with
+  // no tank on it; always whole on the screen, clear of the corner buttons
+  // and the sticks, its text whole. Hand-made and drawn-up missions, two
+  // laptop sizes and the suites' desktop, three phones and two on their side
+  {
+    const { devices } = require("@playwright/test");
+    const ph = (d, w, h) => Object.assign({}, devices[d], { viewport: { width: w, height: h } });
+    const sizes = [["1366 x 657", { viewport: { width: 1366, height: 657 } }], ["1280 x 600", { viewport: { width: 1280, height: 600 } }], ["1280 x 900", { viewport: { width: 1280, height: 900 } }],
+      ["390 x 664", ph("iPhone 13", 390, 664)], ["375 x 553", ph("iPhone SE", 375, 553)], ["320 x 568", ph("iPhone SE", 320, 568)],
+      ["750 x 340, on its side", ph("iPhone 13 landscape", 750, 340)], ["667 x 330, on its side", ph("iPhone SE landscape", 667, 330)]];
+    const bad = [], tally = {};
+    for (const [label, dev] of sizes) {
+      const c = await lib.newContext(browser, dev);
+      // (Visual FX off: the card where it stays, not on its way in)
+      const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:toy-tanks", "1"); } catch (e) {} }) });
+      const r = await q.evaluate((w) => {
+        const out = { bad: [], off: 0, n: 0 };
+        for (const n of [1, 5, 10, 20, 37, 50, 60, 65, 70, 83, 100]) for (const phase of ["card", "won", "lost"]) {
+          ToyTanks.start(n);
+          const st = ToyTanks.st();
+          if (phase !== "card") { ToyTanks.advance(1700, {}); if (st.status !== "play") { out.bad.push(n + " " + phase + ": " + st.status); continue; } }
+          if (phase === "won") { st.enemies.forEach((e) => { e.alive = false; }); ToyTanks.advance(16, {}); }
+          if (phase === "lost") { st.player.alive = false; ToyTanks.advance(16, {}); }
+          const el = document.getElementById("banner"), b = el.getBoundingClientRect(), a = document.getElementById("arena").getBoundingClientRect(), s = ToyTanks.cell(), fr = Math.round(s / 2);
+          const meets = (o) => b.left < o.right && b.right > o.left && b.top < o.bottom && b.bottom > o.top;
+          const under = [st.player].concat(st.enemies).filter((t) => t.alive && meets({ left: a.left + fr + (t.x - 0.7) * s, right: a.left + fr + (t.x + 0.7) * s, top: a.top + fr + (t.y - 0.7) * s, bottom: a.top + fr + (t.y + 0.7) * s })).map((t) => t.kind);
+          const keep = [...document.querySelectorAll(".nav-back-games, .gs-corner > *, #move-stick, #aim-stick, #mine-btn")].filter((e) => e.getClientRects().length && meets(e.getBoundingClientRect())).map((e) => e.id || e.className);
+          const whole = b.left >= 0 && b.top >= 0 && b.right <= w && b.bottom <= innerHeight && el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1;
+          const shown = el.classList.contains("show") && b.width > 0 && el.textContent.length > 0;
+          out.n++;
+          if (!meets(a)) out.off++;
+          if (!shown || under.length || keep.length || !whole) out.bad.push(n + " " + phase + ": " + JSON.stringify({ shown, under, keep, whole, box: [b.left, b.top, b.right, b.bottom].map(Math.round) }));
+        }
+        return out;
+      }, dev.viewport.width);
+      tally[label] = r.off + " of " + r.n + " off the arena";
+      r.bad.forEach((x) => bad.push(label + ": " + x));
+      if (r.off !== r.n) bad.push(label + ": over the arena though there's room off it (" + tally[label] + ")");
+      if (q.errs.length) bad.push(label + " errors: " + q.errs.join("; "));
+      await q.close(); await c.close();
+    }
+    check("toy-tanks: the banners (mission card, Mission cleared!, Tank destroyed) cover no tank, on eleven missions at three laptop sizes, three phones and two on their side: off the arena at every one of them (beside it on a laptop, over the name and the HUD on a phone), whole on the screen, clear of the corner buttons and the sticks, the text whole",
+      bad.length === 0, { bad: bad.slice(0, 12), tally });
+  }
+  {
+    // with no room off the arena, a banner goes over it, set close in a
+    // strip, where no tank is: forced here by covering every spot off the
+    // arena with blocks the banner keeps clear of, as of the corner buttons
+    const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:toy-tanks", "1"); } catch (e) {} }) });
+    const r = await q.evaluate(() => {
+      const out = [];
+      for (const n of [5, 10, 50, 60, 65, 70]) {
+        ToyTanks.start(n);
+        const a0 = document.getElementById("arena").getBoundingClientRect(), cover = [];
+        [[0, 0, innerWidth, a0.top], [0, a0.bottom, innerWidth, innerHeight], [0, 0, a0.left, innerHeight], [a0.right, 0, innerWidth, innerHeight]].forEach(([l, t, r, b]) => {
+          const d = document.createElement("div"), x = document.createElement("i");
+          d.className = "gs-corner"; x.style.cssText = "position:fixed;left:" + l + "px;top:" + t + "px;width:" + Math.max(0, r - l) + "px;height:" + Math.max(0, b - t) + "px";
+          d.appendChild(x); document.body.appendChild(d); cover.push(d);
+        });
+        window.dispatchEvent(new Event("resize"));
+        const st = ToyTanks.st(), el = document.getElementById("banner"), b = el.getBoundingClientRect(), A = document.getElementById("arena").getBoundingClientRect(), s = ToyTanks.cell(), fr = Math.round(s / 2);
+        const under = [st.player].concat(st.enemies).filter((t) => { const cx = A.left + fr + t.x * s, cy = A.top + fr + t.y * s, h = 0.7 * s; return b.left < cx + h && b.right > cx - h && b.top < cy + h && b.bottom > cy - h; }).length;
+        out.push({ n, under, over: b.left >= A.left - 6 && b.right <= A.right + 6 && b.top >= A.top - 6 && b.bottom <= A.bottom + 6, strip: el.classList.contains("strip") });
+        cover.forEach((d) => d.remove());
+      }
+      return out;
+    });
+    check("toy-tanks: with no room off the arena, a banner goes over it, set close in a strip, where it covers no tank (six hand-made missions)", r.every((o) => o.under === 0 && o.over && o.strip), r);
+    check("toy-tanks (banner over the arena): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };

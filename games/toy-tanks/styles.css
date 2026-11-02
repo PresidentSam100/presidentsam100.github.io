@@ -79,22 +79,31 @@ body.paused #stage::after {
     linear-gradient(180deg, var(--blue-hi), var(--blue-deep));
   border: 6px solid var(--red); box-shadow: inset 0 0 0 2px var(--red-deep);
 }
+/* the banner: placed by game.js (placeBanner) where it covers no tank, off
+   the arena where the window has room; a card, or set closer in a strip */
 #banner {
-  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  position: fixed; left: 0; top: 0; z-index: 45;
   display: none; flex-direction: column; align-items: center; gap: 4px;
-  min-width: min(300px, 80%); padding: 12px 22px 14px; text-align: center;
+  min-width: min(300px, 80vw); padding: 12px 22px 14px; text-align: center;
   color: var(--ink); background: var(--cream); border: 4px solid var(--yellow); border-radius: 12px;
   box-shadow: 0 5px 0 var(--yellow-deep), 0 10px 20px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
 #banner.show { display: flex; }
+.title.under-banner { visibility: hidden; }
 html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1) both; }
-@keyframes drop-in { from { transform: translate(-50%, -90%) scale(0.85); opacity: 0; } to { transform: translate(-50%, -50%); opacity: 1; } }
+@keyframes drop-in { from { transform: translateY(-24px) scale(0.88); opacity: 0; } to { transform: none; opacity: 1; } }
 .b-title { font-size: 30px; line-height: 1.1; color: var(--red); }
 .b-line { font-size: 17px; }
 .b-kinds { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 10px; margin-top: 2px; }
 .b-kind { display: inline-flex; align-items: center; gap: 2px; font-size: 16px; }
 .b-kind b { font-weight: 400; }
+/* the strip: the same label set closer, its parts side by side, wrapping */
+#banner.strip { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; gap: 0 10px; min-width: 0; padding: 3px 12px 4px; border-width: 3px; border-radius: 10px; box-shadow: 0 3px 0 var(--yellow-deep), 0 6px 14px rgba(0, 0, 0, 0.3); }
+#banner.strip .b-title { font-size: 19px; line-height: 1.05; }
+#banner.strip .b-line, #banner.strip .b-kind { font-size: 14px; line-height: 1.25; }
+#banner.strip .b-kinds { margin-top: 0; gap: 0 8px; }
+#banner.strip .b-kind .tk { width: 17px; height: 17px; }
 
 /* ---- under the arena: the touch pad, and how to play ------------------------------ */
 .foot { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 100%; }
