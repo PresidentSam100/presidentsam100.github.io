@@ -127,7 +127,10 @@
         s = ramp(u, 0.1, 0.28) - ramp(u, 0.72, 0.9); a = bump(u, 0.38, 0.66);
         wink(-ex, 1 - s); wink(ex, s);
         arcStroke(0, r * 0.02, r * 0.2, 0.15 * Math.PI, 0.85 * Math.PI);
-        g.beginPath(); g.moveTo(r * 0.12, r * 0.2); g.quadraticCurveTo(r * (0.2 + 0.04 * a), r * (0.3 + 0.08 * a), r * 0.08, r * (0.3 + 0.07 * a)); g.stroke(); // tongue tip
+        // the tongue tip, poking out of the grin: a U from the grin's line and back to it
+        // (its two ends on the arc above: x 0.14 r and 0.04 r on a circle of 0.2 r round (0, 0.02 r))
+        g.beginPath(); g.moveTo(r * 0.14, r * 0.1628);
+        g.bezierCurveTo(r * (0.17 + 0.02 * a), r * (0.27 + 0.08 * a), r * 0.05, r * (0.33 + 0.08 * a), r * 0.04, r * 0.216); g.stroke();
         break;
       case 2: // strawberry: happy closed eyes, big smile
         // idle: a giggle, two quick bobs, the smile wider and the blush glowing
@@ -143,10 +146,17 @@
         a = ramp(u, 0.05, 0.35) - ramp(u, 0.62, 0.9); d = er * 0.45 * a;
         g.beginPath(); g.moveTo(-ex - er, ey + d); g.lineTo(-ex + er, ey + d); g.stroke();
         g.beginPath(); g.moveTo(ex - er, ey + d); g.lineTo(ex + er, ey + d); g.stroke();
-        if (a) g.globalAlpha = A0 * (1 - a);
-        arcStroke(0, r * 0.08, r * 0.12, 0.2 * Math.PI, 0.8 * Math.PI);
-        g.globalAlpha = A0;
-        if (a) oval(0, r * 0.13, r * 0.075 * (0.6 + 0.4 * a), r * 0.12 * a);
+        if (!a) arcStroke(0, r * 0.08, r * 0.12, 0.2 * Math.PI, 0.8 * Math.PI);
+        else {
+          // (the smile itself opening into the O: its corners drawing in, the
+          // lip under it dropping, one over it rising from the line between its
+          // corners; never the smile and the O at once)
+          var mw = r * (0.097 - 0.027 * a), my = r * (0.15 - 0.02 * a);
+          g.beginPath();
+          g.ellipse(0, my, mw, r * (0.05 + 0.07 * a), 0, 0, Math.PI);
+          g.ellipse(0, my, mw, Math.max(0.01, r * 0.1 * a), 0, Math.PI, Math.PI * 2);
+          g.closePath(); g.fill(); g.stroke();
+        }
         break;
       case 4: // apricot: joyful ^ ^ and an open smile
         // idle: a happy hop and a little one after, the eyes squeezing, the smile wider
