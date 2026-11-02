@@ -1150,13 +1150,21 @@
       // title, the bar, the boards, the on-screen pad and the byline. A window
       // wider than a phone has the pad beside the boards; a lone board has its
       // panel beside it; then the boards take the width there is, and shrink
-      // until the page ends inside the window. Run again on a resize.
+      // until the page ends inside the window (a phone in VS: fitLead). Run
+      // again on a resize.
       fit() {
         const area = document.getElementById("game-area"), wrap = area.parentNode, n = this.count, vs = this.mode === "vs";
         const W = document.documentElement.clientWidth || window.innerWidth, H = window.innerHeight;
         const natW = CONFIG.cols * CONFIG.cell, natH = CONFIG.rows * CONFIG.cell;
         area.classList.toggle("solo", !vs); area.classList.toggle("side", W >= 640 || W > H);
-        const side = area.classList.contains("side") ? document.getElementById("touchpad").offsetWidth + 20 : 0;
+        const lead = this.leadOf(W, H);
+        this.arrange(lead); this.barUp(area, W, !!lead);
+        const side = area.classList.contains("side") ? document.getElementById("touchpad").offsetWidth + (lead ? 12 : 20) : 0;
+        // how far the page runs past the window's bottom (the byline and the
+        // page's own bottom margin included)
+        const by = document.getElementById("byline");
+        const over = () => Math.ceil(by.getBoundingClientRect().bottom + parseFloat(getComputedStyle(by).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H);
+        if (lead) return this.fitLead(lead, W, side, over);
         const panel = vs ? 0 : this.players[0].hud.offsetWidth + 12;
         const maxW = vs ? Math.min((W - 32 - side) / n - 18, n >= 3 ? 240 : 300) : Math.min(W - 32 - side - panel, natW), kW = Math.min(1, maxW / natW);
         // (a VS board's column keeps its share of the width as the board
@@ -1167,12 +1175,69 @@
           col.classList.toggle("tight", vs && (colW < 200 || H < 500)); col.classList.toggle("tighter", vs && colW < 96);
         }
         const set = (k) => { for (const p of this.players) { p.canvas.style.width = natW * k + "px"; p.canvas.style.height = natH * k + "px"; } };
-        // how far the page runs past the window's bottom (the byline and the
-        // page's own bottom margin included)
-        const by = document.getElementById("byline");
-        const over = () => Math.ceil(by.getBoundingClientRect().bottom + parseFloat(getComputedStyle(by).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H);
         let k = kW; set(k);
         for (let i = 0; i < 4; i++) { const o = over(); if (o <= 0) break; k = Math.max(0.12, Math.min(kW, (natH * k - o) / natH)); set(k); }
+      }
+      // A phone in VS (a touch screen, small one way or the other) has room
+      // for one board to play on, not four: the board the pad drives (the
+      // first human's, or P1's when every seat is a CPU) leads, and the rest
+      // are minis beside it. A keyboard's screen keeps its boards side by side.
+      leadOf(W, H) {
+        if (this.mode !== "vs" || Math.min(W, H) >= 500 || !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly())) return null;
+        return this.players.find((p) => !p.isCpu) || this.players[0];
+      }
+      // (the minis in a box of their own, in seat order; back in one row, in
+      // seat order, when there's no lead)
+      arrange(lead) {
+        const el = this.boardsEl, box = el.querySelector(".minis"), cols = this.players.map((p) => p.canvas.parentNode);
+        const area = document.getElementById("game-area");
+        area.classList.toggle("lead", !!lead); document.body.classList.toggle("lead-up", !!lead && !area.classList.contains("side"));
+        this.players.forEach((p, i) => { cols[i].classList.toggle("me", p === lead); cols[i].classList.toggle("mini", !!lead && p !== lead); });
+        if (!lead) { if (box) { cols.forEach((c) => el.appendChild(c)); box.remove(); } return; }
+        const mb = box || document.createElement("div"); mb.className = "minis";
+        const me = lead.canvas.parentNode, rest = cols.filter((c) => c !== me);
+        if (el.firstChild === me && me.nextSibling === mb && rest.every((c, i) => mb.children[i] === c)) return;
+        el.appendChild(me); el.appendChild(mb); rest.forEach((c) => mb.appendChild(c));
+      }
+      // The lead board as big as fits: the largest size at which nothing runs
+      // past the window's bottom or sides (or no further than with the
+      // smallest boards, should the panels alone overrun). A mini's board is
+      // as tall as its panel, or less where the lead's height shared out is
+      // less; a lone one, over its panel, 3/5 of the lead's.
+      fitLead(lead, W, side, over) {
+        const natW = CONFIG.cols * CONFIG.cell, natH = CONFIG.rows * CONFIG.cell, area = document.getElementById("game-area");
+        const minis = this.players.filter((p) => p !== lead), gap = 2, one = minis.length === 1;
+        for (const p of this.players) { const col = p.canvas.parentNode; col.style.width = ""; col.classList.remove("tight", "tighter"); }
+        const size = (p, h) => { p.canvas.style.width = h * natW / natH + "px"; p.canvas.style.height = h + "px"; };
+        const row = one ? 0 : minis[0].hud.offsetHeight;
+        const set = (k) => {
+          const h = natH * k, mh = one ? h * 0.6 : Math.min(row, (h - gap * (minis.length - 1)) / minis.length);
+          size(lead, h); for (const p of minis) size(p, mh);
+        };
+        let lo = 0.12, hi = Math.min(1, (W - 32 - side) / natW);
+        set(lo); const least = Math.max(0, over());
+        const fits = () => over() <= least && area.scrollWidth <= area.clientWidth + 1 && document.documentElement.scrollWidth <= W;
+        set(hi); if (fits()) return;
+        for (let i = 0; i < 10; i++) { const k = (lo + hi) / 2; set(k); if (fits()) lo = k; else hi = k; }
+        set(lo);
+      }
+      // (a phone on its side is short: the bar goes up beside the title, ☰
+      // Menu to its left and the match's line to its right, where they fit
+      // between the corner buttons and the subtitle; elsewhere it stays put)
+      barUp(area, W, lead) {
+        const bar = area.querySelector(".row"), label = document.getElementById("mode-label");
+        const up = (on) => { area.classList.toggle("bar-up", on); document.body.classList.toggle("bar-up", on); if (!on) { bar.style.top = ""; label.style.maxWidth = ""; } };
+        up(false);
+        if (!lead || !area.classList.contains("side")) return;
+        up(true);
+        const text = (el) => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect(); };
+        const t = text(document.querySelector(".head .title")), s = text(document.querySelector(".head .subtitle"));
+        const corner = document.querySelector(".nav-back-games").getBoundingClientRect().bottom;
+        label.style.maxWidth = Math.max(0, W - 16 - t.right - 10) + "px";
+        bar.style.top = t.top + window.scrollY + (t.height - bar.offsetHeight) / 2 + "px";
+        const m = document.getElementById("menu-btn").getBoundingClientRect(), b = bar.getBoundingClientRect(), l = label.getBoundingClientRect();
+        const hits = (r) => r.bottom > s.top && r.left < s.right && r.right > s.left;
+        if (b.top < corner + 2 || m.right > t.left - 8 || l.left < t.right + 8 || hits(m) || hits(l)) up(false);
       }
 
       setupStage(board, stage) {
@@ -1309,7 +1374,7 @@
       pauseToggle() { if (this.state === "playing") this.pause(); else if (this.state === "paused") this.resume(); }
       // a round-end timer left running would put this game's result card (or
       // its next round) over whatever comes next
-      destroy() { cancelAnimationFrame(this.raf); clearTimeout(this.roundTimer); if (this.ro) this.ro.disconnect(); }
+      destroy() { cancelAnimationFrame(this.raf); clearTimeout(this.roundTimer); if (this.ro) this.ro.disconnect(); document.body.classList.remove("lead-up", "bar-up"); }
     }
 
     // ------------------------------ Input --------------------------------
@@ -1521,15 +1586,23 @@
     }
     pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
     pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
-    // per-slot Human/CPU toggle + per-CPU difficulty dropdown
-    const MAX_HUMANS = 2; // more local humans than that gets unwieldy on one keyboard
+    // per-slot Human/CPU toggle + per-CPU difficulty dropdown. Two humans at
+    // most (more gets unwieldy on one keyboard), and one on a touch screen,
+    // whose on-screen pad steers one board: read live, as a tablet can gain a
+    // mouse. Humans over the limit (a setup made with a mouse, carried on to a
+    // touch screen's menu or match) become CPUs, the first human staying.
+    const maxHumans = () => (window.GameShell && GameShell.touchOnly && GameShell.touchOnly() ? 1 : 2);
+    function capSeats() {
+      let left = maxHumans();
+      for (let i = 0; i < sel.players; i++) if (sel.ptypes[i] === "human" && left-- <= 0) sel.ptypes[i] = "cpu";
+    }
     document.getElementById("player-rows").addEventListener("click", (e) => {
       const btn = e.target.closest("button.ptoggle"); if (!btn) return;
       const slot = +btn.getAttribute("data-slot");
       const goingHuman = sel.ptypes[slot] !== "human";
       if (goingHuman) {
         const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
-        if (humanCount >= MAX_HUMANS) return; // already at the human cap: ignore
+        if (humanCount >= maxHumans()) return; // already at the human cap: ignore
       }
       sel.ptypes[slot] = goingHuman ? "human" : "cpu";
       updateVsOpts();
@@ -1539,7 +1612,8 @@
       sel.diffs[+s.getAttribute("data-slot")] = s.value;
     });
     function updateVsOpts() {
-      const labels = ["P1", "P2", "P3", "P4"];
+      capSeats();
+      const labels = ["P1", "P2", "P3", "P4"], max = maxHumans();
       const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
       document.querySelectorAll("#player-rows .prow").forEach((row) => {
         const slot = +row.getAttribute("data-slot");
@@ -1548,15 +1622,16 @@
         const btn = row.querySelector(".ptoggle");
         btn.textContent = labels[slot] + ": " + (cpu ? "CPU" : "Human");
         btn.classList.toggle("sel", cpu);
-        const capped = cpu && humanCount >= MAX_HUMANS;
+        const capped = cpu && humanCount >= max;
         btn.disabled = capped;
-        btn.title = capped ? "Max " + MAX_HUMANS + " human players" : "";
+        btn.title = capped ? (max === 1 ? "One human player per touch screen" : "Max " + max + " human players") : "";
         const ds = row.querySelector(".diffsel");
         ds.style.display = cpu ? "" : "none";
         ds.value = sel.diffs[slot];
       });
     }
     updateVsOpts();
+    if (window.matchMedia) { const hov = matchMedia("(hover: none)"); if (hov.addEventListener) hov.addEventListener("change", () => { if (!GAME) updateVsOpts(); }); }
     function updateKeysHelp() {
       const el = document.getElementById("keys-help");
       // the key legend hides on a touch-only device (.gs-keys), leaving the pad's line
@@ -1573,7 +1648,7 @@
     // dropping GAME (not just stopping its loop) switches the board keys off:
     // handleKey bails without a game, so letters type into the menu's
     // dropdowns again
-    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); }
+    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); updateVsOpts(); }
     // the play screen is fitted to the window again when it changes size,
     // and once the web fonts have come (the panel's text takes their size)
     window.addEventListener("resize", () => { if (GAME) GAME.fit(); });
@@ -1582,6 +1657,7 @@
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";
+      capSeats();
       if (GAME) GAME.destroy(); GAME = new Game({ mode: sel.mode, players: sel.players, ptypes: sel.ptypes.slice(), diffs: sel.diffs.slice(), fmt: sel.fmt, carryWins: carryWins || null, startStage: sel.stage });
     }
     document.getElementById("play-btn").addEventListener("click", () => startGame());
@@ -1595,7 +1671,7 @@
     // A VS match's setup on the arrows (the digits are the modes'): ↑ ↓ from
     // the player count to each seat to the match length, ← → the row's choice.
     // A seat goes Human, then CPU from Easy to Kaizo, as its button and its
-    // dropdown would set it (never a third human). The keys are on the
+    // dropdown would set it (never a human past the limit). The keys are on the
     // choices, as on the buttons above.
     if (window.GameShell && GameShell.rowKeys) {
       const LEVELS = ["easy", "normal", "hard", "impossible", "kaizo"];
@@ -1606,7 +1682,7 @@
           const humans = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
           const at = sel.ptypes[slot] === "human" ? -1 : LEVELS.indexOf(sel.diffs[slot]);
           let to = Math.max(-1, Math.min(LEVELS.length - 1, at + d));
-          if (to === -1 && at !== -1 && humans >= MAX_HUMANS) return;   // (a third human: no)
+          if (to === -1 && at !== -1 && humans >= maxHumans()) return;   // (a human past the limit: no)
           if (to === at) return;
           if (to === -1) sel.ptypes[slot] = "human";
           else { sel.ptypes[slot] = "cpu"; sel.diffs[slot] = LEVELS[to]; }

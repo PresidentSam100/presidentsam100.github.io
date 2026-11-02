@@ -369,6 +369,7 @@
         .overlay { padding-top: 62px; }
         /* in play, the bar stays one line: the mode's name wraps beside ☰ Menu */
         #game-area > .row { flex-wrap: nowrap; }
+        #menu-btn { flex: none; white-space: nowrap; }
         #mode-label { min-width: 0; font-size: 0.8rem; text-align: left; line-height: 1.25; }
         /* a lone board's panel, beside it, closer set (a power-up's name
            that wraps refits the screen: fit) */
@@ -395,15 +396,88 @@
 /* a phone on its side: the header closes up to a line each, a lone board's
    panel keeps its Next piece beside its rows, and the byline sits close */
 @media (orientation: landscape) and (max-height: 500px) {
-  .wrap { gap: 0.3rem; padding-bottom: 0.3rem; }
+  .wrap { gap: 0.25rem; padding-bottom: 0.2rem; }
   h1.title { font-size: 1.25rem; }
   .subtitle { font-size: 0.72rem; margin-top: 0.1rem; }
-  #game-area > .row { margin-bottom: 0.3rem !important; }
+  #game-area > .row { margin-bottom: 0.2rem !important; }
   #menu-btn { padding: 0.35rem 0.8rem; }
   #game-area.solo .hud { width: 200px; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.5rem; }
   #game-area.solo canvas.next { width: 54px; height: 54px; }
   #byline { margin: 0; }
 }
+/* (wider, the title sits between the corner buttons, so the subtitle
+   starts below them) */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 701px) {
+  .subtitle { margin-top: 0.45rem; }
+}
+
+/* VS on a phone (game.js's leadOf): the board the pad drives leads, as big
+   as fits, and the others are minis beside it, each its board and a small
+   panel with all a full one says (name, score, wins, gauge, power-up
+   banked, Next). Upright, the lead's panel runs across the top; on its
+   side it stands beside the board, and the bar goes up beside the title. */
+#game-area.lead .boards { display: grid; gap: 4px 8px; align-items: start; }
+#game-area.lead:not(.side) .boards { grid-template-columns: minmax(0, 1fr) auto auto minmax(0, 1fr); grid-template-areas: "hud hud hud hud" ". me minis ."; column-gap: 0; }
+#game-area.lead:not(.side) .minis { margin-left: 8px; }
+/* (and the page closer set around the boards) */
+body.lead-up .wrap { gap: 0.3rem; padding-bottom: 0.35rem; }
+body.lead-up #byline { margin-top: 0; }
+#game-area.lead:not(.side) > .row { margin-bottom: 0.2rem !important; }
+#game-area.lead:not(.side) .touchpad { margin-top: 0.3rem; }
+#game-area.lead.side .boards { grid-template-columns: auto auto auto; grid-template-areas: "me hud minis"; justify-content: center; }
+#game-area.lead .board-col.me { display: contents; }
+#game-area.lead .me > .hud { grid-area: hud; }
+#game-area.lead .me > canvas.board { grid-area: me; margin: 0; }
+#game-area.lead .minis { grid-area: minis; display: flex; flex-direction: column; gap: 2px; }
+#game-area.lead .me .hud .name, #game-area.lead .me .hud .stat, #game-area.lead .me .hud .special, #game-area.lead .me .hud .wins { font-size: 0.74rem; line-height: 1.25; }
+/* (upright, the lead's panel in two lines and its gauge beside its Next
+   piece: who and wins, then score and the power-up banked) */
+#game-area.lead:not(.side) .me .hud { column-gap: 0.6rem; align-items: center; }
+#game-area.lead:not(.side) .me .hud-main { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.15rem 0.6rem; }
+#game-area.lead:not(.side) .me .hud-main > .hud-row:first-child { flex: 1 1 100%; justify-content: flex-start; }
+#game-area.lead:not(.side) .me .hud-tools { flex-wrap: nowrap; }
+#game-area.lead:not(.side) .me .hud-main > .hud-row:nth-child(2) { order: 1; }
+#game-area.lead:not(.side) .me .special { order: 2; flex: 0 1 auto; }
+#game-area.lead:not(.side) .me .meter { order: 3; flex: 1 1 100%; }
+#game-area.lead:not(.side) .me .hud-next { gap: 2px; }
+#game-area.lead:not(.side) .me canvas.next { width: 36px; height: 36px; }
+/* (on its side, the lead's panel stands beside the board, its Next piece
+   under the rows and room kept for a power-up's name on two lines) */
+#game-area.lead.side .me > .hud { width: 5.4rem; min-width: 0; grid-template-columns: minmax(0, 1fr); row-gap: 0.3rem; }
+#game-area.lead.side .me .hud-main { gap: 0.2rem; }
+#game-area.lead.side .me .hud-row, #game-area.lead.side .me .hud-tools { justify-content: flex-start; gap: 0.1rem 0.4rem; }
+#game-area.lead.side .me .wins { flex-basis: 100%; }
+#game-area.lead.side .me .special { min-height: 2.5em; }
+#game-area.lead.side .me .hud-next { flex-direction: row; justify-content: flex-start; gap: 5px; }
+#game-area.lead.side .me canvas.next { width: 40px; height: 40px; }
+/* (the pad a little closer beside the boards: fit() counts the same 12px) */
+#game-area.lead.side { column-gap: 12px; }
+/* (the bar up beside the title, placed by game.js's barUp, and the title as
+   tall as the bar, so the subtitle clears it: by padding, as motion-toggle.js
+   sets the title's line height) */
+#game-area.lead.side.bar-up > .row { position: absolute; left: 1rem; right: 1rem; justify-content: space-between; margin: 0 !important; }
+#game-area.lead.side.bar-up #mode-label { text-align: right; }
+body.bar-up h1.title { padding: 4px 0; }
+body.bar-up .wrap { gap: 0.2rem; padding-bottom: 0.2rem; }
+/* a mini: its board, then its panel, closer set: who, its mute and Next
+   on the first line, then score and gauge, wins, and a power-up banked */
+.board-col.mini { flex-direction: row; align-items: center; gap: 5px; }
+#game-area.lead .board-col.mini > canvas.board { margin: 0; order: -1; border-radius: 6px; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 0 0 3px rgba(22, 50, 79, 0.2); }
+.board-col.mini .hud { width: 7.8rem; min-width: 0; display: grid; gap: 1px 3px; align-items: center;
+  grid-template-columns: auto auto minmax(0, 1fr) auto; grid-template-areas: "name mute . next" "score score score meter" "wins wins wins wins" "bk bk bk bk"; }
+.board-col.mini .hud-main, .board-col.mini .hud-main > .hud-row:first-child, .board-col.mini .hud-tools { display: contents; }
+.board-col.mini .name { grid-area: name; white-space: nowrap; }
+.board-col.mini .pmute { grid-area: mute; justify-self: start; font-size: 0.75rem; padding: 0 3px; }
+.board-col.mini .hud-main > .hud-row:nth-child(2) { grid-area: score; }
+.board-col.mini .wins { grid-area: wins; }
+.board-col.mini .meter { grid-area: meter; height: 4px; }
+.board-col.mini .special { grid-area: bk; min-height: 1.2em; }
+.board-col.mini .hud-next { grid-area: next; flex-direction: row; align-items: center; gap: 3px; }
+.board-col.mini .hud .name, .board-col.mini .hud .stat, .board-col.mini .hud .special, .board-col.mini .hud .wins { font-size: 0.68rem; line-height: 1.15; }
+.board-col.mini canvas.next { width: 20px; height: 20px; border-radius: 4px; }
+/* (a lone mini, against one CPU: its panel over its board, as in a row of boards) */
+.board-col.mini:only-child { flex-direction: column; align-items: center; gap: 4px; }
+#game-area.lead .board-col.mini:only-child > canvas.board { order: 0; }
 
 /* While a box asks something ("Leave this game?", "Start over?") it is the
    only card up: the pause card, still paused, waits out of sight under it. */

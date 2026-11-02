@@ -3,7 +3,8 @@
 // a pause asked for in the beat between VS rounds (the "Leave this game?"
 // box, a tab switch) holds the next round paused. ☰ Menu mid-run asks first;
 // the menu's key legend hides on a phone, leaving the on-screen pad's line;
-// what a wave scores shows where it cleared.
+// what a wave scores shows where it cleared; VS on a phone leads with the
+// pad's board, the others minis beside it, all on the screen.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = () => lib.open(ctx, base, "games/demolition-row/");
@@ -367,12 +368,13 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- in play the whole screen fits the window, nothing to scroll: the
   // pad's buttons, the panels, the title and the byline all inside it, the
-  // page no taller or wider than it, the boards on one row and none shrunk to
-  // a sliver. A lone board's panel stands beside it; a VS board's Next piece
-  // sits beside its panel's rows (under them only on the narrowest). Every
-  // mode, on phones and on laptops.
+  // page no taller or wider than it. A lone board's panel stands beside it.
+  // On a laptop a VS match's boards share one row, none shrunk to a sliver,
+  // each Next piece beside its panel's rows (under them only on the
+  // narrowest); on a phone (a touch screen) one board leads and the rest are
+  // minis (the next check). Every mode, on phones and on laptops.
   {
-    const SIZES = [["phone", 320, 568], ["phone", 375, 553], ["phone", 390, 664], ["phone", 664, 390], ["laptop", 1366, 657], ["laptop", 1280, 600], ["laptop", 1280, 900]];
+    const SIZES = [["phone", 320, 568], ["phone", 375, 553], ["phone", 390, 664], ["phone", 664, 390], ["phone", 568, 320], ["laptop", 1366, 657], ["laptop", 1280, 600], ["laptop", 1280, 900]];
     const bad = {}, errs = [];
     for (const [kind, w, h] of SIZES) {
       const c = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
@@ -394,18 +396,168 @@ module.exports = async ({ browser, base, check, lib }) => {
             const b = R(col.querySelector("canvas.board")), hud = R(col.querySelector(".hud")), nx = R(col.querySelector("canvas.next")), sc = R(col.querySelector("[data-score]"));
             return { w: Math.round(b.width), top: Math.round(b.top), panelBeside: hud.right <= b.left + 1 || hud.left >= b.right - 1, nextBeside: nx.top < sc.bottom, tighter: col.classList.contains("tighter") };
           });
-          return { cut, sh: document.documentElement.scrollHeight, H, wide: Math.max(0, document.documentElement.scrollWidth - W), rows: new Set(cols.map((x) => x.top)).size, cols };   // (boards on one line: one top)
+          return { cut, sh: document.documentElement.scrollHeight, H, wide: Math.max(0, document.documentElement.scrollWidth - W), rows: new Set(cols.map((x) => x.top)).size, cols,   // (boards on one line: one top)
+            lead: document.getElementById("game-area").classList.contains("lead") };
         });
-        const solo = !mode.startsWith("vs"), least = mode === "vs4" ? 45 : mode === "vs2" ? 60 : 100;
-        const ok = !m.cut.length && m.sh <= m.H && !m.wide && m.rows === 1 && m.cols.every((x) => x.w >= least && (solo ? x.panelBeside : x.tighter || x.nextBeside));
-        if (!ok) bad[w + "x" + h + " " + mode] = { cut: m.cut, sh: m.sh, H: m.H, wide: m.wide, rows: m.rows, cols: m.cols.map((x) => x.w + (solo ? (x.panelBeside ? " beside" : " above") : x.nextBeside ? " next beside" : x.tighter ? " tighter" : " next under")).join() };
+        const solo = !mode.startsWith("vs"), least = mode === "vs4" ? 45 : mode === "vs2" ? 60 : 100, led = !solo && kind === "phone";
+        const ok = !m.cut.length && m.sh <= m.H && !m.wide && m.lead === led &&
+          (led || (m.rows === 1 && m.cols.every((x) => x.w >= least && (solo ? x.panelBeside : x.tighter || x.nextBeside))));
+        if (!ok) bad[w + "x" + h + " " + mode] = { cut: m.cut, sh: m.sh, H: m.H, wide: m.wide, lead: m.lead, rows: m.rows, cols: m.cols.map((x) => x.w + (solo ? (x.panelBeside ? " beside" : " above") : x.nextBeside ? " next beside" : x.tighter ? " tighter" : " next under")).join() };
       }
       errs.push(...q.errs);
       await q.close(); await c.close();
     }
-    check("demolition-row: in play the whole screen fits the window with nothing to scroll (pad, panels, title, byline), boards on one row and none a sliver, the Next piece beside the panel's rows (50-Stage, Endless, VS 2 and 4; phones 320x568, 375x553, 390x664 and one on its side, 664x390; laptops 1366x657, 1280x600, 1280x900)",
+    check("demolition-row: in play the whole screen fits the window with nothing to scroll (pad, panels, title, byline); on a laptop a match's boards on one row and none a sliver, the Next piece beside the panel's rows, on a phone one leading (50-Stage, Endless, VS 2 and 4; phones 320x568, 375x553, 390x664 and on their side, 664x390 and 568x320; laptops 1366x657, 1280x600, 1280x900)",
       Object.keys(bad).length === 0, bad);
     check("demolition-row (play screen fit): no page errors", errs.length === 0, errs);
+  }
+
+  // ---- VS on a phone: the board the pad drives leads, as big as fits, and
+  // the others are minis beside it, each its whole board and a panel with
+  // name, mute, Next, score, gauge, wins and a power-up banked. At each phone
+  // size, upright and on its side, against 1, 2 and 3 CPUs, fresh and then
+  // crowded (power-ups banked and queued, two-digit wins, six-digit scores,
+  // the ∞ format): nothing to scroll, nothing off the screen or under the
+  // corner buttons, no panel's line spilling out or a name broken in two;
+  // the lead board 100 px wide at least (at least twice the old equal
+  // boards, 41 to 72) and half again as wide as any mini, a mini 32 px wide
+  // at least; a power-up banked moves no board. A CPU match to watch (no
+  // human: P1 leads) at 568x320 too.
+  {
+    const PHONES = [[320, 568], [360, 560], [390, 664], [568, 320], [667, 375], [750, 340]];
+    const bad = {}, seen = {}, errs = [];
+    const start = (pg, n, seats, fmt) => pg.evaluate(([n, seats, fmt]) => {
+      if (GAME) toMenu();
+      document.querySelector('#mode-pick [data-mode="vs"]').click(); document.querySelector('#count-pick [data-count="' + n + '"]').click(); document.querySelector('#fmt-pick [data-fmt="' + fmt + '"]').click();
+      sel.ptypes = seats.split("").map((c) => (c === "h" ? "human" : "cpu")).concat(["cpu", "cpu", "cpu", "cpu"]).slice(0, 4); updateVsOpts();
+      document.getElementById("play-btn").click();
+    }, [n, seats, fmt]);
+    const frames = (pg) => pg.evaluate(() => new Promise((r) => { let k = 0; const f = () => (++k < 4 ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }));
+    const measure = (pg) => pg.evaluate(() => {
+      const R = (e) => e.getBoundingClientRect(), W = innerWidth, H = innerHeight;
+      // (a line of text by its letters, not its box: the title's box spans the page)
+      const T = (e) => { const r = document.createRange(); r.selectNodeContents(e); return r; };
+      const corner = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map(R);
+      const under = (r) => corner.some((c) => r.left < c.right - 1 && r.right > c.left + 1 && r.top < c.bottom - 1 && r.bottom > c.top + 1);
+      const name = (e) => (e.closest(".board-col") ? (e.closest(".board-col").querySelector(".name") || {}).textContent + " " : "") + (e.className || e.id || e.tagName);
+      const cut = [], hid = [], spill = [];
+      for (const e of document.querySelectorAll("#touchpad .tbtn, canvas.board, canvas.next, .hud .pmute, .hud .meter, #menu-btn, .hud .name, .hud .stat, .hud .wins, .hud .special, #mode-label, .head .title, .head .subtitle, #byline")) {
+        const text = !/^(BUTTON|CANVAS)$/.test(e.tagName) && !e.classList.contains("meter");
+        if (text && !e.textContent.trim()) continue;   // (a VS panel's extra stat is empty until a bonus)
+        const r = text ? T(e).getBoundingClientRect() : R(e);
+        if (!r.width || !r.height || r.left < -1 || r.right > W + 1 || r.top < -1 || r.bottom > H + 1) cut.push(name(e));
+        else if (under(r)) hid.push(name(e));
+        const hud = e.closest(".hud");
+        if (hud && text) { const b = R(hud); if (r.left < b.left - 1 || r.right > b.right + 1) spill.push(name(e)); }
+      }
+      const lead = document.querySelector(".board-col.me"), minis = [...document.querySelectorAll(".board-col.mini")];
+      const broken = minis.concat(lead ? [lead] : []).filter((c) => new Set([...T(c.querySelector(".name")).getClientRects()].map((x) => Math.round(x.top))).size > 1).map((c) => c.querySelector(".name").textContent);
+      const pad = GAME.players.find((p) => !p.isCpu) || GAME.players[0];
+      return { sh: document.documentElement.scrollHeight - H, sw: Math.max(document.documentElement.scrollWidth, W) - W, cut, hid, spill, broken,
+        lead: lead ? Math.round(R(lead.querySelector("canvas.board")).width) : 0, leadH: lead ? Math.round(R(lead.querySelector("canvas.board")).height) : 0,
+        padsLead: !!lead && lead.contains(pad.canvas), minis: minis.map((c) => Math.round(R(c.querySelector("canvas.board")).width)),
+        count: minis.length + (lead ? 1 : 0), boards: GAME.players.map((p) => Math.round(R(p.canvas).width) + "x" + Math.round(R(p.canvas).height)).join(" ") };
+    });
+    const judge = (key, m, n) => {
+      const fine = m.sh <= 0 && m.sw <= 0 && !m.cut.length && !m.hid.length && !m.spill.length && !m.broken.length && m.padsLead && m.count === n &&
+        m.lead >= 100 && m.minis.every((x) => x >= 32 && m.lead >= 1.5 * x);
+      if (!fine) bad[key] = m;
+    };
+    for (const [w, h] of PHONES) {
+      const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }));
+      const q = await lib.open(c, base, "games/demolition-row/");
+      const runs = [[2, "hc"], [3, "hcc"], [4, "hccc"]].concat(w === 568 ? [[4, "cccc"]] : []);
+      for (const [n, seats] of runs) {
+        const key = w + "x" + h + " " + seats;
+        await start(q, n, seats, "inf");
+        await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+        await frames(q);
+        const fresh = await measure(q);
+        judge(key, fresh, n);
+        seen[key] = fresh.boards;
+        // a power-up banked (and one more queued) on every board: nothing moves
+        await q.evaluate(() => { for (const p of GAME.players) p.board.pq = ["thunder", "crystal"]; });
+        await frames(q);
+        const banked = await measure(q);
+        if (banked.boards !== fresh.boards) bad[key + " banked"] = { fresh: fresh.boards, banked: banked.boards };
+        // the most crowded panels
+        await q.evaluate(() => { for (const p of GAME.players) { p.board.score = 123456; p.board.wins = 12; p.board.matchWins = 2; } });
+        await frames(q);
+        judge(key + " crowded", await measure(q), n);
+      }
+      errs.push(...q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: VS on a phone (320x568, 360x560, 390x664, 568x320, 667x375, 750x340; against 1, 2 and 3 CPUs, fresh and crowded; no human at 568x320): nothing to scroll, nothing off the screen or under the corner buttons, the pad's board leads at 100 px wide or more and half again any mini's width, every mini whole at 32 px or more with its panel's lines inside it, and a power-up banked moves no board",
+      Object.keys(bad).length === 0, Object.keys(bad).length ? bad : seen);
+    check("demolition-row (VS on a phone): no page errors", errs.length === 0, errs);
+
+    // turned on its side and back mid-match, the screen fits again (the bar
+    // up beside the title on its side, back in its row upright); a solo game
+    // after it lays out as before, with no lead or minis left over
+    const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 320, height: 568 } }));
+    const q = await lib.open(c, base, "games/demolition-row/");
+    const state = () => q.evaluate(() => {
+      const area = document.getElementById("game-area"), bar = area.querySelector(".row");
+      return { scroll: document.documentElement.scrollHeight - innerHeight, wide: Math.max(document.documentElement.scrollWidth, innerWidth) - innerWidth,
+        lead: area.classList.contains("lead"), up: area.classList.contains("bar-up") && document.body.classList.contains("bar-up"), top: bar.style.top,
+        minis: document.querySelectorAll(".minis").length, body: document.body.className.trim(),
+        board: Math.round(GAME.players[0].canvas.getBoundingClientRect().width) };
+    });
+    await start(q, 4, "hccc", "2");
+    await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+    const turns = [await state()];
+    await q.setViewportSize({ width: 568, height: 320 }); await frames(q); turns.push(await state());
+    await q.setViewportSize({ width: 320, height: 568 }); await frames(q); turns.push(await state());
+    await q.evaluate(() => { toMenu(); sel.mode = "endless"; startGame(); });
+    await q.waitForFunction(() => GAME && GAME.players[0].board.piece); await frames(q);
+    const solo = await state();
+    check("demolition-row: VS on a phone turned on its side and back fits each time (the bar beside the title on its side only); an Endless game after it has no lead, minis or raised bar left",
+      turns.every((t) => t.scroll <= 0 && t.wide <= 0 && t.lead && t.board >= 100) && !turns[0].up && turns[1].up && !turns[2].up && !turns[2].top &&
+      !solo.lead && !solo.up && !solo.top && !solo.minis && !/lead-up|bar-up/.test(solo.body) && solo.scroll <= 0, { turns, solo });
+    check("demolition-row (VS phone turning): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
+  // ---- one human seat on a touch screen, whose pad steers one board: with
+  // P1 a human the other seats are greyed, the menu says why, and a tap
+  // leaves them CPUs; P1 made a CPU frees one seat to be the human, and no
+  // human at all (a CPU match) is fine. A setup with two humans carried to a
+  // touch screen (made with a mouse) shows and plays its second as a CPU.
+  // With a mouse and keyboard two humans can still play.
+  {
+    const seats = (pg) => pg.evaluate(() => ({ ptypes: sel.ptypes.slice(0, sel.players).join(), off: [...document.querySelectorAll(".ptoggle")].slice(0, sel.players).map((b) => b.disabled ? 1 : 0).join(""),
+      note: [...document.querySelectorAll("#vs-opts .lbl")].some((l) => /one human per touch screen/i.test(l.innerText)) }));
+    const phone = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } }));
+    let q = await lib.open(phone, base, "games/demolition-row/");
+    await q.tap('#mode-pick [data-mode="vs"]'); await q.tap('#count-pick [data-count="4"]');
+    const t = { start: await seats(q) };
+    await q.evaluate(() => document.querySelector('.ptoggle[data-slot="1"]').click()); t.tapP2 = await seats(q);
+    await q.tap('.ptoggle[data-slot="0"]'); t.p1Cpu = await seats(q);
+    await q.tap('.ptoggle[data-slot="2"]'); t.p3Human = await seats(q);
+    await q.tap('.ptoggle[data-slot="2"]'); t.noHuman = await seats(q);
+    // a setup with two humans, carried over from a mouse: the menu, then Play
+    await q.evaluate(() => { sel.ptypes = ["human", "human", "cpu", "cpu"]; toMenu(); });
+    t.carried = await seats(q);
+    await q.evaluate(() => { sel.ptypes = ["human", "human", "cpu", "cpu"]; startGame(); });
+    await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+    t.played = await q.evaluate(() => GAME.players.map((p) => (p.isCpu ? "cpu" : "human")).join());
+    check("demolition-row: on a touch screen one human seat at most: with P1 human the others are greyed and a tap leaves them CPUs, the menu saying one human per touch screen; P1 a CPU frees a seat; no human is fine; a two-human setup carried over shows and plays its second seat as a CPU",
+      t.start.ptypes === "human,cpu,cpu,cpu" && t.start.off === "0111" && t.start.note && t.tapP2.ptypes === "human,cpu,cpu,cpu" &&
+      t.p1Cpu.ptypes === "cpu,cpu,cpu,cpu" && t.p1Cpu.off === "0000" && t.p3Human.ptypes === "cpu,cpu,human,cpu" && t.p3Human.off === "1101" &&
+      t.noHuman.ptypes === "cpu,cpu,cpu,cpu" && t.carried.ptypes === "human,cpu,cpu,cpu" && t.carried.off === "0111" && t.played === "human,cpu,cpu,cpu", t);
+    check("demolition-row (touch seats): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await phone.close();
+    // with a mouse and keyboard: two humans, the third seat greyed, no touch note
+    q = await lib.open(ctx, base, "games/demolition-row/");
+    await q.click('#mode-pick [data-mode="vs"]'); await q.click('#count-pick [data-count="4"]');
+    await q.click('.ptoggle[data-slot="1"]');
+    const desk = await seats(q);
+    await q.click("#play-btn"); await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+    desk.played = await q.evaluate(() => GAME.players.map((p) => (p.isCpu ? "cpu" : "human")).join());
+    check("demolition-row: with a mouse and keyboard two humans can still play (the third seat greyed, no touch-screen note)",
+      desk.ptypes === "human,human,cpu,cpu" && desk.off === "0011" && !desk.note && desk.played === "human,human,cpu,cpu", desk);
+    await q.close();
   }
 
   // ---- what a wave scores shows where it cleared: "+800 ×20" for a four
