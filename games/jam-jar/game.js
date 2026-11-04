@@ -451,8 +451,9 @@
   // ---- idles (Visual FX on) ----------------------------------------------------
   // Every fruit has an idle of its own (faceFor), all the same length: IDLE_ACT
   // s of it, then its face at rest, every IDLE_T s from the moment the fruit
-  // came (dropped, made by a merge, waiting at the top, shown in Next), so
-  // fruit that came apart idle apart; the Preserves' fruit idle together. The
+  // came (made by a merge, waiting at the top, shown in Next; a dropped fruit
+  // keeps the idle it had waiting at the top, so the drop never restarts it),
+  // so fruit that came apart idle apart; the Preserves' fruit idle together. The
   // clock stops with a pause. With Visual FX off every face rests, and so
   // does every face of a jar that's lost: overflowed (against the CPU, the
   // other may play on, idling) or the game over.
@@ -755,13 +756,13 @@
   // (Rolling Boil, in play: a finger slid on the jar aims instead of scrolling the page)
   function aiming() { document.body.classList.toggle("aiming", state === "play" && mode === "boil"); }
 
-  function makeFruit(x, y, tier) {
+  function makeFruit(x, y, tier, born) {
     var r = TIERS[tier].r;
     // weight goes with volume (r³), like real fruit: a peach outweighs a
     // berry ~47×, so it barrels through berries while a berry barely nudges it
     // (r is its size now, R its own: a newborn grows into it, see GROW_T)
     return { x: x, y: y, px: x, py: y, vx: 0, vy: 0, r: r, R: r, grow: 0, tier: tier, im: 1 / (r * r * r), mergeCd: 0.1,
-             born: idleT, // (its idle counts from now: idleU)
+             born: born == null ? idleT : born, // (its idle counts from now, or from `born`: idleU)
              rot: 0, w: 0, // upright, just as it hung before the drop touch: false, contacted: false, dead: false,
              rollNx: 0, rollNy: -Infinity, rollOn: null };
   }
@@ -778,7 +779,8 @@
     if (heldUp()) return;
     var r = TIERS[current].r;
     var x = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
-    fruits.push(makeFruit(x, DROP_Y, current));
+    // (the fruit that waited at the top: its idle carries on through the drop, never starting over)
+    fruits.push(makeFruit(x, DROP_Y, current, heldAt));
     lastDrop = fruits[fruits.length - 1];
     if (inCpu) brain = { at: null, wait: 0, since: 0, again: false, owe: 0, tryAt: null, tryT: 0 };
     else { if (!dropped && foe === "cpu") vsPlayed(); dropped = true; }
