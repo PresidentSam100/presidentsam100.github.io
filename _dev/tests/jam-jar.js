@@ -750,10 +750,10 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- idles (Visual FX on): every fruit an idle of its own, all the same
   // length (2 s of it every 4 s), starting and ending on its face at rest,
-  // counted from when the fruit came (made by a merge, waiting at the top, in
-  // Next; a dropped fruit carries on the idle it had waiting at the top), so
-  // fruit that came apart idle apart; the Preserves all at once; a pause
-  // holds them; with Visual FX off every face rests
+  // counted from when the fruit came (shown in Next, made by a merge, or as
+  // the jar began) and carried on through its move up to the top and its
+  // drop, so fruit that came apart idle apart; the Preserves all at once; a
+  // pause holds them; with Visual FX off every face rests
   {
     const cq = await lib.newContext(browser);
     const q = await lib.open(cq, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
@@ -765,23 +765,30 @@ module.exports = async ({ browser, base, check, lib }) => {
       out.alike = new Set(Array.from({ length: 11 }, (_, i) => sig(i))).size;
       __frames(2); G.start("simmer"); __frames(2);
       out.len = [G.idle().T, G.idle().ACT];
-      // two blueberries, each dropped a second after it came to the top (the
-      // first half a second into the jar), the second onto the first: they make a cherry
+      // two blueberries dropped a second apart (the first half a second into
+      // the jar), the second onto the first: they make a cherry. Both came as
+      // the jar began (the one waiting and the one in Next), so they idle
+      // together; the third, shown in Next at the first drop, idles apart
       const tS = G.idle().heldAt;
       __frames(28); G.setQueue(0, 0); G.setAim(270);
       const uA = G.idleU(G.idle().heldAt);
       G.drop(); const tA = G.idle().t, a = G.fruits[0];
       // (dropped, it carries on from the very moment of its idle it was at, then on as time runs)
       out.carry = { waiting: +uA.toFixed(4), dropped: +G.idleU(a.born).toFixed(4) };
-      const held = { heldAt: G.idle().heldAt, nextAt: G.idle().nextAt, u: G.idleU(G.idle().heldAt) };
+      const held = { heldAt: G.idle().heldAt, nextAt: G.idle().nextAt, u: G.idleU(G.idle().nextAt) };
       __frames(1); out.carry.frame = +(G.idleU(a.born) - uA).toFixed(4);
-      __frames(59); G.setQueue(0, 0); G.setAim(270); G.drop(); const tB = G.idle().t;
-      const b = G.fruits[1];
-      out.born = [+(a.born - tS).toFixed(3), +(b.born - tA).toFixed(3), +(tB - tA).toFixed(3)];
-      out.held = { atDrop: +(held.heldAt - tA).toFixed(3) === 0 && +(held.nextAt - tA).toFixed(3) === 0, acting: held.u >= 0 && held.u < 0.05 };
-      // (1.75 s after the first came: both moving; half a second later only the second)
-      __frames(15); out.at15 = [G.idleU(a.born) >= 0, G.idleU(b.born) >= 0];
-      __frames(30); out.at25 = [G.idleU(a.born) >= 0, G.idleU(b.born) >= 0];
+      // (the one in Next moves up to wait at the top: it carries on its idle
+      // too, half a second apart from the one waiting before it; the new one in Next starts)
+      __frames(59); G.setQueue(0, 0); G.setAim(270);
+      const nb = { at: G.idle().nextAt, u: G.idleU(G.idle().nextAt) };
+      G.drop(); const tB = G.idle().t, b = G.fruits[1];
+      out.up = { next: +nb.u.toFixed(4), top: +G.idleU(G.idle().heldAt).toFixed(4), from: +(G.idle().heldAt - nb.at).toFixed(3), fresh: +(G.idle().nextAt - tB).toFixed(3) };
+      __frames(1); out.up.frame = +(G.idleU(G.idle().heldAt) - nb.u).toFixed(4);
+      out.born = [+(a.born - tS).toFixed(3), +(b.born - tS).toFixed(3), +(tB - tA).toFixed(3)];
+      out.held = { fromNext: +(held.heldAt - tS).toFixed(3) === 0, fresh: +(held.nextAt - tA).toFixed(3) === 0 && held.u >= 0 && held.u < 0.05 };
+      // (1.75 s after the jar began: the first and the third both moving; half a second later only the third)
+      __frames(14); out.at15 = [G.idleU(a.born) >= 0, G.idleU(G.idle().heldAt) >= 0];
+      __frames(30); out.at25 = [G.idleU(a.born) >= 0, G.idleU(G.idle().heldAt) >= 0];
       for (let i = 0; i < 240 && !G.fruits.some((f) => f.tier === 1); i++) __frames(1);
       const cherry = G.fruits.find((f) => f.tier === 1);
       out.merged = !!cherry && cherry.born > tB;
@@ -818,11 +825,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const off = await q.evaluate(() => { const G = window.__game, us = []; __frames(2); G.start("simmer"); for (let i = 0; i < 12; i++) { __frames(20); us.push(G.idleU(0), G.idle().chainU, G.idleU(G.idle().heldAt)); } return { moving: us.filter((u) => u >= 0).length }; });
     check("jam-jar: every fruit has an idle of its own (no two alike), starting and ending on its face at rest and moving between",
       r.faces.length === 11 && r.faces.every((f) => f.start === 0 && f.end === 0 && f.mid > 100) && r.alike === 11, { faces: r.faces, alike: r.alike });
-    check("jam-jar: the idles are 2 s every 4 s, from when each fruit came: made by a merge, waiting at the top and in Next; two fruit that came half a second apart idle apart; the Preserves all at once; a pause holds them",
-      r.len.join() === "4,2" && r.born.join() === "0,0,1" && r.held.atDrop && r.held.acting && r.at15.join() === "true,true" && r.at25.join() === "false,true" &&
+    check("jam-jar: the idles are 2 s every 4 s, from when each fruit came: shown in Next, made by a merge, or as the jar began; the two a jar begins with idle together, one shown in Next half a second later idles apart; the Preserves all at once; a pause holds them",
+      r.len.join() === "4,2" && r.born.join() === "0,0,1" && r.held.fromNext && r.held.fresh && r.at15.join() === "true,true" && r.at25.join() === "false,true" &&
       r.merged && /m/.test(r.chain) && /r/.test(r.chain) && !/x/.test(r.chain) && r.paused === 0, r);
     check("jam-jar: a fruit dropped mid-idle carries on its idle from the very moment it was at waiting at the top (never starting over), a frame on moving a frame further",
       r.carry.waiting > 0.2 && r.carry.dropped === r.carry.waiting && r.carry.frame === 0.0083, r.carry);
+    check("jam-jar: the fruit in Next moving up to wait at the top carries on its idle from the very moment it was at (never starting over), a frame on moving a frame further; the new one in Next starts its own",
+      r.up.next > 0.2 && r.up.top === r.up.next && r.up.from === 0 && r.up.fresh === 0 && r.up.frame === 0.0083, r.up);
     check("jam-jar: with Visual FX off no face moves (the jar's fruit, the one waiting, the Preserves)", off.moving === 0, off);
     check("jam-jar: once a jar is lost every face rests: the game over (its fruit, the one waiting, Next, the Preserves), and against the CPU your overflowed jar while the CPU plays on",
       r.lost.state === "over" && r.lost.moving === 0 && vs.before && vs.playing === "play" && vs.moving === 0, { lost: r.lost, vs });

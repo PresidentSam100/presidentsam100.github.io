@@ -451,12 +451,13 @@
   // ---- idles (Visual FX on) ----------------------------------------------------
   // Every fruit has an idle of its own (faceFor), all the same length: IDLE_ACT
   // s of it, then its face at rest, every IDLE_T s from the moment the fruit
-  // came (made by a merge, waiting at the top, shown in Next; a dropped fruit
-  // keeps the idle it had waiting at the top, so the drop never restarts it),
-  // so fruit that came apart idle apart; the Preserves' fruit idle together. The
-  // clock stops with a pause. With Visual FX off every face rests, and so
-  // does every face of a jar that's lost: overflowed (against the CPU, the
-  // other may play on, idling) or the game over.
+  // came (shown in Next, made by a merge, or the two a jar begins with, at
+  // its start): one idle for its whole life, so moving up from Next to wait
+  // at the top, and the drop, never start it over. So fruit that came apart
+  // idle apart; the Preserves' fruit idle together. The clock stops with a
+  // pause. With Visual FX off every face rests, and so does every face of a
+  // jar that's lost: overflowed (against the CPU, the other may play on,
+  // idling) or the game over.
   var IDLE_T = 4, IDLE_ACT = 2, idleT = 0;
   function idleU(at) {
     if (reduced() || at == null || out || state === "over") return -1;
@@ -786,7 +787,7 @@
     else { if (!dropped && foe === "cpu") vsPlayed(); dropped = true; }
     sfxDrop();
     dealt++;
-    current = next; next = fruitAt(dealt + 1); heldAt = nextAt = idleT;
+    current = next; next = fruitAt(dealt + 1); heldAt = nextAt; nextAt = idleT;
     dropCd = auto ? 0 : 0.45;
     refreshHud();
   }
