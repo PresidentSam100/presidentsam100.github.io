@@ -839,6 +839,109 @@ module.exports = async ({ browser, base, check, lib }) => {
     await cq.close();
   }
 
+  // ---- Visual FX on: once a fruit drops, the one in Next glides up to wait
+  // at the top, on a canvas of its own over the page: from Next's middle at
+  // Next's size to the aim's spot at the jar's, landing on the very spot and
+  // size the jar then draws it at, faded as the one waiting is; the jar
+  // leaves that spot empty until it lands; it follows the aim, a click goes
+  // through it, a pause holds it, a new jar or the game over ends it, and
+  // it's over before the next drop can come. On a laptop (Next beside the
+  // jar) and a phone (Next under it). Visual FX off: at the top at once, and
+  // switched off mid-glide, the glide ends there.
+  for (const [dev, opts] of [["laptop", {}], ["phone", { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true }]]) {
+    const cq = await lib.newContext(browser, opts);
+    const q = await lib.open(cq, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
+    const SEE = () => {
+      const G = window.__game, fl = document.getElementById("flyer"), game = document.getElementById("game");
+      // (how many of the jar's own pixels round the spot at the top are the blueberry's blue)
+      window.__spot = () => {
+        const k = game.width / 540, x = Math.max(74, Math.min(466, G.aim())), d = game.getContext("2d").getImageData(Math.round((x - 15) * k), Math.round(49 * k), Math.round(30 * k), Math.round(30 * k)).data;
+        let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 2] > d[i] + 10) n++;
+        return n;
+      };
+      // (none under way: its readings empty, so a check on them fails rather than throws)
+      window.__fly = () => { const f = G.flight() || {}, b = fl.getBoundingClientRect(); return { t: f.t, x: f.x, y: f.y, s: f.s, shown: !fl.hidden, bx: b.left + b.width / 2, by: b.top + b.height / 2, op: +getComputedStyle(fl).opacity }; };
+      // (where the jar draws the one waiting, in page px, and at what size)
+      window.__top = () => { const j = game.getBoundingClientRect(), s = j.width / 540, x = Math.max(74, Math.min(466, G.aim())); return { x: j.left + x * s, y: j.top + 64 * s, s }; };
+    };
+    const r = await q.evaluate((see) => {
+      eval("(" + see + ")")();
+      const G = window.__game, fl = document.getElementById("flyer"), out = {};
+      __frames(2); G.start("simmer"); __frames(2);
+      const n = document.getElementById("next").getBoundingClientRect(), j = document.getElementById("game").getBoundingClientRect();
+      out.nextUnder = n.top >= j.bottom;   // (on a phone Next is under the jar, on a laptop beside it)
+      // (a cherry drops, red, out of the spot's way in a quarter second: the blueberry in Next comes up)
+      G.setQueue(1, 0); G.setAim(270);
+      out.before = { shown: !fl.hidden };
+      G.drop(); __frames(1);
+      const f1 = __fly();
+      out.start = { shown: f1.shown, dx: +(f1.x - (n.left + n.width / 2)).toFixed(2), dy: +(f1.y - (n.top + n.height / 2)).toFixed(2), ds: +(f1.s / (n.width / 86)).toFixed(3),
+                    box: Math.hypot(f1.bx - f1.x, f1.by - f1.y) < 0.5, op: f1.op };
+      // midway: between the two, a click going through it
+      __frames(9);
+      const fm = __fly(), tm = __top(), d0 = Math.hypot(fm.x - f1.x, fm.y - f1.y), d1 = Math.hypot(fm.x - tm.x, fm.y - tm.y);
+      out.mid = { shown: fm.shown, between: d0 > 30 && d1 > 30, through: Number.isFinite(fm.x) && document.elementFromPoint(fm.x, fm.y) !== fl };
+      // the aim moved: it lands on the new spot, empty until then
+      G.setAim(170); __frames(5);
+      out.mid.spot = __spot(); out.mid.still = !!G.flight();
+      let last = fm, frames = 15;
+      while (G.flight()) { last = __fly(); __frames(1); frames++; if (frames > 60) break; }
+      const tl = __top();
+      out.land = { frames, dx: +(last.x - tl.x).toFixed(2), dy: +(last.y - tl.y).toFixed(2), ds: +(last.s / tl.s).toFixed(3), op: +last.op.toFixed(3),
+                   hidden: fl.hidden, spot: __spot(), cooling: G.cooldown() > 0, x: +tl.x.toFixed(1) };
+      // a pause holds it where it is; a new jar mid-glide ends it
+      __frames(40); G.setQueue(1, 0); G.drop(); __frames(5);
+      const p0 = __fly();
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      __frames(30);
+      const p1 = __fly(), card = document.querySelector(".gs-pause");
+      out.pause = { held: p1.t > 0 && p1.t === p0.t && p1.x === p0.x && p1.bx === p0.bx && p1.shown, under: !!card && +getComputedStyle(fl).zIndex < +getComputedStyle(card).zIndex };
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      __frames(2); G.start("simmer"); __frames(1);
+      out.fresh = { flight: G.flight(), hidden: fl.hidden };
+      // the game over mid-glide ends it
+      G.setQueue(1, 0); G.drop(); __frames(5); G.overflow(G.score); __frames(1);
+      out.over = { flight: G.flight(), hidden: fl.hidden };
+      // Rolling Boil: the glide is over well before the next fruit drops
+      G.start("boil"); __frames(62);
+      const fb = G.flight();
+      while (G.flight()) __frames(1);
+      out.boil = { started: !!fb, left: +(G.boilT).toFixed(3) };
+      return out;
+    }, SEE.toString());
+    // switched off mid-glide: the fruit is at the top that frame
+    const off = await q.evaluate(() => {
+      const G = window.__game, fl = document.getElementById("flyer");
+      G.start("simmer"); __frames(2); G.setQueue(1, 0); G.setAim(270); G.drop(); __frames(15);
+      const was = !!G.flight(), rm = window.RM_ON;
+      window.RM_ON = () => true;
+      try { __frames(1); return { was, flight: G.flight(), hidden: fl.hidden, spot: __spot() }; } finally { window.RM_ON = rm; }
+    });
+    // Visual FX off: no glide at all
+    await q.evaluate(() => { localStorage.setItem("reduceMotion:jam-jar", "1"); });
+    await q.reload(); await q.waitForSelector(".mute-toggle");
+    const none = await q.evaluate((see) => {
+      eval("(" + see + ")")();
+      const G = window.__game, fl = document.getElementById("flyer"); let seen = 0, spot = -1;
+      __frames(2); G.start("simmer"); __frames(2); G.setQueue(1, 0); G.setAim(270); G.drop();
+      for (let i = 1; i <= 30; i++) { __frames(1); if (!fl.hidden || G.flight()) seen++; if (i === 15) spot = __spot(); }
+      return { spot, seen };
+    }, SEE.toString());
+    check(`jam-jar (${dev}), Visual FX on: once a fruit drops, the one in Next glides up on its own canvas, starting at Next's middle at Next's size, unfaded` + (dev === "phone" ? " (Next under the jar)" : " (Next beside the jar)"),
+      (dev === "phone") === r.nextUnder && !r.before.shown && r.start.shown && Math.abs(r.start.dx) < 1 && Math.abs(r.start.dy) < 1 && Math.abs(r.start.ds - 1) < 0.01 && r.start.box && r.start.op > 0.97, r);
+    check(`jam-jar (${dev}), Visual FX on: midway it's between Next and the top, a click goes through it, and the jar leaves its spot at the top empty until it lands`,
+      r.mid.shown && r.mid.between && r.mid.through && r.mid.still && r.mid.spot === 0, r.mid);
+    check(`jam-jar (${dev}), Visual FX on: it follows the aim and lands where the jar then draws it, at its size and faded as the one waiting is (within a pixel), in 0.35 s, while the drop still cools down`,
+      Math.abs(r.land.dx) < 1 && Math.abs(r.land.dy) < 1 && Math.abs(r.land.ds - 1) < 0.01 && Math.abs(r.land.op - 0.45) < 0.01 && r.land.frames >= 20 && r.land.frames <= 23 &&
+      r.land.hidden && r.land.spot > 100 && r.land.cooling, r.land);
+    check(`jam-jar (${dev}), Visual FX on: a pause holds the glide (under the pause card), a new jar or the game over mid-glide ends it, and in Rolling Boil it's over long before the next drop`,
+      r.pause.held && r.pause.under && r.fresh.flight === null && r.fresh.hidden && r.over.flight === null && r.over.hidden && r.boil.started && r.boil.left > 0.5, r);
+    check(`jam-jar (${dev}): Visual FX switched off mid-glide ends it, the fruit at the top that frame; with Visual FX off there's no glide, the fruit at the top at once`,
+      off.was && off.flight === null && off.hidden && off.spot > 100 && none.seen === 0 && none.spot > 100, { off, none });
+    await done(q, "glide " + dev);
+    await cq.close();
+  }
+
   // ---- the Preserves name every fruit: beside it on a laptop, under it in
   // rows on a phone; every name inside the panel, at 10 px or more, clear of
   // the fruit and of the other names, and drawn (its ink there)

@@ -724,7 +724,7 @@
     runBest = best.get();
     seed = (Math.random() * 4294967296) | 0; seq = []; dealt = 0;
     current = fruitAt(0); next = fruitAt(1); heldAt = nextAt = idleT;
-    out = false; lastDrop = null; pending = false;
+    out = false; lastDrop = null; pending = false; fly = null;
     other = freshJar();   // (the CPU's: the same first fruit and next as yours)
     brain = { at: null, wait: 0, since: 0, again: false, owe: 0, tryAt: null, tryT: 0 };
     fast = false;
@@ -788,6 +788,7 @@
     sfxDrop();
     dealt++;
     current = next; next = fruitAt(dealt + 1); heldAt = nextAt; nextAt = idleT;
+    if (!inCpu) fly = reduced() ? null : { t: 0 };   // (the one from Next glides up to the top: drawFly)
     dropCd = auto ? 0 : 0.45;
     refreshHud();
   }
@@ -1254,6 +1255,49 @@
     drawFace(f.tier, 0, 0, f.born);
     ctx.restore();
   }
+  // the fruit waiting at the top is faded while the drop cools down, and
+  // while yours waits for the CPU's turn
+  function heldAlpha() { return dropCd > 0 || heldUp() ? 0.45 : 1; }
+
+  // ---- from Next to the top (Visual FX on) -------------------------------------
+  // Once a fruit drops, the one in Next glides up to wait at the top over
+  // FLY_T s, eased in and out: from Next's middle and size to the aim's spot
+  // and the jar's size, fading as it goes to how the one waiting is drawn
+  // (heldAlpha), its idle running on throughout. Next sits beside the jar on
+  // a laptop and under it on a phone, so it flies on a canvas of its own over
+  // the page; the jar leaves the spot at the top empty until it lands. It
+  // runs on the game's clock (a pause holds it), and is over before the
+  // next drop can come. With Visual FX off the fruit is at the top at once.
+  var FLY_T = 0.35, fly = null;
+  var flyer = document.getElementById("flyer"), flyCtx = flyer.getContext("2d"), flySize = 0;
+  function drawFly() {
+    if (fly && (state !== "play" || out || reduced())) fly = null;
+    var nextEl = fly && document.getElementById("next").getBoundingClientRect();
+    if (fly && !nextEl.width) fly = null;   // (no Next on the page to come from)
+    if (!fly) { if (!flyer.hidden) flyer.hidden = true; return; }
+    var jar = canvas.getBoundingClientRect();
+    var k = Math.min(1, fly.t / FLY_T), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;
+    var r = TIERS[current].r, ax = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
+    // (css px to a unit of the fruit: in Next as paintNext draws it, in the jar)
+    var s0 = Math.min(1, 34 / r) * nextEl.width / 86, s1 = jar.width / W, s = s0 + (s1 - s0) * e;
+    var x0 = nextEl.left + nextEl.width / 2, y0 = nextEl.top + nextEl.height / 2;
+    var x1 = jar.left + ax * s1, y1 = jar.top + DROP_Y * jar.height / H;
+    fly.x = x0 + (x1 - x0) * e; fly.y = y0 + (y1 - y0) * e; fly.s = s;
+    // (as roomy as the sprites, for a stem or a crown, at the bigger of the two sizes)
+    var size = Math.ceil(2 * (r + 16) * Math.max(s0, s1));
+    if (size !== flySize) {
+      flySize = size;
+      flyer.style.width = flyer.style.height = size + "px";
+      flyer.width = flyer.height = Math.round(size * DPR2);
+    }
+    flyCtx.setTransform(1, 0, 0, 1, 0, 0);
+    flyCtx.clearRect(0, 0, flyer.width, flyer.height);
+    flyCtx.setTransform(DPR2 * s, 0, 0, DPR2 * s, DPR2 * size / 2, DPR2 * size / 2);
+    paintFruit(flyCtx, current, idleU(heldAt));
+    flyer.style.opacity = String(1 + (heldAlpha() - 1) * e);
+    flyer.style.transform = "translate(" + (fly.x - size / 2) + "px, " + (fly.y - size / 2) + "px)";
+    if (flyer.hidden) flyer.hidden = false;
+  }
 
   // The two dashed lines run on patterns pinned to the jar, not to where each
   // line starts, so the aim line's dashes don't jump when the next fruit
@@ -1302,8 +1346,8 @@
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
       var held = heldUp();
-      ctx.globalAlpha = dropCd > 0 || held ? 0.45 : 1;
-      drawFace(current, ax, DROP_Y, heldAt);
+      ctx.globalAlpha = heldAlpha();
+      if (inCpu || !fly) drawFace(current, ax, DROP_Y, heldAt);   // (still on its way up from Next: drawFly)
       ctx.globalAlpha = 1;
       // (yours waits while the CPU drops its fruit: it says so beside it, on
       // the side with more room, clear of the fill line under a big fruit)
@@ -1652,10 +1696,12 @@
       if (!inCpu && (nextU >= 0 || idleU(nextAt) >= 0)) paintNext();
       if (chainCtx && (chainU >= 0 || idleU(0) >= 0)) drawChain();
       if (state === "play" && held.L !== held.R) aimX = Math.max(JL, Math.min(JR, aimX + (held.R ? 1 : -1) * AIM_SPEED * dt));
+      if (fly && ((fly.t += dt) >= FLY_T || reduced())) fly = null;   // (landed, or Visual FX off: the jar draws it at the top from now)
       for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);
       fastUi();
       draw();
       if (foe === "cpu") asCpu(draw);
+      drawFly();
     }
   }
   layChain();
@@ -1684,6 +1730,9 @@
     // hash of its pixels, or how many of them differ between two moments
     idle: function () { return { t: idleT, T: IDLE_T, ACT: IDLE_ACT, heldAt: heldAt, nextAt: nextAt, chainU: chainU, nextU: nextU }; },
     idleU: idleU,
+    // the fruit gliding from Next to the top: how long it takes, and how far
+    // in it is, where it was last drawn (page px) and at what size (null: none)
+    flight: function () { return fly ? { t: fly.t, T: FLY_T, x: fly.x, y: fly.y, s: fly.s } : null; },
     facePixels: function (ti, u) {
       var r = TIERS[ti].r, n = Math.ceil((r + 16) * 4), c = document.createElement("canvas");
       c.width = c.height = n;
