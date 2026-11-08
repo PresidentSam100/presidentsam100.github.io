@@ -8,7 +8,15 @@
 // keys (Resume P, Restart R, Menu ⌫); Esc is the way out, asking mid-run. On
 // a laptop's short window the page fits whole, so play never scrolls it.
 const HOOK = ["  function endGame() {", "  window.__mz = { end: function () { endGame(); }, make: function () { return makeProblem(); },\n" +
-  "    spawn: function () { spawnBloon(); return bloons[bloons.length - 1].ans; }, score: function () { return score; } };\n  function endGame() {"];
+  "    spawn: function () { spawnBloon(); return bloons[bloons.length - 1].ans; }, score: function () { return score; },\n" +
+  "    points: function () { return typeof points === 'undefined' ? [] : points.map(function (p) { return { x: p.x, y: p.y, n: p.n, t: p.t }; }); } };\n  function endGame() {"];
+// the frames by hand: requestAnimationFrame queues, __frames(n) runs n of 1/60 s
+const STEPPED = () => {
+  let t = 1000, q = [];
+  performance.now = () => t;
+  window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+  window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+};
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -120,6 +128,61 @@ module.exports = async ({ browser, base, check, lib }) => {
       paused.up && /Resume P \| .*Restart R \| .*Menu ⌫$/.test(paused.btns) && paused.box === "1" && paused.shut && !back.up && back.box === "1" && back.focused === "answer" &&
       asked.dlg === "Leave this game?" && asked.under && q.leaves === 0, { paused, back, asked, leaves: q.leaves });
     check("metazac (P pauses): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- a popped balloon's points (+1 to +5) show small over its burst once
+  // the dart lands: the number it scored, white, rising as it fades with
+  // Visual FX on; with it off the same number in the same place, only
+  // fading; gone in 0.8 s; a pause holds it
+  for (const off of [false, true]) {
+    const q = await lib.open(ctx, base, "games/metazac/", { before: async (pg) => {
+      await pg.addInitScript(STEPPED); await pg.addInitScript((o) => localStorage.setItem("reduceMotion:metazac", o ? "1" : "0"), off);
+      await lib.injectScript(pg, "games/metazac/game.js", [HOOK]);
+    } });
+    await q.evaluate(() => __frames(2));
+    await q.click("#start-btn");
+    const ans = await q.evaluate(() => { __frames(2); return __mz.spawn(); });
+    await q.evaluate(() => __frames(150));   // (well along the track, clear of the start and the bunting)
+    await q.locator("#answer").fill(String(ans));
+    const before = await q.evaluate(() => __mz.score());
+    await q.keyboard.press("Enter");
+    const r = await q.evaluate(() => {
+      const cv = document.getElementById("game"), g = cv.getContext("2d"), k = cv.width / 900, out = { frames: [] };
+      const p0 = __mz.points()[0];
+      // (pure white pixels round the number, and their middle: the burst is cream, the number white)
+      const white = (p) => {
+        const x0 = Math.round((p.x - 24) * k), y0 = Math.round((p.y - 40) * k), d = g.getImageData(x0, y0, Math.round(48 * k), Math.round(56 * k)).data, w = Math.round(48 * k);
+        let n = 0, sy = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 248 && d[i + 1] > 248 && d[i + 2] > 248) { n++; sy += Math.floor(i / 4 / w); }
+        return { n, y: n ? +(y0 / k + sy / n / k).toFixed(1) : null };
+      };
+      out.made = p0 ? { n: p0.n, t: +p0.t.toFixed(3), count: __mz.points().length } : null;
+      if (!p0) return out;
+      __frames(3); out.waiting = { t: +__mz.points()[0].t.toFixed(3), ink: white(p0).n };
+      __frames(4); out.shown = Object.assign({ t: +__mz.points()[0].t.toFixed(3) }, white(p0));
+      __frames(20); out.later = Object.assign({ t: +__mz.points()[0].t.toFixed(3) }, white(p0));
+      // a pause holds it
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      __frames(60); out.paused = +__mz.points()[0].t.toFixed(3);
+      document.dispatchEvent(new KeyboardEvent("keydown", { key: "p", code: "KeyP", bubbles: true }));
+      __frames(1); out.resumed = +__mz.points()[0].t.toFixed(3);
+      __frames(14); out.fading = white(p0);
+      __frames(20); out.gone = { count: __mz.points().length, ink: white(p0).n };
+      return out;
+    });
+    r.scored = (await q.evaluate(() => __mz.score())) - before;
+    // (popped the moment it comes in at the start, still off the map's left edge: its points on the map)
+    const a2 = await q.evaluate(() => __mz.spawn());
+    await q.locator("#answer").fill(String(a2)); await q.keyboard.press("Enter");
+    r.edge = await q.evaluate(() => { const p = __mz.points().pop(); return p ? p.x : null; });
+    const fx = off ? "Visual FX off" : "Visual FX on";
+    check(`metazac, ${fx}: a popped balloon's points show over its burst once the dart lands (not before), the number it scored, in white`,
+      !!r.made && r.made.count === 1 && r.made.n === r.scored && r.scored >= 1 && r.made.t < 0 && r.waiting.ink <= r.gone.ink + 3 && r.shown.n > r.gone.ink + 6, r);
+    check(`metazac, ${fx}: the points ` + (off ? "stay in one place, only fading" : "rise as they fade") + ", a pause holds them, and they're gone in 0.8 s",
+      !!r.made && (off ? Math.abs(r.later.y - r.shown.y) < 1 : r.shown.y - r.later.y > 6) && r.fading.n < r.later.n &&
+      r.paused === r.later.t && Math.abs(r.resumed - r.paused - 1 / 60) < 0.001 && r.gone.count === 0, r);
+    check(`metazac, ${fx}: a balloon popped as it comes in at the start (half off the map) shows its points on the map`, r.edge === 18, { edge: r.edge });
+    check(`metazac (points, ${fx}): no page errors`, q.errs.length === 0, q.errs);
     await q.close();
   }
 

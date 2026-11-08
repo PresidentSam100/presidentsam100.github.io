@@ -272,6 +272,7 @@
   function reset() {
     bloons = [];
     darts = [];
+    points = [];
     power = { left: 0, timer: 0, cd: 0 };   // ready from the start
     score = 0;
     lives = 3;
@@ -295,6 +296,7 @@
     monkey.throwT = 1;
     playPop();
     score += COLORS[b.color].pts;
+    addPoints(b);
     if (score > best) {
       best = score;
       try { localStorage.setItem(BEST_KEY, String(best)); } catch (e) {}
@@ -403,6 +405,10 @@
     for (var k = darts.length - 1; k >= 0; k--) {
       darts[k].t += dt / DART_TIME;
       if (darts[k].t >= 1) darts.splice(k, 1);
+    }
+    for (var m = points.length - 1; m >= 0; m--) {
+      points[m].t += dt;
+      if (points[m].t >= POINT_T) points.splice(m, 1);
     }
   }
 
@@ -813,6 +819,42 @@
     ctx.restore();
   }
 
+  // The points a balloon was worth (+1 to +5), small, over its burst once the
+  // dart lands: white with the balloon's dark colour round it, full for half
+  // of POINT_T s, then fading, rising as it goes with Visual FX on (off: the
+  // same number in the same place for the same time, only fading). One
+  // written next to another a moment before (a dart storm down a lane) sits
+  // a line higher. The game's clock runs it (update), so a pause holds it.
+  // (kept on the map: a balloon popped coming in at the start is half off it)
+  var points = [], POINT_T = 0.8;
+  function addPoints(b) {
+    var x = Math.max(18, Math.min(W - 18, b.x)), y = Math.max(16, b.y - 40);
+    for (var i = 0; i < points.length; i++) {
+      var o = points[i];
+      if (o.t < 0.4 && Math.abs(o.x - x) < 40 && Math.abs(o.y - y) < 18) y = o.y - 20;
+    }
+    points.push({ x: x, y: y, n: COLORS[b.color].pts, edge: COLORS[b.color].dark, t: -DART_TIME });
+  }
+  function drawPoints() {
+    var still = window.RM_ON && window.RM_ON();
+    ctx.font = "18px " + UI_FONT;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    for (var i = 0; i < points.length; i++) {
+      var p = points[i], k = p.t / POINT_T;
+      if (p.t < 0) continue;   // (the dart still on its way)
+      var y = p.y - (still ? 0 : 22 * (1 - (1 - k) * (1 - k)));
+      ctx.globalAlpha = k < 0.5 ? 1 : 2 - 2 * k;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = p.edge;
+      ctx.strokeText("+" + p.n, p.x, y);
+      ctx.fillStyle = "#fff";
+      ctx.fillText("+" + p.n, p.x, y);
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // The pop: a jagged starburst saying POP, rubber scraps flying out
   function drawPop(c, e) {
     ctx.globalAlpha = 1 - e;
@@ -864,6 +906,7 @@
     var sorted = bloons.slice().sort(function (a, b) { return a.dist - b.dist; });
     for (var i = 0; i < sorted.length; i++) drawBloon(sorted[i]);
     drawDarts();
+    drawPoints();
     if (leakFlash > 0) {
       if (window.RM_ON && window.RM_ON()) {
         // Visual FX off: a red frame round the edge instead of a full-screen flash
