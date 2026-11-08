@@ -101,7 +101,10 @@ html.fx-on .weights i:not(.none) { animation: sb-weigh 0.25s ease-out both; }
 }
 .spice small { font-size: 12px; }
 .spice:hover { border-color: var(--kraft); }
-.spice[data-gs-key]::after { order: 3; }
+/* the key under the name: none of a keycap's usual margins (the one before it
+   is for words beside it, and the ones above and below let it ride a line of
+   text), so it sits in the middle and inside the box */
+.spice[data-gs-key]::after { order: 3; margin: 0; }
 
 .tools { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .tools button, .card .row button {
@@ -176,6 +179,7 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--ink)
   .taste-here { font-size: 10.5px; padding: 2px; border-width: 1px; }
   .palette { grid-area: pal; grid-template-columns: repeat(2, 56px); gap: 5px; }
   .spice { width: auto; padding: 4px 1px 3px; }
+  .spice small { font-size: 10.5px; }   /* (cardamom and cinnamon fit their 56 px) */
   .tools { grid-area: tools; }
   .keys { grid-area: keys; }
   .record { grid-area: rec; }
@@ -189,7 +193,6 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--ink)
   .bowl { width: 28px; height: 28px; }
   .tools { gap: 6px; }
   .tools button { font-size: 14px; padding: 6px 8px; }
-  .spice small { font-size: 10.5px; }
   .panel { padding-top: 62px; }
 }
 

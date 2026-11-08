@@ -1,8 +1,9 @@
 // Spice Blend: the menu takes 1 and 2 (shown on them, the pick kept) and
 // Space or Enter begins; the weights are right (a brass weight for each spice
 // in its bowl, a wooden one for each right spice elsewhere, every bowl of the
-// blend counted once); the spices take 1 to 6 (shown on them), Backspace takes
-// the last back and Enter tastes a full row (not a part-filled one); a full
+// blend counted once); the spices take 1 to 6 (shown on them, in the middle
+// and inside each box, and each name fits its box), Backspace takes the last
+// back and Enter tastes a full row (not a part-filled one; shown on Taste); a full
 // row's weights' place becomes a Taste button; naming the blend wins, keeps
 // the fewest tastes and the record, and running out of tastes shows the blend;
 // the end card waits a moment for Space, then pours another; paused, keys pour
@@ -75,6 +76,43 @@ module.exports = async ({ browser, base, check, lib }) => {
   await p.keyboard.press("Backspace"); await p.waitForTimeout(120);
   check("spice-blend: Backspace on the end card goes to the menu", (await p.evaluate(() => SpiceBlend.state())) === "menu", null);
   await done(p, "play");
+
+  // ---- each spice's key sits in the middle of its box, under the name and
+  // inside the border; the Taste button wears Enter; every name fits its box
+  // (both stalls, on a laptop and in a window narrow enough to stack the
+  // spices two wide)
+  const SEATS = () => {
+    // a keycap is drawn by ::after, which has no box to measure: a span given
+    // its every computed style stands in for it, in its place
+    const spices = [...document.querySelectorAll("#palette .spice")];
+    const looks = spices.map((b) => { const cs = getComputedStyle(b, "::after"), o = {}; for (let i = 0; i < cs.length; i++) if (cs[i] !== "content") o[cs[i]] = cs.getPropertyValue(cs[i]); return o; });
+    const hide = document.createElement("style"); hide.textContent = ".spice::after { display: none !important; }"; document.head.appendChild(hide);
+    const bad = [];
+    spices.forEach((b, i) => {
+      const s = document.createElement("span");
+      for (const k in looks[i]) s.style.setProperty(k, looks[i][k]);
+      s.textContent = b.getAttribute("data-gs-key"); b.appendChild(s);
+      const r = b.getBoundingClientRect(), k = s.getBoundingClientRect(), n = b.querySelector("small").getBoundingClientRect(), bw = parseFloat(getComputedStyle(b).borderBottomWidth);
+      const mid = (k.left + k.right) / 2 - (r.left + r.right) / 2;
+      const name = b.querySelector("small").textContent;
+      if (!(Math.abs(mid) <= 0.75 && k.top >= n.bottom - 0.5 && k.left >= r.left + bw - 0.5 && k.right <= r.right - bw + 0.5 && k.bottom <= r.bottom - bw + 0.5))
+        bad.push(name + " key " + mid.toFixed(1) + " off the middle, " + (k.bottom - (r.bottom - bw)).toFixed(1) + " below the inside");
+      if (!(n.left >= r.left + bw - 0.5 && n.right <= r.right - bw + 0.5)) bad.push(name + " " + n.width.toFixed(1) + " wide in " + (r.width - 2 * bw).toFixed(1));
+      s.remove();
+    });
+    hide.remove();
+    return { bad, n: spices.length, keys: spices.map((b) => b.getAttribute("data-gs-key")).join(""), taste: document.getElementById("btn-taste").getAttribute("data-gs-key") };
+  };
+  const seats = {};
+  for (const w of [1280, 740]) {
+    const c = w === 1280 ? ctx : await lib.newContext(browser, { viewport: { width: w, height: 760 } });
+    const q = await open(c);
+    for (const m of ["stall", "bazaar"]) { await q.evaluate((m) => SpiceBlend.start(m), m); await q.waitForTimeout(150); seats[w + " " + m] = await q.evaluate(SEATS); }
+    await done(q, "keys at " + w);
+    if (c !== ctx) await c.close();
+  }
+  check("spice-blend: each spice's key sits in the middle of its box, under the name and inside the border, and each name fits its box; the Taste button wears Enter (both stalls, a laptop and a window two spices wide)",
+    Object.values(seats).every((s) => !s.bad.length && s.taste === "Enter" && s.keys === "12345678".slice(0, s.n) && s.n >= 6), seats);
 
   // ---- Visual FX off: the weights land without moving
   const anim = {};
