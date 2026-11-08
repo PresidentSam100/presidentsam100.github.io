@@ -10,7 +10,8 @@
 // again, and Backspace goes to the modes; paused, Space burns nothing; with
 // Visual FX off no dust rides the winds (the arrows show them all the same);
 // on a phone the burn button, held, burns; the wind guide is drawn over the
-// rock; the balloon's shadow lies along the land, slopes and all.
+// rock; the balloon's shadow lies along the land, slopes and all; a river is
+// level from bank to bank, drawn and to come down in.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/mesa-drift/", opts);
@@ -270,6 +271,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("mesa-drift: over a steep slope the balloon's shadow follows the ground across its width, not a flat oval",
       shade.shape === "laid along the land" && shade.points >= 18 && shade.err < 2 && shade.rise > 15, shade);
     await done(q, "shadow");
+  }
+
+  // ---- a river is level from bank to bank: it reaches just as far as the
+  // land under its surface (16), in every flight and both modes, and as drawn
+  // no water lies over a bank above the surface, and the land under the
+  // surface is under water (one row of the canvas, 15 up, across each river
+  // and its banks; Visual FX off, so no dust crosses it)
+  {
+    const VIEW = ["    start: startRun,", "    start: startRun, load: loadFlight, view: function () { return { cam: cam, S: S, Y0: VH - PADB, dpr: dpr }; },"];
+    const q = await open(null, { before: async (pg) => {
+      await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:mesa-drift", "1"); } catch (e) {} });
+      await lib.injectScript(pg, "games/mesa-drift/game.js", [VIEW]);
+    } });
+    const banks = await q.evaluate(async () => {
+      const ends = [], drawn = [];
+      for (const m of ["calm", "gusty"]) {
+        MesaDrift.start(m);
+        for (let n = 0; n < 8; n++) {
+          MesaDrift.load(n);
+          const W = MesaDrift.world();
+          for (const w of W.water) {
+            const inside = Math.max(...Array.from({ length: Math.ceil((w[1] - w[0]) * 4) - 1 }, (_, k) => W.ground(w[0] + (k + 1) / 4)));
+            const ok = Math.abs(W.ground(w[0]) - 16) < 0.01 && Math.abs(W.ground(w[1]) - 16) < 0.01 && inside < 16 && W.ground(w[0] - 0.5) > 16 && W.ground(w[1] + 0.5) > 16;
+            if (!ok) ends.push(m + " " + n + " " + w.map((v) => v.toFixed(1)).join("-") + " ground " + W.ground(w[0]).toFixed(1) + "/" + W.ground(w[1]).toFixed(1));
+            if (m !== "calm") continue;
+            // the balloon well up and off to the left, the river in view
+            for (let k = 0; k < 400; k++) { MesaDrift.place(w[0] - 200, 450); MesaDrift.step(1 / 60); }
+            MesaDrift.place(w[0] - 200, 450);
+            const row = await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+              const v = MesaDrift.view(), cv = document.getElementById("stage"), y = Math.round((v.Y0 - 15 * v.S) * v.dpr);
+              const px = cv.getContext("2d").getImageData(0, y, cv.width, 1).data, bad = [];
+              for (let x = w[0] - 8; x <= w[1] + 8; x += 0.25) {
+                const i = Math.floor((x - v.cam) * v.S * v.dpr), r = px[4 * i], g = px[4 * i + 1], b = px[4 * i + 2];
+                // (judged where the land a pixel either side is on the same
+                // side of the surface: a pixel the water's edge crosses is
+                // part water)
+                const wet = Math.abs(r - 79) < 12 && Math.abs(g - 154) < 12 && Math.abs(b - 168) < 12, gr = W.ground(x);
+                const lo = Math.min(W.ground(x - 1 / v.S), W.ground(x + 1 / v.S), gr), hi = Math.max(W.ground(x - 1 / v.S), W.ground(x + 1 / v.S), gr);
+                if (wet && lo > 16.4) bad.push("water over the bank at " + x.toFixed(2) + " (land " + gr.toFixed(1) + ")");
+                if (!wet && hi < 15.6) bad.push("dry under the surface at " + x.toFixed(2));
+              }
+              res(bad);
+            })));
+            if (row.length) drawn.push(n + ": " + row.length + " " + row[0] + " .. " + row[row.length - 1]);
+          }
+        }
+      }
+      return { ends, drawn, rivers: [0, 1, 2, 3, 4, 5, 6, 7].map((n) => { MesaDrift.load(n); return MesaDrift.world().water.length; }).join("") };
+    });
+    check("mesa-drift: each river is level from bank to bank, reaching just as far as the land under its surface (every flight, both modes); drawn, no water lies over a bank and no land under the surface is dry",
+      !banks.ends.length && !banks.drawn.length && /[1-9]/.test(banks.rivers), banks);
+    await done(q, "rivers");
   }
   await ctx.close();
 };

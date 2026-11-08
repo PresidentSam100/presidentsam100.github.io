@@ -28,6 +28,7 @@
   var SKY = 600;                       // the world's height
   var LAYERS = [0, 140, 280, 420, SKY];   // the four winds' bands
   var STEP = 10;                       // the ground is known every STEP across
+  var RIVER = 16;                      // a river's surface (its bed is 14)
   var ENVELOPE = 34, BASKET_DROP = 54; // the envelope's radius; the basket's floor below its middle
   var SAFE = 32, CRASH = 56;           // the speed of a soft landing, and of one that breaks the basket
   var FLIGHTS = ["First Light", "The Narrows", "Red Mesa", "River Bend", "Two Buttes", "Long Glide", "Canyon Wind", "Sundown"];
@@ -88,6 +89,19 @@
     flat(Math.round(fieldX0 / STEP) * STEP, Math.round((fieldX0 + fieldW) / STEP) * STEP, fieldY);
     for (k = 0; k <= 160; k += STEP) h[Math.round((fieldX0 + fieldW) / STEP) + k / STEP] = fieldY + (380 - fieldY) * Math.min(1, k / 60);
     for (var i = 0; i < h.length; i++) if (h[i] == null) h[i] = h[i - 1] || 40;
+    // each river reaches out to where its banks come up through its surface,
+    // so the water drawn and the water a basket can come down in both follow
+    // the valley (two rivers side by side share their banks: one water)
+    var wet = [];
+    water.forEach(function (w) {
+      // (from the bed's first point: the land after a river can take its last)
+      var a = Math.round(w[0] / STEP), z = a;
+      while (a > 0 && h[a] < RIVER) a--;
+      while (z < h.length - 1 && h[z] < RIVER) z++;
+      var x0 = (a + (h[a] - RIVER) / (h[a] - h[a + 1])) * STEP, x1 = (z - (h[z] - RIVER) / (h[z] - h[z - 1])) * STEP;
+      if (!wet.length || wet[wet.length - 1][1] < x0) wet.push([x0, x1]);
+    });
+    water = wet;
     // the winds: alternating, the ground's often toward the field, one aloft back the other way
     var mult = MODES[gusty ? "gusty" : "calm"].wind;
     var winds = [
@@ -385,9 +399,9 @@
       }
       g.stroke();
     }
-    // the river
+    // the river, level from bank to bank (buildFlight)
     g.fillStyle = "#4f9aa8";
-    FF.water.forEach(function (w) { g.fillRect(X(w[0]), Y(16), (w[1] - w[0]) * S, 16 * S); });
+    FF.water.forEach(function (w) { g.fillRect(X(w[0]), Y(RIVER), (w[1] - w[0]) * S, RIVER * S); });
     g.fillStyle = "rgba(255, 255, 255, 0.45)";
     FF.water.forEach(function (w) { for (var k = w[0] + 10; k < w[1] - 14; k += 26) g.fillRect(X(k), Y(11), 12 * S, 2 * S); });
     // the start field and the ringed field to land on
