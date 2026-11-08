@@ -202,6 +202,37 @@ module.exports = async ({ browser, base, check, lib }) => {
       !!prop.dropped && Math.abs(prop.dropped.spin - prop.dropped.before) < 0.5, prop);
   await done(p, "propeller");
 
+  // ---- Visual FX on: a landing dips the platform, and the spring, trampoline
+  // or gear on it dips with it (it used to stay put, the platform dropping
+  // away under it); with Visual FX off neither moves
+  p = await lib.open(ctx, base, "games/poodle-jump/", { before: (pg) => pg.addInitScript(() => localStorage.setItem("reduceMotion:poodle-jump", "0")) });
+  const dips = await p.evaluate(() => {
+    const c = document.createElement("canvas"), g = c.getContext("2d"), out = {};
+    c.width = CONFIG.W; c.height = 200;
+    // (the first and the last row anything is drawn on: the item's top, the platform's bottom)
+    const rows = (pl) => {
+      g.clearRect(0, 0, c.width, c.height); pl.render(g, 0);
+      const d = g.getImageData(0, 0, c.width, c.height).data; let top = -1, bottom = -1;
+      for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3] > 40) { if (top < 0) top = y; bottom = y; break; }
+      return [top, bottom];
+    };
+    // (halfway through its 0.2 s, the dip is at its deepest: 5 px)
+    const dip = (kind) => {
+      const pl = new Platform(120, 120, PT.GREEN);
+      if (kind === "spring" || kind === "trampoline") pl.booster = new Booster(pl, kind); else pl.powerup = new PowerUp(pl, kind);
+      const rest = rows(pl); pl.dipT = 0.1; const deep = rows(pl);
+      return (deep[0] - rest[0]) + "," + (deep[1] - rest[1]);
+    };
+    for (const kind of ["spring", "trampoline", "jetpack", "propeller", "springy"]) out[kind] = dip(kind);
+    const rm = window.RM_ON;
+    window.RM_ON = () => true;
+    try { out.off = dip("spring"); } finally { window.RM_ON = rm; }
+    return out;
+  });
+  check("poodle-jump, Visual FX on: a spring, trampoline, jetpack, propeller or spring shoes dip with the platform they sit on (5 px at the deepest, as far as the platform); Visual FX off: neither moves",
+    ["spring", "trampoline", "jetpack", "propeller", "springy"].every((k) => dips[k] === "5,5") && dips.off === "0,0", dips);
+  await done(p, "dip");
+
   // ---- the hint line under the game names moving and shooting, and not the
   // pause (the ⏸ button in the corner row wears its key)
   p = await lib.open(ctx, base, "games/poodle-jump/");

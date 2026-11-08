@@ -121,10 +121,11 @@ class Platform {
   }
 
   render(ctx, cameraY) {
-    let sy = this.y - cameraY;
-    // Visual FX on: a quick dip and spring back where the poodle landed (the
+    // Visual FX on: a quick dip and spring back where the poodle landed, with
+    // the spring, trampoline or gear on it riding along (drawn only: the
     // landing surface itself never moves; FX off it stays put)
-    if (this.dipT > 0 && fxOn()) sy += 5 * Math.sin(Math.PI * (1 - this.dipT / 0.2));
+    const dip = this.dipT > 0 && fxOn() ? 5 * Math.sin(Math.PI * (1 - this.dipT / 0.2)) : 0;
+    const sy = this.y - cameraY + dip;
     ctx.save();
 
     if (this.broken) {
@@ -176,8 +177,8 @@ class Platform {
 
     ctx.restore();
 
-    if (this.booster) this.booster.render(ctx, cameraY);
-    if (this.powerup && !this.powerup.dead) this.powerup.render(ctx, cameraY);
+    if (this.booster) this.booster.render(ctx, cameraY - dip);
+    if (this.powerup && !this.powerup.dead) this.powerup.render(ctx, cameraY - dip);
   }
 
   _renderBroken(ctx, sy) {
