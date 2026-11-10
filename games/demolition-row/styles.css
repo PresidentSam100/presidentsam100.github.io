@@ -230,17 +230,16 @@
          the pad's line beside Play */
       @media (max-width: 520px) and (max-height: 700px) {
         #menu > .card { padding-top: 0.5rem; padding-bottom: 0.6rem; }
-        #menu > .card > p { line-height: 1.32; margin: 0.2rem 0 0.4rem; }
+        #menu > .card > p { font-size: 0.84rem; line-height: 1.32; margin: 0.2rem 0 0.4rem; }
         #menu .group { margin: 0.35rem 0; }
         #menu .card .group #mode-pick .btn { padding-top: 0.45rem; padding-bottom: 0.45rem; }
         #menu .card p.stage-info { margin-top: 0.2rem; }
-        #play-row { margin-top: 0.5rem; }
+        #play-row { margin-top: 0.4rem; }
         #play-btn { padding: 0.6rem 1.4rem; }
         #menu .keys { margin-top: 0.3rem; line-height: 1.45; }
-        #menu details.dict-wrap { margin-top: 0.5rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        #menu details.dict-wrap { margin-top: 0.4rem; padding-top: 0.25rem; padding-bottom: 0.25rem; }
       }
       @media (max-width: 520px) and (max-height: 600px) {
-        #menu > .card > p { font-size: 0.84rem; }
         #menu > .card > h2 { font-size: 1.25rem; }
         #menu .group { margin: 0.3rem 0; }
         #menu .group .lbl { margin-bottom: 0.25rem; }
@@ -263,16 +262,24 @@
          cold window, so the scene still shows around the card */
       .overlay {
         position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 1.2rem;
-        background:
+        --frost:
           radial-gradient(circle at 0 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 300px),
           radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0) 300px),
           rgba(226, 241, 251, 0.3);
+        background: var(--frost);
       }
       .overlay.hidden { display: none; }
       /* a card taller than the screen (VS options on a small phone) scrolls
          instead of losing its top and bottom; margin:auto still centres it */
       .overlay { overflow-y: auto; }
       .overlay > .card { margin: auto; }
+      /* (the menu, when it has to scroll, scrolls below the corner buttons,
+         so no line of it passes under them: .deep, set by game.js's fitMenu.
+         The corner row ends 44px down, and the card's snow stands 14px over
+         its top. The frost is a layer of its own, still the whole screen) */
+      #menu { background: none; }
+      #menu::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--frost); pointer-events: none; }
+      #menu.deep { top: 48px; padding-top: 14px; }
       /* solid frost, not backdrop-filter: the pause overlay sits over a
          live canvas and a blur would repaint every frame */
       .card {
@@ -305,6 +312,7 @@
       #result-msg { white-space: pre-line; }
       .group { margin: 0.7rem 0; }
       .group .lbl { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 0.35rem; }
+      #vs-opts > .lbl ~ .lbl { margin-top: 0.7rem; }
       .keys { color: var(--muted); font-size: 0.82rem; line-height: 1.7; margin-top: 0.5rem; font-weight: 600; }
       kbd { background: #fff; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 5px; font-size: 0.78rem; color: var(--text); }
       details.dict-wrap { text-align: left; margin-top: 0.9rem; background: rgba(255, 255, 255, 0.6); border: 1px solid var(--line); border-radius: 12px; padding: 0.4rem 0.85rem; }
@@ -391,6 +399,18 @@
         .card .group #mode-pick .btn { padding-left: 0.8rem; padding-right: 0.8rem; }
         .keys { line-height: 1.45; margin-top: 0.3rem; }
         details.dict-wrap { margin-top: 0.5rem; }
+      }
+      /* a screen short of room (a phone, or a short laptop): the Mode and
+         Players headings go beside their buttons where a line holds both
+         (else over them, as elsewhere), and a match's setup closes up */
+      @media (max-width: 520px), (max-height: 700px) {
+        #mode-opts, #vs-opts { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 0.5rem; }
+        #menu #mode-opts > .lbl, #vs-opts > .lbl:first-child { margin: 0; }
+        #vs-opts > * { flex: 1 1 100%; }
+        #vs-opts > .lbl:first-child, #count-pick { flex: none; }
+        #vs-opts > .lbl ~ .lbl { margin: 0.4rem 0 0.25rem; }
+        #vs-opts .seats-lbl { letter-spacing: 0; }
+        .prow { margin-bottom: 0.25rem; }
       }
 
 /* a phone on its side: the header closes up to a line each, a lone board's

@@ -67,7 +67,7 @@
         <h2>Demolition Row 🧊</h2>
         <p>Plus-shaped blocks fall from the top. Move, rotate, and drop them so <b>4 or more</b> same-colored blocks connect (up/down/left/right): they demolish, the rest fall, and chains cascade. Clear the stack and don't let it reach the red line!</p>
 
-        <div class="group">
+        <div class="group" id="mode-opts">
           <div class="lbl">Mode</div>
           <div class="row" id="mode-pick">
             <button class="btn sel" data-mode="stage">50-Stage</button>
@@ -89,7 +89,7 @@
             <button class="btn" data-count="3">3</button>
             <button class="btn" data-count="4">4</button>
           </div>
-          <div class="lbl" style="margin-top:0.7rem;">Each player: tap to switch Human/CPU; pick each CPU's difficulty<span class="gs-touch"> (one human per touch screen)</span></div>
+          <div class="lbl seats-lbl">Each player: tap to switch Human/CPU; pick each CPU's difficulty<span class="gs-touch"> (one human per touch screen)</span></div>
           <div id="player-rows">
             <div class="prow" data-slot="0">
               <button class="btn ptoggle" data-slot="0">P1: Human</button>
@@ -116,7 +116,7 @@
               </select>
             </div>
           </div>
-          <div class="lbl" style="margin-top:0.7rem;">Match Format</div>
+          <div class="lbl">Match Format</div>
           <div class="row" id="fmt-pick">
             <button class="btn" data-fmt="1">First to 1</button>
             <button class="btn sel" data-fmt="2">First to 2</button>

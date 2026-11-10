@@ -560,6 +560,74 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
   }
 
+  // ---- a match's setup on a small screen: a card taller than the window
+  // scrolls below the corner buttons, never under them (no line of its text,
+  // no button or dropdown), at its top, halfway and at its end, with the
+  // frost still over the whole screen; and closed up, 2 players fit a
+  // 390x664 phone, 2 or 3 a 412x790 one, 2 a 1366x657 laptop and all of
+  // them a 1280x900 one, nothing to scroll. Against 1, 2 and 3 CPUs, P1 the
+  // one human a touch screen has or every seat a CPU; phones upright and on
+  // their side, and laptops; the same with Visual FX off
+  {
+    const setup = (pg, n, cpu) => pg.evaluate(([n, cpu]) => new Promise((done) => {
+      document.querySelector('#mode-pick [data-mode="vs"]').click();
+      document.querySelector('#count-pick [data-count="' + n + '"]').click();
+      const p1 = document.querySelector('#player-rows .ptoggle[data-slot="0"]');
+      if (cpu !== /CPU/.test(p1.textContent)) p1.click();
+      setTimeout(() => {
+        const menu = document.getElementById("menu"), card = menu.querySelector(".card");
+        const corners = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect());
+        // what's seen of the card's text (by its lines) and controls (by their boxes) that a corner button covers
+        const under = () => {
+          const vt = menu.getBoundingClientRect().top + menu.clientTop, vb = vt + menu.clientHeight, boxes = [];
+          card.querySelectorAll("button, select").forEach((e) => { if (e.getClientRects().length) boxes.push([e.textContent.trim().slice(0, 12), e.getBoundingClientRect()]); });
+          const tw = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+          for (let t; (t = tw.nextNode());) {
+            if (!t.textContent.trim() || t.parentElement.closest("button, select") || !t.parentElement.getClientRects().length) continue;
+            const rg = document.createRange(); rg.selectNodeContents(t);
+            for (const r of rg.getClientRects()) boxes.push([t.textContent.trim().slice(0, 12), r]);
+          }
+          return boxes.filter(([, b]) => { const top = Math.max(b.top, vt), bot = Math.min(b.bottom, vb);
+            return bot > top && corners.some((k) => b.left < k.right && b.right > k.left && top < k.bottom && bot > k.top); }).map(([s]) => s);
+        };
+        const scroll = menu.scrollHeight - menu.clientHeight, seen = [];
+        for (const at of [0, 0.5, 1]) { menu.scrollTop = scroll * at; seen.push(...under()); }
+        menu.scrollTop = 0;
+        done({ scroll, under: seen, card: Math.round(card.getBoundingClientRect().height), deep: menu.classList.contains("deep") });
+      }, 250);
+    }), [n, cpu]);
+    const FIT = { "390x664": [2], "412x790": [2, 3], "1366x657": [2], "1280x900": [2, 3, 4] };
+    const res = {}, bad = [];
+    for (const [w, h] of [[320, 568], [360, 640], [390, 664], [375, 553], [360, 560], [412, 790], [568, 320], [750, 340], [1366, 657], [1280, 600], [1280, 900]]) {
+      const c = await lib.newContext(browser, w < 900 ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/demolition-row/");
+      for (const n of [2, 3, 4]) for (const cpu of [false, true]) {
+        const s = res[w + "x" + h + " vs" + n + (cpu ? " cpus" : "")] = await setup(q, n, cpu);
+        if (s.under.length || ((FIT[w + "x" + h] || []).includes(n) && s.scroll > 0)) bad.push(w + "x" + h + " vs" + n + (cpu ? " cpus" : ""));
+      }
+      check("demolition-row (VS setup " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: a match's setup taller than the window scrolls below the corner buttons, none of its text or controls ever under them (at its top, halfway and at its end), and closed up it fits with nothing to scroll where there's room: 2 players on a 390x664 phone, 2 or 3 on a 412x790 one, 2 on a 1366x657 laptop, all on a 1280x900 one (phones 320 to 412 wide upright, 568x320 and 750x340 on their side; laptops 1366x657, 1280x600, 1280x900; 1 to 3 CPUs, P1 human or a CPU)",
+      bad.length === 0, { bad, res });
+    // the frost over the whole screen while the menu scrolls below the corner
+    // buttons (the strip beside them the same as with the 50-Stage menu,
+    // which doesn't scroll), and Visual FX off lays the setup out the same
+    const off = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 320, height: 568 } }));
+    const q = await lib.open(off, base, "games/demolition-row/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:demolition-row", "1"); } catch (e) {} }) });
+    const strip = () => q.screenshot({ clip: { x: 0, y: 0, width: 8, height: 46 } });
+    await q.waitForTimeout(500);
+    const flat = await strip();
+    const fxOff = await setup(q, 4, false);
+    await q.waitForTimeout(300);
+    const frosted = (await strip()).equals(flat);
+    const fxOn = res["320x568 vs4"];
+    check("demolition-row: while the setup scrolls below the corner buttons the frost still covers the whole screen, and with Visual FX off it is laid out the same (320x568, 4 players)",
+      frosted && fxOff.deep && fxOff.under.length === 0 && !!fxOn && fxOff.card === fxOn.card && fxOff.scroll === fxOn.scroll, { frosted, fxOff, fxOn });
+    check("demolition-row (VS setup, FX off): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await off.close();
+  }
+
   // ---- what a wave scores shows where it cleared: "+800 ×20" for a four
   // with the star bonus on, the score's own change; a chain's next wave "+80"
   // with "×2", and "×20" on both while the bonus is on; a plain first wave

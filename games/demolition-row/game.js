@@ -1561,8 +1561,20 @@
       if (fit === fitAt) return;
       fitAt = fit; stageGrid.style.setProperty("--fit", fit + "px"); showStage();
     }
-    if (window.ResizeObserver) new ResizeObserver(fitStages).observe(menu.querySelector(".card"));
-    window.addEventListener("resize", fitStages);
+    // (a menu still taller than the window, such as a match's setup on a
+    // phone, scrolls below the corner buttons, not under them: .deep, when
+    // the card is taller than the room the overlay gives it without)
+    function fitMenu() {
+      if (menu.classList.contains("hidden")) return;
+      const at = menu.scrollTop;
+      menu.classList.remove("deep");
+      const cs = getComputedStyle(menu), room = menu.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      menu.classList.toggle("deep", menu.querySelector(".card").offsetHeight > room + 1);
+      menu.scrollTop = at;
+    }
+    const fitAll = () => { fitStages(); fitMenu(); };
+    if (window.ResizeObserver) new ResizeObserver(fitAll).observe(menu.querySelector(".card"));
+    window.addEventListener("resize", fitAll);
     function pickStage(n) {
       if (n < 1 || n > CONFIG.stage.total) return;
       if (n > stageReached()) { paintStages("🔒 Stage " + n + " is locked. Reach it in a run to open it."); return; }
