@@ -1,5 +1,6 @@
 // Salvo: a shot fired in the moment between the last sinking and the end card
-// doesn't count the win again; with storage blocked the game still runs.
+// doesn't count the win again; with storage blocked the game still runs; a
+// ship set down shows no sea between its cells.
 const HOOK = ['  $("againBtn").addEventListener("click", newGame);', '  window.__salvo = { get enemyShips() { return enemyShips; } };\n  $("againBtn").addEventListener("click", newGame);'];
 const BLOCK_STORAGE = (pg) => pg.addInitScript(() => {
   Object.defineProperty(window, "localStorage", { configurable: true, get() { throw new DOMException("The operation is insecure.", "SecurityError"); } });
@@ -191,5 +192,49 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- a ship set down on your waters is one hull: no hairline of sea where
+  // its cells meet, at the scales a laptop or a phone draws at (125%, 150%,
+  // 3x; the cells sit at fractions of a pixel there), Visual FX on (landed)
+  // and off, and after R draws the board again. Each hull is read along its
+  // middle, from its stern's middle to just into its bow, for the sea's blue.
+  const hull = async (q, cells) => {
+    const g = await q.evaluate((cells) => {
+      const rs = cells.map(([r, c]) => document.querySelector('#playerGrid .cell[data-r="' + r + '"][data-c="' + c + '"]').getBoundingClientRect());
+      const a = rs[0], z = rs[rs.length - 1], horiz = a.top === z.top;
+      return horiz ? { x: a.left + a.width / 2, right: z.left + z.width * 0.4, y: a.top + a.height * 0.3, bottom: a.bottom - a.height * 0.3 }
+        : { x: a.left + a.width * 0.3, right: a.right - a.width * 0.3, y: a.top + a.height / 2, bottom: z.top + z.height * 0.4 };
+    }, cells);
+    const clip = { x: g.x, y: g.y, width: g.right - g.x, height: g.bottom - g.y };
+    const png = (await q.screenshot({ clip })).toString("base64");
+    return q.evaluate(async (png) => {
+      const img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+      const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+      const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+      const d = x.getImageData(0, 0, cv.width, cv.height).data;
+      let blue = -255; for (let n = 0; n < d.length; n += 4) blue = Math.max(blue, d[n + 2] - d[n]);
+      return blue;   // the bluest pixel: the hulls' greys are under 30, the sea over 80
+    }, png);
+  };
+  const seas = {};
+  for (const [w, h, dpr, phone] of [[1536, 864, 1.25, false], [1280, 900, 1.5, false], [390, 664, 3, true]]) {
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h }, deviceScaleFactor: dpr, hasTouch: phone, isMobile: phone });
+      const q = await lib.open(c, base, "games/salvo/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:salvo", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.evaluate(() => document.getElementById("playerGrid").scrollIntoView({ block: "center" }));
+      const cell = (r, c) => q.locator('#playerGrid .cell[data-r="' + r + '"][data-c="' + c + '"]');
+      // the carrier across B2 to B6, then the battleship down D8 to G8; the
+      // pointer goes off the board, so no preview frames a cell
+      await cell(1, 1).click(); await q.keyboard.press("r"); await cell(3, 7).click();
+      await q.mouse.move(2, 2); await q.waitForTimeout(1000);
+      const H = [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5]], V = [[3, 7], [4, 7], [5, 7], [6, 7]];
+      const set = [await hull(q, H), await hull(q, V)];
+      await q.keyboard.press("r"); await q.waitForTimeout(300);
+      seas[w + "@" + dpr + (off ? " FX off" : " FX on")] = { set, afterR: [await hull(q, H), await hull(q, V)], errs: q.errs.length };
+      await c.close();
+    }
+  }
+  check("salvo: a ship set down on your waters shows no sea between its cells (125%, 150% and a phone's 3x; Visual FX on and off; landed and after R)",
+    Object.values(seas).every((s) => !s.errs && s.set.concat(s.afterR).every((b) => b < 40)), seas);
   await ctx.close();
 };
