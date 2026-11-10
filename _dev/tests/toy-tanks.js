@@ -13,7 +13,8 @@
 // every kind, one too; a white tank stays out of sight when your tank is
 // lost; a shell's smoke lingers after it's gone. A mine's light is dark
 // until its layer is off it, then lit; in its last 2 s it blinks and beeps;
-// a tank come near sets it beeping, and it goes off 0.4 s later.
+// a tank come near sets it beeping, and it goes off 0.4 s later; a mission
+// over, a mine about to go off holds its light and beeps no more.
 const vm = require("vm"), fs = require("fs"), path = require("path");
 
 function engine(root) {
@@ -1092,6 +1093,55 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: on the page, the shells of a mission lost are drawn where they stopped, their flames at rest and no new smoke, till the mission starts again",
       r.status === "lost" && r.shells === 2 && r.draws > 0 && r.same && r.still && r.smoke1 <= r.smoke0 && r.after === 0, r);
     check("toy-tanks (shells stopped): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
+
+  // ---- and the mines: one in its last stretch, blinking, and one a tank has
+  // set going hold their lights once the mission is over (cleared, lost, or
+  // lost with no lives left: through the card, and on the game-over screen
+  // after it), and no more beeps; on a laptop and a phone
+  for (const [size, opts] of [["1280 x 900", { viewport: { width: 1280, height: 900 } }], ["390 x 664", Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } })]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript(() => {
+      // (every tone's pitch, as the game sets it)
+      window.__tones = [];
+      const set = AudioParam.prototype.setValueAtTime;
+      AudioParam.prototype.setValueAtTime = function (v, t) { window.__tones.push(v); return set.call(this, v, t); };
+    }) });
+    const out = {};
+    for (const how of ["won", "lost", "over"]) {
+      out[how] = await q.evaluate((how) => new Promise((res) => {
+        const A = window.ToyTanksArt, E = window.ToyTanksEngine, orig = A.mine;
+        ToyTanks.start(); ToyTanks.advance(1700, {});
+        const st = ToyTanks.st();
+        st.enemies.forEach((e) => { e.cool = 1e9; e.spec = Object.assign({}, e.spec, { fire: 1e9, mines: 0, move: "none" }); });
+        // two spots away from every tank and each other: one mine 1.2 s from
+        // going off on its own, one set going 0.1 s ago (0.3 s to go)
+        const spots = [], far = (x, y) => [st.player].concat(st.enemies, spots).every((t) => Math.hypot(t.x - x, t.y - y) > 4.5);
+        for (let y = 1; y < E.ROWS - 1 && spots.length < 2; y++) for (let x = 1; x < E.COLS - 1 && spots.length < 2; x++)
+          if (st.grid[y * E.COLS + x] === 0 && far(x + 0.5, y + 0.5)) spots.push({ x: x + 0.5, y: y + 0.5 });
+        st.mines.push({ id: 90020, x: spots[0].x, y: spots[0].y, owner: st.enemies[0], age: E.TUNE.fuseMs - 1200, armed: true, enemy: true });
+        st.mines.push({ id: 90021, x: spots[1].x, y: spots[1].y, owner: st.enemies[0], age: 1000, armed: true, enemy: true, trip: 100 });
+        // the light each one is drawn with, frame by frame (the last fill its drawing makes)
+        const lights = { 90020: new Set(), 90021: new Set() };
+        A.mine = function (g, m) { const r = orig.apply(this, arguments); if (lights[m.id]) lights[m.id].add(g.fillStyle); return r; };
+        if (how === "over") st.lives = 1;
+        if (how === "won") st.enemies.forEach((e) => { e.alive = false; }); else st.player.alive = false;
+        // (the page's own frames from here: the mission ends on the next step)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const status = st.status, mines = st.mines.length, t0 = performance.now();
+          lights[90020].clear(); lights[90021].clear(); window.__tones.length = 0;
+          setTimeout(() => {
+            A.mine = orig;
+            res({ status, mines, blink: lights[90020].size, flash: lights[90021].size, beeps: window.__tones.filter((v) => v === 1480 || v === 1900).length,
+              later: ToyTanks.st().status, ui: ToyTanks.ui(), left: ToyTanks.st().mines.length, ms: Math.round(performance.now() - t0) });
+          }, how === "over" ? 2600 : 1500);
+        }));
+      }), how);
+    }
+    check("toy-tanks (" + size + "): a mission over, cleared, lost, or lost with no lives left, a mine about to go off holds its light (blinking or set going) through the card and on the game-over screen, and beeps no more",
+      ["won", "lost", "over"].every((h) => { const o = out[h]; return o.status === h.replace("over", "lost") && o.mines === 2 && o.blink === 1 && o.flash === 1 && o.beeps === 0 && (h !== "over" || (o.ui === "over" && o.left === 2)); }), out);
+    check("toy-tanks (mines held, " + size + "): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
 

@@ -114,6 +114,10 @@
   var aimPt = null;              // where the mouse points, in tiles (null: it hasn't)
   var stickMove = null, stickAim = null, aimAngle = null;
   var parts = [], shake = 0, clock = 0, overAt = 0;
+  // the clock the mines' lights blink by: it stops with the mission, so a
+  // mine in its last stretch holds its light, and beeps no more, through the
+  // card, won or lost, and after (the mines themselves stop then too)
+  var mineClock = 0;
   var canvas = $("arena"), g = canvas.getContext("2d"), back = document.createElement("canvas");
   var s = 28, fr = 14, sprites = null;
   function inRun() { return ui === "run" && !!st && begun && st.status !== "over" && st.status !== "done"; }
@@ -177,7 +181,7 @@
     for (var bi = 0; bi < st.grid.length; bi++) if (st.grid[bi] === 1 || st.grid[bi] === 2) g.fillRect((bi % COLS) * s + s * 0.14, Math.floor(bi / COLS) * s + s * 0.1, s, s);
     st.tracks.forEach(function (k) { A.track(g, k.x, k.y, k.a, s, k.age); });     // (the white tank's too: they give it away)
     st.wrecks.forEach(function (w) { A.wreck(g, w.x, w.y, s, w.kind); });
-    st.mines.forEach(function (m) { A.mine(g, m, s, E.TUNE.fuseMs - m.age, E.TUNE.mineWarnMs, clock); });
+    st.mines.forEach(function (m) { A.mine(g, m, s, E.TUNE.fuseMs - m.age, E.TUNE.mineWarnMs, mineClock); });
     // standing up: blocks, tanks and shells, nearest the bottom drawn last
     var list = [], i;
     for (i = 0; i < st.grid.length; i++) {
@@ -448,6 +452,7 @@
       acc += dt;
       while (acc >= 16) {
         acc -= 16; clock += 16;
+        if (st.status === "play") mineClock = clock;
         handle(E.step(st, 16, input()));
         if (ui !== "run") break;
         // the treads turn as far as each tank drove
@@ -467,7 +472,7 @@
   function mineBeeps() {
     var warn = E.TUNE.mineWarnMs;
     st.mines.forEach(function (m) {
-      var left = E.TUNE.fuseMs - m.age, on = m.trip == null && left <= warn && A.mineBlink(left, warn, clock);
+      var left = E.TUNE.fuseMs - m.age, on = m.trip == null && left <= warn && A.mineBlink(left, warn, mineClock);
       if (on && !m.lit) SFX.tick();
       m.lit = on;
     });
