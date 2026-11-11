@@ -5,7 +5,8 @@
      roll never freezes the page; the next one is pre-carved while you play.
    - Each level keeps its own game in progress (sudoku_save_<level>), so
      switching levels never throws one away.
-   - Best times per level count only hint-free solves.
+   - A hint fills in a square and costs 30 s on the clock; best times per
+     level count every solve, hints and all.
 
    Cells are indexed i = r * 9 + c. `given` marks the clues, `vals` holds
    every digit on the board (clues included) and `notes` are 9-bit pencil
@@ -31,6 +32,7 @@
   const WIDE = window.matchMedia ? window.matchMedia("(min-width: 1100px)") : null;
   const LOADING_DELAY = 150;  // don't flash "generating…" for a fast puzzle
   const UNDO_CAP = 500;
+  const HINT_COST = 30000;    // what a hint adds to the clock, in ms
 
   // Keys: scores match the hub's "reset all high scores" prefixes
   // (sudoku_best_ / sudoku_stats_); saves and prefs deliberately don't.
@@ -580,14 +582,16 @@
   }
 
   // The puzzle on the board, from its clues again: digits, notes, undo and
-  // the clock all go. Hints used stay counted, so a best time still means a
-  // puzzle solved without them.
+  // the clock all go, but not what hints cost: those stay counted, and their
+  // time stays on the clock.
   function restartPuzzle() {
     if (!game || state !== "playing") return;
     const hints = game.hints;
     startGame(game, null);
     game.hints = hints;
+    elapsedMs = hints * HINT_COST;
     renderAll();
+    renderTime();
     save();
   }
 
@@ -744,9 +748,10 @@
   }
 
   // ---- hints -------------------------------------------------------------
-  // Mistakes first (a wrong digit poisons every deduction after it), then
-  // notes that have lost the answer, then the next square a person could
-  // find, with the technique that finds it.
+  // Every hint fills in a square. Mistakes first (a wrong digit poisons every
+  // deduction after it, so it's put right), then notes that have lost the
+  // answer, then the next square a person could find, with the technique
+  // that finds it.
   const TECH = {
     "locked candidates": "locked candidates",
     "naked pair": "a naked pair",
@@ -761,18 +766,28 @@
   const HINT = "\u261E\uFE0E ";   // printer's fist; FE0E keeps it out of emoji fonts
   const unitName = (u) => (u < 9 ? "row " + (u + 1) : u < 18 ? "column " + (u - 8) : "this box");
 
-  function flagCells(list, text) {
+  // (one of `list` put right, the selected square if it's one)
+  function fixCell(list, text) {
     const i = list.indexOf(sel) >= 0 ? sel : list[0];
-    sel = i;
-    fx(i, "oops", 1800);
-    sfx.bad();
     useHint();
-    setStatus(text + (list.length > 1 ? " (" + (list.length - 1) + " more like it)" : ""), "bad");
+    sel = i;
+    setStatus(HINT + text(i) + (list.length > 1 ? " (" + (list.length - 1) + " more like it)" : ""), "bad");
+    sfx.bad();
+    setDigit(i, game.solution[i], true);   // a win here overwrites the hint message
+    fx(i, "hinted", 1100);
     renderAll();
   }
 
+  // A hint costs its time at once, and for good: undoing or erasing the
+  // square, restarting the puzzle or leaving it never gives it back.
+  let costTimer = 0;
   function useHint() {
     game.hints++;
+    elapsedMs += HINT_COST;
+    renderTime();
+    timerEl.classList.add("cost");
+    clearTimeout(costTimer);
+    costTimer = setTimeout(() => timerEl.classList.remove("cost"), 1200);
     save();
   }
 
@@ -787,8 +802,8 @@
       if (vals[i] && vals[i] !== sol[i]) wrong.push(i);
       else if (!vals[i] && notes[i] && !(notes[i] & (1 << (sol[i] - 1)))) lost.push(i);
     }
-    if (wrong.length) return flagCells(wrong, HINT + "That " + vals[wrong.indexOf(sel) >= 0 ? sel : wrong[0]] + " doesn't belong here: clear it and look again.");
-    if (lost.length) return flagCells(lost, HINT + "Your notes here have ruled out the answer.");
+    if (wrong.length) return fixCell(wrong, (i) => "That " + vals[i] + " didn't belong here: it's a " + sol[i] + ".");
+    if (lost.length) return fixCell(lost, (i) => "Your notes here had ruled out the answer: it's a " + sol[i] + ".");
 
     const step = E.nextStep(Array.from(vals));
     let i, msg;
@@ -827,9 +842,10 @@
     let msg = "Solved in " + fmt(secs * 1000);
     let note = fmt(secs * 1000);
     if (game.hints) {
-      msg += " with " + hintNote + " (unranked)";
+      msg += " with " + hintNote + " (+" + fmt(game.hints * HINT_COST) + ")";
       note += " · " + hintNote;
-    } else if (bestFor(game.level).submit(secs)) {
+    }
+    if (bestFor(game.level).submit(secs)) {
       msg += ", new best!";
       note += " · new best";
     }
@@ -864,8 +880,14 @@
     canPause: () => state === "playing",
     // On the card: this same puzzle again from its clues (the levels and New
     // puzzle are on the page). It asks once there is work on it: leaving never
-    // does, as the puzzle is saved, but this throws the work away.
-    restart: { ask: () => hasProgress(), text: "Your digits, notes and time on this puzzle will be lost.", go: () => restartPuzzle() },
+    // does, as the puzzle is saved, but this throws the work away (all but
+    // what hints cost, which it says).
+    restart: {
+      ask: () => hasProgress(),
+      text: () => "Your digits, notes and time on this puzzle will be lost." + (game && game.hints
+        ? "\nThe " + fmt(game.hints * HINT_COST) + " your " + (game.hints === 1 ? "hint" : game.hints + " hints") + " cost stays on the clock." : ""),
+      go: () => restartPuzzle(),
+    },
     onChange: (paused) => {
       fieldEl.classList.toggle("paused", paused);
       if (paused) {

@@ -3,7 +3,9 @@
 // a puzzle that finishes printing after you've switched away all start
 // paused, so the time isn't spent before you're there. Every row of the
 // board keeps its share whatever is written in it, and the hand's 1 stands
-// on a foot, so it can't pass for its 7.
+// on a foot, so it can't pass for its 7. A hint
+// fills in a square for 30 s on the clock, for good, and a solve with hints
+// still sets a best time.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // document.hidden, as the page sees it, follows window.__hidden
@@ -190,4 +192,99 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("sudoku, a wide window (1700 x 920, 1280 x 900, 1366 x 657, 1280 x 600): the four levels, New puzzle, the record, How to play, the nine digits and the four tools are all on the screen beside the board with nothing to scroll to, How to play shut or open (it scrolls in its own column, to its last line)", ok, seen);
   }
+
+  // A save written in before the game reads it, on the next load (a reload
+  // saves the puzzle on its way out, so it can't be set from the page)
+  const plant = (pg) => pg.addInitScript(() => {
+    try {
+      const m = sessionStorage.getItem("__plant");
+      if (m) { sessionStorage.removeItem("__plant"); const o = JSON.parse(m); localStorage.setItem(o.k, o.v); }
+    } catch (e) {}
+  });
+  const readSave = (q) => q.evaluate(() => JSON.parse(localStorage.getItem("sudoku_save_easy")));
+  const replant = async (q, o) => {
+    await q.evaluate((v) => sessionStorage.setItem("__plant", JSON.stringify({ k: "sudoku_save_easy", v })), JSON.stringify(o));
+    await q.reload({ waitUntil: "domcontentloaded" });
+    await q.waitForSelector("#board .c.given", { timeout: 15000 });
+    await q.waitForTimeout(300);
+  };
+  // marks the square at row-major index `at` (the board nests its squares in boxes)
+  const mark = (q, at, name) => q.evaluate(({ at, name }) => {
+    const cells = [...document.querySelectorAll("#board .c")].map((e) => { const b = e.getBoundingClientRect(); return { e, x: b.left, y: b.top }; });
+    cells.sort((a, b) => Math.round(a.y) - Math.round(b.y) || a.x - b.x);
+    cells[at].e.setAttribute("data-probe", name);
+  }, { at, name });
+
+  // ---- a hint fills in a square and puts 30 s on the clock at once, for
+  // good: undoing the square, reloading or restarting the puzzle never gives
+  // the time back. A wrong digit is put right. A solve with hints still sets
+  // a best time, with their 30 s in it (hinted solves were unranked, and a
+  // hint was free). On a laptop and a phone
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {};
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 } }], ["phone", devices["Pixel 7"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/sudoku/", { before: plant });
+      await q.waitForSelector("#board .c.given", { timeout: 15000 });
+      await q.waitForTimeout(300);
+      const secs = () => q.evaluate(() => document.getElementById("timer").textContent.split(":").reduce((a, b) => a * 60 + +b, 0));
+      // the squares you've written in, and whether every one is the answer
+      const board = async () => {
+        const sv = await readSave(q);
+        let mine = 0, right = true;
+        for (let i = 0; i < 81; i++) if (sv.p[i] === "0" && sv.g[i] !== "0") { mine++; if (sv.g[i] !== sv.s[i]) right = false; }
+        return { mine, right, h: sv.h };
+      };
+      const r = seen[label] = {};
+      // (the clock reads whole seconds, and a busy machine can take a while
+      // between two readings: each check allows for the time that passed)
+      const w0 = Date.now(), t0 = await secs(), b0 = await board();
+      await q.click("#hintBtn"); await q.waitForTimeout(150);
+      const t1 = await secs(), b1 = await board(), s1 = (Date.now() - w0) / 1000;
+      r.hint = { t0, t1, b0, b1, s1 };
+      await q.click("#undoBtn"); await q.waitForTimeout(150);
+      r.undo = { t: await secs(), b: await board() };
+      // a wrong digit in an empty square, then a hint
+      const sv = await readSave(q);
+      const at = [...sv.g].findIndex((v, i) => v === "0" && sv.p[i] === "0");
+      const wrongD = String((+sv.s[at] % 9) + 1);
+      await mark(q, at, "wrong");
+      await q.click('[data-probe="wrong"]'); await q.keyboard.press(wrongD); await q.waitForTimeout(150);
+      const was = (await readSave(q)).g[at], w2 = Date.now(), t2 = await secs();
+      await q.click("#hintBtn"); await q.waitForTimeout(150);
+      const sv2 = await readSave(q);
+      r.wrong = { at, wrongD, was, t2, t3: await secs(), s3: (Date.now() - w2) / 1000, now: sv2.g[at], answer: sv2.s[at] };
+      // a reload, then a restart of the puzzle from the pause card
+      await q.reload({ waitUntil: "domcontentloaded" }); await q.waitForSelector("#board .c.given", { timeout: 15000 }); await q.waitForTimeout(300);
+      r.reload = { t: await secs(), badge: await q.textContent("#hintBadge") };
+      await q.keyboard.press("p"); await q.waitForTimeout(200);
+      await q.keyboard.press("r"); await q.waitForSelector(".gs-dialog", { timeout: 3000 }).catch(() => {});
+      r.asked = await q.evaluate(() => (document.querySelector(".gs-dialog") || {}).innerText || "");
+      const w4 = Date.now();
+      await q.keyboard.press("Enter"); await q.waitForTimeout(300);
+      r.restart = { t: await secs(), s: (Date.now() - w4) / 1000, b: await board(), badge: await q.textContent("#hintBadge") };
+      // a puzzle one square from done, 5 s in and no hints: the hint finishes it
+      const last = await readSave(q);
+      const gap = [...last.p].findIndex((v) => v === "0");
+      const g = [...last.s].map((v, i) => (i === gap ? "0" : v)).join("");
+      await replant(q, Object.assign({}, last, { g, n: new Array(81).fill(0), t: 5000, h: 0 }));
+      await q.click("#hintBtn"); await q.waitForTimeout(400);
+      r.win = await q.evaluate(() => ({ won: document.getElementById("field").classList.contains("won"), best: localStorage.getItem("sudoku_best_easy"), status: document.getElementById("status").textContent, stats: document.getElementById("stats").textContent }));
+      r.errs = q.errs;
+      await q.close(); await c.close();
+    }
+    check("sudoku: a hint fills in a right digit and puts 30 s on the clock at once; undoing it keeps the time on (laptop and phone)",
+      ["laptop", "phone"].every((k) => { const { hint, undo } = seen[k]; return hint.b1.mine === hint.b0.mine + 1 && hint.b1.right && hint.b1.h === 1 && hint.t1 - hint.t0 >= 30 && hint.t1 - hint.t0 <= 31 + Math.floor(hint.s1) && undo.b.mine === hint.b0.mine && undo.t >= hint.t1; }), seen);
+    check("sudoku: a hint at a wrong digit puts it right, for another 30 s (laptop and phone)",
+      ["laptop", "phone"].every((k) => { const w = seen[k].wrong; return w.was === w.wrongD && w.now === w.answer && w.t3 - w.t2 >= 30 && w.t3 - w.t2 <= 31 + Math.floor(w.s3); }), seen);
+    check("sudoku: the hints' time stays on the clock through a reload and a restart of the puzzle (two hints: a minute, on a cleared board), and they stay counted (laptop and phone)",
+      ["laptop", "phone"].every((k) => { const { reload, restart, wrong } = seen[k]; return reload.t >= wrong.t3 && reload.badge === "2" && restart.b.mine === 0 && restart.t >= 60 && restart.t <= 61 + Math.floor(restart.s) && restart.badge === "2"; }), seen);
+    check("sudoku: asked before that restart, it says the 1:00 the two hints cost stays on the clock (laptop and phone)",
+      ["laptop", "phone"].every((k) => /The 1:00 your 2 hints cost stays on the clock/.test(seen[k].asked)), ["laptop", "phone"].map((k) => seen[k].asked));
+    check("sudoku: a solve with hints sets a best time, the hint's 30 s in it (laptop and phone)",
+      ["laptop", "phone"].every((k) => { const w = seen[k].win; return w.won && +w.best >= 35 && +w.best <= 45 && /new best/.test(w.status) && /\+0:30/.test(w.status); }), seen);
+    check("sudoku hint penalty: no page errors", ["laptop", "phone"].every((k) => !seen[k].errs.length), ["laptop", "phone"].map((k) => seen[k].errs));
+  }
+
 };

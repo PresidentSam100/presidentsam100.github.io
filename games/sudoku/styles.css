@@ -183,6 +183,10 @@ body {
   min-width: 4.2ch;
   text-align: right;
 }
+/* a hint's 30 s going on: the clock in red pen for a moment (the same with Visual FX off) */
+.clock.cost {
+  color: var(--red);
+}
 .icon-btn {
   cursor: pointer;
   width: 2rem;
