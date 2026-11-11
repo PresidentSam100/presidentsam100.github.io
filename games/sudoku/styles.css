@@ -204,10 +204,13 @@ body {
   position: relative;
 }
 
-/* 3×3 boxes, each 3×3 cells; the gaps ARE the grid lines */
+/* 3×3 boxes, each 3×3 cells; the gaps ARE the grid lines. Every row and
+   column an equal share, whatever is written in it (sized by their content,
+   a row grew taller as digits went into it, and the others shrank) */
 .board {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 3px;
   padding: 3px;
   width: var(--size);
@@ -221,8 +224,8 @@ body {
 }
 .box {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  grid-template-rows: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: repeat(3, minmax(0, 1fr));
   gap: 1px;
   background: var(--thin);
   min-width: 0;

@@ -1,7 +1,8 @@
 // Sudoku's clock only runs while you can see the board: a tab that opens
 // hidden (a Ctrl+click from the games page), a saved game resumed there, or
 // a puzzle that finishes printing after you've switched away all start
-// paused, so the time isn't spent before you're there.
+// paused, so the time isn't spent before you're there. Every row of the
+// board keeps its share whatever is written in it.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // document.hidden, as the page sees it, follows window.__hidden
@@ -85,6 +86,27 @@ module.exports = async ({ browser, base, check, lib }) => {
       { given: ink.given.slice(0, 3), pen: ink.pen, worst: { given: off(ink.given), pen: off(ink.pen) } });
     await done(q, "sudoku digit ink");
     await c3.close();
+  }
+
+  // ---- every row of the board stays its share however much is written in
+  // it (sized by their content, the rows a digit went into grew and the rest
+  // shrank, by 7 px on a laptop). On a laptop and a phone
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {};
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 }], ["phone", Object.assign({}, devices["Pixel 7"], { deviceScaleFactor: 3 })]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/sudoku/");
+      await q.waitForSelector("#board .c.given", { timeout: 15000 });
+      await q.evaluate(() => document.fonts.ready); await q.waitForTimeout(300);
+      const heights = () => q.evaluate(() => [...new Set([...document.querySelectorAll("#board .c")].map((e) => Math.round(e.getBoundingClientRect().height * 10) / 10))]);
+      const before = await heights();
+      for (const d of ["7", "1"]) { await q.click("#board .c:not(.given):not(:has(.v))"); await q.keyboard.press(d); await q.waitForTimeout(250); }
+      seen[label] = { before, after: await heights() };
+      await q.close(); await c.close();
+    }
+    check("sudoku: every row of the board keeps its share, written in or not (laptop and phone)",
+      ["laptop", "phone"].every((k) => { const r = seen[k]; return r.before.length === 1 && r.after.length === 1 && r.after[0] === r.before[0]; }), seen);
   }
 
   // ---- a wide window: nothing to scroll to. The levels, New puzzle, the
