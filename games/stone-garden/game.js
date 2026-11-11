@@ -219,7 +219,7 @@
         if (turned && turned.indexOf(i) >= 0) {
           var k = turned.indexOf(i);
           st.style.animationDelay = fx() ? (k * 45) + "ms" : "";
-          st.classList.add("turn");
+          st.classList.add("flip");
         } else st.style.animationDelay = "";
       } else if (st) c.removeChild(st);
       c.classList.toggle("can", !!canAt[i]);

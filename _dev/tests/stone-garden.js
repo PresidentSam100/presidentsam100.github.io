@@ -9,8 +9,8 @@
 // on the cursor's place; none on a phone); the full garden is counted on the
 // end card and kept in the record, the card ignoring Space for a moment, then
 // playing again, and
-// Backspace going to the menu; with Visual FX off the stones turn without
-// the turning motion; on a phone a tap on a ringed place puts a stone there;
+// Backspace going to the menu; with Visual FX on a stone turns over where
+// it lies, off without the turning motion; on a phone a tap on a ringed place puts a stone there;
 // the turn line sits in the middle of the tally whatever the two names; and
 // Hint, Undo, New game and Menu have their words and keycaps in the middle
 // of the button's face.
@@ -192,6 +192,37 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "FX " + (off ? "off" : "on"));
   }
   check("stone-garden, FX on: a turned stone turns over; FX off: it turns without the motion", turning.on.colour && turning.on.anim === "sg-turn" && turning.off.colour && turning.off.anim === "none", turning);
+
+  // ---- and the stone turns over where it lies: as round and as big as at
+  // rest, its middle on its place's middle, only squeezed across (a laptop
+  // and a phone, the turn followed frame by frame)
+  {
+    const { devices } = require("@playwright/test");
+    const inPlace = {};
+    for (const [label, opts] of [["laptop", null], ["phone", devices["Pixel 7"]]]) {
+      const c = opts ? await lib.newContext(browser, opts) : null;
+      const q = await open(c, { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:stone-garden", "0"); localStorage.setItem("stonegarden_foe", "friend"); } catch (e) {} }) });
+      inPlace[label] = await q.evaluate(() => new Promise((res) => {
+        StoneGarden.start();
+        const cell = document.querySelector('.cell[data-i="27"]'), rest = cell.querySelector(".st"), w0 = rest.offsetWidth, h0 = rest.offsetHeight;
+        StoneGarden.play(19);
+        const st = cell.querySelector(".st"), frames = [], t0 = performance.now();
+        (function look() {
+          const anim = getComputedStyle(st).animationName, m = new DOMMatrix(getComputedStyle(st).transform), c = cell.getBoundingClientRect(), e = st.getBoundingClientRect();
+          frames.push({ anim, w: st.offsetWidth, h: st.offsetHeight, sx: +m.a.toFixed(3), off: +Math.abs((e.left + e.width / 2) - (c.left + cell.clientLeft + cell.clientWidth / 2)).toFixed(2) });
+          if (performance.now() - t0 < 360) requestAnimationFrame(look);
+          else {
+            const during = frames.filter((f) => f.anim === "sg-turn");
+            res({ w0, h0, frames: during.length, sizes: [...new Set(during.map((f) => f.w + "x" + f.h))], least: Math.min(...during.map((f) => f.sx)), most: Math.max(...during.map((f) => f.sx)), off: Math.max(...during.map((f) => f.off)) });
+          }
+        })();
+      }));
+      await done(q, "turn in place, " + label);
+      if (c) await c.close();
+    }
+    check("stone-garden, FX on: a stone turns over where it lies, as round and as big as at rest and its middle on its place's (only squeezed across), on a laptop and a phone",
+      ["laptop", "phone"].every((k) => { const r = inPlace[k]; return r.frames > 5 && r.sizes.length === 1 && r.sizes[0] === r.w0 + "x" + r.h0 && r.w0 === r.h0 && r.least < 0.3 && r.most <= 1 && r.off < 0.75; }), inPlace);
+  }
 
   // ---- on a phone: a tap on a ringed place puts a stone there
   {

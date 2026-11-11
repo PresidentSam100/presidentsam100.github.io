@@ -144,9 +144,11 @@ html.fx-on .cell.hint::before { animation: sg-hint 1.1s ease-in-out infinite; }
   content: ""; position: absolute; left: 50%; top: 50%; width: 16%; height: 16%; transform: translate(-50%, -50%);
   border-radius: 50%; background: var(--moss-hi); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
 }
-/* with Visual FX on a stone is set down and the line turns over, one after another */
+/* with Visual FX on a stone is set down and the line turns over, one after
+   another (.flip, not .turn: that's the turn line's, and its width would
+   stretch the stone) */
 html.fx-on .cell .st.drop { animation: sg-drop 0.22s ease-out; }
-html.fx-on .cell .st.turn { animation: sg-turn 0.32s ease-in-out both; }
+html.fx-on .cell .st.flip { animation: sg-turn 0.32s ease-in-out both; }
 @keyframes sg-drop { from { transform: scale(1.25); opacity: 0.4; } }
 @keyframes sg-turn { 0% { transform: scaleX(1); } 50% { transform: scaleX(0.06); } 100% { transform: scaleX(1); } }
 
