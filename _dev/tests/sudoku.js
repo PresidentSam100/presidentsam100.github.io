@@ -3,7 +3,7 @@
 // a puzzle that finishes printing after you've switched away all start
 // paused, so the time isn't spent before you're there. Every row of the
 // board keeps its share whatever is written in it, and the hand's 1 stands
-// on a foot, so it can't pass for its 7. A hint
+// on a foot, so it can't pass for its 7, the pad's counts' 1 too. A hint
 // fills in a square for 30 s on the clock, for good, and a solve with hints
 // still sets a best time.
 module.exports = async ({ browser, base, check, lib }) => {
@@ -136,10 +136,13 @@ module.exports = async ({ browser, base, check, lib }) => {
             const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
             const px = g.getImageData(0, 0, cv.width, cv.height).data, m = Math.round(cv.width * 0.12);
             const row = (y) => { let a = -1, b = -1; for (let x = m; x < cv.width - m; x++) { const i = (y * cv.width + x) * 4; if (px[i] + px[i + 1] + px[i + 2] < 360) { if (a < 0) a = x; b = x; } } return a < 0 ? 0 : b - a + 1; };
+            // (the widest row of ink in the bottom 15% of the digit, so a foot that
+            // leans still shows its whole width)
+            const low = (row, top, bottom) => { let w = 0; for (let y = bottom - Math.max(2, Math.round((bottom - top) * 0.15)); y <= bottom; y++) w = Math.max(w, row(y)); return w; };
             let top = -1, bottom = -1;
             for (let y = m; y < cv.height - m; y++) if (row(y)) { if (top < 0) top = y; bottom = y; }
             const h = bottom - top;
-            res({ h, stem: row(Math.round(top + h * 0.6)), bottom: Math.max(row(bottom), row(bottom - 1), row(bottom - 2)) });
+            res({ h, stem: row(Math.round(top + h * 0.6)), bottom: low(row, top, bottom) });
           };
           img.src = "data:image/png;base64," + png;
         }), png);
@@ -287,4 +290,52 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("sudoku hint penalty: no page errors", ["laptop", "phone"].every((k) => !seen[k].errs.length), ["laptop", "phone"].map((k) => seen[k].errs));
   }
 
+  // ---- the pad's counts in pencil are in the hand too, so a count of 1
+  // stands on a foot like every other 1 of the hand (it was the bare flag
+  // and stem, like a 7). Arial standing in for Caveat, as above; a digit
+  // with eight placed shows a 1. On a laptop and a phone
+  {
+    const { devices } = require("@playwright/test");
+    const CAVEAT = '@font-face { font-family: "Caveat"; src: local("Arial"); font-weight: 100 900; }';
+    const seen = {};
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 }, deviceScaleFactor: 3 }], ["phone", Object.assign({}, devices["Pixel 7"], { deviceScaleFactor: 3 })]]) {
+      const c = await lib.newContext(browser, opts);
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: CAVEAT }));
+      const q = await lib.open(c, base, "games/sudoku/", { before: plant });
+      await q.waitForSelector("#board .c.given", { timeout: 15000 });
+      await q.waitForTimeout(300);
+      const sv = await readSave(q);
+      const placed = (d) => [...sv.p].filter((v) => v === d).length;
+      const d = ["1", "2", "3", "4", "5", "6", "7", "8", "9"].find((d) => placed(d) <= 8);
+      let n = placed(d);
+      const g = [...sv.p].map((v, i) => (v === "0" && sv.s[i] === d && n < 8 ? (n++, d) : v)).join("");
+      await replant(q, Object.assign({}, sv, { g }));
+      await q.evaluate(() => document.fonts.ready);
+      await q.click("#notesBtn"); await q.waitForTimeout(250);
+      await q.addStyleTag({ content: ".key small { color: #000 !important; }" });
+      await q.waitForTimeout(100);
+      const png = (await q.locator('.key[data-d="' + d + '"] small').screenshot()).toString("base64");
+      seen[label] = await q.evaluate(({ png, d }) => new Promise((res) => {
+        const img = new Image();
+        img.onload = () => {
+          const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+          const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+          const px = g.getImageData(0, 0, cv.width, cv.height).data;
+          const row = (y) => { let a = -1, b = -1; for (let x = 0; x < cv.width; x++) { const i = (y * cv.width + x) * 4; if (px[i] + px[i + 1] + px[i + 2] < 360) { if (a < 0) a = x; b = x; } } return a < 0 ? 0 : b - a + 1; };
+          // (the widest row of ink in the bottom 15% of the digit, so a foot that
+          // leans still shows its whole width)
+          const low = (row, top, bottom) => { let w = 0; for (let y = bottom - Math.max(2, Math.round((bottom - top) * 0.15)); y <= bottom; y++) w = Math.max(w, row(y)); return w; };
+          let top = -1, bottom = -1;
+          for (let y = 0; y < cv.height; y++) if (row(y)) { if (top < 0) top = y; bottom = y; }
+          const h = bottom - top;
+          res({ d, text: document.querySelector('.key[data-d="' + d + '"] small').textContent, notes: document.getElementById("pad").classList.contains("notes-on"), h, stem: row(Math.round(top + h * 0.6)), bottom: low(row, top, bottom) });
+        };
+        img.src = "data:image/png;base64," + png;
+      }), { png, d });
+      seen[label].errs = q.errs;
+      await q.close(); await c.close();
+    }
+    check("sudoku: in pencil, the pad's count of 1 stands on a foot like the hand's other 1s (its bottom two and a half times its stem or more); laptop and phone",
+      ["laptop", "phone"].every((k) => { const r = seen[k]; return r.text === "1" && r.notes && r.h > 8 && r.bottom >= r.stem * 2.5 && !r.errs.length; }), seen);
+  }
 };

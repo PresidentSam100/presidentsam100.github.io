@@ -408,7 +408,7 @@
     for (let d = 1; d <= 9; d++) {
       const left = 9 - count[d];
       keys[d].classList.toggle("done", left <= 0);
-      keys[d].lastChild.textContent = left > 0 ? left : "";
+      keys[d].lastChild.innerHTML = left === 1 ? '<span class="one">1</span>' : left > 0 ? left : "";
       keys[d].setAttribute("aria-label", (notesMode ? "Note " : "Digit ") + d + (left > 0 ? ", " + left + " left" : ", all placed"));
     }
     padEl.classList.toggle("notes-on", notesMode);
