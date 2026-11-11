@@ -193,9 +193,11 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("stone-garden, FX on: a turned stone turns over; FX off: it turns without the motion", turning.on.colour && turning.on.anim === "sg-turn" && turning.off.colour && turning.off.anim === "none", turning);
 
-  // ---- and the stone turns over where it lies: as round and as big as at
-  // rest, its middle on its place's middle, only squeezed across (a laptop
-  // and a phone, the turn followed frame by frame)
+  // ---- and the stone turns over where it lies, softly: as round and as big
+  // as at rest, its middle on its place's middle, only squeezed across and
+  // to no less than half its width (it was squeezed to a sliver), its old
+  // face showing first and fading into the new (a laptop and a phone, the
+  // turn followed frame by frame)
   {
     const { devices } = require("@playwright/test");
     const inPlace = {};
@@ -208,12 +210,14 @@ module.exports = async ({ browser, base, check, lib }) => {
         StoneGarden.play(19);
         const st = cell.querySelector(".st"), frames = [], t0 = performance.now();
         (function look() {
-          const anim = getComputedStyle(st).animationName, m = new DOMMatrix(getComputedStyle(st).transform), c = cell.getBoundingClientRect(), e = st.getBoundingClientRect();
-          frames.push({ anim, w: st.offsetWidth, h: st.offsetHeight, sx: +m.a.toFixed(3), off: +Math.abs((e.left + e.width / 2) - (c.left + cell.clientLeft + cell.clientWidth / 2)).toFixed(2) });
+          const anim = getComputedStyle(st).animationName, m = new DOMMatrix(getComputedStyle(st).transform), c = cell.getBoundingClientRect(), e = st.getBoundingClientRect(), face = getComputedStyle(st, "::before");
+          frames.push({ anim, w: st.offsetWidth, h: st.offsetHeight, sx: +m.a.toFixed(3), off: +Math.abs((e.left + e.width / 2) - (c.left + cell.clientLeft + cell.clientWidth / 2)).toFixed(2),
+            face: face.content === "none" ? -1 : +(+face.opacity).toFixed(2), faceBg: face.backgroundImage });
           if (performance.now() - t0 < 360) requestAnimationFrame(look);
           else {
             const during = frames.filter((f) => f.anim === "sg-turn");
-            res({ w0, h0, frames: during.length, sizes: [...new Set(during.map((f) => f.w + "x" + f.h))], least: Math.min(...during.map((f) => f.sx)), most: Math.max(...during.map((f) => f.sx)), off: Math.max(...during.map((f) => f.off)) });
+            res({ w0, h0, frames: during.length, sizes: [...new Set(during.map((f) => f.w + "x" + f.h))], least: Math.min(...during.map((f) => f.sx)), most: Math.max(...during.map((f) => f.sx)), off: Math.max(...during.map((f) => f.off)),
+              face0: during.length ? during[0].face : null, faceEnd: during.length ? during[during.length - 1].face : null, oldWhite: during.length ? /255, 255, 255/.test(during[0].faceBg) : false });
           }
         })();
       }));
@@ -221,7 +225,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       if (c) await c.close();
     }
     check("stone-garden, FX on: a stone turns over where it lies, as round and as big as at rest and its middle on its place's (only squeezed across), on a laptop and a phone",
-      ["laptop", "phone"].every((k) => { const r = inPlace[k]; return r.frames > 5 && r.sizes.length === 1 && r.sizes[0] === r.w0 + "x" + r.h0 && r.w0 === r.h0 && r.least < 0.3 && r.most <= 1 && r.off < 0.75; }), inPlace);
+      ["laptop", "phone"].every((k) => { const r = inPlace[k]; return r.frames > 5 && r.sizes.length === 1 && r.sizes[0] === r.w0 + "x" + r.h0 && r.w0 === r.h0 && r.least < 0.9 && r.most <= 1 && r.off < 0.75; }), inPlace);
+    check("stone-garden, FX on: the turn is soft: the stone narrows to no less than half its width, its old face (white, for a stone black takes) showing at first and faded into the new by the end, on a laptop and a phone",
+      ["laptop", "phone"].every((k) => { const r = inPlace[k]; return r.least >= 0.5 && r.face0 >= 0.9 && r.faceEnd >= 0 && r.faceEnd <= 0.1 && r.oldWhite; }), inPlace);
   }
 
   // ---- on a phone: a tap on a ringed place puts a stone there
