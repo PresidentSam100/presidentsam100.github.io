@@ -115,14 +115,20 @@
   // The rest is FX on only (with it off a washed-away piece shows faint until
   // it goes, and the picked one keeps its plain ring):
   //   clears: a washed-away piece's own way of leaving (see pose), {i, k, r, c,
-  //     t, delay, dir}, drawn under the board; it runs on while the rest
-  //     settle, so play never waits on it.
+  //     t, dir}, drawn under the board; it runs on while the rest settle, so
+  //     play never waits on it.
   //   ripples: a ring of light across the pool for a long line or a chain.
   var anims = [];
   var washing = []; // cells being washed away, shown a moment
   //   selT: how long the picked piece has been picked; it stirs while it is
   //     (see stir), in its own way.
   var bubbles = [], clears = [], ripples = [], nope = null, selT = 0, selWas = -1;
+  //   wave: a wave of the wash not yet seen or heard, {hit, gain, chain}: its
+  //     look and sound (the leaving, bubbles, ring, "+N", splash) begin for
+  //     the whole line at once, when the last of its pieces is in its place
+  //     (a swap's two still gliding in, a fall still dropping). The wash
+  //     itself keeps its pace by the timers all the same.
+  var wave = null;
   //   pts: what a wave of the wash scored, "+N" (and "×N" for a chain's
   //     second wave on), for a chain's waves and for four or more at once
   //     (not a plain three), {x, y, n, chain, t}, at the middle of the biggest
@@ -139,7 +145,7 @@
     store.set("tidepool_mode", mode);
     audio();
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = []; clears = []; ripples = []; nope = null; pts = [];
+    board = deal(Math.random); score = 0; chainMax = 0; cleared = 0; sel = -1; busy = false; hintAt = null; idle = 0; anims = []; washing = []; bubbles = []; clears = []; ripples = []; nope = null; pts = []; wave = null;
     runBest = bestNow() ? bestNow().get() : 0;
     timeLeft = MODES[mode].time || 0; swapsLeft = MODES[mode].swaps || 0;
     state = "play";
@@ -186,16 +192,30 @@
     // points: 10 a piece, more for long lines, doubled by each wave of a chain
     var gain = hit.length * 10 * chain + (hit.length > 3 ? (hit.length - 3) * 20 : 0);
     addScore(gain);
-    if (chain > 1 || hit.length > 3) pointsAt(hit, gain, chain);   // (a plain three, nearly every swap, goes unsaid)
+    washing = hit.slice();
+    wave = { hit: hit, gain: gain, chain: chain };
+    waveIfIn();
+    later(function () {
+      beginWave();   // (if it hasn't yet: paused, or a busy machine's frames late)
+      hit.forEach(function (i) { board[i] = -1; });
+      washing = [];
+      settle();
+      later(function () { resolve(chain + 1); });
+    });
+  }
+  // a wave's look and sound, the whole line at once
+  function beginWave() {
+    if (!wave) return;
+    var hit = wave.hit, chain = wave.chain;
+    if (chain > 1 || hit.length > 3) pointsAt(hit, wave.gain, chain);   // (a plain three, nearly every swap, goes unsaid)
+    wave = null;
     splash(chain);
     if (chain > 1) flash("tide ×" + chain);
-    washing = hit.slice();
     if (fx()) {
       hit.forEach(function (i) {
         for (var k = 0; k < 3; k++) bubbles.push({ x: (i % N + 0.5) * CELL + (Math.random() - 0.5) * CELL * 0.6, y: (Math.floor(i / N) + 0.5) * CELL, r: 2 + Math.random() * 4, v: 40 + Math.random() * 60, t: 0 });
-        // each piece leaves in its own way, once a swap has brought it in
-        var wait = 0; anims.forEach(function (an) { if (an.i === i) wait = Math.max(wait, (1 - an.t) * an.d); });
-        clears.push({ i: i, k: board[i], r: Math.floor(i / N), c: i % N, t: 0, delay: wait, dir: i % N < N / 2 ? -1 : 1 });
+        // each piece leaves in its own way
+        clears.push({ i: i, k: board[i], r: Math.floor(i / N), c: i % N, t: 0, dir: i % N < N / 2 ? -1 : 1 });
       });
       // a long line or a chain sends a ring of light across the pool
       if (hit.length >= 5 || chain >= 3) {
@@ -203,13 +223,9 @@
         ripples.push({ x: sx / hit.length, y: sy / hit.length, t: 0 });
       }
     }
-    later(function () {
-      hit.forEach(function (i) { board[i] = -1; });
-      washing = [];
-      settle();
-      later(function () { resolve(chain + 1); });
-    });
   }
+  // (once none of the line's pieces is still on its way)
+  function waveIfIn() { if (wave && !anims.some(function (an) { return wave.hit.indexOf(an.i) >= 0; })) beginWave(); }
   // the pieces fall into the gaps, and new ones come in from the top
   function settle() {
     anims = [];
@@ -270,7 +286,7 @@
     $("over").hidden = false;
   }
   function toMenu() {
-    timers.forEach(clearTimeout); timers = [];
+    timers.forEach(clearTimeout); timers = []; wave = null;
     state = "menu"; busy = false; sel = -1;
     $("over").hidden = true; $("hud").hidden = true; $("menu").hidden = false;
     paintMenu();
@@ -281,12 +297,13 @@
     for (var i = anims.length - 1; i >= 0; i--) { anims[i].t += dt / anims[i].d; if (anims[i].t >= 1) anims.splice(i, 1); }
     for (var k = bubbles.length - 1; k >= 0; k--) { var bb = bubbles[k]; bb.t += dt; bb.y -= bb.v * dt; if (bb.t > 0.7) bubbles.splice(k, 1); }
     // (a leaving that's over stays, unseen, while its cell is still washing, so the piece can't show again)
-    for (k = clears.length - 1; k >= 0; k--) { clears[k].t += dt; if (clears[k].t >= clears[k].delay + CLEAR_T && washing.indexOf(clears[k].i) < 0) clears.splice(k, 1); }
+    for (k = clears.length - 1; k >= 0; k--) { clears[k].t += dt; if (clears[k].t >= CLEAR_T && washing.indexOf(clears[k].i) < 0) clears.splice(k, 1); }
     for (k = ripples.length - 1; k >= 0; k--) { ripples[k].t += dt; if (ripples[k].t >= RIPPLE_T) ripples.splice(k, 1); }
     if (nope) { nope.t += dt; if (nope.t >= NOPE_T) nope = null; }
     if (sel !== selWas) { selWas = sel; selT = 0; } else if (sel >= 0) selT += dt;
     if (flashT > 0) flashT -= dt;
     for (k = pts.length - 1; k >= 0; k--) { pts[k].t += dt; if (pts[k].t >= PTS_T) pts.splice(k, 1); }
+    waveIfIn();
     if (state !== "play") return;
     if (mode === "tide" && !busy) { timeLeft -= dt; if (timeLeft <= 0) { timeLeft = 0; hud(); finish(); return; } hud(); }
     else if (mode === "tide") { timeLeft -= dt; if (timeLeft < 0) timeLeft = 0; hud(); }
@@ -304,10 +321,10 @@
     }
     if (state === "menu") return;
     var fxOn = fx(), leaving = {};
-    if (fxOn) clears.forEach(function (cl) { if (cl.t >= cl.delay) leaving[cl.i] = true; });
+    if (fxOn) clears.forEach(function (cl) { leaving[cl.i] = true; });
     // the washed-away pieces' leaving, under the board: in a washing cell
     // there's nothing over them, and a piece settling in lands on top
-    if (fxOn) clears.forEach(function (cl) { if (cl.t >= cl.delay) drawClear(cl); });
+    if (fxOn) clears.forEach(drawClear);
     for (i = 0; i < N * N; i++) {
       var k = board[i]; if (k < 0) continue;
       var fade = washing.indexOf(i) >= 0;
@@ -410,7 +427,7 @@
     return p;
   }
   function drawClear(cl) {
-    var u = Math.min(1, (cl.t - cl.delay) / CLEAR_T), p = pose(cl.k, u, cl.dir);
+    var u = Math.min(1, cl.t / CLEAR_T), p = pose(cl.k, u, cl.dir);
     var x = cl.c * CELL, y = cl.r * CELL, cx = x + CELL / 2, cy = y + CELL / 2, py = p.foot ? y + CELL * 0.82 : cy;
     g.save();
     g.globalAlpha = Math.max(0, p.alpha);
@@ -621,7 +638,7 @@
       pos: posOf,
       pose: pose,
       kinds: function () { return anims.map(function (a) { return a.kind; }); },
-      clears: function () { return clears.map(function (c) { return { i: c.i, k: c.k }; }); },
+      clears: function () { return clears.map(function (c) { return { i: c.i, k: c.k, t: c.t }; }); },
       ripples: function () { return ripples.length; },
       bubbles: function () { return bubbles.length; },
       nope: function () { return nope ? { a: nope.a, c: nope.c } : null; },

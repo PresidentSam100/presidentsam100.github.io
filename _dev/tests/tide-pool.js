@@ -9,7 +9,8 @@
 // swap from the keyboard, but not while paused; the pieces slide and fall
 // into place the same with Visual FX on or off (only the flourishes need it on); on a phone a drag
 // from one piece onto its neighbour swaps them; what a wave scores shows
-// where it washed away.
+// where it washed away; a wave goes as one, once the last of its line is in
+// its place.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/tide-pool/", opts);
@@ -176,6 +177,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     r.ripple = await safe(q.evaluate((PLAIN) => {
       const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[60] = 5; b[50] = 5; TidePool.setBoard(b);
       TidePool.swap(50, 58);
+      for (let k = 0; k < 8; k++) TidePool.motion.step(0.02);   // (it washes once the swap is in)
       return TidePool.motion.ripples();
     }, PLAIN));
     await safe(q.evaluate(() => TidePool.motion.hold(false)));
@@ -197,6 +199,62 @@ module.exports = async ({ browser, base, check, lib }) => {
     off.swap.half > 0.4 && off.swap.half < 0.6 && off.back.most > 0.45 && off.fall.start === -1 && off.fall.early === on.fall.early && off.fall.early > -1 && off.fall.end === 0), { off: off && { swap: off.swap, back: off.back, fall: off.fall }, on: on && { swap: on.swap, back: on.back, fall: on.fall } });
   check("tide-pool, FX off: none of the flourishes (no squash on landing, no leaving of their own, no bubbles, no ring of light)",
     holds(() => off.fall.squash === 0 && off.fall.endSy === 1 && off.clears === "" && off.bubbles === 0 && off.ripple === 0), off);
+  // ---- a wave goes as one: nothing of it shows while a piece of its line is
+  // still on its way (a swap's own gliding in, a chain's falling in), and on
+  // the frame the last one lands the whole line begins to leave together,
+  // its bubbles, its splash and its points with it. Visual FX on, on a laptop
+  // and a phone; the swap either way round, across and down, and a chain's
+  // next wave (the clock held and stepped, the page's timers run by hand)
+  {
+    const { devices } = require("@playwright/test");
+    const together = {};
+    for (const size of ["laptop", "phone"]) {
+      const c = size === "phone" ? await lib.newContext(browser, devices["Pixel 7"]) : null;
+      const q = await open(c, { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:tide-pool", "0"); } catch (e) {} }) });
+      together[size] = await safe(q.evaluate((PLAIN) => {
+        const M = TidePool.motion, out = {}, timers = [], setT = window.setTimeout, play = AudioBufferSourceNode.prototype.start;
+        let splashes = 0;
+        window.setTimeout = (fn) => { timers.push(fn); return 0; };
+        AudioBufferSourceNode.prototype.start = function () { splashes++; return play.apply(this, arguments); };   // (the splash's wash of noise)
+        // a frame (0.02 s) at a time until every piece is in its place: what
+        // showed before, and which cells began to leave on that frame
+        const watch = (cells, before) => {
+          const s0 = splashes, b0 = M.bubbles(), p0 = M.points().length, r = { inAt: -1, early: [] };
+          for (let f = 1; f <= 30 && r.inAt < 0; f++) {
+            M.step(0.02);
+            const shown = M.clears().length > before || M.bubbles() > b0 || M.points().length > p0 || splashes > s0;
+            if (M.kinds().length) { if (shown) r.early.push(f); continue; }
+            r.inAt = f;
+            const began = M.clears().filter((cl) => cl.t === 0).map((cl) => cl.i);
+            r.cells = cells.every((i) => began.includes(i));
+            r.splash = splashes - s0; r.bubbles = M.bubbles() - b0; r.points = M.points().length - p0;
+          }
+          return r;
+        };
+        const fresh = (edit) => { TidePool.toMenu(); TidePool.start("pool"); M.hold(true); timers.length = 0; const b = eval(PLAIN); edit(b); TidePool.setBoard(b); };
+        const row = (b) => { b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; };
+        try {
+          fresh(row); TidePool.swap(58, 59); out.across = watch([56, 57, 58], 0);
+          fresh(row); TidePool.swap(59, 58); out.back = watch([56, 57, 58], 0);
+          fresh((b) => { row(b); b[50] = 5; }); TidePool.swap(50, 58); out.down = watch([56, 57, 58, 59], 0);
+          // a chain: the line washes away, the 4 4 over it come down beside the swapped-in 4
+          fresh((b) => { row(b); b[49] = 4; b[50] = 4; }); TidePool.swap(58, 59); out.first = watch([56, 57, 58], 0);
+          const n = M.clears().length;
+          timers.shift()(); timers.shift()();   // (the line goes and the pieces start down; then the next wave)
+          out.chain = watch([57, 58, 59], n);
+        } finally {
+          window.setTimeout = setT; AudioBufferSourceNode.prototype.start = play;
+          M.hold(false); TidePool.toMenu();
+        }
+        return out;
+      }, PLAIN));
+      await done(q, "a wave as one, " + size);
+      if (c) await c.close();
+    }
+    const asOne = (r, points) => r && r.early.length === 0 && r.inAt > 0 && r.cells && r.splash === 1 && r.bubbles > 0 && r.points === points;
+    check("tide-pool, FX on: a wave goes as one: nothing of it shows while a piece of its line is still on its way (a swap's own gliding in, a chain's falling in); on the frame the last one lands the whole line begins to leave together, its bubbles, splash and points with it (a swap either way round, across and down, and a chain's next wave; laptop and phone)",
+      holds(() => ["laptop", "phone"].every((s) => { const r = together[s]; return asOne(r.across, 0) && asOne(r.back, 0) && asOne(r.down, 1) && asOne(r.first, 0) && asOne(r.chain, 1); })), together);
+  }
   // each kind's own leaving: six different motions, each moving, each gone by the end
   {
     const q = await open();
@@ -272,6 +330,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       // (four in a row: 5 5 _ 5 along the bottom, a 5 above the gap swapped down into it)
       const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b);
       const s0 = TidePool.score(); TidePool.swap(50, 58);
+      M.step(0.16);   // (the swap in: the wave begins)
       const first = () => M.points().find((o) => o.n === 60 && o.chain === 1);
       const at0 = first(), gain = TidePool.score() - s0;
       M.step(0.1); const early = first();
@@ -285,7 +344,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         const M = TidePool.motion;
         TidePool.toMenu(); TidePool.start("pool"); M.hold(true);
         const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; TidePool.setBoard(b);
-        const s0 = TidePool.score(); TidePool.swap(58, 59);
+        const s0 = TidePool.score(); TidePool.swap(58, 59); M.step(0.16);
         return { gain: TidePool.score() - s0, shown: M.points().length };
       }, PLAIN));
       // a chain: the 4 4 above drop beside the swapped-in 4, and that wave's points come with ×2
@@ -304,7 +363,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       // and each counts for at most 0.05 s of play)
       await q.evaluate((PLAIN) => {
         TidePool.toMenu(); TidePool.start("pool"); TidePool.motion.hold(true);
-        const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b); TidePool.swap(50, 58);
+        const b = eval(PLAIN); b[56] = 5; b[57] = 5; b[58] = 4; b[59] = 5; b[50] = 5; TidePool.setBoard(b); TidePool.swap(50, 58); TidePool.motion.step(0.16);
       }, PLAIN);
       await q.keyboard.press("p");
       pts.paused = await safe(q.evaluate(() => new Promise((res) => {
