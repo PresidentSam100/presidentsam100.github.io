@@ -99,6 +99,40 @@
   function div(cls, txt) { const d = document.createElement("div"); d.className = cls; if (txt != null) d.textContent = txt; return d; }
   const cellEl = (grid, r, c) => grid.querySelector('.cell[data-r="' + r + '"][data-c="' + c + '"]');
 
+  // A ship that shows on a grid is one .vessel laid over its cells (their
+  // own grid area, so it lines up at any size): one hull from end to end,
+  // over the chart lines and under the marks. It's kept from one render to
+  // the next while its ship is shown, so a ship going down plays out while
+  // the shots go on.
+  function vesselOf(grid, ship) {
+    const vs = grid.vessels || (grid.vessels = new Map());
+    let v = vs.get(ship);
+    if (!v) {
+      v = div("vessel");
+      v.innerHTML = '<div class="hull"><i class="bridge"></i><i class="stripe"></i><i class="barrel"></i><i class="turret"></i></div>';
+      // (a drop or a sinking, once over, is taken off, with what it brought)
+      v.addEventListener("animationend", (e) => {
+        if (e.target === v && e.animationName === "dropin") v.classList.remove("drop");
+        if (e.target.classList.contains("hull") && /^(founder-h|founder-v|flare)$/.test(e.animationName)) {
+          v.classList.remove("sinking"); v.querySelectorAll(".fx").forEach((x) => x.remove());
+        }
+      });
+      vs.set(ship, v); grid.appendChild(v);
+    }
+    return v;
+  }
+  function placeVessels(grid, ships) {
+    ships.forEach((sh) => {
+      const cs = sh.cells, horiz = cs[0][0] === cs[cs.length - 1][0], v = vesselOf(grid, sh);
+      v.style.gridArea = (cs[0][0] + 2) + " / " + (cs[0][1] + 2) + " / span " + (horiz ? 1 : sh.size) + " / span " + (horiz ? sh.size : 1);
+      v.style.setProperty("--n", sh.size);
+      ["h", "v"].forEach((k) => v.classList.toggle(k, horiz === (k === "h")));
+      v.classList.add("ship" + (sh.idx % 5));
+      v.classList.toggle("sunk", sh.sunk);
+    });
+    if (grid.vessels) grid.vessels.forEach((v, sh) => { if (!ships.has(sh)) { v.remove(); grid.vessels.delete(sh); } });
+  }
+
   // Visual FX on: a ship set down on your waters drops into place and the
   // water rings out round it (a fleet set at random lands one ship after
   // another: --dd, when). With FX off it's simply there.
@@ -106,26 +140,59 @@
     if (window.RM_ON && window.RM_ON()) return;
     // render() has just taken every cell's drop away; the page is made to see
     // that before the new drops go on. Otherwise a cell that held a ship of
-    // the last fleet and holds one of the new fleet keeps its old drop, long
-    // landed, and shows before the rest of its ship comes down.
+    // the last fleet and holds one of the new fleet keeps its old ripple, long
+    // over, and shows none as its ship comes down.
     void playerGrid.offsetWidth;
-    ships.forEach((ship, i) => ship.cells.forEach((p) => {
-      const e = cellEl(playerGrid, p[0], p[1]);
-      if (e) { e.style.setProperty("--dd", (i * 90) + "ms"); e.classList.add("drop"); }
-    }));
+    ships.forEach((ship, i) => {
+      const v = vesselOf(playerGrid, ship);
+      v.style.setProperty("--dd", (i * 90) + "ms"); v.classList.add("drop");
+      ship.cells.forEach((p) => {
+        const e = cellEl(playerGrid, p[0], p[1]);
+        if (e) { e.style.setProperty("--dd", (i * 90) + "ms"); e.classList.add("drop"); }
+      });
+    });
   }
-  // visual feedback after a shot: a burst on a hit, a sinking wobble when a ship goes down
+  // visual feedback after a shot: a burst on a hit, the whole ship going down when it's sunk
   function flashHit(grid, res, r, c) {
     if (!res.hit) return;
-    if (res.sunk) res.ship.cells.forEach((p) => { const e = cellEl(grid, p[0], p[1]); if (e) e.classList.add("sinking"); });
+    if (res.sunk) sinkShip(grid, res.ship);
     else { const e = cellEl(grid, r, c); if (e) e.classList.add("hitflash"); }
   }
+  // Visual FX on: a ship sunk goes down as one body (styles.css: on your sea
+  // a jolt, a list, the water swirling in and bubbles coming up; on the radar
+  // a flare and two rings pinging out), about a second, ending on the wreck.
+  // With FX off the wreck is simply there. Either way the turns keep their pace.
+  function sinkShip(grid, ship) {
+    if (window.RM_ON && window.RM_ON()) return;
+    const v = grid.vessels && grid.vessels.get(ship); if (!v) return;
+    v.querySelectorAll(".fx").forEach((x) => x.remove());
+    v.classList.remove("sinking"); void v.offsetWidth; v.classList.add("sinking");
+    let fx = "";
+    if (grid === enemyGrid) fx = '<i class="fx ping"></i><i class="fx ping late"></i>';
+    else {
+      // the bubbles: spread along the hull and across it, one after another
+      // (spaced by the golden ratio, so no two land on one spot)
+      fx = '<i class="fx swirl"></i>';
+      const horiz = v.classList.contains("h");
+      for (let i = 0; i < ship.size * 2; i++) {
+        const along = (8 + ((i * 0.618 + ship.idx * 0.29) % 1) * 84).toFixed(1), across = (30 + ((i * 0.382 + 0.17) % 1) * 40).toFixed(1);
+        fx += '<i class="fx bubble" style="left:' + (horiz ? along : across) + "%;top:" + (horiz ? across : along) + "%;--bd:" + (120 + i * 430 / (ship.size * 2)).toFixed(0) + 'ms"></i>';
+      }
+    }
+    v.insertAdjacentHTML("beforeend", fx);
+  }
+  // (Visual FX turned off midway: a ship coming down or going down is simply
+  // where it ends, and stays so if FX comes back on)
+  window.addEventListener("reducemotionchange", () => document.querySelectorAll(".vessel.drop, .vessel.sinking").forEach((v) => {
+    v.classList.remove("drop", "sinking"); v.querySelectorAll(".fx").forEach((x) => x.remove());
+  }));
 
   // ---- render ----
   // last: [r, c] of the latest shot at this grid, framed until the next one
   // (the same in both Visual FX modes: the hit burst is FX-on only, and a
   // miss has no animation at all)
   function renderBoard(grid, board, showShips, last) {
+    const shown = new Set();
     grid.querySelectorAll(".cell").forEach((cell) => {
       const r = +cell.dataset.r, c = +cell.dataset.c, b = board[r][c];
       cell.className = "cell"; cell.textContent = ""; cell.style.removeProperty("--dd");
@@ -134,18 +201,13 @@
       // the enemy's once it's sunk. A hit on a live enemy ship shows no hull:
       // its bow or orientation would give away which way to fire next.
       const visible = b.ship && (showShips || b.ship.sunk);
-      if (visible) {
-        const sh = b.ship, cs = sh.cells;
-        const horiz = cs.length > 1 && cs[0][0] === cs[cs.length - 1][0];
-        cell.classList.add("ship", "ship" + (sh.idx % 5), horiz ? "sh" : "sv");
-        if (cs[0][0] === r && cs[0][1] === c) cell.classList.add("scap-a");
-        if (cs[cs.length - 1][0] === r && cs[cs.length - 1][1] === c) cell.classList.add("scap-b");
-      }
+      if (visible) { shown.add(b.ship); cell.classList.add("ship", "ship" + (b.ship.idx % 5)); }
       if (b.attacked) {
         if (b.ship) { cell.classList.add(b.ship.sunk ? "sunk" : "hit"); cell.textContent = b.ship.sunk ? "" : "✕"; }
         else { cell.classList.add("miss"); cell.textContent = "•"; }
       } else if (!visible) { cell.classList.add("water"); }
     });
+    placeVessels(grid, shown);
   }
   function fleetHTML(ships, placedCount) {
     return ships.map((s, i) => {
@@ -400,9 +462,11 @@
   // The ⏸ button and P bring up the card, for its Restart: a new game, from
   // placing the fleet (there is no menu). On your turn only, so the enemy
   // doesn't fire under it; turn-based, so a hidden tab doesn't pause.
+  // (paused, all that moves on the boards stops where it is: styles.css)
   if (window.GameShell && GameShell.pausable) GameShell.pausable({
     canPause: () => phase === "battle" && turn === "player", auto: false, hold: true,
-    restart: newGame
+    restart: newGame,
+    onChange: (p) => document.documentElement.classList.toggle("sv-paused", p),
   });
 
   newGame();

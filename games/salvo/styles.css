@@ -67,9 +67,11 @@ header.top::after {
 .bcol h2 #coord { color: var(--hazard-hi); letter-spacing: 1px; font-family: "Barlow Condensed", sans-serif; font-weight: 700; font-size: 1.05rem; }
 
 /* ---- the grids: an instrument frame with labels, the sea or the radar
-   drawn under the cells by ::before ---- */
+   drawn under the cells by ::before. A grid is a layer of its own: the sea
+   or the radar, the cells and their chart lines, the ships (z 1), then the
+   marks and frames on the cells (z 2) ---- */
 .grid {
-  position: relative; display: grid; gap: 0; padding: var(--pad); border-radius: 10px;
+  position: relative; display: grid; gap: 0; padding: var(--pad); border-radius: 10px; isolation: isolate;
   grid-template-columns: var(--hdr) repeat(10, 1fr); grid-template-rows: var(--hdr);
   background: linear-gradient(180deg, #3a4148, var(--steel-dark));
   border: 1px solid #1c2024;
@@ -93,6 +95,7 @@ header.top::after {
 html.fx-on .grid:not(.enemy)::before { animation: swell 9s linear infinite; }
 /* enemy waters: a radar screen, round in the square, with a crosshair and range rings */
 .grid.enemy::before {
+  z-index: -1;
   background:
     linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(125, 255, 168, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
     linear-gradient(180deg, transparent calc(50% - 0.5px), rgba(125, 255, 168, 0.3) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
@@ -115,14 +118,16 @@ html.fx-on .grid:not(.enemy)::before { animation: swell 9s linear infinite; }
    them. Only on phones: on a wide screen there is room, and a hit's glow at
    the board's edge keeps its spill over the frame.) */
 @media (max-width: 640px) { .grid.enemy { overflow: hidden; } }
-/* Visual FX off: the wedge holds still, so it goes under the cells, the
-   same beam on the screen, but never sitting over a return or the
-   last-shot mark (the hit burst it would otherwise stack under is cut
-   with FX off anyway) */
-html.fx-off .grid.enemy::after { animation: none; z-index: 0; }
-html.fx-off .grid.enemy .cell { z-index: 1; }
+/* Visual FX off: the wedge holds still, so it goes under the cells (just
+   over the screen it's drawn on), the same beam on the screen, but never
+   sitting over a return, a wreck or the last-shot mark (the hit burst it
+   would otherwise stack under is cut with FX off anyway) */
+html.fx-off .grid.enemy::after { animation: none; z-index: -1; }
 
-.chead, .rhead { color: var(--label); font-size: 0.8rem; font-weight: 700; display: grid; place-items: center; }
+/* (Barlow's figures and capitals sit a little low in their line: each label
+   moves up by that, --gs-cap from motion-toggle.js, to the middle of its row
+   or column) */
+.chead, .rhead { color: var(--label); font-size: 0.8rem; font-weight: 700; display: grid; place-items: center; position: relative; top: calc(var(--gs-cap, 0) * 1em); }
 .corner { }
 .cell {
   position: relative; aspect-ratio: 1; display: grid; place-items: center;
@@ -132,64 +137,50 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
   box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.1);      /* chart lines */
 }
 .grid.enemy .cell { box-shadow: inset -1px -1px 0 rgba(125, 255, 168, 0.09); }
-.cell::before, .cell::after { content: none; position: absolute; pointer-events: none; }
+.cell::after { content: none; position: absolute; pointer-events: none; z-index: 2; }
 
-/* ---- hulls, drawn by ::before across each ship's cells ---- */
-.cell.ship::before { content: ""; }
-.cell.ship.sh::before {
+/* ---- ships: each one a single hull laid over its cells (game.js gives the
+   .vessel its ship's cells as its grid area), so it's one piece from end to
+   end at any size: no seam where its cells meet, over the chart lines and
+   under the marks. --n is its length in cells. ---- */
+.vessel { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.hull { position: absolute; overflow: hidden; }
+.hull > i { position: absolute; }
+.turret { aspect-ratio: 1; background: radial-gradient(circle closest-side, #6b747c 0 74%, #3b4248 78% 96%, transparent 100%); }
+.stripe { background: rgba(255, 255, 255, 0.22); }
+.barrel { background: #3b4248; }
+/* across: the stern rounded at the left with the bridge on it, a stripe down
+   the cells between, and the bow pointed at the right with a gun turret and
+   its barrel */
+.vessel.h .hull {
   inset: 17% 0;
-  background:
-    linear-gradient(90deg, transparent calc(100% - 2px), rgba(0, 0, 0, 0.22) calc(100% - 2px) calc(100% - 1px), transparent calc(100% - 1px)),
-    linear-gradient(180deg, transparent 44%, rgba(255, 255, 255, 0.22) 44% 56%, transparent 56%),
-    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+  background: linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+  border-radius: calc(45% / var(--n)) 0 0 calc(45% / var(--n)) / 50% 0 0 50%;
+  clip-path: polygon(0 0, calc(100% - 54% / var(--n)) 0, 100% 50%, calc(100% - 54% / var(--n)) 100%, 0 100%);
 }
-.cell.ship.sv::before {
+.vessel.h .bridge { left: calc(34.8% / var(--n)); width: calc(40% / var(--n)); top: 21%; height: 58%; background: linear-gradient(180deg, #e2e7eb, #a9b3bb); }
+.vessel.h .stripe { left: calc(100% / var(--n)); right: calc(100% / var(--n)); top: 44%; height: 12%; }
+.vessel.h .barrel { left: calc(100% - 70.3% / var(--n)); width: calc(34% / var(--n)); top: 44%; height: 12%; }
+.vessel.h .turret { left: calc(100% - 87.8% / var(--n)); width: calc(35.6% / var(--n)); top: 50%; transform: translateY(-50%); }
+/* down: the same, the stern at the top */
+.vessel.v .hull {
   inset: 0 17%;
-  background:
-    linear-gradient(180deg, transparent calc(100% - 2px), rgba(0, 0, 0, 0.22) calc(100% - 2px) calc(100% - 1px), transparent calc(100% - 1px)),
-    linear-gradient(90deg, transparent 44%, rgba(255, 255, 255, 0.22) 44% 56%, transparent 56%),
-    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+  background: linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
+  border-radius: 50% 50% 0 0 / calc(45% / var(--n)) calc(45% / var(--n)) 0 0;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 46% / var(--n)), 50% 100%, 0 calc(100% - 46% / var(--n)));
 }
-/* every piece but the bow reaches 1px on into the next cell of its ship,
-   under that cell's own piece: the cells sit at fractions of a pixel, and
-   two pieces drawn edge to edge there can leave a hairline of sea between
-   them (the seam above stays on the last pixel of its own cell) */
-.cell.ship.sh:not(.scap-b)::before { right: -1px; }
-.cell.ship.sv:not(.scap-b)::before { bottom: -1px; }
-/* stern: rounded, with the bridge on it */
-.cell.ship.sh.scap-a::before {
-  border-radius: 45% 0 0 45% / 50% 0 0 50%;
-  background:
-    linear-gradient(180deg, #e2e7eb, #a9b3bb) 58% 50% / 40% 58% no-repeat,
-    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
-}
-.cell.ship.sv.scap-a::before {
-  border-radius: 50% 50% 0 0 / 45% 45% 0 0;
-  background:
-    linear-gradient(90deg, #e2e7eb, #a9b3bb) 50% 58% / 58% 40% no-repeat,
-    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
-}
-/* bow: pointed, with a gun turret and its barrel */
-.cell.ship.sh.scap-b::before {
-  clip-path: polygon(0 0, 46% 0, 100% 50%, 46% 100%, 0 100%);
-  background:
-    radial-gradient(circle at 30% 50%, #6b747c 0 17%, #3b4248 18% 22%, transparent 23%),
-    linear-gradient(180deg, transparent 44%, #3b4248 44% 56%, transparent 56%) 45% 0 / 34% 100% no-repeat,
-    linear-gradient(180deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
-}
-.cell.ship.sv.scap-b::before {
-  clip-path: polygon(0 0, 100% 0, 100% 54%, 50% 100%, 0 54%);
-  background:
-    radial-gradient(circle at 50% 30%, #6b747c 0 17%, #3b4248 18% 22%, transparent 23%),
-    linear-gradient(90deg, transparent 44%, #3b4248 44% 56%, transparent 56%) 0 45% / 100% 34% no-repeat,
-    linear-gradient(90deg, var(--hull-hi), var(--hull) 50%, var(--hull-lo));
-}
-/* five greys, so the ships stay tellable apart */
-.cell.ship0 { --hull-hi: #c3cbd2; --hull: #97a2ac; --hull-lo: #6f7a84; }
-.cell.ship1 { --hull-hi: #b6c7cc; --hull: #8a9ea4; --hull-lo: #64787e; }
-.cell.ship2 { --hull-hi: #c6c5cf; --hull: #9998a5; --hull-lo: #717080; }
-.cell.ship3 { --hull-hi: #bcc8ba; --hull: #8f9d8e; --hull-lo: #6a776a; }
-.cell.ship4 { --hull-hi: #cdc6b8; --hull: #a29a8a; --hull-lo: #7b7365; }
+.vessel.v .bridge { top: calc(34.8% / var(--n)); height: calc(40% / var(--n)); left: 21%; width: 58%; background: linear-gradient(90deg, #e2e7eb, #a9b3bb); }
+.vessel.v .stripe { top: calc(100% / var(--n)); bottom: calc(100% / var(--n)); left: 44%; width: 12%; }
+.vessel.v .barrel { top: calc(100% - 70.3% / var(--n)); height: calc(34% / var(--n)); left: 44%; width: 12%; }
+.vessel.v .turret { top: calc(100% - 87.8% / var(--n)); height: calc(35.6% / var(--n)); left: 50%; transform: translateX(-50%); }
+/* five greys, so the ships stay tellable apart (--live: a ship's own grey,
+   which a wreck's colours below take the place of) */
+.vessel.ship0 { --live-hi: #c3cbd2; --live: #97a2ac; --live-lo: #6f7a84; }
+.vessel.ship1 { --live-hi: #b6c7cc; --live: #8a9ea4; --live-lo: #64787e; }
+.vessel.ship2 { --live-hi: #c6c5cf; --live: #9998a5; --live-lo: #717080; }
+.vessel.ship3 { --live-hi: #bcc8ba; --live: #8f9d8e; --live-lo: #6a776a; }
+.vessel.ship4 { --live-hi: #cdc6b8; --live: #a29a8a; --live-lo: #7b7365; }
+.vessel { --hull-hi: var(--live-hi); --hull: var(--live); --hull-lo: var(--live-lo); }
 
 /* ---- your waters: splashes, fires, wrecks ---- */
 .grid:not(.enemy) .cell.miss::after {
@@ -202,7 +193,7 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
     radial-gradient(circle at 50% 56%, #fff4b8 0 10%, #ffb23c 22%, #ff5a26 38%, rgba(255, 70, 30, 0) 56%),
     radial-gradient(circle at 60% 30%, rgba(40, 40, 40, 0.55) 0 14%, rgba(40, 40, 40, 0) 34%);
 }
-.cell.ship.sunk { --hull-hi: #6b5a52; --hull: #473a35; --hull-lo: #2d2421; }
+.vessel.sunk { --hull-hi: #6b5a52; --hull: #473a35; --hull-lo: #2d2421; }
 .grid:not(.enemy) .cell.sunk::after {
   content: ""; inset: 20%;
   background: radial-gradient(circle, rgba(255, 110, 60, 0.55) 0 18%, rgba(255, 80, 40, 0) 60%);
@@ -220,25 +211,74 @@ html.fx-off .grid.enemy .cell { z-index: 1; }
   box-shadow: inset 0 0 0 2px rgba(255, 120, 70, 0.9), 0 0 10px rgba(255, 110, 60, 0.7);
 }
 /* sunk: the wreck shows as a dark red silhouette */
-.grid.enemy .cell.ship.sunk { --hull-hi: #8a3a30; --hull: #5e231d; --hull-lo: #3f1612; }
+.grid.enemy .vessel.sunk { --hull-hi: #8a3a30; --hull: #5e231d; --hull-lo: #3f1612; }
 /* game over: the ships you never sank appear as radar contacts */
-.grid.enemy .cell.ship:not(.sunk) { --hull-hi: rgba(125, 255, 168, 0.55); --hull: rgba(125, 255, 168, 0.32); --hull-lo: rgba(125, 255, 168, 0.2); }
+.grid.enemy .vessel:not(.sunk) { --hull-hi: rgba(125, 255, 168, 0.55); --hull: rgba(125, 255, 168, 0.32); --hull-lo: rgba(125, 255, 168, 0.2); }
+/* (on the screen's own dark, so the chart lines and range rings don't show
+   through a contact and cut it into pieces) */
+.grid.enemy .vessel:not(.sunk) .hull { background-color: #0b2f1b; }
 
+/* a hit: the burst flares up in its cell */
 @keyframes hitflash { 0% { transform: scale(1.35); box-shadow: 0 0 18px 5px rgba(255, 150, 70, 0.9); } 100% { transform: scale(1); box-shadow: none; } }
-.cell.hitflash { animation: hitflash 0.42s ease; z-index: 2; }
-@keyframes sink { 0% { transform: translateY(-3px) scale(1.05); } 45% { transform: translateY(2px) scale(.92) rotate(-3deg); } 100% { transform: translateY(0) scale(1) rotate(0); } }
-.cell.sinking { animation: sink 0.6s ease; }
-/* a ship set down (Visual FX on): its hull drops into place from above, and
-   the water rings out round each of its cells as it lands (--dd: when) */
-@keyframes dropin { 0% { transform: translateY(-55%) scale(1.3); opacity: 0; } 70% { transform: translateY(4%) scale(0.97); opacity: 1; } 100% { transform: none; opacity: 1; } }
+.cell.hitflash::after { animation: hitflash 0.42s ease; }
+/* A ship sunk (Visual FX on) goes down as one body, in about a second. On
+   your sea: a jolt, then a list as it goes under, its grey darkening to the
+   wreck's, the water swirling in round it and bubbles coming up, and the
+   wreck settles where the ship lay. On the radar: the wreck flares up as it's
+   found, and two rings ping out round it. It ends on the same wreck Visual
+   FX off shows at once, and the turns keep their own pace either way
+   (game.js sinkShip; paused, it stops where it is). */
+@keyframes founder-h { 0% { transform: none; } 10% { transform: translate(1.5px, -1px) rotate(-1.5deg); } 22% { transform: translate(-1px, 1px) rotate(1deg); }
+  58% { transform: rotate(-3deg) scale(0.93, 0.78); } 100% { transform: none; } }
+@keyframes founder-v { 0% { transform: none; } 10% { transform: translate(-1px, 1.5px) rotate(1.5deg); } 22% { transform: translate(1px, -1px) rotate(-1deg); }
+  58% { transform: rotate(3deg) scale(0.78, 0.93); } 100% { transform: none; } }
+@keyframes wash { 0%, 15% { opacity: 1; } 75%, 100% { opacity: 0; } }
+@keyframes swirl { 0% { transform: scale(1.3) rotate(-8deg); opacity: 0; } 25% { opacity: 0.85; } 100% { transform: scale(0.5) rotate(6deg); opacity: 0; } }
+@keyframes bubble { 0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0; } 35% { opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; } }
+@keyframes flare { 0% { transform: scale(1.08); filter: brightness(2.6) saturate(1.4); } 30% { filter: brightness(2) saturate(1.3); } 100% { transform: none; filter: none; } }
+@keyframes ping { 0% { outline-offset: 0; opacity: 0; } 10% { opacity: 1; } 100% { outline-offset: 16px; opacity: 0; } }
+html.fx-on .grid:not(.enemy) .vessel.h.sinking .hull { animation: founder-h 1s ease-in-out both; }
+html.fx-on .grid:not(.enemy) .vessel.v.sinking .hull { animation: founder-v 1s ease-in-out both; }
+html.fx-on .grid:not(.enemy) .vessel.sinking .hull::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, var(--live-hi), var(--live) 50%, var(--live-lo));
+  animation: wash 1s ease-in both;
+}
+html.fx-on .grid:not(.enemy) .vessel.v.sinking .hull::before { background: linear-gradient(90deg, var(--live-hi), var(--live) 50%, var(--live-lo)); }
+html.fx-on .grid.enemy .vessel.sinking .hull { animation: flare 1s ease-out both; }
+.vessel .fx { position: absolute; pointer-events: none; display: none; }
+html.fx-on .vessel .fx { display: block; }
+.vessel .swirl { border-radius: 50%; border: 2px dashed rgba(225, 245, 255, 0.8); animation: swirl 0.95s ease-in both; }
+.vessel.h .swirl { inset: 4% -5%; }
+.vessel.v .swirl { inset: -5% 4%; }
+.vessel .bubble {
+  width: 7px; aspect-ratio: 1; border-radius: 50%;
+  border: 1.5px solid rgba(235, 250, 255, 0.9); background: rgba(235, 250, 255, 0.25);
+  animation: bubble 0.42s ease-out var(--bd, 0s) both;
+}
+.vessel .ping { border-radius: 999px; outline: 2px solid rgba(255, 120, 70, 0.9); animation: ping 0.75s ease-out both; }
+.vessel .ping.late { animation-delay: 0.25s; }
+.vessel.h .ping { inset: 17% 0; }
+.vessel.v .ping { inset: 0 17%; }
+/* paused, everything on the boards stops where it is */
+html.sv-paused .boards *, html.sv-paused .boards *::before, html.sv-paused .boards *::after { animation-play-state: paused !important; }
+/* a ship set down (Visual FX on): its hull drops into place from above, as
+   one piece, and the water rings out round each of its cells as it lands
+   (--dd: when; --lift and --bob: how far it drops and bounces, a share of
+   one cell however long the ship) */
+@keyframes dropin { 0% { transform: translateY(var(--lift)) scale(1.12); opacity: 0; } 70% { transform: translateY(var(--bob)) scale(0.98); opacity: 1; } 100% { transform: none; opacity: 1; } }
 @keyframes ripple { 0% { transform: scale(0.35); opacity: 0; } 6% { opacity: 0.85; } 100% { transform: scale(1.5); opacity: 0; } }
-.grid:not(.enemy) .cell.drop { z-index: 2; }
-.grid:not(.enemy) .cell.drop::before { animation: dropin 0.34s ease-in var(--dd, 0s) both; }
+.vessel.h { --lift: -36%; --bob: 2.6%; }
+.vessel.v { --lift: calc(-55% / var(--n)); --bob: calc(4% / var(--n)); }
+html.fx-on .grid:not(.enemy) .vessel.drop { animation: dropin 0.34s ease-in var(--dd, 0s) both; }
 .grid:not(.enemy) .cell.drop::after {
   content: ""; inset: -14%; border-radius: 50%;
   border: 2px solid rgba(220, 245, 255, 0.75); box-shadow: 0 0 6px rgba(200, 240, 255, 0.45);
   animation: ripple 0.62s ease-out calc(var(--dd, 0s) + 0.22s) both;
 }
+/* a frame on a cell (where a ship would go, the last shot) shows over a
+   hull, and without the cell's chart lines, which would cross the hull */
+.cell.preview, .cell.previewbad, .cell.last { z-index: 2; box-shadow: none; }
 .cell.preview { outline-color: var(--good); }
 .cell.previewbad { outline-color: var(--bad); }
 /* the last shot at each grid (yours on the radar, the CPU's on your sea):
