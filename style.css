@@ -120,6 +120,16 @@ input {
   line-height: 1.2rem;
 }
 
+.co-snowflake { color: #29b5e8; }
+.co-google { color: #fbbc05; }
+.co-linkedin { color: #2a7fd4; }
+.co-atlassian { color: #8777d9; }
+.co-mercury { color: #b7b9e0; }
+.co-ibm { color: #08bdba; }
+.co-amd { color: #f23a41; }
+.co-workiva { color: #66cc66; }
+.co-sep { color: #8a8a8a; }
+
 .emphasis {
   font-weight: 500;
 }
