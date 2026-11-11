@@ -2,11 +2,11 @@
    Departures: name every country before final boarding.
 
    Countries and the typed-answer judge are shared with Passport
-   (../passport/data.js and judge.js). Typing an exact name (or alias)
-   boards it instantly; names that are a prefix of another country's
-   (Niger/Nigeria, Guinea/Guinea-Bissau, UK/Ukraine, Congo/Congo-
-   Kinshasa…) wait for Enter, and Enter also runs the forgiving judge
-   (one typo on six-plus letters, never across two countries).
+   (../passport/data.js and judge.js). Nothing boards while it's being
+   typed: Enter sends the answer to the judge, which takes an exact name
+   or alias and forgives one typo on six-plus letters (never across two
+   countries). So Niger and Nigeria, or Antigua and Antigua and Barbuda,
+   are each a name and Enter like any other.
 
    Modes: the whole world on 15:00, or one continent on a shorter clock.
    Either names the countries or, with Capitals, their capital cities
@@ -29,49 +29,6 @@
   var REGIONS = [["EU", "EUROPE"], ["AS", "ASIA"], ["AF", "AFRICA"], ["AM", "AMERICAS"], ["OC", "OCEANIA"]];
   var TIMERS = { world: 900, EU: 240, AS: 240, AF: 270, AM: 180, OC: 90 };
 
-  // Names that must wait for Enter: exact matches that are also a strict
-  // prefix of a different country's name or alias (or capital), as Niger is
-  // of Nigeria. A longer name for the SAME country doesn't wait: "Antigua"
-  // boards at once, and the rest of "Antigua and Barbuda" is let through
-  // (see the tail, below).
-  function deferOf(names) {
-    var d = {};
-    names.forEach(function (a) {
-      names.forEach(function (b) {
-        if (a.ci !== b.ci && b.n.length > a.n.length && b.n.indexOf(a.n) === 0) d[a.n] = true;
-      });
-    });
-    return d;
-  }
-  var DEFER_N = deferOf(J.names), DEFER_C = deferOf(K.names);
-
-  // The tail: when a name boards as soon as it's typed but the country (or
-  // city) also has a longer name starting with it: Antigua / Antigua and
-  // Barbuda, Russia / Russian Federation, Mexico / Mexico City: the rest of
-  // the longer name may still be on its way. While what's typed next is the
-  // start of that rest it's left alone, and once it's complete the box
-  // clears; anything else is a new answer as usual. Matched loosely (case,
-  // accents, spaces, punctuation), but keeping "the", since "and th…" is
-  // typed letter by letter on the way to "and the Grenadines".
-  function loose(str) {
-    str = String(str).toLowerCase();
-    try { str = str.normalize("NFD").replace(/[̀-ͯ]/g, ""); } catch (e) {}
-    return str.replace(/&/g, " and ").replace(/\bst\.?(?=\s)/g, "saint").replace(/[^a-z0-9]/g, "");
-  }
-  function fullNames(ci) {
-    var iso = C[ci][0];
-    return caps() ? (K.CAP[iso] || []) : [C[ci][1]].concat(J.ALIAS[iso] || []);
-  }
-  function tailsOf(ci, raw) {
-    var typed = loose(raw), out = [];
-    fullNames(ci).forEach(function (n) {
-      var f = loose(n);
-      if (f.length > typed.length && f.indexOf(typed) === 0) out.push(f.slice(typed.length));
-    });
-    return out;
-  }
-  var tail = null;
-
   // ---- state -----------------------------------------------------------
   var state = "menu";              // menu | play | over
   var mode = store.get("departures_mode", "world");
@@ -83,7 +40,6 @@
   if (target !== "capitals") target = "countries";
   function caps() { return target === "capitals"; }
   function judge() { return caps() ? K : J; }
-  function deferred(v) { return !!(caps() ? DEFER_C : DEFER_N)[v]; }
   function label(ci) { return caps() ? K.of(ci) : C[ci][1]; }   // what the board calls it
   var pool = [], found = {}, foundCount = 0, perRegion = {}, perRegionFound = {};
   var timeLeft = 900, timeTotal = 900, playing = false, endedByBell = false;
@@ -245,7 +201,7 @@
     gateUpdate(rc);
     hud();
     $("answer").value = "";
-    $("hint").hidden = true;
+    hintNow();
     if (foundCount === pool.length) finish(true);
   }
   function toast(msg) {
@@ -262,64 +218,50 @@
     }
     return -1;
   }
-  function tryInput(auto) {
+  // the "press Enter" hint shows while there's an answer in the box (any
+  // answer, so it never gives away a right one)
+  function hintNow() { $("hint").hidden = !(state === "play" && J.norm($("answer").value)); }
+  // the answer in the box, judged (on Enter)
+  function tryInput() {
     if (state !== "play") return;
     var raw = $("answer").value;
     var v = J.norm(raw);
     if (!v) return;
-    // the rest of a longer name for what just boarded (see the tail, above)
-    if (tail) {
-      var lv = loose(raw), into = tail.filter(function (r) { return r.indexOf(lv) === 0; });
-      if (into.length) {
-        if (into.indexOf(lv) !== -1 || !auto) { $("answer").value = ""; tail = null; }   // done (or Enter on it)
-        return;
-      }
-      tail = null;                                           // something else: a new answer
-    }
-    var ci = -1;
-    if (auto) {
-      $("hint").hidden = !deferred(v);
-      if (deferred(v)) return;                               // Niger vs Nigeria: Enter decides
-      ci = exactIndex(v);
-      if (ci === -1) return;                                 // keep typing
-    } else {
-      ci = exactIndex(v);
-      if (ci === -1) ci = judge().resolve(raw);
-      // naming capitals, a country's own name gets a nudge rather than a shake
-      if (ci === -1 && caps()) {
-        var asCountry = exactIndex(v, J.names);
-        if (asCountry !== -1) {
-          toast(C[asCountry][1].toUpperCase() + ", NAME ITS CAPITAL");
-          dupThock();
-          return;
-        }
-      }
-      if (ci === -1) {
-        var el = $("answer");
-        el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
-        // FX off shows .shake as a red box (styles.css), so a timer clears it
-        clearTimeout(el.shakeT);
-        el.shakeT = setTimeout(function () { el.classList.remove("shake"); }, 500);
+    var ci = exactIndex(v);
+    if (ci === -1) ci = judge().resolve(raw);
+    // naming capitals, a country's own name gets a nudge rather than a shake
+    if (ci === -1 && caps()) {
+      var asCountry = exactIndex(v, J.names);
+      if (asCountry !== -1) {
+        toast(C[asCountry][1].toUpperCase() + ", NAME ITS CAPITAL");
         dupThock();
         return;
       }
+    }
+    if (ci === -1) {
+      var el = $("answer");
+      el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+      // FX off shows .shake as a red box (styles.css), so a timer clears it
+      clearTimeout(el.shakeT);
+      el.shakeT = setTimeout(function () { el.classList.remove("shake"); }, 500);
+      dupThock();
+      return;
     }
     if (!inPool[ci]) {
       toast(label(ci).toUpperCase() + ", WRONG TERMINAL (" + C[ci][2] + ")");
       dupThock();
       $("answer").value = "";
+      hintNow();
       return;
     }
     if (found[ci]) {
       toast(label(ci).toUpperCase() + ", ALREADY DEPARTED");
       dupThock();
       $("answer").value = "";
-      $("hint").hidden = true;
+      hintNow();
       return;
     }
-    var t = auto ? tailsOf(ci, raw) : [];
     accept(ci);
-    tail = t.length ? t : null;
   }
 
   // ---- runs ---------------------------------------------------------------------
@@ -342,7 +284,6 @@
     $("log").innerHTML = '<li class="idle">· the board is waiting for its first departure ·</li>';
     $("menu").hidden = true; $("over").hidden = true;
     $("answer").value = ""; $("answer").disabled = false; $("hint").hidden = true;
-    tail = null;
     state = "play"; playing = true; endedByBell = false;
     runBest = readBests()[boardKey()] || null; lastMs = 0;
     hud();
@@ -467,16 +408,17 @@
   $("again").addEventListener("click", function () { startRun(mode, region); });
   $("to-menu").addEventListener("click", toMenu);
   $("giveup").addEventListener("click", function () { if (state === "play") finish(false); });
-  $("desk").addEventListener("submit", function (e) { e.preventDefault(); tryInput(false); });
-  $("answer").addEventListener("input", function () { tryInput(true); });
+  // (the box keeps its focus: on a phone the keyboard stays up for the next name)
+  $("desk").addEventListener("submit", function (e) { e.preventDefault(); tryInput(); if (state === "play" && !P.isPaused()) $("answer").focus(); });
+  $("answer").addEventListener("input", hintNow);
 
   var P = window.GameShell ? GameShell.pausable({
     canPause: function () { return state === "play"; },
     // \ pauses, the key beside the [ and ] of sound and Visual FX, working from
     // the answer box as they do (the letters belong to it, Esc is the way out)
     keys: ["\\"],
-    // the desk shuts while paused: with the clock stopped, a name typed then
-    // would board for free (and letters typed into it would board on resume)
+    // the desk shuts while paused: with the clock stopped, a name sent then
+    // would board for free
     onChange: function (paused) {
       var a = $("answer");
       a.disabled = paused;
@@ -544,12 +486,11 @@
     timeLeft: function () { return timeLeft; },
     setTime: function (s) { timeLeft = s; },
     type: function (text) { var el = $("answer"); el.value = text; el.dispatchEvent(new Event("input", { bubbles: true })); },
-    enter: function (text) { if (text != null) $("answer").value = text; tryInput(false); },
+    enter: function (text) { if (text != null) $("answer").value = text; tryInput(); },
     start: startRun,
     giveUp: function () { if (state === "play") finish(false); },
     toMenu: toMenu,
     bests: readBests,
-    deferred: function (name) { return deferred(J.norm(name)); },
     target: function () { return target; },
     setTarget: setTarget
   };

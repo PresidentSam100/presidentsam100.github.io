@@ -31,25 +31,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.waitForTimeout(300);
     const clock = await p.evaluate(() => document.getElementById("clock").textContent);
     check("departures capitals: the clock runs (15:00 for the world), and the continent row hides for The World", /^1[45]:\d\d$/.test(clock) && !regionsShown, { clock, regionsShown });
-    await p.evaluate(() => Departures.type("paris"));
+    await p.evaluate(() => { Departures.type("paris"); Departures.enter(); });
     const row = await p.evaluate(() => { const li = document.querySelector("#log li"); return { found: Departures.found(), dest: li.querySelector(".dest").textContent, cty: (li.querySelector(".cty") || {}).textContent }; });
     await p.waitForTimeout(900);
     const dest = await p.evaluate(() => document.querySelector("#log li .dest").textContent);
-    check("departures capitals: typing Paris boards France, the row shows PARIS and FRANCE", row.found === 1 && dest === "PARIS" && row.cty === "FRANCE", { row, dest });
+    check("departures capitals: Paris and Enter boards France, the row shows PARIS and FRANCE", row.found === 1 && dest === "PARIS" && row.cty === "FRANCE", { row, dest });
     await p.evaluate(() => Departures.enter("Germany"));
     const nudge = await p.evaluate(() => ({ found: Departures.found(), toast: document.getElementById("toast").textContent }));
     check("departures capitals: a country's name gets a 'name its capital' nudge", nudge.found === 1 && /NAME ITS CAPITAL/.test(nudge.toast), nudge);
-    // (no capital is the start of another's, so each boards as soon as it's typed)
-    await p.evaluate(() => Departures.type("Kingston"));
-    await p.evaluate(() => Departures.type("Kingstown"));
+    // (each a name and Enter)
+    await p.evaluate(() => Departures.enter("Kingston"));
+    await p.evaluate(() => Departures.enter("Kingstown"));
     const kk = await p.evaluate(() => ({ found: Departures.found(), ctys: [...document.querySelectorAll("#log li .cty")].slice(0, 2).map((e) => e.textContent) }));
-    check("departures capitals: Kingston boards Jamaica and Kingstown St Vincent, each as typed", kk.found === 3 && kk.ctys[0] === "SAINT VINCENT AND THE GRENADINES" && kk.ctys[1] === "JAMAICA", kk);
-    // typed key by key, a full name with a shorter same-city alternate boards
-    // once (at the short name) and the rest is let through: the box ends empty
+    check("departures capitals: Kingston boards Jamaica and Kingstown St Vincent, each on Enter", kk.found === 3 && kk.ctys[0] === "SAINT VINCENT AND THE GRENADINES" && kk.ctys[1] === "JAMAICA", kk);
+    // typed key by key, a full name with a shorter name of the same city in
+    // it boards once, on Enter: the box ends empty
     await p.focus("#answer");
-    for (const t of ["mexico city", "washington dc", "kuwait"]) await p.keyboard.type(t, { delay: 15 });
+    for (const t of ["mexico city", "washington dc", "kuwait"]) { await p.keyboard.type(t, { delay: 15 }); await p.keyboard.press("Enter"); }
     const typed = await p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value }));
-    check("departures capitals: 'Mexico City' / 'Washington DC' / 'Kuwait' typed key by key each board once, box empty",
+    check("departures capitals: 'Mexico City' / 'Washington DC' / 'Kuwait' typed key by key, then Enter, each board once, box empty",
       typed.found === 6 && typed.box === "", typed);
     await p.evaluate(() => Departures.giveUp());
     const man = await p.evaluate(() => ({ html: document.getElementById("missed").innerHTML, stats: document.getElementById("over-stats").textContent, bests: Departures.bests() }));
@@ -64,23 +64,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Departures, countries: a full name with a shorter name for the same
-  // country boards once and leaves nothing in the box; Niger still waits
+  // country boards once, on Enter, and leaves nothing in the box; Niger is a
+  // name and Enter like any other
   {
     const p = await lib.open(ctx, base, "games/departures/");
     await p.evaluate(() => { Departures.setTarget("countries"); Departures.start("world"); });
     await p.focus("#answer");
     const box = () => p.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value, hint: !document.getElementById("hint").hidden }));
-    for (const t of ["antigua and barbuda", "russian federation", "saint vincent and the grenadines", "united states of america"]) await p.keyboard.type(t, { delay: 15 });
+    const send = async (t) => { await p.keyboard.type(t, { delay: 15 }); await p.keyboard.press("Enter"); };
+    for (const t of ["antigua and barbuda", "russian federation", "saint vincent and the grenadines", "united states of america"]) await send(t);
     const full = await box();
-    check("departures: Antigua and Barbuda / Russian Federation / … typed in full board once each, box empty", full.found === 4 && full.box === "", full);
-    await p.keyboard.type("bosnia", { delay: 15 }); await p.keyboard.type("andorra", { delay: 15 });
+    check("departures: Antigua and Barbuda / Russian Federation / … typed in full, then Enter, board once each, box empty", full.found === 4 && full.box === "", full);
+    await send("bosnia"); await send("andorra");
     const next = await box();
-    check("departures: 'Bosnia' boards at once, and a new name typed after it (Andorra) still counts", next.found === 6 && next.box === "", next);
+    check("departures: 'Bosnia' and Enter boards, and the next name (Andorra) counts too", next.found === 6 && next.box === "", next);
     await p.keyboard.type("niger", { delay: 15 });
     const ng = await box();
     await p.keyboard.press("Enter");
     const ng2 = await box();
-    check("departures: Niger still waits for Enter (Nigeria), then boards", ng.found === 6 && ng.hint && ng2.found === 7, { ng, ng2 });
+    check("departures: Niger waits for Enter like any name (the hint showing), then boards", ng.found === 6 && ng.hint && ng2.found === 7, { ng, ng2 });
     check("departures countries: no page errors", p.errs.length === 0, p.errs);
     await p.close();
   }

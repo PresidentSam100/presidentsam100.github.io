@@ -233,8 +233,8 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- a typing game too, with no letter to spare for a pause (its pause is
   // the ⏸ button): Esc in play, with a name boarded, asks "Leave this game?",
-  // the run paused under the box, and Enter (its own key for a name that
-  // waits), pressed by reflex, plays on; the name typed so far is still there
+  // the run paused under the box, and Enter (the key that sends a name),
+  // pressed by reflex, plays on; the name typed so far is still there
   {
     const p = await lib.open(ctx, base, "games/departures/");
     await p.evaluate(() => Departures.start("world")); await p.waitForTimeout(300);

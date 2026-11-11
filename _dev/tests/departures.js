@@ -1,4 +1,6 @@
-// Departures: while paused (the ⏸ button) the desk is shut, so a name typed
+// Departures: a name boards on Enter, never as it's typed (the box shows
+// "press Enter" meanwhile, on any answer), and the box keeps its focus for
+// the next; while paused (the ⏸ button) the desk is shut, so a name typed
 // then doesn't board, during the pause or after it; on resume the box is open
 // and focused. \ pauses and resumes from the answer box (a symbol, beside the
 // [ and ] of sound and Visual FX: the letters are the box's), and = is Final
@@ -18,11 +20,40 @@ module.exports = async ({ browser, base, check, lib }) => {
   const during = await desk(), stillPaused = await card(), noBox = await p.evaluate(() => !document.querySelector(".gs-dialog"));
   await p.click(".gs-pause-btn", { force: true }); await p.waitForTimeout(100);
   const after = await desk();
-  await p.keyboard.type("Fiji"); await p.waitForTimeout(80);
+  await p.keyboard.type("Fiji"); await p.keyboard.press("Enter"); await p.waitForTimeout(80);
   const typed = await desk();
   check("departures: names typed while paused don't board, then or after resuming; the box is focused again",
     paused && stillPaused && noBox && during.found === 0 && during.box === "" && after.found === 0 && after.box === "" && after.focused && !(await card()) && typed.found === 1,
     { paused, stillPaused, noBox, during, after, typed });
+
+  // ---- a name boards on Enter, never as it's typed: an exact name typed key
+  // by key stays in the box, nothing boarded, "press Enter" showing (on a
+  // wrong answer too, so it gives nothing away); Enter boards it, empties the
+  // box and keeps it focused for the next. Niger and Nigeria, Antigua and
+  // Antigua and Barbuda: each a name and Enter. On a laptop and a phone
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {};
+    for (const [label, opts] of [["laptop", {}], ["phone", devices["Pixel 7"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/departures/");
+      const look = () => q.evaluate(() => ({ found: Departures.found(), box: document.getElementById("answer").value, hint: !document.getElementById("hint").hidden, focused: document.activeElement === document.getElementById("answer") }));
+      await q.evaluate(() => { Departures.setTarget("countries"); Departures.start("world"); }); await q.waitForTimeout(150);
+      await q.focus("#answer");
+      const r = seen[label] = { steps: [] };
+      for (const name of ["France", "Niger", "Nigeria", "Antigua", "Antigua and Barbuda", "Zzyzx"]) {
+        await q.keyboard.type(name, { delay: 10 }); await q.waitForTimeout(60);
+        const typed = await look();
+        await q.keyboard.press("Enter"); await q.waitForTimeout(60);
+        r.steps.push({ name, typed, sent: await look() });
+      }
+      await q.close(); await c.close();
+    }
+    const asked = (r) => r.steps.every((s, k) => s.typed.box === s.name && s.typed.hint && s.typed.found === [0, 1, 2, 3, 4, 4][k]);
+    const sent = (r) => r.steps.every((s, k) => s.sent.found === [1, 2, 3, 4, 4, 4][k] && s.sent.focused && (s.name === "Zzyzx" || (s.sent.box === "" && !s.sent.hint)));
+    check("departures: a name boards on Enter, never as it's typed: typed in full it stays in the box, nothing boarded, \"press Enter\" showing (on a wrong one too); Enter boards it (Niger and Nigeria, Antigua then Antigua and Barbuda, already departed), the box empty and still focused; on a laptop and a phone",
+      ["laptop", "phone"].every((k) => asked(seen[k]) && sent(seen[k])), seen);
+  }
 
   // ---- \ pauses from the answer box, and again resumes; = is Final call
   await p.evaluate(() => Departures.start("continent", "OC")); await p.waitForTimeout(150);
@@ -31,7 +62,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   const slash = { card: await card(), box: await p.evaluate(() => document.getElementById("answer").value) };
   await p.keyboard.press("\\"); await p.waitForTimeout(100);
   const back = { card: await card(), ...(await desk()) };
-  await p.keyboard.type("ji"); await p.waitForTimeout(80);
+  await p.keyboard.type("ji"); await p.keyboard.press("Enter"); await p.waitForTimeout(80);
   const boarded = await desk();
   const caps = await p.evaluate(() => ({
     pause: (document.querySelector(".gs-pause-btn").getAttribute("aria-label") || "") + " | " + (document.querySelector(".gs-pause-btn").innerHTML.match(/<kbd[^>]*>([^<]*)<\/kbd>/) || [])[1],
