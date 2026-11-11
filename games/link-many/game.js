@@ -691,7 +691,9 @@ function aiMoveWrapped() { // the CPU's bonus move after its wall
 
 // --- mode selection (shown first; choosing a mode → coin flip → game) ---
 const modeModal = document.getElementById('modeModal');
-function showModeModal(){ modeModal.classList.add('open'); }
+// (the toy and its bars go out of sight behind the picker, which shows the
+// wall itself; see styles.css)
+function showModeModal(){ modeModal.classList.add('open'); document.documentElement.classList.add('lm-menu'); }
 function setupModeModal(onStart){
   modeModal.querySelectorAll('.opts').forEach(group => {
     const sel = document.getElementById(group.dataset.target);
@@ -705,6 +707,7 @@ function setupModeModal(onStart){
   });
   document.getElementById('startGame').addEventListener('click', () => {
     modeModal.classList.remove('open');
+    document.documentElement.classList.remove('lm-menu');
     onStart();
   });
 }
@@ -777,6 +780,33 @@ if (window.GameShell && GameShell.menuKeys) {
 showModeModal();   // pick a mode first, then the coin flip decides who goes first
 updateScore();
 
+// The wall's confetti (styles.css): the far pattern, and the near pieces
+// spread evenly over the page, each at a point of its fall (--y, where FX off
+// holds it, and where FX on's fall starts it from), turned its own way.
+(function buildWall() {
+  const KINDS = ['dot', 'ring', 'tri', 'wave', 'strip'];
+  const wall = document.createElement('div');
+  wall.className = 'wall';
+  wall.setAttribute('aria-hidden', 'true');
+  wall.innerHTML = '<div class="far"><div class="tile"></div></div>';
+  const n = Math.max(10, Math.min(48, Math.round(innerWidth * innerHeight / 26000)));
+  for (let i = 0; i < n; i++) {
+    const at = (i * 0.618034 + Math.random() * 0.2) % 1;   // down the page, staggered
+    const fallS = 20 + Math.random() * 16, flutterS = 2.6 + Math.random() * 2.2;
+    const fall = document.createElement('div');
+    fall.className = 'fall';
+    fall.style.left = ((i + 0.2 + Math.random() * 0.6) / n * 100).toFixed(2) + '%';
+    fall.style.setProperty('--y', `calc(${at.toFixed(3)} * (100% + 60px) - 30px)`);
+    fall.style.animationDuration = fallS.toFixed(2) + 's';
+    fall.style.animationDelay = (-at * fallS).toFixed(2) + 's';
+    fall.innerHTML = `<div class="flutter ${i % 2 ? 'b' : 'a'}" style="animation-duration:${flutterS.toFixed(2)}s;` +
+      `animation-delay:${(-Math.random() * flutterS).toFixed(2)}s"><i class="bit ${KINDS[i % KINDS.length]}" ` +
+      `style="transform:rotate(${Math.round(Math.random() * 360)}deg)"></i></div>`;
+    wall.appendChild(fall);
+  }
+  document.body.appendChild(wall);
+})();
+
 // The ⏸ button and P bring up the card: Restart and Menu are the bar's Restart
 // and New Game. Not while a disc is falling or the CPU is thinking (it would
 // play on under the card); turn-based, so a hidden tab doesn't pause.
@@ -785,6 +815,7 @@ if (window.GameShell && GameShell.pausable) GameShell.pausable({
   auto: false, hold: true,
   restart: init,
   menu: showModeModal,
+  onChange: (p) => document.documentElement.classList.toggle('lm-paused', p),
 });
 
 // test hook
