@@ -341,6 +341,7 @@
   // live here so a repaint mid-animation doesn't strip them.
   const fxCls = new Array(81).fill("");
   const fxUntil = new Float64Array(81);
+  const fixWas = new Uint8Array(81);   // the wrong digit a hint put right, struck out while "fixed" shows
   function fx(i, cls, ms, delay) {
     delay = delay || 0;
     fxCls[i] = cls;
@@ -387,6 +388,7 @@
     if (v) {
       const ink = INK[given[i] ? 1 : 0];
       html = '<span class="v' + (v === 1 ? " one" : "") + '" style="left:' + ink.x[v].toFixed(3) + "em;top:" + ink.y.toFixed(3) + 'em">' + v + "</span>";
+      if (fxCls[i] === "fixed" && fixWas[i] && fixWas[i] !== v) html += '<span class="was' + (fixWas[i] === 1 ? " one" : "") + '">' + fixWas[i] + "</span>";
     } else if (notes[i]) {
       html = '<div class="notes">';
       for (let d = 1; d <= 9; d++) {
@@ -766,15 +768,19 @@
   const HINT = "\u261E\uFE0E ";   // printer's fist; FE0E keeps it out of emoji fonts
   const unitName = (u) => (u < 9 ? "row " + (u + 1) : u < 18 ? "column " + (u - 8) : "this box");
 
-  // (one of `list` put right, the selected square if it's one)
+  // (one of `list` put right, the selected square if it's one). It shows as
+  // a correction, not a plain hint: the red pen's ring, held longer, and a
+  // wrong digit it replaced struck out small in the corner
   function fixCell(list, text) {
     const i = list.indexOf(sel) >= 0 ? sel : list[0];
     useHint();
     sel = i;
     setStatus(HINT + text(i) + (list.length > 1 ? " (" + (list.length - 1) + " more like it)" : ""), "bad");
     sfx.bad();
+    const was = vals[i];
     setDigit(i, game.solution[i], true);   // a win here overwrites the hint message
-    fx(i, "hinted", 1100);
+    fixWas[i] = was;
+    fx(i, "fixed", 1800);
     renderAll();
   }
 

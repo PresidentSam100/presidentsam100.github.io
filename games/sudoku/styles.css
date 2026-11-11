@@ -261,7 +261,7 @@ body {
    under the end of the stem by what the font draws (game.js, measureFoot):
    --pen-* for your digits, --pad-* for the pad's pencil, --pencil-* for notes
    and the pad's counts (the same weight) */
-.c:not(.given) .v.one::after, .notes .one::after, .pad.notes-on .key .one::after {
+.c:not(.given) .v.one::after, .c .was.one::after, .notes .one::after, .pad.notes-on .key .one::after {
   content: "";
   display: inline-block;
   vertical-align: var(--foot-y);
@@ -273,7 +273,7 @@ body {
   background: currentColor;
   transform: rotate(-3deg);
 }
-.c:not(.given) .v.one { --foot-dx: var(--pen-dx, 0); --foot-y: var(--pen-y, 0); --foot-w: var(--pen-w, 0); --foot-h: var(--pen-h, 0); }
+.c:not(.given) .v.one, .c .was.one { --foot-dx: var(--pen-dx, 0); --foot-y: var(--pen-y, 0); --foot-w: var(--pen-w, 0); --foot-h: var(--pen-h, 0); }
 .pad.notes-on .key .one { --foot-dx: var(--pad-dx, 0); --foot-y: var(--pad-y, 0); --foot-w: var(--pad-w, 0); --foot-h: var(--pad-h, 0); }
 .notes .one, .pad.notes-on .key small .one { --foot-dx: var(--pencil-dx, 0); --foot-y: var(--pencil-y, 0); --foot-w: var(--pencil-w, 0); --foot-h: var(--pencil-h, 0); }
 .c.given {
@@ -323,6 +323,35 @@ body {
   border-right-color: transparent;
   transform: rotate(25deg);
   animation: hinted 1.1s ease-out forwards;
+}
+/* a hint that put a mistake right: the red pen's ring instead, open at the
+   top left, where the wrong digit it replaced sits struck out, small */
+.c.fixed::after {
+  border: 2px solid var(--red);
+  border-left-color: transparent;
+  transform: rotate(45deg);
+  animation: fixed 1.8s ease-out forwards;
+}
+.c .was {
+  position: absolute;
+  left: 5%;
+  top: 1%;
+  font-size: 0.5em;
+  color: var(--red);
+  animation: was 1.8s ease-out forwards;
+}
+.c .was::before {
+  content: "";
+  position: absolute;
+  left: -22%;
+  right: -22%;
+  top: 52%;
+  height: 0.12em;
+  margin-top: -0.06em;
+  border-radius: 0.06em;
+  background: var(--red);
+  transform: rotate(-24deg);
+  animation: strike 0.25s ease-out 0.12s backwards;
 }
 
 /* pencil marks */
@@ -380,15 +409,31 @@ body {
   15%, 65% { opacity: 1; transform: rotate(25deg) scale(1); }
   100% { opacity: 0; transform: rotate(25deg) scale(1); }
 }
+@keyframes fixed {
+  0% { opacity: 0; transform: rotate(45deg) scale(1.4); }
+  10%, 75% { opacity: 1; transform: rotate(45deg) scale(1); }
+  100% { opacity: 0; transform: rotate(45deg) scale(1); }
+}
+@keyframes was {
+  0%, 75% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes strike {
+  from { transform: rotate(-24deg) scaleX(0); }
+}
 /* Visual FX off: a finished row / column / box holds the green all at once,
-   and the hint's blue ring stays drawn, each until fx() clears its class */
+   and the hint's blue ring stays drawn (a correction's red ring and struck
+   digit too), each until fx() clears its class */
 html.fx-off .c.unit {
   animation: none;
   background-color: #d6ecae;
 }
-html.fx-off .c.hinted::after {
+html.fx-off .c.hinted::after, html.fx-off .c.fixed::after {
   animation: none;
   opacity: 1;
+}
+html.fx-off .c .was, html.fx-off .c .was::before {
+  animation: none;
 }
 .c.oops {
   animation: oops 0.4s ease-out;

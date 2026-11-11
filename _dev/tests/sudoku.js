@@ -5,7 +5,8 @@
 // board keeps its share whatever is written in it, and the hand's 1 stands
 // on a foot, so it can't pass for its 7, the pad's counts' 1 too. A hint
 // fills in a square for 30 s on the clock, for good, and a solve with hints
-// still sets a best time.
+// still sets a best time; one that puts a mistake right looks like a
+// correction.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // document.hidden, as the page sees it, follows window.__hidden
@@ -337,5 +338,63 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("sudoku: in pencil, the pad's count of 1 stands on a foot like the hand's other 1s (its bottom two and a half times its stem or more); laptop and phone",
       ["laptop", "phone"].every((k) => { const r = seen[k]; return r.text === "1" && r.notes && r.h > 8 && r.bottom >= r.stem * 2.5 && !r.errs.length; }), seen);
+  }
+
+  // ---- a hint that puts a mistake right looks like a correction, not a
+  // plain hint: a plain one draws the blue ring; one that replaces a wrong
+  // digit draws the red pen's ring, with the wrong digit struck out small in
+  // the corner, and holds it longer. Visual FX off, both held still. On a
+  // laptop and a phone
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {};
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 } }], ["phone", devices["Pixel 7"]]]) {
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opts);
+        const q = await lib.open(c, base, "games/sudoku/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:sudoku", off ? "1" : "0"); } catch (e) {} }, off) });
+        await q.waitForSelector("#board .c.given", { timeout: 15000 });
+        await q.waitForTimeout(300);
+        // the look of the square a hint just went into: its ring's colour, how
+        // it shows (still with FX off), and any digit struck out in it
+        const look = () => q.evaluate(() => {
+          const c = document.querySelector("#board .c.hinted, #board .c.fixed");
+          if (!c) return null;
+          const ring = getComputedStyle(c, "::after"), was = c.querySelector(".was");
+          return {
+            kind: c.classList.contains("fixed") ? "fixed" : "hinted", ring: ring.borderTopColor === "transparent" ? ring.borderBottomColor : ring.borderTopColor,
+            ringStill: ring.animationName === "none" && ring.opacity === "1",
+            was: was ? { d: was.textContent, color: getComputedStyle(was).color, strike: parseFloat(getComputedStyle(was, "::before").width) > 0, still: getComputedStyle(was).animationName === "none" } : null,
+          };
+        });
+        const r = {};
+        await q.click("#hintBtn"); await q.waitForTimeout(150);
+        r.plain = await look();
+        await q.waitForTimeout(1300);
+        const sv = await readSave(q);
+        const at = [...sv.g].findIndex((v, i) => v === "0" && sv.p[i] === "0");
+        const wrongD = String((+sv.s[at] % 9) + 1);
+        await mark(q, at, "mistake");
+        await q.click('[data-probe="mistake"]'); await q.keyboard.press(wrongD); await q.waitForTimeout(150);
+        await q.click("#hintBtn"); await q.waitForTimeout(150);
+        r.wrongD = wrongD;
+        r.fixed = await look();
+        // past the plain hint's 1.1 s it still shows, and then it goes
+        const w0 = Date.now();
+        await q.waitForTimeout(1200);
+        r.later = (Date.now() - w0 < 1600) ? await look() : "late";
+        await q.waitForTimeout(1200);
+        r.gone = await look();
+        r.errs = q.errs;
+        seen[label + (off ? " FX off" : " FX on")] = r;
+        await q.close(); await c.close();
+      }
+    }
+    const PEN = "rgb(31, 63, 174)", RED = "rgb(184, 40, 29)", all = Object.keys(seen);
+    check("sudoku: a plain hint draws the blue ring, with nothing struck out; one that replaces a wrong digit draws the red pen's ring with that digit struck out small in its corner (laptop and phone, FX on and off)",
+      all.every((k) => { const r = seen[k]; return r.plain && r.plain.kind === "hinted" && r.plain.ring === PEN && !r.plain.was &&
+        r.fixed && r.fixed.kind === "fixed" && r.fixed.ring === RED && r.fixed.was && r.fixed.was.d === r.wrongD && r.fixed.was.color === RED && r.fixed.was.strike; }), seen);
+    check("sudoku: the correction shows longer than a plain hint (still there 1.2 s on), then goes; with Visual FX off its ring and struck digit are held still",
+      all.every((k) => { const r = seen[k], off = / off$/.test(k); return (r.later === "late" || (r.later && r.later.kind === "fixed")) && !r.gone && !r.errs.length &&
+        (!off || (r.plain.ringStill && r.fixed.ringStill && r.fixed.was.still)); }), seen);
   }
 };
