@@ -113,7 +113,7 @@
     k.type = "button";
     k.className = "key";
     k.dataset.d = d;
-    k.innerHTML = d + "<small></small>";
+    k.innerHTML = (d === 1 ? '<span class="one">1</span>' : d) + "<small></small>";
     padEl.appendChild(k);
     keys[d] = k;
   }
@@ -288,7 +288,45 @@
     } catch (e) {}
     return changed;
   }
+  // ---- the hand's 1 on a foot ------------------------------------------------
+  // The script's 1 (a long flag, then the stem) reads as its 7 at a glance,
+  // so it's given a foot, as a hand writes it: a stroke as thick as the stem,
+  // about three times as wide, under the end of the stem. Where that is, and
+  // how thick the stem, is found by drawing the 1 on a canvas and looking at
+  // its ink, in em (so it holds at any size, in the fallback faces too); a
+  // face whose 1 already stands on a foot gets none. As CSS variables for the
+  // pen (700), the pad's pencil (600) and the notes (500): styles.css.
+  function measureFoot() {
+    try {
+      const cell = els.find((e) => e && !e.classList.contains("given")) || els[0];
+      if (!cell) return;
+      const family = getComputedStyle(document.documentElement).getPropertyValue("--hand") || getComputedStyle(cell).fontFamily;
+      const PX = 200, cv = document.createElement("canvas"), ctx2 = cv.getContext("2d", { willReadFrequently: true });
+      cv.width = PX * 2; cv.height = PX * 2;
+      const root = document.documentElement.style;
+      [["pen", 700], ["pad", 600], ["pencil", 500]].forEach(([name, weight]) => {
+        ctx2.clearRect(0, 0, cv.width, cv.height);
+        ctx2.font = weight + " " + PX + "px " + family;
+        ctx2.fillStyle = "#000"; ctx2.textBaseline = "alphabetic";
+        const ox = PX * 0.5, base = PX * 1.3;
+        ctx2.fillText("1", ox, base);
+        const data = ctx2.getImageData(0, 0, cv.width, cv.height).data;
+        const span = (y) => { let a = -1, b = -1; for (let x = 0; x < cv.width; x++) if (data[(y * cv.width + x) * 4 + 3] > 128) { if (a < 0) a = x; b = x; } return a < 0 ? null : [a, b]; };
+        let top = -1, bottom = -1;
+        for (let y = 0; y < cv.height; y++) if (span(y)) { if (top < 0) top = y; bottom = y; }
+        if (top < 0 || bottom - top < PX * 0.3) return;
+        const h = bottom - top, mid = span(Math.round(top + h * 0.6)), foot = span(Math.round(bottom - h * 0.06));
+        if (!mid || !foot) return;
+        const stem = mid[1] - mid[0] + 1, low = foot[1] - foot[0] + 1;
+        const set = (k, v) => root.setProperty("--" + name + "-" + k, v.toFixed(3) + "em");
+        if (low > stem * 2.2) { set("w", 0); set("h", 0); set("dx", 0); set("y", 0); return; }   // (a foot of its own)
+        const w = Math.max(0.3, (stem * 3.2) / PX), at = ((foot[0] + foot[1]) / 2 - ox) / PX, adv = ctx2.measureText("1").width / PX;
+        set("w", w); set("h", (stem * 0.8) / PX); set("dx", at - w / 2 - adv); set("y", -(bottom + 1 - base) / PX);
+      });
+    } catch (e) {}
+  }
   function centreInk() {
+    measureFoot();
     if (measureInk()) for (let i = 0; i < 81; i++) paint(i);
   }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(centreInk);
@@ -346,13 +384,13 @@
     let html = "";
     if (v) {
       const ink = INK[given[i] ? 1 : 0];
-      html = '<span class="v" style="left:' + ink.x[v].toFixed(3) + "em;top:" + ink.y.toFixed(3) + 'em">' + v + "</span>";
+      html = '<span class="v' + (v === 1 ? " one" : "") + '" style="left:' + ink.x[v].toFixed(3) + "em;top:" + ink.y.toFixed(3) + 'em">' + v + "</span>";
     } else if (notes[i]) {
       html = '<div class="notes">';
       for (let d = 1; d <= 9; d++) {
         if (!(notes[i] & (1 << (d - 1)))) html += "<span></span>";
-        else if (d === selVal) html += '<span class="hl">' + d + "</span>";
-        else html += "<span>" + d + "</span>";
+        else if (d === selVal) html += '<span class="hl' + (d === 1 ? " one" : "") + '">' + d + "</span>";
+        else html += (d === 1 ? '<span class="one">' : "<span>") + d + "</span>";
       }
       html += "</div>";
     }

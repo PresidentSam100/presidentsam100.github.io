@@ -2,7 +2,8 @@
 // hidden (a Ctrl+click from the games page), a saved game resumed there, or
 // a puzzle that finishes printing after you've switched away all start
 // paused, so the time isn't spent before you're there. Every row of the
-// board keeps its share whatever is written in it.
+// board keeps its share whatever is written in it, and the hand's 1 stands
+// on a foot, so it can't pass for its 7.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   // document.hidden, as the page sees it, follows window.__hidden
@@ -90,23 +91,64 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- every row of the board stays its share however much is written in
   // it (sized by their content, the rows a digit went into grew and the rest
-  // shrank, by 7 px on a laptop). On a laptop and a phone
+  // shrank, by 7 px on a laptop); and the hand's 1 stands on a foot, so it
+  // can't be taken for its 7: the face's own foot where it has one, else one
+  // drawn under the stem (Caveat's 1 has none: a stand-in face without one
+  // here, Arial, as the suites don't load web fonts). Judged by the ink in
+  // the square: the bottom of the 1 several times as wide as its stem, and
+  // much wider than the bottom of the 7. On a laptop and a phone
   {
     const { devices } = require("@playwright/test");
+    const CAVEAT = '@font-face { font-family: "Caveat"; src: local("Arial"); font-weight: 100 900; }';
     const seen = {};
     for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2 }], ["phone", Object.assign({}, devices["Pixel 7"], { deviceScaleFactor: 3 })]]) {
       const c = await lib.newContext(browser, opts);
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: CAVEAT }));
       const q = await lib.open(c, base, "games/sudoku/");
       await q.waitForSelector("#board .c.given", { timeout: 15000 });
       await q.evaluate(() => document.fonts.ready); await q.waitForTimeout(300);
       const heights = () => q.evaluate(() => [...new Set([...document.querySelectorAll("#board .c")].map((e) => Math.round(e.getBoundingClientRect().height * 10) / 10))]);
       const before = await heights();
-      for (const d of ["7", "1"]) { await q.click("#board .c:not(.given):not(:has(.v))"); await q.keyboard.press(d); await q.waitForTimeout(250); }
-      seen[label] = { before, after: await heights() };
+      // an empty square where each digit breaks no rule (so it's in pen, not red, and no ring)
+      const spot = (d) => q.evaluate((d) => {
+        const cells = [...document.querySelectorAll("#board .c")].map((e) => { const r = e.getBoundingClientRect(); return { e, x: r.left, y: r.top, v: (e.querySelector(".v") || {}).textContent || "" }; });
+        const xs = [...new Set(cells.map((c) => Math.round(c.x)))].sort((a, b) => a - b), ys = [...new Set(cells.map((c) => Math.round(c.y)))].sort((a, b) => a - b);
+        cells.forEach((c) => { c.c = xs.indexOf(Math.round(c.x)); c.r = ys.indexOf(Math.round(c.y)); });
+        const free = cells.find((a) => !a.v && !cells.some((b) => b.v === d && (b.r === a.r || b.c === a.c || (Math.floor(b.r / 3) === Math.floor(a.r / 3) && Math.floor(b.c / 3) === Math.floor(a.c / 3)))));
+        if (!free) return null;
+        free.e.setAttribute("data-probe", d);
+        return true;
+      }, d);
+      const r = seen[label] = {};
+      for (const d of ["7", "1"]) { if (await spot(d)) { await q.click('[data-probe="' + d + '"]'); await q.keyboard.press(d); await q.waitForTimeout(250); } }
+      r.rows = { before, after: await heights() };
+      // the ink of each digit: the width of its bottom, and of the 1's stem
+      const inkOf = async (d) => {
+        const el = q.locator('[data-probe="' + d + '"]');
+        if (!(await el.count())) return null;
+        const png = (await el.screenshot()).toString("base64");
+        return q.evaluate((png) => new Promise((res) => {
+          const img = new Image();
+          img.onload = () => {
+            const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+            const g = cv.getContext("2d"); g.drawImage(img, 0, 0);
+            const px = g.getImageData(0, 0, cv.width, cv.height).data, m = Math.round(cv.width * 0.12);
+            const row = (y) => { let a = -1, b = -1; for (let x = m; x < cv.width - m; x++) { const i = (y * cv.width + x) * 4; if (px[i] + px[i + 1] + px[i + 2] < 360) { if (a < 0) a = x; b = x; } } return a < 0 ? 0 : b - a + 1; };
+            let top = -1, bottom = -1;
+            for (let y = m; y < cv.height - m; y++) if (row(y)) { if (top < 0) top = y; bottom = y; }
+            const h = bottom - top;
+            res({ h, stem: row(Math.round(top + h * 0.6)), bottom: Math.max(row(bottom), row(bottom - 1), row(bottom - 2)) });
+          };
+          img.src = "data:image/png;base64," + png;
+        }), png);
+      };
+      r.one = await inkOf("1"); r.seven = await inkOf("7");
       await q.close(); await c.close();
     }
     check("sudoku: every row of the board keeps its share, written in or not (laptop and phone)",
-      ["laptop", "phone"].every((k) => { const r = seen[k]; return r.before.length === 1 && r.after.length === 1 && r.after[0] === r.before[0]; }), seen);
+      ["laptop", "phone"].every((k) => { const r = seen[k].rows; return r.before.length === 1 && r.after.length === 1 && r.after[0] === r.before[0]; }), seen);
+    check("sudoku: the hand's 1 stands on a foot (its bottom three times its stem or more), so it can't pass for its 7 (the 1's bottom twice the 7's or more); laptop and phone",
+      ["laptop", "phone"].every((k) => { const { one, seven } = seen[k]; return one && seven && one.h > 10 && one.bottom >= one.stem * 3 && one.bottom >= seven.bottom * 2; }), seen);
   }
 
   // ---- a wide window: nothing to scroll to. The levels, New puzzle, the

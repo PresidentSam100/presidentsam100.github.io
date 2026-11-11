@@ -252,6 +252,25 @@ body {
 .box .c:not(.given):nth-child(3n + 1) .v { transform: rotate(-4deg); }
 .box .c:not(.given):nth-child(3n + 2) .v { transform: rotate(2deg) translateY(1px); }
 .box .c:not(.given):nth-child(4n) .v { transform: rotate(-1deg) translateX(1px); }
+/* the hand's 1 stands on a foot: the script's own is a long flag and a
+   stem, too like its 7 at a glance (the printed 1 has a foot already). Laid
+   under the end of the stem by what the font draws (game.js, measureFoot):
+   --pen-* for your digits, --pad-* for the pad's pencil, --pencil-* for notes */
+.c:not(.given) .v.one::after, .notes .one::after, .pad.notes-on .key .one::after {
+  content: "";
+  display: inline-block;
+  vertical-align: var(--foot-y);
+  width: var(--foot-w);
+  height: var(--foot-h);
+  margin-left: var(--foot-dx);
+  margin-right: calc(-1 * (var(--foot-dx) + var(--foot-w)));
+  border-radius: 0.04em;
+  background: currentColor;
+  transform: rotate(-3deg);
+}
+.c:not(.given) .v.one { --foot-dx: var(--pen-dx, 0); --foot-y: var(--pen-y, 0); --foot-w: var(--pen-w, 0); --foot-h: var(--pen-h, 0); }
+.pad.notes-on .key .one { --foot-dx: var(--pad-dx, 0); --foot-y: var(--pad-y, 0); --foot-w: var(--pad-w, 0); --foot-h: var(--pad-h, 0); }
+.notes .one { --foot-dx: var(--pencil-dx, 0); --foot-y: var(--pencil-y, 0); --foot-w: var(--pencil-w, 0); --foot-h: var(--pencil-h, 0); }
 .c.given {
   color: var(--ink);
   font-family: var(--serif);
