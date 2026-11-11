@@ -597,7 +597,11 @@
       el.style.height = (TH - 2) + "px";
       el.style.left = (p[0] * TW / 2 + p[2] * zOff) + "px";
       el.style.top = (p[1] * TH / 2 - p[2] * zOff + 4) + "px";
-      el.style.zIndex = p[2] * 1000 + p[0] + p[1];
+      // a higher layer over a lower; on one layer, the nearer tile over the
+      // farther: the one lower down, and of two side by side the left one, as
+      // a tile's side and its shadow fall to its left and below and must go
+      // under the tile there, not over its face (else that face looks lower)
+      el.style.zIndex = p[2] * 1000 + 100 + p[1] - p[0];
       el.style.backgroundImage = "url(" + FACES[kinds[i]] + "), linear-gradient(160deg, #fdf9ee, #f8f2e2 55%, #ece2cb)";
     });
     refreshFreedom();

@@ -22,6 +22,8 @@
 // of it. The end card comes up once the last pair has gone (its flight, or
 // its fade with FX off).
 // The HUD keeps clear of the corner buttons at every window width.
+// Tiles on one layer lie level, and none's side or shadow is drawn over the
+// face of the tile beside it.
 const HOOK = ["    toMenu: toMenu\n  };\n})();", `    toMenu: toMenu,
     pos: function () { return pos; },
     setLive: function (a, k) { live = new Set(a); if (k) a.forEach(function (i, j) { kinds[i] = k[j]; }); undoStack = [[0, 1]]; selected = -1; buildBoard(); hud(); },
@@ -759,4 +761,65 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("mahjong: on a touch-only phone every keycap is hidden, on the menu, the HUD and the end card", hidden(onMenu) && hidden(inPlay) && hidden(onCard), { onMenu, inPlay, onCard });
   await done(p, "touch keycaps");
   await ctx.close();
+
+  // ---- tiles on one layer lie level: side by side, their tops on one line,
+  // one over the other, their left edges; and no tile's side or shadow is
+  // drawn over a face beside it on its layer (a tile's right neighbour used to
+  // paint its side and shadow over that tile's right edge, so each looked a
+  // step lower than the next). Read from the picture, the faces made plain:
+  // every face clear of a higher layer's reach is one even ivory to within 3
+  // px of each edge. Laptop (Turtle, Fortress) and phone (with FX off).
+  {
+    const seen = [];
+    for (const [dev, opts, off] of [["laptop", {}, false], ["Pixel 7", require("@playwright/test").devices["Pixel 7"], true]]) {
+      const c = await lib.newContext(browser, opts);
+      for (const li of [0, 1]) {
+        const q = await open(c, false, [], off);
+        await q.click("#pick-layout .lt >> nth=" + li);
+        await q.evaluate(() => Mahjong.start("classic"));
+        await q.addStyleTag({ content: "button.tile { background-image: none !important; background-color: #f8f2e2 !important; filter: none !important; }" });
+        await q.waitForTimeout(150);
+        const g = await q.evaluate(() => {
+          const pos = Mahjong.pos(), tiles = [];
+          pos.forEach((t, i) => { const r = Mahjong.tileRect(i); if (r) tiles.push({ x: t[0], y: t[1], z: t[2], l: r.left, t: r.top, r: r.right, b: r.bottom }); });
+          let beside = 0, under = 0, off = 0;
+          for (const a of tiles) for (const b of tiles) {
+            if (a.z !== b.z) continue;
+            if (b.x === a.x + 2 && b.y === a.y) { beside++; if (Math.abs(a.t - b.t) > 0.01) off++; }
+            if (b.y === a.y + 2 && b.x === a.x) { under++; if (Math.abs(a.l - b.l) > 0.01) off++; }
+          }
+          const br = document.getElementById("board").getBoundingClientRect();
+          return { tiles, beside, under, off, board: { l: br.left, t: br.top, r: br.right, b: br.bottom }, w: innerWidth, h: innerHeight, dpr: devicePixelRatio, layout: Mahjong.layout() };
+        });
+        const clip = { x: Math.max(0, Math.floor(g.board.l - 20)), y: Math.max(0, Math.floor(g.board.t - 20)) };
+        clip.width = Math.min(g.w, Math.ceil(g.board.r + 20)) - clip.x; clip.height = Math.min(g.h, Math.ceil(g.board.b + 20)) - clip.y;
+        const png = (await q.screenshot({ clip })).toString("base64");
+        const faces = await q.evaluate(async ({ png, g, clip }) => {
+          const img = new Image(); img.src = "data:image/png;base64," + png; await img.decode();
+          const cv = document.createElement("canvas"); cv.width = img.width; cv.height = img.height;
+          const x = cv.getContext("2d"); x.drawImage(img, 0, 0);
+          const d = x.getImageData(0, 0, cv.width, cv.height).data, W = cv.width;
+          const lum = (px, py) => { const n = (Math.round((py - clip.y) * g.dpr) * W + Math.round((px - clip.x) * g.dpr)) * 4; return 0.3 * d[n] + 0.59 * d[n + 1] + 0.11 * d[n + 2]; };
+          // (a higher tile's side and shadow reach 12 px to its left and 15 below it)
+          const clear = g.tiles.filter((a) => !g.tiles.some((o) => o.z > a.z && o.l - 12 < a.r && a.l < o.r && o.t < a.b && a.t < o.b + 15));
+          let worst = 0, at = null;
+          clear.forEach((a) => {
+            const mx = (a.l + a.r) / 2, my = (a.t + a.b) / 2, mid = lum(mx, my);
+            [[a.r - 3, my], [a.l + 3, my], [mx, a.t + 3], [mx, a.b - 3], [a.r - 3, a.t + 3], [a.r - 3, a.b - 3], [a.l + 3, a.t + 3], [a.l + 3, a.b - 3]].forEach(([px, py]) => {
+              const dk = mid - lum(px, py);
+              if (dk > worst) { worst = dk; at = { gx: a.x, gy: a.y, z: a.z, dx: Math.round(px - a.l), dy: Math.round(py - a.t) }; }
+            });
+          });
+          return { faces: clear.length, worst: +worst.toFixed(1), at };
+        }, { png, g, clip });
+        seen.push(Object.assign({ dev, layout: g.layout, beside: g.beside, under: g.under, off: g.off }, faces));
+        await done(q, "level tiles " + dev + " " + g.layout);
+      }
+      await c.close();
+    }
+    check("mahjong: tiles on one layer lie level (side by side, tops on one line; one over the other, left edges on one line), laptop and phone",
+      seen.length === 4 && seen.every((s) => s.beside > 100 && s.under > 80 && s.off === 0), seen.map((s) => ({ dev: s.dev, layout: s.layout, beside: s.beside, under: s.under, off: s.off })));
+    check("mahjong: no tile's side or shadow is drawn over the face of the tile beside it or below it on its layer: each face is even to its edges (Turtle and Fortress, laptop and phone)",
+      seen.every((s) => s.faces >= 10 && s.worst <= 6), seen);
+  }
 };
