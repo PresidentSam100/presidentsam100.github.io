@@ -93,7 +93,43 @@
     elHand = $("sw-hand"); elWedge = $("sw-wedge");
   })();
   function setHand(sec) { elHand.setAttribute("transform", "rotate(" + (sec * 36) + " 100 100)"); }
-  function setWedge(sec) { elWedge.setAttribute("transform", "rotate(" + (sec * 36) + " 100 100)"); }
+
+  // ---- the gold mark: with Visual FX on, a new round's mark travels round
+  // the dial to its second, the shorter way (a half turn goes clockwise),
+  // and settles into place with a touch of overshoot, like a bezel clicking
+  // into its detent: MARK_T s for a half turn, less for a short way. Whatever
+  // needs the mark settled lands it at once: START, the pause card, a new
+  // mark, Visual FX turned off. With Visual FX off it is there at once.
+  var MARK_T = 0.42;
+  var mark = { at: 0, to: 0, from: 0, d: 0, dur: 0, el: 0, last: 0, raf: 0 };
+  function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+  function turnWedge(deg) { elWedge.setAttribute("transform", "rotate(" + deg + " 100 100)"); }
+  function settle(k) { var c = 0.8, x = k - 1; return 1 + (c + 1) * x * x * x + c * x * x; }   // (eases out, 2% past and back)
+  function landMark() {
+    if (!mark.raf) return;
+    cancelAnimationFrame(mark.raf); mark.raf = 0;
+    mark.at = mark.to; turnWedge(mark.to);
+  }
+  function glideMark() {
+    var now = performance.now();
+    mark.el += Math.max(0, now - mark.last) / 1000; mark.last = now;
+    var k = mark.el / mark.dur;
+    if (k >= 1 || !fxOn()) { landMark(); return; }
+    mark.at = mark.from + mark.d * settle(k);
+    turnWedge(mark.at);
+    mark.raf = requestAnimationFrame(glideMark);
+  }
+  function setWedge(sec) {
+    landMark();
+    var to = sec * 36, d = ((to - mark.at) % 360 + 540) % 360 - 180;
+    if (d <= -180) d = 180;
+    mark.to = to;
+    if (!fxOn() || Math.abs(d) < 0.5) { mark.at = to; turnWedge(to); return; }
+    mark.from = mark.at; mark.d = d; mark.el = 0; mark.last = performance.now();
+    mark.dur = MARK_T * (0.7 + 0.3 * Math.abs(d) / 180);
+    mark.raf = requestAnimationFrame(glideMark);
+  }
+
 
   // ---- state ----
   var state = "menu";       // menu | counting | result | gameover (ready handled inline)
@@ -237,6 +273,7 @@
 
   function onStart() {
     if (!ready || busy) return;
+    landMark();   // (a mark still on its way is on its second as the sweep starts)
     ready = false; state = "counting";
     startStamp = performance.now();
     elBtn.className = "btn-main stop counting"; elBtn.textContent = "STOP";
@@ -403,7 +440,9 @@
     canPause: function () { return state === "ready" && !busted; },
     auto: false, hold: true,
     restart: beginGame,
-    menu: showStartCard
+    menu: showStartCard,
+    // (the mark is on its second under the card)
+    onChange: function (paused) { if (paused) landMark(); }
   }) : null;
 
   // Leaving asks first while a run is under way: from the first sweep set

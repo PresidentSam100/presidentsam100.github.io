@@ -93,4 +93,86 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  const FX = (off) => (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:stopwatch", off ? "1" : "0"); } catch (e) {} }, off);
+
+  // ---- the gold mark: FX on, a new round's mark travels round the dial the
+  // shorter way (a half turn clockwise) and settles on its second; START or
+  // the pause card mid-way puts it there at once. FX off, it's there at once.
+  // (A stepped clock: performance.now and the frames move only as the test
+  // steps them, 1/60 s at a time, so a busy machine can't skip the glide.)
+  {
+    const STEPPED = () => {
+      let t = 1000, q = [];
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.cancelAnimationFrame = () => { q = []; };
+      window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+    };
+    const HOOK = ["  function onStart() {", "  window.__sw = { stopOff: function (err) { onStart(); startStamp = performance.now() - (target + err) * 1000; onStop(); } };\n  function onStart() {"];
+    const { devices } = require("@playwright/test");
+    for (const [label, opts] of [["laptop", {}], ["phone", devices["Pixel 7"]]]) {
+      const got = {};
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opts);
+        const q = await lib.open(c, base, "games/stopwatch/", { before: async (pg) => {
+          await RANDOM(pg); await pg.addInitScript(STEPPED); await FX(off)(pg);
+          await lib.injectScript(pg, "games/stopwatch/game.js", [HOOK]);
+        } });
+        // the angle the mark is drawn at, frame by frame
+        const watch = (n) => q.evaluate((n) => {
+          const w = document.getElementById("sw-wedge"), at = () => { const m = /rotate\(([-\d.e]+)/.exec(w.getAttribute("transform") || "rotate(0"); return +(+m[1]).toFixed(2); };
+          const out = [at()];
+          for (let i = 0; i < n; i++) { __frames(1); out.push(at()); }
+          return out;
+        }, n);
+        // the next round (its mark from the queue), after a sweep stopped 0.1 s out
+        const next = async (r) => {
+          await q.evaluate((r) => { window.__rand = [r]; __sw.stopOff(0.1); }, r);
+          await q.waitForFunction(() => document.querySelector(".stage").dataset.phase === "ready", null, { timeout: 8000, polling: 50 });
+        };
+        const r = {};
+        await q.evaluate(() => { window.__rand = [0.35]; });   // 4s
+        await q.click("#btn-start");
+        r.to4 = await watch(40);          // from the 10 at the top: 0 to 144
+        await next(0.85); r.to9 = await watch(40);   // 4 to 9, a half turn: 144 to 324
+        await next(0.65); r.to7 = await watch(40);   // 9 to 7, back the short way: 324 to 252
+        if (!off) {
+          // START five frames in: the mark is on its second as the sweep starts
+          await next(0.15);               // 7 to 2: 252 to 72 (a half turn, clockwise)
+          r.startMid = await watch(5);
+          await q.keyboard.press("Space");
+          r.started = { at: (await watch(20)), phase: await q.evaluate(() => document.querySelector(".stage").dataset.phase) };
+          // the pause card five frames in: the same
+          await next(0.45);               // 2 to 5: 72 to 180
+          r.pauseMid = await watch(5);
+          await q.keyboard.press("p");
+          await q.waitForFunction(() => document.documentElement.classList.contains("sw-paused"), null, { timeout: 8000, polling: 50 }).catch(() => {});
+          r.paused = await watch(20);
+        }
+        r.errs = q.errs;
+        got[off ? "off" : "on"] = r;
+        await q.close(); await c.close();
+      }
+      const on = got.on, offR = got.off;
+      // a glide from a to b (b - a the way it turns): starts at a, moves on
+      // within the way plus a little overshoot (no more than 3%), ends on the
+      // second (its angle as the dial knows it, 0 to 360)
+      const glide = (xs, a, d, end) => {
+        const lo = Math.min(a, a + d) - Math.abs(d) * 0.03, hi = Math.max(a, a + d) + Math.abs(d) * 0.03;
+        const mid = xs.filter((x) => Math.abs(x - a) > 0.5 && Math.abs(x - (a + d)) > 0.5 && x !== end);
+        return xs[0] === a && xs[xs.length - 1] === end && mid.length >= 8 && xs.slice(0, -1).every((x) => x >= lo && x <= hi);
+      };
+      check("stopwatch (" + label + "), FX on: a new mark travels round the dial to its second, the shorter way (10 to 4 clockwise, 9 to 7 back), a half turn clockwise (4 to 9)",
+        glide(on.to4, 0, 144, 144) && glide(on.to9, 144, 180, 324) && glide(on.to7, 324, -72, 252), { to4: on.to4, to9: on.to9, to7: on.to7 });
+      check("stopwatch (" + label + "), FX on: START or the pause card mid-way puts the mark on its second at once",
+        on.startMid.slice(1).some((x) => x > 252.5 && x < 432) && on.started.at.every((x) => x === 72) && on.started.phase === "baking" &&
+        on.pauseMid.slice(1).some((x) => x > 72.5 && x < 180) && on.paused.every((x) => x === 180),
+        { startMid: on.startMid, started: on.started, pauseMid: on.pauseMid, paused: on.paused });
+      check("stopwatch (" + label + "), FX off: each new mark is on its second at once",
+        [[offR.to4, 144], [offR.to9, 324], [offR.to7, 252]].every(([xs, b]) => xs.every((x) => x === b)), { to4: offR.to4, to9: offR.to9, to7: offR.to7 });
+      check("stopwatch (" + label + "): no page errors (the mark)", on.errs.length === 0 && offR.errs.length === 0, [on.errs, offR.errs]);
+    }
+  }
+
 };

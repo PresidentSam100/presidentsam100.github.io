@@ -70,7 +70,10 @@ Done (checked in `tests/fx-more.js`):
   boss or your ship, a small one for the rest.
 - Typetwo. A spell bolt flies with a long glowing trail and sheds motes.
 - Stopwatch. A perfect stop (within 0.05s) sends a gold ring out from the watch
-  and a scatter of glints; a merely good stop doesn't.
+  and a scatter of glints; a merely good stop doesn't. A new round's gold mark
+  travels round the dial to its second (the shorter way, a half turn
+  clockwise) and settles with a touch of overshoot; FX off, it's there at
+  once. Covered by `tests/stopwatch.js`.
 - Steamfitter. A turned pipe eases its quarter-turn into place with a touch of
   overshoot (the board has already turned it: the eased turn is only drawn).
 - Hash. The deal turns each card face up from edge-on, one after another, 20ms
