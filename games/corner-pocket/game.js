@@ -633,10 +633,11 @@
   function endShot() {
     var res = Ru.resolve(G.st, G.before, G.world.ev, G.shotCall);
     var o = res.out, me = o.shooter, st = res.st;
-    // balls down on the break set no groups (the standard rules): the table
-    // stays open, said so it doesn't look like the groups went astray
-    var stillOpen = G.st.isBreak && !o.foul && o.potted.length > 0;
-    if (o.respot8) { P.spotBall(G.balls, 8); if (!stillOpen) toast("The 8 went down on the break: respotted", "info"); }
+    // balls down on a clean break: the group with more down is the breaker's,
+    // the count said with it; an even count leaves the table open, said so
+    // it doesn't look like the groups went astray
+    var brk = G.st.isBreak && !o.foul && o.potted.length > 0, stillOpen = brk && !o.assigned;
+    if (o.respot8) { P.spotBall(G.balls, 8); if (!brk) toast("The 8 went down on the break: respotted", "info"); }
     if (o.cueIn) { cue().on = false; }
     G.st = st;
     if (o.winner >= 0) { gameOver(o); return; }
@@ -647,9 +648,13 @@
       toast("Foul: " + FOUL[o.foul] + ", " + (yours ? "your ball in hand" + where : "ball in hand" + where + ", " + nameOf(st.turn)), "bad");
     } else if (o.assigned) {
       var g = o.assigned === "solid" ? "solids" : "stripes";
-      toast(G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g + "!" : "CPU takes " + g, "good");
+      if (brk) {
+        var c = o.breakCount, hi = Math.max(c.solid, c.stripe), lo = Math.min(c.solid, c.stripe);
+        toast((o.respot8 ? "The 8 is respotted. " : "") + (G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g : "CPU takes " + g) +
+          ", " + hi + " to " + lo + " on the break", "good");
+      } else toast(G.mode === "2p" ? nameOf(me) + " takes " + g : me === 0 ? "You're " + g + "!" : "CPU takes " + g, "good");
     } else if (stillOpen) {
-      toast((o.respot8 ? "The 8 is respotted. " : "") + "Table still open: the next ball potted sets the groups", "info");
+      toast((o.respot8 ? "The 8 is respotted. " : "") + "Even break, table open: next ball potted sets the groups", "info");
     } else if (st.turn !== me) {
       toast(yours ? "Your turn" : nameOf(st.turn) + "'s turn", "info");
     }

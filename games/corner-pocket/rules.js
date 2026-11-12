@@ -2,8 +2,12 @@
    happened during it, work out fouls, groups, whose turn it is and whether
    the game is over. The shape is the one mobile 8-ball players know:
 
-   - break from behind the head string; the table stays open after the break
-   - the first ball legally potted after the break sets your group
+   - break from behind the head string; balls down on a clean break set the
+     breaker's group when one group has more down than the other (a common
+     house rule: the WPA rule leaves the table open); an even count, or a
+     foul, leaves it open
+   - on an open table after the break, the first ball legally potted sets
+     your group
    - fouls (scratch, no ball hit, wrong ball first, no rail after contact)
      give the other player ball in hand anywhere; until your group is gone
      the 8 is a wrong ball to hit first. A scratch on the break is the one
@@ -16,8 +20,8 @@
      wrong pocket loses; the 8 on the break is neither a win nor a loss: it
      comes back to the foot spot and the breaker plays on (or, with a scratch,
      the other player comes to the table)
-   The break follows the world-standardised rules (WPA), less the option of
-   racking again. */
+   Otherwise the break follows the world-standardised rules (WPA), less the
+   option of racking again. */
 (function (root) {
   "use strict";
 
@@ -101,7 +105,22 @@
       }
     }
 
-    // the first ball to drop after the break decides the groups
+    // balls down on a clean break: more of one group than the other makes it
+    // the breaker's (the common house rule; the WPA rule leaves the table
+    // open whatever drops); an even count leaves the table open
+    if (!out.foul && s.isBreak && obj.length) {
+      var ns = 0;
+      for (var j = 0; j < obj.length; j++) if (groupOf(obj[j]) === "solid") ns++;
+      var nt = obj.length - ns;
+      out.breakCount = { solid: ns, stripe: nt };
+      if (ns !== nt) {
+        var gb = ns > nt ? "solid" : "stripe";
+        s.groups[me] = gb; s.groups[opp] = other(gb); s.open = false;
+        out.assigned = gb;
+      }
+    }
+
+    // after the break, the first ball to drop on an open table decides the groups
     if (!out.foul && s.open && !s.isBreak && obj.length) {
       var g = groupOf(obj[0]);
       s.groups[me] = g; s.groups[opp] = other(g); s.open = false;

@@ -8,8 +8,10 @@
 // by a pause or a cancelled touch lands on a free spot, and no shot goes while
 // it sits on another ball; losing on the 8 names the foul; with Visual FX off
 // the ball-in-hand ring and the called pocket hold still. The break follows
-// the standard rules: the 8 on the break is respotted and the breaker plays
-// on, and a scratch on the break is ball in hand behind the head string.
+// the standard rules (the 8 on the break is respotted and the breaker plays
+// on, and a scratch on the break is ball in hand behind the head string),
+// but for one house rule: more of one group down on a clean break sets the
+// breaker's group.
 // A slow load's out-of-order first frame doesn't step the clock back.
 const HOOK = ["    shoot: function (a, p, tx, ty) {", `    endShot: function () { endShot(); },
     shoot: function (a, p, tx, ty) {`];
@@ -513,27 +515,59 @@ module.exports = async ({ browser, base, check, lib }) => {
     pots.every((s) => s.got === s.want), pots);
   await done(p, "pockets take balls");
 
-  // ---- the groups follow the standard rules, and the table says so: balls
-  // potted on the break set nothing (the table stays open, a toast says the
-  // next ball potted decides); the next stripe potted makes you stripes
+  // ---- the groups on the break: more of one group down on a clean break
+  // makes it the breaker's (a common house rule; the WPA rule leaves the
+  // table open), said with the count; an even count leaves the table open, a
+  // toast says the next ball potted decides, and the next stripe potted then
+  // makes you stripes; a foul on the break sets nothing
+  {
+    const brkG = await (async () => {
+      const q = await open();
+      const r = await q.evaluate(() => {
+        const Ru = PoolRules, balls = []; for (let i = 0; i <= 15; i++) balls.push({ id: i, on: true });
+        const r = (ids, breaker) => {
+          const st = Ru.newGame(breaker || 0), pocketed = ids.map((id, k) => ({ id, pocket: k % 6 }));
+          const x = Ru.resolve(st, balls, { firstHit: 1, railAfter: true, firstBehind: false, pocketed }, -1);
+          return { groups: x.st.groups.slice(), open: x.st.open, turn: x.st.turn, assigned: x.out.assigned, foul: x.out.foul };
+        };
+        return {
+          s2t1: r([1, 2, 9]), s0t2: r([10, 12]), s1: r([5]), s3t2: r([1, 2, 3, 9, 10], 1),
+          even: r([4, 13]), none: r([]), eightS: r([8, 6]), eightEven: r([8, 6, 14]), scratch: r([1, 2, 0]),
+        };
+      });
+      await done(q, "groups on the break (rules)");
+      return r;
+    })();
+    const set = (x, me, g) => x.assigned === g && !x.open && x.groups[me] === g && x.groups[1 - me] === (g === "solid" ? "stripe" : "solid") && x.turn === me && !x.foul;
+    const open_ = (x, turn) => !x.assigned && x.open && x.groups[0] === null && x.groups[1] === null && x.turn === turn;
+    check("corner-pocket: more of one group down on a clean break makes it the breaker's (2 solids to 1 stripe, 2 stripes to none, 1 solid alone, the CPU breaking 3 to 2), and the breaker plays on",
+      set(brkG.s2t1, 0, "solid") && set(brkG.s0t2, 0, "stripe") && set(brkG.s1, 0, "solid") && set(brkG.s3t2, 1, "solid"), brkG);
+    check("corner-pocket: an even count on the break (1 and 1, or none) leaves the table open; the 8 down with one solid sets solids (the 8 respotted), with one of each, open",
+      open_(brkG.even, 0) && open_(brkG.none, 1) && set(brkG.eightS, 0, "solid") && open_(brkG.eightEven, 0), brkG);
+    check("corner-pocket: a scratch on the break sets no group, whatever went down with it",
+      open_(brkG.scratch, 1) && brkG.scratch.foul === "scratch", brkG.scratch);
+  }
   p = await open();
   await start(p, "you");
   const open8 = await p.evaluate(() => {
     const G = __pool.G, P = PoolPhysics, Ru = PoolRules;
     const last = () => (G.toasts[G.toasts.length - 1] || {}).text || "";
+    const shot = (ev) => { G.phase = "aim"; G.before = P.cloneBalls(G.balls); G.shotCall = -1; G.world = { ev: Object.assign({ railAfter: true, firstBehind: false, crossed: true }, ev), sfx: [] }; __pool.endShot(); };
+    // a break with two solids and a stripe down
     G.st = Ru.newGame(0); G.st.inHand = null;
-    G.before = P.cloneBalls(G.balls); G.shotCall = -1;
-    G.world = { ev: { firstHit: 1, railAfter: true, firstBehind: false, crossed: true, pocketed: [{ id: 3, pocket: 0 }] }, sfx: [] };
-    __pool.endShot();
+    shot({ firstHit: 1, pocketed: [{ id: 3, pocket: 0 }, { id: 5, pocket: 1 }, { id: 12, pocket: 4 }] });
+    const won = { toast: last(), groups: G.st.groups.slice(), open: G.st.open, turn: G.st.turn };
+    // a break with one of each down, then a stripe potted
+    G.st = Ru.newGame(0); G.st.inHand = null; G.toasts = [];
+    shot({ firstHit: 1, pocketed: [{ id: 3, pocket: 0 }, { id: 12, pocket: 4 }] });
     const afterBreak = { toast: last(), groups: G.st.groups.slice(), open: G.st.open, turn: G.st.turn };
-    G.phase = "aim";
-    G.before = P.cloneBalls(G.balls);
-    G.world = { ev: { firstHit: 11, railAfter: true, firstBehind: false, crossed: true, pocketed: [{ id: 11, pocket: 2 }] }, sfx: [] };
-    __pool.endShot();
-    return { afterBreak, next: { toast: last(), groups: G.st.groups.slice(), open: G.st.open } };
+    shot({ firstHit: 11, pocketed: [{ id: 11, pocket: 2 }] });
+    return { won, afterBreak, next: { toast: last(), groups: G.st.groups.slice(), open: G.st.open } };
   });
-  check("corner-pocket: a solid potted on the break leaves the table open, and a toast says the next ball potted sets the groups; the next potted stripe makes you stripes",
-    /Table still open/.test(open8.afterBreak.toast) && /next ball potted sets the groups/.test(open8.afterBreak.toast) &&
+  check("corner-pocket: two solids and a stripe down on the break: a toast says you're solids, 2 to 1 on the break, and you play on",
+    /^You're solids, 2 to 1 on the break$/.test(open8.won.toast) && open8.won.groups[0] === "solid" && open8.won.groups[1] === "stripe" && !open8.won.open && open8.won.turn === 0, open8.won);
+  check("corner-pocket: one of each down on the break leaves the table open, and a toast says so (an even break) and that the next ball potted sets the groups; the next potted stripe makes you stripes",
+    /Even break, table open/.test(open8.afterBreak.toast) && /next ball potted sets the groups/.test(open8.afterBreak.toast) &&
       open8.afterBreak.groups[0] === null && open8.afterBreak.groups[1] === null && open8.afterBreak.open && open8.afterBreak.turn === 0 &&
       /You're stripes!/.test(open8.next.toast) && open8.next.groups[0] === "stripe" && open8.next.groups[1] === "solid" && !open8.next.open, open8);
   await done(p, "open table after the break");
@@ -543,6 +577,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const how8 = await p.evaluate(() => document.querySelector(".how ul").textContent.replace(/\s+/g, " "));
   check("corner-pocket: How to play says the 8 can't be hit first early, sinking it early or with the cue ball loses, a pocket must be called, and Shift fine-aims",
     /8 first/.test(how8) && /too early|before your group/.test(how8) && /cue ball/.test(how8.slice(how8.indexOf("Cleared"))) && /must call/.test(how8) && /Shift/.test(how8), how8);
+  check("corner-pocket: How to play says more solids than stripes down on a clean break makes the breaker solids, and an even count leaves the table open",
+    /more solids than stripes go down on a clean break, the breaker is solids/.test(how8) && /even count leaves the table open/.test(how8), how8);
   await done(p, "how to play rules");
 
   await ctx.close();
