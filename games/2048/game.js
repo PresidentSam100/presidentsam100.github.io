@@ -133,14 +133,16 @@
     a.onfinish = a.oncancel = function () { if (s.parentNode) s.parentNode.removeChild(s); };
   }
 
-  // The points a big merge adds (a key of POP_FROM or more: the small ones
-  // come nearly every move, and the score shows those), on the key it made:
-  // "+N" pops on the key as it's revealed and fades. With Visual FX on it rises off the key as it
-  // fades; with it off the same number, in the same place, for the same
-  // time, only fading. Each merged key gets its own (a second one on the
-  // same key while the first still shows sits a little lower), and a pause
-  // holds them where they are.
-  var POP_MS = 850, POP_FROM = 128;
+  // The points every merge adds, on the key it made: "+N" pops on the key as
+  // it's revealed and fades. The small ones come nearly every move, so they
+  // are set smaller: the size grows with the key, from 0.6 of full for a 4
+  // to full from POP_FULL up (popScale), and never under 10 px. With Visual
+  // FX on it rises off the key as it fades; with it off the same number, in
+  // the same place, for the same time, only fading. Each merged key gets its
+  // own (a second one on the same key while the first still shows sits a
+  // little lower), and a pause holds them where they are.
+  var POP_MS = 850, POP_FULL = 128;
+  function popScale(v) { return 0.6 + 0.4 * Math.max(0, Math.min(1, (Math.log2(v) - 2) / (Math.log2(POP_FULL) - 2))); }
   var popsEl = document.createElement("div");
   popsEl.className = "pops";
   popsEl.setAttribute("aria-hidden", "true");
@@ -156,7 +158,7 @@
     s.textContent = "+" + t.val;
     s.style.left = (t.c * step + cellSize / 2) + "px";
     s.style.top = (t.r * step + cellSize * (0.32 + 0.3 * below)) + "px";
-    s.style.fontSize = Math.max(14, Math.round(cellSize * 0.27)) + "px";
+    s.style.fontSize = Math.max(10, Math.round(Math.max(14, cellSize * 0.27) * popScale(t.val))) + "px";
     popsEl.appendChild(s);
     var rise = fxOn() ? -Math.round(cellSize * 0.4) : 0, at = "translate(-50%, -50%) ";
     var a = s.animate([
@@ -289,7 +291,7 @@
         m.el.style.zIndex = "3";
         m.inner.classList.add("pop", "is-merged");
         if (fxOn() && lastVec) mergeFx(m, lastVec);
-        if (m.val >= POP_FROM) pointsPop(m);
+        pointsPop(m);
       }
     }
     pendingMerges = [];
