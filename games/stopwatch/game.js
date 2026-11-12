@@ -130,6 +130,40 @@
     mark.raf = requestAnimationFrame(glideMark);
   }
 
+  // ---- the velvet, behind the page: a soft sheen across the nap and specks
+  // of gold dust in the lamplight. With Visual FX on the sheen wanders over
+  // the cloth and the dust drifts; with it off, the same velvet and dust
+  // hold still. Each speck takes its own winding way over a long, eased
+  // spell (12 to 24 s, each its own), and nothing pulses or ticks, so the
+  // velvet keeps no beat a blind count could lean on. It moves only by
+  // transform and opacity on a layer of its own (styles.css .velvet), so it
+  // never costs the page a layout while the watch is timing a press.
+  (function buildVelvet() {
+    var v = document.createElement("div"), s = '<i class="sheen a"></i><i class="sheen b"></i>';
+    v.className = "velvet"; v.setAttribute("aria-hidden", "true");
+    var n = Math.max(18, Math.min(46, Math.round(innerWidth * innerHeight / 16000)));
+    function sign() { return Math.random() < 0.5 ? -1 : 1; }
+    for (var i = 0; i < n; i++) {
+      // (most of it in the lamplight over the watch, a little out on the cloth)
+      var u = (i * 0.618034 + Math.random() * 0.25) % 1, w = (i * 0.414214 + Math.random() * 0.25) % 1;
+      var x = 0.5 + (u - 0.5) * (i % 3 ? 0.62 : 1), y = i % 3 ? 0.06 + w * 0.62 : w;
+      var near = Math.max(0, 1 - Math.hypot((x - 0.5) * 1.5, y - 0.3) / 0.75);
+      // three legs of 50 to 110 px, each turning 60 to 130 degrees from the
+      // last (so a speck never stalls on a short leg or doubles straight back)
+      var dur = 12 + Math.random() * 12, th = Math.random() * 2 * Math.PI, px = 0, py = 0, legs = "";
+      for (var k = 0; k < 3; k++) {
+        var len = 50 + Math.random() * 60;
+        px += Math.cos(th) * len; py += Math.sin(th) * len;
+        legs += "--" + "abc"[k] + "x:" + Math.round(px) + "px;--" + "abc"[k] + "y:" + Math.round(py) + "px;";
+        th += sign() * (60 + Math.random() * 70) * Math.PI / 180;
+      }
+      s += '<i class="mote" style="left:' + (x * 100).toFixed(2) + "%;top:" + (y * 100).toFixed(2) + "%;" +
+        "--w:" + (2.4 + Math.random() * 3.2).toFixed(1) + "px;--o:" + (0.3 + 0.55 * near).toFixed(2) + ";" + legs +
+        "animation-duration:" + dur.toFixed(2) + "s;animation-delay:" + (-Math.random() * dur).toFixed(2) + 's"></i>';
+    }
+    v.innerHTML = s;
+    document.body.insertBefore(v, document.body.firstChild);
+  })();
 
   // ---- state ----
   var state = "menu";       // menu | counting | result | gameover (ready handled inline)
@@ -441,8 +475,8 @@
     auto: false, hold: true,
     restart: beginGame,
     menu: showStartCard,
-    // (the mark is on its second under the card)
-    onChange: function (paused) { if (paused) landMark(); }
+    // (the velvet holds still under the card, and the mark is on its second)
+    onChange: function (paused) { document.documentElement.classList.toggle("sw-paused", paused); if (paused) landMark(); }
   }) : null;
 
   // Leaving asks first while a run is under way: from the first sweep set

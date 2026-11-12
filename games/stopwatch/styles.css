@@ -37,6 +37,37 @@ body {
   overflow-x: hidden;
 }
 
+/* the velvet's sheen and gold dust (game.js buildVelvet): a fixed layer
+   behind the page, moving only by transform and opacity. Visual FX off, the
+   same sheen and dust held still where they lie */
+.velvet { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.velvet .sheen { position: absolute; top: 0; bottom: 0; left: -60%; right: -60%; }
+.velvet .sheen.a { background: linear-gradient(112deg, transparent 34%, rgba(140, 168, 255, 0.07) 44%, rgba(170, 192, 255, 0.11) 50%, rgba(140, 168, 255, 0.07) 56%, transparent 66%); }
+.velvet .sheen.b { background: linear-gradient(68deg, transparent 30%, rgba(232, 207, 150, 0.035) 44%, rgba(232, 207, 150, 0.055) 50%, rgba(232, 207, 150, 0.035) 56%, transparent 70%); transform: translateX(-12%); }
+/* a speck of dust: soft-edged and warm, a glow round it (not a sharp star) */
+.velvet .mote {
+  position: absolute; width: var(--w); height: var(--w); margin: calc(var(--w) / -2);
+  border-radius: 50%; opacity: var(--o);
+  background: radial-gradient(circle, rgba(255, 238, 196, 0.95) 0, rgba(236, 200, 128, 0.6) 40%, rgba(236, 200, 128, 0) 70%);
+  box-shadow: 0 0 calc(var(--w) * 2) calc(var(--w) * 0.4) rgba(232, 190, 110, 0.28);
+}
+html.fx-on .velvet .sheen.a { animation: swSheenA 31s ease-in-out -9s infinite alternate; }
+html.fx-on .velvet .sheen.b { animation: swSheenB 43s ease-in-out -27s infinite alternate; }
+html.fx-on .velvet .mote { animation-name: swMote; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+html.sw-paused .velvet * { animation-play-state: paused !important; }
+@keyframes swSheenA { from { transform: translateX(-24%); } to { transform: translateX(24%); } }
+@keyframes swSheenB { from { transform: translateX(20%); } to { transform: translateX(-20%); } }
+/* a speck fades in where it rests, wanders three legs, and fades out again
+   (so its start over is never seen) */
+@keyframes swMote {
+  0% { transform: translate(0, 0); opacity: 0; }
+  14% { opacity: var(--o); }
+  36% { transform: translate(var(--ax), var(--ay)); }
+  64% { transform: translate(var(--bx), var(--by)); }
+  86% { opacity: var(--o); }
+  100% { transform: translate(var(--cx), var(--cy)); opacity: 0; }
+}
+
 .nav-back-games {
   position: fixed; top: 14px; left: 16px; z-index: 99999;
   font: 600 15px/1 "Playfair Display", Georgia, serif;

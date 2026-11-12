@@ -73,7 +73,10 @@ Done (checked in `tests/fx-more.js`):
   and a scatter of glints; a merely good stop doesn't. A new round's gold mark
   travels round the dial to its second (the shorter way, a half turn
   clockwise) and settles with a touch of overshoot; FX off, it's there at
-  once. Covered by `tests/stopwatch.js`.
+  once. Behind the page the velvet's sheen wanders and specks of gold dust
+  drift on long, uneven paths (12 to 24 s, no beat to count a blind sweep
+  by); FX off, the same sheen and dust held still. Covered by
+  `tests/stopwatch.js`.
 - Steamfitter. A turned pipe eases its quarter-turn into place with a touch of
   overshoot (the board has already turned it: the eased turn is only drawn).
 - Hash. The deal turns each card face up from edge-on, one after another, 20ms

@@ -175,4 +175,61 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
   }
 
+  // ---- the velvet behind the watch: FX on, the sheen and every speck of
+  // dust drift (waiting on START and through a sweep) and hold still under
+  // the pause card; nothing in it comes round in under 12 s, so it keeps no
+  // beat to count by. FX off: the same sheen and dust, held still. Behind
+  // the page, never in the way of a tap, no sideways scroll. Laptop and phone.
+  {
+    const { devices } = require("@playwright/test");
+    for (const [label, opts] of [["laptop", {}], ["phone", devices["Pixel 7"]]]) {
+      const got = {};
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opts);
+        const q = await lib.open(c, base, "games/stopwatch/", { before: FX(off) });
+        const spots = () => q.evaluate(() => [...document.querySelectorAll(".velvet .sheen, .velvet .mote")].map((b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }));
+        const moved = async () => {
+          const a = await spots(); await q.waitForTimeout(1500); const b = await spots();
+          return { all: a.length, moved: a.filter((x, i) => Math.hypot(x[0] - b[i][0], x[1] - b[i][1]) > 1).length };
+        };
+        const r = await q.evaluate(() => {
+          const v = document.querySelector(".velvet"), w = document.querySelector(".case").getBoundingClientRect();
+          if (!v) return { motes: 0, sheens: 0, behind: false, scroll: 0, anims: 0, shortest: 0 };
+          const hit = document.elementFromPoint(w.left + w.width / 2, w.top + w.height / 2);
+          const secs = (s) => s.split(",").map((x) => parseFloat(x) * (/ms/.test(x) ? 0.001 : 1));
+          const durs = [...v.querySelectorAll("*")].map((e) => secs(getComputedStyle(e).animationDuration)[0]);
+          return { motes: v.querySelectorAll(".mote").length, sheens: v.querySelectorAll(".sheen").length,
+            behind: getComputedStyle(v).zIndex === "-1" && getComputedStyle(v).pointerEvents === "none" && !v.contains(hit),
+            scroll: document.documentElement.scrollWidth - innerWidth, anims: v.getAnimations({ subtree: true }).length,
+            shortest: Math.min(...durs) };
+        });
+        await q.click("#btn-start"); await q.waitForTimeout(150);
+        r.ready = await moved();
+        if (!off) {
+          await q.keyboard.press("p");
+          await q.waitForFunction(() => document.documentElement.classList.contains("sw-paused"), null, { timeout: 8000 }).catch(() => {});
+          r.pausedMove = await moved();
+          await q.keyboard.press("p");
+          await q.waitForFunction(() => !document.documentElement.classList.contains("sw-paused"), null, { timeout: 8000 }).catch(() => {});
+          r.resumedMove = await moved();
+        }
+        await q.keyboard.press("Space"); await q.waitForTimeout(100);
+        r.sweep = await moved();
+        r.sweeping = await q.evaluate(() => document.querySelector(".stage").dataset.phase);
+        r.errs = q.errs;
+        got[off ? "off" : "on"] = r;
+        await q.close(); await c.close();
+      }
+      const on = got.on, offR = got.off, all = (m) => m.all > 2 && m.moved === m.all;
+      check("stopwatch (" + label + "): the velvet's sheen and dust lie behind the page, never in the way of a tap, no sideways scroll",
+        [on, offR].every((r) => r.motes >= 18 && r.sheens === 2 && r.behind && r.scroll <= 0), { on, off: offR });
+      check("stopwatch (" + label + "), FX on: the sheen and every speck of dust drift, waiting on START and through a sweep; held still under the pause card, moving again after",
+        all(on.ready) && on.pausedMove.moved === 0 && all(on.resumedMove) && all(on.sweep) && on.sweeping === "baking", on);
+      check("stopwatch (" + label + "), FX on: nothing in the velvet comes round in under 12 s",
+        on.anims === on.motes + on.sheens && on.shortest >= 12, { anims: on.anims, shortest: on.shortest });
+      check("stopwatch (" + label + "), FX off: the same sheen and dust, held still",
+        offR.motes === on.motes && offR.anims === 0 && offR.ready.moved === 0 && offR.sweep.moved === 0 && offR.sweeping === "baking", offR);
+      check("stopwatch (" + label + "): no page errors (the velvet)", on.errs.length === 0 && offR.errs.length === 0, [on.errs, offR.errs]);
+    }
+  }
 };
