@@ -847,11 +847,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   // through it, a pause holds it, a new jar or the game over ends it, and
   // it's over before the next drop can come. At the same time the new fruit
   // comes out of its place in the Preserves at their size and grows on its
-  // way into Next's middle at Next's size (that place off the screen, as on
-  // a phone, it grows there out of nothing), Next's box empty until it lands.
-  // On a laptop (Next beside the jar) and a phone (Next under it). Visual FX
-  // off: both there at once, and switched off mid-glide, the glides end there.
-  for (const [dev, opts] of [["laptop", {}], ["phone", { viewport: { width: 390, height: 664 }, isMobile: true, hasTouch: true }]]) {
+  // way into Next's middle at Next's size, Next's box empty until it lands;
+  // that place off the screen (a phone: the Preserves under Next, below the
+  // first screen), it flies in from just out of sight past the edge where
+  // the line from Next to its place leaves the screen. On a laptop (Next
+  // beside the jar), phones (Next under it), and a phone on its side (Next
+  // itself below the first screen: from its place, nothing on the screen to
+  // cross). With no Preserves laid out, it grows in Next's middle out of
+  // nothing. Visual FX off: both there at once, and switched off mid-glide,
+  // the glides end there.
+  const PHONE = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [dev, opts] of [["laptop", {}], ["phone", PHONE(390, 664)], ["small phone", PHONE(320, 568)], ["phone on its side", PHONE(740, 360)]]) {
     const cq = await lib.newContext(browser, opts);
     const q = await lib.open(cq, base, "games/jam-jar/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK]); } });
     const SEE = () => {
@@ -868,7 +874,17 @@ module.exports = async ({ browser, base, check, lib }) => {
       window.__top = () => { const j = game.getBoundingClientRect(), s = j.width / 540, x = Math.max(74, Math.min(466, G.aim())); return { x: j.left + x * s, y: j.top + 64 * s, s }; };
       // (the new one on its way into Next, its body's radius in css px, and how much of Next's box is drawn on)
       const fi = document.getElementById("flyer-in"), nx = document.getElementById("next");
-      window.__in = () => { const f = (G.flight() || {}).inn || {}, b = fi ? fi.getBoundingClientRect() : {}; return { ti: f.ti, x: f.x, y: f.y, r: f.r, grow: f.grow, shown: !!fi && !fi.hidden, bx: b.left + b.width / 2, by: b.top + b.height / 2 }; };
+      window.__in = () => { const f = (G.flight() || {}).inn || {}, b = fi ? fi.getBoundingClientRect() : {}; return { ti: f.ti, x: f.x, y: f.y, r: f.r, from: f.from, grow: f.grow, shown: !!fi && !fi.hidden, bx: b.left + b.width / 2, by: b.top + b.height / 2 }; };
+      // (how many of that canvas's pixels are drawn on inside the screen)
+      window.__inSeen = () => {
+        if (!fi || fi.hidden) return 0;
+        const b = fi.getBoundingClientRect(), k = fi.width / b.width;
+        const x0 = Math.max(0, b.left), y0 = Math.max(0, b.top), x1 = Math.min(innerWidth, b.right), y1 = Math.min(innerHeight, b.bottom);
+        if (x1 - x0 < 1 || y1 - y0 < 1) return 0;
+        const d = fi.getContext("2d").getImageData(Math.floor((x0 - b.left) * k), Math.floor((y0 - b.top) * k), Math.max(1, Math.floor((x1 - x0) * k)), Math.max(1, Math.floor((y1 - y0) * k))).data;
+        let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++;
+        return n;
+      };
       window.__ink = () => { const d = nx.getContext("2d").getImageData(0, 0, nx.width, nx.height).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 40) n++; return n; };
     };
     const r = await q.evaluate((see) => {
@@ -886,22 +902,30 @@ module.exports = async ({ browser, base, check, lib }) => {
       out.start = { shown: f1.shown, dx: +(f1.x - (n.left + n.width / 2)).toFixed(2), dy: +(f1.y - (n.top + n.height / 2)).toFixed(2), ds: +(f1.s / (n.width / 86)).toFixed(3),
                     box: Math.hypot(f1.bx - f1.x, f1.by - f1.y) < 0.5, op: f1.op };
       const ch = document.getElementById("chain").getBoundingClientRect(), L = G.chain(), c = ch.width / L.w, sl = L.slots[3];
-      // (its place in the Preserves, on the screen or not; off it, it grows in Next's middle out of nothing)
+      // (its place in the Preserves, and whether that and Next's middle are on the screen)
       const place = { x: ch.left + sl.x * c, y: ch.top + sl.y * c, r: sl.r * c }, to = { x: n.left + n.width / 2, y: n.top + n.height / 2, r: Math.min(30, 34) * n.width / 86 };
-      const seen = place.x >= 0 && place.x <= innerWidth && place.y >= 0 && place.y <= innerHeight, from = seen ? place : { x: to.x, y: to.y, r: 0 };
-      const i1 = __in();
-      out.inStart = { seen, grow: i1.grow, shown: i1.shown, ti: i1.ti, dx: +(i1.x - from.x).toFixed(2), dy: +(i1.y - from.y).toFixed(2), dr: +(i1.r - from.r).toFixed(2),
-                      box: Math.hypot(i1.bx - i1.x, i1.by - i1.y) < 0.5, ink: __ink(), far: +Math.hypot(to.x - place.x, to.y - place.y).toFixed(1) };
+      const onS = (p) => p.x >= 0 && p.x <= innerWidth && p.y >= 0 && p.y <= innerHeight;
+      const seen = onS(place), nextSeen = onS(to);
+      const i1 = __in(), px = place.x - to.x, py = place.y - to.y, pl = Math.hypot(px, py);
+      // (where it starts: how far along the line from Next to its place and
+      // how far off that line, how far past the bottom edge in its own
+      // radii, and how much of it shows on the screen)
+      out.inStart = { seen, nextSeen, from: i1.from, grow: i1.grow, shown: i1.shown, ti: i1.ti, x: +(+i1.x).toFixed(1), y: +(+i1.y).toFixed(1),
+                      atPlace: Math.abs(i1.x - place.x) < 1 && Math.abs(i1.y - place.y) < 1, dr: +(i1.r - place.r).toFixed(2),
+                      along: +(((i1.x - to.x) * px + (i1.y - to.y) * py) / (pl * pl)).toFixed(3), offLine: +(Math.abs((i1.x - to.x) * py - (i1.y - to.y) * px) / pl).toFixed(2),
+                      past: +((i1.y - innerHeight) / i1.r).toFixed(2), onScreen: __inSeen(),
+                      box: Math.hypot(i1.bx - i1.x, i1.by - i1.y) < 0.5, ink: __ink(), far: +pl.toFixed(1) };
+      const from = { x: i1.x, y: i1.y, r: place.r };
       // midway: between the two, a click going through it
       __frames(9);
       const fm = __fly(), tm = __top(), d0 = Math.hypot(fm.x - f1.x, fm.y - f1.y), d1 = Math.hypot(fm.x - tm.x, fm.y - tm.y);
       out.mid = { shown: fm.shown, between: d0 > 30 && d1 > 30, through: Number.isFinite(fm.x) && document.elementFromPoint(fm.x, fm.y) !== fl };
-      // (the new one: how far along from the Preserves to Next, or still in
-      // Next's middle when it grows there, and grown part way)
+      // (the new one: how far along from where it started to Next, and
+      // grown part way; from an edge, part of it on the screen by now)
       const im = __in(), ax = to.x - from.x, ay = to.y - from.y, far = Math.hypot(ax, ay);
-      out.inMid = { shown: im.shown, along: seen ? +(((im.x - from.x) * ax + (im.y - from.y) * ay) / (far * far)).toFixed(3) : null,
-                    off: +(seen ? Math.abs((im.x - from.x) * ay - (im.y - from.y) * ax) / far : Math.hypot(im.x - to.x, im.y - to.y)).toFixed(2),
-                    r: +(+im.r).toFixed(2), from: +from.r.toFixed(2), to: +to.r.toFixed(2), ink: __ink() };
+      out.inMid = { shown: im.shown, along: +(((im.x - from.x) * ax + (im.y - from.y) * ay) / (far * far)).toFixed(3),
+                    off: +(Math.abs((im.x - from.x) * ay - (im.y - from.y) * ax) / far).toFixed(2),
+                    r: +(+im.r).toFixed(2), from: +from.r.toFixed(2), to: +to.r.toFixed(2), ink: __ink(), onScreen: __inSeen() };
       // the aim moved: it lands on the new spot, empty until then
       G.setAim(170); __frames(5);
       out.mid.spot = __spot(); out.mid.still = !!G.flight();
@@ -930,6 +954,12 @@ module.exports = async ({ browser, base, check, lib }) => {
       const fb = G.flight();
       while (G.flight()) __frames(1);
       out.boil = { started: !!fb, left: +(G.boilT).toFixed(3) };
+      // no Preserves laid out: it grows in Next's middle out of nothing
+      const chEl = document.getElementById("chain");
+      G.start("simmer"); __frames(2); chEl.style.display = "none"; G.setQueue(1, 0); G.drop(); __frames(1);
+      const n2 = document.getElementById("next").getBoundingClientRect(), i2 = __in();
+      out.none = { from: i2.from, grow: i2.grow, r: i2.r, dx: +(i2.x - (n2.left + n2.width / 2)).toFixed(2), dy: +(i2.y - (n2.top + n2.height / 2)).toFixed(2) };
+      chEl.style.display = ""; while (G.flight()) __frames(1);
       return out;
     }, SEE.toString());
     // switched off mid-glide: the fruit is at the top that frame
@@ -950,20 +980,29 @@ module.exports = async ({ browser, base, check, lib }) => {
       for (let i = 1; i <= 30; i++) { __frames(1); if (!fl.hidden || __in().shown || G.flight()) seen++; if (i === 1) ink = __ink(); if (i === 15) spot = __spot(); }
       return { spot, seen, ink };
     }, SEE.toString());
-    check(`jam-jar (${dev}), Visual FX on: once a fruit drops, the one in Next glides up on its own canvas, starting at Next's middle at Next's size, unfaded` + (dev === "phone" ? " (Next under the jar)" : " (Next beside the jar)"),
-      (dev === "phone") === r.nextUnder && !r.before.shown && r.start.shown && Math.abs(r.start.dx) < 1 && Math.abs(r.start.dy) < 1 && Math.abs(r.start.ds - 1) < 0.01 && r.start.box && r.start.op > 0.97, r);
+    check(`jam-jar (${dev}), Visual FX on: once a fruit drops, the one in Next glides up on its own canvas, starting at Next's middle at Next's size, unfaded` + (dev !== "laptop" ? " (Next under the jar)" : " (Next beside the jar)"),
+      (dev !== "laptop") === r.nextUnder && !r.before.shown && r.start.shown && Math.abs(r.start.dx) < 1 && Math.abs(r.start.dy) < 1 && Math.abs(r.start.ds - 1) < 0.01 && r.start.box && r.start.op > 0.97, r);
     check(`jam-jar (${dev}), Visual FX on: midway it's between Next and the top, a click goes through it, and the jar leaves its spot at the top empty until it lands`,
       r.mid.shown && r.mid.between && r.mid.through && r.mid.still && r.mid.spot === 0, r.mid);
     check(`jam-jar (${dev}), Visual FX on: it follows the aim and lands where the jar then draws it, at its size and faded as the one waiting is (within a pixel), in 0.35 s, while the drop still cools down`,
       Math.abs(r.land.dx) < 1 && Math.abs(r.land.dy) < 1 && Math.abs(r.land.ds - 1) < 0.01 && Math.abs(r.land.op - 0.45) < 0.01 && r.land.frames >= 20 && r.land.frames <= 23 &&
       r.land.hidden && r.land.spot > 100 && r.land.cooling, r.land);
-    check(`jam-jar (${dev}), Visual FX on: at the same time the new fruit ` + (dev === "phone" ? "grows in Next's middle out of nothing (its place in the Preserves off the screen, under Next)" : "comes out of its place in the Preserves, at the Preserves' size") +
-      ", on a canvas of its own, Next's box left empty",
-      r.inStart.seen === (dev === "laptop") && r.inStart.grow === !r.inStart.seen && r.inStart.shown && r.inStart.ti === 3 && Math.abs(r.inStart.dx) < 1 && Math.abs(r.inStart.dy) < 1 && Math.abs(r.inStart.dr) < 0.3 &&
-      r.inStart.box && r.inStart.ink === 0 && r.inStart.far > 40, r.inStart);
-    check(`jam-jar (${dev}), Visual FX on: the new fruit grows on its way` + (dev === "phone" ? "" : ", straight from the Preserves to Next,") + " and lands in Next's middle at Next's size (within a pixel), Next drawing it from then on",
-      r.inMid.shown && (r.inMid.along === null || (r.inMid.along > 0.25 && r.inMid.along < 0.75)) && r.inMid.off < 1 && r.inMid.r > r.inMid.from + 2 && r.inMid.r < r.inMid.to - 2 && r.inMid.ink === 0 &&
+    // (laptop: its place on the screen; phones upright: its place below the
+    // first screen, Next on it; on its side: Next below the first screen too)
+    const S = r.inStart, edge = dev === "phone" || dev === "small phone";
+    const startOk = edge
+      ? S.from === "edge" && S.nextSeen && !S.seen && S.along > 0 && S.along <= 1 && S.offLine < 1 && S.past > 1 && S.past < 2.6 && S.onScreen === 0
+      : S.from === "place" && S.atPlace && S.seen === (dev === "laptop") && S.nextSeen === (dev === "laptop");
+    check(`jam-jar (${dev}), Visual FX on: at the same time the new fruit ` + (edge
+      ? "flies in from just below the screen's bottom edge, where the line from Next to its place in the Preserves (below the first screen) leaves it: none of it showing yet"
+      : dev === "laptop" ? "comes out of its place in the Preserves" : "comes out of its place in the Preserves (Next below the first screen too: nothing on the screen to cross)") +
+      ", at the Preserves' size, on a canvas of its own, Next's box left empty",
+      startOk && !S.grow && S.shown && S.ti === 3 && Math.abs(S.dr) < 0.3 && S.box && S.ink === 0 && S.far > 40, S);
+    check(`jam-jar (${dev}), Visual FX on: the new fruit grows on its way, straight to Next` + (edge ? ", coming into sight," : "") + " and lands in Next's middle at Next's size (within a pixel), Next drawing it from then on",
+      r.inMid.shown && r.inMid.along > 0.25 && r.inMid.along < 0.75 && r.inMid.off < 1 && r.inMid.r > r.inMid.from + 2 && r.inMid.r < r.inMid.to - 2 && r.inMid.ink === 0 && (!edge || r.inMid.onScreen > 100) &&
       Math.abs(r.inLand.dx) < 1 && Math.abs(r.inLand.dy) < 1 && Math.abs(r.inLand.dr - 1) < 0.01 && r.inLand.hidden && r.inLand.ink > 100, { mid: r.inMid, land: r.inLand });
+    check(`jam-jar (${dev}), Visual FX on: with no Preserves laid out, the new fruit grows in Next's middle out of nothing`,
+      r.none.from === "none" && r.none.grow === true && r.none.r < 0.5 && Math.abs(r.none.dx) < 1 && Math.abs(r.none.dy) < 1, r.none);
     check(`jam-jar (${dev}), Visual FX on: a pause holds both glides (under the pause card), a new jar or the game over mid-glide ends them (Next drawing its fruit), and in Rolling Boil they're over long before the next drop`,
       r.pause.held && r.pause.under && r.pause.inHeld && r.fresh.flight === null && r.fresh.hidden && r.fresh.inHidden && r.fresh.ink > 100 &&
       r.over.flight === null && r.over.hidden && r.over.inHidden && r.over.ink > 100 && r.boil.started && r.boil.left > 0.5, r);

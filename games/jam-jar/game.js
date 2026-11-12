@@ -1266,11 +1266,13 @@
   // (heldAlpha), its idle running on throughout. At the same time the new
   // one comes out of its place in the Preserves and grows into Next, its
   // idle starting as it leaves; where that place is off the screen as the
-  // fruit drops (a phone: the Preserves come under Next), it grows in
-  // Next's middle out of nothing instead. Next sits beside the jar on a
-  // laptop and under it on a phone, so each flies on a canvas of its own
-  // over the page; the jar leaves the spot at the top empty, and Next its
-  // box, until they land. They run on the game's clock (a pause holds them),
+  // fruit drops (a phone: the Preserves come under Next, below the first
+  // screen), it flies in from the edge of the screen instead, from just out
+  // of sight where the line from Next to its place leaves the screen, at
+  // the Preserves' size, so it still comes from their way. Next sits
+  // beside the jar on a laptop and under it on a phone, so each flies on a
+  // canvas of its own over the page; the jar leaves the spot at the top
+  // empty, and Next its box, until they land. They run on the game's clock (a pause holds them),
   // and are over before the next drop can come. With Visual FX off both are
   // there at once.
   var FLY_T = 0.35, fly = null;
@@ -1295,6 +1297,18 @@
   }
   // over (landed, a new jar, the game over, Visual FX off): Next shows its fruit again
   function endFly() { fly = null; paintNext(); }
+  // whether page px (x, y) is on the screen, or within m px of it
+  function onScreen(x, y, m) { return x >= -m && x <= innerWidth + m && y >= -m && y <= innerHeight + m; }
+  // where the line from (x, y) toward (u, v) leaves the screen grown by m
+  // px on every side: a circle of radius m there is just out of sight
+  function edgeOut(x, y, u, v, m) {
+    var dx = u - x, dy = v - y, t = Infinity;
+    if (dx) t = Math.min(t, ((dx > 0 ? innerWidth + m : -m) - x) / dx);
+    if (dy) t = Math.min(t, ((dy > 0 ? innerHeight + m : -m) - y) / dy);
+    if (!isFinite(t)) return { x: u, y: v };
+    t = Math.max(0, t);
+    return { x: x + dx * t, y: y + dy * t };
+  }
   function drawFly() {
     if (fly && (state !== "play" || out || reduced())) endFly();
     var nextEl = fly && document.getElementById("next").getBoundingClientRect();
@@ -1310,12 +1324,18 @@
     fly.x = x0 + (x1 - x0) * e; fly.y = y0 + (y1 - y0) * e; fly.s = s;
     // (as roomy as the sprites, for a stem or a crown, at the bigger of the two sizes)
     paintFlier(flyUp, current, idleU(heldAt), fly.x, fly.y, s, Math.ceil(2 * (r + 16) * Math.max(s0, s1)), 1 + (heldAlpha() - 1) * e);
-    // the new one, from its place in the Preserves (as drawChain draws it,
-    // and on the screen as it dropped) to Next's middle, else from nothing there
+    // the new one, to Next's middle, from where fly.from (chosen as the
+    // fruit drops) says: "place", its place in the Preserves as drawChain
+    // draws it (on the screen, or with Next off it too, nothing on the
+    // screen to cross); "edge", that place off the screen and Next on it,
+    // from where the line between them leaves the screen, pushed out by
+    // the fruit's drawn size (stem and crown too) so none of it shows yet;
+    // "none", no Preserves laid out, it grows in Next's middle out of nothing
     var ch = document.getElementById("chain").getBoundingClientRect(), sl = CHAIN.slots[next], c = ch.width / CHAIN.w, rn = TIERS[next].r;
-    var u0 = ch.left + sl.x * c, v0 = ch.top + sl.y * c, t0 = sl.k * c, t1 = Math.min(1, 34 / rn) * nextEl.width / 86;
-    if (fly.grow == null) fly.grow = !ch.width || u0 < 0 || u0 > innerWidth || v0 < 0 || v0 > innerHeight;
-    if (fly.grow) { u0 = x0; v0 = y0; t0 = 0; }
+    var u0 = ch.left + sl.x * c, v0 = ch.top + sl.y * c, t0 = sl.k * c, t1 = Math.min(1, 34 / rn) * nextEl.width / 86, m = (rn + 16) * t0;
+    if (fly.from == null) fly.from = !ch.width ? "none" : onScreen(u0, v0, 0) || !onScreen(x0, y0, m) ? "place" : "edge";
+    if (fly.from === "none") { u0 = x0; v0 = y0; t0 = 0; }
+    else if (fly.from === "edge") { var at = edgeOut(x0, y0, u0, v0, m); u0 = at.x; v0 = at.y; }
     var ts = t0 + (t1 - t0) * e;
     fly.ix = u0 + (x0 - u0) * e; fly.iy = v0 + (y0 - v0) * e; fly.is = ts;
     paintFlier(flyIn, next, idleU(nextAt), fly.ix, fly.iy, ts, Math.ceil(2 * (rn + 16) * Math.max(t0, t1)), 1);
@@ -1756,11 +1776,12 @@
     // the fruit gliding from Next to the top: how long it takes, and how far
     // in it is, where it was last drawn (page px) and at what size (null:
     // none); and the new one coming into Next, which fruit, where, its
-    // body's radius (css px) and whether it grows there out of nothing (null:
+    // body's radius (css px), where it came from ("place", "edge" or
+    // "none", see drawFly) and whether it grows there out of nothing (null:
     // none on its way)
     flight: function () {
       return fly ? { t: fly.t, T: FLY_T, x: fly.x, y: fly.y, s: fly.s,
-                     inn: flyIn.el.hidden ? null : { ti: next, x: fly.ix, y: fly.iy, r: fly.is * TIERS[next].r, grow: fly.grow } } : null;
+                     inn: flyIn.el.hidden ? null : { ti: next, x: fly.ix, y: fly.iy, r: fly.is * TIERS[next].r, from: fly.from, grow: fly.from === "none" } } : null;
     },
     facePixels: function (ti, u) {
       var r = TIERS[ti].r, n = Math.ceil((r + 16) * 4), c = document.createElement("canvas");
