@@ -182,9 +182,6 @@ body.paused #flag, body.paused #post-cap, body.paused #tags, body.paused #big-st
 #stamp-btn:disabled { opacity: 0.5; cursor: default; }
 .typed-note { font-family: "Kalam", cursive; font-size: 12px; color: var(--faint); margin-top: 7px; }
 
-.seg.styles { flex-direction: row !important; }
-.seg.styles button { flex: 1; }
-
 /* ---- stamps ----------------------------------------------------------------- */
 .page-head {
   font-size: 12px; letter-spacing: 4px; color: var(--faint); text-align: center;
@@ -296,7 +293,7 @@ body.paused #flag, body.paused #post-cap, body.paused #tags, body.paused #big-st
 .panel[hidden] { display: none; }
 .card {
   margin: auto 0;
-  width: min(430px, 100%);
+  width: min(440px, 100%);
   background: var(--paper);
   border-radius: 10px;
   box-shadow: 0 16px 50px rgba(0, 0, 0, 0.6), 0 0 0 6px #5a2d2a, 0 0 0 7px #3d1e1c;
@@ -314,15 +311,19 @@ body.paused #flag, body.paused #post-cap, body.paused #tags, body.paused #big-st
   font-family: inherit; font-size: 15px; text-align: left; cursor: pointer;
   color: var(--ink); background: #fbf6e9;
   border: 1.5px solid #c9bc9c; border-radius: 6px; padding: 9px 12px;
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
 }
 .seg button b { letter-spacing: 1px; }
-.seg button small { font-size: 12px; color: var(--faint); text-align: right; }
+/* (the face has more room under its baseline than over its capitals, so a
+   title centred by its box would sit high beside its note and key) */
+#pick-mode button b { position: relative; top: 0.1em; }
+/* a note and its key side by side, so the key never wraps onto a line of its own */
+.seg button small { font-size: 12px; color: var(--faint); text-align: right; display: flex; align-items: center; gap: 5px; }
 .seg button.on { border-color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--ink); background: #fff; }
-/* what's asked: two by two, each label over its note */
-.pick .seg.asks { display: grid; grid-template-columns: 1fr 1fr; }
-.seg.asks button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; padding: 6px 10px; font-size: 14px; }
-.seg.asks button small { font-size: 11.5px; text-align: left; }
+/* the style and what's asked: two by two, each label over its key and note */
+.pick .seg.styles, .pick .seg.asks { display: grid; grid-template-columns: 1fr 1fr; }
+.seg.styles button, .seg.asks button { flex-direction: column; align-items: flex-start; justify-content: center; gap: 1px; padding: 6px 10px; font-size: 14px; }
+.seg.styles button small, .seg.asks button small { font-size: 11.5px; text-align: left; align-items: baseline; }
 
 kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(--paper); border-radius: 3px; padding: 1px 6px; }
 
@@ -371,7 +372,7 @@ kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(
   .card .how { font-size: 13.5px; line-height: 1.45; margin-bottom: 10px; }
   .pick .seg { gap: 6px; margin-bottom: 8px; }
   .seg button { padding: 7px 11px; }
-  .seg.asks button { padding: 5px 9px; }
+  .seg.styles button, .seg.asks button { padding: 5px 9px; }
   .playbtn { padding: 10px; }
   .bests { margin-top: 8px; }
 }

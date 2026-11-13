@@ -283,6 +283,51 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c2.close();
   }
 
+  // ---- the menu's choices, on a keyboard. The style (Tags, Typed) and what's
+  // asked (Country, Capital, Flag → capital, Both) are laid out alike: the
+  // name on a line of its own, and under it the key first, then the note.
+  // On a laptop every note is one line beside its key (Both's "country, then
+  // capital" too); in a narrow window a note may wrap, with the key on its
+  // first line, never on a line of its own. A mode's name and key sit in the
+  // middle of its button top to bottom, and its key stays beside its note.
+  for (const [label, vp, oneLine] of [["laptop", { width: 1280, height: 900 }, true], ["short laptop", { width: 1366, height: 657 }, true],
+    ["narrow window", { width: 400, height: 800 }, false]]) {
+    const c3 = await lib.newContext(browser, { viewport: vp });
+    const q = await lib.open(c3, base, "games/passport/");
+    const m = await q.evaluate(() => {
+      const box = (el) => el.getBoundingClientRect(), r1 = (v) => Math.round(v * 10) / 10;
+      const lines = (node) => { const r = document.createRange(); r.selectNodeContents(node); return [...r.getClientRects()].filter((x) => x.width > 0.5); };
+      const words = (sm) => [...sm.childNodes].find((n) => n.nodeType === 3 && n.data.trim());
+      const rows = (ls) => new Set(ls.map((x) => Math.round(x.top))).size;
+      const six = [...document.querySelectorAll("#pick-style button, #pick-ask button")].map((b) => {
+        const t = box(b.querySelector("b")), sm = b.querySelector("small"), k = box(sm.querySelector("kbd")), ls = lines(words(sm)), first = ls[0];
+        return { name: b.dataset.s || b.dataset.a, titleLines: rows(lines(b.querySelector("b"))), noteLines: rows(ls),
+          titleAbove: t.bottom <= first.top + 0.5 && t.bottom <= k.top + 0.5, keyFirst: k.right <= first.left + 0.5,
+          keyOnFirstLine: k.top < first.bottom && k.bottom > first.top && k.top > first.top - 4 };
+      });
+      // (a title's capitals from their top to the baseline, by the face's own metrics)
+      const cv = document.createElement("canvas").getContext("2d");
+      const modes = [...document.querySelectorAll("#pick-mode button")].map((b) => {
+        const r = box(b), cs = getComputedStyle(b), top = r.top + parseFloat(cs.borderTopWidth), bot = r.bottom - parseFloat(cs.borderBottomWidth);
+        const sm = b.querySelector("small"), k = box(sm.querySelector("kbd")), ls = lines(words(sm));
+        const tb = b.querySelector("b"), tc = getComputedStyle(tb), tl = lines(tb.firstChild);
+        cv.font = tc.fontWeight + " " + tc.fontSize + " " + tc.fontFamily;
+        const mt = cv.measureText(tb.textContent.trim()), base0 = tl[0].top + mt.fontBoundingBoxAscent, baseN = tl[tl.length - 1].top + mt.fontBoundingBoxAscent;
+        return { name: b.dataset.v, key: [r1(k.top - top), r1(bot - k.bottom)], title: [r1(base0 - mt.actualBoundingBoxAscent - top), r1(bot - baseN)],
+          keyBeside: k.left >= Math.max(...ls.map((x) => x.right)) - 0.5 && k.top < ls[ls.length - 1].bottom && k.bottom > ls[0].top };
+      });
+      return { six, modes };
+    });
+    const badSix = m.six.filter((s) => s.titleLines !== 1 || !s.titleAbove || !s.keyFirst || !s.keyOnFirstLine || (oneLine && s.noteLines !== 1));
+    check(`passport menu (${label}): Tags, Typed, Country, Capital, Flag → capital and Both each have the name on its own line, and under it the key first, then the note` +
+      (oneLine ? ", on one line" : ", the key on the note's first line"), m.six.length === 6 && badSix.length === 0, badSix.length ? badSix : m.six);
+    const badModes = m.modes.filter((x) => Math.abs(x.key[0] - x.key[1]) > 1 || Math.abs(x.title[0] - x.title[1]) > 1.25 || !x.keyBeside);
+    check(`passport menu (${label}): World Tour, Layover Dash and Visa Run each have their name and key in the middle of the button top to bottom, the key beside the note`,
+      m.modes.length === 3 && badModes.length === 0, m.modes);
+    await q.close();
+    await c3.close();
+  }
+
   // ---- Enter on a focused mode button picks that mode and stays on the menu
   // (it used to start a run as well, in the mode as it was); a mode picked
   // with the mouse keeps no focus, so the next Enter starts the run. On the
