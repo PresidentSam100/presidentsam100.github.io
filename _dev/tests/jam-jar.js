@@ -1012,6 +1012,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     await cq.close();
   }
 
+  // ---- against the CPU in Slow Simmer, yours waits at the top for the CPU's
+  // drop, and says so beside it ("the CPU's turn"). With Visual FX on, the
+  // fruit is still gliding up from Next when the wait begins, so the words
+  // fade in with it, there in full as it lands (they used to stand by the
+  // empty spot from the drop on); with it off they're there at once, as the
+  // fruit is. The CPU's hand is held for the look, then let go: its drop
+  // ends the wait and the words.
+  const HOLD = ["  function think(dt) {   // (run with the CPU's jar in play: asCpu)\n    if (out) return;",
+    "  function think(dt) {   // (run with the CPU's jar in play: asCpu)\n    if (out || window.__cpuHold) return;"];
+  const TURN = () => {
+    const ft = CanvasRenderingContext2D.prototype.fillText;
+    CanvasRenderingContext2D.prototype.fillText = function (t) {
+      if (this.canvas.id === "game" && t === "the CPU's turn") { const m = /rgba?\(([^)]*)\)/.exec(this.fillStyle), v = m ? m[1].split(",").map(Number) : []; window.__turn = v.length > 3 ? v[3] : 1; }
+      return ft.apply(this, arguments);
+    };
+  };
+  for (const [dev, opts] of [["laptop", {}], ["phone", PHONE(390, 664)]]) {
+    const got = {};
+    for (const off of [false, true]) {
+      const cq = await lib.newContext(browser, opts);
+      const q = await lib.open(cq, base, "games/jam-jar/", { before: async (pg) => {
+        await pg.addInitScript(STEPPED); await pg.addInitScript(TURN);
+        if (off) await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:jam-jar", "1"); } catch (e) {} });
+        await lib.injectScript(pg, "games/jam-jar/game.js", [HOOK, HOLD]);
+      } });
+      got[off ? "off" : "on"] = await q.evaluate(() => {
+        const G = window.__game, look = () => { window.__turn = null; __frames(1); return window.__turn; };
+        __frames(2); G.setFoe("cpu"); G.start("simmer"); __frames(2);
+        window.__cpuHold = true;
+        G.setQueue(1, 0); G.setAim(270);
+        const before = look();
+        G.drop();
+        const seen = [];
+        let frames = 0;
+        while (G.flight() && frames < 60) { seen.push(look()); frames++; }
+        const landed = look(), later = (__frames(29), look());
+        window.__cpuHold = false;
+        let gone = 0; for (let i = 0; i < 120 && !gone; i++) if (look() === null && G.vs().cpu.dealt === 1) gone = i + 1;
+        return { foe: G.foe, before, seen: seen.map((a) => a === null ? null : +a.toFixed(3)), frames, landed, later, gone };
+      });
+      await done(q, "the CPU's turn" + (off ? ", Visual FX off" : "") + " " + dev);
+      await cq.close();
+    }
+    const on = got.on, s = on.seen, mid = s[Math.floor(s.length / 2)];
+    const rising = s.every((a, i) => a !== null && (i === 0 || a >= s[i - 1] - 1e-9));
+    check(`jam-jar vs CPU (${dev}), Visual FX on: "the CPU's turn" fades in as your next fruit glides up to wait, there in full as it lands, never by the empty spot`,
+      on.foe === "cpu" && on.before === null && s.length >= 15 && rising && s[0] < 0.1 && mid > 0.2 && mid < 0.8 && Math.abs(on.landed - 0.9) < 0.01 && Math.abs(on.later - 0.9) < 0.01 && on.gone > 0, on);
+    const off = got.off;
+    check(`jam-jar vs CPU (${dev}), Visual FX off: "the CPU's turn" is there in full as you drop, with your next fruit, and goes when the CPU drops`,
+      off.foe === "cpu" && off.before === null && off.frames === 0 && Math.abs(off.landed - 0.9) < 0.01 && Math.abs(off.later - 0.9) < 0.01 && off.gone > 0, off);
+  }
+
   // ---- the Preserves name every fruit: beside it on a laptop, under it in
   // rows on a phone; every name inside the panel, at 10 px or more, clear of
   // the fruit and of the other names, and drawn (its ink there)

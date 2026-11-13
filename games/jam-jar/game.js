@@ -1276,6 +1276,12 @@
   // and are over before the next drop can come. With Visual FX off both are
   // there at once.
   var FLY_T = 0.35, fly = null;
+  // how far the glide up has gone, eased in and out (1: landed, or none)
+  function flyEase() {
+    if (!fly) return 1;
+    var k = Math.min(1, fly.t / FLY_T);
+    return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;
+  }
   function flier(id) { var el = document.getElementById(id); return { el: el, g: el.getContext("2d"), size: 0 }; }
   var flyUp = flier("flyer"), flyIn = flier("flyer-in");
   function hideFlier(f) { if (!f.el.hidden) f.el.hidden = true; }
@@ -1315,7 +1321,7 @@
     if (fly && !nextEl.width) endFly();   // (no Next on the page to come from)
     if (!fly) { hideFlier(flyUp); hideFlier(flyIn); return; }
     var jar = canvas.getBoundingClientRect();
-    var k = Math.min(1, fly.t / FLY_T), e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(2 - 2 * k, 3) / 2;
+    var e = flyEase();
     var r = TIERS[current].r, ax = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
     // (css px to a unit of the fruit: in Next as paintNext draws it, in the jar)
     var s0 = Math.min(1, 34 / r) * nextEl.width / 86, s1 = jar.width / W, s = s0 + (s1 - s0) * e;
@@ -1392,11 +1398,13 @@
       if (inCpu || !fly) drawFace(current, ax, DROP_Y, heldAt);   // (still on its way up from Next: drawFly)
       ctx.globalAlpha = 1;
       // (yours waits while the CPU drops its fruit: it says so beside it, on
-      // the side with more room, clear of the fill line under a big fruit)
+      // the side with more room, clear of the fill line under a big fruit;
+      // while that fruit is still gliding up from Next the words fade in with
+      // it, there in full as it lands, so they never stand by an empty spot)
       if (held) {
         var right = ax < (JL + JR) / 2;
         ctx.font = "700 15px 'Baloo 2', sans-serif"; ctx.textAlign = right ? "left" : "right"; ctx.textBaseline = "middle";
-        ctx.fillStyle = "rgba(160, 106, 51, 0.9)";
+        ctx.fillStyle = "rgba(160, 106, 51, " + 0.9 * flyEase() + ")";
         ctx.fillText("the CPU's turn", ax + (right ? r + 10 : -r - 10), DROP_Y);
         ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
       }
