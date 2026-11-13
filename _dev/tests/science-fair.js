@@ -59,6 +59,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const ctx = await lib.newContext(browser);
     const p = await lib.open(ctx, base, "games/science-fair/");
+    // the project is the player's, set by its maker as the professor: on the
+    // menu sheet "assigned by", and on the board's paper banner "for"
+    const credit = await p.evaluate(() => ({ menu: document.querySelector("#menu .byline").textContent.replace(/\s+/g, " "),
+      banner: document.getElementById("banner").textContent.replace(/\s+/g, " ") }));
+    check("science-fair: the project is assigned by Prof. Sam Lu (the menu sheet) and made for Prof. Sam Lu (the board's banner), with no pupil's name or grade",
+      /assigned by Prof\. Sam Lu$/.test(credit.menu) && /· for Prof\. Sam Lu$/.test(credit.banner) && !/grade/i.test(credit.menu + credit.banner), credit);
     const look = () => p.evaluate(() => ({ state: ScienceFair.state(), on: (document.querySelector("#pick-mode button.on") || {}).dataset.v, focus: document.activeElement.tagName }));
     await p.focus('#pick-mode button[data-v="grand"]'); await p.keyboard.press("Enter"); await p.waitForTimeout(150);
     const a = await look();

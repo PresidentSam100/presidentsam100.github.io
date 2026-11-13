@@ -154,7 +154,7 @@
     board.appendChild(sun);
     var banner = document.createElement("div");
     banner.id = "banner"; banner.className = "paper-card";
-    banner.innerHTML = "★ OUR SOLAR SYSTEM ★ &nbsp;·&nbsp; <b>Sam, grade 4</b>";
+    banner.innerHTML = "★ OUR SOLAR SYSTEM ★ &nbsp;·&nbsp; for <b>Prof.&nbsp;Sam&nbsp;Lu</b>";
     board.appendChild(banner);
   }
   var stars = [];
