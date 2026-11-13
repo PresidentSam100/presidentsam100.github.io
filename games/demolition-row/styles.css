@@ -92,7 +92,7 @@
       h1.title { font-size: 2.1rem; font-weight: 700; margin: 0; letter-spacing: -0.01em; text-shadow: 0 1px 0 #fff, 0 0 14px rgba(240, 248, 253, 0.95); }
       .subtitle { margin: 0.2rem 0 0; color: #34536f; font-size: 0.9rem; font-weight: 600; text-shadow: 0 0 2px #eef7fc, 0 0 6px #eef7fc, 0 0 10px #eef7fc; }
       /* the menu card has its own title, so the page's header steps aside behind it */
-      body:has(#menu:not(.hidden)) .head, body:has(#menu:not(.hidden)) #byline { visibility: hidden; }
+      body:has(#menu:not(.hidden)) .head, body:has(#menu:not(.hidden)) #lake-sign:not(.far) { visibility: hidden; }
       /* between phone and desktop widths the subtitle fits on one line and the
          mode label lands on the far pines, so it gets the same halo */
       #mode-label { text-shadow: 0 0 2px #eef7fc, 0 0 6px #eef7fc, 0 0 10px #eef7fc; }
@@ -349,7 +349,36 @@
       .tbtn.rot { color: var(--accent); }
       .tbtn.hard { grid-column: 1 / -1; padding: 0.6rem 0; font-size: 1rem; color: var(--danger); border-color: rgba(217, 67, 74, 0.45); }
       .tbtn.held, .tbtn:active { background: #d6f0ff; border-color: var(--accent); color: var(--accent); box-shadow: none; }
-      #byline { color: var(--muted); font-size: 75%; margin: 0.4rem 0 0; }
+      /* the lake's name on a wooden sign: a painted plank with snow on top
+         and a post under it, planted on the far shore (.far, placed by
+         game.js placeSign) or, where the header leaves the shore no room, on
+         the near shore at the foot of the page. The post is the margin under it. */
+      #lake-sign {
+        position: relative; z-index: 0; width: max-content; margin: 0.3rem 0 13px; padding: 3px 9px 2px;
+        font: 700 11px/1.25 "Quicksand", system-ui, sans-serif; letter-spacing: 0.12em; white-space: nowrap; color: #fff7ea;
+        text-shadow: 0 1px 0 rgba(60, 32, 12, 0.55);
+        background: repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0 2px, rgba(0, 0, 0, 0.05) 2px 4px), linear-gradient(180deg, #9b6739, #7a4a24);
+        border: 1px solid #5a3417; border-radius: 3px; box-shadow: 0 1px 2px rgba(22, 50, 79, 0.25);
+        pointer-events: none; user-select: none;
+      }
+      #lake-sign::before { content: ""; position: absolute; left: -2px; right: -2px; top: -4px; height: 7px; border-radius: 6px 6px 3px 3px; background: #fbfdff; box-shadow: 0 1px 1px rgba(90, 140, 180, 0.35); }
+      #lake-sign::after { content: ""; position: absolute; left: 50%; top: 100%; width: 5px; height: 12px; margin: 1px 0 0 -2.5px; background: linear-gradient(90deg, #6e4421, #8b5a2b); border-radius: 0 0 1px 1px; }
+      #lake-sign.far { position: absolute; margin: 0; }
+      #lake-sign.small { font-size: 10px; letter-spacing: 0.1em; padding: 2px 7px 1px; }
+      #lake-sign.low::after { height: 4px; }
+      /* a narrow board, LAKE over SAM LU, for the strip of shore an upright
+         phone's subtitle keeps clear at its right (body.sign-room): the
+         subtitle stays on two lines, a touch smaller on the narrowest phones */
+      #lake-sign.tall { font-size: 9.5px; line-height: 1.15; letter-spacing: 0.08em; padding: 2px 5px 1px; text-align: center; }
+      #lake-sign.tall span { display: block; }
+      #lake-sign.tall::after { height: 4px; }
+      body.sign-room .head .subtitle { padding-right: 62px; }
+      @media (max-width: 340px) { body.sign-room .head .subtitle { font-size: 0.72rem; } }
+      /* on the near shore, at the foot of the page: the small sign on a short
+         post, its snow in the gap above it, so it takes about the height a
+         line of small print would */
+      #lake-sign:not(.far) { font-size: 10px; letter-spacing: 0.1em; padding: 2px 7px 1px; margin: -4px 0 8px; }
+      #lake-sign:not(.far)::after { height: 6px; }
       /* tasteful overlay entrance (auto-disabled by reduce-motion) */
       .overlay:not(.hidden) .card { animation: drCardRise 0.34s cubic-bezier(0.2,0.8,0.2,1) both; }
       @keyframes drCardRise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
@@ -414,7 +443,7 @@
       }
 
 /* a phone on its side: the header closes up to a line each, a lone board's
-   panel keeps its Next piece beside its rows, and the byline sits close */
+   panel keeps its Next piece beside its rows, and the lake's sign sits close */
 @media (orientation: landscape) and (max-height: 500px) {
   .wrap { gap: 0.25rem; padding-bottom: 0.2rem; }
   h1.title { font-size: 1.25rem; }
@@ -423,7 +452,7 @@
   #menu-btn { padding: 0.35rem 0.8rem; }
   #game-area.solo .hud { width: 200px; grid-template-columns: minmax(0, 1fr) auto; column-gap: 0.5rem; }
   #game-area.solo canvas.next { width: 54px; height: 54px; }
-  #byline { margin: 0; }
+  #lake-sign:not(.far) { margin-top: 0; }
 }
 /* (wider, the title sits between the corner buttons, so the subtitle
    starts below them) */
@@ -441,7 +470,7 @@
 #game-area.lead:not(.side) .minis { margin-left: 8px; }
 /* (and the page closer set around the boards) */
 body.lead-up .wrap { gap: 0.3rem; padding-bottom: 0.35rem; }
-body.lead-up #byline { margin-top: 0; }
+body.lead-up #lake-sign:not(.far) { margin-top: 0; }
 #game-area.lead:not(.side) > .row { margin-bottom: 0.2rem !important; }
 #game-area.lead:not(.side) .touchpad { margin-top: 0.3rem; }
 #game-area.lead.side .boards { grid-template-columns: auto auto auto; grid-template-areas: "me hud minis"; justify-content: center; }

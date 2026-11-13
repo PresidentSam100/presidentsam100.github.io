@@ -1087,6 +1087,85 @@
         return who + ": " + w + " win" + (w === 1 ? "" : "s");
       }).join("\n");
     }
+    // The lake's name on a wooden sign, planted on the far shore: in the
+    // widest stretch of shore that nothing stands over (the header's lines,
+    // the corner buttons, the bar, the menu's card, a board, a panel, the
+    // pad), a size smaller where its own size has no room, and smaller and
+    // lower again (its post short) where only a strip under the subtitle is
+    // clear. Where the subtitle fills the shore from side to side (an
+    // upright phone) the subtitle keeps a strip at its right clear (still on
+    // two lines, a touch smaller on the narrowest phones) and the sign
+    // stands there as a narrow board, LAKE over SAM LU. Only where even
+    // that has no room does it stand on the near shore instead, at the foot
+    // of the page, in the page's flow; or, with foot set (in play, when that
+    // would make the page scroll), on the ice in a clear stretch along the
+    // window's bottom edge, out of the flow. While the menu is up the header
+    // steps aside but still counts, so the sign stands where it will in play
+    // (and the card may cover the shore). Run whenever the header, the bar
+    // or the boards may have moved (fit, the menu, a resize); true when it
+    // went in or out of the page's flow (the page's height changed).
+    const SIGN_SINK = 2, SIGN_SNOW = 4, SIGN_GAP = 6, SIGN_VGAP = 3, SIGN_EDGE = 8, SIGN_FOOT = 3;
+    const SIGN_SIZES = [[], ["small"], ["small", "low"]], SIGN_NARROW = [["tall"]];
+    function placeSign(foot) {
+      const sign = document.getElementById("lake-sign");
+      if (!sign) return false;
+      const wasFar = sign.classList.contains("far");
+      const W = document.documentElement.clientWidth || window.innerWidth;
+      const horizon = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--horizon")) || 86;
+      const sub = document.querySelector(".head .subtitle");
+      const lines = () => { const rg = document.createRange(); rg.selectNodeContents(sub); return new Set([...rg.getClientRects()].map((r) => Math.round(r.top))).size; };
+      // (in page terms: what's in the page scrolls with it, the corner
+      // buttons and the menu's card don't; the card by its resting box, as
+      // it may be gliding in)
+      const y = window.scrollY || 0;
+      let boxes = [];
+      const add = (r, fixed) => { if (r.width && r.height) boxes.push({ l: r.left, r: r.right, t: r.top + (fixed ? 0 : y), b: r.bottom + (fixed ? 0 : y) }); };
+      const look = () => {
+        boxes = [];
+        for (const el of document.querySelectorAll(".head .title, .head .subtitle")) {
+          const rg = document.createRange(); rg.selectNodeContents(el);
+          for (const r of rg.getClientRects()) add(r, false);
+        }
+        for (const el of document.querySelectorAll(".nav-back-games, .rm-toggle, .mute-toggle, .gs-pause-btn")) add(el.getBoundingClientRect(), true);
+        const area = document.getElementById("game-area");
+        if (area.offsetParent) for (const el of area.querySelectorAll(".row > *, canvas.board, .hud, canvas.next, #touchpad .tbtn")) add(el.getBoundingClientRect(), false);
+        const card = document.querySelector("#menu:not(.hidden) .card");
+        if (card) {
+          const o = card.offsetParent ? card.offsetParent.getBoundingClientRect() : { left: 0, top: 0 }, sc = card.offsetParent ? card.offsetParent.scrollTop : 0;
+          add({ left: o.left + card.offsetLeft, right: o.left + card.offsetLeft + card.offsetWidth, top: o.top + card.offsetTop - sc, bottom: o.top + card.offsetTop - sc + card.offsetHeight, width: card.offsetWidth, height: card.offsetHeight }, true);
+        }
+      };
+      document.body.classList.remove("sign-room");
+      look();
+      // (the clear stretch along a line furthest right that it fits, so it
+      // keeps to one side from the menu to play, its foot on the line, at
+      // the first of its sizes that fits one)
+      const plant = (foot, sizes) => {
+        for (const size of sizes) {
+          sign.classList.remove("small", "low", "tall"); sign.classList.add(...size);
+          const post = parseFloat(getComputedStyle(sign, "::after").height) + 1, w = sign.offsetWidth, top = foot - post - sign.offsetHeight;
+          const cuts = boxes.filter((b) => b.t < foot + SIGN_VGAP && b.b > top - SIGN_SNOW - SIGN_VGAP).map((b) => [b.l - SIGN_GAP, b.r + SIGN_GAP]).sort((a, b) => a[0] - b[0]);
+          let x = SIGN_EDGE, best = null;
+          for (const [l, r] of cuts.concat([[W - SIGN_EDGE, W]])) {
+            if (l - x >= w) best = [x, l];
+            x = Math.max(x, r);
+          }
+          if (best) { sign.style.left = Math.round((best[0] + best[1] - w) / 2) + "px"; sign.style.top = Math.round(top) + "px"; return true; }
+        }
+        return false;
+      };
+      sign.classList.remove("foot"); sign.classList.add("far");
+      if (plant(horizon + SIGN_SINK, SIGN_SIZES)) return !wasFar;
+      // (a strip kept clear beside the subtitle, if it still takes as many lines)
+      const before = lines();
+      document.body.classList.add("sign-room");
+      if (lines() <= before) { look(); if (plant(horizon + SIGN_SINK, SIGN_NARROW)) return !wasFar; }
+      document.body.classList.remove("sign-room");
+      look();
+      if (foot && plant(window.innerHeight + y - SIGN_FOOT, SIGN_SIZES.slice(1))) { sign.classList.add("foot"); return !wasFar; }
+      sign.classList.remove("far", "small", "low", "tall"); sign.style.left = sign.style.top = "";
+      return wasFar;
+    }
     class Game {
       constructor(opts) {
         this.opts = opts; this.mode = opts.mode; this.players = []; this.state = "playing"; this.last = 0; this.raf = null;
@@ -1147,23 +1226,33 @@
         return p;
       }
       // The whole play screen fits the window with nothing to scroll: the
-      // title, the bar, the boards, the on-screen pad and the byline. A window
+      // title, the bar, the boards, the on-screen pad and the lake's sign. A window
       // wider than a phone has the pad beside the boards; a lone board has its
       // panel beside it; then the boards take the width there is, and shrink
       // until the page ends inside the window (a phone in VS: fitLead). Run
-      // again on a resize.
+      // again on a resize. (The lake's sign is placed before and after: the
+      // boards, sized, may leave its shore no room, or make some; when it
+      // changes shores the page's height changes, so they're sized once more.)
       fit() {
+        this.fitLayout(false);
+        if (placeSign(false)) { this.fitLayout(true); placeSign(false); }
+        // (at the foot of the page and the page runs past the window: planted
+        // in a clear stretch along the window's bottom edge instead)
+        const el = document.documentElement;
+        if (!document.getElementById("lake-sign").classList.contains("far") && el.scrollHeight > window.innerHeight) placeSign(true);
+      }
+      fitLayout(signKept) {
         const area = document.getElementById("game-area"), wrap = area.parentNode, n = this.count, vs = this.mode === "vs";
         const W = document.documentElement.clientWidth || window.innerWidth, H = window.innerHeight;
         const natW = CONFIG.cols * CONFIG.cell, natH = CONFIG.rows * CONFIG.cell;
         area.classList.toggle("solo", !vs); area.classList.toggle("side", W >= 640 || W > H);
         const lead = this.leadOf(W, H);
-        this.arrange(lead); this.barUp(area, W, !!lead);
+        this.arrange(lead); this.barUp(area, W, !!lead); if (!signKept) placeSign();
         const side = area.classList.contains("side") ? document.getElementById("touchpad").offsetWidth + (lead ? 12 : 20) : 0;
-        // how far the page runs past the window's bottom (the byline and the
-        // page's own bottom margin included)
-        const by = document.getElementById("byline");
-        const over = () => Math.ceil(by.getBoundingClientRect().bottom + parseFloat(getComputedStyle(by).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H);
+        // how far the page runs past the window's bottom (the sign, when it
+        // stands at the foot of the page, and the page's own bottom margin included)
+        const sign = document.getElementById("lake-sign");
+        const over = () => { const last = sign.classList.contains("far") ? area : sign; return Math.ceil(last.getBoundingClientRect().bottom + parseFloat(getComputedStyle(last).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H); };
         if (lead) return this.fitLead(lead, W, side, over);
         const panel = vs ? 0 : this.players[0].hud.offsetWidth + 12;
         const maxW = vs ? Math.min((W - 32 - side) / n - 18, n >= 3 ? 240 : 300) : Math.min(W - 32 - side - panel, natW), kW = Math.min(1, maxW / natW);
@@ -1572,7 +1661,7 @@
       menu.classList.toggle("deep", menu.querySelector(".card").offsetHeight > room + 1);
       menu.scrollTop = at;
     }
-    const fitAll = () => { fitStages(); fitMenu(); };
+    const fitAll = () => { fitStages(); fitMenu(); placeSign(); };
     if (window.ResizeObserver) new ResizeObserver(fitAll).observe(menu.querySelector(".card"));
     window.addEventListener("resize", fitAll);
     function pickStage(n) {
@@ -1660,12 +1749,15 @@
     // dropping GAME (not just stopping its loop) switches the board keys off:
     // handleKey bails without a game, so letters type into the menu's
     // dropdowns again
-    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); updateVsOpts(); }
+    function toMenu() { if (GAME) { GAME.destroy(); GAME = null; } document.getElementById("pause").classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("game-area").style.display = "none"; menu.classList.remove("hidden"); paintStages(); updateVsOpts(); placeSign(); }
     // the play screen is fitted to the window again when it changes size,
     // and once the web fonts have come (the panel's text takes their size)
-    window.addEventListener("resize", () => { if (GAME) GAME.fit(); });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (GAME) GAME.fit(); });
-    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", () => { if (GAME) GAME.fit(); });
+    // (the lake's sign too, menu or play)
+    const refit = () => { if (GAME) GAME.fit(); else placeSign(); };
+    window.addEventListener("resize", refit);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
+    if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", refit);
+    placeSign();
     function startGame(carryWins) {
       SFX.init(); SFX.resume(); // first run is from a click → satisfies autoplay policy
       menu.classList.add("hidden"); document.getElementById("result").classList.add("hidden"); document.getElementById("pause").classList.add("hidden"); document.getElementById("game-area").style.display = "";

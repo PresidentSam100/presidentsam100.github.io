@@ -367,7 +367,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- in play the whole screen fits the window, nothing to scroll: the
-  // pad's buttons, the panels, the title and the byline all inside it, the
+  // pad's buttons, the panels, the title and the lake's sign all inside it, the
   // page no taller or wider than it. A lone board's panel stands beside it.
   // On a laptop a VS match's boards share one row, none shrunk to a sliver,
   // each Next piece beside its panel's rows (under them only on the
@@ -389,7 +389,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
         const m = await q.evaluate(() => {
           const R = (e) => e.getBoundingClientRect(), W = innerWidth, H = innerHeight;
-          const cut = [...document.querySelectorAll("#touchpad .tbtn, .hud .name, .hud .stat, .hud .special, .hud .pmute, canvas.next, #menu-btn, #mode-label, .head .title, .head .subtitle, #byline")]
+          const cut = [...document.querySelectorAll("#touchpad .tbtn, .hud .name, .hud .stat, .hud .special, .hud .pmute, canvas.next, #menu-btn, #mode-label, .head .title, .head .subtitle, #lake-sign")]
             .filter((e) => e.tagName !== "SPAN" || e.textContent.trim())   // (a VS panel's extra stat is empty until a bonus)
             .filter((e) => { const r = R(e); return !r.width || r.left < -1 || r.right > W + 1 || r.top < -1 || r.bottom > H + 1; }).map((e) => e.className || e.id || e.tagName);
           const cols = [...document.querySelectorAll(".board-col")].map((col) => {
@@ -407,9 +407,71 @@ module.exports = async ({ browser, base, check, lib }) => {
       errs.push(...q.errs);
       await q.close(); await c.close();
     }
-    check("demolition-row: in play the whole screen fits the window with nothing to scroll (pad, panels, title, byline); on a laptop a match's boards on one row and none a sliver, the Next piece beside the panel's rows, on a phone one leading (50-Stage, Endless, VS 2 and 4; phones 320x568, 375x553, 390x664 and on their side, 664x390 and 568x320; laptops 1366x657, 1280x600, 1280x900)",
+    check("demolition-row: in play the whole screen fits the window with nothing to scroll (pad, panels, title, the lake's sign); on a laptop a match's boards on one row and none a sliver, the Next piece beside the panel's rows, on a phone one leading (50-Stage, Endless, VS 2 and 4; phones 320x568, 375x553, 390x664 and on their side, 664x390 and 568x320; laptops 1366x657, 1280x600, 1280x900)",
       Object.keys(bad).length === 0, bad);
     check("demolition-row (play screen fit): no page errors", errs.length === 0, errs);
+  }
+
+  // ---- the lake's name: "LAKE SAM LU" on a wooden sign, planted on the far
+  // shore (its post's foot at the horizon): on laptops always, and in play
+  // on an upright phone too, as a narrow board in a strip the subtitle keeps
+  // clear at its right (the subtitle still on two lines). On the menu it's
+  // on the shore wherever the card leaves the shore in view (a tall phone);
+  // where the card covers it, it waits behind. Only a phone on its side in
+  // a crowded VS match may stand it at the foot of the page or window. It
+  // stands on nothing: no line of the header, corner button, bar button,
+  // menu card, board, panel or pad, and it is inside the window. No "made
+  // by" line anywhere.
+  {
+    const SIZES = [["laptop", 1280, 900], ["laptop", 1366, 657], ["laptop", 1280, 600], ["laptop", 1024, 768],
+      ["phone", 390, 664], ["phone", 320, 568], ["phone", 360, 640], ["phone", 430, 932], ["phone", 664, 390], ["phone", 568, 320]];
+    const bad = {}, seen = {}, errs = [];
+    for (const [kind, w, h] of SIZES) {
+      const c = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/demolition-row/");
+      for (const mode of ["menu", "stage", "vs4"]) {
+        if (mode !== "menu") {
+          await q.evaluate((mode) => {
+            if (GAME) toMenu();
+            document.querySelector('#mode-pick [data-mode="' + (mode.startsWith("vs") ? "vs" : mode) + '"]').click();
+            if (mode.startsWith("vs")) document.querySelector('#count-pick [data-count="' + mode.slice(2) + '"]').click();
+            document.getElementById("play-btn").click();
+          }, mode);
+          await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+        }
+        const m = await q.evaluate(() => {
+          const sign = document.getElementById("lake-sign");
+          if (!sign) return { none: true, made: [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length };
+          const R = (e) => e.getBoundingClientRect(), s = R(sign), post = parseFloat(getComputedStyle(sign, "::after").height) + 1;
+          const box = { l: s.left - 2, r: s.right + 2, t: s.top - 4, b: s.bottom + post };   // (with its snow and its post)
+          const hits = (r) => r.width && r.height && r.left < box.r && r.right > box.l && r.top < box.b && r.bottom > box.t;
+          const on = [];
+          for (const e of document.querySelectorAll(".head .title, .head .subtitle")) { const rg = document.createRange(); rg.selectNodeContents(e); if ([...rg.getClientRects()].some(hits)) on.push(e.className); }
+          for (const e of document.querySelectorAll(".nav-back-games, .gs-corner > *, #game-area > .row > *, #menu:not(.hidden) .card, canvas.board, .hud, #touchpad .tbtn"))
+            if (e.getClientRects().length && hits(R(e))) on.push(e.id || e.className || e.tagName);
+          const horizon = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--horizon"));
+          const at = !sign.classList.contains("far") ? "page" : sign.classList.contains("foot") ? "window" : "shore";
+          const sub = document.querySelector(".head .subtitle"), srg = document.createRange(); srg.selectNodeContents(sub);
+          return { text: sign.textContent.trim(), at, shown: getComputedStyle(sign).visibility === "visible",
+            subLines: new Set([...srg.getClientRects()].map((r) => Math.round(r.top))).size,
+            foot: Math.round((box.b + scrollY - horizon) * 10) / 10, inside: box.l >= 0 && box.r <= innerWidth && box.t >= 0 && box.b <= innerHeight, on,
+            made: [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length };
+        });
+        const key = w + "x" + h + " " + mode;
+        seen[key] = m.none ? "no sign" : { shore: "far shore", window: "foot of the window", page: "foot of the page" }[m.at] + (m.shown ? "" : " (hidden: menu)");
+        // (a hidden sign, behind a short phone's menu card, need only be
+        // hidden; one at the foot is on a phone on its side, in a VS match)
+        const upright = kind === "phone" && w < h, tall = w === 430;
+        const ok = !m.none && m.text === "LAKE SAM LU" && !m.made && m.subLines <= 2 && (!m.shown ? m.at === "page" && mode === "menu" && !tall :
+          m.inside && !m.on.length && (m.at === "shore" ? Math.abs(m.foot - 2) <= 1.5 : kind === "phone" && !upright && mode === "vs4"));
+        if (!ok) bad[key] = m;
+      }
+      errs.push(...q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: \"LAKE SAM LU\" on a sign planted on the far shore, on laptops and in play on upright phones (the subtitle still two lines), on the menu where the card leaves the shore in view (a tall phone), at the foot only on a phone on its side in VS; inside the window and on no text, button, card, board, panel or pad; no \"made by\" line",
+      Object.keys(bad).length === 0, Object.keys(bad).length ? bad : seen);
+    check("demolition-row (the lake's sign): no page errors", errs.length === 0, errs);
   }
 
   // ---- VS on a phone: the board the pad drives leads, as big as fits, and
@@ -441,7 +503,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       const under = (r) => corner.some((c) => r.left < c.right - 1 && r.right > c.left + 1 && r.top < c.bottom - 1 && r.bottom > c.top + 1);
       const name = (e) => (e.closest(".board-col") ? (e.closest(".board-col").querySelector(".name") || {}).textContent + " " : "") + (e.className || e.id || e.tagName);
       const cut = [], hid = [], spill = [];
-      for (const e of document.querySelectorAll("#touchpad .tbtn, canvas.board, canvas.next, .hud .pmute, .hud .meter, #menu-btn, .hud .name, .hud .stat, .hud .wins, .hud .special, #mode-label, .head .title, .head .subtitle, #byline")) {
+      for (const e of document.querySelectorAll("#touchpad .tbtn, canvas.board, canvas.next, .hud .pmute, .hud .meter, #menu-btn, .hud .name, .hud .stat, .hud .wins, .hud .special, #mode-label, .head .title, .head .subtitle, #lake-sign")) {
         const text = !/^(BUTTON|CANVAS)$/.test(e.tagName) && !e.classList.contains("meter");
         if (text && !e.textContent.trim()) continue;   // (a VS panel's extra stat is empty until a bonus)
         const r = text ? T(e).getBoundingClientRect() : R(e);
