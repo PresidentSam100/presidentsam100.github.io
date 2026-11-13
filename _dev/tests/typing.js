@@ -28,17 +28,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("departures mid-game: m is typed, [ / ] toggle and aren't typed", v === "m" && b.m === !a.m && b.f === !a.f, { v, a, b });
   check("departures: no page errors", p.errs.length === 0, p.errs); await p.close();
 
-  // Metazac: M works on the start screen; mid-game digits type and [ mutes
+  // Metazac: M works on the start screen; mid-game digits type, and M and [
+  // mute from the answer box (it takes only digits, so no letter is typed)
   p = await lib.open(ctx, base, "games/metazac/");
   a = await st(p); await p.keyboard.press("m"); b = await st(p); await p.keyboard.press("m");
   check("metazac start screen: M mutes", b.m === !a.m, { a, b });
   await p.keyboard.press("Enter");
   await p.waitForFunction(() => document.activeElement.id === "answer" && !document.activeElement.disabled, null, { timeout: 5000 }).catch(() => {});
   a = await st(p);
-  await p.keyboard.type("5"); await p.keyboard.press("m"); await p.keyboard.press("BracketLeft");
+  await p.keyboard.type("5"); await p.keyboard.press("m");
   b = await st(p);
+  await p.keyboard.press("BracketLeft");
+  const c2 = await st(p);
   v = await p.evaluate(() => document.getElementById("answer").value);
-  check("metazac mid-game: 5 typed, m ignored, [ mutes", a.ae === "answer" && v === "5" && b.m === !a.m, { a, b, v });
+  check("metazac mid-game: 5 typed, m mutes (not typed), [ unmutes", a.ae === "answer" && v === "5" && b.m === !a.m && c2.m === a.m, { a, b, c2, v });
   check("metazac: no page errors", p.errs.length === 0, p.errs); await p.close();
 
   // Typetwo and Lanterns: letters are the game

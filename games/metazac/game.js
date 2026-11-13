@@ -53,13 +53,16 @@
   }
 
   // --- colors / balloons ---
+  // (lives: what a balloon that gets away costs, its layers in Bloons:
+  // red 1 up to pink 5, out of START_LIVES)
   var COLORS = {
-    red: { fill: "#ff4d4d", glow: "#ffb0a8", dark: "#b8232a", text: "#1a1a1a", speed: 70, pts: 1 },
-    blue: { fill: "#3f7bff", glow: "#a8c4ff", dark: "#1f4fc4", text: "#1a1a1a", speed: 95, pts: 2 },
-    green: { fill: "#36c759", glow: "#a8f5b8", dark: "#1f8f3a", text: "#1a1a1a", speed: 125, pts: 3 },
-    yellow: { fill: "#ffd23f", glow: "#fff4b8", dark: "#d99a00", text: "#1a1a1a", speed: 160, pts: 4 },
-    pink: { fill: "#ff5fa2", glow: "#ffc4de", dark: "#d93a7d", text: "#1a1a1a", speed: 205, pts: 5 },
+    red: { fill: "#ff4d4d", glow: "#ffb0a8", dark: "#b8232a", text: "#1a1a1a", speed: 70, pts: 1, lives: 1 },
+    blue: { fill: "#3f7bff", glow: "#a8c4ff", dark: "#1f4fc4", text: "#1a1a1a", speed: 95, pts: 2, lives: 2 },
+    green: { fill: "#36c759", glow: "#a8f5b8", dark: "#1f8f3a", text: "#1a1a1a", speed: 125, pts: 3, lives: 3 },
+    yellow: { fill: "#ffd23f", glow: "#fff4b8", dark: "#d99a00", text: "#1a1a1a", speed: 160, pts: 4, lives: 4 },
+    pink: { fill: "#ff5fa2", glow: "#ffc4de", dark: "#d93a7d", text: "#1a1a1a", speed: 205, pts: 5, lives: 5 },
   };
+  var START_LIVES = 100;
 
   var bloons = [];
   // Zetamac-style ranges. Subtraction reuses addition's ranges (in
@@ -75,11 +78,11 @@
   // The dart storm (Space): the monkey throws a dart at each of the
   // POWER_SHOTS bloons nearest the exit, one at a time, stopping early if
   // none are left; then it recharges for POWER_RECHARGE seconds.
-  var POWER_SHOTS = 5, POWER_GAP = 0.16, POWER_RECHARGE = 45;
+  var POWER_SHOTS = 5, POWER_GAP = 0.16, POWER_RECHARGE = 30;
   var power = { left: 0, timer: 0, cd: 0 };
   var powerBtn = document.getElementById("power-btn");
   var powerNum = document.getElementById("power-num");
-  var score = 0, best = 0, lives = 3;
+  var score = 0, best = 0, lives = START_LIVES;
   var gameTime = 0, spawnTimer = 0, leakFlash = 0;
 
   function randInt(a, b) {
@@ -275,7 +278,7 @@
     points = [];
     power = { left: 0, timer: 0, cd: 0 };   // ready from the start
     score = 0;
-    lives = 3;
+    lives = START_LIVES;
     gameTime = 0;
     spawnTimer = 0.6;
     leakFlash = 0;
@@ -285,7 +288,7 @@
   function updateHud() {
     scoreEl.textContent = score;
     bestEl.textContent = best;
-    livesEl.textContent = lives > 0 ? "♥︎".repeat(lives) : "0";   // (︎: plain hearts, not emoji, on a phone too)
+    livesEl.textContent = String(lives);
   }
 
   function popBloon(b) {
@@ -381,7 +384,7 @@
       if (b.dist >= TOTAL) {
         bloons.splice(i, 1);
         if (state === "playing") {
-          lives--;
+          lives = Math.max(0, lives - COLORS[b.color].lives);
           leakFlash = 1;
           updateHud();
           if (lives <= 0) endGame(); // plays its own game-over sound
@@ -965,6 +968,7 @@
         onChange: function (paused) {
           input.disabled = paused || state !== "playing";
           if (!paused && state === "playing") input.focus();
+          document.documentElement.classList.toggle("mz-paused", paused);   // (the pennant holds still)
         },
         // on the card: the same sums again from 0, or back to the settings
         restart: startGame,
@@ -1016,7 +1020,7 @@
     darts = [];
     power = { left: 0, timer: 0, cd: 0 };
     score = 0;
-    lives = 3;
+    lives = START_LIVES;
     updateHud();
     input.value = "";
     input.disabled = true;
@@ -1035,6 +1039,24 @@
   input.addEventListener("animationend", function () {
     input.classList.remove("wrong");
   });
+  // V and M (Visual FX and sound, as in every game) work in play too: the
+  // answer box takes only digits, so its letters are nobody's. The shared
+  // corner buttons leave a letter typed in a text field alone, and every
+  // key in a number box, so here the answer box's V and M, and all four
+  // keys in the start card's number boxes, press the buttons themselves,
+  // nothing typed. (In the answer box "[" and "]" are the buttons' own.)
+  var CORNER_KEYS = { v: ".rm-toggle", "]": ".rm-toggle", m: ".mute-toggle", "[": ".mute-toggle" };
+  document.addEventListener("keydown", function (e) {
+    var t = e.target, k = e.key && e.key.toLowerCase();
+    if (!k || !CORNER_KEYS[k] || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    var numberBox = t && t.tagName === "INPUT" && t.type === "number";
+    if (!(t === input && /^[vm]$/.test(k)) && !numberBox) return;
+    var btn = document.querySelector(CORNER_KEYS[k]);
+    if (!btn) return;
+    e.preventDefault();
+    btn.click();
+  }, true);
+
   // A key the focused control acts on itself: Enter on a button or link,
   // Space on a button or checkbox, either one in a settings box. That one is
   // the control's, not "start" (Enter on a ticked checkbox still starts).
@@ -1137,6 +1159,34 @@
   canvas.addEventListener("pointerdown", function () {
     if (state === "playing") input.focus();
   });
+
+  // The carnival's pennant flies from a pole beside the marquee sign. Where
+  // the sign's line has no room for it (a narrow side column), or the ball
+  // on top of its pole would reach the corner buttons (a phone on its side,
+  // the sign just under them), it flies at the foot of the column (or of the
+  // page) instead, where there's room to spare, rather than pushing the
+  // sign's line apart. Again on a resize, and once the lettering has come.
+  var POLE_UP = 16;   // (the ball's top above the flag: styles.css #pennant::after)
+  var pennant = document.getElementById("pennant"), marquee = document.querySelector(".title");
+  var pennantHome = pennant && pennant.parentNode, wrapEl = document.querySelector(".wrap");
+  function placePennant() {
+    if (!pennant || !marquee) return;
+    if (pennant.parentNode !== pennantHome) pennantHome.insertBefore(pennant, marquee.nextSibling);
+    pennant.classList.remove("foot");
+    var s = marquee.getBoundingClientRect(), p = pennant.getBoundingClientRect(), top = p.top - POLE_UP;
+    var corner = [].slice.call(document.querySelectorAll(".nav-back-games, .gs-corner > *")).some(function (e) {
+      var c = e.getBoundingClientRect();
+      return c.width && c.left < p.right + 2 && c.right > p.left - 3 && c.top < p.bottom && c.bottom > top;
+    });
+    if (p.left >= s.right && p.top < s.bottom && !corner) return;
+    pennant.classList.add("foot");
+    wrapEl.appendChild(pennant);
+  }
+  placePennant();
+  window.addEventListener("resize", placePennant);
+  window.addEventListener("load", placePennant);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePennant);
+  if (document.fonts && document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", placePennant);
 
   try { best = parseInt(localStorage.getItem(BEST_KEY) || "0", 10) || 0; } catch (e) {}
   loadConfig();

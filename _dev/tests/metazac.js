@@ -7,6 +7,8 @@
 // typed in the answer box too (it takes digits), and the card wears its
 // keys (Resume P, Restart R, Menu ⌫); Esc is the way out, asking mid-run. On
 // a laptop's short window the page fits whole, so play never scrolls it.
+// 100 lives, a balloon that gets away costing its layers; the dart storm
+// recharges in 30 s; V and M work from the answer box; the carnival's pennant.
 const HOOK = ["  function endGame() {", "  window.__mz = { end: function () { endGame(); }, make: function () { return makeProblem(); },\n" +
   "    spawn: function () { spawnBloon(); return bloons[bloons.length - 1].ans; }, score: function () { return score; },\n" +
   "    points: function () { return typeof points === 'undefined' ? [] : points.map(function (p) { return { x: p.x, y: p.y, n: p.n, t: p.t }; }); } };\n  function endGame() {"];
@@ -242,6 +244,158 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("metazac, phones 320 to 430 px: each sum's two ranges stay on one line, on the card, a three digit number whole in each box",
     Object.values(lines).every((l) => l.length === 2 && l.every((r) => r.rows === 1 && r.inside && r.whole)), lines);
+
+  // ---- lives: 100 to start, shown as a number; a balloon that gets away
+  // costs its layers as in Bloons (red 1, blue 2, green 3, yellow 4, pink 5);
+  // at 0 the game is over and the count stays at 0. The dart storm recharges
+  // in 30 s on the game's clock: a pause doesn't run it down.
+  const HOOK2 = ["  function powerReady() {", "  window.__mz2 = { lives: function () { return lives; }, cd: function () { return power.cd; }, state: function () { return state; },\n" +
+    "    leak: function (color) { spawnBloon(); var b = bloons[bloons.length - 1]; b.color = color; b.speed = COLORS[color].speed; b.dist = TOTAL - 0.01; } };\n  function powerReady() {"];
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/metazac/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/metazac/game.js", [HOOK, HOOK2]); } });
+    const r = await q.evaluate(() => {
+      const hud = () => document.getElementById("lives-val").textContent;
+      __frames(2); document.getElementById("start-btn").click(); __frames(2);
+      const out = { start: [__mz2.lives(), hud()], steps: [] };
+      for (const color of ["red", "blue", "green", "yellow", "pink"]) { __mz2.leak(color); __frames(2); out.steps.push(color + " " + __mz2.lives() + " " + hud()); }
+      let n = 0;
+      while (__mz2.state() === "playing" && n < 40) { __mz2.leak("pink"); __frames(2); n++; }
+      out.end = [__mz2.state(), __mz2.lives(), hud(), n];
+      out.how = document.querySelector("#overlay-start .board > p").textContent.replace(/\s+/g, " ");
+      return out;
+    });
+    check("metazac: 100 lives to start, a number on the panel; a balloon that gets away costs red 1, blue 2, green 3, yellow 4, pink 5; the game ends at 0 and the panel shows 0; How to play says so",
+      r.start[0] === 100 && r.start[1] === "100" && r.steps.join() === "red 99 99,blue 97 97,green 94 94,yellow 90 90,pink 85 85" &&
+      r.end[0] === "over" && r.end[1] === 0 && r.end[2] === "0" && r.end[3] === 17 && /100 lives/.test(r.how) && /1 \(red\) to 5 \(pink\)/.test(r.how), r);
+    check("metazac (lives): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/metazac/", { before: async (pg) => { await pg.addInitScript(STEPPED); await lib.injectScript(pg, "games/metazac/game.js", [HOOK, HOOK2]); } });
+    await q.evaluate(() => { __frames(2); document.getElementById("start-btn").click(); __frames(2); });
+    await q.keyboard.press(" ");
+    const r = await q.evaluate(() => {
+      const face = () => document.getElementById("power-num").textContent;
+      __frames(3);
+      const out = { fired: [+__mz2.cd().toFixed(2), face()] };
+      return out;
+    });
+    await q.keyboard.press("p");
+    r.paused = await q.evaluate(() => { __frames(180); return [+__mz2.cd().toFixed(2), document.getElementById("power-num").textContent]; });
+    await q.keyboard.press("p");
+    r.resumed = await q.evaluate(() => { __frames(60); return [+__mz2.cd().toFixed(2), document.getElementById("power-num").textContent]; });
+    r.note = await q.evaluate(() => document.querySelector(".power-note").textContent.replace(/\s+/g, " "));
+    check("metazac: the dart storm recharges in 30 s (the button counts 30s down), held while paused (3 s paused: still 30s), and How to play says 30 seconds",
+      r.fired[0] > 29.9 && r.fired[0] <= 30 && r.fired[1] === "30s" && r.paused[0] === r.fired[0] && r.paused[1] === "30s" &&
+      r.resumed[0] > 28.9 && r.resumed[0] < 29.1 && r.resumed[1] === "29s" && /recharges in 30 seconds/.test(r.note), r);
+    check("metazac (storm): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- V and M (and ] and [) toggle Visual FX and sound everywhere: on the
+  // start card, in its number boxes, in play with the answer box focused
+  // (nothing typed into it) and while paused; the corner buttons name them
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/metazac/");
+    const st = () => q.evaluate(() => ({ fx: RM_ON(), mute: MUTE_ON(), box: document.getElementById("answer").value }));
+    const flips = async () => {
+      const out = [];
+      for (const k of ["v", "m", "]", "["]) { const a = await st(); await q.keyboard.press(k); const b = await st(); if ((k === "v" || k === "]" ? a.fx === b.fx : a.mute === b.mute) || b.box !== a.box) out.push(k); }
+      return out;
+    };
+    const bad = {};
+    bad.menu = await flips();
+    await q.click("#add-max1"); bad.numberBox = await flips();
+    await q.evaluate(() => document.activeElement.blur());
+    await q.evaluate(() => document.getElementById("start-btn").click()); await q.waitForTimeout(300);
+    await q.keyboard.type("5");
+    bad.play = await flips();
+    const typed = await q.evaluate(() => ({ box: document.getElementById("answer").value, focus: document.activeElement.id }));
+    await q.keyboard.press("p"); await q.waitForTimeout(150); bad.paused = await flips();
+    const titles = await q.evaluate(() => [document.querySelector(".rm-toggle").title, document.querySelector(".mute-toggle").title]);
+    check("metazac: V / ] toggle Visual FX and M / [ sound on the start card, in its number boxes, in play from the answer box (5 kept, no letter typed) and while paused; the corner buttons name the keys",
+      Object.values(bad).every((x) => !x.length) && typed.box === "5" && typed.focus === "answer" && /V or \]$/.test(titles[0]) && /M or \[$/.test(titles[1]), { bad, typed, titles });
+    check("metazac (V and M): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- the carnival's pennant, "SAM LU'S CARNIVAL", flies from a pole
+  // beside the marquee sign, or where the sign's line has no room, at the
+  // foot of the side column; on the first screen and in play, inside the
+  // window, both lines on the flag, on nothing else (the sign, the subtitle,
+  // the stats, the map, the answer box and its buttons, the hint, the corner
+  // buttons); no "made by" line
+  {
+    const T = { hasTouch: true, isMobile: true };
+    const SIZES = [[1280, 900], [1366, 657], [1280, 600], [1024, 600], [390, 664, T], [360, 640, T], [320, 568, T], [375, 553, T], [667, 375, T], [844, 390, T]];
+    const bad = {}, seen = {}, errs = [];
+    for (const [w, h, t] of SIZES) {
+      const c = await lib.newContext(browser, Object.assign({ viewport: { width: w, height: h } }, t || {}));
+      const q = await lib.open(c, base, "games/metazac/");
+      for (const when of ["menu", "play"]) {
+        if (when === "play") { await q.evaluate(() => document.getElementById("start-btn").click()); await q.waitForTimeout(400); }
+        const m = await q.evaluate(() => {
+          const pen = document.getElementById("pennant");
+          const made = [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length;
+          if (!pen) return { none: true, made };
+          const R = (e) => e.getBoundingClientRect(), r = R(pen), flag = R(pen.querySelector(".flag")), foot = pen.classList.contains("foot");
+          // (with its pole and the ball on top)
+          const box = { l: r.left - 3, r: r.right + 2, t: r.top - 15, b: foot ? r.bottom : r.bottom + 7 };
+          const meet = (q) => q.width && q.height && q.left < box.r && q.right > box.l && q.top < box.b && q.bottom > box.t;
+          const on = [];
+          for (const s of [".title", ".subtitle", ".stats", "#game", ".answer-line", ".hint", ".nav-back-games", ".gs-corner > *"])
+            for (const e of document.querySelectorAll(s)) if (e.getClientRects().length && meet(R(e))) on.push(s);
+          const lines = [...pen.querySelectorAll(".flag b")].map(R);
+          return { text: pen.textContent.replace(/\s+/g, " ").trim(), foot, made, on,
+            inside: box.l >= 0 && box.r <= innerWidth && box.t >= 0 && box.b <= innerHeight,
+            onFlag: lines.length === 2 && lines.every((x) => x.left >= flag.left && x.right <= flag.right && x.top >= flag.top - 1 && x.bottom <= flag.bottom + 1) };
+        });
+        const key = w + "x" + h + " " + when;
+        seen[key] = m.none ? "none" : m.foot ? "foot" : "beside the sign";
+        if (m.none || m.made || m.text !== "SAM LU’S CARNIVAL" || !m.inside || m.on.length || !m.onFlag) bad[key] = m;
+      }
+      errs.push(...q.errs);
+      await c.close();
+    }
+    check("metazac: \"SAM LU'S CARNIVAL\" flies on a pennant beside the sign (or at the column's foot), on the first screen and in play, inside the window, on nothing else; no \"made by\" line (laptops 1280x900, 1366x657, 1280x600, 1024x600; phones 320 to 390 and on their side)",
+      Object.keys(bad).length === 0, Object.keys(bad).length ? bad : seen);
+    check("metazac (pennant): no page errors", errs.length === 0, errs);
+  }
+
+  // ---- the pennant ripples with Visual FX on (now and then, from the pole),
+  // holds still while paused, and stays still with Visual FX off
+  {
+    const flutter = {};
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/metazac/", { before: async (pg) => { if (off) await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:metazac", "1"); } catch (e) {} }); } });
+      const look = () => q.evaluate(() => { const f = document.querySelector("#pennant .flag"); if (!f) return {}; const cs = getComputedStyle(f); return { name: cs.animationName, state: cs.animationPlayState }; });
+      const r = { menu: await look() };
+      await q.evaluate(() => document.getElementById("start-btn").click()); await q.waitForTimeout(300);
+      await q.keyboard.press("p"); await q.waitForTimeout(150);
+      r.paused = await look();
+      await q.keyboard.press("p"); await q.waitForTimeout(150);
+      r.resumed = await look();
+      // (the ripple itself: the flag at 74% of its turn is skewed, at rest at the start)
+      r.shape = await q.evaluate(() => {
+        const f = document.querySelector("#pennant .flag"), a = f && f.getAnimations()[0];
+        if (!f) return null;
+        if (!a) return getComputedStyle(f).transform;
+        const at = (k) => { a.currentTime = k * 3600; return getComputedStyle(f).transform; };
+        return [at(0.3), at(0.74)];
+      });
+      flutter[off ? "off" : "on"] = r;
+      await c.close();
+    }
+    const on = flutter.on, off = flutter.off;
+    check("metazac: with Visual FX on the pennant ripples now and then (still at rest, skewed partway through its turn), held still while paused; with it off it stays still",
+      on.menu.name === "mzPennant" && on.menu.state === "running" && on.paused.state === "paused" && on.resumed.state === "running" &&
+      Array.isArray(on.shape) && on.shape[0] === "none" && on.shape[1] !== "none" &&
+      off.menu.name === "none" && off.paused.name === "none" && off.shape === "none", flutter);
+  }
 
   await ctx.close();
 };

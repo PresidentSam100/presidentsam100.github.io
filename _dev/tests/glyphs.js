@@ -237,7 +237,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   const suits = await p.evaluate(() => Array.from(document.querySelectorAll("#field .card:not(.down) .pip, #field .card:not(.down) .idx small")).map((e) => e.textContent));
   check("klondike: the suits on the cards face up ask to be drawn as text", suits.length >= 14 && suits.every((t) => /^[♠♥♦♣]︎$/.test(t)), suits.slice(0, 6));
   await p.close();
-  for (const [g, sel] of [["metazac", "#lives-val"], ["typetwo", "#lives"]]) {
+  // (Metazac counts its 100 lives as a number, no hearts)
+  for (const [g, sel] of [["typetwo", "#lives"]]) {
     p = await lib.open(ctx, base, "games/" + g + "/");
     const t = await p.evaluate((sel) => document.querySelector(sel).textContent, sel);
     check(g + ": the hearts that count lives ask to be drawn as text", t === ("♥" + VS).repeat(3), [...t].map((c) => c.codePointAt(0).toString(16)));

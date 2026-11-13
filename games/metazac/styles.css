@@ -110,6 +110,76 @@
       border-radius: 999px;
       box-shadow: 0 3px 0 var(--ink);
     }
+    /* the carnival's pennant, flying from a pole beside the marquee sign:
+       gold felt with a red band at the pole, the name in two lines, and an
+       ink outline round the lot (the drop shadows: the flag's shape is cut
+       by clip-path, which a border wouldn't follow). With Visual FX on it
+       ripples now and then, from the pole out; held still while paused. */
+    #pennant {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 0 0 0.85rem;
+      padding-left: 5px;
+      font-family: var(--ui);
+      line-height: 1.02;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      filter: drop-shadow(1.5px 0 0 var(--ink)) drop-shadow(-1.5px 0 0 var(--ink)) drop-shadow(0 1.5px 0 var(--ink))
+        drop-shadow(0 -1.5px 0 var(--ink)) drop-shadow(0 3px 0 rgba(42, 26, 18, 0.5));
+    }
+    /* the pole, and the red ball on top of it */
+    #pennant::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: -8px;
+      bottom: -7px;
+      width: 4px;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #8a5a2b, #d39a55);
+    }
+    #pennant::after {
+      content: "";
+      position: absolute;
+      left: -2.5px;
+      top: -15px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #ff9a8a, var(--red) 65%);
+    }
+    #pennant .flag {
+      display: block;
+      padding: 5px 24px 5px 10px;
+      color: var(--ink);
+      background: linear-gradient(90deg, var(--red) 0 5px, var(--gold) 5px);
+      clip-path: polygon(0 0, 80% 13%, 100% 50%, 80% 87%, 0 100%);
+      transform-origin: 0 50%;
+    }
+    #pennant b { display: block; font-weight: 400; font-size: 0.8rem; }
+    #pennant b + b { font-size: 0.7rem; letter-spacing: 0.05em; }
+    @keyframes mzPennant {
+      0%, 62%, 100% { transform: none; }
+      74% { transform: skewY(-3deg) scaleX(0.96); }
+      86% { transform: skewY(2deg) scaleX(0.985); }
+    }
+    /* (at the foot of the column or page, where the sign's line has no room
+       for it: clear of what's above by its pole's ball) */
+    #pennant.foot { margin: 15px 0 0; }
+    #pennant.foot::before { bottom: 0; }   /* (the pole ends with the flag: no lower than the column) */
+    /* a size smaller on the narrowest phones, so it still flies beside the
+       sign, and on short screens (a phone on its side), where the column's
+       foot has little room; there the ball may reach into the gap above */
+    @media (max-width: 359px) { #pennant { margin-left: 0.45rem; } }
+    @media (max-height: 540px) { #pennant.foot { margin-top: 8px; } }
+    @media (max-width: 359px), (max-height: 540px) {
+      #pennant .flag { padding: 4px 17px 4px 8px; }
+      #pennant b { font-size: 0.64rem; }
+      #pennant b + b { font-size: 0.56rem; }
+    }
+    html:not(.fx-off) #pennant .flag { animation: mzPennant 3.6s ease-in-out infinite; }
+    html.mz-paused #pennant .flag { animation-play-state: paused; }
     .stats {
       display: flex;
       gap: 0.55rem;
@@ -580,16 +650,6 @@
       box-shadow: 0 5px 0 var(--ink);
       text-shadow: var(--outline);
     }
-    #byline {
-      font-size: 75%;
-      font-weight: 800;
-      margin-top: 0.25rem;
-      color: var(--ink);
-      background: var(--cream);
-      border: 2px solid var(--ink);
-      border-radius: 999px;
-      padding: 0.1rem 0.6rem;
-    }
     /* the stacked page under 1200 px wide: the sign starts below the corner
        buttons' row (← Games lay over it); and where the map is smaller than
        the start card, the card hangs down past it (over the answer box, off
@@ -623,7 +683,7 @@
            lets the column's lines run longer, so it stands less tall) */
         grid-template-columns: var(--map) minmax(var(--side), max(var(--side), 400px));
         grid-template-rows: auto auto 1fr auto;
-        grid-template-areas: "stage top" "stage answer" "stage ." "stage byline";
+        grid-template-areas: "stage top" "stage answer" "stage ." "stage foot";
         justify-content: center;
         align-content: start;
         column-gap: var(--gap);
@@ -636,11 +696,11 @@
       .topbar { grid-area: top; flex-direction: column; align-items: flex-start; gap: 0.8rem; }
       .stats { flex-wrap: wrap; }
       .answer-row { grid-area: answer; }
+      #pennant.foot { grid-area: foot; justify-self: center; align-self: end; }
       .answer-line { gap: 0.7rem; }
       #answer { padding: 0.5rem 0.6rem; }
       /* the hint in the empty box shrinks to the column, so all of it shows */
       #answer::placeholder { font-size: min(1em, calc((var(--side) - 100px) / 9.6)); }
-      #byline { grid-area: byline; justify-self: center; margin: 0; }
       /* the pills wrap to two lines in the column: rounded boxes then */
       .subtitle, .hint { border-radius: 14px; }
       .hint { padding: 0.3rem 0.7rem; line-height: 1.45; }
@@ -700,7 +760,6 @@
         .power { width: 50px; height: 50px; }
         .power-face svg { width: 28px; height: 28px; }
         .hint { font-size: 0.7rem; padding: 0.2rem 0.55rem; }
-        #byline { font-size: 0.62rem; }
         #overlay-start .board {
           max-width: 900px; display: grid; grid-template-columns: 1fr 1.2fr; align-items: start;
           grid-template-rows: auto auto 1fr auto;
