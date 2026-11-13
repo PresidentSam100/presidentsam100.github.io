@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%E2%9A%A1%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Buzz Wire</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Holtwood+One+SC&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Buzz Wire, a steady-hand game on a penny-arcade electric board: carry the ring all the way round each circuit without touching the live wire, past sparks, weights, live rails, gates and arms that keep the beat. A browser game by Sam Lu." />
+    <meta property="og:title" content="Buzz Wire | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Buzz Wire, a steady-hand game on a penny-arcade electric board: carry the ring all the way round each circuit without touching the live wire, past sparks, weights, live rails, gates and arms that keep the beat. A browser game by Sam Lu." />
+    <meta property="og:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Sam Lu's site: a little arcade of browser games, with a 2048 tile, a chess knight, an 8 ball, a playing card, a lantern and a mahjong tile" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The arcade machine: the board behind its glass in a mahogany frame
+     (painted by game.js: the circuit, its live wires, the post, tickets,
+     obstacles and the ring), with the level's plate beside it on a wide
+     screen or above and below it on a tall one. -->
+<main class="hall" id="hall">
+  <section class="log" id="log" hidden>
+    <p class="log-name" id="log-name">1 · First Circuit</p>
+    <p class="log-stage" id="log-stage">Stage I · Plain Wire</p>
+    <p class="log-row"><span class="log-k">time</span> <b id="log-time">0.00 s</b></p>
+    <p class="log-row log-best" id="log-best">not cleared yet</p>
+  </section>
+  <div class="cabinet" id="cabinet"><canvas id="board" aria-label="The electric board: a circuit of live wire, the post where the ring waits, tickets to gather and the obstacles"></canvas></div>
+  <section class="helm" id="helm" hidden>
+    <div class="meters">
+      <p class="meter"><span class="meter-k">tickets</span> <b id="tickets">0 / 3</b></p>
+      <p class="meter beat-m"><span class="meter-k">beat</span> <span class="beats" id="beats" aria-hidden="true"><i></i><i></i><i></i><i></i></span></p>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <div class="tools">
+      <button type="button" id="btn-restart">Restart</button>
+      <button type="button" id="btn-levels">Levels</button>
+    </div>
+    <p class="keys"><span class="gs-keys">press on the ring at the post to pick it up; it follows the pointer</span><span class="gs-touch">touch anywhere to take the ring; it moves as your finger moves</span></p>
+  </section>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card menu">
+    <div class="intro">
+      <h1><span>Buzz Wire</span></h1>
+      <p class="tag">a steady hand, all the way round</p>
+      <p class="how">
+        Pick up the ring at the post and carry it all the way round the
+        circuit, back to the post. Touch a live wire, or anything that moves,
+        and it buzzes you back to the start. Take every ticket on the way:
+        the post stays shut until you have. The sparks, weights, live rails,
+        gates and arms all keep the beat.
+      </p>
+      <div class="pick" id="picker">
+        <canvas id="pick-pic" aria-hidden="true"></canvas>
+        <span class="pick-text"><b id="pick-name">First Circuit</b><small id="pick-note"></small><small id="pick-best"></small></span>
+      </div>
+      <button type="button" class="playbtn" id="play">Play this level</button>
+    </div>
+    <!-- every level, a tile each, a stage to a row: a level opens once the
+         one before it is cleared -->
+    <div class="levels">
+      <div class="levels-head"><h2 class="levels-k" id="levels-k">Levels</h2><p class="tally" id="tally"></p></div>
+      <div class="grid" id="grid" role="group" aria-labelledby="levels-k"></div>
+      <p class="lock-note" id="lock-note" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="done" hidden>
+  <div class="card end">
+    <h2 id="done-title">Circuit closed!</h2>
+    <p class="big" id="done-msg">0.00 s</p>
+    <p class="stats" id="done-stats"></p>
+    <div class="row">
+      <button type="button" id="again">Again</button>
+      <button type="button" id="to-levels">Levels</button>
+      <button type="button" class="go" id="next">Next level</button>
+    </div>
+  </div>
+</section>
+
+<script src="course.js"></script>
+<script src="levels.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

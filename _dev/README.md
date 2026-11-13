@@ -110,6 +110,14 @@ files in `games/`; the comment at the top of each says more.
   or at its first swing past a sun, checks that the opening push charts
   nothing, and prints a SOLUTIONS array for `tests/orbits.js` (a chart
   number for one chart; `--check` tests the stored pushes instead).
+- `tools/buzz-wire-check.js`: proves every Buzz Wire level can be played,
+  with the game's own sums (`games/buzz-wire/course.js`): the channel stays
+  on the board and never comes near enough to itself for a ring to slip
+  across, every ticket fits, no obstacle reaches the post, and a search over
+  (where the ring is, the beat, the tickets taken) finds a whole lap
+  forwards with every ticket, back across the post, at no more than 400
+  units a second with 3 units to spare all round. Level numbers to check
+  only some; exits 1 if any fails.
 - `tools/slither-verify.js`: proves every Slither Labyrinth level can be
   finished in time (a level number, `--route`, `--bot`).
 - `tools/tile-maze-verify.js`, `tile-maze-sortlevels.js`, `tile-maze-gen.js`

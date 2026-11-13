@@ -69,6 +69,13 @@ const table = (lib) => [
     start: async (p) => { await p.evaluate(() => { Orbits.start(0); Orbits.restart(); Orbits.setPush(1150, 130); Orbits.launch(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => Orbits.state() === "aim" && Orbits.push().join() === Orbits.level().push.join() && !Orbits.trace() && !GameShell.leaveActive()),
     menu: (p) => p.evaluate(() => Orbits.state() === "menu" && !document.getElementById("menu").hidden) },
+  // (Buzz Wire: the ring picked up and carried a little way; Restart puts it
+  // back on the post. Paused by P: the mouse carries the ring, and taking it
+  // off the board to the pause button counts as a touch)
+  { name: "buzz-wire", path: "buzz-wire/", ask: "Start this level over?", pause: (p) => p.keyboard.press("p"),
+    start: async (p) => { await p.evaluate(() => BuzzWire.start(0)); await p.waitForTimeout(150); const pt = await p.evaluate(() => { const r = BuzzWire.run(); return BuzzWire.screen(r.x, r.y); }); await p.mouse.move(pt[0], pt[1]); await p.mouse.down(); await p.mouse.up(); const to = await p.evaluate(() => { const q = BuzzCourse.posAt(BuzzWire.course(), 40); return BuzzWire.screen(q.x, q.y); }); await p.mouse.move(to[0], to[1], { steps: 6 }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
+    fresh: (p) => p.evaluate(() => BuzzWire.state() === "play" && !BuzzWire.run().started && BuzzWire.run().P === 0 && !GameShell.leaveActive()),
+    menu: (p) => p.evaluate(() => BuzzWire.state() === "menu" && !document.getElementById("menu").hidden) },
   { name: "patchword", path: "patchword/", asks: true,
     start: async (p) => { await p.evaluate(() => { Patchword.start("quick"); Patchword.stitchAny(); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => Patchword.state() === "play" && Patchword.score() === 0 && Patchword.found().length === 0 && !GameShell.leaveActive()),
