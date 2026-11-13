@@ -22,7 +22,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["lights-out", "lights-out/", async (p) => { await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(200); await p.evaluate(() => LightsOut.press(0)); }],
     ["link-many", "link-many/", async (p) => { await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); }); await p.click("#startGame"); await p.waitForFunction(() => !__game.busy); await p.evaluate(() => __game.humanMove(3)); }],
     ["hash", "hash/", (p) => p.click("#hintBtn")],
-    ["flappy-world", "flappy-world/", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(150); }],
+    // (the bird kept from crashing, by the page, from the flight's first frame:
+    // unflapped it hits the ground in about a second, and on a busy machine the
+    // look after the start came later than that, with the flight already over)
+    ["flappy-world", "flappy-world/", async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(150); },
+      (pg) => pg.addInitScript(() => { const f = () => { try { if (game.gameState === "PLAYING") game.invincibleTime = 1e9; } catch (e) {} requestAnimationFrame(f); }; requestAnimationFrame(f); })],
     ["lanterns", "lanterns/", async (p) => { await p.evaluate(() => Lanterns.start("festival")); await p.waitForTimeout(200); }],
     ["meteor-menace", "meteor-menace/", async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(200); }],
     ["toy-tanks", "toy-tanks/", async (p) => { await p.evaluate(() => ToyTanks.start()); await p.waitForTimeout(100); if (await active(p)) throw new Error("toy-tanks: active on the mission card"); await p.evaluate(() => ToyTanks.advance(1700, {})); }],

@@ -698,15 +698,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     const s0 = await q.evaluate(() => ToyTanks.st().shells.filter((s) => !s.enemy).length);
     await touch("#aim-stick", 0, -40, 150);
     const aimed = await q.evaluate(() => ({ turret: ToyTanks.st().player.turret, shells: ToyTanks.st().shells.filter((s) => !s.enemy).length }));
-    await q.tap("#mine-btn"); await q.waitForTimeout(80);
+    await q.tap("#mine-btn");
+    await q.waitForFunction(() => ToyTanks.st().mines.length > 0, null, { timeout: 5000 }).catch(() => {});   // (a press is taken on the next frame)
     const mines = await q.evaluate(() => ToyTanks.st().mines.length);
     const vis = await q.evaluate(() => ({ pad: getComputedStyle(document.getElementById("pad")).display, keys: [...document.querySelectorAll("#hint .gs-keys")].some((e) => e.getClientRects().length), touch: [...document.querySelectorAll("#hint .gs-touch")].some((e) => e.getClientRects().length) }));
     check("toy-tanks phone: the left stick drives, the right stick aims (up) and fires as it's let go, Mine lays a mine; the sticks and touch help show, the key help doesn't",
       x1 > x0 + 0.3 && Math.abs(aimed.turret + Math.PI / 2) < 0.15 && aimed.shells > s0 && mines === 1 && vis.pad === "flex" && !vis.keys && vis.touch, { x0, x1, aimed, s0, mines, vis });
     const tap = await q.evaluate(() => { const r = document.getElementById("arena").getBoundingClientRect(), s = ToyTanks.cell(), fr = Math.round(s / 2), pl = ToyTanks.st().player; return { x: r.left + fr + (pl.x + 4) * s, y: r.top + fr + (pl.y + 4) * s, want: Math.atan2(4, 4) }; });
-    await q.evaluate(() => { ToyTanks.st().shells = []; });
-    await q.touchscreen.tap(tap.x, tap.y); await q.waitForTimeout(80);
-    const after = await q.evaluate(() => ({ turret: ToyTanks.st().player.turret, shells: ToyTanks.st().shells.filter((s) => !s.enemy).length }));
+    // (the frame the shell is fired on is caught as it comes, by a look every
+    // frame set going before the tap: a press is taken on the next frame, and on
+    // a busy machine a look of its own could come after the shell was gone)
+    await q.evaluate(() => {
+      ToyTanks.st().shells = []; window.__shot = null;
+      (function look() { const st = ToyTanks.st(), n = st.shells.filter((s) => !s.enemy).length; if (n && !window.__shot) window.__shot = { turret: st.player.turret, shells: n }; if (!window.__shot) requestAnimationFrame(look); })();
+    });
+    await q.touchscreen.tap(tap.x, tap.y);
+    await q.waitForFunction(() => window.__shot, null, { timeout: 5000 }).catch(() => {});
+    const after = await q.evaluate(() => window.__shot || { turret: ToyTanks.st().player.turret, shells: 0 });
     check("toy-tanks phone: a tap on the arena turns the turret to it and fires", Math.abs(after.turret - tap.want) < 0.2 && after.shells >= 1, { tap, after });
     check("toy-tanks phone: no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();

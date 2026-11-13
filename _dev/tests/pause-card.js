@@ -161,9 +161,12 @@ const table = (lib) => [
     start: (p) => p.evaluate(() => { NeonPinball.start("speedway"); NeonPinball.setScore(100); }),
     fresh: (p) => p.evaluate(() => { const s = NeonPinball.state(); return s.state === "ready" && s.score === 0 && s.ballNum === 1 && document.getElementById("startScreen").classList.contains("hidden"); }),
     menu: (p) => p.evaluate(() => NeonPinball.state().state === "start" && NeonPinball.state().balls.length === 0 && !document.getElementById("startScreen").classList.contains("hidden")) },
+  // (every tap pops, and the dial never slips past a notch untapped, as in
+  // guard.js: a run can't end on its own while a busy machine's test is
+  // slow to send the next press, or to pause)
   { name: "pop-the-lock", path: "pop-the-lock/",
-    before: (pg) => lib.injectScript(pg, "games/pop-the-lock/game.js", [["if (d <= tol) pop();", "if (true) pop();"]]),
-    start: async (p) => { await p.keyboard.press("Space"); await p.waitForTimeout(300); await p.keyboard.press("Space"); await p.waitForFunction(() => document.getElementById("score").textContent !== "0", null, { timeout: 5000 }); },
+    before: (pg) => lib.injectScript(pg, "games/pop-the-lock/game.js", [["if (d <= tol) pop();", "if (true) pop();"], ["if (traveled > exitTravel + pastArc()) fail(true);", "if (false) fail(true);"]]),
+    start: async (p) => { await p.keyboard.press("Space"); await p.waitForFunction(() => document.getElementById("overlay").classList.contains("hidden")); await p.keyboard.press("Space"); await p.waitForFunction(() => document.getElementById("score").textContent !== "0", null, { timeout: 5000 }); },
     fresh: (p) => p.evaluate(() => document.getElementById("overlay").classList.contains("hidden") && document.getElementById("score").textContent === "0"),
     menu: (p) => p.evaluate(() => !document.getElementById("overlay").classList.contains("hidden") && /^PLAY/.test(document.getElementById("play").textContent) && /Tap when the dial/.test(document.getElementById("overlay-msg").textContent)) },
   // a level: Restart deals the same level again, Menu is the level list

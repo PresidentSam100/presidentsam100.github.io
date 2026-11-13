@@ -324,10 +324,13 @@ module.exports = async ({ browser, base, check, lib }) => {
     const mode = off ? "off" : "on";
 
     // Fish-a-Fish: a bite about to get away is ringed, steady and dashed with FX off
+    // (set and read two frames on in one look: the bite gets away in 0.3 s of
+    // play, and on a busy machine a look of its own came long frames later)
     let p = await open("fish-a-fish", off);
-    await p.evaluate(() => { FishAFish.start(); FishAFish.hold(); FishAFish.force(0, "perch", "bite", 0.3); });
-    await frames(p);
-    const fw = await p.evaluate(() => FishAFish.cues().escapeWarn);
+    const fw = await p.evaluate(() => new Promise((done) => {
+      FishAFish.start(); FishAFish.hold(); FishAFish.force(0, "perch", "bite", 0.3);
+      requestAnimationFrame(() => requestAnimationFrame(() => done(FishAFish.cues().escapeWarn)));
+    }));
     check("fish-a-fish, FX " + mode + ": " + (off ? "the escape warning is drawn steadily" : "no steady ring (it blinks)"), off ? fw.indexOf(0) >= 0 : fw.length === 0, fw);
     await done(p, "fish-a-fish FX " + mode);
 
@@ -351,16 +354,28 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "spacer FX " + mode);
 
     // Abyss: a hard drop leaves a streak and a clear marks its rows at the walls (FX off only)
-    p = await open("abyss", off);
-    await p.evaluate(() => { Abyss.start("descent"); Abyss.test.setGrav(100000); Abyss.test.fill(19, [0, 1, 2, 7, 8, 9]); Abyss.test.setPiece("I"); Abyss.hard(); });
-    await frames(p, 2);
-    const mk = await p.evaluate(() => Abyss.test.marks());
-    // (a drop that clears ends its streak at the collapse: the streak is read on
-    // one that doesn't, once the clear's pause, which ignores a drop, is over)
-    await p.waitForFunction(() => Abyss.state() === "play", null, { timeout: 8000 }).catch(() => {});
-    await p.evaluate(() => { Abyss.test.setPiece("T"); Abyss.hard(); });
-    await frames(p, 2);
-    const mk2 = await p.evaluate(() => Abyss.test.marks());
+    // (the page runs on a clock the test moves a frame (1/60 s) at a time, as
+    // in abyss.js: the marks last a third and a half of a second, and on a
+    // busy machine a look after the drop came long frames later, or the next
+    // piece had already fallen the whole way by its gravity)
+    p = await open("abyss", off, null, (pg) => pg.addInitScript(() => {
+      let t = 1000, q = [];
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.push(cb); return q.length; };
+      window.__frames = (n) => { for (let i = 0; i < n; i++) { t += 1000 / 60; const run = q; q = []; run.forEach((cb) => cb(t)); } };
+    }));
+    const [mk, mk2] = await p.evaluate(() => {
+      __frames(3);
+      Abyss.start("descent"); Abyss.test.setGrav(100000); Abyss.test.fill(19, [0, 1, 2, 7, 8, 9]); Abyss.test.setPiece("I"); Abyss.hard();
+      __frames(2);
+      const a = Abyss.test.marks();
+      // (a drop that clears ends its streak at the collapse: the streak is read on
+      // one that doesn't, once the clear's pause, which ignores a drop, is over)
+      for (let i = 0; i < 600 && Abyss.state() !== "play"; i++) __frames(1);
+      Abyss.test.setPiece("T"); Abyss.hard();
+      __frames(2);
+      return [a, Abyss.test.marks()];
+    });
     if (off) check("abyss, FX off: a hard drop leaves a streak and a cleared row is marked at the walls", mk2.dropDrawn === true && JSON.stringify(mk.clearDrawn) === "[19]", { mk, mk2 });
     else check("abyss, FX on: no static marks (the sweep shows it)", !mk.dropDrawn && !mk2.dropDrawn && !(mk.clearDrawn || []).length, { mk, mk2 });
     await done(p, "abyss FX " + mode);
@@ -478,8 +493,26 @@ module.exports = async ({ browser, base, check, lib }) => {
   // end of a move, with a dashed trail over what it crossed), and a wall
   // stops it with a bump toward the wall and back (it was a red bar on the
   // ball, now gone in both modes). Every position the ball is given is kept.
+  // The page runs on a clock the test moves a frame (1/60 s) at a time, its
+  // promises and timers let run between frames: the slide and the bump are
+  // timed (the bump 0.21 s), so on a busy machine one long frame could land
+  // after the bump was over, and the ball was never seen to move.
   {
-    const p = await open("tile-maze", true, null, (pg) => pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} }));
+    const STEPPED = () => {
+      let t = 1000, id = 0;
+      const q = new Map();
+      performance.now = () => t;
+      window.requestAnimationFrame = (cb) => { q.set(++id, cb); return id; };
+      window.cancelAnimationFrame = (i) => { q.delete(i); };
+      window.__frames = async (n) => {
+        for (let i = 0; i < n; i++) {
+          t += 1000 / 60;
+          const run = [...q.values()]; q.clear(); run.forEach((cb) => cb(t));
+          await new Promise((r) => setTimeout(r, 0));
+        }
+      };
+    };
+    const p = await open("tile-maze", true, null, async (pg) => { await pg.addInitScript(STEPPED); await pg.addInitScript(() => { try { localStorage.setItem("tileMaze.v1", '{"unlocked":3}'); } catch (e) {} }); });
     const at = () => p.evaluate(() => { const m = /translate\(([-\d.]+)px, ([-\d.]+)px\)/.exec(document.getElementById("player").style.transform); return m ? +m[1] : null; });
     await p.evaluate(() => {
       const pl = document.getElementById("player"); window.__xs = [];
@@ -487,7 +520,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     });
     const x0 = await at();
     await p.keyboard.press("ArrowRight");
-    await p.evaluate(() => new Promise((r) => setTimeout(r, 2500)));   // (on the page's clock: the slide and the bump are over)
+    await p.evaluate(() => __frames(150));   // (2.5 s of the page's frames: the slide and the bump are over)
     const xs = await p.evaluate(() => window.__xs), end = await at();
     const cell = await p.evaluate(() => { const t = document.querySelectorAll(".tile"); return t[1].getBoundingClientRect().left - t[0].getBoundingClientRect().left; });
     const between = new Set(xs.filter((x) => x > x0 + 2 && x < end - 2).map(Math.round)).size;

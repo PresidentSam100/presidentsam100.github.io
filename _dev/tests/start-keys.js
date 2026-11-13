@@ -218,16 +218,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   // Space's repeat (sent by hand, so the timing is the page's: the card
   // stays); then a fresh Space (it goes on). `ms` is how long after the card
   // came up the first press landed: past 600 (a stalled machine) that press
-  // proves nothing either way, and the card is brought up again.
+  // proves nothing either way, and the card is brought up again. `past()`
+  // waits out the moment where a game times it on its own clock rather than
+  // the page's (Spacer's runs a frame at a time, at most 0.05 s a frame, so
+  // on a busy machine's long frames it falls behind the page's).
   {
     const frames = (p, n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k >= n) r(); else requestAnimationFrame(f); })(); }), n);
     // show(): brings the card up, returns the page's time then; up(): is it still up
-    const cardKeys = async (p, show, up, wait) => {
+    const cardKeys = async (p, show, up, wait, past) => {
       let at = await show();
       await p.keyboard.press("Space");
       const first = { ms: await p.evaluate((t) => Math.round(performance.now() - t), at), stayed: await up() };
       if (!first.stayed) at = await show();
-      await p.evaluate((w) => new Promise((r) => setTimeout(r, w)), wait + 150);       // (past the moment, on the page's clock)
+      if (past) await past(wait + 150);
+      else await p.evaluate((w) => new Promise((r) => setTimeout(r, w)), wait + 150);       // (past the moment, on the page's clock)
       await p.evaluate(() => {
         const t = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.body;
         t.dispatchEvent(new KeyboardEvent("keydown", { key: " ", code: "Space", repeat: true, bubbles: true, cancelable: true }));
@@ -269,7 +273,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       const ends = [];
       for (const finish of ["gameOver", "gameComplete"]) {
         const end = await cardKeys(p, () => p.evaluate((f) => { game.startGame(); game[f](); return performance.now(); }, finish),
-          () => p.evaluate(() => game.mode === "gameover" || game.mode === "complete"), 700);
+          () => p.evaluate(() => game.mode === "gameover" || game.mode === "complete"), 700,
+          (ms) => p.waitForFunction((s) => game.time - game.endedAt >= s, ms / 1000, { timeout: 20000 }));
         ends.push(Object.assign({ finish }, end));
       }
       check("spacer: the title says [SPACE]/[ENTER] START and the end screens PRESS [SPACE] OR [ENTER]; Space starts from the title, not firing as it does",

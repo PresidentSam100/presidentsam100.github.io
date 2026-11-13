@@ -70,6 +70,19 @@ other page (as fx.js's coin flip does). Count frames rather than milliseconds. U
 a short window in one `p.evaluate`. To try a suite under load, use
 `tools/run-slowed.js` (below).
 
+A busy machine shows in three ways, and the CPU slowdown only gives the
+first: long frames (the page's own work is slow); frames that come late while
+the page is idle (a press is still waiting for the next frame when a fixed
+wait ends); and a test process that stalls between two steps while the game
+plays on. So: a game that steps its own clock a frame at a time, with a cap
+(Spacer's 0.05 s), falls behind the page's clock on long frames, so wait on
+the game's clock (`game.time`), not on a `setTimeout`. A run that can end by
+itself (an unflapped bird, a dial slipping past its notch) is kept going by
+the page where the check isn't about the ending. Something timed by play (a
+"+N", a mark that lasts half a second) is set off, timed and read by the page
+in one `p.evaluate`, frame by frame, or on a clock the test steps (STEPPED in
+abyss.js, cues.js and fx.js).
+
 ## Tools
 
 - `tools/run-slowed.js`: runs suites with each page's CPU slowed (4x by

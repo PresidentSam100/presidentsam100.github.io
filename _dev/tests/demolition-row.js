@@ -648,39 +648,48 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const off of [false, true]) {
       const q = await lib.open(ctx, base, "games/demolition-row/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:demolition-row", off ? "1" : "0"); } catch (e) {} }, off) });
       await q.click('#mode-pick [data-mode="endless"]'); await q.click("#play-btn"); await q.waitForFunction(() => GAME && GAME.players[0].board.piece);
-      await q.evaluate(SET, [false, true]);
-      await q.waitForFunction(() => GAME.players[0].board.pops.length, null, { timeout: 5000 });
-      // held at once (the board's clock stops), read as drawn; then 0.4 s of play later
-      await q.evaluate(() => GAME.pause());
-      await q.waitForFunction(() => (GAME.players[0].board.popsDrawn || []).length, null, { timeout: 5000 });
-      const a = await q.evaluate(() => ({ pop: GAME.players[0].board.pops[0], drawn: GAME.players[0].board.popsDrawn[0], clock: GAME.players[0].board.clock }));
-      await q.evaluate(() => GAME.resume());
-      await q.waitForFunction((c0) => GAME.players[0].board.clock > c0 + 400, a.clock, { timeout: 5000 });
-      await q.evaluate(() => GAME.pause());
-      await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-      const later = await q.evaluate(() => (GAME.players[0].board.popsDrawn || [])[0] || null);
-      // paused 1.3 s: still there; resumed, gone within a second of play
-      await q.evaluate(() => new Promise((r) => setTimeout(r, 1300)));
-      const held = await q.evaluate(() => GAME.players[0].board.pops.length);
-      await q.evaluate(() => GAME.resume());
-      await q.waitForFunction(() => !GAME.players[0].board.pops.length, null, { timeout: 3000 }).catch(() => {});
-      const goneAt = await q.evaluate((c0) => ({ left: GAME.players[0].board.pops.length, ms: Math.round(GAME.players[0].board.clock - c0) }), a.clock);
+      // (what is timed by the board's clock is done by the page, frame by frame,
+      // in one look: play runs while the test is between steps, and on a busy
+      // machine a step of its own came after the points had gone)
+      await q.evaluate((src) => { window.__SET = new Function("return " + src)(); }, SET.toString());
+      // held at once (the board's clock stops), read as drawn; then 0.4 s of
+      // play later; paused 1.3 s: still there; resumed, gone within a second of play
+      const a = await q.evaluate(() => new Promise((done) => {
+        const b = GAME.players[0].board, r = {}, t0 = performance.now();
+        let step = 0, c0 = 0, k = 0;
+        __SET([false, true]);
+        (function f() {
+          if (step === 0) { if (b.pops.length) { GAME.pause(); step = 1; } }
+          else if (step === 1) { if ((b.popsDrawn || []).length) { r.pop = b.pops[0]; r.drawn = b.popsDrawn[0]; c0 = b.clock; GAME.resume(); step = 2; } }
+          else if (step === 2) { if (b.clock > c0 + 400) { GAME.pause(); step = 3; } }
+          else if (step === 3) { if (++k >= 2) { r.later = (b.popsDrawn || [])[0] || null; step = 4; setTimeout(() => { r.held = b.pops.length; GAME.resume(); step = 5; }, 1300); } }
+          else if (step === 5) { if (!b.pops.length || b.clock - c0 > 3000) { r.goneAt = { left: b.pops.length, ms: Math.round(b.clock - c0) }; step = 6; } }
+          if (step === 6 || performance.now() - t0 > 30000) { if (step !== 6) GAME.resume(); done(Object.assign(r, { step })); }
+          else requestAnimationFrame(f);
+        })();
+      }));
       await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
       const gain = await q.evaluate(() => GAME.players[0].board.score - __s0);
-      const r = { pts: a.pop.pts, n: a.pop.n, text: a.drawn.text, x: a.pop.x, y: a.pop.y, early: a.drawn.y, late: later && later.y, held, goneAt, gain };
+      const pop = a.pop || {}, drawn = a.drawn || {};
+      const r = { pts: pop.pts, n: pop.n, text: drawn.text, x: pop.x, y: pop.y, early: drawn.y, late: a.later && a.later.y, held: a.held, goneAt: a.goneAt || { left: -1, ms: -1, step: a.step }, gain };
       if (!off) {
+        // every "+N" a settle shows, each kept as it comes, and what it scored
+        const settle = (arg) => q.evaluate((arg) => new Promise((done) => {
+          const b = GAME.players[0].board, seen = [], t0 = performance.now();
+          __SET(arg);
+          (function f() {
+            b.pops.forEach((p) => { if (!seen.includes(p)) seen.push(p); });
+            if (b.phase === "control" || b.phase === "spawning" || performance.now() - t0 > 30000) done({ gain: b.score - __s0, pops: seen.map((p) => ({ pts: p.pts, n: p.n, bonus: p.bonus })) });
+            else requestAnimationFrame(f);
+          })();
+        }), arg);
         // a plain four: scored, nothing shown
-        await q.evaluate(SET, [false, false]);
-        await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
-        r.plain = await q.evaluate(() => ({ gain: GAME.players[0].board.score - __s0, shown: GAME.players[0].board.pops.length }));
+        const plain = await settle([false, false]);
+        r.plain = { gain: plain.gain, shown: plain.pops.length };
         // a chain with no bonus: only its second wave, "×2"
-        await q.evaluate(SET, [true, false]);
-        await q.waitForFunction(() => GAME.players[0].board.phase === "control" || GAME.players[0].board.phase === "spawning", null, { timeout: 5000 });
-        r.chain2 = await q.evaluate(() => GAME.players[0].board.pops.map((p) => ({ pts: p.pts, n: p.n, bonus: p.bonus })));
+        r.chain2 = (await settle([true, false])).pops;
         // the chain, with the star bonus on: two waves, the second "×2", both "×20"
-        await q.evaluate(SET, [true, true]);
-        await q.waitForFunction(() => GAME.players[0].board.pops.length >= 2, null, { timeout: 5000 }).catch(() => {});
-        r.chain = await q.evaluate(() => GAME.players[0].board.pops.map((p) => ({ pts: p.pts, n: p.n, bonus: p.bonus })));
+        r.chain = (await settle([true, true])).pops;
       }
       r.errs = q.errs.slice();
       got[off ? "off" : "on"] = r;
