@@ -8,15 +8,19 @@
 // the paused time out and keeps the hint penalty in. A hint glows blue, not
 // the gold of a picked card, and isn't a pick; a claimed Hash flies to its
 // row in Found (in Set-Chain to the Last Hash beside the table) and the new
-// cards come from the pile, with Visual FX on (face down, turning up as they
-// land) and off (face up, no turn) alike.
-const HOOK = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; }, clock: clockMs };\n})();"];
+// cards come from the pile, with Visual FX on (face down, turning up on the
+// way) and off (face up, no turn) alike. The page opens on its menu, where
+// the way to play is picked before the deal; the deck's back carries SAM LU
+// PLAYING CARD CO., and the table lies face down while play is hidden.
+const END = "  renderBest();\n  toMenu();\n})();";
+const HOOK = [END, "  renderBest();\n  toMenu();\n  window.__h = { get board() { return board; }, findSet: findSet, emptyDeck: function () { deck = []; }, clock: clockMs };\n})();"];
 // (in the page) whether a deal's cards are still coming in from the pile
 const COMING = "!!document.querySelector('#board .card.arriving, .flyer')";
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const p = await lib.open(ctx, base, "games/hash/", { before: (pg) => lib.injectScript(pg, "games/hash/game.js", [HOOK]) });
+  await p.evaluate(() => Hash.start());
   const lit = () => p.evaluate(() => [...document.querySelectorAll("#board .card.hint")].map((c) => +c.dataset.idx));
   // a new deal, saying yes if it asks first (mid-deck it does), and down
   const deal = async () => {
@@ -59,9 +63,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("hash: no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
-  // (the page's first deal down before anything is pressed)
+  // (dealt from the menu, the first deal down before anything is pressed)
   const open = async () => {
     const q = await lib.open(ctx, base, "games/hash/", { before: (pg) => lib.injectScript(pg, "games/hash/game.js", [HOOK]) });
+    await q.evaluate(() => Hash.start());
     await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
     return q;
   };
@@ -72,19 +77,21 @@ module.exports = async ({ browser, base, check, lib }) => {
     paused: !!document.querySelector(".gs-pause:not(.gs-dialog):not([hidden])"),
   }));
 
-  // ---- a deal in a hidden tab (a page opened in the background, or New game
-  // while hidden) starts paused, cards blank, clock at 0:00
+  // ---- a deal in a hidden tab (dealt from the menu of a page in the
+  // background, or New game while hidden) starts paused, cards face down,
+  // clock at 0:00
   const hidden = await lib.open(ctx, base, "games/hash/", { before: async (pg) => {
     await lib.injectScript(pg, "games/hash/game.js", [HOOK]);
     await pg.addInitScript(() => { Object.defineProperty(document, "hidden", { configurable: true, get: () => true }); Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" }); });
   } });
+  await hidden.evaluate(() => Hash.start());
   await hidden.waitForTimeout(1300);
   const opened = Object.assign(await look(hidden), { time: await time(hidden) });
   await hidden.keyboard.press("p"); await hidden.waitForTimeout(100);   // resumed by hand
   const resumed = await look(hidden);
   await hidden.click("#newBtn"); await hidden.waitForTimeout(100);       // (a fresh deal: no question)
   const redealt = await look(hidden);
-  check("hash: a deal in a hidden tab starts paused, cards blank and the clock held, whether on opening or after New game",
+  check("hash: a deal in a hidden tab starts paused, cards face down and the clock held, whether dealt from the menu or after New game",
     opened.paused && opened.faces === 0 && opened.time === "0:00" && !resumed.paused && redealt.paused && redealt.faces === 0, { opened, resumed, redealt });
   await hidden.close();
 
@@ -97,6 +104,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       await lib.injectScript(pg, "games/hash/game.js", [HOOK]);
       if (off) await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:hash", "1"); } catch (e) {} });
     } });
+    await r.evaluate(() => Hash.start());
     await r.waitForFunction("!" + COMING, null, { timeout: 8000 });
     const waited = await r.evaluate((coming) => new Promise((res) => {
       const still = new Function("return " + coming);
@@ -237,27 +245,43 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   // ======================================================================
   // The modes: Normal, Set-Chain and UltraSet (1 2 3), the Junior switch (J)
-  // and the Daily (D), their keys on their buttons; each of the six ways to
-  // play has its own best and its own Daily; a log of what's been found.
-  const HOOK2 = ["  renderBest();\n  newGame();\n})();", "  renderBest();\n  newGame();\n" +
+  // and the Daily (D), picked on the menu, their keys on their buttons; each
+  // of the six ways to play has its own best and its own Daily; a log of
+  // what's been found.
+  const HOOK2 = [END, "  renderBest();\n  toMenu();\n" +
     "  window.__h = { get board() { return board; }, get deck() { return deck; }, get tray() { return tray; }, get log() { return log; }, get mode() { return mode; }, get locked() { return locked; },\n" +
     "    findSet: findSet, findAny: findAny, emptyDeck: function () { deck = []; }, table: function (codes) { board = codes.map(function (s) { return cardOf(s.split('').map(Number)); }); selected = []; hintIds = []; render(); } };\n})();"];
-  // (the page's first deal down before anything is pressed)
-  const openM = async (c, seed) => {
+  // (dealt from the menu, the first deal down before anything is pressed;
+  // menu: left on the menu)
+  const openM = async (c, seed, menu) => {
     const q = await lib.open(c || ctx, base, "games/hash/", { before: async (pg) => {
       await lib.injectScript(pg, "games/hash/game.js", [HOOK2]);
       if (seed) await pg.addInitScript((s) => { try { localStorage.setItem("hash_prefs", s); } catch (e) {} }, JSON.stringify(seed));
     } });
+    if (!menu) await q.evaluate(() => Hash.start());
     await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
     return q;
+  };
+  // from play back to the menu (yes to the question, if asked), the keys
+  // pressed there, then Enter deals, and the deal down
+  const redeal = async (q, keys) => {
+    if (await q.evaluate(() => Hash.state() !== "menu")) {
+      await q.evaluate(() => { if (!document.getElementById("overlay").hidden) document.getElementById("ovMenu").click(); else document.getElementById("menuBtn").click(); });
+      await q.waitForTimeout(120);
+      if (await q.evaluate(() => !!document.querySelector(".gs-dialog"))) { await q.keyboard.press("Enter"); await q.waitForTimeout(120); }
+    }
+    for (const k of keys) { await q.keyboard.press(k); await q.waitForTimeout(60); }
+    await q.keyboard.press("Enter");
+    await q.waitForFunction("Hash.state() === 'play' && !" + COMING, null, { timeout: 8000 });
   };
   const code = (s) => s.split("").map(Number);
   const third = (a, b) => a.map((v, f) => (6 - v - b[f]) % 3);
   const isUltra = (cs) => [[0, 1, 2, 3], [0, 2, 1, 3], [0, 3, 1, 2]].some((o) => third(cs[o[0]], cs[o[1]]).join() === third(cs[o[2]], cs[o[3]]).join());
   const state = (q) => q.evaluate(() => ({
-    mode: __h.mode, found: +document.getElementById("statSets").textContent, msg: document.getElementById("msg").textContent,
+    state: Hash.state(), mode: __h.mode, found: +document.getElementById("statSets").textContent, msg: document.getElementById("msg").textContent,
     tray: __h.tray.map((c) => c.id), log: __h.log.length, board: __h.board.length,
-    pressed: [...document.querySelectorAll("#modeRow .chip[aria-pressed=true], .chip.sw[aria-pressed=true]")].map((b) => b.dataset.mode || b.id),
+    pressed: [...document.querySelectorAll("#menu .opt[aria-pressed=true]")].map((b) => b.dataset.mode || b.id),
+    named: document.getElementById("modeName").textContent,
     dlg: (document.querySelector(".gs-dialog h2") || {}).textContent || null,
   }));
   const click = (q, sel) => q.evaluate((s) => document.querySelector(s).click(), sel);
@@ -280,29 +304,64 @@ module.exports = async ({ browser, base, check, lib }) => {
     return { over: !document.getElementById("overlay").hidden, title: document.getElementById("ovTitle").textContent, body: document.getElementById("ovBody").textContent };
   });
 
+  // ---- the menu: the page opens on it, no clock and nothing dealt, the
+  // table face down behind it; the modes and switches wear their keys (1 2 3,
+  // J, D) and only pick; Space or Enter deals the way picked. In play ☰ Menu
+  // (Backspace) goes back, asking first mid-deck (Esc keeps the game, Enter
+  // goes); the cleared-deck card's Modes goes back too. The way picked last
+  // comes back on the next visit.
   {
-    const r = await openM();
-    const caps = await r.evaluate(() => [...document.querySelectorAll("#modeRow .chip, #juniorBtn, #dailyBtn")].map((b) => b.textContent.trim() + " " + b.getAttribute("data-gs-key")).join(", "));
-    check("hash: the mode row is Normal 1, Set-Chain 2, UltraSet 3, then Junior J and Daily D, each key on its button",
-      caps === "Normal 1, Set-Chain 2, UltraSet 3, Junior J, Daily D", caps);
+    const r = await openM(null, null, true);
+    const opening = await r.evaluate(() => ({ state: Hash.state(), menu: !document.getElementById("menu").hidden, time: document.getElementById("statTime").textContent,
+      down: document.querySelectorAll("#board .card.facedown").length, faces: document.querySelectorAll("#board .card .sym").length, deck: __h.deck.length, leave: GameShell.leaveActive(),
+      caps: [...document.querySelectorAll("#pickMode .opt, #juniorBtn, #dailyBtn")].map((b) => b.querySelector("b").textContent.trim() + " " + b.querySelector("b").getAttribute("data-gs-key")).join(", "),
+      play: document.getElementById("playBtn").getAttribute("data-gs-key") }));
+    check("hash: the page opens on its menu (nothing dealt, no clock, the table face down behind it); Normal 1, Set-Chain 2, UltraSet 3, Junior J and Daily D each wear their key, Deal the cards Space or Enter",
+      opening.state === "menu" && opening.menu && opening.time === "0:00" && opening.down === 12 && opening.faces === 0 && opening.deck === 0 && !opening.leave &&
+      opening.caps === "Normal 1, Set-Chain 2, UltraSet 3, Junior J, Daily D" && opening.play === "Space or Enter", opening);
 
-    // on an untouched deal 2 goes straight to Set-Chain; once the game's begun, 3 asks first (Esc keeps it, Enter deals)
-    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    // 2 picks Set-Chain and deals nothing; Enter deals it, the tray showing the last Hash's three empty places
+    await r.keyboard.press("2"); await r.waitForTimeout(120);
     const s2 = await state(r);
-    const slots = await r.evaluate(() => ({ shown: !document.getElementById("tray").hidden, slots: document.querySelectorAll("#trayCards .slot").length, label: document.getElementById("trayK").textContent }));
+    await r.keyboard.press("Enter");
+    await r.waitForFunction("Hash.state() === 'play' && !" + COMING, null, { timeout: 8000 });
+    const s2b = await state(r);
+    const slots = await r.evaluate(() => ({ shown: !document.getElementById("tray").hidden, slots: document.querySelectorAll("#trayCards .slot").length }));
+    // mid-deck (a hint taken) Backspace asks first: Esc keeps the game, Backspace and Enter go to the menu
     await r.keyboard.press("h"); await r.waitForTimeout(100);
-    await r.keyboard.press("3"); await r.waitForTimeout(200);
+    await r.keyboard.press("Backspace"); await r.waitForTimeout(200);
     const s3a = await state(r);
     await r.keyboard.press("Escape"); await r.waitForTimeout(150);
     const s3b = await state(r);
-    await r.keyboard.press("3"); await r.waitForTimeout(200);
+    await r.keyboard.press("Backspace"); await r.waitForTimeout(200);
     await r.keyboard.press("Enter"); await r.waitForTimeout(200);
     const s3c = await state(r);
-    check("hash: 2 on an untouched deal deals Set-Chain at once, the tray showing the last Hash's three empty places; mid-deck 3 asks first, Esc keeps the game and Enter deals UltraSet",
-      s2.mode === "chain" && !s2.dlg && s2.pressed.join() === "chain" && slots.shown && slots.slots === 3 &&
-      s3a.dlg === "Start a new game?" && s3b.mode === "chain" && !s3b.dlg && s3c.mode === "ultra" && s3c.pressed.join() === "ultra", { s2, slots, s3a, s3b, s3c });
+    // 3 then Space deals UltraSet
+    await r.keyboard.press("3"); await r.waitForTimeout(100);
+    await r.keyboard.press("Space");
+    await r.waitForFunction("Hash.state() === 'play' && !" + COMING, null, { timeout: 8000 });
+    const s4 = await state(r);
+    check("hash: on the menu 2 picks Set-Chain and deals nothing; Enter deals it (the tray's three empty places); mid-deck Backspace asks \"Quit this game?\", Esc keeps the game, Enter goes to the menu; 3 then Space deals UltraSet",
+      s2.state === "menu" && s2.pressed.join() === "chain" && s2.board === 0 && s2b.state === "play" && s2b.mode === "chain" && s2b.board >= 12 && /^Set-Chain/.test(s2b.named) && slots.shown && slots.slots === 3 &&
+      s3a.dlg === "Quit this game?" && s3b.state === "play" && !s3b.dlg && s3b.mode === "chain" && s3c.state === "menu" && !s3c.dlg &&
+      s4.state === "play" && s4.mode === "ultra" && /^UltraSet/.test(s4.named), { s2, s2b, slots, s3a, s3b, s3c, s4 });
+    // the pause card has Menu (an untouched game: no question); the end card has Modes, Backspace
+    await r.keyboard.press("p"); await r.waitForTimeout(150);
+    const card = await r.evaluate(() => [...document.querySelectorAll(".gs-pause:not(.gs-dialog) button")].map((b) => b.textContent.replace(/\s+/g, " ").trim()).join(" | "));
+    await r.keyboard.press("Backspace"); await r.waitForTimeout(200);
+    const fromPause = await state(r);
+    await r.keyboard.press("Enter");
+    await r.waitForFunction("Hash.state() === 'play' && !" + COMING, null, { timeout: 8000 });
+    const out = await playOut(r);
+    const modesKey = await r.evaluate(() => document.getElementById("ovMenu").getAttribute("data-gs-key"));
+    await r.keyboard.press("Backspace"); await r.waitForTimeout(200);
+    const fromEnd = await state(r);
+    check("hash: the pause card offers Resume, Restart and Menu, and Backspace there goes to the menu; the cleared-deck card's Modes (Backspace) goes to the menu",
+      /Resume/.test(card) && /Restart/.test(card) && /Menu/.test(card) && fromPause.state === "menu" && out.over && modesKey === "⌫" && fromEnd.state === "menu" && !fromEnd.dlg,
+      { card, fromPause, out, modesKey, fromEnd });
     await r.reload({ waitUntil: "domcontentloaded" }); await r.waitForSelector(".mute-toggle"); await r.waitForTimeout(300);
-    check("hash: the mode played last comes back on the next visit", (await state(r)).mode === "ultra", await state(r));
+    const back = await state(r);
+    check("hash: the way played last is picked on the menu on the next visit", back.state === "menu" && back.mode === "ultra" && back.pressed.join() === "ultra", back);
     check("hash (modes): no page errors", r.errs.length === 0, r.errs);
     await r.close();
   }
@@ -371,14 +430,14 @@ module.exports = async ({ browser, base, check, lib }) => {
 
   // ---- Junior: the 27 solid cards (in any mode), shading gone from the rule line
   {
-    const r = await openM();
-    await r.keyboard.press("j"); await r.waitForTimeout(150);
+    const r = await openM(null, null, true);
+    await redeal(r, ["j"]);
     const j = await r.evaluate(() => ({
       pressed: document.getElementById("juniorBtn").getAttribute("aria-pressed"),
       total: __h.board.length + __h.deck.length, deckShown: +document.getElementById("statDeck").textContent, deck: __h.deck.length,
       solid: [...__h.board, ...__h.deck].every((c) => c.shading === "solid"), rule: document.getElementById("subtitle").textContent.replace(/\s+/g, " ").trim(),
     }));
-    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    await redeal(r, ["2"]);
     const j2 = await r.evaluate(() => ({ mode: __h.mode, total: __h.board.length + __h.deck.length, solid: __h.board.every((c) => c.shading === "solid") }));
     check("hash, Junior: J plays with the 27 solid cards (the Deck count follows), and the rule line leaves shading out; Set-Chain can be Junior too",
       j.pressed === "true" && j.total === 27 && j.deckShown === j.deck && j.solid && !/shading/.test(j.rule) && j2.mode === "chain" && j2.total === 27 && j2.solid, { j, j2 });
@@ -393,11 +452,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     const d1 = await ids();
     const hud = await r.evaluate(() => document.getElementById("statBestK").textContent + " " + document.getElementById("statBest").textContent);
     await r.reload({ waitUntil: "domcontentloaded" }); await r.waitForSelector(".mute-toggle"); await r.waitForTimeout(300);
+    await redeal(r, []);
     const d2 = await ids();
-    await r.keyboard.press("2"); await r.waitForTimeout(150);
+    await redeal(r, ["2"]);
     const d3 = await ids();
     check("hash, Daily: the deal is the same on a second load, and Set-Chain's Daily is another deal", d1 === d2 && d3 !== d1, { d1: d1.slice(0, 60), d2: d2.slice(0, 60), d3: d3.slice(0, 60) });
-    await r.keyboard.press("1"); await r.waitForTimeout(150);
+    await redeal(r, ["1"]);
     const out = await playOut(r);
     const rec = await r.evaluate(() => ({ daily: JSON.parse(localStorage.getItem("hash_daily") || "null"), best: localStorage.getItem("set_best_time"), hud: document.getElementById("statBestK").textContent + " " + document.getElementById("statBest").textContent }));
     check("hash, Daily: the HUD shows Today's time in place of Best; a clear is recorded as today's Normal Daily and named on the end card, and leaves the best alone",
@@ -411,9 +471,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const r = await openM(null, { mode: "chain" });
     const o1 = await playOut(r);
-    await r.click("#ovBtn"); await r.waitForTimeout(150);
-    await r.keyboard.press("3"); await r.waitForTimeout(150);
-    await r.keyboard.press("j"); await r.waitForTimeout(150);
+    await redeal(r, ["3", "j"]);   // (by the cleared-deck card's Modes)
     const o2 = await playOut(r);
     const keys = await r.evaluate(() => Object.keys(localStorage).filter((k) => /^set_best_time/.test(k)).sort().join(" "));
     const logs = await r.evaluate(() => document.querySelectorAll("#logList li").length);
@@ -424,9 +482,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     await r.close();
   }
 
-  // ---- fit: on phones and laptops the mode row, the HUD, the tray, the
+  // ---- fit: on phones and laptops the Menu row, the HUD, the tray, the
   // table and the buttons are all on the first screen, nothing wider than it;
-  // on a laptop the log stands beside the table, on a phone below the page
+  // on a laptop the log stands beside the table, on a phone below the page.
+  // And the menu card fits the screen whole, below the corner buttons, with
+  // nothing to scroll and nothing wider than the screen.
+  {
+    const sizes = [[320, 568, true], [360, 640, true], [390, 664, true], [375, 553, true], [360, 560, true], [1280, 900, false], [1366, 657, false], [1280, 600, false]];
+    const bad = [], seen = {};
+    for (const [w, h, phone] of sizes) {
+      const c = await lib.newContext(browser, phone ? Object.assign({}, require("@playwright/test").devices["Pixel 7"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      for (const seed of [{ mode: "normal" }, { mode: "chain", junior: true, daily: true }]) {
+        const q = await openM(c, seed, true);
+        const m = await q.evaluate((w) => {
+          const card = document.querySelector(".menu-card").getBoundingClientRect(), ov = document.getElementById("menu");
+          const corner = Math.max(...[...document.querySelectorAll(".nav-back-games, .rm-toggle, .mute-toggle, .gs-pause-btn")].map((e) => e.getBoundingClientRect().bottom));
+          const out = [...document.querySelectorAll(".menu-card *")].filter((e) => { const r = e.getBoundingClientRect(); return r.width && (r.left < card.left - 0.5 || r.right > card.right + 0.5); }).map((e) => e.id || e.className || e.tagName);
+          return { top: Math.round(card.top), bottom: Math.round(card.bottom), corner: Math.round(corner), vh: innerHeight, scroll: ov.scrollHeight - ov.clientHeight, over: Math.max(document.documentElement.scrollWidth, innerWidth) - w, out };
+        }, w);
+        seen[w + "x" + h] = m.top + ".." + m.bottom;
+        if (m.top < m.corner + 4 || m.bottom > m.vh || m.scroll > 0 || m.over > 0 || m.out.length) bad.push(w + "x" + h + " " + JSON.stringify(seed) + ": " + JSON.stringify(m));
+        await q.close();
+      }
+      await c.close();
+    }
+    check("hash: the menu card fits the screen whole below the corner buttons, nothing to scroll and nothing past its edges, at 320 x 568, 360 x 640, 390 x 664, 375 x 553, 360 x 560 and on 1280 x 900, 1366 x 657 and 1280 x 600 laptops",
+      bad.length === 0, bad.length ? bad : seen);
+  }
   {
     // (a phone on its side is too short for the whole table: there the cards
     // keep a playable size and the page scrolls to the buttons)
@@ -476,11 +558,17 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- a claimed Hash flies to its row in Found (Normal), or to the Last Hash
   // beside the table (Set-Chain); the new cards come from the pile. With
   // Visual FX on or off alike (where a card goes is play): FX on the new
-  // cards fly face down and turn up as they land, FX off they come face up.
+  // cards fly face down and turn up on the way, FX off they come face up.
   for (const [mode, off] of [["normal", false], ["chain", false], ["normal", true], ["chain", true]]) {
     const r = await openM(null, { mode });
-    if (off) { await r.evaluate(() => { localStorage.setItem("reduceMotion:hash", "1"); }); await r.reload({ waitUntil: "domcontentloaded" }); }
+    if (off) { await r.evaluate(() => { localStorage.setItem("reduceMotion:hash", "1"); }); await r.reload({ waitUntil: "domcontentloaded" }); await r.waitForSelector(".mute-toggle"); await r.evaluate(() => Hash.start()); }
     await r.waitForFunction(() => !document.querySelector("#board .card.arriving"), null, { timeout: 8000 });
+    // (a deal with no Hash in its first twelve has fifteen, and a claim there
+    // shrinks the table with no refill: dealt again until it has twelve)
+    for (let k = 0; k < 8 && await r.evaluate(() => __h.board.length > 12); k++) {
+      await r.evaluate(() => document.getElementById("newBtn").click());
+      await r.waitForFunction(() => !document.querySelector("#board .card.arriving, .flyer"), null, { timeout: 8000 });
+    }
     const flown = await r.evaluate(() => new Promise((res) => {
       const t = __h.findAny(), b = __h.board, ids = t.map((c) => c.id);
       t.forEach((c) => { const i = b.indexOf(c); document.querySelector('#board .card[data-idx="' + i + '"]').click(); });
@@ -489,8 +577,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       const sent = { claimed: 0, backs: 0, faces: 0, turns: 0 };
       new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => {
         if (n.nodeType !== 1 || !n.classList.contains("flyer")) return;
-        if (ids.includes(n.dataset.id)) sent.claimed++; else if (n.classList.contains("back")) sent.backs++; else sent.faces++;
-        if (n.getAnimations().some((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || "")))) sent.turns++;
+        if (ids.includes(n.dataset.id)) sent.claimed++; else if (n.classList.contains("dealt-card")) sent.backs++; else sent.faces++;
+        const tr = n.querySelector(".turn");
+        if ((tr ? tr.getAnimations() : n.getAnimations()).some((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || "")))) sent.turns++;
       }))).observe(document.body, { childList: true });
       let mid = null;
       // (looked at once the cards are on their way, by the page's own clock)
@@ -504,11 +593,183 @@ module.exports = async ({ browser, base, check, lib }) => {
     }));
     const s = flown.sent;
     check("hash, FX " + (off ? "off" : "on") + " (" + mode + "): a claimed Hash's three cards fly to " + (mode === "chain" ? "the Last Hash beside the table" : "their row in Found") + ", shown there as they land; the refill comes from the pile beside the table, " +
-      (off ? "face up, with no turn" : "face down, turning up"),
+      (off ? "face up, with no turn" : "face down, turning up on the way"),
       flown.fxOff === off && flown.mid && flown.mid.flying === 3 && flown.mid.waiting === 3 && flown.kept === 3 && flown.left === 0 && flown.pile && s.claimed === 3 &&
       (off ? s.faces >= 3 && s.backs === 0 && s.turns === 0 : s.backs >= 3 && s.faces === 0 && s.turns === s.backs), flown);
     check("hash (claim flights, " + mode + ", FX " + (off ? "off" : "on") + "): no page errors", r.errs.length === 0, r.errs);
     await r.close();
+  }
+
+  // (in the page) each face-down card's brand: SAM over LU large in its top
+  // part, PLAYING CARD CO. small under them, both inside the card
+  const BRANDS = (sel) => [...document.querySelectorAll(sel)].filter((c) => c.getClientRects().length).slice(0, 4).map((c) => {
+    const cr = c.getBoundingClientRect(), b = c.querySelector(".brand");
+    if (!b || getComputedStyle(b).display === "none") return { card: c.className, shown: false };
+    // (each text's ink: its box across, and from the face's own metrics top to bottom)
+    const cv = document.createElement("canvas").getContext("2d");
+    const ink = (e) => {
+      const rg = document.createRange(); rg.selectNodeContents(e); const r = rg.getBoundingClientRect(), cs = getComputedStyle(e);
+      cv.font = cs.fontWeight + " " + cs.fontSize + " " + cs.fontFamily;
+      const m = cv.measureText(e.textContent), base = r.top + m.fontBoundingBoxAscent;
+      return { t: base - m.actualBoundingBoxAscent - cr.top, b: cr.bottom - (base + m.actualBoundingBoxDescent), l: r.left - cr.left, r: cr.right - r.right, h: m.actualBoundingBoxAscent + m.actualBoundingBoxDescent };
+    };
+    const [sam, lu] = [...b.querySelectorAll("b span")].map(ink), small = ink(b.querySelector("small"));
+    const words = [...b.querySelectorAll("b span, small")].map((e) => e.textContent).join(" ");
+    const inside = [sam, lu, small].every((x) => x.t >= 0 && x.b >= 0 && x.l >= 0 && x.r >= 0);
+    const faces = [...c.querySelectorAll(".sym")].filter((s) => getComputedStyle(s).visibility !== "hidden").length;
+    const H = cr.height, luTo = H - lu.b, smallFrom = small.t;
+    return { card: c.className, shown: true, h: Math.round(H), words, inside, faces, samFrom: Math.round(sam.t), samTo: Math.round(H - sam.b), luFrom: Math.round(lu.t), luTo: Math.round(luTo), smallFrom: Math.round(smallFrom), smallTo: Math.round(H - small.b),
+      // SAM over LU, from near the top to two thirds down at least; PLAYING CARD CO. under them, smaller
+      ok: words === "SAM LU PLAYING CARD CO." && inside && faces === 0 && H - sam.b <= lu.t && sam.t <= 0.2 * H && luTo >= 0.62 * H && smallFrom > luTo && small.h < lu.h / 2 };
+  });
+
+  // ---- the deck's back: SAM LU PLAYING CARD CO., SAM over LU filling the
+  // top of the card and PLAYING CARD CO. small under them, inside the card
+  // at every size: the deck's pile beside the table (a laptop), the table
+  // paused, the menu's table; and no "made by" line on the page
+  {
+    const bad = [], seen = {};
+    for (const [w, h, phone] of [[1280, 900, false], [1280, 600, false], [1366, 657, false], [390, 664, true], [320, 568, true], [375, 553, true]]) {
+      const c = await lib.newContext(browser, phone ? Object.assign({}, require("@playwright/test").devices["Pixel 7"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await openM(c, { mode: "chain" }, true);
+      const menu = await q.evaluate(BRANDS, "#board .card.facedown");
+      await q.evaluate(() => Hash.start());
+      await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
+      const pile = phone ? [] : await q.evaluate(BRANDS, "#pile .back:last-child");
+      // (a Hash claimed, so the Set-Chain tray holds cards too)
+      await q.evaluate(async () => { const t = __h.findAny(); t.forEach((x) => document.querySelector('#board .card[data-idx="' + __h.board.indexOf(x) + '"]').click()); });
+      await q.waitForFunction(() => !__h.locked && !document.querySelector(".flyer, .landing"), null, { timeout: 8000 });
+      await q.keyboard.press("p"); await q.waitForTimeout(150);
+      const table = await q.evaluate(BRANDS, "#board .card"), tray = await q.evaluate(BRANDS, "#trayCards .card:not(.slot)");
+      const made = await q.evaluate(() => [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length);
+      const all = menu.concat(pile, table, tray);
+      seen[w + "x" + h] = all.filter((x) => x.ok).length + " backs, cards " + [...new Set(all.map((x) => x.h))].join("/") + "px";
+      const wrong = all.filter((x) => !x.ok);
+      if (wrong.length || !menu.length || (!phone && !pile.length) || !table.length || !tray.length || made) bad.push(w + "x" + h + ": " + JSON.stringify({ wrong: wrong.slice(0, 3), menu: menu.length, pile: pile.length, table: table.length, tray: tray.length, made }));
+      await c.close();
+    }
+    check("hash: the deck's back reads SAM over LU large in the top of the card and PLAYING CARD CO. small under them, both inside the card, on the pile, the paused table and tray and the menu's table, at 1280 x 900, 1280 x 600, 1366 x 657, 390 x 664, 320 x 568 and 375 x 553; no \"made by\" line",
+      bad.length === 0, bad.length ? bad : seen);
+  }
+
+  // ---- while play is hidden the table's cards lie face down, showing the
+  // deck's back (not blank): paused by P, under the "Leave this game?" box
+  // mid-deck, and when the tab loses focus; their faces come back on resume
+  {
+    const q = await open();
+    const look2 = () => q.evaluate(() => ({
+      backs: [...document.querySelectorAll("#board .card")].filter((c) => { const b = c.querySelector(".brand"); return b && getComputedStyle(b).display !== "none" && !/rgb\(2[0-9][0-9], 2[0-9][0-9]/.test(getComputedStyle(c).backgroundImage); }).length,
+      faces: [...document.querySelectorAll("#board .card .sym")].filter((s) => getComputedStyle(s).visibility !== "hidden").length,
+      cards: document.querySelectorAll("#board .card").length }));
+    await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const byP = await look2();
+    await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const back1 = await look2();
+    await q.click("#hintBtn"); await q.waitForTimeout(100);
+    await q.keyboard.press("Home"); await q.waitForTimeout(250);
+    const byLeave = Object.assign(await look2(), { asked: await q.evaluate(() => !!document.querySelector(".gs-dialog")) });
+    await q.keyboard.press("Enter"); await q.waitForTimeout(200);   // (Keep playing)
+    await q.evaluate(() => window.dispatchEvent(new Event("blur"))); await q.waitForTimeout(150);
+    const byBlur = await look2();
+    await q.keyboard.press("p"); await q.waitForTimeout(150);
+    const back2 = await look2();
+    const allDown = (x) => x.cards >= 12 && x.backs === x.cards && x.faces === 0, allUp = (x) => x.cards >= 12 && x.backs === 0 && x.faces > 0;
+    check("hash: while play is hidden the table's cards lie face down, showing the deck's back: paused by P, under the \"Leave this game?\" box, and on losing focus; the faces come back on resume",
+      allDown(byP) && allUp(back1) && byLeave.asked && allDown(byLeave) && allDown(byBlur) && allUp(back2), { byP, back1, byLeave, byBlur, back2 });
+    check("hash (face down): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- a deal comes off the top of the deck: the cards wait over the pile
+  // stacked in the order they go, the first dealt on top. With Visual FX on
+  // each flies face down and turns over on the way, the turn beginning a
+  // third of the way there and ending as it lands, face up (nothing turns
+  // after it's down); with it off each flies face up, with no turn. On a
+  // phone, where the pile has no room (just off the screen's left edge), the
+  // same order.
+  {
+    const got = {};
+    for (const [name, opts, off] of [["laptop", { viewport: { width: 1280, height: 900 } }, false], ["laptop", { viewport: { width: 1280, height: 900 } }, true],
+      ["phone", Object.assign({}, require("@playwright/test").devices["Pixel 7"], { viewport: { width: 390, height: 664 } }), false]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/hash/", { before: async (pg) => {
+        await lib.injectScript(pg, "games/hash/game.js", [HOOK]);
+        if (off) await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:hash", "1"); } catch (e) {} });
+        // (every turn given to a card on the table, as it's given)
+        await pg.addInitScript(() => {
+          window.__turned = 0;
+          const an = Element.prototype.animate;
+          Element.prototype.animate = function (k) { if (this.closest && this.closest("#board") && JSON.stringify(k).includes("rotateY")) window.__turned++; return an.apply(this, arguments); };
+        });
+      } });
+      const m = await q.evaluate(() => {
+        Hash.start();
+        const pile = document.getElementById("pile").getBoundingClientRect();
+        const fl = [...document.querySelectorAll(".flyer")];
+        return { pileShown: !document.getElementById("pile").hidden, flyers: fl.map((f) => {
+          const a = f.getAnimations()[0], t = f.querySelector(".turn"), ta = t && t.getAnimations()[0], tk = ta ? ta.effect.getKeyframes() : [];
+          return { z: +getComputedStyle(f).zIndex, delay: a.effect.getTiming().delay, dur: a.effect.getTiming().duration, atPile: Math.abs(f.getBoundingClientRect().left - pile.left) < 1.5 && Math.abs(f.getBoundingClientRect().top - pile.top) < 1.5,
+            down: !!t && /rotateY\(180deg\)/.test(tk[0] && tk[0].transform) && tk[1] && /rotateY\(180deg\)/.test(tk[1].transform) && tk[1].offset >= 0.25 && tk[1].offset <= 0.5 && /rotateY\(0deg\)/.test(tk[tk.length - 1].transform),
+            sameTime: !!ta && ta.effect.getTiming().duration === a.effect.getTiming().duration && ta.effect.getTiming().delay === a.effect.getTiming().delay, back: !!f.querySelector(".back .brand"),
+            plain: !t && !f.getAnimations().some((x) => JSON.stringify(x.effect.getKeyframes()).includes("rotateY")) };
+        }) };
+      });
+      await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
+      await q.waitForTimeout(300);
+      m.turnedOnTable = await q.evaluate(() => window.__turned);
+      const f = m.flyers;
+      m.order = f.length >= 12 && f.every((x, i) => i === 0 || (x.z < f[i - 1].z && x.delay > f[i - 1].delay));
+      m.summary = { n: f.length, z: f.slice(0, 3).map((x) => x.z), delays: f.slice(0, 3).map((x) => x.delay), dur: f[0] && f[0].dur, ends: f.length ? Math.max(...f.map((x) => x.delay + x.dur)) : 0 };
+      got[name + (off ? " off" : " on")] = m;
+      if (q.errs.length) m.errs = q.errs;
+      await c.close();
+    }
+    const on = got["laptop on"], offL = got["laptop off"], ph = got["phone on"];
+    check("hash: a deal comes off the top of the deck: the cards wait over the pile in the order they go, the first dealt on top (laptop, FX on and off), and in the same order on a phone, where the pile has no room",
+      on.order && on.pileShown && on.flyers.every((x) => x.atPile) && offL.order && ph.order && !ph.pileShown, { on: on.summary, off: offL.summary, phone: ph.summary });
+    check("hash, FX on: each dealt card flies face down (the deck's back) and turns over on the way, the turn ending as it lands, face up; nothing turns once it's down; the deal is all down within 0.8 s",
+      on.flyers.every((x) => x.down && x.sameTime && x.back) && on.turnedOnTable === 0 && ph.flyers.every((x) => x.down && x.sameTime) && ph.turnedOnTable === 0 && on.summary.ends <= 800,
+      { flyers: on.flyers.slice(0, 2), turned: on.turnedOnTable, phoneTurned: ph.turnedOnTable, ends: on.summary.ends });
+    check("hash, FX off: each dealt card flies face up with no turn, before or after it lands", offL.flyers.every((x) => x.plain) && offL.turnedOnTable === 0, { flyers: offL.flyers.slice(0, 2), turned: offL.turnedOnTable });
+    check("hash (the deal off the deck): no page errors", !on.errs && !offL.errs && !ph.errs, [on.errs, offL.errs, ph.errs]);
+  }
+
+  // ---- the felt: with Visual FX on its lamplight and sheen drift slowly
+  // (CSS animations on transform and opacity only); with it off the same
+  // light and sheen hold still; paused, they hold still too
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(ctx, base, "games/hash/", { before: async (pg) => {
+        await lib.injectScript(pg, "games/hash/game.js", [HOOK]);
+        await pg.addInitScript((o) => { try { localStorage.setItem("reduceMotion:hash", o ? "1" : "0"); } catch (e) {} }, off);
+      } });
+      // (each layer's transform and opacity, now and 1.5 s later by the page's clock)
+      const sample = () => q.evaluate(() => new Promise((res) => {
+        const layers = [...document.querySelectorAll(".felt > *")];
+        const read = () => layers.map((e) => getComputedStyle(e).transform + " " + getComputedStyle(e).opacity);
+        const a = read();
+        setTimeout(() => res({ layers: layers.length, moved: read().some((v, i) => v !== a[i]),
+          anims: layers.map((e) => e.getAnimations().map((x) => x.playState).join(",")),
+          props: [...new Set(layers.flatMap((e) => e.getAnimations().flatMap((x) => x.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !/^(offset|easing|composite|computedOffset)$/.test(p))))))] }), 1500);
+      }));
+      const s = { menu: await sample() };
+      await q.evaluate(() => Hash.start());
+      await q.waitForFunction("!" + COMING, null, { timeout: 8000 });
+      await q.keyboard.press("p"); await q.waitForTimeout(100);
+      s.paused = await sample();
+      await q.keyboard.press("p"); await q.waitForTimeout(100);
+      s.resumed = await sample();
+      s.errs = q.errs;
+      got[off ? "off" : "on"] = s;
+      await q.close();
+    }
+    const on = got.on, off = got.off;
+    check("hash, FX on: the felt's lamplight and sheen drift slowly (transform and opacity only), and hold still while paused",
+      on.menu.layers === 2 && on.menu.moved && on.menu.props.every((p) => p === "transform" || p === "opacity") && on.menu.props.length > 0 &&
+      !on.paused.moved && on.paused.anims.every((a) => /paused/.test(a)) && on.resumed.moved, on);
+    check("hash, FX off: the same lamplight and sheen are there, held still", off.menu.layers === 2 && !off.menu.moved && off.menu.anims.every((a) => a === "") && !off.resumed.moved, off);
+    check("hash (the felt): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
   }
 
   await ctx.close();

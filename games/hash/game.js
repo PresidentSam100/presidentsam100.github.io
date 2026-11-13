@@ -174,6 +174,10 @@
     for (var i = 0; i < card.n; i++) body += s;
     return body;
   }
+  // The deck's back: SAM LU PLAYING CARD CO. Every card carries it (shown
+  // only where the card is face down: the deck, a card dealt, the table
+  // while play is hidden, the menu's table), as a real card has a back.
+  var BRAND = '<span class="brand" aria-hidden="true"><b><span>SAM</span><span>LU</span></b><small>PLAYING CARD CO.</small></span>';
 
   function cardName(card) {
     return card.n + " " + card.color + " " + card.shading + " " + card.shape + (card.n > 1 ? "s" : "");
@@ -274,17 +278,25 @@
   var addBtn = $("addBtn");
   var hintBtn = $("hintBtn");
   var newBtn = $("newBtn");
+  var menuBtn = $("menuBtn");
+  var modeName = $("modeName");
+  var menuEl = $("menu");
+  var menuBest = $("menuBest");
+  var playBtn = $("playBtn");
   var juniorBtn = $("juniorBtn");
   var dailyBtn = $("dailyBtn");
+  var state = "menu"; // menu | play (over, while the deck's cleared card is up)
 
   // ---- cards on the move (Visual FX on) ----------------------------------
-  // New cards come face down from the deck's pile, left of the table, and
-  // turn face up where they land; a claimed Hash's cards fly to where it's
-  // kept: the Found list, or in Set-Chain the Last Hash beside the table.
-  // Each flies as a stand-in drawn over the page while the card itself waits
-  // unseen in its place (`arriving` on the table, `landing` in the list or
-  // the tray), so a re-render meanwhile doesn't show it early.
+  // New cards come face down off the top of the deck's pile, left of the
+  // table, and turn face up on the way, landing face up; a claimed Hash's
+  // cards fly to where it's kept: the Found list, or in Set-Chain the Last
+  // Hash beside the table. Each flies as a stand-in drawn over the page while
+  // the card itself waits unseen in its place (`arriving` on the table,
+  // `landing` in the list or the tray), so a re-render meanwhile doesn't show
+  // it early.
   var pileEl = $("pile");
+  pileEl.querySelectorAll(".back").forEach(function (b) { b.innerHTML = BRAND; });
   var arriving = {}, landing = {}, flights = 0;   // (flights: which set of them, as a new game cancels the last)
   function fxOn() { return !(window.RM_ON && window.RM_ON()); }
   // where the pile is (and so where new cards start): beside the table's
@@ -302,27 +314,37 @@
     pileEl.hidden = !room || deck.length === 0;
     pileEl.style.left = at.x + "px"; pileEl.style.top = at.y + "px";
     pileEl.style.width = w + "px"; pileEl.style.height = h + "px";
+    pileEl.style.setProperty("--bh", h + "px");
     return at;
   }
-  // a stand-in flown from one box to another (scaled to fit), then gone
+  // a stand-in flown from one box to another (scaled to fit), then gone.
+  // opts.turn: its .turn inside turns it over on the way, face down to face
+  // up, the turn ending as it lands (a card's two faces, front and back)
+  var TURN_FROM = 0.35;   // (how far into the trip the turn begins)
   function fly(el, from, to, opts, done) {
     el.classList.add("flyer");
     el.style.left = from.x + "px"; el.style.top = from.y + "px";
     el.style.width = from.w + "px"; el.style.height = from.h + "px";
+    el.style.setProperty("--bh", from.h + "px");
+    if (opts.z) el.style.zIndex = opts.z;
     document.body.appendChild(el);
     var move = "translate(" + (to.x - from.x) + "px, " + (to.y - from.y) + "px) scale(" + (to.w / from.w) + ", " + (to.h / from.h) + ")";
-    var frames = opts.turn
-      ? [{ transform: "none" }, { transform: move, offset: 0.78 }, { transform: move + " perspective(600px) rotateY(90deg)" }]
-      : [{ transform: "none" }, { transform: move }];
-    var a = el.animate(frames, { duration: opts.duration, delay: opts.delay || 0, easing: opts.easing || "cubic-bezier(0.3, 0.7, 0.3, 1)", fill: "both" });
+    var timing = { duration: opts.duration, delay: opts.delay || 0, easing: opts.easing || "cubic-bezier(0.3, 0.7, 0.3, 1)", fill: "both" };
+    var a = el.animate([{ transform: "none" }, { transform: move }], timing);
+    var turner = opts.turn && el.querySelector(".turn");
+    if (turner) turner.animate([{ transform: "perspective(600px) rotateY(180deg)" }, { transform: "perspective(600px) rotateY(180deg)", offset: TURN_FROM },
+      { transform: "perspective(600px) rotateY(0deg)" }], { duration: opts.duration, delay: opts.delay || 0, easing: "ease-in-out", fill: "both" });
     var set = flights;
     a.onfinish = a.oncancel = function () { el.remove(); if (set === flights) done(); };
   }
   function boxOf(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height }; }
-  // new cards: from the pile, face down, turning face up where they land
-  // (Visual FX off: the same trip, face up all the way, with no turn, and a
-  // new game's deal quicker); `opening`: a new game's deal, whose last card
-  // landing starts the clock
+  // New cards: off the top of the pile (the first dealt is the top card, so
+  // each waits above the ones still to come), face down, turning face up on
+  // the way and landing face up (Visual FX off: the same trip, face up all
+  // the way, with no turn, and a new game's deal quicker). Each trip takes
+  // DEAL_T with its turn inside it. `opening`: a new game's deal, whose last
+  // card landing starts the clock.
+  var DEAL_T = 440;
   function dealFromPile(ids, opening) {
     var from = placePile(), left = ids.length;
     var landed = function () { if (--left === 0 && opening) dealLanded(); };
@@ -333,15 +355,17 @@
       var el = boardEl.querySelector('.card[data-id="' + id + '"]');
       if (!el) { delete arriving[id]; landed(); return; }
       var back;
-      if (turn) { back = document.createElement("div"); back.className = "card back"; back.innerHTML = ""; }
-      else { back = el.cloneNode(true); back.classList.remove("arriving"); back.removeAttribute("tabindex"); }
-      fly(back, from, boxOf(el), { duration: plain ? 180 : 360, delay: k * step, turn: turn }, function () {
+      if (turn) {
+        // (the card's two faces: its own, and the deck's back turned to the player)
+        back = document.createElement("div");
+        back.className = "card dealt-card";
+        back.setAttribute("data-id", id);
+        back.innerHTML = '<div class="turn"><div class="card face">' + cardHTML(board[+el.dataset.idx]) + '</div><div class="back">' + BRAND + "</div></div>";
+      } else { back = el.cloneNode(true); back.classList.remove("arriving"); back.removeAttribute("tabindex"); }
+      fly(back, from, boxOf(el), { duration: plain ? 180 : turn ? DEAL_T : 360, delay: k * step, turn: turn, z: 60 + ids.length - k }, function () {
         delete arriving[id];
         var now = boardEl.querySelector('.card[data-id="' + id + '"]');
-        if (now) {
-          now.classList.remove("arriving");
-          if (turn) now.animate([{ transform: "perspective(600px) rotateY(-90deg)" }, { transform: "none" }], { duration: 160, easing: "ease-out" });
-        }
+        if (now) now.classList.remove("arriving");
         landed();
       });
     });
@@ -391,22 +415,20 @@
   var ovBody = $("ovBody");
   var ovBtn = $("ovBtn");
 
-  // The log stands beside the table on a wider window, How to play and the
-  // byline under it. On a phone the table fills the screen, so all three go
-  // below it (#below), where they take no height from the cards.
+  // The log stands beside the table on a wider window, How to play under
+  // it. On a phone the table fills the screen, so both go below it
+  // (#below), where they take no height from the cards.
   var logEl = $("log");
   var sideEl = logEl.parentNode;
   var wrapEl = document.querySelector(".wrap");
   var belowEl = $("below");
   var rulesEl = document.querySelector(".rules");
-  var bylineEl = $("byline");
   var WIDE = window.matchMedia ? window.matchMedia("(min-width: 860px)") : null;
   function placeLog() {
     var wide = !WIDE || WIDE.matches, to = wide ? null : belowEl;
     if (logEl.parentNode === (to || sideEl)) return;
     (to || sideEl).appendChild(logEl);
     (to || wrapEl).appendChild(rulesEl);
-    (to || wrapEl).appendChild(bylineEl);
   }
   placeLog();
   if (WIDE) {
@@ -535,7 +557,7 @@
       el.dataset.idx = i;
       el.setAttribute("aria-label", cardName(card));
       el.dataset.id = card.id;
-      el.innerHTML = cardHTML(card);
+      el.innerHTML = cardHTML(card) + BRAND;
       if (selected.indexOf(i) !== -1) el.classList.add("selected");
       // a hinted card glows until it's picked (then it shows as picked)
       else if (hintIds.indexOf(card.id) !== -1) el.classList.add("hint");
@@ -569,12 +591,12 @@
         var c = tray[i];
         if (!c) { html += '<div class="card slot" aria-hidden="true"></div>'; continue; }
         var cls = "card" + (traySel === i ? " selected" : hintIds.indexOf(c.id) !== -1 ? " hint" : "") + (trayNew ? " dealt" : "") + (landing[c.id] ? " landing" : "");
-        html += '<div class="' + cls + '" role="button" tabindex="0" data-tray="' + i + '" data-id="' + c.id + '" aria-label="' + cardName(c) + ', from the last Hash">' + cardHTML(c) + "</div>";
+        html += '<div class="' + cls + '" role="button" tabindex="0" data-tray="' + i + '" data-id="' + c.id + '" aria-label="' + cardName(c) + ', from the last Hash">' + cardHTML(c) + BRAND + "</div>";
       }
     } else {
       trayK.textContent = "Extra card";
       html = extra
-        ? '<div class="card extra' + (trayNew ? " dealt" : "") + '" role="img" aria-label="' + cardName(extra) + ', the card both pairs need">' + cardHTML(extra) + "</div>"
+        ? '<div class="card extra' + (trayNew ? " dealt" : "") + '" role="img" aria-label="' + cardName(extra) + ', the card both pairs need">' + cardHTML(extra) + BRAND + "</div>"
         : '<div class="card slot" aria-hidden="true"></div>';
     }
     trayNew = false;
@@ -625,7 +647,8 @@
         ? "Find a trio where <b>number</b>, <b>shape</b> &amp; <b>color</b> are each " + each + "."
         : "Find a trio where <b>number</b>, <b>shape</b>, <b>shading</b> &amp; <b>color</b> are each " + each + ".";
     statSetsK.textContent = MODES[mode].found;
-    document.querySelectorAll("#modeRow .chip").forEach(function (b) {
+    modeName.textContent = comboName();
+    document.querySelectorAll("#pickMode .opt").forEach(function (b) {
       b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false");
     });
     juniorBtn.setAttribute("aria-pressed", junior ? "true" : "false");
@@ -668,7 +691,7 @@
   function picks() { return selected.length + (traySel >= 0 ? 1 : 0); }
 
   function onCardActivate(idx) {
-    if (locked || over || PAUSE.isPaused()) return;
+    if (state !== "play" || locked || over || PAUSE.isPaused() || !(idx >= 0)) return;
     var pos = selected.indexOf(idx);
     if (pos !== -1) {
       selected.splice(pos, 1);
@@ -867,7 +890,7 @@
   }
 
   function onAdd() {
-    if (locked || over || PAUSE.isPaused()) return;
+    if (state !== "play" || locked || over || PAUSE.isPaused()) return;
     landDeal();   // (a deal still coming in lands first, starting the clock)
     if (deck.length === 0) return;
     if (findAny()) {
@@ -890,7 +913,7 @@
   }
 
   function onHint() {
-    if (locked || over || PAUSE.isPaused()) return;
+    if (state !== "play" || locked || over || PAUSE.isPaused()) return;
     landDeal();
     var one = MODES[mode].one, an = mode === "ultra" ? "an " : "a ";
     var trio = findAny();
@@ -991,6 +1014,9 @@
   function newGame() {
     gameNo++;
     clearFlights();
+    state = "play";
+    menuEl.hidden = true;
+    document.documentElement.classList.remove("hash-menu");
     over = false;
     moved = false;
     locked = false;
@@ -1021,25 +1047,61 @@
     updateAddBtn();
     // The clock starts when the deal is down (dealLanded). A deal in a hidden
     // tab (a page opened in the background, New game while hidden) never gets
-    // the hide that auto-pauses, so it starts paused instead, cards blank.
+    // the hide that auto-pauses, so it starts paused instead, cards face down.
     if (document.hidden) PAUSE.pause();
     else if (PAUSE.isPaused()) PAUSE.resume(); // (which starts the clock, once the deal is down)
   }
 
-  // Normal / Set-Chain / UltraSet, Junior and Daily: each change deals a new
-  // game in the new way (asking first mid-deck, as New game does) and is
-  // remembered for next time
-  function choose(next) {
-    if (next.mode === mode && next.junior === junior && next.daily === daily) return;
-    function go() {
-      mode = next.mode;
-      junior = next.junior;
-      daily = next.daily;
-      save(PREFS_KEY, { mode: mode, junior: junior, daily: daily });
-      newGame();
+  // ---- the menu ---------------------------------------------------------
+  // Normal / Set-Chain / UltraSet, Junior and Daily are picked here, before
+  // the deal (each pick remembered for next time), and Deal the cards
+  // starts. Behind the card the table is laid face down: the deck's back.
+  function paintMenu() {
+    renderRules();
+    renderBest();
+    var name = MODES[mode].name + (junior ? ", Junior" : "");
+    if (daily) {
+      var d = readDaily().done[combo()];
+      menuBest.textContent = "Today's Daily (" + name + "): " + (d != null ? fmtTime(d) : "not cleared yet");
+    } else {
+      var b = loadBest();
+      menuBest.textContent = "Best (" + name + "): " + (b ? fmtTime(b) : "none yet");
     }
-    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Start a new game?", ok: "New game" }, go);
-    else go();
+    statDeck.textContent = junior ? 27 : 81;
+  }
+  function pick(next) {
+    mode = next.mode;
+    junior = next.junior;
+    daily = next.daily;
+    save(PREFS_KEY, { mode: mode, junior: junior, daily: daily });
+    paintMenu();
+  }
+  // (the way back to the menu: the pause card's Menu, ☰ Menu or Backspace in
+  // play, asking first mid-deck, and Modes on the cleared-deck card)
+  function toMenu() {
+    gameNo++;
+    clearFlights();
+    stopTimer();
+    state = "menu";
+    over = false; moved = false; locked = false; dealing = false;
+    selected = []; traySel = -1; tray = []; extra = null; log = []; hintIds = [];
+    setsFound = 0; penalty = 0; banked = 0;
+    deck = []; board = [];
+    overlay.hidden = true;
+    if (PAUSE.isPaused()) PAUSE.resume();
+    setMsg("");
+    statTime.textContent = "0:00";
+    statSets.textContent = "0";
+    boardEl.style.setProperty("--rows", 4);
+    var face = "";
+    for (var i = 0; i < 12; i++) face += '<div class="card facedown" aria-hidden="true">' + BRAND + "</div>";
+    boardEl.innerHTML = face;
+    trayEl.hidden = true;
+    pileEl.hidden = true;
+    renderLog();
+    paintMenu();
+    menuEl.hidden = false;
+    document.documentElement.classList.add("hash-menu");
   }
 
   // ---- events ----------------------------------------------------------
@@ -1085,57 +1147,79 @@
     else newGame();
   });
   ovBtn.addEventListener("click", newGame);
-  document.querySelectorAll("#modeRow .chip").forEach(function (b) {
-    b.addEventListener("click", function () { choose({ mode: b.dataset.mode, junior: junior, daily: daily }); });
+  $("ovMenu").addEventListener("click", toMenu);
+  // the menu: a mode or a switch is picked (no deal yet); Deal the cards deals
+  document.querySelectorAll("#pickMode .opt").forEach(function (b) {
+    b.addEventListener("click", function () { pick({ mode: b.dataset.mode, junior: junior, daily: daily }); });
   });
-  juniorBtn.addEventListener("click", function () { choose({ mode: mode, junior: !junior, daily: daily }); });
-  dailyBtn.addEventListener("click", function () { choose({ mode: mode, junior: junior, daily: !daily }); });
-  // Keys, shown on the buttons: A adds three cards, H is the hint, N a new
-  // game (which asks first mid-deck, as its click does); 1 2 3 the modes, J
-  // Junior and D the Daily (asking first too); on the cleared-board card
-  // Enter plays again. None of them under the pause card.
+  juniorBtn.addEventListener("click", function () { pick({ mode: mode, junior: !junior, daily: daily }); });
+  dailyBtn.addEventListener("click", function () { pick({ mode: mode, junior: junior, daily: !daily }); });
+  // (a click leaves no focus on a pick: Enter, left to a focused one, would
+  // press it again instead of dealing; Tab still reaches them)
+  menuEl.querySelectorAll(".opt").forEach(function (b) { b.addEventListener("mousedown", function (e) { e.preventDefault(); }); });
+  playBtn.addEventListener("click", function () { if (state === "menu") newGame(); });
+  // ☰ Menu in play: back to the menu, asking first mid-deck (the game paused under the question)
+  menuBtn.addEventListener("click", function () {
+    if (window.GameShell && GameShell.askQuit) GameShell.askQuit({ title: "Quit this game?", ok: "Quit" }, toMenu);
+    else toMenu();
+  });
+  // Keys, shown on the buttons. The menu: 1 2 3 the modes, J Junior and D
+  // the Daily, Space or Enter deals. In play: A adds three cards, H is the
+  // hint, N a new game (asking first mid-deck, as its click does), Backspace
+  // the menu (asking first too), I How to play; none of them under the pause
+  // card. On the cleared-deck card Space or Enter plays again, Backspace the
+  // menu.
   if (window.GameShell && GameShell.menuKeys) {
     GameShell.menuKeys({
-      active: function () { return overlay.hidden && !PAUSE.isPaused(); },
-      groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] },
-        { sel: "#modeRow .chip", keys: ["1", "2", "3"] }, { sel: "#juniorBtn", keys: ["j"] }, { sel: "#dailyBtn", keys: ["d"] },
+      active: function () { return state === "menu"; },
+      groups: [{ sel: "#pickMode .opt", keys: ["1", "2", "3"], into: "b" }, { sel: "#juniorBtn", keys: ["j"], into: "b" }, { sel: "#dailyBtn", keys: ["d"], into: "b" }],
+      start: "#playBtn", space: true
+    });
+    GameShell.menuKeys({
+      active: function () { return state === "play" && overlay.hidden && !PAUSE.isPaused(); },
+      groups: [{ sel: "#addBtn", keys: ["a"] }, { sel: "#hintBtn", keys: ["h"] }, { sel: "#newBtn", keys: ["n"] }, { sel: "#menuBtn", keys: ["backspace"] },
         { sel: ".rules > summary", keys: ["i"], caps: false }]   // (I opens or shuts How to play, its key on its line)
     });
-    GameShell.menuKeys({ active: function () { return !overlay.hidden; }, start: "#ovBtn", space: true });
+    GameShell.menuKeys({ active: function () { return state === "play" && !overlay.hidden; }, start: "#ovBtn", space: true, groups: [{ sel: "#ovMenu", keys: ["backspace"] }] });
   }
 
   // P, the ⏸ button and a hidden tab pause the game from the deal
   // until the deck is cleared. The pause card is see-through, so the cards
-  // go blank under it (styles.css): a pause is no time to look for Hashes.
+  // turn face down under it (styles.css): a pause is no time to look for
+  // Hashes. The felt's drift holds still with them.
   var PAUSE =
     window.GameShell && GameShell.pausable
       ? GameShell.pausable({
           canPause: function () {
-            return !over;
+            return state === "play" && !over;
           },
           onChange: function (paused) {
             boardEl.classList.toggle("paused", paused);
             trayEl.classList.toggle("paused", paused);
+            document.documentElement.classList.toggle("hash-paused", paused);
             if (paused) { landDeal(); stopTimer(); }
-            else if (!over) startTimer();
+            else if (!over && state === "play") startTimer();
           },
-          restart: newGame,     // on the card: a new deal (there is no menu)
+          restart: newGame,     // on the card: a new deal, the same way
+          menu: toMenu,
         })
       : // (no shell, no pausing: the clock just runs)
         { isPaused: function () { return false; }, pause: startTimer, resume: function () {} };
 
   // Leaving asks first once the game has begun (a Hash claimed, cards added
   // or a hint taken) until the deck is cleared; an untouched deal loses
-  // nothing. The game is paused under the question, clock held, cards blank.
+  // nothing. The game is paused under the question, clock held, cards face down.
   if (window.GameShell && GameShell.guardLeave)
     GameShell.guardLeave({
       active: function () {
-        return moved && !over;
+        return state === "play" && moved && !over;
       },
       pausable: PAUSE,
     });
 
   // ---- go --------------------------------------------------------------
+  // (test hooks: the Playwright harness reads the state and deals through these)
+  window.Hash = { state: function () { return state; }, start: function () { if (state === "menu") newGame(); }, toMenu: toMenu };
   renderBest();
-  newGame();
+  toMenu();
 })();

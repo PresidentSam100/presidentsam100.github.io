@@ -30,6 +30,18 @@ body {
   margin: 0;
   color: var(--ivory);
   font-family: "Fredoka", "Inter", sans-serif;
+  min-height: 100vh;
+}
+/* (the felt is the page's own: the body stays clear, so the lamplight and
+   sheen below lie on the felt, under everything else) */
+body {
+  background: transparent;
+}
+/* the menu card has its own title, so the page's header steps aside behind it */
+html.hash-menu .set-header {
+  visibility: hidden;
+}
+html {
   background-color: var(--felt-2);
   /* layered felt: a soft spotlight, a deep vignette, and a faint diamond
      lattice that nods to the game's shapes */
@@ -46,7 +58,60 @@ body {
     ),
     radial-gradient(120% 80% at 50% -10%, var(--felt-1) 0%, var(--felt-2) 48%, var(--felt-3) 100%);
   background-attachment: fixed;
-  min-height: 100vh;
+}
+
+/* The lamp over the table and the sheen on the felt's nap, behind the
+   page: with Visual FX on the lamplight sways a little and breathes, and
+   a broad, faint sheen drifts slowly across, never fast or bright enough
+   to pull the eye from the cards. With it off, the same light and sheen
+   hold still where they are; a pause holds them too (game.js:
+   html.hash-paused). Transform and opacity only. */
+.felt {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+.felt .lamp,
+.felt .sheen {
+  position: absolute;
+  will-change: transform, opacity;
+}
+.felt .lamp {
+  left: -20%;
+  right: -20%;
+  top: -35%;
+  height: 95%;
+  background: radial-gradient(closest-side, rgba(255, 238, 196, 0.075), rgba(255, 238, 196, 0.03) 55%, rgba(255, 238, 196, 0) 100%);
+}
+.felt .sheen {
+  top: -20%;
+  bottom: -20%;
+  left: -70%;
+  right: -70%;
+  background: linear-gradient(105deg, transparent 38%, rgba(196, 255, 226, 0.028) 46%, rgba(214, 255, 234, 0.045) 50%, rgba(196, 255, 226, 0.028) 54%, transparent 62%);
+}
+html.fx-on .felt .lamp {
+  animation: hashLamp 37s ease-in-out -11s infinite alternate, hashLampGlow 23s ease-in-out -5s infinite alternate;
+}
+html.fx-on .felt .sheen {
+  animation: hashSheen 61s ease-in-out -23s infinite alternate;
+}
+html.hash-paused .felt * {
+  animation-play-state: paused !important;
+}
+@keyframes hashLamp {
+  from { transform: translate(-7%, -1.5%); }
+  to { transform: translate(7%, 2%); }
+}
+@keyframes hashLampGlow {
+  from { opacity: 0.75; }
+  to { opacity: 1; }
+}
+@keyframes hashSheen {
+  from { transform: translateX(-18%); }
+  to { transform: translateX(18%); }
 }
 
 .wrap {
@@ -67,8 +132,7 @@ body {
 .tray,
 #msg,
 .controls,
-.rules,
-#byline {
+.rules {
   flex: 0 0 auto;
 }
 
@@ -239,18 +303,86 @@ html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
   animation: hintPulse 1s ease infinite;
 }
 
-/* ---- cards on the move (Visual FX on, game.js) ----------------------------
-   a card's back: felt green in a gilt line, a lattice over it */
+/* ---- a card's back: SAM LU PLAYING CARD CO., printed the way a real
+   deck's back is: an ivory margin, a gilt rule, felt-green stock under a
+   gilt lattice, and the maker's name across it, SAM over LU large in the
+   top of the card and PLAYING CARD CO. small under them. Every card
+   carries the name (game.js .brand); it shows only where the card lies
+   face down: the deck's pile, a card on its way from it, the table under
+   the pause card, the menu's table. Sized by --bh, the card's height. */
+.card {
+  --bh: var(--cardH);
+}
+.back,
+.card.facedown,
+#board.paused .card,
+.tray.paused .card:not(.slot) {
+  border: 1px solid var(--gold-deep);
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 192, 103, 0.12) 0 1.5px, transparent 1.5px 10px),
+    repeating-linear-gradient(-45deg, rgba(231, 192, 103, 0.12) 0 1.5px, transparent 1.5px 10px),
+    linear-gradient(160deg, var(--felt-1), var(--felt-3));
+  box-shadow:
+    inset 0 0 0 calc(var(--bh) * 0.06) var(--ivory),
+    inset 0 0 0 calc(var(--bh) * 0.06 + 1.5px) var(--gold-deep),
+    0 6px 14px rgba(0, 0, 0, 0.35);
+  animation: none;
+}
 .back {
   border-radius: 14px;
-  border: 2px solid var(--gold-deep);
-  background:
-    repeating-linear-gradient(45deg, rgba(231, 192, 103, 0.2) 0 2px, transparent 2px 11px),
-    repeating-linear-gradient(-45deg, rgba(231, 192, 103, 0.2) 0 2px, transparent 2px 11px),
-    linear-gradient(160deg, var(--felt-1), var(--felt-3));
-  box-shadow: inset 0 0 0 5px var(--felt-2), inset 0 0 0 6px rgba(231, 192, 103, 0.55), 0 6px 14px rgba(0, 0, 0, 0.35);
 }
-/* the deck, left of the table: a few backs, squared up */
+.card.facedown {
+  cursor: default;
+}
+.card.facedown:hover {
+  transform: none;
+}
+.brand {
+  display: none;
+}
+.back .brand,
+.card.facedown .brand,
+#board.paused .card .brand,
+.tray.paused .card .brand {
+  position: absolute;
+  inset: calc(var(--bh) * 0.1) calc(var(--bh) * 0.1) calc(var(--bh) * 0.11);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  font-family: "Fredoka", "Inter", sans-serif;
+  text-align: center;
+  white-space: nowrap;
+}
+.brand b {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: calc(var(--bh) * 0.38);
+  font-weight: 700;
+  line-height: 0.8;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  text-shadow: 0 1px 0 var(--felt-3), 0 0 0.25em rgba(0, 0, 0, 0.45);
+}
+.brand b span {
+  padding-left: 0.1em; /* (the tracking, centred) */
+}
+.brand small {
+  flex: 0 0 auto;
+  font-size: calc(var(--bh) * 0.135);
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  padding-left: 0.06em;
+  color: var(--ivory);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.55);
+}
+/* the deck, left of the table: a few backs, squared up, the top one last */
 .pile { position: fixed; z-index: 4; pointer-events: none; }
 .pile[hidden] { display: none; }
 .pile .back { position: absolute; inset: 0; }
@@ -261,6 +393,31 @@ html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
 .flyer { position: fixed; z-index: 60; margin: 0; pointer-events: none; transform-origin: 0 0; }
 .card.arriving, .card.gone { opacity: 0; pointer-events: none; transition: none; }
 .mini.landing, .tray .card.landing { opacity: 0; }
+/* a card dealt with Visual FX on: its two faces back to back, turned over
+   on the way (game.js fly) */
+.flyer.dealt-card {
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.dealt-card .turn {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.dealt-card .turn > * {
+  position: absolute;
+  inset: 0;
+  width: auto;
+  height: auto;
+  margin: 0;
+  border-radius: 14px;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+.dealt-card .turn > .back {
+  transform: rotateY(180deg);
+}
 
 .card .sym {
   width: 26%;
@@ -268,8 +425,9 @@ html:has(.rm-toggle[aria-pressed="true"]) .card:hover {
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.12));
 }
 
-/* paused: the shared pause card is see-through, so the cards go blank under
-   it (game.js marks the board) and take no clicks */
+/* paused: the shared pause card is see-through, so the cards lie face down
+   under it, showing the deck's back (above; game.js marks the board), and
+   take no clicks */
 #board.paused {
   pointer-events: none;
 }
@@ -491,12 +649,6 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
   color: var(--gold);
 }
 
-#byline {
-  color: rgba(216, 233, 223, 0.55);
-  font-size: 75%;
-  text-align: center;
-}
-
 /* overlay */
 .overlay {
   position: fixed;
@@ -533,12 +685,150 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
 .overlay-card p b {
   color: var(--ivory);
 }
+/* the cleared-deck card's two: Play again, and Modes back to the menu */
+.ov-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+/* ---- the menu: the way to play, picked before the deal. The table lies
+   face down behind it. A card taller than the screen scrolls from its top,
+   its heading never under the corner buttons. */
+.overlay.menu {
+  background: rgba(4, 24, 16, 0.6);
+  align-items: flex-start;
+  overflow-y: auto;
+  padding: 3.4rem 1rem 1rem;
+}
+.menu-card {
+  margin: auto;
+  width: 100%;
+  max-width: 24rem;
+  box-sizing: border-box;
+  padding: 1.35rem 1.4rem 1.15rem;
+}
+.overlay-card .menu-title {
+  font: 700 2.1rem/1 "Fredoka", "Inter", sans-serif;
+  letter-spacing: 0.4em;
+  padding-left: 0.4em; /* optical re-center for the tracking */
+  margin: 0 0 0.55rem;
+  text-shadow: 0 1px 0 var(--gold-deep), 0 2px 0 rgba(0, 0, 0, 0.25), 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.overlay-card .menu-how {
+  font-size: 0.86rem;
+  line-height: 1.3rem;
+  margin: 0 0 0.85rem;
+}
+.menu-how em {
+  font-style: normal;
+  color: var(--gold);
+  font-weight: 600;
+}
+.pick-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.pick-sw {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin: 0.4rem 0 0.95rem;
+}
+/* a pick: its name (and key) over a short note; gold when picked */
+.opt {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: 0;
+  text-align: left;
+  font-family: "Fredoka", "Inter", sans-serif;
+  color: var(--ivory);
+  background: rgba(6, 40, 28, 0.6);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 0.42rem 0.75rem 0.45rem;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.opt:hover {
+  background: rgba(231, 192, 103, 0.16);
+}
+.opt b {
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.opt small {
+  font-size: 0.76rem;
+  line-height: 1.2;
+  color: #b9d6c6;
+}
+.opt[aria-pressed="true"] {
+  color: var(--felt-3);
+  background: linear-gradient(180deg, #f3dc94, var(--gold));
+  border-color: var(--gold-deep);
+}
+.opt[aria-pressed="true"] small {
+  color: #2c4a3c;
+}
+.menu-card #playBtn {
+  width: 100%;
+  font-size: 1rem;
+}
+.overlay-card .menu-best {
+  font-size: 0.8rem;
+  line-height: 1.2rem;
+  margin: 0.7rem 0 0;
+  color: #cfe3d8;
+}
+/* a phone: the card clears the corner buttons, and its spacing closes up */
+@media (max-width: 700px) {
+  .overlay.menu {
+    padding: 62px 0.75rem 0.75rem;
+  }
+  .menu-card {
+    padding: 1.05rem 1rem 0.95rem;
+  }
+  .overlay-card .menu-title {
+    font-size: 1.85rem;
+    margin-bottom: 0.4rem;
+  }
+  .overlay-card .menu-how {
+    font-size: 0.82rem;
+    line-height: 1.2rem;
+    margin-bottom: 0.65rem;
+  }
+}
+/* a short screen (a phone with its bars showing, a short laptop): closer still */
+@media (max-height: 600px) {
+  .overlay.menu {
+    padding-top: 58px;
+  }
+  .pick-modes,
+  .pick-sw {
+    gap: 0.3rem;
+  }
+  .pick-sw {
+    margin: 0.3rem 0 0.7rem;
+  }
+  .opt {
+    padding: 0.32rem 0.7rem 0.35rem;
+  }
+  .overlay-card .menu-best {
+    margin-top: 0.5rem;
+  }
+}
 
 /* ---- the layout --------------------------------------------------------
    One column on a phone (and any narrow window), in this order, with the
-   log, How to play and the byline below the screen (game.js moves them to
-   #below); on a wider window the modes, the tray and the log stand in a
-   column beside the table (further down), so the table keeps its height. */
+   log and How to play below the screen (game.js moves them to #below); on
+   a wider window the Menu button, the tray and the log stand in a column
+   beside the table (further down), so the table keeps its height. */
 .play,
 .main,
 .side {
@@ -553,29 +843,22 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
 .controls { order: 6; }
 .log { order: 7; }
 .rules { order: 8; }
-#byline { order: 9; }
 
-/* ---- the modes: Normal / Set-Chain / UltraSet, and the Junior and Daily
-   switches (each deals a new game) */
+/* ---- in play: ☰ Menu (back to the menu, where the way to play is picked)
+   and the way being played, named beside it */
 .modes {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0.4rem 0.5rem;
+  gap: 0.4rem 0.6rem;
   margin: 0.1rem 0 0;
 }
-.seg {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  background: rgba(6, 40, 28, 0.55);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-}
-.switches {
-  display: inline-flex;
-  gap: 0.4rem;
+.mode-name {
+  font: 600 0.8rem/1.2 "Fredoka", "Inter", sans-serif;
+  letter-spacing: 0.02em;
+  color: var(--gold);
+  min-width: 0;
 }
 .chip {
   cursor: pointer;
@@ -599,15 +882,10 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
   background: linear-gradient(180deg, #f3dc94, var(--gold));
   border-color: var(--gold-deep);
 }
-/* a switch: a pill of its own (on and off, apart from the modes), gold
-   when it's on */
+/* a pill of its own on the felt */
 .chip.sw {
   background: rgba(6, 40, 28, 0.55);
   border-color: var(--line);
-}
-.chip.sw[aria-pressed="true"] {
-  background: linear-gradient(180deg, #f3dc94, var(--gold));
-  border-color: var(--gold-deep);
 }
 
 /* ---- the tray: Set-Chain's last Hash (one of its cards goes into the next),
@@ -640,6 +918,7 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
 .tray .card {
   width: 62px;
   height: 40px;
+  --bh: 40px;
   border-radius: 9px;
   gap: 6%;
 }
@@ -779,8 +1058,8 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
 
 /* ---- a phone (or any narrow window): each row on the first screen stays
    one line where it can (the HUD's four, the three buttons), so the table
-   keeps room for its cards; the log, How to play and the byline are below
-   the screen (#below) */
+   keeps room for its cards; the log and How to play are below the screen
+   (#below) */
 .below {
   max-width: 720px;
   margin: 0 auto;
@@ -810,10 +1089,7 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
     font-size: 1.1rem;
   }
   .modes {
-    gap: 0.35rem;
-  }
-  .seg {
-    padding: 2px;
+    gap: 0.35rem 0.5rem;
   }
   .chip {
     font-size: 0.76rem;
@@ -843,7 +1119,7 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
     min-height: 15rem;
   }
 }
-/* the smallest phones: a little closer still (the mode row takes two lines) */
+/* the smallest phones: a little closer still */
 @media (max-width: 340px) {
   .set-header .set-title {
     font-size: 1.95rem;
@@ -855,11 +1131,12 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
   .tray .card {
     width: 54px;
     height: 35px;
+    --bh: 35px;
   }
 }
 
-/* ---- a wider window: the table in the middle column, the modes, the tray
-   and the log beside it, the log taking what height is left */
+/* ---- a wider window: the table in the middle column, the Menu button,
+   the tray and the log beside it, the log taking what height is left */
 @media (min-width: 860px) {
   .subtitle {
     max-width: 42rem;
@@ -867,9 +1144,8 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
   .wrap {
     max-width: 940px;
   }
-  /* the title, How to play and the byline centred over the table's column */
-  .set-header,
-  #byline {
+  /* the title and How to play centred over the table's column */
+  .set-header {
     padding-right: calc(280px + 1.1rem);
   }
   .rules {
@@ -924,6 +1200,7 @@ html:has(.rm-toggle[aria-pressed="true"]) .rules summary:hover {
   .tray .card {
     width: 74px;
     height: 47px;
+    --bh: 47px;
   }
   .log {
     flex: 1 1 0;

@@ -79,9 +79,14 @@ Done (checked in `tests/fx-more.js`):
   `tests/stopwatch.js`.
 - Steamfitter. A turned pipe eases its quarter-turn into place with a touch of
   overshoot (the board has already turned it: the eased turn is only drawn).
-- Hash. The deal turns each card face up from edge-on, one after another, 20ms
-  apart; every face is readable within a few tenths of a second, so the clock
-  loses nothing to it.
+- Hash. The deal comes off the top of the deck face down, one card after
+  another, each turning over on its way and landing face up (the turn starts
+  a third of the way there and ends as it lands; nothing turns once it's
+  down); FX off, the cards come face up with no turn. Behind the table the
+  felt's lamplight sways a little and breathes, and a broad, faint sheen
+  drifts across the nap (37 s, 23 s and 61 s, slow and low enough never to
+  pull the eye from the cards); FX off, the same light and sheen held still,
+  and a pause holds them too. Covered by `tests/hash.js` and `tests/fx-more.js`.
 - Klondike. A card that travels a pile or more arcs there, lifted on a curve,
   a little larger mid-flight and above the rest; nearer shifts still glide.
 - Lanterns (its ink-wash look). Mist drifts over the valleys and three birds

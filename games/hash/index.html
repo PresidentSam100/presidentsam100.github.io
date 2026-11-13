@@ -68,6 +68,10 @@
 
     <a href="../" class="back-link nav-back-games" aria-label="Back to games">← Games</a>
 
+    <!-- the felt's lamplight and sheen, behind the page (styles.css: they
+         drift with Visual FX on, and hold still with it off or paused) -->
+    <div class="felt" aria-hidden="true"><i class="lamp"></i><i class="sheen"></i></div>
+
     <div class="wrap">
       <header class="set-header">
         <h1 class="set-title">HASH</h1>
@@ -103,16 +107,10 @@
         </div>
 
         <div class="side">
+          <!-- in play: the way back to the menu, and the way being played -->
           <div class="modes">
-            <div class="seg" id="modeRow" role="group" aria-label="Mode">
-              <button class="chip" type="button" data-mode="normal" aria-pressed="true">Normal</button>
-              <button class="chip" type="button" data-mode="chain" aria-pressed="false">Set-Chain</button>
-              <button class="chip" type="button" data-mode="ultra" aria-pressed="false">UltraSet</button>
-            </div>
-            <div class="switches">
-              <button class="chip sw" id="juniorBtn" type="button" aria-pressed="false" title="Only the 27 solid cards">Junior</button>
-              <button class="chip sw" id="dailyBtn" type="button" aria-pressed="false" title="Today's deal, the same for everyone">Daily</button>
-            </div>
+            <button class="chip sw" id="menuBtn" type="button">☰ Menu</button>
+            <span class="mode-name" id="modeName">Normal</span>
           </div>
 
           <div class="tray" id="tray" hidden>
@@ -167,19 +165,42 @@
           everything you've found this game.
         </p>
       </details>
-
-      <p id="byline" style="margin-top: 0.7rem">made by sam lu (not you)</p>
     </div>
 
-    <!-- on a phone: the log, How to play and the byline, below the screen the
-         table fills (game.js moves them here) -->
+    <!-- on a phone: the log and How to play, below the screen the table
+         fills (game.js moves them here) -->
     <div class="below" id="below"></div>
+
+    <!-- the menu: the way to play, picked before the deal -->
+    <div id="menu" class="overlay menu">
+      <div class="overlay-card menu-card">
+        <h2 class="menu-title">HASH</h2>
+        <p class="menu-how">
+          Find trios where <b>number</b>, <b>shape</b>, <b>shading</b> &amp; <b>color</b>
+          are each <em>all&nbsp;same</em> or <em>all&nbsp;different</em>, and clear the deck fast.
+        </p>
+        <div class="pick-modes" id="pickMode" role="group" aria-label="Mode">
+          <button class="opt" type="button" data-mode="normal" aria-pressed="true"><b>Normal</b><small>any Hash on the table</small></button>
+          <button class="opt" type="button" data-mode="chain" aria-pressed="false"><b>Set-Chain</b><small>each Hash uses a card of the last</small></button>
+          <button class="opt" type="button" data-mode="ultra" aria-pressed="false"><b>UltraSet</b><small>two pairs that need the same card</small></button>
+        </div>
+        <div class="pick-sw">
+          <button class="opt sw" id="juniorBtn" type="button" aria-pressed="false"><b>Junior</b><small>only the 27 solid cards</small></button>
+          <button class="opt sw" id="dailyBtn" type="button" aria-pressed="false"><b>Daily</b><small>today's deal, for all</small></button>
+        </div>
+        <button class="btn primary" id="playBtn" type="button">Deal the cards</button>
+        <p class="menu-best" id="menuBest"></p>
+      </div>
+    </div>
 
     <div id="overlay" class="overlay" hidden>
       <div class="overlay-card">
         <h2 id="ovTitle">Board cleared! 🎉</h2>
         <p id="ovBody"></p>
-        <button class="btn primary" id="ovBtn" type="button">Play again</button>
+        <div class="ov-btns">
+          <button class="btn primary" id="ovBtn" type="button">Play again</button>
+          <button class="btn" id="ovMenu" type="button">Modes</button>
+        </div>
       </div>
     </div>
 

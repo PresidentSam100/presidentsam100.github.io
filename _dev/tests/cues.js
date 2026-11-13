@@ -257,8 +257,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // where the find is kept, as with FX on; they used to stay put, green, until
   // the refill)
   {
-    const p = await open("hash", true, null, (pg) => lib.injectScript(pg, "games/hash/game.js", [["  renderBest();\n  newGame();\n})();",
-      "  renderBest();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet };\n})();"]]));
+    // (dealt straight from its menu)
+    const p = await open("hash", true, null, (pg) => lib.injectScript(pg, "games/hash/game.js", [["  renderBest();\n  toMenu();\n})();",
+      "  renderBest();\n  toMenu();\n  newGame();\n  window.__h = { get board() { return board; }, findSet: findSet };\n})();"]]));
     const set = await p.evaluate(() => __h.findSet(__h.board));
     // the cards are in flight from about 240 ms after the last click, briefly on
     // a busy machine: a watcher records each the moment it sets off

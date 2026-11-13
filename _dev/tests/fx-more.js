@@ -211,7 +211,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Hash: with FX off a hovered card doesn't lift, but keeps its deeper shadow
   {
     const p = await open("hash/", true);
-    const card = await p.$(".card:not(.selected)");
+    await p.evaluate(() => Hash.start());   // (dealt from its menu, and down)
+    await p.waitForFunction(() => !document.querySelector("#board .card.arriving, .flyer"), null, { timeout: 8000 });
+    const card = await p.$("#board .card:not(.selected)");
     const rest = await card.evaluate((c) => getComputedStyle(c).boxShadow);
     await card.hover(); await p.waitForTimeout(250);
     const hov = await card.evaluate((c) => ({ shadow: getComputedStyle(c).boxShadow, transform: getComputedStyle(c).transform }));
@@ -666,25 +668,25 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- Hash: a new game's deal comes from the pile, a card after another;
-  // FX on face down, each turning face up where it lands, all down within
-  // about a second; FX off face up with no turn, and quicker
+  // FX on face down, each turning face up on the way, all down within about
+  // a second; FX off face up with no turn, and quicker
   {
     const got = {};
     for (const off of [false, true]) {
       const p = await open("hash/", off);
       got[off ? "off" : "on"] = await p.evaluate(() => {
-        document.getElementById("newBtn").click();
+        Hash.start();   // (dealt from its menu)
         const flyers = [...document.querySelectorAll(".flyer")], anims = flyers.map((f) => f.getAnimations()[0]).filter(Boolean);
-        const lags = anims.map((a) => a.effect.getTiming().delay), backs = flyers.filter((f) => f.classList.contains("back")).length;
+        const lags = anims.map((a) => a.effect.getTiming().delay), backs = flyers.filter((f) => f.classList.contains("dealt-card")).length;
         return { cards: document.querySelectorAll("#board .card").length, waiting: document.querySelectorAll("#board .card.arriving").length, backs, faces: flyers.length - backs,
-          turns: anims.filter((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || ""))).length,
+          turns: flyers.filter((f) => { const t = f.querySelector(".turn"); return (t ? t.getAnimations() : f.getAnimations()).some((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || ""))); }).length,
           lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + anims[0].effect.getTiming().duration : 0 };
       });
       // (and all of them landed, by the page's own clock)
       got[off ? "off" : "on"].after = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ flyers: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }), 1600)));
       await done(p, "hash deal FX " + (off ? "off" : "on"));
     }
-    check("hash, FX on: the deal comes face down from the pile, one card after another, each turned face up where it lands, all down inside ~0.8s",
+    check("hash, FX on: the deal comes face down from the pile, one card after another, each turned face up on the way, all down inside ~0.8s",
       got.on.cards >= 12 && got.on.backs === got.on.cards && got.on.turns === got.on.cards && got.on.waiting === got.on.cards && JSON.stringify(got.on.lags) === "[0,30,60,90]" && got.on.ends <= 800 &&
       got.on.after.flyers === 0 && got.on.after.waiting === 0, got.on);
     check("hash, FX off: the deal comes from the pile too, face up with no turn, one card after another and quicker than with FX on",

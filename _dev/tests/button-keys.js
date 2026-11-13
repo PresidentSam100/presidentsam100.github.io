@@ -52,7 +52,7 @@ const CARDS = {
   "darkroom/": [["#to-gallery", "G"], ["#hud-back", "⌫"], ["#win-next", "Space or Enter"], ["#win-share", "S"], ["#win-menu", "⌫"], ["#gallery-back", "Esc"]],
   "demolition-row/": [["#menu-btn", "⌫"], ["#pause-resume", "Space or Enter"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-again", "Space or Enter"], ["#result-menu", "⌫"]],
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
-  "hash/": [["#ovBtn", "Space or Enter"]],
+  "hash/": [["#ovBtn", "Space or Enter"], ["#ovMenu", "⌫"]],
   "jam-jar/": [["#againBtn", "Space or Enter"], ["#modesBtn", "⌫"]],
   "potting-shed/editor.html": [["#ed-test", "T"], ["#ed-check", "C"], ["#ed-save", "S"], ["#ed-new", "N"], ["#ed-play", "G"], ["#ed-share", "L"], ["#ed-export", "E"], ["#ed-import", "I"], ["#ed-frame", "B"], ["#ed-io-close", "Esc"], ["#ed-io-copy", "Ctrl+C"], ["#ed-io-load", "Ctrl+Enter"]],
   "steamfitter/": [["#againBtn", "Space or Enter"]],
@@ -248,6 +248,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- Hash: A adds three cards, H lights a hint, N a new game (asking first once the game's begun)
   {
     const p = await lib.open(ctx, base, "games/hash/");
+    await p.keyboard.press("Enter"); await settle(p, 300);   // (dealt from its menu)
     const lit = () => p.evaluate(() => document.querySelectorAll("#board .card.hint, #board .card.hinted").length);
     const h0 = await lit();
     await p.keyboard.press("h"); await settle(p); const h1 = await lit();

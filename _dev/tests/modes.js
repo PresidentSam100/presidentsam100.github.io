@@ -27,6 +27,7 @@ const MENUS = {
   "switcheroo/": { keys: ["1", "2"], enter: true },     // (The Works, Short Order; Deal me in starts)
   "jam-jar/": { keys: ["1", "2", "4", "5", "6", "7", "3"], enter: true },   // (Slow Simmer, Rolling Boil; vs CPU, its Easy, Medium, Hard (shown against it), Solo; Start a jar starts)
   "salvo/": { keys: ["1", "2", "3"] },
+  "hash/": { keys: ["2", "3", "1", "j", "d"], enter: true },   // (Normal, Set-Chain, UltraSet; the Junior and Daily switches; Deal the cards starts)
   "chess/": { keys: ["2", "4"], fresh: true },          // (each opens a sub-menu; 3 goes to the 3-player page: below)
   "chess/three.html": { keys: ["1", "2", "3"], pick: true },
   "demolition-row/": { keys: ["1", "2", "3"], enter: true },

@@ -21,7 +21,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["klondike", "klondike/", (p) => p.evaluate(() => Klondike.draw())],
     ["lights-out", "lights-out/", async (p) => { await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(200); await p.evaluate(() => LightsOut.press(0)); }],
     ["link-many", "link-many/", async (p) => { await p.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); }); await p.click("#startGame"); await p.waitForFunction(() => !__game.busy); await p.evaluate(() => __game.humanMove(3)); }],
-    ["hash", "hash/", (p) => p.click("#hintBtn")],
+    ["hash", "hash/", async (p) => { await p.evaluate(() => Hash.start()); await p.click("#hintBtn"); }],
     // (the bird kept from crashing, by the page, from the flight's first frame:
     // unflapped it hits the ground in about a second, and on a busy machine the
     // look after the start came later than that, with the flight already over)
