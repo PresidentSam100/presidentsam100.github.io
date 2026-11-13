@@ -526,9 +526,3 @@
     }
     .overlay .btn { background: linear-gradient(180deg, #f79050, var(--orange)); color: #fff; }
     .overlay .btn.ghost { background: linear-gradient(180deg, #5a616c, #454b55); }
-
-    #byline {
-      color: #5d6773;
-      font-size: 75%;
-      margin: 0;
-    }

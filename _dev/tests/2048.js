@@ -60,6 +60,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("2048: mid-game, Fibonacci asks \"Start a new game?\"; Esc keeps the game and mode, Enter switches to a fresh Fibonacci board",
     fib.ask === "Start a new game?" && fib.kept.mode === "normal" && fib.kept.score === "4" && fib.went.mode === "fib" && fib.went.score === "0" && fib.went.tiles === 2 && fib.leaves === 0, fib);
   check("2048: no page errors", p.errs.length === 0, p.errs);
+  // the maker's name is the brand printed on the calculator, and nowhere else
+  const named = await p.evaluate(() => ({ maker: (document.querySelector(".maker") || {}).textContent || null,
+    made: [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).map((e) => e.textContent) }));
+  check("2048: the name is the calculator's brand (SAM LU), with no \"made by\" line under it", named.maker === "SAM LU" && named.made.length === 0, named);
 
   // ---- a key slides across to its cell, the same with Visual FX on and off
   // (where a key goes is play; FX off leaves out only the squash, ring and
