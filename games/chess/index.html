@@ -42,7 +42,11 @@
 <div class="layout">
   <!-- the move log: the game in algebraic notation, a scoresheet beside the board -->
   <div class="tray logbox" id="logBox"><h3>Moves</h3><p class="opening" id="logOpening" hidden></p><p class="none" id="logNone">No moves yet</p><ol class="log" id="moveLog" aria-label="Moves"></ol></div>
+  <!-- each player's strip by their own edge of the board (2 players, on a
+       phone): game.js moves their clock and captures into it (placeStrips) -->
+  <div class="strip" id="stripB"></div>
   <div class="boardwrap"><div id="board"></div></div>
+  <div class="strip" id="stripW"></div>
   <div class="side">
     <div id="side2">
       <div class="pchip" id="clkW" style="display:none"><span class="dot2" style="background:#fbf2e2"></span><span class="nm">White</span><span class="clk" id="clkWVal">0:00</span></div>

@@ -186,11 +186,11 @@
       G.vsCPU=false; G.cpuColor=null; G.difficulty=null; G.clock=null;
       flipped=false;
     }
-    boardEl.style.setProperty("--sq", mode===4 ? "min(6.2vw,40px)" : "min(11vw,62px)");
+    // (a square by the window's width, and no taller than fitBoard() finds room for)
+    boardEl.style.setProperty("--sq", (mode===4 ? "min(6.2vw,40px" : "min(11vw,62px") + ",var(--sqh,999px))");
     boardEl.classList.toggle("four", mode===4);   // (its edge labels: styles.css)
     boardEl.style.gridTemplateColumns = "repeat("+G.dim+", var(--sq))";
     boardEl.style.gridTemplateRows = "repeat("+G.dim+", var(--sq))";
-    $("side2").style.display = mode===4 ? "none" : "block";
     $("side4").style.display = mode===4 ? "flex" : "none";
     $("flipBtn").style.display = mode===4 ? "none" : "block";
     $("modeLabel").textContent = mode===4
@@ -382,11 +382,72 @@
       sq.addEventListener("click",()=>onSquare(i));
       boardEl.appendChild(sq);
     }
+    placeStrips();
     if(G.mode===2) renderTrays(); else renderPlayers();
     renderClocks();
     renderLog();
     $("undoBtn").disabled = !canUndo();
+    fitBoard();
     if(!hide){ playSlide(); playTrails(); }
+  }
+
+  // ---- the players' strips. Where the side column would stack under the
+  // board and the log (a phone), or on a phone on its side, each player's
+  // clock and the pieces they've taken sit in a slim strip at their own edge
+  // of the board, as chess apps have them: Black's above, White's below,
+  // the other way round when the board is flipped (cafe.css places them;
+  // beside the board on a phone on its side). The clock shows in the strip
+  // with no time control too, as the player's name, lit for whoever is on
+  // the move. (STRIPS: the sizes cafe.css gives the strips.)
+  const STRIPS = window.matchMedia ? matchMedia("(max-width: 879px), (orientation: landscape) and (max-height: 500px)") : null;
+  let stripped = false;
+  function placeStrips(){
+    const on = G.mode===2 && !!STRIPS && STRIPS.matches, lay = document.querySelector(".layout");
+    lay.classList.toggle("strips", on);
+    lay.classList.toggle("flip", on && flipped);
+    $("side2").style.display = G.mode===4 || on ? "none" : "block";
+    if(on === stripped) return;
+    stripped = on;
+    const trayW = $("capW").parentNode, trayB = $("capB").parentNode;
+    if(on){ $("stripW").append($("clkW"), trayW); $("stripB").append($("clkB"), trayB); }
+    else $("side2").append($("clkW"), $("clkB"), trayW, trayB);
+  }
+  // The board as large as the first screen has room for: a square no wider
+  // than the window allows (--sq) and no taller than leaves the whole board
+  // in view, with the strip under it on a phone, clear of the table's brass
+  // edge (FOOT spare below; a laptop's as it was), however tall the title
+  // lines above it are. The screen's height is its smallest (a phone's
+  // address bar showing, svh), so the board doesn't change size as the bar
+  // comes and goes with a scroll.
+  const FOOT = 4, FOOT_STRIPS = 8, LEAST_SQ = 20;
+  const tall = document.createElement("div");
+  tall.style.cssText = "position:fixed;left:0;top:0;width:0;height:100vh;height:100svh;visibility:hidden;pointer-events:none";
+  document.body.appendChild(tall);
+  function fitBoard(){
+    const b = boardEl.getBoundingClientRect();
+    let below = 0;
+    for(const id of ["stripW","stripB"]){
+      const r = $(id).getBoundingClientRect();
+      if(r.height && r.left < b.right && r.right > b.left && r.top >= b.bottom - 1) below = Math.max(below, r.bottom - b.bottom);
+    }
+    const H = Math.min(innerHeight, tall.offsetHeight || innerHeight);
+    const room = H - (b.top + scrollY) - (boardEl.offsetHeight - boardEl.clientHeight) - below - (stripped ? FOOT_STRIPS : FOOT);
+    const sq = Math.max(LEAST_SQ, Math.floor(room / G.dim)) + "px";
+    if(boardEl.style.getPropertyValue("--sqh") !== sq) boardEl.style.setProperty("--sqh", sq);
+    // (each strip as wide as the board)
+    const w = boardEl.getBoundingClientRect().width + "px", lay = document.querySelector(".layout");
+    if(lay.style.getPropertyValue("--boardw") !== w) lay.style.setProperty("--boardw", w);
+  }
+  // a new size of window (a phone turned, say): the strips in or out, and the board fitted again
+  function refit(){ if(!G) return; placeStrips(); if(G.mode===2) renderTrays(); renderClocks(); fitBoard(); }
+  addEventListener("resize", refit);
+  if(STRIPS && STRIPS.addEventListener) STRIPS.addEventListener("change", refit);
+  // the title lines above the board taller or shorter (the real lettering
+  // arriving, a longer mode line, a status that runs to two lines)
+  if(window.ResizeObserver){
+    let queued = false;
+    const ro = new ResizeObserver(() => { if(queued) return; queued = true; requestAnimationFrame(() => { queued = false; if(G) fitBoard(); }); });
+    document.querySelectorAll("h1, .sub, #status").forEach((e) => ro.observe(e));
   }
   // each tray holds the other side's pieces in their own colour, outlined as
   // on the board (so a piece that flies there lands as itself); one still on
@@ -432,10 +493,17 @@
   function setClockRunning(color){ if(!G.clock) return; flushElapsed(); G.clock.running=color; G.clock.lastTick=Date.now(); }
   function fmtClock(ms){ ms=Math.max(0,ms); const s=Math.ceil(ms/1000), m=Math.floor(s/60), r=s%60; return m+":"+(r<10?"0":"")+r; }
   function renderClocks(){
-    const has = !!(G.clock && G.clock.enabled);
-    $("clkW").style.display = has ? "flex" : "none";
-    $("clkB").style.display = has ? "flex" : "none";
-    if(!has) return;
+    // (in the strips the clock is the player's name too, so it shows with no time control, without its dial)
+    const has = !!(G.clock && G.clock.enabled), show = has || stripped;
+    $("clkW").style.display = show ? "flex" : "none";
+    $("clkB").style.display = show ? "flex" : "none";
+    $("clkWVal").style.display = $("clkBVal").style.display = has ? "" : "none";
+    if(!show) return;
+    if(!has){
+      for(const c of ["w","b"]) $(c==="w" ? "clkW" : "clkB").classList.toggle("turn", G.mode===2 && G.turn===c && !G.over && !paused);
+      $("clkW").classList.remove("warn"); $("clkB").classList.remove("warn");
+      return;
+    }
     $("clkWVal").textContent = fmtClock(G.clock.w);
     $("clkBVal").textContent = fmtClock(G.clock.b);
     $("clkW").classList.toggle("turn", G.clock.running==="w" && !G.over);

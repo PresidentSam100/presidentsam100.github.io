@@ -789,7 +789,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const wideOnes = ["1280x900", "1366x657", "1280x600", "1440x900", "1920x1080"];
     check("chess log: on a wide window it sits left of the board, level with it and no taller; a long game scrolls inside it to the latest move, the page no longer for it (1280 x 900 to 1920 x 1080, 1366 x 657, 1280 x 600)",
       wideOnes.every((k) => wide(got[k])), Object.fromEntries(wideOnes.map((k) => [k, got[k]])));
-    check("chess log: on a phone it sits right under the board, above the trays and buttons, inside the screen, and a long game scrolls inside it to the latest move (390, 360, 320 px, and 375 x 553)",
+    check("chess log: on a phone it sits under the board (and the strip under it), above the buttons, inside the screen, and a long game scrolls inside it to the latest move (390, 360, 320 px, and 375 x 553)",
       ["390", "360", "320", "375x553"].every((k) => narrow(got[k])), { p390: got["390"], p360: got["360"], p320: got["320"], short: got["375x553"] });
     const all = Object.keys(got);
     check("chess log: its list fills the whole panel before it scrolls, on a laptop (the panel as tall as the board) and on a phone (1280 x 900 to 1920 x 1080, 1366 x 657, 1280 x 600, 390, 360, 320 px, 375 x 553)",
@@ -849,6 +849,125 @@ module.exports = async ({ browser, base, check, lib }) => {
       rows.every(([, g]) => g.clear && g.inside && g.over <= 0), Object.fromEntries(rows.map(([k, g]) => [k, { clear: g.clear, inside: g.inside, over: g.over }])));
     check("chess: the cups' steam rises with Visual FX on and stands still with it off", seen.steamOn === "cafe-steam" && seen.steamOff === "none", { on: seen.steamOn, off: seen.steamOff });
     check("chess (cups): no page errors", rows.every(([, g]) => g.errs.length === 0), Object.fromEntries(rows.map(([k, g]) => [k, g.errs])));
+  }
+
+  // ---- the players' strips. On a phone, 2 players: each player's clock and
+  // the pieces they've taken in a slim strip at their own edge of the board,
+  // Black's above and White's below (flipped, or the CPU playing White, the
+  // other way round), all on the first screen with the whole board, late in
+  // a game too (15 pieces taken each keep to one row), and a capture flies to
+  // its taker's strip. On a phone on its side the board is as tall as there's
+  // room for, every rank in view, the strips beside it (the 4- and 3-player
+  // boards whole too). A laptop keeps its side column, the whole board in
+  // view on a short window too.
+  {
+    const PHONES = [[390, 664], [360, 640], [375, 553], [360, 560], [320, 568]];
+    const SIDEWAYS = [[640, 360], [740, 360], [844, 390], [915, 412]];
+    const LAPTOPS = [[1280, 900], [1366, 657], [1280, 600]];
+    // (in the page) boxes and what's in them
+    const LOOK = () => {
+      const r = (e) => { if (!e) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+      const id = (k) => r(document.getElementById(k));
+      const inside = (a, b) => !!a && !!b && a.w > 0 && a.l >= b.l - 1 && a.r <= b.r + 1 && a.t >= b.t - 1 && a.b <= b.b + 1;
+      const caps = (k) => [...document.getElementById(k).children].map(r);
+      const o = { board: id("board"), stripW: id("stripW"), stripB: id("stripB"), clkW: id("clkW"), clkB: id("clkB"), capW: id("capW"), capB: id("capB"),
+        side: r(document.querySelector(".side")), corner: [...document.querySelectorAll(".gs-corner, .nav-back-games")].map(r).filter((x) => x.w).reduce((m, x) => Math.max(m, x.b), 0),
+        wide: Math.max(document.documentElement.scrollWidth, innerWidth), sq: Math.round(document.querySelector("#board .sq").getBoundingClientRect().width * 10) / 10 };
+      o.inW = inside(o.clkW, o.stripW) && inside(o.capW, o.stripW); o.inB = inside(o.clkB, o.stripB) && inside(o.capB, o.stripB);
+      o.inSide = inside(o.clkW, o.side) && inside(o.clkB, o.side) && inside(o.capW, o.side) && inside(o.capB, o.side);
+      o.piecesW = caps("capW"); o.piecesB = caps("capB");
+      o.ranks = [...document.querySelectorAll("#board .sq:not(.off)")].filter((e) => { const b = e.getBoundingClientRect(); return b.top >= -0.5 && b.bottom <= innerHeight + 0.5; }).length;
+      o.squares = document.querySelectorAll("#board .sq:not(.off)").length;
+      return o;
+    };
+    const look = (q) => q.evaluate((LOOK) => eval("(" + LOOK + ")")(), LOOK.toString());
+    // a strip at its own edge of the board: above (or below) it, close by, as wide as it
+    const edge = (s, b, above) => !!s && s.h > 0 && Math.abs(s.l - b.l) <= 1.5 && Math.abs(s.r - b.r) <= 1.5 && (above ? s.b <= b.t && b.t - s.b <= 10 : s.t >= b.b && s.t - b.b <= 10);
+    const shown = (x, H) => !!x && x.h > 0 && x.t >= 0 && x.b <= H + 0.5;
+    const got = {};
+    for (const [W, H] of PHONES) {
+      const c = await lib.newContext(browser, { viewport: { width: W, height: H }, isMobile: true, hasTouch: true });
+      const q = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+      const g = got[W + "x" + H] = {};
+      await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 5, inc: 0 }); });
+      g.start = await look(q);
+      await q.evaluate(() => document.getElementById("flipBtn").click());
+      g.flip = await look(q);
+      await q.evaluate(() => {
+        document.getElementById("flipBtn").click();
+        const B = ["p", "p", "p", "p", "p", "p", "p", "p", "n", "n", "b", "b", "r", "r", "q"];
+        __chess.G.capList = B.map((t) => ({ by: "w", t })).concat(B.map((t) => ({ by: "b", t }))); __chess.render();
+      });
+      g.full = await look(q);
+      const chips = () => q.evaluate(() => ["clkW", "clkB"].map((k) => ({ name: document.querySelector("#" + k + " .nm").textContent,
+        time: getComputedStyle(document.querySelector("#" + k + " .clk")).display !== "none", lit: document.getElementById(k).classList.contains("turn") })));
+      await q.evaluate(() => __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 0, inc: 0 }));
+      g.plain = await look(q);
+      g.plain.chips = await chips();
+      await q.evaluate(() => __chess.doMove(__chess.legalFor(__chess.G, 52).find((x) => x.to === 36)));   // e4: Black to move
+      g.plain.after = await chips();
+      await q.evaluate(() => __chess.start(2, null, { opponent: "cpu", difficulty: "easy", side: "b", base: 5, inc: 0 }));
+      g.cpu = await look(q);
+      // FX on: exd5 flies to White's strip, Qxd5 to Black's (where each flight is headed: its last keyframe)
+      g.fly = await q.evaluate(() => {
+        if (window.RM_ON && window.RM_ON()) document.querySelector(".rm-toggle").click();
+        const C = __chess, mv = (f, t) => C.doMove(C.legalFor(C.G, f).find((x) => x.to === t));
+        const aim = () => {
+          const g = [...document.querySelectorAll(".pc.fly")].pop(); if (!g || !g.getAnimations().length) return null;
+          const kf = g.getAnimations()[0].effect.getKeyframes(), m = /translate\(-50%, ?-50%\) translate\((-?[\d.e+-]+)px, ?(-?[\d.e+-]+)px\)/.exec(kf[kf.length - 1].transform || "");
+          return m ? { x: parseFloat(g.style.left) + parseFloat(m[1]), y: parseFloat(g.style.top) + parseFloat(m[2]) } : null;
+        };
+        const inBox = (p, k) => { const e = document.getElementById(k), b = e && e.getBoundingClientRect(); return !!p && !!b && p.x >= b.left && p.x <= b.right && p.y >= b.top && p.y <= b.bottom && p.y <= innerHeight; };
+        C.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 5, inc: 0 });
+        mv(52, 36); mv(11, 27); mv(36, 27); const w = aim();   // e4 d5 exd5
+        mv(3, 27); const b = aim();                             // Qxd5
+        return { w, b, wIn: inBox(w, "stripW"), bIn: inBox(b, "stripB") };
+      });
+      g.errs = q.errs;
+      await c.close();
+    }
+    for (const [W, H, laptop] of SIDEWAYS.concat(LAPTOPS.map(([W, H]) => [W, H, true]))) {
+      const c = await lib.newContext(browser, laptop ? { viewport: { width: W, height: H } } : { viewport: { width: W, height: H }, isMobile: true, hasTouch: true });
+      const q = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+      const g = got[W + "x" + H] = {};
+      await q.evaluate(() => { document.getElementById("menu").classList.remove("show"); __chess.start(2, null, { opponent: "local", difficulty: "easy", side: "w", base: 5, inc: 0 }); });
+      g.two = await look(q);
+      await q.evaluate(() => __chess.start(4, 1));
+      g.four = await look(q);
+      const t = await lib.open(c, base, "games/chess/three.html");
+      await t.evaluate(() => document.querySelector("#menu .modebtn").click());
+      g.three = await t.evaluate(() => { const b = document.getElementById("boardSvg").getBoundingClientRect(); return { t: b.top, b: b.bottom, h: b.height, wide: Math.max(document.documentElement.scrollWidth, innerWidth) }; });
+      g.errs = q.errs.concat(t.errs);
+      await c.close();
+    }
+    const phones = PHONES.map(([W, H]) => [W + "x" + H, W, H]), sideways = SIDEWAYS.map(([W, H]) => [W + "x" + H, W, H]), laptops = LAPTOPS.map(([W, H]) => [W + "x" + H, W, H]);
+    const placed = (o, flipped) => edge(o.stripB, o.board, !flipped) && edge(o.stripW, o.board, flipped) && o.inW && o.inB;
+    const firstScreen = (o, W, H) => shown(o.board, H) && shown(o.stripW, H) && shown(o.stripB, H) && shown(o.clkW, H) && shown(o.clkB, H) && o.ranks === 64 && o.wide <= W;
+    const pick = (k) => Object.fromEntries(phones.map(([n]) => [n, got[n][k]]));
+    check("chess on a phone: each player's strip at their own edge of the board, Black's above and White's below, as wide as it, with their clock and the pieces they've taken (390, 360, 320 px; 375 x 553, 360 x 560)",
+      phones.every(([n]) => placed(got[n].start, false)), pick("start"));
+    check("chess on a phone: both strips, both clocks and the whole board are on the first screen, nothing wider than the screen (390, 360, 320 px; 375 x 553, 360 x 560)",
+      phones.every(([n, W, H]) => firstScreen(got[n].start, W, H)), pick("start"));
+    check("chess on a phone: flipped, White's strip is above the board and Black's below; playing Black against the CPU, the CPU's White sits on top from the start",
+      phones.every(([n, W, H]) => placed(got[n].flip, true) && placed(got[n].cpu, true) && firstScreen(got[n].flip, W, H) && firstScreen(got[n].cpu, W, H)), { flip: pick("flip"), cpu: pick("cpu") });
+    check("chess on a phone: 15 pieces taken each keep to one row, every one showing inside its strip, the strips no taller, all of it on the first screen",
+      phones.every(([n, W, H]) => { const o = got[n].full, s = got[n].start, within = (ps, st) => ps.length === 15 && ps.every((p) => p.w > 0 && p.l >= st.l && p.r <= st.r && p.t >= st.t && p.b <= st.b) && new Set(ps.map((p) => Math.round(p.t))).size === 1;
+        return placed(o, false) && firstScreen(o, W, H) && within(o.piecesW, o.stripW) && within(o.piecesB, o.stripB) && Math.abs(o.stripW.h - s.stripW.h) < 1 && Math.abs(o.stripB.h - s.stripB.h) < 1; }), pick("full"));
+    check("chess on a phone, no time control: each strip still names its player (no time shown), lit for whoever is on the move",
+      phones.every(([n, W, H]) => { const o = got[n].plain; return placed(o, false) && firstScreen(o, W, H) && o.chips[0].name === "White" && o.chips[1].name === "Black" && !o.chips[0].time && !o.chips[1].time &&
+        o.chips[0].lit && !o.chips[1].lit && !o.after[0].lit && o.after[1].lit; }), pick("plain"));
+    check("chess on a phone, FX on: a capture flies to its taker's strip, on the first screen (exd5 to White's under the board, Qxd5 to Black's above it)",
+      phones.every(([n]) => got[n].fly.wIn && got[n].fly.bIn), pick("fly"));
+    check("chess on a phone on its side: the whole board on the first screen, every rank, below the corner buttons, the strips with both clocks beside it, nothing wider than the screen; the 4- and 3-player boards whole too (640 x 360, 740 x 360, 844 x 390, 915 x 412)",
+      sideways.every(([n, W, H]) => { const o = got[n].two, f = got[n].four, t = got[n].three;
+        return firstScreen(o, W, H) && o.board.t >= o.corner && o.stripW.l >= o.board.r && o.stripB.l >= o.board.r && o.inW && o.inB && o.stripB.b <= o.stripW.t &&
+          f.ranks === f.squares && f.board.t >= f.corner && f.wide <= W && t.t >= 0 && t.b <= H && t.wide <= W; }),
+      Object.fromEntries(sideways.map(([n]) => [n, { two: got[n].two, four: { board: got[n].four.board, ranks: got[n].four.ranks, squares: got[n].four.squares }, three: got[n].three }])));
+    check("chess on a laptop: the side column as it was (the clocks and trays in it, no strips, 62 px squares at 1280 x 900 and 1366 x 657); on a short window (1280 x 600) the whole board shows, the 4- and 3-player boards too",
+      laptops.every(([n, W, H]) => { const o = got[n].two, f = got[n].four, t = got[n].three;
+        return o.inSide && !(o.stripW && o.stripW.h) && !(o.stripB && o.stripB.h) && o.side.l >= o.board.r && o.ranks === 64 && f.ranks === f.squares && t.b <= H && (H >= 650 ? o.sq === 62 : true); }),
+      Object.fromEntries(laptops.map(([n]) => [n, { sq: got[n].two.sq, board: got[n].two.board, inSide: got[n].two.inSide, ranks: got[n].two.ranks, four: got[n].four.ranks + "/" + got[n].four.squares, three: got[n].three }])));
+    check("chess (strips): no page errors", Object.values(got).every((g) => g.errs.length === 0), Object.fromEntries(Object.entries(got).map(([k, g]) => [k, g.errs])));
   }
 
   // ---- a small phone: the 2-player setup card at its tallest (vs CPU, with a

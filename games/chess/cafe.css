@@ -79,6 +79,9 @@ h1 { font-family: var(--name); font-weight: 800; font-size: 2.1rem; letter-spaci
 .layout > .side { grid-area: side; align-self: start; }
 .logbox { grid-area: log; min-width: 0; display: flex; flex-direction: column; border-radius: 12px; padding: 10px 12px; }
 .logbox h3 { margin-bottom: 6px; text-transform: uppercase; }
+/* (the 3-player board no taller than the first screen has room for, as
+   game.js sizes the others: on a short laptop window its foot was cut off) */
+#boardSvg { width: min(92vw, 560px, calc(100vh - 141px)); width: min(92vw, 560px, calc(100svh - 141px)); }
 @media (min-width: 1100px) {   /* (side by side, the widest board, the 4-player cross, needs 1078px) */
   .layout { grid-template-columns: 200px auto auto; grid-template-areas: "log board side"; }
   .logbox { align-self: stretch; contain: size; }
@@ -87,7 +90,29 @@ h1 { font-family: var(--name); font-weight: 800; font-size: 2.1rem; letter-spaci
 @media (max-width: 879px) {
   .layout { grid-template-columns: auto; grid-template-areas: "board" "log" "side"; justify-items: center; }
   .logbox { justify-self: stretch; }
+  /* (2 players: the strips at the board's edges, game.js's placeStrips) */
+  .layout.strips { grid-template-areas: "top" "board" "bot" "log" "side"; }
+  .layout.strips > #stripB, .layout.strips.flip > #stripW { grid-area: top; margin: 0 0 -6px; }
+  .layout.strips > #stripW, .layout.strips.flip > #stripB { grid-area: bot; margin: -6px 0 0; }
 }
+
+/* ---- the players' strips (2 players, on a phone) ------------------------
+   Each player's clock (their name, and the time when there's a time control)
+   and the pieces they've taken, in a slim strip as wide as the board by
+   their own edge of it (beside it on a phone on its side, below; game.js
+   moves them in). However many pieces there
+   are, they keep to one row: past what fits, each overlaps the one before
+   it, all still showing. The tray's heading is there for a screen reader;
+   the name beside the pieces says whose they are. */
+.strip { display: none; }
+.layout.strips > .strip { display: flex; align-items: stretch; gap: 8px; width: var(--boardw, auto); max-width: 100%; justify-self: center; min-width: 0; }
+.strip .pchip { flex: 0 0 auto; gap: 7px; padding: 4px 10px; font-size: 0.98rem; line-height: 1.2; }
+.strip .pchip .nm { flex: 0 0 auto; }
+.strip .pchip .clk { font-size: 1rem; padding: 0 9px 1px; }
+.strip .tray { position: relative; flex: 1 1 0; min-width: 0; padding: 0; border-radius: 10px; }
+.strip .tray h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+.strip .tray .caps { position: absolute; inset: 0 8px; display: flex; align-items: center; min-height: 0; font-size: 1.22rem; line-height: 1; word-break: normal; }
+.strip .tray .caps .pc { flex: 0 1 auto; min-width: 0; display: flex; justify-content: center; }
 
 /* the move log: a scoresheet on the same porcelain, the move numbers in brass,
    faint ruled lines between the rows, the result under a brass rule (in the
@@ -204,6 +229,33 @@ html.fx-on .cup i + i { animation-duration: 5.8s; animation-delay: -2s; }
 /* phones: both boards start below the fixed Games / sound / FX buttons */
 @media (max-width: 640px) {
   body { padding-top: 3.5rem; }
-  h1 { font-size: 1.7rem; margin-top: 0.2rem; }
-  #status { font-size: 1.08rem; }
+  /* (closed up a little: Bodoni's own line is half as tall again as its
+     letters, and the room is the board's) */
+  h1 { font-size: 1.7rem; margin-top: 0.2rem; line-height: 1.2; }
+  #status { font-size: 1.08rem; margin: 0.2rem 0 0.45rem; }
+}
+
+/* ---- a phone on its side (every board) -----------------------------------
+   The board on the left, as tall as the screen has room for (game.js; the
+   3-player board here), and beside it the title lines, then the players
+   (the two strips, or the side column with 3 or 4) with the buttons between
+   them, and the move log under those (the room under the board is the
+   cups'). (These sizes are game.js's too: STRIPS.) */
+@media (orientation: landscape) and (max-height: 500px) {
+  body { display: grid; height: auto; min-height: 0; padding: 3.3rem 14px 12px; column-gap: 20px; justify-content: center; align-content: start; align-items: start;
+    grid-template-columns: auto minmax(0, 340px); grid-template-rows: auto auto auto auto 1fr auto auto;
+    grid-template-areas: "board h1" "board sub" "board status" "board top" "board side" "board bot" ". log"; }
+  .layout { display: contents; }
+  h1 { grid-area: h1; margin: 0; font-size: 1.6rem; text-align: center; }
+  .sub { grid-area: sub; margin: 0; text-align: center; }
+  #status { grid-area: status; margin: 0.15rem 0 0.4rem; }
+  .layout > .boardwrap { grid-area: board; }
+  #boardSvg { width: min(92vw, 560px, calc(100vh - 4.3rem)); width: min(92vw, 560px, calc(100svh - 4.3rem)); }
+  .layout > .side { grid-area: side; align-self: center; justify-self: center; width: 100%; max-width: none; gap: 8px; }
+  .layout > .logbox { grid-area: log; margin-top: 14px; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .controls .btn { padding: 8px 10px; }
+  .layout.strips > .strip { width: 100%; }
+  .layout.strips > #stripB, .layout.strips.flip > #stripW { grid-area: top; margin: 0 0 8px; }
+  .layout.strips > #stripW, .layout.strips.flip > #stripB { grid-area: bot; margin: 8px 0 0; }
 }
