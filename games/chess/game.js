@@ -126,7 +126,7 @@
       ending:1, sel:-1, legal:[], history:[], capList:[],
       halfmove:0, positions:[],   // (the draw rules: half-moves since a capture or pawn move, and every position so far)
       sans:[], result:null,       // (the move log: each move as { col, san }, and "1-0" / "0-1" / "½-½" once it's over)
-      opening:null };             // (and the named opening its moves have reached: openings())
+      opening:null };             // (and the named opening its moves have reached: buildOpenings())
   }
   function make4P(ending){
     const dim=14, board=new Array(dim*dim).fill(null), back=["r","n","b","q","k","b","n","r"];
@@ -593,35 +593,62 @@
     else G.ep=null;
   }
 
-  // ---- the openings the 2-player log names (their table is openings.js).
-  // Each is kept as the position its moves reach, as posKey() writes it (the
-  // pieces, the side to move, castling rights and a real en passant), so a
-  // game that gets there by another order of moves is named too. Built once,
-  // as the page loads, by playing each line through on a board of its own (G
-  // stands in for it meanwhile, as the rules read G).
-  let OPENINGS = null;
-  function openings(){
-    if(OPENINGS) return OPENINGS;
-    OPENINGS = new Map();
-    const game = G;
-    try{
-      for(const [name, line] of (window.CHESS_OPENINGS || [])){
-        G = make2P();
-        let ok = true;
-        for(const tok of line.split(" ")){
-          const san = tok.replace(/[+#]$/,""), t = /^[KQRBN]/.test(san) ? san[0].toLowerCase() : san[0]==="O" ? "k" : "p";
-          const sq = san[0]==="O" ? null : san.match(/[a-h][1-8]/g).pop();
-          let m = null;
-          for(let i=0;i<64 && !m;i++){ const q=G.board[i];
-            if(q && q.o===G.turn && q.t===t) m = legalFor(G,i).find(x=> (!sq || sqName(x.to)===sq) && sanOf(x,"q")===san) || null; }
-          if(!m){ ok = false; break; }
-          const p = G.board[m.from];
-          G.board = applyTo(G,G.board,m,"q"); rightsAfter(m, p, p.o); G.turn = p.o==="w" ? "b" : "w";
+  // ---- the openings the 2-player log names (their table is openings.js,
+  // made from the lichess list by _dev/tools/chess-openings-build.js, which
+  // also says how its lines are written). Each is kept as the position its
+  // moves reach, as posKey() writes it (the pieces, the side to move,
+  // castling rights and a real en passant), so a game that gets there by
+  // another order of moves is named too. Built once, as the page loads, by
+  // playing the lines through on a board of its own (G stands in for it
+  // meanwhile, as the rules read G), each line from where it parts from the
+  // one before, a few milliseconds at a time, so the board never waits on
+  // it. Once it's built, the game under way (and each move Undo can go back
+  // to) takes the name of the latest named position it has been through.
+  const OPEN_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+  let OPENINGS = null, openMissed = 0;   // (position -> name, once built; lines that wouldn't play, for the tests)
+  function buildOpenings(){
+    const T = window.CHESS_OPENINGS;
+    if(!T || typeof T.lines !== "string") return;
+    const map = new Map(), lines = T.lines.split(","), W = make2P();
+    const at = (w) => ({ board:w.board, castle:Object.assign({}, w.castle), ep:w.ep, turn:w.turn });
+    const stack = [at(W)];   // (the position after each move of the line before)
+    let n = 0;
+    const slice = () => {
+      const game = G, t0 = performance.now();
+      try{
+        G = W;
+        while(n < lines.length && performance.now() - t0 < 8){
+          const s = lines[n];
+          let d = OPEN_ALPHA.indexOf(s[0]), ok = !!stack[d];
+          if(ok){ const from = stack[d]; W.board = from.board; W.castle = Object.assign({}, from.castle); W.ep = from.ep; W.turn = from.turn; }
+          for(let i = 1; ok && i < s.length; i += 2){
+            const fr = OPEN_ALPHA.indexOf(s[i]), to = OPEN_ALPHA.indexOf(s[i+1]), promo = s[i+2]==="=" ? s[i+3] : "q";
+            const m = W.board[fr] && W.board[fr].o===W.turn ? genPseudo(W, W.board, fr).find(x => x.to===to) : null;   // (the tool checked each is legal)
+            if(!m){ ok = false; stack.length = d + 1; break; }
+            const p = W.board[fr];
+            W.board = applyTo(W, W.board, m, promo); rightsAfter(m, p, p.o); W.turn = p.o==="w" ? "b" : "w";
+            stack[++d] = at(W);
+            if(s[i+2]==="=") i += 2;
+          }
+          if(ok) map.set(posKey(), T.names[n]); else openMissed++;
+          n++;
         }
-        if(ok) OPENINGS.set(posKey(), name);
-      }
-    } finally { G = game; }
-    return OPENINGS;
+      } finally { G = game; }
+      if(n < lines.length) setTimeout(slice, 0);
+      else { OPENINGS = map; nameFromPositions(); }
+    };
+    slice();
+  }
+  // the latest named position of a game's positions (null: none)
+  function namedIn(positions){
+    for(let k = (positions || []).length - 1; k >= 0; k--) if(OPENINGS.has(positions[k])) return OPENINGS.get(positions[k]);
+    return null;
+  }
+  function nameFromPositions(){
+    if(!G || G.mode!==2) return;
+    G.opening = namedIn(G.positions);
+    for(const h of G.history || []) h.opening = namedIn(h.positions);
+    renderLog();
   }
 
   function doMove(m, promoType){
@@ -682,7 +709,7 @@
         if(G.mode===2){
           const key=posKey();
           G.positions.push(key);
-          if(openings().has(key)) G.opening=openings().get(key);   // (a name it keeps once its moves leave the table)
+          if(OPENINGS && OPENINGS.has(key)) G.opening=OPENINGS.get(key);   // (a name it keeps once its moves leave the table)
           if(G.positions.filter(k=>k===key).length>=3) return endGame("Draw: threefold repetition","The same position has come up three times, with the same player to move.");
           if(G.halfmove>=100) return endGame("Draw: 50-move rule","Fifty moves each have gone by with no capture and no pawn move.");
         }
@@ -1046,5 +1073,14 @@
   }
 
   start(2);  // build a board behind the menu
-  openings();   // (the openings table, built now, behind the menu: a move that had to build it could run past its own slide)
+  // the openings table (openings.js: 3,865 lines, about 38 KB gzipped) is
+  // fetched once the page itself has loaded, so it never holds up the board,
+  // then built behind the menu a slice at a time
+  function loadOpenings(){
+    const s = document.createElement("script");
+    s.src = "openings.js"; s.onload = buildOpenings;
+    document.head.appendChild(s);
+  }
+  if(document.readyState==="complete") setTimeout(loadOpenings, 0);
+  else addEventListener("load", () => setTimeout(loadOpenings, 0), { once:true });
 })();

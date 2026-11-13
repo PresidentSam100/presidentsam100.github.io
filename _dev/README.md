@@ -87,6 +87,12 @@ files in `games/`; the comment at the top of each says more.
 
 - `tools/24-build-puzzles.js`: rebuilds 24's puzzle pools
   (`games/24/puzzles.js`); `--check` compares without writing.
+- `tools/chess-openings-build.js`: builds the named openings the 2-player
+  Chess log knows (`games/chess/openings.js`) from the lichess-org
+  chess-openings list (CC0, fetched from a pinned commit, or `--from DIR`
+  with its `a.tsv` to `e.tsv`); every line is played through by
+  `games/chess/engine.js` and must be legal move by move; `--check` reports
+  without writing.
 - `tools/darkroom-check-puzzles.js`: proves every Darkroom picture can be
   solved without guessing (one id, or `--daily` for a year of dailies).
 - `tools/lanterns-build-data.js`: builds Lanterns' word list

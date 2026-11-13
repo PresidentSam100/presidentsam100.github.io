@@ -7,9 +7,15 @@ const fs = require("fs");
 const path = require("path");
 
 const HOOK2 = ["start(2);  // build a board behind the menu",
-  "start(2);  // build a board behind the menu\n  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start, render: render, sanOf: sanOf };"];
+  `start(2);  // build a board behind the menu
+  window.__chess = { get G() { return G; }, doMove: doMove, legalFor: legalFor, start: start, render: render, sanOf: sanOf,
+    get openings() { return OPENINGS; }, get openMissed() { return typeof openMissed === "undefined" ? null : openMissed; }, posKey: posKey, applyTo: applyTo, rightsAfter: rightsAfter, make2P: make2P,
+    setG: function (g) { const o = G; G = g; return o; } };`];
 const HOOK3 = ["start(3); // build board behind menu (default frozen-pieces rule)",
   "start(3); // build board behind menu (default frozen-pieces rule)\n  window.__three = { get G() { return G; }, cid: cid, genMoves: genMoves, legalFor: legalFor, inCheck: inCheck, doMove: doMove, start: start };"];
+// the 148 lines the hand-written openings table knew before the lichess list
+// replaced it (each must still get a name)
+const OLD_LINES = "e4 e5|e4 e5 Nf3|e4 e5 Nf3 Nc6 Bb5|e4 e5 Nf3 Nc6 Bb5 a6|e4 e5 Nf3 Nc6 Bb5 a6 Bxc6|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Nxe4|e4 e5 Nf3 Nc6 Bb5 a6 Ba4 Nf6 O-O Be7 Re1 b5 Bb3 O-O c3 d5|e4 e5 Nf3 Nc6 Bb5 Nf6|e4 e5 Nf3 Nc6 Bb5 f5|e4 e5 Nf3 Nc6 Bb5 d6|e4 e5 Nf3 Nc6 Bb5 Bc5|e4 e5 Nf3 Nc6 Bb5 Nge7|e4 e5 Nf3 Nc6 Bc4|e4 e5 Nf3 Nc6 Bc4 Bc5|e4 e5 Nf3 Nc6 Bc4 Bc5 d3|e4 e5 Nf3 Nc6 Bc4 Bc5 b4|e4 e5 Nf3 Nc6 Bc4 Be7|e4 e5 Nf3 Nc6 Bc4 Nf6|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 Bc5|e4 e5 Nf3 Nc6 Bc4 Nf6 Ng5 d5 exd5 Nxd5 Nxf7|e4 e5 Nf3 Nc6 d4|e4 e5 Nf3 Nc6 d4 exd4 Bc4|e4 e5 Nf3 Nc6 Nc3|e4 e5 Nf3 Nc6 Nc3 Nf6|e4 e5 Nf3 Nc6 Nc3 Nf6 Bb5|e4 e5 Nf3 Nc6 Nc3 Nf6 d4|e4 e5 Nf3 Nc6 c3|e4 e5 Nf3 Nf6|e4 e5 Nf3 d6|e4 e5 Nf3 f5|e4 e5 Nf3 d5|e4 e5 Nf3 f6|e4 e5 f4|e4 e5 f4 exf4|e4 e5 f4 Bc5|e4 e5 f4 d5|e4 e5 Nc3|e4 e5 Nc3 Nf6 f4|e4 e5 Bc4|e4 e5 d4 exd4 Qxd4|e4 e5 d4 exd4 c3|e4 c5|e4 c5 c3|e4 c5 Nc3|e4 c5 Nc3 Nc6 f4|e4 c5 d4 cxd4 c3|e4 c5 Nf3 d6 Bb5+|e4 c5 Nf3 Nc6 Bb5|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 g6 Be3 Bg7 f3|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 Nc6|e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 e6|e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 Nf6 Nc3 e5|e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 e5 Nb5 d6|e4 c5 Nf3 Nc6 d4 cxd4 Nxd4 g6|e4 c5 Nf3 e6 d4 cxd4 Nxd4 Nc6|e4 c5 Nf3 e6 d4 cxd4 Nxd4 a6|e4 e6|e4 e6 d4 d5 e5|e4 e6 d4 d5 exd5|e4 e6 d4 d5 Nd2|e4 e6 d4 d5 Nc3 Bb4|e4 e6 d4 d5 Nc3 Nf6|e4 e6 d4 d5 Nc3 Nf6 e5|e4 e6 d4 d5 Nc3 Nf6 Bg5 Bb4|e4 e6 d4 d5 Nc3 dxe4|e4 e6 d4 d5 Nd2 dxe4|e4 c6|e4 c6 d4 d5 e5|e4 c6 d4 d5 exd5 cxd5|e4 c6 d4 d5 exd5 cxd5 c4|e4 c6 d4 d5 Nc3 dxe4 Nxe4 Bf5|e4 c6 d4 d5 Nc3 dxe4 Nxe4 Nd7|e4 c6 Nc3 d5 Nf3|e4 d5|e4 d5 exd5 Qxd5|e4 d5 exd5 Qxd5 Nc3 Qa5|e4 d5 exd5 Nf6|e4 Nf6|e4 Nf6 e5 Nd5 d4 d6 c4 Nb6 f4|e4 d6 d4 Nf6 Nc3 g6|e4 d6 d4 Nf6 Nc3 g6 f4|e4 g6|e4 b6|e4 Nc6|d4 d5|d4 d5 c4|d4 d5 c4 dxc4|d4 d5 c4 e6|d4 d5 c4 e6 Nc3 Nf6 cxd5 exd5|d4 d5 c4 e6 Nc3 Nf6 Bg5 Be7 e3 O-O Nf3 Nbd7|d4 d5 c4 e6 Nc3 Nf6 Nf3 Bb4|d4 d5 c4 e6 Nc3 c5|d4 d5 c4 e5|d4 d5 c4 Nc6|d4 d5 c4 c6|d4 d5 c4 c6 cxd5 cxd5|d4 d5 c4 c6 Nf3 Nf6 Nc3 e6|d4 d5 c4 c6 Nf3 Nf6 Nc3 e6 e3 Nbd7 Bd3 dxc4 Bxc4 b5|d4 d5 Bf4|d4 Nf6 Bf4|d4 d5 Nf3 Nf6 Bf4|d4 Nf6 Nf3 e6 Bf4|d4 Nf6 Nf3 g6 Bf4|d4 d5 Nf3 Nf6 e3 e6 Bd3|d4 Nf6 Nf3 e6 Bg5|d4 Nf6 Nf3 g6 Bg5|d4 Nf6 Bg5|d4 Nf6|d4 Nf6 c4 e6 g3|d4 Nf6 c4 e6 g3 d5 Bg2 dxc4|d4 Nf6 c4 e6 g3 d5 Bg2 Be7|d4 Nf6 c4 g6 Nc3 Bg7|d4 Nf6 c4 g6 Nf3 Bg7|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Nf3 O-O Be2 e5 O-O Nc6 d5 Ne7|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f3|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 f4|d4 Nf6 c4 g6 Nc3 Bg7 e4 d6 Be2 O-O Bg5|d4 Nf6 c4 g6 Nf3 Bg7 g3|d4 Nf6 c4 g6 Nc3 d5|d4 Nf6 c4 g6 Nc3 d5 cxd5 Nxd5 e4|d4 Nf6 c4 e6 Nc3 Bb4|d4 Nf6 c4 e6 Nc3 Bb4 e3|d4 Nf6 c4 e6 Nc3 Bb4 Qc2|d4 Nf6 c4 e6 Nf3 b6|d4 Nf6 c4 e6 Nf3 Bb4+|d4 Nf6 c4 c5 d5 e6|d4 Nf6 c4 c5 d5 b5|d4 Nf6 c4 d6|d4 Nf6 c4 e5|d4 f5|d4 f5 c4 Nf6 g3 g6 Bg2 Bg7|d4 f5 c4 Nf6 g3 e6 Bg2 d5|d4 f5 e4|d4 e5|c4|c4 e5|c4 c5|c4 Nf6|Nf3 d5 c4|Nf3 d5 g3|f4|f4 e5|b3".split("|");
 
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
@@ -723,6 +729,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const [label, opts] of sizes) {
       const c = await lib.newContext(browser, opts);
       const q = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+      await q.waitForFunction(() => !!window.CHESS_OPENINGS, null, { timeout: 30000 }).catch(() => {});   // (the table comes after the page has loaded)
       got[label] = await q.evaluate(([OPERA, playIt]) => {
         document.getElementById("menu").classList.remove("show");
         const C = __chess, box = (e) => { const r = e.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map(Math.round); };
@@ -759,7 +766,8 @@ module.exports = async ({ browser, base, check, lib }) => {
         const res = { opera, empty, full: page(), vw: innerWidth, log: parts[0], board: parts[1], side: parts[2], fill,
           scrolls: log.scrollHeight > log.clientHeight + 10, lastIn: !!last && last.bottom <= lv.bottom + 1 && last.top >= lv.top - 1 };
         // the longest opening name, under the heading: whole, inside the panel, above the list, which still fills the rest
-        C.G.opening = "Italian Game: Two Knights Defence, Traxler Counterattack"; C.render();
+        const names = window.CHESS_OPENINGS && window.CHESS_OPENINGS.names || [""];
+        C.G.opening = names.reduce((a, b) => (b.length > a.length ? b : a)); C.render();
         const on = document.getElementById("logOpening");
         if (on) {
           const ob = on.getBoundingClientRect(), pb = lb.getBoundingClientRect();
@@ -1413,39 +1421,47 @@ module.exports = async ({ browser, base, check, lib }) => {
       Object.values(fill3).every((g) => g.gap <= 2 && g.scrolls && g.errs.length === 0), fill3);
   }
 
-  // ---- the move log names the opening a 2-player game is in (openings.js),
-  // under its heading: the latest position that is a named opening, however
-  // the moves got there, a deeper one naming it more closely, and the name
-  // kept once the game leaves them. Undo takes a name back with its move; a
-  // pause hides it with the log; an offbeat start names nothing; the 3- and
-  // 4-player boards have none.
+  // ---- the move log names the opening a 2-player game is in (openings.js:
+  // the lichess list, made by _dev/tools/chess-openings-build.js), under its
+  // heading: the latest position that is a named opening, however the moves
+  // got there, a deeper one naming it more closely, and the name kept once
+  // the game leaves them. Undo takes a name back with its move; a pause hides
+  // it with the log; a fresh board names nothing; the 3- and 4-player boards
+  // have none. Every line of the table is legal move by move by the game's
+  // own rules and its end position carries its name, and every line the old
+  // hand-written table knew (OLD_LINES) still gets a name.
   {
     const q = await lib.open(ctx, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
-    const named = await q.evaluate(() => {
+    await q.waitForFunction(() => !!(window.__chess && __chess.openings), null, { timeout: 30000 }).catch(() => {});
+    const named = await q.evaluate((OLD) => {
       document.getElementById("menu").classList.remove("show");
       const C = __chess;
       const shown = () => { const e = document.getElementById("logOpening"); return e && !e.hidden ? e.textContent : null; };
-      // a fresh game, played through moves written as the log writes them; the name it shows
+      // a move written as the log writes it (a check's + or # left off), and its promotion
+      const find = (tok) => {
+        const t = tok.replace(/[+#]$/, ""), pr = /=([QRBN])$/.exec(t), pt = pr ? pr[1].toLowerCase() : "q";
+        for (let i = 0; i < 64; i++) { const m = C.legalFor(C.G, i).find((x) => C.sanOf(x, pt) === t); if (m) return [m, pt]; }
+        return [null, pt];
+      };
+      // a fresh game, played through; the name it shows
       const line = (moves) => {
         C.start(2);
-        for (const tok of moves.split(" ")) {
-          let m = null;
-          for (let i = 0; i < 64 && !m; i++) m = C.legalFor(C.G, i).find((x) => C.sanOf(x, "q") === tok) || null;
-          if (!m) return "no move " + tok;
-          C.doMove(m, "q");
-        }
+        for (const tok of moves.split(" ")) { const [m, pt] = find(tok); if (!m) return "no move " + tok; C.doMove(m, pt); }
         return shown();
       };
       const out = {};
-      const lines = { london: "d4 d5 Bf4 Nf6 e3 e6 Nf3 c5 c3", ruy: "e4 e5 Nf3 Nc6 Bb5", morphy: "e4 e5 Nf3 Nc6 Bb5 a6", qgd: "d4 d5 c4 e6", qga: "d4 d5 c4 dxc4",
-        sicilian: "e4 c5", najdorf: "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", italian: "e4 e5 Nf3 Nc6 Bc4", french: "e4 e6 d4 d5", caro: "e4 c6 d4 d5",
-        kid: "d4 Nf6 c4 g6 Nc3 Bg7", kidNormal: "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6", viaEnglish: "c4 e6 d4 d5", viaNd2: "e4 c6 d4 d5 Nd2 dxe4 Nxe4 Bf5",
-        offbeat: "a4 h5 h4 a5", oneMove: "e4" };
+      if (!C.openings) return { table: null };
+      const lines = { london: "d4 d5 Nf3 Nf6 Bf4 e6 e3 c5 c3", ruy: "e4 e5 Nf3 Nc6 Bb5", morphy: "e4 e5 Nf3 Nc6 Bb5 a6", qgd: "d4 d5 c4 e6", qga: "d4 d5 c4 dxc4",
+        sicilian: "e4 c5", najdorf: "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6", english: "e4 c5 Nf3 d6 d4 cxd4 Nxd4 Nf6 Nc3 a6 Be3 e5 Nb3 Be6 f3",
+        italian: "e4 e5 Nf3 Nc6 Bc4", french: "e4 e6 d4 d5", caro: "e4 c6 d4 d5", kid: "d4 Nf6 c4 g6 Nc3 Bg7", kidNormal: "d4 Nf6 c4 g6 Nc3 Bg7 e4 d6",
+        nimzo: "d4 Nf6 c4 e6 Nc3 Bb4", lasker: "d4 d5 c4 e5 dxe5 d4 e3 Bb4+ Bd2 dxe3 Bxb4 exf2+ Ke2 fxg1=N+",
+        viaEnglish: "c4 e6 d4 d5", viaNd2: "e4 c6 d4 d5 Nd2 dxe4 Nxe4 Bf5", nimzoVia: "c4 e6 Nc3 Nf6 d4 Bb4", offbeat: "a4 h5 h4 a5", oneMove: "e4" };
       for (const [k, moves] of Object.entries(lines)) out[k] = line(moves);
+      C.start(2); out.fresh = shown();
       // Undo, a move at a time from the Ruy Lopez back to the start
       line("e4 e5 Nf3 Nc6 Bb5");
       const undo = () => { document.getElementById("undoBtn").click(); return shown(); };
-      out.undo = [shown(), undo(), undo(), undo(), undo()];
+      out.undo = [shown(), undo(), undo(), undo(), undo(), undo()];
       // a pause hides it, as the log
       line("e4 c5");
       document.querySelector(".gs-pause-btn").click();
@@ -1459,21 +1475,105 @@ module.exports = async ({ browser, base, check, lib }) => {
       if (m4) C.doMove(m4);
       out.four = { moved: !!m4, name: shown() };
       C.start(2);
+      // every line of the table, played move by move on a board of its own by
+      // the game's rules (each move legal there), its end position named as the
+      // table says; and every old line, played as written, named
+      const T = window.CHESS_OPENINGS, A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+      if (!T || typeof T.lines !== "string") return Object.assign(out, { table: { format: "not the lichess table" }, old: null });
+      const W = C.make2P(), game = C.setG(W), snap = () => ({ board: W.board, castle: Object.assign({}, W.castle), ep: W.ep, turn: W.turn });
+      const put = (s) => { W.board = s.board; W.castle = Object.assign({}, s.castle); W.ep = s.ep; W.turn = s.turn; };
+      const step = (m, pt) => { const p = W.board[m.from]; W.board = C.applyTo(W, W.board, m, pt); C.rightsAfter(m, p, p.o); W.turn = p.o === "w" ? "b" : "w"; };
+      const table = { lines: 0, illegal: 0, wrong: 0, firstBad: null }, old = { lines: OLD.length, unnamed: [] };
+      try {
+        const stack = [snap()];
+        T.lines.split(",").forEach((s, n) => {
+          table.lines++;
+          let d = A.indexOf(s[0]);
+          put(stack[d]);
+          for (let i = 1; i < s.length; i += 2) {
+            const fr = A.indexOf(s[i]), to = A.indexOf(s[i + 1]), pt = s[i + 2] === "=" ? s[i + 3] : "q";
+            const m = C.legalFor(W, fr).find((x) => x.to === to);
+            if (!m) { table.illegal++; table.firstBad = table.firstBad || T.names[n]; return; }
+            step(m, pt); stack[++d] = snap();
+            if (s[i + 2] === "=") i += 2;
+          }
+          if (C.openings.get(C.posKey()) !== T.names[n]) { table.wrong++; table.firstBad = table.firstBad || T.names[n]; }
+        });
+        for (const moves of OLD) {
+          put(stack[0]);   // (the starting position)
+          let name = null;
+          for (const tok of moves.split(" ")) {
+            const t = tok.replace(/[+#]$/, "");
+            let m = null;
+            for (let i = 0; i < 64 && !m; i++) m = C.legalFor(W, i).find((x) => C.sanOf(x, "q") === t) || null;
+            if (!m) { name = null; break; }
+            step(m, "q");
+            if (C.openings.has(C.posKey())) name = C.openings.get(C.posKey());
+          }
+          if (!name) old.unnamed.push(moves);
+        }
+      } finally { C.setG(game); }
+      out.table = Object.assign(table, { names: T.names.length, positions: C.openings.size, missed: C.openMissed });
+      out.old = old;
       return out;
-    });
-    const want = { london: "London System", ruy: "Ruy Lopez", morphy: "Ruy Lopez: Morphy Defence", qgd: "Queen's Gambit Declined", qga: "Queen's Gambit Accepted",
-      sicilian: "Sicilian Defence", najdorf: "Sicilian Defence: Najdorf Variation", italian: "Italian Game", french: "French Defence", caro: "Caro-Kann Defence",
-      kid: "King's Indian Defence", kidNormal: "King's Indian Defence: Normal Variation" };
-    check("chess log: known lines name their opening under the heading (London System, kept as the game leaves it; Ruy Lopez and its Morphy Defence; Queen's Gambit Declined and Accepted; Sicilian and its Najdorf; Italian; French; Caro-Kann; King's Indian and its Normal Variation)",
+    }, OLD_LINES);
+    const want = { london: "Queen's Pawn Game: London System, with e6", ruy: "Ruy Lopez", morphy: "Ruy Lopez: Morphy Defense", qgd: "Queen's Gambit Declined", qga: "Queen's Gambit Accepted",
+      sicilian: "Sicilian Defense", najdorf: "Sicilian Defense: Najdorf Variation", english: "Sicilian Defense: Najdorf Variation, English Attack",
+      italian: "Italian Game", french: "French Defense", caro: "Caro-Kann Defense", kid: "King's Indian Defense", kidNormal: "King's Indian Defense: Normal Variation",
+      nimzo: "Nimzo-Indian Defense", lasker: "Queen's Gambit Declined: Albin Countergambit, Lasker Trap" };
+    check("chess log: known lines name their opening under the heading as the lichess list has it (London System with e6, kept as the game leaves it; Ruy Lopez and its Morphy Defense; Queen's Gambit Declined and Accepted; Sicilian, its Najdorf and the Najdorf's English Attack; Italian; French; Caro-Kann; King's Indian and its Normal Variation; Nimzo-Indian; the Lasker Trap, to its knight promotion)",
       Object.entries(want).every(([k, v]) => named[k] === v), Object.fromEntries(Object.keys(want).map((k) => [k, named[k]])));
-    check("chess log: a position reached by another order of moves is named too (1. c4 e6 2. d4 d5 is the Queen's Gambit Declined; the Caro-Kann's Classical Variation by 3. Nd2)",
-      named.viaEnglish === "Queen's Gambit Declined" && named.viaNd2 === "Caro-Kann Defence: Classical Variation", { viaEnglish: named.viaEnglish, viaNd2: named.viaNd2 });
-    check("chess log: an offbeat start (1. a4 h5 2. h4 a5), or 1. e4 alone, names nothing", named.offbeat === null && named.oneMove === null, { offbeat: named.offbeat, oneMove: named.oneMove });
-    check("chess log: Undo takes a name back with the move that brought it (Ruy Lopez, then King's Knight Opening, again, King's Pawn Game, none)",
-      JSON.stringify(named.undo) === JSON.stringify(["Ruy Lopez", "King's Knight Opening", "King's Knight Opening", "King's Pawn Game", null]), named.undo);
+    check("chess log: a position reached by another order of moves is named too (1. c4 e6 2. d4 d5 is the Queen's Gambit Declined; the Caro-Kann's Classical Variation by 3. Nd2; 1. c4 e6 2. Nc3 Nf6 3. d4 Bb4 the Nimzo-Indian)",
+      named.viaEnglish === "Queen's Gambit Declined" && named.viaNd2 === "Caro-Kann Defense: Classical Variation" && named.nimzoVia === "Nimzo-Indian Defense",
+      { viaEnglish: named.viaEnglish, viaNd2: named.viaNd2, nimzoVia: named.nimzoVia });
+    check("chess log: a fresh board names nothing; 1. e4 is the King's Pawn Game; an offbeat start (1. a4 h5 2. h4 a5) keeps its first move's name, the Ware Opening",
+      named.fresh === null && named.oneMove === "King's Pawn Game" && named.offbeat === "Ware Opening", { fresh: named.fresh, oneMove: named.oneMove, offbeat: named.offbeat });
+    check("chess log: Undo takes a name back with the move that brought it (Ruy Lopez, King's Knight Opening: Normal Variation, King's Knight Opening, King's Pawn Game twice, then none)",
+      JSON.stringify(named.undo) === JSON.stringify(["Ruy Lopez", "King's Knight Opening: Normal Variation", "King's Knight Opening", "King's Pawn Game", "King's Pawn Game", null]), named.undo);
     check("chess log: a pause hides the opening's name with the log; the 4-player board names none",
-      named.paused === "hidden" && named.resumed === "visible" && named.four.moved && named.four.name === null, { paused: named.paused, resumed: named.resumed, four: named.four });
+      named.paused === "hidden" && named.resumed === "visible" && !!named.four && named.four.moved && named.four.name === null, { paused: named.paused, resumed: named.resumed, four: named.four });
+    const tb = named.table;
+    check("chess openings: every line of the lichess table (over 3,000) plays move by move by the game's own rules, a position of its own each, its end position named as the table says",
+      !!tb && tb.lines === tb.names && tb.lines > 3000 && tb.positions === tb.lines && tb.missed === 0 && tb.illegal === 0 && tb.wrong === 0, tb);
+    check("chess openings: every line the old hand-written table knew (148) still gets a name",
+      !!named.old && named.old.lines === 148 && named.old.unnamed.length === 0, named.old);
     check("chess (openings): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- the table comes after the page has loaded (it is the biggest file
+  // the page fetches), and a game begun before it's ready takes its name as
+  // soon as it is: here 1. e4 c5 is played while openings.js is held back,
+  // names nothing, and becomes the Sicilian Defense once the file arrives;
+  // Undo then goes back through the names the moves had
+  {
+    let release = null;
+    const held = new Promise((r) => { release = r; });
+    const q = await lib.open(ctx, base, "games/chess/", { before: async (pg) => {
+      await lib.injectScript(pg, "games/chess/game.js", [HOOK2]);
+      await pg.route(/\/games\/chess\/openings\.js$/, async (r) => { await held; await r.continue(); });
+    } });
+    const late = {};
+    late.before = await q.evaluate(() => {
+      if (!window.__chess) return { sans: "", ready: null, name: "no game yet" };
+      document.getElementById("menu").classList.remove("show");
+      const C = __chess, shown = () => { const e = document.getElementById("logOpening"); return e && !e.hidden ? e.textContent : null; };
+      C.start(2);
+      for (const tok of ["e4", "c5"]) { let m = null; for (let i = 0; i < 64 && !m; i++) m = C.legalFor(C.G, i).find((x) => C.sanOf(x, "q") === tok) || null; if (m) C.doMove(m, "q"); }
+      return { ready: !!C.openings, sans: C.G.sans.map((e) => e.san).join(" "), name: shown() };
+    });
+    release();
+    await q.waitForFunction(() => !!__chess.openings, null, { timeout: 30000 }).catch(() => {});
+    late.after = await q.evaluate(() => {
+      const shown = () => { const e = document.getElementById("logOpening"); return e && !e.hidden ? e.textContent : null; };
+      const nav = performance.getEntriesByType("navigation")[0], res = performance.getEntriesByType("resource").find((e) => /\/openings\.js$/.test(e.name));
+      const name = shown(), undo = () => { document.getElementById("undoBtn").click(); return shown(); };
+      return { name, undo: [undo(), undo()], afterLoad: !!nav && !!res && res.startTime >= nav.loadEventStart };
+    });
+    check("chess openings: the table is fetched after the page has loaded; 1. e4 c5 played before it arrives names nothing, then the Sicilian Defense once it's built, and Undo goes back through King's Pawn Game to none",
+      late.before.sans === "e4 c5" && !late.before.ready && late.before.name === null && late.after.name === "Sicilian Defense" &&
+        JSON.stringify(late.after.undo) === JSON.stringify(["King's Pawn Game", null]) && late.after.afterLoad, late);
+    check("chess (openings, late): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
 
