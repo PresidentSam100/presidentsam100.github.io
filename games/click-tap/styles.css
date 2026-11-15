@@ -1,8 +1,9 @@
-@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Covered+By+Your+Grace&display=swap");
 
 /* A garden on a sunny day: sky over a mowed lawn, a round soil bed for a
    pad, and a flower for every click (game.js plants them). The stats are
-   seed packets; the results sit on a cream card with the finished garden. */
+   seed packets; the results sit on a cream card with the finished garden.
+   A wooden plant label stuck in the bed reads "Sam Lu" in marker. */
 :root {
   --sky: #aee0ff;
   --grass: #93d35f;
@@ -90,7 +91,34 @@ section[hidden] { display: none; }
 .stat .k { height: 1.45rem; line-height: 1.5rem; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: #fff; font-weight: 800; }
 .stat .v { font-size: 1.8rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--ink); }
 
-.pad-wrap { position: relative; width: min(78vw, 300px); aspect-ratio: 1; display: grid; place-items: center; }
+.pad-wrap { position: relative; width: min(78vw, 300px); aspect-ratio: 1; display: grid; place-items: center; container-type: inline-size; }
+
+/* The gardener's plant label: a flat wooden stake pushed into the bed near
+   its upper right edge, leaning out over the lawn, "Sam Lu" written along it
+   in marker as on any seedling's label. It lies under the timer ring and the
+   soil (its point is in the bed), its writing out past the ring, in the
+   corner the round ring leaves; it never takes a click, and holds still.
+   (Where the bed is too small to letter it legibly, a phone on its side, the
+   label isn't there.) */
+.plabel {
+  position: absolute; left: 50%; top: 50%; width: 66%; height: 8%; margin-top: -4%;
+  transform: rotate(-45deg); transform-origin: 0 50%; pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgba(60, 40, 15, 0.35));
+}
+.plabel .stake {
+  position: absolute; left: 51.5%; right: 0; top: 0; bottom: 0;   /* (from inside the bed's rim out to the corner) */
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 1.6cqw;
+  background:
+    repeating-linear-gradient(90deg, rgba(150, 102, 48, 0.16) 0 1px, transparent 1px 7px),
+    linear-gradient(180deg, #f1d7a6, #dcb57a 60%, #c99d5f);
+  clip-path: polygon(0 50%, 9% 0, 100% 0, 100% 100%, 9% 100%);   /* the point that goes into the soil */
+  border-radius: 0 3px 3px 0;
+}
+.plabel .stake span {
+  font-family: "Covered By Your Grace", "Kalam", "Comic Sans MS", cursive; font-size: 5.6cqw; line-height: 1; white-space: nowrap;
+  color: #1c1a17; text-shadow: 0 0 0.5px rgba(20, 18, 15, 0.7); position: relative; top: 0.08em;
+}
+@container (max-width: 199px) { .plabel { display: none; } }
 .ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; overflow: visible; }
 .ring .bg { fill: none; stroke: rgba(255, 250, 240, 0.65); stroke-width: 8; }
 .ring .fg { fill: none; stroke: #ffcf33; stroke-width: 8; stroke-linecap: round; filter: drop-shadow(0 1px 1px rgba(120, 80, 0, 0.35)); }
