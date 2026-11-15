@@ -236,6 +236,12 @@
       tileEls.push(rowTiles);
       grid.push(["", "", "", "", ""]);
     }
+    // the maker's brand, burned into the walnut along the board's foot (after
+    // the rows, so the rows keep their places among the board's children)
+    var brand = document.createElement("div");
+    brand.className = "brand";
+    brand.innerHTML = "<span>SAM LU</span>";
+    boardEl.appendChild(brand);
   }
 
   function resetKeyboardTint() {

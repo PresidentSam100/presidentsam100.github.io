@@ -133,4 +133,57 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("speedle: no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await ctx.close();
+
+  // ---- the maker's brand, SAM LU, burned into the walnut along the board's
+  // foot: on the board, under its last row of slots, inside the screen's
+  // width, clear of every slot, the clock's plaques, the message line, the
+  // title and the keys, in Sprint and in Race; the strip it sits in is taken
+  // back from the gaps above the board and under the message line, so the
+  // page is no taller than with the board's old foot and spacing; no "made by"
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 390x844", mob(390, 844)], ["phone 360x640", mob(360, 640)], ["phone 320x568", mob(320, 568)],
+    ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const seen = [], errs = [];
+    for (const mode of ["#m-sprint", "#m-race"]) {
+      const q = await lib.open(c, base, "games/speedle/");
+      await q.click(mode); await q.waitForTimeout(250);
+      seen.push(await q.evaluate((mode) => {
+        const brand = document.querySelector("#board .brand"), board = document.getElementById("board");
+        if (!brand) return { mode, missing: true };
+        // the letters' own box (the burned patch round them fades to nothing)
+        const span = brand.querySelector("span") || brand, range = document.createRange();
+        range.selectNodeContents(span);
+        const t = range.getBoundingClientRect(), b = board.getBoundingClientRect();
+        const rows = board.querySelectorAll(".row"), last = rows[rows.length - 1].getBoundingClientRect();
+        const meet = (r) => r.width && r.height && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top;
+        const hits = [...document.querySelectorAll("#board .tile, .stat, #msg, h1.title span, header.top p, #kb .key")]
+          .filter((e) => meet(e.getBoundingClientRect())).map((e) => e.id || e.className);
+        const over = () => document.documentElement.scrollHeight - innerHeight;
+        const now = over();
+        // the board's old foot and spacing, as they were before the brand:
+        // the same padding all round, and the gaps the strip was taken from
+        const short = matchMedia("(max-height: 720px)").matches, cs = getComputedStyle(board);
+        const was = short ? { hud: "0.45rem", board: "0.5rem", msg: "0.3rem 0px 0.4rem" } : { hud: "0.9rem", board: "0.9rem", msg: "0.6rem 0px 0.7rem" };
+        const hud = document.querySelector(".hud"), msg = document.getElementById("msg");
+        const keep = [board.style.paddingBottom, board.style.marginTop, hud.style.marginTop, msg.style.margin];
+        board.style.paddingBottom = cs.paddingTop; board.style.marginTop = was.board; hud.style.marginTop = was.hud; msg.style.margin = was.msg;
+        const before = over();
+        [board.style.paddingBottom, board.style.marginTop, hud.style.marginTop, msg.style.margin] = keep;
+        return { mode, text: span.textContent.trim(), size: parseFloat(getComputedStyle(span).fontSize),
+          onBoard: t.left >= b.left && t.right <= b.right && t.top >= last.bottom && t.bottom <= b.bottom,
+          inScreen: t.left >= 0 && t.right <= innerWidth && t.bottom <= document.documentElement.scrollHeight,
+          hits, over: now, overBefore: before, madeBy: /made by/i.test(document.body.innerText) };
+      }, mode));
+      errs.push(...q.errs);
+      await q.close();
+    }
+    const bad = seen.filter((r) => r.missing || r.text !== "SAM LU" || r.size < 11 || !r.onBoard || !r.inScreen || r.hits.length || r.over > r.overBefore || r.madeBy);
+    check("speedle, " + label + ": SAM LU is burned into the walnut along the board's foot, under the slots and clear of them, the clock, the message line and the keys, adding no scroll, in Sprint and Race",
+      bad.length === 0, bad.length ? bad : seen.map((r) => r.mode + " " + r.size + "px, over " + r.over + " (was " + r.overBefore + ")"));
+    check("speedle (brand), " + label + ": no page errors", errs.length === 0, errs);
+    await c.close();
+  }
 };
