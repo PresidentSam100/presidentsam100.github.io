@@ -456,12 +456,34 @@
   // would run into them (a phone on its side, a window 700 to 780 px wide; a
   // long score, Sprint's clock), it slides over just far enough to clear
   // them by 8 px. hudRect keeps where it is, for draw().
+  // The sonar's maker's plate rides at the box's right end wherever the box
+  // with it could hold its widest readout (a seven-figure score, the most
+  // rows, Sprint's longest clock) and still clear the corner buttons in its
+  // row, or the screen's edges under them; elsewhere it's left off (.bare).
+  // So it's there or not for the whole of a dive, however the score grows.
+  function widestHud(el) {
+    var ids = ["hud-score", "hud-lines", "hud-depth"], keep = ids.map(function (i) { return $(i).textContent; });
+    $("hud-score").textContent = (1234567).toLocaleString();
+    $("hud-lines").textContent = "999" + (mode === "sprint" ? "/" + goal : "") + " rows";
+    $("hud-depth").textContent = mode === "sprint" ? "59:59.99" : "9900m";
+    var w = el.getBoundingClientRect().width;
+    ids.forEach(function (i, k) { $(i).textContent = keep[k]; });
+    return w;
+  }
   var hudRect = null;
   function placeHud() {
     var el = $("hud");
     el.style.left = "";
     if (el.hidden) { hudRect = null; return; }
-    var r = el.getBoundingClientRect(), mid = W / 2, lo = -Infinity, hi = Infinity;
+    el.classList.remove("bare");
+    var r = el.getBoundingClientRect(), L = 8, R = W - 8;
+    document.querySelectorAll(".nav-back-games, .gs-corner > *").forEach(function (b) {
+      var c = b.getBoundingClientRect();
+      if (!c.width || c.bottom <= r.top || c.top >= r.bottom) return;
+      if (c.left + c.width / 2 < W / 2) L = Math.max(L, c.right + 8); else R = Math.min(R, c.left - 8);
+    });
+    if (widestHud(el) > R - L) { el.classList.add("bare"); r = el.getBoundingClientRect(); }
+    var mid = W / 2, lo = -Infinity, hi = Infinity;
     document.querySelectorAll(".nav-back-games, .gs-corner > *").forEach(function (b) {
       var c = b.getBoundingClientRect();
       if (!c.width || c.bottom <= r.top || c.top >= r.bottom) return;

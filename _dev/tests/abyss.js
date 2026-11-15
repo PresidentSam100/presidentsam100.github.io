@@ -764,4 +764,49 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss (T-spins): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- the sonar's maker's plate, SAM LU over DEEP SONAR, riveted to the
+  // readout strip's right end: in the strip, clear of its figures, the
+  // corner buttons and the screen's edges, the strip no taller for it, no
+  // scroll; left off only where the strip couldn't hold its widest readout
+  // with it (then nothing of it shows); there or not for a whole dive
+  {
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, null],
+      ["Pixel 7", devices["Pixel 7"], true], ["320x568", touch(320, 568), null], ["375x553", touch(375, 553), null], ["360x560", touch(360, 560), null],
+      ["sideways 915x412", touch(915, 412), true]];
+    const got = [];
+    for (const [name, opt, must] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/abyss/");
+      for (const m of ["descent", "sprint", "maelstrom"]) {
+        const r = await q.evaluate((m) => {
+          Abyss.toMenu(); Abyss.start(m);
+          const hud = document.getElementById("hud"), pl = document.getElementById("hud-plate");
+          if (!pl) return null;
+          const box = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width }; };
+          const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+          const shown = pl.getClientRects().length > 0 && box(pl).w > 0;
+          const h1 = hud.offsetHeight; hud.classList.add("bare"); const h0 = hud.offsetHeight; hud.classList.remove("bare");
+          window.dispatchEvent(new Event("resize"));
+          const b = box(pl), hb = box(hud), figs = [...hud.querySelectorAll(":scope > span")].map(box);
+          const btns = [...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter((e) => e.getClientRects().length).map(box);
+          // a long dive: the plate stays as it was
+          document.getElementById("hud-score").textContent = (1234567).toLocaleString(); Abyss.test.setLines(m === "sprint" ? 39 : 999);
+          const later = pl.getClientRects().length > 0, hb2 = box(hud);
+          return { text: [...pl.children].map((i) => i.textContent.trim()).join(" "), shown, later, grows: h1 - h0, inStrip: !shown || (b.l >= hb.l && b.r <= hb.r && b.t >= hb.t && b.b <= hb.b),
+            figs: shown ? figs.filter((f) => meet(b, f)).length : 0, btns: btns.filter((x) => meet(hb2, x)).length, on: hb2.l >= 0 && hb2.r <= innerWidth,
+            size: parseFloat(getComputedStyle(pl).fontSize), scroll: document.documentElement.scrollHeight - innerHeight, scrollX: document.documentElement.scrollWidth - innerWidth };
+        }, m);
+        got.push({ name, m, must, r });
+      }
+      got.push({ name, m: "errors", must: null, r: { errs: q.errs } });
+      await c.close();
+    }
+    const ok = (g) => g.m === "errors" ? g.r.errs.length === 0 : !!g.r && g.r.text === "SAM LU DEEP SONAR" && (g.must !== true || g.r.shown) && g.r.later === g.r.shown &&
+      g.r.grows === 0 && g.r.inStrip && g.r.figs === 0 && g.r.btns === 0 && g.r.on && g.r.size >= 9 && g.r.scroll <= 0 && g.r.scrollX <= 0;
+    check("abyss: SAM LU DEEP SONAR, a riveted plate at the readout strip's right end, in Descent, Sprint and Maelstrom (laptops, Pixel 7, sideways; on smaller phones where the widest readout leaves room): clear of the figures and corner buttons, the strip no taller, no scroll, there or not for a whole dive",
+      got.every(ok), got.filter((g) => !ok(g)).concat([{ shown: got.filter((g) => g.r && g.r.shown).map((g) => g.name + " " + g.m) }]));
+  }
 };
