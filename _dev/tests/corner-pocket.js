@@ -582,4 +582,58 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "how to play rules");
 
   await ctx.close();
+
+  // ---- the maker's brass nameplate, SAM LU over BILLIARDS, set into the rail
+  // nearest the player between two sights: painted (brass where it says it
+  // is), on the screen, in the rail's wood, clear of the cloth, the pockets,
+  // the sights and the controls, at 9 px or more, and no page scroll. Where
+  // the rail is too small for both lines (the smallest phones) there is none.
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, true],
+      ["Pixel 7", devices["Pixel 7"], true], ["320x568", touch(320, 568), false], ["375x553", touch(375, 553), false], ["360x560", touch(360, 560), false],
+      ["sideways 915x412", touch(915, 412), true]];
+    const bad = [];
+    for (const [name, opt, needed] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/corner-pocket/");
+      await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); document.getElementById("startBtn").click(); });
+      await q.waitForFunction(() => __pool.G.phase === "aim", null, { timeout: 8000 });
+      await q.waitForTimeout(200);
+      const m = await q.evaluate(() => {
+        const pl = __pool.plate ? __pool.plate() : null;
+        if (!pl) return { pl: null, hook: !!__pool.plate };
+        const P = PoolPhysics, V = __pool.V, s = V.s, CUSH = 0.042, RAIL = (V.ox - V.outer.x) / s;   // (the cushion's depth is game.js's own)
+        const R = { l: pl.x, t: pl.y, r: pl.x + pl.w, b: pl.y + pl.h };
+        const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+        const box = (x0, y0, x1, y1) => { const p = __pool.toScreen(x0, y0), q = __pool.toScreen(x1, y1); return { l: Math.min(p.x, q.x), r: Math.max(p.x, q.x), t: Math.min(p.y, q.y), b: Math.max(p.y, q.y) }; };
+        const nearCircle = (cx, cy, r) => { const dx = Math.max(R.l - cx, 0, cx - R.r), dy = Math.max(R.t - cy, 0, cy - R.b); return dx * dx + dy * dy < r * r; };
+        const cloth = box(-CUSH, -CUSH, P.L + CUSH, P.W + CUSH), table = box(-RAIL, -RAIL, P.L + RAIL, P.W + RAIL);
+        const pockets = P.pockets.filter((k) => { const sc = __pool.toScreen(k.x, k.y); return nearCircle(sc.x, sc.y, (k.r + 0.014) * s); }).length;
+        const mid = -(RAIL + CUSH) / 2, sights = [];
+        for (let i = 1; i < 8; i++) if (i !== 4) sights.push([P.L * i / 8, mid], [P.L * i / 8, P.W - mid]);
+        for (let i = 1; i < 4; i++) sights.push([mid, P.W * i / 4], [P.L - mid, P.W * i / 4]);
+        const onSights = sights.filter(([x, y]) => { const sc = __pool.toScreen(x, y); return nearCircle(sc.x, sc.y, 0.0078 * s + 1); }).length;
+        const UI = __pool.UI, ui = ["spin", "power", "wheel", "swap", "hud"].map((k) => UI[k]).filter(Boolean)
+          .map((u) => u.r ? { l: u.x - u.r, r: u.x + u.r, t: u.y - u.r, b: u.y + u.r } : { l: u.x, r: u.x + u.w, t: u.y, b: u.y + u.h });
+        const corners = [...document.querySelectorAll("body *")].filter((e) => { const cs = getComputedStyle(e), r = e.getBoundingClientRect(); return cs.position === "fixed" && r.width > 0 && r.height < 120 && r.top < 80 && cs.visibility !== "hidden"; })
+          .map((e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; });
+        // brass at the plate's upper corners, inside its rim (left and right of the letters)
+        const cv = document.getElementById("table"), k = cv.width / cv.clientWidth, g = cv.getContext("2d");
+        const px = (x, y) => Array.from(g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data);
+        const brass = [px(R.l + 3, R.t + 3.5), px(R.r - 3, R.t + 3.5)].every(([r, gg, b]) => r > 150 && gg > 110 && r > b + 50);
+        return { pl, hook: true, inRail: R.l >= table.l && R.r <= table.r && R.t >= table.t && R.b <= table.b && !meet(R, cloth),
+          pockets, onSights, ui: ui.filter((u) => meet(R, u)).length, corners: corners.filter((u) => meet(R, u)).length, brass,
+          onScreen: R.l >= 0 && R.t >= 0 && R.r <= innerWidth && R.b <= innerHeight, scroll: document.documentElement.scrollHeight - innerHeight };
+      });
+      const shown = !!m.pl;
+      const ok = m.hook && (shown ? (m.pl.f2 >= 9 && m.inRail && m.pockets === 0 && m.onSights === 0 && m.ui === 0 && m.corners === 0 && m.brass && m.onScreen && m.scroll <= 0) : !needed);
+      if (!ok) bad.push({ name, m });
+      await c.close();
+    }
+    check("corner-pocket: a brass SAM LU BILLIARDS plate is set into the near rail between two sights (on the screen, in the wood, clear of the cloth, pockets, sights and controls, 9 px or more, no scroll) on laptops, a Pixel 7 and a phone on its side; none on the smallest phones",
+      bad.length === 0, bad);
+  }
 };

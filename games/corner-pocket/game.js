@@ -387,6 +387,87 @@
     return c;
   })();
 
+  // The maker's nameplate: brass, SAM LU over BILLIARDS engraved in the
+  // table's lettering, set into the wood of the rail nearest the player
+  // between two sights (side by side, the long rail's second and third from
+  // the head end; upright, the head rail's first two from the left), clear
+  // of the sights, the cushion and the rail's edge. Its letters stand upright
+  // on the screen. It is part of the still table, drawn with it. Where the
+  // rail is too small for both lines at 9 px (the smallest phones) there is
+  // none. (plateBox: where it is, in page px, or null.)
+  var plateBox = null, PLATE_FONT = "Oswald, system-ui, sans-serif";
+  function platePlan(g) {
+    var mid = (RAIL + CUSH) / 2, a, b, edgeA, edgeB;
+    if (!V.portrait) {
+      a = toScreen(L * 2 / 8, W + mid); b = toScreen(L * 3 / 8, W + mid);
+      edgeA = toScreen(0, W + CUSH).y; edgeB = toScreen(0, W + RAIL).y;
+    } else {
+      a = toScreen(-mid, W / 4); b = toScreen(-mid, W / 2);
+      edgeA = toScreen(-CUSH, 0).y; edgeB = toScreen(-RAIL, 0).y;
+    }
+    var gap = Math.abs(b.x - a.x) - 2 * 0.0078 * V.s - 6;   // between the sights, a little clear of each
+    var depth = Math.abs(edgeB - edgeA) - 7;                  // the wood, clear of the cushion and the edge
+    var cx = (a.x + b.x) / 2, cy = (edgeA + edgeB) / 2;
+    var lines = ["SAM LU", "BILLIARDS"];
+    // the biggest letters that fit as they are; failing that, the biggest that
+    // fit closed up a little, to 0.88 of their width, rather than the plate go
+    // (a wider stand-in face, before the lettering loads)
+    for (var pass = 0; pass < 2; pass++) {
+      for (var f1 = 14; f1 >= 9; f1 -= 0.25) {
+        var f2 = Math.max(9, Math.min(f1, f1 * 0.8)), padX = Math.max(4, Math.floor(f2 * 0.5)), padY = 2.5, lead = 1;
+        var tw = Math.max(textW(g, lines[0], f1), textW(g, lines[1], f2)), h = f1 * 0.92 + f2 * 0.92 + lead + 2 * padY;
+        var fitW = Math.min(tw, gap - 2 * padX);
+        if (fitW >= tw * (pass ? 0.88 : 1) && h <= depth) {
+          var w = fitW + 2 * padX, screws = gap - w >= 12;   // (room for a screw at each end, beside the letters)
+          if (screws) w += 12;
+          return { x: cx - w / 2, y: cy - h / 2, w: w, h: h, f1: f1, f2: f2, lines: lines, padY: padY, lead: lead, screws: screws, textMax: fitW };
+        }
+      }
+    }
+    return null;
+  }
+  function textW(g, t, f) {
+    g.font = "600 " + f + "px " + PLATE_FONT;
+    if ("letterSpacing" in g) g.letterSpacing = (f * 0.1).toFixed(2) + "px";
+    var w = g.measureText(t).width;
+    if ("letterSpacing" in g) g.letterSpacing = "0px";
+    return w;
+  }
+  function paintPlate(g, p) {
+    screenXf(g);
+    g.save();
+    // the plate, its bevel and its shadow in the wood
+    g.shadowColor = "rgba(0,0,0,0.55)"; g.shadowBlur = 3; g.shadowOffsetY = 1;
+    roundRect(g, p.x, p.y, p.w, p.h, 2.5);
+    var br = g.createLinearGradient(0, p.y, 0, p.y + p.h);
+    br.addColorStop(0, "#f0d892"); br.addColorStop(0.45, "#cfa95c"); br.addColorStop(1, "#9a773a");
+    g.fillStyle = br; g.fill();
+    g.shadowColor = "transparent";
+    g.strokeStyle = "#4a3214"; g.lineWidth = 1; g.stroke();
+    roundRect(g, p.x + 1.5, p.y + 1.5, p.w - 3, p.h - 3, 1.5);
+    g.strokeStyle = "rgba(255,244,205,0.45)"; g.lineWidth = 0.75; g.stroke();
+    // a screw at each end, where there's room beside the letters
+    if (p.screws) {
+      [p.x + 5, p.x + p.w - 5].forEach(function (sx) {
+        g.beginPath(); g.arc(sx, p.y + p.h / 2, 1.3, 0, Math.PI * 2);
+        g.fillStyle = "#6e5222"; g.fill();
+        g.beginPath(); g.moveTo(sx - 0.9, p.y + p.h / 2 + 0.9); g.lineTo(sx + 0.9, p.y + p.h / 2 - 0.9);
+        g.strokeStyle = "rgba(255,240,200,0.6)"; g.lineWidth = 0.6; g.stroke();
+      });
+    }
+    // the letters, cut in: dark, with the light catching their lower edge
+    g.textAlign = "center"; g.textBaseline = "middle";
+    var cx = p.x + p.w / 2, y1 = p.y + p.padY + p.f1 * 0.46, y2 = y1 + p.f1 * 0.46 + p.lead + p.f2 * 0.46;
+    [[p.lines[0], p.f1, y1], [p.lines[1], p.f2, y2]].forEach(function (l) {
+      g.font = "600 " + l[1] + "px " + PLATE_FONT;
+      if ("letterSpacing" in g) g.letterSpacing = (l[1] * 0.1).toFixed(2) + "px";
+      g.fillStyle = "rgba(255,246,214,0.55)"; g.fillText(l[0], cx, l[2] + 0.7, p.textMax);
+      g.fillStyle = "#3a2709"; g.fillText(l[0], cx, l[2], p.textMax);
+    });
+    if ("letterSpacing" in g) g.letterSpacing = "0px";
+    g.restore();
+  }
+
   function buildStatic() {
     var g = sctx;
     screenXf(g);
@@ -512,6 +593,11 @@
     g.fillStyle = "rgba(255,255,255,0.3)";
     g.beginPath(); g.arc(P.FOOT_X, W / 2, 0.005, 0, Math.PI * 2); g.fill();
     g.beginPath(); g.arc(P.HEAD_X, W / 2, 0.004, 0, Math.PI * 2); g.fill();
+
+    // the maker's brass nameplate, set into the rail nearest the player
+    plateBox = platePlan(g);
+    if (plateBox) paintPlate(g, plateBox);
+    worldXf(g);
 
     // the lamp's pool of light
     var lamp = g.createRadialGradient(L / 2, W / 2, 0.05, L / 2, W / 2, L * 0.7);
@@ -1583,6 +1669,7 @@
     get wheelUp() { return wheelUp; },
     shoot: function (a, p, tx, ty) { G.aim = a; G.power = p; G.tip = { x: tx || 0, y: ty || 0 }; humanShoot(); },
     toScreen: toScreen, toWorld: toWorld, layout: layout,
+    plate: function () { return plateBox && { x: plateBox.x, y: plateBox.y, w: plateBox.w, h: plateBox.h, f1: plateBox.f1, f2: plateBox.f2 }; },
     get fx() { return { strike: !!fxs.strike, sparks: fxs.sparks.length, trails: Object.keys(fxs.trails).length }; }
   };
 })();
