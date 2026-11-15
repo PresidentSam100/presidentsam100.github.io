@@ -249,6 +249,53 @@ body {
 }
 .statusbar span:last-child { margin-left: auto; }
 
+/* ---- the supply crate ---------------------------------------------------------
+   A plank crate standing in the snow among the pines, a cap of snow on its
+   lid, the outfit's name stencilled on its side in black paint, a line to a
+   board (the board's seam between them). Its size is --u (1 at
+   132 x 84); game.js places it where the screen has room: beside the table,
+   or under it on a tall phone, or as a low crate with the name on one line
+   (.low) where only a strip is free. */
+.crate {
+  --u: 1;
+  position: fixed; z-index: 1; left: 0; top: 0; pointer-events: none;
+  width: calc(132px * var(--u)); height: calc(84px * var(--u));
+  display: grid; grid-template-rows: 1fr 1fr; place-items: center;
+  background:
+    radial-gradient(circle at calc(5px * var(--u)) calc(5px * var(--u)), #2a1b0c 0 calc(1.6px * var(--u)), transparent calc(2px * var(--u))),
+    radial-gradient(circle at calc(100% - 5px * var(--u)) calc(5px * var(--u)), #2a1b0c 0 calc(1.6px * var(--u)), transparent calc(2px * var(--u))),
+    radial-gradient(circle at calc(5px * var(--u)) calc(100% - 5px * var(--u)), #2a1b0c 0 calc(1.6px * var(--u)), transparent calc(2px * var(--u))),
+    radial-gradient(circle at calc(100% - 5px * var(--u)) calc(100% - 5px * var(--u)), #2a1b0c 0 calc(1.6px * var(--u)), transparent calc(2px * var(--u))),
+    repeating-linear-gradient(90deg, rgba(255, 220, 150, 0.05) 0 2px, transparent 2px 9px),
+    linear-gradient(180deg, #a07644, #7d5530);
+  border: calc(5px * var(--u)) solid #4a3018; border-radius: calc(3px * var(--u));
+  box-shadow: inset 0 calc(2px * var(--u)) 0 rgba(255, 220, 150, 0.25), inset 0 calc(-8px * var(--u)) calc(12px * var(--u)) rgba(0, 0, 0, 0.35), 0 calc(6px * var(--u)) calc(10px * var(--u)) rgba(0, 0, 0, 0.6);
+}
+.crate[hidden] { display: none; }
+/* the seam between its two boards */
+.crate::after {
+  content: ""; position: absolute; left: 0; right: 0; top: calc(50% - 1px * var(--u)); height: calc(2px * var(--u));
+  background: rgba(29, 20, 9, 0.7); box-shadow: 0 1px 0 rgba(255, 220, 150, 0.12);
+}
+/* the snow on its lid */
+.crate::before {
+  content: ""; position: absolute; left: calc(-7px * var(--u)); right: calc(-5px * var(--u)); top: calc(-10px * var(--u)); height: calc(9px * var(--u));
+  background: #e9f0f7; border-radius: calc(6px * var(--u)) calc(8px * var(--u)) calc(3px * var(--u)) calc(4px * var(--u));
+  box-shadow: inset 0 calc(-2px * var(--u)) 0 rgba(150, 170, 195, 0.6);
+}
+.crate b, .crate small {
+  font-family: Bitter, Georgia, serif; font-weight: 700; line-height: 1; color: rgba(22, 14, 6, 0.86);
+  text-transform: uppercase; white-space: nowrap;
+  text-shadow: 0 0 1px rgba(22, 14, 6, 0.55);          /* (the paint's soft edge) */
+}
+.crate b { font-size: calc(22px * var(--u)); letter-spacing: 0.1em; margin-right: -0.1em; }
+.crate small { font-size: calc(13px * var(--u)); letter-spacing: 0.24em; margin-right: -0.24em; }
+/* a low crate: the name on one line */
+.crate.low { display: flex; flex-direction: row; align-items: center; gap: 0.35em; width: auto; height: calc(28px * var(--u)); padding: 0 calc(10px * var(--u)); }
+.crate.low::after { display: none; }
+.crate.low b, .crate.low small { font-size: calc(11.5px * var(--u)); letter-spacing: 0.12em; margin-right: -0.12em; }
+.crate.low::before { top: calc(-7px * var(--u)); height: calc(6px * var(--u)); }
+
 /* ---- the notice board ------------------------------------------------------ */
 .shade { position: fixed; inset: 0; z-index: 1000; background: rgba(4, 8, 16, 0.55); display: flex; align-items: center; justify-content: center; padding: 12px; }
 .shade[hidden] { display: none; }

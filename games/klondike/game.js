@@ -97,7 +97,52 @@
       place($("slot-t" + i), sx, TABY);
     }
     if (G) { finishDeal(); position(true); }      // (a deal still going out lands where the new sizes put it)
+    placeCrate();
   }
+
+  /* The supply crate stands in the snow at the foot of the screen, among the
+     pines. Where the screen is wide enough it stands beside the table, in the
+     middle of the free ground to its right. On a phone it stands under the
+     table, if the page fits the screen and the ground there leaves room:
+     whole if there's height for it, else low, the name on one line. It never
+     touches the table or the tags under it; with no room at all (a short
+     phone's Daily, whose sign takes a second line) it stays in the camp out
+     of sight. */
+  var crate = $("crate"), crateSpot = "";
+  function placeCrate() {
+    if (!crate) return;
+    var W = window.innerWidth, H = window.innerHeight;
+    var f = field.getBoundingClientRect(), st = document.querySelector(".statusbar").getBoundingClientRect();
+    var sy = window.scrollY || 0, under = st.bottom + sy;           // (the tags' foot, on the page)
+    var fits = document.documentElement.scrollHeight <= H + 1;
+    var ground = Math.round(H * 0.022);                              // (its foot in the snow, over the pines' line)
+    var gap = W - f.right, u, top, left, low = false;
+    crate.classList.remove("low"); crate.hidden = false;
+    if (gap >= 132 * 0.78 + 16) {
+      u = Math.min(1, (gap - 16) / 132);
+      crateSpot = "side";
+      left = f.right + (gap - 132 * u) / 2;
+      top = H - ground - 84 * u;
+    } else {
+      // the height there is: from the tags' foot (8 clear of them) down to the
+      // crate's foot. A crate is 84 tall and its snow 10 more; a low one 28
+      // and 7, its foot nearer the screen's edge (still in the snow), 4 clear
+      var room = H - ground - under - 8, lowRoom = H - 2 - under - 4;
+      if (!fits || (room < 94 * 0.8 && lowRoom < 35 * 0.9)) { crate.hidden = true; crateSpot = "none"; return; }
+      if (room >= 94 * 0.8) { u = Math.min(1, room / 94); top = H - ground - 84 * u; crateSpot = "under"; }
+      else { u = Math.min(1.1, lowRoom / 35); low = true; crateSpot = "low"; }
+      if (low) { crate.classList.add("low"); top = H - 2 - 28 * u; }
+      crate.style.setProperty("--u", u.toFixed(3));
+      var w = crate.offsetWidth;
+      left = Math.min(f.right - w - 6, Math.max(f.left + 6, f.left + f.width * 0.66 - w / 2));
+    }
+    crate.style.setProperty("--u", u.toFixed(3));
+    crate.style.left = Math.round(left) + "px";
+    crate.style.top = Math.round(top) + "px";
+  }
+  if (window.ResizeObserver) new ResizeObserver(function () { placeCrate(); }).observe(document.querySelector(".camp"));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeCrate);
+  window.addEventListener("scroll", function () { if (crateSpot === "side") return; placeCrate(); }, { passive: true });
   function place(el, x, y) { el.style.transform = "translate(" + x + "px," + y + "px)"; }
   function pileX(i) { return GAP + i * (CW + GAP); }
   // how far apart draw-three fans the waste (drawn and hit-tested alike)
@@ -857,6 +902,13 @@
       return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width };
     },
     slotPos: function (id) { var r = $("slot-" + id).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; },
+    // the supply crate: where it stands (side, under, low, none) and its box on the screen
+    crate: function () {
+      var r = crate.getBoundingClientRect();
+      return { spot: crateSpot, shown: !crate.hidden && r.width > 0, text: crate.textContent.replace(/\s+/g, " ").trim(),
+        x: r.left, y: r.top, w: r.width, h: r.height,
+        sizes: Array.prototype.map.call(crate.children, function (e) { return parseFloat(getComputedStyle(e).fontSize); }) };
+    },
     // A nearly-won position for testing auto-finish and the cascade.
     almostWin: function () {
       finishDeal();

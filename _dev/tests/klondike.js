@@ -660,4 +660,42 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("klondike, " + label + " (court cards): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- the camp's supply crate, SAM LU MINING CO. stencilled on it, standing
+  // in the snow at the foot of the screen: beside the table where the screen
+  // is wide, under it on a phone (a low crate, the name on one line, where
+  // only a strip is free). Its letters 10px or more, inside the screen, clear
+  // of the table, the tags under it, the sign, the menus and the corner
+  // buttons (its cap of snow counted); it scrolls nothing; no "made by" line
+  {
+    const { devices } = require("@playwright/test");
+    const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["phone 390x844", mob(390, 844)], ["phone 360x640", mob(360, 640)], ["phone 320x568", mob(320, 568)],
+      ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/klondike/");
+      await q.evaluate(() => Klondike.deal(4242));
+      await q.waitForTimeout(150);
+      const r = await q.evaluate(() => {
+        const k = window.Klondike && Klondike.crate && Klondike.crate();
+        const el = document.getElementById("crate");
+        if (!k || !el) return null;
+        const u = parseFloat(getComputedStyle(el).getPropertyValue("--u")) || 1;
+        // (its box with the snow on its lid: 10 above a crate, 7 above a low one)
+        const cap = k.spot === "low" ? 7 : 10;
+        const box = { l: k.x - 7 * u, t: k.y - cap * u, r: k.x + k.w + 5 * u, b: k.y + k.h };
+        const hits = [...document.querySelectorAll("#field, .statusbar span, .sign h1, .menubar .mtop, .nav-back-games, button")]
+          .filter((e) => e !== el && e.getClientRects().length)
+          .filter((e) => { const b = e.getBoundingClientRect(); return b.width && b.height && b.left < box.r && b.right > box.l && b.top < box.b && b.bottom > box.t; })
+          .map((e) => e.id || e.className || e.tagName);
+        return Object.assign(k, { u, hits, W: innerWidth, H: innerHeight, sw: document.documentElement.scrollWidth, madeBy: /made by/i.test(document.body.innerText) });
+      });
+      check("klondike, " + label + ": the supply crate reads SAM LU MINING CO., stands in the screen clear of the table, the tags, the sign, the menus and the corner buttons, its letters 10px or more",
+        !!r && r.shown && r.text === "SAM LU MINING CO." && Math.min(...r.sizes) >= 10 && r.x >= 0 && r.y - (r.spot === "low" ? 7 : 10) * r.u >= 0 && r.x + r.w <= r.W && r.y + r.h <= r.H &&
+        r.hits.length === 0 && r.sw <= r.W && !r.madeBy, r);
+      check("klondike (supply crate), " + label + ": no page errors", q.errs.length === 0, q.errs);
+      await c.close();
+    }
+  }
 };
