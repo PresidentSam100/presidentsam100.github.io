@@ -397,4 +397,33 @@ module.exports = async ({ browser, base, check, lib }) => {
       all.every((k) => { const r = seen[k], off = / off$/.test(k); return (r.later === "late" || (r.later && r.later.kind === "fixed")) && !r.gone && !r.errs.length &&
         (!off || (r.plain.ringStill && r.fixed.ringStill && r.fixed.was.still)); }), seen);
   }
+
+  // ---- the puzzle's credit, "Puzzle by Sam Lu", printed under the grid as a
+  // newspaper's is: just below the board, its right edge on the board's, in
+  // the window on a laptop (with nothing to scroll there) and on phones; no
+  // "made by" line anywhere
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {};
+    for (const [label, opts] of [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["phone 320", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/sudoku/");
+      await q.waitForFunction(() => document.querySelectorAll("#board .c").length === 81);
+      seen[label] = await q.evaluate(() => {
+        const cr = document.querySelector(".credit"), b = document.getElementById("board").getBoundingClientRect();
+        const made = [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length;
+        if (!cr) return { none: true, made };
+        const r = cr.getBoundingClientRect(), y = scrollY;
+        return { text: cr.textContent.trim(), below: Math.round(r.top - b.bottom), right: Math.round(r.right - b.right), inside: r.left >= 0 && r.right <= innerWidth,
+          bottom: Math.round(r.bottom + y), H: innerHeight, scroll: document.documentElement.scrollHeight - innerHeight, made, errs: [] };
+      });
+      seen[label].errs = q.errs.slice();
+      await q.close(); await c.close();
+    }
+    const okAt = (k) => { const r = seen[k]; return !r.none && r.text === "Puzzle by Sam Lu" && r.below >= 0 && r.below <= 12 && Math.abs(r.right) <= 2 && r.inside && !r.made && !r.errs.length &&
+      (/^\d/.test(k) ? r.scroll <= 0 && r.bottom <= r.H : true); };
+    check("sudoku: \"Puzzle by Sam Lu\" is printed just under the grid, flush with its right edge, in the window (nothing to scroll on a laptop) on laptops and phones; no \"made by\" line",
+      Object.keys(seen).every(okAt), seen);
+  }
 };

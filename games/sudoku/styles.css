@@ -862,11 +862,14 @@ html.fx-off .c .was, html.fx-off .c .was::before {
   }
 }
 
-#byline {
-  margin: 0.1rem 0 0;
+/* the puzzle's credit, in small print under the grid */
+.credit {
+  margin: 0.25rem 0 0;
+  text-align: right;
   color: var(--muted);
   font-size: 0.72rem;
   font-style: italic;
+  letter-spacing: 0.02em;
 }
 
 /* ---- the shared pause overlay, reprinted on paper ------------------------ */
@@ -922,8 +925,7 @@ body > .gs-pause {
     grid-template-columns: 260px auto 260px;
     grid-template-areas:
       "mast mast mast"
-      "left field right"
-      "byline byline byline";
+      "left field right";
     column-gap: 28px;
     row-gap: 0.7rem;
     align-items: start;
@@ -934,7 +936,6 @@ body > .gs-pause {
   }
   .mast { grid-area: mast; }
   .field { grid-area: field; }
-  #byline { grid-area: byline; }
   .side {
     display: flex;
     flex-direction: column;

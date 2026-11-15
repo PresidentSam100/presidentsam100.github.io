@@ -232,12 +232,12 @@
     if (WIDE && WIDE.matches) {
       // Beside the board, not under it: the board takes what the window has
       // left under the masthead and the board's own heading (measured, as the
-      // nameplate's face sets the masthead's height) and over the byline, and
-      // what the two sides leave it across.
+      // nameplate's face sets the masthead's height) and over its own credit
+      // line, and what the two sides leave it across.
       const px = (v) => parseFloat(v) || 0;
-      const wrapCs = getComputedStyle(sheetEl.parentNode), byline = $("byline"), side = document.querySelector(".side");
+      const wrapCs = getComputedStyle(sheetEl.parentNode), credit = document.querySelector(".field .credit"), side = document.querySelector(".side");
       const top = boardEl.getBoundingClientRect().top + window.scrollY;
-      const foot = px(cs.rowGap) + (byline ? byline.offsetHeight : 0) + px(cs.paddingBottom) + px(wrapCs.paddingBottom);
+      const foot = (credit ? credit.offsetHeight + px(getComputedStyle(credit).marginTop) : 0) + px(cs.paddingBottom) + px(wrapCs.paddingBottom);
       const h = window.innerHeight - top - foot - 4;   // (a few pixels in hand: the gaps are in rem, and round)
       const w = document.documentElement.clientWidth - px(wrapCs.paddingLeft) - px(wrapCs.paddingRight) - px(cs.paddingLeft) - px(cs.paddingRight) -
         2 * ((side ? side.offsetWidth : 260) + px(cs.columnGap));
