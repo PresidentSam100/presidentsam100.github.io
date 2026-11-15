@@ -576,4 +576,27 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // ---- the guest check's printed head names the diner: SAM LU'S DINER and the
+  // check's number, on one line across the card, on the menu's check as on
+  // the end card's; no page scrolls sideways for it, and the page carries no
+  // "made by" line
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["Pixel 7", devices["Pixel 7"]],
+    ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/switcheroo/");
+    const heads = await q.evaluate(() => [...document.querySelectorAll("#menu .card, #over .card")].map((card) => {
+      const cs = getComputedStyle(card, "::before"), probe = document.createElement("span");
+      for (const k of ["fontFamily", "fontSize", "letterSpacing", "textTransform", "whiteSpace"]) probe.style[k] = cs[k];
+      probe.textContent = cs.content.replace(/^"|"$/g, "");
+      card.appendChild(probe); const w = probe.getBoundingClientRect().width; probe.remove();
+      return { text: cs.content.replace(/^"|"$/g, ""), oneLine: cs.whiteSpace === "nowrap", fits: w <= card.getBoundingClientRect().width || card.offsetParent === null };
+    }));
+    const page = await q.evaluate(() => ({ sw: document.documentElement.scrollWidth, w: innerWidth, madeBy: /made by/i.test(document.body.innerText) }));
+    check("switcheroo, " + label + ": the guest check's head reads SAM LU'S DINER · No. 1958, on one line across the card, on the menu and the end card",
+      heads.length === 2 && heads.every((h) => /^Sam Lu’s Diner · +No\. 1958$/.test(h.text) && h.oneLine && h.fits) && page.sw <= page.w && !page.madeBy, { heads, page });
+    check("switcheroo (guest check head), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

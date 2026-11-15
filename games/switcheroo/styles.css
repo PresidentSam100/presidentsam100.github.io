@@ -119,10 +119,11 @@ body.paused .counter canvas { visibility: hidden; }
   border: 1px solid #a7c19e; border-radius: 4px 4px 8px 8px;
   box-shadow: 0 2px 0 #d9e6d2, 0 16px 36px rgba(60, 40, 10, 0.32);
 }
-/* the pad's printed head, and the perforations it was torn off along */
+/* the pad's printed head (the diner's name, as a diner's own pads carry
+   it, and the check's number), and the perforations it was torn off along */
 .card::before {
-  content: "Guest check \00b7  No. 1958"; display: block; margin: 0 -24px 12px; padding: 12px 0 6px;
-  font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--check-ink);
+  content: "Sam Lu\2019s Diner \00b7  No. 1958"; display: block; margin: 0 -24px 12px; padding: 12px 0 6px;
+  font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--check-ink); white-space: nowrap;
   border-bottom: 2px solid var(--check-ink);
 }
 .card::after {
