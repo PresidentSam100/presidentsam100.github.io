@@ -121,4 +121,33 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("typetwo (points): no page errors", p.errs.length === 0, p.errs);
     await cx.close();
   }
+
+  // ---- the ward's name, WARD OF SAM LU, carved into the ward left of the
+  // wizard: drawn in gold on the line, inside the screen, clear of the orb's
+  // swing (42px either side of the middle), no smaller than 10px on a 320px
+  // phone; the page carries no "made by" line
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["Pixel 7", devices["Pixel 7"]],
+    ["phone 320", { viewport: { width: 320, height: 640 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["phone 360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/typetwo/");
+    await q.evaluate(() => localStorage.setItem("reduceMotion:typetwo", "1"));
+    await q.reload({ waitUntil: "domcontentloaded" });
+    await q.click("#startBtn");
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 15000 });
+    await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const n = await q.evaluate(() => {
+      const n = __game.wardName;
+      if (!n) return null;
+      const cv = document.getElementById("game"), k = cv.width / n.W;
+      const x = Math.round(n.x0 * k), y = Math.round((n.lineY - 6) * k), w = Math.round((n.x1 - n.x0) * k), h = Math.round(12 * k);
+      const d = cv.getContext("2d").getImageData(x, y, w, h).data;
+      let gold = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 150 && d[i + 1] > 120 && d[i + 2] < 130 && d[i] - d[i + 2] > 60) gold++;
+      return Object.assign(n, { gold: +(gold / (w * h)).toFixed(3), madeBy: /made by/i.test(document.body.innerText) });
+    });
+    check("typetwo, " + label + ": WARD OF SAM LU is carved in gold into the ward, left of the wizard, inside the screen and clear of the orb's swing",
+      !!n && n.text === "WARD OF SAM LU" && n.x0 >= 8 && n.x1 <= n.W / 2 - 42 && n.size >= 10 && n.gold > 0.08 && !n.madeBy, n);
+    check("typetwo (ward name), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

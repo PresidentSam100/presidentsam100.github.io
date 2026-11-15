@@ -742,15 +742,21 @@
     wgrad.addColorStop(1, "rgba(177,140,255,0.2)");
     ctx.fillStyle = wgrad;
     ctx.fillRect(0, lineY - 16, W, 32);
+    // the ward's name is carved into it; the line breaks around the letters
+    const name = wardName();
     ctx.strokeStyle = "rgba(214,187,255," + (0.4 + 0.15 * Math.sin(T * 2.2)) + ")";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(0, lineY); ctx.lineTo(W, lineY); ctx.stroke();
-    // rune glyphs pulsing along the ward
+    ctx.moveTo(0, lineY); ctx.lineTo(name.x0 - 9, lineY);
+    ctx.moveTo(name.x1 + 9, lineY); ctx.lineTo(W, lineY);
+    ctx.stroke();
+    drawWardName(name, lineY, T, still);
+    // rune glyphs pulsing along the ward (none where the name is carved)
     ctx.strokeStyle = "#e7c86f";
     ctx.lineWidth = 1.6;
     ctx.lineCap = "round";
     for (let gx = 45; gx < W; gx += 96) {
+      if (gx > name.x0 - 26 && gx < name.x1 + 26) continue;
       ctx.globalAlpha = 0.3 + 0.28 * Math.sin(T * 1.7 + gx * 0.11);
       const gy = lineY;
       ctx.beginPath();
@@ -892,6 +898,54 @@
   }
 
   // The wizard stands fast; only the staff swings to aim (angle 0 = straight up).
+  // The ward's name, carved into the barrier left of the wizard. The orb on
+  // his staff swings to about 35px either side of him at the line, so the
+  // letters keep 42px clear of the middle and take the largest size that
+  // fits between that and the left edge (a 320px phone gets 10px).
+  const WARD_NAME = "WARD OF SAM LU";
+  const WARD_FONT = '"Cinzel", Georgia, serif';
+  function wardName() {
+    const left = 12, right = W / 2 - 42;
+    let fit = null;
+    for (const [size, gap] of [[13, 2.5], [12, 2.5], [11, 2], [10, 1.2], [10, 0.5], [9, 0.5]]) {
+      ctx.font = "600 " + size + "px " + WARD_FONT;
+      const widths = Array.from(WARD_NAME, (c) => ctx.measureText(c).width);
+      const total = widths.reduce((a, b) => a + b, 0) + gap * (widths.length - 1);
+      fit = { size, gap, widths, total };
+      if (total <= right - left) break;
+    }
+    const x0 = left + Math.max(0, (right - left - fit.total) / 2);
+    return { text: WARD_NAME, size: fit.size, gap: fit.gap, widths: fit.widths, x0, x1: x0 + fit.total };
+  }
+  function drawWardName(name, lineY, T, still) {
+    ctx.save();
+    ctx.font = "600 " + name.size + "px " + WARD_FONT;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    // small gold diamonds close the line where it breaks for the name
+    ctx.fillStyle = "#e7c86f";
+    ctx.globalAlpha = 0.75;
+    for (const dx of [name.x0 - 6, name.x1 + 6]) {
+      ctx.beginPath();
+      ctx.moveTo(dx, lineY - 3); ctx.lineTo(dx + 2.5, lineY); ctx.lineTo(dx, lineY + 3); ctx.lineTo(dx - 2.5, lineY);
+      ctx.closePath(); ctx.fill();
+    }
+    // Carved: a dark cut above each letter, the gold below it. With Visual
+    // FX on, a glimmer runs slowly along the letters; off, they hold even.
+    let x = name.x0;
+    for (let i = 0; i < name.text.length; i++) {
+      const c = name.text[i];
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = "#120c24";
+      ctx.fillText(c, x, lineY - 1);
+      ctx.globalAlpha = still ? 0.82 : 0.72 + 0.22 * Math.sin(T * 1.3 - i * 0.45);
+      ctx.fillStyle = "#e7c86f";
+      ctx.fillText(c, x, lineY + 0.5);
+      x += name.widths[i] + name.gap;
+    }
+    ctx.restore();
+  }
+
   function drawWizard(x, y, angle) {
     const still = reducedMotion();   // FX off: the robe hangs still and the orb glows steady
     const T = still ? 0 : performance.now() / 1000;
@@ -1294,5 +1348,6 @@
     get lives() { return lives; },
     get target() { return target; },
     get pops() { return particles.filter((q) => q.kind === "text").map((q) => ({ txt: q.txt, x: q.x, y: q.y })); },
+    get wardName() { const n = wardName(); return { text: n.text, size: n.size, x0: n.x0, x1: n.x1, lineY: FLOOR_Y(), W, H }; },
   };
 })();
