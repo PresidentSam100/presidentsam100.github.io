@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Ctext%20y%3D%220.9em%22%20font-size%3D%2288%22%3E%F0%9F%92%8A%3C%2Ftext%3E%3C%2Fsvg%3E" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Dr. Mr.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Lexend:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+<script src="../motion-toggle.js"></script>
+<script src="../mute-toggle.js"></script>
+<script src="../game-shell.js"></script>
+    <meta name="description" content="Dr. Mr., a capsule puzzle at the microscope: drop two coloured halves at a time into the specimen vial and line up four of a colour to clear the germs. A browser game by Sam Lu." />
+    <meta property="og:title" content="Dr. Mr. | Sam Lu" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="Dr. Mr., a capsule puzzle at the microscope: drop two coloured halves at a time into the specimen vial and line up four of a colour to clear the germs. A browser game by Sam Lu." />
+    <meta property="og:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Sam Lu's site: a little arcade of browser games, with a 2048 tile, a chess knight, an 8 ball, a playing card, a lantern and a mahjong tile" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://presidentsam100.github.io/og-image.png" />
+    <meta name="author" content="Sam Lu" />
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H1K8QYFCV5"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag("js", new Date());
+      gtag("config", "G-H1K8QYFCV5");
+    </script>
+</head>
+<body>
+<a href="../" class="nav-back-games" aria-label="Back to games">&larr; Games</a>
+
+<!-- The view down the microscope: the lit slide in its lens ring, the
+     vials on the stage and Dr. Mr. are painted on the canvas by game.js;
+     the charts beside them are pages. -->
+
+<main class="bench" id="bench">
+  <canvas id="stage" aria-label="The specimen vial on the microscope stage: capsules drop in two coloured halves at a time; line up four of a colour to clear the germs"></canvas>
+  <div class="chart" id="chart0" hidden>
+    <p class="who" id="who0">Your chart</p>
+    <dl>
+      <div class="row-score"><dt>Score</dt><dd id="score0">0</dd></div>
+      <div class="row-best"><dt>Best</dt><dd id="best0">0</dd></div>
+      <div class="row-level"><dt>Level</dt><dd id="level0">0</dd></div>
+      <div class="row-speed"><dt>Speed</dt><dd id="speed0">Med</dd></div>
+      <div class="row-germs"><dt>Germs</dt><dd id="germs0">0</dd></div>
+      <div class="row-wins"><dt>Wins</dt><dd id="wins0">0</dd></div>
+    </dl>
+  </div>
+  <div class="chart" id="chart1" hidden>
+    <p class="who" id="who1">CPU</p>
+    <dl>
+      <div class="row-germs"><dt>Germs</dt><dd id="germs1">0</dd></div>
+      <div class="row-wins"><dt>Wins</dt><dd id="wins1">0</dd></div>
+    </dl>
+  </div>
+  <p class="legend gs-keys" id="legend0" hidden></p>
+  <p class="legend gs-keys" id="legend1" hidden></p>
+  <div class="pad" id="pad" hidden>
+    <button type="button" data-act="left" aria-label="Move left"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></button>
+    <button type="button" data-act="right" aria-label="Move right"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+    <button type="button" data-act="ccw" aria-label="Turn left"><svg viewBox="0 0 24 24"><path d="M9 7H5V3"/><path d="M5.6 7A8 8 0 1 1 4 13"/></svg></button>
+    <button type="button" data-act="cw" aria-label="Turn right"><svg viewBox="0 0 24 24"><path d="M15 7h4V3"/><path d="M18.4 7A8 8 0 1 0 20 13"/></svg></button>
+    <button type="button" data-act="soft" aria-label="Fall faster (hold)"><svg viewBox="0 0 24 24"><path d="M12 4v13"/><path d="m6 11 6 6 6-6"/></svg></button>
+    <button type="button" data-act="hard" aria-label="Drop"><svg viewBox="0 0 24 24"><path d="m6 5 6 6 6-6"/><path d="m6 11 6 6 6-6"/><path d="M5 20h14"/></svg></button>
+  </div>
+</main>
+
+<section class="panel" id="menu">
+  <div class="card">
+    <p class="pad-head">Rx</p>
+    <h1>Dr. Mr.</h1>
+    <p class="tag">pills in, germs out</p>
+    <p class="how">
+      Capsules drop into the specimen vial two halves at a time. Line up <b>four of a colour</b>,
+      across or down, germs and halves alike, and they clear; whatever is left hanging falls.
+      Clear every germ to cure the level. A vial filled to the neck ends the run.
+      <span class="gs-keys">Move with <kbd>&larr;</kbd> <kbd>&rarr;</kbd>, turn with <kbd>Z</kbd> <kbd>X</kbd>,
+      hold <kbd>&darr;</kbd> to fall faster, <kbd>Space</kbd> to drop.</span>
+      <span class="gs-touch">The pad under the vial moves it, turns it, hurries it and drops it.</span>
+    </p>
+    <div class="modes" id="modes">
+      <button type="button" data-v="levels"><b>Levels</b><small>cure level after level</small></button>
+      <button type="button" data-v="endless"><b>Endless</b><small>the culture keeps growing</small></button>
+      <button type="button" data-v="cpu"><b>Vs CPU</b><small>race to cure; chains send junk</small></button>
+      <button type="button" data-v="duo"><b>Two players</b><small class="duo-note">one keyboard, a vial each<span class="gs-touch"> (needs a keyboard)</span></small></button>
+    </div>
+    <div class="opts">
+      <div class="stepper" id="level-pick">
+        <button type="button" id="lvl-down" aria-label="Lower level"><svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg></button>
+        <span class="lvl">Level <b id="lvl">5</b></span>
+        <button type="button" id="lvl-up" aria-label="Higher level"><svg viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></svg></button>
+      </div>
+      <button type="button" class="opt" id="opt-speed">Speed <b id="speed-v">Med</b></button>
+      <button type="button" class="opt" id="opt-cpu">CPU <b id="cpu-v">Normal</b></button>
+    </div>
+    <button type="button" class="playbtn" id="play">Scrub in</button>
+    <p class="bests" id="bests"></p>
+  </div>
+</section>
+
+<section class="panel" id="over" hidden>
+  <div class="card">
+    <p class="pad-head">Rx</p>
+    <h2 id="over-title">Level cured!</h2>
+    <p class="big" id="over-msg"></p>
+    <p class="stats" id="over-stats"></p>
+    <div class="row">
+      <button type="button" class="playbtn" id="again">Again</button>
+      <button type="button" class="ghost" id="to-menu">Menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="rules.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

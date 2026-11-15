@@ -17,6 +17,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   // [game, path, makeActive(p), before(pg)?]: fresh screen inactive, then active
   const guards = [
     ["jam-jar", "jam-jar/", (p) => p.evaluate(() => { __game.start("simmer"); __game.drop(); })],
+    ["dr-mr", "dr-mr/", async (p) => { await p.evaluate(() => DrMr.start("levels")); await p.waitForFunction(() => DrMr.players()[0] && DrMr.players()[0].phase === "fall", null, { timeout: 8000 }); await p.keyboard.press("Space"); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); }],
     ["mahjong", "mahjong/", async (p) => { await p.evaluate(() => Mahjong.start("classic")); await p.waitForTimeout(300); await p.evaluate(() => Mahjong.removeOnePair()); }],
     ["klondike", "klondike/", (p) => p.evaluate(() => Klondike.draw())],
     ["lights-out", "lights-out/", async (p) => { await p.evaluate(() => LightsOut.start("zen")); await p.waitForTimeout(200); await p.evaluate(() => LightsOut.press(0)); }],

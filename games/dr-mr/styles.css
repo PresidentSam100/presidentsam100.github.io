@@ -1,0 +1,217 @@
+/* =====================================================================
+   Dr. Mr.: the view down the pharmacist's microscope. The eyepiece's dark
+   all round; in its lens ring (gunmetal, a brass bevel) the slide lit
+   from below, faint cells drifting out of focus; the vials stand on the
+   lit stage in the middle of it (all painted by game.js). The cards are
+   prescription pads: white paper, a mint head with Rx on it, teal ink.
+   DM Serif Display for the names and headings, as a dispensary's labels
+   are printed; Lexend for everything read.
+   ===================================================================== */
+
+:root {
+  --wall: #e3efeb;
+  --wall-hi: #f2f8f6;
+  --grout: rgba(96, 140, 128, 0.22);
+  --ink: #17363a;
+  --ink-dim: #4f6d70;
+  --mint: #23a487;
+  --mint-deep: #157a63;
+  --mint-pale: #d3efe6;
+  --steel: #c9d2d7;
+  --steel-hi: #eef2f4;
+  --steel-lo: #7d8a92;
+  --paper: #fbfdfc;
+  --red: #e5484d;
+  --yellow: #f2c230;
+  --blue: #3d7be0;
+  /* Lexend sits a touch high in its line: buttons take a hair off the bottom
+     of their padding and give it to the top, so the words sit centred */
+  --lift: 0.04em;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+
+body {
+  font-family: "Lexend", "Segoe UI", system-ui, sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+  /* the eyepiece's dark round the lit circle (game.js lights the slide) */
+  background: radial-gradient(circle at 50% 50%, #18262a, #0b1214 75%);
+}
+
+#stage { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+/* paused: the view goes (no planning while the clock is stopped), and the
+   charts, the key lines and the pad with it, so the pause card stands alone */
+body.paused #stage, body.paused .chart, body.paused .legend, body.paused .pad { visibility: hidden; }
+
+.nav-back-games {
+  position: fixed; top: 16px; left: 18px; z-index: 50;
+  font-family: inherit; font-size: 15px; font-weight: 600;
+  color: var(--paper); text-decoration: none;
+  background: var(--mint-deep); border: 2px solid var(--mint); border-radius: 10px;
+  padding: calc(6px - var(--lift)) 14px calc(6px + var(--lift));
+  box-shadow: 0 2px 6px rgba(23, 54, 58, 0.25);
+}
+.nav-back-games:hover { filter: brightness(1.08); }
+
+/* ---- the charts beside the vials (placed by game.js) -------------------- */
+.bench { position: fixed; inset: 0; pointer-events: none; }
+.bench > * { pointer-events: auto; }
+.chart {
+  position: absolute; z-index: 5; width: 150px;
+  background: var(--paper); border: 1px solid #b9d6cd; border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(23, 54, 58, 0.18);
+  overflow: hidden; pointer-events: none;
+}
+.chart[hidden], .chart dl > div[hidden], .chart .who[hidden] { display: none !important; }
+.chart .who {
+  white-space: nowrap;
+  font-family: "DM Serif Display", Georgia, serif; font-size: 17px; line-height: 1.2;
+  color: var(--paper); background: var(--mint-deep); padding: 5px 10px 4px;
+}
+.chart dl { padding: 6px 10px 8px; }
+.chart dl > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 3px 0; border-bottom: 1px solid #e3efeb; }
+.chart dl > div:last-child { border-bottom: 0; }
+.chart dt { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-dim); }
+.chart dd { font-size: 18px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+.chart dd .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin: 0 2px 1px 6px; vertical-align: middle; }
+.chart [hidden] { display: none; }
+/* on a narrow screen a chart is a strip over its vial: the figures in a row */
+.chart.strip { width: auto; display: flex; align-items: stretch; }
+.chart.strip .who { display: flex; align-items: center; font-size: 15px; padding: 4px 8px; }
+.chart.strip dl { display: flex; gap: 10px; padding: 3px 8px; align-items: center; }
+.chart.strip dl > div { display: block; border: 0; padding: 0; text-align: center; }
+.chart.strip dt { font-size: 9px; letter-spacing: 1px; }
+.chart.strip dd { font-size: 15px; line-height: 1.1; }
+/* the other vial's strip on a phone, beside the narrow half-size vial */
+.chart.strip.tight .who { font-size: 13px; padding: 3px 6px; }
+.chart.strip.tight dl { gap: 6px; padding: 2px 6px; }
+.chart.strip.tight dt { font-size: 8px; letter-spacing: 0.5px; }
+.chart.strip.tight dd { font-size: 13px; }
+
+.legend {
+  position: absolute; z-index: 5; font-size: 13px; line-height: 1.7; color: var(--ink-dim); text-align: center;
+  background: rgba(251, 253, 252, 0.92); border: 1px solid #b9d6cd; border-radius: 8px; padding: 0 8px;
+}
+.legend[hidden] { display: none; }
+.legend b { color: var(--ink); font-weight: 600; }
+.legend span { white-space: nowrap; }
+kbd {
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  background: var(--paper); color: var(--ink); border: 1px solid #a9c5bd; border-bottom-width: 2px;
+  border-radius: 5px; padding: calc(0px - var(--lift)) 5px calc(0px + var(--lift));
+}
+
+/* ---- the touch pad: move, turn, fall faster (held), drop ------------------ */
+.pad { position: absolute; z-index: 6; display: flex; gap: 8px; justify-content: center; }
+.pad[hidden] { display: none; }
+.pad button {
+  width: 52px; height: 52px; border-radius: 14px; cursor: pointer;
+  background: var(--paper); border: 2px solid #a9c5bd; border-bottom-width: 4px;
+  display: flex; align-items: center; justify-content: center;
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+.pad button svg { width: 26px; height: 26px; fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.pad button[data-act="hard"] { background: var(--mint-deep); border-color: var(--mint); }
+.pad button[data-act="hard"] svg { stroke: var(--paper); }
+.pad button.down { transform: translateY(2px); border-bottom-width: 2px; }
+/* on a phone on its side: moves at the left corner, turns and drops at the right */
+.pad.split { justify-content: space-between; padding: 0 12px; }
+.pad.split button:nth-child(3) { margin-right: auto; }
+
+/* ---- the cards: prescription pads -------------------------------------------- */
+.panel {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; align-items: center; justify-content: center;
+  padding: 26px 16px; overflow-y: auto;
+  background: rgba(23, 54, 58, 0.28);
+}
+.panel[hidden] { display: none; }
+.panel > .card { margin: auto; }
+.card {
+  width: min(460px, 100%); position: relative;
+  background: var(--paper); border: 1px solid #b9d6cd; border-radius: 8px;
+  box-shadow: 0 16px 40px rgba(23, 54, 58, 0.3);
+  padding: 0 24px 18px; overflow: hidden;
+}
+/* the pad's printed head: a mint band with Rx on it */
+.card .pad-head {
+  margin: 0 -24px 12px; padding: 6px 24px 5px;
+  font-family: "DM Serif Display", Georgia, serif; font-size: 18px; letter-spacing: 1px;
+  color: var(--paper); background: var(--mint-deep);
+}
+.card h1, .card h2 { font-family: "DM Serif Display", Georgia, serif; font-weight: 400; color: var(--ink); line-height: 1.05; }
+.card h1 { font-size: 46px; }
+.card h2 { font-size: 34px; }
+.card .tag { color: var(--mint-deep); font-weight: 600; margin: 4px 0 10px; }
+.card .how { font-size: 15px; line-height: 1.5; margin-bottom: 12px; }
+.card .how b { color: var(--mint-deep); }
+/* the keys (a keyboard's) or the pad (a touch screen's), on a line of their own */
+.card .how .gs-keys, .card .how .gs-touch { margin-top: 6px; color: var(--ink-dim); }
+@media not all and (hover: none) { .card .how .gs-keys { display: block; } }
+@media (hover: none) { .card .how .gs-touch { display: block; } }
+
+.modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.modes button, .opt, .stepper button {
+  font-family: inherit; cursor: pointer; color: var(--ink);
+  background: #fff; border: 2px solid #c7ddd6; border-radius: 10px;
+}
+.modes button {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; text-align: left;
+  padding: calc(7px - var(--lift)) 10px calc(7px + var(--lift));
+}
+.modes button b { font-size: 16px; font-weight: 700; }
+.modes button small { font-size: 12px; color: var(--ink-dim); line-height: 1.3; }
+.modes button.on { border-color: var(--mint); background: var(--mint-pale); box-shadow: 0 0 0 2px rgba(35, 164, 135, 0.25); }
+.modes button:disabled { opacity: 0.55; cursor: default; }
+.modes button:hover:not(:disabled), .opt:hover, .stepper button:hover { border-color: var(--mint); }
+
+.opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.stepper { display: flex; align-items: center; gap: 6px; }
+.stepper button { min-width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; padding: 0 6px; }
+.stepper button svg { width: 18px; height: 18px; fill: none; stroke: var(--ink); stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.stepper .lvl { font-size: 15px; min-width: 76px; text-align: center; }
+.stepper .lvl b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.opt { font-size: 14px; padding: calc(7px - var(--lift)) 12px calc(7px + var(--lift)); }
+.opt b { font-weight: 700; color: var(--mint-deep); }
+.opt[hidden] { display: none; }
+
+.playbtn, .card .row button {
+  font-family: inherit; font-weight: 700; cursor: pointer; border-radius: 12px;
+}
+.playbtn {
+  width: 100%; font-size: 20px; color: #fff; background: var(--mint-deep); border: 2px solid var(--mint);
+  padding: calc(10px - var(--lift)) 12px calc(10px + var(--lift));
+  box-shadow: 0 4px 0 #0f5a49;
+}
+.playbtn:hover { filter: brightness(1.07); }
+.playbtn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0f5a49; }
+.bests { margin-top: 10px; font-size: 13px; color: var(--ink-dim); text-align: center; min-height: 18px; }
+
+#over .card { text-align: center; }
+.card .big { font-size: 40px; font-weight: 700; color: var(--mint-deep); margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.card .stats { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 4px 0 16px; font-size: 15px; color: var(--ink-dim); }
+.stats .best { color: var(--ink); background: var(--mint-pale); border-radius: 999px; padding: 2px 14px; font-weight: 600; }
+.stats .best.record { color: #fff; background: var(--mint-deep); }
+.card .row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.card .row button { font-size: 17px; padding: calc(8px - var(--lift)) 18px calc(8px + var(--lift)); width: auto; flex: 1 1 auto; }
+.card .row button.ghost { color: var(--ink); background: #fff; border: 2px solid #c7ddd6; box-shadow: 0 4px 0 #c7ddd6; }
+.card .row button.ghost:active { transform: translateY(3px); box-shadow: 0 1px 0 #c7ddd6; }
+
+@media (max-width: 560px) {
+  .panel { padding-top: 62px; }
+  .card { padding: 0 16px 14px; }
+  .card .pad-head { margin: 0 -16px 10px; padding: 5px 16px 4px; }
+  .card h1 { font-size: 38px; }
+  .card .how { font-size: 14px; }
+  .modes button b { font-size: 15px; }
+}
+@media (max-height: 640px) {
+  .card h1 { font-size: 34px; }
+  .card .how { line-height: 1.4; }
+}
+
+/* the shared pause card's backdrop and buttons, in the pharmacy's teal */
+.gs-pause { background: rgba(23, 54, 58, 0.5); }
+.gs-pause-card h2 { font-family: "DM Serif Display", Georgia, serif; font-weight: 400; }

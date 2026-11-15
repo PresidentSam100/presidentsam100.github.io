@@ -54,6 +54,7 @@ const CARDS = {
   "slither/": [["#menu-btn", "⌫"], ["#pause-restart", "R"], ["#pause-menu", "⌫"], ["#result-primary", "Enter"], ["#result-menu", "⌫"]],
   "hash/": [["#ovBtn", "Space or Enter"], ["#ovMenu", "⌫"]],
   "jam-jar/": [["#againBtn", "Space or Enter"], ["#modesBtn", "⌫"]],
+  "dr-mr/": [["#again", "Space or Enter"], ["#to-menu", "⌫"]],
   "potting-shed/editor.html": [["#ed-test", "T"], ["#ed-check", "C"], ["#ed-save", "S"], ["#ed-new", "N"], ["#ed-play", "G"], ["#ed-share", "L"], ["#ed-export", "E"], ["#ed-import", "I"], ["#ed-frame", "B"], ["#ed-io-close", "Esc"], ["#ed-io-copy", "Ctrl+C"], ["#ed-io-load", "Ctrl+Enter"]],
   "steamfitter/": [["#againBtn", "Space or Enter"]],
   "salvo/": [["#againBtn", "Space or Enter"]],
