@@ -325,6 +325,46 @@ function pipeCap(ctx, x, y, w, h, pal, bodyBelow) {
   ctx.fillRect(x + 3, y + 3, w - 6, 3);
 }
 
+// The maker's stamp, SAM LU over PIPE CO., pressed into every length of
+// pipe: letters in the pipe's own darkest colour with a lit lower edge, as if
+// pushed into the plastic. It sits on the tube a little way back from the cap
+// (STAMP_BACK from the gap's edge), past the arrows that mark the moving and
+// shifting pipes, and between their edge stripes (STAMP_W wide): the cap's
+// rim is too shallow for letters that still read at a phone's size. The
+// letters keep their height; a wider stand-in font (before the game's own
+// has loaded) is drawn narrower to fit.
+const STAMP_LINES = ['SAM LU', 'PIPE CO.'];
+const STAMP_SIZE = [15.5, 13.5], STAMP_W = 52, STAMP_GAP = 3.5, STAMP_BACK = 46;
+function stampLayout(ctx) {
+  const lines = STAMP_LINES.map((text, i) => {
+    const size = STAMP_SIZE[i];
+    ctx.font = size + 'px ' + FONT;
+    const m = ctx.measureText(text);
+    return { text, size, w: Math.min(STAMP_W, m.width), cap: m.actualBoundingBoxAscent || size * 0.7 };
+  });
+  return { lines, h: lines[0].cap + STAMP_GAP + lines[1].cap };
+}
+// (cx, cy): the stamp's middle; pal: the pipe's colours; L: stampLayout's
+// lines. Returns where it went, in canvas units (the tests read it).
+function pipeStamp(ctx, cx, cy, pal, L) {
+  ctx.save();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  let y = cy - L.h / 2, w = 0;
+  for (const ln of L.lines) {
+    y += ln.cap;
+    ctx.font = ln.size + 'px ' + FONT;
+    w = Math.max(w, ln.w);
+    ctx.fillStyle = pal.hi;
+    ctx.save(); ctx.globalAlpha *= 0.55; ctx.fillText(ln.text, cx, y + 1, STAMP_W); ctx.restore();
+    ctx.fillStyle = pal.dark;
+    ctx.save(); ctx.globalAlpha *= 0.82; ctx.fillText(ln.text, cx, y, STAMP_W); ctx.restore();
+    y += STAMP_GAP;
+  }
+  ctx.restore();
+  return { text: STAMP_LINES.join(' '), size: Math.min(L.lines[0].size, L.lines[1].size), x: cx - w / 2, y: cy - L.h / 2, w, h: L.h + 1 };
+}
+
 // ============================================================
 // BIRD CLASS
 // ============================================================
@@ -632,6 +672,13 @@ class BasePipe {
     // Caps facing the gap
     pipeCap(ctx, this.x - 4, topH - 20, PIPE_W + 8, 20, PIPE_GREEN, false);
     pipeCap(ctx, this.x - 4, botY, PIPE_W + 8, 20, PIPE_GREEN, true);
+
+    // the maker's stamp on each tube, back from its cap
+    const L = stampLayout(ctx), mid = this.x + PIPE_W / 2;
+    this.stamps = [
+      pipeStamp(ctx, mid, topH - STAMP_BACK - L.h / 2, PIPE_GREEN, L),
+      pipeStamp(ctx, mid, botY + STAMP_BACK + L.h / 2, PIPE_GREEN, L)
+    ];
   }
 
   getHitboxes() {
@@ -774,6 +821,15 @@ class SeqPipe {
     pipeCap(ctx, this.x - 4, 300, PIPE_W + 8, 20, PIPE_PURPLE, true);    // top of the middle section
     pipeCap(ctx, this.x - 4, 480, PIPE_W + 8, 20, PIPE_PURPLE, false);   // bottom of the middle section
     pipeCap(ctx, this.x - 4, 630, PIPE_W + 8, 20, PIPE_PURPLE, true);    // top of the bottom section
+
+    // the maker's stamp on each section: back from the cap on the top and
+    // bottom ones, as on the green pipes, and in the middle of the middle one
+    const L = stampLayout(ctx), mid = this.x + PIPE_W / 2;
+    this.stamps = [
+      pipeStamp(ctx, mid, 170 - STAMP_BACK - L.h / 2, PIPE_PURPLE, L),
+      pipeStamp(ctx, mid, 400, PIPE_PURPLE, L),
+      pipeStamp(ctx, mid, 630 + STAMP_BACK + L.h / 2, PIPE_PURPLE, L)
+    ];
 
     // x2 labels in gaps
     ctx.textAlign = 'center';
@@ -2174,6 +2230,18 @@ class Game {
     this.ctx.setTransform(this.canvas.width / CANVAS_W, 0, 0, this.canvas.height / CANVAS_H, 0, 0);
     // and the scenery pictures at the same ratio
     setArtRatio(this.canvas.width / CANVAS_W);
+  }
+
+  // Each pipe on screen, its tubes and its maker's stamps as last drawn, on
+  // the page in CSS px (for the tests)
+  stampsOnPage() {
+    const r = this.canvas.getBoundingClientRect(), k = r.width / CANVAS_W;
+    const box = (b) => ({ x: r.left + b.x * k, y: r.top + b.y * k, w: b.w * k, h: b.h * k });
+    return this.pipeManager.pipes.map((p) => ({
+      kind: p.constructor.name, x: r.left + p.x * k, w: PIPE_W * k, ground: r.top + GROUND_Y * k, top: r.top, left: r.left, right: r.right,
+      hitboxes: p.getHitboxes().map(box),
+      stamps: (p.stamps || []).map((s) => Object.assign(box(s), { text: s.text, size: s.size * k }))
+    }));
   }
 
   init() {

@@ -320,4 +320,70 @@ module.exports = async ({ browser, base, check, lib }) => {
   await done(p, "ground, double gap and sliding pipes");
 
   await ctx.close();
+
+  // ---- the maker's stamp, SAM LU over PIPE CO., pressed into every length of
+  // pipe back from its cap: on every kind of pipe, inside its tube (never in
+  // a gap, nor under the ground), within the stripes and clear of the arrows
+  // that mark the moving and shifting pipes, its letters 8 px or more on a
+  // phone; the pipes' hit boxes are those they always had; no "made by" line.
+  // Every kind is laid out on screen and held still, the bird kept clear.
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/flappy-world/");
+    await q.keyboard.press("Space");
+    const runs = [];
+    for (const line of ["B M N S", "H O C X E"]) {
+      await q.evaluate((line) => {
+        game.invincibleTime = 1e9; game.pipeManager.update = () => {};
+        game.enemyManager.update = () => {}; game.enemyManager.draw = () => {};
+        const mk = { B: (x) => new BasePipe(x, 330, 180), M: (x) => new MovingPipe(x, 470, 180), N: (x) => new NarrowEntryPipe(x, 380, 180), S: (x) => new SeqPipe(x),
+          H: (x) => new HorizPipe(x, 300, 180), O: (x) => new OpenPipe(x, 420, 180), C: (x) => new ClosePipe(x, 330, 180), X: (x) => new NarrowExitPipe(x, 560, 180), E: (x) => new BasePipe(x, 650, 180) };
+        const ks = line.split(" ");
+        game.pipeManager.pipes = ks.map((k, j) => { const p = mk[k](12 + j * (ks.length > 4 ? 94 : 118)); if (k === "H") p.update = () => {}; delete p.stamps; return p; });
+        if (!window.__held) { window.__held = true; (function f() { game.bird.y = 60; game.bird.vy = 0; requestAnimationFrame(f); })(); }
+      }, line);
+      // (until every pipe has been drawn with its stamps)
+      await q.waitForFunction(() => game.pipeManager.pipes.every((p) => p.stamps), null, { timeout: 15000, polling: 100 }).catch(() => {});
+      runs.push(await q.evaluate(() => {
+        if (typeof game.stampsOnPage !== "function") return null;
+        // where the hit boxes always were (from the gap, or the double pipe's fixed sections)
+        const was = (p) => p instanceof SeqPipe ? [[-10, 172], [320, 182], [650, CANVAS_H]].map(([y, h]) => [p.x - 2, y, PIPE_W + 4, h])
+          : [[p.x - 2, -10, PIPE_W + 4, p.gapY - p.gapH / 2 + 10], [p.x - 2, p.gapY + p.gapH / 2, PIPE_W + 4, CANVAS_H]];
+        const hitSame = game.pipeManager.pipes.every((p) => JSON.stringify(p.getHitboxes().map((b) => [b.x, b.y, b.w, b.h])) === JSON.stringify(was(p)));
+        return { hitSame, pipes: game.stampsOnPage() };
+      }));
+    }
+    const bad = [];
+    for (const r of runs) {
+      if (!r) { bad.push("no stamps hook"); continue; }
+      if (!r.hitSame) bad.push("hit boxes changed");
+      for (const p of r.pipes) {
+        const tubes = p.hitboxes.map((h) => ({ top: h.y, bottom: Math.min(h.y + h.h, p.ground) }));
+        // (whole stamps: in the window, above the ground, on a tube)
+        const seen = p.stamps.filter((s) => s.y >= p.top && s.y + s.h <= p.ground && tubes.some((t) => s.y >= t.top && s.y + s.h <= t.bottom));
+        if (!seen.length) { bad.push(p.kind + ": no whole stamp on screen"); continue; }
+        for (const s of p.stamps) {
+          if (s.text !== "SAM LU PIPE CO.") bad.push(p.kind + ": reads " + s.text);
+          if (s.size < 8) bad.push(p.kind + ": letters " + s.size.toFixed(1) + " px");
+          // within the stripes (8 px of the tube's 70 at each edge)
+          const k = p.w / 70;
+          if (s.x < p.x + 8 * k - 0.5 || s.x + s.w > p.x + p.w - 8 * k + 0.5) bad.push(p.kind + ": past the tube's stripes");
+          // never in a gap: a stamp that shows lies on a tube
+          if (s.y + s.h > p.top && s.y < p.ground && !tubes.some((t) => s.y >= t.top - 0.5 && s.y + s.h <= t.bottom + 0.5) && !(s.y >= p.ground))
+            bad.push(p.kind + ": a stamp off its tube");
+          // clear of the arrows, 41 of the canvas's 854 from the gap's edge
+          // (the double pipe has none: its hit boxes stop short of its caps)
+          const gapEdges = tubes.flatMap((t) => [t.top, t.bottom]).filter((y) => y > p.top + 1 && y < p.ground - 1);
+          if (p.kind !== "SeqPipe" && gapEdges.some((e) => s.y < e + 41 * k && s.y + s.h > e - 41 * k)) bad.push(p.kind + ": too near a cap's arrows");
+        }
+      }
+    }
+    const madeBy = await q.evaluate(() => /made by/i.test(document.body.innerText));
+    check("flappy-world, " + label + ": every kind of pipe carries the maker's stamp SAM LU PIPE CO. on its tubes, readable, clear of the gaps, stripes and arrows; the hit boxes are unchanged",
+      bad.length === 0 && !madeBy, bad.length ? bad.slice(0, 8) : runs.map((r) => r && r.pipes.map((p) => p.kind + " " + p.stamps.map((s) => s.size.toFixed(1)).join("/")).join(", ")));
+    check("flappy-world (pipe stamp), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c.close();
+  }
 };
