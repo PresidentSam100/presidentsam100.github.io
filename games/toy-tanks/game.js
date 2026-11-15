@@ -154,6 +154,7 @@
     paintBack();
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     placeBanner();
+    placeStencil();
   }
   // the mat, the rim and the holes: drawn once a mission (they never change)
   function paintBack() {
@@ -241,7 +242,7 @@
     $("mine-btn").disabled = !(ui === "run" && st.status === "play" && st.player.alive && E.minesOf(st, st.player) < E.TUNE.playerMines);
     // (the lives are badges, no text: counted too, as fewer can change the HUD's rows)
     var key = $("hud").hidden + "|" + $("hud").textContent + "|" + lives;
-    if (key !== hudKey) { hudKey = key; if (chrome() !== fitChrome) { fit(); } }
+    if (key !== hudKey) { hudKey = key; if (chrome() !== fitChrome) { fit(); } else { placeStencil(); } }
   }
   var bannerText = "";
   function banner(html) {
@@ -327,6 +328,54 @@
     var a = canvas.getBoundingClientRect();
     if ([a.left, a.top, a.width, document.documentElement.clientWidth, window.innerHeight].join() !== placedFor) placeBanner();
   }
+
+  // ---- the stencil on the box ------------------------------------------------------------
+  // The biggest of its forms that fits clear of everything on the box (the
+  // corner buttons, the name, the HUD's room, the arena, the sticks and their
+  // labels, the Mine button, how to play): on the boards left of the arena,
+  // its foot level with the arena's; else under it all, in the middle of the
+  // room left there; else on the lid, beside the name.
+  var STENCIL = [["", 1.25], ["", 1], ["", 0.8], ["side", 1], ["line", 1], ["side", 0.8], ["line", 0.85], ["side", 0.7]];
+  function placeStencil() {
+    var el = $("stencil"), W = document.documentElement.clientWidth, H = window.innerHeight, M = 8, G = 4;
+    var rects = [], top = M, left = W, low = 0;
+    Array.prototype.forEach.call(document.querySelectorAll(".nav-back-games, .gs-corner > *, .title, #hud, #stage, .stick, .stick span, #mine-btn, #hint"), function (e) {
+      if (!e.getClientRects().length) return;
+      var r = e.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      rects.push({ l: r.left - G, t: r.top - G, r: r.right + G, b: r.bottom + G });
+      if (e.matches(".nav-back-games, .gs-corner > *")) { top = Math.max(top, r.bottom + G); return; }
+      left = Math.min(left, r.left); low = Math.max(low, r.bottom);
+    });
+    var ar = $("stage").getBoundingClientRect(), nr = document.querySelector(".title").getBoundingClientRect();
+    function clear(x, y, w, h) {
+      if (x < M || y < M || x + w > W - M || y + h > H - M) return false;
+      for (var i = 0; i < rects.length; i++) { var o = rects[i]; if (x < o.r && x + w > o.l && y < o.b && y + h > o.t) return false; }
+      return true;
+    }
+    function slots(w, h) {
+      return [
+        [(left - G) / 2 - w / 2, Math.min(ar.bottom, H - M) - h],                  // the boards left of the arena
+        [W / 2 - w / 2, (low + G + H - M) / 2 - h / 2],                             // under it all
+        [(nr.right + G + W - M) / 2 - w / 2, (nr.top + nr.bottom) / 2 - h / 2],     // the lid, right of the name
+        [(M + nr.left - G) / 2 - w / 2, (nr.top + nr.bottom) / 2 - h / 2]           // the lid, left of it
+      ];
+    }
+    el.style.left = "0px"; el.style.top = "0px";
+    for (var i = 0; i < STENCIL.length; i++) {
+      el.className = STENCIL[i][0];
+      el.style.setProperty("--k", STENCIL[i][1]);
+      var w = el.offsetWidth, h = el.offsetHeight, at = slots(w, h);
+      for (var j = 0; j < at.length; j++) {
+        var x = Math.round(at[j][0]), y = Math.round(at[j][1]);
+        if (y < top || !clear(x, y, w, h)) continue;
+        el.style.left = x + "px"; el.style.top = y + "px"; el.classList.add("placed");
+        return;
+      }
+    }
+    el.className = "";   // (no room anywhere: left off rather than over anything)
+  }
+
   function missionCard() {
     var kinds = {}, order = [];
     st.enemies.forEach(function (e) { if (!kinds[e.kind]) { kinds[e.kind] = 0; order.push(e.kind); } kinds[e.kind]++; });
@@ -767,6 +816,9 @@
 
   toMenu();
   fit();
+  // (the stencil placed again once the corner buttons are in: they're built as the page finishes loading)
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeStencil);
+  window.addEventListener("load", placeStencil);
   requestAnimationFrame(frame);
 
   // test hooks: the Playwright harness drives runs through these

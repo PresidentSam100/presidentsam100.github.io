@@ -135,6 +135,43 @@ html.fx-on #banner.show { animation: drop-in 0.32s cubic-bezier(0.2, 1.4, 0.4, 1
 #mine-btn:disabled { opacity: 0.5; }
 @media (hover: none) { .hint { font-size: 12px; } }
 
+/* ---- on the boards: the owner's stencil, sprayed in the name's yellow --------------
+   (a form and a size picked by game.js, placeStencil: the tank over the
+   words, the tank beside them, or all on one line; --k scales the lot) */
+#stencil {
+  position: fixed; left: 0; top: 0; z-index: 1; visibility: hidden; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 0.35em;
+  font-family: var(--face); font-size: calc(10px * var(--k, 1)); line-height: 1.15; white-space: nowrap;
+  color: var(--yellow); opacity: 0.86;
+  filter: drop-shadow(0 0 0.07em rgba(255, 210, 63, 0.75)) drop-shadow(0 0 0.35em rgba(255, 210, 63, 0.16));
+  /* (worn: a fine grain of spots where the paint didn't take) */
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='2' seed='7'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -5 0 0 0 4.3'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+#stencil.placed { visibility: visible; }
+#stencil .st-tank { display: block; flex: none; width: 6.6em; height: auto; }
+#stencil .st-words { display: flex; flex-direction: column; align-items: center; gap: 0.1em; }
+#stencil .st-of { font-size: 1.3em; letter-spacing: 0.16em; }
+#stencil .st-name { font-size: 2.5em; letter-spacing: 0.1em; }
+/* a bridge: the stencil's strip left across a letter, the paint cut there */
+#stencil .b {
+  --at: 50%; --gap: 0.07em;
+  display: inline-block; font-style: normal; letter-spacing: 0;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--at) - var(--gap)), transparent 0, transparent calc(var(--at) + var(--gap)), #000 0);
+  mask-image: linear-gradient(90deg, #000 calc(var(--at) - var(--gap)), transparent 0, transparent calc(var(--at) + var(--gap)), #000 0);
+}
+#stencil .st-of .b { margin-right: 0.16em; }
+#stencil .st-name .b { margin-right: 0.1em; }
+#stencil.side { flex-direction: row; gap: 0.5em; line-height: 1; }
+#stencil.side .st-tank { width: 3.6em; }
+#stencil.side .st-words { align-items: flex-start; gap: 0; }
+#stencil.side .st-of { font-size: 1em; }
+#stencil.side .st-name { font-size: 1.75em; }
+#stencil.line { flex-direction: row; gap: 0.45em; }
+#stencil.line .st-tank { width: 2.4em; }
+#stencil.line .st-words { flex-direction: row; align-items: baseline; gap: 0.4em; }
+#stencil.line .st-of, #stencil.line .st-name { font-size: 1.15em; }
+
 /* ---- the cards: toy-box labels ---------------------------------------------------- */
 .panel { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; padding: 58px 14px 16px; overflow-y: auto; background: rgba(15, 42, 92, 0.45); }
 .panel[hidden] { display: none; }

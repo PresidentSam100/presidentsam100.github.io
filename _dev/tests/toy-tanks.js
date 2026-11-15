@@ -14,7 +14,8 @@
 // lost; a shell's smoke lingers after it's gone. A mine's light is dark
 // until its layer is off it, then lit; in its last 2 s it blinks and beeps;
 // a tank come near sets it beeping, and it goes off 0.4 s later; a mission
-// over, a mine about to go off holds its light and beeps no more.
+// over, a mine about to go off holds its light and beeps no more. The box
+// carries its owner's stencil, clear of everything on it at every size.
 const vm = require("vm"), fs = require("fs"), path = require("path");
 
 function engine(root) {
@@ -1227,5 +1228,63 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: with no room off the arena, a banner goes over it, set close in a strip, where it covers no tank (six hand-made missions)", r.every((o) => o.under === 0 && o.over && o.strip), r);
     check("toy-tanks (banner over the arena): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
+  }
+
+  // ---- on the box, sprayed through a stencil: PROPERTY OF SAM LU, with your
+  // tank seen from above (its treads, hull, turret and barrel) in the same
+  // paint. At every size, on the menu and in a run, it's on the screen, clear
+  // of everything on the box (the corner buttons, the name, the HUD's room,
+  // the arena, the sticks and their labels, the Mine button, how to play),
+  // with nothing scrolling, under the menu's card rather than over it, and
+  // still clear once more lives wrap the HUD. No "made by" line anywhere.
+  {
+    const ph = (d, w, h) => Object.assign({}, devices[d], { viewport: { width: w, height: h } });
+    const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["320x568", ph("iPhone SE", 320, 568)], ["360x560", ph("Pixel 7", 360, 560)], ["375x553", ph("iPhone SE", 375, 553)], ["390x844", ph("iPhone 13", 390, 844)],
+      ["Pixel 7", devices["Pixel 7"]], ["Pixel 7 on its side", devices["Pixel 7 landscape"]]];
+    const read = (q) => q.evaluate(() => {
+      const el = document.getElementById("stencil");
+      if (!el) return { missing: true, madeBy: /made by/i.test(document.body.innerText) || !!document.getElementById("byline") };
+      const r = el.getBoundingClientRect(), cs = getComputedStyle(el), svg = el.querySelector("svg.st-tank");
+      const parts = svg ? { rects: svg.querySelectorAll("g rect").length, circles: svg.querySelectorAll("g circle").length, w: Math.round(svg.getBoundingClientRect().width), fill: getComputedStyle(svg.querySelector("g")).fill } : null;
+      const sizes = [...el.querySelectorAll(".st-of, .st-name")].map((e) => parseFloat(getComputedStyle(e).fontSize));
+      const hits = [];
+      document.querySelectorAll(".nav-back-games, .gs-corner > *, .title, #hud, #arena, .stick, .stick span, #mine-btn, #hint").forEach((e) => {
+        if (!e.getClientRects().length) return;
+        const o = e.getBoundingClientRect();
+        if (r.left < o.right && r.right > o.left && r.top < o.bottom && r.bottom > o.top) hits.push(e.id || e.className.split(" ")[0] || e.tagName);
+      });
+      const menu = document.getElementById("menu");
+      return {
+        words: el.querySelector(".st-words").innerText.replace(/\s+/g, " ").trim(), label: el.getAttribute("aria-label"),
+        shown: cs.visibility === "visible" && cs.display !== "none" && +cs.opacity >= 0.6 && r.width > 0, box: [r.left, r.top, r.right, r.bottom].map(Math.round),
+        inside: r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, hits, smallest: Math.min(...sizes),
+        tank: parts, paint: cs.color, underCard: +cs.zIndex < +getComputedStyle(menu).zIndex,
+        scroll: document.documentElement.scrollHeight > innerHeight || document.documentElement.scrollWidth > innerWidth,
+        madeBy: /made by/i.test(document.body.innerText) || !!document.getElementById("byline")
+      };
+    });
+    const ok = (f) => !f.missing && f.words === "PROPERTY OF SAM LU" && /property of sam lu/i.test(f.label) && f.shown && f.inside && !f.hits.length && f.smallest >= 8 &&
+      f.tank && f.tank.rects >= 4 && f.tank.circles >= 1 && f.tank.w >= 20 && f.tank.fill === f.paint && f.underCard && !f.scroll && !f.madeBy;
+    const seen = {}, bad = [];
+    for (const [name, opts] of SIZES) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/toy-tanks/");
+      await q.waitForFunction(() => { const e = document.getElementById("stencil"); return e && e.classList.contains("placed"); }, null, { timeout: 5000 }).catch(() => {});
+      const menu = seen[name + " menu"] = await read(q);
+      if (!ok(menu)) bad.push(name + " menu");
+      if (!menu.missing) {
+        await q.evaluate(() => ToyTanks.start(1)); await q.waitForTimeout(100);
+        const run = seen[name + " run"] = await read(q);
+        if (!ok(run)) bad.push(name + " run");
+        await q.evaluate(() => { ToyTanks.st().lives = 6; ToyTanks.advance(16, {}); });
+        const lives = seen[name + " six lives"] = await read(q);
+        if (!ok(lives)) bad.push(name + " six lives");
+      }
+      check("toy-tanks (stencil " + name + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    check("toy-tanks: PROPERTY OF SAM LU is sprayed on the box with your tank above or beside it, on the screen and clear of everything on the box at every size (1280x900, 1366x657, 1280x600, 320x568, 360x560, 375x553, 390x844, Pixel 7 upright and on its side), on the menu, in a run and with the HUD grown, under the menu's card; no \"made by\" line",
+      bad.length === 0, { bad, seen });
   }
 };

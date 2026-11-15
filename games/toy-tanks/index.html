@@ -67,6 +67,39 @@
   </div>
 </main>
 
+<!-- sprayed on the box through a stencil: whose toy box it is, with your
+     tank seen from above. Each letter with a counter keeps its stencil's
+     bridge (.b, cut where --at says). Placed by game.js (placeStencil) on
+     the boards beside the arena, under it, or on the lid by the name -->
+<div id="stencil" role="img" aria-label="Property of Sam Lu">
+  <svg class="st-tank" viewBox="0 0 46 34" aria-hidden="true">
+    <defs>
+      <mask id="st-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="46" height="34">
+        <rect width="46" height="34" fill="#fff"/>
+        <!-- the bridges: across the treads, round the turret, along the barrel -->
+        <path d="M7.4 0V9.2M12.8 0V9.2M18.2 0V9.2M23.6 0V9.2M29 0V9.2M7.4 24.8V34M12.8 24.8V34M18.2 24.8V34M23.6 24.8V34M29 24.8V34" stroke="#000" stroke-width="1.3"/>
+        <circle cx="19.2" cy="17" r="8.3" fill="#000"/>
+        <rect x="19.2" y="12.9" width="27" height="8.2" fill="#000"/>
+        <circle cx="19.2" cy="17" r="6.6" fill="#fff"/>
+        <rect x="19.2" y="14.6" width="22.4" height="4.8" fill="#fff"/>
+        <rect x="38.4" y="13.8" width="3.4" height="6.4" fill="#fff"/>
+      </mask>
+    </defs>
+    <g mask="url(#st-cut)" fill="currentColor">
+      <rect x="2" y="2.2" width="34.4" height="6.2" rx="1.6"/>
+      <rect x="2" y="25.6" width="34.4" height="6.2" rx="1.6"/>
+      <rect x="3.6" y="10" width="31.2" height="14" rx="2.4"/>
+      <circle cx="19.2" cy="17" r="6.6"/>
+      <rect x="19.2" y="14.6" width="22.4" height="4.8"/>
+      <rect x="38.4" y="13.8" width="3.4" height="6.4"/>
+    </g>
+  </svg>
+  <span class="st-words" aria-hidden="true">
+    <span class="st-of"><i class="b" style="--at:38%">P</i><i class="b" style="--at:37%">R</i><i class="b">O</i><i class="b" style="--at:38%">P</i>ERTY <i class="b">O</i>F</span>
+    <span class="st-name">S<i class="b">A</i>M LU</span>
+  </span>
+</div>
+
 <section class="panel" id="menu">
   <div class="card has-grid">
     <h2>Toy Tanks</h2>
