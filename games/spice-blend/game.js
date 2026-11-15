@@ -101,9 +101,44 @@
     w.setAttribute("aria-label", sc.right + " right in place, " + sc.near + " right but in another bowl");
     return w;
   }
+  // The stall's name on its flap: centred in the top row if it fits between
+  // the corner buttons (kept a little clear of them, nudged along if the
+  // middle is taken), else hung on cords just under them, the stall starting
+  // under it. signClear: where the page's own content may start under it.
+  var signClear = 58;
+  function placeSign() {
+    var s = $("awning-name"), stall = document.querySelector(".stall");
+    // (laid out afresh each time: without a sign, the stall as it always was)
+    document.body.classList.remove("sign-low");
+    if (stall) stall.style.paddingTop = "";
+    signClear = 58;
+    if (!s || !stall) return;
+    s.style.top = "";
+    var back = document.querySelector(".nav-back-games"), row = document.querySelector(".gs-corner");
+    var W = document.documentElement.clientWidth, room = 14;
+    var L = back ? back.getBoundingClientRect().right : 0, R = row ? row.getBoundingClientRect().left : W;
+    var under = Math.max(back ? back.getBoundingClientRect().bottom : 0, row ? row.getBoundingClientRect().bottom : 0);
+    var w = s.offsetWidth, low = R - L - 2 * room < w;
+    var cx = W / 2;
+    if (!low) cx = Math.min(Math.max(cx, L + room + w / 2), R - room - w / 2);
+    else {
+      document.body.classList.add("sign-low");
+      w = s.offsetWidth;
+      // (its top 8 px behind the buttons, the cords up to the awning's edge)
+      var top = Math.round(under - 8);
+      s.style.top = top + "px";
+      s.style.setProperty("--cord", Math.max(0, top - 20) + "px");
+      cx = W / 2;
+    }
+    s.style.left = Math.round(cx - w / 2) + "px";
+    var bottom = s.getBoundingClientRect().bottom;
+    signClear = low ? Math.round(bottom + 4) : 58;
+    if (low) stall.style.paddingTop = Math.round(bottom + 1) + "px";
+  }
   // the bowls sized so every taste fits the screen: in its height beside the spices
   // and, on a phone, in the width the spices leave too
   function fit() {
+    placeSign();
     var list = $("rows"), wide = window.matchMedia("(min-width: 760px)").matches, k = M.bowls, R = M.tries;
     $("palette").style.setProperty("--cols", wide ? (M.spices > 6 ? 4 : 3) : 2);
     var top = list.getBoundingClientRect().top + window.scrollY;
@@ -128,7 +163,7 @@
     var now = document.querySelector("#rows .row.now"); if (!now) return;
     var r = now.getBoundingClientRect();
     if (r.bottom > window.innerHeight - 6) window.scrollBy(0, r.bottom - window.innerHeight + 6);
-    else if (r.top < 58) window.scrollBy(0, r.top - 58);
+    else if (r.top < signClear) window.scrollBy(0, r.top - signClear);
   }
   function paint() {
     var board = $("rows");
@@ -263,6 +298,9 @@
       groups: [{ sel: "#to-menu", keys: ["backspace"] }], start: "#again", space: true });
   }
   window.addEventListener("resize", function () { fit(); keepInView(); });
+  // (the corner buttons and the fonts may come after this script: the sign is placed again once they have)
+  window.addEventListener("load", fit);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
   toMenu();
 
   // test hooks: the Playwright harness drives blends through these
@@ -275,6 +313,8 @@
     cur: function () { return cur.slice(); },
     add: add, taste: taste, takeBack: takeBack,
     start: startRun, toMenu: toMenu,
+    // the stall's name on its flap (page px), and whether it hangs under the corner buttons
+    sign: function () { var e = $("awning-name"); if (!e) return null; var r = e.getBoundingClientRect(); return { text: e.textContent, x: r.left, y: r.top, w: r.width, h: r.height, low: document.body.classList.contains("sign-low"), size: parseFloat(getComputedStyle(e).fontSize) }; },
     score: score
   };
 })();

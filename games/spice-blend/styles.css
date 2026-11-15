@@ -37,6 +37,33 @@ body {
   -webkit-mask: radial-gradient(circle at 17px 26px, transparent 9px, #000 10px) 0 0 / 34px 26px repeat-x;
           mask: radial-gradient(circle at 17px 26px, transparent 9px, #000 10px) 0 0 / 34px 26px repeat-x;
 }
+/* the stall's name, painted on a canvas flap hung from the awning: cream
+   canvas edged in the awning's saffron, the letters in a burnt saffron, in
+   the title's face. game.js (placeSign) hangs it in the top row between the
+   corner buttons, its top tucked up under the scallops; where the buttons
+   fill that row (a phone) it hangs lower on two cords, just under them, and
+   the stall below starts under it (body.sign-low). With Visual FX on it
+   sways a little on its hooks; off, it hangs still. */
+.awning-name {
+  position: fixed; top: 14px; left: 50%; z-index: 4; pointer-events: none;
+  padding: 13px 16px 5px;
+  background: repeating-linear-gradient(80deg, rgba(0, 0, 0, 0.03) 0 1px, transparent 1px 6px), var(--cream);
+  border: 2px solid #e8891e; border-top: 0; border-radius: 0 0 7px 7px;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.35), inset 0 -3px 0 rgba(232, 137, 30, 0.22);
+  font: 400 15px/1 "Yeseva One", serif; letter-spacing: 1.5px; color: #a8500f; white-space: nowrap;
+  transform-origin: 50% 0;
+}
+.sign-low .awning-name { padding: 11px 12px 3px; font-size: 12.5px; letter-spacing: 1px; }
+.sign-low .awning-name::before, .sign-low .awning-name::after {
+  content: ""; position: absolute; bottom: 100%; width: 2px; height: var(--cord, 12px);
+  background: #6b4a2a; left: 16%;
+}
+.sign-low .awning-name::after { left: auto; right: 16%; }
+html.fx-on .awning-name { animation: sb-sway 7s ease-in-out infinite; }
+@keyframes sb-sway { 0%, 100% { transform: rotate(-0.7deg); } 50% { transform: rotate(0.7deg); } }
+/* (under a low sign the title and the tastes' count close up, so the tastes lose little height) */
+.sign-low .stall { gap: 3px; }
+.sign-low .title { font-size: 28px; line-height: 1; }
 .nav-back-games {
   position: fixed; top: 16px; left: 18px; z-index: 50;
   font-family: inherit; font-size: 15px; font-weight: 800;

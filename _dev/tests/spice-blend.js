@@ -136,4 +136,59 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
   await ctx.close();
+
+  // ---- the stall's name, SAM LU SPICES, painted on a canvas flap hung from
+  // the awning: tucked up under its scallops in the top row between the
+  // corner buttons, or on a phone hung on cords just under them. Its letters
+  // are inside the screen and clear of the corner buttons, the title, the
+  // tastes' count, the rows, the spices and the buttons, on the menu and in
+  // both stalls; the page is no taller and the tastes' bowls no smaller than
+  // with the flap taken down; no "made by" line
+  {
+    const { devices } = require("@playwright/test");
+    const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const SIGN = () => {
+      const s = window.SpiceBlend && SpiceBlend.sign && SpiceBlend.sign();
+      if (!s) return null;
+      const el = document.getElementById("awning-name"), rg = document.createRange();
+      rg.selectNodeContents(el);
+      const t = rg.getBoundingClientRect();
+      const hit = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top; };
+      const over = [...document.querySelectorAll(".nav-back-games, .gs-corner > *, .title, .tries, #rows .row, #palette .spice, #tools button, .stall .keys, #record")]
+        .filter((e) => getComputedStyle(e).visibility !== "hidden").filter(hit).map((e) => e.id || e.className || e.tagName);
+      const cord = parseFloat(getComputedStyle(el).getPropertyValue("--cord")) || 0;
+      // the page's height and the bowls' size, and both again with the flap taken down
+      const bowl = () => parseFloat(getComputedStyle(document.getElementById("rows")).getPropertyValue("--bowl")) || 0;
+      const sh = document.documentElement.scrollHeight, b = bowl(), at = el.nextSibling, home = el.parentNode;
+      el.remove(); window.dispatchEvent(new Event("resize"));
+      const shBare = document.documentElement.scrollHeight, bBare = bowl();
+      home.insertBefore(el, at); window.dispatchEvent(new Event("resize"));
+      return { text: s.text.trim(), low: s.low, size: s.size, x: Math.round(t.left), y: Math.round(t.top), right: Math.round(t.right), bottom: Math.round(t.bottom),
+        top: Math.round(s.y), hangs: s.low ? s.y - cord <= 27 : s.y <= 26, W: innerWidth, H: innerHeight, sh, shBare, bowl: b, bowlBare: bBare, over,
+        madeBy: /made by/i.test(document.body.innerText) };
+    };
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["390x844", mob(390, 844)], ["360x640", mob(360, 640)], ["320x568", mob(320, 568)], ["375x553", mob(375, 553)], ["360x560", mob(360, 560)],
+      ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await open(c);
+      const seen = { menu: await q.evaluate(SIGN) };
+      for (const m of ["stall", "bazaar"]) { await q.evaluate((m) => window.SpiceBlend && SpiceBlend.start(m), m); await q.waitForTimeout(150); seen[m] = await q.evaluate(SIGN); }
+      const bad = Object.entries(seen).filter(([k, r]) => !r || r.text !== "SAM LU SPICES" || !r.hangs || r.size < 12 || r.x < 0 || r.right > r.W || r.y < 0 || r.bottom > r.H ||
+        (k !== "menu" && r.over.length) || (k === "menu" && r.over.some((o) => /nav-back|gs-|toggle/.test(o))) || r.sh > Math.max(r.H, r.shBare) || r.bowl < r.bowlBare || r.madeBy);
+      check("spice-blend, " + label + ": SAM LU SPICES is painted on a flap hung from the awning, inside the screen and clear of the corner buttons, the title and the play; the page no taller and the bowls no smaller than without it",
+        bad.length === 0, bad.length ? Object.fromEntries(bad) : Object.fromEntries(Object.entries(seen).map(([k, r]) => [k, (r.low ? "low " : "top row ") + r.size + "px"])));
+      await done(q, "awning name, " + label);
+      await c.close();
+    }
+    // with Visual FX on the flap sways a little on its hooks; off, it hangs still
+    const sway = {}, cs = await lib.newContext(browser);
+    for (const off of [false, true]) {
+      const q = await open(cs, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:spice-blend", off ? "1" : "0"); } catch (e) {} }, off) });
+      sway[off ? "off" : "on"] = await q.evaluate(() => { const e = document.getElementById("awning-name"); return e ? getComputedStyle(e).animationName : null; });
+      await done(q, "awning name FX " + (off ? "off" : "on"));
+    }
+    await cs.close();
+    check("spice-blend: with Visual FX on the awning's name flap sways a little; with it off it hangs still", sway.on === "sb-sway" && sway.off === "none", sway);
+  }
 };
