@@ -408,4 +408,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
     await tctx.close();
   }
+
+  // ---- the temple's name: "TEMPLE OF SAM LU" carved on a stone tablet in
+  // the wall, on the game's page and the editor's, in place of a "made by"
+  // line. It stands on nothing (the title, the bar, the board, the HUD, the
+  // pads, the corner buttons) and within the page's width. While the menu is
+  // up the tablet is lit above the dark where the card leaves it in view (on
+  // a laptop's first screen) and never lit over the card. On a laptop with
+  // room for it, Classic's whole play screen, tablet and all, fits the
+  // window with nothing to scroll.
+  {
+    const TAB = [["laptop", 1280, 900], ["laptop", 1366, 657], ["phone", 390, 664], ["phone", 320, 568]];
+    const bad = {}, errs = [];
+    const look = (pg) => pg.evaluate(() => {
+      const t = document.getElementById("temple-tablet"), made = [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length;
+      if (!t) return { none: true, made };
+      const R = (e) => e.getBoundingClientRect(), s = R(t), hits = (r) => r.width && r.height && r.left < s.right && r.right > s.left && r.top < s.bottom && r.bottom > s.top;
+      const on = [];
+      for (const e of document.querySelectorAll("h1.title, .subtitle")) { const rg = document.createRange(); rg.selectNodeContents(e); if ([...rg.getClientRects()].some(hits)) on.push(e.className); }
+      for (const e of document.querySelectorAll(".nav-back-games, .gs-corner > *, #game-area > .row > *, canvas.board, #lab-hud, .dbtn, .pbtn, .ebtn, .ed-panel"))
+        if (e.getClientRects().length && hits(R(e))) on.push(e.id || e.className || e.tagName);
+      const menu = document.getElementById("menu"), card = menu && menu.querySelector(".card"), up = menu && !menu.classList.contains("hidden");
+      let overCard = false;
+      if (up && card) {
+        const o = R(menu), l = o.left + card.offsetLeft, top = o.top + card.offsetTop - menu.scrollTop;
+        overCard = s.left < l + card.offsetWidth + 8 && s.right > l - 8 && s.top < top + card.offsetHeight + 8 && s.bottom > top - 8;   // (within 8 px counts)
+      }
+      return { text: t.textContent.trim(), made, on, lit: t.classList.contains("lit"), up, overCard, z: getComputedStyle(t).zIndex,
+        wide: s.left >= 0 && s.right <= innerWidth, inView: s.top >= 0 && s.bottom <= innerHeight, scroll: document.documentElement.scrollHeight - innerHeight };
+    });
+    for (const [kind, w, h] of TAB) {
+      const tc = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await lib.open(tc, base, "games/slither/");
+      await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const menu = await look(q);
+      await q.evaluate(() => { document.querySelector('#mode-pick [data-mode="solo"]').click(); document.getElementById("play-btn").click(); });
+      await q.waitForFunction(() => document.getElementById("menu").classList.contains("hidden"));
+      await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+      const play = await look(q);
+      const qe = await lib.open(tc, base, "games/slither/editor.html");
+      const ed = await look(qe);
+      const fine = (m) => !m.none && m.text === "TEMPLE OF SAM LU" && !m.made && !m.on.length && m.wide;
+      const key = w + "x" + h;
+      // (on the menu: lit exactly where the card leaves it in view; the
+      // 1280 x 900 laptop's first screen shows it lit above the card)
+      if (!fine(menu) || !menu.up || (menu.lit && menu.overCard) || (menu.lit !== (!menu.overCard && menu.inView)) || (w === 1280 && h === 900 && !menu.lit)) bad[key + " menu"] = menu;
+      if (!fine(play) || play.lit || (w === 1280 && h === 900 && (!play.inView || play.scroll > 0))) bad[key + " play"] = play;
+      if (!fine(ed)) bad[key + " editor"] = ed;
+      errs.push(...q.errs, ...qe.errs);
+      await qe.close(); await q.close(); await tc.close();
+    }
+    check("slither: \"TEMPLE OF SAM LU\" on a carved tablet in the wall on the game's page and the editor's (no \"made by\" line), on no text, button, board or pad; lit above the menu's dark only where the card leaves it in view (a 1280 x 900 laptop's first screen); Classic on a 1280 x 900 laptop fits the window with it",
+      Object.keys(bad).length === 0, bad);
+    check("slither (the temple's tablet): no page errors", errs.length === 0, errs);
+  }
 };

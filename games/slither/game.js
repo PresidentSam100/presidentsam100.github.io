@@ -32,6 +32,31 @@
   var dpadP2 = document.getElementById("dpad-p2");
 
   var menuOverlay = document.getElementById("menu");
+  // The temple's name on its tablet in the wall: while the menu is up the
+  // wall goes dark behind it, and the tablet stays lit above the dark (.lit)
+  // wherever the menu's card leaves it in view (the card by its resting box,
+  // as it may be rising in); otherwise it waits in the dark behind the card.
+  (function () {
+    var tab = document.getElementById("temple-tablet"), card = menuOverlay && menuOverlay.querySelector(".card");
+    if (!tab || !card) return;
+    function light() {
+      var lit = false;
+      if (!menuOverlay.classList.contains("hidden")) {
+        var o = menuOverlay.getBoundingClientRect(), t = tab.getBoundingClientRect(), gap = 8;
+        var l = o.left + card.offsetLeft, top = o.top + card.offsetTop - menuOverlay.scrollTop, r = l + card.offsetWidth, b = top + card.offsetHeight;
+        lit = t.width > 0 && t.top >= 0 && t.bottom <= window.innerHeight && (t.bottom + gap <= top || t.top >= b + gap || t.right + gap <= l || t.left >= r + gap);
+      }
+      tab.classList.toggle("lit", lit);
+    }
+    // (after the rest of the page has changed with it: the play area shown or hidden)
+    var soon = function () { requestAnimationFrame(light); };
+    new MutationObserver(soon).observe(menuOverlay, { attributes: true, attributeFilter: ["class"] });
+    if (window.ResizeObserver) new ResizeObserver(soon).observe(card);
+    window.addEventListener("resize", light);
+    menuOverlay.addEventListener("scroll", light);
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(light);
+    light();
+  })();
   var pauseOverlay = document.getElementById("pause");
   var resultOverlay = document.getElementById("result");
   var resultTitle = document.getElementById("result-title");

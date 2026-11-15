@@ -274,7 +274,21 @@ details.dict-wrap[open] summary .dict-arrow::after { content: " ▴"; }
 details.dict-wrap summary .gs-kbd { margin-left: 6px; }
 .dict-item { font-size: 0.86rem; color: #54401f; padding: 0.3rem 0; line-height: 1.45; border-top: 1px solid rgba(125,97,57,0.3); }
 .dict-item b { color: #2e1f0c; }
-#byline { color: #7d6e55; font-size: 75%; margin-top: 0.4rem; }
+/* The temple's name, carved into a stone tablet set in the wall under the
+   play area: incised capitals laid in gold leaf. While the menu is up the
+   wall goes dark behind it; where the menu's card leaves the tablet in view
+   it stays lit above the dark (.lit, set by game.js), else it waits behind. */
+#temple-tablet {
+  position: relative; margin: 0.15rem 0 0; padding: 0.34rem calc(1rem - 0.18em) 0.28rem 1rem;
+  font-family: var(--display); font-weight: 700; font-size: 0.78rem; line-height: 1.2; letter-spacing: 0.18em;
+  white-space: nowrap; color: var(--gold);
+  text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 232, 170, 0.22);
+  background: linear-gradient(180deg, var(--stone-hi), var(--stone) 55%, #3a3024);
+  border: 1px solid var(--stone-lo); border-radius: 3px;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.12), inset 0 0 0 4px rgba(226, 182, 83, 0.28), inset 0 2px 0 rgba(255, 236, 190, 0.14), 0 2px 6px rgba(0, 0, 0, 0.55);
+  user-select: none;
+}
+#temple-tablet.lit { z-index: 21; }
 
 /* ---- level select: small carved tiles ---------------------------------------------- */
 .lab-tools { margin-top: 0.6rem; }
