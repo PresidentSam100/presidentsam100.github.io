@@ -713,9 +713,77 @@
     g.fillStyle = col; g.fillText(str, x, y);
   }
 
+  // ---- the glazier's plaque ---------------------------------------------------------
+  // A small engraved brass plaque under the window, crediting its glazier as
+  // a church window's maker is: Glazed by Sam Lu. It is screwed to the face
+  // of the sill, centred; where the sill is too shallow for letters that
+  // read, it hangs from just under the glass onto the wall below, never
+  // down onto the HUD (under the window on a phone) or past the screen's
+  // foot. With Visual FX on, a glint of the evening light crosses the brass
+  // every few seconds; with it off, the brass holds still.
+  var PLAQUE = "Glazed by Sam Lu", plaqueAt = null;
+  function plaqueGeo() {
+    var narrow = VW <= 640;
+    // from below the glass's lead edge (2 units into the stone) to the sill's foot
+    var top = OY + (FH + 2.5) * S + 1, foot = OY + (FH + FRAME) * S - 1;
+    var limit = narrow ? VH - 52 : VH - 3;
+    var f = Math.max(7, Math.min(14, (limit - top - 3) / 1.4)), h = Math.round(f * 1.4 + 3);
+    g.font = "italic 400 " + f.toFixed(1) + "px Alegreya, Georgia, serif";
+    var w = Math.round(g.measureText(PLAQUE).width + f * 2.8);
+    var y = foot - top >= h ? top + (foot - top - h) / 2 : top;
+    return { f: f, x: Math.round(OX + R * S - w / 2), y: Math.round(y), w: w, h: h };
+  }
+  function roundRect(x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function drawPlaque() {
+    var p = plaqueGeo(), x = p.x, y = p.y, w = p.w, h = p.h, r = Math.min(4, h * 0.22);
+    g.save();
+    g.fillStyle = "rgba(0, 0, 0, 0.38)"; roundRect(x + 1, y + 1.5, w, h, r); g.fill();
+    var brass = g.createLinearGradient(0, y, 0, y + h);
+    brass.addColorStop(0, "#f7de97"); brass.addColorStop(0.45, "#d8aa4e"); brass.addColorStop(1, "#9c7329");
+    g.fillStyle = brass; roundRect(x, y, w, h, r); g.fill();
+    g.lineWidth = 1; g.strokeStyle = "#15121a"; roundRect(x + 0.5, y + 0.5, w - 1, h - 1, r); g.stroke();
+    g.strokeStyle = "rgba(255, 246, 214, 0.5)"; roundRect(x + 2.5, y + 2.5, w - 5, h - 5, Math.max(1, r - 2)); g.stroke();
+    // the glint (Visual FX on): a slanted band of light across the brass, a
+    // second and a half to cross, every seven seconds; under the letters, so
+    // they always read
+    if (fx()) {
+      var k = ((performance.now() / 1000) % 7) / 1.5;
+      if (k < 1) {
+        g.save();
+        roundRect(x, y, w, h, r); g.clip();
+        var gx = x - h + k * (w + 2 * h), gl = g.createLinearGradient(gx - h * 0.6, 0, gx + h * 0.6, 0);
+        gl.addColorStop(0, "rgba(255, 252, 235, 0)"); gl.addColorStop(0.5, "rgba(255, 252, 235, 0.35)"); gl.addColorStop(1, "rgba(255, 252, 235, 0)");
+        g.fillStyle = gl;
+        g.beginPath(); g.moveTo(gx - h * 0.4, y + h); g.lineTo(gx + h * 0.2, y); g.lineTo(gx + h * 0.9, y); g.lineTo(gx + h * 0.3, y + h); g.closePath(); g.fill();
+        g.restore();
+      }
+    }
+    // a screw at each end, its slot cut across
+    var sr = Math.max(1.3, h * 0.1), sy = y + h / 2;
+    [x + p.f * 0.7, x + w - p.f * 0.7].forEach(function (sx) {
+      g.fillStyle = "#7c5a1c"; g.beginPath(); g.arc(sx, sy, sr, 0, 7); g.fill();
+      g.strokeStyle = "rgba(255, 240, 200, 0.65)"; g.lineWidth = 0.8;
+      g.beginPath(); g.moveTo(sx - sr * 0.7, sy + sr * 0.7); g.lineTo(sx + sr * 0.7, sy - sr * 0.7); g.stroke();
+    });
+    // the letters, cut into the brass: dark, their lower lip catching the light
+    g.font = "italic 400 " + p.f.toFixed(1) + "px Alegreya, Georgia, serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    var tx = x + w / 2, ty = y + h / 2 + p.f * 0.05;
+    g.fillStyle = "rgba(255, 244, 205, 0.6)"; g.fillText(PLAQUE, tx, ty + 0.8);
+    g.fillStyle = "#3a270f"; g.fillText(PLAQUE, tx, ty);
+    g.restore();
+    plaqueAt = { text: PLAQUE, size: p.f, x: x, y: y, w: w, h: h };
+  }
+
   function draw() {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(bg, 0, 0);
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawPlaque();
     g.setTransform(dpr * S, 0, 0, dpr * S, dpr * OX, dpr * OY);
     var i;
     // (everything that moves stays inside the window: shards don't fly out over the stone)
@@ -956,7 +1024,9 @@
     bar: function () { return { x: barX, w: barW, y: BAR_Y }; },
     panes: function () { return panes.map(function (p) { return { c: p.c, r: p.r, x: p.x, y: p.y, hue: p.hue, hp: p.hp, max: p.max, broken: p.broken }; }); },
     windows: function () { return WINDOWS.map(function (w, i) { return { name: w.name, panes: glaze(i).map(function (p) { return [p.c, p.r, p.max]; }) }; }); },
-    geo: function () { return { FW: FW, FH: FH, R: R, S: S, OX: OX, OY: OY, CW: CW, CH: CH }; },
+    geo: function () { return { FW: FW, FH: FH, R: R, S: S, OX: OX, OY: OY, CW: CW, CH: CH, FRAME: FRAME }; },
+    // the glazier's plaque as last drawn (page px)
+    plaque: function () { return plaqueAt && { text: plaqueAt.text, size: plaqueAt.size, x: plaqueAt.x, y: plaqueAt.y, w: plaqueAt.w, h: plaqueAt.h }; },
     start: startRun,
     toMenu: toMenu,
     launch: launch,

@@ -397,4 +397,66 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "points paused");
   }
   await ctx.close();
+
+  // ---- the glazier's plaque: "Glazed by Sam Lu" engraved on a brass plaque
+  // under the window, centred on the sill (or just under it, where the sill
+  // is too shallow), drawn in brass, its letters 12px or more on a laptop and
+  // 10 on a phone, inside the screen, clear of the glass and its play, the
+  // HUD and the corner buttons; on the menu as in play; nothing scrolls, and
+  // the page has no "made by" line
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts, least] of [["1280x900", {}, 12], ["1366x657", { viewport: { width: 1366, height: 657 } }, 12], ["1280x600", { viewport: { width: 1280, height: 600 } }, 12],
+    ["Pixel 7", devices["Pixel 7"], 10], ["phone 320x568", mob(320, 568), 10], ["phone 375x553", mob(375, 553), 10], ["phone 360x560", mob(360, 560), 10],
+    ["Pixel 7 sideways", devices["Pixel 7 landscape"], 10]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/rose-window/");
+    const look = () => q.evaluate(() => {
+      const pl = window.RoseWindow && RoseWindow.plaque && RoseWindow.plaque();
+      if (!pl) return null;
+      const g = RoseWindow.geo(), W = innerWidth, H = innerHeight;
+      const glass = g.OY + g.FH * g.S, mid = g.OX + g.R * g.S;
+      const box = { l: pl.x, t: pl.y, r: pl.x + pl.w, b: pl.y + pl.h };
+      const hit = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left < box.r && r.right > box.l && r.top < box.b && r.bottom > box.t; };
+      const over = [...document.querySelectorAll("#hud, .nav-back-games, .gs-corner button")].filter((e) => !e.hidden && hit(e)).map((e) => e.id || e.className);
+      const cv = document.getElementById("stage"), k = cv.width / W;
+      const d = cv.getContext("2d").getImageData(Math.round(pl.x * k), Math.round(pl.y * k), Math.round(pl.w * k), Math.round(pl.h * k)).data;
+      let brass = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] > 140 && d[i + 1] > 95 && d[i + 2] < 120 && d[i] - d[i + 2] > 70) brass++;
+      return { text: pl.text, size: +pl.size.toFixed(1), x: pl.x, y: pl.y, w: pl.w, h: pl.h, glass: Math.round(glass), mid: Math.round(mid), W, H, over, brass: +(brass / (d.length / 4)).toFixed(2),
+        sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight, madeBy: /made by/i.test(document.body.innerText) };
+    });
+    const ok = (r) => !!r && r.text === "Glazed by Sam Lu" && r.y >= r.glass && Math.abs(r.x + r.w / 2 - r.mid) <= 1 && r.x >= 0 && r.x + r.w <= r.W && r.y + r.h <= r.H &&
+      r.over.length === 0 && r.brass > 0.4 && r.sw <= r.W && r.sh <= r.H && !r.madeBy;
+    const menu = await look();
+    await q.evaluate(() => RoseWindow.start("pilgrimage"));
+    await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const play = await look();
+    check("rose-window, " + label + ": a brass plaque reads \"Glazed by Sam Lu\" under the window, its letters " + least + "px or more, inside the screen and clear of the glass, the HUD and the corner buttons, on the menu and in play",
+      ok(menu) && ok(play) && play.size >= least, { menu, play });
+    await done(q, "plaque, " + label);
+    await c.close();
+  }
+
+  // ---- the plaque with Visual FX on: a glint crosses the brass every few
+  // seconds; off, the brass holds still
+  const glint = async (off) => {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/rose-window/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:rose-window", off ? "1" : "0"); } catch (e) {} }, off) });
+    // (two looks a fifth of a second apart, while a glint would be crossing)
+    await q.waitForFunction(() => { const s = (performance.now() / 1000) % 7; return s > 0.3 && s < 0.9; }, null, { timeout: 15000, polling: 30 });
+    const sum = () => q.evaluate(() => {
+      const pl = RoseWindow.plaque && RoseWindow.plaque(), cv = document.getElementById("stage"), k = cv.width / innerWidth;
+      if (!pl) return null;
+      const d = cv.getContext("2d").getImageData(Math.round(pl.x * k), Math.round(pl.y * k), Math.round(pl.w * k), Math.round(pl.h * k)).data;
+      let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] * 3 + d[i + 1] * 5 + d[i + 2];
+      return s;
+    });
+    const a = await sum(); await q.waitForTimeout(200); const b = await sum();
+    const errs = q.errs; await c.close();
+    return { moved: a !== null && a !== b, drawn: a !== null, errs };
+  };
+  const fxOn = await glint(false), fxOff = await glint(true);
+  check("rose-window: with Visual FX on a glint of light crosses the plaque's brass; with it off the plaque holds still", fxOn.moved && fxOff.drawn && !fxOff.moved, { on: fxOn, off: fxOff });
+  check("rose-window (plaque glint): no page errors", fxOn.errs.length === 0 && fxOff.errs.length === 0, [fxOn.errs, fxOff.errs]);
 };
