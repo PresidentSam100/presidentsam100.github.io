@@ -148,6 +148,48 @@ html.fx-off .judge { animation: none; }
 .timebar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, var(--violet), var(--pink)); transform-origin: left; transition: transform .08s linear; }
 .hint { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; text-align: center; }
 
+/* ---- the rigging: a short length of lighting truss with the show's banner,
+   SAM LU LIVE, hung under it on two cables. game.js placeRig puts it where
+   the stage is empty: beside the column, hung from the ceiling on two hoist
+   chains, where the page is wide enough; else in the gap under the title,
+   where the screen leaves one; else it's left off. It never takes room of
+   its own. With Visual FX on the banner sways a little on its cables (held
+   while paused); off, it hangs still. */
+.rig { position: absolute; left: 0; top: 0; width: 184px; pointer-events: none; z-index: 0; }
+.rig[hidden] { display: none; }
+.rig .truss {
+  position: relative; height: 10px; border-radius: 2px;
+  background:
+    linear-gradient(180deg, #c3bcd3 0 2px, transparent 2px 8px, #8a829e 8px),
+    repeating-linear-gradient(62deg, transparent 0 4.5px, rgba(195, 188, 211, 0.7) 4.5px 5.8px, transparent 5.8px 10px),
+    repeating-linear-gradient(-62deg, transparent 0 4.5px, rgba(138, 130, 158, 0.7) 4.5px 5.8px, transparent 5.8px 10px),
+    #241732;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.55);
+}
+/* (the truss's end plates) */
+.rig .truss::before, .rig .truss::after { content: ""; position: absolute; top: -1px; bottom: -1px; width: 4px; border-radius: 1px; background: #9a92ae; }
+.rig .truss::before { left: 0; } .rig .truss::after { right: 0; }
+/* the hoist chains up to the ceiling (only where it hangs beside the column) */
+.rig .chain { display: none; position: absolute; bottom: calc(100% - 10px); height: var(--hang, 0px); width: 2px;
+  background: repeating-linear-gradient(180deg, #8a829e 0 3px, transparent 3px 5px); }
+.rig .chain:nth-of-type(1) { left: 16px; } .rig .chain:nth-of-type(2) { right: 16px; }
+.rig.hung .chain { display: block; }
+.rig .drop { position: relative; width: max-content; margin: 0 auto; padding-top: 7px; transform-origin: 50% 0; }
+.rig .cable { position: absolute; top: 0; height: 8px; width: 1px; background: #c3bcd3; }
+.rig .cable:nth-of-type(1) { left: 16px; } .rig .cable:nth-of-type(2) { right: 16px; }
+.rig .banner {
+  padding: 7px 15px 6px; white-space: nowrap;
+  font-family: "Chakra Petch", "Inter", sans-serif; font-weight: 700; font-size: 14px; line-height: 1; letter-spacing: 0.18em; color: var(--text);
+  background: linear-gradient(180deg, #2e1442, #1a0c27); border: 1px solid var(--pink);
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.rig .banner b { font-weight: 700; color: var(--pink); text-shadow: 0 0 10px rgba(255, 79, 168, 0.6); }
+.rig.small { width: 160px; }
+.rig.small .banner { font-size: 12px; padding: 6px 12px 5px; }
+@keyframes co-sway { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+html.fx-on .rig .drop { animation: co-sway 6s ease-in-out infinite; }
+html.fx-on .rig.held .drop { animation-play-state: paused; }
+
 /* results */
 .final { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 5rem; font-weight: 700; color: var(--pink); font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 0 30px rgba(255,79,168,.45); }
 .final small { font-size: 1.1rem; color: var(--muted); font-weight: 800; }

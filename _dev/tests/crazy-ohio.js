@@ -99,4 +99,67 @@ module.exports = async ({ browser, base, check, lib }) => {
       got.on.moved > 2 && got.off.moved === 0, { on: got.on.moved, off: got.off.moved });
     await c.close();
   }
+
+  // the show's banner, SAM LU LIVE, under a length of lighting truss: beside
+  // the stage's column where the page is wide, else in the gap under the
+  // title where every screen leaves one, else left off (never squeezed in);
+  // where it hangs it is on the screen, clear of the title, the screen's
+  // contents and the corner buttons, in the same place on the settings, the
+  // run and the results, the page no taller for it, and still with Visual FX off
+  {
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, false],
+      ["Pixel 7", devices["Pixel 7"], true], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }, false],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }, false], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }, false],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }, true],
+    ];
+    const look = (q) => q.evaluate(() => {
+      const rig = document.getElementById("rig");
+      if (!rig) return null;
+      const box = (r) => ({ l: r.left, t: r.top + scrollY, r: r.right, b: r.bottom + scrollY });
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const shown = !rig.hidden && rig.offsetWidth > 0;
+      const out = { shown, sh: document.documentElement.scrollHeight, sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth };
+      if (!shown) return out;
+      const b = box(rig.getBoundingClientRect()), banner = document.getElementById("banner");
+      rig.style.display = "none"; const sh0 = document.documentElement.scrollHeight, sw0 = document.documentElement.scrollWidth; rig.style.display = "";
+      const rg = document.createRange(); rg.selectNodeContents(document.querySelector("header.top h1")); const title = box(rg.getBoundingClientRect());
+      rg.selectNodeContents(document.getElementById("subtitle")); const sub = box(rg.getBoundingClientRect());
+      const sec = ["setup", "play", "result"].map((i) => document.getElementById(i)).find((s) => !s.hidden);
+      const parts = [...sec.children].filter((c) => c.offsetHeight > 0).map((c) => box(c.getBoundingClientRect()));
+      const corners = [...document.querySelectorAll("body *")].filter((e) => getComputedStyle(e).position === "fixed" && e.offsetWidth > 0 && e.getBoundingClientRect().top < 80).map((e) => box(e.getBoundingClientRect()));
+      return Object.assign(out, { b, text: banner.textContent.replace(/\s+/g, " ").trim(), size: parseFloat(getComputedStyle(banner).fontSize), clicks: getComputedStyle(rig).pointerEvents,
+        grows: out.sh - sh0, widens: out.sw - sw0, hits: [title, sub].concat(parts, corners).filter((z) => meet(b, z)).length });
+    });
+    for (const [name, opt, must] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/crazy-ohio/");
+      const menu = await look(q);
+      await q.click("#startBtn");
+      await q.waitForFunction(() => !document.getElementById("play").hidden, null, { timeout: 5000 });
+      await q.waitForTimeout(150);
+      const run = await look(q);
+      await q.evaluate(() => { ["setup", "play"].forEach((i) => (document.getElementById(i).hidden = true)); document.getElementById("result").hidden = false; document.getElementById("finalScore").textContent = "88"; document.getElementById("rating").textContent = "Great run"; window.dispatchEvent(new Event("resize")); });
+      await q.waitForTimeout(150);
+      const res = await look(q);
+      const all = [menu, run, res], fine = (s) => !!s && (!s.shown || (s.text === "SAM LU LIVE" && s.size >= 11 && s.clicks === "none" && s.hits === 0 && s.grows === 0 && s.widens === 0 && s.b.l >= 4 && s.b.r <= s.vw - 4 && s.b.t >= 0));
+      const same = all.every((s) => s && s.shown === all[0].shown) && (!all[0].shown || all.every((s) => Math.abs(s.b.l - all[0].b.l) < 1.5 && Math.abs(s.b.t - all[0].b.t) < 1.5));
+      check("crazy-ohio, " + name + ": the SAM LU LIVE banner under its truss is " + (must ? "hung" : "hung or left off") + " clear of the title, the screen and the corner buttons, in one place on the settings, the run and the results, the page no taller or wider for it",
+        all.every(fine) && same && (!must || all[0].shown), { menu, run, res });
+      await c.close();
+    }
+    // Visual FX on, the banner sways on its cables; off, it hangs still
+    const swayed = async (off) => {
+      const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+      const q = await lib.open(c, base, "games/crazy-ohio/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:crazy-ohio", off ? "1" : "0"); } catch (e) {} }, off) });
+      const at = () => q.evaluate(() => { const d = document.querySelector("#rig .drop"); return d ? getComputedStyle(d).transform : null; });
+      const a = await at(); await q.waitForTimeout(900); const b = await at();
+      await c.close();
+      return { a, b };
+    };
+    const on = await swayed(false), off = await swayed(true);
+    check("crazy-ohio: with Visual FX on the banner sways on its cables; with it off it hangs still",
+      !!on.a && on.a !== on.b && !!off.a && off.a === off.b, { on, off });
+  }
 };

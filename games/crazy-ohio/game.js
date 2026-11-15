@@ -122,7 +122,55 @@
     showSetupBest();
   });
 
-  function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); }
+  function show(sec) { [setupEl, playEl, resultEl].forEach((s) => (s.hidden = s !== sec)); placeRig(); }
+
+  // ---- the rigging: the show's banner under a length of lighting truss ----
+  // Beside the stage's column where the page leaves room (hung from the
+  // ceiling on two hoist chains, under the corner buttons' row); else in the
+  // gap under the title, where every screen (the settings, the run, the
+  // results) leaves one tall enough, so it doesn't come and go between them;
+  // else left off. It never takes room of its own: the page is no taller.
+  const rig = $("rig");
+  const SECS = [setupEl, playEl, resultEl];
+  // the gap between the title and the first thing on a screen (each screen is
+  // shown for a moment to be measured, and put back before anything's drawn)
+  function gapUnder(sec, head) {
+    const was = SECS.map((s) => s.hidden), x = window.scrollX, y = window.scrollY;
+    SECS.forEach((s) => (s.hidden = s !== sec));
+    const first = [...sec.children].find((c) => c.offsetHeight > 0);
+    const gap = first ? first.getBoundingClientRect().top - head.getBoundingClientRect().bottom : 0;
+    SECS.forEach((s, i) => (s.hidden = was[i]));
+    if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y);
+    return gap;
+  }
+  function placeRig() {
+    if (!rig) return;
+    const wrap = document.querySelector(".wrap"), head = document.querySelector("header.top");
+    rig.hidden = false; rig.classList.remove("hung", "small");
+    const sx = window.scrollX, sy = window.scrollY, wr = wrap.getBoundingClientRect();
+    const side = wr.left;                         // the empty stage left of the column
+    const back = document.querySelector(".nav-back-games");
+    const br = back ? back.getBoundingClientRect() : { right: 0, bottom: 44 };   // (fixed: the same wherever the page is scrolled)
+    let w = rig.offsetWidth, h = rig.offsetHeight;
+    if (side >= w + 40) {
+      rig.classList.add("hung");
+      const top = Math.round(br.bottom + 18);
+      // (clear of the Games button where the side leaves room for that, else centred in it)
+      const left = br.right + 16 + w <= side - 12 ? (br.right + 16 + side - 12 - w) / 2 : (side - w) / 2;
+      rig.style.left = Math.round(sx + left) + "px"; rig.style.top = top + "px";
+      rig.style.setProperty("--hang", top + "px");
+      return;
+    }
+    rig.classList.add("small"); w = rig.offsetWidth; h = rig.offsetHeight;
+    const room = Math.min.apply(null, SECS.map((s) => gapUnder(s, head)));
+    if (room >= h + 14) {
+      rig.style.left = Math.round(sx + wr.left + (wr.width - w) / 2) + "px";
+      rig.style.top = Math.round(window.scrollY + head.getBoundingClientRect().bottom + 7) + "px";
+    } else rig.hidden = true;
+  }
+  window.addEventListener("resize", placeRig);
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => placeRig()); [setupEl, playEl, resultEl, document.querySelector("header.top")].forEach((e) => e && ro.observe(e)); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeRig);
 
   // ---- fall speed: attack mode ramps up with score; precision mode holds steady ----
   function fallDuration() {
@@ -418,6 +466,7 @@
         canPause: () => state === "running",
         onChange: (paused) => {
           holdJudgments(paused);
+          if (rig) rig.classList.toggle("held", paused);
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;
           const delta = performance.now() - pausedAt;
@@ -633,6 +682,7 @@
   }
 
   showSetupBest();
+  placeRig();
 
   window.__OSU_TEST__ = { getTiles: () => tiles.map((t) => ({ col: t.col, lastY: t.lastY, resolved: t.resolved })) };
 })();
