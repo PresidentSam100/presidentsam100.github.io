@@ -314,4 +314,45 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tall-order: on a desktop the menu says to tap or press Space or Enter to drop a tier", /press Space or Enter to drop/.test(desk.how), desk.how);
   check("tall-order: on a touch-only phone the menu says to tap to drop a tier, and every keycap is hidden",
     /tap to drop/.test(phone.how) && !/Space/.test(phone.how) && phone.caps.length > 0 && phone.caps.every((c) => /:none$/.test(c)), phone);
+
+  // ---- the oven's maker's badge, SAM LU BAKERY, on its door under the
+  // handle: on a laptop's oven beside the cake and on a phone's slimmer one
+  // behind the stand. In play, once the view has settled on the first tier:
+  // drawn (berry plate, cream letters), inside the screen, clear of the
+  // stand's foot, the order ticket and the corner buttons, its letters no
+  // smaller than 10px (8px for BAKERY under SAM LU, where one line would
+  // reach the stand); the page carries no "made by" line
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["720x800", { viewport: { width: 720, height: 800 } }], ["Pixel 7", require("@playwright/test").devices["Pixel 7"]], ["Pixel 7 sideways", require("@playwright/test").devices["Pixel 7 landscape"]],
+    ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/tall-order/");
+    await q.click("#play");
+    await q.waitForFunction(() => {
+      const b = window.TallOrder && TallOrder.ovenBadge && TallOrder.ovenBadge(), k = window.__badgeY;
+      window.__badgeY = b ? b.y : null;
+      return !!b && TallOrder.state() === "play" && k != null && Math.abs(b.y - k) < 0.05;
+    }, null, { timeout: 20000, polling: 120 }).catch(() => {});
+    const r = await q.evaluate(() => {
+      const b = window.TallOrder && TallOrder.ovenBadge && TallOrder.ovenBadge();
+      if (!b) return null;
+      const hit = (e) => { const s = e.getBoundingClientRect(); return s.width > 0 && s.left < b.x + b.w && s.right > b.x && s.top < b.y + b.h && s.bottom > b.y; };
+      const over = [...document.querySelectorAll("#hud, .nav-back-games, button")].filter((e) => e.offsetParent !== null || getComputedStyle(e).position === "fixed").filter(hit).map((e) => e.id || e.className);
+      const cv = document.getElementById("stage"), k = cv.width / b.W;
+      const d = cv.getContext("2d").getImageData(Math.round(b.x * k), Math.round(b.y * k), Math.round(b.w * k), Math.round(b.h * k)).data;
+      let berry = 0, cream = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i] - 176) < 22 && Math.abs(d[i + 1] - 58) < 22 && Math.abs(d[i + 2] - 72) < 22) berry++;
+        else if (d[i] > 235 && d[i + 1] > 225 && d[i + 2] > 210) cream++;
+      }
+      const n = d.length / 4;
+      return Object.assign(b, { over, berry: +(berry / n).toFixed(2), cream: +(cream / n).toFixed(2), madeBy: /made by/i.test(document.body.innerText) });
+    });
+    check("tall-order, " + label + ": the oven's badge reads SAM LU BAKERY, drawn on the door inside the screen, clear of the stand's foot, the order ticket and the corner buttons",
+      !!r && r.text === "SAM LU BAKERY" && r.x >= 0 && r.y >= 0 && r.x + r.w <= r.W && r.y + r.h <= r.H && r.x >= r.footRight + 4 &&
+      (r.lines === 1 ? r.size >= 10 : r.size >= 8) && r.berry > 0.35 && r.cream > 0.05 && r.over.length === 0 && !r.madeBy, r);
+    await done(q, "oven badge, " + label);
+    await c.close();
+  }
 };

@@ -295,32 +295,101 @@
     g.beginPath(); g.ellipse(sx, cy + 50, 42, 9, 0, 0, 7); g.fill();
   }
 
+  /* The oven stands on the counter at the right, its foot on the counter's
+     top (world y = 62). On a wide screen it stands clear of the cake; on a
+     narrow one a slimmer oven stands at the back of the counter, behind the
+     cake stand, its door's foot showing past the stand's foot. Its maker's
+     badge, SAM LU BAKERY, sits on the door under the handle: one line, or
+     SAM LU over BAKERY where one line would reach the stand's foot (the
+     stand stands in the middle of the screen, its foot 42 either side).
+     ovenAt(w): where it stands, in world x and y. */
+  var BADGE = "SAM LU BAKERY";
+  function ovenAt(w) {
+    var o = w >= 700
+      ? { x: w - 218, w: 178, h: 210, dial: 8, dialY: 20, dialX: 36, dialGap: 30, win: [18, 46, 104], handle: [14, 162, 9], font: 11 }
+      : { x: w - 136, w: 128, h: 176, dial: 6.5, dialY: 17, dialX: 26, dialGap: 22, win: [13, 34, 84], handle: [10, 128, 8], font: 10 };
+    o.y = 62 - o.h;
+    // the badge: centred in the door's foot, between the handle and the floor of the oven
+    var below = o.handle[1] + o.handle[2];
+    o.foot = { top: o.y + below, bottom: o.y + o.h };
+    o.cx = o.x + o.w / 2;
+    o.clear = w / 2 + 42 + 6;                      // (the badge's left end stays right of this: clear of the stand's foot)
+    return o;
+  }
+  // a line of the badge's letters, spaced a little (drawn a letter at a time)
+  function spaced(g, text, size, track) {
+    g.font = "700 " + size + "px Fredoka, sans-serif";
+    var ws = [], total = 0;
+    for (var i = 0; i < text.length; i++) { ws.push(g.measureText(text[i]).width); total += ws[i]; }
+    return { text: text, size: size, ws: ws, gap: size * track, total: total + size * track * (text.length - 1) };
+  }
+  function putSpaced(g, t, cx, y) {
+    g.font = "700 " + t.size + "px Fredoka, sans-serif";
+    var x = cx - t.total / 2;
+    for (var i = 0; i < t.text.length; i++) { g.fillText(t.text[i], x, y); x += t.ws[i] + t.gap; }
+  }
+  // the badge's plate and lines, laid out for this oven (x, y: its top left, in world units)
+  function badgeFor(g, o) {
+    var one = spaced(g, BADGE, o.font, 0.12), padX = o.font * 0.95;
+    var bw = one.total + padX * 2, bh = o.font + 7;
+    if (o.cx - bw / 2 >= o.clear) return { lines: [one], w: bw, h: bh, x: o.cx - bw / 2, y: (o.foot.top + o.foot.bottom - bh) / 2, r: bh / 2 };
+    var a = spaced(g, "SAM LU", o.font + 1, 0.1), b = spaced(g, "BAKERY", o.font - 2, 0.3);
+    bw = Math.max(a.total, b.total) + padX * 1.6; bh = (o.font + 1) + (o.font - 2) + 10;
+    return { lines: [a, b], w: bw, h: bh, x: o.cx - bw / 2, y: (o.foot.top + o.foot.bottom - bh) / 2, r: 6 };
+  }
+  var lastBadge = null;                            // (where the badge was last drawn, in page px: for the tests)
   function drawOven(g, w, h, worldToY, glow) {
     var cy = worldToY(0);
-    if (cy > h + 340 || w < 700) return;
-    var ox = w - 218, oy = cy - 148;
+    if (cy > h + 340) return;
+    var o = ovenAt(w), ox = o.x, oy = cy + o.y, ow = o.w, oh = o.h;
     g.fillStyle = "#f3f6f8";
-    rr(g, ox, oy, 178, 210, 10); g.fill();
-    g.strokeStyle = "#c3ccd4"; g.lineWidth = 2; rr(g, ox, oy, 178, 210, 10); g.stroke();
+    rr(g, ox, oy, ow, oh, 10); g.fill();
+    g.strokeStyle = "#c3ccd4"; g.lineWidth = 2; rr(g, ox, oy, ow, oh, 10); g.stroke();
     // dials
     g.fillStyle = "#aeb9c2";
-    for (var d = 0; d < 3; d++) { g.beginPath(); g.arc(ox + 36 + d * 30, oy + 20, 8, 0, 7); g.fill(); }
+    for (var d = 0; d < 3; d++) { g.beginPath(); g.arc(ox + o.dialX + d * o.dialGap, oy + o.dialY, o.dial, 0, 7); g.fill(); }
     // window with warm light
-    var wg = g.createLinearGradient(0, oy + 46, 0, oy + 150);
+    var wx = ox + o.win[0], wy = oy + o.win[1], ww = ow - o.win[0] * 2, wh = o.win[2];
+    var wg = g.createLinearGradient(0, wy, 0, wy + wh);
     wg.addColorStop(0, glow ? "#f9c96a" : "#7c6a54");
     wg.addColorStop(1, glow ? "#e8862c" : "#4a3e30");
     g.fillStyle = wg;
-    rr(g, ox + 18, oy + 46, 142, 104, 8); g.fill();
-    g.strokeStyle = "#8a949c"; g.lineWidth = 4; rr(g, ox + 18, oy + 46, 142, 104, 8); g.stroke();
+    rr(g, wx, wy, ww, wh, 8); g.fill();
+    g.strokeStyle = "#8a949c"; g.lineWidth = ow > 150 ? 4 : 3; rr(g, wx, wy, ww, wh, 8); g.stroke();
     if (glow) {
+      var k = ww / 142;
       g.fillStyle = "rgba(122,74,32,0.85)";
-      rr(g, ox + 34, oy + 106, 110, 12, 5); g.fill();   // the rack
+      rr(g, wx + 16 * k, wy + wh * 0.58, 110 * k, 12 * k, 5 * k); g.fill();   // the rack
       g.fillStyle = "#e8b464";
-      for (var c = 0; c < 3; c++) { g.beginPath(); g.arc(ox + 56 + c * 34, oy + 100, 11, 0, 7); g.fill(); }
+      for (var c = 0; c < 3; c++) { g.beginPath(); g.arc(wx + (38 + c * 34) * k, wy + wh * 0.52, 11 * k, 0, 7); g.fill(); }
     }
     // handle
     g.fillStyle = "#aeb9c2";
-    rr(g, ox + 14, oy + 162, 150, 9, 4); g.fill();
+    rr(g, ox + o.handle[0], oy + o.handle[1], ow - o.handle[0] * 2, o.handle[2], 4); g.fill();
+    // the maker's badge: an enamel plate in the frosting's berry, a cream rim
+    // and cream letters, screwed on at each end
+    var b = badgeFor(g, o), bx = b.x, by = cy + b.y, bw = b.w, bh = b.h;
+    g.fillStyle = "#b03a48";
+    rr(g, bx, by, bw, bh, b.r); g.fill();
+    g.strokeStyle = "rgba(253,246,234,0.75)"; g.lineWidth = 1;
+    rr(g, bx + 1.5, by + 1.5, bw - 3, bh - 3, b.r - 1.5); g.stroke();
+    g.fillStyle = "rgba(253,246,234,0.85)";
+    var sx = b.lines.length > 1 ? 4.5 : bh * 0.42;
+    g.beginPath(); g.arc(bx + sx, by + bh / 2, 1.3, 0, 7); g.arc(bx + bw - sx, by + bh / 2, 1.3, 0, 7); g.fill();
+    g.fillStyle = "#fdf6ea";
+    g.textAlign = "left"; g.textBaseline = "middle";
+    if (b.lines.length === 1) putSpaced(g, b.lines[0], o.cx, by + bh / 2 + o.font * 0.06);
+    else {
+      var l1 = b.lines[0], l2 = b.lines[1], top = by + (bh - l1.size - l2.size - 2) / 2;
+      putSpaced(g, l1, o.cx, top + l1.size / 2 + 0.5);
+      putSpaced(g, l2, o.cx, top + l1.size + 2 + l2.size / 2 + 0.5);
+    }
+    g.textBaseline = "alphabetic";
+    // (on the canvas as drawn: play draws the world unscaled; the pull-back scales it)
+    var m = g.getTransform ? g.getTransform() : null, cv = g.canvas;
+    var dpr = cv && cv.clientWidth ? cv.width / cv.clientWidth : 1;
+    lastBadge = { text: b.lines.map(function (l) { return l.text; }).join(" "), lines: b.lines.length, size: Math.min.apply(null, b.lines.map(function (l) { return l.size; })),
+      x: m ? (m.a * bx + m.e) / dpr : bx, y: m ? (m.d * by + m.f) / dpr : by, w: m ? bw * m.a / dpr : bw, h: m ? bh * m.d / dpr : bh };
   }
 
   // pencil growth-chart mark on the wallpaper every ten tiers
@@ -343,6 +412,9 @@
     drawCounter: drawCounter,
     FLOOR: FLOOR,
     drawOven: drawOven,
+    ovenAt: ovenAt,
+    BADGE: BADGE,
+    lastBadge: function () { return lastBadge; },
     drawMark: drawMark,
     cherry: cherry,
     candle: candle,

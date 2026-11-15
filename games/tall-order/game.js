@@ -756,6 +756,11 @@
       return true;
     },
     start: startRun,
-    toMenu: toMenu
+    toMenu: toMenu,
+    // the oven's badge as last drawn (in page px), and the stand's foot and the screen
+    ovenBadge: function () {
+      var b = A.lastBadge(), sx = tiers.length ? tiers[0].x + tiers[0].w / 2 : W / 2;
+      return b && { text: b.text, lines: b.lines, size: b.size, x: b.x, y: b.y, w: b.w, h: b.h, W: W, H: Hh, footRight: sx + 42, footTop: sy(0) + 41 };
+    }
   };
 })();
