@@ -480,4 +480,45 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("salvo: the CPU's next shot after it sinks your ship comes no sooner and no later with Visual FX on than off (0.8 s)",
     on.concat(off).every((s) => s.mine.gap >= 760) && Math.abs(on[0].mine.gap - off[0].mine.gap) <= 400 && Math.abs(on[1].mine.gap - off[1].mine.gap) <= 400, Object.keys(sinks).map((k) => k + ": " + sinks[k].mine.gap));
   await ctx.close();
+
+  // the ship's name and hull number stencilled on the deck plate at the title
+  // row's right end: on the screen, clear of the title, its hazard stripe and
+  // the corner buttons, the header no taller for it; at setup and in battle
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }],
+    ];
+    const look = (q) => q.evaluate(() => {
+      const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const st = document.getElementById("hullno");
+      if (!st) return null;
+      const head = document.querySelector("header.top"), h1 = head.querySelector("h1"), hh = head.offsetHeight;
+      st.style.display = "none"; const hh0 = head.offsetHeight; st.style.display = "";
+      const rg = document.createRange(); rg.selectNodeContents(h1); const title = box(rg.getBoundingClientRect());
+      const hb = head.getBoundingClientRect(), sa = getComputedStyle(head, "::after");
+      const sw = parseFloat(sa.width), stripe = { l: hb.left + (hb.width - sw) / 2, r: hb.left + (hb.width + sw) / 2, t: hb.bottom - parseFloat(sa.height), b: hb.bottom };
+      const corners = [...document.querySelectorAll("body *")].filter((e) => getComputedStyle(e).position === "fixed" && e.offsetWidth > 0 && e.getBoundingClientRect().top < 80).map((e) => box(e.getBoundingClientRect()));
+      const b = box(st.getBoundingClientRect());
+      return { text: st.textContent.replace(/\s+/g, " ").trim(), b, vw: document.documentElement.clientWidth, size: parseFloat(getComputedStyle(st).fontSize),
+        grows: hh - hh0, title: meet(b, title), stripe: meet(b, stripe), corners: corners.filter((c) => meet(b, c)).length, shown: getComputedStyle(st).visibility === "visible" && b.r - b.l > 40 };
+    });
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/salvo/");
+      const setup = await look(q);
+      await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); document.getElementById("randomBtn").click(); document.getElementById("startBtn").click(); });
+      await q.waitForFunction(() => !document.getElementById("enemyCol").hidden, null, { timeout: 5000 });
+      const battle = await look(q);
+      const good = (s) => !!s && /^SAM LU( · )?DD-100$/.test(s.text) && s.shown && s.size >= 12 && s.grows === 0 && !s.title && !s.stripe && s.corners === 0 && s.b.l >= 4 && s.b.r <= s.vw - 4;
+      check("salvo, " + name + ": SAM LU · DD-100 stencilled on the deck at the title row's right end, at setup and in battle, clear of the title, its stripe and the corner buttons, the header no taller",
+        good(setup) && good(battle), { setup, battle });
+      await c.close();
+    }
+  }
 };

@@ -1,6 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Barlow+Condensed:wght@500;600;700&display=swap");
 /* A warship's plotting room. The page is riveted battleship-grey deck plate
-   with stencilled markings and hazard stripes. Your fleet sits on open sea,
+   with stencilled markings (the ship's name and hull number, SAM LU ·
+   DD-100) and hazard stripes. Your fleet sits on open sea,
    seen from above: grey hulls with a bridge at the stern and a gun turret on
    the pointed bow, burning where they're hit. Enemy waters are a radar
    screen with range rings and a turning sweep: misses are faint returns,
@@ -30,7 +31,7 @@ body {
 a { color: var(--hazard); text-decoration: none; }
 .wrap { width: 100%; max-width: 940px; }
 
-header.top { text-align: center; margin: 0.4rem 0 0.7rem; }
+header.top { position: relative; text-align: center; margin: 0.4rem 0 0.7rem; }
 header.top h1 {
   font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 2.3rem; letter-spacing: 0.04em;
   color: var(--text); text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
@@ -42,6 +43,28 @@ header.top::after {
   background: repeating-linear-gradient(-45deg, var(--hazard) 0 10px, #1d2226 10px 20px);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 4px rgba(0, 0, 0, 0.3);
 }
+/* The ship's name and hull number, stencilled on the deck plate in worn
+   white paint at the title row's right end, level with the hazard stripe
+   (under the corner buttons' row); on a phone SAM LU over DD-100. Chipped
+   by the deck's wear, it holds still. */
+.hullno {
+  position: absolute; right: 0.3rem; bottom: 0; pointer-events: none; white-space: nowrap; text-align: center;
+  font-family: "Black Ops One", "Barlow Condensed", sans-serif; font-weight: 400; font-size: 1rem; line-height: 1; letter-spacing: 0.14em;
+  color: rgba(238, 242, 245, 0.7); text-shadow: 0 0 1px rgba(238, 242, 245, 0.35);
+  -webkit-mask-image: radial-gradient(circle at 2px 2px, transparent 0 0.5px, #000 1px), radial-gradient(circle at 6px 5px, transparent 0 0.6px, #000 1.1px);
+  -webkit-mask-size: 9px 7px, 13px 11px;
+  -webkit-mask-composite: source-in;
+  mask-image: radial-gradient(circle at 2px 2px, transparent 0 0.5px, #000 1px), radial-gradient(circle at 6px 5px, transparent 0 0.6px, #000 1.1px);
+  mask-size: 9px 7px, 13px 11px;
+  mask-composite: intersect;
+}
+.hullno i { font-style: normal; }
+@media (max-width: 640px) {
+  .hullno { font-size: 0.82rem; line-height: 1.2; letter-spacing: 0.12em; right: 0.1rem; bottom: 0.7rem; }
+  .hullno span { display: block; }
+  .hullno i { display: none; }
+}
+
 /* status: a dark readout strip set into the plate */
 #status {
   width: fit-content; max-width: 100%; min-height: 2.1em; margin: 0.2rem auto 0.6rem; padding: 0.4rem 0.95rem;
