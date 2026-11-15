@@ -306,5 +306,44 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("buzz-wire: on phones (320, 360, 390 upright and tall, 375 x 553, 740 x 360 on the side) and laptops (1366 x 657, 1280 x 600, 1280 x 900) the menu fits whole with nothing to scroll, and in play the board, the plate, the status and every button fit, clear of each other and of the corner buttons",
       bad.length === 0, bad);
   }
+
+  // the maker's enamel plate, SAM LU AMUSEMENT CO., on the frame's bottom
+  // rail: painted there (cobalt and white), never on the board, clear of the
+  // corner terminals, the level's plate, the meters and the corner buttons,
+  // lettered at 9 px or more, inside the screen with nothing to scroll
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways 915x412", touch(915, 412)]];
+    const bad = [];
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/buzz-wire/");
+      await q.evaluate(() => BuzzWire.start(0)); await q.waitForTimeout(200);
+      const m = await q.evaluate(() => {
+        if (!BuzzWire.plate) return null;
+        const p = BuzzWire.plate(), cv = document.getElementById("board"), cr = cv.getBoundingClientRect(), k = cv.width / cr.width;
+        const meet = (a, z) => a.left < z.right && z.left < a.right && a.top < z.bottom && z.top < a.bottom;
+        // (across its middle: mostly cobalt, some white lettering)
+        const y = Math.round(((p.top + p.bottom) / 2 - cr.top) * k), x0 = Math.round((p.left - cr.left) * k), x1 = Math.round((p.right - cr.left) * k);
+        const d = cv.getContext("2d").getImageData(x0, y, Math.max(1, x1 - x0), 1).data;
+        let blue = 0, white = 0;
+        for (let i = 0; i < d.length; i += 4) { if (d[i + 2] > 120 && d[i + 2] > d[i] + 50) blue++; else if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200) white++; }
+        const n = d.length / 4;
+        const others = ["#log", "#helm", ".nav-back-games", ".gs-corner", ".mute-toggle", ".gs-pause-btn"].flatMap((s) => [...document.querySelectorAll(s)]).filter((e) => !e.hidden && e.offsetWidth).map((e) => e.getBoundingClientRect());
+        return { text: p.text, fs: p.fs, onRail: p.top >= p.board.bottom - 0.5 && p.bottom <= p.frame.bottom + 0.5, clearOfTerminals: p.left >= p.frame.left + p.rail && p.right <= p.frame.right - p.rail,
+          inside: p.left >= 0 && p.right <= innerWidth && p.bottom <= innerHeight, scroll: [document.documentElement.scrollWidth - innerWidth, document.documentElement.scrollHeight - innerHeight],
+          hits: others.filter((o) => meet(p, o)).length, blue: +(blue / n).toFixed(2), white: +(white / n).toFixed(2) };
+      });
+      const ok = !!m && m.text === "SAM LU AMUSEMENT CO." && m.fs >= 9 && m.onRail && m.clearOfTerminals && m.inside && m.scroll[0] <= 0 && m.scroll[1] <= 0 && m.hits === 0 && m.blue >= 0.3 && m.white >= 0.03;
+      if (!ok) bad.push({ name, m });
+      if (q.errs.length) bad.push({ name, errs: q.errs });
+      await c.close();
+    }
+    check("buzz-wire: the maker's enamel plate, SAM LU AMUSEMENT CO., is on the frame's bottom rail (cobalt, white lettering 9 px or more), never on the board, clear of the terminals, the level's plate, the meters and the corner buttons, with nothing to scroll, at laptop, phone and sideways sizes",
+      bad.length === 0, bad);
+  }
   await ctx.close();
 };

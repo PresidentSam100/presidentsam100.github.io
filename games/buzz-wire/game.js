@@ -180,6 +180,47 @@
     stillFor = "";
   }
 
+  // The maker's plate, screwed to the middle of the frame's bottom rail: the
+  // machine's cobalt enamel with white lettering, SAM LU AMUSEMENT CO., a
+  // white keyline in from its edge where it is big enough for one, and a
+  // brass rivet at each end. It sits over the rail's brass bezel where the
+  // rail is thin (a phone's), never on the board, and is drawn with the
+  // frame, so it holds still.
+  var PLATE = "SAM LU AMUSEMENT CO.";
+  function platePlan(m) {
+    // (a deep rail holds it on the wood under the bezel; a thin one, over the bezel)
+    var ph = M >= 22 ? Math.min(24, M - 10) : Math.max(10, M - 2), fs = Math.max(9, Math.min(13, Math.round(ph * 0.68)));
+    m.font = "700 " + fs + "px 'Old Standard TT', Georgia, serif";
+    if ("letterSpacing" in m) m.letterSpacing = (fs * 0.09).toFixed(2) + "px";
+    var tw = m.measureText(PLATE).width, pw = Math.ceil(tw + ph * 1.7);
+    var py = Math.min(SIDE - (M - 6) / 2 - ph / 2, SIDE - 1 - ph);
+    return { x: Math.round((SIDE - pw) / 2), y: Math.round(py), w: pw, h: ph, fs: fs };
+  }
+  function paintPlate(m) {
+    var p = platePlan(m), r = Math.max(2, p.h * 0.22);
+    m.save();
+    m.beginPath(); m.roundRect ? m.roundRect(p.x, p.y, p.w, p.h, r) : m.rect(p.x, p.y, p.w, p.h);
+    var en = m.createLinearGradient(0, p.y, 0, p.y + p.h);
+    en.addColorStop(0, "#2c62c4"); en.addColorStop(0.55, "#1f4ea6"); en.addColorStop(1, "#143672");
+    m.fillStyle = en; m.fill();
+    m.strokeStyle = "#0d2452"; m.lineWidth = 1; m.stroke();
+    if (p.h >= 16) {
+      m.beginPath(); m.roundRect ? m.roundRect(p.x + 2.5, p.y + 2.5, p.w - 5, p.h - 5, Math.max(1, r - 2)) : m.rect(p.x + 2.5, p.y + 2.5, p.w - 5, p.h - 5);
+      m.strokeStyle = "rgba(244, 246, 251, 0.85)"; m.lineWidth = 1.2; m.stroke();
+    }
+    // the rivets
+    var rr = Math.max(1.4, p.h * 0.12);
+    [p.x + p.h * 0.42, p.x + p.w - p.h * 0.42].forEach(function (cx) {
+      var rg = m.createRadialGradient(cx - rr * 0.3, p.y + p.h / 2 - rr * 0.3, 0.3, cx, p.y + p.h / 2, rr);
+      rg.addColorStop(0, "#f5e2a8"); rg.addColorStop(0.6, "#c9a24a"); rg.addColorStop(1, "#6e5016");
+      m.fillStyle = rg; m.beginPath(); m.arc(cx, p.y + p.h / 2, rr, 0, 6.3); m.fill();
+    });
+    m.fillStyle = "#f4f6fb"; m.textAlign = "center"; m.textBaseline = "middle";
+    m.fillText(PLATE, p.x + p.w / 2, p.y + p.h / 2 + p.fs * 0.06);
+    if ("letterSpacing" in m) m.letterSpacing = "0px";
+    m.restore();
+  }
+
   // the parts that don't move: the frame, the board, the channel and its
   // wires, the way-round arrows (drawn once a level and size)
   function paintStill() {
@@ -206,6 +247,7 @@
       m.fillStyle = bg; m.beginPath(); m.arc(p[0], p[1], rr, 0, 6.3); m.fill();
       m.strokeStyle = "#5a4012"; m.lineWidth = 1; m.beginPath(); m.moveTo(p[0] - rr * 0.6, p[1]); m.lineTo(p[0] + rr * 0.6, p[1]); m.stroke();
     });
+    paintPlate(m);
     // the ebonite board, faintly grained
     m.save(); m.beginPath(); m.rect(M, M, SIDE - 2 * M, SIDE - 2 * M); m.clip();
     var eb = m.createRadialGradient(SIDE * 0.45, SIDE * 0.4, SIDE * 0.05, SIDE / 2, SIDE / 2, SIDE * 0.75);
@@ -728,6 +770,12 @@
     // where a point of the board is on the screen (client px)
     screen: function (x, y) { var r = cv.getBoundingClientRect(); return [r.left + sx(x), r.top + sy(y)]; },
     scale: function () { return K; },
+    // the maker's plate on the frame (client px), its lettering's size, and the board's edges
+    plate: function () {
+      var r = cv.getBoundingClientRect(), p = platePlan(document.createElement("canvas").getContext("2d"));
+      return { text: PLATE, fs: p.fs, left: r.left + p.x, top: r.top + p.y, right: r.left + p.x + p.w, bottom: r.top + p.y + p.h,
+        board: { left: r.left + M, top: r.top + M, right: r.left + SIDE - M, bottom: r.top + SIDE - M }, frame: { left: r.left, top: r.top, right: r.left + SIDE, bottom: r.top + SIDE }, rail: M };
+    },
     pause: function (on) { if (on) P.pause(); else P.resume(); },
     drawn: function () { return drawn; },
     eighths: function () { return nextEighth; }
