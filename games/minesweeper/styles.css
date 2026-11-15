@@ -518,10 +518,45 @@ body {
   font: 700 11px/1 var(--ui);
 }
 
-#byline {
-  color: #d8f0f0;
-  font-size: 11px;
+/* ---- the maker's PC, an icon on the desktop -------------------------------- */
+/* (desk-icon.js: .on-desk, top left like My Computer, where the windows leave
+   that corner clear; else after the windows in the small-icons view, its
+   16px picture beside its name, taking the height a line of small print
+   would). White lettering on the teal, as desktop icons had; decoration,
+   so nothing about it suggests a click. */
+.desk-icon {
+  display: flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 4px;
+  margin: -2px 0 -1px 4px;
+  color: #fff;
+  font: 400 11px/1.2 var(--ui);
+  white-space: nowrap;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.desk-icon .di-glyph {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.desk-icon.on-desk {
+  position: absolute;
+  top: 60px;
+  left: 14px;
+  width: 76px;
   margin: 0;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+  white-space: normal;
+}
+.desk-icon.on-desk .di-glyph {
+  width: 32px;
+  height: 32px;
 }
 
 /* ---- the shared pause overlay, as a dialog box ----------------------------- */

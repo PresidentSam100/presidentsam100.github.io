@@ -137,4 +137,57 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("minesweeper daily: a dig there leaves the won-of-played stats alone (guard)", daily !== null && dailyStats.length === 0, dailyStats);
   await done(p, "minesweeper daily stats");
   await c3.close();
+
+  // ---- the maker's name: "Sam Lu's PC", an icon on the teal desktop. On a
+  // laptop and a phone on its side it sits top left like My Computer, on the
+  // first screen; on an upright phone, where the windows fill the width, it
+  // sits after them at the foot of the page. Either way it stands on no
+  // window or corner button, inside the window's width, and it's no link or
+  // button. No "made by" line, on either page. A board as wide as the window
+  // sends it to the foot; a smaller one brings it back.
+  {
+    const icon = (pg) => pg.evaluate(() => {
+      const i = document.getElementById("deskIcon");
+      const made = [...document.querySelectorAll("body *")].filter((e) => !e.children.length && /made by/i.test(e.textContent)).length;
+      if (!i) return { none: true, made };
+      const r = i.getBoundingClientRect(), y = scrollY, W = document.documentElement.clientWidth;
+      const on = [...document.querySelectorAll(".wrap > .window, .nav-back-games, .gs-corner > *")].filter((e) => {
+        const q = e.getBoundingClientRect(), fixed = !e.closest(".wrap"), qt = q.top + (fixed ? 0 : y), qb = q.bottom + (fixed ? 0 : y);
+        return q.width && q.left < r.right && q.right > r.left && qt < r.bottom + y && qb > r.top + y;
+      }).map((e) => e.className || e.tagName);
+      const last = [...document.querySelectorAll(".wrap > .window")].pop().getBoundingClientRect();
+      return { made, text: i.textContent.replace(/\s+/g, " ").trim(), desk: i.classList.contains("on-desk"), on, inside: r.left >= 0 && r.right <= W,
+        first: r.bottom + y <= innerHeight, after: r.top >= last.bottom - 1, plain: i.tagName === "DIV" && !i.closest("a, button") && !i.getAttribute("role") && getComputedStyle(i).cursor === "default" };
+    });
+    const bad = {};
+    for (const [label, opts, kind] of [["1280x900", { viewport: { width: 1280, height: 900 } }, "desk"], ["1366x657", { viewport: { width: 1366, height: 657 } }, "desk"],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, "desk"], ["390x664", Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } }), "foot"],
+      ["320x568", Object.assign({}, devices["iPhone 13"], { viewport: { width: 320, height: 568 } }), "foot"], ["664x390", Object.assign({}, devices["iPhone 13"], { viewport: { width: 664, height: 390 } }), "desk"]]) {
+      const c4 = await lib.newContext(browser, opts);
+      for (const pageName of ["", "endless.html"]) {
+        const q = await lib.open(c4, base, "games/minesweeper/" + pageName);
+        await q.waitForTimeout(150);
+        const m = await icon(q);
+        const ok = !m.none && !m.made && m.text === "Sam Lu's PC" && m.plain && m.inside && !m.on.length &&
+          (kind === "desk" ? m.desk && m.first : !m.desk && m.after);
+        if (!ok) bad[(pageName || "classic") + " " + label] = m;
+        check("minesweeper (desktop icon, " + (pageName || "classic") + " " + label + "): no page errors", q.errs.length === 0, q.errs);
+        await q.close();
+      }
+      await c4.close();
+    }
+    check("minesweeper: \"Sam Lu's PC\" is an icon on the desktop (top left on laptops and a phone on its side, on the first screen; after the windows on an upright phone), on no window or corner button, no link; no \"made by\" line (Classic and Endless)",
+      Object.keys(bad).length === 0, bad);
+    // (a board as wide as a 1024 px window: the icon to the foot, and back on Beginner)
+    const c5 = await lib.newContext(browser, { viewport: { width: 1024, height: 768 } });
+    const q = await lib.open(c5, base, "games/minesweeper/");
+    await q.click('[data-level="custom"]'); await q.fill("#cw", "40"); await q.fill("#ch", "30"); await q.fill("#cm", "99"); await q.click("#customForm button[type=submit]"); await q.waitForTimeout(300);
+    const wide = await icon(q);
+    await q.click('[data-level="beginner"]'); await q.waitForTimeout(300);
+    const narrow = await icon(q);
+    check("minesweeper: a 40 x 30 board at 1024 px sends the desktop icon after the windows, clear of them; Beginner brings it back top left",
+      !wide.none && !wide.desk && wide.after && !wide.on.length && narrow.desk && !narrow.on.length, { wide, narrow });
+    check("minesweeper (desktop icon, wide board): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await c5.close();
+  }
 };
