@@ -217,6 +217,86 @@
   }
   window.addEventListener("resize", fit);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+
+  // ---- the life ring on the wall -------------------------------------------------
+  // The liner's own ring, S.S. SAM LU, hung where the wall is bare:
+  //   portholes out on the walls (a wide window): under the left one;
+  //   a phone on its side (the table on the left, the rest in a column):
+  //     under the buttons in that column;
+  //   a phone held upright: under the buttons, centred;
+  //   between (the portholes beside the name): left of the name, over the table.
+  // As big as the bare wall allows; with too little wall left for its name to
+  // be read, it isn't hung. It takes only the wall the game has left over: it
+  // never makes the page longer, nor the cards smaller. Under the buttons
+  // (upright or on its side), and on a wide window's wall, it is fixed to the
+  // window, so it is no part of the page's length that fit() reads; left of
+  // the name it is part of the page, high up, and scrolls away with the name.
+  // While a deal plays out the table changes size from card to card: the ring
+  // waits until the table is still to be hung again, and is taken down at
+  // once if the table comes down over it.
+  // (the drawing's size per unit of the ring's width; at RING_MIN its name is 8px)
+  var RING_W = 120 / 104, RING_H = 116 / 104, RING_MIN = 50;
+  function placeRing() {
+    var ring = $("lifering"); if (!ring) return;
+    var room = $("room"), H = window.innerHeight;
+    var R = function (el) { return el.getBoundingClientRect(); };
+    var rr = R(room), felt = R($("felt")), ctl = R($("controls")), pl = document.querySelector(".porthole.left");
+    // (a page already longer than the window has no bare wall under its buttons)
+    var scrolls = document.documentElement.scrollHeight > H + 1;
+    var d = 0, cx = 0, top = 0, fixed = true;
+    if (getComputedStyle(room).display === "grid") {
+      var col = R($("head"));
+      d = scrolls ? 0 : Math.min(110, (H - 8 - (ctl.bottom + 10)) / RING_H, col.width - 10);
+      cx = col.left + col.width / 2; top = ctl.bottom + 10;
+    } else if (pl && getComputedStyle(pl).position === "fixed") {
+      var p = R(pl);
+      d = Math.min(130, p.width * 0.78);
+      top = p.bottom + 26;
+      if (top + d * RING_H > H - 10) { top = Math.max(p.bottom + 8, H - 10 - d * RING_H); d = Math.min(d, (H - 10 - top) / RING_H); }
+      cx = p.left + p.width / 2;
+      d = Math.min(d, (felt.left - 12 - cx) * 2 / RING_W);
+    } else if (window.innerWidth <= 560) {
+      d = scrolls ? 0 : Math.min(100, (H - 2 - (ctl.bottom + 5)) / RING_H, rr.width * 0.5);
+      cx = rr.left + rr.width / 2; top = ctl.bottom + 5;
+    } else {
+      // left of the name: from the room's edge to the first of the porthole,
+      // the tagline's words and the order ticket, down to the table's rail
+      fixed = false;
+      var sub = $("sub"), rg = document.createRange(); rg.selectNodeContents(sub);
+      var x1 = Math.min(R(pl).left, rg.getBoundingClientRect().left, $("hud").hidden ? Infinity : R($("hud")).left) - 12;
+      var x0 = rr.left + 4, y0 = rr.top + 2, y1 = felt.top - 12;
+      d = Math.min(124, (x1 - x0) / RING_W, (y1 - y0) / RING_H);
+      cx = x0 + (x1 - x0) / 2; top = y0 + Math.max(0, (y1 - y0 - d * RING_H) / 2);
+    }
+    // (an svg has no hidden property: the attribute itself)
+    if (!(d >= RING_MIN)) { ring.setAttribute("hidden", ""); return; }
+    var w = d * RING_W, h = d * RING_H;
+    ring.style.position = fixed ? "fixed" : "absolute";
+    ring.style.width = w + "px"; ring.style.height = h + "px";
+    ring.style.left = (cx - w / 2 - (fixed ? 0 : rr.left)) + "px";
+    ring.style.top = (top - (fixed ? 0 : rr.top)) + "px";
+    ring.removeAttribute("hidden");
+  }
+  // mid deal: down at once if the buttons or the table now reach it, and hung
+  // again once the table is still
+  function ringClear() {
+    var ring = $("lifering"); if (!ring || ring.hasAttribute("hidden")) return;
+    var b = ring.getBoundingClientRect(), hit = false;
+    [$("felt"), $("controls")].forEach(function (e) { var r = e.getBoundingClientRect(); if (r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top) hit = true; });
+    if (hit || b.bottom > window.innerHeight) ring.setAttribute("hidden", "");
+  }
+  var ringQueued = false, ringWait = 0;
+  function ringLater() {
+    if (ringQueued) return; ringQueued = true;
+    requestAnimationFrame(function () {
+      ringQueued = false;
+      if (busy) { ringClear(); clearTimeout(ringWait); ringWait = setTimeout(ringLater, 120); return; }
+      placeRing();
+    });
+  }
+  window.addEventListener("resize", ringLater);
+  if (window.ResizeObserver) { var ro = new ResizeObserver(ringLater); ro.observe($("room")); ro.observe($("controls")); ro.observe(document.body); }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(ringLater);
   function banner(text, kind) {
     var b = $("banner");
     b.textContent = text || "";

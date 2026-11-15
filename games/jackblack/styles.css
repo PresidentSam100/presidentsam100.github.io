@@ -255,6 +255,25 @@ body.fxon #felt.glow .bubbles::before { animation: jb-rise 1.5s ease-out; }
 body.fxon #felt.glow .bubbles::after { animation: jb-rise 1.9s ease-out 0.12s; }
 @keyframes jb-rise { 0% { opacity: 0; transform: translateY(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(-260px); } }
 
+/* ---- the liner's life ring: pearl gone to cream, three coral bands below
+   its name, hemp rope round it, weed and a rust run where it has hung in the
+   sea; game.js hangs it on whatever wall is bare and sizes it to fit ---------- */
+.lifering { position: absolute; z-index: 0; overflow: visible; pointer-events: none; filter: drop-shadow(0 4px 5px rgba(0, 0, 0, 0.5)); }
+.lifering .swing { transform-origin: 60px 3.6px; }
+.lifering .cord { stroke: #b8995a; stroke-width: 2; stroke-linecap: round; }
+.lifering .rope { fill: none; stroke: #b8995a; stroke-width: 2.2; stroke-dasharray: 2.6 1.1; }
+.lifering .body { fill: none; stroke: #efe6cf; stroke-width: 35; }
+.lifering .bands { fill: none; stroke: var(--coral); stroke-width: 35; stroke-dasharray: 0 39 22 18 22 18 22 219; }
+.lifering .shade { fill: none; stroke: url(#jb-ring-shade); stroke-width: 35; }
+.lifering .edge { fill: none; stroke: rgba(60, 40, 20, 0.45); stroke-width: 0.8; }
+.lifering .ties path { stroke: #9a7d45; stroke-width: 3.2; stroke-linecap: round; }
+.lifering .moss { fill: rgba(116, 194, 171, 0.42); }
+.lifering .rust { fill: none; stroke: rgba(140, 82, 40, 0.3); stroke-width: 3; stroke-linecap: round; }
+.lifering .name { font-family: "Federo", "Marcellus", Georgia, serif; font-size: 16.5px; letter-spacing: 0.8px; fill: #12302a; }
+.lifering .peg { fill: var(--brass); stroke: var(--brass-dk); stroke-width: 1; }
+body.fxon .lifering .swing { animation: jb-ring 6.5s ease-in-out infinite alternate; }
+@keyframes jb-ring { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
+
 /* ---- motion in the room (Visual FX on) ------------------------------------------ */
 body.fxon #dealer { animation: jb-bob 4.2s ease-in-out infinite; }
 body.fxon #dealer .pupils { animation: jb-look 7s ease-in-out infinite; }

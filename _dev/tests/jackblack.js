@@ -257,4 +257,85 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // ---- the liner's life ring, S.S. SAM LU, hung on the bare wall: under the
+  // left porthole on a wide window, under the buttons on a phone (in the
+  // column of buttons on one held on its side). Betting and in play: its name
+  // reads S.S. SAM LU, whole on its arc, 8px or more; inside the window; clear
+  // of the table, the dealer, the buttons, the order ticket, the name and its
+  // tagline, the portholes and the corner buttons; and the page no longer for
+  // it. It is only left down where the wall under the buttons is too short
+  // for its name to be read (betting, on the shortest phones). On a short
+  // phone, two split hands keep their cards' size (46 px and up) and leave
+  // nothing to scroll with the ring there: it takes only the wall left over.
+  // With Visual FX on it sways on its peg; off, it hangs still. No "made by" line.
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  // (measured once the table is still and the ring has stayed where it hangs for a few looks)
+  const settled = (q) => q.waitForFunction(() => {
+    if (JackBlack.busy()) { window.__ringSeen = null; return false; }
+    const r = document.getElementById("lifering"), k = !r || r.hasAttribute("hidden") ? "down" : r.style.cssText;
+    if (window.__ringSeen === k) window.__ringStill = (window.__ringStill || 0) + 1; else { window.__ringSeen = k; window.__ringStill = 0; }
+    return window.__ringStill >= 3;
+  }, null, { timeout: 8000, polling: 100 }).catch(() => {});
+  const ringAt = async (q) => { await settled(q); return q.evaluate(() => new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => {
+    window.scrollTo(0, 0);
+    const ring = document.getElementById("lifering"), ctl = document.getElementById("controls").getBoundingClientRect();
+    const wall = innerHeight - ctl.bottom;
+    if (!ring || ring.hasAttribute("hidden")) return res({ hidden: true, exists: !!ring, wall: Math.round(wall), phone: innerWidth <= 560 });
+    const b = ring.getBoundingClientRect(), t = ring.querySelector("text"), path = ring.querySelector("defs path");
+    const hits = [];
+    ["#felt", "#dealer", "#controls button", ".hud", "h1", ".porthole", ".nav-back-games", ".gs-corner > button"].forEach((s) => document.querySelectorAll(s).forEach((e) => {
+      const r = e.getBoundingClientRect();
+      if (r.width && r.height && getComputedStyle(e).display !== "none" && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top) hits.push(s);
+    }));
+    const rg = document.createRange(); rg.selectNodeContents(document.getElementById("sub")); const sr = rg.getBoundingClientRect();
+    if (sr.left < b.right && sr.right > b.left && sr.top < b.bottom && sr.bottom > b.top) hits.push("tagline");
+    const sh = document.documentElement.scrollHeight, sw = document.documentElement.scrollWidth;
+    ring.style.display = "none";
+    const longer = sh - document.documentElement.scrollHeight, wider = sw - document.documentElement.scrollWidth;
+    ring.style.display = "";
+    res({ text: t && t.textContent, font: +(16.5 * b.width / 120).toFixed(1), whole: !!t && t.getComputedTextLength() <= path.getTotalLength(),
+      inside: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight, hits, longer, wider, wall: Math.round(wall) });
+  })))); };
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }], ["1024x768", { viewport: { width: 1024, height: 768 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["390x844", mob(390, 844)], ["360x640", mob(360, 640)], ["320x568", mob(320, 568)], ["375x553", mob(375, 553)], ["360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/jackblack/");
+    await q.click("#play"); await q.waitForTimeout(200);
+    const betting = await ringAt(q);
+    await q.evaluate(() => JackBlack.stack("8 6 9 T"));
+    await q.click("#deal"); await idle(q);
+    const playing = await ringAt(q);
+    const madeBy = await q.evaluate(() => /made by/i.test(document.body.innerText));
+    const good = (r) => !r.hidden && r.text === "S.S. SAM LU" && r.whole && r.font >= 8 && r.inside && !r.hits.length && r.longer <= 0 && r.wider <= 0;
+    // (left down only on a phone, where the wall under the buttons is shorter than the smallest ring that can carry its name)
+    const excused = (r) => r.hidden && r.exists && r.phone && r.wall < 60;
+    check("jackblack, " + label + ": the life ring S.S. SAM LU hangs on the bare wall, its name whole and readable, clear of the table, the buttons and every word, the page no longer for it",
+      good(playing) && (good(betting) || excused(betting)) && !madeBy, { betting, playing, madeBy });
+    // a short phone: two split hands, the ring up (or down, no wall left)
+    if (/^(320x568|375x553|360x560)$/.test(label)) {
+      for (let k = 0; k < 4 && await q.evaluate(() => JackBlack.table().phase === "play"); k++) { await q.evaluate(() => document.getElementById("act-stand").click()); await idle(q); }
+      await q.evaluate(() => JackBlack.stack("8 T 8 7 3 4 9"));
+      await q.evaluate(() => document.getElementById("deal").click()); await idle(q);
+      await q.evaluate(() => document.getElementById("act-split").click()); await idle(q);
+      const split = await ringAt(q);
+      const table = await q.evaluate(() => ({ hands: document.querySelectorAll("#hands .hand").length, scroll: document.documentElement.scrollHeight - innerHeight,
+        least: Math.round(Math.min(...[...document.querySelectorAll("#felt .pc")].map((c) => c.getBoundingClientRect().width))) }));
+      check("jackblack, " + label + ": with two split hands the cards keep their size (46 px and up) and nothing scrolls, the ring hung clear of them or taken down",
+        table.hands === 2 && table.scroll <= 0 && table.least >= 46 && (good(split) || excused(split)), { table, split });
+    }
+    check("jackblack (life ring), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  // Visual FX: on, the ring sways on its peg; off, it hangs still
+  {
+    const sway = {};
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/jackblack/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:jackblack", off ? "1" : "0"); } catch (e) {} }, off) });
+      sway[off ? "off" : "on"] = await q.evaluate(() => { const s = document.querySelector("#lifering .swing"); return s ? getComputedStyle(s).animationName : null; });
+      await c.close();
+    }
+    check("jackblack: with Visual FX on the life ring sways on its peg; off, it hangs still", sway.on && sway.on !== "none" && sway.off === "none", sway);
+  }
 };
