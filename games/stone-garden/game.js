@@ -203,6 +203,53 @@
     if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", evenSides);
   }
 
+  // The garden's name board stands in the moss at the garden's edge: beside
+  // the bed's lower left corner when the moss there has room for it, its feet
+  // level with the bed's foot; else on the moss under the record line, by the
+  // bed's left edge, as big as the room left on the screen allows (only where
+  // there's none at all does it stand below the first screen). It is placed
+  // over the page, so it takes no room from the garden itself.
+  function placeBoard() {
+    var nb = $("nameboard");
+    if (!nb) return;
+    var gd = nb.parentNode.getBoundingClientRect(), fr = document.querySelector(".frame").getBoundingClientRect();
+    var rec = $("record").getBoundingClientRect();
+    var put = function (x, y) {
+      nb.style.left = Math.round(x - gd.left) + "px"; nb.style.top = Math.round(y - gd.top) + "px";
+      nb.classList.add("placed");
+    };
+    var size = function (f, low) { nb.style.fontSize = f + "px"; nb.classList.toggle("low", low); return nb.offsetHeight; };
+    for (var f = 17; f >= 14; f--) {
+      size(f, false);
+      var w = nb.offsetWidth, gap = Math.round(f * 1.5);
+      if (fr.left - gap - w >= 12) {
+        // (a bed running on below the first screen, as on a phone turned
+        // sideways, has it stand higher up its side, where it can be seen)
+        var foot = Math.min(fr.bottom, window.innerHeight - window.scrollY - 4);
+        if (foot - nb.offsetHeight < fr.top) foot = fr.bottom;
+        put(fr.left - gap - w, foot - nb.offsetHeight); return;
+      }
+    }
+    // (the sizes it may take under the record line, biggest first: full legs
+    // down to 12 px lettering, then short legs down to 10 px)
+    var room = window.innerHeight - (rec.bottom + window.scrollY) - 2, h = 0, k;
+    var tries = [[17, 0], [16, 0], [15, 0], [14, 0], [13, 0], [12, 0], [12, 1], [11, 1], [10, 1]];
+    for (k = 0; k < tries.length; k++) { h = size(tries[k][0], !!tries[k][1]); if (h <= room) break; }
+    if (k === tries.length) { h = size(11, true); room = h + 6; }
+    put(fr.left + 4, rec.bottom + Math.max(1, Math.min(18, Math.round((room - h) / 3))));
+  }
+  window.addEventListener("resize", placeBoard);
+  if (document.fonts) {
+    document.fonts.ready.then(placeBoard);
+    if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", placeBoard);
+  }
+  // (and whenever the bed or the record line changes size: a turned phone,
+  // a record that wraps to a second line)
+  if (window.ResizeObserver) {
+    var boardWatch = new ResizeObserver(function () { placeBoard(); });
+    boardWatch.observe(document.querySelector(".frame")); boardWatch.observe($("record"));
+  }
+
   // draw the board as it stands; `turned` are the stones that just turned
   // (they turn over, one after another, with Visual FX on), `dropped` the one set down
   function paint(turned, dropped) {
@@ -433,6 +480,7 @@
   }
 
   toMenu();
+  placeBoard();
 
   // test hooks: the Playwright harness drives games through these
   window.StoneGarden = {

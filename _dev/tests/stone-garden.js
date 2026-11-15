@@ -13,7 +13,8 @@
 // it lies, off without the turning motion; on a phone a tap on a ringed place puts a stone there;
 // the turn line sits in the middle of the tally whatever the two names; and
 // Hint, Undo, New game and Menu have their words and keycaps in the middle
-// of the button's face.
+// of the button's face; and the garden's name board, "Sam Lu Garden", stands
+// in the moss at its edge, clear of everything, adding no scroll.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const open = (c, opts) => lib.open(c || ctx, base, "games/stone-garden/", opts);
@@ -331,6 +332,55 @@ module.exports = async ({ browser, base, check, lib }) => {
       check("stone-garden (" + label + "): Hint, Undo, New game and Menu have their words in the middle of the face top to bottom (within 0.6 px)" + (phone ? " (no keycaps on a phone)" : ", and their keycaps too"),
         seen.every((v) => !v.disabled && v.word !== null && Math.abs(v.word) <= 0.6 && (phone ? v.key === null : v.key !== null && Math.abs(v.key) <= 0.6)), seen);
       await done(q, "buttons " + label);
+      await c.close();
+    }
+  }
+
+  // ---- the garden's name board, "Sam Lu Garden", standing in the moss at the
+  // garden's edge: beside the bed where the moss has room, else under the
+  // record line; clear of the bed, the tally, the tools, the lines of text
+  // and the corner buttons, against a keeper and a friend (whose record line
+  // is longer); no "made by" line. In the first screen and adding no scroll
+  // wherever the page leaves it room (beside the bed, or 32 px under the
+  // record line); where it leaves none (the friend's record on two lines on
+  // a 320 px phone, or the stand-in faces' wider tools), just under the
+  // record line, adding no more than its own height
+  {
+    const { devices } = require("@playwright/test");
+    const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["390x844", mob(390, 844)], ["360x640", mob(360, 640)], ["320x568", mob(320, 568)], ["375x553", mob(375, 553)], ["360x560", mob(360, 560)],
+      ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await open(c);
+      const seen = [];
+      for (const foe of ["monk", "friend"]) {
+        await q.evaluate((foe) => { StoneGarden.toMenu(); document.querySelector('#pick-foe button[data-v="' + foe + '"]').click(); StoneGarden.start(); }, foe);
+        await q.waitForTimeout(200);
+        seen.push(await q.evaluate((foe) => {
+          const nb = document.getElementById("nameboard");
+          if (!nb) return { foe, missing: true };
+          const b = nb.getBoundingClientRect(), cs = getComputedStyle(nb);
+          const hits = [...document.querySelectorAll(".title, .tally, .frame, .tools button, .keys, .record, .nav-back-games, .mute-toggle, .motion-toggle, .gs-pause-btn")]
+            .filter((e) => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).visibility !== "hidden" && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; })
+            .map((e) => e.id || e.className || e.tagName);
+          const de = document.documentElement, sh = de.scrollHeight, sw = de.scrollWidth;
+          nb.style.display = "none";
+          const sh0 = de.scrollHeight, sw0 = de.scrollWidth;
+          nb.style.display = "";
+          const fr = document.querySelector(".frame").getBoundingClientRect(), rec = document.getElementById("record").getBoundingClientRect();
+          const room = b.right <= fr.left || innerHeight - (rec.bottom + scrollY) >= 32;
+          return { foe, text: nb.textContent.trim(), size: parseFloat(cs.fontSize), shown: b.width > 0 && b.height > 0 && cs.visibility === "visible",
+            box: [Math.round(b.left), Math.round(b.top), Math.round(b.right), Math.round(b.bottom)], room,
+            placed: room ? b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom + scrollY <= innerHeight && sh === sh0 && sw === sw0
+              : b.left >= 0 && b.right <= innerWidth && b.top >= rec.bottom && b.top - rec.bottom <= 8 && sw === sw0 && sh - sh0 <= b.height + 8,
+            hits, madeBy: /made by/i.test(document.body.innerText) };
+        }, foe));
+      }
+      const bad = seen.filter((r) => r.missing || r.text !== "Sam Lu Garden" || r.size < 10 || !r.shown || !r.placed || r.hits.length || r.madeBy);
+      check("stone-garden, " + label + ": the name board reads \"Sam Lu Garden\" in the moss at the garden's edge, clear of the bed, the tally, the tools and every line of text, in the first screen adding no scroll where there's room for it, against a keeper and a friend",
+        bad.length === 0, bad.length ? bad : seen.map((r) => r.foe + " " + r.size + "px " + r.box.join(",") + (r.room ? "" : " (no room: under the record)")));
+      await done(q, "name board, " + label);
       await c.close();
     }
   }

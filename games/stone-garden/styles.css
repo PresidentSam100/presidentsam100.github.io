@@ -184,6 +184,52 @@ html.fx-on .cell .st.w.flip::before { background: radial-gradient(circle at 34% 
 .keys kbd { margin: 0 1px; }
 .record { font-size: 14px; color: #e3e8cf; min-height: 18px; text-align: center; }
 
+/* The garden's name board: a weathered plank under a cedar cap, the name
+   burned into it, on two cedar posts in a tuft of moss. game.js stands it
+   beside the bed's lower left corner where the moss has room (laptops, a
+   phone turned sideways), else on the moss under the record line, sized to
+   the room there; it takes no room from the garden itself. Every size is in
+   em, so one font size sets the whole board. */
+.garden { position: relative; }
+.nameboard {
+  position: absolute; left: 0; top: 0; z-index: 1; visibility: hidden; pointer-events: none;
+  padding: 0.3em 0 1.55em;
+  font-family: "Zen Old Mincho", serif; font-size: 17px; line-height: 1.15;
+}
+.nameboard.placed { visibility: visible; }
+.nameboard .plank {
+  position: relative; z-index: 2; display: block; white-space: nowrap;
+  padding: 0.3em 0.75em 0.34em;
+  font-weight: 900; letter-spacing: 0.06em; color: #33261a;
+  text-shadow: 0 1px 0 rgba(255, 244, 220, 0.35);
+  background:
+    repeating-linear-gradient(178deg, rgba(96, 66, 36, 0.11) 0 1px, transparent 1px 4px),
+    linear-gradient(176deg, #dcc7a2, #c6a97c 55%, #ab8c60);
+  border: 1px solid #5a3f2b; border-radius: 0.14em;
+  box-shadow: inset 0 0 0 1px rgba(255, 240, 210, 0.22), 0 0.14em 0.3em rgba(20, 28, 8, 0.45);
+}
+/* its cedar cap, a little wider than the plank */
+.nameboard .plank::before {
+  content: ""; position: absolute; left: -0.32em; right: -0.32em; top: -0.32em; height: 0.3em;
+  background: linear-gradient(175deg, var(--cedar-hi), var(--cedar) 60%, var(--cedar-deep));
+  border-radius: 0.14em 0.14em 0.04em 0.04em; box-shadow: 0 1px 1px rgba(20, 14, 8, 0.35);
+}
+/* the posts, each standing in a tuft of moss like the bed's corners */
+.nameboard .post {
+  position: absolute; z-index: 1; bottom: 0.32em; left: 20%; width: 0.4em; height: 1.55em;
+  background: linear-gradient(90deg, var(--cedar-hi), var(--cedar) 55%, var(--cedar-deep));
+}
+.nameboard .post.r { left: auto; right: 20%; }
+.nameboard .post::after {
+  content: ""; position: absolute; left: 50%; bottom: -0.32em; width: 2.1em; height: 0.78em; transform: translateX(-50%);
+  border-radius: 50%; background: radial-gradient(circle at 40% 40%, var(--moss-hi), var(--moss) 60%, var(--moss-deep));
+  box-shadow: 0 1px 2px rgba(20, 28, 8, 0.4);
+}
+/* short legs, where the room under the record line is a narrow strip */
+.nameboard.low { padding-bottom: 0.62em; }
+.nameboard.low .post { bottom: 0.2em; height: 0.55em; }
+.nameboard.low .post::after { bottom: -0.2em; width: 1.6em; height: 0.5em; }
+
 kbd {
   font-family: inherit; font-size: 12px; font-weight: 700;
   color: var(--washi); background: var(--cedar-deep);
