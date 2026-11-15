@@ -1738,4 +1738,57 @@ module.exports = async ({ browser, base, check, lib }) => {
     await t.close();
   }
   await ctx.close();
+
+  // the cafe's name, Café Sam Lu, engraved on a little brass plate swelling
+  // out of the table's edge at its foot near the left corner: on the screen,
+  // readable, and clear of everything on the table, at the top of the page
+  // and scrolled to its end; 2 and 4 players, and the 3-player board
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }],
+    ];
+    const games = [
+      ["2 players", "games/chess/", () => { document.querySelector('.modebtn[data-mode="2"]').click(); document.getElementById("setup2Start").click(); }],
+      ["4 players", "games/chess/", () => { document.querySelector('.modebtn[data-mode="4"]').click(); document.querySelector('#endMenu .modebtn[data-end="1"]').click(); }],
+      ["3 players", "games/chess/three.html", () => { document.querySelector('#menu .modebtn[data-end="1"]').click(); }],
+    ];
+    const plate = (q) => q.evaluate(() => {
+      const cs = getComputedStyle(document.body, "::after"), px = (k) => parseFloat(cs[k]) || 0;
+      if (!/Sam Lu/.test(cs.content)) return { content: cs.content };
+      const w = px("width") + px("paddingLeft") + px("paddingRight") + px("borderLeftWidth") + px("borderRightWidth");
+      const h = px("height") + px("paddingTop") + px("paddingBottom") + px("borderTopWidth") + px("borderBottomWidth");
+      // (fixed to the screen's foot, or, where the page scrolls, the body's foot)
+      const cb = cs.position === "fixed" ? { left: 0, bottom: innerHeight } : document.body.getBoundingClientRect();
+      const b = { l: cb.left + px("left"), r: cb.left + px("left") + w, b: cb.bottom - px("bottom"), t: cb.bottom - px("bottom") - h };
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const things = [...document.querySelectorAll("h1, .sub, #status, .layout button, .tray, .strip, .pchip, #board, #boardSvg, .logbox")]
+        .filter((e) => e.offsetWidth > 0 && getComputedStyle(e).visibility !== "hidden").map((e) => ({ e: e.id || e.className || e.tagName, r: e.getBoundingClientRect() }))
+        .map((o) => ({ e: o.e, l: o.r.left, r: o.r.right, t: o.r.top, b: o.r.bottom }));
+      return { content: cs.content.replace(/\s+/g, " "), position: cs.position, size: px("fontSize"), b, vw: document.documentElement.clientWidth, vh: innerHeight,
+        hits: things.filter((o) => meet(b, o)).map((o) => o.e) };
+    });
+    for (const [name, opt] of sizes) {
+      const bad = [];
+      for (const [game, url, begin] of games) {
+        const c = await lib.newContext(browser, opt);
+        const q = await lib.open(c, base, url);
+        await q.evaluate(begin); await q.waitForTimeout(300);
+        const top = await plate(q);
+        await q.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight)); await q.waitForTimeout(150);
+        const end = await plate(q);
+        // (at the end of the page it meets the edge at the screen's foot; at the top it is
+        // there too, or, where the page scrolls, still below the screen, over nothing)
+        const good = (s) => /"Café Sam Lu"/.test(s.content) && s.size >= 12 && s.b.l >= 6 && s.b.r <= s.vw - 6 && s.b.b - s.b.t <= 40 && s.hits.length === 0;
+        const atFoot = (s) => Math.abs(s.b.b - s.vh) < 1.5;
+        if (!good(top) || !good(end) || !atFoot(end) || !(atFoot(top) || top.b.t >= top.vh)) bad.push({ game, top, end });
+        await c.close();
+      }
+      check("chess, " + name + ": Café Sam Lu is engraved on a brass plate at the table edge's foot near the left corner, readable, clear of the board, buttons and lettering at the top and at the end of the page (2, 3 and 4 players)", bad.length === 0, bad);
+    }
+  }
 };
