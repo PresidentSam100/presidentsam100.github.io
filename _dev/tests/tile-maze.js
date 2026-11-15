@@ -303,4 +303,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "zap");
     await ctx.close();
   }
+
+  // ---- the resort's name, SAM LU RESORT, painted on the deck under the pool
+  // in the game's sign face, and no "made by" line. On every level, laptop
+  // and phone, it covers no panel, button, link, key or line of text and stays
+  // inside the page's width; on a laptop it takes no height (it sits in the
+  // open deck the towel leaves beside it).
+  {
+    const { devices } = require("@playwright/test");
+    const SIZES = [["1280x900"], ["1366x657"], ["1280x600"],
+      ["phone 320x640", { hasTouch: true, isMobile: true }], ["phone 360x640", { hasTouch: true, isMobile: true }], ["Pixel 7", devices["Pixel 7"]],
+      ["phone 375x553", { hasTouch: true, isMobile: true }], ["phone 360x560", { hasTouch: true, isMobile: true }]];
+    for (const [label, extra] of SIZES) {
+      const m = /(\d+)x(\d+)/.exec(label);
+      const opts = Object.assign({}, extra || {}, m ? { viewport: { width: +m[1], height: +m[2] } } : {});
+      ctx = await lib.newContext(browser, opts);
+      p = await lib.open(ctx, base, "games/tile-maze/", { before: seed('{"unlocked":60}') });
+      const look = await p.evaluate(() => {
+        const mark = document.querySelector(".deck-paint");
+        const out = { mark: !!mark, madeBy: /made by/i.test(document.body.innerText), hits: [], wide: [] };
+        if (!mark) return out;
+        const cs = getComputedStyle(mark);
+        out.text = mark.textContent.trim();
+        out.upper = cs.textTransform;
+        out.face = cs.fontFamily.split(",")[0].replace(/["']/g, "").trim();
+        out.shown = cs.display !== "none" && cs.visibility === "visible" && parseFloat(cs.opacity) >= 0.5;
+        const fixed = (e) => { for (let n = e; n; n = n.parentElement) if (getComputedStyle(n).position === "fixed") return true; return false; };
+        const others = [...document.querySelectorAll(".boardwrap, .side, .topbar, button, a, kbd, h1, h2, h3, p, .levelhead, .dpad, .toolbar")]
+          .filter((e) => e !== mark && !fixed(e) && e.getClientRects().length);
+        const cross = (a, b) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5;
+        const btns = document.querySelectorAll("#levelPick .lvlbtn");
+        out.levels = btns.length;
+        for (let i = 0; i < btns.length; i++) {
+          btns[i].click();
+          const r = mark.getBoundingClientRect();
+          if (r.height < 20 || r.width < 150) out.hits.push([i + 1, "size", Math.round(r.width), Math.round(r.height)]);
+          for (const e of others) if (cross(r, e.getBoundingClientRect())) { out.hits.push([i + 1, e.className || e.tagName]); break; }
+          if (r.left < 0 || r.right > document.documentElement.clientWidth + 0.5) out.wide.push(i + 1);
+        }
+        btns[0].click();
+        const tall = document.documentElement.scrollHeight;
+        mark.style.display = "none";
+        out.extra = tall - document.documentElement.scrollHeight;
+        mark.style.display = "";
+        return out;
+      });
+      const phone = /phone|Pixel/.test(label);
+      check("tile-maze, " + label + ": SAM LU RESORT is painted on the deck in the sign's face, clear of every panel, button and line on every level, inside the page's width" + (phone ? "" : ", adding no height"),
+        look.mark && look.text === "Sam Lu Resort" && look.upper === "uppercase" && look.face === "Righteous" && look.shown &&
+        look.levels === 60 && look.hits.length === 0 && look.wide.length === 0 && (phone || look.extra === 0), look);
+      check("tile-maze, " + label + ": no \"made by\" line", look.mark && !look.madeBy, look.madeBy);
+      await done(p, label + " deck paint");
+      await ctx.close();
+    }
+  }
 };
