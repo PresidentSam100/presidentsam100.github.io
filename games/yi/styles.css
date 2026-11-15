@@ -324,6 +324,19 @@ h1.title {
   border-radius: 3px;
   background: linear-gradient(135deg, #2a2a33, #3a3a46);
   border: 1px solid #4a4a58;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* (the logo's oval, too small here for its letters) */
+.mini-back::after {
+  content: "";
+  width: 10px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 1px #fff;
+  transform: rotate(-20deg);
 }
 /* Visual FX off: cards don't fly, so the table says what happened instead,
    "+n" by a CPU's count when it draws (until another player acts), and who
@@ -488,19 +501,27 @@ html.fx-off .played-by {
   background: radial-gradient(circle at 30% 25%, #23232e, #0f0f15);
   border-color: #3a3a48;
 }
+/* the back's logo: the maker's name in a tilted red oval, sized to stay
+   inside the card at every card size */
 .card.back::after {
-  content: "YI";
+  content: "SAM LU";
   font-family: "Fredoka", "Inter", sans-serif;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
   font-weight: 700;
   font-style: italic;
+  white-space: nowrap;
   color: #fff;
   background: var(--red);
-  padding: 2px 8px 3px;
+  padding: 2px 6px 3px;
   border: 2px solid #fff;
   border-radius: 50% / 50%;
   transform: rotate(-20deg);
   letter-spacing: 0.5px;
+}
+.card.sm.back::after {
+  font-size: 0.6rem;
+  padding: 1px 5px 2px;
+  border-width: 1.5px;
 }
 
 .deck-stack {

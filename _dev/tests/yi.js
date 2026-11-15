@@ -77,12 +77,13 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("yi: Quit to menu while a card flies throws nothing, and that card never lands on the next deal",
     quitErrs.length === 0 && fresh.discard === 1 && fresh.by === -1, { quitErrs, fresh });
 
-  // ---- the old name: the hand label and the card backs say YI
+  // ---- the old name: the hand label says YI; the card backs carry the
+  // maker's logo, SAM LU in its oval
   const named = await p.evaluate(() => {
     G.players[0].hand = [G.players[0].hand[0]]; G.players[0].calledUno = true; render();
     return { label: document.getElementById("handLabel").textContent, back: getComputedStyle(document.querySelector("#deckStack .card.back"), "::after").content };
   });
-  check("yi: with one card called the hand label says YI, and the card backs read YI", !/UNO/i.test(named.label) && /YI/.test(named.label) && named.back === '"YI"', named);
+  check("yi: with one card called the hand label says YI, and the card backs carry the maker's logo, SAM LU", !/UNO/i.test(named.label) && /YI/.test(named.label) && named.back === '"SAM LU"', named);
   await done(p, "yi quit / name");
 
   // ---- points game over: Menu goes back to setup
@@ -351,6 +352,40 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("yi: a rival down to one card reads \"1 card\" (and the others \"7 cards\")",
       !!it && /^1 card(?!s)/.test(it.count) && counts.filter((c) => c !== it).every((c) => /^\d+ cards/.test(c.count)), { rival, counts });
     await done(q, "yi one card");
+  }
+
+  // ---- the card backs' logo, SAM LU in a tilted red oval, stays inside the
+  // card at both card sizes (the deck's, and a small one), on a laptop and on
+  // phones. (A span set in the logo's own computed style, inside a card back
+  // of each size, stands in for the ::after.)
+  {
+    const { devices } = require("@playwright/test");
+    const seen = {}, bad = [];
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320 phone", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/yi/");
+      await deal(q);
+      const m = await q.evaluate(() => [document.querySelector("#deckStack .card.back"), (() => { const d = document.createElement("div"); d.className = "card sm back"; document.body.appendChild(d); return d; })()].map((card) => {
+        const a = getComputedStyle(card, "::after"), s = document.createElement("span");
+        s.textContent = a.content.replace(/^"|"$/g, "");
+        for (const k of ["fontFamily", "fontSize", "fontWeight", "fontStyle", "letterSpacing", "whiteSpace", "padding", "borderTop", "borderRight", "borderBottom", "borderLeft", "borderRadius", "transform"]) s.style[k] = a[k];
+        s.style.display = "inline-block";
+        card.appendChild(s);
+        // (the logo is centred in the card: the room is half what its tilted
+        // box leaves of the card's inside, each way)
+        const r = card.getBoundingClientRect(), o = s.getBoundingClientRect(), b = parseFloat(getComputedStyle(card).borderTopWidth);
+        const across = (r.width - 2 * b - o.width) / 2, down = (r.height - 2 * b - o.height) / 2;
+        const room = { left: across, right: across, top: down, bottom: down };
+        s.remove(); if (card.parentNode === document.body) card.remove();
+        return { size: card.classList.contains("sm") ? "small" : "deck", text: s.textContent, card: Math.round(r.width) + "x" + Math.round(r.height), room: Object.fromEntries(Object.entries(room).map(([k, v]) => [k, Math.round(v * 10) / 10])) };
+      }));
+      seen[label] = m;
+      for (const x of m) if (x.text !== "SAM LU" || Object.values(x.room).some((v) => v < 0.5)) bad.push(label + " " + x.size);
+      await done(q, "yi card back logo " + label);
+      await c.close();
+    }
+    check("yi: the card backs' SAM LU logo stays inside the card, deck-size and small cards, on a laptop and phones", bad.length === 0, { bad, seen });
   }
 
   await ctx.close();
