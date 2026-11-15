@@ -165,6 +165,16 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
 }
 .score { display: flex; gap: 20px; font-size: 1.15rem; color: var(--chalk-dim); }
 .score b { font-weight: 400; color: var(--chalk); font-size: 1.3rem; }
+/* the teacher who set the board, signed small in chalk in the slate's bottom
+   corner: it sits in the slate's bottom padding, under the tally, so it adds
+   no height and nothing on the slate moves for it */
+.prof {
+  position: absolute; right: 14px; bottom: 5px; margin: 0;
+  font: 400 1rem/1 "Patrick Hand", "Cabin Sketch", cursive;
+  color: rgba(238, 240, 230, 0.72); white-space: nowrap; pointer-events: none;
+  transform: rotate(-3deg); transform-origin: left bottom;
+  filter: url(#chalk-ui);
+}
 
 /* ---- Ultimate: a big # of nine little #s ---------------------------------- */
 #uboard {
@@ -268,6 +278,7 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
   button.btn { font-size: 1rem; padding: 3px 12px; }
   .score { font-size: 1rem; }
   .score b { font-size: 1.1rem; }
+  .prof { bottom: 2px; font-size: 0.8rem; transform: rotate(-1.5deg); }
 }
 
 
