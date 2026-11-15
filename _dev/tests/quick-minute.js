@@ -417,4 +417,41 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // the maker's chrome badge on the dash: on the glovebox past the instruments
+  // where the dash reaches that far, else over the trip meter; on the screen,
+  // on the dash's vinyl, clear of the dials, and the dash no taller for it
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }, true],
+      ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true],
+      ["800x600", { viewport: { width: 800, height: 600 } }, true],
+      ["Pixel 7", devices["Pixel 7"], false],
+      ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }, false],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }, false],
+      ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }, false],
+    ];
+    for (const [name, opt, glovebox] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/quick-minute/");
+      const b = await q.evaluate(() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const badge = document.getElementById("badge");
+        if (!badge) return null;
+        const dash = document.getElementById("dash"), h1 = dash.offsetHeight;
+        badge.style.display = "none"; const h0 = dash.offsetHeight; badge.style.display = "";
+        const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+        const bb = box(badge), others = ["#speedo", ".stat.odo .value", "#value-best", ".stat .label", ".hint", "#stage"].flatMap((s) => [...document.querySelectorAll(s)].map(box));
+        return { text: badge.textContent.trim(), bb, dash: box(dash), vw: document.documentElement.clientWidth, vh: innerHeight,
+          visible: getComputedStyle(badge).visibility === "visible" && bb.r - bb.l > 40, grows: h1 - h0, hits: others.filter((o) => meet(bb, o)).length };
+      });
+      const ok = !!b && b.text === "SAM LU" && b.visible && b.grows === 0 && b.hits === 0 &&
+        b.bb.l >= 4 && b.bb.r <= b.vw - 4 && b.bb.b <= b.vh && b.bb.t >= b.dash.t + 6 && b.bb.b <= b.dash.b &&
+        (glovebox ? b.bb.l >= b.dash.r + 16 : b.bb.r <= b.dash.r);
+      check("quick-minute, " + name + ": a SAM LU chrome badge on the dash's passenger side (" + (glovebox ? "on the glovebox past the instruments" : "over the trip meter") + "), on the screen, clear of the dials, the dash no taller for it", ok, b);
+      await c.close();
+    }
+  }
 };

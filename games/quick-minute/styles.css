@@ -6,7 +6,8 @@
    You look out through the windscreen (the canvas), with the rear-view
    mirror hung above it carrying the name, and the dashboard below: an
    odometer for the distance, a speedometer whose needle follows the MPH,
-   and a trip meter for the best. Charcoal vinyl with a stitched seam,
+   a trip meter for the best, and the maker's chrome badge, SAM LU, on the
+   passenger side. Charcoal vinyl with a stitched seam,
    chrome trim, cool white dial lighting and a red needle: no other page
    on the site is the inside of a car.
 
@@ -140,6 +141,25 @@ html.fx-off .needle { transition: none; }
 .stat.odo .value, .stat.speedo .value {
   color: var(--lit); color: color-mix(in srgb, var(--lit), #fff calc(100% * var(--dash, 0)));
   text-shadow: 0 0 calc(7px + 3px * var(--dash, 0)) rgba(190, 225, 255, calc(0.45 + 0.45 * var(--dash, 0)));
+}
+
+/* the maker's badge: a chrome nameplate on the dash, on the passenger side,
+   the letters pressed into it. On a narrow dash it sits over the trip meter,
+   in vinyl the speedometer's height already leaves (the dash grows no
+   taller); where the dash reaches far enough past the instruments it sits out
+   on the glovebox. The chrome dims a little with the cabin at night. It holds
+   still, with Visual FX on or off. */
+.badge {
+  display: block; width: max-content; margin: 0 auto 0.45rem; padding: 0.24rem 0.55rem 0.2rem;
+  font: 400 0.56rem/1 var(--badge); letter-spacing: 2.5px; color: #1b1f26; white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65), 0 -1px 0 rgba(0, 0, 0, 0.18);
+  background: linear-gradient(180deg, #f6f8fb 0, #cdd3dc 36%, #8e959f 50%, #dfe4ea 66%, #aab1bb 100%);
+  border: 1px solid #0d0e11; border-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), inset 0 -1px 0 rgba(0, 0, 0, 0.25), 0 0 0 1px var(--chrome-dk), 0 2px 4px rgba(0, 0, 0, 0.6);
+  filter: brightness(calc(1 - 0.3 * var(--dash, 0)));
+}
+@media (min-width: 800px) {
+  .badge { position: absolute; left: calc(100% + 3.5rem); top: 50%; transform: translateY(-50%); margin: 0; font-size: 0.76rem; letter-spacing: 3.5px; padding: 0.38rem 0.9rem 0.32rem; border-radius: 5px; }
 }
 
 .hint { position: relative; z-index: 1; color: var(--muted); font-size: 0.95rem; font-weight: 500; text-align: center; margin: 0.55rem 0 0.1rem; }
