@@ -26,8 +26,10 @@ const ctx = canvas.getContext("2d");
 // 3 per unit), so the scene is sharp on retina screens, big windows and
 // phones; everything still draws in W × H. (W × H times the ratio was soft on
 // a 2× screen, where the board is shown larger than W × H.)
+let onScreen = 1;   // page pixels to a board unit, as the board is shown now (the livery's size is read against it)
 function fit() {
   const s = Math.min(window.innerWidth / W, (window.innerHeight - 24) / H);
+  onScreen = Math.floor(W * s) / W;
   canvas.style.width = Math.floor(W * s) + "px";
   canvas.style.height = Math.floor(H * s) + "px";
   const k = Math.min(3, Math.max(1, Math.floor(W * s) / W * (window.devicePixelRatio || 1)));
@@ -1641,6 +1643,7 @@ function drawVehicle(row, it, top) {
     ctx.fillRect(facingRight ? x + w - 8 : x + 3, y0 + d - 13, 5, 5);
     ctx.fillStyle = "#e04438"; // taillight, trailing edge
     ctx.fillRect(facingRight ? x + 4 : x + w - 9, y0 + d - 15, 5, 6);
+    drawLivery(it, boxX, y0 + d - 30, boxW, 30);
   } else {
     ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
     ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
@@ -1656,6 +1659,41 @@ function drawVehicle(row, it, top) {
     const tx2 = facingRight ? x + 3 : x + w - 8;
     ctx.fillRect(tx2, y0 + d - 12, 5, 5);
   }
+}
+
+// The fleet's livery along a lorry's box: a band in the cab's colour across
+// the side we see, SAM LU HAULAGE on it in white. Where the board is shown so
+// small that the words would come out under 9 page pixels, the band carries
+// SAM LU alone, bigger. Drawn the right way round whichever way the lorry
+// drives (only the box and cab are mirrored, never the lettering). Still art:
+// it rides with the lorry and nothing else moves.
+const LIVERY = "SAM LU HAULAGE", LIVERY_SHORT = "SAM LU", LIVERY_FONT = "Grandstander, 'Trebuchet MS', sans-serif";
+let liveries = [];   // (each one drawn this frame, for the tests)
+function drawLivery(it, bx, by, bw, bh) {
+  const room = bw - 12;
+  ctx.font = "bold 10px " + LIVERY_FONT;
+  const per = ctx.measureText(LIVERY).width / 10;               // width per unit of font size
+  let size = Math.min(14, room / per), text = LIVERY;
+  const fullPx = size * onScreen;
+  if (fullPx < 9) {
+    ctx.font = "bold 10px " + LIVERY_FONT;
+    size = Math.min(24, room / (ctx.measureText(LIVERY_SHORT).width / 10), bh * 0.95);
+    text = LIVERY_SHORT;
+  }
+  const band = Math.min(bh - 4, size * 1.3), top = by + (bh - band) / 2;
+  ctx.fillStyle = shadeC(it.color, -0.12);
+  roundRect(bx + 3, top, bw - 6, band, 3); ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,.28)";
+  ctx.fillRect(bx + 3, top + 1, bw - 6, 1.5);
+  ctx.font = "bold " + size.toFixed(1) + "px " + LIVERY_FONT;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const cx = bx + bw / 2, cy = top + band / 2 + size * 0.06;
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.fillText(text, cx, cy + 1);
+  ctx.fillStyle = "#ffffff"; ctx.fillText(text, cx, cy);
+  ctx.textBaseline = "alphabetic";
+  const m = ctx.getTransform(), tw = ctx.measureText(text).width;
+  liveries.push({ text: text, size: size, px: size * onScreen, x: cx - tw / 2, w: tw, y: top, h: band,
+    box: { x: bx, y: by, w: bw, h: bh }, mirrored: m.a < 0 || m.d < 0, len: it.len, fullPx: fullPx });
 }
 
 // Visual FX off (motion-toggle.js): warning lights burn steadily instead of flashing
@@ -2263,6 +2301,7 @@ function drawPauseOverlay() {
 
 // ---------- render ----------
 function render() {
+  liveries = [];
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#8fce46"; ctx.fillRect(0, 0, W, H);
 
@@ -2416,7 +2455,8 @@ window.__game = {
   get mode() { return gameMode; },
   get insane() { return insane; },
   rowTypes: (from, to) => { ensureRows(to + 1); const out = []; for (let r = from; r <= to; r++) out.push(rows[r] ? rows[r].type : null); return out; },
-  spawnFeathers, spawnDust, death, snapToPlatform
+  spawnFeathers, spawnDust, death, snapToPlatform,
+  get liveries() { return liveries.slice(); }
 };
 
 })();

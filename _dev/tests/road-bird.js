@@ -509,4 +509,42 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // ---- the fleet's livery: every lorry carries SAM LU HAULAGE in white on a
+  // band in its cab's colour along the side of its box, inside the box and
+  // never mirrored, whichever way it drives; where the board is shown so
+  // small that the words would come out under 9 page pixels, the band says
+  // SAM LU alone, at 9 or more. The lorries keep their length (their hit box)
+  // and drawing them changes nothing about them; no "made by" line.
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
+    await q.evaluate(() => { __game.render(); });
+    // (a run of Cars & Trucks, all roads, until a lorry is on the board)
+    await q.keyboard.press("2"); await q.waitForTimeout(80);
+    await q.keyboard.press("Enter");
+    await q.waitForFunction(() => { __game.render(); return (__game.liveries || []).length > 0; }, null, { timeout: 20000, polling: 200 }).catch(() => {});
+    const r = await q.evaluate(() => {
+      const items = () => JSON.stringify(Object.keys(__game.rows).map((k) => __game.rows[k]).filter((row) => row.type === "road").map((row) => row.items.map((it) => [it.x, it.len, it.type])));
+      const before = items();
+      __game.render();
+      const after = items(), liveries = __game.liveries || [];
+      const lens = [];
+      Object.keys(__game.rows).forEach((k) => { const row = __game.rows[k]; if (row.type === "road") row.items.forEach((it) => lens.push(it.type + ":" + it.len)); });
+      return { liveries, same: before === after, lens: [...new Set(lens)], madeBy: /made by/i.test(document.body.innerText) };
+    });
+    const bad = r.liveries.filter((l) => {
+      const words = l.text === "SAM LU HAULAGE" ? l.px >= 9 : l.text === "SAM LU" ? l.fullPx < 9 && l.px >= 9 : false;
+      const inBox = l.x >= l.box.x - 0.5 && l.x + l.w <= l.box.x + l.box.w + 0.5 && l.y >= l.box.y - 0.5 && l.y + l.h <= l.box.y + l.box.h + 0.5;
+      return !words || !inBox || l.mirrored || l.len !== 2.8;
+    });
+    check("road-bird, " + label + ": every lorry carries the livery (SAM LU HAULAGE, or SAM LU where the board is too small for the words), readable, inside its box, never mirrored",
+      r.liveries.length > 0 && bad.length === 0 && !r.madeBy, bad.length ? bad.slice(0, 3) : { n: r.liveries.length, texts: [...new Set(r.liveries.map((l) => l.text + " " + l.px.toFixed(1) + "px"))] });
+    check("road-bird, " + label + ": the lorries and cars keep their lengths (their hit boxes), and drawing them changes nothing about them",
+      r.same && r.lens.every((s) => s === "truck:2.8" || s === "car:1.5"), { same: r.same, lens: r.lens });
+    check("road-bird (livery), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };
