@@ -52,10 +52,20 @@ body {
   margin-top: 34px;
 }
 .sign {
+  display: flex; flex-direction: column; align-items: flex-start;
   font-size: clamp(18px, 3.4vw, 30px); font-weight: 700; letter-spacing: 6px;
   color: var(--amber);
   text-shadow: 0 0 18px rgba(255, 201, 77, 0.35);
 }
+/* the airport's name over its board, as a terminal's sign carries it: a
+   smaller line in the hall's lamp white, the board's own name under it in
+   amber. With Visual FX on, the name flaps into place once as the hall opens */
+.sign .airport {
+  font-size: 14px; font-weight: 600; letter-spacing: 5px; line-height: 1.2;
+  color: #cfd5db; text-shadow: none; white-space: nowrap;
+}
+.sign .board-name { line-height: 1.1; white-space: nowrap; }
+.fxon .sign .airport { animation: flapin 0.3s steps(3) 0.15s backwards; }
 /* (a small phone: the sign's wide lettering closes up to stay on the screen) */
 @media (max-width: 380px) { .sign { font-size: 17px; letter-spacing: 3.5px; } }
 .clockwrap { display: flex; gap: 10px; }
@@ -276,6 +286,7 @@ kbd {
 @media (max-width: 640px) {
   .panel { padding-top: 62px; }      /* (a card starts below the corner buttons) */
   #board-top { flex-direction: column; align-items: stretch; gap: 6px; margin-top: 40px; }
+  .sign .airport { font-size: 12px; letter-spacing: 4px; }
   .clockwrap { justify-content: space-between; }
   #regions { grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .gate .rname { font-size: 10px; letter-spacing: 1px; }
@@ -292,3 +303,6 @@ kbd {
   #answer { grid-area: answer; }
   #giveup { grid-area: giveup; }
 }
+
+/* (a small phone: the airport line closes up with the sign under it) */
+@media (max-width: 380px) { .sign .airport { font-size: 11px; letter-spacing: 3px; } }

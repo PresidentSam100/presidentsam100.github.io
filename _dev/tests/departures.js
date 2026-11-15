@@ -129,4 +129,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- the airport's name over its board: SAM LU INTERNATIONAL, a smaller
+  // line over the board's own DEPARTURES, inside the screen and clear of the
+  // clock, the count, the corner buttons and the board under it; the hall
+  // still fits the screen (nothing scrolls), and the page carries no "made
+  // by" line. With Visual FX on the name flaps into place once; off, it is
+  // simply there
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/departures/");
+    await q.evaluate(() => Departures.start("world")); await q.waitForTimeout(150);
+    const r = await q.evaluate(() => {
+      const a = document.querySelector("#board-top .sign .airport"), n = document.querySelector("#board-top .sign .board-name");
+      if (!a || !n) return null;
+      const b = a.getBoundingClientRect(), box = (e) => e.getBoundingClientRect();
+      const meets = (e) => { const s = box(e); return s.width > 0 && s.left < b.right && s.right > b.left && s.top < b.bottom && s.bottom > b.top; };
+      // (the corner buttons: the fixed ones, and those in the shared corner row)
+      const corner = [...new Set([...document.querySelectorAll("a, button")].filter((e) => getComputedStyle(e).position === "fixed").concat([...document.querySelectorAll(".gs-corner > *")]))]
+        .filter((e) => e.getClientRects().length);
+      const hits = [document.getElementById("clock"), document.getElementById("total"), document.getElementById("regions"), document.getElementById("log"), ...corner]
+        .filter(meets).map((e) => e.id || e.className);
+      return { text: a.textContent.replace(/ /g, " "), board: n.textContent, size: parseFloat(getComputedStyle(a).fontSize), above: b.bottom <= box(n).top + 1,
+        inside: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight, shown: b.width > 0 && getComputedStyle(a).visibility !== "hidden", hits,
+        scroll: document.documentElement.scrollWidth > innerWidth || document.documentElement.scrollHeight > innerHeight, madeBy: /made by/i.test(document.body.innerText) };
+    });
+    check("departures, " + label + ": SAM LU INTERNATIONAL heads the board over DEPARTURES, inside the screen and clear of the clock, the count, the corner buttons and the board",
+      !!r && r.text === "SAM LU INTERNATIONAL" && r.board === "DEPARTURES" && r.shown && r.above && r.inside && r.size >= 10 && r.hits.length === 0 && !r.scroll && !r.madeBy, r);
+    check("departures (airport name), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  {
+    const flap = {};
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/departures/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:departures", off ? "1" : "0"); } catch (e) {} }, off) });
+      flap[off ? "off" : "on"] = await q.evaluate(() => { const a = document.querySelector("#board-top .sign .airport"); return a ? getComputedStyle(a).animationName : null; });
+      await c.close();
+    }
+    check("departures: with Visual FX on the airport's name flaps into place once; off, it holds still", flap.on === "flapin" && flap.off === "none", flap);
+  }
 };
