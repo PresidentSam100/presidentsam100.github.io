@@ -68,6 +68,22 @@ html.fx-on body::before { animation: tp-ripple 9s ease-in-out infinite alternate
   font-family: "Sniglet", sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; color: var(--foam);
   background: var(--sea-dark); border: 2px solid #0a434d; border-radius: 999px; padding: 5px 14px; box-shadow: 0 2px 0 #0a434d;
 }
+/* a child's coral sand bucket on a flat stone by the pool, the name in
+   marker; placed (left, top, width) by game.js's placePail */
+.pail { position: absolute; left: 0; top: 0; width: 72px; pointer-events: none; z-index: 1; }
+.pail svg { display: block; width: 100%; height: auto; overflow: visible; }
+.pail .stone { fill: var(--rock); stroke: var(--rock-deep); stroke-width: 1.5; }
+.pail .barnacle { fill: #d9d4c4; }
+.pail .handle { fill: none; stroke: var(--coral-deep); stroke-width: 2.6; stroke-linecap: round; }
+.pail .sand { fill: var(--sand); stroke: #d8c79c; stroke-width: 1; }
+.pail .body { fill: var(--coral); stroke: var(--coral-deep); stroke-width: 1.5; stroke-linejoin: round; }
+.pail .shine { fill: rgba(255, 255, 255, 0.28); }
+.pail .lip { fill: #f59377; stroke: var(--coral-deep); stroke-width: 1.5; }
+.pail .pin { fill: var(--coral-deep); }
+.pail .name {
+  font-family: "Sniglet", sans-serif; font-weight: 800; font-size: 12px; text-anchor: middle;
+  fill: var(--ink); stroke: var(--ink); stroke-width: 0.5; stroke-linejoin: round; paint-order: stroke;
+}
 .keys { font-size: 13px; color: var(--foam); text-shadow: 0 1px 0 var(--sea-dark); text-align: center; font-weight: 600; }
 kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--sea-dark); background: var(--foam); border-radius: 4px; padding: 0 5px; margin: 0 1px; text-shadow: none; }
 

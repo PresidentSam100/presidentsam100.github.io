@@ -388,4 +388,48 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("tide-pool: a pause holds the points (thirty frames on, still there and no older), and resumed they go",
     !!pts.paused && pts.paused.t0 === 0 && pts.paused.t30 === 0 && pts.resumed === false, { paused: pts.paused, resumed: pts.resumed });
   await ctx.close();
+
+  // ---- the child's bucket by the pool, SAM LU written on it: a coral pail on
+  // its stone, beside the rocks where the page has room at the side, else just
+  // under the rim's right corner; on the menu and in a run it covers no piece
+  // of the pool, rim, button, key line or score, stays on the screen, adds no
+  // scroll, sits under the menu card, and the page has no "made by" line
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["Pixel 7 sideways", devices["Pixel 7 landscape"]], ["390x844", touch(390, 844)], ["360x640", touch(360, 640)],
+      ["320x568", touch(320, 568)], ["360x560", touch(360, 560)], ["375x553", touch(375, 553)]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await open(c);
+      const look = () => q.evaluate(() => {
+        const pail = document.getElementById("pail");
+        if (!pail) return null;
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width }; };
+        const p = box(pail), W = document.documentElement.clientWidth, H = innerHeight;
+        const others = [...document.querySelectorAll("#stage, #hud, #tools button, .keys > span, .nav-back-games, button, a, kbd")]
+          .filter((e) => !e.closest(".panel") && e.getClientRects().length && getComputedStyle(e).visibility !== "hidden");
+        const hits = others.map((e) => [e.id || e.className || e.tagName, box(e)]).filter(([, r]) => r.w > 0 && r.l < p.r && r.r > p.l && r.t < p.b && r.b > p.t).map(([n]) => n);
+        const svg = pail.querySelector("svg"), name = pail.querySelector("text.name");
+        const card = document.querySelector("#menu:not([hidden]) .card");
+        return {
+          name: name && name.textContent, font: name && getComputedStyle(name).fontFamily,
+          pail: !!svg && !!svg.querySelector(".body") && !!svg.querySelector(".handle") && !!svg.querySelector(".stone"),
+          box: [p.l, p.t, p.r, p.b].map(Math.round), w: Math.round(p.w), inside: p.l >= 0 && p.t >= 0 && p.r <= W && p.b <= H, hits,
+          scroll: document.documentElement.scrollWidth > W || document.documentElement.scrollHeight > H,
+          under: !card || +getComputedStyle(pail).zIndex < +getComputedStyle(document.getElementById("menu")).zIndex,
+          madeBy: /made by\s+sam/i.test(document.body.innerText) || !!document.getElementById("byline"),
+        };
+      });
+      const menu = await look();
+      await q.evaluate(() => TidePool.start("tide"));
+      await q.waitForTimeout(150);
+      const play = await look();
+      const ok = (s) => !!s && s.name === "SAM LU" && /Sniglet/.test(s.font) && s.pail && s.w >= 54 && s.inside && s.hits.length === 0 && !s.scroll && s.under && !s.madeBy;
+      check("tide-pool, " + label + ": a child's bucket with SAM LU on it stands by the pool, on the menu and in a run, clear of the pool, buttons and text, on the screen, no scroll",
+        ok(menu) && ok(play), { menu, play });
+      await done(q, "bucket " + label);
+      await c.close();
+    }
+  }
 };

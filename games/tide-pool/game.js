@@ -68,7 +68,44 @@
     CELL = SIZE / N;
     cv.width = Math.round(SIZE * dpr); cv.height = Math.round(SIZE * dpr);
     cv.style.width = SIZE + "px"; cv.style.height = SIZE + "px";
+    placePail();
   }
+
+  // ---- the bucket by the pool --------------------------------------------------------------
+  // It stands on its stone off the rocks' bottom right corner: beside the
+  // basin, its foot level with the rim's, where the page has room at the
+  // side (laptops, sideways phones); else just under the rim's corner, as
+  // large as fits clear of the buttons and the key line below. Placed again
+  // whenever the basin moves (the score line showing or going, a resize).
+  var PAIL_H = 70 / 72;   // the drawing's height for its width
+  function placePail() {
+    var pail = $("pail");
+    if (!pail) return;
+    var rim = cv.getBoundingClientRect(), W = document.documentElement.clientWidth, H = window.innerHeight;
+    var side = W - 10 - (rim.right + 12);
+    var w, x, y;
+    if (side >= 66) {
+      w = Math.min(88, side); x = rim.right + 12; y = rim.bottom - w * PAIL_H;
+    } else {
+      var below = ["tools", "hud"].map($).concat([document.querySelector(".keys")])
+        .filter(function (e) { return e && !e.hidden; })
+        .map(function (e) { return e.getBoundingClientRect(); })
+        .filter(function (r) { return r.width > 0 && r.top >= rim.bottom - 1; });
+      y = rim.bottom + 3;
+      for (w = 76; w > 50; w -= 2) {
+        x = rim.right - w;
+        var bottom = y + w * PAIL_H;
+        if (bottom > H - 3) continue;
+        var hit = below.some(function (r) { return x < r.right + 6 && rim.right > r.left - 6 && y < r.bottom + 3 && bottom > r.top - 3; });
+        if (!hit) break;
+      }
+    }
+    pail.style.width = w + "px";
+    pail.style.left = Math.round(x) + "px";
+    pail.style.top = Math.round(y) + "px";
+  }
+  if (window.ResizeObserver) new ResizeObserver(function () { placePail(); }).observe($("basin"));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePail);
 
   // ---- sound --------------------------------------------------------------------------------
   var actx = null;
