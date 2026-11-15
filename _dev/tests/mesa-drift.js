@@ -325,4 +325,39 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "rivers");
   }
   await ctx.close();
+
+  // ---- the balloon's name, SAM LU, painted on a cream band round the
+  // envelope's waist: in flight, its letters inside the envelope (across its
+  // widest, above its middle and below its crown), at least 11px on a laptop
+  // and 8px on an upright phone; the band and its terracotta letters are
+  // there in the picture; the page carries no "made by" line. (A phone on its
+  // side draws the whole sky small, the balloon with it: not held to a size.)
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts, least] of [["1280x900", {}, 11], ["1366x657", { viewport: { width: 1366, height: 657 } }, 11], ["1280x600", { viewport: { width: 1280, height: 600 } }, 11],
+    ["Pixel 7", devices["Pixel 7"], 8], ["phone 320x568", mob(320, 568), 8], ["phone 375x553", mob(375, 553), 8], ["phone 360x560", mob(360, 560), 8]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/mesa-drift/");
+    await q.evaluate(() => { if (window.MesaDrift) MesaDrift.start("calm"); });
+    await q.evaluate(() => { if (window.MesaDrift) MesaDrift.place(300, 330, 0, 0, 0.5); });
+    await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const r = await q.evaluate(() => {
+      const b = window.MesaDrift && MesaDrift.band && MesaDrift.band();
+      if (!b) return null;
+      const cv = document.getElementById("stage"), k = cv.width / b.W;
+      const d = cv.getContext("2d").getImageData(Math.round(b.x * k), Math.round(b.y * k), Math.max(1, Math.round(b.w * k)), Math.max(1, Math.round(b.h * k))).data;
+      let cream = 0, terra = 0;
+      for (let i = 0; i < d.length; i += 4) {
+        if (Math.abs(d[i] - 246) < 10 && Math.abs(d[i + 1] - 236) < 10 && Math.abs(d[i + 2] - 214) < 12) cream++;
+        else if (d[i] > 150 && d[i] - d[i + 1] > 50) terra++;   // (the letters, their soft edges on the cream too)
+      }
+      const n = d.length / 4;
+      return Object.assign(b, { cream: +(cream / n).toFixed(2), terra: +(terra / n).toFixed(2), madeBy: /made by/i.test(document.body.innerText) });
+    });
+    check("mesa-drift, " + label + ": SAM LU is painted on a cream band round the balloon, its letters inside the envelope and readable",
+      !!r && r.text === "SAM LU" && r.size >= least && r.x >= r.cx - r.r && r.x + r.w <= r.cx + r.r && r.y > r.cy - r.r && r.y + r.h < r.cy + r.r &&
+      r.cream > 0.3 && r.terra > 0.08 && !r.madeBy, r);
+    check("mesa-drift (balloon's name), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

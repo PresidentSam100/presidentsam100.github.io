@@ -483,10 +483,39 @@
     g.clip();
     var cols = ["#2e8b8b", "#e0a83a", "#c4473a", "#e0a83a", "#2e8b8b"];
     for (var k = 0; k < 5; k++) { g.fillStyle = cols[k]; g.fillRect(x - r + k * (2 * r / 5), y - r, 2 * r / 5 + 1, r * 2.2); }
+    drawBand(x, y, r);
     g.fillStyle = "rgba(255, 255, 255, 0.18)"; g.fillRect(x - r, y - r, r * 0.7, r * 2.2);
     g.restore();
     g.strokeStyle = "#4b2e3a"; g.lineWidth = Math.max(1, 1.5 * S);
     g.beginPath(); g.arc(x, y, r, Math.PI * 0.82, Math.PI * 2.18); g.lineTo(x + r * 0.32, y + r * 1.1); g.lineTo(x - r * 0.32, y + r * 1.1); g.closePath(); g.stroke();
+  }
+  // The balloon's name, painted round its waist as a sponsor's is: a band of
+  // poster cream ruled in plum, across the gores at the envelope's widest,
+  // with SAM LU on it in the poster's display face, terracotta. The letters
+  // grow with the balloon and stay inside the envelope's width; on a screen
+  // so short that the whole balloon is small, they are as big as it allows.
+  // (Drawn inside the envelope's clip; `band` keeps where, for the tests.)
+  var BAND = "SAM LU", band = null;
+  function drawBand(x, y, r) {
+    var size = Math.min(18, r * 0.42), track = 0.08, ws, total;
+    for (;;) {
+      g.font = "400 " + size.toFixed(1) + "px \"Abril Fatface\", Georgia, serif";
+      ws = []; total = 0;
+      for (var i = 0; i < BAND.length; i++) { ws.push(g.measureText(BAND[i]).width); total += ws[i]; }
+      total += size * track * (BAND.length - 1);
+      if (total <= r * 1.62 || size <= 5) break;
+      size -= 0.5;
+    }
+    var h = size * 1.32, top = y - r * 0.08 - h / 2;
+    g.fillStyle = "#f6ecd6";
+    g.fillRect(x - r - 2, top, r * 2 + 4, h);
+    g.strokeStyle = "#4b2e3a"; g.lineWidth = Math.max(1, r * 0.035);
+    g.beginPath(); g.moveTo(x - r - 2, top); g.lineTo(x + r + 2, top); g.moveTo(x - r - 2, top + h); g.lineTo(x + r + 2, top + h); g.stroke();
+    g.fillStyle = "#c4473a";
+    g.textAlign = "left"; g.textBaseline = "middle";
+    var lx = x - total / 2, ly = top + h / 2 + size * 0.06;
+    for (var j = 0; j < BAND.length; j++) { g.fillText(BAND[j], lx, ly); lx += ws[j] + size * track; }
+    band = { text: BAND, size: size, x: x - total / 2, y: top, w: total, h: h, r: r, cx: x, cy: y };
   }
   // the vario by the balloon, and the word when a flight ends
   function drawWord() {
@@ -606,6 +635,8 @@
     place: function (x, y, vx, vy, heat) { b.x = x; b.y = y; b.vx = vx || 0; b.vy = vy || 0; if (heat != null) b.heat = heat; b.grounded = false; b.groundT = 0; launched = true; },
     step: function (dt) { update(dt); },
     motes: function () { return motes.length; },
+    // the balloon's name as last painted (page px): its letters' box, their size, the envelope
+    band: function () { return band && { text: band.text, size: band.size, x: band.x, y: band.y, w: band.w, h: band.h, r: band.r, cx: band.cx, cy: band.cy, W: VW, H: VH }; },
     burning: function () { return burn; },
     layers: LAYERS.slice(),
     safe: SAFE, crash: CRASH, drop: BASKET_DROP
