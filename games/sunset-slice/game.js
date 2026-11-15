@@ -44,7 +44,7 @@
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     R = Math.max(24, Math.min(62, 0.075 * Math.min(W, H)));
-    mountainLayer = Art.mountains(W, H);
+    layScene();
   }
   window.addEventListener("resize", resize);
   resize();
@@ -288,6 +288,87 @@
     menuPick = { mode: o.mode, at: now() + 450 };
   }
 
+  // ---- the roadside sign: where it stands -------------------------------------------------------
+  // On the crest the sun sets behind (art.js draws it into the mountains), in
+  // front of the sun's lower left, clear of all that lies over the scene: the
+  // corner buttons and the HUD's place, and on the menu its targets and their
+  // names, its words and its buttons. The biggest letters that fit come
+  // first; then the spot nearest the middle of the sun's left half, on the
+  // levellest ground (its two posts alike). A run keeps the menu's sign where
+  // it stood. A short screen's menu has its words and buttons all along the
+  // skyline, and no room for it: there the sign stands for the run only.
+  var sign = null;
+  function signAvoid(menu) {
+    var out = [];
+    var els = ".nav-back-games, .gs-corner, .mute-toggle, .rm-toggle, .gs-pause-btn, #hud" + (menu ? ", .menu h1, .menu .tag, .menu .how, .menu .modes button, .menu .bests" : "");
+    document.querySelectorAll(els).forEach(function (el) {
+      // (a line of words by its words, not the width of its box)
+      var rs = [];
+      if (/^(P|H1)$/.test(el.tagName)) { var rg = document.createRange(); rg.selectNodeContents(el); rs = [].slice.call(rg.getClientRects()); }
+      else rs = [el.getBoundingClientRect()];
+      rs.forEach(function (r) { if (r.width && r.height) out.push([r.left, r.top, r.right, r.bottom]); });
+    });
+    out.push([W * 0.3, 0, W * 0.7, W <= 640 ? 120 : 76]);   // the HUD's place in a run
+    if (!menu) return out;
+    var bob = H * 0.015, fs = Math.round(Math.max(15, R * 0.42)), lw = Math.max(3, R * 0.1);
+    var touch = !!(window.GameShell && GameShell.touchOnly && GameShell.touchOnly());
+    ctx.save();
+    ctx.font = "700 " + fs + "px 'Zen Old Mincho', Georgia, serif";
+    MENU.forEach(function (m, i) {
+      // each target as it bobs (round, and as far down as its lantern's cap
+      // or the fruit's foot reaches), its stalk or cap above it, and its name
+      // under it with its key (as draw() sets them; a touch screen's names
+      // have no keys)
+      var x = m.u * W, y = H * 0.5, ly = y + R * 1.75, name = MODES[m.mode].name;
+      out.push({ x: x, y0: y - bob, y1: y + bob, r: R * (m.type === "lantern" ? 1.12 : 1.02) });
+      out.push([x - R * 0.7, y - R * 1.4 - bob, x + R * 0.7, y + bob]);
+      // (with a little more room beside it, so the two don't read as one)
+      var w = (touch ? ctx.measureText(name).width : ctx.measureText(name + " ").width + ctx.measureText(String(i + 1)).width + fs * 0.92) + lw + 10;
+      out.push([x - w / 2, ly - fs * 0.95 - lw / 2 - 1 - bob, x + w / 2, ly + fs * 0.3 + lw / 2 + 1 + bob]);
+    });
+    ctx.restore();
+    return out;
+  }
+  function placeSign(menu) {
+    var sun = Art.sunGeom(W, H, 0.08), avoid = signAvoid(menu), m = 6, pref = W / 2 - 0.55 * sun.R;
+    function clear(s) {
+      if (s.x0 < 8 || s.x1 > W - 8 || s.y0 < 8) return false;
+      return avoid.every(function (a) {
+        if (a.r) {   // (a round thing, bobbing: how near its nearest point comes)
+          var dx = Math.max(s.x0 - a.x, 0, a.x - s.x1), dy = Math.max(s.y0 - a.y1, 0, a.y0 - s.y1);
+          return dx * dx + dy * dy >= (a.r + m) * (a.r + m);
+        }
+        return s.x1 + m <= a[0] || s.x0 - m >= a[2] || s.y1 + m <= a[1] || s.y0 - m >= a[3];
+      });
+    }
+    var top = Math.max(13, Math.min(24, Math.round(Math.min(W, H) * 0.04)));
+    for (var fs = top; fs >= 12; fs--) {
+      var best = null, cost = 1e9;
+      for (var x = W / 2 - 1.3 * sun.R; x <= W / 2 + 0.1 * sun.R; x += 2) {
+        var s = Art.signGeom(W, H, x, fs);
+        if (!clear(s)) continue;
+        var c = Math.abs(x - pref) + 3 * Math.abs(s.posts[0].foot - s.posts[1].foot);
+        if (c < cost) { cost = c; best = s; }
+      }
+      if (best) return best;
+    }
+    return menu ? null : Art.signGeom(W, H, pref, top);
+  }
+  // The mountains, with the sign on them: laid out again for a new size, on
+  // the menu (its words may have moved), for a run when the menu had no room
+  // for it, and once the fonts are in (a run keeps its sign where it stood,
+  // only lettered again in the font that came).
+  function layScene(fontsOnly) {
+    if (!MENU) sign = null;
+    else if (fontsOnly && sign && state !== "menu") sign = Art.signGeom(W, H, sign.x, sign.fs);
+    else sign = placeSign(state === "menu");
+    mountainLayer = Art.mountains(W, H, sign);
+  }
+  if (document.fonts) {
+    document.fonts.load("900 20px 'Zen Old Mincho'").then(function () { layScene(true); }, function () {});
+    document.fonts.ready.then(function () { layScene(true); });
+  }
+
   // ---- flow -------------------------------------------------------------------------------------------
   var ui = {
     menu: document.getElementById("menu"), over: document.getElementById("over"), hud: document.getElementById("hud"),
@@ -311,6 +392,7 @@
     runBest = liveBest = store.getNum(KEYS[m], 0);
     state = "play"; paused = false;
     ui.menu.hidden = true; ui.over.hidden = true; ui.pause.hidden = true; ui.hud.hidden = false;
+    if (!sign) layScene();
     SFX.start();
   }
   function toMenu() {
@@ -318,6 +400,7 @@
     objs = []; queue = []; halves = []; parts = []; menuObjs = []; menuPick = null;
     ui.menu.hidden = false; ui.over.hidden = true; ui.pause.hidden = true; ui.hud.hidden = true;
     ui.bests.textContent = bestsText();
+    layScene();
   }
   var finishTimer = 0;
   function finish(reason, delay) {
@@ -657,5 +740,10 @@
     drop: function (type, u) { queue = []; nextWave = 1e9; var o = launch(type, u, 0.5, 0); o.seen = true; o.v = 0.95; o.vv = 1; return o.id; },
     hold: function () { queue = []; nextWave = 1e9; objs = []; },
     setTime: function (s) { timeLeft = s; elapsed = (M.time || 60) - s; },
+    // the roadside sign: what it reads, its roof and board, its letters' size, and the sun now
+    sign: function () {
+      return sign && { text: sign.text, fs: sign.fs, x0: sign.x0, y0: sign.y0, x1: sign.x1, y1: sign.y1, bx0: sign.bx0, bx1: sign.bx1, by0: sign.by0, by1: sign.by1,
+        W: W, H: H, sun: Art.sunGeom(W, H, dusk()) };
+    },
   };
 })();

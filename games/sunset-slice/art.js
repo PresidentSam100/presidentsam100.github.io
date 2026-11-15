@@ -5,7 +5,8 @@
    in colour. No images: everything is drawn with canvas paths.
 
    SunsetArt.sky(ctx, W, H, dusk, t, fx)       dusk: 0 low sun -> 1 set
-   SunsetArt.mountains(W, H)                   -> a cached canvas layer
+   SunsetArt.mountains(W, H, sign)             -> a cached canvas layer
+   SunsetArt.signGeom(W, H, x, fs)             the roadside sign, centred on x
    SunsetArt.grass(ctx, W, H, t, fx)
    SunsetArt.target(ctx, type, r, t, lightAng, rim)   whole, at the origin
    SunsetArt.half(ctx, type, r, t)                    cross-section face
@@ -78,24 +79,96 @@ window.SunsetArt = (function () {
   }
 
   // ---- mountains (static: cached) ------------------------------------------------------
-  function ridge(ctx, W, H, base, amp, seed, color) {
+  // A range's crest, left to right: the same points for a given size every time.
+  function ridgePts(W, base, amp, seed) {
     var rnd = seed;
     function r() { rnd = (rnd * 16807) % 2147483647; return rnd / 2147483647; }
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(0, H);
-    var x = 0, y = base - amp * r();
-    ctx.lineTo(0, y);
+    var x = 0, y = base - amp * r(), pts = [[0, y]];
     while (x < W) {
       x += W * (0.05 + r() * 0.08);
       y = base - amp * (0.3 + r() * 0.7);
-      ctx.lineTo(x, y);
+      pts.push([x, y]);
     }
+    return pts;
+  }
+  function ridge(ctx, W, H, base, amp, seed, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ridgePts(W, base, amp, seed).forEach(function (p) { ctx.lineTo(p[0], p[1]); });
     ctx.lineTo(W, H);
     ctx.closePath();
     ctx.fill();
   }
-  function mountains(W, H) {
+  // The first range in front of the sun (the one it sets behind): its crest's
+  // height at x, and its highest point between x0 and x1.
+  function frontRange(W, H) { return ridgePts(W, horizonY(H) + H * 0.02, H * 0.08, 7); }
+  function crestAt(pts, x) {
+    for (var i = 1; i < pts.length; i++) {
+      if (x <= pts[i][0]) { var a = pts[i - 1], b = pts[i], k = (x - a[0]) / ((b[0] - a[0]) || 1); return lerp(a[1], b[1], Math.max(0, Math.min(1, k))); }
+    }
+    return pts[pts.length - 1][1];
+  }
+  function crestTop(pts, x0, x1) {
+    var top = Math.min(crestAt(pts, x0), crestAt(pts, x1));
+    pts.forEach(function (p) { if (p[0] > x0 && p[0] < x1) top = Math.min(top, p[1]); });
+    return top;
+  }
+
+  // ---- the roadside sign -----------------------------------------------------------------
+  // A wayside notice board on two posts under a little gabled roof, planted
+  // on the crest of the range the sun sets behind, so it stands black against
+  // the sun like everything else on the skyline. The name is cut through the
+  // board: the sun shows through the letters (once it has set, the glow of the
+  // sky where it went down).
+  var SIGN_TEXT = "SAM LU", SIGN_FONT = "'Zen Old Mincho', Georgia, serif";
+  var measurer = null;
+  // Where everything of a sign centred on x, lettered fs px high, would be.
+  // (x0, y0)-(x1, y1): the roof and the board; the posts go on down from y1
+  // to the ground.
+  function signGeom(W, H, x, fs) {
+    if (!measurer) measurer = document.createElement("canvas").getContext("2d");
+    measurer.font = "900 " + fs + "px " + SIGN_FONT;
+    var track = fs * 0.14, widths = Array.from(SIGN_TEXT, function (ch) { return measurer.measureText(ch).width; });
+    var tw = widths.reduce(function (a, b) { return a + b; }, 0) + track * (widths.length - 1);
+    var cap = measurer.measureText(SIGN_TEXT), asc = cap.actualBoundingBoxAscent || fs * 0.72, desc = cap.actualBoundingBoxDescent || 0;
+    var bw = Math.round(tw + fs * 1.1), bh = Math.round(fs * 1.5), rh = Math.round(fs * 0.55), ov = Math.round(fs * 0.4), postH = Math.round(fs * 0.85);
+    var bx0 = x - bw / 2, bx1 = x + bw / 2, pts = frontRange(W, H);
+    var by1 = crestTop(pts, bx0 - ov, bx1 + ov) - postH, by0 = by1 - bh;
+    return { text: SIGN_TEXT, fs: fs, track: track, widths: widths, tw: tw, asc: asc, desc: desc, x: x, bw: bw, bh: bh, rh: rh, ov: ov,
+      bx0: bx0, bx1: bx1, by0: by0, by1: by1, x0: bx0 - ov, x1: bx1 + ov, y0: by0 - rh, y1: by1,
+      posts: [bx0 + bw * 0.17, bx1 - bw * 0.17].map(function (px) { return { x: px, foot: crestAt(pts, px) + 3 }; }) };
+  }
+  // Drawn on a layer of its own, letters cut out, then laid on the mountains:
+  // through the letters shows whatever is behind the board.
+  function drawSign(g, s) {
+    var dpr = Math.min(2, window.devicePixelRatio || 1), pad = 2;
+    var left = s.x0 - pad, top = s.y0 - pad, bottom = Math.max(s.posts[0].foot, s.posts[1].foot) + pad;
+    var c = document.createElement("canvas");
+    c.width = Math.ceil((s.x1 - s.x0 + pad * 2) * dpr); c.height = Math.ceil((bottom - top) * dpr);
+    var k = c.getContext("2d");
+    k.setTransform(dpr, 0, 0, dpr, -left * dpr, -top * dpr);
+    k.fillStyle = INK;
+    var pw = Math.max(2, s.fs * 0.17);
+    s.posts.forEach(function (p) { k.fillRect(p.x - pw / 2, s.by1 - 1, pw, p.foot - s.by1 + 1); });
+    k.fillRect(s.bx0, s.by0, s.bw, s.bh);
+    // the roof: a shallow gable, its eaves out past the board
+    k.beginPath();
+    k.moveTo(s.bx0 - s.ov, s.by0 + 1);
+    k.lineTo(s.bx0 - s.ov * 0.55, s.by0 - s.rh * 0.5);
+    k.lineTo(s.x, s.y0);
+    k.lineTo(s.bx1 + s.ov * 0.55, s.by0 - s.rh * 0.5);
+    k.lineTo(s.bx1 + s.ov, s.by0 + 1);
+    k.closePath(); k.fill();
+    k.globalCompositeOperation = "destination-out";
+    k.font = "900 " + s.fs + "px " + SIGN_FONT;
+    k.textAlign = "left";
+    var cx = s.x - s.tw / 2, base = (s.by0 + s.by1) / 2 + (s.asc - s.desc) / 2;
+    for (var i = 0; i < s.text.length; i++) { k.fillText(s.text[i], cx, base); cx += s.widths[i] + s.track; }
+    g.drawImage(c, left, top, c.width / dpr, c.height / dpr);
+  }
+
+  function mountains(W, H, sign) {
     var c = document.createElement("canvas"), dpr = Math.min(2, window.devicePixelRatio || 1);
     c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
     var g = c.getContext("2d");
@@ -110,6 +183,7 @@ window.SunsetArt = (function () {
     g.lineTo(W * 0.95, hy + 2);
     g.closePath(); g.fill();
     ridge(g, W, H, hy + H * 0.02, H * 0.08, 7, "#52193c");
+    if (sign) drawSign(g, sign);
     ridge(g, W, H, hy + H * 0.09, H * 0.07, 23, "#3a1230");
     ridge(g, W, H, hy + H * 0.16, H * 0.05, 91, "#2a0e21");   // a touch lighter than ink, so the grass shows
     // Pines on the near ridge.
@@ -366,5 +440,5 @@ window.SunsetArt = (function () {
     ctx.restore();
   }
 
-  return { sky: sky, sunGeom: sunGeom, horizonY: horizonY, mountains: mountains, grass: grass, target: target, half: half, outline: outline, samurai: samurai, TYPES: TYPES, INK: INK };
+  return { sky: sky, sunGeom: sunGeom, horizonY: horizonY, mountains: mountains, signGeom: signGeom, grass: grass, target: target, half: half, outline: outline, samurai: samurai, TYPES: TYPES, INK: INK };
 })();

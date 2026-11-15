@@ -165,4 +165,71 @@ module.exports = async ({ browser, base, check, lib }) => {
     await s.close(); await c.close();
   }
   check("sunset-slice: on short screens the menu leaves nothing out to fit: the how-to line and the modes' descriptions are shown (all three on a touch screen; with keys the picked one, the others a key away), inside the window and clear of the targets", shortBad.length === 0, shortBad);
+
+  // ---- the roadside sign: SAM LU cut through a notice board standing black
+  // on the skyline in front of the sun's lower left, the sun showing through
+  // its letters. In a run it stands inside the window, clear of the HUD and
+  // the corner buttons, at every size. On the menu it stands clear of every
+  // word and button and of the targets and their names (as they bob); a
+  // short phone's menu has no room for it on the skyline and goes without,
+  // but laptops and tall phones, upright or on their side, show it there.
+  // No page scrolls, and nothing says "made by".
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  const SIGN = [["1280x900", {}, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true], ["1280x600", { viewport: { width: 1280, height: 600 } }, true],
+    ["Pixel 7", devices["Pixel 7"], true], ["390x844", mob(390, 844), true], ["Pixel 7 on its side", devices["Pixel 7 landscape"], true],
+    ["360x640", mob(360, 640), false], ["320x568", mob(320, 568), false], ["375x553", mob(375, 553), false], ["360x560", mob(360, 560), false]];
+  for (const [label, opts, onMenu] of SIGN) {
+    const c = await lib.newContext(browser, opts);
+    const s = await lib.open(c, base, "games/sunset-slice/");
+    await s.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    // everything over the scene, by its words (a line of text) or its box
+    const LOOK = () => {
+      const boxes = (sel) => [...document.querySelectorAll(sel)].flatMap((el) => {
+        let rs = [el.getBoundingClientRect()];
+        if (/^(P|H1)$/.test(el.tagName)) { const rg = document.createRange(); rg.selectNodeContents(el); rs = [...rg.getClientRects()]; }
+        return rs.filter((r) => r.width && r.height).map((r) => ({ name: el.id || el.className || el.tagName, l: r.left, t: r.top, r: r.right, b: r.bottom }));
+      });
+      const n = window.SunsetSlice && SunsetSlice.sign ? SunsetSlice.sign() : undefined;
+      if (!n) return { sign: n === null ? null : "none", madeBy: /made by/i.test(document.body.innerText) };
+      const W = innerWidth, H = innerHeight, hits = [];
+      const meet = (a, nm) => { if (a.l < n.x1 + 2 && a.r > n.x0 - 2 && a.t < n.y1 + 2 && a.b > n.y0 - 2) hits.push(nm); };
+      boxes(".nav-back-games, .gs-corner, .mute-toggle, .rm-toggle, .gs-pause-btn, #hud").forEach((a) => meet(a, a.name));
+      if (SunsetSlice.state().state === "menu") {
+        boxes(".menu h1, .menu .tag, .menu .how, .menu .modes button, .menu .bests").forEach((a) => meet(a, a.name));
+        // the targets (round, bobbing) and their names under them, keys and all, as they're drawn
+        const R = SunsetSlice.state().R, bob = H * 0.015, fs = Math.round(Math.max(15, R * 0.42)), lw = Math.max(3, R * 0.1);
+        const g = document.createElement("canvas").getContext("2d"), touch = matchMedia("(hover: none)").matches;
+        g.font = "700 " + fs + "px 'Zen Old Mincho', Georgia, serif";
+        [["Duel", 0.28, 0.98], ["Last Light", 0.5, 1.06], ["Calm", 0.72, 0.98]].forEach(([name, u, k], i) => {
+          const x = u * W, y = H * 0.5, ly = y + R * 1.75;
+          const dx = Math.max(n.x0 - x, 0, x - n.x1), dy = Math.max(n.y0 - (y + bob), 0, (y - bob) - n.y1);
+          if (Math.hypot(dx, dy) < R * k) hits.push(name + " target");
+          const w = (touch ? g.measureText(name).width : g.measureText(name + " ").width + g.measureText(String(i + 1)).width + fs * 0.92) + lw;
+          meet({ l: x - w / 2, r: x + w / 2, t: ly - fs * 0.95 - lw / 2 - bob, b: ly + fs * 0.3 + lw / 2 + bob }, name + " name");
+        });
+      }
+      // the letters are cut through: the board is mostly ink, and the sun shows through
+      const cv = document.getElementById("stage"), k = cv.width / W;
+      const x = Math.round(n.bx0 * k), y = Math.round(n.by0 * k), w = Math.round((n.bx1 - n.bx0) * k), h = Math.round((n.by1 - n.by0) * k);
+      const d = cv.getContext("2d").getImageData(x, y, w, h).data;
+      let ink = 0, lit = 0;
+      for (let i = 0; i < d.length; i += 4) { if (d[i] < 45 && d[i + 1] < 35 && d[i + 2] < 40) ink++; else if (d[i] > 170 && d[i + 1] > 70) lit++; }
+      const sun = n.sun, cx = (n.x0 + n.x1) / 2;
+      return { sign: n.text, fs: n.fs, box: [n.x0, n.y0, n.x1, n.y1].map(Math.round), inside: n.x0 >= 0 && n.x1 <= W && n.y0 >= 0 && n.y1 <= H, hits,
+        ink: +(ink / (w * h)).toFixed(2), lit: +(lit / (w * h)).toFixed(2), bySun: Math.abs(cx - sun.x) <= sun.R * 1.35 && n.y1 > sun.y - sun.R && n.y0 < sun.y + sun.R,
+        scroll: document.documentElement.scrollWidth > W || document.documentElement.scrollHeight > H, madeBy: /made by/i.test(document.body.innerText) };
+    };
+    const menu = await s.evaluate(LOOK);
+    await s.evaluate(() => { SunsetSlice.start("lastlight"); SunsetSlice.hold(); });
+    await s.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    const run = await s.evaluate(LOOK);
+    const good = (v) => v && v.sign === "SAM LU" && v.inside && v.hits.length === 0 && v.ink > 0.4 && v.ink < 0.92 && v.lit > 0.02 && v.bySun && !v.scroll && !v.madeBy;
+    check("sunset-slice, " + label + ": in a run the roadside sign, SAM LU cut through a board black against the sun, stands inside the window clear of the HUD and the corner buttons",
+      good(run) && run.fs >= 12, run);
+    check("sunset-slice, " + label + ": on the menu the sign " + (onMenu ? "stands clear of every word, button, target and name" : "stands clear of them all, or stays off a skyline with no room for it"),
+      onMenu ? good(menu) : (menu.sign === null && !menu.madeBy) || good(menu), menu);
+    check("sunset-slice (sign), " + label + ": no page errors", s.errs.length === 0, s.errs);
+    await s.close(); await c.close();
+  }
 };
