@@ -225,4 +225,38 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
   }
   await ctx.close();
+
+  // the carver's mark, Sam Lu, burned into the board's right end beside your
+  // store: in the end's rim (clear of the store, the pits and their counts),
+  // readable, and the page no taller for it; in play and before
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, true],
+      ["Pixel 7", devices["Pixel 7"], true], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }, true],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }, true], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }, true],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }, false],
+    ];
+    for (const [name, opt, fits] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/sowing/");
+      await q.evaluate(() => document.getElementById("play").click()); await q.waitForTimeout(150);
+      const m = await q.evaluate(() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+        const mk = document.getElementById("carver");
+        if (!mk) return null;
+        const board = document.getElementById("board"), bb = box(board), bw = parseFloat(getComputedStyle(board).borderRightWidth);
+        const store = box(document.querySelector('.store[data-i="6"]')), b = box(mk);
+        const others = [...board.querySelectorAll(".pit, .store, .n")].map(box);
+        return { text: mk.textContent, b, store, board: bb, size: parseFloat(getComputedStyle(mk).fontSize), shown: getComputedStyle(mk).visibility === "visible" && b.b - b.t > 25,
+          hits: others.filter((o) => meet(b, o)).length, inEnd: b.l >= store.r && b.r <= bb.r - bw && b.t >= bb.t + 20 && b.b <= bb.b - 20,
+          sh: document.documentElement.scrollHeight, vh: innerHeight, sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth };
+      });
+      const ok = !!m && m.text === "Sam Lu" && m.shown && m.size >= 10 && m.hits === 0 && m.inEnd && m.sw <= m.vw && (!fits || m.sh <= m.vh);
+      check("sowing, " + name + ": Sam Lu is burned into the board's right end beside your store, clear of the store, pits and counts, readable, adding no scroll", ok, m);
+      await c.close();
+    }
+  }
 };

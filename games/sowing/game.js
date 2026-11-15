@@ -134,6 +134,11 @@
       host.appendChild(el);
       places.push(el);
     }
+    // the carver's mark, burned into the board's right end (placed by the
+    // stylesheet, out of the grid's flow)
+    var mark = document.createElement("span");
+    mark.className = "carver"; mark.id = "carver"; mark.setAttribute("aria-hidden", "true"); mark.textContent = "Sam Lu";
+    host.appendChild(mark);
   })();
   // seeds drawn in a pit: a scatter that stays put while the count doesn't change
   function seedsInto(el, n, i) {
