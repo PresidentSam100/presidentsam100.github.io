@@ -624,5 +624,7 @@
     cues: function () { return { escapeWarn: cues.escapeWarn.slice() }; },
     // the words floating up now, and where they were put
     popups: function () { return popups.map(function (p) { return { text: p.text, x: p.x, y: p.y }; }); },
+    // the name board on the far bank, as last drawn (page px), and the screen
+    sign: function () { var b = Art.signBox(); return b && { text: b.text, size: b.size, x: b.x, y: b.y, w: b.w, h: b.h, board: b.board, waterY: b.waterY, W: W, H: H }; },
   };
 })();

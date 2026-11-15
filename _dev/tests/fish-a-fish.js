@@ -264,4 +264,82 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "streak at the fish");
     await cx.close();
   }
+
+  // ---- the pond's name board, SAM LU'S POND, on two posts at the water's
+  // edge of the far bank: painted (wood and ink letters), inside the window,
+  // its letters no smaller than 11px, clear of the corner buttons and the
+  // menu's words and card, and in play of the score line and every spot's
+  // bobber and tag (on the nine spot pond and the whole keyboard's); no
+  // scroll, and the page carries no "made by" line
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  const look = (q, where) => q.evaluate((where) => {
+    const s = window.FishAFish && FishAFish.sign && FishAFish.sign();
+    if (!s) return { where, missing: true };
+    const box = { left: s.x, top: s.y, right: s.x + s.w, bottom: s.y + s.h };
+    const meet = (r) => r.width > 0 && r.left < box.right && r.right > box.left && r.top < box.bottom && r.bottom > box.top;
+    // (the corner buttons: every link and button outside the menu and end cards)
+    const corner = [...document.querySelectorAll("a, button")].filter((e) => !e.closest(".panel"));
+    const more = [...document.querySelectorAll(where === "menu" ? "#menu h1, #menu .tag, #menu .card" : "#hud")];
+    const hits = corner.concat(more).filter((e) => getComputedStyle(e).display !== "none" && meet(e.getBoundingClientRect())).map((e) => e.id || e.className || e.tagName);
+    // the spots: each bobber stands up to ~1.1 r over its spot, and its tag hangs below
+    const spots = where === "menu" ? [] : FishAFish.geometry().filter((g) => g.x + g.r * 1.6 > box.left && g.x - g.r * 1.6 < box.right && g.y - g.r * 1.4 < box.bottom);
+    const cv = document.getElementById("stage"), k = cv.width / s.W, b = s.board;
+    const d = cv.getContext("2d").getImageData(Math.round(b.x * k), Math.round(b.y * k), Math.round(b.w * k), Math.round(b.h * k)).data;
+    let wood = 0, ink = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 185 && d[i + 1] > 150 && d[i + 2] > 100 && d[i] - d[i + 2] > 40) wood++;
+      else if (d[i] < 70 && d[i + 1] < 80 && d[i + 2] < 85) ink++;
+    }
+    const n = d.length / 4, de = document.documentElement;
+    return { where, text: s.text, size: s.size, inside: box.left >= 0 && box.top >= 0 && box.right <= s.W && box.bottom <= s.H, hits, spots: spots.length,
+      wood: +(wood / n).toFixed(2), ink: +(ink / n).toFixed(2), scroll: de.scrollHeight > innerHeight + 1 || de.scrollWidth > innerWidth + 1, madeBy: /made by/i.test(document.body.innerText) };
+  }, where);
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 390x844", mob(390, 844)], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)],
+    ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await open(c);
+    const seen = [await look(q, "menu")];
+    await q.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); });
+    await q.waitForTimeout(150);
+    seen.push(await look(q, "play"));
+    await q.evaluate(() => { FishAFish.toMenu(); document.querySelector('#pick-kb [data-v="all"]').click(); FishAFish.start(); FishAFish.hold(); });
+    await q.waitForTimeout(150);
+    seen.push(await look(q, "whole keyboard"));
+    const bad = seen.filter((r) => r.missing || r.text !== "SAM LU'S POND" || r.size < 11 || !r.inside || r.hits.length || r.spots || r.wood < 0.4 || r.ink < 0.04 || r.scroll || r.madeBy);
+    check("fish-a-fish, " + label + ": SAM LU'S POND stands painted on its board at the far bank, inside the window and clear of the buttons, the menu, the score and every spot",
+      bad.length === 0, bad.length ? bad : seen.map((r) => r.where + " " + r.size + "px"));
+    await done(q, "name board, " + label);
+    await c.close();
+  }
+
+  // ---- with Visual FX off the board and its reflection hold still (FX on,
+  // the reflection wavers with the water)
+  {
+    const shots = async (off) => {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/fish-a-fish/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:fish-a-fish", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); });
+      const grab = () => q.evaluate(() => {
+        const s = FishAFish.sign && FishAFish.sign();
+        if (!s) return null;
+        const cv = document.getElementById("stage"), k = cv.width / s.W;
+        // the board, the posts and the reflection under them (the mist doesn't reach up there)
+        const d = cv.getContext("2d").getImageData(Math.round(s.x * k), Math.round(s.y * k), Math.round(s.w * k), Math.round(s.h * k)).data;
+        let h = 0; for (let i = 0; i < d.length; i += 7) h = (h * 31 + d[i]) | 0;
+        const r = cv.getContext("2d").getImageData(Math.round(s.x * k), Math.round(s.waterY * k) + 2, Math.round(s.w * k), Math.round(8 * k)).data;
+        let g = 0; for (let i = 0; i < r.length; i += 7) g = (g * 31 + r[i]) | 0;
+        return { board: h, water: g };
+      });
+      const frames = (n) => q.evaluate((n) => new Promise((res) => { let k = 0; (function f() { if (++k > n) res(); else requestAnimationFrame(f); })(); }), n);
+      await frames(3); const a = await grab(); await frames(40); const b = await grab();
+      const errs = q.errs; await q.close(); await c.close();
+      return { drawn: !!a && !!b, boardStill: !!a && !!b && a.board === b.board, waterStill: !!a && !!b && a.water === b.water, errs };
+    };
+    const off = await shots(true), on = await shots(false);
+    check("fish-a-fish: with Visual FX off the name board and its reflection hold still; with FX on the board holds still and the reflection wavers",
+      off.drawn && on.drawn && off.boardStill && off.waterStill && on.boardStill && !on.waterStill, { off, on });
+    check("fish-a-fish (name board FX): no page errors", off.errs.length === 0 && on.errs.length === 0, [off.errs, on.errs]);
+  }
 };

@@ -101,6 +101,7 @@ window.FishArt = (function () {
     }
     ctx.drawImage(cache.canvas, 0, 0, W, H);
     var wy = waterLine(H);
+    pondSign(ctx, W, H, wy, t, fx);
     // Morning mist drifting over the far water.
     ctx.fillStyle = "rgba(240,244,240,0.16)";
     var drift = fx ? t * 0.006 : 0;
@@ -120,6 +121,90 @@ window.FishArt = (function () {
       ctx.beginPath(); ctx.moveTo(x0 - W * 0.09, y); ctx.lineTo(x0 + W * 0.09, y); ctx.stroke();
     }
     return wy;
+  }
+
+  // ---- the pond's name board ----------------------------------------------------
+  // A painted wooden board on two posts, planted at the water's edge on the far
+  // bank, left of the sun (and clear of the menu's rowboat, out on the right):
+  // SAM LU'S POND in the game's own letters, in the tags' cream and ink. Its
+  // reflection lies faint in the water under it, and with Visual FX on it
+  // wavers a little as the water moves; off, it lies still. Painted live (not
+  // into the cached pond) so the letters come in the right face once it loads.
+  var SIGN = "SAM LU'S POND", signBox = null;
+  function signLayout(ctx, W, H, wy) {
+    var size = Math.round(Math.max(11, Math.min(16, H * 0.018, W * 0.034)));
+    ctx.font = "700 " + size + "px Fredoka, system-ui, sans-serif";
+    var track = size * 0.06, tw = track * (SIGN.length - 1);
+    for (var i = 0; i < SIGN.length; i++) tw += ctx.measureText(SIGN[i]).width;   // (a letter at a time, as it's painted)
+    var w = Math.round(tw + size * 1.4), h = Math.round(size * 1.6), post = Math.round(size * 0.85);
+    var x = Math.round(Math.max(12, W * 0.2 - w / 2)), y = Math.round(wy - post - h);
+    return { size: size, track: track, tw: tw, x: x, y: y, w: w, h: h, post: post, feet: wy };
+  }
+  function board(ctx, s, wood, edge) {
+    var r = Math.max(2, s.size * 0.22);
+    ctx.beginPath();
+    ctx.moveTo(s.x + r, s.y);
+    ctx.arcTo(s.x + s.w, s.y, s.x + s.w, s.y + s.h, r);
+    ctx.arcTo(s.x + s.w, s.y + s.h, s.x, s.y + s.h, r);
+    ctx.arcTo(s.x, s.y + s.h, s.x, s.y, r);
+    ctx.arcTo(s.x, s.y, s.x + s.w, s.y, r);
+    ctx.closePath();
+    ctx.fillStyle = wood; ctx.fill();
+    if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = Math.max(1, s.size * 0.09); ctx.stroke(); }
+  }
+  function posts(ctx, s, color) {
+    var pw = Math.max(2, Math.round(s.size * 0.24));
+    ctx.fillStyle = color;
+    [0.2, 0.8].forEach(function (u) { ctx.fillRect(Math.round(s.x + s.w * u - pw / 2), s.y + s.h - 1, pw, s.feet - (s.y + s.h) + 1); });
+  }
+  function pondSign(ctx, W, H, wy, t, fx) {
+    var s = signLayout(ctx, W, H, wy);
+    // the reflection: the posts and board upside down under the feet, in a few
+    // strips that sway apart with the water (FX on) or lie straight (off)
+    var SQ = 0.7, depth = (s.post + s.h) * SQ, strips = 4;
+    for (var k = 0; k < strips; k++) {
+      var y0 = wy + (k / strips) * depth, y1 = wy + ((k + 1) / strips) * depth;
+      var dx = fx ? Math.sin(t * 0.0016 + k * 1.7) * (0.6 + k * 0.45) : 0;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(s.x - 8, y0, s.w + 16, y1 - y0 + 0.5); ctx.clip();
+      // (mirrored in the water line, and shortened: y goes to wy + SQ * (wy - y))
+      ctx.translate(dx, wy); ctx.scale(1, -SQ); ctx.translate(0, -wy);
+      ctx.globalAlpha = 0.2 * (1 - k / (strips + 1));
+      posts(ctx, s, "#17262c");
+      board(ctx, s, "#17262c", null);
+      ctx.restore();
+    }
+    // the posts, then the board on them, and tufts of the bank's grass at their feet
+    posts(ctx, s, "#5b4532");
+    ctx.fillStyle = "#3d5a5c";
+    [0.2, 0.8].forEach(function (u, j) {
+      var fx0 = s.x + s.w * u, bl = Math.max(4, s.size * 0.42);
+      for (var b = -2; b <= 2; b++) {
+        var lean = (b + (j ? 0.4 : -0.4)) * bl * 0.32;
+        ctx.beginPath();
+        ctx.moveTo(fx0 + b * bl * 0.28 - 1.2, wy + 0.5);
+        ctx.quadraticCurveTo(fx0 + b * bl * 0.28 + lean * 0.4, wy - bl * 0.6, fx0 + b * bl * 0.28 + lean, wy - bl * (1 - Math.abs(b) * 0.18));
+        ctx.lineTo(fx0 + b * bl * 0.28 + 1.2, wy + 0.5);
+        ctx.closePath(); ctx.fill();
+      }
+    });
+    ctx.save();
+    var wood = ctx.createLinearGradient(0, s.y, 0, s.y + s.h);
+    wood.addColorStop(0, "#e6cd9c"); wood.addColorStop(1, "#cfae79");
+    board(ctx, s, wood, "rgba(74,52,32,0.9)");
+    // weathered grain, and the light of the low sun along its top edge
+    ctx.strokeStyle = "rgba(110,76,44,0.3)"; ctx.lineWidth = 1;
+    [0.3, 0.72].forEach(function (v) { ctx.beginPath(); ctx.moveTo(s.x + s.size * 0.4, s.y + s.h * v); ctx.lineTo(s.x + s.w - s.size * 0.4, s.y + s.h * v); ctx.stroke(); });
+    ctx.fillStyle = "rgba(255,246,218,0.55)";
+    ctx.fillRect(s.x + s.size * 0.3, s.y + Math.max(1, s.size * 0.09) + 0.5, s.w - s.size * 0.6, Math.max(1, s.size * 0.08));
+    // the name, painted in the pond's ink
+    ctx.fillStyle = "#24363c";
+    ctx.font = "700 " + s.size + "px Fredoka, system-ui, sans-serif";
+    ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    var x = s.x + (s.w - s.tw) / 2;
+    for (var i = 0; i < SIGN.length; i++) { ctx.fillText(SIGN[i], x, s.y + s.h / 2 + s.size * 0.05); x += ctx.measureText(SIGN[i]).width + s.track; }
+    ctx.restore();
+    signBox = { text: SIGN, size: s.size, x: s.x, y: s.y, w: s.w, h: s.h + s.post, board: { x: s.x, y: s.y, w: s.w, h: s.h }, waterY: wy };
   }
 
   // ---- reeds in the near corners ------------------------------------------------
@@ -303,5 +388,6 @@ window.FishArt = (function () {
     ctx.restore();
   }
 
-  return { scene: scene, foreground: foreground, waterLine: waterLine, bobber: bobber, ring: ring, shadowFish: shadowFish, leapFish: leapFish, junk: junk, tag: tag, boat: boat, SPECIES: SPECIES, INK: INK };
+  return { scene: scene, foreground: foreground, waterLine: waterLine, bobber: bobber, ring: ring, shadowFish: shadowFish, leapFish: leapFish, junk: junk, tag: tag, boat: boat, SPECIES: SPECIES, INK: INK,
+    signBox: function () { return signBox; } };
 })();
