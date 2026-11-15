@@ -141,8 +141,49 @@ body[data-mode="levels"] #left, body[data-mode="levels"] #ffBtn { display: none;
 
 /* ---- board wrapper + level select overlay --------------------------------- */
 #board { position: relative; }
+/* the boiler's cast maker's plate: an oval of dark iron in a brass rim,
+   bolted at each end, with raised brass letters, on the foot of the
+   board's frame (hanging below it on a wide screen; on a narrow one, up
+   over the iron border under the pipe plates). game.js sets its size and
+   how far it rides up the board (--plate-h, --plate-lip, --plate-font) from
+   the room under the frame; the level list stops short of it
+   (--plate-lift). Still art, in either Visual FX setting. */
+.sf-plate {
+  position: absolute; left: 50%; top: calc(100% - var(--plate-lip, 10px)); z-index: 9;
+  transform: translateX(-50%);
+  height: var(--plate-h, 28px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 calc(var(--plate-h, 28px) * 0.78);
+  border-radius: 999px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 60%),
+    linear-gradient(180deg, #3b4048 0%, #2a2e35 55%, #1f2227 100%);
+  border: 1.5px solid #cf9f3d;
+  box-shadow: inset 0 0 0 1.5px #3a2f17, inset 0 1px 0 1.5px rgba(240, 201, 106, 0.25), 0 2px 0 #141619, 0 3px 8px rgba(0, 0, 0, 0.55);
+  font: 700 var(--plate-font, 14px)/1 "Saira Condensed", "Segoe UI", system-ui, sans-serif;
+  letter-spacing: 0.13em;
+  color: #e8b64c;
+  text-shadow: 0 1px 0 #141619, 0 -1px 0 rgba(255, 236, 190, 0.28);
+  white-space: nowrap;
+  pointer-events: none;
+}
+/* the two bolts, brass heads with a slot */
+.sf-plate::before, .sf-plate::after {
+  content: ""; position: absolute; top: 50%;
+  width: calc(var(--plate-h, 28px) * 0.3); height: calc(var(--plate-h, 28px) * 0.3);
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background:
+    linear-gradient(135deg, rgba(0, 0, 0, 0) 42%, rgba(20, 22, 25, 0.85) 43% 57%, rgba(0, 0, 0, 0) 58%),
+    radial-gradient(circle at 35% 30%, #f6d98c, #cf9f3d 55%, #6f5a2e);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+.sf-plate::before { left: calc(var(--plate-h, 28px) * 0.3); }
+.sf-plate::after { right: calc(var(--plate-h, 28px) * 0.3); }
+/* the editor's tools sit under the board: the editor is the plate's workshop, not the boiler */
+body[data-screen="edit"] .sf-plate { display: none; }
 #levelSelect {
-  position: absolute; inset: 0; z-index: 8;
+  position: absolute; inset: 0 0 var(--plate-lift, 0px) 0; z-index: 8;
   background: rgba(20, 22, 27, 0.97);
   border-radius: 12px;
   padding: 14px 18px; overflow: auto;

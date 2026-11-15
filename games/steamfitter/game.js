@@ -1532,6 +1532,42 @@
     });
   })();
 
+  // ---- the maker's plate --------------------------------------------------------------
+  // Bolted to the foot of the board's frame. Side by side on a wide screen,
+  // it hangs from the frame over the wall below the board (in as much of it
+  // as there is, up to 26 px, and 4 px short of the page's foot, so the page
+  // scrolls no further), riding 2 px up over the board's own rim. Stacked on
+  // a narrow one, the panels come 10 px under the board, so it reaches only
+  // over the 8 px brass rim and a pixel past it, and rides up the iron border
+  // under the pipe plates for the rest of its height (never onto a plate: it
+  // stops 3 px short of the grid). Its letters are its height less its rim,
+  // 14 px at most. The level list, drawn over the board, stops above it.
+  var plateEl = document.getElementById("makerPlate"), boardEl = document.getElementById("board");
+  function placePlate() {
+    if (!plateEl) return;
+    var r = canvas.getBoundingClientRect();
+    if (!r.width) return;
+    var s = r.width / W, margin = OY * s;
+    var h, lip;
+    if (window.matchMedia("(max-width: 900px)").matches) {
+      h = Math.min(28, margin - 3 + 9);
+      lip = h - 9;
+    } else {
+      var foot = document.body.getBoundingClientRect().bottom;
+      lip = 2;
+      h = Math.max(12, Math.min(28, foot - r.bottom - 4 + lip));
+    }
+    var st = boardEl.style;
+    st.setProperty("--plate-h", h.toFixed(1) + "px");
+    st.setProperty("--plate-lip", lip.toFixed(1) + "px");
+    st.setProperty("--plate-font", Math.min(14, h - 6).toFixed(1) + "px");
+    st.setProperty("--plate-lift", Math.max(0, lip + 1).toFixed(1) + "px");
+  }
+  placePlate();
+  window.addEventListener("resize", placePlate);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePlate);
+  if (window.ResizeObserver) new ResizeObserver(placePlate).observe(canvas);
+
   // test hook
   window.__game = {
     get grid() { return grid; },

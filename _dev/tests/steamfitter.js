@@ -322,4 +322,59 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // ---- the boiler's maker's plate, SAM LU BOILER WORKS, bolted to the foot of
+  // the board's frame: on the level list, a level, Panic and Endless; inside
+  // the page, never onto the pipe plates (the grid ends 469 of the board's
+  // 490 down), clear of the buttons, panels, the how-to line and what shows
+  // of the level list (which stops above it); its letters 12 px or more on a
+  // laptop and 9.5 px on a phone; it adds no scroll; the page has no "made
+  // by" line. The editor's tools sit under the board, so it stands down there.
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts, least] of [["1280x900", {}, 12], ["1366x657", { viewport: { width: 1366, height: 657 } }, 12], ["1280x600", { viewport: { width: 1280, height: 600 } }, 12],
+    ["Pixel 7", devices["Pixel 7"], 9.5], ["phone 320x568", mob(320, 568), 9.5], ["phone 375x553", mob(375, 553), 9.5], ["phone 360x560", mob(360, 560), 9.5],
+    ["Pixel 7 sideways", devices["Pixel 7 landscape"], 9.5]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/steamfitter/");
+    const look = (screen) => q.evaluate((screen) => {
+      const pl = document.querySelector("#board .sf-plate");
+      if (!pl) return { screen, missing: true };
+      const b = pl.getBoundingClientRect(), cv = document.getElementById("game").getBoundingClientRect();
+      const hit = (r) => r.width > 0 && r.height > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top;
+      const shown = (e) => e.offsetParent !== null || getComputedStyle(e).position === "fixed";
+      const hits = [...document.querySelectorAll(".mbtn, #ffBtn, .pick-toggle, .panel, #howLine, .nav-back-games, .gs-corner button, .mute-toggle, .motion-toggle, .gs-pause-btn")]
+        .filter(shown).filter((e) => hit(e.getBoundingClientRect())).map((e) => e.id || e.className);
+      // what shows of the level list: its items, cut to its window
+      const ls = document.getElementById("levelSelect");
+      let listHits = [], listBottom = null;
+      if (!ls.classList.contains("hidden")) {
+        const w = ls.getBoundingClientRect(); listBottom = w.bottom;
+        listHits = [...ls.querySelectorAll(".ls-cell, .ls-create, .ls-head, .ls-empty, h2, button")].map((e) => {
+          const r = e.getBoundingClientRect(), top = Math.max(r.top, w.top), bottom = Math.min(r.bottom, w.bottom);
+          return { e, r: { left: r.left, right: r.right, top, bottom, width: r.width, height: bottom - top } };
+        }).filter((x) => x.r.height > 0 && hit(x.r)).map((x) => x.e.className || x.e.tagName);
+      }
+      const de = document.documentElement, sh = de.scrollHeight, sw = de.scrollWidth;
+      pl.style.display = "none"; const sh0 = de.scrollHeight, sw0 = de.scrollWidth; pl.style.display = "";
+      const gridBottom = cv.top + cv.height * 469 / 490;
+      return { screen, text: pl.textContent.trim(), font: parseFloat(getComputedStyle(pl).fontSize), w: Math.round(b.width), h: Math.round(b.height),
+        inPage: b.left >= 0 && b.right <= innerWidth && b.bottom + scrollY <= sh + 0.5,
+        offGrid: b.top >= gridBottom + 1, onBoard: b.left > cv.left && b.right < cv.right && b.top < cv.bottom + 10 && b.bottom > cv.bottom - 1,
+        hits, listHits, listAbove: listBottom == null || listBottom <= b.top + 0.5, addsScroll: sh !== sh0 || sw !== sw0, madeBy: /made by/i.test(document.body.innerText) };
+    }, screen);
+    const seen = [await look("level list")];
+    await q.evaluate(() => __game.loadLevel(0)); await q.waitForTimeout(150); seen.push(await look("level 1"));
+    await q.evaluate(() => __game.setMode("panic")); await q.waitForTimeout(150); seen.push(await look("Panic"));
+    await q.evaluate(() => __game.setMode("puzzle")); await q.waitForTimeout(150); seen.push(await look("Endless"));
+    const bad = seen.filter((r) => r.missing || r.text !== "SAM LU BOILER WORKS" || r.font < least || !r.inPage || !r.offGrid || !r.onBoard || r.hits.length || r.listHits.length || !r.listAbove || r.addsScroll || r.madeBy);
+    check("steamfitter, " + label + ": the maker's plate SAM LU BOILER WORKS is bolted to the foot of the board's frame, off the pipe plates, clear of the buttons, panels and level list, adding no scroll (level list, a level, Panic, Endless)",
+      bad.length === 0, bad.length ? bad : seen.map((r) => r.screen + " " + r.font + "px " + r.w + "x" + r.h));
+    // the editor: its tools come under the board, and the plate stands down
+    await q.evaluate(() => __game.startEditor()); await q.waitForTimeout(150);
+    const ed = await q.evaluate(() => { const pl = document.querySelector("#board .sf-plate"); return { plate: !!pl && getComputedStyle(pl).display, tools: !!document.getElementById("editTools").offsetParent }; });
+    check("steamfitter (editor), " + label + ": the plate stands down in the level editor, whose tools sit under the board", ed.plate === "none" && ed.tools, ed);
+    check("steamfitter (maker's plate), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };
