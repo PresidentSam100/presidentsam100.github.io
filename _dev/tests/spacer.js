@@ -402,4 +402,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "points");
     await cx.close();
   }
+
+  // ---- the title's copyright line, "© SAM LU", in white at its foot as an
+  // arcade title screen carries it: drawn inside the screen, clear of every
+  // other word on the title (the blinking key line lit), at least 7.5px as
+  // the screen is shown on a laptop or an upright phone (a phone on its side
+  // shows the whole screen small); not drawn in play; no "made by" line.
+  // Every word one frame draws (the game drawn once, by hand) is caught as
+  // it is written, with the box its font gives it.
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts, least] of [["1280x900", {}, 7.5], ["1366x657", { viewport: { width: 1366, height: 657 } }, 7.5], ["1280x600", { viewport: { width: 1280, height: 600 } }, 7.5],
+    ["Pixel 7", devices["Pixel 7"], 7.5], ["phone 320x568", mob(320, 568), 7.5], ["phone 375x553", mob(375, 553), 7.5], ["phone 360x560", mob(360, 560), 7.5], ["Pixel 7 sideways", devices["Pixel 7 landscape"], 0]]) {
+    const cx = await lib.newContext(browser, opts);
+    const q = await lib.open(cx, base, "games/spacer/");
+    await q.waitForFunction(() => window.game);
+    const frame = () => q.evaluate(() => new Promise((ok) => {
+      const ctx = game.ctx, ft = ctx.fillText, words = [];
+      ctx.fillText = function (s, x, y) {
+        const size = parseFloat((/(\d+(?:\.\d+)?)px/.exec(ctx.font) || [0, 0])[1]), w = ctx.measureText(String(s)).width;
+        const left = ctx.textAlign === "center" ? x - w / 2 : ctx.textAlign === "right" || ctx.textAlign === "end" ? x - w : x;
+        const top = ctx.textBaseline === "middle" ? y - size * 0.62 : ctx.textBaseline === "top" ? y : y - size * 0.8;
+        words.push({ s: String(s), x: left, y: top, w, h: size * 1.24, size, color: String(ctx.fillStyle) });
+        return ft.apply(this, arguments);
+      };
+      try { game.draw(); } finally { delete ctx.fillText; }
+      ok(words);
+    }));
+    const r = await q.evaluate(() => { game.blinkOn = () => true; return null; }).then(frame).then(async (words) => {
+      const box = await q.evaluate(() => { const c = document.getElementById("screen").getBoundingClientRect(); return { ch: c.height, sh: document.documentElement.scrollHeight }; });
+      const cr = words.filter((w) => /SAM LU/.test(w.s));
+      const mine = cr[0];
+      const pad = 3, hits = mine ? words.filter((w) => w !== mine && w.s.trim() && w.x < mine.x + mine.w + pad && w.x + w.w > mine.x - pad && w.y < mine.y + mine.h + pad && w.y + w.h > mine.y - pad).map((w) => w.s) : [];
+      return { text: mine && mine.s, n: cr.length, color: mine && mine.color, inside: !!mine && mine.x >= 0 && mine.y >= 0 && mine.x + mine.w <= 448 && mine.y + mine.h <= 576,
+        shown: mine ? +(mine.size * box.ch / 576).toFixed(1) : 0, hits, words: words.length };
+    });
+    await q.evaluate(() => { game.startGame(); game.mode = "playing"; });
+    const inPlay = (await frame()).filter((w) => /SAM LU/.test(w.s)).length;
+    const madeBy = await q.evaluate(() => /made by/i.test(document.body.innerText));
+    check("spacer, " + label + ": the title carries \"© SAM LU\" in white at its foot, inside the screen, clear of the title's other words and readable; play doesn't draw it",
+      !!r && r.text === "© SAM LU" && r.n === 1 && /^#fff(fff)?$/i.test(r.color) && r.inside && r.hits.length === 0 && r.shown >= least && inPlay === 0 && !madeBy, Object.assign({}, r, { inPlay, madeBy }));
+    await done(q, "copyright, " + label);
+    await cx.close();
+  }
 };

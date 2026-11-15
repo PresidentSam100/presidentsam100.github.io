@@ -3263,12 +3263,29 @@ class Game {
     this.text(ctx, '◀  START STAGE  ' + this.startStage + '  ▶', WIDTH / 2, 418, 14, '#18e0ff', 'center');
     this.text(ctx, 'CAPTURE & RESCUE FOR DUAL FIGHTER!', WIDTH / 2, 452, 10, '#8fa0d8', 'center');
 
+    // the maker's line, in white at the title's foot, as an arcade title
+    // screen carries its copyright between the instructions and the credits
+    const cr = this.copyright();
+    this.text(ctx, cr.text, cr.x, cr.y, cr.size, '#fff', 'center');
+
     // on touch the ◀ ● ▶ buttons are the pickers, a tap starts; the guide has
     // no touch way in. (Visual FX isn't named here: its ✨ button sits in the
     // corner, by the pause button, and V still flips it.)
     if (this.blinkOn())
       this.keys(ctx, '[▲][▼] MODE  [◀][▶] STAGE  [SPACE]/[ENTER] START', WIDTH / 2, HEIGHT - 44, 12, '#fff', 'center', '◀ ▶ STAGE   ● MODE   TAP TO START');
     this.keys(ctx, '[S] ALL STAGES   [E] ENEMY & POWER-UP GUIDE', WIDTH / 2, HEIGHT - 22, 10, '#8fa0d8', 'center', 'TAP THE START STAGE FOR ALL STAGES');
+  }
+
+  // where the title's copyright line sits (canvas units: its middle, size,
+  // and its box as the font sets it)
+  copyright() {
+    const size = 13, x = WIDTH / 2, y = 492, text = '© SAM LU';
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = 'bold ' + size + 'px Oxanium, "Courier New", monospace';
+    const w = ctx.measureText(text).width;
+    ctx.restore();
+    return { text, x, y, size, box: { x: x - w / 2, y: y - size * 0.62, w, h: size * 1.24 } };
   }
 
   text(ctx, str, x, y, size, color, align = 'left') {
