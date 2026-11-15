@@ -418,6 +418,35 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
 
+  // the menu's three switches (day, night, cycle, with long bests) stay inside
+  // the card at every width: side by side where they fit, else each sign over
+  // its name in thirds of the row; nothing spills a switch, and the card still
+  // fits the windscreen
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["320x568", touch(320, 568)], ["360x640", touch(360, 640)], ["375x553", touch(375, 553)], ["390x664", touch(390, 664)], ["Pixel 7", devices["Pixel 7"]],
+      ["keyboard 360x640", { viewport: { width: 360, height: 640 } }], ["keyboard 400x700", { viewport: { width: 400, height: 700 } }], ["1280x900", { viewport: { width: 1280, height: 900 } }]];
+    const bad = [];
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/quick-minute/", { before: (pg) => pg.addInitScript(() => { try { ["day", "night", "cycle"].forEach((m) => localStorage.setItem("rushhour_best_" + m, "98765")); } catch (e) {} }) });
+      await q.evaluate(() => document.fonts.ready);
+      const m = await q.evaluate(() => {
+        const card = document.getElementById("card"), cr = card.getBoundingClientRect(), cs = getComputedStyle(card);
+        const inL = cr.left + parseFloat(cs.paddingLeft) - 0.5, inR = cr.right - parseFloat(cs.paddingRight) + 0.5;
+        const spill = (b) => [...b.children].some((k) => { const r = k.getBoundingClientRect(), br = b.getBoundingClientRect(); return r.width > 0 && (r.left < br.left - 0.5 || r.right > br.right + 0.5); });
+        const btns = [...document.querySelectorAll(".mode-btn")];
+        return { inside: btns.every((b) => { const r = b.getBoundingClientRect(); return r.left >= inL && r.right <= inR; }), spill: btns.filter(spill).map((b) => b.id),
+          bests: btns.filter((b) => /best 98765/.test(b.textContent)).length };
+      });
+      const card = await cardOf(q);
+      if (!(m.inside && m.spill.length === 0 && m.bests === 3 && whole(card))) bad.push({ name, m, card });
+      await c.close();
+    }
+    check("quick-minute: the menu's three switches and their bests stay inside the card at phone, narrow window and laptop widths (side by side, or each sign over its name), and the card fits the windscreen", bad.length === 0, bad);
+  }
+
   // the maker's chrome badge on the dash: on the glovebox past the instruments
   // where the dash reaches that far, else over the trip meter; on the screen,
   // on the dash's vinyl, clear of the dials, and the dash no taller for it

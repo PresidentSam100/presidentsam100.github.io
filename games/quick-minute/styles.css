@@ -296,15 +296,15 @@ html.fx-off .milestone.show { animation: none; opacity: 1; }
   @media (max-width: 430px) {
     .mode-btn .t[data-gs-key]::after { display: block; width: max-content; margin: 0.25rem auto 0; }
   }
-  /* (three switches across the narrowest window: each sign goes over its name
-     and the long keycap takes two lines, so all three stay inside the row) */
-  @media (max-width: 340px) {
-    .modes { gap: 0.3rem; }
-    .mode-btn { flex: 1 1 0; min-width: 0; padding-left: 0.2rem; padding-right: 0.2rem; }
-    .mode-btn .ic { display: block; margin: 0 0 0.1rem; }
-    .mode-btn .t[data-gs-key]::after { white-space: normal; width: fit-content; max-width: 100%; }
-  }
 }
+/* (where the three switches can't sit side by side in the card's row, as on
+   most phones with the dash lettering, game.js makes the row .tight: each
+   sign goes over its name, the three take a third of the row each, and a
+   long keycap takes two lines, so all three stay inside the row) */
+.modes.tight { gap: 0.3rem; }
+.modes.tight .mode-btn { flex: 1 1 0; min-width: 0; padding-left: 0.2rem; padding-right: 0.2rem; }
+.modes.tight .mode-btn .ic { display: block; margin: 0 0 0.05rem; font-size: 1rem; line-height: 1.05; }   /* (a line of its own, kept short: the card still fits the smallest windscreen) */
+.modes.tight .mode-btn .t[data-gs-key]::after { white-space: normal; width: fit-content; max-width: 100%; }
 
 /* the shared pause card (game-shell.js) in the dash's lettering, like the menus */
 .gs-pause-card h2, .gs-pause-card button { font-family: var(--badge); font-weight: 400; }

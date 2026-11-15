@@ -1026,6 +1026,27 @@
     root: "#card"
   });
 
+  // The three switches share the card's row side by side where they fit.
+  // Where they don't (the dash lettering is wide, and on most phones the row
+  // is too narrow for it), the row is .tight: each sign goes over its name
+  // and the three take a third of the row each. Measured whenever the card
+  // or a switch's keycap changes, the window resizes or the fonts arrive.
+  function fitModes() {
+    var row = card.querySelector(".modes");
+    if (!row || !row.firstElementChild) return;
+    row.classList.remove("tight");
+    var rr = row.getBoundingClientRect();
+    if (!rr.width) return;
+    var first = row.firstElementChild.getBoundingClientRect(), last = row.lastElementChild.getBoundingClientRect();
+    if (last.right > rr.right + 0.5 || first.left < rr.left - 0.5 || row.scrollWidth > row.clientWidth + 1) row.classList.add("tight");
+  }
+  new MutationObserver(fitModes).observe(card, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-gs-key"] });
+  window.addEventListener("resize", fitModes);
+  if (document.fonts) {
+    if (document.fonts.ready) document.fonts.ready.then(fitModes);
+    if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", fitModes);
+  }
+
   // ----- boot ---------------------------------------------------------
   window.addEventListener("resize", resize);
   resize();
