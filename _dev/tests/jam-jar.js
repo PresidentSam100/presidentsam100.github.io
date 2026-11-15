@@ -1149,4 +1149,71 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("jam-jar (in turn): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
+
+  // ---- the jar's label, "Sam Lu's Preserves", handwritten on cream paper
+  // stuck on the jar's foot: on your jar, on its foot under the floor the fruit
+  // rest on (so under every fruit and far below the fill line), inside the
+  // screen, the writing 10px or more (on a phone on its side, where the whole
+  // jar is 195px wide, as big as the room under the floor allows: near 9px);
+  // drawn (paper and ink where it says). Against the CPU, where its jar
+  // wears one (left of its name tag, only where the writing reads 9px: with
+  // the stand-in fonts here it may not fit at all), it is on that jar and
+  // clear of the tag. Nothing to scroll sideways, and no "made by" line.
+  {
+    const { devices } = require("@playwright/test");
+    const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["phone 390x844", mob(390, 844)], ["phone 360x640", mob(360, 640)], ["phone 320x568", mob(320, 568)],
+      ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/jam-jar/");
+      const seen = [];
+      for (const foe of ["solo", "cpu"]) {
+        await q.evaluate((f) => { __game.setFoe(f); __game.start("simmer"); }, foe);
+        for (let i = 0; i < 3; i++) {
+          await q.waitForFunction(() => __game.state === "play", null, { timeout: 10000 }).catch(() => {});
+          await q.evaluate((i) => { __game.setAim(90 + i * 150); __game.drop(); }, i);
+          await q.waitForTimeout(foe === "cpu" ? 1300 : 650);
+        }
+        await q.waitForTimeout(900);
+        seen.push(await q.evaluate((foe) => {
+          const L = __game.label ? __game.label() : null, cv = document.getElementById("game"), y = L && L.you;
+          if (!y) return { foe, missing: true };
+          const k = y.jar.w / 540;
+          // every fruit's foot on the page, against the label's top
+          const lowest = Math.max(...__game.fruits.map((f) => y.jar.y + (f.y + f.r) * k));
+          const fill = y.jar.y + 116 * k;
+          // the paper and the ink where it is drawn
+          const s = cv.width / y.jar.w;
+          const d = cv.getContext("2d").getImageData(Math.round((y.x - y.jar.x) * s), Math.round((y.y - y.jar.y) * s), Math.round(y.w * s), Math.round(y.h * s)).data;
+          let paper = 0, ink = 0;
+          for (let i = 0; i < d.length; i += 4) {
+            if (d[i] > 245 && d[i + 1] > 240 && d[i + 2] > 228) paper++;
+            else if (d[i] < 150 && d[i + 1] < 110 && d[i + 2] < 80 && d[i + 3] > 200) ink++;
+          }
+          const n = d.length / 4;
+          let cpu = null;
+          if (foe === "cpu") {
+            const tag = document.querySelector(".cpu-tag").getBoundingClientRect(), C = L.cpu, cj = document.getElementById("cpu").getBoundingClientRect();
+            cpu = C ? { text: C.text, onJar: C.x >= C.jar.left - 0.5 && C.x + C.w <= C.jar.right + 0.5 && C.y >= C.jar.floorIn - 0.5 && C.y + C.h <= C.jar.y + C.jar.h,
+              clearOfTag: C.x + C.w <= tag.left, px: +C.px.toFixed(1), jarW: Math.round(cj.width) } : { none: true, jarW: Math.round(cj.width) };
+          }
+          return { foe, text: y.text, px: +y.px.toFixed(1), least: +Math.min(10, 24 * k - 0.15).toFixed(1), fruits: __game.fruits.length,
+            onJar: y.x >= y.jar.left - 0.5 && y.x + y.w <= y.jar.right + 0.5 && y.y + y.h <= y.jar.y + y.jar.h,
+            underFruit: y.y >= y.jar.floorIn - 0.5 && y.y >= lowest - 0.5, underFill: y.y > fill + 100 * k,
+            onScreen: y.x >= 0 && y.x + y.w <= innerWidth && y.y >= 0,
+            paper: +(paper / n).toFixed(2), ink: +(ink / n).toFixed(2), cpu,
+            sideways: document.documentElement.scrollWidth > innerWidth, madeBy: /made by/i.test(document.body.innerText) };
+        }, foe));
+      }
+      const bad = seen.filter((r) => r.missing || r.text !== "Sam Lu's Preserves" || r.px < r.least || !r.onJar || !r.underFruit || !r.underFill || !r.onScreen ||
+        r.paper < 0.4 || r.ink < 0.03 || r.sideways || r.madeBy || r.fruits < 1 ||
+        (r.cpu && !r.cpu.none && (r.cpu.text !== "Sam Lu's Preserves" || r.cpu.px < 9 || !r.cpu.onJar || !r.cpu.clearOfTag)));
+      check("jam-jar, " + label + ": \"Sam Lu's Preserves\" is on the jar's foot under every fruit, written 10px or more (near 9px on a phone on its side), alone and against the CPU (whose jar, where it wears one, has it beside its name tag at 9px or more)",
+        bad.length === 0, bad.length ? bad : seen);
+      check("jam-jar (label), " + label + ": no page errors", q.errs.length === 0, q.errs);
+      await q.evaluate(() => __game.setFoe("solo"));
+      await q.close(); await c.close();
+    }
+  }
 };

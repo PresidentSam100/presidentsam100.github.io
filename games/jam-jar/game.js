@@ -524,12 +524,15 @@
     if (cpuCanvas.width !== Math.round(W * k)) { cpuCanvas.width = Math.round(W * k); cpuCanvas.height = Math.round(H * k); }
     cctx.setTransform(k, 0, 0, k, 0, 0);
     cpuScale = w / W;
+    var tag = document.querySelector(".cpu-tag");
+    cpuTagHalf = tag ? tag.getBoundingClientRect().width / 2 / cpuScale : 0;
   }
   // the page as the opponent picked lays it out: the CPU's jar beside yours
   // or not, and the ladder fitted to your jar's new height
   function relayout() {
     document.body.dataset.foe = foe;
     fitCpu();
+    fitJarPx();
     layChain();
   }
 
@@ -1358,6 +1361,79 @@
     return o < 0 ? o + period : o;
   }
 
+  // ---- the jar's label --------------------------------------------------------
+  // A home-made jam label stuck on the jar's foot, below the floor the fruit
+  // rest on, so it never covers one: cream paper ruled in red, the name
+  // written on it by hand, put on a little crooked. It holds still. The CPU's
+  // jar wears one too, beside the name tag that hangs from its foot (styles.css
+  // .cpu-tag), in smaller writing where it must; where it couldn't be read
+  // there (under 9px: a short laptop's or a phone's smaller CPU jar) it goes
+  // without.
+  var LABEL = "Sam Lu's Preserves", LABEL_FONT = "'Kalam', 'Segoe Print', 'Comic Sans MS', cursive";
+  var cpuTagHalf = 0;   // half the CPU's name tag's width, in its jar's units (fitCpu)
+  // your jar's size on the page (css px to a jar unit): on a small screen the
+  // writing comes bigger, to read 10px, as far as the room under the floor
+  // allows (24 in the jar's units: a phone on its side, its jar 195px wide,
+  // gets close to 9px)
+  var jarPx = 1;
+  function fitJarPx() { var w = canvas.getBoundingClientRect().width; if (w) jarPx = w / W; }
+  if (window.ResizeObserver) new ResizeObserver(fitJarPx).observe(canvas);
+  function labelLayout() {
+    var cx = W / 2, w;
+    var px = inCpu ? 18 : Math.max(18, Math.min(24, Math.ceil(10.2 / jarPx)));
+    // (the CPU's: its writing no smaller than 9px on the page, or none)
+    var least = inCpu ? Math.max(13, Math.ceil(9 / (cpuScale || 1))) : px;
+    var lo = JL - GLASS, hi = JR + GLASS;   // (on the jar's foot, no wider than the glass)
+    for (; px >= least; px--) {
+      ctx.font = "700 " + px + "px " + LABEL_FONT;
+      w = Math.ceil(ctx.measureText(LABEL).width) + Math.round(px * (inCpu ? 1 : 1.4));
+      if (!inCpu) break;
+      // the CPU's: left of its name tag, with a little gap (a slimmer margin
+      // round its writing, so it fits there in more sizes)
+      var right = W / 2 - cpuTagHalf - 5;
+      if (right - lo >= w) { cx = Math.max(lo + w / 2, right - w / 2); break; }
+    }
+    if (px < least) return null;
+    if (w > hi - lo) w = hi - lo;
+    // just under the floor (a hair under it where the writing is at its
+    // biggest), put on a little crooked: as far as the room between the
+    // fruit's floor and the foot of the canvas allows
+    var h = px + 6, top = Math.max(FLOOR + 1, Math.min(FLOOR + 3, H - 3 - h));
+    var slack = Math.min(top - (FLOOR + 1), H - 3 - (top + h));
+    var tilt = -Math.max(0, Math.min(0.018, slack / (w / 2)));
+    return { text: LABEL, x: cx - w / 2, y: top, w: w, h: h, px: px, cx: cx, tilt: tilt };
+  }
+  function roundBox(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+  }
+  function drawLabel() {
+    var L = labelLayout();
+    if (inCpu) labelCpu = L; else labelYou = L;
+    if (!L) return;
+    ctx.save();
+    ctx.translate(L.cx, L.y + L.h / 2);
+    ctx.rotate(L.tilt);
+    var x = -L.w / 2, y = -L.h / 2;
+    // its shadow on the glass, the paper, and the printed red rule
+    ctx.fillStyle = "rgba(90, 50, 24, 0.2)";
+    roundBox(ctx, x + 1.5, y + 2, L.w, L.h, 5); ctx.fill();
+    ctx.fillStyle = "#fffaf0";
+    roundBox(ctx, x, y, L.w, L.h, 5); ctx.fill();
+    ctx.strokeStyle = "rgba(194, 69, 47, 0.8)"; ctx.lineWidth = 1.2;
+    roundBox(ctx, x + 3, y + 3, L.w - 6, L.h - 6, 3); ctx.stroke();
+    // the hand, in ink
+    ctx.fillStyle = "#5a3218";
+    ctx.font = "700 " + L.px + "px " + LABEL_FONT;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(L.text, 0, 1);
+    ctx.restore();
+    ctx.textAlign = "left"; ctx.textBaseline = "alphabetic";
+  }
+  var labelYou = null, labelCpu = null;   // (each jar's label as last drawn, in its units: for the tests)
+  if (document.fonts && document.fonts.load) document.fonts.load("700 18px Kalam").catch(function () {});
+
   function draw() {
     ctx.clearRect(0, 0, W, H);
     var T = performance.now() / 1000;
@@ -1462,6 +1538,8 @@
     ctx.lineWidth = 7;
     ctx.beginPath(); ctx.moveTo(JL - g - 7, RIM - 10); ctx.lineTo(JL - g + 7, RIM - 10); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(JR + g - 7, RIM - 10); ctx.lineTo(JR + g + 7, RIM - 10); ctx.stroke();
+
+    drawLabel();
 
     // the merges' points (on the CPU's jar only where it is big enough to read them)
     if (!inCpu || cpuScale * POP_PX >= 10) for (i = 0; i < pops.length; i++) drawPop(pops[i]);
@@ -1757,7 +1835,7 @@
   }
   layChain();
   window.addEventListener("resize", layChain);   // (a phone turned, a window narrowed: the ladder stands or lies, and fills its panel)
-  if (document.fonts) document.fonts.ready.then(layChain);   // (the panel's label, in its own face, may take another line)
+  if (document.fonts) document.fonts.ready.then(function () { layChain(); fitCpu(); });   // (the panel's label, in its own face, may take another line)
   window.addEventListener("resize", fitCpu);
   document.body.dataset.mode = mode;
   refreshHud();
@@ -1813,6 +1891,16 @@
     setQueue: function (c, n) { current = c; next = n; refreshHud(); },
     setAim: function (x) { aimX = x; },
     drop: function () { drop(mode === "boil"); },
+    // each jar's label as last drawn, on the page (px), with its writing's size
+    // there; null where a jar has none
+    label: function () {
+      function onPage(L, el) {
+        if (!L) return null;
+        var r = el.getBoundingClientRect(), k = r.width / W;
+        return { text: L.text, x: r.left + L.x * k, y: r.top + L.y * k, w: L.w * k, h: L.h * k, px: L.px * k, jar: { x: r.left, y: r.top, w: r.width, h: r.height, floor: r.top + (FLOOR + GLASS / 2) * k, floorIn: r.top + FLOOR * k, left: r.left + (JL - GLASS) * k, right: r.left + (JR + GLASS) * k } };
+      }
+      return { you: onPage(labelYou, canvas), cpu: foe === "cpu" ? onPage(labelCpu, cpuCanvas) : null };
+    },
     reset: reset,
     start: function (m) { reset(m || mode); },
     toMenu: toMenu,
