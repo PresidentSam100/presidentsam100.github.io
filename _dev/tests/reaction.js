@@ -55,4 +55,69 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- the saloon's sign, SAM LU'S SALOON, hung over the street: in the
+  // standoff, at the call, on a time and after a false start it reads, at
+  // 12px or more, inside the street, clear of the words on it, the two
+  // gunslingers, the tickets and the corner buttons; it hangs still from the
+  // standoff on (it creaks only between duels, with Visual FX on); it adds no
+  // scroll; and the page carries no "made by" line
+  const MEASURE = () => {
+    window.__sign = (tag) => {
+      const panel = document.getElementById("panel"), board = panel.querySelector(".saloon .board");
+      if (!board) return { tag, missing: true };
+      const b = board.getBoundingClientRect(), pr = panel.getBoundingClientRect();
+      const hit = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; };
+      const words = [...panel.querySelectorAll(".big, .sub, .rating, .duelist")].filter((e) => (e.classList.contains("duelist") || e.textContent.trim()) && hit(e)).map((e) => e.className);
+      const chrome = [...document.querySelectorAll(".nav-back-games, .gs-corner button, .hud .stat")].filter(hit).map((e) => e.className);
+      const cs = getComputedStyle(board), sh = document.documentElement.scrollHeight;
+      const sign = panel.querySelector(".saloon"); sign.style.display = "none";
+      const shWithout = document.documentElement.scrollHeight; sign.style.display = "";
+      return { tag, state: __reaction.state(), text: board.textContent.replace(/’/g, "'"), size: parseFloat(cs.fontSize),
+        inside: b.left >= pr.left && b.right <= pr.right && b.top >= pr.top && b.bottom <= pr.bottom && b.right <= innerWidth,
+        words, chrome, anim: cs.animationName, addsScroll: sh !== shWithout, madeBy: /made by/i.test(document.body.innerText) };
+    };
+  };
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/reaction/", { before: async (pg) => { await hookAll(pg); await pg.addInitScript(MEASURE); } });
+    // a standoff, the call, a time; then the next standoff, drawn too soon (all on the page's clock)
+    const seen = await q.evaluate(async () => {
+      const out = [];
+      document.getElementById("btn-start").click();
+      out.push(__sign("standoff"));
+      for (let k = 0; k < 100 && __reaction.state() !== "go"; k++) await __after(20);
+      out.push(__sign("the call"));
+      __key({ key: " ", code: "Space" }); await __after(500);
+      out.push(__sign("a time"));
+      __key({ key: " ", code: "Space" }); await __after(30);
+      __key({ key: " ", code: "Space" }); await __after(500);
+      out.push(__sign("too soon"));
+      return out;
+    });
+    const bad = seen.filter((r) => r.missing || r.text !== "SAM LU'S SALOON" || r.size < 12 || !r.inside || r.words.length || r.chrome.length || r.addsScroll || r.madeBy ||
+      ((r.tag === "standoff" || r.tag === "the call") && r.anim !== "none"));
+    check("reaction, " + label + ": the saloon's sign reads SAM LU'S SALOON over the street, clear of the duel and every word, still from the standoff on, adding no scroll",
+      bad.length === 0 && seen.map((r) => r.state).join() === "wait,go,result,toosoon", bad.length ? bad : seen.map((r) => r.tag + ":" + r.state));
+    check("reaction (saloon sign), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+  // with Visual FX on the sign creaks between duels; with it off it hangs still
+  const creak = {};
+  for (const off of [false, true]) {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/reaction/", { before: async (pg) => { await hookAll(pg); await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:reaction", off ? "1" : "0"); } catch (e) {} }, off); } });
+    creak[off ? "off" : "on"] = await q.evaluate(async () => {
+      document.getElementById("btn-start").click();
+      for (let k = 0; k < 100 && __reaction.state() !== "go"; k++) await __after(20);
+      __key({ key: " ", code: "Space" }); await __after(400);
+      const b = document.querySelector(".saloon .board");
+      return { state: __reaction.state(), anim: b ? getComputedStyle(b).animationName : null };
+    });
+    await c.close();
+  }
+  check("reaction: between duels the sign creaks with Visual FX on and hangs still with it off",
+    creak.on.state === "result" && creak.on.anim === "saloonCreak" && creak.off.state === "result" && creak.off.anim !== "saloonCreak", creak);
 };
