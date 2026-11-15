@@ -137,4 +137,68 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("dots-and-boxes (the night sky): no page errors", errs.length === 0, errs);
   }
   await ctx.close();
+
+  // ---- the street plan's title box, CITY OF SAM LU, in its bottom right
+  // corner: on every board size, with every road built and every block
+  // claimed, it lies clear of every lamp (and its glow), road and block, inside
+  // the plan and the screen's width, its letters 9 px or more on the screen;
+  // it touches neither the tallies nor the turn line, adds no scroll, and the
+  // page carries no "made by" line. (Pixel 7 with Visual FX off: the same box.)
+  const { devices } = require("@playwright/test");
+  const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  for (const [label, opts, fxOff] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7, FX off", devices["Pixel 7"], true], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
+    const c = await lib.newContext(browser, opts);
+    const q = await lib.open(c, base, "games/dots-and-boxes/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:dots-and-boxes", off ? "1" : "0"); } catch (e) {} }, !!fxOff) });
+    await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+    const seen = [];
+    for (const n of [2, 3, 4, 5]) {
+      await q.evaluate((n) => {
+        if (!document.getElementById("modeModal").classList.contains("open")) showModeModal();
+        document.querySelector('#modeModal .opts[data-target="size"] .opt[data-value="' + n + '"]').click();
+        document.getElementById("startGame").click();
+        // every road built and every block claimed, the owners taking turns
+        for (let r = 0; r <= N; r++) for (let k = 0; k < N; k++) hLines[r][k] = (r + k) % 2 ? "ai" : "human";
+        for (let r = 0; r < N; r++) for (let k = 0; k <= N; k++) vLines[r][k] = (r + k) % 2 ? "human" : "ai";
+        for (let r = 0; r < N; r++) for (let k = 0; k < N; k++) boxes[r][k] = (r + k) % 2 ? "ai" : "human";
+        claimedAt = {}; lastLine = { type: "h", r: N, c: N - 1 }; draw();
+      }, n);
+      await q.evaluate(() => document.fonts && document.fonts.ready);
+      seen.push(await q.evaluate((n) => {
+        const board = document.getElementById("board"), box = board.querySelector(".map-title"), name = box && box.querySelector("text");
+        if (!name) return { n, missing: true };
+        const dim = 72 + N * 84, k = board.getBoundingClientRect().width / dim, b = box.getBBox();
+        const hit = (x0, y0, x1, y1) => b.x < x1 && b.x + b.width > x0 && b.y < y1 && b.y + b.height > y0;
+        const bad = [];
+        for (const e of board.querySelectorAll("circle")) {
+          const cx = +e.getAttribute("cx"), cy = +e.getAttribute("cy"), r = +e.getAttribute("r");
+          const dx = Math.max(b.x - cx, 0, cx - (b.x + b.width)), dy = Math.max(b.y - cy, 0, cy - (b.y + b.height));
+          if (Math.hypot(dx, dy) < r) bad.push(e.getAttribute("class") + "@" + cx + "," + cy);
+        }
+        for (const e of board.querySelectorAll("line")) {
+          // (a road is drawn 14 wide, its ends rounded)
+          const x1 = +e.getAttribute("x1"), y1 = +e.getAttribute("y1"), x2 = +e.getAttribute("x2"), y2 = +e.getAttribute("y2");
+          if (hit(Math.min(x1, x2) - 7, Math.min(y1, y2) - 7, Math.max(x1, x2) + 7, Math.max(y1, y2) + 7)) bad.push(e.getAttribute("class"));
+        }
+        for (const e of board.querySelectorAll(".bldg")) {
+          const x = +e.getAttribute("x"), y = +e.getAttribute("y");
+          if (hit(x, y, x + +e.getAttribute("width"), y + +e.getAttribute("height"))) bad.push("bldg");
+        }
+        const s = box.getBoundingClientRect(), br = board.getBoundingClientRect();
+        const dom = [...document.querySelectorAll(".scoreboard span, #status")].filter((e) => { const r = e.getBoundingClientRect(); return r.left < s.right && r.right > s.left && r.top < s.bottom && r.bottom > s.top; }).map((e) => e.id || e.className);
+        const sh = document.documentElement.scrollHeight, sw = document.documentElement.scrollWidth;
+        box.style.display = "none";
+        const adds = document.documentElement.scrollHeight !== sh || document.documentElement.scrollWidth !== sw;
+        box.style.display = "";
+        return { n, text: name.textContent, px: +(parseFloat(name.getAttribute("font-size")) * k).toFixed(1), bad, dom, adds,
+          inside: b.x >= 0 && b.y >= 0 && b.x + b.width <= dim && b.y + b.height <= dim && s.left >= 0 && s.right <= innerWidth && s.left >= br.left && s.right <= br.right,
+          madeBy: /made by/i.test(document.body.innerText) };
+      }, n));
+    }
+    const wrong = seen.filter((r) => r.missing || r.text !== "City of Sam Lu" || r.px < 9 || r.bad.length || r.dom.length || r.adds || !r.inside || r.madeBy);
+    check("dots-and-boxes, " + label + ": the street plan's title box reads CITY OF SAM LU in its bottom right corner, clear of every lamp, road and block on 2x2 to 5x5, readable, adding no scroll",
+      wrong.length === 0, wrong.length ? wrong : seen.map((r) => r.n + ":" + r.px + "px"));
+    check("dots-and-boxes (map title), " + label + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

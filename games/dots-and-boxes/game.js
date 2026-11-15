@@ -196,7 +196,57 @@ function draw() {
     boardEl.appendChild(el('circle', { cx: px(c), cy: px(r), r: 12 }, 'lamp-halo'));
     boardEl.appendChild(el('circle', { cx: px(c), cy: px(r), r: 4.5 }, 'dot'));
   }
+  drawMapTitle();
   syncPlayable();
+}
+
+// The map's title box, in its bottom right corner as a printed city map
+// carries its cartouche: a dark framed label with a little north arrow and
+// CITY OF SAM LU in the sign's face. It lies in the margin under the last row
+// of street lamps (the 24 of the plan's units between their glow and the
+// edge), clear of every lamp, road and block. Its letters are sized for the
+// screen: about 12 px however far a phone shrinks the plan, up to the 16 units
+// the margin holds, smaller only if a narrow plan can't fit the line. It holds
+// still, with Visual FX on or off.
+const MAP_TITLE = 'City of Sam Lu';
+function drawMapTitle() {
+  const old = boardEl.querySelector('.map-title');
+  if (old) old.remove();
+  if (!N) return;
+  const dim = PAD * 2 + N * GAP, inset = 16, foot = 4;
+  const shown = boardEl.getBoundingClientRect().width;
+  const scale = shown > 0 ? shown / dim : 1;
+  const g = el('g', { 'aria-hidden': 'true' }, 'map-title');
+  const frame = el('rect', { rx: 4 }, 'mt-frame'), rule = el('rect', { rx: 2.5 }, 'mt-rule');
+  const north = el('path', {}, 'mt-north'), northHalf = el('path', {}, 'mt-north-half');
+  const name = el('text', {}, 'mt-name');
+  name.textContent = MAP_TITLE;
+  g.append(frame, rule, north, northHalf, name);
+  boardEl.appendChild(g);
+  let size = Math.max(12, Math.min(16, 12 / scale));
+  for (let k = 0; k < 8; k++) {
+    name.setAttribute('font-size', size.toFixed(2));
+    const h = size * 0.8 + 6, aw = h * 0.42, pad = size * 0.5, gap = size * 0.4;
+    const w = pad + aw + gap + name.getBBox().width + pad;
+    const x1 = dim - inset, x0 = x1 - w, y1 = dim - foot, y0 = y1 - h;
+    if (x0 < inset && size > 8) { size *= Math.max(0.7, (dim - 2 * inset) / w) * 0.98; continue; }
+    for (const [r, d] of [[frame, 0], [rule, 2]]) {
+      r.setAttribute('x', x0 + d); r.setAttribute('y', y0 + d); r.setAttribute('width', w - 2 * d); r.setAttribute('height', h - 2 * d);
+    }
+    // the north arrow: a slim dart pointing up, half inked and half open, as on a map
+    const ax = x0 + pad + aw / 2, top = y0 + 3.5, bot = y1 - 3.5, notch = bot - aw * 0.45;
+    north.setAttribute('d', `M${ax},${top} L${ax + aw / 2},${bot} L${ax},${notch} Z`);
+    northHalf.setAttribute('d', `M${ax},${top} L${ax - aw / 2},${bot} L${ax},${notch} Z`);
+    name.setAttribute('x', x0 + pad + aw + gap);
+    name.setAttribute('y', (y0 + y1) / 2);
+    break;
+  }
+}
+// (sized for the screen: again when the window changes or the sign's face arrives)
+addEventListener('resize', () => { if (boardEl.querySelector('.map-title')) drawMapTitle(); });
+if (document.fonts) {
+  document.fonts.addEventListener('loadingdone', () => { if (boardEl.querySelector('.map-title')) drawMapTitle(); });
+  document.fonts.ready.then(() => { if (boardEl.querySelector('.map-title')) drawMapTitle(); });
 }
 
 // Board accepts hover/clicks only on the human's turn, not during AI
