@@ -137,4 +137,40 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("lights-out: a sign put out in one press reads \"1 move\"", /done: 1 move \(par 1\)/.test(one), one);
   await done(p, "one move");
   await ctx.close();
+
+  // the picture house's own name, THE SAM LU, on a crest astride the sign's
+  // top edge: on the screen, readable, clear of the title, the letterboard,
+  // the bulbs and the corner buttons, the page no taller (it never scrolls);
+  // on the menu and in a run; it goes out with the front
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways", touch(915, 412)]];
+    const look = (q) => q.evaluate(() => {
+      const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const h = document.getElementById("house");
+      if (!h) return null;
+      const rg = document.createRange(); rg.selectNodeContents(document.querySelector(".sign h1"));
+      const tr = rg.getBoundingClientRect(), title = { l: tr.left, t: tr.top, r: tr.right, b: tr.bottom }, b = box(h);
+      const others = [title, box(document.querySelector(".letterboard")), box(document.getElementById("board"))]
+        .concat([...document.querySelectorAll("body *")].filter((e) => getComputedStyle(e).position === "fixed" && e.offsetWidth > 0 && e.getBoundingClientRect().top < 80 && !e.closest(".panel")).map(box));
+      return { text: h.textContent.trim(), b, size: parseFloat(getComputedStyle(h).fontSize), vw: innerWidth, vh: innerHeight,
+        sh: document.documentElement.scrollHeight, hits: others.filter((o) => meet(b, o)).length, onSign: meet(b, box(document.querySelector(".sign"))) };
+    });
+    const bad = [];
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/lights-out/");
+      const menu = await look(q);
+      await q.evaluate(() => LightsOut.start("windup")); await q.waitForTimeout(300);
+      const run = await look(q);
+      const good = (s) => !!s && s.text === "THE SAM LU" && s.size >= 10 && s.hits === 0 && s.onSign && s.b.t >= 0 && s.b.l >= 4 && s.b.r <= s.vw - 4 && s.sh <= s.vh;
+      if (!good(menu) || !good(run)) bad.push({ name, menu, run });
+      await c.close();
+    }
+    check("lights-out: THE SAM LU, the picture house's name, on a crest astride the sign's top edge: on screen, 10 px or more, clear of the title, letterboard, bulbs and corner buttons, no scroll, on the menu and in a run (9 sizes)", bad.length === 0, bad);
+  }
 };
