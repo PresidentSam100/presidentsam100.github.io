@@ -779,10 +779,46 @@
     plaqueAt = { text: PLAQUE, size: p.f, x: x, y: y, w: w, h: h };
   }
 
+  // ---- Visual FX on: the nave is alive. The evening's glow round the window
+  // flickers a little, as candlelight does, and dust drifts up through the
+  // light on the wall (behind the glass, so never among the beads). On the
+  // room's own clock, which stops while paused. With FX off the wall is the
+  // still picture it always was. ----
+  var ambT = 0;
+  var MOTES = (function () {
+    // (the same scatter every visit: a small seeded generator)
+    var s = 91, r = function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }, out = [];
+    for (var i = 0; i < 44; i++) out.push({ fx: r(), fy: r(), sp: 4 + r() * 7, wob: r() * 6.3, sw: 6 + r() * 10, rad: 0.9 + r() * 1.3 });
+    return out;
+  })();
+  function flickerAt(t) {
+    // (a candle's unsteady breath: three slow beats over each other, 0 to 1)
+    return 0.5 + 0.22 * Math.sin(t * 6.1) + 0.16 * Math.sin(t * 11.3 + 1.1) + 0.1 * Math.sin(t * 19.7 + 2.3);
+  }
+  function drawAmbient() {
+    var cx = OX + R * S, cy = OY + FH * S * 0.42, far = Math.max(VW, VH) * 0.6;
+    var fl = ctxGlow(cx, cy, far, 0.075 * flickerAt(ambT));
+    g.fillStyle = fl; g.fillRect(0, 0, VW, VH);
+    for (var i = 0; i < MOTES.length; i++) {
+      var m = MOTES[i];
+      var y = ((m.fy * VH - m.sp * ambT) % VH + VH) % VH, x = m.fx * VW + m.sw * Math.sin(ambT * 0.35 + m.wob);
+      var a = 0.6 * Math.max(0, 1 - Math.hypot(x - cx, y - cy) / (far * 1.25));
+      if (a < 0.02) continue;
+      g.fillStyle = "rgba(255, 232, 190, " + a.toFixed(3) + ")";
+      g.beginPath(); g.arc(x, y, m.rad, 0, 7); g.fill();
+    }
+  }
+  function ctxGlow(cx, cy, far, alpha) {
+    var gr = g.createRadialGradient(cx, cy, 10, cx, cy, far);
+    gr.addColorStop(0, "rgba(255, 196, 120, " + alpha.toFixed(3) + ")"); gr.addColorStop(1, "rgba(255, 196, 120, 0)");
+    return gr;
+  }
+
   function draw() {
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.drawImage(bg, 0, 0);
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (fx()) drawAmbient();   // (the flicker and the dust, on the wall under the window's glass)
     drawPlaque();
     g.setTransform(dpr * S, 0, 0, dpr * S, dpr * OX, dpr * OY);
     var i;
@@ -843,6 +879,7 @@
     requestAnimationFrame(loop);
     var dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
     if (!P.isPaused()) update(dt);
+    if (!P.isPaused() && fx()) ambT += dt;   // (the nave's clock: the flicker and the dust)
     draw();
   }
 
@@ -1009,6 +1046,8 @@
 
   // test hooks: the Playwright harness drives runs through these
   window.RoseWindow = {
+    // the nave's light: whether it moves (FX on), its clock, and how bright the candlelit glow is now
+    amb: function () { return { on: fx(), t: ambT, flicker: flickerAt(ambT) }; },
     state: function () { return state; },
     mode: function () { return mode; },
     pick: function () { return pick; },

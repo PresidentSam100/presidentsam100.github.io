@@ -459,4 +459,38 @@ module.exports = async ({ browser, base, check, lib }) => {
   const fxOn = await glint(false), fxOff = await glint(true);
   check("rose-window: with Visual FX on a glint of light crosses the plaque's brass; with it off the plaque holds still", fxOn.moved && fxOff.drawn && !fxOff.moved, { on: fxOn, off: fxOff });
   check("rose-window (plaque glint): no page errors", fxOn.errs.length === 0 && fxOff.errs.length === 0, [fxOn.errs, fxOff.errs]);
+
+  // the nave: with Visual FX on the glow round the window flickers like
+  // candlelight and dust drifts in the light on the wall (the wall beside the
+  // window changes from moment to moment; the nave's clock holds while
+  // paused); with FX off the wall is a still picture
+  {
+    const nave = async (off) => {
+      const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+      const q = await lib.open(c, base, "games/rose-window/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:rose-window", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.evaluate(() => RoseWindow.start("pilgrimage")); await q.waitForTimeout(300);
+      // (the wall: a band of points beside the window on either side)
+      const wall = () => q.evaluate(() => {
+        const cv = document.getElementById("stage"), g = cv.getContext("2d"), k = cv.width / cv.clientWidth, out = [];
+        for (let y = 150; y <= 750; y += 50) for (const x of [90, 160, 1120, 1190]) { const d = g.getImageData(Math.round(x * k), Math.round(y * k), 1, 1).data; out.push(d[0] + d[1] + d[2]); }
+        return out.join(",");
+      });
+      const a = await wall(), t0 = await q.evaluate(() => RoseWindow.amb && RoseWindow.amb().t);
+      await q.waitForTimeout(1500);
+      const b = await wall(), t1 = await q.evaluate(() => RoseWindow.amb && RoseWindow.amb().t);
+      let held = null;
+      if (!off) {
+        await q.keyboard.press("p"); await q.waitForTimeout(300);
+        const h0 = await q.evaluate(() => RoseWindow.amb ? RoseWindow.amb().t : null); await q.waitForTimeout(900); const h1 = await q.evaluate(() => RoseWindow.amb ? RoseWindow.amb().t : NaN);
+        held = { still: h0 === h1, paused: await q.evaluate(() => { const g = document.querySelector(".gs-pause:not(.gs-dialog)"); return !!g && !g.hidden; }) };
+      }
+      const errs = q.errs; await c.close();
+      return { changed: a !== b, t0, t1, held, errs };
+    };
+    const on = await nave(false), off = await nave(true);
+    check("rose-window, Visual FX on: the window's glow flickers like candlelight and dust drifts on the wall (it changes over time; the nave's clock holds while paused)",
+      on.changed && typeof on.t1 === "number" && on.t1 > on.t0 && !!on.held && on.held.paused && on.held.still, on);
+    check("rose-window, Visual FX off: the wall is a still picture", !off.changed, off);
+    check("rose-window (nave light): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
+  }
 };
