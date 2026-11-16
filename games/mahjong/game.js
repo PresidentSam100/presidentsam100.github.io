@@ -605,6 +605,19 @@
       el.style.backgroundImage = "url(" + FACES[kinds[i]] + "), linear-gradient(160deg, #fdf9ee, #f8f2e2 55%, #ece2cb)";
     });
     refreshFreedom();
+    placeStamp();
+  }
+  // the desk's gilt stamp at its near edge: never where a tile could lie. It
+  // keeps clear of the whole grid the layouts are drawn on (every layout's
+  // tiles fall inside it), so a deal never brings it and takes it away; where
+  // the grid reaches its corner (a small window), it is left off.
+  function placeStamp() {
+    var st = $("stamp"), board = $("board");
+    if (!st) return;
+    st.hidden = false;
+    var r = st.getBoundingClientRect(), b = board.getBoundingClientRect();
+    var gw = parseFloat(board.style.width) || b.width, gh = parseFloat(board.style.height) || b.height;
+    st.hidden = b.left < r.right + 8 && r.left - 8 < b.left + gw && b.top < r.bottom + 8 && r.top - 8 < b.top + gh;
   }
   window.addEventListener("resize", function () { if (state !== "menu") { settleAll(); layout(); } });
 

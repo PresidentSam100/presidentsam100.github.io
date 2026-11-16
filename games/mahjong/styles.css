@@ -141,6 +141,23 @@ body:not(.fxon) button.tile.shake { outline: 3px solid var(--lacquer); outline-o
     radial-gradient(circle 5px at 76px 108px, #f0b4c4 4px, transparent 5px),
     linear-gradient(115deg, transparent 47%, #4a2c16 48%, #4a2c16 52%, transparent 53%);
 }
+/* the desk maker's gilt stamp, pressed into the wood at the desk's near
+   edge, bottom left (the blossom has the other corner): SAM LU in small
+   gilded capitals inside a thin gilt frame with a fainter one round it, the
+   gold catching the light on its upper edges. game.js (placeStamp) leaves it
+   off if a tile ever comes near it. Still. */
+.stamp {
+  position: fixed; left: 22px; bottom: 16px; z-index: 1; pointer-events: none; white-space: nowrap;
+  font: 700 12px/1 "Lora", Georgia, serif; letter-spacing: 3px; padding: 5px 6px 5px 9px;
+  color: transparent; background: linear-gradient(180deg, #f6e2a0, #d4ae58 50%, #9a7330);
+  -webkit-background-clip: text; background-clip: text;
+  border: 1px solid rgba(214, 178, 96, 0.8); border-radius: 3px;
+  outline: 1px solid rgba(214, 178, 96, 0.35); outline-offset: 2px;
+  filter: drop-shadow(0 1px 0 rgba(40, 20, 8, 0.55));
+}
+.stamp[hidden] { display: none; }
+@media (max-width: 640px) { .stamp { left: 16px; bottom: 14px; font-size: 11.5px; letter-spacing: 2.6px; } }
+
 /* With Visual FX on, now and then a petal lets go of the branch and drifts
    down out of the corner, swaying and turning as it falls; each one rests a
    while before the next goes, so a petal or two is in the air at a time.

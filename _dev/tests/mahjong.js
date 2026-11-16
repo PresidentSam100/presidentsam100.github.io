@@ -848,4 +848,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("mahjong, Visual FX off: no petals in the air, the branch as it was", off.a.length >= 3 && off.a.every((p) => !p.shown), off.a);
     check("mahjong (petals): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
   }
+
+  // the desk maker's gilt stamp, SAM LU, at the desk's near edge (bottom
+  // left): on the screen, readable, clear of the whole grid the layouts are
+  // drawn on (so of every layout's tiles), of the blossom branch, the HUD and
+  // the corner buttons, adding no scroll; left off only where that grid
+  // reaches its corner
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways", touch(915, 412)]];
+    const bad = [], seen = [];
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/mahjong/");
+      await q.evaluate(() => Mahjong.start("classic")); await q.waitForTimeout(200);
+      const m = await q.evaluate(() => {
+        const st = document.getElementById("stamp");
+        if (!st) return { none: true };
+        const box = (r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom });
+        const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+        const board = document.getElementById("board"), br = board.getBoundingClientRect();
+        const grid = { l: br.left, t: br.top, r: br.left + parseFloat(board.style.width), b: br.top + parseFloat(board.style.height) };
+        const reaches = (s) => meet({ l: s.l - 8, t: s.t - 8, r: s.r + 8, b: s.b + 8 }, grid);
+        if (st.hidden) { st.hidden = false; const would = box(st.getBoundingClientRect()); st.hidden = true; return { hidden: true, reaches: reaches(would) }; }
+        const s = box(st.getBoundingClientRect());
+        const others = [...document.querySelectorAll(".blossom, #hudline > span, #hudline button, .nav-back-games, .gs-corner > *, button.tile")]
+          .filter((e) => e.getClientRects().length && getComputedStyle(e).display !== "none").map((e) => box(e.getBoundingClientRect()));
+        const sh0 = document.documentElement.scrollHeight; st.style.display = "none"; const sh1 = document.documentElement.scrollHeight; st.style.display = "";
+        return { text: st.textContent, size: parseFloat(getComputedStyle(st).fontSize), s, vw: innerWidth, vh: innerHeight,
+          grid: reaches(s), hits: others.filter((o) => meet(s, o)).length, grows: sh0 - sh1 };
+      });
+      seen.push(name + (m.hidden ? " (left off)" : ""));
+      const ok = !m.none && (m.hidden ? m.reaches : m.text === "SAM LU" && m.size >= 11 && !m.grid && m.hits === 0 && m.grows === 0 && m.s.l >= 0 && m.s.r <= m.vw && m.s.b <= m.vh);
+      if (!ok) bad.push({ name, m });
+      await c.close();
+    }
+    check("mahjong: a gilt SAM LU stamp at the desk's near edge (bottom left), readable, clear of every layout's tiles, the blossom, the HUD and the corner buttons, no scroll; left off only where the tile grid reaches it: " + seen.join(", "),
+      bad.length === 0 && seen.filter((x) => !/left off/.test(x)).length >= 7, bad);
+  }
 };
