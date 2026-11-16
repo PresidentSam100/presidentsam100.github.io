@@ -466,7 +466,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const RING = ["ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill();", "if (!window.__noFx) { ctx.beginPath(); ctx.arc(sx, baseY, 26 + 26 * p, 0, 7); ctx.fill(); }"];
     const SPLASH = ["function drawSplash(sx, sy, t, face) {", "function drawSplash(sx, sy, t, face) {\n  if (window.__noFx) return;"];
-    const MORE = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get cam() { return cameraY; },\n  set cam(v) { cameraY = v; },\n  get da() { return deathAnim; },\n  get rgx() { return renderGx; },\n  get rgy() { return renderGy; },"];
+    const MORE = ["window.__game = {", "window.__game = {\n  render: render,\n  rowTop: rowTopY,\n  get rows() { return rows; },\n  get cam() { return cameraY; },\n  set cam(v) { cameraY = v; },\n  get da() { return deathAnim; },\n  get rgx() { return renderGx; },\n  get rgy() { return renderGy; },"];
     const q = await lib.open(ctx, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [MORE, RING, SPLASH]) });
     await q.keyboard.press("2"); await q.keyboard.press("Enter");
     await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
@@ -491,31 +491,41 @@ module.exports = async ({ browser, base, check, lib }) => {
         const sx = (G.rgx + 0.5) * 64, by = -G.rgy * 64 - G.cam, r = Math.round(G.rgy), bottom = G.rowTop(r) + 64;
         const on = shot(false), off = shot(true);
         out.ring = { inRow: changed(on, off, sx, by + 20, 10), below: changed(on, off, sx, bottom + 6, 14) };
-        // the splash, its outer ripple a little wider than the row
+        // the splash, its outer ripple a little wider than the row: into the
+        // lanes beside it where they are water, never over a bank of grass
         G.death("water");
         G.da.t = 0.6;
-        const dx = (G.da.gx + 0.5) * 64, dy = -G.da.gy * 64 - G.cam, rr = Math.round(G.da.gy), top = G.rowTop(rr);
-        const s1 = shot(false), s0 = shot(true);
-        out.splash = { above: changed(s1, s0, dx, top - 1.5, 6), below: changed(s1, s0, dx, top + 64 + 1.5, 6) };
+        const dx = (G.da.gx + 0.5) * 64, rr = Math.round(G.da.gy), top = G.rowTop(rr);
+        const river = () => ({ type: "river", variant: "pads", dir: 1, speed: 0, cycle: 20, items: [], shift: 0 });
+        const grass = () => ({ type: "grass", trees: [], decos: [] });
+        G.rows[rr] = river(); G.rows[rr + 1] = river(); G.rows[rr - 1] = river();
+        let s1 = shot(false), s0 = shot(true);
+        out.splash = { above: changed(s1, s0, dx, top - 1.5, 6), below: changed(s1, s0, dx, top + 64 + 1.5, 6), inRow: changed(s1, s0, dx, top + 6, 30) };
+        G.rows[rr + 1] = grass(); G.rows[rr - 1] = grass();
+        s1 = shot(false); s0 = shot(true);
+        out.banks = { above: changed(s1, s0, dx, top - 1.5, 6) + changed(s1, s0, dx, top - 8, 20), below: changed(s1, s0, dx, top + 64 + 1.5, 6) + changed(s1, s0, dx, top + 64 + 8, 20), inRow: changed(s1, s0, dx, top + 6, 30) };
       } finally { g.translate = tr; }
       return out;
     });
     check("road-bird: the eagle's warning ring isn't cut off at the chicken's row: it reaches over the row in front, drawn on top of it",
       seen.ring.inRow > 10 && seen.ring.below > 20, seen.ring);
-    check("road-bird: a splash isn't cut off at the water's row: its ripple reaches into the rows above and below",
+    check("road-bird: a splash isn't cut off at the water's row: where the lanes above and below are water too, its ripple reaches into them",
       seen.splash.above > 0 && seen.splash.below > 0, seen.splash);
+    check("road-bird: a splash's ripples stay on the water: beside a grass lane above or below, none is drawn over the grass (still drawn on the water)",
+      seen.banks.above === 0 && seen.banks.below === 0 && seen.banks.inRow > 0, seen.banks);
     check("road-bird (ring and splash): no page errors", q.errs.length === 0, q.errs);
     await q.close();
   }
 
   await ctx.close();
 
-  // ---- the fleet's livery: every lorry carries SAM LU HAULAGE in white on a
-  // band in its cab's colour along the side of its box, inside the box and
-  // never mirrored, whichever way it drives; where the board is shown so
-  // small that the words would come out under 9 page pixels, the band says
-  // SAM LU alone, at 9 or more. The lorries keep their length (their hit box)
-  // and drawing them changes nothing about them; no "made by" line.
+  // ---- the haulage company's livery: only its own lorries, the black-and-
+  // white ones (a minority), carry SAM LU HAULAGE in white on a black band
+  // along the side of the box, inside the box and never mirrored, whichever
+  // way it drives; where the board is shown so small that the words would
+  // come out under 9 page pixels, the band says SAM LU alone, at 9 or more.
+  // The coloured lorries are plain. The lorries keep their length (their hit
+  // box) and drawing them changes nothing about them; no "made by" line.
   const mob = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
   for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
     ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
@@ -525,7 +535,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     // (a run of Cars & Trucks, all roads, until a lorry is on the board)
     await q.keyboard.press("2"); await q.waitForTimeout(80);
     await q.keyboard.press("Enter");
-    await q.waitForFunction(() => { __game.render(); return (__game.liveries || []).length > 0; }, null, { timeout: 20000, polling: 200 }).catch(() => {});
+    // (until both a company lorry and a coloured one are on the board)
+    await q.waitForFunction(() => { __game.render(); return (__game.liveries || []).length > 0 && (__game.trucks || []).some((t) => !t.fleet); }, null, { timeout: 20000, polling: 200 }).catch(() => {});
     const r = await q.evaluate(() => {
       const items = () => JSON.stringify(Object.keys(__game.rows).map((k) => __game.rows[k]).filter((row) => row.type === "road").map((row) => row.items.map((it) => [it.x, it.len, it.type])));
       const before = items();
@@ -533,18 +544,45 @@ module.exports = async ({ browser, base, check, lib }) => {
       const after = items(), liveries = __game.liveries || [];
       const lens = [];
       Object.keys(__game.rows).forEach((k) => { const row = __game.rows[k]; if (row.type === "road") row.items.forEach((it) => lens.push(it.type + ":" + it.len)); });
-      return { liveries, same: before === after, lens: [...new Set(lens)], madeBy: /made by/i.test(document.body.innerText) };
+      const trucks = __game.trucks || [];
+      return { liveries, same: before === after, lens: [...new Set(lens)], madeBy: /made by/i.test(document.body.innerText),
+        fleet: trucks.filter((t) => t.fleet).length, plain: trucks.filter((t) => !t.fleet).length, fleetCab: [...new Set(trucks.filter((t) => t.fleet).map((t) => t.color))] };
     });
     const bad = r.liveries.filter((l) => {
       const words = l.text === "SAM LU HAULAGE" ? l.px >= 9 : l.text === "SAM LU" ? l.fullPx < 9 && l.px >= 9 : false;
       const inBox = l.x >= l.box.x - 0.5 && l.x + l.w <= l.box.x + l.box.w + 0.5 && l.y >= l.box.y - 0.5 && l.y + l.h <= l.box.y + l.box.h + 0.5;
-      return !words || !inBox || l.mirrored || l.len !== 2.8;
+      return !words || !inBox || l.mirrored || l.len !== 2.8 || !l.fleet;
     });
-    check("road-bird, " + label + ": every lorry carries the livery (SAM LU HAULAGE, or SAM LU where the board is too small for the words), readable, inside its box, never mirrored",
-      r.liveries.length > 0 && bad.length === 0 && !r.madeBy, bad.length ? bad.slice(0, 3) : { n: r.liveries.length, texts: [...new Set(r.liveries.map((l) => l.text + " " + l.px.toFixed(1) + "px"))] });
+    check("road-bird, " + label + ": only the company's black-and-white lorries carry the livery (SAM LU HAULAGE, or SAM LU where the board is too small for the words), readable, inside the box, never mirrored; the coloured lorries are plain",
+      r.liveries.length > 0 && bad.length === 0 && r.liveries.length === r.fleet && r.plain > 0 && r.fleetCab.every((c) => c === "#232328") && !r.madeBy,
+      bad.length ? bad.slice(0, 3) : { n: r.liveries.length, fleet: r.fleet, plain: r.plain, cab: r.fleetCab, texts: [...new Set(r.liveries.map((l) => l.text + " " + l.px.toFixed(1) + "px"))] });
     check("road-bird, " + label + ": the lorries and cars keep their lengths (their hit boxes), and drawing them changes nothing about them",
       r.same && r.lens.every((s) => s === "truck:2.8" || s === "car:1.5"), { same: r.same, lens: r.lens });
     check("road-bird (livery), " + label + ": no page errors", q.errs.length === 0, q.errs);
     await c.close();
+  }
+
+  // ---- a hop's landing puff of dust and a crash's burst of feathers are
+  // Visual FX: with it on they show; with it off neither does (the hop and the
+  // crash play out the same)
+  {
+    const parts = async (off) => {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/road-bird/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:road-bird", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.keyboard.press("Space");
+      await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
+      // (the most puffs at once over a few hops and their landings: a tree may stop one)
+      await q.evaluate(() => { window.__most = 0; (function f() { window.__most = __game.particles ? Math.max(window.__most, __game.particles.dust) : -1; requestAnimationFrame(f); })(); });
+      for (const k of ["ArrowUp", "ArrowLeft", "ArrowRight", "ArrowUp"]) { await q.keyboard.press(k); await q.waitForTimeout(350); }
+      const dust = await q.evaluate(() => window.__most);
+      await q.evaluate(() => __game.death("runover"));
+      const feathers = await q.evaluate(() => __game.particles ? __game.particles.feathers : -1);
+      const errs = q.errs; await c.close();
+      return { dust, feathers, errs };
+    };
+    const on = await parts(false), off = await parts(true);
+    check("road-bird, Visual FX on: a landing kicks up a puff of dust and a crash throws feathers", on.dust > 0 && on.feathers > 0, on);
+    check("road-bird, Visual FX off: no dust when the bird lands and no feathers on a crash", off.dust === 0 && off.feathers === 0, off);
+    check("road-bird (dust and feathers): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
   }
 };

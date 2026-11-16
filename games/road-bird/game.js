@@ -561,8 +561,8 @@ let eagle = null;
 let policeTimer = 0;            // global scheduler: seconds until the next police chase on a random lane
 let paused = false;
 let squashT = 0;                // brief landing-squash timer for the hop animation
-let feathers = [];              // burst of feathers on a crash death
-let dusts = [];                 // little landing puffs at the chicken's feet
+let feathers = [];              // burst of feathers on a crash death (Visual FX on)
+let dusts = [];                 // little landing puffs at the chicken's feet (Visual FX on)
 function spawnFeathers(sx, wy, col) {
   for (let i = 0; i < 12; i++) feathers.push({
     x: sx + rand(-8, 8), wy: wy + rand(-10, 2),
@@ -603,6 +603,7 @@ function updateFx(dt) {
   if (shakeT > 0) shakeT -= dt;
 }
 function drawFx() { // particles live in world space, so they stay put as the camera scrolls
+  if (fxOff()) { dusts = []; feathers = []; }   // (Visual FX off: no puffs or feathers, even ones begun before it was turned off)
   for (const d of dusts) {
     const k = d.t / 0.4;
     ctx.fillStyle = "rgba(255,252,235," + (0.5 * (1 - k)).toFixed(2) + ")";
@@ -695,10 +696,16 @@ function placeAround(cycle, lens, minGap, maxGap) {
 
 // Roads use LINEAR traffic (not a wrap-around loop): cars drive in from one edge and off the other,
 // new ones spawn from the entry edge. This lets a police chase clear the lane and let it refill naturally.
+// About one lorry in five or six is one of the haulage company's own: a black
+// cab and a white box with its name along a black band (drawLivery). The
+// coloured lorries are plain. Same length and hit box either way.
+const FLEET_CHANCE = 0.18, FLEET_CAB = "#232328";
 function newVehicle(row, x) {
   const type = Math.random() < TRUCK_CHANCE ? "truck" : "car";
   const len = type === "truck" ? 2.8 : 1.5;
-  return { x, len, type, color: vehColor(type) };
+  const v = { x, len, type, color: vehColor(type) };
+  if (type === "truck" && Math.random() < FLEET_CHANCE) { v.fleet = true; v.color = FLEET_CAB; }
+  return v;
 }
 function prefillRoad(row) { // spread cars across the whole lane so it doesn't start empty
   let x = -3 + rand(0, 2);
@@ -1106,7 +1113,7 @@ function updatePlaying(dt) {
   const landed = hopTimer <= 0;
   const justLanded = wasAir && landed;
   if (squashT > 0) squashT -= dt;
-  if (justLanded) { squashT = SQUASH_DUR; spawnDust((renderGx + 0.5) * TILE, -renderGy * TILE + 12); } // landing squash + dust puff
+  if (justLanded) { squashT = SQUASH_DUR; if (!fxOff()) spawnDust((renderGx + 0.5) * TILE, -renderGy * TILE + 12); } // landing squash + (Visual FX on) a dust puff
 
   // mid-hop along a log: ride its momentum so a sideways hop nets one cell relative to the log
   if (!landed && hopCarrying) {
@@ -1205,7 +1212,7 @@ function death(cause, carryVX, dir) {
   };
   sfx(cause === "water" || cause === "swept" ? "splash" : "crash");
   if (cause !== "water" && cause !== "swept") {
-    spawnFeathers((renderGx + 0.5) * TILE, -renderGy * TILE, (SKINS[skinSel] || SKINS[0]).body);
+    if (!fxOff()) spawnFeathers((renderGx + 0.5) * TILE, -renderGy * TILE, (SKINS[skinSel] || SKINS[0]).body);   // (Visual FX on: a burst of feathers)
     if (!fxOff()) shakeT = SHAKE_DUR; // the hit shakes the screen (Visual FX on)
   }
   trail = [];
@@ -1643,7 +1650,8 @@ function drawVehicle(row, it, top) {
     ctx.fillRect(facingRight ? x + w - 8 : x + 3, y0 + d - 13, 5, 5);
     ctx.fillStyle = "#e04438"; // taillight, trailing edge
     ctx.fillRect(facingRight ? x + 4 : x + w - 9, y0 + d - 15, 5, 6);
-    drawLivery(it, boxX, y0 + d - 30, boxW, 30);
+    trucksSeen.push({ fleet: !!it.fleet, color: it.color });
+    if (it.fleet) drawLivery(it, boxX, y0 + d - 30, boxW, 30);   // (the company's own lorries only)
   } else {
     ctx.fillRect(x + w * 0.14, y0 + d - 4, 11, 7);
     ctx.fillRect(x + w * 0.72, y0 + d - 4, 11, 7);
@@ -1661,7 +1669,8 @@ function drawVehicle(row, it, top) {
   }
 }
 
-// The fleet's livery along a lorry's box: a band in the cab's colour across
+// The haulage company's livery along its own lorries' white boxes (the
+// black-and-white ones; the coloured lorries are plain): a black band across
 // the side we see, SAM LU HAULAGE on it in white. Where the board is shown so
 // small that the words would come out under 9 page pixels, the band carries
 // SAM LU alone, bigger. Drawn the right way round whichever way the lorry
@@ -1669,6 +1678,7 @@ function drawVehicle(row, it, top) {
 // it rides with the lorry and nothing else moves.
 const LIVERY = "SAM LU HAULAGE", LIVERY_SHORT = "SAM LU", LIVERY_FONT = "Grandstander, 'Trebuchet MS', sans-serif";
 let liveries = [];   // (each one drawn this frame, for the tests)
+let trucksSeen = []; // (each lorry drawn this frame, the company's or not, for the tests)
 function drawLivery(it, bx, by, bw, bh) {
   const room = bw - 12;
   ctx.font = "bold 10px " + LIVERY_FONT;
@@ -1693,7 +1703,7 @@ function drawLivery(it, bx, by, bw, bh) {
   ctx.textBaseline = "alphabetic";
   const m = ctx.getTransform(), tw = ctx.measureText(text).width;
   liveries.push({ text: text, size: size, px: size * onScreen, x: cx - tw / 2, w: tw, y: top, h: band,
-    box: { x: bx, y: by, w: bw, h: bh }, mirrored: m.a < 0 || m.d < 0, len: it.len, fullPx: fullPx });
+    box: { x: bx, y: by, w: bw, h: bh }, mirrored: m.a < 0 || m.d < 0, len: it.len, fullPx: fullPx, fleet: !!it.fleet });
 }
 
 // Visual FX off (motion-toggle.js): warning lights burn steadily instead of flashing
@@ -1992,6 +2002,16 @@ function drawDeathState() {
   }
 }
 
+// clip to the run of river lanes that row r belongs to (the row alone if it isn't one)
+function waterOnly(r) {
+  let a = r, b = r;
+  if (rows[r] && rows[r].type === "river") {
+    while (rows[a + 1] && rows[a + 1].type === "river") a++;
+    while (rows[b - 1] && rows[b - 1].type === "river") b--;
+  }
+  const top = rowTopY(a), bottom = rowTopY(b) + TILE;
+  ctx.beginPath(); ctx.rect(SCENE_L, top, SCENE_R - SCENE_L, bottom - top); ctx.clip();
+}
 function drawSplash(sx, sy, t, face) {
   // chicken sinking: still facing the way it last hopped
   if (t < 0.28) {
@@ -1999,12 +2019,15 @@ function drawSplash(sx, sy, t, face) {
     drawChicken(sx, sy + t * 45, 1 - t * 1.6, 1, 0, face || "down");
     ctx.restore();
   }
-  // expanding ripple rings
+  // expanding ripple rings, on the water only: they spread into the next
+  // lane where that is water too, and stop at a bank of grass, road or rails
+  ctx.save();
+  if (deathAnim) waterOnly(Math.round(deathAnim.gy));
   ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 3;
   ctx.globalAlpha = clamp(1 - t / 0.85, 0, 1);
   ctx.beginPath(); ctx.arc(sx, sy, 8 + t * 44, 0, 7); ctx.stroke();
   ctx.beginPath(); ctx.arc(sx, sy, 4 + t * 26, 0, 7); ctx.stroke();
-  ctx.globalAlpha = 1;
+  ctx.restore();
   // droplets arcing out (kept low so they stay on the water)
   if (t < 0.32) {
     ctx.fillStyle = "#cfe8ff";
@@ -2301,7 +2324,7 @@ function drawPauseOverlay() {
 
 // ---------- render ----------
 function render() {
-  liveries = [];
+  liveries = []; trucksSeen = [];
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = "#8fce46"; ctx.fillRect(0, 0, W, H);
 
@@ -2456,7 +2479,9 @@ window.__game = {
   get insane() { return insane; },
   rowTypes: (from, to) => { ensureRows(to + 1); const out = []; for (let r = from; r <= to; r++) out.push(rows[r] ? rows[r].type : null); return out; },
   spawnFeathers, spawnDust, death, snapToPlatform,
-  get liveries() { return liveries.slice(); }
+  get liveries() { return liveries.slice(); },
+  get trucks() { return trucksSeen.slice(); },
+  get particles() { return { dust: dusts.length, feathers: feathers.length }; }
 };
 
 })();
