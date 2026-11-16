@@ -357,4 +357,31 @@ module.exports = async ({ browser, base, check, lib }) => {
       await ctx.close();
     }
   }
+
+  // the palm over the top-left corner, its shadow on the deck: with Visual FX
+  // on it sways (it moves over time, and holds while paused); with FX off it
+  // hangs still, shadow and all; behind everything on the page
+  {
+    const palm = async (off) => {
+      const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+      const q = await lib.open(c, base, "games/tile-maze/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tile-maze", off ? "1" : "0"); } catch (e) {} }, off) });
+      const read = () => q.evaluate(() => { const cs = getComputedStyle(document.body, "::before"); return { img: /svg/.test(cs.backgroundImage), shadow: /drop-shadow/.test(cs.filter), z: cs.zIndex, name: cs.animationName, state: cs.animationPlayState, at: cs.transform }; });
+      const a = await read(); await q.waitForTimeout(1200); const b = await read();
+      let held = null;
+      if (!off) {
+        // (a level under way first: a step or two, as the pause card's own check does)
+        for (const k of ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp"]) { if (await q.evaluate(() => GameShell.leaveActive())) break; await q.keyboard.press(k); await q.waitForTimeout(250); }
+        await q.keyboard.press("p"); await q.waitForTimeout(300);
+        const h1 = await read(); await q.waitForTimeout(900); const h2 = await read();
+        held = { paused: h1.state === "paused", still: h1.at === h2.at };
+      }
+      const errs = q.errs; await c.close();
+      return { a, b, held, errs };
+    };
+    const on = await palm(false), off = await palm(true);
+    check("tile-maze, Visual FX on: the palm sways with its shadow on the deck (moving over time), behind the page, held while paused",
+      on.a.img && on.a.shadow && on.a.z === "-1" && on.a.name === "tm-palm" && on.a.at !== on.b.at && !!on.held && on.held.paused && on.held.still, { a: on.a, b: on.b, held: on.held });
+    check("tile-maze, Visual FX off: the palm and its shadow hang still", off.a.img && off.a.shadow && off.a.name === "none" && off.a.at === off.b.at, { a: off.a, b: off.b });
+    check("tile-maze (palm): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
+  }
 };

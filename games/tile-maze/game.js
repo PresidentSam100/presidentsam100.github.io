@@ -513,7 +513,7 @@
   // by itself, as it always has, so that isn't a pause.
   if (window.GameShell && GameShell.pausable) GameShell.pausable({
     canPause: () => !won && overlayEl.hidden && guideOverlay.hidden,
-    onChange: (paused) => { if (paused) holdClock("pause"); else releaseClock("pause"); },
+    onChange: (paused) => { if (paused) holdClock("pause"); else releaseClock("pause"); document.body.classList.toggle("tm-held", paused); },   // (the palm holds too)
     auto: false, hold: true,
     restart: () => loadLevel(current),
   });

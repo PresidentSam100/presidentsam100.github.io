@@ -51,10 +51,11 @@ html, body {
   touch-action: manipulation;
 }
 /* the deck: cream stone slabs, sun glare from the top right, a palm leaning
-   over the top-left corner and a lifebuoy resting near the bottom-right */
+   over the top-left corner (below) and a lifebuoy resting near the
+   bottom-right */
 body {
+  isolation: isolate;   /* (so the palm, a layer of its own, lies on the deck under everything else) */
   background:
-    var(--palm) no-repeat -52px -58px / 290px auto,
     var(--buoy) no-repeat right 26px bottom 34px / 108px auto,
     radial-gradient(560px 340px at 92% -4%, rgba(255, 246, 205, 0.9), rgba(255, 246, 205, 0) 70%),
     repeating-linear-gradient(0deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
@@ -62,6 +63,22 @@ body {
     linear-gradient(180deg, #faf3e3, var(--bg));
   background-attachment: fixed;
 }
+/* the palm over the top-left corner, its shadow cast on the deck below it.
+   With Visual FX on it sways a little in the breeze from its crown (off the
+   corner), the shadow swaying with it; held while paused. With FX off it
+   hangs still, shadow and all. */
+body::before {
+  content: ""; position: fixed; left: -52px; top: -58px; width: 290px; height: 268px; z-index: -1; pointer-events: none;
+  background: var(--palm) no-repeat 0 0 / 100% auto;
+  transform-origin: 2% 2%;
+  filter: drop-shadow(-12px 20px 3px rgba(96, 74, 34, 0.2));
+}
+@keyframes tm-palm {
+  from { transform: rotate(-1.4deg); filter: drop-shadow(-9px 18px 3px rgba(96, 74, 34, 0.2)); }
+  to { transform: rotate(1.6deg); filter: drop-shadow(-16px 23px 3px rgba(96, 74, 34, 0.2)); }
+}
+html.fx-on body::before { animation: tm-palm 4.6s ease-in-out infinite alternate; }
+html.fx-on body.tm-held::before { animation-play-state: paused; }
 
 .app {
   max-width: 1100px;
@@ -153,9 +170,9 @@ body {
   .stage > .side { grid-column: 1; grid-row: 3; }
   .deck-paint { grid-row: 2; margin: 0; font-size: clamp(24px, 7.6vw, 40px); }
   /* tuck the palm further into the corner so it stays off the title */
+  body::before { left: -110px; top: -120px; width: 240px; height: 222px; }
   body {
     background:
-      var(--palm) no-repeat -110px -120px / 240px auto,
       var(--buoy) no-repeat right 18px bottom 22px / 84px auto,
       radial-gradient(420px 260px at 92% -4%, rgba(255, 246, 205, 0.9), rgba(255, 246, 205, 0) 70%),
       repeating-linear-gradient(0deg, transparent 0 88px, rgba(150, 118, 70, 0.16) 88px 90px),
