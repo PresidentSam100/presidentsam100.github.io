@@ -200,7 +200,42 @@
     ui.easel.hidden = screen !== "puzzle";
     ui.win.hidden = true;
     ui.share.hidden = true;        // the copy-it-yourself box belongs to the win card
+    placeBox();
   }
+
+  // The box of photo paper on the bench (its label the maker's): set down at
+  // the room's bottom left, the bigger box if it fits there, else the
+  // smaller, clear of whatever this screen shows (the menu or gallery, the
+  // toolbar and the easel) and of the corner buttons. Where the page scrolls,
+  // anything sharing its stretch of the width would pass under it, so there
+  // it needs that stretch to itself. Where neither fits, it stays away.
+  function placeBox() {
+    var box = $("paperbox");
+    if (!box) return;
+    var vw = document.documentElement.clientWidth, vh = window.innerHeight;
+    var scrolls = document.documentElement.scrollHeight > vh + 1;
+    var rect = function (e) { var r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+    var shown = [ui.menu, ui.gallery, ui.hudTop, ui.easel].filter(function (e) { return !e.hidden && e.offsetWidth > 0; }).map(rect);
+    var corners = Array.prototype.filter.call(document.querySelectorAll("body > *"), function (e) {
+      return e !== box && e.offsetWidth > 0 && getComputedStyle(e).position === "fixed" && e.getBoundingClientRect().top < 90;
+    }).map(rect);
+    var gap = 10;
+    box.hidden = false;
+    var sizes = ["", "small"];
+    for (var i = 0; i < sizes.length; i++) {
+      box.className = "paperbox" + (sizes[i] ? " " + sizes[i] : "");
+      var b = rect(box);
+      b = { l: b.l - gap, r: b.r + gap, t: b.t - gap, b: b.b };
+      var clear = b.t > 0 && b.r <= vw && shown.every(function (o) {
+        var xs = b.l < o.r && o.l < b.r;
+        return scrolls ? !xs : !(xs && b.t < o.b && o.t < b.b);
+      }) && corners.every(function (o) { return !(b.l < o.r && o.l < b.r && b.t < o.b && o.t < b.b); });
+      if (clear) return;
+    }
+    box.hidden = true;
+  }
+  window.addEventListener("resize", placeBox);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeBox);
 
   // ---- the daily -----------------------------------------------------------------------
   var dailyCache = null;
@@ -296,6 +331,7 @@
     board.style.width = cw + "px"; board.style.height = ch + "px";
     bctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     L = { cell: cell, gx: gx, gy: gy, cw: cw, ch: ch };
+    placeBox();
   }
   window.addEventListener("resize", function () { if (screen === "puzzle") layout(); });
 

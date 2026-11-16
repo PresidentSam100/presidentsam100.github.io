@@ -158,4 +158,47 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("darkroom: no page errors (win card)", p.errs.length === 0, p.errs);
   await p.close();
   await c3.close();
+
+  // the box of photo paper on the bench, SAM LU PHOTO PAPER · GLOSSY on its
+  // lid: at the room's bottom left on the screen, readable, taking no clicks,
+  // clear of the toolbar, the easel and the corner buttons (and on the menu,
+  // where the page scrolls, of the menu's stretch of the width); on every
+  // puzzle screen with room for it (left away on the two shortest phones)
+  {
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, true],
+      ["Pixel 7", devices["Pixel 7"], true], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }, true],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }, false], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }, false],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }, true],
+    ];
+    const look = (q) => q.evaluate(() => {
+      const box = document.getElementById("paperbox");
+      if (!box) return { exists: false };
+      const R = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom }; };
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const vw = document.documentElement.clientWidth, vh = innerHeight, sh = document.documentElement.scrollHeight;
+      if (box.hidden || !box.offsetWidth) return { exists: true, shown: false, sh, vh };
+      const b = R(box);
+      const content = ["menu", "gallery", "hud", "easel"].map((id) => document.getElementById(id)).filter((e) => !e.hidden && e.offsetWidth > 0).map(R);
+      const corners = [...document.querySelectorAll("body > *")].filter((e) => e !== box && e.offsetWidth > 0 && getComputedStyle(e).position === "fixed" && e.getBoundingClientRect().top < 90).map(R);
+      const scrolls = sh > vh + 1;
+      return { exists: true, shown: true, b, vw, vh, sh,
+        text: box.textContent.replace(/\s+/g, " ").trim(), small: parseFloat(getComputedStyle(box.querySelector(".lbl span")).fontSize),
+        clicks: getComputedStyle(box).pointerEvents,
+        hits: content.filter((o) => scrolls ? (b.l < o.r && o.l < b.r) : meet(b, o)).length + corners.filter((o) => meet(b, o)).length };
+    });
+    const good = (s) => s.text === "SAM LU PHOTO PAPER · GLOSSY" && s.small >= 9 && s.clicks === "none" && s.hits === 0 &&
+      s.b.l >= 0 && s.b.r <= s.vw && s.b.t >= 0 && s.b.b <= s.vh;
+    for (const [name, opt, needed] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/darkroom/");
+      const menu = await look(q);
+      await q.evaluate(() => Darkroom.openDaily()); await q.waitForTimeout(250);
+      const play = await look(q);
+      const ok = menu.exists && (!menu.shown || good(menu)) && play.exists && (play.shown ? good(play) && play.sh <= play.vh : !needed) && (!needed || play.shown);
+      check("darkroom, " + name + ": a box of photo paper on the bench reads SAM LU PHOTO PAPER · GLOSSY, at the room's bottom left, clear of the menu, toolbar, easel and corner buttons, taking no clicks" + (needed ? "" : " (or left away)"), ok, { menu, play });
+      await c.close();
+    }
+  }
 };
