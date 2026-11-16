@@ -406,22 +406,22 @@ module.exports = async ({ browser, base, check, lib }) => {
     await p.close();
 
     p = await lib.open(ctx, base, "games/demolition-row/");
-    await KEYS(p, "3", "ArrowRight");
+    await KEYS(p, "3");
     const vs = () => p.evaluate(() => ({
-      count: document.querySelector("#count-pick .sel").textContent.trim(), fmt: document.querySelector("#fmt-pick .sel").textContent.trim(),
+      fmt: document.querySelector("#fmt-pick .sel").textContent.trim(),
       seats: [...document.querySelectorAll("#player-rows .prow")].filter((r) => r.style.display !== "none").map((r) => r.querySelector(".ptoggle").textContent.replace(/^P\d: /, "") + (r.querySelector(".diffsel").style.display === "none" ? "" : " " + r.querySelector(".diffsel").value)),
       caps: [...document.querySelectorAll("#vs-opts [data-gs-key]")].map((e) => e.textContent.trim() + "=" + e.getAttribute("data-gs-key"))
     }));
     const v1 = await vs();
-    await KEYS(p, "ArrowDown", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight");   // P1: Human, then Easy to Kaizo, and no further
+    await KEYS(p, "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight");   // P1: Human, then Easy to Kaizo, and no further
     const v2 = await vs();
-    await KEYS(p, "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft", "ArrowLeft");   // P1 and P2 human; P3 can't be a third
+    await KEYS(p, "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowLeft", "ArrowDown", "ArrowLeft", "ArrowLeft", "ArrowLeft");   // P1 and P2 human (and no further)
     const v3 = await vs();
     await KEYS(p, "ArrowDown", "ArrowLeft");
     const v4 = await vs();
-    check("demolition-row: a VS setup on the arrows: ← → the player count, ↓ to each seat (Human, then CPU Easy to Kaizo, never a third human), ↓ to the match length; the keys on the choices",
-      v1.count === "3" && v1.caps.includes("3=← →") && v2.seats[0] === "CPU kaizo" && v2.caps.includes("P1: CPU=← →") && v2.caps.includes("3=↑") &&
-      v3.seats.join("|") === "Human|Human|CPU easy" && v4.fmt === "First to 1" && v4.caps.includes("First to 1=← →") && v4.caps.includes("P3: CPU=↑"), { v1, v2, v3, v4 });
+    check("demolition-row: a VS setup on the arrows: ← → P1's seat first, ↓ to P2's (Human, then CPU Easy to Kaizo, never past two humans), ↓ to the match length; the keys on the choices",
+      v1.seats.join("|") === "Human|CPU normal" && v1.caps.includes("P1: Human=← →") && v2.seats[0] === "CPU kaizo" && v2.caps.includes("P1: CPU=← →") &&
+      v3.seats.join("|") === "Human|Human" && v4.fmt === "First to 1" && v4.caps.includes("First to 1=← →") && v4.caps.includes("P2: Human=↑"), { v1, v2, v3, v4 });
     check("demolition-row (setup arrows): no page errors", p.errs.length === 0, p.errs);
     await p.close();
 

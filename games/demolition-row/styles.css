@@ -429,15 +429,15 @@
         .keys { line-height: 1.45; margin-top: 0.3rem; }
         details.dict-wrap { margin-top: 0.5rem; }
       }
-      /* a screen short of room (a phone, or a short laptop): the Mode and
-         Players headings go beside their buttons where a line holds both
-         (else over them, as elsewhere), and a match's setup closes up */
+      /* a screen short of room (a phone, or a short laptop): the Mode heading
+         goes beside its buttons where a line holds both (else over them, as
+         elsewhere), and a match's setup closes up */
       @media (max-width: 520px), (max-height: 700px) {
         #mode-opts, #vs-opts { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; column-gap: 0.5rem; }
         #menu #mode-opts > .lbl, #vs-opts > .lbl:first-child { margin: 0; }
         #vs-opts > * { flex: 1 1 100%; }
-        #vs-opts > .lbl:first-child, #count-pick { flex: none; }
         #vs-opts > .lbl ~ .lbl { margin: 0.4rem 0 0.25rem; }
+        #vs-opts > .lbl:first-child + .seats-lbl { margin-top: 0.1rem; }
         #vs-opts .seats-lbl { letter-spacing: 0; }
         .prow { margin-bottom: 0.25rem; }
       }

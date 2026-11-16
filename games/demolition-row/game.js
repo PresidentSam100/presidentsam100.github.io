@@ -739,6 +739,16 @@
         canvas.style.width = board.cfg.cols * this.cell + "px"; canvas.style.height = board.cfg.rows * this.cell + "px";
         this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
+      // A board shown bigger than its natural size (k > 1: a tall window)
+      // gets that many more pixels to draw on, so it stays sharp; shown at its
+      // size or smaller, the screen's own pixel ratio, as it always was.
+      fitTo(k) {
+        const s = Math.min(window.devicePixelRatio || 1, 2) * Math.max(1, k), cfg = this.b.cfg;
+        if (Math.abs(s - this.dpr) < 0.01) return;
+        this.dpr = s;
+        this.canvas.width = Math.round(cfg.cols * this.cell * s); this.canvas.height = Math.round(cfg.rows * this.cell * s);
+        this.ctx.setTransform(s, 0, 0, s, 0, 0);
+      }
       draw() {
         const b = this.b, ctx = this.ctx, cell = this.cell, cols = b.cfg.cols, rows = b.cfg.rows, W = cols * cell, H = rows * cell;
         ctx.clearRect(0, 0, W, H);
@@ -959,7 +969,7 @@
       // deeper lower edge, then a pale rim. The body keeps its full colour so the
       // five colours stay distinct; the rim separates blue blocks from the lake.
       // Drawn once per colour and stamped with drawImage: clipping and
-      // re-stroking every block on four boards each frame was measurably slower.
+      // re-stroking every block on every board each frame was measurably slower.
       iceSprite(c, W, H, r) {
         const dpr = this.dpr || 1, key = c + "|" + W + "x" + H + "@" + dpr;
         let cv = ICE_SPRITES.get(key);
@@ -1173,7 +1183,9 @@
         this.startStage = Math.max(1, Math.min(stageReached(), opts.startStage || 1));
         this.boardsEl = document.getElementById("boards"); this.boardsEl.innerHTML = "";
         const seed = (Math.random() * 1e9) | 0;
-        this.count = this.mode === "vs" ? this.opts.players : 1;
+        // (a match is two players, P1 and P2: a setup asking for more, as an
+        // older one could, plays with those two)
+        this.count = this.mode === "vs" ? 2 : 1;
         // VS: every board starts from the SAME garbage structure (fair), colored independently
         if (this.mode === "vs") { this.vsRng = makeRNG(seed + 4242); this.vsStructure = this.genVSStructure(); }
         for (let i = 0; i < this.count; i++) this.players.push(this.makePlayer(i, seed + i * 777));
@@ -1188,7 +1200,7 @@
         }
         this.loop = this.loop.bind(this); this.raf = requestAnimationFrame(this.loop);
       }
-      modeLabel() { if (this.mode === "stage") return "50-Stage Mode"; if (this.mode === "endless") return "Endless Mode"; const cpus = this.opts.ptypes.slice(0, this.opts.players).filter((t) => t === "cpu").length; const fmtTxt = this.opts.fmt === Infinity ? "∞ infinite" : "first to " + this.opts.fmt; return "VS · " + fmtTxt + " · " + this.opts.players + " players" + (cpus ? " · " + cpus + " CPU" : ""); }
+      modeLabel() { if (this.mode === "stage") return "50-Stage Mode"; if (this.mode === "endless") return "Endless Mode"; const cpus = this.opts.ptypes.slice(0, this.count).filter((t) => t === "cpu").length; const fmtTxt = this.opts.fmt === Infinity ? "∞ infinite" : "first to " + this.opts.fmt; return "VS · " + fmtTxt + " · " + this.count + " players" + (cpus ? " · " + cpus + " CPU" : ""); }
       ls(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
       lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
@@ -1255,22 +1267,29 @@
         const over = () => { const last = sign.classList.contains("far") ? area : sign; return Math.ceil(last.getBoundingClientRect().bottom + parseFloat(getComputedStyle(last).marginBottom) + parseFloat(getComputedStyle(wrap).paddingBottom) - H); };
         if (lead) return this.fitLead(lead, W, side, over);
         const panel = vs ? 0 : this.players[0].hud.offsetWidth + 12;
-        const maxW = vs ? Math.min((W - 32 - side) / n - 18, n >= 3 ? 240 : 300) : Math.min(W - 32 - side - panel, natW), kW = Math.min(1, maxW / natW);
+        // (a tall window, a laptop's: the boards grow past their natural size,
+        // up to GROW times, as far as the width allows, then shrink until the
+        // page ends at the window's foot, so no empty band is left under them)
+        const GROW = 2;
+        const maxW = vs ? (W - 32 - side) / n - 18 : W - 32 - side - panel, kW = Math.min(GROW, maxW / natW);
         // (a VS board's column keeps its share of the width as the board
-        // shrinks, so its panel has room; a narrow or short one closes up)
-        const colW = Math.floor(Math.min(maxW, natW));
-        for (const p of this.players) {
-          const col = p.canvas.parentNode; col.style.width = vs ? colW + "px" : "";
-          col.classList.toggle("tight", vs && (colW < 200 || H < 500)); col.classList.toggle("tighter", vs && colW < 96);
-        }
-        const set = (k) => { for (const p of this.players) { p.canvas.style.width = natW * k + "px"; p.canvas.style.height = natH * k + "px"; } };
+        // shrinks, so its panel has room, and widens with a board grown past
+        // it; a narrow or short one closes up)
+        const set = (k) => {
+          const colW = Math.floor(Math.max(natW * k, Math.min(maxW, 300)));
+          for (const p of this.players) {
+            p.canvas.style.width = natW * k + "px"; p.canvas.style.height = natH * k + "px"; p.renderer.fitTo(k);
+            const col = p.canvas.parentNode; col.style.width = vs ? colW + "px" : "";
+            col.classList.toggle("tight", vs && (colW < 200 || H < 500)); col.classList.toggle("tighter", vs && colW < 96);
+          }
+        };
         let k = kW; set(k);
         for (let i = 0; i < 4; i++) { const o = over(); if (o <= 0) break; k = Math.max(0.12, Math.min(kW, (natH * k - o) / natH)); set(k); }
       }
       // A phone in VS (a touch screen, small one way or the other) has room
-      // for one board to play on, not four: the board the pad drives (the
-      // first human's, or P1's when every seat is a CPU) leads, and the rest
-      // are minis beside it. A keyboard's screen keeps its boards side by side.
+      // for one board to play on, not two: the board the pad drives (the
+      // first human's, or P1's when both seats are CPUs) leads, and the other
+      // is a mini beside it. A keyboard's screen keeps its boards side by side.
       leadOf(W, H) {
         if (this.mode !== "vs" || Math.min(W, H) >= 500 || !(window.GameShell && GameShell.touchOnly && GameShell.touchOnly())) return null;
         return this.players.find((p) => !p.isCpu) || this.players[0];
@@ -1290,18 +1309,16 @@
       }
       // The lead board as big as fits: the largest size at which nothing runs
       // past the window's bottom or sides (or no further than with the
-      // smallest boards, should the panels alone overrun). A mini's board is
-      // as tall as its panel, or less where the lead's height shared out is
-      // less; a lone one, over its panel, 3/5 of the lead's.
+      // smallest boards, should the panels alone overrun). The mini, over its
+      // panel, is 3/5 of the lead's height.
       fitLead(lead, W, side, over) {
         const natW = CONFIG.cols * CONFIG.cell, natH = CONFIG.rows * CONFIG.cell, area = document.getElementById("game-area");
-        const minis = this.players.filter((p) => p !== lead), gap = 2, one = minis.length === 1;
+        const minis = this.players.filter((p) => p !== lead);
         for (const p of this.players) { const col = p.canvas.parentNode; col.style.width = ""; col.classList.remove("tight", "tighter"); }
         const size = (p, h) => { p.canvas.style.width = h * natW / natH + "px"; p.canvas.style.height = h + "px"; };
-        const row = one ? 0 : minis[0].hud.offsetHeight;
         const set = (k) => {
-          const h = natH * k, mh = one ? h * 0.6 : Math.min(row, (h - gap * (minis.length - 1)) / minis.length);
-          size(lead, h); for (const p of minis) size(p, mh);
+          const h = natH * k;
+          size(lead, h); for (const p of minis) size(p, h * 0.6);
         };
         let lo = 0.12, hi = Math.min(1, (W - 32 - side) / natW);
         set(lo); const least = Math.max(0, over());
@@ -1467,19 +1484,20 @@
     }
 
     // ------------------------------ Input --------------------------------
-    // Three control schemes. In VS, scheme i drives board i; in solo modes,
-    // ALL schemes drive the single board. Rotate cycles a crystal's color.
+    // Four control schemes. In VS, P1's drives board 0 and P2's board 1; in
+    // solo modes ALL of them drive the single board (the numpad and the
+    // arrows are solo's only). Rotate cycles a crystal's color.
     //  P1: A/D · Q/E rotate · W soft · S hard          (matched by e.key)
     //  P2: K/; · O/P rotate · I soft · L hard          (matched by e.key)
-    //  P3: numpad 1/3 · 4/6 rotate · 5 soft · 2 hard   (matched by e.code)
-    //  P4: ←/→ · ,/. rotate · ↓ soft · ↑ hard          (matched by e.key)
+    //  solo: numpad 1/3 · 4/6 rotate · 5 soft · 2 hard (matched by e.code)
+    //  solo: ←/→ · ,/. rotate · ↓ soft · ↑ hard        (matched by e.key)
     // Pause: the ⏸ button (every letter is someone's key; Esc is the way out).
     let GAME = null;
     const SCHEMES = [
       { board: 0, by: "key", left: ["a", "A"], right: ["d", "D"], ccw: ["q", "Q"], cw: ["e", "E"], soft: ["w", "W"], hard: ["s", "S"] },
       { board: 1, by: "key", left: ["k", "K"], right: [";"], ccw: ["i", "I"], cw: ["p", "P"], soft: ["o", "O"], hard: ["l", "L"] },
-      { board: 2, by: "code", left: ["Numpad1"], right: ["Numpad3"], ccw: ["Numpad4"], cw: ["Numpad6"], soft: ["Numpad5"], hard: ["Numpad2"] },
-      { board: 3, by: "key", left: ["ArrowLeft"], right: ["ArrowRight"], ccw: [","], cw: ["."], soft: ["ArrowDown"], hard: ["ArrowUp"] },
+      { solo: true, by: "code", left: ["Numpad1"], right: ["Numpad3"], ccw: ["Numpad4"], cw: ["Numpad6"], soft: ["Numpad5"], hard: ["Numpad2"] },
+      { solo: true, by: "key", left: ["ArrowLeft"], right: ["ArrowRight"], ccw: [","], cw: ["."], soft: ["ArrowDown"], hard: ["ArrowUp"] },
     ];
     function schemeAction(s, e) {
       const v = s.by === "code" ? e.code : e.key;
@@ -1493,6 +1511,7 @@
     }
     function boardForScheme(s) {
       const isVS = GAME.mode === "vs";
+      if (isVS && s.solo) return null;
       const p = isVS ? GAME.players[s.board] : GAME.players[0];
       return p && !p.isCpu ? p.board : null;
     }
@@ -1600,7 +1619,8 @@
 
     // ------------------------------ Menu ---------------------------------
     const menu = document.getElementById("menu");
-    const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu", "cpu", "cpu"], diffs: ["normal", "normal", "normal", "normal"], fmt: 2 };
+    // (a VS match is two players: P1 and P2, each a human or a CPU)
+    const sel = { mode: "stage", players: 2, ptypes: ["human", "cpu"], diffs: ["normal", "normal"], fmt: 2 };
     function pickGroup(id, attr, cb) { document.getElementById(id).addEventListener("click", (e) => { const btn = e.target.closest("button[" + attr + "]"); if (!btn) return; [...e.currentTarget.querySelectorAll("button")].forEach((b) => b.classList.remove("sel")); btn.classList.add("sel"); cb(btn.getAttribute(attr)); }); }
     pickGroup("mode-pick", "data-mode", (v) => { sel.mode = v; document.getElementById("vs-opts").style.display = v === "vs" ? "" : "none"; document.getElementById("stage-opts").style.display = v === "stage" ? "" : "none"; });
     // The stage list (50-Stage): all 50 at once, every stage a run has
@@ -1685,7 +1705,6 @@
       }).observe(stageGrid, { subtree: true, attributes: true, attributeFilter: ["data-gs-pick"] });
       document.querySelector("#stage-opts .lbl").insertAdjacentHTML("beforeend", GameShell.gridKeys.hint());
     }
-    pickGroup("count-pick", "data-count", (v) => { sel.players = parseInt(v, 10); updateVsOpts(); });
     pickGroup("fmt-pick", "data-fmt", (v) => (sel.fmt = v === "inf" ? Infinity : parseInt(v, 10))); // ∞ = play forever
     // per-slot Human/CPU toggle + per-CPU difficulty dropdown. Two humans at
     // most (more gets unwieldy on one keyboard), and one on a touch screen,
@@ -1714,7 +1733,7 @@
     });
     function updateVsOpts() {
       capSeats();
-      const labels = ["P1", "P2", "P3", "P4"], max = maxHumans();
+      const labels = ["P1", "P2"], max = maxHumans();
       const humanCount = sel.ptypes.slice(0, sel.players).filter((t) => t === "human").length;
       document.querySelectorAll("#player-rows .prow").forEach((row) => {
         const slot = +row.getAttribute("data-slot");
@@ -1739,9 +1758,8 @@
       el.innerHTML =
         '<span class="gs-keys"><b>P1</b> <kbd>A</kbd><kbd>D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> rotate · <kbd>W</kbd> soft · <kbd>S</kbd> hard' +
         "<br><b>P2</b> <kbd>K</kbd><kbd>;</kbd> move · <kbd>I</kbd>/<kbd>P</kbd> rotate · <kbd>O</kbd> soft · <kbd>L</kbd> hard" +
-        "<br><b>P3</b> numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard" +
-        "<br><b>P4</b> <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
-        "<br>solo: any scheme works<br></span>" +
+        "<br><b>solo</b> either of those, or <kbd>←</kbd><kbd>→</kbd> move · <kbd>,</kbd>/<kbd>.</kbd> rotate · <kbd>↓</kbd> soft · <kbd>↑</kbd> hard" +
+        "<br>or numpad <kbd>1</kbd><kbd>3</kbd> move · <kbd>4</kbd>/<kbd>6</kbd> rotate · <kbd>5</kbd> soft · <kbd>2</kbd> hard<br></span>" +
         "on touch: use the on-screen pad by the board";
     }
     updateKeysHelp();
@@ -1773,7 +1791,7 @@
       start: "#play-btn", space: true
     });
     // A VS match's setup on the arrows (the digits are the modes'): ↑ ↓ from
-    // the player count to each seat to the match length, ← → the row's choice.
+    // each seat to the match length, ← → the row's choice.
     // A seat goes Human, then CPU from Easy to Kaizo, as its button and its
     // dropdown would set it (never a human past the limit). The keys are on the
     // choices, as on the buttons above.
@@ -1795,7 +1813,7 @@
       });
       GameShell.rowKeys({
         active: () => !GAME && !menu.classList.contains("hidden") && sel.mode === "vs",
-        rows: [{ sel: "#count-pick .btn" }, seat(0), seat(1), seat(2), seat(3), { sel: "#fmt-pick .btn" }]
+        rows: [seat(0), seat(1), { sel: "#fmt-pick .btn" }]
       });
     }
     // Keys for the bar and the cards, shown on their buttons. In play

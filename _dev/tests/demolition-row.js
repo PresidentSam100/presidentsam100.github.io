@@ -120,7 +120,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     return lit;
   });
   check("demolition-row, 2× screen: the board and the Next preview have twice the pixels, drawn full size; the pad's ▶ moves the piece",
-    sizes[0].w === 2 * sizes[0].css && sizes[1].w === 132 && sizes[1].css === 66 && preview > 0 && c1 === c0 + 1, { sizes, c0, c1, preview });
+    Math.abs(sizes[0].w - 2 * sizes[0].css) <= 2 && sizes[1].w === 132 && sizes[1].css === 66 && preview > 0 && c1 === c0 + 1, { sizes, c0, c1, preview });   // (the board twice the size it's shown, to a pixel's rounding: a laptop's tall window grows it)
   check("demolition-row, 2× screen: frames draw with no page errors", p.errs.length === 0, p.errs);
   await p.close();
   await retina.close();
@@ -369,21 +369,20 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- in play the whole screen fits the window, nothing to scroll: the
   // pad's buttons, the panels, the title and the lake's sign all inside it, the
   // page no taller or wider than it. A lone board's panel stands beside it.
-  // On a laptop a VS match's boards share one row, none shrunk to a sliver,
-  // each Next piece beside its panel's rows (under them only on the
-  // narrowest); on a phone (a touch screen) one board leads and the rest are
-  // minis (the next check). Every mode, on phones and on laptops.
+  // On a laptop a VS match's two boards share one row, none shrunk to a
+  // sliver, each Next piece beside its panel's rows (under them only on the
+  // narrowest); on a phone (a touch screen) one board leads and the other is
+  // a mini (the next check). Every mode, on phones and on laptops.
   {
     const SIZES = [["phone", 320, 568], ["phone", 375, 553], ["phone", 390, 664], ["phone", 664, 390], ["phone", 568, 320], ["laptop", 1366, 657], ["laptop", 1280, 600], ["laptop", 1280, 900]];
     const bad = {}, errs = [];
     for (const [kind, w, h] of SIZES) {
       const c = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
       const q = await lib.open(c, base, "games/demolition-row/");
-      for (const mode of ["stage", "endless", "vs2", "vs4"]) {
+      for (const mode of ["stage", "endless", "vs"]) {
         await q.evaluate((mode) => {
           if (GAME) toMenu();
-          document.querySelector('#mode-pick [data-mode="' + (mode.startsWith("vs") ? "vs" : mode) + '"]').click();
-          if (mode.startsWith("vs")) document.querySelector('#count-pick [data-count="' + mode.slice(2) + '"]').click();
+          document.querySelector('#mode-pick [data-mode="' + mode + '"]').click();
           document.getElementById("play-btn").click();
         }, mode);
         await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
@@ -399,7 +398,7 @@ module.exports = async ({ browser, base, check, lib }) => {
           return { cut, sh: document.documentElement.scrollHeight, H, wide: Math.max(0, document.documentElement.scrollWidth - W), rows: new Set(cols.map((x) => x.top)).size, cols,   // (boards on one line: one top)
             lead: document.getElementById("game-area").classList.contains("lead") };
         });
-        const solo = !mode.startsWith("vs"), least = mode === "vs4" ? 45 : mode === "vs2" ? 60 : 100, led = !solo && kind === "phone";
+        const solo = mode !== "vs", least = solo ? 100 : 60, led = !solo && kind === "phone";
         const ok = !m.cut.length && m.sh <= m.H && !m.wide && m.lead === led &&
           (led || (m.rows === 1 && m.cols.every((x) => x.w >= least && (solo ? x.panelBeside : x.tighter || x.nextBeside))));
         if (!ok) bad[w + "x" + h + " " + mode] = { cut: m.cut, sh: m.sh, H: m.H, wide: m.wide, lead: m.lead, rows: m.rows, cols: m.cols.map((x) => x.w + (solo ? (x.panelBeside ? " beside" : " above") : x.nextBeside ? " next beside" : x.tighter ? " tighter" : " next under")).join() };
@@ -429,12 +428,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const [kind, w, h] of SIZES) {
       const c = await lib.newContext(browser, kind === "phone" ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
       const q = await lib.open(c, base, "games/demolition-row/");
-      for (const mode of ["menu", "stage", "vs4"]) {
+      for (const mode of ["menu", "stage", "vs"]) {
         if (mode !== "menu") {
           await q.evaluate((mode) => {
             if (GAME) toMenu();
-            document.querySelector('#mode-pick [data-mode="' + (mode.startsWith("vs") ? "vs" : mode) + '"]').click();
-            if (mode.startsWith("vs")) document.querySelector('#count-pick [data-count="' + mode.slice(2) + '"]').click();
+            document.querySelector('#mode-pick [data-mode="' + mode + '"]').click();
             document.getElementById("play-btn").click();
           }, mode);
           await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
@@ -463,7 +461,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         // hidden; one at the foot is on a phone on its side, in a VS match)
         const upright = kind === "phone" && w < h, tall = w === 430;
         const ok = !m.none && m.text === "LAKE SAM LU" && !m.made && m.subLines <= 2 && (!m.shown ? m.at === "page" && mode === "menu" && !tall :
-          m.inside && !m.on.length && (m.at === "shore" ? Math.abs(m.foot - 2) <= 1.5 : kind === "phone" && !upright && mode === "vs4"));
+          m.inside && !m.on.length && (m.at === "shore" ? Math.abs(m.foot - 2) <= 1.5 : kind === "phone" && !upright && mode === "vs"));
         if (!ok) bad[key] = m;
       }
       errs.push(...q.errs);
@@ -475,9 +473,9 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- VS on a phone: the board the pad drives leads, as big as fits, and
-  // the others are minis beside it, each its whole board and a panel with
+  // the other is a mini beside it, its whole board and a panel with
   // name, mute, Next, score, gauge, wins and a power-up banked. At each phone
-  // size, upright and on its side, against 1, 2 and 3 CPUs, fresh and then
+  // size, upright and on its side, against a CPU, fresh and then
   // crowded (power-ups banked and queued, two-digit wins, six-digit scores,
   // the ∞ format): nothing to scroll, nothing off the screen or under the
   // corner buttons, no panel's line spilling out or a name broken in two;
@@ -490,8 +488,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const bad = {}, seen = {}, errs = [];
     const start = (pg, n, seats, fmt) => pg.evaluate(([n, seats, fmt]) => {
       if (GAME) toMenu();
-      document.querySelector('#mode-pick [data-mode="vs"]').click(); document.querySelector('#count-pick [data-count="' + n + '"]').click(); document.querySelector('#fmt-pick [data-fmt="' + fmt + '"]').click();
-      sel.ptypes = seats.split("").map((c) => (c === "h" ? "human" : "cpu")).concat(["cpu", "cpu", "cpu", "cpu"]).slice(0, 4); updateVsOpts();
+      document.querySelector('#mode-pick [data-mode="vs"]').click(); document.querySelector('#fmt-pick [data-fmt="' + fmt + '"]').click();
+      sel.ptypes = seats.split("").map((c) => (c === "h" ? "human" : "cpu")).concat(["cpu", "cpu"]).slice(0, 2); updateVsOpts();
       document.getElementById("play-btn").click();
     }, [n, seats, fmt]);
     const frames = (pg) => pg.evaluate(() => new Promise((r) => { let k = 0; const f = () => (++k < 4 ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }));
@@ -528,7 +526,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const [w, h] of PHONES) {
       const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }));
       const q = await lib.open(c, base, "games/demolition-row/");
-      const runs = [[2, "hc"], [3, "hcc"], [4, "hccc"]].concat(w === 568 ? [[4, "cccc"]] : []);
+      const runs = [[2, "hc"]].concat(w === 568 ? [[2, "cc"]] : []);
       for (const [n, seats] of runs) {
         const key = w + "x" + h + " " + seats;
         await start(q, n, seats, "inf");
@@ -550,7 +548,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       errs.push(...q.errs);
       await q.close(); await c.close();
     }
-    check("demolition-row: VS on a phone (320x568, 360x560, 390x664, 568x320, 667x375, 750x340; against 1, 2 and 3 CPUs, fresh and crowded; no human at 568x320): nothing to scroll, nothing off the screen or under the corner buttons, the pad's board leads at 100 px wide or more and half again any mini's width, every mini whole at 32 px or more with its panel's lines inside it, and a power-up banked moves no board",
+    check("demolition-row: VS on a phone (320x568, 360x560, 390x664, 568x320, 667x375, 750x340; against a CPU, fresh and crowded; no human at 568x320): nothing to scroll, nothing off the screen or under the corner buttons, the pad's board leads at 100 px wide or more and half again any mini's width, every mini whole at 32 px or more with its panel's lines inside it, and a power-up banked moves no board",
       Object.keys(bad).length === 0, Object.keys(bad).length ? bad : seen);
     check("demolition-row (VS on a phone): no page errors", errs.length === 0, errs);
 
@@ -566,7 +564,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         minis: document.querySelectorAll(".minis").length, body: document.body.className.trim(),
         board: Math.round(GAME.players[0].canvas.getBoundingClientRect().width) };
     });
-    await start(q, 4, "hccc", "2");
+    await start(q, 2, "hc", "2");
     await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
     const turns = [await state()];
     await q.setViewportSize({ width: 568, height: 320 }); await frames(q); turns.push(await state());
@@ -592,48 +590,47 @@ module.exports = async ({ browser, base, check, lib }) => {
       note: [...document.querySelectorAll("#vs-opts .lbl")].some((l) => /one human per touch screen/i.test(l.innerText)) }));
     const phone = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: 390, height: 664 } }));
     let q = await lib.open(phone, base, "games/demolition-row/");
-    await q.tap('#mode-pick [data-mode="vs"]'); await q.tap('#count-pick [data-count="4"]');
+    await q.tap('#mode-pick [data-mode="vs"]');
     const t = { start: await seats(q) };
     await q.evaluate(() => document.querySelector('.ptoggle[data-slot="1"]').click()); t.tapP2 = await seats(q);
     await q.tap('.ptoggle[data-slot="0"]'); t.p1Cpu = await seats(q);
-    await q.tap('.ptoggle[data-slot="2"]'); t.p3Human = await seats(q);
-    await q.tap('.ptoggle[data-slot="2"]'); t.noHuman = await seats(q);
+    await q.tap('.ptoggle[data-slot="1"]'); t.p2Human = await seats(q);
+    await q.tap('.ptoggle[data-slot="1"]'); t.noHuman = await seats(q);
     // a setup with two humans, carried over from a mouse: the menu, then Play
-    await q.evaluate(() => { sel.ptypes = ["human", "human", "cpu", "cpu"]; toMenu(); });
+    await q.evaluate(() => { sel.ptypes = ["human", "human"]; toMenu(); });
     t.carried = await seats(q);
-    await q.evaluate(() => { sel.ptypes = ["human", "human", "cpu", "cpu"]; startGame(); });
+    await q.evaluate(() => { sel.ptypes = ["human", "human"]; startGame(); });
     await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
     t.played = await q.evaluate(() => GAME.players.map((p) => (p.isCpu ? "cpu" : "human")).join());
     check("demolition-row: on a touch screen one human seat at most: with P1 human the others are greyed and a tap leaves them CPUs, the menu saying one human per touch screen; P1 a CPU frees a seat; no human is fine; a two-human setup carried over shows and plays its second seat as a CPU",
-      t.start.ptypes === "human,cpu,cpu,cpu" && t.start.off === "0111" && t.start.note && t.tapP2.ptypes === "human,cpu,cpu,cpu" &&
-      t.p1Cpu.ptypes === "cpu,cpu,cpu,cpu" && t.p1Cpu.off === "0000" && t.p3Human.ptypes === "cpu,cpu,human,cpu" && t.p3Human.off === "1101" &&
-      t.noHuman.ptypes === "cpu,cpu,cpu,cpu" && t.carried.ptypes === "human,cpu,cpu,cpu" && t.carried.off === "0111" && t.played === "human,cpu,cpu,cpu", t);
+      t.start.ptypes === "human,cpu" && t.start.off === "01" && t.start.note && t.tapP2.ptypes === "human,cpu" &&
+      t.p1Cpu.ptypes === "cpu,cpu" && t.p1Cpu.off === "00" && t.p2Human.ptypes === "cpu,human" && t.p2Human.off === "10" &&
+      t.noHuman.ptypes === "cpu,cpu" && t.carried.ptypes === "human,cpu" && t.carried.off === "01" && t.played === "human,cpu", t);
     check("demolition-row (touch seats): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await phone.close();
-    // with a mouse and keyboard: two humans, the third seat greyed, no touch note
+    // with a mouse and keyboard: two humans, no touch note
     q = await lib.open(ctx, base, "games/demolition-row/");
-    await q.click('#mode-pick [data-mode="vs"]'); await q.click('#count-pick [data-count="4"]');
+    await q.click('#mode-pick [data-mode="vs"]');
     await q.click('.ptoggle[data-slot="1"]');
     const desk = await seats(q);
     await q.click("#play-btn"); await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
     desk.played = await q.evaluate(() => GAME.players.map((p) => (p.isCpu ? "cpu" : "human")).join());
-    check("demolition-row: with a mouse and keyboard two humans can still play (the third seat greyed, no touch-screen note)",
-      desk.ptypes === "human,human,cpu,cpu" && desk.off === "0011" && !desk.note && desk.played === "human,human,cpu,cpu", desk);
+    check("demolition-row: with a mouse and keyboard two humans can still play (no touch-screen note)",
+      desk.ptypes === "human,human" && desk.off === "00" && !desk.note && desk.played === "human,human", desk);
     await q.close();
   }
 
   // ---- a match's setup on a small screen: a card taller than the window
   // scrolls below the corner buttons, never under them (no line of its text,
   // no button or dropdown), at its top, halfway and at its end, with the
-  // frost still over the whole screen; and closed up, 2 players fit a
-  // 390x664 phone, 2 or 3 a 412x790 one, 2 a 1366x657 laptop and all of
-  // them a 1280x900 one, nothing to scroll. Against 1, 2 and 3 CPUs, P1 the
-  // one human a touch screen has or every seat a CPU; phones upright and on
+  // frost still over the whole screen; and closed up, a match fits a
+  // 390x664 phone, a 412x790 one, a 1366x657 laptop and a 1280x900 one,
+  // nothing to scroll. P1 the one human a touch screen has or both seats
+  // CPUs; phones upright and on
   // their side, and laptops; the same with Visual FX off
   {
     const setup = (pg, n, cpu) => pg.evaluate(([n, cpu]) => new Promise((done) => {
       document.querySelector('#mode-pick [data-mode="vs"]').click();
-      document.querySelector('#count-pick [data-count="' + n + '"]').click();
       const p1 = document.querySelector('#player-rows .ptoggle[data-slot="0"]');
       if (cpu !== /CPU/.test(p1.textContent)) p1.click();
       setTimeout(() => {
@@ -658,19 +655,19 @@ module.exports = async ({ browser, base, check, lib }) => {
         done({ scroll, under: seen, card: Math.round(card.getBoundingClientRect().height), deep: menu.classList.contains("deep") });
       }, 250);
     }), [n, cpu]);
-    const FIT = { "390x664": [2], "412x790": [2, 3], "1366x657": [2], "1280x900": [2, 3, 4] };
+    const FIT = { "390x664": [2], "412x790": [2], "1366x657": [2], "1280x900": [2] };
     const res = {}, bad = [];
     for (const [w, h] of [[320, 568], [360, 640], [390, 664], [375, 553], [360, 560], [412, 790], [568, 320], [750, 340], [1366, 657], [1280, 600], [1280, 900]]) {
       const c = await lib.newContext(browser, w < 900 ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
       const q = await lib.open(c, base, "games/demolition-row/");
-      for (const n of [2, 3, 4]) for (const cpu of [false, true]) {
+      for (const n of [2]) for (const cpu of [false, true]) {
         const s = res[w + "x" + h + " vs" + n + (cpu ? " cpus" : "")] = await setup(q, n, cpu);
         if (s.under.length || ((FIT[w + "x" + h] || []).includes(n) && s.scroll > 0)) bad.push(w + "x" + h + " vs" + n + (cpu ? " cpus" : ""));
       }
       check("demolition-row (VS setup " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
       await q.close(); await c.close();
     }
-    check("demolition-row: a match's setup taller than the window scrolls below the corner buttons, none of its text or controls ever under them (at its top, halfway and at its end), and closed up it fits with nothing to scroll where there's room: 2 players on a 390x664 phone, 2 or 3 on a 412x790 one, 2 on a 1366x657 laptop, all on a 1280x900 one (phones 320 to 412 wide upright, 568x320 and 750x340 on their side; laptops 1366x657, 1280x600, 1280x900; 1 to 3 CPUs, P1 human or a CPU)",
+    check("demolition-row: a match's setup taller than the window scrolls below the corner buttons, none of its text or controls ever under them (at its top, halfway and at its end), and closed up it fits with nothing to scroll where there's room: a 390x664 phone, a 412x790 one, a 1366x657 laptop and a 1280x900 one (phones 320 to 412 wide upright, 568x320 and 750x340 on their side; laptops 1366x657, 1280x600, 1280x900; P1 human or a CPU)",
       bad.length === 0, { bad, res });
     // the frost over the whole screen while the menu scrolls below the corner
     // buttons (the strip beside them the same as with the 50-Stage menu,
@@ -680,11 +677,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     const strip = () => q.screenshot({ clip: { x: 0, y: 0, width: 8, height: 46 } });
     await q.waitForTimeout(500);
     const flat = await strip();
-    const fxOff = await setup(q, 4, false);
+    const fxOff = await setup(q, 2, false);
     await q.waitForTimeout(300);
     const frosted = (await strip()).equals(flat);
-    const fxOn = res["320x568 vs4"];
-    check("demolition-row: while the setup scrolls below the corner buttons the frost still covers the whole screen, and with Visual FX off it is laid out the same (320x568, 4 players)",
+    const fxOn = res["320x568 vs2"];
+    check("demolition-row: while the setup scrolls below the corner buttons the frost still covers the whole screen, and with Visual FX off it is laid out the same (320x568)",
       frosted && fxOff.deep && fxOff.under.length === 0 && !!fxOn && fxOff.card === fxOn.card && fxOff.scroll === fxOn.scroll, { frosted, fxOff, fxOn });
     check("demolition-row (VS setup, FX off): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await off.close();
@@ -769,6 +766,58 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("demolition-row: a chain's next wave shows ×2, and with the star bonus on both show ×20 (+800, then +1600)",
       !!ch && ch.length === 2 && ch[0].pts === 800 && ch[0].n === 1 && ch[0].bonus && ch[1].pts === 1600 && ch[1].n === 2 && ch[1].bonus, ch);
     check("demolition-row (points): no page errors", !!got.on && !!got.off && !got.on.errs.length && !got.off.errs.length, { on: got.on && got.on.errs, off: got.off && got.off.errs });
+  }
+
+  // ---- VS is two players: the setup has P1 and P2 and no player count to
+  // pick, a match plays two boards, and a setup asking for more (as an
+  // older one could) plays with P1 and P2
+  {
+    const q = await open();
+    await q.click('#mode-pick [data-mode="vs"]');
+    const menu = await q.evaluate(() => ({ count: !!document.querySelector("#count-pick, [data-count]"), rows: document.querySelectorAll("#player-rows .prow").length,
+      shown: [...document.querySelectorAll("#player-rows .prow")].filter((r) => r.style.display !== "none").length }));
+    await q.click("#play-btn"); await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+    const boards = await q.evaluate(() => GAME.players.length);
+    await q.evaluate(() => { toMenu(); sel.players = 4; sel.ptypes = ["human", "cpu", "cpu", "cpu"]; sel.diffs = ["normal", "normal", "normal", "normal"]; startGame(); });
+    await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+    const asked4 = await q.evaluate(() => ({ boards: GAME.players.length, label: document.getElementById("mode-label").textContent }));
+    check("demolition-row: VS is two players: the setup shows P1 and P2 and no player count, a match plays two boards, and a setup asking for 4 plays with two",
+      !menu.count && menu.rows === 2 && menu.shown === 2 && boards === 2 && asked4.boards === 2 && /2 players/.test(asked4.label), { menu, boards, asked4 });
+    check("demolition-row (two players): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- on a laptop the play screen fills the window's height: the boards
+  // grow past their natural size until the page ends at the window's foot,
+  // so no empty band is left under them (under 8% of the height), drawn at
+  // the size they're shown (sharp); solo and a two-player match, from a
+  // small window to a big screen
+  {
+    const SIZES = [[1280, 900], [1366, 657], [1280, 600], [1440, 900], [1920, 1080], [800, 600]];
+    const bad = {}, seen = {}, errs = [];
+    for (const [w, h] of SIZES) {
+      const c = await lib.newContext(browser, { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/demolition-row/");
+      for (const mode of ["endless", "vs"]) {
+        await q.evaluate((mode) => { if (GAME) toMenu(); document.querySelector('#mode-pick [data-mode="' + mode + '"]').click(); document.getElementById("play-btn").click(); }, mode);
+        await q.waitForFunction(() => GAME && GAME.players.every((p) => p.board.piece));
+        const m = await q.evaluate(() => {
+          const R = (e) => e.getBoundingClientRect(), H = innerHeight, area = document.getElementById("game-area");
+          let bot = 0;
+          for (const e of area.querySelectorAll(".row > *, canvas.board, .hud, #touchpad .tbtn")) { const r = R(e); if (r.width) bot = Math.max(bot, r.bottom); }
+          const sharp = GAME.players.every((p) => p.canvas.width >= Math.round(R(p.canvas).width * Math.min(devicePixelRatio || 1, 2)) - 2);
+          return { band: Math.round(H - bot), H, scroll: document.documentElement.scrollHeight - H, sharp, boards: GAME.players.map((p) => Math.round(R(p.canvas).width) + "x" + Math.round(R(p.canvas).height)).join(" ") };
+        });
+        const key = w + "x" + h + " " + mode;
+        seen[key] = m.band + " px under, boards " + m.boards;
+        if (!(m.band >= 0 && m.band <= m.H * 0.08 && m.scroll <= 0 && m.sharp)) bad[key] = m;
+      }
+      errs.push(...q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: on a laptop the play screen fills the window's height (solo and a two-player match; 1280x900, 1366x657, 1280x600, 1440x900, 1920x1080, 800x600): under 8% of the height left empty under it, nothing to scroll, the boards drawn sharp at the size they're shown",
+      Object.keys(bad).length === 0, Object.keys(bad).length ? bad : seen);
+    check("demolition-row (laptop fill): no page errors", errs.length === 0, errs);
   }
 
   await ctx.close();
