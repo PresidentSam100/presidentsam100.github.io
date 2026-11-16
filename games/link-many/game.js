@@ -201,6 +201,13 @@ function buildFrame() {
   const rims = spots.map(s => `<circle cx="${s.cx}" cy="${s.cy}" r="${s.r + 1.2}" fill="none" stroke="url(#c4rim)" stroke-width="2.5"/>`).join('');
   const slots = spots.slice(0, COLS).map(s =>
     `<rect x="${s.cx - s.r * 0.62}" y="3" width="${s.r * 1.24}" height="5" rx="2.5" fill="#0f2e70"/>`).join('');
+  // the maker's name moulded into the rail along the foot, raised from the
+  // plastic: lit along its top edge, shaded under its lower one
+  const low = Math.max(...spots.map(s => s.cy + s.r)) + 2.5;          // (the bottom row's rims)
+  const brandY = (low + H) / 2, brandF = H - low >= 15 ? 11 : 10;
+  const brandAt = (dy, fill) => `<text x="${W / 2}" y="${brandY + dy}" text-anchor="middle" dominant-baseline="central" ` +
+    `font-family="Nunito, system-ui, sans-serif" font-weight="900" font-size="${brandF}" letter-spacing="2.2" fill="${fill}">SAM LU TOYS</text>`;
+  const brand = `<g class="brand" aria-hidden="true">` + brandAt(1, '#0f2e70') + brandAt(-0.8, 'rgba(255,255,255,0.45)') + brandAt(0, '#3d7cec') + `</g>`;
   svg.innerHTML =
     `<defs><mask id="holes"><rect width="${W}" height="${H}" fill="white"/>${holes}</mask>` +
     `<linearGradient id="c4body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f7ff0"/>` +
@@ -211,7 +218,7 @@ function buildFrame() {
     `<stop offset=".55" stop-color="#0b2566" stop-opacity=".15"/><stop offset="1" stop-color="#fff" stop-opacity=".55"/></linearGradient></defs>` +
     `<g mask="url(#holes)"><rect width="${W}" height="${H}" rx="18" fill="url(#c4body)"/>` +
     `<rect width="${W}" height="${H * 0.42}" rx="18" fill="url(#c4gloss)"/></g>` +
-    rims + slots +
+    rims + slots + brand +
     `<rect x="1.5" y="1.5" width="${W - 3}" height="${H - 3}" rx="17" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="2"/>`;
   boardEl.appendChild(svg);
 }

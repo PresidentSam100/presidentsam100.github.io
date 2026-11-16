@@ -164,4 +164,42 @@ module.exports = async ({ browser, base, check, lib }) => {
         offR.bits >= 10 && offR.bits === on.bits && offR.pickerMove.moved === 0 && offR.playMove.moved === 0 && offR.playMove.all === on.playMove.all && offR.anims === 0, offR);
     }
   }
+
+  // the maker's name moulded into the frame's foot rail, SAM LU TOYS: in the
+  // frame, under the bottom row of holes and clear of their rims and the
+  // stand's feet, readable, and the page no taller for it (the stand gives up
+  // what the rail takes)
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways", touch(915, 412)]];
+    const bad = [];
+    for (const [name, opt] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/link-many/");
+      await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); });
+      await q.click("#startGame"); await q.waitForTimeout(300);
+      const m = await q.evaluate(() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+        const g = document.querySelector("#board .frame-layer .brand");
+        if (!g) return null;
+        const b = box(g), board = box(document.getElementById("board")), cells = [...document.querySelectorAll("#board .cell")].map(box);
+        const lowest = Math.max(...cells.map((x) => x.b));
+        // (the page's height, and what it was with the old rail and stand: the frame's foot 12 px, 10 on a phone, the stand's 22)
+        const sh1 = document.documentElement.scrollHeight, bd = document.getElementById("board"), st = document.querySelector(".stand");
+        bd.style.paddingBottom = innerWidth <= 560 ? "10px" : "12px"; st.style.paddingBottom = "22px";
+        const sh0 = document.documentElement.scrollHeight; bd.style.paddingBottom = ""; st.style.paddingBottom = "";
+        return { text: g.querySelector("text").textContent, size: parseFloat(g.querySelector("text").getAttribute("font-size")), b, board, lowest,
+          hitsCells: cells.filter((x) => meet(b, x)).length, sh1, sh0, vw: innerWidth };
+      });
+      // (the text's box takes in the face's descent, a pixel or two under the capitals)
+      const ok = !!m && m.text === "SAM LU TOYS" && m.size >= 10 && m.hitsCells === 0 && m.b.t >= m.lowest && m.b.b <= m.board.b + 2 && m.b.l >= m.board.l + 20 && m.b.r <= m.board.r - 20 && m.sh1 <= m.sh0;
+      if (!ok) bad.push({ name, m });
+      await c.close();
+    }
+    check("link-many: SAM LU TOYS moulded into the frame's foot rail under the bottom holes (10 px or more, clear of the holes and the feet), the page no taller (9 sizes)", bad.length === 0, bad);
+  }
 };

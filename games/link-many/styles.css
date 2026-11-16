@@ -91,7 +91,7 @@ h1 .four { color: var(--yellow); }
 #status:empty { visibility: hidden; }
 
 /* ---- the toy: the board plus its two side stands ---- */
-.stand { position: relative; padding: 0 0 22px; margin-top: 4px; }
+.stand { position: relative; padding: 0 0 14px; margin-top: 4px; }
 /* a soft shadow where the feet meet the floor */
 .stand { background: radial-gradient(ellipse 58% 12px at 50% calc(100% - 9px), rgba(40, 30, 110, 0.28), rgba(40, 30, 110, 0) 100%); }
 /* each stand: a rail up the side of the frame and a wide foot at the bottom */
@@ -104,8 +104,10 @@ h1 .four { color: var(--yellow); }
 .stand::before { left: -30px; }
 .stand::after { right: -30px; }
 
+/* (a deeper rail along the foot of the frame, where the maker's name is
+   moulded; the stand under it gives up the same height, so nothing moves) */
 #board {
-  padding: 12px; border-radius: 18px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
+  padding: 12px 12px 20px; border-radius: 18px; display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;
   position: relative; overflow: hidden; z-index: 2;
   box-shadow: 0 10px 0 -2px var(--blue-dark), 0 18px 30px -8px rgba(40, 30, 110, 0.45);
 }
@@ -242,7 +244,8 @@ html.lm-menu body > :is(h1, #status, .stand, #powerTray, .controls, .score) { vi
 @media (max-width: 560px) {
   body { padding: 56px 12px 20px; gap: 12px; }
   h1 { font-size: 2.3rem; }
-  #board { padding: 10px; gap: 7px; }
+  #board { padding: 10px 10px 17px; gap: 7px; }
+  .stand { padding-bottom: 15px; }
   /* (seven holes across, less the page's and the board's padding and the six
      gaps: under about 366 px they shrink, where the board used to run off the side) */
   .cell { --c: min(40px, calc((100vw - 86px) / 7)); width: var(--c); height: var(--c); }
