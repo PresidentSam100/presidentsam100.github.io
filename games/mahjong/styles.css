@@ -141,6 +141,26 @@ body:not(.fxon) button.tile.shake { outline: 3px solid var(--lacquer); outline-o
     radial-gradient(circle 5px at 76px 108px, #f0b4c4 4px, transparent 5px),
     linear-gradient(115deg, transparent 47%, #4a2c16 48%, #4a2c16 52%, transparent 53%);
 }
+/* With Visual FX on, now and then a petal lets go of the branch and drifts
+   down out of the corner, swaying and turning as it falls; each one rests a
+   while before the next goes, so a petal or two is in the air at a time.
+   Held while paused. With FX off the branch is as it always was. */
+.blossom i { position: absolute; width: 11px; height: 8px; border-radius: 70% 12% 70% 12%; background: #f0b4c4; opacity: 0; display: none; }
+html.fx-on .blossom i { display: block; animation: mj-petal var(--dur) ease-in-out var(--delay) infinite; }
+.blossom i:nth-child(1) { left: 86px; top: 31px; --dur: 13s; --delay: 0.5s; --dx: -40px; }
+.blossom i:nth-child(2) { left: 127px; top: 49px; --dur: 15s; --delay: 5s; --dx: -54px; background: #e8a0b4; }
+.blossom i:nth-child(3) { left: 57px; top: 57px; --dur: 14s; --delay: 9.5s; --dx: -32px; }
+.blossom i:nth-child(4) { left: 157px; top: 87px; --dur: 12s; --delay: 2.5s; --dx: -46px; background: #e8a0b4; }
+@keyframes mj-petal {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0deg); }
+  4% { opacity: 0.95; }
+  18% { transform: translate(calc(var(--dx) * 0.3 + 9px), 38px) rotate(140deg); }
+  33% { transform: translate(calc(var(--dx) * 0.55 - 7px), 78px) rotate(290deg); }
+  48% { opacity: 0.9; transform: translate(calc(var(--dx) * 0.8 + 5px), 118px) rotate(410deg); }
+  60% { opacity: 0; transform: translate(var(--dx), 158px) rotate(520deg); }
+  100% { opacity: 0; transform: translate(var(--dx), 158px) rotate(520deg); }
+}
+body.mj-held .blossom i { animation-play-state: paused; }
 
 /* ---- panels --------------------------------------------------------------- */
 .panel {

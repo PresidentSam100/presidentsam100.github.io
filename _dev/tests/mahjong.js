@@ -822,4 +822,30 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("mahjong: no tile's side or shadow is drawn over the face of the tile beside it or below it on its layer: each face is even to its edges (Turtle and Fortress, laptop and phone)",
       seen.every((s) => s.faces >= 10 && s.worst <= 6), seen);
   }
+
+  // the blossom branch in the corner: with Visual FX on, petals let go and
+  // drift down out of it (they move over time, and hold while paused); with
+  // FX off the branch is as it always was, no petals in the air
+  {
+    const petals = async (off) => {
+      const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+      const q = await lib.open(c, base, "games/mahjong/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:mahjong", off ? "1" : "0"); } catch (e) {} }, off) });
+      const read = () => q.evaluate(() => [...document.querySelectorAll(".blossom i")].map((e) => { const cs = getComputedStyle(e); return { shown: cs.display !== "none", name: cs.animationName, state: cs.animationPlayState, at: cs.transform + " " + cs.opacity }; }));
+      const a = await read(); await q.waitForTimeout(1500); const b = await read();
+      let held = null;
+      if (!off) {
+        await q.evaluate(() => Mahjong.start("classic"));
+        await q.waitForTimeout(400); await q.keyboard.press("p"); await q.waitForTimeout(300);
+        const h1 = await read(); await q.waitForTimeout(900); const h2 = await read();
+        held = { paused: h1.every((p) => p.state === "paused"), still: h1.map((p) => p.at).join() === h2.map((p) => p.at).join() };
+      }
+      const errs = q.errs; await c.close();
+      return { a, b, held, errs };
+    };
+    const on = await petals(false), off = await petals(true);
+    check("mahjong, Visual FX on: petals drift down from the blossom branch, moving over time, held while paused",
+      on.a.length >= 3 && on.a.every((p) => p.shown && p.name === "mj-petal") && on.a.map((p) => p.at).join() !== on.b.map((p) => p.at).join() && !!on.held && on.held.paused && on.held.still, { a: on.a, held: on.held });
+    check("mahjong, Visual FX off: no petals in the air, the branch as it was", off.a.length >= 3 && off.a.every((p) => !p.shown), off.a);
+    check("mahjong (petals): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
+  }
 };
