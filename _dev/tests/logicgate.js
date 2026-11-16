@@ -142,7 +142,55 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await splitLevels({ browser, base, check, lib });
+  await silkscreen({ browser, base, check, lib });
 };
+
+// ---- the board's silkscreen: SAM LU · REV 1 in a corner ---------------------
+// Printed in a corner of the board no switch, gate, bulb or wire comes near
+// (the bottom right where it's clear), in view, 9 px or more on the screen
+// however far the board is shrunk, adding no scroll; left off only where no
+// corner in view is clear (a big circuit scrolling sideways on a small phone)
+async function silkscreen({ browser, base, check, lib }) {
+  const { devices } = require("@playwright/test");
+  const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+  const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+    ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+    ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways", touch(915, 412)]];
+  for (const [name, opt] of sizes) {
+    const c = await lib.newContext(browser, opt);
+    const q = await lib.open(c, base, "games/logicgate/", { before: (pg) => pg.addInitScript(() => {
+      const prog = { gates: { unlocked: 79, solved: Array.from({ length: 79 }, () => true) }, inputs: { unlocked: 0, solved: [] } };
+      try { localStorage.setItem("logicgate_progress", JSON.stringify(prog)); localStorage.setItem("logicgate_mode", "gates"); } catch (e) {}
+    }) });
+    const bad = [];
+    for (const i of [0, 39, 79]) {
+      await q.evaluate((i) => document.querySelector('#levelDots .dot[data-idx="' + i + '"]').click(), i);
+      await q.waitForTimeout(250);
+      const m = await q.evaluate(() => {
+        const silk = document.getElementById("silk");
+        if (!silk) return { none: true };
+        const board = document.getElementById("board"), frame = document.getElementById("boardFrame");
+        const sh0 = document.documentElement.scrollHeight;
+        if (silk.hidden) return { hidden: true, scrolls: frame.classList.contains("scrolls") };
+        const r = silk.getBoundingClientRect(), br = board.getBoundingClientRect(), fr = frame.getBoundingClientRect(), s = br.width / board.offsetWidth;
+        const meet = (a) => a.left < r.right && r.left < a.right && a.top < r.bottom && r.top < a.bottom;
+        const nodes = [...document.querySelectorAll("#nodes .node")].filter((n) => meet(n.getBoundingClientRect())).length;
+        let wires = 0;
+        for (const p of document.querySelectorAll("#wires path")) {
+          const len = p.getTotalLength();
+          for (let d = 0; d <= len; d += 3) { const pt = p.getPointAtLength(d), x = br.left + pt.x * s, y = br.top + pt.y * s; if (x > r.left && x < r.right && y > r.top && y < r.bottom) wires++; }
+        }
+        silk.style.display = "none"; const sh1 = document.documentElement.scrollHeight; silk.style.display = "";
+        return { text: silk.textContent, h: r.height, inBoard: r.left >= br.left && r.right <= br.right && r.top >= br.top && r.bottom <= br.bottom,
+          inView: r.left >= fr.left - 0.5 && r.right <= fr.right + 0.5, nodes, wires, grows: sh0 - sh1 };
+      });
+      const ok = !m.none && (m.hidden ? m.scrolls : m.text === "SAM LU · REV 1" && m.h >= 12 && m.inBoard && m.inView && m.nodes === 0 && m.wires === 0 && m.grows === 0);
+      if (!ok || (i === 0 && m.hidden)) bad.push({ level: i + 1, m });
+    }
+    check("logicgate, " + name + ": SAM LU · REV 1 is silkscreened in a clear corner of the board (levels 1, 40 and 80), in view, readable, clear of switches, gates, the bulb and wires, adding no scroll", bad.length === 0, bad);
+    await c.close();
+  }
+}
 
 // ---- the split levels (levels-split.js): one signal feeding several gates ----
 const fs = require("fs");

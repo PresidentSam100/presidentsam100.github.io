@@ -662,6 +662,7 @@
       H = chains ? splitH : rows * rowH + topPad * 2;
     }
     board.style.width = board.style.transform = board.style.marginRight = board.style.marginBottom = "";
+    board.style.removeProperty("--lg-s");   // (the silkscreen's size: printed larger on a board shrunk to fit)
     frame.classList.remove("scrolls");
     var F = board.clientWidth || 320;
     place(F, Math.min(46, F * 0.08));
@@ -684,6 +685,7 @@
       place(wide, 30);
       board.style.width = W + "px";
       board.style.transform = "scale(" + s + ")";
+      board.style.setProperty("--lg-s", s);
       // (so the frame lays the board out at its shrunk size)
       board.style.marginRight = -Math.floor(W * (1 - s)) + "px";
       board.style.marginBottom = -Math.floor(H * (1 - s)) + "px";
@@ -748,6 +750,35 @@
       relayout();
     }, flowAt(maxCol - 1) + flowStep * 0.85);
   }
+
+  // ---- the board's silkscreen: its maker and revision (SAM LU · REV 1)
+  // printed in a corner nothing on the board reaches: the bottom right if
+  // it's clear, else the bottom left, the top right or the top left, and on a
+  // board that scrolls, a corner in view. Hidden only if no corner is clear.
+  var SILK_AT = ["br", "bl", "tr", "tl"];
+  function placeSilk() {
+    var silk = document.getElementById("silk"), board = document.getElementById("board");
+    if (!silk) return;
+    var br = board.getBoundingClientRect(), s = br.width / (board.offsetWidth || 1);
+    var fr = document.getElementById("boardFrame").getBoundingClientRect();
+    var boxes = [].map.call(document.querySelectorAll("#nodes .node"), function (n) { return n.getBoundingClientRect(); });
+    var pts = [];
+    [].forEach.call(document.querySelectorAll("#wires path"), function (p) {
+      var len = p.getTotalLength();
+      for (var d = 0; d <= len; d += 5) { var q = p.getPointAtLength(d); pts.push({ x: br.left + q.x * s, y: br.top + q.y * s }); }
+    });
+    silk.hidden = false;
+    for (var i = 0; i < SILK_AT.length; i++) {
+      silk.className = "silk at-" + SILK_AT[i];
+      var r = silk.getBoundingClientRect(), pad = 4;
+      var near = function (a) { return a.left < r.right + pad && r.left - pad < a.right && a.top < r.bottom + pad && r.top - pad < a.bottom; };
+      if (r.left >= fr.left - 0.5 && r.right <= fr.right + 0.5 && !boxes.some(near) &&
+          !pts.some(function (q) { return q.x > r.left - pad && q.x < r.right + pad && q.y > r.top - pad && q.y < r.bottom + pad; })) return;
+    }
+    silk.hidden = true;
+  }
+  // (the board's own face arrives late: its letters' width decides the corner)
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { placeSilk(); });
 
   function render(dim, flow) {
     var memo = evaluate();
@@ -851,6 +882,7 @@
     });
     var overlay = document.getElementById("nodes");
     overlay.innerHTML = html;
+    placeSilk();
     if (mode === "gates") {
       overlay.querySelectorAll(".gate.filled").forEach(function (el) {
         el.addEventListener("pointerdown", onGatePointerDown);

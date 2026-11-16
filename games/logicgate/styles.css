@@ -214,6 +214,23 @@ body::before {
   border-radius: 16px;
   overflow: hidden;
 }
+/* The board's maker and revision, silkscreened in a corner as a real circuit
+   board carries them: small pale capitals in the board's own monospace, boxed.
+   game.js (placeSilk) prints them in the bottom right, or else the first
+   corner no switch, gate, bulb or wire comes near (and in view, where the
+   board scrolls). A board shrunk to fit (game.js sets --lg-s) prints them
+   larger by as much, so they read the same on the screen. Still. */
+.silk {
+  position: absolute; z-index: 0; pointer-events: none; white-space: nowrap;
+  font: 700 calc(10px / var(--lg-s, 1)) / 1 "JetBrains Mono", monospace; letter-spacing: calc(1.2px / var(--lg-s, 1));
+  color: var(--txt); opacity: 0.42;
+  padding: calc(2px / var(--lg-s, 1)) calc(5px / var(--lg-s, 1));
+  border: calc(1px / var(--lg-s, 1)) solid currentColor; border-radius: calc(2px / var(--lg-s, 1));
+}
+.silk, .silk.at-br { right: calc(14px / var(--lg-s, 1)); bottom: calc(4px / var(--lg-s, 1)); }
+.silk.at-bl { right: auto; left: calc(14px / var(--lg-s, 1)); }
+.silk.at-tr { bottom: auto; top: calc(4px / var(--lg-s, 1)); }
+.silk.at-tl { right: auto; bottom: auto; left: calc(14px / var(--lg-s, 1)); top: calc(4px / var(--lg-s, 1)); }
 #wires { position: absolute; inset: 0; z-index: 1; }
 .wire { fill: none; stroke-width: 4; stroke-linecap: round; }
 .wire.w-on { stroke: var(--on); filter: drop-shadow(0 0 5px var(--glow)); }
