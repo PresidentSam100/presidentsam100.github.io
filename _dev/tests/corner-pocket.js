@@ -636,4 +636,41 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("corner-pocket: a brass SAM LU BILLIARDS plate is set into the near rail between two sights (on the screen, in the wood, clear of the cloth, pockets, sights and controls, 9 px or more, no scroll) on laptops, a Pixel 7 and a phone on its side; none on the smallest phones",
       bad.length === 0, bad);
   }
+
+  // the room breathes: with Visual FX on the lamp's light swings a little over
+  // the cloth and a faint haze drifts (the empty cloth changes from moment to
+  // moment; held while paused); with FX off the room is a still picture
+  {
+    const room = async (off) => {
+      const c = await lib.newContext(browser, { viewport: { width: 1280, height: 900 } });
+      const q = await lib.open(c, base, "games/corner-pocket/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:corner-pocket", off ? "1" : "0"); } catch (e) {} }, off) });
+      await q.evaluate(() => { window.coinFlip = (o, cb) => cb("you"); document.getElementById("startBtn").click(); });
+      await q.waitForTimeout(400);
+      // (bare cloth: points between the head string and the rack, away from the balls and the aim line)
+      const cloth = () => q.evaluate(() => {
+        const cv = document.getElementById("table"), g = cv.getContext("2d"), k = cv.width / cv.clientWidth, out = [];
+        for (const [wx, wy] of [[0.5, 0.25], [0.8, 0.95], [1.2, 0.3], [1.4, 1.0], [0.4, 0.9]]) {
+          const s = __pool.toScreen(wx, wy), d = g.getImageData(Math.round(s.x * k), Math.round(s.y * k), 1, 1).data;
+          out.push(d[0] + d[1] + d[2]);
+        }
+        return out.join(",");
+      });
+      const a = await cloth(), t0 = await q.evaluate(() => __pool.amb && __pool.amb().t);
+      await q.waitForTimeout(2200);
+      const b = await cloth(), t1 = await q.evaluate(() => __pool.amb && __pool.amb().t);
+      let held = null;
+      if (!off) {
+        await q.keyboard.press("p"); await q.waitForTimeout(300);
+        const h0 = await q.evaluate(() => __pool.amb ? __pool.amb().t : null); await q.waitForTimeout(900); const h1 = await q.evaluate(() => __pool.amb ? __pool.amb().t : NaN);
+        held = { still: h0 === h1 };
+      }
+      const errs = q.errs; await c.close();
+      return { a, b, t0, t1, held, errs };
+    };
+    const on = await room(false), off = await room(true);
+    check("corner-pocket, Visual FX on: the lamp's light swings over the cloth and a haze drifts (the bare cloth changes over time; the room's clock holds while paused)",
+      on.a !== on.b && typeof on.t1 === "number" && on.t1 > on.t0 && !!on.held && on.held.still, on);
+    check("corner-pocket, Visual FX off: the room is a still picture (the bare cloth the same from moment to moment)", off.a === off.b, off);
+    check("corner-pocket (room light): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
+  }
 };

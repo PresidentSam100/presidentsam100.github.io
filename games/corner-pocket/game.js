@@ -643,6 +643,33 @@
   // off none of it is drawn: the stick just goes as the ball leaves.
   function fxOn() { return !(window.RM_ON && window.RM_ON()); }
   var STRIKE = 0.22, TRAIL = 5, SPARK_V = 2.2;
+
+  // ---- Visual FX on: the room breathes. The lamp over the table swings a
+  // little on its cord, its pool of light moving with it, and a faint haze
+  // drifts through the light. Drawn over the room's still picture and under
+  // the balls, on the room's own clock (it stops while paused). With FX off
+  // the picture is as it was: the lamp hangs still. ----
+  var ambT = 0;
+  function lampAt(t) {
+    return { x: L / 2 + L * 0.03 * Math.sin(t * 2 * Math.PI / 7.5), y: W / 2 + W * 0.025 * Math.sin(t * 2 * Math.PI / 11 + 1.3) };
+  }
+  var HAZE = [{ a: 0.0, sx: 0.07, sy: 0.05, r: 0.34 }, { a: 2.1, sx: 0.055, sy: 0.075, r: 0.28 }, { a: 4.0, sx: 0.065, sy: 0.045, r: 0.4 }];
+  function hazeAt(h, t) {
+    return { x: L / 2 + L * 0.42 * Math.sin(t * h.sx + h.a), y: W / 2 + W * 0.38 * Math.sin(t * h.sy + h.a * 1.7), r: L * h.r };
+  }
+  function drawAmbient() {
+    var lp = lampAt(ambT), i;
+    var pool = ctx.createRadialGradient(lp.x, lp.y, 0.02, lp.x, lp.y, L * 0.55);
+    pool.addColorStop(0, "rgba(255,236,190,0.075)"); pool.addColorStop(0.6, "rgba(255,236,190,0.025)"); pool.addColorStop(1, "rgba(255,236,190,0)");
+    ctx.fillStyle = pool;
+    ctx.fillRect(lp.x - L * 0.55, lp.y - L * 0.55, L * 1.1, L * 1.1);
+    for (i = 0; i < HAZE.length; i++) {
+      var h = hazeAt(HAZE[i], ambT), hg = ctx.createRadialGradient(h.x, h.y, 0, h.x, h.y, h.r);
+      hg.addColorStop(0, "rgba(255,240,215,0.045)"); hg.addColorStop(1, "rgba(255,240,215,0)");
+      ctx.fillStyle = hg;
+      ctx.fillRect(h.x - h.r, h.y - h.r, h.r * 2, h.r * 2);
+    }
+  }
   var fxs = { strike: null, trails: {}, sparks: [] };
   function sparkAt(x, y, v) {
     var n = Math.min(14, 5 + Math.round(v * 1.2));
@@ -915,6 +942,7 @@
     ctx.drawImage(stat, 0, 0);
     if (!G.balls) { drawHud(); return; }
     worldXf(ctx);
+    if (fxOn()) drawAmbient();   // (the swinging lamp's light and the haze, under everything on the table)
     var px = 1 / V.s;
     var aiming = G.phase === "aim" || (G.phase === "cpu" && G.cpu && G.cpu.stage !== "think");
     var st = G.st;
@@ -1646,6 +1674,7 @@
       if (b.x + ":" + b.w !== lastBand) layout();
     }
     if (!(Pz && Pz.isPaused())) update(dt);
+    if (!(Pz && Pz.isPaused()) && fxOn()) ambT += dt;   // (the room's clock: the lamp and the haze)
     draw();
   }
 
@@ -1663,6 +1692,8 @@
 
   // test hook
   window.__pool = {
+    // the room's light: whether it is drawn moving (FX on), its clock, and where the lamp's pool is
+    amb: function () { var lp = lampAt(ambT); return { on: fxOn(), t: ambT, x: lp.x, y: lp.y }; },
     get G() { return G; },
     get V() { return V; },
     get UI() { return UI; },
