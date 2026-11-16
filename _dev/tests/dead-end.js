@@ -245,4 +245,47 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // ---- the street's green name blade, SAM LU ST, on the sign's post beside it: on the
+  // screen, level with the diamond's left corner, clear of the HUD, the block and the
+  // corner buttons, the page no longer for it, on the menu and in a run alike; held
+  // still with Visual FX off; a phone (whose sign is small, under the corner row) has none
+  {
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }, true], ["1366x657", { viewport: { width: 1366, height: 657 } }, true],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }, true], ["800x600", { viewport: { width: 800, height: 600 } }, true],
+      ["Pixel 7", devices["Pixel 7"], false], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }, false],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }, false], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }, false],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }, true],
+    ];
+    const look = (q) => q.evaluate(() => {
+      const bl = document.getElementById("blade");
+      if (!bl) return null;
+      const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+      const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+      const sh = document.documentElement.scrollHeight;
+      if (!bl.offsetWidth) return { shown: false, sh };
+      const b = box(bl), sign = box(document.querySelector(".sign"));
+      const others = [...document.querySelectorAll("#hud, #stage, #note.show, .nav-back-games, .gs-corner")].filter((e) => e.offsetWidth).map(box);
+      bl.style.display = "none"; const sh0 = document.documentElement.scrollHeight; bl.style.display = "";
+      return { shown: true, text: bl.textContent.replace(/\s+/g, " ").trim(), size: parseFloat(getComputedStyle(bl.querySelector(".plate")).fontSize),
+        b, sign, vw: document.documentElement.clientWidth, vh: innerHeight, hits: others.filter((o) => meet(b, o)).length,
+        longer: sh - sh0, clicks: getComputedStyle(bl).pointerEvents };
+    });
+    for (const [name, opt, want] of sizes) {
+      const c = await lib.newContext(browser, opt);
+      const q = await lib.open(c, base, "games/dead-end/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dead-end", "1"); } catch (e) {} }) });
+      const menu = await look(q);
+      await q.keyboard.press("Enter"); await q.waitForTimeout(250);
+      const run = await look(q);
+      await q.waitForTimeout(700);
+      const later = await look(q);
+      const good = (m) => !!m && (want ? m.shown && m.text === "SAM LU ST" && m.size >= 12 && m.b.l >= 4 && m.b.r <= m.vw - 4 && m.b.t >= 0 && m.b.b <= m.vh &&
+        Math.abs(m.b.r - m.sign.l) <= 6 && Math.abs((m.b.t + m.b.b) / 2 - (m.sign.t + m.sign.b) / 2) <= 6 && m.hits === 0 && m.longer === 0 && m.clicks === "none" : !m.shown);
+      const still = !want || (!!run && !!later && run.shown && JSON.stringify(run.b) === JSON.stringify(later.b));
+      check("dead-end, " + name + ": " + (want ? "SAM LU ST, a green street blade, stands on the sign's post beside it (menu and run), on the screen, clear of the HUD, the block and the corner buttons, the page no longer, held still with FX off"
+        : "a phone's small sign carries no street blade"), good(menu) && good(run) && still, { menu, run, later });
+      await c.close();
+    }
+  }
 };

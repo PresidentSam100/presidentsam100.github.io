@@ -345,12 +345,41 @@
     GameShell.menuKeys({ active: function () { return ui === "over"; }, groups: [{ sel: "#to-menu", keys: ["Backspace"] }], start: "#again" });
   }
 
+  // The street-name blade beside the sign stands out to the sign's left. In
+  // a narrow window that can take it off the screen's edge or into a corner
+  // button: there it is set aside (.off). It is judged where the sign stands
+  // in a run (the HUD beside it), on the menu too, so the two agree. Looked
+  // at again whenever the sign can move: the HUD showing, going or changing
+  // width, the window resizing, the fonts arriving.
+  function placeBlade() {
+    var bl = $("blade"), h = $("hud");
+    if (!bl) return;
+    bl.classList.remove("off");
+    if (!bl.offsetWidth) return;                       // (a phone: none)
+    var hid = h.hidden;
+    h.hidden = false;                                  // (as in a run; put back before anything is drawn)
+    var r = bl.getBoundingClientRect(), vw = document.documentElement.clientWidth, off = r.left < 4 || r.right > vw - 4;
+    document.querySelectorAll(".nav-back-games, .gs-corner").forEach(function (c) {
+      var q = c.getBoundingClientRect();
+      if (q.width && r.left < q.right + 6 && q.left - 6 < r.right && r.top < q.bottom + 6 && q.top - 6 < r.bottom) off = true;
+    });
+    h.hidden = hid;
+    if (off) bl.classList.add("off");
+  }
+  if (window.ResizeObserver) new ResizeObserver(placeBlade).observe($("hud"));
+  window.addEventListener("resize", placeBlade);
+  if (document.fonts) {
+    if (document.fonts.ready) document.fonts.ready.then(placeBlade);
+    if (document.fonts.addEventListener) document.fonts.addEventListener("loadingdone", placeBlade);
+  }
+
   window.addEventListener("resize", function () { if (st) { fit(); render(); } });
   window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
   document.body.classList.toggle("fxon", fx());
 
   readLink();
   toMenu();
+  placeBlade();
   requestAnimationFrame(frame);
 
   // test hooks: the Playwright harness drives runs through these

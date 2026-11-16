@@ -76,6 +76,33 @@ body {
   content: ""; position: absolute; left: 100%; top: 100%; width: 9px; height: 46px; margin: -8px 0 0 -8px;
   background: linear-gradient(90deg, #6b7079, #a5abb5 50%, #5a5f68); transform: rotate(-45deg); transform-origin: 0 0; z-index: -1;
 }
+/* The street's own name on the same post: a green blade standing out from
+   the pole on the side away from the HUD, on a short arm from behind the
+   diamond's left corner, so it swings with the sign. Its own corner of the
+   diamond is where it starts (before the diamond's turn, the box's bottom
+   left; just past the yellow rim's tip), then it turns back level and moves
+   out by its own length. White capitals in Overpass (the face of the road's
+   name signs), the suffix small as street blades carry it. Where it would
+   leave the screen or meet a corner button, game.js sets it aside (.off); on
+   a phone the sign is small and crowded, and there is none. */
+.blade {
+  position: absolute; left: -3px; top: calc(100% + 3px); z-index: 1; pointer-events: none;
+  display: flex; align-items: center; font-style: normal;
+  transform: translate(-50%, -50%) rotate(-45deg) translateX(-50%);
+}
+.blade .plate {
+  display: block; white-space: nowrap; padding: 5px 9px 3px;
+  font-family: "Overpass", "Arial Narrow", sans-serif; font-weight: 800; font-size: 15px; line-height: 1; letter-spacing: 1px; color: #fff;
+  background: linear-gradient(180deg, #0f7a46, #0a6439);
+  border: 2px solid #f4f6f2; border-radius: 4px;
+  box-shadow: 0 0 0 1.5px #08311d, 3px 4px 8px rgba(0, 0, 0, 0.5);
+}
+.blade small { font-size: 10px; letter-spacing: 0.6px; vertical-align: 3px; margin-left: 1px; }
+.blade::after {       /* the arm, back to the pole behind the diamond */
+  content: ""; flex: none; width: 9px; height: 5px;
+  background: linear-gradient(180deg, #a5abb5, #6b7079 60%, #4d525a);
+}
+.blade.off { display: none; }
 body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
 @keyframes de-swing { 0%, 100% { transform: rotate(43.6deg); } 50% { transform: rotate(46.4deg); } }
 
@@ -187,6 +214,7 @@ button, a.btn { font-family: "Bebas Neue", "Arial Narrow", sans-serif; }
   .with-hud .sign { margin: 12px; }
   .sign b { font-size: 18px; letter-spacing: 1px; }
   .sign::after { height: 24px; width: 6px; }
+  .blade { display: none; }
   /* all five, on two lines (or three) where one won't hold them (the best is
      the score to beat, and the street's name says which block this is);
      each stays whole on its line */
