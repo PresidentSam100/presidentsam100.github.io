@@ -360,4 +360,76 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // ---- on a phone's narrow menu card a mode's name stays whole on one line
+  // ("World Tour", never "World / Tour"), and its note wraps beside it with
+  // no word left on a line of its own (it once left "it" and "3" alone)
+  {
+    const { devices } = require("@playwright/test");
+    const res = {};
+    for (const [w, h] of [[320, 568], [360, 560], [375, 553], [412, 839]]) {
+      const c = await lib.newContext(browser, Object.assign({}, devices["Pixel 7"], { viewport: { width: w, height: h } }));
+      const q = await lib.open(c, base, "games/passport/");
+      res[w + "x" + h] = await q.evaluate(() => [...document.querySelectorAll("#pick-mode button")].map((b) => {
+        const nr = document.createRange(); nr.selectNodeContents(b.querySelector("b"));
+        const nameRows = new Set([...nr.getClientRects()].filter((x) => x.width > 0.5).map((x) => Math.round(x.bottom))).size;
+        const t = [...b.querySelector("small").childNodes].find((n) => n.nodeType === 3 && n.data.trim());
+        const lines = {};
+        const re = /\S+/g; let mt;
+        while ((mt = re.exec(t.data))) {
+          const r = document.createRange(); r.setStart(t, mt.index); r.setEnd(t, mt.index + mt[0].length);
+          const top = Math.round(r.getClientRects()[0].top);
+          (lines[top] = lines[top] || []).push(mt[0]);
+        }
+        const ls = Object.values(lines);
+        return { mode: b.dataset.v, nameRows, note: ls.map((l) => l.join(" ")) };
+      }));
+      await q.close();
+      await c.close();
+    }
+    const bad = [];
+    for (const k of Object.keys(res)) for (const m of res[k]) if (m.nameRows !== 1 || (m.note.length > 1 && m.note.some((l) => !/\s/.test(l)))) bad.push(k + " " + m.mode + ": " + m.nameRows + " | " + m.note.join(" / "));
+    check("passport phone menu (320x568, 360x560, 375x553, Pixel 7): World Tour, Layover Dash and Visa Run each keep the name on one line, and a note that wraps leaves no word on a line of its own",
+      bad.length === 0, { bad, res });
+  }
+
+  // ---- the holder's name, SAM LU, printed at the foot of the stamps page:
+  // on one line, inside the page, below the stamps however many there are,
+  // and in the page's own bottom margin, so the page is no taller for it
+  // (a laptop, a Pixel 7 and a 320 px phone)
+  {
+    const { devices } = require("@playwright/test");
+    const res = {};
+    for (const [label, opts] of [["laptop", { viewport: { width: 1280, height: 900 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320 phone", Object.assign({}, devices["Pixel 7"], { viewport: { width: 320, height: 568 } })]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/passport/");
+      await q.evaluate(() => { Passport.fast(); Passport.start("tour"); });
+      for (let k = 0; k < 9; k++) {
+        await q.waitForFunction(() => Passport.state() === "ask", null, { timeout: 8000 });
+        await q.evaluate(() => Passport.answer(Passport.current().correct));
+        await q.waitForFunction(() => Passport.state() !== "reveal", null, { timeout: 8000 });
+      }
+      res[label] = await q.evaluate(() => {
+        const h = document.getElementById("holder");
+        if (!h) return null;
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const page = document.querySelector(".page-r"), stamps = document.getElementById("stamps"), name = h.querySelector("b");
+        const rg = document.createRange(); rg.selectNodeContents(h);
+        const text = [...rg.getClientRects()].filter((x) => x.width > 0.5);
+        const tall = page.offsetHeight; h.style.display = "none"; const without = page.offsetHeight; h.style.display = "";
+        const pg = box(page), st = box(stamps);
+        return { text: h.textContent.replace(/\s+/g, " ").trim(), name: name && name.textContent, oneLine: text.length > 0 && Math.max(...text.map((x) => x.top)) < Math.min(...text.map((x) => x.bottom)) - 1,
+          inside: text.every((x) => x.left >= pg.l && x.right <= pg.r && x.bottom <= pg.b), belowStamps: text.every((x) => x.top >= st.b - 0.5),
+          minis: stamps.children.length, tall, without, shown: getComputedStyle(h).visibility === "visible" && getComputedStyle(h).display !== "none" };
+      });
+      check("passport (" + label + "): no page errors (holder's name)", q.errs.length === 0, q.errs);
+      await q.close();
+      await c.close();
+    }
+    const bad = Object.keys(res).filter((k) => { const m = res[k];
+      return !m || m.name !== "SAM LU" || !/HOLDER/.test(m.text) || !m.oneLine || !m.inside || !m.belowStamps || m.minis < 9 || m.tall !== m.without || !m.shown; });
+    check("passport: the stamps page's foot prints the holder's name, SAM LU, on one line inside the page, below nine stamps, and the page no taller for it (laptop, Pixel 7, 320 px phone)",
+      bad.length === 0, { bad, res });
+  }
 };
