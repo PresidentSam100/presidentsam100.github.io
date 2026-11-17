@@ -502,6 +502,35 @@
     levelEl.textContent = level;
   }
 
+  // ---- The maker's stamp ----
+  // The lock is its dial: the ring, and the face inside it. Its maker's
+  // name is struck into the face under the readout, as a padlock's maker
+  // strikes it into the body: SAM LU pressed into the metal, in the band's
+  // own darker shade, a dark upper edge and the light catching the lower
+  // one. Clear of the ring and the ball's path, in every state (it is part
+  // of the lock, so it shakes with it), and the same with Visual FX off.
+  const STAMP = "SAM LU";
+  let stampBox = null;                 // where it was last struck (canvas px, the lock at rest)
+  function drawStamp() {
+    const size = Math.max(10, R * 0.1), y = cy + R * 0.64, gap = size * 0.3;
+    ctx.save();
+    ctx.font = `800 ${size}px "Outfit", system-ui, sans-serif`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    const ws = Array.from(STAMP, (ch) => ctx.measureText(ch).width);
+    const w = ws.reduce((a, b) => a + b, 0) + gap * (STAMP.length - 1), x0 = cx - w / 2;
+    const strike = (dy, col) => {
+      ctx.fillStyle = col;
+      let x = x0;
+      for (let i = 0; i < STAMP.length; i++) { ctx.fillText(STAMP[i], x, y + dy); x += ws[i] + gap; }
+    };
+    strike(-1, "rgba(0,0,0,0.42)");          // the struck edge's shadow, above
+    strike(1, "rgba(255,255,255,0.32)");     // the light on the lower edge (enough to read on the dark indigo and plum)
+    strike(0, ringColor);
+    ctx.restore();
+    stampBox = { x: x0, y: y - size / 2, w: w, h: size, size: size };
+  }
+
   // ---- Render ----
   function draw(dt) {
     let sx = 0, sy = 0;
@@ -575,6 +604,9 @@
       ctx.fillText(`${remain} TO UNLOCK`, cx, cy + R * 0.34);
     }
 
+    // the maker's name, struck into the face under the readout
+    drawStamp();
+
     // Visual FX off: no red burst at a miss, so a still red ring marks the spot
     if (missAt !== null && state === State.OVER && reducedMotion()) {
       ctx.strokeStyle = "#ff5d73";
@@ -631,4 +663,13 @@
   resize();
   updateHud();
   requestAnimationFrame((t) => { lastTs = t; loop(t); });
+
+  // test hook: where the maker's stamp is struck (page px), its size, and the ring's radius
+  window.PopTheLock = {
+    stamp: () => {
+      if (!stampBox) return null;
+      const b = canvas.getBoundingClientRect();
+      return { x: b.left + stampBox.x, y: b.top + stampBox.y, w: stampBox.w, h: stampBox.h, size: stampBox.size, cx: b.left + cx, cy: b.top + cy, R: R };
+    },
+  };
 })();

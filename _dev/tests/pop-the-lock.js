@@ -255,4 +255,46 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close();
     await c.close();
   }
+
+  // the maker's name, SAM LU, struck into the lock's face under the readout:
+  // on the screen, inside the ring and clear of the ball's path and the
+  // readout, readable, the page no taller for it, and the same with Visual
+  // FX off; in play and on the start panel's lock alike
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }],
+    ];
+    const bad = [];
+    for (const [name, opt] of sizes) {
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opt);
+        const q = await lib.open(c, base, "games/pop-the-lock/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:pop-the-lock", off ? "1" : "0"); } catch (e) {} }, off) });
+        const menu = await q.evaluate(() => window.PopTheLock ? PopTheLock.stamp() : null);
+        await q.evaluate(() => document.getElementById("play").click()); await q.waitForTimeout(300);
+        const s = await q.evaluate(() => {
+          if (!window.PopTheLock) return null;
+          const b = PopTheLock.stamp(), de = document.documentElement;
+          return b && Object.assign(b, { vw: de.clientWidth, vh: innerHeight, sh: de.scrollHeight, sw: de.scrollWidth });
+        });
+        const ok = (b) => {
+          if (!b) return false;
+          const corners = [[b.x, b.y], [b.x + b.w, b.y], [b.x, b.y + b.h], [b.x + b.w, b.y + b.h]];
+          const reach = Math.max(...corners.map(([x, y]) => Math.hypot(x - b.cx, y - b.cy)));
+          const clearOfRing = reach < b.R * 0.88;                         // (the ring's inner edge less the ball: about 0.92 R)
+          const underReadout = b.y > b.cy + b.R * 0.42;                   // ("N TO UNLOCK" ends about 0.41 R below the middle)
+          return clearOfRing && underReadout && b.size >= 10 && b.x >= 0 && b.x + b.w <= b.vw && b.y + b.h <= b.vh;
+        };
+        const good = ok(s) && s.sh <= s.vh && s.sw <= s.vw && !!menu && Math.abs(menu.y - s.y) < 1;
+        if (!good) bad.push({ name, off, s, menu });
+        await c.close();
+      }
+    }
+    check("pop-the-lock: SAM LU is struck into the lock's face under the readout (inside the ring, clear of the ball's path, 10 px or more, no scroll), on the start panel and in play, with Visual FX on and off",
+      bad.length === 0, bad);
+  }
 };
