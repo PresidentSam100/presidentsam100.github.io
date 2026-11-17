@@ -166,7 +166,10 @@ html.fx-on body.tm-held::before { animation-play-state: paused; }
 }
 @media (max-width: 860px) {
   /* one column: the pool, its painted name on the deck, then the towel */
-  .stage { grid-template-columns: 1fr; grid-template-rows: none; }
+  /* minmax(0, ...): the column is the page's width, never the board's, so
+     the panel can't be propped open by the board drawn in it (the next
+     level would be sized to that width and the page would scroll sideways) */
+  .stage { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; }
   .stage > .side { grid-column: 1; grid-row: 3; }
   .deck-paint { grid-row: 2; margin: 0; font-size: clamp(24px, 7.6vw, 40px); }
   /* tuck the palm further into the corner so it stays off the title */
@@ -188,6 +191,11 @@ html.fx-on body.tm-held::before { animation-play-state: paused; }
   border-radius: 18px;
   padding: 16px;
   box-shadow: 0 3px 0 rgba(160, 125, 70, 0.25), 0 18px 40px -18px rgba(120, 90, 40, 0.45);
+}
+/* narrow phones: closer sides give the pool the room a 15-wide level needs
+   (the stone coping ring is 7px, so 10px still clears it) */
+@media (max-width: 400px) {
+  .boardwrap { padding-left: 10px; padding-right: 10px; }
 }
 
 .levelhead {

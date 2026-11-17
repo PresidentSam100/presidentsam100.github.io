@@ -155,7 +155,10 @@
     const maxH = Math.max(260, window.innerHeight - 360);
     const byW = (frameW - GAP * (cols + 1)) / cols;
     const byH = (maxH - GAP * (rows + 1)) / rows;
-    cell = Math.max(16, Math.min(64, Math.floor(Math.min(byW, byH))));
+    // 16px is the floor a short screen's height can push a cell down to; the
+    // width is never overruled, so a wide level on a narrow phone still fits
+    // its panel (a board wider than its room scrolls the page sideways)
+    cell = Math.max(Math.min(16, Math.floor(byW)), Math.min(64, Math.floor(Math.min(byW, byH))));
     document.documentElement.style.setProperty("--cell", cell + "px");
   }
 

@@ -384,4 +384,45 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("tile-maze, Visual FX off: the palm and its shadow hang still", off.a.img && off.a.shadow && off.a.name === "none" && off.a.at === off.b.at, { a: off.a, b: off.b });
     check("tile-maze (palm): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
   }
+
+  // narrow phones: every level's board fits inside its panel and the page
+  // never scrolls sideways, in level order and after the widest level (whose
+  // board must not prop the panel open for the ones after it: the panel keeps
+  // one width, and a small level comes out the same size after a wide one as
+  // when it's opened first)
+  for (const [w, h] of [[320, 568], [360, 560]]) {
+    const c = await lib.newContext(browser, { viewport: { width: w, height: h }, hasTouch: true, isMobile: true });
+    const q = await lib.open(c, base, "games/tile-maze/", { before: seed('{"unlocked":60}') });
+    const r = await q.evaluate((W) => {
+      const btns = () => document.querySelectorAll("#levelPick .lvlbtn");
+      const wrap = document.querySelector(".boardwrap");
+      const look = () => {
+        const b = document.getElementById("board").getBoundingClientRect(), wr = wrap.getBoundingClientRect(), cs = getComputedStyle(wrap);
+        return { cell: getComputedStyle(document.documentElement).getPropertyValue("--cell").trim(), wrapW: Math.round(wr.width),
+          fits: b.left >= wr.left + parseFloat(cs.borderLeftWidth) - 0.5 && b.right <= wr.right - parseFloat(cs.borderRightWidth) + 0.5,
+          sw: document.documentElement.scrollWidth };
+      };
+      btns()[0].click();
+      const fresh = look();
+      const bad = [], widths = new Set();
+      for (let i = 0; i < btns().length; i++) {
+        btns()[i].click();
+        const m = look();
+        widths.add(m.wrapW);
+        if (!m.fits || m.sw > W) bad.push(i + 1);
+      }
+      // the widest level (15 across), then level 1 again
+      let widest = 0;
+      window.LEVELS.forEach((l, i) => { if (l.grid[0].length > window.LEVELS[widest].grid[0].length) widest = i; });
+      btns()[widest].click();
+      const wide = look();
+      btns()[0].click();
+      const after = look();
+      return { bad, widths: Array.from(widths), fresh, wide, after, widest: widest + 1 };
+    }, w);
+    check("tile-maze, " + w + "x" + h + ": every level's board fits its panel and the page never scrolls sideways, the panel one width throughout, level 1 the same size after the widest level as when opened first",
+      r.bad.length === 0 && r.widths.length === 1 && r.wide.fits && r.wide.sw <= w && r.after.cell === r.fresh.cell && r.after.sw <= w, r);
+    check("tile-maze, " + w + "x" + h + ": no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };
