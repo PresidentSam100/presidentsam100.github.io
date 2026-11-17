@@ -290,4 +290,149 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.before === "undefined" && r.state !== "ready" && r.score >= 10 && p.errs.length === 0, { r, errs: p.errs });
     await ctx.close();
   }
+
+  // ---- the maker's name on the apron: SAM LU on a plate on the left apron
+  // panel, on all three tables in each table's flipper colour, its letters
+  // inside the plate; clear of the left flipper's whole sweep (rest to
+  // raised, its tapered bat), of the drain between the flipper tips and of
+  // the tilt meter; drawn with the table, so it shakes with it (the same
+  // offset as the table's wordmark in that frame); and the same every frame,
+  // with Visual FX on or off and under the pause (nothing in it moves).
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/neon-pinball/", { before: (pg) => pg.addInitScript(STEPPED) });
+    const r = await q.evaluate(() => {
+      if (!NeonPinball.maker) return null;
+      const seen = [];
+      const real = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (s) { if (/^[A-Z]{5,}$/.test(String(s))) { const t = this.getTransform(); seen.push({ s: String(s), e: +t.e.toFixed(2), f: +t.f.toFixed(2) }); } return real.apply(this, arguments); };
+      // (its look; where it sits is the table's shake, checked below)
+      const look = (d) => d && [d.text, d.color, d.glow, d.blur, d.left, d.right].join("|");
+      const out = { tables: {} };
+      for (const mode of ["classic", "speedway", "tactical"]) { NeonPinball.start(mode); __frames(2); const d = NeonPinball.maker().drawn; out.tables[mode] = d && { text: d.text, color: d.color }; }
+      NeonPinball.start("classic"); __frames(2);
+      const m = NeonPinball.maker(); out.plate = m.plate; out.flips = m.flips; out.drawn = m.drawn;
+      // the same over frames, with FX off, and paused
+      const a = look(NeonPinball.maker().drawn); __frames(5); const b = look(NeonPinball.maker().drawn);
+      const RM = window.RM_ON; window.RM_ON = () => true; __frames(5); const off = look(NeonPinball.maker().drawn); window.RM_ON = RM;
+      out.steady = { a, b, off };
+      // a shake: the plate's offset is the table's own (its wordmark's) in each frame
+      const shook = [];
+      for (let i = 0; i < 6; i++) { NeonPinball.shake(30); seen.length = 0; __frames(1); const d = NeonPinball.maker().drawn, w = seen.find((x) => x.s === "CLASSIC"); shook.push({ plate: [d.e, d.f], table: w && [w.e, w.f] }); }
+      out.shook = shook;
+      CanvasRenderingContext2D.prototype.fillText = real;
+      return out;
+    });
+    let paused = null;
+    if (r) {
+      await q.keyboard.press("p");
+      paused = await q.evaluate(() => { __frames(5); const d = NeonPinball.maker().drawn; return d && [d.text, d.color, d.glow, d.blur, d.left, d.right].join("|"); });
+      await q.keyboard.press("p");
+    }
+    // ---- under the pause card the table holds still: paused mid-shake, its
+    // offset stays where it was (a fresh one each frame trembled for good: the
+    // shake only dies down in play); the skill lane's flash and the ball's
+    // tail stay as they were (the lamp went on flashing, the tail shrank into
+    // the ball)
+    // (the table's offset read from its wordmark, CLASSIC, as it is drawn)
+    let hold = null;
+    if (await q.evaluate(() => !!NeonPinball.shake)) {
+      await q.evaluate(() => { NeonPinball.start("classic"); __frames(2); NeonPinball.launchNow(0.9); __frames(2); NeonPinball.place(150, 470, 60, 300); __frames(6); NeonPinball.shake(30); __frames(1); });
+      await q.keyboard.press("p");
+      hold = await q.evaluate(() => {
+        const real = CanvasRenderingContext2D.prototype.fillText, seen = [];
+        let at = null;
+        CanvasRenderingContext2D.prototype.fillText = function (s) { if (String(s) === "CLASSIC") { const t = this.getTransform(); at = t.e.toFixed(2) + "," + t.f.toFixed(2); } return real.apply(this, arguments); };
+        for (let i = 0; i < 30; i++) { at = null; __frames(1); const s = NeonPinball.state(); seen.push({ at, skill: s.skillDrawn, tail: s.balls[0] && s.balls[0].tail }); }
+        CanvasRenderingContext2D.prototype.fillText = real;
+        return { shaken: !!seen[0].at && seen[0].at !== "0.00,0.00", at: [...new Set(seen.map((x) => x.at))], skill: [...new Set(seen.map((x) => x.skill))], tail: [...new Set(seen.map((x) => x.tail))] };
+      });
+      await q.keyboard.press("p");
+    }
+    check("neon-pinball: under the pause card the table holds still: paused mid-shake it keeps its offset, and the skill lane's flash and the ball's tail stay as they were",
+      !!hold && hold.shaken && hold.at.length === 1 && hold.skill.length === 1 && /^flash/.test(hold.skill[0]) && hold.tail.length === 1 && hold.tail[0] > 5, hold);
+    const THEMES = { classic: "#36f5ff", speedway: "#c060ff", tactical: "#46e6a0" };
+    check("neon-pinball: SAM LU is printed on the apron of all three tables, in each table's flipper colour",
+      !!r && Object.keys(THEMES).every((k) => r.tables[k] && r.tables[k].text === "SAM LU" && r.tables[k].color === THEMES[k]), r && r.tables);
+    // the plate against the left apron panel, the flipper's sweep, the drain and the tilt meter
+    let geo = null;
+    if (r) {
+      const P = r.plate, inPanel = (x, y) => {
+        // the panel: (48,712) (136,700) (196,752) (48,752)
+        const top = 712 - (x - 48) * 12 / 88, right = 136 + (y - 700) * 60 / 52;
+        return x >= 48 && y >= top && y <= 752 && x <= right;
+      };
+      const corners = [[P.x, P.y], [P.x + P.w, P.y], [P.x, P.y + P.h], [P.x + P.w, P.y + P.h]];
+      const L = r.flips.find((f) => f.px < 220);
+      let gap = Infinity;
+      for (let i = 0; i <= 40; i++) {
+        const th = L.act + (L.rest - L.act) * i / 40, rb = L.r + 2.5, rt = Math.max(4, L.r - 3.5);
+        for (let j = 0; j <= 32; j++) {
+          const s = L.len * j / 32, cx = L.px + s * Math.cos(th), cy = L.py + s * Math.sin(th), rad = rb + (rt - rb) * j / 32;
+          const dx = Math.max(P.x - cx, 0, cx - (P.x + P.w)), dy = Math.max(P.y - cy, 0, cy - (P.y + P.h));
+          gap = Math.min(gap, Math.hypot(dx, dy) - rad);
+        }
+      }
+      const tipX = L.px + L.len * Math.cos(L.rest);
+      geo = { corners: corners.every(([x, y]) => inPanel(x, y)), sweepGap: +gap.toFixed(1), drain: P.x + P.w < tipX, tilt: P.y + P.h < 742 || P.x > 94,
+        letters: !!r.drawn && r.drawn.left >= P.x + 3 && r.drawn.right <= P.x + P.w - 3, drawn: r.drawn };
+    }
+    check("neon-pinball: the maker's plate sits on the left apron panel, its letters inside it, clear of the left flipper's whole sweep, the drain between the tips and the tilt meter",
+      !!geo && geo.corners && geo.sweepGap >= 3 && geo.drain && geo.tilt && geo.letters, geo);
+    check("neon-pinball: the maker's plate shakes with the table (the same offset as the table's wordmark, frame by frame)",
+      !!r && r.shook.every((x) => x.table && x.plate[0] === x.table[0] && x.plate[1] === x.table[1]) && r.shook.some((x) => x.plate[0] !== 0 || x.plate[1] !== 0), r && r.shook);
+    check("neon-pinball: the maker's plate is the same every frame, with Visual FX on or off and under the pause",
+      !!r && !!r.steady.a && r.steady.a === r.steady.b && r.steady.a === r.steady.off && r.steady.a === paused, { steady: r && r.steady, paused });
+    check("neon-pinball (maker's plate): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
+  // ---- the plunger line keeps one line along the table's foot: on a phone
+  // under the LAUNCH button (kept to the room beside it, it took two lines
+  // on a small phone, the upper across the left flipper), never over the
+  // button or the maker's plate; on a laptop under the plate too. And the
+  // table shows on every screen: its backing store is exactly 11:19, so its
+  // height holds still (rounded to another shape it moved a pixel, refit,
+  // and so on every frame, each refit wiping the frame: on a 360 x 560 phone
+  // the table never showed).
+  {
+    const rows = {};
+    const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["320x568", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]];
+    for (const [label, opts] of SIZES) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/neon-pinball/");
+      await q.evaluate(() => NeonPinball.start("classic"));
+      rows[label] = await q.evaluate(() => new Promise((res) => {
+        const cv = document.getElementById("pf"), sizes = new Set();
+        let n = 0;
+        (function f() {
+          sizes.add(cv.width + "x" + cv.height);
+          if (++n < 12) return requestAnimationFrame(f);
+          const g = cv.getContext("2d"), d = g.getImageData(0, 0, cv.width, cv.height).data;
+          let lit = 0;
+          for (let i = 0; i < d.length; i += 4 * 61) if (d[i] + d[i + 1] + d[i + 2] > 160) lit++;
+          const b = cv.getBoundingClientRect(), s = b.height / 760, m = NeonPinball.maker ? NeonPinball.maker().plate : { x: 56, y: 716, w: 88, h: 18 };
+          const plate = { l: b.left + m.x * s, t: b.top + m.y * s, r: b.left + (m.x + m.w) * s, b: b.top + (m.y + m.h) * s };
+          const hint = document.getElementById("flipHint"), rg = document.createRange(); rg.selectNodeContents(hint);
+          const lines = [...rg.getClientRects()].map((x) => ({ l: x.left, t: x.top, r: x.right, b: x.bottom }));
+          const lb = document.getElementById("launchBtn"), launch = lb.getClientRects().length ? lb.getBoundingClientRect() : null;
+          const meet = (a, z) => !!z && a.l < z.right - 0.5 && z.left < a.r - 0.5 && a.t < z.bottom - 0.5 && z.top < a.b - 0.5;
+          const meetR = (a, z) => a.l < z.r - 0.5 && z.l < a.r - 0.5 && a.t < z.b - 0.5 && z.t < a.b - 0.5;
+          // (one line: every piece's middle within a few px; a key cap's box
+          // stands a little taller than the words round it)
+          const mids = lines.map((x) => (x.t + x.b) / 2);
+          res({ sizes: [...sizes], exact: cv.width * 19 === cv.height * 11, lit, lines: lines.length, oneLine: lines.length > 0 && Math.max(...mids) - Math.min(...mids) < 6,
+            overLaunch: lines.some((x) => meet(x, launch)), overPlate: lines.some((x) => meetR(x, plate)), launch: !!launch });
+        })();
+      }));
+      check("neon-pinball " + label + " (foot of the table): no page errors", q.errs.length === 0, q.errs);
+      await c.close();
+    }
+    const all = Object.values(rows);
+    check("neon-pinball: the plunger line is one line along the table's foot, never over the maker's plate, and on a phone never over the LAUNCH button",
+      all.every((x) => x.oneLine && !x.overPlate && !x.overLaunch) && ["Pixel 7", "360x560", "320x568"].every((k) => rows[k].launch), rows);
+    check("neon-pinball: the table shows on every screen (a 360 x 560 phone too): its backing store is exactly 11:19 and holds its size",
+      all.every((x) => x.exact && x.sizes.length === 1 && x.lit > 20), rows);
+  }
 };

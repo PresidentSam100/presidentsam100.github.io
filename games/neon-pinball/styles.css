@@ -90,7 +90,13 @@ html.fx-off .fx-on-word, html:not(.fx-off) .fx-off-word { display: none; }
    instead of running off the bottom of a short window */
 .stage { min-height: 0; }
 @media (pointer: coarse) { #launchBtn.show { display: block; } }
-.flip-hint { position: absolute; bottom: 6px; left: 0; right: 0; text-align: center; font-size: 10px; color: var(--muted); pointer-events: none; }
-/* (where the LAUNCH button shows, the plunger line keeps clear of it) */
-@media (pointer: coarse) { .flip-hint { right: 120px; } }
+/* (low along the table's foot, under the maker's plate on the apron) */
+.flip-hint { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 10px; line-height: 12px; color: var(--muted); pointer-events: none; }
+/* Where the LAUNCH button shows, the plunger line runs along the table's
+   foot under it, on one line: kept to the space beside the button it took
+   two lines on a small phone, the upper one across the left flipper. */
+@media (pointer: coarse) {
+  .flip-hint { white-space: nowrap; }
+  #launchBtn { bottom: 17px; }
+}
 

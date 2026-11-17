@@ -26,12 +26,16 @@
   // units through the matching scale. (W×H times the ratio was soft on a 2×
   // screen, where the table is shown larger than W×H.) Its shape stays W:H,
   // which the page lays the table out from. A resize or a zoom refits it.
+  // The backing store is always exactly 11:19 (440:760 is 11:19 times 40):
+  // the page sizes the table's height from it, so a store rounded to some
+  // other shape (494 x 854, then 496 x 856) moved the height a pixel, which
+  // refit it again, and so on every frame, each refit wiping what that
+  // frame drew: on a 360 x 560 phone the table never showed.
   function fit() {
     const r = window.devicePixelRatio || 1, cw = canvas.clientWidth, ch = canvas.clientHeight;
     const k = cw && ch ? Math.min(3, Math.max(1, Math.max(cw / W, ch / H) * r)) : Math.min(2, r);
-    const w = Math.round(W * k), h = Math.round(H * k);
-    // (within a pixel is the same size, so a rounding pixel doesn't refit it again)
-    if (Math.abs(canvas.width - w) <= 1 && Math.abs(canvas.height - h) <= 1) return;
+    const n = Math.min(120, Math.max(40, Math.ceil(40 * k - 1e-6))), w = 11 * n, h = 19 * n;
+    if (canvas.width === w && canvas.height === h) return;
     canvas.width = w; canvas.height = h;
     ctx.setTransform(w / W, 0, 0, h / H, 0, 0);
   }
@@ -735,10 +739,46 @@
   window.addEventListener("reducemotionchange", () => { if (state === "ready") flipHint(); });
 
   // ---------- render ----------
-  function draw() {
+  // The maker's name, printed on the apron's left panel under the left
+  // flipper: below the flipper's whole sweep, left of the drain, above the
+  // tilt meter (and the plunger hint, laid along the table's foot), and where
+  // a phone's LAUNCH button (over the right panel) never covers it. A dark
+  // plate rimmed in the table's neon, the letters lit in its flipper colour,
+  // spaced by hand. Nothing in it changes from frame to frame, so there is no
+  // motion for Visual FX or the pause to hold.
+  const MAKER = { x: 56, y: 716, w: 88, h: 18, text: "SAM LU", track: 2.2 };
+  let makerDrawn = null;   // what the last frame printed there (test hook)
+  function drawMaker(th) {
+    const m = MAKER, r = 4;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(m.x + r, m.y); ctx.arcTo(m.x + m.w, m.y, m.x + m.w, m.y + m.h, r); ctx.arcTo(m.x + m.w, m.y + m.h, m.x, m.y + m.h, r);
+    ctx.arcTo(m.x, m.y + m.h, m.x, m.y, r); ctx.arcTo(m.x, m.y, m.x + m.w, m.y, r); ctx.closePath();
+    ctx.fillStyle = "rgba(5,3,14,0.6)"; ctx.fill();
+    ctx.strokeStyle = th.wall; ctx.globalAlpha = 0.6; ctx.lineWidth = 1.4; ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.font = "900 13px Orbitron, system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    const ws = [...m.text].map((ch) => ctx.measureText(ch).width);
+    const width = ws.reduce((a, b) => a + b, 0) + m.track * (ws.length - 1), x0 = m.x + (m.w - width) / 2;
+    const y = m.y + m.h / 2 + 0.5, t = ctx.getTransform();
+    ctx.shadowColor = th.glow; ctx.shadowBlur = 6; ctx.fillStyle = th.flip;
+    let x = x0;
+    [...m.text].forEach((ch, i) => { ctx.fillText(ch, x, y); x += ws[i] + m.track; });
+    makerDrawn = { text: m.text, color: th.flip, glow: th.glow, blur: 6, e: +t.e.toFixed(2), f: +t.f.toFixed(2), left: +x0.toFixed(1), right: +(x0 + width).toFixed(1) };
+    ctx.restore();
+  }
+  // A frame drawn under the pause card (held) keeps the last shake offset and
+  // the lamps' blink where they were: the shake only dies down in play, so a
+  // fresh offset each frame trembled under the card for good, and the
+  // flashing lamps went on flashing.
+  let shakeAt = [0, 0], blinkClock = 0;
+  function draw(held) {
     const th = T ? T.theme : { bg1:"#1a1140", bg2:"#0a0618", wall:"#3aa9ff", glow:"rgba(54,245,255,.6)" };
-    let ox = 0, oy = 0;
-    if (shake > 0.3) { ox = (Math.random() - 0.5) * shake; oy = (Math.random() - 0.5) * shake; }
+    if (!held) {
+      shakeAt = shake > 0.3 ? [(Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake] : [0, 0];
+      blinkClock = performance.now();
+    }
+    const ox = shakeAt[0], oy = shakeAt[1];
     ctx.save(); ctx.clearRect(0, 0, W, H); ctx.translate(ox, oy);
 
     const bg = ctx.createLinearGradient(0, 0, 0, H);
@@ -749,7 +789,7 @@
     for (let gy = 60; gy < H; gy += 40) { ctx.beginPath(); ctx.moveTo(24, gy); ctx.lineTo(W - 24, gy); ctx.stroke(); }
 
     if (!T) { ctx.restore(); return; }
-    const now = performance.now(), blinkOn = reduced() || Math.floor(now / 220) % 2 === 0;
+    const blinkOn = reduced() || Math.floor(blinkClock / 220) % 2 === 0;
 
     // faint table wordmark + fan arcs behind the play
     ctx.save();
@@ -764,6 +804,7 @@
     ctx.fillStyle = th.glow.replace("0.6", "0.10");
     ctx.beginPath(); ctx.moveTo(48, 712); ctx.lineTo(136, 700); ctx.lineTo(196, 752); ctx.lineTo(48, 752); ctx.closePath(); ctx.fill();
     ctx.beginPath(); ctx.moveTo(386, 712); ctx.lineTo(304, 700); ctx.lineTo(244, 752); ctx.lineTo(386, 752); ctx.closePath(); ctx.fill();
+    drawMaker(th);
 
     // top rollover lanes: lamps in real channels (the guides are walls)
     skillDrawn = "";
@@ -912,7 +953,8 @@
     // balls (with Visual FX on, a comet tail: a ribbon of the table's neon,
     // glowing, with a white core, both tapering away behind the ball)
     balls.forEach((b) => {
-      if (!b.captured && !b.inLane) { b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 12) b.trail.shift(); }
+      if (held) { /* (the tail holds as it was) */ }
+      else if (!b.captured && !b.inLane) { b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 12) b.trail.shift(); }
       else b.trail.length = 0;
       if (!reduced() && b.trail.length > 1) {
         const n = b.trail.length;
@@ -964,7 +1006,7 @@
   if (window.GameShell) GameShell.guardLeave({ active: () => (PAUSE.isPaused() || state === "play" || state === "ready" || state === "drain") && !untouched(), pausable: PAUSE });
   function loop(ts) {
     const dt = Math.min(0.033, (ts - last) / 1000 || 0.016); last = ts;
-    if (PAUSE.isPaused()) { last = ts; draw(); requestAnimationFrame(loop); return; }
+    if (PAUSE.isPaused()) { last = ts; draw(true); requestAnimationFrame(loop); return; }
     if (state === "play" || state === "ready") {
       playT += dt * 1000;
       if (state === "ready" && plunger.pulling) plunger.charge = Math.min(1, plunger.charge + dt * 1.1);
@@ -1071,7 +1113,7 @@
 
   // ---------- test hooks (not used by play) ----------
   window.NeonPinball = {
-    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured })), kickbackLit, skillLane, skillDrawn, skillLeft: Math.max(0, Math.round(skillUntil - playT)), multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
+    state: () => ({ state, score, ballNum, mult, bonus, balls: balls.map((b) => ({ x: Math.round(b.x), y: Math.round(b.y), vx: Math.round(b.vx), vy: Math.round(b.vy), inLane: b.inLane, captured: !!b.captured, tail: b.trail.length > 1 ? Math.round(Math.hypot(b.trail[0].x - b.x, b.trail[0].y - b.y)) : 0 })), kickbackLit, skillLane, skillDrawn, skillLeft: Math.max(0, Math.round(skillUntil - playT)), multiball, jackpotValue, extraBalls, locks, tilted, lanes: T ? T.lanes.map((l) => l.lit) : [], inlanes: T ? T.inlanes.map((l) => l.lit) : [] }),
     start: startGame,
     place: (x, y, vx, vy) => { const b = balls[0]; if (!b) return; b.inLane = false; b.captured = null; b.x = x; b.y = y; b.vx = vx || 0; b.vy = vy || 0; if (state === "ready") state = "play"; },
     flip: (side, up) => setFlip(side, up),
@@ -1082,5 +1124,9 @@
     pops: () => pops.map((q) => { const lk = popLook(q); return { text: popText(q), x: Math.round(q.x), y: +lk.y.toFixed(2), a: +lk.a.toFixed(3), t: +q.t.toFixed(3) }; }),
     bumpers: () => T.bumpers.map((bm) => ({ x: bm.x, y: bm.y, r: bm.r })),
     geom: () => ({ flippers: flippers.map((f) => ({ px: f.px, py: f.py, len: f.len, theta: f.theta })), kicker: T.kicker, scoops: T.scoops, lanes: T.lanes, walls: T.walls.length }),
+    // the maker's plate on the apron, the flippers' rest and raised angles,
+    // and what the last frame printed on the plate (with the table's shake)
+    maker: () => ({ plate: MAKER, flips: flippers.map((f) => ({ px: f.px, py: f.py, len: f.len, r: f.r, rest: f.rest, act: f.act })), drawn: makerDrawn }),
+    shake: (v) => { shake = v; },
   };
 })();
