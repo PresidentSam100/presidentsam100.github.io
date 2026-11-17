@@ -22,6 +22,10 @@ body {
   align-items: flex-start;
   justify-content: center;
   padding: 14px 16px 28px;
+  /* the page is painted once, by html (as tall as the window or the
+     content): a body shorter than the window painting its own copy left a
+     seam where it ended */
+  background: none;
 }
 
 #page {
@@ -33,16 +37,27 @@ body {
 }
 
 /* ---- masthead -------------------------------------------------------- */
+/* The corner box sits at the cover's top left and the star burst at its top
+   right; the title runs between them, never over either. --side is the room
+   each keeps (the burst is the wider, and the title stays centred), so the
+   title is as big as the space left: one line on a laptop (6.45 is its width
+   in ems with the drop shadow), two lines on a phone. The masthead is at
+   least as tall as the burst, so neither corner piece hangs over the panel. */
 #masthead {
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 10px 0 12px;
+  min-height: 102px;
+  container-type: inline-size;
+  --side: 112px;
 }
 
 #masthead h1 {
-  font-size: clamp(44px, 9vw, 84px);
+  font-size: clamp(24px, calc((100cqi - 2 * var(--side)) / 6.45), 84px);
+  max-width: calc(100cqi - 2 * var(--side));
+  text-align: center;
   font-weight: 400;
   letter-spacing: 0.045em;
   color: #e23b46;
@@ -70,6 +85,18 @@ body {
   line-height: 1.05;
 }
 .issue-box span { display: block; color: #e23b46; font-size: 17px; }
+/* the publisher's band across the top of the corner box, as on a real cover */
+.issue-box .publisher {
+  display: block;
+  margin: -5px -9px 4px;
+  padding: 4px 6px 3px;
+  background: #1a1430;
+  color: #fff8e7;
+  font-weight: 400;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  line-height: 1.02;
+}
 
 .star-burst {
   position: absolute;
@@ -131,6 +158,10 @@ body {
   transform: rotate(-0.6deg);
 }
 .cap:nth-child(even) { transform: rotate(0.8deg); background: #fff8e7; }
+/* on a laptop the captions keep one row: the page narrows on a short
+   window (its height sets the panel's size), and a second row ran the page
+   off the bottom. They may run past the panel's edges into the margin. */
+@media (min-width: 641px) { #captions { flex-wrap: nowrap; } .cap { white-space: nowrap; } }
 
 /* ---- touch controls (coarse pointers only) ---------------------------- */
 #touch-controls { display: none; }
@@ -169,7 +200,9 @@ body {
 
 @media (max-width: 640px) {
   body { padding: 10px 10px 20px; }
-  #masthead { padding-top: 52px; }             /* clear the fixed button rows */
+  #masthead { padding-top: 52px; --side: 86px; }   /* clear the fixed button rows */
+  /* two lines: 3.3 is the longer line's width in ems ("MENACE!") */
+  #masthead h1 { font-size: min(44px, calc((100cqi - 2 * var(--side)) / 3.3)); }
   .issue-box { top: 44px; }
   .star-burst { width: 74px; height: 74px; top: 40px; right: 0; }
   .star-burst span { font-size: 11px; }

@@ -211,4 +211,59 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("meteor-menace (points): no page errors", q.errs.length === 0, q.errs);
     await ctx2.close();
   }
+
+  // ---- the cover's corner box carries the publisher, SAM LU COMICS, over
+  // No. 1 and 10¢, and it shows: on every screen the title runs between the
+  // box and the star burst, never over either (on a short laptop window and
+  // on phones the title hid the box), neither corner piece hangs over the
+  // panel, the box is on the screen, and on a laptop the page fits its
+  // window (the key captions keep one row: a second ran a short window's
+  // page off the bottom). The page's paper is painted once, by html, as tall
+  // as the window: a body shorter than the window painted its own and left
+  // a seam where it ended. The suites keep the web fonts out, so Bangers
+  // comes as a stand-in: Impact at 86%, Bangers's own widths.
+  {
+    const BANGERS = '@font-face { font-family: "Bangers"; src: local("Impact"); size-adjust: 86%; }';
+    const { devices } = require("@playwright/test");
+    const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]];
+    const rows = {};
+    for (const [label, dev] of SIZES) {
+      const c = await lib.newContext(browser, dev);
+      await c.route(/fonts\.googleapis/, (r) => r.fulfill({ contentType: "text/css", body: BANGERS }));
+      const q = await lib.open(c, base, "games/meteor-menace/");
+      rows[label] = await q.evaluate(async () => {
+        await document.fonts.ready;
+        const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; };
+        const meet = (a, b) => a.l < b.r - 1 && b.l < a.r - 1 && a.t < b.b - 1 && b.t < a.b - 1;
+        const box = document.querySelector(".issue-box"), pub = box && box.querySelector(".publisher"), burst = document.querySelector(".star-burst");
+        const h1 = document.querySelector("#masthead h1"), panel = R(document.getElementById("panel"));
+        const rg = document.createRange(); rg.selectNodeContents(h1);
+        const lines = [...rg.getClientRects()].map((b) => ({ l: b.left, t: b.top, r: b.right, b: b.bottom }));
+        const bx = R(box), bu = R(burst);
+        return {
+          pub: pub ? pub.innerText.replace(/\s+/g, " ").trim() : null, text: box.innerText.replace(/\s+/g, " ").trim(),
+          clear: lines.length > 0 && !lines.some((ln) => meet(ln, bx) || meet(ln, bu)) && !meet(bx, bu),
+          lines: lines.length, overPanel: Math.max(bx.b, bu.b) - panel.t, onScreen: bx.l >= -2 && bx.t >= 0 && bx.r <= innerWidth,
+          spill: document.documentElement.scrollHeight - innerHeight,
+          painted: getComputedStyle(document.body).backgroundImage === "none" && document.documentElement.getBoundingClientRect().height >= innerHeight,
+        };
+      });
+      check("meteor-menace " + label + " (corner box): no page errors", q.errs.length === 0, q.errs);
+      await c.close();
+    }
+    const all = Object.values(rows);
+    check("meteor-menace: the cover's corner box reads SAM LU COMICS in its publisher band, over No. 1 and 10¢",
+      all.every((x) => x.pub === "SAM LU COMICS" && /^SAM LU COMICS No\. 1 ?10¢$/.test(x.text)), all.map((x) => x.text));
+    check("meteor-menace: on a laptop (three window sizes) and on phones the title runs between the corner box and the star burst, never over either; neither hangs over the panel and the box is on screen",
+      // (2 px: the turned square round the burst grazes the panel's ink
+      // border, its points don't)
+      all.every((x) => x.clear && x.overPanel <= 2 && x.onScreen), rows);
+    check("meteor-menace: the title is one line on a laptop and two on a phone",
+      ["1280x900", "1366x657", "1280x600"].every((k) => rows[k].lines === 1) && ["Pixel 7", "360x560", "320x568"].every((k) => rows[k].lines === 2), rows);
+    check("meteor-menace: on a laptop the page fits its window, a short one too (the key captions keep one row)",
+      ["1280x900", "1366x657", "1280x600"].every((k) => rows[k].spill <= 0), rows);
+    check("meteor-menace: the page's paper is painted once, by html, as tall as the window (no seam where a shorter body ended)",
+      all.every((x) => x.painted), rows);
+  }
 };
