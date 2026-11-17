@@ -2,7 +2,8 @@
    Potting Shed: the art, shared by the game (game.js) and the shed editor
    (editor.js). Each draws one cell's worth on a 2-D canvas context g, its
    top left at x, y and s across: the brick floor, a bench, a patch of sun,
-   a pot (with its flower as far open as `bloom`), the gardener.
+   a pot (with its flower as far open as `bloom`, and its potter's stamp),
+   the gardener.
    ===================================================================== */
 (function () {
   "use strict";
@@ -31,7 +32,30 @@
     g.strokeStyle = "rgba(255, 246, 200, 0.9)"; g.lineWidth = 2;
     g.strokeRect(x + 4, y + 4, s - 8, s - 8);
   }
+  // The potter's stamp pressed into a pot's body under its rim: S. LU in a
+  // small oval, a little darker than the clay, the light catching its lower
+  // edge. Only where it reads (letters 8 px or more): on a smaller pot it
+  // is left off. It says nothing about the pot: the flower above is what
+  // shows the pot's state. Returns where it went, or null.
+  var STAMP = "S. LU";
+  function stamp(g, c, y, s) {
+    var f = s * 0.145;
+    if (f < 8) return null;
+    var m = y + s * 0.55;
+    g.save();
+    g.font = "800 " + f.toFixed(1) + "px 'Nunito Sans', system-ui, sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    var rx = g.measureText(STAMP).width / 2 + f * 0.32, ry = f * 0.74;
+    g.lineWidth = Math.max(1, f * 0.1);
+    g.strokeStyle = "rgba(255, 196, 160, 0.32)"; g.beginPath(); g.ellipse(c, m + 0.7, rx, ry, 0, 0, 7); g.stroke();
+    g.strokeStyle = "rgba(110, 42, 16, 0.5)"; g.beginPath(); g.ellipse(c, m, rx, ry, 0, 0, 7); g.stroke();
+    g.fillStyle = "rgba(255, 196, 160, 0.32)"; g.fillText(STAMP, c, m + 0.7);
+    g.fillStyle = "rgba(110, 42, 16, 0.62)"; g.fillText(STAMP, c, m);
+    g.restore();
+    return { x: c - rx, y: m - ry, w: rx * 2, h: ry * 2, f: f };
+  }
   // bloom: how far its flower is open (0 none, 1 full): opening in the sun, closing out of it
+  // (returns where its potter's stamp went, or null where the pot is too small for it)
   function pot(g, x, y, s, bloom) {
     var c = x + s / 2, top = y + s * 0.3, bot = y + s * 0.88;
     // its shadow, the pot, its rim
@@ -40,6 +64,7 @@
     g.beginPath(); g.moveTo(c - s * 0.3, top); g.lineTo(c + s * 0.3, top); g.lineTo(c + s * 0.22, bot); g.lineTo(c - s * 0.22, bot); g.closePath(); g.fill();
     g.fillStyle = "#df7c4f"; g.fillRect(c - s * 0.34, top - s * 0.08, s * 0.68, s * 0.12);
     g.strokeStyle = "#7a3416"; g.lineWidth = 1.5; g.strokeRect(c - s * 0.34, top - s * 0.08, s * 0.68, s * 0.12);
+    var st = stamp(g, c, y, s);
     // the seedling, and in the sun its flower
     g.strokeStyle = "#3f7a2c"; g.lineWidth = Math.max(2, s * 0.05);
     g.beginPath(); g.moveTo(c, top - s * 0.08); g.lineTo(c, top - s * 0.28); g.stroke();
@@ -52,6 +77,7 @@
       for (var i = 0; i < 5; i++) { var a = i * Math.PI * 2 / 5; g.beginPath(); g.arc(c + Math.cos(a) * r, top - s * 0.32 + Math.sin(a) * r, r * 0.75, 0, 7); g.fill(); }
       g.fillStyle = "#8a4a12"; g.beginPath(); g.arc(c, top - s * 0.32, r * 0.6, 0, 7); g.fill();
     }
+    return st;
   }
   // facing: the way it last went (-1 left, 1 right), where its eyes look
   function gardener(g, x, y, s, facing) {

@@ -501,6 +501,44 @@ module.exports = async ({ browser, base, check, lib }) => {
       bad.length === 0, bad.length ? { bad, seen } : seen);
   }
   await ctx.close();
+
+  // the potter's stamp, S. LU, pressed into each pot's body under its rim:
+  // on every pot where its letters come out 8 px or more (left off on
+  // smaller pots, as on a phone), inside the pot's body, the same with
+  // Visual FX on and off, and what the last frame drew for every pot shown
+  {
+    const { devices } = require("@playwright/test");
+    const sizes = [
+      ["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }],
+      ["sideways", { viewport: { width: 915, height: 412 }, isMobile: true, hasTouch: true }],
+    ];
+    const bad = [], seen = [];
+    let shownSomewhere = false;
+    for (const [name, opt] of sizes) {
+      const reads = [];
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opt);
+        const q = await lib.open(c, base, "games/potting-shed/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:potting-shed", off ? "1" : "0"); } catch (e) {} }, off) });
+        // (a shed with several pots: the third)
+        await q.evaluate(() => PottingShed.start(2)); await q.waitForTimeout(300);
+        reads.push(await q.evaluate(() => window.PottingShed && PottingShed.stamps ? { cell: PottingShed.cell(), pots: PottingShed.pots().length, stamps: PottingShed.stamps() } : null));
+        await c.close();
+      }
+      const [on, off] = reads;
+      const fits = !!on && on.cell * 0.145 >= 8;
+      const inBody = (st) => st.f >= 8 && st.x >= st.pot.x + st.pot.s * 0.2 && st.x + st.w <= st.pot.x + st.pot.s * 0.8 && st.y >= st.pot.y + st.pot.s * 0.34 && st.y + st.h <= st.pot.y + st.pot.s * 0.88;
+      const ok = !!on && !!off && (fits ? on.stamps.length === on.pots && on.stamps.every(inBody) : on.stamps.length === 0) &&
+        JSON.stringify(on.stamps) === JSON.stringify(off.stamps);
+      if (fits && ok) shownSomewhere = true;
+      seen.push({ name, cell: on && on.cell, pots: on && on.pots, stamps: on && on.stamps.length });
+      if (!ok) bad.push({ name, on, off });
+    }
+    check("potting-shed: S. LU is pressed into every pot's body under its rim where its letters come out 8 px or more (left off on smaller pots), the same with Visual FX on and off",
+      bad.length === 0 && shownSomewhere, bad.length ? { bad, seen } : seen);
+  }
 };
 
 // each shed's moves (L R U D), the fewest pushes, from a solver

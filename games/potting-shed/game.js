@@ -321,6 +321,7 @@
     if (tween) { mx = cx(tween.from) + (mx - cx(tween.from)) * ease; my = cy(tween.from) + (my - cy(tween.from)) * ease; }
     parts.push({ y: my, z: 1, i: pots.length, x: mx, me: true });
     parts.sort(function (a, b) { return a.y - b.y || a.z - b.z || a.i - b.i; });
+    stamps = [];
     drawn = parts.map(function (q) {
       if (q.me) drawGardener(q.x, q.y, s); else drawPot(q.x, q.y, s, q.flower);
       return q.me ? { me: true, y: q.y } : { pot: q.i, k: q.k, y: q.y, flower: q.flower };
@@ -332,7 +333,8 @@
   function drawBench(x, y, s) { Art.bench(g, x, y, s); }
   function drawSun(x, y, s) { Art.sun(g, x, y, s); }
   // bloom: how far its flower is open (0 none, 1 full): opening in the sun, closing out of it
-  function drawPot(x, y, s, bloom) { Art.pot(g, x, y, s, bloom); }
+  function drawPot(x, y, s, bloom) { var st = Art.pot(g, x, y, s, bloom); if (st) { st.px = x; st.py = y; st.s = s; stamps.push(st); } }
+  var stamps = [];  // the potters' stamps the last frame pressed into its pots (for the tests)
   function drawGardener(x, y, s) { Art.gardener(g, x, y, s, facing); }
 
   // ---- the loop, pause and the way out ------------------------------------------------------
@@ -584,6 +586,9 @@
     pause: function (on) { if (on) P.pause(); else P.resume(); },
     // what the last frame drew, back to front: { pot, k, y, flower } and { me, y }
     drawn: function () { return drawn.slice(); },
+    // the cell's size, and the potters' stamps the last frame pressed into the pots (page px)
+    cell: function () { return CELL; },
+    stamps: function () { var b = cv.getBoundingClientRect(); return stamps.map(function (st) { return { x: b.left + st.x, y: b.top + st.y, w: st.w, h: st.h, f: st.f, pot: { x: b.left + st.px, y: b.top + st.py, s: st.s } }; }); },
     flowers: function () { return pots.map(function (k) { return { k: k, sun: L.sun[k], bloom: blooms[k] || 0, wilt: wilts[k] || 0 }; }); },
     // set the shed up as a test needs it: the gardener and the pots (in the
     // sun, open)
