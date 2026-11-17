@@ -21,6 +21,16 @@
   const input = new Input(canvas);
   const game = new Game(canvas, input);
   window.__game = game; // debug/automation hook
+  // test hook: the page's name field as last drawn, in page px (null when it
+  // has scrolled off), with the name's letter size
+  window.PoodleJump = {
+    nameLine() {
+      const b = game.nameBox;
+      if (!b) return null;
+      const r = canvas.getBoundingClientRect(), k = r.width / CONFIG.W;
+      return { x: r.left + b.x * k, y: r.top + b.y * k, w: b.w * k, h: b.h * k, nameX: r.left + b.name.x * k, nameW: b.name.w * k, size: b.name.size * k, scale: k };
+    },
+  };
 
   // Re-apply when the device pixel ratio changes (e.g. dragging the window to a
   // different-density monitor or browser zoom). setTransform is reset by sizing.

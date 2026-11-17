@@ -3,7 +3,8 @@
 // propeller carries the poodle unstretched (a jump's speed still stretches it),
 // and a spring's, a trampoline's or a long fall's stretch lasts about as long
 // as a jump's; spent spring shoes come off at once when a jetpack or propeller
-// takes over.
+// takes over. The page's printed Name: field has Sam Lu written on it and
+// scrolls with the page, and no corner button sits over the page.
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);
   const done = async (p, what) => { check("poodle-jump " + what + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
@@ -239,6 +240,71 @@ module.exports = async ({ browser, base, check, lib }) => {
   const hintLine = await p.evaluate(() => document.getElementById("hint").textContent.replace(/\s+/g, " ").trim());
   check("poodle-jump: the hint line names Move and Shoot, and leaves the pause to the corner's ⏸ button", /Move/.test(hintLine) && /Shoot/.test(hintLine) && !/Pause/i.test(hintLine), hintLine);
   await done(p, "hint line");
+
+  // ---- the maker's name on the page: a printed "Name:" field at the top
+  // right of the sheet where the climb starts, "Sam Lu" written on it, clear
+  // of the score; and on every screen the page sits clear of the corner
+  // buttons (a short phone drew the score under "Games")
+  const SIZES = [
+    ["1280x900", { viewport: { width: 1280, height: 900 } }],
+    ["1366x657", { viewport: { width: 1366, height: 657 } }],
+    ["1280x600", { viewport: { width: 1280, height: 600 } }],
+    ["Pixel 7", devices["Pixel 7"]],
+    ["360x560", Object.assign({}, devices["Pixel 7"], { viewport: { width: 360, height: 560 } })],
+    ["320x568", Object.assign({}, devices["Pixel 7"], { viewport: { width: 320, height: 568 } })],
+  ];
+  const named = {}, under = {};
+  for (const [label, opts] of SIZES) {
+    const c = await lib.newContext(browser, opts);
+    p = await lib.open(c, base, "games/poodle-jump/");
+    const r = await p.evaluate(() => new Promise((res) => {
+      const g = __game.ctx, o = g.fillText, seen = [];
+      g.fillText = function (t) { seen.push(String(t)); return o.apply(this, arguments); };
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        g.fillText = o;
+        const cv = g.canvas.getBoundingClientRect(), k = cv.width / CONFIG.W;
+        const corner = Array.from(document.querySelectorAll(".nav-back-games, .gs-corner > *")).filter((x) => x.getClientRects().length).map((x) => x.getBoundingClientRect());
+        const box = window.PoodleJump && PoodleJump.nameLine ? PoodleJump.nameLine() : null;
+        res({
+          state: __game.state, written: seen.includes("Name:") && seen.includes("Sam Lu"),
+          inside: !!box && box.x >= cv.left && box.x + box.w <= cv.right + 0.5 && box.y >= cv.top && box.y + box.h <= cv.top + 90 * k,
+          clearOfScore: !!box && box.x > cv.left + 110 * k,     // (the score and best take the top left)
+          size: box ? Math.round(box.size * 10) / 10 : 0,
+          under: corner.filter((b) => cv.left < b.right && cv.right > b.left && cv.top < b.bottom && cv.bottom > b.top).length,
+        });
+      }));
+    }));
+    named[label] = r;
+    if (r.under) under[label] = r.under;
+    await done(p, "name line " + label);
+    await c.close();
+  }
+  check("poodle-jump: the start page has a printed Name: field with Sam Lu written on it, top right, clear of the score, at every size",
+    Object.values(named).every((r) => r.state === "start" && r.written && r.inside && r.clearOfScore && r.size >= 12), named);
+  check("poodle-jump: no corner button sits over the page, at every size (on a short phone the score was drawn under Games)", Object.keys(under).length === 0, under);
+
+  // ---- the field is printed on the page: it scrolls with the grid, the climb
+  // leaves it behind, and it holds still while nothing moves
+  p = await lib.open(ctx, base, "games/poodle-jump/");
+  const scroll = await p.evaluate(() => new Promise((res) => {
+    const look = () => (window.PoodleJump && PoodleJump.nameLine ? PoodleJump.nameLine() : null);
+    const frames = (n, f) => (n ? requestAnimationFrame(() => frames(n - 1, f)) : f());
+    frames(2, () => {
+      const at0 = look();
+      frames(10, () => {
+        const still = look();
+        __game.cameraY = -150;
+        frames(2, () => {
+          const down = look();
+          __game.cameraY = -900;
+          frames(2, () => { const gone = look(); __game.cameraY = 0; res({ at0, still, down, gone }); });
+        });
+      });
+    });
+  }));
+  check("poodle-jump: the Name field scrolls with the page (150 down when the view climbs 150), holds still meanwhile, and is gone once the climb has left it",
+    !!(scroll.at0 && scroll.still && scroll.down) && scroll.still.y === scroll.at0.y && Math.abs(scroll.down.y - scroll.at0.y - 150 * scroll.at0.scale) < 1 && scroll.gone === null, scroll);
+  await done(p, "name scroll");
 
   await ctx.close();
 };

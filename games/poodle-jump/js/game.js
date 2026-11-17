@@ -685,6 +685,7 @@ class Game {
     ctx.stroke();
 
     this.renderBackground(ctx);
+    this.renderNameLine(ctx);
 
     // The world is always drawn (also during death) so the camera pan reads
     // naturally: platforms scroll up and off as the camera chases the falling
@@ -727,6 +728,44 @@ class Game {
       this._doodle(ctx, cx, cy, scale, Math.floor(hash01(b * 3 + 2) * 4));
     }
     ctx.restore();
+  }
+
+  // The sheet's printed name field, at the top of the page where the climb
+  // starts: "Name:" in small print on a ruled line, top right (the score
+  // keeps the top left), and the owner's name written on it in marker. It
+  // is printed on the paper, so it scrolls with the grid: the climb leaves
+  // it behind, a fresh page brings it back. It never moves on its own, so
+  // it is the same with Visual FX off and while paused.
+  renderNameLine(ctx) {
+    const base = 44 - this.cameraY;               // the rule's height on screen
+    this.nameBox = null;
+    if (base < -10 || base > CONFIG.H + 30) return;
+    const x0 = 214, x1 = CONFIG.W - 16;
+    ctx.save();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    // the print: label and rule in the grid's blue, a shade darker
+    ctx.fillStyle = "rgba(64, 104, 142, 0.85)";
+    ctx.font = '700 11px Arial, Helvetica, sans-serif';
+    ctx.fillText("Name:", x0, base - 2);
+    const lw = ctx.measureText("Name:").width;
+    ctx.strokeStyle = "rgba(64, 104, 142, 0.6)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x0 + lw + 5, Math.round(base) + 0.5);
+    ctx.lineTo(x1, Math.round(base) + 0.5);
+    ctx.stroke();
+    // the name, written on the line in the HUD's ink, a little uphill
+    const nx = x0 + lw + 16, size = 19;
+    ctx.font = size + 'px "Permanent Marker", "Segoe UI", Arial';
+    const nw = ctx.measureText("Sam Lu").width;
+    ctx.translate(nx, base - 4);
+    ctx.rotate(-0.035);
+    ctx.fillStyle = "rgba(47, 53, 80, 0.82)";
+    ctx.fillText("Sam Lu", 0, 0);
+    ctx.restore();
+    // (in the canvas's own units, for the test hook)
+    this.nameBox = { x: x0, y: base - 4 - size, w: x1 - x0, h: size + 6, name: { x: nx, w: nw, size } };
   }
 
   // One margin scribble, centred at (x, y): a star, a spiral, a cloud
