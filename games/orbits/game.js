@@ -199,6 +199,8 @@
         g.lineTo(x, y + r * 2); g.lineTo(x - r * 0.5, y + r * 0.5); g.lineTo(x - r * 2, y); g.lineTo(x - r * 0.5, y - r * 0.5); g.closePath(); g.fill();
       } else { g.beginPath(); g.arc(x, y, 0.6 + m * 0.9, 0, 6.3); g.fill(); }
     });
+    // the chart's cartouche, under everything flown or plotted on it
+    drawn.cartouche = drawCartouche();
     // each sun's pull, as dotted rings round it
     g.setLineDash([1.5, 4]); g.strokeStyle = "rgba(31, 42, 68, 0.22)"; g.lineWidth = 1;
     L.suns.forEach(function (s) { var R = P.SUNS[s[2] || 2].r; [2.6, 4.6].forEach(function (f) { g.beginPath(); g.arc(sx(s[0]), sy(s[1]), R * f * K, 0, 6.3); g.stroke(); }); });
@@ -268,6 +270,94 @@
       drawn.tail = drawComet(sx(pos[0]), sy(pos[1]), flight, on);
       drawn.comet = [pos[0], pos[1]];
     }
+  }
+  // The cartouche: the chart maker's panel engraved in a corner of the
+  // chart, as an old atlas plate signs its charts, inside the ruled border
+  // and clear of its ticks. Paper with notched corners and a double rule,
+  // the words in the plate's ink, a gold star either side of the name. It
+  // takes the top right corner, or on a chart with something there (at
+  // the size the chart is shown), the first corner of the others that is
+  // clear of every sun, gate, cloud, moon's round and the start mark, and
+  // of the suns' dotted pull too where one is. It is drawn before them
+  // all, so anything that crosses it (a flight, the arrow) passes over.
+  var CART_FONT = "'Martian Mono', ui-monospace, monospace", cartKept = null;
+  function cartouche() {
+    var key = chart + ":" + SIDE;
+    if (cartKept && cartKept.key === key) return cartKept;
+    var f2 = clamp(Math.round(SIDE * 0.022), 9, 14), f1 = Math.max(7.5, Math.round(f2 * 0.72 * 2) / 2);
+    g.save();
+    if ("fontStretch" in g) g.fontStretch = "semi-condensed";
+    g.font = "500 " + f1 + "px " + CART_FONT; var w1 = g.measureText("CHARTED BY").width + 9 * f1 * 0.1;
+    g.font = "700 " + f2 + "px " + CART_FONT; var w2 = g.measureText("Sam Lu").width + f2 * 2.6;
+    g.restore();
+    var padX = Math.round(f2 * 0.8), w = Math.ceil(Math.max(w1, w2) + padX * 2), h = Math.ceil(f1 + f2 + f2 * 1.25);
+    var inset = 9 + Math.round(SIDE * 0.006), left = Math.round(sx(0) + inset), right = Math.round(sx(Phys.W) - inset - w);
+    var top = Math.round(sy(0) + inset), bottom = Math.round(sy(Phys.H) - inset - h);
+    var spots = [[right, top, "top right"], [left, top, "top left"], [right, bottom, "bottom right"], [left, bottom, "bottom left"]], pick = null, fallback = null;
+    for (var i = 0; i < spots.length && !pick; i++) {
+      var c = clashes(spots[i][0], spots[i][1], w, h);
+      if (!c.hard && !c.soft) pick = spots[i]; else if (!c.hard && !fallback) fallback = spots[i];
+    }
+    pick = pick || fallback || spots[0];
+    cartKept = { key: key, x: pick[0], y: pick[1], w: w, h: h, f1: f1, f2: f2, corner: pick[2] };
+    return cartKept;
+  }
+  // what of the chart a box (canvas px) would sit on: hard, a thing drawn
+  // there; soft, only a sun's dotted pull
+  function clashes(x, y, w, h) {
+    var out = { hard: 0, soft: 0 }, P = Phys, tagR = Math.max(7, Math.min(10, SIDE / 60));
+    var dist = function (px, py) { return Math.hypot(px - clamp(px, x, x + w), py - clamp(py, y, y + h)); };
+    var far = function (px, py) { return Math.max(Math.hypot(px - x, py - y), Math.hypot(px - x - w, py - y), Math.hypot(px - x, py - y - h), Math.hypot(px - x - w, py - y - h)); };
+    L.suns.forEach(function (s) { var R = P.SUNS[s[2] || 2].r * K, d = dist(sx(s[0]), sy(s[1])); if (d < R * 1.75 + 4) out.hard++; else if (d < R * 4.6 + 2) out.soft++; });
+    L.gates.forEach(function (q) { if (dist(sx(q[0]), sy(q[1])) < P.GATE_R * K + 7 + (L.ordered || q[2] === 2 ? 2 * tagR + 2 : 0)) out.hard++; });
+    (L.dust || []).forEach(function (d) { if (dist(sx(d[0]), sy(d[1])) < d[2] * K + 4) out.hard++; });
+    (L.moons || []).forEach(function (m) {
+      var s = L.suns[m.sun], cx = sx(s[0]), cy = sy(s[1]), R = m.r * K, pad = P.MOON.r * K + 8;
+      if (dist(cx, cy) < R + pad && far(cx, cy) > R - pad) out.hard++;
+    });
+    if (dist(sx(L.start[0]), sy(L.start[1])) < 26) out.hard++;
+    return out;
+  }
+  function drawCartouche() {
+    var c = cartouche(), x = c.x, y = c.y, w = c.w, h = c.h, n = Math.max(3, Math.round(c.f2 * 0.45));
+    // (its outline: a rectangle with a quarter round cut from each corner;
+    // i in from it, the rule that runs parallel to it)
+    var notched = function (i) {
+      var R = n + i, d = Math.sqrt(R * R - i * i), a = Math.atan2(i, d), corners = [[x + w, y, 0], [x + w, y + h, 1], [x, y + h, 2], [x, y, 3]];
+      g.beginPath();
+      g.moveTo(x + d, y + i);
+      corners.forEach(function (q) {
+        // (each corner's arc runs round the inside of the corner point, from
+        // the edge coming in to the edge going out, a quarter turn on from
+        // the corner before)
+        var start = Math.PI - a + q[2] * Math.PI / 2, end = Math.PI / 2 + a + q[2] * Math.PI / 2;
+        g.arc(q[0], q[1], R, start, end, true);
+      });
+      g.closePath();
+    };
+    g.save();
+    notched(0); g.fillStyle = "rgba(248, 243, 230, 0.94)"; g.fill();
+    g.strokeStyle = "#1f2a44"; g.lineWidth = 1.1; g.stroke();
+    notched(2.5); g.strokeStyle = "rgba(31, 42, 68, 0.45)"; g.lineWidth = 0.6; g.stroke();
+    if ("fontStretch" in g) g.fontStretch = "semi-condensed";
+    g.textAlign = "center"; g.textBaseline = "alphabetic";
+    var mid = x + w / 2, b1 = y + Math.round(c.f2 * 0.55) + c.f1 * 0.78, b2 = b1 + c.f2 * 0.3 + c.f2 * 0.82;
+    g.fillStyle = "#4e5a74"; g.font = "500 " + c.f1 + "px " + CART_FONT;
+    if ("letterSpacing" in g) g.letterSpacing = (c.f1 * 0.1).toFixed(1) + "px";
+    g.fillText("CHARTED BY", mid + ("letterSpacing" in g ? c.f1 * 0.05 : 0), b1);
+    if ("letterSpacing" in g) g.letterSpacing = "0px";
+    g.fillStyle = "#1f2a44"; g.font = "700 " + c.f2 + "px " + CART_FONT;
+    var nw = g.measureText("Sam Lu").width;
+    g.fillText("Sam Lu", mid, b2);
+    // the gold stars either side of the name
+    g.fillStyle = "#8d6614";
+    [-1, 1].forEach(function (s) {
+      var cx = mid + s * (nw / 2 + c.f2 * 0.62), cy = b2 - c.f2 * 0.36, r = c.f2 * 0.3;
+      g.beginPath(); g.moveTo(cx, cy - r); g.lineTo(cx + r * 0.25, cy - r * 0.25); g.lineTo(cx + r, cy); g.lineTo(cx + r * 0.25, cy + r * 0.25);
+      g.lineTo(cx, cy + r); g.lineTo(cx - r * 0.25, cy + r * 0.25); g.lineTo(cx - r, cy); g.lineTo(cx - r * 0.25, cy - r * 0.25); g.closePath(); g.fill();
+    });
+    g.restore();
+    return c;
   }
   function drawTrace(f) {
     g.strokeStyle = "rgba(31, 42, 68, 0.38)"; g.lineWidth = 1.1;
@@ -817,6 +907,13 @@
     trace: function () { return trace ? { n: trace.n, end: trace.end.kind, hash: Phys.hash(trace) } : null; },
     preview: function () { return prev ? { end: prev.preview, n: prev.n } : null; },
     pause: function (on) { if (on) P.pause(); else P.resume(); },
-    drawn: function () { return drawn; }
+    drawn: function () { return drawn; },
+    // the cartouche as laid out for the chart's size: its box (canvas px and
+    // chart units) and its two lines' letter sizes
+    cartouche: function () {
+      if (!L) return null;
+      var c = cartouche();
+      return { x: c.x, y: c.y, w: c.w, h: c.h, f1: c.f1, f2: c.f2, corner: c.corner, side: SIDE, ux0: (c.x - M) / K, uy0: (c.y - M) / K, ux1: (c.x + c.w - M) / K, uy1: (c.y + c.h - M) / K, k: K };
+    }
   };
 })();

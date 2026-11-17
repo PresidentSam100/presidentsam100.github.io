@@ -28,6 +28,8 @@
 // - Paused, a flight holds still and the arrows do nothing; Esc with a comet
 //   in the air asks first.
 // - The games page's reset clears the counts and keeps the chart picked.
+// - The cartouche (Charted by Sam Lu): in a corner of every chart at every
+//   size, clear of everything on it, painted with Visual FX on and off.
 // - Phones and laptops: the menu, the chart and its buttons fit, clear of
 //   the corner buttons, upright and on the side.
 // (SOLUTIONS, a push for each chart, are at the end of the file.)
@@ -323,6 +325,62 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("orbits: the games page's reset clears the charts' counts and the launches on charts not yet charted, and keeps the chart picked",
       had === "orbits_best,orbits_chart,orbits_go" && kept === "orbits_chart", { had, kept });
     await c.close();
+  }
+
+  // ---- the cartouche, "Charted by Sam Lu", in a corner of every chart: at
+  // phone and laptop sizes, for all thirty charts, inside the ruled border
+  // and clear of its ticks, and clear of every sun (its rays too), gate
+  // (its ticks and number), dust cloud, moon's round and the start mark
+  // (worked out here from levels.js, not from the page's own sums); its
+  // letters 7.5 px at the least; and painted: ink and paper in its box,
+  // the same with Visual FX off, still while a comet flies
+  {
+    const SIZES = [[320, 568, true], [360, 560, true], [412, 839, true], [750, 340, true], [1366, 657, false], [1280, 600, false], [1280, 900, false]];
+    const bad = [], seen = {};
+    for (const [w, h, phone] of SIZES) {
+      const c = await lib.newContext(browser, phone ? { viewport: { width: w, height: h }, isMobile: true, hasTouch: true } : { viewport: { width: w, height: h } });
+      const q = await lib.open(c, base, "games/orbits/");
+      for (let n = 0; n < LV.charts.length; n++) {
+        const k = await q.evaluate((n) => { Orbits.start(n); return Orbits.cartouche ? Orbits.cartouche() : null; }, n);
+        if (!k) { bad.push(w + "x" + h + ": no cartouche"); break; }
+        seen[k.corner] = (seen[k.corner] || 0) + 1;
+        const L = LV.charts[n], u = 1 / k.k, why = [];
+        const dist = (x, y) => Math.hypot(x - Math.max(k.ux0, Math.min(x, k.ux1)), y - Math.max(k.uy0, Math.min(y, k.uy1)));
+        const far = (x, y) => Math.max(...[[k.ux0, k.uy0], [k.ux1, k.uy0], [k.ux0, k.uy1], [k.ux1, k.uy1]].map(([a, b]) => Math.hypot(x - a, y - b)));
+        if (k.ux0 < 6 * u || k.uy0 < 6 * u || k.ux1 > Phys.W - 6 * u || k.uy1 > Phys.H - 6 * u) why.push("on the border's ticks");
+        L.suns.forEach((s, i) => { if (dist(s[0], s[1]) < Phys.SUNS[s[2] || 2].r * 1.75 + 2 * u) why.push("sun " + i); });
+        L.gates.forEach((g, i) => { if (dist(g[0], g[1]) < Phys.GATE_R + 6 * u + (L.ordered || g[2] === 2 ? 20 * u : 0)) why.push("gate " + i); });
+        (L.dust || []).forEach((d, i) => { if (dist(d[0], d[1]) < d[2] + 2 * u) why.push("dust " + i); });
+        (L.moons || []).forEach((m, i) => { const s = L.suns[m.sun]; if (dist(s[0], s[1]) < m.r + Phys.MOON.r + 4 * u && far(s[0], s[1]) > m.r - Phys.MOON.r - 4 * u) why.push("moon " + i); });
+        if (dist(L.start[0], L.start[1]) < 24 * u) why.push("start mark");
+        if (k.f1 < 7.5 || k.f2 < 7.5) why.push("letters " + k.f1 + "/" + k.f2);
+        if (why.length) bad.push(w + "x" + h + " chart " + (n + 1) + " (" + k.corner + "): " + why.join(", "));
+      }
+      // (painted: in its box, the paper and the ink; with Visual FX off, the
+      // same box; while a comet flies, still there)
+      const paint = () => q.evaluate(() => {
+        const k = Orbits.cartouche(), cv = document.getElementById("sky"), d = cv.width / cv.clientWidth;
+        const px = cv.getContext("2d").getImageData(Math.round(k.x * d), Math.round(k.y * d), Math.round(k.w * d), Math.round(k.h * d)).data;
+        let ink = 0, paper = 0, all = px.length / 4;
+        for (let i = 0; i < px.length; i += 4) { if (px[i + 3] > 200 && px[i] < 110 && px[i + 2] < 140) ink++; else if (px[i + 3] > 200 && px[i] > 235 && px[i + 1] > 230) paper++; }
+        return { ink: ink / all, paper: paper / all, box: [k.x, k.y, k.w, k.h].join(), drawn: !!Orbits.drawn().cartouche };
+      });
+      if (!bad.some((b) => b.endsWith("no cartouche"))) {
+        await q.evaluate(() => Orbits.start(0)); await q.waitForTimeout(120);
+        const on = await paint();
+        await q.keyboard.press("v"); await q.waitForTimeout(150);
+        const off = await paint();
+        await q.keyboard.press("v");
+        await q.evaluate(() => { Orbits.setPush(1150, 130); Orbits.launch(); }); await q.waitForTimeout(300);
+        const fly = await paint(), flying = await q.evaluate(() => Orbits.state());
+        const ok = (p) => p.drawn && p.ink > 0.02 && p.paper > 0.45;
+        if (!ok(on) || !ok(off) || off.box !== on.box || !ok(fly) || flying !== "fly") bad.push(w + "x" + h + " painted: " + JSON.stringify({ on, off, fly, flying }));
+      }
+      if (q.errs.length) bad.push(w + "x" + h + " errors: " + q.errs.join("; "));
+      await c.close();
+    }
+    check("orbits: the cartouche (Charted by Sam Lu) sits in a corner of every chart at every phone and laptop size, inside the border, clear of every sun, gate, cloud, moon's round and the start mark, its letters 7.5 px at the least, and is painted the same with Visual FX off and while a comet flies",
+      bad.length === 0, { bad: bad.slice(0, 12), corners: seen });
   }
 
   // ---- phones and laptops: the menu shows whole (its heading below the
