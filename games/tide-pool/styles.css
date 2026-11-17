@@ -134,4 +134,24 @@ kbd { font-family: inherit; font-size: 12px; font-weight: 800; color: var(--sea-
   .card h1 { font-size: 32px; }
 }
 
+/* Sideways phones (and other short, wide screens): one column of score,
+   pool, buttons and key line needs more height than they have, so the
+   score, the buttons and the key line stand in a column beside the pool
+   instead, and the pool takes the whole height under the corner buttons.
+   The third, empty track keeps room for the bucket beside the rocks. */
+@media (orientation: landscape) and (max-height: 500px) {
+  .shore {
+    display: grid; grid-template-columns: minmax(150px, 240px) auto 88px; grid-template-rows: 1fr auto auto auto 1fr;
+    column-gap: 16px; row-gap: 10px; justify-content: center; align-items: center; justify-items: center;
+  }
+  .hud { grid-column: 1; grid-row: 2; }
+  .tools { grid-column: 1; grid-row: 3; flex-wrap: wrap; justify-content: center; }
+  .tools button { white-space: nowrap; }   /* a button too wide for the column moves down whole, its key with it */
+  .keys { grid-column: 1; grid-row: 4; }
+  .basin {
+    grid-column: 2; grid-row: 1 / -1; align-self: stretch;
+    width: calc(100vh - 72px); width: calc(100dvh - 72px); max-width: none; min-height: 0;
+  }
+}
+
 .gs-pause { background: rgba(15, 93, 107, 0.4); }

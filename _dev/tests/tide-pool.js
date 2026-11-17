@@ -432,4 +432,44 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
   }
+
+  // ---- everything of a run on the screen: on sideways phones and short
+  // windows (where one column of score, pool, buttons and key line is too tall
+  // for the height) as on upright phones and laptops, the score line, the Hint
+  // and Menu buttons and the key line each lie wholly on the screen, none on
+  // another, the pool, the bucket or a corner button; each button keeps its
+  // key on its own line; the page doesn't scroll
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["Pixel 7 sideways", devices["Pixel 7 landscape"]], ["iPhone 12 sideways", devices["iPhone 12 landscape"]], ["568x320", devices["iPhone SE landscape"]],
+      ["667x375", touch(667, 375)], ["915x412", touch(915, 412)], ["800x420", { viewport: { width: 800, height: 420 } }], ["600x340", { viewport: { width: 600, height: 340 } }],
+      ["Pixel 7", devices["Pixel 7"]], ["320x568", touch(320, 568)], ["360x560", touch(360, 560)], ["1280x600", { viewport: { width: 1280, height: 600 } }], ["1280x900", {}]];
+    const seen = {};
+    for (const [label, opts] of sizes) {
+      const c = await lib.newContext(browser, opts);
+      const q = await open(c);
+      await q.evaluate(() => TidePool.start("tide"));
+      await q.waitForTimeout(200);
+      seen[label] = await q.evaluate(() => {
+        const box = (e) => { const r = e.getBoundingClientRect(); return { n: e.id || e.className, l: r.left, t: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height }; };
+        const W = document.documentElement.clientWidth, H = innerHeight;
+        const shown = (e) => e && e.getClientRects().length && getComputedStyle(e).display !== "none";
+        const keys = [...document.querySelectorAll(".keys > span")].filter(shown);
+        const parts = [document.getElementById("hud"), ...document.querySelectorAll("#tools button"), ...keys].filter(shown).map(box);
+        const solid = [document.getElementById("stage"), document.getElementById("pail"), ...document.querySelectorAll(".nav-back-games, .gs-corner > *")].filter(shown).map(box);
+        const meet = (a, b) => a.l < b.r && a.r > b.l && a.t < b.b && a.b > b.t;
+        const off = parts.filter((p) => p.l < 0 || p.t < 0 || p.r > W + 0.5 || p.b > H + 0.5).map((p) => p.n + " " + Math.round(p.b - H));
+        const hits = [];
+        parts.forEach((p, i) => { parts.slice(i + 1).forEach((o) => { if (meet(p, o)) hits.push(p.n + "/" + o.n); }); solid.forEach((s) => { if (meet(p, s)) hits.push(p.n + "/" + s.n); }); });
+        const tall = [...document.querySelectorAll("#tools button")].filter((b) => b.getBoundingClientRect().height > 44).map((b) => b.id);
+        return { off, hits, tall, keys: keys.length, scroll: document.documentElement.scrollHeight > H || document.documentElement.scrollWidth > W };
+      });
+      await done(q, "a run on the screen " + label);
+      await c.close();
+    }
+    const bad = Object.keys(seen).filter((k) => { const s = seen[k]; return s.off.length || s.hits.length || s.tall.length || s.keys !== 1 || s.scroll; });
+    check("tide-pool: in a run the score line, Hint and Menu and the key line are all on the screen and clear of each other, the pool, the bucket and the corner buttons, on sideways phones and short windows as on upright phones and laptops",
+      bad.length === 0, bad.map((k) => [k, seen[k]]));
+  }
 };
