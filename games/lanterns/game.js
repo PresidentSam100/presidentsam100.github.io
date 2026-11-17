@@ -517,6 +517,62 @@
   // where the moon is left bare (the wash round it is what shows it)
   function moonAt() { return { x: W * 0.2, y: H * 0.17, r: Math.max(20, Math.min(44, Math.min(W, H) * 0.055)) }; }
 
+  // The painter's seals, stacked at the painting's right as a pair often is:
+  // above, the game's own character (draw, as it follows the script picked);
+  // under it, the painter's name, 吕 (Lu), a little smaller. Both are kept
+  // clear of the corner buttons above and of the slips at the foot.
+  function sealsAt() {
+    var sz = W < 520 ? 30 : 38, sx = W - sz - (W < 520 ? 14 : 28), sy = Math.max(78, H * 0.17);
+    var nz = Math.round(sz * 0.84);
+    return { sz: sz, sx: sx, sy: sy, nz: nz, nx: sx + (sz - nz) / 2, ny: sy + sz + Math.round(sz * 0.22) };
+  }
+  // The name seal, pressed into the paper: 吕 cut in relief (朱文), red lines
+  // and a red border on the paper's own ground, as a pair often answers a
+  // white-lettered seal with a red-lettered one. The character is drawn as
+  // its two stacked mouths (口 over 口, the lower a little wider) and the short
+  // stroke joining them, in the even lines of seal script, so it looks the
+  // same everywhere without a Chinese font. The paste is worn in places and
+  // uneven at the edges, and a little thin, as a seal's impression is.
+  function nameSeal(s, x, y, z) {
+    var c = document.createElement("canvas"), k = 3, Z = Math.ceil(z * k);
+    c.width = Z; c.height = Z;
+    var q = c.getContext("2d"), r = seeded(77);
+    q.scale(k, k);
+    q.strokeStyle = "rgb(" + SEAL + ")"; q.lineCap = "square"; q.lineJoin = "miter";
+    // the border, a hair uneven, as a cut edge prints
+    var bw = Math.max(1.5, z * 0.065), e = bw / 2;
+    q.lineWidth = bw;
+    q.beginPath();
+    var corners = [[e, e], [z - e, e], [z - e, z - e], [e, z - e]];
+    q.moveTo(corners[0][0], corners[0][1]);
+    for (var i = 1; i <= 4; i++) {
+      var a = corners[(i - 1) % 4], b = corners[i % 4];
+      for (var t = 1; t <= 4; t++) {
+        var f = t / 4, j = t < 4 ? (r() - 0.5) * z * 0.025 : 0;
+        q.lineTo(a[0] + (b[0] - a[0]) * f + (a[1] === b[1] ? 0 : j), a[1] + (b[1] - a[1]) * f + (a[0] === b[0] ? 0 : j));
+      }
+    }
+    q.closePath(); q.stroke();
+    // 吕: the upper mouth, the joining stroke, the lower mouth
+    var lw = Math.max(1.5, z * 0.07), cx = z / 2;
+    q.lineWidth = lw;
+    var uw = z * 0.38, uh = z * 0.21, uy = z * 0.2;
+    var lwid = z * 0.48, lh = z * 0.24, ly = z * 0.55;
+    q.strokeRect(cx - uw / 2, uy, uw, uh);
+    q.strokeRect(cx - lwid / 2, ly, lwid, lh);
+    q.beginPath(); q.moveTo(cx - z * 0.03, uy + uh); q.lineTo(cx + z * 0.05, ly); q.stroke();
+    // wear: specks where the paste didn't take
+    q.globalCompositeOperation = "destination-out";
+    for (i = Math.round(z * 0.7); i > 0; i--) {
+      q.fillStyle = "rgba(0,0,0," + (0.35 + r() * 0.6).toFixed(2) + ")";
+      q.beginPath(); q.arc(r() * z, r() * z, 0.3 + r() * 0.55, 0, 7); q.fill();
+    }
+    s.save();
+    s.globalAlpha = 0.88;
+    s.drawImage(c, x, y, z, z);
+    s.restore();
+  }
+
   function paintScroll() {
     scroll.width = cv.width; scroll.height = cv.height;
     if (!W || !H) return;
@@ -586,6 +642,9 @@
     var edge = s.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.75);
     edge.addColorStop(0, "rgba(128,100,60,0)"); edge.addColorStop(1, "rgba(128,100,60,0.22)");
     s.fillStyle = edge; s.fillRect(0, 0, W, H);
+    // the painter's name seal, pressed in last, as it is (under the mist, which drifts over it)
+    var sl = sealsAt();
+    nameSeal(s, sl.nx, sl.ny, sl.nz);
   }
 
   function resize() {
@@ -741,7 +800,8 @@
       g.fillRect(d.x - rw * 0.6, d.y - rh - 1.2, rw * 1.2, 1.6);
     });
     // the painter's seal, cut with the game's own character in the script picked
-    var sz = W < 520 ? 30 : 38, sx = W - sz - (W < 520 ? 14 : 28), sy = Math.max(78, H * 0.17);
+    // (the name seal under it is in the painting itself: paintScroll)
+    var sl = sealsAt(), sz = sl.sz, sx = sl.sx, sy = sl.sy;
     g.fillStyle = "rgba(" + SEAL + ",0.92)";
     g.fillRect(sx, sy, sz, sz);
     g.strokeStyle = "rgba(" + PAPER + ",0.85)"; g.lineWidth = 1;
@@ -942,6 +1002,8 @@
       return lanterns.map(function (l) { return { hanzi: l.hanzi, state: l.state, y: l.y }; });
     },
     duskNow: function () { return dusk; },
+    // the painter's name seal (吕): where it is pressed, in page px
+    nameSeal: function () { var sl = sealsAt(); return { x: sl.nx, y: sl.ny, size: sl.nz }; },
     // the glosses up: what each scored, its words, where it is and how long it's been up
     floatsNow: function () { return floats.map(function (f) { return { pts: f.pts, text: f.text, x: f.x, y: f.y - f.rise, t: f.t }; }); },
     fireworks: fireworks,

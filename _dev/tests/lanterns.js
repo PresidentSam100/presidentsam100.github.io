@@ -348,4 +348,41 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   await ctx.close();
+
+  // the painter's name seal, 吕 (Lu), pressed in red under the game's own seal:
+  // on the screen at every size, in the seal's red, clear of the slips, the
+  // corner buttons and the other seal, adding no scroll, with Visual FX on or off
+  {
+    const { devices } = require("@playwright/test");
+    const touch = (w, h) => ({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true });
+    const sizes = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }],
+      ["1280x600", { viewport: { width: 1280, height: 600 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["320x568", touch(320, 568)], ["375x553", touch(375, 553)], ["360x560", touch(360, 560)], ["sideways", touch(915, 412)]];
+    for (const [name, opt] of sizes) {
+      const out = {};
+      for (const off of [false, true]) {
+        const c = await lib.newContext(browser, opt);
+        const q = await lib.open(c, base, "games/lanterns/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:lanterns", off ? "1" : "0"); } catch (e) {} }, off) });
+        await q.evaluate(() => { Lanterns.start("festival"); Lanterns.noSpawn(); }); await q.waitForTimeout(300);
+        out[off ? "off" : "on"] = await q.evaluate(() => {
+          const s = Lanterns.nameSeal ? Lanterns.nameSeal() : null;
+          if (!s) return null;
+          const box = { l: s.x, t: s.y, r: s.x + s.size, b: s.y + s.size };
+          const meet = (a, z) => a.l < z.r && z.l < a.r && a.t < z.b && z.t < a.b;
+          const fixed = [...document.querySelectorAll("body *")].filter((e) => e.id !== "stage" && e.id !== "kbd" && getComputedStyle(e).position === "fixed" && e.offsetWidth > 0 && e.offsetWidth < 700)
+            .map((e) => { const r = e.getBoundingClientRect(); return { e: e.id || e.className, l: r.left, t: r.top, r: r.right, b: r.bottom }; });
+          // the seal's red, read off the painting
+          const cv = document.getElementById("stage"), k = cv.width / innerWidth, d = cv.getContext("2d").getImageData(Math.round(s.x * k), Math.round(s.y * k), Math.round(s.size * k), Math.round(s.size * k)).data;
+          let red = 0, n = 0;
+          for (let i = 0; i < d.length; i += 4) { n++; if (d[i] > 150 && d[i] - d[i + 1] > 70 && d[i] - d[i + 2] > 80) red++; }
+          return { s, on: box.l >= 4 && box.r <= innerWidth - 4 && box.t >= 4 && box.b <= innerHeight - 4, hits: fixed.filter((f) => meet(box, f)).map((f) => f.e),
+            red: red / n, scroll: document.documentElement.scrollHeight - innerHeight, scrollX: document.documentElement.scrollWidth - innerWidth };
+        });
+        await c.close();
+      }
+      const ok = (m) => !!m && m.on && m.hits.length === 0 && m.red > 0.12 && m.red < 0.75 && m.s.size >= 16 && m.scroll <= 0 && m.scrollX <= 0;
+      check("lanterns, " + name + ": the painter's name seal 吕 is pressed in red under the game's seal, on the screen, clear of the slips and corner buttons, no scroll, with Visual FX on and off",
+        ok(out.on) && ok(out.off), out);
+    }
+  }
 };
