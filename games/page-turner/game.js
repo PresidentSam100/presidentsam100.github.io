@@ -418,6 +418,7 @@
     art.words.forEach(function (w) { var a = map(w[0], w[2]), b = map(w[1], w[2]); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); });
     g.stroke(); g.lineCap = "butt";
     g.globalAlpha = 1;
+    if (opts.credit) credit(leaf, map, col, opts.credit);
     g.restore();
     // down a hole in a page lying flat: the page beneath (painted before it,
     // paintFloor), in the shadow of the hole's far edge
@@ -432,6 +433,42 @@
     // the leaf's edge
     g.lineWidth = Math.max(1, S * 0.004); g.strokeStyle = "rgba(43, 29, 61, 0.55)";
     g.beginPath(); trace(quadPts(0, 0, 1, 1), map); g.stroke();
+  }
+  // The book's author, printed at the foot of every page: "by Sam Lu" in
+  // the page's own ink, in a gap left in the double border along its near
+  // edge, between the paper's edge and the panels (no hole or picture comes
+  // out that far). It is on the face a page shows once it lies flat (the
+  // standing leaf shows its back), so on the pages landed and on a leaf
+  // past edge on as it comes down. Below 7.5 px it is left off (a phone on
+  // its side). `where`: "floor" or "over", for the tests.
+  var CREDIT = "by Sam Lu", CREDIT_FONT = "'Encode Sans', system-ui, sans-serif", credits = { floor: null, over: null };
+  function creditSize() { return Math.min(14, Math.round(S * 0.03 * 2) / 2); }
+  function credit(leaf, map, col, where) {
+    var f = creditSize();
+    if (f < 7.5) { credits[where] = null; return; }
+    // (centred in the margin: halfway from the border's inner line to the paper's edge)
+    var rm = 1 - T.border[1] / 2, o = map(0.5, rm), e = 0.01, ax = map(0.5 + e, rm), ay = map(0.5, rm + e);
+    // (the page's own directions at that spot, a page width to S px: the
+    // letters lie in the page, squashed and turned as it is)
+    var ux = [(ax[0] - o[0]) / e / S, (ax[1] - o[1]) / e / S], uy = [(ay[0] - o[0]) / e / S, (ay[1] - o[1]) / e / S];
+    g.save();
+    g.font = "800 " + f + "px " + CREDIT_FONT;
+    var m = g.measureText(CREDIT), tw = m.width, half = (tw / 2 + f * 0.6) / S;
+    // the gap in the border, in the paper's colour (over both its lines and
+    // no further: the panels begin just inside the inner one)
+    var lw = 0.0075, r0 = 1 - T.border[1] - lw * 0.6, r1 = 1 - T.border[0] + lw * 0.6;
+    g.fillStyle = col[0]; g.beginPath(); trace(quadPts(0.5 - half, r0, 0.5 + half, r1), map); g.fill();
+    // the words
+    g.translate(o[0], o[1]); g.transform(ux[0], ux[1], uy[0], uy[1], 0, 0);
+    g.textAlign = "center"; g.textBaseline = "alphabetic";
+    var asc = m.actualBoundingBoxAscent || f * 0.72, desc = m.actualBoundingBoxDescent || f * 0.2;
+    g.globalAlpha = 0.8; g.fillStyle = col[1];
+    g.fillText(CREDIT, 0, (asc - desc) / 2);
+    g.restore();
+    // (its box on the canvas, from the corners of the text)
+    var pts = [[-tw / 2, -asc], [tw / 2, -asc], [tw / 2, desc], [-tw / 2, desc]].map(function (p) { var y = p[1] + (asc - desc) / 2; return [o[0] + ux[0] * p[0] + uy[0] * y, o[1] + ux[1] * p[0] + uy[1] * y]; });
+    var xs = pts.map(function (p) { return p[0]; }), ys = pts.map(function (p) { return p[1]; });
+    credits[where] = { n: leaf.n, f: f, x0: Math.min.apply(null, xs), y0: Math.min.apply(null, ys), x1: Math.max.apply(null, xs), y1: Math.max.apply(null, ys) };
   }
   function rays(cx, cy, r0, r1, map, lw) {
     g.beginPath();
@@ -474,7 +511,7 @@
     if (pile.length <= E.RUN) pile.push(TITLE);
     for (var j = pile.length - 1; j >= 0; j--) {
       if (j < pile.length - 1) { g.fillStyle = "rgba(0, 0, 0, 0.2)"; g.beginPath(); trace(quadPts(0, 0, 1, 1), floorMap); g.fill(); }
-      drawLeaf(pile[j], floorMap, { under: j < pile.length - 1 });
+      drawLeaf(pile[j], floorMap, { under: j < pile.length - 1, credit: j ? null : "floor" });
     }
     g = keep;
   }
@@ -676,7 +713,7 @@
   function draw() {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.clearRect(0, 0, VW, VH);
-    tagsShown = [];
+    tagsShown = []; credits.over = null;
     var scene = st || demo;
     if (!scene) return;
     paintFloor(scene);
@@ -706,7 +743,7 @@
       drawWorm(w, { scale: sc, you: w.id === 0 && scene.mode === "party" });
     });
     if (over) {
-      drawLeaf(scene.leaf, leafMap(th, curl), { shade: 0.08 * (1 - tilt) });
+      drawLeaf(scene.leaf, leafMap(th, curl), { shade: 0.08 * (1 - tilt), credit: "over" });
       // the worms under it, seen through it, so a last dash can still be steered
       ws.forEach(function (w) { drawWorm(w, { alpha: 0.42 }); });
     }
@@ -882,6 +919,9 @@
     parts: function () { return parts.length; },
     shaking: function () { return shake > 0; },
     freeze: function (on) { frozen = !!on; },
+    // the author's line as last printed: on the page lying flat, and on a
+    // leaf coming down past edge on (this frame), with its box on the canvas
+    credit: function () { return { floor: credits.floor, over: credits.over, f: creditSize() }; },
     overAt: function () { return overAt; }
   };
 })();

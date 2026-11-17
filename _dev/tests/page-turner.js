@@ -19,8 +19,8 @@
 // Party record the moment a game ends, P covering the book and picking up
 // where it stopped, the end card's keys, Visual FX off still animating the
 // fall (with no dust or shake), 2 Players (WASD against the arrows, a
-// thumb on each half of a phone, the sitting's tally), and the book fitting
-// laptops and phones.
+// thumb on each half of a phone, the sitting's tally), the book fitting
+// laptops and phones, and the author's line at the foot of each page.
 module.exports = async ({ browser, base, check, lib }) => {
   const path = require("path");
   const { devices } = require("@playwright/test");
@@ -843,7 +843,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         const cv = document.getElementById("book"), g = cv.getContext("2d"), cr = cv.getBoundingClientRect(), k = cv.width / cr.width;
         const B = E.TUNE.border || [0.025, 0.04], d = (B[0] + B[1]) / 2, cols = [];
-        const at = (x, y) => { const a = PT.project(x, y, 0), px = g.getImageData(Math.round((a[0] - cr.left) * k), Math.round((a[1] - cr.top) * k), 1, 1).data; cols.push([px[0], px[1], px[2]]); };
+        // (the author's line printed in the foot of the border, "by Sam Lu",
+        // is the one thing meant to be there: its box is passed over)
+        const by = PT.credit ? PT.credit().floor : null, printed = (x, y) => by && x >= by.x0 - 2 && x <= by.x1 + 2 && y >= by.y0 - 2 && y <= by.y1 + 2;
+        const at = (x, y) => { const a = PT.project(x, y, 0); if (printed(a[0] - cr.left, a[1] - cr.top)) return; const px = g.getImageData(Math.round((a[0] - cr.left) * k), Math.round((a[1] - cr.top) * k), 1, 1).data; cols.push([px[0], px[1], px[2]]); };
         for (let t = d; t <= 1 - d + 1e-9; t += 0.004) { at(t, d); at(t, 1 - d); at(d, t); at(1 - d, t); }
         const med = [0, 1, 2].map((i) => cols.map((c) => c[i]).sort((a, b) => a - b)[cols.length >> 1]);
         res({ n: cols.length, off: cols.filter((c) => Math.abs(c[0] - med[0]) + Math.abs(c[1] - med[1]) + Math.abs(c[2] - med[2]) > 24).length, med });
@@ -1202,5 +1205,84 @@ module.exports = async ({ browser, base, check, lib }) => {
     const on = got.on, off = got.off;
     check("page-turner: with Visual FX on the rug's stars and moons drift down and to the left; with it off they lie still",
       on.anim === "rug-drift" && on.b[0] < on.a[0] && on.b[1] > on.a[1] && off.a[0] === off.b[0] && off.a[1] === off.b[1] && !on.errs && !off.errs, got);
+  }
+
+  // ---- the author's line, "by Sam Lu", at the foot of every page: on the
+  // page lying flat (the top one) in a Party, a Party of ten rivals, 2
+  // Players and Endless, on phones and laptops, its letters 7.5 px at the
+  // least, in the page's near margin (between the printed border's inner
+  // line and the paper's edge), clear of every hole and of the HUD, the
+  // keys line and the corner buttons, and printed (ink darker than the
+  // paper in its box); on a leaf coming down, once it's past edge on (the
+  // face it lands on), and not while it stands (its back); the same with
+  // Visual FX off
+  {
+    const SIZES = [[320, 568, 1], [360, 560, 1], [390, 664, 1], [412, 839, 1], [1366, 657, 0], [1280, 600, 0], [1280, 900, 0]];
+    const bad = [];
+    for (const [w, h, phone] of SIZES) {
+      const c = await lib.newContext(browser, phone ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await open(c);
+      for (const [mode, n, fxOff] of [["party", 3, false], ["party", 10, false], ["duo", 0, false], ["endless", 0, false], ["party", 3, true]]) {
+        const r = await q.evaluate(([mode, n, fxOff]) => new Promise((res) => {
+          const PT = PageTurner, E = PageTurnerEngine, frame = (then) => requestAnimationFrame(() => requestAnimationFrame(then));
+          if (!PT.credit) { res({ none: true }); return; }
+          if (window.RM_ON && window.RM_ON() !== fxOff) document.querySelector(".rm-toggle").click();
+          PT.start(mode, "normal", mode === "party" ? n : null); PT.freeze(true);
+          // (a page landed first, so the flat one is a page of the game's own, holes and all)
+          for (let i = 0; i < 4000 && PT.st().landed < 1; i++) { const s = PT.st(); if (s.leaf && s.leaf.holes.length) s.worms.forEach((w, k) => { const hh = s.leaf.holes[k % s.leaf.holes.length]; if (w.alive) PT.place(k, hh.cx, hh.cy); }); PT.advance(1 / 60); }
+          while (PT.state() === "play" && PT.st().phase !== "stand") PT.advance(1 / 60);
+          frame(() => {
+            const out = { state: PT.state(), fx: !(window.RM_ON && window.RM_ON()) };
+            const cv = document.getElementById("book"), cr = cv.getBoundingClientRect(), k = cv.width / PT.view().VW, cr0 = PT.credit(), b = cr0.floor, s = PT.st();
+            out.standOver = cr0.over;
+            if (!b) { out.floor = null; res(out); return; }
+            out.f = b.f; out.n = b.n; out.top = s.floor ? s.floor.n : 0;
+            const pr = (x, y) => { const q = PT.project(x, y, 0); return [q[0] - cr.left, q[1] - cr.top]; };
+            const why = [];
+            // in the near margin: under the border's inner line, above the paper's edge, inside the page
+            const inner = pr(0.5, 1 - E.TUNE.border[1])[1], edge = pr(0.5, 1)[1], l = pr(0, 1)[0], rgt = pr(1, 1)[0];
+            if (b.y0 < inner - 0.5 || b.y1 > edge + 0.5 || b.x0 < l || b.x1 > rgt) why.push("not in the margin " + JSON.stringify([b, inner, edge]));
+            // clear of every hole (its printed rim too)
+            (s.floor ? s.floor.holes : []).forEach((hh, i) => E.rim(hh, E.TUNE.rim).forEach((p) => { const q = pr(p[0], p[1]); if (q[0] > b.x0 && q[0] < b.x1 && q[1] > b.y0 - 1 && q[1] < b.y1) why.push("hole " + i); }));
+            // clear of the HUD, the keys line and the corner buttons
+            const box = { left: cr.left + b.x0, right: cr.left + b.x1, top: cr.top + b.y0, bottom: cr.top + b.y1 };
+            [...document.querySelectorAll("#hud, #keys, .nav-back-games, .gs-corner > *")].filter((e) => !e.hidden && e.getClientRects().length).forEach((e) => {
+              const r = e.getBoundingClientRect();
+              if (r.left < box.right && box.left < r.right && r.top < box.bottom && box.top < r.bottom) why.push("under " + (e.id || e.className));
+            });
+            // printed: ink darker than the paper in its box
+            const d = cv.getContext("2d").getImageData(Math.floor(b.x0 * k), Math.floor(b.y0 * k), Math.max(1, Math.ceil((b.x1 - b.x0) * k)), Math.max(1, Math.ceil((b.y1 - b.y0) * k))).data;
+            const lum = []; for (let i = 0; i < d.length; i += 4) lum.push(d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11);
+            const paper = lum.slice().sort((x, y) => x - y)[Math.floor(lum.length * 0.85)];
+            out.ink = lum.filter((v) => v < paper * 0.78).length / lum.length;
+            if (out.ink < 0.08) why.push("no ink " + out.ink.toFixed(3));
+            out.why = why;
+            // a leaf coming down: its line once it's past edge on
+            if (PT.state() !== "play") { res(out); return; }
+            while (PT.st().phase !== "fall") PT.advance(1 / 120);
+            const edgeOn = (Math.PI - Math.atan(0.92 / 0.36) - Math.PI / 2) / (Math.PI / 2);
+            while (E.tilt(PT.st()) < edgeOn - 0.08) PT.advance(1 / 240);
+            frame(() => {
+              out.before = PT.credit().over;
+              while (E.tilt(PT.st()) < edgeOn + 0.2) PT.advance(1 / 240);
+              frame(() => { const o = PT.credit().over; out.after = o && { n: o.n, leaf: PT.st().leaf.n, f: o.f }; res(out); });
+            });
+          });
+        }), [mode, n, fxOff]);
+        const tag = w + "x" + h + " " + mode + (mode === "party" ? " " + n : "") + (fxOff ? " FX off" : "") + ": ";
+        if (r.none) { bad.push(tag + "no author's line"); break; }
+        if (r.floor === null) { bad.push(tag + "none on the page"); continue; }
+        if (r.f < 7.5) bad.push(tag + "letters " + r.f);
+        if (r.n !== r.top) bad.push(tag + "on page " + r.n + ", the top one is " + r.top);
+        if (r.why.length) bad.push(tag + r.why.join("; "));
+        if (r.fx === fxOff) bad.push(tag + "Visual FX not as set");
+        if (r.standOver) bad.push(tag + "on the standing leaf");
+        if (r.state === "play" && (r.before || !r.after || r.after.n !== r.after.leaf)) bad.push(tag + "coming down: " + JSON.stringify([r.before, r.after]));
+      }
+      if (q.errs.length) bad.push(w + "x" + h + " errors: " + q.errs.join("; "));
+      await c.close();
+    }
+    check("page-turner: \"by Sam Lu\" is printed at the foot of the page lying flat (Party, ten rivals, 2 Players, Endless, Visual FX off; phones 320 to 412 and laptops), 7.5 px or more, in the near margin clear of every hole, the HUD, the keys line and the corner buttons, and on a leaf coming down only once it's past edge on",
+      bad.length === 0, bad.slice(0, 12));
   }
 };
