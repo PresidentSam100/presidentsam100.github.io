@@ -322,6 +322,12 @@
     table.style.setProperty("--T", (wide ? listW : B) + "px");
     table.style.setProperty("--L", L + "px");
     $("work").classList.toggle("wide", wide);
+    // the quilt's label hangs out onto the mat on the block's left; where the
+    // block comes (near) to the table's edge, there's no mat for it, and
+    // it's left off rather than laid over the ruler numbers or the screen's edge
+    var lab = $("qlabel");
+    lab.hidden = false;
+    lab.hidden = $("block").getBoundingClientRect().left - (lab.offsetWidth - bind + 3) < 20;
     rulers();
     render();
   }

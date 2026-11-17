@@ -158,6 +158,31 @@ html.fx-on .patch.got .felt { animation: pw-puff .34s ease-out both; animation-d
 html.fx-on .block.shake { animation: pw-shake .28s ease-in-out; }
 @keyframes pw-shake { 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
 
+/* the quilt's label: a strip of cream cotton sewn onto the binding at the
+   block's bottom left corner and hanging out onto the mat, its edges turned
+   under and held by a running stitch, the maker's name embroidered on it
+   in the red thread. It never reaches over a patch, and it stays above the
+   block's bottom edge, clear of the word line. Where the block runs to the
+   table's edge (a phone) there's no mat for it, and game.js leaves it off */
+.qlabel {
+  position: absolute; z-index: 3; right: calc(100% - var(--bind) + 3px); bottom: 9px;
+  display: block; padding: 5px 11px 5px 10px; line-height: 1;
+  background: linear-gradient(rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0) 60%), #fffaf0;
+  border-radius: 2px; box-shadow: 0 2px 3px rgba(40, 10, 24, 0.4), inset 0 0 0 1px #eadfd0;
+  transform: rotate(-4deg); transform-origin: right bottom;
+  pointer-events: none; white-space: nowrap;
+}
+.qlabel[hidden] { display: none; }
+/* the running stitch round it, and the tacks where it's sewn to the binding */
+.qlabel::before { content: ""; position: absolute; inset: 2.5px; border: 1.25px dashed rgba(122, 58, 82, 0.7); border-radius: 1px; }
+.qlabel::after { content: ""; position: absolute; right: 3px; top: 3px; bottom: 3px; width: 0; border-left: 2px dotted var(--thread-deep); }
+/* the name in satin stitch: the thread laid in close slanting rows */
+.qlabel span {
+  position: relative; display: block; font-weight: 700; font-size: clamp(13px, calc(var(--B) * 0.03), 17px); letter-spacing: 0.04em; color: var(--thread);
+  background: repeating-linear-gradient(-62deg, var(--thread) 0 1.2px, #ec6479 1.2px 2px);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+
 /* the thread, from felt to felt */
 .patch { position: relative; }
 .patch::before { z-index: 1; }

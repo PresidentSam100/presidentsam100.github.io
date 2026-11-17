@@ -380,5 +380,44 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "typed paths");
   }
 
+  // ---- the quilt's label, "Sam Lu" embroidered on cotton, sewn onto the
+  // binding at the block's bottom left corner and hanging out onto the mat.
+  // On a laptop it's there, on one line, sewn over the binding but never
+  // over a patch, no lower than the block's bottom edge (clear of the word
+  // line, even a long word with its points), and clear of the tissue, the
+  // tape measure, the hint line, the corner buttons and the mat's ruler
+  // numbers, on the screen. On a phone the block runs to the table's edge,
+  // with no mat beside it, so the label is left off there
+  {
+    const SIZES = [[1280, 900, false], [1366, 657, false], [1280, 600, false], [412, 839, true], [360, 560, true], [320, 568, true]];
+    const res = {};
+    for (const [w, h, phone] of SIZES) {
+      const c = await lib.newContext(browser, phone ? Object.assign({}, devices["Pixel 7"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+      const q = await open(c);
+      await begin(q);
+      await q.evaluate(() => Patchword.type("scored"));
+      await wait(q, 100);
+      res[w + "x" + h] = await q.evaluate(() => {
+        const l = document.getElementById("qlabel");
+        if (!l) return null;
+        const box = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const meet = (a, b) => a.l < b.r - 0.5 && b.l < a.r - 0.5 && a.t < b.b - 0.5 && b.t < a.b - 0.5;
+        const lab = box(l), block = box(document.getElementById("block")), patches = box(document.getElementById("patches"));
+        const others = { word: "#word .letters, #word .pts, #word .note", tissue: "#tissue", hud: "#hud", keys: "#keys", corner: ".nav-back-games, .gs-corner > *", rulers: "#rulers span" };
+        const hits = Object.keys(others).filter((k) => [...document.querySelectorAll(others[k])].some((e) => e.getClientRects().length && meet(lab, box(e))));
+        const name = l.querySelector("span"), lines = name ? name.getClientRects().length : 0;
+        return { hidden: l.hidden || getComputedStyle(l).display === "none", text: l.textContent.trim(), lines, lab, block,
+          onPatch: meet(lab, patches), onBinding: lab.r > block.l + 1, belowBlock: lab.b > block.b + 0.5, onScreen: lab.l >= 0 && lab.t >= 0 && lab.r <= innerWidth && lab.b <= innerHeight, hits };
+      });
+      await done(q, "label " + w + "x" + h);
+      await c.close();
+    }
+    const badLaptop = SIZES.filter((s) => !s[2]).map((s) => s[0] + "x" + s[1]).filter((k) => { const m = res[k];
+      return !m || m.hidden || m.text !== "Sam Lu" || m.lines !== 1 || m.onPatch || !m.onBinding || m.belowBlock || !m.onScreen || m.hits.length; });
+    const badPhone = SIZES.filter((s) => s[2]).map((s) => s[0] + "x" + s[1]).filter((k) => !res[k] || !res[k].hidden);
+    check("patchword: on a laptop (1280x900, 1366x657, 1280x600) the quilt's label reads Sam Lu on one line, sewn over the binding at the bottom left corner, never over a patch or below the block, clear of the word, the tissue, the tape, the hint, the corner buttons and the ruler numbers; on a phone (Pixel 7, 360x560, 320x568), with no mat beside the block, it's left off",
+      badLaptop.length === 0 && badPhone.length === 0, { badLaptop, badPhone, res });
+  }
+
   await ctx.close();
 };
