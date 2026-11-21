@@ -80,7 +80,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   // paused at 0-0 there's nothing to lose, so Esc doesn't resume: it leaves
   await p.keyboard.press("Escape");
   const pingLeft = await lib.leftBy(p, 1), stillPaused = await card(p);
-  await p.keyboard.press("p"); await p.waitForTimeout(200);
+  // (the ball moving again is waited for, up to a few seconds: a busy
+  // machine can give the page no frame for a while after the key)
+  await p.keyboard.press("p");
+  await p.waitForFunction((x1) => ball.x !== x1, x1, { timeout: 5000, polling: 50 }).catch(() => {});
   const x2 = await p.evaluate(() => ball.x);
   check("ping: P pauses (ball frozen) and P resumes; the card names only P", pausedPing && x0 === x1 && !(await card(p)) && x2 !== x1 && pbtn === "▶ Resume P" && /press P to continue/.test(cardText) && !/Esc/.test(cardText),
     { pausedPing, x0, x1, x2, pbtn, cardText });
