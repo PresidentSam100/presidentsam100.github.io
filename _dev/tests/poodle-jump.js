@@ -252,7 +252,14 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["Pixel 7", devices["Pixel 7"]],
     ["360x560", Object.assign({}, devices["Pixel 7"], { viewport: { width: 360, height: 560 } })],
     ["320x568", Object.assign({}, devices["Pixel 7"], { viewport: { width: 320, height: 568 } })],
+    ["1024x600", { viewport: { width: 1024, height: 600 } }],
+    ["800x600", { viewport: { width: 800, height: 600 } }],
+    ["844x390 sideways", Object.assign({}, devices["Pixel 7"], { viewport: { width: 844, height: 390 } })],
+    ["667x375 sideways", Object.assign({}, devices["Pixel 7"], { viewport: { width: 667, height: 375 } })],
   ];
+  // (where the corner buttons stay beside the page it keeps its full size:
+  // 92% of the height, up to 600 px, as wide as the window allows)
+  const ROOMY = ["1280x900", "1366x657", "1280x600", "1024x600", "844x390 sideways"];
   const named = {}, under = {};
   for (const [label, opts] of SIZES) {
     const c = await lib.newContext(browser, opts);
@@ -271,6 +278,7 @@ module.exports = async ({ browser, base, check, lib }) => {
           clearOfScore: !!box && box.x > cv.left + 110 * k,     // (the score and best take the top left)
           size: box ? Math.round(box.size * 10) / 10 : 0,
           under: corner.filter((b) => cv.left < b.right && cv.right > b.left && cv.top < b.bottom && cv.bottom > b.top).length,
+          h: Math.round(cv.height), full: Math.round(Math.min(0.92 * innerHeight, 600, (innerWidth - 24) * 1.5)),
         });
       }));
     }));
@@ -280,8 +288,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     await c.close();
   }
   check("poodle-jump: the start page has a printed Name: field with Sam Lu written on it, top right, clear of the score, at every size",
-    Object.values(named).every((r) => r.state === "start" && r.written && r.inside && r.clearOfScore && r.size >= 12), named);
+    // (12 px letters; on a phone on its side the whole page is small, and the
+    // name scales with it, as all the page's writing does)
+    Object.entries(named).every(([k, r]) => r.state === "start" && r.written && r.inside && r.clearOfScore && r.size >= (/sideways/.test(k) ? 9 : 12)), named);
   check("poodle-jump: no corner button sits over the page, at every size (on a short phone the score was drawn under Games)", Object.keys(under).length === 0, under);
+  check("poodle-jump: where the corner buttons stay beside the page (laptops, small windows, a phone on its side) it keeps its full size; it only drops below them where they would sit over it",
+    ROOMY.every((k) => named[k] && Math.abs(named[k].h - named[k].full) <= 1), Object.fromEntries(ROOMY.map((k) => [k, named[k] && { h: named[k].h, full: named[k].full }])));
 
   // ---- the field is printed on the page: it scrolls with the grid, the climb
   // leaves it behind, and it holds still while nothing moves

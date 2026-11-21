@@ -36,6 +36,35 @@
   // different-density monitor or browser zoom). setTransform is reset by sizing.
   window.addEventListener("resize", setupHiDPI);
 
+  // The page drops below the corner buttons only where they would sit over
+  // it (pj-drop, styles.css). Judged from the plain layout each time: the
+  // page with its spiral binding (17 px past its left edge) and its 3 px
+  // edge, against each corner button, with a few pixels to spare. The corner
+  // row is built once the page has loaded, and its buttons take their width
+  // from the font when it arrives.
+  const holder = document.getElementById("game-container");
+  function fitPage() {
+    const root = document.documentElement;
+    root.classList.remove("pj-drop");
+    if (!holder) return;
+    const r = holder.getBoundingClientRect(), page = { left: r.left - 17 - 4, right: r.right + 3 + 4, top: r.top - 3 - 4, bottom: r.bottom + 3 };
+    const over = Array.from(document.querySelectorAll(".nav-back-games, .gs-corner > *"))
+      .filter((b) => b.getClientRects().length).map((b) => b.getBoundingClientRect())
+      .some((b) => page.left < b.right && page.right > b.left && page.top < b.bottom && page.bottom > b.top);
+    root.classList.toggle("pj-drop", over);
+  }
+  fitPage();
+  document.addEventListener("DOMContentLoaded", () => {
+    fitPage();
+    if (window.ResizeObserver) {
+      const watch = new ResizeObserver(fitPage);
+      document.querySelectorAll(".nav-back-games, .gs-corner").forEach((el) => watch.observe(el));
+    }
+  });
+  window.addEventListener("load", fitPage);
+  window.addEventListener("resize", fitPage);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitPage, () => {});
+
   // Muting is handled globally by the shared top-right toggle (mute-toggle.js).
   Sfx.muted = false;
   // Keep canvas clicks from being eaten by the button area only; the button

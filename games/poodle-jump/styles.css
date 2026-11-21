@@ -39,23 +39,23 @@ html, body {
   aspect-ratio: 400 / 600;
 }
 
-/* Below the corner buttons. Up to 1180 px wide the page reaches under the
-   corner row (it ends 47 px down) wherever it sits close to the top: on a
-   short phone the score was drawn under "Games". There the page starts no
+/* Below the corner buttons, only where they would sit over the page: on a
+   short phone the score was drawn under "Games". main.js lays the page out
+   as above, and where the corner row (it ends 47 px down) reaches over the
+   page, binding and edge included, it sets pj-drop: then the page starts no
    higher than 54 px (centred when there is room) and is no taller than the
-   room left under the row. Wider screens leave the corners clear of it. */
+   room left under the row. Where the buttons stay beside it (a laptop, a
+   phone on its side, most windows) the page keeps its full size. */
 :root { --pj-below: 1.8rem; }   /* the hint line under the page, and its gap */
 @media (pointer: coarse) { :root { --pj-below: 0px; } }
-@media (max-width: 1180px) {
-  :root { --pj-h: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400), calc(100vh - 62px - var(--pj-below))); }
-  @supports (height: 100dvh) {
-    :root { --pj-h: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400), calc(100dvh - 62px - var(--pj-below))); }
-  }
-  html, body { justify-content: flex-start; }
-  body { padding-top: max(54px, calc((100vh - var(--pj-h) - var(--pj-below)) / 2)); }
-  @supports (height: 100dvh) {
-    body { padding-top: max(54px, calc((100dvh - var(--pj-h) - var(--pj-below)) / 2)); }
-  }
+html.pj-drop { --pj-h: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400), calc(100vh - 62px - var(--pj-below))); }
+@supports (height: 100dvh) {
+  html.pj-drop { --pj-h: min(92vh, 600px, calc((100vw - 1.5rem) * 600 / 400), calc(100dvh - 62px - var(--pj-below))); }
+}
+html.pj-drop, html.pj-drop body { justify-content: flex-start; }
+html.pj-drop body { padding-top: max(54px, calc((100vh - var(--pj-h) - var(--pj-below)) / 2)); }
+@supports (height: 100dvh) {
+  html.pj-drop body { padding-top: max(54px, calc((100dvh - var(--pj-h) - var(--pj-below)) / 2)); }
 }
 
 #game {
