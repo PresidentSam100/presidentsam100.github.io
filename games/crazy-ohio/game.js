@@ -467,6 +467,7 @@
         onChange: (paused) => {
           holdJudgments(paused);
           if (rig) rig.classList.toggle("held", paused);
+          document.body.classList.toggle("co-held", paused);   // (the stage lights hold too)
           if (paused) { pausedAt = performance.now(); return; }
           if (!pausedAt) return;
           const delta = performance.now() - pausedAt;

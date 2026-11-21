@@ -162,4 +162,79 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("crazy-ohio: with Visual FX on the banner sways on its cables; with it off it hangs still",
       !!on.a && on.a !== on.b && !!off.a && off.a === off.b, { on, off });
   }
+
+  // ---- the stage's lights: a pink and a violet cone of light thrown down
+  // across the backdrop from above (body::before and ::after), under
+  // everything and taking no clicks. With Visual FX on they sweep to and fro,
+  // held while the run is paused and sweeping again after Restart; FX turned
+  // off on the way stops them where they are (no snap back), and on again
+  // they sweep on; with FX off from the start they stand still, angled in
+  // across the stage. Read as each light's angle, and its own clock.
+  {
+    const lc = await lib.newContext(browser);
+    const PE = ["::before", "::after"];
+    const ang = (q) => q.evaluate((PE) => PE.map((pe) => {
+      const cs = getComputedStyle(document.body, pe), m = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform);
+      return { deg: +(Math.atan2(m.b, m.a) * 180 / Math.PI).toFixed(3), cone: /conic-gradient/.test(cs.backgroundImage), clicks: cs.pointerEvents, z: cs.zIndex };
+    }), PE);
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const moves = async (q) => {
+      const a = await ang(q);
+      await q.waitForFunction(([a, PE]) => PE.every((pe, i) => { const cs = getComputedStyle(document.body, pe), m = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform); return Math.abs(Math.atan2(m.b, m.a) * 180 / Math.PI - a[i].deg) > 0.5; }), [a, PE], { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await ang(q);
+      return { a, b, moved: a.every((x, i) => Math.abs(b[i].deg - x.deg) > 0.5) };
+    };
+    const still = async (q, ms) => { const a = await ang(q); await q.waitForTimeout(ms); const b = await ang(q); return { a, b, still: a.every((x, i) => x.deg === b[i].deg) }; };
+    const clocks = (q) => q.evaluate(() => document.getAnimations().filter((x) => x.effect && x.effect.target === document.body && /co-beam/.test(x.animationName)).map((x) => ({ t: x.currentTime, state: x.playState })));
+    // (a pause lands on a coming frame, late on a busy machine: waited for,
+    // both sweeps paused and settled, then two frames more)
+    const landed = async (q) => {
+      await q.waitForFunction(() => { const an = document.getAnimations().filter((x) => x.effect && x.effect.target === document.body && /co-beam/.test(x.animationName)); return an.length === 2 && an.every((x) => x.playState === "paused" && !x.pending); }, null, { timeout: 6000, polling: 50 }).catch(() => {});
+      await q.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    };
+    const open = (off) => lib.open(lc, base, "games/crazy-ohio/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:crazy-ohio", off ? "1" : "0"); } catch (e) {} }, off) });
+    let q = await open(false);
+    const lit = await ang(q);
+    const onMenu = await moves(q);
+    await q.click("#startBtn");
+    await q.waitForSelector('.gs-pause-btn[aria-disabled="false"]', { timeout: 15000 });
+    const inPlay = await moves(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("co-held"), null, { timeout: 5000 }).catch(() => {});
+    await landed(q);
+    const paused = await still(q, 800);
+    // Restart from the card asks first while a run is under way: Enter starts over
+    await q.keyboard.press("r"); await q.waitForTimeout(150); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => !document.body.classList.contains("co-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("crazy-ohio, Visual FX on: a pink and a violet light sweep to and fro across the backdrop, under everything, on the menu and in a run; held while paused, sweeping again after Restart",
+      lit.every((l) => l.cone && l.clicks === "none" && l.z === "-1") && onMenu.moved && inPlay.moved && paused.still && again.moved, { lit, onMenu, inPlay, paused, again });
+    // FX turned off on the way: each light's own clock, read in the same
+    // moment the switch is clicked, is kept (paused, not ended), and its angle
+    // stays where it was (a light ended by FX off would spring back upright)
+    const before = await q.evaluate(() => {
+      const PE = ["::before", "::after"], read = () => PE.map((pe) => { const cs = getComputedStyle(document.body, pe), m = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform); return +(Math.atan2(m.b, m.a) * 180 / Math.PI).toFixed(3); });
+      const t = document.getAnimations().filter((x) => x.effect && x.effect.target === document.body && /co-beam/.test(x.animationName)).map((x) => x.currentTime), deg = read();
+      document.querySelector(".rm-toggle").click();
+      return { t, deg };
+    });
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await landed(q);
+    const stopped = await still(q, 700), c1 = await clocks(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await moves(q);
+    check("crazy-ohio, Visual FX turned off mid-sweep: the lights stop where they are, no jump; on again they sweep on from there",
+      before.t.length === 2 && c1.length === 2 && c1.every((c, i) => c.state === "paused" && c.t >= before.t[i] && c.t < before.t[i] + 3000) &&
+      stopped.still && stopped.b.every((x, i) => Math.abs(x.deg - before.deg[i]) < 10) && on.moved, { before, c1, stopped, on });
+    await q.close();
+    q = await open(true);
+    const off = await still(q, 800);
+    check("crazy-ohio, Visual FX off: the lights stand still, angled in across the stage (pink from the left, violet from the right)",
+      off.still && off.b.every((l) => l.cone) && Math.abs(off.b[0].deg + 22) < 0.5 && Math.abs(off.b[1].deg - 22) < 0.5, off);
+    check("crazy-ohio (stage lights): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await lc.close();
+  }
 };

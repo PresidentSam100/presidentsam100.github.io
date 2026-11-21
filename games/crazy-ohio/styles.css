@@ -16,7 +16,31 @@ body {
   color: var(--text); font-family: "Chakra Petch", "Inter", system-ui, -apple-system, Segoe UI, sans-serif;
   min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
   overflow-x: hidden; user-select: none; touch-action: manipulation;
+  isolation: isolate;   /* (so the stage lights, layers of their own, lie on the backdrop under everything else) */
 }
+/* The stage's lights: two moving heads hung above the stage, a pink one at
+   the left and a violet one at the right, each throwing a soft cone of light
+   down across the backdrop (body::before and ::after), fading as it falls.
+   With Visual FX on they sweep to and fro over the stage, out of step (8.5 s
+   and 10 s a sweep), as a show's lights do; held while the run is paused.
+   With FX off they hold still where they are, angled in across the stage.
+   They lie behind everything: the lanes, the buttons and the banner are as
+   they were, the light showing only on the backdrop around them. */
+body::before, body::after {
+  content: ""; position: fixed; top: -2vh; width: 70vh; height: 125vh; margin-left: -35vh; z-index: -1; pointer-events: none;
+  transform-origin: 50% 0;
+  background: conic-gradient(from 166deg at 50% 0%, transparent 0deg, var(--beam) 11deg, var(--beam) 17deg, transparent 28deg, transparent 360deg);
+  -webkit-mask-image: linear-gradient(to bottom, #000, rgba(0, 0, 0, 0.45) 55%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000, rgba(0, 0, 0, 0.45) 55%, transparent 92%);
+}
+/* (!important, and more particular than motion-toggle.js's FX-off rule,
+   which would end the sweeps at once and snap the lights back: here FX off
+   pauses them instead, where they are) */
+body::before { --beam: rgba(255, 79, 168, 0.15); left: 16vw; animation: co-beam-a 8.5s ease-in-out infinite alternate paused !important; }
+body::after { --beam: rgba(176, 107, 255, 0.16); left: 84vw; animation: co-beam-b 10s ease-in-out infinite alternate paused !important; }
+@keyframes co-beam-a { from { transform: rotate(-22deg); } to { transform: rotate(16deg); } }
+@keyframes co-beam-b { from { transform: rotate(22deg); } to { transform: rotate(-16deg); } }
+html.fx-on body:not(.co-held)::before, html.fx-on body:not(.co-held)::after { animation-play-state: running !important; }
 a { color: var(--pink); text-decoration: none; }
 .wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
 
