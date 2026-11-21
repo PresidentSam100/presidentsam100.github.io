@@ -290,6 +290,7 @@
     restart: function () { startRun(); },
     menu: toMenu,
     onChange: function (paused) {
+      stir(paused);   // (the light through the leaves holds too)
       // (a sowing under way is finished at once: the board is never left half sown)
       if (paused && busy) {
         clearTimeout(timer);
@@ -305,6 +306,50 @@
     pausable: P
   });
   function ask(opts, go) { if (window.GameShell && GameShell.askQuit) GameShell.askQuit(opts, go); else go(); }
+
+  // ---- sun through the leaves --------------------------------------------------------
+  // The leaves overhead stir, and the light they let through (styles.css)
+  // drifts and shifts with them: the broad pools slowly one way, the small
+  // flecks a little quicker the other, and some flecks come and go. Only
+  // transform and opacity move, so the browser runs it off the page's own
+  // work. It holds where it is while the game is paused and while Visual FX
+  // is off, so switching FX off leaves the light lying still where it was;
+  // with FX off from the start it lies still as first laid.
+  var leaves = [];
+  (function () {
+    var host = $("dapple");
+    if (!host || !host.animate) return;
+    var moves = [
+      { ms: 17000, frames: [
+        { transform: "translate(0px, 0px)" },
+        { transform: "translate(16px, 7px)", offset: 0.35 },
+        { transform: "translate(9px, 20px)", offset: 0.6 },
+        { transform: "translate(30px, 13px)" }] },
+      { ms: 11000, frames: [
+        { transform: "translate(0px, 0px)" },
+        { transform: "translate(-12px, 8px)", offset: 0.4 },
+        { transform: "translate(-21px, 3px)", offset: 0.7 },
+        { transform: "translate(-16px, 14px)" }] },
+      { ms: 7000, frames: [
+        { transform: "translate(0px, 0px)", opacity: 0.6 },
+        { opacity: 0.12, offset: 0.3 },
+        { transform: "translate(7px, -6px)", opacity: 0.85, offset: 0.65 },
+        { transform: "translate(11px, 4px)", opacity: 0.3 }] }
+    ];
+    Array.prototype.forEach.call(host.children, function (el, k) {
+      if (!moves[k]) return;
+      var a = el.animate(moves[k].frames, { duration: moves[k].ms, iterations: Infinity, direction: "alternate", easing: "ease-in-out" });
+      a.pause();
+      leaves.push(a);
+    });
+  })();
+  function stir(paused) {
+    if (paused === undefined) paused = P.isPaused();
+    var go = fx() && !paused;
+    leaves.forEach(function (a) { if (go && a.playState !== "running") a.play(); else if (!go && a.playState === "running") a.pause(); });
+  }
+  window.addEventListener("reducemotionchange", function () { stir(); });
+  stir();
 
   document.addEventListener("keydown", function (e) {
     if (e.ctrlKey || e.metaKey || e.altKey || P.isPaused() || state !== "play") return;

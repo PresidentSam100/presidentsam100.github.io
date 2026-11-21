@@ -150,6 +150,92 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("sowing: with Visual FX on each pit hops as a seed drops in; off, no hop, and the sowing takes as long", pace.on.hop && !pace.off.hop && Math.abs(pace.on.ms - pace.off.ms) < 250, pace);
 
+  // ---- sun through the leaves: pools and flecks of light over the cloth and
+  // the board, a layer that takes no clicks, under the cards. With Visual FX
+  // on they drift and shift; paused they hold where they are, and move again
+  // as the game goes on (Resume, or Restart or Menu from the pause card);
+  // switching FX off leaves them lying still where they were, with no jump.
+  // With FX off from the start they lie still as first laid.
+  {
+    const fxAt = (off) => ({ before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:sowing", off ? "1" : "0"); } catch (e) {} }, off) });
+    // each layer's place (x, y) and opacity, and whether its motion runs
+    const look = (q) => q.evaluate(() => [...document.querySelectorAll("#dapple > i")].map((e) => {
+      const m = new DOMMatrix(getComputedStyle(e).transform);
+      return { x: +m.e.toFixed(3), y: +m.f.toFixed(3), o: +(+getComputedStyle(e).opacity).toFixed(3), runs: e.getAnimations().some((a) => a.playState === "running") };
+    }));
+    const same = (a, b, tol) => a.length === 3 && a.length === b.length && a.every((s, k) => Math.abs(s.x - b[k].x) <= tol && Math.abs(s.y - b[k].y) <= tol && Math.abs(s.o - b[k].o) <= tol / 10);
+    // still over 0.8 s (or moving), and every layer's motion stopped (or running).
+    // (A pause lands with the next frame, so it is waited for first.)
+    const landed = (q) => q.evaluate(() => Promise.all([...document.querySelectorAll("#dapple > i")].flatMap((e) => e.getAnimations().map((a) => a.ready))).then(() => new Promise((r) => requestAnimationFrame(() => r()))));
+    const still = async (q) => { await landed(q); const a = await look(q); await wait(q, 800); const b = await look(q); return { still: same(a, b, 0) && b.every((s) => !s.runs), a, b }; };
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const moving = async (q) => {
+      const a = await look(q);
+      await q.waitForFunction((a) => [...document.querySelectorAll("#dapple > i")].some((e, k) => { const m = new DOMMatrix(getComputedStyle(e).transform); return Math.abs(m.e - a[k].x) > 0.5 || Math.abs(m.f - a[k].y) > 0.5; }), a, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await look(q);
+      return { moving: !same(a, b, 0) && b.every((s) => s.runs), a, b };
+    };
+    const pauseShown = (q) => q.waitForFunction(() => { const e = document.querySelector(".gs-pause"); return e && !e.hidden; }, null, { timeout: 5000 });
+
+    let q = await open(null, fxAt(false));
+    const layer = await q.evaluate(() => {
+      const d = document.getElementById("dapple"), cs = d && getComputedStyle(d), menu = getComputedStyle(document.getElementById("menu"));
+      return d && { n: d.children.length, hidden: d.getAttribute("aria-hidden"), events: cs.pointerEvents, fixed: cs.position, z: +cs.zIndex, under: +cs.zIndex < +menu.zIndex,
+        spots: [...d.children].every((e) => /radial-gradient/.test(getComputedStyle(e).backgroundImage)) };
+    });
+    const onMenu = await moving(q);
+    await q.evaluate(() => { Sowing.start(); Sowing.play(2); }); await idle(q);
+    const inPlay = await moving(q);
+    // a tap on a pit reaches the pit through the light
+    const tapTo = await q.evaluate(() => { const e = document.querySelector('.pit[data-i="1"]'), r = e.getBoundingClientRect(); return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) === e || e.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)); });
+    await q.keyboard.press("p"); await pauseShown(q);
+    const held = await still(q);
+    await q.keyboard.press("p");
+    const resumed = await moving(q);
+    // Restart from the pause card (R, then Enter on its "Start over?")
+    await q.keyboard.press("p"); await pauseShown(q);
+    await q.keyboard.press("r"); await q.waitForTimeout(150); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const restarted = Object.assign(await moving(q), { state: await q.evaluate(() => Sowing.state()), fresh: await q.evaluate(() => Sowing.board().join() === "4,4,4,4,4,4,0,4,4,4,4,4,4,0") });
+    // Menu from the pause card (Backspace, then Enter)
+    await q.evaluate(() => Sowing.play(2)); await idle(q);
+    await q.keyboard.press("p"); await pauseShown(q);
+    await q.keyboard.press("Backspace"); await q.waitForTimeout(150); await q.keyboard.press("Enter"); await q.waitForTimeout(150);
+    const toMenu = Object.assign(await moving(q), { state: await q.evaluate(() => Sowing.state()) });
+    // FX switched off mid-drift: the light stays where it was, then lies still; on again, it moves on
+    // (judged by each layer's own clock, read in the same moment the switch
+    // is pressed: a busy machine may let the light drift on a little before
+    // the pause lands, but never back to where it started)
+    const clocks = (q) => q.evaluate(() => [...document.querySelectorAll("#dapple > i")].map((e) => { const a = e.getAnimations()[0]; return a ? a.currentTime : null; }));
+    const before = await q.evaluate(() => {
+      const t = [...document.querySelectorAll("#dapple > i")].map((e) => { const a = e.getAnimations()[0]; return a ? a.currentTime : null; });
+      document.querySelector(".rm-toggle").click();
+      return t;
+    });
+    const after = await still(q);
+    const t1 = await clocks(q);
+    const noJump = before.length === 3 && before.every((t, k) => t > 500 && t1[k] >= t && t1[k] < t + 3000);
+    await q.keyboard.press("v");
+    const again = await moving(q);
+    check("sowing, Visual FX on: pools and flecks of light lie over the cloth and the board (a fixed layer under the cards, hidden from readers, that takes no clicks), drifting on the menu and in play",
+      !!layer && layer.n === 3 && layer.hidden === "true" && layer.events === "none" && layer.fixed === "fixed" && layer.under && layer.spots && onMenu.moving && inPlay.moving && tapTo,
+      { layer, onMenu, inPlay, tapTo });
+    check("sowing, Visual FX on: paused, the light holds where it is; it moves again on Resume, and after Restart or Menu from the pause card",
+      held.still && resumed.moving && restarted.moving && restarted.state === "play" && restarted.fresh && toMenu.moving && toMenu.state === "menu",
+      { held, resumed, restarted, toMenu });
+    check("sowing: Visual FX switched off mid-drift leaves the light lying still where it was (no jump); switched on, it drifts on", after.still && noJump && again.moving, { before, t1, after, again });
+    await done(q, "light, FX on");
+
+    // FX off from the start: the light lies still as first laid, on the menu and in play
+    q = await open(null, fxAt(true));
+    const offMenu = await still(q);
+    await q.evaluate(() => { Sowing.start(); Sowing.play(2); }); await idle(q);
+    const offPlay = await still(q);
+    const laid = offPlay.b.every((s) => s.x === 0 && s.y === 0) && offPlay.b[2] && offPlay.b[2].o === 0.6;
+    check("sowing, Visual FX off: the same light lies still as first laid, on the menu and in play", offMenu.still && offPlay.still && laid, { offMenu, offPlay });
+    await done(q, "light, FX off");
+  }
+
   // ---- on a phone: a tap on one of your pits sows from it
   {
     const { devices } = require("@playwright/test");

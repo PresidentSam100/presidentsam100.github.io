@@ -124,6 +124,64 @@ html.fx-on .pit.drop .seeds, html.fx-on .store.drop .seeds { animation: sw-drop 
 .record { min-height: 18px; }
 kbd { font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ochre); background: var(--black); border-radius: 4px; padding: 0 5px; }
 
+/* ---- sun through the leaves ------------------------------------------------------
+   The game is played in the shade of a tree: pools and flecks of sunlight
+   lie over the cloth and the board, as the gaps between the leaves let it
+   through. Three layers of soft spots, each a tile repeated over the page:
+   broad pools, small bright flecks, and flecks that come and go as the
+   leaves cover and uncover them. They light what they fall on (overlay:
+   the wood and the ochre glow warmer and brighter, while black stays near
+   black and cream stays cream, so every count, label and key reads as
+   before) and take no clicks.
+   Under the cards, whose shade dims them. With Visual FX on the leaves stir
+   and the light drifts and shifts with them (game.js); held while paused,
+   and with FX off it lies still where it is. */
+.dapple { position: fixed; inset: 0; z-index: 20; pointer-events: none; overflow: hidden; mix-blend-mode: overlay; }
+.dapple i { position: absolute; inset: -60px; background-repeat: repeat; will-change: transform; }
+.dapple i:nth-child(1) {
+  background-size: 980px 760px;
+  background-image:
+    radial-gradient(70px 46px at 130px 120px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(40px 30px at 200px 152px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(28px 20px at 92px 166px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent),
+    radial-gradient(22px 16px at 188px 92px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(88px 56px at 560px 300px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(46px 34px at 644px 342px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(28px 20px at 488px 350px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent),
+    radial-gradient(34px 24px at 602px 244px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(60px 40px at 250px 560px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(32px 24px at 322px 532px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(20px 14px at 206px 600px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent),
+    radial-gradient(44px 30px at 860px 92px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(22px 16px at 900px 132px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent),
+    radial-gradient(66px 44px at 840px 620px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(30px 22px at 770px 650px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(24px 18px at 900px 580px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent),
+    radial-gradient(18px 13px at 420px 130px, rgba(255, 242, 214, 0.44) 0 48%, rgba(255, 242, 214, 0.2) 74%, transparent);
+}
+.dapple i:nth-child(2) {
+  background-size: 430px 350px;
+  background-image:
+    radial-gradient(12px 9px at 52px 40px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(16px 11px at 170px 96px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(9px 7px at 300px 30px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(14px 10px at 250px 190px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(10px 8px at 96px 236px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(18px 12px at 370px 286px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(8px 6px at 20px 150px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent);
+}
+.dapple i:nth-child(3) {
+  background-size: 530px 410px;
+  background-image:
+    radial-gradient(16px 11px at 130px 30px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(22px 16px at 380px 130px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(11px 8px at 60px 300px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(20px 14px at 240px 250px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(10px 7px at 470px 350px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent),
+    radial-gradient(14px 10px at 300px 380px, rgba(255, 242, 214, 0.47) 0 48%, rgba(255, 242, 214, 0.21) 74%, transparent);
+  opacity: 0.6;
+}
+
 /* ---- the cards: the cloth's own weave ------------------------------------------ */
 .panel {
   position: fixed; inset: 0; z-index: 30;
