@@ -37,12 +37,14 @@ body {
 
 /* A breezy day over the garden. The shadows of passing clouds lie on the
    lawn (body::before: two soft patches on a tile repeated over the page,
-   faded out where the lawn meets the sky), and a butterfly flits about the
-   garden (body::after: yellow wings, dark spots, under the cards, the bed
-   and the buttons). With Visual FX on the shadows drift across the lawn, a
-   tile in 100 s (10 px a second), and the butterfly wanders the page on a
-   40 s round, its wings beating; held while paused. With FX off the shadows
-   lie still and the butterfly rests where it is, wings open. */
+   faded out where the lawn meets the sky), and three butterflies flit about
+   the garden, a yellow one (body::after), a white one and an orange one
+   (.wrap::before and ::after), under the cards, the bed and the buttons.
+   With Visual FX on the shadows drift across the lawn, a tile in 100 s (10
+   px a second), and each butterfly wanders the page on its own round (40,
+   47 and 53 s, so they never fly as one), its wings beating at its own
+   pace; held while paused. With FX off the shadows lie still and the
+   butterflies rest where they are, wings open. */
 body::before {
   content: ""; position: fixed; left: -1000px; top: 0; width: calc(100vw + 1000px); height: 100vh; z-index: -1; pointer-events: none;
   background-size: 1000px 760px;
@@ -61,22 +63,36 @@ body::before {
   animation: ct-shade 100s linear infinite paused !important;
 }
 @keyframes ct-shade { to { transform: translateX(1000px); } }
-body::after {
+body::after, .wrap::before, .wrap::after {
   content: ""; position: fixed; left: 0; top: 0; width: 26px; height: 20px; z-index: -1; pointer-events: none;
+  --wing: #ffd84a; --hind: #ffe27a; --rim: #e9961c; --dark: #3b2a14;
   background:
-    linear-gradient(#3b2a14, #3b2a14) 12.25px 4px / 1.5px 12px no-repeat,
-    linear-gradient(#3b2a14, #3b2a14) 11px 0.5px / 1px 4px no-repeat,
-    linear-gradient(#3b2a14, #3b2a14) 14px 0.5px / 1px 4px no-repeat,
-    radial-gradient(1.3px 1.3px at 3.6px 5px, #3b2a14 0 100%, transparent) no-repeat,
-    radial-gradient(1.3px 1.3px at 22.4px 5px, #3b2a14 0 100%, transparent) no-repeat,
-    radial-gradient(7.2px 5.4px at 6.4px 6.8px, #ffd84a 0 80%, #e9961c 84% 97%, transparent 100%) no-repeat,
-    radial-gradient(7.2px 5.4px at 19.6px 6.8px, #ffd84a 0 80%, #e9961c 84% 97%, transparent 100%) no-repeat,
-    radial-gradient(4.2px 4.8px at 9.2px 13.8px, #ffe27a 0 76%, #e9961c 81% 96%, transparent 100%) no-repeat,
-    radial-gradient(4.2px 4.8px at 16.8px 13.8px, #ffe27a 0 76%, #e9961c 81% 96%, transparent 100%) no-repeat;
+    linear-gradient(var(--dark), var(--dark)) 12.25px 4px / 1.5px 12px no-repeat,
+    linear-gradient(var(--dark), var(--dark)) 11px 0.5px / 1px 4px no-repeat,
+    linear-gradient(var(--dark), var(--dark)) 14px 0.5px / 1px 4px no-repeat,
+    radial-gradient(1.3px 1.3px at 3.6px 5px, var(--dark) 0 100%, transparent) no-repeat,
+    radial-gradient(1.3px 1.3px at 22.4px 5px, var(--dark) 0 100%, transparent) no-repeat,
+    radial-gradient(7.2px 5.4px at 6.4px 6.8px, var(--wing) 0 80%, var(--rim) 84% 97%, transparent 100%) no-repeat,
+    radial-gradient(7.2px 5.4px at 19.6px 6.8px, var(--wing) 0 80%, var(--rim) 84% 97%, transparent 100%) no-repeat,
+    radial-gradient(4.2px 4.8px at 9.2px 13.8px, var(--hind) 0 76%, var(--rim) 81% 96%, transparent 100%) no-repeat,
+    radial-gradient(4.2px 4.8px at 16.8px 13.8px, var(--hind) 0 76%, var(--rim) 81% 96%, transparent 100%) no-repeat;
   filter: drop-shadow(0 6px 2px rgba(30, 60, 15, 0.22));
-  scale: 1.5;
-  translate: 7vw 72vh;
+}
+body::after {
+  scale: 1.5; translate: 7vw 72vh;
   animation: ct-fly 40s ease-in-out infinite paused, ct-flap 0.18s ease-in-out infinite alternate paused !important;
+}
+/* a cabbage white: pale wings with grey-green rims and dark tips */
+.wrap::before {
+  --wing: #fbfaf1; --hind: #ffffff; --rim: #98a184;
+  scale: 1.3; translate: 88vw 22vh;
+  animation: ct-fly2 47s ease-in-out infinite paused, ct-flap 0.15s ease-in-out infinite alternate paused !important;
+}
+/* an orange one, its wings rimmed in black */
+.wrap::after {
+  --wing: #ff9a2e; --hind: #ffb45e; --rim: #2c1f10;
+  scale: 1.4; translate: 62vw 86vh;
+  animation: ct-fly3 53s ease-in-out infinite paused, ct-flap 0.21s ease-in-out infinite alternate paused !important;
 }
 @keyframes ct-fly {
   0%, 100% { translate: 7vw 72vh; rotate: -8deg; }
@@ -88,8 +104,26 @@ body::after {
   75% { translate: 84vw 74vh; rotate: -16deg; }
   87% { translate: 56vw 88vh; rotate: -10deg; }
 }
+@keyframes ct-fly2 {
+  0%, 100% { translate: 88vw 22vh; rotate: 8deg; }
+  14% { translate: 72vw 12vh; rotate: -10deg; }
+  28% { translate: 58vw 30vh; rotate: 12deg; }
+  42% { translate: 20vw 20vh; rotate: -14deg; }
+  56% { translate: 8vw 46vh; rotate: 10deg; }
+  70% { translate: 26vw 64vh; rotate: -8deg; }
+  85% { translate: 70vw 56vh; rotate: 14deg; }
+}
+@keyframes ct-fly3 {
+  0%, 100% { translate: 62vw 86vh; rotate: -6deg; }
+  16% { translate: 84vw 66vh; rotate: 12deg; }
+  33% { translate: 92vw 36vh; rotate: -10deg; }
+  50% { translate: 64vw 16vh; rotate: 8deg; }
+  66% { translate: 36vw 40vh; rotate: -14deg; }
+  83% { translate: 14vw 82vh; rotate: 10deg; }
+}
 @keyframes ct-flap { to { transform: scaleX(0.28); } }
-html.fx-on body:not(.ct-held)::before, html.fx-on body:not(.ct-held)::after { animation-play-state: running !important; }
+html.fx-on body:not(.ct-held)::before, html.fx-on body:not(.ct-held)::after,
+html.fx-on body:not(.ct-held) .wrap::before, html.fx-on body:not(.ct-held) .wrap::after { animation-play-state: running !important; }
 a { color: var(--leaf-dark); text-decoration: none; }
 .wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
 
