@@ -386,4 +386,68 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("flappy-world (pipe stamp), " + label + ": no page errors", q.errs.length === 0, q.errs);
     await q.close(); await c.close();
   }
+
+  // ---- the page's own clouds, in the sky beside the canvas: with Visual FX
+  // on they drift left, held while paused and moving again once Restart
+  // starts the flight over; with FX off they sit where the page always had
+  // them (the strip dressPage paints, at 3vh, 280 of the canvas's 854 tall,
+  // from the left edge). Read as the layer's place across the page.
+  {
+    const cctx = await lib.newContext(browser);
+    const open = (opts) => lib.open(cctx, base, "games/flappy-world/", opts);
+    const layer = (q) => q.evaluate(() => {
+      const cs = getComputedStyle(document.body, "::before"), m = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform);
+      return { x: m.m41, img: /^url\("?data:image\/png/.test(cs.backgroundImage), top: parseFloat(cs.top), h: parseFloat(cs.height), w: parseFloat(cs.width), vh: innerHeight / 100, vw: innerWidth };
+    });
+    const still = async (q, ms) => { const a = (await layer(q)).x; await q.waitForTimeout(ms); return { from: a, to: (await layer(q)).x }; };
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const moves = async (q) => {
+      const a = (await layer(q)).x;
+      await q.waitForFunction((a) => { const cs = getComputedStyle(document.body, "::before"); return new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m41 < a - 2; }, a, { timeout: 6000, polling: 100 }).catch(() => {});
+      return { from: a, to: (await layer(q)).x };
+    };
+    // with FX on
+    let q = await open(fxOff(false));
+    const at = await layer(q);
+    const drift = await moves(q);
+    await q.keyboard.press("Space");
+    await q.evaluate(() => { game.invincibleTime = 1e9; });   // (no crash while it is looked at)
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => game.gameState === "PAUSED" && document.body.classList.contains("fw-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);   // (a CSS pause lands on the next frame)
+    const paused = await still(q, 700);
+    // Restart from the pause card asks first: Enter starts over
+    await q.keyboard.press("r");
+    await q.waitForTimeout(150);
+    await q.keyboard.press("Enter");
+    await q.waitForFunction(() => game.gameState === "PLAYING" && !document.body.classList.contains("fw-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("flappy-world, Visual FX on: the page's clouds drift left across the sky beside the canvas, held while paused, moving again after Restart",
+      at.img && drift.to < drift.from - 2 && paused.to === paused.from && again.to < again.from - 2, { at, drift, paused, again });
+    // FX turned off on the way: they stop where they are (no snap back to
+    // where they started), and turned on again they drift on from there
+    const before = (await layer(q)).x;
+    await q.keyboard.press("v");
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await still(q, 700);
+    await q.keyboard.press("v");
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await moves(q);
+    check("flappy-world, Visual FX turned off mid-drift: the page's clouds stop where they are, no jump; on again they drift on from there",
+      // (never back towards where they started: a busy machine may let them
+      // drift on a little before the pause lands, never return)
+      before < -5 && stopped.from === stopped.to && stopped.from <= before + 0.5 && stopped.from > before - 40 &&
+      on.from <= stopped.to + 0.5 && on.from > stopped.to - 40 && on.to < on.from - 2, { before, stopped, on });
+    await done(q, "page clouds FX on");
+    // with FX off
+    q = await open(fxOff(true));
+    const off = await layer(q), offStill = await still(q, 700);
+    check("flappy-world, Visual FX off: the page's clouds sit still, where they always were (3vh down, 280/854 of the height, from the left edge)",
+      off.img && off.x === 0 && offStill.from === 0 && offStill.to === 0 && Math.abs(off.top - 3 * off.vh) < 0.6 && Math.abs(off.h - 32.79 * off.vh) < 0.6 &&
+      off.w >= off.vw + off.h * 960 / 280 - 1, { off, offStill });
+    await done(q, "page clouds FX off");
+    await cctx.close();
+  }
 };

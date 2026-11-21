@@ -5,6 +5,27 @@
        fallback until that runs. A faint dim outside the canvas marks the
        play area. */
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: "Luckiest Guy", "Arial Black", Impact, sans-serif; background: #8fd0ff; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+    body { font-family: "Luckiest Guy", "Arial Black", Impact, sans-serif; background: #8fd0ff; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden;
+           isolation: isolate;   /* (so the clouds, a layer of their own, lie in the sky under the canvas) */ }
     canvas { display: block; cursor: pointer; touch-action: none;
              box-shadow: 0 0 0 100vmax rgba(10, 30, 80, 0.16), 0 0 40px rgba(10, 30, 80, 0.45); }
+    /* The page's clouds (the strip dressPage paints, --fw-clouds): one tile is
+       960 x 280 of the canvas's units, sized to the window's height as the
+       rest of the scenery is (32.79vh tall: 280 of the canvas's 854, as
+       dressPage rounds it; a tile is 960/280 of that wide). With Visual FX
+       on they drift left across the sky, as the canvas's own clouds do, a
+       tile a minute, and the layer is one tile wider than the window so the
+       drift never shows an edge; held while the flight is paused. With FX
+       off they sit where they always have (held in place if FX is turned off
+       on the way). */
+    body::before {
+      content: ""; position: fixed; left: 0; top: 3vh; z-index: -1; pointer-events: none;
+      width: calc(100vw + 32.79vh * 960 / 280); height: 32.79vh;
+      background: var(--fw-clouds, none) 0 0 / auto 100% repeat-x;
+      /* (!important, and more particular than motion-toggle.js's FX-off rule,
+         which would end it at once and snap the clouds back: here FX off
+         pauses it instead, where it is) */
+      animation: fw-drift 60s linear infinite paused !important;
+    }
+    @keyframes fw-drift { to { transform: translateX(calc(-32.79vh * 960 / 280)); } }
+    html.fx-on body:not(.fw-held)::before { animation-play-state: running !important; }

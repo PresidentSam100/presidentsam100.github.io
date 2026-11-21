@@ -273,7 +273,9 @@ function setArtRatio(r) {
   dressPage();
 }
 // Dress the page around the canvas with the same scenery, sized so it
-// lines up with the canvas when the canvas fills the window's height.
+// lines up with the canvas when the canvas fills the window's height. The
+// clouds are a layer of their own (body::before, in styles.css), so they can
+// drift across the sky while the hills and the ground stay put.
 function dressPage() {
   const a = art();
   const strip = offscreen(960, 280), g = strip.getContext('2d');
@@ -284,9 +286,9 @@ function dressPage() {
     `url(${a.ground.toDataURL()}) 0 100% / auto ${vh(80)} repeat-x`,
     `url(${a.bushes.toDataURL()}) 0 calc(100% - ${vh(80)}) / auto ${vh(80)} repeat-x`,
     `url(${a.hills.toDataURL()}) 0 calc(100% - ${vh(80)}) / auto ${vh(230)} repeat-x`,
-    `url(${strip.toDataURL()}) 0 3vh / auto ${vh(280)} repeat-x`,
     'linear-gradient(180deg, #3f9df5 0%, #8fd0ff 55%, #d4f1ff 80%, #e9f9ff 100%)',
   ].join(', ');
+  document.body.style.setProperty('--fw-clouds', `url(${strip.toDataURL()})`);
 }
 
 // Warp pipes: a rounded, lit tube with a dark outline
@@ -2278,6 +2280,11 @@ class Game {
   gameLoop(ts) {
     const dt = Math.min((ts - this.lastTs) / 1000, 0.05);
     this.lastTs = ts;
+    // the page's clouds hold while the flight is paused. Read from the state
+    // each frame, not set where it pauses, as Restart and Menu on the pause
+    // card leave it without passing through togglePause
+    const held = this.gameState === 'PAUSED';
+    if (held !== this.cloudsHeld) { this.cloudsHeld = held; document.body.classList.toggle('fw-held', held); }
     if (this.gameState === 'GAMEOVER') {
       // Behind the card the world holds still and the bird stays where it
       // fell; the prompt still blinks, the crash's shake and burst play out
