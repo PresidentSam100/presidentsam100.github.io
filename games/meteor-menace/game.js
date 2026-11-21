@@ -185,6 +185,60 @@
   window.addEventListener("resize", refit);
   if (window.ResizeObserver) new ResizeObserver(refit).observe(canvas);
 
+  // ---- the masthead and the corner buttons -------------------------------
+  // On a laptop the corner box and the star burst sit level with the fixed
+  // corner buttons (Games on the left; pause, sound and FX on the right), so
+  // the masthead keeps clear of them. Read from the plain layout each time:
+  //  - it runs as wide as the room between the two rows allows (centred on
+  //    the page, up to 680 px or the cover's own width), so a cover narrowed
+  //    by a short window doesn't squeeze the title small (--mm-room);
+  //  - where that room is narrower than the masthead wants and the page has
+  //    height to spare below it, the box and burst drop just under the
+  //    buttons instead, and the title keeps its full width (--mm-drop);
+  //  - where the room still holds a 44 px title, it runs in the room;
+  //  - else (a small window) they drop all the same, and the page pays the
+  //    height it lacks (--mm-cost): from its bottom margin first, then from
+  //    the cover's size (styles.css).
+  // Phones (640 px and under) clear the rows in the stylesheet.
+  var masthead = document.getElementById("masthead"), pageEl = document.getElementById("page");
+  function fitMasthead() {
+    var root = document.documentElement.style;
+    root.removeProperty("--mm-room"); root.removeProperty("--mm-drop"); root.removeProperty("--mm-cost");
+    var back = document.querySelector(".nav-back-games"), row = document.querySelector(".gs-corner");
+    if (!masthead || !pageEl || window.innerWidth <= 640 || !back || !row) return;
+    var pr = pageEl.getBoundingClientRect(), mid = (pr.left + pr.right) / 2;
+    var lb = back.getBoundingClientRect(), rb = row.getBoundingClientRect();
+    var burst = masthead.querySelector(".star-burst").getBoundingClientRect();
+    // 14: the tilted burst reaches about 10 px past the masthead's edge, and 4 to spare
+    var room = Math.floor(2 * (Math.min(mid - lb.right, rb.left - mid) - 14));
+    var want = Math.min(820, Math.max(pr.width, 680));
+    var drop = Math.max(0, Math.ceil(Math.max(lb.bottom, rb.bottom) + 6 - burst.top));
+    var spare = window.innerHeight - (pr.bottom + 28);          // 28: the body's bottom padding
+    // dropped under the buttons, the masthead may use the window's width
+    // (less the body's 16 px sides); 224 and 6.45: the room the box and
+    // burst keep (2 × --side) and the title's width in ems
+    var under = (document.documentElement.clientWidth - 32) + "px";
+    if (room >= want) root.setProperty("--mm-room", room + "px");
+    else if (spare >= drop) { root.setProperty("--mm-drop", drop + "px"); root.setProperty("--mm-room", under); }
+    else if (room - 224 >= 6.45 * 44) root.setProperty("--mm-room", room + "px");
+    else {
+      root.setProperty("--mm-drop", drop + "px"); root.setProperty("--mm-room", under);
+      root.setProperty("--mm-cost", Math.ceil(drop - Math.max(0, spare)) + "px");
+    }
+  }
+  fitMasthead();
+  // the corner row is built when the page has loaded, and its buttons take
+  // their width from the font once it arrives
+  document.addEventListener("DOMContentLoaded", function () {
+    fitMasthead();
+    if (!window.ResizeObserver) return;
+    var watch = new ResizeObserver(function () { fitMasthead(); });
+    [".nav-back-games", ".gs-corner"].forEach(function (s) { var el = document.querySelector(s); if (el) watch.observe(el); });
+  });
+  window.addEventListener("load", fitMasthead);
+  window.addEventListener("resize", fitMasthead);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitMasthead, function () {});
+
   // ---- input -----------------------------------------------------------------
   var input = { left: false, right: false, thrust: false, fire: false };
   var KEYMAP = {

@@ -226,7 +226,9 @@ module.exports = async ({ browser, base, check, lib }) => {
     const BANGERS = '@font-face { font-family: "Bangers"; src: local("Impact"); size-adjust: 86%; }';
     const { devices } = require("@playwright/test");
     const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
-      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]];
+      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
+      ["1280x720", { viewport: { width: 1280, height: 720 } }], ["1440x700", { viewport: { width: 1440, height: 700 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["700x500", { viewport: { width: 700, height: 500 } }]];
+    const DESK = ["1280x900", "1366x657", "1280x600", "1280x720", "1440x700", "800x600", "700x500"];
     const rows = {};
     for (const [label, dev] of SIZES) {
       const c = await lib.newContext(browser, dev);
@@ -241,7 +243,10 @@ module.exports = async ({ browser, base, check, lib }) => {
         const rg = document.createRange(); rg.selectNodeContents(h1);
         const lines = [...rg.getClientRects()].map((b) => ({ l: b.left, t: b.top, r: b.right, b: b.bottom }));
         const bx = R(box), bu = R(burst);
+        const corners = [document.querySelector(".nav-back-games"), ...document.querySelectorAll(".gs-corner > *")].filter(Boolean).map(R);
+        const hits = corners.filter((c) => meet(c, bx) || meet(c, bu) || lines.some((ln) => meet(c, ln)));
         return {
+          font: parseFloat(getComputedStyle(h1).fontSize), corners: corners.length, cornerHits: hits.length,
           pub: pub ? pub.innerText.replace(/\s+/g, " ").trim() : null, text: box.innerText.replace(/\s+/g, " ").trim(),
           clear: lines.length > 0 && !lines.some((ln) => meet(ln, bx) || meet(ln, bu)) && !meet(bx, bu),
           lines: lines.length, overPanel: Math.max(bx.b, bu.b) - panel.t, onScreen: bx.l >= -2 && bx.t >= 0 && bx.r <= innerWidth,
@@ -255,7 +260,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     const all = Object.values(rows);
     check("meteor-menace: the cover's corner box reads SAM LU COMICS in its publisher band, over No. 1 and 10¢",
       all.every((x) => x.pub === "SAM LU COMICS" && /^SAM LU COMICS No\. 1 ?10¢$/.test(x.text)), all.map((x) => x.text));
-    check("meteor-menace: on a laptop (three window sizes) and on phones the title runs between the corner box and the star burst, never over either; neither hangs over the panel and the box is on screen",
+    check("meteor-menace: on a laptop (seven window sizes) and on phones the title runs between the corner box and the star burst, never over either; neither hangs over the panel and the box is on screen",
       // (2 px: the turned square round the burst grazes the panel's ink
       // border, its points don't)
       all.every((x) => x.clear && x.overPanel <= 2 && x.onScreen), rows);
@@ -265,5 +270,17 @@ module.exports = async ({ browser, base, check, lib }) => {
       ["1280x900", "1366x657", "1280x600"].every((k) => rows[k].spill <= 0), rows);
     check("meteor-menace: the page's paper is painted once, by html, as tall as the window (no seam where a shorter body ended)",
       all.every((x) => x.painted), rows);
+    // The masthead keeps clear of the fixed corner buttons on a laptop or a
+    // desktop window (the star burst sat under Pause at 1280x900, 1280x720
+    // and in small windows), and on a short laptop it runs wider than the
+    // narrowed cover rather than squeezing the title (37 px at 1280x600, 48
+    // at 1366x657); where the page has height to spare the box and burst
+    // drop under the buttons and the title keeps its full 84 px.
+    check("meteor-menace: the corner box, star burst and title clear every corner button on a laptop or desktop window (seven sizes, small windows too)",
+      DESK.every((k) => rows[k].corners >= 4 && rows[k].cornerHits === 0), DESK.map((k) => k + ": " + rows[k].cornerHits + " of " + rows[k].corners));
+    check("meteor-menace: on a short laptop the title isn't squeezed by the narrow cover (at least 52 px at 1280x600, 64 at 1366x657 and 1440x700), and keeps its full 84 px at 1280x900",
+      rows["1280x600"].font >= 52 && rows["1366x657"].font >= 64 && rows["1440x700"].font >= 64 && rows["1280x900"].font === 84, DESK.map((k) => k + ": " + rows[k].font));
+    check("meteor-menace: in a small window and on the other laptop sizes the title keeps one line and the page fits (1280x720, 1440x700, 800x600, 700x500)",
+      ["1280x720", "1440x700", "800x600", "700x500"].every((k) => rows[k].lines === 1 && rows[k].spill <= 0), rows);
   }
 };

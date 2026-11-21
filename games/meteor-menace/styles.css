@@ -70,6 +70,26 @@ body {
   line-height: 0.95;
 }
 
+/* On a laptop the masthead keeps clear of the fixed corner buttons, which
+   sit level with its corner box and star burst. game.js reads the room
+   between the two rows and sets --mm-room (the masthead runs that wide,
+   centred on the page, up to 680 px or the cover's width, so a narrow cover
+   on a short window doesn't squeeze the title), or --mm-drop (the box and
+   burst sit that much lower, just under the buttons) with --mm-cost (the
+   height the page lacks for that: taken from its bottom margin first, then
+   from the cover's size). Unset, the masthead is the cover's width. */
+@media (min-width: 641px) {
+  #masthead {
+    --w: min(820px, max(100%, 680px), var(--mm-room, 100%));
+    width: var(--w);
+    margin-left: calc((100% - var(--w)) / 2);
+    padding-top: calc(10px + var(--mm-drop, 0px));
+    min-height: calc(102px + var(--mm-drop, 0px));
+  }
+  body { padding-bottom: max(8px, calc(28px - var(--mm-cost, 0px))); }
+  #page { width: min(96vw, 820px, calc((100vh - 240px - max(0px, var(--mm-cost, 0px) - 20px)) * 1.2857)); }
+}
+
 .issue-box {
   position: absolute;
   left: 0;
@@ -120,6 +140,11 @@ body {
   text-align: center;
   letter-spacing: 0.04em;
   transform: rotate(-4deg);
+}
+/* dropped under the corner buttons (--mm-drop, set by game.js; see above) */
+@media (min-width: 641px) {
+  .issue-box { top: calc(12px + var(--mm-drop, 0px)); }
+  .star-burst { top: calc(2px + var(--mm-drop, 0px)); }
 }
 
 /* ---- the splash panel ------------------------------------------------ */
