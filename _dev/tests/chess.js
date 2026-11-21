@@ -970,6 +970,61 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("chess (strips): no page errors", Object.values(got).every((g) => g.errs.length === 0), Object.fromEntries(Object.entries(got).map(([k, g]) => [k, g.errs])));
   }
 
+  // ---- a short laptop window: with both clocks showing and both trays at
+  // their fullest (15 pieces each), the side column beside the board keeps
+  // its buttons on the screen (they ran 55 px past the foot of a 600 px
+  // window): two by two there, each label whole on one line, the column
+  // beside the board and no wider for the pieces in it, the board as it was;
+  // on a tall window the buttons stand in one column as before
+  {
+    const SIZES = [[1280, 600], [1366, 657], [1100, 600], [1024, 600], [880, 600], [1280, 720], [1280, 900]];
+    const got = {};
+    for (const [W, H] of SIZES) {
+      const c = await lib.newContext(browser, { viewport: { width: W, height: H } });
+      const q = await lib.open(c, base, "games/chess/", { before: (pg) => lib.injectScript(pg, "games/chess/game.js", [HOOK2]) });
+      const g = got[W + "x" + H] = {};
+      for (const [k, opts, mode] of [["two", { opponent: "local", difficulty: "easy", side: "w", base: 5, inc: 0 }, 2], ["cpu", { opponent: "cpu", difficulty: "easy", side: "w", base: 5, inc: 0 }, 2], ["four", 1, 4]]) {
+        g[k] = await q.evaluate(([opts, mode]) => new Promise((done) => {
+          document.getElementById("menu").classList.remove("show");
+          if (mode === 2) __chess.start(2, null, opts); else __chess.start(4, opts);
+          const R = (e) => { const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom, w: b.width, h: b.height }; };
+          const emptyW = R(document.querySelector(".layout > .side")).w;
+          if (mode === 2) {
+            const B = ["p", "p", "p", "p", "p", "p", "p", "p", "n", "n", "b", "b", "r", "r", "q"];
+            __chess.G.capList = B.map((t) => ({ by: "w", t })).concat(B.map((t) => ({ by: "b", t })));
+          }
+          __chess.render();
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            const btns = [...document.querySelectorAll(".controls .btn")].filter((b) => b.offsetParent).map((b) => {
+              const r = R(b), lh = parseFloat(getComputedStyle(b).lineHeight) || parseFloat(getComputedStyle(b).fontSize) * 1.3;
+              return { id: b.id, t: r.t, b: r.b, l: r.l, r: r.r, oneLine: b.scrollWidth <= b.clientWidth + 1 && r.h - 22 <= lh * 1.6 };
+            });
+            const side = R(document.querySelector(".layout > .side")), board = R(document.getElementById("board"));
+            done({ btns, H: innerHeight, side, board, emptyW, sq: Math.round(document.querySelector("#board .sq").getBoundingClientRect().width * 10) / 10,
+              rows: new Set(btns.map((b) => Math.round(b.t))).size, wide: document.documentElement.scrollWidth - innerWidth });
+          }));
+        }), [opts, mode]);
+      }
+      g.errs = q.errs;
+      await c.close();
+    }
+    // (4 players has no Flip Board: three buttons)
+    const onScreen = (o) => o.btns.length >= 3 && o.btns.every((b) => b.t >= 0 && b.b <= o.H + 0.5 && b.oneLine) &&
+      o.btns.every((a, i) => o.btns.every((b, j) => i === j || a.r <= b.l + 0.5 || b.r <= a.l + 0.5 || a.b <= b.t + 0.5 || b.b <= a.t + 0.5)) &&
+      o.side.l >= o.board.r && o.wide <= 0;
+    const SHORT = ["1280x600", "1366x657", "1100x600", "1024x600", "880x600"];
+    check("chess on a short laptop window: with both clocks and both trays full, New Game, Undo, Flip Board and Change Mode all show on the screen, each label on one line, none over another, the column beside the board (2 players, vs CPU, 4 players; 1280 x 600, 1366 x 657, 1100 x 600, 1024 x 600, 880 x 600)",
+      SHORT.every((k) => onScreen(got[k].two) && onScreen(got[k].cpu) && onScreen(got[k].four)),
+      Object.fromEntries(SHORT.map((k) => [k, { two: got[k].two.btns.map((b) => b.id + " " + Math.round(b.b) + "/" + got[k].two.H + (b.oneLine ? "" : " 2 lines")), side: Math.round(got[k].two.side.w) }])));
+    // (the board as it was: still fitted to the window's height, its foot within a square of the screen's)
+    const fitted = (o) => o.board.b <= o.H + 0.5 && o.H - o.board.b <= o.sq + 10;
+    check("chess on a short laptop window: the buttons sit two by two, the side column no wider for 30 pieces taken than at the start, and the board still as tall as the window allows; on taller windows (1280 x 720, 1280 x 900) the buttons stand in one column as before, 62 px squares, everything on the screen",
+      SHORT.every((k) => got[k].two.rows === 2 && Math.abs(got[k].two.side.w - got[k].two.emptyW) < 1 && fitted(got[k].two)) &&
+        ["1280x720", "1280x900"].every((k) => got[k].two.rows === 4 && onScreen(got[k].two) && got[k].two.sq === 62),
+      Object.fromEntries(SIZES.map(([W, H]) => { const k = W + "x" + H, o = got[k].two; return [k, { rows: o.rows, side: Math.round(o.side.w), empty: Math.round(o.emptyW), sq: o.sq, boardFoot: Math.round(o.board.b) + "/" + o.H }]; })));
+    check("chess (short laptop): no page errors", Object.values(got).every((g) => g.errs.length === 0), Object.fromEntries(Object.entries(got).map(([k, g]) => [k, g.errs])));
+  }
+
   // ---- a small phone: the 2-player setup card at its tallest (vs CPU, with a
   // time control) is taller than the screen, so it starts at the top and
   // scrolls: its heading isn't cut off and Start can be reached and pressed

@@ -142,3 +142,16 @@ button.btn.primary { background:var(--accent); color:#251603; border-color:trans
 .promo button:hover { border-color:var(--sel); }
 /* phones: start below the fixed Games / sound / FX buttons (a tall menu card too) */
 @media (max-width:640px){ body { padding-top:3.2rem; } .overlay { padding-top:3rem; } }
+/* a short laptop window: the board is fitted to its height (game.js), and
+   the side column beside it (both clocks, both trays at their fullest, the
+   buttons) ran past the foot of the screen, the buttons with it. Here the
+   four buttons sit two by two, and the column is as wide as two of them
+   side by side (labels and keys whole; the clocks and trays take its width,
+   so pieces taken never widen it). (Under 501 px tall the phone-on-its-side
+   layout in cafe.css takes over; under 880 px wide the strips do.) */
+@media (min-width:880px) and (min-height:501px) and (max-height:680px){
+  .side { max-width:none; }
+  #side2, #side4 { width:0; min-width:100%; }
+  .controls { display:grid; grid-template-columns:1fr 1fr; }
+  .controls .btn { padding:10px; white-space:nowrap; }
+}
