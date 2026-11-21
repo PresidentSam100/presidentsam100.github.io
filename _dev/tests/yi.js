@@ -388,5 +388,63 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("yi: the card backs' SAM LU logo stays inside the card, deck-size and small cards, on a laptop and phones", bad.length === 0, { bad, seen });
   }
 
+  // ---- the pile, with Visual FX off as with it on: nothing is written under
+  // it (a CPU's play or draw is shown by its card travelling, as with FX on),
+  // and your card, played after a CPU's, ends its flight exactly on the
+  // discard: on the card that sat there as it set off, and where the new one
+  // then lies, at its size (within 1 px). The flight's last frame is worked
+  // out from its own last keyframe, so a slow machine can't skew it.
+  {
+    const pc = await lib.newContext(browser);
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await lib.open(pc, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => {
+        try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {}
+        const an = Element.prototype.animate;
+        const box = (r, w, h) => ({ cx: r.left + r.width / 2, cy: r.top + r.height / 2, w, h });
+        window.__flights = [];
+        Element.prototype.animate = function (frames) {
+          if (this.classList && this.classList.contains("flying-card") && !this.__seen) {
+            this.__seen = true;
+            const pile = document.querySelector("#discardPile .card"), m = new DOMMatrix(frames[frames.length - 1].transform);
+            const L = parseFloat(this.style.left), T = parseFloat(this.style.top), W = parseFloat(this.style.width), H = parseFloat(this.style.height);
+            window.__flights.push({ end: { cx: L + m.e + W / 2, cy: T + m.f + H / 2, w: W, h: H }, pile: pile && box(pile.getBoundingClientRect(), pile.offsetWidth, pile.offsetHeight) });
+          }
+          return an.apply(this, arguments);
+        };
+      }, off) });
+      await deal(q);
+      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      // a CPU played the card on the pile; then a CPU draws two
+      const marks = await q.evaluate(() => {
+        G.discardBy = 1; drawCards(1, 2); render();
+        const pile = document.getElementById("discardPile").parentElement;
+        const under = [...pile.children].filter((e) => e.id !== "discardPile" && e.id !== "colorDot" && !e.classList.contains("plabel") && getComputedStyle(e).display !== "none" && e.textContent.trim());
+        const counts = [...document.querySelectorAll(".opp .ocount")].map((e) => e.innerText.trim());
+        return { under: under.map((e) => e.textContent), counts: counts.filter((t) => !/^\d+ cards?$/.test(t)) };
+      });
+      await q.waitForTimeout(500);   // (the draw's glide)
+      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      // then your play: a number card of the colour in play
+      await q.evaluate(() => { window.__flights = []; G.discardBy = 1; G.players[0].hand[0] = mk(G.currentColor === "wild" ? "red" : G.currentColor, "number", 5); render(); document.querySelector('#hand .card[data-idx="0"]').click(); });
+      await q.waitForFunction(() => window.__flights.length && !document.querySelector(".flying-card") && G.discardBy === 0 && !document.querySelector("#discardPile .card").getAnimations().length, null, { timeout: 15000 }).catch(() => {});
+      got[off ? "off" : "on"] = await q.evaluate((marks) => {
+        const f = window.__flights[0], c = document.querySelector("#discardPile .card"), r = c.getBoundingClientRect();
+        const landed = { cx: r.left + r.width / 2, cy: r.top + r.height / 2, w: c.offsetWidth, h: c.offsetHeight };
+        const gap = (a, b) => a && b ? Math.max(Math.abs(a.cx - b.cx), Math.abs(a.cy - b.cy), Math.abs(a.w - b.w), Math.abs(a.h - b.h)) : 99;
+        return { marks, onPileAsItSetOff: f ? +gap(f.end, f.pile).toFixed(2) : null, onLanded: f ? +gap(f.end, landed).toFixed(2) : null };
+      }, marks);
+      await done(q, "yi pile, FX " + (off ? "off" : "on"));
+    }
+    await pc.close();
+    for (const mode of ["off", "on"]) {
+      const g = got[mode];
+      check("yi, Visual FX " + mode + ": nothing is written under the discard pile or by a CPU's count when a CPU plays or draws",
+        g.marks.under.length === 0 && g.marks.counts.length === 0, g.marks);
+      check("yi, Visual FX " + mode + ": your card, played after a CPU's, ends its flight exactly on the discard (on the card there as it set off, and where it then lies)",
+        g.onPileAsItSetOff !== null && g.onPileAsItSetOff <= 1 && g.onLanded <= 1, g);
+    }
+  }
+
   await ctx.close();
 };

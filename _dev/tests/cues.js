@@ -309,16 +309,6 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(p, "jam-jar FX " + (off ? "off" : "on"));
   }
 
-  // ---- Yi: with FX off a CPU that draws shows "+n" by its count (cards don't fly)
-  for (const off of [true, false]) {
-    const p = await open("yi", off);
-    await p.click("#startBtn"); await p.waitForTimeout(400);
-    const b = await p.evaluate(() => { G.drew = {}; drawCards(1, 2); render(); const e = document.querySelector(".opp .ocount .drew"); return e ? { text: e.textContent, display: getComputedStyle(e).display } : null; });
-    if (off) check("yi, FX off: a CPU's draw shows +n by its count", !!b && b.text === "+2" && b.display !== "none", b);
-    else check("yi, FX on: the +n badge stays hidden (the cards fly)", !!b && b.display === "none", b);
-    await done(p, "yi FX " + (off ? "off" : "on"));
-  }
-
   // ---- canvas games: what the last frame drew, through each game's hook
   const frames = (p, n) => p.evaluate((n) => new Promise((r) => { let k = 0; (function f() { if (++k >= n) r(); else requestAnimationFrame(f); })(); }), n || 3);
   for (const off of [true, false]) {

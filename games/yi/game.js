@@ -195,7 +195,6 @@ function startHand(dealer) {
     over: false,
     drawnIndex: -1, // index in human hand of card just drawn (awaiting decision)
     discardBy: -1, // who played the top discard (-1: the starter card)
-    drew: {}, // player index -> cards drawn since another player last acted
   };
 
   // deal 7 to each
@@ -317,13 +316,11 @@ function passTurn(pi) {
   beginTurn();
 }
 
-// With Visual FX off, plays and draws fly plainly (no turn, no tilt), and
-// the table marks them too: the discard says who played it (G.discardBy), and
-// a CPU that drew shows "+n" by its count (G.drew) until another player acts.
-// render() draws both; styles.css only shows them under html.fx-off.
-function noteAct(pi) {
-  G.acted = true; // someone has played or drawn: the hand is under way (see guardLeave)
-  for (var k in G.drew) if (+k !== pi) delete G.drew[k];
+// Someone has played or drawn: the hand is under way (see guardLeave). With
+// Visual FX off, plays and draws travel as they do with it on, only plainer
+// (no turn, no tilt), so the table needs no other mark of them.
+function noteAct() {
+  G.acted = true;
 }
 
 // Draw n cards to player pi (reshuffling discard if needed). Returns drawn cards.
@@ -340,7 +337,6 @@ function drawCards(pi, n) {
   // drawing more than one card means you no longer "have YI"
   if (G.players[pi].hand.length !== 1) G.players[pi].calledUno = false;
   if (got.length) {
-    G.drew[pi] = (G.drew[pi] || 0) + got.length;
     flyDraw(pi, got.length);
     sfxDraw();
   }
@@ -932,11 +928,12 @@ function flyCard(card, srcRect, opts, onDone) {
   // a little; off, the same flight, face up and straight)
   var fx = fxOn();
 
-  var tr = target.getBoundingClientRect();
-  // Match the end size to the actual discard card.
+  // It ends on the discard card itself, at its size: the middle of its box
+  // (a landing pop, a scale about that middle, doesn't move it), and its
+  // size as laid out, without the pop's scale
   var discCard = target.querySelector(".card");
-  var dcr = discCard ? discCard.getBoundingClientRect() : { width: 80, height: 114 };
-  var CW = dcr.width, CH = dcr.height;
+  var tr = (discCard || target).getBoundingClientRect();
+  var CW = discCard ? discCard.offsetWidth : 80, CH = discCard ? discCard.offsetHeight : 114;
 
   var el;
   if (opts.flip && fx) {
@@ -1166,8 +1163,7 @@ function render() {
     html +=
       '<div class="opp' + (active ? " active" : "") + '">' +
       '<div class="oname">' + p.name + "</div>" +
-      '<div class="ocount">' + p.hand.length + (p.hand.length === 1 ? " card" : " cards") +
-      (G.drew[i] ? ' <b class="drew">+' + G.drew[i] + "</b>" : "") + "</div>" +
+      '<div class="ocount">' + p.hand.length + (p.hand.length === 1 ? " card" : " cards") + "</div>" +
       '<div class="mini-backs">' + backs + "</div>" +
       (p.hand.length === 1 && p.calledUno
         ? '<span class="badge-uno">YI</span>'
@@ -1178,19 +1174,6 @@ function render() {
 
   // discard
   document.getElementById("discardPile").innerHTML = cardHTML(topCard(), {});
-  // ...and who played it (shown with Visual FX off; see noteAct)
-  var byEl = document.getElementById("playedBy");
-  if (byEl) {
-    byEl.textContent = "";
-    if (G.discardBy >= 0) {
-      var who = document.createElement("span");
-      who.className = "log-player";
-      who.style.color = playerColor(G.discardBy);
-      who.textContent = G.players[G.discardBy].name;
-      byEl.appendChild(who);
-      byEl.appendChild(document.createTextNode(" played"));
-    }
-  }
   // active color dot
   document.getElementById("colorDot").innerHTML =
     '<span class="dot" style="background:' + COLOR_HEX[G.currentColor] +
