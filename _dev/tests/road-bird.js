@@ -596,4 +596,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("road-bird, Visual FX off: no dust when the bird lands and no feathers on a crash", off.dust === 0 && off.feathers === 0, off);
     check("road-bird (dust and feathers): no page errors", on.errs.length === 0 && off.errs.length === 0, [on.errs, off.errs]);
   }
+
+  // ---- the page's sky round the board (#sky: a far bank of clouds, a near
+  // one, the sun's glow and its rays): with Visual FX on the clouds drift
+  // east, the far bank slower, the glow swells and the rays turn; paused
+  // (P) it all holds, and moves again on resume and after Restart from the
+  // pause card; FX turned off on the way holds it where it is, and on again
+  // it carries on from there. With FX off from the start it is the sky as
+  // drawn, lying still.
+  {
+    const sctx = await lib.newContext(browser);
+    const open = (off) => lib.open(sctx, base, "games/road-bird/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:road-bird", off ? "1" : "0"); } catch (e) {} }, off) });
+    const sky = (q) => q.evaluate(() => [...document.querySelectorAll("#sky i")].map((e) => {
+      const t = getComputedStyle(e).transform, m = new DOMMatrix(t === "none" ? undefined : t);
+      return { part: e.className, x: +m.m41.toFixed(3), a: +m.a.toFixed(5), b: +m.b.toFixed(5) };
+    }));
+    const span = async (q, ms) => { const a = await sky(q); await q.waitForTimeout(ms); return { a, b: await sky(q) }; };
+    const same = (p, r) => p.x === r.x && p.a === r.a && p.b === r.b;
+    const moved = (s) => s.a.length === 4 && s.a.every((p, i) => !same(p, s.b[i]));
+    const still = (s) => s.a.length === 4 && s.a.every((p, i) => same(p, s.b[i]));
+    const east = (s) => s.b[0].x > s.a[0].x && s.b[1].x - s.a[1].x > s.b[0].x - s.a[0].x;   // (far, near)
+    const pauseUp = (q, up) => q.waitForFunction((up) => { const r = document.querySelector(".gs-pause-more"); return !!r && r.hidden === !up; }, up, { timeout: 5000 }).catch(() => {});
+    let q = await open(false);
+    const menu = await span(q, 700);
+    await q.keyboard.press("Enter");
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 5000 }).catch(() => {});
+    await q.keyboard.press("p"); await pauseUp(q, true);
+    const paused = await span(q, 700);
+    await q.keyboard.press("p"); await pauseUp(q, false);
+    const resumed = await span(q, 700);
+    await q.keyboard.press("p"); await pauseUp(q, true);
+    await q.keyboard.press("r");   // (no question: nothing scored yet)
+    await pauseUp(q, false);
+    await q.waitForFunction(() => __game.state === "playing", null, { timeout: 5000 }).catch(() => {});
+    const restarted = await span(q, 700);
+    check("road-bird, Visual FX on: the sky round the board moves (the clouds drift east, the far bank slower; the glow swells; the rays turn), held while paused, moving again on resume and after Restart",
+      moved(menu) && east(menu) && still(paused) && moved(resumed) && moved(restarted) && east(restarted), { menu, paused, resumed, restarted });
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const turnedOff = await span(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const turnedOn = await span(q, 700);
+    check("road-bird, Visual FX turned off on the way: the sky holds where it is (no jump back), and on again carries on from there",
+      still(turnedOff) && turnedOff.a[1].x > 0 && moved(turnedOn) && turnedOn.a.every((p, i) => Math.abs(p.x - turnedOff.b[i].x) < 3), { turnedOff, turnedOn });
+    check("road-bird (sky, FX on): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    q = await open(true);
+    const off = await span(q, 700);
+    check("road-bird, Visual FX off: the sky is as drawn (clouds, glow and rays all there) and lies still",
+      still(off) && off.a.every((p) => p.x === 0 && p.a === 1 && p.b === 0), off);
+    check("road-bird (sky, FX off): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await sctx.close();
+  }
 };

@@ -2414,9 +2414,51 @@ function render() {
 // ---------- loop ----------
 resetWorld();
 state = "menu";
+// ---------- the sky round the board ----------
+// The page's sun and clouds (#sky, styles.css). With Visual FX on the clouds
+// drift east on the breeze, each bank a window to the right and on round
+// again (every cloud is drawn twice, a window apart, so no seam shows), the
+// far bank slower; the sun's glow swells and settles, and its rays turn. The
+// browser's own animation clock runs it, on transforms only. It holds where
+// it is while the game is paused and while FX is off: FX off from the start
+// is the sky lying still as drawn, and turning FX off on the way leaves it
+// where it was. (Not CSS animations: with FX off the shared toggle ends
+// those at once, which would snap the sky back to where it started.)
+const skyMoves = [];
+(function () {
+  const sky = document.getElementById("sky");
+  if (!sky || !sky.animate) return;
+  const move = (sel, frames, ms, opts) => {
+    const el = sky.querySelector(sel);
+    if (!el) return;
+    const a = el.animate(frames, Object.assign({ duration: ms, iterations: Infinity }, opts));
+    a.pause();
+    skyMoves.push(a);
+  };
+  const east = [{ transform: "translateX(0px)" }, { transform: "translateX(100vw)" }];
+  move(".far", east, 170000);
+  move(".near", east, 110000);
+  move(".sun", [{ transform: "scale(1)" }, { transform: "scale(1.06)" }], 6000, { direction: "alternate", easing: "ease-in-out" });
+  move(".rays", [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }], 150000);
+})();
+let skyGoing = false;
+// (read from the state each frame, not set where it pauses: the ⏸ button,
+// P, Restart and Menu on the pause card and the Leave box each pause or
+// unpause in a way of their own; and at once when FX is switched, so it
+// stops where it is that moment)
+function stirSky() {
+  const go = !paused && !fxOff();
+  if (go === skyGoing) return;
+  skyGoing = go;
+  // (a pause takes hold only at the next frame; setting the time holds it now)
+  for (const a of skyMoves) { if (go) a.play(); else { a.pause(); a.currentTime = a.currentTime; } }
+}
+window.addEventListener("reducemotionchange", stirSky);
+
 let last = performance.now();
 function frame(now) {
   let dt = (now - last) / 1000; last = now;
+  stirSky();
   // (never below 0: the first frame's timestamp can come before `last` was
   // read on a slow load, and a step back would run every timer backwards)
   dt = Math.max(0, Math.min(dt, 0.05));
@@ -2437,7 +2479,7 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // auto-pause when the tab/window loses focus (resume manually so you're not caught out)
-function autoPause() { if (state === "playing" && !paused) { paused = true; applyMaster(); } }
+function autoPause() { if (state === "playing" && !paused) { paused = true; applyMaster(); stirSky(); } }   // (no frames come while the tab is hidden: the sky holds now)
 if (window.GameShell) GameShell.onAutoPause(autoPause);
 // the shared ⏸ button beside the sound button, so it's plain the game pauses (P)
 if (window.GameShell && GameShell.pauseButton) GameShell.pauseButton({

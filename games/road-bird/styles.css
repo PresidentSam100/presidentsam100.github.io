@@ -2,16 +2,46 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     height: 100%;
-    /* a sunny toy-box sky behind the diorama: sun glow, soft clouds, grass haze */
-    background:
-      radial-gradient(circle at 84% 10%, rgba(255, 242, 178, 0.95), rgba(255, 242, 178, 0) 24%),
-      radial-gradient(150px 44px at 16% 20%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
-      radial-gradient(190px 52px at 74% 30%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%),
-      radial-gradient(120px 36px at 42% 10%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%),
-      linear-gradient(#79c2ec 0%, #a9def4 55%, #c9e8b8 100%);
+    /* a sunny toy-box sky behind the diorama, down to a grass haze; its sun
+       and soft clouds are #sky, below */
+    background: linear-gradient(#79c2ec 0%, #a9def4 55%, #c9e8b8 100%);
     font-family: "Grandstander", "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
     overflow: hidden;
     touch-action: none;
+  }
+  body { isolation: isolate; }   /* (so #sky lies on the sky, under the board) */
+  /* The sky's sun and clouds, a layer of their own under the board. Two
+     banks of soft clouds (the high small one farther off), each two windows
+     wide with every cloud drawn twice, a window apart, so it can slide one
+     window to the right and start again without a seam; the sun's glow in
+     the top right, and faint rays round it. With Visual FX on they move
+     (game.js: the clouds drift east, the glow swells and settles, the rays
+     turn); as drawn here, they are the sky lying still. */
+  #sky { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+  #sky i { position: absolute; }
+  #sky .far, #sky .near { top: 0; left: -100vw; width: 200vw; height: 100%; }
+  #sky .far {
+    background:
+      radial-gradient(120px 36px at 21% 10%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(120px 36px at 71% 10%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%);
+  }
+  #sky .near {
+    background:
+      radial-gradient(150px 44px at 8% 20%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(150px 44px at 58% 20%, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(190px 52px at 37% 30%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%),
+      radial-gradient(190px 52px at 87% 30%, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0) 70%);
+  }
+  #sky .sun {
+    inset: 0;
+    background: radial-gradient(circle at 84% 10%, rgba(255, 242, 178, 0.95), rgba(255, 242, 178, 0) 24%);
+    transform-origin: 84% 10%;
+  }
+  #sky .rays {
+    left: 84%; top: 10%; width: 52vmax; height: 52vmax; margin: -26vmax 0 0 -26vmax; border-radius: 50%;
+    background: repeating-conic-gradient(rgba(255, 246, 196, 0) 0deg, rgba(255, 246, 196, 0.3) 5.6deg, rgba(255, 246, 196, 0) 11.25deg 22.5deg);
+    -webkit-mask-image: radial-gradient(closest-side, transparent 14%, #000 30%, rgba(0, 0, 0, 0.6) 55%, transparent 100%);
+    mask-image: radial-gradient(closest-side, transparent 14%, #000 30%, rgba(0, 0, 0, 0.6) 55%, transparent 100%);
   }
   #wrap {
     height: 100%;
