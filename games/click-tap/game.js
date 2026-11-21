@@ -267,7 +267,9 @@
   // again and Menu the setup.
   if (window.GameShell && GameShell.pausable) GameShell.pausable({
     canPause: () => state === "ready", auto: false, hold: true,
-    restart: beginTest, menu: quit
+    restart: beginTest, menu: quit,
+    // (the cloud shadows and the butterfly hold too: styles.css)
+    onChange: (paused) => document.body.classList.toggle("ct-held", paused)
   });
 
   // ---- input wiring ----

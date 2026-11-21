@@ -32,7 +32,64 @@ body {
   color: var(--text); font-family: "Baloo 2", system-ui, -apple-system, "Segoe UI", sans-serif;
   min-height: 100%; display: flex; flex-direction: column; align-items: center; padding: 1rem;
   overflow-x: hidden; user-select: none; touch-action: manipulation;
+  isolation: isolate;   /* (so the cloud shadows and the butterfly lie on the lawn, under everything else) */
 }
+
+/* A breezy day over the garden. The shadows of passing clouds lie on the
+   lawn (body::before: two soft patches on a tile repeated over the page,
+   faded out where the lawn meets the sky), and a butterfly flits about the
+   garden (body::after: yellow wings, dark spots, under the cards, the bed
+   and the buttons). With Visual FX on the shadows drift across the lawn, a
+   tile in 100 s (10 px a second), and the butterfly wanders the page on a
+   40 s round, its wings beating; held while paused. With FX off the shadows
+   lie still and the butterfly rests where it is, wings open. */
+body::before {
+  content: ""; position: fixed; left: -1000px; top: 0; width: calc(100vw + 1000px); height: 100vh; z-index: -1; pointer-events: none;
+  background-size: 1000px 760px;
+  background-image:
+    radial-gradient(220px 110px at 250px 250px, rgba(36, 84, 22, 0.14), rgba(36, 84, 22, 0.09) 55%, transparent),
+    radial-gradient(160px 90px at 370px 210px, rgba(36, 84, 22, 0.13), rgba(36, 84, 22, 0.08) 55%, transparent),
+    radial-gradient(150px 80px at 150px 285px, rgba(36, 84, 22, 0.12), rgba(36, 84, 22, 0.07) 55%, transparent),
+    radial-gradient(260px 120px at 720px 570px, rgba(36, 84, 22, 0.14), rgba(36, 84, 22, 0.09) 55%, transparent),
+    radial-gradient(170px 90px at 590px 610px, rgba(36, 84, 22, 0.13), rgba(36, 84, 22, 0.08) 55%, transparent),
+    radial-gradient(150px 80px at 850px 525px, rgba(36, 84, 22, 0.12), rgba(36, 84, 22, 0.07) 55%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 70px, #000 170px);
+  mask-image: linear-gradient(to bottom, transparent 70px, #000 170px);
+  /* (!important, and more particular than motion-toggle.js's FX-off rule,
+     which would end both at once and snap them back: here FX off pauses
+     them instead, where they are) */
+  animation: ct-shade 100s linear infinite paused !important;
+}
+@keyframes ct-shade { to { transform: translateX(1000px); } }
+body::after {
+  content: ""; position: fixed; left: 0; top: 0; width: 26px; height: 20px; z-index: -1; pointer-events: none;
+  background:
+    linear-gradient(#3b2a14, #3b2a14) 12.25px 4px / 1.5px 12px no-repeat,
+    linear-gradient(#3b2a14, #3b2a14) 11px 0.5px / 1px 4px no-repeat,
+    linear-gradient(#3b2a14, #3b2a14) 14px 0.5px / 1px 4px no-repeat,
+    radial-gradient(1.3px 1.3px at 3.6px 5px, #3b2a14 0 100%, transparent) no-repeat,
+    radial-gradient(1.3px 1.3px at 22.4px 5px, #3b2a14 0 100%, transparent) no-repeat,
+    radial-gradient(7.2px 5.4px at 6.4px 6.8px, #ffd84a 0 80%, #e9961c 84% 97%, transparent 100%) no-repeat,
+    radial-gradient(7.2px 5.4px at 19.6px 6.8px, #ffd84a 0 80%, #e9961c 84% 97%, transparent 100%) no-repeat,
+    radial-gradient(4.2px 4.8px at 9.2px 13.8px, #ffe27a 0 76%, #e9961c 81% 96%, transparent 100%) no-repeat,
+    radial-gradient(4.2px 4.8px at 16.8px 13.8px, #ffe27a 0 76%, #e9961c 81% 96%, transparent 100%) no-repeat;
+  filter: drop-shadow(0 6px 2px rgba(30, 60, 15, 0.22));
+  scale: 1.5;
+  translate: 7vw 72vh;
+  animation: ct-fly 40s ease-in-out infinite paused, ct-flap 0.18s ease-in-out infinite alternate paused !important;
+}
+@keyframes ct-fly {
+  0%, 100% { translate: 7vw 72vh; rotate: -8deg; }
+  12% { translate: 16vw 54vh; rotate: 10deg; }
+  25% { translate: 10vw 34vh; rotate: -12deg; }
+  37% { translate: 30vw 18vh; rotate: 14deg; }
+  50% { translate: 78vw 28vh; rotate: 18deg; }
+  62% { translate: 90vw 48vh; rotate: -6deg; }
+  75% { translate: 84vw 74vh; rotate: -16deg; }
+  87% { translate: 56vw 88vh; rotate: -10deg; }
+}
+@keyframes ct-flap { to { transform: scaleX(0.28); } }
+html.fx-on body:not(.ct-held)::before, html.fx-on body:not(.ct-held)::after { animation-play-state: running !important; }
 a { color: var(--leaf-dark); text-decoration: none; }
 .wrap { width: 100%; max-width: 460px; flex: 1; display: flex; flex-direction: column; }
 

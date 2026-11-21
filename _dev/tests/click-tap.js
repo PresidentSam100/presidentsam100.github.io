@@ -50,4 +50,65 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
   }
+
+  // ---- a breezy day: cloud shadows on the lawn and a butterfly about the
+  // garden, both under everything and taking no clicks. With Visual FX on the
+  // shadows drift and the butterfly wanders, wings beating; held while the
+  // pause card is up and moving again after its Restart. With FX off both
+  // hold still where they are. Read as the shadows' place across the page
+  // and the butterfly's place on it.
+  {
+    const bc = await lib.newContext(browser);
+    const look = (q) => q.evaluate(() => {
+      const a = getComputedStyle(document.body, "::before"), b = getComputedStyle(document.body, "::after");
+      return { shade: new DOMMatrix(a.transform === "none" ? undefined : a.transform).m41, fly: b.translate, flap: b.transform,
+        drawn: /radial-gradient/.test(a.backgroundImage) && /radial-gradient/.test(b.backgroundImage) && a.pointerEvents === "none" && b.pointerEvents === "none" && a.zIndex === "-1" && b.zIndex === "-1" };
+    });
+    const over = async (q, ms) => { const a = await look(q); await q.waitForTimeout(ms); const b = await look(q); return { drawn: a.drawn, shade: b.shade - a.shade, flies: a.fly !== b.fly, from: a, to: b }; };
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const goes = async (q) => {
+      const a = await look(q);
+      await q.waitForFunction((a) => { const s = getComputedStyle(document.body, "::before"), f = getComputedStyle(document.body, "::after"); return new DOMMatrix(s.transform === "none" ? undefined : s.transform).m41 > a.shade + 3 && f.translate !== a.fly; }, a, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await look(q);
+      return { drawn: a.drawn, shade: b.shade - a.shade, flies: a.fly !== b.fly, from: a, to: b };
+    };
+    const open = (off) => lib.open(bc, base, "games/click-tap/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:click-tap", off ? "1" : "0"), off) });
+    let q = await open(false);
+    const setup = await goes(q);
+    await q.click("#startBtn");
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("ct-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);   // (a CSS pause lands on the next frame)
+    const paused = await over(q, 900);
+    // Restart from the card (nothing clicked yet: no question)
+    await q.keyboard.press("r");
+    await q.waitForFunction(() => !document.body.classList.contains("ct-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await goes(q);
+    check("click-tap, Visual FX on: cloud shadows drift across the lawn and a butterfly wanders the garden, under everything; held while paused, moving again after Restart",
+      setup.drawn && setup.shade > 3 && setup.flies && paused.shade === 0 && !paused.flies && again.shade > 3 && again.flies, { setup, paused, again });
+    // FX turned off on the way: both stop where they are (no snap back to
+    // where they started), and turned on again they carry on from there
+    const before = await look(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await over(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await goes(q);
+    const near = (a, b) => { const [ax, ay] = a.split(" ").map(parseFloat), [bx, by] = b.split(" ").map(parseFloat); return Math.hypot(ax - bx, ay - by) < 60; };   // (two seconds' flight at most)
+    check("click-tap, Visual FX turned off on the way: the cloud shadows and the butterfly stop where they are, no jump; on again they carry on from there",
+      // (never back towards where they started: a busy machine may let them
+      // move on a little before the pause lands, never return)
+      before.shade > 5 && stopped.shade === 0 && !stopped.flies && stopped.from.shade >= before.shade - 0.5 && stopped.from.shade < before.shade + 40 && near(stopped.from.fly, before.fly) &&
+      on.from.shade >= stopped.to.shade - 0.5 && on.from.shade < stopped.to.shade + 40 && on.shade > 3 && on.flies, { before, stopped, on });
+    await q.close();
+    q = await open(true);
+    const off = await over(q, 900);
+    check("click-tap, Visual FX off: the cloud shadows lie still and the butterfly rests, wings open",
+      off.drawn && off.to.shade === 0 && off.shade === 0 && !off.flies && /^matrix\(1, 0, 0, 1, 0, 0\)$|^none$/.test(off.to.flap), off);
+    await q.close();
+    await bc.close();
+  }
 };
