@@ -146,9 +146,14 @@ const table = (lib) => [
     start: async (p) => { await p.evaluate(() => { Switcheroo.start(1); Switcheroo.skip(); Switcheroo.pick(Switcheroo.where(Switcheroo.asking())); }); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 8000 }); },
     fresh: (p) => p.evaluate(() => Switcheroo.state() === "play" && Switcheroo.level() === 1 && Switcheroo.picks() === 0 && !GameShell.leaveActive()),
     menu: (p) => p.evaluate(() => Switcheroo.state() === "menu" && !document.getElementById("menu").hidden) },
+  // (a run started over is a new run: a new state, back at the first mission
+  // with nothing destroyed and nothing cleared. Not "its mission card is up":
+  // the card shows for 1.6 s of game time, which a busy machine can spend
+  // between Restart and the look. The run under way is marked as it starts,
+  // so the one kept, still paused, is told from a fresh one)
   { name: "toy-tanks", path: "toy-tanks/",
-    start: async (p) => { await p.evaluate(() => ToyTanks.start()); await p.evaluate(() => ToyTanks.advance(1700, {})); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); },
-    fresh: (p) => p.evaluate(() => ToyTanks.ui() === "run" && ToyTanks.st().status === "start" && ToyTanks.st().kills === 0),
+    start: async (p) => { await p.evaluate(() => ToyTanks.start()); await p.evaluate(() => ToyTanks.advance(1700, {})); await p.waitForFunction(() => GameShell.leaveActive(), null, { timeout: 5000 }); await p.evaluate(() => { ToyTanks.st().__begun = true; }); },
+    fresh: (p) => p.evaluate(() => { const s = ToyTanks.st(); return ToyTanks.ui() === "run" && !!s && !s.__begun && s.mi === 0 && s.kills === 0 && s.cleared === 0; }),
     menu: (p) => p.evaluate(() => ToyTanks.ui() === "menu" && !document.getElementById("menu").hidden) },
   { name: "crazy-ohio", path: "crazy-ohio/", same: true,
     start: async (p) => { await p.click("#startBtn"); await p.waitForSelector('.gs-pause-btn[aria-disabled="false"]', { timeout: 15000 }); },

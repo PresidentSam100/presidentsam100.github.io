@@ -682,8 +682,11 @@ module.exports = async ({ browser, base, check, lib }) => {
           turns: flyers.filter((f) => { const t = f.querySelector(".turn"); return (t ? t.getAnimations() : f.getAnimations()).some((a) => a.effect.getKeyframes().some((k) => /rotateY/.test(k.transform || ""))); }).length,
           lags: lags.slice(0, 4), ends: lags.length ? Math.max(...lags) + anims[0].effect.getTiming().duration : 0 };
       });
-      // (and all of them landed, by the page's own clock)
-      got[off ? "off" : "on"].after = await p.evaluate(() => new Promise((r) => setTimeout(() => r({ flyers: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }), 1600)));
+      // (and all of them landed: waited for, not a set time, as a busy machine
+      // finishes the trips late; how long the deal takes is its own timing,
+      // read above)
+      await p.waitForFunction(() => !document.querySelector(".flyer") && !document.querySelector("#board .card.arriving"), null, { timeout: 15000 }).catch(() => {});
+      got[off ? "off" : "on"].after = await p.evaluate(() => ({ flyers: document.querySelectorAll(".flyer").length, waiting: document.querySelectorAll("#board .card.arriving").length }));
       await done(p, "hash deal FX " + (off ? "off" : "on"));
     }
     check("hash, FX on: the deal comes face down from the pile, one card after another, each turned face up on the way, all down inside ~0.8s",

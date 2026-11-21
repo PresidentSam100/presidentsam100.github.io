@@ -263,17 +263,25 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.waitForFunction(() => __game.state === "playing", null, { timeout: 8000 });
     const glow = await q.evaluate(() => {
       const c = document.getElementById("game"), g = c.getContext("2d"), R = __game.rows, now = performance.now;
+      // the nearest crossing ahead (a run of Trains is mostly crossings, but
+      // it starts on grass and a grass row or two can follow)
       let rail = null;
-      for (let r = __game.player.gy + 1; r < __game.player.gy + 6 && !rail; r++) if (R[r] && R[r].type === "rail") rail = R[r];
+      for (let r = __game.player.gy + 1; r < __game.player.gy + 9 && !rail; r++) if (R[r] && R[r].type === "rail") rail = R[r];
       if (!rail) return null;
       Object.assign(rail, { state: "idle", timer: 99 });
+      // every other crossing held dark for the two pictures: one whose train
+      // had begun to come (a busy machine gives them the time) is lit in both,
+      // and its glow was caught in place of this one's
+      const others = Object.values(R).filter((row) => row && row.type === "rail" && row !== rail).map((row) => ({ row, state: row.state, timer: row.timer }));
+      const dark = () => others.forEach((o) => { o.row.state = "idle"; o.row.timer = 99; });
       // the light's middle and the transform it's drawn through (its glow is the arc of radius 10)
       let at = null;
       const arc = g.arc;
       g.arc = function (x, y, r) { if (r === 10 && !at && /255, 60, 60/.test(g.fillStyle)) { const t = g.getTransform(); at = { x, y, t: [t.a, t.d, t.e, t.f] }; } return arc.apply(this, arguments); };
-      const shot = (state) => { rail.state = state; performance.now = () => 5000; try { __game.render(); } finally { performance.now = now; } return g.getImageData(0, 0, c.width, c.height); };
+      const shot = (state) => { dark(); rail.state = state; performance.now = () => 5000; try { __game.render(); } finally { performance.now = now; } return g.getImageData(0, 0, c.width, c.height); };
       const off = shot("idle"), on = shot("warn");
       delete g.arc;
+      others.forEach((o) => { o.row.state = o.state; o.row.timer = o.timer; });
       if (!at) return { noGlow: true };
       const red = (img, lx, ly) => { const px = Math.round(at.t[0] * (at.x + lx) + at.t[2]), py = Math.round(at.t[1] * (at.y + ly) + at.t[3]), i = (py * c.width + px) * 4; return img.data[i] - img.data[i + 1]; };
       // just outside the square (it spans 8 either way of the light) and just inside a corner
@@ -530,7 +538,10 @@ module.exports = async ({ browser, base, check, lib }) => {
   for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
     ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)], ["phone 375x553", mob(375, 553)], ["phone 360x560", mob(360, 560)], ["Pixel 7 sideways", devices["Pixel 7 landscape"]]]) {
     const c = await lib.newContext(browser, opts);
-    const q = await lib.open(c, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK]) });
+    // (the company's lorries made common here, one lorry in two rather than
+    // one in five or six, so both kinds are on the board well before the
+    // eagle ends an idle run, however busy the machine)
+    const q = await lib.open(c, base, "games/road-bird/", { before: (pg) => lib.injectScript(pg, "games/road-bird/game.js", [HOOK, ["const FLEET_CHANCE = 0.18,", "const FLEET_CHANCE = 0.5,"]]) });
     await q.evaluate(() => { __game.render(); });
     // (a run of Cars & Trucks, all roads, until a lorry is on the board)
     await q.keyboard.press("2"); await q.waitForTimeout(80);
