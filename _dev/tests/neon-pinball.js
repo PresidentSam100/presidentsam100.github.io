@@ -435,4 +435,66 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("neon-pinball: the table shows on every screen (a 360 x 560 phone too): its backing store is exactly 11:19 and holds its size",
       all.every((x) => x.exact && x.sizes.length === 1 && x.lit > 20), rows);
   }
+
+  // ---- the neon haze round the table (body::before and ::after, soft pools
+  // of the table's colours, under everything, taking no clicks): with Visual
+  // FX on both layers drift and breathe; held while the game is paused, and
+  // moving again after Restart from the pause card; FX turned off on the way
+  // holds them where they are (never back towards where they started), on
+  // again they carry on; with FX off from the start they hang still. Read as
+  // each layer's own clock and its place on the page.
+  {
+    const hc = await lib.newContext(browser);
+    const look = (q) => q.evaluate(() => {
+      const ls = ["::before", "::after"].map((pe) => getComputedStyle(document.body, pe));
+      const clocks = document.getAnimations().filter((a) => /^np-haze/.test(a.animationName || "")).map((a) => Math.round(a.currentTime || 0)).sort((x, y) => x - y);
+      return { at: ls.map((l) => l.transform), clocks,
+        drawn: ls.every((l) => /radial-gradient/.test(l.backgroundImage) && l.pointerEvents === "none" && l.zIndex === "-1" && l.position === "fixed") };
+    });
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const moves = async (q) => {
+      const a = await look(q);
+      await q.waitForFunction((a) => ["::before", "::after"].every((pe, i) => getComputedStyle(document.body, pe).transform !== a.at[i]), a, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await look(q);
+      return { a, b, moving: a.at.every((t, i) => t !== b.at[i]) && b.clocks.length === 2 && b.clocks.every((c, i) => c > a.clocks[i]) };
+    };
+    const still = async (q, ms) => { const a = await look(q); await q.waitForTimeout(ms); const b = await look(q); return { a, b, still: a.at.every((t, i) => t === b.at[i]) && b.clocks.every((c, i) => c === a.clocks[i]) }; };
+    const open = (off) => lib.open(hc, base, "games/neon-pinball/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:neon-pinball", off ? "1" : "0"); } catch (e) {} }, off) });
+    let q = await open(false);
+    const onCard = await moves(q);
+    await q.evaluate(() => NeonPinball.start("classic"));
+    await q.waitForFunction(() => NeonPinball.state().state === "ready", null, { timeout: 8000 }).catch(() => {});
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("np-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);   // (a CSS pause lands on the next frame)
+    const paused = await still(q, 800);
+    // Restart from the card (nothing played yet: no question)
+    await q.keyboard.press("r");
+    await q.waitForFunction(() => !document.body.classList.contains("np-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("neon-pinball, Visual FX on: a neon haze (two layers of soft glows, under everything, taking no clicks) drifts and breathes round the table; held while paused, moving again after Restart",
+      onCard.a.drawn && onCard.moving && paused.still && again.moving, { onCard, paused, again });
+    // FX turned off on the way, then on again
+    const before = await look(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await still(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await moves(q);
+    check("neon-pinball, Visual FX turned off on the way: the haze stops where it is, never back towards where it started; on again it drifts on from there",
+      before.clocks.length === 2 && stopped.still && stopped.a.clocks.every((c, i) => c >= before.clocks[i] && c > 1000) && on.moving && on.a.clocks.every((c, i) => c >= stopped.b.clocks[i]),
+      { before, stopped, on });
+    check("neon-pinball (haze): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    q = await open(true);
+    const off = await still(q, 900);
+    check("neon-pinball, Visual FX off: the haze hangs still, as first laid",
+      off.a.drawn && off.still && off.b.clocks.every((c) => c === 0), off);
+    check("neon-pinball (haze, FX off): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await hc.close();
+  }
 };

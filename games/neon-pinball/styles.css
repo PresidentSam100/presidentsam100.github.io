@@ -11,7 +11,48 @@ body {
   color: var(--text); font-family: "Orbitron", system-ui, sans-serif;
   min-height: 100%; display: flex; flex-direction: column; align-items: center;
   overflow: hidden; user-select: none; touch-action: none;
+  isolation: isolate;   /* (so the haze, layers of its own, lies on the page under the table) */
 }
+
+/* A neon haze hangs in the arcade's dark around the table: soft pools of the
+   table's own light, cyan and magenta in one layer (body::before), violet
+   and a fainter cyan in another (body::after), each a few wide radial glows
+   that fade to nothing, so no edge ever shows. They lie under the table, the
+   scores and the cards and take no clicks. With Visual FX on each layer
+   drifts slowly back and forth across the page (38 s and 52 s each way, a
+   few px a second, the two out of step) and breathes, brightening and
+   dimming as it goes; held while the game is paused. With FX off the haze
+   hangs still where it is (as first laid, from the start). The layers reach
+   past the window on every side, so the drift never shows an edge. */
+body::before, body::after {
+  content: ""; position: fixed; inset: -14vmax; z-index: -1; pointer-events: none;
+}
+body::before {
+  background:
+    radial-gradient(34vmax 26vmax at 22% 30%, rgba(54, 245, 255, 0.13), rgba(54, 245, 255, 0.05) 55%, transparent 72%),
+    radial-gradient(32vmax 24vmax at 78% 68%, rgba(255, 61, 240, 0.12), rgba(255, 61, 240, 0.045) 55%, transparent 72%);
+  /* (!important, and more particular than motion-toggle.js's FX-off rule,
+     which would end it at once and snap the haze back: here FX off pauses
+     it instead, where it is) */
+  animation: np-haze-a 38s ease-in-out infinite alternate paused !important;
+}
+body::after {
+  background:
+    radial-gradient(36vmax 26vmax at 72% 24%, rgba(176, 107, 255, 0.13), rgba(176, 107, 255, 0.05) 55%, transparent 72%),
+    radial-gradient(28vmax 22vmax at 30% 78%, rgba(54, 245, 255, 0.08), rgba(54, 245, 255, 0.03) 55%, transparent 72%);
+  animation: np-haze-b 52s ease-in-out infinite alternate paused !important;
+}
+@keyframes np-haze-a {
+  0% { transform: translate(-5vmax, -3vmax); opacity: 0.7; }
+  50% { transform: translate(1vmax, 3vmax); opacity: 1; }
+  100% { transform: translate(6vmax, -1vmax); opacity: 0.75; }
+}
+@keyframes np-haze-b {
+  0% { transform: translate(5vmax, 3vmax); opacity: 1; }
+  45% { transform: translate(-2vmax, -2vmax); opacity: 0.6; }
+  100% { transform: translate(-6vmax, 2vmax); opacity: 0.9; }
+}
+html.fx-on body:not(.np-held)::before, html.fx-on body:not(.np-held)::after { animation-play-state: running !important; }
 
 .stage { position: relative; width: 100%; max-width: 520px; flex: 1; display: flex; flex-direction: column; padding: 6px; }
 

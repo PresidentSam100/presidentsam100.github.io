@@ -995,7 +995,9 @@
   // Pause (P / tab-switch). Physics is skipped while paused; draw()
   // still runs so the table stays visible behind the overlay.
   const PAUSE = window.GameShell
-    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready", onChange: (paused) => { if (paused) letGo(); },
+    ? GameShell.pausable({ canPause: () => state === "play" || state === "ready",
+        // (the neon haze round the table holds too: styles.css)
+        onChange: (paused) => { if (paused) letGo(); document.body.classList.toggle("np-held", paused); },
         // on the card: this table again from ball 1, or back to the tables
         restart: () => startGame(currentMode), menu: () => toTables(true) })
     : { isPaused: () => false };
