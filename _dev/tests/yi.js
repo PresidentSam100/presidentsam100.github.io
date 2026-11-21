@@ -10,6 +10,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   const mine = (p) => p.evaluate(() => G.players[0].hand.length);
   const done = async (p, g) => { check(g + ": no page errors", p.errs.length === 0, p.errs); await p.close(); };
   const deal = async (p) => { await p.click("#startBtn"); await p.waitForTimeout(300); };
+  // (till it is your turn. A Wild Draw Four played on you first asks whether
+  // to challenge it, and waits for the answer: the four are taken here)
+  const myTurn = (q) => q.waitForFunction(() => {
+    const d = document.getElementById("drawFourBtn"); if (d && d.offsetParent) d.click();
+    return G && !G.over && G.currentPlayerIndex === 0 && !G.busy;
+  }, null, { timeout: 60000, polling: 100 });
   // your last-but-one card is down: the "One card left!" window opens (3.2s to call YI)
   const oneLeft = (p) => p.evaluate(() => {
     G.currentPlayerIndex = 0; G.busy = true; G.acted = true;
@@ -215,7 +221,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const off of [false, true]) {
       const q = await lib.open(ctx, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
       await deal(q);
-      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      await myTurn(q);
       beats[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
         const who = neighbor(0, 1), top = topCard(), col = G.currentColor, all = G.deck.concat(G.players[who].hand);
         const cant = all.filter((c) => c.type === "number" && c.color !== col && !(top.type === "number" && c.value === top.value)).slice(0, 3);
@@ -248,7 +254,7 @@ module.exports = async ({ browser, base, check, lib }) => {
     for (const off of [false, true]) {
       const q = await lib.open(ctx, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
       await deal(q);
-      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      await myTurn(q);
       got[off ? "off" : "on"] = await q.evaluate(() => new Promise((res) => {
         const me = G.players[0], col = G.currentColor;
         // a number card of the colour in play, first in your hand (so the rest close up behind it):
@@ -323,7 +329,7 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const q = await lib.open(ctx, base, "games/yi/");
     await deal(q);
-    await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+    await myTurn(q);
     await q.evaluate(() => { G.drawnIndex = 0; renderControls(); });
     await settle(q);
     const shown = await q.evaluate(() => { const b = document.getElementById("passBtn"); return b && b.getAttribute("data-gs-key"); });
@@ -414,7 +420,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         };
       }, off) });
       await deal(q);
-      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      await myTurn(q);
       // a CPU played the card on the pile; then a CPU draws two
       const marks = await q.evaluate(() => {
         G.discardBy = 1; drawCards(1, 2); render();
@@ -424,7 +430,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         return { under: under.map((e) => e.textContent), counts: counts.filter((t) => !/^\d+ cards?$/.test(t)) };
       });
       await q.waitForTimeout(500);   // (the draw's glide)
-      await q.waitForFunction(() => G && !G.over && G.currentPlayerIndex === 0 && !G.busy, null, { timeout: 60000 });
+      await myTurn(q);
       // then your play: a number card of the colour in play
       await q.evaluate(() => { window.__flights = []; G.discardBy = 1; G.players[0].hand[0] = mk(G.currentColor === "wild" ? "red" : G.currentColor, "number", 5); render(); document.querySelector('#hand .card[data-idx="0"]').click(); });
       await q.waitForFunction(() => window.__flights.length && !document.querySelector(".flying-card") && G.discardBy === 0 && !document.querySelector("#discardPile .card").getAnimations().length, null, { timeout: 15000 }).catch(() => {});
@@ -444,6 +450,40 @@ module.exports = async ({ browser, base, check, lib }) => {
       check("yi, Visual FX " + mode + ": your card, played after a CPU's, ends its flight exactly on the discard (on the card there as it set off, and where it then lies)",
         g.onPileAsItSetOff !== null && g.onPileAsItSetOff <= 1 && g.onLanded <= 1, g);
     }
+  }
+
+  // ---- a card in flight is never taken away short of the pile: on a busy
+  // machine a flight starts and runs late, and the card was removed on a
+  // fixed timer partway there. Here every flight runs at half speed (920 ms
+  // for its 460), and each card's flight must be all the way done, its own
+  // and the CPUs', when it leaves the screen.
+  {
+    const sc = await lib.newContext(browser);
+    const q = await lib.open(sc, base, "games/yi/", { before: (pg) => pg.addInitScript(() => {
+      const an = Element.prototype.animate, rm = Node.prototype.removeChild;
+      window.__gone = [];
+      Element.prototype.animate = function () {
+        const a = an.apply(this, arguments);
+        if (this.classList && this.classList.contains("flying-card") && !this.__flight) { this.__flight = a; a.playbackRate = 0.5; }
+        return a;
+      };
+      Node.prototype.removeChild = function (child) {
+        if (child && child.__flight) { const t = child.__flight.effect.getComputedTiming(); window.__gone.push({ progress: t.progress === null ? 1 : +t.progress.toFixed(3), state: child.__flight.playState }); }
+        return rm.apply(this, arguments);
+      };
+    }) });
+    await deal(q);
+    // two of your plays, the CPUs' turns between them (whoever starts)
+    for (let k = 0; k < 2; k++) {
+      await myTurn(q).catch(() => {});
+      const n = await q.evaluate(() => { G.players[0].hand[0] = mk(G.currentColor === "wild" ? "red" : G.currentColor, "number", 5); render(); document.querySelector('#hand .card[data-idx="0"]').click(); return window.__gone.length; });
+      await q.waitForFunction((n) => window.__gone.length > n, n, { timeout: 15000 }).catch(() => {});
+    }
+    const gone = await q.evaluate(() => window.__gone.slice());
+    check("yi: on a machine that runs the flights late, every card in flight reaches the pile before it leaves the screen (its own and the CPUs')",
+      gone.length >= 3 && gone.every((g) => g.progress >= 0.999), gone);
+    check("yi (late flights): no page errors", q.errs.length === 0, q.errs);
+    await q.close(); await sc.close();
   }
 
   await ctx.close();

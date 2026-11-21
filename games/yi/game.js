@@ -987,7 +987,20 @@ function flyCard(card, srcRect, opts, onDone) {
     finish();
   };
   a.onfinish = cleanup;
-  setTimeout(cleanup, 560); // safety net if the animation never finishes
+  // A safety net, for a flight whose animation never finishes. It looks in
+  // at the flight's own length and, while the card is still on its way (a
+  // busy machine starts and runs it late), waits on for it, so a card is
+  // never taken away short of the pile; only a flight still going after
+  // 3 s, or one in a hidden tab (nobody sees it), is ended there and then.
+  var t0 = performance.now();
+  (function watch(ms) {
+    setTimeout(function () {
+      if (fired) return;
+      var going = a.pending || a.playState === "running";
+      if (going && !document.hidden && performance.now() - t0 < 3000) return watch(100);
+      cleanup();
+    }, ms);
+  })(560);
 }
 
 // Animate a draw from the pile. Deferred one frame so the caller's re-render
