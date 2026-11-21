@@ -820,5 +820,113 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("demolition-row (laptop fill): no page errors", errs.length === 0, errs);
   }
 
+  // ---- power-ups go off when their block is demolished in a match, never
+  // just by landing. A matched Thunder bolt erases every block of its color,
+  // in Endless, 50-Stage and VS (the second seat too); where the match took
+  // the last of its color, it strikes the most common color left instead, so
+  // a matched bolt always does something. A bolt or snail that lands without
+  // a match waits on the board, marked. A CPU given a Thunder piece plays on.
+  {
+    const fxOn = { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:demolition-row", "0"); } catch (e) {} }) };
+    // A settle run on a board laid out by `kind`, read when it is done:
+    //  "match": four 0s in a row on the floor, the third a bolt, more 0s about
+    //    the board (apart);
+    //  "last": the same four 0s, the only 0s on the board, with five 1s (the
+    //    most common color left) and three 2s about, none of them touching;
+    // and a tower of stones at the right, which no color reaches, so a stage
+    // never clears under the test;
+    //  "land" / "snail": a plus over column 4 dropped where it makes no match,
+    //    its lowest arm a bolt (or a snail) in color 0, single 0s about.
+    const run = (seat, kind) => new Promise((done) => {
+      const b = GAME.players[seat].board, R = b.cfg.rows - 1, n = (c, aug) => ({ t: "n", c, aug: aug || null });
+      for (const p of GAME.players) p.cpu = null;
+      for (let r = 0; r < b.cfg.rows; r++) for (let c = 0; c < b.cfg.cols; c++) b.grid[r][c] = null;
+      for (let r = R - 7; r <= R; r++) b.grid[r][8] = { t: "s", h: 99 };
+      b.pq = []; b.slowUntil = 0;
+      const count = (pred) => { let k = 0; for (let r = 0; r < b.cfg.rows; r++) for (let c = 0; c < b.cfg.cols; c++) { const x = b.grid[r][c]; if (x && pred(x)) k++; } return k; };
+      const banners = [], t0 = performance.now();
+      let before = null, dropped = null;
+      if (kind === "match" || kind === "last") {
+        for (let c = 0; c < 4; c++) b.grid[R][c] = n(0, c === 2 ? "thunder" : null);
+        if (kind === "match") { b.grid[R][6] = n(0); b.grid[R - 2][6] = n(0); b.grid[R - 1][6] = n(2); b.grid[R][5] = n(1); }
+        else { for (let c = 0; c < 4; c++) b.grid[R - 1][c] = n(1 + (c % 2)); b.grid[R][4] = n(1); b.grid[R][5] = n(2); b.grid[R][6] = n(1); b.grid[R - 1][6] = n(1); }
+        before = { ones: count((x) => x.t === "n" && x.c === 1), twos: count((x) => x.t === "n" && x.c === 2) };
+        b.chain = 0; b.settleTotals = { normals: 0, stones: 0, stars: 0 }; b.settleGained = 0; b.settleGaugeGain = 0; b.thunderQueue = [];
+        b.piece = null; b.onSettled(b.now());
+      } else {
+        for (const [r, c] of [[R, 0], [R, 2], [R, 6], [R - 1, 6]]) b.grid[r][c] = n(0);
+        b.piece = { type: "plus", mono: false, crystalColor: 0, rotOffset: 0, pivot: { r: b.cfg.topLineRow - 2, c: 4 }, cells: { C: n(1), U: n(1), L: n(2), R: n(2), D: n(0, kind === "snail" ? "slow" : "thunder") } };
+        dropped = b.piece; b.phase = "control"; b.hardDrop();
+      }
+      (function f() {
+        if (b.flash && b.flash.text && banners[banners.length - 1] !== b.flash.text) banners.push(b.flash.text);
+        const settled = b.phase === "control" && (dropped ? b.piece && b.piece !== dropped : performance.now() - t0 > 150);
+        if (settled || performance.now() - t0 > 8000) {
+          return done({ banners, alive: b.alive, zeros: count((x) => x.t === "n" && x.c === 0), ones: count((x) => x.t === "n" && x.c === 1), twos: count((x) => x.t === "n" && x.c === 2),
+            bolts: count((x) => x.aug === "thunder"), snails: count((x) => x.aug === "slow"), slow: b.slowActive(), before });
+        }
+        requestAnimationFrame(f);
+      })();
+    });
+    const look = async (mode, seat, kind) => {
+      const q = await lib.open(ctx, base, "games/demolition-row/", fxOn);
+      await q.click('#mode-pick [data-mode="' + mode + '"]'); await q.click("#play-btn");
+      await q.waitForFunction((seat) => GAME && GAME.players[seat] && GAME.players[seat].board.piece, seat, { timeout: 15000 });
+      const r = await q.evaluate(([src, seat, kind]) => new Function("return " + src)()(seat, kind), [run.toString(), seat, kind]);
+      r.errs = q.errs.length; await q.close(); return r;
+    };
+    const matched = {}, last = {};
+    for (const [label, mode, seat] of [["Endless", "endless", 0], ["50-Stage", "stage", 0], ["VS, second seat", "vs", 1]]) matched[label] = await look(mode, seat, "match");
+    check("demolition-row: a Thunder bolt demolished in a match erases every block of its color, then cascades, in Endless, 50-Stage and VS (the second seat too)",
+      Object.values(matched).every((g) => g.zeros === 0 && g.banners.includes("THUNDER") && g.alive && !g.errs), matched);
+    for (const [label, mode] of [["Endless", "endless"], ["50-Stage", "stage"]]) last[label] = await look(mode, 0, "last");
+    check("demolition-row: a Thunder bolt whose match took the last of its color strikes the most common color left instead (it never goes off on nothing)",
+      Object.values(last).every((g) => g.zeros === 0 && g.banners.includes("THUNDER") && g.ones === 0 && g.before.ones > g.before.twos && g.alive && !g.errs), last);
+    const landed = { bolt: await look("endless", 0, "land"), snail: await look("endless", 0, "snail") };
+    check("demolition-row: a Thunder bolt or a Slow snail that lands without a match waits on the board, marked: nothing is erased and the fall isn't slowed until its block is demolished",
+      landed.bolt.bolts === 1 && landed.bolt.zeros === 5 && !landed.bolt.banners.includes("THUNDER") && landed.snail.snails === 1 && !landed.snail.slow && !landed.snail.banners.includes("SLOW") && !landed.bolt.errs && !landed.snail.errs, landed);
+    // a CPU seat given a Thunder piece places it and plays on
+    const q = await lib.open(ctx, base, "games/demolition-row/", fxOn);
+    await q.click('#mode-pick [data-mode="vs"]'); await q.click("#play-btn");
+    await q.waitForFunction(() => GAME && GAME.players.some((p) => p.cpu) && GAME.players.find((p) => p.cpu).board.piece, null, { timeout: 15000 });
+    const cpu = await q.evaluate(() => new Promise((done) => {
+      const seat = GAME.players.find((p) => p.cpu), b = seat.board, t0 = performance.now();
+      for (const p of GAME.players) if (p !== seat) p.cpu = null;
+      b.pq = ["thunder"];
+      let had = false, after = 0, last = b.piece;
+      (function f() {
+        if (b.piece && b.piece !== last) { if (had) after++; last = b.piece; if (b.piece.cells && Object.values(b.piece.cells).some((c) => c.aug === "thunder")) had = true; }
+        if ((had && after >= 3) || !b.alive || GAME.state !== "playing" || performance.now() - t0 > 30000) return done({ had, after, alive: b.alive, state: GAME.state });
+        requestAnimationFrame(f);
+      })();
+    }));
+    // (placed: the piece after it has come; a round the CPU then wins ends early)
+    check("demolition-row: a CPU given a Thunder piece places it and plays on", cpu.had && cpu.after >= 1 && cpu.alive, cpu);
+    check("demolition-row (power-ups): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
+  // ---- a run that ends leaves its board at rest: a top-out shakes the
+  // board, and the shake plays out before the drawing stops, so the last
+  // picture is the blocks in their places, not shifted to one side
+  {
+    const q = await lib.open(ctx, base, "games/demolition-row/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:demolition-row", "0"); } catch (e) {} }) });
+    await q.click('#mode-pick [data-mode="endless"]'); await q.click("#play-btn");
+    await q.waitForFunction(() => GAME && GAME.players[0].board.piece);
+    // (the shake's direction pinned to the right, its full width, for the look)
+    await q.evaluate(() => { window.__rnd = Math.random; Math.random = () => 0.99; GAME.players[0].board.die(); });
+    await q.waitForFunction(() => GAME.state === "result", null, { timeout: 5000 });
+    await q.waitForTimeout(1500);
+    const rest = await q.evaluate(() => {
+      Math.random = __rnd;
+      const p = GAME.players[0], c = p.canvas, left = c.toDataURL();
+      p.board.shake = 0; p.renderer.draw();
+      return { atRest: left === c.toDataURL(), state: GAME.state };
+    });
+    check("demolition-row: after a top-out ends the run, the board is left at rest, its blocks in their places (not shifted to the side mid-shake)", rest.atRest && rest.state === "result", rest);
+    check("demolition-row (board at rest): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+  }
+
   await ctx.close();
 };

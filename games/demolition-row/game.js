@@ -212,6 +212,15 @@
       return true;
     }
     // Rotate the 4 arm cells; the center is unchanged.
+    // The blocks a Thunder bolt of `color` strikes: every block of its color;
+    // or, where the match that set it off took the last of that color, every
+    // block of the most common color left, so a matched bolt never strikes
+    // nothing (which would look as if it had not gone off). [] on a board
+    // with no colored block left at all.
+    function thunderCoords(g, color) {
+      const own = colorCoords(g, color);
+      return own.length ? own : colorCoords(g, mostCommonColor(g));
+    }
     function rotateCellsCW(x) { return { C: x.C, U: x.L, R: x.U, D: x.R, L: x.D }; }
     function rotateCellsCCW(x) { return { C: x.C, U: x.R, L: x.U, D: x.L, R: x.D }; }
 
@@ -444,7 +453,7 @@
         // to clear do the blocks fall.
         while (this.thunderQueue.length) {
           const color = this.thunderQueue.shift();
-          const coords = colorCoords(this.grid, color);
+          const coords = thunderCoords(this.grid, color);
           if (coords.length) { this.chain += 1; this.pendingClear = coords; this.clearingThunder = true; this.flashBanner("THUNDER", "#ffe169"); this.phase = "flashing"; this.flashUntil = this.now() + FLASH_MS; return; }
         }
         this.applyGravityAnim(); this.fallVel = 0; this.phase = "falling";
@@ -624,12 +633,13 @@
         return best;
       }
       // Resolve a clear in the sim INCLUDING thunder augments (a thunder block
-      // wipes every block of its color), so placement scores reflect that payoff.
+      // wipes every block of its color, or of the most common one where its own
+      // is gone: thunderCoords), so placement scores reflect that payoff.
       simClearAugs(sim, coords, crack) {
         if (crack === undefined) crack = true;
         const r = applyClear(sim, coords, crack); let count = r.normals + r.stones + r.stars;
         const colors = [...r.augThunder];
-        while (colors.length) { const color = colors.shift(); const tc = colorCoords(sim, color); if (tc.length) { const rr = applyClear(sim, tc, true); count += rr.normals + rr.stones + rr.stars; for (const cc of rr.augThunder) if (colors.indexOf(cc) < 0) colors.push(cc); } }
+        while (colors.length) { const color = colors.shift(); const tc = thunderCoords(sim, color); if (tc.length) { const rr = applyClear(sim, tc, true); count += rr.normals + rr.stones + rr.stars; for (const cc of rr.augThunder) if (colors.indexOf(cc) < 0) colors.push(cc); } }
         return count;
       }
       bestPlacement(baseCells, rots) {
@@ -1386,7 +1396,12 @@
         this.raf = requestAnimationFrame(this.loop);
         if (!this.last) this.last = t; let dt = t - this.last; this.last = t; if (dt > 100) dt = 100;
         if (this.state === "playing") this.update(dt, t);
+        const still = this.players.every((p) => !(p.board.shake > 0));
         for (const p of this.players) { p.renderer.draw(); drawPreview(p.nextCanvas, p.board.nextSpec); this.updateHud(p); }
+        // A finished game draws on until every board has stopped shaking (a
+        // top-out shakes its board), then stops, so the picture left is the
+        // board at rest, not one shifted to the side mid-shake.
+        if (this.state === "result" && still) cancelAnimationFrame(this.raf);
       }
       update(dt, t) {
         for (const p of this.players) { p.board.update(dt, t); if (p.cpu) p.cpu.think(t); }
@@ -1465,7 +1480,7 @@
         else ex.innerHTML = b.bonusActive() ? '<span class="bonus-tag">x20!</span>' : "";
         const st = q("[data-stars]"); if (st) { const filled = "★".repeat(b.starCount) + "☆".repeat(Math.max(0, 3 - b.starCount)); const bonus = b.bonusActive() ? ' · <span class="bonus-tag">x20 ' + Math.ceil((b.bonusUntil - b.now()) / 1000) + "s</span>" : ""; st.innerHTML = "Stars " + filled + " (" + b.starCount + "/3)" + bonus; }
       }
-      end(title, msg) { this.state = "result"; cancelAnimationFrame(this.raf); document.getElementById("result-title").textContent = title; document.getElementById("result-msg").textContent = msg; document.getElementById("result").classList.remove("hidden"); }
+      end(title, msg) { this.state = "result"; document.getElementById("result-title").textContent = title; document.getElementById("result-msg").textContent = msg; document.getElementById("result").classList.remove("hidden"); }
       pause() {
         // the beat between VS rounds has nothing to stop yet, so the next round starts paused
         if (this.state === "roundpause") { if (!this.matchOver) this.pauseNext = true; return; }
