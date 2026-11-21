@@ -483,4 +483,69 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
   }
+
+  // ---- light through the side windows: soft slanted bands slide down the
+  // cabin's lining with Visual FX on, under everything and taking no clicks;
+  // held while the run is paused, moving again on resume and after Restart.
+  // FX turned off on the way holds them where they are (never back towards
+  // where they started), on again they carry on; with FX off from the start
+  // they lie still. Read as the layer's place down the page, which loops
+  // every 1342.86 px (so how far it has come is counted round that loop).
+  {
+    const LOOP = 1342.86;
+    const lc = await lib.newContext(browser);
+    const look = (q) => q.evaluate(() => {
+      const cs = getComputedStyle(document.body, "::before");
+      return { y: new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m42, drawn: /repeating-linear-gradient/.test(cs.backgroundImage) && cs.pointerEvents === "none" && cs.zIndex === "-1" && cs.position === "fixed" };
+    });
+    const ahead = (a, b) => ((b - a) % LOOP + LOOP) % LOOP;   // how far on from a to b, round the loop
+    const still = async (q, ms) => { const a = await look(q); await q.waitForTimeout(ms); const b = await look(q); return { drawn: a.drawn, from: a.y, to: b.y }; };
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const moves = async (q) => {
+      const a = await look(q);
+      await q.waitForFunction(([y0, loop]) => { const cs = getComputedStyle(document.body, "::before"), y = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m42, d = ((y - y0) % loop + loop) % loop; return d > 2 && d < loop / 2; }, [a.y, LOOP], { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await look(q);
+      return { drawn: a.drawn, from: a.y, to: b.y, on: +ahead(a.y, b.y).toFixed(2) };
+    };
+    const held = (q) => q.waitForFunction(() => document.body.classList.contains("qm-held"), null, { timeout: 5000 }).then(() => q.waitForTimeout(150), () => {});   // (a CSS pause lands on the next frame)
+    const open = (off) => lib.open(lc, base, "games/quick-minute/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:quick-minute", off ? "1" : "0"); } catch (e) {} }, off) });
+    let q = await open(false);
+    const menu = await moves(q);
+    await q.evaluate(() => __game.start("day"));
+    const run = await moves(q);
+    await q.keyboard.press("p"); await held(q);
+    const paused = await still(q, 800);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => !document.body.classList.contains("qm-held"), null, { timeout: 5000 }).catch(() => {});
+    const resumed = await moves(q);
+    // Restart from the pause card (Enter on its question, if it asks one)
+    await q.keyboard.press("p"); await held(q);
+    await q.keyboard.press("r"); await q.waitForTimeout(150);
+    if (await q.evaluate(() => !!document.querySelector(".gs-dialog"))) await q.keyboard.press("Enter");
+    await q.waitForFunction(() => !document.body.classList.contains("qm-held") && __game.running, null, { timeout: 5000 }).catch(() => {});
+    const restarted = await moves(q);
+    check("quick-minute, Visual FX on: soft bands of light slide down the cabin's lining (a fixed layer under everything, taking no clicks), on the menu and in a run; held while paused, moving again on resume and after Restart",
+      menu.drawn && menu.on > 2 && run.on > 2 && paused.from === paused.to && resumed.on > 2 && restarted.on > 2, { menu, run, paused, resumed, restarted });
+    // FX turned off on the way
+    const before = await look(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await still(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await moves(q);
+    const stoppedAt = ahead(before.y, stopped.from);
+    check("quick-minute, Visual FX turned off on the way: the bands stop where they are, never back towards where they started; on again they carry on from there",
+      stopped.from === stopped.to && stoppedAt < 200 && ahead(stopped.to, on.from) < 200 && on.on > 2, { before, stopped, stoppedAt: +stoppedAt.toFixed(2), on });
+    check("quick-minute (light bands): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    // FX off from the start
+    q = await open(true);
+    const off = await still(q, 900);
+    check("quick-minute, Visual FX off: the bands of light lie still on the lining", off.drawn && off.from === 0 && off.to === 0, off);
+    await q.close();
+    await lc.close();
+  }
 };

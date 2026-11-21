@@ -38,7 +38,33 @@ body {
   color: var(--text); font-family: var(--read); font-weight: 500; font-size: 17px;
   min-height: 100%; display: flex; flex-direction: column; align-items: center;
   padding: 1rem; overflow-x: hidden;
+  isolation: isolate;   /* (so the light through the windows, a layer of its own, lies on the cabin under everything else) */
 }
+/* Light through the side windows: as the car passes under lamps and gaps
+   in the roadside, soft bands of light slide over the cabin's lining, a
+   broad wash and a narrow glint, slanted as the windows are. They lie under
+   the windscreen, the mirror and the dash, on the lining only, and grow a
+   little stronger as the dials light up for the night (--dash). With Visual
+   FX on they slide down the cabin, one pass every 11 s or so (a band about
+   every five and a half); held while the run is paused (game.js). With FX
+   off they lie still where they are.
+   (A repeating stripe 1100 px across at 145deg, so it repeats every 1100 /
+   cos 35deg = 1342.86 px straight down: the layer is that much taller than
+   the window and slides that far, so the loop never shows a seam.) */
+body::before {
+  content: ""; position: fixed; left: 0; top: -1343px; width: 100vw; height: calc(100vh + 1343px); z-index: -1; pointer-events: none;
+  background: repeating-linear-gradient(145deg,
+    rgba(214, 232, 255, 0) 0, rgba(214, 232, 255, 0.065) 90px, rgba(214, 232, 255, 0.11) 150px, rgba(214, 232, 255, 0.065) 210px, rgba(214, 232, 255, 0) 300px,
+    rgba(214, 232, 255, 0) 470px, rgba(214, 232, 255, 0.09) 500px, rgba(214, 232, 255, 0.09) 518px, rgba(214, 232, 255, 0) 548px,
+    rgba(214, 232, 255, 0) 1100px);
+  opacity: calc(0.6 + 0.4 * var(--dash, 0));
+  /* (!important, and more particular than motion-toggle.js's FX-off rule,
+     which would end the slide at once and snap the bands back: here FX off
+     pauses it instead, where it is) */
+  animation: qm-bands 11s linear infinite paused !important;
+}
+@keyframes qm-bands { to { transform: translateY(1342.86px); } }
+html.fx-on body:not(.qm-held)::before { animation-play-state: running !important; }
 a { color: var(--lit); text-decoration: none; font-weight: 700; }
 .wrap { width: 100%; max-width: 440px; margin: 0 auto; flex: 1; display: flex; flex-direction: column; }
 
