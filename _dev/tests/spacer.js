@@ -444,4 +444,63 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "copyright, " + label);
     await cx.close();
   }
+
+  // ---- the stars on the page around the cabinet: three layers of pixel
+  // stars, falling with Visual FX on (the near ones fastest), held while the
+  // run is paused and falling again once RESTART starts it over; with FX off
+  // they lie still where they were painted. Read as each layer's place down
+  // the page.
+  {
+    const sc = await lib.newContext(browser);
+    const sky = (q) => q.evaluate(() => [...document.querySelectorAll("#sky i")].map((el) => {
+      const cs = getComputedStyle(el);
+      return { y: new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m42, img: /^url\("?data:image\/png/.test(cs.backgroundImage) };
+    }));
+    const over = async (q, ms) => { const a = await sky(q); await q.waitForTimeout(ms); const b = await sky(q); return a.map((l, i) => ({ img: l.img, from: l.y, by: b[i].y - l.y })); };
+    // (moving is waited for, up to a few seconds: a busy machine can give a
+    // page few frames, and a fixed window then sees too little of it)
+    const falls = async (q) => {
+      const a = await sky(q);
+      await q.waitForFunction((a) => [...document.querySelectorAll("#sky i")].every((el, i) => { const cs = getComputedStyle(el); return new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m42 > a[i].y + 1; }), a, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await sky(q);
+      return a.map((l, i) => ({ img: l.img, from: l.y, by: b[i].y - l.y }));
+    };
+    const open = (off) => lib.open(sc, base, "games/spacer/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:spacer", off ? "1" : "0"), off) });
+    let q = await open(false);
+    await q.waitForFunction(() => window.game);
+    const title = await falls(q);
+    await q.evaluate(() => { game.startGame(); game.mode = "playing"; game.togglePause(); });
+    await q.waitForFunction(() => document.body.classList.contains("sp-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);   // (a CSS pause lands on the next frame)
+    const paused = await over(q, 800);
+    // RESTART, with nothing scored, starts over at once
+    await q.keyboard.press("ArrowDown"); await q.keyboard.press("Enter");
+    await q.waitForFunction(() => game.mode !== "paused" && !document.body.classList.contains("sp-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await falls(q);
+    check("spacer, Visual FX on: the page's stars fall past the cabinet in three layers (the near ones fastest), held while paused, falling again after RESTART",
+      title.length === 3 && title.every((l) => l.img && l.by > 1) && title[2].by > title[0].by && paused.every((l) => l.by === 0) && again.every((l) => l.by > 1), { title, paused, again });
+    // FX turned off on the way: the stars stop where they are (no snap back),
+    // and turned on again they fall on from there
+    const before = await sky(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await over(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await falls(q);
+    check("spacer, Visual FX turned off mid-fall: the page's stars stop where they are, no jump; on again they fall on from there",
+      // (never back towards where they started: a busy machine may let them
+      // fall on a little before the pause lands, never return)
+      before.every((l) => l.y > 5) && stopped.every((l, i) => l.by === 0 && l.from >= before[i].y - 0.5 && l.from < before[i].y + 40) &&
+      on.every((l, i) => l.from >= stopped[i].from - 0.5 && l.from < stopped[i].from + 40 && l.by > 1), { before, stopped, on });
+    await done(q, "page stars FX on");
+    q = await open(true);
+    await q.waitForFunction(() => window.game);
+    const off = await over(q, 800);
+    check("spacer, Visual FX off: the page's stars lie still where they were painted",
+      off.length === 3 && off.every((l) => l.img && l.from === 0 && l.by === 0), off);
+    await done(q, "page stars FX off");
+    await sc.close();
+  }
 };

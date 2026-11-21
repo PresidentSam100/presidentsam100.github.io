@@ -16,6 +16,26 @@ html, body {
   justify-content: center;
   user-select: none;
 }
+body { isolation: isolate; }   /* (so the stars, a layer of their own, lie on the page under the cabinet) */
+
+/* Deep space around the cabinet: three layers of pixel stars (game.js paints
+   their tiles), far, middle and near. With Visual FX on they fall past the
+   cabinet as the screen's own stars do, the far ones slowly and the near ones
+   faster (4, 8 and 12 px a second), each layer one tile taller than the
+   window so the fall never shows an edge; held while the run is paused. With
+   FX off they lie still where they are (as first painted, from the start). */
+#sky { position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+#sky i { position: absolute; left: 0; right: 0; background-repeat: repeat; image-rendering: pixelated; }
+/* (!important, and more particular than motion-toggle.js's FX-off rule, which
+   would end the fall at once and snap the stars back: here FX off pauses it
+   instead, where it is) */
+#sky i:nth-child(1) { top: -240px; bottom: 0; background-size: 240px 240px; animation: sp-fall-far 60s linear infinite paused !important; }
+#sky i:nth-child(2) { top: -300px; bottom: 0; background-size: 300px 300px; animation: sp-fall-mid 37.5s linear infinite paused !important; }
+#sky i:nth-child(3) { top: -360px; bottom: 0; background-size: 360px 360px; animation: sp-fall-near 30s linear infinite paused !important; }
+@keyframes sp-fall-far { to { transform: translateY(240px); } }
+@keyframes sp-fall-mid { to { transform: translateY(300px); } }
+@keyframes sp-fall-near { to { transform: translateY(360px); } }
+html.fx-on body:not(.sp-held) #sky i:nth-child(n) { animation-play-state: running !important; }
 
 #cabinet {
   display: flex;

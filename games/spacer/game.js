@@ -41,6 +41,37 @@ const T_ENTERPRISE = 'enterprise';
 const ANIM = { flap: 0, time: 0, reducedFlash: !!(window.RM_ON && window.RM_ON()) };
 window.addEventListener("reducemotionchange", function (e) { ANIM.reducedFlash = e.detail.on; });
 
+// The page around the cabinet is deep space too: three layers of pixel stars
+// in the screen's own five colours, far (small, dim), middle and near (bigger,
+// brighter), each a square tile repeated over the page (#sky, styles.css).
+// Painted once from a fixed seed, so the sky is the same on every visit; the
+// tiles are drawn at one pixel per CSS pixel and scaled up square, as the
+// screen is. With Visual FX on they fall past the cabinet, the near ones
+// faster, as the screen's stars do (styles.css).
+(function paintSky() {
+  const sky = document.getElementById('sky');
+  if (!sky) return;
+  let seed = 0x5a3c1e;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const COLORS = ['#ffffff', '#9fd0ff', '#ffd6e0', '#bdfcff', '#fff2a8'];
+  // [tile size, stars per tile, star sizes, alpha low, alpha high]
+  const LAYERS = [[240, 30, [1], 0.3, 0.5], [300, 16, [1, 1, 2], 0.5, 0.7], [360, 9, [2], 0.7, 0.9]];
+  Array.prototype.forEach.call(sky.children, (el, k) => {
+    const L = LAYERS[k];
+    if (!L) return;
+    const c = document.createElement('canvas');
+    c.width = c.height = L[0];
+    const g = c.getContext('2d');
+    for (let i = 0; i < L[1]; i++) {
+      const s = L[2][(rnd() * L[2].length) | 0];
+      g.globalAlpha = L[3] + rnd() * (L[4] - L[3]);
+      g.fillStyle = COLORS[(rnd() * COLORS.length) | 0];
+      g.fillRect(Math.floor(rnd() * (L[0] - s)), Math.floor(rnd() * (L[0] - s)), s, s);
+    }
+    el.style.backgroundImage = 'url(' + c.toDataURL() + ')';
+  });
+})();
+
 // Saved data (the high score) goes through GameShell.store, which shrugs off a
 // browser that blocks storage; a bare localStorage there stopped the game from
 // starting at all
@@ -3332,6 +3363,11 @@ class Game {
     // started from: the clock never steps back, or the wing-flap frame works
     // out at -1 and a sprite drawn from it is missing)
     if (dt < 0) dt = 0;
+    // the stars around the cabinet hold while the run is paused (read from
+    // the mode each frame: Restart and Quit leave the pause without passing
+    // through togglePause)
+    const held = this.mode === 'paused';
+    if (held !== this.skyHeld) { this.skyHeld = held; document.body.classList.toggle('sp-held', held); }
     this.update(dt);
     this.draw();
     requestAnimationFrame((t) => this.loop(t));
