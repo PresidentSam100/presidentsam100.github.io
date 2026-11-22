@@ -599,4 +599,86 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("switcheroo (guest check head), " + label + ": no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- the jukebox's bubble tubes: a lit glass tube on the wall each side of
+  // the counter, standing above the floor's rail, some of each in view beside
+  // the counter on every screen (above and below it on a phone), taking no
+  // clicks, there with Visual FX on or off. With FX on the bubbles rise, on
+  // the menu and in play, held while paused and rising again after; turned
+  // off on the way they stop where they are (each stream's own clock kept,
+  // never sent back); with FX off from the start they hang where they start.
+  {
+    const fxAt = (off) => ({ before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:switcheroo", off ? "1" : "0"); } catch (e) {} }, off) });
+    const tubes = (q) => q.evaluate(() => {
+      const j = document.querySelector(".jukebox");
+      if (!j) return { missing: true };
+      const cs = getComputedStyle(j), ctr = document.querySelector(".counter").getBoundingClientRect(), hud = document.getElementById("hud").getBoundingClientRect();
+      const under = (x, y, r, m) => r.width > 0 && x > r.left - m && x < r.right + m && y > r.top - m && y < r.bottom + m;
+      const list = [...j.querySelectorAll(".tube")].map((t) => {
+        const r = t.getBoundingClientRect(), x = r.left + r.width / 2;
+        let shown = 0;
+        for (let y = r.top; y < r.bottom; y += 2) if (y >= 0 && y < innerHeight && x >= 0 && x < innerWidth && !under(x, y, ctr, 10) && !under(x, y, hud, 3)) shown += 2;
+        return { shown, bottom: Math.round(innerHeight - r.bottom), lit: /linear-gradient/.test(getComputedStyle(t.querySelector("i")).backgroundImage), streams: t.querySelectorAll("b").length };
+      });
+      return { list, fixed: cs.position, z: cs.zIndex, events: cs.pointerEvents };
+    });
+    const bubbles = (q) => q.evaluate(() => [...document.querySelectorAll(".tube b")].map((b) => +new DOMMatrix(getComputedStyle(b).transform === "none" ? undefined : getComputedStyle(b).transform).m42.toFixed(3)));
+    const clocks = (q) => q.evaluate(() => [...document.querySelectorAll(".tube b")].map((b) => { const a = b.getAnimations()[0]; return a ? a.currentTime : null; }));
+    // (rising is waited for, up to a few seconds: a busy machine can give a page few frames)
+    const moves = async (q) => {
+      const a = await clocks(q), y0 = await bubbles(q);
+      await q.waitForFunction((a) => { const b = [...document.querySelectorAll(".tube b")].map((e) => (e.getAnimations()[0] || {}).currentTime); return b.length === 4 && b.every((t, k) => t > a[k] + 150); }, a, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await clocks(q), y1 = await bubbles(q);
+      return { a, b, moved: a.length === 4 && b.every((t, k) => t > a[k] + 150) && y1.some((y, k) => y !== y0[k]) };
+    };
+    const still = async (q) => {
+      await q.waitForFunction(() => [...document.querySelectorAll(".tube b")].every((b) => b.getAnimations().every((x) => x.playState !== "running" && !x.pending)), null, { timeout: 5000 }).catch(() => {});
+      const a = await bubbles(q); await q.waitForTimeout(700); const b = await bubbles(q);
+      return { a, b, still: a.length === 4 && a.every((y, k) => y === b[k]) };
+    };
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["Pixel 7", devices["Pixel 7"]], ["phone 320x568", mob(320, 568)]]) {
+      const c = await lib.newContext(browser, opts);
+      const seen = {};
+      for (const off of [false, true]) {
+        const q = await lib.open(c, base, "games/switcheroo/", fxAt(off));
+        await q.click("#play"); await q.waitForTimeout(300);
+        seen[off ? "off" : "on"] = Object.assign(await tubes(q), { errs: q.errs.length });
+        await q.close();
+      }
+      const ok = (r) => !r.missing && r.list.length === 2 && r.list.every((t) => t.shown >= 40 && t.bottom >= 66 && t.lit && t.streams === 2) && r.fixed === "fixed" && r.z === "-1" && r.events === "none" && r.errs === 0;
+      check("switcheroo, " + label + ": a lit bubble tube stands on the wall each side of the counter, above the floor's rail, some of each in view, taking no clicks, with Visual FX on and off",
+        ok(seen.on) && ok(seen.off), seen);
+      await c.close();
+    }
+    const sc = await lib.newContext(browser);
+    let q = await lib.open(sc, base, "games/switcheroo/", fxAt(false));
+    const onMenu = await moves(q);
+    await q.click("#play");
+    await q.waitForTimeout(300);
+    const inPlay = await moves(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("paused"), null, { timeout: 5000 }).catch(() => {});
+    const held = await still(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => !document.body.classList.contains("paused"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("switcheroo, Visual FX on: the bubbles rise in the tubes, on the menu and in play; held while paused, rising again after",
+      onMenu.moved && inPlay.moved && held.still && again.moved, { onMenu, inPlay, held, again });
+    // FX turned off on the way: judged by each stream's own clock, read in the
+    // same moment the switch is pressed (a busy machine may let them rise a
+    // little more before the pause lands, but never send them back)
+    const before = await q.evaluate(() => { const t = [...document.querySelectorAll(".tube b")].map((b) => (b.getAnimations()[0] || {}).currentTime); document.querySelector(".rm-toggle").click(); return t; });
+    const stopped = await still(q);
+    const t1 = await clocks(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const on = await moves(q);
+    check("switcheroo, Visual FX turned off on the way: the bubbles stop where they are, no jump; on again they rise on",
+      before.length === 4 && before.every((t, k) => t > 300 && t1[k] >= t && t1[k] < t + 3000) && stopped.still && on.moved, { before, t1, stopped, on });
+    await done(q, "bubble tubes");
+    q = await lib.open(sc, base, "games/switcheroo/", fxAt(true));
+    const off = await still(q);
+    check("switcheroo, Visual FX off: the bubbles hang still where they start", off.still && off.a.every((y) => y === 0), off);
+    await done(q, "bubble tubes, FX off");
+    await sc.close();
+  }
 };
