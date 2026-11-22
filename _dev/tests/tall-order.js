@@ -19,7 +19,24 @@ const HOOK = ["  // test hooks: the Playwright harness drives runs through these
     },
     // one frame of the game's own, taken by hand, and the picture it draws
     frame: function (dt) { update(dt); draw(); },
-    pixels: function () { return g.getImageData(0, 0, cv.width, cv.height).data; }
+    pixels: function () { return g.getImageData(0, 0, cv.width, cv.height).data; },
+    // the sprinkles in the air: how many are drawn, each one's share of its
+    // lap down the wall and where it is on the screen
+    // (null where the game has none)
+    airy: function () { if (typeof airy === "undefined") return null; var n = airyCount(); return { n: n, list: airy.slice(0, n).map(function (b) { var q = airyAt(b); return { v: b.v, x: q.x, y: q.y }; }) }; },
+    // how many pixels of a box (page px) change between the picture drawn
+    // with the sprinkles hidden and with every one of them at its middle
+    airyShows: function (x, y, w, h) {
+      if (typeof airy === "undefined") return null;
+      var keep = airy.map(function (b) { return [b.u, b.v, b.sway, b.a]; }), lap = Hh + 40, k = cv.width / W;
+      var grab = function () { return g.getImageData(Math.round(x * k), Math.round(y * k), Math.round(w * k), Math.round(h * k)).data; };
+      airy.forEach(function (b) { b.a = 0; }); draw(); var a = grab();
+      airy.forEach(function (b) { b.u = (x + w / 2) / W; b.sway = 0; b.v = ((((y + h / 2 + 20 + cam) % lap) + lap) % lap) / lap; b.a = 1; }); draw(); var c = grab();
+      airy.forEach(function (b, i) { b.u = keep[i][0]; b.v = keep[i][1]; b.sway = keep[i][2]; b.a = keep[i][3]; }); draw();
+      var n = 0; for (var i = 0; i < a.length; i += 4) if (a[i] !== c[i] || a[i + 1] !== c[i + 1] || a[i + 2] !== c[i + 2]) n++;
+      return n;
+    },
+    base: function () { var t = tiers[0]; return t ? { x: t.x, w: t.w, top: sy(0) - SH, bottom: sy(0), shake: shake } : null; }
   };
   // test hooks: the Playwright harness drives runs through these\n`];
 
@@ -354,5 +371,94 @@ module.exports = async ({ browser, base, check, lib }) => {
       (r.lines === 1 ? r.size >= 10 : r.size >= 8) && r.berry > 0.35 && r.cream > 0.05 && r.over.length === 0 && !r.madeBy, r);
     await done(q, "oven badge, " + label);
     await c.close();
+  }
+
+  // ---- sprinkles drift down the bakery's wall like slow pastel confetti,
+  // behind the oven, the counter and the cake, as many as the screen has room
+  // for. They're there with Visual FX on or off; with FX on they drift, on
+  // the menu and in play, held while paused and drifting again after; turned
+  // off on the way they stop where they are (never sent back); with FX off
+  // from the start they hang where they start.
+  {
+    const { devices } = require("@playwright/test");
+    const fxAt = (off) => (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tall-order", off ? "1" : "0"); } catch (e) {} }, off);
+    const openFx = (c, off) => lib.open(c, base, "games/tall-order/", { before: async (pg) => { await lib.injectScript(pg, "games/tall-order/game.js", [HOOK]); await fxAt(off)(pg); } });
+    const air = (q) => q.evaluate(() => window.__to && __to.airy ? __to.airy() : null);
+    // (each sprinkle's way down since a, a lap's share: a step back would read near 1)
+    const ahead = (a, b) => a.list.map((s, k) => +(((b.list[k].v - s.v) % 1 + 1) % 1).toFixed(4));
+    const moves = async (q) => {
+      const a = await air(q);
+      if (!a) return { moved: false, missing: true };
+      await q.waitForFunction((v) => __to.airy().list.every((s, k) => Math.abs(s.v - v[k]) > 0.002), a.list.map((s) => s.v), { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await air(q), d = ahead(a, b);
+      return { moved: d.every((x) => x > 0.002 && x < 0.5), d: d.slice(0, 4) };
+    };
+    // (a busy machine may take a moment to land the pause or the switch: wait
+    // for a quarter second with nothing moving, then watch for 0.7 s more)
+    const still = async (q) => {
+      if (!(await air(q))) return { still: false, missing: true };
+      await q.waitForFunction(() => { const v = __to.airy().list[0].v, k = window.__airyLast; window.__airyLast = v; return k === v; }, null, { timeout: 5000, polling: 250 }).catch(() => {});
+      const a = await air(q);
+      await q.waitForTimeout(700);
+      const b = await air(q);
+      return { still: a.list.every((s, k) => s.v === b.list[k].v) };
+    };
+    const play = async (q, n) => {
+      await q.evaluate(() => TallOrder.start("bakery"));
+      for (let i = 0; i < n; i++) {
+        await q.waitForFunction(() => TallOrder.sliderReady(), null, { timeout: 8000 });
+        await q.evaluate(() => TallOrder.placeAndDrop(0));
+      }
+      await q.waitForFunction(() => TallOrder.sliderReady() && __to.base().shake < 0.3, null, { timeout: 8000 }).catch(() => {});
+    };
+    for (const [label, opts] of [["1280x900", {}], ["Pixel 7", devices["Pixel 7"]]]) {
+      const c = await lib.newContext(browser, opts);
+      const seen = {};
+      for (const off of [false, true]) {
+        const q = await openFx(c, off);
+        const a = await air(q);
+        // on the open wall, a third of the way across and down; then in play, on the cake's bottom tier
+        const wall = a ? await q.evaluate(() => __to.airyShows(innerWidth * 0.3, innerHeight * 0.3, 40, 40)) : null;
+        await play(q, 2);
+        const cake = a ? await q.evaluate(() => { const t = __to.base(); return __to.airyShows(t.x + 8, t.top + 6, t.w - 16, t.bottom - t.top - 12); }) : null;
+        seen[off ? "off" : "on"] = { n: a && a.n, wall, cake, errs: q.errs.length };
+        await q.close();
+      }
+      const ok = (r) => r.n >= 16 && r.wall > 0 && r.cake === 0 && r.errs === 0;
+      check("tall-order, " + label + ": sprinkles drift on the bakery's wall (16 or more on the screen), behind the cake, with Visual FX on and off",
+        ok(seen.on) && ok(seen.off), seen);
+      await c.close();
+    }
+    const sc = await lib.newContext(browser);
+    let q = await openFx(sc, false);
+    const onMenu = await moves(q);
+    await play(q, 2);
+    const inPlay = await moves(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.querySelector(".gs-pause:not(.gs-dialog):not([hidden])"), null, { timeout: 5000 }).catch(() => {});
+    const held = await still(q);
+    await q.keyboard.press("p");
+    const again = await moves(q);
+    check("tall-order, Visual FX on: the sprinkles drift down the wall, on the menu and in play; held while paused, drifting again after",
+      onMenu.moved && inPlay.moved && held.still && again.moved, { onMenu, inPlay, held, again });
+    // FX turned off on the way: read in the same moment the switch is pressed
+    // (a busy machine may let them drift on a frame, but never back)
+    const before = await q.evaluate(() => { const a = window.__to && __to.airy ? __to.airy() : null; document.querySelector(".rm-toggle").click(); return a; });
+    const stopped = await still(q);
+    const after = await air(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const on = await moves(q);
+    const step = before && after ? ahead(before, after) : null;
+    check("tall-order, Visual FX turned off on the way: the sprinkles stop where they are, no jump; on again they drift on",
+      !!step && step.every((x) => x < 0.05) && stopped.still && on.moved, { step: step && step.slice(0, 4), stopped, on });
+    await done(q, "sprinkles");
+    q = await openFx(sc, true);
+    const off = await still(q);
+    // (where the first one starts: the second number of its fixed seed)
+    const start = await q.evaluate(() => { const r = CakeArt.mulberry(38); r(); return r(); });
+    const first = await air(q);
+    check("tall-order, Visual FX off: the sprinkles hang still where they start", off.still && !!first && first.list[0].v === start, { off, start, first: first && first.list[0] });
+    await done(q, "sprinkles, FX off");
+    await sc.close();
   }
 };

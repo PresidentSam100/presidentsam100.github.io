@@ -435,6 +435,44 @@
     pops = pops.filter(function (p) { return p.age < 1; });
   }
 
+  // ---- the sprinkles in the air ---------------------------------------------------
+  // Sprinkles drift down the bakery's wall like slow pastel confetti, behind
+  // the oven, the counter and the cake: smaller and paler than the cake's
+  // own, each turning a little as it sways down, and in at the top again once
+  // it has fallen past the foot of the screen. They're on the wall, so they
+  // go down with it as the view climbs the tower. With Visual FX on they
+  // drift (held while paused, as the whole picture is); with FX off they hang
+  // where they are. The same ones every time (a fixed seed), as many as the
+  // screen has room for.
+  var airy = (function () {
+    var rnd = A.mulberry(38), out = [];
+    for (var i = 0; i < 120; i++) out.push({
+      u: rnd(), v: rnd(),                              // across the screen; down the wall (its share of a lap)
+      fall: 14 + rnd() * 18, sway: 6 + rnd() * 10,     // px a second down; px each way
+      ph: rnd() * 6.3, rot: rnd() * 6.3, spin: (rnd() - 0.5) * 1.2,
+      s: 3 + rnd() * 2, col: A.SPRINKLE_COLS[Math.floor(rnd() * 5)], a: 0.45 + rnd() * 0.25
+    });
+    return out;
+  })();
+  function airyCount() { return Math.min(airy.length, Math.max(16, Math.round(W * Hh / 15000))); }
+  // (a lap: the screen's height and a sprinkle's length over each end)
+  function airyAt(b) {
+    var lap = Hh + 40;
+    return { x: b.u * W + Math.sin(b.ph) * b.sway, y: (((b.v * lap - cam) % lap) + lap) % lap - 20 };
+  }
+  function driftAiry(dt) {
+    var lap = Hh + 40;
+    airy.forEach(function (b) { b.v = (b.v + b.fall * dt / lap) % 1; b.ph += dt * 0.8; b.rot += b.spin * dt; });
+  }
+  function drawAiry() {
+    for (var i = 0, n = airyCount(); i < n; i++) {
+      var b = airy[i], at = airyAt(b);
+      g.globalAlpha = b.a;
+      A.sprinkle(g, at.x, at.y, b.rot, b.s, b.col);
+    }
+    g.globalAlpha = 1;
+  }
+
   // ---- draw --------------------------------------------------------------------------
   function sy(worldY) { return worldY - cam; }
 
@@ -454,6 +492,7 @@
 
   function draw() {
     A.drawKitchen(g, W, Hh, cam, wallTint);
+    drawAiry();
     if (state === "zoom" || state === "over") { drawServed(); return; }
 
     g.save();
@@ -646,6 +685,7 @@
     requestAnimationFrame(loop);
     var dt = Math.min(0.05, (now - last) / 1000); last = now;
     if (P.isPaused()) return;
+    if (fx()) driftAiry(dt);
     if (state !== "menu") update(dt);
     draw();
   }
