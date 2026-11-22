@@ -47,7 +47,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     ["fish-a-fish", "fish-a-fish/", (p) => p.evaluate(() => FishAFish.start("daybreak"))],
     ["neon-pinball", "neon-pinball/", async (p) => { await p.evaluate(() => NeonPinball.start("classic")); if (await active(p)) throw new Error("pinball: active on the plunger"); await p.evaluate(() => NeonPinball.setScore(100)); }],
     ["passport", "passport/", async (p) => { await p.evaluate(() => { Passport.fast(); Passport.start("tour"); }); await p.waitForTimeout(150); if (await active(p)) throw new Error("passport: active before an answer"); await p.evaluate(() => Passport.answer(Passport.current().correct)); }],
-    ["ping", "ping/", async (p) => { await p.click('#menu .btn[data-mode="1"]'); await p.waitForTimeout(3500); if (await active(p)) throw new Error("ping: active at 0-0"); await p.evaluate(() => { __game.left.score = 1; }); }],
+    // (Ping at 0-0, looked at with the score set to 0-0 in the same moment: a
+    // busy machine can let the computer win a point off the idle paddle in
+    // the wait before the look)
+    ["ping", "ping/", async (p) => { await p.click('#menu .btn[data-mode="1"]'); await p.waitForTimeout(3500); if (await p.evaluate(() => { __game.left.score = 0; __game.right.score = 0; return GameShell.leaveActive(); })) throw new Error("ping: active at 0-0"); await p.evaluate(() => { __game.left.score = 1; }); }],
     ["poodle-jump", "poodle-jump/", async (p) => { await p.evaluate(() => __game.start()); await p.waitForTimeout(150); await p.evaluate(() => { __game.bestY -= 1000; }); await p.waitForTimeout(200); }],
     ["quick-minute", "quick-minute/", async (p) => { await p.evaluate(() => __game.start("day")); await p.waitForTimeout(200); }],
     ["reaction", "reaction/", async (p) => { await p.click("#btn-start"); await p.waitForTimeout(200); await p.keyboard.press("Space"); }],
