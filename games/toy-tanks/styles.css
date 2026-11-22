@@ -31,6 +31,40 @@ body {
   overflow: hidden;
   padding: 54px 8px 8px;
 }
+/* A toy plane on a string flies round above the box, and the lamp overhead
+   casts its shadow on the boards: a soft, blurred plane with the line of its
+   string trailing in towards the middle, under the lid, the arena and the
+   stencil, so it shows only on the bare boards. It flies a wide oval just
+   inside the edges of the screen, so it crosses whatever boards a screen
+   leaves: beside the arena on a laptop, above and below it on a phone.
+   #plane-shadow (index.html only, not the editor) goes side to side, its
+   <i> up and down a quarter of a lap behind (together, the oval), and its
+   <b>, the plane and string, turns to point the way it flies. With Visual FX
+   on it laps the box in 36 s; held while the game is paused (body.paused,
+   game.js). With FX off it lies still where it is: at the left of the box,
+   nose down, from the start; where it was, if FX is turned off on the way. */
+body:not(.editor) { isolation: isolate; }   /* (so the shadow lies on the boards under everything else) */
+#plane-shadow { position: fixed; left: 50%; top: 50%; width: 0; height: 0; z-index: -1; pointer-events: none; }
+#plane-shadow i { position: absolute; left: 0; top: 0; }
+#plane-shadow b {
+  position: absolute; left: -26px; top: -158px; width: 52px; height: 184px;
+  transform-origin: 26px 158px;   /* (the plane's middle) */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='%2308143a'%3E%3Cellipse cx='20' cy='20' rx='16' ry='3.6'/%3E%3Cpath d='M27 20 L21 2 L16.5 2 L18.5 20 L16.5 38 L21 38 Z'/%3E%3Cpath d='M9.5 20 L5.5 10.5 L3 10.5 L4 20 L3 29.5 L5.5 29.5 Z'/%3E%3Cellipse cx='36.5' cy='20' rx='1.2' ry='7'/%3E%3C/g%3E%3C/svg%3E") 0 132px / 52px 52px no-repeat,
+    linear-gradient(to top, rgba(8, 20, 58, 0.6), rgba(8, 20, 58, 0)) 25.25px 0 / 1.5px 158px no-repeat;
+  filter: blur(1.6px); opacity: 0.42;
+}
+/* (!important, and more particular than motion-toggle.js's FX-off rule,
+   which would end the flight at once and snap the plane back: here FX off
+   pauses it instead, where it is. The eases are a sine's, so the two
+   swings make an oval.) */
+#plane-shadow { animation: tt-fly-x 18s cubic-bezier(0.37, 0, 0.63, 1) infinite alternate paused !important; }
+#plane-shadow i { animation: tt-fly-y 18s cubic-bezier(0.37, 0, 0.63, 1) -9s infinite alternate paused !important; }
+#plane-shadow b { animation: tt-fly-turn 36s linear infinite paused !important; }
+@keyframes tt-fly-x { from { translate: calc(48px - 50vw) 0; } to { translate: calc(50vw - 48px) 0; } }
+@keyframes tt-fly-y { from { translate: 0 calc(44px - 50vh); } to { translate: 0 calc(50vh - 44px); } }
+@keyframes tt-fly-turn { from { rotate: 90deg; } to { rotate: -270deg; } }
+html.fx-on body:not(.paused) #plane-shadow, html.fx-on body:not(.paused) #plane-shadow i, html.fx-on body:not(.paused) #plane-shadow b { animation-play-state: running !important; }
 .nav-back-games {
   position: fixed; top: 12px; left: 12px; z-index: 50;
   font-family: var(--face); font-size: 15px; font-weight: 400;

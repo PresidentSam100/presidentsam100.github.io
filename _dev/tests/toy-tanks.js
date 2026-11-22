@@ -1287,4 +1287,79 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("toy-tanks: PROPERTY OF SAM LU is sprayed on the box with your tank above or beside it, on the screen and clear of everything on the box at every size (1280x900, 1366x657, 1280x600, 320x568, 360x560, 375x553, 390x844, Pixel 7 upright and on its side), on the menu, in a run and with the HUD grown, under the menu's card; no \"made by\" line",
       bad.length === 0, { bad, seen });
   }
+
+  // ---- the shadow of a toy plane on its string, flying round above the box:
+  // with Visual FX on it laps the box, held while the game is paused and
+  // flying on after Restart; turned off on the way it stops where it is
+  // (judged by the flight's own clocks, read in the moment the switch is
+  // pressed: a busy machine may let it fly on a little before the pause
+  // lands, never back to the start); with FX off from the start it lies
+  // still at the left of the box. It lies under everything and takes no
+  // clicks. Read as where the plane's middle is, and the flight's clocks.
+  {
+    const pc = await lib.newContext(browser);
+    const open = (off) => lib.open(pc, base, "games/toy-tanks/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:toy-tanks", off ? "1" : "0"); } catch (e) {} }, off) });
+    const where = (q) => q.evaluate(() => {
+      const box = document.getElementById("plane-shadow"), b = box && box.querySelector("b");
+      if (!b) return null;
+      const cs = getComputedStyle(box), anims = [box, box.querySelector("i"), b].map((e) => e.getAnimations()[0]);
+      // (the plane's middle: where its <i>, carried side to side and up and down, has got to)
+      const i = box.querySelector("i").getBoundingClientRect();
+      return { mid: [Math.round(i.left), Math.round(i.top)],
+        under: +cs.zIndex < 0 && cs.pointerEvents === "none" && cs.position === "fixed", hidden: box.getAttribute("aria-hidden"),
+        clocks: anims.map((a) => (a ? a.currentTime : null)), states: anims.map((a) => (a ? a.playState : null)), w: innerWidth, h: innerHeight };
+    });
+    const moved = (a, b) => a && b && (Math.abs(a.mid[0] - b.mid[0]) > 2 || Math.abs(a.mid[1] - b.mid[1]) > 2);
+    // (moving is waited for, up to a few seconds: a busy machine can give a page few frames)
+    const flies = async (q) => {
+      const a = await where(q);
+      await q.waitForFunction((m) => { const i = document.querySelector("#plane-shadow i"); if (!i) return false; const r = i.getBoundingClientRect(); return Math.abs(r.left - m[0]) > 2 || Math.abs(r.top - m[1]) > 2; }, a && a.mid, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await where(q);
+      return { from: a, to: b, moves: !!moved(a, b) && b.states.every((s) => s === "running") };
+    };
+    // (still over 0.8 s, once every part of the flight reports itself paused
+    // and the pause has landed: a pause asked for is pending till a frame)
+    const holds = async (q) => {
+      await q.waitForFunction(() => { const p = document.getElementById("plane-shadow"); return p && [p, p.querySelector("i"), p.querySelector("b")].every((e) => e.getAnimations().every((a) => a.playState === "paused" && !a.pending)); }, null, { timeout: 5000 }).catch(() => {});
+      const a = await where(q); await q.waitForTimeout(800); const b = await where(q);
+      return { from: a, to: b, still: !!a && !moved(a, b) && b.states.every((s) => s === "paused") };
+    };
+    let q = await open(false);
+    const onMenu = await flies(q);
+    await q.evaluate(() => ToyTanks.start());
+    await q.waitForFunction(() => ToyTanks.ui() === "run" && ToyTanks.st() && ToyTanks.st().status === "play", null, { timeout: 8000 }).catch(() => {});
+    const inRun = await flies(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("paused"), null, { timeout: 5000 }).catch(() => {});
+    const paused = await holds(q);
+    // Restart from the pause card (it asks: Enter starts over)
+    await q.keyboard.press("r"); await q.waitForTimeout(200);
+    if (await q.evaluate(() => !!document.querySelector(".gs-dialog"))) await q.keyboard.press("Enter");
+    await q.waitForFunction(() => !document.body.classList.contains("paused"), null, { timeout: 5000 }).catch(() => {});
+    const restarted = await flies(q);
+    // FX turned off on the way: read the clocks as the switch is pressed
+    const before = await q.evaluate(() => {
+      const p = document.getElementById("plane-shadow"), t = p ? [p, p.querySelector("i"), p.querySelector("b")].map((e) => { const a = e.getAnimations()[0]; return a ? a.currentTime : null; }) : [];
+      document.querySelector(".rm-toggle").click();
+      return t;
+    });
+    const stopped = await holds(q);
+    const after = stopped.to ? stopped.to.clocks : [];
+    const noJump = before.length === 3 && before.every((t, k) => t > 500 && after[k] >= t && after[k] < t + 3000);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const again = await flies(q);
+    check("toy-tanks, Visual FX on: a toy plane's shadow flies round the box on its string, on the menu and in a run, under everything and taking no clicks; held while paused, flying on after Restart",
+      !!onMenu.from && onMenu.from.under && onMenu.from.hidden === "true" && onMenu.moves && inRun.moves && paused.still && restarted.moves, { onMenu, inRun, paused, restarted });
+    check("toy-tanks: Visual FX turned off on the way, the plane's shadow stops where it is (never back to the start); on again it flies on", stopped.still && noJump && again.moves, { before, after, stopped, again });
+    check("toy-tanks (plane shadow, FX on): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    q = await open(true);
+    const off = await holds(q);
+    const rest = off.to;
+    check("toy-tanks, Visual FX off: the plane's shadow lies still at the left of the box, nose down",
+      off.still && !!rest && rest.mid[0] < 110 && Math.abs(rest.mid[1] - rest.h / 2) < 40, off);
+    check("toy-tanks (plane shadow, FX off): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await pc.close();
+  }
 };
