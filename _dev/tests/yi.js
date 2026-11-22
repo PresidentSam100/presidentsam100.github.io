@@ -486,5 +486,79 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.close(); await sc.close();
   }
 
+  // ---- the four colors' glows round the table: with Visual FX on they lift
+  // off the painted table and drift round its edge, clockwise, trading
+  // corners; held while the table waits (the pause card, the window away)
+  // and drifting again after Resume and Restart. FX turned off on the way
+  // holds them where they are (never back to their corners); with FX off from
+  // the start the table is the one painted picture, nothing lifted. Read as
+  // the red glow's layer's place (it sets off along the top edge).
+  {
+    const gc = await lib.newContext(browser);
+    const red = (q) => q.evaluate(() => {
+      const cs = getComputedStyle(document.body, "::before"), m = new DOMMatrix(cs.transform === "none" ? undefined : cs.transform);
+      return { x: m.m41, lifted: document.body.classList.contains("yi-glows"), glow: /radial-gradient/.test(cs.backgroundImage) && cs.pointerEvents === "none" && cs.zIndex === "-1", held: document.body.classList.contains("yi-held") };
+    });
+    const still = async (q, ms) => { const a = await red(q); await q.waitForTimeout(ms); return { a, b: await red(q) }; };
+    // (moving is waited for, up to a few seconds: a busy machine can give a page few frames)
+    const moves = async (q) => {
+      const a = await red(q);
+      await q.waitForFunction((x) => { const cs = getComputedStyle(document.body, "::before"); return new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m41 > x + 0.2; }, a.x, { timeout: 6000, polling: 100 }).catch(() => {});
+      return { a, b: await red(q) };
+    };
+    const open = (off) => lib.open(gc, base, "games/yi/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:yi", off ? "1" : "0"); } catch (e) {} }, off) });
+    let q = await open(false);
+    const setup = await moves(q);
+    await deal(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("yi-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);   // (a CSS pause lands on the next frame)
+    const paused = await still(q, 700);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => !document.body.classList.contains("yi-held"), null, { timeout: 5000 }).catch(() => {});
+    const resumed = await moves(q);
+    // the window away holds the table too
+    await q.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await q.waitForFunction(() => document.body.classList.contains("yi-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const away = await still(q, 700);
+    await q.evaluate(() => window.dispatchEvent(new Event("focus")));
+    // Restart from the pause card (nothing played yet: no question)
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("yi-held"), null, { timeout: 5000 }).catch(() => {});
+    await q.keyboard.press("r");
+    await q.waitForFunction(() => !document.body.classList.contains("yi-held"), null, { timeout: 5000 }).catch(() => {});
+    const restarted = await moves(q);
+    check("yi, Visual FX on: the four colors' glows lift off the table and drift round its edge; held while paused and while the window is away, drifting again after Resume and Restart",
+      setup.a.lifted && setup.a.glow && setup.b.x > setup.a.x && paused.a.held && paused.b.x === paused.a.x && resumed.b.x > resumed.a.x &&
+      away.a.held && away.b.x === away.a.x && restarted.b.x > restarted.a.x, { setup, paused, resumed, away, restarted });
+    // FX turned off on the way (well along the first move, a quarter of the
+    // way round in a minute): they stop where they are, never back to their
+    // corners; on again they drift on from there
+    await q.evaluate(() => document.getAnimations().forEach((a) => { if (/yi-glow/.test(a.animationName)) a.currentTime = 30000; }));
+    await q.waitForTimeout(100);
+    const before = await red(q);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
+    await q.waitForTimeout(150);
+    const stopped = await still(q, 700);
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
+    const on = await moves(q);
+    check("yi, Visual FX turned off on the way: the glows stop where they are, never back to their corners; on again they drift on from there",
+      before.x > 100 && stopped.b.x === stopped.a.x && stopped.a.x >= before.x - 0.5 && stopped.a.x < before.x + 40 && stopped.a.lifted &&
+      on.a.x >= stopped.b.x - 0.5 && on.b.x > on.a.x, { before, stopped, on });
+    await q.close();
+    // FX off from the start: the one painted table, nothing lifted or moving
+    q = await open(true);
+    const off = await still(q, 800);
+    const painted = await q.evaluate(() => (getComputedStyle(document.body).backgroundImage.match(/radial-gradient/g) || []).length);
+    check("yi, Visual FX off: the table is the one painted picture (the spotlight and the four colors' glows in their corners), nothing lifted or drifting",
+      !off.a.lifted && !off.a.glow && off.a.x === 0 && off.b.x === 0 && painted === 5, { off, painted });
+    check("yi (table glows): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await gc.close();
+  }
+
   await ctx.close();
 };

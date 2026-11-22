@@ -265,12 +265,26 @@ function hold(why) {
     });
   }
   holds[why] = true;
+  tableHeld();
 }
 function release(why) {
   if (!holds[why]) return;
   delete holds[why];
   if (!held()) timers.forEach(armTimer);
+  tableHeld();
 }
+// the colors' glows round the table wait with it (styles.css)
+function tableHeld() {
+  if (document.body) document.body.classList.toggle("yi-held", held());
+}
+// ...and lift off the painted table onto layers of their own, to drift, once
+// Visual FX is on (and stay lifted, so turning it off holds them where they
+// are); with FX off from the start the table stays the one painted picture
+function liftGlows() {
+  if (document.body && window.RM_ON && !window.RM_ON()) document.body.classList.add("yi-glows");
+}
+liftGlows();
+window.addEventListener("reducemotionchange", liftGlows);
 
 // ----------------------------------------------------------------
 //  Turn lifecycle

@@ -15,8 +15,11 @@ body {
   color: #fff;
   min-height: 100vh;
   font-family: "Fredoka", "Inter", sans-serif;
-  /* A dark card-table: warm spotlight in the middle, the four Uno colors
-     bleeding in faintly from the corners. */
+}
+/* A dark card-table: warm spotlight in the middle, the four Uno colors
+   bleeding in faintly from the corners. */
+html { background: #0c0c11; }
+body {
   background:
     radial-gradient(ellipse 70% 55% at 50% 32%, rgba(255, 255, 255, 0.05), transparent 70%),
     radial-gradient(circle at 0% 0%, rgba(211, 50, 47, 0.16), transparent 32%),
@@ -26,6 +29,49 @@ body {
     #0c0c11;
   background-attachment: fixed;
 }
+/* With Visual FX on (yi-glows, game.js) the four colors' glows lift off the
+   painted table onto layers of their own, the spotlight staying on top of
+   them: each layer twice the window each way, centred on its corner, so the
+   whole glow goes wherever it goes. They drift round the table's edge
+   together, clockwise, each to the next corner and resting there a moment
+   (a quarter of the way in a minute, the whole way round in four), so the
+   colors trade corners slowly through a game. Held while the table waits
+   (paused, the Leave box, away: game.js). FX turned off on the way, they
+   stop where they are (the !important keeps the site's FX-off rule from
+   ending the drift and springing them back); with FX off from the start
+   the table is the one painted picture above. Under everything, taking no
+   clicks. */
+body.yi-glows { background: radial-gradient(ellipse 70% 55% at 50% 32%, rgba(255, 255, 255, 0.05), transparent 70%); background-attachment: fixed; }
+body.yi-glows::before, body.yi-glows::after, body.yi-glows .uno-wrapper::before, body.yi-glows .uno-wrapper::after {
+  content: ""; position: fixed; width: 200%; height: 200%; z-index: -1; pointer-events: none;
+}
+body.yi-glows::before {
+  left: -100%; top: -100%;
+  background: radial-gradient(circle at 50% 50%, rgba(211, 50, 47, 0.16), transparent 32%);
+  animation: yi-glow-tl 240s ease-in-out infinite paused !important;
+}
+body.yi-glows::after {
+  left: 0; top: -100%;
+  background: radial-gradient(circle at 50% 50%, rgba(245, 185, 18, 0.14), transparent 32%);
+  animation: yi-glow-tr 240s ease-in-out infinite paused !important;
+}
+body.yi-glows .uno-wrapper::before {
+  left: -100%; top: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(28, 126, 214, 0.16), transparent 34%);
+  animation: yi-glow-bl 240s ease-in-out infinite paused !important;
+}
+body.yi-glows .uno-wrapper::after {
+  left: 0; top: 0;
+  background: radial-gradient(circle at 50% 50%, rgba(47, 158, 68, 0.16), transparent 34%);
+  animation: yi-glow-br 240s ease-in-out infinite paused !important;
+}
+/* (a layer is twice the window: 50% of it is the window's width or height) */
+@keyframes yi-glow-tl { 25% { transform: translate(50%, 0); } 50% { transform: translate(50%, 50%); } 75% { transform: translate(0, 50%); } }
+@keyframes yi-glow-tr { 25% { transform: translate(0, 50%); } 50% { transform: translate(-50%, 50%); } 75% { transform: translate(-50%, 0); } }
+@keyframes yi-glow-br { 25% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -50%); } 75% { transform: translate(0, -50%); } }
+@keyframes yi-glow-bl { 25% { transform: translate(0, -50%); } 50% { transform: translate(50%, -50%); } 75% { transform: translate(50%, 0); } }
+html.fx-on body.yi-glows:not(.yi-held)::before, html.fx-on body.yi-glows:not(.yi-held)::after,
+html.fx-on body.yi-glows:not(.yi-held) .uno-wrapper::before, html.fx-on body.yi-glows:not(.yi-held) .uno-wrapper::after { animation-play-state: running !important; }
 
 .uno-wrapper {
   max-width: 1000px;
