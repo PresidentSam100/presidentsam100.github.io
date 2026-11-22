@@ -98,25 +98,30 @@ body {
   border: 3px solid #1a1430;
   box-shadow: 3px 3px 0 #1a1430;
   padding: 5px 9px 4px;
-  font-size: 15px;
+  font-size: 19px;
   letter-spacing: 0.06em;
   text-align: center;
   transform: rotate(-4deg);
   line-height: 1.05;
 }
-.issue-box span { display: block; color: #e23b46; font-size: 17px; }
-/* the publisher's band across the top of the corner box, as on a real cover */
+/* the publisher's band across the top of the corner box, as on a real
+   cover: SAM LU COMICS and the price on one line, the issue number under
+   it. The band sets the box's width (105 px on a laptop, inside --side with
+   the tilt and the shadow); on a phone it is sized to the room the title
+   leaves it (below) */
 .issue-box .publisher {
   display: block;
-  margin: -5px -9px 4px;
+  white-space: nowrap;
+  margin: -5px -9px 3px;
   padding: 4px 6px 3px;
   background: #1a1430;
   color: #fff8e7;
   font-weight: 400;
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
   line-height: 1.02;
 }
+.issue-box .publisher span { color: #ffcf3f; }
 
 .star-burst {
   position: absolute;
@@ -229,6 +234,15 @@ body {
   /* two lines: 3.3 is the longer line's width in ems ("MENACE!") */
   #masthead h1 { font-size: min(44px, calc((100cqi - 2 * var(--side)) / 3.3)); }
   .issue-box { top: 44px; }
+  /* the room beside the title is --side, or more where the title is held
+     at 44 px and narrower than its room (141: its width at 44 px); the box
+     is the line (7.4 ems in Bangers) plus 14 px of band and border, and
+     keeps 4 px for its tilt and shadow */
+  .issue-box .publisher {
+    padding: 4px 4px 3px;
+    letter-spacing: 0.02em;
+    font-size: clamp(9.5px, calc((max(86px, (100cqi - 141px) / 2) - 18px) / 7.4), 11.5px);
+  }
   .star-burst { width: 74px; height: 74px; top: 40px; right: 0; }
   .star-burst span { font-size: 11px; }
   .cap { font-size: 13px; padding: 4px 8px 2px; }

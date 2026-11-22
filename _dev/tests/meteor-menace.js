@@ -212,9 +212,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     await ctx2.close();
   }
 
-  // ---- the cover's corner box carries the publisher, SAM LU COMICS, over
-  // No. 1 and 10¢, and it shows: on every screen the title runs between the
-  // box and the star burst, never over either (on a short laptop window and
+  // ---- the cover's corner box carries the publisher's band, SAM LU COMICS
+  // · 10¢ on one line in letters big enough to read (9.5 px at the least, on
+  // the narrowest phone), over No. 1, and it shows: on every screen the
+  // title runs between the box and the star burst, never over either (on a short laptop window and
   // on phones the title hid the box), neither corner piece hangs over the
   // panel, the box is on the screen, and on a laptop the page fits its
   // window (the key captions keep one row: a second ran a short window's
@@ -227,7 +228,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const { devices } = require("@playwright/test");
     const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
       ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true }], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }],
-      ["1280x720", { viewport: { width: 1280, height: 720 } }], ["1440x700", { viewport: { width: 1440, height: 700 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["700x500", { viewport: { width: 700, height: 500 } }]];
+      ["1280x720", { viewport: { width: 1280, height: 720 } }], ["1440x700", { viewport: { width: 1440, height: 700 } }], ["800x600", { viewport: { width: 800, height: 600 } }], ["700x500", { viewport: { width: 700, height: 500 } }],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true }]];
     const DESK = ["1280x900", "1366x657", "1280x600", "1280x720", "1440x700", "800x600", "700x500"];
     const rows = {};
     for (const [label, dev] of SIZES) {
@@ -243,11 +245,19 @@ module.exports = async ({ browser, base, check, lib }) => {
         const rg = document.createRange(); rg.selectNodeContents(h1);
         const lines = [...rg.getClientRects()].map((b) => ({ l: b.left, t: b.top, r: b.right, b: b.bottom }));
         const bx = R(box), bu = R(burst);
+        let pubLines = 0, pubFont = 0;
+        if (pub) {
+          // (lines from its height as laid out: the box is tilted, so the
+          // pieces of one line stand at different heights on the screen)
+          const cs = getComputedStyle(pub);
+          pubFont = parseFloat(cs.fontSize);
+          pubLines = Math.round((pub.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)) / parseFloat(cs.lineHeight));
+        }
         const corners = [document.querySelector(".nav-back-games"), ...document.querySelectorAll(".gs-corner > *")].filter(Boolean).map(R);
         const hits = corners.filter((c) => meet(c, bx) || meet(c, bu) || lines.some((ln) => meet(c, ln)));
         return {
           font: parseFloat(getComputedStyle(h1).fontSize), corners: corners.length, cornerHits: hits.length,
-          pub: pub ? pub.innerText.replace(/\s+/g, " ").trim() : null, text: box.innerText.replace(/\s+/g, " ").trim(),
+          pub: pub ? pub.innerText.replace(/\s+/g, " ").trim() : null, text: box.innerText.replace(/\s+/g, " ").trim(), pubLines, pubFont,
           clear: lines.length > 0 && !lines.some((ln) => meet(ln, bx) || meet(ln, bu)) && !meet(bx, bu),
           lines: lines.length, overPanel: Math.max(bx.b, bu.b) - panel.t, onScreen: bx.l >= -2 && bx.t >= 0 && bx.r <= innerWidth,
           spill: document.documentElement.scrollHeight - innerHeight,
@@ -258,8 +268,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
     const all = Object.values(rows);
-    check("meteor-menace: the cover's corner box reads SAM LU COMICS in its publisher band, over No. 1 and 10¢",
-      all.every((x) => x.pub === "SAM LU COMICS" && /^SAM LU COMICS No\. 1 ?10¢$/.test(x.text)), all.map((x) => x.text));
+    check("meteor-menace: the cover's corner box reads SAM LU COMICS · 10¢ on one line in its publisher band (letters at least 9.5 px), over No. 1, on laptops and phones",
+      all.every((x) => x.pub === "SAM LU COMICS · 10¢" && x.pubLines === 1 && x.pubFont >= 9.5 && /^SAM LU COMICS · 10¢ ?No\. 1$/.test(x.text)),
+      Object.entries(rows).map(([k, x]) => k + ": " + x.text + " (" + x.pubLines + " line, " + x.pubFont + " px)"));
     check("meteor-menace: on a laptop (seven window sizes) and on phones the title runs between the corner box and the star burst, never over either; neither hangs over the panel and the box is on screen",
       // (2 px: the turned square round the burst grazes the panel's ink
       // border, its points don't)
