@@ -744,12 +744,17 @@
   // tilt meter (and the plunger hint, laid along the table's foot), and where
   // a phone's LAUNCH button (over the right panel) never covers it. A dark
   // plate rimmed in the table's neon, the letters lit in its flipper colour,
-  // spaced by hand. Nothing in it changes from frame to frame, so there is no
-  // motion for Visual FX or the pause to hold.
-  const MAKER = { x: 56, y: 716, w: 88, h: 18, text: "SAM LU", track: 2.2 };
+  // spaced by hand. It fills the room there (the panel's sloping top and
+  // edge, 3 clear of the flipper, and above the plunger line, which lies
+  // over the table's foot from about 734.5 down on the smallest tables), so
+  // the name still reads where the table is shown small, on a short phone or
+  // a short laptop.
+  // Nothing in it changes from frame to frame, so there is no motion for
+  // Visual FX or the pause to hold.
+  const MAKER = { x: 49, y: 712, w: 96, h: 21, text: "SAM LU", size: 16, track: 2.4 };
   let makerDrawn = null;   // what the last frame printed there (test hook)
   function drawMaker(th) {
-    const m = MAKER, r = 4;
+    const m = MAKER, r = 5;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(m.x + r, m.y); ctx.arcTo(m.x + m.w, m.y, m.x + m.w, m.y + m.h, r); ctx.arcTo(m.x + m.w, m.y + m.h, m.x, m.y + m.h, r);
@@ -757,14 +762,14 @@
     ctx.fillStyle = "rgba(5,3,14,0.6)"; ctx.fill();
     ctx.strokeStyle = th.wall; ctx.globalAlpha = 0.6; ctx.lineWidth = 1.4; ctx.stroke();
     ctx.globalAlpha = 1;
-    ctx.font = "900 13px Orbitron, system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.font = "900 " + m.size + "px Orbitron, system-ui, sans-serif"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
     const ws = [...m.text].map((ch) => ctx.measureText(ch).width);
     const width = ws.reduce((a, b) => a + b, 0) + m.track * (ws.length - 1), x0 = m.x + (m.w - width) / 2;
     const y = m.y + m.h / 2 + 0.5, t = ctx.getTransform();
     ctx.shadowColor = th.glow; ctx.shadowBlur = 6; ctx.fillStyle = th.flip;
     let x = x0;
     [...m.text].forEach((ch, i) => { ctx.fillText(ch, x, y); x += ws[i] + m.track; });
-    makerDrawn = { text: m.text, color: th.flip, glow: th.glow, blur: 6, e: +t.e.toFixed(2), f: +t.f.toFixed(2), left: +x0.toFixed(1), right: +(x0 + width).toFixed(1) };
+    makerDrawn = { text: m.text, size: m.size, color: th.flip, glow: th.glow, blur: 6, e: +t.e.toFixed(2), f: +t.f.toFixed(2), left: +x0.toFixed(1), right: +(x0 + width).toFixed(1) };
     ctx.restore();
   }
   // A frame drawn under the pause card (held) keeps the last shake offset and

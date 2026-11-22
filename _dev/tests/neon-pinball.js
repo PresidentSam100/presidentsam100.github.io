@@ -390,7 +390,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   // ---- the plunger line keeps one line along the table's foot: on a phone
   // under the LAUNCH button (kept to the room beside it, it took two lines
   // on a small phone, the upper across the left flipper), never over the
-  // button or the maker's plate; on a laptop under the plate too. And the
+  // button or the maker's plate; on a laptop under the plate too. The
+  // plate's name reads at a clear size wherever the table is small. And the
   // table shows on every screen: its backing store is exactly 11:19, so its
   // height holds still (rounded to another shape it moved a pixel, refit,
   // and so on every frame, each refit wiping the frame: on a 360 x 560 phone
@@ -398,7 +399,8 @@ module.exports = async ({ browser, base, check, lib }) => {
   {
     const rows = {};
     const SIZES = [["1280x900", { viewport: { width: 1280, height: 900 } }], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["1280x600", { viewport: { width: 1280, height: 600 } }],
-      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["320x568", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })]];
+      ["Pixel 7", devices["Pixel 7"]], ["360x560", { viewport: { width: 360, height: 560 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }], ["320x568", Object.assign({}, devices["iPhone SE"], { viewport: { width: 320, height: 568 } })],
+      ["375x553", { viewport: { width: 375, height: 553 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }]];
     for (const [label, opts] of SIZES) {
       const c = await lib.newContext(browser, opts);
       const q = await lib.open(c, base, "games/neon-pinball/");
@@ -422,7 +424,9 @@ module.exports = async ({ browser, base, check, lib }) => {
           // (one line: every piece's middle within a few px; a key cap's box
           // stands a little taller than the words round it)
           const mids = lines.map((x) => (x.t + x.b) / 2);
-          res({ sizes: [...sizes], exact: cv.width * 19 === cv.height * 11, lit, lines: lines.length, oneLine: lines.length > 0 && Math.max(...mids) - Math.min(...mids) < 6,
+          // (the plate's letters as shown, in px: their size on the table times its scale)
+          const drawn = NeonPinball.maker && NeonPinball.maker().drawn, letters = +(((drawn && drawn.size) || 13) * s).toFixed(1);
+          res({ sizes: [...sizes], exact: cv.width * 19 === cv.height * 11, lit, lines: lines.length, oneLine: lines.length > 0 && Math.max(...mids) - Math.min(...mids) < 6, letters,
             overLaunch: lines.some((x) => meet(x, launch)), overPlate: lines.some((x) => meetR(x, plate)), launch: !!launch });
         })();
       }));
@@ -432,6 +436,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     const all = Object.values(rows);
     check("neon-pinball: the plunger line is one line along the table's foot, never over the maker's plate, and on a phone never over the LAUNCH button",
       all.every((x) => x.oneLine && !x.overPlate && !x.overLaunch) && ["Pixel 7", "360x560", "320x568"].every((k) => rows[k].launch), rows);
+    // the maker's name reads where the table is shown small: the plate fills
+    // the room on the apron (13 px letters on the table were 7.3 px on a
+    // short phone, under 10 on a short laptop)
+    check("neon-pinball: SAM LU on the apron reads on a phone and a short laptop: letters at least 8.8 px on the smallest tables (320 x 568, 360 x 560), 14 on a Pixel 7, 10.5 at 1280 x 600 and 11.5 at 1366 x 657",
+      rows["320x568"].letters >= 8.8 && rows["360x560"].letters >= 8.8 && rows["Pixel 7"].letters >= 14 && rows["1280x600"].letters >= 10.5 && rows["1366x657"].letters >= 11.5,
+      Object.entries(rows).map(([k, x]) => k + ": " + x.letters + " px"));
     check("neon-pinball: the table shows on every screen (a 360 x 560 phone too): its backing store is exactly 11:19 and holds its size",
       all.every((x) => x.exact && x.sizes.length === 1 && x.lit > 20), rows);
   }
@@ -485,7 +495,10 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.waitForFunction(() => document.documentElement.classList.contains("fx-on"), null, { timeout: 5000 }).catch(() => {});
     const on = await moves(q);
     check("neon-pinball, Visual FX turned off on the way: the haze stops where it is, never back towards where it started; on again it drifts on from there",
-      before.clocks.length === 2 && stopped.still && stopped.a.clocks.every((c, i) => c >= before.clocks[i] && c > 1000) && on.moving && on.a.clocks.every((c, i) => c >= stopped.b.clocks[i]),
+      // (over 300 ms: well clear of a clock sent back to 0; the haze only runs
+      // while it is seen moving, so on a quick machine it has had under a
+      // second here)
+      before.clocks.length === 2 && stopped.still && stopped.a.clocks.every((c, i) => c >= before.clocks[i] && c > 300) && on.moving && on.a.clocks.every((c, i) => c >= stopped.b.clocks[i]),
       { before, stopped, on });
     check("neon-pinball (haze): no page errors", q.errs.length === 0, q.errs);
     await q.close();
