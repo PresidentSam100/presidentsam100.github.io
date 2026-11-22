@@ -661,7 +661,8 @@
   if (window.GameShell && GameShell.pausable) shell = GameShell.pausable({
     canPause: function () { return !over; }, auto: false, hold: true,
     restart: newGame,
-    onChange: holdPops
+    // (the sunlight on the desk holds too: styles.css)
+    onChange: function (paused) { holdPops(paused); document.body.classList.toggle("desk-held", paused); }
   });
 
   mode = lsGet(MODE_KEY, "normal") === "fib" ? "fib" : "normal";

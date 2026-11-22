@@ -170,4 +170,88 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("2048: a pause holds the points where they are (still there after 1.3 s), and resumed they go",
     !!pops.paused && pops.paused.text === "+512" && pops.paused.state === "paused" && pops.resumed === 0, { paused: pops.paused, resumed: pops.resumed });
   await ctx.close();
+
+  // ---- sunlight from a window lies on the desk and slowly crosses it: four
+  // panes and the cross of the frame, under the calculator, taking no clicks.
+  // It's there with Visual FX on or off, some of it on the desk beside the
+  // calculator from the first moment (above and below it on a phone), adding
+  // no scroll. With FX on it moves across, held while paused and moving again
+  // after; turned off on the way it stops where it is (its own clock kept,
+  // never sent back); with FX off from the start it lies still.
+  {
+    const { devices } = require("@playwright/test");
+    const fxAt = (off) => ({ before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:2048", off ? "1" : "0"); } catch (e) {} }, off) });
+    // where the light is (the patch's slide, in px) and how much of it lies on
+    // the desk in view, outside the calculator (each pane sampled through the
+    // patch's slant)
+    const look = (q) => q.evaluate(() => {
+      const s = document.querySelector(".sunpatch"), i = s && s.querySelector("i");
+      if (!i) return { missing: true };
+      const cs = getComputedStyle(s), M = new DOMMatrix(getComputedStyle(i).transform), o = getComputedStyle(i).transformOrigin.split(" ").map(parseFloat);
+      const calc = document.querySelector(".calc").getBoundingClientRect(), W = innerWidth, H = innerHeight;
+      let lit = 0;
+      for (const b of i.children) for (let u = 0.05; u < 1; u += 0.1) for (let v = 0.05; v < 1; v += 0.1) {
+        const pt = M.transformPoint(new DOMPoint(b.offsetLeft + u * b.offsetWidth - o[0], b.offsetTop + v * b.offsetHeight - o[1]));
+        const x = i.offsetLeft + o[0] + pt.x, y = i.offsetTop + o[1] + pt.y;
+        if (x >= 0 && x < W && y >= 0 && y < H && !(x > calc.left && x < calc.right && y > calc.top && y < calc.bottom)) lit += b.offsetWidth * b.offsetHeight / 100;
+      }
+      return { x: +M.m41.toFixed(2), panes: i.children.length, lit: Math.round(lit), fixed: cs.position, z: cs.zIndex, events: cs.pointerEvents };
+    });
+    const moves = async (q) => {
+      const a = await look(q);
+      await q.waitForFunction((x) => { const i = document.querySelector(".sunpatch i"); return !!i && new DOMMatrix(getComputedStyle(i).transform).m41 > x + 1; }, a.x, { timeout: 6000, polling: 100 }).catch(() => {});
+      const b = await look(q);
+      return { a: a.x, b: b.x, moved: !a.missing && b.x > a.x + 1 };
+    };
+    const still = async (q) => {
+      await q.waitForFunction(() => { const i = document.querySelector(".sunpatch i"); return !!i && i.getAnimations().every((x) => x.playState !== "running" && !x.pending); }, null, { timeout: 5000 }).catch(() => {});
+      const a = await look(q); await q.waitForTimeout(700); const b = await look(q);
+      return { a: a.x, b: b.x, still: !a.missing && a.x === b.x };
+    };
+    for (const [label, opts] of [["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }], ["Pixel 7", devices["Pixel 7"]],
+      ["phone 320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]]) {
+      const c = await lib.newContext(browser, opts);
+      const seen = {};
+      for (const off of [false, true]) {
+        const q = await lib.open(c, base, "games/2048/", fxAt(off));
+        const r = await look(q);
+        const sh = await q.evaluate(() => { const s = document.querySelector(".sunpatch"); if (!s) return null; const a = document.documentElement.scrollHeight, w = document.documentElement.scrollWidth; s.style.display = "none"; const b = document.documentElement.scrollHeight, v = document.documentElement.scrollWidth; s.style.display = ""; return a === b && w === v; });
+        seen[off ? "off" : "on"] = Object.assign(r, { noScroll: sh, errs: q.errs.length });
+        await q.close();
+      }
+      const ok = (r) => !r.missing && r.panes === 4 && r.fixed === "fixed" && r.z === "-1" && r.events === "none" && r.lit >= 5000 && r.noScroll === true && r.errs === 0;
+      check("2048, " + label + ": sunlight from a window (four panes) lies on the desk under the calculator, some of it in view beside it from the first moment, taking no clicks, adding no scroll, with Visual FX on and off",
+        ok(seen.on) && ok(seen.off), seen);
+      await c.close();
+    }
+    const sc = await lib.newContext(browser);
+    let q = await lib.open(sc, base, "games/2048/", fxAt(false));
+    const inPlay = await moves(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("desk-held"), null, { timeout: 5000 }).catch(() => {});
+    const held = await still(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => !document.body.classList.contains("desk-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("2048, Visual FX on: the sunlight moves across the desk; held while paused, moving again after",
+      inPlay.moved && held.still && again.moved, { inPlay, held, again });
+    // FX turned off on the way: judged by the light's own clock, read in the
+    // same moment the switch is pressed (a busy machine may let it move on a
+    // little before the pause lands, but never back)
+    const before = await q.evaluate(() => { const i = document.querySelector(".sunpatch i"), a = i && i.getAnimations()[0]; const t = a ? a.currentTime : null; document.querySelector(".rm-toggle").click(); return t; });
+    const stopped = await still(q);
+    const t1 = await q.evaluate(() => { const i = document.querySelector(".sunpatch i"), a = i && i.getAnimations()[0]; return a ? a.currentTime : null; });
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const on = await moves(q);
+    check("2048, Visual FX turned off on the way: the sunlight stops where it is, no jump; on again it moves on",
+      before > 300 && t1 >= before && t1 < before + 3000 && stopped.still && on.moved, { before, t1, stopped, on });
+    check("2048 (sunlight): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    q = await lib.open(sc, base, "games/2048/", fxAt(true));
+    const off = await still(q);
+    const rest = await q.evaluate(() => { const i = document.querySelector(".sunpatch i"), a = i && i.getAnimations()[0]; return a ? a.currentTime : null; });
+    check("2048, Visual FX off: the sunlight lies still where it starts", off.still && rest === 0, { off, rest });
+    await q.close();
+    await sc.close();
+  }
 };

@@ -51,6 +51,56 @@
       background-color: var(--desk);
       min-height: 100%;
     }
+    body { isolation: isolate; }   /* (so the sunlight, a layer of its own, lies on the desk under the calculator) */
+
+    /* Sunlight from a window (four panes and the cross of its frame, slanted
+       by a low sun) lies on the desk and slowly crosses it, passing under the
+       calculator, out the far side and in again from the near one. It's the
+       desk's own light, there with Visual FX on or off: with FX on it moves,
+       held while paused; with FX off it stays where it lies. It takes no
+       clicks. */
+    .sunpatch {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .sunpatch i {
+      --w: clamp(250px, 34vw, 560px);
+      --h: 76vh;
+      position: absolute;
+      left: 0;
+      top: 11vh;
+      width: var(--w);
+      height: var(--h);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: 1fr 1fr;
+      gap: calc(var(--w) * 0.075);
+      /* (!important, and more particular than motion-toggle.js's FX-off rule,
+         which would end the crossing at once and send the light back to its
+         start: here FX off pauses it instead, where it is. It starts 45 s in,
+         with the light on the near side of the desk.) */
+      animation: sun-cross 150s linear -45s infinite paused !important;
+    }
+    .sunpatch b {
+      border-radius: 3px;
+      background: linear-gradient(170deg, rgba(255, 241, 204, 0.62), rgba(255, 233, 186, 0.5));
+      box-shadow: 0 0 18px 3px rgba(255, 236, 192, 0.5);
+    }
+    /* from just off the near edge to just off the far one (the slant reaches
+       past the box by about 0.15 of its height) */
+    @keyframes sun-cross {
+      from { transform: translateX(calc(-100% - var(--h) * 0.15 - 40px)) skewX(-16deg); }
+      to { transform: translateX(calc(100vw + var(--h) * 0.15 + 40px)) skewX(-16deg); }
+    }
+    html.fx-on body:not(.desk-held) .sunpatch i { animation-play-state: running !important; }
+    /* a phone held upright: the calculator fills the width, so the light is
+       tall enough to show on the desk above and below it */
+    @media (max-aspect-ratio: 4/5) {
+      .sunpatch i { --w: 72vw; --h: 94vh; top: 3vh; }
+    }
 
     .wrap {
       min-height: 100vh;
