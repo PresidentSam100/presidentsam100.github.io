@@ -87,4 +87,61 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("tic-tac-toe (signature), " + label + ": no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }
+
+  // ---- sun through the classroom window: two shafts across the wall behind
+  // the slate, with chalk dust floating in them. The shafts are there with
+  // Visual FX on or off, on the start screen too (the wall itself, the slate
+  // hidden behind it rather than painted over). With FX on the dust drifts,
+  // held while paused and drifting again after Restart; turned off on the
+  // way it stops where it is (each layer's own clock kept, never sent back);
+  // with FX off from the start it hangs still.
+  {
+    const sc = await lib.newContext(browser);
+    const dust = (q) => q.evaluate(() => [...document.querySelectorAll(".sunbeam i")].map((i) => { const m = new DOMMatrix(getComputedStyle(i).transform === "none" ? undefined : getComputedStyle(i).transform); return [+m.m41.toFixed(3), +m.m42.toFixed(3)]; }));
+    const same = (a, b) => a.length === 2 && a.every((p, k) => p[0] === b[k][0] && p[1] === b[k][1]);
+    // (moving is waited for, up to a few seconds: a busy machine can give a page few frames)
+    const moves = async (q) => { const a = await dust(q); await q.waitForFunction((a) => [...document.querySelectorAll(".sunbeam i")].every((i, k) => { const m = new DOMMatrix(getComputedStyle(i).transform === "none" ? undefined : getComputedStyle(i).transform); return Math.hypot(m.m41 - a[k][0], m.m42 - a[k][1]) > 1; }), a, { timeout: 6000, polling: 100 }).catch(() => {}); const b = await dust(q); return { a, b, moved: !same(a, b) && b.every((p, k) => Math.hypot(p[0] - a[k][0], p[1] - a[k][1]) > 1) }; };
+    const still = async (q) => { await q.waitForFunction(() => [...document.querySelectorAll(".sunbeam i")].every((i) => i.getAnimations().every((x) => x.playState !== "running" && !x.pending)), null, { timeout: 5000 }).catch(() => {}); const a = await dust(q); await q.waitForTimeout(700); const b = await dust(q); return { a, b, still: same(a, b) }; };
+    const fxAt = (off) => ({ before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:tic-tac-toe", off ? "1" : "0"); } catch (e) {} }, off) });
+    let q = await lib.open(sc, base, "games/tic-tac-toe/", fxAt(false));
+    await youFirst(q);
+    const menu = await q.evaluate(() => {
+      const s = document.querySelector(".sunbeam"); if (!s) return { missing: true };
+      const cs = getComputedStyle(s);
+      return { layers: s.children.length, shafts: /linear-gradient/.test(cs.backgroundImage), events: cs.pointerEvents, z: cs.zIndex, fixed: cs.position,
+        slateHidden: getComputedStyle(document.querySelector("main.slate")).visibility === "hidden", panel: getComputedStyle(document.getElementById("modeModal")).backgroundImage };
+    });
+    const onMenu = await moves(q);
+    await q.click("#startGame"); await q.waitForTimeout(150);
+    const slateShown = await q.evaluate(() => getComputedStyle(document.querySelector("main.slate")).visibility === "visible");
+    const inPlay = await moves(q);
+    await q.keyboard.press("p");
+    await q.waitForFunction(() => document.body.classList.contains("ttt-held"), null, { timeout: 5000 }).catch(() => {});
+    const held = await still(q);
+    await q.keyboard.press("r");   // Restart (nothing drawn yet: no question)
+    await q.waitForFunction(() => !document.body.classList.contains("ttt-held"), null, { timeout: 5000 }).catch(() => {});
+    const again = await moves(q);
+    check("tic-tac-toe: two shafts of sun cross the wall behind the slate, on the start screen too (the wall itself, the slate hidden behind it), chalk dust in them taking no clicks",
+      menu.layers === 2 && menu.shafts && menu.events === "none" && menu.z === "-1" && menu.fixed === "fixed" && menu.slateHidden && menu.panel === "none" && slateShown, { menu, slateShown });
+    check("tic-tac-toe, Visual FX on: the chalk dust drifts in the sunlight, on the start screen and in play; held while paused, drifting again after Restart",
+      onMenu.moved && inPlay.moved && held.still && again.moved, { onMenu, inPlay, held, again });
+    // FX turned off on the way: judged by each layer's own clock, read in the
+    // same moment the switch is pressed (a busy machine may let the dust drift
+    // on a little before the pause lands, but never back to its start)
+    const before = await q.evaluate(() => { const t = [...document.querySelectorAll(".sunbeam i")].map((i) => (i.getAnimations()[0] || {}).currentTime); document.querySelector(".rm-toggle").click(); return t; });
+    const stopped = await still(q);
+    const t1 = await q.evaluate(() => [...document.querySelectorAll(".sunbeam i")].map((i) => (i.getAnimations()[0] || {}).currentTime));
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const on = await moves(q);
+    check("tic-tac-toe, Visual FX turned off on the way: the dust stops where it is, no jump; on again it drifts on",
+      before.length === 2 && before.every((t, k) => t > 300 && t1[k] >= t && t1[k] < t + 3000) && stopped.still && on.moved, { before, t1, stopped, on });
+    await q.close();
+    q = await lib.open(sc, base, "games/tic-tac-toe/", fxAt(true));
+    const off = await still(q);
+    const offShafts = await q.evaluate(() => { const s = document.querySelector(".sunbeam"); return !!s && /linear-gradient/.test(getComputedStyle(s).backgroundImage); });
+    check("tic-tac-toe, Visual FX off: the shafts are there and the dust hangs still where it lies", off.still && offShafts && off.a.every((p) => p[0] === 0 && p[1] === 0), { off, offShafts });
+    check("tic-tac-toe (sunbeam): no page errors", q.errs.length === 0, q.errs);
+    await q.close();
+    await sc.close();
+  }
 };

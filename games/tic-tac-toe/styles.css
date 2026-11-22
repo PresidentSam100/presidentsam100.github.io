@@ -32,7 +32,55 @@ body {
     radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%),
     var(--wall);
   color: var(--chalk); font-family: "Cabin Sketch", "Patrick Hand", "Comic Sans MS", cursive;
+  isolation: isolate;   /* (so the sunbeam, a layer of its own, lies on the wall under the slate) */
 }
+/* Shafts of sun from the classroom window (its two panes) slant across the
+   wall from the top left, beside the slate, and chalk dust floats in them. The shafts are the wall's own light, there with Visual FX on or off.
+   With FX on the dust drifts in it (two layers, the nearer specks bigger,
+   quicker and catching the light now and then), held while paused; with FX
+   off it hangs where it is. The dust shows only inside the shafts (their mask),
+   and none of it takes a click. */
+.sunbeam {
+  position: fixed; inset: 0; z-index: -1; pointer-events: none; overflow: hidden;
+  /* two shafts, through the window's two panes, passing beside the slate */
+  --shafts: linear-gradient(45deg, transparent 22%, #000 25.5%, #000 31%, transparent 34%, transparent 36.5%, #000 39.5%, #000 44%, transparent 47%);
+  background: linear-gradient(45deg, transparent 22%, rgba(255, 236, 170, 0.5) 25.5%, rgba(255, 242, 196, 0.58) 28%, rgba(255, 236, 170, 0.5) 31%, transparent 34%,
+    transparent 36.5%, rgba(255, 236, 170, 0.44) 39.5%, rgba(255, 242, 196, 0.5) 42%, rgba(255, 236, 170, 0.44) 44%, transparent 47%);
+  -webkit-mask-image: var(--shafts);
+  mask-image: var(--shafts);
+}
+.sunbeam i { position: absolute; inset: -120px; background-repeat: repeat; }
+.sunbeam i:nth-child(1) {
+  background-size: 220px 190px;
+  background-image:
+    radial-gradient(2.6px 2.6px at 24px 30px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.4px 2.4px at 92px 118px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.8px 2.8px at 170px 44px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.3px 2.3px at 200px 150px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.5px 2.5px at 58px 166px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.4px 2.4px at 132px 176px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.7px 2.7px at 208px 82px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(2.2px 2.2px at 120px 66px, #ffffff 0 55%, rgba(255, 255, 255, 0) 100%);
+  /* (!important, and more particular than motion-toggle.js's FX-off rule,
+     which would end the drift at once and snap the dust back: here FX off
+     pauses it instead, where it is) */
+  animation: ttt-dust-far 26s ease-in-out infinite alternate paused !important;
+}
+.sunbeam i:nth-child(2) {
+  background-size: 300px 270px;
+  background-image:
+    radial-gradient(4px 4px at 40px 70px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(3.6px 3.6px at 190px 30px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(4.2px 4.2px at 262px 200px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(3.4px 3.4px at 112px 232px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(3.8px 3.8px at 236px 112px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%),
+    radial-gradient(3.4px 3.4px at 84px 150px, #ffffff 0 50%, rgba(255, 255, 255, 0) 100%);
+  animation: ttt-dust-near 19s ease-in-out infinite alternate paused, ttt-glint 7s ease-in-out infinite alternate paused !important;
+}
+@keyframes ttt-dust-far { from { transform: translate(0, 0); } to { transform: translate(64px, -46px); } }
+@keyframes ttt-dust-near { from { transform: translate(0, 0); } 50% { transform: translate(-30px, 34px); } to { transform: translate(-58px, 18px); } }
+@keyframes ttt-glint { from { opacity: 1; } to { opacity: 0.45; } }
+html.fx-on body:not(.ttt-held) .sunbeam i { animation-play-state: running !important; }
 /* the chalk's grain on the writing (not on the corner buttons: theirs is a
    solid plate, and the grain would pit it) */
 h1, #status, #symPick, button.btn, .opt, .score, .modal h2, .modal p, .mode-label { filter: url(#chalk-ui); }
@@ -266,7 +314,10 @@ button.btn:focus-visible, .opt:focus-visible, .cell:focus-visible, .ucell:focus-
    constant so picking a longer label never reflows the modal's width. */
 .opt.sel { background: rgba(243, 221, 122, 0.14); border-color: var(--accent); color: var(--accent); }
 #startGame { width: 100%; margin-top: 6px; border-color: var(--chalk); }
-#modeModal { background: radial-gradient(900px 600px at 50% 20%, rgba(255, 250, 235, 0.45), transparent 70%), var(--wall); }   /* opaque start screen: hide game chrome behind it */
+/* the start screen: the wall itself, the game's slate out of sight behind it
+   (hidden, not painted over, so the sun through the window falls here too) */
+#modeModal { background: none; }
+body:has(#modeModal.open) > main.slate { visibility: hidden; }
 
 /* short screens: pull everything in so the whole slate fits without
    scrolling, as the plain version did */

@@ -1068,6 +1068,8 @@ if (window.GameShell && GameShell.pausable) GameShell.pausable({
   auto: false, hold: true,
   restart: restartCurrent,
   menu: showModeModal,
+  // (the chalk dust in the sunbeam holds too: styles.css)
+  onChange: (paused) => document.body.classList.toggle('ttt-held', paused),
 });
 
 window.__TTT_TEST__ = {
