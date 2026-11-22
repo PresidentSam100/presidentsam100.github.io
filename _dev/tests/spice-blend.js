@@ -191,4 +191,97 @@ module.exports = async ({ browser, base, check, lib }) => {
     await cs.close();
     check("spice-blend: with Visual FX on the awning's name flap sways a little; with it off it hangs still", sway.on === "sb-sway" && sway.off === "none", sway);
   }
+
+  // ---- the weights drop onto the counter once, as their taste is weighed;
+  // a spice poured or taken back afterwards (the board drawn again) leaves
+  // every weight on the board still, the last taste's included. Read as each
+  // weight's own animation, which stays set until the board is drawn again.
+  {
+    const wc = await lib.newContext(browser);
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await open(wc, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:spice-blend", off ? "1" : "0"); } catch (e) {} }, off) });
+      got[off ? "off" : "on"] = await q.evaluate(() => {
+        const dropping = () => [...document.querySelectorAll(".weights i:not(.none)")].filter((i) => getComputedStyle(i).animationName === "sb-weigh").length;
+        const all = () => document.querySelectorAll(".weights i:not(.none)").length;
+        SpiceBlend.start("stall"); SpiceBlend.setBlend([0, 1, 2, 3]);
+        [0, 1, 3, 2].forEach((i) => SpiceBlend.add(i)); SpiceBlend.taste();          // 2 brass, 2 wood
+        const first = { dropping: dropping(), all: all() };
+        [0, 2, 1, 3].forEach((i) => SpiceBlend.add(i)); SpiceBlend.taste();          // 2 brass, 2 wood
+        const second = { dropping: dropping(), all: all() };
+        SpiceBlend.add(4);
+        const poured = { dropping: dropping(), all: all() };
+        SpiceBlend.takeBack();
+        const takenBack = { dropping: dropping(), all: all() };
+        return { first, second, poured, takenBack };
+      });
+      await done(q, "weights, FX " + (off ? "off" : "on"));
+    }
+    await wc.close();
+    const on = got.on, off = got.off;
+    check("spice-blend, Visual FX on: a taste's weights drop onto the counter as it is weighed (its own only); a spice poured or taken back leaves every weight still",
+      on.first.dropping === 4 && on.second.dropping === 4 && on.second.all === 8 && on.poured.dropping === 0 && on.poured.all === 8 && on.takenBack.dropping === 0, on);
+    check("spice-blend, Visual FX off: the weights never drop in, they are simply there", [off.first, off.second, off.poured, off.takenBack].every((s) => s.dropping === 0), off);
+  }
+
+  // ---- a taste's weights lie in one row, a weight a bowl (four at the
+  // stall, five at the bazaar), on a laptop and on the smallest phone, the
+  // page no wider than the screen
+  {
+    const { devices } = require("@playwright/test");
+    const lc = {}, bad = [];
+    for (const [label, opts] of [["1280x900", { viewport: { width: 1280, height: 900 } }], ["Pixel 7", devices["Pixel 7"]], ["320x568", { viewport: { width: 320, height: 568 }, isMobile: true, hasTouch: true }]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await open(c);
+      for (const mode of ["stall", "bazaar"]) {
+        const r = await q.evaluate((mode) => {
+          SpiceBlend.start(mode); const k = mode === "stall" ? 4 : 5; SpiceBlend.setBlend(Array.from({ length: k }, (_, i) => i));
+          // two tastes that don't win: some in place, some out of place
+          Array.from({ length: k }, (_, i) => (i === 2 ? 3 : i === 3 ? 2 : i)).forEach((i) => SpiceBlend.add(i)); SpiceBlend.taste();
+          Array.from({ length: k }, (_, i) => (i + 1) % k).forEach((i) => SpiceBlend.add(i)); SpiceBlend.taste();
+          const rows = [...document.querySelectorAll("#rows .row")].slice(0, 2).map((row) => [...row.querySelectorAll(".weights i")].map((i) => Math.round(i.getBoundingClientRect().top)));
+          return { k, rows: rows.map((t) => ({ n: t.length, lines: new Set(t).size })), sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth };
+        }, mode);
+        lc[label + " " + mode] = r;
+        if (r.rows.some((x) => x.n !== r.k || x.lines !== 1) || r.sw > r.vw) bad.push(label + " " + mode);
+      }
+      await done(q, "weights in a row, " + label);
+      await c.close();
+    }
+    check("spice-blend: a taste's weights lie in one row, one a bowl (4 at the stall, 5 at the bazaar), on a laptop and a phone, no sideways scroll", bad.length === 0, bad.length ? bad : lc);
+  }
+
+  // ---- a spice taken back (Backspace, or a tap on its bowl): with Visual FX
+  // on it goes as it came, the pour played backwards, its bowl shrinking away
+  // where it stood while any after it slide along into the gap; the row
+  // itself changes at once. With FX off it is simply gone.
+  {
+    const tc = await lib.newContext(browser);
+    const got = {};
+    for (const off of [false, true]) {
+      const q = await open(tc, { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:spice-blend", off ? "1" : "0"); } catch (e) {} }, off) });
+      got[off ? "off" : "on"] = await q.evaluate(() => {
+        const look = () => {
+          const cells = document.querySelector("#rows .row.now .cells"), ghost = cells.querySelector(".bowl.leaving");
+          const slid = [...cells.querySelectorAll(".bowl:not(.leaving)")].filter((b) => b.getAnimations().length).length;
+          return { cur: SpiceBlend.cur().join(), ghost: !!ghost && ghost.getAnimations().length > 0, ghostColor: ghost ? ghost.getAttribute("aria-label") : null, slid };
+        };
+        SpiceBlend.start("stall");
+        [0, 4, 1].forEach((i) => SpiceBlend.add(i));
+        SpiceBlend.takeBack();                                             // the last: turmeric
+        const back = look();
+        document.querySelector('#rows .row.now .bowl[data-at="0"]').click();   // the first: saffron, lavender slides along
+        const tapped = look();
+        return { back, tapped };
+      });
+      // and the bowl taken back is soon gone from the row
+      got[off ? "off" : "on"].cleared = await q.waitForFunction(() => !document.querySelector("#rows .bowl.leaving"), null, { timeout: 4000 }).then(() => true, () => false);
+      await done(q, "take back, FX " + (off ? "off" : "on"));
+    }
+    await tc.close();
+    const on = got.on, off = got.off;
+    check("spice-blend, Visual FX on: a spice taken back shrinks away where it stood (Backspace or a tap), the bowls after it slide along, the row changed at once",
+      on.back.cur === "0,4" && on.back.ghost && on.back.ghostColor === "turmeric" && on.tapped.cur === "4" && on.tapped.ghost && on.tapped.ghostColor === "saffron" && on.tapped.slid >= 1 && on.cleared, on);
+    check("spice-blend, Visual FX off: a spice taken back is simply gone, nothing slides", off.back.cur === "0,4" && !off.back.ghost && off.tapped.cur === "4" && !off.tapped.ghost && off.tapped.slid === 0 && off.cleared, off);
+  }
 };

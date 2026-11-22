@@ -68,7 +68,7 @@
     bests[m] = window.GameShell ? GameShell.best("spiceblend_best_" + m, { higher: false }) : null;
     records[m] = window.GameShell ? GameShell.record("spiceblend_record_" + m) : null;
   });
-  var state = "menu", M = MODES[mode], blend = [], rows = [], cur = [], overAt = 0, OVER_WAIT = 700, fresh = -1;
+  var state = "menu", M = MODES[mode], blend = [], rows = [], cur = [], overAt = 0, OVER_WAIT = 700, fresh = -1, weighed = false;
 
   function startRun(m) {
     if (m && MODES[m]) mode = m;
@@ -98,6 +98,10 @@
       if (animate) d.style.animationDelay = (i * 90) + "ms";
       w.appendChild(d);
     }
+    // (only a taste's own weights drop onto the counter, as it is weighed:
+    // the board is drawn again for every spice poured or taken back, and the
+    // weights already there stay put)
+    if (animate) w.classList.add("weighing");
     w.setAttribute("aria-label", sc.right + " right in place, " + sc.near + " right but in another bowl");
     return w;
   }
@@ -147,10 +151,11 @@
     var room = window.innerHeight - top - under, across = wide ? Infinity : list.clientWidth;
     var pad = wide ? 5 : 3, gap = wide ? 6 : 3;
     function peg(b) { return Math.max(5, Math.min(12, Math.round(b * 0.36))); }
-    function last(b) { return wide ? 42 : Math.max(3 * peg(b) + 4, 34); }
+    // the weights' place: a weight a bowl in one row (and room for the taste button)
+    function last(b) { return Math.max(k * peg(b) + (k - 1) * 3, 34); }
     // a phone's row: its ends (2 x 5), the number, two gaps of 4, the bowls 3 apart, the weights
     function wideOf(b) { return 10 + 14 + 8 + k * b + (k - 1) * 3 + last(b); }
-    function tallOf(b) { return R * (Math.max(b, 2 * peg(b) + 3) + 2 * pad) + (R - 1) * gap; }
+    function tallOf(b) { return R * (Math.max(b, peg(b)) + 2 * pad) + (R - 1) * gap; }
     function biggest() { var b = wide ? 34 : 30; while (b > 14 && (wideOf(b) > across || tallOf(b) > room)) b--; return b; }
     var b = biggest();
     if (wide && b < 30) { pad = 3; gap = 4; b = biggest(); }
@@ -178,12 +183,12 @@
         var el = bowl(s == null ? null : s, r === rows.length && i === cur.length - 1 && fresh === i ? "pour" : "");
         if (r === rows.length && state === "play") {
           el.dataset.at = i;
-          el.addEventListener("click", (function (i) { return function () { if (i < cur.length) { cur.splice(i, 1); fresh = -1; paint(); } }; })(i));
+          el.addEventListener("click", (function (i) { return function () { if (i < cur.length) takeOut(i); }; })(i));
         }
         cells.appendChild(el);
       }
       row.appendChild(cells);
-      if (r < rows.length) row.appendChild(weights(rows[r].score, r === rows.length - 1 && fx()));
+      if (r < rows.length) row.appendChild(weights(rows[r].score, r === rows.length - 1 && weighed && fx()));
       else if (r === rows.length && state === "play" && cur.length === M.bowls) {
         var tb = document.createElement("button"); tb.type = "button"; tb.className = "taste-here"; tb.textContent = "taste";
         tb.addEventListener("click", taste); tb.addEventListener("mousedown", function (e) { e.preventDefault(); });
@@ -191,7 +196,7 @@
       } else { var blank = document.createElement("span"); blank.className = "weights blank"; row.appendChild(blank); }
       board.appendChild(row);
     }
-    fresh = -1;
+    fresh = -1; weighed = false;
     $("tries").textContent = state === "play" ? (M.tries - rows.length) + (M.tries - rows.length === 1 ? " taste left" : " tastes left") : "";
     $("btn-taste").disabled = state !== "play" || cur.length < M.bowls;
     $("btn-clear").disabled = state !== "play" || cur.length === 0;
@@ -218,12 +223,39 @@
     cur.push(i); fresh = cur.length - 1;
     sfxPour(); paint();
   }
-  function takeBack() { if (state !== "play" || P.isPaused() || !cur.length) return; cur.pop(); tone(300, 0.05, "triangle", 0.03); paint(); }
+  function takeBack() { if (state !== "play" || P.isPaused() || !cur.length) return; tone(300, 0.05, "triangle", 0.03); takeOut(cur.length - 1); }
+  // Take the spice in bowl i back out of the row. With Visual FX on it goes
+  // as it came, the pour played backwards: its bowl shrinks away where it
+  // stood (a copy, drawn over the row as it is now), and any bowls after it
+  // slide along to close the gap. The row itself changes at once, so a key
+  // or a tap straight after acts on it as it now is.
+  function takeOut(i) {
+    if (state !== "play" || P.isPaused() || i >= cur.length) return;
+    var lively = fx(), cells = lively && document.querySelector("#rows .row.now .cells");
+    var was = cells ? Array.prototype.slice.call(cells.querySelectorAll(".bowl")) : [];
+    var gone = was[i] && was[i].cloneNode(true), from = was.map(function (b) { return b.getBoundingClientRect(); });
+    cur.splice(i, 1); fresh = -1;
+    paint();
+    if (!gone) return;
+    var now = document.querySelector("#rows .row.now .cells"); if (!now) return;
+    var r = from[i], here = now.getBoundingClientRect();
+    gone.classList.remove("pour"); gone.classList.add("leaving"); gone.removeAttribute("data-at"); gone.setAttribute("aria-hidden", "true");
+    gone.style.left = (r.left - here.left) + "px"; gone.style.top = (r.top - here.top) + "px";
+    now.appendChild(gone);
+    var a = gone.animate ? gone.animate([{ transform: "scale(1)", opacity: 1 }, { transform: "scale(0.7)", opacity: 0 }], { duration: 200, easing: "ease-in", fill: "forwards" }) : null;
+    if (a) a.onfinish = function () { if (gone.parentNode) gone.parentNode.removeChild(gone); }; else now.removeChild(gone);
+    var after = now.querySelectorAll(".bowl:not(.leaving)");
+    for (var j = i; j < cur.length; j++) {
+      var el = after[j], o = from[j + 1]; if (!el || !o || !el.animate) continue;
+      var b = el.getBoundingClientRect();
+      el.animate([{ transform: "translate(" + (o.left - b.left) + "px, " + (o.top - b.top) + "px)" }, { transform: "none" }], { duration: 180, easing: "ease-out" });
+    }
+  }
   function taste() {
     if (state !== "play" || P.isPaused() || cur.length < M.bowls) return;
     var sc = score(blend, cur);
     rows.push({ guess: cur.slice(), score: sc });
-    cur = [];
+    cur = []; weighed = true;
     sfxWeights(sc.right, sc.near);
     if (sc.right === M.bowls) { finish(true); return; }
     if (rows.length >= M.tries) { finish(false); return; }

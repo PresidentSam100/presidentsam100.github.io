@@ -89,7 +89,7 @@ html.fx-on .awning-name { animation: sb-sway 7s ease-in-out infinite; }
 .row { display: flex; align-items: center; gap: 10px; padding: 5px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.18); }
 .row.now { background: rgba(247, 236, 214, 0.12); box-shadow: inset 0 0 0 2px rgba(247, 236, 214, 0.45); }
 .row .n { width: 1.6em; text-align: right; font-size: 13px; color: #b9b2c9; font-weight: 800; }
-.cells { display: flex; gap: 8px; flex: 1; }
+.cells { display: flex; gap: 8px; flex: 1; position: relative; }   /* (a spice taken back fades out over its place: game.js) */
 /* a clay bowl, its spice heaped in it */
 .bowl {
   --spice: transparent;
@@ -107,16 +107,20 @@ html.fx-on .awning-name { animation: sb-sway 7s ease-in-out infinite; }
 .row.now .bowl:not(.empty) { cursor: pointer; }
 html.fx-on .bowl.pour { animation: sb-pour 0.22s ease-out; }
 @keyframes sb-pour { from { transform: scale(0.7); } }
-/* the weights the taste earned: brass in place, wood out of place */
-.weights { display: grid; grid-template-columns: repeat(3, var(--peg, 12px)); gap: 3px; flex: none; width: var(--last, 42px); }
-.weights.blank { height: calc(var(--peg, 12px) * 2 + 3px); }
+/* a spice taken back (Visual FX on): the pour played backwards, its bowl
+   shrinking away where it stood while any after it close up (game.js) */
+.bowl.leaving { position: absolute; margin: 0; pointer-events: none; }
+/* the weights the taste earned: brass in place, wood out of place, in one
+   row as the bowls are (--n, one weight a bowl) */
+.weights { display: grid; grid-template-columns: repeat(var(--n, 4), var(--peg, 12px)); gap: 3px; flex: none; width: var(--last, 57px); }
+.weights.blank { height: var(--peg, 12px); }
 /* the row being filled: once full, its weights' place is the button that tastes it */
-.taste-here { font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink); background: var(--brass); border: 2px solid #9a7420; border-radius: 6px; padding: 3px 5px; width: var(--last, 42px); flex: none; }
+.taste-here { font-family: inherit; font-size: 12px; font-weight: 800; cursor: pointer; color: var(--ink); background: var(--brass); border: 2px solid #9a7420; border-radius: 6px; padding: 3px 5px; width: var(--last, 57px); flex: none; }
 .weights i { width: var(--peg, 12px); height: var(--peg, 12px); border-radius: 3px; }
 .weights i.brass { background: linear-gradient(160deg, #f5d77b, var(--brass) 55%, #9a7420); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
 .weights i.wood { background: linear-gradient(160deg, #b98557, var(--wood) 60%, #5c3a1e); box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
 .weights i.none { background: rgba(255, 255, 255, 0.08); }
-html.fx-on .weights i:not(.none) { animation: sb-weigh 0.25s ease-out both; }
+html.fx-on .weights.weighing i:not(.none) { animation: sb-weigh 0.25s ease-out both; }   /* (a taste just weighed: game.js) */
 @keyframes sb-weigh { from { transform: translateY(-6px); opacity: 0; } }
 
 /* the spices in even rows (--cols, from game.js) */
