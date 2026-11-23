@@ -38,8 +38,8 @@ body::before {
    plane's lights cross the city; and a box claimed sends a firework up into
    the open sky in its owner's colour, a win a whole show. With Visual FX off
    it's the same sky held still (the beams at rest, the stars steady, every
-   window and mast light lit) and nothing goes by. Paused, it all stops where
-   it is. */
+   window and mast light lit) and nothing goes by; switched off on the way, it
+   stops where it is. Paused, it all stops where it is. */
 .sky-back, .sky { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .sky-back { z-index: -2; }
 .sky { z-index: -1; }
@@ -51,30 +51,30 @@ body::before {
 }
 /* (each beam's swing written out: keyframes that read variables would be
    worked out afresh every frame instead of left to the compositor) */
-html.fx-on .beam.left { animation: dbSweepL 17s ease-in-out infinite alternate; }
-html.fx-on .beam.right { animation: dbSweepR 21s ease-in-out -7s infinite alternate; }
+html.fx-moved .beam.left { animation: dbSweepL 17s ease-in-out infinite alternate paused !important; }
+html.fx-moved .beam.right { animation: dbSweepR 21s ease-in-out -7s infinite alternate paused !important; }
 @keyframes dbSweepL { from { transform: rotate(-26deg); } to { transform: rotate(8deg); } }
 @keyframes dbSweepR { from { transform: rotate(27deg); } to { transform: rotate(-7deg); } }
 .twinkles, .lights-out { position: absolute; inset: 0; }
 .twinkles { opacity: 0.6; }
 .twinkle { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.45); }
-html.fx-on .twinkles.s0 { animation: dbTwinkle 4.3s ease-in-out infinite; }
-html.fx-on .twinkles.s1 { animation: dbTwinkle 6.1s ease-in-out -2.2s infinite; }
-html.fx-on .twinkles.s2 { animation: dbTwinkle 7.7s ease-in-out -5.1s infinite; }
+html.fx-moved .twinkles.s0 { animation: dbTwinkle 4.3s ease-in-out infinite paused !important; }
+html.fx-moved .twinkles.s1 { animation: dbTwinkle 6.1s ease-in-out -2.2s infinite paused !important; }
+html.fx-moved .twinkles.s2 { animation: dbTwinkle 7.7s ease-in-out -5.1s infinite paused !important; }
 @keyframes dbTwinkle { 0%, 100% { opacity: 0.6; } 45% { opacity: 0.15; } 58% { opacity: 1; } }
 /* (a window's light out: the building's own dark over it, for a while) */
 .lights-out { opacity: 0; }
 .lights-out .window { position: absolute; width: 3px; height: 4px; background: #0a0f1f; }
-html.fx-on .lights-out.s0 { animation: dbLightsOut 13s steps(1, end) -4s infinite; }
-html.fx-on .lights-out.s1 { animation: dbLightsOut 19s steps(1, end) -11s infinite; }
-html.fx-on .lights-out.s2 { animation: dbLightsOut 23s steps(1, end) -2s infinite; }
+html.fx-moved .lights-out.s0 { animation: dbLightsOut 13s steps(1, end) -4s infinite paused !important; }
+html.fx-moved .lights-out.s1 { animation: dbLightsOut 19s steps(1, end) -11s infinite paused !important; }
+html.fx-moved .lights-out.s2 { animation: dbLightsOut 23s steps(1, end) -2s infinite paused !important; }
 @keyframes dbLightsOut { 0% { opacity: 0; } 70% { opacity: 0.92; } 86% { opacity: 0; } }
 /* (the warning lights for aircraft on the tallest masts: a slow red blink) */
 .masts { position: absolute; inset: 0; opacity: 0.75; }
 .mast { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: #ff5a5a; box-shadow: 0 0 4px 1px rgba(255, 80, 80, 0.55); }
-html.fx-on .masts.s0 { animation: dbMast 2.3s ease-in-out infinite; }
-html.fx-on .masts.s1 { animation: dbMast 2.9s ease-in-out -1.1s infinite; }
-html.fx-on .masts.s2 { animation: dbMast 3.4s ease-in-out -2.3s infinite; }
+html.fx-moved .masts.s0 { animation: dbMast 2.3s ease-in-out infinite paused !important; }
+html.fx-moved .masts.s1 { animation: dbMast 2.9s ease-in-out -1.1s infinite paused !important; }
+html.fx-moved .masts.s2 { animation: dbMast 3.4s ease-in-out -2.3s infinite paused !important; }
 @keyframes dbMast { 0%, 40%, 100% { opacity: 0.2; } 12% { opacity: 1; } }
 /* a shooting star: a streak that runs out along its slant (game.js turns it) and fades */
 .meteor { position: absolute; width: 0; height: 0; }
@@ -107,7 +107,16 @@ html.fx-on .masts.s2 { animation: dbMast 3.4s ease-in-out -2.3s infinite; }
 @keyframes dbSpark { 0% { transform: rotate(var(--a)) translateX(0); opacity: 1; } 70% { opacity: 0.85; } 100% { transform: rotate(var(--a)) translateX(var(--d)); opacity: 0; } }
 .burst b { position: absolute; left: -16px; top: -16px; width: 32px; height: 32px; border-radius: 50%; background: radial-gradient(currentColor, transparent 70%); opacity: 0; animation: dbFlare 0.55s ease-out forwards; }
 @keyframes dbFlare { 0% { opacity: 0.5; transform: scale(0.4); } 100% { opacity: 0; transform: scale(1.7); } }
-/* (!important: the rules that start the motion set its play state too, in their shorthand) */
+/* The sky's motion is set up the first time it moves (Visual FX on, at load
+   or later: game.js marks the page fx-moved) and runs only while FX is on and
+   the game isn't paused. Visual FX switched off then stops it where it is, and
+   on again it carries on from there; a sky that has never moved (FX off from
+   the start) has no motion set at all, so it shows its rest look. (!important,
+   and more particular than motion-toggle.js's FX-off rule, which would end the
+   motion at once and snap the sky back to rest.) */
+html.fx-on:not(.db-paused) .sky-back .beam, html.fx-on:not(.db-paused) .sky .twinkles,
+html.fx-on:not(.db-paused) .sky .lights-out, html.fx-on:not(.db-paused) .sky .masts { animation-play-state: running !important; }
+/* (!important: the rules that start the passing things' motion set its play state too, in their shorthand) */
 html.db-paused .sky *, html.db-paused .sky-back * { animation-play-state: paused !important; }
 html.fx-off .sky *, html.fx-off .sky-back * { animation: none; }
 /* the title as a neon sign */

@@ -46,6 +46,14 @@
     ];
   }
 
+  // Once the steam has drifted (Visual FX on at any time on this page),
+  // turning FX off holds it where it is rather than putting the wisps back
+  // where they stand still (cafe.css html.cafe-moved). Opened with FX off,
+  // the wisps stand as always until FX first comes on.
+  const moved = () => { if (window.FX_ON && window.FX_ON()) document.documentElement.classList.add("cafe-moved"); };
+  moved();
+  window.addEventListener("reducemotionchange", moved);
+
   const set = document.createElement("div");
   set.className = "cupset";
   set.setAttribute("aria-hidden", "true");

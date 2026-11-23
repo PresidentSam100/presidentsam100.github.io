@@ -53,7 +53,14 @@ body {
 }
 html.fx-on .velvet .sheen.a { animation: swSheenA 31s ease-in-out -9s infinite alternate; }
 html.fx-on .velvet .sheen.b { animation: swSheenB 43s ease-in-out -27s infinite alternate; }
-html.fx-on .velvet .mote { animation-name: swMote; animation-timing-function: ease-in-out; animation-iteration-count: infinite; }
+html.fx-on .velvet .mote { animation: swMote var(--dur) ease-in-out var(--del) infinite; }
+/* (Visual FX turned off once the velvet has moved (html.sw-moved, game.js):
+   the sheen and the dust stop where they are, not back where they lie
+   still; on again they move on from there. !important and more particular
+   than motion-toggle.js's FX-off rule, which would end them at once) */
+html.fx-off.sw-moved .velvet .sheen.a { animation: swSheenA 31s ease-in-out -9s infinite alternate paused !important; }
+html.fx-off.sw-moved .velvet .sheen.b { animation: swSheenB 43s ease-in-out -27s infinite alternate paused !important; }
+html.fx-off.sw-moved .velvet .mote { animation: swMote var(--dur) ease-in-out var(--del) infinite paused !important; }
 html.sw-paused .velvet * { animation-play-state: paused !important; }
 @keyframes swSheenA { from { transform: translateX(-24%); } to { transform: translateX(24%); } }
 @keyframes swSheenB { from { transform: translateX(20%); } to { transform: translateX(-20%); } }

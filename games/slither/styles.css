@@ -39,8 +39,12 @@ html, body {
     linear-gradient(180deg, #1d1712, #120e0a);
   background-attachment: fixed;
 }
-/* Torchlight from the two upper corners, with a slow flicker (stops when
-   Visual FX is off). */
+/* Torchlight from the two upper corners, with a slow flicker (stops where it
+   is when Visual FX goes off). The flicker is always there, paused:
+   !important and more particular than motion-toggle.js's FX-off rule, which
+   would end it at once and snap the light back. It starts at its full
+   brightness (45% in), so with FX off from the start the light is as it
+   always was. */
 body::before {
   content: "";
   position: fixed;
@@ -49,8 +53,9 @@ body::before {
   background:
     radial-gradient(520px 360px at 6% -4%, rgba(255,150,60,0.2), transparent 70%),
     radial-gradient(520px 360px at 94% -4%, rgba(255,150,60,0.2), transparent 70%);
-  animation: slTorch 3.2s ease-in-out infinite alternate;
+  animation: slTorch 3.2s ease-in-out -1.44s infinite alternate paused !important;
 }
+html.fx-on body::before { animation-play-state: running !important; }
 @keyframes slTorch { 0% { opacity: 0.85; } 45% { opacity: 1; } 60% { opacity: 0.78; } 100% { opacity: 0.95; } }
 a { color: var(--gold); text-decoration: none; font-weight: 700; }
 .wrap { position: relative; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 1.6rem; gap: 0.7rem; }

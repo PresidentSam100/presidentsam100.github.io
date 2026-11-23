@@ -299,6 +299,12 @@
   pileEl.querySelectorAll(".back").forEach(function (b) { b.innerHTML = BRAND; });
   var arriving = {}, landing = {}, flights = 0;   // (flights: which set of them, as a new game cancels the last)
   function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+  // The felt has moved once Visual FX has been on (at load or since): from
+  // then on its light's motion is set up, and FX off stops it where it is
+  // (styles.css)
+  function feltMoved() { if (fxOn()) document.documentElement.classList.add("fx-moved"); }
+  feltMoved();
+  window.addEventListener("reducemotionchange", feltMoved);
   // where the pile is (and so where new cards start): beside the table's
   // first column where there's room, else just off the left of the screen
   function placePile() {

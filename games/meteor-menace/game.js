@@ -307,6 +307,7 @@
   var chunks = [];         // rubble off a cracked rock (Visual FX on; see crack)
   var saucer = null, saucerT = 14, saucerBlipT = 0;
   var nextWaveT = 0, waveMsgT = 0, shake = 0, time = 0;
+  var driftT = 0;   // the menu rocket's drift (s): runs only with Visual FX on, so FX off holds it where it is
 
   function newShip() {
     return { x: W / 2, y: H / 2, vx: 0, vy: 0, a: -Math.PI / 2, grace: 2.5, cool: 0, r: 12 };
@@ -463,6 +464,7 @@
 
   function update(dt) {
     time += dt;
+    if (fx()) driftT += dt;
     if (shake > 0) shake = Math.max(0, shake - dt);
 
     // rocks drift in every state (the menu shows them too)
@@ -969,8 +971,10 @@
       }
     } else if (state === "menu") {
       title("METEOR MENACE!", "PRESS [SPACE] OR [ENTER] TO BLAST OFF!", "TAP TO BLAST OFF!");
-      // the rocket drifts with Visual FX on; off, it holds one pose, flame lit
-      var mt = fx() ? time : 0;
+      // the rocket drifts with Visual FX on; off, it holds where it is, flame
+      // lit (in its first pose, on a page opened with FX off): driftT runs
+      // only with FX on
+      var mt = driftT;
       drawShipAt(W / 2 + Math.cos(mt * 0.7) * 30, H * 0.68 + Math.sin(mt * 1.1) * 10, -0.5 + Math.sin(mt * 0.5) * 0.2, { thrust: true, scale: 1.6 });
     } else if (state === "over") {
       title("THE END...?", "PRESS [SPACE] OR [ENTER] FOR THE NEXT ISSUE", "TAP FOR THE NEXT ISSUE");

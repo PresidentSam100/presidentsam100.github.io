@@ -1182,7 +1182,7 @@ window.SlitherLabyrinth = function (host) {
     }
   }
 
-  function drawLive(now, fx) {
+  function drawLive(now, fx, mt, mfx) {
     var warn = st.status === "play" && !st.lv.hasStuds && st.spikeTimer < E.CFG.spikeWarnMs;
     var blinkOn = !fx || Math.floor(now / 90) % 2 === 1;
     for (var k = 0; k < live.length; k++) {
@@ -1194,8 +1194,8 @@ window.SlitherLabyrinth = function (host) {
       else if (t === T.SPIKE_A || t === T.SPIKE_B) { var up = E.spikeUp(st, i); Art.spikes(ctx, px, py, CELL, up, !up && warn && blinkOn); }
       else if (t === T.EXIT) Art.doorway(ctx, px, py, CELL, E.exitOpen(st), now, fx);
       else if (t === T.WARP) Art.warpway(ctx, px, py, CELL, E.exitOpen(st), now, fx);
-      else if (t === T.TELE || t === T.TELE_OUT) Art.telePad(ctx, px, py, CELL, t === T.TELE, st.lv.teleId[i] || 0, now, fx);
-      else if (t === T.PORTAL) Art.portalGlow(ctx, px + CELL / 2, py + CELL / 2, CELL / 2 - 1, Art.PORTAL_COLORS[st.lv.portalId[i] % 4], now, fx);
+      else if (t === T.TELE || t === T.TELE_OUT) Art.telePad(ctx, px, py, CELL, t === T.TELE, st.lv.teleId[i] || 0, mt, mfx);
+      else if (t === T.PORTAL) Art.portalGlow(ctx, px + CELL / 2, py + CELL / 2, CELL / 2 - 1, Art.PORTAL_COLORS[st.lv.portalId[i] % 4], mt, mfx);
     }
   }
 
@@ -1239,12 +1239,12 @@ window.SlitherLabyrinth = function (host) {
 
   // The guardians: hunting, frightened (flashing as the fright wears off), or
   // just their eyes flying home.
-  function drawGuards(now, fx) {
+  function drawGuards(now, fx, mt, mfx) {
     var C = st.chase, ending = C.fright > 0 && C.fright < 1800;
     st.guards.forEach(function (g) {
       var look = g.state === "eaten" ? "eyes" : !g.fright ? "hunt"
         : ending && (!fx || Math.floor(now / 170) % 2 === 1) ? "flash" : "fright";
-      Art.guardian(ctx, cx(g.cell), cy(g.cell), CELL, { persona: g.persona, look: look, dir: { x: E.DX[g.dir], y: E.DY[g.dir] }, t: now, fx: fx });
+      Art.guardian(ctx, cx(g.cell), cy(g.cell), CELL, { persona: g.persona, look: look, dir: { x: E.DX[g.dir], y: E.DY[g.dir] }, t: mt, fx: mfx });
     });
   }
 
@@ -1280,18 +1280,33 @@ window.SlitherLabyrinth = function (host) {
     });
   }
 
+  // The scenery and the idles (portals, pads, the items' bob and glow, the
+  // serpents' shimmer and tongues, the guardians' bob) run on a clock of
+  // their own that moves only while Visual FX is on: switched off, they stop
+  // where they are, and on again they carry on from there. Till FX has first
+  // been on they're drawn in the still look FX off has from the start (seen).
+  // What warns or marks a change (blinks, an open exit's glow, a guardian's
+  // flash, fire) keeps the switch itself: steady with FX off.
+  var motion = { t: 0, at: 0, seen: false };
+  function motionAt(now, fx) {
+    if (fx && motion.at) motion.t += Math.min(100, Math.max(0, now - motion.at));
+    motion.at = now;
+    if (fx) motion.seen = true;
+    return motion;
+  }
+
   function render(now) {
     if (!st || !layer) return;
-    var fx = !(window.RM_ON && window.RM_ON());
+    var fx = !(window.RM_ON && window.RM_ON()), m = motionAt(now, fx), mt = m.t, mfx = m.seen;
     var W = st.cols * CELL, H = st.rows * CELL;
     ctx.drawImage(layer.canvas, 0, 0, W, H);
-    drawLive(now, fx);
+    drawLive(now, fx, mt, mfx);
     var keys = Object.keys(st.items);
-    keys.forEach(function (k) { drawItem(Number(k), st.items[k], now, fx); });
+    keys.forEach(function (k) { drawItem(Number(k), st.items[k], mt, mfx); });
     st.flowers.forEach(function (f) { Art.flower(ctx, (f.cell % st.cols) * CELL, Math.floor(f.cell / st.cols) * CELL, CELL, f.armed, now, fx); });
     if (st.blast) drawBlastUnder(now, fx);
-    for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, now, fx);
-    if (st.chase) drawGuards(now, fx);
+    for (var s = st.snakes.length - 1; s >= 0; s--) drawSnake(st.snakes[s], s, mt, mfx);
+    if (st.chase) drawGuards(now, fx, mt, mfx);
     if (st.blast) drawFlames(now, fx);
 
     // Unlit halls hide serpents, not the apples you're hunting for.

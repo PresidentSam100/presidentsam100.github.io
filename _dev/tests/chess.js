@@ -833,8 +833,14 @@ module.exports = async ({ browser, base, check, lib }) => {
             inside: cups.every((x) => x.at[0] >= 0 && x.at[2] <= document.documentElement.clientWidth), over: document.documentElement.scrollWidth - document.documentElement.clientWidth };
         });
         if (label === "1920x1080" && board === "2") {
-          const steam = (on) => q.evaluate((on) => { if (window.RM_ON() === on) document.querySelector(".rm-toggle").click(); const i = document.querySelector(".cup i"); return i ? getComputedStyle(i).animationName : null; }, on);
+          // (switched off after drifting, the steam is held where it is: its
+          // drift paused, not ended; a page opened with FX off has none)
+          const steam = (on) => q.evaluate((on) => { if (window.RM_ON() === on) document.querySelector(".rm-toggle").click(); const i = document.querySelector(".cup i"); return i ? getComputedStyle(i).animationName + ":" + getComputedStyle(i).animationPlayState : null; }, on);
           seen.steamOn = await steam(true); seen.steamOff = await steam(false);
+          const fresh = await lib.open(c, base, "games/chess/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:chess", "1"); } catch (e) {} }) });
+          seen.steamOffFromStart = await fresh.evaluate(() => { const i = document.querySelector(".cup i"); return i ? getComputedStyle(i).animationName : null; });
+          seen.steamFreshErrs = fresh.errs;
+          await fresh.close();
         }
         seen[board + "p " + label].errs = q.errs;
         await q.close();
@@ -847,7 +853,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       rows.every(([k, g]) => g.n === want[k[0]][1] && g.who === want[k[0]][0] && g.drinks === g.n && g.sizes.every((s) => s >= 36 && s <= 128)), Object.fromEntries(rows.map(([k, g]) => [k, { n: g.n, who: g.who, drinks: g.drinks, sizes: g.sizes }])));
     check("chess: no cup covers the board, the move log, the side column, the title lines, the corner buttons or another cup, nor runs off the page, at any of those sizes",
       rows.every(([, g]) => g.clear && g.inside && g.over <= 0), Object.fromEntries(rows.map(([k, g]) => [k, { clear: g.clear, inside: g.inside, over: g.over }])));
-    check("chess: the cups' steam rises with Visual FX on and stands still with it off", seen.steamOn === "cafe-steam" && seen.steamOff === "none", { on: seen.steamOn, off: seen.steamOff });
+    check("chess: the cups' steam rises with Visual FX on; turned off on the way it stops where it is (paused, not ended); on a page opened with FX off it stands still",
+      seen.steamOn === "cafe-steam:running" && seen.steamOff === "cafe-steam:paused" && seen.steamOffFromStart === "none" && (seen.steamFreshErrs || []).length === 0,
+      { on: seen.steamOn, off: seen.steamOff, offFromStart: seen.steamOffFromStart, errs: seen.steamFreshErrs });
     check("chess (cups): no page errors", rows.every(([, g]) => g.errs.length === 0), Object.fromEntries(rows.map(([k, g]) => [k, g.errs])));
   }
 

@@ -103,7 +103,14 @@ body {
   background: linear-gradient(180deg, #a5abb5, #6b7079 60%, #4d525a);
 }
 .blade.off { display: none; }
-body.fxon .sign { animation: de-swing 5.5s ease-in-out infinite; }
+/* (the sign's swing, once Visual FX has been on (fxseen, game.js), is always
+   there, paused: !important and more particular than motion-toggle.js's
+   FX-off rule, which would end it at once and snap the sign back. With FX on
+   it swings; off, it stops where it is. It starts a quarter of the way in, at
+   its upright 45 degrees, mid-swing, so FX first turned on starts it from the
+   sign as it stands; till then the sign stands as it always has) */
+body.fxseen .sign { animation: de-swing 5.5s ease-in-out -1.375s infinite paused !important; }
+body.fxon .sign { animation-play-state: running !important; }
 @keyframes de-swing { 0%, 100% { transform: rotate(43.6deg); } 50% { transform: rotate(46.4deg); } }
 
 .hud {

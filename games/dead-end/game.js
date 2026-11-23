@@ -374,8 +374,11 @@
   }
 
   window.addEventListener("resize", function () { if (st) { fit(); render(); } });
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
-  document.body.classList.toggle("fxon", fx());
+  // (fxon: Visual FX on now; fxseen: it has been on, so the sign's swing is
+  // there to stop where it is when FX goes off: styles.css)
+  function fxClasses() { document.body.classList.toggle("fxon", fx()); if (fx()) document.body.classList.add("fxseen"); }
+  window.addEventListener("reducemotionchange", fxClasses);
+  fxClasses();
 
   readLink();
   toMenu();

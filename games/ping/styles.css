@@ -78,12 +78,19 @@ body {
     radial-gradient(ellipse 55% 38% at 28% 16%, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0) 70%),
     linear-gradient(158deg, rgba(255, 255, 255, 0.04) 0 18%, rgba(255, 255, 255, 0) 34%);
 }
-/* a faint band rolling down the picture; Visual FX off stops it */
+/* a faint band rolling down the picture; Visual FX off stops it: from the
+   start, before it has rolled, out of sight above the picture; switched off
+   on the way, where it had got to, and on again it rolls on from there
+   (game.js marks the page fx-moved once FX has been on. !important, and more
+   particular than motion-toggle.js's FX-off rule, which would end the roll
+   at once and snap the band away) */
 .crt .roll {
   position: absolute; left: 0; right: 0; top: -25%; height: 25%;
   background: linear-gradient(180deg, rgba(200, 230, 255, 0), rgba(200, 230, 255, 0.05), rgba(200, 230, 255, 0));
   animation: roll 7s linear infinite; will-change: transform;
 }
+html.fx-moved .crt .roll { animation: roll 7s linear infinite paused !important; }
+html.fx-on.fx-moved .crt .roll { animation-play-state: running !important; }
 @keyframes roll { to { transform: translateY(500%); } }
 /* switching on: the picture opens out from a bright line across the middle */
 .poweron { position: absolute; inset: 0; z-index: 40; pointer-events: none; overflow: hidden; border-radius: inherit; }

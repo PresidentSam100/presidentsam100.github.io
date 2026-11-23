@@ -293,14 +293,20 @@ module.exports = async ({ browser, base, check, lib }) => {
       const read = () => ({ aim: ph(window.__lines.aim, 12), fill: ph(window.__lines.fill, 16) });
       __frames(2); __game.start("simmer"); __frames(2);
       const out = {};
-      // Visual FX off: the same phase whatever the fruit, and still over time
+      // Visual FX switched off mid-drift: the dashes stop where they are, not
+      // back where they first lay (0.4 s in: 7.2 px on)
+      __frames(20); const was = read();
       window.RM_ON = () => true;
+      __frames(1); out.stop = { was, now: read() };
+      // Visual FX off: the same phase whatever the fruit, and still over time
       out.off = [];
       for (const tier of [0, 2, 4, 1, 3]) { __game.setQueue(tier, 0); __frames(2); out.off.push(read()); }
       __frames(60); out.off.push(read());
-      // Visual FX on: half a second moves each pattern on by 9 px (18 a second), the aim line down, the fill line right
+      // Visual FX on again: they drift on from there (a frame: 0.3 px on); then
+      // half a second moves each pattern on by 9 px (18 a second), the aim line down, the fill line right
       window.RM_ON = () => false;
-      __frames(2); const a = read(); __frames(30); const b = read();
+      __frames(1); out.resume = read();
+      __frames(1); const a = read(); __frames(30); const b = read();
       __game.setQueue(4, 0); __frames(30); const cc = read();
       out.on = { aim: [((b.aim - a.aim) % 12 + 12) % 12, ((cc.aim - b.aim) % 12 + 12) % 12], fill: [((b.fill - a.fill) % 16 + 16) % 16, ((cc.fill - b.fill) % 16 + 16) % 16] };
       out.label = window.__label;
@@ -309,6 +315,12 @@ module.exports = async ({ browser, base, check, lib }) => {
     const same = (k) => got.off.every((v) => Math.abs(v[k] - got.off[0][k]) < 0.01);
     check("jam-jar: with Visual FX off the aim line's dashes and the fill line's stay put, whatever the size of the next fruit, and hold still over time",
       same("aim") && same("fill"), got.off);
+    // (where they lie as a jar begins with FX off from the start: phase 0, but for the few frames before the switch)
+    const on = (a, b, P) => ((b - a) % P + P) % P;
+    check("jam-jar: Visual FX switched off mid-drift stops the dashes where they are (not back where they first lay), and on again they drift on from there",
+      ["aim", "fill"].every((k) => Math.abs(got.stop.now[k] - got.stop.was[k]) < 0.01 && got.stop.was[k] > 3 && Math.abs(got.off[0][k] - got.stop.was[k]) < 0.01) &&
+      Math.abs(on(got.off[0].aim, got.resume.aim, 12) - 0.3) < 0.02 && Math.abs(on(got.off[0].fill, got.resume.fill, 16) - 0.3) < 0.02,
+      { stop: got.stop, off: got.off[0], resume: got.resume });
     check("jam-jar: with Visual FX on the aim line's dashes drift down and the fill line's to the right, at one steady pace (9 px each half second, a change of fruit too)",
       got.on.aim.every((d) => Math.abs(d - 9) < 0.2) && got.on.fill.every((d) => Math.abs(d - 9) < 0.2), got.on);
     check("jam-jar: \"FILL LINE\" is written inside the jar, clear of the left pane of glass",
@@ -819,10 +831,26 @@ module.exports = async ({ browser, base, check, lib }) => {
       G.setFoe("solo");
       return r;
     });
-    // Visual FX off: every face rests
+    // Visual FX switched off mid-idle: every face stops where it is (the fruit
+    // waiting, the one in Next, the Preserves), not back to its face at rest;
+    // on again, each carries on from there (a frame: 1/120 of its idle on)
+    await q.reload(); await q.waitForSelector(".mute-toggle");
+    const stop = await q.evaluate(() => {
+      const G = window.__game, rm = window.RM_ON, at = () => [G.idleU(G.idle().heldAt), G.idleU(G.idle().nextAt), G.idleU(0)].map((u) => +u.toFixed(4));
+      __frames(2); G.start("simmer"); __frames(62);   // (a second in: halfway through their idle)
+      const was = at();
+      window.RM_ON = () => true; __frames(30);
+      const held = at(), painted = [G.idle().nextU, G.idle().chainU].map((u) => +u.toFixed(4));
+      window.RM_ON = () => false; __frames(1);
+      const again = at();
+      window.RM_ON = rm;
+      return { was, held, painted, again };
+    });
+    // Visual FX off from the start: every face rests (the idles' clock never
+    // runs, so every face stays at its idle's first moment: its face at rest)
     await q.evaluate(() => { localStorage.setItem("reduceMotion:jam-jar", "1"); });
     await q.reload(); await q.waitForSelector(".mute-toggle");
-    const off = await q.evaluate(() => { const G = window.__game, us = []; __frames(2); G.start("simmer"); for (let i = 0; i < 12; i++) { __frames(20); us.push(G.idleU(0), G.idle().chainU, G.idleU(G.idle().heldAt)); } return { moving: us.filter((u) => u >= 0).length }; });
+    const off = await q.evaluate(() => { const G = window.__game, us = []; __frames(2); G.start("simmer"); for (let i = 0; i < 12; i++) { __frames(20); us.push(G.idleU(0), G.idle().chainU, G.idleU(G.idle().heldAt)); } return { moving: us.filter((u) => u > 0).length, clock: G.idle().t }; });
     check("jam-jar: every fruit has an idle of its own (no two alike), starting and ending on its face at rest and moving between",
       r.faces.length === 11 && r.faces.every((f) => f.start === 0 && f.end === 0 && f.mid > 100) && r.alike === 11, { faces: r.faces, alike: r.alike });
     check("jam-jar: the idles are 2 s every 4 s, from when each fruit came: shown in Next, made by a merge, or as the jar began; the two a jar begins with idle together, one shown in Next half a second later idles apart; the Preserves all at once; a pause holds them",
@@ -832,7 +860,10 @@ module.exports = async ({ browser, base, check, lib }) => {
       r.carry.waiting > 0.2 && r.carry.dropped === r.carry.waiting && r.carry.frame === 0.0083, r.carry);
     check("jam-jar: the fruit in Next moving up to wait at the top carries on its idle from the very moment it was at (never starting over), a frame on moving a frame further; the new one in Next starts its own",
       r.up.next > 0.2 && r.up.top === r.up.next && r.up.from === 0 && r.up.fresh === 0 && r.up.frame === 0.0083, r.up);
-    check("jam-jar: with Visual FX off no face moves (the jar's fruit, the one waiting, the Preserves)", off.moving === 0, off);
+    check("jam-jar: with Visual FX off no face moves (the jar's fruit, the one waiting, the Preserves)", off.moving === 0 && off.clock === 0, off);
+    check("jam-jar: Visual FX switched off mid-idle stops every face where it is (the fruit waiting, Next, the Preserves), not back to its face at rest; on again each carries on from there",
+      stop.was.every((u) => u > 0.2 && u < 0.8) && stop.held.join() === stop.was.join() && stop.painted.join() === [stop.was[1], stop.was[2]].join() &&
+      stop.again.every((u, i) => Math.abs(u - stop.was[i] - 0.0083) < 0.0002), stop);
     check("jam-jar: once a jar is lost every face rests: the game over (its fruit, the one waiting, Next, the Preserves), and against the CPU your overflowed jar while the CPU plays on",
       r.lost.state === "over" && r.lost.moving === 0 && vs.before && vs.playing === "play" && vs.moving === 0, { lost: r.lost, vs });
     await done(q, "idles");

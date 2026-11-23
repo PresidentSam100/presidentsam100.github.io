@@ -186,6 +186,12 @@
   window.addEventListener("reducemotionchange", () => document.querySelectorAll(".vessel.drop, .vessel.sinking").forEach((v) => {
     v.classList.remove("drop", "sinking"); v.querySelectorAll(".fx").forEach((x) => x.remove());
   }));
+  // (the sea has moved once Visual FX has been on: from then on the swell and
+  // the radar's sweep are set up, and FX off stops them where they are;
+  // styles.css)
+  const seaMoved = () => { if (!(window.RM_ON && window.RM_ON())) document.documentElement.classList.add("fx-moved"); };
+  seaMoved();
+  window.addEventListener("reducemotionchange", seaMoved);
 
   // ---- render ----
   // last: [r, c] of the latest shot at this grid, framed until the next one

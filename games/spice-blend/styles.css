@@ -59,7 +59,14 @@ body {
   background: #6b4a2a; left: 16%;
 }
 .sign-low .awning-name::after { left: auto; right: 16%; }
-html.fx-on .awning-name { animation: sb-sway 7s ease-in-out infinite; }
+/* (the sway, once Visual FX has been on (sb-swayed, game.js), is always
+   there, paused: !important and more particular than motion-toggle.js's
+   FX-off rule, which would end it at once and snap the flap back. FX on, it
+   sways; off, it stops where it is. It starts a quarter of the way in, level
+   and mid-swing, so FX first turned on starts it from the flap as it hangs;
+   till then the flap hangs level as it always has) */
+body.sb-swayed .awning-name { animation: sb-sway 7s ease-in-out -1.75s infinite paused !important; }
+html.fx-on .awning-name { animation-play-state: running !important; }
 @keyframes sb-sway { 0%, 100% { transform: rotate(-0.7deg); } 50% { transform: rotate(0.7deg); } }
 /* (under a low sign the title and the tastes' count close up, so the tastes lose little height) */
 .sign-low .stall { gap: 3px; }

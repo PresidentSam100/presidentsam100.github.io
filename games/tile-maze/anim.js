@@ -16,8 +16,18 @@
 })(this, function () {
   "use strict";
 
+  // The palm over the corner (styles.css) sways once Visual FX has been on:
+  // the page is marked tm-swayed then, and stays so. Till then the palm
+  // hangs in the still pose FX off has from the start; after it, FX off
+  // stops the sway where it is.
+  if (typeof document !== "undefined" && document.body) {
+    const swayed = () => { if (window.FX_ON && window.FX_ON()) document.body.classList.add("tm-swayed"); };
+    swayed();
+    window.addEventListener("reducemotionchange", swayed);
+  }
+
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
-  const DELTA = { up: { r: -1, c: 0 }, down: { r: 1, c: 0 }, left: { r: 0, c: -1 }, right: { r: 0, c: 1 } };
+  const DELTA ={ up: { r: -1, c: 0 }, down: { r: 1, c: 0 }, left: { r: 0, c: -1 }, right: { r: 0, c: 1 } };
 
   // Per-tile traversal time (ms for a full tile). Speed = inverse of this.
   const STEP = 115;   // ordinary tile

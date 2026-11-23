@@ -463,6 +463,8 @@ const MASTS = [[216.2, 64.7], [367.6, 56.1], [502.6, 40.5], [691.7, 55.9], [949.
 function skyEl(cls, style) { const e = document.createElement(cls === 'burst' ? 'div' : 'span'); e.className = cls; Object.assign(e.style, style || {}); return e; }
 function buildSky() {
   if (!skyBack || !sky) return;
+  // (a sky built afresh while Visual FX is off starts at rest: styles.css)
+  if (!animOn()) document.documentElement.classList.remove('fx-moved');
   skyBack.textContent = '';
   BEAMS.forEach(([side, x, rest]) => {
     const b = skyEl('beam ' + side, { left: x + '%' });
@@ -560,7 +562,11 @@ function planeOver() {
 }
 (function meteors() { setTimeout(() => { shootingStar(); meteors(); }, 6000 + Math.random() * 10000); })();
 (function planes() { setTimeout(() => { planeOver(); planes(); }, 9000 + Math.random() * 14000); })();
-addEventListener('reducemotionchange', () => { if (!animOn() && sky) sky.querySelectorAll('.burst, .meteor, .plane').forEach((e) => e.remove()); });
+// The sky has moved once Visual FX has been on (at load or since): from then
+// on its motion is set up, and FX off stops it where it is (styles.css)
+function skyMoved() { if (animOn()) document.documentElement.classList.add('fx-moved'); }
+skyMoved();
+addEventListener('reducemotionchange', () => { skyMoved(); if (!animOn() && sky) sky.querySelectorAll('.burst, .meteor, .plane').forEach((e) => e.remove()); });
 skyW = Math.ceil(innerWidth / 1200);
 buildSky();
 

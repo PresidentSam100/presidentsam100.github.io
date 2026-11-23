@@ -804,15 +804,22 @@ updateScore();
     fall.className = 'fall';
     fall.style.left = ((i + 0.2 + Math.random() * 0.6) / n * 100).toFixed(2) + '%';
     fall.style.setProperty('--y', `calc(${at.toFixed(3)} * (100% + 60px) - 30px)`);
-    fall.style.animationDuration = fallS.toFixed(2) + 's';
-    fall.style.animationDelay = (-at * fallS).toFixed(2) + 's';
-    fall.innerHTML = `<div class="flutter ${i % 2 ? 'b' : 'a'}" style="animation-duration:${flutterS.toFixed(2)}s;` +
-      `animation-delay:${(-Math.random() * flutterS).toFixed(2)}s"><i class="bit ${KINDS[i % KINDS.length]}" ` +
+    // (its pace and start !important, so motion-toggle.js's FX-off rule can't
+    // rewrite them under a fall that FX off has stopped where it is)
+    fall.style.setProperty('animation-duration', fallS.toFixed(2) + 's', 'important');
+    fall.style.setProperty('animation-delay', (-at * fallS).toFixed(2) + 's', 'important');
+    fall.innerHTML = `<div class="flutter ${i % 2 ? 'b' : 'a'}" style="animation-duration:${flutterS.toFixed(2)}s !important;` +
+      `animation-delay:${(-Math.random() * flutterS).toFixed(2)}s !important"><i class="bit ${KINDS[i % KINDS.length]}" ` +
       `style="transform:rotate(${Math.round(Math.random() * 360)}deg)"></i></div>`;
     wall.appendChild(fall);
   }
   document.body.appendChild(wall);
 })();
+// The confetti has moved once Visual FX has been on (at load or since): from
+// then on its motion is set up, and FX off stops it where it is (styles.css)
+function wallMoved() { if (animOn()) document.documentElement.classList.add('fx-moved'); }
+wallMoved();
+addEventListener('reducemotionchange', wallMoved);
 
 // The ⏸ button and P bring up the card: Restart and Menu are the bar's Restart
 // and New Game. Not while a disc is falling or the CPU is thinking (it would

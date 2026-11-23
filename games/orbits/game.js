@@ -168,7 +168,11 @@
     return (dustCache[key] = out);
   }
 
-  var clock = 0;          // seconds of decoration time (sun rays, gates breathing): Visual FX on only
+  // seconds of decoration time (sun rays, dust turning, gates breathing): it
+  // runs with Visual FX on only, and they're drawn by it either way, so FX
+  // switched off stops them where they are (from the start, at its 0: their
+  // still pose) and on again they carry on from there
+  var clock = 0;
   var drawn = null;       // what the last frame drew, for the tests
   function draw() {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -208,7 +212,7 @@
     // dust clouds: stippled sepia, their edge dotted (with Visual FX on the
     // stipple turns slowly in place; the cloud itself never moves)
     (L.dust || []).forEach(function (d, k) {
-      var spin = on ? clock * 0.06 * (k % 2 ? -1 : 1) : 0, c = Math.cos(spin), si = Math.sin(spin);
+      var spin = clock * 0.06 * (k % 2 ? -1 : 1), c = Math.cos(spin), si = Math.sin(spin);
       g.fillStyle = "rgba(196, 170, 120, 0.22)"; g.beginPath(); g.arc(sx(d[0]), sy(d[1]), d[2] * K, 0, 6.3); g.fill();
       g.fillStyle = "rgba(108, 78, 40, 0.55)";
       dustDots(n, k, d).forEach(function (p) { var px = p[0] * c - p[1] * si, py = p[0] * si + p[1] * c, rr = 0.5 + p[2] * 0.8; g.fillRect(sx(d[0] + px) - rr / 2, sy(d[1] + py) - rr / 2, rr, rr); });
@@ -234,12 +238,12 @@
       drawn.moons.push([Math.round(at[0]), Math.round(at[1])]);
     });
     // suns: gold leaf with engraved rays (turning slowly with Visual FX on)
-    L.suns.forEach(function (s) { var R = P.SUNS[s[2] || 2].r * K; drawSun(sx(s[0]), sy(s[1]), R, on ? clock * 0.08 : 0); drawn.suns.push([s[0], s[1], R]); });
-    drawn.rays = on ? clock * 0.08 : 0;
+    L.suns.forEach(function (s) { var R = P.SUNS[s[2] || 2].r * K; drawSun(sx(s[0]), sy(s[1]), R, clock * 0.08); drawn.suns.push([s[0], s[1], R]); });
+    drawn.rays = clock * 0.08;
     // gates: gold rings, lit as the comet passes (a ring marked II takes two
     // passes); numbered on a chart whose gates go in order
     var counts = litCounts();
-    var breath = on && state !== "done" ? Math.sin(clock * 2.2) : 0;
+    var breath = state !== "done" ? Math.sin(clock * 2.2) : 0;
     drawn.breath = breath;
     L.gates.forEach(function (q, i) {
       var times = q[2] || 1, c = counts[i] || 0;

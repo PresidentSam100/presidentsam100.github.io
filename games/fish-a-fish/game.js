@@ -511,12 +511,15 @@
   function draw(t) {
     var f = fx();
     cues.escapeWarn = [];
-    Art.scene(ctx, W, H, t, f);
+    // The pond's own motion (the mist, the shimmer, the sign's reflection,
+    // the reeds, the bob, the shadow's wag and the boot's rocking) runs on
+    // pondT, which moves only with Visual FX on: turning FX off holds it all
+    // where it is, and on again it moves on from there. A page opened with FX
+    // off draws it at rest (moved: false) until FX first comes on.
+    var moved = f || pondT > 0, tm = pondT;
+    Art.scene(ctx, W, H, pondT, moved);
     if (state === "menu") Art.boat(ctx, W * 0.82, waterY + (H - waterY) * 0.22, Math.max(0.6, Math.min(1.3, H / 640)));
     var playing = state === "play" || state === "ending";
-    // the bob, the shadow's wag and the boot's rocking run on this clock: with
-    // Visual FX off it stands still, so they're drawn as they are, unmoving
-    var tm = f ? t : 0;
     spots.forEach(function (s, i) {
       if (!playing) return;
       var dip = s.phase === "bite" && s.what !== "junk" ? Math.min(1, s.t * 6) : 0;
@@ -557,7 +560,7 @@
       ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
     });
     ctx.globalAlpha = 1;
-    Art.foreground(ctx, W, H, t, f);
+    Art.foreground(ctx, W, H, pondT, moved);
     ctx.textAlign = "center";
     for (var k = popups.length - 1; k >= 0; k--) {
       var pp = popups[k], pa = (t - pp.t0) / 950;
@@ -594,11 +597,12 @@
     ui.streak.className = "streak" + (mult() > 1 ? " on" : "");
   }
 
-  var lastT = 0;
+  var lastT = 0, pondT = 0;   // pondT (ms): the pond's own motion (draw), run only with Visual FX on
   function frame(t) {
     requestAnimationFrame(frame);
     var dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
     lastT = t;
+    if (fx()) pondT += dt * 1000;
     if (!P.isPaused() && !document.hidden) update(dt);
     draw(t);
     hud();

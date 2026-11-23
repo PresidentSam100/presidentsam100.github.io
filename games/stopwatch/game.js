@@ -159,10 +159,17 @@
       }
       s += '<i class="mote" style="left:' + (x * 100).toFixed(2) + "%;top:" + (y * 100).toFixed(2) + "%;" +
         "--w:" + (2.4 + Math.random() * 3.2).toFixed(1) + "px;--o:" + (0.3 + 0.55 * near).toFixed(2) + ";" + legs +
-        "animation-duration:" + dur.toFixed(2) + "s;animation-delay:" + (-Math.random() * dur).toFixed(2) + 's"></i>';
+        "--dur:" + dur.toFixed(2) + "s;--del:" + (-Math.random() * dur).toFixed(2) + 's"></i>';
     }
     v.innerHTML = s;
     document.body.insertBefore(v, document.body.firstChild);
+    // Once the velvet has moved (Visual FX on at any time on this page),
+    // turning FX off holds the sheen and the dust where they are rather than
+    // putting them back where they lie still (styles.css html.sw-moved).
+    // Opened with FX off, they lie as always until FX first comes on.
+    var moved = function () { if (window.FX_ON && window.FX_ON()) document.documentElement.classList.add("sw-moved"); };
+    moved();
+    window.addEventListener("reducemotionchange", moved);
   })();
 
   // ---- state ----

@@ -433,7 +433,12 @@
   // (switched off mid-swing, the planet hangs still at once)
   window.addEventListener("reducemotionchange", function () {
     if (!fx()) swings.slice().forEach(function (an) { an.cancel(); });
+    roomMoved();
   });
+  // (the room has moved once Visual FX has been on: from then on its sway and
+  // turning are set up, and FX off stops them where they are; styles.css)
+  function roomMoved() { if (fx()) document.documentElement.classList.add("fx-moved"); }
+  roomMoved();
   // clearEvts() drops any pending glow-off, so wipe the classes directly
   // (and the sun's face, whose way back to rest is one of those events)
   function clearFx() {

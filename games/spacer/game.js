@@ -656,11 +656,17 @@ class Starfield {
         tw: rand(0, TAU),
       });
     }
+    // the twinkle runs only with Visual FX on: turned off on the way, each
+    // star keeps the brightness it had; on a page opened with FX off they
+    // shine steady from the start (twinkled: whether it has run yet)
+    this.twinkled = false;
   }
   update(dt) {
+    const twinkle = !ANIM.reducedFlash;
+    if (twinkle) this.twinkled = true;
     for (const st of this.stars) {
       st.y += st.s * dt;
-      st.tw += dt * 6;
+      if (twinkle) st.tw += dt * 6;
       if (st.y > HEIGHT) {
         st.y = 0;
         st.x = Math.random() * WIDTH;
@@ -669,7 +675,7 @@ class Starfield {
   }
   draw(ctx) {
     for (const st of this.stars) {
-      const a = ANIM.reducedFlash ? 0.85 : 0.5 + 0.5 * Math.sin(st.tw);
+      const a = ANIM.reducedFlash && !this.twinkled ? 0.85 : 0.5 + 0.5 * Math.sin(st.tw);
       ctx.globalAlpha = a;
       ctx.fillStyle = st.c;
       ctx.fillRect(st.x, st.y, st.r, st.r);

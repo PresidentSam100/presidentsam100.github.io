@@ -89,7 +89,12 @@
 
   /* ---- the sea ---------------------------------------------------------
      A persistent scene object: marine snow, jellyfish, fish, the sub.
-     draw(t, dt, fxOn, depth01) paints the full-viewport backdrop. */
+     draw(t, dt, fxOn, depth01) paints the full-viewport backdrop. Its idle
+     motion (the light rays, the sub's patrol, the jellyfish's pulse, the
+     fish's bob) runs on the sea's own clock, which runs only with Visual FX
+     on: FX turned off on the way holds them where they are, and on again
+     they carry on from there. From a page opened with FX off the clock never
+     starts: the still picture. */
   function makeSea(w, h) {
     var rng = mulberry(77);
     var snow = [], jellies = [], fish = [];
@@ -104,9 +109,12 @@
       fish.push({ x: rng() * w, y: h * (0.3 + rng() * 0.6), v: 8 + rng() * 16, s: 5 + rng() * 7,
         dir: rng() < 0.5 ? -1 : 1, ph: rng() * 6.28 });
     }
+    var st = 0;   // the sea's idle clock (ms)
     return {
       resize: function (nw, nh) { w = nw; h = nh; },
       draw: function (g, t, dt, fxOn, danger) {
+        if (fxOn) st += dt * 1000;
+        var still = !fxOn && st === 0;   // (never moved yet: the picture at rest)
         // the column of water: dim light above, void below
         var bg = g.createLinearGradient(0, 0, 0, h);
         bg.addColorStop(0, "#0a2438");
@@ -120,10 +128,10 @@
         }
         // light rays from the surface
         g.save();
-        g.globalAlpha = fxOn ? 0.05 + 0.02 * Math.sin(t * 0.0006) : 0.05;
+        g.globalAlpha = still ? 0.05 : 0.05 + 0.02 * Math.sin(st * 0.0006);
         g.fillStyle = "#7fc4e8";
         for (var rI = 0; rI < 4; rI++) {
-          var rx = w * (0.12 + rI * 0.24) + (fxOn ? Math.sin(t * 0.0002 + rI) * 30 : 0);
+          var rx = w * (0.12 + rI * 0.24) + (still ? 0 : Math.sin(st * 0.0002 + rI) * 30);
           g.beginPath();
           g.moveTo(rx - 14, 0); g.lineTo(rx + 14, 0);
           g.lineTo(rx + 90, h * 0.55); g.lineTo(rx - 90, h * 0.55);
@@ -131,9 +139,9 @@
         }
         g.restore();
         // the little submarine on patrol
-        var sx = w * 0.5 + (fxOn ? Math.sin(t * 0.00013) * w * 0.4 : -w * 0.3);
-        var sy = 40 + (fxOn ? Math.sin(t * 0.0007) * 6 : 0);
-        var flip = fxOn ? (Math.cos(t * 0.00013) < 0 ? -1 : 1) : 1;
+        var sx = w * 0.5 + (still ? -w * 0.3 : Math.sin(st * 0.00013) * w * 0.4);
+        var sy = 40 + (still ? 0 : Math.sin(st * 0.0007) * 6);
+        var flip = still ? 1 : (Math.cos(st * 0.00013) < 0 ? -1 : 1);
         g.save();
         g.translate(sx, sy); g.scale(flip, 1);
         g.globalAlpha = 0.8;
@@ -166,7 +174,7 @@
           if (fxOn) jl.y += Math.sin(jl.ph) * -0.35 + 2 * dt;
           if (jl.x < -60) jl.x = w + 60; if (jl.x > w + 60) jl.x = -60;
           if (jl.y > h + 80) jl.y = -60;
-          var squeeze = fxOn ? 1 + Math.sin(jl.ph) * 0.12 : 1;
+          var squeeze = still ? 1 : 1 + Math.sin(jl.ph) * 0.12;
           g.save();
           g.translate(jl.x, jl.y);
           g.globalAlpha = 0.35;
@@ -197,7 +205,7 @@
           fs.x += fs.v * fs.dir * mv;
           if (fs.dir > 0 && fs.x > w + 20) { fs.x = -20; fs.y = h * (0.3 + Math.random() * 0.6); }
           if (fs.dir < 0 && fs.x < -20) { fs.x = w + 20; fs.y = h * (0.3 + Math.random() * 0.6); }
-          var fy = fs.y + (fxOn ? Math.sin(t * 0.002 + fs.ph) * 3 : 0);
+          var fy = fs.y + (still ? 0 : Math.sin(st * 0.002 + fs.ph) * 3);
           g.beginPath();
           g.ellipse(fs.x, fy, fs.s, fs.s * 0.38, 0, 0, 7);
           g.fill();

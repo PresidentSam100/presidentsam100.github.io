@@ -342,4 +342,34 @@ module.exports = async ({ browser, base, check, lib }) => {
       off.drawn && on.drawn && off.boardStill && off.waterStill && on.boardStill && !on.waterStill, { off, on });
     check("fish-a-fish (name board FX): no page errors", off.errs.length === 0 && on.errs.length === 0, [off.errs, on.errs]);
   }
+
+  // ---- Visual FX turned off on the way: the whole pond stops where it is
+  // (the mist, the shimmer, the sign's reflection, the reeds and the
+  // bobbers), not put back to its resting look; on again it moves on.
+  // Frame by frame on the page's own clock, the round's spots held idle
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/fish-a-fish/", { before: async (pg) => {
+      await pg.clock.install({ time: new Date("2026-11-22T12:00:00") });
+      await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:fish-a-fish", "0"); } catch (e) {} });
+    } });
+    await q.evaluate(() => { FishAFish.start("daybreak"); FishAFish.hold(); });
+    const pond = () => q.evaluate(() => {
+      const cv = document.getElementById("stage"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+      let h = 0; for (let i = 0; i < d.length; i += 3) h = (h * 31 + d[i]) | 0;
+      return h;
+    });
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    // (the page's clock stopped, so time moves only as it's run on: no frame
+    // slips in between a reading and the switch)
+    await q.clock.pauseAt(await q.evaluate(() => Date.now() + 100));
+    await q.clock.runFor(4000);
+    const a0 = await pond(); await q.clock.runFor(300); const a = await pond();
+    await flip(); await q.clock.runFor(300); const b = await pond(); await q.clock.runFor(600); const b2 = await pond();
+    await flip(); await q.clock.runFor(300); const c2 = await pond();
+    check("fish-a-fish: Visual FX turned off on the way stops the pond where it is (mist, shimmer, reflection, reeds, bobbers), not back to its resting look; on again it moves on",
+      a0 !== a && b === a && b2 === a && c2 !== b, { movingOn: a0 !== a, heldAtSwitch: b === a, stillHeld: b2 === a, movingAgain: c2 !== b });
+    check("fish-a-fish (FX switched on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

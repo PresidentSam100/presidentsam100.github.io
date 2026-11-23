@@ -89,6 +89,29 @@ module.exports = async ({ browser, base, check, lib }) => {
   };
   const off = await menuShip(true), on = await menuShip(false);
   check("meteor-menace: with Visual FX off the menu rocket is drawn standing still; with FX on it drifts", off.still && !!on.a && !on.still, { off, on });
+  // FX turned off while it drifts: it stops where it is (not back to its
+  // first pose), and on again it drifts on from there, a short way in a
+  // short time (on the page's own clock, frame by frame)
+  {
+    const pg = await lib.open(ctx, base, "games/meteor-menace/", { before: async (x) => {
+      await x.clock.install({ time: new Date("2026-11-22T12:00:00") });
+      await x.addInitScript(() => { try { localStorage.setItem("reduceMotion:meteor-menace", "0"); } catch (e) {} });
+      await lib.injectScript(x, "games/meteor-menace/game.js", [HOOK]);
+    } });
+    const ship = () => pg.evaluate(() => window.__menuShip && window.__menuShip.map((v) => +v.toFixed(4)));
+    const flip = () => pg.evaluate(() => document.querySelector(".rm-toggle").click());
+    // (the page's clock stopped, so time moves only as it's run on: no frame
+    // slips in between a reading and the switch)
+    await pg.clock.pauseAt(await pg.evaluate(() => Date.now() + 100));
+    await pg.clock.runFor(4000);
+    const a0 = await ship(); await pg.clock.runFor(300); const a = await ship();
+    await flip(); await pg.clock.runFor(300); const b = await ship(); await pg.clock.runFor(600); const b2 = await ship();
+    await flip(); await pg.clock.runFor(300); const c = await ship();
+    const same = (p, q) => !!p && !!q && p.every((v, i) => v === q[i]);
+    check("meteor-menace: Visual FX turned off while the menu rocket drifts stops it where it is (not back to its first pose); on again it drifts on from there",
+      !same(a0, a) && same(b, a) && same(b2, a) && !same(c, b) && Math.hypot(c[0] - b[0], c[1] - b[1]) < 12, { a0, a, b, b2, c });
+    await done(pg, "menu ship FX switched");
+  }
   await ctx.close();
 
   // ---- a 2× screen: the panel has two backing pixels for every page pixel it

@@ -976,6 +976,14 @@
       })
     : { isPaused: function () { return false; } };
 
+  // The pennant's ripple (styles.css) is set up once Visual FX has been on
+  // (mz-rippled, kept): FX turned off after that holds the flag where it is
+  // in its ripple, and on again it carries on. A page opened with FX off has
+  // no ripple at all, the flag drawn just as it always is.
+  function rippled() { if (!(window.RM_ON && window.RM_ON())) document.documentElement.classList.add("mz-rippled"); }
+  rippled();
+  window.addEventListener("reducemotionchange", rippled);
+
   var lastTs = 0;
   function frame(ts) {
     requestAnimationFrame(frame);

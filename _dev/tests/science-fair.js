@@ -79,9 +79,12 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
 
   // ---- the diorama: the sun, the planets' sizes and strings, and the view each mode gives
+  // (measured with Visual FX off from the start: nothing has ever swayed, so
+  // everything hangs at rest; FX switched off on the way would stop each
+  // planet where its sway had got to)
   {
     const ctx = await lib.newContext(browser);
-    const p = await lib.open(ctx, base, "games/science-fair/");
+    const p = await lib.open(ctx, base, "games/science-fair/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:science-fair", "1"); } catch (e) {} }) });
     // where everything hangs once it has stopped gliding (two looks alike, a few frames apart)
     const board = () => p.evaluate(() => new Promise((res) => {
       const read = () => {
@@ -102,8 +105,7 @@ module.exports = async ({ browser, base, check, lib }) => {
         if (same >= 6 || ++n > 400) res(JSON.parse(now)); else requestAnimationFrame(tick);
       })();
     }));
-    // (Visual FX off for the measuring: nothing sways, and a change of view is there at once)
-    await p.evaluate(() => { if (!window.RM_ON()) document.querySelector(".rm-toggle").click(); });
+    // (Visual FX off for the measuring, from the start: nothing sways, and a change of view is there at once)
     await p.keyboard.press("2");                                  // Grand Tour: all nine
     const grand = await board();
     await p.keyboard.press("1");                                  // Classic: the four rocky planets

@@ -14,6 +14,7 @@ class Enemy {
     this.dead = false;
     this.dying = 0;       // >0 while playing death shrink
     this.t = 0;           // animation clock
+    this.spin = 0;        // the black hole's turn: runs only with Visual FX on (held where it is with it off)
 
     if (type === "monster") {
       this.w = 50; this.h = 42;
@@ -48,6 +49,7 @@ class Enemy {
 
   update(dt) {
     this.t += dt;
+    if (fxOn()) this.spin += dt;
     if (this.dying > 0) { this.dying -= dt; if (this.dying <= 0) this.dead = true; return; }
 
     if (this.type === "monster") {
@@ -263,8 +265,9 @@ class Enemy {
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.fill();
-    // With Visual FX off the spiral and ring are drawn as they are, not turning
-    const turn = window.RM_ON && window.RM_ON() ? 0 : this.t;
+    // The spiral and ring turn on their own clock: with Visual FX off they
+    // hold still where they are (as first drawn, on a page opened with it off)
+    const turn = this.spin;
     // turning spiral, in pale ink
     ctx.strokeStyle = "rgba(170,180,214,0.75)";
     ctx.lineWidth = 2;

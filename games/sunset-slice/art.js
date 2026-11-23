@@ -4,10 +4,10 @@
    sunlight on the side facing it; cut one and each half shows its inside
    in colour. No images: everything is drawn with canvas paths.
 
-   SunsetArt.sky(ctx, W, H, dusk, t, fx)       dusk: 0 low sun -> 1 set
+   SunsetArt.sky(ctx, W, H, dusk, t)           dusk: 0 low sun -> 1 set
    SunsetArt.mountains(W, H, sign)             -> a cached canvas layer
    SunsetArt.signGeom(W, H, x, fs)             the roadside sign, centred on x
-   SunsetArt.grass(ctx, W, H, t, fx)
+   SunsetArt.grass(ctx, W, H, t, still)        still: at rest, not swaying
    SunsetArt.target(ctx, type, r, t, lightAng, rim)   whole, at the origin
    SunsetArt.half(ctx, type, r, t)                    cross-section face
    SunsetArt.TYPES[type] = { flesh, skin, juice, points }
@@ -30,7 +30,7 @@ window.SunsetArt = (function () {
   // The gradients cover the whole screen, so they're painted into a cached
   // layer and only repainted when the sunset has moved on a notch.
   var skyCache = { key: "", canvas: null };
-  function sky(ctx, W, H, dusk, t, fx) {
+  function sky(ctx, W, H, dusk, t) {
     var step = Math.round(dusk * 120) / 120, key = W + "x" + H + ":" + step;
     if (skyCache.key !== key) {
       if (!skyCache.canvas) skyCache.canvas = document.createElement("canvas");
@@ -45,7 +45,7 @@ window.SunsetArt = (function () {
     var s = sunGeom(W, H, step);
     // Thin cloud streaks drifting across the sun (cheap, so drawn live).
     ctx.fillStyle = "rgba(90,24,52," + (0.28 + step * 0.2).toFixed(3) + ")";
-    var drift = fx ? t * 0.004 : 0;
+    var drift = t * 0.004;
     [[0.52, 0.018, 0.9], [0.58, 0.012, 0.6], [0.63, 0.02, 1.2], [0.44, 0.01, 0.5]].forEach(function (cl, i) {
       var y = H * cl[0], h = H * cl[1], w = W * cl[2], x = ((i * 0.37 + drift * (i + 1) * 0.3) % 1.4 - 0.2) * W;
       ctx.beginPath();
@@ -202,7 +202,7 @@ window.SunsetArt = (function () {
 
   // ---- foreground grass ------------------------------------------------------------------
   var blades = null, bladesFor = "";
-  function grass(ctx, W, H, t, fx) {
+  function grass(ctx, W, H, t, still) {
     if (bladesFor !== W + "x" + H) {
       bladesFor = W + "x" + H;
       blades = [];
@@ -220,7 +220,7 @@ window.SunsetArt = (function () {
     ctx.lineWidth = Math.max(2, W / 500);
     ctx.beginPath();
     for (var k = 0; k < blades.length; k++) {
-      var b = blades[k], sway = fx ? Math.sin(t * 0.0016 + b.phase) * 0.18 + 0.12 : 0.12;
+      var b = blades[k], sway = still ? 0.12 : Math.sin(t * 0.0016 + b.phase) * 0.18 + 0.12;
       var tipX = b.x + (b.lean + sway) * b.h, tipY = H - b.h;
       ctx.moveTo(b.x, H);
       ctx.quadraticCurveTo(b.x + (b.lean + sway) * b.h * 0.3, H - b.h * 0.55, tipX, tipY);

@@ -122,6 +122,12 @@
   let maxCombo = 0;
 
   let lastTime = 0;
+  // The scene's clock (s): the ward's shimmer, its runes, the robe and the
+  // spirits' hover run on it. It runs only with Visual FX on, so turning FX
+  // off holds them where they are, and on again they move on from there.
+  // Never run (a page opened with FX off), the scene is drawn at rest.
+  let sceneT = 0;
+  const atRest = () => reducedMotion() && sceneT === 0;
   // Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
   const reducedMotion = () => !!(window.RM_ON && window.RM_ON());
   let shake = 0;
@@ -677,10 +683,11 @@
     ctx.save();
     ctx.translate(ox, oy);
 
-    // With Visual FX off the scene's clock stands still: the stars, the ward's
-    // shimmer and its runes are all drawn, just not moving
+    // The scene's clock (sceneT, loop) runs only with Visual FX on: off, the
+    // stars, the ward's shimmer and its runes are all drawn, just not moving,
+    // held where FX left them (or at rest, on a page opened with FX off)
     const still = reducedMotion();
-    const T = still ? 0 : performance.now() / 1000;
+    const T = sceneT;
 
     // stars: slow drift, warm arcane white
     for (const s of starfield) {
@@ -750,7 +757,7 @@
     ctx.moveTo(0, lineY); ctx.lineTo(name.x0 - 9, lineY);
     ctx.moveTo(name.x1 + 9, lineY); ctx.lineTo(W, lineY);
     ctx.stroke();
-    drawWardName(name, lineY, T, still);
+    drawWardName(name, lineY, T, atRest());
     // rune glyphs pulsing along the ward (none where the name is carved)
     ctx.strokeStyle = "#e7c86f";
     ctx.lineWidth = 1.6;
@@ -947,8 +954,8 @@
   }
 
   function drawWizard(x, y, angle) {
-    const still = reducedMotion();   // FX off: the robe hangs still and the orb glows steady
-    const T = still ? 0 : performance.now() / 1000;
+    const still = reducedMotion();   // FX off: the robe hangs still (where FX left it) and the orb glows steady
+    const T = sceneT;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(WIZ_SCALE, WIZ_SCALE);
@@ -1017,16 +1024,17 @@
 
   function drawSpirit(w) {
     const cx = w.x + w.w / 2;
-    const T = performance.now() / 1000;
+    const T = sceneT, rest = atRest();
 
-    // the spirit itself: a wisp hovering above its true name
-    const bobY = reducedMotion() ? 0 : Math.sin(T * 2.3 + w.bob) * 2.5;
+    // the spirit itself: a wisp hovering above its true name (on the scene's
+    // clock: Visual FX off holds the hover where it is)
+    const bobY = rest ? 0 : Math.sin(T * 2.3 + w.bob) * 2.5;
     const wy = w.y - 27 + bobY;
     const bodyCol = "hsla(" + w.hue + ",70%,72%,0.85)";
     ctx.fillStyle = bodyCol;
     ctx.beginPath();
     ctx.arc(cx, wy, 8, Math.PI, 0);                 // dome
-    const sway = reducedMotion() ? 0 : Math.sin(T * 5 + w.bob) * 2;
+    const sway = rest ? 0 : Math.sin(T * 5 + w.bob) * 2;
     ctx.quadraticCurveTo(cx + 8, wy + 8, cx + 4 + sway, wy + 11);   // trailing hem
     ctx.quadraticCurveTo(cx, wy + 6, cx - 4 + sway, wy + 11);
     ctx.quadraticCurveTo(cx - 8, wy + 8, cx - 8, wy);
@@ -1119,6 +1127,7 @@
     requestAnimationFrame(loop);
     const dt = Math.min(0.05, (now - lastTime) / 1000) || 0;
     lastTime = now;
+    if (!reducedMotion()) sceneT += dt;
     if (PAUSE.isPaused()) { draw(); return; }
     if (state === "playing") update(dt);
     else if (state === "over") coast(dt);

@@ -23,14 +23,16 @@
 
   // ------------------------------------------------ particle field (Visual FX)
   // A gentle drift of glowing motes inside the panel during the "wait" and "go"
-  // states: purely decorative. Honors the global "✨ Visual FX" toggle: while
-  // FX is off (RM_ON), nothing is drawn, so the panel stays clean.
+  // states: purely decorative. Honors the global "✨ Visual FX" toggle: a field
+  // started while FX is off (RM_ON) has none, so the panel stays clean; FX
+  // switched off on the way stops the motes where they are, drawn still, and
+  // on again they drift on from there.
   var FX = (function () {
     var cv = document.createElement("canvas");
     cv.className = "panel-fx"; cv.setAttribute("aria-hidden", "true");
     panel.insertBefore(cv, panel.firstChild);
     var ctx = cv.getContext("2d");
-    var W = 0, H = 0, DPR = 1, ps = [], raf = 0, on = false, color = "255,194,204", rate = 0.5, acc = 0, wasReduced = false;
+    var W = 0, H = 0, DPR = 1, ps = [], raf = 0, on = false, color = "255,194,204", rate = 0.5, acc = 0, wasReduced = false, stillDrawn = false;
 
     function reduced() { return !!(window.RM_ON && window.RM_ON()); }
     function size() {
@@ -54,11 +56,27 @@
           ss: 0.012 + Math.random() * 0.02, amp: 0.15 + Math.random() * 0.4 });
       }
     }
+    function dot(p) {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      ctx.fillStyle = "rgba(" + color + "," + p.a.toFixed(3) + ")";
+      ctx.shadowColor = "rgba(" + color + ",0.5)"; ctx.shadowBlur = 5;
+      ctx.fill();
+    }
     function frame() {
       if (!on) return;
+      if (reduced()) {
+        // FX off: nothing moves or comes. The motes in the air (FX switched off
+        // on the way) are drawn once where they stand, still (again after a
+        // resize or a new colour); a field started with FX off has none
+        wasReduced = true;
+        if (!stillDrawn) { ctx.clearRect(0, 0, W, H); ps.forEach(dot); ctx.shadowBlur = 0; stillDrawn = true; }
+        raf = requestAnimationFrame(frame); return;
+      }
+      stillDrawn = false;
       ctx.clearRect(0, 0, W, H);
-      if (reduced()) { ps.length = 0; wasReduced = true; raf = requestAnimationFrame(frame); return; } // FX off -> draw nothing
-      if (wasReduced) { wasReduced = false; size(); seed(42); } // FX flipped back on -> refill the box
+      // FX back on: the motes drift on from where they stood (a field that had
+      // none, started with FX off, is filled now)
+      if (wasReduced) { wasReduced = false; if (!ps.length) { size(); seed(42); } }
       acc += rate;
       while (acc >= 1) { acc--; if (ps.length < 60) spawn(); }
       for (var i = ps.length - 1; i >= 0; i--) {
@@ -66,10 +84,7 @@
         p.sway += p.ss; p.x += Math.sin(p.sway) * p.amp; p.y += p.vy;
         p.a = Math.min(p.a + 0.02, 0.42); // fade in once, then hold: no fade-out
         if (p.y < -p.r) { ps.splice(i, 1); continue; } // only gone once it clears the top edge
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 6.2832);
-        ctx.fillStyle = "rgba(" + color + "," + p.a.toFixed(3) + ")";
-        ctx.shadowColor = "rgba(" + color + ",0.5)"; ctx.shadowBlur = 5;
-        ctx.fill();
+        dot(p);
       }
       ctx.shadowBlur = 0;
       raf = requestAnimationFrame(frame);
@@ -79,17 +94,22 @@
       // persist across attempts so the effect is one continuous drift, not a
       // fresh build-up each round.
       start: function (c, r) {
-        color = c; rate = r || 0.5;
+        color = c; rate = r || 0.5; stillDrawn = false;
         if (!on) { size(); if (!reduced()) seed(42); on = true; raf = requestAnimationFrame(frame); }
       },
       stop: function () {
         on = false; if (raf) { cancelAnimationFrame(raf); raf = 0; }
         if (W) ctx.clearRect(0, 0, W, H); ps.length = 0;
       },
-      resize: function () { if (on) size(); }
+      resize: function () { if (on) { size(); stillDrawn = false; } }
     };
   })();
   window.addEventListener("resize", function () { FX.resize(); });
+  // (the saloon's sign has moved once Visual FX has been on: from then on its
+  // creak is set up, and FX off stops it where it is; styles.css)
+  function signMoved() { if (!(window.RM_ON && window.RM_ON())) document.documentElement.classList.add("fx-moved"); }
+  signMoved();
+  window.addEventListener("reducemotionchange", signMoved);
 
   // ------------------------------------------------ sound (no cue on the flash)
   var Sound = {

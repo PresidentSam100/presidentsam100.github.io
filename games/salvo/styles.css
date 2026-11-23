@@ -113,9 +113,15 @@ header.top::after {
     linear-gradient(160deg, #3aa3cb, #237aa8 55%, #1a6390);
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.35), inset 0 3px 8px rgba(0, 0, 0, 0.3);
 }
-/* Visual FX on: the swell drifts slowly across your waters, at setup and in battle */
+/* Visual FX on: the swell drifts slowly across your waters, at setup and in
+   battle; FX switched off stops it where it is, and on again it drifts on
+   from there (set up the first time the sea moves, Visual FX on at load or
+   later: game.js marks the page fx-moved. !important, and more particular
+   than motion-toggle.js's FX-off rule, which would end it at once and snap
+   the swell back) */
 @keyframes swell { from { background-position: 0 0, 0 0, 0 0; } to { background-position: 72px 58px, 0 0, 0 0; } }
-html.fx-on .grid:not(.enemy)::before { animation: swell 9s linear infinite; }
+html.fx-moved .grid:not(.enemy)::before { animation: swell 9s linear infinite paused !important; }
+html.fx-on:not(.sv-paused) .grid:not(.enemy)::before { animation-play-state: running !important; }
 /* enemy waters: a radar screen, round in the square, with a crosshair and range rings */
 .grid.enemy::before {
   z-index: -1;
@@ -144,8 +150,13 @@ html.fx-on .grid:not(.enemy)::before { animation: swell 9s linear infinite; }
 /* Visual FX off: the wedge holds still, so it goes under the cells (just
    over the screen it's drawn on), the same beam on the screen, but never
    sitting over a return, a wreck or the last-shot mark (the hit burst it
-   would otherwise stack under is cut with FX off anyway) */
+   would otherwise stack under is cut with FX off anyway). From the start it
+   rests at the top; switched off on the way, it stops where it had turned
+   to, and on again it turns on from there (the turn is kept once the sea has
+   moved: game.js's fx-moved, and !important, as the swell above) */
 html.fx-off .grid.enemy::after { animation: none; z-index: -1; }
+html.fx-moved .grid.enemy::after { animation: sweep 4.5s linear infinite paused !important; }
+html.fx-on:not(.sv-paused) .grid.enemy::after { animation-play-state: running !important; }
 
 /* (Barlow's figures and capitals sit a little low in their line: each label
    moves up by that, --gs-cap from motion-toggle.js, to the middle of its row

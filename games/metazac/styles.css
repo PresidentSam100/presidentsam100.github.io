@@ -114,7 +114,8 @@
        gold felt with a red band at the pole, the name in two lines, and an
        ink outline round the lot (the drop shadows: the flag's shape is cut
        by clip-path, which a border wouldn't follow). With Visual FX on it
-       ripples now and then, from the pole out; held still while paused. */
+       ripples now and then, from the pole out; held still while paused, and
+       with FX off it holds where it is. */
     #pennant {
       position: relative;
       display: inline-block;
@@ -178,8 +179,13 @@
       #pennant b { font-size: 0.64rem; }
       #pennant b + b { font-size: 0.56rem; }
     }
-    html:not(.fx-off) #pennant .flag { animation: mzPennant 3.6s ease-in-out infinite; }
-    html.mz-paused #pennant .flag { animation-play-state: paused; }
+    /* (the ripple runs only with Visual FX on and the game not paused; FX
+       turned off on the way holds it where it is, and on again it carries on:
+       game.js keeps html.mz-rippled once FX has been on. !important, and more
+       particular than motion-toggle.js's FX-off rule, which would end it at
+       once and snap the flag back. A page opened with FX off has none) */
+    html.fx-on #pennant .flag, html.mz-rippled #pennant .flag { animation: mzPennant 3.6s ease-in-out infinite paused !important; }
+    html.fx-on:not(.mz-paused) #pennant .flag { animation-play-state: running !important; }
     .stats {
       display: flex;
       gap: 0.55rem;

@@ -385,6 +385,8 @@ class Bird {
   }
 
   // Used on the start / game-over screen: bird hovers in place with a gentle bob
+  // on t, the idle clock (it stands still with Visual FX off, so the bird holds
+  // where it is; level on a page opened with FX off)
   // pos: {x, y} optional override of hover position
   idle(dt, t, pos) {
     this.vy = 0;
@@ -392,7 +394,7 @@ class Bird {
     const bx = pos ? pos.x : 120;
     const by = pos ? pos.y : 400;
     this.x = bx;
-    this.y = by + (reducedMotion() ? 0 : Math.sin(t * 3) * 14);   // no bob with Visual FX off
+    this.y = by + Math.sin(t * 3) * 14;
     this.flapTime += dt * 10;
   }
 
@@ -1730,12 +1732,14 @@ class Boo {
     this.alpha = 0;
     this.scale = 1;
     this.time = 0;
+    this.pulse = 0;   // its breathing's clock: runs only with Visual FX on (held where it is with it off)
     this.targetAlpha = 0.75;
   }
 
   update(dt, birdX, birdY, speed) {
     this.time += dt;
-    this.scale = reducedMotion() ? 1 : 1 + Math.sin(this.time * 3) * 0.04;   // still with Visual FX off
+    if (!reducedMotion()) this.pulse += dt;
+    this.scale = reducedMotion() && !this.pulse ? 1 : 1 + Math.sin(this.pulse * 3) * 0.04;   // (still from the start with Visual FX off)
     if (this.time > BOO_CHASE) {
       // Given up: it fades out, harmless, and drifts off with the world
       this.x -= speed * dt;
@@ -2210,6 +2214,11 @@ class Game {
     // scrolling, zooming or sending a click
     this.canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
 
+    // the idle motion's clock (the hovering bird, the title's bobbing
+    // letters): it runs only with Visual FX on, so FX turned off on the way
+    // stops them where they are and on again they carry on from there; from a
+    // page opened with FX off it stays at 0, the still picture
+    this.idleT = 0;
     this.resize();
     this.init();
 
@@ -2289,6 +2298,7 @@ class Game {
       // Behind the card the world holds still and the bird stays where it
       // fell; the prompt still blinks, the crash's shake and burst play out
       this.blinkTimer += dt;
+      if (!reducedMotion()) this.idleT += dt;
       this.medalT += dt;
       this.overTimer = Math.max(0, this.overTimer - dt);
       this.particles.update(dt);
@@ -2361,12 +2371,13 @@ class Game {
     if (this.gameState === 'PAUSED') return;
 
     this.blinkTimer += dt;
+    if (!reducedMotion()) this.idleT += dt;
 
     // On menu / game-over / info: bird hovers, world stays still, no obstacles spawn
     if (this.gameState === 'MENU' || this.gameState === 'GAMEOVER' || this.gameState === 'INFO') {
       // On the menu the bird hovers in its own spot, between the title and the card
       const hoverPos = (this.gameState === 'MENU') ? { x: 240, y: 256 } : null;
-      this.bird.idle(dt, this.blinkTimer, hoverPos);
+      this.bird.idle(dt, this.idleT, hoverPos);
       this.background.update(dt, BASE_SCROLL * 0.3);
       this.particles.update(dt);
       return;
@@ -2551,7 +2562,7 @@ class Game {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     letters.forEach((ch, i) => {
-      const bob = reducedMotion() ? 0 : Math.sin(this.blinkTimer * 3 + i * 0.6) * 3;
+      const bob = reducedMotion() && !this.idleT ? 0 : Math.sin(this.idleT * 3 + i * 0.6) * 3;   // (on the idle clock; level from the start with Visual FX off)
       outlined(ctx, ch, x, y + bob, size, COLORS[(i + shift) % COLORS.length], { line: 9, drop: 5 });
       x += widths[i] + gap;
     });

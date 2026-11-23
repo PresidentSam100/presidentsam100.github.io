@@ -349,6 +349,11 @@ function afterPoint(dir) {
 
 // Visual FX = inverse of the shared "reduce motion" toggle.
 function fxOn() { return !(window.RM_ON && window.RM_ON()); }
+// (the picture's roll has moved once Visual FX has been on: from then on FX
+// off stops it where it is; styles.css)
+function rollMoved() { if (fxOn()) document.documentElement.classList.add("fx-moved"); }
+rollMoved();
+addEventListener("reducemotionchange", rollMoved);
 
 // test hook
 window.__game = { left, right, afterPoint, get state() { return state; } };

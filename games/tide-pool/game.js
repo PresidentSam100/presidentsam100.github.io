@@ -10,6 +10,10 @@
 
   var $ = function (id) { return document.getElementById(id); };
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // (the light on the water ripples once Visual FX has been on: styles.css)
+  function rippled() { if (fx()) document.body.classList.add("tp-rippled"); }
+  rippled();
+  window.addEventListener("reducemotionchange", rippled);
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }

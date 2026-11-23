@@ -34,6 +34,12 @@
   // cut's halves, ink, gleam and score text hold still, half-faded, under
   // the pause card (or "Leave this game?") instead of fading away there.
   var sceneT = 0;
+  // The idle motion's clock, in ms: the menu's bobbing choices, the clouds
+  // drifting over the sun, the swaying grass, a koban's shine and a bomb's
+  // fuse. It runs only with Visual FX on, so FX turned off on the way stops
+  // them where they are and on again they carry on from there; from a page
+  // opened with FX off it stays at 0, the still picture.
+  var idleT = 0;
 
   // ---- size --------------------------------------------------------------------------
   var W = 0, H = 0, R = 40, mountainLayer = null;
@@ -564,8 +570,9 @@
       }
     }
     if (state === "menu") {
-      // the choices bob; with Visual FX off each holds still at its resting tilt
-      var tb = fx() ? t : 0;
+      // the choices bob on the idle clock (held where they are with Visual FX
+      // off; at their resting tilt on a page opened with it off)
+      var tb = idleT;
       menuTargets().forEach(function (o) { if (!o.cut) { o.v = o.base + Math.sin(tb / 700 + o.phase) * 0.015; o.rot = Math.sin(tb / 900 + o.phase) * 0.15; } });
       if (menuPick && t >= menuPick.at) { var m = menuPick.mode; menuPick = null; start(m); }
     }
@@ -594,7 +601,7 @@
     var f = fx(), dk = dusk(), rim = Math.max(0, (dk - 0.35) / 0.65);
     ctx.save();
     if (shake && f) ctx.translate(rand(-6, 6) * shake, rand(-6, 6) * shake);
-    var sun = Art.sky(ctx, W, H, dk, t, f);
+    var sun = Art.sky(ctx, W, H, dk, idleT);
     ctx.drawImage(mountainLayer, 0, 0, W, H);
     if (state === "menu") {
       var s = Math.max(0.55, Math.min(1.4, H / 520)), gy = Art.horizonY(H) + H * 0.155;
@@ -622,9 +629,9 @@
       Art.half(ctx, hv.type, R, t);
       ctx.restore();
     });
-    // Whole targets, lit from the sun. Their own clock (the koban's shine, the
-    // bomb's pulse and fuse sparks) is held with Visual FX off: a still glint.
-    var list = state === "menu" ? menuTargets() : objs, tt = f ? t : 0;
+    // Whole targets, lit from the sun. The koban's shine and the bomb's pulse
+    // and fuse sparks run on the idle clock: held with Visual FX off, a still glint.
+    var list = state === "menu" ? menuTargets() : objs, tt = idleT;
     list.forEach(function (o) {
       if (o.cut) return;
       var x = o.u * W, y = o.v * H;
@@ -667,7 +674,7 @@
       ctx.restore();
     }
     drawTrail(t);
-    Art.grass(ctx, W, H, t, f);
+    Art.grass(ctx, W, H, idleT, !f && idleT === 0);
     // Floating score text.
     for (var k = popups.length - 1; k >= 0; k--) {
       var pp = popups[k], pa = (sceneT - pp.t0) / 900;
@@ -724,6 +731,7 @@
     requestAnimationFrame(frame);        // re-arm first: one bad frame must not stop the game
     var dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0;
     lastT = t;
+    if (fx()) idleT += dt * 1000;
     if (!paused && !document.hidden) update(dt, t);
     draw(t);
     hud();
@@ -734,7 +742,7 @@
   // ---- test hooks -------------------------------------------------------------------------------------------
   window.SunsetSlice = {
     start: start, toMenu: toMenu,
-    state: function () { return { state: state, mode: mode, score: score, lives: lives, timeLeft: timeLeft, objs: objs.length, halves: halves.length, paused: paused, maxCombo: maxCombo, R: R, minV: minVSeen, bad: badSeen, clock: sceneT }; },
+    state: function () { return { state: state, mode: mode, score: score, lives: lives, timeLeft: timeLeft, objs: objs.length, halves: halves.length, paused: paused, maxCombo: maxCombo, R: R, minV: minVSeen, bad: badSeen, clock: sceneT, idle: idleT }; },
     // Place a target at (u, v) that stays put until cut; waves stop so tests are deterministic.
     spawn: function (type, u, v) { queue = []; nextWave = 1e9; var o = launch(type, u, 0.2); o.u = u; o.v = v; o.vv = 0; o.vu = 0; o.frozen = true; o.seen = true; return o.id; },
     drop: function (type, u) { queue = []; nextWave = 1e9; var o = launch(type, u, 0.5, 0); o.seen = true; o.v = 0.95; o.vv = 1; return o.id; },

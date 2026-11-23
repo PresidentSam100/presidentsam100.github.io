@@ -19,18 +19,40 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("poodle-jump: the start card is titled Poodle Jump", drawn.state === "start" && drawn.seen.includes("Poodle Jump") && !drawn.seen.some((t) => /Doodle/.test(t)), drawn);
   await done(p, "title");
 
-  // ---- a black hole drawn at two moments: the same picture with FX off
+  // ---- a black hole drawn at two moments (0.8 s of its own time apart): the
+  // same picture with FX off; with it on its spiral and ring turn
   const still = {};
   for (const off of [true, false]) {
     p = await lib.open(ctx, base, "games/poodle-jump/", { before: (pg) => pg.addInitScript((off) => localStorage.setItem("reduceMotion:poodle-jump", off ? "1" : "0"), off) });
     still[off ? "off" : "on"] = await p.evaluate(() => {
       const cv = document.createElement("canvas"); cv.width = 120; cv.height = 120; const c = cv.getContext("2d");
       const e = new Enemy(30, 30, "blackhole");
-      return [0.5, 1.3].map((t) => { c.clearRect(0, 0, 120, 120); e.t = t; e.render(c, 0); return cv.toDataURL(); }).reduce((a, b) => a === b);
+      const draw = () => { c.clearRect(0, 0, 120, 120); e.render(c, 0); return cv.toDataURL(); };
+      e.update(0.5); const a = draw(); e.update(0.8); return a === draw();
     });
     await done(p, "fx " + (off ? "off" : "on"));
   }
   check("poodle-jump: with Visual FX off a black hole is drawn still; with it on its spiral and ring turn", still.off === true && still.on === false, still);
+
+  // ---- Visual FX turned off on the way stops a black hole's spiral where it
+  // is (not back to its first turn), held there; on again it turns on from
+  // that spot: drawn as one that turned all the time FX was on
+  p = await lib.open(ctx, base, "games/poodle-jump/", { before: (pg) => pg.addInitScript(() => localStorage.setItem("reduceMotion:poodle-jump", "0")) });
+  const turned = await p.evaluate(() => {
+    const cv = document.createElement("canvas"); cv.width = 120; cv.height = 120; const c = cv.getContext("2d");
+    const draw = (e) => { c.clearRect(0, 0, 120, 120); e.render(c, 0); return cv.toDataURL(); };
+    const e = new Enemy(30, 30, "blackhole");
+    e.update(0.5); const before = draw(e);
+    document.querySelector(".rm-toggle").click();
+    const off = draw(e); e.update(0.8); const held = draw(e);
+    document.querySelector(".rm-toggle").click();
+    e.update(0.8); const on = draw(e);
+    const ref = new Enemy(30, 30, "blackhole"); ref.update(1.3);
+    return { same: before === off, held: off === held, movesOn: on !== held, from: on === draw(ref) };
+  });
+  check("poodle-jump: Visual FX turned off on the way stops a black hole's spiral where it is, held there; on again it turns on from that spot",
+    turned.same && turned.held && turned.movesOn && turned.from, turned);
+  await done(p, "fx turned off on the way");
 
   // ---- the start, pause and game-over notes: keys on a desktop, touch wording on a phone
   const { devices } = require("@playwright/test");

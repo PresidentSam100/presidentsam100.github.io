@@ -481,6 +481,9 @@ module.exports = async ({ browser, base, check, lib }) => {
       title.length === 3 && title.every((l) => l.img && l.by > 1) && title[2].by > title[0].by && paused.every((l) => l.by === 0) && again.every((l) => l.by > 1), { title, paused, again });
     // FX turned off on the way: the stars stop where they are (no snap back),
     // and turned on again they fall on from there
+    // (each layer first a few px down, so a snap back to the top would show:
+    // waited for, as a busy machine gives the page few frames)
+    await q.waitForFunction(() => [...document.querySelectorAll("#sky i")].every((el) => { const cs = getComputedStyle(el); return new DOMMatrix(cs.transform === "none" ? undefined : cs.transform).m42 > 5; }), null, { timeout: 6000, polling: 100 }).catch(() => {});
     const before = await sky(q);
     await q.evaluate(() => document.querySelector(".rm-toggle").click());
     await q.waitForFunction(() => document.documentElement.classList.contains("fx-off"), null, { timeout: 5000 }).catch(() => {});
@@ -502,5 +505,25 @@ module.exports = async ({ browser, base, check, lib }) => {
       off.length === 3 && off.every((l) => l.img && l.from === 0 && l.by === 0), off);
     await done(q, "page stars FX off");
     await sc.close();
+  }
+
+  // ---- the canvas stars' twinkle: Visual FX turned off on the way holds each
+  // star at the brightness it had (not all at once to the steady shine of a
+  // page opened with FX off); on again they twinkle on from there
+  {
+    const tc = await lib.newContext(browser);
+    const q = await lib.open(tc, base, "games/spacer/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:spacer", "0"); } catch (e) {} }) });
+    const tw = await q.evaluate(() => {
+      const sf = new Starfield(6), flip = () => document.querySelector(".rm-toggle").click();
+      const alphas = () => { const seen = []; sf.draw({ set globalAlpha(v) { seen.push(v); }, get globalAlpha() { return 1; }, fillRect() {}, fillStyle: "" }); return seen.slice(0, 6).map((v) => +v.toFixed(4)); };
+      sf.update(0.3); const a = alphas();
+      flip(); sf.update(0.3); const b = alphas();
+      flip(); sf.update(0.3); const c = alphas();
+      return { a, b, c };
+    });
+    check("spacer: Visual FX turned off on the way holds each star's twinkle at the brightness it had, on again they twinkle on",
+      tw.a.some((v) => v !== 0.85) && tw.b.join() === tw.a.join() && tw.c.join() !== tw.b.join(), tw);
+    await done(q, "star twinkle FX turned off on the way");
+    await tc.close();
   }
 };

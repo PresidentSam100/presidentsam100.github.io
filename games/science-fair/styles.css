@@ -161,8 +161,17 @@ body::after {
 }
 .hang .tag small { display: block; font-size: 11px; line-height: 1.1; color: var(--pen); margin-top: 2px; }
 
-/* gentle sway on the string: off when reduce-motion is on */
-.fxon .hang.sway { animation: sway var(--swaydur, 5s) ease-in-out infinite alternate; animation-delay: var(--swaydelay, 0s); }
+/* gentle sway on the string, with Visual FX on. FX off from the start, the
+   planets hang at rest; switched off on the way, the sway (and the foil
+   asteroids', the ship's flame and the sun's turning rays below) stops where
+   it is, and on again carries on from there: the motion is set up the first
+   time the room moves (Visual FX on, at load or later: game.js marks the
+   page fx-moved) and runs while FX is on. (!important, and more particular
+   than motion-toggle.js's FX-off rule, which would end it at once and snap
+   it all back.) */
+html.fx-moved .hang.sway { animation: sway var(--swaydur, 5s) ease-in-out var(--swaydelay, 0s) infinite alternate paused !important; }
+html.fx-moved body.fxon .hang.sway, html.fx-moved body.fxon .roid, html.fx-moved body.fxon #ship.flying .flame,
+html.fx-moved body.fxon #sun .rays { animation-play-state: running !important; }
 @keyframes sway { from { transform: rotate(var(--swaydeg, 1.6deg)); } to { transform: rotate(calc(var(--swaydeg, 1.6deg) * -1)); } }
 
 /* foil asteroids: hung decor; in Field Trip they count your launches */
@@ -177,14 +186,14 @@ body::after {
   position: absolute; top: 38%; font-size: 30px; color: var(--pen); font-weight: bold;
   text-shadow: 0 1px 1px rgba(0,0,0,0.3); transform: rotate(-8deg);
 }
-.fxon .roid { animation: sway var(--swaydur, 6s) ease-in-out infinite alternate; animation-delay: var(--swaydelay, 0s); }
+html.fx-moved .roid { animation: sway var(--swaydur, 6s) ease-in-out var(--swaydelay, 0s) infinite alternate paused !important; }
 
 /* the paper rocket that flies to whichever planet is singing */
 #ship { position: absolute; z-index: 6; width: 44px; pointer-events: none; will-change: transform; }
 #ship svg { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 3px rgba(0, 0, 0, 0.35)); }
 #ship .flame { opacity: 0; }
 #ship.flying .flame { opacity: 1; }
-.fxon #ship.flying .flame { animation: flick 0.14s steps(2) infinite; }
+html.fx-moved #ship.flying .flame { animation: flick 0.14s steps(2) infinite paused !important; }
 @keyframes flick { from { transform: scaleY(1); } to { transform: scaleY(0.75); } }
 
 /* paper stars, the corner sun, the project's title banner */
@@ -194,7 +203,7 @@ body::after {
 #sun .rays, #sun .disc { position: absolute; inset: 0; }
 #sun svg { display: block; width: 100%; height: auto; filter: drop-shadow(2px 3px 4px rgba(0, 0, 0, 0.3)); }
 /* the rays turn; the face over them stays upright */
-.fxon #sun .rays { animation: sunspin 240s linear infinite; }
+html.fx-moved #sun .rays { animation: sunspin 240s linear infinite paused !important; }
 @keyframes sunspin { to { transform: rotate(360deg); } }
 /* its face (game.js sets data-face): at rest, a small smile for a planet got
    right, a grin for the whole tune, a gasp for a wrong one */

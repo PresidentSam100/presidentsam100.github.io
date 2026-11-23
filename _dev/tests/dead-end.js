@@ -173,12 +173,28 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("dead-end (links): no page errors", p.errs.length === 0, p.errs);
   await p.close();
 
-  // ---- Visual FX off: the sign hangs still (the block is drawn the same, just held steady)
+  // ---- Visual FX: on, the sign swings on its post; switched off, it stops
+  // where it is (not back upright) and hangs there; on again, it swings on
+  // from there. With FX off from the start it stands upright and still (the
+  // block is drawn the same, just held steady)
+  const UPRIGHT = "matrix(0.707107, 0.707107, -0.707107, 0.707107, 0, 0)";
+  const sign = (q) => q.evaluate(() => { const e = document.querySelector(".sign"), a = e.getAnimations()[0]; return { name: getComputedStyle(e).animationName, state: a ? a.playState : "none", tf: getComputedStyle(e).transform }; });
   p = await lib.open(ctx, base, "games/dead-end/");
-  const swingOn = await p.evaluate(() => getComputedStyle(document.querySelector(".sign")).animationName);
+  await p.waitForTimeout(900);   // (into its swing, off upright)
+  const swingOn = await sign(p);
   await p.click(".rm-toggle"); await p.waitForTimeout(150);
-  const swingOff = await p.evaluate(() => getComputedStyle(document.querySelector(".sign")).animationName);
-  check("dead-end: with Visual FX on the sign swings on its post; off, it hangs still", swingOn === "de-swing" && swingOff === "none", { swingOn, swingOff });
+  const swingOff = await sign(p);
+  await p.waitForTimeout(500);
+  const swingOffLater = await sign(p);
+  await p.click(".rm-toggle"); await p.waitForTimeout(400);
+  const swingAgain = await sign(p);
+  check("dead-end: with Visual FX on the sign swings on its post; switched off it stops where it is (not back upright) and hangs there; on again it swings on",
+    swingOn.name === "de-swing" && swingOn.state === "running" && swingOff.state === "paused" && swingOff.tf !== UPRIGHT && swingOffLater.tf === swingOff.tf &&
+    swingAgain.state === "running" && swingAgain.tf !== swingOff.tf, { swingOn, swingOff, swingOffLater, swingAgain });
+  await p.close();
+  p = await lib.open(ctx, base, "games/dead-end/", { before: (pg) => pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dead-end", "1"); } catch (e) {} }) });
+  const still = await sign(p);
+  check("dead-end: with Visual FX off from the start the sign stands upright and still", still.name === "none" && still.tf === UPRIGHT, still);
   await p.close();
 
   // ---- a phone: the Plank button is there, a swipe runs, nothing is wider than the screen

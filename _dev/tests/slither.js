@@ -347,6 +347,40 @@ module.exports = async ({ browser, base, check, lib }) => {
   });
   check("slither: with Visual FX off the Rainbow's colours stand still (with it on they cycle)", rb.off && !rb.on, rb);
   await p.close();
+
+  // ---- Visual FX switched off stops the board's scenery and idles where they
+  // are (the portals' glow and swirl, the apple's bob, the serpent's tongue),
+  // not back to the still look FX off has from the start; off, they hold
+  // still, and on again they move on. Read off the board itself, on a fake
+  // clock, the game paused so nothing else moves
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/slither/", { before: async (pg) => { await pg.clock.install(); await lib.injectScript(pg, "games/slither/game.js", [G_HOOK]); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now() + 1000));
+    await q.click("#portals-toggle");
+    await q.click("#play-btn"); await q.clock.runFor(50);
+    await q.evaluate(() => { __G.count = 0; __G.goT = 0; });   // (no 3, 2, 1 or GO over the board)
+    await q.clock.runFor(100);
+    await q.keyboard.press("p"); await q.clock.runFor(1500);
+    const board = () => q.evaluate(() => document.getElementById("board").toDataURL());
+    const before = await board();
+    await q.clock.runFor(300);
+    const was = await board();
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(50);
+    const stopped = await board();
+    await q.clock.runFor(1000);
+    const held = await board();
+    await q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(400);
+    const again = await board();
+    const seen = { portals: await q.evaluate(() => __G.portals.length), paused: await pausedCard(q) };
+    check("slither: Visual FX switched off stops the board's scenery where it is (the portals, the apple's bob, the serpent), not back to its still look; off it holds still, on again it moves on",
+      seen.portals > 0 && seen.paused && before !== was && stopped === was && held === stopped && again !== held,
+      Object.assign(seen, { movingOn: before !== was, stoppedWhereItWas: stopped === was, held: held === stopped, movesAgain: again !== held }));
+    check("slither (FX switched off): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
   await ctx.close();
 
   // ---- key hints: the keys on a desktop; on a touch-only phone, the touch

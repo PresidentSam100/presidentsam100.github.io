@@ -29,12 +29,17 @@ body {
     linear-gradient(170deg, #8fdedb, var(--sea) 45%, var(--sea-deep));
   overflow: hidden;
 }
-/* light rippling on the water (Visual FX on): the same ripples sit still with it off */
+/* light rippling on the water (Visual FX on): the same ripples sit still with
+   it off, and FX switched off stops them where they are. (Once FX has been
+   on, tp-rippled from game.js, the ripple is always there, paused: !important
+   and more particular than motion-toggle.js's FX-off rule, which would end it
+   at once and snap the light back) */
 body::before {
   content: ""; position: fixed; inset: -20%; pointer-events: none; opacity: 0.35;
   background: repeating-radial-gradient(circle at 40% 30%, rgba(255, 255, 255, 0.5) 0 2px, transparent 3px 26px);
 }
-html.fx-on body::before { animation: tp-ripple 9s ease-in-out infinite alternate; }
+body.tp-rippled::before { animation: tp-ripple 9s ease-in-out infinite alternate paused !important; }
+html.fx-on body.tp-rippled::before { animation-play-state: running !important; }
 @keyframes tp-ripple { to { transform: translate(3%, 2%) scale(1.04); } }
 
 .nav-back-games {

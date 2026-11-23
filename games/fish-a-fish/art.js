@@ -4,7 +4,8 @@
    layer; mist, shimmer, bobbers, ripples, fish and reeds are live.
    No images: everything is canvas paths.
 
-   FishArt.scene(ctx, W, H, t, fx) -> waterY   (the horizon line)
+   FishArt.scene(ctx, W, H, t, fx) -> waterY   (the horizon line; fx false:
+                                               the pond at rest, t unused)
    FishArt.bobber(ctx, x, y, r, dip, tilt, t)  dip 0..1 pulls it under
    FishArt.ring(ctx, x, y, r, alpha)           a ripple, in perspective
    FishArt.shadowFish(ctx, x, y, s, t)         the shape under the water

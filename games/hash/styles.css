@@ -64,8 +64,9 @@ html {
    page: with Visual FX on the lamplight sways a little and breathes, and
    a broad, faint sheen drifts slowly across, never fast or bright enough
    to pull the eye from the cards. With it off, the same light and sheen
-   hold still where they are; a pause holds them too (game.js:
-   html.hash-paused). Transform and opacity only. */
+   hold still where they are (switched off on the way, where they had got
+   to); a pause holds them too (game.js: html.hash-paused). Transform and
+   opacity only. */
 .felt {
   position: fixed;
   inset: 0;
@@ -92,11 +93,21 @@ html {
   right: -70%;
   background: linear-gradient(105deg, transparent 38%, rgba(196, 255, 226, 0.028) 46%, rgba(214, 255, 234, 0.045) 50%, rgba(196, 255, 226, 0.028) 54%, transparent 62%);
 }
-html.fx-on .felt .lamp {
-  animation: hashLamp 37s ease-in-out -11s infinite alternate, hashLampGlow 23s ease-in-out -5s infinite alternate;
+/* (the motion is set up the first time the felt moves, Visual FX on at load
+   or later: game.js marks the page fx-moved; it runs while FX is on and the
+   game isn't paused, so FX off stops it where it is. A felt that has never
+   moved has none, so it shows its rest look. !important, and more particular
+   than motion-toggle.js's FX-off rule, which would end it at once and snap
+   the light back.) */
+html.fx-moved .felt .lamp {
+  animation: hashLamp 37s ease-in-out -11s infinite alternate paused, hashLampGlow 23s ease-in-out -5s infinite alternate paused !important;
 }
-html.fx-on .felt .sheen {
-  animation: hashSheen 61s ease-in-out -23s infinite alternate;
+html.fx-moved .felt .sheen {
+  animation: hashSheen 61s ease-in-out -23s infinite alternate paused !important;
+}
+html.fx-on:not(.hash-paused) .felt .lamp,
+html.fx-on:not(.hash-paused) .felt .sheen {
+  animation-play-state: running !important;
 }
 html.hash-paused .felt * {
   animation-play-state: paused !important;

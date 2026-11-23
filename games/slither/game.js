@@ -902,25 +902,39 @@
     });
   }
 
+  // The scenery and the idles (the portals' glow, the apple's bob, a serpent's
+  // shimmer and its tongue) run on a clock of their own that moves only while
+  // Visual FX is on: switched off, they stop where they are, and on again
+  // they carry on from there. Till FX has first been on they're drawn in the
+  // still look FX off has from the start (seen).
+  var motion = { t: 0, at: 0, seen: false };
+  function motionAt(fx) {
+    var now = performance.now();
+    if (fx && motion.at) motion.t += Math.min(100, Math.max(0, now - motion.at));
+    motion.at = now;
+    if (fx) motion.seen = true;
+    return motion;
+  }
+
   function render() {
     if (!floorLayer) buildFloor();
-    var now = performance.now(), fx = !(window.RM_ON && window.RM_ON());
+    var fx = !(window.RM_ON && window.RM_ON()), m = motionAt(fx), mt = m.t, mfx = m.seen;
     ctx.drawImage(floorLayer.canvas, 0, 0, W, H);
 
     G.portals.forEach(function (pr) {
       [pr.a, pr.b].forEach(function (p) {
         var cx = p.x * CELL + CELL / 2, cy = p.y * CELL + CELL / 2;
         Art.portalFrame(ctx, cx, cy, CELL / 2 - 0.5);
-        Art.portalGlow(ctx, cx, cy, CELL / 2 - 0.5, pr.color, now, fx);
+        Art.portalGlow(ctx, cx, cy, CELL / 2 - 0.5, pr.color, mt, mfx);
       });
     });
 
     if (G.food) {
-      var bob = fx ? Math.sin(now / 180) * 1.5 : 0;
+      var bob = mfx ? Math.sin(mt / 180) * 1.5 : 0;
       Art.fruit(ctx, G.food.x * CELL + CELL / 2, G.food.y * CELL + CELL / 2 + bob, CELL - 4, "🍎");
     }
 
-    G.snakes.forEach(function (s, i) { drawSnake(s, i, now, fx); });
+    G.snakes.forEach(function (s, i) { drawSnake(s, i, mt, mfx); });
     if (G.running && (G.count > 0 || G.goT > 0)) drawCount(fx);
   }
 

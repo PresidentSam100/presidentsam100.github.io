@@ -271,19 +271,28 @@ body.fxon #felt.glow .bubbles::after { animation: jb-rise 1.9s ease-out 0.12s; }
 .lifering .rust { fill: none; stroke: rgba(140, 82, 40, 0.3); stroke-width: 3; stroke-linecap: round; }
 .lifering .name { font-family: "Federo", "Marcellus", Georgia, serif; font-size: 16.5px; letter-spacing: 0.8px; fill: #12302a; }
 .lifering .peg { fill: var(--brass); stroke: var(--brass-dk); stroke-width: 1; }
-body.fxon .lifering .swing { animation: jb-ring 6.5s ease-in-out infinite alternate; }
+html.fx-moved .lifering .swing { animation: jb-ring 6.5s ease-in-out infinite alternate paused !important; }
 @keyframes jb-ring { from { transform: rotate(-2.5deg); } to { transform: rotate(2.5deg); } }
 
-/* ---- motion in the room (Visual FX on) ------------------------------------------ */
-body.fxon #dealer { animation: jb-bob 4.2s ease-in-out infinite; }
-body.fxon #dealer .pupils { animation: jb-look 7s ease-in-out infinite; }
-body.fxon .weed { animation: jb-sway 5s ease-in-out infinite alternate; }
-body.fxon .weed.w2 { animation-duration: 3.8s; animation-delay: -1.3s; }
-body.fxon .weed.w3 { animation-duration: 6s; animation-delay: -2s; }
-body.fxon .fish.f1 { animation: jb-swim 19s linear infinite; }
-body.fxon .fish.f2 { animation: jb-swim 27s linear infinite -9s; }
-body.fxon .fish.f3 { animation: jb-swim 23s linear infinite -15s; }
-body.fxon .lure { animation: jb-lure 3.4s ease-in-out infinite; }
+/* ---- motion in the room (Visual FX on) ------------------------------------------
+   Set up the first time the room moves (Visual FX on, at load or later:
+   game.js marks the page fx-moved), and running only while FX is on, so FX
+   switched off stops the dealer, the weed, the fish, the lure and the ring
+   where they are, and on again they carry on from there. A room that has
+   never moved (FX off from the start) has no motion set, so it shows its
+   rest look. (!important, and more particular than motion-toggle.js's FX-off
+   rule, which would end the motion at once and snap it all back.) */
+html.fx-moved #dealer { animation: jb-bob 4.2s ease-in-out infinite paused !important; }
+html.fx-moved #dealer .pupils { animation: jb-look 7s ease-in-out infinite paused !important; }
+html.fx-moved .weed { animation: jb-sway 5s ease-in-out infinite alternate paused !important; }
+html.fx-moved .weed.w2 { animation-duration: 3.8s !important; animation-delay: -1.3s !important; }
+html.fx-moved .weed.w3 { animation-duration: 6s !important; animation-delay: -2s !important; }
+html.fx-moved .fish.f1 { animation: jb-swim 19s linear infinite paused !important; }
+html.fx-moved .fish.f2 { animation: jb-swim 27s linear infinite -9s paused !important; }
+html.fx-moved .fish.f3 { animation: jb-swim 23s linear infinite -15s paused !important; }
+html.fx-moved .lure { animation: jb-lure 3.4s ease-in-out infinite paused !important; }
+html.fx-moved body.fxon #dealer, html.fx-moved body.fxon #dealer .pupils, html.fx-moved body.fxon .weed, html.fx-moved body.fxon .fish,
+html.fx-moved body.fxon .lure, html.fx-moved body.fxon .lifering .swing { animation-play-state: running !important; }
 @keyframes jb-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @keyframes jb-look { 0%, 40%, 100% { transform: translateX(0); } 48%, 60% { transform: translateX(2.5px); } 68%, 80% { transform: translateX(-2.5px); } }
 @keyframes jb-sway { from { rotate: -6deg; } to { rotate: 6deg; } }

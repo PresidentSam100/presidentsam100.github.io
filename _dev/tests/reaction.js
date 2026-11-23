@@ -120,4 +120,43 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("reaction: between duels the sign creaks with Visual FX on and hangs still with it off",
     creak.on.state === "result" && creak.on.anim === "saloonCreak" && creak.off.state === "result" && creak.off.anim !== "saloonCreak", creak);
+
+  // ---- the dust drifting up the street between duels (Visual FX): switched
+  // off on the way, the motes stop where they are, still drawn and not moving;
+  // on again they drift on from those same spots (not a fresh field dealt
+  // anew); a field started with FX off has none. Read off the field's own
+  // canvas: the pixels a mote lights.
+  const MOTES = () => {
+    window.__motes = () => { const cv = document.querySelector(".panel-fx"), d = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data, lit = [];
+      for (let i = 3; i < d.length; i += 4) if (d[i] > 20) lit.push(i); return lit; };
+    window.__frames = (n) => new Promise((r) => { const f = () => (n-- <= 0 ? r() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+    window.__toResult = async () => {
+      document.getElementById("btn-start").click();
+      for (let k = 0; k < 100 && __reaction.state() !== "go"; k++) await __after(20);
+      __key({ key: " ", code: "Space" }); await __after(900);
+    };
+  };
+  const dust = {};
+  for (const off of [false, true]) {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/reaction/", { before: async (pg) => { await hookAll(pg); await pg.addInitScript(MOTES);
+      await pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:reaction", off ? "1" : "0"); } catch (e) {} }, off); } });
+    dust[off ? "fromStart" : "onTheWay"] = await q.evaluate(async (off) => {
+      await __toResult();
+      if (off) return { state: __reaction.state(), motes: __motes().length };
+      const moving = __motes().length;
+      document.querySelector(".rm-toggle").click(); await __frames(2);
+      const stopped = __motes(); await __after(600);
+      const later = __motes();
+      const still = stopped.length === later.length && stopped.every((v, i) => v === later[i]);
+      document.querySelector(".rm-toggle").click(); await __frames(2);
+      const again = new Set(__motes()), kept = stopped.filter((i) => again.has(i)).length / Math.max(1, stopped.length);
+      return { state: __reaction.state(), moving, stopped: stopped.length, still, kept: +kept.toFixed(2) };
+    }, off);
+    dust[off ? "fromStart" : "onTheWay"].errs = q.errs.length;
+    await c.close();
+  }
+  const w = dust.onTheWay, s = dust.fromStart;
+  check("reaction: Visual FX switched off between duels stops the drifting dust where it is (still drawn, not moving), and on again it drifts on from the same spots; started with FX off there is none",
+    w.state === "result" && w.moving > 0 && w.stopped > w.moving * 0.7 && w.still && w.kept >= 0.5 && s.state === "result" && s.motes === 0 && !w.errs && !s.errs, dust);
 };

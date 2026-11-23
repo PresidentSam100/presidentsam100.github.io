@@ -16,6 +16,11 @@
   var $ = function (id) { return document.getElementById(id); };
   var GS = window.GameShell;
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // (the rug has moved once Visual FX has been on: from then on its drift is
+  // set up, and FX off stops it where it is; styles.css)
+  function rugMoved() { if (fx()) document.documentElement.classList.add("fx-moved"); }
+  rugMoved();
+  window.addEventListener("reducemotionchange", rugMoved);
   var store = GS ? GS.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }

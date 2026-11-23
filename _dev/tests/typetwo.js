@@ -26,6 +26,39 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("typetwo, FX off: the menu's night scene is drawn and holds still (FX on, it moves)", off.still && off.drawn && !on.still, { off, on });
   check("typetwo (FX): no page errors", off.errs.length === 0 && on.errs.length === 0, [off.errs, on.errs]);
 
+  // ---- Visual FX turned off on the way: the scene stops where it is (the
+  // ward's shimmer, its runes and its carved name glimmering as they were),
+  // not put back to its resting look; on again it moves on. Judged on the
+  // ward's band either side of the wizard (his orb flickers with FX on and
+  // glows steady off), frame by frame on the page's own clock
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/typetwo/", { before: async (pg) => {
+      await pg.clock.install({ time: new Date("2026-11-22T12:00:00") });
+      await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:typetwo", "0"); } catch (e) {} });
+    } });
+    const band = () => q.evaluate(() => {
+      const g = document.getElementById("game"), n = __game.wardName, k = g.width / n.W, out = document.createElement("canvas"), x = out.getContext("2d");
+      const y0 = Math.round((n.lineY - 16) * k), h = Math.round(32 * k), cut0 = Math.round((n.W / 2 - 60) * k), cut1 = Math.round((n.W / 2 + 60) * k);
+      out.width = g.width; out.height = h;
+      x.drawImage(g, 0, y0, cut0, h, 0, 0, cut0, h);
+      x.drawImage(g, cut1, y0, g.width - cut1, h, cut1, 0, g.width - cut1, h);
+      return out.toDataURL();
+    });
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    // (the page's clock stopped, so time moves only as it's run on: no frame
+    // slips in between a reading and the switch)
+    await q.clock.pauseAt(await q.evaluate(() => Date.now() + 100));
+    await q.clock.runFor(4000);
+    const a0 = await band(); await q.clock.runFor(300); const a = await band();
+    await flip(); await q.clock.runFor(300); const b = await band(); await q.clock.runFor(600); const b2 = await band();
+    await flip(); await q.clock.runFor(300); const c2 = await band();
+    check("typetwo: Visual FX turned off on the way stops the ward where it is (its shimmer, runes and carved name as they were), not back to its resting look; on again it moves on",
+      a0 !== a && b === a && b2 === a && c2 !== b, { movingOn: a0 !== a, heldAtSwitch: b === a, stillHeld: b2 === a, movingAgain: c2 !== b });
+    check("typetwo (FX switched on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
   // ---- Zen: the End key, then the End session button, end the run onto its results
   {
     const p = await lib.open(ctx, base, "games/typetwo/");

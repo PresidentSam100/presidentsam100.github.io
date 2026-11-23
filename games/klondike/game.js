@@ -868,14 +868,20 @@
       });
       skyFlare *= 0.995;
     }
-    // The switch is read every frame, so flipping it mid-game takes at once.
-    // With Visual FX off the sky is one still picture (its clock held at
-    // STILL), painted again only after a resize or a flip of the switch.
-    var STILL = 9000, stillDrawn = false;
+    // The sky runs on its own clock (ms), which runs only with Visual FX on.
+    // The switch is read every frame, so flipping it mid-game takes at once:
+    // FX off holds the sky where it is, one still picture painted again only
+    // after a resize or a flip of the switch, and on again it carries on from
+    // there. The clock starts at STILL, the still sky of a page opened with
+    // FX off. (A frame's step is capped, so a tab come back from the
+    // background doesn't jump.)
+    var STILL = 9000, stillDrawn = false, skyT = STILL, lastT = -1;
     window.addEventListener("resize", function () { stillDrawn = false; });
     (function loop2(t) {
-      if (fx()) { paint(t || 0); stillDrawn = false; }
-      else if (!stillDrawn) { paint(STILL); stillDrawn = true; }
+      var step = lastT < 0 ? 0 : Math.min(100, Math.max(0, (t || 0) - lastT));
+      lastT = t || 0;
+      if (fx()) { skyT += step; paint(skyT); stillDrawn = false; }
+      else if (!stillDrawn) { paint(skyT); stillDrawn = true; }
       requestAnimationFrame(loop2);
     })(0);
   })();

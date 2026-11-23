@@ -26,7 +26,8 @@ body {
    pattern the wall was scattered with; nearer, bigger pieces. Visual FX on,
    it all drifts down, the far pattern slowly as one and swaying, each near
    piece falling at its own pace, tumbling end over end as it goes. FX off,
-   the same confetti held still where it is. Paused, it stops where it is. */
+   the same confetti held still where it is (switched off on the way, where
+   it had got to). Paused, it stops where it is. */
 .wall { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
 .wall .far { position: absolute; inset: -320px -40px 0; }
 .wall .tile { position: absolute; inset: 0; background: var(--confetti) 40px 320px / 380px 320px; }
@@ -40,12 +41,20 @@ body {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 12'%3E%3Cpath d='M3 7q4-7 8 0t8 0t8 0' fill='none' stroke='%231fb39c' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") 0 0 / 100% 100%;
 }
 .bit.strip { left: -9px; top: -3.5px; width: 18px; height: 7px; border-radius: 3.5px; background: #9a6cf0; }
-html.fx-on .wall .far { animation: lmSway 11s ease-in-out -5.5s infinite alternate; }
-html.fx-on .wall .tile { animation: lmDrift 40s linear infinite; }
-html.fx-on .wall .fall { top: -30px; animation-name: lmFall; animation-timing-function: linear; animation-iteration-count: infinite; }
-html.fx-on .wall .flutter.a { animation-name: lmFlutterA; animation-timing-function: linear; animation-iteration-count: infinite; }
-html.fx-on .wall .flutter.b { animation-name: lmFlutterB; animation-timing-function: linear; animation-iteration-count: infinite; }
-html.lm-paused .wall * { animation-play-state: paused !important; }
+/* (the motion is set up the first time the confetti moves, Visual FX on at
+   load or later: game.js marks the page fx-moved; it runs while FX is on and
+   the game isn't paused, so FX off stops it where it is, and confetti that
+   has never moved has none: its rest look. !important, and more particular
+   than motion-toggle.js's FX-off rule, which would end it at once and snap
+   the pieces back; each near piece's own pace and start are game.js's, set
+   !important on the piece for the same reason) */
+html.fx-moved .wall .far { animation: lmSway 11s ease-in-out -5.5s infinite alternate paused !important; }
+html.fx-moved .wall .tile { animation: lmDrift 40s linear infinite paused !important; }
+html.fx-moved .wall .fall { top: -30px; animation-name: lmFall !important; animation-timing-function: linear !important; animation-iteration-count: infinite !important; animation-play-state: paused !important; }
+html.fx-moved .wall .flutter.a { animation-name: lmFlutterA !important; animation-timing-function: linear !important; animation-iteration-count: infinite !important; animation-play-state: paused !important; }
+html.fx-moved .wall .flutter.b { animation-name: lmFlutterB !important; animation-timing-function: linear !important; animation-iteration-count: infinite !important; animation-play-state: paused !important; }
+html.fx-on:not(.lm-paused) .wall .far, html.fx-on:not(.lm-paused) .wall .tile, html.fx-on:not(.lm-paused) .wall .fall,
+html.fx-on:not(.lm-paused) .wall .flutter.a, html.fx-on:not(.lm-paused) .wall .flutter.b { animation-play-state: running !important; }
 @keyframes lmSway { from { transform: translateX(-16px); } to { transform: translateX(16px); } }
 @keyframes lmDrift { from { transform: translateY(0); } to { transform: translateY(320px); } }
 @keyframes lmFall { from { transform: translateY(0); } to { transform: translateY(calc(100vh + 60px)); } }

@@ -386,7 +386,10 @@
 
   // ---- update -----------------------------------------------------------------------
   function update(dt) {
-    bob += dt * 3;
+    // (the gliding tier's hover and the dark kitchen's lamp breathe on bob,
+    // which runs only with Visual FX on: turning FX off holds them where
+    // they are, and at rest from the start on a page opened with FX off)
+    if (fx()) bob += dt * 3;
     ovenGlow = Math.max(0, ovenGlow - dt * 0.25);
     if (shake > 0) shake = Math.max(0, shake - dt * 30);
     cam += (camTarget - cam) * Math.min(1, dt * 5);
@@ -523,7 +526,7 @@
           g.fill();
         }
       }
-      var hov = slider.mode === "slide" && fx() ? Math.sin(bob) * 2.5 : 0;
+      var hov = slider.mode === "slide" ? Math.sin(bob) * 2.5 : 0;
       var st = { x: slider.x, w: slider.w, fl: slider.fl, seed: slider.seed, decos: slider.decos, squash: 0 };
       drawTierAt(st, slider.y + hov, null, true);
     }
@@ -542,7 +545,7 @@
     if (a <= 0 || !tiers.length) return;
     var top = tiers[tiers.length - 1];
     var c = at(top.x + top.w / 2, towerTopY() - SH * 0.6);
-    var r0 = Math.max(H * 2.4, top.w * 0.62) * k * (fx() ? 1 + 0.025 * Math.sin(bob * 1.7) : 1);
+    var r0 = Math.max(H * 2.4, top.w * 0.62) * k * (1 + 0.025 * Math.sin(bob * 1.7));
     var gr = g.createRadialGradient(c[0], c[1], r0 * 0.55, c[0], c[1], r0 * 1.7);
     gr.addColorStop(0, "rgba(22,10,18,0)");
     gr.addColorStop(0.45, "rgba(22,10,18,0.4)");

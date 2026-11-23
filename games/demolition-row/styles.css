@@ -71,7 +71,7 @@
           radial-gradient(circle at 74px 150px, #fff 0 1.2px, rgba(90, 140, 185, 0.35) 1.7px, transparent 2.2px),
           radial-gradient(circle at 170px 196px, #fff 0 1.4px, rgba(90, 140, 185, 0.35) 1.9px, transparent 2.4px),
           radial-gradient(circle at 12px 222px, #fff 0 1.1px, rgba(90, 140, 185, 0.35) 1.6px, transparent 2.1px);
-        animation: drSnowFar 18s linear infinite;
+        animation: drSnowFar 18s linear infinite paused !important;
       }
       .snow::after {
         top: -360px; background-size: 360px 360px;
@@ -80,10 +80,15 @@
           radial-gradient(circle at 250px 30px, #fff 0 2.1px, rgba(90, 140, 185, 0.3) 2.7px, transparent 3.3px),
           radial-gradient(circle at 310px 230px, #fff 0 2.6px, rgba(90, 140, 185, 0.3) 3.2px, transparent 3.8px),
           radial-gradient(circle at 140px 290px, #fff 0 2.2px, rgba(90, 140, 185, 0.3) 2.8px, transparent 3.4px);
-        animation: drSnowNear 11s linear infinite;
+        animation: drSnowNear 11s linear infinite paused !important;
       }
       @keyframes drSnowFar { to { transform: translateY(240px); } }
       @keyframes drSnowNear { to { transform: translateY(360px); } }
+      /* (the snow is declared paused, !important and more particular than
+         motion-toggle.js's FX-off rule, which would end the fall at once and
+         snap the flakes back: so FX off stops them where they are, as first
+         laid from the start, and FX on lets them fall on from there) */
+      html.fx-on .snow::before, html.fx-on .snow::after { animation-play-state: running !important; }
       a { color: var(--accent); text-decoration: none; font-weight: 600; }
       .wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0.9rem 1rem 0.75rem; gap: 0.8rem; }
       @supports (min-height: 100dvh) { body, .wrap { min-height: 100dvh; } }

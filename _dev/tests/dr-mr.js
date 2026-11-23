@@ -155,6 +155,31 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("dr-mr, Visual FX off: the vial's germs, their fuzz and Dr. Mr. hold still (on, the faces change and the fuzz stirs)", fxOff.same && !fxOn.same, { fxOff: fxOff.same, fxOn: fxOn.same });
   check("dr-mr (FX): no page errors", fxOff.errs.length === 0 && fxOn.errs.length === 0, [fxOff.errs, fxOn.errs]);
 
+  // ---- Visual FX turned off on the way stops the slide's cells and the
+  // germs where they are: the frame after the switch is the frame before it,
+  // and it holds; on again they carry on from that spot (the idle clock goes
+  // on from where it stopped). The page's clock is run by hand
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/dr-mr/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dr-mr", "0"); } catch (e) {} }); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+    const shot = () => q.evaluate(() => document.getElementById("stage").toDataURL());
+    const idle = () => q.evaluate(() => (DrMr.idle ? DrMr.idle() : -1));
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(7000);
+    const a = await shot();
+    await flip(); await q.clock.runFor(100);
+    const b = await shot(), at = await idle();
+    await q.clock.runFor(1500);
+    const held = await shot();
+    await flip(); await q.clock.runFor(1500);
+    const on = await shot(), later = await idle();
+    check("dr-mr: Visual FX turned off on the way stops the slide's cells and the germs where they are (the same picture as the frame before the switch), held there; on again they carry on from that spot",
+      a === b && b === held && on !== held && Math.abs(later - at - 1.5) < 0.2, { same: a === b, held: b === held, movesOn: on !== held, at, later });
+    check("dr-mr (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
   // ---- a germ's acts: the next starts only when its cycle comes round, never midway ---------
   ctx = await lib.newContext(browser);
   p = await open(ctx);

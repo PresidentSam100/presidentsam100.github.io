@@ -232,4 +232,30 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("sunset-slice (sign), " + label + ": no page errors", s.errs.length === 0, s.errs);
     await s.close(); await c.close();
   }
+
+  // ---- Visual FX turned off on the way stops the idle motion where it is
+  // (the menu's bobbing choices, the clouds over the sun, the grass, a
+  // koban's shine): the frame after the switch is the frame before it, and
+  // it holds; on again it carries on from that spot. The page's clock is run
+  // by hand
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/sunset-slice/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:sunset-slice", "0"); } catch (e) {} }); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+    const shot = () => q.evaluate(() => document.getElementById("stage").toDataURL());
+    const idle = () => q.evaluate(() => SunsetSlice.state().idle);
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(7000);
+    const a = await shot();
+    await flip(); await q.clock.runFor(100);
+    const b = await shot(), at = await idle();
+    await q.clock.runFor(1500);
+    const held = await shot();
+    await flip(); await q.clock.runFor(1500);
+    const on = await shot(), later = await idle();
+    check("sunset-slice: Visual FX turned off on the way stops the menu's bobbing choices, the clouds and the grass where they are (the same picture as the frame before the switch), held there; on again they carry on from that spot",
+      a === b && b === held && on !== held && Math.abs(later - at - 1500) < 200, { same: a === b, held: b === held, movesOn: on !== held, at, later });
+    check("sunset-slice (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

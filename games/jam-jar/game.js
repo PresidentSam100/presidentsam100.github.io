@@ -455,12 +455,14 @@
   // its start): one idle for its whole life, so moving up from Next to wait
   // at the top, and the drop, never start it over. So fruit that came apart
   // idle apart; the Preserves' fruit idle together. The clock stops with a
-  // pause. With Visual FX off every face rests, and so does every face of a
-  // jar that's lost: overflowed (against the CPU, the other may play on,
-  // idling) or the game over.
+  // pause, and runs only while Visual FX is on: switched off, every face
+  // stops where it is (with FX off from the start, at rest: an idle's first
+  // moment is its face at rest), and on again it carries on from there. Every
+  // face of a jar that's lost rests: overflowed (against the CPU, the other
+  // may play on, idling) or the game over.
   var IDLE_T = 4, IDLE_ACT = 2, idleT = 0;
   function idleU(at) {
-    if (reduced() || at == null || out || state === "over") return -1;
+    if (at == null || out || state === "over") return -1;
     var t = (idleT - at) % IDLE_T;
     if (t < 0) t += IDLE_T;
     return t < IDLE_ACT ? t / IDLE_ACT : -1;
@@ -1354,10 +1356,12 @@
   // line starts, so the aim line's dashes don't jump when the next fruit
   // (and so the line's top) is a different size. With Visual FX on they
   // drift at a steady DASH_V px a second (the fill line to the right, the
-  // aim line down); off, they hold still.
-  var DASH_V = 18;
+  // aim line down), on a clock of their own (dashT) that runs only while FX
+  // is on and the game isn't paused: switched off, they stop where they are
+  // (from the start, where they first lie) and on again they drift on.
+  var DASH_V = 18, dashT = 0;
   function dashOffset(start, period, T) {
-    var o = (start - (reduced() ? 0 : T * DASH_V)) % period;
+    var o = (start - T * DASH_V) % period;
     return o < 0 ? o + period : o;
   }
 
@@ -1449,7 +1453,7 @@
       ? "rgba(210, 60, 40," + (reduced() ? 0.85 : 0.55 + 0.35 * Math.sin(T * 10)) + ")"
       : "rgba(160, 106, 51, 0.5)";
     ctx.setLineDash([9, 7]);
-    ctx.lineDashOffset = dashOffset(JL - 6, 16, T);
+    ctx.lineDashOffset = dashOffset(JL - 6, 16, dashT);
     ctx.lineWidth = warn ? 2.5 : 1.5;
     ctx.beginPath(); ctx.moveTo(JL - 6, LOSE_Y); ctx.lineTo(JR + 6, LOSE_Y); ctx.stroke();
     ctx.setLineDash([]); ctx.lineDashOffset = 0;
@@ -1465,7 +1469,7 @@
       var ax = Math.max(JL + r + 1, Math.min(JR - r - 1, aimX));
       ctx.strokeStyle = "rgba(90, 50, 24, 0.22)";
       ctx.setLineDash([4, 8]);
-      ctx.lineDashOffset = dashOffset(DROP_Y + r, 12, T);
+      ctx.lineDashOffset = dashOffset(DROP_Y + r, 12, dashT);
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(ax, DROP_Y + r); ctx.lineTo(ax, FLOOR); ctx.stroke();
       ctx.setLineDash([]); ctx.lineDashOffset = 0;
@@ -1820,10 +1824,13 @@
     var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
-      idleT += dt;
-      // (Next and the Preserves painted again while their fruit move, and once more as they come to rest)
-      if (!inCpu && (nextU >= 0 || idleU(nextAt) >= 0)) paintNext();
-      if (chainCtx && (chainU >= 0 || idleU(0) >= 0)) drawChain();
+      // (the idles' and the dashes' clocks: they run with Visual FX on only)
+      if (!reduced()) { idleT += dt; dashT += dt; }
+      // (Next and the Preserves painted again while their fruit move, and once
+      // more as they come to rest; not while an idle stands still, FX off)
+      var un = idleU(nextAt), uc = idleU(0);
+      if (!inCpu && (nextU >= 0 || un >= 0) && un !== nextU) paintNext();
+      if (chainCtx && (chainU >= 0 || uc >= 0) && uc !== chainU) drawChain();
       if (state === "play" && held.L !== held.R) aimX = Math.max(JL, Math.min(JR, aimX + (held.R ? 1 : -1) * AIM_SPEED * dt));
       if (fly && ((fly.t += dt) >= FLY_T || reduced())) endFly();   // (landed, or Visual FX off: the jar draws it at the top, and Next its own, from now)
       for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);

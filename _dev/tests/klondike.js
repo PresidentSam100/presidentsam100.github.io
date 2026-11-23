@@ -698,4 +698,33 @@ module.exports = async ({ browser, base, check, lib }) => {
       await c.close();
     }
   }
+
+  // ---- Visual FX turned off on the way stops the Yukon sky where it is (the
+  // aurora, the stars, the snow): the frame after the switch is the frame
+  // before it, and it holds; on again it carries on from there, its first
+  // frame no bigger a change than any other. The page's clock is run by hand
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/klondike/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:klondike", "0"); } catch (e) {} }); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+    const shot = () => q.evaluate(() => document.getElementById("sky").toDataURL());
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    const grab = (k) => q.evaluate((k) => { const c = document.getElementById("sky"); window["__sky" + k] = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; }, k);
+    const moved = (x, y) => q.evaluate(([x, y]) => { const A = window["__sky" + x], B = window["__sky" + y]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) > 30) n++; return n; }, [x, y]);
+    await q.clock.runFor(7000);
+    const a = await shot();
+    await flip(); await q.clock.runFor(100);
+    const b = await shot();
+    await q.clock.runFor(1500);
+    const held = await shot();
+    await grab("held");
+    await flip(); await q.clock.runFor(16); await grab("on");
+    const jump = await moved("held", "on");
+    await q.clock.runFor(16); await grab("next");
+    const frame = await moved("on", "next");
+    check("klondike: Visual FX turned off on the way stops the sky where it is (the same picture as the frame before the switch), held there; on again it carries on from there (its first frame no bigger a change than any other)",
+      a === b && b === held && jump > 0 && jump < frame * 3 + 300, { same: a === b, held: b === held, jump, frame });
+    check("klondike (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

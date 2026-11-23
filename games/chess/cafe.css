@@ -17,7 +17,8 @@
    sit, and the log itself. The boards and their pieces are as they were.
 
    Visual FX on (html.fx-on): steam drifts up off the cups. Off: the cups
-   and their steam are there, still.
+   and their steam are there, still (turned off on the way, the steam stops
+   where it is).
    ===================================================================== */
 :root {
   --bg: #eceae6; --panel: #fcfbf9; --line: #d2c6a4; --text: #27221c; --muted: #6c655b; --accent: #b8963f;
@@ -242,6 +243,12 @@ button.btn:focus-visible, a.btn:focus-visible, .modebtn:focus-visible, .chip:foc
 .cup i + i { left: 52%; top: 26%; height: 38px; opacity: 0.38; }
 html.fx-on .cup i { animation: cafe-steam 4.6s ease-in-out infinite; }
 html.fx-on .cup i + i { animation-duration: 5.8s; animation-delay: -2s; }
+/* (Visual FX turned off after the steam has drifted (html.cafe-moved,
+   cups.js): it stops where it is, the same drift held, not cut back to the
+   still wisps; on again it drifts on from there. !important and more
+   particular than motion-toggle.js's FX-off rule, which would end it) */
+html.fx-off.cafe-moved .cup i { animation: cafe-steam 4.6s ease-in-out infinite paused !important; }
+html.fx-off.cafe-moved .cup i + i { animation: cafe-steam 5.8s ease-in-out -2s infinite paused !important; }
 @keyframes cafe-steam {
   0% { opacity: 0; transform: translate(-50%, -30%) scale(0.8); }
   35% { opacity: 0.55; }

@@ -213,6 +213,11 @@ html.fx-off .judge { animation: none; }
 @keyframes co-sway { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
 html.fx-on .rig .drop { animation: co-sway 6s ease-in-out infinite; }
 html.fx-on .rig.held .drop { animation-play-state: paused; }
+/* (Visual FX turned off once the banner has swayed (html.co-moved, game.js):
+   it stops where it hangs, not back to straight; on again it sways on from
+   there. !important and more particular than motion-toggle.js's FX-off
+   rule, which would end the sway at once) */
+html.fx-off.co-moved .rig .drop { animation: co-sway 6s ease-in-out infinite paused !important; }
 
 /* results */
 .final { font-family: "Chakra Petch", "Inter", sans-serif; font-size: 5rem; font-weight: 700; color: var(--pink); font-variant-numeric: tabular-nums; line-height: 1; text-shadow: 0 0 30px rgba(255,79,168,.45); }

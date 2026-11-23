@@ -579,8 +579,11 @@
     menu: { ask: false, go: askToMenu }
   });
 
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
-  document.body.classList.toggle("fxon", fx());
+  // (the room has moved once Visual FX has been on: from then on its motion
+  // is set up, and FX off stops it where it is; styles.css)
+  function roomFx() { document.body.classList.toggle("fxon", fx()); if (fx()) document.documentElement.classList.add("fx-moved"); }
+  window.addEventListener("reducemotionchange", roomFx);
+  roomFx();
 
   paintMenu();
   sync();

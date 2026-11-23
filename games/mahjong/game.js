@@ -932,9 +932,13 @@
   }, 200);
   // follow the ✨ switch the moment it flips (this used to poll every 400ms)
   // (and whatever is on its way lands: its drawing belongs to the setting it began under)
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); settleAll(); });
+  // (the branch has moved once Visual FX has been on: from then on its petals
+  // fall, and FX off stops one in the air where it is; styles.css)
+  function branchMoved() { if (fx()) document.documentElement.classList.add("fx-moved"); }
+  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); branchMoved(); settleAll(); });
   document.addEventListener("visibilitychange", function () { if (document.hidden) settleAll(); });
   document.body.classList.toggle("fxon", fx());
+  branchMoved();
 
   // ---- menu -------------------------------------------------------------------------------
   function paintMenu() {

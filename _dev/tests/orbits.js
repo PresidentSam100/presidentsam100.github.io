@@ -300,15 +300,40 @@ module.exports = async ({ browser, base, check, lib }) => {
       return { t: a.t, hash: a.hash, fx: a.d.fx, art: [a.d.suns.length, a.d.gates.length, a.d.dust, a.d.moons.length, !!a.d.comet, a.d.tail > 0].join(), rays: [a.d.rays, b.rays], breath: [a.d.breath, b.breath] };
     };
     const on = await run();
+    // (FX switched off mid-flight: the rays and the gates as they stood then)
+    await q.evaluate((L) => { Orbits.start(0); Orbits.restart(); Orbits.setPush(L[0], L[1]); Orbits.launch(); }, LONG);
+    await q.clock.runFor(700);
     await q.keyboard.press("v"); await q.clock.runFor(100);
+    const stopped = await q.evaluate(() => { const d = Orbits.drawn(); Orbits.skip(); Orbits.toMenu(); return { rays: d.rays, breath: d.breath }; });
+    await q.clock.runFor(100);
     const off = await run();
+    await q.keyboard.press("v"); await q.clock.runFor(100);
+    const again = await run();
     // (1.5 s at 240 steps a second, less the part of a frame before the launch)
     check("orbits: with Visual FX off the comet flies the same flight at the same pace (fake clock, 1.5 s: 360 steps, within a frame) and the same things are drawn, tail and all",
       on.fx === true && off.fx === false && on.hash === off.hash && Math.abs(on.t - off.t) <= 4.5 && on.t > 350 && on.t <= 360.5 && off.t > 350 && off.t <= 360.5 && on.art === off.art, { on, off });
-    check("orbits: Visual FX on, the sun's rays turn and the gates breathe; off, they hold still",
-      on.rays[0] !== on.rays[1] && on.breath[0] !== on.breath[1] && off.rays.join() === "0,0" && off.breath.join() === "0,0", { on: [on.rays, on.breath], off: [off.rays, off.breath] });
+    // with FX on the rays turn and the gates breathe; switched off they stop
+    // where they are (not back to their start), and on again they carry on
+    // from there, a frame or two further
+    check("orbits: Visual FX on, the sun's rays turn and the gates breathe; switched off they stop where they stood (not back to their start), and on again carry on from there",
+      on.rays[0] !== on.rays[1] && on.breath[0] !== on.breath[1] && stopped.rays > 0.1 &&
+      off.rays.every((r) => r === stopped.rays) && off.breath.every((b) => b === stopped.breath) &&
+      again.rays[0] > stopped.rays && again.rays[0] - stopped.rays < 0.2 && again.rays[1] > again.rays[0],
+      { on: [on.rays, on.breath], stopped, off: [off.rays, off.breath], again: [again.rays, again.breath] });
     check("orbits (FX): no page errors", q.errs.length === 0, q.errs);
     await c.close();
+    // with FX off from the start they stand in their still pose: the rays
+    // unturned and the gates at rest
+    const c2 = await lib.newContext(browser);
+    const q2 = await lib.open(c2, base, "games/orbits/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:orbits", "1"); } catch (e) {} }); } });
+    await q2.clock.pauseAt(await q2.evaluate(() => Date.now() + 1000));
+    await q2.evaluate((L) => { Orbits.start(0); Orbits.restart(); Orbits.setPush(L[0], L[1]); Orbits.launch(); }, LONG);
+    await q2.clock.runFor(1500);
+    const still = await q2.evaluate(() => ({ fx: Orbits.drawn().fx, rays: Orbits.drawn().rays, breath: Orbits.drawn().breath }));
+    check("orbits: with Visual FX off from the start the sun's rays and the gates stand in their still pose",
+      still.fx === false && still.rays === 0 && still.breath === 0, still);
+    check("orbits (FX off from the start): no page errors", q2.errs.length === 0, q2.errs);
+    await c2.close();
   }
 
   // ---- the games page's reset clears the counts and keeps the chart picked

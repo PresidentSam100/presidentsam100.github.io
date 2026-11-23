@@ -161,9 +161,15 @@ body:not(.fxon) button.tile.shake { outline: 3px solid var(--lacquer); outline-o
 /* With Visual FX on, now and then a petal lets go of the branch and drifts
    down out of the corner, swaying and turning as it falls; each one rests a
    while before the next goes, so a petal or two is in the air at a time.
-   Held while paused. With FX off the branch is as it always was. */
+   Held while paused. With FX off the branch is as it always was; switched
+   off on the way, a petal in the air stops where it is. (The fall is set up
+   the first time the branch moves, Visual FX on at load or later: game.js
+   marks the page fx-moved, and it runs while FX is on and the game isn't
+   paused. !important, and more particular than motion-toggle.js's FX-off
+   rule, which would end the fall at once and snap the petals away.) */
 .blossom i { position: absolute; width: 11px; height: 8px; border-radius: 70% 12% 70% 12%; background: #f0b4c4; opacity: 0; display: none; }
-html.fx-on .blossom i { display: block; animation: mj-petal var(--dur) ease-in-out var(--delay) infinite; }
+html.fx-moved .blossom i { display: block; animation: mj-petal var(--dur) ease-in-out var(--delay) infinite paused !important; }
+html.fx-on body:not(.mj-held) .blossom i { animation-play-state: running !important; }
 .blossom i:nth-child(1) { left: 86px; top: 31px; --dur: 13s; --delay: 0.5s; --dx: -40px; }
 .blossom i:nth-child(2) { left: 127px; top: 49px; --dur: 15s; --delay: 5s; --dx: -54px; background: #e8a0b4; }
 .blossom i:nth-child(3) { left: 57px; top: 57px; --dur: 14s; --delay: 9.5s; --dx: -32px; }
@@ -177,7 +183,6 @@ html.fx-on .blossom i { display: block; animation: mj-petal var(--dur) ease-in-o
   60% { opacity: 0; transform: translate(var(--dx), 158px) rotate(520deg); }
   100% { opacity: 0; transform: translate(var(--dx), 158px) rotate(520deg); }
 }
-body.mj-held .blossom i { animation-play-state: paused; }
 
 /* ---- panels --------------------------------------------------------------- */
 .panel {

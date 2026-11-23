@@ -193,9 +193,11 @@ module.exports = async ({ browser, base, check, lib }) => {
     await q.keyboard.press("s"); await idle(q);
     await q.click(".rm-toggle"); await q.waitForTimeout(150);
     const off = await anim();
-    const art = await q.evaluate(() => ({ dealer: !!document.querySelector("#dealer .head"), cards: document.querySelectorAll("#felt .pc").length, bob: getComputedStyle(document.getElementById("dealer")).animationName }));
-    check("jackblack: with Visual FX on a card slides in from the shoe, turning; off, it still comes from the shoe as long, straight, the dealer holds still, and the table is all still there",
-      !!on.a && on.a.css === "jb-deal" && !!off.a && off.a.script === "translate(130px, -150px)" && off.a.ms === 300 && art.dealer && art.cards === 4 && art.bob === "none", { on, off, art });
+    // (the dealer's bob, switched off on the way: stopped where it had got to, not moving)
+    const art = await q.evaluate(() => ({ dealer: !!document.querySelector("#dealer .head"), cards: document.querySelectorAll("#felt .pc").length,
+      bob: document.getElementById("dealer").getAnimations().map((a) => a.animationName + ":" + a.playState).join() || "none" }));
+    check("jackblack: with Visual FX on a card slides in from the shoe, turning; off, it still comes from the shoe as long, straight, the dealer holds still (switched off on the way, his bob stopped where it was), and the table is all still there",
+      !!on.a && on.a.css === "jb-deal" && !!off.a && off.a.script === "translate(130px, -150px)" && off.a.ms === 300 && art.dealer && art.cards === 4 && art.bob === "jb-bob:paused", { on, off, art });
     await q.close();
   }
 

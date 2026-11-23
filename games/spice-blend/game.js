@@ -10,6 +10,10 @@
 
   var $ = function (id) { return document.getElementById(id); };
   function fx() { return !(window.RM_ON && window.RM_ON()); }
+  // (the awning's name flap sways once Visual FX has been on: styles.css)
+  function swayed() { if (fx()) document.body.classList.add("sb-swayed"); }
+  swayed();
+  window.addEventListener("reducemotionchange", swayed);
   var store = window.GameShell ? GameShell.store : {
     get: function (k, f) { try { var v = localStorage.getItem(k); return v == null ? f : v; } catch (e) { return f; } },
     set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }

@@ -809,4 +809,37 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("abyss: SAM LU DEEP SONAR, a riveted plate at the readout strip's right end, in Descent, Sprint and Maelstrom (laptops, Pixel 7, sideways; on smaller phones where the widest readout leaves room): clear of the figures and corner buttons, the strip no taller, no scroll, there or not for a whole dive",
       got.every(ok), got.filter((g) => !ok(g)).concat([{ shown: got.filter((g) => g.r && g.r.shown).map((g) => g.name + " " + g.m) }]));
   }
+
+  // ---- Visual FX turned off on the way stops the sea where it is (the light
+  // rays, the sub on patrol, the jellyfish, the fish): the frame after the
+  // switch is the frame before it, and it holds; on again it carries on. The
+  // page's clock is run by hand (the menu: only the sea moves there)
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/abyss/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:abyss", "0"); } catch (e) {} }); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+    const shot = () => q.evaluate(() => document.getElementById("stage").toDataURL());
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(7000);
+    const a = await shot();
+    await flip(); await q.clock.runFor(100);
+    const b = await shot();
+    await q.clock.runFor(1500);
+    const held = await shot();
+    // (on again: the first frame moves the sea no more than a frame of its
+    // drift does, not a jump to somewhere else; pixels changed, counted)
+    const grab = (k) => q.evaluate((k) => { const c = document.getElementById("stage"); window["__sea" + k] = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; }, k);
+    const moved = (x, y) => q.evaluate(([x, y]) => { const A = window["__sea" + x], B = window["__sea" + y]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2]) > 30) n++; return n; }, [x, y]);
+    await grab("held");
+    await flip(); await q.clock.runFor(16); await grab("on");
+    const jump = await moved("held", "on");
+    await q.clock.runFor(16); await grab("next");
+    const frame = await moved("on", "next");
+    await q.clock.runFor(1500);
+    const on = await shot();
+    check("abyss: Visual FX turned off on the way stops the sea where it is, the sub on its patrol and the rays where they were (the same picture as the frame before the switch), held there; on again it moves on from there (its first frame no bigger a change than any other)",
+      a === b && b === held && on !== held && jump < frame * 3 + 300, { same: a === b, held: b === held, movesOn: on !== held, jump, frame });
+    check("abyss (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };

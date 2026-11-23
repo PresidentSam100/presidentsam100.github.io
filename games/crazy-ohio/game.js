@@ -168,6 +168,13 @@
       rig.style.top = Math.round(window.scrollY + head.getBoundingClientRect().bottom + 7) + "px";
     } else rig.hidden = true;
   }
+  // Once the banner has swayed (Visual FX on at any time on this page),
+  // turning FX off holds it where it hangs rather than putting it back
+  // straight (styles.css html.co-moved). Opened with FX off, it hangs
+  // straight as always until FX first comes on.
+  const swayed = () => { if (window.FX_ON && window.FX_ON()) document.documentElement.classList.add("co-moved"); };
+  swayed();
+  window.addEventListener("reducemotionchange", swayed);
   window.addEventListener("resize", placeRig);
   if (window.ResizeObserver) { const ro = new ResizeObserver(() => placeRig()); [setupEl, playEl, resultEl, document.querySelector("header.top")].forEach((e) => e && ro.observe(e)); }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(placeRig);

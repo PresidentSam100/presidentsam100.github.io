@@ -175,6 +175,33 @@ module.exports = async ({ browser, base, check, lib }) => {
   }
   check("mesa-drift: with Visual FX on dust rides the winds; with it off there is none", motes.on > 10 && motes.off === 0, motes);
 
+  // ---- Visual FX turned off on the way, at the start of a flight (the
+  // balloon on the ground): the field's flag and the dust on the winds stop
+  // where they are (the same picture as the frame before the switch, the dust
+  // not gone), held there; on again they move on, the flag's flutter going
+  // on from where it stopped. The page's clock is run by hand
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/mesa-drift/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:mesa-drift", "0"); } catch (e) {} }); } });
+    await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+    await q.evaluate(() => MesaDrift.start("calm"));
+    const shot = () => q.evaluate(() => ({ img: document.getElementById("stage").toDataURL(), motes: MesaDrift.motes(), flut: MesaDrift.flutter ? MesaDrift.flutter() : -1 }));
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    await q.clock.runFor(3000);
+    const a = await shot();
+    await flip(); await q.clock.runFor(100);
+    const b = await shot();
+    await q.clock.runFor(1500);
+    const held = await shot();
+    await flip(); await q.clock.runFor(1500);
+    const on = await shot();
+    check("mesa-drift: Visual FX turned off on the way stops the flag and the wind's dust where they are (the same picture as the frame before the switch), held there; on again they move on from there",
+      a.motes > 10 && a.img === b.img && b.img === held.img && b.motes === a.motes && on.img !== held.img && Math.abs(on.flut - b.flut - 1.5) < 0.2,
+      { same: a.img === b.img, held: b.img === held.img, motes: [a.motes, b.motes], flut: [b.flut, on.flut] });
+    check("mesa-drift (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
+
   // ---- on a phone: the burn button shows in flight, and held, it burns
   {
     const { devices } = require("@playwright/test");

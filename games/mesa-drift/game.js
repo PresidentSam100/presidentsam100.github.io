@@ -183,6 +183,10 @@
   var burn = false, vent = false, keysHeld = { burn: false, vent: false }, touchHeld = { burn: false, vent: false };
   var outcome = null, outcomeT = 0, flown = [];   // after each flight: what it scored
   var cam = 0, t = 0, overAt = 0, motes = [], launched = false;
+  // the flag's flutter runs on its own clock, only with Visual FX on: FX
+  // turned off on the way holds the flag where it is, and on again it
+  // flutters on from there (level on a page opened with FX off)
+  var flutT = 0;
   var OVER_WAIT = 700, SETTLE = 1.2;
 
   function bestNow() { return bests[mode]; }
@@ -248,6 +252,7 @@
   // ---- the air --------------------------------------------------------------------------
   function update(dt) {
     t += dt;
+    if (fx()) flutT += dt;
     if (state !== "play") return;
     if (outcome) {
       outcomeT += dt;
@@ -305,9 +310,11 @@
     settleMotes(dt);
     hud();
   }
-  // the dust and wisps that ride each band's wind (Visual FX on)
+  // the dust and wisps that ride each band's wind (Visual FX on; turned off
+  // on the way, they hold where they are, and none rise on a page opened
+  // with it off)
   function settleMotes(dt) {
-    if (!fx()) { motes.length = 0; return; }
+    if (!fx()) return;
     while (motes.length < 26) motes.push({ x: cam + Math.random() * visW, y: 20 + Math.random() * (SKY - 40), a: Math.random() });
     for (var i = 0; i < motes.length; i++) {
       var m = motes[i], w = F.winds[layerOf(m.y)] * 1.6;
@@ -416,7 +423,7 @@
       g.beginPath(); g.ellipse(X(FF.flag), Y(gy) + 1, half * r[0] * S, Math.max(2, 7 * S * r[0] + 1), 0, 0, 7); g.fill();
     });
     // the flag: it streams the ground wind's way
-    var pole = 70, dir = FF.winds[0] >= 0 ? 1 : -1, flut = fx() ? Math.sin(t * 9) * 3 : 0;
+    var pole = 70, dir = FF.winds[0] >= 0 ? 1 : -1, flut = Math.sin(flutT * 9) * 3;
     g.strokeStyle = "#4b2e3a"; g.lineWidth = Math.max(1.5, 3 * S);
     g.beginPath(); g.moveTo(X(FF.flag), Y(gy)); g.lineTo(X(FF.flag), Y(gy + pole)); g.stroke();
     g.fillStyle = "#e0a83a";
@@ -635,6 +642,7 @@
     place: function (x, y, vx, vy, heat) { b.x = x; b.y = y; b.vx = vx || 0; b.vy = vy || 0; if (heat != null) b.heat = heat; b.grounded = false; b.groundT = 0; launched = true; },
     step: function (dt) { update(dt); },
     motes: function () { return motes.length; },
+    flutter: function () { return flutT; },
     // the balloon's name as last painted (page px): its letters' box, their size, the envelope
     band: function () { return band && { text: band.text, size: band.size, x: band.x, y: band.y, w: band.w, h: band.h, r: band.r, cx: band.cx, cy: band.cy, W: VW, H: VH }; },
     burning: function () { return burn; },

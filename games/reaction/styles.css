@@ -219,7 +219,12 @@
      chains, up in the sky's corner, clear of the duel and of every word on
      the street. It looks the same in every light, so nothing about it changes
      when the call comes. With Visual FX on it creaks to and fro between duels;
-     from the standoff on it hangs still. */
+     from the standoff on it hangs still. FX switched off stops the creak where
+     it is, and on again it creaks on from there: it is set up the first time
+     the sign moves (Visual FX on, at load or later: game.js marks the page
+     fx-moved) and runs while FX is on. (!important, and more particular than
+     motion-toggle.js's FX-off rule, which would end it at once and snap the
+     sign back.) */
   .saloon { position: absolute; left: 0; top: 10px; z-index: 1; pointer-events: none; padding: 12px 10px 0 16px; }
   /* the bracket: an arm out from the wall, a brace under it */
   .saloon::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: #2a1206; border-radius: 0 3px 3px 0; }
@@ -242,8 +247,11 @@
   }
   .saloon .board::before { left: 10px; }
   .saloon .board::after { right: 10px; }
-  html.fx-on .panel.idle .saloon .board, html.fx-on .panel.result .saloon .board, html.fx-on .panel.toosoon .saloon .board {
-    animation: saloonCreak 5s ease-in-out infinite;
+  html.fx-moved .panel.idle .saloon .board, html.fx-moved .panel.result .saloon .board, html.fx-moved .panel.toosoon .saloon .board {
+    animation: saloonCreak 5s ease-in-out infinite paused !important;
+  }
+  html.fx-on.fx-moved .panel.idle .saloon .board, html.fx-on.fx-moved .panel.result .saloon .board, html.fx-on.fx-moved .panel.toosoon .saloon .board {
+    animation-play-state: running !important;
   }
   @keyframes saloonCreak { 0%, 100% { transform: rotate(-1.3deg); } 50% { transform: rotate(1.3deg); } }
   @media (max-width: 480px) {

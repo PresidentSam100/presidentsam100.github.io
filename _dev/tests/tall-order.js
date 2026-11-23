@@ -461,4 +461,42 @@ module.exports = async ({ browser, base, check, lib }) => {
     await done(q, "sprinkles, FX off");
     await sc.close();
   }
+
+  // ---- the gliding tier hovers with Visual FX on; turned off on the way the
+  // hover stops where it is (not dropped back to the middle of its swing),
+  // and on again it hovers on from there. The tier's height is read as the
+  // cake art draws it, frame by frame on the page's own clock
+  {
+    const c = await lib.newContext(browser);
+    const q = await lib.open(c, base, "games/tall-order/", { before: async (pg) => {
+      await pg.clock.install({ time: new Date("2026-11-22T12:00:00") });
+      await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:tall-order", "0"); } catch (e) {} });
+    } });
+    await q.evaluate(() => {
+      TallOrder.start("bakery");
+      const draw = CakeArt.drawTier;
+      CakeArt.drawTier = function (g, x, y) { if (x === TallOrder.sliderX()) window.__sliderY = y; return draw.apply(this, arguments); };
+    });
+    const y = () => q.evaluate(() => (TallOrder.sliderReady() ? window.__sliderY : null));
+    const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
+    // (the page's clock stopped, so time moves only as it's run on: no frame
+    // slips in between a reading and the switch)
+    await q.clock.pauseAt(await q.evaluate(() => Date.now() + 100));
+    await q.clock.runFor(2500);   // (the tier comes on and the view settles)
+    // a whole swing of the hover (about 2.1 s), then on to a frame well off its middle
+    const ys = [];
+    for (let i = 0; i < 150; i++) { await q.clock.runFor(16); ys.push(await y()); }
+    const ok = ys.every((v) => typeof v === "number"), mid = ok ? (Math.max(...ys) + Math.min(...ys)) / 2 : 0;
+    let at = await y();
+    for (let i = 0; i < 150 && ok && Math.abs(at - mid) < 1.5; i++) { await q.clock.runFor(16); at = await y(); }
+    await flip();
+    const held = [];
+    for (let i = 0; i < 20; i++) { await q.clock.runFor(16); held.push(await y()); }
+    await flip(); await q.clock.runFor(300); const again = await y();
+    check("tall-order: Visual FX turned off while the tier hovers stops it where it is (not back to the middle of its swing); on again it hovers on from there",
+      ok && Math.max(...ys) - Math.min(...ys) > 4 && Math.abs(at - mid) >= 1.5 && held.every((v) => Math.abs(v - at) < 0.01) && Math.abs(again - at) > 0.01 && Math.abs(again - at) < 3,
+      { swing: ok ? +(Math.max(...ys) - Math.min(...ys)).toFixed(2) : ys.slice(0, 3), mid: +mid.toFixed(2), at, held: [...new Set(held.map((v) => +v.toFixed(2)))], again });
+    check("tall-order (FX switched on the way): no page errors", q.errs.length === 0, q.errs);
+    await c.close();
+  }
 };
