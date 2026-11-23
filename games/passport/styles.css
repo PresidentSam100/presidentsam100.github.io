@@ -391,3 +391,21 @@ kbd { font-family: inherit; font-size: 11px; background: var(--ink); color: var(
   .playbtn { padding: 10px; }
   .bests { margin-top: 8px; }
 }
+/* narrow phones: the card reaches nearer the screen's edges (its cover still
+   in view) and the two-by-two choices' names close up a little, so each name
+   stays whole on one line, "Flag → capital" the longest. The line over the
+   flag closes up too, so the mode, the stamps and the third part ("denied
+   2/3", the clock, "flag 10/10") each stay on one line, a three-digit tour
+   as well */
+@media (max-width: 400px) {
+  .panel { padding-left: 10px; padding-right: 10px; }
+  .card { padding-left: 14px; padding-right: 14px; }
+  .seg.styles button, .seg.asks button { padding-left: 8px; padding-right: 8px; }
+  .seg.styles button b, .seg.asks button b { letter-spacing: 0.5px; }
+  .hudline { letter-spacing: 0.5px; }
+}
+@media (max-width: 350px) {
+  .seg.styles button b, .seg.asks button b { font-size: 12.5px; }
+  .hudline { font-size: 12px; letter-spacing: 0; }
+  .hudline #hud-score { font-size: 14px; }
+}

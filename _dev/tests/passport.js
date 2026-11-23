@@ -432,4 +432,56 @@ module.exports = async ({ browser, base, check, lib }) => {
     check("passport: the stamps page's foot prints the holder's name, SAM LU, on one line inside the page, below nine stamps, and the page no taller for it (laptop, Pixel 7, 320 px phone)",
       bad.length === 0, { bad, res });
   }
+
+  // ---- every choice's name on the menu stays whole on one line inside its
+  // button, at every size ("Flag → capital" once broke after its arrow on
+  // phones 320 to 375 px wide), with the card's cover still on the screen and
+  // nothing scrolling sideways. In play, the line over the flag keeps each of
+  // its parts on one line (the mode, the stamps, then "denied 2/3", the clock
+  // or "flag 10/10"), a three-digit tour as well ("world / tour" and
+  // "0 / stamps" once took two lines each on a 320 px phone).
+  {
+    const { devices } = require("@playwright/test");
+    const phone = (w, h) => Object.assign({}, devices["Pixel 7"], { viewport: { width: w, height: h } });
+    const bad = [], seen = {};
+    for (const [label, opts] of [["320x568", phone(320, 568)], ["360x560", phone(360, 560)], ["360x640", phone(360, 640)], ["375x553", phone(375, 553)],
+      ["390x664", phone(390, 664)], ["Pixel 7", devices["Pixel 7"]], ["1280x900", {}], ["1366x657", { viewport: { width: 1366, height: 657 } }]]) {
+      const c = await lib.newContext(browser, opts);
+      const q = await lib.open(c, base, "games/passport/");
+      const menu = await q.evaluate(() => {
+        const rows = (el) => { const r = document.createRange(); r.selectNodeContents(el); return new Set([...r.getClientRects()].filter((x) => x.width > 0.5).map((x) => Math.round(x.top))).size; };
+        const names = [...document.querySelectorAll("#pick-mode button, #pick-style button, #pick-ask button")].map((b) => {
+          const t = b.querySelector("b"), bb = b.getBoundingClientRect(), tb = t.getBoundingClientRect();
+          return { name: t.textContent.trim(), lines: rows(t), inside: tb.left >= bb.left - 0.5 && tb.right <= bb.right + 0.5 };
+        });
+        const card = document.querySelector("#menu .card").getBoundingClientRect(), panel = document.getElementById("menu");
+        return { names, cover: card.left >= 6.5 && card.right <= innerWidth - 6.5,
+          sideways: document.documentElement.scrollWidth > innerWidth || panel.scrollWidth > panel.clientWidth };
+      });
+      const hud = {};
+      for (const [mode, texts] of [["tour", ["128 stamps", "denied 2/3"]], ["dash", ["99 stamps", "0:60"]], ["daily", ["10 stamps", "flag 10/10"]]]) {
+        await q.evaluate((m) => Passport.start(m), mode);
+        await q.waitForFunction(() => Passport.state() === "ask", null, { timeout: 8000 });
+        // (the stamps and the third part set to their longest, read in the same moment)
+        hud[mode] = await q.evaluate((t) => {
+          const line = document.querySelector(".hudline"), parts = [...line.children], lb = line.getBoundingClientRect();
+          parts[1].textContent = t[0]; parts[2].textContent = t[1];
+          return parts.map((s) => {
+            const r = document.createRange(); r.selectNodeContents(s); const ls = [...r.getClientRects()].filter((x) => x.width > 0.5);
+            return { text: s.textContent, lines: new Set(ls.map((x) => Math.round(x.top))).size, inside: ls.every((x) => x.left >= lb.left - 0.5 && x.right <= lb.right + 0.5) };
+          });
+        }, texts);
+      }
+      seen[label] = { menu: menu.names.map((n) => n.name + ":" + n.lines).join(", "), hud: Object.keys(hud).map((m) => hud[m].map((p) => p.text + ":" + p.lines).join(" | ")) };
+      for (const n of menu.names) if (n.lines !== 1 || !n.inside) bad.push(label + " menu: " + n.name + " takes " + n.lines + " lines" + (n.inside ? "" : ", out of its button"));
+      if (!menu.cover) bad.push(label + " menu: the card's cover runs off the screen");
+      if (menu.sideways) bad.push(label + " menu: scrolls sideways");
+      for (const m of Object.keys(hud)) for (const p of hud[m]) if (p.lines !== 1 || !p.inside) bad.push(label + " " + m + ": \"" + p.text + "\" takes " + p.lines + " lines" + (p.inside ? "" : ", out of the line"));
+      check("passport (" + label + "): no page errors (names on one line)", q.errs.length === 0, q.errs);
+      await q.close();
+      await c.close();
+    }
+    check("passport (320x568, 360x560, 360x640, 375x553, 390x664, Pixel 7, 1280x900, 1366x657): every choice's name on the menu is on one line inside its button (Flag → capital too), the card's cover on the screen and nothing scrolling sideways; in play the mode, the stamps and \"denied 2/3\" / the clock / \"flag 10/10\" each stay on one line, 128 stamps too",
+      bad.length === 0, bad.length ? bad : seen);
+  }
 };
