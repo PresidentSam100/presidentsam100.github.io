@@ -655,10 +655,10 @@ module.exports = async ({ browser, base, check, lib }) => {
         done({ scroll, under: seen, card: Math.round(card.getBoundingClientRect().height), deep: menu.classList.contains("deep") });
       }, 250);
     }), [n, cpu]);
-    const FIT = { "390x664": [2], "412x790": [2], "1366x657": [2], "1280x900": [2] };
+    const FIT = { "390x664": [2], "412x790": [2], "1366x657": [2], "1280x900": [2], "640x360": [2], "667x375": [2], "750x340": [2], "844x390": [2], "932x430": [2] };
     const res = {}, bad = [];
-    for (const [w, h] of [[320, 568], [360, 640], [390, 664], [375, 553], [360, 560], [412, 790], [568, 320], [750, 340], [1366, 657], [1280, 600], [1280, 900]]) {
-      const c = await lib.newContext(browser, w < 900 ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
+    for (const [w, h] of [[320, 568], [360, 640], [390, 664], [375, 553], [360, 560], [412, 790], [568, 320], [640, 360], [667, 375], [750, 340], [844, 390], [932, 430], [1366, 657], [1280, 600], [1280, 900]]) {
+      const c = await lib.newContext(browser, w < 900 || h < 500 ? Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }) : { viewport: { width: w, height: h } });
       const q = await lib.open(c, base, "games/demolition-row/");
       for (const n of [2]) for (const cpu of [false, true]) {
         const s = res[w + "x" + h + " vs" + n + (cpu ? " cpus" : "")] = await setup(q, n, cpu);
@@ -667,7 +667,7 @@ module.exports = async ({ browser, base, check, lib }) => {
       check("demolition-row (VS setup " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
       await q.close(); await c.close();
     }
-    check("demolition-row: a match's setup taller than the window scrolls below the corner buttons, none of its text or controls ever under them (at its top, halfway and at its end), and closed up it fits with nothing to scroll where there's room: a 390x664 phone, a 412x790 one, a 1366x657 laptop and a 1280x900 one (phones 320 to 412 wide upright, 568x320 and 750x340 on their side; laptops 1366x657, 1280x600, 1280x900; P1 human or a CPU)",
+    check("demolition-row: a match's setup taller than the window scrolls below the corner buttons, none of its text or controls ever under them (at its top, halfway and at its end), and closed up it fits with nothing to scroll where there's room: a 390x664 phone, a 412x790 one, a phone on its side from 640x360 up (667x375, 750x340, 844x390, 932x430), a 1366x657 laptop and a 1280x900 one (phones 320 to 412 wide upright, 568x320 to 932x430 on their side; laptops 1366x657, 1280x600, 1280x900; P1 human or a CPU)",
       bad.length === 0, { bad, res });
     // the frost over the whole screen while the menu scrolls below the corner
     // buttons (the strip beside them the same as with the 50-Stage menu,
@@ -685,6 +685,46 @@ module.exports = async ({ browser, base, check, lib }) => {
       frosted && fxOff.deep && fxOff.under.length === 0 && !!fxOn && fxOff.card === fxOn.card && fxOff.scroll === fxOn.scroll, { frosted, fxOff, fxOn });
     check("demolition-row (VS setup, FX off): no page errors", q.errs.length === 0, q.errs);
     await q.close(); await off.close();
+  }
+
+  // ---- the menu on a phone on its side: two columns (the title, its lines,
+  // the keys and the power-ups on the left; the mode, its options and Play on
+  // the right), every mode with nothing to scroll from 640x360 up, the card
+  // at the same place in all three (picking one moves nothing), its first
+  // line clear of the snow on its top edge, the stage tiles big enough to
+  // tap. At 568x320 it may still scroll, below the corner buttons, the card
+  // where it stands at the other sizes
+  {
+    const look = (pg, mode, cpu) => pg.evaluate(([mode, cpu]) => new Promise((done) => {
+      document.querySelector('#mode-pick [data-mode="' + mode + '"]').click();
+      const p1 = document.querySelector('#player-rows .ptoggle[data-slot="0"]');
+      if (mode === "vs" && cpu !== /CPU/.test(p1.textContent)) p1.click();
+      setTimeout(() => {
+        const menu = document.getElementById("menu"), card = menu.querySelector(".card"), c = card.getBoundingClientRect();
+        const box = (s) => card.querySelector(s).getBoundingClientRect();
+        const left = ["h2", "p", "#keys-help", "details.dict-wrap"].map(box), right = ["#mode-opts", mode === "vs" ? "#vs-opts" : "#stage-opts", "#play-row"].filter((s) => card.querySelector(s).getClientRects().length).map(box);
+        const firsts = [...card.querySelectorAll("h2, #mode-pick .btn, #mode-opts .lbl")].map((e) => e.getBoundingClientRect().top);
+        const tiles = [...card.querySelectorAll("#stage-grid .st")].map((e) => e.getBoundingClientRect()).filter((r) => r.width);
+        done({ scroll: menu.scrollHeight - menu.clientHeight, top: Math.round(c.top), clear: Math.round(Math.min(...firsts) - c.top),
+          cols: Math.max(...left.map((r) => r.right)) <= Math.min(...right.map((r) => r.left)) + 1,
+          tile: tiles.length ? [Math.round(Math.min(...tiles.map((r) => r.width))), Math.round(Math.min(...tiles.map((r) => r.height)))] : null });
+      }, 250);
+    }), [mode, cpu]);
+    const res = {}, bad = [];
+    for (const [w, h] of [[568, 320], [640, 360], [667, 375], [750, 340], [844, 390], [932, 430]]) {
+      const c = await lib.newContext(browser, Object.assign({}, devices["iPhone 13"], { viewport: { width: w, height: h } }));
+      const q = await lib.open(c, base, "games/demolition-row/");
+      const r = res[w + "x" + h] = {};
+      for (const [k, mode, cpu] of [["stage", "stage"], ["endless", "endless"], ["vs", "vs", false], ["vs cpus", "vs", true], ["stage again", "stage"]]) r[k] = await look(q, mode, cpu);
+      const all = Object.values(r), tops = new Set(all.map((s) => s.top));
+      const ok = tops.size === 1 && all.every((s) => s.cols && s.clear >= 16) && r.stage.tile && r.stage.tile[0] >= 34 && r.stage.tile[1] >= 30 &&
+        (w === 568 || all.every((s) => s.scroll <= 0));
+      if (!ok) bad.push(w + "x" + h);
+      check("demolition-row (menu on its side " + w + "x" + h + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    check("demolition-row: on a phone on its side the menu is in two columns (title, lines, keys and power-ups left; mode, its options and Play right), nothing to scroll in 50-Stage, Endless or VS from 640x360 up (667x375, 750x340, 844x390, 932x430), the card at the same place in every mode, its first line clear of its snow, stage tiles 34 by 30 at least (568x320 too, where it may scroll)",
+      bad.length === 0, { bad, res });
   }
 
   // ---- what a wave scores shows where it cleared: "+800 ×20" for a four

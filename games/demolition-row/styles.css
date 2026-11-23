@@ -459,6 +459,42 @@
 @media (orientation: landscape) and (max-height: 500px) and (min-width: 701px) {
   .subtitle { margin-top: 0.45rem; }
 }
+/* the menu on a short, wide screen (a phone on its side): two columns, the
+   title, its lines, the keys and the power-ups down the left, the mode, its
+   options (the stage list, or a match's setup) and Play down the right, all
+   closer set, so a match's setup fits with nothing to scroll from a 640x360
+   phone up. The card stands at the top, just under the corner buttons (its
+   snow against them), in every mode, so picking one moves nothing; one still
+   too tall (568x320) scrolls below them as before (.deep, game.js) */
+@media (orientation: landscape) and (max-height: 500px) {
+  #menu { padding: 58px 12px 20px; }
+  #menu.deep { padding-top: 10px; }
+  #menu > .card { margin: 0 auto auto; max-width: 860px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); grid-template-rows: auto auto 1fr auto;
+    column-gap: 1.1rem; align-items: start; padding: 1.05rem 0.9rem 0.5rem; }
+  #menu > .card > h2 { grid-column: 1; grid-row: 1; font-size: 1.25rem; margin: 0; align-self: center; }
+  #menu > .card > p { grid-column: 1; grid-row: 2; font-size: 0.8rem; line-height: 1.3; margin: 0.25rem 0 0; }
+  #menu > .card > #keys-help { grid-column: 1; grid-row: 3; margin-top: 0.3rem; line-height: 1.4; align-self: end; }
+  #menu > .card > details.dict-wrap { grid-column: 1; grid-row: 4; margin-top: 0.35rem; padding-top: 0.1rem; padding-bottom: 0.1rem; align-self: end; }
+  #menu details.dict-wrap summary { padding: 0.25rem 0; }
+  #menu > .card > #mode-opts { grid-column: 2; grid-row: 1; margin: 0; flex-wrap: nowrap; }
+  #menu > .card > #stage-opts, #menu > .card > #vs-opts { grid-column: 2; grid-row: 2 / 4; margin: 0.3rem 0 0; }
+  #menu > .card > #play-row { grid-column: 2; grid-row: 4; margin: 0.3rem 0 0; align-self: end; }
+  #menu .card .group #mode-pick .btn { padding: 0.32rem 0.7rem; }
+  #menu #mode-pick { gap: 0.35rem; flex-wrap: nowrap; }
+  #play-btn { padding: 0.42rem 1.4rem; }
+  /* (a match's setup: the seats and the four formats each on a line) */
+  #vs-opts .btn, #vs-opts .diffsel { padding-top: 0.28rem; padding-bottom: 0.28rem; font-size: 0.85rem; }
+  #vs-opts #fmt-pick { gap: 0.35rem; }
+  #vs-opts #fmt-pick .btn { padding-left: 0.5rem; padding-right: 0.5rem; font-size: 0.8rem; }
+  #menu #vs-opts > .lbl { margin: 0; line-height: 1.3; }
+  #menu #vs-opts > .lbl ~ .lbl { margin: 0.2rem 0 0.1rem; }
+  #menu #vs-opts > .lbl:first-child + .seats-lbl { margin: 0 0 0.15rem; }
+  #menu .prow { margin-bottom: 0.15rem; }
+  /* (the stage list: as many to a row as fit at a size to tap, up to ten,
+     in a box that scrolls) */
+  .stage-grid { grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); overflow-y: auto; overscroll-behavior: contain; max-height: 100px; }
+  #menu .card .group .stage-grid .st { height: 30px; }
+}
 
 /* VS on a phone (game.js's leadOf): the board the pad drives leads, as big
    as fits, and the others are minis beside it, each its board and a small
