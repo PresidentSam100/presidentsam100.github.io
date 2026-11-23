@@ -347,11 +347,13 @@
     busy = true; sync();
     var i = 0;
     (function step() {
-      if (i >= events.length) { busy = false; if (then) then(); sync(); return; }
+      // (the table is still: the ring goes back up on the next frame, not on
+      // the next of its waits)
+      if (i >= events.length) { busy = false; if (then) then(); sync(); ringLater(); return; }
       var e = events[i++];
       apply(e);
       var ms = wait(e);
-      if (e.t === "insure?") { busy = false; sync(); return; }       // the table waits for the answer
+      if (e.t === "insure?") { busy = false; sync(); ringLater(); return; }       // the table waits for the answer
       if (e.t === "done") { roundOver(e); }
       if (ms) setTimeout(step, ms); else step();
     })();
