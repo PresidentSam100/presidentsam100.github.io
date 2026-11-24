@@ -317,4 +317,29 @@ module.exports = async ({ browser, base, check, lib }) => {
       await q.close(); await c.close();
     }
   }
+
+  // ---- the fan of rays over the front: with Visual FX on it sweeps to and
+  // fro; a page opened with FX off has it standing straight, still
+  {
+    const got = {};
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await lib.open(c, base, "games/lights-out/", { before: (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:lights-out", off ? "1" : "0"); } catch (e) {} }, off) });
+      const read = () => q.evaluate(() => {
+        const a = document.getAnimations().filter((x) => x.effect && x.effect.target && x.effect.target.id === "front" && x.effect.pseudoElement === "::after");
+        return { n: a.length, running: a.filter((x) => x.playState === "running").length, tf: getComputedStyle(document.getElementById("front"), "::after").transform };
+      });
+      await q.waitForTimeout(1500);
+      const a = await read();
+      await q.waitForTimeout(1500);
+      const b = await read();
+      got[off ? "off" : "on"] = { a, b };
+      check("lights-out (rays, FX " + (off ? "off" : "on") + "): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+    const still = (t) => t === "none" || t === "matrix(1, 0, 0, 1, 0, 0)";
+    check("lights-out: with Visual FX on the fan of rays over the front sweeps to and fro; opened with FX off it stands straight and still",
+      got.on.a.running === 1 && got.on.b.running === 1 && got.on.a.tf !== got.on.b.tf && !still(got.on.b.tf) &&
+      got.off.a.n === 0 && still(got.off.a.tf) && got.off.b.tf === got.off.a.tf, got);
+  }
 };

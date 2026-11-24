@@ -68,12 +68,31 @@ body {
   background: radial-gradient(ellipse 58% 46% at 50% 60%, rgba(255, 190, 100, 0.15), transparent 72%);
 }
 #front::after {
-  left: 0; right: 0; top: -30px; height: 540px;
+  /* (wider than the page, so a sweep never swings an edge into view) */
+  left: -25%; right: -25%; top: -30px; height: 540px;
+  transform-origin: 50% 0;
   background: repeating-conic-gradient(from 178.5deg at 50% 0, rgba(190, 255, 245, 0.075) 0 3deg, transparent 3deg 12deg);
   -webkit-mask-image: radial-gradient(ellipse min(550px, 80vw) 100% at 50% 0, #000 18%, transparent 76%);
   mask-image: radial-gradient(ellipse min(550px, 80vw) 100% at 50% 0, #000 18%, transparent 76%);
 }
 #front.dark::before { opacity: 0; }
+/* Visual FX on: the fan of rays sweeps slowly to and fro, a premiere's
+   searchlights. Set up the first time the front moves (Visual FX on, at load
+   or later: game.js marks the page lo-moved), and running only while FX is
+   on, so FX switched off stops the rays where they are, and on again they
+   carry on from there. A front that has never moved (FX off from the start)
+   has no sweep set, so its fan stands straight. (!important, and more
+   particular than motion-toggle.js's FX-off rule, which would end the sweep
+   at once and snap it back.) The sweep starts and ends straight, so FX
+   turned on never jumps it. */
+html.lo-moved #front::after { animation: lo-sweep 15s linear infinite paused !important; }
+html.lo-moved body.fxon #front::after { animation-play-state: running !important; }
+@keyframes lo-sweep {
+  0%, 50% { transform: rotate(0deg); animation-timing-function: cubic-bezier(0.61, 1, 0.88, 1); }
+  25% { transform: rotate(5deg); animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0); }
+  75% { transform: rotate(-5deg); animation-timing-function: cubic-bezier(0.12, 0, 0.39, 0); }
+  100% { transform: rotate(0deg); }
+}
 
 #head { display: flex; flex-direction: column; align-items: center; }
 

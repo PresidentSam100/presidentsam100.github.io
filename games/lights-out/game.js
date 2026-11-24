@@ -666,11 +666,18 @@
   });
 
   // ---- Visual FX ---------------------------------------------------------------------
-  // styles.css keys the motion off body.fxon: bulbs warm up and cool down, and
-  // the chaser runs. With FX off they switch at once and the chaser holds
-  // still, every bulb of it lit. Follows the ✨ switch the moment it flips.
-  window.addEventListener("reducemotionchange", function () { document.body.classList.toggle("fxon", fx()); });
-  document.body.classList.toggle("fxon", fx());
+  // styles.css keys the motion off body.fxon: bulbs warm up and cool down, the
+  // chaser runs and the fan of rays over the front sweeps to and fro. With FX
+  // off they switch at once and the chaser holds still, every bulb of it lit;
+  // the rays stop where they are (lo-moved: the front has moved, so its sweep
+  // is set up to pause, not to snap back). Follows the ✨ switch the moment it
+  // flips.
+  function frontFx() {
+    document.body.classList.toggle("fxon", fx());
+    if (fx()) document.documentElement.classList.add("lo-moved");
+  }
+  window.addEventListener("reducemotionchange", frontFx);
+  frontFx();
 
   // ---- leaving -----------------------------------------------------------------------
   // Leaving asks first once a sign has been pressed (or hinted), and all through
