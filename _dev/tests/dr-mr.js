@@ -155,29 +155,50 @@ module.exports = async ({ browser, base, check, lib }) => {
   check("dr-mr, Visual FX off: the vial's germs, their fuzz and Dr. Mr. hold still (on, the faces change and the fuzz stirs)", fxOff.same && !fxOn.same, { fxOff: fxOff.same, fxOn: fxOn.same });
   check("dr-mr (FX): no page errors", fxOff.errs.length === 0 && fxOn.errs.length === 0, [fxOff.errs, fxOn.errs]);
 
-  // ---- Visual FX turned off on the way stops the slide's cells and the
-  // germs where they are: the frame after the switch is the frame before it,
-  // and it holds; on again they carry on from that spot (the idle clock goes
-  // on from where it stopped). The page's clock is run by hand
+  // ---- Visual FX turned off on the way: the scenery (the cells drifting
+  // across the slide) stops where it is, held there, and on again it drifts
+  // on from that spot (its clock goes on from where it stopped). The germs
+  // are no part of the scenery: with FX off they rest on their first face,
+  // whenever it goes off, just as on a page opened with FX off. Each germ is
+  // read as where and how its body is drawn (centred on its own spot, lit
+  // from its top left), as the vial's glass lets the cells show through.
+  // The page's clock is run by hand
   {
+    const spy = (pg) => pg.addInitScript(() => {
+      const make = CanvasRenderingContext2D.prototype.createRadialGradient;
+      CanvasRenderingContext2D.prototype.createRadialGradient = function (x0, y0, r0, x1, y1, r1) {
+        if (window.__g && x1 === 0 && y1 === 0 && x0 < 0) { const m = this.getTransform(); window.__g.push([m.a, m.b, m.c, m.d, m.e, m.f, r1].map((v) => v.toFixed(2)).join(",")); }
+        return make.apply(this, arguments);
+      };
+    });
+    // (one frame drawn there and then, the germs' bodies noted as it goes)
+    const germs = (q) => q.evaluate(() => { window.__g = []; DrMr.step(0); const out = window.__g; window.__g = null; return out.join(" "); });
     const c = await lib.newContext(browser);
-    const q = await lib.open(c, base, "games/dr-mr/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dr-mr", "0"); } catch (e) {} }); } });
+    const q = await lib.open(c, base, "games/dr-mr/", { before: async (pg) => { await pg.clock.install(); await spy(pg); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dr-mr", "0"); } catch (e) {} }); } });
     await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
     const shot = () => q.evaluate(() => document.getElementById("stage").toDataURL());
     const idle = () => q.evaluate(() => (DrMr.idle ? DrMr.idle() : -1));
     const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
     await q.clock.runFor(7000);
-    const a = await shot();
+    const moving = await germs(q);
     await flip(); await q.clock.runFor(100);
-    const b = await shot(), at = await idle();
+    const b = await shot(), at = await idle(), offB = await germs(q);
     await q.clock.runFor(1500);
-    const held = await shot();
-    await flip(); await q.clock.runFor(1500);
-    const on = await shot(), later = await idle();
-    check("dr-mr: Visual FX turned off on the way stops the slide's cells and the germs where they are (the same picture as the frame before the switch), held there; on again they carry on from that spot",
-      a === b && b === held && on !== held && Math.abs(later - at - 1.5) < 0.2, { same: a === b, held: b === held, movesOn: on !== held, at, later });
-    check("dr-mr (FX turned off on the way): no page errors", q.errs.length === 0, q.errs);
-    await c.close();
+    const held = await shot(), atHeld = await idle();
+    await flip(); await q.clock.runFor(2300);
+    const later = await idle();
+    await flip(); await q.clock.runFor(100);
+    const again = await shot(), offC = await germs(q);
+    const c2 = await lib.newContext(browser);
+    const r = await lib.open(c2, base, "games/dr-mr/", { before: async (pg) => { await spy(pg); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:dr-mr", "1"); } catch (e) {} }); } });
+    const rest = await germs(r);
+    // (the second time off, the germs as the first time, so what differs is the cells)
+    check("dr-mr: Visual FX turned off on the way stops the cells drifting across the slide where they are, held there; on again they drift on from that spot",
+      at > 6 && b === held && atHeld === at && Math.abs(later - at - 2.3) < 0.2 && offC === offB && again !== held, { at, atHeld, later, held: b === held, movedOn: again !== held });
+    check("dr-mr: Visual FX turned off on the way, at any moment, puts every germ back on its first face, as on a page opened with FX off (on, they were mid-act)",
+      rest.length > 0 && offB === rest && offC === rest && moving !== rest, { germs: rest.split(" ").length, first: offB === rest, second: offC === rest, wasMoving: moving !== rest });
+    check("dr-mr (FX turned off on the way): no page errors", q.errs.length === 0 && r.errs.length === 0, [q.errs, r.errs]);
+    await c.close(); await c2.close();
   }
 
   // ---- a germ's acts: the next starts only when its cycle comes round, never midway ---------

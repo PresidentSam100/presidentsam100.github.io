@@ -55,6 +55,23 @@ module.exports = async ({ browser, base, check, lib }) => {
     await flip(); await q.clock.runFor(300); const c2 = await band();
     check("typetwo: Visual FX turned off on the way stops the ward where it is (its shimmer, runes and carved name as they were), not back to its resting look; on again it moves on",
       a0 !== a && b === a && b2 === a && c2 !== b, { movingOn: a0 !== a, heldAtSwitch: b === a, stillHeld: b2 === a, movingAgain: c2 !== b });
+    // the wizard is no part of the scenery: turned off on the way, his robe
+    // rests (its hem's left corner back at -12, where it hangs still), and on
+    // again it sways on. Read as the robe is drawn
+    // (FX is on again here, from the last switch; each frame notes the hem)
+    await q.evaluate(() => {
+      const P = CanvasRenderingContext2D.prototype, curve = P.quadraticCurveTo;
+      P.quadraticCurveTo = function (cx, cy, ex) { if (cx === -13 && cy === -4) window.__hem = ex; return curve.apply(this, arguments); };
+    });
+    const hem = async () => { await q.evaluate(() => { window.__hem = null; }); await q.clock.runFor(100); return q.evaluate(() => window.__hem); };
+    await q.clock.runFor(1300);
+    const onHem = await hem();
+    await flip(); await q.clock.runFor(300);
+    const offHem = await hem();
+    await flip(); await q.clock.runFor(300);
+    const againHem = await hem();
+    check("typetwo: Visual FX turned off on the way rests the wizard's robe (not held mid-sway); on again it sways on",
+      onHem !== null && onHem !== -12 && offHem === -12 && againHem !== null && againHem !== -12, { onHem, offHem, againHem });
     check("typetwo (FX switched on the way): no page errors", q.errs.length === 0, q.errs);
     await c.close();
   }

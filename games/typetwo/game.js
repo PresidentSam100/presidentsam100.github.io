@@ -122,10 +122,12 @@
   let maxCombo = 0;
 
   let lastTime = 0;
-  // The scene's clock (s): the ward's shimmer, its runes, the robe and the
-  // spirits' hover run on it. It runs only with Visual FX on, so turning FX
-  // off holds them where they are, and on again they move on from there.
-  // Never run (a page opened with FX off), the scene is drawn at rest.
+  // The scene's clock (s): the stars, the ward's shimmer and its runes run on
+  // it. It runs only with Visual FX on, so turning FX off holds them where
+  // they are, and on again they move on from there. Never run (a page opened
+  // with FX off), the scene is drawn at rest. (The wizard and the spirits are
+  // no part of the scenery: with FX off, turned off on the way too, they
+  // rest; drawWizard, drawSpirit)
   let sceneT = 0;
   const atRest = () => reducedMotion() && sceneT === 0;
   // Reduce-motion state for this game (live): set by the top-right toggle / OS setting.
@@ -954,8 +956,8 @@
   }
 
   function drawWizard(x, y, angle) {
-    const still = reducedMotion();   // FX off: the robe hangs still (where FX left it) and the orb glows steady
-    const T = sceneT;
+    const still = reducedMotion();   // FX off: the robe hangs still and the orb glows steady
+    const T = still ? 0 : performance.now() / 1000;
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(WIZ_SCALE, WIZ_SCALE);
@@ -1024,17 +1026,16 @@
 
   function drawSpirit(w) {
     const cx = w.x + w.w / 2;
-    const T = sceneT, rest = atRest();
+    const T = performance.now() / 1000;
 
-    // the spirit itself: a wisp hovering above its true name (on the scene's
-    // clock: Visual FX off holds the hover where it is)
-    const bobY = rest ? 0 : Math.sin(T * 2.3 + w.bob) * 2.5;
+    // the spirit itself: a wisp hovering above its true name
+    const bobY = reducedMotion() ? 0 : Math.sin(T * 2.3 + w.bob) * 2.5;
     const wy = w.y - 27 + bobY;
     const bodyCol = "hsla(" + w.hue + ",70%,72%,0.85)";
     ctx.fillStyle = bodyCol;
     ctx.beginPath();
     ctx.arc(cx, wy, 8, Math.PI, 0);                 // dome
-    const sway = rest ? 0 : Math.sin(T * 5 + w.bob) * 2;
+    const sway = reducedMotion() ? 0 : Math.sin(T * 5 + w.bob) * 2;
     ctx.quadraticCurveTo(cx + 8, wy + 8, cx + 4 + sway, wy + 11);   // trailing hem
     ctx.quadraticCurveTo(cx, wy + 6, cx - 4 + sway, wy + 11);
     ctx.quadraticCurveTo(cx - 8, wy + 8, cx - 8, wy);

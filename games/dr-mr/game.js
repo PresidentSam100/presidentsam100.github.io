@@ -97,11 +97,11 @@
   var players = [];
   var wins = [0, 0];               // rounds won this sitting (versus)
   var clock = 0;                   // seconds, for the drawing
-  // the idle motion's own clock (the cells drifting on the slide, the germs'
-  // acts and fuzz): it runs only with Visual FX on, so FX turned off on the
-  // way stops them where they are and on again they carry on from there.
-  // From a page opened with FX off it stays at 0: the still picture, every
-  // germ on its first face
+  // the scenery's own clock (the cells drifting across the slide behind the
+  // vial): it runs only with Visual FX on, so FX turned off on the way stops
+  // them where they are and on again they drift on from there. From a page
+  // opened with FX off it stays at 0: the still picture. (The germs and Dr.
+  // Mr. are no part of the scenery: with FX off they rest; drawGerm)
   var idle = 0;
   var overAt = 0;
   var lastResult = null;
@@ -771,10 +771,9 @@
          an evil shimmy: a quick wiggle side to side, grinning wide
          a raspberry: eyes squeezed shut, its tongue out and wobbling, then
            back in to the smirk
-     its fuzz rippling round it in a slow wave. All of it runs on the idle
-     clock: with Visual FX off a germ holds still where it is in its act (its
-     eyes open), and from a page opened with FX off it holds still on its
-     first face. */
+     its fuzz rippling round it in a slow wave. A germ is a piece of the
+     game, not the scenery behind it: with Visual FX off (turned off on the
+     way too) it holds still on its first face. */
   function germBody(r, col, wavePh, moving, c, flare) {
     var p = PAL[col];
     g.strokeStyle = p.dark; g.lineWidth = Math.max(1, c * 0.05); g.lineCap = "round";
@@ -805,19 +804,17 @@
   // f comes back round to 0, where every act is at rest.
   function germCycle(col, phase, seed) {
     var ph = ((seed || 0) * 0.618034) % 1;
-    var tg = idle + (phase || 0) * 0.6 + ph * 7.3, period = 3.2 + ph * 1.8;
+    var tg = clock + (phase || 0) * 0.6 + ph * 7.3, period = 3.2 + ph * 1.8;
     return { ph: ph, tg: tg, period: period, f: (tg % period) / period, act: (Math.floor(tg / period) + Math.floor(ph * 12)) % ACTS[col] };
   }
   function drawGerm(cx, cy, c, col, phase, seed) {
-    // (moving: drawn where its idle clock has it; only a page opened with
-    // Visual FX off, the clock never started, draws the first face)
-    var r = c * 0.4, p = PAL[col], moving = fx() || idle > 0, u = c / 40;
+    var r = c * 0.4, p = PAL[col], moving = fx(), u = c / 40;
     var cyc = germCycle(col, phase, seed), ph = cyc.ph, tg = cyc.tg, period = cyc.period, f = cyc.f, act = cyc.act;
     var sx = 1, sy = 1, dx = 0, dy = 0, rot = 0, spin = 0, blink = false, lift = 0, grin = 0, brow = 0, shout = 0, look = 0, sn = 0;
     var gum = 0, popT = 0, pursed = false, wink = false, glint = -1, flare = 0, dust = -1, huff = -1;
     var glare = 0, smile = 0, squint = false, tongue = 0;
     if (moving) {
-      blink = fx() && ((tg + ph * 5) % 5.3) < 0.13;   // (held with FX off, its eyes open)
+      blink = ((tg + ph * 5) % 5.3) < 0.13;
       if (col === 0) {
         if (act === 0) {
           var puff = f < 0.28 ? Math.pow(Math.sin(Math.PI * f / 0.28), 2) : 0;
@@ -1441,7 +1438,7 @@
       var cyc = germCycle(cell.c, p.i * 0.5 + cell.c * 0.33, germSeed(cell, x, y));
       return { act: cyc.act, f: cyc.f, seed: germSeed(cell, x, y) };
     },
-    faceFrame: function () { return Math.floor(idle / 0.6) % 2; },
+    faceFrame: function () { return fx() ? Math.floor(clock / 0.6) % 2 : 0; },
     idle: function () { return idle; },
     rules: R
   };

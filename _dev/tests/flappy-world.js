@@ -451,19 +451,19 @@ module.exports = async ({ browser, base, check, lib }) => {
     await cctx.close();
   }
 
-  // ---- Visual FX turned off on the way stops the menu's hovering bird (and
-  // the title's bobbing letters, on the same idle clock) where it is, not
-  // back to level: held there; on again it carries on from that spot. The
-  // page's clock is run by hand
+  // ---- Visual FX turned off on the way: the menu's bird is no part of the
+  // scenery, so it stops hovering and rests level in its spot (not held
+  // mid-bob), and on again it hovers on; a Boo likewise rests at its own
+  // size, then breathes on. The page's clock is run by hand
   {
     const c = await lib.newContext(browser);
     const q = await lib.open(c, base, "games/flappy-world/", { before: async (pg) => { await pg.clock.install(); await pg.addInitScript(() => { try { localStorage.setItem("reduceMotion:flappy-world", "0"); } catch (e) {} }); } });
     await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
-    const look = () => q.evaluate(() => ({ y: game.bird.y, idle: game.idleT }));
+    const look = () => q.evaluate(() => game.bird.y);
     const flip = () => q.evaluate(() => document.querySelector(".rm-toggle").click());
-    // (on until the bob is well away from level, so a snap back would show)
+    // (on until the bob is well away from level, so a hold mid-bob would show)
     await q.clock.runFor(7000);
-    for (let k = 0; k < 30 && Math.abs((await look()).y - 256) < 7; k++) await q.clock.runFor(60);
+    for (let k = 0; k < 30 && Math.abs((await look()) - 256) < 7; k++) await q.clock.runFor(60);
     const a = await look();
     await flip(); await q.clock.runFor(100);
     const b = await look();
@@ -471,9 +471,8 @@ module.exports = async ({ browser, base, check, lib }) => {
     const held = await look();
     await flip(); await q.clock.runFor(1500);
     const on = await look();
-    check("flappy-world: Visual FX turned off on the way stops the menu's hovering bird where it is (not back to level), held there; on again it bobs on from that spot",
-      Math.abs(a.y - 256) >= 7 && b.y === a.y && held.y === a.y && on.y !== held.y && Math.abs(on.idle - b.idle - 1.5) < 0.2, { a, b, held, on });
-    // (a Boo's breathing likewise: held at the size it had, then on again)
+    check("flappy-world: Visual FX turned off on the way rests the menu's hovering bird level in its spot (not held mid-bob), still there; on again it hovers on",
+      Math.abs(a - 256) >= 7 && b === 256 && held === 256 && on !== 256, { a, b, held, on });
     const boo = await q.evaluate(() => {
       const flip = () => document.querySelector(".rm-toggle").click(), b = new Boo(100, 100);
       b.update(0.4, 300, 300, 0); const s1 = b.scale;
@@ -481,8 +480,8 @@ module.exports = async ({ browser, base, check, lib }) => {
       flip(); b.update(0.4, 300, 300, 0); const s3 = b.scale;
       return { s1, s2, s3 };
     });
-    check("flappy-world: Visual FX turned off on the way holds a Boo's breathing at the size it had (not back to its rest), on again it breathes on",
-      boo.s1 !== 1 && boo.s2 === boo.s1 && boo.s3 !== boo.s2, boo);
+    check("flappy-world: Visual FX turned off on the way rests a Boo at its own size (not held mid-breath), on again it breathes on",
+      boo.s1 !== 1 && boo.s2 === 1 && boo.s3 !== 1, boo);
     await done(q, "FX turned off on the way");
     await c.close();
   }

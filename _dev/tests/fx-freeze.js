@@ -14,6 +14,8 @@ const KEEP = {
   hintPulse: "Hash's hint glow: shown steady, so it can't freeze faint",
   cfWin: "Link Many's win ring: shown steady, so it can't freeze faint",
   fuse: "Link Many's bomb fuse: shown steady, a warning",
+  "jb-bob": "JackBlack's dealer: no part of the scenery, so he rests with FX off",
+  "jb-look": "JackBlack's dealer's glances: he rests with FX off, looking ahead",
 };
 module.exports = async ({ browser, base, check, lib }) => {
   const ctx = await lib.newContext(browser);

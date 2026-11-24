@@ -455,14 +455,13 @@
   // its start): one idle for its whole life, so moving up from Next to wait
   // at the top, and the drop, never start it over. So fruit that came apart
   // idle apart; the Preserves' fruit idle together. The clock stops with a
-  // pause, and runs only while Visual FX is on: switched off, every face
-  // stops where it is (with FX off from the start, at rest: an idle's first
-  // moment is its face at rest), and on again it carries on from there. Every
-  // face of a jar that's lost rests: overflowed (against the CPU, the other
-  // may play on, idling) or the game over.
+  // pause. A fruit's face is no part of the scenery: with Visual FX off
+  // (turned off on the way too) every face rests, and so does every face of
+  // a jar that's lost: overflowed (against the CPU, the other may play on,
+  // idling) or the game over.
   var IDLE_T = 4, IDLE_ACT = 2, idleT = 0;
   function idleU(at) {
-    if (at == null || out || state === "over") return -1;
+    if (reduced() || at == null || out || state === "over") return -1;
     var t = (idleT - at) % IDLE_T;
     if (t < 0) t += IDLE_T;
     return t < IDLE_ACT ? t / IDLE_ACT : -1;
@@ -1824,13 +1823,11 @@
     var dt = Math.max(0, Math.min((now - last) / 1000, 0.04));
     last = now;
     if (!P.isPaused()) {
-      // (the idles' and the dashes' clocks: they run with Visual FX on only)
-      if (!reduced()) { idleT += dt; dashT += dt; }
-      // (Next and the Preserves painted again while their fruit move, and once
-      // more as they come to rest; not while an idle stands still, FX off)
-      var un = idleU(nextAt), uc = idleU(0);
-      if (!inCpu && (nextU >= 0 || un >= 0) && un !== nextU) paintNext();
-      if (chainCtx && (chainU >= 0 || uc >= 0) && uc !== chainU) drawChain();
+      idleT += dt;
+      if (!reduced()) dashT += dt;   // (the dashes' clock: it runs with Visual FX on only)
+      // (Next and the Preserves painted again while their fruit move, and once more as they come to rest)
+      if (!inCpu && (nextU >= 0 || idleU(nextAt) >= 0)) paintNext();
+      if (chainCtx && (chainU >= 0 || idleU(0) >= 0)) drawChain();
       if (state === "play" && held.L !== held.R) aimX = Math.max(JL, Math.min(JR, aimX + (held.R ? 1 : -1) * AIM_SPEED * dt));
       if (fly && ((fly.t += dt) >= FLY_T || reduced())) endFly();   // (landed, or Visual FX off: the jar draws it at the top, and Next its own, from now)
       for (var k = fast ? FAST : 1; k > 0 && state === "play"; k--) step(dt);
