@@ -173,4 +173,148 @@ module.exports = async ({ browser, base, check, lib }) => {
     }
     check("lights-out: THE SAM LU, the picture house's name, on a crest astride the sign's top edge: on screen, 10 px or more, clear of the title, letterboard, bulbs and corner buttons, no scroll, on the menu and in a run (9 sizes)", bad.length === 0, bad);
   }
+
+  // ---- a last reel run lost to the reel shows the way out: the sign comes
+  // back as it was dealt, its fewest presses numbered on it from the top, and
+  // they're made one by one until it's dark (the run lost all the same); then
+  // the card. The same pace with Visual FX off. A tap before the sign comes
+  // back is no skip; a tap after it, or Enter, skips to the end, and Enter
+  // again rolls again. A run begun mid-way, or the menu, isn't touched by the
+  // old way's presses. Each run on the page's own clock, moved on by hand.
+  {
+    const fxKey = (off) => (pg) => pg.addInitScript((off) => { try { localStorage.setItem("reduceMotion:lights-out", off ? "1" : "0"); } catch (e) {} }, off);
+    const openClock = async (c, off) => {
+      const q = await lib.open(c, base, "games/lights-out/", { before: async (pg) => { await pg.clock.install(); await fxKey(off)(pg); } });
+      await q.clock.pauseAt(await q.evaluate(() => Date.now()) + 500);
+      return q;
+    };
+    // level 1 (3×3: its presses are its only way out), then a bulb off that
+    // way pressed till the reel runs out (pressed twice it undoes itself, so
+    // the sign never goes out)
+    const lose = (q) => q.evaluate(() => {
+      LightsOut.start("windup");
+      const dealt = LightsOut.grid(), sol = LightsOut.solution(), size = LightsOut.size();
+      const spare = dealt.findIndex((v, i) => !sol.includes(i));
+      let presses = 0;
+      while (LightsOut.state() === "play" && presses < 50) { LightsOut.press(spare); presses++; }
+      return { dealt, sol, size, presses, state: LightsOut.state(), budget: LightsOut.budget() };
+    });
+    const look = (q) => q.evaluate(() => {
+      const cells = [...document.querySelectorAll("#board .bulb")];
+      return {
+        grid: LightsOut.grid(), state: LightsOut.state(), level: LightsOut.level(), moves: LightsOut.moves(),
+        tags: cells.map((c, i) => { const t = c.querySelector(".way-n"); return t ? [i, +t.textContent, c.classList.contains("spent")] : null; }).filter(Boolean),
+        now: cells.map((c, i) => (c.classList.contains("now") ? i : -1)).filter((i) => i >= 0),
+        lit: cells.map((c, i) => (c.classList.contains("on") ? i : -1)).filter((i) => i >= 0),
+        card: !document.getElementById("over").hidden, title: document.getElementById("over-title").textContent,
+        stats: document.getElementById("over-stats").textContent, sub: document.getElementById("sign-sub").textContent,
+        dark: document.getElementById("front").classList.contains("dark"),
+        dialog: !!document.querySelector(".gs-dialog"),
+      };
+    });
+    const toggle = (g, i, n) => { g = g.slice(); const x = i % n, y = (i / n) | 0; g[i] ^= 1; if (x > 0) g[i - 1] ^= 1; if (x < n - 1) g[i + 1] ^= 1; if (y > 0) g[i - n] ^= 1; if (y < n - 1) g[i + n] ^= 1; return g; };
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const onOf = (g) => g.map((v, i) => (v ? i : -1)).filter((i) => i >= 0);
+
+    // the way watched through, FX on and off (t from the loss: the sign back
+    // at 0.9 s, press k made at 2.12 s + 0.6 s each, the card 0.7 s after the last)
+    for (const off of [false, true]) {
+      const c = await lib.newContext(browser);
+      const q = await openClock(c, off);
+      const L = await lose(q);
+      const left = await look(q);
+      await q.clock.runFor(950);
+      const back = await look(q);
+      await q.clock.runFor(2420 - 950);
+      const steps = [];
+      let g = L.dealt;
+      for (let k = 0; k < L.sol.length; k++) {
+        if (k) await q.clock.runFor(600);
+        g = toggle(g, L.sol[k], L.size);
+        const s = await look(q);
+        steps.push({ k, ok: same(s.grid, g) && same(s.lit, onOf(g)) && same(s.now, [L.sol[k]]) && s.tags.filter((t) => t[2]).length === k + 1 && !s.card, grid: s.grid, now: s.now });
+      }
+      await q.clock.runFor(380);
+      const before = await look(q);
+      await q.clock.runFor(40);
+      const end = await look(q);
+      const fx = off ? "FX off" : "FX on";
+      check("lights-out (" + fx + "): the reel run out, the sign comes back as it was dealt with its fewest presses numbered on it, 1, 2, 3 from the top; the card waits",
+        L.state === "over" && L.presses === L.budget && !same(left.grid, L.dealt) && !left.card && left.tags.length === 0 &&
+        same(back.grid, L.dealt) && same(back.lit, onOf(L.dealt)) && same(back.tags, L.sol.map((i, k) => [i, k + 1, false])) && back.sub === "the way out" && !back.card,
+        { L, left: left.grid, back });
+      check("lights-out (" + fx + "): the way's presses are made one by one, each glinting as it's made, till the sign is dark",
+        L.sol.length > 0 && steps.every((s) => s.ok), steps.filter((s) => !s.ok));
+      check("lights-out (" + fx + "): then the card, the run lost all the same (no win), with the way out's count",
+        !before.card && end.card && end.state === "over" && end.grid.every((v) => v === 0) && end.title === "The reel ran out" && !end.dark &&
+        end.stats.includes("the way out: " + L.sol.length + " moves, in any order") && end.tags.length === L.sol.length && end.tags.every((t) => t[2]) && end.now.length === 0,
+        { before: before.card, end });
+      check("lights-out (" + fx + ", the way out): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+
+    // skips, and an old way's timers
+    {
+      const c = await lib.newContext(browser);
+      let q = await openClock(c, false);
+      const tap = () => q.evaluate(() => document.querySelector("#board .bulb").click());
+      let L = await lose(q);
+      await q.clock.runFor(300);
+      await tap();
+      const early = await look(q);
+      await q.clock.runFor(700);
+      const shown = await look(q);
+      await tap();
+      const tapped = await look(q);
+      check("lights-out: a tap before the way out is on the sign doesn't skip it; a tap once it is skips to its end (the sign dark, every press numbered and spent) and the card",
+        !early.card && same(shown.grid, L.dealt) && shown.tags.length === L.sol.length && !shown.card &&
+        tapped.card && tapped.grid.every((v) => v === 0) && tapped.tags.length === L.sol.length && tapped.tags.every((t) => t[2]) && tapped.now.length === 0,
+        { early, shown, tapped });
+
+      L = await lose(q);
+      await q.clock.runFor(1000);
+      await q.keyboard.press("Enter");
+      const skipped = await look(q);
+      await q.keyboard.press("Enter");
+      const rolled = await look(q);
+      await q.clock.runFor(6000);
+      const after = await look(q);
+      check("lights-out: Enter during the way out skips to its end and the card; Enter again rolls again from level 1, a fresh sign the old way leaves alone",
+        skipped.card && skipped.grid.every((v) => v === 0) && skipped.tags.every((t) => t[2]) &&
+        rolled.state === "play" && rolled.level === 1 && rolled.moves === 0 && !rolled.card && rolled.tags.length === 0 &&
+        same(after.grid, rolled.grid) && after.state === "play" && after.tags.length === 0,
+        { skipped, rolled, after });
+      // Space too: its skip puts the card up and focuses Roll again, and the
+      // same Space let go there doesn't roll on through
+      await lose(q);
+      await q.clock.runFor(1000);
+      await q.keyboard.press(" ");
+      const spaced = await look(q);
+      await q.keyboard.press(" ");
+      const spacedOn = await look(q);
+      check("lights-out: Space during the way out skips to the card and stops there; Space again rolls again",
+        spaced.card && spaced.state === "over" && spaced.grid.every((v) => v === 0) && spacedOn.state === "play" && spacedOn.level === 1 && !spacedOn.card,
+        { spaced, spacedOn });
+
+      // a run begun mid-way (the pause card's Restart does this), then the menu mid-way
+      await lose(q);
+      await q.clock.runFor(2300);
+      await q.evaluate(() => LightsOut.start("windup"));
+      const fresh = await look(q);
+      await q.clock.runFor(6000);
+      const later = await look(q);
+      await lose(q);
+      await q.clock.runFor(1200);
+      await q.keyboard.press("Backspace");
+      const menu = await look(q);
+      await q.clock.runFor(6000);
+      const menuLater = await look(q);
+      check("lights-out: a run begun mid-way out, or the menu, is left alone by the old way's presses; Backspace mid-way goes straight to the menu, the numbers off the sign",
+        same(later.grid, fresh.grid) && later.state === "play" && later.moves === 0 && later.tags.length === 0 && !later.card &&
+        menu.state === "menu" && !menu.dialog && menu.tags.length === 0 && menu.now.length === 0 && same(menuLater.grid, menu.grid) && !menuLater.card,
+        { fresh: fresh.grid, later: later.grid, menu, menuLater: menuLater.grid });
+      check("lights-out (skipping the way out): no page errors", q.errs.length === 0, q.errs);
+      await q.close(); await c.close();
+    }
+  }
 };

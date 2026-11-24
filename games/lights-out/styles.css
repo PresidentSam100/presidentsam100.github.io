@@ -233,6 +233,29 @@ body:not(.fxon) .bulb.glint {
   filter: drop-shadow(0 0 7px rgba(190, 255, 247, 1)) drop-shadow(0 0 18px rgba(134, 230, 218, 0.95));
 }
 
+/* The way out (a last reel run lost): each of its presses numbered on its
+   bulb, a black letter on a tile of the letterboard's milk glass. The press
+   being made glints, cool, like a hint; one made is spent, its tile dimmed. */
+.bulb .way-n {
+  position: absolute; left: 50%; top: 50%; z-index: 1;
+  transform: translate(-50%, -50%);
+  min-width: max(20px, calc(var(--cw, 96px) * 0.4)); height: max(20px, calc(var(--cw, 96px) * 0.4));
+  padding: 0 3px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Jost", "Century Gothic", "Futura", system-ui, sans-serif;
+  font-weight: 700; font-size: max(12px, calc(var(--cw, 96px) * 0.25)); line-height: 1;
+  color: #111617;
+  background: linear-gradient(180deg, #fbfdfa, #dce5e1);
+  border: 2px solid #050707; border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--chrome-dk), 0 0 10px rgba(230, 255, 248, 0.3);
+  pointer-events: none;
+}
+.bulb.now { filter: drop-shadow(0 0 7px rgba(190, 255, 247, 1)) drop-shadow(0 0 18px rgba(134, 230, 218, 0.95)); }
+.bulb.spent .way-n { opacity: 0.5; }
+/* Visual FX on: the tiles fade in, and dim as their press is made */
+body.fxon .bulb .way-n { animation: way-in 0.3s ease-out; transition: opacity 0.3s ease; }
+@keyframes way-in { from { opacity: 0; } }
+
 /* The chaser (art.js): every third bulb dims in turn, so a gap runs round
    the sign. Visual FX off: all of them lit, still. */
 .chase { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

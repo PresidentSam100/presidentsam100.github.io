@@ -10,8 +10,8 @@
 
    Modes
      windup  "Last Reel": levels with a reel of film, par + a little
-             slack in moves; the run ends when it runs out; best =
-             highest level closed. (The key dates from the game's first
+             slack in moves; the run ends when it runs out, and the
+             sign then shows its way out; best = highest level closed. (The key dates from the game's first
              look, a tray of pocket watches, and stays for saved settings.)
      daily   the same seeded 5×5 for everyone; the first solve is the
              recorded, shareable result
@@ -176,6 +176,7 @@
   if ([3, 5, 7].indexOf(zenN) === -1) zenN = 5;
 
   var n = 5, N = 25, lit = new Uint8Array(25), cells = [];
+  var dealt = new Uint8Array(25);     // the sign as it was dealt (the way out starts from it)
   var moves = 0, par = 0, level = 1, budget = 0, dailyRecorded = false;
   var closed = false;                 // last reel: a level just closed, its "Next level" card up
   var ranOut = false;                 // last reel: the reel ran out, its "Roll again" card up
@@ -267,9 +268,12 @@
     if (instant) void $("board").offsetWidth;
   }
 
-  function press(i) {
-    if (state !== "play") return;
-    audio();
+  // A press on the sign: bulb i and its four neighbours switch. The chorus:
+  // the pressed bulb switches now, neighbours follow. With FX off the bulbs
+  // all switch at once, but the clicks keep their ripple (five at the same
+  // instant stacked into one loud click). (Each bulb, when its moment comes,
+  // shows the sign as it is then; one on a sign dealt since is let be.)
+  function chorus(i) {
     var size = n, affected = [i];
     var x = i % size, y = (i / size) | 0;
     if (x > 0) affected.push(i - 1);
@@ -277,19 +281,25 @@
     if (y > 0) affected.push(i - size);
     if (y < size - 1) affected.push(i + size);
     applyToggle(lit, i, size);
-    moves++;
-    // a press answers a hint: its glint stops now, not after the rest of its
-    // pulses (the board it was for has changed)
-    cells.forEach(function (w) { if (w.classList.contains("glint")) { clearTimeout(w.glintT); w.classList.remove("glint"); } });
-    // the chorus: the pressed bulb switches now, neighbours follow. With FX off
-    // the bulbs all switch at once, but the clicks keep their ripple (five at
-    // the same instant stacked into one loud click)
     var ripple = fx();
     affected.forEach(function (j, k) {
       var delay = k === 0 ? 0 : 40 + k * 34;
-      setTimeout(function () { cells[j].classList.toggle("on", !!lit[j]); }, ripple ? delay : 0);
+      setTimeout(function () { if (cells[j]) cells[j].classList.toggle("on", !!lit[j]); }, ripple ? delay : 0);
       setTimeout(function () { click(!lit[j]); }, delay);
     });
+  }
+  // a press answers a hint: its glint stops now, not after the rest of its
+  // pulses (the board it was for has changed)
+  function clearGlints() {
+    cells.forEach(function (w) { if (w.classList.contains("glint")) { clearTimeout(w.glintT); w.classList.remove("glint"); } });
+  }
+
+  function press(i) {
+    if (state !== "play") return;
+    audio();
+    moves++;
+    clearGlints();
+    chorus(i);
     hud();
     if (weight(lit) === 0) { win(); return; }
     if (mode === "windup" && moves >= budget) { fail(); }
@@ -319,8 +329,10 @@
 
   // ---- runs ---------------------------------------------------------------------
   function deal(size, scr, rng) {
+    stopWay();
     n = size; N = n * n;
     lit = generate(n, scr, rng || Math.random);
+    dealt = lit.slice();
     var sol = solveMin(lit, n);
     par = sol ? sol.weight : scr;
     moves = 0;
@@ -432,10 +444,72 @@
     $("over-title").textContent = "The reel ran out";
     $("over-msg").textContent = "level " + level;
     $("over-stats").textContent = (level > 1 ? "closed " + (level - 1) + (level === 2 ? " level" : " levels") + " · " : "") +
-      "best run: level " + (bestLevel ? bestLevel.get() : 0);
+      "best run: level " + (bestLevel ? bestLevel.get() : 0) +
+      "\nthe way out: " + movesOf(par) + ", in any order";
     $("again").innerHTML = "Roll again" + ENTER_CAP;
     $("share").hidden = true;
-    setTimeout(showOver, 900);
+    showWay();
+  }
+
+  // ---- the way out ------------------------------------------------------------
+  // A run lost to the reel shows how the sign goes out: it comes back as it
+  // was dealt with its fewest presses numbered on it, and those presses are
+  // made one by one until it's dark; then the card. Presses can be made in
+  // any order (each switches only its own five bulbs), so the numbers just
+  // read from the top. With Visual FX off it keeps the same pace, the bulbs
+  // switching at once. Enter, Space or a tap on the front skips to the end;
+  // the run is lost all the same.
+  var WAY_IN = 900, WAY_READ = 1000, WAY_STEP = 600, WAY_HIT = 220, WAY_OUT = 700;
+  var way = null;                     // the way out being shown: its presses, its timers
+  function showWay() {
+    var sol = solveMin(dealt, n), steps = [];
+    if (sol) for (var i = 0; i < N; i++) if (sol.mask[i]) steps.push(i);
+    var w = way = { steps: steps, shown: false, timers: [] };
+    function later(ms, fn) { w.timers.push(setTimeout(function () { if (way === w) fn(); }, ms)); }
+    // (after the reel's run-out sound, the sign as the player left it)
+    later(WAY_IN, function () {
+      clearGlints();
+      lit = dealt.slice();
+      paintAll();
+      steps.forEach(function (j, k) { tag(j, k + 1); });
+      $("sign-sub").textContent = "the way out";
+      w.shown = true;
+    });
+    steps.forEach(function (j, k) {
+      var at = WAY_IN + WAY_READ + k * WAY_STEP;
+      later(at, function () {
+        if (k) cells[steps[k - 1]].classList.remove("now");
+        cells[j].classList.add("now");
+      });
+      later(at + WAY_HIT, function () { chorus(j); cells[j].classList.add("spent"); });
+    });
+    later(WAY_IN + WAY_READ + Math.max(0, steps.length - 1) * WAY_STEP + WAY_HIT + WAY_OUT, endWay);
+  }
+  // a press of the way: its number on the bulb, a tile off the letterboard
+  function tag(j, k) {
+    if (cells[j].querySelector(".way-n")) return;
+    var t = document.createElement("span");
+    t.className = "way-n";
+    t.textContent = k;
+    cells[j].appendChild(t);
+  }
+  // the end of the way (or a skip to it): the sign dark, every press numbered
+  // and spent, and the card
+  function endWay() {
+    if (!way) return;
+    var steps = way.steps;
+    stopWay();
+    lit = new Uint8Array(N);
+    paintAll();
+    steps.forEach(function (j, k) { tag(j, k + 1); cells[j].classList.remove("now"); cells[j].classList.add("spent"); });
+    $("sign-sub").textContent = "the way out";
+    showOver();
+  }
+  function skipWay() { if (way && way.shown) endWay(); }
+  function stopWay() {
+    if (!way) return;
+    way.timers.forEach(clearTimeout);
+    way = null;
   }
   // the card takes focus, so Enter is its Next / Again button and not the
   // bulb (or hint) a keyboard player last pressed
@@ -485,6 +559,12 @@
   function toMenu() {
     // walking away mid-run still counts the levels already closed
     if (state === "play" && mode === "windup" && level > 1 && bestLevel) bestLevel.submit(level - 1);
+    stopWay();
+    // (the way out's numbers come off the sign left behind the menu)
+    cells.forEach(function (c) {
+      c.classList.remove("now", "spent");
+      var t = c.querySelector(".way-n"); if (t) c.removeChild(t);
+    });
     state = "menu";
     closed = ranOut = false;
     $("over").hidden = true; $("hudline").hidden = true; $("reel").hidden = true;
@@ -522,6 +602,9 @@
     groups: [{ sel: "#pick-size button", keys: ["4", "5", "6"], caps: false }]
   });
   $("hint").addEventListener("click", hint);
+  // a click or a tap on the front (a bulb's Enter or Space too) skips the way
+  // out to its end
+  $("front").addEventListener("click", skipWay);
   $("share").addEventListener("click", shareDaily);
   // back to the modes, asking first while a run would be lost (a pressed
   // sign, or a last reel's "Next level" card); the results go at once
@@ -557,6 +640,12 @@
       if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("again").click(); }
       else if (e.key === "Backspace") { e.preventDefault(); askToMenu(); }
       else if (e.key.toLowerCase() === "s" && !$("share").hidden) $("share").click();   // the Daily's Share result
+      return;
+    }
+    // the way out on the sign: Enter or Space skips to its end and the card
+    if (state === "over" && way) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); skipWay(); }
+      else if (e.key === "Backspace") { e.preventDefault(); askToMenu(); }
       return;
     }
     if (state === "play") {
